@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-17 10:13'
-updated_date: '2026-06-17 12:25'
+updated_date: '2026-06-17 12:35'
 labels:
   - install-recovery
   - rc.04
@@ -71,4 +71,6 @@ CONSEQUENCE: the SIGKILL-class quiesce (3a0d6e6dd) was the SOLE RUN-A blocker fo
 SECOND RESIDUAL on run 27683157288 (foreman, 2026-06-17) — a SIDE-EFFECT of the SIGKILL quiesce (3a0d6e6dd), distinct from the freshness-reorder (STATBUS-076). 3-postswap-archivebackup-watchdog FAILED, but NOT on freshness: its fabricate SUCCEEDED (stage-head checks out HEAD before fabricate → binary==tree → guard silent). It died at `systemctl --user start statbus-upgrade@statbus.service returned non-zero` (vm-bootstrap.sh:902). Unit diagnostic: `Loaded: masked (Reason: Unit statbus-upgrade@statbus.service is masked.)`, Main PID exited 0/SUCCESS. ROOT HYPOTHESIS: the quiesce's `mask --runtime → kill → stop → reset-failed → unmask` leaves the unit MASKED (the unmask isn't clearing the --runtime scope, OR didn't run, OR the path re-masks) — so scenarios that DIRECTLY `systemctl start`/`vm_restart_unit` the upgrade service AFTER quiescing fail on the masked unit. The quiesce even logs '✓ unit re-enableable' but it's masked at start time. 0-happy-upgrade also vm_restart_units the upgrade service but PASSED — it doesn't quiesce. So this bites quiesce+direct-service-start scenarios (watchdog; check watchdog-reconnect, resume-died-rollback, 4-rollback-restore-watchdog as the run completes). OWNER: architect (their quiesce; diagnose from wedge-helpers.sh + the log, fix the unmask while keeping the rollback-handler protection). Blocks the gate alongside STATBUS-076. CONSEQUENCE: the path to green is NOW at least TWO fixes (freshness-reorder + quiesce-unmask) + re-run, not one.
 
 QUIESCE-MASK FIX COMMITTED (foreman, 2026-06-17): unmask --runtime committed e6c85c193 (wedge-helpers.sh:749 — pair the runtime-scoped unmask with the mask --runtime; mirrors product install_upgrade.go:362). Architect-diagnosed (their own one-flag bug, owned), foreman applied + bash -n verified. Validates on the re-run (STATBUS-075). This was the SECOND residual of run 27683157288 (the first = STATBUS-076 freshness reorder, committed 7f305f70d).
+
+MASKED-UNIT CLASS PROVABLY COMPLETE (architect audit, 2026-06-17): `grep -rl "systemctl.*mask"` returns ONLY test/install-recovery/lib/wedge-helpers.sh — the shared quiesce_upgrade_service helper (:745 mask --runtime ↔ :749 unmask --runtime) is the SOLE mask/unmask site in the whole harness; no scenario masks via a separate path. So e6c85c193's one-line fix covers EVERY quiescing caller — no latent masked-unit bug anywhere else. Combined with STATBUS-076's audit (all 17 active fabricating scenarios coherent at fabricate), BOTH fixed classes are now provably complete → any 'third residual' the held run 27683157288 reveals is genuinely NEW (outside these two classes), not a missed instance.
 <!-- SECTION:NOTES:END -->
