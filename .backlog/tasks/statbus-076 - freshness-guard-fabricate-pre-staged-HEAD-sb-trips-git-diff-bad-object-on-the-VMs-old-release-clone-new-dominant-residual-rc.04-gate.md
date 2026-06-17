@@ -7,7 +7,7 @@ status: Done
 assignee:
   - architect
 created_date: '2026-06-17 11:26'
-updated_date: '2026-06-17 12:25'
+updated_date: '2026-06-17 12:35'
 labels:
   - install-recovery
   - harness
@@ -66,4 +66,7 @@ FOREMAN BYTE-LEVEL REVIEW of the mechanic's reorder diff (2026-06-17) — CAUGHT
 CORRECTIONS: REVERT mid-tx-kill (its original checkout→upload-HEAD→fabricate was COHERENT, HEAD binary+HEAD tree; it wasn't even failing); archivebackup-resume = keep the early-upload removal but move upload to AFTER stage-head (:221) and BEFORE fabricate (:248) → HEAD binary+HEAD tree coherent. Routed to architect for confirm → mechanic corrects → architect re-reviews → foreman commits. The 5 'already correct' untouched scenarios are coherent fabricate-wise (early-upload HEAD binary + stage-head HEAD tree); watchdog + resume-died-rollback fail on the quiesce-mask (separate, STATBUS-073), not fabricate.
 
 COMMITTED + PUSHED (foreman, 2026-06-17): reorder = 7f305f70d on master (e6c85c193 tip). 7 GO scenarios reordered (upload after fabricate) + archivebackup-resume corrected (upload after stage-head, before fabricate). mid-tx-kill VERBATIM REVERTED (git checkout --) — it never had the STATBUS-076 problem (HEAD-on-HEAD coherent), carries no diff. Architect design-confirmed + foreman byte-level reviewed + my 2 corrections applied/verified (bash -n + grep order). Status Done = the fix is landed; VALIDATION (green on the re-run) tracked by STATBUS-075. The current run 27683157288 is the freshness-residual evidence; the re-run on e6c85c193 confirms the fix.
+
+ARCHITECT FULL AUDIT (2026-06-17) — FIX SET CONFIRMED COMPLETE. Classified all 19 fabricate-calling scenarios by (tree commit, binary commit) AT the fabricate line; all 17 active are COHERENT (2 STATBUS-067 canary repros parked/skipped): (OLD,OLD)-at-fabricate ×9 [the 7 GO + 2-preswap-checkout-kill-legacy (pure release, never uploads) + 3-postswap-worker-ddl-deadlock (no pre-stage; executeUpgrade checks out)]; (HEAD,HEAD)-at-fabricate ×8 [0-happy-upgrade, mid-tx-kill (reverted), archivebackup-resume (corrected), + the 5 look-alikes archivebackup-watchdog/migration-timeout/resume-died-rollback/watchdog-reconnect/4-rollback-restore-watchdog (upload+stage-head both before fabricate)]. => NO fabricate runs a mismatched binary/tree; the re-run will NOT surface a staleness residual; STATBUS-076's 8-file commit is the COMPLETE fix for this class.
+ARCHITECT SELF-CORRECTION: the 'WARN-pollute' rationale for removing the pre-stage-head upload was WRONG — the read-only stale WARN prints to STDERR (root.go:180) and stage-head.sh:34 captures with 2>/dev/null, so it's SUPPRESSED → the pre-stage-head upload was HARMLESS. This is WHY the 5 look-alikes (which still have it) are NOT bugs (confirmed, not assumed). CONSEQUENCE: archivebackup-resume's committed CODE (:227 upload after stage-head) is still functionally correct (HEAD,HEAD coherent) — NO code action. Only its committed COMMENT oversells (implies a harm that doesn't exist). FOREMAN CALL: DEFER the one-line comment trim (non-gating; committing it now would fork the re-run commit for a cosmetic test-comment change) — fold into the next commit if a 3rd residual arises, else fix post-cut. NET: proceed with the held re-run on e6c85c193 exactly as planned; nothing new to batch on the code.
 <!-- SECTION:NOTES:END -->
