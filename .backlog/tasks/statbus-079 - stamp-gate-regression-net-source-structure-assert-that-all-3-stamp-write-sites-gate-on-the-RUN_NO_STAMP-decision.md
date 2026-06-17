@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-17 19:03'
+updated_date: '2026-06-17 19:09'
 labels:
   - dx
   - safety-machinery
@@ -32,3 +33,9 @@ ADD a source-structure regression net (cheap, DB-free): assert each of the 3 sta
 - cli/cmd/types.go:~109 types write must be gated on `stampDecision != stampGuardRunNoStamp`
 Either a grep/structure self-test (mirror the dev.sh test-stamp-guard style) or a Go test asserting the source contains the gate around each write. Non-blocking; the invariant holds now (COMMIT 1). Owner: engineer; architect review.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+SCOPE ADD (2026-06-17): also add a fail-fast `*)` catch-all to the two dev.sh stamp-guard caller switches (fast-test + generate-doc-db) so an UNEXPECTED guard rc fails loud (`echo "unexpected stamp-guard rc=$guard_rc" >&2; exit 1`) instead of silently falling through. Declined from COMMIT 1 (STATBUS-078) because the guard returns only 0/1/3 today (grep-confirmed no rc 2 / no other producer) — purely-theoretical-future hardening, not a current bug. Lands here with the write-site source-assert as one deliberate gate-hardening pass. Engineer offered it during COMMIT 1; foreman deferred to keep COMMIT 1 focused.
+<!-- SECTION:NOTES:END -->
