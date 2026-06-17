@@ -215,11 +215,16 @@ echo ""
 echo "── staging HEAD on the VM ──"
 HEAD_LOCAL=$(git -C "$HARNESS_ROOT" rev-parse HEAD)
 ip=$(hcloud server ip "$VM_NAME")
-upload_sb_to_vm "$VM_NAME"
 scp -O "${SSH_OPTS[@]}" \
     "$LIB_DIR/../fixtures/stage-head.sh" \
     root@"$VM_IP":/tmp/stage-head.sh
 VM_EXEC bash /tmp/stage-head.sh "$HEAD_LOCAL"
+# stage-head.sh has checked out HEAD on the VM → stage the HEAD binary NOW so
+# fabricate's ./sb runs HEAD-on-HEAD (coherent). Must be AFTER stage-head (tree=HEAD)
+# and BEFORE quiesce/fabricate: a v2026.05.2 binary on the HEAD tree trips the
+# staleness guard (config-generate exit-2). (The earlier pre-stage-head upload was
+# removed — it ran HEAD-binary on the v2026.05.2 tree during stage-head's ./sb calls.)
+upload_sb_to_vm "$VM_NAME"
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 3 — RUN 1: drive an exit-42 resume state via a mid-applyPostSwap kill
@@ -242,10 +247,9 @@ upload_install_script_to_vm "$VM_NAME" "$INSTALL_SCRIPT" /tmp/install-resume-kil
 
 # Seed a scheduled public.upgrade row at HEAD so the install state detector
 # classifies as StateScheduledUpgrade (and dispatches executeUpgrade → applyPostSwap
-# → the kill site). Without this, RUN 1 sees nothing-scheduled (current==target:
-# both derive from the running binary's ldflags version, which is HEAD after
-# upload_sb_to_vm overwrote the v2026.05.2 binary) → idempotent step-table refresh
-# → exits 0 → KillHere never fires. Pattern-A fix (harness regression run 26539222000).
+# → the kill site). Without this, the install sees nothing-scheduled (current==target:
+# the staged ./sb is HEAD, matching the HEAD tree from stage-head above) → idempotent
+# step-table refresh → exits 0 → KillHere never fires.
 quiesce_upgrade_service "$VM_NAME"
 fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
 

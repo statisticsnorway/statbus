@@ -138,7 +138,6 @@ STATBUS_MIN_DISK_GB=5 \
     ./sb install --non-interactive --trust-github-user jhf
 SCRIPT
 upload_install_script_to_vm "$VM_NAME" "$INSTALL_SCRIPT" /tmp/install-first.sh
-upload_sb_to_vm "$VM_NAME"
 
 # Seed a scheduled public.upgrade row so ./sb install detects StateScheduledUpgrade
 # and routes to executeUpgradeInline (where the C5 binary-swap kill fires), rather
@@ -149,6 +148,7 @@ echo ""
 echo "── fabricating scheduled public.upgrade row for HEAD ──"
 quiesce_upgrade_service "$VM_NAME"
 fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
+upload_sb_to_vm "$VM_NAME"
 
 set +e
 timeout "${INSTALL_BUDGET_S}s" ssh "${SSH_OPTS[@]}" statbus@"$ip" "bash /tmp/install-first.sh"

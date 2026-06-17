@@ -116,6 +116,14 @@ STATBUS_MIN_DISK_GB=5 \
     ./sb install --non-interactive --trust-github-user jhf
 SCRIPT
 upload_install_script_to_vm "$VM_NAME" "$INSTALL_SCRIPT" /tmp/install-c3.sh
+
+# Seed a scheduled public.upgrade row at HEAD so the install state detector
+# classifies as StateScheduledUpgrade (and dispatches executeUpgrade → backupDatabase
+# → the C3 kill site). Without this, the install sees nothing-scheduled (current==target:
+# the install script's ./sb is HEAD after upload_sb_to_vm below) → idempotent
+# step-table refresh → exits 0 → KillHere never fires.
+quiesce_upgrade_service "$VM_NAME"
+fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
 upload_sb_to_vm "$VM_NAME"
 
 # Baseline ./sb version AFTER upload_sb_to_vm (which is itself a binary swap —
@@ -131,15 +139,6 @@ upload_sb_to_vm "$VM_NAME"
 # internal swap. Verification run 26581049544 surfaced it; fix re-baselines.)
 SB_VERSION_BEFORE=$(VM_EXEC bash -c "cd ~/statbus && ./sb --version 2>/dev/null | head -1" | tr -d '\r' || echo "")
 echo "  pre-trigger ./sb version (post-upload baseline): $SB_VERSION_BEFORE"
-
-# Seed a scheduled public.upgrade row at HEAD so the install state detector
-# classifies as StateScheduledUpgrade (and dispatches executeUpgrade → backupDatabase
-# → the C3 kill site). Without this, RUN 1 sees nothing-scheduled (current==target:
-# both derive from the running binary's ldflags version, which is HEAD after
-# upload_sb_to_vm overwrote the v2026.05.2 binary) → idempotent step-table refresh
-# → exits 0 → KillHere never fires. Pattern-A fix (harness regression run 26539222000).
-quiesce_upgrade_service "$VM_NAME"
-fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
 
 set +e
 timeout "${INSTALL_BUDGET_S}s" ssh "${SSH_OPTS[@]}" statbus@"$ip" "bash /tmp/install-c3.sh"

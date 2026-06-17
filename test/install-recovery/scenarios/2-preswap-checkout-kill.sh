@@ -123,6 +123,15 @@ STATBUS_MIN_DISK_GB=5 \
     ./sb install --non-interactive --trust-github-user jhf
 SCRIPT
 upload_install_script_to_vm "$VM_NAME" "$INSTALL_SCRIPT" /tmp/install-c4.sh
+
+# Seed a scheduled public.upgrade row at HEAD so the install state detector
+# classifies as StateScheduledUpgrade (and dispatches executeUpgrade → the
+# C4 kill site inside the preswap-checkout phase). Without this, the install
+# sees nothing-scheduled (current==target: the install script's ./sb is HEAD
+# after upload_sb_to_vm below) → idempotent step-table refresh → exits 0 →
+# KillHere never fires.
+quiesce_upgrade_service "$VM_NAME"
+fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
 upload_sb_to_vm "$VM_NAME"
 
 # Baseline ./sb version AFTER harness upload — upload_sb_to_vm replaces the
@@ -133,16 +142,6 @@ upload_sb_to_vm "$VM_NAME"
 # binary on disk was already the HEAD-SHA binary → assertion mismatch.
 SB_VERSION_BEFORE=$(VM_EXEC bash -c "cd ~/statbus && ./sb --version 2>/dev/null | head -1" | tr -d '\r' || echo "")
 echo "  staged ./sb version (HEAD-SHA binary, pre-trigger): $SB_VERSION_BEFORE"
-
-# Seed a scheduled public.upgrade row at HEAD so the install state detector
-# classifies as StateScheduledUpgrade (and dispatches executeUpgrade → the
-# C4 kill site inside the preswap-checkout phase). Without this, RUN 1 sees
-# nothing-scheduled (current==target: both derive from the running binary's
-# ldflags version, which is HEAD after upload_sb_to_vm overwrote the
-# v2026.05.2 binary) → idempotent step-table refresh → exits 0 → KillHere
-# never fires. Mirror of 2-preswap-backup-kill:135–141.
-quiesce_upgrade_service "$VM_NAME"
-fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
 
 # STATBUS-060 NOTE: the setup script above pre-fetches HEAD's objects
 # (git cat-file + git fetch if needed) but does NOT do a working-tree

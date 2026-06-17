@@ -119,17 +119,16 @@ STATBUS_MIN_DISK_GB=5 \
     ./sb install --non-interactive --trust-github-user jhf
 SCRIPT
 upload_install_script_to_vm "$VM_NAME" "$INSTALL_SCRIPT" /tmp/install-c5.sh
-upload_sb_to_vm "$VM_NAME"
 
 # Seed a scheduled public.upgrade row at HEAD so the install state detector
 # classifies as StateScheduledUpgrade (and dispatches executeUpgrade → the
-# C5 kill site inside the binary-swap phase). Without this, RUN 1 sees
-# nothing-scheduled (current==target: both derive from the running binary's
-# ldflags version, which is HEAD after upload_sb_to_vm overwrote the
-# v2026.05.2 binary) → idempotent step-table refresh → exits 0 → KillHere
-# never fires. Mirror of 2-preswap-backup-kill:135–141.
+# C5 kill site inside the binary-swap phase). Without this, the install
+# sees nothing-scheduled (current==target: the install script's ./sb is
+# HEAD after upload_sb_to_vm below) → idempotent step-table refresh
+# → exits 0 → KillHere never fires.
 quiesce_upgrade_service "$VM_NAME"
 fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
+upload_sb_to_vm "$VM_NAME"
 
 set +e
 timeout "${INSTALL_BUDGET_S}s" ssh "${SSH_OPTS[@]}" statbus@"$ip" "bash /tmp/install-c5.sh"

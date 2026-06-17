@@ -162,7 +162,6 @@ STATBUS_MIN_DISK_GB=5 \
     ./sb install --non-interactive --trust-github-user jhf
 SCRIPT
 upload_install_script_to_vm "$VM_NAME" "$INSTALL_SCRIPT" /tmp/install-c7.sh
-upload_sb_to_vm "$VM_NAME"
 
 # Seed a scheduled upgrade row so ./sb install detects StateScheduledUpgrade
 # and routes to executeUpgradeInline (where the C7 kill site fires), rather
@@ -171,6 +170,7 @@ echo ""
 echo "── fabricating scheduled public.upgrade row for HEAD ──"
 quiesce_upgrade_service "$VM_NAME"
 fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
+upload_sb_to_vm "$VM_NAME"
 
 # Arm the one-shot kill: create the marker the install env points at.
 VM_EXEC bash -c "touch '$ARM_FILE'"
