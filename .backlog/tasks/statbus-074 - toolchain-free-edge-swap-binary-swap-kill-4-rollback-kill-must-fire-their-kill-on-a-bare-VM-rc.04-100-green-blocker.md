@@ -7,6 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-06-17 11:04'
+updated_date: '2026-06-17 11:09'
 labels:
   - install-recovery
   - harness
@@ -47,3 +48,9 @@ RELATED: STATBUS-073 (gate-residual umbrella / root-cause), STATBUS-028 (4-rollb
 - [ ] #4 #4 both scenarios GREEN in a comprehensive install-recovery run (the run is the oracle)
 - [ ] #5 #5 fix kept minimal; full real-image framework left parked in STATBUS-071
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PREMISE REFUTED AT CODE LEVEL (mechanic investigated; foreman independently verified from cli/internal/upgrade/service.go on master; routed to architect for adversarial cross-check). The predicted `make -C cli build` toolchain-free make-fail DOES NOT EXIST: buildBinaryOnDisk (5660-5682) either SKIPS via sbAlreadyAtCommit (5664 -> nil, the case here since the harness pre-stages HEAD's sb via upload_sb_to_vm) or pulls a PREBUILT image via procureSbFromImage (5699-5741: docker pull/create/cp from ghcr.io/statisticsnorway/statbus-sb:<short>; doc at 5691 = 'no host Go/make toolchain'). The `make -C cli build` text is ONLY in two STALE comments (1424, 4018). sbAlreadyAtCommit EXISTS (5763). So the path is sbAlreadyAtCommit=true -> nil -> inject.KillHere (4048) -> exit 137 BY DESIGN. => NO toolchain-free-swap fix is needed; ACs #1-#3 (build a fix) are MOOT. RE-SCOPED: this task now tracks 'CONFIRM binary-swap-kill + 4-rollback-kill go GREEN on run 27683157288; if RED the cause is NOT procurement — diagnose the state-detection fork (Detected install state: line) + whether SIGKILL quiesce held the service down (systemd auto-restart re-claiming the fabricated row).' Kept OPEN, not closed: the run is the oracle (doc/install-upgrade-testing.md), analysis alone does not prove green. Architect to correct STATBUS-073's two now-falsified notes + assess the two open questions from code.
+<!-- SECTION:NOTES:END -->
