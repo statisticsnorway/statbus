@@ -4,9 +4,10 @@ title: >-
   run-to-know-doctrine: distilled plain-language doc "only running
   install/upgrade tells you it works" + link from every test run, entry points,
   diagrams + clarity sweep
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-06-17 08:26'
+updated_date: '2026-06-17 08:34'
 labels:
   - docs
   - install-recovery
@@ -33,3 +34,11 @@ CONTEXT that motivated this (live demonstration): STATBUS-067 canary — confide
 
 OWNER: foreman writes the doctrine + key links + sets the clarity standard (exemplar); broader scenario-catalogue clarity rewrite may delegate to the team against that standard.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+DONE (foreman, committed 6a0a8398e, pushed): (1) DOCTRINE doc/install-upgrade-testing.md — plain words, zero ceremony: the rule (only running it tells you), the loop (commit→push→build→run→observe→iterate), why these tests are special (others run pre-push; install/upgrade cannot), the corollary (stalling = zero knowledge; uncertainty→run; the run is the only judge), why we keep tests+diagrams (ground truth + the map), and the live STATBUS-067 example. (2) LINKED from: run.sh (prints on EVERY run, after --print-selected guard), README top callout, AGENTS.md install/upgrade section, doc/upgrade-timeline.md, doc/upgrade-hardening.md, and all 3 diagrams via `legend top` blocks (install-recovery / upgrade-timeline / upgrade-lifecycle) — plantuml -checkonly green, SVGs regenerated. (3) CLARITY stab: README now LEADS with the one plain-language goal every scenario proves — 'if the machine dies at a dangerous moment, re-running ./sb install (and nothing else) must recover the system coherently, data intact; read each scenario as die HERE → operator re-run ends THERE, data intact' — so the goal is no longer buried under C3/R5/Fix-11 codes.
+
+REMAINING (open): the per-scenario catalogue rewrite — lead EACH of the ~24 README entries (and ideally each scenario .sh header) with its plain goal first, mechanism/codes as grounding below. The top-level one-goal framing is in; the per-entry rewrite is a clarity polish. Standard set by the doctrine doc + the README framing; can delegate to mechanic/operator against that exemplar, or do on King's word.
+<!-- SECTION:NOTES:END -->
