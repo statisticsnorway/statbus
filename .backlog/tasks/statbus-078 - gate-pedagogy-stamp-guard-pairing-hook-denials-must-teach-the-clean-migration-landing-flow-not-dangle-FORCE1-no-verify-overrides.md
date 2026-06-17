@@ -7,6 +7,7 @@ status: To Do
 assignee:
   - '@engineer'
 created_date: '2026-06-17 18:19'
+updated_date: '2026-06-17 18:24'
 labels:
   - dx
   - safety-machinery
@@ -46,3 +47,23 @@ RECOMMENDED FIX (foreman → King for review BEFORE implementing):
 
 OWNERS: engineer drafts denial wording (from his own "what sent me to FORCE=1" experience, per the King) + verdicts the RUN-without-stamp change + 3 sanity checks; foreman owns the procedure/commands; architect byte-reviews; KING reviews the design before any gate is edited. STATBUS-077's migration lands through this same clean flow once it's in.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+DESIGN VERIFIED — engineer reported, foreman independently checked the two load-bearing claims (2026-06-17).
+
+ENGINEER (PART A — why the message funneled him to FORCE=1): the `Override:` line lists commit/stash/FORCE=1 as EQUAL PEERS; for landing a migration `commit` is blocked (pairing hook), `stash` breaks assert-db-at-head + drops the migration from the commit — so two of three 'clean' options are dead ends and the message itself funnels to FORCE=1 as 'the one that works' (same shape that sent the foreman to --no-verify on the sibling gate). It states the problem ('stamp would lie') but not the CONSEQUENCE — FORCE=1 actually WRITES a stamp from a dirty tree, i.e. CAUSES the lie. And it frames dirty-migrations/ as an aberration, never as the EXPECTED migration-landing state, with no pointer to the procedure.
+ENGINEER (PART B — VERDICT: ENDORSE RUN-without-stamp; all 3 sanity checks pass): (1) test fast — today dirty→REFUSE blocks running fast tests with an uncommitted migration (another override-driver); under change RUN tests, don't stamp — better + honest. (2) release preflight — KEY; preflight re-derives honesty, doesn't trust provenance. (3) SKIP/catch-22 path untouched (dirty branch is first, before any stamp read); 4 existing self-tests stay green; ADD one for the new dirty→RUN-no-stamp branch.
+
+FOREMAN INDEPENDENT VERIFICATION (read the code, did not take it on the engineer's word):
+- LYNCHPIN CONFIRMED: cli/cmd/release.go:361-392 checkMigrationStamp PASSES only iff `git diff --name-only stampSHA..HEAD -- migrations/*.up.sql migrations/*.up.psql` is EMPTY **and** stampVersion == migrate.LatestOnDiskMigrationVersion(projDir). Comment :364-367 states it exists to 'catch the bypass case where a generator skipped its at-head guard and wrote a stamp from a stale DB.' ⇒ removing the dirty-stamp-write path CANNOT weaken release honesty; it removes the only dirty-provenance-stamp pathway and the release gate fails-closed (stale stamps → '✗ N new migrations since stamp') until a clean-tree regen. Honesty preserved/strengthened.
+- STAMP-WRITE SITES CONFIRMED COMPLETE (must ALL gate on the new RUN_NO_STAMP, or one re-opens the hole): dev.sh:812 (tmp/fast-test-passed-sha), dev.sh:1894 (tmp/db-docs-passed-sha), cli/cmd/types.go:109 (tmp/types-passed-sha). The app stamps (app-tsc/app-build, release.go:433-434) are app-scoped, orthogonal to the migrations-scoped guard.
+
+ORTHOGONAL CAVEAT (must be in the procedure + the new wording): the change fixes only the STAMP catch-22, NOT the seed requirement — generate-doc-db runs `./sb assert-db-at-head` on the SEED (dev.sh:1766) AFTER the guard; neither FORCE=1 nor RUN-without-stamp bypasses it. So the procedure STILL needs `./sb migrate up --target seed` (+ create-test-template) first — non-destructive, NOT a bypass. (Ground truth now: seed=20260616104500, dev/on-disk=20260617174936.)
+MINOR WRINKLE (acceptable): stamp deferred ⇒ generate runs TWICE when landing a migration — once dirty pre-commit (produce artifacts to stage), once clean post-commit (write the release stamp; identical diff). Future refinement = move stamp-writing into the commit hook (out of scope).
+
+IMPLEMENTATION SURFACE (engineer, for on-approval): 2 guards (dev.sh:153-160 + cli/cmd/types.go:152-161) flip REFUSE→RUN_NO_STAMP; 3 stamp-write sites gate on it; +1 self-test for the dirty→RUN-no-stamp branch; rewrite both denials to teach the procedure + the --no-verify note (.githooks/pre-commit:106-107) to data-only-ONLY. Engineer has draft wording for all three. ALL stamp-write sites + guards land in ONE commit.
+
+STATE: design verified by foreman; presented to King; AWAITING KING'S GO on the root change (RUN-without-stamp, override-free flow) vs message-only. On go: engineer implements the full set together → architect byte-reviews the diff → foreman commits → STATBUS-077's migration then lands through the clean flow.
+<!-- SECTION:NOTES:END -->
