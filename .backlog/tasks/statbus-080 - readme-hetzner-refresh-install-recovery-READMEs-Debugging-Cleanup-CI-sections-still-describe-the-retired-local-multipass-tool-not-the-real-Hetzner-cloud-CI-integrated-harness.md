@@ -4,10 +4,11 @@ title: >-
   readme-hetzner-refresh: install-recovery README's Debugging/Cleanup/CI
   sections still describe the retired local-multipass tool, not the real
   Hetzner-cloud + CI-integrated harness
-status: To Do
+status: Done
 assignee:
   - '@operator'
 created_date: '2026-06-17 20:37'
+updated_date: '2026-06-17 20:45'
 labels:
   - docs
   - install-recovery
@@ -37,3 +38,9 @@ SCOPE:
 
 OWNER: operator (owns the Hetzner harness lifecycle + knows the exact hcloud debug/cleanup commands). FOUND while finishing STATBUS-070's catalogue clarity pass (the catalogue itself is fixed in 5efe6dfe7). NON-cut-blocking — developer-facing doc accuracy.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+DONE by foreman, committed + pushed 1662a1274 (2026-06-17). FIXED DIRECTLY rather than deferred to the operator — King's ruling: docs are part of the clean ship, nothing swept under the rug. The 3 stale README sections now describe the real flow: Debugging = `ssh root@$(hcloud server ip statbus-recovery-<slug>)` + the artifact download; Cleanup = `hcloud server list` / `hcloud server delete`; CI integration = the real install-recovery-harness.yaml (Hetzner matrix, tag-push + manual dispatch, per-commit images, release-preflight gate) replacing the false 'not currently integrated / Multipass needs nested virtualization'. Extracted the exact commands from lib/vm-bootstrap.sh (cleanup_vm + VM_EXEC + SSH_OPTS).
+<!-- SECTION:NOTES:END -->
