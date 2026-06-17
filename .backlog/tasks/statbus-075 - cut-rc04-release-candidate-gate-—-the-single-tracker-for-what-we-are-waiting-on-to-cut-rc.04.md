@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-17 11:04'
-updated_date: '2026-06-17 21:40'
+updated_date: '2026-06-17 21:53'
 labels:
   - install-recovery
   - rc.04
@@ -75,4 +75,16 @@ MODE C — recovery DB-constraint violation (3-postswap-migrate-killed-after-com
 MODE D — resume-idempotency (3-postswap-resume-died-rollback): resume COMPLETED when the injected kill should have died it. Kill-timing/resume. Architect.
 
 OWNERS: A=engineer fix (foreman commits, clear path); B=architect+operator (image gating); C=architect (confirm not a from_commit_sha regression); D=architect. 13 pending at last check — more reds may land. NEXT: land Mode A → push → re-fire; B/C/D follow per architect. Doctrine held: deep verification refuted both the seed-cascade AND my own .env-by-binary hypotheses before any wrong fix shipped.
+
+ARCHITECT-VERIFIED DETERMINATION + GREENLIT FIX PLAN (foreman+architect, overnight 2026-06-17). All 4 modes CONFIRMED HARNESS; NONE a from_commit_sha regression; Albania SAFE on every real path (service-NOTIFY AND ./sb install operator both keep tree@OLD through state-detection per STATBUS-060). Refines the note above:
+
+MODE A mechanism (precise, architect-verified): HEAD's docker-compose.rest.yml:45 has a MANDATORY `${REST_ADMIN_BIND_ADDRESS:?...must be set}` guard that makes `docker compose` HARD-ERROR at interpolation when the v2026.05.2-generated .env lacks that post-v2026.05.2 var (verified: v2026.05.2 compose 0 refs / config.go 0 writes; HEAD 1/1). DBReachable runs `docker compose exec db psql 'SELECT 1'` → interpolation error → false → StateDBUnreachable → step-table, executeUpgrade never runs, inject never fires. Needs BOTH tree@HEAD (the early `git checkout`) AND .env@OLD. SCOPE = 7 scenarios (added 4-rollback-kill:129). FIX = DELETE the early checkout (NOT reorder — reorder is a false-green that masks Root B). 3 CLEAN done by engineer (backup-kill, binary-swap-kill, mid-migration-kill); 4 COMPLEX need binary-staging/freshness-aware edits (between-migrations + container-restart have a Pattern-D `cp /tmp/sb ./sb` re-place; mid-tx-kill:153 is VM_EXEC; 4-rollback-kill first-install) — architect speccing.
+
+MODE B = harness: recovery hard-codes `--channel edge` (vm-bootstrap.sh:534) = moving master tip; drifted 11 commits FORWARD to DESCENDANT 5efe6dfe (not ancestor). Real path uses pinned stable/prerelease v-tags (install.sh:164-165) → NOT exposed. FIX = recovery REUSES the already-staged target binary (upload_sb_to_vm), not edge.
+
+MODE C = harness-fabrication: fabricate_scheduled_upgrade_row sets log_relative_file_path NULL (data-helpers.sh:315); real rows START-stamp it (service.go:3573). FIX = fabricate stamps a non-NULL path. from_commit_sha removal cleared (1083c62b0 touched 0 completed-writes). Product COALESCE-hardening of the two un-guarded completed-writes (:2405/:4494) = STATBUS-081 (non-gating).
+
+MODE D + 3-postswap-migrate-killed-after-commit = architect triaging in parallel.
+
+PLAN: batch ALL harness fixes (7 Mode A + Mode B + Mode C [+D/migrate if harness]) → ONE commit → push → WAIT for images.yaml (per-commit image ready, else re-inflicts Mode B) → re-fire install-recovery-harness.yaml ONCE. CAVEAT (architect): Fix C may UNMASK Root B-class issues (checkout-kill already shows `git fetch origin commitSHA` rc=128 + binary roll-forward) — that's the test finally exercising executeUpgrade for the first time, SIGNAL not failure; iterate. SEPARATE non-gating tasks: Root B audit, STATBUS-018 (seed-restore --clean on populated DB), STATBUS-081 (COALESCE).
 <!-- SECTION:NOTES:END -->
