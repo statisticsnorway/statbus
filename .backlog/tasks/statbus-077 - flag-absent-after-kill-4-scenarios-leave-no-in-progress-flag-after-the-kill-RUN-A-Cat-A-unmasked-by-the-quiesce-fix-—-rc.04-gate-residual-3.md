@@ -1,13 +1,13 @@
 ---
 id: STATBUS-077
 title: >-
-  remove-from-commit-sha: collapse to one recovery source (the pre-upgrade
-  branch) — fixes the v2026.05.2 upgrade-claim 42703 (Albania-blocking)
+  remove-from-commit-sha: one recovery source of truth (the pre-upgrade branch)
+  — fixes the crash that blocks Albania's upgrade
 status: In Progress
 assignee:
   - architect
 created_date: '2026-06-17 13:07'
-updated_date: '2026-06-17 20:02'
+updated_date: '2026-06-17 20:12'
 labels:
   - install-recovery
   - rc.04
@@ -29,17 +29,15 @@ ordinal: 77000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-THE genuinely-new 3rd residual class from run 27683157288 (commit 3a0d6e6dd) — surfaced once the SIGKILL-quiesce fix (3a0d6e6dd) removed the quiesce-rollback that previously MASKED it (this was RUN A's "Category A: flag absent after kill"). NOT fixed by e6c85c193 (which fixes only freshness + masked-unit).
+WHAT: remove the from_commit_sha column from public.upgrade, so upgrade recovery uses ONE source of truth — the pinned `pre-upgrade` git branch.
 
-THE 4 SCENARIOS (all fail `✗ expected flag file present after kill`): 3-postswap-archivebackup-resume, 3-postswap-mid-tx-kill, 3-postswap-resume-died-rollback, 4-rollback-restore-watchdog. All have a coherent fabricate (HEAD,HEAD) → the install reaches its kill point → after the kill the upgrade-in-progress flag file is ABSENT.
+THE BUG (Albania-blocking): upgrading from v2026.05.2 (the version Albania runs) crashes at the very first step. The upgrade "claim" step writes from_commit_sha, but that column is only ADDED by a migration that runs LATER in the same upgrade — so the claim hits SQLSTATE 42703 "undefined column" and aborts before the upgrade can even begin. rc.04-as-was could not upgrade v2026.05.2 at all.
 
-THE QUESTION (architect diagnosing, first principles, product-vs-harness):
-(a) PRODUCT bug: executeUpgrade does not write the in-progress flag BEFORE the kill point → a crash there leaves NO recovery marker. If so this is ALBANIA-CRITICAL: a mid-upgrade crash on a no-remote-rescue standalone box would be undetectable by recovery (the operator's re-run couldn't find the interrupted upgrade). This is the exact class the campaign exists to harden.
-(b) HARNESS bug: the kill/park misfired or the assertion checks too early. CLUE: mid-tx-kill's log shows `migrate subprocess parked (PID=          )` — park-detection captured an EMPTY PID before pg_terminate_backend, so the kill may not have fired at the intended mid-tx point.
+THE FIX: the source commit was stored TWICE — the pinned pre-upgrade branch AND the from_commit_sha column. The branch is the reliable, DB-independent recovery source (recovery can run with the DB stopped), so the column was redundant. Removing it deletes the crash and leaves a single recovery source of truth.
 
-OPEN: do the 4 kill at the same conceptual point or different (mid-tx / mid-applyPostSwap / resume-died / rollback-restore)? One root cause or several? Per-scenario logs in tmp/run288/cls-<scenario>/.
+HOW IT SURFACED: as the "flag-absent-after-kill" residual class in the rc.04 gate run — 4 recovery scenarios left no recovery flag after their kill point, all traced to the same 42703.
 
-GATING: blocks the rc.04 100%-green gate (STATBUS-075) alongside the (already-fixed) freshness + masked-unit classes. The re-run is HELD until this fix lands so it batches with e6c85c193's 9 fixes into ONE comprehensive re-run. OWNER: architect (diagnose product-vs-harness + fix shape) -> implement -> foreman review/commit -> re-run.
+STATUS: fully landed on master @78e770ac (gate-pedagogy fix 820e79624 + removal 1083c62b0 + blast-radius cleanup 78e770ac5). The 32-scenario re-run (27715901866) is validating single-source recovery. Done when that run is green. (Full root-cause trail, design rulings, and commit history are in the Implementation Notes below.)
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Implementation Notes
