@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-17 11:04'
-updated_date: '2026-06-17 12:25'
+updated_date: '2026-06-17 13:07'
 labels:
   - install-recovery
   - rc.04
@@ -69,4 +69,11 @@ RUN 27683157288 RESIDUALS FIXED + COMMITTED (foreman, 2026-06-17), both harness-
 1. Fabricate freshness (STATBUS-076) — fabricate ran the HEAD ./sb on the old tree -> staleness hard-fail. FIX = run fabricate with the tree-coherent binary (reorder). Committed 7f305f70d. Foreman caught + corrected a mechanic over-application (mid-tx-kill reverted, archivebackup-resume repositioned) before commit.
 2. Quiesce-mask (STATBUS-073) — SIGKILL quiesce's `mask --runtime` paired with a plain `unmask` left the unit masked -> direct `systemctl start` failed (watchdog, resume-died-rollback). FIX = `unmask --runtime`. Committed e6c85c193.
 HOLDING the re-run until run 27683157288 completes (batch any 3rd residual into ONE re-run on e6c85c193). PRODUCT unchanged (both fixes are test scaffolding). PATH: run completes -> characterize full residual -> (fix any 3rd) -> ONE comprehensive re-run -> if 100% green, cut rc.04 (King's bar).
+
+RUN 27683157288 COMPLETE (3a0d6e6dd, the quiesce-only commit BEFORE my fixes): 16 PASS / 14 FAIL. Foreman classified all 14 by signature:
+- FRESHNESS (7): binary-swap/backup/checkout-kill, between-migrations, container-restart, mid-migration, 4-rollback-kill → FIXED by e6c85c193 (reorder 7f305f70d).
+- MASKED-UNIT (2): archivebackup-watchdog, watchdog-reconnect → FIXED by e6c85c193 (unmask --runtime).
+- INFRA (1): stage-a-killed-migrate (vm-bootstrap.sh:360 SSH blip) → re-runnable.
+- FLAG-ABSENT after kill (4) → GENUINELY-NEW 3rd class, NOT fixed by e6c85c193: archivebackup-resume, mid-tx-kill, resume-died-rollback, 4-rollback-restore-watchdog. All `✗ expected flag file present after kill`. Filed STATBUS-077; architect diagnosing product-vs-harness (could be ALBANIA-CRITICAL if executeUpgrade doesn't write the in-progress flag before the kill point — a no-remote-rescue box's mid-upgrade crash would be unrecoverable). This was RUN A's Cat A, MASKED by the quiesce-rollback, now unmasked.
+SO: e6c85c193 fixes 9 of 14; infra re-runs clean; the 4 flag-absent need STATBUS-077's fix. RE-RUN HELD until STATBUS-077 lands, then ONE comprehensive re-run batches all (9 + 4 + infra) on the combined commit. The doctrine working: each run peels one layer.
 <!-- SECTION:NOTES:END -->
