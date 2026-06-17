@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-17 11:04'
-updated_date: '2026-06-17 20:45'
+updated_date: '2026-06-17 20:50'
 labels:
   - install-recovery
   - rc.04
@@ -61,4 +61,6 @@ RUN 27683157288 COMPLETE (3a0d6e6dd, the quiesce-only commit BEFORE my fixes): 1
 SO: e6c85c193 fixes 9 of 14; infra re-runs clean; the 4 flag-absent need STATBUS-077's fix. RE-RUN HELD until STATBUS-077 lands, then ONE comprehensive re-run batches all (9 + 4 + infra) on the combined commit. The doctrine working: each run peels one layer.
 
 RE-RUN FIRST RED (2026-06-17, run 27715901866): 2-preswap-backup-kill FAILED at `✗ expected flag file present after kill` (job 81988885018; artifact tmp/2pbk-artifact/). 6 scenarios green before it; 30 continue (~23 queued). LOG EVIDENCE: (1) line 4012 `Error: seed restore: pg_restore reported errors (transaction rolled back; database unchanged)` — a seed-restore failure during setup (STATBUS-018 class); (2) line 4134 upgrade row reached state=completed, has_migrations=false, summary=harness fabricate_scheduled_upgrade_row. FOREMAN PRELIMINARY HYPOTHESIS (UNCONFIRMED): the seed-restore failure cascaded — install didn't land at the older release → fabricated upgrade became a no-migration no-op → completed before the preswap-backup kill fired → flag removed → assertion fails. Would be a HARNESS/SETUP issue (STATBUS-018), NOT a from_commit_sha regression (the harness fabricate doesn't touch the dropped column). ROUTED to architect to CONFIRM product-vs-harness from the run (King: don't assume, nothing swept under the rug). If STATBUS-018/harness → separable, re-runnable. If a genuine flag-timing product red → cut-blocking. Architect verdict PENDING.
+
+RED → PATTERN (2026-06-17): now 3 reds, ALL 2-preswap kill scenarios (backup-kill, binary-swap-kill, checkout-kill); 7 green; ~22 queued. CONFIRMED IDENTICAL across all 3 (artifacts tmp/2pbk-artifact/, tmp/2bsk-artifact/): seed-restore `pg_restore reported errors (transaction rolled back; database unchanged)` + `HEAD is now at 78e770ac5` (tree at HEAD, not the older release) + HEAD's migrations applied + upgrade row state=completed has_migrations=false (NO-OP) + `✗ expected flag file present after kill`. ⇒ the older-release install's seed-restore fails → install lands at HEAD → the upgrade is HEAD→HEAD no-op → the preswap kill never fires → flag absent. The from_commit_sha RECOVERY code is NEVER reached → this is a SETUP CASCADE, not a from_commit_sha product regression. LIKELY blocks every install-at-older-release scenario (more reds incoming) → the re-run cannot reach 100% green until the setup is fixed. ARCHITECT pinning (per King don't-assume): (1) NEW (seed regen during COMMIT 2 broke older-release install?) vs PRE-EXISTING STATBUS-018 (pg_restore --clean on populated DB); (2) WHY 0-happy-upgrade PASSES though it also installs at the older release (the discriminator); (3) scope; (4) fix shape. If foreman's seed regen introduced it, foreman owns the fix. CUT LIKELY DELAYED by this setup layer — iterate per the doctrine (the run peels one layer).
 <!-- SECTION:NOTES:END -->
