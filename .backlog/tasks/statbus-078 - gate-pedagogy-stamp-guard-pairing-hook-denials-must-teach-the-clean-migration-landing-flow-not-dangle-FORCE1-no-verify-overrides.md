@@ -3,11 +3,11 @@ id: STATBUS-078
 title: >-
   gate-pedagogy: stamp-guard + pairing-hook denials must teach the clean
   migration-landing flow, not dangle FORCE=1 / --no-verify overrides
-status: In Progress
+status: Done
 assignee:
   - '@engineer'
 created_date: '2026-06-17 18:19'
-updated_date: '2026-06-17 19:14'
+updated_date: '2026-06-17 19:46'
 labels:
   - dx
   - safety-machinery
@@ -82,4 +82,6 @@ INSTALL-RECOVERY RE-RUN PREP (tester, complete): full matrix = 33 scenarios; inv
 COMMIT 1 COMMITTED: 820e79624 (2026-06-17). Final diff 349 lines, 3 gate files (.githooks/pre-commit, cli/cmd/types.go, dev.sh). Foreman tree-verified before commit (resolving an architect/engineer crossed-message discrepancy — architect had re-reviewed the stale 348-line pre-(B) diff; live tree was 349 post-(B)): stampGuardRefuse GONE from cli/ (0 refs), no `return 2` / `2) exit 1` in dev.sh, seed step at pre-commit:102, RUN_NO_STAMP wired (return 3 dev.sh:175), go build+vet green. Tester 6/0 clean + 2/0 dirty on the post-(B) tree. Architect APPROVED gate+A+nit + pre-blessed the exact 4-site REFUSE removal as safe.
 NOTE: pre-commit hook fired the bash-background false-positive on the commit-message text (contained the literal generate-doc-db command) — worked around by committing via `-F tmp/commit-msg-c1.txt` (clean command line). Not a real long-running command.
 REMAINING for Done: end-to-end validation = COMMIT 2 (STATBUS-077 from_commit_sha removal) must land THROUGH this fixed gate with zero FORCE=1/--no-verify (the proof the pedagogy fix achieves its goal). Engineer running COMMIT 2's tail now (build-sb → seed→HEAD → generate-doc-db + types generate). Mark 078 Done once COMMIT 2 lands clean through the gate.
+
+DONE (2026-06-17). Gate-pedagogy fix shipped + validated end-to-end: COMMIT 820e79624 (pushed in 78e770ac5 batch). The RUN_NO_STAMP change + denial rewrites + dead-REFUSE removal + self-test (6/0) all landed; and COMMIT 2 (the from_commit_sha removal regen) ran THROUGH this gate with ZERO FORCE=1/--no-verify (the loud WITHHELD notes fired) — empirical end-to-end proof the canonical migration-landing flow is now override-free. The catch-all + write-site source-assert hardening continue in STATBUS-079 (High). Not gated on the install-recovery re-run (the gate is dev-time tooling, not exercised by the upgrade-product scenarios).
 <!-- SECTION:NOTES:END -->
