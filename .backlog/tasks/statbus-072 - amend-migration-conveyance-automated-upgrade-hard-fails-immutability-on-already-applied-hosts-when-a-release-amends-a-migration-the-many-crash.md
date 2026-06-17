@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-17 09:21'
+updated_date: '2026-06-17 09:39'
 labels:
   - upgrade
   - migrate
@@ -40,3 +41,17 @@ TEST (via STATBUS-071 real-upgrade-arc framework): the most important Shape-1 va
 
 NOT an rc.04 blocker (rc.04 amends no migration). But high-priority product bug + completely untested. Investigate the intended workflow (is manual-set the design? it conflicts with the automated model), then auto-convey + test.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+DESIGN DECISION (King reasoning, 2026-06-17): RE-STAMP (checksum) is the PRIMARY mechanism, NOT rollback. Decisive argument = DEPTH ASYMMETRY: a downgrade's cost scales with how far back the bug is — to fix a migration N-k back you must unwind ALL k migrations stacked on top of it, then re-apply them on the corrected version; and those k were written against the BUGGY output, so re-applying may not behave the same → a deep downgrade is expensive AND potentially incorrect. Re-stamp is DEPTH-INDEPENDENT (O(1) 'accept the new bytes' whether the migration is 1 back or 50). That asymmetry points at re-stamp.
+
+WHY RE-STAMP IS SAFE HERE (King's scenario): a migration that TIMED OUT on big installs but SUCCEEDED on small ones, fixed to not time out. Hosts where it succeeded already have the RIGHT result — the fix changes HOW LONG it takes, not WHAT it produces. So: small/applied (the many) → re-stamp (schema already correct); big/timed-out/unrecorded (the few) → re-run the now-faster migration → applies clean.
+
+THE CONVENTION (the safety rule): an amendment is a MINIMAL 'make it not crash' fix ONLY — it changes WHETHER the migration finishes, never WHAT it produces. If the RESULT was also wrong, that does NOT go in the amendment; it goes in a LATER FORWARD migration (V+k) that corrects the schema for everyone. Split: crash-fix by amend+re-stamp; result-fix by a new migration (immutability gate already pushes this).
+
+DOWNGRADE: reserved for the MOST-RECENT migration only, if at all — off the table the moment anything is stacked on top (almost always), and re-stamp beats it even there when outcome-preserving (down is destructive: drops data).
+
+OPEN GUARDRAIL SUB-QUESTION: re-stamp TRUSTS the amendment is result-preserving. A result-CHANGING amendment + re-stamp silently leaves the many with the wrong schema (the canary bug one level up). The convention is the rule; the question is how to make it hard to break by ACCIDENT — most likely a conscious, reviewed opt-in at release-cut time (the exemption is already opt-in; tighten WHAT it's allowed to be). Design this guardrail.
+<!-- SECTION:NOTES:END -->
