@@ -1,13 +1,13 @@
 ---
 id: STATBUS-077
 title: >-
-  flag-absent-after-kill: 4 scenarios leave no in-progress flag after the kill
-  (RUN-A Cat A unmasked by the quiesce fix) — rc.04 gate residual #3
+  remove-from-commit-sha: collapse to one recovery source (the pre-upgrade
+  branch) — fixes the v2026.05.2 upgrade-claim 42703 (Albania-blocking)
 status: In Progress
 assignee:
   - architect
 created_date: '2026-06-17 13:07'
-updated_date: '2026-06-17 16:23'
+updated_date: '2026-06-17 17:14'
 labels:
   - install-recovery
   - rc.04
