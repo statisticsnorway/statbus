@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-06-17 18:19'
-updated_date: '2026-06-17 18:39'
+updated_date: '2026-06-17 18:59'
 labels:
   - dx
   - safety-machinery
@@ -73,4 +73,9 @@ LANDING STRUCTURE (foreman's call, adopting architect's suggestion) = TWO commit
 STATE: still AWAITING KING'S GO on the gate redesign (root change vs message-only). All overrides held.
 
 KING'S GO (2026-06-17), verbatim: 'Nice root change, get to it, then continue. Let me know when I can cut the release.' Root change APPROVED. Engineer implementing COMMIT 1 (gate fix) in full now; architect primed to byte-review the diff (focus: all 3 stamp-write sites gated together; rc-plumbing through each caller; self-test asserts no stamp on dirty path; denial wording). On architect OK → foreman commits COMMIT 1 → COMMIT 2 (STATBUS-077 removal) lands through the fixed flow → comprehensive install-recovery re-run (batched with e6c85c193's 9) → report 100%-green to King for the rc.04 cut.
+
+COMMIT 1 IMPLEMENTED + reviewing (2026-06-17). Diff tmp/sb-gatefix.diff (148+/52-): .githooks/pre-commit, cli/cmd/types.go, dev.sh. Foreman byte-review: the guard logic, all 3 stamp-write sites gating on RUN_NO_STAMP (types.go:59-63, dev.sh:181 fast-test, dev.sh:223 db-docs), rc-plumbing (rc 3 in both shell switches + types RunE captures decision), wording (teaches procedure + de-lists FORCE=1 with consequence), --no-verify note (data-only) — ALL CORRECT.
+BUT — REAL BUG in the new Test 5 (self-test), caught by foreman root-causing the tester's RUN 2 'partial' (tester wrongly called it a harness issue): Test 5's dirty-marker `migrations/.tsg-dirty-marker-$$.tmp` is GITIGNORED (.gitignore:129 `*.tmp`). Confirmed via `git check-ignore -v` + empirical probe (git status --porcelain -- migrations does not show a *.tmp). So the marker NEVER makes migrations/ dirty; Test 5 passed in tester RUN 1 only by riding the ambient untracked migration, and RUN 2 (migration moved aside) exposed rc=1 (SKIP) instead of rc=3. CONSEQUENCE: Test 5 is RED on any clean tree (CI) — would turn CI red. NOT a harness issue.
+FIX (engineer, don't commit): (1) marker filename NOT gitignored AND not matched by *.up.{sql,psql} glob (verify `git check-ignore` prints nothing); (2) add a self-validation asserting `git status --porcelain -- migrations` is NON-EMPTY after creating the marker (fail loudly if gitignored) — makes the test self-proving; (3) keep rm+trap cleanup. Then tester re-runs on a CLEAN migrations/ (move untracked migration aside + restore) → all 5 pass → architect re-reviews fixed Test 5 → foreman commits COMMIT 1.
+INSTALL-RECOVERY RE-RUN PREP (tester, complete): full matrix = 33 scenarios; invocation `gh workflow run install-recovery-harness.yaml --ref master -f scenarios="<33 names>"` (CI, max-parallel 3, ~110-220 min, ~€0.24); HCLOUD_TOKEN present; per-commit image auto-builds on master push via images.yaml (~15-20 min) — readiness via `docker manifest inspect ghcr.io/statisticsnorway/statbus-sb:<short>`. Locked in; fires only on foreman signal after both commits pushed.
 <!-- SECTION:NOTES:END -->
