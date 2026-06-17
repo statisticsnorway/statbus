@@ -4,10 +4,10 @@ title: >-
   canary-migrate-completeness: resumePostSwap completes on container-health
   alone → silent corruption on post-swap kill mid-migration (STATBUS-017
   follow-up)
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-06-16 21:57'
-updated_date: '2026-06-16 22:36'
+updated_date: '2026-06-17 07:14'
 labels:
   - upgrade
   - recovery
@@ -54,4 +54,6 @@ OWNER: architect (design done) → engineer (execute) → foreman review → tes
 
 <!-- SECTION:NOTES:BEGIN -->
 HARNESS PREREQ ALREADY IN PLACE (foreman, fc742bd4f, 2026-06-17): both reproducers (3-postswap-migrate-killed-after-commit, 3-postswap-migration-deterministic-error) now call `quiesce_upgrade_service "$VM_NAME" >&2` inside _fabricate_in_progress_row, immediately before fabricate_scheduled_upgrade_row. This closes the fabricate→in_progress-UPDATE window where the running upgrade service could claim the scheduled row — removing a race confound from the eventual canary re-validation. NOTE for the engineer/tester: this shifted the scenario line numbers cited in the Implementation Plan by ~+5 (the manual in_progress UPDATE block moved down); RE-READ the scenario rather than trusting the cited line refs. The Q1/Q2 FIX itself is in cli/internal/upgrade/service.go (4761/4771) — unaffected by the scenario shift.
+
+KING RULED 2026-06-17: FIX NOW — include the canary fix in rc.04 (overrode the foreman/architect defer recommendation). The King is driving the architect directly on the Q1+Q2 implementation. Flow: architect writes the exact Q1+Q2 old_string/new_string vs current cli/internal/upgrade/service.go → engineer applies → architect reviews byte-level → foreman commits + pushes. Validation: 3-postswap-migrate-killed-after-commit promoted out of skip-default for the combined re-run (quiesce already in from fc742bd4f). EXPECTATION (King-accepted): the rolled_back terminal must be confirmed empirically (operator saw in_progress) — first reproducer run may land short and need one follow-up touch; that is the fix-now cost, expected not a regression. Sequencing: carve-out (55cb5c959, committed+pushed) + canary fix both land → ONE comprehensive re-run validates the gating set + the promoted reproducer together.
 <!-- SECTION:NOTES:END -->
