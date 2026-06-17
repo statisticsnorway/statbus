@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-17 10:13'
-updated_date: '2026-06-17 10:26'
+updated_date: '2026-06-17 10:35'
 labels:
   - install-recovery
   - rc.04
@@ -47,4 +47,12 @@ CATEGORY D RE-DIAGNOSED (foreman caught a mis-diagnosis): mechanic first reporte
 REAL CAUSE (from the mechanic's own step 5 + RUN A log): the harness pre-stages HEAD's binary (upload_sb_to_vm) so the inject exists in the RUNNING binary — but that makes sbAlreadyAtCommit(HEAD)=true → executeUpgrade SKIPS the binary-swap (replaceBinaryOnDisk) → the KillHere('killed-by-system-during-binary-swap') site (AFTER the swap) is NEVER reached → exit 0, no kill, no flag, row completes. This is the SAME cause as binary-swap-kill in Category A (same C5 inject) — ONE cause for TWO scenarios (4-rollback-kill + 2-preswap-binary-swap-kill).
 
 TENSION: the running binary must be HEAD for the inject to exist, but that makes sbAlreadyAtCommit=true and the swap a no-op. OPEN (architect): FIXABLE (make the swap happen + kill fire while running binary carries the inject — e.g. procure-target commit ≠ running-binary commit) OR SCENARIO LIMITATION → confirmed-known-red (product correctly skips the swap when already at target; not a product bug). Routed to architect (overlaps Cat A). LESSON: do not mark a category green on a teammate's 'already fixed' without checking the failing run actually contained the fix.
+
+ROOT CAUSE COLLAPSES TO ONE (architect-diagnosed, foreman-verified 13/14): the #3 quiesce_upgrade_service uses `systemctl --user stop ...service` = SIGTERM. The upgrade service's Run() registers signal.NotifyContext(SIGINT, SIGTERM) (service.go:1460) -> SIGTERM cancels the upgrade context -> fires executeUpgrade's DEFERRED rollback() (restoreGitState + pg_restore + restoreBinary). So the quiesce, meant only to pause the service, ROLLS BACK and corrupts the scenario BEFORE its real test. The service was NOT idle (the #3 'idle-stop is safe' assumption) — it had auto-started its OWN discovered upgrade, so the stop hit an in-flight upgrade. FINGERPRINT verified across 13 of 14 reds: `[quiesce] ✓` -> `Previous HEAD position was 50fd4325f` (restoreGitState) -> mostly `db-unreachable` (pg_restore) -> step-table ([N/16] ladder) -> executeUpgrade NEVER dispatched -> Cat A: no flag written; Cat B: step-table exit 1 ('rolled_back regression' is actually the step-table exit, downstream). Only stage-a (Cat E, infra) is outside. So the original 5-category split COLLAPSES: A+B+D (and the Cat-C scenarios too, which also show prevHEAD) are ONE root cause.
+
+CORRECTION: the foreman/mechanic 'binary-swap-skip (sbAlreadyAtCommit)' framing was a RED HERRING — there is no sbAlreadyAtCommit function; service.go:4009-4048 ALWAYS procures then ALWAYS hits inject.KillHere (:4048, 'no rarely-run skip-handoff branch', rc.70). binary-swap-kill's RUN-A red = the quiesce-rollback (step-table, executeUpgrade never ran), same as all A+B.
+
+LATENT SECOND LAYER (real, only surfaces AFTER the quiesce fix): for binary-swap-kill + 4-rollback-kill, the C5 swap on an EDGE target runs buildBinaryOnDisk = `make -C cli build` (service.go:4018,4032) which FAILS toolchain-free -> procureErr -> rollback (:4036) BEFORE inject.KillHere(:4048) -> no kill. Gated behind the quiesce-rollback now. LIKELY FIXABLE (route edge-swap through image-procurement/docker-pull, or target a tagged release carrying the inject framework) — reassess from the post-quiesce re-run; do NOT pre-fix.
+
+FIX: SIGKILL-class quiesce (architect writing exact diff): keep timer stop; `systemctl --user kill -s SIGKILL` the daemon (SIGTERM handler can't fire); prevent Restart=always(RestartSec=30) revival without delivering SIGTERM to a live process; preserve recovery re-enable (step-table `enable --now`, install.go:1806). Harness-only (wedge-helpers.sh). Plus operator's Cat-C config-generate (committed 9bdba03cc, complementary). -> ONE re-run -> true residual legible (likely just stage-a infra + the binary-swap second layer + any genuine known-reds).
 <!-- SECTION:NOTES:END -->
