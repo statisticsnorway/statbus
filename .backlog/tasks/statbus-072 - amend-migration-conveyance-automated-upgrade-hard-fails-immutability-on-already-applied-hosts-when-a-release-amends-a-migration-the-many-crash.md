@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-17 09:21'
-updated_date: '2026-06-17 09:39'
+updated_date: '2026-06-17 09:52'
 labels:
   - upgrade
   - migrate
@@ -54,4 +54,10 @@ THE CONVENTION (the safety rule): an amendment is a MINIMAL 'make it not crash' 
 DOWNGRADE: reserved for the MOST-RECENT migration only, if at all — off the table the moment anything is stacked on top (almost always), and re-stamp beats it even there when outcome-preserving (down is destructive: drops data).
 
 OPEN GUARDRAIL SUB-QUESTION: re-stamp TRUSTS the amendment is result-preserving. A result-CHANGING amendment + re-stamp silently leaves the many with the wrong schema (the canary bug one level up). The convention is the rule; the question is how to make it hard to break by ACCIDENT — most likely a conscious, reviewed opt-in at release-cut time (the exemption is already opt-in; tighten WHAT it's allowed to be). Design this guardrail.
+
+CORRECTION (King, 2026-06-17): the 'OPEN GUARDRAIL SUB-QUESTION' above is a CATEGORY ERROR — strike it. Deciding whether a migration is outcome-preserving for ALL possible data is undecidable (NP-complete in general); you CANNOT build a checker for it. 'I looked at the migration and it's fine' is a tautology — it restates the belief, it is not knowledge; you have no knowledge until you RUN it.
+
+So the escape hatch (STATBUS_CIRCUMVENT_IMMUTABLE_MIGRATION) is NOT a check — it is a forced DECLARATION OF INTENT ('I am changing this migration on purpose; I believe it produces the same result'). That declaration is either a TAUTOLOGY (true — the run confirms it) or a FALLACY (false — the run exposes it); ONLY running it everywhere tells you which, never inspection. If fallacy → amend again, with intent, through the same hatch (+ a forward migration if the RESULT was wrong). If tautology → the run confirms what you declared, and you still had to declare it. No third thing in between.
+
+THEREFORE: the EXISTING opt-in IS the complete guardrail — its whole job is to make the act DELIBERATE, never accidental (you cannot circumvent immutability without consciously naming the migration). Nothing to 'tighten', NO checker to add (that would re-attempt the undecidable). The ONLY thing to BUILD is the AUTO-CONVEYANCE: carry the declared intent from the release to every host's automatic upgrade so the re-stamp fires without a human on each box. VALIDATION = the run: STATBUS-071 framework proves the MECHANISM (conveyance + re-stamp + both populations survive); a SPECIFIC amendment's outcome-preservation is per-host/per-data and only the real deployment answers it. This is the doctrine: declare intent, you cannot know by looking, run to find out.
 <!-- SECTION:NOTES:END -->
