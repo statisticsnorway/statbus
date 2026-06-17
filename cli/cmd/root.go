@@ -113,6 +113,22 @@ func stalenessGuard(c *cobra.Command, _ []string) {
 	if msg == "" {
 		return
 	}
+	// Install-recovery injection carve-out. STATBUS_INJECT_AT is set ONLY
+	// by the install-recovery harness (inject.EnvActiveAt; empty in every
+	// production run — cli/internal/inject/inject.go). When set, a scenario
+	// is deliberately orchestrating tree↔binary states (e.g. a mid-upgrade
+	// checkout) on a Go-less VM that cannot rebuild: the self-heal path
+	// (RebuildAndReexec → `make`) would fail, and the hard-fail path would
+	// abort the very recovery command the scenario exercises. Downgrade the
+	// guard to advisory in that mode only — production behavior is unchanged
+	// because the env var is never set there. Generalizes the per-scenario
+	// "install HEAD coherently so the binary isn't stale" workaround
+	// (see test/install-recovery/scenarios/1-boot-startup-timeout.sh:101-110).
+	if os.Getenv(inject.EnvActiveAt) != "" {
+		fmt.Fprintln(os.Stderr, "WARN: "+msg)
+		fmt.Fprintln(os.Stderr, "STATBUS_INJECT_AT set (install-recovery injection) — not rebuilding; scenario drives recovery.")
+		return
+	}
 	if isMutatingCommand(c) {
 		// Self-heal path: a small set of recovery commands annotated with
 		// "selfheal" exist precisely to fix the situation a stale binary
