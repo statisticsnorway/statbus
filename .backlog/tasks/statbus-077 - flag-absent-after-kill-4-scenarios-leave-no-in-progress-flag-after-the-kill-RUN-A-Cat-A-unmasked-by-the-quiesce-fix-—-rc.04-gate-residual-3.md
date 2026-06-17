@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-06-17 13:07'
-updated_date: '2026-06-17 19:29'
+updated_date: '2026-06-17 19:46'
 labels:
   - install-recovery
   - rc.04
@@ -63,4 +63,6 @@ CODE LANDED but BLAST-RADIUS INCOMPLETE — caught by foreman pre-push grep (202
 1. BLOCKING: test/expected/002_generate_mermaid_er_diagram.out:1397 still emits `text from_commit_sha` in the upgrade entity (pg_regress ER-diagram expected output, generated from the schema). Column dropped → test 002 FAILS. Tester regenerating (foreman verifies the diff is ONLY the from_commit_sha line; STOP if other drift). Must land before push.
 2. CLEAN-BREAK (non-blocking for the re-run — all comments/echo, no functional SQL): stale from_commit_sha references in test/install-recovery/lib/wedge-helpers.sh:546,570 + scenarios/2-preswap-checkout-kill.sh:215/227/255/258 + 2-preswap-checkout-kill-legacy.sh:34/141/195/231/238. They describe the REMOVED column as the live restore mechanism (now FALSE — restore = pinned pre-upgrade branch). -legacy's whole premise (NULL-from_commit_sha row → branch fallback) is obsolete now the column's gone. Architect assessing the clean-break edits + -legacy disposition (reword / merge / remove).
 PLAN: tester regens 002 + architect specifies scenario edits → foreman folds both into the removal (amend 1083c62b0, unpushed) → push (820e79624 + amended removal) → 33-scenario re-run. A structural -legacy rework (if the architect calls for one) does NOT stall the push — tracked-follow-up; the comment-rewords + 002 regen are the gating items. NOT Done until the blast radius is complete + pushed.
+
+FULLY LANDED ON MASTER + PUSHED (2026-06-17): 820e79624 (STATBUS-078 gate) + 1083c62b0 (from_commit_sha removal) + 78e770ac5 (blast-radius completion: test/expected/002 ER-diagram baseline + install-recovery comment rewords, all comment/echo-only, -legacy kept). origin/master = 78e770ac5. Push triggered images.yaml (per-commit image build for 78e770ac). REMAINING for Done: the 33-scenario install-recovery re-run must certify single-source (branch-only) recovery green — the upgrade-system oracle (correctness proven by the run). Tester: local fast-test sanity → wait for 78e770ac image → fire the 33-scenario re-run. Mark Done when that run is green (the 4 flag-absent + recovery scenarios pass under branch-only recovery). Gates rc.04 (STATBUS-075) alongside e6c85c193's 9.
 <!-- SECTION:NOTES:END -->
