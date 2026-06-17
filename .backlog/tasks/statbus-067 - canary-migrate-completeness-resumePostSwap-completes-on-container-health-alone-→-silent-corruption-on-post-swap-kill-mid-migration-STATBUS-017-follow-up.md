@@ -7,7 +7,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-16 21:57'
-updated_date: '2026-06-17 07:14'
+updated_date: '2026-06-17 08:16'
 labels:
   - upgrade
   - recovery
@@ -56,4 +56,14 @@ OWNER: architect (design done) → engineer (execute) → foreman review → tes
 HARNESS PREREQ ALREADY IN PLACE (foreman, fc742bd4f, 2026-06-17): both reproducers (3-postswap-migrate-killed-after-commit, 3-postswap-migration-deterministic-error) now call `quiesce_upgrade_service "$VM_NAME" >&2` inside _fabricate_in_progress_row, immediately before fabricate_scheduled_upgrade_row. This closes the fabricate→in_progress-UPDATE window where the running upgrade service could claim the scheduled row — removing a race confound from the eventual canary re-validation. NOTE for the engineer/tester: this shifted the scenario line numbers cited in the Implementation Plan by ~+5 (the manual in_progress UPDATE block moved down); RE-READ the scenario rather than trusting the cited line refs. The Q1/Q2 FIX itself is in cli/internal/upgrade/service.go (4761/4771) — unaffected by the scenario shift.
 
 KING RULED 2026-06-17: FIX NOW — include the canary fix in rc.04 (overrode the foreman/architect defer recommendation). The King is driving the architect directly on the Q1+Q2 implementation. Flow: architect writes the exact Q1+Q2 old_string/new_string vs current cli/internal/upgrade/service.go → engineer applies → architect reviews byte-level → foreman commits + pushes. Validation: 3-postswap-migrate-killed-after-commit promoted out of skip-default for the combined re-run (quiesce already in from fc742bd4f). EXPECTATION (King-accepted): the rolled_back terminal must be confirmed empirically (operator saw in_progress) — first reproducer run may land short and need one follow-up touch; that is the fix-now cost, expected not a regression. Sequencing: carve-out (55cb5c959, committed+pushed) + canary fix both land → ONE comprehensive re-run validates the gating set + the promoted reproducer together.
+
+RUN B RESULT (foreman, 2026-06-17, run 27674217081): the canary fix did NOT produce rolled_back. BOTH repros failed IDENTICALLY with the COMPLETED outcome (architect's 3rd case = re-diagnose, NOT a continuation touch):
+- 3-postswap-migrate-killed-after-commit (line 445): expected rolled_back, ACTUAL=completed; db.migration max_version=20260616104500; sentinel_object_present=true; NRestarts=0; flag ABSENT.
+- 3-postswap-migration-deterministic-error (line 388): expected rolled_back, ACTUAL=completed; db.migration max_version=20260616104500.
+
+The Q1 gate did NOT fire → else-branch self-healed to completed. HasPending (migrate.go:545-562, read by foreman) is a clean check (on-disk files vs applied set); it returned FALSE → at the canary check EVERY on-disk migration was ALREADY recorded in db.migration.
+
+ALARM-REVERSAL (ground truth = the run): the design ASSUMED the migration is committed-but-UNRECORDED at the canary (HasPending=true). Empirical is the OPPOSITE — recorded + sentinel present → the DB looks CONSISTENT → `completed` looks CORRECT, not corrupt. Either (a) recovery (boot-migrate-up/STATBUS-017) reconciles the half-applied migration → completed is correct → the canary 'bug' is NOT real → REVERT the canary fix 1e02a1797 (it would wrongly defer genuine convergence) + re-expect the scenarios; OR (b) the DB is genuinely half-applied invisibly to HasPending → gate needs a different signal. Routed to architect for rigorous re-diagnosis (a 'no-bug-after-all' conclusion requires adversarial verification, not acceptance); engineer available to instrument (dump db.migration + on-disk set + HasPending result at the canary). Full log: tmp/runB-failed.log.
+
+NOTE: the canary fix is INERT for genuine-convergence (HasPending=false → self-heal, unchanged), so it does not affect RUN A's gating scenarios — RUN A (gate, run 27675235157) triggered in parallel, valid regardless of this re-diagnosis.
 <!-- SECTION:NOTES:END -->
