@@ -1,12 +1,12 @@
 ---
 id: STATBUS-079
 title: >-
-  stamp-gate-regression-net: source-structure assert that all 3 stamp-write
-  sites gate on the RUN_NO_STAMP decision
+  stamp-gate-hardening: lock in the STATBUS-078 gate so a future edit can't
+  silently re-open the dirty-stamp hole
 status: In Progress
 assignee: []
 created_date: '2026-06-17 19:03'
-updated_date: '2026-06-17 20:05'
+updated_date: '2026-06-17 20:12'
 labels:
   - dx
   - safety-machinery
@@ -25,13 +25,15 @@ ordinal: 79000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Follow-up from STATBUS-078 (architect observation C). Test 5 (dev.sh test-stamp-guard) is GUARD-level: it asserts the guard returns rc=3 on dirty + the guard itself never writes a stamp. It does NOT assert the three CALLER write-gates (the invariant "all 3 stamp-write sites gate on the decision together"). Today that invariant holds and is verified by byte-review (foreman + architect), but a FUTURE edit could ungate one write site and no test would catch it — re-opening the dirty-stamp hole the gate-pedagogy change closed.
+WHAT: two small hardening additions that protect the STATBUS-078 stamp-guard against a FUTURE edit silently re-opening the "dirty stamp" hole.
 
-ADD a source-structure regression net (cheap, DB-free): assert each of the 3 stamp-write sites is guarded by its withhold decision —
-- dev.sh:812 fast-test write must be inside the `FAST_STAMP_WITHHELD` gate
-- dev.sh:1894 db-docs write must be inside the `DOCDB_STAMP_WITHHELD` gate
-- cli/cmd/types.go:~109 types write must be gated on `stampDecision != stampGuardRunNoStamp`
-Either a grep/structure self-test (mirror the dev.sh test-stamp-guard style) or a Go test asserting the source contains the gate around each write. Non-blocking; the invariant holds now (COMMIT 1). Owner: engineer; architect review.
+1. FAIL-FAST CATCH-ALL: a `*)` default in BOTH dev.sh stamp-guard caller switches, so an unexpected guard return code fails LOUDLY instead of falling through silently — a fall-through would leave the withhold-flag unset → write a stamp from a dirty tree, the exact corruption STATBUS-078 exists to prevent.
+
+2. WRITE-SITE REGRESSION TEST: a source-structure check asserting all 3 stamp-write sites (fast-test, db-docs, types) STAY gated on the withhold decision. The existing self-test only covers the guard's return code, not the caller write-gates — so a future ungating would go uncaught.
+
+WHY: STATBUS-078 made landing a migration override-free (no FORCE=1 / no --no-verify). This keeps it that way as the code evolves.
+
+STATUS: in progress; lands as its OWN commit, parallel to the rc.04 re-run; NOT cut-blocking (no hole today — the guard returns only 0/1/3).
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Implementation Notes
