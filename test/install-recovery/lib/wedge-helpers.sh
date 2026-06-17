@@ -513,8 +513,8 @@ remove_release_file_in_vm() {
 # the binary swap. This is the pre-STATBUS-060 preswap-checkout window:
 #
 #   1. public.upgrade row in state='in_progress', from_commit_version=<from_version>
-#      (mirrors executeUpgrade's scheduled→in_progress claim UPDATE: service.go:1308
-#      ExecuteUpgradeInline / service.go:3498 executeScheduled).
+#      (mirrors executeUpgrade's scheduled→in_progress claim UPDATE in
+#      ExecuteUpgradeInline / executeScheduled).
 #   2. All services stopped (docker compose stop was called for backup).
 #   3. ~/statbus-backups/pre-upgrade-active/ dir created (managed backup dir;
 #      backup_path="" in the PreSwap flag so restoreDatabase is a no-op —
@@ -540,11 +540,11 @@ remove_release_file_in_vm() {
 #   from_version — optional; the bare version string to record in
 #                  public.upgrade.from_commit_version. Pass d.version's format —
 #                  v-stripped (e.g. "2026.05.2" for the release v2026.05.2),
-#                  matching service.go:1308 (ExecuteUpgradeInline) /
-#                  service.go:3498 (executeScheduled) which write d.version
-#                  verbatim. from_commit_version is display-only (post-STATBUS-062
-#                  restore uses from_commit_sha); a legacy row with from_commit_sha=NULL
-#                  falls back to the pre-upgrade branch. When empty/omitted, NULL.
+#                  matching ExecuteUpgradeInline / executeScheduled which write
+#                  d.version verbatim. from_commit_version is display-only; recovery
+#                  restores via the pinned pre-upgrade branch (STATBUS-077 removed the
+#                  from_commit_sha column — all recovery is branch-based). When
+#                  empty/omitted, NULL.
 #
 # Returns 0 on success; non-zero on failure.
 # ─────────────────────────────────────────────────────────────────────────
@@ -565,9 +565,10 @@ write_preswap_wedge() {
     sql_file=$(mktemp /tmp/harness-wedge-inprogress-XXXXXX.sql)
     # Single-line SQL avoids newline/quoting collapse in printf; psql -t -A gives tuples-only.
     # NULLIF('', '') normalises an absent from_version to NULL; a real SHA/tag is stored as-is.
-    # Mirrors executeUpgrade's scheduled→in_progress claim UPDATE (service.go:1308
-    # ExecuteUpgradeInline / service.go:3498 executeScheduled) which writes d.version
-    # verbatim; from_commit_version is display-only (restore uses from_commit_sha).
+    # Mirrors executeUpgrade's scheduled→in_progress claim UPDATE
+    # (ExecuteUpgradeInline / executeScheduled) which writes d.version verbatim;
+    # from_commit_version is display-only; recovery restores via the pinned
+    # pre-upgrade branch (STATBUS-077 removed the from_commit_sha column).
     printf "UPDATE public.upgrade SET state = 'in_progress'::public.upgrade_state, started_at = now(), from_commit_version = NULLIF('%s', '') WHERE commit_sha = '%s' AND state = 'scheduled'::public.upgrade_state RETURNING id;\n" \
         "$from_version" "$commit_sha" > "$sql_file"
     chmod 644 "$sql_file"

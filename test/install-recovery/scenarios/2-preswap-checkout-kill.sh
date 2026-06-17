@@ -212,9 +212,9 @@ echo "── second install for recovery (real install.sh --channel edge) ──
 # STATBUS-060: recovery runs the real install.sh --channel edge (operator path).
 # install.sh procures HEAD's sb binary via docker image (or build fallback), then
 # calls ./sb install which detects the PreSwap flag → recoverFromFlag PreSwap branch →
-# recoveryRollback reads from_commit_sha (set at claim while HEAD was still at
-# source CommitSHA — STATBUS-060 deferred checkout; architect's STATBUS-062) →
-# restoreGitState(source CommitSHA) → rollback().
+# recoveryRollback → restoreGitState restores to the pinned pre-upgrade branch
+# (= source CommitSHA; HEAD's deferred checkout keeps HEAD at source — STATBUS-060;
+# STATBUS-077 made the branch the single recovery source) → rollback().
 # install.sh exits 0 for both success and rollback (rc=75 → install.sh banner + exit 0).
 # Catastrophic failures are non-zero and abort via set -e. Outcome: row state.
 install_statbus_in_vm "$VM_NAME"
@@ -224,8 +224,8 @@ install_statbus_in_vm "$VM_NAME"
 #
 # C4 recovery is an ABORT: no commit at binary-swap boundary → terminal state
 # 'failed' or 'rolled_back'. Load-bearing: working tree must return to the source
-# CommitSHA — recoveryRollback uses from_commit_sha (= source CommitSHA, captured
-# at claim while HEAD was still at source; STATBUS-060 + STATBUS-062).
+# CommitSHA — recoveryRollback restores via the pinned pre-upgrade branch
+# (= source CommitSHA; STATBUS-060 deferred checkout + STATBUS-077 branch-based recovery).
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── convergence checks ──"
@@ -252,10 +252,10 @@ esac
 # both the rolled_back and failed tiers above.
 assert_upgrade_row_error_matches "$VM_NAME" "INSTALL_PRECONDITION_FAILED"
 
-# Load-bearing: working tree returned to source CommitSHA via from_commit_sha → restoreGitState.
+# Load-bearing: working tree returned to source CommitSHA via the pinned pre-upgrade branch → restoreGitState.
 WT_COMMIT_AFTER=$(VM_EXEC bash -c "cd ~/statbus && git rev-parse HEAD" 2>/dev/null | tr -d '\r' || echo "")
 if [ "$WT_COMMIT_AFTER" != "$OLD_COMMIT" ]; then
-    echo "✗ working tree not restored to source CommitSHA $OLD_COMMIT (got $WT_COMMIT_AFTER) — from_commit_sha/restoreGitState path broken" >&2
+    echo "✗ working tree not restored to source CommitSHA $OLD_COMMIT (got $WT_COMMIT_AFTER) — pre-upgrade-branch/restoreGitState path broken" >&2
     exit 1
 fi
 echo "  ✓ working tree at source CommitSHA $(echo "$OLD_COMMIT" | cut -c1-8)"
