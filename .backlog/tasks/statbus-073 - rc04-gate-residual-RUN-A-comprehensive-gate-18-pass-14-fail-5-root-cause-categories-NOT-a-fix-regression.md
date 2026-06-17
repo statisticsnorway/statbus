@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-17 10:13'
-updated_date: '2026-06-17 10:41'
+updated_date: '2026-06-17 10:59'
 labels:
   - install-recovery
   - rc.04
@@ -57,4 +57,6 @@ LATENT SECOND LAYER (real, only surfaces AFTER the quiesce fix): for binary-swap
 FIX: SIGKILL-class quiesce (architect writing exact diff): keep timer stop; `systemctl --user kill -s SIGKILL` the daemon (SIGTERM handler can't fire); prevent Restart=always(RestartSec=30) revival without delivering SIGTERM to a live process; preserve recovery re-enable (step-table `enable --now`, install.go:1806). Harness-only (wedge-helpers.sh). Plus operator's Cat-C config-generate (committed 9bdba03cc, complementary). -> ONE re-run -> true residual legible (likely just stage-a infra + the binary-swap second layer + any genuine known-reds).
 
 FIX COMMITTED + RE-RUN LIVE (foreman): SIGKILL-class quiesce COMMITTED 3a0d6e6dd (foreman-reviewed: verified it mirrors the product's stopRestartUpgradeUnit at install_upgrade.go:316 documented 7-step sequence; old_string matched; bash -n OK; touched the stale header line). Mechanism: mask --runtime -> kill --signal=SIGKILL -> stop -> reset-failed -> unmask (race-free respawn block; no SIGTERM handler; clears 137+NRestarts; preserves recovery enable --now). PUSHED 6a0a8398e..3a0d6e6dd. Both gate fixes now on master: config-generate (9bdba03cc) + SIGKILL-quiesce (3a0d6e6dd). Only .sh changed -> sb binary/images content-identical (fast cached rebuild). COMPREHENSIVE RE-RUN LIVE: run 27683157288 on 3a0d6e6dd (blank selector = ~30 gating scenarios). Expect ~13 of 14 reds cleared; true residual to surface = stage-a infra (auto-pass) + binary-swap-kill/4-rollback-kill latent edge-swap make-fail second layer (mechanic on standby) + any genuine known-reds. Watcher beiv5v11f. ~1.5-2h.
+
+KING RULING (2026-06-17, foreman recorded): cut bar = HOLD FOR 100% GREEN. NO acceptable-reds carve-out. SUPERSEDES the Description's 'green OR remaining reds confirmed-known-and-acceptable'. Even a residual of only {stage-a infra blip (re-run) + the two throwaway-build edge-case scenarios (binary-swap-kill + 4-rollback-kill toolchain-free make-fail second layer)} does NOT permit a cut. Those two get a REAL fix (route edge-swap through image-procurement/docker-pull OR target a tagged release carrying the inject framework); infra blip gets a clean re-run; rc.04 cuts ONLY off a fully-green comprehensive run. At least one more fix->re-run loop is now on the critical path by design.
 <!-- SECTION:NOTES:END -->
