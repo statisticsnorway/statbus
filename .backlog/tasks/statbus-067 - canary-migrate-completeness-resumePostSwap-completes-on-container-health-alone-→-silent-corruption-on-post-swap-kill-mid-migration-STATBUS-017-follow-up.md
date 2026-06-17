@@ -7,7 +7,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-16 21:57'
-updated_date: '2026-06-17 08:16'
+updated_date: '2026-06-17 08:38'
 labels:
   - upgrade
   - recovery
@@ -66,4 +66,19 @@ The Q1 gate did NOT fire → else-branch self-healed to completed. HasPending (m
 ALARM-REVERSAL (ground truth = the run): the design ASSUMED the migration is committed-but-UNRECORDED at the canary (HasPending=true). Empirical is the OPPOSITE — recorded + sentinel present → the DB looks CONSISTENT → `completed` looks CORRECT, not corrupt. Either (a) recovery (boot-migrate-up/STATBUS-017) reconciles the half-applied migration → completed is correct → the canary 'bug' is NOT real → REVERT the canary fix 1e02a1797 (it would wrongly defer genuine convergence) + re-expect the scenarios; OR (b) the DB is genuinely half-applied invisibly to HasPending → gate needs a different signal. Routed to architect for rigorous re-diagnosis (a 'no-bug-after-all' conclusion requires adversarial verification, not acceptance); engineer available to instrument (dump db.migration + on-disk set + HasPending result at the canary). Full log: tmp/runB-failed.log.
 
 NOTE: the canary fix is INERT for genuine-convergence (HasPending=false → self-heal, unchanged), so it does not affect RUN A's gating scenarios — RUN A (gate, run 27675235157) triggered in parallel, valid regardless of this re-diagnosis.
+
+RE-DIAGNOSIS COMPLETE + FOREMAN-VERIFIED (2026-06-17): BRANCH (b) — the reproducer is broken (topology infidelity), NOT branch (a) (no-bug). KEEP the canary fix 1e02a1797; DO NOT revert.
+
+VERIFIED EVIDENCE (foreman checked tmp/runB-failed.log + code directly, not just architect's word):
+- :7674 the synthetic migration is version 20991231235959, committed as a SEPARATE tracked commit ON TOP OF pre-upgrade — NOT inside flag.CommitSHA.
+- :7722 recovery's deferred checkout moves the tree to flag.CommitSHA=73ea5210, which does NOT contain that file → the migration file is STRIPPED from migrations/.
+- :7724 canary logs 'no pending migrations — self-healing' because listMigrationFiles no longer sees the stripped file → HasPending=FALSE → else-branch self-heals to completed.
+- :7793 sentinel_object_present=true, max_version=20260616104500 (a normal migration, not the far-future sentinel): the sentinel TABLE stays applied + unrecorded + FILE-LESS — an orphaned-object inconsistency HasPending (file-vs-record) structurally cannot see.
+- migrate.go:825-835 confirms the PRODUCTION bug is REAL verbatim (committed-but-unrecorded migration → forward-recovery fails 'relation already exists' → only rsync-restore recovers).
+
+WHY THE FIX IS CORRECT (production topology): in prod the migration is part of the TARGET commit = flag.CommitSHA. Recovery checks out flag.CommitSHA → file PRESENT → HasPending=TRUE → Q1 defers → rollback. The reproducer's backwards topology (migration ABOVE flag.CommitSHA → stripped) cannot occur in production. Both repros share the flaw (deterministic-error 'tracked on top of pre-upgrade' = same shape).
+
+DO NOT change the gate to an orphaned-object signal — that file-less state is a reproducer artifact, not a production case; HasPending (file-vs-record) is correct.
+
+NEXT: fix the REPRODUCER, not the gate — make the synthetic migration present in the tree at flag.CommitSHA at the canary (align migration commit / flag.CommitSHA / container tags / binary commit). Architect designing the exact reproducer-fix + canary-point instrumentation dump (db.migration, on-disk migrations, HasPending, HEAD vs flag.CommitSHA, container tags, sentinel) in ONE change → engineer applies → foreman commits + pushes + runs. Canary fix is correct-by-analysis (verified) but NOT empirically proven green until a faithful reproducer runs rolled_back — per the King's run-is-the-oracle principle, the canary is not done until then. Test-harness only; still needs commit→push→run.
 <!-- SECTION:NOTES:END -->
