@@ -7,6 +7,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-06-17 11:26'
+updated_date: '2026-06-17 11:30'
 labels:
   - install-recovery
   - harness
@@ -47,3 +48,11 @@ BLAST RADIUS: likely every fabricate+inject scenario that pre-stages HEAD + runs
 
 OWNER: architect (fix-shape decision: harness-fetch vs carve-out-extend vs guard-graceful) -> operator/engineer implement -> foreman review -> re-run. Blocks the rc.04 100%-green gate (STATBUS-075).
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+OPERATOR DATA (2026-06-17): VM git setup = vm-bootstrap.sh. Release/tag install (line 549): `git clone --depth 1 --branch ${install_version}` (the 2-preswap scenarios = v2026.05.2). HEAD/edge install (line 520): `git clone --depth 50` + `git remote set-branches --add origin db-seed`. BOTH shallow -> the HEAD build commit 3a0d6e6d is not present (depth-1 single-branch old tag definitively excludes it). data-helpers.sh:331 ALREADY carries a comment flagging 'sb's freshness check on a depth-1 clone' as a known concern (never closed). Fabricate (data-helpers.sh:337-338): `./sb config generate && ./sb psql ...` runs with NO STATBUS_INJECT_AT and NO freshness bypass; the carve-out covers only the injected `./sb install`.
+
+FOREMAN-FLAGGED TRAP for option (a): fetching the commit shifts the failure, doesn't fix it — fabricate runs the HEAD binary against a v2026.05.2 WORKING TREE, so `git diff 3a0d6e6d` becomes NON-EMPTY -> freshness guard sees STALE -> the original STATBUS-068 #2 self-heal `make` -> toolchain-free fail. Points toward option (b)/dedicated-bypass (the fabricate calls deliberately run new-binary-on-old-tree as setup, so they should skip the freshness check). Architect confirming from cli/cmd/root.go guard behavior whether (b) alone suffices.
+<!-- SECTION:NOTES:END -->
