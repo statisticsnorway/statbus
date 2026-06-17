@@ -112,10 +112,13 @@ cd ~/statbus
 if ! git cat-file -e $HEAD_LOCAL 2>/dev/null; then
     git fetch --depth 1 origin $HEAD_LOCAL || { echo "FATAL" >&2; exit 1; }
 fi
-# STATBUS-060: do NOT checkout here. executeUpgrade also defers the
-# working-tree checkout to the recovery boot — the OLD binary must never
-# see target-compose. Pre-fetching objects is still needed so that
-# executeUpgrade's `git fetch origin commitSHA` is a fast no-op.
+# STATBUS-060: do NOT checkout here. executeUpgrade defers the working-tree
+# checkout to the recovery boot — the OLD binary must never see target-compose
+# (the target's docker-compose.rest.yml has a mandatory REST_ADMIN_BIND_ADDRESS
+# that the stale .env lacks, so docker compose hard-errors, state-detection
+# reads db-unreachable, and the install mis-routes to the step-table). The
+# pre-fetch above is still needed so executeUpgrade's later target-SHA fetch
+# is a fast no-op.
 cp /tmp/env-config .env.config
 cp /tmp/users.yml .users.yml
 STATBUS_INJECT_AT=killed-by-system-during-preswap-checkout \
@@ -217,7 +220,7 @@ echo "── second install for recovery (real install.sh --channel edge) ──
 # STATBUS-077 made the branch the single recovery source) → rollback().
 # install.sh exits 0 for both success and rollback (rc=75 → install.sh banner + exit 0).
 # Catastrophic failures are non-zero and abort via set -e. Outcome: row state.
-install_statbus_in_vm "$VM_NAME"
+SB_RECOVERY_REUSE_STAGED_BINARY=1 install_statbus_in_vm "$VM_NAME"
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 6 — assertions

@@ -126,11 +126,13 @@ cd ~/statbus
 if ! git cat-file -e $HEAD_LOCAL 2>/dev/null; then
     git fetch --depth 1 origin $HEAD_LOCAL || { echo "FATAL" >&2; exit 1; }
 fi
-git checkout $HEAD_LOCAL
-# Re-place sb after checkout (gitignored; checkout leaves it alone, but match the
-# proven container-restart-kill pattern so ./sb is unambiguously the HEAD binary).
-cp /tmp/sb ./sb
-chmod +x ./sb
+# STATBUS-060: do NOT checkout here. executeUpgrade defers the working-tree
+# checkout to the recovery boot — the OLD binary must never see target-compose
+# (the target's docker-compose.rest.yml has a mandatory REST_ADMIN_BIND_ADDRESS
+# that the stale .env lacks, so docker compose hard-errors, state-detection
+# reads db-unreachable, and the install mis-routes to the step-table). The
+# pre-fetch above is still needed so executeUpgrade's later target-SHA fetch
+# is a fast no-op.
 cp /tmp/env-config .env.config
 cp /tmp/users.yml .users.yml
 STATBUS_INJECT_AT=killed-by-system-during-binary-swap \
@@ -190,7 +192,7 @@ INSTALL_SCRIPT=$(mktemp)
 cat > "$INSTALL_SCRIPT" << SCRIPT
 set -e
 cd ~/statbus
-git checkout $HEAD_LOCAL
+# STATBUS-060: no checkout — on recovery boot recoverFromFlag owns the working tree.
 STATBUS_INJECT_AT=killed-by-system-during-builtin-rollback \
 STATBUS_MIN_DISK_GB=5 \
     ./sb install --non-interactive --trust-github-user jhf
@@ -239,7 +241,7 @@ case "$SECOND_EXIT" in
         # rollback-completion. (Same pattern as 2-preswap-checkout-kill:215.)
         echo ""
         echo "── third install for recovery completion ──"
-        install_statbus_in_vm "$VM_NAME" || { rc=$?; [ "$rc" -eq 75 ] || exit "$rc"; }
+        SB_RECOVERY_REUSE_STAGED_BINARY=1 install_statbus_in_vm "$VM_NAME" || { rc=$?; [ "$rc" -eq 75 ] || exit "$rc"; }
 
         FINAL_STATE=$(VM_EXEC bash -c "cd ~/statbus && echo 'SELECT state FROM public.upgrade ORDER BY id DESC LIMIT 1;' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
         echo "  final state: $FINAL_STATE"

@@ -118,13 +118,13 @@ cd ~/statbus
 if ! git cat-file -e $HEAD_LOCAL 2>/dev/null; then
     git fetch --depth 1 origin $HEAD_LOCAL || { echo "FATAL" >&2; exit 1; }
 fi
-git checkout $HEAD_LOCAL
-# Re-place sb after git checkout — ~/statbus/sb stays as the INSTALL_VERSION
-# binary (gitignored; checkout leaves it alone).  /tmp/sb is the host-built
-# HEAD binary from upload_sb_to_vm; the C8 inject site requires the HEAD binary.
-# Pattern D fix: matches 3-postswap-migration-timeout and between-migrations-kill.
-cp /tmp/sb ./sb
-chmod +x ./sb
+# STATBUS-060: do NOT checkout here. executeUpgrade defers the working-tree
+# checkout to the recovery boot — the OLD binary must never see target-compose
+# (the target's docker-compose.rest.yml has a mandatory REST_ADMIN_BIND_ADDRESS
+# that the stale .env lacks, so docker compose hard-errors, state-detection
+# reads db-unreachable, and the install mis-routes to the step-table). The
+# pre-fetch above is still needed so executeUpgrade's later target-SHA fetch
+# is a fast no-op.
 cp /tmp/env-config .env.config
 cp /tmp/users.yml .users.yml
 STATBUS_INJECT_AT=killed-by-system-during-container-restart \

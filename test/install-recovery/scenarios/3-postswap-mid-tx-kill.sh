@@ -146,17 +146,19 @@ echo "════════════════════════�
 echo "  Stage 1 — first install at HEAD, park first migration mid-tx, SIGKILL tree"
 echo "════════════════════════════════════════════════════════════════"
 
-# Advance the worktree to HEAD BEFORE upload_sb_to_vm (a HEAD-binary ./sb on the
-# v2026.05.2 tree trips the freshness self-heal → `go: not found` → exit 2 before
-# state detection; see the sibling scenarios' checkout-before-prestage note).
-echo "── checking out HEAD on the VM + staging HEAD binary ──"
-VM_EXEC bash -c "cd ~/statbus && git fetch --depth 1 origin $HEAD_SHA && git checkout $HEAD_SHA"
+echo "── staging HEAD binary (STATBUS-060: NO checkout — tree stays OLD; executeUpgrade owns the target checkout) ──"
+# Pre-fetch HEAD objects only (no checkout) so executeUpgrade's fetch is a fast no-op.
+VM_EXEC bash -c "cd ~/statbus && git fetch --depth 1 origin $HEAD_SHA"
 VM_EXEC bash -c "cd ~/statbus && cp /tmp/env-config .env.config && cp /tmp/users.yml .users.yml"
-upload_sb_to_vm "$VM_NAME"
 
+# Fabricate BEFORE upload_sb_to_vm so fabricate's `./sb config generate` runs the
+# OLD v2026.05.2 binary on the OLD tree (matched → no freshness self-heal trip),
+# mirroring the reference model (2-preswap-checkout-kill).
 echo "── fabricating scheduled public.upgrade row for HEAD ──"
 quiesce_upgrade_service "$VM_NAME"
 fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_SHA"
+
+upload_sb_to_vm "$VM_NAME"
 
 echo "── triggering install with mid-tx pause injection ──"
 VM_EXEC bash -c "touch '$RELEASE_FILE'"

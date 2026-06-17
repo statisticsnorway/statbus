@@ -111,7 +111,13 @@ cd ~/statbus
 if ! git cat-file -e $HEAD_LOCAL 2>/dev/null; then
     git fetch --depth 1 origin $HEAD_LOCAL || { echo "FATAL" >&2; exit 1; }
 fi
-git checkout $HEAD_LOCAL
+# STATBUS-060: do NOT checkout here. executeUpgrade defers the working-tree
+# checkout to the recovery boot — the OLD binary must never see target-compose
+# (the target's docker-compose.rest.yml has a mandatory REST_ADMIN_BIND_ADDRESS
+# that the stale .env lacks, so docker compose hard-errors, state-detection
+# reads db-unreachable, and the install mis-routes to the step-table). The
+# pre-fetch above is still needed so executeUpgrade's later target-SHA fetch
+# is a fast no-op.
 cp /tmp/env-config .env.config
 cp /tmp/users.yml .users.yml
 STATBUS_INJECT_AT=killed-by-system-during-binary-swap \
@@ -174,7 +180,7 @@ echo "── second install for recovery ──"
 # failure and aborts. Exit 0 would mean the recovery wrongly reached 'completed'
 # (forward-recovery, which the :822 guard makes unreachable) — caught loudly by
 # the row-state guard below. (Mirror of 2-preswap-backup-kill:223.)
-install_statbus_in_vm "$VM_NAME" || { rc=$?; [ "$rc" -eq 75 ] || exit "$rc"; }
+SB_RECOVERY_REUSE_STAGED_BINARY=1 install_statbus_in_vm "$VM_NAME" || { rc=$?; [ "$rc" -eq 75 ] || exit "$rc"; }
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 6 — assertions (PreSwap kill → rolled_back | failed, NEVER completed)

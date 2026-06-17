@@ -300,7 +300,7 @@ SELECT
   'scheduled'::public.upgrade_state,
   now(),
   NULL, NULL, NULL, NULL,
-  NULL, NULL, NULL, NULL
+  'harness-' || substring(input.commit_sha for 8) || '.log', NULL, NULL, NULL
 FROM input
 ON CONFLICT (commit_sha) DO UPDATE SET
   state            = 'scheduled'::public.upgrade_state,
@@ -312,7 +312,7 @@ ON CONFLICT (commit_sha) DO UPDATE SET
   skipped_at       = NULL,
   dismissed_at     = NULL,
   superseded_at    = NULL,
-  log_relative_file_path = NULL
+  log_relative_file_path = EXCLUDED.log_relative_file_path
 RETURNING id, commit_sha, state, scheduled_at;
 SQL
 )

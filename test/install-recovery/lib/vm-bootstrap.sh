@@ -505,10 +505,25 @@ install_statbus_in_vm() {
         # the shared section below uploads the wrapper script to /tmp/install.sh and runs
         # `bash /tmp/install.sh`; using the same name would cause the wrapper to call itself).
         _wait_for_ssh "$ip" 30
-        scp -O "${SSH_OPTS[@]}" "$HARNESS_ROOT/install.sh" root@"$ip":/tmp/statbus-install.sh
-        ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0755 /tmp/statbus-install.sh'
+        if [ -n "${SB_RECOVERY_REUSE_STAGED_BINARY:-}" ]; then
+            # Mode B (architect): reuse the already-staged target ./sb (upload_sb_to_vm) instead
+            # of install.sh --channel edge. --channel edge git-fetches origin/master + checks out
+            # the MOVING tip + procures THAT binary, drifting past the scheduled target when master
+            # advances mid-run (non-deterministic; abort scenarios assert binary-unchanged).
+            # recoverFromFlag owns the working-tree checkout; on-disk ./sb is already the target →
+            # deterministic + target-pinned recovery.
+            cat > "$install_script" << SCRIPT
+set -e
+cd ~/statbus
+cp /tmp/env-config .env.config
+cp /tmp/users.yml .users.yml
+STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf
+SCRIPT
+        else
+            scp -O "${SSH_OPTS[@]}" "$HARNESS_ROOT/install.sh" root@"$ip":/tmp/statbus-install.sh
+            ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0755 /tmp/statbus-install.sh'
 
-        cat > "$install_script" << SCRIPT
+            cat > "$install_script" << SCRIPT
 set -e
 # If ~/statbus/.git does not exist (no prior install), do a minimal clone first
 # so install.sh always enters RESCUE mode (git update + binary procure + ./sb install).
@@ -533,6 +548,7 @@ cp /tmp/users.yml ~/statbus/.users.yml
 # Exits 0 for both success and rollback; catastrophic failures are non-zero.
 STATBUS_MIN_DISK_GB=5 bash /tmp/statbus-install.sh --channel edge --trust-github-user jhf
 SCRIPT
+        fi
     else
         cat > "$install_script" << SCRIPT
 set -e

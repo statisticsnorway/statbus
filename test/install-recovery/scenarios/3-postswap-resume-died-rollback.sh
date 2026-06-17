@@ -114,7 +114,7 @@ bootstrap_install_test_vm "$VM_NAME" "$INSTALL_VERSION"
 
 echo ""
 echo "── initial install at $INSTALL_VERSION ──"
-install_statbus_in_vm "$VM_NAME" "$INSTALL_VERSION"
+SB_INSTALL_SKIP_SEED=1 install_statbus_in_vm "$VM_NAME" "$INSTALL_VERSION"
 assert_health_passes "$VM_NAME"
 
 echo ""
