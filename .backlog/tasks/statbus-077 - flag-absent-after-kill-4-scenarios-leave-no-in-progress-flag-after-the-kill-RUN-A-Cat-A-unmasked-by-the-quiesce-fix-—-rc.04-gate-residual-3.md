@@ -7,6 +7,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-06-17 13:07'
+updated_date: '2026-06-17 13:21'
 labels:
   - install-recovery
   - rc.04
@@ -40,3 +41,12 @@ OPEN: do the 4 kill at the same conceptual point or different (mid-tx / mid-appl
 
 GATING: blocks the rc.04 100%-green gate (STATBUS-075) alongside the (already-fixed) freshness + masked-unit classes. The re-run is HELD until this fix lands so it batches with e6c85c193's 9 fixes into ONE comprehensive re-run. OWNER: architect (diagnose product-vs-harness + fix shape) -> implement -> foreman review/commit -> re-run.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+ROOT CAUSE = PRODUCT BUG (architect diagnosed, foreman accepted, 2026-06-17). NOT harness. ONE cause for all 4; flag-absent is downstream. The upgrade CLAIM step writes from_commit_sha (service.go:1341 ExecuteUpgradeInline + :3568 executeScheduled, identical SQL: `UPDATE public.upgrade SET state='in_progress', started_at=now(), from_commit_sha=$1, from_commit_version=$2 WHERE id=$3 AND state='scheduled' AND started_at IS NULL`). The from_commit_sha COLUMN is added by migration 20260616104500 (2026-06-16, STATBUS-062) which runs in THIS upgrade's migrate phase AFTER the claim. Upgrading from any pre-20260616104500 schema (v2026.05.2, 2026-05-21 = EXACTLY ALBANIA) -> column absent at claim -> SQLSTATE 42703 undefined_column -> claim returns error -> executeUpgrade ABORTS before writeUpgradeFlag and before migrate -> flag absent, db.migration at baseline, nothing parks. PROOF: archivebackup-resume log :3848 `column "from_commit_sha" of relation "upgrade" does not exist (SQLSTATE 42703)`; resume-died-rollback :3805; rollback-restore-watchdog :3598 — identical. mid-tx-kill matches by symptom (tmux log not captured — H1).
+SEVERITY: GATES rc.04 + ALBANIA-CRITICAL. This is the REAL production path — `./sb upgrade schedule` writes the row on the OLD schema, the NEW binary claims it on the OLD schema -> 42703 -> upgrade can't even START. rc.04 AS-IS cannot upgrade v2026.05.2. The author handled from_commit_sha RESOLUTION failure (srcErr->NULL, comment :1331-1335) but missed the column being ABSENT (schema skew); recovery paths ARE absent-tolerant (recoveryRollback :2259-2270, resumePostSwap :4716) but the pre-migrate claim got no such shim.
+FIX (option A, architect-recommended, foreman-agreed; PRODUCT change — HELD for King design-review): factor both claim sites into ONE helper claimScheduledRow that (1) resolves sourceCommitSHA, (2) checks information_schema for the from_commit_sha column, (3) present -> claim WITH it (today), (4) absent -> claim WITHOUT it + log the skew; recovery's NULL->pre-upgrade-branch fallback handles it. DRY both sites so the tolerance can't be half-applied. REJECTED: (B) backfill-after-migrate (wider blast radius); (C) pre-claim ALTER ADD COLUMN IF NOT EXISTS (duplicates the migration outside the migration system — drift).
+PLAN: architect writes failing reproducer (Go unit test on the claim vs a column-less fixture / pg_regress on a cloned DB — NOT a dev-DB DROP COLUMN, per no-manual-DB-writes) + finalizes the design -> King design-review + go -> engineer implements under architect review -> foreman commits -> batched re-run with e6c85c193's 9 fixes. HARNESS FOLLOW-UPS (non-gating, fix after): H1 tmux-log-capture blindness (stage-dump only greps /tmp/stage*.log, misses /tmp/<session>.log); H2 mid-tx wedge empty-PID on 900s timeout (wait_for_midtx_stall_ready returns garbage not empty -> [ -z ] guard misses -> malformed kill).
+<!-- SECTION:NOTES:END -->
