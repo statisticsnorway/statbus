@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-17 11:04'
-updated_date: '2026-06-17 21:53'
+updated_date: '2026-06-17 22:37'
 labels:
   - install-recovery
   - rc.04
@@ -87,4 +87,12 @@ MODE C = harness-fabrication: fabricate_scheduled_upgrade_row sets log_relative_
 MODE D + 3-postswap-migrate-killed-after-commit = architect triaging in parallel.
 
 PLAN: batch ALL harness fixes (7 Mode A + Mode B + Mode C [+D/migrate if harness]) → ONE commit → push → WAIT for images.yaml (per-commit image ready, else re-inflicts Mode B) → re-fire install-recovery-harness.yaml ONCE. CAVEAT (architect): Fix C may UNMASK Root B-class issues (checkout-kill already shows `git fetch origin commitSHA` rc=128 + binary roll-forward) — that's the test finally exercising executeUpgrade for the first time, SIGNAL not failure; iterate. SEPARATE non-gating tasks: Root B audit, STATBUS-018 (seed-restore --clean on populated DB), STATBUS-081 (COALESCE).
+
+RUN 27715901866 COMPLETE (foreman, overnight 2026-06-18): 13 reds / 19 green (the full 32-scenario tally — earlier '9 reds' was a partial mid-run view). The Mode A/B/C/D harness-fix batch (applied + architect-reviewed + bash-n clean, awaiting commit) addresses 11 of the 13. TWO MORE surfaced from the pending set, NEITHER Mode A/B/C/D:
+
+• 4-rollback-restore-watchdog — RECOVERY-COMPLETES-FORWARD. Reached scheduled-upgrade (not db-unreachable), the postswap kill fired (rc=137), the watchdog assertion passed (NRestarts=0 flat), but the row reached 'completed' when a rollback was expected (log :4132); during recovery 'crash recovery: DB not reachable -> docker compose start db' (:4025) then completed forward. Recovery-semantics — possibly Mode-D-class self-heal or STATBUS-031 (rollback-watchdog gap). Routed to architect (harness-vs-product + foldable-vs-next-iteration).
+
+• 5-install-stage-a-killed-migrate — HARNESS BASH SYNTAX ERROR (NOT infra, NOT seed-restore despite STATBUS-029's old note). The empty-app-name advisory-lock-zombie wedge hit `bash: -c: line 1: syntax error near unexpected token 'then'` (:3844) -> rc=2 at vm-bootstrap.sh:360; the `sudo -i -u statbus -- $quoted_args` transport collapsed a multi-line if/then (the printf-%q/newline-collapse class). Likely a quick harness transport fix. Routed to architect for wedge-owner + line.
+
+PLAN: commit + re-fire the 11-fix batch (validates Mode A/B/C/D; the architect's 'Fix C may unmask Root-B-class issues' caveat means the re-run is a DISCOVERY run, not guaranteed green — iterate per the doctrine). Fold 5-install's wedge fix if quick + ready before commit (->12/13). 4-rollback-restore-watchdog -> next iteration unless foldable. So the cut is more than one re-run away: 13 reds, 11 fixed-pending-validation, 2 new in diagnosis, plus whatever the Mode-A unmask reveals. Commit message drafted: tmp/commit-msg-harness-batch.txt.
 <!-- SECTION:NOTES:END -->
