@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-17 19:03'
-updated_date: '2026-06-17 19:09'
+updated_date: '2026-06-17 19:18'
 labels:
   - dx
   - safety-machinery
@@ -18,7 +18,7 @@ references:
   - 'dev.sh:812'
   - 'dev.sh:1894'
   - 'cli/cmd/types.go:108-115'
-priority: medium
+priority: high
 ordinal: 79000
 ---
 
@@ -38,4 +38,6 @@ Either a grep/structure self-test (mirror the dev.sh test-stamp-guard style) or 
 
 <!-- SECTION:NOTES:BEGIN -->
 SCOPE ADD (2026-06-17): also add a fail-fast `*)` catch-all to the two dev.sh stamp-guard caller switches (fast-test + generate-doc-db) so an UNEXPECTED guard rc fails loud (`echo "unexpected stamp-guard rc=$guard_rc" >&2; exit 1`) instead of silently falling through. Declined from COMMIT 1 (STATBUS-078) because the guard returns only 0/1/3 today (grep-confirmed no rc 2 / no other producer) — purely-theoretical-future hardening, not a current bug. Lands here with the write-site source-assert as one deliberate gate-hardening pass. Engineer offered it during COMMIT 1; foreman deferred to keep COMMIT 1 focused.
+
+PRIORITY BUMPED to HIGH (2026-06-17) — the architect sharpened the catch-all's rationale during COMMIT 1 (STATBUS-078): it is NOT theoretical-benign. With the dead `2) exit 1` removed, the caller switches cover exactly the guard's 0/1/3 contract — but a FUTURE unhandled rc would fall through SILENTLY → fast-test's FAST_STAMP_WITHHELD stays unset → `:-0` → WRITES THE STAMP, possibly on a dirty tree = the exact silent-dirty-stamp corruption class STATBUS-078 exists to prevent. So the `*) ... exit 1` catch-all is a no-silent-corruption / fail-fast guard, not style. Foreman deferred it from COMMIT 1 (820e79624) to avoid a churn-amend of an announced commit, NOT because it's low-value. LAND PROMPTLY as the deliberate gate-hardening commit (catch-all in BOTH dev.sh caller switches: `*) echo "check_stamp_guard: unexpected rc $guard_rc" >&2; exit 1 ;;` + the write-site source-assert). NOT rc.04-cut-blocking (no current hole — guard returns only 0/1/3 today), but should land before/around the re-run wrap. Architect recommends; engineer ready.
 <!-- SECTION:NOTES:END -->
