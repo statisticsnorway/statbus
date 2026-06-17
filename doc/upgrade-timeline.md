@@ -4,6 +4,8 @@ The single authoritative reference for how StatBus upgrades itself: the end-to-e
 timeline, the `public.upgrade` row lifecycle, the install ↔ service mutex, and the
 fail-fast recovery contract.
 
+> **First, the one rule for this whole area: [the only way to know if install and upgrade work is to run them](install-upgrade-testing.md).** This document is the *map* — it lets you think clearly through every case. The map is not the territory: a path is only proven by a real run (commit → push → CI image → run on a VM → observe → iterate), because the problem is too hard to reason out.
+
 Three orchestration paths exist and must never fight each other. The mutex contract
 described here is enforced in code so that running a manual install while the service
 is mid-upgrade fails loud with a diagnostic, rather than corrupting state.

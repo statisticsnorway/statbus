@@ -1,5 +1,8 @@
 # Install Recovery Test Harness
 
+> **Read first: [The only way to know if install and upgrade work is to run them](../../doc/install-upgrade-testing.md).**
+> You cannot reason out whether these paths work — the problem is too hard. The only way to know is commit → push → CI builds the per-commit image → run it on a real VM here → observe → iterate. Unlike the SQL, Go, and integration tests, these *cannot* be run before you push. Stalling before a run produces zero knowledge.
+
 End-to-end Hetzner-Cloud regression tests for the install ladder's recovery surface. Sister to `./dev.sh test-install` (which validates only the happy path).
 
 ## Cost and prerequisites
@@ -15,6 +18,14 @@ The harness provisions **paid ephemeral [Hetzner Cloud](https://hetzner.cloud) V
 ```
 
 **Prerequisite: CI images must exist on ghcr.io.** Each scenario installs StatBus by pulling `statbus-*:<commit_short>` images from ghcr.io. If the target commit's images have not been built and pushed by CI, the install fails with a pull error. Only run the harness against a commit whose images are green on ghcr.
+
+## What every scenario proves (the one goal, in plain words)
+
+Operators of StatBus have exactly one recovery lever: re-run `./sb install`. They never run custom commands. So every scenario in this harness proves the same single thing:
+
+> **If the machine dies at a specific dangerous moment during an install or upgrade, then re-running `./sb install` — and nothing else — must bring the system back to a coherent state, with all data intact.**
+
+Each scenario picks one such moment (the machine is killed mid-backup, mid-git-checkout, mid-binary-swap, mid-migration, mid-rollback, …), then checks that the plain operator re-run recovers. Read each scenario as: **"die HERE → the operator's re-run must end up THERE (a named terminal state) with data intact."** The internal codes (C3, R5, "Fix 11", inject-class names) are grounding for the engineer; the goal above is what the test is *for*.
 
 ## Why this exists
 

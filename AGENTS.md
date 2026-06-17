@@ -75,6 +75,8 @@ echo "SELECT ..." | ./sb psql             # Single queries
 
 **Install-recovery harness** (`./dev.sh test-install-recovery [selector]`): end-to-end upgrade/recovery tests on **paid** ephemeral Hetzner Cloud VMs (CX23, hel1, ~€0.0072/hr, 1-hour minimum; `HCLOUD_TOKEN` in `.env.credentials` required). See `test/install-recovery/README.md`.
 
+> **Before touching install/upgrade/recovery, read [doc/install-upgrade-testing.md](doc/install-upgrade-testing.md): the only way to know if these paths work is to RUN them.** Unlike SQL/Go/integration tests (runnable before pushing), install/upgrade require commit → push → CI builds the per-commit image → run on a real VM → observe → iterate. You cannot reason out the result and you cannot run it locally before pushing; stalling before a run yields zero knowledge.
+
 **⚠️ DESTRUCTIVE Operations (LOCAL DEVELOPMENT ONLY - NEVER IN PRODUCTION):**
 ```bash
 ./dev.sh create-db           # Create database with migrations

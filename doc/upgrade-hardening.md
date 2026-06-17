@@ -1,5 +1,7 @@
 # Upgrade System: Hardening + Plan Compaction
 
+> **The one rule for hardening this system: [the only way to know a change works is to run it](install-upgrade-testing.md)** — commit → push → CI image → run on a real VM → observe → iterate. No amount of analysis substitutes for the run; the problem is too hard to reason out.
+
 ## Context
 
 The upgrade system is fully implemented and deployed (Checkpoints 1-9, Steps 10-15 all DONE). Architecture is documented in:

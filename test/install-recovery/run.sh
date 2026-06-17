@@ -185,6 +185,15 @@ fi
 
 mkdir -p "$HARNESS_ROOT/tmp"
 
+# The one rule for install/upgrade work (printed on every run by design):
+# you cannot reason out whether these paths work — the only way to know is to
+# run them for real, which is what you are doing now. Full reasoning + why these
+# tests are special (they require commit→push→observe, unlike SQL/Go/integration
+# tests you can run before pushing): doc/install-upgrade-testing.md.
+echo ""
+echo "── The only way to know if install/upgrade works is to run it. You are doing that now."
+echo "   Why this is the only way (commit→push→build→run→observe→iterate): doc/install-upgrade-testing.md"
+
 # Run each selected scenario, capturing per-run logs.
 PASS_COUNT=0
 FAIL_COUNT=0

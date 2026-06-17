@@ -23,6 +23,13 @@ skinparam sequence {
 
 title StatBus Upgrade Timeline (single service; ground truth decides direction — forward when at-target, identity-keyed restore only when positively behind)
 
+legend top
+The only way to know these paths actually work is to RUN them — the problem is too hard
+to reason out. commit -> push -> CI builds the per-commit image -> run on a real VM ->
+observe -> iterate. This diagram is the map (each case + its TEST coverage); the run is
+the territory. See doc/install-upgrade-testing.md.
+endlegend
+
 participant "Operator / CI" as cici
 participant "systemd (user)" as systemd
 participant "Upgrade Service\nstatbus-upgrade@$USER" as service

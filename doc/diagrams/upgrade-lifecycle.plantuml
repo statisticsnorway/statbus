@@ -15,6 +15,13 @@ skinparam state {
 
 title public.upgrade row lifecycle — discovery, execution, fail-fast terminals
 
+legend top
+The only way to know these paths actually work is to RUN them — the problem is too hard
+to reason out. commit -> push -> CI builds the per-commit image -> run on a real VM ->
+observe -> iterate. This diagram is the map (each case + its TEST coverage); the run is
+the territory. See doc/install-upgrade-testing.md.
+endlegend
+
 [*] --> available : service poll discovers a release
 
 available --> scheduled : operator/CI schedules\n(scheduled_at set)
