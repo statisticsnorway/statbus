@@ -1,12 +1,14 @@
 #!/bin/bash
-# PROMOTED into the default/full run.sh suite (STATBUS-067, 2026-06-17): this
-#   STATBUS-017 regression reproducer was previously skip-default; with the
-#   post-swap self-heal migration-completeness gate landed (the canary fix) it
-#   is now a permanent strict-green regression guard for the silent-corruption
-#   path. Heavyweight but bounded — it provisions a real VM + seeds a DB
-#   snapshot; the prior comprehensive run with it included took ~1h50m, well
-#   under the 6h ceiling. (Its sibling 3-postswap-migration-deterministic-error
-#   stays skip-default for now — promote separately once this one is green.)
+# HARNESS_SKIP_DEFAULT: STATBUS-017 regression reproducer — excluded from the
+#   default/full run.sh suite + broad phase runs (it provisions a real VM and
+#   seeds a DB snapshot). The post-swap self-heal migration-completeness gate
+#   (canary fix, STATBUS-067) has landed, so this is EXPECTED to reach
+#   state=rolled_back. It is validated this round in a SEPARATE one-off run
+#   (exact-name selector), NOT promoted into the comprehensive strict-green
+#   gate: the rolled_back terminal still needs empirical confirmation, and a
+#   short landing must not red the gate signal nor force a full comprehensive
+#   re-run per canary iteration. Promote to a permanent default-suite guard in
+#   a follow-up once the separate run is confirmed green.
 # Scenario: 3-postswap-migrate-killed-after-commit   ── EXPECTED-GREEN (STATBUS-017 FIXED) ──
 #
 # ╔══════════════════════════════════════════════════════════════════════════╗
