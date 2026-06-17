@@ -1328,18 +1328,12 @@ func (d *Service) Close() {
 // invokedBy / trigger are hardcoded to distinguish operator-driven inline
 // upgrades from scheduler-driven service runs in post-mortem queries.
 func (d *Service) ExecuteUpgradeInline(ctx context.Context, id int, commitSHA, displayName string) error {
-	// STATBUS-062: record the SOURCE CommitSHA (authoritative restore target)
-	// alongside the display-only from_commit_version. HEAD = source here (the
-	// target checkout is deferred to the recovery boot, STATBUS-060). NULL on
-	// error → recovery falls back to the pinned pre-upgrade branch; loud but
-	// not fatal, the claim must still transition the row.
-	sourceCommitSHA, srcErr := d.sourceCommitSHA()
-	if srcErr != nil {
-		fmt.Fprintf(os.Stderr, "ExecuteUpgradeInline: could not resolve source commit for id=%d (recording NULL from_commit_sha; recovery uses the pre-upgrade branch): %v\n", id, srcErr)
-	}
+	// STATBUS-077: claim records only the display version (from_commit_version).
+	// The recovery restore target is the pinned `pre-upgrade` branch (single source);
+	// the from_commit_sha column was removed.
 	tag, err := d.queryConn.Exec(ctx,
-		"UPDATE public.upgrade SET state = 'in_progress', started_at = now(), from_commit_sha = $1, from_commit_version = $2 WHERE id = $3 AND state = 'scheduled' AND started_at IS NULL",
-		nullableCommitSHA(sourceCommitSHA), d.version, id)
+		"UPDATE public.upgrade SET state = 'in_progress', started_at = now(), from_commit_version = $1 WHERE id = $2 AND state = 'scheduled' AND started_at IS NULL",
+		d.version, id)
 	if err != nil {
 		d.markPgInvariantTerminal(err, "service.go:ExecuteUpgradeInline:claim")
 		return fmt.Errorf("claim scheduled upgrade row %d: %w", id, err)
@@ -2148,31 +2142,6 @@ func latestDiskMigrationVersion(projDir string) int64 {
 	return latest
 }
 
-// sourceCommitSHA returns the working tree's current HEAD as a typed
-// CommitSHA — the upgrade's SOURCE commit. Captured before the deferred
-// target checkout (STATBUS-060), so HEAD is still the pre-upgrade commit
-// (the same commit executeUpgrade pins as the `pre-upgrade` branch). This is
-// the authoritative rollback/recovery restore target (STATBUS-062): a
-// CommitSHA always resolves as a git ref, whereas a CommitVersion (d.version
-// / from_commit_version) is display-only and must NEVER be used for lookup.
-func (d *Service) sourceCommitSHA() (CommitSHA, error) {
-	out, err := runCommandOutput(d.projDir, "git", "rev-parse", "HEAD")
-	if err != nil {
-		return "", fmt.Errorf("resolve source commit (git rev-parse HEAD): %w", err)
-	}
-	return NewCommitSHA(strings.TrimSpace(out))
-}
-
-// nullableCommitSHA renders a CommitSHA as a SQL argument: NULL when empty
-// (capture failed, or a legacy row) and the 40-char value otherwise — which
-// satisfies the chk_upgrade_from_commit_sha_is_full_hex CHECK (NULL or 40-hex).
-func nullableCommitSHA(c CommitSHA) interface{} {
-	if c == "" {
-		return nil
-	}
-	return string(c)
-}
-
 // recoveryRollback is the recovery-path wrapper around d.rollback() used by
 // completeInProgressUpgrade and recoverFromFlag (task #49). It bridges the
 // recovery context — where we have an upgrade row id + log relative path
@@ -2184,12 +2153,10 @@ func nullableCommitSHA(c CommitSHA) interface{} {
 // "Status without reality-restore is a lie."
 //
 // Steps:
-//  1. Read the restore target from public.upgrade.from_commit_sha (a
-//     CommitSHA — the upgrade's recorded SOURCE, the authoritative,
-//     always-resolvable restore anchor; STATBUS-062). If unreadable, NULL
-//     (legacy row), or malformed, leave it EMPTY so restoreGitState falls
-//     back to the `pre-upgrade` branch executeUpgrade pinned to the source
-//     (service.go:3851). NEVER use d.version: it is a CommitVersion = the
+//  1. Resolve the restore target as the pinned `pre-upgrade` branch
+//     (restoreTargetSHA="" -> restoreGitState's pre-upgrade fallback).
+//     STATBUS-077 made the branch the single source of truth and removed the
+//     from_commit_sha column. NEVER use d.version: it is a CommitVersion = the
 //     running binary's version = the TARGET in a HEAD-recovery (061 #1).
 //     A working restore target is what restoreGitState needs to know
 //     what to git-checkout back to.
@@ -2256,25 +2223,11 @@ func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displa
 	// on every other path.
 	d.flagLock = lock
 
-	var fromCommitSHA sql.NullString
-	if err := d.queryConn.QueryRow(ctx,
-		"SELECT from_commit_sha FROM public.upgrade WHERE id = $1", id).Scan(&fromCommitSHA); err != nil {
-		fmt.Fprintf(os.Stderr, "recoveryRollback: could not read from_commit_sha for id=%d: %v\n", id, err)
-	}
-	// Restore to the SOURCE CommitSHA (authoritative, always resolves;
-	// STATBUS-062). Empty when the column is NULL (legacy row) or malformed →
-	// restoreGitStateFn falls back to the pinned `pre-upgrade` branch (this is
-	// the held rc.04 (iii), now subsumed). NEVER d.version: it is a
-	// CommitVersion = the running binary's version = the TARGET in a
-	// HEAD-recovery (061 finding 1).
+	// STATBUS-077: single source of truth = the pinned `pre-upgrade` branch
+	// (executeUpgrade pins it before destructive steps). Resolve unconditionally
+	// via restoreTargetSHA="" -> restoreGitStateFn's pre-upgrade fallback. NEVER
+	// d.version (a CommitVersion = the TARGET in a HEAD-recovery; STATBUS-061).
 	restoreTargetSHA := ""
-	if fromCommitSHA.Valid {
-		if sha, shaErr := NewCommitSHA(fromCommitSHA.String); shaErr == nil {
-			restoreTargetSHA = string(sha)
-		} else {
-			fmt.Fprintf(os.Stderr, "recoveryRollback: from_commit_sha for id=%d is not a CommitSHA (%q) — falling back to pre-upgrade: %v\n", id, fromCommitSHA.String, shaErr)
-		}
-	}
 
 	// Reopen the per-upgrade log in append mode so the rollback narrative
 	// continues the existing file. AppendProgressLog returns nil when the
@@ -3556,17 +3509,12 @@ func (d *Service) executeScheduled(ctx context.Context) {
 	// (./sb install dispatching StateScheduledUpgrade): whichever UPDATE
 	// commits first wins, the other gets 0 rows affected and bails.
 	//
-	// STATBUS-062: record the SOURCE CommitSHA (authoritative restore target).
-	// HEAD = source here (the target checkout is deferred to the recovery boot,
-	// STATBUS-060). NULL on error → recovery falls back to the pinned
-	// pre-upgrade branch.
-	sourceCommitSHA, srcErr := d.sourceCommitSHA()
-	if srcErr != nil {
-		fmt.Fprintf(os.Stderr, "executeScheduled: could not resolve source commit for id=%d (recording NULL from_commit_sha; recovery uses the pre-upgrade branch): %v\n", id, srcErr)
-	}
+	// STATBUS-077: claim records only the display version (from_commit_version).
+	// The recovery restore target is the pinned `pre-upgrade` branch (single source);
+	// the from_commit_sha column was removed.
 	tag, err := d.queryConn.Exec(ctx,
-		"UPDATE public.upgrade SET state = 'in_progress', started_at = now(), from_commit_sha = $1, from_commit_version = $2 WHERE id = $3 AND state = 'scheduled' AND started_at IS NULL",
-		nullableCommitSHA(sourceCommitSHA), d.version, id)
+		"UPDATE public.upgrade SET state = 'in_progress', started_at = now(), from_commit_version = $1 WHERE id = $2 AND state = 'scheduled' AND started_at IS NULL",
+		d.version, id)
 	if err != nil {
 		d.markPgInvariantTerminal(err, "service.go:executeScheduled:claim")
 		fmt.Printf("UPGRADE_CLAIM_FAILED: could not claim scheduled upgrade id=%d: %v\n", id, err)
@@ -3711,7 +3659,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 			// The service will flip docker_images_status and release_builds_status
 			// on the next discovery cycle when CI finishes, re-enabling "Upgrade Now".
 			d.queryConn.Exec(ctx,
-				"UPDATE public.upgrade SET state = 'available', scheduled_at = NULL, started_at = NULL, from_commit_sha = NULL, from_commit_version = NULL WHERE id = $1", id)
+				"UPDATE public.upgrade SET state = 'available', scheduled_at = NULL, started_at = NULL, from_commit_version = NULL WHERE id = $1", id)
 			progress.Write("Release assets not ready for %s — unscheduled. Will be available when CI finishes.", displayName)
 			return nil
 		}
@@ -3934,17 +3882,8 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 
 	// Step 5: Backup database
 	progress.Write("Backing up database...")
-	// STATBUS-062: the in-process rollback restore target is the SOURCE
-	// CommitSHA, NOT d.version (a CommitVersion = the running binary's version =
-	// the TARGET in a HEAD-recovery). HEAD is still source here (target checkout
-	// deferred to recovery boot, STATBUS-060) — the same commit pinned as
-	// `pre-upgrade` just above. Empty on error → restoreGitState falls back to
-	// the pre-upgrade branch.
-	sourceCommitSHA, srcErr := d.sourceCommitSHA()
-	if srcErr != nil {
-		fmt.Fprintf(os.Stderr, "executeUpgrade: could not resolve source commit for id=%d (in-process rollback will use the pre-upgrade branch): %v\n", id, srcErr)
-	}
-	restoreTargetSHA := string(sourceCommitSHA)
+	// STATBUS-077: single source = the `pre-upgrade` branch pinned just above.
+	restoreTargetSHA := ""
 	backupPath, err := d.backupDatabase(progress, backupStamp)
 	if err != nil {
 		// No snapshot was finalised (the partial lives in the syncing dir,
@@ -4687,40 +4626,24 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 // Phase is FlagPhasePostSwap.
 //
 // Recovers state from: flag (CommitSHA, CommitTags, BackupPath, Recreate,
-// InvokedBy, Trigger, ID) and DB row (from_commit_sha — the SOURCE CommitSHA,
-// the rollback restore target per STATBUS-062 — and log_relative_file_path).
-// Then re-acquires the flock (prior process died, kernel released it), reopens
-// the progress log in append mode, and calls applyPostSwap.
-//
-// Schema-skew note: the SELECT below uses from_commit_sha. The boot-time
-// `./sb migrate up` in Service.Run() guarantees the schema is at HEAD before
-// resumePostSwap is reached, so no per-site compat shim is needed for the
-// added column.
+// InvokedBy, Trigger, ID) and DB row (log_relative_file_path). The rollback
+// restore target is the pinned `pre-upgrade` branch (STATBUS-077 single source;
+// the from_commit_sha column was removed). Then re-acquires the flock (prior
+// process died, kernel released it), reopens the progress log in append mode,
+// and calls applyPostSwap.
 //
 // Control returns to Run() after applyPostSwap completes. If applyPostSwap
 // fails, rollback() has already run inside it.
 func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
-	var fromCommitSHA sql.NullString
 	var logRelPath sql.NullString
 	err := d.queryConn.QueryRow(ctx,
-		"SELECT from_commit_sha, log_relative_file_path FROM public.upgrade WHERE id = $1", flag.ID).
-		Scan(&fromCommitSHA, &logRelPath)
+		"SELECT log_relative_file_path FROM public.upgrade WHERE id = $1", flag.ID).
+		Scan(&logRelPath)
 	if err != nil {
-		return fmt.Errorf(
-			"resumePostSwap: cannot load upgrade %d state (err=%v) — leaving flag for manual triage",
-			flag.ID, err)
+		return fmt.Errorf("resumePostSwap: cannot load upgrade %d state (err=%v) — leaving flag for manual triage", flag.ID, err)
 	}
-	// STATBUS-062: the post-swap-failure rollback restore target is the SOURCE
-	// CommitSHA (authoritative, always resolves). Empty (NULL/legacy/malformed)
-	// → restoreGitState falls back to the pinned pre-upgrade branch.
+	// STATBUS-077: restore target = the pinned pre-upgrade branch (single source).
 	restoreTargetSHA := ""
-	if fromCommitSHA.Valid {
-		if sha, shaErr := NewCommitSHA(fromCommitSHA.String); shaErr == nil {
-			restoreTargetSHA = string(sha)
-		} else {
-			fmt.Fprintf(os.Stderr, "resumePostSwap: from_commit_sha for upgrade %d is not a CommitSHA (%q) — falling back to pre-upgrade: %v\n", flag.ID, fromCommitSHA.String, shaErr)
-		}
-	}
 
 	// Reopen the progress log. Append-mode so the narrative is continuous
 	// across the restart. If the file is missing (manual tmp cleanup), fall

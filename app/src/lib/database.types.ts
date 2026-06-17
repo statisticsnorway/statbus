@@ -6006,7 +6006,6 @@ export type Database = {
           docker_images_downloaded: boolean
           docker_images_status: Database["public"]["Enums"]["docker_images_status_type"]
           error: string | null
-          from_commit_sha: string | null
           from_commit_version: string | null
           has_migrations: boolean
           id: number
@@ -6035,7 +6034,6 @@ export type Database = {
           docker_images_downloaded?: boolean
           docker_images_status?: Database["public"]["Enums"]["docker_images_status_type"]
           error?: string | null
-          from_commit_sha?: string | null
           from_commit_version?: string | null
           has_migrations?: boolean
           id?: never
@@ -6064,7 +6062,6 @@ export type Database = {
           docker_images_downloaded?: boolean
           docker_images_status?: Database["public"]["Enums"]["docker_images_status_type"]
           error?: string | null
-          from_commit_sha?: string | null
           from_commit_version?: string | null
           has_migrations?: boolean
           id?: never
