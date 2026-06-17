@@ -668,6 +668,11 @@ EOS
                 0) FAST_STAMP_WITHHELD=0 ;;
                 1) exit 0 ;;
                 3) FAST_STAMP_WITHHELD=1 ;;  # RUN_NO_STAMP: run tests, withhold the stamp (dirty tree)
+                # STATBUS-079: fail-fast on any rc outside the guard's 0/1/3 contract.
+                # Without this, a future unhandled rc falls through silently →
+                # FAST_STAMP_WITHHELD stays unset → :-0 writes a stamp on a dirty
+                # tree (the exact silent-dirty-stamp class the gate fix prevents).
+                *) echo "check_stamp_guard: unexpected rc $guard_rc" >&2; exit 1 ;;
             esac
         fi
 
@@ -1756,6 +1761,9 @@ EOF
             0) DOCDB_STAMP_WITHHELD=0 ;;
             1) exit 0 ;;
             3) DOCDB_STAMP_WITHHELD=1 ;;  # RUN_NO_STAMP: regenerate, withhold the stamp (dirty tree)
+            # STATBUS-079: fail-fast on any rc outside the guard's 0/1/3 contract
+            # (silent fall-through → DOCDB_STAMP_WITHHELD unset → dirty stamp written).
+            *) echo "check_stamp_guard: unexpected rc $guard_rc" >&2; exit 1 ;;
         esac
 
         TEMPLATE_NAME="${POSTGRES_TEST_DB:-statbus_test_template}"
@@ -2305,6 +2313,35 @@ EOS
                 _tsg_fail=$((_tsg_fail+1))
             fi
         fi
+
+        # ── Test 6 (STATBUS-079): write-site source-assert ──────────────────
+        # Each of the 3 stamp-write sites must be GATED by its withhold decision.
+        # Test 5 only proves the GUARD returns rc 3 + writes nothing; it does NOT
+        # prove the CALLERS withhold the stamp. This catches a future UNGATING of
+        # a write site (which would write a dirty-provenance stamp — the exact bug
+        # the gate fix prevents). Source-structure check: the gate token must
+        # appear within the window of lines immediately above each stamp-write line.
+        _s079_assert_gated() {
+            local _label="$1" _file="$2" _write="$3" _gate="$4" _window="${5:-14}"
+            local _ln _start _ctx
+            _ln=$(grep -nF -- "$_write" "$_file" 2>/dev/null | head -1 | cut -d: -f1)
+            if [ -z "$_ln" ]; then
+                echo "[FAIL] $_label: write site not found ($_write) — source moved? update Test 6"
+                _tsg_fail=$((_tsg_fail+1)); return
+            fi
+            _start=$(( _ln > _window ? _ln - _window : 1 ))
+            _ctx=$(sed -n "${_start},${_ln}p" "$_file")
+            if printf '%s' "$_ctx" | grep -qF -- "$_gate"; then
+                echo "[PASS] $_label: stamp write gated by $_gate"
+                _tsg_pass=$((_tsg_pass+1))
+            else
+                echo "[FAIL] $_label: stamp write ($_write) NOT within a '$_gate' gate — ungated dirty-stamp risk (STATBUS-079)"
+                _tsg_fail=$((_tsg_fail+1))
+            fi
+        }
+        _s079_assert_gated "fast-test write" "$WORKSPACE/dev.sh"           '> "$WORKSPACE/tmp/fast-test-passed-sha"' 'FAST_STAMP_WITHHELD'
+        _s079_assert_gated "db-docs write"   "$WORKSPACE/dev.sh"           '> "$WORKSPACE/tmp/db-docs-passed-sha"'   'DOCDB_STAMP_WITHHELD'
+        _s079_assert_gated "types write"     "$WORKSPACE/cli/cmd/types.go" 'os.WriteFile(stampPath'                  'stampGuardRunNoStamp'
 
         echo ""
         echo "Results: $_tsg_pass passed, $_tsg_fail failed"
