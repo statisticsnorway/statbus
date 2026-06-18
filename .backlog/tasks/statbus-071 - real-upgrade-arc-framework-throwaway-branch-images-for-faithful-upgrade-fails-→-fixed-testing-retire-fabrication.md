@@ -3,10 +3,11 @@ id: STATBUS-071
 title: >-
   real-upgrade-arc-framework: throwaway-branch images for faithful "upgrade
   fails → fixed" testing (retire fabrication)
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-06-18 20:03'
+updated_date: '2026-06-18 21:35'
 labels:
   - install-recovery
   - upgrade
@@ -48,6 +49,15 @@ KING DECISION PENDING (A vs B): (A) FOUNDATION-NOW — build the framework + pro
 OWNER: architect (design) → engineer (CI workflow + arc scenarios) → operator (image lifecycle/cleanup API) → foreman review. Depends-on/relates: STATBUS-067 (canary), STATBUS-056 (image-wait), STATBUS-057 (image cleanup).
 <!-- SECTION:DESCRIPTION:END -->
 
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 WORKING arc GREEN on a real VM: install A → B applies migration V → C re-stamps V's content_hash autonomously; data intact; zero orphan branches/VMs
+- [ ] #2 FAILING arc GREEN on a real VM: install A → B's V deliberately fails → box rolls back to 'rolled_back' → clean-slate fingerprint equals the post-A baseline → C applies the fix fresh; data intact
+- [ ] #3 Kill-family scenarios reshaped: the FABRICATED scheduled-upgrade row replaced by a real register+schedule (086); the crash stays real (existing inject / external NOTIFY-handshake kill)
+- [ ] #4 fabricate_scheduled_upgrade_row DELETED with zero callers; NO synthetic crash-state fabrication remains anywhere (King's no-residual rule)
+- [ ] #5 STRETCH (product-pristine): in-migration-SQL inject hooks retired in favour of the NOTIFY-handshake + external-kill-timing where feasible; remaining hooks limited to the Go-internal windows that no SQL can reach, each justified
+<!-- AC:END -->
+
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
@@ -73,4 +83,28 @@ IMPLEMENTABLE BUILD-SPEC ready (architect, 2026-06-18): backlog doc-012 "STATBUS
 arc (c) GREEN — run 27784916284 SUCCESS (2026-06-18, foreman autonomous drive). FIRST real-upgrade-arc proven on a VM: install A → A→B applied real migration V autonomously (register→schedule→daemon executeUpgrade, ephemeral-signed commit trusted) → B→C re-stamped content_hash (H_B=ab549269→H_C=4f65f4eb, V's effect preserved, exactly ONE ledger row) → PASS, data intact, healthy, ZERO orphans, all 4 jobs green. Proves the 072 amend-conveyance (re-stamp / MANY-who-succeeded population) end-to-end via the autonomous Albania path.
 
 Took 4 runs to harden the harness (each found by a run, fixed through the foundation): (1) dispatch ref-race; (2) HCLOUD_NAME_PREFIX guard → statbus-arc- (ddb6bc25d); (3) commit-signing — ephemeral ed25519 key signs B/C, arc's install trusts the pubkey (4336affb1); (4) checkSignersDone scrub — install pre-flight-1 :352 verifies allowed-signers vs HEAD=A with {arc}-only (jhf added at :358), arc can't sign A → :1638 scrub-all → FIX: inject arc POST-install (config-gen doesn't run checkSignersDone) + restart statbus-upgrade@ unit (a2d485285; diag+dotenv regression test bd437370b). dotenv layer exonerated by cli/internal/dotenv/spaced_signer_test.go. NEXT: increment (d) failing→fixed arc + base-tables-only 3-dim clean-slate fingerprint.
+
+=== STATE + DOCTRINE + OWNERSHIP (foreman, 2026-06-18, King asleep, autonomous drive) ===
+
+OWNERSHIP (applies to all arc work here):
+- BUILD / assignee = engineer (commits nothing).
+- REVIEW = architect (design + correctness) THEN foreman (diff review).
+- COMMIT + VM re-fire = foreman (per CLAUDE.md: agents don't commit; foreman commits + fires the paid VM runs).
+- Diagnosis / instrument / log legwork = mechanic + operator as foreman dispatches.
+
+STATUS:
+- WORKING arc (c) reached GREEN earlier (run 27784916284): install A → B applies V → C re-stamps; data intact; zero orphans.
+- Increment (d) added the FAILING arc (fail→rollback→fix) + a 3-dim clean-slate fingerprint + an arc-helpers.sh refactor. Fired BOTH scenarios (working re-prove + failing prove); BOTH RED — two distinct, understood bugs:
+  - BUG 1 (failing arc): the fingerprint's pg_dump returned empty → the centerpiece GUARD fired and refused a vacuous fingerprint (working as designed — NO false-green). Cause = docker-exec pg_dump AUTH (locally the admin user is 'postgres' via local-socket trust and it works — 31k lines; on the VM the admin user needs a password the exec didn't pass). FIX: pass PGPASSWORD in capture_db_fingerprint (arc-helpers.sh). [engineer → architect/foreman review → foreman commit]
+  - BUG 2 (working arc): the SECOND upgrade C sat state='scheduled' for 1200s; the daemon never ran it after B completed. Architect diagnosing ROOT CAUSE: real product gap (an unattended box can miss an upgrade scheduled while the service is restarting from the prior one — a genuine Albania hole) vs arc-timing (scheduled C before the post-B daemon was ready). Engineer instrumenting + adding a wait-for-daemon-ready. [architect diagnose → engineer fix/instrument → foreman commit; if a real gap, spawns a product-fix ticket]
+
+KING DOCTRINE (2026-06-18) — the fruition reshape (replaces the old '§9(5)' framing):
+1. NO justified residual. Every fake either maps to a real failure a real upgrade can produce (→ reproduce it for real) or it describes a state that cannot occur (→ delete it). If we ever believe a failure is real but can't reproduce it, that's a framework gap to FIX or a misread — never a licence to keep faking.
+2. The crashes were ALWAYS real (the migrate path has a complete inject taxonomy: :388 during-migration, :202 mid-tx, :844/:845 after-commit-before-recorded, :911 between-migrations, + stalls). The ONLY fabrication in the whole kill family is fabricate_scheduled_upgrade_row — and its only job is to make ./sb install dispatch. 086's register+schedule produces that 'scheduled' row for REAL. So the reshape is a MECHANICAL swap (fabricate → real register+schedule), family-wide, then delete fabricate. Zero new product code for the crash itself.
+3. NOTIFY-HANDSHAKE (King): a test migration runs `NOTIFY chan; SELECT pg_sleep(N);` with NO BEGIN — verified the runner invokes psql without --single-transaction (migrate.go:401), so the NOTIFY autocommits and reaches a listener while the migration sleeps; the listener does a REAL external kill mid-flight. More faithful than the boundary-kill hook (:388, which fires before the migration's SQL runs). Coordination lives in the TEST artifacts → product stays pristine.
+4. EXTERNAL-KILL-TIMING (unifying primitive): kill is real; TIMING is by NOTIFY while a migration runs, or by watching logs/process-state otherwise. Retires the in-migration-SQL hooks + the SLOW Go-phase hooks. Residue (small, characterised): the after-commit-before-recorded ~ms window (close via atomic apply+record — see STATBUS-097) and the sub-second Go phases like binary-swap (retry-time, or keep ≤2 minimal hooks).
+
+PLAN (post both-arcs-green): mechanical fabricate→register/schedule swap across the kill family; adopt external-kill-timing; delete the subsumed scenario (the failing arc already covers deterministic-error); retire the in-SQL hooks where the handshake reaches; delete fabricate at zero callers (= the final success criterion). Sketch: tmp/engineer-071-step5-plan.md; the architect's reconciliation map has the per-point detail.
+
+NEW REQUIREMENTS surfaced by the King (separate tickets): STATBUS-095 (12h migration timeout-kill), STATBUS-096 (OOM + timeout kill-recovery tests), STATBUS-097 (scope atomic apply+record to close the residue window).
 <!-- SECTION:NOTES:END -->
