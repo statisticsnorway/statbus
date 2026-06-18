@@ -176,6 +176,8 @@ echo "── waiting for the migration to park mid-tx ──"
 MIGRATE_PID=$(wait_for_midtx_stall_ready "$VM_NAME" "$STALL_MAX_WAIT_S" | tee /dev/stderr | tail -1) || true
 if [ -z "$MIGRATE_PID" ]; then
     echo "✗ mid-tx park never activated" >&2
+    echo "── install log (/tmp/midtx.log) for diagnosis ──" >&2
+    VM_EXEC bash -c "cat /tmp/midtx.log 2>/dev/null" >&2 || true
     exit 1
 fi
 echo "  migrate subprocess parked (PID=$MIGRATE_PID)"

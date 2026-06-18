@@ -91,19 +91,24 @@ echo "  captured advisory-holder backend PID: ${HOLDER_PID:-<none>}"
 #     in-container backend orphans.
 echo ""
 echo "── synthesizing statistical_* psql subprocess orphan ──"
-VM_EXEC bash -c '
-    cd ~/statbus
-    ./sb psql -c "INSERT INTO public.statistical_history SELECT * FROM public.statistical_history WHERE pg_sleep(600) IS NULL OR true;" >/dev/null 2>&1 &
-    sleep 3
-    PSQL_PID=$(pgrep -f "psql.*statistical_history" | head -1)
-    if [ -n "$PSQL_PID" ]; then
-        kill -9 "$PSQL_PID" 2>/dev/null || true
-        echo "  killed host psql client PID=$PSQL_PID — in-DB backend should orphan"
-    else
-        echo "  warning: no psql subprocess to kill" >&2
-    fi
-    sleep 2
-'
+# ssh-STDIN transport (see simulate_pool_exhaustion): VM_EXEC's printf %q collapses
+# this multi-line if/then (dash $'...\n...') → "syntax error near unexpected token 'then'".
+# Riding the script over stdin preserves the newlines.
+_orphan_wedge=$(mktemp)
+cat > "$_orphan_wedge" <<'WEDGE'
+./sb psql -c "INSERT INTO public.statistical_history SELECT * FROM public.statistical_history WHERE pg_sleep(600) IS NULL OR true;" >/dev/null 2>&1 &
+sleep 3
+PSQL_PID=$(pgrep -f "psql.*statistical_history" | head -1)
+if [ -n "$PSQL_PID" ]; then
+    kill -9 "$PSQL_PID" 2>/dev/null || true
+    echo "  killed host psql client PID=$PSQL_PID — in-DB backend should orphan"
+else
+    echo "  warning: no psql subprocess to kill" >&2
+fi
+sleep 2
+WEDGE
+ssh "${SSH_OPTS[@]}" root@"$VM_IP" "sudo -i -u statbus bash -c 'cd ~/statbus && bash'" < "$_orphan_wedge"
+rm -f "$_orphan_wedge"
 
 # Capture the orphaned subprocess's BACKEND pid (app='psql', running the INSERT).
 SUBPROC_PID=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT pid FROM pg_stat_activity WHERE application_name = 'psql' AND query ILIKE '%INSERT INTO public.statistical_history%' AND pid <> pg_backend_pid() ORDER BY backend_start DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "")

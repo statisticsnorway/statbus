@@ -146,19 +146,23 @@ simulate_advisory_zombie_empty_app() {
     local vm_name="$1"
     echo "  [wedge] creating empty-app-name advisory-lock zombie on $vm_name"
 
-    # Use psql with -c that takes the lock and sleeps. The script's PID
-    # is captured in the VM, then killed.
-    VM_EXEC bash -c '
-        cd ~/statbus
-        ./sb psql -c "SET application_name = '\'''\''; SELECT pg_advisory_lock(hashtext('\''migrate_up'\'')); SELECT pg_sleep(3600);" >/dev/null 2>&1 &
-        SCRIPT_PID=$!
-        sleep 5  # let lock be acquired
-        kill -9 $SCRIPT_PID 2>/dev/null || true
-        echo "[wedge] killed PID $SCRIPT_PID; postgres backend should still hold advisory lock"
-        # Verify: the postgres backend should still be visible
-        sleep 2
-        ./sb psql -t -A -c "SELECT count(*) FROM pg_locks WHERE locktype='\''advisory'\'' AND granted;" 2>/dev/null
-    '
+    # ssh-STDIN transport (see simulate_pool_exhaustion): VM_EXEC's printf %q would collapse
+    # the multi-line script (dash $'...\n...') and mangle it. Riding stdin also lets the SQL
+    # use normal single quotes (no '\'' escaping) since the quoted heredoc passes everything
+    # verbatim; $SCRIPT_PID / $! expand on the remote.
+    local _wedge
+    _wedge=$(mktemp)
+    cat > "$_wedge" <<'WEDGE'
+./sb psql -c "SET application_name = ''; SELECT pg_advisory_lock(hashtext('migrate_up')); SELECT pg_sleep(3600);" >/dev/null 2>&1 &
+SCRIPT_PID=$!
+sleep 5  # let lock be acquired
+kill -9 $SCRIPT_PID 2>/dev/null || true
+echo "[wedge] killed PID $SCRIPT_PID; postgres backend should still hold advisory lock"
+sleep 2
+./sb psql -t -A -c "SELECT count(*) FROM pg_locks WHERE locktype='advisory' AND granted;" 2>/dev/null
+WEDGE
+    ssh "${SSH_OPTS[@]}" root@"$VM_IP" "sudo -i -u statbus bash -c 'cd ~/statbus && bash'" < "$_wedge"
+    rm -f "$_wedge"
 }
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -419,8 +423,8 @@ wait_for_midtx_stall_ready() {
     local stable_since=""
     local elapsed=0
 
-    echo "  [wedge] waiting for mid-tx psql backend to park on $vm_name"
-    echo "          max_wait=${max_wait_s}s"
+    echo "  [wedge] waiting for mid-tx psql backend to park on $vm_name" >&2
+    echo "          max_wait=${max_wait_s}s" >&2
 
     while [ "$elapsed" -lt "$max_wait_s" ]; do
         # Query pg_stat_activity for the parked migration backend: the injected
@@ -432,9 +436,9 @@ wait_for_midtx_stall_ready() {
         if [ -n "$db_pid" ]; then
             if [ -z "$stable_since" ]; then
                 stable_since="$elapsed"
-                echo "  [wedge] mid-tx backend detected (db-pid=$db_pid) — confirming stability"
+                echo "  [wedge] mid-tx backend detected (db-pid=$db_pid) — confirming stability" >&2
             elif [ $((elapsed - stable_since)) -ge "$stable_s" ]; then
-                echo "  [wedge] mid-tx stall confirmed (idle for $((elapsed - stable_since))s)"
+                echo "  [wedge] mid-tx stall confirmed (idle for $((elapsed - stable_since))s)" >&2
                 # Find the host-side process PID to SIGKILL.  In docker exec mode the
                 # psql runs inside the container; the host-side wrapper is `docker compose
                 # exec -T ... db psql`.  pgrep for that; fall back to db_pid (host-psql mode
@@ -443,15 +447,15 @@ wait_for_midtx_stall_ready() {
                 host_pid=$(VM_EXEC bash -c "pgrep -f 'docker.*exec.*-T.*db.*psql' 2>/dev/null | head -1 || echo ''" 2>/dev/null | tr -d ' \r\n' || echo "")
                 if [ -z "$host_pid" ]; then
                     host_pid="$db_pid"
-                    echo "  [wedge] (host-psql mode: using db-pid as migrate subprocess PID)"
+                    echo "  [wedge] (host-psql mode: using db-pid as migrate subprocess PID)" >&2
                 fi
-                echo "  [wedge] stall confirmed: migrate host-PID=$host_pid db-pid=$db_pid"
+                echo "  [wedge] stall confirmed: migrate host-PID=$host_pid db-pid=$db_pid" >&2
                 echo "$host_pid"
                 return 0
             fi
         else
             if [ -n "$stable_since" ]; then
-                echo "  [wedge] stability broken — resetting"
+                echo "  [wedge] stability broken — resetting" >&2
             fi
             stable_since=""
         fi
