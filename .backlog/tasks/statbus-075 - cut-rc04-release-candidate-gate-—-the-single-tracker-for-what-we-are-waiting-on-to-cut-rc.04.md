@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-17 11:04'
-updated_date: '2026-06-18 02:00'
+updated_date: '2026-06-18 06:25'
 labels:
   - install-recovery
   - rc.04
@@ -117,4 +117,19 @@ TWO KING-LEVEL DECISIONS surfaced (both test-faithfulness, product CONFIRMED cle
 (2) Mode-D test-premise fork = batch 2c. Discovery: archivebackup-resume (GREEN) uses the IDENTICAL container-restart kill + expects COMPLETED → self-heal-on-converged is canonical-green; so resume-died-rollback + container-restart-kill have a WRONG premise (expect rollback from a converged state). Fork: resume-died → re-architect to a mid-migrate death (genuine rollback, faithful to its name; bigger rewrite + real-VM tuning); container-restart → flip assertion to expect COMPLETED, or RETIRE if it duplicates archivebackup-resume. Design ready (tmp/statbus-modeD-rearchitecture-design.md).
 
 PATH TO GREEN: batch 2a (validate+instrument, firing) → 2b install.sh --commit (4 freshness, King nod) → 2c Mode-D re-arch (2, King fork) → mid-tx fix (after 2a reveals its root) → #1 4-rollback-restore-watchdog real-VM tuning. Several iterations; all roots understood + non-product + Albania-safe.
+
+⚠️ SYSTEM RESTART CONTEXT + EXACT RESUME POINT (foreman, overnight 2026-06-18 ~02:25). The local machine hit a SYSTEM-WIDE fd exhaustion ('too many open files in system') from the long multi-agent session — the foreman shell (Bash) went DOWN (even `echo` fails: shell can't init pipes). King is RESTARTING the machine to clear it. All work is SAFE (committed/pushed or on GitHub Actions, which is remote + unaffected).
+
+STATE AT RESTART:
+- master HEAD = 783bb0905 (batch 2a committed + pushed). Prior: 674329816 (batch 1, Mode A/B/C/D).
+- IN FLIGHT: batch 2a validation run = GitHub Actions run 27731940038 (on 783bb0905), EXECUTING (fired ~02:04, ~1.5-2h). This continues across the reboot (remote).
+- Backlog updates are on disk (survive reboot) but may be UNPUSHED (Bash was down — couldn't push). After restart, `git status` + push the .backlog commits if needed.
+
+RESUME STEPS (fresh foreman, after machine restart + shell recovered):
+1. `gh run view 27731940038 --json jobs` — the batch-2a result. EXPECTED: 5-install-stage-a-killed-migrate + 1-boot-concurrent-install GREEN (the VM_EXEC transport fix + 1-boot revert); 3-postswap-mid-tx-kill RED but with a LEGIBLE /tmp/midtx.log dump (download the artifact, read the dump → settles reorder-vs-unmask → diagnose the mid-tx no-park); the 4 freshness (backup/binary-swap/checkout/4-rollback-kill) + container-restart + resume-died + 4-rollback-restore-watchdog stay RED (deferred to 2b/2c/tuning).
+2. KING'S TWO DECISIONS (surfaced, awaiting his pick): (2b) install.sh --commit = approve? design ready tmp/statbus-installsh-commit-design.md → fixes the 4 freshness. (2c) Mode-D fork: resume-died→re-architect-to-mid-migrate-rollback, container-restart→flip-to-completed-or-retire; design tmp/statbus-modeD-rearchitecture-design.md. On his picks → architect specs edits → engineer implements → foreman commits + re-fires.
+3. mid-tx fix (after step 1's /tmp/midtx.log reveals the root — likely a Mode-A unmask, low-prob the reorder).
+4. #1 4-rollback-restore-watchdog = real-VM knob tuning (untuned new scenario; architect designs).
+
+TEAM: statbus team (architect/engineer/mechanic/tester) via SendMessage — NOT fresh Agent() calls. The architect holds the deep recovery-semantics context + the 2b/2c designs. CADENCE LESSON: reuse ONE background poller; the many poll-loops contributed to the fd exhaustion. All 4 modes + roots are HARNESS, product clean, Albania-safe (none a from_commit_sha regression).
 <!-- SECTION:NOTES:END -->
