@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-18 21:43'
+updated_date: '2026-06-18 21:47'
 labels:
   - upgrade
   - daemon
@@ -48,4 +49,11 @@ DO NOT mask this with a harness wait-for-daemon-ready — that hides the gap; th
 - [ ] #3 The claim is atomic — startup + 30s-tick + NOTIFY paths cannot double-run the same row
 - [ ] #4 Proven on a real VM by the STATBUS-071 working arc with the masking wait REMOVED: C scheduled immediately -> claimed <=30s -> arc green for the right reason
 - [ ] #5 The 6h discovery interval is unchanged for discovery; only the scheduled-claim fallback is made prompt
+- [ ] #6 A DEDICATED deterministic test asserts the daemon claims a pending 'scheduled' row WITHOUT a live NOTIFY — schedule while the daemon is down / mid-restart (NOTIFY guaranteed lost) → claimed via startup-scan or the ≤30s tick. This is the DURABLE regression guard; the (c)/(d) arcs catch this gap only PROBABILISTICALLY (the reconnect-window race), so they are not the guard.
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+DELIVERABLE (foreman, 2026-06-18): STATBUS-098 = (1) product fix in service.go (startup executeScheduled + ≤30s heartbeat-tick fallback guarded by !d.upgrading; atomic claim); (2) REMOVE wait_for_unit_active from test/install-recovery/lib/arc-helpers.sh, same change as the product fix (the fix makes the (c)/(d) arcs deterministic via the ≤30s claim — the wait is then redundant AND would stop the arcs exercising the schedule-after-restart path; KEEP dump_daemon_state); (3) the dedicated claim-without-NOTIFY test (AC #6). Build = engineer; review = architect (correctness + claim atomicity) then foreman; commit + VM re-fire = foreman. Found by STATBUS-071 working arc run 27787872862 — the framework's first real product-bug catch.
+<!-- SECTION:NOTES:END -->
