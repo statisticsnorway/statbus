@@ -1,13 +1,13 @@
 ---
 id: STATBUS-031
 title: >-
-  rollback-watchdog-cover: restoreDatabase/rollback() has no effective
-  WATCHDOG=1 source on any path — wrap the rollback chokepoint (012 pattern)
+  startup-rollback-watchdog: rollback-restore-watchdog test needs real-VM timing
+  tuning (heartbeat coverage on the rollback path)
 status: In Progress
 assignee:
   - architect
 created_date: '2026-06-11 13:39'
-updated_date: '2026-06-15 13:31'
+updated_date: '2026-06-18 08:23'
 labels:
   - upgrade
   - recovery
