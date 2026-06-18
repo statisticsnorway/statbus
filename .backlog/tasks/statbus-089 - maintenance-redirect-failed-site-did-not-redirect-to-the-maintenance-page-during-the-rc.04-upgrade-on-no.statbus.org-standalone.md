@@ -7,7 +7,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-18 12:59'
-updated_date: '2026-06-18 15:23'
+updated_date: '2026-06-18 16:59'
 labels:
   - upgrade-ui
   - maintenance
@@ -60,4 +60,6 @@ FIX (PART A — the real bug, clean break, one commit): reconcile all three to /
 FIX (PART B — config-regen, ALREADY SOLVED): upgrade runs config-generate (service.go:4487, STATBUS-058) + recreates the proxy to read the bind-mounted Caddyfile (step11RestartServices). So once PART A ships, the next upgrade self-heals every box — no new flow step. Residual: standalone `./sb config generate` should also reload the proxy (reuse cert.go:145) for non-upgrade edits. Idempotent + don't-clobber already satisfied (config-generate is a pure render; .env.config is the operator surface, .env+Caddyfiles are disposable derivatives).
 
 VERIFY (doc-013 §5): curl the site mid-upgrade → expect 503 maintenance (the behaviour that silently regressed). SEVERITY: real Albania-relevant bug (maintenance never shows during any upgrade on standalone) but NOT a regression from rc.04 (2 months old). RE-SCOPE: Wave-2, small clean-break via engineer (service.go:2846 single-owner + templates disjoint + invariant test). Full detail: doc-013.
+
+CORRECTION (architect, 2026-06-18) — supersedes my earlier 3-way-split / 3-unmounted-/home-paths note: that analysis read DEAD templates (cli/src/templates/*.caddyfile.ecr, legacy Crystal, NOT rendered — `rg "\.ecr" cli/ -g'*.go'` = 0). The LIVE templates are caddy/templates/*.caddyfile.tmpl (Go CLI, config.go:755 + :790-797) and were ALREADY CORRECT (file /statbus-maintenance/active :88/:120, root /maintenance-page :94/:126, root /statbus-tmp :73/:81/:105/:113; no /home/). REAL bug = WRITER-ONLY: setMaintenance (exec.go:216 + service.go:2846) wrote ~/maintenance, outside the ~/statbus-maintenance mount → live template's /statbus-maintenance/active check never saw the flag. FIX (engineer, foreman-committed): setMaintenance/cleanStaleMaintenance → maintenanceFlagHostPath()=~/statbus-maintenance/active (shared constants + MkdirAll); NO template/compose/schema change; + maintenance_path_test.go (reads LIVE .tmpl + compose + Go constants, asserts writer↔template↔mount agree + no unmounted template root). doc-013 reconciled with a correction banner. Caught by the engineer (I'd built on the operator's .ecr report + stale AGENTS.md/exec.go refs without checking the live renderer). Follow-on: delete dead cli/src/templates/*.ecr + the stale exec.go .ecr comment.
 <!-- SECTION:NOTES:END -->
