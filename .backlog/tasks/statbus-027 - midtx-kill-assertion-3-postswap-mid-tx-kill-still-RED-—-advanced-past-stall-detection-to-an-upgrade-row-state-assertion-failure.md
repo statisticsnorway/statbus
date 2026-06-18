@@ -1,13 +1,14 @@
 ---
 id: STATBUS-027
 title: >-
-  midtx-kill-assertion: 3-postswap-mid-tx-kill still RED — advanced past
-  stall-detection to an upgrade-row-state assertion failure
+  midtx-kill-assertion: test setup overwrites .env.config and drops the approved
+  signing key, so the upgrade fails the signature check before it can migrate;
+  fix the setup
 status: In Progress
 assignee:
   - mechanic
 created_date: '2026-06-11 07:48'
-updated_date: '2026-06-15 14:14'
+updated_date: '2026-06-18 08:27'
 labels:
   - install-recovery
   - harness
@@ -28,4 +29,6 @@ Run 27306718138 @ cd2f5d51f: 3-postswap-mid-tx-kill FAIL. The mechanic's tonight
 COMMITTED 82c3fd7ff (pushed). Foreman verified: assert_upgrade_row_state was the one SSH-based assertion missing 016's gzip-t INFRA-skip; the fix adds `local _rc=0` + `|| _rc=$?` + skip-on-nonzero (matches assert_db_migration_max_version_unchanged). A genuine wrong-state still fails; only a transport failure skips. HARNESS-only. Bonus: also hardens the new 4-rollback-restore-watchdog scenario, which calls this assertion 3x. GREEN pending the comprehensive matrix run.
 
 VERIFIED COMPLETE (mechanic evidence, foreman accepted). Original red WAS a transport failure, not a state mismatch: run 27306718138's trace is `rc=1 at assertions.sh:50: tr -d ' '` — set -e firing on the SSH/psql PIPELINE ASSIGNMENT (line 50), ~7s after pg_terminate_backend, with the DB mid-recovery (a transient psql-connect blip). A state mismatch would instead fail later at the `if [ "$actual" = "$expected" ]` comparison with a different message. So the INFRA-skip (skip on transport rc≠0) is the correct + complete remedy; a genuine wrong-state still fails at the comparison. 3-postswap-mid-tx-kill expected GREEN on the comprehensive run; no deeper fix needed.
+
+Open Q (secondary): should the scheduled-upgrade inline-dispatch path also honor --trust-github-user? Today it doesn't — the signer must already be in .env.config.
 <!-- SECTION:NOTES:END -->
