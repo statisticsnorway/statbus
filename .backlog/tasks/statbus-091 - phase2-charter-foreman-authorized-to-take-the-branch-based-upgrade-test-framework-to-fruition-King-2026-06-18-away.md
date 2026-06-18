@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-18 14:55'
-updated_date: '2026-06-18 16:28'
+updated_date: '2026-06-18 17:33'
 labels:
   - upgrade
   - phase-2
@@ -83,4 +83,16 @@ FOLLOW-ONS FILED/TRACKED: STATBUS-092 (--recreate double-NOTIFY → durable colu
 WAVE 2 STARTING: STATBUS-072 (amend-in-place migration + re-stamp) — architect drafting the implementation plan (doc), engineer reading migrate.go's apply+stamp loop, in parallel during the oracle run. Then 034 (branch-channel), 089-impl (maintenance path reconcile), 090 (status-lag race), 088 (operator wording). Then WAVE 3 = 071 framework + 044 matrix.
 
 Master stayed green throughout; every code unit was architect-reviewed AND foreman-diff-reviewed before commit (AC #7 of this charter holding).
+
+WAVE 2 COMPLETE 2026-06-18. All reported issues fixed + all ratified architecture landed on master (green throughout, every unit architect-reviewed + foreman-verified):
+- STATBUS-087 (history label) — de453b814
+- STATBUS-086 (register/schedule/check CLI verbs + AC#8 VM-proven) — 8c0631ee9 / 64441aaf9 / 64ba13ab9
+- STATBUS-072 (amend-in-place migration auto-conveyance via amendments.tsv) — 24907e2f8
+- STATBUS-089 (maintenance flag writer → mounted path; the live .tmpl was already correct, bug was the writer) — 52d3e04c6
+- dead-.ecr cleanup (the trap that misled the 089 analysis) — 14b792318
+- STATBUS-090 (status-lag: frontend poll fallback + SSE resilience; backend NOTIFY-after-terminal) — 8e8688cc7 + 2134edab8
+- STATBUS-088 (operator log wording → plain + preserved (detail) triage tail) — 2134edab8
+Deferred/filed: STATBUS-034 (branch-channel, not needed for 071 per architect), STATBUS-092 (--recreate durable column), STATBUS-093 (Crystal cli/src/ retirement). Designs: doc-012 (071), doc-013 (089), doc-014 (072), doc-015 (090).
+
+WAVE 3 STARTED: STATBUS-071 (the branch-arc framework, the charter's GOAL / AC#4) — engineer building INCREMENTALLY per doc-012 §9 (skeleton construct→image-wait→no-op→teardown FIRST, prove zero orphans on a real run, THEN the working→working-fixed arc, THEN the fingerprint + hanging→hanging-fixed fail→rollback→fix, THEN reshape the kill scenarios + delete fabricate). Q1 RESOLVED (no PAT: GITHUB_TOKEN push + explicit `gh workflow run images.yaml --ref <branch>`; images.yaml unchanged). 086+072 deps shipped. Each increment: commit→push→RUN (the oracle). Then STATBUS-044 (failure-mode matrix). FRUITION (AC#4) = the arc harness runs the real failure/fix arcs green + fabricate retired.
 <!-- SECTION:NOTES:END -->
