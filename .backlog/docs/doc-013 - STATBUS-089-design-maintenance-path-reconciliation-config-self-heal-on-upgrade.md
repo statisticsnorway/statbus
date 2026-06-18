@@ -5,7 +5,7 @@ title: >-
   upgrade
 type: specification
 created_date: '2026-06-18 15:20'
-updated_date: '2026-06-18 16:49'
+updated_date: '2026-06-18 16:58'
 tags:
   - upgrade
   - maintenance
@@ -14,62 +14,50 @@ tags:
   - architect-plan
   - root-cause
 ---
-# STATBUS-089 design — maintenance path reconciliation + config self-heal on upgrade
+# STATBUS-089 design — maintenance flag writer-path fix (config self-heal on upgrade)
 
-**Audience:** engineer (build), foreman (review). **Status:** root-caused, design ready (REFINED 2026-06-18: the reconcile is THREE unmounted-path refs, not two — see §1/§2). **TL;DR:** the task is framed as "upgrade should regenerate config so drift self-heals," but the verified root cause is a **class of unmounted-path references in the caddy templates** — the proxy container is told to serve from `/home/<user>/…` paths that are NOT mounted into it. Maintenance mode (the reported symptom) is the most visible instance; there are two more of the same class. Config-regen CANNOT fix it because the regen target (the templates) is itself broken. The real fix is a small clean-break path reconciliation; the config-regen-on-upgrade part is **already implemented** and self-heals the fix on the next upgrade.
+> **⚠️ CORRECTION (2026-06-18, architect).** This doc's earlier §1/§2 (the "three-way split" and the "three unmounted `/home/` paths" expansion) analyzed **DEAD templates** — `cli/src/templates/*.caddyfile.ecr` (legacy Crystal, no longer rendered). The **LIVE** templates are `caddy/templates/*.caddyfile.tmpl`, rendered by the Go CLI (config.go:755 `tmplDir=caddy/templates` + :790-797 map; `rg "\.ecr" cli/ -g'*.go'` = zero — nothing in Go reads `.ecr`). The live `.tmpl` templates are **already correct** (no `/home/` paths; all roots map to mounts). So the real bug is **writer-only**: `setMaintenance` wrote `~/maintenance` (outside the mount) while the live template + the compose mount already agree on `/statbus-maintenance/active`. Sections below are corrected. Root error: I trusted the `.ecr` path from AGENTS.md + a stale exec.go comment + the operator report without checking which templates the LIVE code renders. **Dead-`.ecr` cleanup is a separate follow-on.**
 
-## 1. Verified root cause — the proxy serves from paths it doesn't mount
-The proxy container (caddy/docker-compose.yml) mounts EXACTLY: `/etc/caddy` (./config), `/data` (./data), `/var/log/caddy`, `/statbus-maintenance` (`~/statbus-maintenance`), `/maintenance-page` (`../ops/maintenance`), `/statbus-tmp` (`../tmp`). Caddy runs IN that container; every `root */try_files` it evaluates is checked against the CONTAINER filesystem. But the templates reference **three `/home/<deployment_user>/…` paths that are NOT mounted**, so all three file-serving routes are broken:
+**Audience:** engineer (build) / foreman (review). **Status:** root-caused (writer-only), implemented, COMMIT-READY. **TL;DR:** maintenance mode never activated on standalone/private because `setMaintenance` wrote the flag to `~/maintenance`, a path NOT inside the proxy's `~/statbus-maintenance → /statbus-maintenance` bind-mount — while the (live `.tmpl`) Caddy template checks `file /statbus-maintenance/active`. The fix points the writer at `~/statbus-maintenance/active`. The config-regen-on-upgrade machinery (the task's original framing) already exists and self-heals on the next upgrade.
 
-| # | Template route | Current (broken) path | Mounted target it SHOULD use |
-|---|---|---|---|
-| 1 | upgrade-progress-log root | `/home/<user>/statbus/tmp` (standalone.caddyfile.ecr:67, private:99) | **`/statbus-tmp`** (mount `../tmp:/statbus-tmp`) |
-| 2 | maintenance flag matcher | `/home/<user>/maintenance` (standalone:77, private:109) | **`/statbus-maintenance/active`** (mount `~/statbus-maintenance`) |
-| 3 | maintenance 503 HTML root | `/home/<user>/statbus/app/public` (standalone:82, private:114) | **`/maintenance-page`** (mount `../ops/maintenance`; maintenance.html + contact.js live in `ops/maintenance/`, VERIFIED — not app/public) |
-
-**The maintenance flag (#2) is a THREE-WAY split** (the reported bug): setMaintenance WRITES host `~/maintenance` (cli/internal/upgrade/exec.go:216 + service.go:2846); the template CHECKS in-container `/home/<user>/maintenance` (#2); the compose MOUNTS host `~/statbus-maintenance` → container `/statbus-maintenance` (caddy/docker-compose.yml:28; dir created by cli/cmd/install.go:1068). Nothing is mounted at `/home/<user>/maintenance`, AND the file setMaintenance writes (`~/maintenance`) is not inside the mounted dir → the `@maintenance` matcher never fires → maintenance mode never activates.
+## 1. Verified root cause — writer-only path divergence
+- **LIVE render path:** the Go CLI renders `caddy/templates/*.caddyfile.tmpl` (config.go:755 + the :790-797 templates map). `cli/src/templates/*.caddyfile.ecr` is dead legacy (Crystal `manage.cr`, deleted) — referenced only by a stale comment.
+- **The live templates are CORRECT** (both modes; no `/home/` paths — verified):
+  - maintenance flag matcher: `file /statbus-maintenance/active` (standalone.caddyfile.tmpl:88, private:120)
+  - maintenance 503 HTML: `root * /maintenance-page` + `try_files /maintenance.html` (standalone:94-95, private:126-127)
+  - upgrade-progress-log: `root * /statbus-tmp` (standalone:73/81, private:105/113)
+- **The compose mounts match the templates** (caddy/docker-compose.yml): `/statbus-maintenance ← ~/statbus-maintenance`, `/maintenance-page ← ../ops/maintenance` (where maintenance.html + contact.js actually live — config.go:918), `/statbus-tmp ← ../tmp`.
+- **THE BUG (writer):** `setMaintenance` (cli/internal/upgrade/exec.go:216) + the duplicate in service.go:2846 wrote/removed `~/maintenance` — a sibling of, NOT inside, the mounted `~/statbus-maintenance/` dir. So the host flag never appeared at the container path the live template checks (`/statbus-maintenance/active` = host `~/statbus-maintenance/active`) → the `@maintenance` matcher never fired → maintenance mode dead on standalone + private.
 
 ### How it broke (git history)
-- **2026-03-25 d7f8b1186** added the compose mount `~/statbus-maintenance:/statbus-maintenance`. Original self-consistent convention = `/statbus-maintenance/active`.
-- **2026-04-14 24b0ae771** ("fix(upgrade): align maintenance flag path with Caddy (~/maintenance)") moved setMaintenance + the templates to `/home/<user>/…` paths **but did not update the compose mounts** → introduced the split (and the same-class progress-log/html-root breaks).
+- **2026-03-25 d7f8b1186** added the compose mount `~/statbus-maintenance:/statbus-maintenance` and install.go's `~/statbus-maintenance` dir creation (:1068). Convention: `/statbus-maintenance/active`. The live `.tmpl` template has always matched this.
+- **2026-04-14 24b0ae771** ("fix(upgrade): align maintenance flag path with Caddy (~/maintenance)") moved the WRITER (setMaintenance) to `~/maintenance` — which MIS-aligned it against the live template (still `/statbus-maintenance/active`). The commit title is ironic: it de-aligned the writer. The live template was not changed.
 
-(Operator SSH-confirmed rune's live state: deployed Caddyfile still `/statbus-maintenance/active`, proxy at the rc.04 image — confirmatory; the code + git history are authoritative.)
+(Operator SSH-confirmed rune: deployed Caddyfile `/statbus-maintenance/active`, proxy at the rc.04 image — consistent with "template correct, writer wrong.")
 
-## 2. PART-A — the fix: reconcile ALL THREE template paths to their container mounts
-Clean break, all sites in one atomic commit (internal-code discipline). The principle: **the proxy serves ONLY from its mounts; no `/home/<user>/…` paths in the templates.**
-1. **setMaintenance** (cli/internal/upgrade/exec.go:216) + the duplicate at **service.go:2846**: write/remove `filepath.Join(os.Getenv("HOME"), "statbus-maintenance", "active")` instead of `~/maintenance`. Update the comment exec.go:213-214 (it currently claims `~/maintenance` is "the path Caddy's try_files directive watches" — that claim is the bug).
-2. **Templates** — fix all THREE roots in BOTH standalone.caddyfile.ecr AND private.caddyfile.ecr:
-   - progress-log root :67/:99 → `root * /statbus-tmp` (confirm the progress log is written to `tmp/upgrade-progress.log` so `/statbus-tmp/upgrade-progress.log` resolves).
-   - maintenance matcher :77/:109 → `try_files /statbus-maintenance/active`.
-   - maintenance 503 root :82/:114 → `root * /maintenance-page` (the `rewrite * /maintenance.html` line is unchanged; contact.js is served from the same `/maintenance-page`).
-3. **compose mounts (caddy/docker-compose.yml) + install.go:1068**: KEEP as-is — they are already the correct convention; the templates were the drift. (`:ro` is fine — the host writes the flag, the container only reads.)
+## 2. The fix (writer-only) — IMPLEMENTED
+Clean break in cli/internal/upgrade (single-owner; engineer, reviewed):
+1. **setMaintenance + cleanStaleMaintenance → `maintenanceFlagHostPath()`** = `~/statbus-maintenance/active`, via shared constants (`maintenanceFlagDir` / `maintenanceFlagName`) + `MkdirAll` of the dir; the stale comment (exec.go:213-214 claiming `~/maintenance` is what Caddy watches) is fixed to cite the live `.tmpl`. The service.go:2846 duplicate uses the same helper.
+2. **Templates + compose + install.go: NO CHANGE** — the live `.tmpl` already checks `/statbus-maintenance/active`, serves `/maintenance-page` + `/statbus-tmp`; the mounts already provide them. (Earlier drafts proposed template edits — those targeted the dead `.ecr`; the live `.tmpl` needs none.)
+3. **Structural invariant test** `maintenance_path_test.go` (cli/internal/upgrade): reads the LIVE `caddy/templates/*.caddyfile.tmpl` + `caddy/docker-compose.yml` + the Go constants, and asserts (a) the template's `file` directive == `maintenanceFlagHostPath()`'s container path AND the host path is a declared bind-mount (writer↔template↔mount agree); (b) every template `root`/`try_files` path is under a declared compose mount ("unmounted path is dead in-container"). Reintroducing the writer↔template split fails (a); any unmounted template path fails (b). This is the "always add constraints" guard, on the live files — it makes the original (writer-vs-template) divergence un-mergeable.
 
-### Recommended convention + tradeoff (one line)
-Standardize the maintenance flag on the directory-mount convention `/statbus-maintenance/active` (already implemented by compose:28 + install.go:1068). The alternative (mount the home dir / a single `~/maintenance` file) is fragile — bind-mounting a sometimes-absent single file makes Docker create a spurious directory at the source on container (re)create; the stable directory whose contents toggle is robust. Pick the dir convention.
+## 3. PART-B — config self-heal on upgrade (the task's original framing — already solved)
+Already in place; no work needed:
+- config-generate runs on upgrade: applyPostSwap step 7 (`./sb config generate` via the new binary, post-checkout — service.go:4487; STATBUS-058). It re-renders the Caddyfiles from the new version's `.tmpl` templates.
+- the proxy is recreated to read them: `step11RestartServices = {app,worker,rest,proxy}` (service.go:120), proxy version-tracked (containers.go:103), Caddyfile bind-mounted (`./config:/etc/caddy`, compose:20). So the next upgrade re-renders + reloads.
+⇒ Once the writer fix ships, the next upgrade carries the corrected binary to every host; maintenance works thereafter with no per-host action. (The templates needed no fix, so even the regen is moot for THIS bug — but it's the mechanism that would have conveyed a template fix had one been needed.)
 
-### Structural invariant test (King: "always add constraints") — broadened to the whole class
-Add a unit test that **fails if any caddy template references a `/home/` path**, AND asserts every absolute `root */try_files` path in the templates is a declared mount target in caddy/docker-compose.yml. This single invariant catches all three refs above, keeps setMaintenance's write-path ↔ the matcher path ↔ the mount in agreement, and makes a future "serve from an unmounted host path" merge impossible (mirrors the existing `TestVersionTrackedAlignedWithUpgradePipeline` invariant pattern). Stronger than asserting only the flag-path 3-way agreement.
+### Residual hardening (optional, not the bug)
+A standalone `./sb config generate` (operator edits `.env.config` without an upgrade) re-renders config but doesn't reload the running proxy — a non-upgrade config change isn't applied until the next restart. Optional: have `./sb config generate` reload the proxy, reusing the Caddy-reload primitive at cli/cmd/cert.go:145.
 
-## 3. PART-B — config self-heal on upgrade (the foreman's framing — already mostly solved)
-The "upgrade should regenerate config so drift self-heals" mechanism is ALREADY in place:
-- **Regen runs on upgrade:** applyPostSwap step 7 runs `./sb config generate` via the NEW binary, post-checkout (service.go:4487; STATBUS-058, commit 7cc6c1b48). It rewrites `.env` + the Caddyfiles from the new version's templates.
-- **The proxy is recreated to read them:** `step11RestartServices = {app,worker,rest,proxy}` (service.go:120) and the proxy is **version-tracked** (`versionTrackedServices`, containers.go:103) — its image tag changes per commit, so step 11's `docker compose up -d --no-build … proxy` (service.go:4711) RECREATES the proxy container. The Caddyfile is **bind-mounted** (`./config:/etc/caddy:ro`, compose:20), so the recreated proxy reads the freshly-generated Caddyfile. (This is the exact path the comment at service.go:4696-4701 restored after the "froze rune's proxy on a stale tag for 18 days" Bug-2.)
+## 4. The task's explicit questions answered
+- **Should the upgrade regenerate Caddyfiles/.env from the new template?** It already does (service.go:4487) AND applies them (proxy recreate, service.go:4711). For THIS bug it was moot (the templates were already correct; the defect was the writer).
+- **Idempotent / don't-clobber?** config-generate is a pure render from `.env.config` + `.env.credentials` (re-run = no-op on unchanged inputs); `.env.config` is the operator's customization surface, `.env` + Caddyfiles are disposable derivatives — regen never clobbers customizations.
 
-⇒ Once PART-A ships, the corrected templates are in the new binary, and **the next upgrade self-heals every deployed box**: config-generate emits the corrected Caddyfiles, step 11 recreates the proxy to read them. No new upgrade-flow step is needed for the upgrade path.
+## 5. Verification
+1. **Unit:** `maintenance_path_test.go` (writer↔live-template↔mount alignment + no unmounted template path) — fast, CI.
+2. **End-to-end (standalone VM, via the STATBUS-071 arc or a rune-shaped box):** trigger an upgrade; assert the maintenance 503 page IS served during the upgrade window (curl → 503 + maintenance.html), then 200 after. The behaviour that silently regressed for ~2 months; only a live request proves it.
+3. **rune:** heals on the next upgrade (corrected writer ships in the binary). One-off `./sb config generate` is NOT sufficient for rune (the templates were already correct there; rune's issue is the running binary's writer path — fixed by the upgrade).
 
-### Residual hardening (small, optional, not the bug)
-A standalone `./sb config generate` (operator edits `.env.config` WITHOUT an upgrade) regenerates the Caddyfiles but does NOT reload the running proxy — so a non-upgrade config change isn't applied until the next restart/upgrade. Recommendation: have `./sb config generate` (or a dedicated `./sb config apply`) optionally reload the proxy, reusing the existing Caddy-reload primitive at **cli/cmd/cert.go:145** (cert install already reloads Caddy). Keep it a reload, not a full recreate, when only the bind-mounted config changed.
-
-## 4. The foreman's explicit questions answered
-- **Should the upgrade regenerate Caddyfiles/.env from the new template?** It already does (service.go:4487) AND applies them (proxy recreate, service.go:4711). The gap was never regen — it was the broken template paths (PART-A).
-- **Where in the flow?** config-generate at applyPostSwap step 7 (post-checkout, pre-restart); applied at step 11 (proxy recreate). Correct placement; no change.
-- **Idempotent?** Yes — config-generate is a pure render from `.env.config` + `.env.credentials`; re-running is a no-op when inputs are unchanged.
-- **Don't clobber operator customizations?** Already satisfied by design: **`.env.config` is the operator's customization surface** (hand-edited); `.env` + the Caddyfiles are **disposable generated derivatives** (AGENTS.md: "`.env` … do not edit directly"). Regen never clobbers customizations because they live UPSTREAM of generation. The only way an operator could be clobbered is hand-editing a generated Caddyfile — which the convention forbids; surface that in the operator docs rather than trying to preserve hand-edits to generated files.
-
-## 5. Verification (the run is the oracle)
-1. **Unit:** the PART-A invariant test (no `/home/` in templates; every template root/try_files path ⊆ compose mounts) — fast, runs in CI.
-2. **End-to-end (real standalone VM, via the STATBUS-071 arc once it exists, or a manual rune-shaped box):** trigger an upgrade, and assert the maintenance 503 page is actually served by the running proxy DURING the upgrade window (curl the site, expect 503 + maintenance.html), then 200 after; AND that `/upgrade-progress.log` is fetchable during the upgrade (the progress-log route, fix #1). These are the behaviours that silently regressed for ~2 months — only a live request proves them.
-3. **rune immediate remediation (operator, no SSH writes):** ships via the fix + next upgrade (config-generate + proxy recreate). A one-off `./sb config generate` + proxy reload on rune is the manual stopgap if maintenance is needed before the next upgrade — but per "no manual DB/host writes," prefer driving it through the upgrade.
-
-## 6. Scope note for the foreman
-This RE-SCOPES STATBUS-089 from "build a config-regen-on-upgrade mechanism" (already exists) to "reconcile the THREE unmounted-path template refs (PART-A) + add the invariant guard + small standalone-reload hardening (PART-B residual)." Smaller and cleaner than the original framing, and it's a self-contained clean-break fix in setMaintenance + the 2 templates (+ test) that self-heals on the next upgrade. Sequenceable in Wave-2 via the engineer (touches service.go:2846 + exec.go — single-owner) with the template edits disjoint. The 3-path scope is the whole same-class fix in one commit — do not fix 2 of 3 and leave the progress-log break latent.
+## 6. Scope note
+STATBUS-089 reduces to a **writer-only** clean-break fix in cli/internal/upgrade (setMaintenance/cleanStaleMaintenance → maintenanceFlagHostPath) + the live-files invariant test. No template/compose/schema change. The original "config-regen mechanism" framing was already solved; the "3-path template reconcile" expansion was an analysis error on dead `.ecr` files (corrected above). FOLLOW-ON (separate, low-priority): delete the dead `cli/src/templates/*.ecr` + the stale exec.go `.ecr` comment so no future reader is misled (the very trap that caught this analysis).
