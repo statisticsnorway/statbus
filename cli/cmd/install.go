@@ -335,6 +335,38 @@ func runInstall() (installErr error) {
 		}
 	}
 
+	// Pre-flight: if --trust-github-user is set, trust that user's signing key
+	// BEFORE state detection + dispatch. Positioned ahead of dispatchInstallState
+	// (below) on purpose: the scheduled-upgrade and crashed-upgrade paths return
+	// early from dispatch (handing off to executeUpgrade), so a trust pre-flight
+	// placed after dispatch never runs on a box with a pending/wedged upgrade —
+	// making `./sb install --trust-github-user X` a silent no-op exactly when the
+	// upgrade pipeline needs that signer to verify the target commit. Skips the
+	// GitHub fetch if a valid key is already configured (idempotent — no API call
+	// on re-run); a truly fresh box (no .env.config yet) is a no-op, same as
+	// before — the require-a-signer pre-flight further down still gates existing
+	// installs.
+	if !bypass && trustGitHubUser != "" {
+		cfgPath := filepath.Join(installDir, ".env.config")
+		if _, statErr := os.Stat(cfgPath); statErr == nil {
+			if checkSignersDone(installDir) {
+				fmt.Printf("Trusted signer already configured and verified — skipping GitHub fetch\n")
+			} else {
+				f, loadErr := dotenv.Load(cfgPath)
+				if loadErr == nil {
+					fmt.Printf("Trusting GitHub user %s (--trust-github-user)...\n", trustGitHubUser)
+					if err := trustSignerNonInteractive(trustGitHubUser, f); err != nil {
+						log.Printf("Could not trust %s (continuing, operator may add manually): %v", trustGitHubUser, err)
+					} else {
+						if err := f.Save(); err != nil {
+							log.Printf("Could not save .env.config after adding trusted signer: %v", err)
+						}
+					}
+				}
+			}
+		}
+	}
+
 	var detectedState install.State
 	if !bypass {
 		state, detail, derr := install.Detect(installDir, version)
@@ -373,30 +405,6 @@ func runInstall() (installErr error) {
 			}
 			if handled, err := dispatchInstallState(installDir, state, detail); handled {
 				return err
-			}
-		}
-	}
-
-	// Pre-flight: if --trust-github-user is set, trust that user's signing
-	// key before any validation. Skips the GitHub fetch if a valid key is
-	// already configured (idempotent — no API call on re-run).
-	if !bypass && trustGitHubUser != "" {
-		cfgPath := filepath.Join(installDir, ".env.config")
-		if _, statErr := os.Stat(cfgPath); statErr == nil {
-			if checkSignersDone(installDir) {
-				fmt.Printf("Trusted signer already configured and verified — skipping GitHub fetch\n")
-			} else {
-				f, loadErr := dotenv.Load(cfgPath)
-				if loadErr == nil {
-					fmt.Printf("Trusting GitHub user %s (--trust-github-user)...\n", trustGitHubUser)
-					if err := trustSignerNonInteractive(trustGitHubUser, f); err != nil {
-						log.Printf("Could not trust %s (continuing, operator may add manually): %v", trustGitHubUser, err)
-					} else {
-						if err := f.Save(); err != nil {
-							log.Printf("Could not save .env.config after adding trusted signer: %v", err)
-						}
-					}
-				}
 			}
 		}
 	}
