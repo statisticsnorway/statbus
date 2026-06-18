@@ -618,7 +618,7 @@ To verify the upgrade service's rollback and recovery mechanisms, use these proc
 1. Create a migration that fails (e.g., `SELECT 1/0;`)
 2. Optionally add a preceding migration that creates a marker table (to verify both are rolled back)
 3. Tag as a pre-release RC
-4. Apply on a test server: `./sb upgrade apply <broken-rc>`
+4. Schedule on a test server: `./sb upgrade register <broken-rc> && ./sb upgrade schedule <broken-rc>`
 5. Verify: migration fails, service rolls back, marker table is gone, upgrade shows "rolled back"
 6. Tag a fix RC that removes the broken migrations
 7. Apply the fix RC: verify it applies cleanly, binary self-updates

@@ -47,7 +47,7 @@ Edit `.env.config` and run `./sb config generate` to apply changes.
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `UPGRADE_CHANNEL` | `stable` | Which releases to discover: `stable` (non-prerelease only), `prerelease` (all releases), or `edge` (every master commit). To target a specific version for a one-off upgrade, use `./sb upgrade schedule <version>` instead. |
+| `UPGRADE_CHANNEL` | `stable` | Which releases to discover: `stable` (non-prerelease only), `prerelease` (all releases), or `edge` (every master commit). To target a specific version for a one-off upgrade, use `./sb upgrade register <version>` then `./sb upgrade schedule <version>` instead. |
 | `UPGRADE_CHECK_INTERVAL` | `6h` | How often the service polls GitHub. Any Go duration string (`30m`, `6h`, `24h`). |
 | `UPGRADE_AUTO_DOWNLOAD` | `true` | Pre-download Docker images for discovered releases. Set to `false` on metered connections. |
 
@@ -109,20 +109,21 @@ The service restarts automatically on failure (`Restart=always`, `RestartSec=30`
 ### CLI commands
 
 ```bash
-# Check GitHub for releases (one-shot, does not require the service)
+# Fetch GitHub releases and register them as candidates (one-shot, no service needed)
 ./sb upgrade check
 
-# List upgrades tracked in the database
+# List registered upgrade candidates and their status
 ./sb upgrade list
 
-# Schedule an upgrade (service picks it up on next tick)
+# Register a specific release tag or commit as a candidate (prerequisite for schedule)
+./sb upgrade register v2026.03.1
+
+# Queue an already-registered candidate to run (the service executes it within
+# seconds of the scheduling NOTIFY)
 ./sb upgrade schedule v2026.03.1
 
-# Trigger immediate upgrade via NOTIFY (service executes within seconds)
-./sb upgrade apply v2026.03.1
-
-# Trigger upgrade with full database recreate instead of migrations
-./sb upgrade apply v2026.03.1 --recreate
+# Queue an upgrade with a full database recreate instead of migrations
+./sb upgrade schedule v2026.03.1 --recreate
 
 # Run the upgrade service in the foreground (for debugging)
 ./sb upgrade service
@@ -143,7 +144,8 @@ Version format: `vYYYY.MM.PATCH` (e.g., `v2026.03.1`) or 8-char `commit_short` (
 The `--recreate` flag tells the upgrade service to destroy and recreate the database from scratch instead of running incremental migrations. The full migration history is applied to a fresh database.
 
 ```bash
-./sb upgrade apply v2026.03.1 --recreate
+./sb upgrade register v2026.03.1
+./sb upgrade schedule v2026.03.1 --recreate
 ```
 
 **When to use:**

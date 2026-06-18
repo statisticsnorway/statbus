@@ -95,10 +95,10 @@ echo "SELECT ..." | ./sb psql             # Single queries
 ### Install / Upgrade (./sb)
 ```bash
 ./sb install                      # Unified entrypoint — detects state and dispatches
-./sb upgrade check                # Check GitHub for new releases
-./sb upgrade list                 # List discovered upgrades from database
-./sb upgrade schedule <version>   # Queue an upgrade (writes a public.upgrade row)
-./sb upgrade apply <version>      # Trigger immediate upgrade via NOTIFY (needs running service)
+./sb upgrade check                # Fetch GitHub releases and register them as candidates
+./sb upgrade list                 # List registered upgrade candidates and their status
+./sb upgrade register <version>   # Record a release tag or commit as a candidate (prereq for schedule)
+./sb upgrade schedule <version>   # Queue an already-registered candidate to run (service executes it)
 ./sb upgrade service              # Run upgrade service (usually via systemd)
 ```
 

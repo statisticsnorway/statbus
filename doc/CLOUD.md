@@ -393,15 +393,15 @@ cd ~/statbus
 ./sb migrate up
 
 # Upgrades
-./sb upgrade check              # Check for new releases
-./sb upgrade list               # List discovered upgrades from the database
-./sb upgrade schedule v2026.03.1  # Queue a specific version for execution
-./sb upgrade apply v2026.03.1   # Trigger immediate upgrade via NOTIFY (requires running service)
-./sb install                    # Unified entrypoint: detects state and dispatches (step-table,
-                                # inline upgrade for a scheduled row, or crash-recovery)
+./sb upgrade check                # Fetch new releases and register them as candidates
+./sb upgrade list                 # List registered upgrade candidates and their status
+./sb upgrade register v2026.03.1  # Record the target as a candidate (prereq for schedule)
+./sb upgrade schedule v2026.03.1  # Queue it to run (fires NOTIFY; requires running service)
+./sb install                      # Unified entrypoint: detects state and dispatches (step-table,
+                                  # inline upgrade for a scheduled row, or crash-recovery)
 ```
 
-**Operator workflow:** `./sb upgrade schedule <version>` writes a `public.upgrade` row. After that, either let the service pick it up on its next tick (production norm), or run `./sb install` to dispatch inline — useful when you want the upgrade to run now without waiting, or when the service is stopped.
+**Operator workflow:** `./sb upgrade register <version>` records the candidate, then `./sb upgrade schedule <version>` writes the scheduled `public.upgrade` row. After that, either let the service run it (scheduling fires a NOTIFY; production norm), or run `./sb install` to dispatch inline — useful when you want the upgrade to run now without waiting, or when the service is stopped.
 
 ### Automated Deployment
 
@@ -427,7 +427,7 @@ View deployment status in GitHub Actions or Slack channel `statbus-utvikling`.
 Each instance runs an upgrade service that handles releases automatically. To trigger manually:
 
 ```bash
-ssh statbus_ma@niue.statbus.org "cd statbus && ./sb upgrade apply v2026.03.1"
+ssh statbus_ma@niue.statbus.org "cd statbus && ./sb upgrade register v2026.03.1 && ./sb upgrade schedule v2026.03.1"
 ssh statbus_ma@niue.statbus.org "cd statbus && ./sb upgrade check"
 ```
 
@@ -754,9 +754,10 @@ ssh statbus@rune.statbus.org
 cd ~/statbus
 ./sb ps                        # container status
 ./sb logs proxy                # Caddy / ACME / TLS
-./sb upgrade list              # discovered upgrades
-./sb upgrade apply v2026.04.1  # immediate via NOTIFY
-./sb install                   # idempotent config refresh / dispatch pending upgrade
+./sb upgrade list                 # registered upgrade candidates
+./sb upgrade register v2026.04.1  # record the target as a candidate
+./sb upgrade schedule v2026.04.1  # queue it to run (fires NOTIFY)
+./sb install                      # idempotent config refresh / dispatch pending upgrade
 ```
 
 For host-level administration (journalctl, apt, systemctl system units, etc.) log in as `devops` instead.

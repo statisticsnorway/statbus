@@ -1577,7 +1577,8 @@ func (d *Service) Run(ctx context.Context) error {
 	// LISTEN on channels (must use listenConn — queryConn is for queries).
 	// Registered BEFORE READY=1 (and before recoverFromFlag/boot-migrate below)
 	// so the service is already listening the instant systemd marks the unit
-	// active — a NOTIFY (e.g. ./sb upgrade apply) sent right after activation,
+	// active — a NOTIFY (e.g. upgrade_apply, fired by the upgrade_notify_daemon
+	// trigger when a row is scheduled, or by ./sb upgrade apply-latest) sent right after activation,
 	// or during the resume, BUFFERS on the session rather than being lost.
 	// Notifications are not *processed* until startListenLoop runs in the main
 	// loop below, so registering early only prevents missed wakeups; it does

@@ -333,11 +333,11 @@ After editing, regenerate:
 
 Updates are handled automatically by the upgrade service. To manually trigger:
 ```bash
-./sb upgrade check                  # Check for new releases
-./sb upgrade schedule v2026.03.1    # Queue a version (service picks it up on next tick)
-./sb upgrade apply v2026.03.1       # Immediate via NOTIFY (requires running service)
-./sb install                        # Alternative: dispatch any scheduled row inline,
-                                    # without waiting for the service tick
+./sb upgrade check                   # Fetch new releases and register them as candidates
+./sb upgrade register v2026.03.1     # Record the target as a candidate (prepares it)
+./sb upgrade schedule v2026.03.1     # Queue it to run (fires NOTIFY; requires running service)
+./sb install                         # Alternative: dispatch any scheduled row inline,
+                                     # without waiting for the service tick
 ```
 
 `./sb install` is the unified entrypoint — safe to run on a healthy install (acts as an idempotent config refresh), and it routes to inline upgrade when a scheduled row is pending. See `doc/upgrade-timeline.md` for the full dispatch ladder.
@@ -684,10 +684,11 @@ Configure upgrade behavior in `.env.config`, then run `./sb config generate`:
 ### Manual Trigger
 
 ```bash
-./sb upgrade apply v2026.03.1
+./sb upgrade register v2026.03.1   # record the target as a candidate
+./sb upgrade schedule v2026.03.1   # queue it to run
 ```
 
-This sends a `NOTIFY` to the running upgrade service, which executes the upgrade with backup and rollback support.
+`schedule` promotes the registered candidate, which fires a `NOTIFY` to the running upgrade service — it executes the upgrade with backup and rollback support.
 
 ### Targeting a specific version
 
