@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-18 12:47'
+updated_date: '2026-06-18 12:51'
 labels:
   - upgrade-ui
   - ux
@@ -29,3 +30,15 @@ QUESTIONS TO ANSWER (inspection delegated):
 
 EVIDENCE: screenshot in the 2026-06-18 session. Frontend page = the Software Upgrades view (app/); data = public.upgrade rows on dev. Post-rc.04 UX polish — NOT rc.04-blocking (the upgrade itself succeeded).
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+ROOT CAUSE (mechanic, 2026-06-18) — frontend display logic, NO product/data bug.
+(1) 'Currently running' header: the completed rc.04 row (#254954) is shown there because app/.../page.tsx:559 sets latestCompleted = history.find(state=='completed') — the 'what version am I on' anchor (intended).
+(2) '0 past upgrades': page.tsx:730 counts filteredHistory.length, where filteredHistory hides state='superseded' by default (showSuperseded=false). Dev has 20 public.upgrade rows: #254954 completed (rc.04, the anchor) + 19 SUPERSEDED (edge-channel versions discovered but never applied — each superseded by the next master push before it ran). Non-superseded history = 0 → 'pebble 0 past upgrades'. The 19 superseded ARE present (the faded 'Superseded' chip reveals them); only the trigger count misleads.
+
+FIX SHAPE: page.tsx:730 count historyRest.length (19) instead of filteredHistory.length, so the trigger reads '19 past upgrades' and signals there's history to expand.
+
+UX CHOICE for the King: with the count = 19 but showSuperseded=false by default, expanding shows 0 rows until 'Superseded' is clicked. So the deeper choice is whether discovered-but-never-applied (superseded) rows should count/show as 'past upgrades' at all (rc.04 is the box's first APPLIED upgrade). Options: (a) count total 19 (mechanic's one-liner); (b) default showSuperseded=true so the history is visible; (c) relabel (e.g. 'N applied, M superseded'). King steers the exact UX. Post-rc.04, not blocking.
+<!-- SECTION:NOTES:END -->
