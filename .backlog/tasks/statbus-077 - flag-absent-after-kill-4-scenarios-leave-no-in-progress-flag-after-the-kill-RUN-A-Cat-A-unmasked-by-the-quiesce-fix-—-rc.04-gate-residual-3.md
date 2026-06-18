@@ -3,11 +3,11 @@ id: STATBUS-077
 title: >-
   remove-from-commit-sha: one recovery source of truth (the pre-upgrade branch)
   — fixes the crash that blocks Albania's upgrade
-status: In Progress
+status: Done
 assignee:
   - architect
 created_date: '2026-06-17 13:07'
-updated_date: '2026-06-17 20:12'
+updated_date: '2026-06-18 08:20'
 labels:
   - install-recovery
   - rc.04
@@ -67,3 +67,9 @@ FULLY LANDED ON MASTER + PUSHED (2026-06-17): 820e79624 (STATBUS-078 gate) + 108
 RE-RUN FIRING (2026-06-17 ~19:57): install-recovery-harness run 27715901866 on 78e770ac (full 32-scenario matrix, blank scenarios=all; auto-discovered from test/install-recovery/scenarios/). URL https://github.com/statisticsnorway/statbus/actions/runs/27715901866. The CUT GATE. Provisions fresh Hetzner VMs (independent of niue). ~2-4h.
 MASTER-HEALTH on 78e770ac: Go Test ✓, Images ✓ (image 78e770ac built + ready). pg_regress CI = FAILURE but it is a NIUE INFRA BLIP, NOT a test failure + NOT from our change — the pg_regress job SSHes to niue.statbus.org to run the suite and the dial TIMED OUT (`dial tcp 162.55.61.141:22: i/o timeout`, run 27715497531) before any test ran. Confirmed: pg_regress was GREEN on e6c85c193 (prev master) + earlier; niue:22 currently NOT reachable. ACTION: re-run pg_regress (run 27715497531) once niue recovers to get the clean green; meanwhile the tester's LOCAL ./dev.sh test fast (local docker, niue-independent) is the SQL-health signal (result pending). The cut gate (install-recovery) does NOT depend on niue.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+DONE — landed on master. from_commit_sha removed; the single recovery source of truth is now the pre-upgrade branch. This was the root fix for the crash that blocks Albania's upgrade. Landing commits: "fix(upgrade): remove from_commit_sha — single recovery source = the pre-upgrade branch (STATBUS-077)" + the blast-radius test/ER-diagram follow-ups (STATBUS-078). Closed during the 2026-06-18 board cleanup.
+<!-- SECTION:FINAL_SUMMARY:END -->
