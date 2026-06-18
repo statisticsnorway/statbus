@@ -235,8 +235,8 @@ psql
 
 ### Key Configuration Files
 
-- `cli/src/manage.cr`: Configuration generation and port calculation logic
-- `cli/src/templates/*.caddyfile.ecr`: Mode-specific Caddy templates
+- `cli/internal/config/config.go`: Configuration generation and port calculation logic (ported from the retired Crystal `cli/src/manage.cr`)
+- `caddy/templates/*.caddyfile.tmpl`: Mode-specific Caddy templates (rendered by `config.go`)
 - `sb`: Go CLI binary (built from cli/, in .gitignore)
 - `dev.sh`: Development-only commands (test, create-db, etc.)
 - `ops/`: Operations scripts (maintenance, notifications, service files)
