@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-18 14:55'
-updated_date: '2026-06-18 15:38'
+updated_date: '2026-06-18 16:28'
 labels:
   - upgrade
   - phase-2
@@ -71,4 +71,16 @@ PROGRESS (W1): STATBUS-087 DONE (de453b814). STATBUS-086 stage-scoped (engineer 
 DECISION (foreman, autonomous, 2026-06-18) — STATBUS-086 stage-2 kill-scenario scheduling: RESOLVED = OPTION C (architect's ruling, foreman-verified at the tag; overturns my earlier D lean). The kill scenarios keep their v2026.05.2 baseline and schedule the arbitrary HEAD SHA via the v2026.05.2 box's OWN `./sb upgrade apply <short>` after `git fetch`. VERIFIED at v2026.05.2: CLI apply accepts a commit-short (upgrade.go:176,183 IsCommitShort) AND service scheduleImmediate does INSERT…ON CONFLICT(commit_sha) DO UPDATE on the UntaggedTarget branch (service.go:2814,2829-2831) — so the old box really can schedule an arbitrary SHA. My D lean assumed it couldn't; the tag-read disproved that. C is MORE faithful than fabricate (which bypassed apply+scheduleImmediate), needs NO HEAD-binary pre-stage (binary-swap-kill stays faithful), keeps the Albania FROM-old baseline, and AC#6 (delete fabricate) FULLY applies in 086. SMOKE-GATE: prove C on ONE kill scenario on a VM before converting all ~18 (fall back to D if v2026.05.2 surprises). Not throwaway — final form; 071 only ADDS new arcs.
 
 086 REVIEW (architect): core SOLID (lock-free one-shot safe; upsertCandidate verbatim/one-path; supersede correct). Must-fix into stage-1 before commit: (1) notify-all-clouds.yaml discover→check (workflow breakage); (2) AC#3/#9 unit tests (were NOT actually present); (3) apply-latest register-then-schedule (else deploy-to-X silently no-ops on the discovery race — keeps master deployable). Engineer doing these now → architect re-reviews apply-latest → foreman commits complete stage-1. Robustness (RunSchedule state-guard, --recreate double-NOTIFY) + AC#7 doc sweep = follow-on. STATBUS-089 design = doc-013 (verified maintenance 3-way-path bug); STATBUS-071 build-spec = doc-012.
+
+MILESTONE 2026-06-18 — STATBUS-086 DONE + AC#8 VM-PROVEN (run 27773133504 green; the real register→ready→schedule→service→completed path proven on a Hetzner VM). This is the first real-path proof — the register/schedule mechanism that the whole branch-arc framework (071) depends on now works end-to-end.
+
+WAVE 1 COMPLETE: STATBUS-087 DONE (de453b814 history label). STATBUS-086 DONE (8c0631ee9 stage-1 + 64441aaf9 AC#8 canary + 64ba13ab9 AC#7 sweep; AC#8 oracle run green). Architect deliverables: doc-012 (071 build-spec, with §8 the C→D ruling + the RunSchedule-is-the-enabler through-line) + doc-013 (089 design = the verified maintenance 3-way-path bug).
+
+KEY DECISIONS (all foreman-verified): §7 fix-branch topology = Option 1 (amend-in-place). Stage-2 kill-scenario scheduling = Option D (fabricate STAYS for the v2026.05.2-baseline kill scenarios in 086; C proven non-viable — daemon runs synchronously after inserting, no daemon-down 'scheduled' window; 071 reshapes them onto post-086 baselines where RunSchedule produces the daemon-down row, retiring fabricate there). AC#6 re-scoped accordingly.
+
+FOLLOW-ONS FILED/TRACKED: STATBUS-092 (--recreate double-NOTIFY → durable column, low). 071 must drop/swap the 3 dead kill-scenario `apply` wake-calls (documented in 64ba13ab9). STATBUS-089 reframed to the maintenance 3-way-path bug (Wave-2).
+
+WAVE 2 STARTING: STATBUS-072 (amend-in-place migration + re-stamp) — architect drafting the implementation plan (doc), engineer reading migrate.go's apply+stamp loop, in parallel during the oracle run. Then 034 (branch-channel), 089-impl (maintenance path reconcile), 090 (status-lag race), 088 (operator wording). Then WAVE 3 = 071 framework + 044 matrix.
+
+Master stayed green throughout; every code unit was architect-reviewed AND foreman-diff-reviewed before commit (AC #7 of this charter holding).
 <!-- SECTION:NOTES:END -->
