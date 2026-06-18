@@ -9,7 +9,10 @@ name: Upgrade Arc Harness
 # (register + schedule, STATBUS-086) — the Albania web-UI mechanism — and the
 # box must apply/recover AUTONOMOUSLY.
 #
-# === INCREMENTS LANDED: skeleton (§9 a+b) + working→working-fixed (§9 c) ===
+# === INCREMENTS LANDED: skeleton (§9 a+b) + working (§9 c) + failing (§9 d) ===
+# `scenario` selects the arc: working = re-stamp (the MANY who succeeded); failing
+# = fail→rollback→fix + the 3-dim clean-slate fingerprint (the FEW who failed).
+# construct branches V by scenario; run-arc dispatches ./arcs/${scenario}-arc.sh.
 #   construct  → push a test/* defect→fixed branch pair off A, then dispatch
 #                images.yaml per branch (Q1: a GITHUB_TOKEN push does NOT trigger
 #                downstream workflows, so the branch push alone won't build images
@@ -41,7 +44,7 @@ on:
         required: false
         default: ''
       scenario:
-        description: 'Arc scenario name (working | hanging). working = the re-stamp arc (increment (c)).'
+        description: 'Arc scenario: working (re-stamp, §9c) | failing (fail→rollback→fix + clean-slate fingerprint, §9d).'
         required: false
         default: 'working'
 
@@ -124,48 +127,65 @@ jobs:
           v_down="migrations/${v_version}_upgrade_arc_${SCENARIO}.down.sql"
           echo "V version = ${v_version}  (${v_up})"
 
-          # --- B: the DEFECT branch, off A — V is a genuine migration that
-          # SUCCEEDS (working arc). A real, observable, reversible schema change
-          # the arc asserts on. ---
+          # write_working_v — the WORKING fixture migration (succeeds; observable).
+          # Used for working-B AND failing-C (the fix that replaces V_fail). Written
+          # via echo-blocks, NOT a heredoc (a heredoc body dedented below the YAML
+          # `run: |` block indent breaks the literal scalar).
+          write_working_v() {
+            {
+              echo "-- Upgrade-arc fixture migration (STATBUS-071). Observable + reversible;"
+              echo "-- the arc asserts public.upgrade_arc_fixture exists with its row."
+              echo "CREATE TABLE public.upgrade_arc_fixture ("
+              echo "    id integer PRIMARY KEY,"
+              echo "    note text NOT NULL"
+              echo ");"
+              echo "INSERT INTO public.upgrade_arc_fixture (id, note) VALUES (1, 'arc');"
+            } > "$v_up"
+            echo "DROP TABLE IF EXISTS public.upgrade_arc_fixture;" > "$v_down"
+          }
+
+          # --- B: off A. working → V SUCCEEDS; failing → V deterministically FAILS
+          # (RAISE EXCEPTION → executeUpgrade's migrate up fails → autonomous rollback). ---
           git checkout -B "$b_branch" "$base_sha"
-          # Write V via echo-blocks (NOT a heredoc — a heredoc body dedented below
-          # the YAML `run: |` block indent breaks the literal scalar).
-          {
-            echo "-- Upgrade-arc fixture migration (STATBUS-071 working arc)."
-            echo "-- Observable + reversible; the arc asserts this table/row exists after B."
-            echo "CREATE TABLE public.upgrade_arc_fixture ("
-            echo "    id integer PRIMARY KEY,"
-            echo "    note text NOT NULL"
-            echo ");"
-            echo "INSERT INTO public.upgrade_arc_fixture (id, note) VALUES (1, 'working-arc');"
-          } > "$v_up"
-          echo "DROP TABLE IF EXISTS public.upgrade_arc_fixture;" > "$v_down"
+          if [ "$SCENARIO" = "failing" ]; then
+            {
+              echo "-- Upgrade-arc FAILING fixture (STATBUS-071 d): deterministic failure → rollback."
+              echo "DO \$\$ BEGIN"
+              echo "  RAISE EXCEPTION 'upgrade-arc failing fixture: deliberate migration failure (STATBUS-071 d)';"
+              echo "END \$\$;"
+            } > "$v_up"
+            echo "SELECT 1;  -- V_fail commits nothing; rollback is the volume-restore" > "$v_down"
+          else
+            write_working_v
+          fi
           git add "$v_up" "$v_down"
-          git commit -S -q -m "test(upgrade-arc): ${SCENARIO} migration V (B, succeeds)"
+          git commit -S -q -m "test(upgrade-arc): ${SCENARIO} migration V (B)"
           b_short="$(git rev-parse --short=8 HEAD)"
           b_full="$(git rev-parse HEAD)"
 
-          # --- C: the FIXED branch, off B. §7 Option-1: AMEND V IN PLACE (bytes
-          # change → content_hash H_C ≠ H_B; RESULT identical) AND declare V in
-          # migrations/amendments.tsv (072 conveyance). The B→C upgrade then sees
-          # the hash mismatch, finds V in the amendments set, and RE-STAMPS
-          # content_hash instead of hard-failing — the real 072 path. ---
+          # --- C: off B, §7 Option-1 edit V IN PLACE. working → amend (result-
+          # preserving) + declare V in migrations/amendments.tsv → B→C RE-STAMPS
+          # content_hash (the MANY who succeeded). failing → replace V_fail with the
+          # working migration; V_fail rolled back (unrecorded) so V_fixed applies
+          # FRESH — NO amendments.tsv entry (the FEW who failed). ---
           git checkout -B "$c_branch" "$b_branch"
-          # Prepend a comment: changes the file's bytes (→ new hash) without
-          # changing what V DOES (the table + row are identical).
-          tmp_v="$(mktemp)"
-          {
-            echo "-- amended in place (STATBUS-072 re-stamp; result-preserving)"
-            cat "$v_up"
-          } > "$tmp_v"
-          mv "$tmp_v" "$v_up"
-          # Declare V in the committed amendments ledger (header already exists
-          # from 072). version<TAB>amending_release<TAB>reason; version is the
-          # load-bearing field release.CircumventVersions reads.
-          printf '%s\t%s\t%s\n' "$v_version" "$c_branch" "working arc: amended V in place (result-preserving re-stamp)" \
-            >> migrations/amendments.tsv
-          git add "$v_up" migrations/amendments.tsv
-          git commit -S -q -m "test(upgrade-arc): ${SCENARIO} amend V in place + amendments.tsv (C, re-stamp)"
+          if [ "$SCENARIO" = "failing" ]; then
+            write_working_v
+            git add "$v_up" "$v_down"
+            git commit -S -q -m "test(upgrade-arc): ${SCENARIO} fix V in place (C, applies fresh)"
+          else
+            # Prepend a comment: changes the file's bytes (→ new hash) without
+            # changing what V DOES (the table + row are identical).
+            tmp_v="$(mktemp)"
+            { echo "-- amended in place (STATBUS-072 re-stamp; result-preserving)"; cat "$v_up"; } > "$tmp_v"
+            mv "$tmp_v" "$v_up"
+            # version<TAB>amending_release<TAB>reason; version is the load-bearing
+            # field release.CircumventVersions reads.
+            printf '%s\t%s\t%s\n' "$v_version" "$c_branch" "working arc: amended V in place (result-preserving re-stamp)" \
+              >> migrations/amendments.tsv
+            git add "$v_up" migrations/amendments.tsv
+            git commit -S -q -m "test(upgrade-arc): ${SCENARIO} amend V + amendments.tsv (C, re-stamp)"
+          fi
           c_short="$(git rev-parse --short=8 HEAD)"
           c_full="$(git rev-parse HEAD)"
 
@@ -280,7 +300,7 @@ jobs:
           done
 
   run-arc:
-    name: Run working→working-fixed arc (Hetzner VM)
+    name: Run upgrade arc (Hetzner VM)
     needs: [construct, image-wait]
     runs-on: ubuntu-24.04
     # Per-arc ceiling: install A + two real upgrades (A→B applies V, B→C
@@ -328,7 +348,7 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keygen -lf ~/.ssh/id_ed25519 | awk '{ print "SSH key fingerprint:", $2 }'
 
-      - name: Run the working arc on its own Hetzner VM
+      - name: Run the arc on its own Hetzner VM
         # Drives install A(base_sha) → register/schedule B → register/schedule C
         # entirely through the daemon (Albania autonomous; no quiesce, no ./sb
         # install). VM prefix statbus-arc-* is DISJOINT from install-recovery's
@@ -357,8 +377,10 @@ jobs:
           SCENARIO: ${{ github.event.inputs.scenario }}
         run: |
           set -euo pipefail
-          chmod +x sb-linux-amd64 test/install-recovery/arcs/working-arc.sh
-          ./test/install-recovery/arcs/working-arc.sh "statbus-arc-${SCENARIO}-${RUN_ID}"
+          arc="test/install-recovery/arcs/${SCENARIO}-arc.sh"
+          [ -f "$arc" ] || { echo "::error::no arc script for scenario '${SCENARIO}' ($arc)"; exit 1; }
+          chmod +x sb-linux-amd64 "$arc"
+          "./${arc}" "statbus-arc-${SCENARIO}-${RUN_ID}"
 
       - name: Upload arc log
         if: always()
