@@ -6,12 +6,14 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-18 13:00'
-updated_date: '2026-06-18 13:07'
+updated_date: '2026-06-18 17:11'
 labels:
   - upgrade-ui
   - maintenance
   - post-rc.04
 dependencies: []
+documentation:
+  - doc-015
 priority: medium
 ordinal: 90000
 ---
@@ -38,4 +40,8 @@ ROOT CAUSE (mechanic, 2026-06-18) = (b) service-timing + LISTEN-reconnect race, 
 Completion sequence in applyPostSwap: (1) service.go:4456 NOTIFY worker_status 'upgrade_changed' fires while the row is STILL in_progress; (2) :4473 setMaintenance(false); (3) ~:4481 UPDATE state='completed' → DB trigger pg_notify('worker_status','upgrade_changed') (migration 20260326174816); (4) removeUpgradeFlag.
 Step 1's NOTIFY reaches the frontend while still in_progress → UI re-fetches, sees no change. The REAL completion signal is step 3's trigger-NOTIFY. But the app's LISTEN/SSE may not be re-established yet (it was just coming back from the maintenance window), so the completed event is MISSED → frontend falls back to the SWR poll (3s cadence) → worst-case lag ~3s + a missed-event round-trip. The code already warns of this at service.go:4453-4455.
 FIX SHAPE (post-rc.04): fire the operator-facing completion NOTIFY AFTER the state='completed' UPDATE (not before), and/or have the frontend force a re-fetch on SSE reconnect, and/or tighten the poll while an upgrade is active. Not data-loss; a few-seconds UX lag.
+
+ARCHITECT DIAGNOSIS + PLAN (2026-06-18) = backlog doc-015. ROOT CAUSE (verified live code, refined from the mechanic's triage): the SSE connection GIVES UP reconnecting during the minutes-long maintenance window. app/src/atoms/JotaiAppProvider.tsx: EventSource('/api/sse/worker_status') (:321); onerror backoff min(1000*2^attempts,30000) STOPS after maxReconnectAttempts=5 (:313,:366-373) — ~31s total; onopen resets attempts only on a SUCCESSFUL connect (:323-324). Maintenance 503s the SSE endpoint, so it never opens → 5 attempts exhaust in ~31s → GIVES UP. A real upgrade's maintenance is MINUTES → the SSE abandons reconnection before completion → post-upgrade the EXISTING reconnect-refetch ('connected' → refreshInitialWorkerStatus, :354-356) never fires + the completion NOTIFY is never received → page stale until manual refresh/tab-refocus. Worst for an operator WATCHING the page (the King's case). NO polling fallback exists (the upgrade-status atom is atomWithRefresh, not SWR; the triage's '3s SWR poll' was wrong).
+
+FIX: PRIMARY (frontend/mechanic) = polling fallback while a pending/in_progress upgrade exists — poll /rest/upgrade every 3-5s independent of the SSE, stop at terminal (closes the gap regardless of SSE give-up; worst-case lag = N s). SECONDARY (frontend) = SSE resilience across maintenance (don't permanently give up while an upgrade is active). TERTIARY (backend/engineer, minor) = remove the premature in_progress NOTIFY (service.go:4791) + emit completion NOTIFY after the :4833 terminal write (consistent w/ recovery :5059) — does NOT fix the root. REJECTED: reorder state='completed' before maintenance-off — touches the §4a/rune-stuck crash-safety completion sequence; the poll closes it without that risk. OWNERSHIP: primary = FRONTEND (mechanic, app/src) — NOT backend as my preliminary framed; backend tertiary = engineer, foldable with 088. 088 is co-located in service.go w/ the tertiary cleanup (sequence under engineer) but otherwise disjoint. Full plan + verification: doc-015.
 <!-- SECTION:NOTES:END -->
