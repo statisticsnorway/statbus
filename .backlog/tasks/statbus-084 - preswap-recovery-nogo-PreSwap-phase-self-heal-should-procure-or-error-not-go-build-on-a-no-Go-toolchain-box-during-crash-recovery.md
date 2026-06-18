@@ -7,7 +7,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-18 01:34'
-updated_date: '2026-06-18 08:22'
+updated_date: '2026-06-18 08:34'
 labels:
   - upgrade
   - recovery
@@ -37,4 +37,6 @@ FIX SHAPE: extend the PreSwap-phase self-heal (root.go around :127-152) so that 
 
 <!-- SECTION:NOTES:BEGIN -->
 TRACK A CONFIRMED (engineer + foreman, 2026-06-18). This is THE fix for the 4 freshness reds (backup/binary-swap/checkout/4-rollback-kill) AND a real latent Albania bug — promoted from non-gating to gating. ROOT (verified file:line): freshness self-heal rebuild.go:37 runs HOST `make -C cli build`→`go build`; no host Go → exit 2 → "Self-heal rebuild/exec failed". Fires from stalenessGuard (root.go:159) for selfheal cmds (install/upgrade service/apply-latest) when ./sb is stale vs tree. The toolchain-free procure path ALREADY exists: install.sh edge (install.sh:198-203, pull-then-docker-build-in-container fallback) + Service.procureSbFromImage (service.go:5622, pull-only, LACKS the build fallback). FIX (engineer design, tmp/engineer-build-architecture.md): extract one shared `sbimage.Procure(projDir, commitSHA, sbPath)` = pull→in-container-build-fallback→create+cp+chmod; self-heal calls it (target=worktree HEAD) instead of make; procureSbFromImage delegates to it (gains the fallback). Nuance: pushed commit→image exists; unpushed dev commit→in-container build ~30s (same tradeoff edge accepts). Awaiting King nod before engineer implements.
+
+IMPLEMENTED + COMMITTED + PUSHED as 75c0dd9d5 (foreman-reviewed full diff). New cli/internal/sbimage primitive (pull → in-container-build-fallback-gated-on-HEAD==target → create+cp+chmod); freshness/rebuild.go make→sbimage.Procure (keeps re-exec + SelfHealAttemptEnv); upgrade/service.go procureSbFromImage delegates (gains build fallback, no 0-happy-upgrade regression); cmd/root.go comments/strings only, logic unchanged. go build/vet + freshness/upgrade unit tests clean. NOT Done — the 4 scenarios going green is proven only by the install-recovery harness run; re-fire batched with the mid-tx (027) + two-scenario fixes.
 <!-- SECTION:NOTES:END -->
