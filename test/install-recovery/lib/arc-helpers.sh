@@ -74,28 +74,6 @@ dump_signing_diagnostics() {
     echo "  └─"
 }
 
-# wait_for_unit_active [budget_s] — wait until the upgrade unit is active (+ a
-# short settle for its LISTEN to establish). BUG-2 mitigation: after B's upgrade
-# the daemon RESTARTS onto B's binary (post-swap exit-42 handoff); if C is
-# scheduled before the restarted daemon is back up + LISTENing on upgrade_apply,
-# the NOTIFY is missed and C's 'scheduled' row sits unclaimed (the working-arc
-# stuck-C). Waiting before each register/schedule shrinks that window. (Whether
-# the daemon claims a pending 'scheduled' row on restart vs only on live NOTIFY
-# is the architect's root-cause; this is the harness-side mitigation + instrument.)
-wait_for_unit_active() {
-    local unit="statbus-upgrade@statbus.service" budget="${1:-180}" start s
-    start=$(date +%s)
-    while true; do
-        s=$(VM_EXEC systemctl --user is-active "$unit" 2>/dev/null | tr -d ' \r\n' || echo "?")
-        if [ "$s" = "active" ]; then echo "  ✓ upgrade unit active"; sleep 5; return 0; fi
-        if [ "$(( $(date +%s) - start ))" -ge "$budget" ]; then
-            echo "✗ upgrade unit not active within ${budget}s (state=$s)" >&2
-            return 1
-        fi
-        sleep 3
-    done
-}
-
 # dump_daemon_state <label> — DIAGNOSTIC (BUG-2): the upgrade unit's is-active,
 # whether a backend is LISTENing on upgrade_apply, + the recent journal, right
 # before scheduling. Reveals whether the post-B-restart daemon was ready when C
@@ -118,10 +96,11 @@ arc_to() {
     local sha="$1" branch="$2" label="$3" expected="${4:-completed}"
     echo ""
     echo "── arc → ${label} (${sha:0:8}; expect '${expected}') ──"
-    # BUG-2: the daemon may have just restarted (post-previous-upgrade handoff) —
-    # ensure it's up + settled (LISTENing) before we register/schedule, and show
-    # its state for diagnosis.
-    wait_for_unit_active || { echo "✗ daemon not ready before ${label}" >&2; exit 1; }
+    # STATBUS-098: do NOT wait for the daemon here — the arc must keep CATCHING the
+    # lost-NOTIFY-during-restart class (a wait would mask the product gap). The
+    # product fix (daemon claims pending 'scheduled' rows on startup + every 30s
+    # heartbeat tick, not only on a live NOTIFY) makes C get claimed within ≤30s of
+    # schedule. dump_daemon_state records the daemon state at schedule time.
     dump_daemon_state "before ${label}"
     VM_EXEC bash -c "cd ~/statbus && git fetch origin $branch && git cat-file -e $sha"
 

@@ -1754,6 +1754,18 @@ func (d *Service) Run(ctx context.Context) error {
 
 	// Initial discovery on startup
 	d.discover(ctx)
+	// STATBUS-098: also CLAIM any already-'scheduled' row at startup, not just
+	// discover. A row scheduled while the daemon was down or restarting (e.g. a
+	// NOTIFY lost during an upgrade's DB-restart reconnect window) would otherwise
+	// sit unclaimed until the 6h discovery tick — on Albania, a web-UI-scheduled
+	// upgrade silently delayed up to 6h. The claim is atomic (UPDATE ... WHERE
+	// state='scheduled' AND started_at IS NULL → single winner), so this is safe
+	// alongside the NOTIFY + tick claims. Restart the LISTEN loop if a claimed
+	// upgrade stopped it (mirrors the ticker/notify cases).
+	d.executeScheduled(ctx)
+	if d.listenCancel == nil {
+		d.startListenLoop(ctx, notifyCh, errCh)
+	}
 
 	for {
 		select {
@@ -1767,6 +1779,20 @@ func (d *Service) Run(ctx context.Context) error {
 			// embedded emitHeartbeat call, and this case does not fire
 			// because the main goroutine is deep inside executeUpgrade.
 			emitHeartbeat(d.projDir)
+			// STATBUS-098: claim a pending 'scheduled' row within ≤30s even when
+			// its NOTIFY was lost (dropped during an upgrade's DB-restart reconnect
+			// window) — otherwise it waits for the 6h discovery tick. Guarded by
+			// !d.upgrading; the case can't fire mid-upgrade anyway (the main
+			// goroutine is blocked in executeUpgrade, whose own heartbeats feed the
+			// watchdog). emitHeartbeat already fired above, so a long claimed
+			// upgrade keeps the watchdog alive via executeUpgrade's heartbeats. The
+			// claim is atomic; the 6h ticker stays for DISCOVERY only.
+			if !d.upgrading {
+				d.executeScheduled(ctx)
+				if d.listenCancel == nil { // executeUpgrade may have stopped the loop
+					d.startListenLoop(ctx, notifyCh, errCh)
+				}
+			}
 		case <-ticker.C:
 			fmt.Printf("Poll tick (next in %s)\n", d.interval)
 			if !d.upgrading {
