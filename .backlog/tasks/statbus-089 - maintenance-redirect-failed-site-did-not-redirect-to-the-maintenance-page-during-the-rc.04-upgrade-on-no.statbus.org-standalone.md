@@ -4,10 +4,10 @@ title: >-
   maintenance-path-split: maintenance mode dead on all standalone+private boxes
   since 2026-04-14 — writer/template/mount 3-way path mismatch (reconcile to
   /statbus-maintenance/active)
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-18 12:59'
-updated_date: '2026-06-18 16:59'
+updated_date: '2026-06-18 17:02'
 labels:
   - upgrade-ui
   - maintenance
@@ -62,4 +62,12 @@ FIX (PART B — config-regen, ALREADY SOLVED): upgrade runs config-generate (ser
 VERIFY (doc-013 §5): curl the site mid-upgrade → expect 503 maintenance (the behaviour that silently regressed). SEVERITY: real Albania-relevant bug (maintenance never shows during any upgrade on standalone) but NOT a regression from rc.04 (2 months old). RE-SCOPE: Wave-2, small clean-break via engineer (service.go:2846 single-owner + templates disjoint + invariant test). Full detail: doc-013.
 
 CORRECTION (architect, 2026-06-18) — supersedes my earlier 3-way-split / 3-unmounted-/home-paths note: that analysis read DEAD templates (cli/src/templates/*.caddyfile.ecr, legacy Crystal, NOT rendered — `rg "\.ecr" cli/ -g'*.go'` = 0). The LIVE templates are caddy/templates/*.caddyfile.tmpl (Go CLI, config.go:755 + :790-797) and were ALREADY CORRECT (file /statbus-maintenance/active :88/:120, root /maintenance-page :94/:126, root /statbus-tmp :73/:81/:105/:113; no /home/). REAL bug = WRITER-ONLY: setMaintenance (exec.go:216 + service.go:2846) wrote ~/maintenance, outside the ~/statbus-maintenance mount → live template's /statbus-maintenance/active check never saw the flag. FIX (engineer, foreman-committed): setMaintenance/cleanStaleMaintenance → maintenanceFlagHostPath()=~/statbus-maintenance/active (shared constants + MkdirAll); NO template/compose/schema change; + maintenance_path_test.go (reads LIVE .tmpl + compose + Go constants, asserts writer↔template↔mount agree + no unmounted template root). doc-013 reconciled with a correction banner. Caught by the engineer (I'd built on the operator's .ecr report + stale AGENTS.md/exec.go refs without checking the live renderer). Follow-on: delete dead cli/src/templates/*.ecr + the stale exec.go .ecr comment.
+
+DONE 2026-06-18 — committed 52d3e04c6 (3 files, cli/internal/upgrade). CORRECTED DIAGNOSIS (engineer found, foreman+architect verified): the earlier 3-way-split / 3-unmounted-/home-paths analysis targeted DEAD templates (cli/src/templates/*.caddyfile.ecr — legacy Crystal, no longer rendered by any Go code; `rg '\.ecr|src/templates' cli/ -g'*.go'` = ZERO). The LIVE Go-rendered templates are caddy/templates/*.caddyfile.tmpl (config.go:755 + :790-797), and they were ALREADY CORRECT in both modes (file /statbus-maintenance/active :88/:120; root /maintenance-page :94/:126; progress-log root /statbus-tmp :73/:81/:105/:113; NO /home/ anywhere, all mounted). So the LIVE bug was PURELY the WRITER: setMaintenance wrote host ~/maintenance (OUTSIDE the bind-mount) while template+mount already agreed on /statbus-maintenance/active → the container never saw the flag → matcher never fired → maintenance dead on standalone+private.
+
+FIX (writer-only, one atomic commit): exec.go — path-convention constants + maintenanceFlagHostPath() (~/statbus-maintenance/active) + maintenanceFlagContainerPath(); setMaintenance writes the mounted path + MkdirAll; comment corrected (cites the live .tmpl). service.go — cleanStaleMaintenance uses the same helper; progress log fixed. NEW maintenance_path_test.go: TestMaintenancePathAlignment reads the LIVE .tmpl + compose + the Go constants, asserts writer==template `file`==declared bind-mount, AND every template root/try_files is under a compose mount (fails on a reintroduced split or any unmounted path) — PASSES.
+
+PART B (config self-heal on upgrade) already in place → next upgrade self-heals every box. E2E proof (curl 503 mid-upgrade) rides STATBUS-071 / a rune-shaped box. Architect-confirmed + foreman-verified against the live renderer; go build/vet + the upgrade pkg test green.
+
+FOLLOW-ON (separate, mechanic verifying now): delete the dead cli/src/templates/*.caddyfile.ecr (the trap that misled the analysis). PART-B residual (standalone `./sb config generate` proxy-reload via cert.go:145) = orthogonal follow-on. LESSON: verify which artifact the LIVE code renders before analyzing it (foreman + architect both initially grepped the dead .ecr).
 <!-- SECTION:NOTES:END -->
