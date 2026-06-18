@@ -140,6 +140,24 @@ UNIT_STATE=$(VM_EXEC systemctl --user is-active "statbus-upgrade@statbus.service
 [ "$UNIT_STATE" = "active" ] || { echo "✗ upgrade-service unit not active after install A (state=$UNIT_STATE)" >&2; exit 1; }
 echo "  ✓ upgrade-service active (daemon will run the arc)"
 
+# Trust the ephemeral arc signing key — POST-install (NOT pre-install). install's
+# checkSignersDone (install.go:1592-1650) runs `git verify-commit HEAD` against
+# ALL configured UPGRADE_TRUSTED_SIGNER_* and DELETES them all if HEAD doesn't
+# verify; the arc key signs B/C, never HEAD=A (a master commit jhf signed), so a
+# pre-install arc key is scrubbed (install keeps only --trust-github-user jhf).
+# Adding arc AFTER install works: `config generate` does NOT run checkSignersDone,
+# so the key survives into .env; restarting the upgrade unit makes its
+# loadTrustedSigners re-read .env WITH arc → the daemon trusts B/C.
+if [ -z "${SB_ARC_TRUSTED_SIGNER:-}" ]; then
+    echo "✗ SB_ARC_TRUSTED_SIGNER not set — cannot trust the arc signer; B/C would fail verification" >&2
+    exit 1
+fi
+echo ""
+echo "── trusting ephemeral arc signer (post-install) ──"
+VM_EXEC bash -c "cd ~/statbus && ./sb dotenv -f .env.config set UPGRADE_TRUSTED_SIGNER_arc \"${SB_ARC_TRUSTED_SIGNER}\" && ./sb config generate >/dev/null"
+vm_restart_unit "statbus-upgrade@statbus.service"
+echo "  ✓ arc signer trusted; upgrade unit restarted (loadTrustedSigners re-read .env)"
+
 echo ""
 echo "── populate demo data + snapshot ──"
 populate_with_demo_data "$VM_NAME"
