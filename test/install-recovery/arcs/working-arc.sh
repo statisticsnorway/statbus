@@ -46,7 +46,29 @@ trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 echo "════════════════════════════════════════════════════════════════"
 echo "  Arc: working → working-fixed  (re-stamp / Albania autonomous)"
 echo "  A=${BASE_SHA:0:8}  B=${B_FULL:0:8}  C=${C_FULL:0:8}  V=${V_VERSION}"
+# DIAGNOSTIC (STATBUS-071): did the ephemeral arc-signer pubkey thread through?
+# (run-arc env SB_ARC_TRUSTED_SIGNER ← construct.outputs.arc_pubkey). Empty here
+# = the threading broke (→ install_statbus_at_sha skips the trust injection →
+# verifyCommitSignature rejects B as untrusted). Show length, not the full key.
+echo "  SB_ARC_TRUSTED_SIGNER: ${SB_ARC_TRUSTED_SIGNER:+PRESENT (${#SB_ARC_TRUSTED_SIGNER} chars): ${SB_ARC_TRUSTED_SIGNER%% *} ...}${SB_ARC_TRUSTED_SIGNER:-MISSING/EMPTY}"
 echo "════════════════════════════════════════════════════════════════"
+
+# dump_signing_diagnostics <sha> — permanent DIAGNOSTIC (AGENTS.md: build the
+# tool, don't just debug). Dumps the full trust chain state the daemon will use
+# to verify <sha>, right before scheduling: the .env.config signer, the .env
+# signer (post config-generate), tmp/allowed-signers (what git verify-commit
+# reads), and <sha>'s own signature/signing-key. A mismatch here pinpoints WHERE
+# the ephemeral-key trust broke (absent var → absent .env.config → absent .env →
+# absent allowed-signers → wrong key). Best-effort: never fails the arc.
+dump_signing_diagnostics() {
+    local sha="$1"
+    echo "  ┌─ signing diagnostics (trust chain for ${sha:0:8}) ─"
+    echo "  │ .env.config:    $(VM_EXEC bash -c "cd ~/statbus && grep UPGRADE_TRUSTED_SIGNER .env.config || echo '(none)'" 2>/dev/null | tr '\n' ' ')"
+    echo "  │ .env:           $(VM_EXEC bash -c "cd ~/statbus && grep UPGRADE_TRUSTED_SIGNER .env || echo '(none)'" 2>/dev/null | tr '\n' ' ')"
+    echo "  │ allowed-signers:$(VM_EXEC bash -c "cd ~/statbus && cat tmp/allowed-signers 2>/dev/null || echo '(no file)'" 2>/dev/null | tr '\n' '|')"
+    echo "  │ commit sig:     $(VM_EXEC bash -c "cd ~/statbus && git log -1 --format='%G? key=%GK' $sha 2>/dev/null || echo '(unreadable)'" 2>/dev/null | tr '\n' ' ')"
+    echo "  └─"
+}
 
 # arc_to <commit_sha> <commit_branch> <label> — drive ONE upgrade through the
 # real register→ready→schedule→service-runs→terminal path (0-happy-upgrade
@@ -64,6 +86,8 @@ arc_to() {
     VM_EXEC bash -c "cd ~/statbus && ./sb upgrade register $sha 2>&1 | tail -20"
     echo "  wait for candidate ready"
     wait_for_upgrade_candidate_ready "$VM_NAME" "$sha" "$TICK_WAIT_S"
+
+    dump_signing_diagnostics "$sha"
 
     echo "  schedule ${label} (DB trigger → daemon claims + runs executeUpgrade)"
     VM_EXEC bash -c "cd ~/statbus && ./sb upgrade schedule $sha 2>&1 | tail -20"
