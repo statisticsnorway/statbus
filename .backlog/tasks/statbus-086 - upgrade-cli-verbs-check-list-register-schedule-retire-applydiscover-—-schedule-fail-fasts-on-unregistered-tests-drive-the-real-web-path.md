@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-18 11:42'
+updated_date: '2026-06-18 12:50'
 labels:
   - upgrade
   - cli
@@ -67,4 +68,17 @@ DEPENDS/RELATES: STATBUS-071 (branch-arc framework — its test driver uses regi
 - [ ] #6 the ONLY run path is write-row -> trigger -> service (no bypass/synchronous CLI); the harness fabricate_scheduled_upgrade_row is replaced by register+schedule and no hand-rolled scheduled-row INSERT remains in tests
 - [ ] #7 help text regrouped (Look / Request / Run); AGENTS.md + doc/upgrade-timeline.md + deploy workflows + ops scripts carry no stale apply/discover references
 - [ ] #8 end-to-end VM proof: register -> status reaches ready -> schedule -> service runs -> worker_status/upgrade_changed callback -> row completed; AND schedule-unregistered -> actionable error + non-zero exit
+- [ ] #9 scheduleImmediate (the NOTIFY upgrade_apply handler, service.go:3381) requires-register uniformly — its insert-if-missing upsert is REMOVED; a NOTIFY for an unregistered commit is a loud actionable no-op (matching schedule's fail-fast); NO registerAndScheduleImmediately verb exists; since the CLI `schedule` now does the scheduling, the handler is renamed to an execute/react name or folded into executeScheduled
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+RESOLVED — the open scheduleImmediate question (King, 2026-06-18): OPTION A, UNIFORM. `schedule` means 'queue an ALREADY-REGISTERED target' EVERYWHERE — the CLI verb AND the service-side handler. So scheduleImmediate (service.go:3381, the NOTIFY upgrade_apply handler) must ALSO require-register: REMOVE its insert-if-missing upsert. A NOTIFY upgrade_apply for an unregistered commit becomes a loud, actionable no-op (same fail-fast semantics as `schedule`), never a silent insert.
+
+NO `registerAndScheduleImmediately` verb — REJECTED on the design's own logic: a one-shot register+schedule would queue a target BEFORE it is prepared (images pulled / verifyArtifacts status reaches ready), which is exactly what the register→schedule split exists to prevent. No legitimate caller wants schedule-before-prepared: apply-latest = schedule the already-discovered latest; a brand-new release = register → wait for ready → schedule. So the combined behavior is REMOVED, not renamed.
+
+NAME: because the CLI `schedule` now performs the actual scheduling (sets the row → trigger → NOTIFY), the service-side function no longer schedules — it REACTS to a scheduled-row notification (supersede older + hand to execution; it currently only sets 'scheduled' + supersedes, guarded against a NOTIFY loop by WHERE state!='scheduled', and does NOT execute inline). Rename scheduleImmediate → an execute/react name (e.g. onScheduledNotify) OR fold into executeScheduled (service.go:3487). Engineer's call at build.
+
+SEQUENCING: this RESOLVES the design (no remaining open question on 086); the CODE BUILD stays PHASE 2 (post-rc.04) per the foreman's sequencing — scheduleImmediate is in the rc.04 code and must not be touched until rc.04 is tagged.
+<!-- SECTION:NOTES:END -->
