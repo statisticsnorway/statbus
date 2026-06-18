@@ -5,7 +5,7 @@ title: >-
   upgrade-arc-harness.yaml + clean-slate fingerprint)
 type: specification
 created_date: '2026-06-18 15:07'
-updated_date: '2026-06-18 15:22'
+updated_date: '2026-06-18 15:38'
 tags:
   - upgrade
   - install-recovery
@@ -21,7 +21,7 @@ tags:
 Stop FABRICATING crash states. Make the REAL system produce them via a real arc: **install A → upgrade to a defective B (fails) → service rolls back → upgrade to a fixed C (works)**. CENTERPIECE = **clean-slate-after-rollback**: B's rollback leaves the DB byte-identical to A so C applies clean — the one property no fabrication can prove. **Albania fidelity:** drive every upgrade through the `public.upgrade` scheduling row (the web-UI mechanism), assert the box applies+recovers **autonomously** — no SSH rescue.
 
 ## 1. The test driver = STATBUS-086 (NOT fabrication)
-Every arc schedules the real way: on the VM, `git fetch` the target commit, then `./sb upgrade register <commit>` (resolve + upsert state='available'; service prepares — image pull + verifyArtifacts→ready, service.go:1101+) → `./sb upgrade schedule <commit>` (promote to 'scheduled' → DB trigger `upgrade_notify_daemon_trigger` fires NOTIFY upgrade_apply, service.go:3408 → service runs `executeScheduled`, service.go:3487). NEVER `fabricate_scheduled_upgrade_row` (deleted in 086), NEVER a deploy-branch pointer, NEVER `./sb install`.
+Every arc schedules the real way: on the VM, `git fetch` the target commit, then `./sb upgrade register <commit>` (resolve + upsert state='available'; service prepares — image pull + verifyArtifacts→ready, service.go:1101+) → `./sb upgrade schedule <commit>` (promote to 'scheduled' → DB trigger `upgrade_notify_daemon_trigger` fires NOTIFY upgrade_apply, service.go:3408 → service runs `executeScheduled`, service.go:3487). NEVER `fabricate_scheduled_upgrade_row` (deleted in 086), NEVER a deploy-branch pointer, NEVER `./sb install`. (register+schedule require a POST-086 baseline; the legacy v2026.05.2-baseline kill scenarios use v2026.05.2's own `apply` instead — see §8.)
 
 ## 2. (a) images.yaml `test/**` push-trigger — ONE LINE
 `.github/workflows/images.yaml`, push trigger:
@@ -75,8 +75,11 @@ Decision record (why Option 1, for the engineer + the King's later review):
 - **Option 1 — EDIT V IN PLACE (chosen).** The FEW (failed at V): V unrecorded → C's V(fixed) applies fresh. The MANY (succeeded at V): recorded H_B ≠ on-disk H_C → re-stamp re-records without re-running. Depth-independent, outcome-preserving, ledger stays at V (no phantom forward version). Cost: edits an already-released "immutable" migration.
 - **Option 2 — ADD FORWARD V+k (NOT chosen).** C adds a NEW migration V+k; V untouched. Respects immutability / append-only ledger. **But it does NOT rescue the FEW** — an immutable broken/too-slow V stays unapplied → the runner re-runs the ORIGINAL V → fails AGAIN, unless V is ALSO amended (→ collapses to Option 1) OR a NEW "supersede-skip" mechanism lets the runner skip V because V+k supersedes it (does not exist today). It also leaves the broken V in the tree, re-failing on any fresh install. If the King later mandates Option 2, JOB-1's fix step changes from "edit V" to "add V+k" AND a supersede-skip path becomes a new prerequisite dependency.
 
-## 8. (f) Inject-on-real-upgrade for the kill arcs
-The process-death micro-window scenarios (lost-stamp, resume-death, rollback-kill, mid-migration/mid-tx/between kills) STAY INJECT — branch arcs can't reproduce a kill at an exact instruction. But they now run ON TOP of a real register+schedule arc instead of a fabricated row: drive the upgrade via §1, and fire the existing inject at the precise migrate.go window. Inject sites (migrate.go): `:388` during-migration, `:436-438` mid-tx, `:911` between-migrations, 60-min ceiling `:420`. The kill arcs (Shape catalogue, build-order step 5 — e.g. recovery-of-recovery: kill during B's rollback) layer the inject env onto JOB-3's real-arc drive; the service's `executeScheduled`→migrate path then hits the injected kill. This keeps the SCHEDULING real (no fabrication) while preserving precise kill timing.
+## 8. (f) Driving the kill scenarios — the box's OWN real verb, NO fabrication
+The process-death micro-window scenarios (lost-stamp, resume-death, rollback-kill, mid-migration/mid-tx/between kills) STAY INJECT — branch arcs can't reproduce a kill at an exact instruction. RESOLVED (STATBUS-086 stage-2 ruling, 2026-06-18): they drive via the BOX'S OWN real scheduling verb — NEVER `fabricate_scheduled_upgrade_row` (deleted in 086).
+- **The existing ~18 kill scenarios baseline v2026.05.2** (the Albania FROM-OLD fidelity). v2026.05.2 has NO register/schedule (HEAD-only), so they schedule via v2026.05.2's OWN `apply`: `git fetch <SHA>` then `./sb upgrade apply <SHA-short>`. VERIFIED faithful at the tag: v2026.05.2's CLI `apply` accepts a commit_short + NOTIFYs, and its service-side `scheduleImmediate` does INSERT-IF-MISSING for an arbitrary `UntaggedTarget` → it schedules+runs ANY git-fetched SHA via the real old-box machinery (no fabricate, no HEAD-binary pre-stage → `2-preswap-binary-swap-kill` stays faithful). This is their FINAL form — **071 does NOT re-convert them** (it only ADDS the new fail→rollback→fix branch arcs).
+- **POST-086-baseline scenarios** (the AC#8 happy-path + 071's new branch arcs) schedule via the NEW `register`+`schedule` (§1).
+Inject sites unchanged (migrate.go): `:388` during-migration, `:436-438` mid-tx, `:911` between-migrations, 60-min ceiling `:420`. The kill arcs (Shape catalogue, build-order step 5 — e.g. recovery-of-recovery: kill during B's rollback) layer the inject env onto the real-scheduled upgrade; the service's `executeScheduled`→migrate path then hits the injected kill. SCHEDULING stays real (the box's own verb) while preserving precise kill timing.
 
 ## 9. (e) Build order + dependencies
 1. **(a)** images.yaml `test/**` trigger (1 line) — unlocks throwaway images. Verify with a throwaway push.
