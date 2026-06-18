@@ -619,6 +619,13 @@ export default function UpgradesPage() {
             ? historyRest
             : historyRest.filter((u) => u.state !== "superseded");
 
+          const appliedCount = historyRest.filter(
+            (u) => u.state !== "superseded"
+          ).length;
+          const supersededCount = historyRest.filter(
+            (u) => u.state === "superseded"
+          ).length;
+
           const renderCard = (
             u: Upgrade,
             variant?: "recommended" | "superseded"
@@ -727,8 +734,11 @@ export default function UpgradesPage() {
                 <Collapsible>
                   <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md border border-dashed border-muted-foreground/25 px-4 py-2 text-sm text-muted-foreground hover:bg-muted/50 transition-colors">
                     <ChevronDown className="h-4 w-4" />
-                    {filteredHistory.length} past upgrade
-                    {filteredHistory.length !== 1 ? "s" : ""}
+                    {appliedCount > 0 && supersededCount > 0
+                      ? `${appliedCount} applied · ${supersededCount} superseded`
+                      : appliedCount > 0
+                        ? `${appliedCount} applied`
+                        : `${supersededCount} superseded`}
                     <div
                       className="ml-auto flex items-center gap-1"
                       onClick={(e) => e.stopPropagation()}
