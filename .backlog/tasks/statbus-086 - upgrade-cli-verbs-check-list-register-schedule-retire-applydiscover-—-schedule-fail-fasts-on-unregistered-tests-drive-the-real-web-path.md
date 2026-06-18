@@ -3,10 +3,10 @@ id: STATBUS-086
 title: >-
   upgrade-cli-verbs: check/list/register/schedule (retire apply+discover) —
   schedule fail-fasts on unregistered; tests drive the real web path
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-18 11:42'
-updated_date: '2026-06-18 15:56'
+updated_date: '2026-06-18 16:28'
 labels:
   - upgrade
   - cli
@@ -95,4 +95,12 @@ RE-REVIEW (architect, 2026-06-18) of the engineer's folded must-fixes = COMMIT-R
 AC#6 RE-SCOPE (architect, 2026-06-18) — my stage-2 OPTION C ruling is REVERSED (engineer's proof, verified at the tag). C is NON-VIABLE for the ~18 v2026.05.2-baseline kill scenarios: (1) v2026.05.2's daemon runs handleNotification(scheduleImmediate INSERT)→executeScheduled(run inline) SYNCHRONOUSLY in one notifyCh iteration (service.go @ tag ~1574) — daemon-up `apply` self-runs immediately, NO daemon-down 'scheduled' window; (2) the kill scenarios need a daemon-DOWN 'scheduled' row that `./sb install` dispatches WITH STATBUS_INJECT_AT (verified 2-preswap-binary-swap-kill.sh:123-136 = fabricate + ./sb install) — daemon must NOT run it. v2026.05.2 has no verb that makes a daemon-down scheduled row, so fabricate is irreplaceable there. ADOPTED = OPTION D. 
 
 AC#6 THEREFORE DOES NOT FULLY APPLY IN 086: fabricate_scheduled_upgrade_row STAYS for the v2026.05.2-baseline kill scenarios. AC#6's real-path proof rides the AC#8 HAPPY-PATH (register+schedule on a post-086 baseline; daemon-dispatch IS the test). fabricate is RETIRED in 071, which reshapes the kill scenarios onto POST-086 baselines where `./sb upgrade schedule` (RunSchedule, a lock-free CLI one-shot that SETS 'scheduled' without running it) produces the daemon-down row — then `./sb install` injects. doc-012 §8 + §1 updated to match. (The earlier 'AC#6 fully applies in 086' note from the C ruling is SUPERSEDED by this.)
+
+DONE 2026-06-18 — code-complete + AC#8 VM-PROVEN. Commits on master: 8c0631ee9 (stage-1: register/schedule/check verbs, retire apply/discover, upsertCandidate single-insert-path, require-register on CLI + onScheduledNotify, 40-hex SHA, STATBUS-010 fold, apply-latest reconciled to register→schedule, AC3/AC9 unit tests, RunSchedule state-guard) + 64441aaf9 (AC#8 canary: 0-happy-upgrade → real register→ready→schedule path + wait_for_upgrade_candidate_ready helper) + 64ba13ab9 (AC#7 doc/comment sweep: AGENTS/DEPLOYMENT/DEVELOPMENT/CLOUD/upgrades.md + service.go:1580; apply-latest kept).
+
+AC#8 ORACLE RUN GREEN: install-recovery run 27773133504 (0-happy-upgrade @ 64441aaf9) = SUCCESS — the real register→ready→schedule→service→completed path proven end-to-end on a Hetzner VM. (Operator confirming the per-transition log markers.)
+
+AC#6 RE-SCOPED (architect doc-012 §8, foreman-verified): fabricate_scheduled_upgrade_row is RETIRED in the happy-path (uses register+schedule) but KEPT for the ~18 v2026.05.2-baseline KILL scenarios — they need a daemon-DOWN 'scheduled' row for ./sb install inline-dispatch, and v2026.05.2's apply+scheduleImmediate runs synchronously (no daemon-down window; PROVEN at v2026.05.2:service.go:1574-1577). 086's RunSchedule (CLI one-shot that sets 'scheduled' WITHOUT running) is the enabler that lets STATBUS-071 reshape the kill scenarios onto post-086 baselines and retire fabricate THERE.
+
+FOLLOW-ONS (tracked): STATBUS-092 (--recreate double-NOTIFY → durable column). 071 must drop/swap the 3 dead kill-scenario `./sb upgrade apply` wake-calls (3-postswap-migration-timeout / -archivebackup-watchdog / -watchdog-reconnect — dead-but-nonfatal on the HEAD binary, documented in 64ba13ab9). Historical doc doc/recovery/recovery-injection-scope-a-comprehensive.md left as-is (records past behaviour).
 <!-- SECTION:NOTES:END -->
