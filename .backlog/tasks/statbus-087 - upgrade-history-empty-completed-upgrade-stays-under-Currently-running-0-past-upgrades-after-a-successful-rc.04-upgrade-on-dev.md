@@ -3,10 +3,10 @@ id: STATBUS-087
 title: >-
   upgrade-history-empty: completed upgrade stays under "Currently running" + "0
   past upgrades" after a successful rc.04 upgrade on dev
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-18 12:47'
-updated_date: '2026-06-18 12:51'
+updated_date: '2026-06-18 14:59'
 labels:
   - upgrade-ui
   - ux
@@ -42,3 +42,9 @@ FIX SHAPE: page.tsx:730 count historyRest.length (19) instead of filteredHistory
 
 UX CHOICE for the King: with the count = 19 but showSuperseded=false by default, expanding shows 0 rows until 'Superseded' is clicked. So the deeper choice is whether discovered-but-never-applied (superseded) rows should count/show as 'past upgrades' at all (rc.04 is the box's first APPLIED upgrade). Options: (a) count total 19 (mechanic's one-liner); (b) default showSuperseded=true so the history is visible; (c) relabel (e.g. 'N applied, M superseded'). King steers the exact UX. Post-rc.04, not blocking.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+DONE — committed de453b814 + pushed. Root cause was display-only (the trigger counted non-superseded rows, so an all-superseded history read "0 past upgrades"). Fix (King's relabel choice): the Software Upgrades history trigger now shows "N applied · M superseded" (or just one when the other is 0). dev → "19 superseded", rune-after-rc.04 → "1 applied", mixed → "N applied · M superseded". tsc clean; foreman-reviewed (trivial frontend, no architect review needed). Reaches dev/no on their next upgrade.
+<!-- SECTION:FINAL_SUMMARY:END -->
