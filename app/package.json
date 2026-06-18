@@ -74,7 +74,7 @@
     "swr": "^2.3.8",
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
-    "undici": "^7.24.0",
+    "undici": "^7.28.0",
     "xlsx": "file:./vendor/xlsx",
     "xstate": "^5.26.0",
     "zod": "^3.25.76",
