@@ -1,12 +1,12 @@
 ---
 id: STATBUS-075
 title: >-
-  cut-rc04: the single tracker for what's left before we can cut release
-  candidate rc.04
+  cut-rc04: install/upgrade campaign — Phase 1 cut the install RC; Phase 2
+  branch-based upgrade testing
 status: In Progress
 assignee: []
 created_date: '2026-06-17 11:04'
-updated_date: '2026-06-18 08:20'
+updated_date: '2026-06-18 09:08'
 labels:
   - install-recovery
   - rc.04
@@ -22,25 +22,29 @@ ordinal: 75000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-THE one tracker: "what's left before we can cut rc.04?"
+THE tracker for the install/upgrade testing campaign. Two phases (King's strategy, 2026-06-18).
 
-WHY rc.04 MATTERS: Albania (a standalone StatBus box inside Albania, no SSB remote access — upgrades happen only through a local operator) is stuck on v2026.05.2 and cannot upgrade, because the upgrade crashes. rc.04 is their first working upgrade target.
+WHY: Albania (a standalone box inside Albania, no SSB remote access — upgrades happen only via a local operator) is stuck on v2026.05.2 and can't upgrade. We need a working, trustworthy upgrade path AND a faithful way to test it.
 
-CUT BAR (King): the install-recovery harness must be 100% GREEN — every scenario, no carve-outs.
+KEY REFRAME (2026-06-18): the install-recovery suite has two halves. INSTALL tests are faithful and testable now. The UPGRADE tests fake an upgrade (a fabricated public.upgrade row + injected kills) — those are WORKAROUNDS and are replaced in Phase 2. So rc.04's old "all 32 scenarios green" bar is wrong; the upgrade-scenario reds do NOT block the install RC.
 
-WHAT'S LEFT (as of 2026-06-18, run 27731940038 = 8 of 32 tests red). The 8 reds are really 4 problems:
+PHASE 1 — CUT THE INSTALL RC (now). Fix all INSTALL-side issues → cut the next RC → start testing.
+- Install path is green today: 0-happy-install, 1-boot-*, 5-install-*.
+- Two real install/recovery product bugs (surfaced by the scaffolding) are fixed + on master:
+  • toolchain-free self-heal — procure ./sb from the Docker image, never host `go build` (75c0dd9d5, STATBUS-084). Real Albania wedge on a no-host-Go box.
+  • `--trust-github-user` honored BEFORE dispatch, so it works on a box with a pending upgrade (c891fbaef, STATBUS-027). Real Albania wedge.
+- GATE: install-side green + the 2 product fixes in + no other open install blocker → cut the RC → test.
 
-1. NEW VERSION WON'T INSTALL ON A BOX WITH NO COMPILER (4 tests: 2-preswap backup-kill / binary-swap-kill / checkout-kill, 4-rollback-kill). When ./sb is older than the code tree, the self-heal rebuilds it with a HOST `go build`; on a no-Go box that dies. FIX = procure the binary from Docker instead (pull the per-commit image, or build it inside a container). This is a REAL Albania bug the tests caught, not a test artifact. Owner: STATBUS-084 (engineer implementing); scenarios tracked under STATBUS-074.
+PHASE 2 — BRANCH-BASED UPGRADE TESTING (after the RC is testing). Replace the fabricated upgrade scenarios with REAL upgrade arcs. Design: STATBUS-071.
+- Install branch A (base) → upgrade to branch B carrying a REAL defect (a migration that runs too long, or crashes) → branch C with the FIXED migration. No fabrication.
+- Driven the way the product really upgrades: approve via the web UI / DB → `upgrade_apply` NOTIFY → the systemd service applies autonomously (exactly Albania's path). NOT `./sb install`, NOT a deploy branch.
+- A concrete BRANCH-NAME upgrade channel (STATBUS-034) controls each step: point the host's channel at test/base, then test/hanging-migration, then test/hanging-fixed — controlling exactly what each host upgrades to.
+- Covers BOTH populations of a defect (STATBUS-072): the FEW who hit it (large data → OOM → rolled back) and the MANY who didn't (small data → already applied → continue forward, NO rollback). The fix AMENDS the migration in place + re-stamps.
+- The inject system (env-var stall-on-file at a precise point) STAYS — the deliberate tool to hold a REAL stalling migration so we verify it's stalling and kill it at the exact point (real code path, real kill). Process-death micro-windows that no branch can reproduce stay inject-on-a-real-upgrade (STATBUS-044).
+- Centerpiece: after a failure-and-rollback, the DB is byte-identical to before the upgrade (schema + migration ledger + data fingerprint).
+- Recovery rules are settled + correct (at-target → forward; only positively-behind → one-shot rollback; a kill alone can't cause a rollback; the done-stamp is a separate tx = the lost-stamp gap) — preserved in the upgrade-timeline diagram so they're re-derivable (STATBUS-067).
 
-2. UPGRADE REFUSES BECAUSE THE TEST SETUP WIPED THE APPROVED SIGNING KEY (1 test: mid-tx-kill). The baseline install approves a signer, then the test overwrites .env.config and loses it; the trigger upgrade then fails the (correct) mandatory signature check before it can reach the migration. Test-setup fix. Owner: STATBUS-027.
-
-3. TWO TESTS EXPECT A ROLLBACK FROM A STATE THAT CORRECTLY FINISHES (2 tests: container-restart-kill, resume-died-rollback). The real principle: a migration's "done" record is written AFTER its schema change commits, so a kill in that gap needs a rollback (the product already does this correctly). These two tests kill at a point where the upgrade has converged and should complete — so their rollback assertion is the wrong premise. Re-grounding in plain language + the design diagram. Owner: STATBUS-067 (architect).
-
-4. ONE ROLLBACK TEST NEEDS REAL-VM TIMING TUNING (1 test: 4-rollback-restore-watchdog). Owner: STATBUS-031.
-
-ALSO TO VERIFY: two scenarios (migrate-killed-after-commit, migration-deterministic-error) did not appear in the last run's 30 jobs — confirm they are in the matrix (no silent carve-out).
-
-DOCTRINE: the only way to know these recovery paths work is to RUN them (commit → push → CI builds the per-commit image → run on a real VM → observe → iterate). Each run peels one layer. Full history in the notes below.
+SEQUENCE: Phase 1 (this tracker) → Phase 2: STATBUS-071 (arc harness) ← STATBUS-034 (branch-channel) + STATBUS-072 (amend/re-stamp) + STATBUS-044 (kill-injection on real upgrades). Full campaign roadmap: STATBUS-036.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
