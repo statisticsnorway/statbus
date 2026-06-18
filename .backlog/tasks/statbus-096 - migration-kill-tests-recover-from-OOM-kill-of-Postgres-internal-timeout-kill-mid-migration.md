@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-18 21:18'
-updated_date: '2026-06-18 21:19'
+updated_date: '2026-06-18 21:20'
 labels:
   - upgrade
   - testing
@@ -43,3 +43,9 @@ Source: King, 2026-06-18.
 - [ ] #3 Timeout scenario: internal timeout-kill (short threshold) mid-migration → box recovers → asserted on a real VM
 - [ ] #4 No fabrication: the migration really runs and is really killed
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+OOM scenario — what it models (King, 2026-06-18): a migration that runs on a BIG database, does NOT handle the load (tries to do something it shouldn't — e.g. pulls a whole large table into memory, an unbounded build), eventually consumes all memory, and is killed by the OS OOM-killer. Kill source = the OS (EXTERNAL), killing PostgreSQL. This is distinct from the time-based runaway: memory blowup -> external OOM-kill (this task, scenario 1); time overrun -> internal 12h timeout-kill (STATBUS-095, scenario 2). The test reproduces the EFFECT deterministically (kill Postgres mid-migration via the NOTIFY handshake) without actually exhausting memory; the property under test is simply: when the OS OOM-kills Postgres mid-migration, the box recovers.
+<!-- SECTION:NOTES:END -->
