@@ -1318,12 +1318,14 @@ func eagerContentHashCheck(projDir string) error {
 		return nil
 	}
 
-	// STATBUS_CIRCUMVENT_IMMUTABLE_MIGRATION lets the operator re-stamp
-	// content_hash for an explicit set of versions whose file bytes were
-	// edited in place (the rare RC-fix case). Parse once before the loop
-	// so a malformed value fails the whole check rather than fires
-	// inconsistently per row.
-	circumvent, err := release.ParseCircumventVersions(os.Getenv(release.CircumventEnvVar))
+	// The circumvent set names versions whose file bytes were amended in place
+	// after release (the rare RC-fix case) — re-stamp instead of hard-failing
+	// immutability. STATBUS-072: the source is the committed declaration file
+	// (migrations/amendments.tsv, auto-conveyed to every host via the target
+	// checkout) UNION the STATBUS_CIRCUMVENT_IMMUTABLE_MIGRATION env var
+	// (local-dev override). Parse once before the loop so a malformed value
+	// fails the whole check rather than firing inconsistently per row.
+	circumvent, err := release.CircumventVersions(projDir)
 	if err != nil {
 		return err
 	}
@@ -1391,8 +1393,8 @@ func eagerContentHashCheck(projDir string) error {
 			if len(newShort) > 8 {
 				newShort = newShort[:8]
 			}
-			fmt.Printf("[migrate]   ⟳ Circumventing immutability for migration %d.content_hash %s → %s (%s)\n",
-				version, oldShort, newShort, release.CircumventEnvVar)
+			fmt.Printf("[migrate]   ⟳ Circumventing immutability for migration %d.content_hash %s → %s (declared in %s or %s)\n",
+				version, oldShort, newShort, release.AmendmentsFileName, release.CircumventEnvVar)
 			continue
 		}
 

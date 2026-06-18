@@ -79,14 +79,16 @@ func tagMessageSubject(projDir, tagName string) (string, error) {
 // and tag. Additions are allowed; modifications or deletions of files that
 // existed in prevTag are immutability violations and surface as an error.
 //
-// STATBUS_CIRCUMVENT_IMMUTABLE_MIGRATION (release.CircumventEnvVar) skips
-// listed versions from the violation set so the operator can opt-in to the
-// rare in-place rewrite case. Same semantics + same env var as the
-// preflight-side checkMigrationImmutability — operators set the env var
-// once, both the pre-create gate AND the post-create / pre-push validation
-// (via ValidatePrereleaseTag) respect it.
+// The circumvent set (sanctioned in-place amendments, STATBUS-072) skips listed
+// versions from the violation set. Same SOURCE as the preflight-side
+// checkMigrationImmutability: release.CircumventVersions = the committed
+// migrations/amendments.tsv (auto-conveyed) UNION the
+// STATBUS_CIRCUMVENT_IMMUTABLE_MIGRATION env var (local-dev override). So the
+// pre-create gate AND this post-create / pre-push validation (via
+// ValidatePrereleaseTag) agree — declaring the amendment in the committed file
+// ALONE is sufficient to cut the release; no per-run env var needed.
 func compareMigrationsForTag(projDir, prevTag, tag string) error {
-	circumvent, err := release.ParseCircumventVersions(os.Getenv(release.CircumventEnvVar))
+	circumvent, err := release.CircumventVersions(projDir)
 	if err != nil {
 		return err
 	}

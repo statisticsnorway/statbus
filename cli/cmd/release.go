@@ -636,7 +636,12 @@ func noSameKindTagAtHEAD(projDir string, isPrerelease bool) error {
 // agreeing to (the env var itself is the acknowledgment; the warning is
 // the receipt).
 func checkMigrationImmutability(projDir, prevTag, label string) error {
-	circumvent, err := release.ParseCircumventVersions(os.Getenv(release.CircumventEnvVar))
+	// STATBUS-072: circumvent set = the committed declaration file
+	// (migrations/amendments.tsv, the canonical auto-conveyed source) UNION the
+	// STATBUS_CIRCUMVENT_IMMUTABLE_MIGRATION env var (local-dev override) — the
+	// SAME single source the runtime gate (migrate.eagerContentHashCheck) reads,
+	// so RC-cut and per-host upgrade agree on what's sanctioned.
+	circumvent, err := release.CircumventVersions(projDir)
 	if err != nil {
 		return err
 	}
@@ -699,7 +704,7 @@ func checkMigrationImmutability(projDir, prevTag, label string) error {
 	// Log circumvent activity before the gate decision so the operator
 	// sees what they bypassed even on a passing run.
 	for _, v := range dedupeInt64Sorted(circumvented) {
-		fmt.Printf("    ⟳ Circumventing immutability for migration %d (%s)\n", v, release.CircumventEnvVar)
+		fmt.Printf("    ⟳ Circumventing immutability for migration %d (declared in %s or %s)\n", v, release.AmendmentsFileName, release.CircumventEnvVar)
 		if prevIsStable {
 			fmt.Printf("      ⚠ %s is a STABLE tag — this version shipped in production.\n", prevTag)
 			fmt.Println("        Operators bypassing stable-shipped migrations: confirm the change is")
@@ -722,9 +727,12 @@ func checkMigrationImmutability(projDir, prevTag, label string) error {
 		"  and revert the modification to the original file:\n"+
 		"    git checkout %s -- migrations/<file>\n"+
 		"    ./sb migrate new --description \"fix_<description>\"\n"+
-		"  Or, if the in-place edit is intentional (rare; coordinated with deployed slots):\n"+
-		"    %s=<version>[,<version>...] ./sb release prerelease",
-		prevTag, prevTag, release.CircumventEnvVar)
+		"  Or, if amending an already-released migration in place IS intentional\n"+
+		"  (rare; a crash-fix that preserves the result — STATBUS-072), DECLARE it\n"+
+		"  in %s (committed alongside the amendment; auto-conveyed to every host):\n"+
+		"    <version>\\t<amending-release>\\t<reason>\n"+
+		"  (Local-dev override for pre-commit iteration: %s=<version>[,...] ./sb release prerelease)",
+		prevTag, prevTag, release.AmendmentsFileName, release.CircumventEnvVar)
 }
 
 // dedupeInt64Sorted returns the input with duplicates removed and entries

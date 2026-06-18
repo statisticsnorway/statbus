@@ -1,0 +1,34 @@
+# migrations/amendments.tsv — declared in-place amendments to already-released migrations (STATBUS-072)
+#
+# This is the AUTO-CONVEYED, durable source for the migration-immutability
+# circumvent set. It travels with `git checkout <target>` (which the automated
+# upgrade does before `./sb migrate up`), so every host's upgrade reads the same
+# declared intent WITHOUT a human setting STATBUS_CIRCUMVENT_IMMUTABLE_MIGRATION
+# on each box. Read by BOTH the runtime gate (migrate.eagerContentHashCheck) and
+# the RC-cut preflight (release.checkMigrationImmutability).
+#
+# WHEN TO ADD A ROW: only when you DELIBERATELY edit an already-released
+# migration's bytes in place — a MINIMAL "make it not crash / not time out" fix
+# that changes WHETHER the migration finishes, NEVER WHAT it produces. If the
+# RESULT was also wrong, that does NOT belong here — write a NEW forward
+# migration (the immutability gate pushes result-fixes forward). You are
+# DECLARING INTENT ("I changed this on purpose; I believe it is result-
+# preserving"); only running it everywhere confirms that — there is no checker.
+#
+# FORMAT: one row per amendment, TAB-separated. Only `version` is load-bearing
+# (the 14-digit YYYYMMDDHHMMSS of the amended migration); amending_release and
+# reason are audit metadata (PR review / log / ledger), never read by the gate.
+# Lines beginning with '#' and blank lines are ignored.
+#
+#   version<TAB>amending_release<TAB>reason
+#
+# Example (illustrative — not active):
+#   20260521112759	v2026.06.1	V timed out on >1M-row installs; same result, faster
+#
+# APPEND-ONLY: a listed version is re-stamped only on a content-hash MISMATCH,
+# which is a no-op once a host has re-stamped (or on any fresh install). So
+# historical rows are a permanent, zero-cost audit ledger — NEVER prune them
+# (removing a row can't un-re-stamp anything; it only loses the audit trail and
+# risks re-hard-failing a host that hasn't upgraded yet).
+#
+# version	amending_release	reason

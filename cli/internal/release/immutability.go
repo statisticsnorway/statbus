@@ -2,6 +2,7 @@ package release
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -53,6 +54,79 @@ func ParseCircumventVersions(envValue string) (map[int64]bool, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%s: invalid migration version %q: must be a 14-digit YYYYMMDDHHMMSS integer", CircumventEnvVar, part)
 		}
+		out[v] = true
+	}
+	return out, nil
+}
+
+// AmendmentsFileName is the repo-relative path of the committed declaration of
+// migrations amended in place after release (STATBUS-072). It is the durable,
+// AUTO-CONVEYED source for the immutability circumvent set: it travels with
+// `git checkout <target>` (which the upgrade does before `./sb migrate up`), so
+// every host's automatic upgrade reads the same declared intent with NO per-host
+// env var. One row per amendment, tab-separated:
+//
+//	version<TAB>amending_release<TAB>reason
+//
+// Only `version` (the 14-digit YYYYMMDDHHMMSS of the amended migration) is
+// load-bearing; amending_release + reason are AUDIT metadata (PR review, log,
+// ledger) the gate never reads. Append-only: a listed version is re-stamped
+// only on a hash MISMATCH (a no-op once re-stamped or freshly applied), so
+// historical rows are a permanent, zero-cost audit ledger — never prune them.
+const AmendmentsFileName = "migrations/amendments.tsv"
+
+// ParseAmendmentsFile reads AmendmentsFileName under projDir and returns the set
+// of amended migration versions. A MISSING file is the normal case (no
+// amendments declared) → empty set, no error. A malformed version field fails
+// LOUDLY (mirrors ParseCircumventVersions — a typo must never silently widen the
+// immutability gate). Lines beginning with '#' and blank lines are ignored; the
+// version is the first whitespace-separated token, the remainder is audit text.
+func ParseAmendmentsFile(projDir string) (map[int64]bool, error) {
+	out := make(map[int64]bool)
+	path := filepath.Join(projDir, AmendmentsFileName)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return out, nil
+		}
+		return nil, fmt.Errorf("read %s: %w", AmendmentsFileName, err)
+	}
+	for i, raw := range strings.Split(string(data), "\n") {
+		line := strings.TrimSpace(raw)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		// First whitespace-separated token is the load-bearing version; any
+		// remaining tokens (amending_release, reason) are audit metadata.
+		versionTok := strings.Fields(line)[0]
+		v, perr := strconv.ParseInt(versionTok, 10, 64)
+		if perr != nil {
+			return nil, fmt.Errorf("%s line %d: invalid migration version %q: must be a 14-digit YYYYMMDDHHMMSS integer", AmendmentsFileName, i+1, versionTok)
+		}
+		out[v] = true
+	}
+	return out, nil
+}
+
+// CircumventVersions returns the full set of migration versions whose in-place
+// amendment is sanctioned (STATBUS-072): the committed declaration file
+// (AmendmentsFileName — the durable, auto-conveyed production source) UNION the
+// STATBUS_CIRCUMVENT_IMMUTABLE_MIGRATION env var (a local-dev override for
+// iterating on an amendment before committing the declaration). BOTH the
+// runtime immutability gate (migrate.eagerContentHashCheck) and the release-cut
+// preflight (cmd.checkMigrationImmutability) call this, so they agree on ONE
+// source of truth. The env var is a distinct dev affordance, NOT a back-compat
+// shim — production hosts leave it unset and rely on the committed file.
+func CircumventVersions(projDir string) (map[int64]bool, error) {
+	out, err := ParseAmendmentsFile(projDir)
+	if err != nil {
+		return nil, err
+	}
+	envSet, err := ParseCircumventVersions(os.Getenv(CircumventEnvVar))
+	if err != nil {
+		return nil, err
+	}
+	for v := range envSet {
 		out[v] = true
 	}
 	return out, nil
