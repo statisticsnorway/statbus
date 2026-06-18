@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-08 15:33'
-updated_date: '2026-06-15 12:20'
+updated_date: '2026-06-18 08:31'
 labels:
   - install-recovery
   - recovery
@@ -52,4 +52,10 @@ NOTES:
 
 <!-- SECTION:NOTES:BEGIN -->
 INHERITED from STATBUS-016 AC#3 (2026-06-15): when the C8 / Resuming-latch contract is confirmed or refined here, add a BY-DESIGN annotation to the product log 'UPGRADE_DIED_DURING_RESUME … rolled back' (service.go) so it reads as correct-by-design (the Resuming one-shot latch), NOT a defect. Why it lives here: a reviewer (and the mechanic, historically) misreads that TRUE rollback as a verify-health product bug because the log never says it is by design. It is the 'accurate-but-under-context' case — a DIFFERENT shape from 016's ||echo over-claim cleanup (which shipped 431d200b2). Two gates: (a) the annotation asserts the by-design contract, so it must follow this task's confirm/refine decision; (b) it touches service.go — sequence it clear of STATBUS-032's in-flight service.go work.
+
+ARCHITECT RE-GROUNDING (2026-06-18, King-requested plain-language reset; full briefing tmp/architect-regrounding.md). The premise of THIS task — that container-restart-kill rolls back via an unconditional 'Resuming one-shot latch (service.go:755)' — is STALE. That unconditional latch was the PRE-STATBUS-039 behavior and was REMOVED. VERIFIED IN CURRENT CODE: recoverFromFlag's Resuming branch (service.go:859-883) is GROUND-TRUTH-CONDITIONAL: `if gt != GroundTruthBehind { return resumePostSwap }` → AtTarget/Unknown RESUME FORWARD; only positively-Behind rolls back. The comment service.go:841-849 explicitly documents the latch removal ('rune sat 18 days at-target with zero data loss precisely because nothing rolled back').
+
+CONSEQUENCE: container-restart-kill kills at docker-up AFTER migrations are applied (header line 25: 'migrations applied') → ground-truth = AtTarget → the current product RESUMES FORWARD → completed. It does NOT roll back. So Option 1 ('rewrite the scenario to expect rolled_back') is now BACKWARDS — under the current ground-truth model the correct expectation is COMPLETED. Companion scenario 3-postswap-resume-died-rollback has the IDENTICAL flaw (same kill site, also at-target) and was EMPIRICALLY seen reaching completed (the 'row reached completed — resume was NOT supposed to succeed' RED).
+
+The genuine death-during-resume→rollback (positively-Behind) path is already proven by 3-postswap-migrate-killed-after-commit (case c: lost stamp → db.migration max < on-disk max → Behind → restore). RECOMMENDED re-grounding (King to ratify): point container-restart-kill + resume-died-rollback at COMPLETED (the at-target case they create); if a SECOND rollback proof is wanted, redesign one to kill while positively-behind (before the resume's migrate completes), not after. ALSO fix the stale doc paragraph doc/upgrade-timeline.md:147-150 (still states the removed 'any restart → roll back' rule; contradicts the recovery contract at :513-529 + the code). NOT acting on this yet — flagging for the King; no code/scenario/doc edits made.
 <!-- SECTION:NOTES:END -->
