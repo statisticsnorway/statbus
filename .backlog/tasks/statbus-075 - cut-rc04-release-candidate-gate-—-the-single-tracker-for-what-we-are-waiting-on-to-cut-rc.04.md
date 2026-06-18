@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-17 11:04'
-updated_date: '2026-06-18 01:21'
+updated_date: '2026-06-18 02:00'
 labels:
   - install-recovery
   - rc.04
@@ -109,4 +109,12 @@ Mode B (checkout-kill): kill fires + a new rc=2 at vm-bootstrap.sh:600 — same 
 REGRESSION (foreman-owned): 1-boot-concurrent-install was GREEN; the completeness-fold of its checkout-removal turned it RED ('first install did not create upgrade-in-progress.json' — the checkout was load-bearing for its inject path). The 'safe to fold' analysis (mine + architect-concurred) was wrong; the re-run is the oracle. REVERTING via the engineer (restore its checkout) — goes in the next batch.
 
 NEXT BATCH: revert 1-boot + #2 ssh-STDIN (pre-staged, approved) + the architect's recovery-unmask fixes (freshness/Mode-B + Mode D) → commit → re-fire. #1 (4-rollback-restore-watchdog) still parked for real-VM tuning. Honest: several iterations from 100% green; each run peels a layer.
+
+BATCH 2a COMMITTED (783bb0905, foreman, overnight 2026-06-18) + pushed; image build 27731769218 in progress → re-fire when ready. batch 2a = the 3 ready/validated fixes (4 files): VM_EXEC ssh-STDIN transport fix (5-install statistical_* + advisory-zombie, the rc=2 multi-line collapse) + 1-boot revert (the fold was a regression — checkout was load-bearing for its inject-stall; reverted byte-exact to parent 1662a1274) + mid-tx INSTRUMENTATION (diagnostics→stderr so the timeout fires the guard; /tmp/midtx.log dump so the no-park is legible next run — NOT a fix, the no-park is likely a Mode-A unmask). Expected next run: 5-install + 1-boot green, mid-tx legible; the 4 freshness + container-restart + resume-died + #1 stay red (deferred to 2b/2c/tuning).
+
+TWO KING-LEVEL DECISIONS surfaced (both test-faithfulness, product CONFIRMED clean):
+(1) install.sh --commit = batch 2b — procure-by-exact-commit (pin binary+tree to the run-sha) so the recovery test stops go-build-ing on the no-Go VM; faithful to a procure-only box like Albania, robust to master moving mid-run. Design ready (tmp/statbus-installsh-commit-design.md). Recommend approve. Fixes the 4 PreSwap freshness reds (backup/binary-swap/checkout/4-rollback). Latent product no-Go hardening = STATBUS-084.
+(2) Mode-D test-premise fork = batch 2c. Discovery: archivebackup-resume (GREEN) uses the IDENTICAL container-restart kill + expects COMPLETED → self-heal-on-converged is canonical-green; so resume-died-rollback + container-restart-kill have a WRONG premise (expect rollback from a converged state). Fork: resume-died → re-architect to a mid-migrate death (genuine rollback, faithful to its name; bigger rewrite + real-VM tuning); container-restart → flip assertion to expect COMPLETED, or RETIRE if it duplicates archivebackup-resume. Design ready (tmp/statbus-modeD-rearchitecture-design.md).
+
+PATH TO GREEN: batch 2a (validate+instrument, firing) → 2b install.sh --commit (4 freshness, King nod) → 2c Mode-D re-arch (2, King fork) → mid-tx fix (after 2a reveals its root) → #1 4-rollback-restore-watchdog real-VM tuning. Several iterations; all roots understood + non-product + Albania-safe.
 <!-- SECTION:NOTES:END -->
