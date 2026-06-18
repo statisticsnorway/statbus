@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-18 21:18'
-updated_date: '2026-06-18 21:20'
+updated_date: '2026-06-18 21:36'
 labels:
   - upgrade
   - testing
@@ -48,4 +48,10 @@ Source: King, 2026-06-18.
 
 <!-- SECTION:NOTES:BEGIN -->
 OOM scenario — what it models (King, 2026-06-18): a migration that runs on a BIG database, does NOT handle the load (tries to do something it shouldn't — e.g. pulls a whole large table into memory, an unbounded build), eventually consumes all memory, and is killed by the OS OOM-killer. Kill source = the OS (EXTERNAL), killing PostgreSQL. This is distinct from the time-based runaway: memory blowup -> external OOM-kill (this task, scenario 1); time overrun -> internal 12h timeout-kill (STATBUS-095, scenario 2). The test reproduces the EFFECT deterministically (kill Postgres mid-migration via the NOTIFY handshake) without actually exhausting memory; the property under test is simply: when the OS OOM-kills Postgres mid-migration, the box recovers.
+
+OWNERSHIP (foreman, 2026-06-18): build = engineer; review = architect (correctness of the kill timing + the recovery assertions) then foreman (diff); commit + VM re-fire = foreman.
+
+DEPENDS / BUILDS ON: the STATBUS-071 arc framework (arc-helpers.sh + the NOTIFY-handshake) — start only once both arcs (working + failing) are green. Scenario 2 (timeout) depends on STATBUS-095 (the 12h timeout must exist to test it).
+
+CLARITY ON THE TWO KILLS (do not conflate): scenario 1 OOM = the OS kills PostgreSQL from OUTSIDE (a bad migration on a big DB eats all memory); scenario 2 timeout = OUR code kills the migration from INSIDE (the 12h limit, short threshold in test). Both must end in a clean autonomous recovery on the box. The handshake (NOTIFY + pg_sleep + external kill) is the King's design and gives the deterministic kill moment.
 <!-- SECTION:NOTES:END -->
