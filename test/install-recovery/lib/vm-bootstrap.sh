@@ -601,6 +601,72 @@ SCRIPT
     return ${PIPESTATUS[0]}
 }
 
+# install_statbus_at_sha <vm_name> <sha> — fresh install pinned to an EXACT commit.
+#
+# The upgrade-arc harness (STATBUS-071) needs the baseline A = base_sha EXACTLY:
+# the defect branch B is committed off base_sha, so the box must start AT base_sha
+# for A→B to be a clean single-migration forward. install_statbus_in_vm cannot do
+# this — its empty-version path installs master HEAD (drifts between fire and
+# install) and its tag path downloads a release binary (no release is post-086,
+# which the register/schedule arc requires). This helper is install.sh --channel
+# edge pinned to <sha>: blobless full clone → checkout <sha> → toolchain-free
+# binary procurement of statbus-sb:<short> (mirrors sbimage.ProcureShort:
+# docker pull → create → cp /sb → rm → chmod) → ./sb install. The per-commit sb
+# image was built by the master-push images.yaml run for <short> (the arc's
+# image-wait gates on it).
+#
+# Relies on bootstrap_install_test_vm having already uploaded /tmp/env-config +
+# /tmp/users.yml and applied OS setup (docker present). Same EXIT CONTRACT as the
+# no-version install_statbus_in_vm: ./sb install rc=75 (rollback) → install exits
+# 0; callers decide success from the upgrade/install row state, not the exit code.
+install_statbus_at_sha() {
+    local vm_name="$1"
+    local sha="$2"
+    local short="${sha:0:8}"
+    _check_name_safety "$vm_name" || return 1
+    [ -n "$sha" ] || { echo "ERROR: install_statbus_at_sha requires a commit SHA" >&2; return 1; }
+
+    local ip
+    ip=$(hcloud server ip "$vm_name")
+
+    local install_script
+    install_script=$(mktemp)
+    cat > "$install_script" << SCRIPT
+set -e
+# Blobless full-history clone so ANY commit is checkoutable (a --depth clone could
+# miss base_sha if master advanced); fast — blobs are fetched on demand only.
+if [ ! -d ~/statbus/.git ]; then
+    git clone --filter=blob:none https://github.com/statisticsnorway/statbus.git ~/statbus
+fi
+cd ~/statbus
+# Pin the tree to base_sha A — deterministic, NO master drift. The fetch is a
+# belt-and-suspenders net (the blobless clone already has the full commit graph).
+git fetch --filter=blob:none origin ${sha} 2>/dev/null || true
+git checkout -q ${sha}
+# Toolchain-free binary procurement for A (mirrors install.sh edge /
+# sbimage.ProcureShort): pull the per-commit sb image, copy /sb out.
+docker pull ghcr.io/statisticsnorway/statbus-sb:${short}
+cid=\$(docker create ghcr.io/statisticsnorway/statbus-sb:${short})
+docker cp "\$cid":/sb ./sb
+docker rm "\$cid"
+chmod +x ./sb
+# Pre-place config: ./sb install needs .env.config + .users.yml.
+cp /tmp/env-config .env.config
+cp /tmp/users.yml .users.yml
+STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf
+SCRIPT
+
+    _wait_for_ssh "$ip" 30
+    scp -O "${SSH_OPTS[@]}" "$install_script" root@"$ip":/tmp/install.sh
+    ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0644 /tmp/install.sh'
+    rm -f "$install_script"
+
+    local install_log="${HARNESS_ROOT}/tmp/install-recovery-${vm_name}-install.log"
+    _run_long_via_tmux "$ip" "install" "bash /tmp/install.sh" \
+        | tee -a "$install_log"
+    return ${PIPESTATUS[0]}
+}
+
 # Upload the local HEAD sb binary to /tmp/sb on the VM.
 #
 # Needed by any scenario that bootstraps WITH an INSTALL_VERSION (the

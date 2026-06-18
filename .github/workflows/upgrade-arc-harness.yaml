@@ -9,25 +9,29 @@ name: Upgrade Arc Harness
 # (register + schedule, STATBUS-086) — the Albania web-UI mechanism — and the
 # box must apply/recover AUTONOMOUSLY.
 #
-# === THIS COMMIT = THE SKELETON (doc-012 §9 (a)+(b)) ===
-# It proves the BRANCH + IMAGE + TEARDOWN lifecycle leaves ZERO orphans BEFORE
-# any real arc is added:
+# === INCREMENTS LANDED: skeleton (§9 a+b) + working→working-fixed (§9 c) ===
 #   construct  → push a test/* defect→fixed branch pair off A, then dispatch
 #                images.yaml per branch (Q1: a GITHUB_TOKEN push does NOT trigger
 #                downstream workflows, so the branch push alone won't build images
 #                — we explicitly `gh workflow run images.yaml --ref <branch>`;
 #                images.yaml itself is UNCHANGED, no test/** push trigger).
-#   image-wait → reuse the install-recovery discover-gate poll: wait until all 4
-#                per-commit service images exist at BOTH B_short and C_short.
-#   run        → NO-OP placeholder. The real register→schedule arc + VM land in
-#                the NEXT increment (doc-012 §9 (c): working→working-fixed).
+#                B adds a genuine migration V (succeeds); C amends V in place +
+#                declares it in migrations/amendments.tsv (the 072 re-stamp path).
+#   image-wait → reuse the install-recovery discover-gate poll: wait until all 5
+#                per-commit images (app, worker, db, proxy, sb) exist at BOTH
+#                B_short and C_short.
+#   run-arc    → on a fresh Hetzner VM: install A=base_sha (install_statbus_at_sha)
+#                → register/schedule B (V applies, content_hash H_B) → register/
+#                schedule C (eager hash check sees the amendment → RE-STAMPS to
+#                H_C, no re-run). Driven entirely by the upgrade SERVICE (Albania
+#                autonomous; no quiesce, no ./sb install).
 #   teardown   → if:always() — delete the two test/* branches. Image cleanup is
 #                deferred to the weekly image-cleanup.yaml GC (Q2): commit_short-
 #                tagged test images are content-unique, never enter the release
 #                path, and are GC'd as orphans — so no explicit delete needed yet.
 #
-# Fire it (workflow_dispatch), confirm ZERO orphan branches/images, THEN the arc
-# increments are added on top.
+# NEXT (doc-012 §9 d): the 3-dim clean-slate fingerprint + the hanging→hanging-
+# fixed fail→rollback→fix arc; then §9 (5) reshapes the kill scenarios.
 
 on:
   workflow_dispatch:
@@ -37,9 +41,9 @@ on:
         required: false
         default: ''
       scenario:
-        description: 'Arc scenario name (working | hanging | skeleton). Skeleton run = lifecycle proof only.'
+        description: 'Arc scenario name (working | hanging). working = the re-stamp arc (increment (c)).'
         required: false
-        default: 'skeleton'
+        default: 'working'
 
 concurrency:
   group: upgrade-arc-harness
@@ -57,10 +61,14 @@ jobs:
     timeout-minutes: 15
     outputs:
       base_sha: ${{ steps.fixtures.outputs.base_sha }}
+      base_short: ${{ steps.fixtures.outputs.base_short }}
       b_branch: ${{ steps.fixtures.outputs.b_branch }}
       c_branch: ${{ steps.fixtures.outputs.c_branch }}
       b_short: ${{ steps.fixtures.outputs.b_short }}
       c_short: ${{ steps.fixtures.outputs.c_short }}
+      b_full: ${{ steps.fixtures.outputs.b_full }}
+      c_full: ${{ steps.fixtures.outputs.c_full }}
+      v_version: ${{ steps.fixtures.outputs.v_version }}
     steps:
       - name: Checkout (full history — branch fixtures are real commits off A)
         uses: actions/checkout@v4
@@ -81,6 +89,7 @@ jobs:
           git config user.email "statbus-upgrade-arc@users.noreply.github.com"
 
           base_sha="${BASE_SHA_INPUT:-${GITHUB_SHA}}"
+          base_short="$(git rev-parse --short=8 "$base_sha")"
           # Run-id suffix de-collides branch names across overlapping runs
           # (commit_short already makes the IMAGES content-unique).
           b_branch="test/${SCENARIO}-migration-${RUN_ID}"
@@ -89,28 +98,60 @@ jobs:
           echo "B branch = ${b_branch}"
           echo "C branch = ${c_branch}"
 
-          # --- B: the DEFECT branch, off A. ---
-          # SKELETON: a minimal marker commit is enough to give B a unique
-          # commit_short → unique per-commit images, which is all the lifecycle
-          # proof needs. The REAL migration fixture (a genuine migrations/<ts>_V
-          # .up.sql + .down.sql per doc-012 §4) is added to THIS step in the
-          # working→working-fixed increment (doc-012 §9 (c)).
-          git checkout -B "$b_branch" "$base_sha"
-          mkdir -p test/upgrade-arc/fixtures
-          printf 'scenario=%s\nrole=defect (B)\nrun_id=%s\n' "$SCENARIO" "$RUN_ID" \
-            > "test/upgrade-arc/fixtures/${SCENARIO}.txt"
-          git add "test/upgrade-arc/fixtures/${SCENARIO}.txt"
-          git commit -q -m "test(upgrade-arc): ${SCENARIO} defect fixture (B) [skeleton]"
-          b_short="$(git rev-parse --short=8 HEAD)"
+          # V's version = max existing migration version + 1 → V sorts AFTER every
+          # migration present at A, so it is genuinely PENDING when the box upgrades
+          # A→B. (Branches are throwaway + run_id-scoped → no persistent collision.)
+          git checkout -q "$base_sha"
+          latest="$(printf '%s\n' migrations/*.up.sql | sed -E 's#.*/([0-9]{14})_.*#\1#' | sort -n | tail -1)"
+          v_version="$((latest + 1))"
+          v_up="migrations/${v_version}_upgrade_arc_${SCENARIO}.up.sql"
+          v_down="migrations/${v_version}_upgrade_arc_${SCENARIO}.down.sql"
+          echo "V version = ${v_version}  (${v_up})"
 
-          # --- C: the FIXED branch, off B (Option-1 topology: the fix edits the
-          # same fixture in place; doc-012 §7). SKELETON: edit the marker. ---
+          # --- B: the DEFECT branch, off A — V is a genuine migration that
+          # SUCCEEDS (working arc). A real, observable, reversible schema change
+          # the arc asserts on. ---
+          git checkout -B "$b_branch" "$base_sha"
+          # Write V via echo-blocks (NOT a heredoc — a heredoc body dedented below
+          # the YAML `run: |` block indent breaks the literal scalar).
+          {
+            echo "-- Upgrade-arc fixture migration (STATBUS-071 working arc)."
+            echo "-- Observable + reversible; the arc asserts this table/row exists after B."
+            echo "CREATE TABLE public.upgrade_arc_fixture ("
+            echo "    id integer PRIMARY KEY,"
+            echo "    note text NOT NULL"
+            echo ");"
+            echo "INSERT INTO public.upgrade_arc_fixture (id, note) VALUES (1, 'working-arc');"
+          } > "$v_up"
+          echo "DROP TABLE IF EXISTS public.upgrade_arc_fixture;" > "$v_down"
+          git add "$v_up" "$v_down"
+          git commit -q -m "test(upgrade-arc): ${SCENARIO} migration V (B, succeeds)"
+          b_short="$(git rev-parse --short=8 HEAD)"
+          b_full="$(git rev-parse HEAD)"
+
+          # --- C: the FIXED branch, off B. §7 Option-1: AMEND V IN PLACE (bytes
+          # change → content_hash H_C ≠ H_B; RESULT identical) AND declare V in
+          # migrations/amendments.tsv (072 conveyance). The B→C upgrade then sees
+          # the hash mismatch, finds V in the amendments set, and RE-STAMPS
+          # content_hash instead of hard-failing — the real 072 path. ---
           git checkout -B "$c_branch" "$b_branch"
-          printf 'scenario=%s\nrole=fixed (C)\nrun_id=%s\n' "$SCENARIO" "$RUN_ID" \
-            > "test/upgrade-arc/fixtures/${SCENARIO}.txt"
-          git add "test/upgrade-arc/fixtures/${SCENARIO}.txt"
-          git commit -q -m "test(upgrade-arc): ${SCENARIO} fixed fixture (C) [skeleton]"
+          # Prepend a comment: changes the file's bytes (→ new hash) without
+          # changing what V DOES (the table + row are identical).
+          tmp_v="$(mktemp)"
+          {
+            echo "-- amended in place (STATBUS-072 re-stamp; result-preserving)"
+            cat "$v_up"
+          } > "$tmp_v"
+          mv "$tmp_v" "$v_up"
+          # Declare V in the committed amendments ledger (header already exists
+          # from 072). version<TAB>amending_release<TAB>reason; version is the
+          # load-bearing field release.CircumventVersions reads.
+          printf '%s\t%s\t%s\n' "$v_version" "$c_branch" "working arc: amended V in place (result-preserving re-stamp)" \
+            >> migrations/amendments.tsv
+          git add "$v_up" migrations/amendments.tsv
+          git commit -q -m "test(upgrade-arc): ${SCENARIO} amend V in place + amendments.tsv (C, re-stamp)"
           c_short="$(git rev-parse --short=8 HEAD)"
+          c_full="$(git rev-parse HEAD)"
 
           # Push BOTH branches before dispatching images.yaml (gh dispatches
           # against an existing remote ref).
@@ -118,10 +159,14 @@ jobs:
 
           {
             echo "base_sha=${base_sha}"
+            echo "base_short=${base_short}"
             echo "b_branch=${b_branch}"
             echo "c_branch=${c_branch}"
             echo "b_short=${b_short}"
             echo "c_short=${c_short}"
+            echo "b_full=${b_full}"
+            echo "c_full=${c_full}"
+            echo "v_version=${v_version}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Dispatch images.yaml for B and C (push does not trigger; dispatch does)
@@ -157,15 +202,18 @@ jobs:
           dispatch_images "$C_BRANCH"
 
   image-wait:
-    name: Wait for per-commit images (B + C)
+    name: Wait for per-commit images (A + B + C)
     needs: construct
     runs-on: ubuntu-24.04
     timeout-minutes: 50
     steps:
-      - name: Poll ghcr until all 4 service images exist at B_short AND C_short
+      - name: Poll ghcr until all images exist at base_short, B_short AND C_short
         # Mirrors install-recovery-harness.yaml's discover-gate poll, generalized
-        # over the two commit_shorts. The images are built by the images.yaml runs
-        # construct dispatched; a cold build is ~20-30 min, so the budget matches.
+        # over ALL THREE commit_shorts. The B/C images are built by the images.yaml
+        # runs construct dispatched (cold ~20-30 min). A's images (base_short) are
+        # built by the master push, normally ready — but install_statbus_at_sha
+        # pulls A's service images + procures statbus-sb:<base_short>, so gating on
+        # them removes the install-A race window.
         env:
           REGISTRY: ghcr.io
           ORG: statisticsnorway
@@ -174,13 +222,17 @@ jobs:
           DOCKER_CLI_EXPERIMENTAL: enabled
           IMAGES_WAIT_BUDGET_S: "2400"
           IMAGES_WAIT_INTERVAL_S: "30"
-          SHORTS: "${{ needs.construct.outputs.b_short }} ${{ needs.construct.outputs.c_short }}"
+          SHORTS: "${{ needs.construct.outputs.base_short }} ${{ needs.construct.outputs.b_short }} ${{ needs.construct.outputs.c_short }}"
         run: |
           set -euo pipefail
           echo "${GH_TOKEN}" | docker login "$REGISTRY" -u "$ACTOR" --password-stdin
           echo "Waiting for images at commit_shorts: ${SHORTS}"
 
-          services="app worker db proxy"
+          # 'sb' included: the arc's toolchain-free binary procurement
+          # (install_statbus_at_sha + the daemon's buildBinaryOnDisk→ProcureShort)
+          # pulls statbus-sb:<short>; without it the box falls back to a slow
+          # in-container build.
+          services="app worker db proxy sb"
           start=$SECONDS
           while :; do
             missing=""
@@ -211,16 +263,103 @@ jobs:
           done
 
   run-arc:
-    name: Run arc (SKELETON no-op)
-    needs: image-wait
+    name: Run working→working-fixed arc (Hetzner VM)
+    needs: [construct, image-wait]
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    # Per-arc ceiling: install A + two real upgrades (A→B applies V, B→C
+    # re-stamps) on a fresh VM. Matches install-recovery's per-scenario budget.
+    timeout-minutes: 120
     steps:
-      - name: No-op (real register→schedule arc + VM lands in the next increment)
+      - name: Checkout
+        # ref github.sha so the arc script + lib match the run's commit.
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+
+      - name: Build sb binary (linux/amd64)
+        # bootstrap_install_test_vm's no-version path needs an sb binary for
+        # /tmp/sb; install_statbus_at_sha then docker-procures base_sha's binary
+        # on the VM (the authoritative one). Built once here.
+        run: ./dev.sh build-sb linux/amd64
+
+      - name: Install hcloud CLI
+        env:
+          HCLOUD_CLI_VERSION: "1.64.1"
         run: |
-          echo "SKELETON: branch fixtures built + images present — lifecycle wired."
-          echo "The real arc (install A → register/schedule → B/C, fingerprint, kill points)"
-          echo "is added in doc-012 §9 (c)/(d). This job is intentionally a no-op for now."
+          set -euo pipefail
+          curl -fsSL \
+            "https://github.com/hetznercloud/cli/releases/download/v${HCLOUD_CLI_VERSION}/hcloud-linux-amd64.tar.gz" \
+            -o /tmp/hcloud.tar.gz
+          sudo tar -C /usr/local/bin -xzf /tmp/hcloud.tar.gz hcloud
+          rm /tmp/hcloud.tar.gz
+          hcloud version
+
+      - name: Install CI SSH private key
+        env:
+          STATBUS_CI_SSH_PRIVATE_KEY: ${{ secrets.STATBUS_CI_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$STATBUS_CI_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keygen -lf ~/.ssh/id_ed25519 | awk '{ print "SSH key fingerprint:", $2 }'
+
+      - name: Run the working arc on its own Hetzner VM
+        # Drives install A(base_sha) → register/schedule B → register/schedule C
+        # entirely through the daemon (Albania autonomous; no quiesce, no ./sb
+        # install). VM prefix statbus-arc-* is DISJOINT from install-recovery's
+        # statbus-recovery-* so neither harness's sweep touches the other's VMs.
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+          HCLOUD_SSH_KEY: statbus-ci
+          STATBUS_SB_BINARY: ${{ github.workspace }}/sb-linux-amd64
+          BASE_SHA: ${{ needs.construct.outputs.base_sha }}
+          B_FULL: ${{ needs.construct.outputs.b_full }}
+          C_FULL: ${{ needs.construct.outputs.c_full }}
+          B_BRANCH: ${{ needs.construct.outputs.b_branch }}
+          C_BRANCH: ${{ needs.construct.outputs.c_branch }}
+          V_VERSION: ${{ needs.construct.outputs.v_version }}
+          RUN_ID: ${{ github.run_id }}
+          SCENARIO: ${{ github.event.inputs.scenario }}
+        run: |
+          set -euo pipefail
+          chmod +x sb-linux-amd64 test/install-recovery/arcs/working-arc.sh
+          ./test/install-recovery/arcs/working-arc.sh "statbus-arc-${SCENARIO}-${RUN_ID}"
+
+      - name: Upload arc log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: upgrade-arc-log-${{ github.event.inputs.scenario }}-${{ github.run_id }}
+          path: tmp/install-recovery-*.log
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Reap this arc's VM (defense in depth)
+        # The arc script's `trap cleanup_vm` reaps on normal exit; this is the net
+        # for when the trap can't fire (cancellation, runner SIGKILL). Best-effort,
+        # always exit 0 — pass/fail was decided by the arc run.
+        if: always()
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+          RUN_ID: ${{ github.run_id }}
+          SCENARIO: ${{ github.event.inputs.scenario }}
+        run: |
+          vm="statbus-arc-${SCENARIO}-${RUN_ID}"
+          if command -v hcloud >/dev/null 2>&1 && hcloud server describe "$vm" >/dev/null 2>&1; then
+            echo "Reaping $vm"
+            hcloud server delete "$vm" || true
+          else
+            echo "$vm already gone (arc trap cleaned up) or hcloud absent — nothing to reap."
+          fi
+          exit 0
 
   teardown:
     name: Teardown (delete test/* branches)
