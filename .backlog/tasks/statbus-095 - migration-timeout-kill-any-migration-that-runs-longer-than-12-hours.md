@@ -4,6 +4,7 @@ title: 'migration-timeout: kill any migration that runs longer than 12 hours'
 status: To Do
 assignee: []
 created_date: '2026-06-18 21:18'
+updated_date: '2026-06-18 21:36'
 labels:
   - upgrade
   - migration
@@ -36,3 +37,13 @@ Source: King, 2026-06-18.
 - [ ] #3 After the timeout-kill the box recovers correctly (rollback/recovery)
 - [ ] #4 Reconciled with the existing migrate.go timeouts (60-min CLI / 5-min boot / 30-min resume) — documented which bound changed and why
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+OWNERSHIP (foreman, 2026-06-18): build = engineer; review = architect (this is product upgrade-path code — review carefully) then foreman (diff); commit = foreman.
+
+DESIGN-FIRST: before implementing, reconcile the new 12-hour ceiling against the existing migrate.go bounds (60-min CLI backstop at :420, ~5-min boot, ~30-min resume) and propose which bound changes — present that to the foreman for the King's nod before touching product code (it changes how long a real upgrade is allowed to run).
+
+CLARITY ON SUCCESS: the load-bearing criterion is the CONFIGURABLE short threshold — that is exactly what lets STATBUS-096 scenario 2 exercise the real timeout-kill path in seconds instead of waiting 12 hours. The kill here is INTERNAL (our code's timeout fires); contrast STATBUS-096's OOM, which is an EXTERNAL kill of Postgres.
+<!-- SECTION:NOTES:END -->
