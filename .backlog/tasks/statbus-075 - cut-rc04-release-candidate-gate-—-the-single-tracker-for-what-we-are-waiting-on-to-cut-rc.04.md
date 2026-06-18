@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-17 11:04'
-updated_date: '2026-06-18 08:10'
+updated_date: '2026-06-18 08:20'
 labels:
   - install-recovery
   - rc.04
@@ -22,18 +22,25 @@ ordinal: 75000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-THE one place that answers: "what are we waiting on to cut rc.04?"
+THE one tracker: "what's left before we can cut rc.04?"
 
-WHY rc.04 MATTERS: Albania (a standalone StatBus box physically inside Albania, with no SSB remote access — upgrades happen only via a local operator through the web UI) installed v2026.05.2 and CANNOT upgrade, because the upgrade crashes. rc.04 is their first working upgrade target. Same crash that stuck Norway weeks ago.
+WHY rc.04 MATTERS: Albania (a standalone StatBus box inside Albania, no SSB remote access — upgrades happen only through a local operator) is stuck on v2026.05.2 and cannot upgrade, because the upgrade crashes. rc.04 is their first working upgrade target.
 
-CUT BAR (King's ruling): the install-recovery harness must reach 100% GREEN — every scenario passes, NO "known-acceptable reds" carve-out.
+CUT BAR (King): the install-recovery harness must be 100% GREEN — every scenario, no carve-outs.
 
-WHAT WE WERE WAITING ON — 3 fix classes, ALL now landed on master @78e770ac:
-1. Freshness-reorder (harness staleness guard) — STATBUS-076, done (7f305f70d).
-2. Masked-unit unmask (systemd) — done (e6c85c193).
-3. Single-source recovery: remove from_commit_sha (the Albania crash) — STATBUS-077 + the gate-pedagogy fix STATBUS-078, done.
+WHAT'S LEFT (as of 2026-06-18, run 27731940038 = 8 of 32 tests red). The 8 reds are really 4 problems:
 
-CURRENT STATE: the comprehensive 32-scenario install-recovery re-run (GitHub Actions run 27715901866, on 78e770ac) is LIVE. When it is 100% green → cut rc.04. Any red → triage by class, fix, re-run.
+1. NEW VERSION WON'T INSTALL ON A BOX WITH NO COMPILER (4 tests: 2-preswap backup-kill / binary-swap-kill / checkout-kill, 4-rollback-kill). When ./sb is older than the code tree, the self-heal rebuilds it with a HOST `go build`; on a no-Go box that dies. FIX = procure the binary from Docker instead (pull the per-commit image, or build it inside a container). This is a REAL Albania bug the tests caught, not a test artifact. Owner: STATBUS-084 (engineer implementing); scenarios tracked under STATBUS-074.
+
+2. UPGRADE REFUSES BECAUSE THE TEST SETUP WIPED THE APPROVED SIGNING KEY (1 test: mid-tx-kill). The baseline install approves a signer, then the test overwrites .env.config and loses it; the trigger upgrade then fails the (correct) mandatory signature check before it can reach the migration. Test-setup fix. Owner: STATBUS-027.
+
+3. TWO TESTS EXPECT A ROLLBACK FROM A STATE THAT CORRECTLY FINISHES (2 tests: container-restart-kill, resume-died-rollback). The real principle: a migration's "done" record is written AFTER its schema change commits, so a kill in that gap needs a rollback (the product already does this correctly). These two tests kill at a point where the upgrade has converged and should complete — so their rollback assertion is the wrong premise. Re-grounding in plain language + the design diagram. Owner: STATBUS-067 (architect).
+
+4. ONE ROLLBACK TEST NEEDS REAL-VM TIMING TUNING (1 test: 4-rollback-restore-watchdog). Owner: STATBUS-031.
+
+ALSO TO VERIFY: two scenarios (migrate-killed-after-commit, migration-deterministic-error) did not appear in the last run's 30 jobs — confirm they are in the matrix (no silent carve-out).
+
+DOCTRINE: the only way to know these recovery paths work is to RUN them (commit → push → CI builds the per-commit image → run on a real VM → observe → iterate). Each run peels one layer. Full history in the notes below.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
