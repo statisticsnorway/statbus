@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-18 14:55'
-updated_date: '2026-06-18 14:57'
+updated_date: '2026-06-18 15:09'
 labels:
   - upgrade
   - phase-2
@@ -63,4 +63,8 @@ CADENCE: ship bit-by-bit, master green between units. For anything touching the 
 WAVES: W1 (in flight) 086 + 087 + (architect: 071 build-spec & 089 design). W2 072, 034, 089-impl, 090, 088. W3 071 framework then 044 matrix.
 
 FRUITION = AC #4: the branch-arc harness runs the real failure/fix arcs green and the fabricated workarounds are retired -> we can finally test the upgrade failure scenarios faithfully (the King's stated reason). Progress tracked on THIS ticket each wave; King reviews on return.
+
+DECISION (foreman, autonomous per this charter, 2026-06-18) — *-fixed-migration branch topology (STATBUS-071 §7 / doc-012 §7): RESOLVED = OPTION 1, the fix EDITS the migration in place + re-stamps (amend-in-place). RATIONALE: (1) it is the King's already-RATIFIED STATBUS-072 mechanism; (2) the architect's analysis proves Option 2 (add forward V+k) CANNOT rescue the hosts that failed (they'd re-run the same broken migration) without either also amending V — which collapses to Option 1 — or building a new supersede-skip mechanism. So Option 1 is the only clean working answer. The King's offhand 'never edit the immutable original' was a looser framing introduced mid-discussion; the ratified 072 governs. doc-012's Option-1 assumption stands; only JOB-1's fix-step would change if the King later picks Option 2. FLAGGED HERE for the King's review on return — he can redirect to Option 2 (+ a new supersede-skip dependency) if he prefers; until then the build proceeds Option 1.
+
+PROGRESS (W1): STATBUS-087 DONE (de453b814). STATBUS-086 stage-scoped (engineer building: CLI core → fabricate retirement/AC#6 → AC#8 VM proof). STATBUS-071 build-spec = doc-012 (architect, engineer-ready, queued for STEP 2). STATBUS-089 design in progress (architect + operator).
 <!-- SECTION:NOTES:END -->
