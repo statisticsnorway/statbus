@@ -1,20 +1,21 @@
 ---
 id: STATBUS-074
 title: >-
-  toolchain-free-edge-swap: binary-swap-kill + 4-rollback-kill must fire their
-  kill on a bare VM (rc.04 100%-green blocker)
+  toolchain-free-edge-swap: The 4 'no host compiler' recovery tests must pass on
+  a bare VM (backup-kill, binary-swap-kill, checkout-kill, 4-rollback-kill)
 status: In Progress
 assignee:
   - mechanic
 created_date: '2026-06-17 11:04'
-updated_date: '2026-06-17 11:13'
+updated_date: '2026-06-18 08:23'
 labels:
   - install-recovery
   - harness
   - rc.04
   - gate
   - critical-path
-dependencies: []
+dependencies:
+  - STATBUS-084
 references:
   - cli/internal/upgrade/service.go
   - test/install-recovery/scenarios/2-preswap-binary-swap-kill.sh
