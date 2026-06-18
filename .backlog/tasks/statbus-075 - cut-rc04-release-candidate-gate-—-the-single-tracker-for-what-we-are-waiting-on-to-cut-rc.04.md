@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-17 11:04'
-updated_date: '2026-06-18 06:25'
+updated_date: '2026-06-18 08:10'
 labels:
   - install-recovery
   - rc.04
@@ -132,4 +132,10 @@ RESUME STEPS (fresh foreman, after machine restart + shell recovered):
 4. #1 4-rollback-restore-watchdog = real-VM knob tuning (untuned new scenario; architect designs).
 
 TEAM: statbus team (architect/engineer/mechanic/tester) via SendMessage — NOT fresh Agent() calls. The architect holds the deep recovery-semantics context + the 2b/2c designs. CADENCE LESSON: reuse ONE background poller; the many poll-loops contributed to the fd exhaustion. All 4 modes + roots are HARNESS, product clean, Albania-safe (none a from_commit_sha regression).
+
+BATCH 2a VALIDATED + KING RESET (foreman, 2026-06-18 post-restart). Run 27731940038 (on 783bb0905): 10→8 reds. Predicted greens landed: 5-install-stage-a-killed-migrate + 1-boot-concurrent-install GREEN (VM_EXEC transport fix + 1-boot revert confirmed). Remaining 8 reds: 4 freshness (2-preswap backup/binary-swap/checkout, 4-rollback-kill), 2 (container-restart-kill, resume-died-rollback), mid-tx-kill, 4-rollback-restore-watchdog.
+
+mid-tx-kill DIAGNOSED from the new instrumentation dump: NOT a Mode-A unmask. The baseline install adds UPGRADE_TRUSTED_SIGNER_jhf to .env.config (dump:2920, step14 OK), but scenario line 152 `cp /tmp/env-config .env.config` CLOBBERS it; the trigger install dispatches scheduled-upgrade → executeUpgrade.loadTrustedSigners finds none → mandatory commit-signature gate fails → upgrade dies before migrate → park never fires → 900s wedge timeout. Harness-setup clobber. Secondary product Q: should the scheduled-upgrade inline-dispatch path honor --trust-github-user (it currently doesn't)?
+
+KING REJECTED the 2b/2c framing as over-convoluted + a false choice. RESET to plain-language, diagram-grounded first principles. Team re-spawned. Three investigation tracks dispatched: (A engineer) real Docker build architecture — freshness self-heal must build-in-container/pull-image, not host `go build`; (B+C architect) migration-stamp atomicity + map EVERY scenario to the upgrade/recovery diagram in plain language. Foreman independently confirmed Q2 principle in migrate.go:784-919 (stamp is a separate write after the DDL tx commits → committed-but-unrecorded window (c) needs rollback not resume).
 <!-- SECTION:NOTES:END -->
