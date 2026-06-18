@@ -1939,12 +1939,13 @@ func (d *Service) handleNotification(ctx context.Context, n *pgconn.Notification
 			recreate = true
 			fmt.Printf("Recreate mode requested for %s\n", version)
 		}
-		// No pre-validation: scheduleImmediate calls resolveUpgradeTarget,
+		// No pre-validation: onScheduledNotify calls resolveUpgradeTarget,
 		// which is the sole parser for operator/NOTIFY payloads. It accepts
 		// CalVer tags, commit_sha, commit_short, and the legacy `sha-<hex>`
 		// form the pre-Commit-B trigger emits (transitional). Bad payloads
-		// surface as clear error messages from there.
-		d.scheduleImmediate(ctx, version)
+		// surface as clear error messages from there. A NOTIFY for an
+		// unregistered commit is a loud no-op (STATBUS-086, require-register).
+		d.onScheduledNotify(ctx, version)
 		if recreate {
 			d.pendingRecreate = true
 		}
@@ -2872,6 +2873,67 @@ func (d *Service) checkMissedUpgrades(ctx context.Context) {
 	}
 }
 
+// candidateMeta carries the metadata for a candidate-row upsert. A candidate
+// with release tags is "tagged" (the normal release path); one without is an
+// "edge"/untagged commit. Mirrors the TaggedTarget/UntaggedTarget union in
+// commit.go.
+type candidateMeta struct {
+	committedAt   time.Time
+	tags          []string // release tags at the commit; empty ⇒ untagged (edge) commit
+	commitVersion string   // display label for an untagged commit ("" ⇒ NULL); tagged uses tags[0]
+	summary       string
+	releaseStatus string // public.release_status_type; only meaningful for tagged candidates
+}
+
+// upsertCandidate records (or refreshes the metadata of) a candidate upgrade
+// row. THE single insert path (STATBUS-086): release discovery, edge discovery,
+// AND `./sb upgrade register` all flow through here. It NEVER sets a lifecycle
+// state — a candidate is born 'available' (the table default) and scheduling is
+// a separate explicit step (`schedule` / executeScheduled). Returns the number
+// of rows affected.
+//
+// Two shapes, branched on whether the commit carries release tags. Each branch
+// is the exact SQL previously inlined in discoverReleases (tagged) and
+// discoverEdge (untagged), so routing discovery through here is behavior-neutral.
+func (d *Service) upsertCandidate(ctx context.Context, sha CommitSHA, meta candidateMeta) (int64, error) {
+	if len(meta.tags) > 0 {
+		tag := meta.tags[0]
+		// Tagged: ON CONFLICT appends the tag and promotes release_status
+		// (a newer release shape re-flags release_builds_status='building').
+		ct, err := d.queryConn.Exec(ctx,
+			`INSERT INTO public.upgrade (commit_sha, committed_at, commit_tags, release_status, summary, has_migrations, commit_version)
+			 VALUES ($1, $2, ARRAY[$3]::text[], $4::public.release_status_type, $5, false, $3)
+			 ON CONFLICT (commit_sha) DO UPDATE SET
+			   commit_tags = CASE WHEN $3 = ANY(upgrade.commit_tags) THEN upgrade.commit_tags
+			                      ELSE array_append(upgrade.commit_tags, $3) END,
+			   release_status = GREATEST(upgrade.release_status, EXCLUDED.release_status),
+			   release_builds_status = CASE
+			       WHEN EXCLUDED.release_status > upgrade.release_status THEN 'building'::public.release_builds_status_type
+			       ELSE upgrade.release_builds_status
+			   END,
+			   commit_version = (CASE WHEN $3 = ANY(upgrade.commit_tags) THEN upgrade.commit_tags
+			                          ELSE array_append(upgrade.commit_tags, $3) END)[1]
+			 WHERE NOT ($3 = ANY(upgrade.commit_tags))
+			    OR upgrade.release_status < EXCLUDED.release_status`,
+			string(sha), meta.committedAt, tag, meta.releaseStatus, meta.summary)
+		if err != nil {
+			return 0, err
+		}
+		return ct.RowsAffected(), nil
+	}
+	// Untagged (edge) commit: release_builds_status='ready' (no release.yaml
+	// output needed); ON CONFLICT only backfills a missing commit_version.
+	ct, err := d.queryConn.Exec(ctx,
+		`INSERT INTO public.upgrade (commit_sha, committed_at, summary, has_migrations, release_builds_status, commit_version)
+		 VALUES ($1, $2, $3, false, 'ready'::public.release_builds_status_type, NULLIF($4, ''))
+		 ON CONFLICT (commit_sha) DO UPDATE SET commit_version = EXCLUDED.commit_version WHERE upgrade.commit_version IS NULL`,
+		string(sha), meta.committedAt, meta.summary, meta.commitVersion)
+	if err != nil {
+		return 0, err
+	}
+	return ct.RowsAffected(), nil
+}
+
 func (d *Service) discover(ctx context.Context) {
 	if err := d.ensureConnected(ctx); err != nil {
 		fmt.Printf("Reconnect failed in discover: %v\n", err)
@@ -2926,28 +2988,18 @@ func (d *Service) discover(ctx context.Context) {
 		// version: for tagged releases the tag name IS the docker image
 		// tag (git describe on the exact commit returns the tag directly). Store it
 		// so verifyArtifacts uses it even if new tags are later pushed past this commit.
-		result, err := d.queryConn.Exec(ctx,
-			`INSERT INTO public.upgrade (commit_sha, committed_at, commit_tags, release_status, summary, has_migrations, commit_version)
-			 VALUES ($1, $2, ARRAY[$3]::text[], $4::public.release_status_type, $5, false, $3)
-			 ON CONFLICT (commit_sha) DO UPDATE SET
-			   commit_tags = CASE WHEN $3 = ANY(upgrade.commit_tags) THEN upgrade.commit_tags
-			                      ELSE array_append(upgrade.commit_tags, $3) END,
-			   release_status = GREATEST(upgrade.release_status, EXCLUDED.release_status),
-			   release_builds_status = CASE
-			       WHEN EXCLUDED.release_status > upgrade.release_status THEN 'building'::public.release_builds_status_type
-			       ELSE upgrade.release_builds_status
-			   END,
-			   commit_version = (CASE WHEN $3 = ANY(upgrade.commit_tags) THEN upgrade.commit_tags
-			                          ELSE array_append(upgrade.commit_tags, $3) END)[1]
-			 WHERE NOT ($3 = ANY(upgrade.commit_tags))
-			    OR upgrade.release_status < EXCLUDED.release_status`,
-			t.CommitSHA, t.PublishedAt, t.TagName, targetStatus, t.TagName)
+		affected, err := d.upsertCandidate(ctx, CommitSHA(t.CommitSHA), candidateMeta{
+			committedAt:   t.PublishedAt,
+			tags:          []string{t.TagName},
+			releaseStatus: targetStatus,
+			summary:       t.TagName,
+		})
 		if err != nil {
 			fmt.Printf("Failed to record release %s: %v\n", t.TagName, err)
 			continue
 		}
 
-		if result.RowsAffected() > 0 {
+		if affected > 0 {
 			fmt.Printf("Discovered: %s (%s)\n", t.TagName, t.PublishedAt.Format("2006-01-02"))
 		}
 	}
@@ -3143,11 +3195,11 @@ func (d *Service) discoverEdge(ctx context.Context) {
 		versionTag, _ := runCommandOutput(d.projDir, "git", "describe", "--tags", "--always", c.SHA)
 		versionTag = strings.TrimSpace(versionTag)
 
-		_, err := d.queryConn.Exec(ctx,
-			`INSERT INTO public.upgrade (commit_sha, committed_at, summary, has_migrations, release_builds_status, commit_version)
-			 VALUES ($1, $2, $3, false, 'ready'::public.release_builds_status_type, NULLIF($4, ''))
-			 ON CONFLICT (commit_sha) DO UPDATE SET commit_version = EXCLUDED.commit_version WHERE upgrade.commit_version IS NULL`,
-			c.SHA, c.PublishedAt, summary, versionTag)
+		_, err := d.upsertCandidate(ctx, CommitSHA(c.SHA), candidateMeta{
+			committedAt:   c.PublishedAt,
+			summary:       summary,
+			commitVersion: versionTag,
+		})
 		if err != nil {
 			fmt.Printf("  Failed to record commit %s: %v\n", ShortForDisplay(c.SHA), err)
 		}
@@ -3374,11 +3426,53 @@ func (d *Service) supersedeBelowInstalled(ctx context.Context) {
 	}
 }
 
-// scheduleImmediate routes an operator-supplied upgrade target through
-// the parser, then upserts a scheduled row. The input may be a full
-// 40-char commit_sha, an 8-char commit_short, or a CalVer release tag
-// (see resolveUpgradeTarget for the parse contract).
-func (d *Service) scheduleImmediate(ctx context.Context, input string) {
+// scheduleResult is the classified outcome of a promote-to-scheduled attempt.
+type scheduleResult int
+
+const (
+	scheduleResultPromoted        scheduleResult = iota // the UPDATE promoted a candidate to 'scheduled'
+	scheduleResultAlreadyScheduled                      // the row exists but was already 'scheduled' (no-op)
+	scheduleResultUnregistered                          // no candidate row exists — require-register loud no-op
+)
+
+// classifyScheduleResult is the PURE decision behind require-register
+// (STATBUS-086, AC#9): given the rows the promote-UPDATE affected and whether a
+// candidate row exists, decide the outcome. A non-existent row is NEVER
+// inserted — it classifies Unregistered (loud no-op), never "create it". Unit-
+// tested in schedule_require_register_test.go.
+func classifyScheduleResult(rowsAffected int64, exists bool) scheduleResult {
+	if rowsAffected > 0 {
+		return scheduleResultPromoted
+	}
+	if exists {
+		return scheduleResultAlreadyScheduled
+	}
+	return scheduleResultUnregistered
+}
+
+// errNotRegistered is the actionable fail-fast (STATBUS-086, AC#3) for
+// scheduling a target that has no candidate row. Require-register: `schedule`
+// NEVER inserts — it names the fix instead. Unit-tested.
+func errNotRegistered(displayName, input string) error {
+	return fmt.Errorf("%s is not registered — run `./sb upgrade register %s` first", displayName, input)
+}
+
+// onScheduledNotify REACTS to a NOTIFY upgrade_apply (fired by
+// upgrade_notify_daemon_trigger when a row is promoted to 'scheduled', or sent
+// directly by `./sb upgrade apply-latest`). The CLI `./sb upgrade schedule` is
+// what actually promotes a row; this handler does NOT schedule from scratch.
+//
+// STATBUS-086 (Option A, UNIFORM): schedule REQUIRES register EVERYWHERE — the
+// CLI verb AND this handler. The old scheduleImmediate's insert-if-missing
+// upsert is REMOVED: a NOTIFY for a commit with no candidate row is a LOUD,
+// ACTIONABLE NO-OP (matching the CLI `schedule` fail-fast), never a silent
+// insert. For a registered row it (re)promotes to 'scheduled' — resetting the
+// lifecycle so a completed/failed/rolled_back candidate can re-run — and
+// supersedes older releases. executeScheduled claims and runs it.
+//
+// The input may be a full 40-char commit_sha, an 8-char commit_short, or a
+// CalVer release tag (see resolveUpgradeTarget for the parse contract).
+func (d *Service) onScheduledNotify(ctx context.Context, input string) {
 	target, err := resolveUpgradeTarget(ctx, d, input)
 	if err != nil {
 		fmt.Printf("Cannot resolve %q: %v\n", input, err)
@@ -3386,31 +3480,24 @@ func (d *Service) scheduleImmediate(ctx context.Context, input string) {
 	}
 
 	var commitSHA CommitSHA
-	var tagsToStore []string
 	var displayName string
 	switch t := target.(type) {
 	case TaggedTarget:
 		commitSHA = t.SHA
-		tagsToStore = []string{string(t.Tag)}
 		displayName = string(t.Tag)
 	case UntaggedTarget:
 		commitSHA = t.SHA
-		tagsToStore = nil // stored as NULL → COALESCE to '{}' in SQL
 		displayName = string(commitShort(t.SHA))
 	default:
 		fmt.Printf("unhandled UpgradeTarget type %T\n", target)
 		return
 	}
 
-	// Reset lifecycle fields so a completed/failed upgrade can be re-applied.
-	// The WHERE clause prevents updating a row that's already in 'scheduled' state.
-	// Without this guard, the UPDATE changes scheduled_at to now() →
-	// upgrade_notify_daemon_trigger fires → sends NOTIFY upgrade_apply →
-	// service calls scheduleImmediate again → infinite loop.
+	// Promote ONLY an existing candidate — NO insert. The WHERE state guard
+	// both makes an already-scheduled row a no-op and prevents a NOTIFY loop
+	// (the UPDATE re-fires upgrade_notify_daemon_trigger).
 	result, err := d.queryConn.Exec(ctx,
-		`INSERT INTO public.upgrade (commit_sha, committed_at, commit_tags, summary, scheduled_at, state)
-		 VALUES ($1, now(), COALESCE($3::text[], '{}'::text[]), $2, now(), 'scheduled')
-		 ON CONFLICT (commit_sha) DO UPDATE SET
+		`UPDATE public.upgrade SET
 		   state = 'scheduled',
 		   scheduled_at = now(),
 		   started_at = NULL,
@@ -3421,18 +3508,263 @@ func (d *Service) scheduleImmediate(ctx context.Context, input string) {
 		   dismissed_at = NULL,
 		   superseded_at = NULL,
 		   log_relative_file_path = NULL
-		 WHERE public.upgrade.state != 'scheduled'`,
-		string(commitSHA), displayName, tagsToStore)
+		 WHERE commit_sha = $1 AND state != 'scheduled'`,
+		string(commitSHA))
 	if err != nil {
-		d.markPgInvariantTerminal(err, "service.go:scheduleImmediate:upsert")
+		d.markPgInvariantTerminal(err, "service.go:onScheduledNotify:update")
 		fmt.Printf("Failed to schedule %s: %v\n", displayName, err)
-	} else if result.RowsAffected() > 0 {
-		fmt.Printf("Scheduled immediate upgrade to %s\n", displayName)
+		return
+	}
+	// Only probe existence on the 0-rows case; when rows>0 the row plainly exists.
+	rows := result.RowsAffected()
+	exists := true
+	if rows == 0 {
+		if err := d.queryConn.QueryRow(ctx,
+			`SELECT EXISTS(SELECT 1 FROM public.upgrade WHERE commit_sha = $1)`,
+			string(commitSHA)).Scan(&exists); err != nil {
+			fmt.Printf("Could not check registration of %s: %v\n", displayName, err)
+			return
+		}
+	}
+	switch classifyScheduleResult(rows, exists) {
+	case scheduleResultPromoted:
+		fmt.Printf("Scheduled upgrade to %s\n", displayName)
 		// Once a commit is selected, all older ones are obsolete.
 		d.supersedeOlderReleases(ctx, string(commitSHA))
-	} else {
+	case scheduleResultAlreadyScheduled:
 		fmt.Printf("Version %s already scheduled, no action needed\n", displayName)
+	case scheduleResultUnregistered:
+		// require-register: NEVER insert — loud, actionable no-op.
+		fmt.Printf("NOTIFY upgrade_apply for UNREGISTERED commit %s — ignored.\n", displayName)
+		fmt.Printf("  Register it first: ./sb upgrade register %s\n", displayName)
 	}
+}
+
+// --- One-shot CLI entrypoints (register / schedule / check) ----------
+//
+// These run as a short-lived `./sb upgrade <verb>` process, NOT the daemon.
+// They connect LOCK-FREE (runOneShot → connect, never acquireAdvisoryLock) so
+// they are safe to run alongside a live daemon, and reuse the daemon's pgx code
+// paths (resolveUpgradeTarget, upsertCandidate) instead of re-expressing SQL in
+// psql. STATBUS-086.
+
+// runOneShot opens a DB connection (no advisory lock — that is the daemon's,
+// taken only in Run), invokes fn, and closes the connection on return.
+func (d *Service) runOneShot(ctx context.Context, fn func(context.Context) error) error {
+	if err := d.connect(ctx); err != nil {
+		return fmt.Errorf("connect to database: %w", err)
+	}
+	defer func() {
+		if d.listenConn != nil {
+			d.listenConn.Close(context.Background())
+		}
+		if d.queryConn != nil {
+			d.queryConn.Close(context.Background())
+		}
+	}()
+	return fn(ctx)
+}
+
+// commitMeta resolves the committed-at time, git-describe label, and subject
+// line for a commit from the local repo — the metadata register needs to upsert
+// a candidate (mirrors what discovery captures from the tag/commit).
+func (d *Service) commitMeta(sha CommitSHA) (committedAt time.Time, describe, subject string, err error) {
+	out, e := runCommandOutput(d.projDir, "git", "show", "-s", "--format=%cI%n%s", string(sha))
+	if e != nil {
+		return time.Time{}, "", "", fmt.Errorf("git show %s: %w (%s)", commitShort(sha), e, strings.TrimSpace(out))
+	}
+	parts := strings.SplitN(strings.TrimSpace(out), "\n", 2)
+	committedAt, err = time.Parse(time.RFC3339, strings.TrimSpace(parts[0]))
+	if err != nil {
+		return time.Time{}, "", "", fmt.Errorf("parse committed-at %q for %s: %w", parts[0], commitShort(sha), err)
+	}
+	if len(parts) > 1 {
+		subject = strings.TrimSpace(parts[1])
+		if len(subject) > 120 {
+			subject = subject[:120]
+		}
+	}
+	desc, _ := runCommandOutput(d.projDir, "git", "describe", "--tags", "--always", string(sha))
+	describe = strings.TrimSpace(desc)
+	return committedAt, describe, subject, nil
+}
+
+// RunRegister records a release tag or commit as an upgrade candidate
+// (state='available') and pokes the service to prepare it (NOTIFY upgrade_check).
+// Shares the same upsertCandidate path as discovery. `./sb upgrade register`.
+func (d *Service) RunRegister(ctx context.Context, input string) error {
+	return d.runOneShot(ctx, func(ctx context.Context) error {
+		target, err := resolveUpgradeTarget(ctx, d, input)
+		if err != nil {
+			return fmt.Errorf("resolve %q: %w", input, err)
+		}
+		var sha CommitSHA
+		switch t := target.(type) {
+		case TaggedTarget:
+			sha = t.SHA
+		case UntaggedTarget:
+			sha = t.SHA
+		default:
+			return fmt.Errorf("unhandled target type %T", target)
+		}
+		committedAt, describe, subject, err := d.commitMeta(sha)
+		if err != nil {
+			return err
+		}
+		meta := candidateMeta{committedAt: committedAt}
+		var displayName string
+		switch t := target.(type) {
+		case TaggedTarget:
+			meta.tags = []string{string(t.Tag)}
+			meta.releaseStatus = ClassifyReleaseShape(string(t.Tag)).ReleaseStatus()
+			meta.summary = string(t.Tag)
+			displayName = string(t.Tag)
+		case UntaggedTarget:
+			meta.commitVersion = describe
+			meta.summary = subject
+			displayName = string(commitShort(t.SHA))
+		}
+		if _, err := d.upsertCandidate(ctx, sha, meta); err != nil {
+			return fmt.Errorf("register %s: %w", displayName, err)
+		}
+		fmt.Printf("Registered candidate %s (commit %s)\n", displayName, commitShort(sha))
+		if _, err := d.queryConn.Exec(ctx, "NOTIFY upgrade_check"); err != nil {
+			fmt.Printf("(could not poke the service to prepare — NOTIFY upgrade_check: %v)\n", err)
+		} else {
+			fmt.Println("Poked the service to prepare it (NOTIFY upgrade_check).")
+		}
+		return nil
+	})
+}
+
+// RunSchedule promotes an ALREADY-REGISTERED candidate to 'scheduled' (the DB
+// trigger then fires NOTIFY upgrade_apply and the service runs it). FAILS FAST
+// if the target has no candidate row — schedule REQUIRES register (STATBUS-086).
+// `./sb upgrade schedule <target> [--recreate]`.
+func (d *Service) RunSchedule(ctx context.Context, input string, recreate bool) error {
+	return d.runOneShot(ctx, func(ctx context.Context) error {
+		target, err := resolveUpgradeTarget(ctx, d, input)
+		if err != nil {
+			return fmt.Errorf("resolve %q: %w", input, err)
+		}
+		var sha CommitSHA
+		var displayName string
+		switch t := target.(type) {
+		case TaggedTarget:
+			sha = t.SHA
+			displayName = string(t.Tag)
+		case UntaggedTarget:
+			sha = t.SHA
+			displayName = string(commitShort(t.SHA))
+		default:
+			return fmt.Errorf("unhandled target type %T", target)
+		}
+
+		// Promote ONLY an existing candidate — NO insert. Resetting the
+		// lifecycle lets a completed/failed/rolled_back row re-run.
+		ct, err := d.queryConn.Exec(ctx,
+			`UPDATE public.upgrade SET
+			   state = 'scheduled',
+			   scheduled_at = now(),
+			   started_at = NULL,
+			   completed_at = NULL,
+			   error = NULL,
+			   rolled_back_at = NULL,
+			   skipped_at = NULL,
+			   dismissed_at = NULL,
+			   superseded_at = NULL,
+			   log_relative_file_path = NULL
+			 WHERE commit_sha = $1 AND state != 'in_progress'`,
+			string(sha))
+		if err != nil {
+			return fmt.Errorf("schedule %s: %w", displayName, err)
+		}
+		if ct.RowsAffected() == 0 {
+			// Distinguish "not registered" from "running": the state guard
+			// above refuses to reset an in_progress row (don't clobber a live
+			// upgrade). Probe to give the right actionable error.
+			var state string
+			if qerr := d.queryConn.QueryRow(ctx,
+				`SELECT state::text FROM public.upgrade WHERE commit_sha = $1`,
+				string(sha)).Scan(&state); qerr != nil {
+				return errNotRegistered(displayName, input) // no row → not registered
+			}
+			return fmt.Errorf("%s is %s — refusing to reschedule; let the in-progress upgrade finish or recover first", displayName, state)
+		}
+		fmt.Printf("Scheduled upgrade to %s\n", displayName)
+		// Once a commit is selected, all older candidates are obsolete.
+		d.supersedeOlderReleases(ctx, string(sha))
+
+		if recreate {
+			// Convey recreate to the daemon via the NOTIFY payload. The UPDATE
+			// above already fired upgrade_notify_daemon_trigger's bare NOTIFY;
+			// this :recreate-suffixed one is what handleNotification parses into
+			// the daemon's pendingRecreate flag (parity with the retired apply).
+			payload := string(sha) + ":recreate"
+			notify := fmt.Sprintf("NOTIFY upgrade_apply, '%s'", strings.ReplaceAll(payload, "'", "''"))
+			if _, err := d.queryConn.Exec(ctx, notify); err != nil {
+				return fmt.Errorf("notify recreate: %w", err)
+			}
+			fmt.Printf("Recreate requested (sent NOTIFY upgrade_apply '%s')\n", payload)
+		}
+		return nil
+	})
+}
+
+// RunCheck fetches releases from GitHub and registers each one newer than the
+// running version as a candidate (via the shared upsertCandidate path), then
+// pokes the service to prepare. `./sb upgrade check`.
+func (d *Service) RunCheck(ctx context.Context) error {
+	releases, err := FetchReleases()
+	if err != nil {
+		return err
+	}
+	if len(releases) == 0 {
+		fmt.Println("No releases found")
+		return nil
+	}
+	return d.runOneShot(ctx, func(ctx context.Context) error {
+		// Best-effort: make sure tags resolve locally so RevParse can find the
+		// commit when the GitHub payload omits it.
+		_, _ = runCommandOutput(d.projDir, "git", "fetch", "--tags", "--quiet")
+
+		fmt.Printf("Found %d release(s):\n", len(releases))
+		registered := 0
+		for _, r := range releases {
+			fmt.Printf("  %s\n", ReleaseSummary(r))
+			// Register only releases strictly newer than the running version —
+			// the same guard discovery uses; avoids re-recording ancient tags.
+			if CompareVersions(r.TagName, d.version) <= 0 {
+				continue
+			}
+			sha := r.TargetSHA
+			if !IsCommitSHA(sha) {
+				resolved, rerr := d.RevParse(ctx, r.TagName)
+				if rerr != nil {
+					fmt.Printf("    (could not resolve commit for %s: %v — not registered)\n", r.TagName, rerr)
+					continue
+				}
+				sha = string(resolved)
+			}
+			if _, uerr := d.upsertCandidate(ctx, CommitSHA(sha), candidateMeta{
+				committedAt:   r.Published,
+				tags:          []string{r.TagName},
+				releaseStatus: ClassifyReleaseShape(r.TagName).ReleaseStatus(),
+				summary:       r.TagName,
+			}); uerr != nil {
+				fmt.Printf("    (failed to register %s: %v)\n", r.TagName, uerr)
+				continue
+			}
+			registered++
+		}
+		fmt.Printf("Registered %d new candidate(s).\n", registered)
+		if registered > 0 {
+			if _, err := d.queryConn.Exec(ctx, "NOTIFY upgrade_check"); err != nil {
+				fmt.Printf("(could not poke the service to prepare — NOTIFY upgrade_check: %v)\n", err)
+			}
+		}
+		return nil
+	})
 }
 
 // --- CommitLookup implementation -------------------------------------

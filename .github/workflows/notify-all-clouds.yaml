@@ -46,7 +46,7 @@ jobs:
           script: |
             cd ~/statbus
             if [ -x ./sb ]; then
-              ./sb upgrade discover
+              ./sb upgrade check
             else
               echo "Skipping: ./sb not installed on ${{ matrix.server }}"
             fi

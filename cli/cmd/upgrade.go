@@ -44,58 +44,49 @@ var upgradeCmd = &cobra.Command{
 	Short: "Manage software upgrades",
 	Long: `Manage the upgrade service and software releases.
 
-Commands for operators (no service needed):
-  check       Query GitHub Releases API directly
-  list        Show upgrades tracked in the local database
+Look:
+  check       Fetch GitHub releases and register what it finds
+  list        Show registered candidates and their status
 
-Commands that write to the database and notify the service:
-  discover    Tell the service to poll GitHub for new releases
-  apply       Schedule an upgrade NOW (writes DB + sends NOTIFY)
-  schedule    Mark a discovered upgrade for the service to execute
+Request (you ask; the service performs the work):
+  register    Record a release tag or commit as a candidate (state=available)
+  schedule    Queue an ALREADY-REGISTERED candidate to run (fails if not registered)
 
-Service management:
+Run:
   service     Run the upgrade service (long-running, typically via systemd)`,
 }
 
 var upgradeCheckCmd = &cobra.Command{
 	Use:   "check",
-	Short: "Query GitHub Releases directly (no service needed)",
+	Short: "Fetch GitHub releases and register them as candidates",
+	Long: `Fetches releases from GitHub, prints them, and registers each release
+newer than the running version as an upgrade candidate (state='available')
+through the same path discovery uses. Subsumes the old 'discover' verb — the
+service still auto-discovers on its own poll using the same register path.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		releases, err := upgrade.FetchReleases()
-		if err != nil {
-			return err
-		}
-
-		if len(releases) == 0 {
-			fmt.Println("No releases found")
-			return nil
-		}
-
-		fmt.Printf("Found %d release(s):\n", len(releases))
-		for _, r := range releases[:min(5, len(releases))] {
-			fmt.Printf("  %s\n", upgrade.ReleaseSummary(r))
-		}
-		return nil
+		return newUpgradeService(config.ProjectDir()).RunCheck(context.Background())
 	},
 }
 
-var upgradeDiscoverCmd = &cobra.Command{
-	Use:   "discover",
-	Short: "Tell the upgrade service to check for new releases",
-	Long: `Sends NOTIFY upgrade_check to the running upgrade service, triggering it to
-poll GitHub for new releases and insert them into the upgrade table.
+var upgradeRegisterCmd = &cobra.Command{
+	Use:   "register <target>",
+	Short: "Record a release tag or commit as an upgrade candidate",
+	Long: `Record a target as an upgrade candidate (state='available') and poke the
+upgrade service to prepare it (pull images, verify build artifacts).
 
-Unlike 'check' (which queries GitHub directly), 'discover' talks to
-the service via PostgreSQL NOTIFY. The service handles rate limiting,
-channel filtering, and image pre-downloading.`,
+The target is a release tag, an 8-char commit_short, OR a full 40-char commit
+SHA — git-resolved to the canonical commit. register is the prerequisite for
+schedule: you cannot schedule a target whose candidate row does not exist.
+Once the service reports the candidate ready, run
+'./sb upgrade schedule <target>' to queue it.
+
+Examples:
+  sb upgrade register v2026.03.1
+  sb upgrade register abc1234f
+  sb upgrade register 1e5b5434d25a8b1efca94901fc0a9d4ddb2f64f5`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		out, err := runUpgradePsql("NOTIFY upgrade_check")
-		if err != nil {
-			return fmt.Errorf("discover: %w\n%s", err, out)
-		}
-		fmt.Println("Sent: NOTIFY upgrade_check")
-		fmt.Println("Upgrade service will poll GitHub for new releases")
-		return nil
+		return newUpgradeService(config.ProjectDir()).RunRegister(context.Background(), args[0])
 	},
 }
 
@@ -125,125 +116,32 @@ var upgradeListCmd = &cobra.Command{
 }
 
 var upgradeScheduleCmd = &cobra.Command{
-	Use:   "schedule <version>",
-	Short: "Schedule an upgrade (sets scheduled_at = now())",
-	Args:  cobra.ExactArgs(1),
+	Use:   "schedule <target>",
+	Short: "Schedule an already-registered candidate to run",
+	Long: `Promote an already-registered upgrade candidate to 'scheduled'. The
+database trigger then notifies the upgrade service, which runs it.
+
+The target is a release tag, an 8-char commit_short, or a full 40-char commit
+SHA — whichever you registered (git-resolved to the canonical commit). FAILS
+FAST if the target is not registered: run './sb upgrade register <target>'
+first.
+
+Use --recreate to delete and recreate the database from scratch instead of
+running migrations. Destructive — dev/demo servers only.
+
+Examples:
+  sb upgrade schedule v2026.03.1
+  sb upgrade schedule abc1234f
+  sb upgrade schedule v2026.03.1 --recreate`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		version := args[0]
-		if !upgrade.ValidateVersion(version) {
-			return fmt.Errorf("invalid version: %q (expected vYYYY.MM.PATCH or sha-HEXHEX)", version)
-		}
-
-		// Use psql variable binding to avoid SQL string interpolation.
-		// The -v flag safely quotes the value when referenced as :'var'.
-		// state='scheduled' is required by chk_upgrade_state_attributes
-		// (migration 20260414180000): the CHECK rejects a scheduled_at
-		// update on an 'available' row without a matching state write.
-		sql := "UPDATE public.upgrade SET state = 'scheduled', scheduled_at = now() WHERE commit_version = :'target_version' AND state = 'available' RETURNING commit_version"
-
-		out, err := runUpgradePsql(sql, "-v", "target_version="+version, "-t", "-A")
-		if err != nil {
-			return fmt.Errorf("schedule: %w\n%s", err, out)
-		}
-		if strings.TrimSpace(string(out)) == "" {
-			return fmt.Errorf("version %s not found or already started", version)
-		}
-		fmt.Printf("Scheduled upgrade to %s\n", version)
-		return nil
+		return newUpgradeService(config.ProjectDir()).RunSchedule(context.Background(), args[0], recreateFlag)
 	},
 }
 
 var (
-	applyRecreate bool
+	recreateFlag bool
 )
-
-var upgradeApplyCmd = &cobra.Command{
-	Use:   "apply <version>",
-	Short: "Schedule an upgrade to a specific version NOW",
-	Long: `Validates the version, writes scheduled_at directly to the database,
-and sends NOTIFY as a wake-up optimization for the upgrade service.
-
-The direct database write ensures the upgrade is scheduled even if the
-service misses the NOTIFY (e.g., not running, reconnecting). The NOTIFY
-makes the service act immediately instead of waiting for its next poll.
-
-Use --recreate to delete and recreate the database from scratch instead
-of running migrations. This is destructive — only for dev/demo servers.
-
-Examples:
-  sb upgrade apply v2026.03.1
-  sb upgrade apply abc1234f
-  sb upgrade apply v2026.03.1 --recreate`,
-	Args: cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		version := args[0]
-		// Accept either a CalVer release tag or a commit_short reference
-		// (the scheduler's resolveUpgradeTarget will validate the final shape).
-		if !upgrade.ValidateVersion(version) && !upgrade.IsCommitShort(version) {
-			return fmt.Errorf("invalid version: %q (expected vYYYY.MM.PATCH release tag or an 8-char commit_short)", version)
-		}
-
-		payload := version
-		if applyRecreate {
-			payload = version + ":recreate"
-		}
-
-		// 1. Write scheduled_at directly to the database (belt).
-		// Uses psql variable binding (-v) to avoid SQL injection.
-		// Matches by tag name OR commit_sha (full or prefix).
-		// state='scheduled' + clearing every lifecycle timestamp satisfies
-		// chk_upgrade_state_attributes regardless of prior state
-		// (available / completed / failed / rolled_back / dismissed).
-		updateSQL := `UPDATE public.upgrade SET
-  state = 'scheduled',
-  scheduled_at = now(),
-  started_at = NULL,
-  completed_at = NULL,
-  error = NULL,
-  rolled_back_at = NULL,
-  skipped_at = NULL,
-  dismissed_at = NULL,
-  log_relative_file_path = NULL
-WHERE :'target_version' = ANY(commit_tags)
-   OR commit_sha = :'target_version'
-   OR commit_sha LIKE :'target_version' || '%'
-RETURNING commit_sha, commit_tags[1]`
-
-		out, err := runUpgradePsql(updateSQL, "-v", "target_version="+version, "-t", "-A")
-		if err != nil {
-			return fmt.Errorf("apply (update): %w\n%s", err, out)
-		}
-
-		updated := strings.TrimSpace(string(out))
-		if updated == "" {
-			fmt.Printf("Version %s not yet discovered in the upgrade table.\n", version)
-			fmt.Println("NOTIFY will be sent — service will discover and apply on next cycle.")
-		} else {
-			fmt.Printf("Scheduled upgrade: %s\n", updated)
-		}
-
-		// 2. Send NOTIFY as wake-up optimization (suspenders).
-		// NOTIFY payload doesn't support parameterized queries in psql.
-		// Safe because ValidateVersion restricts the version format
-		// and ":recreate" is a fixed, non-injectable suffix.
-		notifySQL := fmt.Sprintf("NOTIFY upgrade_apply, '%s'",
-			strings.ReplaceAll(payload, "'", "''"))
-
-		out, err = runUpgradePsql(notifySQL)
-		if err != nil {
-			return fmt.Errorf("apply (notify): %w\n%s", err, out)
-		}
-
-		fmt.Printf("Sent: NOTIFY upgrade_apply, '%s'\n", payload)
-
-		if w, err := syslog.New(syslog.LOG_INFO, "statbus-upgrade"); err == nil {
-			w.Info(fmt.Sprintf("upgrade apply: scheduled + NOTIFY '%s'", payload))
-			w.Close()
-		}
-
-		return nil
-	},
-}
 
 var upgradeApplyLatestCmd = &cobra.Command{
 	Use:   "apply-latest",
@@ -368,58 +266,24 @@ file changes needed.`,
 			}
 		}
 
-		payload := latestVersion
-		if applyRecreate {
-			payload = latestVersion + ":recreate"
+		// Route through the REAL mechanism (STATBUS-086): register the latest
+		// as a candidate, then schedule it. This is RACE-PROOF — register
+		// upserts the row, so schedule always finds it. The old insert-if-missing
+		// UPDATE+NOTIFY silently no-op'd when it lost the deploy-before-discovery
+		// race (UPDATE 0 rows → NOTIFY → onScheduledNotify require-register
+		// no-op → deploy didn't upgrade, and the "will apply next cycle" message
+		// lied). register→schedule completes the clean break and keeps deploys
+		// deployable. recreateFlag is carried by RunSchedule.
+		d := newUpgradeService(projDir)
+		if err := d.RunRegister(context.Background(), latestVersion); err != nil {
+			return fmt.Errorf("apply-latest register %s: %w", latestVersion, err)
 		}
-
-		// 1. Write scheduled_at directly to the database (belt).
-		//    state='scheduled' is required so the CHECK
-		//    chk_upgrade_state_attributes passes (state='scheduled' demands
-		//    scheduled_at IS NOT NULL; previous state could be 'completed'
-		//    or 'failed' etc., and stale timestamps are cleared to satisfy
-		//    the scheduled-state invariants).
-		updateSQL := `UPDATE public.upgrade SET
-  state = 'scheduled',
-  scheduled_at = now(),
-  started_at = NULL,
-  completed_at = NULL,
-  error = NULL,
-  rolled_back_at = NULL,
-  skipped_at = NULL,
-  dismissed_at = NULL,
-  log_relative_file_path = NULL
-WHERE :'target_version' = ANY(commit_tags)
-   OR commit_sha = :'target_version'
-   OR commit_sha LIKE :'target_version' || '%'
-RETURNING commit_sha, commit_tags[1]`
-
-		out, err := runUpgradePsql(updateSQL, "-v", "target_version="+latestVersion, "-t", "-A")
-		if err != nil {
-			return fmt.Errorf("apply-latest (update): %w\n%s", err, out)
+		if err := d.RunSchedule(context.Background(), latestVersion, recreateFlag); err != nil {
+			return fmt.Errorf("apply-latest schedule %s: %w", latestVersion, err)
 		}
-
-		updated := strings.TrimSpace(string(out))
-		if updated == "" {
-			fmt.Printf("Version %s not yet discovered in the upgrade table.\n", latestVersion)
-			fmt.Println("NOTIFY will be sent — service will discover and apply on next cycle.")
-		} else {
-			fmt.Printf("Scheduled upgrade: %s\n", updated)
-		}
-
-		// 2. Send NOTIFY as wake-up optimization (suspenders).
-		notifySQL := fmt.Sprintf("NOTIFY upgrade_apply, '%s'",
-			strings.ReplaceAll(payload, "'", "''"))
-
-		out, err = runUpgradePsql(notifySQL)
-		if err != nil {
-			return fmt.Errorf("apply-latest (notify): %w\n%s", err, out)
-		}
-
-		fmt.Printf("Sent: NOTIFY upgrade_apply, '%s'\n", payload)
 
 		if w, err := syslog.New(syslog.LOG_INFO, "statbus-upgrade"); err == nil {
-			w.Info(fmt.Sprintf("upgrade apply-latest: scheduled + NOTIFY '%s' (channel=%s)", payload, channel))
+			w.Info(fmt.Sprintf("upgrade apply-latest: registered + scheduled %s (channel=%s, recreate=%v)", latestVersion, channel, recreateFlag))
 			w.Close()
 		}
 
@@ -427,8 +291,10 @@ RETURNING commit_sha, commit_tags[1]`
 	},
 }
 
-var upgradeServiceRunE = func(cmd *cobra.Command, args []string) error {
-	projDir := config.ProjectDir()
+// newUpgradeService builds a Service for the current binary, deriving the
+// service version (a git-checkout-able ref) from the ldflags. Shared by the
+// `service` daemon and the one-shot verbs (register / schedule / check).
+func newUpgradeService(projDir string) *upgrade.Service {
 	// Derive serviceVersion — a valid git ref the service can git-checkout.
 	// version is cmd.version: git-describe output verbatim, which carries the
 	// leading "v" (the canonical CommitVersion form). Rules (priority order):
@@ -464,7 +330,11 @@ var upgradeServiceRunE = func(cmd *cobra.Command, args []string) error {
 	// finding 2) — derivable only here in cmd; internal/upgrade must not
 	// guess it.
 	d.SetUnitInstance(serviceInstance(projDir))
-	return d.Run(context.Background())
+	return d
+}
+
+var upgradeServiceRunE = func(cmd *cobra.Command, args []string) error {
+	return newUpgradeService(config.ProjectDir()).Run(context.Background())
 }
 
 var upgradeServiceCmd = &cobra.Command{
@@ -895,8 +765,8 @@ var trustKeyVerifyCmd = &cobra.Command{
 }
 
 func init() {
-	upgradeApplyCmd.Flags().BoolVar(&applyRecreate, "recreate", false, "delete and recreate database from scratch (destructive — dev/demo only)")
-	upgradeApplyLatestCmd.Flags().BoolVar(&applyRecreate, "recreate", false, "delete and recreate database from scratch (destructive — dev/demo only)")
+	upgradeScheduleCmd.Flags().BoolVar(&recreateFlag, "recreate", false, "delete and recreate database from scratch (destructive — dev/demo only)")
+	upgradeApplyLatestCmd.Flags().BoolVar(&recreateFlag, "recreate", false, "delete and recreate database from scratch (destructive — dev/demo only)")
 
 	trustKeyAddCmd.Flags().BoolVarP(&trustKeyAddYes, "yes", "y", false, "skip confirmation prompt (for scripted / AI-driven installs)")
 	trustKeyCmd.AddCommand(trustKeyListCmd)
@@ -905,10 +775,9 @@ func init() {
 	trustKeyCmd.AddCommand(trustKeyVerifyCmd)
 
 	upgradeCmd.AddCommand(upgradeCheckCmd)
-	upgradeCmd.AddCommand(upgradeDiscoverCmd)
+	upgradeCmd.AddCommand(upgradeRegisterCmd)
 	upgradeCmd.AddCommand(upgradeListCmd)
 	upgradeCmd.AddCommand(upgradeScheduleCmd)
-	upgradeCmd.AddCommand(upgradeApplyCmd)
 	upgradeCmd.AddCommand(upgradeApplyLatestCmd)
 	upgradeCmd.AddCommand(upgradeChannelCmd)
 	upgradeCmd.AddCommand(upgradeServiceCmd)
