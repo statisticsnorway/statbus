@@ -1,12 +1,13 @@
 ---
 id: STATBUS-089
 title: >-
-  maintenance-redirect-failed: site did not redirect to the maintenance page
-  during the rc.04 upgrade on no.statbus.org (standalone)
+  maintenance-path-split: maintenance mode dead on all standalone+private boxes
+  since 2026-04-14 — writer/template/mount 3-way path mismatch (reconcile to
+  /statbus-maintenance/active)
 status: To Do
 assignee: []
 created_date: '2026-06-18 12:59'
-updated_date: '2026-06-18 15:22'
+updated_date: '2026-06-18 15:23'
 labels:
   - upgrade-ui
   - maintenance
@@ -48,4 +49,15 @@ DEEPER PRODUCT GAP (Albania-relevant, route to architect): the rc.04 UPGRADE did
 ARCHITECT DESIGN + ROOT-CAUSE (2026-06-18) = backlog doc-013. REFRAMES the task: NOT primarily a config-regen gap. Verified root cause = a THREE-WAY maintenance-path split that has made maintenance mode NON-FUNCTIONAL on every standalone+private box since 2026-04-14: setMaintenance writes host ~/maintenance (exec.go:216 + service.go:2846); Caddy template checks in-container /home/<user>/maintenance (standalone.caddyfile.ecr:77, private:109); compose mounts host ~/statbus-maintenance -> container /statbus-maintenance (caddy/docker-compose.yml:28, install.go:1068). Nothing is mounted at /home/<user>/maintenance, so the @maintenance matcher never fires. Regression = commit 24b0ae771 'fix(upgrade): align maintenance flag path with Caddy (~/maintenance)' which moved writer+template but NOT the mount. Config-regen cannot fix it (regenerates the same broken directive).
 
 FIX (PART A, the bug): reconcile to /statbus-maintenance/active (the dir-mount convention the infra already implements) — setMaintenance writes ~/statbus-maintenance/active; templates try_files /statbus-maintenance/active; KEEP the mount+install.go; + a structural invariant test (3 paths agree, like TestVersionTrackedAlignedWithUpgradePipeline); + reconcile the secondary HTML-serving root (standalone:82, also unmounted). PART B (config self-heal): ALREADY EXISTS — config-generate on upgrade (service.go:4487, STATBUS-058) + proxy recreate (step11RestartServices service.go:120, version-tracked containers.go:103, Caddyfile bind-mount compose:20) -> next upgrade self-heals every box after PART A ships. Residual: standalone ./sb config generate should reload the proxy (reuse cert.go:145). Idempotent + don't-clobber already satisfied (.env.config = customization surface; generated files disposable). RE-SCOPE: small clean-break in setMaintenance + 2 templates + guard test, not a new mechanism.
+
+VERIFIED REFRAME (architect doc-013, foreman cross-checked the 3 sources 2026-06-18) — SUPERSEDES the earlier 'config drift on rune / upgrade-should-regen-config' diagnosis, which was WRONG. ALARM-REVERSAL, confirmed in code:
+- MOUNT: caddy/docker-compose.yml:28 binds host ~/statbus-maintenance → container /statbus-maintenance (ro).
+- WRITER: setMaintenance writes host ~/maintenance (exec.go:216 = filepath.Join(HOME,"maintenance"); also service.go:2846).
+- CADDY (in-container) checks: try_files /home/<deployment_user>/maintenance (standalone.caddyfile.ecr:77, private:109).
+The container has ONLY /statbus-maintenance mounted; the writer's host ~/maintenance is NOT visible at the in-container /home/<user>/maintenance path → the @maintenance matcher NEVER fires → maintenance mode is non-functional on EVERY standalone+private box since commit 24b0ae771 (2026-04-14, 'align maintenance flag path with Caddy' — it moved writer+template to /home/<user>/maintenance but left the mount at /statbus-maintenance; aligned 2 of 3). rune's 'stale' /statbus-maintenance config was actually the CORRECT convention. The mechanic's first pass compared writer-vs-template (both /home/<user>/maintenance, looked 'aligned') and MISSED the mount.
+
+FIX (PART A — the real bug, clean break, one commit): reconcile all three to /statbus-maintenance/active (the dir-mount the infra already implements): setMaintenance writes ~/statbus-maintenance/active; templates try_files /statbus-maintenance/active; KEEP the mount + install.go's dir creation. PLUS: a structural invariant test (the 3 paths agree, like TestVersionTrackedAligned...) so it can't silently recur; AND reconcile the secondary HTML-serving `root` (standalone:82) which also points at an unmounted path.
+FIX (PART B — config-regen, ALREADY SOLVED): upgrade runs config-generate (service.go:4487, STATBUS-058) + recreates the proxy to read the bind-mounted Caddyfile (step11RestartServices). So once PART A ships, the next upgrade self-heals every box — no new flow step. Residual: standalone `./sb config generate` should also reload the proxy (reuse cert.go:145) for non-upgrade edits. Idempotent + don't-clobber already satisfied (config-generate is a pure render; .env.config is the operator surface, .env+Caddyfiles are disposable derivatives).
+
+VERIFY (doc-013 §5): curl the site mid-upgrade → expect 503 maintenance (the behaviour that silently regressed). SEVERITY: real Albania-relevant bug (maintenance never shows during any upgrade on standalone) but NOT a regression from rc.04 (2 months old). RE-SCOPE: Wave-2, small clean-break via engineer (service.go:2846 single-owner + templates disjoint + invariant test). Full detail: doc-013.
 <!-- SECTION:NOTES:END -->
