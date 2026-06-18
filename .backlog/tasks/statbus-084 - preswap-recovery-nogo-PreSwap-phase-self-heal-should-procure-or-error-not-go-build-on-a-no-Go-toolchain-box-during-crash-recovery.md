@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-18 01:34'
+updated_date: '2026-06-18 08:15'
 labels:
   - upgrade
   - recovery
@@ -30,3 +31,9 @@ STATUS / NON-GATING: not required for the rc.04 cut (install.sh --commit sideste
 
 FIX SHAPE: extend the PreSwap-phase self-heal (root.go around :127-152) so that when a rebuild would be needed AND no Go toolchain is present, it PROCURES the matching image (the same path root.go:152 uses post-swap) or fails with an actionable error — never an un-buildable `go build` on a no-Go box.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+TRACK A CONFIRMED (engineer + foreman, 2026-06-18). This is THE fix for the 4 freshness reds (backup/binary-swap/checkout/4-rollback-kill) AND a real latent Albania bug — promoted from non-gating to gating. ROOT (verified file:line): freshness self-heal rebuild.go:37 runs HOST `make -C cli build`→`go build`; no host Go → exit 2 → "Self-heal rebuild/exec failed". Fires from stalenessGuard (root.go:159) for selfheal cmds (install/upgrade service/apply-latest) when ./sb is stale vs tree. The toolchain-free procure path ALREADY exists: install.sh edge (install.sh:198-203, pull-then-docker-build-in-container fallback) + Service.procureSbFromImage (service.go:5622, pull-only, LACKS the build fallback). FIX (engineer design, tmp/engineer-build-architecture.md): extract one shared `sbimage.Procure(projDir, commitSHA, sbPath)` = pull→in-container-build-fallback→create+cp+chmod; self-heal calls it (target=worktree HEAD) instead of make; procureSbFromImage delegates to it (gains the fallback). Nuance: pushed commit→image exists; unpushed dev commit→in-container build ~30s (same tradeoff edge accepts). Awaiting King nod before engineer implements.
+<!-- SECTION:NOTES:END -->
