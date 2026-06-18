@@ -1,12 +1,13 @@
 ---
 id: STATBUS-084
 title: >-
-  preswap-recovery-nogo: PreSwap-phase self-heal should procure-or-error (not
-  go-build) on a no-Go-toolchain box during crash recovery
+  preswap-recovery-nogo: Self-heal must get the sb binary from Docker (pull
+  image, or build in-container) — never host `go build`. Fixes the 4 no-compiler
+  install tests + a real Albania wedge.
 status: To Do
 assignee: []
 created_date: '2026-06-18 01:34'
-updated_date: '2026-06-18 08:15'
+updated_date: '2026-06-18 08:22'
 labels:
   - upgrade
   - recovery
