@@ -5,8 +5,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
-	"time"
+
+	"github.com/statisticsnorway/statbus/cli/internal/sbimage"
 )
 
 // SelfHealAttemptEnv is the env-var name set on the child process after a
@@ -16,49 +18,56 @@ import (
 // produces a binary matching HEAD or doesn't, and looping won't help.
 const SelfHealAttemptEnv = "_SB_SELFHEAL_ATTEMPT"
 
-// RebuildAndReexec runs `make -C cli build` from projDir, then exec's
-// the just-built ./sb with the original argv and a child env carrying
-// SelfHealAttemptEnv=1. The exec replaces this process — on success
-// this function does not return.
+// RebuildAndReexec procures a fresh ./sb matching the worktree HEAD and exec's
+// it with the original argv and a child env carrying SelfHealAttemptEnv=1. The
+// exec replaces this process — on success this function does not return.
+//
+// The binary is stale relative to the worktree's cli/ tree, so the target is
+// the worktree HEAD. Procurement is TOOLCHAIN-FREE (sbimage.Procure): pull the
+// commit-tagged statbus-sb image, or — for an UNPUSHED local HEAD — build it
+// in-container via cli/Dockerfile.sb (golang runs inside Docker; no host
+// Go/make). This is the fix for the no-host-Go failure mode: the old
+// implementation ran `make -C cli build`, which fails with `make: go: command
+// not found` (exit 2) on SSB standalone boxes and every install-recovery VM.
 //
 // Returns an error only when:
-//   - the build fails (non-zero exit, or 5-minute timeout); or
-//   - syscall.Exec fails (rare: ENOEXEC on a corrupted just-built
-//     binary, EACCES on a perm bug).
+//   - HEAD cannot be resolved; or
+//   - procurement fails (pull miss with no buildable target, build failure,
+//     docker create/cp failure, timeout); or
+//   - syscall.Exec fails (rare: ENOEXEC on a corrupt binary, EACCES).
 //
-// 5-minute build budget matches Service.buildBinaryOnDisk in the upgrade
-// pipeline; cold-cache cgo-disabled go build is ~30s typical.
-//
-// Callers (currently only stalenessGuard for self-heal-annotated
-// commands) are responsible for guarding against recursion via
-// SelfHealAttemptEnv. This function does not check it itself — that
-// would couple the rebuild primitive to the staleness-check policy.
+// Callers (currently only stalenessGuard for self-heal-annotated commands) are
+// responsible for guarding against recursion via SelfHealAttemptEnv. This
+// function does not check it itself — that would couple the procurement
+// primitive to the staleness-check policy.
 func RebuildAndReexec(projDir string) error {
-	cmd := exec.Command("make", "-C", "cli", "build")
-	cmd.Dir = projDir
-	// Build logs to stderr so the calling process's stdout stays
-	// uncluttered. The operator sees compile output as it streams.
-	cmd.Stdout = os.Stderr
-	cmd.Stderr = os.Stderr
-	cmd.Env = os.Environ()
-
-	done := make(chan error, 1)
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("start `make -C cli build`: %w", err)
-	}
-	go func() { done <- cmd.Wait() }()
-
-	select {
-	case err := <-done:
-		if err != nil {
-			return fmt.Errorf("rebuild failed: %w", err)
-		}
-	case <-time.After(5 * time.Minute):
-		_ = cmd.Process.Kill()
-		return fmt.Errorf("rebuild timed out after 5m")
+	head, err := headCommit(projDir)
+	if err != nil {
+		return fmt.Errorf("resolve worktree HEAD for self-heal procurement: %w", err)
 	}
 
 	sbPath := filepath.Join(projDir, "sb")
+	if err := sbimage.Procure(projDir, head, sbPath); err != nil {
+		return fmt.Errorf("self-heal procure failed: %w", err)
+	}
+
 	env := append(os.Environ(), SelfHealAttemptEnv+"=1")
 	return syscall.Exec(sbPath, os.Args, env)
+}
+
+// headCommit returns the worktree HEAD commit SHA. log.showSignature is
+// disabled for the invocation so a globally-configured commit-signature banner
+// cannot prepend "Good 'git' signature..." lines to rev-parse output.
+func headCommit(projDir string) (string, error) {
+	cmd := exec.Command("git", "-c", "log.showSignature=false", "rev-parse", "HEAD")
+	cmd.Dir = projDir
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	head := strings.TrimSpace(string(out))
+	if head == "" {
+		return "", fmt.Errorf("git rev-parse HEAD returned empty output in %s", projDir)
+	}
+	return head, nil
 }

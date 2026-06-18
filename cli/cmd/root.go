@@ -117,16 +117,17 @@ func stalenessGuard(c *cobra.Command, _ []string) {
 	// by the install-recovery harness (inject.EnvActiveAt; empty in every
 	// production run — cli/internal/inject/inject.go). When set, a scenario
 	// is deliberately orchestrating tree↔binary states (e.g. a mid-upgrade
-	// checkout) on a Go-less VM that cannot rebuild: the self-heal path
-	// (RebuildAndReexec → `make`) would fail, and the hard-fail path would
-	// abort the very recovery command the scenario exercises. Downgrade the
+	// checkout) and drives its OWN recovery: self-healing here (procure a fresh
+	// ./sb + re-exec) would swap the binary out from under the scenario and mask
+	// the recovery path under test, and the hard-fail path would abort the very
+	// recovery command the scenario exercises. Downgrade the
 	// guard to advisory in that mode only — production behavior is unchanged
 	// because the env var is never set there. Generalizes the per-scenario
 	// "install HEAD coherently so the binary isn't stale" workaround
 	// (see test/install-recovery/scenarios/1-boot-startup-timeout.sh:101-110).
 	if os.Getenv(inject.EnvActiveAt) != "" {
 		fmt.Fprintln(os.Stderr, "WARN: "+msg)
-		fmt.Fprintln(os.Stderr, "STATBUS_INJECT_AT set (install-recovery injection) — not rebuilding; scenario drives recovery.")
+		fmt.Fprintln(os.Stderr, "STATBUS_INJECT_AT set (install-recovery injection) — not self-healing; scenario drives recovery.")
 		return
 	}
 	if isMutatingCommand(c) {
@@ -134,42 +135,42 @@ func stalenessGuard(c *cobra.Command, _ []string) {
 		// "selfheal" exist precisely to fix the situation a stale binary
 		// represents (install, upgrade service, upgrade apply-latest).
 		// Rather than refuse-and-tell-the-operator-to-rebuild-by-hand,
-		// rebuild here and re-exec into the new binary. The child marks
-		// itself via SelfHealAttemptEnv so a recursive failure exits
-		// loudly instead of looping.
+		// procure a fresh ./sb (toolchain-free, from the commit-tagged image)
+		// here and re-exec into it. The child marks itself via
+		// SelfHealAttemptEnv so a recursive failure exits loudly instead of
+		// looping.
 		if c.Annotations["selfheal"] == "true" && os.Getenv(freshness.SelfHealAttemptEnv) == "" {
 			// STATBUS-065: in-flight upgrade recovery defers to the recovery
-			// boot, never to a `make` rebuild. A service-held forward-phase
+			// boot, never to a local self-heal. A service-held forward-phase
 			// (post_swap/resuming) flag means the binary was already swapped
 			// and the recovery boot reconciles tree→binary via the deferred
 			// target checkout (Service.Run / runCrashRecovery, STATBUS-060).
-			// Rebuilding here would shell out to `make` — absent on
-			// toolchain-less tagged-release hosts — and crash-loop the unit.
+			// Procuring + re-exec'ing here would fight that recovery boot.
 			// Defer instead; the genuine stale-dev-binary case (no flag,
 			// install-held, or pre_swap) still self-heals below. PreSwap is
 			// gated OUT by IsServiceForwardRecovery: it rolls back, so the
 			// tree must stay at the source commit.
 			if flag, _, ferr := upgrade.ReadFlagFile(config.ProjectDir()); ferr == nil && flag.IsServiceForwardRecovery() {
 				fmt.Fprintln(os.Stderr, "WARN: "+msg)
-				fmt.Fprintln(os.Stderr, "In-flight upgrade recovery (service-held post-swap flag) — deferring to the recovery boot; not rebuilding.")
+				fmt.Fprintln(os.Stderr, "In-flight upgrade recovery (service-held post-swap flag) — deferring to the recovery boot; not self-healing.")
 				return
 			}
 			fmt.Fprintln(os.Stderr, "WARN: "+msg)
-			fmt.Fprintln(os.Stderr, "Self-healing: rebuilding ./sb from the current cli/ tree...")
+			fmt.Fprintln(os.Stderr, "Self-healing: procuring ./sb for the worktree HEAD from the commit-tagged image (no host toolchain)...")
 			if err := freshness.RebuildAndReexec(config.ProjectDir()); err != nil {
-				fmt.Fprintf(os.Stderr, "Self-heal rebuild/exec failed: %v\n", err)
+				fmt.Fprintf(os.Stderr, "Self-heal procure/exec failed: %v\n", err)
 				os.Exit(2)
 			}
 			// unreachable; syscall.Exec replaced the process on success
 			return
 		}
-		// Recursion guard: we already rebuilt once, but freshness still
-		// fails. Race between rebuild and tree-update, or build produced
-		// a binary whose ldflags don't match HEAD. Surface and stop.
+		// Recursion guard: we already procured + re-exec'd once, but freshness
+		// still fails. Race between procurement and a tree update, or the
+		// procured image's ldflags don't match HEAD. Surface and stop.
 		if os.Getenv(freshness.SelfHealAttemptEnv) != "" {
-			fmt.Fprintln(os.Stderr, "Self-heal failed: rebuilt binary is still reported stale.")
-			fmt.Fprintln(os.Stderr, "  Race between rebuild and tree update? Manual rebuild: ./dev.sh cross-build-sb")
-			fmt.Fprintf(os.Stderr, "  After rebuild, re-run: %s\n", reRun)
+			fmt.Fprintln(os.Stderr, "Self-heal failed: procured binary is still reported stale.")
+			fmt.Fprintln(os.Stderr, "  Likely a procurement↔tree-update race — re-run the recovery command:")
+			fmt.Fprintf(os.Stderr, "  %s\n", reRun)
 			os.Exit(2)
 		}
 		// Non-self-healing mutating command on stale binary: hard-fail.

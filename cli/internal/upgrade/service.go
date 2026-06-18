@@ -27,6 +27,7 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/inject"
 	"github.com/statisticsnorway/statbus/cli/internal/invariants"
 	"github.com/statisticsnorway/statbus/cli/internal/migrate"
+	"github.com/statisticsnorway/statbus/cli/internal/sbimage"
 	"github.com/statisticsnorway/statbus/cli/internal/selfupdate"
 )
 
@@ -1415,7 +1416,7 @@ func logUpgradeRow(label string, row string) {
 //	ErrRollbackServicesUp    — rollback docker compose up failed after DB restore
 //	ErrRollbackBinaryCorrupt — rollback could not restore ./sb from ./sb.old (operator must mv manually)
 //	ErrBinaryReplaceFailed   — mid-flow binary replacement (download/verify/swap) failed before migrations
-//	ErrBinaryBuildFailed     — mid-flow `make -C cli build` from source failed (edge channel; no release artifact)
+//	ErrBinaryBuildFailed     — mid-flow sb image procurement failed (pull miss + in-container build fallback failed; edge channel, no release artifact)
 //	ErrInstallFixupFailed    — post-upgrade ./sb install fixup step failed (non-fatal)
 //	ErrResumeDied            — post-swap resume began (flag Phase=resuming) then the process died → roll back, no retry
 const (
@@ -3954,7 +3955,10 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	//
 	// Two procurement sources, one swap+handoff path:
 	//   - tagged release: replaceBinaryOnDisk pulls the manifest artifact
-	//   - edge commit:    buildBinaryOnDisk runs `make -C cli build`
+	//   - edge commit:    buildBinaryOnDisk extracts ./sb from the commit-tagged
+	//                     statbus-sb image (sbimage.ProcureShort) — no host
+	//                     toolchain; falls back to an in-container build only
+	//                     when the image is unpublished AND the tree is at target
 	//
 	// Both produce ./sb at the target commit and preserve ./sb.old for
 	// rollback. Both upgrades go through the same swap+handoff plumbing,
@@ -5607,11 +5611,15 @@ func (d *Service) buildBinaryOnDisk(commitSHA, displayName string, progress *Pro
 // procureSbFromImage replaces ./sb (at sbPath) with the statbus-sb binary for
 // the target commit, extracted from the commit-tagged image
 // ghcr.io/statisticsnorway/statbus-sb:<commit_short> that CI (images.yaml)
-// builds and pushes on every master push. Mirrors `./sb db seed fetch`
-// (cli/cmd/seed.go extractSeedFromImage): `docker create` records the image's
-// distroless ENTRYPOINT and runs nothing; `docker cp /sb` copies the binary
-// out; the container is removed via defer so a failed cp still cleans up.
-// Config-free — no compose, no .env, no host Go/make toolchain.
+// builds and pushes on every master push. Config-free — no compose, no .env,
+// no host Go/make toolchain.
+//
+// This function resolves commit_short locally — including the UntaggedTarget
+// 8-char displayName fallback — and delegates the pull → (in-container build
+// fallback) → docker create + docker cp + chmod to the shared sbimage primitive
+// (cli/internal/sbimage), the same body the freshness self-heal uses. The
+// in-container build fallback (gained from the shared primitive) only fires on
+// a pull MISS and only when the working tree is at the target commit.
 //
 // commit_short is derived from commitSHA via `git rev-parse --short=8` — the
 // same value CI tags with — NOT from the working tree, so it is correct
@@ -5633,34 +5641,16 @@ func (d *Service) procureSbFromImage(commitSHA, displayName, sbPath string, prog
 		return fmt.Errorf("cannot resolve commit_short for the statbus-sb image (commitSHA=%q, displayName=%q)",
 			ShortForDisplay(commitSHA), displayName)
 	}
-	imageRef := "ghcr.io/statisticsnorway/statbus-sb:" + short
 
-	progress.Write("Pulling sb image %s...", imageRef)
-	if out, err := runCommandOutput(d.projDir, "docker", "pull", imageRef); err != nil {
-		return fmt.Errorf("pull sb image %s: %w (%s)", imageRef, err, strings.TrimSpace(out))
-	}
-
-	out, err := runCommandOutput(d.projDir, "docker", "create", imageRef)
-	if err != nil {
-		return fmt.Errorf("docker create %s: %w (%s)", imageRef, err, strings.TrimSpace(out))
-	}
-	cid := strings.TrimSpace(out)
-	if cid == "" {
-		return fmt.Errorf("docker create %s returned an empty container id", imageRef)
-	}
-	defer func() {
-		if _, rmErr := runCommandOutput(d.projDir, "docker", "rm", cid); rmErr != nil {
-			fmt.Fprintf(os.Stderr, "WARN: docker rm %s (sb extraction container) failed: %v\n", cid, rmErr)
-		}
-	}()
-
-	if out, err := runCommandOutput(d.projDir, "docker", "cp", cid+":/sb", sbPath); err != nil {
-		return fmt.Errorf("docker cp %s:/sb -> %s: %w (%s)", cid, sbPath, err, strings.TrimSpace(out))
-	}
-	if err := os.Chmod(sbPath, 0o755); err != nil {
-		return fmt.Errorf("chmod +x %s after image extraction: %w", sbPath, err)
-	}
-	return nil
+	// Delegate the pull → (in-container build fallback) → create+cp+chmod to the
+	// shared sbimage primitive (cli/internal/sbimage). Resolving commit_short
+	// here — including the 8-char displayName fallback — stays local because the
+	// upgrade pipeline can name the target by an UntaggedTarget short SHA when no
+	// full commit_sha is available; sbimage.ProcureShort takes the resolved short
+	// directly. The freshness self-heal uses sbimage.Procure (resolves short from
+	// the worktree HEAD). Same body, no host Go/make toolchain.
+	progress.Write("Procuring ./sb from image %s:%s (no host toolchain)...", sbimage.ImageRepo, short)
+	return sbimage.ProcureShort(d.projDir, short, commitSHA, sbPath)
 }
 
 // sbAlreadyAtCommit reports whether the on-disk ./sb binary already
