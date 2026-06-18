@@ -3,10 +3,10 @@ id: STATBUS-090
 title: >-
   upgrade-status-lag: Software Upgrades page lags behind after the upgrade
   completes (refresh on return from maintenance, or service delay?)
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-18 13:00'
-updated_date: '2026-06-18 17:11'
+updated_date: '2026-06-18 17:32'
 labels:
   - upgrade-ui
   - maintenance
@@ -44,4 +44,11 @@ FIX SHAPE (post-rc.04): fire the operator-facing completion NOTIFY AFTER the sta
 ARCHITECT DIAGNOSIS + PLAN (2026-06-18) = backlog doc-015. ROOT CAUSE (verified live code, refined from the mechanic's triage): the SSE connection GIVES UP reconnecting during the minutes-long maintenance window. app/src/atoms/JotaiAppProvider.tsx: EventSource('/api/sse/worker_status') (:321); onerror backoff min(1000*2^attempts,30000) STOPS after maxReconnectAttempts=5 (:313,:366-373) — ~31s total; onopen resets attempts only on a SUCCESSFUL connect (:323-324). Maintenance 503s the SSE endpoint, so it never opens → 5 attempts exhaust in ~31s → GIVES UP. A real upgrade's maintenance is MINUTES → the SSE abandons reconnection before completion → post-upgrade the EXISTING reconnect-refetch ('connected' → refreshInitialWorkerStatus, :354-356) never fires + the completion NOTIFY is never received → page stale until manual refresh/tab-refocus. Worst for an operator WATCHING the page (the King's case). NO polling fallback exists (the upgrade-status atom is atomWithRefresh, not SWR; the triage's '3s SWR poll' was wrong).
 
 FIX: PRIMARY (frontend/mechanic) = polling fallback while a pending/in_progress upgrade exists — poll /rest/upgrade every 3-5s independent of the SSE, stop at terminal (closes the gap regardless of SSE give-up; worst-case lag = N s). SECONDARY (frontend) = SSE resilience across maintenance (don't permanently give up while an upgrade is active). TERTIARY (backend/engineer, minor) = remove the premature in_progress NOTIFY (service.go:4791) + emit completion NOTIFY after the :4833 terminal write (consistent w/ recovery :5059) — does NOT fix the root. REJECTED: reorder state='completed' before maintenance-off — touches the §4a/rune-stuck crash-safety completion sequence; the poll closes it without that risk. OWNERSHIP: primary = FRONTEND (mechanic, app/src) — NOT backend as my preliminary framed; backend tertiary = engineer, foldable with 088. 088 is co-located in service.go w/ the tertiary cleanup (sequence under engineer) but otherwise disjoint. Full plan + verification: doc-015.
+
+DONE 2026-06-18 — two commits (frontend + backend), architect-designed (doc-015) + reviewed, foreman-verified. ROOT CAUSE (verified live): the worker_status SSE GIVES UP reconnecting during the minutes-long maintenance window (JotaiAppProvider.tsx maxReconnectAttempts=5 → ~31s backoff → permanent give-up; maintenance 503s the SSE endpoint), so the existing reconnect-refetch never fires and there was no polling fallback → an operator watching the page saw the upgrade 'lagging behind' (the King's no.statbus.org report).
+
+PRIMARY (frontend, 8e8688cc7 — mechanic): upgradePollingEffectAtom polls /rest/upgrade every 4s while a pending upgrade is in_progress/scheduled, stops at terminal; pendingUpgradeStatusAtom retains the previous value during the loadable 'loading' state (base-data.ts:225-229 pattern) so the poll doesn't churn the effect or null-flicker consumers — the King's exact 're-render loop' concern, caught by the architect in review + fixed. SECONDARY (frontend): SSE resilience — reads status via a ref (not a useGuardedEffect dep, no connection churn); on give-up while an upgrade is active, 30s slow-retry instead of abandoning.
+TERTIARY (backend, 2134edab8 — engineer): moved the premature explicit NOTIFY (was pre-completion, in_progress) to AFTER the terminal state='completed' UPDATE, matching the recovery path (resumePostSwap); the completed UPDATE's DB trigger already fires the real completion NOTIFY.
+
+VERIFICATION (deferred to 071): watch the upgrades page through a real upgrade without refocusing → must reach 'completed' within ~4s (the poll interval). tsc + go build/vet + upgrade suite green.
 <!-- SECTION:NOTES:END -->
