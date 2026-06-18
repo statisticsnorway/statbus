@@ -69,6 +69,7 @@ jobs:
       b_full: ${{ steps.fixtures.outputs.b_full }}
       c_full: ${{ steps.fixtures.outputs.c_full }}
       v_version: ${{ steps.fixtures.outputs.v_version }}
+      arc_pubkey: ${{ steps.fixtures.outputs.arc_pubkey }}
     steps:
       - name: Checkout (full history — branch fixtures are real commits off A)
         uses: actions/checkout@v4
@@ -87,6 +88,21 @@ jobs:
           set -euo pipefail
           git config user.name  "statbus-upgrade-arc[bot]"
           git config user.email "statbus-upgrade-arc@users.noreply.github.com"
+
+          # Ephemeral SSH signing key: B/C are CI commits → unsigned → the daemon's
+          # MANDATORY verifyCommitSignature rejects them. Sign B+C with a throwaway
+          # key; the arc's install trusts its PUBLIC key via UPGRADE_TRUSTED_SIGNER_arc
+          # (install_statbus_at_sha). Production never carries that var, so its
+          # verification is untouched — the gate stays mandatory AND is now actually
+          # exercised by the arc. Principal is KEY-based, not committer-email-matched
+          # (proven in prod: UPGRADE_TRUSTED_SIGNER_jhf verifies non-jhf-committer
+          # commits). Private key stays on the runner (discarded with the job).
+          ssh-keygen -t ed25519 -N '' -C 'upgrade-arc-ephemeral' -f /tmp/arc_signer
+          git config gpg.format ssh
+          git config user.signingkey /tmp/arc_signer
+          # arc_pubkey = "<type> <key>" (drop the comment field — allowed_signers
+          # takes "<principal> <type> <key>"; a trailing comment isn't standard there).
+          arc_pubkey="$(cut -d' ' -f1-2 /tmp/arc_signer.pub)"
 
           base_sha="${BASE_SHA_INPUT:-${GITHUB_SHA}}"
           base_short="$(git rev-parse --short=8 "$base_sha")"
@@ -125,7 +141,7 @@ jobs:
           } > "$v_up"
           echo "DROP TABLE IF EXISTS public.upgrade_arc_fixture;" > "$v_down"
           git add "$v_up" "$v_down"
-          git commit -q -m "test(upgrade-arc): ${SCENARIO} migration V (B, succeeds)"
+          git commit -S -q -m "test(upgrade-arc): ${SCENARIO} migration V (B, succeeds)"
           b_short="$(git rev-parse --short=8 HEAD)"
           b_full="$(git rev-parse HEAD)"
 
@@ -149,7 +165,7 @@ jobs:
           printf '%s\t%s\t%s\n' "$v_version" "$c_branch" "working arc: amended V in place (result-preserving re-stamp)" \
             >> migrations/amendments.tsv
           git add "$v_up" migrations/amendments.tsv
-          git commit -q -m "test(upgrade-arc): ${SCENARIO} amend V in place + amendments.tsv (C, re-stamp)"
+          git commit -S -q -m "test(upgrade-arc): ${SCENARIO} amend V in place + amendments.tsv (C, re-stamp)"
           c_short="$(git rev-parse --short=8 HEAD)"
           c_full="$(git rev-parse HEAD)"
 
@@ -167,6 +183,7 @@ jobs:
             echo "b_full=${b_full}"
             echo "c_full=${c_full}"
             echo "v_version=${v_version}"
+            echo "arc_pubkey=${arc_pubkey}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Dispatch images.yaml for B and C (push does not trigger; dispatch does)
@@ -327,6 +344,9 @@ jobs:
           # install-recovery's statbus-recovery-*).
           HCLOUD_NAME_PREFIX: statbus-arc-
           STATBUS_SB_BINARY: ${{ github.workspace }}/sb-linux-amd64
+          # Ephemeral arc-signer pubkey → install_statbus_at_sha trusts it so the
+          # daemon's verifyCommitSignature accepts the (signed) B/C commits.
+          SB_ARC_TRUSTED_SIGNER: ${{ needs.construct.outputs.arc_pubkey }}
           BASE_SHA: ${{ needs.construct.outputs.base_sha }}
           B_FULL: ${{ needs.construct.outputs.b_full }}
           C_FULL: ${{ needs.construct.outputs.c_full }}

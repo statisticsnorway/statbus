@@ -626,6 +626,17 @@ install_statbus_at_sha() {
     _check_name_safety "$vm_name" || return 1
     [ -n "$sha" ] || { echo "ERROR: install_statbus_at_sha requires a commit SHA" >&2; return 1; }
 
+    # Optional: trust an ephemeral arc signing key (SB_ARC_TRUSTED_SIGNER = a raw
+    # SSH pubkey). The upgrade-arc harness signs its test B/C commits with a
+    # throwaway key; the daemon's verifyCommitSignature is MANDATORY, so the box
+    # must trust that key. Set in .env.config BEFORE install → config generate
+    # propagates UPGRADE_TRUSTED_SIGNER_* to .env → the first daemon start trusts
+    # it (no restart). Production never sets this var → its verification untouched.
+    local trust_line=""
+    if [ -n "${SB_ARC_TRUSTED_SIGNER:-}" ]; then
+        trust_line="./sb dotenv -f .env.config set UPGRADE_TRUSTED_SIGNER_arc \"${SB_ARC_TRUSTED_SIGNER}\""
+    fi
+
     local ip
     ip=$(hcloud server ip "$vm_name")
 
@@ -653,6 +664,8 @@ chmod +x ./sb
 # Pre-place config: ./sb install needs .env.config + .users.yml.
 cp /tmp/env-config .env.config
 cp /tmp/users.yml .users.yml
+# (arc) trust the ephemeral signing key BEFORE install (empty line if unset).
+${trust_line}
 STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf
 SCRIPT
 
