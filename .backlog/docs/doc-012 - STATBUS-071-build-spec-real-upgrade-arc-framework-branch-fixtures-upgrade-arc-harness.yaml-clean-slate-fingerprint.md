@@ -5,6 +5,7 @@ title: >-
   upgrade-arc-harness.yaml + clean-slate fingerprint)
 type: specification
 created_date: '2026-06-18 15:07'
+updated_date: '2026-06-18 15:22'
 tags:
   - upgrade
   - install-recovery
@@ -14,7 +15,7 @@ tags:
 ---
 # STATBUS-071 build-spec — real-upgrade-arc framework
 
-**Audience:** engineer (build), foreman (review). **Status:** implementable; the one open decision (§7) is the King's and does NOT block the rest of the spec. **Depends on:** STATBUS-086 (the register+schedule test driver), STATBUS-056 (image-wait), STATBUS-057 (image cleanup), STATBUS-072 (amend/re-stamp = behaviour under test), STATBUS-067 (canary built through this framework).
+**Audience:** engineer (build), foreman (review). **Status:** implementable; the §7 topology decision is RESOLVED = Option 1 (amend-in-place). **Depends on:** STATBUS-086 (the register+schedule test driver), STATBUS-056 (image-wait), STATBUS-057 (image cleanup), STATBUS-072 (amend/re-stamp = behaviour under test), STATBUS-067 (canary built through this framework).
 
 ## 0. North Star
 Stop FABRICATING crash states. Make the REAL system produce them via a real arc: **install A → upgrade to a defective B (fails) → service rolls back → upgrade to a fixed C (works)**. CENTERPIECE = **clean-slate-after-rollback**: B's rollback leaves the DB byte-identical to A so C applies clean — the one property no fabrication can prove. **Albania fidelity:** drive every upgrade through the `public.upgrade` scheduling row (the web-UI mechanism), assert the box applies+recovers **autonomously** — no SSH rescue.
@@ -38,7 +39,7 @@ test/working-migration         → test/working-fixed-migration   (V SUCCEEDS, t
 test/hanging-migration         → test/hanging-fixed-migration    (V fails/hangs, then fixed → rollback→re-run arc)
 ```
 - **B (`test/<scenario>-migration`)** branches off A, adds ONE real migration file `V` (a genuine `migrations/<ts>_<desc>.up.sql` + `.down.sql`). The DEFECT lives in V (see §4).
-- **C (`test/<scenario>-fixed-migration`)** branches off B and applies the FIX. Fix topology = §7's open decision (edit V in place vs add forward V+k); the construct job's "fix" step is the only thing that decision changes.
+- **C (`test/<scenario>-fixed-migration`)** branches off B and applies the FIX. Fix topology RESOLVED = Option 1 (edit V in place + re-stamp; see §7).
 - Concurrency: the tester serializes runs, but suffix branch names with the run id (`test/<scenario>-migration-<run_id>`) and multi-tag throwaway images `throwaway-<run_id>` for the orphan sweep. commit_short already makes images content-unique; the run-id suffix only de-collides branch names across overlapping runs.
 
 ## 4. (c) The migration fixtures each branch carries
@@ -48,7 +49,7 @@ test/hanging-migration         → test/hanging-fixed-migration    (V fails/hang
 ## 5. (b cont.) upgrade-arc-harness.yaml — the four jobs
 NEW `.github/workflows/upgrade-arc-harness.yaml`, sibling to `install-recovery-harness.yaml`, REUSING its image-wait + cleanup patterns. TRIGGER: `workflow_dispatch` (inputs: `base_sha` [default caller SHA], `scenario` [working|hanging|…]). The tester fires it (single serializer).
 
-- **JOB 1 — construct** (ubuntu, `contents:write` token): resolve A=base_sha; create B + C as REAL commits in git ancestry off A (push `test/<scenario>-migration[-run_id]` then `test/<scenario>-fixed-migration[-run_id]`); emit `B_short`, `C_short` as outputs. The "fix" step in building C is §7's decision.
+- **JOB 1 — construct** (ubuntu, `contents:write` token): resolve A=base_sha; create B + C as REAL commits in git ancestry off A (push `test/<scenario>-migration[-run_id]` then `test/<scenario>-fixed-migration[-run_id]`); emit `B_short`, `C_short` as outputs. The "fix" step in building C = edit V in place (§7 Option 1).
 - **JOB 2 — image-wait** (REUSE STATBUS-056): replicate `install-recovery-harness.yaml:169-220` ghcr poll, parameterized to wait for ALL FOUR images at BOTH `B_short` AND `C_short` (bounded budget; fail loud with the same "images built only by images.yaml" diagnostic). A's images assumed present.
 - **JOB 3 — run-arc** (Hetzner VM; mirror harness VM bootstrap + EXIT-trap teardown). Drive via the Albania mechanism (register+schedule, §1):
   1. Install A at base_sha (existing `bootstrap_install_test_vm` + `install_statbus_in_vm`); health-check.
@@ -67,11 +68,12 @@ A DB FINGERPRINT captured after install-A and re-captured after B's rollback; as
 3. **DATA**: extend `snapshot_demo_data_counts` to a per-table `md5(array_agg(t.* ORDER BY pk))` over the key tables → sha256. Catches data drift / partial B writes.
 Build on existing primitives: `snapshot_demo_data_counts` (counts) + `assert_db_migration_max_version` (ledger max) — ELEVATE both to full fingerprints. This is the property no fabrication can prove — a synthetic "rollback" can't show it restored EXACTLY A; a real B-rollback must.
 
-## 7. (b cont.) THE ONE OPEN DECISION — `*-fixed` topology (King's call; does NOT block the spec)
-How does C fix V? Two options; the construct job's "fix" step is the only thing affected.
-- **OPTION 1 — EDIT V IN PLACE (amend + re-stamp; STATBUS-072's lean).** C edits V's `.up.sql` in place (same version V, corrected bytes → H_C ≠ H_B). The FEW (failed at V): V unrecorded → C's V(fixed) applies fresh. The MANY (succeeded at V): recorded H_B ≠ on-disk H_C → re-stamp re-records without re-running. PRO: depth-independent, outcome-preserving, ledger stays at V (no phantom forward version). CON: edits an already-released "immutable" migration.
-- **OPTION 2 — ADD FORWARD V+k (never edit the immutable original; King's later refinement).** C adds a NEW migration V+k; V's file untouched. PRO: respects immutability, append-only ledger. **CON / TENSION:** forward-only does NOT obviously rescue the FEW — an immutable broken/too-slow V stays unapplied → the runner re-runs the ORIGINAL V → fails AGAIN, unless V is ALSO amended (→ collapses to Option 1) OR a NEW "supersede-skip" mechanism lets the runner skip V because V+k supersedes it (does not exist today). It also leaves the broken V in the tree, re-failing on any fresh install or any box that hadn't yet applied V.
-- **DECISION CRITERION for the King:** does our migration model treat released migration files as immutable (→ Option 2 + build a supersede-skip path for the FEW) or amendable-with-re-stamp (→ Option 1)? The spec is WRITTEN assuming Option 1 (matches STATBUS-072 + the working/hanging arcs above); if the King picks Option 2, JOB-1's fix step changes from "edit V" to "add V+k" AND a supersede-skip mechanism must be designed first (new dependency). Foreman to put this to the King at STEP-2 start.
+## 7. (b cont.) `*-fixed` topology — RESOLVED = Option 1 (edit V in place + re-stamp)
+**RESOLVED** (foreman per STATBUS-091 autonomy, 2026-06-18; King may revisit on return): **Option 1 — C EDITS V's `.up.sql` in place** (same version V, corrected/amended bytes → content-hash H_C ≠ H_B). JOB-1's "fix" step edits the migration FILE, not adds a new one. Rationale: it is the King-ratified STATBUS-072 mechanism, and Option 2 cannot rescue the FEW-who-failed (see below) without collapsing to Option 1 or building a new mechanism. Recorded in STATBUS-091 for the King's review.
+
+Decision record (why Option 1, for the engineer + the King's later review):
+- **Option 1 — EDIT V IN PLACE (chosen).** The FEW (failed at V): V unrecorded → C's V(fixed) applies fresh. The MANY (succeeded at V): recorded H_B ≠ on-disk H_C → re-stamp re-records without re-running. Depth-independent, outcome-preserving, ledger stays at V (no phantom forward version). Cost: edits an already-released "immutable" migration.
+- **Option 2 — ADD FORWARD V+k (NOT chosen).** C adds a NEW migration V+k; V untouched. Respects immutability / append-only ledger. **But it does NOT rescue the FEW** — an immutable broken/too-slow V stays unapplied → the runner re-runs the ORIGINAL V → fails AGAIN, unless V is ALSO amended (→ collapses to Option 1) OR a NEW "supersede-skip" mechanism lets the runner skip V because V+k supersedes it (does not exist today). It also leaves the broken V in the tree, re-failing on any fresh install. If the King later mandates Option 2, JOB-1's fix step changes from "edit V" to "add V+k" AND a supersede-skip path becomes a new prerequisite dependency.
 
 ## 8. (f) Inject-on-real-upgrade for the kill arcs
 The process-death micro-window scenarios (lost-stamp, resume-death, rollback-kill, mid-migration/mid-tx/between kills) STAY INJECT — branch arcs can't reproduce a kill at an exact instruction. But they now run ON TOP of a real register+schedule arc instead of a fabricated row: drive the upgrade via §1, and fire the existing inject at the precise migrate.go window. Inject sites (migrate.go): `:388` during-migration, `:436-438` mid-tx, `:911` between-migrations, 60-min ceiling `:420`. The kill arcs (Shape catalogue, build-order step 5 — e.g. recovery-of-recovery: kill during B's rollback) layer the inject env onto JOB-3's real-arc drive; the service's `executeScheduled`→migrate path then hits the injected kill. This keeps the SCHEDULING real (no fabrication) while preserving precise kill timing.
@@ -88,6 +90,6 @@ DEPENDENCIES: STATBUS-056 (image-wait, hard dep for JOB 2); STATBUS-057 (teardow
 
 ## 10. Risks / decisions for the engineer
 - **Token:** JOB-1 branch push needs `contents:write` (images.yaml currently only `packages:write`); JOB-4 needs branch+image delete permission.
-- **C-fix is load-bearing (under Option 1):** the construct job must EDIT the migration FILE, not add a new one — an additive fix-on-top re-runs V_broken → fails again. (Under Option 2 this inverts — see §7.)
+- **C-fix is load-bearing (Option 1):** the construct job must EDIT the migration FILE, not add a new one — an additive fix-on-top re-runs V_broken → fails again.
 - **Teardown must be `if: always()` + idempotent:** a failed arc must still delete its branches + images or orphans accumulate (STATBUS-057 cleanup-trap discipline the VM harness already enforces).
 - **Albania fidelity is the whole point:** drive via the `public.upgrade` row + the systemd service, NEVER `./sb install` or a deploy-branch move (those are operator/cloud paths; they'd test the wrong thing).
