@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-18 14:55'
-updated_date: '2026-06-18 15:09'
+updated_date: '2026-06-18 15:38'
 labels:
   - upgrade
   - phase-2
@@ -67,4 +67,8 @@ FRUITION = AC #4: the branch-arc harness runs the real failure/fix arcs green an
 DECISION (foreman, autonomous per this charter, 2026-06-18) — *-fixed-migration branch topology (STATBUS-071 §7 / doc-012 §7): RESOLVED = OPTION 1, the fix EDITS the migration in place + re-stamps (amend-in-place). RATIONALE: (1) it is the King's already-RATIFIED STATBUS-072 mechanism; (2) the architect's analysis proves Option 2 (add forward V+k) CANNOT rescue the hosts that failed (they'd re-run the same broken migration) without either also amending V — which collapses to Option 1 — or building a new supersede-skip mechanism. So Option 1 is the only clean working answer. The King's offhand 'never edit the immutable original' was a looser framing introduced mid-discussion; the ratified 072 governs. doc-012's Option-1 assumption stands; only JOB-1's fix-step would change if the King later picks Option 2. FLAGGED HERE for the King's review on return — he can redirect to Option 2 (+ a new supersede-skip dependency) if he prefers; until then the build proceeds Option 1.
 
 PROGRESS (W1): STATBUS-087 DONE (de453b814). STATBUS-086 stage-scoped (engineer building: CLI core → fabricate retirement/AC#6 → AC#8 VM proof). STATBUS-071 build-spec = doc-012 (architect, engineer-ready, queued for STEP 2). STATBUS-089 design in progress (architect + operator).
+
+DECISION (foreman, autonomous, 2026-06-18) — STATBUS-086 stage-2 kill-scenario scheduling: RESOLVED = OPTION C (architect's ruling, foreman-verified at the tag; overturns my earlier D lean). The kill scenarios keep their v2026.05.2 baseline and schedule the arbitrary HEAD SHA via the v2026.05.2 box's OWN `./sb upgrade apply <short>` after `git fetch`. VERIFIED at v2026.05.2: CLI apply accepts a commit-short (upgrade.go:176,183 IsCommitShort) AND service scheduleImmediate does INSERT…ON CONFLICT(commit_sha) DO UPDATE on the UntaggedTarget branch (service.go:2814,2829-2831) — so the old box really can schedule an arbitrary SHA. My D lean assumed it couldn't; the tag-read disproved that. C is MORE faithful than fabricate (which bypassed apply+scheduleImmediate), needs NO HEAD-binary pre-stage (binary-swap-kill stays faithful), keeps the Albania FROM-old baseline, and AC#6 (delete fabricate) FULLY applies in 086. SMOKE-GATE: prove C on ONE kill scenario on a VM before converting all ~18 (fall back to D if v2026.05.2 surprises). Not throwaway — final form; 071 only ADDS new arcs.
+
+086 REVIEW (architect): core SOLID (lock-free one-shot safe; upsertCandidate verbatim/one-path; supersede correct). Must-fix into stage-1 before commit: (1) notify-all-clouds.yaml discover→check (workflow breakage); (2) AC#3/#9 unit tests (were NOT actually present); (3) apply-latest register-then-schedule (else deploy-to-X silently no-ops on the discovery race — keeps master deployable). Engineer doing these now → architect re-reviews apply-latest → foreman commits complete stage-1. Robustness (RunSchedule state-guard, --recreate double-NOTIFY) + AC#7 doc sweep = follow-on. STATBUS-089 design = doc-013 (verified maintenance 3-way-path bug); STATBUS-071 build-spec = doc-012.
 <!-- SECTION:NOTES:END -->
