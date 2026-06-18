@@ -6,11 +6,13 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-18 21:18'
+updated_date: '2026-06-18 21:19'
 labels:
   - upgrade
   - testing
   - install-recovery
-dependencies: []
+dependencies:
+  - STATBUS-095
 priority: medium
 ordinal: 96000
 ---
