@@ -1,13 +1,13 @@
 ---
 id: STATBUS-067
 title: >-
-  canary-migrate-completeness: resumePostSwap completes on container-health
-  alone → silent corruption on post-swap kill mid-migration (STATBUS-017
-  follow-up)
+  canary-migrate-completeness: recovery must roll back (not self-heal) when a
+  migration committed but its done-record was lost; the two converged tests must
+  exercise this
 status: In Progress
 assignee: []
 created_date: '2026-06-16 21:57'
-updated_date: '2026-06-17 08:38'
+updated_date: '2026-06-18 08:27'
 labels:
   - upgrade
   - recovery
