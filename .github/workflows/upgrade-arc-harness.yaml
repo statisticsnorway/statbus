@@ -319,6 +319,13 @@ jobs:
         env:
           HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
           HCLOUD_SSH_KEY: statbus-ci
+          # The shared _check_name_safety guard (vm-bootstrap.sh) keys on
+          # HCLOUD_NAME_PREFIX (default 'statbus-recovery-') and REFUSES any other
+          # VM name — so bootstrap_install_test_vm + cleanup_vm reject our disjoint
+          # 'statbus-arc-*' names unless we override it here. Override → the guard,
+          # create, and cleanup all accept statbus-arc-* (still disjoint from
+          # install-recovery's statbus-recovery-*).
+          HCLOUD_NAME_PREFIX: statbus-arc-
           STATBUS_SB_BINARY: ${{ github.workspace }}/sb-linux-amd64
           BASE_SHA: ${{ needs.construct.outputs.base_sha }}
           B_FULL: ${{ needs.construct.outputs.b_full }}
