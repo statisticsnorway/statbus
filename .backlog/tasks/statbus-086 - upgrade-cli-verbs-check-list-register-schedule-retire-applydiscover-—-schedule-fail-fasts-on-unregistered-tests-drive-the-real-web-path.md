@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-18 11:42'
-updated_date: '2026-06-18 12:50'
+updated_date: '2026-06-18 15:30'
 labels:
   - upgrade
   - cli
@@ -81,4 +81,10 @@ NO `registerAndScheduleImmediately` verb — REJECTED on the design's own logic:
 NAME: because the CLI `schedule` now performs the actual scheduling (sets the row → trigger → NOTIFY), the service-side function no longer schedules — it REACTS to a scheduled-row notification (supersede older + hand to execution; it currently only sets 'scheduled' + supersedes, guarded against a NOTIFY loop by WHERE state!='scheduled', and does NOT execute inline). Rename scheduleImmediate → an execute/react name (e.g. onScheduledNotify) OR fold into executeScheduled (service.go:3487). Engineer's call at build.
 
 SEQUENCING: this RESOLVES the design (no remaining open question on 086); the CODE BUILD stays PHASE 2 (post-rc.04) per the foreman's sequencing — scheduleImmediate is in the rc.04 code and must not be touched until rc.04 is tagged.
+
+ARCHITECT REVIEW of engineer's stage-1 diff (cli/cmd/upgrade.go + service.go, +400/-206), 2026-06-18. CORE SOLID; NOT complete-commit-ready. ✓ P1 lock-free one-shots SAFE (runOneShot=connect w/o advisory lock; atomic single-statement SQL). ✓ P2 upsertCandidate verbatim-identical to old discover/discoverEdge INSERTs — one insert path, discovery behavior-neutral. ✓ P6 RunSchedule→supersede correct (robustness notes: UPDATE lacks state-guard, could reset an in_progress row; --recreate sends a 2nd NOTIFY racing the trigger's bare NOTIFY → recreate could be lost).
+
+MUST-FIX (do in stage-1): (1) .github/workflows/notify-all-clouds.yaml:49 still calls RETIRED `./sb upgrade discover` → workflow breaks; change to `check`. (2) AC#3 + AC#9 have ZERO unit tests (git diff --stat = only 2 source files, no _test.go) — 'unit-proven' is false. AC#3 will be VM-proven via AC#8 in stage-2; AC#9 (onScheduledNotify no-op) will NOT — add unit tests for both (cheap; 086's principled proof).
+
+PRE-DEPLOY GATE (hard, before any deploy-to-X runs stage-1): (3) apply-latest body is UNCHANGED (own psql UPDATE+NOTIFY, NOT routed through onScheduledNotify). Normal case (latest already discovered) works; RACE case (deploy before daemon discovers the commit) → UPDATE 0 rows → NOTIFY → onScheduledNotify NO-OPs (require-register) → deploy SILENTLY doesn't upgrade (old insert-if-missing rescued this; now dead; message lies). Hits all deploy-to-X. FIX: apply-latest must register-then-schedule (race-proof) OR prove latestVersion is DB-sourced. Committing the core to iterate toward the VM proof is OK (builds green); deploying it is NOT until (3) lands. DOC sweep (AC#7: DEPLOYMENT.md:337/687, DEVELOPMENT.md:621, comment service.go:1580) = follow-on stage.
 <!-- SECTION:NOTES:END -->
