@@ -163,6 +163,12 @@ note over systemd, service
   = Unknown -> forward, never a restore on clone-state evidence. An unknown Phase value
   fails loud (FLAG_PHASE_UNKNOWN).
 end note
+note over service, db #E8F5E9
+  INVARIANT — kill during migration (re-derive from the diagram):
+  A kill alone aborts the open transaction -> it re-applies forward on restart -> NEVER a rollback
+  by itself. Only a committed-but-unrecorded migration (lost-stamp) or an always-erroring migration
+  makes the re-apply FAIL -> positively-behind -> one-shot rollback.
+end note
 note over service, db #FFF9C4
   TEST COVERAGE — phase dispatch + post-swap resume
   TEST 3-postswap-resume-died-rollback — ON HOLD, EXPECTATION OBSOLETE (STATBUS-039/-044):
@@ -232,6 +238,12 @@ note over service, db #FFF9C4
     (plan piece #2) puts the resume in the ACTIVE phase, and the terminal state='completed' UPDATE
     persists BEFORE the non-critical tar (FIX A) — a slow tar can never strand the row in_progress
     (the NO/rune 40 h wedge).
+end note
+note over service, db #E8F5E9
+  INVARIANT — lost-stamp window (re-derive from cells (2)/(e) above):
+  The migration done-stamp is written in a SEPARATE transaction from the migration DDL -> that gap
+  is the lost-stamp window. A kill in that gap leaves a committed-but-unrecorded schema object;
+  forward re-apply fails ("relation already exists") -> positively-behind -> one-shot rollback.
 end note
 
 == Complete / rollback ==

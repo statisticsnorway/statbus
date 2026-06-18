@@ -145,9 +145,11 @@ new binary:
     bare hand-passed `--post-upgrade-fixup`, lacking the env signature, is audited as A17.)
 
 The restart is expected exactly once. Any **other** restart while a row is `in_progress`
-(watchdog kill, OOM, operator `systemctl restart`) leaves `Phase=Resuming`, so
-`recoverFromFlag` treats the attempt as **died** → roll back to the snapshot. There is no
-"resume forward from an arbitrary crash point" mode.
+(watchdog kill, OOM, operator `systemctl restart`) leaves `Phase=Resuming`. Ground truth then
+decides direction: if the binary and migrations are **at or past target** (or the DB is
+unreachable), `recoverFromFlag` resumes **forward**; only a **positively-behind** verdict
+(binary mismatch or migrations missing, DB reachable) triggers a **one-shot rollback** to
+the upgrade's own snapshot (`service.go:860-884`, STATBUS-039).
 
 ### Complete / rollback
 
