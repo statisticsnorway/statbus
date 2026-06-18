@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-17 09:05'
-updated_date: '2026-06-17 20:23'
+updated_date: '2026-06-18 15:07'
 labels:
   - install-recovery
   - upgrade
@@ -14,6 +14,8 @@ labels:
   - architect-plan
   - doctrine
 dependencies: []
+documentation:
+  - doc-012
 priority: high
 ordinal: 71000
 ---
@@ -65,4 +67,6 @@ CENTERPIECE ASSERTION: after the failing upgrade rolls back, DB == base byte-ide
 This supersedes the cloud-channel framing; STATBUS-034's 'channels = ops/*/deploy/* deploy branches' was cloud-only.
 
 ARCHITECT DISPATCHED to plan (2026-06-17 ~20:20), at King's prompt — turn the captured design (resolved branch scheme + B/C topology + clean-slate-after-rollback + Albania standalone-fidelity) into an IMPLEMENTATION-READY spec the engineer can build from: (a) images.yaml `test/**` trigger; (b) throwaway-branch workflow (branch→commit B+C→image-wait STATBUS-056→run arc→teardown STATBUS-057); (c) FIRST scenario = amend-migration/Albania case (working-migration→working-fixed-migration, STATBUS-072) driven via the public.upgrade web-UI row, autonomous apply+recover; (d) clean-slate-after-rollback mechanics; (e) 056/057/067/072 deps. PARALLEL to the rc.04 re-run (design only, NON-gating). A-vs-B decision RESOLVED = B (follow-up): close rc.04 first, build this immediately after — King + foreman aligned (King: 'once rc.04 passes, we can look at the framework'). Re-run triage takes priority over this planning if a scenario goes red. Architect reports the plan to foreman for King review.
+
+IMPLEMENTABLE BUILD-SPEC ready (architect, 2026-06-18): backlog doc-012 "STATBUS-071 build-spec: real-upgrade-arc framework". Covers (a) images.yaml test/** trigger; (b) branch fixtures test/base + test/working-migration→working-fixed + test/hanging-migration→hanging-fixed with exact commit contents; (c) the working (succeed→amend→re-stamp/Albania) + hanging (fail→rollback→fix, crash + too-long/OOM-at-both-data-sizes) migration fixtures; (d) upgrade-arc-harness.yaml 4 jobs (construct→image-wait→run-arc-via-register+schedule→always-teardown); (e) clean-slate fingerprint (schema+ledger+data sha256); (f) inject-on-real-upgrade points (migrate.go :388/:436-438/:911/:420) for the kill arcs; build order + deps (056/057/072/067). Test driver = STATBUS-086 register+schedule (NOT fabrication). §7 documents BOTH *-fixed topologies (edit-V-in-place per 072 vs add-forward-V+k) as the KING'S open decision — does NOT block the spec; foreman puts it to the King at STEP-2 start.
 <!-- SECTION:NOTES:END -->
