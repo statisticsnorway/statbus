@@ -4,11 +4,11 @@ title: >-
   checkout-kill-fidelity: 2-preswap-checkout-kill validates HEAD-recovery only
   and MASKS the genuine v2026.05.2-binary wedge (restoreGitState exonerated;
   harness-pin fixed ba02e1ed0)
-status: In Progress
+status: Done
 assignee:
   - mechanic
 created_date: '2026-06-11 07:48'
-updated_date: '2026-06-15 22:15'
+updated_date: '2026-06-18 08:22'
 labels:
   - install-recovery
   - harness
@@ -56,3 +56,9 @@ Architect is writing the design doc (defer the working-tree checkout into applyP
 ## Prior note (retained)
 COMMITTED ba02e1ed0 (pushed) — harness pre-upgrade re-pin to OLD_COMMIT. Foreman-verified against product code. HARNESS-only fix. HEAD-recovery GREEN pending the comprehensive matrix run. Does NOT block the rc.03 cut (residual is documented; deeper fix is rc.04 per foreman lean, King to decide).
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Subsumed. The checkout-kill fidelity concern (restoreGitState) was exonerated and the harness-pin fixed (ba02e1ed0). The scenario's current red is the no-compiler build issue, now owned by STATBUS-084 and tracked under STATBUS-074. Closed in the 2026-06-18 board cleanup.
+<!-- SECTION:FINAL_SUMMARY:END -->
