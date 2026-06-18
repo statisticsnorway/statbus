@@ -804,7 +804,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	// post-swap continuation case (binary swap → exit 42 → fresh process
 	// finds its own flag). The downstream branch (install / post-swap /
 	// reconcile) emits the action-specific message.
-	logRecover("Service restarted. Found %s flag for %s (id=%d, pid=%d, invoked_by=%s)",
+	logRecover("Recovering an interrupted upgrade — found a %s marker for %s. (detail: id=%d, pid=%d, invoked_by=%s)",
 		holder, flag.Label(), flag.ID, flag.PID, flag.InvokedBy)
 
 	// Guard removed: DetectState's flock-try is now authoritative for
@@ -821,7 +821,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	// inspecting the directory doesn't suggest something is in flight.
 	// (If install ever grows DB-write semantics, add reconciliation here.)
 	if holder == HolderInstall {
-		logRecover("Clearing stale install flag (PID %d crashed or exited without releasing)", flag.PID)
+		logRecover("A previous install exited without finishing cleanup; clearing its leftover marker and continuing. (detail: stale install flag, pid=%d)", flag.PID)
 		os.Remove(d.flagPath())
 		return nil
 	}
@@ -864,7 +864,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 			if gt == GroundTruthUnknown {
 				verdict = fmt.Sprintf("unverifiable (%s)", gtReason)
 			}
-			logRecover("Resuming-phase flag for upgrade %d (%s): prior resume attempt died, ground truth is %s — resuming FORWARD again, not rolling back (STATBUS-039 rule 1).",
+			logRecover("Upgrade %d (%s) was interrupted while finishing; the database is at or past the new version (or its state can't be verified) — either way, continuing forward, not rolling back. Your data is safe. (detail: resuming-phase, ground-truth=%s, STATBUS-039 rule 1)",
 				flag.ID, flag.Label(), verdict)
 			if appendLog != nil {
 				appendLog.Close()
@@ -872,14 +872,14 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 			}
 			return d.resumePostSwap(ctx, flag)
 		}
-		logRecover("Resuming-phase flag detected for upgrade %d (%s): post-swap resume died and ground truth is positively behind (%s) — rolling back to this upgrade's own snapshot, NO retry (one-shot).",
+		logRecover("Upgrade %d (%s) was interrupted while finishing and the database is behind the new version; restoring this upgrade's pre-upgrade snapshot (one attempt, no retry). Data is restored to before the upgrade. (detail: resuming-phase, ground-truth-behind=%s)",
 			flag.ID, flag.Label(), gtReason)
 		if appendLog != nil {
 			appendLog.Close()
 			appendLog = nil
 		}
 		d.recoveryRollback(ctx, flag, flag.Label(), logRelPath, fmt.Sprintf(
-			"%s: process died during post-swap resume and ground truth is behind target (%s); rolled back to this upgrade's own snapshot. Re-run via ./sb install once the cause is addressed.",
+			"%s: the upgrade was interrupted while finishing and was rolled back to the previous version (data restored). Re-run with ./sb install once the cause is fixed. (detail: ground-truth-behind=%s)",
 			ErrResumeDied, gtReason))
 		return nil
 	}
@@ -891,7 +891,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	// onward rather than marking the row completed — the upgrade isn't
 	// actually done yet.
 	if flag.Phase == FlagPhasePostSwap {
-		logRecover("Post-swap restart detected for upgrade %d (%s) — resuming pipeline on new binary (pid=%d)",
+		logRecover("Resuming upgrade %d (%s) where it left off, now running the new version. (detail: post-swap restart, pid=%d)",
 			flag.ID, flag.Label(), os.Getpid())
 		if appendLog != nil {
 			appendLog.Close()
@@ -943,7 +943,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	// self-heal UPDATE and mark `state='completed'` for an upgrade that
 	// was killed before any commit happened.
 	if flag.Phase == FlagPhasePreSwap {
-		logRecover("PreSwap-phase flag detected for upgrade %d (%s): upgrade killed before binary-swap commit boundary — rolling back (NOT self-healing). DB unchanged; no snapshot was recorded by this upgrade, so the identity-keyed restore refuses to touch the volume.",
+		logRecover("Upgrade %d (%s) was interrupted before it changed anything; rolling back to the previous version. The database was not modified, so nothing needs restoring. (detail: pre-swap phase, no snapshot recorded)",
 			flag.ID, flag.Label())
 		if appendLog != nil {
 			appendLog.Close()
@@ -952,7 +952,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 		// flag.BackupPath is empty by construction at PreSwap (stamped only
 		// by updateFlagPostSwap) — restoreDatabase refuses on empty.
 		d.recoveryRollback(ctx, flag, flag.Label(), logRelPath, fmt.Sprintf(
-			"%s: upgrade killed in PreSwap phase before binary-swap commit boundary",
+			"%s: the upgrade was interrupted before it changed anything and was rolled back to the previous version; the database was not modified. (detail: pre-swap, before binary-swap commit boundary)",
 			ErrInstallPreconditionFailed))
 		return nil
 	}
@@ -971,7 +971,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	// A phase value outside the produced set is state-machine drift (a
 	// future writer added a phase without teaching recovery about it) —
 	// fail loud, touch nothing.
-	logRecover("FLAG_PHASE_UNKNOWN: upgrade %d (%s) carries unhandled phase %q — refusing to guess; investigate %s",
+	logRecover("FLAG_PHASE_UNKNOWN: upgrade %d (%s) is in an unrecognized state %q — stopping rather than guessing; please contact support. (detail: investigate %s)",
 		flag.ID, flag.Label(), flag.Phase, d.flagPath())
 	return fmt.Errorf("recoverFromFlag: unknown flag phase %q for upgrade %d — refusing to act", flag.Phase, flag.ID)
 }
@@ -4784,12 +4784,6 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 		return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: application health check: %v", ErrHealthcheckRESTDown, err), progress)
 	}
 
-	// Notify frontend that the upgrade state changed. The DB trigger also fires
-	// NOTIFY on completed_at UPDATE, but there's a race: the app's LISTEN may not
-	// be established when completed_at is set. This explicit NOTIFY after the health
-	// check guarantees the app is listening.
-	d.queryConn.Exec(ctx, `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
-
 	// Done — deactivate maintenance. archiveBackup is deliberately NOT
 	// called here: it is reordered to AFTER the terminal state='completed'
 	// UPDATE + removeUpgradeFlag below (plan recovery-arc-flaw-timeoutstartsec.md
@@ -4804,7 +4798,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// both fast — a later kill during the tar is harmless: the next start finds
 	// no flag and no-ops. (ATOMIC, the .tmp+rename in archiveBackup, ensures the
 	// killed tar also leaves no partial at the final archive name.)
-	fmt.Println("Deactivating maintenance (app healthcheck passed)")
+	fmt.Println("Health check passed — turning off the maintenance page.")
 	d.setMaintenance(false)
 
 	// selfUpdate is intentionally NOT invoked here: Option C moved the
@@ -4874,6 +4868,15 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	}
 	log.Println("state=completed")
 	logUpgradeRow(LabelCompletedNormal, normalJSON)
+	// Notify the frontend the upgrade state changed — fired AFTER the terminal
+	// state='completed' UPDATE above, NOT before it (its prior position fired
+	// while the row was still in_progress, so a client returning from the
+	// maintenance page and refetching saw a stale 'in_progress' → the "lagging"
+	// bug, STATBUS-090). The completed UPDATE's DB trigger also fires the real
+	// completion NOTIFY; this explicit belt guarantees delivery if the app's
+	// LISTEN wasn't yet established when the trigger fired. Mirrors the recovery
+	// self-heal path's NOTIFY-after-completed ordering (resumePostSwap).
+	d.queryConn.Exec(ctx, `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
 	d.removeUpgradeFlag()
 
 	// The row is now truly `completed` and the flag is gone (both fast,
@@ -4949,12 +4952,12 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// recognizes the env signature and stays quiet: the absent flag is the
 	// expected steady state here, not an A17 violation.
 	fixupStart := time.Now()
-	progress.Write("Running install fixups...")
+	progress.Write("Applying configuration and service updates...")
 	if err := runInstallFixup(projDir); err != nil {
-		progress.Write("%s: post-upgrade install fixups failed: %v", ErrInstallFixupFailed, err)
+		progress.Write("%s: applying post-upgrade configuration/service updates failed (non-fatal — the upgrade itself succeeded): %v", ErrInstallFixupFailed, err)
 		// Non-fatal — the upgrade itself succeeded and the row reflects it.
 	} else {
-		progress.Write("Install fixups complete (elapsed %s).", time.Since(fixupStart).Truncate(time.Millisecond))
+		progress.Write("Configuration and service updates applied (took %s).", time.Since(fixupStart).Truncate(time.Millisecond))
 	}
 
 	return nil
