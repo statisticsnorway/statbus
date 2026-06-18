@@ -5,6 +5,7 @@ title: >-
   declarations (re-stamp conveyance)
 type: specification
 created_date: '2026-06-18 16:28'
+updated_date: '2026-06-18 16:31'
 tags:
   - upgrade
   - migrate
@@ -14,7 +15,7 @@ tags:
 ---
 # STATBUS-072 implementation plan — auto-convey amend-in-place migration declarations
 
-**Audience:** engineer (build), foreman (review). **Status:** implementable. **One small decision** flagged in §7 (keep vs drop the env var). **Tested via:** STATBUS-071's working + works-for-most arcs (doc-012 §4).
+**Audience:** engineer (build), foreman (review). **Status:** implementable + finalized. **One small decision** flagged in §7 (keep vs drop the env var). **Tested via:** STATBUS-071's working + works-for-most arcs (doc-012 §4).
 
 ## 0. TL;DR — the re-stamp mechanism ALREADY EXISTS; the gap is CONVEYANCE
 The King's doctrine (STATBUS-072 notes) is the spec: re-stamp is the chosen mechanism; you cannot build an outcome-preservation checker (undecidable); the opt-in IS the complete guardrail (a forced declaration of intent); **the ONLY thing to build is AUTO-CONVEYANCE** — carry the declared "migration V is amended, accept its new bytes" from the release to every host's automatic upgrade so the EXISTING re-stamp fires without a human on each box. Validation = the run (STATBUS-071), never inspection.
@@ -45,6 +46,11 @@ Build (minimal — only the conveyance, no checker):
 4. The re-stamp + hard-fail logic at :1380-1413 is UNCHANGED — it already does the right thing once `circumvent[version]` is true. The diff is purely the SOURCE of the circumvent set.
 
 **Why a committed file (vs a release manifest field or a public.upgrade row field):** the declaration is a property of the amending commit — a committed file is atomic with the amendment, reviewed in the PR, travels OFFLINE with the checkout (no GitHub manifest fetch, no DB-row plumbing threaded into the migrate subprocess), and preserves the deliberate-intent guardrail (you cannot amend without committing the named declaration). Manifest/row alternatives work but add network/schema plumbing for no gain. (If a non-tree channel is ever needed for untagged-edge amendments, the manifest is the fallback — but amendments are a RELEASE concept, so the tree file suffices.)
+
+## 2a. Declaration-file semantics (avoids two gotchas the engineer will hit)
+- **`version` is the ONLY load-bearing field.** The circumvent logic keys solely on the 14-digit version (the migration whose bytes were amended). `amending_release` + `reason` are AUDIT METADATA (log line + PR review + ledger), never read by the gate. This sidesteps a chicken-and-egg: at RC-cut the amending tag does NOT exist yet (it is created after the commit), so the author writes the *intended* tag (or leaves it `-`/`pending`) — it is informational, so an imperfect value never breaks conveyance. Parse must tolerate any non-empty audit text after the version.
+- **The file is APPEND-ONLY and self-no-op-ing — it never needs pruning.** A listed version is re-stamped ONLY on a hash MISMATCH (migrate.go:1371 short-circuits when liveHash == storedHash). Once a host has re-stamped (content_hash now == new bytes), and on every fresh install (V(fixed) applied directly → recorded with the new hash), the listed version's hash MATCHES → the entry is a harmless no-op. So historical amendment rows stay forever as a permanent audit ledger with zero runtime cost and no cleanup burden. (Do NOT add pruning — removing a row can't "un-re-stamp" anything; it would only lose the audit trail and risk re-hard-failing a host that hasn't upgraded yet.)
+- **The immutability gate's protection is fully preserved:** only LISTED versions are circumvented; any OTHER released migration whose bytes changed still HARD-FAILS at migrate.go:1404. The file widens the exemption for named versions only — it does not weaken the gate.
 
 ## 3. The two populations — both converge (caveat #3)
 - **THE FEW** (V crashed/timed-out → **unrecorded**, because every migration is a single BEGIN/END transaction — a crash/timeout rolls back the WHOLE migration, leaving NO partial state): on upgrade to the amended release, V is absent from `db.migration` → it's in the pending set → **forward-applied** as V(fixed) via runPsqlFile (migrate.go:813) → records with the new hash (:868). `eagerContentHashCheck` never touches V (it only checks RECORDED rows). Clean, because the original V's transaction rolled back entirely.
