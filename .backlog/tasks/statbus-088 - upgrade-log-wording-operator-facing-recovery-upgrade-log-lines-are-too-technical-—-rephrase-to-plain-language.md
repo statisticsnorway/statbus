@@ -3,10 +3,10 @@ id: STATBUS-088
 title: >-
   upgrade-log-wording: operator-facing recovery/upgrade log lines are too
   technical — rephrase to plain language
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-18 12:48'
-updated_date: '2026-06-18 12:50'
+updated_date: '2026-06-18 17:32'
 labels:
   - upgrade-ui
   - ux
@@ -44,4 +44,6 @@ CATALOGUE (operator, 2026-06-18) + foreman correction. Operator-visible upgrade/
 Jargon in use: "post-swap", "pipeline", "ground truth", "flag", "Resuming-phase", "binary-swap commit boundary".
 
 CORRECTION (foreman): the operator classified the logRecover lines as NOT UI-surfaced, but the King saw line :894's exact text ("Post-swap restart detected... resuming pipeline on new binary") ON the Software Upgrades page. So logRecover DOES reach the UI log (both progress.Write AND logRecover write into the per-upgrade log the page's Log expander shows). => the rewording scope is ALL ~12 messages above, not just the progress.Write ones. Confirm the log-surfacing path (logRecover -> per-upgrade log file -> UI) when fixing; reword every operator-visible line to plain language, keep only genuinely journal-only log.Printf lines technical.
+
+DONE 2026-06-18 — committed in 2134edab8 (with the 090-backend NOTIFY move, same service.go pass). Reworded the ~12 operator-facing log lines to plain 'what happened + what to expect + data safety' language: 4 success-path (maintenance + 3 install-fixup) + 8 recovery-narrative logRecover lines (resume-forward, resume-rollback, post-swap-resume, pre-swap-rollback, the rollback REASON strings, FLAG_PHASE_UNKNOWN) + the :867 forward-resume soften (covers the ground-truth-UNKNOWN sub-case without overclaiming) + the :954 PreSwap rollback reason (consistency with the reworded resume-died reason). PATTERN: plain operator sentence FIRST + a preserved `(detail: …)` triage tail — so SSB's support-bundle greps for the load-bearing identifiers (Err* stored-error prefixes, STATBUS-039, phase labels, FLAG_PHASE_UNKNOWN invariant, ground-truth) still work. Only operator-visible lines (logRecover/fmt.Println/progress.Write) touched; journal-only log.Printf left technical; the returned fmt.Errorf contracts unchanged; arg order unchanged (go vet clean). Especially serves the remote (Albania) operator watching a failed upgrade. Architect-reviewed (scope + Err*-prefix preservation) + foreman-reviewed (operator-clarity). Proposal record: tmp/engineer-088-wording.md. King reviews the final prose on return; can refine.
 <!-- SECTION:NOTES:END -->
