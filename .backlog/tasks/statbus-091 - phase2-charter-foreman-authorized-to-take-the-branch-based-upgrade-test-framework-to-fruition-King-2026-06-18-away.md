@@ -6,6 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-18 14:55'
+updated_date: '2026-06-18 14:57'
 labels:
   - upgrade
   - phase-2
@@ -38,3 +39,28 @@ BUILD ORDER (dependency-aware):
 
 This task is the durable record of the authority + the master tracker for the Phase-2 drive. Supersedes the Phase-2 half of STATBUS-075 (which tracked the install RC, now cut as v2026.06.0-rc.04).
 <!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 All reported issues fixed, reviewed, and committed: STATBUS-087 (history label), -088 (operator log wording), -089 (maintenance + upgrade-regenerates-config), -090 (status-lag race)
+- [ ] #2 Architecture improvements landed on master: STATBUS-086 (check/list/register/schedule, apply+discover retired), -034 (branch-channel), -072 (amend-in-place + re-stamp)
+- [ ] #3 Branch-arc framework (STATBUS-071) built: throwaway test branches (base + defect + fix), upgrade-arc-harness.yaml, the register+schedule test driver (real web→NOTIFY→service path), inject-on-real-upgrade for precise kills, clean-slate-after-rollback fingerprint
+- [ ] #4 The framework RUNS the real failure/fix arcs GREEN on Hetzner VMs: install A -> upgrade to defective B (too-long/OOM + crash) -> failure observed -> fix branch C lands forward for BOTH populations (few-who-failed re-run + many-who-succeeded re-stamp) -> post-rollback fingerprint == post-A
+- [ ] #5 Failure-mode matrix (STATBUS-044) covered on real upgrades
+- [ ] #6 fabricate_scheduled_upgrade_row + the fabricated-row/injected-kill workarounds RETIRED
+- [ ] #7 Master stayed green throughout; every code unit was architect-reviewed AND foreman-diff-reviewed before commit
+<!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+DRIVE PLAN — how this gets taken home (foreman, per King's orchestration guidance 2026-06-18):
+
+ORCHESTRATION LOOP (every code unit, no exceptions): architect designs/specs -> engineer codes -> ARCHITECT code-reviews it adversarially (correctness, missing pieces, matches spec?) -> foreman reviews the diff + refines -> foreman commits + pushes. Mechanic takes small/disjoint fixes; tester runs tests (sole runner); operator does legwork. Use the WHOLE team; nothing lands without the architect's review + my diff review.
+
+CADENCE: ship bit-by-bit, master green between units. For anything touching the upgrade/recovery path, the RUN is the oracle: commit -> push -> CI builds the per-commit image -> the branch-arc harness run validates it -> observe -> iterate. Disjoint-files discipline: service.go work is single-owner (engineer, sequenced 086->072->090->088); frontend (087) runs parallel via mechanic.
+
+WAVES: W1 (in flight) 086 + 087 + (architect: 071 build-spec & 089 design). W2 072, 034, 089-impl, 090, 088. W3 071 framework then 044 matrix.
+
+FRUITION = AC #4: the branch-arc harness runs the real failure/fix arcs green and the fabricated workarounds are retired -> we can finally test the upgrade failure scenarios faithfully (the King's stated reason). Progress tracked on THIS ticket each wave; King reviews on return.
+<!-- SECTION:NOTES:END -->
