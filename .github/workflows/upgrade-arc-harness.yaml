@@ -1,0 +1,258 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Upgrade Arc Harness
+
+# Upgrade Arc Harness — the REAL-upgrade-arc framework (STATBUS-071, doc-012).
+#
+# Stop FABRICATING crash states. Make the real system produce them via a real
+# arc: install A → upgrade to a defective B → service rolls back → upgrade to a
+# fixed C. Every upgrade is driven through the public.upgrade scheduling row
+# (register + schedule, STATBUS-086) — the Albania web-UI mechanism — and the
+# box must apply/recover AUTONOMOUSLY.
+#
+# === THIS COMMIT = THE SKELETON (doc-012 §9 (a)+(b)) ===
+# It proves the BRANCH + IMAGE + TEARDOWN lifecycle leaves ZERO orphans BEFORE
+# any real arc is added:
+#   construct  → push a test/* defect→fixed branch pair off A, then dispatch
+#                images.yaml per branch (Q1: a GITHUB_TOKEN push does NOT trigger
+#                downstream workflows, so the branch push alone won't build images
+#                — we explicitly `gh workflow run images.yaml --ref <branch>`;
+#                images.yaml itself is UNCHANGED, no test/** push trigger).
+#   image-wait → reuse the install-recovery discover-gate poll: wait until all 4
+#                per-commit service images exist at BOTH B_short and C_short.
+#   run        → NO-OP placeholder. The real register→schedule arc + VM land in
+#                the NEXT increment (doc-012 §9 (c): working→working-fixed).
+#   teardown   → if:always() — delete the two test/* branches. Image cleanup is
+#                deferred to the weekly image-cleanup.yaml GC (Q2): commit_short-
+#                tagged test images are content-unique, never enter the release
+#                path, and are GC'd as orphans — so no explicit delete needed yet.
+#
+# Fire it (workflow_dispatch), confirm ZERO orphan branches/images, THEN the arc
+# increments are added on top.
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_sha:
+        description: 'Base commit A to branch the arc off (blank = this run''s SHA).'
+        required: false
+        default: ''
+      scenario:
+        description: 'Arc scenario name (working | hanging | skeleton). Skeleton run = lifecycle proof only.'
+        required: false
+        default: 'skeleton'
+
+concurrency:
+  group: upgrade-arc-harness
+  cancel-in-progress: false
+
+permissions:
+  contents: write   # push + delete the throwaway test/* branch fixtures
+  actions: write    # gh workflow run images.yaml --ref <branch>
+  packages: read    # docker manifest inspect (image-wait)
+
+jobs:
+  construct:
+    name: Construct branch fixtures + dispatch image builds
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      base_sha: ${{ steps.fixtures.outputs.base_sha }}
+      b_branch: ${{ steps.fixtures.outputs.b_branch }}
+      c_branch: ${{ steps.fixtures.outputs.c_branch }}
+      b_short: ${{ steps.fixtures.outputs.b_short }}
+      c_short: ${{ steps.fixtures.outputs.c_short }}
+    steps:
+      - name: Checkout (full history — branch fixtures are real commits off A)
+        uses: actions/checkout@v4
+        with:
+          # Default token is persisted by checkout so the pushes below authenticate.
+          fetch-depth: 0
+
+      - name: Build the B (defect) → C (fixed) branch pair off A
+        id: fixtures
+        env:
+          # base_sha input wins; blank → this run's triggering SHA.
+          BASE_SHA_INPUT: ${{ github.event.inputs.base_sha }}
+          SCENARIO: ${{ github.event.inputs.scenario }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          git config user.name  "statbus-upgrade-arc[bot]"
+          git config user.email "statbus-upgrade-arc@users.noreply.github.com"
+
+          base_sha="${BASE_SHA_INPUT:-${GITHUB_SHA}}"
+          # Run-id suffix de-collides branch names across overlapping runs
+          # (commit_short already makes the IMAGES content-unique).
+          b_branch="test/${SCENARIO}-migration-${RUN_ID}"
+          c_branch="test/${SCENARIO}-fixed-migration-${RUN_ID}"
+          echo "A (base) = ${base_sha}"
+          echo "B branch = ${b_branch}"
+          echo "C branch = ${c_branch}"
+
+          # --- B: the DEFECT branch, off A. ---
+          # SKELETON: a minimal marker commit is enough to give B a unique
+          # commit_short → unique per-commit images, which is all the lifecycle
+          # proof needs. The REAL migration fixture (a genuine migrations/<ts>_V
+          # .up.sql + .down.sql per doc-012 §4) is added to THIS step in the
+          # working→working-fixed increment (doc-012 §9 (c)).
+          git checkout -B "$b_branch" "$base_sha"
+          mkdir -p test/upgrade-arc/fixtures
+          printf 'scenario=%s\nrole=defect (B)\nrun_id=%s\n' "$SCENARIO" "$RUN_ID" \
+            > "test/upgrade-arc/fixtures/${SCENARIO}.txt"
+          git add "test/upgrade-arc/fixtures/${SCENARIO}.txt"
+          git commit -q -m "test(upgrade-arc): ${SCENARIO} defect fixture (B) [skeleton]"
+          b_short="$(git rev-parse --short=8 HEAD)"
+
+          # --- C: the FIXED branch, off B (Option-1 topology: the fix edits the
+          # same fixture in place; doc-012 §7). SKELETON: edit the marker. ---
+          git checkout -B "$c_branch" "$b_branch"
+          printf 'scenario=%s\nrole=fixed (C)\nrun_id=%s\n' "$SCENARIO" "$RUN_ID" \
+            > "test/upgrade-arc/fixtures/${SCENARIO}.txt"
+          git add "test/upgrade-arc/fixtures/${SCENARIO}.txt"
+          git commit -q -m "test(upgrade-arc): ${SCENARIO} fixed fixture (C) [skeleton]"
+          c_short="$(git rev-parse --short=8 HEAD)"
+
+          # Push BOTH branches before dispatching images.yaml (gh dispatches
+          # against an existing remote ref).
+          git push -f origin "$b_branch" "$c_branch"
+
+          {
+            echo "base_sha=${base_sha}"
+            echo "b_branch=${b_branch}"
+            echo "c_branch=${c_branch}"
+            echo "b_short=${b_short}"
+            echo "c_short=${c_short}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch images.yaml for B and C (push does not trigger; dispatch does)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          B_BRANCH: ${{ steps.fixtures.outputs.b_branch }}
+          C_BRANCH: ${{ steps.fixtures.outputs.c_branch }}
+        run: |
+          set -euo pipefail
+          # images.yaml is UNCHANGED — its workflow_dispatch is the public entry
+          # point; building per branch tags statbus-{app,worker,db,proxy}:<short>.
+          #
+          # RETRY: GitHub ref propagation is eventually-consistent. A
+          # `gh workflow run --ref <branch>` fired ~one step after the push can
+          # transiently fail "No ref found for: <branch>". A single attempt under
+          # `set -e` would be a FLAKY RED *and* would skip image-wait (an
+          # inconclusive oracle run). Retry until the ref is visible; fail loud
+          # only after the budget.
+          dispatch_images() {
+            local ref="$1" attempt
+            for attempt in 1 2 3 4 5; do
+              if gh workflow run images.yaml --ref "$ref"; then
+                echo "Dispatched images.yaml for ${ref} (attempt ${attempt})."
+                return 0
+              fi
+              echo "  dispatch for ${ref} failed (attempt ${attempt}/5) — ref not propagated yet? retrying in 5s..."
+              sleep 5
+            done
+            echo "::error title=images.yaml dispatch failed::could not dispatch for ${ref} after 5 attempts" >&2
+            return 1
+          }
+          dispatch_images "$B_BRANCH"
+          dispatch_images "$C_BRANCH"
+
+  image-wait:
+    name: Wait for per-commit images (B + C)
+    needs: construct
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - name: Poll ghcr until all 4 service images exist at B_short AND C_short
+        # Mirrors install-recovery-harness.yaml's discover-gate poll, generalized
+        # over the two commit_shorts. The images are built by the images.yaml runs
+        # construct dispatched; a cold build is ~20-30 min, so the budget matches.
+        env:
+          REGISTRY: ghcr.io
+          ORG: statisticsnorway
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+          DOCKER_CLI_EXPERIMENTAL: enabled
+          IMAGES_WAIT_BUDGET_S: "2400"
+          IMAGES_WAIT_INTERVAL_S: "30"
+          SHORTS: "${{ needs.construct.outputs.b_short }} ${{ needs.construct.outputs.c_short }}"
+        run: |
+          set -euo pipefail
+          echo "${GH_TOKEN}" | docker login "$REGISTRY" -u "$ACTOR" --password-stdin
+          echo "Waiting for images at commit_shorts: ${SHORTS}"
+
+          services="app worker db proxy"
+          start=$SECONDS
+          while :; do
+            missing=""
+            for short in $SHORTS; do
+              for svc in $services; do
+                ref="${REGISTRY}/${ORG}/statbus-${svc}:${short}"
+                if ! docker manifest inspect "$ref" >/dev/null 2>&1; then
+                  missing="${missing} statbus-${svc}:${short}"
+                fi
+              done
+            done
+            if [ -z "$missing" ]; then
+              echo "All per-commit service images present for: ${SHORTS}."
+              break
+            fi
+            elapsed=$(( SECONDS - start ))
+            if [ "$elapsed" -ge "$IMAGES_WAIT_BUDGET_S" ]; then
+              echo "::error title=Arc images not published::missing after $((IMAGES_WAIT_BUDGET_S/60))m:${missing}"
+              {
+                echo "construct pushed the test/* branches and dispatched images.yaml per branch,"
+                echo "but the per-commit service images are not all in ghcr yet."
+                echo "Check the Images runs: gh run list --workflow=images.yaml"
+              } >&2
+              exit 1
+            fi
+            echo "Waiting for:${missing} (elapsed ${elapsed}s / ${IMAGES_WAIT_BUDGET_S}s) — re-checking in ${IMAGES_WAIT_INTERVAL_S}s..."
+            sleep "$IMAGES_WAIT_INTERVAL_S"
+          done
+
+  run-arc:
+    name: Run arc (SKELETON no-op)
+    needs: image-wait
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: No-op (real register→schedule arc + VM lands in the next increment)
+        run: |
+          echo "SKELETON: branch fixtures built + images present — lifecycle wired."
+          echo "The real arc (install A → register/schedule → B/C, fingerprint, kill points)"
+          echo "is added in doc-012 §9 (c)/(d). This job is intentionally a no-op for now."
+
+  teardown:
+    name: Teardown (delete test/* branches)
+    needs: [construct, image-wait, run-arc]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout (for the git push --delete credentials)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Delete the throwaway test/* branches (idempotent, best-effort)
+        # Recompute the branch names from the inputs + run_id so teardown deletes
+        # them even if construct partially failed (its outputs may be empty). The
+        # IMAGES are left to the weekly image-cleanup.yaml GC (Q2): they are
+        # commit_short-tagged, content-unique, never release-tagged → harmless
+        # short-lived orphans the digest-aware GC reclaims. ALWAYS exits 0 — a
+        # missing branch (already deleted / never pushed) must not red the run.
+        env:
+          SCENARIO: ${{ github.event.inputs.scenario }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -uo pipefail
+          for suffix in migration fixed-migration; do
+            br="test/${SCENARIO}-${suffix}-${RUN_ID}"
+            if git ls-remote --exit-code --heads origin "$br" >/dev/null 2>&1; then
+              echo "Deleting $br"
+              git push origin --delete "$br" || echo "  (delete failed — best-effort; weekly sweep is the backstop)"
+            else
+              echo "$br not present (already gone / never pushed) — nothing to delete."
+            fi
+          done
+          exit 0
