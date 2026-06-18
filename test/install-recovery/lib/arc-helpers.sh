@@ -74,6 +74,41 @@ dump_signing_diagnostics() {
     echo "  └─"
 }
 
+# wait_for_unit_active [budget_s] — wait until the upgrade unit is active (+ a
+# short settle for its LISTEN to establish). BUG-2 mitigation: after B's upgrade
+# the daemon RESTARTS onto B's binary (post-swap exit-42 handoff); if C is
+# scheduled before the restarted daemon is back up + LISTENing on upgrade_apply,
+# the NOTIFY is missed and C's 'scheduled' row sits unclaimed (the working-arc
+# stuck-C). Waiting before each register/schedule shrinks that window. (Whether
+# the daemon claims a pending 'scheduled' row on restart vs only on live NOTIFY
+# is the architect's root-cause; this is the harness-side mitigation + instrument.)
+wait_for_unit_active() {
+    local unit="statbus-upgrade@statbus.service" budget="${1:-180}" start s
+    start=$(date +%s)
+    while true; do
+        s=$(VM_EXEC systemctl --user is-active "$unit" 2>/dev/null | tr -d ' \r\n' || echo "?")
+        if [ "$s" = "active" ]; then echo "  ✓ upgrade unit active"; sleep 5; return 0; fi
+        if [ "$(( $(date +%s) - start ))" -ge "$budget" ]; then
+            echo "✗ upgrade unit not active within ${budget}s (state=$s)" >&2
+            return 1
+        fi
+        sleep 3
+    done
+}
+
+# dump_daemon_state <label> — DIAGNOSTIC (BUG-2): the upgrade unit's is-active,
+# whether a backend is LISTENing on upgrade_apply, + the recent journal, right
+# before scheduling. Reveals whether the post-B-restart daemon was ready when C
+# was scheduled. Best-effort; never fails the arc.
+dump_daemon_state() {
+    local label="$1" unit="statbus-upgrade@statbus.service"
+    echo "  ┌─ daemon state ($label) ─"
+    echo "  │ is-active: $(VM_EXEC systemctl --user is-active "$unit" 2>/dev/null | tr -d ' \r\n' || echo '?')"
+    echo "  │ LISTEN upgrade_apply backends: $(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM pg_stat_activity WHERE query = 'LISTEN upgrade_apply';\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo '?')"
+    VM_EXEC bash -c "journalctl --user -u $unit --no-pager -n 6 2>/dev/null | sed 's/^/  | /'" 2>/dev/null || true
+    echo "  └─"
+}
+
 # arc_to <sha> <branch> <label> [expected_state] — drive ONE upgrade through the
 # real register→ready→schedule→service-runs→terminal path (0-happy-upgrade
 # phases 4-6, generalized). Pre-fetches the target branch so the daemon's
@@ -83,6 +118,11 @@ arc_to() {
     local sha="$1" branch="$2" label="$3" expected="${4:-completed}"
     echo ""
     echo "── arc → ${label} (${sha:0:8}; expect '${expected}') ──"
+    # BUG-2: the daemon may have just restarted (post-previous-upgrade handoff) —
+    # ensure it's up + settled (LISTENing) before we register/schedule, and show
+    # its state for diagnosis.
+    wait_for_unit_active || { echo "✗ daemon not ready before ${label}" >&2; exit 1; }
+    dump_daemon_state "before ${label}"
     VM_EXEC bash -c "cd ~/statbus && git fetch origin $branch && git cat-file -e $sha"
 
     echo "  register ${label}"
@@ -142,7 +182,11 @@ migration_row_count() {
 #            a worker-quiescence-wait is a noted later enhancement.)
 capture_db_fingerprint() {
     local schema_sha ledger_sha data_sha
-    schema_sha=$(VM_EXEC bash -c 'cd ~/statbus && db=$(./sb dotenv -f .env get POSTGRES_APP_DB) && user=$(./sb dotenv -f .env get POSTGRES_ADMIN_USER) && c=$(docker ps --format "{{.Names}}" | grep -E -- "-db$" | head -1) && docker exec "$c" pg_dump --schema-only --no-owner --no-privileges -U "$user" "$db" 2>/dev/null | grep -v "^--" | sed -e "s/[[:space:]]*$//" -e "/^$/d" | sha256sum | cut -d" " -f1' 2>/dev/null | tr -d ' \r\n')
+    # PGPASSWORD is REQUIRED: locally POSTGRES_ADMIN_USER=postgres connects via the
+    # container's local-socket trust, but on the VM the admin user/password differ
+    # and `docker exec` carries no PG env → pg_dump auth fails → empty output → the
+    # guard below halts (correct, but a false failure). Pass the password explicitly.
+    schema_sha=$(VM_EXEC bash -c 'cd ~/statbus && db=$(./sb dotenv -f .env get POSTGRES_APP_DB) && user=$(./sb dotenv -f .env get POSTGRES_ADMIN_USER) && pass=$(./sb dotenv -f .env get POSTGRES_ADMIN_PASSWORD) && c=$(docker ps --format "{{.Names}}" | grep -E -- "-db$" | head -1) && docker exec -e PGPASSWORD="$pass" "$c" pg_dump --schema-only --no-owner --no-privileges -U "$user" "$db" 2>/dev/null | grep -v "^--" | sed -e "s/[[:space:]]*$//" -e "/^$/d" | sha256sum | cut -d" " -f1' 2>/dev/null | tr -d ' \r\n')
     # CENTERPIECE GUARD: a silently-failed pg_dump / db-container discovery would
     # make schema_sha = sha256("") on BOTH captures → assert_fingerprint_matches
     # would pass VACUOUSLY (a false-green clean-slate proving nothing). Fail loud.
