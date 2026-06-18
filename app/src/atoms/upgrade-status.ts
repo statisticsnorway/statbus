@@ -3,6 +3,7 @@
 import { atom } from 'jotai'
 import { loadable } from 'jotai/utils'
 import { atomWithRefresh } from 'jotai/utils'
+import { atomEffect } from 'jotai-effect'
 
 import { restClientAtom } from './rest-client'
 import { authStateForDataFetchingAtom } from './auth'
@@ -63,7 +64,29 @@ export const pendingUpgradeStatusAtom = atom<UpgradeStatus | null>((get) => {
   switch (loadableState.state) {
     case 'hasData':
       return loadableState.data;
+    case 'loading':
+      // Retain the previous resolved value during a poll-triggered refresh so
+      // consumers don't flicker to null while the fetch is in flight (STATBUS-090).
+      return ((loadableState as { data?: UpgradeStatus | null }).data) ?? null;
     default:
       return null;
   }
+});
+
+// While a pending/in_progress upgrade is active, poll the upgrade row every
+// 4 s independent of the SSE connection. This ensures the UI stays current
+// even if the SSE gives up reconnecting during the maintenance window
+// (STATBUS-090: SSE exhausts ~31 s of backoff while the upgrade takes minutes).
+// Activate by reading this atom in a top-level component (see AppInitializer).
+const UPGRADE_POLL_INTERVAL_MS = 4000;
+
+export const upgradePollingEffectAtom = atomEffect((get, set) => {
+  const status = get(pendingUpgradeStatusAtom);
+  if (status !== 'in_progress' && status !== 'scheduled') return;
+
+  const interval = setInterval(() => {
+    set(pendingUpgradePromiseAtom);
+  }, UPGRADE_POLL_INTERVAL_MS);
+
+  return () => clearInterval(interval);
 });

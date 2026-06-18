@@ -7,7 +7,7 @@
  * and handles app initialization without complex useEffect chains.
  */
 
-import React, { Suspense, ReactNode, useState } from 'react';
+import React, { Suspense, ReactNode, useState, useRef } from 'react';
 import { useGuardedEffect } from '@/hooks/use-guarded-effect';
 import { Provider, useAtom } from 'jotai';
 import { useAtomValue, useSetAtom } from 'jotai';
@@ -71,7 +71,12 @@ import {
 import { AuthCrossTabSyncer } from './AuthCrossTabSyncer';
 import { NavigationManager } from './NavigationManager';
 import { navigationMachineAtom } from './navigation-machine';
-import { pendingUpgradePromiseAtom } from './upgrade-status';
+import {
+  pendingUpgradePromiseAtom,
+  pendingUpgradeStatusAtom,
+  upgradePollingEffectAtom,
+  type UpgradeStatus,
+} from './upgrade-status';
 import { statbusConfig } from '@/lib/statbus-config';
 
 // ============================================================================
@@ -93,6 +98,10 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   
   // Activate table columns hydration detection effect
   useAtomValue(tableColumnsHydrationEffectAtom);
+
+  // Activate upgrade polling fallback: while an upgrade is pending/in_progress,
+  // poll /rest/upgrade every 4 s independent of the SSE (STATBUS-090).
+  useAtomValue(upgradePollingEffectAtom);
 
   // Activate logout cleanup effect (resets app state on logout)
   useAtomValue(logoutEffectAtom);
@@ -298,6 +307,11 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
   const refreshUpgradeStatus = useSetAtom(pendingUpgradePromiseAtom);
   const [, sendAuth] = useAtom(authMachineAtom);
   const tokenExpiresAt = useAtomValue(tokenExpiresAtAtom);
+  // Track upgrade status via a ref so the SSE onerror closure can read the
+  // latest value without it being a dep that re-creates the SSE connection.
+  const upgradeStatus = useAtomValue(pendingUpgradeStatusAtom);
+  const upgradeStatusRef = useRef<UpgradeStatus | null>(null);
+  upgradeStatusRef.current = upgradeStatus;
 
   // SSE connection with heartbeat monitoring
   useGuardedEffect(() => {
@@ -369,6 +383,21 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
               reconnectAttempts++;
               connect();
             }, delay);
+          } else if (
+            upgradeStatusRef.current === 'in_progress' ||
+            upgradeStatusRef.current === 'scheduled'
+          ) {
+            // An upgrade is active — don't give up permanently. The fast-backoff
+            // window exhausted (~31 s) but the maintenance window can last minutes.
+            // Keep retrying on a 30 s slow interval; the polling fallback
+            // (upgradePollingEffectAtom) keeps the UI current in the meantime.
+            reconnectTimeout = setTimeout(() => {
+              reconnectAttempts = 0;
+              connect();
+            }, 30000);
+            if (isDebug) {
+              console.warn('SSE: Max fast reconnect attempts reached during upgrade. Retrying in 30s.');
+            }
           } else {
             console.error(`SSE: Max reconnect attempts (${maxReconnectAttempts}) reached. Giving up.`);
           }
