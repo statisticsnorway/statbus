@@ -31,14 +31,12 @@
 #      HEAD's sb binary to ~/statbus/sb). The unit will use HEAD's
 #      code to dispatch the upgrade once it picks up a scheduled
 #      row. Baseline NRestarts before triggering.
-#   4. Use `./sb upgrade apply <HEAD-SHA>` to write a scheduled
-#      row + NOTIFY the upgrade-service. Per the discover machinery
-#      that runs on the service's tick, the row will be acted on.
-#      (If `./sb upgrade apply` requires the SHA to be in
-#      `public.upgrade` already as 'available', the discover step
-#      runs first via the service's poll tick — this scenario waits
-#      one tick before issuing `apply`.)
-#   5. Wait for the upgrade row to reach a terminal state
+#   4. Register HEAD as an upgrade candidate via `./sb upgrade register
+#      <HEAD-SHA>` (the real post-086 verb — the box is already at HEAD's
+#      binary), then wait for it to reach 'ready' (register → ready).
+#   5. Schedule it via `./sb upgrade schedule <HEAD-SHA>`; the DB trigger
+#      NOTIFYs the upgrade-service, which claims + runs executeUpgrade.
+#      Wait for the upgrade row to reach a terminal state
 #      (completed | failed | rolled_back) — happy path expectation
 #      is `completed`.
 #   6. Assert convergence: state='completed', data intact, services
@@ -135,45 +133,47 @@ vm_restart_unit "statbus-upgrade@statbus.service"
 echo "  ✓ unit active on the HEAD binary"
 
 # ─────────────────────────────────────────────────────────────────────────
-# Phase 4 — fabricate a scheduled public.upgrade row for HEAD
+# Phase 4 — REGISTER HEAD as an upgrade candidate (the real post-086 path)
 #
-# Previously this scenario waited one upgrade-service tick for discover
-# to populate the row from git tags, then called `./sb upgrade apply`
-# to transition it to scheduled. That path fails when HEAD is not on
-# a release tag (the common case in the harness flow).
+# STATBUS-086 (criterion-8 real-path proof): drive the upgrade through the NEW
+# operator verbs `./sb upgrade register` + `./sb upgrade schedule` — NOT
+# fabricate_scheduled_upgrade_row (which hand-INSERTs a synthetic 'scheduled'
+# row, bypassing the real mechanism; fabricate stays for the v2026.05.2-baseline
+# kill scenarios that have no daemon-independent scheduling verb — STATBUS-071
+# reshapes those). The box is already at HEAD's binary (staged + unit restarted
+# above), so it HAS register/schedule. register upserts the candidate
+# (state='available') through the SAME upsertCandidate path discovery uses, and
+# pokes the service to prepare it: NOTIFY upgrade_check → the daemon's
+# verifyArtifacts flips docker_images_status 'building'→'ready' once the four
+# per-commit service images are in the registry. That docker_images_status flip
+# is what the wait below gates on — for tagged AND untagged HEAD alike.
+# (register also sets release_builds_status='ready' for an untagged commit, but
+# that field tracks GitHub release artifacts, not the image gate the wait uses.)
 #
-# Replaced with `fabricate_scheduled_upgrade_row` — same primitive
-# used by scenario 3-postswap-watchdog-reconnect — which INSERTs the row directly with
-# state='scheduled' regardless of discover's git-tag findings. The
-# helper is idempotent so re-running the scenario doesn't accumulate
-# rows.
-#
-# We still need to NOTIFY the unit so it picks up the new row
-# immediately instead of waiting up to TICK_WAIT_S for the next poll.
-# `./sb upgrade apply $SHORT_SHA` sends NOTIFY upgrade_apply; with the
-# row already in 'scheduled', apply's UPDATE is a no-op (row stays in
-# 'scheduled' with the same scheduled_at) but the NOTIFY fires —
-# wake-up optimization.
+# INTENTIONALLY NOT quiesced (the unattended-dispatch invariant exception): this
+# scenario tests the path where the upgrade SERVICE claims + dispatches the
+# scheduled row. The schedule below promotes the candidate → the DB trigger
+# NOTIFYs upgrade_apply → the running unit claims + runs executeUpgrade.
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
-echo "── fabricating scheduled public.upgrade row for HEAD ──"
-# INTENTIONALLY NOT quiesced (fabricate-claim invariant exception): this
-# scenario tests the UNATTENDED path where the upgrade SERVICE claims and
-# dispatches the scheduled row (the NOTIFY wake below). Quiescing would remove
-# the dispatcher and there would be nothing to test.
-fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
+echo "── registering HEAD as an upgrade candidate (./sb upgrade register) ──"
+VM_EXEC bash -c "cd ~/statbus && ./sb upgrade register $HEAD_LOCAL 2>&1 | tail -20"
+
+echo ""
+echo "── waiting for the candidate to reach 'ready' (register → ready) ──"
+wait_for_upgrade_candidate_ready "$VM_NAME" "$HEAD_SHA" "$TICK_WAIT_S"
 
 # ─────────────────────────────────────────────────────────────────────────
-# Phase 5 — trigger upgrade via `./sb upgrade apply <sha>` (NOTIFY wake)
+# Phase 5 — SCHEDULE the ready candidate (./sb upgrade schedule)
+#
+# Promotes the row to 'scheduled'; upgrade_notify_daemon_trigger fires NOTIFY
+# upgrade_apply; the running (unquiesced) upgrade-service unit claims it and runs
+# executeUpgrade → applyPostSwap. This is the genuine
+# register→ready→schedule→service-runs→completed real path (criterion-8).
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
-echo "── waking the unit via NOTIFY (./sb upgrade apply) ──"
-SHORT_SHA=$(echo "$HEAD_SHA" | cut -c1-8)
-# Apply may exit non-zero when HEAD has no matching commit_tags entry (non-fatal):
-# the row is already 'scheduled' from fabrication; the unit's poll tick picks it
-# up regardless.  Single-line avoids the dash SSH $'...\n...' quoting collapse;
-# || true makes the non-zero apply non-fatal.
-VM_EXEC bash -c "cd ~/statbus && ./sb upgrade apply $SHORT_SHA 2>&1 | tail -20 || true"
+echo "── scheduling the upgrade (./sb upgrade schedule) ──"
+VM_EXEC bash -c "cd ~/statbus && ./sb upgrade schedule $HEAD_LOCAL 2>&1 | tail -20"
 
 # Wait for the row to transition to in_progress, then to a terminal state.
 echo ""

@@ -345,6 +345,41 @@ SQL
 }
 
 # ─────────────────────────────────────────────────────────────────────────
+# wait_for_upgrade_candidate_ready <vm_name> <commit_sha> [budget_s]
+#
+# Polls public.upgrade until the candidate row for commit_sha reports
+# docker_images_status='ready' — i.e. the service's verifyArtifacts (service.go:1101)
+# confirmed the four per-commit SERVICE images (db/app/worker/proxy:<commit_short>)
+# the upgrade pipeline pulls. `./sb upgrade register` pokes the service (NOTIFY
+# upgrade_check → discover → verifyArtifacts) which flips 'building'→'ready' once
+# the registry manifests exist (the CI image-wait gate guarantees they do). This
+# is the spec's "verifyArtifacts status" readiness — NOT release_builds_status,
+# which tracks GitHub RELEASE artifacts (binary self-update) that need not exist
+# for a fresh commit/rc and would spuriously time out. Gates the criterion-8
+# happy-path real-path proof's `./sb upgrade schedule` on register→ready
+# (STATBUS-086). Bounded; returns non-zero on timeout (prints the last-seen status).
+# ─────────────────────────────────────────────────────────────────────────
+wait_for_upgrade_candidate_ready() {
+    local vm_name="$1" commit_sha="$2" budget_s="${3:-120}"
+    local start status elapsed
+    start=$(date +%s)
+    echo "  [data] waiting for candidate $commit_sha → docker_images_status='ready' (budget ${budget_s}s)"
+    while :; do
+        status=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT docker_images_status FROM public.upgrade WHERE commit_sha = '$commit_sha' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
+        if [ "$status" = "ready" ]; then
+            echo "  [data] ✓ candidate images ready"
+            return 0
+        fi
+        elapsed=$(( $(date +%s) - start ))
+        if [ "$elapsed" -ge "$budget_s" ]; then
+            echo "  ✗ candidate $commit_sha did not reach docker_images_status='ready' within ${budget_s}s (last='$status')" >&2
+            return 1
+        fi
+        sleep 3
+    done
+}
+
+# ─────────────────────────────────────────────────────────────────────────
 # seed_pre_upgrade_snapshot <vm_name>
 #
 # Seeds a REAL, restorable pre-upgrade-active DB snapshot so a recovery's
