@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-17 11:04'
-updated_date: '2026-06-17 22:37'
+updated_date: '2026-06-18 01:21'
 labels:
   - install-recovery
   - rc.04
@@ -95,4 +95,18 @@ RUN 27715901866 COMPLETE (foreman, overnight 2026-06-18): 13 reds / 19 green (th
 • 5-install-stage-a-killed-migrate — HARNESS BASH SYNTAX ERROR (NOT infra, NOT seed-restore despite STATBUS-029's old note). The empty-app-name advisory-lock-zombie wedge hit `bash: -c: line 1: syntax error near unexpected token 'then'` (:3844) -> rc=2 at vm-bootstrap.sh:360; the `sudo -i -u statbus -- $quoted_args` transport collapsed a multi-line if/then (the printf-%q/newline-collapse class). Likely a quick harness transport fix. Routed to architect for wedge-owner + line.
 
 PLAN: commit + re-fire the 11-fix batch (validates Mode A/B/C/D; the architect's 'Fix C may unmask Root-B-class issues' caveat means the re-run is a DISCOVERY run, not guaranteed green — iterate per the doctrine). Fold 5-install's wedge fix if quick + ready before commit (->12/13). 4-rollback-restore-watchdog -> next iteration unless foldable. So the cut is more than one re-run away: 13 reds, 11 fixed-pending-validation, 2 new in diagnosis, plus whatever the Mode-A unmask reveals. Commit message drafted: tmp/commit-msg-harness-batch.txt.
+
+DISCOVERY RUN 27724641822 (on 674329816, the 11-fix batch) COMPLETE: 13→10 reds. The doctrine working — real progress + the predicted Mode-A unmask + one foreman regression.
+
+FIXED (4): 3-postswap-between-migrations-kill + 3-postswap-mid-migration-kill (Mode A), 3-postswap-migration-deterministic-error + 3-postswap-migrate-killed-after-commit (Mode C). Mode C (data-helpers log-pointer) fully worked.
+
+UNMASK — Mode A WORKS, reveals the NEXT layer (recovery freshness-rebuild). backup-kill (representative): now reaches scheduled-upgrade → executeUpgrade → C3 kill FIRES (rc=137) → '✓ RED confirmed: flag PreSwap, .tmp backup, binary unswapped' (the kill is perfect — the original goal). REAL failure is now the RECOVERY: the Mode-B reuse-staged HEAD binary, run on the recovery-boot-restored SOURCE tree, mismatches → freshness SELF-HEAL → 'go build ... version=2026.05.2' → 'Self-heal rebuild/exec failed: rebuild failed: exit status 2' (no Go toolchain on the VM). Likely same for binary-swap/container-restart/mid-tx/4-rollback. Architect triaging: fix = carve out freshness in the reuse-staged path OR pivot Mode B to install.sh --commit <sha> (STATBUS-082, procure not rebuild); + whether freshness-rebuild-on-recovery is a latent Albania risk (no-Go box).
+
+MODE D (resume-died-rollback): SKIP_SEED INSUFFICIENT — kill fires but the resume still self-heals to 'completed' (service.go:4716). Needs a deeper fix; architect re-diagnosing.
+
+Mode B (checkout-kill): kill fires + a new rc=2 at vm-bootstrap.sh:600 — same freshness-rebuild or different; architect triaging.
+
+REGRESSION (foreman-owned): 1-boot-concurrent-install was GREEN; the completeness-fold of its checkout-removal turned it RED ('first install did not create upgrade-in-progress.json' — the checkout was load-bearing for its inject path). The 'safe to fold' analysis (mine + architect-concurred) was wrong; the re-run is the oracle. REVERTING via the engineer (restore its checkout) — goes in the next batch.
+
+NEXT BATCH: revert 1-boot + #2 ssh-STDIN (pre-staged, approved) + the architect's recovery-unmask fixes (freshness/Mode-B + Mode D) → commit → re-fire. #1 (4-rollback-restore-watchdog) still parked for real-VM tuning. Honest: several iterations from 100% green; each run peels a layer.
 <!-- SECTION:NOTES:END -->
