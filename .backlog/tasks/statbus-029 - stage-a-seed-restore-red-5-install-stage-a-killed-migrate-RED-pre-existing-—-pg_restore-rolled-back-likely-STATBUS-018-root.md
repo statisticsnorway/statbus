@@ -3,11 +3,11 @@ id: STATBUS-029
 title: >-
   stage-a-seed-restore-red: 5-install-stage-a-killed-migrate RED (pre-existing)
   — pg_restore rolled back (likely STATBUS-018 root)
-status: In Progress
+status: Done
 assignee:
   - architect
 created_date: '2026-06-11 07:48'
-updated_date: '2026-06-15 14:43'
+updated_date: '2026-06-18 08:20'
 labels:
   - install-recovery
   - harness
@@ -48,3 +48,9 @@ ARCHITECT VERDICT (2026-06-15, foreman accepted + verified). The scenario is MIS
 
 RE-DESIGN COMMITTED 55d5efa96 (foreman reviewed + ratified the architect's design call). 029 now synthesizes the REALISTIC orphan: an EMPTY-app advisory holder (simulate_advisory_zombie_empty_app, the rune PID-9962 shape — gate-detectable so GREEN on current code) + a statistical_* psql subprocess; asserts recovery cleans BOTH by CAPTURED backend PID (Phase 2 reaps the holder, Phase 1 sweeps the subprocess), avoiding a false-positive on the install's own boot-migrate empty-app holder; keeps step9 + upgrade-service + health assertions; fail-fast if neither wedge engages. DESIGN CALL (foreman-ratified): empty-app holder = green-for-this-RC; the TAGGED `statbus-migrate-<deadpid>` holder (the 055 detection gap) is NOT folded in here — it stays as STATBUS-055's own RED→GREEN. Complements stage-d (holder alone). bash -n clean; helpers verified. NOT yet VM-validated (harness convention — wedge/keepalive timing needs tuning); validated in the comprehensive matrix run once the daemon-startup fix (31db8cec0) confirms green.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+DONE — 5-install-stage-a-killed-migrate is GREEN as of run 27731940038 (2026-06-18). The task's original premise (a pg_restore/seed-restore root, STATBUS-018) was wrong: the real cause was the VM_EXEC multi-line transport bug (a `printf %q`/newline collapse turned a multi-line if/then into a bash syntax error), fixed in batch 2a (783bb0905). The separate seed-restore-on-populated-DB concern remains tracked under STATBUS-018. Closed during the 2026-06-18 board cleanup.
+<!-- SECTION:FINAL_SUMMARY:END -->
