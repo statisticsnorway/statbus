@@ -2844,7 +2844,9 @@ func (d *Service) reconnect(ctx context.Context) error {
 }
 
 func (d *Service) cleanStaleMaintenance(ctx context.Context) {
-	maintenanceFile := filepath.Join(os.Getenv("HOME"), "maintenance")
+	// Same flag-file path the writer (setMaintenance) uses — see the
+	// maintenance path convention in exec.go (STATBUS-089).
+	maintenanceFile := maintenanceFlagHostPath()
 	if _, err := os.Stat(maintenanceFile); os.IsNotExist(err) {
 		return
 	}
@@ -4171,7 +4173,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	}
 	progress.Write("Entering maintenance mode...")
 	d.setMaintenance(true)
-	progress.Write("Maintenance mode active (~/maintenance file written; Caddy now returns 503).")
+	progress.Write("Maintenance mode active (~/statbus-maintenance/active file written; Caddy now returns 503).")
 
 	// Step 3: Stop application services (proxy stays running for maintenance page).
 	// Hard error: running services during backup risk inconsistent state.

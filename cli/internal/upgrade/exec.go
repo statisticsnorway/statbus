@@ -209,14 +209,51 @@ func (d *Service) pullImagesForCommitShort(commitShort string) error {
 	return err
 }
 
+// Maintenance flag-file path convention (STATBUS-089). The upgrade service
+// writes a flag file on the HOST; the proxy container reads it through a bind
+// mount; Caddy's @maintenance matcher checks it. ALL THREE MUST AGREE:
+//
+//	host write:     $HOME/statbus-maintenance/active
+//	bind mount:     $HOME/statbus-maintenance → /statbus-maintenance  (caddy/docker-compose.yml)
+//	Caddy matcher:  file /statbus-maintenance/active                  (caddy/templates/*.caddyfile.tmpl)
+//
+// TestMaintenancePathAlignment pins this agreement so a future edit cannot
+// silently re-split it (the 2026-04-14 regression this fixes: the writer wrote
+// ~/maintenance — OUTSIDE the mounted dir — so the matcher never fired and
+// maintenance mode was dead on every standalone+private box since then).
+const (
+	maintenanceFlagDir     = "statbus-maintenance"  // host dir under $HOME, bind-mounted to maintenanceMountTarget
+	maintenanceFlagName    = "active"               // flag file inside it
+	maintenanceMountTarget = "/statbus-maintenance" // in-container mount point
+)
+
+// maintenanceFlagHostPath is the host path the upgrade service writes/removes
+// ($HOME/statbus-maintenance/active).
+func maintenanceFlagHostPath() string {
+	return filepath.Join(os.Getenv("HOME"), maintenanceFlagDir, maintenanceFlagName)
+}
+
+// maintenanceFlagContainerPath is the absolute in-container path Caddy's
+// @maintenance matcher checks (/statbus-maintenance/active).
+func maintenanceFlagContainerPath() string {
+	return maintenanceMountTarget + "/" + maintenanceFlagName
+}
+
 func (d *Service) setMaintenance(active bool) {
-	// ~/maintenance is the path Caddy's try_files directive watches (see
-	// cli/src/templates/private.caddyfile.ecr and standalone.caddyfile.ecr).
-	// When this file exists, Caddy serves maintenance.html with 503 for all requests.
-	file := filepath.Join(os.Getenv("HOME"), "maintenance")
+	// The flag file lives under $HOME/statbus-maintenance/ — the host directory
+	// bind-mounted into the proxy container at /statbus-maintenance. Caddy's
+	// @maintenance matcher checks `file /statbus-maintenance/active`; when this
+	// file exists the proxy serves maintenance.html with 503 for all requests.
+	// Writer ↔ template ↔ mount must agree — see the convention above.
+	file := maintenanceFlagHostPath()
 
 	if active {
 		_, statErr := os.Stat(file)
+		// Ensure the bind-mounted dir exists before writing the flag into it
+		// (install.go creates it; defensive for older boxes / a fresh mount).
+		if mkErr := os.MkdirAll(filepath.Dir(file), 0o755); mkErr != nil {
+			fmt.Printf("maintenance ON — failed to create dir %s: %v\n", filepath.Dir(file), mkErr)
+		}
 		if err := os.WriteFile(file, []byte("upgrade in progress\n"), 0644); err != nil {
 			fmt.Printf("maintenance ON — failed to create %s: %v\n", file, err)
 		} else if os.IsNotExist(statErr) {
