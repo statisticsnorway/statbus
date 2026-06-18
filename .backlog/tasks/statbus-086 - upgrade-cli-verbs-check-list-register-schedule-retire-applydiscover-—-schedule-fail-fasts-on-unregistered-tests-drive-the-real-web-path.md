@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-18 11:42'
-updated_date: '2026-06-18 15:30'
+updated_date: '2026-06-18 15:37'
 labels:
   - upgrade
   - cli
@@ -87,4 +87,6 @@ ARCHITECT REVIEW of engineer's stage-1 diff (cli/cmd/upgrade.go + service.go, +4
 MUST-FIX (do in stage-1): (1) .github/workflows/notify-all-clouds.yaml:49 still calls RETIRED `./sb upgrade discover` → workflow breaks; change to `check`. (2) AC#3 + AC#9 have ZERO unit tests (git diff --stat = only 2 source files, no _test.go) — 'unit-proven' is false. AC#3 will be VM-proven via AC#8 in stage-2; AC#9 (onScheduledNotify no-op) will NOT — add unit tests for both (cheap; 086's principled proof).
 
 PRE-DEPLOY GATE (hard, before any deploy-to-X runs stage-1): (3) apply-latest body is UNCHANGED (own psql UPDATE+NOTIFY, NOT routed through onScheduledNotify). Normal case (latest already discovered) works; RACE case (deploy before daemon discovers the commit) → UPDATE 0 rows → NOTIFY → onScheduledNotify NO-OPs (require-register) → deploy SILENTLY doesn't upgrade (old insert-if-missing rescued this; now dead; message lies). Hits all deploy-to-X. FIX: apply-latest must register-then-schedule (race-proof) OR prove latestVersion is DB-sourced. Committing the core to iterate toward the VM proof is OK (builds green); deploying it is NOT until (3) lands. DOC sweep (AC#7: DEPLOYMENT.md:337/687, DEVELOPMENT.md:621, comment service.go:1580) = follow-on stage.
+
+STAGE-2 KILL-SCENARIO RULING (architect, 2026-06-18) = OPTION C (overturns foreman's D lean; verified at v2026.05.2 tag). Blocker: ~18 kill scenarios baseline v2026.05.2 (no register/schedule) + schedule HEAD; fabricate was binary-agnostic. DETERMINANT: v2026.05.2's CLI `apply` accepts commit_short + NOTIFYs on a 0-row miss, and its SERVICE scheduleImmediate (service.go @ tag) handles UntaggedTarget + INSERT-IF-MISSING (ON CONFLICT) → the old box schedules ANY git-resolvable SHA via its own machinery. RULING: kill scenarios schedule via v2026.05.2's OWN `apply` — `git fetch <SHA>` then `./sb upgrade apply <SHA-short>` → v2026.05.2 service inserts+schedules+runs → swaps to HEAD → kill. Real old-box path; NO fabricate; NO HEAD-binary pre-stage (binary-swap-kill stays faithful); KEEPS v2026.05.2/Albania FROM-old baseline. AC#6 FULLY applies in 086: delete fabricate ENTIRELY; 'drive via real code' = the box's OWN verb (apply for v2026.05.2 kill scenarios, register+schedule for the post-086 AC#8 happy-path). NOT throwaway — 071 does not re-convert these (only adds new arcs). VALIDATION GATE: prove C on ONE scenario before converting all 18; fall back to D only if resolveUpgradeTarget@v2026.05.2 surprises. doc-012 §8 updated to match.
 <!-- SECTION:NOTES:END -->
