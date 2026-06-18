@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-18 13:00'
+updated_date: '2026-06-18 13:07'
 labels:
   - upgrade-ui
   - maintenance
@@ -29,3 +30,12 @@ INSPECTION (delegated):
 
 Related to STATBUS-089 (same maintenance-during-upgrade lifecycle, the return half). Post-rc.04 UX; not blocking.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+ROOT CAUSE (mechanic, 2026-06-18) = (b) service-timing + LISTEN-reconnect race, NOT a stale-UI/no-refetch issue.
+Completion sequence in applyPostSwap: (1) service.go:4456 NOTIFY worker_status 'upgrade_changed' fires while the row is STILL in_progress; (2) :4473 setMaintenance(false); (3) ~:4481 UPDATE state='completed' → DB trigger pg_notify('worker_status','upgrade_changed') (migration 20260326174816); (4) removeUpgradeFlag.
+Step 1's NOTIFY reaches the frontend while still in_progress → UI re-fetches, sees no change. The REAL completion signal is step 3's trigger-NOTIFY. But the app's LISTEN/SSE may not be re-established yet (it was just coming back from the maintenance window), so the completed event is MISSED → frontend falls back to the SWR poll (3s cadence) → worst-case lag ~3s + a missed-event round-trip. The code already warns of this at service.go:4453-4455.
+FIX SHAPE (post-rc.04): fire the operator-facing completion NOTIFY AFTER the state='completed' UPDATE (not before), and/or have the frontend force a re-fetch on SSE reconnect, and/or tighten the poll while an upgrade is active. Not data-loss; a few-seconds UX lag.
+<!-- SECTION:NOTES:END -->
