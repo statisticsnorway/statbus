@@ -3,9 +3,10 @@ id: STATBUS-100
 title: >-
   worker-ddl-wedge: worker AccessShareLock blocks upgrade DDL — needs R1
   quiesce-before-DDL (KING decision)
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-19 11:43'
+updated_date: '2026-06-19 14:14'
 labels: []
 dependencies: []
 ordinal: 100000
@@ -26,3 +27,9 @@ KING DECISION:
 
 OWNER: King decides (A vs B). If A → architect designs R1 + the scenario; engineer implements; foreman commits + VM-proves. If B → document + hold. NOT blocking the §9(5) arc reshape (worker-ddl is one held scenario; the other CAT-C mechanisms + 5e proceed). This is the charter value again — the framework surfaced a real product gap before it could wedge a customer.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+RESOLVED - ALREADY IMPLEMENTED (foreman-verified by direct code read, 2026-06-19). The worker-lock wedge fix EXISTS on both paths; STATBUS-100's not-implemented claim was a FALSE ALARM read off a stale legacy test-header (LIKELY RED @ commit 1f077e545) that predates the fix - the stale-legacy-vs-code trap this rework exists to flush. THE FIX = compose.QuiesceClients (cli/internal/compose/compose.go:126) stops clientServices={worker,app,rest} (compose.go:101 - the worker IS the AccessShareLock holder) before the DDL window, fail-loud. Both paths: INSTALL cli/cmd/install.go:676 ('[DDL] quiescing worker/app/rest before Seed/Migrations'); UPGRADE (autonomous service) cli/internal/upgrade/service.go:4663 in applyPostSwap, BEFORE the migrate DDL (:4751); comment :4654 explicitly covers the resumePostSwap re-entry; step 11 (:4784) restarts the clients after. Order: reconnect(:4633) -> quiesce(:4663) -> migrate-DDL(:4751) -> restart(:4784). Documented doc/upgrade-timeline.md:266 + :702. Nothing to build. The reshaped 5d worker-ddl arc becomes a positive regression-proof of this R1 fix (a normal GREEN-asserting CAT-C reshape), NOT a King-flag - doc-017 section 4 corrected accordingly.
+<!-- SECTION:NOTES:END -->
