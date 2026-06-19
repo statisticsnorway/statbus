@@ -273,18 +273,25 @@ arc_schedule_daemon_down() {
 }
 
 # arc_install_dispatch_with_inject <inject_class> [budget_s] — run `./sb install`
-# inline-dispatch (it detects StateScheduledUpgrade → executeUpgrade) WITH
-# STATBUS_INJECT_AT=<class> so the kill/stall fires at the REAL product inject
-# point during the real dispatched upgrade. The injected SIGKILL exits ~137; the
-# caller asserts the REAL crash state (the flag is written by the real
-# executeUpgrade — no synthetic crash-state). Fails loud only on a timeout (the
-# inject never fired). Echoes the exit for the caller's log.
+# WITH STATBUS_INJECT_AT=<class> so the kill/stall fires at the REAL product inject
+# point. Used for BOTH the inline-dispatch of a 'scheduled' row (it detects
+# StateScheduledUpgrade → executeUpgrade) AND a recovery dispatch of a crashed-
+# upgrade flag (it detects the flag → recoverFromFlag) — the inject fires whenever
+# its site is reached on either path. The injected SIGKILL exits ~137; the caller
+# asserts the REAL crash state (the flag is written by the real executeUpgrade — no
+# synthetic crash-state). Fails loud only on a timeout (the inject never fired).
+# Exposes the exit in the global ARC_DISPATCH_RC so a caller can BRANCH on it (e.g.
+# rollback-kill's outcome A [forward-recovery completed, exit 0] vs outcome B [the
+# rollback inject fired, exit 137]). The single-kill callers ignore it.
+ARC_DISPATCH_RC=0
 arc_install_dispatch_with_inject() {
     local inject_class="$1" budget="${2:-${INSTALL_BUDGET_S:-900}}"
     echo ""
-    echo "── ./sb install inline-dispatch with STATBUS_INJECT_AT=${inject_class} (budget ${budget}s) ──"
+    echo "── ./sb install dispatch with STATBUS_INJECT_AT=${inject_class} (budget ${budget}s) ──"
     local rc=0
     VM_EXEC bash -c "cd ~/statbus && STATBUS_INJECT_AT=${inject_class} STATBUS_MIN_DISK_GB=5 timeout ${budget} ./sb install --non-interactive --trust-github-user jhf" || rc=$?
+    # shellcheck disable=SC2034  # read cross-file by the arc scripts (e.g. rollback-kill)
+    ARC_DISPATCH_RC="$rc"
     echo "  ./sb install (injected) exit: $rc (137 = injected SIGKILL semantics)"
     [ "$rc" != "124" ] || { echo "✗ ./sb install timed out (${budget}s) — STATBUS_INJECT_AT=${inject_class} never fired" >&2; exit 1; }
 }
