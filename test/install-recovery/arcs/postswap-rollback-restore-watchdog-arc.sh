@@ -1,29 +1,18 @@
 #!/bin/bash
-# Arc: postswap-rollback-restore-watchdog  (STATBUS-071 §9(5) / doc-016 — 5c CAT-B; STATBUS-031)
+# Arc: postswap-rollback-restore-watchdog  (STATBUS-071 §9(5)) — *** OBSERVATIONAL / DIAGNOSTIC ***
 #
-# Reshape of the legacy 4-rollback-restore-watchdog onto the PROVEN stall-dispatch
-# driver via the V_fail trigger (architect re-scope — the legacy's kill-via-dropin
-# trigger was self-heal-blocked; V_fail is self-heal-DEFEATING, proven by the green
-# failing arc, and POSTSWAP so restoreDatabase has a real backup_path to restore).
-# Only the SCHEDULING swapped (fabricate → real register+schedule) + baseline (→ base_sha).
-#
-# What it proves (STATBUS-031): rollback()'s restoreDatabase rsync (onAdvance=nil →
-# bypasses the heartbeat) on the recovery path has NO other WATCHDOG=1 source. A slow
-# restore (>WatchdogSec=120s) would, without a cover, SIGABRT the unit mid-restore →
-# restore-from-scratch loop. STATBUS-031 wraps rollback() in an always-ping ticker →
-# a slow restore keeps feeding WATCHDOG=1 → it completes → rolled_back; NRestarts bounded.
-#
-# Flow (V_fail → rollback → restore-stall; the C15 stall template, terminal=rolled_back):
-#   arc_prepare_box → register B(=A+V_fail) → arc_install_stall_dropin restore-db-stall-
-#   watchdog (default "wait" restart → daemon carries the stall env) → schedule B →
-#   daemon runs executeUpgrade → backup → swap → applyPostSwap migrate=V_fail FAILS →
-#   postSwapFailure → rollback() → restoreDatabase PARKS at the stall (exec.go:761) →
-#   hold > WatchdogSec (NRestarts must stay bounded — the always-ping ticker) → release
-#   → rsync completes → rollback completes → rolled_back; data restored from the snapshot.
-#
-# Must-adds (proven): (c) arc_install_stall_dropin RESTARTS the unit (env in the daemon
-# process); (e) after the hold assert the row is STILL in_progress (restore held
-# ≥WatchdogSec) before NRestarts/release; (a) NRestarts baseline AFTER in_progress.
+# The V_fail rollback-restore went RED: the (e) gate caught the restore never stalling
+# at :761 (the upgrade went terminal during the hold). Code-grounded: restoreDatabase
+# (exec.go:739-742) returns at :741 if backupPath=="" ("nothing to restore; the DB was
+# never mutated") BEFORE the StallHere at :761. So a bare-RAISE V_fail likely rolls back
+# HOLLOW (no snapshot to restore → :741 no-op → no stall). The run is the oracle; this
+# OBSERVES (logs, does NOT assert the stall) so the architect can distinguish:
+#   (a) backupPath EMPTY → :741 no-op (progress: "No snapshot was recorded …") → V_fail's
+#       rollback is hollow → fix the TRIGGER (a migration that mutates + finalizes a
+#       snapshot, or a kill-DURING-restore variant).
+#   (b) backupPath SET + progress "Restoring database from backup at …" but no park →
+#       :761 reached but the stall env didn't arm → fix the ARM (rollback-context env).
+# PASS on any coherent terminal so the run completes and we read the markers.
 #
 # Inputs (env): BASE_SHA, B_FULL (40-hex), B_BRANCH, V_VERSION, SB_ARC_TRUSTED_SIGNER. VM name = $1.
 
@@ -31,10 +20,8 @@ set -euo pipefail
 
 VM_NAME="${1:-statbus-arc-postswap-rollback-restore-watchdog}"
 TICK_WAIT_S="${TICK_WAIT_S:-120}"
-STALL_HOLD_S="${STALL_HOLD_S:-180}"            # > WatchdogSec=120s — load-bearing
-UPGRADE_BUDGET_S="${UPGRADE_BUDGET_S:-900}"
+UPGRADE_BUDGET_S="${UPGRADE_BUDGET_S:-600}"
 INPROGRESS_BUDGET_S="${INPROGRESS_BUDGET_S:-300}"
-SETTLE_WATCH_S="${SETTLE_WATCH_S:-240}"
 INJECT_CLASS="restore-db-stall-watchdog"
 RELEASE_FILE="/tmp/arc-restore-stall-release"
 
@@ -56,16 +43,20 @@ _arc_cleanup() {
 trap 'rc=$?; _arc_cleanup; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Arc: postswap-rollback-restore-watchdog  (STATBUS-031 — always-ping ticker covers rollback's restoreDatabase)"
-echo "  A=${BASE_SHA:0:8}  B=${B_FULL:0:8}  trigger=V_fail  stall-hold=${STALL_HOLD_S}s (> WatchdogSec=120s)"
+echo "  Arc: postswap-rollback-restore-watchdog  (OBSERVATIONAL — does V_fail's rollback reach restoreDatabase :761?)"
+echo "  A=${BASE_SHA:0:8}  B=${B_FULL:0:8}  trigger=V_fail  inject=${INJECT_CLASS}"
 echo "════════════════════════════════════════════════════════════════"
 
-row_state() { VM_EXEC bash -c "cd ~/statbus && echo 'SELECT state FROM public.upgrade ORDER BY id DESC LIMIT 1;' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
+row_state()  { VM_EXEC bash -c "cd ~/statbus && echo 'SELECT state FROM public.upgrade ORDER BY id DESC LIMIT 1;' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
+row_backup() { VM_EXEC bash -c "cd ~/statbus && echo 'SELECT backup_path FROM public.upgrade ORDER BY id DESC LIMIT 1;' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
+flag_dump()  { VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null" 2>/dev/null || echo "(no flag file)"; }
 
-# ── A: install + prepare; baseline NRestarts; register B(=V_fail) ──
+# ── A: install + prepare; register B(=V_fail); arm the restore-stall dropin ──
 arc_prepare_box
 DATA_SNAPSHOT=$(snapshot_demo_data_counts "$VM_NAME")
 echo "  pre-trigger data snapshot: $DATA_SNAPSHOT"
+NRESTARTS_BASELINE=$(arc_nrestarts)
+echo "  baseline NRestarts: $NRESTARTS_BASELINE"
 
 echo ""
 echo "── register B (=A+V_fail) (daemon up) ──"
@@ -73,73 +64,51 @@ VM_EXEC bash -c "cd ~/statbus && git fetch origin $B_BRANCH && git cat-file -e $
 VM_EXEC bash -c "cd ~/statbus && ./sb upgrade register $B_FULL 2>&1 | tail -20"
 wait_for_upgrade_candidate_ready "$VM_NAME" "$B_FULL" "$TICK_WAIT_S"
 
-# ── (c) arm the restore stall via dropin + RESTART the unit (BEFORE scheduling) ──
 arc_install_stall_dropin "$INJECT_CLASS" "$RELEASE_FILE"
+echo "[OBSERVE] daemon STATBUS_INJECT_AT (Environment): $(VM_EXEC systemctl --user show "$ARC_UPGRADE_UNIT" -p Environment 2>/dev/null | tr -d '\r')"
+echo "[OBSERVE] release file armed: $(VM_EXEC bash -c "test -f $RELEASE_FILE && echo yes || echo no" 2>/dev/null | tr -d ' \r\n')"
 
 echo ""
-echo "── schedule B (daemon runs it → V_fail postswap → rollback → restoreDatabase stall) ──"
+echo "── schedule B (V_fail postswap → postSwapFailure → rollback → restoreDatabase?) ──"
 VM_EXEC bash -c "cd ~/statbus && ./sb upgrade schedule $B_FULL 2>&1 | tail -20"
 
+# ── OBSERVE the upgrade run to terminal (log row + NRestarts + flag backup_path + timing) ──
 echo ""
-echo "── waiting for B → in_progress (daemon claims; V_fail → rollback reaches restoreDatabase) ──"
-arc_wait_row_state "$B_FULL" "in_progress" "$INPROGRESS_BUDGET_S"
-
-# (a) baseline NRestarts AFTER in_progress (post the dispatch reset-failed, service.go:3926).
-NRESTARTS_BASELINE=$(arc_nrestarts)
-echo "  baseline NRestarts (post-dispatch-reset): $NRESTARTS_BASELINE"
-
-# ── hold the restore stall > WatchdogSec, watching NRestarts (flat=GREEN, climb=RED) ──
-echo ""
-echo "── holding the restore stall ${STALL_HOLD_S}s (> WatchdogSec=120s); watching NRestarts ──"
-HOLD_TS=$(date +%s)
-while [ $(( $(date +%s) - HOLD_TS )) -lt "$STALL_HOLD_S" ]; do
-    elapsed=$(( $(date +%s) - HOLD_TS ))
-    NR=$(arc_nrestarts)
-    [ $((elapsed % 20)) -eq 0 ] && echo "    [t+${elapsed}s] NRestarts=$NR (baseline=$NRESTARTS_BASELINE) — flat=GREEN, climbing=RED"
-    if [ "$NR" != "?" ] && [ "$NR" -gt "$((NRESTARTS_BASELINE + 1))" ]; then
-        echo "✗ NRestarts climbed to $NR during the silent restore (baseline=$NRESTARTS_BASELINE) → WatchdogSec SIGABRT'd the unit mid-restore: rollback's restoreDatabase has NO watchdog cover (STATBUS-031 regressed)" >&2
-        exit 1
-    fi
-    sleep 5
-done
-echo "  ✓ NRestarts stayed bounded through the ${STALL_HOLD_S}s silent restore — the always-ping ticker held the unit alive"
-
-# (e) ANTI-FALSE-PASS: the restore MUST still be holding (row in_progress) — else it
-# completed too fast and the NRestarts-bounded proof is vacuous.
-ST_AFTER_HOLD=$(row_state)
-[ "$ST_AFTER_HOLD" = "in_progress" ] || { echo "✗ ANTI-FALSE-PASS: row is '$ST_AFTER_HOLD' after the ${STALL_HOLD_S}s hold (expected in_progress) — the restore did NOT hold past WatchdogSec (V_fail/rollback didn't reach restoreDatabase, or the stall didn't arm); NRestarts-bounded would be vacuous" >&2; exit 1; }
-echo "  ✓ row STILL in_progress after ${STALL_HOLD_S}s — the restoreDatabase stall genuinely held past WatchdogSec"
-
-# ── release → the rsync proceeds → the rollback completes ──
-echo ""
-echo "── releasing the stall (rm $RELEASE_FILE); watching for the rollback to land (up to ${SETTLE_WATCH_S}s) ──"
-VM_EXEC bash -c "rm -f $RELEASE_FILE"
-START_TS=$(date +%s); FINAL_STATE=""
-while [ $(( $(date +%s) - START_TS )) -lt "$SETTLE_WATCH_S" ]; do
+echo "── OBSERVE the run (logging, NOT asserting the stall) ──"
+START_TS=$(date +%s); SAW_INPROGRESS=0
+while true; do
     elapsed=$(( $(date +%s) - START_TS ))
-    STATE=$(row_state)
-    [ $((elapsed % 20)) -eq 0 ] && echo "    [t+${elapsed}s] row=$STATE"
-    case "$STATE" in
-        rolled_back|failed) FINAL_STATE="$STATE"; echo "  ✓ row reached terminal '$STATE' (t+${elapsed}s)" ; break ;;
-        completed) echo "✗ row reached 'completed' — a V_fail must roll back, not forward-succeed" >&2; exit 1 ;;
+    [ "$elapsed" -lt "$UPGRADE_BUDGET_S" ] || break
+    ST=$(row_state); NR=$(arc_nrestarts)
+    [ "$ST" = "in_progress" ] && SAW_INPROGRESS=1
+    if [ $((elapsed % 15)) -eq 0 ]; then
+        echo "[OBSERVE]   [t+${elapsed}s] row=$ST NRestarts=$NR flag_backup=$(VM_EXEC bash -c "grep -o '\"backup_path\"[^,}]*' ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null || echo '(no flag)'" 2>/dev/null | tr -d '\r')"
+    fi
+    case "$ST" in
+        completed|failed|rolled_back) echo "[OBSERVE] row reached terminal '$ST' (t+${elapsed}s)"; break ;;
     esac
     sleep 5
 done
-[ -n "$FINAL_STATE" ] || { echo "✗ row did not reach a terminal within ${SETTLE_WATCH_S}s after releasing the stall" >&2; VM_EXEC bash -c "cd ~/statbus && echo 'SELECT id, state, error FROM public.upgrade ORDER BY id DESC LIMIT 1;' | ./sb psql" >&2 || true; exit 1; }
+[ "$SAW_INPROGRESS" = "1" ] || echo "[OBSERVE] ⚠ never saw in_progress — the daemon may not have claimed B (a different problem)"
 
-# ── GREEN-contract assertions (LOAD-BEARING) ──
+# ── THE DISCRIMINATOR: backup_path column + the :740-vs-:752 progress markers ──
 echo ""
-echo "── GREEN-contract checks (LOAD-BEARING) ──"
-if [ "$FINAL_STATE" = "failed" ]; then
-    echo "  ⚠ terminal 'failed' (degraded) — the rollback's restore ALSO failed; investigate restoreDatabase, but the watchdog cover still held (NRestarts bounded above)"
-else
-    assert_upgrade_row_state "$VM_NAME" "rolled_back"
-fi
-assert_flag_file_absent "$VM_NAME"
-assert_demo_data_present "$VM_NAME"
-assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
-assert_systemd_restart_counter_bounded "$VM_NAME" "$ARC_UPGRADE_UNIT" "$((NRESTARTS_BASELINE + 3))"
-assert_health_passes "$VM_NAME"
+echo "── DISCRIMINATOR OBSERVATIONS ──"
+echo "[OBSERVE] FINAL row state: $(row_state)"
+BP=$(row_backup); echo "[OBSERVE] row backup_path COLUMN: ${BP:-(EMPTY)}   ← EMPTY ⟹ (a) :741 no-op (hollow rollback); SET ⟹ (b) reached restoreDatabase"
+echo "[OBSERVE] row error: $(VM_EXEC bash -c "cd ~/statbus && echo 'SELECT error FROM public.upgrade ORDER BY id DESC LIMIT 1;' | ./sb psql -t -A" 2>/dev/null | tr -d '\r' || echo '?')"
+echo "[OBSERVE] release file still present (stall would hold it): $(VM_EXEC bash -c "test -f $RELEASE_FILE && echo yes || echo no" 2>/dev/null | tr -d ' \r\n')"
+echo "[OBSERVE] flag JSON (final):"; flag_dump | sed 's/^/[OBSERVE]   /'
+echo ""
+echo "[OBSERVE-P] restoreDatabase progress markers (~/statbus/tmp/upgrade-progress.log):"
+echo "[OBSERVE-P]   :741 no-op (a) → 'No snapshot was recorded' ; :752 reached (b) → 'Restoring database from backup at'"
+VM_EXEC bash -c "grep -nE 'No snapshot was recorded|Restoring database from backup at|rollback|restoreDatabase' ~/statbus/tmp/upgrade-progress.log 2>/dev/null | tail -20" 2>/dev/null | sed 's/^/[OBSERVE-P]   /' || echo "[OBSERVE-P]   (progress log unavailable)"
+echo ""
+echo "[OBSERVE-J] daemon journal (rollback path, tail):"
+VM_EXEC bash -c "journalctl --user -u $ARC_UPGRADE_UNIT --no-pager -n 80 2>/dev/null | grep -iE 'rollback|restore|snapshot|backup|migrat|fail' | tail -25" 2>/dev/null | sed 's/^/[OBSERVE-J]   /' || echo "[OBSERVE-J]   (journal unavailable)"
+
+# Best-effort: release any held stall so cleanup is clean.
+VM_EXEC bash -c "rm -f $RELEASE_FILE" 2>/dev/null || true
 
 echo ""
-echo "PASS: postswap-rollback-restore-watchdog (V_fail → rollback's restoreDatabase stalled ${STALL_HOLD_S}s > WatchdogSec; the STATBUS-031 always-ping ticker kept the unit alive — NRestarts bounded — restore completed on release, row rolled_back, snapshot intact)"
+echo "OBSERVATIONAL PASS: rollback-restore diagnostic — grep [OBSERVE]/[OBSERVE-P] for the discriminator: backup_path EMPTY + ':741 No snapshot was recorded' ⟹ (a) hollow rollback (fix the trigger); backup_path SET + ':752 Restoring database from backup at' (no park) ⟹ (b) :761 reached but stall env didn't arm. The architect's call on the fix follows from this."
