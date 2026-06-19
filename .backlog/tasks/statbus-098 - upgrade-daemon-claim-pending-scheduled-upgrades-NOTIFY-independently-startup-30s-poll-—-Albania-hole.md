@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-18 21:43'
-updated_date: '2026-06-18 21:47'
+updated_date: '2026-06-19 06:14'
 labels:
   - upgrade
   - daemon
@@ -44,16 +44,24 @@ DO NOT mask this with a harness wait-for-daemon-ready — that hides the gap; th
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Daemon claims a pending 'scheduled' row on STARTUP (not only via live NOTIFY or the 6h tick)
+- [x] #1 Daemon claims a pending 'scheduled' row on STARTUP (not only via live NOTIFY or the 6h tick)
 - [ ] #2 A 'scheduled' upgrade is claimed within <=30s even when its NOTIFY is lost (30s-tick fallback, guarded by !d.upgrading)
-- [ ] #3 The claim is atomic — startup + 30s-tick + NOTIFY paths cannot double-run the same row
-- [ ] #4 Proven on a real VM by the STATBUS-071 working arc with the masking wait REMOVED: C scheduled immediately -> claimed <=30s -> arc green for the right reason
-- [ ] #5 The 6h discovery interval is unchanged for discovery; only the scheduled-claim fallback is made prompt
-- [ ] #6 A DEDICATED deterministic test asserts the daemon claims a pending 'scheduled' row WITHOUT a live NOTIFY — schedule while the daemon is down / mid-restart (NOTIFY guaranteed lost) → claimed via startup-scan or the ≤30s tick. This is the DURABLE regression guard; the (c)/(d) arcs catch this gap only PROBABILISTICALLY (the reconnect-window race), so they are not the guard.
+- [x] #3 The claim is atomic — startup + 30s-tick + NOTIFY paths cannot double-run the same row
+- [x] #4 Proven on a real VM by the STATBUS-071 working arc with the masking wait REMOVED: C scheduled immediately -> claimed <=30s -> arc green for the right reason
+- [x] #5 The 6h discovery interval is unchanged for discovery; only the scheduled-claim fallback is made prompt
+- [x] #6 A DEDICATED deterministic test asserts the daemon claims a pending 'scheduled' row WITHOUT a live NOTIFY — schedule while the daemon is down / mid-restart (NOTIFY guaranteed lost) → claimed via startup-scan or the ≤30s tick. This is the DURABLE regression guard; the (c)/(d) arcs catch this gap only PROBABILISTICALLY (the reconnect-window race), so they are not the guard.
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 DELIVERABLE (foreman, 2026-06-18): STATBUS-098 = (1) product fix in service.go (startup executeScheduled + ≤30s heartbeat-tick fallback guarded by !d.upgrading; atomic claim); (2) REMOVE wait_for_unit_active from test/install-recovery/lib/arc-helpers.sh, same change as the product fix (the fix makes the (c)/(d) arcs deterministic via the ≤30s claim — the wait is then redundant AND would stop the arcs exercising the schedule-after-restart path; KEEP dump_daemon_state); (3) the dedicated claim-without-NOTIFY test (AC #6). Build = engineer; review = architect (correctness + claim atomicity) then foreman; commit + VM re-fire = foreman. Found by STATBUS-071 working arc run 27787872862 — the framework's first real product-bug catch.
+
+098 FIX PROVEN ON A VM (2026-06-19, foreman autonomous drive) — the Albania autonomy hole is CLOSED + proven:
+- claim-without-notify GREEN (run 27808280373): daemon STOPPED + verified down → upgrade scheduled (NOTIFY fired into the void, lost) → daemon STARTED → 'B reached state=completed (t+80s after daemon start)' via the STARTUP-SCAN with NO live NOTIFY → V applied, healthy, ZERO orphans. This is the DETERMINISTIC proof of the core property the fix adds (AC#1 + AC#6 met). The framework's first real product-bug catch is now a proven fix.
+- working-098 GREEN (run 27807092720): the working arc + re-stamp work without the masking wait (AC#4 met; claimed via live NOTIFY when the daemon was up).
+- atomic claim: architect-verified single-winner UPDATE (AC#3). 6h discovery ticker unchanged (AC#5).
+- wiring guard: scheduled_claim_wiring_test.go passes (asserts executeScheduled in BOTH startup + heartbeatTicker.C; RED if either removed).
+AC#2 NOTE: the ≤30s-tick-while-daemon-UP path is WIRED (the wiring test) but not separately VM-timed; the startup-scan (claim-without-notify) proves the broader no-NOTIFY guarantee + the tick is the same executeScheduled call. A dedicated tick-while-up timing test wasn't built (startup-scan + wiring deemed sufficient for the Albania guarantee — flag if you want it separately).
+REMAINING: polish #1 (comment precision) + #2 (optional ≤90s fast-fail assert) — a follow-up. Commits: 054c371c6 (product fix), 9452f2cf0 (guards), 787f1e0f6 (BUG-1 v2 fingerprint, for the separate failing arc).
 <!-- SECTION:NOTES:END -->
