@@ -84,7 +84,6 @@ Every entry leads with its **plain goal** — read it as **die HERE → the oper
 
 | Scenario | What it proves | Grounding |
 |---|---|---|
-| `3-postswap-archivebackup-resume` | An exit-42 RESUME whose archiveBackup stalls under the watchdog window → the resume stays alive (active-phase ticker) and reaches `completed`. | The NO/rune 40 h-wedge fix (FIX A: terminal UPDATE + flag removal before archiveBackup) |
 | `3-postswap-archivebackup-watchdog` | An upgrade whose archiveBackup stalls for minutes in the active phase → a watchdog heartbeat must keep systemd from killing it mid-tar. | Watchdog gap beyond the migrate-up ticker's scope (Bug 1) |
 | `3-postswap-between-migrations-kill` | Killed between migration N and N+1 → re-run applies the remaining migrations cleanly (resume from the recorded point), data intact. | inject.KillHere in `migrate.runUp` loop; forward-recovery (C7) |
 | `3-postswap-container-restart-kill` | Killed mid-container-restart after migrations applied → re-run completes the restart, data intact. | inject.KillHere in `applyPostSwap`; `resumePostSwap` re-entry (C8) |
@@ -93,7 +92,6 @@ Every entry leads with its **plain goal** — read it as **die HERE → the oper
 | `3-postswap-migrate-killed-after-commit` | Killed in the ~ms window after a migration commits but before its `db.migration` row is recorded → re-run recovers (forward-then-restore) without double-applying. | StallHere primitives; STATBUS-017 (cell c) |
 | `3-postswap-migration-deterministic-error` | An upgrade whose migration errors on *every* apply (genuinely unapplyable) → recovery restores to `rolled_back` instead of boot-looping, data intact. | STATBUS-017 regression guard (cell e); schema-skew guard defers to restore |
 | `3-postswap-migration-timeout` | A post-swap migration that runs longer than the watchdog window → the unit keeps it alive (no SIGABRT kill-loop) and the upgrade reaches `completed`. | STATBUS-012 boot-migrate watchdog cover (WATCHDOG=1 ticker + 30-min timeout) |
-| `3-postswap-resume-died-rollback` | Killed *again* during the post-swap recovery resume → the next re-run rolls back **once** (not a retry loop), converging cleanly, data intact. | FlagPhaseResuming one-shot latch (#29; closes the 40 h-loop gap, deletes the liveness sidecar) |
 | `3-postswap-watchdog-reconnect` | An upgrade that stalls reconnecting to the DB after a container restart → confirms the inject site is reachable, surfacing the missing watchdog cover there. | inject.StallHere after `waitForDBHealth`, before `reconnect` (C15); fix = WATCHDOG ticker, follow-up |
 | `3-postswap-worker-ddl-deadlock` | An upgrade whose migration needs a DDL lock the busy worker is holding → the installer must quiesce services first so the migration doesn't hang forever. | R1 quiesce-before-DDL (commit 02a144052); terminal within INSTALL_BUDGET_S |
 
@@ -136,7 +134,7 @@ When you regress a fix, here's what fails:
 | Fix 9 — drop pool-saturation from checkSessionsClean |
 | Fix 10 — application_name='psql' filter |
 | Fix 11 — drop bool::text cast | `5-install-bool-text-regression` (and ALL scenarios — recheck-after-cleanup goes through this) |
-| §4a FIX A — archiveBackup after the terminal `state='completed'` UPDATE + removeUpgradeFlag | `3-postswap-archivebackup-resume` (without it, a start-phase kill during the resume's tar cancels the DB context before the terminal UPDATE persists → row stuck `in_progress` → loop) + the local Go guard `TestArchiveBackupAfterTerminalUpdate` |
+| §4a FIX A — archiveBackup after the terminal `state='completed'` UPDATE + removeUpgradeFlag | the local Go guard `TestArchiveBackupAfterTerminalUpdate` (the resume-path scenario `3-postswap-archivebackup-resume` was DELETED — STATBUS-099: its exit-42-resume variant tested a self-heal-unreachable state, subsumed by `3-postswap-archivebackup-watchdog`) |
 | unit-reconcile — `checkServiceDone` byte-compares the on-disk unit to the repo template; drift ⇒ rewrite + daemon-reload + restart | `5-install-drifted-unit-reconciled` (without it, a drifted unit on a healthy box is never rewritten — rune's stale 90/infinity persists) + the local Go guards `TestUnitFileMatchesRepo_*` (drift detection) + `TestRunInstallService_RestartsOnDriftToArmTimers` (re-arm) |
 
 ## Adding a new scenario

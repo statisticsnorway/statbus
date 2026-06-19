@@ -201,7 +201,7 @@ FAILED_NAMES=()
 
 for s in "${SELECTED[@]}"; do
     base=$(basename "$s" .sh)
-    slug="$base"  # the canonical slug IS the filename, e.g. "3-postswap-resume-died-rollback"
+    slug="$base"  # the canonical slug IS the filename, e.g. "3-postswap-mid-tx-kill"
     vm_name="statbus-recovery-${base}"  # unique per scenario (one VM per scenario name)
     log_file="$HARNESS_ROOT/tmp/install-recovery-${base}.log"
 

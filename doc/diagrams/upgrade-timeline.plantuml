@@ -171,17 +171,12 @@ note over service, db #E8F5E9
 end note
 note over service, db #FFF9C4
   TEST COVERAGE — phase dispatch + post-swap resume
-  TEST 3-postswap-resume-died-rollback — ON HOLD, EXPECTATION OBSOLETE (STATBUS-039/-044):
-    the pre-039 assertion (death during Resuming => always rolled_back, bounded NRestarts)
-    no longer holds. Post-039 behavior is a four-case verdict matrix: (0) at-target +
-    containers already at flag target => immediate canary self-heal => completed (the rune
-    shape — covered by the rune-wedge scenario); (1) at-target + TRANSIENT failure =>
-    forward retry succeeds => completed; (2) at-target + PERSISTENT failure (this
-    scenario's pinned-kill shape) => loops forward BY DESIGN, row stays in_progress +
-    loud, NO rollback — what to assert awaits the King's loudness decision (observability
-    escalation after N forward failures vs loop-loud-forever; direction never changes);
-    (3) positively-behind => one-shot rollback to the upgrade's OWN snapshot
-    (UPGRADE_DIED_DURING_RESUME). Rewrite per STATBUS-044 AFTER loudness is settled.
+  TEST 3-postswap-resume-died-rollback — DELETED (STATBUS-099): the two-run resume-re-kill it tested is
+    PRODUCT-IMPOSSIBLE. resumePostSwap's self-heal canary (service.go:5044/5053: containersAtFlagTarget
+    + no pending migrations) converges-and-completes the resume BEFORE a second inject can land
+    (grounded by VM-run 27820228835: the resume self-healed to completed, no re-kill). The REAL contract
+    — a kill at the FIRST applyPostSwap => the Resuming one-shot latch => ONE rollback, no loop — is
+    COVERED by 3-postswap-container-restart-kill. Not a gap: the injection point is covered.
   GREEN: 3-postswap-mid-migration-kill / 3-postswap-mid-tx-kill / 3-postswap-between-migrations-kill /
     3-postswap-migrate-killed-after-commit / 3-postswap-migration-deterministic-error (the last two
     GREEN since the STATBUS-017 fix landed — see cells (2)/(e)).
@@ -234,10 +229,10 @@ note over service, db #FFF9C4
     by connect()'s own 5-min ctx (via d.reconnect()), not the watchdog.
   TEST 3-postswap-archivebackup-watchdog: on the SCHEDULED path (already active-phase) the ticker
     SCOPE covers archiveBackup — a multi-minute tar is not falsely reaped.
-  TEST 3-postswap-archivebackup-resume: on the exit-42 RESUME path, READY=1-before-recoverFromFlag
-    (plan piece #2) puts the resume in the ACTIVE phase, and the terminal state='completed' UPDATE
-    persists BEFORE the non-critical tar (FIX A) — a slow tar can never strand the row in_progress
-    (the NO/rune 40 h wedge).
+  TEST 3-postswap-archivebackup-resume — DELETED (STATBUS-099): SUBSUMED by 3-postswap-archivebackup-watchdog
+    (same stall site, exec.go:1050). The archiveBackup stall is hit on the FIRST upgrade's active phase;
+    the exit-42 RESUME self-heals to completed (resumePostSwap canary) before reaching it, so the resume
+    variant tested an unreachable state. The real active-phase ticker cover is exercised by archivebackup-watchdog.
 end note
 note over service, db #E8F5E9
   INVARIANT — lost-stamp window (re-derive from cells (2)/(e) above):
