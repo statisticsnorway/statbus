@@ -295,3 +295,77 @@ arc_install_dispatch_with_inject() {
     echo "  ./sb install (injected) exit: $rc (137 = injected SIGKILL semantics)"
     [ "$rc" != "124" ] || { echo "✗ ./sb install timed out (${budget}s) — STATBUS_INJECT_AT=${inject_class} never fired" >&2; exit 1; }
 }
+
+# ── STALL-DISPATCH (CAT-B / 5c, doc-016) — the 3rd driver variant ─────────────
+# daemon-RUN: the systemd UNIT runs the upgrade under WatchdogSec=120s; a STALL
+# (not a kill) is injected via a systemd DROPIN so the upgrade hangs > WatchdogSec.
+# The load-bearing check is NRestarts stays bounded (the WATCHDOG=1 ticker keeps
+# the unit alive across the stall → the upgrade COMPLETES, never SIGABRT).
+
+ARC_UPGRADE_UNIT="statbus-upgrade@statbus.service"
+
+# arc_install_stall_dropin <inject_class> <release_file> — install a systemd USER
+# dropin that arms the StallHere (Environment), then RESTART the unit so the
+# already-running daemon PROCESS picks up the env (a daemon-reload alone does NOT
+# change a running process's env — the env is read at start; executeUpgrade runs IN
+# the daemon → it must have STATBUS_INJECT_AT). Touch the release file (arms the
+# stall) before the restart. MUST run BEFORE scheduling B (the restart's startup-
+# scan finds nothing → 098 doesn't pre-claim). Heredocs don't survive VM_EXEC's
+# %q, so write the dropin script locally + upload + run (the legacy pattern).
+arc_install_stall_dropin() {
+    local inject_class="$1" release_file="$2"
+    echo ""
+    echo "── install stall dropin (STATBUS_INJECT_AT=${inject_class}) + RESTART unit (arms env in the daemon process) ──"
+    VM_EXEC systemctl --user stop "$ARC_UPGRADE_UNIT" 2>/dev/null || true
+    local script
+    script=$(mktemp /tmp/arc-stall-dropin-XXXXXX.sh)
+    cat > "$script" << SCRIPT_EOF
+#!/bin/bash
+set -euo pipefail
+DROPIN_DIR="\$HOME/.config/systemd/user/${ARC_UPGRADE_UNIT}.d"
+mkdir -p "\$DROPIN_DIR"
+cat > "\$DROPIN_DIR/inject.conf" << 'DROPIN_EOF'
+[Service]
+Environment=STATBUS_INJECT_AT=${inject_class}
+Environment=STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE=${release_file}
+DROPIN_EOF
+touch ${release_file}
+systemctl --user daemon-reload
+SCRIPT_EOF
+    chmod 644 "$script"
+    upload_install_script_to_vm "$VM_NAME" "$script" /tmp/arc-stall-dropin.sh
+    rm -f "$script"
+    VM_EXEC bash /tmp/arc-stall-dropin.sh
+    vm_start_unit "$ARC_UPGRADE_UNIT"   # RESTART-FOR-ENV: the daemon process now carries STATBUS_INJECT_AT
+    echo "  ✓ dropin installed + unit restarted with the stall env (release file armed: ${release_file})"
+}
+
+# arc_nrestarts — the unit's systemd NRestarts counter (for the bounded-restart assert).
+arc_nrestarts() {
+    VM_EXEC systemctl --user show "$ARC_UPGRADE_UNIT" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?"
+}
+
+# arc_wait_row_state <sha> <want_state> [budget_s] — poll public.upgrade for <sha>
+# reaching <want_state>. When waiting for in_progress, a DIFFERENT terminal reached
+# first ⟹ fail fast (the dispatch never engaged the stall / went straight through).
+arc_wait_row_state() {
+    local sha="$1" want="$2" budget="${3:-240}"
+    local start now elapsed st
+    start=$(date +%s)
+    while true; do
+        now=$(date +%s); elapsed=$((now - start))
+        st=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '$sha' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
+        if [ "$st" = "$want" ]; then echo "  ✓ row ${sha:0:8} reached '$want' (t+${elapsed}s)"; return 0; fi
+        if [ "$want" = "in_progress" ]; then
+            case "$st" in
+                completed|failed|rolled_back) echo "✗ row reached terminal '$st' before '$want' — dispatch did not engage (stall not armed?)" >&2; return 1 ;;
+            esac
+        fi
+        if [ "$elapsed" -ge "$budget" ]; then
+            echo "✗ row ${sha:0:8} did not reach '$want' within ${budget}s (last='$st')" >&2
+            VM_EXEC bash -c "cd ~/statbus && echo 'SELECT id, state, error FROM public.upgrade ORDER BY id DESC LIMIT 5;' | ./sb psql" >&2 || true
+            return 1
+        fi
+        sleep 5
+    done
+}
