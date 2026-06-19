@@ -5634,14 +5634,15 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 	// the row 'rolled_back'. restoreDatabase is idempotent over an
 	// already-restored volume.
 	//
-	// Reachability caveat (scope-a documented in scenario header): firing
-	// this site requires the recovery path to invoke d.rollback() — i.e. a
-	// POSITIVELY-behind verdict (STATBUS-039: at-target and unverifiable
-	// failures retry forward and never reach here). Without a dedicated
-	// "force-forward-recovery-failure" injection class, the C9 site
-	// fires only when forward-recovery NATURALLY fails — which is
-	// non-deterministic across the harness's HEAD migration set.
-	// Scenario 4-rollback-kill documents this as a site-reachability diagnostic.
+	// Reachability — TWO reach-paths to d.rollback() (hence to this site):
+	//   • PreSwap flag (e.g. a binary-swap kill): recoverFromFlag PreSwap →
+	//     recoveryRollback → d.rollback() UNCONDITIONALLY (no forward attempt),
+	//     so this site fires DETERMINISTICALLY. (Arc: rollback-kill, proven.)
+	//   • Resuming/PostSwap flag: d.rollback() is reached only on a POSITIVELY-
+	//     behind verdict (STATBUS-039: at-target and unverifiable failures retry
+	//     forward and never reach here). Via THIS path the site fires only when
+	//     forward-recovery NATURALLY fails — non-deterministic across the HEAD
+	//     migration set (legacy 4-rollback-kill documented it as that diagnostic).
 	// No-op in production. Drives scenario 4-rollback-kill.
 	inject.KillHere("killed-by-system-during-builtin-rollback")
 
