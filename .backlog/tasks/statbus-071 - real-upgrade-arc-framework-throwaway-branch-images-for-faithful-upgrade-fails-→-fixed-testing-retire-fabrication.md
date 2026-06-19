@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-06-19 09:35'
+updated_date: '2026-06-19 23:22'
 labels:
   - install-recovery
   - upgrade
@@ -24,29 +24,75 @@ ordinal: 71000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-KING DESIGN (2026-06-17) + foreman/architect convergent modeling. The doctrine (doc/install-upgrade-testing.md) applied to the harness's own construction: stop FABRICATING crash states (the reproducer-infidelity class that broke STATBUS-067's canary test — synthetic migration stripped by the recovery checkout); instead make the REAL system produce them via a real upgrade arc.
+## Why this exists (the goal)
+The barrage of tests that proves, on real machines, that a StatBus box can be **installed → upgraded → hit an issue (or not) → fixed → upgraded again**, and come through with its data intact, entirely on its own. This is what earns the confidence to cut a release. (A release is cut only after its candidate passes — including a run against the **large Norway database**, to catch slow or runaway migrations a small database would never reveal.)
 
-UNIQUE VALUE (the headline): a real install-A → upgrade-B-fails → rollback → upgrade-C-works arc tests the one property NO fabrication can — that B's rollback leaves the DB byte-identical to A so C applies cleanly (CLEAN-SLATE-AFTER-ROLLBACK). That is recovery-correctness end-to-end. Make it THE centerpiece assertion.
+Every upgrade below runs through the **real operator path** — no faked crash states.
 
-FEASIBILITY (verified): images.yaml builds per-commit images on push:[master], tagged by commit_short; the harness pulls by commit_short (branch-agnostic). So building images for THROWAWAY BRANCHES = add a branch pattern to images.yaml's trigger. Migrations are read from the TREE at runtime (throwaway commit supplies migration files; image supplies the binary — both needed, both from pushing the branch).
+## How the test drives a real upgrade
+Four CI jobs: **construct → image-wait → run-arc → teardown**.
 
-RESOLVED DESIGN:
-- EPHEMERAL per-run branch: one workflow → branch off SHA-under-test → commit B (real broken migration) + C (same migration FIXED IN PLACE) → push → images.yaml builds B,C by commit_short → wait for images (reuse STATBUS-056 discover-preflight image-wait) → run arc → teardown (delete branch + B,C images).
-- B/C TOPOLOGY: C = "B with the broken migration corrected IN PLACE" (same version V, fixed) — NOT additive-fix-on-top (that re-runs V_broken → fails again). After B's rollback V is unrecorded → C applies V(fixed) fresh, no content-hash conflict.
-- CLEANUP: delete B,C images by commit_short on teardown (commit_short unique to throwaway commits, can't touch master) + defensive orphan sweep: multi-tag throwaway images with throwaway-<runid> → periodic sweep of throwaway-* older than N hours (STATBUS-057 cleanup primitive; operator confirms API).
-- CANARY (Shape 2) Q1 REACHABILITY: Q1 is exercised ONLY via `./sb upgrade service` recovery boot (boot-migrate-up fails → STATBUS-017 defers to recoverFromFlag → resumePostSwap → canary → HasPending=true → Q1). `./sb install` crashed-recovery rolls back at its OWN migrate-up BEFORE the canary → Q1 NOT exercised. So the canary scenario must drive recovery via the SYSTEMD UPGRADE-SERVICE restart.
+1. **construct** — off the starting commit **A**, make two throwaway branches and have their images built:
+   - **B** = `test/<scenario>-migration-<run-id>` — A + the migration under test.
+   - **C** = `test/<scenario>-fixed-migration-<run-id>` — B with that migration corrected in place.
+   Pushing them triggers `images.yaml`, which builds per-commit images `statbus-{app,worker,db,proxy,sb}:<commit-short>`.
+2. **image-wait** — wait until all five images exist for A, B, *and* C.
+3. **run-arc** — on a fresh Hetzner VM:
+   - **Install A** (pinned to the exact commit) + load demo data.
+   - **Upgrade to B, the operator way:** `./sb upgrade register <B>` → `./sb upgrade schedule <B>`. That writes a row into **`public.upgrade`**; a database trigger wakes the **upgrade service**, which claims the row and runs the upgrade on its own. The test watches `public.upgrade.state` until `completed`, `failed`, or `rolled_back`.
+   - **Upgrade to C** the same way.
+   This is the **Albania path** — the same path the web "upgrade" button uses: no SSH, no deploy-branch, the box acts autonomously.
+4. **teardown** — delete the two throwaway branches.
 
-SHAPE CATALOGUE:
-- Shape 1 (bad→fixed): crash migration, hang migration (King's two); + code-level upgrade failures (binary-swap/container-start/health-check fail in B, fixed in C).
-- Shape 2 (interrupt): canary (kill mid-migration), worker-deadlock. Real migration in B + inject; no C.
-- ELEVATE: clean-slate-after-rollback property (every Shape-1 arc asserts it).
-- MULTI-MIGRATION B: ≥2 real migrations, fail on 2nd → 1st applied+recorded, 2nd not → rollback undoes BOTH → C applies all clean (real "between-migrations").
-- RECOVERY-OF-RECOVERY: kill DURING B's rollback → re-recover → C (nastiest; combines 4-rollback-kill with the arc).
-- SILENT-WRONG-DATA (north-star future, not opener): migration succeeds but corrupts data; needs a DATA ORACLE (install A, populate known data, upgrade to corrupting B, detect via invariant check). Sub-framework.
+## What each branch contains
+| Branch | Contents |
+|---|---|
+| **A** (base commit) | What gets installed first. |
+| **B** = `test/<sc>-migration-<run>` | A **+ one new migration V**. |
+| **C** = `test/<sc>-fixed-migration-<run>` | B **with V edited in place** — same file, corrected; not a new migration on top. |
 
-KING DECISION PENDING (A vs B): (A) FOUNDATION-NOW — build the framework + prove the canary through it before rc.04 (most faithful, slowest, extends the loop). (B) DECOUPLE — prove the canary now via a real tactical run (STATBUS-067, honors the doctrine — it IS a real run), close rc.04, build this framework as the proper FOLLOW-UP (not an rc.04 blocker). Foreman + architect lean (B): both reach the same end state (faithful framework exists); they differ only in whether it gates rc.04, and gating rc.04 on a new test-framework build trades the North Star (break OUT of the upgrade/recovery loop) for belt-and-suspenders.
+**How V's number is chosen:** *not* the wall-clock time the branch is made — the harness takes the **highest existing migration number and adds 1**. That's the smallest number that still sorts *after* every migration in A, so V is genuinely *pending* when the box upgrades A→B. The working V is real and observable: it creates `public.upgrade_arc_fixture(id, note)` and inserts `(1,'arc')`, so the test can confirm V actually ran.
 
-OWNER: architect (design) → engineer (CI workflow + arc scenarios) → operator (image lifecycle/cleanup API) → foreman review. Depends-on/relates: STATBUS-067 (canary), STATBUS-056 (image-wait), STATBUS-057 (image cleanup).
+## What the box does when a migration was *changed* (the rule the arc relies on)
+A migration is immutable by default; changing one is allowed only with **expressed intent**, and the **release-candidate gate enforces that** — every release is a candidate first, and the gate refuses a changed migration unless intent was expressed. So **any changed migration that reaches a release was changed on purpose; the gate already proved it.** (There is **no `amendments.tsv`** — that file was a redundant second record of what the gate already guarantees, and it is removed entirely.)
+
+A changed migration is then handled three ways, by where the box runs:
+
+1. **A developer's machine → error.** Stop; let the developer choose — migrate down then up, or recreate the database. A human is present; don't guess for them.
+2. **The dev.statbus.org edge box → auto-heal (roll down, then up).** It detects it's on the dev channel and re-runs the migration so it always runs the **latest** code. This is deliberate: dev's whole purpose is to run the newest commit every day, so we catch breakage commit-to-commit. Losing data there is fine — it's only dev.
+3. **Every real install (pre-release or release) → adjudicate, never roll down:**
+   - changed but **not yet applied** → **apply the new version**.
+   - **already applied, then changed** → **bless it**: accept the change and re-stamp the record *without* re-running. Trust earned by passing the release gate.
+
+The thread: **human present → error; unattended dev → redo (data loss fine); real install → trust the gate and bless (never destroy data).**
+
+## The two stories the arc proves
+**1 — Upgrade succeeds, later amended → blessed (the many).**
+Install A → upgrade to B (V runs, recorded) → upgrade to C (V edited in place). On a release channel the box **blesses** it (case 3 above): re-stamps the record to the new version without re-running. Proves a box that already ran a migration accepts a later release that amends it, without breaking. **[built · green on a real VM]**
+
+**2 — Upgrade fails, rolls back to a clean slate, fix applies fresh (the few).**
+A real migration fails in one of **three ways**; the box rolls itself back; the fix (C) then applies cleanly.
+
+| # | How the migration fails | Kill source | How the test triggers it |
+|---|---|---|---|
+| 1 | **Fails to apply** (a plain error) | none — errors by itself | `DO $$ BEGIN RAISE EXCEPTION … END $$;` |
+| 2 | **Stalls → timeout → aborted** | **internal** — our own timeout | a max migration runtime (target **12 h**, set to **seconds** in the test) fires and kills V mid-run; V announces start then sleeps (`NOTIFY …; SELECT pg_sleep(N);`) |
+| 3 | **Eats all memory → OOM-killed** | **external** — the OS kills Postgres | reproduce the *effect* without exhausting memory: V announces start and sleeps; a listener confirms it's mid-run, then **kills PostgreSQL from outside**, as if OOM fired |
+
+**All three converge on one recovery — the centerpiece check:** after rollback the database is **byte-for-byte identical to A**, then **C applies the corrected V fresh and the upgrade completes**, data intact. That clean-slate equality is the one property no faked test can prove. **[failure 1 built · green; failures 2 & 3 designed]**
+
+## The same flow, crashed at *other* points (the kill family)
+Beyond the migration itself, the test also injects a *real* crash or stall at other points of the upgrade — fetching the new code, the pre-upgrade backup, the binary swap, *between* two migrations, *just after* a migration commits but before it's recorded, during the rollback itself, and while the box restarts — and checks the box still recovers on its own. **[most already on the real `register`+`schedule` path and proven; the "just after commit, before recorded" kill is the one still to build]**
+
+## What's there vs. not
+- ✅ Bless story (succeed → amend → bless) — green on a real VM.
+- ✅ Failure 1 (error → rollback → byte-identical clean slate → fix applies fresh) — green. *The framework's unique value.*
+- ⬜ Failure 2 (internal timeout-kill) — designed; needs the configurable 12 h ceiling.
+- ⬜ Failure 3 (external OOM-kill of Postgres) — designed; needs the `NOTIFY`-handshake kill.
+- ⏳ Kill-at-other-points family — most proven; the after-commit-before-recorded kill remains.
+- 🧹 Clean-code-ship: remove `amendments.tsv` (product reader `release.CircumventVersions` + the test arc's C-leg) — the bless path replaces it.
+
+*Full pre-cleanup design notes and the run-by-run history are preserved in the Implementation Notes below and in this task's git history.*
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
