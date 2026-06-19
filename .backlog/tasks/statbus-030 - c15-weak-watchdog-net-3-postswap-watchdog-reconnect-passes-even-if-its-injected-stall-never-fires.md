@@ -3,9 +3,10 @@ id: STATBUS-030
 title: >-
   c15-weak-watchdog-net: 3-postswap-watchdog-reconnect passes even if its
   injected stall never fires
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-11 11:51'
+updated_date: '2026-06-19 15:38'
 labels:
   - install-recovery
   - test
@@ -39,3 +40,9 @@ Harness-only, ~1 line, NOT cut-blocking, parallelizable. Engineer flagged this H
 - [ ] #2 The scenario FAILS if the stall never fires (no more silent false-pass on a blind sleep)
 - [ ] #3 Stall-confirmation matches the pattern the sibling 3-postswap-archivebackup-watchdog already uses
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+DONE (foreman-verified 2026-06-19): the C15 reshape (postswap-watchdog-reconnect-arc.sh:98-102) added the (e) anti-false-pass gate — asserts the row is STILL in_progress after the hold, i.e. the injected stall genuinely held past WatchdogSec, so the scenario can no longer pass vacuously if the stall never fires.
+<!-- SECTION:NOTES:END -->
