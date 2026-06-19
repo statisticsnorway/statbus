@@ -160,36 +160,46 @@ migration_row_count() {
 #            so base SUFFICES to prove the data clean-slate. (Adding derived +
 #            a worker-quiescence-wait is a noted later enhancement.)
 capture_db_fingerprint() {
-    local schema_sha ledger_sha data_sha fp_db fp_user
-    # Read the connection params via SEPARATE SIMPLE one-liner VM_EXEC calls (the
-    # proven pattern, like the ledger/data dims below). BUG-1 ROOT CAUSE: a single
-    # GIANT multi-statement `bash -c '…db=$(…); …; …|…; echo …'` does NOT survive
-    # VM_EXEC's printf-%q + `sudo -i -u statbus` re-parse — the inner assignments
-    # never run (the self-diagnosing DIAG proved it: db/user/rc all empty). Each dim
-    # that WORKS is ONE plain pipe with no intermediate assignment.
+    local label="${1:-fp}"
+    local schema_sha ledger_sha data_sha fp_db fp_user schema_file
+    schema_file="${HARNESS_ROOT}/tmp/arc-schema-${label}.sql"
+    mkdir -p "$(dirname "$schema_file")"
+
+    # QUIESCE the worker before capturing (071 AC#2 schema-dim determinism; architect
+    # call (b) — NOT a rollback bug: data + ledger dims MATCH, and V_fail only RAISEs).
+    # statistical_history is hash-partitioned; the worker creates/manages partition
+    # schema objects during derivation. Capturing at different derivation states
+    # (baseline post-populate vs post-rollback) makes pg_dump --schema-only differ → a
+    # FALSE clean-slate mismatch. Derivation is deterministic (hash_slot from the same
+    # restored base data → same partitions), so quiescing to the STABLE FINAL state
+    # before BOTH captures makes the partition-schema identical. Quiesce stdout → &2
+    # so it can't pollute the captured fingerprint; warn (don't fail) on timeout — the
+    # diff instrument in assert_fingerprint_matches surfaces any residual.
+    wait_for_worker_quiesce "$VM_NAME" "${FP_QUIESCE_MAX_S:-300}" >&2 \
+        || echo "  ⚠ worker did not quiesce before fingerprint ($label) — schema dim may be nondeterministic" >&2
+
+    # Read connection params via SEPARATE SIMPLE one-liner VM_EXEC calls. BUG-1: a
+    # GIANT multi-statement `bash -c '…db=$(…);…|…'` does NOT survive VM_EXEC's
+    # printf-%q + `sudo -i` re-parse (inner assignments never run). Each working dim
+    # is ONE plain pipe, no intermediate assignment.
     fp_db=$(VM_EXEC bash -c "cd ~/statbus && ./sb dotenv -f .env get POSTGRES_APP_DB" 2>/dev/null | tr -d ' \r\n')
     fp_user=$(VM_EXEC bash -c "cd ~/statbus && ./sb dotenv -f .env get POSTGRES_ADMIN_USER" 2>/dev/null | tr -d ' \r\n')
-    # SCHEMA dim — ONE plain pipe (db/user interpolated LOCALLY, so the remote sees
-    # a flat pipe chain). pg_dump runs INSIDE the db container via the PROVEN
-    # `docker compose exec -T db` pattern (1-boot-advisory-too-early.sh:116 +
-    # wedge-helpers.sh:89 run it as the statbus VM_EXEC user; resolves the db
-    # SERVICE from ~/statbus/.env — no raw `docker ps` name-guessing). The container
-    # admin connects via local-socket trust (no password). grep strips pg_dump's
-    # volatile comment lines (-- Dumped … version …) + blank lines; two same-box
-    # dumps are otherwise byte-identical, so no `$`-anchored sed normalization is
-    # needed (and its quoting was a fragility risk through VM_EXEC).
-    schema_sha=$(VM_EXEC bash -c "cd ~/statbus && docker compose exec -T db pg_dump --schema-only --no-owner --no-privileges -U ${fp_user} ${fp_db} 2>/dev/null | grep -v '^--' | grep '[^[:space:]]' | sha256sum | cut -d' ' -f1" 2>/dev/null | tr -d ' \r\n')
-    # CENTERPIECE GUARD: a silently-failed pg_dump would make schema_sha = sha256("")
-    # on BOTH captures → assert_fingerprint_matches passes VACUOUSLY (a false-green
-    # clean-slate). Fail loud + run a SIMPLE diagnostic (pg_dump combined output,
-    # first 5 lines) so the next run names the cause. return 1 → the caller's
-    # `var=$(capture_db_fingerprint)` is non-zero under set -e → the arc halts.
-    # (data-dim guarded by assert_demo_data_present; ledger always has the base
-    # migrations → schema is the only vacuous-risk dim.)
+    # SCHEMA dim — pull the normalized schema to a runner file (KEPT for the diff
+    # instrument), then hash the LOCAL file. pg_dump runs INSIDE the db container via
+    # the PROVEN `docker compose exec -T db` pattern (1-boot-advisory:116 /
+    # wedge-helpers:89; resolves the db SERVICE from ~/statbus/.env). One flat pipe,
+    # db/user interpolated LOCALLY (giant bash -c doesn't survive VM_EXEC — BUG-1).
+    # grep strips pg_dump's volatile comment lines + blank lines; two same-box
+    # quiesced dumps are otherwise byte-identical.
+    VM_EXEC bash -c "cd ~/statbus && docker compose exec -T db pg_dump --schema-only --no-owner --no-privileges -U ${fp_user} ${fp_db} 2>/dev/null | grep -v '^--' | grep '[^[:space:]]'" > "$schema_file" 2>/dev/null
+    schema_sha=$(sha256sum "$schema_file" 2>/dev/null | cut -d' ' -f1)
+    # CENTERPIECE GUARD: a silently-failed pg_dump → empty schema → sha256("") on
+    # BOTH captures → a VACUOUS clean-slate pass. Fail loud + a SIMPLE diagnostic.
+    # return 1 → caller's var=$(...) non-zero under set -e → the arc halts.
     local empty_sha="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     if [ -z "$schema_sha" ] || [ "$schema_sha" = "$empty_sha" ]; then
-        echo "✗ capture_db_fingerprint: SCHEMA dim empty — refusing a vacuous fingerprint." >&2
-        echo "    db=[$fp_db] user=[$fp_user]" >&2
+        echo "✗ capture_db_fingerprint($label): SCHEMA dim empty — refusing a vacuous fingerprint." >&2
+        echo "    db=[$fp_db] user=[$fp_user] schema_file=[$schema_file] lines=[$(wc -l <"$schema_file" 2>/dev/null | tr -d ' ')]" >&2
         VM_EXEC bash -c "cd ~/statbus && docker compose exec -T db pg_dump --schema-only --no-owner --no-privileges -U ${fp_user} ${fp_db} 2>&1 | head -5" 2>&1 | sed 's/^/    pgdump: /' >&2 || true
         return 1
     fi
@@ -201,14 +211,25 @@ capture_db_fingerprint() {
 # assert_fingerprint_matches <label> <baseline> — re-capture + compare byte-for-byte;
 # report WHICH dim drifted on mismatch (the clean-slate centerpiece, STATBUS-071 d).
 assert_fingerprint_matches() {
-    local label="$1" baseline="$2" current
-    current=$(capture_db_fingerprint)
+    local label="$1" baseline="$2" baseline_schema_label="${3:-baseline}" current
+    current=$(capture_db_fingerprint "rollback-recheck")
     if [ "$current" != "$baseline" ]; then
         echo "✗ CLEAN-SLATE FINGERPRINT MISMATCH (${label})" >&2
         local b_s b_l b_d c_s c_l c_d
         read -r b_s b_l b_d <<< "$baseline"
         read -r c_s c_l c_d <<< "$current"
-        [ "$b_s" = "$c_s" ] || echo "    SCHEMA differs: ${b_s:0:16}… → ${c_s:0:16}…" >&2
+        if [ "$b_s" != "$c_s" ]; then
+            echo "    SCHEMA differs: ${b_s:0:16}… → ${c_s:0:16}…" >&2
+            # INSTRUMENT: diff the two raw schema dumps → NAME the differing objects.
+            # worker-created hash-partition/facet residue (statistical_history_*) =
+            # residual determinism → quiesce harder; a migration table altered/missing
+            # = a real recovery bug. Full dumps upload as artifacts (run-arc globs
+            # tmp/arc-schema-*.sql).
+            local bf="${HARNESS_ROOT}/tmp/arc-schema-${baseline_schema_label}.sql"
+            local cf="${HARNESS_ROOT}/tmp/arc-schema-rollback-recheck.sql"
+            echo "    schema diff (${bf} vs ${cf}) — first 60 differing lines:" >&2
+            diff "$bf" "$cf" 2>/dev/null | head -60 | sed 's/^/      /' >&2 || true
+        fi
         [ "$b_l" = "$c_l" ] || echo "    LEDGER differs: ${b_l:0:16}… → ${c_l:0:16}…" >&2
         [ "$b_d" = "$c_d" ] || echo "    DATA   differs: ${b_d:0:16}… → ${c_d:0:16}…" >&2
         exit 1

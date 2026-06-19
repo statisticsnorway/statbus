@@ -62,7 +62,7 @@ echo "  pre-arc data snapshot: $DATA_SNAPSHOT"
 # Baseline fingerprint (post-A + demo data) — the rollback must restore THIS
 # byte-for-byte. Capture AFTER populate so it reflects the real pre-upgrade state.
 echo "── capturing baseline clean-slate fingerprint (post-A) ──"
-BASELINE_FP=$(capture_db_fingerprint)
+BASELINE_FP=$(capture_db_fingerprint baseline)
 echo "  baseline fingerprint: $BASELINE_FP"
 
 # ── B: V_fail → executeUpgrade fails → autonomous rollback → 'rolled_back' ──
@@ -72,7 +72,7 @@ assert_health_passes "$VM_NAME"
 MROWS_B=$(migration_row_count)
 [ "$MROWS_B" = "0" ] || { echo "✗ V_fail left a ledger row (count=$MROWS_B, want 0) — rollback did not unrecord it" >&2; exit 1; }
 echo "  ✓ V_fail not recorded in db.migration (rolled back)"
-assert_fingerprint_matches "post-rollback == post-A" "$BASELINE_FP"
+assert_fingerprint_matches "post-rollback == post-A" "$BASELINE_FP" baseline
 assert_demo_data_present "$VM_NAME"
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 assert_flag_file_absent "$VM_NAME"

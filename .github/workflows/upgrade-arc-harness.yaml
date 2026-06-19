@@ -387,7 +387,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: upgrade-arc-log-${{ github.event.inputs.scenario }}-${{ github.run_id }}
-          path: tmp/install-recovery-*.log
+          path: |
+            tmp/install-recovery-*.log
+            tmp/arc-schema-*.sql
           retention-days: 14
           if-no-files-found: ignore
 
