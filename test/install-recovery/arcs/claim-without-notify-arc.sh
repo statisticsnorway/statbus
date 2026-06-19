@@ -31,6 +31,11 @@ set -euo pipefail
 VM_NAME="${1:-statbus-arc-claim-without-notify}"
 UPGRADE_BUDGET_S="${UPGRADE_BUDGET_S:-1200}"
 TICK_WAIT_S="${TICK_WAIT_S:-120}"
+# Fast-fail budget for the CLAIM (in_progress) — distinct from the terminal budget.
+# A 098-revert (daemon claims only on live NOTIFY) would never claim this lost-NOTIFY
+# row → it would hang to UPGRADE_BUDGET_S (1200s = 20min). Normal claim is ~80s (the
+# startup-scan / ≤30s tick); 180s is comfortable headroom yet ≪ 1200s → RED in ~3min.
+CLAIM_BUDGET_S="${CLAIM_BUDGET_S:-180}"
 UNIT="statbus-upgrade@statbus.service"
 
 : "${BASE_SHA:?BASE_SHA required}"
@@ -87,22 +92,32 @@ dump_daemon_state "daemon stopped, B scheduled"
 
 # ── START the daemon → STARTUP-SCAN (STATBUS-098) claims B with NO live NOTIFY ──
 echo ""
-echo "── starting the daemon → the startup-scan must claim B (no NOTIFY exists) ──"
+echo "── starting the daemon → the startup-scan or ≤30s tick must claim B (no NOTIFY exists) ──"
 VM_EXEC bash -c "systemctl --user reset-failed $UNIT 2>/dev/null; systemctl --user start $UNIT"
 
 START_TS=$(date +%s)
-FINAL=""
+FINAL=""; SAW_CLAIM=0
 while true; do
     elapsed=$(( $(date +%s) - START_TS ))
-    if [ "$elapsed" -ge "$UPGRADE_BUDGET_S" ]; then
-        echo "✗ B not claimed within ${UPGRADE_BUDGET_S}s of daemon start — STATBUS-098 startup-scan claim regressed" >&2
+    ST=$(upgrade_state)
+    case "$ST" in
+        in_progress) SAW_CLAIM=1 ;;
+        completed|failed|rolled_back) SAW_CLAIM=1; FINAL="$ST"; echo "  B reached state='$ST' (t+${elapsed}s after daemon start)"; break ;;
+    esac
+    # FAST-FAIL: B must be CLAIMED (in_progress/terminal) within CLAIM_BUDGET_S via
+    # the startup-scan or the ≤30s tick — there is NO live NOTIFY. A daemon that only
+    # acts on a live NOTIFY (STATBUS-098 regressed) would never claim → RED here in
+    # ~3min instead of hanging to the 1200s terminal budget.
+    if [ "$SAW_CLAIM" = "0" ] && [ "$elapsed" -ge "$CLAIM_BUDGET_S" ]; then
+        echo "✗ B NOT CLAIMED within ${CLAIM_BUDGET_S}s of daemon start (state='$ST') — STATBUS-098 no-NOTIFY claim (startup-scan or ≤30s tick) regressed" >&2
         VM_EXEC bash -c "cd ~/statbus && echo 'SELECT id, state, error FROM public.upgrade ORDER BY id DESC LIMIT 5;' | ./sb psql" >&2 || true
         exit 1
     fi
-    ST=$(upgrade_state)
-    case "$ST" in
-        completed|failed|rolled_back) FINAL="$ST"; echo "  B reached state='$ST' (t+${elapsed}s after daemon start)"; break ;;
-    esac
+    if [ "$elapsed" -ge "$UPGRADE_BUDGET_S" ]; then
+        echo "✗ B claimed but not terminal within ${UPGRADE_BUDGET_S}s of daemon start (state='$ST')" >&2
+        VM_EXEC bash -c "cd ~/statbus && echo 'SELECT id, state, error FROM public.upgrade ORDER BY id DESC LIMIT 5;' | ./sb psql" >&2 || true
+        exit 1
+    fi
     sleep 5
 done
 [ "$FINAL" = "completed" ] || { echo "✗ B did NOT complete (got '$FINAL') after claim-without-NOTIFY" >&2; exit 1; }
@@ -117,4 +132,4 @@ assert_no_orphan_backup "$VM_NAME"
 assert_health_passes "$VM_NAME"
 
 echo ""
-echo "PASS: claim-without-notify (daemon claimed a 'scheduled' row via startup-scan with NO live NOTIFY; V applied; healthy)"
+echo "PASS: claim-without-notify (daemon claimed a 'scheduled' row via the startup-scan or ≤30s tick with NO live NOTIFY; V applied; healthy)"
