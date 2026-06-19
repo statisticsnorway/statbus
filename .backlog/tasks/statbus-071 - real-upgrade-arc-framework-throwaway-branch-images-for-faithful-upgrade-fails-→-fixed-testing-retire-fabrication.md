@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-06-19 07:38'
+updated_date: '2026-06-19 08:18'
 labels:
   - install-recovery
   - upgrade
@@ -119,4 +119,6 @@ FAILING ARC GREEN — AC#2 met (run 27811604893, 2026-06-19, foreman autonomous 
 The failing arc took 5 VM runs to harden the fingerprint (each a test-harness issue, NOT a product/recovery bug — the rollback was always byte-faithful, proven by ledger+data matching throughout): BUG-1 ×3 (pg_dump auth red-herring → the real cause: a giant inline bash -c didn't survive VM_EXEC's printf-%q+sudo-i → restructured to separate reads + runner-side strip), schema-dim worker-partition quiesce (the diff instrument disproved the worker-timing hypothesis), and the pg_dump-18 \restrict/\unrestrict random-nonce strip (the diff instrument named it decisively). Commits: 5eb27898e (quiesce), 6ad1a9b78 (restrict-strip, runner-side anchored).
 
 BOTH ARCS NOW GREEN: AC#1 (working re-stamp, run 27807092720) + AC#2 (failing clean-slate, run 27811604893). The 098 product fix (the framework's first real catch) is fixed + VM-proven. NEXT: the §9(5) reshape (AC#3 fabricate→register/schedule swap family-wide + AC#4 delete fabricate) = the charter fruition; + the deferred polish (comment precision + the ≤90s fast-fail assert).
+
+§9(5) 5a GREEN (run 27813204057, 2026-06-19) — the KILL-ARC DRIVER is proven on a real VM. doc-016 (architect) is the implementable 5a-5e plan. KEY design correction: every CAT-C scenario ALREADY uses a real inject class (:388/:202/:911/:844) — the engineer's 'no mid-migrate KillHere → must fabricate' premise was wrong; so the whole kill family is a UNIFORM mechanical swap (the crash was never the fabricated part — only the scheduling is faked). Commit 62ff41573: NEW helpers arc_schedule_daemon_down (stop daemon + real ./sb upgrade schedule = persistent daemon-down 'scheduled' row, replacing fabricate_scheduled_upgrade_row) + arc_install_dispatch_with_inject (./sb install + STATBUS_INJECT_AT → real crash at the product inject point) + arcs/preswap-checkout-kill-arc.sh (reshaped legacy 2-preswap-checkout-kill: real inject killed-by-system-during-preswap-checkout + real register/schedule; architect-verified every crash-shape + convergence assert preserved). PASS: real crash → recovery → abort to A → data intact, NRestarts=0, ZERO orphans. PHASING: 5b (CAT-A ×4) → 5c (CAT-B ×6) → 5d (CAT-C ×4 + delete deterministic-error + checkout-kill-legacy + assess worker-ddl) → 5e (DELETE fabricate at zero callers = AC#3+AC#4). VM-prove depth (each scenario vs representative-per-category + final full-suite) = architect's call (pending). Engineer building 5b.
 <!-- SECTION:NOTES:END -->
