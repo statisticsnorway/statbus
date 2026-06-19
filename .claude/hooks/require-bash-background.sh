@@ -53,22 +53,24 @@ is_long() {
   local cmd="$1"
   local cmd_for_match
 
-  # Strip commit message bodies before pattern-matching, so command strings
-  # documented inside commit messages don't false-match hook patterns.
-  # Handles: -m 'single'  -m "double"  -m $'ansi-c'  -F <path>
-  # After tr-normalization the input is already single-line, so multi-line
-  # HEREDOC bodies ($(cat <<'EOF'..EOF)) are covered by the double-quote case.
-  # Caveat: if the message body itself contains double-quote characters the
-  # [^"]* pattern stops at the first embedded ", leaving the tail unstripped.
-  # Workaround: write the message to a file and use `git commit -F <file>`.
-  # The -F path strip above handles that form cleanly. A shell-aware parser
-  # is heavier than this problem is worth; -F is the documented escape hatch.
+  # A `git commit` is never long-running — its message, in ANY form, is data,
+  # not a command being run. Strip every message-carrying form before matching
+  # so a long-running command quoted inside the body can't false-fire the
+  # commit:
+  #   -m 'single'   -m "double" (incl. \"-escaped)   -m $'ansi-c'   -F <path>
+  #   -F - <<EOF…EOF   and any   <<DELIM…   heredoc redirection (to line end).
+  # The trailing heredoc strip also neutralises any tail an embedded-" left
+  # unstripped by the -m "double" case (it runs after, on the residual).
+  # `-F <file>` (message lives in a file, never in the command) stays as the
+  # always-clean escape hatch for anything truly pathological — but the common
+  # forms above no longer need it.
   if printf '%s' "$cmd" | grep -qE '^[[:space:]]*git[[:space:]]+commit\b'; then
     cmd_for_match=$(printf '%s' "$cmd" | sed -E \
       -e "s/-m[[:space:]]+'[^']*'//g" \
-      -e 's/-m[[:space:]]+"[^"]*"//g' \
+      -e 's/-m[[:space:]]+"([^"\]|\\.)*"//g' \
       -e "s/-m[[:space:]]+\\\$'[^']*'//g" \
-      -e 's/-F[[:space:]]+[^[:space:]]+//g')
+      -e 's/-F[[:space:]]+[^[:space:]]+//g' \
+      -e 's/[[:space:]]*<<-?.*$//')
   else
     cmd_for_match="$cmd"
   fi

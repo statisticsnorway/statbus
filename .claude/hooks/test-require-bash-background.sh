@@ -191,6 +191,17 @@ assert_deny "bare ./dev.sh test fast (no commit wrapper) → still DENY" \
 assert_no_op "git commit -F file → no-op (-F path stripped)" \
   "$(payload_fg 'git commit -F tmp/commit-msg.txt')"
 
+# -F - <<EOF heredoc-to-stdin: the heredoc body is stripped (to line end), so a
+# long-running command documented in the body no longer false-fires the commit.
+assert_no_op "git commit -F - <<EOF body with ./sb install → no-op (heredoc stripped)" \
+  "$(payload_fg $'git commit -F - <<\'EOF\'\nfix: documents running ./sb install in the body\nEOF')"
+
+# -m "..." with an EMBEDDED ESCAPED QUOTE before a pattern: the escaped-quote-aware
+# strip ([^"\]|\\.)* matches through \" so the whole body is removed (previously the
+# [^"]* strip stopped at the first \" and the tail false-matched).
+assert_no_op "git commit -m with escaped quote + ./dev.sh test in body → no-op" \
+  "$(payload_fg 'git commit -m "fix the \"./dev.sh test\" doc example, see ./sb install"')"
+
 # ── Known false-positive (documented) ──
 # The regex matches the pattern text even when quoted inside `echo`.
 # We accept this — the deny message is clear and the caller can either
