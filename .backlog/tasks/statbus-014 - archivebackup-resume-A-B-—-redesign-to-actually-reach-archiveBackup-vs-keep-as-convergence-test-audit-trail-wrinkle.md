@@ -3,9 +3,10 @@ id: STATBUS-014
 title: >-
   archivebackup-resume: A/B — redesign to actually reach archiveBackup vs keep
   as convergence test (+ audit-trail wrinkle)
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-08 02:11'
+updated_date: '2026-06-19 15:33'
 labels:
   - install-recovery
   - recovery
@@ -40,3 +41,9 @@ Full diagnosis: tmp/architect-archivebackup-resume-diagnosis.md. Neither item bl
 - [ ] #3 If B: scenario title/EXPECTED-BEHAVIOR/Phase-6 comments reframed to convergence (remove the misleading watchdog-during-tar intent)
 - [ ] #4 Decide whether markCurrentVersionCompleted should preserve the rolled_back audit trail
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+archivebackup-resume DELETED (subsumed by archivebackup-watchdog; doc-016:46)
+<!-- SECTION:NOTES:END -->
