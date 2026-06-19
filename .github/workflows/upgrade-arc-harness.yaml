@@ -44,7 +44,7 @@ on:
         required: false
         default: ''
       scenario:
-        description: 'Arc scenario: working (re-stamp §9c) | failing (fail→rollback→fix + clean-slate §9d) | claim-without-notify (STATBUS-098) | §9(5) CAT-A kill-arcs: preswap-checkout-kill | preswap-backup-kill | preswap-binary-swap-kill | postswap-container-restart-kill | rollback-kill | §9(5) CAT-B stall-arcs: postswap-watchdog-reconnect | postswap-migration-timeout | postswap-archivebackup-watchdog.'
+        description: 'Arc scenario: working (re-stamp §9c) | failing (fail→rollback→fix + clean-slate §9d) | claim-without-notify (STATBUS-098) | §9(5) CAT-A kill-arcs: preswap-checkout-kill | preswap-backup-kill | preswap-binary-swap-kill | postswap-container-restart-kill | rollback-kill | §9(5) CAT-B stall-arcs: postswap-watchdog-reconnect | postswap-migration-timeout | postswap-archivebackup-watchdog | postswap-rollback-restore-watchdog (V_fail→rollback→restore-stall).'
         required: false
         default: 'working'
 
@@ -147,7 +147,10 @@ jobs:
           # --- B: off A. working → V SUCCEEDS; failing → V deterministically FAILS
           # (RAISE EXCEPTION → executeUpgrade's migrate up fails → autonomous rollback). ---
           git checkout -B "$b_branch" "$base_sha"
-          if [ "$SCENARIO" = "failing" ]; then
+          # postswap-rollback-restore-watchdog reuses the failing V_fail: a postswap
+          # migrate failure → postSwapFailure → rollback() → restoreDatabase, where its
+          # stall-dropin parks the restore (exec.go:761) to prove the rollback watchdog cover.
+          if [ "$SCENARIO" = "failing" ] || [ "$SCENARIO" = "postswap-rollback-restore-watchdog" ]; then
             {
               echo "-- Upgrade-arc FAILING fixture (STATBUS-071 d): deterministic failure → rollback."
               echo "DO \$\$ BEGIN"
@@ -169,7 +172,7 @@ jobs:
           # working migration; V_fail rolled back (unrecorded) so V_fixed applies
           # FRESH — NO amendments.tsv entry (the FEW who failed). ---
           git checkout -B "$c_branch" "$b_branch"
-          if [ "$SCENARIO" = "failing" ]; then
+          if [ "$SCENARIO" = "failing" ] || [ "$SCENARIO" = "postswap-rollback-restore-watchdog" ]; then
             write_working_v
             git add "$v_up" "$v_down"
             git commit -S -q -m "test(upgrade-arc): ${SCENARIO} fix V in place (C, applies fresh)"
