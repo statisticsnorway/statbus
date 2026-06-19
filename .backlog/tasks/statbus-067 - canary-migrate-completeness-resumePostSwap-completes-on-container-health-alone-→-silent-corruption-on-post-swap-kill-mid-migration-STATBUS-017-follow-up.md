@@ -4,10 +4,10 @@ title: >-
   canary-migrate-completeness: recovery must roll back (not self-heal) when a
   migration committed but its done-record was lost; the two converged tests must
   exercise this
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-06-16 21:57'
-updated_date: '2026-06-18 08:27'
+updated_date: '2026-06-19 15:38'
 labels:
   - upgrade
   - recovery
@@ -81,4 +81,6 @@ WHY THE FIX IS CORRECT (production topology): in prod the migration is part of t
 DO NOT change the gate to an orphaned-object signal — that file-less state is a reproducer artifact, not a production case; HasPending (file-vs-record) is correct.
 
 NEXT: fix the REPRODUCER, not the gate — make the synthetic migration present in the tree at flag.CommitSHA at the canary (align migration commit / flag.CommitSHA / container tags / binary commit). Architect designing the exact reproducer-fix + canary-point instrumentation dump (db.migration, on-disk migrations, HasPending, HEAD vs flag.CommitSHA, container tags, sentinel) in ONE change → engineer applies → foreman commits + pushes + runs. Canary fix is correct-by-analysis (verified) but NOT empirically proven green until a faithful reproducer runs rolled_back — per the King's run-is-the-oracle principle, the canary is not done until then. Test-harness only; still needs commit→push→run.
+
+DONE (foreman-verified 2026-06-19): self-heal canary implemented at resumePostSwap (cli/internal/upgrade/service.go:5053 — containersAtFlagTarget && !migrate.HasPending → self-heal to completed; HasPending → roll back, the 'committed-but-record-lost → rollback not self-heal' requirement). The 'two converged tests must exercise it' is tracked in STATBUS-071 §9(5) 5d (after-commit reshape).
 <!-- SECTION:NOTES:END -->
