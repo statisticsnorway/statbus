@@ -184,15 +184,24 @@ capture_db_fingerprint() {
     # is ONE plain pipe, no intermediate assignment.
     fp_db=$(VM_EXEC bash -c "cd ~/statbus && ./sb dotenv -f .env get POSTGRES_APP_DB" 2>/dev/null | tr -d ' \r\n')
     fp_user=$(VM_EXEC bash -c "cd ~/statbus && ./sb dotenv -f .env get POSTGRES_ADMIN_USER" 2>/dev/null | tr -d ' \r\n')
-    # SCHEMA dim — pull the normalized schema to a runner file (KEPT for the diff
-    # instrument), then hash the LOCAL file. pg_dump runs INSIDE the db container via
-    # the PROVEN `docker compose exec -T db` pattern (1-boot-advisory:116 /
-    # wedge-helpers:89; resolves the db SERVICE from ~/statbus/.env). One flat pipe,
-    # db/user interpolated LOCALLY (giant bash -c doesn't survive VM_EXEC — BUG-1).
-    # grep strips pg_dump's volatile comment lines + blank lines; two same-box
-    # quiesced dumps are otherwise byte-identical.
-    VM_EXEC bash -c "cd ~/statbus && docker compose exec -T db pg_dump --schema-only --no-owner --no-privileges -U ${fp_user} ${fp_db} 2>/dev/null | grep -v '^--' | grep '[^[:space:]]'" > "$schema_file" 2>/dev/null
+    # SCHEMA dim — VM_EXEC pulls the RAW pg_dump (in the db container via the PROVEN
+    # `docker compose exec -T db` pattern, 1-boot-advisory:116 / wedge-helpers:89);
+    # ALL text-processing (strip + hash) runs on the RUNNER. Doing the strip
+    # runner-side lets the nonce filter be BACKSLASH-ANCHORED (the architect's exact
+    # form) WITHOUT fighting VM_EXEC's double-quote + %q + sudo-i backslash mangling
+    # (a literal-backslash regex inside the VM_EXEC pipe would be mangled — the BUG-1
+    # layer lesson). Strip: (1) pg_dump comment lines (^--); (2) the PG18 `\restrict`
+    # / `\unrestrict <random-nonce>` psql-meta wrapper lines — a PER-DUMP random token
+    # (restore-hardening), NOT DDL; the diff instrument caught it as the ONLY
+    # baseline↔rollback diff. Anchored on the literal leading backslash + the trailing
+    # space → matches EXACTLY the 2 wrapper lines (verified vs the real dump: a DDL
+    # line containing "restrict" like 'restricted_user' is untouched). (3) blank
+    # lines. Two same-box quiesced dumps are then byte-identical.
+    local schema_raw="${schema_file}.raw"
+    VM_EXEC bash -c "cd ~/statbus && docker compose exec -T db pg_dump --schema-only --no-owner --no-privileges -U ${fp_user} ${fp_db} 2>/dev/null" > "$schema_raw" 2>/dev/null
+    grep -v '^--' "$schema_raw" 2>/dev/null | grep -vE '^\\(un)?restrict[[:space:]]' | grep '[^[:space:]]' > "$schema_file"
     schema_sha=$(sha256sum "$schema_file" 2>/dev/null | cut -d' ' -f1)
+    rm -f "$schema_raw"
     # CENTERPIECE GUARD: a silently-failed pg_dump → empty schema → sha256("") on
     # BOTH captures → a VACUOUS clean-slate pass. Fail loud + a SIMPLE diagnostic.
     # return 1 → caller's var=$(...) non-zero under set -e → the arc halts.
