@@ -160,30 +160,37 @@ migration_row_count() {
 #            so base SUFFICES to prove the data clean-slate. (Adding derived +
 #            a worker-quiescence-wait is a noted later enhancement.)
 capture_db_fingerprint() {
-    local schema_sha ledger_sha data_sha
-    # SCHEMA dim — pg_dump --schema-only INSIDE the db container via the PROVEN
+    local schema_sha ledger_sha data_sha fp_db fp_user
+    # Read the connection params via SEPARATE SIMPLE one-liner VM_EXEC calls (the
+    # proven pattern, like the ledger/data dims below). BUG-1 ROOT CAUSE: a single
+    # GIANT multi-statement `bash -c '…db=$(…); …; …|…; echo …'` does NOT survive
+    # VM_EXEC's printf-%q + `sudo -i -u statbus` re-parse — the inner assignments
+    # never run (the self-diagnosing DIAG proved it: db/user/rc all empty). Each dim
+    # that WORKS is ONE plain pipe with no intermediate assignment.
+    fp_db=$(VM_EXEC bash -c "cd ~/statbus && ./sb dotenv -f .env get POSTGRES_APP_DB" 2>/dev/null | tr -d ' \r\n')
+    fp_user=$(VM_EXEC bash -c "cd ~/statbus && ./sb dotenv -f .env get POSTGRES_ADMIN_USER" 2>/dev/null | tr -d ' \r\n')
+    # SCHEMA dim — ONE plain pipe (db/user interpolated LOCALLY, so the remote sees
+    # a flat pipe chain). pg_dump runs INSIDE the db container via the PROVEN
     # `docker compose exec -T db` pattern (1-boot-advisory-too-early.sh:116 +
-    # wedge-helpers.sh:89 use it as the statbus VM_EXEC user — it resolves the db
-    # SERVICE from ~/statbus/.env). The earlier raw `docker ps | grep -db | docker
-    # exec <name>` returned empty on the VM (the BUG-1 false guard-fire): raw
-    # container-name resolution as statbus is fragile where `docker compose exec`
-    # works. pg_dump runs as the container's local-socket-trust admin (no password
-    # needed; PGPASSWORD kept as a harmless belt). SELF-DIAGNOSING (one round-trip):
-    # emits DIAG (db/user, pg_dump rc, line count, stderr) then a HASH= line; on an
-    # empty hash the guard echoes the DIAG so the next run shows WHY.
-    local schema_out
-    schema_out=$(VM_EXEC bash -c 'cd ~/statbus || exit 1; db=$(./sb dotenv -f .env get POSTGRES_APP_DB); user=$(./sb dotenv -f .env get POSTGRES_ADMIN_USER); pass=$(./sb dotenv -f .env get POSTGRES_ADMIN_PASSWORD); err=$(mktemp); sql=$(mktemp); docker compose exec -T -e PGPASSWORD="$pass" db pg_dump --schema-only --no-owner --no-privileges -U "$user" "$db" >"$sql" 2>"$err"; rc=$?; h=$(grep -v "^--" "$sql" 2>/dev/null | sed -e "s/[[:space:]]*$//" -e "/^$/d" | sha256sum | cut -d" " -f1); echo "DIAG db=[$db] user=[$user] pgdump-rc=$rc lines=$(wc -l <"$sql" 2>/dev/null | tr -d " ") stderr=[$(head -c 400 "$err" 2>/dev/null | tr "\n" " ")]"; rm -f "$err" "$sql"; echo "HASH=$h"' 2>&1)
-    schema_sha=$(printf '%s\n' "$schema_out" | sed -n 's/^HASH=//p' | tr -d ' \r\n')
+    # wedge-helpers.sh:89 run it as the statbus VM_EXEC user; resolves the db
+    # SERVICE from ~/statbus/.env — no raw `docker ps` name-guessing). The container
+    # admin connects via local-socket trust (no password). grep strips pg_dump's
+    # volatile comment lines (-- Dumped … version …) + blank lines; two same-box
+    # dumps are otherwise byte-identical, so no `$`-anchored sed normalization is
+    # needed (and its quoting was a fragility risk through VM_EXEC).
+    schema_sha=$(VM_EXEC bash -c "cd ~/statbus && docker compose exec -T db pg_dump --schema-only --no-owner --no-privileges -U ${fp_user} ${fp_db} 2>/dev/null | grep -v '^--' | grep '[^[:space:]]' | sha256sum | cut -d' ' -f1" 2>/dev/null | tr -d ' \r\n')
     # CENTERPIECE GUARD: a silently-failed pg_dump would make schema_sha = sha256("")
     # on BOTH captures → assert_fingerprint_matches passes VACUOUSLY (a false-green
-    # clean-slate). Fail loud + echo the DIAG. return 1 → the caller's
+    # clean-slate). Fail loud + run a SIMPLE diagnostic (pg_dump combined output,
+    # first 5 lines) so the next run names the cause. return 1 → the caller's
     # `var=$(capture_db_fingerprint)` is non-zero under set -e → the arc halts.
     # (data-dim guarded by assert_demo_data_present; ledger always has the base
     # migrations → schema is the only vacuous-risk dim.)
     local empty_sha="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     if [ -z "$schema_sha" ] || [ "$schema_sha" = "$empty_sha" ]; then
-        echo "✗ capture_db_fingerprint: SCHEMA dim empty — refusing a vacuous fingerprint. Diagnostics:" >&2
-        printf '%s\n' "$schema_out" | grep '^DIAG' | sed 's/^/    /' >&2
+        echo "✗ capture_db_fingerprint: SCHEMA dim empty — refusing a vacuous fingerprint." >&2
+        echo "    db=[$fp_db] user=[$fp_user]" >&2
+        VM_EXEC bash -c "cd ~/statbus && docker compose exec -T db pg_dump --schema-only --no-owner --no-privileges -U ${fp_user} ${fp_db} 2>&1 | head -5" 2>&1 | sed 's/^/    pgdump: /' >&2 || true
         return 1
     fi
     ledger_sha=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT version::text || ',' || content_hash FROM db.migration ORDER BY version;\" | ./sb psql -t -A 2>/dev/null | sha256sum | cut -d' ' -f1" 2>/dev/null | tr -d ' \r\n')
