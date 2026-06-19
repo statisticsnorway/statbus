@@ -1,0 +1,52 @@
+---
+id: doc-017
+title: >-
+  STATBUS-071 §9(5) 5d — CAT-C design-pass (mid-migrate mechanisms + worker-ddl
+  + matrix)
+type: specification
+created_date: '2026-06-19 11:40'
+---
+# STATBUS-071 §9(5) 5d — CAT-C design-pass
+
+**Audience:** engineer (build after CAT-B closes) + foreman (review/commit/VM-prove). **Architect design-pass, 2026-06-19.** Companion to doc-016.
+
+## 0. CORRECTION to doc-016 (own it)
+doc-016 marked :388/:911 as "ride 5a (structure+review, no interim VM)". **WRONG** — the engineer's pre-read is right. 5a proved the KillHere→**rollback** path (PreSwap recoveryRollback). :388/:911 are a DISTINCT mechanism: **ONE-SHOT KillHere → forward-recovery → COMPLETED** (not rollback). They need a helper enhancement (the one-shot marker) + a VM-prove. Each CAT-C terminal + recovery path verified below against the CODE (not the fabricate-legacy contract — same lesson as the resume-death family).
+
+## 1. :388 mid-migration-kill + :911 between-migrations-kill — one-shot KillHere → forward-recovery → COMPLETED
+**Inject mechanics:** migrate.go:388 (during a migration's execution) / :911 (between migration N recorded and N+1) — `inject.KillHere(class)`. The kill is gated on ATOMICALLY consuming a marker: `os.Remove(STATBUS_INJECT_KILL_AND_REMOVE_FILE)` returns nil → fire (os.Exit 137); the file is removed BEFORE exit (inject.go:426-448, STATBUS-022) → fires EXACTLY ONCE; the marker survives the exec, so the recovery migrate re-enters the SAME site with the marker GONE → no re-kill.
+**Self-heal SAFE (key — unlike the resume-death family):** the mid-migrate kill leaves migrations PENDING (the killed migration unrecorded/partial; :911 leaves N+1 pending) → `migrate.HasPending == true` → resumePostSwap's self-heal canary (:5053) does NOT fire → applyPostSwap → migrate.Up re-runs → forward-recovery. The PENDING migration is what defeats the self-heal here (the resume-death family left no-pending → self-heal).
+**Helper enhancement (NEW):** `arc_install_dispatch_with_inject` (arc-helpers.sh:287) currently sets only STATBUS_INJECT_AT. Add a ONE-SHOT-MARKER mode: create a marker file on the VM + set `STATBUS_INJECT_KILL_AND_REMOVE_FILE=<path>` (alongside STATBUS_INJECT_AT). 1st dispatch → kill fires once (removes marker, exit 137) → 2nd recovery dispatch (marker GONE → KillHere's os.Remove fails → no re-kill) → migrate.Up completes.
+**Contract:** 1st dispatch exit 137 (PostSwap, mid-migrate, HasPending) → recovery dispatch → forward-recovery → **completed + db.migration max BUMPED** to the target + data intact + flag absent + healthy. (db.migration-bumped is the load-bearing proof the forward-recovery applied for real.)
+**VM-prove:** ONE representative (foreman's call — :388 or :911; :911 needs a ≥2-migration fixture so N-recorded/N+1-pending is real). VERIFY the REAL forward-recovery (the legacy contract was fabricate-based → the run is the oracle).
+
+## 2. :202 mid-tx-kill — MidTxPauseSQL + harness tree-SIGKILL → clean re-apply → COMPLETED
+**Inject mechanics:** migrate.go:436 splices `inject.MidTxPauseSQL(class)` (inject.go:506) into the migration's OUTER tx → the migrate psql PAUSES mid-tx (before COMMIT). The harness then tree-SIGKILLs the psql + pg_terminate_backend's the parked backend → the UNCOMMITTED tx ROLLS BACK → recovery → migrate re-runs → clean re-apply (nothing was committed) → completed.
+**Helpers EXIST (just wire in):** `wait_for_midtx_stall_ready` (wedge-helpers.sh:418, detects the parked psql) + `kill_pid_in_vm` (:476, tree-SIGKILL). No new helper needed — wire them into an arc.
+**Self-heal SAFE:** the rolled-back tx leaves the migration UNapplied → HasPending=true → no self-heal → forward-recovery → completed.
+**Contract:** dispatch (STATBUS_INJECT_AT=killed-by-system-during-migration-tx-before-commit) → wait_for_midtx_stall_ready → kill_pid_in_vm (tree-SIGKILL) → recovery dispatch → completed + db.migration bumped + data intact. **VM-prove** (NEW — manual tree-SIGKILL mechanism).
+
+## 3. :844/:845 migrate-killed-after-commit — StallHere + harness SIGKILL → forward-FAILS → ROLLED_BACK (rune shape)
+**Inject mechanics:** migrate.go:844/:845 `inject.StallHere(...)` in the ~ms window AFTER a migration's outer tx COMMITS but BEFORE the db.migration ledger INSERT. The harness `wait_for_inject_stall_ready` → SIGKILL during the stall → the migration is COMMITTED-but-UNRECORDED. Recovery → resumePostSwap → self-heal check: HasPending=TRUE (ledger row missing → migrate thinks it's pending) → no self-heal → applyPostSwap → migrate.Up re-hits the committed-but-unrecorded migration → **re-apply CONFLICTS** (already applied) → migrate FAILS → postSwapFailure → rollback → **rolled_back** (the rune shape).
+**DETERMINISM (load-bearing, like rollback-kill):** the rolled_back is deterministic ONLY if the re-apply RELIABLY conflicts. → the after-commit V fixture MUST be NON-IDEMPOTENT (e.g. `CREATE TABLE x` without IF NOT EXISTS → re-apply errors `already exists`). An idempotent V would forward-recover (→ completed), not rollback. So the fixture-design IS the determinism control.
+**Contract:** dispatch → wait_for_inject_stall_ready → SIGKILL → recovery → forward-fails → rolled_back + data restored (the rune snapshot) + flag absent + healthy. Assert DETERMINISTICALLY (rolled_back, NOT both-outcomes). **VM-prove** (NEW + determinism-sensitive — the run confirms the non-idempotent re-apply reliably rolls back; watch fabricate-vs-real, the legacy needed a one-off run to confirm rolled_back).
+
+## 4. worker-ddl-deadlock — KING-FLAG (tests a known PRODUCT GAP, R1)
+**Mechanism (scenario C13/R1):** class migration-deadlocks-with-running-worker-holding-table-lock. A worker holding AccessShareLock on statistical_history + a migration taking AccessExclusiveLock on the same target → Postgres lock manager PARKS the migration indefinitely → systemd TimeoutStartSec → wedge. Reproduction is REAL (no inject site, no fabricated deadlock): start_continuous_worker_workload (enqueue statistical_history_reduce every 2s → worker holds the lock) + B = A + a DDL migration on statistical_history.
+**The fixture (worker workload + deadlocking DDL migration) is IN-CHARTER** (no product inject site, no fabrication of the deadlock). The scheduled-row fabrication retires via register/schedule like the others.
+**BUT the scenario tests a KNOWN-MISSING product fix:** legacy header "LIKELY RED ... no quiesce-services-before-DDL step in the install state machine." The fix (R1: quiesce services before DDL — pause the worker queue / 6-phase quiesce) is a PRODUCT change, NOT implemented. So the reshaped scenario RED's on current code (the deadlock wedges).
+**JUDGMENT → KING-FLAG.** The fixture is in-charter to build, but the scenario's PASS requires the R1 product fix (quiesce-before-DDL) — beyond the §9(5) harness charter (Q5-2: product changes are the King's call). Draft a plain-language King-flag backlog entry: WHAT (a worker holding a read-lock on a statistical-history table can block an upgrade-time DDL migration indefinitely → the upgrade wedges until systemd times out); WHY a product change (the install state machine has no quiesce-services-before-DDL step); the FIX (quiesce the worker queue before DDL migrations); OPTIONS (implement the quiesce → the scenario goes green; or document the gap + run the scenario EXPECT_RED until then). The King decides. (No internal codenames/task-IDs in the King-facing entry.)
+
+## 5. Shared-fixture refactor + matrix (the 5e enabler) — CAT-C fixture requirements
+doc-016 §7's shared working/failing fixtures need CAT-C variants:
+- **working-V (re-appliable):** for :388/:202 — a migration that the recovery re-runs cleanly (the migrate framework's tx + marker handle the partial/rolled-back application).
+- **working-V multi-migration:** for :911 — ≥2 migrations so "N recorded, N+1 pending" is real.
+- **non-idempotent-V:** for :844/:845 — re-apply must CONFLICT (deterministic rollback). DISTINCT from the re-appliable working-V.
+- **failing-V (RAISE):** the existing failing arc + rollback-restore.
+So the shared construct builds: working-V (re-appliable, multi-migration) + non-idempotent-V (after-commit) + failing-V. ~3 fixture lineages. The matrix run-arc (mirror STATBUS-025) fans out one VM per scenario with its inject class as a runtime param.
+
+## 6. VM-prove strategy (B-REFINED, per NEW mechanism)
+NEW mechanisms each get ONE VM-prove (representative): (a) one-shot KillHere forward-recovery (:388 OR :911); (b) :202 mid-tx tree-SIGKILL; (c) :844/:845 after-commit determinism. The same-mechanism site-variant (:388 vs :911, if one is proven) rides + review. worker-ddl = King-flag (no VM-prove in §9(5) until R1). The 5e matrix full-suite runs EVERY reshaped scenario before fabricate is deleted (the per-scenario oracle). EACH CAT-C contract VERIFIED against the REAL run (the fabricate-legacy contracts are NOT the oracle — the resume-death-family lesson).
+
+## 7. Phasing within 5d
+5d-a: the one-shot-marker helper enhancement + :388/:911 (one VM-prove). 5d-b: :202 mid-tx (wire wait_for_midtx_stall_ready + kill_pid_in_vm; VM-prove). 5d-c: :844/:845 after-commit + the non-idempotent-V (VM-prove). 5d-d: the shared-fixture refactor + matrix mode. 5d-e: worker-ddl King-flag (backlog entry, run by King). Then 5e (matrix full-suite → delete fabricate).
