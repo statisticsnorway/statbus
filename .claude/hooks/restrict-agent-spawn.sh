@@ -191,9 +191,13 @@ Hook source: .claude/hooks/restrict-agent-spawn.sh"
     if [[ "$run_in_bg" != "true" ]]; then
       emit_deny "BLOCKED: Agent spawn must use run_in_background: true.
 
-WHY: foreground Agent calls stall the conversation — you can't continue working or respond to the user until the subagent finishes, which can take minutes. Background spawns let you dispatch work and keep talking to the user; you get a notification when the subagent messages you.
+WHY: requiring background (long-running, reused-via-SendMessage) agents is a cost-AND-control rule, three ways — all lose-lose if ignored:
+  1. COST (amortization): a freshly spawned agent burns many tokens reorienting and rebuilding its initial context before it can even answer. A long-running agent — spawned ONCE, then reused via SendMessage — pays that initialization cost a single time and amortizes it across many turns. Re-spawning pays the cold start every time.
+  2. CONTROL: a foreground spawn stalls the conversation — you can't continue working, respond to the user, or be redirected, until the subagent finishes (which can take minutes).
+  3. VISIBILITY: only a backgrounded agent gets its own console the user can see and talk to directly. A foreground subagent is private to its spawner — the user goes blind, can't course-correct, and tokens get spent on a wrong turn nobody can stop.
+Background spawns let you dispatch work, keep talking to the user, and run the team concurrently; you get a notification when the subagent messages you.
 
-WHAT TO DO: retry the Agent call with 'run_in_background: true'.${context_suffix}
+WHAT TO DO: retry the Agent call with 'run_in_background: true' (combine with 'mode: \"bypassPermissions\"' per the rule below) so the agent runs as a persistent, visible, reusable teammate.${context_suffix}
 
 Hook source: .claude/hooks/restrict-agent-spawn.sh"
       exit 0

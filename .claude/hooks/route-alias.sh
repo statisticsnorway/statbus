@@ -141,6 +141,11 @@ Use the exact roster name for shutdown_request / shutdown_response.
 For the team-lead (foreman), use \"team-lead\" here — this is the one
 place shutdown traffic requires the harness name directly.
 
+Why this hook exists: SendMessage returns success:true for any string, but
+only a real member's .name field has a readable inbox. Typo'd or unknown
+names silently drop — GitHub issue #25135 (closed not planned). This hook
+turns that silent drop into a loud, named catch.
+
 Hook source: .claude/hooks/route-alias.sh"
       exit 0
     fi
