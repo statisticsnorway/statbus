@@ -245,3 +245,46 @@ assert_fingerprint_matches() {
     fi
     echo "  ✓ clean-slate fingerprint matches (${label})"
 }
+
+# ── KILL-ARC driver (STATBUS-071 §9(5) / doc-016) ────────────────────────────
+# The DAEMON-DOWN + `./sb install` inline-dispatch variant — DISTINCT from the
+# daemon-RUN working/failing arcs. It replaces fabricate_scheduled_upgrade_row
+# (the legacy daemon-down 'scheduled' synth) with the REAL register+schedule; the
+# crash itself is ALREADY real (STATBUS_INJECT_AT at the product's inject points).
+
+# arc_schedule_daemon_down <sha> — stop the upgrade daemon, then schedule <sha> so
+# the row sits in a persistent daemon-down 'scheduled' state (RunSchedule, 086),
+# ready for `./sb install` to inline-dispatch. Mirrors the proven claim-without-
+# notify daemon-down→schedule pattern. (register <sha> must have run first, with
+# the daemon UP, so verifyArtifacts flipped docker_images_status='ready'.)
+arc_schedule_daemon_down() {
+    local sha="$1"
+    echo ""
+    echo "── stop the daemon + schedule ${sha:0:8} → persistent daemon-down 'scheduled' row ──"
+    VM_EXEC systemctl --user stop "statbus-upgrade@statbus.service" 2>/dev/null || true
+    local s
+    s=$(VM_EXEC systemctl --user is-active "statbus-upgrade@statbus.service" 2>/dev/null | tr -d ' \r\n' || echo "inactive")
+    [ "$s" != "active" ] || { echo "✗ daemon still active after stop — it could claim the row before ./sb install" >&2; exit 1; }
+    VM_EXEC bash -c "cd ~/statbus && ./sb upgrade schedule $sha 2>&1 | tail -20"
+    local st
+    st=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '$sha' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
+    [ "$st" = "scheduled" ] || { echo "✗ expected B 'scheduled' (daemon down), got '$st'" >&2; exit 1; }
+    echo "  ✓ daemon down + B 'scheduled' — the persistent row ./sb install will inline-dispatch"
+}
+
+# arc_install_dispatch_with_inject <inject_class> [budget_s] — run `./sb install`
+# inline-dispatch (it detects StateScheduledUpgrade → executeUpgrade) WITH
+# STATBUS_INJECT_AT=<class> so the kill/stall fires at the REAL product inject
+# point during the real dispatched upgrade. The injected SIGKILL exits ~137; the
+# caller asserts the REAL crash state (the flag is written by the real
+# executeUpgrade — no synthetic crash-state). Fails loud only on a timeout (the
+# inject never fired). Echoes the exit for the caller's log.
+arc_install_dispatch_with_inject() {
+    local inject_class="$1" budget="${2:-${INSTALL_BUDGET_S:-900}}"
+    echo ""
+    echo "── ./sb install inline-dispatch with STATBUS_INJECT_AT=${inject_class} (budget ${budget}s) ──"
+    local rc=0
+    VM_EXEC bash -c "cd ~/statbus && STATBUS_INJECT_AT=${inject_class} STATBUS_MIN_DISK_GB=5 timeout ${budget} ./sb install --non-interactive --trust-github-user jhf" || rc=$?
+    echo "  ./sb install (injected) exit: $rc (137 = injected SIGKILL semantics)"
+    [ "$rc" != "124" ] || { echo "✗ ./sb install timed out (${budget}s) — STATBUS_INJECT_AT=${inject_class} never fired" >&2; exit 1; }
+}

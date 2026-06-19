@@ -44,7 +44,7 @@ on:
         required: false
         default: ''
       scenario:
-        description: 'Arc scenario: working (re-stamp, §9c) | failing (fail→rollback→fix + clean-slate fingerprint, §9d) | claim-without-notify (STATBUS-098 daemon claims a scheduled row with no live NOTIFY).'
+        description: 'Arc scenario: working (re-stamp, §9c) | failing (fail→rollback→fix + clean-slate fingerprint, §9d) | claim-without-notify (STATBUS-098 no-NOTIFY claim) | preswap-checkout-kill (§9(5) kill-arc: real inject + real register/schedule).'
         required: false
         default: 'working'
 
