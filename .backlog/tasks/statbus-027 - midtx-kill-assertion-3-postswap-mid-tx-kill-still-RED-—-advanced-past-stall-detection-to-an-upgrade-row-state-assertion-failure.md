@@ -4,11 +4,11 @@ title: >-
   midtx-kill-assertion: test setup overwrites .env.config and drops the approved
   signing key, so the upgrade fails the signature check before it can migrate;
   fix the setup
-status: In Progress
+status: Done
 assignee:
   - mechanic
 created_date: '2026-06-11 07:48'
-updated_date: '2026-06-18 08:30'
+updated_date: '2026-06-19 15:45'
 labels:
   - install-recovery
   - harness
@@ -33,4 +33,6 @@ VERIFIED COMPLETE (mechanic evidence, foreman accepted). Original red WAS a tran
 Open Q (secondary): should the scheduled-upgrade inline-dispatch path also honor --trust-github-user? Today it doesn't — the signer must already be in .env.config.
 
 CONFIRMED ROOT + FIX (mechanic+foreman, 2026-06-18). Order in runInstall: dispatchInstallState (install.go:374) handles StateScheduledUpgrade via ExecuteUpgradeInline and returns handled=true BEFORE the --trust-github-user pre-flight (install.go:383-402) ever runs. So `./sb install --trust-github-user X` is a SILENT NO-OP on any box with a pending upgrade → loadTrustedSigners finds none → mandatory signature check fails before migrate → mid-tx park never fires (900s wedge). REAL Albania bug (operator applying a pending upgrade with --trust-github-user hits "no trusted signers configured"). FIX (both): (product) move the --trust-github-user block to BEFORE dispatchInstallState at install.go:374 so the flag works on the scheduled-upgrade path; (harness) stop the scenario's `cp /tmp/env-config .env.config` from clobbering UPGRADE_TRUSTED_SIGNER_jhf (don't overwrite the signer, or re-stamp after). To be folded into the engineer's recovery-path batch. Awaiting King nod.
+
+CLOSED-OBSOLETE (foreman, 2026-06-19): the .env.config-overwrite / dropped-signing-key bug is avoided by design in the STATBUS-071 5d mid-tx arc reshape (register/schedule preserves the signed key; the arc never overwrites .env.config). No separate fix needed.
 <!-- SECTION:NOTES:END -->
