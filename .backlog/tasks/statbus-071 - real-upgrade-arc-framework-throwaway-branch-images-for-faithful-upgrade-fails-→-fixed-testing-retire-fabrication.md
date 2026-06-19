@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-06-18 21:35'
+updated_date: '2026-06-19 05:40'
 labels:
   - install-recovery
   - upgrade
@@ -51,7 +51,7 @@ OWNER: architect (design) → engineer (CI workflow + arc scenarios) → operato
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 WORKING arc GREEN on a real VM: install A → B applies migration V → C re-stamps V's content_hash autonomously; data intact; zero orphan branches/VMs
+- [x] #1 WORKING arc GREEN on a real VM: install A → B applies migration V → C re-stamps V's content_hash autonomously; data intact; zero orphan branches/VMs
 - [ ] #2 FAILING arc GREEN on a real VM: install A → B's V deliberately fails → box rolls back to 'rolled_back' → clean-slate fingerprint equals the post-A baseline → C applies the fix fresh; data intact
 - [ ] #3 Kill-family scenarios reshaped: the FABRICATED scheduled-upgrade row replaced by a real register+schedule (086); the crash stays real (existing inject / external NOTIFY-handshake kill)
 - [ ] #4 fabricate_scheduled_upgrade_row DELETED with zero callers; NO synthetic crash-state fabrication remains anywhere (King's no-residual rule)
@@ -107,4 +107,10 @@ KING DOCTRINE (2026-06-18) — the fruition reshape (replaces the old '§9(5)' f
 PLAN (post both-arcs-green): mechanical fabricate→register/schedule swap across the kill family; adopt external-kill-timing; delete the subsumed scenario (the failing arc already covers deterministic-error); retire the in-SQL hooks where the handshake reaches; delete fabricate at zero callers (= the final success criterion). Sketch: tmp/engineer-071-step5-plan.md; the architect's reconciliation map has the per-point detail.
 
 NEW REQUIREMENTS surfaced by the King (separate tickets): STATBUS-095 (12h migration timeout-kill), STATBUS-096 (OOM + timeout kill-recovery tests), STATBUS-097 (scope atomic apply+record to close the residue window).
+
+WORKING ARC GREEN (no-wait, on the 098 fix) — run 27807092720 SUCCESS (2026-06-19): install A → B applied V (claimed t+69s) → C re-stamped (H_B→H_C=297fcce262) → PASS, data intact, ZERO orphans. Confirms the masking-wait removal caused NO regression (the working arc + re-stamp work without it). AC#1 met. [This run claimed via the live NOTIFY (daemon was listening, LISTEN backends=1); the DETERMINISTIC no-NOTIFY proof is the claim-without-notify scenario, firing after the failing arc.]
+
+BUG-1 (failing-arc fingerprint empty, failed twice) ROOT-CAUSED + FIXED: not auth — raw `docker ps|grep -db|docker exec` was fragile as the VM user; replaced with the PROVEN `docker compose exec -T db pg_dump` path + self-diagnosing DIAG. Part-3 durable guards committed too: funcBody wiring test (cli/internal/upgrade/scheduled_claim_wiring_test.go, fast every-CI) + claim-without-notify-arc.sh (non-default deterministic no-NOTIFY scenario). Commit 9452f2cf0 (architect-approved). The 098 product fix is 054c371c6.
+
+NOW: failing arc firing (run 27807756274) — the BUG-1 VM oracle + the clean-slate-after-rollback centerpiece (AC#2). Then claim-without-notify (the 098 no-NOTIFY deterministic proof). OVERNIGHT NOTE: a gh-status glitch hung a monitor ~7h (failing run actually finished 22:13); monitors are now conclusion-based + capped.
 <!-- SECTION:NOTES:END -->
