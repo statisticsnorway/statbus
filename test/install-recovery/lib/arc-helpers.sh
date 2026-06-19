@@ -161,20 +161,29 @@ migration_row_count() {
 #            a worker-quiescence-wait is a noted later enhancement.)
 capture_db_fingerprint() {
     local schema_sha ledger_sha data_sha
-    # PGPASSWORD is REQUIRED: locally POSTGRES_ADMIN_USER=postgres connects via the
-    # container's local-socket trust, but on the VM the admin user/password differ
-    # and `docker exec` carries no PG env → pg_dump auth fails → empty output → the
-    # guard below halts (correct, but a false failure). Pass the password explicitly.
-    schema_sha=$(VM_EXEC bash -c 'cd ~/statbus && db=$(./sb dotenv -f .env get POSTGRES_APP_DB) && user=$(./sb dotenv -f .env get POSTGRES_ADMIN_USER) && pass=$(./sb dotenv -f .env get POSTGRES_ADMIN_PASSWORD) && c=$(docker ps --format "{{.Names}}" | grep -E -- "-db$" | head -1) && docker exec -e PGPASSWORD="$pass" "$c" pg_dump --schema-only --no-owner --no-privileges -U "$user" "$db" 2>/dev/null | grep -v "^--" | sed -e "s/[[:space:]]*$//" -e "/^$/d" | sha256sum | cut -d" " -f1' 2>/dev/null | tr -d ' \r\n')
-    # CENTERPIECE GUARD: a silently-failed pg_dump / db-container discovery would
-    # make schema_sha = sha256("") on BOTH captures → assert_fingerprint_matches
-    # would pass VACUOUSLY (a false-green clean-slate proving nothing). Fail loud.
-    # return 1 → the caller's `var=$(capture_db_fingerprint)` is non-zero under
-    # set -e → the arc halts. (data-dim is guarded by assert_demo_data_present;
-    # ledger always has the base migrations → schema is the only vacuous-risk dim.)
+    # SCHEMA dim — pg_dump --schema-only INSIDE the db container via the PROVEN
+    # `docker compose exec -T db` pattern (1-boot-advisory-too-early.sh:116 +
+    # wedge-helpers.sh:89 use it as the statbus VM_EXEC user — it resolves the db
+    # SERVICE from ~/statbus/.env). The earlier raw `docker ps | grep -db | docker
+    # exec <name>` returned empty on the VM (the BUG-1 false guard-fire): raw
+    # container-name resolution as statbus is fragile where `docker compose exec`
+    # works. pg_dump runs as the container's local-socket-trust admin (no password
+    # needed; PGPASSWORD kept as a harmless belt). SELF-DIAGNOSING (one round-trip):
+    # emits DIAG (db/user, pg_dump rc, line count, stderr) then a HASH= line; on an
+    # empty hash the guard echoes the DIAG so the next run shows WHY.
+    local schema_out
+    schema_out=$(VM_EXEC bash -c 'cd ~/statbus || exit 1; db=$(./sb dotenv -f .env get POSTGRES_APP_DB); user=$(./sb dotenv -f .env get POSTGRES_ADMIN_USER); pass=$(./sb dotenv -f .env get POSTGRES_ADMIN_PASSWORD); err=$(mktemp); sql=$(mktemp); docker compose exec -T -e PGPASSWORD="$pass" db pg_dump --schema-only --no-owner --no-privileges -U "$user" "$db" >"$sql" 2>"$err"; rc=$?; h=$(grep -v "^--" "$sql" 2>/dev/null | sed -e "s/[[:space:]]*$//" -e "/^$/d" | sha256sum | cut -d" " -f1); echo "DIAG db=[$db] user=[$user] pgdump-rc=$rc lines=$(wc -l <"$sql" 2>/dev/null | tr -d " ") stderr=[$(head -c 400 "$err" 2>/dev/null | tr "\n" " ")]"; rm -f "$err" "$sql"; echo "HASH=$h"' 2>&1)
+    schema_sha=$(printf '%s\n' "$schema_out" | sed -n 's/^HASH=//p' | tr -d ' \r\n')
+    # CENTERPIECE GUARD: a silently-failed pg_dump would make schema_sha = sha256("")
+    # on BOTH captures → assert_fingerprint_matches passes VACUOUSLY (a false-green
+    # clean-slate). Fail loud + echo the DIAG. return 1 → the caller's
+    # `var=$(capture_db_fingerprint)` is non-zero under set -e → the arc halts.
+    # (data-dim guarded by assert_demo_data_present; ledger always has the base
+    # migrations → schema is the only vacuous-risk dim.)
     local empty_sha="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     if [ -z "$schema_sha" ] || [ "$schema_sha" = "$empty_sha" ]; then
-        echo "✗ capture_db_fingerprint: SCHEMA dim empty (pg_dump or db-container discovery failed) — refusing a vacuous fingerprint" >&2
+        echo "✗ capture_db_fingerprint: SCHEMA dim empty — refusing a vacuous fingerprint. Diagnostics:" >&2
+        printf '%s\n' "$schema_out" | grep '^DIAG' | sed 's/^/    /' >&2
         return 1
     fi
     ledger_sha=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT version::text || ',' || content_hash FROM db.migration ORDER BY version;\" | ./sb psql -t -A 2>/dev/null | sha256sum | cut -d' ' -f1" 2>/dev/null | tr -d ' \r\n')
