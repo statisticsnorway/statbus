@@ -28,7 +28,7 @@
 #   climbs → the row never reaches terminal → this scenario FAILS. That failure IS
 #   the RED observation.
 #
-# DETERMINISTIC ROLLBACK TRIGGER — why the resume-died-rollback dance, not 4-rollback-kill:
+# DETERMINISTIC ROLLBACK TRIGGER — why a death-during-resume, not 4-rollback-kill:
 #   Post-STATBUS-039, recoverFromFlag prefers FORWARD recovery; it reaches rollback()
 #   ONLY on a positively-behind verdict, which 4-rollback-kill documents as
 #   non-deterministic (needs forward-recovery to fail; no injection class for that).
@@ -67,7 +67,7 @@
 #   NOTE FOR TESTER: this scenario has NOT yet been run on real systemd. Verify on a
 #   Hetzner VM and tune the knobs (STALL_HOLD_S vs WatchdogSec, the RUN2 long
 #   RestartSec window, SETTLE_WATCH_S, INSTALL_VERSION's migration delta). It reuses
-#   resume-died-rollback's kill primitive + HEAD-staging fixture +
+#   the death-during-resume kill primitive + HEAD-staging fixture +
 #   fabricate_scheduled_upgrade_row, and the new restore-db-stall-watchdog inject site
 #   (no other new machinery). Run it on the GREEN build (master) — expect PASS — and
 #   on the RED build (master minus the rollback() ticker block) — expect the t+STALL
@@ -102,7 +102,7 @@ source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 
 # Must be @statbus (matches the VM user) so the unit's ExecStartPre invariant
-# `/usr/bin/test "%i" = "%u"` passes (see resume-died-rollback's note).
+# `/usr/bin/test "%i" = "%u"` passes (the @statbus instance must match the VM user).
 UNIT="statbus-upgrade@statbus.service"
 DROPIN_DIR="\$HOME/.config/systemd/user/${UNIT}.d"
 DROPIN_FILE="$DROPIN_DIR/rollback-restore-watchdog-inject.conf"

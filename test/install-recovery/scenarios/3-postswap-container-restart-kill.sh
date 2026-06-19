@@ -36,7 +36,7 @@
 #
 #   There is NO post-swap window in which a non-planned death re-resumes to
 #   step 11+12, so this scenario asserts the LATCH outcome (rolled_back), NOT
-#   completion. (Inverse/companion proof: scenario 3-postswap-resume-died-rollback.)
+#   completion.
 #
 # Trigger logic:
 #   1. Install at INSTALL_VERSION (default v2026.05.2). Populate.
