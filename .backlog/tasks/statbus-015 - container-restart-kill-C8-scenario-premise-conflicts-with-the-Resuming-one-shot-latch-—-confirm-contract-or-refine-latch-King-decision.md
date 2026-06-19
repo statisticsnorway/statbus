@@ -3,10 +3,10 @@ id: STATBUS-015
 title: >-
   container-restart-kill (C8): scenario premise conflicts with the Resuming
   one-shot latch — confirm contract or refine latch (King decision)
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-08 15:33'
-updated_date: '2026-06-18 08:31'
+updated_date: '2026-06-19 15:39'
 labels:
   - install-recovery
   - recovery
@@ -58,4 +58,6 @@ ARCHITECT RE-GROUNDING (2026-06-18, King-requested plain-language reset; full br
 CONSEQUENCE: container-restart-kill kills at docker-up AFTER migrations are applied (header line 25: 'migrations applied') → ground-truth = AtTarget → the current product RESUMES FORWARD → completed. It does NOT roll back. So Option 1 ('rewrite the scenario to expect rolled_back') is now BACKWARDS — under the current ground-truth model the correct expectation is COMPLETED. Companion scenario 3-postswap-resume-died-rollback has the IDENTICAL flaw (same kill site, also at-target) and was EMPIRICALLY seen reaching completed (the 'row reached completed — resume was NOT supposed to succeed' RED).
 
 The genuine death-during-resume→rollback (positively-Behind) path is already proven by 3-postswap-migrate-killed-after-commit (case c: lost stamp → db.migration max < on-disk max → Behind → restore). RECOMMENDED re-grounding (King to ratify): point container-restart-kill + resume-died-rollback at COMPLETED (the at-target case they create); if a SECOND rollback proof is wanted, redesign one to kill while positively-behind (before the resume's migrate completes), not after. ALSO fix the stale doc paragraph doc/upgrade-timeline.md:147-150 (still states the removed 'any restart → roll back' rule; contradicts the recovery contract at :513-529 + the code). NOT acting on this yet — flagging for the King; no code/scenario/doc edits made.
+
+CLOSED-OBSOLETE (foreman-verified 2026-06-19): premise resolved. The container-restart-kill (C8) arc is GREEN per the §9(5) 5b CAT-A milestone (5/5 kill-arcs green) — the Resuming one-shot latch -> recoveryRollback -> UPGRADE_DIED_DURING_RESUME contract is confirmed, no latch refinement needed. (Cross-ref: STATBUS-099 records the deleted resume-died-rollback scenario whose two-run premise this superseded.)
 <!-- SECTION:NOTES:END -->
