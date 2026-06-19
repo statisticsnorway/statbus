@@ -3,9 +3,10 @@ id: STATBUS-099
 title: >-
   legacy-scenario-sweep: delete legacy install-recovery scenarios that test
   product-impossible states
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-06-19 11:05'
+updated_date: '2026-06-19 15:33'
 labels: []
 dependencies: []
 ordinal: 99000
@@ -22,3 +23,9 @@ SCOPE: (1) Delete the legacy 3-postswap-resume-died-rollback.sh + its run.sh ent
 
 OWNER: architect (audit) -> engineer (delete) -> foreman (commit). NOT blocking the step-5 arc reshape (separate harness); the legacy-harness retirement tail, distinct from the arc fabricate-retirement (AC3/AC4). Run by King's prioritization.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+resume-died + archivebackup-resume deleted (doc-016); deterministic-error + checkout-kill-legacy remain
+<!-- SECTION:NOTES:END -->
