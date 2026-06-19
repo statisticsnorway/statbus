@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-18 21:43'
-updated_date: '2026-06-19 06:14'
+updated_date: '2026-06-19 15:47'
 labels:
   - upgrade
   - daemon
@@ -64,4 +64,6 @@ DELIVERABLE (foreman, 2026-06-18): STATBUS-098 = (1) product fix in service.go (
 - wiring guard: scheduled_claim_wiring_test.go passes (asserts executeScheduled in BOTH startup + heartbeatTicker.C; RED if either removed).
 AC#2 NOTE: the ≤30s-tick-while-daemon-UP path is WIRED (the wiring test) but not separately VM-timed; the startup-scan (claim-without-notify) proves the broader no-NOTIFY guarantee + the tick is the same executeScheduled call. A dedicated tick-while-up timing test wasn't built (startup-scan + wiring deemed sufficient for the Albania guarantee — flag if you want it separately).
 REMAINING: polish #1 (comment precision) + #2 (optional ≤90s fast-fail assert) — a follow-up. Commits: 054c371c6 (product fix), 9452f2cf0 (guards), 787f1e0f6 (BUG-1 v2 fingerprint, for the separate failing arc).
+
+FOREMAN CHECK (2026-06-19) — NOT marked Done. The mechanism IS implemented (checkMissedUpgrades on startup, service.go:1724/:2896 scanning state='scheduled'; 30s heartbeat ticker :1752; atomic claim :1336 'WHERE state=scheduled AND started_at IS NULL'). BUT I could not confirm a GREEN VM-proof run for the claim-without-notify arc, AND STATBUS-009 carries an open question on checkMissedUpgrades boot-time-claim semantics. So this is implemented-but-unproven — needs a confirmed green run (and the 009 question resolved) before Done. Flagged for the King's review.
 <!-- SECTION:NOTES:END -->
