@@ -4,11 +4,11 @@ title: >-
   midtx-kill-assertion: test setup overwrites .env.config and drops the approved
   signing key, so the upgrade fails the signature check before it can migrate;
   fix the setup
-status: Done
+status: To Do
 assignee:
   - mechanic
 created_date: '2026-06-11 07:48'
-updated_date: '2026-06-19 15:45'
+updated_date: '2026-06-19 15:46'
 labels:
   - install-recovery
   - harness
@@ -35,4 +35,6 @@ Open Q (secondary): should the scheduled-upgrade inline-dispatch path also honor
 CONFIRMED ROOT + FIX (mechanic+foreman, 2026-06-18). Order in runInstall: dispatchInstallState (install.go:374) handles StateScheduledUpgrade via ExecuteUpgradeInline and returns handled=true BEFORE the --trust-github-user pre-flight (install.go:383-402) ever runs. So `./sb install --trust-github-user X` is a SILENT NO-OP on any box with a pending upgrade → loadTrustedSigners finds none → mandatory signature check fails before migrate → mid-tx park never fires (900s wedge). REAL Albania bug (operator applying a pending upgrade with --trust-github-user hits "no trusted signers configured"). FIX (both): (product) move the --trust-github-user block to BEFORE dispatchInstallState at install.go:374 so the flag works on the scheduled-upgrade path; (harness) stop the scenario's `cp /tmp/env-config .env.config` from clobbering UPGRADE_TRUSTED_SIGNER_jhf (don't overwrite the signer, or re-stamp after). To be folded into the engineer's recovery-path batch. Awaiting King nod.
 
 CLOSED-OBSOLETE (foreman, 2026-06-19): the .env.config-overwrite / dropped-signing-key bug is avoided by design in the STATBUS-071 5d mid-tx arc reshape (register/schedule preserves the signed key; the arc never overwrites .env.config). No separate fix needed.
+
+REVERTED the 2026-06-19 close-as-obsolete (foreman) — that was WRONG. 027 was misclassified: its TITLE is about the harness .env-overwrite, but its BODY carries an UNFIXED REAL PRODUCT BUG (CONFIRMED 2026-06-18): `./sb install --trust-github-user X` is a SILENT NO-OP on a box with a pending scheduled upgrade (dispatchInstallState handles StateScheduledUpgrade + returns handled=true BEFORE the --trust-github-user pre-flight at install.go:383-402). Albania-relevant. FIX (awaiting King nod): move the --trust-github-user block BEFORE dispatchInstallState. The 071-5d arc reshape avoids the TEST's .env-overwrite but does NOT fix this product bug. STAYS To Do (real bug pending). NEEDS A CLARITY REWRITE: split the misleading title from the buried product bug.
 <!-- SECTION:NOTES:END -->
