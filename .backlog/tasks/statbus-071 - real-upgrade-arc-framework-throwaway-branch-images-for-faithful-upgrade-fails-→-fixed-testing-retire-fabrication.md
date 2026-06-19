@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-06-19 05:40'
+updated_date: '2026-06-19 07:38'
 labels:
   - install-recovery
   - upgrade
@@ -52,7 +52,7 @@ OWNER: architect (design) → engineer (CI workflow + arc scenarios) → operato
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 WORKING arc GREEN on a real VM: install A → B applies migration V → C re-stamps V's content_hash autonomously; data intact; zero orphan branches/VMs
-- [ ] #2 FAILING arc GREEN on a real VM: install A → B's V deliberately fails → box rolls back to 'rolled_back' → clean-slate fingerprint equals the post-A baseline → C applies the fix fresh; data intact
+- [x] #2 FAILING arc GREEN on a real VM: install A → B's V deliberately fails → box rolls back to 'rolled_back' → clean-slate fingerprint equals the post-A baseline → C applies the fix fresh; data intact
 - [ ] #3 Kill-family scenarios reshaped: the FABRICATED scheduled-upgrade row replaced by a real register+schedule (086); the crash stays real (existing inject / external NOTIFY-handshake kill)
 - [ ] #4 fabricate_scheduled_upgrade_row DELETED with zero callers; NO synthetic crash-state fabrication remains anywhere (King's no-residual rule)
 - [ ] #5 STRETCH (product-pristine): in-migration-SQL inject hooks retired in favour of the NOTIFY-handshake + external-kill-timing where feasible; remaining hooks limited to the Go-internal windows that no SQL can reach, each justified
@@ -113,4 +113,10 @@ WORKING ARC GREEN (no-wait, on the 098 fix) — run 27807092720 SUCCESS (2026-06
 BUG-1 (failing-arc fingerprint empty, failed twice) ROOT-CAUSED + FIXED: not auth — raw `docker ps|grep -db|docker exec` was fragile as the VM user; replaced with the PROVEN `docker compose exec -T db pg_dump` path + self-diagnosing DIAG. Part-3 durable guards committed too: funcBody wiring test (cli/internal/upgrade/scheduled_claim_wiring_test.go, fast every-CI) + claim-without-notify-arc.sh (non-default deterministic no-NOTIFY scenario). Commit 9452f2cf0 (architect-approved). The 098 product fix is 054c371c6.
 
 NOW: failing arc firing (run 27807756274) — the BUG-1 VM oracle + the clean-slate-after-rollback centerpiece (AC#2). Then claim-without-notify (the 098 no-NOTIFY deterministic proof). OVERNIGHT NOTE: a gh-status glitch hung a monitor ~7h (failing run actually finished 22:13); monitors are now conclusion-based + capped.
+
+FAILING ARC GREEN — AC#2 met (run 27811604893, 2026-06-19, foreman autonomous drive). The CLEAN-SLATE-AFTER-ROLLBACK CENTERPIECE is PROVEN on a real VM: install A → B's V_fail → autonomous rollback to state='rolled_back' (t+76s) → ✓ clean-slate fingerprint matches (post-rollback == post-A, byte-identical: schema+ledger+data) → C applied V_fixed FRESH (recorded once, no re-stamp, no amendments.tsv — the FEW-who-failed half) → PASS, data intact, healthy, ZERO orphans. This is the framework's UNIQUE VALUE — recovery-correctness end-to-end that no fabrication can test.
+
+The failing arc took 5 VM runs to harden the fingerprint (each a test-harness issue, NOT a product/recovery bug — the rollback was always byte-faithful, proven by ledger+data matching throughout): BUG-1 ×3 (pg_dump auth red-herring → the real cause: a giant inline bash -c didn't survive VM_EXEC's printf-%q+sudo-i → restructured to separate reads + runner-side strip), schema-dim worker-partition quiesce (the diff instrument disproved the worker-timing hypothesis), and the pg_dump-18 \restrict/\unrestrict random-nonce strip (the diff instrument named it decisively). Commits: 5eb27898e (quiesce), 6ad1a9b78 (restrict-strip, runner-side anchored).
+
+BOTH ARCS NOW GREEN: AC#1 (working re-stamp, run 27807092720) + AC#2 (failing clean-slate, run 27811604893). The 098 product fix (the framework's first real catch) is fixed + VM-proven. NEXT: the §9(5) reshape (AC#3 fabricate→register/schedule swap family-wide + AC#4 delete fabricate) = the charter fruition; + the deferred polish (comment precision + the ≤90s fast-fail assert).
 <!-- SECTION:NOTES:END -->
