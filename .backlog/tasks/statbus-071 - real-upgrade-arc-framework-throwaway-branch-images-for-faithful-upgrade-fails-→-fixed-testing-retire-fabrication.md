@@ -53,22 +53,22 @@ Four CI jobs: **construct → image-wait → run-arc → teardown**.
 
 **How V's number is chosen:** *not* the wall-clock time the branch is made — the harness takes the **highest existing migration number and adds 1**. That's the smallest number that still sorts *after* every migration in A, so V is genuinely *pending* when the box upgrades A→B. The working V is real and observable: it creates `public.upgrade_arc_fixture(id, note)` and inserts `(1,'arc')`, so the test can confirm V actually ran.
 
-## What the box does when a migration was *changed* (the rule the arc relies on)
-A migration is immutable by default; changing one is allowed only with **expressed intent**, and the **release-candidate gate enforces that** — every release is a candidate first, and the gate refuses a changed migration unless intent was expressed. So **any changed migration that reaches a release was changed on purpose; the gate already proved it.** (There is **no `amendments.tsv`** — that file was a redundant second record of what the gate already guarantees, and it is removed entirely.)
+## What the box does when a released migration is *fixed* (the rule the arc relies on)
+A released migration is immutable. The **only** legitimate reason to change one is to **fix a genuinely broken migration** — one that crashed, timed out, or ran out of memory on some hosts. A discretionary change to a *working* migration is **not** allowed. Fixing a broken migration is a deliberate, declared act at the release cut, which the release-candidate gate enforces — so any changed migration that reaches a release is an intentional broken-fix.
 
-A changed migration is then handled three ways, by where the box runs:
+Once such a fix ships, a box handles it three ways, by where it runs:
 
 1. **A developer's machine → error.** Stop; let the developer choose — migrate down then up, or recreate the database. A human is present; don't guess for them.
-2. **The dev.statbus.org edge box → auto-heal (roll down, then up).** It detects it's on the dev channel and re-runs the migration so it always runs the **latest** code. This is deliberate: dev's whole purpose is to run the newest commit every day, so we catch breakage commit-to-commit. Losing data there is fine — it's only dev.
+2. **The dev.statbus.org edge box → re-run it (roll down, then up).** It detects the dev channel and re-runs the migration so it always runs the **latest** code. This is deliberate: dev's whole purpose is to run the newest commit every day, so we catch breakage commit-to-commit. Losing data there is fine — it's only dev.
 3. **Every real install (pre-release or release) → adjudicate, never roll down:**
-   - changed but **not yet applied** → **apply the new version**.
-   - **already applied, then changed** → **bless it**: accept the change and re-stamp the record *without* re-running. Trust earned by passing the release gate.
+   - the fix is **not yet applied** → **apply it**.
+   - the broken migration was **already applied** → **accept the fix**: re-stamp the record *without* re-running. Safe because a broken-fix changes only *whether* the migration finishes, never *what* it produces. Trust earned by passing the release gate.
 
-The thread: **human present → error; unattended dev → redo (data loss fine); real install → trust the gate and bless (never destroy data).**
+The thread: **human present → error; unattended dev → redo (data loss fine); real install → trust the gate and accept the fix (never destroy data).**
 
 ## The two stories the arc proves
-**1 — Upgrade succeeds, later amended → blessed (the many).**
-Install A → upgrade to B (V runs, recorded) → upgrade to C (V edited in place). On a release channel the box **blesses** it (case 3 above): re-stamps the record to the new version without re-running. Proves a box that already ran a migration accepts a later release that amends it, without breaking. **[built · green on a real VM]**
+**1 — A broken migration that already ran (the many).**
+A released migration was broken — it timed out or failed for *some* hosts — but it **succeeded** for the many (e.g. small databases where it ran fine). The fix ships. On a real install the box **accepts the fix** (case 3 above): re-stamps the record without re-running — safe because the fix changes only whether the migration finishes, not its result. Proves a box that already ran a migration takes its fix without breaking. **[the re-stamp mechanism is built · green on a real VM; reframing the test fixture from amend-a-working-migration to a genuine broken-fix rides STATBUS-102]**
 
 **2 — Upgrade fails, rolls back to a clean slate, fix applies fresh (the few).**
 A real migration fails in one of **three ways**; the box rolls itself back; the fix (C) then applies cleanly.
@@ -85,12 +85,12 @@ A real migration fails in one of **three ways**; the box rolls itself back; the 
 Beyond the migration itself, the test also injects a *real* crash or stall at other points of the upgrade — fetching the new code, the pre-upgrade backup, the binary swap, *between* two migrations, *just after* a migration commits but before it's recorded, during the rollback itself, and while the box restarts — and checks the box still recovers on its own. **[most already on the real `register`+`schedule` path and proven; the "just after commit, before recorded" kill is the one still to build]**
 
 ## What's there vs. not
-- ✅ Bless story (succeed → amend → bless) — green on a real VM.
+- ✅ The many (a broken migration that succeeded for them → accept the fix, no re-run) — re-stamp mechanism green on a real VM.
 - ✅ Failure 1 (error → rollback → logically back to A → fix applies fresh) — green. *The framework's unique value.*
 - ⬜ Failure 2 (internal timeout-kill) — designed; needs the configurable 12 h ceiling.
 - ⬜ Failure 3 (external OOM-kill of Postgres) — designed; needs the `NOTIFY`-handshake kill.
 - ⏳ Kill-at-other-points family — most proven; the after-commit-before-recorded kill remains.
-- 🧹 Clean-code-ship: remove `amendments.tsv` (product reader `release.CircumventVersions` + the test arc's C-leg) — the bless path replaces it.
+- 🧹 Clean-code-ship (STATBUS-102): rip out `amendments.tsv` + the `circumvent`/`amend` vocabulary; the box accepts a broken-fix by channel-trust, not a per-version file; reframe the working→fixed arc to a genuine broken-fix.
 
 *Full pre-cleanup design notes and the run-by-run history are preserved in the Implementation Notes below and in this task's git history.*
 <!-- SECTION:DESCRIPTION:END -->
