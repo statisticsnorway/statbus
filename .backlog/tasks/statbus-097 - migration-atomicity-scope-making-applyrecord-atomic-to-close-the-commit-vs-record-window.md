@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-18 21:36'
-updated_date: '2026-06-20 10:52'
+updated_date: '2026-06-20 10:54'
 labels:
   - upgrade
   - migration
@@ -66,5 +66,11 @@ created: 2026-06-20 10:52
 AC#2 DONE (architect, 2026-06-20). RECOMMENDATION: make apply+record atomic for the 359 single-tx migrations (99.2%) — inject the db.migration INSERT as the LAST statement inside the migration's OWN transaction, just before its closing END/COMMIT. KEY correctness point: the closing-END locator MUST be dollar-quote-aware (a function body's `$$ BEGIN…END $$` must not be mistaken for the close) — small tokenizer, tested against all 359. No migration rewrites; performance-neutral (one fewer psql round-trip). 097 is NOT a one-liner — it's a real tx-ownership change.
 THE 3 NON-TX (ALTER TYPE ADD VALUE, multi-tx add-then-use): window is INTRINSIC, atomicity can't dissolve it. IDEMPOTENCY-ON-RERUN (foreman-verified from the files): 20260218215337 (IF NOT EXISTS) + 20260326161813 (IF NOT EXISTS) recover cleanly on re-run; 20260325114130 ('interrupted', NO IF NOT EXISTS) does NOT — re-run CONFLICTS → forces the rollback path.
 AC#3 (King's call): (a) keep ONE minimal inject-hook to test the multi-tx partial-recovery rollback (architect leans this; the 1 non-idempotent + any future non-IF-NOT-EXISTS need it); vs (b) accept untested (3/362=0.8%, ~ms window). Foreman add: a CONVENTION requiring IF NOT EXISTS on future ALTER TYPE ADD VALUE → future ones idempotent → only the 1 legacy needs the hook/accept. Brought to the King for AC#3.
+---
+
+author: foreman
+created: 2026-06-20 10:54
+---
+AC#3 REFINEMENT (architect + foreman, 2026-06-20): the IF-NOT-EXISTS convention should be ENFORCED, not just documented — a documented convention drifts (a future migration forgets it, silently re-introduces the non-idempotent window). Per the King's own principles (gate the output with intent; always add constraints): add a CHECK at `./sb migrate new` scaffolding AND/OR the release-cut gate that any `ALTER TYPE ... ADD VALUE` carries `IF NOT EXISTS`, else fail with an actionable message. Cheap (regex-level lint over migration SQL). CONSEQUENCE: with enforcement, ALL future ALTER-TYPE migrations are GUARANTEED idempotent → the hook-vs-accept question collapses to the ONE existing legacy migration (20260325114130). So AC#3 = (1) enforce the convention (recommended), + (2) for the single legacy: (a) one cheap test-hook for its rollback path (architect+foreman lean) vs (b) accept untested.
 ---
 <!-- COMMENTS:END -->
