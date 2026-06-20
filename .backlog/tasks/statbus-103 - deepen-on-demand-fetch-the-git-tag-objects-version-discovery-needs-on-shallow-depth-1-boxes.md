@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-20 10:35'
+updated_date: '2026-06-20 10:46'
 labels:
   - upgrade
   - git
@@ -18,6 +19,10 @@ ordinal: 103000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+▶ DRIVE DECISION + STATUS (King, 2026-06-20): TRACK + DRIVE TO DONE — do NOT park. (King corrected the foreman's "ticket-when-prioritized" parking: "Everything that you don't do requires me to follow up and tell you to do it.") Low priority (cosmetic, off the bless path) but it gets DONE, not shelved. STATUS: To Do — mechanic grounding AC#1 (where version-discovery depends on tags being present on a shallow box).
+
+----
+
 King-flagged 2026-06-20 (#3 of the channel-bless morning findings). NOW DECOUPLED from blessing (STATBUS-102 removed the bless's tag dependence) — so this is cosmetic/diagnostic only: version discovery / describe on a real box.
 
 CONTEXT: real boxes are `git clone --depth 1` (shallow, cli/cmd/install.go:929). A shallow clone may lack a release tag's commit/tree, so version-discovery/describe (`git describe`, `git rev-parse <tag>:<path>`, latest-release lookup) can return incomplete/empty info.
@@ -26,7 +31,7 @@ THE PRINCIPLE (King): pull in exactly what's needed at the point of need, not un
 
 SCOPE: (1) ground WHERE version-discovery/describe depends on tags and WHAT it needs (the exact git calls + call sites). (2) implement a targeted deepen-on-demand fetch at those points. (3) verify on a shallow box that discovery returns correct info.
 
-OWNERSHIP: operator/mechanic grounds (1) read-only -> engineer/mechanic builds (2) -> foreman gates. Low priority (cosmetic, off the bless path).
+OWNERSHIP: operator/mechanic grounds (1) read-only -> engineer/mechanic builds (2) -> foreman gates.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
