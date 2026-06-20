@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-18 21:36'
-updated_date: '2026-06-20 10:38'
+updated_date: '2026-06-20 10:46'
 labels:
   - upgrade
   - migration
@@ -19,6 +19,10 @@ ordinal: 97000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+▶ DRIVE DECISION + STATUS (King, 2026-06-20): DRIVE NOW (King: "right now"). This is the principled fix for the after-commit-before-recorded recovery finding — a migration that commits but is killed before it is recorded is a torn state that is UNDETECTABLE from the ledger (indistinguishable from never-applied), so the box can certify 'completed' on it; atomic apply+record makes the torn state UNREACHABLE. STATUS: In Progress. AC#1 DONE (operator: 359/362 transactional, 3 non-tx ALTER TYPE ADD VALUE). AC#2 (architect recommendation) NEXT → AC#3 King policy decision → product change. NO product change until the King's AC#3 policy decision (the task gates it). Product change sequences AFTER the STATBUS-102 channel-bless simplification (both touch migrate.go).
+
+----
+
 From the King's no-residual rule (2026-06-18), applied to the one residue the fingerprint/kill reshape leaves behind.
 
 THE WINDOW: when a migration commits, there is a ~millisecond gap before the system records that it ran (the db.migration INSERT, done in Go after psql returns). If the process dies in that gap, the migration is applied-but-unrecorded — a torn state. It is too small to hit by external timing, so it is the one crash point the NOTIFY-handshake / external-kill approach cannot reproduce.
@@ -31,7 +35,7 @@ SCOPE THIS (read-only first, no product change yet):
 1. Count how many real migrations in migrations/ cannot run in one transaction (concurrent index builds, etc.) — with the list.
 2. Recommend: make apply+record atomic for the transactional majority (removes the window for them); for the non-transactional exceptions, either keep ONE minimal inject hook for that window or accept it untested. Present the count so the King decides the policy.
 
-Source: King, 2026-06-18 — asked whether to open this as its own entry; opened. Not blocking the immediate arc work.
+Source: King, 2026-06-18 — asked whether to open this as its own entry; opened. Now driven (King, 2026-06-20).
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
