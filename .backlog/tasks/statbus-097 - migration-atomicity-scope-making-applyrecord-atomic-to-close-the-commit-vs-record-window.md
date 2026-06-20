@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-18 21:36'
-updated_date: '2026-06-20 10:35'
+updated_date: '2026-06-20 10:38'
 labels:
   - upgrade
   - migration
@@ -36,7 +36,7 @@ Source: King, 2026-06-18 — asked whether to open this as its own entry; opened
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A count + list of migrations in migrations/ that cannot run in a single transaction
+- [x] #1 A count + list of migrations in migrations/ that cannot run in a single transaction
 - [ ] #2 A written recommendation: atomic apply+record for the transactional majority, and a proposed policy for the non-transactional exceptions (minimal hook vs accept-untested)
 - [ ] #3 The King's policy decision recorded BEFORE any product change is made
 <!-- AC:END -->
@@ -48,5 +48,11 @@ author: foreman
 created: 2026-06-20 10:35
 ---
 King directed 2026-06-20: drive this NOW. It is the principled fix for the after-commit-before-recorded recovery finding (the box can certify 'completed' on a committed-but-unrecorded migration because the torn state is undetectable from the ledger; atomic apply+record makes the torn state unreachable). Starting AC#1 scoping (count + list non-transactional migrations) now -> AC#2 recommendation -> AC#3 King policy decision -> product change.
+---
+
+author: foreman
+created: 2026-06-20 10:38
+---
+AC#1 DONE (operator, 2026-06-20). 362 total migrations. NON-TRANSACTIONAL = 3 (~0.8%), all ALTER TYPE ... ADD VALUE: 20260218215337_add_legal_relationship_import.up.sql:10; 20260326161813_add_edge_upgrade_channel.up.sql:5; 20260325114130_add_interrupted_state_for_crash_recovery.up.psql:12. TRANSACTIONAL majority = 359 (99.2%). 4 false-positives (comments/strings) ruled out. The 3 already use the add-then-use split (two transactions). NOTE for AC#2: PG18 CAN run ALTER TYPE ADD VALUE inside a tx (the restriction is USING the new value in the same tx) — but these 3 migrations USE the value, hence the split → they are genuinely multi-tx in practice. AC#2 (architect recommendation) next.
 ---
 <!-- COMMENTS:END -->
