@@ -79,14 +79,14 @@ A real migration fails in one of **three ways**; the box rolls itself back; the 
 | 2 | **Stalls → timeout → aborted** | **internal** — our own timeout | a max migration runtime (target **12 h**, set to **seconds** in the test) fires and kills V mid-run; V announces start then sleeps (`NOTIFY …; SELECT pg_sleep(N);`) |
 | 3 | **Eats all memory → OOM-killed** | **external** — the OS kills Postgres | reproduce the *effect* without exhausting memory: V announces start and sleeps; a listener confirms it's mid-run, then **kills PostgreSQL from outside**, as if OOM fired |
 
-**All three converge on one recovery — the centerpiece check:** after rollback the database is **byte-for-byte identical to A**, then **C applies the corrected V fresh and the upgrade completes**, data intact. That clean-slate equality is the one property no faked test can prove. **[failure 1 built · green; failures 2 & 3 designed]**
+**All three converge on one recovery — the centerpiece check:** after rollback the database is **logically identical to A** — same schema, same migration ledger, same data — so **C applies the corrected V fresh and the upgrade completes**, data intact. (The test checks this by comparing a *normalized* dump of schema + ledger + data against A's — not raw bytes, which can legitimately differ after a rollback, e.g. a sequence that advanced.) That logical-identity guarantee is the one property no faked test can prove. **[failure 1 built · green; failures 2 & 3 designed]**
 
 ## The same flow, crashed at *other* points (the kill family)
 Beyond the migration itself, the test also injects a *real* crash or stall at other points of the upgrade — fetching the new code, the pre-upgrade backup, the binary swap, *between* two migrations, *just after* a migration commits but before it's recorded, during the rollback itself, and while the box restarts — and checks the box still recovers on its own. **[most already on the real `register`+`schedule` path and proven; the "just after commit, before recorded" kill is the one still to build]**
 
 ## What's there vs. not
 - ✅ Bless story (succeed → amend → bless) — green on a real VM.
-- ✅ Failure 1 (error → rollback → byte-identical clean slate → fix applies fresh) — green. *The framework's unique value.*
+- ✅ Failure 1 (error → rollback → logically back to A → fix applies fresh) — green. *The framework's unique value.*
 - ⬜ Failure 2 (internal timeout-kill) — designed; needs the configurable 12 h ceiling.
 - ⬜ Failure 3 (external OOM-kill of Postgres) — designed; needs the `NOTIFY`-handshake kill.
 - ⏳ Kill-at-other-points family — most proven; the after-commit-before-recorded kill remains.
