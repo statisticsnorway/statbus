@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-18 21:36'
-updated_date: '2026-06-20 10:46'
+updated_date: '2026-06-20 10:52'
 labels:
   - upgrade
   - migration
@@ -41,7 +41,7 @@ Source: King, 2026-06-18 — asked whether to open this as its own entry; opened
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 A count + list of migrations in migrations/ that cannot run in a single transaction
-- [ ] #2 A written recommendation: atomic apply+record for the transactional majority, and a proposed policy for the non-transactional exceptions (minimal hook vs accept-untested)
+- [x] #2 A written recommendation: atomic apply+record for the transactional majority, and a proposed policy for the non-transactional exceptions (minimal hook vs accept-untested)
 - [ ] #3 The King's policy decision recorded BEFORE any product change is made
 <!-- AC:END -->
 
@@ -58,5 +58,13 @@ author: foreman
 created: 2026-06-20 10:38
 ---
 AC#1 DONE (operator, 2026-06-20). 362 total migrations. NON-TRANSACTIONAL = 3 (~0.8%), all ALTER TYPE ... ADD VALUE: 20260218215337_add_legal_relationship_import.up.sql:10; 20260326161813_add_edge_upgrade_channel.up.sql:5; 20260325114130_add_interrupted_state_for_crash_recovery.up.psql:12. TRANSACTIONAL majority = 359 (99.2%). 4 false-positives (comments/strings) ruled out. The 3 already use the add-then-use split (two transactions). NOTE for AC#2: PG18 CAN run ALTER TYPE ADD VALUE inside a tx (the restriction is USING the new value in the same tx) — but these 3 migrations USE the value, hence the split → they are genuinely multi-tx in practice. AC#2 (architect recommendation) next.
+---
+
+author: foreman
+created: 2026-06-20 10:52
+---
+AC#2 DONE (architect, 2026-06-20). RECOMMENDATION: make apply+record atomic for the 359 single-tx migrations (99.2%) — inject the db.migration INSERT as the LAST statement inside the migration's OWN transaction, just before its closing END/COMMIT. KEY correctness point: the closing-END locator MUST be dollar-quote-aware (a function body's `$$ BEGIN…END $$` must not be mistaken for the close) — small tokenizer, tested against all 359. No migration rewrites; performance-neutral (one fewer psql round-trip). 097 is NOT a one-liner — it's a real tx-ownership change.
+THE 3 NON-TX (ALTER TYPE ADD VALUE, multi-tx add-then-use): window is INTRINSIC, atomicity can't dissolve it. IDEMPOTENCY-ON-RERUN (foreman-verified from the files): 20260218215337 (IF NOT EXISTS) + 20260326161813 (IF NOT EXISTS) recover cleanly on re-run; 20260325114130 ('interrupted', NO IF NOT EXISTS) does NOT — re-run CONFLICTS → forces the rollback path.
+AC#3 (King's call): (a) keep ONE minimal inject-hook to test the multi-tx partial-recovery rollback (architect leans this; the 1 non-idempotent + any future non-IF-NOT-EXISTS need it); vs (b) accept untested (3/362=0.8%, ~ms window). Foreman add: a CONVENTION requiring IF NOT EXISTS on future ALTER TYPE ADD VALUE → future ones idempotent → only the 1 legacy needs the hook/accept. Brought to the King for AC#3.
 ---
 <!-- COMMENTS:END -->
