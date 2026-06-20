@@ -5066,6 +5066,14 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 		if perr != nil || pending {
 			log.Printf("resumePostSwap: containers healthy at %s but migrations pending/unknown (pending=%v err=%v) — NOT self-healing; deferring to rollback (STATBUS-067)",
 				flag.Label(), pending, perr)
+		} else if hcErr := d.healthCheck(progress, 5, 5*time.Second); hcErr != nil {
+			// STATBUS-104: containers-at-target + no-pending is necessary but NOT
+			// sufficient — run the SAME bounded probe the normal applyPostSwap path
+			// uses (exec.go:4809) before certifying 'completed'. On FAIL, do NOT
+			// self-heal: fall through to the continuation (re-acquire flock →
+			// applyPostSwap → its own healthCheck → completed OR rollback), so a
+			// self-heal can never certify an unhealthy box as completed.
+			log.Printf("resumePostSwap: containers at target but healthCheck failed (%v) — NOT self-healing; deferring to applyPostSwap re-verify", hcErr)
 		} else {
 			log.Printf("resumePostSwap: containers healthy at %s (sha %s), no pending migrations — self-healing row %d to completed",
 				flag.Label(), ShortForDisplay(flag.CommitSHA), flag.ID)
