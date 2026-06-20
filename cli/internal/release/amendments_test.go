@@ -83,11 +83,11 @@ func TestParseAmendmentsFile_Malformed(t *testing.T) {
 	}
 }
 
-// CircumventVersions = file ∪ env (§7: env is a local-dev override).
-func TestCircumventVersions_Union(t *testing.T) {
+// IntentionallyFixBrokenImmutableMigrationVersions = file ∪ env (§7: env is a local-dev override).
+func TestIntentionallyFixBrokenImmutableMigrationVersions_Union(t *testing.T) {
 	dir := writeAmendments(t, "20260521112759\tv2026.06.1\tcrash-fix\n")
-	t.Setenv(CircumventEnvVar, "20260522080000")
-	got, err := CircumventVersions(dir)
+	t.Setenv(IntentionallyFixBrokenImmutableMigrationEnvVar, "20260522080000")
+	got, err := IntentionallyFixBrokenImmutableMigrationVersions(dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -103,10 +103,10 @@ func TestCircumventVersions_Union(t *testing.T) {
 }
 
 // Production shape: env unset → the committed file is the sole source.
-func TestCircumventVersions_FileOnly_NoEnv(t *testing.T) {
+func TestIntentionallyFixBrokenImmutableMigrationVersions_FileOnly_NoEnv(t *testing.T) {
 	dir := writeAmendments(t, "20260521112759\tv2026.06.1\tcrash-fix\n")
-	t.Setenv(CircumventEnvVar, "")
-	got, err := CircumventVersions(dir)
+	t.Setenv(IntentionallyFixBrokenImmutableMigrationEnvVar, "")
+	got, err := IntentionallyFixBrokenImmutableMigrationVersions(dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -116,18 +116,18 @@ func TestCircumventVersions_FileOnly_NoEnv(t *testing.T) {
 }
 
 // A malformed env override still fails loudly through the union path.
-func TestCircumventVersions_EnvMalformed_Loud(t *testing.T) {
+func TestIntentionallyFixBrokenImmutableMigrationVersions_EnvMalformed_Loud(t *testing.T) {
 	dir := writeAmendments(t, "20260521112759\tv1\tok\n")
-	t.Setenv(CircumventEnvVar, "garbage")
-	if _, err := CircumventVersions(dir); err == nil {
+	t.Setenv(IntentionallyFixBrokenImmutableMigrationEnvVar, "garbage")
+	if _, err := IntentionallyFixBrokenImmutableMigrationVersions(dir); err == nil {
 		t.Fatal("malformed env → expected error, got nil")
 	}
 }
 
 // No file AND no env → empty set, no error (the universal default).
-func TestCircumventVersions_Neither(t *testing.T) {
-	t.Setenv(CircumventEnvVar, "")
-	got, err := CircumventVersions(t.TempDir())
+func TestIntentionallyFixBrokenImmutableMigrationVersions_Neither(t *testing.T) {
+	t.Setenv(IntentionallyFixBrokenImmutableMigrationEnvVar, "")
+	got, err := IntentionallyFixBrokenImmutableMigrationVersions(t.TempDir())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

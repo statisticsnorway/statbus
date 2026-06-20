@@ -79,16 +79,16 @@ func tagMessageSubject(projDir, tagName string) (string, error) {
 // and tag. Additions are allowed; modifications or deletions of files that
 // existed in prevTag are immutability violations and surface as an error.
 //
-// The circumvent set (sanctioned in-place amendments, STATBUS-072) skips listed
+// The fix-broken set (sanctioned in-place broken-migration fixes, STATBUS-072) skips listed
 // versions from the violation set. Same SOURCE as the preflight-side
-// checkMigrationImmutability: release.CircumventVersions = the committed
+// checkMigrationImmutability: release.IntentionallyFixBrokenImmutableMigrationVersions = the committed
 // migrations/amendments.tsv (auto-conveyed) UNION the
-// STATBUS_CIRCUMVENT_IMMUTABLE_MIGRATION env var (local-dev override). So the
+// STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION env var (local-dev override). So the
 // pre-create gate AND this post-create / pre-push validation (via
 // ValidatePrereleaseTag) agree — declaring the amendment in the committed file
 // ALONE is sufficient to cut the release; no per-run env var needed.
 func compareMigrationsForTag(projDir, prevTag, tag string) error {
-	circumvent, err := release.CircumventVersions(projDir)
+	fixBroken, err := release.IntentionallyFixBrokenImmutableMigrationVersions(projDir)
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func compareMigrationsForTag(projDir, prevTag, tag string) error {
 		return fmt.Errorf("git diff %s..%s: %w", prevTag, tag, err)
 	}
 	var modified []string
-	var circumvented []int64
+	var fixedBroken []int64
 	for _, line := range strings.Split(strings.TrimSpace(diffOut), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
@@ -121,12 +121,12 @@ func compareMigrationsForTag(projDir, prevTag, tag string) error {
 			continue
 		}
 
-		// Honour STATBUS_CIRCUMVENT_IMMUTABLE_MIGRATION (see header comment).
-		if len(circumvent) > 0 {
+		// Honour STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION (see header comment).
+		if len(fixBroken) > 0 {
 			base := filepath.Base(file)
 			if underscore := strings.Index(base, "_"); underscore > 0 {
-				if v, parseErr := strconv.ParseInt(base[:underscore], 10, 64); parseErr == nil && circumvent[v] {
-					circumvented = append(circumvented, v)
+				if v, parseErr := strconv.ParseInt(base[:underscore], 10, 64); parseErr == nil && fixBroken[v] {
+					fixedBroken = append(fixedBroken, v)
 					continue
 				}
 			}
@@ -135,20 +135,20 @@ func compareMigrationsForTag(projDir, prevTag, tag string) error {
 		modified = append(modified, parts[0]+" "+file)
 	}
 
-	// Log circumvent activity (one line per unique version, sorted) so
+	// Log fix-broken activity (one line per unique version, sorted) so
 	// pre-push hook output and `release verify-tag` output surface the
 	// bypass explicitly. dedupeInt64Sorted lives in release.go (same
 	// package).
-	for _, v := range dedupeInt64Sorted(circumvented) {
-		fmt.Printf("⟳ Circumventing immutability for migration %d in %s..%s (%s)\n",
-			v, prevTag, tag, release.CircumventEnvVar)
+	for _, v := range dedupeInt64Sorted(fixedBroken) {
+		fmt.Printf("⟳ Intentionally fixing broken (immutable) migration %d in %s..%s (%s)\n",
+			v, prevTag, tag, release.IntentionallyFixBrokenImmutableMigrationEnvVar)
 	}
 
 	if len(modified) == 0 {
 		return nil
 	}
 	return fmt.Errorf("tag %s modifies migrations present in %s:\n  %s\n  migrations are immutable after release — create a new migration instead\n  (or, if intentional and coordinated: %s=<version>[,...])",
-		tag, prevTag, strings.Join(modified, "\n  "), release.CircumventEnvVar)
+		tag, prevTag, strings.Join(modified, "\n  "), release.IntentionallyFixBrokenImmutableMigrationEnvVar)
 }
 
 // findLatestStableTagBeforePrefix returns the most recent stable tag whose

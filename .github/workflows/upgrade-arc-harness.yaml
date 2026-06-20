@@ -183,7 +183,7 @@ jobs:
             { echo "-- amended in place (STATBUS-072 re-stamp; result-preserving)"; cat "$v_up"; } > "$tmp_v"
             mv "$tmp_v" "$v_up"
             # version<TAB>amending_release<TAB>reason; version is the load-bearing
-            # field release.CircumventVersions reads.
+            # field release.IntentionallyFixBrokenImmutableMigrationVersions reads.
             printf '%s\t%s\t%s\n' "$v_version" "$c_branch" "working arc: amended V in place (result-preserving re-stamp)" \
               >> migrations/amendments.tsv
             git add "$v_up" migrations/amendments.tsv

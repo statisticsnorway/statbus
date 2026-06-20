@@ -127,6 +127,7 @@ func PsqlCommand(projDir string) (psqlPath string, prefixArgs []string, env []st
 //     db container; connects over the local socket — env is nil).
 //   - host mode: pg_dump on PATH with PG* env from .env (PGHOST/PGPORT/
 //     PGUSER/PGPASSWORD/PGSSLMODE via psqlEnv).
+//
 // Callers append their own flags + target dbname after the prefix and set
 // cmd.Stdout (the custom-format dump is binary) + cmd.Dir = projDir + cmd.Env.
 func PgDumpCommand(projDir string) (cmdPath string, prefixArgs []string, env []string, err error) {
@@ -1318,14 +1319,14 @@ func eagerContentHashCheck(projDir string) error {
 		return nil
 	}
 
-	// The circumvent set names versions whose file bytes were amended in place
-	// after release (the rare RC-fix case) — re-stamp instead of hard-failing
-	// immutability. STATBUS-072: the source is the committed declaration file
+	// The fix-broken set names versions whose released migration was intentionally
+	// fixed in place (the rare broken-migration RC-fix case) — re-stamp instead of
+	// hard-failing immutability. STATBUS-072: the source is the committed declaration file
 	// (migrations/amendments.tsv, auto-conveyed to every host via the target
-	// checkout) UNION the STATBUS_CIRCUMVENT_IMMUTABLE_MIGRATION env var
+	// checkout) UNION the STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION env var
 	// (local-dev override). Parse once before the loop so a malformed value
 	// fails the whole check rather than firing inconsistently per row.
-	circumvent, err := release.CircumventVersions(projDir)
+	fixBroken, err := release.IntentionallyFixBrokenImmutableMigrationVersions(projDir)
 	if err != nil {
 		return err
 	}
@@ -1375,15 +1376,15 @@ func eagerContentHashCheck(projDir string) error {
 		}
 
 		// MISMATCH — but the operator may have explicitly opted in to
-		// bypass via STATBUS_CIRCUMVENT_IMMUTABLE_MIGRATION. Re-stamp
+		// bypass via STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION. Re-stamp
 		// the stored hash to the current file bytes and continue.
 		// The bypass is per-version, not per-DB, so an operator must
 		// reapply it consciously for each affected migration.
-		if circumvent[version] {
+		if fixBroken[version] {
 			if _, updateErr := runPsql(projDir, fmt.Sprintf(
 				"UPDATE db.migration SET content_hash = '%s' WHERE version = %d",
 				liveHash, version)); updateErr != nil {
-				return fmt.Errorf("circumvent UPDATE for migration %d: %w", version, updateErr)
+				return fmt.Errorf("content_hash re-stamp UPDATE for migration %d: %w", version, updateErr)
 			}
 			oldShort := storedHash
 			if len(oldShort) > 8 {
@@ -1393,8 +1394,8 @@ func eagerContentHashCheck(projDir string) error {
 			if len(newShort) > 8 {
 				newShort = newShort[:8]
 			}
-			fmt.Printf("[migrate]   ⟳ Circumventing immutability for migration %d.content_hash %s → %s (declared in %s or %s)\n",
-				version, oldShort, newShort, release.AmendmentsFileName, release.CircumventEnvVar)
+			fmt.Printf("[migrate]   ⟳ Intentionally fixing broken (immutable) migration %d: re-stamping content_hash %s → %s (declared in %s or %s)\n",
+				version, oldShort, newShort, release.AmendmentsFileName, release.IntentionallyFixBrokenImmutableMigrationEnvVar)
 			continue
 		}
 
