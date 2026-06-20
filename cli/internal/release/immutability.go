@@ -59,77 +59,20 @@ func ParseIntentionallyFixBrokenImmutableMigrationVersions(envValue string) (map
 	return out, nil
 }
 
-// AmendmentsFileName is the repo-relative path of the committed declaration of
-// migrations amended in place after release (STATBUS-072). It is the durable,
-// AUTO-CONVEYED source for the intentional-fix set: it travels with
-// `git checkout <target>` (which the upgrade does before `./sb migrate up`), so
-// every host's automatic upgrade reads the same declared intent with NO per-host
-// env var. One row per amendment, tab-separated:
+// IntentionallyFixBrokenImmutableMigrationVersions returns the set of migration
+// versions the operator has explicitly declared — via the
+// STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION env var — as deliberate
+// in-place fixes of a GENUINELY BROKEN already-released migration (a
+// crash/timeout/OOM fix that PRESERVES THE RESULT; see the cut-gate message).
 //
-//	version<TAB>amending_release<TAB>reason
-//
-// Only `version` (the 14-digit YYYYMMDDHHMMSS of the amended migration) is
-// load-bearing; amending_release + reason are AUDIT metadata (PR review, log,
-// ledger) the gate never reads. Append-only: a listed version is re-stamped
-// only on a hash MISMATCH (a no-op once re-stamped or freshly applied), so
-// historical rows are a permanent, zero-cost audit ledger — never prune them.
-const AmendmentsFileName = "migrations/amendments.tsv"
-
-// ParseAmendmentsFile reads AmendmentsFileName under projDir and returns the set
-// of amended migration versions. A MISSING file is the normal case (no
-// amendments declared) → empty set, no error. A malformed version field fails
-// LOUDLY (mirrors ParseIntentionallyFixBrokenImmutableMigrationVersions — a typo must never silently widen the
-// immutability gate). Lines beginning with '#' and blank lines are ignored; the
-// version is the first whitespace-separated token, the remainder is audit text.
-func ParseAmendmentsFile(projDir string) (map[int64]bool, error) {
-	out := make(map[int64]bool)
-	path := filepath.Join(projDir, AmendmentsFileName)
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return out, nil
-		}
-		return nil, fmt.Errorf("read %s: %w", AmendmentsFileName, err)
-	}
-	for i, raw := range strings.Split(string(data), "\n") {
-		line := strings.TrimSpace(raw)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		// First whitespace-separated token is the load-bearing version; any
-		// remaining tokens (amending_release, reason) are audit metadata.
-		versionTok := strings.Fields(line)[0]
-		v, perr := strconv.ParseInt(versionTok, 10, 64)
-		if perr != nil {
-			return nil, fmt.Errorf("%s line %d: invalid migration version %q: must be a 14-digit YYYYMMDDHHMMSS integer", AmendmentsFileName, i+1, versionTok)
-		}
-		out[v] = true
-	}
-	return out, nil
-}
-
-// IntentionallyFixBrokenImmutableMigrationVersions returns the full set of migration versions whose in-place
-// amendment is sanctioned (STATBUS-072): the committed declaration file
-// (AmendmentsFileName — the durable, auto-conveyed production source) UNION the
-// STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION env var (a local-dev override for
-// iterating on an amendment before committing the declaration). BOTH the
-// runtime immutability gate (migrate.eagerContentHashCheck) and the release-cut
-// preflight (cmd.checkMigrationImmutability) call this, so they agree on ONE
-// source of truth. The env var is a distinct dev affordance, NOT a back-compat
-// shim — production hosts leave it unset and rely on the committed file.
-func IntentionallyFixBrokenImmutableMigrationVersions(projDir string) (map[int64]bool, error) {
-	out, err := ParseAmendmentsFile(projDir)
-	if err != nil {
-		return nil, err
-	}
-	envSet, err := ParseIntentionallyFixBrokenImmutableMigrationVersions(os.Getenv(IntentionallyFixBrokenImmutableMigrationEnvVar))
-	if err != nil {
-		return nil, err
-	}
-	for v := range envSet {
-		out[v] = true
-	}
-	return out, nil
+// Read at the RELEASE CUT only (cmd.checkMigrationImmutability /
+// release_verify.compareMigrationsForTag): a modified released migration FAILS
+// the cut unless its version is named here. The RUNTIME no longer reads this —
+// per-host upgrade blessing is decided by CHANNEL (migrate.migrationChannelClass),
+// not a per-version list (STATBUS-102: the prior file-conveyed declaration set is
+// retired; declared intent lives ONLY in the env var at the cut).
+func IntentionallyFixBrokenImmutableMigrationVersions() (map[int64]bool, error) {
+	return ParseIntentionallyFixBrokenImmutableMigrationVersions(os.Getenv(IntentionallyFixBrokenImmutableMigrationEnvVar))
 }
 
 // ReleaseTagPattern matches the project's release tag shape:

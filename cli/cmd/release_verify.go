@@ -79,16 +79,13 @@ func tagMessageSubject(projDir, tagName string) (string, error) {
 // and tag. Additions are allowed; modifications or deletions of files that
 // existed in prevTag are immutability violations and surface as an error.
 //
-// The fix-broken set (sanctioned in-place broken-migration fixes, STATBUS-072) skips listed
-// versions from the violation set. Same SOURCE as the preflight-side
-// checkMigrationImmutability: release.IntentionallyFixBrokenImmutableMigrationVersions = the committed
-// migrations/amendments.tsv (auto-conveyed) UNION the
-// STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION env var (local-dev override). So the
-// pre-create gate AND this post-create / pre-push validation (via
-// ValidatePrereleaseTag) agree — declaring the amendment in the committed file
-// ALONE is sufficient to cut the release; no per-run env var needed.
+// The fix-broken set (versions named in STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION,
+// STATBUS-102) skips listed versions from the violation set. Same SOURCE as the
+// preflight-side checkMigrationImmutability: release.IntentionallyFixBrokenImmutableMigrationVersions
+// reads the env var at the cut. So the pre-create gate AND this post-create /
+// pre-push validation (via ValidatePrereleaseTag) agree on what's sanctioned.
 func compareMigrationsForTag(projDir, prevTag, tag string) error {
-	fixBroken, err := release.IntentionallyFixBrokenImmutableMigrationVersions(projDir)
+	fixBroken, err := release.IntentionallyFixBrokenImmutableMigrationVersions()
 	if err != nil {
 		return err
 	}

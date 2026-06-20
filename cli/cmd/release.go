@@ -636,12 +636,11 @@ func noSameKindTagAtHEAD(projDir string, isPrerelease bool) error {
 // agreeing to (the env var itself is the acknowledgment; the warning is
 // the receipt).
 func checkMigrationImmutability(projDir, prevTag, label string) error {
-	// STATBUS-072: fix-broken set = the committed declaration file
-	// (migrations/amendments.tsv, the canonical auto-conveyed source) UNION the
-	// STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION env var (local-dev override) — the
-	// SAME single source the runtime gate (migrate.eagerContentHashCheck) reads,
-	// so RC-cut and per-host upgrade agree on what's sanctioned.
-	fixBroken, err := release.IntentionallyFixBrokenImmutableMigrationVersions(projDir)
+	// STATBUS-102: fix-broken set = the versions named in
+	// STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION at the cut. This is the
+	// ONLY place declared intent is read; per-host upgrade blessing is by channel
+	// (migrate.migrationChannelClass), not this list.
+	fixBroken, err := release.IntentionallyFixBrokenImmutableMigrationVersions()
 	if err != nil {
 		return err
 	}
@@ -704,7 +703,7 @@ func checkMigrationImmutability(projDir, prevTag, label string) error {
 	// Log fix-broken activity before the gate decision so the operator
 	// sees what they bypassed even on a passing run.
 	for _, v := range dedupeInt64Sorted(fixedBroken) {
-		fmt.Printf("    ⟳ Intentionally fixing broken (immutable) migration %d (declared in %s or %s)\n", v, release.AmendmentsFileName, release.IntentionallyFixBrokenImmutableMigrationEnvVar)
+		fmt.Printf("    ⟳ Intentionally fixing broken (immutable) migration %d (declared in %s)\n", v, release.IntentionallyFixBrokenImmutableMigrationEnvVar)
 		if prevIsStable {
 			fmt.Printf("      ⚠ %s is a STABLE tag — this version shipped in production.\n", prevTag)
 			fmt.Println("        Operators bypassing stable-shipped migrations: confirm the change is")

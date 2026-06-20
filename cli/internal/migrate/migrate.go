@@ -1319,17 +1319,17 @@ func eagerContentHashCheck(projDir string) error {
 		return nil
 	}
 
-	// The fix-broken set names versions whose released migration was intentionally
-	// fixed in place (the rare broken-migration RC-fix case) — re-stamp instead of
-	// hard-failing immutability. STATBUS-072: the source is the committed declaration file
-	// (migrations/amendments.tsv, auto-conveyed to every host via the target
-	// checkout) UNION the STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION env var
-	// (local-dev override). Parse once before the loop so a malformed value
-	// fails the whole check rather than firing inconsistently per row.
-	fixBroken, err := release.IntentionallyFixBrokenImmutableMigrationVersions(projDir)
+	// STATBUS-102: how a content_hash MISMATCH is handled is decided by the
+	// deployment CHANNEL (migrationChannelClass), not a per-version sanctioned
+	// list — release blesses (re-stamp, trusting the cut gate), edge re-runs,
+	// localDev errors for a human. maxVersion gates edge's auto-redo to the
+	// latest-applied migration (Redo is latest-only; deeper is a King-flag).
+	channel := migrationChannelClass(projDir)
+	maxVerOut, err := runPsql(projDir, "SELECT COALESCE(MAX(version), 0) FROM db.migration", "-t", "-A")
 	if err != nil {
-		return err
+		return fmt.Errorf("query max applied migration version: %w", err)
 	}
+	maxVersion, _ := strconv.ParseInt(strings.TrimSpace(maxVerOut), 10, 64)
 
 	rowsOut, err := runPsql(projDir,
 		"SELECT version || '|' || COALESCE(content_hash, '<NULL>') FROM db.migration ORDER BY version",
@@ -1375,60 +1375,82 @@ func eagerContentHashCheck(projDir string) error {
 			continue
 		}
 
-		// MISMATCH — but the operator may have explicitly opted in to
-		// bypass via STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION. Re-stamp
-		// the stored hash to the current file bytes and continue.
-		// The bypass is per-version, not per-DB, so an operator must
-		// reapply it consciously for each affected migration.
-		if fixBroken[version] {
+		// MISMATCH for version N — how to handle it is decided by the channel.
+		switch channel {
+		case channelRelease:
+			// BLESS: the cut gate already vetted every modified released migration as an
+			// env-var-declared sanctioned broken-fix (STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION),
+			// so a mismatch here is a sanctioned applied broken-fix → re-stamp content_hash,
+			// no re-run. We TRUST the cut gate (King's "trust the gate, no runtime checkers"):
+			// NO released-tag provenance re-check — a `git rev-parse <tag>:<path>` probe is
+			// unreliable on the shallow `git clone --depth 1` real boxes use (install.go:929;
+			// the tag's tree can be absent → it would FALSELY refuse a legit bless), and it
+			// is redundant with the cut gate that already gated the change.
 			if _, updateErr := runPsql(projDir, fmt.Sprintf(
 				"UPDATE db.migration SET content_hash = '%s' WHERE version = %d",
 				liveHash, version)); updateErr != nil {
 				return fmt.Errorf("content_hash re-stamp UPDATE for migration %d: %w", version, updateErr)
 			}
-			oldShort := storedHash
+			oldShort, newShort := storedHash, liveHash
 			if len(oldShort) > 8 {
 				oldShort = oldShort[:8]
 			}
-			newShort := liveHash
 			if len(newShort) > 8 {
 				newShort = newShort[:8]
 			}
-			fmt.Printf("[migrate]   ⟳ Intentionally fixing broken (immutable) migration %d: re-stamping content_hash %s → %s (declared in %s or %s)\n",
-				version, oldShort, newShort, release.AmendmentsFileName, release.IntentionallyFixBrokenImmutableMigrationEnvVar)
+			fmt.Printf("[migrate]   ⟳ Intentionally fixing broken (immutable) migration %d: re-stamped content_hash %s → %s\n",
+				version, oldShort, newShort)
 			continue
-		}
-
-		// Mismatch — branch on released-tag containment.
-		releasedTag, relErr := release.MigrationInReleasedTag(projDir, version)
-		if relErr != nil {
-			return fmt.Errorf("released-tag detection for migration %d: %w", version, relErr)
-		}
-		if releasedTag != "" {
-			return fmt.Errorf(
-				"immutability violation: migration %d (%s) is in release %s and its file bytes have changed since apply.\n"+
-					"  Migration files in released tags must not be edited; create a new migration instead:\n"+
-					"    ./sb migrate new --description \"fix_<description>\"\n"+
-					"  Then revert the modification to the original file:\n"+
-					"    git checkout %s -- migrations/%s",
-				version, filepath.Base(filePath), releasedTag,
-				releasedTag, filepath.Base(filePath))
-		}
-		target, dbName := currentMigrationTarget(projDir)
-		var fixCmd string
-		switch target {
-		case "dev":
-			fixCmd = fmt.Sprintf("./sb migrate redo %d --target dev --confirm", version)
-		case "seed":
-			fixCmd = fmt.Sprintf("./sb migrate redo %d", version)
+		case channelEdge:
+			// REDO: a deployed always-latest dev/edge box; data loss acceptable.
+			// Re-run the latest-applied migration (down+up) to absorb the change.
+			// A deeper-than-latest mismatch is a depth-asymmetry we do not
+			// auto-recreate yet (Redo is latest-only) → fall through to the
+			// localDev guidance + a King-flag (STATBUS-102 follow-up).
+			if version == maxVersion {
+				if redoErr := Redo(projDir, version, "dev", true, false); redoErr != nil {
+					return fmt.Errorf("edge auto-redo of migration %d: %w", version, redoErr)
+				}
+				fmt.Printf("[migrate]   ⟳ edge channel: re-ran (down+up) migration %d to absorb its content change\n", version)
+				continue
+			}
+			fmt.Printf("[migrate]   ⚑ edge channel: migration %d content changed but is NOT the latest applied (%d) — deep-edge auto-recreate not yet implemented (STATBUS-102 follow-up; King's call). Falling back to manual guidance.\n",
+				version, maxVersion)
+			fallthrough
 		default:
-			fixCmd = fmt.Sprintf("./sb migrate redo %d --target {dev --confirm | seed}", version)
+			// localDev (CADDY_DEPLOYMENT_MODE=development) or an uncertain channel:
+			// a human is present — never auto-mutate. Released → immutability
+			// violation; WIP → redo guidance.
+			releasedTag, relErr := release.MigrationInReleasedTag(projDir, version)
+			if relErr != nil {
+				return fmt.Errorf("released-tag detection for migration %d: %w", version, relErr)
+			}
+			if releasedTag != "" {
+				return fmt.Errorf(
+					"immutability violation: migration %d (%s) is in release %s and its file bytes have changed since apply.\n"+
+						"  Migration files in released tags must not be edited; create a new migration instead:\n"+
+						"    ./sb migrate new --description \"fix_<description>\"\n"+
+						"  Then revert the modification to the original file:\n"+
+						"    git checkout %s -- migrations/%s",
+					version, filepath.Base(filePath), releasedTag,
+					releasedTag, filepath.Base(filePath))
+			}
+			target, dbName := currentMigrationTarget(projDir)
+			var fixCmd string
+			switch target {
+			case "dev":
+				fixCmd = fmt.Sprintf("./sb migrate redo %d --target dev --confirm", version)
+			case "seed":
+				fixCmd = fmt.Sprintf("./sb migrate redo %d", version)
+			default:
+				fixCmd = fmt.Sprintf("./sb migrate redo %d --target {dev --confirm | seed}", version)
+			}
+			return fmt.Errorf(
+				"migration %d (%s) content has changed since apply to %s (WIP edit).\n"+
+					"  Fix: %s\n"+
+					"  This re-runs the migration's down + up against %s and re-stamps content_hash.",
+				version, filepath.Base(filePath), dbName, fixCmd, dbName)
 		}
-		return fmt.Errorf(
-			"migration %d (%s) content has changed since apply to %s (WIP edit).\n"+
-				"  Fix: %s\n"+
-				"  This re-runs the migration's down + up against %s and re-stamps content_hash.",
-			version, filepath.Base(filePath), dbName, fixCmd, dbName)
 	}
 	return nil
 }
@@ -1460,6 +1482,49 @@ func currentMigrationTarget(projDir string) (target, dbName string) {
 		return "dev", dbName
 	}
 	return "unknown", dbName
+}
+
+// migrationChannel classifies the deployment for content_hash MISMATCH handling
+// (STATBUS-102 channel-bless: replaces the per-version sanctioned list).
+type migrationChannel int
+
+const (
+	channelLocalDev migrationChannel = iota
+	channelEdge
+	channelRelease
+)
+
+// migrationChannelClass reads CADDY_DEPLOYMENT_MODE + UPGRADE_CHANNEL from .env
+// (both always written by config.go; read here via dotenv.Load, same pattern as
+// currentMigrationTarget) and classifies the box with EXPLICIT ordered precedence,
+// first match wins — designed so the three-way can't misfire:
+//
+//  1. CADDY_DEPLOYMENT_MODE == "development" → localDev. A developer's box (human
+//     present); never auto-mutate the DB, even if UPGRADE_CHANNEL=edge — dev-mode wins.
+//  2. else UPGRADE_CHANNEL == "edge" → edge. A DEPLOYED always-latest box
+//     (e.g. dev.statbus.org), not development-mode.
+//  3. else UPGRADE_CHANNEL ∈ {"stable","prerelease"} → release.
+//  4. else (unreadable .env / unrecognized mode or channel) → localDev. The SAFE
+//     default: never auto-bless or auto-redo when the channel is uncertain — stop
+//     for a human. On a properly-configured box this never fires (config.go always
+//     writes a valid UPGRADE_CHANNEL).
+func migrationChannelClass(projDir string) migrationChannel {
+	f, err := dotenv.Load(filepath.Join(projDir, ".env"))
+	if err != nil {
+		return channelLocalDev
+	}
+	if mode, ok := f.Get("CADDY_DEPLOYMENT_MODE"); ok && mode == "development" {
+		return channelLocalDev
+	}
+	if ch, ok := f.Get("UPGRADE_CHANNEL"); ok {
+		switch ch {
+		case "edge":
+			return channelEdge
+		case "stable", "prerelease":
+			return channelRelease
+		}
+	}
+	return channelLocalDev
 }
 
 // Redo re-runs a migration's down + up cycle and re-stamps the tracking

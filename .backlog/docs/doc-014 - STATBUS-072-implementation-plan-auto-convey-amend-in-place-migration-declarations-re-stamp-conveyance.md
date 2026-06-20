@@ -13,6 +13,9 @@ tags:
   - data-integrity
   - architect-plan
 ---
+
+> **SUPERSEDED BY STATBUS-102 (channel-bless replaces amendments.tsv).**
+
 # STATBUS-072 implementation plan — auto-convey amend-in-place migration declarations
 
 **Audience:** engineer (build), foreman (review). **Status:** implementable + finalized. **One small decision** flagged in §7 (keep vs drop the env var). **Tested via:** STATBUS-071's working + works-for-most arcs (doc-012 §4).
