@@ -3,15 +3,16 @@ id: STATBUS-097
 title: >-
   migration-atomicity: scope making apply+record atomic to close the
   commit-vs-record window
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-06-18 21:36'
+updated_date: '2026-06-20 10:35'
 labels:
   - upgrade
   - migration
   - design-scoping
 dependencies: []
-priority: low
+priority: high
 ordinal: 97000
 ---
 
@@ -39,3 +40,13 @@ Source: King, 2026-06-18 — asked whether to open this as its own entry; opened
 - [ ] #2 A written recommendation: atomic apply+record for the transactional majority, and a proposed policy for the non-transactional exceptions (minimal hook vs accept-untested)
 - [ ] #3 The King's policy decision recorded BEFORE any product change is made
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-06-20 10:35
+---
+King directed 2026-06-20: drive this NOW. It is the principled fix for the after-commit-before-recorded recovery finding (the box can certify 'completed' on a committed-but-unrecorded migration because the torn state is undetectable from the ledger; atomic apply+record makes the torn state unreachable). Starting AC#1 scoping (count + list non-transactional migrations) now -> AC#2 recommendation -> AC#3 King policy decision -> product change.
+---
+<!-- COMMENTS:END -->
