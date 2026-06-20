@@ -7,6 +7,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-20 00:18'
+updated_date: '2026-06-20 00:29'
 labels:
   - upgrade
   - migration-immutability
@@ -14,6 +15,8 @@ labels:
   - architect-plan
   - naming
 dependencies: []
+documentation:
+  - doc-014
 priority: high
 ordinal: 102000
 ---
@@ -78,3 +81,21 @@ Design (channel-bless + working-arc reconciliation) = architect → build = engi
 - [ ] #6 Working-arc reconciliation resolved: reframed to fix a genuinely broken migration, or retired
 - [ ] #7 Channel detection verified or built so the runtime reliably distinguishes the channels the three-way handling needs
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+=== 072 GROUNDING — this task SUPERSEDES the amendments.tsv deliverable of STATBUS-072 (DONE, committed 24907e2f8; design = doc-014) ===
+
+072 BUILT migrations/amendments.tsv as the AUTO-CONVEYANCE of amend-intent to the RUNTIME box: the env var is NOT set on the Albania box during an automated upgrade, so the file was how the box learned which migration to re-stamp/bless. This task replaces that file with channel-trust.
+
+PRESERVE 072's still-valid doctrine (the rip-out changes only the CONVEYANCE + NAMING, NOT this):
+- RE-STAMP is primary over rollback (DEPTH-ASYMMETRY: re-stamp is O(1) however far back the migration is; a deep downgrade is expensive AND potentially incorrect — later migrations were written against the buggy output).
+- CRASH-FIX-ONLY convention = the King's 'fix broken only' (this session, same principle two sessions apart): an amendment changes WHETHER a migration finishes, never WHAT it produces; a result-fix goes in a LATER FORWARD migration (V+k), never the amendment.
+- NO CHECKER (undecidable): outcome-preservation for all data is undecidable; the declaration is a forced DECLARATION OF INTENT, not a check; validation = running it everywhere. channel-bless must NOT add a checker.
+- BOTH host populations converge: THE MANY (applied V, recorded old bytes) -> bless/re-stamp, no re-run; THE FEW (V crashed, unrecorded) -> re-run the corrected V fresh.
+
+CONVEYANCE-REPLACEMENT (load-bearing): channel-bless REPLACES the file's runtime role — the box must STILL bless THE MANY (now by trusting the cut gate / channel, instead of reading amendments.tsv). Deleting the file WITHOUT landing channel-bless regresses 072's exact bug ('the MANY hard-fail the immutability gate on automated upgrade'). The file's runtime per-version check was redundant WITH THE CUT GATE (which already filters to only-declared amendments) — which is exactly why channel-trust can replace it (the King's point).
+
+FLAG: 072 is DONE/signed-off; closing this task reverses its committed deliverable (the King flagged amendments.tsv for rip-out, so this is intended). Relate/annotate 072 when this lands.
+<!-- SECTION:NOTES:END -->
