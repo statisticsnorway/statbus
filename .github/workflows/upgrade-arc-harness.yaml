@@ -44,7 +44,7 @@ on:
         required: false
         default: ''
       scenario:
-        description: 'Arc scenario: working (re-stamp §9c) | failing (fail→rollback→fix + clean-slate §9d) | claim-without-notify (STATBUS-098) | §9(5) CAT-A kill-arcs: preswap-checkout-kill | preswap-backup-kill | preswap-binary-swap-kill | postswap-container-restart-kill | rollback-kill | §9(5) CAT-B stall-arcs: postswap-watchdog-reconnect | postswap-migration-timeout | postswap-archivebackup-watchdog | postswap-rollback-restore-watchdog (V_fail→rollback→restore-stall) | §9(5) CAT-C: postswap-after-commit-kill (V committed-but-unrecorded → re-apply conflicts → rollback).'
+        description: 'Arc scenario: working (re-stamp §9c) | failing (fail→rollback→fix + clean-slate §9d) | claim-without-notify (STATBUS-098) | §9(5) CAT-A kill-arcs: preswap-checkout-kill | preswap-backup-kill | preswap-binary-swap-kill | postswap-container-restart-kill | rollback-kill | §9(5) CAT-B stall-arcs: postswap-watchdog-reconnect | postswap-migration-timeout | postswap-archivebackup-watchdog | postswap-rollback-restore-watchdog (V_fail→rollback→restore-stall) | §9(5) CAT-C: postswap-after-commit-kill (V committed-but-unrecorded → re-apply conflicts → rollback) | after-commit-before-recorded-kill (same cell, subprocess killed → Layer 0 in-process recovery → rolled_back).'
         required: false
         default: 'working'
 
