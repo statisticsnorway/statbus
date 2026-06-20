@@ -18,8 +18,8 @@ name: Upgrade Arc Harness
 #                downstream workflows, so the branch push alone won't build images
 #                — we explicitly `gh workflow run images.yaml --ref <branch>`;
 #                images.yaml itself is UNCHANGED, no test/** push trigger).
-#                B adds a genuine migration V (succeeds); C amends V in place +
-#                declares it in migrations/amendments.tsv (the 072 re-stamp path).
+#                B adds a genuine migration V (succeeds); C amends V in place →
+#                the runtime channel-bless re-stamps content_hash (STATBUS-102).
 #   image-wait → reuse the install-recovery discover-gate poll: wait until all 5
 #                per-commit images (app, worker, db, proxy, sb) exist at BOTH
 #                B_short and C_short.
@@ -166,11 +166,10 @@ jobs:
           b_short="$(git rev-parse --short=8 HEAD)"
           b_full="$(git rev-parse HEAD)"
 
-          # --- C: off B, §7 Option-1 edit V IN PLACE. working → amend (result-
-          # preserving) + declare V in migrations/amendments.tsv → B→C RE-STAMPS
-          # content_hash (the MANY who succeeded). failing → replace V_fail with the
-          # working migration; V_fail rolled back (unrecorded) so V_fixed applies
-          # FRESH — NO amendments.tsv entry (the FEW who failed). ---
+          # --- C: off B, edit V IN PLACE. working → amend (result-preserving) →
+          # the runtime channel-bless re-stamps content_hash (STATBUS-102; the MANY
+          # who succeeded). failing → replace V_fail with the working migration;
+          # V_fail rolled back (unrecorded) so V_fixed applies FRESH (the FEW who failed). ---
           git checkout -B "$c_branch" "$b_branch"
           if [ "$SCENARIO" = "failing" ] || [ "$SCENARIO" = "postswap-rollback-restore-watchdog" ]; then
             write_working_v
@@ -178,16 +177,17 @@ jobs:
             git commit -S -q -m "test(upgrade-arc): ${SCENARIO} fix V in place (C, applies fresh)"
           else
             # Prepend a comment: changes the file's bytes (→ new hash) without
-            # changing what V DOES (the table + row are identical).
+            # changing what V DOES (the table + row are identical). The runtime
+            # blessing is by CHANNEL (STATBUS-102 channel-bless), not a declaration
+            # file. NOTE: the working-arc's bless-leg is PENDING the upgrade-arc
+            # deployment-mode decision (the dev-mode box classifies as local-dev →
+            # the release-bless can't fire; see the architect/King discussion). C is
+            # still built so the bless-leg lands cleanly once the mode decision does.
             tmp_v="$(mktemp)"
-            { echo "-- amended in place (STATBUS-072 re-stamp; result-preserving)"; cat "$v_up"; } > "$tmp_v"
+            { echo "-- amended in place (STATBUS-102 channel-bless re-stamp; result-preserving)"; cat "$v_up"; } > "$tmp_v"
             mv "$tmp_v" "$v_up"
-            # version<TAB>amending_release<TAB>reason; version is the load-bearing
-            # field release.IntentionallyFixBrokenImmutableMigrationVersions reads.
-            printf '%s\t%s\t%s\n' "$v_version" "$c_branch" "working arc: amended V in place (result-preserving re-stamp)" \
-              >> migrations/amendments.tsv
-            git add "$v_up" migrations/amendments.tsv
-            git commit -S -q -m "test(upgrade-arc): ${SCENARIO} amend V + amendments.tsv (C, re-stamp)"
+            git add "$v_up"
+            git commit -S -q -m "test(upgrade-arc): ${SCENARIO} amend V in place (C)"
           fi
           c_short="$(git rev-parse --short=8 HEAD)"
           c_full="$(git rev-parse HEAD)"

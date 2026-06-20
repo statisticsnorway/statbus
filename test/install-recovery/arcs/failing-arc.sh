@@ -13,13 +13,13 @@
 #                           (RAISE EXCEPTION). A→B: executeUpgrade runs migrate up
 #                           → fails → recoveryRollback restores the pre-upgrade
 #                           snapshot → row='rolled_back'. V_fail is NOT recorded.
-#   C = B, V replaced       C edits V IN PLACE to the working migration (§7
-#                           Option-1). Because V_fail rolled back (unrecorded),
-#                           V_fixed applies FRESH on A→C — NOT a re-stamp, so C
-#                           carries NO amendments.tsv entry. This is the 072 path
-#                           for "the few who failed": fix ships, applies cleanly.
+#   C = B, V replaced       C edits V IN PLACE to the working migration. Because
+#                           V_fail rolled back (unrecorded), V_fixed applies FRESH
+#                           on A→C — NOT a re-stamp (no channel-bless needed). The
+#                           STATBUS-102 path for "the few who failed": fix ships,
+#                           applies cleanly.
 #
-# CONTRAST with working-arc.sh: (c) = MANY who succeeded (V applied → amends.tsv →
+# CONTRAST with working-arc.sh: (c) = MANY who succeeded (V applied → channel-bless
 # re-stamp); (d) = FEW who failed (V rolled back → fresh fix). Together = both
 # populations the 072 amend-conveyance must serve.
 #

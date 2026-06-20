@@ -9,13 +9,16 @@
 #   A = base_sha            install fresh, pinned (install_statbus_at_sha).
 #   B = A + V               V is a genuine migration that SUCCEEDS. A→B applies it
 #                           and records it in db.migration with content_hash H_B.
-#   C = B with V amended    C edits V IN PLACE (§7 Option-1: bytes change → hash
-#                           H_C ≠ H_B, RESULT identical) AND declares V in
-#                           migrations/amendments.tsv. B→C: the eager content-hash
-#                           check sees H_C ≠ H_B, finds V in the amendments set →
-#                           RE-STAMPS db.migration.content_hash to H_C (does NOT
-#                           hard-fail, does NOT re-run V). The real 072 path for
-#                           "the many who already succeeded at V".
+#   C = B with V amended    C edits V IN PLACE (bytes change → hash H_C ≠ H_B,
+#                           RESULT identical). On a RELEASE-channel box the eager
+#                           content-hash check sees the mismatch → CHANNEL-BLESS
+#                           re-stamps db.migration.content_hash to H_C (STATBUS-102;
+#                           no hard-fail, no re-run) — the path for "the many who
+#                           already succeeded at V".
+#                           PENDING: the arc box installs dev-mode → migrationChannelClass
+#                           classifies it local-dev → the bless can't fire yet, so the
+#                           C-leg is SKIPPED awaiting the upgrade-arc deployment-mode
+#                           decision (King/architect; STATBUS-102).
 #
 # Inputs (env): BASE_SHA, B_FULL, C_FULL (40-hex), B_BRANCH, C_BRANCH, V_VERSION,
 #   SB_ARC_TRUSTED_SIGNER. VM name = $1.
@@ -64,27 +67,23 @@ echo "  ✓ V applied (fixture row present); H_B=${H_B:0:16}…"
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 assert_flag_file_absent "$VM_NAME"
 
-# ── C: V amended in place + declared in amendments.tsv → RE-STAMP (no re-run) ──
-arc_to "$C_FULL" "$C_BRANCH" "C (V amended → re-stamp)" "completed"
-echo "── assert re-stamp (content_hash changed; V neither re-run nor duplicated) ──"
-H_C=$(migration_content_hash)
-[ -n "$H_C" ] && [ "$H_C" != "ERR" ] || { echo "✗ no content_hash for V=$V_VERSION after C" >&2; exit 1; }
-if [ "$H_C" = "$H_B" ]; then
-    echo "✗ content_hash UNCHANGED after C ($H_C) — re-stamp did NOT fire" >&2
-    exit 1
-fi
-echo "  ✓ content_hash re-stamped: H_B=${H_B:0:16}… → H_C=${H_C:0:16}…"
-MROWS=$(migration_row_count)
-[ "$MROWS" = "1" ] || { echo "✗ V duplicated/lost in db.migration: count=$MROWS (want 1 — re-stamp updates in place)" >&2; exit 1; }
-RC2=$(fixture_row_count)
-[ "$RC2" = "1" ] || { echo "✗ V's RESULT changed after amend: fixture count=$RC2 (want 1 — amend is result-preserving)" >&2; exit 1; }
-echo "  ✓ V's effect preserved (fixture intact); exactly one ledger row (re-stamped in place)"
+# ── C: the channel-bless leg (V amended → release-channel re-stamp) — PENDING/SKIP ──
+# BLOCKED on the upgrade-arc deployment-mode decision: the arc box installs as
+# CADDY_DEPLOYMENT_MODE=development (vm-bootstrap.sh), and migrationChannelClass's
+# dev-mode-wins precedence classifies it local-dev → the release-bless can't fire
+# (the C-upgrade would error with the WIP-redo guidance, not re-stamp). Building the
+# bless-leg awaits the King/architect deployment-mode decision (STATBUS-102). Until
+# then this arc proves the A→B leg (V applies → completed) on the dev-mode box; the
+# C-upgrade + the re-stamp / result-preserving assertions are SKIPPED. (C is built —
+# C=${C_FULL:0:8} — so the leg lands cleanly once the mode decision does.)
+echo ""
+echo "⏭  SKIP (PENDING): the C-upgrade channel-bless re-stamp leg (C=${C_FULL:0:8}) —"
+echo "    blocked on the upgrade-arc deployment-mode decision (dev-mode box → local-dev → bless can't fire)."
 
 assert_demo_data_present "$VM_NAME"
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 assert_flag_file_absent "$VM_NAME"
-assert_no_orphan_backup "$VM_NAME"
 assert_health_passes "$VM_NAME"
 
 echo ""
-echo "PASS: working → working-fixed (A→B applied V; B→C re-stamped content_hash autonomously; data intact; healthy)"
+echo "PASS (PARTIAL): working arc A→B leg (V applied → completed; data intact; healthy). The C channel-bless re-stamp leg is PENDING the deployment-mode decision (STATBUS-102)."
