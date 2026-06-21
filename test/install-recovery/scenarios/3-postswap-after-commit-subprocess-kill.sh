@@ -2,7 +2,7 @@
 # HARNESS_SKIP_DEFAULT: requires arc env vars set by the upgrade-arc-harness.yaml
 # construct job (BASE_SHA, B_FULL, B_BRANCH, V_VERSION, SB_ARC_TRUSTED_SIGNER).
 # Excluded from the default harness run; invoke via the arc harness with
-# scenario=after-commit-before-recorded-kill, or name this scenario explicitly:
+# scenarios=after-commit-before-recorded-kill, or name this scenario explicitly:
 #   ./dev.sh test-install-recovery 3-postswap-after-commit-subprocess-kill
 #
 # Scenario: 3-postswap-after-commit-subprocess-kill  (5d CAT-C Layer 0 — subprocess kill)
@@ -33,11 +33,11 @@
 # Trigger logic:
 #   Delegates to test/install-recovery/arcs/after-commit-before-recorded-kill-arc.sh.
 #   The arc requires env vars provided by the upgrade-arc-harness.yaml
-#   construct job; see that workflow's scenario=after-commit-before-recorded-kill
+#   construct job; see that workflow's scenarios=after-commit-before-recorded-kill
 #   input to run the full arc.
 #
 # Usage (arc harness):
-#   In upgrade-arc-harness.yaml, set scenario=after-commit-before-recorded-kill.
+#   In upgrade-arc-harness.yaml, set scenarios=after-commit-before-recorded-kill.
 #   The construct job creates the signed B branch with the non-idempotent
 #   fixture migration; the run-arc job calls this arc with the env vars set.
 #
@@ -56,7 +56,7 @@ set -euo pipefail
 VM_NAME="${1:-statbus-recovery-3-postswap-after-commit-subprocess-kill}"
 
 # Validate required arc env vars before provisioning a VM.
-: "${BASE_SHA:?BASE_SHA required — run via upgrade-arc-harness.yaml with scenario=after-commit-before-recorded-kill, or export manually}"
+: "${BASE_SHA:?BASE_SHA required — run via upgrade-arc-harness.yaml with scenarios=after-commit-before-recorded-kill, or export manually}"
 : "${B_FULL:?B_FULL required}"
 : "${B_BRANCH:?B_BRANCH required}"
 : "${V_VERSION:?V_VERSION required}"

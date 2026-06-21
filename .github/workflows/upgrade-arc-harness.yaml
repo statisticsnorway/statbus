@@ -43,10 +43,10 @@ on:
         description: 'Base commit A to branch the arc off (blank = this run''s SHA).'
         required: false
         default: ''
-      scenario:
-        description: 'Arc scenario: working (re-stamp §9c) | failing (fail→rollback→fix + clean-slate §9d) | claim-without-notify (STATBUS-098) | §9(5) CAT-A kill-arcs: preswap-checkout-kill | preswap-backup-kill | preswap-binary-swap-kill | postswap-container-restart-kill | rollback-kill | §9(5) CAT-B stall-arcs: postswap-watchdog-reconnect | postswap-migration-timeout | postswap-archivebackup-watchdog | postswap-rollback-restore-watchdog (V_fail→rollback→restore-stall) | §9(5) CAT-C: postswap-after-commit-kill (V committed-but-unrecorded → re-apply conflicts → rollback) | after-commit-before-recorded-kill (same cell, subprocess killed → Layer 0 in-process recovery → rolled_back).'
+      scenarios:
+        description: 'Space-separated arc selectors (e.g. "working failing postswap-after-commit-kill") — blank or "all" runs EVERY arcs/*-arc.sh on its own Hetzner VM in parallel (the 5e full-suite matrix). One construct builds the shared working+failing fixtures once; each arc rides the right lineage.'
         required: false
-        default: 'working'
+        default: ''
 
 concurrency:
   group: upgrade-arc-harness
@@ -331,9 +331,69 @@ jobs:
             sleep "$IMAGES_WAIT_INTERVAL_S"
           done
 
+  discover:
+    name: Discover arc scenarios
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      # JSON array of arc scenario names (the matrix domain) + its length.
+      matrix: ${{ steps.scenarios.outputs.matrix }}
+      count: ${{ steps.scenarios.outputs.count }}
+    steps:
+      - name: Checkout
+        # ref: github.sha — pin to the run's commit so the arc set matches the
+        # construct/run-arc checkouts (same invariant as install-recovery discover).
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Enumerate arc scenarios into the matrix
+        id: scenarios
+        # Single source of truth: every arcs/<scenario>-arc.sh IS a scenario.
+        # Blank or "all" → the full suite (the 5e matrix); a space-separated
+        # selector narrows it (single-arc re-runs). An unknown selector fails
+        # LOUD rather than silently producing an empty matrix.
+        env:
+          SCENARIOS_INPUT: ${{ github.event.inputs.scenarios }}
+        run: |
+          set -euo pipefail
+          all="$(for f in test/install-recovery/arcs/*-arc.sh; do b="$(basename "$f")"; echo "${b%-arc.sh}"; done | sort)"
+          sel="$(printf '%s' "${SCENARIOS_INPUT:-}" | tr -s ' ' ' ' | sed 's/^ *//; s/ *$//')"
+          if [ -z "$sel" ] || [ "$sel" = "all" ]; then
+            selected="$all"
+          else
+            selected=""
+            for want in $sel; do
+              if printf '%s\n' "$all" | grep -qxF "$want"; then
+                selected="${selected}${want}"$'\n'
+              else
+                echo "::error title=Unknown arc scenario::no test/install-recovery/arcs/${want}-arc.sh" >&2
+                echo "Available arcs:" >&2; printf '%s\n' "$all" | sed 's/^/  /' >&2
+                exit 1
+              fi
+            done
+          fi
+          matrix="$(printf '%s\n' "$selected" | jq -R . | jq -s -c 'map(select(length > 0))')"
+          count="$(printf '%s\n' "$selected" | grep -c . || true)"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "Discovered $count arc(s) for the matrix:"
+          printf '%s\n' "$selected"
+
   run-arc:
-    name: Run upgrade arc (Hetzner VM)
-    needs: [construct, image-wait]
+    name: ${{ matrix.scenario }}
+    needs: [construct, image-wait, discover]
+    if: ${{ needs.discover.outputs.count != '0' }}
+    strategy:
+      # fail-fast: false is LOAD-BEARING (STATBUS-025) — a sibling arc failing
+      # must NOT cancel the others (lose verdicts + skip cleanup traps → orphan VMs).
+      fail-fast: false
+      # max-parallel bounds concurrent VMs to the Hetzner project quota (same
+      # limit install-recovery-harness hit at 8 → 3).
+      max-parallel: 3
+      matrix:
+        scenario: ${{ fromJson(needs.discover.outputs.matrix) }}
     runs-on: ubuntu-24.04
     # Per-arc ceiling: install A + two real upgrades (A→B applies V, B→C
     # re-stamps) on a fresh VM. Matches install-recovery's per-scenario budget.
@@ -387,7 +447,7 @@ jobs:
         # and export the chosen pair's B/C refs to $GITHUB_ENV for the run step
         # (the arc reads B_FULL/C_FULL/B_BRANCH/C_BRANCH from the environment).
         env:
-          SCENARIO: ${{ github.event.inputs.scenario }}
+          SCENARIO: ${{ matrix.scenario }}
           WORKING_B_FULL: ${{ needs.construct.outputs.working_b_full }}
           WORKING_C_FULL: ${{ needs.construct.outputs.working_c_full }}
           WORKING_B_BRANCH: ${{ needs.construct.outputs.working_b_branch }}
@@ -442,39 +502,44 @@ jobs:
           # B_FULL / C_FULL / B_BRANCH / C_BRANCH are exported to $GITHUB_ENV by the
           # "Resolve fixture lineage" step above (scenario→working|failing pair).
           V_VERSION: ${{ needs.construct.outputs.v_version }}
-          RUN_ID: ${{ github.run_id }}
-          SCENARIO: ${{ github.event.inputs.scenario }}
+          SCENARIO: ${{ matrix.scenario }}
         run: |
           set -euo pipefail
           arc="test/install-recovery/arcs/${SCENARIO}-arc.sh"
           [ -f "$arc" ] || { echo "::error::no arc script for scenario '${SCENARIO}' ($arc)"; exit 1; }
           chmod +x sb-linux-amd64 "$arc"
-          "./${arc}" "statbus-arc-${SCENARIO}-${RUN_ID}"
+          # VM name: no run_id — the concurrency group (cancel-in-progress:false)
+          # serializes whole runs, and matrix.scenario is unique within a run, so
+          # statbus-arc-<scenario> can't collide (mirrors install-recovery's
+          # statbus-recovery-<scenario>). Keeps the name well under Hetzner's 63ch.
+          "./${arc}" "statbus-arc-${SCENARIO}"
 
       - name: Upload arc log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: upgrade-arc-log-${{ github.event.inputs.scenario }}-${{ github.run_id }}
+          name: upgrade-arc-log-${{ matrix.scenario }}-${{ github.run_id }}
           path: |
             tmp/install-recovery-*.log
             tmp/arc-schema-*.sql
           retention-days: 14
           if-no-files-found: ignore
 
-      - name: Reap this arc's VM (defense in depth)
-        # The arc script's `trap cleanup_vm` reaps on normal exit; this is the net
-        # for when the trap can't fire (cancellation, runner SIGKILL). Best-effort,
-        # always exit 0 — pass/fail was decided by the arc run.
+      - name: Reap THIS arc's VM (defense in depth)
+        # THE STATBUS-025 TRAP: in a matrix, the per-job reap must delete ONLY this
+        # job's OWN VM — a global statbus-arc-* sweep here would murder sibling
+        # matrix jobs' LIVE VMs mid-run. The arc script's `trap cleanup_vm` reaps on
+        # normal exit; this is the net for when the trap can't fire (cancellation,
+        # runner SIGKILL). The cross-job global sweep lives only in `cleanup`.
+        # Best-effort, always exit 0 — pass/fail was decided by the arc run.
         if: always()
         env:
           HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
-          RUN_ID: ${{ github.run_id }}
-          SCENARIO: ${{ github.event.inputs.scenario }}
+          SCENARIO: ${{ matrix.scenario }}
         run: |
-          vm="statbus-arc-${SCENARIO}-${RUN_ID}"
+          vm="statbus-arc-${SCENARIO}"
           if command -v hcloud >/dev/null 2>&1 && hcloud server describe "$vm" >/dev/null 2>&1; then
-            echo "Reaping $vm"
+            echo "Reaping own VM: $vm"
             hcloud server delete "$vm" || true
           else
             echo "$vm already gone (arc trap cleaned up) or hcloud absent — nothing to reap."
@@ -518,4 +583,45 @@ jobs:
               fi
             done
           done
+          exit 0
+
+  cleanup:
+    name: Reap orphan arc VMs (final global sweep)
+    needs: [discover, run-arc]
+    # Runs after every matrix job regardless of outcome (or if the matrix was
+    # skipped). The ONLY place the cross-job global statbus-arc-* sweep is safe —
+    # no sibling VM is live once all matrix jobs have finished. Catches orphans
+    # from any job that died before its own per-job reap.
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Install hcloud + reap any leftover statbus-arc-* VMs
+        # ONE fully best-effort step that ALWAYS exits 0 — housekeeping must never
+        # fail the workflow conclusion (a failed arc already reds its own run-arc
+        # matrix job, which the conclusion ANDs in; this can't MASK that). Scope:
+        # only statbus-arc-* — production hosts + install-recovery's
+        # statbus-recovery-* are not prefixed that way, so the filter is safe.
+        env:
+          HCLOUD_CLI_VERSION: "1.64.1"
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+        run: |
+          set +e
+          curl -fsSL \
+            "https://github.com/hetznercloud/cli/releases/download/v${HCLOUD_CLI_VERSION}/hcloud-linux-amd64.tar.gz" \
+            -o /tmp/hcloud.tar.gz \
+            && sudo tar -C /usr/local/bin -xzf /tmp/hcloud.tar.gz hcloud
+          if ! command -v hcloud >/dev/null 2>&1; then
+            echo "hcloud CLI unavailable — skipping global reap (best-effort)."
+            exit 0
+          fi
+          orphans=$(hcloud server list --output noheader --output columns=name 2>/dev/null \
+            | grep '^statbus-arc-' || true)
+          if [ -z "$orphans" ]; then
+            echo "No orphan arc VMs to reap."
+            exit 0
+          fi
+          echo "Orphan arc VMs found — reaping:"
+          echo "$orphans"
+          echo "$orphans" | xargs -r -n1 hcloud server delete
           exit 0
