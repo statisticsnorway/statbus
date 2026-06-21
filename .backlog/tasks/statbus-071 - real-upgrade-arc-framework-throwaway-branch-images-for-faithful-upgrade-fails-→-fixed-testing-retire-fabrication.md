@@ -57,14 +57,44 @@ The test also injects a **real** crash/stall at the other upgrade points — fet
 
 **One of those crash points is itself a safety feature — the rollback heartbeat (formerly STATBUS-031).** If the *undo itself* hangs — the database-restore stalls partway through a rollback — a heartbeat keeps the box alive and restarts it sanely until the undo finishes, instead of freezing or dying in an endless restart-loop. The heartbeat **code already shipped** (commit a8279ed83). The **test** proving it lives here: deliberately stall the restore — with the heartbeat the box stays alive and reaches `rolled_back`; without it (a build with the heartbeat removed) it restart-loops. STATBUS-031 is folded into this ticket — its code is done, its test is this arc.
 
-## Status
-- [GREEN] Working arc (accept-the-fix / re-stamp) — on a real VM.
-- [GREEN] Failing arc (error -> rollback -> logically-identical-to-A -> fix applies fresh) — the framework's unique value.
-- [IN PROGRESS] Kill family reshaped onto the real register + schedule path: CAT-A done; CAT-B / CAT-C in progress.
-- [TODO] Timeout-kill + OOM-kill modes (STATBUS-095 / 096); the after-commit-before-recorded kill (terminal = rolled_back per STATBUS-013).
-- [DONE-CRITERION] `fabricate_scheduled_upgrade_row` deleted at zero callers; no synthetic crash-state anywhere.
+## Coverage map — every way an upgrade can break, its exact test, whether it's proven
+*Living checklist. Tags: [PROVEN] green on a real VM · [IN FLIGHT] building/observing now · [TODO] not built yet · [ASSESS] no clean trigger yet.*
 
-(Subsumes the now-closed STATBUS-091 "phase-2 charter", STATBUS-075 "cut-rc04 campaign", STATBUS-061 "preswap-recovery", and STATBUS-031 "rollback heartbeat" — their remaining work is this framework and its arcs. Full run-by-run build history in this task's git log.)
+**The migration itself goes wrong**
+- Errors out -> `failing-arc` (real migration that `RAISE`s) -> rolls back, DB logically == old, fix applies fresh — **[PROVEN]**
+- Was broken but already succeeded here (the many) -> `working-arc` -> box accepts the fix, re-stamps, no re-run — **[PROVEN]**
+- Runs slow but keeps progressing -> `postswap-migration-timeout-arc` (`migration-slower-than-systemd-unit-timeout`) -> heartbeat keeps the box alive -> finishes — **[PROVEN]**
+- Runs past the hard ceiling -> aborted -> rolls back — **[TODO] STATBUS-095**
+- Eats all memory -> OS kills it -> rolls back — **[TODO] STATBUS-096**
+
+**Killed mid-upgrade, BEFORE booting the new binary -> roll back to old**
+- During the code checkout -> `preswap-checkout-kill-arc` — **[PROVEN]**
+- Mid-backup -> `preswap-backup-kill-arc` — **[PROVEN]**
+- At the binary-swap moment -> `preswap-binary-swap-kill-arc` — **[PROVEN]**
+
+**...AFTER booting the new binary**
+- During the post-swap restart -> `postswap-container-restart-kill-arc` -> rolls back — **[PROVEN]**
+- Just after a migration commits, before it's recorded (parent killed) -> `postswap-after-commit-kill-arc` -> unrecorded migration -> rolls back, not forward — **[IN FLIGHT]** built+wired (doc-017), confirming VM-proven
+- Same instant, the migrate sub-process killed -> `after-commit-before-recorded-kill-arc` -> rolls back — **[IN FLIGHT]** built+wired (doc-017), confirming VM-proven
+- Mid-migration / between migrations / mid-transaction -> arcs being built (5d) -> forward-recovery, finishes — **[IN FLIGHT]**
+
+**The undo (rollback) itself is hit**
+- Killed during the rollback -> `rollback-kill-arc` (deterministic -> the built-in rollback) -> rolled back — **[PROVEN]**
+- The rollback's DB-restore HANGS (the heartbeat, formerly STATBUS-031) -> `postswap-rollback-restore-watchdog-arc` (`restore-db-stall-watchdog`) -> heartbeat keeps the box alive -> rolled back; without it, it restart-loops — **[IN FLIGHT]** observing now -> then asserts (5c-hard)
+
+**A step just stalls (slow, not killed) -> the heartbeat must keep the box alive -> finish**
+- DB reconnect stalls after a restart -> `postswap-watchdog-reconnect-arc` — **[PROVEN]**
+- Archive-backup stalls -> `postswap-archivebackup-watchdog-arc` — **[PROVEN]**
+
+**Scheduling edge**
+- Daemon claims a scheduled upgrade with no live signal -> `claim-without-notify-arc` (STATBUS-098) -> claims + finishes — **[PROVEN]**
+
+**No clean trigger yet**
+- Two migrations deadlock on a schema lock -> `3-postswap-worker-ddl-deadlock` (still a scenario) -> may need a product change — **[ASSESS]**
+
+**Done-criterion:** every cell runs through the real register+schedule path; the last fabrication (`fabricate_scheduled_upgrade_row`) is deleted at zero callers (5e).
+
+(Subsumes the now-closed STATBUS-091 "phase-2 charter", STATBUS-075 "cut-rc04 campaign", STATBUS-061 "preswap-recovery", STATBUS-031 "rollback heartbeat", STATBUS-102 "intentional-fix bless" (rename + amendments.tsv rip-out + channel-bless all shipped; the end-to-end bless-proof + the genuine-broken-fix fixture reframe are the working arc here), and STATBUS-099 "legacy-scenario-sweep" (the product-impossible deletes happen inside the kill-family reshape, 5d) — their remaining work is this framework and its arcs. Full run-by-run build history in this task's git log.)
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
