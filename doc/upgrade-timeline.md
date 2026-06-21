@@ -502,8 +502,9 @@ The rule is **go forward whenever it is still possible; roll back only when the 
 *confirmed* stuck behind**. Recovery decides from what is actually on disk (the binary, and
 which migrations ran):
 
-1. **Crashed before booting the new binary** → nothing committed (the backup was not even
-   taken) → **roll back** trivially: there is nothing to undo, just restart on the old binary.
+1. **Crashed before booting the new binary** → nothing was committed and the database is
+   untouched (no migrations have run yet) → **roll back** trivially: there is nothing to undo,
+   just restart on the old binary.
 2. **Crashed after booting the new binary** → committed to new; check whether it is actually
    *at* the new version:
    - **Already at the new version** (everything landed, perhaps only bookkeeping left) →
