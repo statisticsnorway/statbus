@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-08 01:53'
-updated_date: '2026-06-21 17:07'
+updated_date: '2026-06-21 17:12'
 labels:
   - install-recovery
   - upgrade
@@ -89,4 +89,6 @@ The spec above is HOW IT SHOULD BE. Next we must verify the DIAGRAM actually sho
 RECLASSIFIED 2026-06-11 (architect Fable + foreman-verified): NOT King-blocked. The King DECIDED Option A (service dispatch) on 2026-06-08 (AC#1 checked; see the DECISION block above). The 'separate latent question' (does the inline syscall.Exec lose any PRODUCTION env vars?) is now ANSWERED: NO — service.go:3624 passes os.Args + os.Environ() VERBATIM (foreman-verified). Only the test-only STALL release-file var was scenario plumbing. So 013 = TEST-ONLY artifact; remaining work is HARNESS: rewrite migrate-killed-after-commit to service dispatch (AC#3) + verify/close the diagram per the King's 6/8 next-step. Removed the needs-king-decision label. NOTE: 013's structural finding (boot-migrate consumes the whole delta) is the empirical corroboration of STATBUS-012's severity.
 
 FOLD (architect, 2026-06-21, King-approved consolidation): the after-commit-before-recorded window this scenario targets is a NON-PROBLEM — the rollback is the recovery. See STATBUS-097 (resolved) + tmp/architect-097-understanding.md. The committed-but-unrecorded state self-corrects: recovery re-runs → conflict → rollback → re-apply fresh → completed (idempotent migrations recover forward, no rollback). So this scenario exercises a state the system already handles correctly. Reconsider this item's A/B/C (fix the test so the inject fires) in that light: the scenario should most likely be reframed to assert `completed` or retired — same disposition as STATBUS-105's held arcs — rather than re-engineered to exercise a non-problem. To confirm with the King in the backlog review.
+
+RETRACTION (architect, 2026-06-21) — DISREGARD the FOLD note immediately above; it was WRONG and I caught it minutes later. 013's verbatim King spec STANDS: the correct terminal is ROLLED_BACK (restore to known-good → operator retries), NOT completed. The recent STATBUS-097/105 'completed is correct' framing INVERTED this task's ground-truth; the foreman + architect caught it before it was cemented. The fold note's 'reframe to completed' is void. All 097/105/013 consolidation is HELD for the King's ticket-clarity reset. The box reaching 'completed' (overnight) is the DEVIATION from this spec — possibly the real gap — not a non-problem.
 <!-- SECTION:NOTES:END -->
