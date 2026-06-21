@@ -65,14 +65,24 @@ jobs:
     outputs:
       base_sha: ${{ steps.fixtures.outputs.base_sha }}
       base_short: ${{ steps.fixtures.outputs.base_short }}
-      b_branch: ${{ steps.fixtures.outputs.b_branch }}
-      c_branch: ${{ steps.fixtures.outputs.c_branch }}
-      b_short: ${{ steps.fixtures.outputs.b_short }}
-      c_short: ${{ steps.fixtures.outputs.c_short }}
-      b_full: ${{ steps.fixtures.outputs.b_full }}
-      c_full: ${{ steps.fixtures.outputs.c_full }}
       v_version: ${{ steps.fixtures.outputs.v_version }}
       arc_pubkey: ${{ steps.fixtures.outputs.arc_pubkey }}
+      # §7 shared-fixture (STATBUS-071 5d-d): ONE working pair + ONE failing pair
+      # cover ALL arcs (kill/stall arcs ride working; failing + rollback-restore
+      # ride failing). The arc's contract lives in its inject class + asserts, not
+      # the B-fixture — so 2 image sets replace the old ~14 per-scenario sets.
+      working_b_branch: ${{ steps.fixtures.outputs.working_b_branch }}
+      working_c_branch: ${{ steps.fixtures.outputs.working_c_branch }}
+      working_b_short: ${{ steps.fixtures.outputs.working_b_short }}
+      working_c_short: ${{ steps.fixtures.outputs.working_c_short }}
+      working_b_full: ${{ steps.fixtures.outputs.working_b_full }}
+      working_c_full: ${{ steps.fixtures.outputs.working_c_full }}
+      failing_b_branch: ${{ steps.fixtures.outputs.failing_b_branch }}
+      failing_c_branch: ${{ steps.fixtures.outputs.failing_c_branch }}
+      failing_b_short: ${{ steps.fixtures.outputs.failing_b_short }}
+      failing_c_short: ${{ steps.fixtures.outputs.failing_c_short }}
+      failing_b_full: ${{ steps.fixtures.outputs.failing_b_full }}
+      failing_c_full: ${{ steps.fixtures.outputs.failing_c_full }}
     steps:
       - name: Checkout (full history — branch fixtures are real commits off A)
         uses: actions/checkout@v4
@@ -80,12 +90,11 @@ jobs:
           # Default token is persisted by checkout so the pushes below authenticate.
           fetch-depth: 0
 
-      - name: Build the B (defect) → C (fixed) branch pair off A
+      - name: Build the shared working + failing fixture pairs off A
         id: fixtures
         env:
           # base_sha input wins; blank → this run's triggering SHA.
           BASE_SHA_INPUT: ${{ github.event.inputs.base_sha }}
-          SCENARIO: ${{ github.event.inputs.scenario }}
           RUN_ID: ${{ github.run_id }}
         run: |
           set -euo pipefail
@@ -109,28 +118,27 @@ jobs:
 
           base_sha="${BASE_SHA_INPUT:-${GITHUB_SHA}}"
           base_short="$(git rev-parse --short=8 "$base_sha")"
-          # Run-id suffix de-collides branch names across overlapping runs
-          # (commit_short already makes the IMAGES content-unique).
-          b_branch="test/${SCENARIO}-migration-${RUN_ID}"
-          c_branch="test/${SCENARIO}-fixed-migration-${RUN_ID}"
           echo "A (base) = ${base_sha}"
-          echo "B branch = ${b_branch}"
-          echo "C branch = ${c_branch}"
 
           # V's version = max existing migration version + 1 → V sorts AFTER every
           # migration present at A, so it is genuinely PENDING when the box upgrades
-          # A→B. (Branches are throwaway + run_id-scoped → no persistent collision.)
+          # A→B. ONE shared version across both lineages (foreman §7 spec). The V
+          # FILE basename is shared too (lineages live on separate branches → no
+          # tree collision); the arc asserts on the TABLE name, not the filename.
           git checkout -q "$base_sha"
           latest="$(printf '%s\n' migrations/*.up.sql | sed -E 's#.*/([0-9]{14})_.*#\1#' | sort -n | tail -1)"
           v_version="$((latest + 1))"
-          v_up="migrations/${v_version}_upgrade_arc_${SCENARIO}.up.sql"
-          v_down="migrations/${v_version}_upgrade_arc_${SCENARIO}.down.sql"
+          v_up="migrations/${v_version}_upgrade_arc.up.sql"
+          v_down="migrations/${v_version}_upgrade_arc.down.sql"
           echo "V version = ${v_version}  (${v_up})"
 
           # write_working_v — the WORKING fixture migration (succeeds; observable).
-          # Used for working-B AND failing-C (the fix that replaces V_fail). Written
-          # via echo-blocks, NOT a heredoc (a heredoc body dedented below the YAML
-          # `run: |` block indent breaks the literal scalar).
+          # Used for the working B AND the failing C (the fix that replaces V_fail).
+          # NON-IDEMPOTENT by design (CREATE TABLE without IF NOT EXISTS): a re-apply
+          # CONFLICTS (`already exists`) — load-bearing for the after-commit arcs'
+          # deterministic rollback (doc-017 §3). Written via echo-blocks, NOT a
+          # heredoc (a heredoc body dedented below the YAML `run: |` indent breaks
+          # the literal scalar).
           write_working_v() {
             {
               echo "-- Upgrade-arc fixture migration (STATBUS-071). Observable + reversible;"
@@ -144,13 +152,9 @@ jobs:
             echo "DROP TABLE IF EXISTS public.upgrade_arc_fixture;" > "$v_down"
           }
 
-          # --- B: off A. working → V SUCCEEDS; failing → V deterministically FAILS
-          # (RAISE EXCEPTION → executeUpgrade's migrate up fails → autonomous rollback). ---
-          git checkout -B "$b_branch" "$base_sha"
-          # postswap-rollback-restore-watchdog reuses the failing V_fail: a postswap
-          # migrate failure → postSwapFailure → rollback() → restoreDatabase, where its
-          # stall-dropin parks the restore (exec.go:761) to prove the rollback watchdog cover.
-          if [ "$SCENARIO" = "failing" ] || [ "$SCENARIO" = "postswap-rollback-restore-watchdog" ]; then
+          # write_failing_v — the FAILING fixture migration (RAISE EXCEPTION →
+          # executeUpgrade's migrate up fails → autonomous rollback; STATBUS-071 d).
+          write_failing_v() {
             {
               echo "-- Upgrade-arc FAILING fixture (STATBUS-071 d): deterministic failure → rollback."
               echo "DO \$\$ BEGIN"
@@ -158,62 +162,85 @@ jobs:
               echo "END \$\$;"
             } > "$v_up"
             echo "SELECT 1;  -- V_fail commits nothing; rollback is the volume-restore" > "$v_down"
-          else
-            write_working_v
-          fi
-          git add "$v_up" "$v_down"
-          git commit -S -q -m "test(upgrade-arc): ${SCENARIO} migration V (B)"
-          b_short="$(git rev-parse --short=8 HEAD)"
-          b_full="$(git rev-parse HEAD)"
+          }
 
-          # --- C: off B, edit V IN PLACE. working → amend (result-preserving) →
-          # the runtime channel-bless re-stamps content_hash (STATBUS-102; the MANY
-          # who succeeded). failing → replace V_fail with the working migration;
-          # V_fail rolled back (unrecorded) so V_fixed applies FRESH (the FEW who failed). ---
-          git checkout -B "$c_branch" "$b_branch"
-          if [ "$SCENARIO" = "failing" ] || [ "$SCENARIO" = "postswap-rollback-restore-watchdog" ]; then
-            write_working_v
+          # build_pair <lineage> <b_writer> <c_mode> — build one B→C branch pair off
+          # A, sign both commits, emit <lineage>_{b,c}_{branch,short,full} outputs.
+          #   c_mode=amend : working — C prepends a comment (new bytes, same effect)
+          #                  → the runtime channel-bless re-stamps content_hash
+          #                  (STATBUS-102; the MANY who succeeded).
+          #   c_mode=fix   : failing — C replaces V_fail with the working migration;
+          #                  V_fail rolled back (unrecorded) so V_fixed applies FRESH
+          #                  (the FEW who failed).
+          build_pair() {
+            local lineage="$1" b_writer="$2" c_mode="$3"
+            local b_branch="test/upgrade-arc-${lineage}-migration-${RUN_ID}"
+            local c_branch="test/upgrade-arc-${lineage}-fixed-migration-${RUN_ID}"
+            echo "── building ${lineage} pair: B=${b_branch} C=${c_branch} ──"
+
+            git checkout -B "$b_branch" "$base_sha"
+            "$b_writer"
             git add "$v_up" "$v_down"
-            git commit -S -q -m "test(upgrade-arc): ${SCENARIO} fix V in place (C, applies fresh)"
-          else
-            # Prepend a comment: changes the file's bytes (→ new hash) without
-            # changing what V DOES (the table + row are identical). The runtime
-            # blessing is by CHANNEL (STATBUS-102 channel-bless), not a declaration
-            # file. NOTE: the working-arc's bless-leg is PENDING the upgrade-arc
-            # deployment-mode decision (the dev-mode box classifies as local-dev →
-            # the release-bless can't fire; see the architect/King discussion). C is
-            # still built so the bless-leg lands cleanly once the mode decision does.
-            tmp_v="$(mktemp)"
-            { echo "-- amended in place (STATBUS-102 channel-bless re-stamp; result-preserving)"; cat "$v_up"; } > "$tmp_v"
-            mv "$tmp_v" "$v_up"
-            git add "$v_up"
-            git commit -S -q -m "test(upgrade-arc): ${SCENARIO} amend V in place (C)"
-          fi
-          c_short="$(git rev-parse --short=8 HEAD)"
-          c_full="$(git rev-parse HEAD)"
+            git commit -S -q -m "test(upgrade-arc): ${lineage} migration V (B)"
+            local b_short b_full
+            b_short="$(git rev-parse --short=8 HEAD)"
+            b_full="$(git rev-parse HEAD)"
 
-          # Push BOTH branches before dispatching images.yaml (gh dispatches
+            git checkout -B "$c_branch" "$b_branch"
+            if [ "$c_mode" = "amend" ]; then
+              local tmp_v
+              tmp_v="$(mktemp)"
+              { echo "-- amended in place (STATBUS-102 channel-bless re-stamp; result-preserving)"; cat "$v_up"; } > "$tmp_v"
+              mv "$tmp_v" "$v_up"
+              git add "$v_up"
+              git commit -S -q -m "test(upgrade-arc): ${lineage} amend V in place (C)"
+            else
+              write_working_v
+              git add "$v_up" "$v_down"
+              git commit -S -q -m "test(upgrade-arc): ${lineage} fix V in place (C, applies fresh)"
+            fi
+            local c_short c_full
+            c_short="$(git rev-parse --short=8 HEAD)"
+            c_full="$(git rev-parse HEAD)"
+
+            {
+              echo "${lineage}_b_branch=${b_branch}"
+              echo "${lineage}_c_branch=${c_branch}"
+              echo "${lineage}_b_short=${b_short}"
+              echo "${lineage}_c_short=${c_short}"
+              echo "${lineage}_b_full=${b_full}"
+              echo "${lineage}_c_full=${c_full}"
+            } >> "$GITHUB_OUTPUT"
+          }
+
+          # ONE working pair + ONE failing pair cover every arc (§7 shared-fixture):
+          # kill/stall arcs ride working; the failing + rollback-restore arcs ride
+          # failing. The per-scenario contract is the arc's inject class + asserts.
+          build_pair working write_working_v amend
+          build_pair failing write_failing_v fix
+
+          # Push all 4 branches before dispatching images.yaml (gh dispatches
           # against an existing remote ref).
-          git push -f origin "$b_branch" "$c_branch"
+          git push -f origin \
+            "test/upgrade-arc-working-migration-${RUN_ID}" \
+            "test/upgrade-arc-working-fixed-migration-${RUN_ID}" \
+            "test/upgrade-arc-failing-migration-${RUN_ID}" \
+            "test/upgrade-arc-failing-fixed-migration-${RUN_ID}"
 
           {
             echo "base_sha=${base_sha}"
             echo "base_short=${base_short}"
-            echo "b_branch=${b_branch}"
-            echo "c_branch=${c_branch}"
-            echo "b_short=${b_short}"
-            echo "c_short=${c_short}"
-            echo "b_full=${b_full}"
-            echo "c_full=${c_full}"
             echo "v_version=${v_version}"
             echo "arc_pubkey=${arc_pubkey}"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Dispatch images.yaml for B and C (push does not trigger; dispatch does)
+      - name: Dispatch images.yaml for all 4 fixture branches (push does not trigger; dispatch does)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          B_BRANCH: ${{ steps.fixtures.outputs.b_branch }}
-          C_BRANCH: ${{ steps.fixtures.outputs.c_branch }}
+          WORKING_B_BRANCH: ${{ steps.fixtures.outputs.working_b_branch }}
+          WORKING_C_BRANCH: ${{ steps.fixtures.outputs.working_c_branch }}
+          FAILING_B_BRANCH: ${{ steps.fixtures.outputs.failing_b_branch }}
+          FAILING_C_BRANCH: ${{ steps.fixtures.outputs.failing_c_branch }}
         run: |
           set -euo pipefail
           # images.yaml is UNCHANGED — its workflow_dispatch is the public entry
@@ -238,8 +265,10 @@ jobs:
             echo "::error title=images.yaml dispatch failed::could not dispatch for ${ref} after 5 attempts" >&2
             return 1
           }
-          dispatch_images "$B_BRANCH"
-          dispatch_images "$C_BRANCH"
+          dispatch_images "$WORKING_B_BRANCH"
+          dispatch_images "$WORKING_C_BRANCH"
+          dispatch_images "$FAILING_B_BRANCH"
+          dispatch_images "$FAILING_C_BRANCH"
 
   image-wait:
     name: Wait for per-commit images (A + B + C)
@@ -262,7 +291,7 @@ jobs:
           DOCKER_CLI_EXPERIMENTAL: enabled
           IMAGES_WAIT_BUDGET_S: "2400"
           IMAGES_WAIT_INTERVAL_S: "30"
-          SHORTS: "${{ needs.construct.outputs.base_short }} ${{ needs.construct.outputs.b_short }} ${{ needs.construct.outputs.c_short }}"
+          SHORTS: "${{ needs.construct.outputs.base_short }} ${{ needs.construct.outputs.working_b_short }} ${{ needs.construct.outputs.working_c_short }} ${{ needs.construct.outputs.failing_b_short }} ${{ needs.construct.outputs.failing_c_short }}"
         run: |
           set -euo pipefail
           echo "${GH_TOKEN}" | docker login "$REGISTRY" -u "$ACTOR" --password-stdin
@@ -351,6 +380,45 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keygen -lf ~/.ssh/id_ed25519 | awk '{ print "SSH key fingerprint:", $2 }'
 
+      - name: Resolve fixture lineage for the scenario
+        # §7 shared-fixture: each arc rides ONE of the 2 shared lineages. The
+        # failing + rollback-restore arcs need the FAILING V (RAISE → rollback);
+        # every other (kill/stall) arc rides the WORKING V. Map scenario→lineage
+        # and export the chosen pair's B/C refs to $GITHUB_ENV for the run step
+        # (the arc reads B_FULL/C_FULL/B_BRANCH/C_BRANCH from the environment).
+        env:
+          SCENARIO: ${{ github.event.inputs.scenario }}
+          WORKING_B_FULL: ${{ needs.construct.outputs.working_b_full }}
+          WORKING_C_FULL: ${{ needs.construct.outputs.working_c_full }}
+          WORKING_B_BRANCH: ${{ needs.construct.outputs.working_b_branch }}
+          WORKING_C_BRANCH: ${{ needs.construct.outputs.working_c_branch }}
+          FAILING_B_FULL: ${{ needs.construct.outputs.failing_b_full }}
+          FAILING_C_FULL: ${{ needs.construct.outputs.failing_c_full }}
+          FAILING_B_BRANCH: ${{ needs.construct.outputs.failing_b_branch }}
+          FAILING_C_BRANCH: ${{ needs.construct.outputs.failing_c_branch }}
+        run: |
+          set -euo pipefail
+          case "$SCENARIO" in
+            failing|postswap-rollback-restore-watchdog) lineage=failing ;;
+            *)                                          lineage=working ;;
+          esac
+          echo "Scenario '${SCENARIO}' → fixture lineage '${lineage}'"
+          if [ "$lineage" = failing ]; then
+            {
+              echo "B_FULL=${FAILING_B_FULL}"
+              echo "C_FULL=${FAILING_C_FULL}"
+              echo "B_BRANCH=${FAILING_B_BRANCH}"
+              echo "C_BRANCH=${FAILING_C_BRANCH}"
+            } >> "$GITHUB_ENV"
+          else
+            {
+              echo "B_FULL=${WORKING_B_FULL}"
+              echo "C_FULL=${WORKING_C_FULL}"
+              echo "B_BRANCH=${WORKING_B_BRANCH}"
+              echo "C_BRANCH=${WORKING_C_BRANCH}"
+            } >> "$GITHUB_ENV"
+          fi
+
       - name: Run the arc on its own Hetzner VM
         # Drives install A(base_sha) → register/schedule B → register/schedule C
         # entirely through the daemon (Albania autonomous; no quiesce, no ./sb
@@ -371,10 +439,8 @@ jobs:
           # daemon's verifyCommitSignature accepts the (signed) B/C commits.
           SB_ARC_TRUSTED_SIGNER: ${{ needs.construct.outputs.arc_pubkey }}
           BASE_SHA: ${{ needs.construct.outputs.base_sha }}
-          B_FULL: ${{ needs.construct.outputs.b_full }}
-          C_FULL: ${{ needs.construct.outputs.c_full }}
-          B_BRANCH: ${{ needs.construct.outputs.b_branch }}
-          C_BRANCH: ${{ needs.construct.outputs.c_branch }}
+          # B_FULL / C_FULL / B_BRANCH / C_BRANCH are exported to $GITHUB_ENV by the
+          # "Resolve fixture lineage" step above (scenario→working|failing pair).
           V_VERSION: ${{ needs.construct.outputs.v_version }}
           RUN_ID: ${{ github.run_id }}
           SCENARIO: ${{ github.event.inputs.scenario }}
@@ -435,17 +501,21 @@ jobs:
         # short-lived orphans the digest-aware GC reclaims. ALWAYS exits 0 — a
         # missing branch (already deleted / never pushed) must not red the run.
         env:
-          SCENARIO: ${{ github.event.inputs.scenario }}
           RUN_ID: ${{ github.run_id }}
         run: |
           set -uo pipefail
-          for suffix in migration fixed-migration; do
-            br="test/${SCENARIO}-${suffix}-${RUN_ID}"
-            if git ls-remote --exit-code --heads origin "$br" >/dev/null 2>&1; then
-              echo "Deleting $br"
-              git push origin --delete "$br" || echo "  (delete failed — best-effort; weekly sweep is the backstop)"
-            else
-              echo "$br not present (already gone / never pushed) — nothing to delete."
-            fi
+          # §7 shared-fixture: 4 branches (working + failing) × (migration +
+          # fixed-migration), recomputed from run_id so teardown works even if
+          # construct partially failed (its outputs may be empty).
+          for lineage in working failing; do
+            for suffix in migration fixed-migration; do
+              br="test/upgrade-arc-${lineage}-${suffix}-${RUN_ID}"
+              if git ls-remote --exit-code --heads origin "$br" >/dev/null 2>&1; then
+                echo "Deleting $br"
+                git push origin --delete "$br" || echo "  (delete failed — best-effort; weekly sweep is the backstop)"
+              else
+                echo "$br not present (already gone / never pushed) — nothing to delete."
+              fi
+            done
           done
           exit 0
