@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-06-11 13:39'
-updated_date: '2026-06-18 08:23'
+updated_date: '2026-06-21 19:33'
 labels:
   - upgrade
   - recovery
@@ -81,3 +81,13 @@ AC#3 LANDED — commit a8279ed83 (pushed to master). Foreman byte-level review +
 
 PROOF PAIR PREPPED (foreman, 2026-06-15). Scenario 4-rollback-restore-watchdog.sh reviewed + COMMITTED to master d6cafcdf7 (GREEN SHA). RED branch cut: red/031-rollback-watchdog @ 79375b9f9 = GREEN minus exactly the rollback() ticker block (architect's specified delta), replaced with a DO-NOT-MERGE marker; compiles (go build OK); retains StallHere + RestoreDBTimeout + the scenario. Cut in an isolated git worktree (the backlog-MCP auto-commit was confirmed as the index-reset culprit the architect hit 3x — it git-add+commits .backlog and unstages agents' files; pathspec commits + worktree isolation are the defense). Scenario design verified sound: deterministic Resuming-latch trigger (resumePostSwap stamps Phase=Resuming -> death -> recoverFromFlag rolls back, vs the non-deterministic forward-fail path); fail-fast preconditions (backup_path present, Phase=Resuming observed); NRestarts-watch discriminator; baseline-pollution preempted by the 3600s RUN2 RestartSec. Architect flagged it needs VM knob-tuning (STALL_HOLD_S / RestartSec windows / INSTALL_VERSION delta). NEXT (AC#2/#4/#5): operator runs RED (--ref red/031-rollback-watchdog) -> expect NRestarts climb/fail; then GREEN (--ref master) -> expect survive/pass; both -f scenarios=4-rollback-restore-watchdog, SERIALIZED after the 025 smoke (cross-run cleanup-sweep collision). Tune + re-run if a knob trips instead of the watchdog signal.
 <!-- SECTION:NOTES:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-06-21 19:33
+---
+▶ CROSS-REF 2026-06-21 (per architect; pending King's fold call): VM-proof MOVED to 071/5c-hard (the 4-rollback-restore-watchdog scenario re-scoped from the death-during-resume / Resuming-latch trigger to a V_fail trigger — the old trigger is defeated by the STATBUS-067 self-heal at resumePostSwap :5053). PRODUCT CODE already landed: the rollback() always-ping watchdog ticker @ a8279ed83 (pushed). 031's remaining AC#2/#4/#5 (the VM RED→GREEN proof) are now satisfied by 5c-hard's VM-prove. NOTE: the existing RED branch red/031-rollback-watchdog@79375b9f9 is STALE (cut to RED the OLD trigger) — it will be re-cut off current master for the V_fail path at VM-prove time. ARCHITECT LEAN: fold 031→071 (same shape as 091/075/061); awaiting King's call (031 is in his review queue). Keeping both tickets honest until then.
+---
+<!-- COMMENTS:END -->
