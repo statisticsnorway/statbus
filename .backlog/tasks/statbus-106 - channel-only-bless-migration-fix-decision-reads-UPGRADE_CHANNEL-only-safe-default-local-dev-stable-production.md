@@ -3,9 +3,11 @@ id: STATBUS-106
 title: >-
   channel-only-bless: migration-fix decision reads UPGRADE_CHANNEL only; safe
   default local (dev), stable (production)
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - engineer
 created_date: '2026-06-21 18:59'
+updated_date: '2026-06-21 19:01'
 labels:
   - upgrade
   - migration
@@ -58,3 +60,13 @@ CONTEXT: this is "Thing 1" (the bless-decouple), King-approved 2026-06-21, compl
 - [ ] #4 Existing behavior preserved: non-development still stable->blesses; development still localDev (no flip, no breakage)
 - [ ] #5 gofmt + go vet + go test (migrate + config) green
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-06-21 19:01
+---
+▶ DISPATCHED 2026-06-21 — King-approved via architect relay (supersedes the earlier bless-decouple readiness note; 106 is the complete version: decouple + channel-default reconciliation). Engineer building Edit A (migrate.go migrationChannelClass: delete the CADDY_DEPLOYMENT_MODE read at :1516, classify on UPGRADE_CHANNEL only, update doc-comment :1497-1510 + stale comment :1421 + migration_channel_test.go) and Edit B (config.go: reconcile :374/:376 vs :708 into one mode-aware rule — development→local, non-development→stable). Installer hardening explicitly OUT OF SCOPE. Foreman gates (gofmt/vet/go test migrate+config) + commits; engineer does not commit. Logical change only, gofmt churn excluded.
+---
+<!-- COMMENTS:END -->
