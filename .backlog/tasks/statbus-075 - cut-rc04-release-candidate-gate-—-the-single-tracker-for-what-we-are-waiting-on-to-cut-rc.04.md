@@ -3,10 +3,10 @@ id: STATBUS-075
 title: >-
   cut-rc04: install/upgrade campaign — Phase 1 cut the install RC; Phase 2
   branch-based upgrade testing
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-06-17 11:04'
-updated_date: '2026-06-18 09:08'
+updated_date: '2026-06-21 19:13'
 labels:
   - install-recovery
   - rc.04
@@ -150,3 +150,9 @@ mid-tx-kill DIAGNOSED from the new instrumentation dump: NOT a Mode-A unmask. Th
 
 KING REJECTED the 2b/2c framing as over-convoluted + a false choice. RESET to plain-language, diagram-grounded first principles. Team re-spawned. Three investigation tracks dispatched: (A engineer) real Docker build architecture — freshness self-heal must build-in-container/pull-image, not host `go build`; (B+C architect) migration-stamp atomicity + map EVERY scenario to the upgrade/recovery diagram in plain language. Foreman independently confirmed Q2 principle in migrate.go:784-919 (stamp is a separate write after the DDL tx commits → committed-but-unrecorded window (c) needs rollback not resume).
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Closed 2026-06-21 (King-directed consolidation — folded into STATBUS-071). Phase 1 (cut the install RC) is done: v2026.06.0-rc.04 cut, and the two real install bugs the scaffolding surfaced are fixed on master — toolchain-free self-heal (procure ./sb from the image, never host go build; STATBUS-084) and --trust-github-user honored before dispatch (STATBUS-027), both real Albania wedges. Phase 2 (branch-based upgrade testing) is the single live tracker STATBUS-071. The install-recovery reds this campaign tracked are reframed under STATBUS-071 / 099 / 013 — several were testing now-understood non-problems (e.g. the after-commit recovery terminal is rolled_back per 013). The run-by-run diagnosis log is preserved in git. The campaign-tracker framing (and its sprawl) retired per the King.
+<!-- SECTION:FINAL_SUMMARY:END -->
