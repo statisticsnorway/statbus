@@ -4,10 +4,10 @@ title: >-
   preswap-recovery-refinement: ground-truth forward-vs-rollback + gate the
   recovery-boot checkout for PreSwap + fix recoveryRollback restore target
   (rc.04)
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-06-16 00:35'
-updated_date: '2026-06-16 11:32'
+updated_date: '2026-06-21 19:42'
 labels:
   - upgrade
   - recovery
@@ -89,3 +89,18 @@ rc.04 GATE RED (run 27613174320, on 23c5c33f1) — HARNESS BUG, NOT the recovery
 
 SELECTOR FIX committed 7c7314184 (test/install-recovery/run.sh: exact-basename-match wins + _add_selected dedup + drop the first-match break; known-RED preserved). Foreman reviewed byte-level; engineer verified via --print-selected (gate case → 3 distinct; default → 30/32). Root cause was a sort-order + prefix-match + no-dedup bug, NOT the recovery code. rc.04 gate RE-RUN dispatched on master @ 7c7314184 (3 distinct scenarios, max-parallel:3, after 7c7314184 images build + orphan reap). On all-3-green (0-happy + both 2-preswap showing rollback-to-source-CommitSHA) → cut rc.04. If 3 distinct VMs then hit a real Hetzner limit → separate quota item (run 2-at-a-time or raise quota).
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Closed 2026-06-21 (King-directed, after finishing + de-jargoning the recovery design). The preswap-recovery refinement SHIPPED + is validated:
+- Product fix committed on master at 23c5c33f1: (ii) gate the recovery-boot checkout so a crash BEFORE booting the new binary does NOT check out the target tree (no schema/git mismatch); (iii) fix the rollback's restore-target to the crash's actual source commit — the new from_commit_sha column — instead of a wrong default that pointed at the target. AC#6 (rc.04 disposition) = King Option A: both before-booting crashes roll back to OLD.
+- Validated: the scenario that proves it, 2-preswap-checkout-kill, is GREEN under STATBUS-071's reshape (5a, run 27813204057: crash before booting the new binary -> rolls back to old).
+
+The forward-vs-rollback recovery DECISION is now captured plainly: a "Forward vs rollback — in plain terms" subsection was added to doc/upgrade-timeline.md (the canonical home), in the King's plain language (booting the new binary, not pre-swap/post-swap).
+
+Handoffs (nothing lost):
+- The deferred "deliberately choose forward-vs-rollback" + the broader recovery ESCALATION design (how long/loud before parking, vs looping forever) = STATBUS-046 (distinct layer, awaiting King ratification).
+- The plain-language de-jargon of the whole upgrade/recovery vocabulary (docs + code, one by one, wire values preserved) = STATBUS-107.
+The stale run-by-run diagnosis log is preserved in git.
+<!-- SECTION:FINAL_SUMMARY:END -->
