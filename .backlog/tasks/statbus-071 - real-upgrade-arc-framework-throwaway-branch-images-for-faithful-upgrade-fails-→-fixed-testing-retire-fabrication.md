@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-06-21 19:13'
+updated_date: '2026-06-21 19:23'
 labels:
   - install-recovery
   - upgrade
@@ -77,9 +77,15 @@ The test also injects a **real** crash/stall at the other upgrade points — fet
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-STATUS (2026-06-21): both arcs GREEN on real VMs — working/accept-the-fix (run 27807092720) + failing/clean-slate-after-rollback (run 27811604893, the framework's unique value). Kill family being reshaped onto the real register+schedule path: CAT-A done; CAT-B/CAT-C in progress. The after-commit-before-recorded kill's recovery terminal is rolled_back (STATBUS-013, the King's verbatim spec). Timeout-kill + OOM-kill modes = STATBUS-095/096. DONE = fabricate_scheduled_upgrade_row deleted at zero callers (AC#3/#4).
+STATUS (2026-06-21): both arcs GREEN on real VMs — working/accept-the-fix (run 27807092720) + failing/clean-slate-after-rollback (run 27811604893, the framework's unique value). Kill family being reshaped onto the real register+schedule path: CAT-A done; CAT-B/CAT-C in progress.
+
+DISPATCH (remaining work — doc-016 is the engineer-ready plan):
+- 5c-hard: rollback-restore-watchdog re-scoped to a real V_fail trigger at restoreDatabase's stall site (exec.go:761).
+- 5d: CAT-C mid-tx kill (:202) + after-commit kill (:844/:845, terminal = rolled_back per STATBUS-013), each VM-proven; DELETE deterministic-error + checkout-kill-legacy; ASSESS worker-ddl-deadlock.
+- 5e: shared-fixture matrix (one dispatch, all scenarios parallel) -> DELETE fabricate_scheduled_upgrade_row at zero callers (AC#4 = done-criterion).
+- Plus STATBUS-095/096 (timeout + OOM failure modes).
 
 FOLDED IN (2026-06-21, King-directed): STATBUS-091 (phase-2 charter — Waves 1+2 complete: 086 CLI verbs, 072 amend-conveyance, 087/088/089/090 fixes all landed) + STATBUS-075 (cut-rc04 campaign — install RC v2026.06.0-rc.04 cut). Both CLOSED; their only live remainder was this framework.
 
-Designs: doc-012 (build-spec), doc-016 (kill-arc reshape plan). Full run-by-run build history (every commit + VM run, the bug-by-bug hardening) is preserved in this task's git history.
+Designs: doc-012 (build-spec), doc-016 (kill-arc reshape plan, §9(5) implementable). Full run-by-run build history (every commit + VM run, the bug-by-bug hardening) preserved in this task's git history.
 <!-- SECTION:NOTES:END -->
