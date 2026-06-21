@@ -66,6 +66,7 @@ jobs:
       base_sha: ${{ steps.fixtures.outputs.base_sha }}
       base_short: ${{ steps.fixtures.outputs.base_short }}
       v_version: ${{ steps.fixtures.outputs.v_version }}
+      v_version_2: ${{ steps.fixtures.outputs.v_version_2 }}
       arc_pubkey: ${{ steps.fixtures.outputs.arc_pubkey }}
       # §7 shared-fixture (STATBUS-071 5d-d): ONE working pair + ONE failing pair
       # cover ALL arcs (kill/stall arcs ride working; failing + rollback-restore
@@ -127,10 +128,17 @@ jobs:
           # tree collision); the arc asserts on the TABLE name, not the filename.
           git checkout -q "$base_sha"
           latest="$(printf '%s\n' migrations/*.up.sql | sed -E 's#.*/([0-9]{14})_.*#\1#' | sort -n | tail -1)"
+          # TWO migrations (doc-017 §5, architect option a): V (migration 1) + V2
+          # (migration 2), both PENDING + sorting after every migration at A. V2
+          # gives :911 between-migrations a real "N recorded, N+1 pending" gap;
+          # after-commit + mid-migration + mid-tx are subsets of the same fixture.
           v_version="$((latest + 1))"
+          v_version_2="$((latest + 2))"
           v_up="migrations/${v_version}_upgrade_arc.up.sql"
           v_down="migrations/${v_version}_upgrade_arc.down.sql"
-          echo "V version = ${v_version}  (${v_up})"
+          v2_up="migrations/${v_version_2}_upgrade_arc_2.up.sql"
+          v2_down="migrations/${v_version_2}_upgrade_arc_2.down.sql"
+          echo "V versions = ${v_version} (${v_up}) + ${v_version_2} (${v2_up})"
 
           # write_working_v — the WORKING fixture migration (succeeds; observable).
           # Used for the working B AND the failing C (the fix that replaces V_fail).
@@ -140,8 +148,11 @@ jobs:
           # heredoc (a heredoc body dedented below the YAML `run: |` indent breaks
           # the literal scalar).
           write_working_v() {
+            # Migration 1 — upgrade_arc_fixture. NON-IDEMPOTENT (CREATE TABLE w/o
+            # IF NOT EXISTS): a re-apply CONFLICTS (`already exists`) → load-bearing
+            # for the after-commit arcs' deterministic rollback (doc-017 §3).
             {
-              echo "-- Upgrade-arc fixture migration (STATBUS-071). Observable + reversible;"
+              echo "-- Upgrade-arc fixture migration 1 (STATBUS-071). Observable + reversible;"
               echo "-- the arc asserts public.upgrade_arc_fixture exists with its row."
               echo "CREATE TABLE public.upgrade_arc_fixture ("
               echo "    id integer PRIMARY KEY,"
@@ -150,6 +161,19 @@ jobs:
               echo "INSERT INTO public.upgrade_arc_fixture (id, note) VALUES (1, 'arc');"
             } > "$v_up"
             echo "DROP TABLE IF EXISTS public.upgrade_arc_fixture;" > "$v_down"
+            # Migration 2 — upgrade_arc_fixture_2 (a SEPARATE table → fixture_row_count
+            # on upgrade_arc_fixture is unchanged; existing arcs' asserts unaffected).
+            # Also non-idempotent. Gives :911 between-migrations a real N-recorded/
+            # N+1-pending gap; the completed CAT-C arcs assert db.migration max=V2.
+            {
+              echo "-- Upgrade-arc fixture migration 2 (STATBUS-071 5d / doc-017 §5)."
+              echo "CREATE TABLE public.upgrade_arc_fixture_2 ("
+              echo "    id integer PRIMARY KEY,"
+              echo "    note text NOT NULL"
+              echo ");"
+              echo "INSERT INTO public.upgrade_arc_fixture_2 (id, note) VALUES (1, 'arc2');"
+            } > "$v2_up"
+            echo "DROP TABLE IF EXISTS public.upgrade_arc_fixture_2;" > "$v2_down"
           }
 
           # write_failing_v — the FAILING fixture migration (RAISE EXCEPTION →
@@ -180,7 +204,7 @@ jobs:
 
             git checkout -B "$b_branch" "$base_sha"
             "$b_writer"
-            git add "$v_up" "$v_down"
+            git add migrations/
             git commit -S -q -m "test(upgrade-arc): ${lineage} migration V (B)"
             local b_short b_full
             b_short="$(git rev-parse --short=8 HEAD)"
@@ -192,11 +216,11 @@ jobs:
               tmp_v="$(mktemp)"
               { echo "-- amended in place (STATBUS-102 channel-bless re-stamp; result-preserving)"; cat "$v_up"; } > "$tmp_v"
               mv "$tmp_v" "$v_up"
-              git add "$v_up"
+              git add migrations/
               git commit -S -q -m "test(upgrade-arc): ${lineage} amend V in place (C)"
             else
               write_working_v
-              git add "$v_up" "$v_down"
+              git add migrations/
               git commit -S -q -m "test(upgrade-arc): ${lineage} fix V in place (C, applies fresh)"
             fi
             local c_short c_full
@@ -231,6 +255,7 @@ jobs:
             echo "base_sha=${base_sha}"
             echo "base_short=${base_short}"
             echo "v_version=${v_version}"
+            echo "v_version_2=${v_version_2}"
             echo "arc_pubkey=${arc_pubkey}"
           } >> "$GITHUB_OUTPUT"
 
@@ -502,6 +527,7 @@ jobs:
           # B_FULL / C_FULL / B_BRANCH / C_BRANCH are exported to $GITHUB_ENV by the
           # "Resolve fixture lineage" step above (scenario→working|failing pair).
           V_VERSION: ${{ needs.construct.outputs.v_version }}
+          V_VERSION_2: ${{ needs.construct.outputs.v_version_2 }}
           SCENARIO: ${{ matrix.scenario }}
         run: |
           set -euo pipefail
