@@ -3,10 +3,10 @@ id: STATBUS-091
 title: >-
   phase2-charter: foreman authorized to take the branch-based upgrade-test
   framework to fruition (King, 2026-06-18, away)
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-06-18 14:55'
-updated_date: '2026-06-18 17:33'
+updated_date: '2026-06-21 19:13'
 labels:
   - upgrade
   - phase-2
@@ -96,3 +96,9 @@ Deferred/filed: STATBUS-034 (branch-channel, not needed for 071 per architect), 
 
 WAVE 3 STARTED: STATBUS-071 (the branch-arc framework, the charter's GOAL / AC#4) — engineer building INCREMENTALLY per doc-012 §9 (skeleton construct→image-wait→no-op→teardown FIRST, prove zero orphans on a real run, THEN the working→working-fixed arc, THEN the fingerprint + hanging→hanging-fixed fail→rollback→fix, THEN reshape the kill scenarios + delete fabricate). Q1 RESOLVED (no PAT: GITHUB_TOKEN push + explicit `gh workflow run images.yaml --ref <branch>`; images.yaml unchanged). 086+072 deps shipped. Each increment: commit→push→RUN (the oracle). Then STATBUS-044 (failure-mode matrix). FRUITION (AC#4) = the arc harness runs the real failure/fix arcs green + fabricate retired.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Closed 2026-06-21 (King-directed consolidation — folded into STATBUS-071). This phase-2 charter's work is complete: Waves 1 + 2 landed on master, every unit architect-reviewed + foreman-verified — STATBUS-086 (register/schedule/check CLI verbs, AC#8 VM-proven), 072 (amend-conveyance), 087 (history label), 088 (operator wording), 089 (maintenance path), 090 (status-lag). The only live remainder — Wave 3, the branch-arc upgrade-test framework — is the single live tracker STATBUS-071. The authority record and the run-by-run drive log are preserved in this task's git history. No work lost; the charter framing (and its bureaucratic sprawl) retired per the King.
+<!-- SECTION:FINAL_SUMMARY:END -->
