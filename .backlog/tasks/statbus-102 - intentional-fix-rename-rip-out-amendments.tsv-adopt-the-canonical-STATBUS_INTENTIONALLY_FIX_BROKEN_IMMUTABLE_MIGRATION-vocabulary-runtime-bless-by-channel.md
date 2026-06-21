@@ -4,10 +4,10 @@ title: >-
   intentional-fix-rename: rip out amendments.tsv + adopt the canonical
   STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION vocabulary; runtime bless
   by channel
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-06-20 00:18'
-updated_date: '2026-06-20 10:47'
+updated_date: '2026-06-21 20:15'
 labels:
   - upgrade
   - migration-immutability
@@ -98,6 +98,22 @@ CONVEYANCE-REPLACEMENT (load-bearing): channel-bless REPLACES the file's runtime
 
 FLAG: 072 is DONE/signed-off; closing this task reverses its committed deliverable (the King flagged amendments.tsv for rip-out, so this is intended). Relate/annotate 072 when this lands.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Closed 2026-06-21 (King-directed backlog-currency pass; product shipped, the end-to-end proof folds into STATBUS-071). The rip-out + rename + channel-bless are all DONE on master:
+- Rename (circumvent → STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION + cold-agent operator message): 256f62cb9.
+- amendments.tsv removal + channel-bless core: 10c26fd9a; arc cleanup ddbb52dfc.
+- The channel-bless SIMPLIFICATION (item (a) — read UPGRADE_CHANNEL only, drop the CADDY_DEPLOYMENT_MODE leak): shipped as STATBUS-106, committed 81a9082b3, foreman-gated green (holding the push for the King's word).
+
+AC#1/#2/#3 done (zero amendments.tsv/circumvent refs anywhere; cut gate env-only still refuses unintended edits, release.go:643). AC#4 (three-way: localdev→error, edge→redo, release→bless) + AC#7 (channel detection) done via 106.
+
+REMAINING — folds into STATBUS-071's working arc:
+- AC#5 (end-to-end bless-proof): now unblocked by 106 — the working arc exercises the release-bless by setting UPGRADE_CHANNEL=stable on the arc box (identical production code path).
+- AC#6 (working-arc fixture reframe): from "amend a working migration" to "fix a genuinely broken one", so the bless path is exercised legitimately.
+Both are tracked in 071 (the "accept-the-fix / re-stamp" coverage cell + the subsumes-line). 072's doctrine (re-stamp primary, crash-fix-only, no checker, both populations converge) is preserved in the shipped channel-bless.
+<!-- SECTION:FINAL_SUMMARY:END -->
 
 ## Comments
 
