@@ -55,6 +55,8 @@ A released migration is immutable; the **only** legitimate reason to change one 
 ## The same flow, crashed at other points (the kill family)
 The test also injects a **real** crash/stall at the other upgrade points — fetching code, the pre-upgrade backup, the binary swap, between migrations, just-after-a-migration-commits-before-it's-recorded, during the rollback, and while restarting — and checks the box recovers on its own. All run through the real register + schedule path. The after-commit-before-recorded kill's correct recovery terminal is **`rolled_back`** (STATBUS-013, the King's verbatim spec — restore to known-good, operator retries). The only fabrication left to delete is `fabricate_scheduled_upgrade_row` (it only made `./sb install` dispatch; 086's register + schedule produces that row for real).
 
+**One of those crash points is itself a safety feature — the rollback heartbeat (formerly STATBUS-031).** If the *undo itself* hangs — the database-restore stalls partway through a rollback — a heartbeat keeps the box alive and restarts it sanely until the undo finishes, instead of freezing or dying in an endless restart-loop. The heartbeat **code already shipped** (commit a8279ed83). The **test** proving it lives here: deliberately stall the restore — with the heartbeat the box stays alive and reaches `rolled_back`; without it (a build with the heartbeat removed) it restart-loops. STATBUS-031 is folded into this ticket — its code is done, its test is this arc.
+
 ## Status
 - [GREEN] Working arc (accept-the-fix / re-stamp) — on a real VM.
 - [GREEN] Failing arc (error -> rollback -> logically-identical-to-A -> fix applies fresh) — the framework's unique value.
@@ -62,7 +64,7 @@ The test also injects a **real** crash/stall at the other upgrade points — fet
 - [TODO] Timeout-kill + OOM-kill modes (STATBUS-095 / 096); the after-commit-before-recorded kill (terminal = rolled_back per STATBUS-013).
 - [DONE-CRITERION] `fabricate_scheduled_upgrade_row` deleted at zero callers; no synthetic crash-state anywhere.
 
-(Folds in former STATBUS-091 "phase-2 charter" and STATBUS-075 "cut-rc04 campaign," now closed — their live remainder was this framework. Full run-by-run build history in this task's git log.)
+(Subsumes the now-closed STATBUS-091 "phase-2 charter", STATBUS-075 "cut-rc04 campaign", STATBUS-061 "preswap-recovery", and STATBUS-031 "rollback heartbeat" — their remaining work is this framework and its arcs. Full run-by-run build history in this task's git log.)
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
@@ -80,7 +82,7 @@ The test also injects a **real** crash/stall at the other upgrade points — fet
 STATUS (2026-06-21): both arcs GREEN on real VMs — working/accept-the-fix (run 27807092720) + failing/clean-slate-after-rollback (run 27811604893, the framework's unique value). Kill family being reshaped onto the real register+schedule path: CAT-A done; CAT-B/CAT-C in progress.
 
 DISPATCH (remaining work — doc-016 is the engineer-ready plan):
-- 5c-hard: rollback-restore-watchdog re-scoped to a real V_fail trigger at restoreDatabase's stall site (exec.go:761).
+- 5c-hard: the ROLLBACK HEARTBEAT test (formerly STATBUS-031). Deliberately stall the rollback's database-restore (exec.go:761): with the heartbeat the box stays alive -> rolled_back; without it (RED = 79375b9f9) it restart-loops. Heartbeat code already shipped (a8279ed83); finish the observational arc to ASSERT; the broken standalone scenario (scenarios/4-rollback-restore-watchdog.sh) is retired (its harness can't drive a real failure). Closes the former 031.
 - 5d: CAT-C mid-tx kill (:202) + after-commit kill (:844/:845, terminal = rolled_back per STATBUS-013), each VM-proven; DELETE deterministic-error + checkout-kill-legacy; ASSESS worker-ddl-deadlock.
 - 5e: shared-fixture matrix (one dispatch, all scenarios parallel) -> DELETE fabricate_scheduled_upgrade_row at zero callers (AC#4 = done-criterion).
 - Plus STATBUS-095/096 (timeout + OOM failure modes).
