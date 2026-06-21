@@ -1418,7 +1418,7 @@ func eagerContentHashCheck(projDir string) error {
 				version, maxVersion)
 			fallthrough
 		default:
-			// localDev (CADDY_DEPLOYMENT_MODE=development) or an uncertain channel:
+			// localDev (UPGRADE_CHANNEL=local) or an uncertain channel:
 			// a human is present — never auto-mutate. Released → immutability
 			// violation; WIP → redo guidance.
 			releasedTag, relErr := release.MigrationInReleasedTag(projDir, version)
@@ -1494,26 +1494,27 @@ const (
 	channelRelease
 )
 
-// migrationChannelClass reads CADDY_DEPLOYMENT_MODE + UPGRADE_CHANNEL from .env
-// (both always written by config.go; read here via dotenv.Load, same pattern as
-// currentMigrationTarget) and classifies the box with EXPLICIT ordered precedence,
-// first match wins — designed so the three-way can't misfire:
+// migrationChannelClass reads UPGRADE_CHANNEL from .env (always written by
+// config.go; read here via dotenv.Load, same pattern as currentMigrationTarget)
+// and classifies the box for content_hash MISMATCH handling. The decision
+// depends ONLY on the upgrade axis (UPGRADE_CHANNEL), never on the front-door
+// axis (CADDY_DEPLOYMENT_MODE) — deployment mode touches the web front door, not
+// the upgrade logic. config.go defaults UPGRADE_CHANNEL by deployment mode at
+// config time (development → "local", non-development → "stable"), so a
+// developer's box classifies localDev via its channel value, not via a mode read
+// here. This makes test == production for the upgrade logic: an arc can exercise
+// the release-bless by setting UPGRADE_CHANNEL=stable on a development-mode box.
 //
-//  1. CADDY_DEPLOYMENT_MODE == "development" → localDev. A developer's box (human
-//     present); never auto-mutate the DB, even if UPGRADE_CHANNEL=edge — dev-mode wins.
-//  2. else UPGRADE_CHANNEL == "edge" → edge. A DEPLOYED always-latest box
-//     (e.g. dev.statbus.org), not development-mode.
-//  3. else UPGRADE_CHANNEL ∈ {"stable","prerelease"} → release.
-//  4. else (unreadable .env / unrecognized mode or channel) → localDev. The SAFE
-//     default: never auto-bless or auto-redo when the channel is uncertain — stop
-//     for a human. On a properly-configured box this never fires (config.go always
-//     writes a valid UPGRADE_CHANNEL).
+//  1. UPGRADE_CHANNEL == "edge" → edge. A DEPLOYED always-latest box
+//     (e.g. dev.statbus.org).
+//  2. UPGRADE_CHANNEL ∈ {"stable","prerelease"} → release.
+//  3. else (UPGRADE_CHANNEL == "local", unset, unrecognized, or unreadable .env)
+//     → localDev. The SAFE default: never auto-bless or auto-redo when the
+//     channel is uncertain — stop for a human. On a properly-configured box this
+//     fires only for the local-dev channel (config.go always writes a value).
 func migrationChannelClass(projDir string) migrationChannel {
 	f, err := dotenv.Load(filepath.Join(projDir, ".env"))
 	if err != nil {
-		return channelLocalDev
-	}
-	if mode, ok := f.Get("CADDY_DEPLOYMENT_MODE"); ok && mode == "development" {
 		return channelLocalDev
 	}
 	if ch, ok := f.Get("UPGRADE_CHANNEL"); ok {

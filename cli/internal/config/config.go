@@ -371,9 +371,20 @@ func loadOrGenerateConfig(projDir string, verbose bool) (*ConfigEnv, error) {
 		AdministratorContact:     gen("ADMINISTRATOR_CONTACT", ""),
 	}
 
-	// Upgrade settings (only written for non-development modes)
+	// UPGRADE_CHANNEL defaults by deployment mode (the upgrade axis, decoupled
+	// from the front-door deployment mode — STATBUS-106): development → "local"
+	// (the box's migration-fix logic never auto-mutates; it stops for a human),
+	// non-development → "stable" (blesses sanctioned migration-fixes). Always
+	// written so migrationChannelClass classifies on UPGRADE_CHANNEL alone.
+	upgradeChannelDefault := "stable"
+	if mode == "development" {
+		upgradeChannelDefault = "local"
+	}
+	gen("UPGRADE_CHANNEL", upgradeChannelDefault)
+
+	// Upgrade-service polling settings — only the deployed service uses these,
+	// so they are written for non-development modes only.
 	if mode != "development" {
-		gen("UPGRADE_CHANNEL", "stable")
 		gen("UPGRADE_CHECK_INTERVAL", "6h")
 		gen("UPGRADE_AUTO_DOWNLOAD", "true")
 		// Signing is enforced when UPGRADE_TRUSTED_SIGNER_* keys are present.
@@ -705,7 +716,15 @@ PUBLIC_STATBUS_COMMIT_SHORT=%[23]s
 			return fallback
 		}
 		fmt.Fprintf(&b, "\n# Upgrade service configuration\n")
-		fmt.Fprintf(&b, "UPGRADE_CHANNEL=%s\n", getOrDefault("UPGRADE_CHANNEL", "stable"))
+		// UPGRADE_CHANNEL fallback is mode-aware, matching the .env.config default
+		// in loadOrGenerateConfig (STATBUS-106): development → "local", non-
+		// development → "stable". One consistent rule across both write paths, so a
+		// box never silently defaults to "stable" when its declared channel is local.
+		upgradeChannelFallback := "stable"
+		if cfg.CaddyDeploymentMode == "development" {
+			upgradeChannelFallback = "local"
+		}
+		fmt.Fprintf(&b, "UPGRADE_CHANNEL=%s\n", getOrDefault("UPGRADE_CHANNEL", upgradeChannelFallback))
 		fmt.Fprintf(&b, "UPGRADE_CHECK_INTERVAL=%s\n", getOrDefault("UPGRADE_CHECK_INTERVAL", "6h"))
 		fmt.Fprintf(&b, "UPGRADE_AUTO_DOWNLOAD=%s\n", getOrDefault("UPGRADE_AUTO_DOWNLOAD", "true"))
 		fmt.Fprintf(&b, "# Contact shown on maintenance.html when set; leave empty to omit\n")
