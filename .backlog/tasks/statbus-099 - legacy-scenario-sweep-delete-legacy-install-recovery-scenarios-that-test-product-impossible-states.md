@@ -3,10 +3,10 @@ id: STATBUS-099
 title: >-
   legacy-scenario-sweep: delete legacy install-recovery scenarios that test
   product-impossible states
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-06-19 11:05'
-updated_date: '2026-06-19 15:33'
+updated_date: '2026-06-21 20:15'
 labels: []
 dependencies: []
 ordinal: 99000
@@ -29,3 +29,13 @@ OWNER: architect (audit) -> engineer (delete) -> foreman (commit). NOT blocking 
 <!-- SECTION:NOTES:BEGIN -->
 resume-died + archivebackup-resume deleted (doc-016); deterministic-error + checkout-kill-legacy remain
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Closed 2026-06-21 (King-directed backlog-currency pass; folded into STATBUS-071). The legacy-scenario sweep happens inside 071's kill-family reshape — each product-impossible scenario is deleted as a real arc subsumes it, per the King's doctrine "a fabricated test describing a state that can't occur → DELETE."
+
+DONE: 3-postswap-resume-died-rollback + 3-postswap-archivebackup-resume deleted (doc-016 — self-heal-blocked, subsumed by the C8 container-restart-kill arc); the standalone 4-rollback-restore-watchdog retired (5c-hard — its harness can't drive a real failure, subsumed by the rollback-restore arc).
+
+REMAINING (= 071's 5d): the deterministic-error delete (subsumed by the failing arc) + the checkout-kill-legacy delete (superseded by the reshaped preswap-checkout-kill arc) + the worker-ddl-deadlock assess. All tracked in 071's coverage map + the 5d dispatch note. No separate sweep ticket needed.
+<!-- SECTION:FINAL_SUMMARY:END -->
