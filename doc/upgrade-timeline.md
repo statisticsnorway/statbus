@@ -484,6 +484,44 @@ failure or hang, restore from the pre-upgrade snapshot and record a terminal sta
 mode parameter, no operator-facing `--recovery` flag, no retry loop, and no separate
 liveness sidecar — a single systemd unit owns the lifecycle.
 
+### Forward vs rollback — in plain terms
+
+An upgrade has exactly **one point of no return: the moment the box boots the new binary**
+(in the code, the flag's `Phase` flips `PreSwap` → `PostSwap` at the binary swap). Everything
+before it — downloading the new code, maintenance mode, taking the database backup — is
+reversible preparation. Booting the new binary is the commit: from there the box runs the new
+version and applies its migrations.
+
+If the box crashes mid-upgrade and restarts, recovery picks one of two directions:
+
+- **Roll back** — undo: restore the database backup, return to the **old** version. Ends old
+  and healthy.
+- **Go forward** — finish the remaining steps, end on the **new** version.
+
+The rule is **go forward whenever it is still possible; roll back only when the box is
+*confirmed* stuck behind**. Recovery decides from what is actually on disk (the binary, and
+which migrations ran):
+
+1. **Crashed before booting the new binary** → nothing committed (the backup was not even
+   taken) → **roll back** trivially: there is nothing to undo, just restart on the old binary.
+2. **Crashed after booting the new binary** → committed to new; check whether it is actually
+   *at* the new version:
+   - **Already at the new version** (everything landed, perhaps only bookkeeping left) →
+     **finish forward**. Never roll back here — the box may already have served the new
+     version and accepted data the backup predates. It keeps trying forward, loudly, until it
+     completes.
+   - **Confirmed behind** (a binary or migration did not fully land, and we can prove it) →
+     **roll back once** to this upgrade's own backup → old.
+   - **Cannot tell** (database unreachable mid-check) → **go forward** — never destroy data on
+     a guess; re-check on the next restart.
+
+The case this is built for is the **torn window**: the box is killed in the instant between a
+migration committing and being recorded. Ground truth reads *behind* (the record never
+landed), so going forward fails on "relation already exists" → **roll back to old** → the
+operator retries. The box never ends half-upgraded: it ends either fully new (forward
+finished) or fully old (rolled back), chosen deliberately from ground truth — never by
+accident. The mechanism that enforces this is `recoverFromFlag`, below.
+
 ### `recoverFromFlag` (startup ground-truth)
 
 Called once at service startup before the main loop, and by `./sb install`'s
