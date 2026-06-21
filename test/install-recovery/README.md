@@ -100,7 +100,8 @@ Every entry leads with its **plain goal** — read it as **die HERE → the oper
 | Scenario | What it proves | Grounding |
 |---|---|---|
 | `4-rollback-kill` | Killed during the built-in rollback → the system still converges to a coherent terminal state (`completed` or `rolled_back`), data intact. | inject.KillHere in `d.rollback()` (C9); fires non-deterministically — diagnostic for the rollback path |
-| `4-rollback-restore-watchdog` | An upgrade whose rollback-restore runs for minutes (large DB) → the rollback must keep a watchdog heartbeat so systemd doesn't SIGABRT it mid-restore (otherwise an indefinite restore loop on the recovery path itself); rollback lands, data restored intact. | STATBUS-031: always-ping ticker around `rollback()`'s `restoreDatabase` |
+
+> The STATBUS-031 rollback-restore watchdog cover (a large-DB `rollback()` restore that outruns `WatchdogSec`) is exercised by the **upgrade-arc-harness** arc `postswap-rollback-restore-watchdog` (V_fail → rollback → restore-stall at `exec.go` `inject.StallHere("restore-db-stall-watchdog")`), **not** an install-recovery scenario: this harness installs release images and re-tags them via `stage-head.sh`, so it can't build the per-commit V_fail image the real-upgrade trigger needs. The former `4-rollback-restore-watchdog` scenario (a death-during-resume trigger, now self-heal-blocked) was retired. (STATBUS-071 §9(5) 5c-hard.)
 
 ### 5-install — the inline `./sb install` operator path
 
