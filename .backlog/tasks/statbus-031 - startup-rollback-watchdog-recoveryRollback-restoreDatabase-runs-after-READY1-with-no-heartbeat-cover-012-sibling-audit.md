@@ -3,11 +3,11 @@ id: STATBUS-031
 title: >-
   startup-rollback-watchdog: rollback-restore-watchdog test needs real-VM timing
   tuning (heartbeat coverage on the rollback path)
-status: In Progress
+status: Done
 assignee:
   - architect
 created_date: '2026-06-11 13:39'
-updated_date: '2026-06-21 19:33'
+updated_date: '2026-06-21 19:57'
 labels:
   - upgrade
   - recovery
@@ -81,6 +81,18 @@ AC#3 LANDED — commit a8279ed83 (pushed to master). Foreman byte-level review +
 
 PROOF PAIR PREPPED (foreman, 2026-06-15). Scenario 4-rollback-restore-watchdog.sh reviewed + COMMITTED to master d6cafcdf7 (GREEN SHA). RED branch cut: red/031-rollback-watchdog @ 79375b9f9 = GREEN minus exactly the rollback() ticker block (architect's specified delta), replaced with a DO-NOT-MERGE marker; compiles (go build OK); retains StallHere + RestoreDBTimeout + the scenario. Cut in an isolated git worktree (the backlog-MCP auto-commit was confirmed as the index-reset culprit the architect hit 3x — it git-add+commits .backlog and unstages agents' files; pathspec commits + worktree isolation are the defense). Scenario design verified sound: deterministic Resuming-latch trigger (resumePostSwap stamps Phase=Resuming -> death -> recoverFromFlag rolls back, vs the non-deterministic forward-fail path); fail-fast preconditions (backup_path present, Phase=Resuming observed); NRestarts-watch discriminator; baseline-pollution preempted by the 3600s RUN2 RestartSec. Architect flagged it needs VM knob-tuning (STALL_HOLD_S / RestartSec windows / INSTALL_VERSION delta). NEXT (AC#2/#4/#5): operator runs RED (--ref red/031-rollback-watchdog) -> expect NRestarts climb/fail; then GREEN (--ref master) -> expect survive/pass; both -f scenarios=4-rollback-restore-watchdog, SERIALIZED after the 025 smoke (cross-run cleanup-sweep collision). Tune + re-run if a knob trips instead of the watchdog signal.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Closed 2026-06-21 (King-directed; subsumed by STATBUS-071, with its substance clearly described there). 031 = the rollback heartbeat: when the box is undoing a failed upgrade (rolling back) and the rollback's database-restore HANGS, a heartbeat (the rollback() watchdog ticker) keeps the unit alive and restarts it sanely until the restore finishes — instead of freezing or dying in an endless restart-loop.
+
+CLOSEABLE — nothing of its own left:
+- The heartbeat PRODUCT CODE already shipped on master (a8279ed83), plus the source-order unit guard (AC#3).
+- The only remaining work — the VM RED->GREEN proof (AC#2/#4/#5) — now lives entirely inside STATBUS-071's rollback-restore arc: deliberately stall the restore (real failing migration -> rollback -> restoreDatabase stall at exec.go:761); GREEN (heartbeat) = NRestarts flat -> rolled_back; RED (79375b9f9, heartbeat removed) = SIGABRT restart-loop. The old standalone scenario (scenarios/4-rollback-restore-watchdog.sh) is retired — its death-during-resume trigger is self-heal-blocked and its harness can't build a real failure.
+
+The 031 substance is now plainly described in STATBUS-071 (the "rollback heartbeat (formerly STATBUS-031)" paragraph in the kill-family section + the 5c-hard dispatch note). 071's asserting arc going green closes this proof.
+<!-- SECTION:FINAL_SUMMARY:END -->
 
 ## Comments
 
