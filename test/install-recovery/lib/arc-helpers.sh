@@ -146,6 +146,13 @@ migration_content_hash() {
 migration_row_count() {
     VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM db.migration WHERE version = ${V_VERSION};\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "ERR"
 }
+# migration_max_version — the highest applied migration version (COALESCE 0 if
+# none). The CAT-C forward-recovery arcs (mid-migration / between-migrations /
+# mid-tx) assert this == V_VERSION_2 for a COMPLETED upgrade — load-bearing proof
+# that forward-recovery re-applied BOTH shared working migrations, not just one.
+migration_max_version() {
+    VM_EXEC bash -c "cd ~/statbus && echo \"SELECT COALESCE(MAX(version), 0) FROM db.migration;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "ERR"
+}
 
 # capture_db_fingerprint — the 3-dim clean-slate fingerprint (STATBUS-071 d).
 # Echoes "schema_sha ledger_sha data_sha"; each dim is hashed ON the VM.
@@ -285,11 +292,21 @@ arc_schedule_daemon_down() {
 # rollback inject fired, exit 137]). The single-kill callers ignore it.
 ARC_DISPATCH_RC=0
 arc_install_dispatch_with_inject() {
-    local inject_class="$1" budget="${2:-${INSTALL_BUDGET_S:-900}}"
+    local inject_class="$1" budget="${2:-${INSTALL_BUDGET_S:-900}}" kill_marker="${3:-}"
+    # ONE-SHOT file-armed kill (doc-017 §1/§2, for the :389/:912 mid-migrate kills):
+    # when a marker path is given, also set STATBUS_INJECT_KILL_AND_REMOVE_FILE so
+    # KillHere fires IFF the marker exists, removing it BEFORE os.Exit → fires
+    # EXACTLY ONCE. The arc creates the marker before the FIRST (kill) dispatch;
+    # the SECOND (recovery) dispatch re-enters the same site with the marker GONE →
+    # no re-kill → forward-recovery re-runs migrate → completed. The marker survives
+    # ./sb install's internal syscall.Exec re-exec (a filesystem handle, not an
+    # in-memory one-shot — inject.go EnvKillAndRemoveFile). Unset → persistent kill.
+    local kill_env=""
+    [ -z "$kill_marker" ] || kill_env="STATBUS_INJECT_KILL_AND_REMOVE_FILE=${kill_marker} "
     echo ""
-    echo "── ./sb install dispatch with STATBUS_INJECT_AT=${inject_class} (budget ${budget}s) ──"
+    echo "── ./sb install dispatch with STATBUS_INJECT_AT=${inject_class}${kill_marker:+ (one-shot marker ${kill_marker})} (budget ${budget}s) ──"
     local rc=0
-    VM_EXEC bash -c "cd ~/statbus && STATBUS_INJECT_AT=${inject_class} STATBUS_MIN_DISK_GB=5 timeout ${budget} ./sb install --non-interactive --trust-github-user jhf" || rc=$?
+    VM_EXEC bash -c "cd ~/statbus && ${kill_env}STATBUS_INJECT_AT=${inject_class} STATBUS_MIN_DISK_GB=5 timeout ${budget} ./sb install --non-interactive --trust-github-user jhf" || rc=$?
     # shellcheck disable=SC2034  # read cross-file by the arc scripts (e.g. rollback-kill)
     ARC_DISPATCH_RC="$rc"
     echo "  ./sb install (injected) exit: $rc (137 = injected SIGKILL semantics)"
