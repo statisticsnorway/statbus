@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-06-21 19:23'
+updated_date: '2026-06-21 19:27'
 labels:
   - install-recovery
   - upgrade
@@ -89,3 +89,22 @@ FOLDED IN (2026-06-21, King-directed): STATBUS-091 (phase-2 charter — Waves 1+
 
 Designs: doc-012 (build-spec), doc-016 (kill-arc reshape plan, §9(5) implementable). Full run-by-run build history (every commit + VM run, the bug-by-bug hardening) preserved in this task's git history.
 <!-- SECTION:NOTES:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-06-21 19:27
+---
+▶ 5c-hard DISPATCHED to engineer 2026-06-21 (King-directed via architect; architect reviews post-build). Scope tightened after grounding the tree against doc-016 (06-19):
+
+ONE BUILD ITEM — re-scope test/install-recovery/scenarios/4-rollback-restore-watchdog.sh + arcs/postswap-rollback-restore-watchdog-arc.sh from the death-during-resume (Resuming-latch) trigger to a V_fail trigger (failing migration at postSwap → postSwapFailure → rollback() → real restoreDatabase → stall via restore-db-stall-watchdog @ exec.go:761 → active-phase WatchdogSec ticker → rolled_back, NRestarts baseline, data intact). Reuse failing-arc.sh's V_fail fixture. WHY: STATBUS-067 self-heal (resumePostSwap :5053) defeats the old Resuming-latch trigger.
+
+GROUNDING (verified, supersedes doc-016 5c-hard's fuller text):
+- doc-016's 5c-hard DELETES ARE ALREADY DONE: resume-died-rollback, archivebackup-resume scenarios + arc_install_kill_dropin helper are ABSENT. 5c-hard = the re-scope only.
+- 5d delete-targets (3-postswap-migration-deterministic-error, 2-preswap-checkout-kill-legacy) + CAT-C scenarios (mid-tx-kill, migrate-killed-after-commit) still exist — confirm 5d is the next unit.
+- restore-db-stall-watchdog inject confirmed exec.go:761 + inject.go:249.
+
+FLAGGED TO ARCHITECT (3): (1) deletes-already-done; (2) STATBUS-031 RED branch red/031-rollback-watchdog@79375b9f9 is now STALE — cut to RED the OLD Resuming-latch trigger; V_fail re-scope needs RED-delta re-validation; (3) ticket overlap 031 (watchdog code, landed a8279ed83) vs 071/5c-hard (scenario re-scope) — awaiting architect/King call on whether this scenario's home folds 031→071. Engineer building; report routes to architect for review before foreman commit + VM-prove.
+---
+<!-- COMMENTS:END -->
