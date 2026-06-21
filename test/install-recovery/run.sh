@@ -131,9 +131,10 @@ else
     for sel in "${SELECTORS[@]}"; do
         # EXACT basename match wins outright: a selector that names a specific
         # scenario selects ONLY that scenario, never a phase-prefix sibling.
-        # Without this, "2-preswap-checkout-kill" matched the `^<sel>-` prefix of
-        # "2-preswap-checkout-kill-legacy" (which sorts FIRST, since '-' < '.')
-        # and — with the old first-match-then-`break` — resolved to the WRONG
+        # Without this, a selector like "2-preswap-checkout-kill" would match the
+        # `^<sel>-` prefix of a longer sibling (historically the since-retired
+        # "2-preswap-checkout-kill-legacy", which sorted FIRST since '-' < '.')
+        # and — with the old first-match-then-`break` — resolve to the WRONG
         # scenario while the intended exact file never ran. An exact name also
         # legitimately selects a known-RED reproducer (it is named specifically).
         exact=""

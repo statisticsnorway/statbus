@@ -394,12 +394,12 @@ wait_for_upgrade_candidate_ready() {
 #      pickLatestBackup returns and restoreDatabase rsyncs back into the volume);
 #   3. start the db again and wait for it to accept connections.
 #
-# Used by the STATBUS-017 reproducers (3-postswap-migrate-killed-after-commit,
-# 3-postswap-migration-deterministic-error). CALLER ORDERING IS LOAD-BEARING:
+# Used by the STATBUS-017 reproducer 3-postswap-migrate-killed-after-commit
+# (cell c). CALLER ORDERING IS LOAD-BEARING:
 # invoke AFTER the in_progress upgrade row is fabricated (so the snapshot
 # captures the row — the rollback's terminal `UPDATE ... WHERE id=<row>` must
-# find it) but BEFORE the wedge object is created (the orphan table for cell c;
-# nothing for cell e) so the restore REMOVES the wedge object. A snapshot taken
+# find it) but BEFORE the wedge object is created (the orphan table for cell c)
+# so the restore REMOVES the wedge object. A snapshot taken
 # after the orphan would restore the wedge state and re-trip the next boot.
 #
 # Returns 0 on success; non-zero on failure.

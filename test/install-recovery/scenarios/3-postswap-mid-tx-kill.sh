@@ -1,11 +1,12 @@
 #!/bin/bash
 # Scenario: 3-postswap-mid-tx-kill  (cell b — mid-transaction kill → clean re-apply → completed)
 #
-# THE GREEN CONTROL for the migrate commit↔record boundary. Its RED siblings
-# 3-postswap-migrate-killed-after-commit (cell c) and
-# 3-postswap-migration-deterministic-error (cell e) prove the STATBUS-017 wedge;
-# this scenario proves the boundary's ONE safe case and that the wedge is
-# specific to the after-COMMIT window — not to "any kill during migrate".
+# THE GREEN CONTROL for the migrate commit↔record boundary. Its RED sibling
+# 3-postswap-migrate-killed-after-commit (cell c) proves the STATBUS-017 wedge
+# (cell e — the genuinely-unapplyable migration — is now covered by the
+# upgrade-arc-harness failing arc); this scenario proves the boundary's ONE safe
+# case and that the wedge is specific to the after-COMMIT window — not to "any
+# kill during migrate".
 #
 # WHAT IT PROVES
 # ──────────────

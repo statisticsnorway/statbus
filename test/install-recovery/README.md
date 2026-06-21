@@ -78,7 +78,8 @@ Every entry leads with its **plain goal** — read it as **die HERE → the oper
 | `2-preswap-backup-kill` | Killed mid-backup, before the atomic rename → re-run aborts cleanly (terminal `failed`/`rolled_back`, **never** `completed` — the swap boundary wasn't crossed), `.tmp` cleaned up, data intact. | inject.KillHere in `backupDatabase` after rsync, before rename; PreSwap abort branch (C3) |
 | `2-preswap-binary-swap-kill` | Killed after the new binary is on disk but before the swap is recorded → re-run either forward-recovers or rolls back cleanly; either way data intact. | inject.KillHere after `replaceBinaryOnDisk`; recoverFromFlag HEAD-match (C5, Fix 5b) |
 | `2-preswap-checkout-kill` | Killed after the internal git checkout but before the binary swap → re-run restores the working tree to the old commit (via the pinned `pre-upgrade` branch), still old binary, data intact. | inject.KillHere after `git checkout`; `restoreGitState` (C4) |
-| `2-preswap-checkout-kill-legacy` | A genuine v2026.05.2-shape crash (that binary *did* checkout-to-target before the swap, leaving the tree at the target) → HEAD's recovery restores the tree back to the source commit (branch-based), terminal `failed`/`rolled_back`, data intact. | Synthetic legacy wedge (v2026.05.2 pre-dates inject); STATBUS-060 / STATBUS-077 |
+
+> `2-preswap-checkout-kill-legacy` was retired: the reshaped `2-preswap-checkout-kill` (post-086) supersedes it. (STATBUS-071 §9(5) 5d.)
 
 ### 3-postswap — after the swap (migrate / restart / resume)
 
@@ -90,10 +91,11 @@ Every entry leads with its **plain goal** — read it as **die HERE → the oper
 | `3-postswap-mid-migration-kill` | Killed just before the first pending migration runs → re-run retries it cleanly (the outer tx never opened → no partial state). | inject.KillHere at top of `runPsqlFile`; atomic-tx retry (C6) |
 | `3-postswap-mid-tx-kill` | Killed mid-migration, *before* its transaction commits → Postgres aborts the tx (cleanly pending again), re-run re-applies and reaches `completed`, data intact. The **safe-case control** for the commit↔record boundary. | Test-only mid-tx inject (cell b); contrast the STATBUS-017 wedge |
 | `3-postswap-migrate-killed-after-commit` | Killed in the ~ms window after a migration commits but before its `db.migration` row is recorded → re-run recovers (forward-then-restore) without double-applying. | StallHere primitives; STATBUS-017 (cell c) |
-| `3-postswap-migration-deterministic-error` | An upgrade whose migration errors on *every* apply (genuinely unapplyable) → recovery restores to `rolled_back` instead of boot-looping, data intact. | STATBUS-017 regression guard (cell e); schema-skew guard defers to restore |
 | `3-postswap-migration-timeout` | A post-swap migration that runs longer than the watchdog window → the unit keeps it alive (no SIGABRT kill-loop) and the upgrade reaches `completed`. | STATBUS-012 boot-migrate watchdog cover (WATCHDOG=1 ticker + 30-min timeout) |
 | `3-postswap-watchdog-reconnect` | An upgrade that stalls reconnecting to the DB after a container restart → confirms the inject site is reachable, surfacing the missing watchdog cover there. | inject.StallHere after `waitForDBHealth`, before `reconnect` (C15); fix = WATCHDOG ticker, follow-up |
 | `3-postswap-worker-ddl-deadlock` | An upgrade whose migration needs a DDL lock the busy worker is holding → the installer must quiesce services first so the migration doesn't hang forever. | R1 quiesce-before-DDL (commit 02a144052); terminal within INSTALL_BUDGET_S |
+
+> `3-postswap-migration-deterministic-error` was retired: an upgrade whose migration errors on every apply (cell e — genuinely unapplyable) is now covered by the **upgrade-arc-harness** failing arc (real V_fail → rollback → byte-identical clean-slate restore). (STATBUS-071 §9(5) 5d.)
 
 ### 4-rollback — during the built-in rollback
 
