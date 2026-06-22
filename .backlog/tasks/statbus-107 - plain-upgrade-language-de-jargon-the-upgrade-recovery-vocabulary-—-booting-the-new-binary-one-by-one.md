@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-21 19:41'
-updated_date: '2026-06-22 19:30'
+updated_date: '2026-06-22 21:50'
 labels:
   - upgrade
   - recovery
@@ -77,25 +77,22 @@ Each target = one commit; classify cosmetic-vs-load-bearing first; verify NO ser
 <!-- SECTION:NOTES:BEGIN -->
 ## Glossary walkthrough — LIVE STATE (architect; updated as we go, King-driven)
 
-RESHAPED: this task is now "establish + apply a SLUG REGIME" (one concept → one kebab `slug` → one plain `message`), not just prose de-jargon. Canonical registry: **doc/upgrade-vocabulary.md** — locked entries land there.
+RESHAPED: "establish + apply a SLUG REGIME" (concept → kebab `slug` → plain `message`). Canonical registry: **doc/upgrade-vocabulary.md**.
 
-⚠️ GUARDRAIL INVERTED (King, 2026-06-22) — SUPERSEDES this task's Description + AC#2 ("KEEP the wire values"): we WILL change the on-disk serialized Phase values to match the slugs (clean break, NO read-both), with a CLEAN RESTART on an old/unrecognized sentinel. Safety hinges on the upgrade being restart-safe from a post-swap, partially-migrated state — provable ONLY by the install-recovery arcs. PARKED as an arc-gated decision (not yet applied). Doc constraint section marked UNDER REVISION.
+⚠️ GUARDRAIL INVERTED (King, 2026-06-22) — SUPERSEDES Description + AC#2 ("KEEP wire values"): we WILL change on-disk serialized Phase values to match slugs (clean break, NO read-both) + CLEAN RESTART on old/unrecognized sentinel. Safety hinges on restart-safety from a post-swap, partially-migrated state — provable ONLY by install-recovery arcs. PARKED (arc-gated, not applied). Doc constraint section marked UNDER REVISION.
 
-LOCKED so far (in the registry):
-- PHASES (which sb is running): `old-sb-upgrading` (stored "") → `old-sb-swap` (old sb's last act, exit 42) → `new-sb-swapped` (stored post_swap; arrived, self-heal probe) → `new-sb-upgrading` (stored resuming; running post-swap migrations). The old "Resuming" slug DISSOLVED — it is NORMAL-path = new-sb-upgrading; crash-retry is a recovery action, not a phase.
-- UPGRADE STATES (public.upgrade.state, 9 values, snake_case kept): available → scheduled → in_progress → (completed | failed | rolled_back) → (skipped | dismissed | superseded). Full actor map (CLI / web / service) + 26 columns documented. Web writes = browser→PostgREST RLS admin_user; app has no server-side writers.
-- SCHEDULING: `claim-upgrade` = sb claims a scheduled upgrade + runs it via executeUpgrade. Runner = systemd service (executeScheduled) OR `./sb install` inline (ExecuteUpgradeInline) — race-safe atomic claim (service.go:1331/3878 → 3911). NOT service-only.
+LOCKED (in the registry):
+- PHASES: old-sb-upgrading ("") → old-sb-swap (exit 42) → new-sb-swapped (post_swap; arrived/self-heal probe) → new-sb-upgrading (resuming; running post-swap migrations). "Resuming" slug DISSOLVED (normal-path = new-sb-upgrading).
+- UPGRADE STATES (9, snake_case): available → scheduled → in_progress → (completed|failed|rolled_back) → (skipped|dismissed|superseded). Full actor map (CLI/web/service) + 26 cols.
+- SCHEDULING: claim-upgrade = sb claims + runs (executeUpgrade); runner = systemd service OR `./sb install` inline (race-safe atomic claim). NOT service-only.
+- RECOVERY (in progress): the read pair recorded-state vs observed-state (REPLACED disk-db-state). recorded = row state + flag phase (last written down); observed = binary(disk) + migrations(db) + liveness(flock), measured now; recovery reconciles observed against recorded. STILL TO DO in section: 3 verdicts (already-at-new / cannot-reach-new / state-unknown) → 3 actions (continue-upgrade / complete-upgrade / roll-back).
 
-PRINCIPLES (apply to remaining sections):
-1. Name the SUBJECT (sb), not bare old/new — many moving parts.
-2. WHO-logs-it — one emitter per slug (sb-swap → old-sb-swap / new-sb-swapped).
-3. GRAMMAR — ongoing states end -ing; transition events use swap/swapped.
-4. WHERE-WE-ARE = Phase; WHERE-WE'RE-GOING = recovery Action.
-5. The invoker (service vs install) is an AUDIT field, not part of an action slug.
+FINDINGS (code-grounded, not slugs):
+- LIVENESS = the FLOCK, not the PID. flag+flock-held → live (refuse); flag+flock-free → crashed (recover) (install/state.go:5-8 locked policy, :122). pidAlive REMOVED as unreliable (service survives SHA upgrades → stale PID looks alive) (service.go:810-816). PID now audit-only. NB: CLAUDE.md install-ladder still says "PID alive/dead" — slightly stale vs code.
 
-CARRY-FORWARD (resolve at Recovery): reserve "resuming"/retry vocab for a GENUINE "starting again after a problem" detection (ground-truth-on-reentry, service.go:860) — not the normal hand-off.
+PRINCIPLES: (1) name the SUBJECT (sb); (2) one emitter per slug; (3) -ing = ongoing state, swap/swapped = transition event; (4) where-we-are = Phase, where-we're-going = Action; (5) invoker (service vs install) = audit field, not slug.
 
-NEXT: Recovery — reading state & deciding direction (disk-db-state, already-at-new, cannot-reach-new, state-unknown) → Recovery actions (continue-upgrade, complete-upgrade, roll-back) → Mechanisms & artifacts.
+CARRY-FORWARD (resolve at the recovery ACTIONS): reserve "resuming"/retry vocab for a GENUINE "starting again after a problem" detection (ground-truth-on-reentry, service.go:860) — not the normal hand-off.
 
-DELIVERY (after the table locks): apply docs → diagrams → code → logs, one site at a time; foreman commits pathspec-scoped; code/wire rename is the LAST pass.
+DELIVERY (after table locks): apply docs → diagrams → code → logs, one site at a time; foreman commits pathspec-scoped; code/wire rename LAST.
 <!-- SECTION:NOTES:END -->
