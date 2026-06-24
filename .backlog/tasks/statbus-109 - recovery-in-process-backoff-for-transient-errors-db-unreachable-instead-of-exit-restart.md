@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-24 12:21'
+updated_date: '2026-06-24 14:13'
 labels:
   - upgrade
   - recovery
@@ -52,3 +53,9 @@ Changes safety-critical recovery behavior — prove via the install-recovery arc
 - [ ] #3 process-exit + systemd restart is reserved for genuinely unreconcilable recovery states (buckets 3 & 4), not transient ones
 - [ ] #4 systemd RestartSec/StartLimit values documented and shown to bound the worst case
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+CORRECTION (King, 2026-06-24): git-shallow / target-not-in-clone is NOT 'fail loud immediately' — AC#2 superseded. A shallow clone CAN `git fetch --deepen` / `fetch <sha>` to acquire the missing commit. So it is an ACQUIRE-AND-RETRY case (bucket 1), the same shape as db-retry: acquire the missing dependency (db: wait/retry the connection; commit: fetch it), re-check, and escalate to a human ONLY on exhaustion (db never returns / fetch can't reach the remote). Unify the design as 'acquire-and-retry' strategies. The ONLY direct-to-human case is the truly-unnameable (unrecognized phase) — nothing to acquire. NB: git-shallow is a defensive EDGE (SSB deploys normally have complete clones), so the db case is the one that matters in practice.
+<!-- SECTION:NOTES:END -->
