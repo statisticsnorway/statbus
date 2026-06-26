@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-26 11:30'
-updated_date: '2026-06-26 12:38'
+updated_date: '2026-06-26 13:23'
 labels:
   - upgrade
   - recovery
@@ -20,6 +20,8 @@ references:
   - STATBUS-039
   - STATBUS-071
   - STATBUS-109
+documentation:
+  - doc-018 - Read-only-upgrade-window-—-detailed-design-STATBUS-110.md
 priority: medium
 ordinal: 110000
 ---
