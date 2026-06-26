@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-24 12:21'
-updated_date: '2026-06-24 14:13'
+updated_date: '2026-06-26 12:10'
 labels:
   - upgrade
   - recovery
@@ -58,4 +58,6 @@ Changes safety-critical recovery behavior — prove via the install-recovery arc
 
 <!-- SECTION:NOTES:BEGIN -->
 CORRECTION (King, 2026-06-24): git-shallow / target-not-in-clone is NOT 'fail loud immediately' — AC#2 superseded. A shallow clone CAN `git fetch --deepen` / `fetch <sha>` to acquire the missing commit. So it is an ACQUIRE-AND-RETRY case (bucket 1), the same shape as db-retry: acquire the missing dependency (db: wait/retry the connection; commit: fetch it), re-check, and escalate to a human ONLY on exhaustion (db never returns / fetch can't reach the remote). Unify the design as 'acquire-and-retry' strategies. The ONLY direct-to-human case is the truly-unnameable (unrecognized phase) — nothing to acquire. NB: git-shallow is a defensive EDGE (SSB deploys normally have complete clones), so the db case is the one that matters in practice.
+
+COMPOSITION with STATBUS-110 (2026-06-26): 109 (quiet in-process transient retry) + 110 (DB read-only window → rollback always data-safe) together REPLACE the conservative 'can't-verify → hold → human' branch. Target recovery model: transient → quiet retry (109); can't-go-forward → safe rollback (110); unnameable → human. 109's value stands alone (kills the exit-restart noise) AND composes into the simplified model. Sequence: 110's direction is ratified by the King first (it sets whether the hold-branch dissolves); 109 lands either way.
 <!-- SECTION:NOTES:END -->
