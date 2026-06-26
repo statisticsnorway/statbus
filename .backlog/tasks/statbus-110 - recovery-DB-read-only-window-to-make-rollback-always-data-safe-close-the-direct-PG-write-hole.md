@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-26 11:30'
+updated_date: '2026-06-26 12:10'
 labels:
   - upgrade
   - recovery
@@ -57,3 +58,36 @@ Behavior change to upgrade + recovery — prove via install-recovery arcs (STATB
 - [ ] #3 With the window guaranteed write-free, rollback-under-uncertainty is shown data-safe (no external writes to lose); STATBUS-039 'never restore on a guess' is re-evaluated and the recovery decision tree updated accordingly
 - [ ] #4 Cost/acceptability of the read-only write-window documented (reads stay available; upgrades are infrequent)
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+## The recovery decision tree this re-grounds (current behavior — STATBUS-107 walkthrough, 11 paths)
+- ACQUIRE-AND-RETRY (transient): `recovery-new-sb-retrying-db` (db unreachable → retry) · `recovery-new-sb-fetching-commit` (target commit not in clone → git fetch/deepen)
+- KNOWN RECOVERY: `recovery-old-sb-never-swapped` (restart old) · `recovery-new-sb-completed-migrations` (finish bookkeeping) · `recovery-new-sb-pending-migrations` (one-shot rollback)
+- STOP FOR A HUMAN: `recovery-stuck-needs-human` (acquire exhausted) · `recovery-unexpected-state` (unrecognized phase)
+- HOUSEKEEPING: `recovery-nothing-pending` · `recovery-discard-corrupt-flag` · `recovery-clear-install-flag`
+- EDGE (defensive): `recovery-binary-mismatch`
+
+## Why the current model is conservative (and likely an under-ratified agent assumption)
+"never restore on a guess" (STATBUS-039) + the whole "can't-verify → hold → human" branch exist ONLY because the direct-PG path is ungated during the destructive window (this ticket's hole) — so a rollback might erase a direct-PG integrator's writes. Close that hole and rollback loses nothing; the conservatism becomes unnecessary.
+
+## Target model once the read-only window lands (110 + 109 compose)
+With a guaranteed write-free window, rollback is ALWAYS data-safe. Recovery simplifies to:
+- Transient (db down / commit missing) → QUIET in-process retry (STATBUS-109), no exit-noise.
+- Forward logically possible → finish forward.
+- Can't go forward (confirmed behind, or can't-verify and it won't resolve) → ROLL BACK safely → operator re-schedules.
+- Truly unnameable (unrecognized phase) → stop for a human.
+Net: the "can't-verify → hold → human" branch DISSOLVES into safe-rollback or quiet-retry; `recovery-stuck-needs-human` survives only for the genuinely unnameable.
+
+## Decision needed (King ratifies — do NOT build without it)
+Adopt the read-only window as the recovery-correctness FOUNDATION, vs keep the conservative never-restore model and merely reduce its noise via STATBUS-109? Architect recommends ADOPT: it closes the real hole and makes the system BOTH safer AND simpler, at the cost of a write-paused (reads-OK) window per upgrade — modest for an infrequently-upgraded registry.
+
+## Path to conclusion
+1. King ratifies the direction.
+2. Architect writes the detailed design: toggle placement in executeUpgrade (on before destructive steps, off at confirmed completion), the upgrade-session exemption mechanism, in-flight-connection + superuser handling, and the simplified recovery decision tree.
+3. Engineer builds; PROVE via install-recovery arcs (STATBUS-071): a direct-PG-write-mid-window arc + the simplified-recovery arcs.
+4. Lock the registry (doc/upgrade-vocabulary.md) recovery names to the simplified set.
+5. Formally supersede STATBUS-039 "never restore on a guess" with the read-only-window invariant; note it in doc/upgrade-timeline.md.
+6. Land STATBUS-109 (quiet transient retry) as the composable partner.
+<!-- SECTION:PLAN:END -->
