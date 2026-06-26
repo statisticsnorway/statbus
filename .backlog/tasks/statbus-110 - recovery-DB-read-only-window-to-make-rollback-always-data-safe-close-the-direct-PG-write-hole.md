@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-26 11:30'
-updated_date: '2026-06-26 12:32'
+updated_date: '2026-06-26 12:38'
 labels:
   - upgrade
   - recovery
@@ -102,4 +102,12 @@ SO the read-only default is an ACCIDENT-GUARD, NOT an admin-gated lock: it REJEC
 SIMPLIFICATION: the upgrade's own exemption is trivial — its migration session just does SET default_transaction_read_only=off for itself (USERSET, no special role/owner role needed). Remove the 'exempt owner role' option from the design; session-SET suffices.
 
 IF a HARD boundary is ever required (regular users genuinely cannot write even deliberately; admin-only escape): use REVOKE write privileges from the app roles for the window, OR refuse their connections (Caddy Layer4 conditional route / pg_hba) — heavier, touches the RLS/grant model. DEFAULT plan stays accident-guard (cheap), per the King's stated intent; revisit only if the bar changes.
+
+DECISION RATIFIED (King, 2026-06-26): build the read-only window as the ACCIDENT-GUARD (cheap path), NOT the hard admin-only lock.
+
+PRINCIPLE (King's words): 'you cannot go wrong without intent; if you have intent you're allowed.' The system makes the dangerous thing impossible BY ACCIDENT and trivially possible DELIBERATELY. No accidental footguns; full deliberate control (the USERSET override IS the intended escape hatch, for the King to investigate when something stops).
+
+NORTH STAR (why it matters): STATBUS upgrades run hands-off — an operator in Senegal/Uganda runs install and walks away. If recovery ever HOLDS for a human, that hands-off promise breaks → someone must physically intervene (fly out). The accident-guard keeps recovery AUTONOMOUS: accidental external writes blocked → rollback always data-safe → recovery self-decides (forward/rollback) → NO operator intervention. Autonomy is the goal; data-safety is the means.
+
+NEXT: architect writes the detailed design (toggle on/off placement + the trivial session self-exemption) → engineer builds → arc-test (STATBUS-071). The hard admin-only mechanism is NOT needed; kept in notes only if the bar ever changes.
 <!-- SECTION:NOTES:END -->
