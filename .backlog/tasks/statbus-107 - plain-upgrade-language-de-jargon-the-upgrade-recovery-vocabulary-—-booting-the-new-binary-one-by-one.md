@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-21 19:41'
-updated_date: '2026-06-26 12:10'
+updated_date: '2026-06-26 14:16'
 labels:
   - upgrade
   - recovery
@@ -105,4 +105,14 @@ PRINCIPLES: name the subject (sb) · one emitter/slug · -ing=state, swap/swappe
 REMAINING vocabulary sections: Recovery ACTIONS (continue-upgrade / complete-upgrade / roll-back — gated on the STATBUS-110 model decision) → Mechanisms & artifacts (upgrade-sentinel, flock, db-snapshot/backup/restore, stop-clients, restart-loop, heartbeat).
 
 DELIVERY: after each section locks, apply docs → diagrams → code → logs, one site at a time; foreman commits pathspec-scoped; code/wire rename LAST.
+
+DIAGRAM CROSS-REF + 2 KING RATIFICATIONS (2026-06-26; mechanic-traced, foreman grep-verified; tmp/operator-recovery-cases-vs-diagrams.md).
+
+Coverage of the 11 recovery cases vs the 3 upgrade/recovery diagrams: DRAWN as branches = cases 3,4,5,6,7,11; NOTE-ONLY (prose, not a drawn branch) = 8 (git-error→Unknown, upgrade-timeline:162-163) + 10 (FLAG_PHASE_UNKNOWN, :163-164/:204); TRUE GAPS (absent) = 2 (corrupt-flag), 1 (only the trivial clean-boot baseline; no-flag HANDLING is drawn at timeline:53/:202), 9 (stuck-needs-human ARRIVAL path; only the systemd reset-failed escape noted at install-recovery:174).
+
+RATIFIED (King): (1) CORRUPT-FLAG (recovery-discard-corrupt-flag) = DISCARD-AND-LOG → boot normally (autonomous). Was undrawn AND unspecified — now SPECIFIED. (2) recovery-failed (the `failed` upgrade-state: a rollback was chosen but its RESTORE itself broke — rsync/disk) = NEEDS A HUMAN. DISTINCT from unexpected-state (can't-read-state) and from the dissolved stuck-needs-human; read-only does NOT help it (a broken restore is hands-on regardless).
+
+FINAL simplified recovery model (post read-only window): autonomous in every case EXCEPT TWO human terminals — (a) unexpected-state (can't READ the phase; a decision), (b) recovery-failed (rollback RESTORE broke; an action-failure).
+
+DIAGRAM DE-JARGON WORK (this task, target #6): draw the corrupt-flag case; promote git-Unknown + unrecognized-phase from prose footnotes to drawn branches; SPLIT the single failed/human blob into its two distinct reasons. + install-recovery:114 self-declares a test gap (pre-1.0 legacy-refuse path has no scenario).
 <!-- SECTION:NOTES:END -->
