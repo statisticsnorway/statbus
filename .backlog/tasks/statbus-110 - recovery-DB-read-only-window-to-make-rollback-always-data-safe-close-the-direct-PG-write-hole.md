@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-26 11:30'
-updated_date: '2026-06-26 12:10'
+updated_date: '2026-06-26 12:32'
 labels:
   - upgrade
   - recovery
@@ -91,3 +91,15 @@ Adopt the read-only window as the recovery-correctness FOUNDATION, vs keep the c
 5. Formally supersede STATBUS-039 "never restore on a guess" with the read-only-window invariant; note it in doc/upgrade-timeline.md.
 6. Land STATBUS-109 (quiet transient retry) as the composable partner.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PRIVILEGE-MODEL CORRECTION (verified vs running DB 2026-06-26): default_transaction_read_only AND transaction_read_only are BOTH context=user (USERSET); pg_parameter_acl is empty. => ANY role (not just admin) can `SET default_transaction_read_only=off` per-session and write. Demonstrated live: under RO a CREATE TABLE fails ('cannot execute CREATE TABLE in a read-only transaction'); after the same session flips the default off, it succeeds.
+
+SO the read-only default is an ACCIDENT-GUARD, NOT an admin-gated lock: it REJECTS normal/accidental writes (error, not silent-write-then-lose) — which IS the data-safety bar (rollback stays safe vs the realistic threat: a careless direct-PG integrator) — but a DELIBERATE override by any user is possible (King-accepted: 'someone can work around it if they want to'). It is a speed bump, not a security boundary.
+
+SIMPLIFICATION: the upgrade's own exemption is trivial — its migration session just does SET default_transaction_read_only=off for itself (USERSET, no special role/owner role needed). Remove the 'exempt owner role' option from the design; session-SET suffices.
+
+IF a HARD boundary is ever required (regular users genuinely cannot write even deliberately; admin-only escape): use REVOKE write privileges from the app roles for the window, OR refuse their connections (Caddy Layer4 conditional route / pg_hba) — heavier, touches the RLS/grant model. DEFAULT plan stays accident-guard (cheap), per the King's stated intent; revisit only if the bar changes.
+<!-- SECTION:NOTES:END -->
