@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-21 19:41'
-updated_date: '2026-06-22 21:50'
+updated_date: '2026-06-26 12:10'
 labels:
   - upgrade
   - recovery
@@ -75,24 +75,34 @@ Each target = one commit; classify cosmetic-vs-load-bearing first; verify NO ser
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-## Glossary walkthrough — LIVE STATE (architect; updated as we go, King-driven)
+## Glossary walkthrough — LIVE STATE (architect; King-driven; updated 2026-06-26)
 
-RESHAPED: "establish + apply a SLUG REGIME" (concept → kebab `slug` → plain `message`). Canonical registry: **doc/upgrade-vocabulary.md**.
+REGIME: "establish + apply a SLUG REGIME" (concept → kebab slug → plain message). Registry: doc/upgrade-vocabulary.md.
 
-⚠️ GUARDRAIL INVERTED (King, 2026-06-22) — SUPERSEDES Description + AC#2 ("KEEP wire values"): we WILL change on-disk serialized Phase values to match slugs (clean break, NO read-both) + CLEAN RESTART on old/unrecognized sentinel. Safety hinges on restart-safety from a post-swap, partially-migrated state — provable ONLY by install-recovery arcs. PARKED (arc-gated, not applied). Doc constraint section marked UNDER REVISION.
+⚠️ PARKED (arc-gated): on-disk Phase serialization changes to match slugs (clean break, no read-both) + CLEAN RESTART on old/unrecognized sentinel. Safety hinges on restart-safety from a post-swap partial state — provable only by install-recovery arcs (STATBUS-071). Doc constraint section marked UNDER REVISION.
 
 LOCKED (in the registry):
-- PHASES: old-sb-upgrading ("") → old-sb-swap (exit 42) → new-sb-swapped (post_swap; arrived/self-heal probe) → new-sb-upgrading (resuming; running post-swap migrations). "Resuming" slug DISSOLVED (normal-path = new-sb-upgrading).
+- PHASES: old-sb-upgrading ("") → old-sb-swap (exit 42) → new-sb-swapped (post_swap; arrived/self-heal) → new-sb-upgrading (resuming; running post-swap migrations). "Resuming" slug dissolved.
 - UPGRADE STATES (9, snake_case): available → scheduled → in_progress → (completed|failed|rolled_back) → (skipped|dismissed|superseded). Full actor map (CLI/web/service) + 26 cols.
-- SCHEDULING: claim-upgrade = sb claims + runs (executeUpgrade); runner = systemd service OR `./sb install` inline (race-safe atomic claim). NOT service-only.
-- RECOVERY (in progress): the read pair recorded-state vs observed-state (REPLACED disk-db-state). recorded = row state + flag phase (last written down); observed = binary(disk) + migrations(db) + liveness(flock), measured now; recovery reconciles observed against recorded. STILL TO DO in section: 3 verdicts (already-at-new / cannot-reach-new / state-unknown) → 3 actions (continue-upgrade / complete-upgrade / roll-back).
+- SCHEDULING: claim-upgrade = sb claims + runs (executeUpgrade), runner = systemd service OR ./sb install (race-safe atomic claim).
+- RECOVERY read pair: recorded-state (what was written down) vs observed-state (binary+migrations+flock, measured now).
 
-FINDINGS (code-grounded, not slugs):
-- LIVENESS = the FLOCK, not the PID. flag+flock-held → live (refuse); flag+flock-free → crashed (recover) (install/state.go:5-8 locked policy, :122). pidAlive REMOVED as unreliable (service survives SHA upgrades → stale PID looks alive) (service.go:810-816). PID now audit-only. NB: CLAUDE.md install-ladder still says "PID alive/dead" — slightly stale vs code.
+RECOVERY DECISION TREE — fully mapped (11 paths), names HELD pending the model decision (STATBUS-110):
+- acquire-retry: recovery-new-sb-retrying-db, recovery-new-sb-fetching-commit
+- known recovery: recovery-old-sb-never-swapped, recovery-new-sb-completed-migrations, recovery-new-sb-pending-migrations
+- human: recovery-stuck-needs-human, recovery-unexpected-state
+- housekeeping: recovery-nothing-pending, recovery-discard-corrupt-flag, recovery-clear-install-flag
+- edge: recovery-binary-mismatch
 
-PRINCIPLES: (1) name the SUBJECT (sb); (2) one emitter per slug; (3) -ing = ongoing state, swap/swapped = transition event; (4) where-we-are = Phase, where-we're-going = Action; (5) invoker (service vs install) = audit field, not slug.
+DESIGN SPIN-OUTS (discovered during the walkthrough — the conservative recovery model was a likely under-ratified agent assumption):
+- STATBUS-109: in-process backoff for transient recovery errors (exit-restart creates noise).
+- STATBUS-110: DB read-only window → rollback always data-safe → relaxes STATBUS-039 "never restore on a guess" → SIMPLIFIES the recovery tree. AUTHORITATIVE recovery-correctness plan; carries the King decision. THE recovery names depend on its outcome.
 
-CARRY-FORWARD (resolve at the recovery ACTIONS): reserve "resuming"/retry vocab for a GENUINE "starting again after a problem" detection (ground-truth-on-reentry, service.go:860) — not the normal hand-off.
+FINDINGS: liveness = flock not PID (install/state.go:5-8); the direct-PG path is ungated during the maintenance window (maintenance is HTTP-only) = the data-safety hole (STATBUS-110).
 
-DELIVERY (after table locks): apply docs → diagrams → code → logs, one site at a time; foreman commits pathspec-scoped; code/wire rename LAST.
+PRINCIPLES: name the subject (sb) · one emitter/slug · -ing=state, swap/swapped=event · where-we-are=Phase, where-we're-going=Action · invoker=audit field · name by STRATEGY (transient / known-recovery / human).
+
+REMAINING vocabulary sections: Recovery ACTIONS (continue-upgrade / complete-upgrade / roll-back — gated on the STATBUS-110 model decision) → Mechanisms & artifacts (upgrade-sentinel, flock, db-snapshot/backup/restore, stop-clients, restart-loop, heartbeat).
+
+DELIVERY: after each section locks, apply docs → diagrams → code → logs, one site at a time; foreman commits pathspec-scoped; code/wire rename LAST.
 <!-- SECTION:NOTES:END -->
