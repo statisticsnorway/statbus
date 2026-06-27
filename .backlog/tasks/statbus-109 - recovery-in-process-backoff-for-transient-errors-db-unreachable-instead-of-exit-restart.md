@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-24 12:21'
-updated_date: '2026-06-26 12:10'
+updated_date: '2026-06-27 06:26'
 labels:
   - upgrade
   - recovery
@@ -60,4 +60,6 @@ Changes safety-critical recovery behavior — prove via the install-recovery arc
 CORRECTION (King, 2026-06-24): git-shallow / target-not-in-clone is NOT 'fail loud immediately' — AC#2 superseded. A shallow clone CAN `git fetch --deepen` / `fetch <sha>` to acquire the missing commit. So it is an ACQUIRE-AND-RETRY case (bucket 1), the same shape as db-retry: acquire the missing dependency (db: wait/retry the connection; commit: fetch it), re-check, and escalate to a human ONLY on exhaustion (db never returns / fetch can't reach the remote). Unify the design as 'acquire-and-retry' strategies. The ONLY direct-to-human case is the truly-unnameable (unrecognized phase) — nothing to acquire. NB: git-shallow is a defensive EDGE (SSB deploys normally have complete clones), so the db case is the one that matters in practice.
 
 COMPOSITION with STATBUS-110 (2026-06-26): 109 (quiet in-process transient retry) + 110 (DB read-only window → rollback always data-safe) together REPLACE the conservative 'can't-verify → hold → human' branch. Target recovery model: transient → quiet retry (109); can't-go-forward → safe rollback (110); unnameable → human. 109's value stands alone (kills the exit-restart noise) AND composes into the simplified model. Sequence: 110's direction is ratified by the King first (it sets whether the hold-branch dissolves); 109 lands either way.
+
+ERROR-CLASSIFICATION FRAMEWORK (King-ratified 2026-06-27 — REPLACES the blind-retry-N idea). Don't retry an error you can't name. Classify each forward-step failure: (a) KNOWN-INTERMITTENT (curated list: DB blip, connection reset, container-not-ready) → backoff-retry (1s→30s, ~DB-restart window, IN-PROCESS, heartbeating); if it EXHAUSTS → no longer transient → roll back. (b) KNOWN-PERSISTENT (curated list: 'relation already exists', constraint violation, deterministic) → roll back, ZERO retries. (c) UNKNOWN (matches neither list) → STOP for a human (don't retry=might spin; don't roll back=might be wrong for an error we don't understand). DEFAULT = unknown→stop = SAFE-BY-DEFAULT. The LOAD-BEARING work = curating the two lists. No spin: only retry what's known-transient; a deterministic failure rolls back on first look; an unrecognized one stops. Full target model: doc-019. Composes with STATBUS-110 (read-only makes the rollback data-safe).
 <!-- SECTION:NOTES:END -->
