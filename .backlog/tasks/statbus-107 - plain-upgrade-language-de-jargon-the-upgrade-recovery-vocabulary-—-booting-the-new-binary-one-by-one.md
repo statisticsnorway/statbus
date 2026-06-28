@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-21 19:41'
-updated_date: '2026-06-26 14:16'
+updated_date: '2026-06-28 12:44'
 labels:
   - upgrade
   - recovery
@@ -115,4 +115,10 @@ RATIFIED (King): (1) CORRUPT-FLAG (recovery-discard-corrupt-flag) = DISCARD-AND-
 FINAL simplified recovery model (post read-only window): autonomous in every case EXCEPT TWO human terminals — (a) unexpected-state (can't READ the phase; a decision), (b) recovery-failed (rollback RESTORE broke; an action-failure).
 
 DIAGRAM DE-JARGON WORK (this task, target #6): draw the corrupt-flag case; promote git-Unknown + unrecognized-phase from prose footnotes to drawn branches; SPLIT the single failed/human blob into its two distinct reasons. + install-recovery:114 self-declares a test gap (pre-1.0 legacy-refuse path has no scenario).
+
+GLOSSARY — RECOVERY SECTIONS CRYSTALLISED (King, 2026-06-27); doc/upgrade-vocabulary.md now carries, ratified:
+• 'Recovery — when a step fails': `intermittent-error`/`persistent-error`/`unknown-error`; ONE `backoff-retry` strategy, two cases — `db-unreachable` (wall-clock-5s connect probe) + `commit-not-fetched` (STALL-not-deadline `git fetch`, ~60s no-progress, ~15min); container-not-ready EXCLUDED (own health loops); composition note (in front of systemd backstop; exhaust→roll-back; backstop=unknown only).
+• 'Recovery — the two human stops': `unknown` (unrecognised error OR unreadable phase) + `restore-broke` (rollback's restore broke→hands-on; operator UX agreed in principle — print error + snapshot-path + re-run `./sb install`; impl grounding pending).
+• Direction: the stale `state-unknown` ('continue forward, never destroy on a guess' — the OVERTURNED model) REPLACED by `position-unreadable` → routes to the error classifier.
+Full crystallised model also in doc-019 §3-§4. Recovery slug names now UN-HELD (the 110 model is ratified). STILL OPEN in 107: the Mechanisms & artifacts names (entry 1 = the on-disk marker, in review; architect lean `upgrade-marker`) + the 3-diagram de-jargon (target #6).
 <!-- SECTION:NOTES:END -->
