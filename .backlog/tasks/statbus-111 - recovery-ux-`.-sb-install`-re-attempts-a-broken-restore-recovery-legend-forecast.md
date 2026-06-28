@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-28 12:53'
+updated_date: '2026-06-28 13:19'
 labels:
   - upgrade
   - recovery
@@ -62,4 +63,11 @@ Safety-critical recovery path; prove via the install-recovery arcs (STATBUS-071)
 - [ ] #3 The failed-state message + the recovery-in-progress output show a state-relevant command LEGEND + a plain FORECAST; the headline action is always `./sb install`
 - [ ] #4 At the rolled_back terminal the output suggests the forward path TAILORED to cause — hard/persistent-error rollback → report + try a LATER release (not re-schedule the same version); exhausted-transient rollback → retry-when-healthy
 - [ ] #5 restoreDatabase replay is idempotent and verified safe to re-run from the retained snapshot (arc-proven)
+- [ ] #6 Liveness relies SOLELY on the flock; the stored PID + `pidAlive()` are removed (no load-bearing PID use remains); the live-upgrade refusal (and any operator message needing the holder) emits the hint `lsof tmp/upgrade-in-progress.json`
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PID / LIVENESS DECISION (King, 2026-06-28): liveness = the FLOCK ALONE. DROP the stored PID field + `pidAlive()` (today diagnostic-only, service.go ~:244-247). Rationale: a stored PID is a footgun — after a crash the OS can REUSE that number for an unrelated process, so a `pidAlive()` check can read a stranger as 'still running' → recovery wrongly refuses → box stuck. The flock has no such hole (OS frees it on holder death, reused PID or not). Instead of storing the holder, OUTPUT the hint `lsof tmp/upgrade-in-progress.json` in operator messages WHEN APPROPRIATE — primarily the live-upgrade refusal ('an upgrade is already running' → here's how to see which process). Composable: give the operator the command, don't bake the PID into the file. Code pass: grep + remove all PID/pidAlive uses; confirm none load-bearing.
+<!-- SECTION:NOTES:END -->
