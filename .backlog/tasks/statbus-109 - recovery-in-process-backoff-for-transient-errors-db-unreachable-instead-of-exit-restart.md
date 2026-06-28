@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-24 12:21'
-updated_date: '2026-06-27 06:26'
+updated_date: '2026-06-28 12:44'
 labels:
   - upgrade
   - recovery
@@ -48,10 +48,10 @@ Changes safety-critical recovery behavior — prove via the install-recovery arc
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Transient db-unreachable during recovery retries in-process with exponential backoff + max-N and does NOT exit the process within the budget — proven by an install-recovery arc that kills the db transiently mid-recovery
-- [ ] #2 git-shallow / target-not-in-clone fails loud immediately (does not thrash systemd restarts to the StartLimit cap)
-- [ ] #3 process-exit + systemd restart is reserved for genuinely unreconcilable recovery states (buckets 3 & 4), not transient ones
-- [ ] #4 systemd RestartSec/StartLimit values documented and shown to bound the worst case
+- [ ] #1 Intermittent recovery errors retry IN-PROCESS via `backoff-retry` (exhaust → roll-back), proven by an install-recovery arc that kills the DB transiently mid-recovery (db-unreachable)
+- [ ] #2 `commit-not-fetched` retries `git fetch` with backoff, aborting one attempt on a STALL (no-progress ~60s) — never a wall-clock deadline that would cancel a healthy in-progress transfer; exhaust → roll-back
+- [ ] #3 Two curated lists exist: known-intermittent → retry, known-persistent → roll-back; anything on neither is unknown → stop (safe-by-default, no blind retry counts)
+- [ ] #4 The in-process retry sits in front of the systemd-StartLimit backstop — an exhausted known transient rolls back (never falls through to restart-until-stuck); the systemd backstop is reached only for the unknown stop; systemd RestartSec/StartLimit documented
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -62,4 +62,17 @@ CORRECTION (King, 2026-06-24): git-shallow / target-not-in-clone is NOT 'fail lo
 COMPOSITION with STATBUS-110 (2026-06-26): 109 (quiet in-process transient retry) + 110 (DB read-only window → rollback always data-safe) together REPLACE the conservative 'can't-verify → hold → human' branch. Target recovery model: transient → quiet retry (109); can't-go-forward → safe rollback (110); unnameable → human. 109's value stands alone (kills the exit-restart noise) AND composes into the simplified model. Sequence: 110's direction is ratified by the King first (it sets whether the hold-branch dissolves); 109 lands either way.
 
 ERROR-CLASSIFICATION FRAMEWORK (King-ratified 2026-06-27 — REPLACES the blind-retry-N idea). Don't retry an error you can't name. Classify each forward-step failure: (a) KNOWN-INTERMITTENT (curated list: DB blip, connection reset, container-not-ready) → backoff-retry (1s→30s, ~DB-restart window, IN-PROCESS, heartbeating); if it EXHAUSTS → no longer transient → roll back. (b) KNOWN-PERSISTENT (curated list: 'relation already exists', constraint violation, deterministic) → roll back, ZERO retries. (c) UNKNOWN (matches neither list) → STOP for a human (don't retry=might spin; don't roll back=might be wrong for an error we don't understand). DEFAULT = unknown→stop = SAFE-BY-DEFAULT. The LOAD-BEARING work = curating the two lists. No spin: only retry what's known-transient; a deterministic failure rolls back on first look; an unrecognized one stops. Full target model: doc-019. Composes with STATBUS-110 (read-only makes the rollback data-safe).
+
+CRYSTALLISED (King, 2026-06-27) — final error-classification + backoff design, now in doc/upgrade-vocabulary.md ('Recovery — when a step fails') + doc-019 §3.
+
+ONE strategy `backoff-retry` (in-process, heartbeating); TWO intermittent cases, parameters + FAILURE-DETECTION tuned per probe:
+• `db-unreachable` — probe = connect + trivial query; per-try fails on wall-clock 5s (quick check, never a transfer); gap 1s→2s→4s→8s→16s→30s cap; ~5 min budget (~12 tries).
+• `commit-not-fetched` — probe = one `git fetch`; per-try fails on a STALL (no progress ~60s, git low-speed) — NOT a wall-clock deadline (King's correction: a deadline would cancel a healthy slow transfer); gap 10s→30s→60s; ~15 min overall budget.
+• container-not-ready / health checks (waitForDBHealth exec.go:1164, waitForRestReady exec.go:1397, health-RPC service.go:4809) ALREADY self-wait→rollback; NOT on this new path.
+
+CLASSES: intermittent→backoff-retry (exhaust→roll-back); persistent→roll-back (0 retries); unknown→stop for a human. Default unknown→stop (safe-by-default); load-bearing work = curating the 2 lists.
+
+COMPOSITION (mechanic-grounded vs code): the in-process backoff is NEW — today these exit→systemd@:1705; retryBackoff (service.go:84-93) is scoped to terminal-writes only. It sits IN FRONT of the systemd-StartLimit backstop: known-transient EXHAUST→roll back (data-safe via 110); the systemd backstop is reserved for the UNKNOWN stop only. An exhausted known transient must NEVER fall through to the old restart-until-stuck spin (the dissolved case-9).
+
+Numbers build/test-reconcilable (arcs, STATBUS-071); SHAPE (retry-with-backoff, stall-not-deadline for transfers, exhaust→roll-back, unknown→stop) is fixed. Grounding: tmp/mechanic-transient-errors.md. Build gated on King's GO + arcs.
 <!-- SECTION:NOTES:END -->
