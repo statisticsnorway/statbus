@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-29 09:44'
-updated_date: '2026-06-29 10:14'
+updated_date: '2026-06-29 10:24'
 labels:
   - backup
   - ops
@@ -52,11 +52,11 @@ On a deployed box: the timer fires, a dump lands in dbdumps/, purge enforces N. 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 On a STANDALONE install, `./sb install` AUTOMATICALLY installs a USER systemd timer + service in ~/.config/systemd/user/ (owned by `statbus`, sibling of statbus-upgrade.service) — runs as the user, fires unattended (linger already enabled), no manual step
-- [ ] #2 The scheduled job runs `./sb db dump` then `./sb db dumps purge N`; retention keeps a bounded set and old dumps are removed
-- [ ] #3 Verified on a standalone box: the timer fires UNATTENDED (no login required), a dump lands in dbdumps/, purge enforces N
-- [ ] #4 doc/DEPLOYMENT.md documents the built-in standalone backup; the doc/CLOUD.md crontab recommendation is reconciled with what's implemented
-- [ ] #5 The scheduled `./sb db dump` is UPGRADE-AWARE: it checks the upgrade-in-progress flock (IsFlockHeld, install/state.go) and SKIPS/defers if an upgrade is mid-flight (no collision with migrations / DB-stop / rollback); the skipped run is logged and the next scheduled run catches up
+- [ ] #1 The upgrade service runs the regular backup on a schedule via a small IN-PROCESS periodic runner — no separate systemd timer, cron entry, or external scheduler; nothing extra to install (the service is already installed)
+- [ ] #2 Each run executes `./sb db dump` (pg_dump -Fc) then `./sb db dumps purge N`; retention keeps a bounded set, old dumps removed
+- [ ] #3 Coordination is IN-PROCESS: the service never runs a backup while an upgrade is in progress and never starts an upgrade while a backup runs (sequenced in one process; no cross-process lock); a run missed during downtime catches up on startup if overdue
+- [ ] #4 Verified on a standalone box: backups run unattended on cadence, are skipped during an upgrade, catch up after downtime, and purge enforces N
+- [ ] #5 doc/DEPLOYMENT.md documents the built-in standalone backup; the doc/CLOUD.md crontab recommendation is reconciled / removed
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -85,4 +85,16 @@ Option C — in-service scheduler (the upgrade daemon owns backup scheduling):
 SYNTHESIS (recommended) — get C's coordination WITHOUT C's coupling: keep the INDEPENDENT user systemd timer for SCHEDULING, put the COORDINATION in the existing upgrade lock. `./sb db dump` checks the upgrade-in-progress flock (IsFlockHeld, install/state.go:172); if an upgrade holds it → SKIP this run (the upgrade takes its own snapshot, nothing lost; next run catches up). Two-way safe via the shared lock. The backup keeps running even when the service is down.
 
 DECISION (rec, pending King): HYBRID — independent user timer + upgrade-aware dump (flock check). NOT in-service scheduling (coupling cost). Open: King may still prefer scheduling inside the service for unified control.
+
+RECOMMENDATION FLIPPED → ONE SERVICE IN CHARGE (King-driven, 2026-06-29). King pushed for radical simplicity; on reflection the hybrid's extra machinery (a separate user systemd timer + cross-process flock coordination) is unnecessary.
+
+SIMPLEST design: the upgrade service (already an always-on user daemon) owns the backup via a small IN-PROCESS periodic runner. Coordination becomes trivial AND stronger — the same process that runs upgrades sequences backup-vs-upgrade in-process (never concurrent), so NO flock dance. Catch-up = run-if-overdue on startup. Logging = the service's existing journald. Install plumbing = NONE (the service is already installed; no new timer/cron unit).
+
+Even 'cron signals the service' is more parts than needed — IPC for no gain, and a service-down still blocks the work — so an in-process timer beats cron+signal.
+
+TRADEOFF (accepted for standalone): backups pause if the SERVICE is down — mitigated by manual `./sb db dump`, the service being the always-on core we're hardening (the recovery model this session), and ≤1-backup loss at a daily cadence.
+
+Scheduler: a tiny home-grown periodic runner suffices ('daily' needs no cron-expression generality); a small lib (robfig/cron) only if config flexibility is wanted — build-detail, King to pick.
+
+This SUPERSEDES the user-systemd-timer mechanism + the flock-coordination AC above.
 <!-- SECTION:NOTES:END -->
