@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-29 09:44'
-updated_date: '2026-06-29 10:24'
+updated_date: '2026-06-29 11:55'
 labels:
   - backup
   - ops
@@ -27,27 +27,25 @@ ordinal: 113000
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 ## Why
-King wants regular logical backups running in the background (2026-06-29). VERIFIED (mechanic + foreman; tmp/mechanic-backup-restore.md): NOTHING schedules `pg_dump` today.
-- The two `OnCalendar` timers (ops/setup-ubuntu-lts-24.sh:672 @01:00, :680 @03:00) are `apt-daily` / `apt-daily-upgrade` overrides (OS unattended-upgrades), NOT DB backups — red herring, ruled out.
-- The only `*.timer` is `statbus-upgrade-liveness@.timer` (liveness, not backup).
-- Scheduled GH workflows are image/docker/log maintenance — none dump the DB.
-- doc/CLOUD.md:548 "Add to root crontab" is a DOC RECOMMENDATION, never implemented.
-- Every `pg_dump` / `./sb db dump` caller is manual CLI (cli/cmd/db.go:261/:335), seed gen (dev.sh), or the test harness.
+King wants regular logical backups running in the background (2026-06-29). VERIFIED (mechanic + foreman; tmp/mechanic-backup-restore.md): NOTHING schedules `pg_dump` today — the two nightly OnCalendar timers are apt OS-updates (red herring), the only *.timer is upgrade-liveness, scheduled GH workflows are image/docker/log maintenance, and doc/CLOUD.md:548's crontab line is an unimplemented recommendation. Every dump caller is manual CLI / dev / test. So there is NO automated logical backup — a real data-safety gap for a production registry, and it blocks removing the forensics tar (STATBUS-112): today the only DB copies are the transient per-upgrade rsync snapshot (overwritten each run) + ad-hoc manual dumps.
 
-So there is NO automated logical backup — a real data-safety gap for a production registry, and it blocks removing the forensics tar (STATBUS-112): today the only DB copies are the transient per-upgrade rsync snapshot (overwritten each run) + ad-hoc manual dumps.
+## What (final design — King-ratified 2026-06-29)
+The upgrade service (already an always-on USER daemon, ops/statbus-upgrade.service) OWNS the regular logical backup via a small IN-PROCESS periodic runner. No separate systemd timer, cron, or IPC; nothing extra to install (the service is already installed). Runs as user `statbus`, on standalone installs (the SSB cloud is de-scoped — SSB-managed).
+- Daily (configurable): `./sb db dump` (pg_dump -Fc → dbdumps/) then `./sb db dumps purge N`.
+- Coordination with upgrades is IN-PROCESS (one service sequences a backup vs its own upgrade) + a flock check so it also defers to an install-CLI-driven upgrade. Dumps are atomic, so any rare preemption is harmless.
+- Catch-up: on startup, if the last dump is older than the interval, run now.
+Full step-by-step in the Implementation Plan.
 
-## What (recommended design)
-- A scheduled job: `./sb db dump` (pg_dump -Fc → dbdumps/) then `./sb db dumps purge N` (purge tooling already exists per AGENTS.md).
-- Mechanism: a systemd TEMPLATE timer per deployment slot (mirroring `statbus-upgrade-liveness@.timer`) so it covers multi-tenant (niue, per-slot DBs) AND standalone (rune). Implements the doc/CLOUD.md:548 recommendation in code, not prose.
-- Cadence: daily, off the 01:00/03:00 apt windows (propose 23:00). Tune per ops.
-- Retention: keep N (propose 7) via `./sb db dumps purge`. Tune.
-- Consider shipping dumps off-box (an on-box dump survives app failure but not disk loss) — flag for ops; local retention at minimum.
+## Config (.env.config)
+- `BACKUP_ENABLED` (default true on standalone; lets the cloud / an operator with their own backups opt out)
+- `BACKUP_INTERVAL` (default 24h)
+- `BACKUP_RETENTION_COUNT` (default 7 → `db dumps purge 7`)
 
-## Open question (King / ops)
-Do infra-level backups (e.g. Hetzner volume snapshots) already exist OUTSIDE the repo? If yes, this logical schedule is defense-in-depth; if no, it's the ONLY automated backup (higher stakes). Not resolvable from the repo — needs the King/ops to confirm.
+## Tradeoff (accepted, standalone)
+Backups pause if the SERVICE is down — mitigated by manual `./sb db dump`, the service being the hardened always-on core (the recovery model this session), and ≤1-backup loss at a daily cadence.
 
-## Verify
-On a deployed box: the timer fires, a dump lands in dbdumps/, purge enforces N. Deploy-tested (per-slot infra).
+## Open (King / ops)
+Do infra-level backups (e.g. Hetzner snapshots) exist OUTSIDE the repo for the cloud? Standalone has none → this IS the backup. Off-box copy (disk-loss safety) = future enhancement; v1 is local retention. Blocks STATBUS-112 (forensics-tar removal) until this lands.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
@@ -58,6 +56,49 @@ On a deployed box: the timer fires, a dump lands in dbdumps/, purge enforces N. 
 - [ ] #4 Verified on a standalone box: backups run unattended on cadence, are skipped during an upgrade, catch up after downtime, and purge enforces N
 - [ ] #5 doc/DEPLOYMENT.md documents the built-in standalone backup; the doc/CLOUD.md crontab recommendation is reconciled / removed
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+## Implementation plan (architect, 2026-06-29) — get it right; survey before building
+
+### 0. SURVEY FIRST (don't duplicate; reverse half-done bits)
+- The service main loop: how `Service.Run` (cli/internal/upgrade/service.go) is structured — where a periodic task hooks in (an existing select/poll loop vs a new goroutine).
+- The dump/purge code: `./sb db dump` (cli/cmd/db.go:261) + `db dumps purge` — is the core callable in-process? Is the dump ATOMIC (tmp→rename) and non-interactive (headless-safe)?
+- Any partial backup-scheduling (the doc/CLOUD.md:548 crontab note is prose-only; confirm nothing half-built elsewhere). Reuse solid parts; remove conflicting WIP.
+
+### 1. Reuse the dump/purge core
+- PREFER extracting the dump + purge logic into in-process functions the service calls directly (cleaner than re-exec). Shelling to `./sb db dump` is an acceptable fallback.
+- ENSURE the dump is ATOMIC: write to `*.tmp` → rename on success, so a failed/preempted dump never leaves a partial/corrupt file. (Load-bearing for coordination — see §3.)
+
+### 2. In-process periodic runner (in the service)
+- Cadence from `BACKUP_INTERVAL` (default 24h).
+- "Last backup time" = newest file in dbdumps/ — the artifacts ARE the state; no new persistence needed. Due when newest > interval old (or none exist).
+- On service start AND each tick: if due and not skipped (§3), run dump → purge. The startup check IS the missed-run catch-up (covers downtime).
+- Mechanism: a dedicated goroutine with a timer, or folded into the main select loop — build's choice. A tiny home-grown runner is enough; a small lib (robfig/cron) only if cron-expression config is later wanted.
+
+### 3. Coordination — a backup must NEVER collide with an upgrade
+- Upgrades come from TWO sources, both holding the upgrade flock: the service itself (executeScheduled) and `./sb install` inline (separate process).
+- Backup BEFORE running: check `IsFlockHeld` (cli/internal/install/state.go:172) on tmp/upgrade-in-progress.json → if held (any upgrade, either source) → SKIP this run, log it, next tick catches up. (flock check works intra-process too — a 2nd fd's LOCK_NB fails when the same process holds it.)
+- Service-internal: the service must not start its OWN upgrade while its backup goroutine runs, and vice versa — guard with an in-process mutex; upgrade has priority.
+- Reverse edge (install starts an upgrade mid-backup): handled by dump ATOMICITY (the partial tmp is discarded; backup retries next tick). Optional hardening ONLY if the edge proves real in arcs: a dedicated db-busy lock both upgrade + backup respect. Do NOT add it pre-emptively (keep it simple).
+
+### 4. Config (cli/internal/config + .env.config)
+- `BACKUP_ENABLED` (default true on standalone), `BACKUP_INTERVAL` (24h), `BACKUP_RETENTION_COUNT` (7). Surface via `./sb config show`. Cloud can set BACKUP_ENABLED=false (de-scoped).
+
+### 5. Observability + failure handling
+- Log each attempt via the service's existing journald: started / completed (size + duration) / skipped (upgrade in flight) / failed (error).
+- Notify via the existing Slack/callback on REPEATED failures (not every success).
+- A backup failure must NEVER crash the service (catch + log + retry next tick). Optional: a disk-space pre-check → skip + warn if low.
+
+### 6. Docs
+- doc/DEPLOYMENT.md: document the built-in standalone backup — cadence, retention, where dumps land, how to restore one, how to tune/disable.
+- doc/CLOUD.md: remove/reconcile the stale crontab recommendation (:548).
+- doc/upgrade-vocabulary.md: `db-dump` already added.
+
+### 7. Verify (arc-tested — STATBUS-071; the run is the only oracle)
+- Backup runs on cadence unattended; SKIPS during an upgrade (service- AND install-driven); catches up after downtime; purge keeps N; atomic on failure; a backup failure does not crash the service. Prove the upgrade-coordination on a real VM, not by reasoning.
+<!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
