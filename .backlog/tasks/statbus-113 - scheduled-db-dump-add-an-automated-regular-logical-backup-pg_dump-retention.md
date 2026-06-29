@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-29 09:44'
+updated_date: '2026-06-29 09:55'
 labels:
   - backup
   - ops
@@ -51,8 +52,20 @@ On a deployed box: the timer fires, a dump lands in dbdumps/, purge enforces N. 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 An automated schedule runs `./sb db dump` on a cadence on each deployment (multi-tenant per-slot + standalone) with no manual action
-- [ ] #2 Retention/purge keeps a bounded set via `./sb db dumps purge N`; old dumps are removed
-- [ ] #3 Verified on a deployed box: the timer fires, a dump lands in dbdumps/, purge enforces N
-- [ ] #4 doc/CLOUD.md updated — the crontab recommendation replaced by the implemented mechanism
+- [ ] #1 On a STANDALONE install, the install flow AUTOMATICALLY sets up the backup schedule running AS THE LOCAL USER, no manual step (mechanism: a system timer with `User=<localuser>`, or a user crontab)
+- [ ] #2 The scheduled job runs `./sb db dump` then `./sb db dumps purge N`; retention keeps a bounded set and old dumps are removed
+- [ ] #3 Verified on a standalone box: the schedule fires UNATTENDED (no login required), a dump lands in dbdumps/, purge enforces N
+- [ ] #4 doc/DEPLOYMENT.md documents the built-in standalone backup; the doc/CLOUD.md crontab recommendation is reconciled with what's implemented
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+SCOPE REFINEMENT (King, 2026-06-29) — SUPERSEDES the per-slot multi-tenant framing above. TARGET = STANDALONE installs (external customers); the SSB cloud is de-scoped (SSB-managed / infra-handled — King: 'it doesn't matter if our cloud box does it or doesn't'). The feature is BUILT INTO the standalone install and runs AS THE LOCAL USER (dumps owned by that user). On standalone there is no other backup, so this scheduled dump IS the backup → data-safety-critical for every external customer.
+
+MECHANISM (open, King): 
+- LEAN: a SYSTEM systemd timer with `User=<localuser>` — runs as the user, no `enable-linger` needed (system units fire unattended), journald logging + `Persistent=` missed-run catch-up, consistent with the existing upgrade units.
+- FALLBACK: a USER crontab — simplest, runs as the user, no linger, universal; weaker logging, no catch-up.
+- DISFAVORED: a *user* systemd timer (`systemctl --user`) — needs `enable-linger` (a root step) to run without an active login.
+Settle crontab-vs-systemd by how the standalone install already sets up its systemd units + whether setup runs as root (grounding in flight).
+<!-- SECTION:NOTES:END -->
