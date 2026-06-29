@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-29 09:44'
-updated_date: '2026-06-29 14:55'
+updated_date: '2026-06-29 15:35'
 labels:
   - backup
   - ops
@@ -141,4 +141,8 @@ This SUPERSEDES the user-systemd-timer mechanism + the flock-coordination AC abo
 SURVEY DONE + PLAN FINALIZED (2026-06-29; tmp/mechanic-backup-survey.md, foreman-verified Q1/Q2/Q7). The Implementation Plan above is now DEFINITIVE — every prior 'prefer/or/if' resolved to a decision with file:line. Key resolutions: CLEAN SLATE (no WIP to reverse); hook = one select-case in Service.Run (:1770) running the backup in a GOROUTINE (heartbeat-safety — a sync handler could exceed the 120s watchdog); extract+harden two cores (dumpDatabase → atomic .tmp→rename; purgeDumps → headless, drop confirmAction); config mirrors UPGRADE_CHECK_INTERVAL's 4 points; coordination = d.upgrading || IsFlockHeld(d.projDir) (in-package, service.go:725); log via fmt.Printf/journald + reuse runCallback on failure. Ready for build on the King's GO.
 
 DESIGN CALL — dump/purge core HOME = a NEW neutral package `internal/dbdump` (architect, 2026-06-29; engineer-flagged, foreman-verified). IMPORT-CYCLE: `cmd` imports `internal/upgrade` (10 files); `upgrade` imports `cmd` in ZERO — so the cores CANNOT stay in `cmd` (the service calling them would cycle). CORRECTS plan §1 ('extract from cmd/db.go → reusable funcs'): instead, land them in **`internal/dbdump`**, exported `DumpDatabase`/`PurgeDumps`, imported by BOTH cmd (cobra cmds) and upgrade (the service) — no cycle. Chosen over (A) cores-in-`upgrade`: a logical pg_dump is a GENERAL DB op (callers = manual/dev/test, not upgrade), so B keeps it composable/separable (King's principle) vs baking a generic op into the upgrade package. (C) shell-out OUT (contradicts in-process, loses typed errors). Physical snapshot ops backupDatabase/restoreDatabase STAY in `upgrade` (upgrade-specific). Helpers loadDbName/dumpTimestamp/ensureDumpsDir move to dbdump; humanSize stays in cmd (9 callers). FIXES the AC#2-vs-step-3 contradiction — it's IN-PROCESS (`dbdump.DumpDatabase`), NOT shell-out. King NOT looped: internal layering, principle-resolved, his diagram-focus protected; recorded here for transparency.
+
+HELPER CORRECTION (architect, 2026-06-29) — REVERSES the earlier 'helpers move to dbdump'. The helpers loadDbName/dumpTimestamp/ensureDumpsDir have 5 callers OUTSIDE dump/purge (restore db.go:605/837, download :323/328, seed.go:208) that the survey didn't flag. So DUPLICATE, don't move: dbdump gets its own unexported copies; cmd keeps its own. A literal move would force restore/download/seed to import `dbdump` just to read a db name — the same mislocation smell we avoided for the cores; tiny env-readers, duplication is cheap + matches the repo's existing loadDbName/loadSeedDbName near-dup (db.go:114/129).
+
+ALSO blessed (foreman-reviewed, go build + full go test green): (a) the due-check is intentionally TOLERANT (newest >= 0.9*interval), not strict — a strict >=interval vs a ticker firing every interval skips every other tick on jitter and halves the cadence; (b) `DumpsToPurge` (pure selector for cmd's preview) is split from `PurgeDumps` (headless delete for the service). 113 ready to commit; 112 next.
 <!-- SECTION:NOTES:END -->
