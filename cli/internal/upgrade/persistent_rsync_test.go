@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -195,6 +196,77 @@ func TestPrepareSnapshot_MovesActiveAside(t *testing.T) {
 	if _, err := os.Stat(active); !os.IsNotExist(err) {
 		t.Errorf("active must be GONE after the aside-rename (consumed into syncing); stat err=%v", err)
 	}
+}
+
+// TestPrepareSnapshot_ReusesBaseInodeNotRecopy is the STATBUS-114 reuse-invariant
+// guard. TestPrepareSnapshot_MovesActiveAside above only checks that the base's
+// CONTENT carries into syncing — which a copy-then-delete refactor would also
+// satisfy while silently full-copying the whole volume. This pins the stronger
+// property the incremental speedup actually rests on: the active→syncing move is
+// a RENAME of the SAME on-disk object, so inode AND mtime are preserved. A local
+// `rsync -a --delete` defaults to --whole-file (block delta OFF), so its only
+// speedup is skipping files whose size+mtime match — which works only if the base
+// dir IS the prior dir, mtimes intact. If a refactor swapped the rename for
+// rm+mkdir or copy-then-delete (new inode, possibly fresh mtime), every big-DB
+// backup would full-copy; this test goes red on that change.
+func TestPrepareSnapshot_ReusesBaseInodeNotRecopy(t *testing.T) {
+	root := scopedBackupRoot(t)
+	active := makeBackupDir(t, root, backupActiveName)
+	marker := filepath.Join(active, "base-marker")
+	if err := os.WriteFile(marker, []byte("incremental-base"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	// Age the marker so a wipe-and-recreate (fresh mtime) is detectable even if
+	// inode reuse happened to collide.
+	aged := time.Now().Add(-72 * time.Hour).Truncate(time.Second)
+	if err := os.Chtimes(marker, aged, aged); err != nil {
+		t.Fatal(err)
+	}
+	wantIno, ok := inodeOf(t, marker)
+	if !ok {
+		t.Skip("inode unavailable on this platform; mtime/content guards cover the rest")
+	}
+
+	d := &Service{}
+	got, err := d.prepareBackupSnapshotDir(nil)
+	if err != nil {
+		t.Fatalf("prepareBackupSnapshotDir: %v", err)
+	}
+
+	syncingMarker := filepath.Join(got, "base-marker")
+	fi, err := os.Stat(syncingMarker)
+	if err != nil {
+		t.Fatalf("base marker must carry into syncing (the reused incremental base); got %v — "+
+			"a rm+mkdir refactor would leave it absent and full-copy every run", err)
+	}
+	gotIno, _ := inodeOfInfo(fi)
+	if gotIno != wantIno {
+		t.Errorf("active→syncing must be a RENAME (inode preserved) so rsync reuses the base; "+
+			"inode changed %d→%d — a wipe-and-recreate/copy-then-delete makes every big-DB backup full-copy", wantIno, gotIno)
+	}
+	if !fi.ModTime().Equal(aged) {
+		t.Errorf("rename must preserve mtime (rsync skips unchanged files by size+mtime); mtime changed %v→%v", aged, fi.ModTime())
+	}
+}
+
+// inodeOf returns the inode number of path, or ok=false if the platform does not
+// expose one (non-Unix). Used by the snapshot reuse-invariant guard to prove the
+// active→syncing transition is a rename, not a recopy.
+func inodeOf(t *testing.T, path string) (uint64, bool) {
+	t.Helper()
+	fi, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat %s: %v", path, err)
+	}
+	return inodeOfInfo(fi)
+}
+
+func inodeOfInfo(fi os.FileInfo) (uint64, bool) {
+	st, ok := fi.Sys().(*syscall.Stat_t)
+	if !ok {
+		return 0, false
+	}
+	return uint64(st.Ino), true
 }
 
 // TestPrepareSnapshot_ResumesIntoLeftoverSyncing: a killed run's leftover syncing

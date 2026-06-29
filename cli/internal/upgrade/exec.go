@@ -425,6 +425,17 @@ func (d *Service) prepareBackupSnapshotDir(progress *ProgressLog) (string, error
 				"inspect %s manually — refusing to guess or delete",
 			backupActiveName, backupSyncingName, root)
 	case activeExists:
+		// INVARIANT (STATBUS-114): active→syncing MUST stay a RENAME — never
+		// rm+mkdir, and never copy-then-delete. The rename moves the SAME
+		// on-disk dir aside with its files' content AND mtimes intact, so the
+		// next `rsync -a --delete` (step 2) reuses syncing as the incremental
+		// base. That rsync is a LOCAL transfer → rsync defaults to --whole-file
+		// (block-level delta OFF), so its ONLY speedup is the quick-check that
+		// skips files whose size+mtime already match the source. Replace this
+		// rename with delete+recreate (or any recopy that resets inode/mtime)
+		// and the base is effectively empty every run → EVERY big-DB backup
+		// full-copies the whole Postgres volume (minutes → hours on large
+		// installs). The unit guard is TestPrepareSnapshot_ReusesBaseInodeNotRecopy.
 		if err := os.Rename(activeDir, syncingDir); err != nil {
 			return "", fmt.Errorf("move backup base aside (%s -> %s): %w", backupActiveName, backupSyncingName, err)
 		}
