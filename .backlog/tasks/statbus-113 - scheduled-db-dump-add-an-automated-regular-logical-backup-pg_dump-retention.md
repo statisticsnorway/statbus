@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-29 09:44'
-updated_date: '2026-06-29 10:04'
+updated_date: '2026-06-29 10:14'
 labels:
   - backup
   - ops
@@ -56,6 +56,7 @@ On a deployed box: the timer fires, a dump lands in dbdumps/, purge enforces N. 
 - [ ] #2 The scheduled job runs `./sb db dump` then `./sb db dumps purge N`; retention keeps a bounded set and old dumps are removed
 - [ ] #3 Verified on a standalone box: the timer fires UNATTENDED (no login required), a dump lands in dbdumps/, purge enforces N
 - [ ] #4 doc/DEPLOYMENT.md documents the built-in standalone backup; the doc/CLOUD.md crontab recommendation is reconciled with what's implemented
+- [ ] #5 The scheduled `./sb db dump` is UPGRADE-AWARE: it checks the upgrade-in-progress flock (IsFlockHeld, install/state.go) and SKIPS/defers if an upgrade is mid-flight (no collision with migrations / DB-stop / rollback); the skipped run is logged and the next scheduled run catches up
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -74,4 +75,14 @@ MECHANISM SETTLED (grounded 2026-06-29; tmp/operator-standalone-systemd.md, fore
 So the backup = a USER `.timer` + `.service` pair in ~/.config/systemd/user/, owned by `statbus`, installed by `./sb install` (same path as statbus-upgrade), managed via `systemctl --user`. Linger already enabled → fires without login. 
 
 This SUPERSEDES the open crontab-vs-systemd question: NOT a system timer with `User=` (the box uses user units), NOT a crontab — a user timer is the consistent, lowest-friction fit. (The earlier 'user systemd needs enable-linger' caveat is moot: linger is already on.) Install code lives at cli/cmd/install.go.
+
+THIRD OPTION CONSIDERED (King, 2026-06-29) + SYNTHESIS. King raised: have OUR service run the backup, for control over how it interacts with upgrades. The real requirement this surfaces: the backup must not COLLIDE with an upgrade (a pg_dump firing mid-migration / during the DB-stop).
+
+Option C — in-service scheduler (the upgrade daemon owns backup scheduling):
+- PROS: knows the upgrade state → can sequence/skip cleanly; one place for all scheduled DB work; unified status/observability (same logs/Slack); scheduler-agnostic.
+- CONS: COUPLES backup reliability to the service being up — if the service is crashed/stopped/wedged (exactly when you most want a backup), backups stop too (a safety net should be MORE reliable than what it protects); reinvents scheduling + missed-run catch-up that systemd gives free; broadens the upgrade service's responsibility.
+
+SYNTHESIS (recommended) — get C's coordination WITHOUT C's coupling: keep the INDEPENDENT user systemd timer for SCHEDULING, put the COORDINATION in the existing upgrade lock. `./sb db dump` checks the upgrade-in-progress flock (IsFlockHeld, install/state.go:172); if an upgrade holds it → SKIP this run (the upgrade takes its own snapshot, nothing lost; next run catches up). Two-way safe via the shared lock. The backup keeps running even when the service is down.
+
+DECISION (rec, pending King): HYBRID — independent user timer + upgrade-aware dump (flock check). NOT in-service scheduling (coupling cost). Open: King may still prefer scheduling inside the service for unified control.
 <!-- SECTION:NOTES:END -->
