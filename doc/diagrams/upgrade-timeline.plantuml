@@ -142,7 +142,7 @@ alt **new-sb-swapped** marker (stored: post_swap) — the PLANNED exit-42 handof
         service -> db : start DB + wait health + reconnect
         service -> db : ./sb migrate up (no-op normally — boot-migrate above did the work;\nbounded retry executor on the STATBUS-017 fall-through)
         service -> service : start app services + health check
-        service -> db : maintenance off + archive backup
+        service -> db : maintenance off
     end
 else **old-sb-upgrading** marker (stored: "") — died BEFORE the binary swap
     service -> db : recoveryRollback -> roll back (§ roll-back)\nrestore no-ops: old-sb-upgrading carries an empty backup path
@@ -230,12 +230,6 @@ note over service, db #FFF9C4
   TEST 3-postswap-watchdog-reconnect: a slow-but-advancing DB reconnect is kept alive by the
     deferGating WATCHDOG=1 ticker — systemd does NOT falsely reap it; a true >5-min hang is reaped
     by connect()'s own 5-min ctx (via d.reconnect()), not the watchdog.
-  TEST 3-postswap-archivebackup-watchdog: on the SCHEDULED path (already active-phase) the ticker
-    SCOPE covers archiveBackup — a multi-minute tar is not falsely reaped.
-  TEST 3-postswap-archivebackup-resume — DELETED (STATBUS-099): SUBSUMED by 3-postswap-archivebackup-watchdog
-    (same stall site, exec.go:1050). The archiveBackup stall is hit on the FIRST upgrade's active phase;
-    the exit-42 RESUME self-heals to completed (resumePostSwap canary) before reaching it, so the resume
-    variant tested an unreachable state. The real active-phase ticker cover is exercised by archivebackup-watchdog.
 end note
 note over service, db #E8F5E9
   INVARIANT — lost-stamp window (re-derive from cells (2)/(e) above):
