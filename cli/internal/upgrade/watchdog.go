@@ -28,13 +28,12 @@ import (
 // for the SCHEDULED path. The exit-42 RESUME path reached applyPostSwap from
 // recoverFromFlag DURING Service.Run startup — before READY=1 — so it ran in
 // the START phase under TimeoutStartSec, a fixed budget that can't bound
-// DB-size-scaled work; a 32 GB archiveBackup blew it and wedged NO/rune in a
+// DB-size-scaled work, which blew the budget and wedged NO/rune in a
 // restart loop (~40 h). The fix (plan piece #2, B1) moves READY=1 + LISTEN to
 // BEFORE recoverFromFlag, so the resume now ALSO runs in the ACTIVE phase —
-// making "applyPostSwap always runs active-phase" universally true. (Plan
-// piece #4 reorders archiveBackup after the terminal UPDATE, and FIX A landed
-// that already; #2 makes the WHOLE resume active-phase, not just the
-// post-completion tail.) The EXTEND_TIMEOUT_USEC deletion stays correct: the
+// making "applyPostSwap always runs active-phase" universally true (#2 makes
+// the WHOLE resume active-phase, not just the post-completion tail). The
+// EXTEND_TIMEOUT_USEC deletion stays correct: the
 // active phase needs only WATCHDOG=1, never the start-phase extender.
 //
 // What active-phase BUYS today vs. what's still coming: post-#2, WatchdogSec
@@ -162,8 +161,8 @@ const MigrateUpTimeout = 30 * time.Minute
 //
 // This collapses the prior TWO unconditional tickers (the reconnect-scoped one
 // and the applyPostSwap-remainder one, both blind 30 s timers) into one
-// progress-gated loop covering reconnect → migrate → step 11 → step 12 →
-// archiveBackup. The collapse is also a fix: an unconditional ticker is itself
+// progress-gated loop covering reconnect → migrate → step 11 → step 12. The
+// collapse is also a fix: an unconditional ticker is itself
 // a blind-watchdog hole — a step hung INSIDE the ticker's scope (e.g. a wedged
 // d.reconnect) would ping forever and never let WatchdogSec fire. Gating closes
 // that hole: a hung step stops advancing lastAdvanceAt, the gate goes false,

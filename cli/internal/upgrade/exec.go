@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -290,8 +289,7 @@ func (d *Service) dbVolumeName() string {
 // #12) the rsync snapshot is a SINGLE persistent dir committed by atomic rename
 // (backupActiveName ↔ backupSyncingName); legacy per-stamp pre-upgrade-<stamp>
 // dirs from before the migration may still be present and are reaped by the
-// reconcile orphan pass. The per-version archive tars (<version>-pre.tar.gz)
-// also live here and carry the per-upgrade history.
+// reconcile orphan pass.
 func (d *Service) backupRoot() string {
 	return filepath.Join(os.Getenv("HOME"), "statbus-backups")
 }
@@ -790,8 +788,7 @@ func (d *Service) restoreDatabase(progress *ProgressLog, backupPath string) erro
 // (reconcileBackupDir owns them), and since CHANGE 2 (task #12) the two MANAGED
 // dirs (active/syncing) are excluded too — there is only ever one persistent
 // active snapshot (no collection to trim), and it must never be pruned. This
-// function now only reaps leftover per-stamp dirs during the migration window;
-// per-upgrade history lives in the archive tars (pruneArchives keeps N).
+// function now only reaps leftover per-stamp dirs during the migration window.
 //
 // Must be called with an active d.queryConn (i.e. from the service tick, not from
 // within executeUpgrade where the DB is closed).
@@ -982,193 +979,6 @@ func (d *Service) pruneUpgradeLogs(keep int) {
 	}
 	if len(toPrune) > 0 {
 		log.Printf("Pruned %d upgrade log(s), keeping %d newest", len(toPrune), keep)
-	}
-}
-
-// tarSupportsCheckpoint reports whether the given `tar --version` output is GNU
-// tar, which supports --checkpoint / --checkpoint-action (used by archiveBackup
-// to feed the #3 progress-gated watchdog). BSD/libarchive tar (the macOS dev
-// default) does NOT — passing --checkpoint to it errors on an unknown flag. We
-// capability-gate on this rather than on GOOS or NOTIFY_SOCKET: the same tar
-// command shape runs everywhere; only the checkpoint flags are appended when
-// the host tar is GNU. On a bsdtar host the tar runs without checkpoints, which
-// is harmless (those hosts — macOS dev — have no systemd WatchdogSec to feed).
-func tarSupportsCheckpoint(versionOutput string) bool {
-	// GNU tar's first line is `tar (GNU tar) <version>`; bsdtar prints
-	// `bsdtar <v> - libarchive <v>`. Match the unambiguous GNU marker.
-	return strings.Contains(versionOutput, "GNU tar")
-}
-
-// hostTarCheckpointOnce caches the one-time `tar --version` probe so archiveBackup
-// (called once per upgrade, but the probe shouldn't re-run on retries) pays the
-// fork cost at most once per process.
-var (
-	hostTarCheckpointOnce sync.Once
-	hostTarCheckpointOK   bool
-)
-
-// hostTarSupportsCheckpoint probes the host tar ONCE and reports whether it is
-// GNU tar (supports --checkpoint). A probe failure (tar missing, error) is
-// treated as "no checkpoint support" — fail safe: archiveBackup then runs a
-// plain tar (the pre-#11 behaviour), never passing a flag that would error.
-func hostTarSupportsCheckpoint(dir string) bool {
-	hostTarCheckpointOnce.Do(func() {
-		out, err := runCommandOutput(dir, "tar", "--version")
-		if err != nil {
-			hostTarCheckpointOK = false
-			return
-		}
-		hostTarCheckpointOK = tarSupportsCheckpoint(out)
-	})
-	return hostTarCheckpointOK
-}
-
-// archiveBackupTimeout is the generous outer ceiling on the archive tar (task
-// #11). The real liveness bound on a HUNG tar is the #3 progress-gated watchdog
-// (fed by --checkpoint output); this timeout only guarantees the call can't hang
-// a goroutine forever. The archive is post-FIX-A forensics (row already
-// completed, flag removed), so a timeout-kill is harmless — sized to fit a real
-// 35 GB tar, unlike the 5-min runCommand default it replaced.
-const archiveBackupTimeout = 60 * time.Minute
-
-func (d *Service) archiveBackup(backupPath, version string, progress *ProgressLog) {
-	archiveDir := filepath.Join(os.Getenv("HOME"), "statbus-backups")
-	archivePath := filepath.Join(archiveDir, fmt.Sprintf("%s-pre.tar.gz", version))
-	// ATOMIC (task #8): tar to a `.tmp` and atomically rename to the final
-	// name only on tar success. A tar that is interrupted (the systemd
-	// start-phase SIGTERM that wedged NO/rune, a SIGKILL, disk-full mid-tar)
-	// or that exits non-zero must NEVER leave a partial at the final
-	// `<version>-pre.tar.gz` — a partial there is indistinguishable from a
-	// complete archive to pruneArchives (which keeps the 3 newest `.gz` by
-	// name) and to an operator inspecting the backups dir. Writing to `.tmp`
-	// first confines any partial to the `.tmp` name (ignored by pruneArchives,
-	// ext != .gz) and the rename publishes the final name only when the tar
-	// completed cleanly. Idempotent: backupPath persists, so a later run
-	// re-tars and overwrites the `.tmp`. Best-effort throughout (warn + return
-	// on any failure) — the archive is forensics, not the rollback artifact.
-	tmpPath := archivePath + ".tmp"
-
-	// Harness-only stall site for Bug 1 — `d416a50a0` introduced a
-	// ticker scoped only to the migrate-up subprocess. `extendCancel()`
-	// fires before archiveBackup; the tar of a multi-GB backup (rune:
-	// 35 GB) keeps the main goroutine parked with no WATCHDOG=1
-	// emitter. Active-phase systemd's WatchdogSec=120 s fires; SIGABRT;
-	// restart loop. Activated by
-	// STATBUS_INJECT_AT=archive-backup-stall-active-phase-watchdog
-	// and held by STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE. No-op in
-	// production. The stall runs BEFORE tar so the harness sees the
-	// main goroutine parked at the canonical "tar in flight" point.
-	inject.StallHere("archive-backup-stall-active-phase-watchdog")
-
-	// CHANGE 1 (task #11): feed the #3 progress-gated watchdog from the tar's
-	// own progress so a LIVE long archive (rune: 35 GB, minutes) keeps the gate
-	// open and a write-HUNG tar trips it. GNU tar's --checkpoint=N fires every N
-	// records PROCESSED (record = 512 B × blocking-factor 20 = 10 KiB; N=1000 ⇒
-	// ~every 10 MiB), and --checkpoint-action=echo writes a line to stderr.
-	// runCommandToLog tees that through the PrefixWriter whose onLine callback is
-	// progress.bump → lastAdvanceAt advances per checkpoint. A write-hang stops
-	// the records → stops the checkpoints → stops the bumps → the gate closes →
-	// WatchdogSec fires. Checkpoint-REAL (records processed), NOT a blind
-	// wall-clock ticker — it cannot recreate the task-#37 blind-watchdog hang.
-	//
-	// Capability-gated: --checkpoint is GNU-only. On a bsd/libarchive host
-	// (macOS dev) we omit it and run a plain tar — harmless there (no systemd
-	// WatchdogSec to feed). Same tar command shape everywhere; only the flags
-	// differ, gated on tar capability (NOT on GOOS or NOTIFY_SOCKET). See
-	// hostTarSupportsCheckpoint / tarSupportsCheckpoint.
-	//
-	// Timeout: archiveBackup's prior runCommand used the 5-min runCommand
-	// default — too tight for a 35 GB tar (it would time out → no archive). The
-	// archive is post-FIX-A forensics (row already completed, flag removed), so a
-	// timeout-kill is harmless; archiveBackupTimeout=60 min is a generous outer
-	// ceiling so a goroutine can't live forever, while the gated watchdog
-	// (checkpoint-fed) is the real bound on a HUNG tar.
-	tarArgs := []string{"-czf", tmpPath, "-C", filepath.Dir(backupPath), filepath.Base(backupPath)}
-	if hostTarSupportsCheckpoint(d.projDir) {
-		tarArgs = append(tarArgs,
-			"--checkpoint=1000",
-			"--checkpoint-action=echo=archive: %u records")
-	}
-	if err := runCommandToLog(d.projDir, archiveBackupTimeout, progress.File(), "archive-tar", progress.bump, "tar", tarArgs...); err != nil {
-		fmt.Printf("Warning: archive backup failed: %v\n", err)
-		// Drop the partial `.tmp` so it can't accumulate across failed runs
-		// (a later run overwrites it anyway; this keeps the dir tidy now).
-		os.Remove(tmpPath)
-		return
-	}
-
-	// fsync the completed tar before the rename so the data is durable on
-	// disk before the final name becomes visible. tar wrote via a subprocess,
-	// so open the finished file read-only purely to flush it. Best-effort: a
-	// fsync failure is logged but does not abort the rename (the tar succeeded;
-	// the rename is still atomic on the same filesystem).
-	if f, err := os.Open(tmpPath); err == nil {
-		if syncErr := f.Sync(); syncErr != nil {
-			fmt.Printf("Warning: fsync of archive %s failed (proceeding): %v\n", tmpPath, syncErr)
-		}
-		f.Close()
-	}
-
-	// Atomic publish: rename .tmp → final. Same-directory rename is atomic on
-	// a single filesystem, so a reader sees either the old final (if any) or
-	// the complete new one — never a partial.
-	if err := os.Rename(tmpPath, archivePath); err != nil {
-		fmt.Printf("Warning: could not finalize archive %s → %s: %v\n", tmpPath, archivePath, err)
-		os.Remove(tmpPath)
-		return
-	}
-
-	// fsync the directory so the rename itself is durable (cheap — one dir
-	// entry). Best-effort; a crash before this only risks the rename being
-	// lost, leaving the prior state — still consistent, never a partial.
-	if dir, err := os.Open(archiveDir); err == nil {
-		dir.Sync() //nolint:errcheck
-		dir.Close()
-	}
-
-	// Prune old archives (keep last 3). pruneArchives filters ext == .gz, so
-	// any leftover `.tmp` from a concurrent/failed run is ignored here.
-	d.pruneArchives(archiveDir, 3)
-}
-
-func (d *Service) pruneArchives(dir string, keep int) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return
-	}
-
-	var archives []string
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		name := e.Name()
-		// Sweep stale ATOMIC `.tmp` archives: a tar that was KILLED mid-write
-		// (SIGTERM/SIGKILL) couldn't run archiveBackup's own os.Remove(tmpPath)
-		// cleanup, so a `<version>-pre.tar.gz.tmp` can survive. A same-version
-		// retry overwrites it, but a different-version killed run leaves a
-		// distinct orphan that pruneArchives would otherwise never touch (it
-		// filters ext == .gz). Reap them here so they can't accumulate across
-		// killed upgrades. Match our exact suffix to avoid touching anything
-		// else a user might have parked in the dir.
-		if strings.HasSuffix(name, "-pre.tar.gz.tmp") {
-			os.Remove(filepath.Join(dir, name))
-			continue
-		}
-		if filepath.Ext(name) == ".gz" {
-			archives = append(archives, filepath.Join(dir, name))
-		}
-	}
-
-	if len(archives) <= keep {
-		return
-	}
-
-	// Sort so oldest (lexicographically first) are at front
-	sort.Strings(archives)
-	// Remove oldest
-	for _, f := range archives[:len(archives)-keep] {
-		os.Remove(f)
 	}
 }
 

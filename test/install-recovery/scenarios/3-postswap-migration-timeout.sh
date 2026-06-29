@@ -85,7 +85,7 @@
 #
 # Hetzner-runnability:
 #   READY. Reuses suite-proven machinery only: stage-head fixture
-#   (archivebackup scenarios), drop-in pattern (watchdog-reconnect),
+#   (postswap scenarios), drop-in pattern (watchdog-reconnect),
 #   fabricate_scheduled_upgrade_row + NOTIFY wake (watchdog-reconnect),
 #   wait_for_inject_stall_ready (kill scenarios), synthetic stall
 #   migration (this scenario's previous version).

@@ -179,7 +179,7 @@ VM_EXEC bash -c "ls -la ~/statbus/tmp/upgrade-in-progress.json" || {
     echo "✗ expected flag file present after C5 kill" >&2
     exit 1
 }
-# DB is down at C5: archiveBackup stops the DB before binary-swap, so the upgrade
+# DB is down at C5: the pre-swap backup stops the DB before binary-swap, so the upgrade
 # row cannot be queried here. Flag file presence + exit 137 are sufficient C5-wedge evidence.
 echo "  ✓ C5 wedge established: flag present (DB stopped for backup before swap)"
 

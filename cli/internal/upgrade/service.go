@@ -1601,8 +1601,8 @@ func (d *Service) Run(ctx context.Context) error {
 	// B1 + boot-migrate-move). The cheap, genuine init that SHOULD gate
 	// readiness has run (EnsureDBUp → connect → advisory lock + LISTEN). The
 	// heavy, DB-size-scaled work below — boot-migrate-up and recoverFromFlag →
-	// resumePostSwap → applyPostSwap (rune: a 32 GB archiveBackup tar, a
-	// large-DB migration) — must NOT run under the fixed start-phase
+	// resumePostSwap → applyPostSwap (rune: a large-DB migration) — must NOT
+	// run under the fixed start-phase
 	// TimeoutStartSec, which can never bound DB-size-scaled work (the NO/rune
 	// 40 h wedge). Emitting READY=1 here moves all of it into systemd's ACTIVE
 	// phase, governed by WatchdogSec. Nothing forces READY=1 to follow
@@ -4531,10 +4531,10 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 
 	// SINGLE progress-gated WATCHDOG=1 ticker for the ENTIRE applyPostSwap body
 	// (config-generate → docker pull → docker up db → waitForDBHealth →
-	// reconnect → migrations → step-11 docker up → health → archiveBackup +
-	// terminal UPDATE). All of these can run for many minutes on real data
-	// (cold image pull on a slow box; rune: 35 GB archiveBackup tar runs for
-	// ~minutes); the main goroutine is parked in subprocess or pgx waits with
+	// reconnect → migrations → step-11 docker up → health → terminal UPDATE).
+	// All of these can run for many minutes on real data (cold image pull on a
+	// slow box; a large-DB migration runs for ~minutes); the main goroutine is
+	// parked in subprocess or pgx waits with
 	// no opportunity to ping WATCHDOG=1 from the main loop. Without this
 	// goroutine, WatchdogSec=120 s (per ops/statbus-upgrade.service) fires and
 	// systemd SIGABRTs the unit → restart loop → never reaches
@@ -4581,8 +4581,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// gate stops pinging a hung OUTPUT step, and the two silent steps are bounded
 	// by their own timeouts (migrate→runCommandToLog, reconnect→connect()'s new
 	// 5-min ctx) so deferring gating during them is safe, not blind-forever.
-	// Reproduced empirically by scenarios 19 (reconnect stall) and 26
-	// (archiveBackup stall).
+	// Reproduced empirically by scenario 19 (reconnect stall).
 	//
 	// Cancelled via defer so every error-return path in applyPostSwap reaps the
 	// goroutine cleanly. The first tick is gated like every other (no special
@@ -4662,7 +4661,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// The deferGating span covers the harness stall point (C15 / Race D) through
 	// reconnect completion: set true here, reset via defer after the reconnect
 	// returns (scoped to this block via the closure so an error-return mid-block
-	// can't leave gating disabled for migrate / step 11 / archiveBackup). A
+	// can't leave gating disabled for migrate / step 11). A
 	// genuinely slow reconnect under the 5-min bound survives (the exempt ticker
 	// keeps the unit alive); a > 5-min hang is reaped by reconnect's own bound.
 	reconnErr := func() error {
@@ -4761,9 +4760,8 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 		//
 		// The single gated ticker started at the top of applyPostSwap
 		// handles the active-phase WATCHDOG=1 heartbeat for the remainder of
-		// applyPostSwap -- migrate-up + step 11 + step 12 + terminal UPDATE +
-		// archiveBackup (archiveBackup was reordered after the terminal UPDATE
-		// by §4a FIX A). On BOTH paths it keeps the unit alive across long
+		// applyPostSwap -- migrate-up + step 11 + step 12 + terminal UPDATE. On
+		// BOTH paths it keeps the unit alive across long
 		// steps WHILE THEY ADVANCE (plan piece #3 progress-gating).
 		//
 		// migrate is the one step that can be legitimately SILENT for minutes
@@ -4782,17 +4780,17 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 		// pg_terminate_backend by app_name on migrate-timeout) is task #14, a
 		// pre-existing hole closed separately. The defer-reset is scoped to this
 		// arm via the closure so a panic / early-return inside runCommandToLog
-		// can never leave gating disabled for step 11 / archiveBackup.
+		// can never leave gating disabled for step 11.
 		// progress.bump is threaded as onAdvance so a migration that DOES emit
 		// per-line output also bumps lastAdvanceAt (belt-and-suspenders;
 		// deferGating already keeps the gate open here).
 		//
 		// History: d416a50a0 introduced a narrower migrate-only ticker
 		// (extendCtx/extendCancel around just runCommandToLog) which
-		// cancelled BEFORE step 11 / archiveBackup -- leaving the
-		// remaining heavy steps uncovered. Scenario 3-postswap-archivebackup-watchdog reproduced the
-		// resulting watchdog kill during archiveBackup; the unified
-		// gated ticker above subsumes the migrate-only one and closes the gap.
+		// cancelled BEFORE step 11 -- leaving the remaining heavy steps
+		// uncovered, causing a watchdog kill in the post-migrate active phase;
+		// the unified gated ticker above subsumes the migrate-only one and
+		// closes the gap.
 		err := func() error {
 			progress.setDeferGating(true)
 			defer progress.setDeferGating(false)
@@ -4858,20 +4856,12 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 		return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: application health check: %v", ErrHealthcheckRESTDown, err), progress)
 	}
 
-	// Done — deactivate maintenance. archiveBackup is deliberately NOT
-	// called here: it is reordered to AFTER the terminal state='completed'
-	// UPDATE + removeUpgradeFlag below (plan recovery-arc-flaw-timeoutstartsec.md
-	// §4a FIX A). archiveBackup tars the multi-GB pre-upgrade backup and can
-	// run for minutes (rune: 32 GB). ANY kill during that tar — a WatchdogSec
-	// SIGABRT, OOM, SIGKILL, reboot — would, if the terminal UPDATE ran AFTER
-	// the tar, cancel the DB context so the UPDATE can't persist ("context
-	// already done"), leaving the row in_progress → restart loop (the NO/rune
-	// wedge, originally a start-phase TimeoutStartSec kill; post plan piece #2
-	// the resume is active-phase, but the invariant must hold against ANY
-	// interruption). By marking the row completed and removing the flag FIRST —
-	// both fast — a later kill during the tar is harmless: the next start finds
-	// no flag and no-ops. (ATOMIC, the .tmp+rename in archiveBackup, ensures the
-	// killed tar also leaves no partial at the final archive name.)
+	// Done — deactivate maintenance. The terminal state='completed' UPDATE +
+	// removeUpgradeFlag run below BEFORE any post-completion cleanup, so a kill
+	// in the post-completion window leaves a COMPLETED upgrade the next start
+	// no-ops past (recovery-arc-flaw-timeoutstartsec.md §4a — the ordering
+	// invariant; its original motivating slow tail, a post-completion forensic
+	// tar, was removed in STATBUS-112).
 	fmt.Println("Health check passed — turning off the maintenance page.")
 	d.setMaintenance(false)
 
@@ -4956,28 +4946,11 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// The row is now truly `completed` and the flag is gone (both fast,
 	// inside any systemd budget). Only now is the "completed successfully"
 	// line honest — emitting it before the terminal UPDATE persisted (its
-	// prior position, before archiveBackup) was a lie on the NO/rune resume,
-	// where the UPDATE never landed. Everything from here on (archiveBackup,
-	// pruning, retention, fixup) is post-completion cleanup: a kill in this
-	// window leaves a COMPLETED upgrade that the next start no-ops past.
+	// prior position) was a lie on the NO/rune resume, where the UPDATE never
+	// landed. Everything from here on (pruning, retention, fixup) is
+	// post-completion cleanup: a kill in this window leaves a COMPLETED upgrade
+	// that the next start no-ops past.
 	fmt.Printf("Upgrade to %s completed successfully\n", displayName)
-
-	// archiveBackup reordered here from before the terminal UPDATE
-	// (plan recovery-arc-flaw-timeoutstartsec.md §4a FIX A). It tars the
-	// pre-upgrade backup for forensics — non-critical-path; the row is
-	// already terminal and the flag removed, so a SIGTERM during this
-	// multi-minute tar (rune: 32 GB) is harmless. Runs BEFORE pruneBackups
-	// so the backupPath it tars is still present.
-	//
-	// Watchdog (plan piece #3 + CHANGE 1, task #11): the tar feeds the gated
-	// watchdog via GNU tar --checkpoint output (flowing through runCommandToLog's
-	// PrefixWriter onLine → progress.bump), so a LIVE long archive keeps the gate
-	// open and a write-HUNG tar stops the checkpoints → the gate closes →
-	// WatchdogSec fires. progress is passed through so archiveBackup can wire
-	// that bump. (On a bsd/libarchive host the checkpoint flags are omitted — see
-	// hostTarSupportsCheckpoint — and the tar is gate-silent, harmless there: no
-	// systemd to feed.)
-	d.archiveBackup(backupPath, displayName, progress)
 
 	// Layer 3 of the rollback-on-SIGKILL hole plug: now that the upgrade
 	// has reached terminal state='completed', the pre-upgrade backup is no

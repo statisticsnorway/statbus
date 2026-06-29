@@ -1,5 +1,5 @@
 #!/bin/bash
-# Harness fixture: stage HEAD on the VM (shared by the postswap archivebackup + resume-died scenarios).
+# Harness fixture: stage HEAD on the VM (shared by the postswap scenarios).
 # Stages HEAD on the VM: ensures the commit SHA is present in the git repo,
 # checks it out, then pre-tags Docker images so that docker compose pull
 # can fall back to local images when the harness commit has no registry entry.
@@ -22,7 +22,7 @@
 #   the local image and continues without error.  Pre-tagging the installed
 #   release's images with the harness COMMIT_SHORT satisfies this: the pull
 #   "fails" from the registry perspective but Compose falls back to local,
-#   and the upgrade proceeds to the archiveBackup step where the inject site
+#   and the upgrade proceeds to the step where the scenario's inject site
 #   fires.
 set -euo pipefail
 HEAD_SHA="${1:?HEAD_SHA required as first argument}"

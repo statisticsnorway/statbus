@@ -133,7 +133,7 @@ echo "── installing C11 drop-in override + release file ──"
 # them to \n inside $'...' ANSI-C quoting, so the remote bash sees everything
 # on one line and the <<EOF delimiter merges with the body.  Write a complete
 # script locally (heredoc works fine on the local machine), scp it, and run it.
-# Pattern matches 3-postswap-archivebackup-watchdog (line ~162).
+# (heredoc-over-SSH pattern: write the script locally, scp it, run it — see above.)
 _dropin_script=$(mktemp /tmp/harness-install-dropin-XXXXXX.sh)
 cat > "$_dropin_script" << SCRIPT_EOF
 #!/bin/bash

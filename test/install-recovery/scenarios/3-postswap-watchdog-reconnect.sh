@@ -131,7 +131,7 @@ upload_sb_to_vm "$VM_NAME"
 
 # Write the git-checkout script locally (heredoc works on the local machine;
 # VM_EXEC bash -c "..." collapses newlines over SSH, breaking if/then/fi).
-# Pattern matches scenario 3-postswap-archivebackup-watchdog (line 162-181).
+# (heredoc-over-SSH pattern: write the script locally, scp it, run it — see above.)
 _stage_head_script=$(mktemp /tmp/harness-stage-head-XXXXXX.sh)
 cat > "$_stage_head_script" << SCRIPT_EOF
 #!/bin/bash
@@ -178,7 +178,7 @@ VM_EXEC systemctl --user stop statbus-upgrade@statbus.service 2>/dev/null || tru
 # them to \n inside $'...' ANSI-C quoting, so the remote bash sees everything
 # on one line and the <<EOF delimiter merges with the body.  Write a complete
 # script locally (heredoc works fine on the local machine), scp it, and run it.
-# Pattern matches 3-postswap-archivebackup-watchdog (line ~162).
+# (heredoc-over-SSH pattern: write the script locally, scp it, run it — see above.)
 _dropin_script=$(mktemp /tmp/harness-install-dropin-XXXXXX.sh)
 cat > "$_dropin_script" << SCRIPT_EOF
 #!/bin/bash

@@ -122,7 +122,7 @@ func restartUpgradeService(projDir string) {
 // stopped before recovery. NO/rune wedged because the systemd unit's
 // auto-restart kept re-running the SAME flag-resume loop every ~2 min;
 // even with the dead PID's flock released, the next restart re-acquired
-// it and re-tripped the same WatchdogSec on archiveBackup. Recovery
+// it and re-tripped the same WatchdogSec on the resumed upgrade. Recovery
 // invoked by `./sb install` must STOP that loop so we can take the flock
 // uncontested, do the work outside WatchdogSec, and then hand the unit
 // back ONLY if it was enabled to begin with.

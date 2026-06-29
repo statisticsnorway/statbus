@@ -85,7 +85,6 @@ Every entry leads with its **plain goal** — read it as **die HERE → the oper
 
 | Scenario | What it proves | Grounding |
 |---|---|---|
-| `3-postswap-archivebackup-watchdog` | An upgrade whose archiveBackup stalls for minutes in the active phase → a watchdog heartbeat must keep systemd from killing it mid-tar. | Watchdog gap beyond the migrate-up ticker's scope (Bug 1) |
 | `3-postswap-between-migrations-kill` | Killed between migration N and N+1 → re-run applies the remaining migrations cleanly (resume from the recorded point), data intact. | inject.KillHere in `migrate.runUp` loop; forward-recovery (C7) |
 | `3-postswap-container-restart-kill` | Killed mid-container-restart after migrations applied → re-run completes the restart, data intact. | inject.KillHere in `applyPostSwap`; `resumePostSwap` re-entry (C8) |
 | `3-postswap-mid-migration-kill` | Killed just before the first pending migration runs → re-run retries it cleanly (the outer tx never opened → no partial state). | inject.KillHere at top of `runPsqlFile`; atomic-tx retry (C6) |
@@ -137,7 +136,6 @@ When you regress a fix, here's what fails:
 | Fix 9 — drop pool-saturation from checkSessionsClean |
 | Fix 10 — application_name='psql' filter |
 | Fix 11 — drop bool::text cast | `5-install-bool-text-regression` (and ALL scenarios — recheck-after-cleanup goes through this) |
-| §4a FIX A — archiveBackup after the terminal `state='completed'` UPDATE + removeUpgradeFlag | the local Go guard `TestArchiveBackupAfterTerminalUpdate` (the resume-path scenario `3-postswap-archivebackup-resume` was DELETED — STATBUS-099: its exit-42-resume variant tested a self-heal-unreachable state, subsumed by `3-postswap-archivebackup-watchdog`) |
 | unit-reconcile — `checkServiceDone` byte-compares the on-disk unit to the repo template; drift ⇒ rewrite + daemon-reload + restart | `5-install-drifted-unit-reconciled` (without it, a drifted unit on a healthy box is never rewritten — rune's stale 90/infinity persists) + the local Go guards `TestUnitFileMatchesRepo_*` (drift detection) + `TestRunInstallService_RestartsOnDriftToArmTimers` (re-arm) |
 
 ## Adding a new scenario
