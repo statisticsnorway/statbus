@@ -21,7 +21,7 @@ skinparam sequence {
     GroupBorderColor #90A4AE
 }
 
-title StatBus Upgrade Timeline (single service; ground truth decides direction — forward when at-target, identity-keyed restore only when positively behind)
+title StatBus Upgrade Timeline (single service; observed-state decides direction — already-at-new continues forward, cannot-reach-new rolls back)
 
 legend top
 The only way to know these paths actually work is to RUN them — the problem is too hard
@@ -53,8 +53,8 @@ service -> service : recoverFromFlag — reconcile a flag left on disk (flag-DRI
 service -> db : completeInProgressUpgrade — reconcile an in_progress row with NO flag\n(flag-INDEPENDENT belt; the SOLE recovery for a pre-flight kill)
 note over service, db
   Two-layer boot recovery. recoverFromFlag handles a kill AFTER the flag exists (Phase
-  ladder: PreSwap / PostSwap / Resuming). completeInProgressUpgrade handles a kill BEFORE
-  the flag exists — the claim -> writeUpgradeFlag window (see § Execute upgrade (pre-swap)).
+  ladder: old-sb-upgrading / new-sb-swapped / new-sb-upgrading). completeInProgressUpgrade handles a kill BEFORE
+  the flag exists — the claim -> writeUpgradeFlag window (see § old-sb-upgrading).
   It rolls such an orphan to a named terminal state via verifyUpgradeGroundTruth.
 end note
 note over systemd, db #FFF9C4
@@ -64,7 +64,7 @@ note over systemd, db #FFF9C4
   TEST 1-boot-advisory-too-early: an advisory-lock attempt before the DB is ready
     exits 42 and systemd restarts cleanly — no start-loop wedge.
   NO TEST (gap): the belt rolling a flagless in_progress row to terminal is unproven —
-    see the preflight-kill gap under § Execute upgrade (pre-swap).
+    see the preflight-kill gap under § old-sb-upgrading.
 end note
 
 == Schedule + dispatch ==
@@ -81,7 +81,7 @@ end note
 db -> service : NOTIFY wakes the listener
 service -> db : claim row WHERE state='scheduled' → in_progress\n(started_at set, error=NULL — NO flag on disk yet)\n+ reset-failed on own unit (NRestarts counts THIS upgrade only — STATBUS-039 F2)
 
-== Execute upgrade (pre-swap) ==
+== old-sb-upgrading — backup + binary swap ==
 group pre-flight — NO flag on disk yet (row is in_progress, error=NULL)
     service -> db : pre-flight checks — downgrade guard, release assets, disk, signature
 end
@@ -96,47 +96,47 @@ note over service, db #FFF9C4
     the row to a named terminal state via the belt at next boot. Candidate scenario:
     killed-by-system-during-preflight-before-flag.
 end note
-group mutex held — Holder="service", flock LOCK_EX on the marker fd
-    service -> service : writeUpgradeFlag — acquireFlock opens the marker (Phase=PreSwap)
+group mutex held — Holder="service", flock LOCK_EX on the upgrade-in-progress marker
+    service -> service : writeUpgradeFlag — opens the **upgrade-in-progress** marker (**old-sb-upgrading**; stored: "")
     service -> db : maintenance mode on
-    service -> db : take DB snapshot -> backup_path
+    service -> db : take **db-snapshot** -> backup_path
     service -> service : git checkout target commit
-    service -> service : replaceBinaryOnDisk -> stamp Phase=PostSwap
+    service -> service : replaceBinaryOnDisk → stamp **new-sb-swapped** (stored: post_swap)
 end
 note over service, db
-  Fail-fast: any step (pre- or post-swap) that errors OR hangs aborts the
+  Fail-fast: any step, before or after the swap, that errors OR hangs aborts the
   single attempt and routes to rollback (§ Complete / rollback). No retry.
 end note
 note over service, db #FFF9C4
-  TEST COVERAGE — pre-swap (mutex held)
+  TEST COVERAGE — old-sb-upgrading (mutex held)
   TEST 2-preswap-backup-kill: a kill during the DB snapshot converges the row to a named
     terminal — rolled_back, or failed if the restore also fails — never stranded in_progress.
   TEST 2-preswap-checkout-kill: a kill during git checkout converges to terminal; the
     unswapped binary keeps serving the old version.
-  TEST 2-preswap-binary-swap-kill: a kill at the replaceBinaryOnDisk pivot is recovered (PostSwap
+  TEST 2-preswap-binary-swap-kill: a kill at the replaceBinaryOnDisk pivot is recovered (new-sb-swapped
     resume or rollback) — never a half-swapped row that lies about the running version.
 end note
 
-== Binary-swap restart + resume (post-swap, on the NEW binary) ==
-service -> systemd : exit 42 — self-update, request the ONE planned respawn
+== new-sb-swapped → new-sb-upgrading — post-swap resume ==
+service -> systemd : exit 42 — **old-sb-swap**: switch to the new sb, request the ONE planned respawn
 systemd -> service : restart unit on the new binary
 service -> systemd : fresh boot: cheap init -> READY=1 (watchdog arms)
 service -> db : **boot-migrate-up (:1644) — applies the ENTIRE pending migration delta**
 note over service, db
   The new binary BOOTS FRESH — nothing continues in memory; it re-runs the full Service-boot
   sequence: cheap init -> READY=1 -> boot-migrate-up (:1644) -> recoverFromFlag (:1689).
-  Because the pre-swap checkout already put the repo at the NEW version, boot-migrate-up is
+  Because the checkout, before the swap, already put the repo at the NEW version, boot-migrate-up is
   the step that ACTUALLY APPLIES every upgrade's migrations — the applyPostSwap migrate below
   is a no-op in the normal flow. boot-migrate runs post-READY with the watchdog armed and no
   other WATCHDOG=1 source alive, so it carries its OWN always-ping ticker, bounded by the
   shared 30-min MigrateUpTimeout (STATBUS-012; same exemption as the applyPostSwap migrate).
-  recoverFromFlag (service.go:682) then READS the flag's persisted Phase to learn where the
-  prior process died. Phase progresses PreSwap "" (:197) -> PostSwap "post_swap" (stamped
-  :403, before exit 42) -> Resuming (stamped :4339, as resume commits). The SAME dispatch
-  runs on EVERY boot — the planned exit-42 here, or any unplanned-death restart.
+  recoverFromFlag (service.go:682) then READS the upgrade-in-progress marker's phase to learn where the
+  prior process died. Phase progresses old-sb-upgrading "" (:197) -> new-sb-swapped "post_swap" (stamped
+  :403, before exit 42) -> new-sb-upgrading (stamped :4339, as resume commits; stored: "resuming").
+  The SAME dispatch runs on EVERY boot — the planned exit-42 here, or any unplanned-death restart.
 end note
-alt flag.Phase = PostSwap — the PLANNED exit-42 handoff (the ONE legitimate continue)
-    service -> service : resumePostSwap (:774) -> stamp Phase=Resuming (:4339)
+alt **new-sb-swapped** marker (stored: post_swap) — the PLANNED exit-42 handoff (the ONE legitimate continue)
+    service -> service : resumePostSwap (:774) -> stamp **new-sb-upgrading** (stored: resuming, :4339)
     group applyPostSwap — remaining steps run on the new binary
         service -> service : config generate + docker compose pull
         service -> db : start DB + wait health + reconnect
@@ -144,38 +144,41 @@ alt flag.Phase = PostSwap — the PLANNED exit-42 handoff (the ONE legitimate co
         service -> service : start app services + health check
         service -> db : maintenance off + archive backup
     end
-else flag.Phase = PreSwap — died BEFORE the binary swap
-    service -> db : recoveryRollback -> roll back (§ Complete / rollback)\nrestore no-ops BY IDENTITY: PreSwap carries an empty BackupPath
-else flag.Phase = Resuming — died DURING the resume: GROUND TRUTH decides (STATBUS-039)
-    alt at-or-past target, or unverifiable (DB unreachable)
-        service -> service : resume FORWARD again — never restore an at-target box\n(each retry loud; failure stamped non-terminally on the row)
-    else positively behind (binary mismatch / migrations missing, DB reachable)
-        service -> db : recoveryRollback -> one-shot rollback to THIS upgrade's\nOWN snapshot (flag.BackupPath, identity-keyed; flock-serialized)
+else **old-sb-upgrading** marker (stored: "") — died BEFORE the binary swap
+    service -> db : recoveryRollback -> roll back (§ roll-back)\nrestore no-ops: old-sb-upgrading carries an empty backup path
+else corrupt/unreadable marker — **discard-and-log** → normal start [auto]
+else unrecognized phase → [HUMAN: **unknown**]
+else **new-sb-upgrading** marker (stored: resuming) — died DURING resume: **observed-state** decides
+    alt **already-at-new** (observed-state)
+        service -> service : continue-upgrade / complete-upgrade — already at the new version\n→ completed
+    else **can't-read-position** (db-unreachable / commit-not-fetched) — intermittent error
+        service -> service : → error classifier (see lifecycle diagram §3)\n**backoff-retry**: resolves → continue; exhausts → roll back
+    else **cannot-reach-new** (binary mismatch / migrations missing, DB reachable)
+        service -> db : recoveryRollback -> one-shot roll back to THIS upgrade's\nOWN **db-snapshot** (flag.BackupPath, identity-keyed; flock-serialized)
     end
 end
 note over systemd, service
-  recoverFromFlag is a PHASE dispatch with ground truth deciding direction BEFORE anything
-  destructive (STATBUS-039: forward when logically possible — a died attempt is not
-  impossibility). PostSwap continues; PreSwap rolls back (nothing to restore by identity);
-  Resuming consults verifyUpgradeGroundTruthEx — AtTarget/Unknown resume forward, only a
-  POSITIVELY-BEHIND verdict restores. The binary check (verifyBinaryGroundTruth) is
-  tri-state: merge-base exit 1 = the only Behind; any git error (shallow clone, exit 128)
-  = Unknown -> forward, never a restore on clone-state evidence. An unknown Phase value
-  fails loud (FLAG_PHASE_UNKNOWN).
+  recoverFromFlag is a phase dispatch: the marker phase decides direction BEFORE anything destructive.
+  new-sb-swapped (post_swap) → continue forward; old-sb-upgrading ("") → roll back (nothing changed);
+  corrupt/unreadable marker → discard-and-log, normal start; unrecognized phase → [HUMAN: unknown].
+  new-sb-upgrading (resuming) → observed-state decides: already-at-new → complete forward;
+  cannot-reach-new → identity-keyed roll back; can't-read-position (db-unreachable or commit-not-fetched)
+  → error classifier (see lifecycle diagram §3): intermittent → backoff-retry, exhausts → roll back.
+  Full decision tree: see upgrade-lifecycle diagram · doc/upgrade-recovery-model.md.
 end note
 note over service, db #E8F5E9
   INVARIANT — kill during migration (re-derive from the diagram):
   A kill alone aborts the open transaction -> it re-applies forward on restart -> NEVER a rollback
   by itself. Only a committed-but-unrecorded migration (lost-stamp) or an always-erroring migration
-  makes the re-apply FAIL -> positively-behind -> one-shot rollback.
+  makes the re-apply FAIL -> cannot-reach-new -> one-shot rollback.
 end note
 note over service, db #FFF9C4
-  TEST COVERAGE — phase dispatch + post-swap resume
+  TEST COVERAGE — phase dispatch + resume after the swap
   TEST 3-postswap-resume-died-rollback — DELETED (STATBUS-099): the two-run resume-re-kill it tested is
     PRODUCT-IMPOSSIBLE. resumePostSwap's self-heal canary (service.go:5044/5053: containersAtFlagTarget
     + no pending migrations) converges-and-completes the resume BEFORE a second inject can land
     (grounded by VM-run 27820228835: the resume self-healed to completed, no re-kill). The REAL contract
-    — a kill at the FIRST applyPostSwap => the Resuming one-shot latch => ONE rollback, no loop — is
+    — a kill at the FIRST applyPostSwap => the new-sb-upgrading one-shot latch => ONE rollback, no loop — is
     COVERED by 3-postswap-container-restart-kill. Not a gap: the injection point is covered.
   GREEN: 3-postswap-mid-migration-kill / 3-postswap-mid-tx-kill / 3-postswap-between-migrations-kill /
     3-postswap-migrate-killed-after-commit / 3-postswap-migration-deterministic-error (the last two
@@ -190,14 +193,14 @@ note over service, db #FFF9C4
     (2) migrate-killed-after-commit: in the ~ms window AFTER commit, BEFORE the db.migration INSERT
       (db.migration max unchanged, but the schema object is already committed). Forward re-apply
       FAILS ("relation already exists"), so the ONLY coherent recovery is RESTORE -> rolled_back
-      (the rune shape).
+      (the lost-stamp rollback shape).
       BEHAVIOR (STATBUS-017 FIXED, routing updated by STATBUS-039): the schema-skew-guard
         `./sb migrate up` runs BEFORE recoverFromFlag on BOTH recovery entrypoints (service boot;
         ./sb install crash recovery) and re-runs the committed-unrecorded migration -> "relation
         already exists" -> migrate up FAILS. With a service-held in-progress flag present the guard
-        FALLS THROUGH to recoverFromFlag instead of markTerminal+return. Post-039 the Resuming
-        branch consults ground truth: db.migration max < on-disk max with a reachable DB =
-        POSITIVELY BEHIND -> recoveryRollback -> identity-keyed snapshot restore -> rolled_back.
+        FALLS THROUGH to recoverFromFlag instead of markTerminal+return. Post-039 the new-sb-upgrading
+        branch consults observed-state: db.migration max < on-disk max with a reachable DB =
+        cannot-reach-new -> recoveryRollback -> identity-keyed snapshot restore -> rolled_back.
         Same terminal as pre-039, now selected by verdict rather than an unconditional latch.
         (The refuse path is kept for the no-flag / install-held case. The dead
         forward-recovery+restore segment that used to follow the phase branches was DELETED
@@ -209,15 +212,15 @@ note over service, db #FFF9C4
       resumes the unrecorded pending set N+1..HEAD cleanly -> completed. GREEN.
     (e) migration-deterministic-error (3-postswap-migration-deterministic-error): a migration whose
       apply errors EVERY time -> migrate up fails the same way as (2); with a service-held flag the
-      guard FALLS THROUGH to recoverFromFlag -> Resuming branch -> ground truth POSITIVELY BEHIND
+      guard FALLS THROUGH to recoverFromFlag -> new-sb-upgrading branch -> observed-state: cannot-reach-new
       (migrations missing, DB reachable) -> identity-keyed restore -> rolled_back. Forward is
       impossible (errors every apply), so restore is the only escape — the sharpest case for the
-      fix, and exactly the case ground truth selects backward for. GREEN since STATBUS-017.
+      fix, and exactly the case observed-state selects the rollback for. GREEN since STATBUS-017.
   The commit<->record cells above all fire at the BOOT-MIGRATE step (the pre-recoverFromFlag
     schema-skew guard, :1644 / install_upgrade.go:198) — that is where the migrations run on
     recovery boots, not at the applyPostSwap migrate.
   TEST 3-postswap-migration-timeout (service-dispatch rewrite, 908191f0c): a >WatchdogSec
-    migration at the post-swap boot-migrate must NOT be watchdog-killed — RED until the
+    migration at the boot-migrate after the swap must NOT be watchdog-killed — RED until the
     STATBUS-012 always-ping ticker lands, GREEN after (the suite's watchdog/Race-B net; the
     pre-rewrite inline version was vacuous — no systemd in its flow).
   DEFERRED (not in CI): 3-postswap-worker-ddl-deadlock — a worker-locked migration stays
@@ -238,7 +241,7 @@ note over service, db #E8F5E9
   INVARIANT — lost-stamp window (re-derive from cells (2)/(e) above):
   The migration done-stamp is written in a SEPARATE transaction from the migration DDL -> that gap
   is the lost-stamp window. A kill in that gap leaves a committed-but-unrecorded schema object;
-  forward re-apply fails ("relation already exists") -> positively-behind -> one-shot rollback.
+  forward re-apply fails ("relation already exists") -> cannot-reach-new -> one-shot rollback.
 end note
 
 == Complete / rollback ==
@@ -248,19 +251,19 @@ alt all steps succeeded
     service -> db : supersede older rows + notify UI
     service -> cici : Slack callback — OK
     note over service, db #FFF9C4
-      TEST 0-happy-upgrade: an injection-free scheduled upgrade runs claim -> pre-swap -> exit-42 ->
+      TEST 0-happy-upgrade: an injection-free scheduled upgrade runs claim -> old-sb-upgrading -> exit-42 ->
         applyPostSwap -> this success branch (state=completed, flag removed) — the baseline the
-        post-swap failure scenarios perturb.
+        failure-after-swap scenarios perturb.
     end note
-else step failed/hung AND ground truth POSITIVELY BEHIND (STATBUS-039 —\nat-target/unverifiable failures never reach here: they stamp the row's error\nnon-terminally and retry FORWARD on the next recovery pass)
-    service -> service : rollback() — restore git + restore DB snapshot\n(identity-keyed: ONLY this upgrade's recorded snapshot; missing => failed,\nnever another backup; recovery entry is flock-serialized at recoveryRollback)
+else **cannot-reach-new** (observed-state) — or intermittent exhausted or persistent error (see lifecycle §3)\n(already-at-new never reaches here — it completes forward;\ncan't-read-position → backoff-retry; exhausts → reaches here)
+    service -> service : rollback() — restore git + restore **db-snapshot**\n(identity-keyed: ONLY this upgrade's recorded snapshot; missing ⇒ [HUMAN: restore-broke],\nnever another backup; recovery entry is flock-serialized at recoveryRollback)
     service -> db : restart services (docker compose up)
     service -> db : wait for DB health (30s)\nSYMMETRIC with applyPostSwap (service.go:3780) — must NOT reconnect before the DB is ready (the scenario-21 race)
     service -> db : reconnect (re-acquire authority lock) + write terminal state (bounded retry)
-    alt snapshot restored cleanly AND services healthy
-        service -> db : state=rolled_back (+ error) — healthy at old version
-    else restore also failed
-        service -> db : state=failed (+ error) — needs hands-on
+    alt **db-snapshot** restored cleanly AND services healthy
+        service -> db : state=rolled_back (+ error) — healthy at old version [auto]
+    else [HUMAN: **restore-broke**] — restore itself failed
+        service -> db : state=failed (+ error) — box cannot reach runnable state; needs hands-on
     end
     service -> service : removeUpgradeFlag — ONLY on a landed write\n(else KEEP: dead-PID breadcrumb -> StateCrashedUpgrade / belt reconciles)
     service -> cici : Slack callback — FAILED siren (fires regardless of the write)
@@ -280,6 +283,11 @@ note over service, db #FFF9C4
     the upgrade_daemon AUTHORITY lock, service.go:2660 / 1922) + markTerminal on exhaustion +
     removeUpgradeFlag ONLY on a landed write (KEEP on failure). On lock-contention, YIELD to the
     authority — the belt reconciles; never bypass the lock.
+end note
+
+note over operator, cici #F3E5F5
+  Decision logic: doc/upgrade-recovery-model.md · Names: doc/upgrade-vocabulary.md
+  Full recovery tree (§1–§4): see upgrade-lifecycle diagram.
 end note
 
 @enduml
