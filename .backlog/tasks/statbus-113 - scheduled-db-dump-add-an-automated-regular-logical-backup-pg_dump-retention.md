@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-29 09:44'
-updated_date: '2026-06-29 09:55'
+updated_date: '2026-06-29 10:04'
 labels:
   - backup
   - ops
@@ -52,9 +52,9 @@ On a deployed box: the timer fires, a dump lands in dbdumps/, purge enforces N. 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 On a STANDALONE install, the install flow AUTOMATICALLY sets up the backup schedule running AS THE LOCAL USER, no manual step (mechanism: a system timer with `User=<localuser>`, or a user crontab)
+- [ ] #1 On a STANDALONE install, `./sb install` AUTOMATICALLY installs a USER systemd timer + service in ~/.config/systemd/user/ (owned by `statbus`, sibling of statbus-upgrade.service) — runs as the user, fires unattended (linger already enabled), no manual step
 - [ ] #2 The scheduled job runs `./sb db dump` then `./sb db dumps purge N`; retention keeps a bounded set and old dumps are removed
-- [ ] #3 Verified on a standalone box: the schedule fires UNATTENDED (no login required), a dump lands in dbdumps/, purge enforces N
+- [ ] #3 Verified on a standalone box: the timer fires UNATTENDED (no login required), a dump lands in dbdumps/, purge enforces N
 - [ ] #4 doc/DEPLOYMENT.md documents the built-in standalone backup; the doc/CLOUD.md crontab recommendation is reconciled with what's implemented
 <!-- AC:END -->
 
@@ -68,4 +68,10 @@ MECHANISM (open, King):
 - FALLBACK: a USER crontab — simplest, runs as the user, no linger, universal; weaker logging, no catch-up.
 - DISFAVORED: a *user* systemd timer (`systemctl --user`) — needs `enable-linger` (a root step) to run without an active login.
 Settle crontab-vs-systemd by how the standalone install already sets up its systemd units + whether setup runs as root (grounding in flight).
+
+MECHANISM SETTLED (grounded 2026-06-29; tmp/operator-standalone-systemd.md, foreman-verified). The standalone box runs everything as USER-level systemd as user `statbus`, with `enable-linger` ALREADY set (setup-ubuntu-lts-24.sh:1091) — the upgrade service itself is a USER unit (ops/statbus-upgrade.service: WantedBy=default.target, ~/.config/systemd/user/, `systemctl --user`, WorkingDirectory=%h/statbus). 
+
+So the backup = a USER `.timer` + `.service` pair in ~/.config/systemd/user/, owned by `statbus`, installed by `./sb install` (same path as statbus-upgrade), managed via `systemctl --user`. Linger already enabled → fires without login. 
+
+This SUPERSEDES the open crontab-vs-systemd question: NOT a system timer with `User=` (the box uses user units), NOT a crontab — a user timer is the consistent, lowest-friction fit. (The earlier 'user systemd needs enable-linger' caveat is moot: linger is already on.) Install code lives at cli/cmd/install.go.
 <!-- SECTION:NOTES:END -->
