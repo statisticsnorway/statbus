@@ -2,9 +2,8 @@
 ' Authoritative state diagram for doc/upgrade-timeline.md § Upgrade-row lifecycle.
 ' States are the public.upgrade.state enum (upgrade_state); the timestamp
 ' invariants per state are enforced by chk_upgrade_state_attributes — see
-' doc/db/table/public_upgrade.md. Keep the terminal-state naming in sync with
-' the recovery contract: rolled_back = restored / healthy at old version,
-' failed = restore also failed / needs hands-on.
+' doc/db/table/public_upgrade.md.
+' Names: doc/upgrade-vocabulary.md. Decision logic: doc/upgrade-recovery-model.md.
 skinparam backgroundColor #FEFEFE
 skinparam state {
     BorderColor #1565C0
@@ -13,7 +12,7 @@ skinparam state {
     FontColor #102027
 }
 
-title public.upgrade row lifecycle — discovery, execution, fail-fast terminals
+title public.upgrade row lifecycle — discovery, execution, and recovery decision tree
 
 legend top
 The only way to know these paths actually work is to RUN them — the problem is too hard
@@ -32,20 +31,47 @@ scheduled --> in_progress : service claims\n(started_at set)
 scheduled --> superseded : newer release supersedes
 
 in_progress --> completed : all steps OK\n(completed_at set, error NULL)
-in_progress --> in_progress : fail/death, ground truth\nAT-TARGET or UNVERIFIABLE →\nFORWARD retry next pass\n(error stamped non-terminally)
-in_progress --> rolled_back : fail/death, ground truth\nPOSITIVELY BEHIND →\nown snapshot restored\n(rolled_back_at + error)
-in_progress --> failed : behind AND restore failed\n(or recorded snapshot missing —\nnever substitute another backup)\n(error, no rolled_back_at)
+
+' [HUMAN: unknown] — unrecognised phase or unrecognised error: stays in_progress, loud
+in_progress --> in_progress : [HUMAN: **unknown**]\nunrecognised phase or unrecognised error —\nstays in_progress + loud, waiting for a person\n(systemd-StartLimit backstop surfaces it)
+
+' cannot-reach-new → roll back (also: intermittent exhausted backoff-retry, or persistent error)
+in_progress --> rolled_back : **cannot-reach-new** (observed-state) → roll back\nOR intermittent error exhausted **backoff-retry** → roll back\nOR persistent error (zero retries) → roll back\n(rolled_back_at + error)
+
+' [HUMAN: restore-broke] — rollback chosen but restore itself failed
+in_progress --> failed : [HUMAN: **restore-broke**]\nrollback chosen; restore itself failed\n(rsync/disk; never substitute another backup)\n(error, no rolled_back_at)
 
 note right of in_progress
-  Ground truth decides direction (STATBUS-039):
-  binary at-or-descendant of target + migrations
-  at-or-past on-disk max ⇒ FORWARD, always — a died
-  attempt is not impossibility; never restore an
-  at-target box (post-commit-point writes may exist).
-  Only a POSITIVELY-BEHIND verdict restores, and the
-  restore is identity-keyed: ONLY this upgrade's own
-  recorded snapshot (flag.BackupPath / backup_path),
-  serialized on the upgrade flock.
+  Full recovery decision — doc/upgrade-recovery-model.md §1–§4:
+
+  **§1  Read the upgrade-in-progress marker**
+  no marker          → normal start [auto]
+  corrupt/unreadable → discard-and-log → normal start [auto]
+  install-holder     → clear, no DB work [auto]
+  unrecognized phase → [HUMAN: unknown] (self-loop above)
+  recognized phase   → §2
+
+  **§2  Decide direction (observed-state)**
+  old-sb-upgrading (pre-swap)           → roll back trivially (nothing changed) [auto]
+  new-sb-swapped, already-at-new        → continue-upgrade / complete-upgrade → completed [auto]
+  new-sb-upgrading, cannot-reach-new    → roll back → rolled_back [auto]
+  new-sb-upgrading, can't-read-position → §3 (intermittent error)
+
+  **§3  Error classifier (no-spin rule)**
+  intermittent (db-unreachable / commit-not-fetched)
+    → backoff-retry (in-process + heartbeating)
+    resolves → continue → completed
+    exhausts → no longer transient → roll back → rolled_back
+  persistent (same error every time)
+    → roll back, zero retries → rolled_back
+  unknown (unrecognised)
+    → [HUMAN: unknown] self-loop; stays in_progress + loud
+
+  **§4  Terminals**
+  completed          — forward succeeded [auto]
+  rolled_back        — rollback succeeded; healthy on old version [auto]
+  failed             — [HUMAN: restore-broke] restore itself broke
+  (in_progress loop) — [HUMAN: unknown] waits for a person
 end note
 
 rolled_back --> dismissed : operator acknowledges
@@ -60,8 +86,10 @@ note bottom
   chk_upgrade_state_attributes enforces the timestamp columns per state
   (e.g. completed ⇒ completed_at NOT NULL, error NULL; rolled_back ⇒
   rolled_back_at + error NOT NULL; failed ⇒ error NOT NULL, no rolled_back_at).
-  rolled_back = snapshot restored, healthy at the old version.
-  failed = restore also failed, needs hands-on recovery.
+  rolled_back = [auto] snapshot restored, healthy at the old version.
+  failed = [HUMAN: restore-broke] rollback's restore itself broke — box cannot reach runnable state.
+  (in_progress loop) = [HUMAN: unknown] unrecognised phase or error — waits for a person.
+  Decision logic: doc/upgrade-recovery-model.md · Names: doc/upgrade-vocabulary.md
 end note
 
 @enduml
