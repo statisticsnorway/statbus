@@ -6,13 +6,12 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-29 09:40'
-updated_date: '2026-06-29 13:10'
+updated_date: '2026-06-29 15:54'
 labels:
   - upgrade
   - backup
   - performance
-dependencies:
-  - STATBUS-113
+dependencies: []
 references:
   - tmp/mechanic-backup-restore.md
   - cli/internal/upgrade/exec.go
@@ -51,3 +50,9 @@ Arc-test (STATBUS-071) that upgrade + rollback are unaffected (the tar was never
 - [ ] #2 Upgrade + rollback are unaffected (arc-proven — the tar was never on the rollback path); post-completion upgrade time drops measurably on a large install
 - [ ] #3 Removal is INDEPENDENT of STATBUS-113 (un-gated, King 2026-06-29); the short retention gap until scheduled backups land is accepted — the tar is forensics-only (no rollback value); STATBUS-113 closes the gap
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+N-WATCHDOG ARC RULING (architect, 2026-06-29): RETIRE (option A). Removing archiveBackup removes its stall site (`archive-backup-stall-active-phase-watchdog`, exec.go:1061) — so retire the postswap-archivebackup-watchdog scenario + arc + inject-class + the §4a FIX-A guard + TestArchiveBackupAfterTerminalUpdate IN THE SAME pass (else the post-push arc false-greens). Rationale: archiveBackup was the ONLY long op in the forward post-terminal tail → the real risk is gone; (B) re-point to a quick step-11/12 = a synthetic stall testing a can't-happen scenario on a paid VM. The active-phase watchdog MECHANISM stays, guarded by migrate-up's ticker (migration phase) + the sibling restore-db-stall (rollback restore). Re-add a forward-tail watchdog test IF a real long post-terminal op is ever introduced. King NOT looped: internal arc-harness (STATBUS-071) call, delegated to architect; recorded for transparency.
+<!-- SECTION:NOTES:END -->
