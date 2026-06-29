@@ -6,11 +6,13 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-29 09:40'
+updated_date: '2026-06-29 09:45'
 labels:
   - upgrade
   - backup
   - performance
-dependencies: []
+dependencies:
+  - STATBUS-113
 references:
   - tmp/mechanic-backup-restore.md
   - cli/internal/upgrade/exec.go
