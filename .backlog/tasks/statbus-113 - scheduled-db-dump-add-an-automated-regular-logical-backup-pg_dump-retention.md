@@ -51,11 +51,13 @@ Do infra-level backups (e.g. Hetzner snapshots) exist OUTSIDE the repo for the c
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 The upgrade service runs the regular backup on a schedule via a small IN-PROCESS periodic runner — no separate systemd timer, cron entry, or external scheduler; nothing extra to install (the service is already installed)
-- [ ] #2 Each run executes `./sb db dump` (pg_dump -Fc) then `./sb db dumps purge N`; retention keeps a bounded set, old dumps removed
-- [ ] #3 Coordination is IN-PROCESS: the service never runs a backup while an upgrade is in progress and never starts an upgrade while a backup runs (sequenced in one process; no cross-process lock); a run missed during downtime catches up on startup if overdue
-- [ ] #4 Verified on a standalone box: backups run unattended on cadence, are skipped during an upgrade, catch up after downtime, and purge enforces N
-- [ ] #5 doc/DEPLOYMENT.md documents the built-in standalone backup; the doc/CLOUD.md crontab recommendation is reconciled / removed
+- [ ] #2 Each run executes `./sb db dump` (pg_dump -Fc) then `./sb db dumps purge N`; retention keeps a bounded set, old dumps removed; dumps are ATOMIC (tmp→rename) so a failed/preempted dump leaves no partial file
+- [ ] #3 Coordination: the service sequences its own backup vs its own upgrade in-process (never concurrent); the backup ALSO checks the upgrade-in-progress flock (IsFlockHeld) to defer to an install-CLI-driven upgrade — it SKIPS if any upgrade is in flight; a run missed during downtime catches up on startup if overdue
+- [ ] #4 Verified on a standalone box: backups run unattended on cadence, are SKIPPED during an upgrade (service- AND install-driven), catch up after downtime, and purge enforces N; a backup failure never crashes the service
+- [ ] #5 doc/DEPLOYMENT.md documents the built-in standalone backup (cadence, retention, where dumps land, how to restore/tune/disable); the doc/CLOUD.md crontab recommendation is reconciled / removed
 <!-- AC:END -->
+
+
 
 ## Implementation Plan
 
