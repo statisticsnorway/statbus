@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/spf13/cobra"
 	"github.com/statisticsnorway/statbus/cli/internal/config"
+	"github.com/statisticsnorway/statbus/cli/internal/dbdump"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 )
 
@@ -237,57 +238,21 @@ var dbDumpCmd = &cobra.Command{
 			return fmt.Errorf("database is not running — start it with 'sb start all'")
 		}
 
-		code, err := loadSlotCode(projDir)
+		fmt.Println("Dumping database ...")
+
+		// dbdump.DumpDatabase is the shared, atomic (.tmp→rename) core, also used
+		// by the upgrade service's scheduled backup (STATBUS-113).
+		outPath, err := dbdump.DumpDatabase(projDir)
 		if err != nil {
 			return err
-		}
-
-		dbName, err := loadDbName(projDir)
-		if err != nil {
-			return err
-		}
-
-		dumpsDir, err := ensureDumpsDir(projDir)
-		if err != nil {
-			return err
-		}
-
-		filename := fmt.Sprintf("%s_%s.pg_dump", code, dumpTimestamp())
-		outPath := filepath.Join(dumpsDir, filename)
-
-		fmt.Printf("Dumping %s to %s ...\n", dbName, filename)
-
-		c := exec.Command("docker", "compose", "exec", "-T", "db",
-			"pg_dump", "-Fc", "--no-owner",
-			"--exclude-table-data=auth.secrets",
-			"-U", "postgres", dbName)
-		c.Dir = projDir
-
-		outFile, err := os.Create(outPath)
-		if err != nil {
-			return fmt.Errorf("create output file: %w", err)
-		}
-		defer outFile.Close()
-
-		c.Stdout = outFile
-		c.Stderr = os.Stderr
-
-		if err := c.Run(); err != nil {
-			os.Remove(outPath)
-			return fmt.Errorf("pg_dump failed: %w", err)
 		}
 
 		info, err := os.Stat(outPath)
 		if err != nil {
 			return err
 		}
-		if info.Size() == 0 {
-			os.Remove(outPath)
-			return fmt.Errorf("dump produced an empty file — check database connectivity")
-		}
-
 		fmt.Printf("Done: %s (%s)\n", outPath, humanSize(info.Size()))
-		warnIfManyDumps(dumpsDir)
+		warnIfManyDumps(dbdump.DumpsDir(projDir))
 		return nil
 	},
 }
@@ -407,7 +372,6 @@ var dumpsPurgeCmd = &cobra.Command{
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projDir := config.ProjectDir()
-		dumpsDir := filepath.Join(projDir, "dbdumps")
 
 		keepCount := 1
 		if len(args) > 0 {
@@ -418,55 +382,18 @@ var dumpsPurgeCmd = &cobra.Command{
 			keepCount = n
 		}
 
-		entries, err := filepath.Glob(filepath.Join(dumpsDir, "*.pg_dump"))
+		// dbdump.DumpsToPurge is the shared retention core (keep newest N per
+		// source prefix); the cobra command previews + confirms, then deletes
+		// via dbdump.PurgeDumps. The service (STATBUS-113) calls PurgeDumps headless.
+		toDelete, err := dbdump.DumpsToPurge(projDir, keepCount)
 		if err != nil {
 			return err
 		}
-		if len(entries) == 0 {
-			fmt.Println("No dump files to purge")
-			return nil
-		}
-
-		// Group by source prefix (everything before the timestamp).
-		// Filename pattern: {prefix}_{YYYYMMDD_HHMMSS}.pg_dump
-		// The prefix is the part before the last two underscore-separated date/time segments.
-		groups := make(map[string][]string)
-		for _, path := range entries {
-			base := filepath.Base(path)
-			// Find the source prefix: everything up to _YYYYMMDD_HHMMSS.pg_dump
-			// The timestamp is 15 chars: YYYYMMDD_HHMMSS
-			name := strings.TrimSuffix(base, ".pg_dump")
-			// Split from the right: the last 15 chars should be the timestamp
-			if len(name) > 16 && name[len(name)-15-1] == '_' {
-				prefix := name[:len(name)-15-1]
-				groups[prefix] = append(groups[prefix], path)
-			} else {
-				// Can't parse — treat entire name as prefix
-				groups[name] = append(groups[name], path)
-			}
-		}
-
-		// For each group, sort by name (timestamps sort lexically) and mark old ones for deletion.
-		var toDelete []string
-		for prefix, paths := range groups {
-			sort.Strings(paths)
-			if len(paths) <= keepCount {
-				continue
-			}
-			// Keep the newest keepCount (last N after sort)
-			cutoff := len(paths) - keepCount
-			for _, p := range paths[:cutoff] {
-				toDelete = append(toDelete, p)
-			}
-			_ = prefix
-		}
-
 		if len(toDelete) == 0 {
 			fmt.Println("Nothing to purge")
 			return nil
 		}
 
-		sort.Strings(toDelete)
 		fmt.Println("The following files will be deleted:")
 		for _, p := range toDelete {
 			info, _ := os.Stat(p)
@@ -482,14 +409,14 @@ var dumpsPurgeCmd = &cobra.Command{
 			return nil
 		}
 
-		for _, p := range toDelete {
-			if err := os.Remove(p); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: could not remove %s: %v\n", filepath.Base(p), err)
-			} else {
-				fmt.Printf("  Deleted %s\n", filepath.Base(p))
-			}
+		deleted, err := dbdump.PurgeDumps(projDir, keepCount)
+		for _, p := range deleted {
+			fmt.Printf("  Deleted %s\n", filepath.Base(p))
 		}
-		fmt.Printf("Purged %d file(s)\n", len(toDelete))
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Purged %d file(s)\n", len(deleted))
 		return nil
 	},
 }

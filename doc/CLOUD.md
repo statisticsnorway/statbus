@@ -524,32 +524,20 @@ tar -xzf backup_ma_config_20240115.tar.gz
 
 ### Automated Backups
 
-Create `/root/backup-all-statbus.sh` on niue.statbus.org:
+Each instance now takes its **own** scheduled logical backup — built into the
+always-on upgrade service, no crontab or external scheduler to install
+(STATBUS-113). On the configured cadence the service runs `pg_dump -Fc` into the
+instance's `dbdumps/` and prunes to a retention count, deferring automatically
+whenever an upgrade is in progress. Configure per instance via `.env.config`:
+`BACKUP_ENABLED` (default `true`), `BACKUP_INTERVAL` (default `24h`),
+`BACKUP_RETENTION_COUNT` (default `7`). See
+[DEPLOYMENT.md → Database Backup and Restore](DEPLOYMENT.md) for the full
+description.
 
-```bash
-#!/bin/bash
-BACKUP_DIR="/opt/backups/statbus"
-mkdir -p $BACKUP_DIR
-DATE=$(date +%Y%m%d)
-
-for user_home in /home/statbus_*/; do
-    user=$(basename $user_home)
-    code=$(echo $user | sed 's/statbus_//')
-    if [ -f "$user_home/statbus/docker-compose.yml" ]; then
-        echo "Backing up $code..."
-        sudo -u $user bash -c "cd $user_home/statbus && docker compose exec -T db pg_dump -U postgres statbus" > "$BACKUP_DIR/${code}_${DATE}.sql"
-    fi
-done
-
-# Keep only last 30 days
-find $BACKUP_DIR -name "*.sql" -mtime +30 -delete
-```
-
-Add to root crontab:
-```bash
-sudo crontab -e
-# Add: 0 2 * * * /root/backup-all-statbus.sh
-```
+> The earlier `/root/backup-all-statbus.sh` + root-crontab recommendation is
+> retired: it is superseded by this built-in per-instance backup. On the SSB
+> multi-tenant cloud, disk-level/off-box copies remain an infra concern handled
+> outside this repo.
 
 ---
 

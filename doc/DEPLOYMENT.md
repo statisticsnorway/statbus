@@ -319,10 +319,41 @@ After editing, regenerate:
 
 **Database Backup and Restore**:
 ```bash
-./sb db dump                    # Backup to dbdumps/
+./sb db dump                    # Backup to dbdumps/ (manual, on-demand)
 ./sb db dumps list              # List available dumps
+./sb db dumps purge <N>         # Keep newest N dumps per source, delete the rest
 ./sb db restore <file>          # Restore from dump
 ```
+
+**Built-in scheduled backup** (standalone): the always-on upgrade service takes a
+regular logical backup automatically — no cron, systemd timer, or external
+scheduler to install (it is part of the service you already run). On standalone
+installs this **is** the database backup, so it is enabled by default.
+
+- **What it does**: on the configured cadence it runs `pg_dump -Fc` into
+  `dbdumps/` (atomically — a partial/interrupted dump never overwrites a good
+  one), then prunes the directory to the retention count.
+- **When it runs**: every `BACKUP_INTERVAL`, plus a catch-up at service start if
+  the last dump is older than the interval (so a backup missed while the box was
+  off runs as soon as it comes back).
+- **Coordination**: it automatically **skips** while an upgrade is in progress
+  (the upgrade takes its own snapshot) and never runs two backups at once; a
+  backup failure is logged (and sent to `UPGRADE_CALLBACK` if configured) but
+  never crashes the service.
+- **Where dumps land**: `dbdumps/<slot>_<timestamp>.pg_dump` in the instance
+  directory. Restore any of them with `./sb db restore <file>`.
+
+Tune or disable it in `.env.config` (then `./sb config generate`):
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `BACKUP_ENABLED` | `true` | Set `false` to opt out (e.g. a box with its own infra-level snapshots). |
+| `BACKUP_INTERVAL` | `24h` | Cadence (Go duration, e.g. `12h`, `48h`). |
+| `BACKUP_RETENTION_COUNT` | `7` | Dumps kept per source prefix; older ones are pruned. |
+
+> Note: the scheduled backup pauses while the service is stopped. If you take the
+> service down for an extended period, run `./sb db dump` manually; the next
+> service start also catches up an overdue backup.
 
 **Apply Migrations**:
 ```bash

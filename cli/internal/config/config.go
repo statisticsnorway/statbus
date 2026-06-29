@@ -387,6 +387,14 @@ func loadOrGenerateConfig(projDir string, verbose bool) (*ConfigEnv, error) {
 	if mode != "development" {
 		gen("UPGRADE_CHECK_INTERVAL", "6h")
 		gen("UPGRADE_AUTO_DOWNLOAD", "true")
+		// Scheduled logical-backup settings (STATBUS-113): the always-on upgrade
+		// service takes a periodic pg_dump (BACKUP_INTERVAL) and prunes the dump
+		// dir to BACKUP_RETENTION_COUNT. Default on for standalone installs where
+		// this IS the backup; set BACKUP_ENABLED=false to opt out (e.g. a box with
+		// its own infra-level snapshots).
+		gen("BACKUP_ENABLED", "true")
+		gen("BACKUP_INTERVAL", "24h")
+		gen("BACKUP_RETENTION_COUNT", "7")
 		// Signing is enforced when UPGRADE_TRUSTED_SIGNER_* keys are present.
 		// No separate flag needed — key presence determines enforcement.
 	}
@@ -727,6 +735,10 @@ PUBLIC_STATBUS_COMMIT_SHORT=%[23]s
 		fmt.Fprintf(&b, "UPGRADE_CHANNEL=%s\n", getOrDefault("UPGRADE_CHANNEL", upgradeChannelFallback))
 		fmt.Fprintf(&b, "UPGRADE_CHECK_INTERVAL=%s\n", getOrDefault("UPGRADE_CHECK_INTERVAL", "6h"))
 		fmt.Fprintf(&b, "UPGRADE_AUTO_DOWNLOAD=%s\n", getOrDefault("UPGRADE_AUTO_DOWNLOAD", "true"))
+		// Scheduled logical-backup settings (STATBUS-113) — read by the service's loadConfig().
+		fmt.Fprintf(&b, "BACKUP_ENABLED=%s\n", getOrDefault("BACKUP_ENABLED", "true"))
+		fmt.Fprintf(&b, "BACKUP_INTERVAL=%s\n", getOrDefault("BACKUP_INTERVAL", "24h"))
+		fmt.Fprintf(&b, "BACKUP_RETENTION_COUNT=%s\n", getOrDefault("BACKUP_RETENTION_COUNT", "7"))
 		fmt.Fprintf(&b, "# Contact shown on maintenance.html when set; leave empty to omit\n")
 		fmt.Fprintf(&b, "ADMINISTRATOR_CONTACT=%s\n", getOrDefault("ADMINISTRATOR_CONTACT", ""))
 		// Propagate trusted signer keys from .env.config to .env

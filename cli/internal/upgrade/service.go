@@ -17,12 +17,14 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/statisticsnorway/statbus/cli/internal/compose"
+	"github.com/statisticsnorway/statbus/cli/internal/dbdump"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/inject"
 	"github.com/statisticsnorway/statbus/cli/internal/invariants"
@@ -129,6 +131,11 @@ type Service struct {
 	channel      string
 	interval     time.Duration
 	autoDL       bool
+	// Scheduled logical-backup settings (STATBUS-113), read from .env by loadConfig.
+	backupEnabled   bool          // BACKUP_ENABLED — false opts the box out entirely
+	backupInterval  time.Duration // BACKUP_INTERVAL — cadence of the pg_dump (default 24h)
+	backupRetention int           // BACKUP_RETENTION_COUNT — dumps kept per prefix (default 7)
+	backupMu        sync.Mutex    // single-flight guard: never two backups at once
 	// pinnedVer removed — use "skip" in the UI instead of a channel that hides all releases
 	upgrading      bool             // true during executeUpgrade; prevents ticker/notify from using nil conn
 	pendingRecreate bool           // if true, next upgrade deletes+recreates the database instead of migrating
@@ -1752,6 +1759,13 @@ func (d *Service) Run(ctx context.Context) error {
 	heartbeatTicker := time.NewTicker(30 * time.Second)
 	defer heartbeatTicker.Stop()
 
+	// Scheduled logical-backup ticker (STATBUS-113). Fires on the configured
+	// BACKUP_INTERVAL; the handler runs in a GOROUTINE (see the select case) so a
+	// long pg_dump can never block the heartbeat case above — a synchronous
+	// handler exceeding WatchdogSec=120 would get the service SIGKILLed mid-backup.
+	backupTicker := time.NewTicker(d.backupInterval)
+	defer backupTicker.Stop()
+
 	// Initial discovery on startup
 	d.discover(ctx)
 	// STATBUS-098: also CLAIM any already-'scheduled' row at startup, not just
@@ -1766,6 +1780,13 @@ func (d *Service) Run(ctx context.Context) error {
 	if d.listenCancel == nil {
 		d.startListenLoop(ctx, notifyCh, errCh)
 	}
+
+	// STATBUS-113 catch-up: if a scheduled backup was missed while the service was
+	// down (the box was off over the cadence window), run it now rather than
+	// waiting a full BACKUP_INTERVAL. maybeRunBackup's due-check makes this a
+	// no-op when a recent dump already covers the window. Goroutine for the same
+	// heartbeat-safety reason as the ticker case.
+	go d.maybeRunBackup(ctx)
 
 	for {
 		select {
@@ -1815,6 +1836,13 @@ func (d *Service) Run(ctx context.Context) error {
 				d.pruneUpgradeLogs(20) // keep the 20 newest upgrade-log + bundle pairs
 				d.runRetentionPurge(ctx, "all", nil) // time-safety sweep over public.upgrade
 			}
+		case <-backupTicker.C:
+			// Scheduled logical backup (STATBUS-113). GOROUTINE: a large-DB
+			// pg_dump can run for minutes — longer than WatchdogSec — so it must
+			// not block this select (the heartbeat case lives here too). All
+			// guards (enabled / upgrade-in-progress skip / single-flight / due
+			// check) live in maybeRunBackup.
+			go d.maybeRunBackup(ctx)
 		case n := <-notifyCh:
 			if !d.upgrading {
 				d.handleNotification(ctx, n)
@@ -2628,6 +2656,26 @@ func (d *Service) loadConfig() error {
 	d.autoDL = true
 	if v, ok := f.Get("UPGRADE_AUTO_DOWNLOAD"); ok {
 		d.autoDL = v == "true"
+	}
+
+	// Scheduled logical-backup settings (STATBUS-113). Default ON with a 24h
+	// cadence and 7-dump retention; a malformed interval/count falls back to the
+	// default rather than disabling the safety net.
+	d.backupEnabled = true
+	if v, ok := f.Get("BACKUP_ENABLED"); ok {
+		d.backupEnabled = v != "false"
+	}
+	d.backupInterval = 24 * time.Hour
+	if v, ok := f.Get("BACKUP_INTERVAL"); ok {
+		if dur, perr := time.ParseDuration(v); perr == nil && dur > 0 {
+			d.backupInterval = dur
+		}
+	}
+	d.backupRetention = 7
+	if v, ok := f.Get("BACKUP_RETENTION_COUNT"); ok {
+		if n, perr := strconv.Atoi(v); perr == nil && n >= 0 {
+			d.backupRetention = n
+		}
 	}
 
 	return nil
@@ -5238,6 +5286,109 @@ func (d *Service) runUpgradeCallback(displayName string) {
 // path (passes STATBUS_ROLLBACK_FAILED=1 and recovery context so the
 // callback script — typically ops/notify-slack.sh — can branch on
 // outcome). Never fails the upgrade; logs errors but always returns.
+// maybeRunBackup takes a scheduled logical backup (pg_dump) if one is due and no
+// upgrade is in flight (STATBUS-113). Invoked from the BACKUP_INTERVAL ticker and
+// once at boot for missed-window catch-up — ALWAYS in a goroutine. It NEVER
+// crashes the service: a panic is recovered and logged, and the next tick retries.
+//
+// Coordination (AC#3): the backup defers to any upgrade — the service's own
+// (d.upgrading) or an install-CLI-driven one (the upgrade-in-progress flock). The
+// upgrade takes its own pre-swap snapshot, so a skipped run loses nothing; the
+// next tick (or the boot catch-up) covers the gap. A backup that races the START
+// of an upgrade is harmless anyway: dbdump.DumpDatabase is atomic, so a DB stop
+// aborts it leaving only a discardable .tmp.
+func (d *Service) maybeRunBackup(ctx context.Context) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("Scheduled backup: recovered from panic (service continues): %v\n", r)
+		}
+	}()
+	if ctx.Err() != nil {
+		return // service shutting down — don't start a dump
+	}
+
+	if run, skipReason := d.backupGate(); !run {
+		if skipReason != "" {
+			fmt.Printf("Scheduled backup skipped: %s\n", skipReason)
+		}
+		return
+	}
+
+	// Single-flight: a previous backup may still be running (a slow dump that
+	// outlasted the tick interval). TryLock returns immediately if so.
+	if !d.backupMu.TryLock() {
+		return
+	}
+	defer d.backupMu.Unlock()
+
+	// Re-check under the lock: an upgrade may have started — or another path may
+	// have produced a dump — between the first gate read and acquiring the lock.
+	if run, _ := d.backupGate(); !run {
+		return
+	}
+
+	start := time.Now()
+	fmt.Println("Scheduled backup: starting pg_dump ...")
+	path, err := dbdump.DumpDatabase(d.projDir)
+	if err != nil {
+		fmt.Printf("Scheduled backup FAILED: %v\n", err)
+		// Notify on failure only (reuse UPGRADE_CALLBACK); success is silent.
+		d.runCallback("scheduled-backup", map[string]string{
+			"STATBUS_EVENT": "backup_failed",
+			"STATBUS_ERROR": err.Error(),
+		})
+		return
+	}
+	size := int64(0)
+	if info, sErr := os.Stat(path); sErr == nil {
+		size = info.Size()
+	}
+	fmt.Printf("Scheduled backup completed: %s (%d bytes) in %s\n",
+		path, size, time.Since(start).Round(time.Second))
+
+	if deleted, pErr := dbdump.PurgeDumps(d.projDir, d.backupRetention); pErr != nil {
+		// Retention purge failure is non-fatal — the fresh dump is safe and the
+		// next run catches up. Log, don't fail.
+		fmt.Printf("Scheduled backup: dump kept, retention purge failed: %v\n", pErr)
+	} else if len(deleted) > 0 {
+		fmt.Printf("Scheduled backup: purged %d old dump(s), keeping newest %d per prefix\n",
+			len(deleted), d.backupRetention)
+	}
+}
+
+// backupGate decides whether a scheduled backup should run now. It returns a
+// human-readable reason ONLY for a loud skip (an upgrade is in flight); disabled
+// and not-due are silent skips (reason ""). Pure w.r.t. the dump itself (no
+// docker, no lock) so the coordination rules are unit-testable.
+func (d *Service) backupGate() (run bool, skipReason string) {
+	if !d.backupEnabled {
+		return false, "" // opted out — silent
+	}
+	if d.upgrading || IsFlockHeld(d.projDir) {
+		return false, "upgrade in progress"
+	}
+	if !backupDue(d.projDir, d.backupInterval) {
+		return false, "" // a recent dump already covers this window — silent
+	}
+	return true, ""
+}
+
+// backupDue reports whether a logical backup is due: true if no dump exists yet,
+// or the newest dump is at least ~one interval old. The 0.9×interval threshold is
+// a deliberate tolerance: the BACKUP_INTERVAL ticker fires one interval after the
+// previous dump COMPLETED, so at tick time the newest dump is slightly younger
+// than a full interval (by the dump's own runtime + scheduler jitter); a strict
+// `>= interval` test would miss every other tick and halve the real cadence. The
+// slack is operationally irrelevant at a daily cadence and still prevents a
+// dump-on-every-restart at boot (a fresh dump is far younger than 0.9×interval).
+func backupDue(projDir string, interval time.Duration) bool {
+	newest, ok := dbdump.NewestDumpModTime(projDir)
+	if !ok {
+		return true // no dump yet → due
+	}
+	return time.Since(newest) >= interval-interval/10
+}
+
 func (d *Service) runCallback(displayName string, extraEnv map[string]string) {
 	envPath := filepath.Join(d.projDir, ".env")
 	f, err := dotenv.Load(envPath)
