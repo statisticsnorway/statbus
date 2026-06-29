@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-29 09:44'
-updated_date: '2026-06-29 12:49'
+updated_date: '2026-06-29 14:55'
 labels:
   - backup
   - ops
@@ -51,7 +51,7 @@ Do infra-level backups (e.g. Hetzner snapshots) exist OUTSIDE the repo for the c
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 The upgrade service runs the regular backup on a schedule via a small IN-PROCESS periodic runner — no separate systemd timer, cron entry, or external scheduler; nothing extra to install (the service is already installed)
-- [ ] #2 Each run executes `./sb db dump` (pg_dump -Fc) then `./sb db dumps purge N`; retention keeps a bounded set, old dumps removed; dumps are ATOMIC (tmp→rename) so a failed/preempted dump leaves no partial file
+- [ ] #2 Each run calls `dbdump.DumpDatabase` then `dbdump.PurgeDumps(N)` IN-PROCESS (not a subprocess); dumps are ATOMIC (tmp→rename) so a failed/preempted dump leaves no partial file; retention keeps N
 - [ ] #3 Coordination: the service sequences its own backup vs its own upgrade in-process (never concurrent); the backup ALSO checks the upgrade-in-progress flock (IsFlockHeld) to defer to an install-CLI-driven upgrade — it SKIPS if any upgrade is in flight; a run missed during downtime catches up on startup if overdue
 - [ ] #4 Verified on a standalone box: backups run unattended on cadence, are SKIPPED during an upgrade (service- AND install-driven), catch up after downtime, and purge enforces N; a backup failure never crashes the service
 - [ ] #5 doc/DEPLOYMENT.md documents the built-in standalone backup (cadence, retention, where dumps land, how to restore/tune/disable); the doc/CLOUD.md crontab recommendation is reconciled / removed
@@ -139,4 +139,6 @@ Scheduler: a tiny home-grown periodic runner suffices ('daily' needs no cron-exp
 This SUPERSEDES the user-systemd-timer mechanism + the flock-coordination AC above.
 
 SURVEY DONE + PLAN FINALIZED (2026-06-29; tmp/mechanic-backup-survey.md, foreman-verified Q1/Q2/Q7). The Implementation Plan above is now DEFINITIVE — every prior 'prefer/or/if' resolved to a decision with file:line. Key resolutions: CLEAN SLATE (no WIP to reverse); hook = one select-case in Service.Run (:1770) running the backup in a GOROUTINE (heartbeat-safety — a sync handler could exceed the 120s watchdog); extract+harden two cores (dumpDatabase → atomic .tmp→rename; purgeDumps → headless, drop confirmAction); config mirrors UPGRADE_CHECK_INTERVAL's 4 points; coordination = d.upgrading || IsFlockHeld(d.projDir) (in-package, service.go:725); log via fmt.Printf/journald + reuse runCallback on failure. Ready for build on the King's GO.
+
+DESIGN CALL — dump/purge core HOME = a NEW neutral package `internal/dbdump` (architect, 2026-06-29; engineer-flagged, foreman-verified). IMPORT-CYCLE: `cmd` imports `internal/upgrade` (10 files); `upgrade` imports `cmd` in ZERO — so the cores CANNOT stay in `cmd` (the service calling them would cycle). CORRECTS plan §1 ('extract from cmd/db.go → reusable funcs'): instead, land them in **`internal/dbdump`**, exported `DumpDatabase`/`PurgeDumps`, imported by BOTH cmd (cobra cmds) and upgrade (the service) — no cycle. Chosen over (A) cores-in-`upgrade`: a logical pg_dump is a GENERAL DB op (callers = manual/dev/test, not upgrade), so B keeps it composable/separable (King's principle) vs baking a generic op into the upgrade package. (C) shell-out OUT (contradicts in-process, loses typed errors). Physical snapshot ops backupDatabase/restoreDatabase STAY in `upgrade` (upgrade-specific). Helpers loadDbName/dumpTimestamp/ensureDumpsDir move to dbdump; humanSize stays in cmd (9 callers). FIXES the AC#2-vs-step-3 contradiction — it's IN-PROCESS (`dbdump.DumpDatabase`), NOT shell-out. King NOT looped: internal layering, principle-resolved, his diagram-focus protected; recorded here for transparency.
 <!-- SECTION:NOTES:END -->
