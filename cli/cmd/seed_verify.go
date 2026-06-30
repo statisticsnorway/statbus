@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -49,13 +50,54 @@ func sha256hex(s string) string {
 	return hex.EncodeToString(sum[:])
 }
 
+// redundantCastAliasRe matches a cast immediately followed by an explicit column
+// alias — `::<type> AS <name>` — capturing (1) the whole cast incl. `::` and any
+// schema qualification, (2) the type's UNQUALIFIED last component, and (3) the
+// alias. PostgreSQL infers a cast expression's column name from the type's last
+// component, so when <name> equals that component the `AS <name>` is REDUNDANT: it
+// names the column EXACTLY what the cast already infers, hence collapsing it is
+// behaviorally inert even on a set-operation's first branch. RE2 has no
+// backreferences, so the alias==type-name test is done in the replace func, not
+// the pattern. Type modifiers / spaced types (`character varying`) simply don't
+// match and are preserved (collapse is opt-in, never speculative).
+var redundantCastAliasRe = regexp.MustCompile(`(::(?:[a-zA-Z_][a-zA-Z0-9_]*\.)*([a-zA-Z_][a-zA-Z0-9_]*))\s+AS\s+([a-zA-Z_][a-zA-Z0-9_]*)`)
+
+// collapseRedundantCastAliases drops `AS <name>` from `::<type> AS <name>` EXACTLY
+// when <name> equals the cast type's own unqualified name. This is the one NAMED
+// round-trip schema artifact (STATBUS-116 AC#4): pg_dump's pg_get_viewdef emits
+// this redundant alias on a view that has been round-tripped through dump/restore
+// (the INCREMENTAL seed) but omits it on a freshly-migrated view (the FULL seed) —
+// observed on public.statistical_unit_def's UNION-branch `::public.
+// statistical_unit_type AS statistical_unit_type` targets. Collapsing it makes the
+// S1 text oracle agree with the proven SEMANTIC identity. Matching alias==type's
+// own name is what guarantees a MEANINGFUL rename (alias ≠ type name) can NEVER be
+// collapsed — proven by the differential tests in seed_verify_test.go.
+func collapseRedundantCastAliases(s string) string {
+	return redundantCastAliasRe.ReplaceAllStringFunc(s, func(m string) string {
+		g := redundantCastAliasRe.FindStringSubmatch(m)
+		// g[1]=cast incl `::`; g[2]=type's unqualified last component; g[3]=alias.
+		if g[2] == g[3] {
+			return g[1] // redundant alias → drop it (keep the cast verbatim)
+		}
+		return m // alias is a real rename → preserve untouched
+	})
+}
+
 // normalizeSchemaDump strips the deterministic-but-volatile lines from a
 // `pg_dump --schema-only` so that two dumps of the SAME schema normalize to
-// identical text. Removed: blank lines, `--` comments (incl. the `-- Name:/Type:`
-// decorations + the dump header), `SET ...` session lines, and the
-// `SELECT pg_catalog.set_config(...)` preamble. Everything else (the DDL) is
-// kept verbatim; pg_dump emits DDL in an OID-independent, name+dependency order
-// that is stable for identical schemas, so the surviving text is comparable.
+// identical text. Removed: blank lines; `--` comments (incl. the `-- Name:/Type:`
+// decorations + the dump header); `SET ...` session lines; the
+// `SELECT pg_catalog.set_config(...)` preamble; and psql backslash meta-commands
+// (`\restrict`/`\unrestrict`/`\connect`/…). The `\restrict <token>` /
+// `\unrestrict <token>` pair is the one NAMED schema non-determinism: PG18's
+// pg_dump emits it with a fresh RANDOM token per invocation (a psql client
+// directive, not schema), so without stripping it two dumps of an IDENTICAL
+// schema digest differently — proven by the dump→restore round-trip whose ONLY
+// schema diff was exactly those two lines. Each surviving line is then run through
+// collapseRedundantCastAliases to erase the ONE NAMED round-trip artifact (a
+// redundant `::type AS type` view-column alias). Everything else (the DDL) is kept
+// verbatim; pg_dump emits DDL in an OID-independent, name+dependency order that
+// is stable for identical schemas, so the surviving text is comparable.
 func normalizeSchemaDump(raw string) string {
 	var b strings.Builder
 	for _, line := range strings.Split(raw, "\n") {
@@ -69,8 +111,10 @@ func normalizeSchemaDump(raw string) string {
 			continue
 		case strings.HasPrefix(t, "SELECT pg_catalog.set_config"):
 			continue
+		case strings.HasPrefix(t, `\`):
+			continue // psql meta-command (\restrict/\unrestrict: random per-invocation token)
 		}
-		b.WriteString(t)
+		b.WriteString(collapseRedundantCastAliases(t))
 		b.WriteByte('\n')
 	}
 	return b.String()
@@ -96,11 +140,81 @@ func dataDigestOfRows(rows []string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-// perTableDataDigestSQL is the in-DB equivalent of dataDigestOfRows: it returns
-// the per-table digest as a single value (empty string for an empty table).
-func perTableDataDigestSQL(schema, table string) string {
-	return fmt.Sprintf(`SELECT COALESCE(md5(string_agg(t::text, '' ORDER BY t::text)), '') FROM %s.%s AS t`,
-		pgQuoteIdent(schema), pgQuoteIdent(table))
+// volatileDefaultPattern matches a column DEFAULT that is a build-volatile
+// function — audit timestamps (now/clock_timestamp/statement_timestamp/
+// current_timestamp) and random/uuid generators. STATBUS-116 AC#4: columns with
+// such defaults receive the BUILD WALL-CLOCK time (or fresh randomness) when
+// migration-inserted seed rows omit them, so they are build noise, NOT semantic
+// seed content. Architect-blessed: business-temporal validity columns
+// (x_from/x_to/valid_*) never carry a volatile DEFAULT, so this rule cannot
+// touch them — it only excludes the audit-metadata columns.
+const volatileDefaultPattern = `(now|clock_timestamp|statement_timestamp|current_timestamp|random|gen_random_uuid)`
+
+// semanticColumnRe matches a column NAME that looks BUSINESS-TEMPORAL/semantic
+// (validity periods, effective dates, business "on/from/to" dates) rather than
+// audit metadata. The self-guard FAILS LOUD if such a column is about to be
+// auto-excluded — see contentColumns.
+var semanticColumnRe = regexp.MustCompile(`(?i)(valid|effective|period|range|_from$|_to$|_until$|_after$|_on$)`)
+
+// contentColumns returns dbName.schema.table's DETERMINISTIC columns (ordinal
+// order): all columns EXCEPT those whose DEFAULT matches volatileDefaultPattern.
+// A column with no default, or a non-volatile default, is content.
+//
+// SELF-GUARD (architect refinement): the auto-exclusion is convenient but would
+// SILENTLY HIDE REAL DRIFT if a future migration ever attached a volatile DEFAULT
+// to a business-temporal/semantic column. So this aborts LOUD whenever an
+// excluded column's NAME looks semantic (valid*/_from/_to/_until/_after/_on/
+// period/range/effective) instead of audit. Verified 0 such columns today; the
+// guard is what keeps the convenient rule safe as the schema evolves — it ships
+// WITH the exclusion, not after.
+func contentColumns(projDir, dbName, schema, table string) ([]string, error) {
+	sql := fmt.Sprintf(`SELECT column_name, `+
+		`(column_default IS NOT NULL AND column_default ~* '%s') AS volatile `+
+		`FROM information_schema.columns `+
+		`WHERE table_schema = %s AND table_name = %s ORDER BY ordinal_position`,
+		volatileDefaultPattern, pgLiteral(schema), pgLiteral(table))
+	out, err := migrate.QueryDB(projDir, dbName, sql, "-t", "-A", "-F", "|")
+	if err != nil {
+		return nil, fmt.Errorf("content columns %s.%s: %w", schema, table, err)
+	}
+	var cols []string
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		name, volatile, _ := strings.Cut(line, "|")
+		if volatile == "t" {
+			if semanticColumnRe.MatchString(name) {
+				return nil, fmt.Errorf("SELF-GUARD TRIPPED: %s.%s.%s has a volatile DEFAULT but its name "+
+					"looks business-temporal/semantic — auto-excluding it from the seed data digest could "+
+					"silently HIDE real drift. A migration likely attached a volatile default to a semantic "+
+					"column; investigate before trusting this proof (do not relax the guard blindly)",
+					schema, table, name)
+			}
+			continue // benign audit column — excluded from the content digest
+		}
+		cols = append(cols, name)
+	}
+	return cols, nil
+}
+
+// perTableDataDigestSQL is the in-DB equivalent of dataDigestOfRows, restricted
+// to the given CONTENT columns: md5 over the sorted text of ROW(content cols)
+// only, so build-volatile audit columns (excluded by the caller) cannot enter
+// the digest. With no content columns left (a table that is all audit metadata),
+// it falls back to the row count so add/remove is still detected.
+func perTableDataDigestSQL(schema, table string, contentCols []string) string {
+	if len(contentCols) == 0 {
+		return fmt.Sprintf(`SELECT 'rows:' || count(*) FROM %s.%s`, pgQuoteIdent(schema), pgQuoteIdent(table))
+	}
+	qualified := make([]string, len(contentCols))
+	for i, c := range contentCols {
+		qualified[i] = "t." + pgQuoteIdent(c)
+	}
+	rowExpr := "ROW(" + strings.Join(qualified, ", ") + ")::text"
+	return fmt.Sprintf(`SELECT COALESCE(md5(string_agg(%s, '' ORDER BY %s)), '') FROM %s.%s AS t`,
+		rowExpr, rowExpr, pgQuoteIdent(schema), pgQuoteIdent(table))
 }
 
 // combineTableDigests folds the per-table digests (keyed "schema.table") into one
@@ -125,6 +239,9 @@ func combineTableDigests(perTable map[string]string) string {
 // pgQuoteIdent double-quotes a SQL identifier (doubling embedded quotes).
 func pgQuoteIdent(s string) string { return `"` + strings.ReplaceAll(s, `"`, `""`) + `"` }
 
+// pgLiteral single-quotes a SQL string literal (doubling embedded quotes).
+func pgLiteral(s string) string { return `'` + strings.ReplaceAll(s, `'`, `''`) + `'` }
+
 // ── digest of a live DB (needs Postgres; not unit-tested) ────────────────────
 
 // seedDigest is the full semantic fingerprint of one built seed DB.
@@ -138,9 +255,38 @@ func (d seedDigest) equal(o seedDigest) bool {
 	return d.Schema == o.Schema && d.Data == o.Data && d.Ledger == o.Ledger
 }
 
+// excludedTables are whole tables whose DATA is excluded from the seed digest
+// because it is OPERATIONAL/bookkeeping state, not semantic seed content:
+//   - auth.secrets   — the shipped seed dumps it data-less.
+//   - db.migration   — migration bookkeeping; its meaningful content is the
+//     Ledger digest (version|filename). id/applied_at/duration_ms
+//     are per-build volatile.
+//   - worker.tasks   — the operational task QUEUE. Migrations spawn maintenance
+//     tasks (collect_changes, *_cleanup) via worker.spawn() with
+//     build-time-relative scheduled_at (now()/now()+interval), so
+//     the rows carry build-wall-clock timestamps. Determined
+//     MIGRATION-driven + deterministic (STATBUS-116 AC#4
+//     diagnostic — NOT a worker-daemon run), so excluding the
+//     queue verifies nothing semantic and avoids a hand-named
+//     volatile-column list (which the self-guard discourages).
+//     Architect-blessed disposition (a).
+func isExcludedTable(qualifiedName string) bool {
+	switch qualifiedName {
+	case "auth.secrets", "db.migration", "worker.tasks":
+		return true
+	}
+	return false
+}
+
 // computeSeedDigest fingerprints dbName: schema + per-table data + migration
-// ledger. auth.secrets DATA is excluded (the shipped seed dumps it data-less, so
-// including it would diverge full-vs-incremental spuriously).
+// ledger. Two table data-sets are excluded as NON-SEED-CONTENT build noise:
+//   - db.migration — bookkeeping, not seed data: its rows carry id (SERIAL),
+//     applied_at (DEFAULT now()) and duration_ms, all per-build volatile. Its
+//     MEANINGFUL content (which migrations are applied) is the Ledger digest
+//     (version|filename) below, so the table itself is the NAMED data
+//     non-determinism and is excluded from the data digest entirely.
+//   - auth.secrets — the shipped seed dumps it data-less, so including it would
+//     diverge full-vs-incremental spuriously.
 func computeSeedDigest(projDir, dbName string) (seedDigest, error) {
 	schemaRaw, err := pgDumpSchemaOnly(projDir, dbName)
 	if err != nil {
@@ -153,7 +299,7 @@ func computeSeedDigest(projDir, dbName string) (seedDigest, error) {
 	}
 	perTable := make(map[string]string, len(tables))
 	for _, qn := range tables {
-		if qn == "auth.secrets" {
+		if isExcludedTable(qn) {
 			perTable[qn] = "<data-excluded>"
 			continue
 		}
@@ -161,7 +307,11 @@ func computeSeedDigest(projDir, dbName string) (seedDigest, error) {
 		if len(parts) != 2 {
 			return seedDigest{}, fmt.Errorf("unexpected table name %q", qn)
 		}
-		d, err := migrate.QueryDB(projDir, dbName, perTableDataDigestSQL(parts[0], parts[1]), "-t", "-A")
+		cols, err := contentColumns(projDir, dbName, parts[0], parts[1])
+		if err != nil {
+			return seedDigest{}, err
+		}
+		d, err := migrate.QueryDB(projDir, dbName, perTableDataDigestSQL(parts[0], parts[1], cols), "-t", "-A")
 		if err != nil {
 			return seedDigest{}, fmt.Errorf("data digest %s: %w", qn, err)
 		}
@@ -233,17 +383,28 @@ func restoreEnv(key, prev string, had bool) {
 
 // migrateNamedDb runs migrate.Up against dbName by overriding the resolved-DB env
 // (the same shape runMigrateUp uses), reverted on return. migrateTo==0 → migrate
-// ALL pending; migrateTo>0 → up to that version inclusive.
+// ALL pending; migrateTo>0 → all pending up to that version inclusive.
 func migrateNamedDb(projDir, dbName string, migrateTo int64) error {
 	prevApp, hadApp := os.LookupEnv("POSTGRES_APP_DB")
 	prevPG, hadPG := os.LookupEnv("PGDATABASE")
+	prevMode, hadMode := os.LookupEnv("CADDY_DEPLOYMENT_MODE")
 	os.Setenv("POSTGRES_APP_DB", dbName)
 	os.Setenv("PGDATABASE", dbName)
+	// standalone dodges migrate.Up's dev-only maybeRebuildTestTemplate side-effect
+	// (migrate.go) — the same dodge the hermetic seed-builder uses — so the verify
+	// run never rebuilds the dev statbus_test_template.
+	os.Setenv("CADDY_DEPLOYMENT_MODE", "standalone")
 	defer func() {
 		restoreEnv("POSTGRES_APP_DB", prevApp, hadApp)
 		restoreEnv("PGDATABASE", prevPG, hadPG)
+		restoreEnv("CADDY_DEPLOYMENT_MODE", prevMode, hadMode)
 	}()
-	return migrate.Up(projDir, migrateTo, migrateTo == 0, verbose)
+	// all=TRUE always: apply ALL pending migrations. The migrateTo>0 cap inside
+	// runUp already bounds them to version <= migrateTo, so this means "all
+	// pending up to V_prev". all=false would TRUNCATE to the first pending
+	// migration (runUp's `if !all && len(pending) > 1`) — the bug that made the
+	// manufactured prior a 1-migration stub.
+	return migrate.Up(projDir, migrateTo, true, verbose)
 }
 
 // recreateVerifyDb drops (force) and recreates dbName from template_statbus +
@@ -327,81 +488,156 @@ func restoreVerifyDB(projDir, dbName, dumpPath string) error {
 	return runPgRestoreAtomic(cmd, "seed-verify restore")
 }
 
-// verifySeedIdentical builds a FULL seed and an INCREMENTAL seed (manufacturing
-// its own prior) and proves their digests match. Destructive only to the
-// dedicated seedVerifyDBName; never touches the real seed DB. Heavy (3 migrate
-// passes + a restore) — run on demand, not in per-build CI.
+// keepVerifyDBs (set by --keep-dbs) preserves the verify databases on exit so a
+// mismatch can be inspected live. Diff artifacts are written to tmp/ regardless.
+var keepVerifyDBs bool
+
+func dropVerifyDB(projDir, dbName string) {
+	if keepVerifyDBs {
+		return
+	}
+	if err := migrate.ExecOnDB(projDir, "postgres",
+		fmt.Sprintf("DROP DATABASE IF EXISTS %s WITH (FORCE);", pgQuoteIdent(dbName))); err != nil {
+		fmt.Printf("seed verify: warning: could not drop %s: %v\n", dbName, err)
+	}
+}
+
+// captureSeedDumps writes the NORMALIZED schema dump + the per-table data digest
+// lines of dbName to tmp/seed-verify-<label>-{schema,data}.txt, so two captures
+// can be `diff`ed to LOCALIZE (name) exactly which DDL/object/table diverged.
+func captureSeedDumps(projDir, dbName, label string) {
+	schemaRaw, err := pgDumpSchemaOnly(projDir, dbName)
+	if err != nil {
+		fmt.Printf("seed verify: capture schema %s: %v\n", label, err)
+		return
+	}
+	schemaPath := filepath.Join(projDir, "tmp", "seed-verify-"+label+"-schema.txt")
+	_ = os.WriteFile(schemaPath, []byte(normalizeSchemaDump(schemaRaw)), 0644)
+
+	var b strings.Builder
+	if tables, err := userTables(projDir, dbName); err == nil {
+		for _, qn := range tables {
+			if isExcludedTable(qn) {
+				b.WriteString(qn + "=<data-excluded>\n")
+				continue
+			}
+			parts := strings.SplitN(qn, ".", 2)
+			cols, _ := contentColumns(projDir, dbName, parts[0], parts[1])
+			d, _ := migrate.QueryDB(projDir, dbName, perTableDataDigestSQL(parts[0], parts[1], cols), "-t", "-A")
+			b.WriteString(qn + "=" + strings.TrimSpace(d) + "\n")
+		}
+	}
+	dataPath := filepath.Join(projDir, "tmp", "seed-verify-"+label+"-data.txt")
+	_ = os.WriteFile(dataPath, []byte(b.String()), 0644)
+	fmt.Printf("  captured %s → %s + %s\n", label, schemaPath, dataPath)
+}
+
+// buildFullSeed recreates dbName and migrates ALL → a fresh full seed; returns
+// its digest.
+func buildFullSeed(projDir, dbName string) (seedDigest, error) {
+	if err := recreateVerifyDb(projDir, dbName); err != nil {
+		return seedDigest{}, err
+	}
+	if err := migrateNamedDb(projDir, dbName, 0); err != nil {
+		return seedDigest{}, fmt.Errorf("full migrate %s: %w", dbName, err)
+	}
+	return computeSeedDigest(projDir, dbName)
+}
+
+// verifySeedIdentical first runs the INSTRUMENT CONTROL (build FULL twice → the
+// digests MUST match, proving the digest is build-deterministic), then the real
+// measurement (INCREMENTAL vs FULL). A non-deterministic control means the
+// instrument is broken — reported as such, BEFORE any incremental verdict can
+// mean anything. Destructive only to the dedicated seedVerify* databases; never
+// the real seed DB. Heavy (4 migrate passes + a restore) — run on demand.
 func verifySeedIdentical(projDir string) error {
-	tmpDir := filepath.Join(projDir, "tmp")
-	if err := os.MkdirAll(tmpDir, 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(projDir, "tmp"), 0755); err != nil {
 		return err
 	}
-	priorDump := filepath.Join(tmpDir, "seed-verify-prior.pg_dump")
+	dbA := seedVerifyDBName + "_a"
+	dbB := seedVerifyDBName + "_b"
+	priorDump := filepath.Join(projDir, "tmp", "seed-verify-prior.pg_dump")
 
-	// 1. FULL: build the whole seed, digest it, and learn V_prev (second-highest).
-	fmt.Println("seed verify: building FULL seed (all migrations from empty)...")
-	if err := recreateVerifyDb(projDir, seedVerifyDBName); err != nil {
-		return err
-	}
-	if err := migrateNamedDb(projDir, seedVerifyDBName, 0); err != nil {
-		return fmt.Errorf("full migrate: %w", err)
-	}
-	full, err := computeSeedDigest(projDir, seedVerifyDBName)
+	// CONTROL: build FULL twice; the digests MUST be identical (deterministic
+	// instrument) before INCR-vs-FULL can be trusted.
+	fmt.Println("seed verify [CONTROL]: building FULL seed #1 (all migrations from empty)...")
+	full1, err := buildFullSeed(projDir, dbA)
 	if err != nil {
 		return err
 	}
-	vPrev, err := secondHighestVersion(projDir, seedVerifyDBName)
+	fmt.Println("seed verify [CONTROL]: building FULL seed #2 (the determinism control)...")
+	full2, err := buildFullSeed(projDir, dbB)
+	if err != nil {
+		return err
+	}
+	if !full1.equal(full2) {
+		captureSeedDumps(projDir, dbA, "control-full-1")
+		captureSeedDumps(projDir, dbB, "control-full-2")
+		dropVerifyDB(projDir, dbA)
+		dropVerifyDB(projDir, dbB)
+		return fmt.Errorf("✗ INSTRUMENT NON-DETERMINISTIC — two from-empty FULL builds digest differently; "+
+			"the proof is INVALID until this is fixed (diff the captured tmp/seed-verify-control-full-*.txt to name it):\n"+
+			"  schema: %s vs %s%s\n  data:   %s vs %s%s\n  ledger: %s vs %s%s",
+			full1.Schema[:12], full2.Schema[:12], mark(full1.Schema == full2.Schema),
+			full1.Data[:12], full2.Data[:12], mark(full1.Data == full2.Data),
+			full1.Ledger[:12], full2.Ledger[:12], mark(full1.Ledger == full2.Ledger))
+	}
+	fmt.Printf("✓ CONTROL passed: FULL==FULL deterministic (schema=%s data=%s ledger=%s) — instrument valid.\n",
+		full1.Schema[:12], full1.Data[:12], full1.Ledger[:12])
+
+	// Keep dbA as the canonical FULL. Reuse dbB for PRIOR then INCR.
+	vPrev, err := secondHighestVersion(projDir, dbA)
 	if err != nil {
 		return err
 	}
 
-	// 2. PRIOR: rebuild only up to V_prev and dump it (the manufactured prior seed).
+	// PRIOR: rebuild dbB up to V_prev, dump it (the manufactured prior seed).
 	fmt.Printf("seed verify: building PRIOR seed (--to %d) and dumping it...\n", vPrev)
-	if err := recreateVerifyDb(projDir, seedVerifyDBName); err != nil {
+	if err := recreateVerifyDb(projDir, dbB); err != nil {
 		return err
 	}
-	if err := migrateNamedDb(projDir, seedVerifyDBName, vPrev); err != nil {
+	if err := migrateNamedDb(projDir, dbB, vPrev); err != nil {
 		return fmt.Errorf("prior migrate --to %d: %w", vPrev, err)
 	}
-	if err := dumpVerifyDB(projDir, seedVerifyDBName, priorDump); err != nil {
+	if err := dumpVerifyDB(projDir, dbB, priorDump); err != nil {
 		return err
 	}
 
-	// 3. INCREMENTAL: restore the prior, apply only the delta, digest it.
+	// INCREMENTAL: recreate dbB, restore the prior, apply only the delta, digest.
 	fmt.Println("seed verify: building INCREMENTAL seed (restore prior + delta-migrate)...")
-	if err := recreateVerifyDb(projDir, seedVerifyDBName); err != nil {
+	if err := recreateVerifyDb(projDir, dbB); err != nil {
 		return err
 	}
-	if err := restoreVerifyDB(projDir, seedVerifyDBName, priorDump); err != nil {
+	if err := restoreVerifyDB(projDir, dbB, priorDump); err != nil {
 		return err
 	}
-	if err := migrateNamedDb(projDir, seedVerifyDBName, 0); err != nil {
+	if err := migrateNamedDb(projDir, dbB, 0); err != nil {
 		return fmt.Errorf("delta migrate: %w", err)
 	}
-	incr, err := computeSeedDigest(projDir, seedVerifyDBName)
+	incr, err := computeSeedDigest(projDir, dbB)
 	if err != nil {
 		return err
 	}
 
-	// 4. Compare + clean up the disposable DB.
-	if dropErr := migrate.ExecOnDB(projDir, "postgres",
-		fmt.Sprintf("DROP DATABASE IF EXISTS %s WITH (FORCE);", pgQuoteIdent(seedVerifyDBName))); dropErr != nil {
-		fmt.Printf("seed verify: warning: could not drop %s: %v\n", seedVerifyDBName, dropErr)
-	}
-
-	if full.equal(incr) {
+	if full1.equal(incr) {
+		dropVerifyDB(projDir, dbA)
+		dropVerifyDB(projDir, dbB)
 		fmt.Printf("✓ seed identity PROVEN: incremental == full (schema=%s data=%s ledger=%s; V_prev=%d)\n",
-			full.Schema[:12], full.Data[:12], full.Ledger[:12], vPrev)
+			full1.Schema[:12], full1.Data[:12], full1.Ledger[:12], vPrev)
 		return nil
 	}
-	return fmt.Errorf("✗ seed identity FAILED — incremental seed differs from a full rebuild:\n"+
-		"  schema: full=%s incr=%s%s\n"+
-		"  data:   full=%s incr=%s%s\n"+
-		"  ledger: full=%s incr=%s%s\n"+
-		"  (a true mismatch means the incremental shortcut is UNSAFE — do NOT enable it)",
-		full.Schema[:12], incr.Schema[:12], mark(full.Schema == incr.Schema),
-		full.Data[:12], incr.Data[:12], mark(full.Data == incr.Data),
-		full.Ledger[:12], incr.Ledger[:12], mark(full.Ledger == incr.Ledger))
+	// Real drift (instrument already proven deterministic). Capture both for naming.
+	captureSeedDumps(projDir, dbA, "full")
+	captureSeedDumps(projDir, dbB, "incr")
+	dropVerifyDB(projDir, dbA)
+	dropVerifyDB(projDir, dbB)
+	return fmt.Errorf("✗ seed identity FAILED — incremental differs from full (instrument is deterministic, so this is REAL drift; "+
+		"diff tmp/seed-verify-{full,incr}-*.txt to name it):\n"+
+		"  schema: full=%s incr=%s%s\n  data:   full=%s incr=%s%s\n  ledger: full=%s incr=%s%s\n"+
+		"  (do NOT enable incremental)",
+		full1.Schema[:12], incr.Schema[:12], mark(full1.Schema == incr.Schema),
+		full1.Data[:12], incr.Data[:12], mark(full1.Data == incr.Data),
+		full1.Ledger[:12], incr.Ledger[:12], mark(full1.Ledger == incr.Ledger))
 }
 
 func mark(ok bool) string {
@@ -414,18 +650,26 @@ func mark(ok bool) string {
 var seedVerifyIdenticalCmd = &cobra.Command{
 	Use:   "verify-identical",
 	Short: "Prove an incrementally-built seed is identical to a full rebuild (STATBUS-116 AC#4)",
-	Long: `Build a FULL seed and an INCREMENTAL seed (restore a manufactured prior +
-apply only the delta migrations) and prove their schema + data + migration-ledger
-digests match. The empirical backstop behind the seed-incremental gate.
+	Long: `First a CONTROL — build a FULL seed twice and require identical digests
+(proving the digest instrument is build-deterministic) — then the measurement:
+build an INCREMENTAL seed (restore a manufactured prior + apply only the delta
+migrations) and prove it equals a FULL rebuild on schema + data + migration
+ledger. The empirical backstop behind the seed-incremental gate.
 
-Heavy (3 migrate passes + a restore against a live database) and DESTRUCTIVE to
-the dedicated ` + seedVerifyDBName + ` database (never the real seed DB). Run on
-demand — not part of per-build CI. Requires 'sb start all' (template_statbus).`,
+On any mismatch the normalized schema dump + per-table data digests of both
+sides are written to tmp/seed-verify-*.txt so the diverging construct/table can
+be named by diffing them; --keep-dbs additionally preserves the live databases.
+
+Heavy (4 migrate passes + a restore against a live database) and DESTRUCTIVE to
+the dedicated ` + seedVerifyDBName + `_a/_b databases (never the real seed DB). Run
+on demand — not part of per-build CI. Requires 'sb start all' (template_statbus).`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return verifySeedIdentical(config.ProjectDir())
 	},
 }
 
 func init() {
+	seedVerifyIdenticalCmd.Flags().BoolVar(&keepVerifyDBs, "keep-dbs", false,
+		"preserve the seed-verify databases on exit (for live inspection of a mismatch)")
 	seedCmd.AddCommand(seedVerifyIdenticalCmd)
 }
