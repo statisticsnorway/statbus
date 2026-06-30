@@ -100,6 +100,19 @@ container images need only be *present*, not *be B's real build*. Retagging A's 
 `COMMIT_SHORT` is therefore correct, and B's controlled migration applies from B's git checkout. The
 retag was never the bug; the **moving, unpushed, uncontrolled, incoherent HEAD** was.
 
+**Verified (2026-06-30) — and it bears directly on the X/Y call:** at *upgrade* time migrations are
+applied from the **git working tree**, not from any image (`cli/internal/migrate` runs psql with
+`cmd.Dir=projDir`; no `go:embed`; `postgres/Dockerfile:466/536` bake migrations+seed only for *seed
+creation*, never re-run on an existing volume). The db/sb/app image builds `COPY` the whole repo
+(`Dockerfile.sb:35`, `app/Dockerfile:25`), so a new migration file busts their cache and they
+rebuild — but the rebuilt images are **functionally identical** to A's (no runtime code changed;
+worker/proxy even cache-hit). So for a migration-only target — which is *every* recovery wedge —
+building real images (Y) buys **determinism / one-harness uniformity, but not container fidelity**;
+the migration runs from git either way (this is also *why* today's retag works at all). Real images
+earn their keep only when a target changes container **code** (Go/TS/Caddy), which no recovery wedge
+does. The branch-build mechanics are identical whether images are built or retagged — so that is a
+**speed knob, independent of the branch design**.
+
 ## Recommended approach (X) — share the B-branch constructor; keep the scenario retag tail
 
 **Lift the arc's B-*branch* construction into one shared primitive; give the scenarios a coherent,
@@ -151,20 +164,49 @@ locally orchestratable).**
 COMMIT `B_FULL` is authoritative). Created at run start, `git push origin --delete` at run end; a GC
 sweep removes orphaned `test/upgrade-target/*` + `test/upgrade-arc-*` older than N days.
 
-**Tradeoff, stated:** X keeps two tiers — scenarios (controlled-B + retag: fast, locally
-orchestratable) and arcs (controlled-B + real images: CI-only, full-fidelity) — sharing one
-B-branch constructor. I'd ship X: it directly satisfies "a branch, not HEAD," fixes all three
-failure modes + the incoherence, preserves the fast local loop, and is the smaller change.
+**Tradeoff, stated (timing corrected — verified via `gh`):** X keeps two tiers — scenarios
+(controlled-B + retag: pure-local loop, no image build) and arcs (controlled-B + real images: CI
+build+push) — sharing one B-branch constructor. The B-vs-A time penalty is **modest, not large**: a
+full Images build is **~4 min** (runs `28443202473`=3m56s, `28441859104`=4m49s; tentpoles seed ~2m
++ sb ~1m, the other 4 services parallel/cached), and the ~12-min harness VM run is common to **both**
+tiers — so the honest net delta is the image build+push+dispatch ≈ **5-8 min**, shared across ~2
+canonical Bs per run. (An earlier draft wrongly said 20-30 min — that was the image-wait *timeout
+ceiling*, retracted.) I lean X on the **structural** benefit — A keeps a pure-local iteration loop
+with no ghcr image push — but with the time gap this small it is a **genuinely close call, the
+King's to make**.
 
 ## Strategic alternative (Y) — for the King to weigh, not my default
 
 The ~1:1 arc↔scenario overlap means the kill/stall scenarios are nearly the kill/stall arcs with a
 different target+dispatch. **Y = collapse to one harness**: delete the scenario wedges, let the
 arcs' controlled-B real-image cases cover them, keep only the install-only tests as HEAD-install.
-Simpler + higher-fidelity, but **loses the fast locally-orchestratable tier** (~20-30 min image
-waits) and is a large deletion. Recommend Y only if the King prioritizes one-harness simplicity over
-local iteration speed. **This is the one strategic call I need from the King.** Requirements (a)/(b)/(c)
+Simpler + higher-fidelity, but **trades the pure-local iteration loop for a real image build+push
+per B** (~5-8 min: ~4-min build + CI dispatch/queue — *not* the 20-30 min an earlier draft wrongly
+stated) and is a large deletion. Recommend Y only if the King prioritizes one-harness simplicity
+over local iteration speed. **This is the one strategic call I need from the King.** Requirements (a)/(b)/(c)
 apply either way (Y already satisfies a/b via the arc path; only the scenario-only tests carry c).
+
+## Option-B branch architecture + determinism (the construction IS deterministic)
+
+The King's hope holds — verified at `upgrade-arc-harness.yaml:120-177`. The controlled-B
+construction is a repeatable script, not ad-hoc per run (and the same shared constructor serves X):
+
+- **Migration number — deterministic, A-derived.** `V_VERSION = max(A's migration timestamps)+1`,
+  `V_VERSION_2 = +2` (`:130-136`). Not wall-clock — derived from A's migration set, so a **pinned A
+  yields the same number every run**, and it sorts after every A migration (genuinely pending). This
+  is why requirement (a) pinned-A is load-bearing: it is what fixes V_VERSION.
+- **Migration content — fixed bytes, hardcoded.** `write_working_v` (`:150-177`):
+  `CREATE TABLE public.upgrade_arc_fixture(id PK, note) + INSERT (1,'arc')` plus a 2nd table
+  `upgrade_arc_fixture_2`; `write_failing_v` (`:179+`): `DO $$ … RAISE EXCEPTION … $$`. Byte-identical
+  every run; **non-idempotent by design** (no `IF NOT EXISTS`) — load-bearing for the after-commit
+  deterministic-rollback wedge.
+- **Branch architecture — 2 lineages × (B→C) = 4 branches:**
+  `test/upgrade-arc-{working,failing}-{migration,fixed-migration}-${RUN_ID}`. **One working pair +
+  one failing pair cover every case** (`:240-244`): kill/stall ride working-B; failing/rollback ride
+  failing-B. C amends V in place (working) or replaces V_fail with the working migration (failing).
+- **Only per-run variance:** the branch *name* (embeds `RUN_ID` — intentional, for matrix isolation)
+  and the commit *SHA* (git author/committer/timestamp metadata). The migration **file (number +
+  content) is byte-deterministic**. Under Option B the scenarios ride these same canonical Bs.
 
 ## Critical files
 - `test/install-recovery/fixtures/stage-head.sh` — retag; generalize to `stage-target.sh <B_SHA>`.
