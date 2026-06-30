@@ -3,9 +3,10 @@ id: STATBUS-081
 title: >-
   coalesce-log-pointer: COALESCE guard on the two un-hardened completed-writes
   (service.go:2405/:4494) so legacy NULL-log-path rows can't 23514 recovery
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-17 21:51'
+updated_date: '2026-06-30 20:50'
 labels:
   - upgrade
   - recovery
@@ -31,3 +32,11 @@ STATUS / NON-GATING: NOT required for the rc.04 cut. Surfaced during the rc.04 i
 
 FIX SHAPE: add `COALESCE(log_relative_file_path, $fallback)` (a derived basename, same pattern as :4716/STATBUS-067) to the completed-write UPDATEs at service.go:2405 and :4494.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Fixed + committed 19d5ca06b (cli/internal/upgrade/service.go). Foreman verified the fix shape first-hand: both previously-unguarded completed-write UPDATEs now carry `log_relative_file_path = COALESCE(log_relative_file_path, $2)`, matching the STATBUS-067 pattern already at :4716. This prevents a legacy upgrade row with a NULL log path from violating chk_upgrade_state_attributes (SQLSTATE 23514) when it reaches a state='completed' write during recovery.
+
+No acceptance criteria were defined; the task's bar was the fix shape (COALESCE guard at both sites), which is met. Defense-in-depth for real legacy rows; the harness-fabrication symptom was fixed separately (fabricate stamps a non-NULL path). Build compiles. NON-GATING for any RC cut per the task.
+<!-- SECTION:FINAL_SUMMARY:END -->
