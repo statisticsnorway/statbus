@@ -3,10 +3,11 @@ id: STATBUS-117
 title: >-
   go-buildcache-mounts: add BuildKit GOCACHE/GOMODCACHE cache mounts to the sb
   Go image build
-status: To Do
+status: In Progress
 assignee:
   - mechanic
 created_date: '2026-06-30 16:48'
+updated_date: '2026-06-30 20:11'
 labels:
   - build-caching
   - performance
