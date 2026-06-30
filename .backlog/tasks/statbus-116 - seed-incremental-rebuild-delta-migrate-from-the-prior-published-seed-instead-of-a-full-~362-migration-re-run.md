@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
-updated_date: '2026-06-30 22:03'
+updated_date: '2026-06-30 22:07'
 labels:
   - build-caching
   - seed
@@ -40,7 +40,10 @@ Net: warm seed build ~2m -> seconds, with a hard correctness fallback. Evidence 
 - [ ] #3 A periodic full-baseline rebuild path exists to bound drift accumulation (cadence or explicit trigger)
 - [ ] #4 The incrementally-built seed is verified identical to a full-rebuild seed (schema + data fingerprint)
 - [ ] #5 Measured: a warm incremental seed build drops from ~2m to seconds; recorded in the task
+- [ ] #6 RECOMMENDED pre-AC#1-enable check (NOT an AC#4 gate; AC#4 certifies on single-delta): before enabling incremental live, run ONE prod-shaped multi-migration-delta INCR-vs-FULL (real prior-RELEASE seed + that release's delta, vs full). Only test exercising physical-state-independence across a release's restored-base boundary; FULL-vs-FULL can't see it. NARROW/low-prob (unordered-SELECT anti-pattern) BUT high-severity (silent corrupt seed) + cheap. King gates AC#1 via Fork A.
 <!-- AC:END -->
+
+
 
 ## Implementation Plan
 
