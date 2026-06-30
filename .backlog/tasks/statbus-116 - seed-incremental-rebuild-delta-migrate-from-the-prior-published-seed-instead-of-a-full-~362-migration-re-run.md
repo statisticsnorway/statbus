@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
-updated_date: '2026-06-30 21:58'
+updated_date: '2026-06-30 22:03'
 labels:
   - build-caching
   - seed
@@ -57,6 +57,8 @@ PARKED FOR KING — Fork A: prior-seed selection (A1 floating base tag [rec] vs 
 
 <!-- SECTION:NOTES:BEGIN -->
 ROBUSTNESS FOLLOW-UPS for seed-identity (architect, 2026-06-30; OPTIONAL — NOT AC#4 gates, NOT King decisions). AC#4 certifies on (proven round-trip) + (green FULL-vs-FULL) + (green INCR-vs-FULL) via the blessed audit-column exclusion. Nice-to-haves for later hardening: (1) Multi-migration delta on a restored prior-RELEASE seed + >=2 V_prev cut points (today delta = single last migration). DOWNGRADED to nicety: green FULL-vs-FULL proves every migration deterministic, and proven round-trip => INCR==FULL for any delta/V_prev by construction. (2) Sequence last_value in the digest: --schema-only excludes setval and the data digest is rows-only, so a sequence-only divergence wouldn't be CAUGHT (sound by construction via the -Fc round-trip, but unverified) -- add `SELECT last_value` per sequence. (3) Catalog-introspection schema oracle: MOOT now -- the \restrict-strip made the schema digest deterministic (FULL-vs-FULL schema GREEN, OID-order hypothesis empirically disposed), so raw-pg_dump-minus-\restrict suffices; revisit only if schema determinism regresses. (4) Audit-exclusion GUARD: the catalog rule 'exclude columns whose DEFAULT is a volatile function' is future-proof but MUST assert the excluded set is audit-only -- fail loud if a temporal-validity (valid_*/_from/_to/_until) or other semantic column ever acquires a volatile default (would silently hide real drift). Verified clean today (0 such columns). Seed-not-byte-reproducible root finding tracked separately in STATBUS-119.
+
+CORRECTION to the robustness-followups note above (architect, 2026-06-30): multi-delta is NOT pure nicety — there is a NARROW hole. The by-construction argument assumes migrations are functions of SEMANTIC state; FULL-vs-FULL cannot verify that, because both builds migrate from empty → IDENTICAL physical layout (same OID/row order) → a PHYSICAL-state-dependent migration (an unordered SELECT whose row-order affects semantic output, e.g. id assignment) is consistently-wrong in BOTH builds → FULL-vs-FULL stays GREEN and blind to it. INCR applies the delta on a RESTORED prior (different physical layout) → such a migration would diverge. round-trip preservation is SEMANTIC (proven via the order-independent digest), NOT PHYSICAL. Single-delta INCR-vs-FULL exercises only the LAST migration's restored-base boundary; production applies MANY migrations, the FIRST on a restored prior-release base. ⇒ ONE production-shaped multi-migration-delta INCR-vs-FULL (real prior-release seed + its delta) is a NARROW GENUINE GATE for the physical-state-dependence class (recommended pre-AC#1-ship), not a hard tonight-blocker (low-probability: unordered-order-dependent SELECTs are an anti-pattern the SQL conventions discourage, and clean append-only reference data usually preserves order through -Fc dump/restore). Additional V_prev cuts beyond one = diminishing-returns hardening. AC#4 tonight is unaffected (it certifies the bug-fix + determinism); this is about AC#1's live wiring.
 <!-- SECTION:NOTES:END -->
 
 ## Comments
