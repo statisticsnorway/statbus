@@ -3,15 +3,17 @@ id: STATBUS-117
 title: >-
   go-buildcache-mounts: add BuildKit GOCACHE/GOMODCACHE cache mounts to the sb
   Go image build
-status: In Progress
+status: Done
 assignee:
   - mechanic
 created_date: '2026-06-30 16:48'
-updated_date: '2026-06-30 20:11'
+updated_date: '2026-06-30 20:33'
 labels:
   - build-caching
   - performance
 dependencies: []
+modified_files:
+  - cli/Dockerfile.sb
 priority: low
 ordinal: 117000
 ---
@@ -32,8 +34,22 @@ Files: cli/Dockerfile.sb (the `sb` Go build). NOTE: the `worker` image (cli/Dock
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 cli/Dockerfile.sb's Go build step uses a BuildKit `--mount=type=cache` for GOCACHE (and GOMODCACHE if not already covered by the download layer)
-- [ ] #2 A local rebuild after a cli/ source-only change reuses the Go build cache (no stdlib/deps recompile) — measured ~1m -> seconds, recorded
-- [ ] #3 The image still builds correctly cold (cache mount empty) and the produced sb binary is unchanged
-- [ ] #4 The CI-runner caveat is documented in the task: type=cache is not registry-exported, so CI needs a persistent builder to benefit — flagged as a separate optional follow-up, not done here
+- [x] #1 cli/Dockerfile.sb's Go build step uses a BuildKit `--mount=type=cache` for GOCACHE (and GOMODCACHE if not already covered by the download layer)
+- [x] #2 A local rebuild after a cli/ source-only change reuses the Go build cache (no stdlib/deps recompile) — measured ~1m -> seconds, recorded
+- [x] #3 The image still builds correctly cold (cache mount empty) and the produced sb binary is unchanged
+- [x] #4 The CI-runner caveat is documented in the task: type=cache is not registry-exported, so CI needs a persistent builder to benefit — flagged as a separate optional follow-up, not done here
 <!-- AC:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Added a BuildKit `--mount=type=cache,target=/root/.cache/go-build` (GOCACHE) to the sb Go build step in cli/Dockerfile.sb. Source-only rebuilds now reuse the Go compile cache instead of recompiling stdlib+deps.
+
+Measured (mechanic): 7.1s -> 0.8s (9x) on a source-only rebuild. Binary verified byte-identical cold-vs-warm (-trimpath guarantees reproducibility; the cache mount only affects speed).
+
+GOMODCACHE intentionally NOT mounted: the existing `go mod download` layer already caches modules, and mounting /go/pkg/mod would shadow that layer and break cold builds.
+
+CI caveat documented in the Dockerfile comment: type=cache is not registry-exported and CI runners spin up fresh BuildKit daemons, so this is a local developer-loop win only. A persistent CI builder is a separate optional follow-up, not done here.
+
+Committed: 90952c97e (build: BuildKit GOCACHE cache-mount on sb image build). BuildKit confirmed active in the pipeline (app/Dockerfile already uses --mount=type=cache).
+<!-- SECTION:FINAL_SUMMARY:END -->
