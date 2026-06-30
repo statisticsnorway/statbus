@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
-updated_date: '2026-06-30 22:07'
+updated_date: '2026-06-30 22:52'
 labels:
   - build-caching
   - seed
@@ -38,12 +38,10 @@ Net: warm seed build ~2m -> seconds, with a hard correctness fallback. Evidence 
 - [ ] #1 When a prior published seed is available AND the fingerprint of migrations <= its recorded version matches, the seed build restores the prior seed, applies only the delta migrations, and re-dumps — no full from-empty re-run
 - [ ] #2 On fingerprint mismatch (a migration <= prior version was retroactively edited/removed) OR no prior seed exists, the build falls back to a full rebuild from empty
 - [ ] #3 A periodic full-baseline rebuild path exists to bound drift accumulation (cadence or explicit trigger)
-- [ ] #4 The incrementally-built seed is verified identical to a full-rebuild seed (schema + data fingerprint)
+- [x] #4 The incrementally-built seed is verified identical to a full-rebuild seed (schema + data fingerprint)
 - [ ] #5 Measured: a warm incremental seed build drops from ~2m to seconds; recorded in the task
 - [ ] #6 RECOMMENDED pre-AC#1-enable check (NOT an AC#4 gate; AC#4 certifies on single-delta): before enabling incremental live, run ONE prod-shaped multi-migration-delta INCR-vs-FULL (real prior-RELEASE seed + that release's delta, vs full). Only test exercising physical-state-independence across a release's restored-base boundary; FULL-vs-FULL can't see it. NARROW/low-prob (unordered-SELECT anti-pattern) BUT high-severity (silent corrupt seed) + cheap. King gates AC#1 via Fork A.
 <!-- AC:END -->
-
-
 
 ## Implementation Plan
 
@@ -109,5 +107,17 @@ created: 2026-06-30 21:37
 AC#4 investigation update — fork (i) RESOLVED FALSE; only (ii) remains. Engineer ran a direct dump→restore round-trip on the real statbus_seed: schema diff = ONLY 2 lines (PG18 \restrict/\unrestrict random psql tokens; 29,774 other lines identical), data 0/88 tables differ. Foreman verified /tmp/rt_schema.diff first-hand. → the seed dump→restore round-trip IS fingerprint-preserving (the architect's key worry = FALSE). The earlier RED = two NAMED harness digest-normalization bugs, NOT real drift: (1) normalizeSchemaDump doesn't strip the \restrict/\unrestrict random token; (2) the data digest includes db.migration's volatile cols (id SERIAL / applied_at now() / duration_ms). The S1 schema-digest ruling SURVIVES (the non-determinism is benign PG18 psql-meta noise, not OID-ordering / schema-reproducibility).
 
 ONLY remaining fork: (ii) migration non-determinism (the round-trip doesn't re-run migrations). Greenlit harness fixes: strip \restrict/\unrestrict (+ a differential test) + exclude db.migration; re-run with a FULL-vs-FULL CONTROL first (real test for any residual volatile seed table), then INCR-vs-FULL. Architect running a non-determinism scan of the delta migrations. CLEAN scan + GREEN re-run ⇒ mechanism SOUND ⇒ AC#4 proven. Incremental stays DISABLED; commit HELD until the harness is deterministic + green.
+---
+
+author: foreman
+created: 2026-06-30 22:52
+---
+AC#4 CERTIFIED + COMMITTED 2b6ca801e (seed: harden the seed verify-identical proof; certify incremental == full). The `sb db seed verify-identical` harness is now build-deterministic + round-trip-faithful, and the live single-delta run PROVES incremental == full: CONTROL FULL==FULL deterministic, then INCR-vs-FULL schema=c9e93e6a data=f08e1801 ledger=6a6f2079 ALL IDENTICAL (V_prev=20260616104500).
+
+SCOPE (precise): AC#4 certifies SEMANTIC identity of reference data + schema between an incrementally-built and a full-rebuilt seed — build-volatile audit-timestamp columns + worker.tasks (operational queue) excluded as build-noise; at the SINGLE-DELTA last-migration restored-base boundary. NOT physical-state-independence across a release's many migrations — that's the recommended pre-AC#1-enable multi-delta check (AC#6).
+
+The harness named + fixed, each differentially tested: BUG-1 all=true (the 1-migration-stub prior); \restrict/\unrestrict PG18 random-token strip; catalog-driven audit-column exclusion + a fail-loud SELF-GUARD (can't silently exclude a business-temporal column as the schema evolves); worker.tasks table-exclude (migration-driven deterministic, foreman-verified Dockerfile:512-516 migrate-only, no worker daemon); the round-trip pg_get_viewdef redundant-cast-alias normalize on statistical_unit_def (collapses ONLY alias==type-name, never a real rename). Control-first gates the verdict on a deterministic instrument. Foreman reviewed the full diff (seed_verify.go +346/-67, test +125) first-hand; build/test/vet/gofmt green; harness only, incremental stays DISABLED.
+
+Three structural seed non-reproducibility findings surfaced + folded into STATBUS-119 (audit-timestamp defaults, worker.tasks scheduled_at, view-deparse non-idempotence — all semantically inert). dev-seed ≠ shipped-seed worker.tasks state noted there too.
 ---
 <!-- COMMENTS:END -->
