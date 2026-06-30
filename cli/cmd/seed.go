@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -37,9 +38,17 @@ import (
 type seedMeta struct {
 	MigrationVersion string `json:"migration_version"`
 	PostRestoreSHA   string `json:"post_restore_sha,omitempty"`
-	CommitSHA        string `json:"commit_sha"`
-	Tags             string `json:"tags"`
-	CreatedAt        string `json:"created_at"`
+	// MigrationsFingerprint is a sha256 over the ordered set of up-migrations
+	// with version <= MigrationVersion (each as version|sha256(content)). It is
+	// the STATBUS-116 seed-incremental correctness anchor: an incremental build
+	// (restore this seed + apply only the delta) is safe ONLY if the migrations
+	// already baked here are unchanged — recompute over the current migrations
+	// <= MigrationVersion and compare (see SeedBuildDecision). `omitempty` so a
+	// pre-116 seed.json without it still parses; absence ⇒ forced full rebuild.
+	MigrationsFingerprint string `json:"migrations_fingerprint,omitempty"`
+	CommitSHA             string `json:"commit_sha"`
+	Tags                  string `json:"tags"`
+	CreatedAt             string `json:"created_at"`
 }
 
 var seedDatabase string
@@ -486,13 +495,26 @@ func DumpSeed(projDir, commitOverride string) (seedMeta, error) {
 		return seedMeta{}, fmt.Errorf("pg_dump produced an empty file — check database connectivity")
 	}
 
+	// STATBUS-116: fingerprint the migrations baked into this seed (versions
+	// <= migrationVersion). A later incremental build compares this against the
+	// current on-disk migrations to decide incremental-vs-full safely.
+	migVer, err := strconv.ParseInt(strings.TrimSpace(migrationVersion), 10, 64)
+	if err != nil {
+		return seedMeta{}, fmt.Errorf("parse migration version %q: %w", migrationVersion, err)
+	}
+	migrationsFingerprint, err := migrate.UpMigrationsFingerprintUpTo(projDir, migVer)
+	if err != nil {
+		return seedMeta{}, fmt.Errorf("compute migrations fingerprint: %w", err)
+	}
+
 	// Write metadata JSON alongside the dump.
 	meta := seedMeta{
-		MigrationVersion: migrationVersion,
-		PostRestoreSHA:   postRestoreSHA,
-		CommitSHA:        commitSHA,
-		Tags:             tags,
-		CreatedAt:        time.Now().UTC().Format(time.RFC3339),
+		MigrationVersion:      migrationVersion,
+		PostRestoreSHA:        postRestoreSHA,
+		MigrationsFingerprint: migrationsFingerprint,
+		CommitSHA:             commitSHA,
+		Tags:                  tags,
+		CreatedAt:             time.Now().UTC().Format(time.RFC3339),
 	}
 	metaJSON, err := json.MarshalIndent(meta, "", "  ")
 	if err != nil {
@@ -506,6 +528,47 @@ func DumpSeed(projDir, commitOverride string) (seedMeta, error) {
 	fmt.Printf("Seed dumped: migration %s, commit %s (%s)\n",
 		migrationVersion, shortCommit(commitSHA), humanSize(info.Size()))
 	return meta, nil
+}
+
+// SeedBuildDecision is the STATBUS-116 correctness gate: it decides whether a
+// seed build may take the fast INCREMENTAL path (restore the prior published
+// seed, then apply only the delta migrations) or MUST do a FULL rebuild from an
+// empty database.
+//
+// Incremental is correct ONLY when every migration already baked into the prior
+// seed (version <= prior.MigrationVersion) is byte-for-byte unchanged: a
+// ledger-based `migrate up` re-applies only versions ABSENT from db.migration,
+// so a retroactively edited / removed / inserted <=V_prev migration would
+// silently NOT reapply, drifting the incremental seed from a full rebuild
+// (pre-first-release discipline permits such edits, so this is a real hazard).
+// The gate detects it by recomputing the migrations fingerprint over the CURRENT
+// on-disk migrations <= prior.MigrationVersion and comparing it to the
+// fingerprint the prior seed recorded in seed.json.
+//
+// It falls back to FULL (returns false) on ANY uncertainty — no prior seed, a
+// pre-116 prior seed lacking the fingerprint, an unparseable prior version, a
+// fingerprinting error, or a mismatch — and returns a human-readable reason for
+// the build log. Pure/read-only: no DB, no mutation, so it is unit-testable in
+// isolation (TestSeedBuildDecision_*).
+func SeedBuildDecision(prior *seedMeta, projDir string) (incremental bool, reason string) {
+	if prior == nil {
+		return false, "no prior seed available — full rebuild from empty"
+	}
+	if prior.MigrationsFingerprint == "" {
+		return false, "prior seed predates STATBUS-116 (no migrations fingerprint recorded) — full rebuild from empty"
+	}
+	priorVersion, err := strconv.ParseInt(strings.TrimSpace(prior.MigrationVersion), 10, 64)
+	if err != nil {
+		return false, fmt.Sprintf("prior seed migration version %q is unparseable (%v) — full rebuild from empty", prior.MigrationVersion, err)
+	}
+	current, err := migrate.UpMigrationsFingerprintUpTo(projDir, priorVersion)
+	if err != nil {
+		return false, fmt.Sprintf("cannot fingerprint current migrations <= %d (%v) — full rebuild from empty", priorVersion, err)
+	}
+	if current != prior.MigrationsFingerprint {
+		return false, fmt.Sprintf("migrations <= prior seed version %d changed since the prior seed (fingerprint mismatch) — full rebuild from empty", priorVersion)
+	}
+	return true, fmt.Sprintf("migrations <= %d unchanged since the prior seed — incremental: restore prior + delta-migrate", priorVersion)
 }
 
 // shortCommit truncates a commit SHA to the canonical 8-char commit_short
