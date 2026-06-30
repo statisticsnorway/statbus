@@ -5,6 +5,7 @@ status: To Do
 assignee:
   - architect
 created_date: '2026-06-12 21:51'
+updated_date: '2026-06-30 21:58'
 labels:
   - docs
   - hygiene
@@ -32,3 +33,9 @@ Standing hygiene — cheap, unblocks offline schema searches for every agent.
 - [ ] #1 doc/db/ regenerated from the current schema and committed; the freshness hook passes
 - [ ] #2 The doc/db diff reviewed against the security-gate convention before commit
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+doc/db is STALE (architect noted 2026-06-30, during seed-identity verification): the doc-db-freshness hook blocks doc/db searches because migrations are newer than the last regen (migrations last commit ~2026-06-20; doc/db last commit ~2026-06-17). Had to query the live DB instead of doc/db for the seed audit-column scan. Refresh via `./dev.sh generate-doc-db` + commit.
+<!-- SECTION:NOTES:END -->
