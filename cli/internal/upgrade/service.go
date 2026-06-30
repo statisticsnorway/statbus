@@ -2459,11 +2459,14 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 	// completed, and recordInProgressFailure may have stamped one during an
 	// earlier forward-retry pass (STATBUS-039). Completing resolves it; the
 	// full narrative survives in the on-disk progress log.
-	completedSQL := "UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready', error = NULL WHERE id = $1" + upgradeRowReturning
+	// STATBUS-081: log_relative_file_path = COALESCE(...) — chk_upgrade_state_attributes
+	// requires it NOT NULL on completed. Real upgrades are stamped at claim time
+	// (LOG_POINTER_STAMPED invariant) so $2 is a no-op fallback for legacy NULL rows only.
+	completedSQL := "UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready', error = NULL, log_relative_file_path = COALESCE(log_relative_file_path, $2) WHERE id = $1" + upgradeRowReturning
 	var fromInProgressJSON string
 	var scanErr error
 	for attempt := 0; attempt < 4; attempt++ {
-		scanErr = d.queryConn.QueryRow(ctx, completedSQL, id).Scan(&fromInProgressJSON)
+		scanErr = d.queryConn.QueryRow(ctx, completedSQL, id, appendLog.RelPath()).Scan(&fromInProgressJSON)
 		if scanErr == nil {
 			logUpgradeRow(LabelCompletedFromInProgress, fromInProgressJSON)
 			break
@@ -4888,7 +4891,10 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// error = NULL: a prior forward-retry pass may have stamped a non-terminal
 	// error via recordInProgressFailure (STATBUS-039); chk_upgrade_state_attributes
 	// forbids carrying it onto completed. Completing resolves it.
-	completedSQL := "UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready', error = NULL WHERE id = $1" + upgradeRowReturning
+	// STATBUS-081: log_relative_file_path = COALESCE(...) — chk_upgrade_state_attributes
+	// requires it NOT NULL on completed. Real upgrades are stamped at claim time
+	// (LOG_POINTER_STAMPED invariant) so $2 is a no-op fallback for legacy NULL rows only.
+	completedSQL := "UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready', error = NULL, log_relative_file_path = COALESCE(log_relative_file_path, $2) WHERE id = $1" + upgradeRowReturning
 	var lastScanErr error
 	for attempt := 0; attempt < 4; attempt++ {
 		// C6: on retry following a stale-connection error, refresh the pool
@@ -4906,7 +4912,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 				return fmt.Errorf("RECONNECT_ON_STALE_CONN_SUCCEEDS: %w", reconErr)
 			}
 		}
-		lastScanErr = d.queryConn.QueryRow(ctx, completedSQL, id).Scan(&normalJSON)
+		lastScanErr = d.queryConn.QueryRow(ctx, completedSQL, id, progress.RelPath()).Scan(&normalJSON)
 		if lastScanErr == nil {
 			break
 		}
