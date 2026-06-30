@@ -50,11 +50,7 @@ Part of the **seed/release build-arc** + reproducible-builds; NOT the stated top
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Object-level diff emitted on any seed-identity mismatch (named differing schema objects + data table/rows), not just digest prefixes
-- [ ] #2 Seed build is DETERMINISTIC: the volatile audit-timestamp columns on migration-seeded tables (import_definition/mapping/source_column/data_column/step, +any confirmed others) are resolved (excluded as build-metadata, clock-pinned, or made literal) and FULL-vs-FULL is GREEN across repeated builds
-- [ ] #3 INCR-vs-FULL proven GREEN with a MULTI-migration delta applied on a restored prior-RELEASE seed (not the single-last-migration case), across at least 2 distinct V_prev cut points
-- [ ] #4 Determinism GUC (app.current_date) pinned in the seed-verify build; worker-derivation (if any build step runs it) quiesced + pinned
-- [ ] #5 Schema oracle decided by the \restrict-stripped control: raw-pg_dump retained if schema-green, else switched to an ORDER-BY'd catalog-introspection digest; any genuinely-different-objects diff traced to its migration and fixed
-- [ ] #6 The arc clean-slate fingerprint's shared raw-pg_dump schema-oracle flaw is addressed with the same robustness
-- [ ] #7 AC#1 live incremental-seed wiring remains DISABLED until all the above are green
+- [ ] #1 DECISION recorded: accept per-build seed variance (status quo; the STATBUS-116 seed-identity gate already tolerates it via the blessed audit-column exclusion) vs FIX it (pin a deterministic build epoch)
+- [ ] #2 IF fix chosen: the seed build pins a deterministic epoch (SOURCE_DATE_EPOCH/BUILD_DATE) so now()/statement_timestamp()/clock_timestamp() resolve to a stable value during seed building — two CI builds of the SAME commit produce a byte-identical seed image (content-addressable)
+- [ ] #3 Documented that the seed-identity INCR-vs-FULL check still requires the audit-column exclusion regardless of the fix (a prior-release seed pins a different epoch than the current build)
 <!-- AC:END -->
