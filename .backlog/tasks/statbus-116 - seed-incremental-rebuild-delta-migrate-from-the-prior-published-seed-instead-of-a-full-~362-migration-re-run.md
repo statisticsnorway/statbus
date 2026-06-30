@@ -3,10 +3,11 @@ id: STATBUS-116
 title: >-
   seed-incremental-rebuild: delta-migrate from the prior published seed instead
   of a full ~362-migration re-run
-status: To Do
+status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
+updated_date: '2026-06-30 20:11'
 labels:
   - build-caching
   - seed
