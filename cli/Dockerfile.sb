@@ -39,7 +39,18 @@ COPY . ./
 #   -s -w        — strip debug symbols + DWARF (smaller binary)
 #   cmd.version  — runtime version string (sb version / sb upgrade service)
 #   cmd.commit   — staleness guard (service.go binaryCommit, freshness check)
-RUN CGO_ENABLED=0 \
+#
+# BuildKit cache mount: persist GOCACHE (/root/.cache/go-build) across builds
+# so that after the first full compile, source-only rebuilds skip stdlib/dep
+# recompilation entirely (~1 min → seconds). GOMODCACHE (/go/pkg/mod) is
+# already covered by the go mod download layer above and needs no mount here.
+#
+# CI caveat: type=cache mounts are NOT exported to the registry cache and
+# ephemeral CI runners spin up fresh BuildKit daemons, so CI does NOT benefit
+# unless a persistent BuildKit builder (--cache-from/--cache-to or a dedicated
+# buildkitd pod) is configured. That is a separate optional follow-up (STATBUS-117).
+RUN --mount=type=cache,id=go-build-sb,target=/root/.cache/go-build \
+    CGO_ENABLED=0 \
     go build \
       -trimpath \
       -ldflags "-s -w \
