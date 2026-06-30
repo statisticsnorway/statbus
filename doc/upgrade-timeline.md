@@ -113,16 +113,16 @@ The attempt is never retried.
 
 ### Binary-swap restart + resume
 
-The pivot above (`exit 42`) makes systemd respawn the service **on the new binary** — the
-unit declares `SuccessExitStatus=42` + `RestartForceExitStatus=42` — this is the **one
-planned restart** of an upgrade. The fresh process **boots fresh through the full
+Booting the new binary (the `exit 42` above) makes systemd restart the service **on the new
+binary** — the unit declares `SuccessExitStatus=42` + `RestartForceExitStatus=42` — this is the
+**one planned restart** of an upgrade. The fresh process **boots through the full
 [Service boot](#service-boot) sequence**: cheap init → `READY=1` → **boot `migrate up`,
-which applies the entire pending migration delta right here** (repo is already at the
-new version from the pre-swap checkout; the always-ping watchdog ticker +
-`MigrateUpTimeout` cover it — STATBUS-012) → `recoverFromFlag`, which sees the
-`Phase=PostSwap` flag (the planned handoff), stamps `Phase=Resuming`, and continues the
-*same* attempt via `resumePostSwap` → `applyPostSwap`. The remaining steps all run on the
-new binary:
+which applies the entire pending migration set right here** (the repo is already at the
+new version from the earlier checkout; the always-ping watchdog ticker +
+`MigrateUpTimeout` cover it — STATBUS-012) → the recovery step `recoverFromFlag`, which sees the
+on-disk marker say *the new binary is booted* (`Phase=PostSwap`), marks it *now-finishing*
+(`Phase=Resuming`), and continues the **same** attempt via `resumePostSwap` → `applyPostSwap`.
+The remaining steps all run on the new binary:
 
 7. `./sb config generate`.
 8. `docker compose pull` the new images.
@@ -144,12 +144,13 @@ new binary:
     signature and treats the absent flag as the **expected** steady state — no A17. (A
     bare hand-passed `--post-upgrade-fixup`, lacking the env signature, is audited as A17.)
 
-The restart is expected exactly once. Any **other** restart while a row is `in_progress`
-(watchdog kill, OOM, operator `systemctl restart`) leaves `Phase=Resuming`. Ground truth then
-decides direction: if the binary and migrations are **at or past target** (or the DB is
-unreachable), `recoverFromFlag` resumes **forward**; only a **positively-behind** verdict
-(binary mismatch or migrations missing, DB reachable) triggers a **one-shot rollback** to
-the upgrade's own snapshot (`service.go:860-884`, STATBUS-039).
+The restart is expected exactly once. Any **other** restart while an upgrade is in progress
+(a watchdog kill, out-of-memory, an operator `systemctl restart`) leaves the on-disk marker at
+*now-finishing* (`Phase=Resuming`). The box then decides **forward-or-roll-back from its real
+state on disk**: if the binary and migrations are **already at (or past) the new version** (or
+the database is unreachable), `recoverFromFlag` **finishes forward**; only when it can **confirm
+the box is genuinely behind** (the binary or migrations didn't fully land, database reachable)
+does it **roll back once** to this upgrade's own backup (`service.go:860-884`, STATBUS-039).
 
 ### Complete / rollback
 
@@ -517,13 +518,13 @@ which migrations ran):
      a guess; re-check on the next restart.
 
 The case this is built for is the **torn window**: the box is killed in the instant between a
-migration committing and being recorded. Ground truth reads *behind* (the record never
+migration committing and being recorded. The observed state reads *behind* (the record never
 landed), so going forward fails on "relation already exists" → **roll back to old** → the
 operator retries. The box never ends half-upgraded: it ends either fully new (forward
-finished) or fully old (rolled back), chosen deliberately from ground truth — never by
+finished) or fully old (rolled back), chosen deliberately from the observed state — never by
 accident. The mechanism that enforces this is `recoverFromFlag`, below.
 
-### `recoverFromFlag` (startup ground-truth)
+### `recoverFromFlag` (startup state reconciliation)
 
 Called once at service startup before the main loop, and by `./sb install`'s
 crashed-upgrade dispatch (state 3). It reconciles any flag on disk:
@@ -536,7 +537,7 @@ crashed-upgrade dispatch (state 3). It reconciles any flag on disk:
    `public.upgrade` row to reconcile. Remove the flag.
 4. **Flag present, PID dead, `Holder="service"`** (or empty legacy) → the service died
    mid-upgrade. The discriminator is the flag's **`Phase`** field — a monotonic ladder —
-   **with ground truth deciding direction before anything destructive** (STATBUS-039, the
+   **with the observed state deciding direction before anything destructive** (STATBUS-039, the
    transactional model: *forward when logically possible; a died attempt is not
    impossibility*):
    - **`Phase=PreSwap`** (`""` — the default, written before `replaceBinaryOnDisk`) → the
@@ -552,18 +553,18 @@ crashed-upgrade dispatch (state 3). It reconciles any flag on disk:
      (`resumePostSwap` → `applyPostSwap`: config gen → pull → db up → health → reconnect →
      migrate → app up → health → archive). This is the legitimate continue.
    - **`Phase=Resuming`** → the resume was already entered and the process died **again**
-     (watchdog SIGABRT on a hung step, OOM, reboot, kill). **Ground truth decides** via the
+     (watchdog SIGABRT on a hung step, OOM, reboot, kill). **The observed state decides** via the
      tri-state `verifyUpgradeGroundTruthEx` (binary at-or-descendant of the target +
      migrations at-or-past the on-disk max):
-       - **AtTarget** → resume **forward** again. Rolling back an at-target box is forbidden
+       - **AtTarget** (`already-at-new`) → resume **forward** again. Rolling back an at-target box is forbidden
          — past (or at) the maintenance-off commit point, API integrators may have written
          data the snapshot predates (the app's upgrade guard only gates browsers). Each
          retry is loud (progress log + journal, the failure stamped non-terminally on the
          row's `error` column) and heartbeated; an at-target box that keeps failing forward
          stays `in_progress` and loud — it never destroys state to escape.
-       - **Unknown** (DB unreachable mid-check) → never destroy state under uncertainty:
+       - **Unknown** (`position-unreadable`, DB unreachable mid-check) → never destroy state under uncertainty:
          resume forward; the next pass re-checks.
-       - **Behind** (positively verified: binary mismatch, or migrations missing with a
+       - **Behind** (`cannot-reach-new`, confirmed: binary mismatch, or migrations missing with a
          reachable DB) → **one-shot rollback** to *this upgrade's own* snapshot
          (`flag.BackupPath`, identity-keyed), mark the row terminal (`rolled_back`, or
          `failed` if the restore also fails). Backward exists to regain a runnable state to
@@ -576,7 +577,7 @@ crashed-upgrade dispatch (state 3). It reconciles any flag on disk:
    producible flag phase and was **deleted** (STATBUS-039). The legitimate self-heals live
    where the work can be verified: `resumePostSwap`'s container canary (every
    version-tracked service already at the flag's target → mark `completed`) and the
-   flagless `completeInProgressUpgrade` (ground-truth-verified → mark `completed`). The
+   flagless `completeInProgressUpgrade` (verified against the observed state → mark `completed`). The
    binary check is the tri-state `verifyBinaryGroundTruth`: `git merge-base --is-ancestor`
    exit 0 → at/descendant; exit 1 (both commits resolved, ancestry definitively absent) →
    **Behind** — the only verdict that licenses a restore; **any other git error** (exit 128
@@ -590,11 +591,11 @@ the server consistent before the main loop ticks.
 
 ### One principled path, two terminal tiers
 
-On a forward failure, **ground truth decides what runs** (STATBUS-039). At-or-past-target
+On a forward failure, **the observed state decides what runs** (STATBUS-039). At-or-past-target
 (and unverifiable) failures never restore: the row stays `in_progress` with the failure
 stamped non-terminally on `error` (`"forward step failed: <err>; ground truth <verdict> —
 no rollback, will resume forward on the next recovery pass"`), and the next pass — systemd
-restart or `./sb install` — retries forward. Only a **positively-behind** verdict runs the
+restart or `./sb install` — retries forward. Only a **confirmed-behind** (`cannot-reach-new`) verdict runs the
 restore pipeline, and then the row ends in one of two tiers. The operator-facing `error`
 narrative names the path that ran: a death during resume with a behind verdict reads
 `"UPGRADE_DIED_DURING_RESUME: … ground truth is behind target (<reason>); rolled back to
@@ -610,9 +611,9 @@ snapshot"`. Either way the terminal is one of:
 outer-transaction commit and the `db.migration` INSERT) verdicts **Behind** — the
 migration's row never landed, so `db.migration` max < on-disk max — and re-attempting
 forward fails on "relation already exists"; restore is the only path to a coherent
-terminal state there, and ground truth selects it. Conversely an at-target box (the rune
+terminal state there, and the observed state selects it. Conversely an at-target box (the rune
 shape: everything landed except bookkeeping) verdicts **AtTarget** and is forbidden from
-restoring. The decision is ground truth's, not a mode — a `forward`-only or `restore`-only
+restoring. The decision is the observed state's, not a mode — a `forward`-only or `restore`-only
 operator switch would let an operator wedge (or wipe) their own system. Both `./sb upgrade
 service` and `./sb install`'s crashed-upgrade dispatch run the same algorithm via the same
 code — identical decisions, no surprise divergence.
@@ -741,7 +742,6 @@ being simulated without reading the code where the primitive fires.
 | `migration-deadlocks-with-running-worker-holding-table-lock` | stall | a worker session holds AccessShareLock; the migration's CREATE/DROP INDEX needs AccessExclusiveLock; the lock manager parks the migration. Asserts the upgrade does NOT hang |
 | `install-flag-released-without-clean-handoff-detected-as-stale` | external | install exits cleanly but doesn't release the flag; the service's next tick observes a dead-holder flag and treats it as a crashed install |
 | `service-watchdog-timeout-during-db-reconnect-after-container-restart` | stall | the reconnect loop runs without `WATCHDOG=1` pings; a long reconnect gets SIGABRTed. The fix pings the watchdog from inside the loop |
-| `archive-backup-stall-active-phase-watchdog` | stall | the post-swap `archiveBackup` tar stalls in the active phase, beyond the heartbeat ticker's scope; asserts the progress-gated watchdog still covers the multi-minute tar so a genuinely-advancing backup is not reaped (and a true hang still is) |
 | `advisory-lock-attempted-before-db-ready-after-container-restart` | external | the DB container is still restarting when the service tries its first advisory lock; the attempt fails and exits 42; systemd restarts after backoff |
 | `seed-restore-runs-on-populated-database-destroying-data` | stall | **DATA-LOSS GRADE.** the install routes to seed-restore against a populated DB; `pg_restore` of the seed silently destroys rows. The scenario asserts data survives |
 
