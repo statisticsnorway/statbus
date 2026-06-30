@@ -4,7 +4,7 @@ title: 'power-group-reporting: Power Group reporting & navigation API (DB/API)'
 status: Draft
 assignee: []
 created_date: '2026-06-30 11:28'
-updated_date: '2026-06-30 15:21'
+updated_date: '2026-06-30 15:29'
 labels:
   - power-group
   - api
@@ -16,7 +16,7 @@ dependencies: []
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-DB/API only (UI is a separate team member's job). Concept: see `doc/power-groups.md`. A **Power Group** = a DAG of legal units bound by ownership/control via `legal_relationship`. The name is SETTLED — never "enterprise group".
+DB/API only (UI is a separate team member's job). Concept: see `doc/power-groups.md`. A **Power Group** = a DAG of legal units bound by ownership/control via `legal_relationship`. The name is SETTLED — never "enterprise group" or "control group".
 
 PROBLEM: `statistical_unit_hierarchy('power_group', X)` today collapses the group to its root LU's single enterprise (via `statistical_unit_enterprise_id`), dropping every other member enterprise. A power group cannot be reported or navigated.
 
@@ -24,7 +24,7 @@ GOAL — two directions, both via `statistical_unit_hierarchy`:
 - **Shape A (group on top)** — `statistical_unit_hierarchy('power_group', X)` → `{ "power_group": { …, power_group_members:[…] } }` — the whole DAG, members spanning ALL member enterprises.
 - **Shape B (regular unit links to group)** — `statistical_unit_hierarchy('legal_unit'|'enterprise'|'establishment', X)` → the normal enterprise-rooted tree, PLUS a lean `power_group_link` at the root + a `power_group_membership` sub-key on each legal_unit node. No member expansion.
 
-Split into TWO build bodies when promoted from Draft: (1) UNDERLYING power-group changes (0-index substrate); (2) EXTEND statistical_unit_hierarchy. Plus separate tasks: foreign-member import risk; STATBUS-116 (multi-control import test).
+Split into TWO build bodies when promoted from Draft: (1) UNDERLYING power-group changes (0-index substrate); (2) EXTEND statistical_unit_hierarchy. Plus separate tasks: STATBUS-117 (foreign-member import risk); STATBUS-116 (multi-control import test).
 
 NAMING (locked — memory `feedback_naming_full_vs_reference`: key↔type share a stem; full=`_hierarchy`/bare, reduced reference=`_link`; three ref forms `_id`/`_link`/relationship-edge):
 - `power_group` / `PowerGroup` / `power_group_hierarchy()` — the full group.
@@ -47,13 +47,12 @@ LOCKED DECISIONS:
 5. `domestic` inlined on member node (sourced from `statistical_unit.domestic`).
 6. group `type` (power_group_type, national/multinational) surfaced at root.
 7. BOTH edge directions always present (`influencers` + `influencees`) → every node self-navigable up and down.
-8. EDGE `primary` = the UNIFIED single-controller flag = `legal_rel_type.primary_influencer_only OR percentage > 50`. "konsern" is NOT a separate concept — it IS this `primary`. Both routes guarantee a single controller (type via the 1:1 exclusion constraint; percentage via arithmetic); the TYPE covers the unknown-% case (BRREG supplies no %). Keep distinct from `legal_rel_type.primary_influencer_only` (the TYPE-level input). Threshold `> 50` strict (King: "more than 50%"; boss said "50% or more" — confirm > vs >=). No hard CHECK linking primary↔percentage; optional STORED generated column for indexing.
+8. EDGE `primary` = the UNIFIED single-controller flag = `legal_rel_type.primary_influencer_only OR percentage > 50`. "konsern" is NOT a separate concept — it IS this `primary`. Threshold `> 50` STRICT — finalized per IFRS 10: control presumes MORE THAN half the voting rights; exactly 50% is a deadlock, not control. The TYPE path (`primary_influencer_only`) is IFRS's de-facto-control-below-50% prong (board/voting control), so unified `primary` mirrors IFRS's two-pronged control test. Both routes guarantee a single controller (type via the 1:1 exclusion constraint; percentage via arithmetic). Keep distinct from `legal_rel_type.primary_influencer_only` (the TYPE-level input). No hard CHECK linking primary↔percentage; optional STORED generated column for indexing.
 9. API param `primary_only boolean DEFAULT false` on `power_group_hierarchy` (threaded through `statistical_unit_hierarchy`). false = whole power group (all edges); true = the primary/controlling spine (consolidation view, ex-"konsern") — prune to primary edges + members reachable via them.
 
 Cycle/multi: `power_group_membership` view is EMPTY for cycles → enumerate members from `legal_relationship`; root from `power_root` (`root_legal_unit_id`); `root_status` = `power_root.derived_root_status`.
 
 OPEN (resolve before promotion):
-- FOREIGN-member import truncation: confirm BRREG import materializes `legal_unit` rows for UTLA (foreign) members, else groups truncate at the border. [SEPARATE TASK]
 - FRONTEND type touchpoints (requests.ts, database.types.ts, topology.tsx/topology-item.tsx, types.d.ts, power-groups/[id] stub). [pg-frontend never reported — gather inline]
 <!-- SECTION:DESCRIPTION:END -->
 
