@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
-updated_date: '2026-06-30 21:07'
+updated_date: '2026-06-30 21:20'
 labels:
   - build-caching
   - seed
@@ -78,5 +78,17 @@ AC#4 harness COMMITTED — 29dd68392 (seed: STATBUS-116 seed verify-identical pr
 AC#4 NOT YET CHECKED — the harness existing is not the proof; the RUN is the oracle. Verify run sequenced (engineer, background): `./sb db seed verify-identical`. AC#4 checks on a GREEN '✓ seed identity PROVEN' run. A RED run is a real finding (incremental drift or harness bug) — investigate, do NOT enable incremental.
 
 After AC#4 green: AC#1 live-incremental wiring (restore-prior + delta-migrate in postgres/Dockerfile) remains gated on Fork A (parked for the King).
+---
+
+author: foreman
+created: 2026-06-30 21:20
+---
+AC#4 RUN RED — root-caused to a HARNESS BUG, NOT real incremental drift (the proof catching the harness's own bug = test-first-as-discovery working). AC#4 stays UNCHECKED (correctly red).
+
+Verdict per-component: schema ✗ DIFFERS, data ✗ DIFFERS, ledger ✓ MATCHES.
+
+BUG 1 (foreman-confirmed code-level): migrateNamedDb passed all=(migrateTo==0); migrate.go:768 does `if !all && len(pending)>1 { pending = pending[:1] }`, so the PRIOR build (migrateTo=V_prev≠0 → all=false) applied only the FIRST pending migration → the manufactured 'prior' was a 1-migration STUB, not all-up-to-V_prev. The migrate.go:762 cap already bounds to V_prev, so the fix is all=TRUE always. BUG 2 (benign side-effect): migrate.Up triggered maybeRebuildTestTemplate in dev mode (rebuilt statbus_test_template; statbus_seed + dev DB untouched) — fix: set CADDY_DEPLOYMENT_MODE=standalone in migrateNamedDb.
+
+OPEN UNEASE (why this is NOT yet settled): both INCR and FULL end at all 374 migrations (→ ledger ✓), so it is NOT obvious why a stub-prior makes schema+data differ — if migrations are deterministic, restore-then-delta should equal fresh. The engineer's 'reach them differently' is hand-wavy. So: (a) the RE-RUN with the fix is the oracle (digests are proven-sensitive → a green is trustworthy); (b) architect is adversarially verifying diagnosis-completeness + the FOUNDATIONAL invariant 'restore faithful prior + delta == full migrate' (the assumption the whole feature + AC#1 wiring rests on). AC#4 proven only on GREEN re-run + architect concurrence; still-red = real finding.
 ---
 <!-- COMMENTS:END -->
