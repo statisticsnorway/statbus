@@ -1,11 +1,12 @@
 ---
 id: STATBUS-119
 title: >-
-  seed-invariant-proof: incremental-seed production-invariant certification (the
-  bar before AC#1 live wiring)
+  seed-not-reproducible: reference-table audit columns default to
+  build-wall-clock
 status: To Do
 assignee: []
 created_date: '2026-06-30 21:53'
+updated_date: '2026-06-30 21:58'
 labels:
   - seed
   - incremental-seed
@@ -21,39 +22,30 @@ references:
   - >-
     migrations/20260602070530_pin_wall_clock_reads_to_app_current_date_guc_for_deterministic_history_derivation.up.sql
   - STATBUS-116
-priority: medium
+priority: low
 ordinal: 119000
 ---
 
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-**The DEEPER PROOF that the incremental-seed shortcut is SOUND — the bar that must be GREEN before AC#1 (live incremental-seed wiring) is enabled.** Distinct from STATBUS-116's "clean unit" (the determinism fixes + object-diff + FULL-vs-FULL control the engineer lands tonight, which keeps incremental DISABLED). Architect adversarial verification, 2026-06-30.
+**The published seed image's CONTENT varies per CI build of the same commit.** Reference-table audit columns (`created_at`/`updated_at`/`edit_at`/`last_used_at`/`uploaded_at`/`discovered_at`) default to the build wall-clock (`now()`/`statement_timestamp()`/`clock_timestamp()`), so two CI builds of the *same commit* produce byte-different seeds. A real finding, **independent of STATBUS-116**, surfaced during the seed-identity adversarial verification (architect, 2026-06-30).
 
-## Why (what the current AC#4 gate cannot certify)
-- **Governing frame:** a green digest means "the harness bug was real," NOT "the invariant is proven." The gate must *certify the production invariant*, not just stop being red.
-- Fork (i) **round-trip preservation is PROVEN** (dump→restore is fingerprint-preserving; the RED was instrument bugs). So the invariant `restore(faithful prior) + delta == full` is true **by construction IFF the seed build is deterministic** — the open question.
-- **Coverage gap:** the proof's V_prev = second-highest version → delta = the **single last migration**. Production (AC#1) applies delta = a **release's many new migrations** on a **restored prior-RELEASE seed**. Never exercised.
-- **Determinism is NOT yet established** — a confirmed at-risk set bakes wall-clock into seed content (below).
-- **Schema-oracle viability undecided** — raw `pg_dump --schema-only` is OID/creation-order-sensitive across two builds; only the `\restrict`-stripped FULL-vs-FULL control reveals whether S1 (normalized pg_dump) survives or needs a catalog-introspection oracle.
+## Evidence
+- Live catalog: **63 columns / 40 tables** carry `now()`/`clock_timestamp`/`statement_timestamp` defaults. Confirmed migration-seeded + volatile + real rows: `import_definition`, `import_mapping`, `import_source_column`, `import_data_column`, `import_step` (now() `created_at`/`updated_at`). `activity_category.created_at` = **3 distinct values over 38 days** → the default fired at migrate-time, not a literal.
+- Empirically confirmed by the FULL-vs-FULL control: **schema deterministic** (✓ after `\restrict`-strip), **data diverges** (✗) purely on these audit timestamps.
+- All volatile defaults are **AUDIT METADATA** — verified ZERO on semantic columns, ZERO on business-temporal (`valid_*`/`_from`/`_to`/`_until`) columns.
 
-## At-risk seed content (architect scan, live-catalog verified)
-CONFIRMED migration-seeded tables with **volatile `now()` audit defaults** (bake migrate-time clock → make FULL-vs-FULL legitimately diverge): `import_definition`, `import_mapping`, `import_source_column`, `import_data_column`, `import_step`. (`activity_category` etc. have volatile defaults too but are loaded via import functions — confirm whether populated in the migrate-only seed.) → **Predicts the db.migration-excluded control STILL diverges.** `app.current_date` pin (migration 20260602070530) covers DERIVATION only, NOT these audit defaults.
+## Implications (reproducible builds — the King's value)
+- **Not content-addressable:** the same commit's seed image differs byte-wise per build → defeats content-addressable caching / dedup of seed images.
+- **Reproducible-builds principle:** a build artifact (the seed) should be a deterministic function of its *source* (the commit). Today it's a function of (commit, build-wall-clock).
 
-## The bar (each item GREEN before AC#1 enable)
-1. **Object-level diff on mismatch** — never accept a RED we can't NAME (schema: differing objects; data: differing table+rows). Harden beyond the digest-prefix print.
-2. **Seed determinism resolved** — decide per the audit-timestamp finding: (a) exclude `created_at/updated_at/edit_at` from the data digest as build-metadata (like `db.migration`) — simplest; or (b) pin the seed-build clock; or (c) deterministic literals in the seeding migrations. Then **FULL-vs-FULL must be GREEN.**
-3. **Multi-migration delta** — apply a *release's worth* of migrations on a restored **prior-RELEASE** seed, not just the single last migration.
-4. **Multiple V_prev cut points** — not a single second-highest cut.
-5. **Determinism GUC + derivation handling** — pin `app.current_date` in the seed-verify build; if any build step runs worker derivation, quiesce + pin (mirror the arc's `wait_for_worker_quiesce`).
-6. **Schema-oracle robustness (conditional)** — if the `\restrict`-stripped FULL-vs-FULL control still shows schema non-determinism (OID/creation-order), switch the schema dim from raw `pg_dump` bytes to an **ORDER-BY'd catalog-introspection digest** (information_schema + pg_catalog). Adopt **pending the control's classification** (don't pre-adopt). If the diff shows *genuinely different objects* → a real schema-reproducibility bug (a migration creating objects from an unordered query) → fix that migration regardless.
-7. **Cross-cutting (own finding):** the arc clean-slate fingerprint (`arc-helpers.sh:209`) shares the same raw-`pg_dump` schema-oracle flaw — it strips `\restrict` but is still OID-order-exposed across builds. Apply the same schema-oracle robustness there; it affects drift-detection beyond this feature.
+## Accept vs fix
+- **Accept:** tolerate per-build variance; the seed-identity gate (STATBUS-116) handles it by excluding volatile-default (audit) columns from its *semantic* comparison (architect-blessed — those columns are all benign audit metadata).
+- **Fix (reproducible seed):** pin a deterministic build epoch (`SOURCE_DATE_EPOCH`/`BUILD_DATE`) so `now()`/`statement_timestamp()` resolve to a stable value during seed building → byte-reproducible seed. NOTE: even with this, the INCR-vs-FULL identity check *still* needs the audit-column exclusion (a prior-release seed pinned a different epoch than the current build).
 
-## Verification
-- FULL-vs-FULL GREEN (determinism), then INCR-vs-FULL GREEN with a multi-migration delta across ≥2 V_prev cuts, object-diff clean. Only then is `restore(faithful prior) + delta == full` certified for the production path → AC#1 may enable.
-
-## Prioritization note (for the King)
-Part of the **seed/release build-arc**, NOT the stated top priority (install/upgrade-green). Gates AC#1's live wiring; until certified, incremental stays disabled (the STATBUS-116 clean unit already enforces this).
+## Prioritization (for the King)
+Part of the **seed/release build-arc** + reproducible-builds; NOT the stated top priority (install/upgrade-green). Independent of STATBUS-116 (which proceeds via the audit-column exclusion regardless).
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
