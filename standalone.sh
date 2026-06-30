@@ -69,9 +69,10 @@ usage() {
     echo "Usage: $0 <command> [args]"
     echo ""
     echo "Commands:"
-    echo "  status                  Show version on all standalone hosts"
+    echo "  status                  Show version on all standalone hosts (read-only)"
     echo "  notify                  Tell hosts to check for updates"
-    echo "  upgrade                 Force all hosts to apply latest"
+    echo "  upgrade [--yes]         Force all hosts to apply latest (prompts for confirmation;"
+    echo "                          use --yes to skip for automation; 'upgrade help' shows this)"
     echo "  install <name> [ver]    Install host (optionally pin to specific version)"
     echo "  install all [ver]       Install ALL hosts (optionally pin)"
     echo "  rescue <name>           Alias for install"
@@ -82,6 +83,8 @@ usage() {
     echo "  reimport <name> <selection|downloads> [email]"
     echo "                          DESTRUCTIVE: wipe DB then schedule fresh BRREG import"
     echo "  ssh <name>              Open interactive shell as statbus@<host>"
+    echo ""
+    echo "Read-only overview: use 'status' to see current versions on all hosts."
     echo ""
     echo "Registered hosts:"
     for entry in "${HOSTS[@]}"; do
@@ -184,6 +187,21 @@ cmd_notify() {
 }
 
 cmd_upgrade() {
+    local _yes="${1:-0}"
+    if [ "$_yes" != "1" ]; then
+        echo "WARNING: This will force ALL standalone hosts to apply the latest release immediately."
+        printf "Hosts to upgrade: "
+        all_names | tr '\n' ' '
+        echo ""
+        echo ""
+        echo "Use './standalone.sh status' for a read-only version overview first."
+        echo ""
+        read -p "Type 'upgrade' to confirm (or Ctrl-C to abort): " confirm </dev/tty
+        if [ "$confirm" != "upgrade" ]; then
+            echo "Aborted."
+            exit 1
+        fi
+    fi
     echo "Forcing all hosts to apply latest..."
     for name in $(all_names); do
         printf "  %-16s " "$name:"
@@ -515,7 +533,20 @@ case "$1" in
         cmd_notify
         ;;
     upgrade)
-        cmd_upgrade
+        # AC#1 (STATBUS-037): parse trailing args so `upgrade help`, `upgrade -h`,
+        # `upgrade --help`, and unknown args print usage and exit WITHOUT firing an
+        # apply-latest. Any unrecognised arg is an operator mistake — show help, do
+        # nothing. Pass --yes/--force/-y to skip the confirmation prompt (for automation).
+        shift  # consume 'upgrade'; $@ is now only the trailing args
+        _yes=0
+        for arg in "$@"; do
+            case "$arg" in
+                help|-h|--help) usage ;;
+                --yes|--force|-y) _yes=1 ;;
+                *) echo "Unknown argument for upgrade: $arg"; usage ;;
+            esac
+        done
+        cmd_upgrade "$_yes"
         ;;
     install|rescue)
         # Accept both positional version (`install no v2026.04.0-rc.48`) and
