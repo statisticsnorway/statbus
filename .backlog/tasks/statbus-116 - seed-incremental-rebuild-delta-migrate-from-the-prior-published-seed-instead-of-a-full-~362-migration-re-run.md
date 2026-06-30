@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
-updated_date: '2026-06-30 21:20'
+updated_date: '2026-06-30 21:37'
 labels:
   - build-caching
   - seed
@@ -90,5 +90,13 @@ Verdict per-component: schema ✗ DIFFERS, data ✗ DIFFERS, ledger ✓ MATCHES.
 BUG 1 (foreman-confirmed code-level): migrateNamedDb passed all=(migrateTo==0); migrate.go:768 does `if !all && len(pending)>1 { pending = pending[:1] }`, so the PRIOR build (migrateTo=V_prev≠0 → all=false) applied only the FIRST pending migration → the manufactured 'prior' was a 1-migration STUB, not all-up-to-V_prev. The migrate.go:762 cap already bounds to V_prev, so the fix is all=TRUE always. BUG 2 (benign side-effect): migrate.Up triggered maybeRebuildTestTemplate in dev mode (rebuilt statbus_test_template; statbus_seed + dev DB untouched) — fix: set CADDY_DEPLOYMENT_MODE=standalone in migrateNamedDb.
 
 OPEN UNEASE (why this is NOT yet settled): both INCR and FULL end at all 374 migrations (→ ledger ✓), so it is NOT obvious why a stub-prior makes schema+data differ — if migrations are deterministic, restore-then-delta should equal fresh. The engineer's 'reach them differently' is hand-wavy. So: (a) the RE-RUN with the fix is the oracle (digests are proven-sensitive → a green is trustworthy); (b) architect is adversarially verifying diagnosis-completeness + the FOUNDATIONAL invariant 'restore faithful prior + delta == full migrate' (the assumption the whole feature + AC#1 wiring rests on). AC#4 proven only on GREEN re-run + architect concurrence; still-red = real finding.
+---
+
+author: foreman
+created: 2026-06-30 21:37
+---
+AC#4 investigation update — fork (i) RESOLVED FALSE; only (ii) remains. Engineer ran a direct dump→restore round-trip on the real statbus_seed: schema diff = ONLY 2 lines (PG18 \restrict/\unrestrict random psql tokens; 29,774 other lines identical), data 0/88 tables differ. Foreman verified /tmp/rt_schema.diff first-hand. → the seed dump→restore round-trip IS fingerprint-preserving (the architect's key worry = FALSE). The earlier RED = two NAMED harness digest-normalization bugs, NOT real drift: (1) normalizeSchemaDump doesn't strip the \restrict/\unrestrict random token; (2) the data digest includes db.migration's volatile cols (id SERIAL / applied_at now() / duration_ms). The S1 schema-digest ruling SURVIVES (the non-determinism is benign PG18 psql-meta noise, not OID-ordering / schema-reproducibility).
+
+ONLY remaining fork: (ii) migration non-determinism (the round-trip doesn't re-run migrations). Greenlit harness fixes: strip \restrict/\unrestrict (+ a differential test) + exclude db.migration; re-run with a FULL-vs-FULL CONTROL first (real test for any residual volatile seed table), then INCR-vs-FULL. Architect running a non-determinism scan of the delta migrations. CLEAN scan + GREEN re-run ⇒ mechanism SOUND ⇒ AC#4 proven. Incremental stays DISABLED; commit HELD until the harness is deterministic + green.
 ---
 <!-- COMMENTS:END -->
