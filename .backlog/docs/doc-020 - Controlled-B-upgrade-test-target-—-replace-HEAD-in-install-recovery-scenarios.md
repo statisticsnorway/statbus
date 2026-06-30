@@ -3,6 +3,7 @@ id: doc-020
 title: Controlled-B upgrade-test target — replace HEAD in install-recovery scenarios
 type: specification
 created_date: '2026-06-30 14:48'
+updated_date: '2026-06-30 14:55'
 tags:
   - upgrade
   - install-recovery
@@ -16,6 +17,8 @@ tags:
 **Status:** design, awaiting King's ratification. Architect, 2026-06-30. Foundation, not patch.
 **Problem origin:** King's diagnosis — install-recovery *scenarios* upgrade to `HEAD`, which is
 wrong. The *arcs* already use a controlled target B; unify the scenarios onto that model.
+**Now grounded:** the 9 current matrix failures are this exact issue — diagnosed by the engineer,
+verified by the foreman, re-verified first-hand by the architect against the CI logs (below).
 
 ## Context — two harnesses, two target models (all verified first-hand)
 
@@ -32,32 +35,61 @@ wrong. The *arcs* already use a controlled target B; unify the scenarios onto th
 
 **Three failure modes (King's diagnosis, all grounded):**
 1. **HEAD moves** — a doc-only commit advances HEAD, adds no migration → baseline==HEAD → assert
-   `✗ no real migration delta … SB_INSTALL_SKIP_SEED did not withhold the seed` (`3-postswap-mid-tx-kill.sh:138`).
+   `✗ no real migration delta …` (`3-postswap-mid-tx-kill.sh:138`).
 2. **HEAD unpushed** — `stage-head.sh:38` `git fetch --depth 1 origin "$HEAD_SHA"` → `FATAL: HEAD not on origin`.
 3. **Uncontrolled delta** — `<tag>→HEAD` is an arbitrary migration range; a kill-mid-migration test
    needs a *specific, known* migration to interrupt deterministically.
-
-The 9 current matrix failures are all the kill-during-`old→HEAD` scenarios.
 
 **ARCS** (`arcs/*.sh`, `lib/arc-helpers.sh`, CI `.github/workflows/upgrade-arc-harness.yaml`) —
 already use a controlled, pushed, known-delta **B**:
 - `construct` job `build_pair` (`upgrade-arc-harness.yaml:199-244`): `git checkout -B <b_branch>
   <base_sha>` → write a **synthetic migration** (`write_working_v` creates `public.upgrade_arc_fixture`;
   `write_failing_v` is a deterministic `RAISE EXCEPTION` = V_fail) → `git commit -S` (ephemeral-key
-  signed) → push to origin (`:248-252`). `V_VERSION = max(A's migration timestamps)+1` (`:135`),
-  sorting after every A migration; `V_VERSION_2 = +2`.
+  signed) → push to origin (`:248-252`). `V_VERSION = max(A's migration timestamps)+1` (`:135`).
 - **Only two lineages cover every arc** (`:240-244`): `build_pair working …` + `build_pair failing
-  …`. "kill/stall arcs ride working; failing/rollback arcs ride failing." → controlled-B is *shared*,
-  not per-scenario.
-- Each branch dispatches `images.yaml` → **real per-commit images** `statbus-*:<short>` on ghcr
-  (`:262+`); an image-wait job polls until all exist. **CI-only** (B is not available before the run).
+  …`. → controlled-B is *shared*, not per-scenario.
+- Each branch dispatches `images.yaml` → **real per-commit images** `statbus-*:<short>` on ghcr; an
+  image-wait job polls until all exist. **CI-only** (B is not available before the run).
+- **Trusts the synthetic-commit signer** post-install via `trust_arc_signer` (`arc-helpers.sh:24`)
+  — the scenarios have no equivalent (see failure mode 3 in the diagnosis).
 - `arc_to()` (`arc-helpers.sh:95`): `git fetch origin $B_BRANCH && git cat-file -e $B_FULL` →
-  `./sb upgrade register` → `wait_for_upgrade_candidate_ready` → `./sb upgrade schedule` → poll
-  `public.upgrade` terminal. Kill variants: `arc_schedule_daemon_down` + `arc_install_dispatch_with_inject`.
+  `./sb upgrade register` → `wait_for_upgrade_candidate_ready` → `./sb upgrade schedule` → poll.
 
-**The arc↔scenario filename lists are ~1:1** (preswap-backup-kill, postswap-mid-tx-kill,
-between-migrations-kill, rollback-kill, …). Same wedges; they differ only in target model
+**The arc↔scenario filename lists are ~1:1** — same wedges; they differ only in target model
 (controlled-B vs HEAD), image strategy (real build vs retag), and dispatch (service vs inline-install).
+
+## Diagnosis — the 9 matrix failures (engineer obs #1332, architect re-verified vs CI run 28444189604)
+
+**Verdict: NOT a code regression** (zero backup/`pg_dump`/`dbdump`/`archiveBackup` in any failure
+path; if our code had regressed we'd see consistent upgrade-row/rollback corruption — instead it's
+**three distinct harness gates**, which is decisive). It is exactly the HEAD-target / multi-commit
+**incoherence** this design fixes.
+
+**The incoherent baseline (the crux):** the VM is provisioned with seed + git-HEAD at **`50fd4325`**
+("seed-sync-and-pin-gate", ~1047 commits back) while the upgrade target + uploaded `sb` binary =
+the run's commit **`18734a422`**. So image-tag, git-checkout, upgrade-target, and seed are spread
+across **two** commits. Every recovery install warns (verified `4-rollback-kill.log:3877`):
+`WARN: ./sb is stale: built from 18734a42, HEAD is now 50fd4325 with cli/ changes.`
+
+**Why only the kill-recovery scenarios fail** (16 pass, incl. `0-happy-upgrade`, all `1-boot`, all
+`5-install`): only the kill scenarios run a **second** `./sb install` (the recovery), which trips
+three gates the happy/install paths never reach:
+
+1. **Self-heal procure fail** (`4-rollback-kill.log:4126-4135`): the staleness guard tries to
+   procure `sb` for the git HEAD → `Pulling … statbus-sb:50fd4325 … not found` → local fallback
+   `building locally via cli/Dockerfile.sb` → `ERROR: open Dockerfile.sb: no such file or directory`
+   → `Self-heal procure/exec failed`. (No image for the seed-pin commit; the local build is run
+   from the wrong dir / missing file.)
+2. **Mandatory signature verify, no signers** (`3-postswap-mid-tx-kill.log:5482`):
+   `Commit 18734a42 signature verification failed: no trusted signers configured — signature
+   verification is mandatory.` The harness VM configures no `UPGRADE_TRUSTED_SIGNER_*`. (Note the
+   row: `has_migrations: false` — the doc-only target had no delta, failure mode 1, too.)
+3. **DB-sessions gate vs the live worker** (`mid-migration-kill.log:5290`): `[10/16] Database
+   sessions FAILED: connection pool still saturated after cleanOrphanSessions`. **Crucially the
+   recovery itself SUCCEEDED** — `:5265` `State after recovery: nothing-scheduled` — and `:5294`
+   the failure is an `INVARIANT FAILED_INSTALL_HAS_AUDIT_TRAIL violated (audit-only)` on a
+   **subsequent verification install** tripping on the worker (PID 328) actively running the
+   post-recovery derive pipeline. A *verification* gate, not a recovery failure.
 
 ## Key insight — retag is sound for a controlled-B scenario
 
@@ -65,77 +97,96 @@ Every recovery wedge interrupts a **backup / git-checkout / binary-swap / migrat
 none of which exercises app/worker/db/proxy **container code** (the db container is the same
 Postgres in A and B; the migration is git-tree SQL applied by the swapped binary). So a scenario's
 container images need only be *present*, not *be B's real build*. Retagging A's images as B's
-`COMMIT_SHORT` is therefore correct, and B's controlled migration still applies from B's git
-checkout — exactly as HEAD's delta does today. The retag was never the bug; the **moving, unpushed,
-uncontrolled HEAD** was.
+`COMMIT_SHORT` is therefore correct, and B's controlled migration applies from B's git checkout. The
+retag was never the bug; the **moving, unpushed, uncontrolled, incoherent HEAD** was.
 
 ## Recommended approach (X) — share the B-branch constructor; keep the scenario retag tail
 
-**Lift the arc's B-*branch* construction into one shared primitive; give the scenarios a controlled
-B instead of HEAD; keep their retag image tail (so they stay fast + locally orchestratable).**
+**Lift the arc's B-*branch* construction into one shared primitive; give the scenarios a coherent,
+pinned A and a controlled B instead of HEAD; keep their retag image tail (so they stay fast +
+locally orchestratable).**
 
 1. **Shared primitive** `lib/upgrade-target.sh :: construct_upgrade_target BASE_SHA <spec>` —
    exports `B_FULL, B_BRANCH, V_VERSION[, V_VERSION_2]`. It is the existing `build_pair` +
    `write_working_v` / `write_failing_v` logic lifted **out of the workflow YAML into a script**
    callable from both CI and a local run: branch off `BASE_SHA`, write the synthetic migration(s),
-   sign (ephemeral key, trusted post-install via the existing `trust_arc_signer`), push to origin.
-   `<spec>` is a small enum of *known* deltas, each a fixture migration the harness owns:
-   `working` (1 migration → `upgrade_arc_fixture`), `working-2` (two; forward-recovery
-   `max_version==V_VERSION_2`), `failing` (V_fail), `slow` (sleeps past the watchdog — migration-timeout).
-   The arc `images.yaml` build and the scenario retag are **pluggable tails** on the same B.
-2. **Construct the canonical Bs once per run, share across the matrix** (mirrors the arc's two-lineage
-   design). A scenario picks the B it needs by env (`B_FULL/B_BRANCH/V_VERSION`); the construct step
-   is git-only (cheap) for the scenario tier — no image build.
-3. **Scenarios consume B, not HEAD.** Replace each upgrade scenario's `HEAD_SHA=…rev-parse HEAD` +
-   `SB_INSTALL_SKIP_SEED=1` + `stage-head.sh` with: install A (`BASE_SHA`) → consume the shared B →
-   `git fetch origin $B_BRANCH` → upgrade A→B (inline `./sb install` dispatch) with the same
-   `STATBUS_INJECT_AT` wedge. `stage-head.sh` generalizes to `stage-target.sh <B_SHA>` (retag onto
-   B's short SHA). The interrupted migration is now the *known* fixture migration → deterministic.
-4. **Pure install-state tests stay on HEAD / this-commit** (the King's happy-install exception,
-   generalized). Dividing principle:
+   sign (ephemeral key), push to origin. `<spec>` ∈ {`working`, `working-2`, `failing` (V_fail),
+   `slow` (sleeps past the watchdog)} — the same fixtures the arcs own. Image build (arc) vs retag
+   (scenario) is a **pluggable tail** on the same B.
+2. **Construct the canonical Bs once per run, share across the matrix** (mirrors the arc's
+   two-lineage design); a scenario picks its B by env. Construct is git-only (cheap) for scenarios.
+3. **Scenarios consume B, not HEAD.** Replace each upgrade scenario's `HEAD_SHA` + `SB_INSTALL_SKIP_SEED`
+   + `stage-head.sh` with: install A (`BASE_SHA`) → consume the shared B → `git fetch origin
+   $B_BRANCH` → upgrade A→B (inline `./sb install` dispatch) with the same `STATBUS_INJECT_AT` wedge.
+   `stage-head.sh` generalizes to `stage-target.sh <B_SHA>`. The interrupted migration is the *known*
+   fixture migration → deterministic.
+4. **Pure install-state tests stay on HEAD / this-commit** (the King's happy-install exception).
+   Dividing principle:
    > **Interrupts/depends on a specific MIGRATION or an A→B UPGRADE → controlled-B.
    > Only exercises the installer's handling of an install-state on this commit → HEAD.**
-   So `0-happy-install`, the `5-install-*` installer-state tests, and the non-upgrade `1-boot-*`
-   keep HEAD; `0-happy-upgrade` becomes a working-B run (≡ `working-arc.sh`).
+   `0-happy-install`, the `5-install-*`, and non-upgrade `1-boot-*` keep HEAD; `0-happy-upgrade`
+   becomes a working-B run (≡ `working-arc.sh`).
 
-**Branch naming / lifecycle** — align to the existing arc convention, scenario variant:
-`test/upgrade-target/<run-id>/<spec>` (force-push to origin; the COMMIT `B_FULL` is authoritative,
-the branch is only the fetch handle). Created at run start, `git push origin --delete` at run end;
-a GC sweep removes orphaned `test/upgrade-target/*` and `test/upgrade-arc-*` branches older than N days.
+### Three requirements the diagnosis adds (apply under both X and Y)
+
+- **(a) COMMIT-COHERENCE per phase — the core.** Each phase of a scenario must be coherent at a
+  single SHA: at baseline, the seed **and** images **and** git-checkout **and** `sb` binary all at
+  **A**; the upgrade moves coherently to **B** (B's checkout, B's migration, B's binary; B's images
+  retagged from A). No mixing the seed-pin commit with the run/target commit. This is what kills the
+  `stale: built from 18734a42, HEAD is now 50fd4325` incoherence and its downstream self-heal
+  procure fail (mode 1). The controlled-B model enforces this **by construction** — A is a pinned
+  coherent commit with published seed+service images, B = A + one known migration.
+- **(b) Trusted signer in the harness.** Adopt the arc's `trust_arc_signer` (`arc-helpers.sh:24`):
+  configure `UPGRADE_TRUSTED_SIGNER_*` for the ephemeral key that signs B **after** install. Fixes
+  mode 3 directly; the scenarios get it free by moving onto the controlled-B path.
+- **(c) DB-sessions gate vs an active post-recovery worker (mode 2) — needs a call.** Either
+  (i) the test sequences the verification install **after** the worker quiesces (the arcs already do
+  `wait_for_worker_quiesce`, `arc-helpers.sh:185`) — a harness fix; or (ii) the install
+  `Database sessions` gate (`install.go:591`) must tolerate a legitimately-busy worker — a product
+  hardening that connects to Fix 9 / `5-install-stage-e-worker-busy` (which *passed*, so this may be
+  an uncovered pool-saturation path). **Recommend (i) for the harness now**; file (ii) as a product
+  investigation if a real operator could re-run `./sb install` mid-derive.
+
+**Branch naming / lifecycle** — `test/upgrade-target/<run-id>/<spec>` (force-push to origin; the
+COMMIT `B_FULL` is authoritative). Created at run start, `git push origin --delete` at run end; a GC
+sweep removes orphaned `test/upgrade-target/*` + `test/upgrade-arc-*` older than N days.
 
 **Tradeoff, stated:** X keeps two tiers — scenarios (controlled-B + retag: fast, locally
-orchestratable, recovery-wedge-focused) and arcs (controlled-B + real images: CI-only, full-fidelity,
-autonomous-service-focused) — sharing one B-branch constructor. I'd ship X: it directly satisfies
-"a branch, not HEAD," fixes all three failure modes, preserves the fast local loop, and is the
-smaller change.
+orchestratable) and arcs (controlled-B + real images: CI-only, full-fidelity) — sharing one
+B-branch constructor. I'd ship X: it directly satisfies "a branch, not HEAD," fixes all three
+failure modes + the incoherence, preserves the fast local loop, and is the smaller change.
 
 ## Strategic alternative (Y) — for the King to weigh, not my default
 
 The ~1:1 arc↔scenario overlap means the kill/stall scenarios are nearly the kill/stall arcs with a
 different target+dispatch. **Y = collapse to one harness**: delete the scenario wedges, let the
-arcs' controlled-B real-image cases cover them, keep only the genuinely install-only tests
-(`5-install-*`, non-upgrade `1-boot-*`) as HEAD-install tests. Y is simpler and higher-fidelity but
-**loses the fast locally-orchestratable tier** (everything becomes CI-built-image, ~20-30 min image
+arcs' controlled-B real-image cases cover them, keep only the install-only tests as HEAD-install.
+Simpler + higher-fidelity, but **loses the fast locally-orchestratable tier** (~20-30 min image
 waits) and is a large deletion. Recommend Y only if the King prioritizes one-harness simplicity over
-local iteration speed. **This is the one strategic call I need from the King.**
+local iteration speed. **This is the one strategic call I need from the King.** Requirements (a)/(b)/(c)
+apply either way (Y already satisfies a/b via the arc path; only the scenario-only tests carry c).
 
 ## Critical files
 - `test/install-recovery/fixtures/stage-head.sh` — retag; generalize to `stage-target.sh <B_SHA>`.
 - `test/install-recovery/run.sh:239` — `rev-parse HEAD` stamp; add the cheap git-only B-construct step.
-- `test/install-recovery/lib/arc-helpers.sh:95/267/294` — the B-consumption flow (already shared).
+- `test/install-recovery/lib/arc-helpers.sh:24 trust_arc_signer`, `:95 arc_to`, `:185
+  wait_for_worker_quiesce`, `:267/:294` dispatch — the B-consumption + signer + quiesce flow to share.
 - `test/install-recovery/lib/vm-bootstrap.sh:464-480` — `SB_INSTALL_SKIP_SEED` (retired for B scenarios).
-- `.github/workflows/upgrade-arc-harness.yaml:130-260` — `build_pair`/`write_working_v`/`write_failing_v`/
-  `V_VERSION` — **lift this into `lib/upgrade-target.sh`** as the shared constructor.
-- The ~13 `scenarios/*.sh` with `HEAD_SHA=$(… rev-parse HEAD)` (grep-captured) — migrate the upgrade ones.
+- `.github/workflows/upgrade-arc-harness.yaml:130-260` — `build_pair`/writers/`V_VERSION` — **lift
+  into `lib/upgrade-target.sh`**.
+- `cli/cmd/install.go:591` — the `Database sessions` gate (requirement c, option ii).
+- The ~13 `scenarios/*.sh` with `HEAD_SHA=$(… rev-parse HEAD)` — migrate the upgrade ones.
 
 ## Verification (the real VM is the only oracle — doc/install-upgrade-testing.md)
-- A doc-only commit on HEAD no longer breaks any upgrade scenario (B is independent of HEAD).
-- An unpushed local HEAD no longer breaks a scenario (B is pushed; A is a pinned release/commit).
-- `3-postswap-mid-tx-kill` interrupts the known fixture migration deterministically — no SKIP_SEED,
-  no `no real migration delta` assert.
+- A doc-only commit on HEAD no longer breaks any upgrade scenario; no `stale: built from … HEAD is
+  now …` warning (coherence holds); no `statbus-sb:<seed-commit> not found` self-heal fail.
+- An unpushed local HEAD no longer breaks a scenario (B is pushed; A is pinned).
+- `3-postswap-mid-tx-kill` interrupts the known fixture migration deterministically; signature
+  verify passes (signer trusted); no `no real migration delta` assert.
 - `./dev.sh test-install-recovery <slug>` (local) + CI matrix `install-recovery-harness.yaml`.
 
 ## Open questions for the King
 1. **X vs Y** — share-constructor-keep-two-tiers (recommended) vs collapse-to-one-CI-harness.
-2. **Scope of pass 1** — foundation = the shared `construct_upgrade_target` + migrate the ~13
-   upgrade/delta scenarios off HEAD. The arc↔scenario dedup is a flagged follow-up regardless of X/Y.
+2. **Scope of pass 1** — foundation = the shared `construct_upgrade_target` + coherent-A pinning +
+   harness signer (b) + worker-quiesce sequencing (c-i) + migrate the ~13 upgrade scenarios off HEAD.
+   The arc↔scenario dedup, and the product gate (c-ii), are flagged follow-ups regardless of X/Y.
