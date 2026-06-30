@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-30 21:53'
-updated_date: '2026-06-30 22:20'
+updated_date: '2026-06-30 22:38'
 labels:
   - seed
   - incremental-seed
@@ -59,4 +59,6 @@ Part of the **seed/release build-arc** + reproducible-builds; NOT the stated top
 
 <!-- SECTION:NOTES:BEGIN -->
 worker.tasks (architect, 2026-07-01; from STATBUS-116 AC#4 residual — determination (i) migration-spawned, NOT worker-daemon; spot-confirmed: PERFORM worker.spawn at migrations 20260520204526:359 + 20260521112759:201). TWO reproducibility sub-details, neither a build-determinism BUG: (a) worker.tasks.scheduled_at = created_at + interval '1 day' (the cleanup bootstrap tasks import_job_cleanup/task_cleanup) is build-wall-clock-relative → another build-wall-clock-baked seed value, same class as the audit-default timestamps; pinning the build epoch (SOURCE_DATE_EPOCH) stabilizes it too. (b) DEV-vs-HERMETIC discrepancy (engineer catch): the collect_changes bootstrap task shows state=COMPLETED in the DEV statbus_seed (dev.sh's worker on statbus_local executed it) but stays PENDING in the hermetic/shipped seed + the migrate-only verify harness (the daemon never connects to the build DBs). So the DEV-built seed carries execution state the shipped seed doesn't → dev seed != shipped seed in worker.tasks state. The shipped hermetic seed is CONSISTENT (always pending) and correctly carries bootstrap task DEFINITIONS, not execution history. Minor: doesn't affect the AC#4 control (uses the verify harness) or shipped-seed reproducibility; a dev-path caveat. No quiesce needed (no daemon on hermetic build DBs by construction).
+
+VIEW-DEPARSE non-idempotence (architect, 2026-07-01; from STATBUS-116 AC#4 INCR-vs-FULL schema diff) — a THIRD structural (non-timestamp) seed-reproducibility source. pg_get_viewdef is NOT a textual fixed-point across dump->restore: public.statistical_unit_def gains a redundant `::statistical_unit_type AS statistical_unit_type` alias on 6 UNION-branch targets in the restored/incremental seed vs the fresh full seed (alias == inferred column name -> behaviorally inert; data+ledger green corroborate). EMPIRICAL ONE-OFF: 1 of 100 views (142 UNIONs); narrow trigger = a type-cast-literal column whose inferred name equals the type, on a non-first UNION branch. STABLE one-round-trip fixed-point (the explicit alias is stored in the re-created view rule -> re-dump reproduces it -> no accumulating drift). Inherent to restored(incremental)-vs-fresh(full) representation; even epoch-pinning won't equalize it (not wall-clock). Semantically identical. KEY: information_schema.views.view_definition is ALSO pg_get_viewdef -> a catalog-introspection schema oracle does NOT escape this; the only fixes are deparse-normalization or canonicalize-by-round-trip. AC#4 dispositioned (architect): (a) targeted, SAFE cast-type-alias normalization in the S1 schema normalizer (collapse `::<type> AS <type>` -> `::<type>` only when the alias equals the cast type's own name).
 <!-- SECTION:NOTES:END -->
