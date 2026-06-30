@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
-updated_date: '2026-06-30 20:44'
+updated_date: '2026-06-30 21:07'
 labels:
   - build-caching
   - seed
@@ -68,5 +68,15 @@ UNIT ORDER (ship bit by bit):
 4. AC#5 — measurement, recorded.
 
 FORK A (PARKED for the King): which prior seed does an incremental restore from — A1 floating base tag `statbus-seed:incremental-base` (team rec, least CI machinery) vs A2 ancestor-walk. Correctness-NEUTRAL (gate falls back to full on any <=V_prev mismatch regardless), but it's a build/caching-architecture call the King wants. Does not block AC#4.
+---
+
+author: foreman
+created: 2026-06-30 21:07
+---
+AC#4 harness COMMITTED — 29dd68392 (seed: STATBUS-116 seed verify-identical proof). New `sb db seed verify-identical`: S1 schema digest (normalized pg_dump --schema-only) + per-table data digest (md5 string_agg(t::text ORDER BY t::text)) + ledger pre-check; manufactures its own prior (migrate --to V_prev) so decision-agnostic; dedicated disposable statbus_seed_verify DB (never the real seed); live postgres/Dockerfile UNTOUCHED. Pure cores differentially unit-tested (6 tests, all green; foreman re-verified build/test/vet/gofmt first-hand).
+
+AC#4 NOT YET CHECKED — the harness existing is not the proof; the RUN is the oracle. Verify run sequenced (engineer, background): `./sb db seed verify-identical`. AC#4 checks on a GREEN '✓ seed identity PROVEN' run. A RED run is a real finding (incremental drift or harness bug) — investigate, do NOT enable incremental.
+
+After AC#4 green: AC#1 live-incremental wiring (restore-prior + delta-migrate in postgres/Dockerfile) remains gated on Fork A (parked for the King).
 ---
 <!-- COMMENTS:END -->
