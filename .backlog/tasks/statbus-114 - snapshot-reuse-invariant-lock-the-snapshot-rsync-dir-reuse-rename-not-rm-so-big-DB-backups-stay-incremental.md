@@ -3,9 +3,10 @@ id: STATBUS-114
 title: >-
   snapshot-reuse-invariant: lock the snapshot-rsync dir-reuse (rename, not rm)
   so big-DB backups stay incremental
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-29 13:14'
+updated_date: '2026-06-30 20:50'
 labels:
   - upgrade
   - backup
@@ -37,6 +38,17 @@ The guard (comment + test) makes the rename-not-rm requirement explicit; the tes
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `prepareBackupSnapshotDir` carries an invariant comment explaining the rename-not-rm requirement (content+mtime preservation → incremental rsync; rm+mkdir would full-copy big DBs every run)
-- [ ] #2 If practical, a test asserts the snapshot dir is REUSED across runs (the rename path) and fails if it becomes wipe-and-recreate
+- [x] #1 `prepareBackupSnapshotDir` carries an invariant comment explaining the rename-not-rm requirement (content+mtime preservation → incremental rsync; rm+mkdir would full-copy big DBs every run)
+- [x] #2 If practical, a test asserts the snapshot dir is REUSED across runs (the rename path) and fails if it becomes wipe-and-recreate
 <!-- AC:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Fixed + committed 6bc3772d2 (cli/internal/upgrade/exec.go + persistent_rsync_test.go). Foreman verified both ACs first-hand:
+
+AC#1: prepareBackupSnapshotDir carries an INVARIANT comment (STATBUS-114): the active→syncing transition MUST stay a RENAME — never rm+mkdir — because the rename preserves content+mtime so the subsequent local `rsync -a --delete` (defaults to --whole-file) stays incremental by skipping unchanged files; wipe-and-recreate would full-copy every run (minutes→hours on big installs).
+AC#2: TestPrepareSnapshot_ReusesBaseInodeNotRecopy asserts the snapshot dir is REUSED across runs (inode+mtime carry into syncing), failing if a refactor swaps the rename for wipe-and-recreate.
+
+Locks the incremental-backup invariant against silent regression.
+<!-- SECTION:FINAL_SUMMARY:END -->
