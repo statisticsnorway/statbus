@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
-updated_date: '2026-06-30 21:37'
+updated_date: '2026-06-30 21:58'
 labels:
   - build-caching
   - seed
@@ -52,6 +52,12 @@ FOUNDATION (decision half) COMMITTED c7b0ac286. Remaining (execution half), in o
 4. AC#5 measurement.
 PARKED FOR KING — Fork A: prior-seed selection (A1 floating base tag [rec] vs A2 ancestor-walk); correctness-neutral, build/caching-architecture call.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+ROBUSTNESS FOLLOW-UPS for seed-identity (architect, 2026-06-30; OPTIONAL — NOT AC#4 gates, NOT King decisions). AC#4 certifies on (proven round-trip) + (green FULL-vs-FULL) + (green INCR-vs-FULL) via the blessed audit-column exclusion. Nice-to-haves for later hardening: (1) Multi-migration delta on a restored prior-RELEASE seed + >=2 V_prev cut points (today delta = single last migration). DOWNGRADED to nicety: green FULL-vs-FULL proves every migration deterministic, and proven round-trip => INCR==FULL for any delta/V_prev by construction. (2) Sequence last_value in the digest: --schema-only excludes setval and the data digest is rows-only, so a sequence-only divergence wouldn't be CAUGHT (sound by construction via the -Fc round-trip, but unverified) -- add `SELECT last_value` per sequence. (3) Catalog-introspection schema oracle: MOOT now -- the \restrict-strip made the schema digest deterministic (FULL-vs-FULL schema GREEN, OID-order hypothesis empirically disposed), so raw-pg_dump-minus-\restrict suffices; revisit only if schema determinism regresses. (4) Audit-exclusion GUARD: the catalog rule 'exclude columns whose DEFAULT is a volatile function' is future-proof but MUST assert the excluded set is audit-only -- fail loud if a temporal-validity (valid_*/_from/_to/_until) or other semantic column ever acquires a volatile default (would silently hide real drift). Verified clean today (0 such columns). Seed-not-byte-reproducible root finding tracked separately in STATBUS-119.
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 
