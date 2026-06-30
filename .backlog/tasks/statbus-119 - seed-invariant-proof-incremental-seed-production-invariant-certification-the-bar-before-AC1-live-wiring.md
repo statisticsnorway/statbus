@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-30 21:53'
-updated_date: '2026-06-30 21:58'
+updated_date: '2026-06-30 22:20'
 labels:
   - seed
   - incremental-seed
@@ -54,3 +54,9 @@ Part of the **seed/release build-arc** + reproducible-builds; NOT the stated top
 - [ ] #2 IF fix chosen: the seed build pins a deterministic epoch (SOURCE_DATE_EPOCH/BUILD_DATE) so now()/statement_timestamp()/clock_timestamp() resolve to a stable value during seed building — two CI builds of the SAME commit produce a byte-identical seed image (content-addressable)
 - [ ] #3 Documented that the seed-identity INCR-vs-FULL check still requires the audit-column exclusion regardless of the fix (a prior-release seed pins a different epoch than the current build)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+worker.tasks (architect, 2026-07-01; from STATBUS-116 AC#4 residual — determination (i) migration-spawned, NOT worker-daemon; spot-confirmed: PERFORM worker.spawn at migrations 20260520204526:359 + 20260521112759:201). TWO reproducibility sub-details, neither a build-determinism BUG: (a) worker.tasks.scheduled_at = created_at + interval '1 day' (the cleanup bootstrap tasks import_job_cleanup/task_cleanup) is build-wall-clock-relative → another build-wall-clock-baked seed value, same class as the audit-default timestamps; pinning the build epoch (SOURCE_DATE_EPOCH) stabilizes it too. (b) DEV-vs-HERMETIC discrepancy (engineer catch): the collect_changes bootstrap task shows state=COMPLETED in the DEV statbus_seed (dev.sh's worker on statbus_local executed it) but stays PENDING in the hermetic/shipped seed + the migrate-only verify harness (the daemon never connects to the build DBs). So the DEV-built seed carries execution state the shipped seed doesn't → dev seed != shipped seed in worker.tasks state. The shipped hermetic seed is CONSISTENT (always pending) and correctly carries bootstrap task DEFINITIONS, not execution history. Minor: doesn't affect the AC#4 control (uses the verify harness) or shipped-seed reproducibility; a dev-path caveat. No quiesce needed (no daemon on hermetic build DBs by construction).
+<!-- SECTION:NOTES:END -->
