@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-30 20:49'
+updated_date: '2026-06-30 20:55'
 labels:
   - testing
   - install-recovery
@@ -57,8 +58,9 @@ The construct currently generates an **ephemeral signing key** in the workflow (
 2. **Local unit:** call `construct_upgrade_target <test-base-sha> working` locally; assert it creates `migrations/<max+1>_upgrade_arc.up.sql` with the fixed `upgrade_arc_fixture` content and a signed commit on the expected branch name.
 
 ## Follow-on sequence (context only — NOT this task; part of the doc-020 arc / STATBUS-071)
-- **Slice 2:** coherent-A pinning + trust the synthetic signer on the harness VM (fixes the multi-commit incoherence + the no-signers gate) — for a pilot.
-- **Slice 3 (real de-risker):** migrate ONE currently-failing scenario (`3-postswap-mid-tx-kill`) off "latest commit" onto the controlled-B + the **image tail the King picks** (reuse-image if A / real-image if B) → prove GREEN on a real VM. **← first slice that depends on the A/B (X/Y) pick.**
+**Only Slice 1 (this task) is a clean approach-agnostic pre-A/B unit** — so the King's one-tap pre-A/B greenlight is *this task alone*. From Slice 2 onward the work is shaped by the X/Y pick:
+- **Slice 2 (A/B-shaped — NOT a clean pre-A/B unit):** coherent-A pinning + trust the synthetic signer on the harness VM (fixes the multi-commit incoherence + the no-signers gate). The arc harness *already* has both (`install_statbus_at_sha` + `trust_arc_signer`, `lib/arc-helpers.sh:44/54`); the incoherence + no-signers gates are **scenario-harness-only** bugs. So under option B (scenarios merge into the arc harness) Slice 2 is *inherited*; under option A it is *added to the scenario harness*. Either way it follows the A/B pick.
+- **Slice 3 (real de-risker):** migrate ONE currently-failing scenario (`3-postswap-mid-tx-kill`) off "latest commit" onto the controlled-B + the **image tail the King picks** (reuse-image if A / real-image if B) → prove GREEN on a real VM.
 - **Slice 4:** migrate the remaining ~12 upgrade scenarios (mechanical, once the pilot proves the pattern).
 - **Slice 5:** worker-quiesce sequencing for the post-recovery verification-install gate.
 <!-- SECTION:DESCRIPTION:END -->
