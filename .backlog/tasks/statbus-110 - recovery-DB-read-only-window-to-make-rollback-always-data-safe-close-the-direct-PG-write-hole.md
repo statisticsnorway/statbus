@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-26 11:30'
-updated_date: '2026-06-27 06:26'
+updated_date: '2026-07-01 13:09'
 labels:
   - upgrade
   - recovery
@@ -114,3 +114,21 @@ NORTH STAR (why it matters): STATBUS upgrades run hands-off — an operator in S
 
 NEXT: architect writes the detailed design (toggle on/off placement + the trivial session self-exemption) → engineer builds → arc-test (STATBUS-071). The hard admin-only mechanism is NOT needed; kept in notes only if the bar ever changes.
 <!-- SECTION:NOTES:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-01 13:09
+---
+BUILD STARTED (recovery-core GO, King 2026-07-01; sequence 110→109→046→111). Engineer deep-read the read-only-window design vs live code (design :NNNN cites from 06-26 are STALE — verified real: setMaintenance=exec.go:241 filesystem-flag; connect=service.go:2783, reconnect=2900 routes through connect; ON/OFF sites 4252/4262/4278/4869/5814). NO diff yet — 2 load-bearing DESIGN GAPS surfaced to the architect (foundation-not-fix) before wiring, because building as-written ships a KNOWN-BROKEN upgrade (phase-3 migrations all fail):
+
+F2 (critical): phase-3 `./sb migrate up` runs as a SUBPROCESS via migrate.go's own psql, OUTSIDE Service.connect() → under ALTER DATABASE default_transaction_read_only=on every migration write FAILS. Empirically confirmed: superuser NOT exempt. Design asserts 'the upgrade's migrations succeed' = internal inconsistency; also breaks forward-recovery + boot-migrate-after-crash-freeze. Fix options A/B/C; engineer+foreman rec B (migrate.go psqlEnv adds PGOPTIONS=-c default_transaction_read_only=off — uniform, migrate always a writer). Architect ruling pending.
+
+F1: rollback() OFF (:5814) is NOT unconditional — the git-restore-fail ABORT terminal (os.Exit :5733) leaves the box DOWN (no reconnect, no live conn) so read_only can't be cleared there. Rec (i): accept read_only persists (symmetric with maintenance-stays-ON = crash-freeze intent), `./sb install` recovery clears at its terminal — CONTINGENT on confirming the recovery path reliably clears read_only. Architect ruling pending.
+
+F3 (confirm): ON-before-DB-stop bakes read_only=on into the phase-2 backup → every rollback-restore is read-only, must be actively cleared. Race-avoidance tradeoff (ON-early, no write-slip gap). Architect confirm pending.
+
+On the 3 rulings → engineer implements the coherent unit one pass → foreman review+commit → push→CI image→VM arc-run (071, the only oracle). Commit HELD.
+---
+<!-- COMMENTS:END -->
