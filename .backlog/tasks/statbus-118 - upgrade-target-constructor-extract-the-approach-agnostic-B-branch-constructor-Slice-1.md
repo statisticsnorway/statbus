@@ -3,10 +3,11 @@ id: STATBUS-118
 title: >-
   upgrade-target-constructor: extract the approach-agnostic B-branch constructor
   (Slice 1)
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@mechanic'
 created_date: '2026-06-30 20:49'
-updated_date: '2026-06-30 20:55'
+updated_date: '2026-07-01 13:29'
 labels:
   - testing
   - install-recovery
@@ -79,3 +80,13 @@ The construct currently generates an **ephemeral signing key** in the workflow (
 <!-- DOD:BEGIN -->
 - [ ] #1 The upgrade-arc harness CI run is green on the refactored construct path (the behavior-preserving proof) — landed only after that run is observed green
 <!-- DOD:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-01 13:29
+---
+STARTED (King greenlit the upgrade-test track in parallel with recovery-core, 2026-07-01). Mechanic executes the behavior-preserving constructor extraction (upgrade-target.sh :: construct_upgrade_target, lifted from upgrade-arc-harness.yaml:120-177, workflow rewired to call it, signing-key parameterized); architect is DESIGN-OWNER + reviewer (King: 'use the architect where appropriate'); foreman reviews+commits. Behavior-preserving discipline = byte-identical branches. AC#6 out-of-scope guard holds (no scenario migrated, no image-tail change — those are A/B-dependent slices 3+). NOTE: the X/Y question is RESOLVED (King) = build-on-CI + pull (doc-020 revised); 118 itself is unchanged (approach-agnostic), and the follow-on slice 3 is now the CI-image+pull wiring. DoD unchanged: lands only after the arc-harness CI run is observed green on the refactored construct path. Engineer stays on recovery-core (disjoint files: Go vs bash).
+---
+<!-- COMMENTS:END -->
