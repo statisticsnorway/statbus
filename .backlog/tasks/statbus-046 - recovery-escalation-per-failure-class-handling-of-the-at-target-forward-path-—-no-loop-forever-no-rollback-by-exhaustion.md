@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - architect
 created_date: '2026-06-12 22:15'
-updated_date: '2026-06-12 22:21'
+updated_date: '2026-07-01 13:11'
 labels:
   - install-recovery
   - upgrade
@@ -22,6 +22,10 @@ references:
   - cli/internal/upgrade/service.go
   - doc/diagrams/upgrade-timeline.plantuml
   - doc/diagrams/upgrade-lifecycle.plantuml
+documentation:
+  - >-
+    doc-021 -
+    Recovery-escalation-—-the-per-failure-class-allowance-table-STATBUS-046.md
 priority: high
 ordinal: 46000
 ---
@@ -89,4 +93,6 @@ REFINEMENT (King review, 2026-06-13 — supersedes the description's class mecha
 .D — THE NEXT ACTION AFTER A CRASH, in order: (1) systemd restarts the service (it has normal duties). (2) Boot recovery: row + flag → ground truth at-target → consult the attempt counter (incremented at attempt START — the crash self-counted). (3) Budget remaining → exactly ONE more forward attempt. Budget proposal: 3, sharpened: the flag records WHICH STEP the attempt died at; two consecutive deaths at the SAME step → park immediately (same-step-twice = deterministic-hang evidence = zero allowance per .B); different steps / reboot = environmental → remaining budget applies. (4) Budget exhausted → PARK: row in_progress + marker + attempt history + dying step; siren fires ONCE with that named story; service returns to its normal loop alive-idle. (5) After park the next action is a HUMAN's, via the product's two actions only — re-trigger or ./sb install — each deliberate trigger buys exactly ONE fresh attempt; the machine never resumes hammering on its own.
 
 RATIFICATION REMAINING: the per-step allowance TABLE (each pipeline step × its failure modes × the derived allowance — the diagram rows), the D budget number (3) + same-step-twice rule, and the park marker columns. Implementation note: the flag already carries per-attempt state across restarts (Phase, BackupPath) — the dying-step record and attempt counter extend the same persisted-flag pattern; the row mirror (recovery_attempts, recovery_parked_at) serves install/UI/queries.
+
+DETAILED ALLOWANCE-TABLE DESIGN WRITTEN (architect, 2026-07-01) -> doc-021. Fills the three ratification-remaining pieces: (1) the per-step allowance TABLE (grounded in the current waits: waitForDBHealth 60s exec.go:1022/1057, MigrateUpTimeout 30m size-scaled, healthCheck retries + waitForRestReady, WatchdogSec=120; systemd StartLimitBurst=5/600s + RestartSec=30 provably can't bound the ~160s/cycle rune loop); (2) the D attempt-budget=3 + same-step-twice->park rule (dying step recorded on the flag; counter increments at attempt START so a crash self-counts); (3) the park-marker columns recovery_attempts int + recovery_parked_at timestamptz. Unified mechanism = one named allowance per (step,error,context): A=readiness time-bound-in-place-size-scaled, B=deterministic=0->park, C=resource=0->park, D=crash->budget. PARK-DEGRADED replaces loop-forever (row stays in_progress, forward-only preserved, rollback only via positively-Behind, un-park only via the 2 operator actions). Composition: 039 sets direction / 046 governs how-long+how-loud before park; 110 makes pre-completion rollback safe / 046's park is the at-target regime; 109 = the class-A in-place wait generalized per step. Sequenced after 110/109 in the recovery-core build. READY FOR KING RATIFICATION (3 asks in doc-021 §Ratification).
 <!-- SECTION:NOTES:END -->
