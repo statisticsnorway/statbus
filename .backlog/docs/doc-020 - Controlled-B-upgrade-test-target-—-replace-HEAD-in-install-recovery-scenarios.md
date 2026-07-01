@@ -20,6 +20,32 @@ wrong. The *arcs* already use a controlled target B; unify the scenarios onto th
 **Now grounded:** the 9 current matrix failures are this exact issue — diagnosed by the engineer,
 verified by the foreman, re-verified first-hand by the architect against the CI logs (below).
 
+## RECOMMENDATION (updated 2026-07-01 — King re-grounding; SUPERSEDES "Recommended approach (X)" below)
+
+**Build the controlled-B target's image on CI and pull it — do NOT reuse-retag.** The earlier X
+recommendation (reuse the base image + runtime-migrate) is **retired**: it is (1) *lower-fidelity* —
+retagging A's images as B never does a real registry pull-and-swap of a *target* image, so the
+binary-swap-kill / container-restart-kill / docker-pull recovery scenarios would exercise a
+**degenerate** swap (local fallback, A's containers) — the very path they exist to test; and (2)
+*unnecessary* — STATBUS-116 makes real CI builds fast. **The image build can never be skipped, only
+relocated: build on CI (build-on-push + registry-cache reuse), pull here.** Concretely:
+
+1. **STATBUS-118** (the shared B-branch constructor) stays the FOUNDATION — construct the
+   controlled-B (branch off A + the known synthetic migration, signed, pushed).
+2. **CI builds + publishes B's image.** B = A + migration ⇒ container-code layers **cache-hit**; the
+   seed rebuilds fast via **STATBUS-116** (delta-migrate the closest published ancestor seed; reuse
+   as-is when `migrations/` is unchanged).
+3. **The harness PULLS B's real image** and drives the *real* pull-and-swap — every recovery/swap-kill
+   wedge exercises the genuine upgrade path.
+4. **STATBUS-116 is the speed enabler** (the faithful path is also the fast path). **Fork A = the
+   ancestor-walk, short-circuited** (walk to the closest published seed; reuse if `migrations/`
+   unchanged; delta-migrate only when it changed) — 116's AC#1 wiring, now unblocked.
+
+So there is **one model**, not two tiers: *construct B (118) → CI builds+publishes B's image
+(116-fast) → harness pulls + real pull-and-swap.* The runtime-equivalence finding is reconciled in
+*Key insight* (it is migration-scoped; it does NOT license reusing the base image). The "X vs Y /
+two-tier / speed-knob" framing below is superseded and retained only for history.
+
 ## Context — two harnesses, two target models (all verified first-hand)
 
 `test/install-recovery/` has two harnesses testing overlapping upgrade/recovery wedges:
@@ -91,29 +117,34 @@ three gates the happy/install paths never reach:
    **subsequent verification install** tripping on the worker (PID 328) actively running the
    post-recovery derive pipeline. A *verification* gate, not a recovery failure.
 
-## Key insight — retag is sound for a controlled-B scenario
+## Key insight — the target image build RELOCATES to CI, it can't be skipped (King re-grounding 2026-07-01)
 
-Every recovery wedge interrupts a **backup / git-checkout / binary-swap / migration / rollback** —
-none of which exercises app/worker/db/proxy **container code** (the db container is the same
-Postgres in A and B; the migration is git-tree SQL applied by the swapped binary). So a scenario's
-container images need only be *present*, not *be B's real build*. Retagging A's images as B's
-`COMMIT_SHORT` is therefore correct, and B's controlled migration applies from B's git checkout. The
-retag was never the bug; the **moving, unpushed, uncontrolled, incoherent HEAD** was.
+**The image build can never be skipped — only relocated.** An upgrade targets a commit and requires
+*that commit's image* to pull-and-swap. Two placements: build on **CI** (build-on-push, maximal
+registry-cache reuse, then pull the result) vs. build on **the box** (less to pull, more to build,
+longer wait). **CI is the answer: build there, pull here.** There is no third "reuse-the-base +
+runtime-migrate" option — it is both *unnecessary* (CI builds are cheap with our cache) and
+*lower-fidelity*: retagging A's images as B never does a real registry pull-and-swap of a *target*
+image, so the binary-swap-kill / container-restart-kill / docker-pull recovery scenarios would
+exercise a **degenerate** swap (local fallback, A's containers) — the very path they exist to test.
 
-**Verified (2026-06-30) — and it bears directly on the X/Y call:** at *upgrade* time migrations are
-applied from the **git working tree**, not from any image (`cli/internal/migrate` runs psql with
-`cmd.Dir=projDir`; no `go:embed`; `postgres/Dockerfile:466/536` bake migrations+seed only for *seed
-creation*, never re-run on an existing volume). The db/sb/app image builds `COPY` the whole repo
-(`Dockerfile.sb:35`, `app/Dockerfile:25`), so a new migration file busts their cache and they
-rebuild — but the rebuilt images are **functionally identical** to A's (no runtime code changed;
-worker/proxy even cache-hit). So for a migration-only target — which is *every* recovery wedge —
-building real images (Y) buys **determinism / one-harness uniformity, but not container fidelity**;
-the migration runs from git either way (this is also *why* today's retag works at all). Real images
-earn their keep only when a target changes container **code** (Go/TS/Caddy), which no recovery wedge
-does. The branch-build mechanics are identical whether images are built or retagged — so that is a
-**speed knob, independent of the branch design**.
+**Reconciling the runtime-equivalence finding (scope correction, 2026-07-01).** It is TRUE that at
+*upgrade* time migrations apply from the **git working tree**, not from any image (`cli/internal/migrate`
+runs psql with `cmd.Dir=projDir`; no `go:embed`). But that covers the **migration step only** — NOT
+the pull-and-swap. So it does **not** justify reusing the base image; it only explains why B = A +
+migration needs no new *container code* (the app/worker/db/proxy layers are unchanged → `images.yaml`
+**cache-hits** them). B still needs a **real published image** so the harness pulls-and-swaps it for
+real. (I earlier over-extended this finding to "the whole image is functionally the base, so reuse is
+equivalent" — that was wrong; it ignored the pull-and-swap. Corrected.)
 
-## Recommended approach (X) — share the B-branch constructor; keep the scenario retag tail
+**The speed objection dissolves via STATBUS-116 (the connection I'd missed).** The seed step is the
+~2-min tentpole of an image build; 116 (seed-incremental, now proven) delta-migrates from the closest
+published ancestor seed instead of rebuilding from empty — and reuses it as-is when `migrations/` is
+unchanged. So a target with unchanged container code and a small migration delta **rebuilds in
+seconds**. The **faithful path (real target images on CI + pull) IS the fast path** — so the earlier
+"retag is a speed knob" framing is retired: build real images on CI; 116 makes it cheap.
+
+## Recommended approach (X) — [SUPERSEDED 2026-07-01 by the RECOMMENDATION at the top; retained for history] share the B-branch constructor; keep the scenario retag tail
 
 **Lift the arc's B-*branch* construction into one shared primitive; give the scenarios a coherent,
 pinned A and a controlled B instead of HEAD; keep their retag image tail (so they stay fast +
