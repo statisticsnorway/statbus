@@ -3,10 +3,11 @@ id: STATBUS-110
 title: >-
   recovery: DB read-only window to make rollback always data-safe (close the
   direct-PG write hole)
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@engineer'
 created_date: '2026-06-26 11:30'
-updated_date: '2026-07-01 13:09'
+updated_date: '2026-07-01 13:21'
 labels:
   - upgrade
   - recovery
@@ -130,5 +131,11 @@ F1: rollback() OFF (:5814) is NOT unconditional — the git-restore-fail ABORT t
 F3 (confirm): ON-before-DB-stop bakes read_only=on into the phase-2 backup → every rollback-restore is read-only, must be actively cleared. Race-avoidance tradeoff (ON-early, no write-slip gap). Architect confirm pending.
 
 On the 3 rulings → engineer implements the coherent unit one pass → foreman review+commit → push→CI image→VM arc-run (071, the only oracle). Commit HELD.
+---
+
+author: foreman
+created: 2026-07-01 13:21
+---
+RULINGS RESOLVED (architect, code-verified) — engineer GREENLIT to build the coherent unit in one pass. F2=B (ADDITIVE to the connect() self-exempt, not a replacement: connect() self-exempt covers the Service's own pgx writes [completed UPDATE / flag / recovery ground-truth]; migrate.go psqlEnv PGOPTIONS=-c default_transaction_read_only=off covers the migrate SUBPROCESS — post-swap+boot+forward-recovery+dev, uniform, no-op when guard inactive). F1=(i) accept read_only persists on the git-restore-fail ABORT (crash-freeze intent, symmetric with maintenance-stays-ON); recovery clears at both successful terminals (forward →:4869, rollback →:5814) — CONFIRMED no leak; read_only TRACKS maintenance. F3=confirmed: keep ON before the DB stop (race-avoidance closes the reconnect-inherits-read-write hole at phase-3 restart); backup carrying read_only=on is fine since every rollback-restore reaches :5814→OFF. Live setMaintenance(false) sites = :4262/:4278/:4869/:5814; ON at ~:4245 conn-close; pre-swap-abort OFFs after reconnect. 046-composition note (for 046's build, not 110): an at-target parked box decides read_only+maintenance TOGETHER. Build → self-check → foreman diff-review + commit → push→CI image→VM arc-run 071 (the only oracle).
 ---
 <!-- COMMENTS:END -->
