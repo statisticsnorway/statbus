@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -174,13 +175,27 @@ func resolveSeedCommitShort(projDir string) string {
 // accepts it directly — and `docker run` on the image prints extraction
 // usage instead of erroring. The container is never started here.
 func extractSeedFromImage(projDir, imageRef, seedDir string) error {
-	out, err := upgrade.RunCommandOutput(projDir, "docker", "create", imageRef)
+	// Pin linux/amd64: the seed image is built amd64-only (busybox:musl + the
+	// pg_dump, which is platform-NEUTRAL data), and extraction only creates the
+	// container to `docker cp` files out — it never RUNS it, so no emulation is
+	// needed. A no-op on amd64 deployments; on an arm64 dev host it's what lets
+	// `docker create` select the (only) published manifest instead of failing
+	// with "no matching manifest for linux/arm64". Correct pin, not a workaround.
+	out, err := upgrade.RunCommandOutput(projDir, "docker", "create", "--platform", "linux/amd64", imageRef)
 	if err != nil {
 		return fmt.Errorf("docker create %s: %w\n  %s", imageRef, err, strings.TrimSpace(out))
 	}
-	cid := strings.TrimSpace(out)
-	if cid == "" {
-		return fmt.Errorf("docker create %s returned an empty container id", imageRef)
+	// The container id is the LAST line docker writes. RunCommandOutput uses
+	// CombinedOutput (stdout+stderr merged), so on a COLD cache the pull progress
+	// ("Unable to find image '<ref>' locally", layer status, "Status: Downloaded
+	// …") is interleaved AHEAD of the id — a bare TrimSpace(out) would then feed
+	// that whole blob to `docker cp` (which splits on the first ':' and reports
+	// "No such container"). Take the last non-empty line and require it to be a
+	// hex container id, so the parse is robust to a cold-cache pull and fails loud
+	// if docker ever emits something unexpected.
+	cid, ok := lastContainerID(out)
+	if !ok {
+		return fmt.Errorf("docker create %s did not return a container id (got:\n%s\n)", imageRef, strings.TrimSpace(out))
 	}
 	defer func() {
 		if _, rmErr := upgrade.RunCommandOutput(projDir, "docker", "rm", cid); rmErr != nil {
@@ -197,6 +212,29 @@ func extractSeedFromImage(projDir, imageRef, seedDir string) error {
 		}
 	}
 	return nil
+}
+
+// containerIDRe matches a full 64-char hex docker container id (what `docker
+// create` prints). Anchored so a pull-progress line can never match.
+var containerIDRe = regexp.MustCompile(`^[0-9a-f]{64}$`)
+
+// lastContainerID returns the last non-empty line of `docker create` output that
+// is a valid container id. Cold-cache pull progress (captured because
+// RunCommandOutput merges stderr) precedes the id, so scanning from the end and
+// validating the shape yields the clean id — or (,, false) if none is present.
+func lastContainerID(out string) (string, bool) {
+	lines := strings.Split(out, "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := strings.TrimSpace(lines[i])
+		if line == "" {
+			continue
+		}
+		if containerIDRe.MatchString(line) {
+			return line, true
+		}
+		return "", false // a non-empty last line that isn't an id → contaminated/unexpected
+	}
+	return "", false
 }
 
 // ── seed restore ────────────────────────────────────────────────────────────

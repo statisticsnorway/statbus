@@ -92,6 +92,39 @@ func TestExtractSeedFromImage(t *testing.T) {
 	}
 }
 
+// TestLastContainerID is the Docker-free regression guard for the cold-cache
+// cid-contamination bug: RunCommandOutput merges stderr, so a `docker create`
+// that PULLS emits its progress ahead of the container id. lastContainerID must
+// return the clean id from the last line (never the pull-progress prefix, whose
+// first ':' would make `docker cp` report "No such container").
+func TestLastContainerID(t *testing.T) {
+	const id = "3b40198146dc11ee067d32ae50134cfc17b690af1ed803eb98ea0a445bdb2776"
+
+	// Warm cache: create prints only the id.
+	if got, ok := lastContainerID(id + "\n"); !ok || got != id {
+		t.Errorf("warm-cache id: got (%q,%v), want (%q,true)", got, ok, id)
+	}
+
+	// Cold cache: the exact interleaving observed in the failing oracle run —
+	// pull progress (with a ':' in the image ref) precedes the id.
+	cold := "Unable to find image 'ghcr.io/statisticsnorway/statbus-seed:c4692562' locally\n" +
+		"c4692562: Pulling from statisticsnorway/statbus-seed\n" +
+		"bf345c742b44: Pull complete\n" +
+		"Digest: sha256:54c57d97d44d1e8172d90f6cf89e1af2882d8cf73e08f7d0dd2b81bbe7615f75\n" +
+		"Status: Downloaded newer image for ghcr.io/statisticsnorway/statbus-seed:c4692562\n" +
+		id + "\n"
+	if got, ok := lastContainerID(cold); !ok || got != id {
+		t.Errorf("cold-cache blob: got (%q,%v), want (%q,true) — the pull progress must not leak into the id", got, ok, id)
+	}
+
+	// Empty / no-id output → fail loud (false), never a silent empty id.
+	for _, bad := range []string{"", "\n\n", "Error: something went wrong\n"} {
+		if got, ok := lastContainerID(bad); ok {
+			t.Errorf("non-id output %q must yield ok=false; got (%q,true)", bad, got)
+		}
+	}
+}
+
 // TestResolveSeedCommitShort covers the tag-resolution contract: prefer
 // COMMIT_SHORT from .env, never return the `local` dev sentinel as a tag,
 // and yield "" when nothing resolves (so fetch soft-fails into migrate-up).
