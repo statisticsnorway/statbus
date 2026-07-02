@@ -837,6 +837,18 @@ SELECT
     v.derived_priority
 FROM public.import_step s
 JOIN values_with_priority v ON s.code = v.step_code
+-- STATBUS-116: deterministic id assignment. import_data_column.id is
+-- GENERATED ALWAYS AS IDENTITY, so its value follows the ORDER this SELECT
+-- emits rows. Without ORDER BY that order is the physical join layout, so the
+-- same logical columns get DIFFERENT ids across builds whose physical/engine
+-- state differs — the AC#6 multi-delta INCR-vs-FULL proof caught exactly this
+-- (a restored real prior-release base diverged from a full rebuild on the
+-- step-19 ids, with import_mapping's FK following). derived_priority is a total
+-- order over this insert's rows (the CTE is single-step legal_relationship,
+-- 1..11 unique), so ordering by it makes id assignment a pure function of
+-- priority — build- and layout-independent. Mirrors the ORDER-BY-priority
+-- pattern the external_idents / statistical_variables generators already use.
+ORDER BY v.derived_priority
 ON CONFLICT (step_id, column_name) DO NOTHING;
 
 
