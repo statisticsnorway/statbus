@@ -3,10 +3,11 @@ id: STATBUS-109
 title: >-
   recovery: in-process backoff for transient errors (db-unreachable) instead of
   exit-restart
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - engineer
 created_date: '2026-06-24 12:21'
-updated_date: '2026-07-02 17:55'
+updated_date: '2026-07-02 19:16'
 labels:
   - upgrade
   - recovery
@@ -96,5 +97,11 @@ DESIGN CORE: (1) type the Unknown cause (UnknownCause enum = the curated intermi
 TWO LOAD-BEARING FINDINGS: (a) retryBackoff (service.go:86–95) is DEAD (0 call sites, 100ms scale) → DELETE, don't dangle. (b) recoverFromFlag runs at :1712, BEFORE the main heartbeat ticker (:1759) → the backoff loop MUST self-heartbeat (emitHeartbeat, watchdog.go:217) every iteration or systemd WatchdogSec=120s SIGKILLs it mid-wait. (c) the forward fetch at :4362 already has the forbidden 5-min WALL-CLOCK deadline (cancels a healthy slow transfer) — the new stall-detector fixes it in a one-line swap; runCommandToLog's onAdvance hook (exec.go:152) is the ready-made stall+heartbeat feed.
 
 TWO OPEN QUESTIONS for the King: (1) fold the :4362 forward-fetch wall-clock→stall fix into 109 (I recommend fold — known bug beside its fix); (2) forward-on-unknown → stop-on-unknown is a live safety-critical branch flip (correct per the model + safe because 110 landed, but deserves an explicit nod). Build gated on King GO + arcs (STATBUS-071, the only oracle).
+---
+
+author: foreman
+created: 2026-07-02 19:16
+---
+BUILT + COMMITTED 782ca2455 (design doc-022; architect APPROVE + foreman targeted first-hand review of the dispatch rewrite, fetch fold, and heartbeat core; engineer self-checks all green incl. the STATBUS-039 structural tests). 5 files: recovery_backoff.go (+316: typed UnknownCause, backoffRetry with per-iteration + in-sleep heartbeats, db-unreachable spec [reconnect+SELECT-1, 1-30s gaps, 5min] + commit-not-fetched spec [stall-detecting fetch, 10-60s gaps, 15min], classifyStepError label), recovery_backoff_test.go (+166), service.go (resuming-phase classify-then-act dispatch: AtTarget→forward / Behind→rollback / Unknown+named-cause→in-process retry→clear:re-read|exhaust-or-recur:data-safe-rollback / Unrecognised→human-stop via unchanged systemd backstop; closed tri-state fail-loud default), exec.go (runCommandToLogCtx), ground_truth_test.go. THREE REVIEW RULINGS recorded: (i) retryBackoff deletion DROPPED — doc-022 premise error, 6 live callers foreman-verified; (ii) reconnect()-not-connect() CONFIRMED (preserves the advisory-lock re-acquire + re-LISTEN + 110 self-exempt the old exit-restart got); (iii) forward-step classifier is LABEL-ONLY — the unknown→stop disposition for postSwapFailure is DEFERRED to its own King nod and must move persistentStepSignatures from English substrings to SQLSTATE codes before it ever gates a decision. REMAINING for done: the install-recovery VM arcs (STATBUS-071) — same arc lane as 110's fix, blocked on the King's doc-023 nod.
 ---
 <!-- COMMENTS:END -->
