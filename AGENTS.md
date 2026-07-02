@@ -128,6 +128,13 @@ echo "\sf schema.function_name" | ./sb psql > tmp/function_def.sql
 echo "\sf schema.procedure_name" | ./sb psql > tmp/procedure_def.sql
 ```
 
+**Never redirect stderr into the dump (`2>&1`)**: `./sb` prints diagnostics like
+its stale-binary `WARN:` banner to stderr, and `2>&1` captures them INTO the
+dumped SQL. Because the same polluted dump seeds both up and down migrations,
+the up-vs-down diff looks clean — the invalid SQL only surfaces when the
+migration actually runs (`syntax error at or near "WARN"`). Keep stderr on the
+terminal, and rebuild a stale `./sb` before dumping.
+
 Then:
 1. cat the dumped definition into the **down migration** (this restores the original)
 2. cat it into the **up migration**
