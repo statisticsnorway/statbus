@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-06-26 11:30'
-updated_date: '2026-07-02 18:24'
+updated_date: '2026-07-02 18:40'
 labels:
   - upgrade
   - recovery
@@ -155,5 +155,11 @@ author: foreman
 created: 2026-07-02 18:24
 ---
 ⚠ SUSPECTED VM-ARC REGRESSION — the first real-VM exercise of the read-only window (arc run 28609876020, base includes 3ff119b8a) FAILED both working+failing arcs on HEALTHCHECK_REST_DOWN: after the upgrade's service restart, PostgREST admin /ready stayed 503 ('schema cache still loading') past the 5-min health window and the arcs timed out at 20 min; Jun-19 baselines passed the same step in ~69s. MECHANISM HYPOTHESIS (unproven): the design lifts read-only only AFTER the proven-live completed-UPDATE (comment #3), so waitForRestReady polls /ready while the app DB is still default_transaction_read_only=on — if anything in PostgREST's coming-up path needs a write (or a NOTIFY, which PostgreSQL forbids in read-only transactions), readiness wedges → forward step fails → every upgrade would now fail its health check. The rollback side worked (failing/B reached rolled_back correctly). EVIDENCE RUN DISPATCHED: mechanic local repro (restart rest under ALTER DATABASE ... read_only=on, capture REST's own error lines, mandatory RESET cleanup). If confirmed: fix design → architect (within the ratified accident-guard intent — candidate levers: exempt the authenticator role's session, or move the OFF point before the health check and re-derive the crash-freeze story), King nod, then arc re-run. AC#1-#3 remain UNCHECKED — correctly: the arc is doing its job.
+---
+
+author: foreman
+created: 2026-07-02 18:40
+---
+REGRESSION CONFIRMED + MECHANISM NAMED (mechanic local repro, foreman-verified from the logs; full writeup tmp/mechanic-rest-readonly-repro.md). Baseline: REST /ready=200 in ~1s, schema cache 13.1ms. Under ALTER DATABASE ... default_transaction_read_only=on: /ready 503 at t+322s and wedged permanently — NOT slow, deadlocked. ROOT CAUSE: schema cache loads fine read-only; the wedge is PostgREST's dedicated LISTEN connection on the 'pgrst' channel (db-channel on by default; opens with target_session_attrs=read-write) — libpq rejects it at connect ('session is read-only'), retry loop capped at 32s forever, and v12.2.8's /ready requires that listener healthy. CIRCULAR DEADLOCK with this design: completion requires /ready=200 → /ready requires the listener → listener requires read-write → read-write returns only at completion. So as committed (3ff119b8a), EVERY upgrade wedges at the health check → in_progress + HEALTHCHECK_REST_DOWN forever — exactly the CI arc symptom. Cleanup verified (RESET + /ready=200 restored; note: the resetting session itself must SET session read-only off first to run the ALTER). Fix design dispatched to the architect (levers: role-level exemption for the REST db role [also satisfies the listener's read-write probe — to be verified empirically]; OFF-before-health-check; PGRST_DB_CHANNEL_ENABLED=false [suspect — the pgrst channel is the post-migration schema-reload path]). Design → King nod → build → arc re-run green = the proof.
 ---
 <!-- COMMENTS:END -->
