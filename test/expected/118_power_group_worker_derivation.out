@@ -249,7 +249,7 @@ SELECT
     pgd.width,
     pgd.reach
 FROM public.power_group_def AS pgd
-JOIN public.power_group_membership AS pgm ON pgm.power_group_id = pgd.power_group_id AND pgm.power_level = 1
+JOIN public.power_group_membership AS pgm ON pgm.power_group_id = pgd.power_group_id AND pgm.power_level = 0
 JOIN public.legal_unit AS lu ON lu.id = pgm.legal_unit_id
 WHERE lu.name LIKE 'PowerTest%';
  root_legal_unit | depth | width | reach 
@@ -346,10 +346,10 @@ WHERE lu.name LIKE 'PowerTest%'
 ORDER BY pgm.power_level, lu.name;
             name             | power_level | power_group_ident 
 -----------------------------+-------------+-------------------
- PowerTest Holdings Corp     |           1 | PG0001
- PowerTest Manufacturing Ltd |           2 | PG0001
- PowerTest Services Inc      |           2 | PG0001
- PowerTest Components GmbH   |           3 | PG0001
+ PowerTest Holdings Corp     |           0 | PG0001
+ PowerTest Manufacturing Ltd |           1 | PG0001
+ PowerTest Services Inc      |           1 | PG0001
+ PowerTest Components GmbH   |           2 | PG0001
 (4 rows)
 
 \echo "Holdings should be level 1 (root)"
@@ -360,7 +360,7 @@ JOIN public.legal_unit AS lu ON lu.id = pgm.legal_unit_id
 WHERE lu.name = 'PowerTest Holdings Corp';
           name           | power_level 
 -------------------------+-------------
- PowerTest Holdings Corp |           1
+ PowerTest Holdings Corp |           0
 (1 row)
 
 \echo "Manufacturing and Services should be level 2 (direct subsidiaries)"
@@ -372,8 +372,8 @@ WHERE lu.name IN ('PowerTest Manufacturing Ltd', 'PowerTest Services Inc')
 ORDER BY lu.name;
             name             | power_level 
 -----------------------------+-------------
- PowerTest Manufacturing Ltd |           2
- PowerTest Services Inc      |           2
+ PowerTest Manufacturing Ltd |           1
+ PowerTest Services Inc      |           1
 (2 rows)
 
 \echo "Components should be level 3 (sub-subsidiary)"
@@ -384,7 +384,7 @@ JOIN public.legal_unit AS lu ON lu.id = pgm.legal_unit_id
 WHERE lu.name = 'PowerTest Components GmbH';
            name            | power_level 
 ---------------------------+-------------
- PowerTest Components GmbH |           3
+ PowerTest Components GmbH |           2
 (1 row)
 
 \echo "Independent should NOT be in hierarchy"
@@ -413,7 +413,7 @@ SELECT
     pgd.reach,
     pgd.reach = 3 AS correct_reach   -- Manufacturing, Services, Components = 3 total
 FROM public.power_group_def AS pgd
-JOIN public.power_group_membership AS pgm ON pgm.power_group_id = pgd.power_group_id AND pgm.power_level = 1
+JOIN public.power_group_membership AS pgm ON pgm.power_group_id = pgd.power_group_id AND pgm.power_level = 0
 JOIN public.legal_unit AS lu ON lu.id = pgm.legal_unit_id
 WHERE lu.name = 'PowerTest Holdings Corp';
      root_legal_unit     | depth | correct_depth | width | correct_width | reach | correct_reach 
@@ -486,8 +486,8 @@ WHERE lu.name IN ('PowerTest Independent LLC', 'PowerTest MinorInvestor Corp')
 ORDER BY lu.name;
              name             | power_level 
 ------------------------------+-------------
- PowerTest Independent LLC    |           2
- PowerTest MinorInvestor Corp |           1
+ PowerTest Independent LLC    |           1
+ PowerTest MinorInvestor Corp |           0
 (2 rows)
 
 -- ============================================================================
@@ -587,9 +587,9 @@ GROUP BY pgm.power_level
 ORDER BY pgm.power_level;
  power_level | count |                                     names                                      
 -------------+-------+--------------------------------------------------------------------------------
-           1 |     2 | PowerTest Holdings Corp, PowerTest MinorInvestor Corp
-           2 |     3 | PowerTest Independent LLC, PowerTest Manufacturing Ltd, PowerTest Services Inc
-           3 |     1 | PowerTest Components GmbH
+           0 |     2 | PowerTest Holdings Corp, PowerTest MinorInvestor Corp
+           1 |     3 | PowerTest Independent LLC, PowerTest Manufacturing Ltd, PowerTest Services Inc
+           2 |     1 | PowerTest Components GmbH
 (3 rows)
 
 \echo "=== Power Group Worker Derivation Test Complete ==="

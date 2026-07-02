@@ -111,7 +111,7 @@ Non-primary relationships may create multi-root situations (since they are 1:N),
 - `short_name`, `name` — optional overrides (NULL = derive from root legal unit)
 - `type_id` → `power_group_type` — classification (domestic/foreign, national/multinational)
 
-**`power_root`** (sparse temporal, sql_saga) — Only cycle/multi-root power groups get entries. Single-root PGs derive their root from `power_group_membership WHERE power_level = 1` (no `power_root` entry needed). Populated by `process_power_group_link` during import.
+**`power_root`** (sparse temporal, sql_saga) — Only cycle/multi-root power groups get entries. Single-root PGs derive their root from `power_group_membership WHERE power_level = 0` (no `power_root` entry needed). Populated by `process_power_group_link` during import.
 - `derived_root_legal_unit_id` — algorithm-chosen root
 - `derived_root_status` — `'cycle'` (root chosen from cyclic component) or `'multi'` (multiple roots merged into one PG)
 - `custom_root_legal_unit_id` — NSO override (nullable); when set, overrides the derived root
@@ -125,7 +125,7 @@ NSO edits to `custom_root_legal_unit_id` trigger change tracking via `base_chang
 All views read **materialized data** — no recursive CTEs at query time. Power levels and group assignments are pre-computed by `process_power_group_link` during import and stored on `legal_relationship`.
 
 **`power_group_membership`** — UNION of two simple queries reading materialized data:
-1. Roots (level 1): influencing LUs that are never influenced within the same PG
+1. Roots (level 0): influencing LUs that are never influenced within the same PG
 2. Non-roots: influenced LUs with their stored `derived_influenced_power_level`
 
 Returns: `power_group_id`, `power_group_ident`, `legal_unit_id`, `power_level`, `valid_range`.
@@ -197,7 +197,7 @@ All relationship types (primary and non-primary) contribute equally to component
 Computes hierarchy depth via breadth-first search. Materialized on `legal_relationship.derived_influenced_power_level`.
 
 1. Detect **natural roots**: LUs that influence others but are never influenced within the same PG (the "no-parent" criterion)
-2. Seed BFS with roots at level 1
+2. Seed BFS with roots at level 0
 3. Expand frontier along directed edges (influencing → influenced), assigning increasing levels
 4. Store BFS level on each relationship: `derived_influenced_power_level = level`
 5. Relationships whose influenced LU is never reached via BFS (cycles) get `NULL` level
@@ -208,7 +208,7 @@ Handles power groups with anomalous root structures. Populates the sparse `power
 
 1. Count natural roots per component:
    - **0 roots** → `derived_root_status = 'cycle'` — pick `comp_id` as synthetic root
-   - **1 root** → no `power_root` entry needed (root derived from `power_group_membership` level 1)
+   - **1 root** → no `power_root` entry needed (root derived from `power_group_membership` level 0)
    - **2+ roots** → `derived_root_status = 'multi'` — pick `MIN(lu_id)` as derived root
 2. Build source rows with: `power_group_id`, `derived_root_legal_unit_id`, `derived_root_status`, preserved `custom_root_legal_unit_id`, union of all relationship `valid_range` values
 3. Temporal merge into `power_root` via `sql_saga.temporal_merge()` (preserves NSO overrides across re-imports)
@@ -217,7 +217,7 @@ Handles power groups with anomalous root structures. Populates the sparse `power
 
 1. **`power_root.custom_root_legal_unit_id`** — NSO override (if set, overrides derived root via `COALESCE`)
 2. **Derived root from algorithm** — `MIN(lu_id)` for multi-root, `comp_id` for cycle
-3. For single-root PGs: root is simply the LU at power_level = 1 (no `power_root` entry)
+3. For single-root PGs: root is simply the LU at power_level = 0 (no `power_root` entry)
 
 ## Design Scenarios
 
@@ -232,13 +232,13 @@ LU Beta  (id=2)  [2020, infinity)
 LR: Alpha->Beta  [2020, infinity)   control
 ```
 
-Clustering: Alpha and Beta form one component. BFS: Alpha has no parent → root (level 1), Beta → level 2.
+Clustering: Alpha and Beta form one component. BFS: Alpha has no parent → root (level 0), Beta → level 1.
 
 ```
 power_group_membership:
  lu_id | power_level | valid_range
-     1 |           1 | [2020, infinity)
-     2 |           2 | [2020, infinity)
+     1 |           0 | [2020, infinity)
+     2 |           1 | [2020, infinity)
 
 power_root: (empty — single-root PGs have no entry)
 ```
@@ -352,7 +352,7 @@ Multi-root situations (where two disconnected sub-trees share a member) are now 
 
 Partnership structures (multiple co-equal partners) may need further evolution:
 - The exclusion constraint would need to be relaxed for partnership types
-- `power_level` semantics change: in a partnership, all partners are at level 1 (peers)
+- `power_level` semantics change: in a partnership, all partners are at level 0 (peers)
 
 ### Set-Import Semantics
 
@@ -384,4 +384,4 @@ This would require changing `primary_influencer_only boolean` to an enum or a mo
 
 ### Relationship to `primary_for_enterprise`
 
-The existing `legal_unit.primary_for_enterprise` flag designates which legal unit "represents" an enterprise. Similarly, power groups need a concept of which legal unit "represents" the group — currently this is always the root (power_level = 1). If multi-root PGs are implemented, a mechanism to designate the "primary" partner would be needed.
+The existing `legal_unit.primary_for_enterprise` flag designates which legal unit "represents" an enterprise. Similarly, power groups need a concept of which legal unit "represents" the group — currently this is always the root (power_level = 0). If multi-root PGs are implemented, a mechanism to designate the "primary" partner would be needed.

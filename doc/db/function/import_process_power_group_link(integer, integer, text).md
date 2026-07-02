@@ -181,9 +181,9 @@ BEGIN
 
     -- ================================================================
     -- Compute derived_influenced_power_level via BFS from roots.
-    -- Root LUs (level 1) are implicit — influencing LUs never influenced
+    -- Root LUs (level 0) are implicit — influencing LUs never influenced
     -- within the same PG. Each LR stores the influenced LU's BFS depth:
-    --   root→child: level 2, child→grandchild: level 3, etc.
+    --   root→child: level 1, child→grandchild: level 2, etc.
     -- Cycles (no natural root) get NULL — identified by power_root below.
     -- ================================================================
 
@@ -192,9 +192,9 @@ BEGIN
     END IF;
     CREATE TEMP TABLE _bfs (lu_id integer, level integer, pg_id integer) ON COMMIT DROP;
 
-    -- Seed: root LUs (influencing, never influenced in same PG) at level 1
+    -- Seed: root LUs (influencing, never influenced in same PG) at level 0
     INSERT INTO _bfs (lu_id, level, pg_id)
-    SELECT DISTINCT lr.influencing_id, 1, lr.derived_power_group_id
+    SELECT DISTINCT lr.influencing_id, 0, lr.derived_power_group_id
     FROM public.legal_relationship AS lr
     WHERE lr.derived_power_group_id IS NOT NULL
       AND NOT EXISTS (
@@ -205,7 +205,8 @@ BEGIN
     CREATE INDEX ON _bfs (lu_id, pg_id);
 
     -- Propagate through directed edges (influencing → influenced)
-    _iter := 0;
+    -- Seed roots at level 0, so the frontier starts at _iter=0 (−1 then +1).
+    _iter := -1;
     LOOP
         _iter := _iter + 1;
         INSERT INTO _bfs (lu_id, level, pg_id)

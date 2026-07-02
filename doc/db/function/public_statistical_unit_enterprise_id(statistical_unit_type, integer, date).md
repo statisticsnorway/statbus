@@ -46,14 +46,14 @@ AS $function$
             WHERE enterprise_id IS NOT NULL
          )
          WHEN 'power_group' THEN (
-            -- A power group's enterprise is the enterprise of its root legal unit (power_level = 1).
+            -- A power group's enterprise is the enterprise of its root legal unit (power_level = 0).
             SELECT lu.enterprise_id
             FROM public.power_group_membership AS pgm
             JOIN public.legal_unit AS lu
                 ON lu.id = pgm.legal_unit_id
                 AND lu.valid_from <= valid_on AND valid_on < lu.valid_until
             WHERE pgm.power_group_id = unit_id
-              AND pgm.power_level = 1
+              AND pgm.power_level = 0
               AND pgm.valid_range @> valid_on
             LIMIT 1
          )

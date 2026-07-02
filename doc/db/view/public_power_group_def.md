@@ -8,8 +8,8 @@
  reach          | bigint  |           |          |         | plain   | 
 View definition:
  SELECT power_group_id,
-    max(power_level) - 1 AS depth,
-    count(*) FILTER (WHERE power_level = 2) AS width,
+    max(power_level) AS depth,
+    count(*) FILTER (WHERE power_level = 1) AS width,
     count(*) - 1 AS reach
    FROM power_group_membership pgm
   GROUP BY power_group_id;

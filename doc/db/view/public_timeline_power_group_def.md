@@ -261,7 +261,7 @@ View definition:
                     tlu_p.last_edit_at
                    FROM power_group_membership pgm
                      JOIN timeline_legal_unit tlu_p ON tlu_p.legal_unit_id = pgm.legal_unit_id AND from_until_overlaps(tpg.valid_from, tpg.valid_until, tlu_p.valid_from, tlu_p.valid_until)
-                  WHERE pgm.power_group_id = tpg.power_group_id AND pgm.power_level = 1 AND pgm.valid_range && daterange(tpg.valid_from, tpg.valid_until)
+                  WHERE pgm.power_group_id = tpg.power_group_id AND pgm.power_level = 0 AND pgm.valid_range && daterange(tpg.valid_from, tpg.valid_until)
                   ORDER BY tlu_p.valid_from DESC, tlu_p.legal_unit_id DESC
                  LIMIT 1) pgplu ON true
              LEFT JOIN LATERAL ( SELECT all_edits.edit_comment,

@@ -11,7 +11,7 @@ View definition:
  SELECT DISTINCT lr.derived_power_group_id AS power_group_id,
     pg.ident AS power_group_ident,
     lr.influencing_id AS legal_unit_id,
-    1 AS power_level,
+    0 AS power_level,
     lr.valid_range
    FROM legal_relationship lr
      JOIN power_group pg ON pg.id = lr.derived_power_group_id

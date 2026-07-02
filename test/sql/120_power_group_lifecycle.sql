@@ -170,7 +170,7 @@ ORDER BY pgm.power_level, lu.name;
 \echo "2a: power_group_def depth and reach"
 SELECT lu.name AS root_legal_unit, pgd.depth, pgd.reach
 FROM public.power_group_def AS pgd
-JOIN public.power_group_membership AS pgm ON pgm.power_group_id = pgd.power_group_id AND pgm.power_level = 1
+JOIN public.power_group_membership AS pgm ON pgm.power_group_id = pgd.power_group_id AND pgm.power_level = 0
 JOIN public.legal_unit AS lu ON lu.id = pgm.legal_unit_id
 WHERE lu.name = 'Apex Corp';
 
