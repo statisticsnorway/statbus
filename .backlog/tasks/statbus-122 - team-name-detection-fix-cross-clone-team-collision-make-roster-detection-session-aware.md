@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-01 13:42'
-updated_date: '2026-07-02 19:02'
+updated_date: '2026-07-02 19:05'
 labels:
   - team
   - hooks
@@ -67,5 +67,11 @@ author: foreman
 created: 2026-07-02 19:02
 ---
 FIELD EVIDENCE from the statbus team session (2026-07-02 ~19:01): restrict-agent-spawn.sh's caller-ID option (b) DOES NOT AUTHENTICATE in practice. Sequence: tester ran `./dev.sh test 117_power_group_fundamentals` → blocked ('test command from unidentified caller'); foreman sent the tester a SendMessage containing the exact `run: ./dev.sh test 117_power_group_fundamentals 2>&1 | head -50` line per the hook's own suggestion → tester retried → STILL blocked. Tester's read of the mechanism: the hook counts "agentName":"tester" occurrences in the transcript, and SendMessage-delivered authorizations don't materialize there in a form the hook recognizes. WORKAROUND USED (the hook's option a, board-truthful): added 'tester' as co-assignee on the In Progress task whose tests he runs (STATBUS-124) → unblocked expected. FIX CANDIDATE for this task's owner: make option (b) actually check the tester's INBOX/delivered messages (or drop option b from the deny text so it stops advertising a path that fails); the option-a path works but requires a board write for every ad-hoc test delegation.
+---
+
+author: foreman
+created: 2026-07-02 19:05
+---
+CORRECTION + TRUE ROOT CAUSE (supersedes comment #1's mechanism blame; foreman first-hand, 2026-07-02 ~19:05): the caller-ID failures were NOT the transcript-grep mechanism — `~/.claude-veridit/teams/statbus` was a BROKEN SYMLINK → session-2c632915 (created Jun 18; that session's team dir was deleted when the previous team was shut down). The hook's TEAM_CONFIG therefore read as EMPTY → leadSessionId empty + roster loop iterates zero members → EVERY caller 'unidentified' for gated commands (tester AND foreman alike); both advertised remedies were unreachable because identification never ran, not because they're mis-coded (untested either way — note: I found no code implementing the 'assign a Backlog task' remedy, only deny-text advertising it; verify when fixing). REPAIR APPLIED (state, not settings): repointed the symlink to the live team dir (session-12238063); hook now resolves leadSessionId + the 6-member roster; tester unblocked. DESIGN IMPLICATIONS for this task: (1) the named-team alias must not dangle when a session's team dir is deleted — either TeamDelete should clean/repoint the alias, or the hook should fall back to a cwd-filtered scan of session-*/config.json (this task's planned fix) instead of hard-trusting one symlink; (2) the hook should distinguish 'config missing/unreadable' (fail with a CONFIG error naming the path) from 'caller not in roster' — today both print 'unidentified caller', which cost three misdirected repair attempts; (3) the deny-text remedies should be code-backed or removed.
 ---
 <!-- COMMENTS:END -->
