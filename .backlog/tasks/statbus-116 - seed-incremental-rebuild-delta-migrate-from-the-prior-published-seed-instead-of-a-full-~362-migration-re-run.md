@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
-updated_date: '2026-07-02 15:05'
+updated_date: '2026-07-02 15:31'
 labels:
   - build-caching
   - seed
@@ -163,5 +163,11 @@ author: foreman
 created: 2026-07-02 15:05
 ---
 AC#1 COMMITTED 2dc944975 (foreman review + King go-ahead, one commit — King: 1-vs-2 is fine, no review objections). Foreman reviewed seed_build.go + seed_ancestor.go FIRST-HAND and VERIFIED the load-bearing equivalence: the live full-path substitution `sb migrate up --target seed` -> `migrateNamedDb(projDir, seedDbName, 0)` is SOUND — both apply ALL migrations to the SAME database (loadSeedDbName [db.go:135] and ResolveTargetDB('seed') [migrate.go:1276] both resolve to POSTGRES_SEED_DB; migrateTo=0 -> all=true). Gate proven OFF (SEED_INCREMENTAL=0 default + empty prior-seed context -> full rebuild). resolveSeedPath pure routing correct (incremental only if enabled AND SeedBuildDecision-incremental AND prior!=nil AND depth+1<cap). Foreman re-ran build/vet/targeted-seed-tests GREEN before committing. 7 files: seed.go (IncrementalDepth field + DumpSeed 3rd param, live caller passes 0), migrate.go (PgRestoreCommand ADDED, additive), seed_ancestor.go (select-prior ancestor-walk), seed_build.go (orchestrator), seed_build_test.go (9 pure tests), postgres/Dockerfile (3 inline calls -> `sb db seed build` + required prior-seed build-context + SEED_INCREMENTAL arg), images.yaml (gated prior step). STILL UNPROVEN: the refactored full path must build GREEN in the CI seed-image job (gate off) — the inert-proof, the ONLY oracle, NOT YET RUN (needs a push). NEXT: push -> CI seed-image inert-proof GREEN -> AC#6 multi-delta pre-enable check -> the one-line flip (SEED_INCREMENTAL_ENABLED=true) + AC#3 cadence + AC#5 measure. GUARDRAIL also committed c12750b32 (pre-commit hook exempts _upgrade_arc fixtures from doc/db pairing — the King-directed replacement for the 118 --no-verify workaround).
+---
+
+author: foreman
+created: 2026-07-02 15:31
+---
+AC#1 REFACTOR INERT-PROOF GREEN IN CI (foreman verified first-hand, 2026-07-02). Pushed origin/master (07ab1b129..1563e6887) -> Images run 28601676512 (run #303) = SUCCESS including the `seed` job. Verified the refactored path ACTUALLY RAN (NOT a cache skip) by reading the seed job log: the seed-builder stage executed `sb db seed build --commit 1563e688...` -> decision log `seed build: enable-gate=false prior-present=false decision-incremental=false -> PATH=FULL (from empty)` -> create-db -> migrate -> `Seed dumped: migration 20260617174936, commit 1563e688 (4.4 MB)` -> seed.pg_dump + seed.json asserts pass -> statbus-seed image built + pushed green. So the live seed-build refactor (`sb db seed build` replacing the 3 inline create-db/migrate/dump calls) is PROVEN INERT with the gate off — the full rebuild is unbroken end-to-end in real CI. The AC#1 REFACTOR/hosting half is DONE: committed 2dc944975 + CI-proven. The incremental FEATURE itself is NOT yet enabled/proven — AC#1 checkbox stays UNCHECKED until: AC#6 multi-delta pre-enable safety check -> the one-line flip (repo var SEED_INCREMENTAL_ENABLED=true) -> AC#5 measure + AC#3 cadence. Gate remains OFF (proven off in the CI log). Also note: the `Notify cloud services` job failed on this push (13s) — pre-existing, unrelated: it SSHes to cloud server statbus_jo and runs that server's own `./sb upgrade check` (exit 1); not introduced by this change.
 ---
 <!-- COMMENTS:END -->
