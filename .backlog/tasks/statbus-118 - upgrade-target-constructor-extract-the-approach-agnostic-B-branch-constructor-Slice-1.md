@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-06-30 20:49'
-updated_date: '2026-07-02 15:05'
+updated_date: '2026-07-02 17:42'
 labels:
   - testing
   - install-recovery
@@ -118,5 +118,17 @@ author: foreman
 created: 2026-07-02 15:05
 ---
 GUARDRAIL FIX (King-directed, 2026-07-02): the --no-verify WORKAROUND IS GONE. Committed c12750b32 — .githooks/pre-commit now carries a NAMED in-guard exemption: if EVERY staged migration matches the _upgrade_arc fixture pattern (migrations/*_upgrade_arc*.{up,down}.sql), skip ONLY the doc/db pairing check; every other check (tmp/, PlantUML, security-report) still runs; real + mixed real/fixture commits stay gated; the _upgrade_archive false-match is guarded (foreman functional-tested all 4 cases GREEN). upgrade-target.sh's 3 commit sites dropped --no-verify (that edit is uncommitted, rides with the 118 commit). The hook commit itself PASSED the hook — self-proving the exemption doesn't break it. STILL HELD for the arc-harness CI green DoD. Mechanic's constructor confirmed clean (14/14, R1/R2/R3 in, loud-on-skip present). NEXT (fresh foreman): commit 118 (.github/workflows/upgrade-arc-harness.yaml + test/install-recovery/lib/upgrade-target.sh) -> push -> arc-harness CI green = DoD (and gates the 110 VM arc-run per STATBUS-071).
+---
+
+author: foreman
+created: 2026-07-02 17:42
+---
+COMMITTED + PUSHED + DoD ORACLE IN FLIGHT (new foreman, 2026-07-02 ~17:40). Commit 0b1b07ef4 (upgrade-arc: extract the controlled-B constructor into a shared library) — exactly the 2-file pathspec (.github/workflows/upgrade-arc-harness.yaml +38/-142, test/install-recovery/lib/upgrade-target.sh 215 lines). Foreman re-reviewed the full library first-hand before committing: loud-on-skip present (:199), --no-verify gone (superseded by c12750b32 hook exemption, noted :157-160), 17 GITHUB_OUTPUT keys verified against all downstream `needs.construct.outputs.*` references (workflow :66-86, :161-164, :215, :372-379 — names match). Arc-harness dispatched: run 28609876020, scenarios="working failing" (both lineages through the refactored constructor, end-to-end construct→images→VM arcs; chosen over the all-arcs matrix — same construct-path proof, 2 VMs instead of ~14). GREEN = DoD. Also rides: first real-VM upgrade exercise of the committed 110 read-only window (not its ACs, but a live signal).
+---
+
+author: foreman
+created: 2026-07-02 17:42
+---
+FOOTGUN FOUND + REPAIRED (foreman, 2026-07-02) — slice-3 note: construct_upgrade_target mutates REPO-LEVEL git config (user.name=statbus-upgrade-arc[bot], user.email, gpg.format=ssh, user.signingkey=/tmp/arc_signer_$$ — upgrade-target.sh:118-121), verbatim-inherited from the CI inline code where the runner is throwaway. The AC#5 local unit (tmp/test-upgrade-target.sh) restores HEAD but NOT git config → after the mechanic's local runs, this clone's commits were authored as the bot and signed with a since-stale ephemeral key ('No principal matched' in git log). Repaired: local config overrides unset (global identity restored); 4 stale /tmp/arc_signer_* pairs left behind. NOT a blocker for this slice (CI unaffected; behavior-preserving discipline kept the library verbatim). For slice 3 (scenario harnesses call this on dev machines): save/restore git config around the call, or switch to `git -c` scoped config — decide then. The rebased local commits were re-signed correctly on push.
 ---
 <!-- COMMENTS:END -->
