@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
-updated_date: '2026-07-02 18:08'
+updated_date: '2026-07-02 18:44'
 labels:
   - build-caching
   - seed
@@ -181,5 +181,11 @@ author: foreman
 created: 2026-07-02 18:08
 ---
 AC#6 TOOLING COMMITTED 573655b81 + ORACLE RUN DISPATCHED (foreman, 2026-07-02 ~18:10). Foreman reviewed the full diff first-hand (+254/-21, seed_verify.go + test only): the priorSource refactor keeps verify-identical's flow literally intact (same secondHighestVersion→migrate-to-V_prev→dump inside manufacturedPriorSource); imagePriorSource extracts a real published seed via extractSeedFromImage + parses V_release fail-loud; BOTH guards present and loud (eligibility via SeedBuildDecision; multi-delta ≤1→refuse); delta counted from the FULL build's db.migration ledger (correct oracle); 2 new pure differential tests. Foreman re-ran build/vet/targeted tests GREEN before committing. Engineer's 3 in-spirit deviations accepted (pure-predicate tests over DB-stub; --keep-dbs parity; cobra required flag). Accepted nicety-gap: guards run AFTER the ~4-min control phase, so a bad image ref fails late — harmless for an on-demand tool. ORACLE RUN dispatched to the engineer against the operator's inventory (rc.04 c4692562 → rc.03 d0992498 → rc.02 b3db8bac if the multi-delta guard rejects closer bases). GREEN → AC#6 checks → the one-line flip goes to the King. Commit-msg hook note: 'AC#6'-style shorthand trips the bare-ticket-reference guard (hash+digits) — write 'criterion 6' in commit messages.
+---
+
+author: foreman
+created: 2026-07-02 18:44
+---
+🔴 CRITERION-6 ORACLE RED AGAINST rc.03 — REAL DATA DRIFT CAUGHT (engineer, 2026-07-02 ~18:45; log tmp/seed-verify-multidelta-rc03.log). The full mechanism worked end-to-end: CONTROL passed (FULL==FULL deterministic → instrument valid, the RED is real), git-derived eligibility passed ('0 changed migrations ≤ V_prior=20260603093525 between d0992498 and HEAD'), multi-delta guard passed (delta=2). Then INCR-vs-FULL: schema IDENTICAL, ledger IDENTICAL, DATA DIFFERS — exactly TWO tables: public.import_data_column + public.import_mapping. Same DDL + same migrations applied, different DATA on a restored-base vs from-empty → this is precisely the physical-state-dependence class the architect predicted (task Impl-Notes CORRECTION) and criterion 6 was built to expose — invisible to the criterion-4 FULL-vs-FULL proof, visible only on a real frozen-layout prior. Without this gate, flipping incremental on would have shipped silently-divergent seeds. INCREMENTAL STAYS DISABLED. NEXT: engineer inspecting the actual differing rows (--keep-dbs re-run; captures tmp/ac6-rc03-{full,incr}-data.txt) to classify: (a) order-dependent id assignment in the populating migration = REAL seed-content bug → fix the migration; vs (b) benign surrogate-key-only difference → digest-exclusion candidate like the blessed audit-column cases — BUT that call routes through the architect (adversarial verification) + foreman; no exclusion gets blessed on the engineer's word alone. The three tooling fixes (platform pin, cold-cache cid, git-derived eligibility) stand regardless; eligibility diff held for commit with the verdict.
 ---
 <!-- COMMENTS:END -->
