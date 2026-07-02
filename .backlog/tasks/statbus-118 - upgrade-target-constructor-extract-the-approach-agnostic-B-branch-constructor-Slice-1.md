@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-06-30 20:49'
-updated_date: '2026-07-02 06:40'
+updated_date: '2026-07-02 06:42'
 labels:
   - testing
   - install-recovery
@@ -106,5 +106,11 @@ author: foreman
 created: 2026-07-02 06:40
 ---
 MECHANIC DELIVERED + FOREMAN REVIEWED FIRST-HAND (2026-07-02) — NOT committed; 2 items pending, then commit + push for the green-CI DoD. Files (uncommitted in tree): NEW test/install-recovery/lib/upgrade-target.sh (199 lines, construct_upgrade_target + _ut_write_working_v + _ut_write_failing_v); MODIFIED .github/workflows/upgrade-arc-harness.yaml (fixtures step +34/-136 — inline construction removed, now sources the library + drives it, writes the same 17 $GITHUB_OUTPUT keys). VERDICT: extraction is FAITHFUL + clean — byte-identical branch names / migration content / signing / V_VERSION vs the old inline code (verbatim-source comments cite the lifted lines), Q1 idempotent key-reuse ✓ (upgrade-target.sh:110-114 sets ARC_SIGNING_KEY in caller scope so the 2nd call inherits; ARC_PUBKEY export :121), Q3 sourced-function + caller-scope vars ✓ (:192-200), Q4 per-call deterministic V_VERSION ✓ (:128-132). AC#5 local unit (tmp/test-upgrade-target.sh) 10/10 PASS. TWO PENDING ITEMS: (1) Q2 loud-on-skip MISSING — :187-190 skips the push SILENTLY when ARC_NO_PUSH=1 (the exact silent-unfetchable-target hazard the architect flagged); routed to the mechanic to add a loud stderr log on the skip branch + re-verify AC#5. (2) --no-verify DECISION (foreman/King, held): the mechanic added --no-verify to all 4 commits; .githooks/pre-commit:110-113 scopes its --no-verify override to 'DATA-ONLY migration with NO schema impact' and says 'Do NOT use it for a schema migration' — these fixtures are CREATE TABLE (schema). Recommend the King-aligned CLEAN fix = a GUARD-LEVEL exemption (hook skips the doc/db pairing check when the ONLY staged migrations match the `_upgrade_arc`/`_upgrade_arc_2` fixture pattern) instead of call-site --no-verify (which also bypasses the tmp/, plantuml, and security-report checks). CI-IRRELEVANT either way (CI runners have no hooks) — only affects local runs, so it's a deliberate cleanup, not a blocker. NEXT (fresh foreman): land the loud-on-skip fix → decide the --no-verify vs guard-exemption → commit → push → the arc-harness CI run is the DoD oracle (and gates the 110 VM arc-run per STATBUS-071).
+---
+
+author: foreman
+created: 2026-07-02 06:42
+---
+UPDATE (2026-07-02) — mechanic folded in all 3 architect refinements; the 1 gap I flagged is CLOSED. R1 idempotent key (library owns ssh-keygen + exports ARC_SIGNING_KEY + ARC_PUBKEY; the CI workflow step no longer keygens/exports — library is the single owner; arc_pubkey in $GITHUB_OUTPUT reads ${ARC_PUBKEY}). R2 loud-on-skip NOW PRESENT (WARNING 'push SKIPPED (ARC_NO_PUSH=1): <B>/<C> local-only, NOT fetchable by a remote VM' to stderr, confirmed visible). R3 sourced confirmed. AC#5 local unit NOW 14/14 PASS (added R1b/R1c/R1d/R2 assertions + the original 10); bash -n clean; workflow now +44/-163, upgrade-target.sh 209 lines. ONLY ONE ITEM REMAINS before commit: the --no-verify DECISION (foreman/King) — recommend the guard-level exemption (hook skips doc/db pairing when staged migrations ALL match `_upgrade_arc`/`_upgrade_arc_2`) over call-site --no-verify; the mechanic correctly LEFT --no-verify as-is pending that call. HELD state: committed-ready-but-uncommitted in the tree, all-green. NEXT (fresh foreman): make the --no-verify/guard-exemption call → commit (pathspec: .github/workflows/upgrade-arc-harness.yaml + test/install-recovery/lib/upgrade-target.sh) → push → arc-harness CI run = the DoD oracle (and gates the 110 VM arc-run per STATBUS-071).
 ---
 <!-- COMMENTS:END -->
