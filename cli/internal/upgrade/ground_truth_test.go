@@ -71,7 +71,7 @@ func TestVerifyBinaryGroundTruth_DescendantAccepted(t *testing.T) {
 		binaryCommit: fix.newSHA, // running binary at child commit
 		projDir:      fix.dir,
 	}
-	gt, reason := svc.verifyBinaryGroundTruth(fix.oldSHA)
+	gt, _, reason := svc.verifyBinaryGroundTruth(fix.oldSHA)
 	if gt != GroundTruthAtTarget {
 		t.Fatalf("expected AtTarget (binary %s descends from target %s); got %v reason=%q",
 			fix.newSHA[:8], fix.oldSHA[:8], gt, reason)
@@ -93,7 +93,7 @@ func TestVerifyBinaryGroundTruth_BehindIsDefinitive(t *testing.T) {
 		binaryCommit: fix.oldSHA, // binary genuinely behind
 		projDir:      fix.dir,
 	}
-	gt, reason := svc.verifyBinaryGroundTruth(fix.newSHA)
+	gt, _, reason := svc.verifyBinaryGroundTruth(fix.newSHA)
 	if gt != GroundTruthBehind {
 		t.Fatalf("expected Behind (binary %s positively behind target %s); got %v reason=%q",
 			fix.oldSHA[:8], fix.newSHA[:8], gt, reason)
@@ -117,7 +117,7 @@ func TestVerifyBinaryGroundTruth_UnresolvableBinaryIsUnknown(t *testing.T) {
 		binaryCommit: unknownSHA, // not in fix's git history at all
 		projDir:      fix.dir,
 	}
-	gt, reason := svc.verifyBinaryGroundTruth(fix.oldSHA)
+	gt, _, reason := svc.verifyBinaryGroundTruth(fix.oldSHA)
 	if gt != GroundTruthUnknown {
 		t.Fatalf("expected Unknown (binary %s unresolvable = clone-state, not ancestry); got %v reason=%q",
 			unknownSHA[:8], gt, reason)
@@ -140,10 +140,16 @@ func TestVerifyBinaryGroundTruth_TargetMissingFromCloneIsUnknown(t *testing.T) {
 		binaryCommit: fix.newSHA,
 		projDir:      fix.dir,
 	}
-	gt, reason := svc.verifyBinaryGroundTruth(missingTarget)
+	gt, cause, reason := svc.verifyBinaryGroundTruth(missingTarget)
 	if gt != GroundTruthUnknown {
 		t.Fatalf("expected Unknown (target %s absent from clone); got %v reason=%q",
 			missingTarget[:8], gt, reason)
+	}
+	// STATBUS-109: a target absent from the clone is a KNOWN-INTERMITTENT cause
+	// (a fetch acquires it) — it must classify CauseCommitNotFetched so recovery
+	// backoff-retries the fetch probe rather than stopping/forwarding-on-a-guess.
+	if cause != CauseCommitNotFetched {
+		t.Errorf("expected CauseCommitNotFetched for an absent target commit; got %v", cause)
 	}
 	if !strings.Contains(reason, "not present in the local git clone") {
 		t.Errorf("expected the cat-file probe's actionable reason; got %q", reason)
@@ -158,7 +164,7 @@ func TestVerifyBinaryGroundTruth_EqualSHAtrivially(t *testing.T) {
 		binaryCommit: fix.newSHA,
 		projDir:      fix.dir,
 	}
-	gt, reason := svc.verifyBinaryGroundTruth(fix.newSHA)
+	gt, _, reason := svc.verifyBinaryGroundTruth(fix.newSHA)
 	if gt != GroundTruthAtTarget {
 		t.Fatalf("expected AtTarget on equal SHAs; got %v reason=%q", gt, reason)
 	}

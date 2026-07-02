@@ -147,6 +147,23 @@ var ErrCommandTimeout = errors.New("command timed out")
 func runCommandToLog(dir string, timeout time.Duration, logWriter io.Writer, source string, onAdvance func(), name string, args ...string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
+	err := runCommandToLogCtx(ctx, dir, logWriter, source, onAdvance, name, args...)
+	if ctx.Err() == context.DeadlineExceeded {
+		return fmt.Errorf("%s %v after %s: %w", name, args, timeout, ErrCommandTimeout)
+	}
+	return err
+}
+
+// runCommandToLogCtx is runCommandToLog with the cancellation context supplied
+// by the CALLER instead of a self-built WithTimeout — so a caller can drive
+// cancellation from a stall watchdog (no progress for N seconds) rather than a
+// wall-clock deadline that would cancel a healthy slow transfer (STATBUS-109,
+// doc-022 §3: "a deadline cancels a healthy slow transfer" is forbidden). The
+// timeout wrapper above preserves the existing deadline behaviour + the
+// ErrCommandTimeout mapping for every other caller. onAdvance still fires per
+// output line (via NewPrefixWriter) — the stall detector uses it as its
+// progress feed AND its systemd-heartbeat pump.
+func runCommandToLogCtx(ctx context.Context, dir string, logWriter io.Writer, source string, onAdvance func(), name string, args ...string) error {
 	cmd := exec.CommandContext(ctx, name, gitArgs(name, args)...)
 	cmd.Dir = dir
 	outW := NewPrefixWriter("O", source, logWriter, onAdvance)
@@ -157,9 +174,6 @@ func runCommandToLog(dir string, timeout time.Duration, logWriter io.Writer, sou
 	err := cmd.Run()
 	outW.Flush()
 	errW.Flush()
-	if ctx.Err() == context.DeadlineExceeded {
-		return fmt.Errorf("%s %v after %s: %w", name, args, timeout, ErrCommandTimeout)
-	}
 	return err
 }
 
