@@ -273,6 +273,60 @@ func (d *Service) setMaintenance(active bool) {
 	}
 }
 
+// quoteIdent double-quotes a SQL identifier (doubling any embedded quote) so it
+// can be interpolated into DDL that cannot be parameterized (ALTER DATABASE).
+func quoteIdent(id string) string {
+	return `"` + strings.ReplaceAll(id, `"`, `""`) + `"`
+}
+
+// setDatabaseReadOnly toggles the app database's default_transaction_read_only
+// via ALTER DATABASE — the STATBUS-110 read-only upgrade window, the accident-
+// guard that makes phase-3 external writes fail so a rollback can lose nothing
+// (see doc/read-only-upgrade-window.md). It is the SQL sibling of setMaintenance;
+// unlike that filesystem-flag toggle it runs a catalog statement, so it needs a
+// live query connection.
+//
+//   - ON is set in executeUpgrade BEFORE the DB stop, while queryConn is live, so
+//     the ALTER persists in the catalog and survives the stop → every phase-3
+//     reconnecting session inherits read-only (and a crash mid-window leaves the
+//     DB frozen read-only = crash-freeze).
+//   - OFF (idempotent) is co-located with each maintenance-OFF terminal.
+//
+// The upgrade's OWN writers are exempt by a SEPARATE, ADDITIVE mechanism and are
+// NOT blocked: the Service's pgx sessions self-exempt in connect() (`SET
+// default_transaction_read_only = off`, covering the state='completed' UPDATE and
+// flag/recovery writes), and the `./sb migrate up` SUBPROCESS self-exempts via
+// migrate.psqlEnv's PGOPTIONS (covering post-swap, boot-migrate, forward-recovery).
+// This guard blocks only EXTERNAL sessions.
+//
+// Best-effort accident-guard (not a hard lock): it logs and returns any error so
+// callers log-not-raise without aborting the upgrade. A nil queryConn (a one-shot
+// path that never connected) is a no-op. Because this session is itself exempted
+// in connect(), the ALTER runs even while the DB default is already on — which is
+// exactly what the OFF direction needs.
+func (d *Service) setDatabaseReadOnly(ctx context.Context, readOnly bool) error {
+	if d.queryConn == nil {
+		fmt.Printf("read-only window: no query connection — skipping ALTER DATABASE (readOnly=%v)\n", readOnly)
+		return nil
+	}
+	var dbName string
+	if err := d.queryConn.QueryRow(ctx, "SELECT current_database()").Scan(&dbName); err != nil {
+		fmt.Printf("read-only window: could not resolve current_database(): %v\n", err)
+		return err
+	}
+	val := "off"
+	if readOnly {
+		val = "on"
+	}
+	stmt := fmt.Sprintf("ALTER DATABASE %s SET default_transaction_read_only = %s", quoteIdent(dbName), val)
+	if _, err := d.queryConn.Exec(ctx, stmt); err != nil {
+		fmt.Printf("read-only window %s — ALTER DATABASE failed: %v\n", strings.ToUpper(val), err)
+		return err
+	}
+	fmt.Printf("read-only window %s — %s\n", strings.ToUpper(val), stmt)
+	return nil
+}
+
 // dbVolumeName returns the Docker named volume for PostgreSQL data.
 // Derived from COMPOSE_INSTANCE_NAME in .env (e.g., "statbus-speed-db-data").
 func (d *Service) dbVolumeName() string {

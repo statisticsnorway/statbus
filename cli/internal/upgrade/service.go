@@ -2873,6 +2873,27 @@ func (d *Service) connect(ctx context.Context) error {
 		d.listenConn.Close(context.Background())
 		return fmt.Errorf("query connection: %w", err)
 	}
+
+	// STATBUS-110 read-only upgrade window — per-session self-exempt. The window
+	// sets `ALTER DATABASE ... SET default_transaction_read_only = on` before the
+	// DB stop, so EVERY reconnecting session (this one included) would inherit
+	// read-only. The upgrade's own writers MUST stay read-write — the
+	// state='completed' UPDATE, flag writes, and recovery ground-truth writes all
+	// go through queryConn. Issue the exempt (USERSET, needs no special role) on
+	// EVERY (re)connect: reconnect() routes through connect(), so this one place
+	// covers pre-swap, post-swap, the completion-reconnect, and recovery's
+	// sessions. Harmless no-op when the window is inactive (already off). queryConn
+	// is the writer, so its exempt is load-bearing (fail the connect if it can't be
+	// set — a read-only writer session is unusable); listenConn only does LISTEN
+	// (allowed under read-only), so its exempt is belt-and-suspenders / best-effort.
+	if _, err := d.queryConn.Exec(ctx, "SET default_transaction_read_only = off"); err != nil {
+		d.listenConn.Close(context.Background())
+		d.queryConn.Close(context.Background())
+		return fmt.Errorf("self-exempt query connection from read-only window: %w", err)
+	}
+	if _, err := d.listenConn.Exec(ctx, "SET default_transaction_read_only = off"); err != nil {
+		fmt.Printf("read-only window: could not self-exempt listen connection (LISTEN is allowed read-only; continuing): %v\n", err)
+	}
 	return nil
 }
 
@@ -4230,6 +4251,19 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		progress.Write("Backup path recorded.")
 	}
 
+	// STATBUS-110: engage the read-only upgrade window NOW — before we tear down
+	// connections and stop the DB — while queryConn is still live. The ALTER
+	// persists in the catalog, so it survives the stop and every phase-3
+	// reconnecting session inherits read-only (crash-freeze if we die mid-window).
+	// Set BEFORE the stop (not at the phase-3 restart) to close the race where a
+	// session reconnects before the ALTER lands and gets read-write (F3). The
+	// upgrade's own writers stay read-write via the connect() + migrate.psqlEnv
+	// exemptions. Best-effort accident-guard: log, do not abort the upgrade.
+	progress.Write("Engaging read-only upgrade window (external writes blocked until completion/rollback)...")
+	if err := d.setDatabaseReadOnly(ctx, true); err != nil {
+		progress.Write("Warning: could not engage read-only window: %v (continuing; guard is best-effort)", err)
+	}
+
 	// Step 2: Enter maintenance mode and restart proxy first
 	// Guards let one-shot callers (./sb install inline upgrade) reach
 	// executeUpgrade without a listenConn.
@@ -4261,6 +4295,10 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		runCommand(projDir, "docker", "compose", "up", "-d", "app", "worker", "rest")
 		d.setMaintenance(false)
 		if reconErr := d.reconnect(ctx); reconErr == nil {
+			// STATBUS-110: DB is still up (we aborted before the stop) and the
+			// window was engaged above — clear it now on the reconnected conn so
+			// the box returns to service read-write. Best-effort.
+			d.setDatabaseReadOnly(ctx, false)
 			d.failUpgrade(ctx, id, errMsg, progress)
 		} else {
 			d.removeUpgradeFlag()
@@ -4277,6 +4315,10 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		runCommand(projDir, "docker", "compose", "up", "-d", "app", "worker", "rest", "db")
 		d.setMaintenance(false)
 		if reconErr := d.reconnect(ctx); reconErr == nil {
+			// STATBUS-110: the db stop FAILED, so the DB is still up and the window
+			// (engaged above) is still set — clear it on the reconnected conn so the
+			// box returns to service read-write. Best-effort.
+			d.setDatabaseReadOnly(ctx, false)
 			d.failUpgrade(ctx, id, errMsg, progress)
 		} else {
 			d.removeUpgradeFlag()
@@ -4947,6 +4989,15 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// LISTEN wasn't yet established when the trigger fired. Mirrors the recovery
 	// self-heal path's NOTIFY-after-completed ordering (resumePostSwap).
 	d.queryConn.Exec(ctx, `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
+	// STATBUS-110: clear the read-only upgrade window — health passed, no rollback
+	// pending, box reopening. Placed HERE (right after the completed UPDATE landed)
+	// rather than at the setMaintenance(false) above because queryConn is only
+	// GUARANTEED live once the completed UPDATE's reconnect-on-stale loop has
+	// succeeded (the NOTIFY just above proves it); clearing at the earlier
+	// setMaintenance(false) could silently miss on a stale conn and leak read-only.
+	if err := d.setDatabaseReadOnly(ctx, false); err != nil {
+		progress.Write("Warning: could not clear read-only window at completion: %v", err)
+	}
 	d.removeUpgradeFlag()
 
 	// The row is now truly `completed` and the flag is gone (both fast,
@@ -5812,6 +5863,19 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 
 	// Deactivate maintenance
 	d.setMaintenance(false)
+
+	// STATBUS-110: clear the read-only window on the rolled-back box. The restored
+	// snapshot carries default_transaction_read_only=on in its catalog (it was
+	// ALTERed before the pre-stop backup, F3), so without this the rolled-back
+	// (old-version, serving) box would reject external writes. Uses the conn just
+	// reopened above (best-effort; a reconnect failure leaves it for the next
+	// recovery to clear). NB: the git-restore-fail ABORT terminal exits before this
+	// point and deliberately leaves read-only ON alongside maintenance ON (F1(i)) —
+	// the box is degraded/down and the operator's ./sb install recovery clears both
+	// at its successful terminal.
+	if err := d.setDatabaseReadOnly(ctx, false); err != nil {
+		progress.Write("Warning: could not clear read-only window after rollback: %v", err)
+	}
 
 	// Persist the real failure reason in `error` (short, one-line). The
 	// full narrative lives in the on-disk log (referenced by

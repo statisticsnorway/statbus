@@ -215,6 +215,9 @@ func runPsql(projDir string, sql string, extraArgs ...string) (string, error) {
 
 	args := append(prefix, "-v", "ON_ERROR_STOP=on")
 	args = append(args, extraArgs...)
+	// STATBUS-110: exempt migrate's write sessions (ensureMigrationTable, the
+	// db.migration bookkeeping INSERT) from the read-only upgrade window.
+	args, env = injectReadOnlyExempt(psqlPath, args, env)
 	cmd := exec.Command(psqlPath, args...)
 	cmd.Dir = projDir
 	cmd.Env = env
@@ -347,6 +350,51 @@ func injectPsqlAppName(psqlPath string, args, env []string, appName string) ([]s
 	return out, env
 }
 
+// migrateReadOnlyExemptOptions is the libpq `options` payload that makes a
+// migrate psql session read-write even while the app DB is under the STATBUS-110
+// read-only upgrade window (`ALTER DATABASE ... default_transaction_read_only=on`,
+// set before the pre-backup DB stop). migrate is the upgrade's OWN writer
+// (post-swap migrate, boot-migrate, forward-recovery), so its sessions MUST be
+// exempt while EXTERNAL sessions stay blocked. Applied as a connection STARTUP
+// option so the very first transaction is already read-write; a no-op when the
+// window is inactive (off is the normal state). See doc/read-only-upgrade-window.md.
+const migrateReadOnlyExemptOptions = "-c default_transaction_read_only=off"
+
+// injectReadOnlyExempt injects the read-only-window self-exemption into a psql
+// invocation, in whichever PsqlCommand mode is in use — mirroring
+// injectPsqlAppName, because the host env does NOT reach the in-container psql:
+//   - host (psqlPath != "docker"): append a PGOPTIONS env entry, MERGING with any
+//     operator-set PGOPTIONS (last-wins over os.Environ()) so we don't clobber it.
+//   - docker (psqlPath == "docker"): pass `-e PGOPTIONS=<...>` right after the
+//     "exec" token (an option position, before SERVICE + COMMAND); env untouched.
+//
+// Scoped to migrate's WRITE runners (runPsql + runPsqlFile) — NOT PsqlCommand,
+// which is shared with interactive `./sb psql` and install probes that must stay
+// subject to the window (write-with-intent only). Harmless on read-only queries.
+func injectReadOnlyExempt(psqlPath string, args, env []string) ([]string, []string) {
+	opts := migrateReadOnlyExemptOptions
+	if existing := os.Getenv("PGOPTIONS"); existing != "" {
+		opts = existing + " " + opts
+	}
+	pgOptEnv := "PGOPTIONS=" + opts
+	if psqlPath != "docker" {
+		return args, append(append([]string{}, env...), pgOptEnv)
+	}
+	out := make([]string, 0, len(args)+2)
+	inserted := false
+	for i, a := range args {
+		out = append(out, a)
+		if !inserted && a == "exec" && i+1 < len(args) {
+			out = append(out, "-e", pgOptEnv)
+			inserted = true
+		}
+	}
+	if !inserted {
+		out = append([]string{"-e", pgOptEnv}, args...)
+	}
+	return out, env
+}
+
 func runPsqlFile(projDir string, filePath string) (string, error) {
 	// Harness-only stall site: simulates a migration that runs longer
 	// than the upgrade-service's WatchdogSec budget. When activated via
@@ -406,6 +454,11 @@ func runPsqlFile(projDir string, filePath string) (string, error) {
 	// Host mode adds PGAPPNAME to env; docker mode adds `-e PGAPPNAME=` to the
 	// exec args (the host env doesn't reach the in-container psql).
 	args, env = injectPsqlAppName(psqlPath, args, env, migrateSubprocessAppName())
+
+	// STATBUS-110: exempt this migration-file session from the read-only upgrade
+	// window (the app DB is read-only during phase 3; migrate is the upgrade's own
+	// writer). Mirrors the app-name injection's host/docker split.
+	args, env = injectReadOnlyExempt(psqlPath, args, env)
 
 	// Hardening belt for the DIRECT `./sb migrate up` CLI path (operator /
 	// install) — that path runs runPsqlFile with NO outer timeout wrapper, so a
