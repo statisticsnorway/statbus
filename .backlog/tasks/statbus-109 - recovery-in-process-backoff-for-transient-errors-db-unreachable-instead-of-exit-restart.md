@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-24 12:21'
-updated_date: '2026-06-28 12:44'
+updated_date: '2026-07-02 17:55'
 labels:
   - upgrade
   - recovery
@@ -17,6 +17,10 @@ references:
   - cli/internal/upgrade/service.go
   - STATBUS-107
   - STATBUS-071
+documentation:
+  - >-
+    doc-022 -
+    In-process-backoff-retry-for-recovery-—-detailed-design-STATBUS-109.md
 priority: medium
 ordinal: 109000
 ---
@@ -76,3 +80,21 @@ COMPOSITION (mechanic-grounded vs code): the in-process backoff is NEW — today
 
 Numbers build/test-reconcilable (arcs, STATBUS-071); SHAPE (retry-with-backoff, stall-not-deadline for transfers, exhaust→roll-back, unknown→stop) is fixed. Grounding: tmp/mechanic-transient-errors.md. Build gated on King's GO + arcs.
 <!-- SECTION:NOTES:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect
+created: 2026-07-02 17:55
+---
+DETAILED DESIGN LANDED → doc-022 (architect, 2026-07-02). Same treatment 110 got. All cites verified first-hand vs master HEAD.
+
+SINGLE insertion point: recoverFromFlag FlagPhaseResuming branch (service.go:867–892) — the only place GroundTruthUnknown is produced. Two sub-causes already distinguished in verifyUpgradeGroundTruthEx: db-unreachable (:2151) + commit-not-fetched (:2071); a 3rd merge-base failure (:2075) = unrecognised→stop.
+
+DESIGN CORE: (1) type the Unknown cause (UnknownCause enum = the curated intermittent list; reach-for-types, no string-matching); (2) ONE backoffRetry(retrySpec) helper, per-case probe+failure-detection (db=connect+SELECT1, 5s wall-clock, 1→30s gaps, ~5min; commit=fetchWithStallDetection, 60s stall NOT deadline, 10→60s gaps, ~15min); (3) dispatch: cleared→re-read+re-dispatch, exhausted→recoveryRollback (data-safe via 110's read-only window), unrecognised→existing :1712 exit→systemd backstop (the one human stop); (4) persistent list = classifyStepError over the migrate-failure path (thin — already rolls back).
+
+TWO LOAD-BEARING FINDINGS: (a) retryBackoff (service.go:86–95) is DEAD (0 call sites, 100ms scale) → DELETE, don't dangle. (b) recoverFromFlag runs at :1712, BEFORE the main heartbeat ticker (:1759) → the backoff loop MUST self-heartbeat (emitHeartbeat, watchdog.go:217) every iteration or systemd WatchdogSec=120s SIGKILLs it mid-wait. (c) the forward fetch at :4362 already has the forbidden 5-min WALL-CLOCK deadline (cancels a healthy slow transfer) — the new stall-detector fixes it in a one-line swap; runCommandToLog's onAdvance hook (exec.go:152) is the ready-made stall+heartbeat feed.
+
+TWO OPEN QUESTIONS for the King: (1) fold the :4362 forward-fetch wall-clock→stall fix into 109 (I recommend fold — known bug beside its fix); (2) forward-on-unknown → stop-on-unknown is a live safety-critical branch flip (correct per the model + safe because 110 landed, but deserves an explicit nod). Build gated on King GO + arcs (STATBUS-071, the only oracle).
+---
+<!-- COMMENTS:END -->
