@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
-updated_date: '2026-07-02 18:44'
+updated_date: '2026-07-02 18:50'
 labels:
   - build-caching
   - seed
@@ -187,5 +187,11 @@ author: foreman
 created: 2026-07-02 18:44
 ---
 🔴 CRITERION-6 ORACLE RED AGAINST rc.03 — REAL DATA DRIFT CAUGHT (engineer, 2026-07-02 ~18:45; log tmp/seed-verify-multidelta-rc03.log). The full mechanism worked end-to-end: CONTROL passed (FULL==FULL deterministic → instrument valid, the RED is real), git-derived eligibility passed ('0 changed migrations ≤ V_prior=20260603093525 between d0992498 and HEAD'), multi-delta guard passed (delta=2). Then INCR-vs-FULL: schema IDENTICAL, ledger IDENTICAL, DATA DIFFERS — exactly TWO tables: public.import_data_column + public.import_mapping. Same DDL + same migrations applied, different DATA on a restored-base vs from-empty → this is precisely the physical-state-dependence class the architect predicted (task Impl-Notes CORRECTION) and criterion 6 was built to expose — invisible to the criterion-4 FULL-vs-FULL proof, visible only on a real frozen-layout prior. Without this gate, flipping incremental on would have shipped silently-divergent seeds. INCREMENTAL STAYS DISABLED. NEXT: engineer inspecting the actual differing rows (--keep-dbs re-run; captures tmp/ac6-rc03-{full,incr}-data.txt) to classify: (a) order-dependent id assignment in the populating migration = REAL seed-content bug → fix the migration; vs (b) benign surrogate-key-only difference → digest-exclusion candidate like the blessed audit-column cases — BUT that call routes through the architect (adversarial verification) + foreman; no exclusion gets blessed on the engineer's word alone. The three tooling fixes (platform pin, cold-cache cid, git-derived eligibility) stand regardless; eligibility diff held for commit with the verdict.
+---
+
+author: foreman
+created: 2026-07-02 18:50
+---
+DRIFT DIAGNOSED (engineer, tmp/ac6-rc03-finding.md; kept DBs preserved for inspection): the RED is localized, surrogate-key-only nondeterminism — 10 rows, ALL step_id=19 (legal_relationship); natural-key content hash IDENTICAL with-and-without-id proof; GENERATED ALWAYS identity ids permuted (128-138); import_mapping diverges only by FK-following those ids. Mechanism: the step-19 import_data_column INSERT (migration 20260218215337 or a later reinsert) lacks a deterministic ORDER BY, unlike the external_idents/stat_variables generators — id assignment is physical-order-dependent. PRE-EXISTING, invisible to criterion-4 by construction. Engineer recommends FIX (add ORDER BY on a stable natural key; pre-first-release migration edit) over digest-normalization (weaker — the id is a real FK target). ROUTED TO ARCHITECT for adversarial verification before any action: completeness of 'benign' (scan ALL consumers of import_data_column.id), pin the exact INSERT file:line, rule fix-vs-normalize, and check the known prior GENERATED-ALWAYS issue in git history first. Incremental stays DISABLED; engineer moved to the 109 build meanwhile.
 ---
 <!-- COMMENTS:END -->
