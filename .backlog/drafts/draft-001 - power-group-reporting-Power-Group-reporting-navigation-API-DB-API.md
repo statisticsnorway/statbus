@@ -24,7 +24,7 @@ GOAL — two directions, both via `statistical_unit_hierarchy`:
 - **Shape A (group on top)** — `statistical_unit_hierarchy('power_group', X)` → `{ "power_group": { …, power_group_members:[…] } }` — the whole DAG, members spanning ALL member enterprises.
 - **Shape B (regular unit links to group)** — `statistical_unit_hierarchy('legal_unit'|'enterprise'|'establishment', X)` → the normal enterprise-rooted tree, PLUS a lean `power_group_link` at the root + a `power_group_membership` sub-key on each legal_unit node. No member expansion.
 
-Split into TWO build bodies when promoted from Draft: (1) UNDERLYING power-group changes (0-index substrate); (2) EXTEND statistical_unit_hierarchy. Plus separate tasks: STATBUS-117 (foreign-member import risk); STATBUS-116 (multi-control import test).
+Split into TWO build bodies when promoted from Draft: (1) UNDERLYING power-group changes (0-index substrate); (2) EXTEND statistical_unit_hierarchy. Plus separate tasks: STATBUS-121 (foreign-member import risk); STATBUS-120 (multi-control import test).
 
 NAMING (locked — memory `feedback_naming_full_vs_reference`: key↔type share a stem; full=`_hierarchy`/bare, reduced reference=`_link`; three ref forms `_id`/`_link`/relationship-edge):
 - `power_group` / `PowerGroup` / `power_group_hierarchy()` — the full group.

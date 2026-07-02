@@ -1,5 +1,5 @@
 ---
-id: STATBUS-116
+id: STATBUS-120
 title: >-
   pg-multi-control-test: investigate & add import test for multiple controlling
   relationships
