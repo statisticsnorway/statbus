@@ -216,3 +216,36 @@ func TestPerTableDataDigestSQL_DigestsOnlyContentColumns(t *testing.T) {
 		t.Errorf("no-content-columns case must fall back to row count; got: %s", deg)
 	}
 }
+
+// ── AC#6 (verify-multidelta) guards — pure, Docker-free ───────────────────────
+
+// The multi-delta guard is what makes AC#6 ≠ AC#4: a <=1-migration delta
+// degenerates to the single-delta case and cannot exercise physical-state-
+// independence across the restored-base boundary, so it MUST be rejected.
+func TestDeltaIsMultiMigration(t *testing.T) {
+	for _, n := range []int{-1, 0, 1} {
+		if deltaIsMultiMigration(n) {
+			t.Errorf("delta=%d must be rejected (not multi-migration) — it degenerates to AC#4's single-delta case", n)
+		}
+	}
+	for _, n := range []int{2, 3, 50} {
+		if !deltaIsMultiMigration(n) {
+			t.Errorf("delta=%d must be accepted as a genuine multi-migration delta", n)
+		}
+	}
+}
+
+// parseSeedMetaVersion must turn a real recorded migration_version into V_prior
+// (tolerating surrounding whitespace) and FAIL LOUD on a missing/garbage version
+// rather than silently defaulting to 0 (which would mis-scope the delta count).
+func TestParseSeedMetaVersion(t *testing.T) {
+	v, err := parseSeedMetaVersion(&seedMeta{MigrationVersion: "  20260616104500 "})
+	if err != nil || v != 20260616104500 {
+		t.Errorf("valid version must parse (with whitespace trimmed); got v=%d err=%v", v, err)
+	}
+	for _, bad := range []string{"", "not-a-number", "2026-06-16"} {
+		if _, err := parseSeedMetaVersion(&seedMeta{MigrationVersion: bad}); err == nil {
+			t.Errorf("migration_version %q must fail loud, not default to 0", bad)
+		}
+	}
+}

@@ -544,19 +544,150 @@ func buildFullSeed(projDir, dbName string) (seedDigest, error) {
 	return computeSeedDigest(projDir, dbName)
 }
 
-// verifySeedIdentical first runs the INSTRUMENT CONTROL (build FULL twice → the
-// digests MUST match, proving the digest is build-deterministic), then the real
-// measurement (INCREMENTAL vs FULL). A non-deterministic control means the
-// instrument is broken — reported as such, BEFORE any incremental verdict can
-// mean anything. Destructive only to the dedicated seedVerify* databases; never
-// the real seed DB. Heavy (4 migrate passes + a restore) — run on demand.
+// priorSource abstracts HOW the "prior seed" the incremental path restores is
+// obtained, so one shared verify body serves two proofs:
+//   - MANUFACTURED (AC#4, `verify-identical`): build the prior from empty via
+//     `migrate --to V_prev` → a SINGLE last-migration delta, and (crucially) the
+//     SAME physical layout as the FULL build (both from empty). Cheap, self-
+//     contained, decision-agnostic — but blind to physical-state-dependent
+//     migrations, which are consistently-wrong in both from-empty builds.
+//   - REAL IMAGE (AC#6, `verify-multidelta`): restore a REAL published prior-
+//     RELEASE seed image (its OID/row order frozen by a PAST CI build) and apply
+//     that release's FULL, MANY-migration delta. The only proof that exercises
+//     physical-state-independence across a real restored-base boundary.
+//
+// prepare produces the prior dump (returning its path), the prior's migration
+// version V_prior, and — when the prior is a real recorded seed — its seedMeta
+// (nil for the manufactured prior). fullDb is the intact FULL build (dbA) it may
+// read version info from; scratchDb (dbB) is a disposable it may rebuild.
+type priorSource struct {
+	label             string
+	requireMultiDelta bool // AC#6: fail loud if the delta is <= 1 migration
+	prepare           func(projDir, fullDb, scratchDb string) (dumpPath string, vPrior int64, meta *seedMeta, err error)
+}
+
+// manufacturedPriorSource is the AC#4 single-delta prior: rebuild scratchDb to
+// V_prev (the second-highest applied version) from empty and dump it. meta=nil
+// (no recorded fingerprint to eligibility-check); requireMultiDelta=false (a
+// single last-migration delta is the whole point).
+func manufacturedPriorSource() priorSource {
+	return priorSource{
+		label: "manufactured single-delta prior (migrate --to V_prev from empty)",
+		prepare: func(projDir, fullDb, scratchDb string) (string, int64, *seedMeta, error) {
+			vPrev, err := secondHighestVersion(projDir, fullDb)
+			if err != nil {
+				return "", 0, nil, err
+			}
+			priorDump := filepath.Join(projDir, "tmp", "seed-verify-prior.pg_dump")
+			fmt.Printf("seed verify: building PRIOR seed (--to %d) and dumping it...\n", vPrev)
+			if err := recreateVerifyDb(projDir, scratchDb); err != nil {
+				return "", 0, nil, err
+			}
+			if err := migrateNamedDb(projDir, scratchDb, vPrev); err != nil {
+				return "", 0, nil, fmt.Errorf("prior migrate --to %d: %w", vPrev, err)
+			}
+			if err := dumpVerifyDB(projDir, scratchDb, priorDump); err != nil {
+				return "", 0, nil, err
+			}
+			return priorDump, vPrev, nil, nil
+		},
+	}
+}
+
+// imagePriorSource is the AC#6 real prior-RELEASE prior: extract seed.pg_dump +
+// seed.json from a published statbus-seed image (extractSeedFromImage → the same
+// docker create + cp used by `seed fetch`), parse V_release from its recorded
+// meta. requireMultiDelta=true (the run must exercise a real many-migration
+// delta); meta!=nil so the shared body runs the AC#2 fingerprint eligibility gate.
+func imagePriorSource(imageRef string) priorSource {
+	return priorSource{
+		label:             "real prior-RELEASE image " + imageRef,
+		requireMultiDelta: true,
+		prepare: func(projDir, fullDb, scratchDb string) (string, int64, *seedMeta, error) {
+			if strings.TrimSpace(imageRef) == "" {
+				return "", 0, nil, fmt.Errorf("--prior-image is required (a published statbus-seed:<release-commit-short> ref)")
+			}
+			dir := filepath.Join(projDir, "tmp", "seed-verify-prior-image")
+			if err := os.RemoveAll(dir); err != nil {
+				return "", 0, nil, fmt.Errorf("clear %s: %w", dir, err)
+			}
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				return "", 0, nil, err
+			}
+			fmt.Printf("seed verify: extracting prior-RELEASE seed from %s ...\n", imageRef)
+			if err := extractSeedFromImage(projDir, imageRef, dir); err != nil {
+				return "", 0, nil, fmt.Errorf("extract prior seed image %s: %w", imageRef, err)
+			}
+			meta, err := loadSeedMetaFrom(filepath.Join(dir, "seed.json"))
+			if err != nil {
+				return "", 0, nil, fmt.Errorf("load prior seed.json: %w", err)
+			}
+			vRelease, err := parseSeedMetaVersion(meta)
+			if err != nil {
+				return "", 0, nil, err
+			}
+			return filepath.Join(dir, "seed.pg_dump"), vRelease, meta, nil
+		},
+	}
+}
+
+// parseSeedMetaVersion parses a prior seed's recorded migration_version into the
+// int64 V_prior the delta count + eligibility gate need. Pure — unit-testable.
+func parseSeedMetaVersion(meta *seedMeta) (int64, error) {
+	v, err := strconv.ParseInt(strings.TrimSpace(meta.MigrationVersion), 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("parse prior seed migration version %q: %w", meta.MigrationVersion, err)
+	}
+	return v, nil
+}
+
+// deltaIsMultiMigration is the AC#6 multi-delta predicate: the delta applied on
+// the restored prior must be more than one migration to exercise physical-state-
+// independence across the restored-base boundary. Pure — unit-testable.
+func deltaIsMultiMigration(delta int) bool { return delta > 1 }
+
+// deltaMigrationCount is the number of migrations the delta will apply on top of
+// the restored prior: the applied migrations in the FULL build with version >
+// vPrior (identical to the on-disk migrations > vPrior, since FULL applied them
+// all). The AC#6 multi-delta guard rejects <= 1.
+func deltaMigrationCount(projDir, fullDb string, vPrior int64) (int, error) {
+	out, err := migrate.QueryDB(projDir, fullDb,
+		fmt.Sprintf("SELECT count(*) FROM db.migration WHERE version > %d", vPrior), "-t", "-A")
+	if err != nil {
+		return 0, fmt.Errorf("count delta migrations > %d: %w", vPrior, err)
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(out))
+	if err != nil {
+		return 0, fmt.Errorf("parse delta count %q: %w", out, err)
+	}
+	return n, nil
+}
+
+// verifySeedIdentical is the AC#4 proof: incremental == full for a MANUFACTURED
+// single-delta prior. Thin wrapper over the shared verify body.
 func verifySeedIdentical(projDir string) error {
+	return verifySeedAgainstPrior(projDir, manufacturedPriorSource())
+}
+
+// verifySeedMultiDelta is the AC#6 pre-enable proof: incremental == full for a
+// REAL prior-RELEASE seed image + that release's full multi-migration delta.
+func verifySeedMultiDelta(projDir, imageRef string) error {
+	return verifySeedAgainstPrior(projDir, imagePriorSource(imageRef))
+}
+
+// verifySeedAgainstPrior first runs the INSTRUMENT CONTROL (build FULL twice → the
+// digests MUST match, proving the digest is build-deterministic), then the real
+// measurement (INCREMENTAL vs FULL) using src to obtain the prior. A non-
+// deterministic control means the instrument is broken — reported as such, BEFORE
+// any incremental verdict can mean anything. Destructive only to the dedicated
+// seedVerify* databases; never the real seed DB. Heavy (4 migrate passes + a
+// restore) — run on demand.
+func verifySeedAgainstPrior(projDir string, src priorSource) error {
 	if err := os.MkdirAll(filepath.Join(projDir, "tmp"), 0755); err != nil {
 		return err
 	}
 	dbA := seedVerifyDBName + "_a"
 	dbB := seedVerifyDBName + "_b"
-	priorDump := filepath.Join(projDir, "tmp", "seed-verify-prior.pg_dump")
 
 	// CONTROL: build FULL twice; the digests MUST be identical (deterministic
 	// instrument) before INCR-vs-FULL can be trusted.
@@ -585,22 +716,50 @@ func verifySeedIdentical(projDir string) error {
 	fmt.Printf("✓ CONTROL passed: FULL==FULL deterministic (schema=%s data=%s ledger=%s) — instrument valid.\n",
 		full1.Schema[:12], full1.Data[:12], full1.Ledger[:12])
 
-	// Keep dbA as the canonical FULL. Reuse dbB for PRIOR then INCR.
-	vPrev, err := secondHighestVersion(projDir, dbA)
+	// PRIOR: obtain it via the source. Keep dbA as the canonical FULL; scratchDb
+	// (dbB) is reused for the prior build (manufactured) and then the INCR build.
+	fmt.Printf("seed verify: preparing prior — %s\n", src.label)
+	priorDump, vPrior, priorMeta, err := src.prepare(projDir, dbA, dbB)
 	if err != nil {
+		dropVerifyDB(projDir, dbA)
+		dropVerifyDB(projDir, dbB)
 		return err
 	}
 
-	// PRIOR: rebuild dbB up to V_prev, dump it (the manufactured prior seed).
-	fmt.Printf("seed verify: building PRIOR seed (--to %d) and dumping it...\n", vPrev)
-	if err := recreateVerifyDb(projDir, dbB); err != nil {
-		return err
+	// AC#2 ELIGIBILITY GATE (real prior only): a real prior-release seed is on the
+	// incremental path ONLY if the migrations <= V_release are byte-unchanged in the
+	// current tree. If SeedBuildDecision falls back to FULL (retro-edit → fingerprint
+	// mismatch), production would rebuild full anyway, so an INCR-vs-FULL against this
+	// base proves nothing about the incremental path — refuse loud.
+	if priorMeta != nil {
+		if ok, reason := SeedBuildDecision(priorMeta, projDir); !ok {
+			dropVerifyDB(projDir, dbA)
+			dropVerifyDB(projDir, dbB)
+			return fmt.Errorf("✗ chosen prior is NOT incremental-eligible: %s\n"+
+				"  Pick a prior RELEASE whose migrations <= its version are unchanged in this tree "+
+				"(a retro-edited base would fall back to a full rebuild in production, so this run would prove nothing)", reason)
+		}
 	}
-	if err := migrateNamedDb(projDir, dbB, vPrev); err != nil {
-		return fmt.Errorf("prior migrate --to %d: %w", vPrev, err)
-	}
-	if err := dumpVerifyDB(projDir, dbB, priorDump); err != nil {
-		return err
+
+	// AC#6 MULTI-DELTA GUARD: the whole point is a prod-shaped MANY-migration delta
+	// applied on a real restored base. A <=1-migration delta degenerates to AC#4's
+	// single-delta case and cannot exercise physical-state-independence across the
+	// restored-base boundary — refuse loud rather than pass a hollow "multi-delta".
+	if src.requireMultiDelta {
+		delta, err := deltaMigrationCount(projDir, dbA, vPrior)
+		if err != nil {
+			dropVerifyDB(projDir, dbA)
+			dropVerifyDB(projDir, dbB)
+			return err
+		}
+		if !deltaIsMultiMigration(delta) {
+			dropVerifyDB(projDir, dbA)
+			dropVerifyDB(projDir, dbB)
+			return fmt.Errorf("✗ delta is %d migration(s) above V_prior=%d — AC#6 requires a MULTI-migration "+
+				"delta to exercise physical-state-independence across the restored-base boundary; pick an EARLIER "+
+				"prior RELEASE (this is just AC#4's single-delta case otherwise)", delta, vPrior)
+		}
+		fmt.Printf("seed verify: delta = %d migrations above V_prior=%d (multi-delta ✓)\n", delta, vPrior)
 	}
 
 	// INCREMENTAL: recreate dbB, restore the prior, apply only the delta, digest.
@@ -622,8 +781,8 @@ func verifySeedIdentical(projDir string) error {
 	if full1.equal(incr) {
 		dropVerifyDB(projDir, dbA)
 		dropVerifyDB(projDir, dbB)
-		fmt.Printf("✓ seed identity PROVEN: incremental == full (schema=%s data=%s ledger=%s; V_prev=%d)\n",
-			full1.Schema[:12], full1.Data[:12], full1.Ledger[:12], vPrev)
+		fmt.Printf("✓ seed identity PROVEN: incremental == full (schema=%s data=%s ledger=%s; V_prior=%d; prior: %s)\n",
+			full1.Schema[:12], full1.Data[:12], full1.Ledger[:12], vPrior, src.label)
 		return nil
 	}
 	// Real drift (instrument already proven deterministic). Capture both for naming.
@@ -634,10 +793,12 @@ func verifySeedIdentical(projDir string) error {
 	return fmt.Errorf("✗ seed identity FAILED — incremental differs from full (instrument is deterministic, so this is REAL drift; "+
 		"diff tmp/seed-verify-{full,incr}-*.txt to name it):\n"+
 		"  schema: full=%s incr=%s%s\n  data:   full=%s incr=%s%s\n  ledger: full=%s incr=%s%s\n"+
+		"  prior: %s (V_prior=%d)\n"+
 		"  (do NOT enable incremental)",
 		full1.Schema[:12], incr.Schema[:12], mark(full1.Schema == incr.Schema),
 		full1.Data[:12], incr.Data[:12], mark(full1.Data == incr.Data),
-		full1.Ledger[:12], incr.Ledger[:12], mark(full1.Ledger == incr.Ledger))
+		full1.Ledger[:12], incr.Ledger[:12], mark(full1.Ledger == incr.Ledger),
+		src.label, vPrior)
 }
 
 func mark(ok bool) string {
@@ -668,8 +829,47 @@ on demand — not part of per-build CI. Requires 'sb start all' (template_statbu
 	},
 }
 
+// priorImageRef is the --prior-image ref for `verify-multidelta` (a published
+// statbus-seed:<release-commit-short> the AC#6 run restores as the real prior base).
+var priorImageRef string
+
+var seedVerifyMultiDeltaCmd = &cobra.Command{
+	Use:   "verify-multidelta",
+	Short: "Prove incremental == full against a REAL prior-RELEASE seed + its full delta (STATBUS-116 AC#6)",
+	Long: `The pre-enable safety check for seed-incremental (STATBUS-116 AC#6).
+
+Unlike verify-identical (which manufactures a single-migration prior FROM EMPTY,
+so both sides share a physical layout), this restores a REAL published prior-
+RELEASE seed image — its OID/row order frozen by a past CI build — and applies
+that release's FULL, MANY-migration delta. It is the ONLY proof that exercises
+physical-state-independence across a real restored-base boundary (a migration
+whose semantic output depends on physical row order would diverge here but stay
+invisible to a from-empty FULL-vs-FULL).
+
+Same CONTROL (FULL==FULL determinism) + schema+data+ledger digest + verdict as
+verify-identical. Two loud guards refuse a meaningless run: the prior must be
+incremental-ELIGIBLE (AC#2 fingerprint gate — migrations <= its version unchanged
+in this tree) and the delta must be MULTI-migration (> 1).
+
+Requires 'sb start all' (template_statbus + a live db container) and registry
+read access (the image is auto-pulled). DESTRUCTIVE to the dedicated ` + seedVerifyDBName + `_a/_b
+databases only (never the real seed DB). Run on demand — not part of CI.
+
+  ./sb db seed verify-multidelta --prior-image ghcr.io/statisticsnorway/statbus-seed:<release-commit-short>`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return verifySeedMultiDelta(config.ProjectDir(), priorImageRef)
+	},
+}
+
 func init() {
 	seedVerifyIdenticalCmd.Flags().BoolVar(&keepVerifyDBs, "keep-dbs", false,
 		"preserve the seed-verify databases on exit (for live inspection of a mismatch)")
 	seedCmd.AddCommand(seedVerifyIdenticalCmd)
+
+	seedVerifyMultiDeltaCmd.Flags().StringVar(&priorImageRef, "prior-image", "",
+		"published statbus-seed:<release-commit-short> image to restore as the real prior base (required)")
+	seedVerifyMultiDeltaCmd.Flags().BoolVar(&keepVerifyDBs, "keep-dbs", false,
+		"preserve the seed-verify databases on exit (for live inspection of a mismatch)")
+	_ = seedVerifyMultiDeltaCmd.MarkFlagRequired("prior-image")
+	seedCmd.AddCommand(seedVerifyMultiDeltaCmd)
 }
