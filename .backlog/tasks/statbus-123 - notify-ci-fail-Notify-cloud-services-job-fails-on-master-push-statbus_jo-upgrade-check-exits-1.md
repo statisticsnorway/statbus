@@ -1,5 +1,5 @@
 ---
-id: STATBUS-120
+id: STATBUS-123
 title: >-
   notify-ci-fail: 'Notify cloud services' job fails on master push (statbus_jo
   upgrade check exits 1)
@@ -13,7 +13,7 @@ labels:
   - notify
   - investigation
 dependencies: []
-ordinal: 120000
+ordinal: 123000
 ---
 
 ## Description
