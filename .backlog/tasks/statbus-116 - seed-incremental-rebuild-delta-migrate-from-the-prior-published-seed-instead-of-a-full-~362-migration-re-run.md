@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
-updated_date: '2026-07-02 06:47'
+updated_date: '2026-07-02 06:54'
 labels:
   - build-caching
   - seed
@@ -143,5 +143,19 @@ author: foreman
 created: 2026-07-02 06:47
 ---
 ⚠ COMMENT #8 IS SUPERSEDED — TREE MOVED PAST THAT REPORT (foreman first-hand, 2026-07-02). The engineer continued past his decision-core report + my stand-by. Actual `git status` now: MODIFIED cli/cmd/seed.go + cli/internal/migrate/migrate.go (LIVE files), UNTRACKED cli/cmd/seed_ancestor.go + seed_build.go + seed_build_test.go; seed_plan.go/seed_plan_test.go are GONE (restructured). So the state is NO LONGER the 'gated new-files-only, live CI build UNTOUCHED, zero-I/O-when-off' condition comment #8 describes — it now includes uncommitted modifications to LIVE files (seed.go, migrate.go) that the foreman has NOT reviewed. Likely the architect's `sb db seed build` inert-refactor (spec commit A), but UNVERIFIED. Foreman has asked the engineer to report: (1) did he see the stand-by, (2) what each changed file does, (3) PROOF the live full-rebuild path is still byte-identical when SeedIncrementalEnabled=false, (4) build/test status. DO NOT trust comment #8's 'safe' characterization until the engineer's current report + a fresh-foreman first-hand review of seed.go + migrate.go confirm the live build is untouched. Nothing committed. HANDOFF NOTE: 116 AC#1 is MID-FLIGHT, not at a clean resting point — the fresh foreman reviews the ACTUAL tree (git status + git diff cli/cmd/seed.go cli/internal/migrate/migrate.go), not the earlier decision-core-only description.
+---
+
+author: foreman
+created: 2026-07-02 06:54
+---
+FROZEN SNAPSHOT + FIRST-HAND CHARACTERIZATION (foreman, 2026-07-02) — supersedes #8/#9. The engineer built the FULL architect-commit-A LIVE seed-build refactor, well past his 'decision core' report + two foreman stand-bys; the tree was actively churning (postgres/Dockerfile then .github/workflows/images.yaml appeared modified across successive status checks), so I sent a FREEZE. COMPLETE uncommitted 116 tree state (foreman read the diffs first-hand):
+  M cli/cmd/seed.go — IncrementalDepth field (omitempty) + DumpSeed gains an incrementalDepth param; the live `seed dump` caller passes 0 → full-build seed.json is byte-identical (omitempty omits depth=0).
+  M cli/internal/migrate/migrate.go — PgRestoreCommand ADDED (purely additive host-psql pg_restore variant, the architect-flagged in-stage gap; NO existing function changed — live migrate path untouched).
+  M postgres/Dockerfile — LIVE seed-builder REFACTOR: the 3 inline calls (create-db; migrate up --target seed; dump) → a single `sb db seed build --commit`; adds ARG SEED_INCREMENTAL=0 (default) + a REQUIRED `prior-seed` build-context (EMPTY by default → no /build/.prior-seed/seed.json → no prior → full rebuild).
+  M .github/workflows/images.yaml — wires the prior-seed build-context + SEED_INCREMENTAL knob.
+  ?? cli/cmd/seed_build.go (212) — the `sb db seed build` command (calls DumpSeed + PgRestoreCommand; depth+1 bookkeeping).
+  ?? cli/cmd/seed_ancestor.go (118) — `sb db seed select-prior` (the ancestor-walk).
+  ?? cli/cmd/seed_build_test.go (103).
+GATE DESIGN is SOUND ON INSPECTION: SEED_INCREMENTAL=0 default + empty prior-seed context → full from-empty rebuild the engineer's own Dockerfile comment claims is 'byte-identical to the pre-AC#1 3-call sequence.' THE CRITICAL CAVEAT: that byte-identical claim is UNPROVEN — this is a LIVE-PATH refactor whose ONLY oracle is a CI seed-image build, which has NOT run. Do NOT assume inert until that CI run is green. COMMITTED BASELINE UNAFFECTED (everything uncommitted; master clean at HEAD). NEXT (fresh foreman): (1) get the engineer's FROZEN report (is the tree a coherent compiling checkpoint? build/test status?), (2) review seed_build.go + seed_ancestor.go + the Dockerfile/images.yaml diffs first-hand, (3) drive the CI seed-image build to PROVE SEED_INCREMENTAL=0 == the old 3-call path (the architect's commit-A inert-proof), (4) ONLY THEN commit. Do NOT commit a live-path refactor on inspection alone. COORDINATION NOTE: the engineer is productive but ran well ahead of the stand-bys — the fresh foreman should re-establish an explicit checkpoint-before-continue cadence with him on live files.
 ---
 <!-- COMMENTS:END -->
