@@ -81,14 +81,25 @@ fi
 STAGED_MIGRATIONS=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^migrations/.*\.sql$' || true)
 
 if [ -n "$STAGED_MIGRATIONS" ]; then
+    # EXEMPTION (STATBUS-118): synthetic upgrade-arc test fixtures
+    # (migrations/*_upgrade_arc*.{up,down}.sql) are throwaway, test-only migrations
+    # created by construct_upgrade_target on never-merged test/upgrade-arc-* branches.
+    # They have no schema-doc impact and never reach main, so the doc/db pairing
+    # requirement genuinely does not apply. If EVERY staged migration is such a
+    # fixture, skip ONLY this pairing check — every other check in this hook still
+    # runs. This is a NAMED in-guard exemption that REPLACES a call-site
+    # `git commit --no-verify` (which would also blow past the tmp/, PlantUML, and
+    # security-report checks): the policy is declared where it is enforced, not worked
+    # around at the commit site. Do NOT broaden this pattern to real migrations.
+    NON_FIXTURE_MIGRATIONS=$(echo "$STAGED_MIGRATIONS" | grep -vE '_upgrade_arc(_2)?\.(up|down)\.sql$' || true)
     STAGED_DOCDB=$(git diff --cached --name-only --diff-filter=ACMD | grep -E '^doc/db/' || true)
-    if [ -z "$STAGED_DOCDB" ]; then
+    if [ -n "$NON_FIXTURE_MIGRATIONS" ] && [ -z "$STAGED_DOCDB" ]; then
         echo "COMMIT REJECTED"
         echo "-----------------"
         echo "Error: Migration commit lacks paired doc/db/ regeneration."
         echo
-        echo "Staged migrations:"
-        echo "$STAGED_MIGRATIONS" | sed 's/^/  /'
+        echo "Staged migrations requiring doc/db pairing:"
+        echo "$NON_FIXTURE_MIGRATIONS" | sed 's/^/  /'
         echo
         echo "WHY: migrations changing function/view/procedure/table definitions are"
         echo "illegible at the SQL-text level (CREATE OR REPLACE FUNCTION blobs hide"
