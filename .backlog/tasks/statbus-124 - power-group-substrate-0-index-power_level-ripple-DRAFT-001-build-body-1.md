@@ -4,8 +4,9 @@ title: 'power-group-substrate: 0-index power_level ripple (DRAFT-001 build body 
 status: In Progress
 assignee:
   - architect
+  - tester
 created_date: '2026-07-02 18:03'
-updated_date: '2026-07-02 18:49'
+updated_date: '2026-07-02 19:02'
 labels:
   - power-group
   - api
