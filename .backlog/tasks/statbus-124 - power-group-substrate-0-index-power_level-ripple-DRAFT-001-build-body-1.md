@@ -1,10 +1,11 @@
 ---
 id: STATBUS-124
 title: 'power-group-substrate: 0-index power_level ripple (DRAFT-001 build body 1)'
-status: To Do
+status: In Progress
 assignee:
-  - engineer
+  - architect
 created_date: '2026-07-02 18:03'
+updated_date: '2026-07-02 18:49'
 labels:
   - power-group
   - api
