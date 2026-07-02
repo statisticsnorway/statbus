@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
-updated_date: '2026-07-02 17:48'
+updated_date: '2026-07-02 18:08'
 labels:
   - build-caching
   - seed
@@ -175,5 +175,11 @@ author: foreman
 created: 2026-07-02 17:48
 ---
 AC#6 BUILD PLAN APPROVED (foreman reviewed first-hand, 2026-07-02 ~17:50) — tmp/plans/statbus-116-ac6-plan.md (engineer, grounded vs committed code). Shape: new `sb db seed verify-multidelta --prior-image <ref>` — restore a REAL published prior-RELEASE seed image (frozen physical layout from a past CI build) + that release's MANY-migration delta, vs a full from-empty rebuild; the ONLY test that can see physical-state-dependent migrations across the restored-base boundary (AC#4's manufactured-from-empty prior is structurally blind to them). Reuses the certified verify-identical apparatus verbatim (computeSeedDigest/control/verdict untouched); new code confined to seed_verify.go + a small test; ZERO live-path files; incremental stays DISABLED. FOREMAN RULING: explicit --prior-image ONLY (engineer's Option A) — no auto-select in this slice; deterministic, guarantees a genuine multi-delta, evidence records the exact release boundary proven. Two loud guards specced: eligibility (SeedBuildDecision fingerprint — refuse a retro-edited base) + multi-delta (≤1 delta → fail; cannot silently degenerate to AC#4). Engineer building; commit held for foreman review; then the RUN (real release image, live local stack) is the AC#6 oracle → GREEN + King go-ahead → the one-line flip.
+---
+
+author: foreman
+created: 2026-07-02 18:08
+---
+AC#6 TOOLING COMMITTED 573655b81 + ORACLE RUN DISPATCHED (foreman, 2026-07-02 ~18:10). Foreman reviewed the full diff first-hand (+254/-21, seed_verify.go + test only): the priorSource refactor keeps verify-identical's flow literally intact (same secondHighestVersion→migrate-to-V_prev→dump inside manufacturedPriorSource); imagePriorSource extracts a real published seed via extractSeedFromImage + parses V_release fail-loud; BOTH guards present and loud (eligibility via SeedBuildDecision; multi-delta ≤1→refuse); delta counted from the FULL build's db.migration ledger (correct oracle); 2 new pure differential tests. Foreman re-ran build/vet/targeted tests GREEN before committing. Engineer's 3 in-spirit deviations accepted (pure-predicate tests over DB-stub; --keep-dbs parity; cobra required flag). Accepted nicety-gap: guards run AFTER the ~4-min control phase, so a bad image ref fails late — harmless for an on-demand tool. ORACLE RUN dispatched to the engineer against the operator's inventory (rc.04 c4692562 → rc.03 d0992498 → rc.02 b3db8bac if the multi-delta guard rejects closer bases). GREEN → AC#6 checks → the one-line flip goes to the King. Commit-msg hook note: 'AC#6'-style shorthand trips the bare-ticket-reference guard (hash+digits) — write 'criterion 6' in commit messages.
 ---
 <!-- COMMENTS:END -->
