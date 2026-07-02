@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-06-26 11:30'
-updated_date: '2026-07-02 06:33'
+updated_date: '2026-07-02 18:24'
 labels:
   - upgrade
   - recovery
@@ -149,5 +149,11 @@ author: foreman
 created: 2026-07-02 06:33
 ---
 ARCHITECT REVIEW — BOTH DECISIONS CONFIRMED post-commit (first-hand diff read, 2026-07-02). Validates the foreman's own-review commit 3ff119b8a. (1) F2=B docker extension: bug-free + necessary — verified NO double `-e` clobber (injectPsqlAppName uses PGAPPNAME, injectReadOnlyExempt uses PGOPTIONS — distinct vars coexist after `exec`); host-mode merge correct (Go os/exec dedupes keeping LAST → exemption wins AND operator PGOPTIONS preserved); scoped to write runners only. (2) completion-OFF placed after the proven-live completed-UPDATE (not the stale-prone maintenance-off site): CONFIRMED + ACCEPT the sub-second window — do NOT close it, since co-locating maintenance-OFF would move it past the completed-UPDATE+NOTIFY and entangle the STATBUS-090 fix (real regression surface for a marginal UX gain). Terminals spot-check all correct; inline `./sb install` path covered (ExecuteUpgradeInline Execs on queryConn). Nothing to change. NEXT (unchanged): the install-recovery VM arc-run (STATBUS-071) is the only end-to-end oracle — sequence after the 118 harness fix lands so the arc targets a fixed controlled-B, not a moving HEAD.
+---
+
+author: foreman
+created: 2026-07-02 18:24
+---
+⚠ SUSPECTED VM-ARC REGRESSION — the first real-VM exercise of the read-only window (arc run 28609876020, base includes 3ff119b8a) FAILED both working+failing arcs on HEALTHCHECK_REST_DOWN: after the upgrade's service restart, PostgREST admin /ready stayed 503 ('schema cache still loading') past the 5-min health window and the arcs timed out at 20 min; Jun-19 baselines passed the same step in ~69s. MECHANISM HYPOTHESIS (unproven): the design lifts read-only only AFTER the proven-live completed-UPDATE (comment #3), so waitForRestReady polls /ready while the app DB is still default_transaction_read_only=on — if anything in PostgREST's coming-up path needs a write (or a NOTIFY, which PostgreSQL forbids in read-only transactions), readiness wedges → forward step fails → every upgrade would now fail its health check. The rollback side worked (failing/B reached rolled_back correctly). EVIDENCE RUN DISPATCHED: mechanic local repro (restart rest under ALTER DATABASE ... read_only=on, capture REST's own error lines, mandatory RESET cleanup). If confirmed: fix design → architect (within the ratified accident-guard intent — candidate levers: exempt the authenticator role's session, or move the OFF point before the health check and re-derive the crash-freeze story), King nod, then arc re-run. AC#1-#3 remain UNCHECKED — correctly: the arc is doing its job.
 ---
 <!-- COMMENTS:END -->
