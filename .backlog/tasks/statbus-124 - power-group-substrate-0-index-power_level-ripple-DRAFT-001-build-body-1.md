@@ -1,12 +1,12 @@
 ---
 id: STATBUS-124
 title: 'power-group-substrate: 0-index power_level ripple (DRAFT-001 build body 1)'
-status: In Progress
+status: Done
 assignee:
   - architect
   - tester
 created_date: '2026-07-02 18:03'
-updated_date: '2026-07-02 19:40'
+updated_date: '2026-07-02 19:43'
 labels:
   - power-group
   - api
@@ -39,11 +39,11 @@ Migration discipline: dump current definitions first (`\sf`), surgical edits, up
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 import.process_power_group_link BFS seeds root at level 0; children = parent+1
-- [ ] #2 power_group_membership view reports root rows at power_level 0
-- [ ] #3 power_group_def.depth = max(power_level) with the -1 removed; depth/width/reach values unchanged vs today's semantics
-- [ ] #4 tests 117/118/120 assert 0-based levels and pass; expected .out blessed by intent (no blind re-baseline)
-- [ ] #5 doc/power-groups.md scenarios re-numbered to 0-base
+- [x] #1 import.process_power_group_link BFS seeds root at level 0; children = parent+1
+- [x] #2 power_group_membership view reports root rows at power_level 0
+- [x] #3 power_group_def.depth = max(power_level) with the -1 removed; depth/width/reach values unchanged vs today's semantics
+- [x] #4 tests 117/118/120 assert 0-based levels and pass; expected .out blessed by intent (no blind re-baseline)
+- [x] #5 doc/power-groups.md scenarios re-numbered to 0-base
 <!-- AC:END -->
 
 ## Comments
@@ -71,5 +71,11 @@ author: architect
 created: 2026-07-02 19:40
 ---
 GREEN + BLESSED, commit HELD for foreman (architect, 2026-07-02). Fresh seed+template rebuild: migration 20260702185257 applies clean. 117/118/120 expected .out blessed after FULL-diff review (every line a pure power_level renumber 1→0/2→1/3→2/4→3; depth/width/reach values UNCHANGED — those assertion lines absent from all diffs = AC#3 satisfied). 120 power_group-name diff RESOLVED (root 'Import Alpha Corp' restored by the timeline_power_group_def/refresh + statistical_unit_enterprise_id root-selector fixes). 119 PASS + 018 PASS (blast radius = exactly 117/118/120). AC#1-#5 all met. Pathspec for commit: the 2 migration files + test/sql/{117,118,120}*.sql + test/expected/{117,118,120}*.out + doc/power-groups.md. En-route defects caught by re-questioning-not-blessing: wider 6-object ripple, stale-template artifact (→STATBUS-126), WARN-in-migration from a 2>&1 dump — all fixed.
+---
+
+author: foreman
+created: 2026-07-02 19:43
+---
+COMMITTED 4a8bf7c59 + PUSHED — DONE. Foreman first-hand review: the up-vs-down diff exposed exactly the 8 designed surgical hunks (BFS seed 1→0 + iter -1; membership root 0; def depth=max + width filter 1; the ±1 stored-level data re-base; 3 root-selectors →0), zero WARN pollution. Tests 117/118/120 GREEN against by-intent-blessed expected output on a fresh seed+template; 119 + 018 pass untouched (blast radius). The pre-commit pairing hook caught the one package gap — doc/db regen — and the regen changed EXACTLY the six migrated objects (independent scope confirmation); types unchanged (no table shapes). BUILD HISTORY WORTH KEEPING: the ripple was 6 objects, not the designed 3 (DRAFT-001 under-counted the root-selectors — caught by intent-review of 120's name flip); a stale-template false result cost one cycle (→ STATBUS-126 filed); a stale-./sb WARN banner polluted the dumped definitions via 2>&1 (→ AGENTS.md warning committed 06ae3b9f6). STATBUS-125 (hierarchy shapes) is now unblocked; awaiting the King's sequencing.
 ---
 <!-- COMMENTS:END -->
