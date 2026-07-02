@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
-updated_date: '2026-07-02 18:50'
+updated_date: '2026-07-02 19:27'
 labels:
   - build-caching
   - seed
@@ -193,5 +193,11 @@ author: foreman
 created: 2026-07-02 18:50
 ---
 DRIFT DIAGNOSED (engineer, tmp/ac6-rc03-finding.md; kept DBs preserved for inspection): the RED is localized, surrogate-key-only nondeterminism — 10 rows, ALL step_id=19 (legal_relationship); natural-key content hash IDENTICAL with-and-without-id proof; GENERATED ALWAYS identity ids permuted (128-138); import_mapping diverges only by FK-following those ids. Mechanism: the step-19 import_data_column INSERT (migration 20260218215337 or a later reinsert) lacks a deterministic ORDER BY, unlike the external_idents/stat_variables generators — id assignment is physical-order-dependent. PRE-EXISTING, invisible to criterion-4 by construction. Engineer recommends FIX (add ORDER BY on a stable natural key; pre-first-release migration edit) over digest-normalization (weaker — the id is a real FK target). ROUTED TO ARCHITECT for adversarial verification before any action: completeness of 'benign' (scan ALL consumers of import_data_column.id), pin the exact INSERT file:line, rule fix-vs-normalize, and check the known prior GENERATED-ALWAYS issue in git history first. Incremental stays DISABLED; engineer moved to the 109 build meanwhile.
+---
+
+author: foreman
+created: 2026-07-02 19:27
+---
+DRIFT FIX SHIPPED + LOCAL PROOF GREEN (foreman, 2026-07-02 ~19:27). Three commits, each foreman-reviewed first-hand: 55cae593d (git-derived eligibility for pre-fingerprint priors — validated live by the rc.03 run), 8b5912a9a (the ORDER BY derived_priority fix in migration 20260218215337 — data-only, committed via the pairing hook's own documented data-only override), b19ca9d5d (test 018: ids_follow_priority=t GREEN — enforces the invariant forward; header attributes the discovery to the multi-delta oracle; the brittle perturbation variant deliberately SKIPPED per no-flaky-tests). GREEN-PATH RULING (engineer analysis, foreman-ratified): rc.03 can never re-green post-fix — correctly (eligibility refuses the edited migration; its baked ids predate the fix); no local prior can distinguish fixed-from-unfixed (from-empty priors share FULL's layout — the same blindness that hid this from criterion 4). The TRUE confirming run = verify-multidelta against the NEXT post-fix published seed once a genuine migration delta accumulates — deferred BY CONSTRUCTION. ⇒ PENDING ON THE KING: the enable-flip timing fork — (a) wait for the deferred confirming run (conservative; the ~2min→seconds win arrives with the next migration-bearing cycle), or (b) flip earlier on test-018 + the certified single-delta proof, with the multi-delta run as a post-enable confirming gate. Criterion 6's checkbox waits for the confirming run either way.
 ---
 <!-- COMMENTS:END -->
