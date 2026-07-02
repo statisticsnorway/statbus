@@ -2,6 +2,16 @@ BEGIN;
 
 \i test/setup.sql
 
+-- SCOPE (STATBUS-116): this test ENFORCES + documents the invariant that the
+-- legal_relationship step's import_data_column ids follow priority order — i.e.
+-- the GENERATED-ALWAYS ids are priority-determined after migration
+-- 20260218215337 gained ORDER BY derived_priority. It does NOT reproduce the
+-- cross-build divergence locally: on one machine two from-empty builds share a
+-- physical layout, so the ids are co-monotonic even without the fix. The
+-- differential evidence that the bug was real is the AC#6 multi-delta oracle RED
+-- against the rc.03 published seed (recorded on STATBUS-116); the true
+-- cross-build regression gate is the deferred post-fix seed run (Part 2).
+
 CALL test.set_user_from_email('test.admin@statbus.org');
 
 \echo "Test: import_data_column identity ids are assigned deterministically by priority (STATBUS-116)"
