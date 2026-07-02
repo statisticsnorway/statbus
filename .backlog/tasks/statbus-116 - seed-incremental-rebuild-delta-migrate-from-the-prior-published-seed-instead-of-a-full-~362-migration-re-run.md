@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
-updated_date: '2026-07-02 06:27'
+updated_date: '2026-07-02 06:34'
 labels:
   - build-caching
   - seed
@@ -125,5 +125,11 @@ author: foreman
 created: 2026-07-02 06:27
 ---
 HANDOFF STATE (2026-07-02). COMMITTED: foundation c7b0ac286 (fingerprint + SeedBuildDecision gate), AC#4 harness 29dd68392 + certified 2b6ca801e (`sb db seed verify-identical` — semantic INCR==FULL PROVEN single-delta: schema+data+ledger identical; logical-equivalence oracle, King-validated). FORK A DECIDED (King) = ANCESTOR-WALK: walk to the CLOSEST published seed; migrations/ UNCHANGED vs ancestor → reuse AS-IS (no rebuild); delta-migrate ONLY when migrations/ changed. AC#1 wiring DISPATCHED to the engineer 2026-07-02 (his warm foundation; disjoint from recovery-core): ancestor-walk + restore-prior + delta-migrate in postgres/Dockerfile, composing with AC#2 fingerprint-fallback (retro-edit ≤ancestor → FULL rebuild). CRITICAL GATE: incremental stays DISABLED behind the AC#6 pre-enable physical-state check — build the wiring, do NOT flip live (AC#4 exists; AC#6 multi-delta is the pre-enable gate). REMAINING: AC#1 wiring (in progress) → AC#6 multi-delta pre-enable check → enable + AC#3 baseline (Fork B ruled B1: IncrementalDepth in seed.json + release=full) + AC#5 measure. Robustness follow-ups (multi-V_prev, sequence-last_value digest, catalog-introspection) in the task Impl-Notes = niceties, not gates. STATBUS-119 (byte-reproducibility) CLOSED red-herring.
+---
+
+author: foreman
+created: 2026-07-02 06:34
+---
+ARCHITECT AC#1 CONCRETE SPEC READY → tmp/plans/statbus-116-ac1-wiring-spec.md (numbered, grounded first-hand against committed code; engineer building to it, 2026-07-02). Key findings that shape the build: (1) CORRECTION — the seed-builder is a `docker build` STAGE (postgres/Dockerfile:452): no daemon, can't `docker pull`, so the Fork-A ancestor-walk runs on the HOST (CI/dev) and the prior seed is INJECTED as a build-context (idiomatic, Dockerfile:449 already does this); restore+delta+dump runs IN-STAGE via a new `sb db seed build`. This is BUILD-time (Dockerfile:514 tentpole), NOT executeUpgrade/upgrade-time. (2) Incremental = the full path + ONE optional restore step → refactor risk near-zero. (3) GAP: seed_verify.go's restoreVerifyDB uses `docker compose exec` → won't work in-stage; write a HOST-psql pg_restore variant (PgRestoreCommand, mirror PgDumpCommand). (4) GATE (centerpiece): build ALL wiring INERT; incremental stays OFF until ONE reviewable line-flip images.yaml SEED_INCREMENTAL_ENABLED=true, taken AFTER AC#6 green — default off → byte-identical to today's full rebuild; commit defaults it off. Two-gate: HOST enable-gate (AC#6) + STAGE correctness-gate (AC#2 SeedBuildDecision fallback, already committed c7b0ac286). (5) STAGING: 2 commits — (A) refactor the 3 inline Dockerfile calls into `sb db seed build` proven inert via a CI seed-image build; (B) add select-prior + incremental branch + gated images.yaml walk. Each CI-verified (the run is the oracle).
 ---
 <!-- COMMENTS:END -->
