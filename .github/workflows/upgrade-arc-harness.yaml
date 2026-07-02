@@ -99,8 +99,14 @@ jobs:
           RUN_ID: ${{ github.run_id }}
         run: |
           set -euo pipefail
-          git config user.name  "statbus-upgrade-arc[bot]"
-          git config user.email "statbus-upgrade-arc@users.noreply.github.com"
+          # Single source of truth for B/C branch construction (STATBUS-118).
+          # All inline logic (key gen + write_working_v + write_failing_v + build_pair
+          # + push) has moved to the library; this step drives it.
+          . test/install-recovery/lib/upgrade-target.sh
+
+          base_sha="${BASE_SHA_INPUT:-${GITHUB_SHA}}"
+          base_short="$(git rev-parse --short=8 "$base_sha")"
+          echo "A (base) = ${base_sha}"
 
           # Ephemeral SSH signing key: B/C are CI commits → unsigned → the daemon's
           # MANDATORY verifyCommitSignature rejects them. Sign B+C with a throwaway
@@ -109,154 +115,44 @@ jobs:
           # verification is untouched — the gate stays mandatory AND is now actually
           # exercised by the arc. Principal is KEY-based, not committer-email-matched
           # (proven in prod: UPGRADE_TRUSTED_SIGNER_jhf verifies non-jhf-committer
-          # commits). Private key stays on the runner (discarded with the job).
-          ssh-keygen -t ed25519 -N '' -C 'upgrade-arc-ephemeral' -f /tmp/arc_signer
-          git config gpg.format ssh
-          git config user.signingkey /tmp/arc_signer
-          # arc_pubkey = "<type> <key>" (drop the comment field — allowed_signers
-          # takes "<principal> <type> <key>"; a trailing comment isn't standard there).
-          arc_pubkey="$(cut -d' ' -f1-2 /tmp/arc_signer.pub)"
+          # commits). Key generation is OWNED BY the library (construct_upgrade_target):
+          # the first call generates+exports ARC_SIGNING_KEY; the second call inherits
+          # it → ONE key / ONE pubkey guaranteed by the code, not by the caller. No
+          # manual ssh-keygen or export needed here. Private key discarded with runner.
 
-          base_sha="${BASE_SHA_INPUT:-${GITHUB_SHA}}"
-          base_short="$(git rev-parse --short=8 "$base_sha")"
-          echo "A (base) = ${base_sha}"
-
-          # V's version = max existing migration version + 1 → V sorts AFTER every
-          # migration present at A, so it is genuinely PENDING when the box upgrades
-          # A→B. ONE shared version across both lineages (foreman §7 spec). The V
-          # FILE basename is shared too (lineages live on separate branches → no
-          # tree collision); the arc asserts on the TABLE name, not the filename.
-          git checkout -q "$base_sha"
-          latest="$(printf '%s\n' migrations/*.up.sql | sed -E 's#.*/([0-9]{14})_.*#\1#' | sort -n | tail -1)"
-          # TWO migrations (doc-017 §5, architect option a): V (migration 1) + V2
-          # (migration 2), both PENDING + sorting after every migration at A. V2
-          # gives :911 between-migrations a real "N recorded, N+1 pending" gap;
-          # after-commit + mid-migration + mid-tx are subsets of the same fixture.
-          v_version="$((latest + 1))"
-          v_version_2="$((latest + 2))"
-          v_up="migrations/${v_version}_upgrade_arc.up.sql"
-          v_down="migrations/${v_version}_upgrade_arc.down.sql"
-          v2_up="migrations/${v_version_2}_upgrade_arc_2.up.sql"
-          v2_down="migrations/${v_version_2}_upgrade_arc_2.down.sql"
-          echo "V versions = ${v_version} (${v_up}) + ${v_version_2} (${v2_up})"
-
-          # write_working_v — the WORKING fixture migration (succeeds; observable).
-          # Used for the working B AND the failing C (the fix that replaces V_fail).
-          # NON-IDEMPOTENT by design (CREATE TABLE without IF NOT EXISTS): a re-apply
-          # CONFLICTS (`already exists`) — load-bearing for the after-commit arcs'
-          # deterministic rollback (doc-017 §3). Written via echo-blocks, NOT a
-          # heredoc (a heredoc body dedented below the YAML `run: |` indent breaks
-          # the literal scalar).
-          write_working_v() {
-            # Migration 1 — upgrade_arc_fixture. NON-IDEMPOTENT (CREATE TABLE w/o
-            # IF NOT EXISTS): a re-apply CONFLICTS (`already exists`) → load-bearing
-            # for the after-commit arcs' deterministic rollback (doc-017 §3).
-            {
-              echo "-- Upgrade-arc fixture migration 1 (STATBUS-071). Observable + reversible;"
-              echo "-- the arc asserts public.upgrade_arc_fixture exists with its row."
-              echo "CREATE TABLE public.upgrade_arc_fixture ("
-              echo "    id integer PRIMARY KEY,"
-              echo "    note text NOT NULL"
-              echo ");"
-              echo "INSERT INTO public.upgrade_arc_fixture (id, note) VALUES (1, 'arc');"
-            } > "$v_up"
-            echo "DROP TABLE IF EXISTS public.upgrade_arc_fixture;" > "$v_down"
-            # Migration 2 — upgrade_arc_fixture_2 (a SEPARATE table → fixture_row_count
-            # on upgrade_arc_fixture is unchanged; existing arcs' asserts unaffected).
-            # Also non-idempotent. Gives :911 between-migrations a real N-recorded/
-            # N+1-pending gap; the completed CAT-C arcs assert db.migration max=V2.
-            {
-              echo "-- Upgrade-arc fixture migration 2 (STATBUS-071 5d / doc-017 §5)."
-              echo "CREATE TABLE public.upgrade_arc_fixture_2 ("
-              echo "    id integer PRIMARY KEY,"
-              echo "    note text NOT NULL"
-              echo ");"
-              echo "INSERT INTO public.upgrade_arc_fixture_2 (id, note) VALUES (1, 'arc2');"
-            } > "$v2_up"
-            echo "DROP TABLE IF EXISTS public.upgrade_arc_fixture_2;" > "$v2_down"
-          }
-
-          # write_failing_v — the FAILING fixture migration (RAISE EXCEPTION →
-          # executeUpgrade's migrate up fails → autonomous rollback; STATBUS-071 d).
-          write_failing_v() {
-            {
-              echo "-- Upgrade-arc FAILING fixture (STATBUS-071 d): deterministic failure → rollback."
-              echo "DO \$\$ BEGIN"
-              echo "  RAISE EXCEPTION 'upgrade-arc failing fixture: deliberate migration failure (STATBUS-071 d)';"
-              echo "END \$\$;"
-            } > "$v_up"
-            echo "SELECT 1;  -- V_fail commits nothing; rollback is the volume-restore" > "$v_down"
-          }
-
-          # build_pair <lineage> <b_writer> <c_mode> — build one B→C branch pair off
-          # A, sign both commits, emit <lineage>_{b,c}_{branch,short,full} outputs.
-          #   c_mode=amend : working — C prepends a comment (new bytes, same effect)
-          #                  → the runtime channel-bless re-stamps content_hash
-          #                  (STATBUS-102; the MANY who succeeded).
-          #   c_mode=fix   : failing — C replaces V_fail with the working migration;
-          #                  V_fail rolled back (unrecorded) so V_fixed applies FRESH
-          #                  (the FEW who failed).
-          build_pair() {
-            local lineage="$1" b_writer="$2" c_mode="$3"
-            local b_branch="test/upgrade-arc-${lineage}-migration-${RUN_ID}"
-            local c_branch="test/upgrade-arc-${lineage}-fixed-migration-${RUN_ID}"
-            echo "── building ${lineage} pair: B=${b_branch} C=${c_branch} ──"
-
-            git checkout -B "$b_branch" "$base_sha"
-            "$b_writer"
-            git add migrations/
-            git commit -S -q -m "test(upgrade-arc): ${lineage} migration V (B)"
-            local b_short b_full
-            b_short="$(git rev-parse --short=8 HEAD)"
-            b_full="$(git rev-parse HEAD)"
-
-            git checkout -B "$c_branch" "$b_branch"
-            if [ "$c_mode" = "amend" ]; then
-              local tmp_v
-              tmp_v="$(mktemp)"
-              { echo "-- amended in place (STATBUS-102 channel-bless re-stamp; result-preserving)"; cat "$v_up"; } > "$tmp_v"
-              mv "$tmp_v" "$v_up"
-              git add migrations/
-              git commit -S -q -m "test(upgrade-arc): ${lineage} amend V in place (C)"
-            else
-              write_working_v
-              git add migrations/
-              git commit -S -q -m "test(upgrade-arc): ${lineage} fix V in place (C, applies fresh)"
-            fi
-            local c_short c_full
-            c_short="$(git rev-parse --short=8 HEAD)"
-            c_full="$(git rev-parse HEAD)"
-
-            {
-              echo "${lineage}_b_branch=${b_branch}"
-              echo "${lineage}_c_branch=${c_branch}"
-              echo "${lineage}_b_short=${b_short}"
-              echo "${lineage}_c_short=${c_short}"
-              echo "${lineage}_b_full=${b_full}"
-              echo "${lineage}_c_full=${c_full}"
-            } >> "$GITHUB_OUTPUT"
-          }
-
+          # Build the working + failing fixture pairs off A (library sets caller-scope
+          # vars B_BRANCH/B_FULL/B_SHORT/C_BRANCH/C_FULL/C_SHORT/V_VERSION/V_VERSION_2/
+          # ARC_PUBKEY; each call also pushes its 2 branches to origin via git push -f).
           # ONE working pair + ONE failing pair cover every arc (§7 shared-fixture):
           # kill/stall arcs ride working; the failing + rollback-restore arcs ride
           # failing. The per-scenario contract is the arc's inject class + asserts.
-          build_pair working write_working_v amend
-          build_pair failing write_failing_v fix
+          construct_upgrade_target "$base_sha" working
+          working_b_branch="$B_BRANCH"; working_b_short="$B_SHORT"; working_b_full="$B_FULL"
+          working_c_branch="$C_BRANCH"; working_c_short="$C_SHORT"; working_c_full="$C_FULL"
 
-          # Push all 4 branches before dispatching images.yaml (gh dispatches
-          # against an existing remote ref).
-          git push -f origin \
-            "test/upgrade-arc-working-migration-${RUN_ID}" \
-            "test/upgrade-arc-working-fixed-migration-${RUN_ID}" \
-            "test/upgrade-arc-failing-migration-${RUN_ID}" \
-            "test/upgrade-arc-failing-fixed-migration-${RUN_ID}"
+          construct_upgrade_target "$base_sha" failing
+          failing_b_branch="$B_BRANCH"; failing_b_short="$B_SHORT"; failing_b_full="$B_FULL"
+          failing_c_branch="$C_BRANCH"; failing_c_short="$C_SHORT"; failing_c_full="$C_FULL"
 
+          # ARC_PUBKEY set (and exported) by the library on the first call above.
           {
             echo "base_sha=${base_sha}"
             echo "base_short=${base_short}"
-            echo "v_version=${v_version}"
-            echo "v_version_2=${v_version_2}"
-            echo "arc_pubkey=${arc_pubkey}"
+            echo "v_version=${V_VERSION}"
+            echo "v_version_2=${V_VERSION_2}"
+            echo "arc_pubkey=${ARC_PUBKEY}"
+            echo "working_b_branch=${working_b_branch}"
+            echo "working_c_branch=${working_c_branch}"
+            echo "working_b_short=${working_b_short}"
+            echo "working_c_short=${working_c_short}"
+            echo "working_b_full=${working_b_full}"
+            echo "working_c_full=${working_c_full}"
+            echo "failing_b_branch=${failing_b_branch}"
+            echo "failing_c_branch=${failing_c_branch}"
+            echo "failing_b_short=${failing_b_short}"
+            echo "failing_c_short=${failing_c_short}"
+            echo "failing_b_full=${failing_b_full}"
+            echo "failing_c_full=${failing_c_full}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Dispatch images.yaml for all 4 fixture branches (push does not trigger; dispatch does)
