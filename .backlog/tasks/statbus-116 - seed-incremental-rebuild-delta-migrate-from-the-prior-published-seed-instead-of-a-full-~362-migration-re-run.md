@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
-updated_date: '2026-06-30 22:52'
+updated_date: '2026-07-02 06:27'
 labels:
   - build-caching
   - seed
@@ -119,5 +119,11 @@ SCOPE (precise): AC#4 certifies SEMANTIC identity of reference data + schema bet
 The harness named + fixed, each differentially tested: BUG-1 all=true (the 1-migration-stub prior); \restrict/\unrestrict PG18 random-token strip; catalog-driven audit-column exclusion + a fail-loud SELF-GUARD (can't silently exclude a business-temporal column as the schema evolves); worker.tasks table-exclude (migration-driven deterministic, foreman-verified Dockerfile:512-516 migrate-only, no worker daemon); the round-trip pg_get_viewdef redundant-cast-alias normalize on statistical_unit_def (collapses ONLY alias==type-name, never a real rename). Control-first gates the verdict on a deterministic instrument. Foreman reviewed the full diff (seed_verify.go +346/-67, test +125) first-hand; build/test/vet/gofmt green; harness only, incremental stays DISABLED.
 
 Three structural seed non-reproducibility findings surfaced + folded into STATBUS-119 (audit-timestamp defaults, worker.tasks scheduled_at, view-deparse non-idempotence — all semantically inert). dev-seed ≠ shipped-seed worker.tasks state noted there too.
+---
+
+author: foreman
+created: 2026-07-02 06:27
+---
+HANDOFF STATE (2026-07-02). COMMITTED: foundation c7b0ac286 (fingerprint + SeedBuildDecision gate), AC#4 harness 29dd68392 + certified 2b6ca801e (`sb db seed verify-identical` — semantic INCR==FULL PROVEN single-delta: schema+data+ledger identical; logical-equivalence oracle, King-validated). FORK A DECIDED (King) = ANCESTOR-WALK: walk to the CLOSEST published seed; migrations/ UNCHANGED vs ancestor → reuse AS-IS (no rebuild); delta-migrate ONLY when migrations/ changed. AC#1 wiring DISPATCHED to the engineer 2026-07-02 (his warm foundation; disjoint from recovery-core): ancestor-walk + restore-prior + delta-migrate in postgres/Dockerfile, composing with AC#2 fingerprint-fallback (retro-edit ≤ancestor → FULL rebuild). CRITICAL GATE: incremental stays DISABLED behind the AC#6 pre-enable physical-state check — build the wiring, do NOT flip live (AC#4 exists; AC#6 multi-delta is the pre-enable gate). REMAINING: AC#1 wiring (in progress) → AC#6 multi-delta pre-enable check → enable + AC#3 baseline (Fork B ruled B1: IncrementalDepth in seed.json + release=full) + AC#5 measure. Robustness follow-ups (multi-V_prev, sequence-last_value digest, catalog-introspection) in the task Impl-Notes = niceties, not gates. STATBUS-119 (byte-reproducibility) CLOSED red-herring.
 ---
 <!-- COMMENTS:END -->
