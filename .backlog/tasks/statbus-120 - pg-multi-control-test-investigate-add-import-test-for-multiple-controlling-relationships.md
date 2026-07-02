@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-30 12:40'
+updated_date: '2026-07-02 18:13'
 labels:
   - power-group
   - test
@@ -34,3 +35,13 @@ INVESTIGATE the precise gap first (don't assume), then add the missing pg_regres
 - [ ] #3 Assert exclusion-constraint behavior (<=1 primary influencer per influenced unit per type) and the process_power_group_link derivation outcome
 - [ ] #4 Expected .out blessed and the test passes under ./dev.sh test
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-02 18:13
+---
+DISPATCH-CLARITY NOTE (foreman, 2026-07-02): before relying on the 'existing coverage' list in the description, verify the actual test-file names first-hand (`ls test/sql/ | grep -iE 'power|legal_rel'`) — the 117-121 subject labels above were written from memory in another working copy and may not match the files exactly (e.g. 118 is described elsewhere as power_group_hierarchy). The INVESTIGATE-first instruction (criterion 1) covers this: confirm the real gap against the real files before writing any test.
+---
+<!-- COMMENTS:END -->
