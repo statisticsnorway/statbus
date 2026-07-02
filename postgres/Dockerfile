@@ -447,6 +447,8 @@ CMD ["postgres"]
 # Multi-context build (same command locally and in CI):
 #   --build-context migrations=./migrations
 #   --build-context statbus-sb=docker-image://ghcr.io/.../statbus-sb:<commit_short>
+#   --build-context prior-seed=<dir>   (REQUIRED; pass an EMPTY dir for a full
+#                                       rebuild — the default. STATBUS-116 AC#1.)
 # Plan: install-any-commit-via-images.md §canonical-seed-sequence.
 ####################
 FROM pg-runtime-base AS seed-builder
@@ -458,6 +460,11 @@ ARG postgresql_major
 # which CI builds with the same full COMMIT; freshness.IsStale silently skips a
 # no-.git projDir, so a valid identity is all the guard needs here.)
 ARG COMMIT=unknown
+# STATBUS-116 AC#1 — incremental seed enable-gate. 0 (default) → `sb db seed build`
+# does a full from-empty rebuild, byte-identical to the pre-AC#1 3-call sequence.
+# CI (images.yaml) sets it to 1 ONLY when the repo-level SEED_INCREMENTAL_ENABLED
+# knob is on (the single reviewable flip, taken after AC#6). Must default 0 here.
+ARG SEED_INCREMENTAL=0
 USER root
 
 # sb binary from the published statbus-sb image (distroless: /sb at root).
@@ -467,6 +474,11 @@ COPY --from=migrations . /build/migrations/
 # Reference-data CSVs the migrations \copy from (dbseed/, repo root, ~2.5MB).
 # Migrations resolve these relative to projDir, so they must land at /build/dbseed/.
 COPY --from=dbseed . /build/dbseed/
+# STATBUS-116 AC#1 — the incremental base. ALWAYS present (build-context is
+# required), but EMPTY by default → no /build/.prior-seed/seed.json → `sb db seed
+# build` sees no prior → full rebuild. CI injects the closest published ancestor's
+# seed here (seed.pg_dump + seed.json) ONLY when incremental is enabled.
+COPY --from=prior-seed . /build/.prior-seed/
 
 # Faux project dir: config.ProjectDir() walks up for `.statbus`; PsqlCommand /
 # PgDumpCommand read connection keys from .env ONLY. DOCKER_PSQL=0 forces
@@ -503,16 +515,15 @@ RUN set -eu; \
            POSTGRES_ADMIN_USER=postgres POSTGRES_ADMIN_PASSWORD=build \
            POSTGRES_APP_DB=statbus_app POSTGRES_APP_USER=statbus_app POSTGRES_APP_PASSWORD=build \
            POSTGRES_AUTHENTICATOR_PASSWORD=build \
-           POSTGRES_NOTIFY_USER=notify_reader_user POSTGRES_NOTIFY_PASSWORD=build; \
+           POSTGRES_NOTIFY_USER=notify_reader_user POSTGRES_NOTIFY_PASSWORD=build \
+           SEED_INCREMENTAL="${SEED_INCREMENTAL:-0}"; \
     docker-entrypoint.sh postgres & \
     entrypoint_pid="$!"; \
     echo "seed-builder: waiting for postgres (TCP 127.0.0.1:5432)..."; \
     for _ in $(seq 1 120); do pg_isready -h 127.0.0.1 -U postgres -q && break; sleep 1; done; \
     pg_isready -h 127.0.0.1 -U postgres; \
-    echo "seed-builder: postgres up — create-db + migrate + dump"; \
-    sb db seed create-db; \
-    sb migrate up --target seed --verbose; \
-    sb db seed dump --commit "$COMMIT"; \
+    echo "seed-builder: postgres up — sb db seed build (SEED_INCREMENTAL=$SEED_INCREMENTAL)"; \
+    sb db seed build --commit "$COMMIT"; \
     test -s /build/.db-seed/seed.pg_dump; \
     test -s /build/.db-seed/seed.json; \
     echo "seed-builder: stopping postgres"; \

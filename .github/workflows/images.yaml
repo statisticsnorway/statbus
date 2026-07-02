@@ -161,6 +161,44 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # STATBUS-116 AC#1 — resolve the incremental base (Fork-A ancestor-walk),
+      # GATED on the repo/workflow variable SEED_INCREMENTAL_ENABLED (default
+      # false/unset). DEFAULT → an EMPTY prior context + SEED_INCREMENTAL=0 → the
+      # seed build does a full from-empty rebuild, byte-identical to pre-AC#1.
+      # THE FLIP = setting SEED_INCREMENTAL_ENABLED=true (one line), blocked on
+      # AC#6 green + the AC#3 depth-bound. NOTE for the flip: the enabled path also
+      # needs `fetch-depth: 0` on the checkout above (full history for the walk) and
+      # a host `sb` binary (extract from the statbus-sb image) — not needed while
+      # disabled, so left for the enable slice.
+      - name: Resolve incremental prior seed (gated; empty by default)
+        id: prior
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/prior-seed"
+          mkdir -p "$dir"
+          if [ "${{ vars.SEED_INCREMENTAL_ENABLED }}" != "true" ]; then
+            echo "seed incremental DISABLED (SEED_INCREMENTAL_ENABLED != true) — full rebuild, empty prior context"
+            echo "dir=$dir" >> "$GITHUB_OUTPUT"
+            echo "enabled=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Enabled path (post-AC#6): walk ancestry for the closest published seed
+          # and docker-cp it into the prior context. Falls back to full (empty dir)
+          # when no ancestor seed exists.
+          tag="$(./sb db seed select-prior || true)"
+          if [ -z "$tag" ]; then
+            echo "no published ancestor seed found — full rebuild"
+            echo "dir=$dir" >> "$GITHUB_OUTPUT"
+            echo "enabled=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "incremental base: $tag"
+          cid="$(docker create "$tag")"
+          docker cp "$cid:/seed.pg_dump" "$dir/seed.pg_dump"
+          docker cp "$cid:/seed.json"    "$dir/seed.json"
+          docker rm "$cid"
+          echo "dir=$dir" >> "$GITHUB_OUTPUT"
+          echo "enabled=1" >> "$GITHUB_OUTPUT"
       - name: Build and push statbus-seed (amd64)
         uses: docker/build-push-action@v6
         with:
@@ -177,10 +215,13 @@ jobs:
             migrations=./migrations
             dbseed=./dbseed
             statbus-sb=docker-image://${{ env.REGISTRY }}/${{ env.ORG }}/statbus-sb:${{ needs.describe.outputs.commit_short }}
+            prior-seed=${{ steps.prior.outputs.dir }}
           # Full 40-char SHA: feeds seed.json's CommitSHA (the seed-builder has
           # no .git) and matches the statbus-sb image's own ldflag identity.
+          # SEED_INCREMENTAL is 0 unless the gated `prior` step enabled it.
           build-args: |
             COMMIT=${{ github.sha }}
+            SEED_INCREMENTAL=${{ steps.prior.outputs.enabled }}
           # Reuse the db image's pg-runtime-base layers (same Dockerfile/context)
           # so the seed build SKIPS the ~20-min extension compile.
           cache-from: |

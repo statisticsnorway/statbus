@@ -46,9 +46,17 @@ type seedMeta struct {
 	// <= MigrationVersion and compare (see SeedBuildDecision). `omitempty` so a
 	// pre-116 seed.json without it still parses; absence ⇒ forced full rebuild.
 	MigrationsFingerprint string `json:"migrations_fingerprint,omitempty"`
-	CommitSHA             string `json:"commit_sha"`
-	Tags                  string `json:"tags"`
-	CreatedAt             string `json:"created_at"`
+	// IncrementalDepth is how many incremental (restore-prior + delta-migrate)
+	// builds this seed is removed from a full from-empty baseline: 0 for a full
+	// rebuild, prior.IncrementalDepth+1 for an incremental build (STATBUS-116
+	// AC#1). A bounded depth is what stops drift accumulating across a chain of
+	// incrementals — `sb db seed build` forces a full baseline once the depth cap
+	// is reached (the AC#3 enforcement cadence builds on this field). `omitempty`
+	// so a pre-116 seed.json parses clean (absent → 0 → treated as a full base).
+	IncrementalDepth int    `json:"incremental_depth,omitempty"`
+	CommitSHA        string `json:"commit_sha"`
+	Tags             string `json:"tags"`
+	CreatedAt        string `json:"created_at"`
 }
 
 var seedDatabase string
@@ -295,7 +303,9 @@ var seedDumpCmd = &cobra.Command{
 	Use:   "dump",
 	Short: "Dump the seed DB to .db-seed/ (no git publish)",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		_, err := DumpSeed(config.ProjectDir(), seedDumpCommit)
+		// `seed dump` writes a plain (non-incremental) dump → depth 0. The
+		// incremental depth+1 bookkeeping lives in `sb db seed build` (AC#1).
+		_, err := DumpSeed(config.ProjectDir(), seedDumpCommit, 0)
 		return err
 	},
 }
@@ -385,7 +395,7 @@ func CreateSeedDb(projDir string) error {
 // Per plan section R commit 4: dumps from `${POSTGRES_SEED_DB}` (the canonical
 // fresh-from-migrations baseline), NOT from `${POSTGRES_APP_DB}` (the runtime
 // dev DB which is contaminable by definition).
-func DumpSeed(projDir, commitOverride string) (seedMeta, error) {
+func DumpSeed(projDir, commitOverride string, incrementalDepth int) (seedMeta, error) {
 	// Verify the database is reachable — we need it for pg_dump and the
 	// migration version query. Connection-agnostic (QueryDB → PsqlCommand)
 	// so this works under DOCKER_PSQL=0 in the hermetic seed-builder, where
@@ -512,6 +522,7 @@ func DumpSeed(projDir, commitOverride string) (seedMeta, error) {
 		MigrationVersion:      migrationVersion,
 		PostRestoreSHA:        postRestoreSHA,
 		MigrationsFingerprint: migrationsFingerprint,
+		IncrementalDepth:      incrementalDepth,
 		CommitSHA:             commitSHA,
 		Tags:                  tags,
 		CreatedAt:             time.Now().UTC().Format(time.RFC3339),

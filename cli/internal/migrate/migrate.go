@@ -145,6 +145,35 @@ func PgDumpCommand(projDir string) (cmdPath string, prefixArgs []string, env []s
 	return hostPath, nil, hostEnv, nil
 }
 
+// PgRestoreCommand returns the command path, arg prefix, and environment for
+// running pg_restore — the pg_restore analogue of PgDumpCommand (pg_restore lives
+// beside pg_dump in the same bin/prefix). It exists so the incremental seed build
+// can restore a prior seed dump INSIDE the hermetic seed-builder stage
+// (DOCKER_PSQL=0, host pg_restore, no docker-compose) — the compose-based
+// restoreVerifyDB path does not work there (STATBUS-116 AC#1, Step 3b). DOCKER_PSQL
+// governs host-vs-docker identically to PgDumpCommand:
+//   - docker mode: `docker compose exec -T db pg_restore ...` (runs inside the
+//     db container; connects over the local socket — env is nil).
+//   - host mode: pg_restore on PATH with PG* env from .env (via psqlEnv).
+//
+// Callers append their own flags + `-d <dbname>` after the prefix, set cmd.Stdin
+// to the dump, cmd.Dir = projDir, and cmd.Env. Wrap in runPgRestoreAtomic for the
+// --single-transaction atomic contract.
+func PgRestoreCommand(projDir string) (cmdPath string, prefixArgs []string, env []string, err error) {
+	if useDockerPsql() {
+		return "docker", []string{"compose", "exec", "-T", "db", "pg_restore"}, nil, nil
+	}
+	hostPath, err := exec.LookPath("pg_restore")
+	if err != nil {
+		return "", nil, nil, fmt.Errorf("pg_restore not found on host and docker fallback disabled: %w", err)
+	}
+	hostEnv, err := psqlEnv(projDir)
+	if err != nil {
+		return "", nil, nil, err
+	}
+	return hostPath, nil, hostEnv, nil
+}
+
 // psqlEnv builds the environment for psql from .env file.
 //
 // Host/port come from CADDY_DB_BIND_ADDRESS + CADDY_DB_PORT (server-internal
