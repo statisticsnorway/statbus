@@ -99,12 +99,12 @@ Per-case parameters (ratified shape; exact numbers reconcile at build against th
 
 | case | probe | one-try failure | gaps | budget |
 |---|---|---|---|---|
-| `db-unreachable` | `d.connect(ctx)` then a trivial `SELECT 1` | wall-clock **5s** (`context.WithTimeout`) — a quick check, never a transfer | 1s→2s→4s→8s→16s→**30s cap** | **≈5 min** (~12 tries) |
+| `db-unreachable` | `d.reconnect(ctx)` (= connect + re-acquire the advisory lock + re-LISTEN) then a trivial `SELECT 1` | wall-clock **5s** (`context.WithTimeout`) — a quick check, never a transfer | 1s→2s→4s→8s→16s→**30s cap** | **≈5 min** (~12 tries) |
 | `commit-not-fetched` | `d.fetchWithStallDetection(ctx, flag.CommitSHA)` | a **stall** — no output progress ~60s (see §3); **never** a wall-clock deadline | 10s→30s→**60s cap** | **≈15 min** |
 
-**Retire the dead helper.** `retryBackoff(attempt int)` at `service.go:86–95` (100ms/500ms/1s) has **zero call sites** and the wrong scale. Delete it in this change (clean-break discipline — no dangling helper); the new gap sequences live as `retrySpec.gaps` data.
+**`retryBackoff` stays — it is NOT dead (correction 2026-07-02, verified first-hand vs HEAD).** `retryBackoff(attempt int)` at `service.go:81–95` (100ms/500ms/1s) has **6 live callers** — bounded DB-write-retry loops at `service.go:2445`, `:2546`, `:4091`, `:5038`, `:5693`, `:5708` — plus a structural test asserting its presence in `writeRollbackTerminal` (`rollback_terminal_write_test.go:89`). It keeps its existing job. The new `backoffRetry` is a **distinct, independent** helper (a full probe/budget loop, not a sleep-duration function) — build it as a sibling; do **not** touch `retryBackoff`, and the new gap sequences live as `retrySpec.gaps` data. *(An earlier draft said "zero call sites / delete" — inherited from a stale grounding note and refuted here.)*
 
-**db-unreachable probe reuses `connect()`** (`service.go:2783`): on success `d.queryConn` is live *and* re-applies the STATBUS-110 read-only self-exempt (`SET default_transaction_read_only = off`, `:2889–2896`) — so the re-read and any subsequent forward write already run write-enabled. No separate exemption work.
+**db-unreachable probe uses `reconnect()`, NOT bare `connect()` (correction 2026-07-02, engineer-caught + architect-confirmed first-hand).** `reconnect()` = `connect()` **plus** `acquireAdvisoryLock` (the upgrade-actor mutex) **plus** re-`LISTEN`. The old exit-restart path re-took the advisory lock + re-LISTENed on the fresh process (`Run()` → `acquireAdvisoryLock`), so the in-process retry must restore that same session invariant — bare `connect()` would leave the retry running without the actor mutex or the NOTIFY channel. On success `d.queryConn` is live, holding the lock, and write-enabled via the STATBUS-110 read-only self-exempt applied inside `connect()` (`SET default_transaction_read_only = off` for queryConn/listenConn) — so the immediate ground-truth re-read and any forward write run correctly. *(An earlier draft said "reuses connect()"; the engineer's `reconnect()` is the correct, more-complete choice.)*
 
 ### 3. `fetchWithStallDetection` — the commit-not-fetched probe (greenfield)
 
@@ -188,9 +188,9 @@ Scope note: the *new machinery* (backoff loop + fetch stall-detector) is entirel
 | `service.go:867–892` | `recoverFromFlag` Resuming branch | the dispatch rewrite (§4) — the one insertion point |
 | `service.go:2133–2170` | `verifyUpgradeGroundTruthEx` | return typed `UnknownCause` (§1); set at `:2151` |
 | `service.go:2052–2077` | `verifyBinaryGroundTruth` | set `UnknownCause` at `:2071` (CommitNotFetched) / `:2075` (Unrecognized) |
-| `service.go:86–95` | `retryBackoff` (dead) | **delete** (§2) |
+| `service.go:81–95` | `retryBackoff` (LIVE — 6 callers + structural test) | leave as-is; build `backoffRetry` as a new independent sibling (§2) |
 | `service.go:4362` | forward `git fetch` (5-min wall-clock) | recommend swap to `fetchWithStallDetection` (§3, OQ1) |
-| `service.go:2783` | `connect()` (self-exempt `:2889–2896`) | reused as the db-unreachable probe (§2) |
+| `service.go:2783` | `connect()` (self-exempt `:2960` queryConn / `:2965` listenConn) | reused as the db-unreachable probe (§2) |
 | `service.go:2257` | `recoveryRollback` | the exhaustion handoff (§4) |
 | `service.go:1712` / `:1709` comment | `recoverFromFlag` call + StartLimit exit | the `unknown`-only backstop (§4) |
 | `service.go:1759` | main-loop heartbeat ticker start | proves the loop must self-heartbeat (§2 step 1) |

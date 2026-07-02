@@ -88,6 +88,7 @@ OPEN (resolve before promotion):
 - `power_group_membership` view: root rows level `1→0`.
 - `power_group_def`: `depth = max(power_level)` (drop the −1).
 - tests 117/118/120: re-assert 0-based levels. `doc/power-groups.md` scenarios: re-number to 0-base.
+- **RIPPLE UNDER-COUNT — corrected in the STATBUS-124 build (2026-07-02, architect).** This list missed THREE more objects that select the root LU via `power_level = 1` and so must re-base to `= 0`: `timeline_power_group_def` (the PG NAME source in statistical_unit), `statistical_unit_enterprise_id` (the PG enterprise — the one 125 later reworks), `timeline_power_group_refresh`. The test-to-know tell was a 120 power_group-name flip (root→child). 124 re-based all SIX objects + a stored-level data re-base (`legal_relationship.derived_influenced_power_level` uniform −1, for live-DB upgrade consistency). 125 builds on root=0.
 
 ## Primary / konsern (decisions #8, #9)
 - edge `primary` (derived) = `legal_rel_type.primary_influencer_only OR percentage > 50` (confirm `>` vs `>=`).
