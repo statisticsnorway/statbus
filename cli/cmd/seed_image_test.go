@@ -52,8 +52,12 @@ func TestExtractSeedFromImage(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Build the test image for linux/amd64 to mirror the REAL published seed image
+	// (amd64-only) — extractSeedFromImage pins --platform linux/amd64, so a default
+	// (host-arch) build would not match on an arm64 dev box. The Dockerfile only
+	// COPYs (no RUN), so this needs no emulation.
 	imageRef := fmt.Sprintf("statbus-seed-extract-unittest:%d", os.Getpid())
-	if out, err := exec.Command("docker", "build", "-t", imageRef, ctx).CombinedOutput(); err != nil {
+	if out, err := exec.Command("docker", "build", "--platform", "linux/amd64", "-t", imageRef, ctx).CombinedOutput(); err != nil {
 		t.Fatalf("docker build test seed image: %v\n%s", err, out)
 	}
 	defer exec.Command("docker", "rmi", "-f", imageRef).Run()
