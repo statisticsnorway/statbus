@@ -145,13 +145,13 @@ elif [[ -n "$transcript_path" && -f "$transcript_path" ]]; then
         | sort -rn | head -1 | awk '{print $2}'
     )
   fi
-  # Legacy fallback (also covers non-team sessions): first agentName seen.
-  # `|| true` so a no-match grep doesn't trip `pipefail` + `set -e`.
-  if [[ -z "$caller" ]]; then
-    caller=$({ grep -m1 -oE '"agentName":"[^"]*"' "$transcript_path" 2>/dev/null || true; } \
-      | sed 's/.*:"//;s/"$//' \
-      | head -1)
-  fi
+  # NO first-agentName fallback. `agentName` can hold the session's auto-derived
+  # ai-title (after /rename it became "statbus-speed") — that is NOT a role, and
+  # it falsely blocked the foreman's OWN spawns. The roster-match above only ever
+  # returns a REAL member name; on no match the caller stays "" and is treated
+  # permissively below (bootstrap, post-/clear, and unknown sessions). Never
+  # derive a role from the session name/ai-title. (STATBUS-118)
+  :
 fi
 
 # ── Agent tool ────────────────────────────────────────────────────────
@@ -165,7 +165,7 @@ if [[ "$tool" == "Agent" ]]; then
 
   # Rule 3: Name-collision guard — check before role-based rules.
   if [[ -n "$new_agent_name" && -f "$TEAM_CONFIG" ]]; then
-    roster_names=$(jq -r '.members[].name' "$TEAM_CONFIG" 2>/dev/null || true)
+    roster_names=$(jq -r --arg cwd "${CLAUDE_PROJECT_DIR:-}" '.members[] | select($cwd == "" or (.cwd // "") == $cwd) | .name' "$TEAM_CONFIG" 2>/dev/null || true)
     if echo "$roster_names" | grep -qxF "$new_agent_name"; then
       roster_list=$(echo "$roster_names" | sed 's/^/  - /')
       emit_deny "BLOCKED (restrict-agent-spawn.sh): Agent name '${new_agent_name}' already exists in the team roster.

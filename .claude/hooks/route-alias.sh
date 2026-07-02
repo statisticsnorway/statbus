@@ -82,8 +82,15 @@ EOF
 }
 
 get_roster() {
+  # Filter to THIS checkout's members by cwd. The named team dir is a GLOBAL
+  # namespace shared across clones of the same repo — without this filter a
+  # co-located clone (e.g. ../statbus under the same team name) imposes its
+  # roster here and falsely rejects valid recipients. cwd is the ownership
+  # signal; members[].isActive is a stale snapshot — never trust it. (STATBUS-118)
   if [[ -f "$TEAM_CONFIG" ]]; then
-    jq -r '.members[].name' "$TEAM_CONFIG" 2>/dev/null | sort -u
+    jq -r --arg cwd "${CLAUDE_PROJECT_DIR:-}" \
+      '.members[] | select($cwd == "" or (.cwd // "") == $cwd) | .name' \
+      "$TEAM_CONFIG" 2>/dev/null | sort -u
   fi
 }
 
