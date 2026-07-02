@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-06-30 20:49'
-updated_date: '2026-07-02 17:42'
+updated_date: '2026-07-02 18:24'
 labels:
   - testing
   - install-recovery
@@ -130,5 +130,11 @@ author: foreman
 created: 2026-07-02 17:42
 ---
 FOOTGUN FOUND + REPAIRED (foreman, 2026-07-02) — slice-3 note: construct_upgrade_target mutates REPO-LEVEL git config (user.name=statbus-upgrade-arc[bot], user.email, gpg.format=ssh, user.signingkey=/tmp/arc_signer_$$ — upgrade-target.sh:118-121), verbatim-inherited from the CI inline code where the runner is throwaway. The AC#5 local unit (tmp/test-upgrade-target.sh) restores HEAD but NOT git config → after the mechanic's local runs, this clone's commits were authored as the bot and signed with a since-stale ephemeral key ('No principal matched' in git log). Repaired: local config overrides unset (global identity restored); 4 stale /tmp/arc_signer_* pairs left behind. NOT a blocker for this slice (CI unaffected; behavior-preserving discipline kept the library verbatim). For slice 3 (scenario harnesses call this on dev machines): save/restore git config around the call, or switch to `git -c` scoped config — decide then. The rebased local commits were re-signed correctly on push.
+---
+
+author: foreman
+created: 2026-07-02 18:24
+---
+ARC RUN 28609876020 VERDICT (mechanic diagnosis, foreman-reviewed; full analysis tmp/mechanic-arc-28609876020.md): CONSTRUCT (this task's entire surface) = GREEN + EXACT-SHAPE MATCH — branch names test/upgrade-arc-{working,failing}[-fixed]-migration-28609876020, 4 distinct signed migration commits, one shared arc_pubkey, all 4 image dispatches succeeded first attempt. The refactor is EXONERATED: acceptance criteria 1-6 are functionally proven. The DoD (whole harness run green) is blocked by an UNRELATED NEW regression: both VM arcs died on HEALTHCHECK_REST_DOWN — PostgREST admin /ready 503 (schema cache never loads) for 20+ min post-upgrade, vs ~69s in the Jun-19 green baselines. Prime suspect = STATBUS-110's read-only window (the health check polls /ready while the DB is still read-only; OFF comes only after the completed-UPDATE). Local reproduction dispatched (mechanic): restart REST under ALTER DATABASE default_transaction_read_only=on and watch /ready — evidence lands on STATBUS-110. DoD stays UNCHECKED until an arc run is green; the fix path runs through the 110 interaction, not through this task's code.
 ---
 <!-- COMMENTS:END -->
