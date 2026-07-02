@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-06-30 20:49'
-updated_date: '2026-07-02 06:27'
+updated_date: '2026-07-02 06:34'
 labels:
   - testing
   - install-recovery
@@ -94,5 +94,11 @@ author: foreman
 created: 2026-07-02 06:27
 ---
 INTERFACE RULED + mechanic implementing (2026-07-02; architect went quiet so foreman ruled with the mechanic's leans — thin shell, architect can refine). Q1=A env var ARC_SIGNING_KEY (CI sets ONCE before both calls → one arc_pubkey; local auto-gens). Q2=B push unless ARC_NO_PUSH=1 (CI real push covered by green-DoD; AC#5 local sets ARC_NO_PUSH=1). Q3=B library sets caller-scope vars ONLY (B_BRANCH/B_FULL/V_VERSION/ARC_PUBKEY), NOT $GITHUB_OUTPUT (workflow does its own) — keeps the library CI-AGNOSTIC so slice-3+ scenarios reuse it (load-bearing). Q4=A each call computes V_VERSION independently. Behavior-preserving extraction (byte-identical branches) + AC#5 local unit; mechanic reports the diff to foreman → foreman review+commit → DoD = green arc-harness CI. CONTEXT: X/Y RESOLVED (King) = BUILD-ON-CI + PULL (doc-020 revised; the image build can't be skipped, only relocated to CI; reuse-shortcut retired as lower-fidelity). So slice 3 (after 118) = migrate one scenario onto controlled-B + CI-builds-B's-image + harness-pulls (real pull-and-swap). 116 seed-incremental makes those CI image builds fast (the speed enabler).
+---
+
+author: foreman
+created: 2026-07-02 06:34
+---
+ARCHITECT CONFIRMED all 4 interface rulings (Q1=A env-key, Q2=B ARC_NO_PUSH, Q3=B caller-scope-vars, Q4=A per-call) + 3 refinements now folded into the mechanic's build (2026-07-02): (1) Q1 — REUSE ARC_SIGNING_KEY if already set, generate+export ONLY if unset (`[ -z "$ARC_SIGNING_KEY" ] && { generate; export; }`) → first call generates, second inherits → ONE key/pubkey guaranteed by CODE not caller; export ARC_PUBKEY to caller scope. (2) Q2 — when push is SKIPPED (ARC_NO_PUSH=1), LOG LOUDLY ('B is local-only, NOT fetchable by a remote VM') so an accidental CI skip can't silently produce an unfetchable target. (3) Q3 — construct_upgrade_target MUST be a SOURCED shell function in test/install-recovery/lib/upgrade-target.sh (like arc_to in arc-helpers.sh), NOT an executed script — only a sourced function can set caller-scope vars (B_BRANCH/B_FULL/V_VERSION/ARC_PUBKEY, +V_VERSION_2). Mechanic building to these; DoD = green arc CI run. CI-agnostic so slice 3+ install-recovery scenarios consume it identically.
 ---
 <!-- COMMENTS:END -->
