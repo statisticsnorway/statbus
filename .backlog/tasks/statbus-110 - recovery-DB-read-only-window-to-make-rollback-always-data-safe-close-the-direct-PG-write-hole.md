@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-06-26 11:30'
-updated_date: '2026-07-02 18:46'
+updated_date: '2026-07-02 18:50'
 labels:
   - upgrade
   - recovery
@@ -175,5 +175,11 @@ FIX (lever a): ALTER ROLE authenticator SET default_transaction_read_only = off,
 ROLE TABLE: authenticator EXEMPT (why: listener read-write check); anon/authenticated inherit (SET ROLE doesn't re-eval); queryConn+migrate already exempt (110); statbus_<slot>/notify (worker+app) + direct-PG integrators STAY GUARDED (the post-snapshot writers the window must freeze). WORKER answer: NOT exempt = correct (its writes are what rollback must discard) + it does NOT crash-loop (no read-write attr).
 
 Crash-freeze INTACT (better than today: post-crash PostgREST now healthy, external still frozen by maintenance+read-only). Rejected: (b) lift-before-health (defeats crash-freeze), (c) PostgREST-config (breaks notifications, version-fragile). Ties to STATBUS-054 (v14 bump): role exemption is version-independent. PROOF = re-run 28609876020 green. Awaiting King nod → engineer builds the 1-line migration + doc/read-only-upgrade-window.md amendment.
+---
+
+author: foreman
+created: 2026-07-02 18:50
+---
+FIX DESIGN EMPIRICALLY PRE-VERIFIED (mechanic, tmp/mechanic-rest-roleguc-check.log; design doc-023 updated with the deadlock-cut paragraph). With ALTER ROLE authenticator SET default_transaction_read_only=off + the window ON: /ready=200 at t+5s (vs permanent 503), ZERO 'session is read-only' listener errors, and a NON-exempt superuser session still write-blocked ('cannot execute CREATE TABLE/UPDATE in a read-only transaction') — the exemption is role-scoped, the accident-guard holds for every other role. Cleanup verified (pg_roles.rolconfig back to baseline, /ready=200 restored). BUILD-READY: awaiting the King's nod → engineer ships the 1-line migration + doc/read-only-upgrade-window.md amendment → arc re-run (same scenarios as 28609876020) green = closes this regression + 118's DoD.
 ---
 <!-- COMMENTS:END -->
