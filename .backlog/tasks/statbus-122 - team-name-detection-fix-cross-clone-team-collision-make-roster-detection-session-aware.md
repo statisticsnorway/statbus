@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-01 13:42'
-updated_date: '2026-07-02 06:47'
+updated_date: '2026-07-02 19:02'
 labels:
   - team
   - hooks
@@ -59,3 +59,13 @@ In `route-alias.sh` `get_roster()` and `restrict-agent-spawn.sh` rule-3 name-gua
 
 Backup of ../statbus's named config saved to the session scratchpad before any experiment.
 <!-- SECTION:NOTES:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-02 19:02
+---
+FIELD EVIDENCE from the statbus team session (2026-07-02 ~19:01): restrict-agent-spawn.sh's caller-ID option (b) DOES NOT AUTHENTICATE in practice. Sequence: tester ran `./dev.sh test 117_power_group_fundamentals` → blocked ('test command from unidentified caller'); foreman sent the tester a SendMessage containing the exact `run: ./dev.sh test 117_power_group_fundamentals 2>&1 | head -50` line per the hook's own suggestion → tester retried → STILL blocked. Tester's read of the mechanism: the hook counts "agentName":"tester" occurrences in the transcript, and SendMessage-delivered authorizations don't materialize there in a form the hook recognizes. WORKAROUND USED (the hook's option a, board-truthful): added 'tester' as co-assignee on the In Progress task whose tests he runs (STATBUS-124) → unblocked expected. FIX CANDIDATE for this task's owner: make option (b) actually check the tester's INBOX/delivered messages (or drop option b from the deny text so it stops advertising a path that fails); the option-a path works but requires a board write for every ad-hoc test delegation.
+---
+<!-- COMMENTS:END -->
