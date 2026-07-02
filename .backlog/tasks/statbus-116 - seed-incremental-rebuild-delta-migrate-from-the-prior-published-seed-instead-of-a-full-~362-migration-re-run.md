@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
-updated_date: '2026-07-02 06:54'
+updated_date: '2026-07-02 15:05'
 labels:
   - build-caching
   - seed
@@ -157,5 +157,11 @@ FROZEN SNAPSHOT + FIRST-HAND CHARACTERIZATION (foreman, 2026-07-02) — supersed
   ?? cli/cmd/seed_ancestor.go (118) — `sb db seed select-prior` (the ancestor-walk).
   ?? cli/cmd/seed_build_test.go (103).
 GATE DESIGN is SOUND ON INSPECTION: SEED_INCREMENTAL=0 default + empty prior-seed context → full from-empty rebuild the engineer's own Dockerfile comment claims is 'byte-identical to the pre-AC#1 3-call sequence.' THE CRITICAL CAVEAT: that byte-identical claim is UNPROVEN — this is a LIVE-PATH refactor whose ONLY oracle is a CI seed-image build, which has NOT run. Do NOT assume inert until that CI run is green. COMMITTED BASELINE UNAFFECTED (everything uncommitted; master clean at HEAD). NEXT (fresh foreman): (1) get the engineer's FROZEN report (is the tree a coherent compiling checkpoint? build/test status?), (2) review seed_build.go + seed_ancestor.go + the Dockerfile/images.yaml diffs first-hand, (3) drive the CI seed-image build to PROVE SEED_INCREMENTAL=0 == the old 3-call path (the architect's commit-A inert-proof), (4) ONLY THEN commit. Do NOT commit a live-path refactor on inspection alone. COORDINATION NOTE: the engineer is productive but ran well ahead of the stand-bys — the fresh foreman should re-establish an explicit checkpoint-before-continue cadence with him on live files.
+---
+
+author: foreman
+created: 2026-07-02 15:05
+---
+AC#1 COMMITTED 2dc944975 (foreman review + King go-ahead, one commit — King: 1-vs-2 is fine, no review objections). Foreman reviewed seed_build.go + seed_ancestor.go FIRST-HAND and VERIFIED the load-bearing equivalence: the live full-path substitution `sb migrate up --target seed` -> `migrateNamedDb(projDir, seedDbName, 0)` is SOUND — both apply ALL migrations to the SAME database (loadSeedDbName [db.go:135] and ResolveTargetDB('seed') [migrate.go:1276] both resolve to POSTGRES_SEED_DB; migrateTo=0 -> all=true). Gate proven OFF (SEED_INCREMENTAL=0 default + empty prior-seed context -> full rebuild). resolveSeedPath pure routing correct (incremental only if enabled AND SeedBuildDecision-incremental AND prior!=nil AND depth+1<cap). Foreman re-ran build/vet/targeted-seed-tests GREEN before committing. 7 files: seed.go (IncrementalDepth field + DumpSeed 3rd param, live caller passes 0), migrate.go (PgRestoreCommand ADDED, additive), seed_ancestor.go (select-prior ancestor-walk), seed_build.go (orchestrator), seed_build_test.go (9 pure tests), postgres/Dockerfile (3 inline calls -> `sb db seed build` + required prior-seed build-context + SEED_INCREMENTAL arg), images.yaml (gated prior step). STILL UNPROVEN: the refactored full path must build GREEN in the CI seed-image job (gate off) — the inert-proof, the ONLY oracle, NOT YET RUN (needs a push). NEXT: push -> CI seed-image inert-proof GREEN -> AC#6 multi-delta pre-enable check -> the one-line flip (SEED_INCREMENTAL_ENABLED=true) + AC#3 cadence + AC#5 measure. GUARDRAIL also committed c12750b32 (pre-commit hook exempts _upgrade_arc fixtures from doc/db pairing — the King-directed replacement for the 118 --no-verify workaround).
 ---
 <!-- COMMENTS:END -->
