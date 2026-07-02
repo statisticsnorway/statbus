@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-06-30 20:49'
-updated_date: '2026-07-02 06:42'
+updated_date: '2026-07-02 15:05'
 labels:
   - testing
   - install-recovery
@@ -112,5 +112,11 @@ author: foreman
 created: 2026-07-02 06:42
 ---
 UPDATE (2026-07-02) — mechanic folded in all 3 architect refinements; the 1 gap I flagged is CLOSED. R1 idempotent key (library owns ssh-keygen + exports ARC_SIGNING_KEY + ARC_PUBKEY; the CI workflow step no longer keygens/exports — library is the single owner; arc_pubkey in $GITHUB_OUTPUT reads ${ARC_PUBKEY}). R2 loud-on-skip NOW PRESENT (WARNING 'push SKIPPED (ARC_NO_PUSH=1): <B>/<C> local-only, NOT fetchable by a remote VM' to stderr, confirmed visible). R3 sourced confirmed. AC#5 local unit NOW 14/14 PASS (added R1b/R1c/R1d/R2 assertions + the original 10); bash -n clean; workflow now +44/-163, upgrade-target.sh 209 lines. ONLY ONE ITEM REMAINS before commit: the --no-verify DECISION (foreman/King) — recommend the guard-level exemption (hook skips doc/db pairing when staged migrations ALL match `_upgrade_arc`/`_upgrade_arc_2`) over call-site --no-verify; the mechanic correctly LEFT --no-verify as-is pending that call. HELD state: committed-ready-but-uncommitted in the tree, all-green. NEXT (fresh foreman): make the --no-verify/guard-exemption call → commit (pathspec: .github/workflows/upgrade-arc-harness.yaml + test/install-recovery/lib/upgrade-target.sh) → push → arc-harness CI run = the DoD oracle (and gates the 110 VM arc-run per STATBUS-071).
+---
+
+author: foreman
+created: 2026-07-02 15:05
+---
+GUARDRAIL FIX (King-directed, 2026-07-02): the --no-verify WORKAROUND IS GONE. Committed c12750b32 — .githooks/pre-commit now carries a NAMED in-guard exemption: if EVERY staged migration matches the _upgrade_arc fixture pattern (migrations/*_upgrade_arc*.{up,down}.sql), skip ONLY the doc/db pairing check; every other check (tmp/, PlantUML, security-report) still runs; real + mixed real/fixture commits stay gated; the _upgrade_archive false-match is guarded (foreman functional-tested all 4 cases GREEN). upgrade-target.sh's 3 commit sites dropped --no-verify (that edit is uncommitted, rides with the 118 commit). The hook commit itself PASSED the hook — self-proving the exemption doesn't break it. STILL HELD for the arc-harness CI green DoD. Mechanic's constructor confirmed clean (14/14, R1/R2/R3 in, loud-on-skip present). NEXT (fresh foreman): commit 118 (.github/workflows/upgrade-arc-harness.yaml + test/install-recovery/lib/upgrade-target.sh) -> push -> arc-harness CI green = DoD (and gates the 110 VM arc-run per STATBUS-071).
 ---
 <!-- COMMENTS:END -->
