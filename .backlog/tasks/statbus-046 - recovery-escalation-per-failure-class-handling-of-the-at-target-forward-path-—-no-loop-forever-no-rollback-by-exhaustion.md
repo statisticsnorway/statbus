@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - architect
 created_date: '2026-06-12 22:15'
-updated_date: '2026-07-02 06:27'
+updated_date: '2026-07-02 18:24'
 labels:
   - install-recovery
   - upgrade
@@ -104,5 +104,13 @@ author: foreman
 created: 2026-07-02 06:27
 ---
 DESIGN WRITTEN → doc-021 (architect, 2026-07-01) — recovery-core unit 3 (sequence 110→109→046→111; 110 COMMITTED 3ff119b8a). Allowance table: per-(step,error,context) allowance — A=readiness (time-bound in place, size-scaled), B=deterministic→park, C=resource→park, D=crash→budget. Attempt budget=3 + same-step-twice→park (counter increments at attempt START so a crash self-counts). Park columns: recovery_attempts int + recovery_parked_at timestamptz; PARK-DEGRADED replaces loop-forever (row stays in_progress, forward-only preserved, ROLLBACK only via a positively-Behind verdict — NEVER exhaustion; un-park only via the 2 operator actions). Composition: 039=direction, 046=how-long/how-loud forward before park (never direction), 110=pre-completion rollback data-safe, 046-park=the at-target/post-completion regime (users+integrators live → can't safely roll back → park not loop), 109=class-A in-place wait generalized. READY FOR KING RATIFICATION — 3 concrete asks in doc-021 §Ratification: (1) the allowance values, (2) budget=3 + same-step-twice, (3) the 2 park columns. NOT started (unit 3, after 110-verify + 109). Verify via 071 arcs (STATBUS-044's held scenario = budget-consumed → parked+named+alive-idle, + per-class A/B/C/D arc).
+---
+
+author: architect
+created: 2026-07-02 18:24
+---
+doc-021 EXPANDED with THE STEP LIST (architect, 2026-07-02) — answers the King's ratification gap ('which steps are covered, transient or deterministic'). Grounded first-hand vs master HEAD (executeUpgrade 3983, applyPostSwap 4574, rollback 5650). Per-step walk in 5 phases, each step: (a) what runs (b) failure classes A/B/C/D + concrete example (c) what a class-D crash means (d) inside/outside the budget.
+
+BUDGET BOUNDARY (new ask #4, made explicit): counted from the FLAG WRITE (Phase 1.1, service.go:4140) through the COMPLETED-WRITE + FLAG REMOVAL (Phase 4.2–4.3, :4957/:5001). Phase 0 pre-flight (before the flag) and Phase 5 post-completion cleanup (after flag removal) are OUTSIDE. A Phase-1 (pre-swap) exhaust ROLLS BACK (data-safe via 110's stopped-DB snapshot); a Phase-3 (post-swap at-target) exhaust PARKS (can't roll back — the rune-loop regime). Awaiting King ratification of asks 1–4.
 ---
 <!-- COMMENTS:END -->
