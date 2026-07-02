@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-06-30 20:49'
-updated_date: '2026-07-01 13:29'
+updated_date: '2026-07-02 06:27'
 labels:
   - testing
   - install-recovery
@@ -88,5 +88,11 @@ author: foreman
 created: 2026-07-01 13:29
 ---
 STARTED (King greenlit the upgrade-test track in parallel with recovery-core, 2026-07-01). Mechanic executes the behavior-preserving constructor extraction (upgrade-target.sh :: construct_upgrade_target, lifted from upgrade-arc-harness.yaml:120-177, workflow rewired to call it, signing-key parameterized); architect is DESIGN-OWNER + reviewer (King: 'use the architect where appropriate'); foreman reviews+commits. Behavior-preserving discipline = byte-identical branches. AC#6 out-of-scope guard holds (no scenario migrated, no image-tail change — those are A/B-dependent slices 3+). NOTE: the X/Y question is RESOLVED (King) = build-on-CI + pull (doc-020 revised); 118 itself is unchanged (approach-agnostic), and the follow-on slice 3 is now the CI-image+pull wiring. DoD unchanged: lands only after the arc-harness CI run is observed green on the refactored construct path. Engineer stays on recovery-core (disjoint files: Go vs bash).
+---
+
+author: foreman
+created: 2026-07-02 06:27
+---
+INTERFACE RULED + mechanic implementing (2026-07-02; architect went quiet so foreman ruled with the mechanic's leans — thin shell, architect can refine). Q1=A env var ARC_SIGNING_KEY (CI sets ONCE before both calls → one arc_pubkey; local auto-gens). Q2=B push unless ARC_NO_PUSH=1 (CI real push covered by green-DoD; AC#5 local sets ARC_NO_PUSH=1). Q3=B library sets caller-scope vars ONLY (B_BRANCH/B_FULL/V_VERSION/ARC_PUBKEY), NOT $GITHUB_OUTPUT (workflow does its own) — keeps the library CI-AGNOSTIC so slice-3+ scenarios reuse it (load-bearing). Q4=A each call computes V_VERSION independently. Behavior-preserving extraction (byte-identical branches) + AC#5 local unit; mechanic reports the diff to foreman → foreman review+commit → DoD = green arc-harness CI. CONTEXT: X/Y RESOLVED (King) = BUILD-ON-CI + PULL (doc-020 revised; the image build can't be skipped, only relocated to CI; reuse-shortcut retired as lower-fidelity). So slice 3 (after 118) = migrate one scenario onto controlled-B + CI-builds-B's-image + harness-pulls (real pull-and-swap). 116 seed-incremental makes those CI image builds fast (the speed enabler).
 ---
 <!-- COMMENTS:END -->
