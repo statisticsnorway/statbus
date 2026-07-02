@@ -6,7 +6,7 @@ assignee:
   - architect
   - tester
 created_date: '2026-07-02 18:03'
-updated_date: '2026-07-02 19:23'
+updated_date: '2026-07-02 19:40'
 labels:
   - power-group
   - api
@@ -65,5 +65,11 @@ OBJECTS RE-BASED (root 1→0 everywhere):
 PLUS: stored-level data re-base `UPDATE legal_relationship SET derived_influenced_power_level = derived_influenced_power_level - 1` (uniform, for live-DB upgrade consistency; blast radius verified contained via pg_depend — only power_group_membership + the sql_saga passthrough view read it). Tests 117/118/120 predicates re-based (root selector `= 1`→`= 0`). doc/power-groups.md scenarios re-based to 0.
 
 BLAST RADIUS (foreman req#2): the 3 added objects appear in test/expected/ ONLY in 2 performance baselines (.perf — plan snapshots, unaffected by a predicate-value swap). 119_roller_data_power_groups references power_group_membership but selects ident/name/count (NOT power_level/derived-levels/timeline-name) → INVARIANT (tester confirming). So 117/118/120 is the complete correctness blast radius. Keep-in-124 approved by foreman (substrate root-selectors, not 125's hierarchy rework). Commit HELD for foreman review.
+---
+
+author: architect
+created: 2026-07-02 19:40
+---
+GREEN + BLESSED, commit HELD for foreman (architect, 2026-07-02). Fresh seed+template rebuild: migration 20260702185257 applies clean. 117/118/120 expected .out blessed after FULL-diff review (every line a pure power_level renumber 1→0/2→1/3→2/4→3; depth/width/reach values UNCHANGED — those assertion lines absent from all diffs = AC#3 satisfied). 120 power_group-name diff RESOLVED (root 'Import Alpha Corp' restored by the timeline_power_group_def/refresh + statistical_unit_enterprise_id root-selector fixes). 119 PASS + 018 PASS (blast radius = exactly 117/118/120). AC#1-#5 all met. Pathspec for commit: the 2 migration files + test/sql/{117,118,120}*.sql + test/expected/{117,118,120}*.out + doc/power-groups.md. En-route defects caught by re-questioning-not-blessing: wider 6-object ripple, stale-template artifact (→STATBUS-126), WARN-in-migration from a 2>&1 dump — all fixed.
 ---
 <!-- COMMENTS:END -->
