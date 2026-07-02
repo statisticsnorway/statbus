@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-06-26 11:30'
-updated_date: '2026-07-02 06:25'
+updated_date: '2026-07-02 06:33'
 labels:
   - upgrade
   - recovery
@@ -143,5 +143,11 @@ author: foreman
 created: 2026-07-02 06:25
 ---
 COMMITTED 3ff119b8a (upgrade: read-only window during the destructive upgrade phase). 253 ins, 4 files: setDatabaseReadOnly (exec.go), connect() self-exempt + ON-before-stop + OFF at 4 live terminals (service.go), injectReadOnlyExempt host/docker split for migrate's write runners (migrate.go), readonly_exempt_test.go (host/docker delivery + merge-not-clobber + GUC-target). Foreman reviewed the full diff first-hand + re-verified build/vet/tests + the 4 new tests + the engineer's empirical DB validation (exempt session writes succeed, external blocked). Committed on foreman review — the architect went quiet overnight and a verified foundation shouldn't sit on a silent gate; both engineer refinements are sound + faithful: (a) F2=B EXTENDED to docker mode (docker compose exec doesn't forward host env — NECESSARY for production; scoped to migrate write runners, sparing interactive psql); (b) completion-OFF after the proven-live completed-UPDATE not the stale-prone :4869 (guarantees F1 no-leak; sub-second safe over-block window). STILL In Progress — AC#1/#2/#3 require the install-recovery VM ARC (STATBUS-071, the only oracle), which the foreman sequences next (interplays with the 118 harness-fix). Architect may still weigh in on the 2 refinements (reversible).
+---
+
+author: foreman
+created: 2026-07-02 06:33
+---
+ARCHITECT REVIEW — BOTH DECISIONS CONFIRMED post-commit (first-hand diff read, 2026-07-02). Validates the foreman's own-review commit 3ff119b8a. (1) F2=B docker extension: bug-free + necessary — verified NO double `-e` clobber (injectPsqlAppName uses PGAPPNAME, injectReadOnlyExempt uses PGOPTIONS — distinct vars coexist after `exec`); host-mode merge correct (Go os/exec dedupes keeping LAST → exemption wins AND operator PGOPTIONS preserved); scoped to write runners only. (2) completion-OFF placed after the proven-live completed-UPDATE (not the stale-prone maintenance-off site): CONFIRMED + ACCEPT the sub-second window — do NOT close it, since co-locating maintenance-OFF would move it past the completed-UPDATE+NOTIFY and entangle the STATBUS-090 fix (real regression surface for a marginal UX gain). Terminals spot-check all correct; inline `./sb install` path covered (ExecuteUpgradeInline Execs on queryConn). Nothing to change. NEXT (unchanged): the install-recovery VM arc-run (STATBUS-071) is the only end-to-end oracle — sequence after the 118 harness fix lands so the arc targets a fixed controlled-B, not a moving HEAD.
 ---
 <!-- COMMENTS:END -->
