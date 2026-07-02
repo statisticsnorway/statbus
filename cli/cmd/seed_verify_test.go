@@ -235,6 +235,50 @@ func TestDeltaIsMultiMigration(t *testing.T) {
 	}
 }
 
+// changedBakedMigrations is the git-derived eligibility core (fingerprint-absent
+// prior): from `git diff --name-only` lines it must flag exactly the UP migrations
+// baked into the prior (version <= V_prior) that changed — the same drift hazard a
+// fingerprint mismatch catches. A change ABOVE V_prior is part of the delta (not a
+// baked migration) and must be ignored; down files / non-migration paths never count.
+func TestChangedBakedMigrations(t *testing.T) {
+	const vPrior = int64(20260603093525)
+	lines := []string{
+		"migrations/20260601000000_early.up.sql",        // <= V_prior, up → HIT
+		"migrations/20260603093525_boundary.up.psql",    // == V_prior, up → HIT (inclusive)
+		"migrations/20260616104500_in_the_delta.up.sql", // > V_prior → ignore (it IS the delta)
+		"migrations/20260601000000_early.down.sql",      // down file → ignore (not baked/digested)
+		"migrations/post_restore.sql",                   // not a versioned migration → ignore
+		"cli/cmd/seed.go",                               // non-migration path → ignore
+		"",                                              // blank → ignore
+	}
+	got := changedBakedMigrations(lines, vPrior)
+	want := []string{
+		"migrations/20260601000000_early.up.sql",
+		"migrations/20260603093525_boundary.up.psql",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("changedBakedMigrations = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("hit[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+
+	// A renamed <=V_prior migration surfaces (with --no-renames) as delete-old +
+	// add-new; the OLD path (<=V_prior) must be flagged → not silently eligible.
+	renamed := changedBakedMigrations([]string{"migrations/20260602000000_old_name.up.sql"}, vPrior)
+	if len(renamed) != 1 {
+		t.Errorf("a renamed/deleted <=V_prior migration must be flagged; got %v", renamed)
+	}
+
+	// All-above-V_prior (a clean delta, no baked-migration edits) → eligible (empty).
+	clean := changedBakedMigrations([]string{"migrations/20260616104500_in_the_delta.up.sql"}, vPrior)
+	if len(clean) != 0 {
+		t.Errorf("changes confined to the delta (> V_prior) must NOT block eligibility; got %v", clean)
+	}
+}
+
 // parseSeedMetaVersion must turn a real recorded migration_version into V_prior
 // (tolerating surrounding whitespace) and FAIL LOUD on a missing/garbage version
 // rather than silently defaulting to 0 (which would mis-scope the delta count).

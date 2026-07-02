@@ -18,6 +18,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/statisticsnorway/statbus/cli/internal/config"
 	"github.com/statisticsnorway/statbus/cli/internal/migrate"
+	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -631,6 +632,110 @@ func imagePriorSource(imageRef string) priorSource {
 	}
 }
 
+// verifyPriorEligible establishes that the migrations baked into the prior seed
+// (version <= vPrior) are byte-unchanged in the current tree — the precondition
+// for a meaningful INCR-vs-FULL comparison.
+//
+//   - Fingerprint RECORDED (post-STATBUS-116 seed): SeedBuildDecision is
+//     authoritative (recompute the fingerprint over the current migrations <=
+//     vPrior and compare). A mismatch hard-fails exactly as production would fall
+//     back to full — an off-path base proves nothing.
+//   - Fingerprint ABSENT (pre-fingerprint seed): production can't verify it and
+//     falls back to full, but for the VERIFICATION we DERIVE eligibility from git —
+//     the prior's seed.json records the commit it was built from, so a git diff of
+//     the baked migrations between that commit and HEAD answers the same question
+//     the fingerprint would. This is what lets AC#6 run against a real pre-116
+//     release (its frozen physical layout is a valid physical-state substrate; the
+//     fingerprint guards a DIFFERENT, content-drift axis).
+func verifyPriorEligible(projDir string, priorMeta *seedMeta, vPrior int64) error {
+	if priorMeta.MigrationsFingerprint != "" {
+		if ok, reason := SeedBuildDecision(priorMeta, projDir); !ok {
+			return fmt.Errorf("✗ chosen prior is NOT incremental-eligible: %s\n"+
+				"  Pick a prior RELEASE whose migrations <= its version are unchanged in this tree "+
+				"(a retro-edited base would fall back to a full rebuild in production, so this run would prove nothing)", reason)
+		}
+		return nil
+	}
+	return deriveEligibilityFromGit(projDir, priorMeta, vPrior)
+}
+
+// deriveEligibilityFromGit answers "are the migrations <= vPrior baked into the
+// prior seed byte-unchanged in the current tree?" for a pre-fingerprint seed, by
+// diffing them between the prior's build commit (recorded in seed.json) and HEAD.
+// --no-renames so a renamed/deleted <=vPrior migration always surfaces as a
+// change (rename → delete-old + add-new, both listed). Empty changed set →
+// eligible (loud, named derivation); non-empty → fail loud like a fingerprint
+// mismatch. Fails loud if the commit is missing/unresolvable (no silent pass).
+func deriveEligibilityFromGit(projDir string, priorMeta *seedMeta, vPrior int64) error {
+	commit := strings.TrimSpace(priorMeta.CommitSHA)
+	if commit == "" {
+		return fmt.Errorf("✗ prior seed.json records no commit_sha and no migrations_fingerprint — cannot establish " +
+			"eligibility for this pre-fingerprint seed; pick a prior with a recorded fingerprint or commit")
+	}
+	if !gitHasCommit(projDir, commit) {
+		// Best-effort fetch, then re-check — the prior's commit must be a real
+		// object in this clone to diff against.
+		_, _ = upgrade.RunCommandOutput(projDir, "git", "fetch", "--quiet")
+		if !gitHasCommit(projDir, commit) {
+			return fmt.Errorf("✗ prior seed commit %s is not in the local clone (even after a fetch) — cannot derive "+
+				"eligibility from git; fetch it or pick a different prior", shortCommit(commit))
+		}
+	}
+	out, err := upgrade.RunCommandOutput(projDir, "git", "diff", "--name-only", "--no-renames", commit+"..HEAD", "--", "migrations")
+	if err != nil {
+		return fmt.Errorf("git diff for eligibility (%s..HEAD): %w\n  %s", shortCommit(commit), err, strings.TrimSpace(out))
+	}
+	changed := changedBakedMigrations(strings.Split(out, "\n"), vPrior)
+	if len(changed) > 0 {
+		return fmt.Errorf("✗ chosen prior is NOT incremental-eligible: %d baked migration(s) <= V_prior=%d changed "+
+			"between the prior seed's commit %s and HEAD (same drift hazard as a fingerprint mismatch — a changed/"+
+			"renamed/deleted <=V_prior migration makes INCR differ from FULL for a CONTENT reason):\n    %s",
+			len(changed), vPrior, shortCommit(commit), strings.Join(changed, "\n    "))
+	}
+	fmt.Printf("seed verify: fingerprint absent (pre-fingerprint seed); eligibility DERIVED from git — "+
+		"0 changed migrations <= V_prior=%d between %s and HEAD → eligible\n", vPrior, shortCommit(commit))
+	return nil
+}
+
+// gitHasCommit reports whether commit resolves to a commit object in projDir's
+// clone (git cat-file -e <commit>^{commit}).
+func gitHasCommit(projDir, commit string) bool {
+	_, err := upgrade.RunCommandOutput(projDir, "git", "cat-file", "-e", commit+"^{commit}")
+	return err == nil
+}
+
+// bakedMigrationRe extracts the 14-digit version from an UP-migration path
+// (.up.sql / .up.psql) — the files a seed bakes, matching what
+// UpMigrationsFingerprintUpTo digests. Down files / post_restore.sql / non-
+// migration paths don't match and are ignored.
+var bakedMigrationRe = regexp.MustCompile(`(?:^|/)(\d{14})_[^/]*\.up\.(?:sql|psql)$`)
+
+// changedBakedMigrations filters git-diff --name-only lines to the UP migrations
+// with version <= vPrior — i.e. the migrations baked into the prior seed that
+// have changed. Non-empty ⇒ the prior's baked set diverged from the current tree
+// (INCR would drift from FULL). Pure — differentially unit-tested.
+func changedBakedMigrations(changedFiles []string, vPrior int64) []string {
+	var hits []string
+	for _, f := range changedFiles {
+		f = strings.TrimSpace(f)
+		if f == "" {
+			continue
+		}
+		m := bakedMigrationRe.FindStringSubmatch(f)
+		if m == nil {
+			continue // not an up-migration (down file / post_restore.sql / non-migration)
+		}
+		v, err := strconv.ParseInt(m[1], 10, 64)
+		if err != nil {
+			continue
+		}
+		if v <= vPrior {
+			hits = append(hits, f)
+		}
+	}
+	return hits
+}
+
 // parseSeedMetaVersion parses a prior seed's recorded migration_version into the
 // int64 V_prior the delta count + eligibility gate need. Pure — unit-testable.
 func parseSeedMetaVersion(meta *seedMeta) (int64, error) {
@@ -726,18 +831,16 @@ func verifySeedAgainstPrior(projDir string, src priorSource) error {
 		return err
 	}
 
-	// AC#2 ELIGIBILITY GATE (real prior only): a real prior-release seed is on the
-	// incremental path ONLY if the migrations <= V_release are byte-unchanged in the
-	// current tree. If SeedBuildDecision falls back to FULL (retro-edit → fingerprint
-	// mismatch), production would rebuild full anyway, so an INCR-vs-FULL against this
-	// base proves nothing about the incremental path — refuse loud.
+	// ELIGIBILITY GATE (real prior only): a real prior-release seed is a valid
+	// substrate ONLY if the migrations <= V_release baked into it are byte-unchanged
+	// in the current tree — otherwise INCR (restored old effect) would drift from
+	// FULL (current disk migration) for a CONTENT reason, masquerading as a physical-
+	// state finding.
 	if priorMeta != nil {
-		if ok, reason := SeedBuildDecision(priorMeta, projDir); !ok {
+		if err := verifyPriorEligible(projDir, priorMeta, vPrior); err != nil {
 			dropVerifyDB(projDir, dbA)
 			dropVerifyDB(projDir, dbB)
-			return fmt.Errorf("✗ chosen prior is NOT incremental-eligible: %s\n"+
-				"  Pick a prior RELEASE whose migrations <= its version are unchanged in this tree "+
-				"(a retro-edited base would fall back to a full rebuild in production, so this run would prove nothing)", reason)
+			return err
 		}
 	}
 
