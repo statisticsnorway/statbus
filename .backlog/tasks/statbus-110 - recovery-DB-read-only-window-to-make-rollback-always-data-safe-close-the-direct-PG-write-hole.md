@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-06-26 11:30'
-updated_date: '2026-07-01 13:21'
+updated_date: '2026-07-02 06:25'
 labels:
   - upgrade
   - recovery
@@ -137,5 +137,11 @@ author: foreman
 created: 2026-07-01 13:21
 ---
 RULINGS RESOLVED (architect, code-verified) — engineer GREENLIT to build the coherent unit in one pass. F2=B (ADDITIVE to the connect() self-exempt, not a replacement: connect() self-exempt covers the Service's own pgx writes [completed UPDATE / flag / recovery ground-truth]; migrate.go psqlEnv PGOPTIONS=-c default_transaction_read_only=off covers the migrate SUBPROCESS — post-swap+boot+forward-recovery+dev, uniform, no-op when guard inactive). F1=(i) accept read_only persists on the git-restore-fail ABORT (crash-freeze intent, symmetric with maintenance-stays-ON); recovery clears at both successful terminals (forward →:4869, rollback →:5814) — CONFIRMED no leak; read_only TRACKS maintenance. F3=confirmed: keep ON before the DB stop (race-avoidance closes the reconnect-inherits-read-write hole at phase-3 restart); backup carrying read_only=on is fine since every rollback-restore reaches :5814→OFF. Live setMaintenance(false) sites = :4262/:4278/:4869/:5814; ON at ~:4245 conn-close; pre-swap-abort OFFs after reconnect. 046-composition note (for 046's build, not 110): an at-target parked box decides read_only+maintenance TOGETHER. Build → self-check → foreman diff-review + commit → push→CI image→VM arc-run 071 (the only oracle).
+---
+
+author: foreman
+created: 2026-07-02 06:25
+---
+COMMITTED 3ff119b8a (upgrade: read-only window during the destructive upgrade phase). 253 ins, 4 files: setDatabaseReadOnly (exec.go), connect() self-exempt + ON-before-stop + OFF at 4 live terminals (service.go), injectReadOnlyExempt host/docker split for migrate's write runners (migrate.go), readonly_exempt_test.go (host/docker delivery + merge-not-clobber + GUC-target). Foreman reviewed the full diff first-hand + re-verified build/vet/tests + the 4 new tests + the engineer's empirical DB validation (exempt session writes succeed, external blocked). Committed on foreman review — the architect went quiet overnight and a verified foundation shouldn't sit on a silent gate; both engineer refinements are sound + faithful: (a) F2=B EXTENDED to docker mode (docker compose exec doesn't forward host env — NECESSARY for production; scoped to migrate write runners, sparing interactive psql); (b) completion-OFF after the proven-live completed-UPDATE not the stale-prone :4869 (guarantees F1 no-leak; sub-second safe over-block window). STILL In Progress — AC#1/#2/#3 require the install-recovery VM ARC (STATBUS-071, the only oracle), which the foreman sequences next (interplays with the 118 harness-fix). Architect may still weigh in on the 2 refinements (reversible).
 ---
 <!-- COMMENTS:END -->
