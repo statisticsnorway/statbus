@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
-updated_date: '2026-07-02 15:31'
+updated_date: '2026-07-02 17:48'
 labels:
   - build-caching
   - seed
@@ -169,5 +169,11 @@ author: foreman
 created: 2026-07-02 15:31
 ---
 AC#1 REFACTOR INERT-PROOF GREEN IN CI (foreman verified first-hand, 2026-07-02). Pushed origin/master (07ab1b129..1563e6887) -> Images run 28601676512 (run #303) = SUCCESS including the `seed` job. Verified the refactored path ACTUALLY RAN (NOT a cache skip) by reading the seed job log: the seed-builder stage executed `sb db seed build --commit 1563e688...` -> decision log `seed build: enable-gate=false prior-present=false decision-incremental=false -> PATH=FULL (from empty)` -> create-db -> migrate -> `Seed dumped: migration 20260617174936, commit 1563e688 (4.4 MB)` -> seed.pg_dump + seed.json asserts pass -> statbus-seed image built + pushed green. So the live seed-build refactor (`sb db seed build` replacing the 3 inline create-db/migrate/dump calls) is PROVEN INERT with the gate off — the full rebuild is unbroken end-to-end in real CI. The AC#1 REFACTOR/hosting half is DONE: committed 2dc944975 + CI-proven. The incremental FEATURE itself is NOT yet enabled/proven — AC#1 checkbox stays UNCHECKED until: AC#6 multi-delta pre-enable safety check -> the one-line flip (repo var SEED_INCREMENTAL_ENABLED=true) -> AC#5 measure + AC#3 cadence. Gate remains OFF (proven off in the CI log). Also note: the `Notify cloud services` job failed on this push (13s) — pre-existing, unrelated: it SSHes to cloud server statbus_jo and runs that server's own `./sb upgrade check` (exit 1); not introduced by this change.
+---
+
+author: foreman
+created: 2026-07-02 17:48
+---
+AC#6 BUILD PLAN APPROVED (foreman reviewed first-hand, 2026-07-02 ~17:50) — tmp/plans/statbus-116-ac6-plan.md (engineer, grounded vs committed code). Shape: new `sb db seed verify-multidelta --prior-image <ref>` — restore a REAL published prior-RELEASE seed image (frozen physical layout from a past CI build) + that release's MANY-migration delta, vs a full from-empty rebuild; the ONLY test that can see physical-state-dependent migrations across the restored-base boundary (AC#4's manufactured-from-empty prior is structurally blind to them). Reuses the certified verify-identical apparatus verbatim (computeSeedDigest/control/verdict untouched); new code confined to seed_verify.go + a small test; ZERO live-path files; incremental stays DISABLED. FOREMAN RULING: explicit --prior-image ONLY (engineer's Option A) — no auto-select in this slice; deterministic, guarantees a genuine multi-delta, evidence records the exact release boundary proven. Two loud guards specced: eligibility (SeedBuildDecision fingerprint — refuse a retro-edited base) + multi-delta (≤1 delta → fail; cannot silently degenerate to AC#4). Engineer building; commit held for foreman review; then the RUN (real release image, live local stack) is the AC#6 oracle → GREEN + King go-ahead → the one-line flip.
 ---
 <!-- COMMENTS:END -->
