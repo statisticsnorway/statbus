@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-06-26 11:30'
-updated_date: '2026-07-02 18:40'
+updated_date: '2026-07-02 18:46'
 labels:
   - upgrade
   - recovery
@@ -161,5 +161,19 @@ author: foreman
 created: 2026-07-02 18:40
 ---
 REGRESSION CONFIRMED + MECHANISM NAMED (mechanic local repro, foreman-verified from the logs; full writeup tmp/mechanic-rest-readonly-repro.md). Baseline: REST /ready=200 in ~1s, schema cache 13.1ms. Under ALTER DATABASE ... default_transaction_read_only=on: /ready 503 at t+322s and wedged permanently — NOT slow, deadlocked. ROOT CAUSE: schema cache loads fine read-only; the wedge is PostgREST's dedicated LISTEN connection on the 'pgrst' channel (db-channel on by default; opens with target_session_attrs=read-write) — libpq rejects it at connect ('session is read-only'), retry loop capped at 32s forever, and v12.2.8's /ready requires that listener healthy. CIRCULAR DEADLOCK with this design: completion requires /ready=200 → /ready requires the listener → listener requires read-write → read-write returns only at completion. So as committed (3ff119b8a), EVERY upgrade wedges at the health check → in_progress + HEALTHCHECK_REST_DOWN forever — exactly the CI arc symptom. Cleanup verified (RESET + /ready=200 restored; note: the resetting session itself must SET session read-only off first to run the ALTER). Fix design dispatched to the architect (levers: role-level exemption for the REST db role [also satisfies the listener's read-write probe — to be verified empirically]; OFF-before-health-check; PGRST_DB_CHANNEL_ENABLED=false [suspect — the pgrst channel is the post-migration schema-reload path]). Design → King nod → build → arc re-run green = the proof.
+---
+
+author: architect
+created: 2026-07-02 18:46
+---
+REST READ-ONLY REGRESSION — fix design → doc-023 (architect, 2026-07-02). Grounded first-hand (docker-compose.rest.yml + repro/baseline logs + code).
+
+MECHANISM: PostgREST's PGRST_DB_URI has NO target_session_attrs, so its connection POOL works under read-only (schema cache loads). But its NOTIFICATION LISTENER connects with target_session_attrs=read-write (PostgREST v12 wants the LISTEN channel on the writable primary) → libpq runs SHOW transaction_read_only → 'on' → rejects at connect ('session is read-only') → retries every 32s forever → /ready 503 → health check fails. ONLY PostgREST is affected (target_session_attrs appears NOWHERE in our repo; our app/worker LISTEN as statbus_notify_<slot> with no read-write attr → they connect fine, only their writes freeze = intended).
+
+FIX (lever a): ALTER ROLE authenticator SET default_transaction_read_only = off, delivered as a MIGRATION (role-GUC outranks database-GUC). Applies within the same upgrade (migrate step 10 precedes REST restart step 11). Preserves the accident-guard: PostgREST's external writes are ALREADY maintenance-503-gated (read-only was never the REST gate — its unique job is the direct-PG/Layer4 path, which uses OTHER roles). So exempting authenticator opens NO new external write path.
+
+ROLE TABLE: authenticator EXEMPT (why: listener read-write check); anon/authenticated inherit (SET ROLE doesn't re-eval); queryConn+migrate already exempt (110); statbus_<slot>/notify (worker+app) + direct-PG integrators STAY GUARDED (the post-snapshot writers the window must freeze). WORKER answer: NOT exempt = correct (its writes are what rollback must discard) + it does NOT crash-loop (no read-write attr).
+
+Crash-freeze INTACT (better than today: post-crash PostgREST now healthy, external still frozen by maintenance+read-only). Rejected: (b) lift-before-health (defeats crash-freeze), (c) PostgREST-config (breaks notifications, version-fragile). Ties to STATBUS-054 (v14 bump): role exemption is version-independent. PROOF = re-run 28609876020 green. Awaiting King nod → engineer builds the 1-line migration + doc/read-only-upgrade-window.md amendment.
 ---
 <!-- COMMENTS:END -->
