@@ -3,11 +3,11 @@ id: STATBUS-125
 title: >-
   power-group-hierarchy: Shape A + Shape B reporting via
   statistical_unit_hierarchy (DRAFT-001 build body 2)
-status: In Progress
+status: Done
 assignee:
   - '@architect'
 created_date: '2026-07-02 18:04'
-updated_date: '2026-07-03 11:39'
+updated_date: '2026-07-03 11:43'
 labels:
   - power-group
   - not-install-upgrade
@@ -59,3 +59,13 @@ BUILD PROGRESS (architect, 2026-07-03): Migration 20260703111119_power_group_hie
 
 BUILD COMPLETE (architect, 2026-07-03) — all 10 ACs verified, package HELD for foreman review. Test evidence: 118 Section 12 (Shape A 4-members/4-enterprises, 0-based levels, edge payloads, primary_only prune 2→1, Shape B, dispatch t/f), 120 2a/2b/2f/Phase-6 (deep chain 0-3, unified primary BOTH prongs: parent_company@50%→primary via TYPE + co_ownership@49%→false, spine prune 3→2, cycle+custom-root effective_root=Apex Manufacturing, MULTI: 2 naturals at level 0 + is_root only power_root designee + depth 1). CONTAINMENT VERIFIED per foreman: 107/109/110/111 all PASS zero-diff; 109 perf baseline drift = timing jitter only (identical plans) → discarded per testing.md. Both blessed .out files 0 NUL bytes. FLAG (infra, not 125): first 118 run's results file had a 5207-byte NUL hole at offset 0x3000 exactly (lost 4K-aligned write in pg_regress output path on this macOS/Docker setup); clean on re-run, same byte count — if it recurs, deserves its own backlog task. EXPLAIN discipline: all edits to existing fns are additive (appended || fragments + CASE routing, foreman-exempted class); stats-caller keep-decision recorded in migration header. Stamps: types-generate + app-tsc stamps WITHHELD (dirty tree) — re-run ./sb types generate + cd app && pnpm run tsc after commit. NOT in package (engineer's in-flight, disjoint): cli/cmd/install.go, cli/cmd/session_orphan_test.go.
 <!-- SECTION:NOTES:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-03 11:43
+---
+COMMITTED 8a45e2945 + PUSHED — DONE, all 10 criteria checked (architect built on Fable/high; foreman first-hand review before commit). Review evidence: down migration = the four \sf-dumped originals verbatim + drops of the six new signatures; up = 3 new fragments + additive-only edits to the existing hierarchy functions (appended composition terms + a dispatch CASE; signature additions force drop-and-create); doc/db regen = EXACTLY the six functions + details (independent scope confirmation); containment VERIFIED not assumed — 107/109/110/111 byte-identical post-migration; the EXPLAIN-exempt additive class confirmed (no predicate/join shape changed). Coverage highlights: both IFRS prongs of unified primary proven in one blessed row pair; spine prune; cycle group with custom root; multi-root Phase 6 ADDED (architect self-caught the untested multi case); 118 Shape A shows 4 members across 4 enterprises — the collapse is gone. Pre-existing 118 echo-vs-output contradiction fixed in the re-bless. Post-commit stamps (types + tsc) regenerated clean. RESIDUALS: (1) the one-off 5207-byte NUL hole at 0x3000 in a pg_regress results file (clean on re-run, identical byte count) — watch for recurrence, then it gets its own task per no-flaky-tests; (2) this push is MIGRATION-BEARING → its published seed becomes the genuine-delta prior the deferred multi-delta confirming run needs (once the seed-consistency defect is fixed). The power-group handoff from the King's other session is now fully landed: 124 substrate + 125 hierarchy; import subtasks 120/121 remain in their own lane.
+---
+<!-- COMMENTS:END -->
