@@ -186,12 +186,20 @@ note over service, db #E8F5E9
 end note
 note over service, db #FFF9C4
   TEST COVERAGE — phase dispatch + resume after the swap
-  TEST 3-postswap-resume-died-rollback — DELETED (STATBUS-099): the two-run resume-re-kill it tested is
-    PRODUCT-IMPOSSIBLE. resumePostSwap's self-heal canary (service.go:5044/5053: containersAtFlagTarget
-    + no pending migrations) converges-and-completes the resume BEFORE a second inject can land
-    (grounded by VM-run 27820228835: the resume self-healed to completed, no re-kill). The REAL contract
-    — a kill at the FIRST applyPostSwap => the new-sb-upgrading one-shot latch => ONE rollback, no loop — is
-    COVERED by 3-postswap-container-restart-kill. Not a gap: the injection point is covered.
+  TEST 3-postswap-resume-died-parked (STATBUS-044, rebuilt 2026-07-03 — supersedes the deleted
+    3-postswap-resume-died-rollback, STATBUS-099): the two-run resume-re-kill IS product-reachable
+    again since STATBUS-046/D3 shipped the crash-resume death budget (resumeEscalation). STATBUS-099's
+    "product-impossible" finding (VM-run 27820228835: a single kill after container-restart self-healed
+    to completed before a second inject could land) still holds for THAT injection site
+    (killed-by-system-during-container-restart, AFTER migrate-up — containersAtFlagTarget can converge
+    there) — this rebuild instead pins BOTH kills at migrate-up (BEFORE container restart, so the
+    self-heal canary never fires) via an external SIGKILL gated on the flag's Step field, not an
+    inject.KillHere class. Two same-step deaths now PARK the upgrade (alive-idle, siren once, never
+    rolled_back) rather than looping loud forever OR rolling back — the pre-046 "one-shot latch => ONE
+    rollback" framing this note used to carry is ALSO stale: current recoverFromFlag ground-truth-gates
+    the Resuming branch (STATBUS-039) — AtTarget always resumes forward via resumePostSwap, never a
+    blanket rollback-on-any-death. 3-postswap-container-restart-kill (single kill, no re-entry) remains
+    the correct coverage for that OTHER injection site's one-shot-death shape.
   GREEN: 3-postswap-mid-migration-kill / 3-postswap-mid-tx-kill / 3-postswap-between-migrations-kill /
     3-postswap-migrate-killed-after-commit / 3-postswap-migration-deterministic-error (the last two
     GREEN since the STATBUS-017 fix landed — see cells (2)/(e)).
