@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-06-12 22:15'
-updated_date: '2026-07-03 21:03'
+updated_date: '2026-07-03 21:32'
 labels:
   - install-recovery
   - upgrade
@@ -159,5 +159,17 @@ author: foreman
 created: 2026-07-03 21:03
 ---
 SLICE 2 FULLY SPECCED (architect rulings Q1-Q5, 2026-07-03 late evening; engineer building — classification table at tmp/engineer-046-slice2-classification-table.md is the spec). Q1: unknown signal → class A (budget + same-step-twice bound it — same-step-twice parks an unknown-deterministic error on its SECOND occurrence, faster than the budget; the doc-022 unknown→stop was for a classifier with NO bound). Q2: exact canonical text markers allowed under four pins — protocol/kernel constants only with cited source (OCI MANIFEST_UNKNOWN verbatim; strerror(ENOSPC)), always conjunctive (step + non-zero exit + marker), park only on positive match (a miss degrades to bounded leniency — under-match can never wrong-park), one marker per class per site unit-tested against verbatim strings. AMENDED: disk C-signal primary = local statfs pre-check (mirrors the Phase-0 gate), ENOSPC marker as in-flight backstop; manifest/404 markers stand, no network pre-probe (TOCTOU). Q3: one site-parameterized reason template for image-not-published (one operator playbook entry). Q5 (the subprocess-boundary finding — engineer verified exit codes don't sub-classify; SQLSTATE never crosses): sb migrate up ENCODES its failure class in documented exit codes — 0 success / 1 unclassified→A / 20 deterministic (psql exit 3 under ON_ERROR_STOP)→B / 22 resource (SQLSTATE class 53 via psql VERBOSITY=verbose documented field)→C; named consts shared migrate↔service; stderr rides the park reason as DATA never as classifier; 22 deferrable briefly (B and C both park-on-first). This contract is also the substrate the deferred 109 forward-step classifier waited for. Added table row: migrate disk-full 53100 → C. Build order: config-generate (B, cleanly structured today) + framework first; migrate exit-code contract; docker markers after recon confirms verbatim strings.
+---
+
+author: foreman
+created: 2026-07-03 21:32
+---
+SLICE 2 COMMITTED + PUSHED: f70ede5e4 (11 files, +635/−12; diagram SVGs folded in by the hook). Both reviews green (architect APPROVE AS-IS, zero edits; foreman first-hand). THE COVERAGE RECORD (per architect — the durable home for the classification table, superseding tmp/engineer-046-slice2-classification-table.md):
+
+SHIPPED park-on-first — 3.1 config-generate: B via exit≠0 non-timeout (templates from .env.config, no network/DB — deterministic by nature). 3.5 migrate: B via the NEW exit-code contract (migrate/exit_codes.go: 0 success / 1 unclassified / 20 deterministic / 22 resource; producer maps psql's documented exit 3 under ON_ERROR_STOP → process exit 20; consumer reads ONLY the exit code). 3.2 image-pull + 3.6 start-services: C via local statfs pre-check (existing DiskFree, 5 GB floor — the will-this-step-fail bar vs install's 100 GB should-we-install bar) parking BEFORE the step, plus the ENOSPC stderr-tail backstop (kernel-authored strerror survives daemon rewrapping) via the new bounded capture variant — streaming unchanged.
+
+DEFERRED with rulings at each site — manifest-404→B (3.2/3.3): live probe proved the daemon REWRAPS OCI MANIFEST_UNKNOWN into generic prose; ships unknown→A (persistent 404 parks in 2 deaths via same-step-twice); promotes only after a real-surface Linux sample, and if that is also generic it stays A PERMANENTLY (post-failure manifest-inspect probe = the only future alternative, not speculative). Migrate 22/C: psql VERBOSITY SQLSTATE-field plumbing. Health-past-warmup B (3.7): couples to the warmup allowance — slice 3's first item. 3.6 compose-config-B: no structured signal identified; unknown→A is its honest permanent home unless one appears. 3.3 db-up / 3.4 reconnect: class A unchanged.
+
+Default rule shipped: unknown structured signal → A — safe because an error-exit counts as a death, so same-step-twice parks an unknown-deterministic failure on its SECOND occurrence (faster than the budget). Park disposition stays ground-truth-gated (Behind→rollback, else park + once-per-event siren). IN FLIGHT: mechanic building the park-scenario rewrite (3-postswap-resume-died-parked.sh visible in tree, uncommitted); slice 3 (allowances) + slice 1b (rollback-pipeline mapping) remain.
 ---
 <!-- COMMENTS:END -->
