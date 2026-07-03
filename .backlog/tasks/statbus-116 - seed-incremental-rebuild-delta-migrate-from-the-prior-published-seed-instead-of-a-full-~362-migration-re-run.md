@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
-updated_date: '2026-07-03 11:39'
+updated_date: '2026-07-03 12:00'
 labels:
   - build-caching
   - seed
@@ -217,5 +217,11 @@ author: foreman
 created: 2026-07-03 11:39
 ---
 DIAGNOSIS COMPLETE — CORRECTS comment 19's hypotheses (engineer, tmp/statbus-116-first-enable-failure.md; foreman-reviewed). BOTH GATES FIRED CORRECTLY: the walk picked statbus-seed:ce383eff (closest published, post-fix ancestor) and the fingerprint gate rightly ruled incremental — 20260218215337.up.sql is byte-identical ce383eff↔HEAD. THE REAL DEFECT: the PUBLISHED ce383eff seed artifact is INTERNALLY INCONSISTENT — restored-ledger content_hash for 20260218215337 = cd82bc76 (PRE-fix) while its seed.json fingerprint is post-fix; the file gate compares FILES and cannot see a stale restored ledger. Suspected mechanism (to be architect-verified): a build-cache artifact in the image chain supplying pre-fix applied-migrations while seed.json regenerates from current files. STRUCTURAL GAP confirmed: migrate up's immutability check (migrate.go:1452-1519) on any restored-ledger mismatch calls the released-tag git machinery — impossible in the hermetic builder (no .git); fires only on the incremental path. ⚠ BROADER TAIL ESCALATED: a FRESH INSTALL restoring the published ce383eff seed on a real box (git present) hits the same mismatch → the channel/immutability machinery — possibly a live install issue TODAY, independent of the flip. Fix design routed to the ARCHITECT (after his 125 package): typed in-stage full-fallback (ErrStaleRestoredMigration), a dump-time consistency assert so this artifact class can never publish, deployed-severity adjudication, interim republish question. Variable stays FALSE; re-enable only after the fix + a verified-consistent published seed.
+---
+
+author: foreman
+created: 2026-07-03 12:00
+---
+UNIFIED SEED-FIDELITY DESIGN RATIFIED (foreman) → doc-025 rev 2; ENGINEER BUILDING A-E as one package. ONE INVARIANT, TWO CARRIERS: seed-restore + migrate up must equal migrate-from-empty. Instance 1 (metadata): NOT a cache artifact — deterministic; migration 20260426220000 hardcodes 344 April-frozen hash literals, the sanctioned in-place ORDER-BY fix changed the file but no literal → EVERY from-empty build since Jul 2 ships a stale ledger hash (republish structurally useless). Instance 2 (effects): ALTER ROLE writes the CLUSTER catalog a database dump can never carry → the exemption was never armed on any seed-restored box (arc deadlock explained; mechanic's smoking gun + architect extension: the 2024 statement_timeout/lock_timeout/safeupdate role GUCs are ALSO silently missing on all seed-restored boxes today — pre-existing class). CORRECT HOME EXISTS WITH PRECEDENT: post_restore.sql already re-arms the role-membership GRANTs for exactly this class. DESIGN: A) in-run re-stamp of backfilled rows; B) DumpSeed publish gate (ledger==files or die); C) seed-build channel + typed in-stage full-fallback (no git); D) HOTFIX — delete migration 20260703104910 (no released tag; orphan rows skip benignly) + ALTER ROLE → post_restore.sql + mirror the 2024 GUCs; E) static gate blocking cluster-scoped statements in future migrations. FOREMAN RULINGS: post_restore = HARD-FAIL (fail-fast doctrine); build greenlit. SEVERITY (good news): production (old migrated installs) SAFE; stable-channel fresh installs self-heal the hash via the sanctioned bless flow; the broken-first-upgrade tail confined to arc VMs + recent seed-restored fresh installs — CAUGHT BEFORE the external standalone rollout would have shipped it to every new operator box. PROOF: two oracles after the package lands — arc re-run (D) + seed job with flip FALSE (A attested by B); only then does the King re-flip.
 ---
 <!-- COMMENTS:END -->
