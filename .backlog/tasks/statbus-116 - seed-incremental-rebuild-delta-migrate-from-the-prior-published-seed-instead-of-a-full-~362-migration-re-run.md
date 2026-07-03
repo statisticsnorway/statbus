@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
-updated_date: '2026-07-03 20:09'
+updated_date: '2026-07-03 20:12'
 labels:
   - build-caching
   - seed
@@ -35,11 +35,11 @@ Net: warm seed build ~2m -> seconds, with a hard correctness fallback. Evidence 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 When a prior published seed is available AND the fingerprint of migrations <= its recorded version matches, the seed build restores the prior seed, applies only the delta migrations, and re-dumps — no full from-empty re-run
-- [ ] #2 On fingerprint mismatch (a migration <= prior version was retroactively edited/removed) OR no prior seed exists, the build falls back to a full rebuild from empty
-- [ ] #3 A periodic full-baseline rebuild path exists to bound drift accumulation (cadence or explicit trigger)
+- [x] #1 When a prior published seed is available AND the fingerprint of migrations <= its recorded version matches, the seed build restores the prior seed, applies only the delta migrations, and re-dumps — no full from-empty re-run
+- [x] #2 On fingerprint mismatch (a migration <= prior version was retroactively edited/removed) OR no prior seed exists, the build falls back to a full rebuild from empty
+- [x] #3 A periodic full-baseline rebuild path exists to bound drift accumulation (cadence or explicit trigger)
 - [x] #4 The incrementally-built seed is verified identical to a full-rebuild seed (schema + data fingerprint)
-- [ ] #5 Measured: a warm incremental seed build drops from ~2m to seconds; recorded in the task
+- [x] #5 Measured: a warm incremental seed build drops from ~2m to seconds; recorded in the task
 - [ ] #6 RECOMMENDED pre-AC#1-enable check (NOT an AC#4 gate; AC#4 certifies on single-delta): before enabling incremental live, run ONE prod-shaped multi-migration-delta INCR-vs-FULL (real prior-RELEASE seed + that release's delta, vs full). Only test exercising physical-state-independence across a release's restored-base boundary; FULL-vs-FULL can't see it. NARROW/low-prob (unordered-SELECT anti-pattern) BUT high-severity (silent corrupt seed) + cheap. King gates AC#1 via Fork A.
 <!-- AC:END -->
 
@@ -253,5 +253,11 @@ author: foreman
 created: 2026-07-03 20:09
 ---
 FLAG RETIRED — COMMITTED 7910fbbbc + PUSHED (architect GO; foreman first-hand review; engineer build). 4 files, net −38: images.yaml resolves the ancestor prior unconditionally (no vars.SEED_INCREMENTAL_ENABLED, no enable build-arg); seed_build.go drops the enable-gate param (resolveSeedPath(incremental, prior)); the retired must-not-flip-live guard test is superseded by a STRICTLY STRONGER truth-table invariant (TestResolveSeedPath_IncrementalOnlyWhenAllGatesPass: exactly ONE input combination yields incremental, yesCount==1 asserted); Dockerfile drops ARG SEED_INCREMENTAL. Architect ruling recorded: prior-resolution infra errors fail the job LOUD by design — a degrade-to-empty wrapper would reintroduce ambient-state-dependent builds (the exact class removed) and mask infra failures as silent fulls. Kill-switch = git revert of 7910fbbbc. FIRST LIVE INCREMENTAL RUN in flight: images run 28681327764 — expect prior-present=true → PATH=INCREMENTAL restoring statbus-seed:a3eb522c, depth 0→1, publish gate re-attesting the incremental output, and the AC-5 timing measurement (full-path in-stage baseline ~60-70s). Operator watching with exact criteria; foreman backstop watcher running.
+---
+
+author: foreman
+created: 2026-07-03 20:12
+---
+🟢 FIRST LIVE INCREMENTAL RUN GREEN (images run 28681327764, seed job 85065399384, foreman verified log first-hand). Evidence: `incremental base: ghcr.io/statisticsnorway/statbus-seed:a3eb522c` (ancestor walk → the consistency-attested prior); `seed build: prior-present=true decision-incremental=true -> PATH=INCREMENTAL (restore prior + delta-migrate)`, reason `migrations <= 20260703111119 unchanged since the prior seed`; `restoring prior seed … (depth 0 -> 1)`; `Seed dumped: migration 20260703111119, commit 7910fbbb (4.4 MB)` — publish gate re-attested the incremental artifact. TIMING (criterion 5): in-stage decision t+3.2s → dump complete t+19.3s ≈ 16s work, vs ~60s for the full path in the SAME stage yesterday (run 28679520295: t+3.2 → t+63.4) — and the original ~2min from-empty tentpole. Delta this run = 0 pending migrations (pure restore+re-dump). CHECKED: criterion 1 (live incremental restore+delta+re-dump, no from-empty run), criterion 2 (no-prior/mismatch→FULL — proven live in runs 28656755124 + 28679520295 where prior-absent → PATH=FULL, plus the truth-table test), criterion 3 (depth cap N=5, committed 494481aa7, depth counter now live at 1), criterion 5 (measured above). REMAINING: criterion 6 only — the deferred confirming run: `sb db seed verify-multidelta` against a post-ORDER-BY-fix published seed once a genuine multi-migration delta accumulates (per comment 17; the King's flip-early ruling made it post-enable). The feature is LIVE; kill-switch = git revert 7910fbbbc.
 ---
 <!-- COMMENTS:END -->
