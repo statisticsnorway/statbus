@@ -34,7 +34,15 @@ import (
 // baseline before a fresh full rebuild is forced — the bound that stops drift
 // accumulating across a chain (the AC#3 enforcement cadence builds on this).
 // depth 0 = full baseline; an incremental build records prior depth + 1.
-const MaxIncrementalDepth = 10
+//
+// N=5 for the first-enable period (STATBUS-116 D4, King-ruled): a full baseline
+// every 5th consecutive incremental costs ~2min per 5 builds — cheap insurance
+// while the feature is young. Raise it later once incremental is boring/proven.
+// This is the drift bound: with releases reusing the pre-tag master-push seed
+// (no release-specific full-rebuild is possible — the seed is built at
+// master-push before any v* tag exists), the depth cap is the PRIMARY guarantee
+// that any published seed is at most N-1 incrementals from a from-empty full.
+const MaxIncrementalDepth = 5
 
 // priorSeedDir (relative to projDir) is where the Dockerfile mounts the injected
 // prior-seed build-context. The DEFAULT context is EMPTY: no seed.json there ⇒ no
