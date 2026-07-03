@@ -165,11 +165,15 @@ jobs:
       # GATED on the repo/workflow variable SEED_INCREMENTAL_ENABLED (default
       # false/unset). DEFAULT → an EMPTY prior context + SEED_INCREMENTAL=0 → the
       # seed build does a full from-empty rebuild, byte-identical to pre-AC#1.
-      # THE FLIP = setting SEED_INCREMENTAL_ENABLED=true (one line), blocked on
-      # AC#6 green + the AC#3 depth-bound. NOTE for the flip: the enabled path also
-      # needs `fetch-depth: 0` on the checkout above (full history for the walk) and
-      # a host `sb` binary (extract from the statbus-sb image) — not needed while
-      # disabled, so left for the enable slice.
+      # THE FLIP = setting the repo variable SEED_INCREMENTAL_ENABLED=true (an
+      # instant, revertible on/off — no commit needed to disable). The enabled
+      # path's machinery is committed + GATED here (STATBUS-116 D4): the `prior`
+      # step deepens history on-demand (`git fetch --unshallow`) and extracts the
+      # `sb` binary from the statbus-sb image, both INSIDE the enabled branch so
+      # the disabled default is byte-identical to before (the checkout stays
+      # fetch-depth:1). AC#3 drift bound = the depth cap (MaxIncrementalDepth=5);
+      # AC#6 Part 2 (post-fix real-seed multi-delta green) is the deferred
+      # confirming run — the King ruled flip-early to exercise the code.
       - name: Resolve incremental prior seed (gated; empty by default)
         id: prior
         run: |
@@ -182,9 +186,22 @@ jobs:
             echo "enabled=0" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          # Enabled path (post-AC#6): walk ancestry for the closest published seed
-          # and docker-cp it into the prior context. Falls back to full (empty dir)
-          # when no ancestor seed exists.
+          # --- Enabled path (reached ONLY when SEED_INCREMENTAL_ENABLED=true; the
+          #     gate above `exit 0`s the disabled default before any of this). ---
+          # The Fork-A ancestor-walk needs full first-parent history, but the
+          # checkout above is deliberately left at fetch-depth:1 so the DISABLED
+          # path is byte-identical to before — deepen on-demand here instead.
+          git fetch --prune --unshallow || git fetch --prune --depth=100
+          # Put the sb binary on the runner. It lives at /sb in the distroless
+          # statbus-sb:<commit_short> image (postgres/Dockerfile:470-471), which
+          # this seed job already depends on (build-context, below). docker create
+          # + cp — no run (STATBUS-116 AC#1 select-prior host machinery).
+          cid="$(docker create "${{ env.REGISTRY }}/${{ env.ORG }}/statbus-sb:${{ needs.describe.outputs.commit_short }}")"
+          docker cp "$cid:/sb" ./sb
+          docker rm "$cid"
+          chmod +x ./sb
+          # Walk ancestry for the closest published seed and docker-cp it into the
+          # prior context. Falls back to full (empty dir) when no ancestor seed exists.
           tag="$(./sb db seed select-prior || true)"
           if [ -z "$tag" ]; then
             echo "no published ancestor seed found — full rebuild"
