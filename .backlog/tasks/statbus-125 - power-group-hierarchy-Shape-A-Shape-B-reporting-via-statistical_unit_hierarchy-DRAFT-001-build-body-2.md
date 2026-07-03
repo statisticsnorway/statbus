@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-07-02 18:04'
-updated_date: '2026-07-03 11:03'
+updated_date: '2026-07-03 11:28'
 labels:
   - power-group
   - not-install-upgrade
@@ -51,3 +51,9 @@ Import-side companions (separate tasks, not this one): STATBUS-120 (multi-contro
 - [ ] #9 TypeScript types added per DRAFT-001 locked naming
 - [ ] #10 doc/power-groups.md updated (Reporting & Navigation section, unified primary, per-member domestic/country, group type)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+BUILD PROGRESS (architect, 2026-07-03): Migration 20260703111119_power_group_hierarchy_shape_a_b_statbus_125 written + applied locally. 6 functions: NEW power_group_link (multi-parent: LU/enterprise/pg-id), power_group_membership_hierarchy (emits membership + country/domestic ONLY for members — containment), power_group_hierarchy (Shape A; cycle/multi via legal_relationship + power_root; primary_only spine via recursive walk); REPLACED (DROP+CREATE, primary_only appended): legal_unit_hierarchy, enterprise_hierarchy, statistical_unit_hierarchy; statistical_unit_details completes power_group dispatch. Down migration restores \sf-dumped originals (stdout-only dump). EMPIRICALLY SMOKE-VERIFIED in rolled-back txns on dev DB: Shape A 4 members/3 enterprises (collapse gone), diamond edges both directions, unified primary (type-route @NULL%, percentage-route @60%>50, non-primary @30%), spine prune, cycle group renders (root_status=cycle, root from power_root, NULL levels), Shape B link+membership, containment on pre-existing LU (no new keys), ~20ms. Tests 118 (+Section 12, stale echo fixes) + 120 (+2a/2b/2f shape assertions) extended — tester running; expected outputs to be blessed after intent review. TS types added (types.d.ts per locked naming). doc/power-groups.md: Reporting & Navigation + unified-primary sections. doc/db + types regen running. NOTE for review: statistical_unit_enterprise_id kept for stats/search callers (representative enterprise); only the hierarchy path bypasses it.
+<!-- SECTION:NOTES:END -->
