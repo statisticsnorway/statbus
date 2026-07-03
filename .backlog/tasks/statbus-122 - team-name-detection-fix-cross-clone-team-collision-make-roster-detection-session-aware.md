@@ -6,11 +6,10 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-01 13:42'
-updated_date: '2026-07-02 19:05'
+updated_date: '2026-07-03 10:45'
 labels:
-  - team
-  - hooks
-  - infra
+  - tooling
+  - not-install-upgrade
 dependencies: []
 ordinal: 108000
 ---
