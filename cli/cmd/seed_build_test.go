@@ -2,10 +2,12 @@ package cmd
 
 import "testing"
 
-// STATBUS-116 AC#1 — pure cores of the seed-build wiring. Dangerous failures:
-// (a) taking incremental while the enable-gate is OFF (must-not-flip-live), and
-// (b) chaining incrementals past the depth cap (unbounded drift). These pin the
-// routing + the ancestor-walk with no git / docker / DB.
+// STATBUS-116 AC#1 — pure cores of the seed-build wiring. The dangerous failure
+// is chaining incrementals past the depth cap (unbounded drift); the routing
+// also must fall back to full whenever the fingerprint decision says full or no
+// prior is injected. These pin the routing + the ancestor-walk with no git /
+// docker / DB. (The external enable-flag was retired — the in-code gates below
+// ARE the gate.)
 
 // ── ancestor-walk (Step 2) ───────────────────────────────────────────────────
 
@@ -54,26 +56,57 @@ func TestFirstPublishedAncestor_HitWithinCapNoCapFlag(t *testing.T) {
 
 // ── build routing (Step 3a) ──────────────────────────────────────────────────
 
-// THE must-not-flip-live guarantee: enable-gate OFF ⇒ full, even when the
-// fingerprint decision said incremental.
-func TestResolveSeedPath_GateOffForcesFull(t *testing.T) {
-	use, depth, note := resolveSeedPath(false, true, &seedMeta{IncrementalDepth: 3})
-	if use || depth != 0 || note != "" {
-		t.Errorf("enable-gate off must force full (no note); got use=%v depth=%d note=%q", use, depth, note)
+// THE INVARIANT (replaces the retired must-not-flip-live guard): now that the
+// external enable-flag is gone and the incremental path runs unconditionally,
+// resolveSeedPath is the sole routing gate. It returns INCREMENTAL for EXACTLY
+// ONE combination — the fingerprint decision approved AND a prior is present AND
+// depth is under the cap — and DEGRADES TO FULL for every other combination.
+// This always-on table locks that: no input can produce a build that isn't
+// either a safe incremental or a safe full (there is no broken-build branch).
+func TestResolveSeedPath_IncrementalOnlyWhenAllGatesPass(t *testing.T) {
+	underCap := &seedMeta{IncrementalDepth: 1}                    // 1+1=2 < 5
+	atCap := &seedMeta{IncrementalDepth: MaxIncrementalDepth - 1} // hits the cap
+	cases := []struct {
+		name        string
+		incremental bool
+		prior       *seedMeta
+		wantUse     bool
+	}{
+		{"decision=full, prior present -> FULL", false, underCap, false},
+		{"decision=full, nil prior -> FULL", false, nil, false},
+		{"decision=incremental, nil prior (empty context / resolve failure) -> FULL", true, nil, false},
+		{"decision=incremental, prior at depth cap -> FULL", true, atCap, false},
+		{"decision=incremental, prior under cap -> INCREMENTAL (the ONLY yes)", true, underCap, true},
+	}
+	yesCount := 0
+	for _, tc := range cases {
+		use, depth, _ := resolveSeedPath(tc.incremental, tc.prior)
+		if use != tc.wantUse {
+			t.Errorf("%s: use=%v, want %v", tc.name, use, tc.wantUse)
+		}
+		if !use && depth != 0 {
+			t.Errorf("%s: FULL must yield depth 0, got %d", tc.name, depth)
+		}
+		if use {
+			yesCount++
+		}
+	}
+	if yesCount != 1 {
+		t.Errorf("exactly one input combination may yield incremental; got %d", yesCount)
 	}
 }
 
-// Enabled but the fingerprint gate said full ⇒ full.
+// The fingerprint gate said full ⇒ full (even with a prior present).
 func TestResolveSeedPath_DecisionFullStaysFull(t *testing.T) {
-	use, depth, _ := resolveSeedPath(true, false, &seedMeta{IncrementalDepth: 1})
+	use, depth, _ := resolveSeedPath(false, &seedMeta{IncrementalDepth: 1})
 	if use || depth != 0 {
 		t.Errorf("decision=full must stay full; got use=%v depth=%d", use, depth)
 	}
 }
 
-// Enabled + decision incremental + under the cap ⇒ incremental, depth+1.
+// Decision incremental + prior present + under the cap ⇒ incremental, depth+1.
 func TestResolveSeedPath_IncrementalBumpsDepth(t *testing.T) {
-	use, depth, note := resolveSeedPath(true, true, &seedMeta{IncrementalDepth: 3})
+	use, depth, note := resolveSeedPath(true, &seedMeta{IncrementalDepth: 3})
 	if !use || depth != 4 || note != "" {
 		t.Errorf("incremental under cap must bump depth to prior+1; got use=%v depth=%d note=%q", use, depth, note)
 	}
@@ -82,7 +115,7 @@ func TestResolveSeedPath_IncrementalBumpsDepth(t *testing.T) {
 // The depth cap forces a full baseline (drift bound) and explains why.
 func TestResolveSeedPath_DepthCapForcesFull(t *testing.T) {
 	// prior depth = cap-1 ⇒ prior+1 == cap ⇒ must force full.
-	use, depth, note := resolveSeedPath(true, true, &seedMeta{IncrementalDepth: MaxIncrementalDepth - 1})
+	use, depth, note := resolveSeedPath(true, &seedMeta{IncrementalDepth: MaxIncrementalDepth - 1})
 	if use || depth != 0 {
 		t.Errorf("hitting the depth cap must force full; got use=%v depth=%d", use, depth)
 	}
@@ -90,14 +123,14 @@ func TestResolveSeedPath_DepthCapForcesFull(t *testing.T) {
 		t.Error("the depth-cap fallback must explain itself (loud, not silent)")
 	}
 	// One below the cap boundary still goes incremental.
-	if use2, depth2, _ := resolveSeedPath(true, true, &seedMeta{IncrementalDepth: MaxIncrementalDepth - 2}); !use2 || depth2 != MaxIncrementalDepth-1 {
+	if use2, depth2, _ := resolveSeedPath(true, &seedMeta{IncrementalDepth: MaxIncrementalDepth - 2}); !use2 || depth2 != MaxIncrementalDepth-1 {
 		t.Errorf("just under the cap must still be incremental; got use=%v depth=%d", use2, depth2)
 	}
 }
 
 // A nil prior (empty/absent injected context) can never be incremental.
 func TestResolveSeedPath_NilPriorFull(t *testing.T) {
-	if use, depth, _ := resolveSeedPath(true, true, nil); use || depth != 0 {
+	if use, depth, _ := resolveSeedPath(true, nil); use || depth != 0 {
 		t.Errorf("nil prior must be full; got use=%v depth=%d", use, depth)
 	}
 }

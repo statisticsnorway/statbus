@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/statisticsnorway/statbus/cli/internal/config"
@@ -24,11 +23,18 @@ import (
 // The migrate + dump are IDENTICAL in both branches; the restored ledger makes
 // `migrate up` apply only the delta. So the full path stays byte-for-byte today's.
 //
-// TWO-GATE (must-not-flip-live): incremental runs ONLY when BOTH
-//   (1) the SEED_INCREMENTAL env enable-gate is set (AC#6 HOST gate), AND
-//   (2) SeedBuildDecision approves (AC#2 fingerprint gate — already committed),
-// AND the depth cap is not reached. Default (env unset + empty/absent prior) →
-// full rebuild. This slice ships with the gate OFF everywhere.
+// IN-CODE GATES (STATBUS-116; the external SEED_INCREMENTAL_ENABLED flag was
+// retired once two green oracles proved these — a same-commit build must not
+// build differently based on mutable side-channel state). Incremental runs ONLY
+// when ALL hold:
+//   (1) a prior seed is injected (empty context ⇒ nil prior ⇒ full), AND
+//   (2) SeedBuildDecision approves (AC#2 migrations-fingerprint gate), AND
+//   (3) the depth cap is not reached.
+// Any gate failing ⇒ full from-empty rebuild, byte-identical to the pre-AC#1
+// 3-call sequence. Plus two runtime backstops proven on real VMs: a stale
+// restored base surfaces ErrStaleRestoredMigration → full fallback (Part C), and
+// DumpSeed's publish gate refuses to publish an inconsistent seed (Part B).
+// Kill-switch = ordinary git revert of the enabling commit.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // MaxIncrementalDepth caps how many incremental builds may chain off a full
@@ -52,30 +58,16 @@ const priorSeedDir = ".prior-seed"
 
 var seedBuildCommit string
 
-// seedIncrementalEnabled reads the SEED_INCREMENTAL host enable-gate. Unset / "" /
-// "0" / "false" / "no" ⇒ disabled (full). The images.yaml `prior` step sets it
-// (and injects a prior context) ONLY when the repo-level SEED_INCREMENTAL_ENABLED
-// knob is on — the single reviewable flip, taken after AC#6.
-func seedIncrementalEnabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("SEED_INCREMENTAL"))) {
-	case "", "0", "false", "no":
-		return false
-	default:
-		return true
-	}
-}
-
 var seedBuildCmd = &cobra.Command{
 	Use:   "build",
-	Short: "Build the seed DB (full, or gated incremental restore+delta) and dump it",
+	Short: "Build the seed DB (full, or incremental restore+delta) and dump it",
 	Long: `Build the statbus_seed database and dump it to .db-seed/ (STATBUS-116 AC#1).
 
-Full path (default): create empty seed DB -> migrate up --target seed -> dump.
-Incremental (GATED, off by default): restore the injected prior seed, then apply
-only the delta migrations before dumping. Incremental runs only when the
-SEED_INCREMENTAL enable-gate is set AND the migrations-fingerprint gate
-(SeedBuildDecision) approves AND the depth cap is not reached; otherwise it falls
-back to a full rebuild.`,
+Full path: create empty seed DB -> migrate up --target seed -> dump.
+Incremental: restore the injected prior seed, then apply only the delta
+migrations before dumping. Incremental runs when a prior seed is injected AND
+the migrations-fingerprint gate (SeedBuildDecision) approves AND the depth cap
+is not reached; otherwise it falls back to a full rebuild.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runSeedBuild(config.ProjectDir(), seedBuildCommit)
 	},
@@ -83,8 +75,6 @@ back to a full rebuild.`,
 
 func runSeedBuild(projDir, commit string) error {
 	verbose = true // build-log parity with the prior `sb migrate up --target seed --verbose`
-
-	enabled := seedIncrementalEnabled()
 
 	// Load the injected prior seed metadata. An empty context (the default) or a
 	// pre-116 seed.json (no fingerprint) ⇒ nil ⇒ SeedBuildDecision returns full.
@@ -98,17 +88,17 @@ func runSeedBuild(projDir, commit string) error {
 		prior = m
 	}
 
-	// STAGE correctness-gate (AC#2). Honor incremental ONLY if the host enable-gate
-	// is also on, and only within the depth bound.
+	// STAGE correctness-gate (AC#2): honor incremental only when the fingerprint
+	// decision approves and the depth bound allows it.
 	incremental, reason := SeedBuildDecision(prior, projDir)
-	useIncremental, newDepth, capNote := resolveSeedPath(enabled, incremental, prior)
+	useIncremental, newDepth, capNote := resolveSeedPath(incremental, prior)
 	if capNote != "" {
 		reason = capNote
 	}
 
 	// LOUD decision log — the operator/CI must always see which path ran and why.
-	fmt.Printf("seed build: enable-gate=%v prior-present=%v decision-incremental=%v -> PATH=%s\n  reason: %s\n",
-		enabled, prior != nil, incremental, seedPathLabel(useIncremental), reason)
+	fmt.Printf("seed build: prior-present=%v decision-incremental=%v -> PATH=%s\n  reason: %s\n",
+		prior != nil, incremental, seedPathLabel(useIncremental), reason)
 
 	seedDbName, err := loadSeedDbName(projDir)
 	if err != nil {
@@ -172,16 +162,16 @@ func runSeedBuild(projDir, commit string) error {
 	return nil
 }
 
-// resolveSeedPath is the PURE routing decision (no I/O): compose the HOST
-// enable-gate with the AC#2 fingerprint decision and the depth bound.
-//   - useIncremental only if BOTH enabled AND SeedBuildDecision said incremental;
+// resolveSeedPath is the PURE routing decision (no I/O): compose the AC#2
+// fingerprint decision with the depth bound.
+//   - useIncremental only if SeedBuildDecision said incremental AND a prior exists;
 //   - forced back to full at the depth cap (newDepth 0, capNote set);
 //   - otherwise newDepth = prior.IncrementalDepth + 1.
 //
 // Full always yields newDepth 0 (a fresh full baseline). prior is dereferenced
 // only on the incremental branch, where SeedBuildDecision guarantees it non-nil.
-func resolveSeedPath(enabled, incremental bool, prior *seedMeta) (useIncremental bool, newDepth int, capNote string) {
-	if !enabled || !incremental || prior == nil {
+func resolveSeedPath(incremental bool, prior *seedMeta) (useIncremental bool, newDepth int, capNote string) {
+	if !incremental || prior == nil {
 		return false, 0, ""
 	}
 	if prior.IncrementalDepth+1 >= MaxIncrementalDepth {
