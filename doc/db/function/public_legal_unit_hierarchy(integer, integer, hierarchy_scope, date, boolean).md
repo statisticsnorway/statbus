@@ -1,5 +1,5 @@
 ```sql
-CREATE OR REPLACE FUNCTION public.legal_unit_hierarchy(legal_unit_id integer, parent_enterprise_id integer, scope hierarchy_scope DEFAULT 'all'::hierarchy_scope, valid_on date DEFAULT CURRENT_DATE)
+CREATE OR REPLACE FUNCTION public.legal_unit_hierarchy(legal_unit_id integer, parent_enterprise_id integer, scope hierarchy_scope DEFAULT 'all'::hierarchy_scope, valid_on date DEFAULT CURRENT_DATE, primary_only boolean DEFAULT false)
  RETURNS jsonb
  LANGUAGE sql
  STABLE
@@ -7,6 +7,7 @@ AS $function$
   WITH ordered_data AS (
     SELECT to_jsonb(lu.*)
         || (SELECT public.external_idents_hierarchy(NULL,lu.id,NULL,NULL))
+        || (SELECT public.power_group_membership_hierarchy(lu.id, valid_on, primary_only))
         || CASE WHEN scope IN ('all','tree') THEN (SELECT public.establishment_hierarchy(NULL, lu.id, NULL, scope, valid_on)) ELSE '{}'::JSONB END
         || (SELECT public.activity_hierarchy(NULL,lu.id,valid_on))
         || (SELECT public.location_hierarchy(NULL,lu.id,valid_on))

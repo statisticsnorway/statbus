@@ -161,6 +161,21 @@ SELECT sql_saga.add_unique_key(
 );
 ```
 
+### The unified `primary` edge flag (ex-"konsern")
+
+Reporting surfaces a single derived per-edge flag:
+
+```
+primary = legal_rel_type.primary_influencer_only OR percentage > 50
+```
+
+"Konsern" (the Norwegian consolidation-group concept) is **not** a separate concept — it *is* this `primary` flag. The threshold is **strictly greater than 50** per IFRS 10: control presumes MORE THAN half the voting rights; exactly 50% is a deadlock, not control. The two routes mirror IFRS's two-pronged control test:
+
+- **Type route** (`primary_influencer_only`): de-facto/structural control regardless of percentage (board or voting control) — guaranteed single-controller by the exclusion constraint.
+- **Percentage route** (`> 50`): majority ownership — guaranteed single-controller by arithmetic.
+
+Keep this distinct from `legal_rel_type.primary_influencer_only` itself, which is the TYPE-level *input*; `primary` is the unified derived *output* on each reported edge. There is deliberately **no** CHECK constraint linking `primary` and `percentage` — that would reject all-NULL-percentage BRREG primary rows and legitimate >50% 1:N co-ownership edges.
+
 ### Denormalized Column with Trigger
 
 `legal_relationship.primary_influencer_only` is denormalized from `legal_rel_type` via:
@@ -340,6 +355,63 @@ Legal relationship changes **only affect power groups** — they do NOT affect i
 **The `ensure_collect_changes` trigger on LR also filters for `derived_power_group_id IS NOT NULL`** to prevent scheduling collection when there's nothing to collect. A separate DELETE trigger always schedules (since PG was assigned before deletion and the log captured it).
 
 **Direct vs indirect PG lookup.** Previously, `collect_changes` computed PG IDs via an indirect lookup: drain LU IDs from the log, then query `legal_relationship WHERE influencing_id IN (...) OR influenced_id IN (...)`. This failed during initial import because PG IDs weren't assigned yet when the log was written. The direct approach — logging PG IDs into `base_change_log` at trigger time — eliminates this race condition.
+
+## Reporting & Navigation (STATBUS-125)
+
+Power groups are reported through `statistical_unit_hierarchy` in two directions ("shapes"). Naming is settled (never "enterprise group" / "control group"): full = `power_group` / `power_group_hierarchy()`; reduced reference = `power_group_link`; a unit's membership = `power_group_membership`; member nodes = `power_group_members[]`.
+
+### Shape A — the group on top
+
+`statistical_unit_hierarchy('power_group', X)` dispatches to `power_group_hierarchy(power_group_id, scope, valid_on, primary_only)` and returns:
+
+```json
+{ "power_group": {
+    "ident": "PG1", "name": "Apex Group", "type": { "code": "dcm", "...": "…" },
+    "depth": 2, "width": 2, "reach": 3,
+    "root_legal_unit_id": 101, "root_status": "clean", "root_is_custom": false,
+    "power_group_members": [
+      { "name": "Apex Holding AS", "legal_unit_id": 101,
+        "physical_country_iso_2": "NO", "domestic": true,
+        "power_group_membership": {
+          "power_level": 0, "is_root": true,
+          "influencers": [],
+          "influencees": [ { "influenced_id": 103, "type": "parent_company", "percentage": 100.00, "primary": true } ] },
+        "…": "full legal-unit node (establishments, activity, location, …)" },
+      { "…": "one node per member, spanning ALL member enterprises" } ] } }
+```
+
+Members span **all** member enterprises — this replaces the old behavior where a power group collapsed to its root legal unit's single enterprise (via `statistical_unit_enterprise_id`, which still provides that "representative enterprise" for stats/search contexts). Each member is a full legal-unit node plus:
+
+- `power_group_membership` — `power_level` (0-indexed; NULL for cycle groups), `is_root`, and BOTH edge directions: `influencers[]` (up; each `{influencing_id, type, percentage, primary}`) and `influencees[]` (down; each `{influenced_id, …}`) — every node is self-navigable up and down.
+- `physical_country_iso_2` + `domestic` — inlined from `statistical_unit` for cross-border group reporting.
+
+The group root carries the classification `type` (`power_group_type`: dcn/fcn/dcm/fcm), `depth`/`width`/`reach` (computed as-of `valid_on`; NULL depth/width for cycles), and root provenance (`root_status` clean|cycle|multi, `root_is_custom`).
+
+**Cycle/multi groups render.** The `power_group_membership` view is empty for cycles, so members are enumerated from `legal_relationship` and the root comes from `power_root.root_legal_unit_id` (honoring the NSO `custom_root_legal_unit_id` override; `root_status` = `derived_root_status`).
+
+### Shape B — a regular unit links to its group
+
+`statistical_unit_hierarchy('legal_unit'|'enterprise'|'establishment', X)` returns the normal enterprise-rooted tree, enriched:
+
+- The enterprise root gains **`power_group_link`** — the lean group reference (`PowerGroup` minus members), derived from the enterprise's primary legal unit.
+- Each member legal-unit node gains **`power_group_membership`** (+ `physical_country_iso_2` + `domestic`) — no member expansion.
+
+Units with no power-group membership emit **no** new keys, so hierarchies of ungrouped units are byte-identical to before.
+
+### `primary_only` — the controlling spine
+
+Both shapes accept `primary_only boolean DEFAULT false` (threaded through `statistical_unit_hierarchy`):
+
+- `false` — the whole power group: all edges, all members.
+- `true` — the consolidation view (ex-"konsern"): edge arrays filtered to `primary` edges, members pruned to those reachable from the root via primary edges.
+
+### SQL fragments
+
+- `power_group_hierarchy(power_group_id, scope, valid_on, primary_only)` — Shape A.
+- `power_group_link(parent_legal_unit_id, parent_enterprise_id, parent_power_group_id, valid_on)` — the reduced reference; multi-parent resolution follows the house fragment convention.
+- `power_group_membership_hierarchy(parent_legal_unit_id, valid_on, primary_only)` — the per-node membership fragment ('{}' for non-members).
+
+TypeScript mirrors the naming: `PowerGroup`, `PowerGroupLink`, `PowerGroupMember`, `PowerGroupMembership`, `Influencer`, `Influencee` in `app/src/components/statistical-unit-hierarchy/types.d.ts`.
 
 ## Future Directions
 

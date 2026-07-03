@@ -181,6 +181,37 @@ JOIN public.legal_unit AS lu ON lu.id = pgm.legal_unit_id
 WHERE lu.name LIKE 'Apex%'
 ORDER BY pgm.power_level, lu.name;
 
+SELECT pgm.power_group_id AS apex_pg_id
+FROM public.power_group_membership AS pgm
+JOIN public.legal_unit AS lu ON lu.id = pgm.legal_unit_id
+WHERE lu.name = 'Apex Corp'
+LIMIT 1 \gset
+
+\echo "2a: Shape A (STATBUS-125) — deep chain renders all 4 members with 0-based levels"
+WITH h AS (SELECT public.statistical_unit_hierarchy('power_group', :apex_pg_id, 'tree', '2023-01-01') AS d)
+SELECT m->>'name' AS name,
+       m->'power_group_membership'->>'power_level' AS power_level,
+       (m->'power_group_membership'->>'is_root')::boolean AS is_root
+FROM h, jsonb_array_elements(d->'power_group'->'power_group_members') AS m;
+
+\echo "2a: Shape A root metrics match power_group_def"
+WITH h AS (SELECT public.statistical_unit_hierarchy('power_group', :apex_pg_id, 'tree', '2023-01-01') AS d)
+SELECT d->'power_group'->>'ident' AS ident,
+       d->'power_group'->>'root_status' AS root_status,
+       d->'power_group'->'depth' AS depth,
+       d->'power_group'->'width' AS width,
+       d->'power_group'->'reach' AS reach
+FROM h;
+
+\echo "2a: Shape B (STATBUS-125) — Apex Manufacturing's enterprise tree carries the group link + node membership"
+WITH h AS (SELECT public.statistical_unit_hierarchy('legal_unit',
+    (SELECT id FROM public.legal_unit WHERE name = 'Apex Manufacturing'), 'tree', '2023-01-01') AS d)
+SELECT d->'enterprise'->'power_group_link'->>'ident' AS link_ident,
+       d->'enterprise'->'legal_unit'->0->'power_group_membership'->>'power_level' AS manufacturing_level,
+       jsonb_array_length(d->'enterprise'->'legal_unit'->0->'power_group_membership'->'influencers') AS influencers,
+       jsonb_array_length(d->'enterprise'->'legal_unit'->0->'power_group_membership'->'influencees') AS influencees
+FROM h;
+
 -- ============================================================================
 \echo "=== 2b: Primary Influencer vs Non-Primary ==="
 -- ============================================================================
@@ -221,6 +252,40 @@ SELECT COUNT(*) AS echo_memberships
 FROM public.power_group_membership AS pgm
 JOIN public.legal_unit AS lu ON lu.id = pgm.legal_unit_id
 WHERE lu.name = 'Echo Standalone';
+
+SELECT pgm.power_group_id AS beacon_pg_id
+FROM public.power_group_membership AS pgm
+JOIN public.legal_unit AS lu ON lu.id = pgm.legal_unit_id
+WHERE lu.name = 'Beacon Inc'
+LIMIT 1 \gset
+
+\echo "2b: unified primary (STATBUS-125) — parent_company@50% is primary via TYPE (not >50); co_ownership@49% is not"
+WITH h AS (SELECT public.statistical_unit_hierarchy('power_group', :beacon_pg_id, 'tree', '2023-01-01') AS d)
+SELECT m->>'name' AS name,
+       e->>'type' AS type,
+       e->>'percentage' AS percentage,
+       (e->>'primary')::boolean AS "primary"
+FROM h,
+     jsonb_array_elements(d->'power_group'->'power_group_members') AS m,
+     jsonb_array_elements(m->'power_group_membership'->'influencers') AS e
+WHERE m->>'name' IN ('Beacon Services', 'Beacon Tech');
+
+\echo "2b: primary_only=true keeps the type-primary spine and prunes the co-ownership branch"
+WITH spine AS (SELECT public.statistical_unit_hierarchy('power_group', :beacon_pg_id, 'tree', '2023-01-01', false, true) AS d)
+SELECT jsonb_array_length(public.statistical_unit_hierarchy('power_group', :beacon_pg_id, 'tree', '2023-01-01')
+           ->'power_group'->'power_group_members') AS full_members,
+       jsonb_array_length(d->'power_group'->'power_group_members') AS spine_members,
+       (SELECT string_agg(m->>'name', ', ' ORDER BY m->>'name')
+        FROM spine AS s2, jsonb_array_elements(s2.d->'power_group'->'power_group_members') AS m) AS spine_names
+FROM spine;
+
+\echo "2b: Shape B containment — Echo Standalone (no group) gains NO power-group keys"
+WITH h AS (SELECT public.statistical_unit_hierarchy('legal_unit',
+    (SELECT id FROM public.legal_unit WHERE name = 'Echo Standalone'), 'tree', '2023-01-01') AS d)
+SELECT (d->'enterprise') ? 'power_group_link' AS has_link,
+       (d->'enterprise'->'legal_unit'->0) ? 'power_group_membership' AS has_membership,
+       (d->'enterprise'->'legal_unit'->0) ? 'physical_country_iso_2' AS has_country_key
+FROM h;
 
 -- ============================================================================
 \echo "=== 2c: Dissolution ==="
@@ -416,6 +481,21 @@ JOIN public.legal_unit AS lu_derived ON lu_derived.id = pr.derived_root_legal_un
 LEFT JOIN public.legal_unit AS lu_custom ON lu_custom.id = pr.custom_root_legal_unit_id
 JOIN public.legal_unit AS lu_root ON lu_root.id = pr.root_legal_unit_id
 WHERE pr.edit_comment = 'NSO override test';
+
+\echo "2f: Shape A (STATBUS-125) — cycle group renders via legal_relationship + power_root; custom root is effective"
+SELECT lr.derived_power_group_id AS cycle_pg_id
+FROM public.legal_relationship AS lr
+WHERE lr.edit_comment = 'Cycle for NSO override test'
+LIMIT 1 \gset
+WITH h AS (SELECT public.statistical_unit_hierarchy('power_group', :cycle_pg_id, 'tree', '2023-01-01') AS d)
+SELECT d->'power_group'->>'root_status' AS root_status,
+       (d->'power_group'->>'root_is_custom')::boolean AS root_is_custom,
+       jsonb_array_length(d->'power_group'->'power_group_members') AS member_count,
+       (SELECT m->>'name'
+        FROM jsonb_array_elements(d->'power_group'->'power_group_members') AS m
+        WHERE (m->'power_group_membership'->>'is_root')::boolean) AS effective_root_name,
+       d->'power_group'->'depth' AS depth
+FROM h;
 
 \echo "2f: Trigger enqueued collect_changes for the PG (via base_change_log)"
 SELECT command, state
@@ -707,6 +787,80 @@ SELECT su.name, su.unit_type, su.valid_from, su.valid_to
 FROM public.statistical_unit AS su
 WHERE su.unit_type = 'power_group'
 ORDER BY su.name;
+
+-- ============================================================================
+-- PHASE 6: Multi-Root Group Rendering (STATBUS-125)
+-- ============================================================================
+\echo "=== Phase 6: Multi-Root Group — Shape A renders via power_root ==="
+
+-- Two independent roots co-own one subsidiary (co_ownership is 1:N, so no
+-- exclusion-constraint conflict): 2 natural roots → power_root status 'multi'.
+INSERT INTO public.enterprise (short_name, edit_by_user_id, edit_comment)
+SELECT 'MR' || n, (SELECT id FROM auth.user LIMIT 1), 'Multi-root test enterprise ' || n
+FROM generate_series(1, 3) AS n;
+
+INSERT INTO public.legal_unit (valid_from, name, enterprise_id, primary_for_enterprise, status_id, edit_by_user_id, edit_comment)
+SELECT '2020-01-01'::date, 'Gemini Alpha',
+    (SELECT id FROM public.enterprise WHERE short_name = 'MR1'), true,
+    (SELECT id FROM public.status WHERE code = 'active' LIMIT 1),
+    (SELECT id FROM auth.user LIMIT 1), 'Multi-root: first natural root';
+
+INSERT INTO public.legal_unit (valid_from, name, enterprise_id, primary_for_enterprise, status_id, edit_by_user_id, edit_comment)
+SELECT '2020-01-01'::date, 'Gemini Beta',
+    (SELECT id FROM public.enterprise WHERE short_name = 'MR2'), true,
+    (SELECT id FROM public.status WHERE code = 'active' LIMIT 1),
+    (SELECT id FROM auth.user LIMIT 1), 'Multi-root: second natural root';
+
+INSERT INTO public.legal_unit (valid_from, name, enterprise_id, primary_for_enterprise, status_id, edit_by_user_id, edit_comment)
+SELECT '2020-01-01'::date, 'Gemini Shared',
+    (SELECT id FROM public.enterprise WHERE short_name = 'MR3'), true,
+    (SELECT id FROM public.status WHERE code = 'active' LIMIT 1),
+    (SELECT id FROM auth.user LIMIT 1), 'Multi-root: co-owned subsidiary';
+
+INSERT INTO public.legal_relationship (valid_from, influencing_id, influenced_id, type_id, percentage, edit_by_user_id, edit_comment)
+SELECT '2020-01-01'::date,
+    (SELECT id FROM public.legal_unit WHERE name = 'Gemini Alpha'),
+    (SELECT id FROM public.legal_unit WHERE name = 'Gemini Shared'),
+    (SELECT id FROM public.legal_rel_type WHERE code = 'co_ownership'),
+    40.00, (SELECT id FROM auth.user LIMIT 1), 'Alpha co-owns Shared (40%)';
+
+INSERT INTO public.legal_relationship (valid_from, influencing_id, influenced_id, type_id, percentage, edit_by_user_id, edit_comment)
+SELECT '2020-01-01'::date,
+    (SELECT id FROM public.legal_unit WHERE name = 'Gemini Beta'),
+    (SELECT id FROM public.legal_unit WHERE name = 'Gemini Shared'),
+    (SELECT id FROM public.legal_rel_type WHERE code = 'co_ownership'),
+    45.00, (SELECT id FROM auth.user LIMIT 1), 'Beta co-owns Shared (45%)';
+
+CALL import.process_power_group_link(:test_job_id, NULL, 'process_power_group_link');
+
+SELECT lr.derived_power_group_id AS gemini_pg_id
+FROM public.legal_relationship AS lr
+JOIN public.legal_unit AS lu ON lu.id = lr.influencing_id
+WHERE lu.name = 'Gemini Alpha'
+LIMIT 1 \gset
+
+\echo "6: power_root classifies the group as multi, derived root = lowest-id natural root"
+SELECT pr.derived_root_status,
+       lu.name AS derived_root_name,
+       pr.custom_root_legal_unit_id IS NULL AS no_custom
+FROM public.power_root AS pr
+JOIN public.legal_unit AS lu ON lu.id = pr.derived_root_legal_unit_id
+WHERE pr.power_group_id = :gemini_pg_id;
+
+\echo "6: Shape A — multi group renders: root from power_root, BFS levels present (both naturals at 0)"
+WITH h AS (SELECT public.statistical_unit_hierarchy('power_group', :gemini_pg_id, 'tree', '2023-01-01') AS d)
+SELECT d->'power_group'->>'root_status' AS root_status,
+       (d->'power_group'->>'root_is_custom')::boolean AS root_is_custom,
+       jsonb_array_length(d->'power_group'->'power_group_members') AS member_count,
+       d->'power_group'->'depth' AS depth
+FROM h;
+
+\echo "6: multi-group members — both naturals at level 0, is_root only for the power_root designee"
+WITH h AS (SELECT public.statistical_unit_hierarchy('power_group', :gemini_pg_id, 'tree', '2023-01-01') AS d)
+SELECT m->>'name' AS name,
+       m->'power_group_membership'->>'power_level' AS power_level,
+       (m->'power_group_membership'->>'is_root')::boolean AS is_root
+FROM h, jsonb_array_elements(d->'power_group'->'power_group_members') AS m;
 
 \echo "=== Test 120: Power Group Lifecycle Complete ==="
 

@@ -8,6 +8,7 @@ AS $function$
         WHEN unit_type = 'enterprise' THEN public.enterprise_hierarchy(unit_id, 'details', valid_on)
         WHEN unit_type = 'legal_unit' THEN public.legal_unit_hierarchy(unit_id, NULL, 'details', valid_on)
         WHEN unit_type = 'establishment' THEN public.establishment_hierarchy(unit_id, NULL, NULL, 'details', valid_on)
+        WHEN unit_type = 'power_group' THEN public.power_group_hierarchy(unit_id, 'details', valid_on)
         ELSE '{}'::JSONB
     END;
 $function$

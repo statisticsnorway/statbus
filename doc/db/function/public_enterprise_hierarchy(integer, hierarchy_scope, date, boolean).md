@@ -1,5 +1,5 @@
 ```sql
-CREATE OR REPLACE FUNCTION public.enterprise_hierarchy(enterprise_id integer, scope hierarchy_scope DEFAULT 'all'::hierarchy_scope, valid_on date DEFAULT CURRENT_DATE)
+CREATE OR REPLACE FUNCTION public.enterprise_hierarchy(enterprise_id integer, scope hierarchy_scope DEFAULT 'all'::hierarchy_scope, valid_on date DEFAULT CURRENT_DATE, primary_only boolean DEFAULT false)
  RETURNS jsonb
  LANGUAGE sql
  STABLE
@@ -9,7 +9,8 @@ AS $function$
                 'enterprise',
                  to_jsonb(en.*)
                  || (SELECT public.external_idents_hierarchy(NULL,NULL,en.id,NULL))
-                 || CASE WHEN scope IN ('all','tree') THEN (SELECT public.legal_unit_hierarchy(NULL, en.id, scope, valid_on)) ELSE '{}'::JSONB END
+                 || (SELECT public.power_group_link(parent_enterprise_id => en.id, valid_on => valid_on))
+                 || CASE WHEN scope IN ('all','tree') THEN (SELECT public.legal_unit_hierarchy(NULL, en.id, scope, valid_on, primary_only)) ELSE '{}'::JSONB END
                  || CASE WHEN scope IN ('all','tree') THEN (SELECT public.establishment_hierarchy(NULL, NULL, en.id, scope, valid_on)) ELSE '{}'::JSONB END
                  || CASE WHEN scope IN ('all','details') THEN (SELECT public.notes_for_unit(NULL,NULL,en.id,NULL)) ELSE '{}'::JSONB END
                  || CASE WHEN scope IN ('all','details') THEN (SELECT public.tag_for_unit_hierarchy(NULL,NULL,en.id,NULL)) ELSE '{}'::JSONB END

@@ -12196,6 +12196,7 @@ export type Database = {
           enterprise_id?: number
           scope?: Database["public"]["Enums"]["hierarchy_scope"]
           valid_on?: string
+          primary_only?: boolean
         }
         Returns: Json
       },
@@ -14536,6 +14537,7 @@ export type Database = {
           parent_enterprise_id?: number
           scope?: Database["public"]["Enums"]["hierarchy_scope"]
           valid_on?: string
+          primary_only?: boolean
         }
         Returns: Json
       },
@@ -14923,6 +14925,32 @@ export type Database = {
           isSetofReturn: true
         }
       },
+      power_group_hierarchy: {
+        Args: {
+          power_group_id?: number
+          scope?: Database["public"]["Enums"]["hierarchy_scope"]
+          valid_on?: string
+          primary_only?: boolean
+        }
+        Returns: Json
+      },
+      power_group_link: {
+        Args: {
+          parent_legal_unit_id?: number
+          parent_enterprise_id?: number
+          parent_power_group_id?: number
+          valid_on?: string
+        }
+        Returns: Json
+      },
+      power_group_membership_hierarchy: {
+        Args: {
+          parent_legal_unit_id?: number
+          valid_on?: string
+          primary_only?: boolean
+        }
+        Returns: Json
+      },
       power_root_validate_root_membership: {
         Args: Record<string, never>
         Returns: unknown
@@ -15292,6 +15320,7 @@ export type Database = {
           scope?: Database["public"]["Enums"]["hierarchy_scope"]
           valid_on?: string
           strip_nulls?: boolean
+          primary_only?: boolean
         }
         Returns: Json
       },

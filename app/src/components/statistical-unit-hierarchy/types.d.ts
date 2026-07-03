@@ -214,6 +214,9 @@ declare interface StatisticalUnit {
 declare interface Enterprise extends StatisticalUnit {
   legal_unit: LegalUnit[];
   establishment: Establishment[];
+  // Shape B (STATBUS-125): present when the enterprise's primary legal unit
+  // is a power-group member on the requested date.
+  power_group_link?: PowerGroupLink;
 }
 
 declare interface LegalUnit extends StatisticalUnit {
@@ -232,6 +235,74 @@ declare interface LegalUnit extends StatisticalUnit {
   status: Status;
   unit_size: UnitSize;
   image_id: number | null;
+  // Shape B (STATBUS-125): present only when this legal unit is a power-group
+  // member on the requested date (all three keys emitted together).
+  power_group_membership?: PowerGroupMembership;
+  physical_country_iso_2?: string | null;
+  domestic?: boolean | null;
+}
+
+// Power group hierarchy types (STATBUS-125, naming locked in DRAFT-001):
+// full = PowerGroup / power_group_hierarchy(); reduced reference = PowerGroupLink;
+// a unit's membership = PowerGroupMembership; member nodes = PowerGroupMember[].
+declare interface PowerGroupType {
+  id: number;
+  code: string;
+  name: string;
+  custom: boolean;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+declare interface PowerGroupLink {
+  ident: string;
+  name: string | null;
+  type: PowerGroupType | null;
+  depth: number | null; // null for cycle groups (no BFS levels)
+  width: number | null; // null for cycle groups
+  reach: number | null;
+  root_legal_unit_id: number | null;
+  root_status: "clean" | "cycle" | "multi";
+  root_is_custom: boolean;
+}
+
+declare interface PowerGroup extends PowerGroupLink {
+  power_group_members: PowerGroupMember[];
+}
+
+declare interface PowerGroupMember extends LegalUnit {
+  legal_unit_id: number;
+  physical_country_iso_2: string | null;
+  domestic: boolean | null;
+  power_group_membership: PowerGroupMembership;
+}
+
+declare interface PowerGroupMembership {
+  power_level: number | null; // 0-indexed, root = 0; null for cycle groups
+  is_root: boolean;
+  influencers: Influencer[]; // up: edges where this unit is influenced
+  influencees: Influencee[]; // down: edges where this unit influences
+}
+
+declare interface Influencer {
+  influencing_id: number;
+  type: string;
+  percentage: number | null;
+  // Unified single-controller flag: primary_influencer_only OR percentage > 50.
+  primary: boolean;
+}
+
+declare interface Influencee {
+  influenced_id: number;
+  type: string;
+  percentage: number | null;
+  primary: boolean;
+}
+
+// Shape A: statistical_unit_hierarchy('power_group', X)
+declare interface PowerGroupHierarchy {
+  power_group: PowerGroup;
 }
 
 declare interface Establishment extends StatisticalUnit {
@@ -251,6 +322,9 @@ declare interface Establishment extends StatisticalUnit {
 
 declare interface StatisticalUnitHierarchy {
   enterprise: Enterprise;
+  // Shape A (STATBUS-125): set instead of enterprise when the requested unit
+  // is a power_group (no enterprise wrapper in that response).
+  power_group?: PowerGroup;
 }
 
 declare interface StatisticalUnitDetails {

@@ -276,20 +276,20 @@ JOIN public.legal_unit AS lu ON lu.id = pgm.legal_unit_id
 WHERE lu.name LIKE 'PowerTest%'
 ORDER BY pgm.power_level, lu.name;
 
-\echo "Holdings should be level 1 (root)"
+\echo "Holdings should be level 0 (root)"
 SELECT lu.name, pgm.power_level
 FROM public.power_group_membership AS pgm
 JOIN public.legal_unit AS lu ON lu.id = pgm.legal_unit_id
 WHERE lu.name = 'PowerTest Holdings Corp';
 
-\echo "Manufacturing and Services should be level 2 (direct subsidiaries)"
+\echo "Manufacturing and Services should be level 1 (direct subsidiaries)"
 SELECT lu.name, pgm.power_level
 FROM public.power_group_membership AS pgm
 JOIN public.legal_unit AS lu ON lu.id = pgm.legal_unit_id
 WHERE lu.name IN ('PowerTest Manufacturing Ltd', 'PowerTest Services Inc')
 ORDER BY lu.name;
 
-\echo "Components should be level 3 (sub-subsidiary)"
+\echo "Components should be level 2 (sub-subsidiary)"
 SELECT lu.name, pgm.power_level
 FROM public.power_group_membership AS pgm
 JOIN public.legal_unit AS lu ON lu.id = pgm.legal_unit_id
@@ -359,7 +359,7 @@ SELECT
 \echo "Re-run process_power_group_link"
 CALL import.process_power_group_link(:test_job_id, NULL, 'process_power_group_link');
 
-\echo "Non-primary-influencer relationship should have NULL derived_power_group_id"
+\echo "Non-primary edges also join the component's power group (clustering is type-agnostic)"
 SELECT 
     influencer.name AS influencing_name,
     influenced.name AS influenced_name,
@@ -370,7 +370,7 @@ JOIN public.legal_unit AS influencer ON lr.influencing_id = influencer.id
 JOIN public.legal_unit AS influenced ON lr.influenced_id = influenced.id
 WHERE influencer.name = 'PowerTest MinorInvestor Corp';
 
-\echo "Independent and MinorInvestor should NOT be in power hierarchy"
+\echo "Independent and MinorInvestor form their own power group (MinorInvestor root)"
 SELECT lu.name, pgm.power_level
 FROM public.legal_unit AS lu
 LEFT JOIN public.power_group_membership AS pgm ON lu.id = pgm.legal_unit_id
@@ -439,6 +439,78 @@ JOIN public.legal_unit AS lu ON lu.id = pgm.legal_unit_id
 WHERE lu.name LIKE 'PowerTest%'
 GROUP BY pgm.power_level
 ORDER BY pgm.power_level;
+
+-- ============================================================================
+\echo "=== Section 12: Hierarchy Shapes A + B (STATBUS-125) ==="
+-- ============================================================================
+
+SELECT pgm.power_group_id AS pg1_id
+FROM public.power_group_membership AS pgm
+JOIN public.legal_unit AS lu ON lu.id = pgm.legal_unit_id
+WHERE lu.name = 'PowerTest Holdings Corp'
+LIMIT 1 \gset
+
+SELECT pgm.power_group_id AS pg2_id
+FROM public.power_group_membership AS pgm
+JOIN public.legal_unit AS lu ON lu.id = pgm.legal_unit_id
+WHERE lu.name = 'PowerTest MinorInvestor Corp'
+LIMIT 1 \gset
+
+\echo "12a: Shape A — members span ALL member enterprises (the single-enterprise collapse is gone)"
+WITH h AS (SELECT public.statistical_unit_hierarchy('power_group', :pg1_id, 'tree', '2023-01-01') AS d)
+SELECT jsonb_array_length(d->'power_group'->'power_group_members') AS member_count,
+       (SELECT count(DISTINCT m->>'enterprise_id')
+        FROM h AS h2, jsonb_array_elements(h2.d->'power_group'->'power_group_members') AS m) AS enterprises_spanned,
+       d->'power_group'->>'ident' AS ident,
+       d->'power_group'->>'root_status' AS root_status,
+       (d->'power_group'->>'root_is_custom')::boolean AS root_is_custom,
+       d->'power_group'->'depth' AS depth,
+       d->'power_group'->'width' AS width,
+       d->'power_group'->'reach' AS reach
+FROM h;
+
+\echo "12b: Shape A — member levels (0-based), roots, edge directions, inlined country/domestic keys"
+WITH h AS (SELECT public.statistical_unit_hierarchy('power_group', :pg1_id, 'tree', '2023-01-01') AS d)
+SELECT m->>'name' AS name,
+       m->'power_group_membership'->>'power_level' AS power_level,
+       (m->'power_group_membership'->>'is_root')::boolean AS is_root,
+       jsonb_array_length(m->'power_group_membership'->'influencers') AS influencers,
+       jsonb_array_length(m->'power_group_membership'->'influencees') AS influencees,
+       m ? 'physical_country_iso_2' AS has_country_key,
+       m ? 'domestic' AS has_domestic_key
+FROM h, jsonb_array_elements(d->'power_group'->'power_group_members') AS m;
+
+\echo "12c: Shape A — edge payload on Components (type + percentage + unified primary via type)"
+WITH h AS (SELECT public.statistical_unit_hierarchy('power_group', :pg1_id, 'tree', '2023-01-01') AS d)
+SELECT e->>'type' AS type,
+       e->>'percentage' AS percentage,
+       (e->>'primary')::boolean AS "primary"
+FROM h,
+     jsonb_array_elements(d->'power_group'->'power_group_members') AS m,
+     jsonb_array_elements(m->'power_group_membership'->'influencers') AS e
+WHERE m->>'name' = 'PowerTest Components GmbH';
+
+\echo "12d: primary_only=true prunes the non-primary 30% co-ownership branch (PG2 spine = root only)"
+SELECT jsonb_array_length(public.statistical_unit_hierarchy('power_group', :pg2_id, 'tree', '2023-01-01', false, false)
+           ->'power_group'->'power_group_members') AS full_members,
+       jsonb_array_length(public.statistical_unit_hierarchy('power_group', :pg2_id, 'tree', '2023-01-01', false, true)
+           ->'power_group'->'power_group_members') AS primary_only_members;
+
+\echo "12e: Shape B — enterprise root carries power_group_link; the member LU node carries power_group_membership"
+WITH h AS (SELECT public.statistical_unit_hierarchy('legal_unit',
+    (SELECT id FROM public.legal_unit WHERE name = 'PowerTest Manufacturing Ltd' LIMIT 1),
+    'tree', '2023-01-01') AS d)
+SELECT (d->'enterprise') ? 'power_group_link' AS has_link,
+       d->'enterprise'->'power_group_link'->>'ident' AS link_ident,
+       d->'enterprise'->'power_group_link'->>'root_status' AS link_root_status,
+       d->'enterprise'->'legal_unit'->0->'power_group_membership'->>'power_level' AS manufacturing_level,
+       jsonb_array_length(d->'enterprise'->'legal_unit'->0->'power_group_membership'->'influencers') AS influencers,
+       jsonb_array_length(d->'enterprise'->'legal_unit'->0->'power_group_membership'->'influencees') AS influencees
+FROM h;
+
+\echo "12f: statistical_unit_hierarchy('power_group') dispatches to Shape A (no enterprise wrapper)"
+SELECT (public.statistical_unit_hierarchy('power_group', :pg1_id, 'all', '2023-01-01') ? 'power_group') AS has_power_group_root,
+       (public.statistical_unit_hierarchy('power_group', :pg1_id, 'all', '2023-01-01') ? 'enterprise') AS has_enterprise_root;
 
 \echo "=== Power Group Worker Derivation Test Complete ==="
 
