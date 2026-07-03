@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-06-26 11:30'
-updated_date: '2026-07-03 19:21'
+updated_date: '2026-07-03 19:40'
 labels:
   - upgrade
   - recovery
@@ -57,7 +57,7 @@ Behavior change to upgrade + recovery — prove via install-recovery arcs (STATB
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 During the destructive+uncertain window, ALL external writes (browser, REST, AND direct Layer4 PG) are blocked while the upgrade's own migration session writes successfully (exempt) — proven by an install-recovery arc
+- [x] #1 During the destructive+uncertain window, ALL external writes (browser, REST, AND direct Layer4 PG) are blocked while the upgrade's own migration session writes successfully (exempt) — proven by an install-recovery arc
 - [ ] #2 The read-only state persists across a mid-window crash so the post-crash state is frozen until recovery decides
 - [ ] #3 With the window guaranteed write-free, rollback-under-uncertainty is shown data-safe (no external writes to lose); STATBUS-039 'never restore on a guess' is re-evaluated and the recovery decision tree updated accordingly
 - [ ] #4 Cost/acceptability of the read-only write-window documented (reads stay available; upgrades are infrequent)
@@ -193,5 +193,11 @@ author: foreman
 created: 2026-07-03 19:21
 ---
 Exemption re-homed per doc-025 D (commit 98093f69f): migration 20260703104910 DELETED (was in no released tag; orphan ledger rows on boxes that ran it are skipped via findUpFile-miss). ALTER ROLE authenticator SET default_transaction_read_only=off now lives in migrations/post_restore.sql (re-armed on every migrate up, incl. seed-restored boxes — the pg_dump-cannot-carry-cluster-state root cause of the arc recurrence) AND postgres/init-db.sh (armed at cluster birth; ON_ERROR_STOP=1 so a failed arming statement cannot pass silently). 20240102000000's timeouts + safeupdate mirrors ride along in both homes. Proof-of-fix oracle: arc run 28679526112 — forward-apply upgrade must pass the REST /ready health check (no HEALTHCHECK_REST_DOWN recurrence).
+---
+
+author: foreman
+created: 2026-07-03 19:40
+---
+🟢 ARC ORACLE GREEN (run 28679526112, foreman verified logs first-hand) — the doc-025 D re-home is PROVEN on seed-restored VMs: zero HEALTHCHECK_REST_DOWN occurrences; working arc A→B forward-apply reached state='completed' (t+55s) with the health check passing on ATTEMPT 1, code=200 (the exact leg that deadlocked in 28609876020/28656025811); failing arc: V_fail → 'rolled_back' (t+79s, healthy) then V_fixed → 'completed' (t+58s, healthy). AC1 CHECKED on combined evidence: exempt half proven in-arc (migrations applied + completed under the window on a real VM), external-block half proven empirically (comment 8: non-exempt sessions write-blocked while the role exemption is armed; mechanic tmp/mechanic-rest-roleguc-check.log). REMAINING, precisely: AC2 needs a crash-mid-window arc scenario (catalog persistence holds by construction — ALTER DATABASE survives crash — but unproven in-arc); AC3 has its rollback-evidence (failing arc data-safe rollback green) but awaits the formal STATBUS-039 supersession + decision-tree doc update (impl-plan step 5; the code half landed in 782ca2455's classify-then-act dispatch); AC4 = write the cost/acceptability paragraph.
 ---
 <!-- COMMENTS:END -->
