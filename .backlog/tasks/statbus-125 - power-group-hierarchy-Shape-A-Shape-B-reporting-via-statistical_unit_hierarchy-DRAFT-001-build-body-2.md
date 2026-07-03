@@ -7,10 +7,10 @@ status: To Do
 assignee:
   - engineer
 created_date: '2026-07-02 18:04'
+updated_date: '2026-07-03 10:45'
 labels:
   - power-group
-  - api
-  - hierarchy
+  - not-install-upgrade
 dependencies:
   - STATBUS-124
 references:
