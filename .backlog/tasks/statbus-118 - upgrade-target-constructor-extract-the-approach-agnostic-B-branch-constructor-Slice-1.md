@@ -3,11 +3,11 @@ id: STATBUS-118
 title: >-
   upgrade-target-constructor: extract the approach-agnostic B-branch constructor
   (Slice 1)
-status: In Progress
+status: Done
 assignee:
   - '@mechanic'
 created_date: '2026-06-30 20:49'
-updated_date: '2026-07-02 18:24'
+updated_date: '2026-07-03 19:40'
 labels:
   - testing
   - install-recovery
@@ -68,17 +68,17 @@ The construct currently generates an **ephemeral signing key** in the workflow (
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 test/install-recovery/lib/upgrade-target.sh exists, exposing construct_upgrade_target BASE_SHA SPEC → emits B_BRANCH / B_FULL / V_VERSION (+ C branch where applicable); SPEC covers the working + failing lineages
-- [ ] #2 .github/workflows/upgrade-arc-harness.yaml calls the library; the inline construction (the :120-177 compute + writers + build_pair + push) is removed — single source of truth, no duplicate
-- [ ] #3 Behavior-preserving: an upgrade-arc harness run post-refactor produces byte-identical branch structure (same V_VERSION, migration content, signing) and passes as before
-- [ ] #4 Signing key is parameterized (CI ephemeral vs local-generated); the post-install trust_arc_signer handshake is unchanged
-- [ ] #5 Local unit asserts construct_upgrade_target <base> working produces migrations/<max+1>_upgrade_arc.up.sql with the fixed upgrade_arc_fixture content + a signed commit
-- [ ] #6 No scenario migrated and no image-tail change in this slice (those are slices 3+, A/B-dependent)
+- [x] #1 test/install-recovery/lib/upgrade-target.sh exists, exposing construct_upgrade_target BASE_SHA SPEC → emits B_BRANCH / B_FULL / V_VERSION (+ C branch where applicable); SPEC covers the working + failing lineages
+- [x] #2 .github/workflows/upgrade-arc-harness.yaml calls the library; the inline construction (the :120-177 compute + writers + build_pair + push) is removed — single source of truth, no duplicate
+- [x] #3 Behavior-preserving: an upgrade-arc harness run post-refactor produces byte-identical branch structure (same V_VERSION, migration content, signing) and passes as before
+- [x] #4 Signing key is parameterized (CI ephemeral vs local-generated); the post-install trust_arc_signer handshake is unchanged
+- [x] #5 Local unit asserts construct_upgrade_target <base> working produces migrations/<max+1>_upgrade_arc.up.sql with the fixed upgrade_arc_fixture content + a signed commit
+- [x] #6 No scenario migrated and no image-tail change in this slice (those are slices 3+, A/B-dependent)
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 The upgrade-arc harness CI run is green on the refactored construct path (the behavior-preserving proof) — landed only after that run is observed green
+- [x] #1 The upgrade-arc harness CI run is green on the refactored construct path (the behavior-preserving proof) — landed only after that run is observed green
 <!-- DOD:END -->
 
 ## Comments
@@ -138,3 +138,9 @@ created: 2026-07-02 18:24
 ARC RUN 28609876020 VERDICT (mechanic diagnosis, foreman-reviewed; full analysis tmp/mechanic-arc-28609876020.md): CONSTRUCT (this task's entire surface) = GREEN + EXACT-SHAPE MATCH — branch names test/upgrade-arc-{working,failing}[-fixed]-migration-28609876020, 4 distinct signed migration commits, one shared arc_pubkey, all 4 image dispatches succeeded first attempt. The refactor is EXONERATED: acceptance criteria 1-6 are functionally proven. The DoD (whole harness run green) is blocked by an UNRELATED NEW regression: both VM arcs died on HEALTHCHECK_REST_DOWN — PostgREST admin /ready 503 (schema cache never loads) for 20+ min post-upgrade, vs ~69s in the Jun-19 green baselines. Prime suspect = STATBUS-110's read-only window (the health check polls /ready while the DB is still read-only; OFF comes only after the completed-UPDATE). Local reproduction dispatched (mechanic): restart REST under ALTER DATABASE default_transaction_read_only=on and watch /ready — evidence lands on STATBUS-110. DoD stays UNCHECKED until an arc run is green; the fix path runs through the 110 interaction, not through this task's code.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Constructor extracted to test/install-recovery/lib/upgrade-target.sh (sourced function, caller-scope vars, parameterized signing key with idempotent reuse, loud-on-skip push guard); workflow rewired with the inline construction removed (commit 0b1b07ef4; --no-verify workaround replaced by the named hook exemption c12750b32). Functional proof: run 28609876020 showed exact-shape branch construction (4 signed migration commits, shared arc_pubkey, all image dispatches green) — its VM legs failed only on the then-unfixed STATBUS-110 read-only/PostgREST interaction. DoD proof: arc-harness run 28679526112 (2026-07-03, on a3eb522c8 with the doc-025 fix) is GREEN end-to-end through the refactored construct path — construct, image wait, and both scenario VMs (working: A→B completed t+55s; failing: rolled_back t+79s then C completed t+58s), every health check passing on attempt 1. Local unit 14/14. Slice-3 note stands (comment 8): scoped git config when scenario harnesses call the library on dev machines.
+<!-- SECTION:FINAL_SUMMARY:END -->
