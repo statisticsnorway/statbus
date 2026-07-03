@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-06-12 22:15'
-updated_date: '2026-07-03 20:32'
+updated_date: '2026-07-03 20:55'
 labels:
   - install-recovery
   - upgrade
@@ -147,5 +147,11 @@ author: foreman
 created: 2026-07-03 20:32
 ---
 INSTALL UN-PARK RULED (architect, 2026-07-03): option (a) — the deliberate ./sb install resets the park marker in the INSTALL LADDER (cli/cmd/install_upgrade.go crash-recovery Part 2, after LoadConfigAndConnect succeeds, before RecoverFromFlag); the parked-skip in the service resume path stays UNCONDITIONAL (automatic resumes never un-park — a deliberate-bool through the shared resume path would couple it to caller intent at every call site, the same divergence class 055 killed). Scope pins: (1) PARKED-ONLY reset (recovery_parked_at IS NOT NULL) with a loud named line — a crashed-but-not-parked row keeps its attempt count so install-driven crash cycles still park on budget exhaustion; the NEXT install after a park gets the fresh budget; (2) ONE shared reset helper (columns + live-upgrade guard) with two thin keyed wrappers (by commit_sha for re-schedule, by id for install) so the two operator triggers can never drift; (3) no new locking — the install-vs-service race serializes on the existing flag/flock machinery, either runner's fresh attempt satisfies the contract. Siren confirmed per-park-event (no fired-marker to clear; re-park after a failed fresh attempt correctly sirens again). GAP THIS CLOSES: without it, a parked row would silently swallow the operator's canonical run-install-again recovery action — the hands-off deployment contract. Engineer wiring now; then the whole slice-1 package → architect hands-on review → foreman review → commit.
+---
+
+author: foreman
+created: 2026-07-03 20:55
+---
+SLICE 1 COMMITTED + PUSHED: c1c4cbb7a (12 files, +596/−18; the pre-commit hook folded the regenerated diagram SVGs into the same commit). The loop-forever class is killed in code: park substrate (3 columns + doc/db/types pairing), write-ahead dying-step on the flag, pure escalation core (RecoveryDeathBudget=3 process deaths; same-step-twice terminal early; canRollBack routing), parked-skip→increment-at-start→escalate→park (row stays in_progress, siren exactly once per park event via freshlyParked), and un-park on ALL THREE deliberate trigger surfaces with fresh budget: RunSchedule (CLI), onScheduledNotify (NOTIFY apply — edit 6, which also deliberately fixed the pre-existing NOTIFY-on-live-upgrade row clobber), and the install path (hard-fails actionable if the reset can't be written). Six ruled edits all in (architect APPROVE + foreman first-hand; one foreman ruling overruled by architect with the 42703 self-ship bootstrap case — fail-open documented at the site with a do-not-fix warning). Deferred, named: rollback-pipeline resume mapping (slice 1b). ACs: #1 was ratified (D3); #2 substrate half DONE (call-site B/C classification = slice 2, now building); #3 satisfied for slice-1 scope (diagrams in-commit, B/C marked slice 2); #4 open (the held scenario rewrite — the arc is the oracle). SLICE 2 DISPATCHED to the engineer (classification table first as reviewable spec; structured signals only). The push's seed job doubles as the first DELTA-migrate incremental build (run 28682974989, operator watching).
 ---
 <!-- COMMENTS:END -->
