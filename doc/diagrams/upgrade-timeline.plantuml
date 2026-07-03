@@ -136,7 +136,7 @@ note over service, db
   The SAME dispatch runs on EVERY boot — the planned exit-42 here, or any unplanned-death restart.
 end note
 alt **new-sb-swapped** marker (stored: post_swap) — the PLANNED exit-42 handoff (the ONE legitimate continue)
-    service -> service : resumePostSwap (:774) -> stamp **new-sb-upgrading** (stored: resuming, :4339)
+    service -> service : resumePostSwap: if row **PARKED** → skip (alive-idle, no attempt);\nelse recovery_attempts++ (attempt START) → resumeEscalation;\n3 deaths (budget) / same-step-twice → **PARK** (at-target);\nelse stamp **new-sb-upgrading** (stored: resuming, :4339) + continue
     group applyPostSwap — remaining steps run on the new binary
         service -> service : config generate + docker compose pull
         service -> db : start DB + wait health + reconnect
@@ -165,6 +165,18 @@ note over systemd, service
   cannot-reach-new → identity-keyed roll back; can't-read-position (db-unreachable or commit-not-fetched)
   → error classifier (see lifecycle diagram §3): intermittent → backoff-retry, exhausts → roll back.
   Full decision tree: see upgrade-lifecycle diagram · doc/upgrade-recovery-model.md.
+end note
+note over systemd, service #FFE0B2
+  STATBUS-046 — crash-resume ATTEMPT BUDGET (the per-class routing at the failure chokepoint):
+  every resumePostSwap entry is one forward ATTEMPT — recovery_attempts++ at attempt START, so a
+  death self-counts. resumeEscalation bounds the loop that gave rune 10,229 restarts:
+    • budget = 3 PROCESS DEATHS (deaths = attempts−1) exhausted, OR same-step-twice (deterministic hang, from the flag's dying-step) → TERMINAL
+    • at-target (can't roll back — integrators wrote past maintenance-off) → PARK:
+      recovery_parked_at + reason; row stays in_progress; service skips resume (alive-idle); siren ONCE
+    • data-safe / positively-Behind → roll back (039 owns direction; 110 makes it byte-safe)
+  Class A (readiness) waits IN PLACE (size-scaled) and NEVER consumes an attempt; B (deterministic) +
+  C (resource) → park on first (slice 2). Un-park = the two deliberate operator triggers only, each a
+  single fresh attempt with a reset budget.
 end note
 note over service, db #E8F5E9
   INVARIANT — kill during migration (re-derive from the diagram):

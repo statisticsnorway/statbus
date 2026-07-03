@@ -269,6 +269,14 @@ type UpgradeFlag struct {
 	Phase      string    `json:"phase,omitempty"`       // FlagPhasePreSwap (default) or FlagPhasePostSwap
 	Recreate   bool      `json:"recreate,omitempty"`    // durable recreate intent (from public.upgrade.recreate) so resumePostSwap can replay --recreate
 	BackupPath string    `json:"backup_path,omitempty"` // finalized backup dir, populated at Phase=post_swap so resumePostSwap can roll back without DB
+	// STATBUS-046 (doc-021): the dying-step fields for the crash-resume attempt
+	// budget. Step is rewritten to the currently-executing Phase-3 step as each
+	// step BEGINS (recordFlagStep), so a crash freezes the step it died at.
+	// PriorDeathStep is the Step observed at the PREVIOUS resume — resumePostSwap
+	// rolls Step→PriorDeathStep on each new attempt so resumeEscalation can detect
+	// two consecutive deaths at the SAME step (deterministic hang → park early).
+	Step           string `json:"step,omitempty"`
+	PriorDeathStep string `json:"prior_death_step,omitempty"`
 }
 
 // Label returns a human-readable label for the flag. For service-held
@@ -471,6 +479,60 @@ func (d *Service) updateFlagPostSwap(backupPath string) error {
 		return fmt.Errorf("sync flag: %w", err)
 	}
 	return nil
+}
+
+// recordFlagStep (STATBUS-046 doc-021) rewrites the held flag's Step field to
+// the currently-executing Phase-3 step as each step BEGINS, so a crash/kill
+// freezes the step it died at. resumePostSwap reads it on the next resume to
+// detect same-step-twice (deterministic hang → park early). Same in-place
+// seek/truncate/rewrite pattern as updateFlagPostSwap (flock held throughout).
+// Best-effort: a failure to persist the step name must not abort the upgrade —
+// it only degrades same-step-twice detection to the plain attempt budget — so
+// callers log and continue rather than fail the step.
+func (d *Service) recordFlagStep(step string) error {
+	if d.flagLock == nil || d.flagLock.file == nil {
+		return fmt.Errorf("recordFlagStep: no flag file held")
+	}
+	f := d.flagLock.file
+	if _, err := f.Seek(0, 0); err != nil {
+		return fmt.Errorf("seek flag for read: %w", err)
+	}
+	data, err := io.ReadAll(f)
+	if err != nil {
+		return fmt.Errorf("read flag: %w", err)
+	}
+	var flag UpgradeFlag
+	if err := json.Unmarshal(data, &flag); err != nil {
+		return fmt.Errorf("unmarshal flag: %w", err)
+	}
+	flag.Step = step
+	newData, err := json.MarshalIndent(flag, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal flag: %w", err)
+	}
+	if _, err := f.Seek(0, 0); err != nil {
+		return fmt.Errorf("seek flag for write: %w", err)
+	}
+	if err := f.Truncate(0); err != nil {
+		return fmt.Errorf("truncate flag: %w", err)
+	}
+	if _, err := f.Write(newData); err != nil {
+		return fmt.Errorf("write flag: %w", err)
+	}
+	if err := f.Sync(); err != nil {
+		return fmt.Errorf("sync flag: %w", err)
+	}
+	return nil
+}
+
+// markStep records the current Phase-3 step on the held flag (best-effort). A
+// failure to persist only degrades same-step-twice detection to the plain
+// attempt budget (which still bounds the loop), so it logs and never aborts the
+// step. STATBUS-046 doc-021.
+func (d *Service) markStep(step string) {
+	if err := d.recordFlagStep(step); err != nil {
+		log.Printf("recordFlagStep(%s): %v — same-step-twice detection degraded; the attempt budget still bounds the loop", step, err)
+	}
 }
 
 // removeUpgradeFlag releases the service's flock AND removes the
@@ -3664,6 +3726,22 @@ func (d *Service) onScheduledNotify(ctx context.Context, input string) {
 	// Promote ONLY an existing candidate — NO insert. The WHERE state guard
 	// both makes an already-scheduled row a no-op and prevents a NOTIFY loop
 	// (the UPDATE re-fires upgrade_notify_daemon_trigger).
+	//
+	// STATBUS-046 edit 6: onScheduledNotify is the apply/NOTIFY arm of the
+	// operator re-trigger (un-park trigger 1, parallel to RunSchedule). Compose
+	// RunSchedule's guard verbatim with the existing no-op condition + inline the
+	// SHARED recovery-reset cols in the SET (atomic with the promote — same
+	// reasoning as the pin-2 relaxation). Row semantics: scheduled → excluded
+	// (NOTIFY-loop protection unchanged); parked → reset + reschedule (the gap
+	// closed); terminal → rescheduled with clean park columns; LIVE in_progress
+	// (parked_at NULL) → now EXCLUDED — a NOTIFY apply on a live same-commit
+	// upgrade no longer clobbers the running row back to scheduled (a pre-existing
+	// hazard RunSchedule's arm always guarded; the asymmetry was oversight).
+	// DEFERRED-POISON rationale (why BOTH columns must reset at every deliberate
+	// trigger): a rescheduled-but-still-parked row works until its FIRST crash,
+	// then the stale recovery_parked_at skips the row the operator deliberately
+	// re-triggered, and stale recovery_attempts makes the first legitimate
+	// crash-resume instantly terminal.
 	result, err := d.queryConn.Exec(ctx,
 		`UPDATE public.upgrade SET
 		   state = 'scheduled',
@@ -3676,8 +3754,9 @@ func (d *Service) onScheduledNotify(ctx context.Context, input string) {
 		   skipped_at = NULL,
 		   dismissed_at = NULL,
 		   superseded_at = NULL,
-		   log_relative_file_path = NULL
-		 WHERE commit_sha = $1 AND state != 'scheduled'`,
+		   log_relative_file_path = NULL,
+		   `+recoveryBudgetResetCols+`
+		 WHERE commit_sha = $1 AND state != 'scheduled' AND `+recoveryBudgetResetGuard,
 		string(commitSHA))
 	if err != nil {
 		d.markPgInvariantTerminal(err, "service.go:onScheduledNotify:update")
@@ -3831,6 +3910,16 @@ func (d *Service) RunSchedule(ctx context.Context, input string, recreate bool) 
 
 		// Promote ONLY an existing candidate — NO insert. Resetting the
 		// lifecycle lets a completed/failed/rolled_back row re-run.
+		// STATBUS-046 (doc-021): re-schedule is un-park trigger 1. The guard
+		// carves out a PARKED row so it can be re-scheduled — a parked row stays
+		// state='in_progress' (forward-only), so the plain `state != 'in_progress'`
+		// guard would refuse it; `recovery_parked_at IS NOT NULL` distinguishes a
+		// parked-idle row (safe) from a genuinely-live upgrade (never clobber). The
+		// recovery-budget reset (recoveryBudgetResetCols) is inlined into THIS
+		// single UPDATE so the un-park is ATOMIC with the reschedule (runOneShot is
+		// not transactional; a separate reset would leave a scheduled-but-still-
+		// parked window the daemon could claim+crash into). Shares the exact
+		// column-set + guard consts with the ./sb install trigger — no drift.
 		ct, err := d.queryConn.Exec(ctx,
 			`UPDATE public.upgrade SET
 			   state = 'scheduled',
@@ -3843,8 +3932,9 @@ func (d *Service) RunSchedule(ctx context.Context, input string, recreate bool) 
 			   skipped_at = NULL,
 			   dismissed_at = NULL,
 			   superseded_at = NULL,
-			   log_relative_file_path = NULL
-			 WHERE commit_sha = $1 AND state != 'in_progress'`,
+			   log_relative_file_path = NULL,
+			   `+recoveryBudgetResetCols+`
+			 WHERE commit_sha = $1 AND `+recoveryBudgetResetGuard,
 			string(sha), recreate)
 		if err != nil {
 			return fmt.Errorf("schedule %s: %w", displayName, err)
@@ -4730,6 +4820,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// Regenerate config via the NEW binary. VERSION comes from git describe
 	// --tags --always against the just-checked-out HEAD.
 	progress.Write("Regenerating configuration...")
+	d.markStep(StepConfigGenerate)
 	if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "config-generate", progress.bump, filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
 		// TODO: pick code — config generate failure; no Err* code defined yet
 		return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("./sb config generate: %v", err), progress)
@@ -4744,6 +4835,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// destructive migration (the STATBUS-047 item-A hazard). `all` is the
 	// superset fresh-install (cli/cmd/install.go:1034) and rollback (below) use.
 	progress.Write("Pulling updated images...")
+	d.markStep(StepImagePull)
 	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", progress.bump, "docker", "compose", "--profile", "all", "pull"); err != nil {
 		return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: docker compose pull: %v", ErrDockerUpFailed, err), progress)
 	}
@@ -4756,6 +4848,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// no useful error). If the image isn't in the registry yet, CI hasn't
 	// built it. Tell the operator to wait for images.yaml and retry.
 	progress.Write("Starting database...")
+	d.markStep(StepDBUp)
 	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", progress.bump, "docker", "compose", "up", "-d", "--no-build", "db"); err != nil {
 		reason := fmt.Sprintf(
 			"%s: docker compose up -d db: %v\n\n"+
@@ -4810,6 +4903,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 		// reconnect reopens both conns (bounded by connect()'s 5-min ctx) and
 		// re-acquires the advisory lock.
 		progress.Write("Reconnecting to database...")
+		d.markStep(StepReconnect)
 		return d.reconnect(ctx)
 	}()
 	if reconnErr != nil {
@@ -4848,6 +4942,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// public.upgrade.recreate column read atomically at claim (STATBUS-092) and
 	// carried through executeUpgrade → writeUpgradeFlag → flag.Recreate →
 	// applyPostSwap. No volatile in-memory flag to reset.
+	d.markStep(StepMigrateUp)
 	if recreate {
 		progress.Write("Recreating database from scratch (--recreate)...")
 		// deferGating: recreate-database runs the full migration set + seed; it
@@ -4954,6 +5049,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// verification (silent drift) — TestVersionTrackedAlignedWithUpgradePipeline
 	// asserts the invariant.
 	progress.Write("Starting services...")
+	d.markStep(StepStartServices)
 	composeArgs := append([]string{"compose", "up", "-d", "--no-build"}, step11RestartServices...)
 	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", progress.bump, "docker", composeArgs...); err != nil {
 		reason := fmt.Sprintf(
@@ -4979,6 +5075,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 
 	// Step 12: Verify health
 	progress.Write("Verifying health...")
+	d.markStep(StepHealthCheck)
 	if err := d.healthCheck(progress, 5, 5*time.Second); err != nil {
 		return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: application health check: %v", ErrHealthcheckRESTDown, err), progress)
 	}
@@ -4990,6 +5087,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// invariant; its original motivating slow tail, a post-completion forensic
 	// tar, was removed in STATBUS-112).
 	fmt.Println("Health check passed — turning off the maintenance page.")
+	d.markStep(StepMaintenanceOff)
 	d.setMaintenance(false)
 
 	// selfUpdate is intentionally NOT invoked here: Option C moved the
@@ -5018,6 +5116,9 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// STATBUS-081: log_relative_file_path = COALESCE(...) — chk_upgrade_state_attributes
 	// requires it NOT NULL on completed. Real upgrades are stamped at claim time
 	// (LOG_POINTER_STAMPED invariant) so $2 is a no-op fallback for legacy NULL rows only.
+	// STATBUS-046: Phase 4.2 — record the dying step so a crash during the terminal
+	// write reports StepComplete (not the prior maintenance-off) for same-step-twice.
+	d.markStep(StepComplete)
 	completedSQL := "UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready', error = NULL, log_relative_file_path = COALESCE(log_relative_file_path, $2) WHERE id = $1" + upgradeRowReturning
 	var lastScanErr error
 	for attempt := 0; attempt < 4; attempt++ {
@@ -5162,6 +5263,97 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 //
 // Control returns to Run() after applyPostSwap completes. If applyPostSwap
 // fails, rollback() has already run inside it.
+// upgradeParkedReason reports whether upgrade `id` is PARKED (STATBUS-046):
+// recovery_parked_at IS NOT NULL. A parked row is SKIPPED by every automatic
+// resume (the unit stays alive-idle) until a deliberate operator trigger
+// un-parks it (RunSchedule / install re-claim resets the marker).
+func (d *Service) upgradeParkedReason(ctx context.Context, id int) (parked bool, reason string, err error) {
+	var parkedAt sql.NullTime
+	var r sql.NullString
+	if err = d.queryConn.QueryRow(ctx,
+		"SELECT recovery_parked_at, recovery_parked_reason FROM public.upgrade WHERE id = $1", id).
+		Scan(&parkedAt, &r); err != nil {
+		return false, "", err
+	}
+	return parkedAt.Valid, r.String, nil
+}
+
+// incrementRecoveryAttempts bumps recovery_attempts by one at attempt START and
+// returns the new value (STATBUS-046/D3: incremented before the forward pipeline
+// re-runs so a dead process self-counts — no post-hoc bookkeeping). Counts
+// PROCESS DEATHS only; class-A in-place waits never call this.
+func (d *Service) incrementRecoveryAttempts(ctx context.Context, id int) (int, error) {
+	var attempts int
+	if err := d.queryConn.QueryRow(ctx,
+		"UPDATE public.upgrade SET recovery_attempts = recovery_attempts + 1 WHERE id = $1 RETURNING recovery_attempts", id).
+		Scan(&attempts); err != nil {
+		return 0, err
+	}
+	return attempts, nil
+}
+
+// parkUpgrade writes the durable PARK marker (STATBUS-046): the row STAYS
+// state='in_progress' (forward-only preserved; rollback stays reachable ONLY via
+// a positively-Behind ground-truth verdict, NEVER via exhaustion) and gains
+// recovery_parked_at + the named reason. The `recovery_parked_at IS NULL` guard
+// makes it idempotent — a racing writer can't double-park, so the degraded
+// siren fires exactly once.
+// parkUpgrade returns freshlyParked=true only when THIS call flipped the row
+// into parked (RowsAffected>0 under the `recovery_parked_at IS NULL` guard), so
+// the caller can fire the degraded siren EXACTLY ONCE per park event even when a
+// read-blip re-enters an already-parked row (STATBUS-046).
+func (d *Service) parkUpgrade(ctx context.Context, id int, reason string) (freshlyParked bool, err error) {
+	ct, err := d.queryConn.Exec(ctx,
+		"UPDATE public.upgrade SET recovery_parked_at = now(), recovery_parked_reason = $2 WHERE id = $1 AND state = 'in_progress' AND recovery_parked_at IS NULL",
+		id, reason)
+	if err != nil {
+		return false, err
+	}
+	return ct.RowsAffected() > 0, nil
+}
+
+// STATBUS-046 (architect pin 2) — the SHARED park-reset column-set + guard,
+// referenced by BOTH deliberate un-park triggers so they can NEVER drift:
+// RunSchedule inlines them into its single ATOMIC re-schedule UPDATE (trigger 1)
+// and UnparkByID uses them standalone (trigger 2, ./sb install). Atomic-with-
+// reschedule matters: runOneShot is NOT transactional, so a two-statement
+// "reschedule then reset" would leave a window where a rescheduled row is still
+// parked — the daemon could claim+crash it there and inherit the stale marker,
+// then get wrongly skipped by resumePostSwap's parked-skip.
+//
+// The guard NEVER clobbers a genuinely-live upgrade:
+//   - RunSchedule: the same UPDATE moves the row to 'scheduled' (or it's a
+//     parked-idle row), so it's resettable.
+//   - install (by id): a crashed row is in_progress, so the guard reduces to
+//     `recovery_parked_at IS NOT NULL` = PARKED-ONLY (pin 1) — a crashed-but-not-
+//     parked row keeps its count so install-driven crash cycles still park.
+const (
+	recoveryBudgetResetCols  = "recovery_attempts = 0, recovery_parked_at = NULL, recovery_parked_reason = NULL"
+	recoveryBudgetResetGuard = "(state != 'in_progress' OR recovery_parked_at IS NOT NULL)"
+)
+
+// UnparkByID is the ./sb install un-park (trigger 2). Called ONLY on the
+// deliberate install crash-recovery path (runCrashRecovery), NEVER on an
+// automatic self-resume — which is why the marker persists across boots and
+// resumePostSwap keeps skipping the parked row until a human acts. The
+// FROM-subquery captures the PRE-reset reason so the caller can name it in the
+// loud un-park line. Returns whether a parked row was un-parked + that reason.
+func (d *Service) UnparkByID(ctx context.Context, id int) (unparked bool, oldReason string, err error) {
+	q := fmt.Sprintf(`UPDATE public.upgrade AS u
+	   SET %s
+	  FROM (SELECT recovery_parked_reason AS old_reason FROM public.upgrade WHERE id = $1 LIMIT 1) prev
+	 WHERE u.id = $1 AND %s
+	 RETURNING prev.old_reason`, recoveryBudgetResetCols, recoveryBudgetResetGuard)
+	var r sql.NullString
+	if err = d.queryConn.QueryRow(ctx, q, id).Scan(&r); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, "", nil // guard didn't match → nothing reset (live / absent)
+		}
+		return false, "", err
+	}
+	return true, r.String, nil
+}
+
 func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 	var logRelPath sql.NullString
 	err := d.queryConn.QueryRow(ctx,
@@ -5343,6 +5535,71 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 		}
 	}
 
+	// STATBUS-046 (doc-021/D3) — the crash-resume ATTEMPT BUDGET, the bound that
+	// replaces the rune loop-forever. We are past the self-heal early return, so
+	// this resume IS a fresh forward attempt. resumePostSwap is only reached in
+	// the at-target forward regime (recoverFromFlag routes a positively-Behind
+	// ground truth to rollback, never here), so a terminal verdict PARKS
+	// (canRollBack=false); direction stays STATBUS-039's call — 046 only bounds
+	// how-long/how-loud.
+	//
+	// (1) A PARKED row is skipped entirely — alive-idle, no attempt consumed, no
+	//     siren re-fire. Un-park is only via a deliberate operator trigger.
+	//
+	// FAIL-OPEN on a read error (log loud, do NOT return early — do NOT "fix" this
+	// into fail-closed). DECISIVE case: a crash mid-flight on the 046-SHIPPING
+	// upgrade itself runs this SELECT against the still-UNMIGRATED schema —
+	// recovery_parked_at doesn't exist until its own migrate-up at step 3.5, so
+	// the read errors SQLSTATE 42703 persistently on every boot. Fail-open logs +
+	// proceeds → the increment below fails the same way → attempts=1 fallback →
+	// migrate-up ships the columns → the feature bootstraps itself through its own
+	// deferral window. Fail-CLOSED would return BEFORE the increment and loop
+	// UNCOUNTED forever on exactly that path — the rune class the budget exists to
+	// kill. Fail-open is also provably harmless on a transient blip: the escalation
+	// core re-derives TERMINAL from persisted state (attempts never decrease,
+	// Step==PriorDeathStep survives on the flag), so a genuinely-parked row parks
+	// again before the reacquire — no pipeline attempt ever runs on it.
+	parked, parkReason, perr := d.upgradeParkedReason(ctx, flag.ID)
+	if perr != nil {
+		log.Printf("resumePostSwap: park-state read failed for upgrade %d: %v — proceeding; the escalation budget still bounds this attempt", flag.ID, perr)
+	} else if parked {
+		log.Printf("resumePostSwap: upgrade %d is PARKED (%s) — skipping automatic resume; re-trigger the upgrade or run ./sb install to make a fresh attempt", flag.ID, parkReason)
+		progress.Write("Upgrade %d is parked: %s. Skipping automatic resume — re-trigger the upgrade (NOTIFY/apply) or run ./sb install for a fresh attempt.", flag.ID, parkReason)
+		progress.Close()
+		return nil
+	}
+	// (2) Increment at attempt START so a death self-counts (D3: process deaths
+	//     only). Non-fatal on write error — fall back to a single conservative
+	//     attempt rather than block recovery on bookkeeping.
+	attempts, aerr := d.incrementRecoveryAttempts(ctx, flag.ID)
+	if aerr != nil {
+		log.Printf("resumePostSwap: could not increment recovery_attempts for %d (%v) — proceeding with a single attempt", flag.ID, aerr)
+		attempts = 1
+	}
+	// (3) Consult the pure escalation core. deathStep = where the PREVIOUS attempt
+	//     died (flag.Step, frozen by that crash); priorDeathStep = the death two
+	//     attempts ago (flag.PriorDeathStep). Terminal at-target → PARK.
+	if action, reason := resumeEscalation(attempts, flag.Step, flag.PriorDeathStep, false); action != recoveryContinue {
+		freshlyParked, parkErr := d.parkUpgrade(ctx, flag.ID, reason)
+		if parkErr != nil {
+			progress.Write("resumePostSwap: park write failed for upgrade %d: %v", flag.ID, parkErr)
+			progress.Close()
+			return fmt.Errorf("resumePostSwap: park write failed for upgrade %d: %w", flag.ID, parkErr)
+		}
+		log.Printf("resumePostSwap: PARKED upgrade %d after %d attempt(s) — %s", flag.ID, attempts, reason)
+		progress.Write("PARKED after %d crash-resume attempt(s): %s. The unit stays running and idle (no crash loop); re-trigger the upgrade or run ./sb install to make a fresh attempt — each deliberate trigger is exactly one attempt.", attempts, reason)
+		progress.Close()
+		// Degraded siren — fires EXACTLY ONCE per park EVENT: only when THIS call
+		// is the one that flipped the row into parked (freshlyParked, from the
+		// parkUpgrade parked_at guard). A re-park after a failed fresh attempt is a
+		// new event and correctly sirens again; a blip that re-enters an already-
+		// parked row does not (RowsAffected==0 → freshlyParked==false).
+		if freshlyParked {
+			d.runCallback(flag.Label(), map[string]string{"STATBUS_EVENT": "parked", "STATBUS_PARKED": "1", "STATBUS_PARK_REASON": reason})
+		}
+		return nil
+	}
+
 	// Re-acquire the flock on the flag file AND advance the on-disk phase to
 	// Resuming: from here this process commits to running applyPostSwap on the
 	// new binary. If it dies before completing (watchdog SIGABRT on a hung step,
@@ -5353,18 +5610,24 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 	// § Binary-swap restart + resume). We only reach here past the
 	// self-heal-converged early return above, so a legitimately-converged upgrade
 	// still self-heals to completed before the phase advances.
+	//
+	// STATBUS-046: roll flag.Step (where THIS attempt's predecessor died) into
+	// PriorDeathStep so the NEXT resume can detect two consecutive deaths at the
+	// same step (deterministic hang → park early). Step itself resets to "" and
+	// recordFlagStep re-stamps it as applyPostSwap progresses.
 	reacquired := UpgradeFlag{
-		ID:         flag.ID,
-		CommitSHA:  flag.CommitSHA,
-		CommitTags: flag.CommitTags,
-		PID:        os.Getpid(),
-		StartedAt:  time.Now(),
-		InvokedBy:  flag.InvokedBy,
-		Trigger:    flag.Trigger,
-		Holder:     HolderService,
-		Phase:      FlagPhaseResuming,
-		Recreate:   flag.Recreate,
-		BackupPath: flag.BackupPath,
+		ID:             flag.ID,
+		CommitSHA:      flag.CommitSHA,
+		CommitTags:     flag.CommitTags,
+		PID:            os.Getpid(),
+		StartedAt:      time.Now(),
+		InvokedBy:      flag.InvokedBy,
+		Trigger:        flag.Trigger,
+		Holder:         HolderService,
+		Phase:          FlagPhaseResuming,
+		Recreate:       flag.Recreate,
+		BackupPath:     flag.BackupPath,
+		PriorDeathStep: flag.Step,
 	}
 	lock, lerr := acquireFlock(d.projDir, reacquired)
 	if lerr != nil {

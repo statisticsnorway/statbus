@@ -253,6 +253,33 @@ func runCrashRecovery(projDir string) error {
 	if err := svc.LoadConfigAndConnect(ctx); err != nil {
 		return fmt.Errorf("load upgrade config: %w", err)
 	}
+	// STATBUS-046 (architect option (a) + pin 1): `./sb install` is one of the two
+	// deliberate un-park triggers. A PARKED row stays in_progress with its flag on
+	// disk, so recovery reaches here — but resumePostSwap would SKIP it
+	// (parked-skip) without this. Un-park (clear the marker + reset the death
+	// budget) BEFORE RecoverFromFlag so the deliberate resume proceeds with a
+	// FRESH budget. PARKED-ONLY: a crashed-but-not-parked row keeps its count (so
+	// install-driven crash cycles still park). Row-update only — never touches the
+	// flag handshake; RecoverFromFlag keeps sole flag ownership. A self-resume
+	// never runs this path, so the machine never un-parks itself.
+	if flag, _, ferr := upgrade.ReadFlagFile(projDir); ferr == nil && flag != nil && flag.Holder == upgrade.HolderService && flag.ID != 0 {
+		// HARD-FAIL on error (STATBUS-046): the operator's deliberate ./sb install
+		// must never silently no-op into a still-parked row that resumePostSwap
+		// then skips — that would strand the box. An actionable stop is the correct
+		// fail-fast.
+		unparked, oldReason, uerr := svc.UnparkByID(ctx, flag.ID)
+		if uerr != nil {
+			return fmt.Errorf("crash recovery: could not clear the park marker for upgrade id=%d: %w — "+
+				"if this upgrade is parked, install cannot resume it; fix DB access and re-run ./sb install", flag.ID, uerr)
+		}
+		if unparked {
+			reason := oldReason
+			if reason == "" {
+				reason = "(no reason recorded)"
+			}
+			fmt.Printf("crash recovery: UN-PARKED upgrade id=%d (was parked: %s) — ./sb install grants ONE fresh attempt with a reset budget.\n", flag.ID, reason)
+		}
+	}
 	if err := svc.RecoverFromFlag(ctx); err != nil {
 		return fmt.Errorf("crash recovery: %w", err)
 	}

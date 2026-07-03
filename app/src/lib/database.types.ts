@@ -6010,6 +6010,9 @@ export type Database = {
           has_migrations: boolean
           id: number
           log_relative_file_path: string | null
+          recovery_attempts: number
+          recovery_parked_at: string | null
+          recovery_parked_reason: string | null
           recreate: boolean
           release_builds_status: Database["public"]["Enums"]["release_builds_status_type"]
           release_status: Database["public"]["Enums"]["release_status_type"]
@@ -6039,6 +6042,9 @@ export type Database = {
           has_migrations?: boolean
           id?: never
           log_relative_file_path?: string | null
+          recovery_attempts?: number
+          recovery_parked_at?: string | null
+          recovery_parked_reason?: string | null
           recreate?: boolean
           release_builds_status?: Database["public"]["Enums"]["release_builds_status_type"]
           release_status?: Database["public"]["Enums"]["release_status_type"]
@@ -6068,6 +6074,9 @@ export type Database = {
           has_migrations?: boolean
           id?: never
           log_relative_file_path?: string | null
+          recovery_attempts?: number
+          recovery_parked_at?: string | null
+          recovery_parked_reason?: string | null
           recreate?: boolean
           release_builds_status?: Database["public"]["Enums"]["release_builds_status_type"]
           release_status?: Database["public"]["Enums"]["release_status_type"]

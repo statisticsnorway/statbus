@@ -29,6 +29,9 @@
  docker_images_status     | docker_images_status_type  |           | not null | 'building'::docker_images_status_type  | plain    |             |              | Docker image build status: building (CI in progress), ready (images verified in registry), failed (CI workflow failed). Checked by the upgrade service via docker manifest inspect and GitHub Actions API.
  release_builds_status    | release_builds_status_type |           | not null | 'building'::release_builds_status_type | plain    |             |              | Release build status: building (release.yaml in progress), ready (GitHub Release + sb binary + manifest verified), failed (release workflow failed). For commits (edge channel) this defaults to ready since edge does not use release artifacts. Checked by the upgrade service via FetchManifest and GitHub Actions API.
  recreate                 | boolean                    |           | not null | false                                  | plain    |             |              | 
+ recovery_attempts        | integer                    |           | not null | 0                                      | plain    |             |              | 
+ recovery_parked_at       | timestamp with time zone   |           |          |                                        | plain    |             |              | 
+ recovery_parked_reason   | text                       |           |          |                                        | extended |             |              | 
 Indexes:
     "upgrade_pkey" PRIMARY KEY, btree (id)
     "upgrade_commit_sha_key" UNIQUE CONSTRAINT, btree (commit_sha)
@@ -71,6 +74,7 @@ Not-null constraints:
     "upgrade_docker_images_status_not_null" NOT NULL "docker_images_status"
     "upgrade_release_builds_status_not_null" NOT NULL "release_builds_status"
     "upgrade_recreate_not_null" NOT NULL "recreate"
+    "upgrade_recovery_attempts_not_null" NOT NULL "recovery_attempts"
 Triggers:
     upgrade_block_obsolete_pending_trigger BEFORE INSERT OR UPDATE OF state, committed_at, release_status ON upgrade FOR EACH ROW EXECUTE FUNCTION upgrade_block_obsolete_pending()
     upgrade_notify_daemon_trigger AFTER UPDATE ON upgrade FOR EACH ROW EXECUTE FUNCTION upgrade_notify_daemon()
