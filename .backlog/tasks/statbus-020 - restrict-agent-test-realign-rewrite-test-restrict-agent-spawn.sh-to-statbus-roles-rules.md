@@ -6,10 +6,10 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-09 16:58'
+updated_date: '2026-07-03 10:45'
 labels:
-  - hooks
-  - test
-  - tech-debt
+  - tooling
+  - not-install-upgrade
 dependencies: []
 priority: low
 ordinal: 20000
