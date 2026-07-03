@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
-updated_date: '2026-07-03 11:11'
+updated_date: '2026-07-03 11:21'
 labels:
   - build-caching
   - seed
@@ -205,5 +205,11 @@ author: foreman
 created: 2026-07-03 11:11
 ---
 FLIP SEQUENCE IN MOTION (King D4 flip-early ruling; foreman executing during the away window, 2026-07-03). COMMITTED: 494481aa7 (depth cap N=5 — now the PRIMARY drift bound: the release=full clause DISSOLVED under grounding, releases never build a seed, they reuse the master-push image; releases.yaml rebuilds app/worker/db/proxy only) + ce383effc (the gated flip machinery in images.yaml: on-demand git unshallow + sb-extract from the statbus-sb image, ALL inside the enabled branch after the gate's exit 0; checkout stays depth-1; disabled path byte-identical — foreman traced the diff line-by-line). INERT-PROOF RUN: images run 28656755124 (triggered by this push, variable UNSET) — must show seed job green + decision log PATH=FULL. THEN THE FLIP: `gh variable set SEED_INCREMENTAL_ENABLED --body true` → dispatch images.yaml → observe PATH=INCREMENTAL + first live incremental seed + AC-5 timing measurement. KILL-SWITCH (documented before flipping, works from any state): `gh variable set SEED_INCREMENTAL_ENABLED --body false` (or delete the variable) → the very next build is full-from-empty; no commit/revert needed; the in-stage SeedBuildDecision fingerprint gate + the empty-prior fallback additionally force FULL on any anomaly regardless of the variable.
+---
+
+author: foreman
+created: 2026-07-03 11:21
+---
+🔴 FIRST ENABLED RUN RED → KILL-SWITCH PULLED (foreman, 2026-07-03 11:20 — ~4 min from failure to disable; the King's flip-early ruling working as intended: real exercise found a real integration gap on day one). Sequence: inert-proof run 28656755124 GREEN (gate took the disabled exit verbatim; decision log enable-gate=false → PATH=FULL; seed published at migration 20260703104910 — a POST-FIX seed, now the future prior for the deferred confirming run). Variable set true 11:16 → first enabled run 28657019171 FAILED in-stage: `migrate seed db up: released-tag detection for migration 20260218215337: git tag -l v*: exit status 128` — the restored prior evidently predates the ORDER BY fix, the ledger-hash mismatch invoked the migration-immutability/channel machinery, which needs git — and the hermetic seed-builder has NO .git by design. Variable back to FALSE 11:20; recovery run 28657218995 dispatched (expect green full-from-empty). TWO DIAGNOSIS QUESTIONS with the engineer: Q1 (load-bearing) why the decision wasn't FULL or REUSE — the ancestor walk should have picked the post-fix ce383eff seed (published minutes earlier; manifest propagation timing?) AND SeedBuildDecision's fingerprint gate must force FULL on a pre-fix prior; one gate didn't fire — trace which. Q2 (structural) the in-stage build can NEVER run the git-requiring channel machinery — an in-stage ledger mismatch must fall back to FULL (decided on the host) instead of dying. VARIABLE STAYS FALSE until both answered + fixed; re-enable = same one-variable procedure.
 ---
 <!-- COMMENTS:END -->
