@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-24 12:21'
-updated_date: '2026-07-02 19:16'
+updated_date: '2026-07-03 19:40'
 labels:
   - upgrade
   - recovery
@@ -103,5 +103,11 @@ author: foreman
 created: 2026-07-02 19:16
 ---
 BUILT + COMMITTED 782ca2455 (design doc-022; architect APPROVE + foreman targeted first-hand review of the dispatch rewrite, fetch fold, and heartbeat core; engineer self-checks all green incl. the STATBUS-039 structural tests). 5 files: recovery_backoff.go (+316: typed UnknownCause, backoffRetry with per-iteration + in-sleep heartbeats, db-unreachable spec [reconnect+SELECT-1, 1-30s gaps, 5min] + commit-not-fetched spec [stall-detecting fetch, 10-60s gaps, 15min], classifyStepError label), recovery_backoff_test.go (+166), service.go (resuming-phase classify-then-act dispatch: AtTarget→forward / Behind→rollback / Unknown+named-cause→in-process retry→clear:re-read|exhaust-or-recur:data-safe-rollback / Unrecognised→human-stop via unchanged systemd backstop; closed tri-state fail-loud default), exec.go (runCommandToLogCtx), ground_truth_test.go. THREE REVIEW RULINGS recorded: (i) retryBackoff deletion DROPPED — doc-022 premise error, 6 live callers foreman-verified; (ii) reconnect()-not-connect() CONFIRMED (preserves the advisory-lock re-acquire + re-LISTEN + 110 self-exempt the old exit-restart got); (iii) forward-step classifier is LABEL-ONLY — the unknown→stop disposition for postSwapFailure is DEFERRED to its own King nod and must move persistentStepSignatures from English substrings to SQLSTATE codes before it ever gates a decision. REMAINING for done: the install-recovery VM arcs (STATBUS-071) — same arc lane as 110's fix, blocked on the King's doc-023 nod.
+---
+
+author: foreman
+created: 2026-07-03 19:40
+---
+ARC LANE GREEN (run 28679526112 on a3eb522c8, which includes 782ca2455's backoff + dispatch rewrite): the standard working/failing arcs pass end-to-end through the new classify-then-act recovery dispatch — no regression from the 109 commit on the normal paths (forward-apply completed; rollback clean; V_fixed completed). ACs 1-4 remain OPEN correctly: they require DEDICATED scenarios (kill the DB transiently mid-recovery for db-unreachable backoff-retry; a commit-not-fetched stall case) that the working/failing lineages do not exercise. The lane is no longer blocked by the 110/seed-fidelity regression — those scenarios can now be sequenced (candidates for the slice-3+ scenario migration onto controlled-B, STATBUS-071).
 ---
 <!-- COMMENTS:END -->
