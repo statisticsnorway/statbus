@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
-updated_date: '2026-07-03 19:40'
+updated_date: '2026-07-03 20:01'
 labels:
   - build-caching
   - seed
@@ -241,5 +241,11 @@ author: foreman
 created: 2026-07-03 19:40
 ---
 🟢 ORACLE 2 GREEN (arc run 28679526112) — BOTH doc-025 oracles now green. Working arc: seed-restored install healthy → forward-apply B completed t+55s, health check attempt 1. Failing arc: rolled_back t+79s → V_fixed completed t+58s. Zero HEALTHCHECK_REST_DOWN. Combined with oracle 1 (comment 23: PATH=FULL, re-stamp fired cd82bc76→71befa05, publish gate passed, consistent seed statbus-seed:a3eb522c published): the doc-025 comment-21 proof condition is MET. → THE RE-FLIP DECISION NOW SITS WITH THE KING: `gh variable set SEED_INCREMENTAL_ENABLED --body true` then dispatch images.yaml; expected: ancestor walk picks statbus-seed:a3eb522c (consistent prior), PATH=INCREMENTAL, AC-5 timing measured; kill-switch unchanged (set the variable false — comment 18); Part C's in-stage ErrStaleRestoredMigration fallback now guards the stale-prior class that killed run 28657019171.
+---
+
+author: foreman
+created: 2026-07-03 20:01
+---
+KING RULING (2026-07-03, direct, in-conversation): the SEED_INCREMENTAL_ENABLED repo variable is RETIRED — no external enable flag. Reason (King): "enable the right code and test it and make sure it works." The flag was rollout scaffolding (inert wiring, 4-minute kill on the first-enable failure) and its job is done; the safety now lives entirely in code — fingerprint mismatch→FULL, stale restored prior→typed error→FULL rebuild, no prior→FULL, depth≥5→FULL, and the publish gate makes an inconsistent artifact unshippable. An external variable also made the same commit build differently from mutable side-channel state — not reproducible from the repo. NEW SHAPE: incremental enabled unconditionally in code; kill-switch = ordinary git revert of the enabling commit. ENGINEER BUILDING NOW: remove the images.yaml variable conditional (ancestor walk always runs on push), remove the enable-gate param from the decision core + the SEED_INCREMENTAL build-arg plumbing, retire the stays-false guard test. Architect glances (verify no in-code gate weakened) → foreman review+commit+push. The push's own seed job = the FIRST LIVE INCREMENTAL RUN: expect ancestor walk → statbus-seed:a3eb522c prior → PATH=INCREMENTAL → AC-5 timing measured (or a loud named fallback to FULL, also correct behavior). Operator watches.
 ---
 <!-- COMMENTS:END -->
