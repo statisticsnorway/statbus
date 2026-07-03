@@ -57,6 +57,13 @@
 # bounded budget and fails LOUD (not silently) if it never observes the
 # target step — see wait_for_flag_step below.
 #
+# Also required (found run 7, after 6 prior runs eliminated every other
+# cause): the fetch+checkout-HEAD stage right after upload_sb_to_vm (mirrors
+# 0-happy-upgrade.sh:118 verbatim) — INSTALL_VERSION's release clone is
+# `--depth 1`, so without an explicit fetch of HEAD, `./sb config generate`'s
+# freshness check cannot resolve the uploaded binary's embedded HEAD commit
+# in that shallow tree ("bad object").
+#
 # ─────────────────────────────────────────────────────────────────────────
 # SCENARIO SHAPE
 # ─────────────────────────────────────────────────────────────────────────
@@ -290,6 +297,20 @@ assert_demo_data_present "$VM_NAME"
 echo ""
 echo "── uploading HEAD sb binary + fabricating scheduled row (daemon-dispatched) ──"
 upload_sb_to_vm "$VM_NAME"
+
+# Fetch + checkout HEAD in the VM's working tree (mirrors 0-happy-upgrade.sh:118
+# VERBATIM). INSTALL_VERSION is a RELEASE tag, whose install path clones
+# `--depth 1 --branch v2026.05.2` — a repo containing NO master commits by
+# construction. Without this stage, `./sb config generate`'s freshness check can
+# never resolve the just-uploaded binary's embedded HEAD in that shallow clone
+# (git cat-file on a commit the depth-1 clone never fetched → "bad object" —
+# the failure mode run 7 hit after every other cause had been eliminated).
+# Single-line: printf '%q' converts multi-line strings to ANSI-C $'...\n...'
+# quoting, but the remote /bin/sh (dash on Ubuntu) does not expand $'...' —
+# newlines collapse, breaking if/then/fi syntax. Semicolons replace newlines;
+# if COND; then CMD; fi is valid single-line bash.
+VM_EXEC bash -c "cd ~/statbus && if ! git cat-file -e $HEAD_SHA 2>/dev/null; then git fetch --depth 1 origin $HEAD_SHA || { echo 'FATAL: cannot fetch HEAD' >&2; exit 1; }; fi && git checkout $HEAD_SHA"
+
 fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_SHA"
 
 # ─────────────────────────────────────────────────────────────────────────
