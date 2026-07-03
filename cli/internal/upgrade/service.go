@@ -3780,7 +3780,11 @@ func (d *Service) onScheduledNotify(ctx context.Context, input string) {
 		// Once a commit is selected, all older ones are obsolete.
 		d.supersedeOlderReleases(ctx, string(commitSHA))
 	case scheduleResultAlreadyScheduled:
-		fmt.Printf("Version %s already scheduled, no action needed\n", displayName)
+		// STATBUS-046: since edit 6 excludes a LIVE in_progress row from the
+		// re-schedule, rows==0 here now covers BOTH "already scheduled" and
+		// "already running" — name both so the message isn't imprecise for the
+		// in_progress case.
+		fmt.Printf("Version %s is already scheduled or in progress — no action needed\n", displayName)
 	case scheduleResultUnregistered:
 		// require-register: NEVER insert — loud, actionable no-op.
 		fmt.Printf("NOTIFY upgrade_apply for UNREGISTERED commit %s — ignored.\n", displayName)
@@ -4705,6 +4709,63 @@ func (d *Service) postSwapFailure(ctx context.Context, id int, displayName, rest
 		ErrInstallPreconditionFailed, reason)
 }
 
+// parkForDeterministicFailure (STATBUS-046 slice 2) handles a STRUCTURALLY B/C
+// step failure at a Phase-3 site: park on the FIRST occurrence instead of letting
+// it burn the death budget over three crash-resumes. Ground truth still governs
+// DIRECTION (STATBUS-039), exactly as postSwapFailure: positively-Behind →
+// data-safe rollback; at-or-past-target OR unverifiable → PARK (retrying a
+// deterministic failure cannot help, and at-target can't safely roll back —
+// integrators may have written past maintenance-off). Returns an error so
+// applyPostSwap stops; the row is now parked, so the next recovery pass's
+// parked-skip keeps the unit alive-idle. Fires the degraded siren exactly once
+// (freshlyParked), consistent with the budget-park path.
+func (d *Service) parkForDeterministicFailure(ctx context.Context, id int, displayName, restoreTargetSHA, commitSHA, backupPath, reason string, progress *ProgressLog) error {
+	gt, _, gtReason := d.verifyUpgradeGroundTruthEx(ctx, commitSHA)
+	if gt == GroundTruthBehind {
+		progress.Write("Deterministic post-swap failure: %s — ground truth positively behind (%s); auto-restoring from this upgrade's snapshot", reason, gtReason)
+		d.rollback(ctx, id, displayName, restoreTargetSHA,
+			fmt.Sprintf("deterministic forward failure: %s; auto-restored from snapshot", reason), backupPath, progress)
+		return fmt.Errorf("%s: deterministic post-swap failure auto-restored: %s", ErrInstallPreconditionFailed, reason)
+	}
+	freshlyParked, perr := d.parkUpgrade(ctx, id, reason)
+	if perr != nil {
+		return fmt.Errorf("park deterministic forward failure for upgrade %d: %w", id, perr)
+	}
+	d.recordInProgressFailure(ctx, id, "parked on deterministic forward failure: "+reason)
+	progress.Write("PARKED on first deterministic failure: %s. The unit stays running and idle (no crash loop); fix the cause, then re-trigger the upgrade or run ./sb install for a fresh attempt.", reason)
+	if freshlyParked {
+		d.runCallback(displayName, map[string]string{"STATBUS_EVENT": "parked", "STATBUS_PARKED": "1", "STATBUS_PARK_REASON": reason})
+	}
+	return fmt.Errorf("parked on deterministic forward failure: %s", reason)
+}
+
+// dockerStepMinFreeGB is the free-space floor a docker pull/up needs (doc-021
+// C-row intent). This is the "will this step fail" bar — the image set + layer
+// unpack headroom — NOT the install ladder's "should we install here" bar
+// (cli/cmd/install.go:441 defaults 100 GB). Below this floor the pull/unpack WILL
+// hit ENOSPC, so we park BEFORE the step rather than after (retrying a
+// disk-exhausted step amplifies it). Tunable at build/arc.
+const dockerStepMinFreeGB = 5
+
+// diskPrecheckReason (STATBUS-046 slice 2, Q2 amendment) is the PRIMARY class-C
+// (resource) signal for the docker steps — a LOCAL statfs check via DiskFree
+// (cross-platform), fully STRUCTURED (no text). Returns a non-empty park reason
+// when free space is below dockerStepMinFreeGB; "" otherwise (proceed). A
+// DiskFree read error returns "" — don't false-park on an unreadable statfs; the
+// in-flight ENOSPC backstop + the death budget still bound the step.
+func (d *Service) diskPrecheckReason(step string) string {
+	freeBytes, err := DiskFree(d.projDir)
+	if err != nil {
+		return ""
+	}
+	freeGB := freeBytes / (1024 * 1024 * 1024)
+	if freeGB < dockerStepMinFreeGB {
+		return fmt.Sprintf("disk nearly full: %d GB free (< %d GB needed) before %s — free disk space, then re-trigger the upgrade",
+			freeGB, dockerStepMinFreeGB, step)
+	}
+	return ""
+}
+
 // recordInProgressFailure persists a failure narrative on an in_progress row
 // WITHOUT transitioning it to a terminal state. chk_upgrade_state_attributes
 // permits a non-NULL `error` on in_progress (only completed forbids it), so
@@ -4822,7 +4883,14 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	progress.Write("Regenerating configuration...")
 	d.markStep(StepConfigGenerate)
 	if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "config-generate", progress.bump, filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
-		// TODO: pick code — config generate failure; no Err* code defined yet
+		// STATBUS-046 slice 2: config generate renders templates from .env.config
+		// (no network/DB), so a NON-TIMEOUT failure is deterministic (B) — PARK on
+		// FIRST with a named reason instead of burning three deaths. A timeout is
+		// classUnknown → the existing forward-retry (death-budget-bounded).
+		if classifyStepFailure(StepConfigGenerate, err).parksOnFirst() {
+			return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath,
+				fmt.Sprintf("config generate failed at %s: %v", displayName, err), progress)
+		}
 		return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("./sb config generate: %v", err), progress)
 	}
 
@@ -4836,7 +4904,17 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// superset fresh-install (cli/cmd/install.go:1034) and rollback (below) use.
 	progress.Write("Pulling updated images...")
 	d.markStep(StepImagePull)
-	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", progress.bump, "docker", "compose", "--profile", "all", "pull"); err != nil {
+	// STATBUS-046 slice 2: PRIMARY class-C disk pre-check (structured statfs) —
+	// park BEFORE the pull if free space can't hold the images.
+	if reason := d.diskPrecheckReason(StepImagePull); reason != "" {
+		return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, reason, progress)
+	}
+	if stderrTail, err := runCommandToLogCapture(projDir, 5*time.Minute, progress.File(), "docker-compose", progress.bump, "docker", "compose", "--profile", "all", "pull"); err != nil {
+		// ENOSPC backstop: disk filled DURING the pull (past the pre-check) → C park.
+		if classifyDockerFailure(err, stderrTail) == classResource {
+			return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath,
+				fmt.Sprintf("disk full during image pull at %s (no space left on device) — free disk space, then re-trigger the upgrade", displayName), progress)
+		}
 		return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: docker compose pull: %v", ErrDockerUpFailed, err), progress)
 	}
 
@@ -5029,6 +5107,19 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 			if errors.Is(err, ErrCommandTimeout) {
 				d.terminateMigrateOrphan(ctx, progress)
 			}
+			// STATBUS-046 slice 2 (Q5): read the `sb migrate up` exit-code contract
+			// (migrate/exit_codes.go) STRUCTURALLY — 20 = deterministic SQL (B),
+			// 22 = resource/SQLSTATE-class-53 (C) → PARK on FIRST with a class-real
+			// reason (the %v stderr tail is DATA in the reason, never the classifier).
+			// A conn-blip / timeout / any other exit → classUnknown → the existing
+			// budget-bounded forward-retry. Inert until the producer emits 20/22.
+			if cls := classifyStepFailure(StepMigrateUp, err); cls.parksOnFirst() {
+				reason := fmt.Sprintf("migration failed deterministically at %s — fix the migration, then re-trigger the upgrade: %v", displayName, err)
+				if cls == classResource {
+					reason = fmt.Sprintf("disk full during migration at %s (SQLSTATE class 53) — free disk space, then re-trigger the upgrade: %v", displayName, err)
+				}
+				return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, reason, progress)
+			}
 			return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: ./sb migrate up: %v", ErrMigrationFailed, err), progress)
 		}
 	}
@@ -5050,8 +5141,17 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// asserts the invariant.
 	progress.Write("Starting services...")
 	d.markStep(StepStartServices)
+	// STATBUS-046 slice 2: PRIMARY class-C disk pre-check (structured statfs).
+	if reason := d.diskPrecheckReason(StepStartServices); reason != "" {
+		return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, reason, progress)
+	}
 	composeArgs := append([]string{"compose", "up", "-d", "--no-build"}, step11RestartServices...)
-	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", progress.bump, "docker", composeArgs...); err != nil {
+	if stderrTail, err := runCommandToLogCapture(projDir, 5*time.Minute, progress.File(), "docker-compose", progress.bump, "docker", composeArgs...); err != nil {
+		// ENOSPC backstop: disk filled DURING start (past the pre-check) → C park.
+		if classifyDockerFailure(err, stderrTail) == classResource {
+			return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath,
+				fmt.Sprintf("disk full starting services at %s (no space left on device) — free disk space, then re-trigger the upgrade", displayName), progress)
+		}
 		reason := fmt.Sprintf(
 			"%s: docker compose up -d %s: %v\n\n"+
 				"One or more application images for %s are not available locally or in the registry. "+

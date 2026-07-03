@@ -175,7 +175,7 @@ note over systemd, service #FFE0B2
       recovery_parked_at + reason; row stays in_progress; service skips resume (alive-idle); siren ONCE
     • data-safe / positively-Behind → roll back (039 owns direction; 110 makes it byte-safe)
   Class A (readiness) waits IN PLACE (size-scaled) and NEVER consumes an attempt; B (deterministic) +
-  C (resource) → park on first (slice 2). Un-park = the two deliberate operator triggers only, each a
+  C (resource) → park on first. Un-park = the two deliberate operator triggers only, each a
   single fresh attempt with a reset budget.
 end note
 note over service, db #E8F5E9

@@ -1,8 +1,13 @@
 package upgrade
 
 import (
+	"errors"
+	"fmt"
+	"os/exec"
 	"strings"
 	"testing"
+
+	"github.com/statisticsnorway/statbus/cli/internal/migrate"
 )
 
 // STATBUS-046 (doc-021/D3) — the crash-resume escalation core is the bound that
@@ -82,5 +87,134 @@ func TestResumeEscalation_EmptyStepsNeverSameStepTwice(t *testing.T) {
 	// still bounded by the budget though:
 	if a, _ := resumeEscalation(RecoveryDeathBudget+1, "", "", false); a != recoveryPark {
 		t.Errorf("empty steps still hit the budget → park; got %s", a)
+	}
+}
+
+// ── slice 2: B/C failure classification ──────────────────────────────────────
+
+// STATBUS-046 slice 2 — the structured classifier. config-generate is the one
+// cleanly exit-code-classifiable site now: a non-timeout failure is deterministic
+// (B, park on first); a timeout is unknown (budget-bounded, no false park); the
+// migrate/docker sites stay unknown until Q5/Q2. classUnknown parks on nothing.
+func TestClassifyStepFailure_ConfigGenerateDeterministic(t *testing.T) {
+	if got := classifyStepFailure(StepConfigGenerate, errors.New("template render failed")); got != classDeterministic {
+		t.Errorf("config-generate non-timeout failure must be B/deterministic; got %s", got)
+	}
+	if !classDeterministic.parksOnFirst() {
+		t.Error("classDeterministic must park on first")
+	}
+}
+
+func TestClassifyStepFailure_TimeoutIsUnknownNotDeterministic(t *testing.T) {
+	// A hung config-generate (ErrCommandTimeout) must NOT park on first — the
+	// death budget + same-step-twice bound a repeated hang instead.
+	timeoutErr := fmt.Errorf("config-generate hung: %w", ErrCommandTimeout)
+	if got := classifyStepFailure(StepConfigGenerate, timeoutErr); got != classUnknown {
+		t.Errorf("a config-generate TIMEOUT must be classUnknown (budget-bounded), not B; got %s", got)
+	}
+	if classUnknown.parksOnFirst() {
+		t.Error("classUnknown must NOT park on first")
+	}
+}
+
+func TestClassifyStepFailure_UnclassifiedSitesAreUnknown(t *testing.T) {
+	// Until Q5 (migrate exit-code encoding) and Q2 (docker structured signal),
+	// these sites must return classUnknown — NEVER text-matched, NEVER a false B.
+	for _, step := range []string{StepMigrateUp, StepImagePull, StepDBUp, StepStartServices, StepHealthCheck, StepReconnect} {
+		if got := classifyStepFailure(step, errors.New("some failure")); got != classUnknown {
+			t.Errorf("step %s must be classUnknown pending Q2/Q5; got %s", step, got)
+		}
+	}
+}
+
+func TestClassifyStepFailure_NilErr(t *testing.T) {
+	if got := classifyStepFailure(StepConfigGenerate, nil); got != classUnknown {
+		t.Errorf("nil error must be classUnknown; got %s", got)
+	}
+}
+
+// STATBUS-046 slice 2 (Q5) — the migrate exit-code contract, read STRUCTURALLY.
+// A real subprocess produces a genuine *exec.ExitError so exitCodeOf + the
+// StepMigrateUp mapping are exercised end-to-end (not a hand-built fake).
+func migrateExitErr(t *testing.T, code int) error {
+	t.Helper()
+	err := exec.Command("sh", "-c", fmt.Sprintf("exit %d", code)).Run()
+	if err == nil {
+		t.Fatalf("sh -c 'exit %d' unexpectedly succeeded", code)
+	}
+	return err
+}
+
+func TestClassifyStepFailure_MigrateExitCodeContract(t *testing.T) {
+	if got := classifyStepFailure(StepMigrateUp, migrateExitErr(t, migrate.ExitDeterministic)); got != classDeterministic {
+		t.Errorf("migrate exit %d must be B/deterministic; got %s", migrate.ExitDeterministic, got)
+	}
+	if got := classifyStepFailure(StepMigrateUp, migrateExitErr(t, migrate.ExitResource)); got != classResource {
+		t.Errorf("migrate exit %d must be C/resource; got %s", migrate.ExitResource, got)
+	}
+	// Unclassified (1) and any other exit → unknown → A (budget-bounded).
+	if got := classifyStepFailure(StepMigrateUp, migrateExitErr(t, migrate.ExitUnclassified)); got != classUnknown {
+		t.Errorf("migrate exit %d (unclassified) must be classUnknown; got %s", migrate.ExitUnclassified, got)
+	}
+	if got := classifyStepFailure(StepMigrateUp, migrateExitErr(t, 5)); got != classUnknown {
+		t.Errorf("an unmapped migrate exit (5) must be classUnknown; got %s", got)
+	}
+	// A non-exit error (no structured signal) → unknown.
+	if got := classifyStepFailure(StepMigrateUp, errors.New("plain error")); got != classUnknown {
+		t.Errorf("a non-exit migrate error must be classUnknown; got %s", got)
+	}
+}
+
+// STATBUS-046 slice 2 (Q2) — docker marker classification. Only the kernel-stable
+// ENOSPC marker promotes (to C); the manifest-404 case is unknown→A (the daemon
+// rewraps the OCI string to generic "not found" prose — a live-sample finding).
+// Conjunctive (exit + marker), positive-exact-match only; miss / non-exit → A.
+func TestClassifyDockerFailure_Markers(t *testing.T) {
+	exit := migrateExitErr(t, 1) // docker/compose exits 1 for all these alike
+
+	// disk full → C (verbatim strerror(ENOSPC), kernel-authored, survives rewrap).
+	enospc := "failed to register layer: write /var/lib/docker/tmp/x: no space left on device"
+	if got := classifyDockerFailure(exit, enospc); got != classResource {
+		t.Errorf("ENOSPC stderr + non-zero exit must be C; got %s", got)
+	}
+	// manifest-404 as the DAEMON actually rewraps it → NOT promoted → unknown → A.
+	// (Q1 still parks a persistent 404 in 2 deaths via same-step-twice.)
+	daemon404 := `failed to resolve reference "ghcr.io/x/statbus-db:abc123": ghcr.io/x/statbus-db:abc123: not found`
+	if got := classifyDockerFailure(exit, daemon404); got != classUnknown {
+		t.Errorf("daemon-rewrapped 404 (\"not found\") must be classUnknown→A, not promoted; got %s", got)
+	}
+	// unrelated docker failure → unknown → A (bounded leniency, never a wrong park).
+	if got := classifyDockerFailure(exit, "Error response from daemon: network timeout"); got != classUnknown {
+		t.Errorf("an unmatched docker failure must be classUnknown; got %s", got)
+	}
+	// CONJUNCTIVE: the ENOSPC text WITHOUT a process-exit error must NOT classify.
+	if got := classifyDockerFailure(errors.New("timeout: no space left on device"), "no space left on device"); got != classUnknown {
+		t.Errorf("marker without a non-zero process exit must be classUnknown (conjunctive); got %s", got)
+	}
+	// empty stderr → unknown.
+	if got := classifyDockerFailure(exit, ""); got != classUnknown {
+		t.Errorf("empty stderr must be classUnknown; got %s", got)
+	}
+}
+
+// STATBUS-046 slice 2 — the bounded stderr capture (docker ENOSPC backstop) must
+// keep the TAIL (where kernel error markers appear) and never grow unbounded.
+func TestTailBuffer_KeepsBoundedTail(t *testing.T) {
+	tb := &tailBuffer{max: 16}
+	tb.Write([]byte("0123456789"))
+	tb.Write([]byte("abcdef: no space left on device"))
+	got := tb.String()
+	if len(got) > 16 {
+		t.Fatalf("tailBuffer exceeded its cap: %d bytes (%q)", len(got), got)
+	}
+	// The tail (the end, where ENOSPC lands) must be preserved for the classifier.
+	if !strings.HasSuffix("abcdef: no space left on device", got) {
+		t.Errorf("tailBuffer must keep the TAIL; got %q", got)
+	}
+	// And that tail must still let the classifier see the marker when it's within cap.
+	tb2 := &tailBuffer{max: 4096}
+	tb2.Write([]byte("failed to register layer: write /x: no space left on device"))
+	if !strings.Contains(tb2.String(), kernelMarkerENOSPC) {
+		t.Errorf("a within-cap ENOSPC line must survive capture; got %q", tb2.String())
 	}
 }

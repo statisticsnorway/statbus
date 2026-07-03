@@ -85,7 +85,25 @@ func runMigrateUp(migrateTo int64, all bool) error {
 		}
 	}()
 
-	return migrate.Up(projDir, migrateTo, all, verbose)
+	err = migrate.Up(projDir, migrateTo, all, verbose)
+
+	// STATBUS-046 slice 2 (architect Q5) — explicit process-exit-code
+	// boundary. Cobra maps a non-nil RunE error to exit 1 by default (see
+	// cli/main.go), which would collapse a deterministic migration-SQL
+	// failure into the same UNCLASSIFIED bucket as every other error. The
+	// upgrade-recovery consumer (recovery_escalation.go's StepMigrateUp
+	// classifier) reads ONLY the numeric exit code — never stderr text — so
+	// a migrate.ExitDeterministic failure must terminate the process with
+	// that code here, before returning through cobra's normal path.
+	// os.Exit skips the deferred env-var restore above; that's fine, the
+	// process is terminating. Mirrors cobra's own "Error: %v" stderr
+	// format for operator-facing parity.
+	if migrate.ClassifyUpErr(err) == migrate.ExitDeterministic {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(migrate.ExitDeterministic)
+	}
+
+	return err
 }
 
 var migrateDownCmd = &cobra.Command{

@@ -154,6 +154,51 @@ func runCommandToLog(dir string, timeout time.Duration, logWriter io.Writer, sou
 	return err
 }
 
+// tailBuffer keeps only the last `max` bytes written — a BOUNDED stderr capture
+// for structured error-marker classification (STATBUS-046 slice 2, docker ENOSPC
+// backstop). Small cap: the markers we classify on (kernel strerror lines) are
+// short and appear at the END of a failing step's stderr. Never grows unbounded.
+type tailBuffer struct {
+	max int
+	buf []byte
+}
+
+func (t *tailBuffer) Write(p []byte) (int, error) {
+	t.buf = append(t.buf, p...)
+	if len(t.buf) > t.max {
+		t.buf = t.buf[len(t.buf)-t.max:]
+	}
+	return len(p), nil
+}
+
+func (t *tailBuffer) String() string { return string(t.buf) }
+
+// runCommandToLogCapture is runCommandToLog PLUS a bounded stderr TAIL capture,
+// returned alongside the error for structured marker classification (the docker
+// ENOSPC backstop — runCommandToLog itself discards stderr text, returning only
+// the exec.ExitError whose .Stderr is empty under cmd.Run). Identical streaming /
+// stall-heartbeat behaviour: the tail buffer is just teed into the existing
+// stderr MultiWriter, so the log + os.Stderr + onAdvance feed are unchanged.
+func runCommandToLogCapture(dir string, timeout time.Duration, logWriter io.Writer, source string, onAdvance func(), name string, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	tail := &tailBuffer{max: 4096}
+	cmd := exec.CommandContext(ctx, name, gitArgs(name, args)...)
+	cmd.Dir = dir
+	outW := NewPrefixWriter("O", source, logWriter, onAdvance)
+	errW := NewPrefixWriter("E", source, logWriter, onAdvance)
+	cmd.Stdout = io.MultiWriter(os.Stdout, outW)
+	cmd.Stderr = io.MultiWriter(os.Stderr, errW, tail)
+	prepareCmd(cmd)
+	err := cmd.Run()
+	outW.Flush()
+	errW.Flush()
+	if ctx.Err() == context.DeadlineExceeded {
+		return tail.String(), fmt.Errorf("%s %v after %s: %w", name, args, timeout, ErrCommandTimeout)
+	}
+	return tail.String(), err
+}
+
 // runCommandToLogCtx is runCommandToLog with the cancellation context supplied
 // by the CALLER instead of a self-built WithTimeout — so a caller can drive
 // cancellation from a stall watchdog (no progress for N seconds) rather than a
