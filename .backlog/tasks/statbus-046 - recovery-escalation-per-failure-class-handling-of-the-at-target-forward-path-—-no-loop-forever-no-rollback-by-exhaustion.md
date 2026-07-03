@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - architect
 created_date: '2026-06-12 22:15'
-updated_date: '2026-07-02 18:24'
+updated_date: '2026-07-03 19:05'
 labels:
   - install-recovery
   - upgrade
@@ -112,5 +112,11 @@ created: 2026-07-02 18:24
 doc-021 EXPANDED with THE STEP LIST (architect, 2026-07-02) — answers the King's ratification gap ('which steps are covered, transient or deterministic'). Grounded first-hand vs master HEAD (executeUpgrade 3983, applyPostSwap 4574, rollback 5650). Per-step walk in 5 phases, each step: (a) what runs (b) failure classes A/B/C/D + concrete example (c) what a class-D crash means (d) inside/outside the budget.
 
 BUDGET BOUNDARY (new ask #4, made explicit): counted from the FLAG WRITE (Phase 1.1, service.go:4140) through the COMPLETED-WRITE + FLAG REMOVAL (Phase 4.2–4.3, :4957/:5001). Phase 0 pre-flight (before the flag) and Phase 5 post-completion cleanup (after flag removal) are OUTSIDE. A Phase-1 (pre-swap) exhaust ROLLS BACK (data-safe via 110's stopped-DB snapshot); a Phase-3 (post-swap at-target) exhaust PARKS (can't roll back — the rune-loop regime). Awaiting King ratification of asks 1–4.
+---
+
+author: foreman
+created: 2026-07-03 19:05
+---
+RATIFIED BY THE KING (2026-07-03, decision D3 — verbatim record on STATBUS-127 comment 2). All four asks approved: allowance values as proposed (tunable at build/arc); crash budget = 3 counting PROCESS DEATHS only (temporary errors get time-budgeted backoff, never counted attempts; permanent park on first) + same-step-twice → park immediately; park columns recovery_attempts + recovery_parked_at; the budget boundary = flag-write (service.go:4140) through completed-write + flag removal, phases 0 and 5 outside. The bounce-then-ratify loop that got here: the King required the per-step walk (doc-021 now carries all 44 operations with file:line and per-step classes) and the precise temporary/permanent/crash class model. BUILDABLE after the arc lane validates the 110 seed-fidelity fix + 109 (recovery-core order 110→109→046→111 preserved); the designated verification vehicle is STATBUS-044's held scenario (parked + named reason + alive-idle, not NRestarts-climbing).
 ---
 <!-- COMMENTS:END -->
