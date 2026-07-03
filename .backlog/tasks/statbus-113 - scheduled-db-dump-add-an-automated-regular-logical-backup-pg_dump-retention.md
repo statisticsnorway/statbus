@@ -3,10 +3,10 @@ id: STATBUS-113
 title: >-
   scheduled-db-dump: add an automated regular logical backup (pg_dump) +
   retention
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-29 09:44'
-updated_date: '2026-06-29 15:35'
+updated_date: '2026-07-03 10:46'
 labels:
   - backup
   - ops
@@ -146,3 +146,13 @@ HELPER CORRECTION (architect, 2026-06-29) — REVERSES the earlier 'helpers move
 
 ALSO blessed (foreman-reviewed, go build + full go test green): (a) the due-check is intentionally TOLERANT (newest >= 0.9*interval), not strict — a strict >=interval vs a ticker firing every interval skips every other tick on jitter and halves the cadence; (b) `DumpsToPurge` (pure selector for cmd's preview) is split from `PurgeDumps` (headless delete for the service). 113 ready to commit; 112 next.
 <!-- SECTION:NOTES:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-03 10:46
+---
+CLOSED — already built; verify-and-close per the King-ratified consolidation (Cluster 6). Evidence (operator-verified 2026-07-03): scheduled logical backup is live — backupTicker (service.go:1832) + maybeRunBackup + catch-up, BACKUP_ENABLED/INTERVAL/RETENTION config fields, and the cli/internal/dbdump/ package (dbdump.go + tests). The task body's 'ready for build' text was stale — the build happened; this close is the bookkeeping catching up.
+---
+<!-- COMMENTS:END -->
