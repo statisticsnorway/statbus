@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-07-02 18:04'
-updated_date: '2026-07-03 11:28'
+updated_date: '2026-07-03 11:39'
 labels:
   - power-group
   - not-install-upgrade
@@ -40,20 +40,22 @@ Import-side companions (separate tasks, not this one): STATBUS-120 (multi-contro
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 power_group_hierarchy(pg_id, scope, valid_on, primary_only) returns Shape A with members spanning ALL member enterprises
-- [ ] #2 statistical_unit_hierarchy('power_group', X) dispatches to power_group_hierarchy — the single-enterprise collapse is gone
-- [ ] #3 Shape B: enterprise/legal_unit/establishment hierarchies carry power_group_link at the root and power_group_membership on each legal_unit node, no member expansion
-- [ ] #4 every power_group_membership carries influencers[] and influencees[] with {counterpart_id, type, percentage, primary}; primary = primary_influencer_only OR percentage > 50
-- [ ] #5 member nodes carry physical_country_iso_2 and domestic sourced from statistical_unit
-- [ ] #6 PowerGroup root carries type, depth, width, reach, root_legal_unit_id, root_status, root_is_custom; cycle/multi groups render via legal_relationship + power_root
-- [ ] #7 primary_only param (default false) threaded through statistical_unit_hierarchy; true prunes to the primary/controlling spine
-- [ ] #8 tests 118 + 120 assert Shape A and Shape B JSON by intent; expected .out blessed
-- [ ] #9 TypeScript types added per DRAFT-001 locked naming
-- [ ] #10 doc/power-groups.md updated (Reporting & Navigation section, unified primary, per-member domestic/country, group type)
+- [x] #1 power_group_hierarchy(pg_id, scope, valid_on, primary_only) returns Shape A with members spanning ALL member enterprises
+- [x] #2 statistical_unit_hierarchy('power_group', X) dispatches to power_group_hierarchy — the single-enterprise collapse is gone
+- [x] #3 Shape B: enterprise/legal_unit/establishment hierarchies carry power_group_link at the root and power_group_membership on each legal_unit node, no member expansion
+- [x] #4 every power_group_membership carries influencers[] and influencees[] with {counterpart_id, type, percentage, primary}; primary = primary_influencer_only OR percentage > 50
+- [x] #5 member nodes carry physical_country_iso_2 and domestic sourced from statistical_unit
+- [x] #6 PowerGroup root carries type, depth, width, reach, root_legal_unit_id, root_status, root_is_custom; cycle/multi groups render via legal_relationship + power_root
+- [x] #7 primary_only param (default false) threaded through statistical_unit_hierarchy; true prunes to the primary/controlling spine
+- [x] #8 tests 118 + 120 assert Shape A and Shape B JSON by intent; expected .out blessed
+- [x] #9 TypeScript types added per DRAFT-001 locked naming
+- [x] #10 doc/power-groups.md updated (Reporting & Navigation section, unified primary, per-member domestic/country, group type)
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 BUILD PROGRESS (architect, 2026-07-03): Migration 20260703111119_power_group_hierarchy_shape_a_b_statbus_125 written + applied locally. 6 functions: NEW power_group_link (multi-parent: LU/enterprise/pg-id), power_group_membership_hierarchy (emits membership + country/domestic ONLY for members — containment), power_group_hierarchy (Shape A; cycle/multi via legal_relationship + power_root; primary_only spine via recursive walk); REPLACED (DROP+CREATE, primary_only appended): legal_unit_hierarchy, enterprise_hierarchy, statistical_unit_hierarchy; statistical_unit_details completes power_group dispatch. Down migration restores \sf-dumped originals (stdout-only dump). EMPIRICALLY SMOKE-VERIFIED in rolled-back txns on dev DB: Shape A 4 members/3 enterprises (collapse gone), diamond edges both directions, unified primary (type-route @NULL%, percentage-route @60%>50, non-primary @30%), spine prune, cycle group renders (root_status=cycle, root from power_root, NULL levels), Shape B link+membership, containment on pre-existing LU (no new keys), ~20ms. Tests 118 (+Section 12, stale echo fixes) + 120 (+2a/2b/2f shape assertions) extended — tester running; expected outputs to be blessed after intent review. TS types added (types.d.ts per locked naming). doc/power-groups.md: Reporting & Navigation + unified-primary sections. doc/db + types regen running. NOTE for review: statistical_unit_enterprise_id kept for stats/search callers (representative enterprise); only the hierarchy path bypasses it.
+
+BUILD COMPLETE (architect, 2026-07-03) — all 10 ACs verified, package HELD for foreman review. Test evidence: 118 Section 12 (Shape A 4-members/4-enterprises, 0-based levels, edge payloads, primary_only prune 2→1, Shape B, dispatch t/f), 120 2a/2b/2f/Phase-6 (deep chain 0-3, unified primary BOTH prongs: parent_company@50%→primary via TYPE + co_ownership@49%→false, spine prune 3→2, cycle+custom-root effective_root=Apex Manufacturing, MULTI: 2 naturals at level 0 + is_root only power_root designee + depth 1). CONTAINMENT VERIFIED per foreman: 107/109/110/111 all PASS zero-diff; 109 perf baseline drift = timing jitter only (identical plans) → discarded per testing.md. Both blessed .out files 0 NUL bytes. FLAG (infra, not 125): first 118 run's results file had a 5207-byte NUL hole at offset 0x3000 exactly (lost 4K-aligned write in pg_regress output path on this macOS/Docker setup); clean on re-run, same byte count — if it recurs, deserves its own backlog task. EXPLAIN discipline: all edits to existing fns are additive (appended || fragments + CASE routing, foreman-exempted class); stats-caller keep-decision recorded in migration header. Stamps: types-generate + app-tsc stamps WITHHELD (dirty tree) — re-run ./sb types generate + cd app && pnpm run tsc after commit. NOT in package (engineer's in-flight, disjoint): cli/cmd/install.go, cli/cmd/session_orphan_test.go.
 <!-- SECTION:NOTES:END -->
