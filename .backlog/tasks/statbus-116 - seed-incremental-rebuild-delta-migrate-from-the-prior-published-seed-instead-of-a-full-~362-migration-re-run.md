@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
-updated_date: '2026-07-03 12:00'
+updated_date: '2026-07-03 19:21'
 labels:
   - build-caching
   - seed
@@ -223,5 +223,11 @@ author: foreman
 created: 2026-07-03 12:00
 ---
 UNIFIED SEED-FIDELITY DESIGN RATIFIED (foreman) → doc-025 rev 2; ENGINEER BUILDING A-E as one package. ONE INVARIANT, TWO CARRIERS: seed-restore + migrate up must equal migrate-from-empty. Instance 1 (metadata): NOT a cache artifact — deterministic; migration 20260426220000 hardcodes 344 April-frozen hash literals, the sanctioned in-place ORDER-BY fix changed the file but no literal → EVERY from-empty build since Jul 2 ships a stale ledger hash (republish structurally useless). Instance 2 (effects): ALTER ROLE writes the CLUSTER catalog a database dump can never carry → the exemption was never armed on any seed-restored box (arc deadlock explained; mechanic's smoking gun + architect extension: the 2024 statement_timeout/lock_timeout/safeupdate role GUCs are ALSO silently missing on all seed-restored boxes today — pre-existing class). CORRECT HOME EXISTS WITH PRECEDENT: post_restore.sql already re-arms the role-membership GRANTs for exactly this class. DESIGN: A) in-run re-stamp of backfilled rows; B) DumpSeed publish gate (ledger==files or die); C) seed-build channel + typed in-stage full-fallback (no git); D) HOTFIX — delete migration 20260703104910 (no released tag; orphan rows skip benignly) + ALTER ROLE → post_restore.sql + mirror the 2024 GUCs; E) static gate blocking cluster-scoped statements in future migrations. FOREMAN RULINGS: post_restore = HARD-FAIL (fail-fast doctrine); build greenlit. SEVERITY (good news): production (old migrated installs) SAFE; stable-channel fresh installs self-heal the hash via the sanctioned bless flow; the broken-first-upgrade tail confined to arc VMs + recent seed-restored fresh installs — CAUGHT BEFORE the external standalone rollout would have shipped it to every new operator box. PROOF: two oracles after the package lands — arc re-run (D) + seed job with flip FALSE (A attested by B); only then does the King re-flip.
+---
+
+author: foreman
+created: 2026-07-03 19:21
+---
+doc-025 SEED-FIDELITY PACKAGE COMMITTED + PUSHED: 98093f69f (11 paths). A: ledger re-stamp at content_hash column flip; B: DumpSeed publish gate (hard-fail on ledger≠files); C: UPGRADE_CHANNEL=seed-build channel + typed ErrStaleRestoredMigration → loud FULL-rebuild fallback (no git in the hermetic stage); D: migration 20260703104910 deleted (verified in no tag), 4 role-GUC ALTER ROLEs in BOTH post_restore.sql (re-arm) and init-db.sh (birth — architect-required: at-target seed restore skips the Migrations step so post_restore alone never arms at install), post_restore now HARD-FAILs; E: migration-cluster-statement-gate.sh pre-commit hook active. Reviews: architect APPROVE + foreman first-hand full read. Suite 84/85 (1 = pre-existing 092 doc drift, fixed in 447999ff9). ORACLES RUNNING: images seed job run 28679520295 (expect PATH=FULL + publish gate pass; flip still false) + arc harness run 28679526112 (working+failing). Both green → AC1-3 provable and King asked to re-flip SEED_INCREMENTAL_ENABLED=true (kill-switch unchanged, comment 18).
 ---
 <!-- COMMENTS:END -->
