@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
-updated_date: '2026-07-03 19:21'
+updated_date: '2026-07-03 19:24'
 labels:
   - build-caching
   - seed
@@ -229,5 +229,11 @@ author: foreman
 created: 2026-07-03 19:21
 ---
 doc-025 SEED-FIDELITY PACKAGE COMMITTED + PUSHED: 98093f69f (11 paths). A: ledger re-stamp at content_hash column flip; B: DumpSeed publish gate (hard-fail on ledger≠files); C: UPGRADE_CHANNEL=seed-build channel + typed ErrStaleRestoredMigration → loud FULL-rebuild fallback (no git in the hermetic stage); D: migration 20260703104910 deleted (verified in no tag), 4 role-GUC ALTER ROLEs in BOTH post_restore.sql (re-arm) and init-db.sh (birth — architect-required: at-target seed restore skips the Migrations step so post_restore alone never arms at install), post_restore now HARD-FAILs; E: migration-cluster-statement-gate.sh pre-commit hook active. Reviews: architect APPROVE + foreman first-hand full read. Suite 84/85 (1 = pre-existing 092 doc drift, fixed in 447999ff9). ORACLES RUNNING: images seed job run 28679520295 (expect PATH=FULL + publish gate pass; flip still false) + arc harness run 28679526112 (working+failing). Both green → AC1-3 provable and King asked to re-flip SEED_INCREMENTAL_ENABLED=true (kill-switch unchanged, comment 18).
+---
+
+author: foreman
+created: 2026-07-03 19:24
+---
+🟢 ORACLE 1 GREEN (images run 28679520295, seed job 85060143596, foreman verified log first-hand): decision log `enable-gate=false prior-present=false decision-incremental=false -> PATH=FULL (from empty)`; Part A fired on the exact doc-025 §1 defect — `⟳ re-stamped backfilled content_hash for migration 20260218215337: cd82bc76 → 71befa05` (April-frozen pre-fix literal corrected to the live post-ORDER-BY-fix hash at the column flip); `Seed dumped: migration 20260703111119, commit a3eb522c (4.4 MB)` — dump runs only after Part B's pre-dump assert, zero publish-gate failure text. statbus-seed:a3eb522c is the FIRST metadata-consistent published seed since Jul 2 — and the natural incremental prior once the King re-flips. Remaining oracle: arc run 28679526112 (Part D proof) still executing.
 ---
 <!-- COMMENTS:END -->
