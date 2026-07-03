@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-07-02 19:44'
-updated_date: '2026-07-03 10:34'
+updated_date: '2026-07-03 10:44'
 labels:
   - decisions
   - coordination
@@ -41,9 +41,9 @@ Verified near-deterministic bug: --recreate intent rides a second notification t
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 D1 read-only fix nod — answered + recorded
-- [ ] #2 D2 consolidation ratification — answered + recorded
-- [ ] #3 D3 recovery-escalation (046) ratification — answered + recorded
+- [x] #1 D1 read-only fix nod — answered + recorded
+- [x] #2 D2 consolidation ratification — answered + recorded
+- [x] #3 D3 recovery-escalation (046) ratification — answered + recorded
 - [x] #4 D4 seed enable-flip timing — answered + recorded
 - [x] #5 D5 CrowdSec allowlist — answered + recorded
 - [x] #6 D6 recreate-fix go-ahead — answered + recorded
@@ -56,5 +56,11 @@ author: foreman
 created: 2026-07-03 10:34
 ---
 KING'S FIRST INTERVIEW PASS (2026-07-02 evening): D4 ANSWERED = FLIP EARLY — 'why would we wait? we wish to verify that it works, so we need to use it to exercise the code' — the wait-option was a false choice; enable + let real use exercise it, multi-delta confirming run stays as the post-enable gate. D5 ANSWERED = NO ALLOWLIST — the root failure was sshdo rejecting SILENTLY (exit 1, no output), violating fail-fast-actionable: 'the job should have failed violently with clear error messages; whitelisting something that would hide a configuration error seems counterproductive.' Action: make sshdo rejections loud+actionable (task to file); residual runner-IP timeouts stay tracked in STATBUS-069; CrowdSec untouched. D6 ANSWERED = GO — with the framing 'the question is do we have the best design and how will it play out; we might need to try it out to find out' → build the durable-recreate design, prove by running it. D1 BOUNCED for first-principles justification (why does the read-only window exist at all) — foreman answering; fix build stays held. D2 = general direction approved, detail-level walkthrough required before ratification — cluster-by-cluster interview follows. D3 BOUNCED for precision on temporary-vs-permanent + the actual backoff strategy — foreman restating the full class model (the design distinguishes them; the summary flattened it).
+---
+
+author: foreman
+created: 2026-07-03 10:44
+---
+INTERVIEW COMPLETE — ALL SIX RULED (King, 2026-07-03). D1 APPROVED (his clarification: he ratified and understands the window; the bounce was my wording — the ask was only the PostgREST-boot exemption; approved) → engineer building the ALTER ROLE migration now, preempting 092; arc re-run follows. D2 AGREED — executing the SAFE variant of the consolidation: re-labels (11) + verify-closes (Cluster 6: 084/112/113) + the 083→021 merge happen NOW; the ~19 subsumed-closes happen AS THEIR RESOLVER CORES LAND (not on inference) — if the King intended immediate mass-close he can say so, this is the reversible reading. D3 RATIFIED — all four 046 asks (allowance values tunable at build; crash budget=3 counting PROCESS DEATHS only + same-step-twice→park; park columns recovery_attempts/recovery_parked_at; budget boundary flag-write→completed-write) — the precise temporary/permanent/crash class model restated to his satisfaction. 046 becomes buildable AFTER the arc lane validates the 110-fix + 109 (recovery-core order preserved). D4 flip-early / D5 no-allowlist+STATBUS-128 / D6 GO — already dispatched. This queue task closes when D2's safe-variant execution is done; new King decisions get a fresh entry.
 ---
 <!-- COMMENTS:END -->
