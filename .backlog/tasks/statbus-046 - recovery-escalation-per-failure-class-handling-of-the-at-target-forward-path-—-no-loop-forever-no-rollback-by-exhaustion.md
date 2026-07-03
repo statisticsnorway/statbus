@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - architect
 created_date: '2026-06-12 22:15'
-updated_date: '2026-07-03 19:05'
+updated_date: '2026-07-03 20:02'
 labels:
   - install-recovery
   - upgrade
@@ -118,5 +118,22 @@ author: foreman
 created: 2026-07-03 19:05
 ---
 RATIFIED BY THE KING (2026-07-03, decision D3 — verbatim record on STATBUS-127 comment 2). All four asks approved: allowance values as proposed (tunable at build/arc); crash budget = 3 counting PROCESS DEATHS only (temporary errors get time-budgeted backoff, never counted attempts; permanent park on first) + same-step-twice → park immediately; park columns recovery_attempts + recovery_parked_at; the budget boundary = flag-write (service.go:4140) through completed-write + flag removal, phases 0 and 5 outside. The bounce-then-ratify loop that got here: the King required the per-step walk (doc-021 now carries all 44 operations with file:line and per-step classes) and the precise temporary/permanent/crash class model. BUILDABLE after the arc lane validates the 110 seed-fidelity fix + 109 (recovery-core order 110→109→046→111 preserved); the designated verification vehicle is STATBUS-044's held scenario (parked + named reason + alive-idle, not NRestarts-climbing).
+---
+
+author: architect
+created: 2026-07-03 20:02
+---
+BUILD SEQUENCING (architect, 2026-07-03, pre-staged per foreman; doc-021 is the spec, D3 the ruling — this orders the work + flags the review-critical subtleties):
+
+**Slice 1 — the park substrate + D budget (ship first; alone it kills the rune-loop class).**
+(i) Migration: `public.upgrade` += `recovery_attempts int NOT NULL DEFAULT 0`, `recovery_parked_at timestamptz`, + the named reason as a queryable column (`recovery_parked_reason text`) — SCHEMA change ⇒ doc/db + types regen in the same held package (mandatory pairing), and mind the migration-set template rebuild locally. (ii) Flag += the dying-step field (extends Phase/BackupPath — service.go:4140 writeUpgradeFlag + recoverFromFlag readers). (iii) Increment-at-attempt-START on every flag-owned resume (crash self-counts; a DEAD process needs no post-hoc bookkeeping) — D3 sharpening: count PROCESS DEATHS ONLY; class-A waits never consume attempts. (iv) Budget=3 + same-step-twice→immediate: Phase-3 exhaust → PARK, Phase-1 exhaust → ROLLBACK (data-safe). (v) Park semantics: row stays in_progress; boot/tick resume SKIPS parked rows with ONE loud line; callback/siren fires ONCE (persist a fired-marker so it doesn't re-fire per boot); unit stays alive-idle + NOTIFY-reachable. (vi) Un-park = the two deliberate operator actions only, each = exactly one fresh attempt: RESET recovery_attempts (+ clear parked_at/reason) on a deliberate trigger, never on self-resume.
+
+**Slice 2 — B/C call-site classification (park-on-first) at the seven Phase-3 sites** (doc-021 step list 3.1–3.7): config-generate error (B), pull 404-at-resume (B) vs disk (C), migrate deterministic SQL (B), start-services compose error (B)/disk (C), health can't-serve-past-warmup (B). CLASSIFIER DISCIPLINE (the doc-022 lesson): prefer STRUCTURED signals — SQLSTATE, exit codes, docker error classes — over English-substring lists (persistentStepSignatures over-matched before; that is why forward-step unknown→stop was deferred). Context is load-bearing: the SAME 404 is class A during publication, class B at at-target resume — the classification input is (step, error, context), never error text alone. Every park writes the NAMED actionable reason.
+
+**Slice 3 — class-A allowance re-sizing (smallest; can trail).** Most waits already exist (109 backoff, healthCheck retries, waitForDBHealth 60s exec.go:1022/1057): work = size-scale db-health to volume worst case, add the publication-wait allowance for pull-404-during-publication. Values are D3-tunable at build/arc.
+
+**Per-slice invariants (I review against these):** diagrams (upgrade-timeline.plantuml per-class routing + upgrade-lifecycle.plantuml parked-in_progress) land IN THE SAME COMMIT as the handling they describe; rollback stays reachable ONLY via a positively-Behind ground-truth verdict, NEVER by exhaustion (039's direction rule — 046 governs how-long/how-loud, never direction); the rollback pipeline's own resumes count the budget with same-step-twice → the restore-broke HUMAN stop (not park-and-retry).
+
+**Verification vehicle:** STATBUS-044's held 3-postswap-resume-died-rollback scenario rewritten green (parked + named reason + alive-idle; NOT NRestarts climbing, NOT rolled_back) + per-class arcs A/B/C/D under STATBUS-071. The run is the only oracle — reconcile allowance values there.
 ---
 <!-- COMMENTS:END -->
