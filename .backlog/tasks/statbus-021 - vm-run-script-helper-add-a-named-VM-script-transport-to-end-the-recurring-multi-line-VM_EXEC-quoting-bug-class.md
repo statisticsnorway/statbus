@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-09 23:30'
+updated_date: '2026-07-03 10:45'
 labels:
   - install-recovery
   - harness
@@ -26,3 +27,9 @@ WORK: add a single named helper (e.g. `vm_run_script <vm> <<'EOF' ... EOF` or a 
 
 NOT blocking the NO rollout or STATBUS-017 — this is durable harness hardening to stop the bug class.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+MERGED IN from STATBUS-083 (King-ratified consolidation 2026-07-03): same multi-line-quoting root cause — VM_EXEC's printf-%q + sudo bash -c transport mangles multi-line if/then into syntax errors; the fix is ONE base64 VM-script transport covering both tasks' symptoms.
+<!-- SECTION:NOTES:END -->
