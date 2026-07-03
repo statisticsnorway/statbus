@@ -1394,6 +1394,7 @@ erDiagram
 		text log_relative_file_path
 		docker_images_status_type docker_images_status
 		release_builds_status_type release_builds_status
+		boolean recreate
 	}
 	upgrade_retention_caps["upgrade_retention_caps"] {
 		release_status_type release_status
