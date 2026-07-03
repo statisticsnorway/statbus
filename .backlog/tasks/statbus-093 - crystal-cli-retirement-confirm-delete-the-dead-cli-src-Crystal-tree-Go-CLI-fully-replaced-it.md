@@ -6,10 +6,10 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-18 17:05'
+updated_date: '2026-07-03 10:45'
 labels:
-  - cleanup
-  - tech-debt
-  - crystal-retirement
+  - tooling
+  - not-install-upgrade
 dependencies: []
 priority: low
 ordinal: 93000
