@@ -3,10 +3,10 @@ id: STATBUS-127
 title: >-
   king-decision-queue: the open decisions awaiting the King, with context —
   resolved one by one
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-07-02 19:44'
-updated_date: '2026-07-03 10:44'
+updated_date: '2026-07-03 19:04'
 labels:
   - decisions
   - coordination
@@ -62,5 +62,11 @@ author: foreman
 created: 2026-07-03 10:44
 ---
 INTERVIEW COMPLETE — ALL SIX RULED (King, 2026-07-03). D1 APPROVED (his clarification: he ratified and understands the window; the bounce was my wording — the ask was only the PostgREST-boot exemption; approved) → engineer building the ALTER ROLE migration now, preempting 092; arc re-run follows. D2 AGREED — executing the SAFE variant of the consolidation: re-labels (11) + verify-closes (Cluster 6: 084/112/113) + the 083→021 merge happen NOW; the ~19 subsumed-closes happen AS THEIR RESOLVER CORES LAND (not on inference) — if the King intended immediate mass-close he can say so, this is the reversible reading. D3 RATIFIED — all four 046 asks (allowance values tunable at build; crash budget=3 counting PROCESS DEATHS only + same-step-twice→park; park columns recovery_attempts/recovery_parked_at; budget boundary flag-write→completed-write) — the precise temporary/permanent/crash class model restated to his satisfaction. 046 becomes buildable AFTER the arc lane validates the 110-fix + 109 (recovery-core order preserved). D4 flip-early / D5 no-allowlist+STATBUS-128 / D6 GO — already dispatched. This queue task closes when D2's safe-variant execution is done; new King decisions get a fresh entry.
+---
+
+author: foreman
+created: 2026-07-03 19:04
+---
+CLOSED — all six decisions ruled and executed/dispatched (see comments 1-2 for the verbatim rulings). Residual executions ride their owning tickets: the ~19 consolidation subsumed-closes happen as resolver cores land (071/043 etc.); the seed re-flip waits on doc-025's two oracles; 046 build waits on the arc lane. New King decisions get a fresh queue entry — this pattern (one durable entry, context per item, answers recorded verbatim) worked and is worth repeating.
 ---
 <!-- COMMENTS:END -->
