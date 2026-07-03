@@ -458,6 +458,26 @@ func DumpSeed(projDir, commitOverride string, incrementalDepth int) (seedMeta, e
 			dbName)
 	}
 
+	// STATBUS-116 Part B — publish gate: an inconsistent seed (ledger content_hash
+	// disagreeing with the on-disk migration files) must NEVER be published — a
+	// restored box's next `migrate up` would see the mismatch and either die
+	// in-stage (git) or raise an immutability violation (deployed). Hard-fail loud,
+	// naming the version + both hashes. Part A keeps a from-empty build consistent
+	// by construction; this is the belt-and-suspenders gate that makes an
+	// inconsistent artifact impossible to ship.
+	if mismatches, gateErr := migrate.LedgerContentHashMismatches(projDir, dbName); gateErr != nil {
+		return seedMeta{}, fmt.Errorf("seed publish gate — check ledger content hashes: %w", gateErr)
+	} else if len(mismatches) > 0 {
+		m := mismatches[0]
+		return seedMeta{}, fmt.Errorf(
+			"seed publish gate FAILED: %d db.migration content_hash row(s) disagree with the on-disk files — "+
+				"refusing to publish an inconsistent seed.\n"+
+				"  e.g. migration %d (%s): ledger %s != file %s\n"+
+				"  (a from-empty build is consistent by construction via Part A re-stamp; a mismatch here means the "+
+				"re-stamp did not run or a migration file changed after apply)",
+			len(mismatches), m.Version, m.File, m.StoredHash, m.LiveHash)
+	}
+
 	// Get the latest migration version from the database.
 	// This tells us exactly what schema state the seed captures.
 	migrationVersion, err := migrate.QueryDB(projDir, dbName,

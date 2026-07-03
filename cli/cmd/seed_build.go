@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -132,7 +133,28 @@ func runSeedBuild(projDir, commit string) error {
 	// ── both branches: migrate the seed DB to head. The restored ledger (if any)
 	//    makes this delta-only; from empty it applies all — identical code. ──
 	if err := migrateNamedDb(projDir, seedDbName, 0); err != nil {
-		return fmt.Errorf("migrate seed db up: %w", err)
+		// STATBUS-116 Part C: a stale RESTORED prior (its ledger content_hash
+		// disagrees with the on-disk files) surfaces as ErrStaleRestoredMigration
+		// under the seed-build channel — no git ran. Discard the restored base and
+		// rebuild FULL from empty rather than fail the build. Self-heals if the
+		// ancestor walk ever lands on an inconsistent seed.
+		var stale *migrate.ErrStaleRestoredMigration
+		if useIncremental && errors.As(err, &stale) {
+			fmt.Printf("seed build: restored prior is STALE (%v) — discarding it and rebuilding FULL from empty\n", stale)
+			if dropErr := migrate.ExecOnDB(projDir, "postgres",
+				fmt.Sprintf("DROP DATABASE IF EXISTS %s WITH (FORCE);", pgQuoteIdent(seedDbName))); dropErr != nil {
+				return fmt.Errorf("drop stale restored seed db: %w", dropErr)
+			}
+			if err := CreateSeedDb(projDir); err != nil {
+				return fmt.Errorf("recreate empty seed db for full fallback: %w", err)
+			}
+			if err := migrateNamedDb(projDir, seedDbName, 0); err != nil {
+				return fmt.Errorf("full-fallback migrate seed db up: %w", err)
+			}
+			newDepth = 0 // a from-empty full rebuild is a depth-0 baseline
+		} else {
+			return fmt.Errorf("migrate seed db up: %w", err)
+		}
 	}
 
 	// ── both branches: dump + record the (bounded) incremental depth ──

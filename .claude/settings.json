@@ -12,7 +12,8 @@
           { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/no-migration-archaeology.sh", "timeout": 5 },
           { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/doc-db-freshness.sh", "timeout": 5 },
           { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/ban-force-add.sh", "timeout": 5, "_deactivated": "enable with HOOK_ENABLED_BAN_FORCE_ADD=1" },
-          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/require-git-c.sh", "timeout": 5, "_deactivated": "enable with HOOK_ENABLED_REQUIRE_GIT_C=1" }
+          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/require-git-c.sh", "timeout": 5, "_deactivated": "enable with HOOK_ENABLED_REQUIRE_GIT_C=1" },
+          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/migration-cluster-statement-gate.sh", "timeout": 10 }
         ]
       },
       {

@@ -931,7 +931,17 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 		// we still think it's false — the just-applied migration may have
 		// added the column. Stops probing once the column exists.
 		if !hasContentHash {
-			hasContentHash, _ = contentHashColumnExists(projDir)
+			if nowHas, _ := contentHashColumnExists(projDir); nowHas {
+				hasContentHash = true
+				// STATBUS-116 Part A: the column-add migration just backfilled
+				// its 344 frozen April-26 hash literals. Re-stamp any that
+				// disagree with the current on-disk file, so a sanctioned
+				// in-place edit of a pre-column migration leaves a from-empty
+				// build's ledger consistent by construction.
+				if err := restampBackfilledHashes(projDir); err != nil {
+					return 0, fmt.Errorf("re-stamp backfilled content hashes: %w", err)
+				}
+			}
 		}
 
 		// Record success. Two INSERT shapes:
@@ -1018,7 +1028,13 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 			fmt.Println("Running post-restore fixups...")
 		}
 		if out, err := runPsqlFile(projDir, postRestore); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: post_restore.sql failed: %v\n%s\n", err, out)
+			// STATBUS-116 doc-025 D: HARD-FAIL, not warn. post_restore holds
+			// idempotent, admin-run repairs REQUIRED for correctness (cluster-level
+			// role GUCs + grants that pg_dump cannot carry). Every statement is
+			// idempotent and runs as admin, so a failure means the box is genuinely
+			// broken — fail-fast-actionable (the silently-lost safeupdate guard is
+			// the standing proof of what warn-only costs).
+			return appliedCount, fmt.Errorf("post_restore.sql failed: %w\n%s", err, out)
 		}
 	}
 
@@ -1372,6 +1388,123 @@ func findDownFile(projDir string, version int64) (string, error) {
 	return "", fmt.Errorf("no down.{sql,psql} file for version %d", version)
 }
 
+// shortHash truncates a hex hash to 8 chars for human-readable logs.
+func shortHash(s string) string {
+	if len(s) > 8 {
+		return s[:8]
+	}
+	return s
+}
+
+// LedgerHashMismatch is a db.migration row whose recorded content_hash disagrees
+// with the sha256 of the on-disk up-migration file.
+type LedgerHashMismatch struct {
+	Version    int64
+	StoredHash string
+	LiveHash   string
+	File       string
+}
+
+// ledgerHashMismatchRows is the PURE core (Docker/DB-free, unit-tested): given
+// the raw "version|content_hash" rows text of a db.migration ledger, return the
+// rows whose recorded hash != sha256(on-disk up-migration file). Rows with no
+// on-disk file (findUpFile miss — a migration deleted at HEAD) are SKIPPED as
+// harmless orphans (they can never re-run; eagerContentHashCheck skips them the
+// same way).
+func ledgerHashMismatchRows(projDir, rowsOut string) ([]LedgerHashMismatch, error) {
+	var out []LedgerHashMismatch
+	for _, line := range strings.Split(strings.TrimSpace(rowsOut), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "|", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		version, perr := strconv.ParseInt(parts[0], 10, 64)
+		if perr != nil {
+			continue
+		}
+		stored := strings.TrimSpace(parts[1])
+		filePath, ferr := findUpFile(projDir, version)
+		if ferr != nil {
+			continue // file-less orphan → skip (harmless; can never re-run)
+		}
+		live, herr := sha256File(filePath)
+		if herr != nil {
+			return nil, fmt.Errorf("hash %s: %w", filePath, herr)
+		}
+		if live != stored {
+			out = append(out, LedgerHashMismatch{Version: version, StoredHash: stored, LiveHash: live, File: filepath.Base(filePath)})
+		}
+	}
+	return out, nil
+}
+
+// LedgerContentHashMismatches returns the mismatches in dbName's db.migration
+// ledger vs the on-disk files (STATBUS-116 Part B — DumpSeed's publish gate). A
+// non-empty result means the seed is inconsistent and must NOT be published.
+func LedgerContentHashMismatches(projDir, dbName string) ([]LedgerHashMismatch, error) {
+	rowsOut, err := QueryDB(projDir, dbName,
+		"SELECT version || '|' || COALESCE(content_hash, '<NULL>') FROM db.migration ORDER BY version",
+		"-t", "-A")
+	if err != nil {
+		return nil, fmt.Errorf("query %s db.migration content_hash: %w", dbName, err)
+	}
+	return ledgerHashMismatchRows(projDir, rowsOut)
+}
+
+// restampBackfilledHashes (STATBUS-116 Part A) corrects db.migration rows on the
+// CURRENT connection (the DB being migrated) whose recorded content_hash
+// disagrees with the current on-disk file. Called at the content_hash column
+// false→true flip in runUp — right after the column-add migration (20260426220000)
+// backfills its 344 hash literals frozen at April 26. A later SANCTIONED in-place
+// edit of a pre-column migration (e.g. the STATBUS-116 ORDER-BY fix to
+// 20260218215337) changes the file but not the frozen literal; re-stamping here
+// keeps a from-empty build's ledger consistent BY CONSTRUCTION, so the released
+// backfill migration NEVER needs literal maintenance (editing it would recurse
+// the in-place-edit class).
+func restampBackfilledHashes(projDir string) error {
+	rowsOut, err := runPsql(projDir,
+		"SELECT version || '|' || COALESCE(content_hash, '<NULL>') FROM db.migration ORDER BY version",
+		"-t", "-A")
+	if err != nil {
+		return fmt.Errorf("query content_hash rows for re-stamp: %w", err)
+	}
+	mm, err := ledgerHashMismatchRows(projDir, rowsOut)
+	if err != nil {
+		return err
+	}
+	for _, m := range mm {
+		if _, err := runPsql(projDir,
+			"UPDATE db.migration SET content_hash = :'h' WHERE version = :v",
+			"-v", "h="+m.LiveHash, "-v", fmt.Sprintf("v=%d", m.Version)); err != nil {
+			return fmt.Errorf("re-stamp content_hash for migration %d: %w", m.Version, err)
+		}
+		fmt.Printf("[migrate]   ⟳ re-stamped backfilled content_hash for migration %d (%s): %s → %s\n",
+			m.Version, m.File, shortHash(m.StoredHash), shortHash(m.LiveHash))
+	}
+	return nil
+}
+
+// ErrStaleRestoredMigration (STATBUS-116 Part C) reports that a restored prior
+// seed's ledger content_hash for a migration disagrees with the on-disk file —
+// detected by eagerContentHashCheck under channelSeedBuild. The seed-build caller
+// (`sb db seed build`) catches it (errors.As) and falls back to a FULL rebuild
+// rather than proceeding on a stale incremental base. Carries no git dependency.
+type ErrStaleRestoredMigration struct {
+	Version    int64
+	StoredHash string
+	LiveHash   string
+}
+
+func (e *ErrStaleRestoredMigration) Error() string {
+	return fmt.Sprintf("restored prior seed is stale on migration %d: ledger content_hash %s != on-disk file %s "+
+		"(seed-build channel) — the incremental base must be discarded and rebuilt full",
+		e.Version, shortHash(e.StoredHash), shortHash(e.LiveHash))
+}
+
 // eagerContentHashCheck verifies that every tracked migration's stored
 // content_hash matches the live file's sha256. On mismatch, branches:
 //   - migration version IS in a released tag → immutability violation
@@ -1459,6 +1592,13 @@ func eagerContentHashCheck(projDir string) error {
 
 		// MISMATCH for version N — how to handle it is decided by the channel.
 		switch channel {
+		case channelSeedBuild:
+			// STATBUS-116 Part C: the hermetic seed-builder has no .git, so it must
+			// NEVER reach the released-tag git probe below. A mismatch here means the
+			// RESTORED prior seed's ledger disagrees with the on-disk files → it is
+			// stale → return a typed error the seed-build caller catches to fall back
+			// to a FULL rebuild. No git, no bless, no redo in-stage.
+			return &ErrStaleRestoredMigration{Version: version, StoredHash: storedHash, LiveHash: liveHash}
 		case channelRelease:
 			// BLESS: the cut gate already vetted every modified released migration as an
 			// env-var-declared sanctioned broken-fix (STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION),
@@ -1574,6 +1714,12 @@ const (
 	channelLocalDev migrationChannel = iota
 	channelEdge
 	channelRelease
+	// channelSeedBuild — the hermetic seed-builder stage (UPGRADE_CHANNEL=seed-build).
+	// It has NO .git, so it must NEVER reach the released-tag git probe. A
+	// content_hash mismatch on a restored prior there means the restored seed is
+	// stale → the caller (sb db seed build) falls back to a FULL rebuild
+	// (STATBUS-116 Part C).
+	channelSeedBuild
 )
 
 // migrationChannelClass reads UPGRADE_CHANNEL from .env (always written by
@@ -1605,6 +1751,8 @@ func migrationChannelClass(projDir string) migrationChannel {
 			return channelEdge
 		case "stable", "prerelease":
 			return channelRelease
+		case "seed-build":
+			return channelSeedBuild
 		}
 	}
 	return channelLocalDev

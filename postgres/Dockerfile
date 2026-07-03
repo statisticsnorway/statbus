@@ -501,6 +501,7 @@ RUN touch .statbus && printf '%s\n' \
       'POSTGRES_NOTIFY_USER=notify_reader_user' \
       'POSTGRES_NOTIFY_PASSWORD=build' \
       'POSTGRES_SEED_DB=statbus_seed' \
+      'UPGRADE_CHANNEL=seed-build' \
       > .env
 
 # Boot pg (entrypoint inits the empty PGDATA → init-db.sh → template_statbus +

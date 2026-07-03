@@ -83,9 +83,13 @@ CREATE EXTENSION IF NOT EXISTS "index_advisor";
 CREATE EXTENSION IF NOT EXISTS "pg_stat_statements";  -- Load before pg_stat_monitor according to doc.
 CREATE EXTENSION IF NOT EXISTS "pg_stat_monitor";
 CREATE EXTENSION IF NOT EXISTS "pg_graphql";
--- The extension pg_safeupdate is installed for the roles that PostgREST
--- uses only, to prevent DELETE without a WHERE via API in a migration with:
--- ALTER ROLE authenticator SET session_preload_libraries = safeupdate;
+-- The extension pg_safeupdate is loaded for the PostgREST roles only, to
+-- prevent DELETE/UPDATE without a WHERE via the API. The arming statement
+-- (ALTER ROLE authenticator SET session_preload_libraries = safeupdate) is
+-- NOT in a migration — a role GUC is cluster state (pg_db_role_setting) that
+-- pg_dump cannot carry, so a seed-restored box would silently lose it. It is
+-- set below at role creation (BIRTH half) and re-armed by
+-- migrations/post_restore.sql on every migrate up (RE-ARM half). See doc-025 D.
 
 UPDATE pg_database SET datistemplate='true' WHERE datname='template_statbus';
 EOF
@@ -111,6 +115,27 @@ psql -d "$POSTGRES_APP_DB" -c "CREATE ROLE authenticated NOLOGIN NOINHERIT NOCRE
 # Grant roles to authenticator
 psql -d "$POSTGRES_APP_DB" -c "GRANT anon TO authenticator;"
 psql -d "$POSTGRES_APP_DB" -c "GRANT authenticated TO authenticator;"
+
+# Role GUCs (cluster-level: ALTER ROLE ... SET writes pg_db_role_setting, a
+# CLUSTER catalog that pg_dump CANNOT carry). This is the BIRTH half of
+# doc-025 D's dual home: init-db.sh arms these at cluster creation;
+# migrations/post_restore.sql RE-ARMS them on every `migrate up` (incl.
+# seed-restored boxes). WHY BOTH: a fresh install that restores an at-target
+# seed skips the Migrations step entirely (checkMigrationsDone → HasPending=false),
+# so `migrate up` — and thus post_restore.sql — never runs at install time.
+# Without arming them here, such a box would run without safeupdate + the
+# statement/lock timeouts (and the STATBUS-110 read-only exemption) until its
+# first upgrade. authenticator + authenticated both exist by this point.
+#   (1) STATBUS-110 read-only-window PostgREST-listener exemption (doc-023).
+#   (2) mirror of migration 20240102000000's role GUCs (timeouts + safeupdate).
+# ON_ERROR_STOP: a silently-failed arming statement would recreate the exact
+# silent-loss class this block exists to kill.
+psql -v ON_ERROR_STOP=1 -d "$POSTGRES_APP_DB" <<'EOF'
+ALTER ROLE authenticator SET default_transaction_read_only = off;
+ALTER ROLE authenticated SET statement_timeout = '120s';
+ALTER ROLE authenticated SET lock_timeout = '8s';
+ALTER ROLE authenticator SET session_preload_libraries = safeupdate;
+EOF
 
 # Create auth schema (tables will be created by migrations)
 psql -d "$POSTGRES_APP_DB" -c "CREATE SCHEMA IF NOT EXISTS auth;"
