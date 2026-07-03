@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-06-26 11:30'
-updated_date: '2026-07-02 18:50'
+updated_date: '2026-07-03 11:47'
 labels:
   - upgrade
   - recovery
@@ -181,5 +181,11 @@ author: foreman
 created: 2026-07-02 18:50
 ---
 FIX DESIGN EMPIRICALLY PRE-VERIFIED (mechanic, tmp/mechanic-rest-roleguc-check.log; design doc-023 updated with the deadlock-cut paragraph). With ALTER ROLE authenticator SET default_transaction_read_only=off + the window ON: /ready=200 at t+5s (vs permanent 503), ZERO 'session is read-only' listener errors, and a NON-exempt superuser session still write-blocked ('cannot execute CREATE TABLE/UPDATE in a read-only transaction') — the exemption is role-scoped, the accident-guard holds for every other role. Cleanup verified (pg_roles.rolconfig back to baseline, /ready=200 restored). BUILD-READY: awaiting the King's nod → engineer ships the 1-line migration + doc/read-only-upgrade-window.md amendment → arc re-run (same scenarios as 28609876020) green = closes this regression + 118's DoD.
+---
+
+author: foreman
+created: 2026-07-03 11:47
+---
+🔴 ARC RE-RUN (28656025811) STILL RED — THE EXEMPTION-AS-MIGRATION HAS A STRUCTURAL FLAW ON SEED-RESTORED BOXES (mechanic classification + foreman hypothesis, architect verifying). Facts (tmp/mechanic-arc-28656025811.md): identical HEALTHCHECK_REST_DOWN on both forward-apply arcs DESPITE migration 20260703104910 present in base A and marked applied in the seed ledger; base-A installs healthy; the ROLLBACK arc PASSED (87s — the rollback path is fine); no immutability/hash errors anywhere (the stale-hash tail did NOT fire here). HYPOTHESIS (explains every observation incl. the mechanic's contradicting local repro): the arc VM installs by RESTORING THE SEED; ALTER ROLE settings live in the CLUSTER catalog which a database-level pg_dump never carries → the restored box's ledger claims the exemption applied while the role GUC does not exist → first upgrade turns the window on → REST restarts → no exemption → the original deadlock. Local dev worked because the migration RAN there. If confirmed: severity = EVERY seed-restored box's FIRST upgrade deadlocks — the fix must move to where cluster-level state is born (db init / post_restore.sql), and the general class 'cluster-level migration effects silently dropped by seed restore while the ledger claims applied' joins the stale-hash defect in the architect's unified seed-fidelity design (in progress, top priority). 110's AC proof remains blocked on that design landing + a green arc.
 ---
 <!-- COMMENTS:END -->
