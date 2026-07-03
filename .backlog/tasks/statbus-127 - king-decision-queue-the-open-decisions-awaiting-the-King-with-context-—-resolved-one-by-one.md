@@ -6,6 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-07-02 19:44'
+updated_date: '2026-07-03 10:34'
 labels:
   - decisions
   - coordination
@@ -43,7 +44,17 @@ Verified near-deterministic bug: --recreate intent rides a second notification t
 - [ ] #1 D1 read-only fix nod — answered + recorded
 - [ ] #2 D2 consolidation ratification — answered + recorded
 - [ ] #3 D3 recovery-escalation (046) ratification — answered + recorded
-- [ ] #4 D4 seed enable-flip timing — answered + recorded
-- [ ] #5 D5 CrowdSec allowlist — answered + recorded
-- [ ] #6 D6 recreate-fix go-ahead — answered + recorded
+- [x] #4 D4 seed enable-flip timing — answered + recorded
+- [x] #5 D5 CrowdSec allowlist — answered + recorded
+- [x] #6 D6 recreate-fix go-ahead — answered + recorded
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-03 10:34
+---
+KING'S FIRST INTERVIEW PASS (2026-07-02 evening): D4 ANSWERED = FLIP EARLY — 'why would we wait? we wish to verify that it works, so we need to use it to exercise the code' — the wait-option was a false choice; enable + let real use exercise it, multi-delta confirming run stays as the post-enable gate. D5 ANSWERED = NO ALLOWLIST — the root failure was sshdo rejecting SILENTLY (exit 1, no output), violating fail-fast-actionable: 'the job should have failed violently with clear error messages; whitelisting something that would hide a configuration error seems counterproductive.' Action: make sshdo rejections loud+actionable (task to file); residual runner-IP timeouts stay tracked in STATBUS-069; CrowdSec untouched. D6 ANSWERED = GO — with the framing 'the question is do we have the best design and how will it play out; we might need to try it out to find out' → build the durable-recreate design, prove by running it. D1 BOUNCED for first-principles justification (why does the read-only window exist at all) — foreman answering; fix build stays held. D2 = general direction approved, detail-level walkthrough required before ratification — cluster-by-cluster interview follows. D3 BOUNCED for precision on temporary-vs-permanent + the actual backoff strategy — foreman restating the full class model (the design distinguishes them; the summary flattened it).
+---
+<!-- COMMENTS:END -->
