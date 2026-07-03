@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
-updated_date: '2026-07-03 20:58'
+updated_date: '2026-07-03 20:59'
 labels:
   - build-caching
   - seed
@@ -265,5 +265,11 @@ author: foreman
 created: 2026-07-03 20:58
 ---
 🟢 FIRST DELTA-MIGRATE INCREMENTAL RUN GREEN (images run 28682974989, push of c1c4cbb7a; foreman verified log first-hand) — the variant the first incremental run didn't exercise (that one had zero pending migrations). Evidence: `incremental base: ghcr.io/statisticsnorway/statbus-seed:7910fbbb` (walk found the NEWEST prior, one commit back); `PATH=INCREMENTAL (restore prior + delta-migrate)`; `restoring prior seed … (depth 1 -> 2)` — the AC-3 depth counter CHAINS live (2 of cap 5; three more chained increments force the full baseline — the designed cadence observed working); `[migrate] ▶ applying 20260703210000_add_recovery_park_degraded_columns… ✔ applied in 69ms` — a REAL migration delta applied onto the restored base; `Seed dumped: migration 20260703210000, commit c1c4cbb7 (4.4 MB)` at t+20.3s in-stage (vs ~60s full path). Publish gate re-attested the delta-built artifact. The complete lifecycle — walk → restore → delta-migrate → attest → publish, with depth chaining — is now proven on real pushes twice over. Criterion 6 (the deep verify-multidelta identity check against a published prior with a genuine multi-migration delta) is now RUNNABLE as designed: post-fix published priors with real deltas exist (a3eb522c → 7910fbbb → c1c4cbb7 chain). That run is the ticket's last open item.
+---
+
+author: foreman
+created: 2026-07-03 20:59
+---
+CORRECTION to comment 28's last sentence (foreman, precision): criterion 6 is NOT yet runnable — the multi-delta guard refuses ≤1 delta, and the best eligible prior (statbus-seed:a3eb522c, at migration 20260703111119) currently has exactly ONE migration of delta to HEAD (20260703210000). The older ce383eff-era priors with ≥2 delta are ineligible by design (stale-ledger/deleted-migration fingerprints — the gates refuse them, correctly). Criterion 6 becomes runnable the moment ONE more migration-bearing commit lands (prior a3eb522c → delta 2); the recovery-escalation slices are likely to provide it naturally. Then: `sb db seed verify-multidelta --prior-image ghcr.io/statisticsnorway/statbus-seed:a3eb522c` — a tester-runnable local oracle.
 ---
 <!-- COMMENTS:END -->
