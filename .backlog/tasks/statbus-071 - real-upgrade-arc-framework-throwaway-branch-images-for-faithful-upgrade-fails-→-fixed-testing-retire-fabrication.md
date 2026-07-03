@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-06-21 19:27'
+updated_date: '2026-07-03 10:47'
 labels:
   - install-recovery
   - upgrade
@@ -138,5 +138,11 @@ GROUNDING (verified, supersedes doc-016 5c-hard's fuller text):
 - restore-db-stall-watchdog inject confirmed exec.go:761 + inject.go:249.
 
 FLAGGED TO ARCHITECT (3): (1) deletes-already-done; (2) STATBUS-031 RED branch red/031-rollback-watchdog@79375b9f9 is now STALE — cut to RED the OLD Resuming-latch trigger; V_fail re-scope needs RED-delta re-validation; (3) ticket overlap 031 (watchdog code, landed a8279ed83) vs 071/5c-hard (scenario re-scope) — awaiting architect/King call on whether this scenario's home folds 031→071. Engineer building; report routes to architect for review before foreman commit + VM-prove.
+---
+
+author: foreman
+created: 2026-07-03 10:47
+---
+INHERITED PROOF OBLIGATIONS (from the King-ratified consolidation's Cluster-6 verify-closes, 2026-07-03) — these three tasks closed on code evidence; their RUN-proof obligations transfer HERE, to be discharged as the reshaped scenario/arc suite goes green: (1) from STATBUS-084: the 4 no-host-compiler install scenarios (backup/binary-swap/checkout/4-rollback-kill freshness reds) green via sbimage.Procure — the scenarios couldn't run anyway until the controlled-B reshape (slices 3-4) lands; (2) from STATBUS-112: upgrade + rollback unaffected by the archiveBackup removal (the tar was never the rollback artifact — any green arc discharges this); (3) from STATBUS-113: the scheduled-backup behaviors on a real box (fires on cadence, SKIPS during service- and install-driven upgrades, catches up after downtime, purge keeps N, failure never crashes the service). Also standing from today: the working+failing arc re-run after the 110 exemption fix = 110's AC 1-3 + 118's DoD + 109's behavioral oracle.
 ---
 <!-- COMMENTS:END -->
