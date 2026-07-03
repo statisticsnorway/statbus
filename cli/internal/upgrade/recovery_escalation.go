@@ -44,6 +44,11 @@ const (
 	StepHealthCheck    = "health-check"    // 3.7
 	StepMaintenanceOff = "maintenance-off" // 4.1
 	StepComplete       = "complete"        // 4.2–4.3 terminal write + flag removal
+	// StepRollback (slice 1B) is the single rollback-pipeline step marker. Passed
+	// as the CURRENT step on a rollback resume so that same-step-twice fires iff
+	// the PREVIOUS death was also a rollback (flag.Step==StepRollback) — scoping
+	// same-step-twice to the rollback pipeline, never inheriting a forward step.
+	StepRollback = "rollback"
 )
 
 // recoveryAction is what a crash-resume must do BEFORE re-running the forward
@@ -119,6 +124,32 @@ func stepOrUnknown(s string) string {
 		return "unknown"
 	}
 	return s
+}
+
+// rollbackResumeIsTerminal is the ROLLBACK-regime sibling of resumeEscalation
+// (STATBUS-046 slice 1B, architect-pinned). It deliberately does NOT reuse
+// resumeEscalation: that function's EXHAUST term must NOT fire for a rollback.
+// A Phase-1 (pre-swap) budget-EXHAUST *routes* to the rollback, so terminating a
+// rollback on the shared death count would insta-restore-broke its very FIRST
+// resume without one re-attempt (the same false-positive shape the StepRollback
+// marker fixes in the step dimension). So the ONLY budget-side terminal for a
+// rollback is SAME-STEP-TWICE: it takes TWO consecutive mid-rollback deaths.
+//
+// On a rollback resume, `step` is where the JUST-crashed attempt died (the frozen
+// flag.Step) and `priorStep` is where the death BEFORE that died (flag.PriorDeathStep,
+// rolled forward by recordRollbackCommit on each commit). Terminal IFF BOTH are
+// StepRollback — i.e. the last TWO deaths were both mid-rollback. On the
+// forward→rollback handoff priorStep is the FORWARD step (never StepRollback), so
+// the first rollback resume is free BY CONSTRUCTION (architect (a), no special
+// case) and the rollback gets its designed idempotent re-run. A single transient
+// reboot/OOM mid-restore therefore re-runs, never insta-fails.
+//
+// Two consecutive rollback deaths ⇒ the rollback itself can't complete ⇒ the
+// caller maps it to the restore-broke HUMAN stop (state='failed'). The genuinely-
+// terminal git-restore-fail is handled inside rollback() itself; this bounds the
+// CRASH loop (net hard bound: 3 forward + 2 rollback deaths).
+func rollbackResumeIsTerminal(step, priorStep string) bool {
+	return step == StepRollback && priorStep == StepRollback
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

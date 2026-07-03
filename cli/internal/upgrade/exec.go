@@ -1095,6 +1095,16 @@ func (d *Service) pruneUpgradeLogs(keep int) {
 	}
 }
 
+// PostSwapDBHealthTimeout is the class-A readiness allowance for the post-swap
+// db-up step (STATBUS-046 slice 3, doc-021 3.3). SIZE-SCALED-INTENT: after an
+// unclean stop, PostgreSQL replays the WAL before it accepts connections, and on
+// a Norway-sized volume that can legitimately take minutes — a 30s wait would
+// mis-classify a healthy-but-replaying DB as a failure and burn a death. Mirrors
+// the generous-fixed-budget doctrine of MigrateUpTimeout (30m) rather than a
+// per-volume formula (there is no such formula today). This is an IN-PLACE class-A
+// wait; it never consumes a death. Honest default, arc-reconcilable/tunable.
+const PostSwapDBHealthTimeout = 5 * time.Minute
+
 func (d *Service) waitForDBHealth(timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {

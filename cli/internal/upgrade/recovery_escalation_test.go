@@ -218,3 +218,28 @@ func TestTailBuffer_KeepsBoundedTail(t *testing.T) {
 		t.Errorf("a within-cap ENOSPC line must survive capture; got %q", tb2.String())
 	}
 }
+
+// STATBUS-046 slice 1B — the rollback regime uses the SIBLING rollbackResumeIsTerminal
+// (NOT resumeEscalation, whose exhaust term must not fire for a rollback). Terminal
+// IFF the last TWO deaths were BOTH mid-rollback: step==StepRollback AND
+// priorStep==StepRollback. It takes TWO consecutive rollback deaths — a single
+// transient reboot/OOM mid-restore must re-run, never insta-fail (3 fwd + 2 rb).
+func TestRollbackResumeIsTerminal(t *testing.T) {
+	// Handoff / first rollback resume: the JUST-crashed death was a FORWARD step,
+	// prior is anything → NOT terminal (the rollback gets its designed attempt).
+	for _, forward := range []string{StepMigrateUp, StepHealthCheck, StepImagePull, StepConfigGenerate, ""} {
+		if rollbackResumeIsTerminal(forward, StepRollback) {
+			t.Errorf("first rollback resume (just-crashed death forward=%q) must NOT terminal", forward)
+		}
+	}
+	// DEATH 1 mid-rollback: step==StepRollback but prior is the FORWARD step
+	// (rolled from the handoff) → NOT terminal (the free re-run — the off-by-one
+	// this fix closes: the box must NOT fail on a single mid-rollback crash).
+	if rollbackResumeIsTerminal(StepRollback, StepMigrateUp) {
+		t.Error("ONE mid-rollback death (prior still forward) must NOT terminal — the rollback re-runs")
+	}
+	// DEATH 2 mid-rollback: BOTH step and prior are StepRollback → terminal.
+	if !rollbackResumeIsTerminal(StepRollback, StepRollback) {
+		t.Error("two consecutive mid-rollback deaths (both StepRollback) must terminal → restore-broke")
+	}
+}

@@ -489,9 +489,12 @@ func (d *Service) updateFlagPostSwap(backupPath string) error {
 // Best-effort: a failure to persist the step name must not abort the upgrade —
 // it only degrades same-step-twice detection to the plain attempt budget — so
 // callers log and continue rather than fail the step.
-func (d *Service) recordFlagStep(step string) error {
+// mutateHeldFlag reads the held on-disk flag, applies fn, and rewrites it in
+// place (seek/truncate/rewrite under the held flock) — the shared core of
+// recordFlagStep + recordRollbackCommit so the flag-rewrite pattern lives once.
+func (d *Service) mutateHeldFlag(fn func(*UpgradeFlag)) error {
 	if d.flagLock == nil || d.flagLock.file == nil {
-		return fmt.Errorf("recordFlagStep: no flag file held")
+		return fmt.Errorf("no flag file held")
 	}
 	f := d.flagLock.file
 	if _, err := f.Seek(0, 0); err != nil {
@@ -505,7 +508,7 @@ func (d *Service) recordFlagStep(step string) error {
 	if err := json.Unmarshal(data, &flag); err != nil {
 		return fmt.Errorf("unmarshal flag: %w", err)
 	}
-	flag.Step = step
+	fn(&flag)
 	newData, err := json.MarshalIndent(flag, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal flag: %w", err)
@@ -523,6 +526,28 @@ func (d *Service) recordFlagStep(step string) error {
 		return fmt.Errorf("sync flag: %w", err)
 	}
 	return nil
+}
+
+func (d *Service) recordFlagStep(step string) error {
+	return d.mutateHeldFlag(func(f *UpgradeFlag) { f.Step = step })
+}
+
+// recordRollbackCommit stamps the held flag as a committed rollback attempt
+// (STATBUS-046 slice 1B): it ROLLS the death history — PriorDeathStep←(current
+// flag.Step, i.e. where the last death was), THEN Step←StepRollback (this
+// attempt is a rollback). Two consecutive mid-rollback deaths thus make BOTH
+// Step and PriorDeathStep == StepRollback → rollbackResumeIsTerminal fires. On
+// the forward→rollback handoff PriorDeathStep receives the FORWARD step (never
+// StepRollback), so the first rollback resume is free by construction. Order
+// matters: prior←Step BEFORE Step←StepRollback. Best-effort like markStep — a
+// failure only degrades same-step-twice detection, never aborts the rollback.
+func (d *Service) recordRollbackCommit() {
+	if err := d.mutateHeldFlag(func(f *UpgradeFlag) {
+		f.PriorDeathStep = f.Step
+		f.Step = StepRollback
+	}); err != nil {
+		log.Printf("recordRollbackCommit: %v — same-step-twice detection degraded for this rollback", err)
+	}
 }
 
 // markStep records the current Phase-3 step on the held flag (best-effort). A
@@ -1250,16 +1275,22 @@ func (d *Service) markImagesFailed(ctx context.Context, id int, sha, reason stri
 //	                          channel doesn't use release artifacts).
 //	                          Three states: building, ready, failed.
 //
+// manifestTimeout is the shared "give up waiting for CI" grace window —
+// package-level (not local to verifyArtifacts) so STATBUS-046 slice 3c's
+// image-claim gate (image_claim_gate.go, evaluateImageClaimGate) claims-past-
+// grace on EXACTLY the same duration verifyArtifacts uses to mark a row
+// 'failed', by construction rather than by two independently-tuned magic
+// numbers. Used as the fallback grace when `gh` is absent or errors: once a
+// discovery row has been in docker_images_status='building' longer than this
+// AND the registry manifests are still missing, verifyArtifacts marks the row
+// 'failed' so the admin UI stops spinning (production hosts typically have no
+// `gh`, so this ensures CI_FAILURE_DETECTED_TRANSITIONS_ROW still holds
+// without it) — and the claim gate stops waiting and claims anyway, loud.
+const manifestTimeout = 20 * time.Minute
+
 // Scoped to the 30 most recent pending rows to bound per-cycle cost.
 func (d *Service) verifyArtifacts(ctx context.Context) {
 	const registryPrefix = "ghcr.io/statisticsnorway/statbus-"
-	// manifestTimeout is the fallback grace window used when `gh` is absent or
-	// errors: once a discovery row has been in docker_images_status='building'
-	// longer than this AND the registry manifests are still missing, we mark
-	// the row 'failed' so the admin UI stops spinning. Production hosts
-	// typically have no `gh`; this ensures CI_FAILURE_DETECTED_TRANSITIONS_ROW
-	// still holds without it.
-	const manifestTimeout = 20 * time.Minute
 	services := []string{"db", "app", "worker", "proxy"}
 
 	rows, err := d.queryConn.Query(ctx, `
@@ -1462,6 +1493,37 @@ func (d *Service) Close() {
 // invokedBy / trigger are hardcoded to distinguish operator-driven inline
 // upgrades from scheduler-driven service runs in post-mortem queries.
 func (d *Service) ExecuteUpgradeInline(ctx context.Context, id int, commitSHA, displayName string) error {
+	// STATBUS-046 slice 3c — images-ready CLAIM GATE (evaluateImageClaimGate,
+	// image_claim_gate.go), identical to executeScheduled's gate. Read-only
+	// pre-claim probe of the row's own state — a caller-supplied `id` is
+	// trusted to already be 'scheduled' (per this function's contract), so a
+	// row that vanished/changed between this SELECT and the claim UPDATE
+	// below is caught by the claim's own ErrNoRows branch, unaffected by
+	// this gate.
+	var scheduledAt time.Time
+	var dockerImagesStatus string
+	if gerr := d.queryConn.QueryRow(ctx,
+		"SELECT scheduled_at, docker_images_status::text FROM public.upgrade WHERE id = $1",
+		id).Scan(&scheduledAt, &dockerImagesStatus); gerr == nil {
+		switch evaluateImageClaimGate(dockerImagesStatus, scheduledAt, time.Now(), manifestTimeout) {
+		case imageClaimFailed:
+			return fmt.Errorf("upgrade row %d: images failed to publish (CI failed) — re-push or ./sb upgrade register again", id)
+		case imageClaimWait:
+			fmt.Printf("Upgrade row %d: scheduled, images still building — waiting for publication.\n", id)
+			d.verifyArtifacts(ctx) // one immediate re-probe, same as executeScheduled's gate
+			return fmt.Errorf("upgrade row %d: images not yet verified ready (still building) — re-run ./sb install shortly", id)
+		case imageClaimPastGrace:
+			fmt.Printf("Upgrade row %d: images unverified past %s — proceeding; the warm-up pull will fail actionably if truly absent.\n", id, manifestTimeout)
+		case imageClaimReady:
+			// Claim as today — no gate interference on the common path.
+		}
+	}
+	// gerr != nil (row vanished, or a pre-046 DB during the migration's own
+	// deferral window — mirrors resumePostSwap's fail-open posture on a read
+	// error): fall through to the claim UPDATE unchanged; its own ErrNoRows /
+	// state-guard branches are the correct diagnostic for a genuinely-absent
+	// or already-claimed row.
+
 	// STATBUS-077: claim records only the display version (from_commit_version).
 	// The recovery restore target is the pinned `pre-upgrade` branch (single source);
 	// the from_commit_sha column was removed.
@@ -2408,6 +2470,48 @@ func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displa
 	// releases it uniformly; process exit releases it at the kernel level
 	// on every other path.
 	d.flagLock = lock
+
+	// STATBUS-046 slice 1B — the rollback-pipeline resume budget. A rollback that
+	// crash-loops (watchdog kill mid-restore, OOM, reboot) must not re-run forever
+	// any more than the forward path may. The counter is SHARED and never reset at
+	// the forward→rollback handoff; but the rollback TERMINAL is NOT the forward
+	// exhaust (architect pin): a Phase-1 budget-exhaust ROUTES here, so terminating
+	// on the shared count would insta-restore-broke the first rollback resume. The
+	// ONLY budget-side rollback terminal is SAME-STEP-TWICE via the single
+	// StepRollback marker — computed by the sibling rollbackResumeIsTerminal, NEVER
+	// resumeEscalation (whose exhaust must not fire here). Terminal → restore-broke
+	// HUMAN stop (state='failed'; ./sb install), NOT park, NOT another rollback
+	// (pin 3). git-restore-fail — the genuine restore failure — stays inside
+	// rollback() itself; this bounds the CRASH loop (net: 3 forward + 2 rollback).
+	attempts, aerr := d.incrementRecoveryAttempts(ctx, id)
+	if aerr != nil {
+		log.Printf("recoveryRollback: could not increment recovery_attempts for %d (%v) — continuing", id, aerr)
+	}
+	if rollbackResumeIsTerminal(flag.Step, flag.PriorDeathStep) {
+		msg := fmt.Sprintf("%s: rollback could not complete — two consecutive crash-deaths during rollback (recovery attempt %d). The system is in a degraded state; manual CLI recovery is required (./sb install); contact SSB support and involve your IT staff.",
+			ErrRollbackDBRestore, attempts)
+		log.Printf("recoveryRollback: RESTORE-BROKE upgrade %d after %d attempt(s) — two consecutive rollback deaths", id, attempts)
+		if d.writeRollbackTerminal(ctx, id,
+			"UPDATE public.upgrade SET state = 'failed', error = $1 WHERE id = $2"+upgradeRowReturning,
+			msg, LabelFailedRollbackIncomplete) {
+			d.removeUpgradeFlag()
+		}
+		hostname, _ := os.Hostname()
+		d.runCallback(displayName, map[string]string{
+			"STATBUS_ROLLBACK_FAILED": "1",
+			"STATBUS_ROLLBACK_ERROR":  msg,
+			"STATBUS_RECOVERY_CMD":    fmt.Sprintf(`ssh %s "cd statbus && ./sb install"`, hostname),
+		})
+		return
+	}
+	// COMMIT to the rollback: ROLL the death history — PriorDeathStep←(current
+	// flag.Step), Step←StepRollback (recordRollbackCommit). On the forward→rollback
+	// handoff PriorDeathStep naturally receives the FORWARD step (never
+	// StepRollback), so the first rollback resume is free BY CONSTRUCTION and the
+	// rollback gets its designed idempotent re-run (architect (a), no special
+	// case). Only after TWO consecutive mid-rollback deaths does PriorDeathStep
+	// also become StepRollback → the next resume terminals to restore-broke.
+	d.recordRollbackCommit()
 
 	// STATBUS-077: single source of truth = the pinned `pre-upgrade` branch
 	// (executeUpgrade pins it before destructive steps). Resolve unconditionally
@@ -4085,17 +4189,44 @@ func (d *Service) executeScheduled(ctx context.Context) {
 	var commitSHA string
 	var commitTags []string
 	var scheduledAt time.Time
+	var dockerImagesStatus string
 	err := d.queryConn.QueryRow(ctx,
-		`SELECT id, commit_sha, commit_tags, scheduled_at
+		`SELECT id, commit_sha, commit_tags, scheduled_at, docker_images_status::text
 		 FROM public.upgrade
 		 WHERE state = 'scheduled'
 		   AND scheduled_at <= now()
-		 ORDER BY scheduled_at LIMIT 1`).Scan(&id, &commitSHA, &commitTags, &scheduledAt)
+		 ORDER BY scheduled_at LIMIT 1`).Scan(&id, &commitSHA, &commitTags, &scheduledAt, &dockerImagesStatus)
 	if err != nil {
 		return // no pending upgrades
 	}
 	displayName := renderDisplayName(CommitSHA(commitSHA), commitTags)
 	fmt.Printf("Claiming id=%d, lag=%s\n", id, time.Since(scheduledAt).Truncate(time.Second))
+
+	// STATBUS-046 slice 3c — images-ready CLAIM GATE (evaluateImageClaimGate,
+	// image_claim_gate.go). Don't claim a scheduled row whose images aren't
+	// verified ready — a mid-publication image-404 would otherwise reach the
+	// warm-up pull. Fail-open-loud past the shared manifestTimeout grace
+	// (never wedge), same posture as the parked-check + statfs rulings.
+	switch evaluateImageClaimGate(dockerImagesStatus, scheduledAt, time.Now(), manifestTimeout) {
+	case imageClaimFailed:
+		fmt.Printf("Scheduled upgrade id=%d: images failed to publish (CI failed) — re-push or ./sb upgrade register again.\n", id)
+		return
+	case imageClaimWait:
+		fmt.Printf("Scheduled upgrade id=%d: scheduled, images still building — waiting for publication.\n", id)
+		// Re-probe now rather than waiting for the next 6h/NOTIFY discovery
+		// cycle: executeScheduled runs every 30s off the daemon's
+		// heartbeatTicker, but verifyArtifacts only runs from discover()
+		// (6h ticker or a NOTIFY), so without this explicit call a
+		// 'building' row could sit unclaimed for up to 6h even after CI
+		// actually finishes. verifyArtifacts is cheap/idempotent by design
+		// ("Runs on every discovery cycle") — safe to call an extra time here.
+		d.verifyArtifacts(ctx)
+		return
+	case imageClaimPastGrace:
+		fmt.Printf("Scheduled upgrade id=%d: images unverified past %s — proceeding; the warm-up pull will fail actionably if truly absent.\n", id, manifestTimeout)
+	case imageClaimReady:
+		// Claim as today — no gate interference on the common path.
+	}
 
 	// Claim immediately: mark started_at + state='in_progress' so the UI
 	// shows "In Progress" and the user can no longer unschedule.
@@ -4756,6 +4887,7 @@ const dockerStepMinFreeGB = 5
 func (d *Service) diskPrecheckReason(step string) string {
 	freeBytes, err := DiskFree(d.projDir)
 	if err != nil {
+		log.Printf("disk pre-check before %s: statfs failed (%v) — proceeding; the ENOSPC backstop + death budget still bound this step", step, err)
 		return ""
 	}
 	freeGB := freeBytes / (1024 * 1024 * 1024)
@@ -4939,9 +5071,12 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 		return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, reason, progress)
 	}
 
-	// Wait for DB health
+	// Wait for DB health — STATBUS-046 slice 3 (doc-021 3.3): class-A readiness
+	// allowance, size-scaled-intent to the WAL-replay worst case (PostSwapDBHealthTimeout,
+	// generous fixed budget) so a healthy-but-replaying large volume isn't
+	// mis-read as a failure. In-place; never consumes a death.
 	progress.Write("Waiting for database to be healthy...")
-	if err := d.waitForDBHealth(30 * time.Second); err != nil {
+	if err := d.waitForDBHealth(PostSwapDBHealthTimeout); err != nil {
 		return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: DB health check: %v", ErrHealthcheckDBDown, err), progress)
 	}
 
@@ -5173,11 +5308,19 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// applyPostSwap from the top. No-op in production.
 	inject.KillHere("killed-by-system-during-container-restart")
 
-	// Step 12: Verify health
+	// Step 12: Verify health. STATBUS-046 slice 3 (doc-021 3.7): healthCheck IS
+	// the class-A warmup allowance — it first waits for PostgREST /ready
+	// (waitForRestReady, 5-min warmup) THEN retries the functional RPC in place.
+	// An error here means the warmup allowance is EXHAUSTED: the running version
+	// still can't serve past warmup = a persistent B failure → PARK on first with
+	// a named reason, not another death-budget attempt (retrying a version that
+	// can't serve won't fix it). A transient DB/REST blip within warmup is
+	// absorbed in-place by the retries above and never reaches here.
 	progress.Write("Verifying health...")
 	d.markStep(StepHealthCheck)
 	if err := d.healthCheck(progress, 5, 5*time.Second); err != nil {
-		return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: application health check: %v", ErrHealthcheckRESTDown, err), progress)
+		return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath,
+			fmt.Sprintf("%s: the application cannot serve at %s past warmup — %v; fix the cause, then re-trigger the upgrade", ErrHealthcheckRESTDown, displayName, err), progress)
 	}
 
 	// Done — deactivate maintenance. The terminal state='completed' UPDATE +
