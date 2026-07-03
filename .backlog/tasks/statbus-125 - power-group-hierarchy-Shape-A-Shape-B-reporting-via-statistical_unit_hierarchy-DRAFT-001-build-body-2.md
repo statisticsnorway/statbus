@@ -3,11 +3,11 @@ id: STATBUS-125
 title: >-
   power-group-hierarchy: Shape A + Shape B reporting via
   statistical_unit_hierarchy (DRAFT-001 build body 2)
-status: To Do
+status: In Progress
 assignee:
-  - engineer
+  - '@architect'
 created_date: '2026-07-02 18:04'
-updated_date: '2026-07-03 10:45'
+updated_date: '2026-07-03 11:03'
 labels:
   - power-group
   - not-install-upgrade
