@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
-updated_date: '2026-07-03 11:21'
+updated_date: '2026-07-03 11:39'
 labels:
   - build-caching
   - seed
@@ -211,5 +211,11 @@ author: foreman
 created: 2026-07-03 11:21
 ---
 🔴 FIRST ENABLED RUN RED → KILL-SWITCH PULLED (foreman, 2026-07-03 11:20 — ~4 min from failure to disable; the King's flip-early ruling working as intended: real exercise found a real integration gap on day one). Sequence: inert-proof run 28656755124 GREEN (gate took the disabled exit verbatim; decision log enable-gate=false → PATH=FULL; seed published at migration 20260703104910 — a POST-FIX seed, now the future prior for the deferred confirming run). Variable set true 11:16 → first enabled run 28657019171 FAILED in-stage: `migrate seed db up: released-tag detection for migration 20260218215337: git tag -l v*: exit status 128` — the restored prior evidently predates the ORDER BY fix, the ledger-hash mismatch invoked the migration-immutability/channel machinery, which needs git — and the hermetic seed-builder has NO .git by design. Variable back to FALSE 11:20; recovery run 28657218995 dispatched (expect green full-from-empty). TWO DIAGNOSIS QUESTIONS with the engineer: Q1 (load-bearing) why the decision wasn't FULL or REUSE — the ancestor walk should have picked the post-fix ce383eff seed (published minutes earlier; manifest propagation timing?) AND SeedBuildDecision's fingerprint gate must force FULL on a pre-fix prior; one gate didn't fire — trace which. Q2 (structural) the in-stage build can NEVER run the git-requiring channel machinery — an in-stage ledger mismatch must fall back to FULL (decided on the host) instead of dying. VARIABLE STAYS FALSE until both answered + fixed; re-enable = same one-variable procedure.
+---
+
+author: foreman
+created: 2026-07-03 11:39
+---
+DIAGNOSIS COMPLETE — CORRECTS comment 19's hypotheses (engineer, tmp/statbus-116-first-enable-failure.md; foreman-reviewed). BOTH GATES FIRED CORRECTLY: the walk picked statbus-seed:ce383eff (closest published, post-fix ancestor) and the fingerprint gate rightly ruled incremental — 20260218215337.up.sql is byte-identical ce383eff↔HEAD. THE REAL DEFECT: the PUBLISHED ce383eff seed artifact is INTERNALLY INCONSISTENT — restored-ledger content_hash for 20260218215337 = cd82bc76 (PRE-fix) while its seed.json fingerprint is post-fix; the file gate compares FILES and cannot see a stale restored ledger. Suspected mechanism (to be architect-verified): a build-cache artifact in the image chain supplying pre-fix applied-migrations while seed.json regenerates from current files. STRUCTURAL GAP confirmed: migrate up's immutability check (migrate.go:1452-1519) on any restored-ledger mismatch calls the released-tag git machinery — impossible in the hermetic builder (no .git); fires only on the incremental path. ⚠ BROADER TAIL ESCALATED: a FRESH INSTALL restoring the published ce383eff seed on a real box (git present) hits the same mismatch → the channel/immutability machinery — possibly a live install issue TODAY, independent of the flip. Fix design routed to the ARCHITECT (after his 125 package): typed in-stage full-fallback (ErrStaleRestoredMigration), a dump-time consistency assert so this artifact class can never publish, deployed-severity adjudication, interim republish question. Variable stays FALSE; re-enable only after the fix + a verified-consistent published seed.
 ---
 <!-- COMMENTS:END -->
