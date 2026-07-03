@@ -1110,10 +1110,14 @@ func runStartServices(dir string) error {
 // different remedy (raise max_connections, reduce client count). Not
 // something cleanOrphanSessions can fix.
 //
-// cleanOrphanSessions's Phase 2 still does Go-side PID-liveness probing
-// for statbus-migrate-<PID> markers regardless of this gate, so a dead-PID
-// statbus-migrate session is caught even though SQL alone can't probe its
-// owner.
+// The GATE itself is now PID-liveness-aware (STATBUS-055): it shares the
+// zombieAdvisoryHolders detection with cleanOrphanSessions Phase 2, so a dead-PID
+// statbus-migrate-<PID> advisory holder TRIGGERS cleanup. Previously the gate's
+// SQL counted only EMPTY-application_name advisory holders and missed the tagged
+// dead-PID holder; because Phase 2 runs ONLY when this gate returns false, that
+// blindness meant the cleanup never ran and the next migrate stalled on the held
+// lock (a bounded multi-minute recovery delay). The gate and the action now use
+// one detection, so they can never diverge again.
 // checkBackupOwnershipDone returns true iff every pre-upgrade-* dir
 // in ~/statbus-backups/ is owned by the deploy user. False (need to
 // heal) iff at least one is owned by someone else — typically the
@@ -1205,49 +1209,139 @@ func healBackupOwnership(_ string) error {
 	return nil
 }
 
+// ── STATBUS-055: shared zombie-advisory-holder detection ─────────────────────
+//
+// The migrate advisory lock (pg_advisory_lock(hashtext('migrate_up'))) is held
+// by a Go connection tagged `statbus-migrate-<pid>` (migrate.acquireAdvisoryLock,
+// migrate.go). When that migrate process dies (OOM / SIGKILL / reboot) but its
+// connection lingers (a proxy absorbs the socket close until TCP keepalive reaps
+// it), the server still shows a GRANTED advisory lock held by a dead-PID-tagged
+// backend. Pure SQL cannot tell dead from live — only a host-side
+// syscall.Kill(pid, 0) can. This detection is SHARED by the gate
+// (checkSessionsClean — decide whether to clean) and the action
+// (cleanOrphanSessions Phase 2 — the kill), so the gate can never again be blind
+// to what the action can reclaim (the STATBUS-055 gap).
+//
+// syscall.Kill is meaningful ONLY on the host where migrate's PID lived; every
+// caller runs inside `./sb install` on that host (all checkSessionsClean callers
+// + cleanOrphanSessions).
+
+// zombieHolder is an advisory-lock holder whose lock should be reclaimed.
+type zombieHolder struct {
+	BackendPID int
+	AppName    string
+	Reason     string
+}
+
+// procAlive reports whether pid is a live process. Any syscall.Kill error (ESRCH
+// = dead; also EPERM) is treated as not-live — matching the prior inline Phase-2
+// behaviour; safe because migrate runs as the same user as install, so EPERM does
+// not arise for our own migrate PIDs.
+func procAlive(pid int) bool { return syscall.Kill(pid, 0) == nil }
+
+// classifyAdvisoryHolder decides whether an advisory-lock holder with the given
+// application_name is a zombie whose lock should be reclaimed. Pure (the PID
+// liveness probe is injected), so it is Docker-free unit-tested:
+//   - ""                              → zombie (unidentified / pre-rc.07 killed migrate).
+//   - "statbus-migrate-<pid>" dead    → zombie.
+//   - "statbus-migrate-<pid>" alive   → legitimate (a healthy migration idling
+//     between statements); leave alone.
+//   - malformed tag (Atoi fails, e.g. the "statbus-migrate-sql-<pid>" SUBPROCESS
+//     tag) or any other app_name (worker / psql / PostgREST pool) → leave alone.
+func classifyAdvisoryHolder(appName string, pidAlive func(int) bool) (zombie bool, reason string) {
+	switch {
+	case appName == "":
+		return true, "empty application_name → unidentified zombie"
+	case strings.HasPrefix(appName, "statbus-migrate-"):
+		ownerStr := strings.TrimPrefix(appName, "statbus-migrate-")
+		ownerPID, err := strconv.Atoi(ownerStr)
+		if err != nil {
+			return false, fmt.Sprintf("malformed migrate tag %q → leaving alone", appName)
+		}
+		if !pidAlive(ownerPID) {
+			return true, fmt.Sprintf("owner PID %d is dead → zombie", ownerPID)
+		}
+		return false, fmt.Sprintf("owner PID %d is alive → legitimate", ownerPID)
+	default:
+		return false, fmt.Sprintf("non-statbus-managed application_name %q → legitimate", appName)
+	}
+}
+
+// zombieAdvisoryHolders queries every advisory-lock holder in the app DB and
+// returns those classified as zombies (empty-app or dead-PID-tagged). Uses the
+// pool-bypassing `docker compose exec -T db psql` path (peer-auth superuser) so
+// it works even when the connection pool is saturated. Shared by the gate and
+// cleanOrphanSessions Phase 2.
+func zombieAdvisoryHolders(dir string) ([]zombieHolder, error) {
+	envFile, err := dotenv.Load(filepath.Join(dir, ".env"))
+	if err != nil {
+		return nil, fmt.Errorf("load .env for docker psql: %w", err)
+	}
+	dbName := "statbus_local"
+	if v, ok := envFile.Get("POSTGRES_APP_DB"); ok && v != "" {
+		dbName = v
+	}
+	adminUser := "postgres"
+	if v, ok := envFile.Get("POSTGRES_ADMIN_USER"); ok && v != "" {
+		adminUser = v
+	}
+	q := exec.Command("docker", "compose", "exec", "-T", "db",
+		"psql", "-U", adminUser, "-d", dbName, "-t", "-A", "-F", "|", "-c", `
+		SELECT a.pid, COALESCE(a.application_name, '')
+		  FROM pg_stat_activity a
+		  JOIN pg_locks l ON l.pid = a.pid
+		 WHERE l.locktype = 'advisory'
+		   AND l.granted
+		   AND a.datname = current_database()
+		   AND a.pid <> pg_backend_pid()
+		 ORDER BY a.pid;`)
+	q.Dir = dir
+	out, err := q.Output()
+	if err != nil {
+		return nil, fmt.Errorf("query advisory-lock holders: %w", err)
+	}
+	var zombies []zombieHolder
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "|", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		backendPID, perr := strconv.Atoi(strings.TrimSpace(parts[0]))
+		if perr != nil {
+			continue
+		}
+		appName := strings.TrimSpace(parts[1])
+		if z, reason := classifyAdvisoryHolder(appName, procAlive); z {
+			zombies = append(zombies, zombieHolder{BackendPID: backendPID, AppName: appName, Reason: reason})
+		}
+	}
+	return zombies, nil
+}
+
 func checkSessionsClean(dir string) bool {
+	// (1) Aged psql-subprocess zombies: a killed migrate.Up's psql children still
+	// running TRUNCATE/INSERT/CALL on statistical_* tables >5min. SQL-detectable.
+	// Match BOTH the libpq default 'psql' and the task-#14 'statbus-migrate-sql%'
+	// tag; the worker (application_name='worker') legitimately runs CALL
+	// worker.statistical_*_reduce for minutes on Norway-sized data, so filtering by
+	// app_name avoids false-positive cleanup-failures during healthy operation.
 	psqlPath, prefix, env, err := migrate.PsqlCommand(dir)
 	if err != nil {
 		return false
 	}
 	args := append(prefix, "-t", "-A", "-c", `
-		WITH s AS (
-			SELECT
-				(SELECT count(*) FROM pg_stat_activity
-				  WHERE datname = current_database()
-				    AND state IN ('active', 'idle in transaction')
-				    AND query_start < now() - interval '5 minutes'
-				    -- Only psql subprocess zombies. The worker (application_name='worker')
-				    -- legitimately runs CALL worker.statistical_*_reduce as part of normal
-				    -- task processing — those reduces can take minutes on Norway-sized
-				    -- data and matched our 'CALL %statistical_%' pattern, causing
-				    -- false-positive cleanup-failures during healthy worker operation.
-				    -- Migrate.Up's psql subprocesses are tagged statbus-migrate-sql-<pid>
-				    -- (task #14, via PGAPPNAME); pre-#14 binaries left the libpq default
-				    -- 'psql'. Match BOTH so this cleaner still catches a SIGKILL'd
-				    -- migrate zombie regardless of which binary started it.
-				    AND (application_name = 'psql' OR application_name LIKE 'statbus-migrate-sql%')
-				    AND (query ILIKE '%TRUNCATE %statistical_%'
-				         OR query ILIKE '%INSERT INTO %statistical_%'
-				         OR query ILIKE '%CALL %statistical_%')
-				) AS leaked,
-				(SELECT count(*) FROM pg_stat_activity a
-				    JOIN pg_locks l ON l.pid = a.pid
-				  WHERE l.locktype = 'advisory'
-				    AND l.granted
-				    AND a.datname = current_database()
-				    AND a.pid <> pg_backend_pid()
-				    AND COALESCE(a.application_name, '') = ''
-				) AS advisory_holders
-		)
-		SELECT
-			leaked::text || '/' || advisory_holders::text AS zombies,
-			-- DO NOT cast bool to text. With psql -t -A, raw boolean renders
-			-- as 't'/'f' which the Go parser checks. (bool)::text would
-			-- render as 'true'/'false' — silently breaking the check; bug
-			-- latent since Fix 8 caused every install's recheck to fail.
-			leaked = 0 AND advisory_holders = 0 AS healthy
-		FROM s;`)
+		SELECT count(*) FROM pg_stat_activity
+		  WHERE datname = current_database()
+		    AND state IN ('active', 'idle in transaction')
+		    AND query_start < now() - interval '5 minutes'
+		    AND (application_name = 'psql' OR application_name LIKE 'statbus-migrate-sql%')
+		    AND (query ILIKE '%TRUNCATE %statistical_%'
+		         OR query ILIKE '%INSERT INTO %statistical_%'
+		         OR query ILIKE '%CALL %statistical_%');`)
 	cmd := exec.Command(psqlPath, args...)
 	cmd.Dir = dir
 	cmd.Env = env
@@ -1255,13 +1349,23 @@ func checkSessionsClean(dir string) bool {
 	if err != nil {
 		return false
 	}
-	// Format: "<leaked>/<advisory_holders>|<healthy>"
-	line := strings.TrimSpace(string(out))
-	parts := strings.Split(line, "|")
-	if len(parts) != 2 {
+	leaked, err := strconv.Atoi(strings.TrimSpace(string(out)))
+	if err != nil {
 		return false
 	}
-	return parts[1] == "t"
+
+	// (2) Zombie advisory-lock holders — empty-app OR dead-PID-tagged
+	// statbus-migrate-<pid> (STATBUS-055). PID-liveness needs Go, not SQL; SHARED
+	// with cleanOrphanSessions Phase 2 so the gate detects EXACTLY what Phase 2
+	// reclaims. (The gate previously counted only empty-app holders → a tagged
+	// dead-PID holder was invisible → cleanup never triggered → the next migrate
+	// stalled on the held lock.)
+	zombies, err := zombieAdvisoryHolders(dir)
+	if err != nil {
+		return false // can't verify → treat as not-clean (conservative; triggers cleanup)
+	}
+
+	return leaked == 0 && len(zombies) == 0
 }
 
 // cleanOrphanSessions terminates leaked backends from prior crashed
@@ -1368,61 +1472,19 @@ func cleanOrphanSessions(dir string) error {
 		return fmt.Errorf("phase 1 pg_terminate_backend (docker exec): %w", err)
 	}
 
-	// Phase 2: identify advisory-lock holders, probe owner-PID liveness.
-	phase2 := exec.Command("docker", "compose", "exec", "-T", "db",
-		"psql", "-U", adminUser, "-d", dbName,
-		"-t", "-A", "-F", "|", "-c", `
-		SELECT a.pid, COALESCE(a.application_name, '')
-		  FROM pg_stat_activity a
-		  JOIN pg_locks l ON l.pid = a.pid
-		 WHERE l.locktype = 'advisory'
-		   AND l.granted
-		   AND a.datname = current_database()
-		   AND a.pid <> pg_backend_pid()
-		 ORDER BY a.pid;`)
-	phase2.Dir = dir
-	out, err := phase2.Output()
+	// Phase 2: reclaim zombie advisory-lock holders (empty-app or dead-PID-tagged
+	// statbus-migrate-<pid>) via the SHARED detection (STATBUS-055) — the same
+	// zombieAdvisoryHolders helper the gate (checkSessionsClean) uses to decide
+	// whether to run this cleanup, so the gate can never be blind to what this
+	// kills. The kill authority stays HERE.
+	zombies, err := zombieAdvisoryHolders(dir)
 	if err != nil {
-		return fmt.Errorf("phase 2 query advisory-lock holders: %w", err)
+		return fmt.Errorf("phase 2 detect zombie advisory holders: %w", err)
 	}
 	var pidsToKill []int
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		parts := strings.SplitN(line, "|", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		backendPID, perr := strconv.Atoi(strings.TrimSpace(parts[0]))
-		if perr != nil {
-			continue
-		}
-		appName := strings.TrimSpace(parts[1])
-		switch {
-		case appName == "":
-			fmt.Printf("  Advisory-lock holder PID %d has empty application_name → unidentified zombie, killing\n", backendPID)
-			pidsToKill = append(pidsToKill, backendPID)
-		case strings.HasPrefix(appName, "statbus-migrate-"):
-			ownerStr := strings.TrimPrefix(appName, "statbus-migrate-")
-			ownerPID, perr := strconv.Atoi(ownerStr)
-			if perr != nil {
-				fmt.Printf("  Advisory-lock holder PID %d: malformed application_name %q → leaving alone\n", backendPID, appName)
-				continue
-			}
-			if procErr := syscall.Kill(ownerPID, 0); procErr != nil {
-				fmt.Printf("  Advisory-lock holder PID %d: owner PID %d is dead (%v) → zombie, killing\n", backendPID, ownerPID, procErr)
-				pidsToKill = append(pidsToKill, backendPID)
-			} else {
-				fmt.Printf("  Advisory-lock holder PID %d: owner PID %d is alive → legitimate, leaving alone\n", backendPID, ownerPID)
-			}
-		default:
-			// Recognized non-statbus-managed owners (e.g. "worker", "psql"
-			// from a live operator session, PostgREST connection pool):
-			// legitimate, leave alone.
-			fmt.Printf("  Advisory-lock holder PID %d: non-statbus-managed application_name %q → legitimate, leaving alone\n", backendPID, appName)
-		}
+	for _, h := range zombies {
+		fmt.Printf("  Advisory-lock holder PID %d (%s): %s → terminating\n", h.BackendPID, h.AppName, h.Reason)
+		pidsToKill = append(pidsToKill, h.BackendPID)
 	}
 	if len(pidsToKill) > 0 {
 		sqlPids := make([]string, len(pidsToKill))
