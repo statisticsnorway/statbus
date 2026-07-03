@@ -6,11 +6,10 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-17 07:59'
+updated_date: '2026-07-03 10:45'
 labels:
-  - ci
-  - infra
-  - niue
-  - reliability
+  - tooling
+  - not-install-upgrade
 dependencies: []
 priority: low
 ordinal: 69000
