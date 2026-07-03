@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
-updated_date: '2026-07-03 20:12'
+updated_date: '2026-07-03 20:58'
 labels:
   - build-caching
   - seed
@@ -259,5 +259,11 @@ author: foreman
 created: 2026-07-03 20:12
 ---
 🟢 FIRST LIVE INCREMENTAL RUN GREEN (images run 28681327764, seed job 85065399384, foreman verified log first-hand). Evidence: `incremental base: ghcr.io/statisticsnorway/statbus-seed:a3eb522c` (ancestor walk → the consistency-attested prior); `seed build: prior-present=true decision-incremental=true -> PATH=INCREMENTAL (restore prior + delta-migrate)`, reason `migrations <= 20260703111119 unchanged since the prior seed`; `restoring prior seed … (depth 0 -> 1)`; `Seed dumped: migration 20260703111119, commit 7910fbbb (4.4 MB)` — publish gate re-attested the incremental artifact. TIMING (criterion 5): in-stage decision t+3.2s → dump complete t+19.3s ≈ 16s work, vs ~60s for the full path in the SAME stage yesterday (run 28679520295: t+3.2 → t+63.4) — and the original ~2min from-empty tentpole. Delta this run = 0 pending migrations (pure restore+re-dump). CHECKED: criterion 1 (live incremental restore+delta+re-dump, no from-empty run), criterion 2 (no-prior/mismatch→FULL — proven live in runs 28656755124 + 28679520295 where prior-absent → PATH=FULL, plus the truth-table test), criterion 3 (depth cap N=5, committed 494481aa7, depth counter now live at 1), criterion 5 (measured above). REMAINING: criterion 6 only — the deferred confirming run: `sb db seed verify-multidelta` against a post-ORDER-BY-fix published seed once a genuine multi-migration delta accumulates (per comment 17; the King's flip-early ruling made it post-enable). The feature is LIVE; kill-switch = git revert 7910fbbbc.
+---
+
+author: foreman
+created: 2026-07-03 20:58
+---
+🟢 FIRST DELTA-MIGRATE INCREMENTAL RUN GREEN (images run 28682974989, push of c1c4cbb7a; foreman verified log first-hand) — the variant the first incremental run didn't exercise (that one had zero pending migrations). Evidence: `incremental base: ghcr.io/statisticsnorway/statbus-seed:7910fbbb` (walk found the NEWEST prior, one commit back); `PATH=INCREMENTAL (restore prior + delta-migrate)`; `restoring prior seed … (depth 1 -> 2)` — the AC-3 depth counter CHAINS live (2 of cap 5; three more chained increments force the full baseline — the designed cadence observed working); `[migrate] ▶ applying 20260703210000_add_recovery_park_degraded_columns… ✔ applied in 69ms` — a REAL migration delta applied onto the restored base; `Seed dumped: migration 20260703210000, commit c1c4cbb7 (4.4 MB)` at t+20.3s in-stage (vs ~60s full path). Publish gate re-attested the delta-built artifact. The complete lifecycle — walk → restore → delta-migrate → attest → publish, with depth chaining — is now proven on real pushes twice over. Criterion 6 (the deep verify-multidelta identity check against a published prior with a genuine multi-migration delta) is now RUNNABLE as designed: post-fix published priors with real deltas exist (a3eb522c → 7910fbbb → c1c4cbb7 chain). That run is the ticket's last open item.
 ---
 <!-- COMMENTS:END -->
