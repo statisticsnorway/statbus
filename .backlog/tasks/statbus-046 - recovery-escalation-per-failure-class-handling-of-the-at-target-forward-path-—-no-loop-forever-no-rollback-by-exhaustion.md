@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-06-12 22:15'
-updated_date: '2026-07-03 20:55'
+updated_date: '2026-07-03 21:03'
 labels:
   - install-recovery
   - upgrade
@@ -153,5 +153,11 @@ author: foreman
 created: 2026-07-03 20:55
 ---
 SLICE 1 COMMITTED + PUSHED: c1c4cbb7a (12 files, +596/−18; the pre-commit hook folded the regenerated diagram SVGs into the same commit). The loop-forever class is killed in code: park substrate (3 columns + doc/db/types pairing), write-ahead dying-step on the flag, pure escalation core (RecoveryDeathBudget=3 process deaths; same-step-twice terminal early; canRollBack routing), parked-skip→increment-at-start→escalate→park (row stays in_progress, siren exactly once per park event via freshlyParked), and un-park on ALL THREE deliberate trigger surfaces with fresh budget: RunSchedule (CLI), onScheduledNotify (NOTIFY apply — edit 6, which also deliberately fixed the pre-existing NOTIFY-on-live-upgrade row clobber), and the install path (hard-fails actionable if the reset can't be written). Six ruled edits all in (architect APPROVE + foreman first-hand; one foreman ruling overruled by architect with the 42703 self-ship bootstrap case — fail-open documented at the site with a do-not-fix warning). Deferred, named: rollback-pipeline resume mapping (slice 1b). ACs: #1 was ratified (D3); #2 substrate half DONE (call-site B/C classification = slice 2, now building); #3 satisfied for slice-1 scope (diagrams in-commit, B/C marked slice 2); #4 open (the held scenario rewrite — the arc is the oracle). SLICE 2 DISPATCHED to the engineer (classification table first as reviewable spec; structured signals only). The push's seed job doubles as the first DELTA-migrate incremental build (run 28682974989, operator watching).
+---
+
+author: foreman
+created: 2026-07-03 21:03
+---
+SLICE 2 FULLY SPECCED (architect rulings Q1-Q5, 2026-07-03 late evening; engineer building — classification table at tmp/engineer-046-slice2-classification-table.md is the spec). Q1: unknown signal → class A (budget + same-step-twice bound it — same-step-twice parks an unknown-deterministic error on its SECOND occurrence, faster than the budget; the doc-022 unknown→stop was for a classifier with NO bound). Q2: exact canonical text markers allowed under four pins — protocol/kernel constants only with cited source (OCI MANIFEST_UNKNOWN verbatim; strerror(ENOSPC)), always conjunctive (step + non-zero exit + marker), park only on positive match (a miss degrades to bounded leniency — under-match can never wrong-park), one marker per class per site unit-tested against verbatim strings. AMENDED: disk C-signal primary = local statfs pre-check (mirrors the Phase-0 gate), ENOSPC marker as in-flight backstop; manifest/404 markers stand, no network pre-probe (TOCTOU). Q3: one site-parameterized reason template for image-not-published (one operator playbook entry). Q5 (the subprocess-boundary finding — engineer verified exit codes don't sub-classify; SQLSTATE never crosses): sb migrate up ENCODES its failure class in documented exit codes — 0 success / 1 unclassified→A / 20 deterministic (psql exit 3 under ON_ERROR_STOP)→B / 22 resource (SQLSTATE class 53 via psql VERBOSITY=verbose documented field)→C; named consts shared migrate↔service; stderr rides the park reason as DATA never as classifier; 22 deferrable briefly (B and C both park-on-first). This contract is also the substrate the deferred 109 forward-step classifier waited for. Added table row: migrate disk-full 53100 → C. Build order: config-generate (B, cleanly structured today) + framework first; migrate exit-code contract; docker markers after recon confirms verbatim strings.
 ---
 <!-- COMMENTS:END -->
