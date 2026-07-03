@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-15 14:31'
-updated_date: '2026-07-03 19:04'
+updated_date: '2026-07-03 19:21'
 labels:
   - upgrade
   - recovery
@@ -43,5 +43,11 @@ author: foreman
 created: 2026-07-03 19:04
 ---
 BUILT + FOREMAN-REVIEWED, HELD IN TREE awaiting the architect's design pass, then commit (2026-07-03). Premise verified on HEAD: the gate's two branches (aged leaked-subprocess SQL + empty-app-only advisory SQL) miss a dead-PID statbus-migrate-<pid> holder; Phase 2 could handle it but only runs when the gate already says dirty — and the install.go:1113 comment falsely claimed otherwise (fixed). FIX (as built, 2 files: cli/cmd/install.go +160/-98, cli/cmd/session_orphan_test.go NEW): shared zombieAdvisoryHolders helper (advisory holders → parse tag → syscall PID-probe → classify) used by BOTH the gate and Phase 2 — single source of truth; subsumes empty-app, adds dead-PID-tagged; kill authority stays in Phase 2; fragile t/f output parse replaced; unqueryable state conservatively triggers cleanup; load-bearing SQL comments preserved as Go comments. Foreman full-diff review DONE (positive); all 3 checkSessionsClean callers verified on-host (probe valid, no guard needed); tests green (8-case pure classifier + procAlive + mixed-set). Deterministic reproducer: a session holding pg_advisory_lock(hashtext('migrate_up')) with application_name='statbus-migrate-<dead-pid>' — old gate says clean (RED), new gate says dirty (GREEN); behavioral end-to-end leans on the dev stack + arcs per the package's documented convention. ⚠ The two files sit UNCOMMITTED in the shared tree — any pathspec commit by others must exclude them.
+---
+
+author: foreman
+created: 2026-07-03 19:21
+---
+COMMITTED + PUSHED: a3eb522c8 (cli/cmd/install.go + cli/cmd/session_orphan_test.go). Architect design pass: APPROVE AS-IS (shared zombieAdvisoryHolders detection for gate + Phase 2; pure classifyAdvisoryHolder with injected liveness; malformed/subprocess tags left alone; EPERM-as-dead preserved; conservative not-clean on unqueryable state; docker-exec pool-bypass probe). Unit tests green (classifier matrix, procAlive real-dead-PID, mixed sets), go vet clean. Behavioral coverage rides the arc lane: run 28679526112 (dispatched on a3eb522c8) exercises install/upgrade paths that traverse the gate.
 ---
 <!-- COMMENTS:END -->
