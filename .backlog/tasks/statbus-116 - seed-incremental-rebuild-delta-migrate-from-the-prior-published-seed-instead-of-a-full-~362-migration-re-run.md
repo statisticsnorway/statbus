@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
-updated_date: '2026-07-03 20:01'
+updated_date: '2026-07-03 20:09'
 labels:
   - build-caching
   - seed
@@ -247,5 +247,11 @@ author: foreman
 created: 2026-07-03 20:01
 ---
 KING RULING (2026-07-03, direct, in-conversation): the SEED_INCREMENTAL_ENABLED repo variable is RETIRED — no external enable flag. Reason (King): "enable the right code and test it and make sure it works." The flag was rollout scaffolding (inert wiring, 4-minute kill on the first-enable failure) and its job is done; the safety now lives entirely in code — fingerprint mismatch→FULL, stale restored prior→typed error→FULL rebuild, no prior→FULL, depth≥5→FULL, and the publish gate makes an inconsistent artifact unshippable. An external variable also made the same commit build differently from mutable side-channel state — not reproducible from the repo. NEW SHAPE: incremental enabled unconditionally in code; kill-switch = ordinary git revert of the enabling commit. ENGINEER BUILDING NOW: remove the images.yaml variable conditional (ancestor walk always runs on push), remove the enable-gate param from the decision core + the SEED_INCREMENTAL build-arg plumbing, retire the stays-false guard test. Architect glances (verify no in-code gate weakened) → foreman review+commit+push. The push's own seed job = the FIRST LIVE INCREMENTAL RUN: expect ancestor walk → statbus-seed:a3eb522c prior → PATH=INCREMENTAL → AC-5 timing measured (or a loud named fallback to FULL, also correct behavior). Operator watches.
+---
+
+author: foreman
+created: 2026-07-03 20:09
+---
+FLAG RETIRED — COMMITTED 7910fbbbc + PUSHED (architect GO; foreman first-hand review; engineer build). 4 files, net −38: images.yaml resolves the ancestor prior unconditionally (no vars.SEED_INCREMENTAL_ENABLED, no enable build-arg); seed_build.go drops the enable-gate param (resolveSeedPath(incremental, prior)); the retired must-not-flip-live guard test is superseded by a STRICTLY STRONGER truth-table invariant (TestResolveSeedPath_IncrementalOnlyWhenAllGatesPass: exactly ONE input combination yields incremental, yesCount==1 asserted); Dockerfile drops ARG SEED_INCREMENTAL. Architect ruling recorded: prior-resolution infra errors fail the job LOUD by design — a degrade-to-empty wrapper would reintroduce ambient-state-dependent builds (the exact class removed) and mask infra failures as silent fulls. Kill-switch = git revert of 7910fbbbc. FIRST LIVE INCREMENTAL RUN in flight: images run 28681327764 — expect prior-present=true → PATH=INCREMENTAL restoring statbus-seed:a3eb522c, depth 0→1, publish gate re-attesting the incremental output, and the AC-5 timing measurement (full-path in-stage baseline ~60-70s). Operator watching with exact criteria; foreman backstop watcher running.
 ---
 <!-- COMMENTS:END -->
