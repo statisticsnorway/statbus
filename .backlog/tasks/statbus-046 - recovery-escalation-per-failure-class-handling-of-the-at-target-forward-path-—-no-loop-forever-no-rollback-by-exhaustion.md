@@ -3,11 +3,11 @@ id: STATBUS-046
 title: >-
   recovery-escalation: per-failure-class handling of the at-target forward path
   — no loop-forever, no rollback-by-exhaustion
-status: To Do
+status: In Progress
 assignee:
-  - architect
+  - '@engineer'
 created_date: '2026-06-12 22:15'
-updated_date: '2026-07-03 20:02'
+updated_date: '2026-07-03 20:09'
 labels:
   - install-recovery
   - upgrade
