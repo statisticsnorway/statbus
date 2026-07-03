@@ -281,6 +281,14 @@ fabricate_scheduled_upgrade_row() {
     # because the helper's contract is "make this row scheduled now";
     # callers expect a deterministic post-condition regardless of
     # whatever prior state the row was in.
+    # BASH-3.2 TRAP (macOS /bin/bash, which runs this harness locally): inside
+    # $( ... << HEREDOC ... ), the 3.2 parser naively counts single quotes in
+    # the heredoc BODY while scanning for the closing paren. An UNPAIRED
+    # apostrophe in a comment (e.g. a contraction like are+not written the
+    # short way) breaks the parse with a misleading "unexpected token )" at
+    # the substitution's end — run r11 burned a VM on exactly this. Keep the
+    # heredoc's single-quote count EVEN: no contractions in SQL comments;
+    # quoted literals like 'ready' are fine because they pair.
     local upsert_sql
     upsert_sql=$(cat << SQL
 WITH input(commit_sha) AS (VALUES ('${head_sha}'))
@@ -327,7 +335,7 @@ ON CONFLICT (commit_sha) DO UPDATE SET
   -- Same rationale as docker_images_status, other half of the two-level
   -- artifact-readiness check verifyArtifacts owns (fabrication bypasses the
   -- prober that would otherwise flip this too): for commit-channel targets,
-  -- release artifacts aren't used at all, so 'ready' is the honest declared
+  -- release artifacts are not used at all, so 'ready' is the honest declared
   -- state, not just a gate-satisfying default.
   release_builds_status = 'ready'::public.release_builds_status_type
 RETURNING id, commit_sha, state, scheduled_at;
