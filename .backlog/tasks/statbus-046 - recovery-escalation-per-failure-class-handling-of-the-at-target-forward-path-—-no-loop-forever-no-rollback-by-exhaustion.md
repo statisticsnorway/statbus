@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-06-12 22:15'
-updated_date: '2026-07-03 21:32'
+updated_date: '2026-07-03 22:02'
 labels:
   - install-recovery
   - upgrade
@@ -171,5 +171,11 @@ SHIPPED park-on-first — 3.1 config-generate: B via exit≠0 non-timeout (templ
 DEFERRED with rulings at each site — manifest-404→B (3.2/3.3): live probe proved the daemon REWRAPS OCI MANIFEST_UNKNOWN into generic prose; ships unknown→A (persistent 404 parks in 2 deaths via same-step-twice); promotes only after a real-surface Linux sample, and if that is also generic it stays A PERMANENTLY (post-failure manifest-inspect probe = the only future alternative, not speculative). Migrate 22/C: psql VERBOSITY SQLSTATE-field plumbing. Health-past-warmup B (3.7): couples to the warmup allowance — slice 3's first item. 3.6 compose-config-B: no structured signal identified; unknown→A is its honest permanent home unless one appears. 3.3 db-up / 3.4 reconnect: class A unchanged.
 
 Default rule shipped: unknown structured signal → A — safe because an error-exit counts as a death, so same-step-twice parks an unknown-deterministic failure on its SECOND occurrence (faster than the budget). Park disposition stays ground-truth-gated (Behind→rollback, else park + once-per-event siren). IN FLIGHT: mechanic building the park-scenario rewrite (3-postswap-resume-died-parked.sh visible in tree, uncommitted); slice 3 (allowances) + slice 1b (rollback-pipeline mapping) remain.
+---
+
+author: foreman
+created: 2026-07-03 22:02
+---
+CLOSING UNIT COMMITTED + PUSHED: 886c79293 (6 files, +384/−16; no schema change) — the 046 BUILD SURFACE IS COMPLETE. Slice 1B: rollback crash-resume bound — ONE shared never-reset death counter, rollback terminals ONLY on two consecutive rollback deaths (never exhaust — a pre-swap exhaust routes to rollback and must get its re-attempt); pure sibling rollbackResumeIsTerminal(step, prior); the flag ROLLS prior←Step then stamps Step=rollback so the handoff free-pass holds by construction; terminal → restore-broke human stop with actionable message + recovery callback; hard bound 3 forward + 2 rollback = 5 deaths. NOTE FOR THE RECORD: both closing reviews (architect + foreman) independently caught the same off-by-one in the first cut (terminal after ONE rollback death — a single transient mid-restore OOM would have summoned a human with zero retries) — fixed pre-commit; the dual-review architecture earning its cost on recovery-critical code. Slice 3a: health-past-warmup → B park-on-first (verified: waitForRestReady's 5-min /ready warmup runs BEFORE the RPC loop — exhausted = genuinely can't serve). Slice 3b: PostSwapDBHealthTimeout=5min (WAL-replay-aware, generous-fixed doctrine). Slice 3c (mechanic-built, engineer-reviewed): images-ready CLAIM GATE at BOTH claim sites — building→loud wait + immediate re-probe (closes the 6h-starvation gap), failed→loud actionable no-op, past-grace→claim-anyway loud (delay-never-wedge); grace = the hoisted manifestTimeout shared with verifyArtifacts by construction; pure gate with conservative default; also fixes the latent wart where a fresh push was immediately claimed + half-published images pulled. Plus the required statfs log line. REMAINING on 046: the deferred classifier arms (inventoried comment 9) and the EMPIRICAL CAPSTONE — the park-scenario VM run (r3 in flight, task bj81y4tz6). AC#2 substantially complete pending the arc; AC#3 diagrams current; AC#4 = the VM run.
 ---
 <!-- COMMENTS:END -->
