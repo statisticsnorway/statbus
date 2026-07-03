@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
-updated_date: '2026-07-02 19:27'
+updated_date: '2026-07-03 11:11'
 labels:
   - build-caching
   - seed
@@ -199,5 +199,11 @@ author: foreman
 created: 2026-07-02 19:27
 ---
 DRIFT FIX SHIPPED + LOCAL PROOF GREEN (foreman, 2026-07-02 ~19:27). Three commits, each foreman-reviewed first-hand: 55cae593d (git-derived eligibility for pre-fingerprint priors — validated live by the rc.03 run), 8b5912a9a (the ORDER BY derived_priority fix in migration 20260218215337 — data-only, committed via the pairing hook's own documented data-only override), b19ca9d5d (test 018: ids_follow_priority=t GREEN — enforces the invariant forward; header attributes the discovery to the multi-delta oracle; the brittle perturbation variant deliberately SKIPPED per no-flaky-tests). GREEN-PATH RULING (engineer analysis, foreman-ratified): rc.03 can never re-green post-fix — correctly (eligibility refuses the edited migration; its baked ids predate the fix); no local prior can distinguish fixed-from-unfixed (from-empty priors share FULL's layout — the same blindness that hid this from criterion 4). The TRUE confirming run = verify-multidelta against the NEXT post-fix published seed once a genuine migration delta accumulates — deferred BY CONSTRUCTION. ⇒ PENDING ON THE KING: the enable-flip timing fork — (a) wait for the deferred confirming run (conservative; the ~2min→seconds win arrives with the next migration-bearing cycle), or (b) flip earlier on test-018 + the certified single-delta proof, with the multi-delta run as a post-enable confirming gate. Criterion 6's checkbox waits for the confirming run either way.
+---
+
+author: foreman
+created: 2026-07-03 11:11
+---
+FLIP SEQUENCE IN MOTION (King D4 flip-early ruling; foreman executing during the away window, 2026-07-03). COMMITTED: 494481aa7 (depth cap N=5 — now the PRIMARY drift bound: the release=full clause DISSOLVED under grounding, releases never build a seed, they reuse the master-push image; releases.yaml rebuilds app/worker/db/proxy only) + ce383effc (the gated flip machinery in images.yaml: on-demand git unshallow + sb-extract from the statbus-sb image, ALL inside the enabled branch after the gate's exit 0; checkout stays depth-1; disabled path byte-identical — foreman traced the diff line-by-line). INERT-PROOF RUN: images run 28656755124 (triggered by this push, variable UNSET) — must show seed job green + decision log PATH=FULL. THEN THE FLIP: `gh variable set SEED_INCREMENTAL_ENABLED --body true` → dispatch images.yaml → observe PATH=INCREMENTAL + first live incremental seed + AC-5 timing measurement. KILL-SWITCH (documented before flipping, works from any state): `gh variable set SEED_INCREMENTAL_ENABLED --body false` (or delete the variable) → the very next build is full-from-empty; no commit/revert needed; the in-stage SeedBuildDecision fingerprint gate + the empty-prior fallback additionally force FULL on any anomaly regardless of the variable.
 ---
 <!-- COMMENTS:END -->
