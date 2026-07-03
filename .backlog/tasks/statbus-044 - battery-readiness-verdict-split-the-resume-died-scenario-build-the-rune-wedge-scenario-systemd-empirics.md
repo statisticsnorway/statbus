@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - architect
 created_date: '2026-06-12 21:51'
-updated_date: '2026-06-12 21:54'
+updated_date: '2026-07-03 21:12'
 labels:
   - install-recovery
   - testing
@@ -56,3 +56,28 @@ CORRECT VERDICT-AWARE MATRIX (four cases, matched to real behavior):
 
 STATUS: scenario rewrite ON HOLD until the King settles loudness (foreman carrying the fork to him). Item 2 (rune-wedge scenario) PROCEEDS — it is case 0, independent of the loudness question. Item 3 (systemd empirics) unaffected.
 <!-- SECTION:NOTES:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect
+created: 2026-07-03 21:12
+---
+PARK-SCENARIO ASSERTION SPEC (architect, 2026-07-03, pre-staged for the overnight rewrite — the run is the oracle; these are the observables that make the run's verdict UNAMBIGUOUS. Grounded in slice-1 as shipped: resumeEscalation + parkUpgrade + the parked-skip + the three deliberate triggers).
+
+SCENARIO SHAPE (3-postswap-resume-died, rewritten): drive the post-swap resume to repeated process death (the existing pinned-kill mechanism), then assert PARK not loop, then prove UN-PARK.
+
+ASSERT AFTER THE KILLS (park state):
+1. ROW: state='in_progress' AND recovery_parked_at IS NOT NULL AND recovery_attempts reflects the path taken — same-step-twice kills at ONE step park at attempts 2-3 with reason matching 'two consecutive crash-deaths at step "<step>"'; varied-step kills park at attempts 4 with reason matching 'crash-resume budget exhausted: 3 process deaths'. Pin WHICH path the scenario drives (pinned-kill at one step ⇒ expect the same-step-twice message — the budget message showing up instead means the dying-step write-ahead broke).
+2. UNIT ALIVE-IDLE: systemctl is-active == active; NRestarts BOUNDED (≤ deaths + a small constant) and FROZEN across a settle window (sleep N; NRestarts unchanged) — the anti-rune assertion, the single most load-bearing check.
+3. SIREN ONCE: exactly ONE STATBUS_EVENT=parked callback in the log across the whole scenario INCLUDING two extra service restarts after park (each restart must log the skip line 'is PARKED … skipping automatic resume' and must NOT increment recovery_attempts — read the column before/after).
+4. FLAG: still on disk (parked row keeps it); phase unchanged by skips.
+5. NEVER: state='rolled_back' at any point; no rollback log markers (at-target exhaust must park, never roll back — 039).
+
+ASSERT UN-PARK (the operator contract, both arms if cheap, install arm at minimum):
+6. ./sb install → log 'un-parked upgrade id=N (deliberate ./sb install)' → row parked_at IS NULL → exactly ONE fresh attempt runs (recovery_attempts == 1 after resume starts). If the target is still broken: it re-parks (attempts small, fresh reason, ONE new siren — the fires-once contract is per park EVENT). If the kill-injection is lifted first: the fresh attempt COMPLETES — the happy un-park ending, preferable as the scenario terminal since it also proves the pipeline is undamaged by the park/un-park cycle.
+7. (cheap extra) NOTIFY apply arm: upgrade_apply NOTIFY on the parked row → row leaves parked (rescheduled, counters reset) — proves edit 6.
+
+ANTI-ASSERTIONS (do NOT assert): journald line ordering beyond the named markers; exact timestamps; NRestarts == an exact number (bound it, don't pin it — systemd's counter includes unrelated starts).
+---
+<!-- COMMENTS:END -->
