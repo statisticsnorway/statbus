@@ -293,6 +293,12 @@ assert_demo_data_present "$VM_NAME"
 # mechanism this scenario drives (mirrors 0-happy-upgrade /
 # 3-postswap-migration-timeout, the two existing service-dispatched
 # scenarios per wedge-helpers.sh's INVARIANT comment on quiesce_upgrade_service).
+# Restarting the unit onto the pre-staged HEAD binary (below, before fabricate)
+# is NOT quiescing either — 0-happy-upgrade does the same restart for the same
+# reason (put the CURRENT-CODE daemon in control before dispatch) and still
+# lets it claim/dispatch unattended afterward. This scenario's assertions are
+# all POST-SWAP park behavior; old-daemon (pre-restart) dispatch fidelity is
+# 0-happy-upgrade's job, not this one's.
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── uploading HEAD sb binary + fabricating scheduled row (daemon-dispatched) ──"
@@ -310,6 +316,21 @@ upload_sb_to_vm "$VM_NAME"
 # newlines collapse, breaking if/then/fi syntax. Semicolons replace newlines;
 # if COND; then CMD; fi is valid single-line bash.
 VM_EXEC bash -c "cd ~/statbus && if ! git cat-file -e $HEAD_SHA 2>/dev/null; then git fetch --depth 1 origin $HEAD_SHA || { echo 'FATAL: cannot fetch HEAD' >&2; exit 1; }; fi && git checkout $HEAD_SHA"
+
+# Restart the upgrade-service unit so it re-execs onto the freshly pre-staged
+# HEAD binary (mirrors 0-happy-upgrade.sh:132 VERBATIM). Autopsy from run r10's
+# kept VM (SIGQUIT goroutine dump): the OLD v2026.05.2 daemon was IDLE in its
+# main select loop, not stuck — it just silently declined to claim the
+# fabricated row for 17+ minutes (zero claim/skip lines in its journal). That
+# era's claim predicate is opaque and superseded; we do not reverse-engineer
+# it — we put the CURRENT-CODE daemon (whose claim behavior is loud and whose
+# images-ready gate we now satisfy, see the fabricate fix below) in control
+# before fabricating, same as 0-happy-upgrade already does. This is NOT
+# quiescing — the restarted daemon still dispatches unattended; see the
+# INVARIANT note in the Phase 3 header above.
+echo "── restarting upgrade-service unit onto the pre-staged HEAD binary ──"
+vm_restart_unit "statbus-upgrade@statbus.service"
+echo "  ✓ unit active on the HEAD binary"
 
 fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_SHA"
 

@@ -289,7 +289,7 @@ INSERT INTO public.upgrade
    has_migrations, commit_version, state, scheduled_at,
    started_at, completed_at, rolled_back_at, error,
    log_relative_file_path, skipped_at, dismissed_at, superseded_at,
-   docker_images_status)
+   docker_images_status, release_builds_status)
 SELECT
   input.commit_sha,
   now(),
@@ -302,7 +302,8 @@ SELECT
   now(),
   NULL, NULL, NULL, NULL,
   'harness-' || substring(input.commit_sha for 8) || '.log', NULL, NULL, NULL,
-  'ready'::public.docker_images_status_type
+  'ready'::public.docker_images_status_type,
+  'ready'::public.release_builds_status_type
 FROM input
 ON CONFLICT (commit_sha) DO UPDATE SET
   state            = 'scheduled'::public.upgrade_state,
@@ -322,7 +323,13 @@ ON CONFLICT (commit_sha) DO UPDATE SET
   -- 'ready' explicitly. Legitimate, not a gate bypass: the harness has just
   -- installed the target commit from the very per-commit-image registry
   -- verifyArtifacts would have checked, so the images ARE actually present.
-  docker_images_status = 'ready'::public.docker_images_status_type
+  docker_images_status = 'ready'::public.docker_images_status_type,
+  -- Same rationale as docker_images_status, other half of the two-level
+  -- artifact-readiness check verifyArtifacts owns (fabrication bypasses the
+  -- prober that would otherwise flip this too): for commit-channel targets,
+  -- release artifacts aren't used at all, so 'ready' is the honest declared
+  -- state, not just a gate-satisfying default.
+  release_builds_status = 'ready'::public.release_builds_status_type
 RETURNING id, commit_sha, state, scheduled_at;
 SQL
 )
