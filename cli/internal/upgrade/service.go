@@ -137,12 +137,11 @@ type Service struct {
 	backupRetention int           // BACKUP_RETENTION_COUNT — dumps kept per prefix (default 7)
 	backupMu        sync.Mutex    // single-flight guard: never two backups at once
 	// pinnedVer removed — use "skip" in the UI instead of a channel that hides all releases
-	upgrading       bool               // true during executeUpgrade; prevents ticker/notify from using nil conn
-	pendingRecreate bool               // if true, next upgrade deletes+recreates the database instead of migrating
-	cachedURL       string             // cached health check URL (derived from .env at startup)
-	cachedReadyURL  string             // cached PostgREST admin /ready URL (derived from .env; warmup gate before the RPC probe)
-	listenCancel    context.CancelFunc // cancels the listenLoop goroutine
-	listenDone      chan struct{}      // closed when the active listenLoop goroutine exits
+	upgrading      bool               // true during executeUpgrade; prevents ticker/notify from using nil conn
+	cachedURL      string             // cached health check URL (derived from .env at startup)
+	cachedReadyURL string             // cached PostgREST admin /ready URL (derived from .env; warmup gate before the RPC probe)
+	listenCancel   context.CancelFunc // cancels the listenLoop goroutine
+	listenDone     chan struct{}      // closed when the active listenLoop goroutine exits
 	// listenWg retired in favour of listenDone: we need to tolerate a leaked
 	// goroutine after a force-close timeout (task #40 / #37 root cause), and
 	// sync.WaitGroup's counter would go negative on the leaked goroutine's
@@ -268,7 +267,7 @@ type UpgradeFlag struct {
 	Trigger    string    `json:"trigger"`               // coarse bucket ("notify"|"scheduled"|"recovery"|"install")
 	Holder     string    `json:"holder"`                // HolderService or HolderInstall
 	Phase      string    `json:"phase,omitempty"`       // FlagPhasePreSwap (default) or FlagPhasePostSwap
-	Recreate   bool      `json:"recreate,omitempty"`    // captures d.pendingRecreate so resumePostSwap can replay --recreate
+	Recreate   bool      `json:"recreate,omitempty"`    // durable recreate intent (from public.upgrade.recreate) so resumePostSwap can replay --recreate
 	BackupPath string    `json:"backup_path,omitempty"` // finalized backup dir, populated at Phase=post_swap so resumePostSwap can roll back without DB
 }
 
@@ -407,8 +406,8 @@ func (l *FlagLock) Close() {
 //
 // Phase is initialised to FlagPhasePreSwap; writeFlagPhase rewrites it to
 // FlagPhasePostSwap after replaceBinaryOnDisk, right before the exit-42
-// handoff. Recreate captures d.pendingRecreate so the resumed post-swap
-// process can replay the --recreate branch identically.
+// handoff. Recreate carries the durable recreate intent (public.upgrade.recreate,
+// read at claim) so the resumed post-swap process can replay --recreate identically.
 func (d *Service) writeUpgradeFlag(id int, commitSHA string, commitTags []string, invokedBy, trigger string, recreate bool) error {
 	flag := UpgradeFlag{
 		ID:         id,
@@ -1404,21 +1403,23 @@ func (d *Service) ExecuteUpgradeInline(ctx context.Context, id int, commitSHA, d
 	// STATBUS-077: claim records only the display version (from_commit_version).
 	// The recovery restore target is the pinned `pre-upgrade` branch (single source);
 	// the from_commit_sha column was removed.
-	tag, err := d.queryConn.Exec(ctx,
-		"UPDATE public.upgrade SET state = 'in_progress', started_at = now(), from_commit_version = $1 WHERE id = $2 AND state = 'scheduled' AND started_at IS NULL",
-		d.version, id)
-	if err != nil {
-		d.markPgInvariantTerminal(err, "service.go:ExecuteUpgradeInline:claim")
-		return fmt.Errorf("claim scheduled upgrade row %d: %w", id, err)
-	}
-	if tag.RowsAffected() == 0 {
+	// STATBUS-092: claim + read (commit_tags, recreate) atomically via RETURNING,
+	// so the flag captures the full commit identity AND the durable recreate
+	// intent in one round-trip. ErrNoRows = the row is no longer 'scheduled'
+	// (another actor claimed it first).
+	var commitTags []string
+	var recreate bool
+	claimErr := d.queryConn.QueryRow(ctx,
+		"UPDATE public.upgrade SET state = 'in_progress', started_at = now(), from_commit_version = $1 WHERE id = $2 AND state = 'scheduled' AND started_at IS NULL RETURNING commit_tags, recreate",
+		d.version, id).Scan(&commitTags, &recreate)
+	if errors.Is(claimErr, pgx.ErrNoRows) {
 		return fmt.Errorf("upgrade row %d no longer in 'scheduled' state (another actor claimed it first); re-run ./sb install after it finishes", id)
 	}
-	// Load the row's tags so the flag file captures the full commit identity.
-	var commitTags []string
-	_ = d.queryConn.QueryRow(ctx,
-		"SELECT commit_tags FROM public.upgrade WHERE id = $1", id).Scan(&commitTags)
-	return d.executeUpgrade(ctx, id, commitSHA, displayName, commitTags, "operator:install", "install-cli")
+	if claimErr != nil {
+		d.markPgInvariantTerminal(claimErr, "service.go:ExecuteUpgradeInline:claim")
+		return fmt.Errorf("claim scheduled upgrade row %d: %w", id, claimErr)
+	}
+	return d.executeUpgrade(ctx, id, commitSHA, displayName, commitTags, "operator:install", "install-cli", recreate)
 }
 
 // Label taxonomy used by logUpgradeRow() to tag terminal-state transitions in
@@ -2051,14 +2052,12 @@ func (d *Service) handleNotification(ctx context.Context, n *pgconn.Notification
 			return
 		}
 		fmt.Printf("Received NOTIFY upgrade_apply: %s\n", payload)
-		// Parse optional :recreate suffix (e.g., "v2026.03.0:recreate")
-		version := payload
-		recreate := false
-		if strings.HasSuffix(payload, ":recreate") {
-			version = strings.TrimSuffix(payload, ":recreate")
-			recreate = true
-			fmt.Printf("Recreate mode requested for %s\n", version)
-		}
+		// STATBUS-092: recreate intent is DURABLE on the public.upgrade row (set
+		// at schedule time), read by executeScheduled at claim — NOT carried in
+		// the NOTIFY payload. A legacy ':recreate' suffix (a pre-092 sender) is
+		// stripped and IGNORED so it never mis-parses as a version; the row is
+		// the single source of truth.
+		version := strings.TrimSuffix(payload, ":recreate")
 		// No pre-validation: onScheduledNotify calls resolveUpgradeTarget,
 		// which is the sole parser for operator/NOTIFY payloads. It accepts
 		// CalVer tags, commit_sha, commit_short, and the legacy `sha-<hex>`
@@ -2066,9 +2065,6 @@ func (d *Service) handleNotification(ctx context.Context, n *pgconn.Notification
 		// surface as clear error messages from there. A NOTIFY for an
 		// unregistered commit is a loud no-op (STATBUS-086, require-register).
 		d.onScheduledNotify(ctx, version)
-		if recreate {
-			d.pendingRecreate = true
-		}
 	}
 }
 
@@ -3671,6 +3667,7 @@ func (d *Service) onScheduledNotify(ctx context.Context, input string) {
 	result, err := d.queryConn.Exec(ctx,
 		`UPDATE public.upgrade SET
 		   state = 'scheduled',
+		   recreate = false,
 		   scheduled_at = now(),
 		   started_at = NULL,
 		   completed_at = NULL,
@@ -3837,6 +3834,7 @@ func (d *Service) RunSchedule(ctx context.Context, input string, recreate bool) 
 		ct, err := d.queryConn.Exec(ctx,
 			`UPDATE public.upgrade SET
 			   state = 'scheduled',
+			   recreate = $2,
 			   scheduled_at = now(),
 			   started_at = NULL,
 			   completed_at = NULL,
@@ -3847,7 +3845,7 @@ func (d *Service) RunSchedule(ctx context.Context, input string, recreate bool) 
 			   superseded_at = NULL,
 			   log_relative_file_path = NULL
 			 WHERE commit_sha = $1 AND state != 'in_progress'`,
-			string(sha))
+			string(sha), recreate)
 		if err != nil {
 			return fmt.Errorf("schedule %s: %w", displayName, err)
 		}
@@ -3864,21 +3862,18 @@ func (d *Service) RunSchedule(ctx context.Context, input string, recreate bool) 
 			return fmt.Errorf("%s is %s — refusing to reschedule; let the in-progress upgrade finish or recover first", displayName, state)
 		}
 		fmt.Printf("Scheduled upgrade to %s\n", displayName)
+		if recreate {
+			fmt.Printf("Recreate mode requested for %s (persisted on the upgrade row)\n", displayName)
+		}
 		// Once a commit is selected, all older candidates are obsolete.
 		d.supersedeOlderReleases(ctx, string(sha))
 
-		if recreate {
-			// Convey recreate to the daemon via the NOTIFY payload. The UPDATE
-			// above already fired upgrade_notify_daemon_trigger's bare NOTIFY;
-			// this :recreate-suffixed one is what handleNotification parses into
-			// the daemon's pendingRecreate flag (parity with the retired apply).
-			payload := string(sha) + ":recreate"
-			notify := fmt.Sprintf("NOTIFY upgrade_apply, '%s'", strings.ReplaceAll(payload, "'", "''"))
-			if _, err := d.queryConn.Exec(ctx, notify); err != nil {
-				return fmt.Errorf("notify recreate: %w", err)
-			}
-			fmt.Printf("Recreate requested (sent NOTIFY upgrade_apply '%s')\n", payload)
-		}
+		// STATBUS-092: recreate intent is DURABLE on the row (set in the UPDATE
+		// above), read by executeScheduled at claim time. No out-of-band
+		// ':recreate' NOTIFY — that raced the trigger's sha-NOTIFY, which the
+		// daemon processed first and ran the upgrade as normal before the
+		// ':recreate' NOTIFY was dequeued. The scheduling UPDATE's trigger
+		// (upgrade_notify_daemon) already NOTIFYs the daemon to wake up.
 		return nil
 	})
 }
@@ -4017,16 +4012,20 @@ func (d *Service) executeScheduled(ctx context.Context) {
 	// STATBUS-077: claim records only the display version (from_commit_version).
 	// The recovery restore target is the pinned `pre-upgrade` branch (single source);
 	// the from_commit_sha column was removed.
-	tag, err := d.queryConn.Exec(ctx,
-		"UPDATE public.upgrade SET state = 'in_progress', started_at = now(), from_commit_version = $1 WHERE id = $2 AND state = 'scheduled' AND started_at IS NULL",
-		d.version, id)
-	if err != nil {
-		d.markPgInvariantTerminal(err, "service.go:executeScheduled:claim")
-		fmt.Printf("UPGRADE_CLAIM_FAILED: could not claim scheduled upgrade id=%d: %v\n", id, err)
+	// STATBUS-092: read the durable recreate intent atomically WITH the claim
+	// (RETURNING) so it can never be lost to NOTIFY timing. ErrNoRows = the state
+	// guard matched 0 rows (another actor claimed first) — a benign skip.
+	var recreate bool
+	claimErr := d.queryConn.QueryRow(ctx,
+		"UPDATE public.upgrade SET state = 'in_progress', started_at = now(), from_commit_version = $1 WHERE id = $2 AND state = 'scheduled' AND started_at IS NULL RETURNING recreate",
+		d.version, id).Scan(&recreate)
+	if errors.Is(claimErr, pgx.ErrNoRows) {
+		fmt.Printf("Scheduled upgrade id=%d already claimed by another actor; skipping.\n", id)
 		return
 	}
-	if tag.RowsAffected() == 0 {
-		fmt.Printf("Scheduled upgrade id=%d already claimed by another actor; skipping.\n", id)
+	if claimErr != nil {
+		d.markPgInvariantTerminal(claimErr, "service.go:executeScheduled:claim")
+		fmt.Printf("UPGRADE_CLAIM_FAILED: could not claim scheduled upgrade id=%d: %v\n", id, claimErr)
 		return
 	}
 
@@ -4035,7 +4034,7 @@ func (d *Service) executeScheduled(ctx context.Context) {
 	// This covers admin-UI "Apply now", NOTIFY upgrade_apply from ./sb upgrade apply-latest,
 	// and the discovery loop's auto-schedule — we don't currently distinguish among them
 	// at this layer. Later improvement: record originator in public.upgrade when scheduling.
-	if err := d.executeUpgrade(ctx, id, commitSHA, displayName, commitTags, "scheduled", "scheduled"); err != nil {
+	if err := d.executeUpgrade(ctx, id, commitSHA, displayName, commitTags, "scheduled", "scheduled", recreate); err != nil {
 		fmt.Printf("Upgrade to %s failed: %v\n", displayName, err)
 	}
 }
@@ -4051,7 +4050,7 @@ func (d *Service) executeScheduled(ctx context.Context) {
 // alive, and abort. The only install invocation allowed through during this
 // function is the post-upgrade fixup at runInstallFixup, which sets the
 // --post-upgrade-fixup flag and STATBUS_POST_UPGRADE_FIXUP=1 env var.
-func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, displayName string, commitTags []string, invokedBy, trigger string) error {
+func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, displayName string, commitTags []string, invokedBy, trigger string, recreate bool) error {
 	d.upgrading = true
 	defer func() { d.upgrading = false }()
 
@@ -4208,7 +4207,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// survives and recoverFromFlag at the next service startup reconciles
 	// it (it's on the filesystem, not in the DB volume which gets rolled
 	// back).
-	if err := d.writeUpgradeFlag(id, commitSHA, commitTags, invokedBy, trigger, d.pendingRecreate); err != nil {
+	if err := d.writeUpgradeFlag(id, commitSHA, commitTags, invokedBy, trigger, recreate); err != nil {
 		// TODO: pick code — mutex flag acquisition failure; consider adding ErrInstallPreconditionFailed
 		msg := fmt.Sprintf("Could not acquire upgrade-mutex flag file: %v", err)
 		d.failUpgrade(ctx, id, msg, progress)
@@ -4845,11 +4844,11 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	}
 
 	// Step 10: Run migrations (or recreate database if requested).
-	// `recreate` arrives via parameter (from d.pendingRecreate at pre-swap time,
-	// or from flag.Recreate after a post-swap restart). d.pendingRecreate is
-	// reset to false so a subsequent upgrade doesn't accidentally recreate.
+	// `recreate` arrives via parameter — sourced from the DURABLE
+	// public.upgrade.recreate column read atomically at claim (STATBUS-092) and
+	// carried through executeUpgrade → writeUpgradeFlag → flag.Recreate →
+	// applyPostSwap. No volatile in-memory flag to reset.
 	if recreate {
-		d.pendingRecreate = false
 		progress.Write("Recreating database from scratch (--recreate)...")
 		// deferGating: recreate-database runs the full migration set + seed; it
 		// can be silent for minutes on a single big DDL, so output-gating would

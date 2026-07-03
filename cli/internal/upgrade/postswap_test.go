@@ -107,7 +107,7 @@ func TestUpgradeFlagJSONLegacy_OmitsOptionalFields(t *testing.T) {
 }
 
 // TestWriteUpgradeFlag_PersistsRecreate verifies executeUpgrade can hand
-// d.pendingRecreate through to the on-disk flag so the post-swap resume
+// the recreate intent through to the on-disk flag so the post-swap resume
 // replays the --recreate branch identically.
 func TestWriteUpgradeFlag_PersistsRecreate(t *testing.T) {
 	for _, recreate := range []bool{false, true} {
