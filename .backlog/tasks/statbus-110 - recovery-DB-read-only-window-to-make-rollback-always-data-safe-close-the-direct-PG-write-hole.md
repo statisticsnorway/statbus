@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-06-26 11:30'
-updated_date: '2026-07-03 11:47'
+updated_date: '2026-07-03 19:21'
 labels:
   - upgrade
   - recovery
@@ -187,5 +187,11 @@ author: foreman
 created: 2026-07-03 11:47
 ---
 🔴 ARC RE-RUN (28656025811) STILL RED — THE EXEMPTION-AS-MIGRATION HAS A STRUCTURAL FLAW ON SEED-RESTORED BOXES (mechanic classification + foreman hypothesis, architect verifying). Facts (tmp/mechanic-arc-28656025811.md): identical HEALTHCHECK_REST_DOWN on both forward-apply arcs DESPITE migration 20260703104910 present in base A and marked applied in the seed ledger; base-A installs healthy; the ROLLBACK arc PASSED (87s — the rollback path is fine); no immutability/hash errors anywhere (the stale-hash tail did NOT fire here). HYPOTHESIS (explains every observation incl. the mechanic's contradicting local repro): the arc VM installs by RESTORING THE SEED; ALTER ROLE settings live in the CLUSTER catalog which a database-level pg_dump never carries → the restored box's ledger claims the exemption applied while the role GUC does not exist → first upgrade turns the window on → REST restarts → no exemption → the original deadlock. Local dev worked because the migration RAN there. If confirmed: severity = EVERY seed-restored box's FIRST upgrade deadlocks — the fix must move to where cluster-level state is born (db init / post_restore.sql), and the general class 'cluster-level migration effects silently dropped by seed restore while the ledger claims applied' joins the stale-hash defect in the architect's unified seed-fidelity design (in progress, top priority). 110's AC proof remains blocked on that design landing + a green arc.
+---
+
+author: foreman
+created: 2026-07-03 19:21
+---
+Exemption re-homed per doc-025 D (commit 98093f69f): migration 20260703104910 DELETED (was in no released tag; orphan ledger rows on boxes that ran it are skipped via findUpFile-miss). ALTER ROLE authenticator SET default_transaction_read_only=off now lives in migrations/post_restore.sql (re-armed on every migrate up, incl. seed-restored boxes — the pg_dump-cannot-carry-cluster-state root cause of the arc recurrence) AND postgres/init-db.sh (armed at cluster birth; ON_ERROR_STOP=1 so a failed arming statement cannot pass silently). 20240102000000's timeouts + safeupdate mirrors ride along in both homes. Proof-of-fix oracle: arc run 28679526112 — forward-apply upgrade must pass the REST /ready health check (no HEALTHCHECK_REST_DOWN recurrence).
 ---
 <!-- COMMENTS:END -->
