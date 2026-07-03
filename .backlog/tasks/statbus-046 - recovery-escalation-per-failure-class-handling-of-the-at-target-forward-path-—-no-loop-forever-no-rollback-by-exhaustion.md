@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-06-12 22:15'
-updated_date: '2026-07-03 20:19'
+updated_date: '2026-07-03 20:32'
 labels:
   - install-recovery
   - upgrade
@@ -141,5 +141,11 @@ author: foreman
 created: 2026-07-03 20:19
 ---
 SLICE-1 PROGRESS + DESIGN SEAM RULED (2026-07-03 evening). BUILT so far (uncommitted, engineer): migration 20260703210000 (the three park columns — applied to dev, seed, and test template; tester verified \\d output), recovery_escalation.go (pure decision core: budget + same-step-twice + terminal routing; machine-string step identifiers, never English), 5 green tests. ARCHITECT RULING on the one seam: CONFIRMED — the core routes a terminal via a caller-supplied canRollBack BOOL (computed by the 039/ground-truth layer: pre-swap or positively-Behind = true, at-target = false); passing the phase into the core would duplicate direction knowledge — the same gate/action-divergence class the 055 fix killed. THREE PINS for the wiring: (1) name the budget in DEATHS not attempts (deaths = attempts−1; 3 deaths = terminal; prevents a future 'fix' of an off-by-one that isn't one); un-park resets the counter ONLY on the two deliberate operator triggers; (2) WRITE-AHEAD step recording — the flag's dying-step is written before each step starts, so a SIGKILL leaves the step name behind and same-step-twice can actually fire; (3) rollback-pipeline resumes reuse the core but map terminal at the CALL SITE to the restore-broke human stop — the core's {continue, park, rollback} vocabulary does not widen. Remaining: service.go wiring (flag fields, increment-at-start, step instrumentation, park skip + once-only siren, un-park reset), diagrams in the same commit, doc/db + types pairing (now unblocked by the tester's refresh).
+---
+
+author: foreman
+created: 2026-07-03 20:32
+---
+INSTALL UN-PARK RULED (architect, 2026-07-03): option (a) — the deliberate ./sb install resets the park marker in the INSTALL LADDER (cli/cmd/install_upgrade.go crash-recovery Part 2, after LoadConfigAndConnect succeeds, before RecoverFromFlag); the parked-skip in the service resume path stays UNCONDITIONAL (automatic resumes never un-park — a deliberate-bool through the shared resume path would couple it to caller intent at every call site, the same divergence class 055 killed). Scope pins: (1) PARKED-ONLY reset (recovery_parked_at IS NOT NULL) with a loud named line — a crashed-but-not-parked row keeps its attempt count so install-driven crash cycles still park on budget exhaustion; the NEXT install after a park gets the fresh budget; (2) ONE shared reset helper (columns + live-upgrade guard) with two thin keyed wrappers (by commit_sha for re-schedule, by id for install) so the two operator triggers can never drift; (3) no new locking — the install-vs-service race serializes on the existing flag/flock machinery, either runner's fresh attempt satisfies the contract. Siren confirmed per-park-event (no fired-marker to clear; re-park after a failed fresh attempt correctly sirens again). GAP THIS CLOSES: without it, a parked row would silently swallow the operator's canonical run-install-again recovery action — the hands-off deployment contract. Engineer wiring now; then the whole slice-1 package → architect hands-on review → foreman review → commit.
 ---
 <!-- COMMENTS:END -->
