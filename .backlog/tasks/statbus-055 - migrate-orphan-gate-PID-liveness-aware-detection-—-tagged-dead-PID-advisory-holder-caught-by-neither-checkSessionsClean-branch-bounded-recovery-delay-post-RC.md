@@ -4,9 +4,11 @@ title: >-
   migrate-orphan-gate: PID-liveness-aware detection — tagged dead-PID advisory
   holder caught by neither checkSessionsClean branch (bounded recovery delay,
   post-RC)
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - engineer
 created_date: '2026-06-15 14:31'
+updated_date: '2026-07-03 19:04'
 labels:
   - upgrade
   - recovery
@@ -33,3 +35,13 @@ PROOF: its own RED→GREEN — RED: a dead-PID `statbus-migrate-<deadpid>` advis
 
 Scope: cli/cmd/install.go checkSessionsClean. Owner: architect (recovery/session design). Post-RC — bounded weakness, not a wedge; do not rush a gate redesign into the release.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-03 19:04
+---
+BUILT + FOREMAN-REVIEWED, HELD IN TREE awaiting the architect's design pass, then commit (2026-07-03). Premise verified on HEAD: the gate's two branches (aged leaked-subprocess SQL + empty-app-only advisory SQL) miss a dead-PID statbus-migrate-<pid> holder; Phase 2 could handle it but only runs when the gate already says dirty — and the install.go:1113 comment falsely claimed otherwise (fixed). FIX (as built, 2 files: cli/cmd/install.go +160/-98, cli/cmd/session_orphan_test.go NEW): shared zombieAdvisoryHolders helper (advisory holders → parse tag → syscall PID-probe → classify) used by BOTH the gate and Phase 2 — single source of truth; subsumes empty-app, adds dead-PID-tagged; kill authority stays in Phase 2; fragile t/f output parse replaced; unqueryable state conservatively triggers cleanup; load-bearing SQL comments preserved as Go comments. Foreman full-diff review DONE (positive); all 3 checkSessionsClean callers verified on-host (probe valid, no guard needed); tests green (8-case pure classifier + procAlive + mixed-set). Deterministic reproducer: a session holding pg_advisory_lock(hashtext('migrate_up')) with application_name='statbus-migrate-<dead-pid>' — old gate says clean (RED), new gate says dirty (GREEN); behavioral end-to-end leans on the dev stack + arcs per the package's documented convention. ⚠ The two files sit UNCOMMITTED in the shared tree — any pathspec commit by others must exclude them.
+---
+<!-- COMMENTS:END -->
