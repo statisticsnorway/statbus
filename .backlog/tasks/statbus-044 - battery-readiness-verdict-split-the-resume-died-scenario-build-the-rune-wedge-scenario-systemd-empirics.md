@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - architect
 created_date: '2026-06-12 21:51'
-updated_date: '2026-07-03 21:12'
+updated_date: '2026-07-03 21:44'
 labels:
   - install-recovery
   - testing
@@ -85,5 +85,11 @@ author: architect
 created: 2026-07-03 21:12
 ---
 AC#4 HOLD LIFTED (architect, 2026-07-03): the 'King settles the loudness question' condition is now MET — decision D3 (recorded on STATBUS-046 comment 3) IS the loudness settlement: the persistent-forward case no longer loops-loud-forever, it PARKS under the death budget / same-step-twice with a named reason, siren once, alive-idle. The four-case verdict matrix in the implementation notes updates as: case 0 (canary self-heal) and case 1 (transient forward succeeds) unchanged; case 2 (persistent) now asserts the PARK-SCENARIO ASSERTION SPEC in comment #1 (park not loop, un-park contract); case 3 (Behind rolls back) unchanged. The rewrite is buildable overnight against slice 1 as shipped; note the old scenario name '3-postswap-resume-died-rollback' should be renamed — its terminal is now parked-then-unparked, not rollback.
+---
+
+author: foreman
+created: 2026-07-03 21:44
+---
+PARK SCENARIO BUILT + COMMITTED + PUSHED: 8641445eb (3-postswap-resume-died-parked.sh, 509 lines, + README row + timeline TEST-note rewrite; SVG regen in-commit). Mechanic built spec-first against comment #1; architect APPROVED with the kill arithmetic VERIFIED against shipped code (handoff-resume = attempt 1 with zero deaths → kill #1 at migrate-up → resume 2 rolls the prior step → kill #2 → resume 3 = same-step-twice → PARK at attempts==3, exactly 2 kills, same-step reason). Mechanism: external SIGKILL gated on the flag's Step field (the death budget counts DAEMON deaths; inject classes either don't kill the daemon or sit past the self-heal convergence point — the STATBUS-099 product-impossible finding still holds for THAT site and is preserved in the rewritten timeline note). All five assertion groups + extra-restart re-assertions + the install-arm un-park happy terminal implemented. RESIDUAL (labeled): the NOTIFY-arm un-park is not exercised — it shares the reset consts with the CLI arm; a dedicated variant only if a regression appears. SIDE FINDINGS: STATBUS-130 (stale one-shot-latch docs, two files) + STATBUS-131 (REAL product gap, HIGH, architect-verified three-legged: UPGRADE_CALLBACK is not propagated by config generation and .env is rewritten at install AND upgrade step 3.1 — the park siren is structurally DISARMED on real boxes; production Slack survives only because it rides the separately-enumerated SLACK_TOKEN). NEXT: the VM RUN is the oracle — images for 8641445eb building now; the scenario run launches when they publish. AC#4 checks only on a GREEN VM run.
 ---
 <!-- COMMENTS:END -->
