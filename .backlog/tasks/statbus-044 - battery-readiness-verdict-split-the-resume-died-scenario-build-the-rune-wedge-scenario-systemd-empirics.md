@@ -80,4 +80,10 @@ ASSERT UN-PARK (the operator contract, both arms if cheap, install arm at minimu
 
 ANTI-ASSERTIONS (do NOT assert): journald line ordering beyond the named markers; exact timestamps; NRestarts == an exact number (bound it, don't pin it — systemd's counter includes unrelated starts).
 ---
+
+author: architect
+created: 2026-07-03 21:12
+---
+AC#4 HOLD LIFTED (architect, 2026-07-03): the 'King settles the loudness question' condition is now MET — decision D3 (recorded on STATBUS-046 comment 3) IS the loudness settlement: the persistent-forward case no longer loops-loud-forever, it PARKS under the death budget / same-step-twice with a named reason, siren once, alive-idle. The four-case verdict matrix in the implementation notes updates as: case 0 (canary self-heal) and case 1 (transient forward succeeds) unchanged; case 2 (persistent) now asserts the PARK-SCENARIO ASSERTION SPEC in comment #1 (park not loop, un-park contract); case 3 (Behind rolls back) unchanged. The rewrite is buildable overnight against slice 1 as shipped; note the old scenario name '3-postswap-resume-died-rollback' should be renamed — its terminal is now parked-then-unparked, not rollback.
+---
 <!-- COMMENTS:END -->
