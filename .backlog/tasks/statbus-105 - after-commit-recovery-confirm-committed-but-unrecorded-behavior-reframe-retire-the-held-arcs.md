@@ -6,12 +6,10 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-20 10:48'
-updated_date: '2026-06-21 17:29'
+updated_date: '2026-07-03 10:45'
 labels:
-  - upgrade
-  - recovery
-  - install-recovery
-  - arc
+  - auth-email
+  - not-install-upgrade
 dependencies:
   - STATBUS-013
 priority: medium
