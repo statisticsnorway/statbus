@@ -6,11 +6,10 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-30 15:21'
-updated_date: '2026-07-02 18:13'
+updated_date: '2026-07-03 10:45'
 labels:
-  - power-group
   - import
-  - data
+  - not-install-upgrade
 dependencies: []
 ordinal: 107000
 ---
