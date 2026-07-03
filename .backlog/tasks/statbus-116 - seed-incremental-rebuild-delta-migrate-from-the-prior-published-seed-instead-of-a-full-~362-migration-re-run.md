@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
-updated_date: '2026-07-03 19:24'
+updated_date: '2026-07-03 19:40'
 labels:
   - build-caching
   - seed
@@ -235,5 +235,11 @@ author: foreman
 created: 2026-07-03 19:24
 ---
 🟢 ORACLE 1 GREEN (images run 28679520295, seed job 85060143596, foreman verified log first-hand): decision log `enable-gate=false prior-present=false decision-incremental=false -> PATH=FULL (from empty)`; Part A fired on the exact doc-025 §1 defect — `⟳ re-stamped backfilled content_hash for migration 20260218215337: cd82bc76 → 71befa05` (April-frozen pre-fix literal corrected to the live post-ORDER-BY-fix hash at the column flip); `Seed dumped: migration 20260703111119, commit a3eb522c (4.4 MB)` — dump runs only after Part B's pre-dump assert, zero publish-gate failure text. statbus-seed:a3eb522c is the FIRST metadata-consistent published seed since Jul 2 — and the natural incremental prior once the King re-flips. Remaining oracle: arc run 28679526112 (Part D proof) still executing.
+---
+
+author: foreman
+created: 2026-07-03 19:40
+---
+🟢 ORACLE 2 GREEN (arc run 28679526112) — BOTH doc-025 oracles now green. Working arc: seed-restored install healthy → forward-apply B completed t+55s, health check attempt 1. Failing arc: rolled_back t+79s → V_fixed completed t+58s. Zero HEALTHCHECK_REST_DOWN. Combined with oracle 1 (comment 23: PATH=FULL, re-stamp fired cd82bc76→71befa05, publish gate passed, consistent seed statbus-seed:a3eb522c published): the doc-025 comment-21 proof condition is MET. → THE RE-FLIP DECISION NOW SITS WITH THE KING: `gh variable set SEED_INCREMENTAL_ENABLED --body true` then dispatch images.yaml; expected: ancestor walk picks statbus-seed:a3eb522c (consistent prior), PATH=INCREMENTAL, AC-5 timing measured; kill-switch unchanged (set the variable false — comment 18); Part C's in-stage ErrStaleRestoredMigration fallback now guards the stale-prior class that killed run 28657019171.
 ---
 <!-- COMMENTS:END -->
