@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-06-12 22:15'
-updated_date: '2026-07-03 20:09'
+updated_date: '2026-07-03 20:19'
 labels:
   - install-recovery
   - upgrade
@@ -135,5 +135,11 @@ BUILD SEQUENCING (architect, 2026-07-03, pre-staged per foreman; doc-021 is the 
 **Per-slice invariants (I review against these):** diagrams (upgrade-timeline.plantuml per-class routing + upgrade-lifecycle.plantuml parked-in_progress) land IN THE SAME COMMIT as the handling they describe; rollback stays reachable ONLY via a positively-Behind ground-truth verdict, NEVER by exhaustion (039's direction rule — 046 governs how-long/how-loud, never direction); the rollback pipeline's own resumes count the budget with same-step-twice → the restore-broke HUMAN stop (not park-and-retry).
 
 **Verification vehicle:** STATBUS-044's held 3-postswap-resume-died-rollback scenario rewritten green (parked + named reason + alive-idle; NOT NRestarts climbing, NOT rolled_back) + per-class arcs A/B/C/D under STATBUS-071. The run is the only oracle — reconcile allowance values there.
+---
+
+author: foreman
+created: 2026-07-03 20:19
+---
+SLICE-1 PROGRESS + DESIGN SEAM RULED (2026-07-03 evening). BUILT so far (uncommitted, engineer): migration 20260703210000 (the three park columns — applied to dev, seed, and test template; tester verified \\d output), recovery_escalation.go (pure decision core: budget + same-step-twice + terminal routing; machine-string step identifiers, never English), 5 green tests. ARCHITECT RULING on the one seam: CONFIRMED — the core routes a terminal via a caller-supplied canRollBack BOOL (computed by the 039/ground-truth layer: pre-swap or positively-Behind = true, at-target = false); passing the phase into the core would duplicate direction knowledge — the same gate/action-divergence class the 055 fix killed. THREE PINS for the wiring: (1) name the budget in DEATHS not attempts (deaths = attempts−1; 3 deaths = terminal; prevents a future 'fix' of an off-by-one that isn't one); un-park resets the counter ONLY on the two deliberate operator triggers; (2) WRITE-AHEAD step recording — the flag's dying-step is written before each step starts, so a SIGKILL leaves the step name behind and same-step-twice can actually fire; (3) rollback-pipeline resumes reuse the core but map terminal at the CALL SITE to the restore-broke human stop — the core's {continue, park, rollback} vocabulary does not widen. Remaining: service.go wiring (flag fields, increment-at-start, step instrumentation, park skip + once-only siren, un-park reset), diagrams in the same commit, doc/db + types pairing (now unblocked by the tester's refresh).
 ---
 <!-- COMMENTS:END -->
