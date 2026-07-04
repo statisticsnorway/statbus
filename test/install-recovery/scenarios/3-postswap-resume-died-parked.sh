@@ -13,115 +13,148 @@
 # mechanism, not a resurrection of the deleted rollback-asserting file. The
 # terminal here is PARKED, then UN-PARKED — never rolled_back.
 #
-# Assertion spec: STATBUS-044 comment #1 (architect, 2026-07-03).
+# REBUILT (STATBUS-044 comment #6, King-approved 2026-07-04, mechanic):
+# the park-oracle VM campaign (12 runs, comment #4/#5) proved the ORIGINAL
+# construction — killing at flag.step=="migrate-up" inside applyPostSwap —
+# targets a window the real system essentially never reaches on a resume.
+# Migrations actually apply in the BOOT-TIME schema catch-up (`sb migrate up`
+# at service.go Run + the install ladder, the rc.65 schema-skew guard),
+# which runs BEFORE recoverFromFlag/resumePostSwap on every recovery boot —
+# so by the time applyPostSwap's own StepMigrateUp (3.5) runs, the working
+# tree is already at target and there is nothing left to apply; that step is
+# a no-op. Worse: a migration that crash-loops the box on every restart did
+# so in the boot window, UNCOUNTED by the death budget (the rune class, in
+# exactly the window heavy migrations run). commit cc660280f closed that gap
+# (RecoveryBudgetGuard: count + consult BEFORE the boot migrate, stamp
+# StepBootMigrate around it, parked rows skip the boot migrate). THIS
+# rebuild targets that real, now-covered window instead.
+#
+# Assertion spec: STATBUS-044 comment #1 (architect, 2026-07-03), with the
+# two substitutions comment #6 calls for: the same-step-twice message names
+# "boot-migrate" (not "migrate-up"), and the parked-skip log line moves to
+# the boot path (RecoveryBudgetGuard's own line, not resumePostSwap's).
+#
+# Also folds in STATBUS-131 AC#3 (cheap, per the mechanic's dispatch): the
+# UPGRADE_CALLBACK siren is configured via .env.config ONLY — no post-kill
+# .env injection hack. STATBUS-131 (shipped a5b9474cd, this same day) made
+# UPGRADE_CALLBACK a first-class .env.config -> .env carry-through key, so
+# it now survives every `sb config generate` call the recovery boots below
+# make; the siren-once assertion is therefore also the empirical proof that
+# fix actually holds under `sb config generate` running repeatedly across
+# three real recovery boots, not just under the two synthetic unit tests.
 #
 # ─────────────────────────────────────────────────────────────────────────
-# MECHANISM — why this scenario does NOT use an inject.KillHere class
+# MECHANISM — direct state fabrication, no dispatch, no claim gate
 # ─────────────────────────────────────────────────────────────────────────
-# The death-budget path (resumeEscalation) only engages on a DAEMON PROCESS
-# DEATH — recovery_attempts increments inside resumePostSwap, which only
-# runs when the daemon PROCESS restarts and recoverFromFlag finds
-# Phase=FlagPhaseResuming (or FlagPhasePostSwap, the normal exit-42
-# continuation — both route to resumePostSwap). Killing a SPAWNED
-# SUBPROCESS (e.g. `sb migrate up`, which is where the existing
-# "killed-by-system-during-individual-migration-execution" class fires,
-# cli/internal/migrate/migrate.go:466) does NOT kill the daemon — it
-# returns an error that postSwapFailure/parkForDeterministicFailure handle
-# WITHOUT the process exiting (verified by reading both functions: neither
-# calls os.Exit; postSwapFailure just records the failure and returns an
-# error up the call stack). That is a DIFFERENT, already-shipped mechanism
-# (STATBUS-046 slice 2, park-on-first for classDeterministic/classResource)
-# — not what this scenario needs to drive.
+# Unlike the original construction (which scheduled a row and let the LIVE
+# daemon claim + dispatch it), this scenario fabricates the RESUME state
+# DIRECTLY on disk/DB (lib/data-helpers.sh: fabricate_resume_state):
+#   - an in_progress public.upgrade row (chk_upgrade_state_attributes'
+#     in_progress arm: scheduled_at + started_at NOT NULL, completed_at +
+#     rolled_back_at NULL), and
+#   - a service-held forward recovery flag (Holder=service, Phase=post_swap
+#     per the architect's explicit reminder — either phase is safe under the
+#     shipped F1 parked-skip fix, but post_swap keeps the assertion surface
+#     identical to comment #1's spec; CommitSHA=HEAD so Service.Run's
+#     recovery-boot checkout is a no-op) with a DEAD pid.
+# The "dead pid" is diagnostic-only — the real mutex is the kernel flock,
+# which nobody holds since fabrication never opens/locks the file.
+# RecoveryBudgetGuard's own acquireFlock call succeeds immediately on the
+# very next boot, exactly as it would after a genuine process death. There
+# is no claim gate to satisfy (docker_images_status / release_builds_status
+# are irrelevant here — no discover/dispatch touches this row at all; it is
+# manufactured already in_progress) and no LIVE daemon needs to cooperate
+# before the kill sequence starts.
 #
-# The only existing DAEMON-level (in-process) inject.KillHere class inside
-# the Phase-3 forward flow is "killed-by-system-during-container-restart"
-# (service.go:5128, between StepStartServices and StepHealthCheck) — but
-# that site sits AFTER migrate-up, so resumePostSwap's self-heal canary
-# (containersAtFlagTarget + no-pending-migrations + healthCheck, service.go
-# ~5459) is live at that point and — per STATBUS-099's own grounded VM
-# evidence — reliably converges to 'completed' on the very next resume
-# instead of re-entering the SAME step twice. That is exactly the race this
-# scenario must NOT run into.
+# THE STALL: alongside the row+flag, one synthetic migration file
+# (migrations/<far-future-version>_park_scenario_boot_migrate_stall.up.sql,
+# body `SELECT pg_sleep(3600);`) is the SOLE pending migration once real
+# migrations between INSTALL_VERSION and HEAD have applied. `sb migrate up`
+# (boot-migrate-up, service.go ~1909) applies ALL pending migrations in
+# version order — the real backlog first (fast), then this one (a full hour)
+# — so every recovery boot that reaches the boot migrate hangs there
+# reliably, well within the poll budget below.
 #
-# So: this scenario uses a REAL external SIGKILL of the daemon's OS process
-# (the same primitive as wedge-helpers.sh's simulate_sigkill_upgrade_service,
-# Stage F — "kill -9 the upgrade-service Go process directly, bypassing
-# systemd's signal handling entirely"), GATED on the flag file's "step"
-# field reaching "migrate-up" (StepMigrateUp, cli/internal/upgrade/
-# recovery_escalation.go:33 — recorded by markStep BEFORE the migrate
-# subprocess spawns, cli/internal/upgrade/service.go:4986). Migrate-up runs
-# strictly BEFORE StepStartServices, so containers are never touched before
-# either kill — containersAtFlagTarget is false on every resume, the
-# self-heal canary never fires, and applyPostSwap reliably re-enters
-# StepMigrateUp on every subsequent resume. The wait-for-step poll has a
-# bounded budget and fails LOUD (not silently) if it never observes the
-# target step — see wait_for_flag_step below.
+# ORPHAN NOTE (why pg_sleep(3600), not a short sleep, is safe): SIGKILLing
+# the daemon PID does NOT kill the `sb migrate up` subprocess it spawned —
+# docker-exec doesn't forward SIGKILL (task #14; see migrate_orphan.go), so
+# each killed attempt's migrate-up (and its in-container psql running
+# pg_sleep) is orphaned and keeps running independently. This is harmless
+# here: (a) kill #2's fresh `sb migrate up` either re-runs pg_sleep directly
+# or blocks acquiring the migrate_up advisory lock behind kill #1's still-
+# running orphan — EITHER WAY it stays observably hung at flag.step==
+# "boot-migrate", which is all the poll+kill mechanism needs; (b) pass 3
+# PARKS inside RecoveryBudgetGuard BEFORE ever calling boot-migrate-up, so it
+# never touches the orphans at all; (c) the un-park terminal (Phase 9 below)
+# deletes the stall migration FIRST, and `./sb install`'s own pre-detect
+# cleanOrphanSessions (cli/cmd/install.go) terminates any lingering orphaned
+# migrate-sql backends (Phase 1's >2-minute-old heuristic — by Phase 9 the
+# orphans are many minutes old) before the fresh clean boot-migrate runs.
 #
-# Also required (found run 7, after 6 prior runs eliminated every other
-# cause): the fetch+checkout-HEAD stage right after upload_sb_to_vm (mirrors
-# 0-happy-upgrade.sh:118 verbatim) — INSTALL_VERSION's release clone is
-# `--depth 1`, so without an explicit fetch of HEAD, `./sb config generate`'s
-# freshness check cannot resolve the uploaded binary's embedded HEAD commit
-# in that shallow tree ("bad object").
+# Also required (found run 7 of the original campaign, after 6 prior runs
+# eliminated every other cause): the fetch+checkout-HEAD stage right after
+# upload_sb_to_vm (mirrors 0-happy-upgrade.sh:118 verbatim). INSTALL_VERSION's
+# release clone is `--depth 1`, so without an explicit fetch of HEAD,
+# `./sb config generate`'s freshness check cannot resolve the uploaded
+# binary's embedded HEAD commit in that shallow tree ("bad object").
 #
 # ─────────────────────────────────────────────────────────────────────────
 # SCENARIO SHAPE
 # ─────────────────────────────────────────────────────────────────────────
 #   1. Install at INSTALL_VERSION. Populate demo data, snapshot.
-#   2. Fabricate a scheduled row for HEAD — the RUNNING daemon (Restart=
-#      always, RestartSec=30) claims + dispatches it unattended (mirrors
-#      0-happy-upgrade / 3-postswap-migration-timeout — do NOT quiesce the
-#      service; its own dispatch + auto-restart IS the mechanism this
-#      scenario needs).
-#   3. Kill #1: poll for flag.step=="migrate-up", SIGKILL the daemon
-#      process. This is resumePostSwap attempt=1 (the normal exit-42
-#      continuation dying at migrate-up — attempts=1, deaths=0 at THIS
-#      resume; resumeEscalation(1, "", "", false) → continue, so attempt 1
-#      always runs applyPostSwap once before the kill can land).
-#   4. Wait for the unit to auto-restart (systemd RestartSec=30).
-#   5. Kill #2: same poll+kill. This is resumePostSwap attempt=2 (flag.Step
-#      going in = "migrate-up" from kill #1, flag.PriorDeathStep="" —
-#      resumeEscalation(2, "migrate-up", "", false): deaths=1, sameStepTwice
-#      false (priorDeathStep empty) → continue; applyPostSwap re-runs, dies
-#      at migrate-up again).
-#   6. Right after kill #2, inject UPGRADE_CALLBACK into .env directly
-#      (config.Generate() does not propagate this key — see the Phase 5
-#      comment below — so it must land AFTER the LAST config-generate that
-#      will run. attempt=3 never calls
-#      config-generate: same-step-twice parks INSIDE resumePostSwap, before
-#      applyPostSwap/StepConfigGenerate runs again — attempt 2's
-#      config-generate, which already completed before this kill, is
-#      therefore the last one).
-#   7. Wait for the unit to auto-restart again → attempt=3: flag.Step=
-#      "migrate-up" (from kill #2), flag.PriorDeathStep="migrate-up" (from
-#      kill #1, rolled forward at the start of attempt 2) →
-#      resumeEscalation(3, "migrate-up", "migrate-up", false): sameStepTwice
-#      TRUE → PARK immediately, NO third kill needed (attempt 3 parks before
-#      ever re-entering applyPostSwap).
-#   8. Assert the PARK STATE (spec items 1-5).
-#   9. Two EXTRA systemd restarts — assert each is skipped (parked-skip),
-#      no attempts increment, no additional siren.
-#  10. UN-PARK via the install arm (spec item 6, the happy/preferred
-#      terminal): the kill-gate is already lifted (nothing left to kill —
-#      the poll loop only ran for kills #1/#2 above), so the fresh
-#      un-parked attempt runs `./sb install` and COMPLETES. Assert:
-#      UN-PARKED log line, parked_at NULL, recovery_attempts==1, terminal
-#      state='completed', health passes, data intact — proving the
-#      park/un-park cycle left the pipeline undamaged.
+#   2. Upload the HEAD sb binary; fetch + checkout HEAD in the working tree
+#      (bad-object guard, see above). Configure UPGRADE_CALLBACK in
+#      .env.config (STATBUS-131 AC#3 — survives every config generate from
+#      here on; no more post-kill .env timing hack needed).
+#   3. Fabricate the in_progress row + service-held post_swap flag (dead
+#      pid) + the synthetic pg_sleep(3600) stall migration.
+#   4. Restart the unit — this single restart both swaps the running binary
+#      onto HEAD AND is pass 1: RecoveryBudgetGuard finds the fabricated
+#      flag, counts attempt=1 (deaths=0, always continues), stamps
+#      flag.step="boot-migrate", boot-migrate-up starts applying pending
+#      migrations and hangs on the synthetic one.
+#   5. Kill #1: poll for flag.step=="boot-migrate", SIGKILL the daemon.
+#   6. Wait for the unit to auto-restart (systemd RestartSec=30) → pass 2:
+#      RecoveryBudgetGuard(2, deathStep="boot-migrate", priorDeathStep="")
+#      → sameStepTwice false (priorDeathStep empty) → continue; re-stamps
+#      "boot-migrate"; boot-migrate-up runs again and hangs again (directly,
+#      or behind kill #1's orphan's advisory lock — either way, hung).
+#   7. Kill #2: same poll+kill.
+#   8. Wait for restart → pass 3: RecoveryBudgetGuard(3, "boot-migrate",
+#      "boot-migrate") → sameStepTwice TRUE → PARKS immediately, INSIDE the
+#      guard, BEFORE boot-migrate-up is ever called again — no third kill
+#      needed, and the orphans from kills #1/#2 are never touched by this
+#      pass. Siren fires (STATBUS_EVENT=parked) via the .env.config-
+#      configured UPGRADE_CALLBACK.
+#   9. Assert the PARK STATE (spec items 1-5, "boot-migrate" substituted).
+#  10. Two EXTRA systemd restarts — assert each is skipped (RecoveryBudget-
+#      Guard's own "is PARKED — skipping boot migrate" line, the boot-path
+#      substitution comment #6 calls for), no attempts increment, no
+#      additional siren.
+#  11. UN-PARK via the install arm (spec item 6, the happy/preferred
+#      terminal): delete the synthetic stall migration first (so the fresh
+#      attempt's boot-migrate has nothing left to hang on), then run
+#      `./sb install`. Its pre-detect cleanOrphanSessions clears any
+#      lingering orphaned migrate-sql backends from kills #1/#2; the fresh
+#      un-parked attempt's boot-migrate is then genuinely clean, and the
+#      full resumePostSwap pipeline (containers are still on
+#      INSTALL_VERSION's images — the expected post-swap "mismatched" state,
+#      never having been touched by this fabrication) runs to completion.
+#      Assert: UN-PARKED log line, parked_at NULL, recovery_attempts==1,
+#      terminal state='completed', health passes, data intact.
 #
-#   Item 7 (the NOTIFY/RunSchedule un-park arm) is NOT covered — architect's
-#   spec says "install arm at minimum"; covering both arms would require a
-#   SECOND full park cycle (2 more kills) to reach a fresh parked row to
-#   un-park via NOTIFY instead, roughly doubling this scenario's runtime.
+#   Item 7 of the original spec (the NOTIFY/RunSchedule un-park arm) is NOT
+#   covered — architect's spec says "install arm at minimum"; covering both
+#   arms would require a SECOND full park cycle to reach a fresh parked row
+#   to un-park via NOTIFY instead, roughly doubling this scenario's runtime.
 #   Flagged as a deliberate scope cut, not an oversight.
 #
 # Hetzner-runnability:
 #   BUILD-ONLY. Not run on a paid VM yet (sequenced separately per the
-#   foreman/architect). The external-SIGKILL-gated-on-flag-step mechanism
-#   is novel to this scenario (no prior scenario uses a step-gated external
-#   kill rather than an inject.KillHere class) — the first VM run is the
-#   real empirical test of the poll timing and the config-generate/
-#   UPGRADE_CALLBACK persistence assumption documented above.
+#   foreman/architect). The direct-fabrication + external-SIGKILL-gated-on-
+#   flag-step mechanism is novel to this rebuild — the first VM run is the
+#   real empirical test of the poll timing and the orphan-migrate reasoning
+#   documented above.
 #
 # Usage:
 #   INSTALL_VERSION=v2026.05.2 HCLOUD_LOCATION=fsn1 \
@@ -133,10 +166,12 @@ set -euo pipefail
 VM_NAME="${1:-statbus-recovery-3-postswap-resume-died-parked}"
 INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.2}"
 INSTALL_BUDGET_S="${INSTALL_BUDGET_S:-900}"
-# Budget for each "wait for flag.step to reach migrate-up" poll. Generous —
-# StepConfigGenerate + StepImagePull + StepDBUp + StepReconnect all run
-# before migrate-up, and image-pull can be slow on a cold VM.
-STEP_WAIT_BUDGET_S="${STEP_WAIT_BUDGET_S:-300}"
+# Budget for each "wait for flag.step to reach boot-migrate" poll.
+# RecoveryBudgetGuard stamps the step right after EnsureDBUp + connect +
+# advisory lock + LISTEN + READY=1 — no image-pull/reconnect in this path
+# (unlike the original migrate-up construction) — but a cold VM's
+# `docker compose up -d db` + `sb config generate` can still take a while.
+STEP_WAIT_BUDGET_S="${STEP_WAIT_BUDGET_S:-180}"
 # systemd RestartSec=30 (ops/statbus-upgrade.service) + boot/reconnect
 # overhead before the flag is even readable again.
 RESTART_WAIT_BUDGET_S="${RESTART_WAIT_BUDGET_S:-180}"
@@ -151,7 +186,7 @@ source "$LIB_DIR/assertions.sh"
 trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario: 3-postswap-resume-died-parked  (STATBUS-044/046 park-not-loop)"
+echo "  Scenario: 3-postswap-resume-died-parked  (STATBUS-044/046 park-not-loop, boot-migrate)"
 echo "  Initial release: $INSTALL_VERSION → upgrade target: HEAD"
 echo "════════════════════════════════════════════════════════════════"
 
@@ -161,24 +196,33 @@ echo "  HEAD: $HEAD_SHA ($(echo "$HEAD_SHA" | cut -c1-8))"
 UPGRADE_UNIT="statbus-upgrade@statbus.service"
 FLAG_PATH='~/statbus/tmp/upgrade-in-progress.json'
 CALLBACK_LOG='/tmp/park-callback-log.txt'
+STALL_MIGRATION_FILE='99999999999999_park_scenario_boot_migrate_stall.up.sql'
 
 # ─────────────────────────────────────────────────────────────────────────
 # helpers local to this scenario
 # ─────────────────────────────────────────────────────────────────────────
 
-# read_flag_step — extract the "step" field from the flag JSON (grep/sed —
-# no assumption that jq is installed on the VM). Empty string if the flag
-# is absent or the field isn't present (Step is `omitempty`).
-read_flag_step() {
-    VM_EXEC bash -c "grep '\"step\":' $FLAG_PATH 2>/dev/null | sed -E 's/.*\"step\": *\"([^\"]*)\".*/\1/'" 2>/dev/null | tr -d ' \r\n'
+# read_flag_field <field> — generic flag-JSON field reader (grep/sed — no
+# assumption that jq is installed on the VM). Empty string if the flag is
+# absent or the field isn't present (Step/PriorDeathStep are `omitempty`).
+# The two field names ("step" / "prior_death_step") don't collide: the
+# character immediately before "step" in "prior_death_step" is '_', not '"',
+# so `grep '"step":'` never matches a prior_death_step line.
+read_flag_field() {
+    local field="$1"
+    VM_EXEC bash -c "grep '\"$field\":' $FLAG_PATH 2>/dev/null | sed -E 's/.*\"$field\": *\"([^\"]*)\".*/\1/'" 2>/dev/null | tr -d ' \r\n'
 }
-
-# read_flag_prior_step — same, for prior_death_step (used only for
-# diagnostics/logging here; the assertions read recovery_parked_reason
-# instead, which is the durable DB-side record of the same fact).
-read_flag_prior_step() {
-    VM_EXEC bash -c "grep '\"prior_death_step\":' $FLAG_PATH 2>/dev/null | sed -E 's/.*\"prior_death_step\": *\"([^\"]*)\".*/\1/'" 2>/dev/null | tr -d ' \r\n'
-}
+read_flag_step() { read_flag_field "step"; }
+# read_flag_prior_death_step — the field RecoveryBudgetGuard rolls
+# Step→PriorDeathStep into on EVERY continuing pass (architect verdict R1,
+# 2026-07-04): unlike "step" (which the guard re-stamps to "boot-migrate" on
+# EVERY continuing pass, so it shows pass-N-minus-1's residual value the
+# INSTANT the new process appears, well before pass N's own guard has run),
+# "prior_death_step" only becomes "boot-migrate" once pass 2's stamp
+# actually executes — a pass-2-unique transition, and one written in the
+# SAME mutateHeldFlag call as the (already-committed) recovery_attempts
+# increment. See kill #2's gate below for why this matters.
+read_flag_prior_death_step() { read_flag_field "prior_death_step"; }
 
 # daemon_pid — the live upgrade-service Go process PID, or empty if not
 # running. Mirrors wedge-helpers.sh's simulate_sigkill_upgrade_service
@@ -187,55 +231,120 @@ daemon_pid() {
     VM_EXEC bash -c 'pgrep -f "sb upgrade service" 2>/dev/null | head -1' 2>/dev/null | tr -d ' \r\n'
 }
 
-# wait_for_flag_step <target_step> <budget_s> — poll every 1s for the flag's
-# step field to equal <target_step>. Fails LOUD (non-zero, diagnostic dump)
-# on timeout rather than silently racing past — see the MECHANISM header
-# comment for why this is a real (bounded, diagnosable) timing dependency
-# rather than a deterministic code-level trigger.
-wait_for_flag_step() {
-    local target="$1" budget="$2"
-    local start now elapsed step
+# _wait_for_flag <reader_fn> <label> <target> <budget_s> — generic poll loop
+# (every 1s) for a flag-JSON field (read via <reader_fn>) to equal <target>.
+# Fails LOUD (non-zero, diagnostic dump) on timeout rather than silently
+# racing past — see the MECHANISM header comment for why this is a real
+# (bounded, diagnosable) timing dependency rather than a deterministic
+# code-level trigger. Shared by the step-gate (kill #1) and prior_death_step-
+# gate (kill #2) wrappers below.
+_wait_for_flag() {
+    local reader_fn="$1" label="$2" target="$3" budget="$4"
+    local start now elapsed val
     start=$(date +%s)
     while true; do
         now=$(date +%s)
         elapsed=$((now - start))
-        step=$(read_flag_step)
-        if [ "$step" = "$target" ]; then
-            echo "  ✓ flag.step == '$target' (t+${elapsed}s)"
+        val=$("$reader_fn")
+        if [ "$val" = "$target" ]; then
+            echo "  ✓ flag.$label == '$target' (t+${elapsed}s)"
             return 0
         fi
         if [ "$elapsed" -ge "$budget" ]; then
-            echo "✗ flag.step never reached '$target' within ${budget}s (last observed: '${step:-<absent>}')" >&2
-            echo "  This means either the upgrade never dispatched, or it raced past migrate-up faster" >&2
-            echo "  than this 1s poll could observe — the scenario's external-kill mechanism (see the" >&2
-            echo "  MECHANISM header comment) depends on catching this window. Diagnostic flag dump:" >&2
+            echo "✗ flag.$label never reached '$target' within ${budget}s (last observed: '${val:-<absent>}')" >&2
+            echo "  This means either the recovery boot never reached RecoveryBudgetGuard, or it raced" >&2
+            echo "  past boot-migrate faster than this 1s poll could observe — the scenario's external-" >&2
+            echo "  kill mechanism (see the MECHANISM header comment) depends on catching this window." >&2
+            echo "  Diagnostic flag dump:" >&2
             VM_EXEC bash -c "cat $FLAG_PATH 2>/dev/null" >&2 || true
             return 1
         fi
         sleep 1
     done
 }
+# wait_for_flag_step <target_step> <budget_s> — kill #1's gate: the
+# fabricated flag starts step-empty, so ""→"boot-migrate" is a genuine fresh
+# transition on the FIRST pass. STAYS on "step" per the architect verdict
+# (only kill #2 needed the prior_death_step regate — see below).
+wait_for_flag_step() { _wait_for_flag read_flag_step "step" "$1" "$2"; }
+# wait_for_flag_prior_death_step <target> <budget_s> — kill #2's gate
+# (architect verdict R1, 2026-07-04, fixing a real red): gating kill #2 on
+# flag.step=="boot-migrate" is WRONG — pass 1's stamp leaves that value on
+# disk, so it is satisfied by PASS-1 RESIDUE the instant pass 2's new PID
+# appears (~2s), well before pass 2's own RecoveryBudgetGuard has even run
+# (~4-10s: config-generate → EnsureDBUp → connect → advisory lock → LISTEN →
+# READY precede it). Kill #2 would then land BEFORE pass 2's increment, going
+# UNCOUNTED — the next boot is arithmetically pass 2 again, stalls, and
+# Phase 5's park-wait times out. Gating on prior_death_step instead is
+# pass-2-unique (empty through all of pass 1, becomes "boot-migrate" only
+# once pass 2's stamp runs) and is written in the SAME mutateHeldFlag call as
+# the (already-committed, ordered-before) recovery_attempts increment — so
+# observing it on disk guarantees the increment already landed.
+wait_for_flag_prior_death_step() { _wait_for_flag read_flag_prior_death_step "prior_death_step" "$1" "$2"; }
 
-# kill_daemon_at_step <target_step> — wait for flag.step==<target_step>,
-# then SIGKILL the live daemon PID. Fails loud if the process isn't found
-# (the step observation and the PID lookup are two separate reads — a
-# process that dies on its own between them is a real race, but the
-# subsequent restart-wait step would then fail loudly too, so this is not
-# a silent-pass path). Sets the global LAST_KILLED_PID (mirrors arc-helpers.sh's
-# ARC_DISPATCH_RC global-output convention) so wait_for_restart can confirm
-# the NEXT observed PID is genuinely a different (new) process, not a
-# not-yet-reaped stale pgrep match of the process we just killed.
+# wait_for_active_pg_sleep <budget_s> — kill #1's SECOND, additional gate
+# (architect verdict R2, 2026-07-04, avoiding a confusing red): flag.step==
+# "boot-migrate" alone fires ~1s after the stamp — potentially still INSIDE
+# the real migration delta (~9 migrations between INSTALL_VERSION and HEAD,
+# applying in ~6s), not yet in the stall. A kill landing in migrate.go's
+# after-commit-before-record window on a REAL migration produces an
+# unrelated "relation already exists" → class-B park with the WRONG reason,
+# not the same-step park this scenario asserts. Polling for an ACTIVE backend
+# running our exact pg_sleep(3600) statement proves the real delta has fully
+# committed and boot-migrate-up is now executing the STALL migration's own
+# transaction. Deliberately NOT applied to kill #2 (see the call site below):
+# pass 2 has ONLY the stall migration pending, and kill #1's own orphaned
+# pg_sleep backend (docker-exec doesn't forward SIGKILL — see the MECHANISM
+# header's orphan note) would satisfy this gate spuriously even before pass
+# 2's own fresh migrate-up reaches its pg_sleep (it may instead be blocked
+# behind the orphan on the migrate_up advisory lock — also a valid hang, but
+# this gate would then race ahead of it for no reason).
+wait_for_active_pg_sleep() {
+    local budget="$1"
+    local start now elapsed count
+    start=$(date +%s)
+    while true; do
+        now=$(date +%s); elapsed=$((now - start))
+        count=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM pg_stat_activity WHERE state = 'active' AND query LIKE 'SELECT pg_sleep(3600)%';\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n')
+        if [[ "$count" =~ ^[0-9]+$ ]] && [ "$count" -ge 1 ]; then
+            echo "  ✓ active pg_sleep(3600) backend observed (t+${elapsed}s) — real migration delta committed, inside the stall's own tx"
+            return 0
+        fi
+        if [ "$elapsed" -ge "$budget" ]; then
+            echo "✗ no active pg_sleep(3600) backend observed within ${budget}s — either the real migration delta is still applying or the stall migration never started" >&2
+            VM_EXEC bash -c "cd ~/statbus && echo \"SELECT pid, state, query FROM pg_stat_activity WHERE datname = current_database();\" | ./sb psql -t -A" >&2 || true
+            return 1
+        fi
+        sleep 1
+    done
+}
+
+# kill_daemon_when <wait_fn> <target> [extra_gate_fn] — wait for <wait_fn>
+# (one of the flag-field gates above) to observe <target>, optionally wait
+# for a SECOND gate (<extra_gate_fn>, taking only a budget arg — R2's
+# active-pg_sleep check, kill #1 only), then SIGKILL the live daemon PID.
+# Fails loud if the process isn't found (the gate observation and the PID
+# lookup are two separate reads — a process that dies on its own between
+# them is a real race, but the subsequent restart-wait step would then fail
+# loudly too, so this is not a silent-pass path). Sets the global
+# LAST_KILLED_PID (mirrors arc-helpers.sh's ARC_DISPATCH_RC global-output
+# convention) so wait_for_restart can confirm the NEXT observed PID is
+# genuinely a different (new) process, not a not-yet-reaped stale pgrep
+# match of the process we just killed.
 LAST_KILLED_PID=""
-kill_daemon_at_step() {
-    local target="$1"
-    wait_for_flag_step "$target" "$STEP_WAIT_BUDGET_S" || return 1
+kill_daemon_when() {
+    local wait_fn="$1" target="$2" extra_gate="${3:-}"
+    "$wait_fn" "$target" "$STEP_WAIT_BUDGET_S" || return 1
+    if [ -n "$extra_gate" ]; then
+        "$extra_gate" "$STEP_WAIT_BUDGET_S" || return 1
+    fi
     local pid
     pid=$(daemon_pid)
     if [ -z "$pid" ]; then
-        echo "✗ flag.step=='$target' observed but no live 'sb upgrade service' process found to kill" >&2
+        echo "✗ gate satisfied ($wait_fn -> '$target') but no live 'sb upgrade service' process found to kill" >&2
         return 1
     fi
-    echo "  killing upgrade-service PID=$pid at step='$target'"
+    echo "  killing upgrade-service PID=$pid (gate: $wait_fn -> '$target'${extra_gate:+, extra_gate: $extra_gate})"
     VM_EXEC bash -c "kill -9 $pid" 2>/dev/null || true
     # shellcheck disable=SC2034  # read by wait_for_restart after this call
     LAST_KILLED_PID="$pid"
@@ -287,21 +396,12 @@ echo "  pre-trigger data snapshot: $DATA_SNAPSHOT"
 assert_demo_data_present "$VM_NAME"
 
 # ─────────────────────────────────────────────────────────────────────────
-# Phase 3 — fabricate the scheduled row for HEAD; the RUNNING daemon claims
-# + dispatches it unattended. Do NOT quiesce the service — its own dispatch
-# and its systemd-driven auto-restart across the two kills below ARE the
-# mechanism this scenario drives (mirrors 0-happy-upgrade /
-# 3-postswap-migration-timeout, the two existing service-dispatched
-# scenarios per wedge-helpers.sh's INVARIANT comment on quiesce_upgrade_service).
-# Restarting the unit onto the pre-staged HEAD binary (below, before fabricate)
-# is NOT quiescing either — 0-happy-upgrade does the same restart for the same
-# reason (put the CURRENT-CODE daemon in control before dispatch) and still
-# lets it claim/dispatch unattended afterward. This scenario's assertions are
-# all POST-SWAP park behavior; old-daemon (pre-restart) dispatch fidelity is
-# 0-happy-upgrade's job, not this one's.
+# Phase 3 — stage the HEAD binary + working tree, configure the callback,
+# then fabricate the resume state directly (no dispatch, no claim gate —
+# see the MECHANISM header comment).
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
-echo "── uploading HEAD sb binary + fabricating scheduled row (daemon-dispatched) ──"
+echo "── uploading HEAD sb binary ──"
 upload_sb_to_vm "$VM_NAME"
 
 # Fetch + checkout HEAD in the VM's working tree (mirrors 0-happy-upgrade.sh:118
@@ -310,67 +410,65 @@ upload_sb_to_vm "$VM_NAME"
 # construction. Without this stage, `./sb config generate`'s freshness check can
 # never resolve the just-uploaded binary's embedded HEAD in that shallow clone
 # (git cat-file on a commit the depth-1 clone never fetched → "bad object" —
-# the failure mode run 7 hit after every other cause had been eliminated).
+# the failure mode the original campaign's run 7 hit after every other cause had
+# been eliminated). Also required so RecoveryBudgetGuard's boot-migrate finds
+# HEAD's actual migrations on disk (including the synthetic one we add below).
 # Single-line: printf '%q' converts multi-line strings to ANSI-C $'...\n...'
 # quoting, but the remote /bin/sh (dash on Ubuntu) does not expand $'...' —
 # newlines collapse, breaking if/then/fi syntax. Semicolons replace newlines;
 # if COND; then CMD; fi is valid single-line bash.
 VM_EXEC bash -c "cd ~/statbus && if ! git cat-file -e $HEAD_SHA 2>/dev/null; then git fetch --depth 1 origin $HEAD_SHA || { echo 'FATAL: cannot fetch HEAD' >&2; exit 1; }; fi && git checkout $HEAD_SHA"
 
-# Restart the upgrade-service unit so it re-execs onto the freshly pre-staged
-# HEAD binary (mirrors 0-happy-upgrade.sh:132 VERBATIM). Autopsy from run r10's
-# kept VM (SIGQUIT goroutine dump): the OLD v2026.05.2 daemon was IDLE in its
-# main select loop, not stuck — it just silently declined to claim the
-# fabricated row for 17+ minutes (zero claim/skip lines in its journal). That
-# era's claim predicate is opaque and superseded; we do not reverse-engineer
-# it — we put the CURRENT-CODE daemon (whose claim behavior is loud and whose
-# images-ready gate we now satisfy, see the fabricate fix below) in control
-# before fabricating, same as 0-happy-upgrade already does. This is NOT
-# quiescing — the restarted daemon still dispatches unattended; see the
-# INVARIANT note in the Phase 3 header above.
-echo "── restarting upgrade-service unit onto the pre-staged HEAD binary ──"
+echo ""
+echo "── configuring UPGRADE_CALLBACK via .env.config (STATBUS-131 AC#3 — survives every config generate from here on) ──"
+VM_EXEC bash -c "cd ~/statbus && rm -f $CALLBACK_LOG && printf 'UPGRADE_CALLBACK=echo \"\$STATBUS_EVENT \$(date -u +%%FT%%TZ)\" >> $CALLBACK_LOG\n' >> .env.config"
+VM_EXEC bash -c "grep '^UPGRADE_CALLBACK=' ~/statbus/.env.config" || { echo "✗ UPGRADE_CALLBACK injection did not land in .env.config" >&2; exit 1; }
+
+echo ""
+echo "── fabricating the in_progress row + service-held post_swap flag (dead pid) ──"
+fabricate_resume_state "$VM_NAME" "$HEAD_SHA" >/dev/null
+
+echo ""
+echo "── writing the synthetic stall migration (sole pending migration once real ones catch up: pg_sleep(3600)) ──"
+VM_EXEC bash -c "cd ~/statbus && printf 'SELECT pg_sleep(3600);\n' > migrations/$STALL_MIGRATION_FILE"
+VM_EXEC bash -c "test -f ~/statbus/migrations/$STALL_MIGRATION_FILE" || { echo "✗ stall migration file did not land" >&2; exit 1; }
+echo "  ✓ migrations/$STALL_MIGRATION_FILE written"
+
+# ─────────────────────────────────────────────────────────────────────────
+# Phase 4 — restart onto HEAD (this single restart also IS pass 1, since the
+# fabricated flag is already on disk): kill #1 (RecoveryBudgetGuard attempt=1,
+# the "planned" first pass — always continues) and kill #2 (attempt=2). See
+# the MECHANISM header comment for why an external kill rather than
+# inject.KillHere. Per the architect's 2026-07-04 verdict, the two kills use
+# DIFFERENT gates (R1 + R2 — see the wait_for_flag_step /
+# wait_for_flag_prior_death_step / wait_for_active_pg_sleep comments above):
+# kill #1 gates on flag.step=="boot-migrate" PLUS an active-pg_sleep check
+# (proves it lands inside the stall's own tx, not mid-real-migration); kill
+# #2 gates on flag.prior_death_step=="boot-migrate" (pass-2-unique — gating
+# on "step" there would fire on pass 1's residual stamp before pass 2's own
+# guard has even run, going uncounted).
+# ─────────────────────────────────────────────────────────────────────────
+echo ""
+echo "── restarting upgrade-service unit onto HEAD (discovers the fabricated flag = pass 1) ──"
 vm_restart_unit "statbus-upgrade@statbus.service"
 echo "  ✓ unit active on the HEAD binary"
 
-fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_SHA"
-
-# ─────────────────────────────────────────────────────────────────────────
-# Phase 4 — kill #1 (resumePostSwap attempt=1, the normal exit-42
-# continuation) and kill #2 (attempt=2), both pinned at flag.step==
-# "migrate-up". See the MECHANISM header comment for why this step and why
-# an external kill rather than inject.KillHere.
-# ─────────────────────────────────────────────────────────────────────────
 echo ""
-echo "── kill #1: waiting for flag.step=='migrate-up' (attempt=1) ──"
-kill_daemon_at_step "migrate-up"
+echo "── kill #1: waiting for flag.step=='boot-migrate' + an active pg_sleep(3600) backend (attempt=1) ──"
+kill_daemon_when wait_for_flag_step "boot-migrate" wait_for_active_pg_sleep
 wait_for_restart "$RESTART_WAIT_BUDGET_S" "$LAST_KILLED_PID"
 
 echo ""
-echo "── kill #2: waiting for flag.step=='migrate-up' (attempt=2) ──"
-kill_daemon_at_step "migrate-up"
+echo "── kill #2: waiting for flag.prior_death_step=='boot-migrate' (attempt=2) ──"
+kill_daemon_when wait_for_flag_prior_death_step "boot-migrate"
 KILL2_PID="$LAST_KILLED_PID"
-
-# ─────────────────────────────────────────────────────────────────────────
-# Phase 5 — inject the callback marker BEFORE the daemon restarts into
-# attempt=3. attempt=3 same-step-twice parks INSIDE resumePostSwap without
-# ever calling applyPostSwap again (no further config-generate to clobber
-# this), so this is the last safe window to set it. runCallback
-# (cli/internal/upgrade/service.go:5866) reads UPGRADE_CALLBACK from .env
-# directly via dotenv.Load — config.Generate() does not propagate this key
-# (grepped cli/internal/config/config.go: zero references), so .env is the
-# right and only place to put it, and this is the right and only time.
-# ─────────────────────────────────────────────────────────────────────────
-echo ""
-echo "── injecting UPGRADE_CALLBACK marker into .env (observability for the siren-once assertion) ──"
-VM_EXEC bash -c "cd ~/statbus && rm -f $CALLBACK_LOG && printf 'UPGRADE_CALLBACK=echo \"\$STATBUS_EVENT \$(date -u +%%FT%%TZ)\" >> $CALLBACK_LOG\n' >> .env"
-VM_EXEC bash -c "grep '^UPGRADE_CALLBACK=' ~/statbus/.env" || { echo "✗ UPGRADE_CALLBACK injection did not land in .env" >&2; exit 1; }
 
 echo ""
 echo "── waiting for restart into attempt=3 (expect same-step-twice PARK, no further kill needed) ──"
 wait_for_restart "$RESTART_WAIT_BUDGET_S" "$KILL2_PID"
 
 # ─────────────────────────────────────────────────────────────────────────
-# Phase 6 — wait for the PARK to land (recovery_parked_at IS NOT NULL).
+# Phase 5 — wait for the PARK to land (recovery_parked_at IS NOT NULL).
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── waiting for park (recovery_parked_at IS NOT NULL) ──"
@@ -391,7 +489,7 @@ while true; do
 done
 
 # ─────────────────────────────────────────────────────────────────────────
-# Phase 7 — ASSERT PARK STATE (spec items 1-5)
+# Phase 6 — ASSERT PARK STATE (spec items 1-5, "boot-migrate" substituted)
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── assert 1: row state + recovery_attempts + parked_reason (same-step-twice path, attempts 2-3) ──"
@@ -404,23 +502,23 @@ echo "  state=$ROW_STATE attempts=$ROW_ATTEMPTS reason=$ROW_REASON"
 [ "$ROW_STATE" = "in_progress" ] || { echo "✗ expected state='in_progress' while parked, got '$ROW_STATE'" >&2; exit 1; }
 
 # Pin the same-step-twice path: this scenario ALWAYS kills at the SAME step
-# ("migrate-up") both times, so the reason MUST name same-step-twice, never
+# ("boot-migrate") both times, so the reason MUST name same-step-twice, never
 # the budget-exhaust message — the budget message appearing instead would
-# mean the dying-step write-ahead (recordFlagStep) broke (STATBUS-044
-# comment #1's explicit diagnostic: "the budget message showing up instead
-# means the dying-step write-ahead broke").
-echo "$ROW_REASON" | grep -qE 'two consecutive crash-deaths at step "migrate-up".*same-step-twice' || {
-    echo "✗ recovery_parked_reason does not match the same-step-twice pattern for step 'migrate-up'" >&2
+# mean the dying-step write-ahead (RecoveryBudgetGuard's mutateHeldFlag stamp)
+# broke (STATBUS-044 comment #1's explicit diagnostic: "the budget message
+# showing up instead means the dying-step write-ahead broke").
+echo "$ROW_REASON" | grep -qE 'two consecutive crash-deaths at step "boot-migrate".*same-step-twice' || {
+    echo "✗ recovery_parked_reason does not match the same-step-twice pattern for step 'boot-migrate'" >&2
     echo "  actual: $ROW_REASON" >&2
     if echo "$ROW_REASON" | grep -q 'budget exhausted'; then
-        echo "  got the BUDGET-EXHAUST message instead — the dying-step write-ahead (recordFlagStep) likely broke" >&2
+        echo "  got the BUDGET-EXHAUST message instead — the dying-step write-ahead (RecoveryBudgetGuard's stamp) likely broke" >&2
     fi
     exit 1
 }
-echo "  ✓ reason matches same-step-twice at step 'migrate-up'"
+echo "  ✓ reason matches same-step-twice at step 'boot-migrate'"
 
 # Same-step-twice parks on the resume immediately following the second
-# kill WITHOUT a third applyPostSwap run — attempts==3 exactly (see the
+# kill WITHOUT a third boot-migrate-up run — attempts==3 exactly (see the
 # MECHANISM/SCENARIO SHAPE header trace). Accept 2-3 per the architect's
 # own stated range (comment #1) rather than pinning a single value.
 case "$ROW_ATTEMPTS" in
@@ -434,10 +532,11 @@ assert_systemd_active "$VM_NAME" "$UPGRADE_UNIT" "active"
 NR_BEFORE=$(VM_EXEC systemctl --user show "$UPGRADE_UNIT" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n')
 echo "  NRestarts (pre-settle) = $NR_BEFORE"
 [[ "$NR_BEFORE" =~ ^[0-9]+$ ]] || { echo "✗ could not parse NRestarts (got '$NR_BEFORE')" >&2; exit 1; }
-# Bound, never pin: 2 real kills so far (2 restarts) plus normal systemd
-# start/stop churn margin. NOT an exact-equality check (systemd's counter
-# includes unrelated starts — anti-assertion in the spec).
-[ "$NR_BEFORE" -le 6 ] || { echo "✗ NRestarts=$NR_BEFORE exceeds the bound of 6 after 2 kills — restart-loop pathology" >&2; exit 1; }
+# Bound, never pin: the "restart onto HEAD" restart + 2 real kills so far (3
+# restarts) plus normal systemd start/stop churn margin. NOT an exact-equality
+# check (systemd's counter includes unrelated starts — anti-assertion in the
+# spec).
+[ "$NR_BEFORE" -le 7 ] || { echo "✗ NRestarts=$NR_BEFORE exceeds the bound of 7 after 2 kills — restart-loop pathology" >&2; exit 1; }
 echo "  settling 30s, then re-checking NRestarts is UNCHANGED (parked ⇒ alive-idle, no further crash-restart cycle)..."
 sleep 30
 NR_AFTER=$(VM_EXEC systemctl --user show "$UPGRADE_UNIT" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n')
@@ -451,7 +550,7 @@ CALLBACK_COUNT=$(VM_EXEC bash -c "wc -l < $CALLBACK_LOG 2>/dev/null" | tr -d ' \
 echo "  callback log line count: $CALLBACK_COUNT"
 [ "$CALLBACK_COUNT" = "1" ] || { echo "✗ expected exactly 1 callback line, got $CALLBACK_COUNT" >&2; VM_EXEC bash -c "cat $CALLBACK_LOG 2>/dev/null" >&2 || true; exit 1; }
 VM_EXEC bash -c "cat $CALLBACK_LOG" | grep -q "^parked " || { echo "✗ callback line does not carry STATBUS_EVENT=parked" >&2; exit 1; }
-echo "  ✓ exactly one STATBUS_EVENT=parked callback fired"
+echo "  ✓ exactly one STATBUS_EVENT=parked callback fired (via the .env.config-configured UPGRADE_CALLBACK — STATBUS-131 AC#3 proof)"
 
 echo ""
 echo "── assert 4: flag file still present (parked row keeps it) ──"
@@ -464,27 +563,32 @@ echo "── assert 5: never rolled_back ──"
 echo "  ✓ state was never rolled_back (confirmed in_progress above)"
 
 # ─────────────────────────────────────────────────────────────────────────
-# Phase 8 — two EXTRA restarts after park: each must be skipped
-# (parked-skip), no attempts increment, no additional siren.
+# Phase 7 — two EXTRA restarts after park: each must be skipped by
+# RecoveryBudgetGuard's own boot-path check (comment #6's substitution — the
+# guard runs before boot-migrate on EVERY recovery boot, parked or not, so
+# this line fires reliably regardless of whether resumePostSwap's own
+# parked-skip also fires downstream). No attempts increment, no additional
+# siren.
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
-echo "── two extra restarts after park: assert parked-skip, no attempts bump, no re-siren ──"
+echo "── two extra restarts after park: assert parked-skip (boot path), no attempts bump, no re-siren ──"
 for i in 1 2; do
     echo "  extra restart #$i..."
     ATTEMPTS_BEFORE=$(recovery_row_cols | cut -d"|" -f2)
     PRE_RESTART_PID=$(daemon_pid)
     VM_EXEC systemctl --user restart "$UPGRADE_UNIT" 2>/dev/null || true
     wait_for_restart "$RESTART_WAIT_BUDGET_S" "$PRE_RESTART_PID"
-    # Give the daemon a moment to run its boot sequence (recoverFromFlag →
-    # resumePostSwap → parked-skip → return) before reading state.
+    # Give the daemon a moment to run its boot sequence (RecoveryBudgetGuard →
+    # skip boot-migrate → recoverFromFlag → resumePostSwap → parked-skip →
+    # return) before reading state.
     sleep 5
     JOURNAL_TAIL=$(VM_EXEC bash -c "journalctl --user -u $UPGRADE_UNIT --no-pager -n 60 2>/dev/null" || echo "")
-    echo "$JOURNAL_TAIL" | grep -q "is PARKED.*skipping automatic resume" || {
-        echo "✗ extra restart #$i: journal does not show the parked-skip log line" >&2
+    echo "$JOURNAL_TAIL" | grep -q "is PARKED.*skipping boot migrate" || {
+        echo "✗ extra restart #$i: journal does not show RecoveryBudgetGuard's parked-skip line" >&2
         echo "$JOURNAL_TAIL" | tail -20 >&2
         exit 1
     }
-    echo "  ✓ extra restart #$i logged the parked-skip line"
+    echo "  ✓ extra restart #$i logged the boot-path parked-skip line"
     ATTEMPTS_AFTER=$(recovery_row_cols | cut -d"|" -f2)
     [ "$ATTEMPTS_AFTER" = "$ATTEMPTS_BEFORE" ] || {
         echo "✗ extra restart #$i: recovery_attempts changed ($ATTEMPTS_BEFORE → $ATTEMPTS_AFTER) — a parked-skip must NOT consume an attempt" >&2
@@ -497,11 +601,17 @@ CALLBACK_COUNT_AFTER=$(VM_EXEC bash -c "wc -l < $CALLBACK_LOG 2>/dev/null" | tr 
 echo "  ✓ siren still fired exactly once across both extra restarts"
 
 # ─────────────────────────────────────────────────────────────────────────
-# Phase 9 — UN-PARK via the install arm (spec item 6, preferred terminal:
+# Phase 8 — UN-PARK via the install arm (spec item 6, preferred terminal:
 # the fresh attempt COMPLETES, proving the park/un-park cycle left the
-# pipeline undamaged). The kill-gate is already lifted — nothing in this
-# script kills the daemon again — so this fresh attempt runs to completion.
+# pipeline undamaged). Delete the stall migration FIRST — the fresh attempt's
+# boot-migrate must find nothing pending, or it hangs again for an hour.
 # ─────────────────────────────────────────────────────────────────────────
+echo ""
+echo "── deleting the synthetic stall migration before un-park ──"
+VM_EXEC bash -c "cd ~/statbus && rm -f migrations/$STALL_MIGRATION_FILE"
+VM_EXEC bash -c "test ! -f ~/statbus/migrations/$STALL_MIGRATION_FILE" || { echo "✗ stall migration file still present after rm" >&2; exit 1; }
+echo "  ✓ migrations/$STALL_MIGRATION_FILE removed"
+
 echo ""
 echo "── un-park via ./sb install (deliberate operator trigger) ──"
 INSTALL_OUT=$(mktemp)
@@ -513,7 +623,7 @@ INSTALL_RC=$?
 set -e
 cat "$INSTALL_OUT"
 echo "  ./sb install (un-park) exit: $INSTALL_RC"
-[ "$INSTALL_RC" -eq 0 ] || { echo "✗ un-park install did not exit 0 (expected the fresh attempt to complete cleanly since the kill-gate is lifted)" >&2; exit 1; }
+[ "$INSTALL_RC" -eq 0 ] || { echo "✗ un-park install did not exit 0 (expected the fresh attempt to complete cleanly since the stall migration is gone and any orphans were cleaned)" >&2; exit 1; }
 
 grep -qE "UN-PARKED upgrade id=[0-9]+" "$INSTALL_OUT" || {
     echo "✗ expected the 'UN-PARKED upgrade id=N' line in ./sb install's output" >&2
@@ -534,11 +644,11 @@ echo "  post-unpark row: $ROW"
 echo "  ✓ parked_at cleared"
 
 # Exactly ONE fresh attempt: UnparkByID resets recovery_attempts to 0, then
-# the fresh resume increments it to 1.
+# RecoveryBudgetGuard's fresh consult increments it to 1.
 [ "$ROW_ATTEMPTS" = "1" ] || { echo "✗ expected recovery_attempts==1 after the fresh un-parked attempt, got $ROW_ATTEMPTS" >&2; exit 1; }
 echo "  ✓ recovery_attempts==1 (exactly one fresh attempt)"
 
-[ "$ROW_STATE" = "completed" ] || { echo "✗ expected the un-parked fresh attempt to reach 'completed' (kill-gate was lifted), got '$ROW_STATE'" >&2; exit 1; }
+[ "$ROW_STATE" = "completed" ] || { echo "✗ expected the un-parked fresh attempt to reach 'completed' (stall migration removed, orphans cleaned), got '$ROW_STATE'" >&2; exit 1; }
 echo "  ✓ terminal state == 'completed' — the park/un-park cycle did NOT damage the pipeline"
 
 assert_flag_file_absent "$VM_NAME"
@@ -548,4 +658,4 @@ assert_demo_data_present "$VM_NAME"
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 
 echo ""
-echo "PASS: 3-postswap-resume-died-parked (two same-step deaths at migrate-up PARKED the upgrade — alive-idle, NRestarts bounded+frozen, siren fired exactly once including two extra skipped restarts, never rolled_back — then ./sb install UN-PARKED it for exactly one fresh attempt, which COMPLETED cleanly, proving the pipeline is undamaged by the park/un-park cycle)"
+echo "PASS: 3-postswap-resume-died-parked (two same-step deaths at boot-migrate PARKED the upgrade — alive-idle, NRestarts bounded+frozen, siren fired exactly once via a .env.config-only UPGRADE_CALLBACK including two extra skipped restarts, never rolled_back — then ./sb install UN-PARKED it for exactly one fresh attempt, which COMPLETED cleanly, proving the pipeline is undamaged by the park/un-park cycle)"

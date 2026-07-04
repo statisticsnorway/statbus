@@ -186,20 +186,34 @@ note over service, db #E8F5E9
 end note
 note over service, db #FFF9C4
   TEST COVERAGE — phase dispatch + resume after the swap
-  TEST 3-postswap-resume-died-parked (STATBUS-044, rebuilt 2026-07-03 — supersedes the deleted
-    3-postswap-resume-died-rollback, STATBUS-099): the two-run resume-re-kill IS product-reachable
-    again since STATBUS-046/D3 shipped the crash-resume death budget (resumeEscalation). STATBUS-099's
-    "product-impossible" finding (VM-run 27820228835: a single kill after container-restart self-healed
-    to completed before a second inject could land) still holds for THAT injection site
-    (killed-by-system-during-container-restart, AFTER migrate-up — containersAtFlagTarget can converge
-    there) — this rebuild instead pins BOTH kills at migrate-up (BEFORE container restart, so the
-    self-heal canary never fires) via an external SIGKILL gated on the flag's Step field, not an
-    inject.KillHere class. Two same-step deaths now PARK the upgrade (alive-idle, siren once, never
+  TEST 3-postswap-resume-died-parked (STATBUS-044, rebuilt 2026-07-04 a SECOND time — supersedes the
+    deleted 3-postswap-resume-died-rollback, STATBUS-099, and its own 2026-07-03 migrate-up-pinned
+    build): the two-run resume-re-kill IS product-reachable since STATBUS-046/D3 shipped the
+    crash-resume death budget (resumeEscalation). STATBUS-099's "product-impossible" finding (VM-run
+    27820228835: a single kill after container-restart self-healed to completed before a second inject
+    could land) still holds for THAT injection site (killed-by-system-during-container-restart, AFTER
+    the applyPostSwap migrate — containersAtFlagTarget can converge there); 3-postswap-container-restart-kill
+    (single kill, no re-entry) remains the correct coverage for that site. The FIRST rebuild (2026-07-03)
+    instead pinned both kills at the applyPostSwap StepMigrateUp (3.5) — a 12-run VM campaign (comment
+    #4/#5) then proved that step is a NO-OP on every real resume: migrations actually apply in the
+    BOOT-TIME schema catch-up (boot-migrate-up, :1909), which runs BEFORE recoverFromFlag on every
+    recovery boot, so by the time StepMigrateUp runs the tree is already at target — nothing pending. The
+    SECOND rebuild (this one, comment #6) fabricates the resume state DIRECTLY (in_progress row +
+    service-held post_swap flag, no dispatch/claim) with a synthetic pg_sleep(3600) migration — the REAL
+    window, now covered by RecoveryBudgetGuard (commit cc660280f, hoists the attempt count + same-step
+    stamp to the START of the recovery pass, BEFORE boot-migrate-up). The two kills use DIFFERENT gates
+    (architect verdict, 2026-07-04, post-hoist review — the flag's step field is never stale-free between
+    passes): kill #1 gates on flag.step=="boot-migrate" PLUS an active pg_stat_activity pg_sleep(3600)
+    check (proves the real migration delta already committed, so the kill lands inside the STALL's own
+    tx, not mid-real-migration); kill #2 gates on flag.prior_death_step=="boot-migrate" instead of
+    flag.step — step alone would fire on pass 1's residual stamp before pass 2's own guard has even run
+    (uncounted death), while prior_death_step only flips on pass 2's OWN stamp, atomic with its
+    already-committed recovery_attempts increment. Two same-step deaths there PARK the upgrade
+    (alive-idle, siren once via a `.env.config`-only UPGRADE_CALLBACK — STATBUS-131 AC#3 — never
     rolled_back) rather than looping loud forever OR rolling back — the pre-046 "one-shot latch => ONE
     rollback" framing this note used to carry is ALSO stale: current recoverFromFlag ground-truth-gates
     the Resuming branch (STATBUS-039) — AtTarget always resumes forward via resumePostSwap, never a
-    blanket rollback-on-any-death. 3-postswap-container-restart-kill (single kill, no re-entry) remains
-    the correct coverage for that OTHER injection site's one-shot-death shape.
+    blanket rollback-on-any-death.
   GREEN: 3-postswap-mid-migration-kill / 3-postswap-mid-tx-kill / 3-postswap-between-migrations-kill /
     3-postswap-migrate-killed-after-commit / 3-postswap-migration-deterministic-error (the last two
     GREEN since the STATBUS-017 fix landed — see cells (2)/(e)).

@@ -370,6 +370,148 @@ SQL
 }
 
 # ─────────────────────────────────────────────────────────────────────────
+# fabricate_resume_state <vm_name> <commit_sha> [dead_pid]
+#
+# STATBUS-044 comment #6 (architect, King-approved 2026-07-04): fabricates
+# the RESUME state DIRECTLY — an in_progress public.upgrade row + a
+# service-held FORWARD recovery flag (Phase=post_swap, per the architect's
+# explicit reminder — either phase is safe with the F1 parked-skip fix, but
+# post_swap keeps the assertion surface identical to comment #1's spec) with
+# a DEAD pid. There is NO dispatch and NO claim gate involved — unlike
+# fabricate_scheduled_upgrade_row (state='scheduled', requires a LIVE daemon
+# to claim + dispatch it), this writes the row and the flag file straight to
+# disk/DB so the very NEXT service boot's RecoveryBudgetGuard/recoverFromFlag
+# discovers them exactly as it would a real crash-resume — the mechanism
+# this scenario drives lives entirely in that discovery, not in dispatch.
+#
+# "Dead PID" is diagnostic-only (UpgradeFlag's own doc comment, service.go):
+# the REAL mutex is the kernel flock, which nobody holds since this function
+# never opens/locks the file — it just writes JSON. RecoveryBudgetGuard's own
+# acquireFlock call (on the next boot) succeeds immediately, exactly as it
+# would after a real process death released the flock on fd-close. The PID
+# value only needs to be implausible as a real process, never live-checked.
+#
+# CommitSHA == commit_sha (the caller's current HEAD) so Service.Run's
+# recovery-boot checkout (`git checkout flag.CommitSHA`) is a no-op — the
+# working tree must already be checked out to commit_sha before calling this
+# (mirrors 0-happy-upgrade.sh:118's fetch+checkout-HEAD stage; see the caller
+# in 3-postswap-resume-died-parked.sh).
+#
+# Row shape mirrors fabricate_scheduled_upgrade_row's field list but with
+# state='in_progress' directly — chk_upgrade_state_attributes' in_progress
+# arm requires scheduled_at + started_at NOT NULL, completed_at +
+# rolled_back_at NULL (verified against migration
+# 20260424160235_commit_canonical_naming.up.sql). recovery_attempts /
+# recovery_parked_at / recovery_parked_reason are left at column defaults
+# (0 / NULL / NULL) on INSERT; explicitly reset on the ON CONFLICT UPDATE arm
+# so a re-run against a leftover row from an earlier attempt starts clean.
+#
+# Prints the fabricated row id on stdout (trailing echo) so the caller can
+# capture it if needed; returns 0 on success, non-zero on any SQL/transport
+# failure.
+# ─────────────────────────────────────────────────────────────────────────
+fabricate_resume_state() {
+    local vm_name="$1" commit_sha="$2" dead_pid="${3:-999999}"
+
+    if [ -z "$commit_sha" ]; then
+        echo "  ✗ fabricate_resume_state: commit_sha is required" >&2
+        return 1
+    fi
+
+    echo "  [data] fabricating in_progress row + service-held post_swap flag (dead pid=$dead_pid) for $commit_sha"
+
+    # Same BASH-3.2 quote-parity trap as fabricate_scheduled_upgrade_row's
+    # heredoc above: keep the single-quote count in this heredoc EVEN.
+    local upsert_sql
+    upsert_sql=$(cat << SQL
+WITH input(commit_sha) AS (VALUES ('${commit_sha}'))
+INSERT INTO public.upgrade
+  (commit_sha, committed_at, commit_tags, release_status, summary,
+   has_migrations, commit_version, state, scheduled_at, started_at,
+   completed_at, rolled_back_at, error,
+   log_relative_file_path, skipped_at, dismissed_at, superseded_at,
+   docker_images_status, release_builds_status)
+SELECT
+  input.commit_sha,
+  now(),
+  '{}'::text[],
+  'commit'::public.release_status_type,
+  'harness fabricate_resume_state (STATBUS-044 comment #6 boot-migrate park scenario)',
+  false,
+  'harness-' || substring(input.commit_sha for 8),
+  'in_progress'::public.upgrade_state,
+  now(),
+  now(),
+  NULL, NULL, NULL,
+  'harness-' || substring(input.commit_sha for 8) || '.log', NULL, NULL, NULL,
+  'ready'::public.docker_images_status_type,
+  'ready'::public.release_builds_status_type
+FROM input
+ON CONFLICT (commit_sha) DO UPDATE SET
+  state                  = 'in_progress'::public.upgrade_state,
+  scheduled_at            = now(),
+  started_at              = now(),
+  completed_at            = NULL,
+  rolled_back_at          = NULL,
+  error                   = NULL,
+  skipped_at              = NULL,
+  dismissed_at            = NULL,
+  superseded_at           = NULL,
+  recovery_attempts       = 0,
+  recovery_parked_at      = NULL,
+  recovery_parked_reason  = NULL,
+  docker_images_status    = 'ready'::public.docker_images_status_type,
+  release_builds_status   = 'ready'::public.release_builds_status_type
+RETURNING id;
+SQL
+)
+
+    local sql_file
+    sql_file=$(mktemp /tmp/harness-fabricate-resume-XXXXXX.sql)
+    printf '%s\n' "$upsert_sql" > "$sql_file"
+    chmod 644 "$sql_file"
+    scp -O "${SSH_OPTS[@]}" "$sql_file" root@"$VM_IP":/tmp/harness-fabricate-resume.sql >/dev/null
+    rm -f "$sql_file"
+
+    local row_id ssh_rc=0
+    row_id=$(ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
+        "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb config generate >/dev/null && ./sb psql -t -A < /tmp/harness-fabricate-resume.sql' && rm -f /tmp/harness-fabricate-resume.sql" \
+        2>&1) || ssh_rc=$?
+    if [ "$ssh_rc" -ne 0 ]; then
+        echo "✗ fabricate_resume_state: row upsert failed (rc=$ssh_rc): $row_id" >&2
+        return 1
+    fi
+    row_id=$(echo "$row_id" | tr -d ' \r\n')
+    if ! [[ "$row_id" =~ ^[0-9]+$ ]]; then
+        echo "✗ fabricate_resume_state: could not parse row id from psql output: '$row_id'" >&2
+        return 1
+    fi
+    echo "  ✓ row fabricated: id=$row_id state=in_progress"
+
+    # Flag JSON, single-line (no embedded single quotes anywhere in the
+    # value — safe to pass through VM_EXEC's printf-%q transport, same
+    # nested-quote pattern the scenario already uses for the UPGRADE_CALLBACK
+    # marker line). Step/PriorDeathStep omitted (empty — a fresh flag that
+    # has never recorded a death, matching a genuine first-time crash).
+    local started_at_utc flag_json
+    started_at_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    flag_json="{\"id\":${row_id},\"commit_sha\":\"${commit_sha}\",\"pid\":${dead_pid},\"started_at\":\"${started_at_utc}\",\"invoked_by\":\"harness-fabricate-resume-state\",\"trigger\":\"recovery\",\"holder\":\"service\",\"phase\":\"post_swap\"}"
+
+    if ! VM_EXEC bash -c "cd ~/statbus && mkdir -p tmp && printf '%s\n' '$flag_json' > tmp/upgrade-in-progress.json"; then
+        echo "✗ fabricate_resume_state: could not write tmp/upgrade-in-progress.json" >&2
+        return 1
+    fi
+    VM_EXEC bash -c "grep -q '\"phase\": *\"post_swap\"' ~/statbus/tmp/upgrade-in-progress.json" || {
+        echo "✗ fabricate_resume_state: flag file did not land as expected" >&2
+        VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-in-progress.json" >&2 || true
+        return 1
+    }
+    echo "  ✓ flag fabricated: tmp/upgrade-in-progress.json (holder=service phase=post_swap pid=$dead_pid)"
+    echo "$row_id"
+    return 0
+}
+
+# ─────────────────────────────────────────────────────────────────────────
 # wait_for_upgrade_candidate_ready <vm_name> <commit_sha> [budget_s]
 #
 # Polls public.upgrade until the candidate row for commit_sha reports
