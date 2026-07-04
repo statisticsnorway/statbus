@@ -75,6 +75,30 @@
 # — so every recovery boot that reaches the boot migrate hangs there
 # reliably, well within the poll budget below.
 #
+# STEADY-STATE FABRICATION, NOT SELF-SHIP (architect ruling, 2026-07-05, r14
+# autopsy — do not "simplify" this pre-apply step away): before the kill
+# sequence, this scenario explicitly pre-applies the real migration delta
+# (`./sb migrate up`, using the already-uploaded HEAD binary against the
+# already-checked-out HEAD tree) BEFORE the stall migration file is even
+# written. This is load-bearing, not cosmetic: (i) without it, the
+# recovery_attempts/recovery_parked_at/recovery_parked_reason columns don't
+# exist until boot-migrate-up applies them DURING pass 1, so pass 1's
+# RecoveryBudgetGuard hits the SQLSTATE 42703 fail-open path and never
+# actually counts — the whole arithmetic shifts down one (park at
+# attempts==2, not 3), and that shift is TIME-BOMBED: it silently reverts to
+# 3 the day INSTALL_VERSION itself already ships those columns. A "2 or 3"
+# tolerance would hide that drift AND mask a genuine dying-step write-ahead
+# break, so the assertions below pin attempts==3 with NO tolerance — the
+# steady-state pre-apply is what makes that pin true unconditionally. (ii)
+# Running HEAD's `./sb migrate up` directly while the OLD release's daemon
+# merely idles (not yet restarted) is safe: binary and working tree are
+# BOTH already at HEAD by this point, the recovery-columns migration is
+# purely additive (ADD COLUMN ... DEFAULT), the old binary's own queries
+# never reference those columns by name, and migrate's advisory lock means
+# nothing else is concurrently touching migrations (the old daemon isn't
+# mid-recovery). See the pre-apply call site (Phase 3 below) for the full
+# trace.
+#
 # ORPHAN NOTE (why pg_sleep(3600), not a short sleep, is safe): SIGKILLing
 # the daemon PID does NOT kill the `sb migrate up` subprocess it spawned —
 # docker-exec doesn't forward SIGKILL (task #14; see migrate_orphan.go), so
@@ -106,8 +130,11 @@
 #      (bad-object guard, see above). Configure UPGRADE_CALLBACK in
 #      .env.config (STATBUS-131 AC#3 — survives every config generate from
 #      here on; no more post-kill .env timing hack needed).
-#   3. Fabricate the in_progress row + service-held post_swap flag (dead
-#      pid) + the synthetic pg_sleep(3600) stall migration.
+#   3. Pre-apply the real migration delta (`./sb migrate up`, STEADY-STATE
+#      fabrication — see the header note above; SEQUENCE IS LOAD-BEARING),
+#      THEN write the synthetic pg_sleep(3600) stall migration, THEN
+#      fabricate the in_progress row + service-held post_swap flag (dead
+#      pid).
 #   4. Restart the unit — this single restart both swaps the running binary
 #      onto HEAD AND is pass 1: RecoveryBudgetGuard finds the fabricated
 #      flag, counts attempt=1 (deaths=0, always continues), stamps
@@ -474,14 +501,53 @@ VM_EXEC bash -c 'cd ~/statbus && (tail -c1 .env.config | grep -q "^$" || printf 
 VM_EXEC bash -c "grep '^UPGRADE_CALLBACK=' ~/statbus/.env.config" || { echo "✗ UPGRADE_CALLBACK injection did not land in .env.config" >&2; exit 1; }
 
 echo ""
-echo "── fabricating the in_progress row + service-held post_swap flag (dead pid) ──"
-fabricate_resume_state "$VM_NAME" "$HEAD_SHA" >/dev/null
+echo "── pre-applying the real migration delta (STEADY-STATE fabrication — architect ruling, 2026-07-05, r14 autopsy) ──"
+# SEQUENCE IS LOAD-BEARING (do not reorder): checkout HEAD -> `./sb migrate up`
+# (THIS step) -> write the stall migration -> fabricate_resume_state -> restart.
+# If the stall file existed BEFORE this pre-apply, this very invocation would
+# hang on pg_sleep(3600) for an hour (`sb migrate up` applies ALL pending
+# migrations in version order, our synthetic one included, the moment it's on
+# disk) — so the stall file must not exist yet when this runs.
+#
+# WHY STEADY-STATE, NOT SELF-SHIP (r14 failed on the self-ship shape): without
+# this pre-apply, the recovery_attempts/recovery_parked_at/recovery_parked_reason
+# columns (migration 20260703210000, part of the real delta between
+# INSTALL_VERSION and HEAD) do not exist until boot-migrate-up applies them
+# DURING pass 1 — so pass 1's RecoveryBudgetGuard hits the SQLSTATE 42703
+# fail-open path (service.go: "proceeding fail-open with a single attempt")
+# and never actually increments recovery_attempts; only pass 2 gets the FIRST
+# real increment. That shifts the whole arithmetic down by one: same-step-twice
+# then parks at attempts==2, not 3 — and this is TIME-BOMBED, not just an
+# off-by-one to tolerate: the day INSTALL_VERSION itself already ships those
+# columns (any release baseline including STATBUS-046), the fail-open path
+# never triggers and the arithmetic silently flips back to 3. A "2 or 3"
+# tolerance would paper over that drift AND mask a genuine dying-step
+# write-ahead break (the same failure the pinned same-step-twice regex below
+# already guards). Pre-applying the real delta NOW — while the OLD release's
+# daemon is merely idling in its normal ticker loop, not mid-recovery — makes
+# the columns exist BEFORE pass 1 ever runs, so the increment always lands
+# cleanly on pass 1: attempts==3 at park, every time, regardless of which
+# release happens to be INSTALL_VERSION. Running HEAD's `./sb migrate up`
+# directly (not via the daemon) here is safe: binary and working tree are
+# BOTH already at HEAD (upload_sb_to_vm + the checkout above), the recovery-
+# columns migration is purely additive (ADD COLUMN ... DEFAULT), the OLD
+# binary's still-idling queries never reference those columns by name, and
+# migrate's own advisory lock means there is nothing else touching migrations
+# concurrently (the old daemon isn't running its own migrate-up).
+# timeout 600: migrate.Up itself is unbounded (MigrateUpTimeout is imposed by
+# the boot-migrate CALLERS, not the CLI) — a wedged pre-apply should fail this
+# phase with a named error, not eat the scenario's global budget.
+VM_EXEC bash -c "cd ~/statbus && timeout 600 ./sb migrate up --verbose"
 
 echo ""
 echo "── writing the synthetic stall migration (sole pending migration once real ones catch up: pg_sleep(3600)) ──"
 VM_EXEC bash -c "cd ~/statbus && printf 'SELECT pg_sleep(3600);\n' > migrations/$STALL_MIGRATION_FILE"
 VM_EXEC bash -c "test -f ~/statbus/migrations/$STALL_MIGRATION_FILE" || { echo "✗ stall migration file did not land" >&2; exit 1; }
 echo "  ✓ migrations/$STALL_MIGRATION_FILE written"
+
+echo ""
+echo "── fabricating the in_progress row + service-held post_swap flag (dead pid) ──"
+fabricate_resume_state "$VM_NAME" "$HEAD_SHA" >/dev/null
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 4 — restart onto HEAD (this single restart also IS pass 1, since the
@@ -541,7 +607,7 @@ done
 # Phase 6 — ASSERT PARK STATE (spec items 1-5, "boot-migrate" substituted)
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
-echo "── assert 1: row state + recovery_attempts + parked_reason (same-step-twice path, attempts 2-3) ──"
+echo "── assert 1: row state + recovery_attempts + parked_reason (same-step-twice path, attempts==3 pinned) ──"
 ROW=$(recovery_row_cols)
 ROW_STATE=$(echo "$ROW" | cut -d'|' -f1)
 ROW_ATTEMPTS=$(echo "$ROW" | cut -d'|' -f2)
@@ -568,12 +634,16 @@ echo "  ✓ reason matches same-step-twice at step 'boot-migrate'"
 
 # Same-step-twice parks on the resume immediately following the second
 # kill WITHOUT a third boot-migrate-up run — attempts==3 exactly (see the
-# MECHANISM/SCENARIO SHAPE header trace). Accept 2-3 per the architect's
-# own stated range (comment #1) rather than pinning a single value.
-case "$ROW_ATTEMPTS" in
-    2|3) echo "  ✓ recovery_attempts=$ROW_ATTEMPTS (same-step-twice path, expected 2-3)" ;;
-    *) echo "✗ recovery_attempts=$ROW_ATTEMPTS — expected 2 or 3 for the same-step-twice path" >&2; exit 1 ;;
-esac
+# MECHANISM/SCENARIO SHAPE header trace). PINNED, no tolerance (architect
+# ruling, 2026-07-05, r14 autopsy): the fabrication is now STEADY-STATE —
+# the recovery_* columns are guaranteed to exist BEFORE pass 1 ever runs
+# (the pre-apply step above), so pass 1's RecoveryBudgetGuard increment
+# ALWAYS lands cleanly (no 42703 fail-open uncounted-first-pass case). A
+# "2 or 3" tolerance would mask a genuine dying-step write-ahead break —
+# see the MECHANISM header's "steady-state, not self-ship" note for why the
+# old tolerance existed and why it's gone.
+[ "$ROW_ATTEMPTS" = "3" ] || { echo "✗ recovery_attempts=$ROW_ATTEMPTS — expected exactly 3 for the same-step-twice path (steady-state fabrication guarantees this, no tolerance)" >&2; exit 1; }
+echo "  ✓ recovery_attempts=3 (same-step-twice path, pinned)"
 
 echo ""
 echo "── assert 2: unit alive-idle, NRestarts BOUNDED and FROZEN across a settle window (anti-rune, load-bearing) ──"
