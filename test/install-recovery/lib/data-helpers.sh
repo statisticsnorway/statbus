@@ -473,9 +473,12 @@ SQL
     scp -O "${SSH_OPTS[@]}" "$sql_file" root@"$VM_IP":/tmp/harness-fabricate-resume.sql >/dev/null
     rm -f "$sql_file"
 
+    # -q is load-bearing next to -t -A: psql prints the "INSERT 0 1" command
+    # tag even in tuples-only mode (r16: parser got '11INSERT01'); only QUIET
+    # suppresses command tags, leaving RETURNING's bare id as the sole output.
     local row_id ssh_rc=0
     row_id=$(ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
-        "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb config generate >/dev/null && ./sb psql -t -A < /tmp/harness-fabricate-resume.sql' && rm -f /tmp/harness-fabricate-resume.sql" \
+        "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb config generate >/dev/null && ./sb psql -q -t -A < /tmp/harness-fabricate-resume.sql' && rm -f /tmp/harness-fabricate-resume.sql" \
         2>&1) || ssh_rc=$?
     if [ "$ssh_rc" -ne 0 ]; then
         echo "✗ fabricate_resume_state: row upsert failed (rc=$ssh_rc): $row_id" >&2
