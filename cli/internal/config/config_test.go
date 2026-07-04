@@ -257,6 +257,72 @@ func TestGenerateEnvContent_RestAdminBindAddress(t *testing.T) {
 	}
 }
 
+// TestGenerateEnvContent_UpgradeCallbackSurvives guards STATBUS-131: UPGRADE_CALLBACK
+// set in .env.config must carry through into the generated .env. Before this fix,
+// sb config generate rebuilt .env from .env.example plus an enumerated Set list that
+// omitted UPGRADE_CALLBACK entirely, silently wiping the operator's callback (and with
+// it the STATBUS-046 park siren) on every install and at upgrade step 3.1.
+func TestGenerateEnvContent_UpgradeCallbackSurvives(t *testing.T) {
+	projDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(projDir, ".env.example"), []byte("# minimal example\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(projDir, ".env.config"), []byte("UPGRADE_CALLBACK=./ops/notify-slack.sh\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &ConfigEnv{
+		DeploymentSlotCode:       "local",
+		DeploymentSlotName:       "local",
+		DeploymentSlotPortOffset: "1",
+		CaddyDeploymentMode:      "development",
+		SiteDomain:               "local.statbus.org",
+		StatbusURL:               "http://localhost:3010",
+		BrowserAPIURL:            "http://local.statbus.org:3010",
+	}
+	derived := computeDerived(cfg)
+
+	out, err := generateEnvContent(&Credentials{}, cfg, derived, &DbMemory{}, projDir)
+	if err != nil {
+		t.Fatalf("generateEnvContent: %v", err)
+	}
+
+	if !strings.Contains(out, "UPGRADE_CALLBACK=./ops/notify-slack.sh") {
+		t.Errorf("generated .env dropped UPGRADE_CALLBACK from .env.config; got:\n%s", out)
+	}
+}
+
+// TestGenerateEnvContent_UpgradeCallbackDefaultsEmpty verifies that when .env.config
+// has no UPGRADE_CALLBACK, the generated .env still declares the key (empty) rather
+// than omitting it — matching the ADMINISTRATOR_CONTACT precedent, so the key is
+// discoverable and never silently absent.
+func TestGenerateEnvContent_UpgradeCallbackDefaultsEmpty(t *testing.T) {
+	projDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(projDir, ".env.example"), []byte("# minimal example\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &ConfigEnv{
+		DeploymentSlotCode:       "local",
+		DeploymentSlotName:       "local",
+		DeploymentSlotPortOffset: "1",
+		CaddyDeploymentMode:      "development",
+		SiteDomain:               "local.statbus.org",
+		StatbusURL:               "http://localhost:3010",
+		BrowserAPIURL:            "http://local.statbus.org:3010",
+	}
+	derived := computeDerived(cfg)
+
+	out, err := generateEnvContent(&Credentials{}, cfg, derived, &DbMemory{}, projDir)
+	if err != nil {
+		t.Fatalf("generateEnvContent: %v", err)
+	}
+
+	if !strings.Contains(out, "UPGRADE_CALLBACK=\n") {
+		t.Errorf("generated .env missing default-empty UPGRADE_CALLBACK= line; got:\n%s", out)
+	}
+}
+
 func assertStr(t *testing.T, name, got, want string) {
 	t.Helper()
 	if got != want {

@@ -4,7 +4,9 @@
 # attempt — branches between success and rollback-failure renderings
 # based on $STATBUS_ROLLBACK_FAILED.
 #
-# Usage in .env:
+# Usage — set in .env.config (NOT .env: `sb config generate` regenerates
+# .env from .env.config on every install and at upgrade step 3.1, so a
+# value set only in .env is silently wiped on the next run):
 #   UPGRADE_CALLBACK=./ops/notify-slack.sh
 #
 # Required environment (set by the upgrade service):
