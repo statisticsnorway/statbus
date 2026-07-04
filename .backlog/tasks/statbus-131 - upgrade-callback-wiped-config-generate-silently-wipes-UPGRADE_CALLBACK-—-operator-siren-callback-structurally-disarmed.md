@@ -3,9 +3,11 @@ id: STATBUS-131
 title: >-
   upgrade-callback-wiped: config generate silently wipes UPGRADE_CALLBACK —
   operator siren/callback structurally disarmed
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - mechanic
 created_date: '2026-07-03 21:42'
+updated_date: '2026-07-04 12:08'
 labels:
   - upgrade
   - operator-ux
