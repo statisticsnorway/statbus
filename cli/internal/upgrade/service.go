@@ -5739,6 +5739,29 @@ func (d *Service) RecoveryBudgetGuard(ctx context.Context) (skipBootMigrate bool
 	d.recoveryPassCounted = true
 	d.recoveryPassAttempts = attempts
 
+	// STATBUS-134 — ROLLBACK-REGIME DEFER. When the just-crashed attempt died
+	// mid-rollback (flag.Step == StepRollback), this pass belongs to the ROLLBACK
+	// regime, whose terminal is rollbackResumeIsTerminal (TWO consecutive rollback
+	// deaths → restore-broke), NOT the forward budget. We have counted the pass above
+	// (the 1B shared, never-reset counter, reused downstream via
+	// countRecoveryAttemptOnce); now DEFER the rest to recoveryRollback:
+	//   - SKIP the resumeEscalation consult (1B pin: a budget exhaust must NEVER
+	//     terminal a rollback — it would insta-restore-broke / mis-park it), and
+	//   - SKIP the roll+stamp: leaving flag.Step == StepRollback (unstamped) is what
+	//     lets recordRollbackCommit form the (rollback, rollback) pair across two
+	//     consecutive mid-rollback deaths. Stamping StepBootMigrate here (the pre-134
+	//     bug) overwrote that step every boot, so the pair could never form and the
+	//     rollback crash-looped to the WRONG budget park instead of restore-broke.
+	// Return false so the boot migrate still runs as before. ACCEPTED NUANCE
+	// (documented, STATBUS-134): a death DURING the boot migrate on a rollback pass
+	// reads as a rollback death (Step stays 'rollback', unstamped) — conservative,
+	// fires restore-broke slightly early, honest for a pass whose purpose is rollback
+	// recovery.
+	if flag.Step == StepRollback {
+		release()
+		return false
+	}
+
 	// Consult the pure escalation core. canRollBack=FALSE unconditionally: a
 	// terminal verdict at this early guard PARKS, never rolls back (comment #6).
 	// deathStep/priorDeathStep are read from the flag AS IT WAS before this pass

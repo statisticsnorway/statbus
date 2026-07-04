@@ -182,6 +182,84 @@ func TestRecoveryRollback_ParkedSkipPrecedesRestore(t *testing.T) {
 	}
 }
 
+// STATBUS-134 — the (rollback, rollback) terminal pair must FORM across
+// guard-interleaved passes. RecoveryBudgetGuard runs before recoverFromFlag routes
+// to recoveryRollback; pre-134 it stamped Step=boot-migrate on EVERY boot, so
+// recordRollbackCommit could never leave two consecutive StepRollback marks on disk
+// → rollbackResumeIsTerminal (the 1B restore-broke terminal at TWO rollback deaths)
+// was structurally unreachable, and a broken rollback crash-looped to the WRONG
+// budget park at attempts==4. The fix: when the frozen step is a rollback death, the
+// guard DEFERS (no stamp). This simulation models the two real flag-mutating ops
+// (the guard's conditional stamp + recordRollbackCommit) and drives them through the
+// REAL rollbackResumeIsTerminal to prove the pair forms at exactly 2 deaths WITH the
+// fix, and never forms WITHOUT it.
+func TestRollbackPairForms_AcrossGuardInterleavedPasses(t *testing.T) {
+	// mirrors RecoveryBudgetGuard's stamp step: defer (no mutation) on a rollback
+	// death when the fix is present; otherwise roll PriorDeathStep←Step, Step←boot-migrate.
+	guardStamp := func(step, prior string, fix bool) (string, string) {
+		if fix && step == StepRollback {
+			return step, prior // STATBUS-134 defer — preserve the rollback history
+		}
+		return StepBootMigrate, step // Step←boot-migrate, Prior←old Step
+	}
+	// mirrors recordRollbackCommit (service.go): PriorDeathStep←Step, Step←rollback.
+	rollbackCommit := func(step string) (string, string) {
+		return StepRollback, step // Step←rollback, Prior←old Step
+	}
+	// Drive the rollback regime from the state right after the FIRST mid-rollback
+	// death (recordRollbackCommit ran once on the forward→rollback handoff): frozen
+	// flag is (Step=rollback, Prior=boot-migrate). Each pass: guard stamps, then
+	// recoveryRollback checks the terminal on the guard-mutated flag; if not terminal
+	// it commits + the rollback dies again.
+	simulate := func(fix bool) int { // returns the death count at which restore-broke fires, or 0 if never
+		step, prior := StepRollback, StepBootMigrate
+		deaths := 1 // death #1 already happened
+		for pass := 0; pass < 8; pass++ {
+			step, prior = guardStamp(step, prior, fix)
+			if rollbackResumeIsTerminal(step, prior) {
+				return deaths
+			}
+			step, prior = rollbackCommit(step) // commit → rollback runs → dies again
+			deaths++
+		}
+		return 0 // never terminal within the window
+	}
+	if got := simulate(true); got != 2 {
+		t.Errorf("WITH the STATBUS-134 defer, restore-broke must fire at 2 consecutive rollback deaths; fired at %d", got)
+	}
+	if got := simulate(false); got != 0 {
+		t.Errorf("WITHOUT the defer (pre-134 bug), the (rollback,rollback) pair must NEVER form (guard re-stamps boot-migrate every boot) → restore-broke unreachable; but it fired at %d", got)
+	}
+}
+
+// STATBUS-134 — structural guard: RecoveryBudgetGuard must DEFER (no consult, no
+// stamp) when the frozen step is a rollback death. Pins the wiring: the
+// `flag.Step == StepRollback` early return precedes BOTH the resumeEscalation consult
+// and the StepBootMigrate stamp.
+func TestRecoveryBudgetGuard_DefersOnRollbackStep(t *testing.T) {
+	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	body := extractFuncBody(t, string(src), "func (d *Service) RecoveryBudgetGuard(")
+	deferIdx := strings.Index(body, "flag.Step == StepRollback")
+	consultIdx := strings.Index(body, "resumeEscalation(attempts, flag.Step, flag.PriorDeathStep, false)")
+	stampIdx := strings.Index(body, "f.Step = StepBootMigrate")
+	for name, idx := range map[string]int{
+		"flag.Step == StepRollback (rollback-defer)": deferIdx,
+		"resumeEscalation(...) consult":              consultIdx,
+		"f.Step = StepBootMigrate stamp":             stampIdx,
+	} {
+		if idx < 0 {
+			t.Fatalf("RecoveryBudgetGuard missing %s — test is stale (STATBUS-134 defer removed?)", name)
+		}
+	}
+	if deferIdx > consultIdx || deferIdx > stampIdx {
+		t.Errorf("STATBUS-134: the rollback-defer (flag.Step==StepRollback, idx=%d) must PRECEDE the consult (idx=%d) and the boot-migrate stamp (idx=%d) — else a rollback pass is consulted/stamped and the (rollback,rollback) pair can't form.",
+			deferIdx, consultIdx, stampIdx)
+	}
+}
+
 // STATBUS-135 — completeInProgressUpgrade (the flagless-row reconciliation belt)
 // must PARKED-SKIP before it arms `defer d.removeUpgradeFlag()`, or the defer strips
 // the flag from a parked row (parked rows are state='in_progress', so the routine's
