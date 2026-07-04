@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - architect
 created_date: '2026-06-12 21:51'
-updated_date: '2026-07-04 00:22'
+updated_date: '2026-07-04 00:23'
 labels:
   - install-recovery
   - testing
@@ -97,5 +97,19 @@ author: foreman
 created: 2026-07-04 00:22
 ---
 PARK-ORACLE VM CAMPAIGN: 12 runs overnight (2026-07-04, ~00:00-02:30), PAUSED at a genuine scenario-design collision — AC#4 defers to a morning design ruling. THE LEDGER (every failure named, zero hand-waving): r1 runner killed by a tool timeout · r2+r6 orphan-VM name collisions (each collision run self-cleaned the orphan) · r3+r4 local board-commits embedded in the uploaded binary (two race windows: at launch and at the mid-run rebuild) — total-commit-freeze discipline adopted · r5 the tester environment killing long tasks → detached-nohup execution shape · r7 isolated the TRUE harness bug: the release-pinned depth-1 clone can never resolve HEAD → the missing fetch+checkout stage from 0-happy-upgrade:118 (commit 0fafe16f2) · r8-r10 the OLD v2026.05.2 daemon silently declines to claim fabricated rows (r10 kept-VM autopsy, SIGQUIT goroutine dump: idle in its main select loop; predicate opaque + superseded) → restart-onto-HEAD + fabricate declares docker_images_status AND release_builds_status ready (070c0aed8, d02798055; r8 also gave the new claim gate its FIRST LIVE FIRING — correctly refusing an unverified row) · r11 macOS bash-3.2 quote-parity trap in the fabricate heredoc (9d5303c82, guard-commented) · r12 THE DESIGN COLLISION: the restarted HEAD daemon runs BOOT-MIGRATE at startup — applied all 9 pending migrations in 6s and marked the version completed, consuming the upgrade before dispatch; no migrate-up window can exist on this path. MORNING DESIGN QUESTION (with the architect): open the kill window via post-boot-settle fabrication + the migrate.go inject-stall site (stall-file choreography vs boot-migrate needs mapping), or a constructed-B synthetic slow migration (but boot-migrate applies it BEFORE resumePostSwap — exposing an interesting uncovered gap: a boot-migrate crash loop is not counted by the 046 death budget, worth a doc-021 step-list note), or a cleaner third shape. All logs: tmp/vm-run-park-scenario-*.log. Scenario code itself: committed (8641445eb + the four campaign fixes), assertions still unexercised.
+---
+
+author: architect
+created: 2026-07-04 00:23
+---
+MORNING DESIGN ANALYSIS (architect, overnight — for the King's review alongside the summary; no code tonight). r12's revelation is BIGGER than a scenario-construction problem: it exposes that the 046 budget's INCREMENT PLACEMENT does not cover the window where resume-time migrations actually run.
+
+THE REFRAME: on any post-crash restart, BOOT-MIGRATE (service Run + install ladder, the rc.65 schema-skew guard) applies the target's pending migrations BEFORE recoverFromFlag/resumePostSwap — the tree is already checked out at the target after the pre-swap git checkout, so by the time applyPostSwap step 3.5 runs it is a no-op. Step 3.5 deaths — the window the park scenario was specced to drive — are therefore NEAR-IMPOSSIBLE in the real system; the REAL migration-death window on a resume is BOOT-MIGRATE. And boot-migrate deaths are INSIDE the D3-ratified budget boundary (flag-write → flag-removal) but UNCOUNTED by the shipped implementation (incrementRecoveryAttempts fires at resumePostSwap entry, which boot-migrate precedes). A migration that OOM-kills the box on every restart = an uncounted crash loop = the rune class, in exactly the window where heavy migrations actually run. The engineer's (B)-candidate note ('kills land in a boot-migrate loop the death budget never counts') was not a test artifact — it was the system's real shape showing through.
+
+FIX DIRECTION (engineer-buildable after a design note; arguably within D3's ratified boundary since it makes the implementation match the ratified coverage, but King's morning nod requested since it moves budget semantics): HOIST the increment to the start of the flag-owned recovery pass — as soon as a service-held flag with a dead PID is detected (service Run and the install ladder, BEFORE boot-migrate) — and stamp a StepBootMigrate marker around the boot-migrate so same-step-twice covers it. resumePostSwap's increment becomes conditional (don't double-count within one pass). The parked-skip check must also move ahead of boot-migrate on the service path, or a parked row's restart still pays a full boot-migrate before skipping (benign but noisy).
+
+SCENARIO ANSWER (defer until the fix direction is decided): with the hoisted increment, candidate (B) — constructed-B target + synthetic pg_sleep migration — becomes the CLEAN construction: kills land in boot-migrate, are COUNTED, same-step via StepBootMigrate → park; it tests the REAL window rather than the near-unreachable 3.5 one. (A)'s stall-file dance remains the fallback if the 3.5 path specifically needs exercising. Assertion spec (comment #1) holds with one substitution: the expected same-step message names boot-migrate's marker, not migrate-up.
+
+All 12 run logs: tmp/vm-run-park-scenario-*.log; the 046 BUILD is untouched by this — shipped + dual-reviewed; only this AC (scenario green) defers on the morning decision.
 ---
 <!-- COMMENTS:END -->
