@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"testing"
 )
 
@@ -78,5 +80,65 @@ func TestClassifyAdvisoryHolder_MixedSet(t *testing.T) {
 	// empty + dead-99999 are zombies; self (alive) + worker are not.
 	if zombies != 2 {
 		t.Errorf("mixed holder set: got %d zombies, want 2 (empty + dead-PID)", zombies)
+	}
+}
+
+// STATBUS-139 — the sessions verdict tri-state (defect 1: verdict-role conflation).
+// classifySessions is the PURE mapping: a probe error is UNVERIFIABLE (retry), never
+// a false dirty; a clean read needs BOTH zero leaked and zero zombies; otherwise
+// verified DIRTY with counts. This is the check that stops a probe which merely
+// couldn't get a connection slot from becoming a hard 'still saturated' verdict.
+func TestClassifySessions(t *testing.T) {
+	z := []zombieHolder{{BackendPID: 4242, AppName: "", Reason: "empty"}}
+	cases := []struct {
+		name     string
+		leaked   int
+		zombies  []zombieHolder
+		probeErr error
+		want     sessionsVerdictKind
+	}{
+		{"clean — nothing observed", 0, nil, nil, sessionsClean},
+		{"dirty — leaked backends", 2, nil, nil, sessionsDirty},
+		{"dirty — zombie holders", 0, z, nil, sessionsDirty},
+		{"dirty — both", 3, z, nil, sessionsDirty},
+		{"unverifiable — probe error, no counts", 0, nil, errors.New("db unreachable"), sessionsUnverifiable},
+		// A probe error DOMINATES: even if stale counts were passed, a failed probe
+		// must NEVER be reported as verified-dirty (would hard-fail on unverifiable).
+		{"unverifiable dominates any counts", 5, z, errors.New("docker exec failed"), sessionsUnverifiable},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := classifySessions(c.leaked, c.zombies, c.probeErr)
+			if got.kind != c.want {
+				t.Fatalf("classifySessions(%d, %v, %v).kind = %v, want %v", c.leaked, c.zombies, c.probeErr, got.kind, c.want)
+			}
+			// The clean/dirty verdicts must NOT carry a probe error; unverifiable MUST.
+			if (got.kind == sessionsUnverifiable) != (got.probeErr != nil) {
+				t.Errorf("probeErr presence must match unverifiable: kind=%v probeErr=%v", got.kind, got.probeErr)
+			}
+		})
+	}
+}
+
+// STATBUS-139 (d) — the failure message names WHAT was observed, so 'draining' and
+// 'wedged' are distinguishable and the operator has an actionable evidence trail.
+func TestSessionsVerdictDescribe(t *testing.T) {
+	clean := classifySessions(0, nil, nil).describe()
+	if !strings.Contains(clean, "clean") {
+		t.Errorf("clean describe must say clean; got %q", clean)
+	}
+
+	dirty := classifySessions(2, []zombieHolder{{BackendPID: 1717}, {BackendPID: 2828}}, nil).describe()
+	for _, want := range []string{"2 leaked", "1717", "2828"} {
+		if !strings.Contains(dirty, want) {
+			t.Errorf("dirty describe must name the evidence %q; got %q", want, dirty)
+		}
+	}
+
+	unv := classifySessions(0, nil, errors.New("pool wedged: connection refused")).describe()
+	for _, want := range []string{"could not be verified", "connection refused"} {
+		if !strings.Contains(unv, want) {
+			t.Errorf("unverifiable describe must name the probe error %q; got %q", want, unv)
+		}
 	}
 }

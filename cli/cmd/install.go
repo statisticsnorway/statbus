@@ -1322,18 +1322,90 @@ func zombieAdvisoryHolders(dir string) ([]zombieHolder, error) {
 	return zombies, nil
 }
 
-func checkSessionsClean(dir string) bool {
-	// (1) Aged psql-subprocess zombies: a killed migrate.Up's psql children still
-	// running TRUNCATE/INSERT/CALL on statistical_* tables >5min. SQL-detectable.
-	// Match BOTH the libpq default 'psql' and the task-#14 'statbus-migrate-sql%'
-	// tag; the worker (application_name='worker') legitimately runs CALL
-	// worker.statistical_*_reduce for minutes on Norway-sized data, so filtering by
-	// app_name avoids false-positive cleanup-failures during healthy operation.
-	psqlPath, prefix, env, err := migrate.PsqlCommand(dir)
-	if err != nil {
-		return false
+// sessionsVerdictKind is the tri-state outcome of a sessions probe (STATBUS-139).
+// The pre-139 code collapsed all three onto a single bool, so "cannot verify" and
+// "verified dirty" were indistinguishable — correct for the GATE (can't verify →
+// run cleanup) but WRONG for the VERDICT after cleanup, where a probe that merely
+// couldn't get a connection slot became a hard "still saturated" false alarm.
+type sessionsVerdictKind int
+
+const (
+	sessionsClean        sessionsVerdictKind = iota // no leaked backends, no zombie holders — verified
+	sessionsDirty                                   // leaked backends and/or zombie holders — verified
+	sessionsUnverifiable                            // the probe itself failed (e.g. DB unreachable)
+)
+
+// sessionsVerdict carries the tri-state plus the EVIDENCE (STATBUS-139 (d)): the
+// leaked count, the zombie pids, or the probe error — so a failure names WHAT was
+// observed and 'draining' is distinguishable from 'wedged'.
+type sessionsVerdict struct {
+	kind     sessionsVerdictKind
+	leaked   int
+	zombies  []zombieHolder
+	probeErr error
+}
+
+// classifySessions is the PURE tri-state mapping (STATBUS-139 (b)) — no I/O, so it
+// is unit-tested directly. A probe error is UNVERIFIABLE (retry), never dirty; a
+// clean read requires BOTH zero leaked and zero zombies; anything else is verified
+// DIRTY with its counts.
+func classifySessions(leaked int, zombies []zombieHolder, probeErr error) sessionsVerdict {
+	if probeErr != nil {
+		return sessionsVerdict{kind: sessionsUnverifiable, probeErr: probeErr}
 	}
-	args := append(prefix, "-t", "-A", "-c", `
+	if leaked == 0 && len(zombies) == 0 {
+		return sessionsVerdict{kind: sessionsClean}
+	}
+	return sessionsVerdict{kind: sessionsDirty, leaked: leaked, zombies: zombies}
+}
+
+// describe renders the observed evidence for the operator-facing message.
+func (v sessionsVerdict) describe() string {
+	switch v.kind {
+	case sessionsClean:
+		return "sessions clean (no leaked migrate backends, no zombie advisory holders)"
+	case sessionsDirty:
+		pids := make([]string, len(v.zombies))
+		for i, z := range v.zombies {
+			pids[i] = strconv.Itoa(z.BackendPID)
+		}
+		return fmt.Sprintf("%d leaked migrate backend(s); %d zombie advisory holder(s) on pid(s) [%s]",
+			v.leaked, len(v.zombies), strings.Join(pids, ", "))
+	case sessionsUnverifiable:
+		return fmt.Sprintf("sessions state could not be verified (probe error: %v)", v.probeErr)
+	default:
+		return "unknown sessions verdict"
+	}
+}
+
+// countLeakedOrphans counts aged psql-subprocess zombies (a killed migrate.Up's
+// psql children still running TRUNCATE/INSERT/CALL on statistical_* tables >5min).
+// Match BOTH the libpq default 'psql' and the task-#14 'statbus-migrate-sql%' tag;
+// the worker (application_name='worker') legitimately runs CALL
+// worker.statistical_*_reduce for minutes on Norway-sized data, so filtering by
+// app_name avoids false-positive cleanup-failures during healthy operation.
+//
+// STATBUS-139 (a): runs on the pool-BYPASSING `docker compose exec -T db psql`
+// peer-auth path (same transport as zombieAdvisoryHolders + cleanOrphanSessions),
+// NOT the pool-limited migrate.PsqlCommand external path the pre-139 probe used. The
+// observer must not ride the observed resource: during a post-restart reconnection
+// burst on a small max_connections box, the external path can't get a slot → the old
+// probe returned a false 'saturated' during the exact condition it existed to judge.
+func countLeakedOrphans(dir string) (int, error) {
+	envFile, err := dotenv.Load(filepath.Join(dir, ".env"))
+	if err != nil {
+		return 0, fmt.Errorf("load .env for docker psql: %w", err)
+	}
+	dbName := "statbus_local"
+	if v, ok := envFile.Get("POSTGRES_APP_DB"); ok && v != "" {
+		dbName = v
+	}
+	adminUser := "postgres"
+	if v, ok := envFile.Get("POSTGRES_ADMIN_USER"); ok && v != "" {
+		adminUser = v
+	}
+	q := exec.Command("docker", "compose", "exec", "-T", "db",
+		"psql", "-U", adminUser, "-d", dbName, "-t", "-A", "-c", `
 		SELECT count(*) FROM pg_stat_activity
 		  WHERE datname = current_database()
 		    AND state IN ('active', 'idle in transaction')
@@ -1342,31 +1414,55 @@ func checkSessionsClean(dir string) bool {
 		    AND (query ILIKE '%TRUNCATE %statistical_%'
 		         OR query ILIKE '%INSERT INTO %statistical_%'
 		         OR query ILIKE '%CALL %statistical_%');`)
-	cmd := exec.Command(psqlPath, args...)
-	cmd.Dir = dir
-	cmd.Env = env
-	out, err := cmd.Output()
+	q.Dir = dir
+	out, err := q.Output()
 	if err != nil {
-		return false
+		return 0, fmt.Errorf("query leaked migrate backends (docker-exec): %w", err)
 	}
 	leaked, err := strconv.Atoi(strings.TrimSpace(string(out)))
 	if err != nil {
-		return false
+		return 0, fmt.Errorf("parse leaked-backend count %q: %w", strings.TrimSpace(string(out)), err)
 	}
+	return leaked, nil
+}
 
-	// (2) Zombie advisory-lock holders — empty-app OR dead-PID-tagged
-	// statbus-migrate-<pid> (STATBUS-055). PID-liveness needs Go, not SQL; SHARED
-	// with cleanOrphanSessions Phase 2 so the gate detects EXACTLY what Phase 2
-	// reclaims. (The gate previously counted only empty-app holders → a tagged
-	// dead-PID holder was invisible → cleanup never triggered → the next migrate
-	// stalled on the held lock.)
+// probeSessionsVerdict produces the tri-state verdict from the two pool-INDEPENDENT
+// docker-exec probes (leaked-orphan count + zombie advisory holders). Either probe
+// erroring → UNVERIFIABLE (never a false dirty). STATBUS-139.
+func probeSessionsVerdict(dir string) sessionsVerdict {
+	leaked, err := countLeakedOrphans(dir)
+	if err != nil {
+		return classifySessions(0, nil, err)
+	}
+	// Zombie advisory-lock holders — empty-app OR dead-PID-tagged statbus-migrate-<pid>
+	// (STATBUS-055). PID-liveness needs Go, not SQL; SHARED with cleanOrphanSessions
+	// Phase 2 so the verdict detects EXACTLY what Phase 2 reclaims.
 	zombies, err := zombieAdvisoryHolders(dir)
 	if err != nil {
-		return false // can't verify → treat as not-clean (conservative; triggers cleanup)
+		return classifySessions(0, nil, err)
 	}
-
-	return leaked == 0 && len(zombies) == 0
+	return classifySessions(leaked, zombies, nil)
 }
+
+// checkSessionsClean is the GATE predicate (step-table + the recovery pre-check at
+// :328). Conservative-false on anything but a verified-clean read: unverifiable OR
+// dirty → run cleanup. This bool is CORRECT for the gate ("can't verify → clean up")
+// but must NOT be used as the post-cleanup VERDICT — that path uses the tri-state
+// (probeSessionsVerdict) so an unverifiable probe retries instead of hard-failing
+// (STATBUS-139 defect 1: verdict-role conflation).
+func checkSessionsClean(dir string) bool {
+	return probeSessionsVerdict(dir).kind == sessionsClean
+}
+
+// Bounded settle window for the post-cleanup sessions verdict (STATBUS-139 (c)).
+// Slot release after pg_terminate_backend AND a post-restart reconnection burst are
+// ASYNC wrt the SQL return, so a single probe races the drain; re-probe on a bounded
+// loop and succeed on the first clean read. Cap sized for a reconnection burst on a
+// small (max_connections=30) box — longer than the pre-139 fixed 2s.
+const (
+	sessionsSettleInterval = 4 * time.Second
+	sessionsSettleCap      = 48 * time.Second
+)
 
 // cleanOrphanSessions terminates leaked backends from prior crashed
 // upgrade attempts so the next migrate-up has free connection slots.
@@ -1412,9 +1508,12 @@ func checkSessionsClean(dir string) bool {
 //	  parent connection is idle for most of the wall-clock time:
 //	  the marker resolves to a live PID, cleanup skips it.
 //
-// 2-second sleep + recheck after both phases. Recheck failure is hard
-// fail — we do NOT silently retry, because that would hide a real
-// problem (e.g. genuine load, or a crashed cleanup).
+// Bounded settle loop + tri-state recheck after both phases (STATBUS-139).
+// Slot release is async, so we re-probe (pool-independent docker-exec) up to
+// sessionsSettleCap and succeed on the first verified-clean read. A hard fail only
+// on a VERIFIED verdict that names what was observed (leaked count / zombie pids /
+// probe error) — never a bare 'saturated' from a probe that itself couldn't get a
+// slot. This is NOT silent retry: the terminal failure still surfaces the evidence.
 //
 // Idempotent: on a healthy system Phase 1's WHERE clause matches zero
 // rows, Phase 2's advisory-lock query matches zero, and the recheck
@@ -1503,16 +1602,34 @@ func cleanOrphanSessions(dir string) error {
 		}
 	}
 
-	// Give postgres a moment to actually free the slots after
-	// pg_terminate_backend. Slot release is async wrt the SQL return.
-	time.Sleep(2 * time.Second)
-
-	if !checkSessionsClean(dir) {
-		return fmt.Errorf(
-			"connection pool still saturated after cleanOrphanSessions; " +
-				"check `journalctl --user -u 'statbus-upgrade@*'` for the underlying cause")
+	// Bounded settle loop (STATBUS-139): re-probe the tri-state verdict on the
+	// pool-INDEPENDENT docker-exec transport and SUCCEED on the first verified-clean
+	// read. Slot release + a post-restart reconnection burst are async wrt the
+	// pg_terminate_backend return, so a single probe races the drain — the pre-139
+	// bug that turned a self-resolving transient into a hard 'still saturated' exit-1.
+	// We probe immediately (fast path: already clean → no wait), then poll every
+	// sessionsSettleInterval up to sessionsSettleCap. On timeout we FAIL naming what
+	// was actually observed (last.describe(): leaked count / zombie pids / probe
+	// error) — distinguishing 'draining' (retried, then genuinely wedged) from a
+	// probe that couldn't verify. Retry covers both DIRTY (draining) and UNVERIFIABLE
+	// (transient probe error) during the window; the terminal failure carries the
+	// evidence rather than a bare, misleading 'saturated'.
+	deadline := time.Now().Add(sessionsSettleCap)
+	var last sessionsVerdict
+	for {
+		last = probeSessionsVerdict(dir)
+		if last.kind == sessionsClean {
+			return nil
+		}
+		if !time.Now().Before(deadline) {
+			break
+		}
+		time.Sleep(sessionsSettleInterval)
 	}
-	return nil
+	return fmt.Errorf(
+		"database sessions did not settle within %s after cleanOrphanSessions — %s. "+
+			"Check `journalctl --user -u 'statbus-upgrade@*'` for the underlying cause and re-run ./sb install",
+		sessionsSettleCap, last.describe())
 }
 
 // checkSeedRestored returns true if the database already has migrations
