@@ -351,6 +351,18 @@ EOF'
     # as `bash -c long -s -m 3 ...` (mangled). The function path uses
     # printf %q to escape each arg before assembling one quoted remote
     # command string for ssh.
+    #
+    # TRAP (r13 autopsy, 2026-07-05, foreman-verified on a kept VM):
+    # `sudo -i -u statbus -- ...` re-quotes the command line ITSELF before
+    # handing it to statbus's login shell, and that re-quoting does not
+    # reliably protect bare `$VARNAME` references (parens happen to survive
+    # via a different escape; a lone `$` does not) — a `$` that must reach
+    # the VM as LITERAL TEXT (e.g. building a shell script whose body
+    # references `$SOME_VAR` for evaluation at a LATER, unrelated run) can
+    # come back silently expanded to empty. Never pass such content as a
+    # VM_EXEC/bash -c argument — write it to a local file (heredoc with a
+    # QUOTED delimiter) and scp it to the VM instead; see
+    # 3-postswap-resume-died-parked.sh's park-callback.sh transfer.
     VM_IP="$ip"
 }
 

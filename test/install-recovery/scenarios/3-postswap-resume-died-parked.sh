@@ -420,8 +420,57 @@ upload_sb_to_vm "$VM_NAME"
 VM_EXEC bash -c "cd ~/statbus && if ! git cat-file -e $HEAD_SHA 2>/dev/null; then git fetch --depth 1 origin $HEAD_SHA || { echo 'FATAL: cannot fetch HEAD' >&2; exit 1; }; fi && git checkout $HEAD_SHA"
 
 echo ""
+echo "── writing the park-callback script (transferred as a FILE — see the sudo -i \$-expansion trap below) ──"
+# r13 AUTOPSY (2026-07-05, foreman-verified on the kept VM 89.167.23.219) —
+# two independent bugs in the ORIGINAL one-liner VM_EXEC injection, both
+# fixed here:
+#
+# BUG 2 (why the callback script is now a FILE, not an inline VM_EXEC arg):
+# VM_EXEC's transport is `sudo -i -u statbus -- ...` (vm-bootstrap.sh). sudo
+# -i re-quotes the command line itself before handing it to statbus's login
+# shell, and that re-quoting does not reliably protect bare `$VARNAME`
+# references — parens happened to survive (so `$(date ...)` came through
+# intact), but `$STATBUS_EVENT` (no parens) was silently expanded to empty
+# somewhere in that reconstruction. The VM's actual .env.config ended up
+# with `echo " $(date -u +%FT%TZ)"` — the event name GONE — so even with
+# BUG 1 fixed, the siren-once assertion could never match. Fix: never pass
+# $-containing shell text through VM_EXEC as an ARGUMENT. Build the script
+# body in a LOCAL heredoc (quoted delimiter — nothing expands locally,
+# except $CALLBACK_LOG which we WANT substituted now, via a deliberate
+# backslash-escape split below) and scp it to the VM as a file — the $
+# characters land on disk untouched, evaluated by /bin/sh only when the
+# callback actually fires.
+CALLBACK_SCRIPT_LOCAL=$(mktemp)
+cat > "$CALLBACK_SCRIPT_LOCAL" << CALLBACKSCRIPT
+#!/bin/sh
+echo "\$STATBUS_EVENT \$(date -u +%FT%TZ)" >> $CALLBACK_LOG
+CALLBACKSCRIPT
+scp -O "${SSH_OPTS[@]}" "$CALLBACK_SCRIPT_LOCAL" root@"$VM_IP":/tmp/park-callback.sh >/dev/null
+rm -f "$CALLBACK_SCRIPT_LOCAL"
+ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
+    'mv /tmp/park-callback.sh /home/statbus/park-callback.sh && chown statbus:statbus /home/statbus/park-callback.sh && chmod 0755 /home/statbus/park-callback.sh'
+echo "  ✓ /home/statbus/park-callback.sh installed (chmod 0755)"
+
+echo ""
 echo "── configuring UPGRADE_CALLBACK via .env.config (STATBUS-131 AC#3 — survives every config generate from here on) ──"
-VM_EXEC bash -c "cd ~/statbus && rm -f $CALLBACK_LOG && printf 'UPGRADE_CALLBACK=echo \"\$STATBUS_EVENT \$(date -u +%%FT%%TZ)\" >> $CALLBACK_LOG\n' >> .env.config"
+VM_EXEC bash -c "rm -f $CALLBACK_LOG"
+# BUG 1: the product-generated .env.config has NO trailing newline (its last
+# written line is "ADMINISTRATOR_CONTACT=", no \n) — a naive `>> .env.config`
+# GLUES onto that line ("ADMINISTRATOR_CONTACT=UPGRADE_CALLBACK=..."), so the
+# landed-check below found nothing. Ensure a trailing newline first —
+# expansion-proof (see BUG 2 above; the `"^$"` grep pattern does contain a
+# literal dollar, but a $ immediately before a closing quote cannot begin an
+# expansion in any POSIX shell layer — a grammar guarantee, unlike the
+# parens-survived luck BUG 2 rightly distrusts):
+# `tail -c1 | grep -q "^$"` matches iff the last byte
+# IS a newline (or the file is empty, in which case `tail -c1` outputs
+# nothing and grep also finds no match, so the `||` fires and prepends a
+# harmless leading blank line — same safe outcome as the "not a newline"
+# case). Only NOW is UPGRADE_CALLBACK set to the plain, $-free script PATH
+# (never the raw command containing $ references) — safe to append via the
+# ordinary VM_EXEC mechanism since there's nothing left for any shell layer
+# to mis-expand.
+VM_EXEC bash -c 'cd ~/statbus && (tail -c1 .env.config | grep -q "^$" || printf "\n" >> .env.config) && printf "UPGRADE_CALLBACK=/home/statbus/park-callback.sh\n" >> .env.config'
 VM_EXEC bash -c "grep '^UPGRADE_CALLBACK=' ~/statbus/.env.config" || { echo "✗ UPGRADE_CALLBACK injection did not land in .env.config" >&2; exit 1; }
 
 echo ""
