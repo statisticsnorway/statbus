@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - architect
 created_date: '2026-06-12 21:51'
-updated_date: '2026-07-04 22:54'
+updated_date: '2026-07-04 23:21'
 labels:
   - install-recovery
   - testing
@@ -46,7 +46,7 @@ Three items that gate the deferred install-recovery VM battery (post-rune-instal
 - [ ] #1 rune-wedge scenario lands in test/install-recovery/scenarios/ and proves takeover→forward→completed with zero restores on a fabricated rune shape
 - [ ] #2 NRestarts-across-exit-42 + reset-failed-on-active-unit confirmed on a VM (or the documented conservative degradation confirmed for older systemd)
 - [ ] #3 All scenario commits land outside battery runs (freeze-window discipline)
-- [ ] #4 3-postswap-resume-died-rollback rewritten to the four-case verdict matrix (canary-self-heal / transient-forward-succeeds / persistent-forward-loops / behind-rolls-back) ONLY AFTER the King settles the loudness question for the persistent case — on hold until then
+- [x] #4 3-postswap-resume-died-rollback rewritten to the four-case verdict matrix (canary-self-heal / transient-forward-succeeds / persistent-forward-loops / behind-rolls-back) ONLY AFTER the King settles the loudness question for the persistent case — on hold until then
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -160,5 +160,11 @@ author: foreman
 created: 2026-07-04 22:54
 ---
 LEDGER r18 (f9bdac46d + approved-134-in-binary, provenance noted): THE PARK ORACLE WENT GREEN through every assertion group. Kill #1 at t+0s (both deterministic gates: step stamp + active pg_sleep); kill #2 at t+31s on the prior_death_step ''→boot-migrate transition; PARK at attempts==3 EXACTLY, reason 'two consecutive crash-deaths at step "boot-migrate" — deterministic hang (same-step-twice)'; unit alive-idle, NRestarts=2 bounded+frozen across the 30s settle (the anti-rune assertion); siren EXACTLY ONCE via the .env.config-configured callback (STATBUS-131 AC#3 leg observed); flag present post-park (135 live); never rolled_back; both extra restarts logged the boot-path parked-skip, attempts unchanged, no re-siren; deliberate ./sb install un-park granted ONE fresh attempt (reset budget) which COMPLETED — VM row terminal: completed | attempts=1 | parked=f (F2 contract end-to-end). ONE RESIDUAL RED, outside the park mechanism: the un-park install's final idempotent refresh pass failed step 10/16 (Database sessions) on a single-probe 'pool still saturated' verdict immediately after cleanOrphanSessions killed the scenario's orphans — autopsy shows 16/30 connections minutes later, a self-resolving reconnection-burst transient on the max_connections=30 test box. Architect ruling whose bug (foreman's read: product — the check needs settle/retry, not single-probe fail with 'fix and re-run' noise). AC#4 checks on the next fully-green run; the substance is proven.
+---
+
+author: foreman
+created: 2026-07-04 23:21
+---
+LEDGER r19 (440c14cb2) — GREEN. ALL SCENARIOS PASSED. Full oracle end-to-end on one VM: two same-step deaths at boot-migrate → PARK at attempts==3 → alive-idle (NRestarts bounded+frozen) → siren exactly once via a .env.config-only UPGRADE_CALLBACK (incl. two extra skipped restarts) → never rolled_back → deliberate ./sb install UN-PARK (exit 0, UN-PARKED line logged) → exactly ONE fresh attempt → COMPLETED (row: completed|1|f) → flag absent post-completion, no orphan backups, health 200, demo data intact and snapshot-matched. The STATBUS-139 sessions-verdict fix held at the exact spot r18 red-flagged (install exit 0). AC#4 CHECKED. The park arc is closed run-proven: comment #6 hoist (cc660280f) + F1/F2, 135 flag-survives-park, 134 restored rollback pair bound, 131 carry-through, 139 sessions verdict — every piece observed live. Campaign total: 19 runs, every failure named. REMAINING on this ticket: AC#1 rune-wedge scenario, AC#2 systemd empirics (pre-park battery items, unchanged). Follow-up noted: doc-021's closing line ('end-to-end oracle outstanding') can now cite r19; STATBUS-134's own pair-terminal scenario (with 136) is the next oracle to build.
 ---
 <!-- COMMENTS:END -->
