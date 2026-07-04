@@ -150,6 +150,14 @@ type Service struct {
 	allowedSignersPath string    // path to tmp/allowed-signers file (empty if no signers configured)
 	flagLock           *FlagLock // holds the flock on tmp/upgrade-in-progress.json during executeUpgrade
 	runningAsService   bool      // true when Run() is the entry point; false for one-shot callers
+	// STATBUS-046 / STATBUS-044 comment #6 — the crash-resume attempt is counted
+	// ONCE per process lifetime, at the START of the recovery pass (before the boot
+	// migrate). RecoveryBudgetGuard sets these; whichever downstream regime runs
+	// afterwards (resumePostSwap / recoveryRollback) reuses the count instead of
+	// double-incrementing. A fresh process (new boot) starts false — that is the
+	// per-attempt reset (each boot IS one attempt).
+	recoveryPassCounted  bool // true once this process counted its recovery attempt
+	recoveryPassAttempts int  // recovery_attempts value from that increment
 	// binaryCommit is the compile-time commit SHA (ldflags -X cmd.commit=<sha>),
 	// a ground-truth anchor the service uses to answer "what version is this
 	// binary itself?" independent of git checkout state or row-recorded
@@ -558,6 +566,40 @@ func (d *Service) markStep(step string) {
 	if err := d.recordFlagStep(step); err != nil {
 		log.Printf("recordFlagStep(%s): %v — same-step-twice detection degraded; the attempt budget still bounds the loop", step, err)
 	}
+}
+
+// ClearFlagStepHistory zeroes the on-disk flag's Step + PriorDeathStep
+// (STATBUS-044 comment #6, architect F2). It is the flag-side companion to the
+// row-side UnparkByID: a deliberate ./sb install un-park resets recovery_attempts
+// in the row, but the flag's frozen death history survives on disk — so the very
+// next escalation consult would read Step==PriorDeathStep==<the killer step> and
+// same-step-twice INSTA-RE-PARK the fresh attempt at attempts==1, breaking the
+// "install grants ONE fresh attempt" contract. Clearing both fields makes the
+// fresh attempt start from a clean history (no prior death).
+//
+// Caller contract: invoked ONLY when no flock is held (the ./sb install
+// crash-recovery path, where stopRestartUpgradeUnit has quiesced the unit and
+// released the flock). It acquires the flock itself, rewrites the two fields, and
+// releases — never touches the row. A missing/unreadable/non-service flag is a
+// no-op (nothing to clear). Best-effort by contract of its single caller (a
+// clear-failure only risks a re-park the operator can retry), but it returns the
+// error so the caller can log it.
+func (d *Service) ClearFlagStepHistory() error {
+	flag, _, err := ReadFlagFile(d.projDir)
+	if err != nil {
+		return err
+	}
+	if flag == nil || flag.Holder != HolderService {
+		return nil // no service-held flag → nothing to clear
+	}
+	flag.Step = ""
+	flag.PriorDeathStep = ""
+	lock, lerr := acquireFlock(d.projDir, *flag) // truncate-rewrites the flag with the cleared fields
+	if lerr != nil {
+		return lerr
+	}
+	lock.Close() // release immediately; downstream recovery re-acquires
+	return nil
 }
 
 // removeUpgradeFlag releases the service's flock AND removes the
@@ -1846,48 +1888,62 @@ func (d *Service) Run(ctx context.Context) error {
 	// handling), not deferred: Run() IS the main loop, so a defer would
 	// leak the ticker for the whole service lifetime — pinging past a
 	// markTerminal refuse and masking a genuinely dead unit from systemd.
-	bootMigrateTickerCtx, bootMigrateTickerCancel := context.WithCancel(ctx)
-	bootMigrateTickerDone := make(chan struct{})
-	go runGatedWatchdogTicker(bootMigrateTickerCtx, nil,
-		applyPostSwapStallThreshold, applyPostSwapWatchdogCadence,
-		func() { sdNotify("WATCHDOG=1") }, bootMigrateTickerDone)
-	bootMigrateErr := runCommandToLog(d.projDir, MigrateUpTimeout, io.Discard, "boot-migrate-up", nil,
-		filepath.Join(d.projDir, "sb"), "migrate", "up", "--verbose")
-	bootMigrateTickerCancel()
-	<-bootMigrateTickerDone
-	if err := bootMigrateErr; err != nil {
-		// #14: a boot-migrate TIMEOUT (MigrateUpTimeout) leaves the same orphaned in-container
-		// psql backend as the resume-migrate path (docker-exec doesn't forward
-		// the process-group SIGKILL). Terminate it on the live conn before
-		// refusing — so it isn't left holding locks against the next start's
-		// migrate. queryConn is live here (connect ran earlier in Run setup);
-		// nil progress (boot has no progress log) — terminateMigrateOrphan is
-		// nil-safe. Timeout-only: a clean boot-migrate failure means psql exited.
-		if errors.Is(err, ErrCommandTimeout) {
-			d.terminateMigrateOrphan(ctx, nil)
-		}
-		// STATBUS-017: a service-held in-progress flag means an interrupted upgrade
-		// left a half-applied migration the schema-skew guard CANNOT re-apply
-		// ("relation already exists" for an after-commit-but-unrecorded migration,
-		// or a deterministic migration error). recoverFromFlag (next, :1689) owns the
-		// snapshot-restore path: its Resuming/PostSwap one-shot latch rolls the DB
-		// back to the pre-upgrade snapshot. Defer to it instead of refusing —
-		// markTerminal+return here IS the rune wedge (a half-applied migration
-		// boot-loops forever instead of restoring). Keep refuse for the no-flag /
-		// install-held case: a genuine stale-schema refusal with no recovery owner
-		// (recoverFromFlag only clears install-held flags — no snapshot to restore).
-		// Inert in every green scenario: the branch is reached only when
-		// boot-migrate-up FAILS, which it never does when the migration re-applies
-		// cleanly.
-		if flag, _, ferr := ReadFlagFile(d.projDir); ferr == nil && flag != nil && flag.Holder == HolderService {
-			fmt.Printf("boot-migrate-up failed but a service-held in-progress upgrade flag is present "+
-				"(id=%d, %s, phase=%q) — deferring to recoverFromFlag for snapshot restore (STATBUS-017): %v\n",
-				flag.ID, flag.Label(), flag.Phase, err)
-			// fall through — do NOT markTerminal/return; recoverFromFlag below handles it
-		} else {
-			d.markTerminal("BOOT_MIGRATE_UP_FAILED",
-				fmt.Sprintf("./sb migrate up at boot failed: %v; service refuses to enter the loop on a stale schema", err))
-			return fmt.Errorf("boot migrate up: %w", err)
+	//
+	// STATBUS-044 comment #6 — count the crash-resume attempt at the START of the
+	// recovery pass, BEFORE this boot migrate, so a death IN it self-counts (the r12
+	// window where resume-time migrations actually run). The guard also stamps
+	// StepBootMigrate on the flag (same-step-twice covers the boot window) and, for
+	// a PARKED row, returns skip=true so we do NOT re-run the killer migration — the
+	// unit stays alive-idle. The guard owns + releases the flock internally; it is a
+	// no-op (returns false) for a non-forward-recovery boot.
+	skipBootMigrate := d.RecoveryBudgetGuard(ctx)
+	if skipBootMigrate {
+		fmt.Printf("Recovery boot: skipping the boot migrate for a parked upgrade — the unit stays alive-idle; recoverFromFlag's parked-skip (resume or rollback arm) keeps it that way. Re-trigger the upgrade or run ./sb install to un-park.\n")
+	}
+	if !skipBootMigrate {
+		bootMigrateTickerCtx, bootMigrateTickerCancel := context.WithCancel(ctx)
+		bootMigrateTickerDone := make(chan struct{})
+		go runGatedWatchdogTicker(bootMigrateTickerCtx, nil,
+			applyPostSwapStallThreshold, applyPostSwapWatchdogCadence,
+			func() { sdNotify("WATCHDOG=1") }, bootMigrateTickerDone)
+		bootMigrateErr := runCommandToLog(d.projDir, MigrateUpTimeout, io.Discard, "boot-migrate-up", nil,
+			filepath.Join(d.projDir, "sb"), "migrate", "up", "--verbose")
+		bootMigrateTickerCancel()
+		<-bootMigrateTickerDone
+		if err := bootMigrateErr; err != nil {
+			// #14: a boot-migrate TIMEOUT (MigrateUpTimeout) leaves the same orphaned in-container
+			// psql backend as the resume-migrate path (docker-exec doesn't forward
+			// the process-group SIGKILL). Terminate it on the live conn before
+			// refusing — so it isn't left holding locks against the next start's
+			// migrate. queryConn is live here (connect ran earlier in Run setup);
+			// nil progress (boot has no progress log) — terminateMigrateOrphan is
+			// nil-safe. Timeout-only: a clean boot-migrate failure means psql exited.
+			if errors.Is(err, ErrCommandTimeout) {
+				d.terminateMigrateOrphan(ctx, nil)
+			}
+			// STATBUS-017: a service-held in-progress flag means an interrupted upgrade
+			// left a half-applied migration the schema-skew guard CANNOT re-apply
+			// ("relation already exists" for an after-commit-but-unrecorded migration,
+			// or a deterministic migration error). recoverFromFlag (next, :1689) owns the
+			// snapshot-restore path: its Resuming/PostSwap one-shot latch rolls the DB
+			// back to the pre-upgrade snapshot. Defer to it instead of refusing —
+			// markTerminal+return here IS the rune wedge (a half-applied migration
+			// boot-loops forever instead of restoring). Keep refuse for the no-flag /
+			// install-held case: a genuine stale-schema refusal with no recovery owner
+			// (recoverFromFlag only clears install-held flags — no snapshot to restore).
+			// Inert in every green scenario: the branch is reached only when
+			// boot-migrate-up FAILS, which it never does when the migration re-applies
+			// cleanly.
+			if flag, _, ferr := ReadFlagFile(d.projDir); ferr == nil && flag != nil && flag.Holder == HolderService {
+				fmt.Printf("boot-migrate-up failed but a service-held in-progress upgrade flag is present "+
+					"(id=%d, %s, phase=%q) — deferring to recoverFromFlag for snapshot restore (STATBUS-017): %v\n",
+					flag.ID, flag.Label(), flag.Phase, err)
+				// fall through — do NOT markTerminal/return; recoverFromFlag below handles it
+			} else {
+				d.markTerminal("BOOT_MIGRATE_UP_FAILED",
+					fmt.Sprintf("./sb migrate up at boot failed: %v; service refuses to enter the loop on a stale schema", err))
+				return fmt.Errorf("boot migrate up: %w", err)
+			}
 		}
 	}
 
@@ -2471,6 +2527,27 @@ func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displa
 	// on every other path.
 	d.flagLock = lock
 
+	// STATBUS-044 comment #6 (architect F1) — a PARKED row must never be rolled back.
+	// This is the single chokepoint for that guarantee: recoveryRollback is reached
+	// by EVERY automatic-restore route (recoverFromFlag's positively-Behind arm, both
+	// Unknown-exhaust arms, and the flagless completeInProgressUpgrade path). Once
+	// RecoveryBudgetGuard parks a Resuming-phase row (and skips the boot migrate), the
+	// skipped migrations can leave ground truth Behind — without this check that would
+	// AUTO-RESTORE the very row we just sirened as parked. Park stays park until a
+	// DELIBERATE operator trigger (./sb install un-parks into the careful routing,
+	// which can then roll a genuinely-behind box back). Skip → release the flock but
+	// KEEP the flag on disk (parked rows keep their flag) → alive-idle. FAIL-OPEN on a
+	// read error (42703 bootstrap: a pre-migrate schema has no recovery_parked_at, so
+	// the row cannot be parked — proceed with the rollback).
+	if parked, parkReason, perr := d.upgradeParkedReason(ctx, id); perr != nil {
+		log.Printf("recoveryRollback: park-state read failed for upgrade %d: %v — proceeding fail-open with the rollback", id, perr)
+	} else if parked {
+		log.Printf("recoveryRollback: upgrade %d is PARKED (%s) — refusing the automatic rollback; the row stays parked and the unit alive-idle. Re-trigger the upgrade or run ./sb install to make a fresh deliberate attempt.", id, parkReason)
+		d.flagLock = nil
+		lock.Close() // release the flock; leave the flag file on disk (parked rows keep it)
+		return
+	}
+
 	// STATBUS-046 slice 1B — the rollback-pipeline resume budget. A rollback that
 	// crash-loops (watchdog kill mid-restore, OOM, reboot) must not re-run forever
 	// any more than the forward path may. The counter is SHARED and never reset at
@@ -2483,7 +2560,15 @@ func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displa
 	// HUMAN stop (state='failed'; ./sb install), NOT park, NOT another rollback
 	// (pin 3). git-restore-fail — the genuine restore failure — stays inside
 	// rollback() itself; this bounds the CRASH loop (net: 3 forward + 2 rollback).
-	attempts, aerr := d.incrementRecoveryAttempts(ctx, id)
+	//
+	// STATBUS-044 comment #6: count ONCE per pass. When RecoveryBudgetGuard already
+	// counted this pass at boot (a Resuming→Behind pass, where the forward guard ran
+	// before ground truth routed here), reuse its count rather than double-count.
+	// A PreSwap→rollback pass (guard is a no-op — PreSwap is not a forward flag) still
+	// increments here, exactly as before. rollbackResumeIsTerminal is UNCHANGED: the
+	// guard's StepBootMigrate stamp is non-rollback, so the first rollback resume stays
+	// free by construction.
+	attempts, aerr := d.countRecoveryAttemptOnce(ctx, id)
 	if aerr != nil {
 		log.Printf("recoveryRollback: could not increment recovery_attempts for %d (%v) — continuing", id, aerr)
 	}
@@ -5535,6 +5620,144 @@ func (d *Service) incrementRecoveryAttempts(ctx context.Context, id int) (int, e
 	return attempts, nil
 }
 
+// countRecoveryAttemptOnce increments recovery_attempts EXACTLY ONCE per process
+// lifetime (STATBUS-044 comment #6 part 3). RecoveryBudgetGuard is the first
+// counter — it runs at the start of the recovery pass, before the boot migrate —
+// and whichever downstream regime runs afterwards (resumePostSwap /
+// recoveryRollback) reuses that count via this helper instead of double-counting
+// the same pass. When nothing counted yet this lifetime (e.g. a PreSwap→rollback
+// pass, where the forward guard is a no-op), it increments and records the value
+// so a later caller in the same pass still reuses it.
+func (d *Service) countRecoveryAttemptOnce(ctx context.Context, id int) (int, error) {
+	if d.recoveryPassCounted {
+		return d.recoveryPassAttempts, nil
+	}
+	n, err := d.incrementRecoveryAttempts(ctx, id)
+	if err != nil {
+		return 0, err
+	}
+	d.recoveryPassCounted = true
+	d.recoveryPassAttempts = n
+	return n, nil
+}
+
+// RecoveryBudgetGuard is the crash-resume attempt budget's EARLY guard (STATBUS-044
+// comment #6, King-approved). It runs at the START of a recovery pass on BOTH
+// entrypoints (Service.Run and the ./sb install crash-recovery ladder), BEFORE the
+// boot migrate — the window r12 proved is where resume-time migrations actually
+// run and where a killer migration crash-looped UNCOUNTED (the rune class, in the
+// one window heavy migrations execute). It:
+//
+//   - counts this pass at its start so a death IN the boot migrate self-counts,
+//   - stamps StepBootMigrate on the flag so two consecutive boot-migrate deaths
+//     trip same-step-twice → park early,
+//   - PARKS (never rolls back) on a terminal verdict: park touches no data, and a
+//     deliberate ./sb install un-parks into recoverFromFlag's careful ground-truth
+//     routing, which can still roll a genuinely-behind box back,
+//   - SKIPS the boot migrate for a parked row so park delivers alive-idle for this
+//     failure class (otherwise every restart re-runs the killer migration).
+//
+// Returns skipBootMigrate: true when the caller must NOT run the boot migrate (row
+// parked, or just parked by this guard). The downstream recoverFromFlag →
+// resumePostSwap parked-skip then keeps the unit alive-idle.
+//
+// FAIL-OPEN on any DB read/write error (the resumePostSwap :5792-5804 bootstrap
+// pattern, verbatim): the 046-shipping upgrade's own recovery boot runs these
+// queries against the pre-migrate schema (recovery_* columns absent → SQLSTATE
+// 42703). Proceed so the boot migrate ships the columns and the feature bootstraps
+// through its own deferral window; the downstream resumePostSwap increment/consult
+// still bounds the pass. Fail-CLOSED here would loop uncounted on exactly that path.
+func (d *Service) RecoveryBudgetGuard(ctx context.Context) (skipBootMigrate bool) {
+	flag, _, ferr := ReadFlagFile(d.projDir)
+	if ferr != nil || flag == nil || !flag.IsServiceForwardRecovery() {
+		// No service-held FORWARD recovery flag → not a resume pass (fresh boot,
+		// install-held, or a PreSwap flag that rolls back). Guard is a no-op; the
+		// PreSwap→rollback path keeps recoveryRollback's own increment.
+		return false
+	}
+
+	// Own the flag: acquiring the flock is the authoritative "the prior holder is
+	// dead and this process owns the recovery pass" signal — PID-reuse-immune, the
+	// same gate Detect + recoveryRollback key on. A live holder means this is not
+	// our pass to count; fall through and let the existing downstream recovery
+	// bound it. We update PID only here; the step is stamped below, only if we
+	// continue to the boot migrate.
+	base := *flag
+	base.PID = os.Getpid()
+	lock, lerr := acquireFlock(d.projDir, base)
+	if lerr != nil {
+		log.Printf("RecoveryBudgetGuard: upgrade flock held by another actor (id=%d) — skipping early counting; downstream recovery still bounds this pass: %v", flag.ID, lerr)
+		return false
+	}
+	d.flagLock = lock
+	release := func() {
+		d.flagLock = nil
+		lock.Close()
+	}
+
+	// Parked rows skip the boot migrate → alive-idle for this failure class.
+	parked, _, perr := d.upgradeParkedReason(ctx, flag.ID)
+	if perr != nil {
+		log.Printf("RecoveryBudgetGuard: park-state read failed (id=%d): %v — proceeding fail-open (boot migrate bootstraps the recovery_* columns if absent)", flag.ID, perr)
+		release()
+		return false
+	}
+	if parked {
+		log.Printf("RecoveryBudgetGuard: upgrade %d is PARKED — skipping boot migrate (alive-idle); re-trigger the upgrade or run ./sb install to un-park", flag.ID)
+		release()
+		return true
+	}
+
+	// Count this pass at its START (before the boot migrate) so a death IN the boot
+	// migrate self-counts (D3: process deaths only).
+	attempts, aerr := d.incrementRecoveryAttempts(ctx, flag.ID)
+	if aerr != nil {
+		log.Printf("RecoveryBudgetGuard: could not increment recovery_attempts (id=%d): %v — proceeding fail-open with a single attempt", flag.ID, aerr)
+		release()
+		return false
+	}
+	d.recoveryPassCounted = true
+	d.recoveryPassAttempts = attempts
+
+	// Consult the pure escalation core. canRollBack=FALSE unconditionally: a
+	// terminal verdict at this early guard PARKS, never rolls back (comment #6).
+	// deathStep/priorDeathStep are read from the flag AS IT WAS before this pass
+	// (the just-crashed attempt's frozen step) — the in-memory `flag`, not the
+	// PID-updated on-disk copy.
+	if action, reason := resumeEscalation(attempts, flag.Step, flag.PriorDeathStep, false); action != recoveryContinue {
+		freshlyParked, parkErr := d.parkUpgrade(ctx, flag.ID, reason)
+		release()
+		if parkErr != nil {
+			log.Printf("RecoveryBudgetGuard: park write failed (id=%d): %v — skipping boot migrate anyway; the row stays in_progress and the next pass re-evaluates", flag.ID, parkErr)
+			return true
+		}
+		log.Printf("RecoveryBudgetGuard: PARKED upgrade %d after %d attempt(s) — %s", flag.ID, attempts, reason)
+		// Degraded siren — fires EXACTLY ONCE per park event (freshlyParked from the
+		// parkUpgrade parked_at guard), matching resumePostSwap's contract.
+		if freshlyParked {
+			d.runCallback(flag.Label(), map[string]string{"STATBUS_EVENT": "parked", "STATBUS_PARKED": "1", "STATBUS_PARK_REASON": reason})
+		}
+		return true
+	}
+
+	// Continue: stamp the boot-migrate step + roll the death history so two
+	// consecutive deaths IN the boot migrate trip same-step-twice via
+	// StepBootMigrate. Mirrors resumePostSwap's reacquire roll, hoisted to cover
+	// the boot window. Best-effort (mutateHeldFlag needs the flock we still hold):
+	// a failure only degrades same-step detection to the plain attempt budget.
+	if err := d.mutateHeldFlag(func(f *UpgradeFlag) {
+		f.PriorDeathStep = f.Step
+		f.Step = StepBootMigrate
+	}); err != nil {
+		log.Printf("RecoveryBudgetGuard: could not stamp boot-migrate step (id=%d): %v — same-step-twice detection degraded; the attempt budget still bounds the loop", flag.ID, err)
+	}
+	// Release before the boot migrate: the downstream resumePostSwap /
+	// recoveryRollback re-acquire the flock on their own fd (a second flock on the
+	// held fd would EWOULDBLOCK). The stamped step is already persisted on disk.
+	release()
+	return false
+}
+
 // parkUpgrade writes the durable PARK marker (STATBUS-046): the row STAYS
 // state='in_progress' (forward-only preserved; rollback stays reachable ONLY via
 // a positively-Behind ground-truth verdict, NEVER via exhaustion) and gains
@@ -5802,6 +6025,17 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 	// core re-derives TERMINAL from persisted state (attempts never decrease,
 	// Step==PriorDeathStep survives on the flag), so a genuinely-parked row parks
 	// again before the reacquire — no pipeline attempt ever runs on it.
+	//
+	// STATBUS-044 comment #6 — RecoveryBudgetGuard (Run + install ladder) may have
+	// ALREADY counted + consulted this pass at boot, before the boot migrate. Capture
+	// that at entry: the parked-skip below runs REGARDLESS (a row the guard just
+	// parked must not run applyPostSwap — the parked-skip is what returns the unit
+	// to alive-idle), but the increment + consult are SKIPPED when the guard ran.
+	// Skipping the CONSULT is load-bearing: after a boot migrate that SUCCEEDS
+	// following a boot-migrate death, flag.Step == flag.PriorDeathStep ==
+	// StepBootMigrate, so re-consulting here would FALSE-PARK a pass whose migration
+	// actually succeeded (comment #6's verified subtlety).
+	guardCounted := d.recoveryPassCounted
 	parked, parkReason, perr := d.upgradeParkedReason(ctx, flag.ID)
 	if perr != nil {
 		log.Printf("resumePostSwap: park-state read failed for upgrade %d: %v — proceeding; the escalation budget still bounds this attempt", flag.ID, perr)
@@ -5811,36 +6045,39 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 		progress.Close()
 		return nil
 	}
-	// (2) Increment at attempt START so a death self-counts (D3: process deaths
-	//     only). Non-fatal on write error — fall back to a single conservative
-	//     attempt rather than block recovery on bookkeeping.
-	attempts, aerr := d.incrementRecoveryAttempts(ctx, flag.ID)
-	if aerr != nil {
-		log.Printf("resumePostSwap: could not increment recovery_attempts for %d (%v) — proceeding with a single attempt", flag.ID, aerr)
-		attempts = 1
-	}
-	// (3) Consult the pure escalation core. deathStep = where the PREVIOUS attempt
-	//     died (flag.Step, frozen by that crash); priorDeathStep = the death two
-	//     attempts ago (flag.PriorDeathStep). Terminal at-target → PARK.
-	if action, reason := resumeEscalation(attempts, flag.Step, flag.PriorDeathStep, false); action != recoveryContinue {
-		freshlyParked, parkErr := d.parkUpgrade(ctx, flag.ID, reason)
-		if parkErr != nil {
-			progress.Write("resumePostSwap: park write failed for upgrade %d: %v", flag.ID, parkErr)
+	if !guardCounted {
+		// (2) Increment at attempt START so a death self-counts (D3: process deaths
+		//     only). Non-fatal on write error — fall back to a single conservative
+		//     attempt rather than block recovery on bookkeeping. countRecoveryAttemptOnce
+		//     also records the count so a later recoveryRollback in the same pass reuses it.
+		attempts, aerr := d.countRecoveryAttemptOnce(ctx, flag.ID)
+		if aerr != nil {
+			log.Printf("resumePostSwap: could not increment recovery_attempts for %d (%v) — proceeding with a single attempt", flag.ID, aerr)
+			attempts = 1
+		}
+		// (3) Consult the pure escalation core. deathStep = where the PREVIOUS attempt
+		//     died (flag.Step, frozen by that crash); priorDeathStep = the death two
+		//     attempts ago (flag.PriorDeathStep). Terminal at-target → PARK.
+		if action, reason := resumeEscalation(attempts, flag.Step, flag.PriorDeathStep, false); action != recoveryContinue {
+			freshlyParked, parkErr := d.parkUpgrade(ctx, flag.ID, reason)
+			if parkErr != nil {
+				progress.Write("resumePostSwap: park write failed for upgrade %d: %v", flag.ID, parkErr)
+				progress.Close()
+				return fmt.Errorf("resumePostSwap: park write failed for upgrade %d: %w", flag.ID, parkErr)
+			}
+			log.Printf("resumePostSwap: PARKED upgrade %d after %d attempt(s) — %s", flag.ID, attempts, reason)
+			progress.Write("PARKED after %d crash-resume attempt(s): %s. The unit stays running and idle (no crash loop); re-trigger the upgrade or run ./sb install to make a fresh attempt — each deliberate trigger is exactly one attempt.", attempts, reason)
 			progress.Close()
-			return fmt.Errorf("resumePostSwap: park write failed for upgrade %d: %w", flag.ID, parkErr)
+			// Degraded siren — fires EXACTLY ONCE per park EVENT: only when THIS call
+			// is the one that flipped the row into parked (freshlyParked, from the
+			// parkUpgrade parked_at guard). A re-park after a failed fresh attempt is a
+			// new event and correctly sirens again; a blip that re-enters an already-
+			// parked row does not (RowsAffected==0 → freshlyParked==false).
+			if freshlyParked {
+				d.runCallback(flag.Label(), map[string]string{"STATBUS_EVENT": "parked", "STATBUS_PARKED": "1", "STATBUS_PARK_REASON": reason})
+			}
+			return nil
 		}
-		log.Printf("resumePostSwap: PARKED upgrade %d after %d attempt(s) — %s", flag.ID, attempts, reason)
-		progress.Write("PARKED after %d crash-resume attempt(s): %s. The unit stays running and idle (no crash loop); re-trigger the upgrade or run ./sb install to make a fresh attempt — each deliberate trigger is exactly one attempt.", attempts, reason)
-		progress.Close()
-		// Degraded siren — fires EXACTLY ONCE per park EVENT: only when THIS call
-		// is the one that flipped the row into parked (freshlyParked, from the
-		// parkUpgrade parked_at guard). A re-park after a failed fresh attempt is a
-		// new event and correctly sirens again; a blip that re-enters an already-
-		// parked row does not (RowsAffected==0 → freshlyParked==false).
-		if freshlyParked {
-			d.runCallback(flag.Label(), map[string]string{"STATBUS_EVENT": "parked", "STATBUS_PARKED": "1", "STATBUS_PARK_REASON": reason})
-		}
-		return nil
 	}
 
 	// Re-acquire the flock on the flag file AND advance the on-disk phase to
@@ -5858,6 +6095,18 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 	// PriorDeathStep so the NEXT resume can detect two consecutive deaths at the
 	// same step (deterministic hang → park early). Step itself resets to "" and
 	// recordFlagStep re-stamps it as applyPostSwap progresses.
+	//
+	// STATBUS-044 comment #6: when RecoveryBudgetGuard already ran this pass
+	// (guardCounted), it ALREADY rolled the death history (PriorDeathStep ← the prior
+	// Step) and stamped Step=StepBootMigrate for the boot window. PRESERVE its roll —
+	// re-rolling flag.Step (now StepBootMigrate) into PriorDeathStep would corrupt the
+	// same-step comparison for a death that occurs AFTER the boot migrate (it would
+	// wrongly read boot-migrate as the prior death). Only the un-guarded fallback
+	// path (guard was a no-op) rolls flag.Step here.
+	priorDeathStep := flag.Step
+	if guardCounted {
+		priorDeathStep = flag.PriorDeathStep
+	}
 	reacquired := UpgradeFlag{
 		ID:             flag.ID,
 		CommitSHA:      flag.CommitSHA,
@@ -5870,7 +6119,7 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 		Phase:          FlagPhaseResuming,
 		Recreate:       flag.Recreate,
 		BackupPath:     flag.BackupPath,
-		PriorDeathStep: flag.Step,
+		PriorDeathStep: priorDeathStep,
 	}
 	lock, lerr := acquireFlock(d.projDir, reacquired)
 	if lerr != nil {

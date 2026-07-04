@@ -35,6 +35,18 @@ const RecoveryDeathBudget = 3
 // classification must not ride error text. Mapped to the applyPostSwap steps
 // (doc-021 §Step-list 3.1–3.7 + the Phase-4 completion writes).
 const (
+	// StepBootMigrate is the RESUME-time schema catch-up (`sb migrate up` at
+	// service.go Run + the install ladder — the rc.65 schema-skew guard). It runs
+	// BEFORE recoverFromFlag/resumePostSwap on every recovery boot, and because
+	// executeUpgrade Step 6b always hands off post-swap, THIS site — not the
+	// applyPostSwap StepMigrateUp below — consumes every upgrade's migration delta
+	// on a resume (STATBUS-044 comment #6 / r12). RecoveryBudgetGuard stamps it on
+	// the flag around the boot migrate so two consecutive deaths there trip
+	// same-step-twice, exactly like the Phase-3 steps. It is NOT a Phase-3
+	// applyPostSwap step (it runs earlier, in Run itself) — kept beside them so the
+	// same-step comparison is over one stable identifier set.
+	StepBootMigrate = "boot-migrate" // resume-time schema catch-up (Run + install ladder)
+
 	StepConfigGenerate = "config-generate" // 3.1
 	StepImagePull      = "image-pull"      // 3.2
 	StepDBUp           = "db-up"           // 3.3

@@ -218,38 +218,10 @@ func runCrashRecovery(projDir string) error {
 		}
 	}
 
-	// Schema-skew guard (rc.65 structural fix). Mirrors Service.Run() —
-	// bring the schema to HEAD before any RecoverFromFlag query touches
-	// public.upgrade. Without this, recoveryRollback's SELECT on a
-	// renamed column (rc.63 commit_canonical_naming migration) fires
-	// SQLSTATE 42703 against an unmigrated schema. Idempotent.
-	//
-	// Bounded by the shared migrate timeout (STATBUS-012). The inline path
-	// has no systemd watchdog (no NOTIFY_SOCKET → sdNotify no-ops), so the
-	// gap here was UNBOUNDEDNESS: runCmdDir had no timeout at all, and this
-	// boot-migrate carries the same full migration delta as the service
-	// path's (post-swap exec hands off to a fresh `./sb install` whose
-	// crash-recovery lands here). On timeout the operator gets an
-	// actionable error; no live conn exists yet to #14-terminate an
-	// orphaned in-container psql (LoadConfigAndConnect runs below) — the
-	// orphan self-resolves on client-gone, or the next service start's
-	// boot-migrate timeout handler reaps it.
-	if err := runCmdDirTimeout(projDir, upgrade.MigrateUpTimeout, sb, "migrate", "up", "--verbose"); err != nil {
-		// STATBUS-017: symmetric to service.go's boot-migrate-up handler. A
-		// service-held in-progress flag means the guard can't re-apply the
-		// half-applied migration; defer to RecoverFromFlag (snapshot restore) below
-		// instead of aborting crash recovery — aborting here boot-loops the
-		// operator's `./sb install`. Keep the refuse for the no-flag / install-held
-		// case (no recovery owner / no snapshot to restore).
-		if flag, _, ferr := upgrade.ReadFlagFile(projDir); ferr == nil && flag != nil && flag.Holder == upgrade.HolderService {
-			fmt.Printf("crash recovery: boot migrate up failed but a service-held flag is present "+
-				"(id=%d, phase=%q) — deferring to RecoverFromFlag (STATBUS-017): %v\n", flag.ID, flag.Phase, err)
-			// fall through to svc.RecoverFromFlag below
-		} else {
-			return fmt.Errorf("crash recovery: boot migrate up: %w", err)
-		}
-	}
-
+	// Connect FIRST — moved ahead of the boot migrate (STATBUS-044 comment #6). Both
+	// the un-park below and RecoveryBudgetGuard need a live DB connection, and both
+	// must run BEFORE the boot migrate so a boot-migrate death self-counts against the
+	// crash-resume budget (the r12 window where resume-time migrations actually run).
 	if err := svc.LoadConfigAndConnect(ctx); err != nil {
 		return fmt.Errorf("load upgrade config: %w", err)
 	}
@@ -257,11 +229,12 @@ func runCrashRecovery(projDir string) error {
 	// deliberate un-park triggers. A PARKED row stays in_progress with its flag on
 	// disk, so recovery reaches here — but resumePostSwap would SKIP it
 	// (parked-skip) without this. Un-park (clear the marker + reset the death
-	// budget) BEFORE RecoverFromFlag so the deliberate resume proceeds with a
-	// FRESH budget. PARKED-ONLY: a crashed-but-not-parked row keeps its count (so
-	// install-driven crash cycles still park). Row-update only — never touches the
-	// flag handshake; RecoverFromFlag keeps sole flag ownership. A self-resume
-	// never runs this path, so the machine never un-parks itself.
+	// budget) BEFORE the boot migrate + RecoverFromFlag so the deliberate resume
+	// proceeds with a FRESH budget (and the guard below re-counts from 1). PARKED-ONLY:
+	// a crashed-but-not-parked row keeps its count (so install-driven crash cycles
+	// still park). Row-update only — never touches the flag handshake; RecoverFromFlag
+	// keeps sole flag ownership. A self-resume never runs this path, so the machine
+	// never un-parks itself.
 	if flag, _, ferr := upgrade.ReadFlagFile(projDir); ferr == nil && flag != nil && flag.Holder == upgrade.HolderService && flag.ID != 0 {
 		// HARD-FAIL on error (STATBUS-046): the operator's deliberate ./sb install
 		// must never silently no-op into a still-parked row that resumePostSwap
@@ -278,8 +251,59 @@ func runCrashRecovery(projDir string) error {
 				reason = "(no reason recorded)"
 			}
 			fmt.Printf("crash recovery: UN-PARKED upgrade id=%d (was parked: %s) — ./sb install grants ONE fresh attempt with a reset budget.\n", flag.ID, reason)
+			// STATBUS-044 comment #6 (architect F2): UnparkByID reset the ROW's
+			// recovery_attempts, but the flag's frozen Step + PriorDeathStep survive on
+			// disk — a same-step-twice park would otherwise INSTA-RE-PARK the fresh
+			// attempt at attempts==1, breaking the "one fresh attempt" contract. Clear
+			// the flag's death history too (the unit is quiesced here → flock free).
+			if cerr := svc.ClearFlagStepHistory(); cerr != nil {
+				fmt.Printf("crash recovery: warning — could not clear the flag's death history for upgrade id=%d after un-park: %v (a fresh attempt may re-park via same-step-twice; re-run ./sb install)\n", flag.ID, cerr)
+			}
 		}
 	}
+
+	// STATBUS-044 comment #6 — count the crash-resume attempt BEFORE the boot migrate
+	// and stamp StepBootMigrate on the flag so a death IN the boot migrate self-counts
+	// (mirrors Service.Run). For a still-PARKED row it returns skip=true and we do NOT
+	// re-run the killer migration; here the un-park above normally cleared the marker,
+	// so the guard continues with the fresh budget. No-op (false) when there is no
+	// service-held forward-recovery flag.
+	skipBootMigrate := svc.RecoveryBudgetGuard(ctx)
+
+	// Schema-skew guard (rc.65 structural fix). Mirrors Service.Run() —
+	// bring the schema to HEAD before any RecoverFromFlag query touches
+	// public.upgrade. Without this, recoveryRollback's SELECT on a
+	// renamed column (rc.63 commit_canonical_naming migration) fires
+	// SQLSTATE 42703 against an unmigrated schema. Idempotent.
+	//
+	// Bounded by the shared migrate timeout (STATBUS-012). The inline path
+	// has no systemd watchdog (no NOTIFY_SOCKET → sdNotify no-ops), so the
+	// gap here was UNBOUNDEDNESS: runCmdDir had no timeout at all, and this
+	// boot-migrate carries the same full migration delta as the service
+	// path's (post-swap exec hands off to a fresh `./sb install` whose
+	// crash-recovery lands here). On timeout the operator gets an
+	// actionable error; the conn is live now (LoadConfigAndConnect ran
+	// above) but this path does not #14-terminate an orphan — the orphan
+	// self-resolves on client-gone, or the next service start's boot-migrate
+	// timeout handler reaps it.
+	if !skipBootMigrate {
+		if err := runCmdDirTimeout(projDir, upgrade.MigrateUpTimeout, sb, "migrate", "up", "--verbose"); err != nil {
+			// STATBUS-017: symmetric to service.go's boot-migrate-up handler. A
+			// service-held in-progress flag means the guard can't re-apply the
+			// half-applied migration; defer to RecoverFromFlag (snapshot restore) below
+			// instead of aborting crash recovery — aborting here boot-loops the
+			// operator's `./sb install`. Keep the refuse for the no-flag / install-held
+			// case (no recovery owner / no snapshot to restore).
+			if flag, _, ferr := upgrade.ReadFlagFile(projDir); ferr == nil && flag != nil && flag.Holder == upgrade.HolderService {
+				fmt.Printf("crash recovery: boot migrate up failed but a service-held flag is present "+
+					"(id=%d, phase=%q) — deferring to RecoverFromFlag (STATBUS-017): %v\n", flag.ID, flag.Phase, err)
+				// fall through to svc.RecoverFromFlag below
+			} else {
+				return fmt.Errorf("crash recovery: boot migrate up: %w", err)
+			}
+		}
+	}
+
 	if err := svc.RecoverFromFlag(ctx); err != nil {
 		return fmt.Errorf("crash recovery: %w", err)
 	}

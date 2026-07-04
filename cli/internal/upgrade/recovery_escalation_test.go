@@ -1,8 +1,10 @@
 package upgrade
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"testing"
@@ -87,6 +89,136 @@ func TestResumeEscalation_EmptyStepsNeverSameStepTwice(t *testing.T) {
 	// still bounded by the budget though:
 	if a, _ := resumeEscalation(RecoveryDeathBudget+1, "", "", false); a != recoveryPark {
 		t.Errorf("empty steps still hit the budget → park; got %s", a)
+	}
+}
+
+// STATBUS-044 comment #6 — StepBootMigrate is the resume-time schema catch-up
+// (Run + install ladder), now counted by RecoveryBudgetGuard at the START of the
+// pass so a death IN the boot migrate self-counts. The pure core is step-agnostic:
+// same-step-twice must fire for StepBootMigrate exactly as for any Phase-3 step.
+// This locks the fabricated boot-migrate scenario's arithmetic at the value level:
+// two consecutive boot-migrate deaths (attempts==3, deaths==2) → park early.
+func TestResumeEscalation_BootMigrateSameStepTwice(t *testing.T) {
+	// The fabricated scenario: kill #1 and kill #2 both land in boot-migrate.
+	//   boot1 attempts=1 death="" continue → stamp boot-migrate → KILL
+	//   boot2 attempts=2 death=boot-migrate prior="" → continue → KILL
+	//   boot3 attempts=3 death=boot-migrate prior=boot-migrate → same-step-twice → PARK
+	if a, _ := resumeEscalation(2, StepBootMigrate, "", false); a != recoveryContinue {
+		t.Fatalf("boot2: one boot-migrate death (prior empty) under budget must continue; got %s", a)
+	}
+	a, reason := resumeEscalation(3, StepBootMigrate, StepBootMigrate, false)
+	if a != recoveryPark {
+		t.Fatalf("boot3: two consecutive boot-migrate deaths must PARK early (same-step-twice); got %s", a)
+	}
+	if !strings.Contains(reason, "same-step-twice") || !strings.Contains(reason, StepBootMigrate) {
+		t.Errorf("park reason must name same-step-twice + the boot-migrate step; got %q", reason)
+	}
+	// A boot-migrate death followed by a DIFFERENT step (boot migrate then succeeds,
+	// dies later at a Phase-3 step) must NOT same-step-twice.
+	if a, _ := resumeEscalation(2, StepStartServices, StepBootMigrate, false); a != recoveryContinue {
+		t.Errorf("boot-migrate then a different-step death under budget must continue; got %s", a)
+	}
+}
+
+// StepBootMigrate is a STABLE machine identifier, distinct from the applyPostSwap
+// StepMigrateUp (3.5) — the two migrate windows must never collapse to one string,
+// or a boot-migrate death and a (near-impossible) step-3.5 death would falsely read
+// as same-step-twice across the two.
+func TestStepBootMigrateIdentifier(t *testing.T) {
+	if StepBootMigrate != "boot-migrate" {
+		t.Errorf("StepBootMigrate must be the stable %q identifier; got %q", "boot-migrate", StepBootMigrate)
+	}
+	if StepBootMigrate == StepMigrateUp {
+		t.Errorf("StepBootMigrate (%q) must be distinct from StepMigrateUp (%q)", StepBootMigrate, StepMigrateUp)
+	}
+}
+
+// STATBUS-044 comment #6 part 3 — countRecoveryAttemptOnce counts EXACTLY ONCE per
+// process lifetime. Once RecoveryBudgetGuard has counted (recoveryPassCounted), a
+// later downstream caller (resumePostSwap / recoveryRollback) must reuse the stored
+// value WITHOUT touching the DB — the load-bearing "don't double-count the same
+// pass" short-circuit. A nil queryConn proves the DB is never dereferenced on this
+// path.
+func TestCountRecoveryAttemptOnce_ShortCircuitsWhenCounted(t *testing.T) {
+	d := &Service{recoveryPassCounted: true, recoveryPassAttempts: 7} // nil queryConn on purpose
+	n, err := d.countRecoveryAttemptOnce(context.Background(), 42)
+	if err != nil {
+		t.Fatalf("counted short-circuit must not error (must not touch the DB); got %v", err)
+	}
+	if n != 7 {
+		t.Errorf("counted short-circuit must reuse the stored attempts (7); got %d", n)
+	}
+}
+
+// STATBUS-044 comment #6 (architect F1) — a PARKED row must never be automatically
+// rolled back. recoveryRollback is the single chokepoint every auto-restore route
+// funnels through (positively-Behind, both Unknown-exhaust arms, the flagless
+// completeInProgressUpgrade path), so the parked-skip lives there — and MUST precede
+// the budget increment + the terminal check, or a row RecoveryBudgetGuard just
+// parked (its boot migrate skipped → schema possibly Behind) would be auto-restored.
+// Source-order guard (recoveryRollback needs a live DB + flock to exercise
+// behaviorally; the ordering is the invariant that matters).
+func TestRecoveryRollback_ParkedSkipPrecedesRestore(t *testing.T) {
+	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	body := extractFuncBody(t, string(src), "func (d *Service) recoveryRollback(")
+	parkedIdx := strings.Index(body, "d.upgradeParkedReason(ctx, id)")
+	incrementIdx := strings.Index(body, "d.countRecoveryAttemptOnce(ctx, id)")
+	terminalIdx := strings.Index(body, "rollbackResumeIsTerminal(")
+	for name, idx := range map[string]int{
+		"d.upgradeParkedReason(ctx, id)":      parkedIdx,
+		"d.countRecoveryAttemptOnce(ctx, id)": incrementIdx,
+		"rollbackResumeIsTerminal(":           terminalIdx,
+	} {
+		if idx < 0 {
+			t.Fatalf("recoveryRollback missing %s — test is stale (F1 parked-skip removed or renamed?)", name)
+		}
+	}
+	if parkedIdx > incrementIdx || parkedIdx > terminalIdx {
+		t.Errorf("F1: the parked-skip (upgradeParkedReason, idx=%d) must PRECEDE the rollback budget increment (idx=%d) and the terminal check (idx=%d) — a parked row must never be auto-rolled-back.",
+			parkedIdx, incrementIdx, terminalIdx)
+	}
+}
+
+// STATBUS-044 comment #6 (architect F2) — a deliberate ./sb install un-park must
+// grant ONE genuinely-fresh attempt. UnparkByID resets the ROW's recovery_attempts,
+// but the flag's frozen Step + PriorDeathStep survive on disk; ClearFlagStepHistory
+// zeroes them so the next escalation consult does not same-step-twice INSTA-RE-PARK
+// at attempts==1. Behavioral filesystem test (no DB needed).
+func TestClearFlagStepHistory_ClearsDeathHistoryPreservesRest(t *testing.T) {
+	dir := t.TempDir()
+	seed := UpgradeFlag{
+		ID: 7, CommitSHA: "abc123", Holder: HolderService, Phase: FlagPhaseResuming,
+		Step: StepBootMigrate, PriorDeathStep: StepBootMigrate,
+	}
+	lock, err := acquireFlock(dir, seed)
+	if err != nil {
+		t.Fatalf("seed flag: %v", err)
+	}
+	lock.Close()
+
+	d := &Service{projDir: dir}
+	if err := d.ClearFlagStepHistory(); err != nil {
+		t.Fatalf("ClearFlagStepHistory: %v", err)
+	}
+	got, _, err := ReadFlagFile(dir)
+	if err != nil || got == nil {
+		t.Fatalf("read flag after clear: got=%v err=%v", got, err)
+	}
+	if got.Step != "" || got.PriorDeathStep != "" {
+		t.Errorf("death history not cleared: Step=%q PriorDeathStep=%q (both must be empty so a fresh attempt has no prior death)", got.Step, got.PriorDeathStep)
+	}
+	// Everything else must be preserved (identity, phase, holder).
+	if got.ID != 7 || got.CommitSHA != "abc123" || got.Holder != HolderService || got.Phase != FlagPhaseResuming {
+		t.Errorf("ClearFlagStepHistory must preserve non-step fields; got %+v", *got)
+	}
+
+	// No flag file → no-op, no error.
+	empty := &Service{projDir: t.TempDir()}
+	if err := empty.ClearFlagStepHistory(); err != nil {
+		t.Errorf("ClearFlagStepHistory with no flag file must be a no-op; got %v", err)
 	}
 }
 
