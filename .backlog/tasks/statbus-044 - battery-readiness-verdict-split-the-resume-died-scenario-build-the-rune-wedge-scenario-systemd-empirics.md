@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - architect
 created_date: '2026-06-12 21:51'
-updated_date: '2026-07-03 21:44'
+updated_date: '2026-07-04 00:22'
 labels:
   - install-recovery
   - testing
@@ -91,5 +91,11 @@ author: foreman
 created: 2026-07-03 21:44
 ---
 PARK SCENARIO BUILT + COMMITTED + PUSHED: 8641445eb (3-postswap-resume-died-parked.sh, 509 lines, + README row + timeline TEST-note rewrite; SVG regen in-commit). Mechanic built spec-first against comment #1; architect APPROVED with the kill arithmetic VERIFIED against shipped code (handoff-resume = attempt 1 with zero deaths → kill #1 at migrate-up → resume 2 rolls the prior step → kill #2 → resume 3 = same-step-twice → PARK at attempts==3, exactly 2 kills, same-step reason). Mechanism: external SIGKILL gated on the flag's Step field (the death budget counts DAEMON deaths; inject classes either don't kill the daemon or sit past the self-heal convergence point — the STATBUS-099 product-impossible finding still holds for THAT site and is preserved in the rewritten timeline note). All five assertion groups + extra-restart re-assertions + the install-arm un-park happy terminal implemented. RESIDUAL (labeled): the NOTIFY-arm un-park is not exercised — it shares the reset consts with the CLI arm; a dedicated variant only if a regression appears. SIDE FINDINGS: STATBUS-130 (stale one-shot-latch docs, two files) + STATBUS-131 (REAL product gap, HIGH, architect-verified three-legged: UPGRADE_CALLBACK is not propagated by config generation and .env is rewritten at install AND upgrade step 3.1 — the park siren is structurally DISARMED on real boxes; production Slack survives only because it rides the separately-enumerated SLACK_TOKEN). NEXT: the VM RUN is the oracle — images for 8641445eb building now; the scenario run launches when they publish. AC#4 checks only on a GREEN VM run.
+---
+
+author: foreman
+created: 2026-07-04 00:22
+---
+PARK-ORACLE VM CAMPAIGN: 12 runs overnight (2026-07-04, ~00:00-02:30), PAUSED at a genuine scenario-design collision — AC#4 defers to a morning design ruling. THE LEDGER (every failure named, zero hand-waving): r1 runner killed by a tool timeout · r2+r6 orphan-VM name collisions (each collision run self-cleaned the orphan) · r3+r4 local board-commits embedded in the uploaded binary (two race windows: at launch and at the mid-run rebuild) — total-commit-freeze discipline adopted · r5 the tester environment killing long tasks → detached-nohup execution shape · r7 isolated the TRUE harness bug: the release-pinned depth-1 clone can never resolve HEAD → the missing fetch+checkout stage from 0-happy-upgrade:118 (commit 0fafe16f2) · r8-r10 the OLD v2026.05.2 daemon silently declines to claim fabricated rows (r10 kept-VM autopsy, SIGQUIT goroutine dump: idle in its main select loop; predicate opaque + superseded) → restart-onto-HEAD + fabricate declares docker_images_status AND release_builds_status ready (070c0aed8, d02798055; r8 also gave the new claim gate its FIRST LIVE FIRING — correctly refusing an unverified row) · r11 macOS bash-3.2 quote-parity trap in the fabricate heredoc (9d5303c82, guard-commented) · r12 THE DESIGN COLLISION: the restarted HEAD daemon runs BOOT-MIGRATE at startup — applied all 9 pending migrations in 6s and marked the version completed, consuming the upgrade before dispatch; no migrate-up window can exist on this path. MORNING DESIGN QUESTION (with the architect): open the kill window via post-boot-settle fabrication + the migrate.go inject-stall site (stall-file choreography vs boot-migrate needs mapping), or a constructed-B synthetic slow migration (but boot-migrate applies it BEFORE resumePostSwap — exposing an interesting uncovered gap: a boot-migrate crash loop is not counted by the 046 death budget, worth a doc-021 step-list note), or a cleaner third shape. All logs: tmp/vm-run-park-scenario-*.log. Scenario code itself: committed (8641445eb + the four campaign fixes), assertions still unexercised.
 ---
 <!-- COMMENTS:END -->
