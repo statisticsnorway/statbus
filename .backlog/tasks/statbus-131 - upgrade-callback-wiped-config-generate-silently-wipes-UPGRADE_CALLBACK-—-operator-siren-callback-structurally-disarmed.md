@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-07-03 21:42'
-updated_date: '2026-07-04 12:08'
+updated_date: '2026-07-04 12:17'
 labels:
   - upgrade
   - operator-ux
@@ -42,7 +42,17 @@ VERIFICATION: the park scenario's siren assertion is the natural oracle once the
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 UPGRADE_CALLBACK set in .env.config survives sb config generate into .env (enumerated carry-through)
-- [ ] #2 ops/notify-slack.sh header + deployment docs name .env.config as the home
+- [x] #1 UPGRADE_CALLBACK set in .env.config survives sb config generate into .env (enumerated carry-through)
+- [x] #2 ops/notify-slack.sh header + deployment docs name .env.config as the home
 - [ ] #3 the 046 park siren fires on a box whose callback was configured only in .env.config (scenario or arc evidence)
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-04 12:17
+---
+SHIPPED as commit a5b9474cd (2026-07-04). AC#1 + AC#2 done and checked: carry-through via the upgrade-settings block's getOrDefault mechanism (architect confirmed the deviation from the ticket's example.Set wording — that block's convention is Fprintf+getOrDefault, same as all four neighbors); docs re-homed with the wipe reason on both surfaces. Verification: Go build + config unit tests green in three independent runs (foreman, tester, architect); fast SQL sweep not run — blocked by the STATBUS-133 hook bootstrap gap, and the diff contains no SQL/migrations for it to exercise. AC#3 (park siren fires from a .env.config-only box) stays open — it rides the park-scenario VM oracle, sequenced in STATBUS-044 comment #6 (budget hoist → scenario rebuild → run). Task stays In Progress until AC#3's run.
+---
+<!-- COMMENTS:END -->
