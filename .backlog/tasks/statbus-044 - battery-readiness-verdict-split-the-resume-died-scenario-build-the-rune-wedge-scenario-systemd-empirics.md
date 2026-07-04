@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - architect
 created_date: '2026-06-12 21:51'
-updated_date: '2026-07-04 19:49'
+updated_date: '2026-07-04 20:25'
 labels:
   - install-recovery
   - testing
@@ -142,5 +142,11 @@ author: foreman
 created: 2026-07-04 19:49
 ---
 KING APPROVED comment #6 (2026-07-04 morning), with the instruction to lead the ticket with its north star — description updated accordingly. Dispatch: engineer builds the counting fix (budget hoist + boot-migrate step stamp + parked-skip + park-only early guard, per comment #6's wrinkle list), architect reviews hands-on, then mechanic rebuilds the scenario with comment #6's substitutions. King also raised a design question — why a budget of 3 instead of classify-transient-vs-permanent-and-stop — answered in session: B/C (errors that speak) already park on FIRST occurrence with zero retries; the budget exists only for silent process deaths that carry no classifiable signal, where re-running IS the classification instrument; same-step-twice parks at 2; the 3 only admits deaths at DIFFERENT steps (progressing-but-unstable). If the King wants the cap tightened after reading that rationale, it is a one-constant change (RecoveryDeathBudget).
+---
+
+author: foreman
+created: 2026-07-04 20:25
+---
+BUDGET HOIST SHIPPED: cc660280f (2026-07-04). Comment #6's four parts + both review fixes: F1 parked-skip at the top of recoveryRollback (a parked row can never auto-restore via Behind / Unknown-exhaust / flagless routes) and F2 the pre-existing un-park insta-re-park bug (deliberate install un-park now clears the flag's Step/PriorDeathStep so the operator really gets ONE fresh attempt). Engineer refinement A (guard owns the PriorDeathStep roll; resume preserves) architect-verified as load-bearing. Five new unit tests. Dual-reviewed: architect fix-then-ship → ship; foreman independent build+vet+test green. NEXT: mechanic rebuilding the scenario per comment #6's substitutions (dispatched; flag fabricated at phase=post_swap per architect's reminder; STATBUS-131 AC#3 folded in if cheap — callback via .env.config only). Then the VM run.
 ---
 <!-- COMMENTS:END -->
