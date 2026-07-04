@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - architect
 created_date: '2026-06-12 21:51'
-updated_date: '2026-07-04 21:15'
+updated_date: '2026-07-04 22:54'
 labels:
   - install-recovery
   - testing
@@ -154,5 +154,11 @@ author: foreman
 created: 2026-07-04 21:15
 ---
 LEDGER r13 (first run of the rebuilt scenario, fb5eb6c18 + hoist cc660280f): FAILED at the new callback-injection step, before any kills. Two independent bugs, autopsy-pinned on the kept VM then deleted: (1) PRODUCT FINDING — generated .env.config has no trailing newline, so the scenario's append glued onto 'ADMINISTRATOR_CONTACT=' (line 29); this also bites any real operator following the now-documented append-to-.env.config flow — one-line config-writer fix proposed to the King. (2) HARNESS FOOTGUN — sudo -i inside VM_EXEC escapes special characters EXCEPT dollar signs (documented sudo behavior), so $STATBUS_EVENT expanded to empty in transit; the injected callback could never have matched the siren assertion. Fix pass dispatched to mechanic: callback becomes a script FILE on the VM (matches ops/notify-slack.sh's reference shape, no $ through the layers), glue-proof append guard, VM_EXEC comment documents the sudo -i trap. Neither bug touches the hoist or the kill choreography — the scenario never reached them.
+---
+
+author: foreman
+created: 2026-07-04 22:54
+---
+LEDGER r18 (f9bdac46d + approved-134-in-binary, provenance noted): THE PARK ORACLE WENT GREEN through every assertion group. Kill #1 at t+0s (both deterministic gates: step stamp + active pg_sleep); kill #2 at t+31s on the prior_death_step ''→boot-migrate transition; PARK at attempts==3 EXACTLY, reason 'two consecutive crash-deaths at step "boot-migrate" — deterministic hang (same-step-twice)'; unit alive-idle, NRestarts=2 bounded+frozen across the 30s settle (the anti-rune assertion); siren EXACTLY ONCE via the .env.config-configured callback (STATBUS-131 AC#3 leg observed); flag present post-park (135 live); never rolled_back; both extra restarts logged the boot-path parked-skip, attempts unchanged, no re-siren; deliberate ./sb install un-park granted ONE fresh attempt (reset budget) which COMPLETED — VM row terminal: completed | attempts=1 | parked=f (F2 contract end-to-end). ONE RESIDUAL RED, outside the park mechanism: the un-park install's final idempotent refresh pass failed step 10/16 (Database sessions) on a single-probe 'pool still saturated' verdict immediately after cleanOrphanSessions killed the scenario's orphans — autopsy shows 16/30 connections minutes later, a self-resolving reconnection-burst transient on the max_connections=30 test box. Architect ruling whose bug (foreman's read: product — the check needs settle/retry, not single-probe fail with 'fix and re-run' noise). AC#4 checks on the next fully-green run; the substance is proven.
 ---
 <!-- COMMENTS:END -->
