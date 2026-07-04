@@ -182,6 +182,36 @@ func TestRecoveryRollback_ParkedSkipPrecedesRestore(t *testing.T) {
 	}
 }
 
+// STATBUS-135 — completeInProgressUpgrade (the flagless-row reconciliation belt)
+// must PARKED-SKIP before it arms `defer d.removeUpgradeFlag()`, or the defer strips
+// the flag from a parked row (parked rows are state='in_progress', so the routine's
+// SELECT matches them) → next boot is flag-blind → RecoveryBudgetGuard no-op →
+// ungated boot-migrate boot-loop; and a parked at-target row could be mis-marked
+// 'completed'. The load-bearing invariant is the ORDER: the parked-skip must precede
+// the defer (its `return` fires before the defer arms). Source-order guard —
+// completeInProgressUpgrade needs a live DB to exercise behaviorally.
+func TestCompleteInProgressUpgrade_ParkedSkipPrecedesFlagStrip(t *testing.T) {
+	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	body := extractFuncBody(t, string(src), "func (d *Service) completeInProgressUpgrade(")
+	parkedIdx := strings.Index(body, "d.upgradeParkedReason(ctx, id)")
+	deferIdx := strings.Index(body, "defer d.removeUpgradeFlag()")
+	for name, idx := range map[string]int{
+		"d.upgradeParkedReason(ctx, id)": parkedIdx,
+		"defer d.removeUpgradeFlag()":    deferIdx,
+	} {
+		if idx < 0 {
+			t.Fatalf("completeInProgressUpgrade missing %s — test is stale (STATBUS-135 parked-skip removed?)", name)
+		}
+	}
+	if parkedIdx > deferIdx {
+		t.Errorf("STATBUS-135: the parked-skip (upgradeParkedReason, idx=%d) must PRECEDE `defer d.removeUpgradeFlag()` (idx=%d) — otherwise the defer strips a parked row's flag on the skip's return.",
+			parkedIdx, deferIdx)
+	}
+}
+
 // STATBUS-044 comment #6 (architect F2) — a deliberate ./sb install un-park must
 // grant ONE genuinely-fresh attempt. UnparkByID resets the ROW's recovery_attempts,
 // but the flag's frozen Step + PriorDeathStep survive on disk; ClearFlagStepHistory

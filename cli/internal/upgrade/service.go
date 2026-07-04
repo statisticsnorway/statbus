@@ -2637,6 +2637,26 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 		return // no in-progress upgrade
 	}
 
+	// STATBUS-135 — PARKED-SKIP, before the defer arms. A parked row is
+	// state='in_progress' by design, so the SELECT above matches it. This routine
+	// has zero parked awareness and would (a) STRIP THE FLAG via the unconditional
+	// defer below — violating "parked rows keep their flag" and leaving the next
+	// boot flag-blind (RecoveryBudgetGuard no-op → ungated boot-migrate boot-loop),
+	// and (b) for a parked AT-TARGET row whose app containers are broken, mark it
+	// 'completed' on passing binary+migrations+db-health checks — a silent lie that
+	// un-parks by a non-deliberate path. Skip both: leave the flag on disk and the
+	// row untouched (a parked row un-parks ONLY via a deliberate operator trigger).
+	// Placed BEFORE the defer so `return` here never strips the flag. FAIL-OPEN on a
+	// read error (42703 bootstrap, service.go:5792-5804 rationale verbatim): a
+	// pre-migrate schema has no recovery_parked_at, so the row cannot be parked —
+	// proceed with the normal reconciliation.
+	if parked, parkReason, perr := d.upgradeParkedReason(ctx, id); perr != nil {
+		log.Printf("completeInProgressUpgrade: park-state read failed for upgrade %d: %v — proceeding fail-open with the flagless-row reconciliation", id, perr)
+	} else if parked {
+		log.Printf("completeInProgressUpgrade: upgrade %d is PARKED (%s) — skipping reconciliation; the flag stays on disk and the row stays parked/in_progress. Re-trigger the upgrade or run ./sb install to make a fresh deliberate attempt.", id, parkReason)
+		return
+	}
+
 	// Guarantee flag cleanup on every exit path of this recovery routine.
 	// The explicit removeUpgradeFlag() at the end of the happy path
 	// (post-completed-UPDATE) remains — this defer only fires if that path

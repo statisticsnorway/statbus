@@ -223,7 +223,7 @@ echo "  HEAD: $HEAD_SHA ($(echo "$HEAD_SHA" | cut -c1-8))"
 UPGRADE_UNIT="statbus-upgrade@statbus.service"
 FLAG_PATH='~/statbus/tmp/upgrade-in-progress.json'
 CALLBACK_LOG='/tmp/park-callback-log.txt'
-STALL_MIGRATION_FILE='99999999999999_park_scenario_boot_migrate_stall.up.sql'
+STALL_MIGRATION_FILE='20990101000000_park_scenario_boot_migrate_stall.up.sql'
 
 # ─────────────────────────────────────────────────────────────────────────
 # helpers local to this scenario
