@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - architect
 created_date: '2026-06-12 21:51'
-updated_date: '2026-07-04 00:23'
+updated_date: '2026-07-04 12:12'
 labels:
   - install-recovery
   - testing
@@ -111,5 +111,24 @@ FIX DIRECTION (engineer-buildable after a design note; arguably within D3's rati
 SCENARIO ANSWER (defer until the fix direction is decided): with the hoisted increment, candidate (B) — constructed-B target + synthetic pg_sleep migration — becomes the CLEAN construction: kills land in boot-migrate, are COUNTED, same-step via StepBootMigrate → park; it tests the REAL window rather than the near-unreachable 3.5 one. (A)'s stall-file dance remains the fallback if the 3.5 path specifically needs exercising. Assertion spec (comment #1) holds with one substitution: the expected same-step message names boot-migrate's marker, not migrate-up.
 
 All 12 run logs: tmp/vm-run-park-scenario-*.log; the 046 BUILD is untouched by this — shipped + dual-reviewed; only this AC (scenario green) defers on the morning decision.
+---
+
+author: architect
+created: 2026-07-04 12:12
+---
+PARK-SCENARIO RULING + BUDGET-FIX RECOMMENDATION (architect, 2026-07-04 morning — written for direct approval; every claim re-verified against shipped code today).
+
+WHAT r12 PROVED. When a crashed upgrade resumes, the pending migrations are applied by the boot-time schema catch-up (`sb migrate up` — service.go:1854 on the daemon path, install_upgrade.go:237 on the ./sb install path), which runs BEFORE the recovery routing (recoverFromFlag, service.go:1902). The working tree is already at the target by then (the recovery-boot checkout), so the migration delta lands in that boot window and the migrate step inside the resume pipeline is a no-op. Two consequences: (1) the park scenario's kill window — flag step 'migrate-up' — can never open on a resume; the scenario was specced against a window the real system no longer reaches. (2) Far more important: a migration that kills the box on every restart (say, OOM on a large table rewrite) crash-loops in that boot window UNCOUNTED — the death budget's counter increments only later, at resume entry (service.go:5817). That is the rune loop class, in exactly the window where heavy migrations actually run. The ratified budget boundary (every death between flag-write and flag-removal, doc-021/D3) already covers this window on paper; the shipped implementation does not yet.
+
+RECOMMENDED FIX (product; engineer-buildable from this note):
+1. Move the attempt counting to the START of the recovery pass: when a boot finds a service-held forward flag (dead holder), increment recovery_attempts and consult the escalation rules BEFORE the boot migrate, on both entrypoints. A terminal verdict here PARKS — never an automatic rollback from this early guard: park touches no data, and a deliberate ./sb install un-parks into the existing careful routing, which can still roll a genuinely-behind box back.
+2. Stamp the flag's step field 'boot-migrate' around the boot migrate so two consecutive deaths there park via the existing same-step-twice rule.
+3. ONE consult+increment per process lifetime: the resume-entry consult (service.go:5805-5825) is skipped when the boot-time one already ran. Verified subtlety: without this, a boot-migrate that SUCCEEDS right after a boot-migrate death false-parks on a stale same-step comparison.
+4. A PARKED row skips the boot migrate too. This is what makes park actually deliver alive-idle for this failure class — otherwise every restart re-runs the killer migration and the crash loop continues despite the park. Named tradeoff: a parked box may then log schema-mismatch errors from the daemon's own queries until the operator acts — loud but alive, the right side of the trade; ./sb install un-parks with a fresh budget and re-runs the migration deliberately.
+Arithmetic unchanged: the planned post-swap handoff is still attempt 1 with zero deaths; budget 3 and same-step-twice semantics untouched — only the counting point moves earlier so boot-window deaths self-count. Implementation wrinkles for the engineer (named, none blocking): flock acquisition moves earlier for forward flags (the step-stamp writes need it); on the install path the un-park block (install_upgrade.go:265) and the DB connect (:253) currently sit AFTER its boot-migrate and must move ahead of it; the 42703 fail-open bootstrap pattern (service.go:5792-5804) applies to the hoisted reads verbatim.
+
+SCENARIO (the AC#4 oracle, buildable once the fix lands). Fabricate the RESUME state directly — no dispatch, no claim gate involved: in_progress row + service-held forward flag (dead PID, target = current HEAD, checkout a no-op) + ONE synthetic sole-pending migration on disk (far-future version) whose body is pg_sleep(3600). Restart the unit: pass 1 stalls inside boot-migrate with 'boot-migrate' on the flag → SIGKILL the daemon (kill gate = the flag's step field, the committed mechanism) → pass 2 same → pass 3 parks at attempts==3, exactly 2 kills, reason naming boot-migrate — identical arithmetic to the committed scenario, now at the real window. Assertion spec (comment #1) holds with two substitutions: the same-step message names 'boot-migrate', and the parked-skip log line moves to the boot path. Un-park terminal: delete the synthetic migration, run ./sb install → fresh attempt → clean boot-migrate → completed — the happy ending that also proves the pipeline undamaged by the park/un-park cycle. The alternative construction (stall-knob inside the resume migrate step, post-settle fabrication) is NOT recommended: it exercises a window the real system cannot reach, and its kills would land in the next boot's migrate anyway — uncounted until this fix lands.
+
+DECISION ASKED: approve (a) the budget fix — count and park boot-window deaths, parked rows skip the boot migrate — and (b) the scenario shape above. The fix makes the implementation match the already-ratified budget boundary; the nod is requested because it moves where counting happens and adds one new step name.
 ---
 <!-- COMMENTS:END -->
