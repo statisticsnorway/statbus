@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
-updated_date: '2026-07-03 20:59'
+updated_date: '2026-07-04 00:22'
 labels:
   - build-caching
   - seed
@@ -271,5 +271,11 @@ author: foreman
 created: 2026-07-03 20:59
 ---
 CORRECTION to comment 28's last sentence (foreman, precision): criterion 6 is NOT yet runnable — the multi-delta guard refuses ≤1 delta, and the best eligible prior (statbus-seed:a3eb522c, at migration 20260703111119) currently has exactly ONE migration of delta to HEAD (20260703210000). The older ce383eff-era priors with ≥2 delta are ineligible by design (stale-ledger/deleted-migration fingerprints — the gates refuse them, correctly). Criterion 6 becomes runnable the moment ONE more migration-bearing commit lands (prior a3eb522c → delta 2); the recovery-escalation slices are likely to provide it naturally. Then: `sb db seed verify-multidelta --prior-image ghcr.io/statisticsnorway/statbus-seed:a3eb522c` — a tester-runnable local oracle.
+---
+
+author: foreman
+created: 2026-07-04 00:22
+---
+DEPTH CAP OBSERVED LIVE (parked note from the freeze window; images run for 886c79293): decision log `prior-present=true decision-incremental=true -> PATH=FULL (from empty); reason: incremental depth cap reached (prior depth 4 + 1 >= 5) — forcing full baseline` (~62s in-stage). The COMPLETE lifecycle is now empirically observed on real pushes: chain a3eb522c(0) → 7910fbbb(1) → c1c4cbb7(2) → f70ede5e(3) → 8641445e(4) → 886c7929 FORCED FULL BASELINE — criterion 3's drift bound firing exactly as designed, correctly overriding an incremental-eligible decision at the cap. Every mechanism of this feature (walk, restore, delta-migrate, publish re-attestation, depth chaining, cap reset) has now been seen working in production CI. Only criterion 6 (the deep multi-delta identity run, needs delta≥2 from an eligible prior) remains; the overnight scenario-fix commits were test-harness-only (no migrations), so the delta clock is still at 1.
 ---
 <!-- COMMENTS:END -->
