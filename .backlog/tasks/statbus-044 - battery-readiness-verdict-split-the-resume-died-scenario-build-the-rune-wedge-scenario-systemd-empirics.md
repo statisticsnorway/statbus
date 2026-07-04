@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - architect
 created_date: '2026-06-12 21:51'
-updated_date: '2026-07-04 12:12'
+updated_date: '2026-07-04 19:49'
 labels:
   - install-recovery
   - testing
@@ -26,6 +26,12 @@ ordinal: 44000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+NORTH STAR (read this first): when an upgrade keeps killing the server, the system must STOP RETRYING, STAY ALIVE, and CALL FOR HELP ONCE — never loop forever unnoticed (the rune failure). The mechanism is built and shipped (STATBUS-046). THIS ticket is the PROOF: one test on a real cloud VM that crashes an upgrade during its real migration window three times, watches it park + siren, then un-parks it deliberately and watches it complete. Everything below and in the comments is detail in service of that one run.
+
+CURRENT STATE + THE APPROVED PLAN (King approved comment #6, 2026-07-04): 12 VM attempts exposed a product hole — migrations actually run at service BOOT (boot-migrate), before the crash counter starts, so a crash there loops uncounted. Approved fix: count attempts BEFORE boot-migrate (both entrypoints), stamp the boot-migrate step on the flag so same-step-twice covers it, parked servers skip boot-migrate, exhaustion at the early guard parks (never auto-rollback). Then the scenario kills during boot-migrate — simpler than the old construction AND tests the real window. Order: engineer builds the counting fix → mechanic rebuilds the scenario per comment #6's substitutions → VM run is the oracle. That run also closes STATBUS-131 AC#3 (siren from a .env.config-configured callback) and the doc-021 open gap.
+
+--- Original battery items (pre-park-arc; still valid, deferred behind the run above) ---
+
 Three items that gate the deferred install-recovery VM battery (post-rune-install window; commits to scenarios must respect the freeze windows — land BEFORE a battery run starts or between runs, never during).
 
 1. SCENARIO EXPECTATION UPDATE (battery-blocking, found in STATBUS-042): test/install-recovery/scenarios/3-postswap-resume-died-rollback asserts the PRE-039 contract — death during Phase=Resuming ⇒ always rolled_back (UPGRADE_DIED_DURING_RESUME). Post-039 (5eacd6305) the Resuming branch is ground-truth-gated: an AT-TARGET fabrication resumes FORWARD and converges to completed; only a POSITIVELY-BEHIND fabrication rolls back to the upgrade's own snapshot. The scenario almost certainly fabricates at-target state (a Resuming flag on a converged box) → RED against rc.02 for the RIGHT reason. Split it: fabricate-Behind → assert rolled_back + identity restore; fabricate-AtTarget → assert forward convergence to completed. Marked in doc/diagrams/upgrade-timeline.plantuml's TEST note.
@@ -130,5 +136,11 @@ Arithmetic unchanged: the planned post-swap handoff is still attempt 1 with zero
 SCENARIO (the AC#4 oracle, buildable once the fix lands). Fabricate the RESUME state directly — no dispatch, no claim gate involved: in_progress row + service-held forward flag (dead PID, target = current HEAD, checkout a no-op) + ONE synthetic sole-pending migration on disk (far-future version) whose body is pg_sleep(3600). Restart the unit: pass 1 stalls inside boot-migrate with 'boot-migrate' on the flag → SIGKILL the daemon (kill gate = the flag's step field, the committed mechanism) → pass 2 same → pass 3 parks at attempts==3, exactly 2 kills, reason naming boot-migrate — identical arithmetic to the committed scenario, now at the real window. Assertion spec (comment #1) holds with two substitutions: the same-step message names 'boot-migrate', and the parked-skip log line moves to the boot path. Un-park terminal: delete the synthetic migration, run ./sb install → fresh attempt → clean boot-migrate → completed — the happy ending that also proves the pipeline undamaged by the park/un-park cycle. The alternative construction (stall-knob inside the resume migrate step, post-settle fabrication) is NOT recommended: it exercises a window the real system cannot reach, and its kills would land in the next boot's migrate anyway — uncounted until this fix lands.
 
 DECISION ASKED: approve (a) the budget fix — count and park boot-window deaths, parked rows skip the boot migrate — and (b) the scenario shape above. The fix makes the implementation match the already-ratified budget boundary; the nod is requested because it moves where counting happens and adds one new step name.
+---
+
+author: foreman
+created: 2026-07-04 19:49
+---
+KING APPROVED comment #6 (2026-07-04 morning), with the instruction to lead the ticket with its north star — description updated accordingly. Dispatch: engineer builds the counting fix (budget hoist + boot-migrate step stamp + parked-skip + park-only early guard, per comment #6's wrinkle list), architect reviews hands-on, then mechanic rebuilds the scenario with comment #6's substitutions. King also raised a design question — why a budget of 3 instead of classify-transient-vs-permanent-and-stop — answered in session: B/C (errors that speak) already park on FIRST occurrence with zero retries; the budget exists only for silent process deaths that carry no classifiable signal, where re-running IS the classification instrument; same-step-twice parks at 2; the 3 only admits deaths at DIFFERENT steps (progressing-but-unstable). If the King wants the cap tightened after reading that rationale, it is a one-constant change (RecoveryDeathBudget).
 ---
 <!-- COMMENTS:END -->
