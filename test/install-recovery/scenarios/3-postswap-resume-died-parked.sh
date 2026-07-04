@@ -534,6 +534,14 @@ echo "── pre-applying the real migration delta (STEADY-STATE fabrication —
 # binary's still-idling queries never reference those columns by name, and
 # migrate's own advisory lock means there is nothing else touching migrations
 # concurrently (the old daemon isn't running its own migrate-up).
+# config generate FIRST — mirrors the real recovery-boot order (the daemon
+# runs config-generate before boot-migrate). The release-era .env lacks keys
+# the HEAD compose file requires (r15: REST_ADMIN_BIND_ADDRESS "must be set"
+# → psql/migrate exit 1 at "ensure migration table"), so the HEAD binary must
+# regenerate .env before any compose-touching command. This is also a live
+# STATBUS-131 proof leg: the .env.config-configured UPGRADE_CALLBACK must
+# survive this very generate into .env (verified on the r15 autopsy VM).
+VM_EXEC bash -c "cd ~/statbus && ./sb config generate"
 # timeout 600: migrate.Up itself is unbounded (MigrateUpTimeout is imposed by
 # the boot-migrate CALLERS, not the CLI) — a wedged pre-apply should fail this
 # phase with a named error, not eat the scenario's global budget.
