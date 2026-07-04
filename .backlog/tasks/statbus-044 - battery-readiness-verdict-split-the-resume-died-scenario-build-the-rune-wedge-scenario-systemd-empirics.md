@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - architect
 created_date: '2026-06-12 21:51'
-updated_date: '2026-07-04 20:25'
+updated_date: '2026-07-04 21:15'
 labels:
   - install-recovery
   - testing
@@ -148,5 +148,11 @@ author: foreman
 created: 2026-07-04 20:25
 ---
 BUDGET HOIST SHIPPED: cc660280f (2026-07-04). Comment #6's four parts + both review fixes: F1 parked-skip at the top of recoveryRollback (a parked row can never auto-restore via Behind / Unknown-exhaust / flagless routes) and F2 the pre-existing un-park insta-re-park bug (deliberate install un-park now clears the flag's Step/PriorDeathStep so the operator really gets ONE fresh attempt). Engineer refinement A (guard owns the PriorDeathStep roll; resume preserves) architect-verified as load-bearing. Five new unit tests. Dual-reviewed: architect fix-then-ship → ship; foreman independent build+vet+test green. NEXT: mechanic rebuilding the scenario per comment #6's substitutions (dispatched; flag fabricated at phase=post_swap per architect's reminder; STATBUS-131 AC#3 folded in if cheap — callback via .env.config only). Then the VM run.
+---
+
+author: foreman
+created: 2026-07-04 21:15
+---
+LEDGER r13 (first run of the rebuilt scenario, fb5eb6c18 + hoist cc660280f): FAILED at the new callback-injection step, before any kills. Two independent bugs, autopsy-pinned on the kept VM then deleted: (1) PRODUCT FINDING — generated .env.config has no trailing newline, so the scenario's append glued onto 'ADMINISTRATOR_CONTACT=' (line 29); this also bites any real operator following the now-documented append-to-.env.config flow — one-line config-writer fix proposed to the King. (2) HARNESS FOOTGUN — sudo -i inside VM_EXEC escapes special characters EXCEPT dollar signs (documented sudo behavior), so $STATBUS_EVENT expanded to empty in transit; the injected callback could never have matched the siren assertion. Fix pass dispatched to mechanic: callback becomes a script FILE on the VM (matches ops/notify-slack.sh's reference shape, no $ through the layers), glue-proof append guard, VM_EXEC comment documents the sudo -i trap. Neither bug touches the hoist or the kill choreography — the scenario never reached them.
 ---
 <!-- COMMENTS:END -->
