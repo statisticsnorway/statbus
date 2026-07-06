@@ -3,10 +3,10 @@ id: STATBUS-020
 title: >-
   restrict-agent-test-realign: rewrite test-restrict-agent-spawn.sh to statbus
   roles + rules
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-09 16:58'
-updated_date: '2026-07-03 10:45'
+updated_date: '2026-07-06 15:59'
 labels:
   - tooling
   - not-install-upgrade
@@ -24,3 +24,9 @@ Work: realign the test's roster + transcripts + assertions to statbus's actual r
 
 NOT blocking: the real caller-ID crash bug (the hook was silently crashing -> not enforcing for identified callers) is already fixed in ad14ad5a0; route-alias's sibling fixture desync is fixed in a027cf437.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+MERGED into STATBUS-133: both rewrite the same hook test file; 133's pass already realigned test-restrict-agent-spawn.sh to the real hook + statbus roster (42/42). Fully absorbed.
+<!-- SECTION:FINAL_SUMMARY:END -->
