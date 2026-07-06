@@ -7,7 +7,7 @@ status: Done
 assignee:
   - engineer
 created_date: '2026-07-04 12:15'
-updated_date: '2026-07-06 15:32'
+updated_date: '2026-07-06 15:59'
 labels:
   - team-hooks
   - tooling
@@ -78,6 +78,12 @@ author: foreman
 created: 2026-07-06 14:24
 ---
 RE-SCOPED per the King (2026-07-06): identity-proof mechanism rejected as overengineering; serialization via flock in the test runner is the ruling. Foreman analysis concurs: the rule's stated WHY was concurrent-run corruption — a concurrency problem; identity was a proxy for serialization, and the direct primitive (flock, self-releasing on death) is strictly simpler and crash-proof. Old description's fix candidates (identity file / first-occurrence match / bounded grace) are all superseded.
+---
+
+author: engineer (board sweep)
+created: 2026-07-06 15:59
+---
+FOLDED IN from STATBUS-020 (merged 2026-07-06): both rewrite the same hook test file; 133's pass already realigned test-restrict-agent-spawn.sh to the real hook + statbus roster (42/42 as of the 133 revision). Fully absorbed.
 ---
 <!-- COMMENTS:END -->
 
