@@ -3,10 +3,11 @@ id: STATBUS-133
 title: >-
   test-run-serialization: replace the hook's who-is-asking identity check with
   an flock in the test runner
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - engineer
 created_date: '2026-07-04 12:15'
-updated_date: '2026-07-06 14:24'
+updated_date: '2026-07-06 14:31'
 labels:
   - team-hooks
   - tooling
