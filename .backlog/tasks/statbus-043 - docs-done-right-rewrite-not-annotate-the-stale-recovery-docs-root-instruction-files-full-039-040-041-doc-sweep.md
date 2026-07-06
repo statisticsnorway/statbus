@@ -7,6 +7,7 @@ status: To Do
 assignee:
   - architect
 created_date: '2026-06-12 21:51'
+updated_date: '2026-07-06 15:59'
 labels:
   - docs
   - upgrade
@@ -46,3 +47,19 @@ CONTEXT: STATBUS-042 (0360caeb0) fixed doc/upgrade-timeline.md + the 3 lifecycle
 - [ ] #3 Concept-level sweep of CLOUD.md, DEPLOYMENT.md, install-statbus.md, INTEGRATE.md + untouched diagrams completed; every found drift fixed in the same commit
 - [ ] #4 A reader of ANY doc in the repo sees only the shipped architecture; supersession banners remain only on genuinely archived material
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: engineer (board sweep)
+created: 2026-07-06 15:59
+---
+FOLDED IN from STATBUS-115 (merged 2026-07-06): same aim (docs describe only the shipped system), same owner, partially done — a named residual list (scrub archive/backup refs) for the 043 sweep.
+---
+
+author: engineer (board sweep)
+created: 2026-07-06 15:59
+---
+FOLDED IN from STATBUS-130 (merged 2026-07-06): two stale comments claiming a pre-039 'always rolls back' latch — exactly the class 043's concept-level sweep kills. A named residual for that sweep.
+---
+<!-- COMMENTS:END -->
