@@ -3,10 +3,10 @@ id: STATBUS-013
 title: >-
   migrate-killed-after-commit: inline boot-migrate consumes the delta before the
   inject — scenario/path mismatch (King decision A/B/C)
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-08 01:53'
-updated_date: '2026-06-21 17:12'
+updated_date: '2026-07-06 15:59'
 labels:
   - install-recovery
   - upgrade
@@ -92,3 +92,9 @@ FOLD (architect, 2026-06-21, King-approved consolidation): the after-commit-befo
 
 RETRACTION (architect, 2026-06-21) — DISREGARD the FOLD note immediately above; it was WRONG and I caught it minutes later. 013's verbatim King spec STANDS: the correct terminal is ROLLED_BACK (restore to known-good → operator retries), NOT completed. The recent STATBUS-097/105 'completed is correct' framing INVERTED this task's ground-truth; the foreman + architect caught it before it was cemented. The fold note's 'reframe to completed' is void. All 097/105/013 consolidation is HELD for the King's ticket-clarity reset. The box reaching 'completed' (overnight) is the DEVIATION from this spec — possibly the real gap — not a non-problem.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+MERGED into STATBUS-105 (spec+verify) and STATBUS-071 (the arc): the rolled_back spec is NOT superseded — it moves to 105 as its canonical spec+verify home (which owns the open measurement), and 071's coverage map asserts it. What's dead is 013's own mechanics: the inject/env analysis + the old fabricated scenario, which predate the boot-migrate reality (STATBUS-044 comments #5–#6) and the budget hoist (cc660280f).
+<!-- SECTION:FINAL_SUMMARY:END -->
