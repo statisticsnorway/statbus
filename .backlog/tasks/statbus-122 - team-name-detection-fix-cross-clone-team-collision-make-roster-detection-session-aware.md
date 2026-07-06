@@ -59,7 +59,7 @@ Files: `.claude/hooks/route-alias.sh` (`get_roster`, `is_in_roster`), `.claude/h
 
 Observed:
 - `teams/statbus` → bound to session-2c632915 = ../statbus (`cwd=/Users/jhf/ssb/statbus`), 6 members + inboxes (live).
-- Other checkouts each have their OWN session dir: frogs (session-b13f72d0 = full team, session-75d4a6b9), lodgebook (session-a00d0c8d), and a PRIOR statbus_speed session (session-e0719eba, `cwd=/Users/jhf/ssb/statbus_speed`, team-lead only).
+- Other checkouts each have their OWN session dir: two unrelated project checkouts (session-b13f72d0 = full team, session-75d4a6b9; session-a00d0c8d), and a PRIOR statbus_speed session (session-e0719eba, `cwd=/Users/jhf/ssb/statbus_speed`, team-lead only).
 - THIS session (95a9145e) has NO `teams/session-95a9145e/` → no team → hooks reading `teams/statbus/` falsely adopt ../statbus's roster.
 
 # FIX (confirmed, minimal)

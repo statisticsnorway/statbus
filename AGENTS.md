@@ -444,7 +444,7 @@ Follow this iterative cycle for ALL changes, especially bug fixes:
 - `ruplacer` - Large-scale find/replace
 - `renamer` - Batch renaming
 
-**Waiting on a GitHub Actions run:** never gate on `gh run watch --exit-status` — it has returned 0 for a FAILED run (observed in the Frogs project, FROGS-142). Poll `gh run list --json status,conclusion` and branch on the conclusion explicitly, like the deploy-to-*.yaml workflows do.
+**Waiting on a GitHub Actions run:** never gate on `gh run watch --exit-status` — it has returned 0 for a FAILED run (observed in practice on another production deployment). Poll `gh run list --json status,conclusion` and branch on the conclusion explicitly, like the deploy-to-*.yaml workflows do.
 
 ## Security Model
 
