@@ -1,0 +1,17 @@
+# Weekly refresh of the GitHub Actions runner container.
+# Deploy to /etc/systemd/system/gha-runner-upgrade.timer, then:
+#   systemctl daemon-reload && systemctl enable --now gha-runner-upgrade.timer
+#
+# Sunday 03:17 — a quiet window an hour after niue's own weekly seq-container
+# refresh; deploys don't run then, and the upgrade script skips itself anyway if a
+# job happens to be executing. Persistent=true catches a box that was off over the
+# window. Design: doc-026 §4 / delta 2.
+[Unit]
+Description=Weekly refresh of the statbus GitHub Actions runner container
+
+[Timer]
+OnCalendar=Sun *-*-* 03:17:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

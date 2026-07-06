@@ -1,0 +1,105 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# PROPOSED — DO NOT COPY INTO .github/workflows/ YET.
+#
+# This is the phase-3 target state of .github/workflows/notify-all-clouds.yaml
+# after the self-hosted runner is LIVE on niue (doc-026 §3 step 2, the canary).
+# It is kept OUTSIDE .github/workflows/ on purpose: pointing the live workflow at
+# [self-hosted, niue] before the runner exists would make every push queue silently
+# for up to 24h. Land this (by replacing the live file) only after phase 2 proves
+# the runner online (doc-026 Verification 1-2). Rollback is one line: revert the two
+# `runs-on:` values to `ubuntu-latest`.
+#
+# TWO CHANGES vs the live file, plus a new job:
+#   1. `notify` legs move to runs-on [self-hosted, niue].
+#   2. The SSH step is CONVERTED from appleboy/ssh-action (a Docker CONTAINER action)
+#      to a raw `ssh` run step. REQUIRED, not cosmetic: the runner has no docker
+#      socket (doc-026 §2), so a Docker-based action cannot execute on it. Raw ssh
+#      uses the openssh-client the runner image installs. Host/user/key/script are
+#      semantically identical to today; the marketplace-action supply-chain risk
+#      (doc-026 delta 4's SHA-pin) simply disappears because there is no action left.
+#   3. A hosted `runner-online` canary job (ubuntu-latest) that fails loudly, naming
+#      the runner, when it is offline — restoring today's immediately-red signal that
+#      a silently-queued self-hosted job would otherwise lose (doc-026 §4).
+#
+# ⚠ TWO OPEN DESIGN QUESTIONS FOR THE ARCHITECT (flagged, not resolved here):
+#   A. Raw-ssh host-key policy. Below uses StrictHostKeyChecking=accept-new pinned
+#      into a known_hosts file in the runner-work volume (pins on first connect,
+#      verifies after). appleboy/ssh-action did NO host-key verification by default;
+#      accept-new is a small improvement and safe for a host-gateway hop to the box's
+#      own sshd. Confirm or choose a pre-seeded known_hosts.
+#   B. Canary auth. Listing a repo's self-hosted runners
+#      (GET /repos/{o}/{r}/actions/runners) requires repo ADMINISTRATION permission,
+#      which the workflow GITHUB_TOKEN CANNOT be granted (no `administration` scope
+#      exists for GITHUB_TOKEN). So the canary as written needs a read-scoped PAT in
+#      a repo secret (e.g. RUNNER_STATUS_TOKEN) — a durable secret, in tension with
+#      doc-026 delta 1's "no durable secret on the box" (note: this secret lives in
+#      GitHub, not on niue, and is read-only over runner status — strictly weaker than
+#      the removed runner-admin PAT, but it is still a standing credential). Architect
+#      to rule: accept a read-only status PAT, or pick another liveness signal.
+# ═══════════════════════════════════════════════════════════════════════════
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Notify cloud services
+on:
+  push:
+    branches: [master]
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
+
+jobs:
+  # NEW: hosted canary — goes red on the next push if the niue runner is offline,
+  # so a self-hosted job silently queueing can never hide a down runner (doc-026 §4).
+  runner-online:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Assert the niue self-hosted runner is online
+        env:
+          # See OPEN QUESTION B above — needs runner-read scope; GITHUB_TOKEN cannot.
+          GH_TOKEN: ${{ secrets.RUNNER_STATUS_TOKEN }}
+        run: |
+          set -euo pipefail
+          status="$(gh api repos/statisticsnorway/statbus/actions/runners \
+            --jq '.runners[] | select(.name=="niue") | .status')"
+          if [ "$status" != "online" ]; then
+            echo "::error::The niue self-hosted runner is OFFLINE (status='${status:-not-registered}')."
+            echo "::error::Self-hosted notify legs will queue silently until it is back."
+            echo "::error::On niue: docker compose -f /home/github-runner/docker-compose.yml ps / logs gha-runner"
+            exit 1
+          fi
+          echo "niue runner is online."
+
+  notify:
+    needs: runner-online
+    runs-on: [self-hosted, niue]
+    if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        server:
+          - statbus_dev
+          - statbus_demo
+          - statbus_tcc
+          - statbus_ma
+          - statbus_ug
+          - statbus_et
+          - statbus_jo
+    steps:
+      - name: Notify ${{ matrix.server }}
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+        run: |
+          set -euo pipefail
+          keyfile="$(mktemp)"; chmod 600 "$keyfile"
+          printf '%s\n' "$SSH_KEY" > "$keyfile"
+          trap 'rm -f "$keyfile"' EXIT
+          known="$HOME/_work/.known_hosts"   # persists in the runner-work volume
+          timeout 40s ssh -i "$keyfile" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=15 \
+            -o StrictHostKeyChecking=accept-new \
+            -o "UserKnownHostsFile=$known" \
+            "${{ matrix.server }}@niue.statbus.org" \
+            'cd ~/statbus && if [ -x ./sb ]; then ./sb upgrade check; else echo "Skipping: ./sb not installed on this slot"; fi'

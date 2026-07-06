@@ -1,0 +1,53 @@
+# statbus-gha-runner — GitHub Actions self-hosted runner (labels: self-hosted, niue).
+# Deployed to /home/github-runner/ on niue under a dedicated `github-runner` user
+# (docker group, no sudo); recreated weekly by gha-runner-upgrade.timer when the
+# base image changed. Registration survives recreates via the runner-state volume.
+# Design + rationale: doc-026 (STATBUS-069).
+#
+# SECURITY INVARIANTS (doc-026 §2 — do not relax any of these):
+#   • NO docker socket mount — the container must never control the host's Docker.
+#     (Consequence: jobs must use raw `ssh` steps, not Docker-based marketplace
+#     actions — see the Dockerfile note.)
+#   • Runs as the image's non-root `runner` user.
+#   • No new inbound port — the runner long-polls GitHub outbound only.
+#   • The workflows' SSH target (niue.statbus.org) resolves to the host itself via
+#     extra_hosts host-gateway, so the connection's source IP is the docker bridge —
+#     CrowdSec's public blocklists stay fully enforced externally.
+#   • Resource-capped so a job can never starve the 7 production slots on niue.
+name: gha-runner
+services:
+  runner:
+    build: .
+    image: statbus-gha-runner:local
+    container_name: gha-runner
+    restart: unless-stopped
+    # niue has 16 cores / 30 GB serving 7 production slots; our jobs only SSH
+    # (they build nothing), so cap smaller than a build runner would (doc-026 §1).
+    cpus: 2.0
+    mem_limit: 2g
+    environment:
+      RUNNER_URL: https://github.com/statisticsnorway/statbus
+      RUNNER_NAME: niue
+      # `self-hosted` is auto-added; `niue` is the selector jobs opt into with
+      # runs-on: [self-hosted, niue].
+      RUNNER_LABELS: niue
+      # RUNNER_TOKEN is read from .env on FIRST registration only — a short-lived
+      # (1h) single-purpose registration token, worthless once used or expired, so
+      # NOT a durable secret (doc-026 delta 1). Empty on every later boot; the
+      # entrypoint restores the persisted registration from the runner-state volume.
+      RUNNER_TOKEN: ${RUNNER_TOKEN:-}
+      # doc-026 gotcha 7b: the day a self-hosted job first uses a setup-* action,
+      # point that toolchain's install dir into the work volume (a root-owned system
+      # path would fail for the non-root runner), e.g.
+      #   DOTNET_INSTALL_DIR: /home/runner/_work/_tool/dotnet
+      # Our SSH-only jobs install nothing today, so no such var is set.
+    extra_hosts:
+      # niue.statbus.org resolves to the host's docker-bridge address — the SSH
+      # never leaves the box. Workflows keep using the real hostname unchanged.
+      - "niue.statbus.org:host-gateway"
+    volumes:
+      - runner-state:/runner-state          # registration (.runner + .credentials)
+      - runner-work:/home/runner/_work       # job workspace
+volumes:
+  runner-state:
+  runner-work:

@@ -1,0 +1,12 @@
+# Weekly refresh of the containerized GitHub Actions runner.
+# Deploy to /etc/systemd/system/gha-runner-upgrade.service (with the .timer).
+# Runs as the github-runner user (docker group, no sudo). Design: doc-026 §4.
+[Unit]
+Description=Refresh the statbus GitHub Actions runner (pull base image, recreate if changed)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=github-runner
+ExecStart=/usr/local/bin/upgrade-to-latest-gha-runner.sh
