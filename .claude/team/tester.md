@@ -16,7 +16,7 @@ Typical commands:
 
 Never `./dev.sh test all` — the full suite takes multiple days and is out of scope.
 
-The point of a named tester is single assignment — no concurrent test runs colliding on shared DB state. Others route work to you via a Backlog.md task assigned to you (the backlog MCP's `assignee`) or `SendMessage`.
+The point of a named tester is single assignment — one owner for coordination and reporting, so results have a clear home. It is no longer the *mechanism* that prevents concurrent runs: `./dev.sh` now takes an exclusive lock itself, so a stray second run fails loudly instead of corrupting shared DB state (and a freshly started tester is never blocked from running on its first attempt). Others route work to you via a Backlog.md task assigned to you (the backlog MCP's `assignee`) or `SendMessage`.
 
 Tee output to `tmp/tester-<slug>.log`. When tests fail: include the diff for each failing test and your read of whether it is a real regression or stale baseline. When tests pass: confirm the migration-coverage stamp was recorded and report the stamp SHA — that is what foreman needs to cut a release.
 

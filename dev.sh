@@ -407,6 +407,144 @@ EOF
   exit 1
 }
 
+# ── Test-run serialization lock ───────────────────────────────────────
+#
+# NORTH STAR: two invocations that touch the shared pg_regress state
+# (statbus_seed / statbus_test_template / the dev database) must never
+# overlap — concurrent clones and drops corrupt each other and manufacture
+# "flaky" failures that are not real ("there are no flaky tests"). We
+# serialize DIRECTLY: an entrypoint that touches shared state takes an
+# exclusive lock first; on contention it FAILS LOUDLY naming the holder —
+# it never queues silently and never proceeds.
+#
+# MECHANISM: a real kernel lock — flock(2). flock(1) is absent on macOS
+# (`command -v flock` exits non-zero here) and we can't call syscall.Flock
+# from bash, but perl (5.x, always shipped on macOS + Linux) can flock a file
+# descriptor INHERITED from the shell. We `exec 9>>lockfile` in bash, then
+# perl fdopens fd 9 and takes flock(LOCK_EX|LOCK_NB). The lock lives with the
+# open file DESCRIPTION behind fd 9, which gives three properties a userspace
+# mkdir/pidfile lock cannot:
+#   - No TOCTOU. The kernel grants the lock atomically; there is no
+#     read-holder-then-reclaim window where two runs can both win.
+#   - Released on process-tree death, even SIGKILL — the kernel drops the lock
+#     when the LAST descriptor on the description closes. No EXIT trap needed.
+#   - Held while any CHILD of a killed run is still alive: children inherit
+#     fd 9, so a SIGKILL'd parent whose psql/docker child is still mutating the
+#     DB keeps the lock until that child exits. (kill -0 on the parent pid, by
+#     contrast, would false-reclaim mid-mutation, and PID reuse could false-block.)
+# The holder file is now purely INFORMATIONAL — it names the holder in the
+# contention banner; it is NOT the mutex, so a race to write it is harmless.
+#
+# RE-ENTRANCY: composite entrypoints spawn leaf ones as child `./dev.sh`
+# processes (migrate-and-test → recreate-seed/create-test-template/test;
+# create-db → create-db-structure/recreate-seed/create-test-template;
+# recreate-database → delete-db/create-db). The outermost process exports
+# STATBUS_TEST_LOCK_HELD; children see it and pass through (they already
+# inherited fd 9, which keeps the lock held for their lifetime), so the lock
+# is taken once and released once, by the top of the process tree.
+_TEST_LOCK_FILE="$WORKSPACE/tmp/.test-run.lock"
+_TEST_LOCK_INFO="$WORKSPACE/tmp/.test-run.lock.info"
+_TEST_LOCK_OWNED=false   # true ONLY in the process that took the lock
+
+release_test_run_lock() {
+    # Idempotent; a no-op unless THIS process took the lock. Child processes
+    # inherited STATBUS_TEST_LOCK_HELD and never acquired, so their
+    # _TEST_LOCK_OWNED stays false and they cannot release the parent's lock.
+    # The kernel also releases on exit; closing fd 9 here makes it prompt on a
+    # clean exit and clears the informational holder file.
+    if [ "$_TEST_LOCK_OWNED" = true ]; then
+        # NB: no `2>/dev/null` on a no-command `exec` — it would permanently
+        # redirect THIS shell's stderr, not just silence the close. fd 9 is
+        # guaranteed open here (we own the lock), so the bare close won't error.
+        exec 9>&- || true
+        rm -f "$_TEST_LOCK_INFO" 2>/dev/null || true
+        _TEST_LOCK_OWNED=false
+    fi
+}
+
+acquire_test_run_lock() {
+    local _label="${1:-./dev.sh}"
+    # Re-entrant: an ancestor dev.sh already holds it → pass through.
+    if [ -n "${STATBUS_TEST_LOCK_HELD:-}" ]; then
+        return 0
+    fi
+    mkdir -p "$WORKSPACE/tmp"
+    # Self-heal the one-time transition from the retired mkdir-based lock: if a
+    # leftover DIRECTORY sits at the lockfile path (e.g. a mkdir-era run was
+    # SIGKILL'd before its rmdir), clear it so `exec 9>>` doesn't error with
+    # "Is a directory". Only ever a directory under the retired scheme; the
+    # flock scheme always uses a plain file.
+    if [ -d "$_TEST_LOCK_FILE" ]; then rm -rf "$_TEST_LOCK_FILE" 2>/dev/null || true; fi
+    # Open fd 9 on the lockfile for the rest of this process's life. Every child
+    # inherits it; the kernel keeps the lock held until the whole tree closes it.
+    exec 9>>"$_TEST_LOCK_FILE" || {
+        echo "test-run lock: cannot open lockfile $_TEST_LOCK_FILE — refusing to run unserialized." >&2
+        exit 1
+    }
+    # Take flock(2) via perl on the inherited fd. rc: 0 acquired, 1 would-block
+    # (a live run holds it), anything else (3 fdopen failed, 127 no perl, …) is
+    # an environment fault — in every non-zero case we refuse rather than run
+    # two suites against the shared templates at once.
+    local _prc=0
+    perl -e 'open(my $fh, ">&=", 9) or exit 3; use Fcntl qw(:flock); exit(flock($fh, LOCK_EX|LOCK_NB) ? 0 : 1);' || _prc=$?
+    if [ "$_prc" -eq 0 ]; then
+        # Acquired. Record the holder for any contender's banner (informational).
+        printf 'pid %s\nstarted-at %s\naction %s\n' \
+            "$$" "$(date '+%Y-%m-%d %H:%M:%S %z' 2>/dev/null || echo unknown)" "$_label" \
+            > "$_TEST_LOCK_INFO" 2>/dev/null || true
+        _TEST_LOCK_OWNED=true
+        export STATBUS_TEST_LOCK_HELD="$_TEST_LOCK_FILE"
+        trap release_test_run_lock EXIT
+        return 0
+    fi
+    exec 9>&- || true   # we did NOT acquire — drop our fd (no `2>…`: see release)
+    local _info
+    _info=$(sed 's/^/  /' "$_TEST_LOCK_INFO" 2>/dev/null || true)
+    [ -n "$_info" ] || _info="  (holder info unavailable — the run started moments ago)"
+    if [ "$_prc" -ne 1 ]; then
+        echo "test-run lock: could not take flock via perl (rc=$_prc) — refusing to run unserialized. Is perl available?" >&2
+        exit 1
+    fi
+    cat >&2 <<EOF
+
+═══════════════════════════════════════════════════════════════════════
+BLOCKED: another test run holds the test-run lock.
+
+This command ($_label) touches the shared pg_regress state (statbus_seed /
+statbus_test_template / the dev database). Two runs that touch it at once
+corrupt each other and manufacture failures that are not real. Only one may
+run at a time.
+
+Current holder:
+$_info
+
+WHAT TO DO:
+  - Wait for that run to finish, then retry (the lock releases the moment the
+    holding process tree exits — no manual cleanup, even after a SIGKILL).
+  - Lockfile: $_TEST_LOCK_FILE
+
+Hook source: dev.sh acquire_test_run_lock
+═══════════════════════════════════════════════════════════════════════
+EOF
+    exit 1
+}
+
+# Serialize the entrypoints that touch shared DB state or run the suite.
+# Composites are included; their child `./dev.sh` calls inherit the lock via
+# STATBUS_TEST_LOCK_HELD and pass through, so the whole composite is one
+# critical section. `continous-integration-test` is intentionally NOT here:
+# it runs on isolated CI runners, and it drives the above as children, each
+# of which takes the lock — so a concurrent dev command still contends.
+case "$action" in
+    test|test-isolated|migrate-and-test|\
+    create-db|create-db-structure|reset-db-structure|\
+    delete-db|delete-db-structure|recreate-database|\
+    create-test-template|create-seed|delete-seed|recreate-seed|\
+    seed-clone|clean-test-databases )
+        acquire_test_run_lock "./dev.sh $action${*:+ $*}"
+        ;;
+esac
+
 case "$action" in
     'postgres-variables' )
         SITE_DOMAIN=$(./sb dotenv -f .env get SITE_DOMAIN || echo "local.statbus.org")
@@ -765,6 +903,10 @@ EOF
 
             cleanup_shared_test_db() {
                 local exit_code=$?
+                # This trap replaced the acquire-time release trap, so release
+                # the test-run lock here too (idempotent; no-op if we don't own
+                # it, e.g. when `test` runs as a child of migrate-and-test).
+                release_test_run_lock
                 if [ "${PERSIST:-false}" = "true" ]; then
                     echo "PERSIST=true: Keeping shared test database: $SHARED_TEST_DB"
                     return $exit_code
@@ -1640,6 +1782,10 @@ EOF
         DB_LOG_FILE=""
         cleanup_test_db() {
             local exit_code=$?
+            # This trap replaced the acquire-time release trap, so release the
+            # test-run lock here too (idempotent; no-op if we don't own it, e.g.
+            # when test-isolated runs as a child of `test`).
+            release_test_run_lock
             if [ -n "$LOG_CAPTURE_PID" ]; then
                 kill "$LOG_CAPTURE_PID" 2>/dev/null || true
                 wait "$LOG_CAPTURE_PID" 2>/dev/null || true

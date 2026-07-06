@@ -21,18 +21,25 @@
 #
 # === BASH tool rules ===
 #
-# 4. `./dev.sh test …` → only the tester may run it. Concurrent test
-#    runs from different agents corrupt shared DB templates.
+# Test-run serialization is NO LONGER enforced here. It moved to a direct
+# exclusive lock taken by the test runner itself (acquire_test_run_lock in
+# dev.sh): concurrent runs that touch the shared pg_regress templates fail
+# loudly on lock contention, and the lock self-releases on process death.
+# The lock supersedes the old "only the tester may run ./dev.sh test"
+# identity gate — which was a proxy for serialization and broke on every
+# clear/crash/compaction (a fresh tester was refused, a post-compaction
+# foreman was unidentifiable). "The tester runs the tests" remains a TEAM
+# CONVENTION for coordination and reporting, not a machine-enforced check.
 #
-# 5. `./sb release prerelease` → only the foreman may run it. Release
-#    commands modify tags and branches — foreman's authority.
-#
-# 6. `git commit / revert / cherry-pick / rebase / am / push` → blocked for
+# 4. `git commit / revert / cherry-pick / rebase / am / push` → blocked for
 #    operator and tester. These Haiku-tier roles are scoped to read-only
 #    legwork (operator) and test execution (tester); committing or pushing
 #    bypasses pre-commit review and produces work nobody asked for. The
 #    smaller-model context window makes role-file paperwork unreliable
 #    here — structural enforcement is the principled fix.
+#
+# 5. `./sb release prerelease` → only the foreman may run it. Release
+#    commands modify tags and branches — foreman's authority.
 #
 # Caller identification:
 #   - session_id == leadSessionId (from team config) → "foreman"
@@ -248,7 +255,60 @@ Hook source: .claude/hooks/restrict-agent-spawn.sh"
 
 elif [[ "$tool" == "Bash" ]]; then
   command=$(jq -r '.tool_input.command // empty' <<<"$payload")
-  normalized=$(echo "$command" | tr '\n' ' ' | tr -s ' ')
+
+  # Strip HEREDOC bodies (file/script CONTENT being written) BEFORE flattening
+  # newlines, so a rule never matches a command that merely APPEARS inside
+  # content the caller is AUTHORING rather than EXECUTING — e.g.
+  #     cat > launcher.sh <<'EOF'
+  #     ./dev.sh test fast      # documented in the script, not run here
+  #     git push origin main    # ditto
+  #     EOF
+  # Only commands OUTSIDE heredoc bodies are real invocations to gate. Handles
+  # <<EOF, <<'EOF', <<"EOF", and <<-EOF (tab-stripped terminator). The opener
+  # line is kept (its pre-<< text may itself be a real command); the body and
+  # the terminator line are dropped. After the terminator, matching RESUMES —
+  # a gated command on a later line is still caught.
+  #
+  # KNOWN RESIDUALS (both deliberate, both out of this guardrail's scope):
+  #   1. Here-STRINGS (`cmd <<<foo`) are NOT heredocs; the `(^|[^<])` prefix
+  #      below stops the `<<` inside `<<<` from being read as an opener.
+  #   2. Interpreter-fed heredocs (`bash <<'EOF' … EOF`, `ssh host <<EOF`) run
+  #      their body as EXECUTED content, yet we still strip it. Catching that
+  #      would require a shell-semantics parser; anyone laundering a gated
+  #      command through an interpreter heredoc is deliberately evading, which
+  #      a content-pattern hook never claims to stop. The body is dropped.
+  # A stray `<< word` inside a quoted string on a multi-line command can still
+  # be misread as an opener — but that only ever DROPS following lines from
+  # matching (weakens a block), never fabricates one, so it can't wrongly deny.
+  _optquote=$'[\047\042]?'   # optional ' or " around the delimiter word
+  # (^|[^<]) — the `<<` must start the line or follow a non-`<`, so `<<<` (a
+  # here-string) does not match as a heredoc opener. BASH_REMATCH: [1]=prefix
+  # char, [2]=dash (<<-), [3]=delimiter word.
+  _hd_re="(^|[^<])<<(-?)[[:space:]]*${_optquote}([A-Za-z_][A-Za-z0-9_]*)"
+  command_no_heredoc=""
+  _hd_in=0; _hd_delim=""; _hd_dash=0
+  while IFS= read -r _hd_line || [ -n "$_hd_line" ]; do
+    if [ "$_hd_in" -eq 1 ]; then
+      _hd_t="$_hd_line"
+      if [ "$_hd_dash" -eq 1 ]; then
+        while [[ "$_hd_t" == $'\t'* ]]; do _hd_t="${_hd_t#$'\t'}"; done
+      fi
+      if [ "$_hd_t" = "$_hd_delim" ]; then _hd_in=0; fi
+      continue   # drop body AND terminator line
+    fi
+    if [[ "$_hd_line" =~ $_hd_re ]]; then
+      # NB: `[ -n .. ] && _hd_dash=1` as a bare statement would trip set -e when
+      # the test is false; use an explicit if (same guard the caller-ID block uses).
+      _hd_dash=0
+      if [ -n "${BASH_REMATCH[2]}" ]; then _hd_dash=1; fi
+      _hd_delim="${BASH_REMATCH[3]}"; _hd_in=1
+      command_no_heredoc+="$_hd_line"$'\n'
+      continue
+    fi
+    command_no_heredoc+="$_hd_line"$'\n'
+  done <<<"$command"
+
+  normalized=$(printf '%s' "$command_no_heredoc" | tr '\n' ' ' | tr -s ' ')
 
   # Strip commit message bodies before pattern-matching, so command strings
   # documented inside commit messages don't false-match hook patterns.
@@ -270,42 +330,12 @@ elif [[ "$tool" == "Bash" ]]; then
     normalized_for_match="$normalized"
   fi
 
-  # Rule 4: `./dev.sh test …` → only the tester.
-  if echo "$normalized_for_match" | grep -qE '\./dev\.sh\s+test\b'; then
-    if [[ "$caller" == "tester" ]]; then
-      echo "{}"
-      exit 0
-    fi
-    if [[ -z "$caller" ]]; then
-      emit_deny "BLOCKED (restrict-agent-spawn.sh): test command from unidentified caller — cannot confirm this is the tester.
+  # NOTE: the old Rule 4 ("only the tester may run ./dev.sh test") is RETIRED.
+  # Test-run serialization is now enforced directly by an exclusive lock the
+  # test runner takes itself (acquire_test_run_lock in dev.sh) — see the BASH
+  # tool rules header above. No identity check on the test path remains.
 
-WHY: only the tester may run \`./dev.sh test\`. Concurrent test runs from different agents corrupt shared DB templates.
-
-WHAT TO DO:
-  - Assign a Backlog.md task to 'tester' (mcp__backlog__task_create, assignee 'tester')
-  - Or: SendMessage({to: 'tester', message: 'run: ${normalized:0:120}'})
-
-Command: ${normalized:0:200}
-
-Hook source: .claude/hooks/restrict-agent-spawn.sh"
-      exit 0
-    fi
-    emit_deny "BLOCKED (restrict-agent-spawn.sh): only the tester may run \`./dev.sh test\`, not '${caller}'.
-
-WHY: concurrent test runs from different agents corrupt shared DB templates. The tester is the single serializer.
-
-WHAT TO DO:
-  - Assign a Backlog.md task to 'tester' (mcp__backlog__task_create, assignee 'tester')
-  - Or: SendMessage({to: 'tester', message: 'run: ${normalized:0:120}'})
-
-Command: ${normalized:0:200}
-Caller: ${caller}
-
-Hook source: .claude/hooks/restrict-agent-spawn.sh"
-    exit 0
-  fi
-
-  # Rule 6: commit-creating / push git ops → block operator + tester.
+  # Rule 4: commit-creating / push git ops → block operator + tester.
   # These Haiku-tier roles must not modify history; smaller-model context
   # windows make role-file rules unreliable, so enforce structurally.
   if echo "$normalized_for_match" | grep -qE '\bgit\s+(commit|revert|cherry-pick|rebase|am|push)\b'; then

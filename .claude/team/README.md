@@ -25,7 +25,7 @@ Three forces drive the design:
 
 **Focus.** Expensive models protect their context by delegating. When the mechanic needs to understand a 2000-line log, the operator reads it and hands back a three-line summary plus the relevant line numbers. The mechanic only looks at what matters.
 
-**No contention.** When one named role owns a command class, two agents can't accidentally run the same destructive thing at the same time. The `tester` is the single runner for `./dev.sh test`; no coordination protocol needed.
+**No contention.** When one named role owns a command class, two agents can't accidentally run the same destructive thing at the same time. Routing tests to the `tester` is the coordination convention. Test-run *serialization* is no longer enforced by role identity, though: `./dev.sh` takes an exclusive lock itself (`acquire_test_run_lock`), so any second run that would touch the shared pg_regress state fails loudly instead of corrupting it — the guard holds even after a `/clear` or crash leaves the roster ambiguous.
 
 ## Cost/context hierarchy
 
@@ -61,7 +61,7 @@ Per-project commands live in the role files (`engineer.md`, `tester.md`, etc.), 
 
 Three hooks in `.claude/hooks/` enforce the pattern at the harness level:
 
-- **`restrict-agent-spawn.sh`** — only foreman can spawn agents; command-class gates route shared commands to their named owner.
+- **`restrict-agent-spawn.sh`** — only foreman can spawn agents; git-history ops (commit/push/rebase/…) are blocked for operator+tester, and `./sb release prerelease` is foreman-only. (It no longer gates `./dev.sh test` — that serialization moved to the `acquire_test_run_lock` flock in `dev.sh`.)
 - **`route-alias.sh`** — catches typo'd recipient names in SendMessage and Task owner fields (turns the silent-drop bug into a loud error).
 - **`require-task-slug.sh`** — every task subject must start with a `slug-name: description` prefix so the user has a conversational handle without seeing the UI.
 
