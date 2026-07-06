@@ -4,11 +4,11 @@ title: >-
   migrate-orphan-gate: PID-liveness-aware detection — tagged dead-PID advisory
   holder caught by neither checkSessionsClean branch (bounded recovery delay,
   post-RC)
-status: In Progress
+status: Done
 assignee:
   - engineer
 created_date: '2026-06-15 14:31'
-updated_date: '2026-07-03 19:21'
+updated_date: '2026-07-06 15:58'
 labels:
   - upgrade
   - recovery
@@ -51,3 +51,9 @@ created: 2026-07-03 19:21
 COMMITTED + PUSHED: a3eb522c8 (cli/cmd/install.go + cli/cmd/session_orphan_test.go). Architect design pass: APPROVE AS-IS (shared zombieAdvisoryHolders detection for gate + Phase 2; pure classifyAdvisoryHolder with injected liveness; malformed/subprocess tags left alone; EPERM-as-dead preserved; conservative not-clean on unqueryable state; docker-exec pool-bypass probe). Unit tests green (classifier matrix, procAlive real-dead-PID, mixed sets), go vet clean. Behavioral coverage rides the arc lane: run 28679526112 (dispatched on a3eb522c8) exercises install/upgrade paths that traverse the gate.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+CLOSE — DONE. Shipped and proven: fix committed a3eb522c8 (2026-07-03), architect design pass "approve as-is", unit tests green, and the arc lane exercised the new gate end-to-end green (run 28679526112). Nothing remains.
+<!-- SECTION:FINAL_SUMMARY:END -->
