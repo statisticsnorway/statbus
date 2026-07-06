@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-21 19:41'
-updated_date: '2026-06-28 12:44'
+updated_date: '2026-07-06 23:33'
 labels:
   - upgrade
   - recovery
@@ -128,4 +128,16 @@ GLOSSARY — RECOVERY SECTIONS CRYSTALLISED (King, 2026-06-27); doc/upgrade-voca
 • 'Recovery — the two human stops': `unknown` (unrecognised error OR unreadable phase) + `restore-broke` (rollback's restore broke→hands-on; operator UX agreed in principle — print error + snapshot-path + re-run `./sb install`; impl grounding pending).
 • Direction: the stale `state-unknown` ('continue forward, never destroy on a guess' — the OVERTURNED model) REPLACED by `position-unreadable` → routes to the error classifier.
 Full crystallised model also in doc-019 §3-§4. Recovery slug names now UN-HELD (the 110 model is ratified). STILL OPEN in 107: the Mechanisms & artifacts names (entry 1 = the on-disk marker, in review; architect lean `upgrade-marker`) + the 3-diagram de-jargon (target #6).
+
+MECHANIC PASS (2026-07-07): re-verified the two items the notes above flagged as "STILL OPEN" — both were stale.
+
+1. Mechanisms & artifacts naming — doc/upgrade-vocabulary.md:179 already says "Mechanisms & artifacts are now locked too" (upgrade-in-progress, db-snapshot/-backup/-restore, db-dump, stop-app-services, restart-loop, heartbeat) and "The vocabulary is complete — only open item is the on-disk Phase serialization values (parked, arc-gated)". Nothing left to lock.
+
+2. 3-diagram de-jargon (target #6) — the STRUCTURAL work (draw the corrupt-flag case, promote git-Unknown + unrecognized-phase from footnotes to drawn branches, split the failed/human blob into unknown vs restore-broke) was ALREADY DONE by an earlier pass not reflected in these notes: upgrade-timeline.plantuml:149-150 draws corrupt-flag (discard-and-log) and unrecognized-phase ([HUMAN: unknown]) as distinct alt-branches; upgrade-lifecycle.plantuml:36 (unknown self-loop) vs :51 (restore-broke → failed) are already two separate drawn transitions, not one blob. install-recovery.plantuml had zero remaining jargon.
+
+What I actually found and fixed this pass — a REAL residual the notes missed entirely: target #5 (operator-facing log/error strings) had NOT been applied. cli/internal/upgrade/service.go and cli/cmd/root.go still spoke the pre-ratified vocabulary — "ground truth", "resuming-phase", "pre-swap"/"post-swap", "positively behind", "at-target" — in ~20 logRecover/progress.Write/fmt.Errorf strings actually shown to operators (upgrade log, DB error column, stderr), even though doc/upgrade-vocabulary.md had ratified observed-state/already-at-new/cannot-reach-new/continuing-after-crash-restart back on 2026-06-26/27. Rewrote all of them to the ratified vocabulary — text only, zero behavior change (Go identifiers GroundTruthAtTarget/Behind/Unknown, FlagPhasePreSwap/PostSwap/Resuming, and the serialized wire values all untouched). Also applied the final small lexical residue of stale jargon (at-target/positively-Behind/ground-truth/pre-swap/post-swap) in upgrade-timeline.plantuml and upgrade-lifecycle.plantuml and regenerated both .svg from source; install-recovery.plantuml needed no change.
+
+STILL OPEN, intentionally not touched: (a) target #4, the Go identifier rename (GroundTruth/FlagPhase* etc.) — explicitly the engineer's job per this ticket's own STAGE line, and it's tightly coupled to ~100+ internal dev comments across service.go that use the same shorthand describing those identifiers; doing the string/diagram pass without renaming the identifiers first would make comments and identifiers disagree, so I left those comments as-is pending the identifier pass. (b) the parked on-disk Phase serialization change — explicitly arc-gated on STATBUS-071, not in scope for anyone yet.
+
+Verified: go build ./..., go vet ./..., go test ./... all green in cli/ after every edit. No test pins the literal operator-facing strings I changed (checked via grep before editing).
 <!-- SECTION:NOTES:END -->
