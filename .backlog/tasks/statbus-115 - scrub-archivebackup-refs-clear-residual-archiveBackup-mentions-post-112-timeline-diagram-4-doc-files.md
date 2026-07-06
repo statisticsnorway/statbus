@@ -3,10 +3,10 @@ id: STATBUS-115
 title: >-
   scrub-archivebackup-refs: clear residual archiveBackup mentions post-112
   (timeline diagram + 4 doc/ files)
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-29 16:22'
-updated_date: '2026-06-30 11:27'
+updated_date: '2026-07-06 15:59'
 labels:
   - docs
   - backup
@@ -52,3 +52,9 @@ Low priority (some are historical; no functional impact) — fits the King's def
 <!-- SECTION:NOTES:BEGIN -->
 PARTIAL (architect, 2026-06-30, pre-context-clear): doc/upgrade-timeline.md — the retired `archive-backup-stall-active-phase-watchdog` scenario-class table row DROPPED (committed with the architect's final docs). The 3 doc/recovery/* (upgrade-resume-structural-whole / recovery-injection-scope-a-comprehensive / recovery-arc-flaw-timeoutstartsec) are committed historical investigation records (FIX-A / injection-scope / arc-flaw) — their archiveBackup refs are KEEP-as-history; the 'removed in STATBUS-112' superseded-marking + any per-ref current-vs-historical judgment on those 3 REMAINS for the cleanup pass (note recovery-injection-scope's scenario inventory: scenario 26 / the archive-backup-stall class count may want a current-status update).
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+MERGED into STATBUS-043: same aim (docs describe only the shipped system), same owner, partially done — a named archive/backup-refs residual for the 043 sweep.
+<!-- SECTION:FINAL_SUMMARY:END -->
