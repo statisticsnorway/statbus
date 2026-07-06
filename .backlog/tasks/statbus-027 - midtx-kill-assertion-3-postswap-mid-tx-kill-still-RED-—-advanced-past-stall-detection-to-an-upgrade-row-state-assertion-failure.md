@@ -1,14 +1,13 @@
 ---
 id: STATBUS-027
 title: >-
-  midtx-kill-assertion: test setup overwrites .env.config and drops the approved
-  signing key, so the upgrade fails the signature check before it can migrate;
-  fix the setup
+  trust-flag-on-pending-upgrade: ./sb install --trust-github-user is a silent
+  no-op when a scheduled upgrade is pending
 status: To Do
 assignee:
   - mechanic
 created_date: '2026-06-11 07:48'
-updated_date: '2026-06-19 15:46'
+updated_date: '2026-07-06 16:13'
 labels:
   - install-recovery
   - harness
@@ -45,3 +44,13 @@ CLOSED-OBSOLETE (foreman, 2026-06-19): the .env.config-overwrite / dropped-signi
 
 REVERTED the 2026-06-19 close-as-obsolete (foreman) — that was WRONG. 027 was misclassified: its TITLE is about the harness .env-overwrite, but its BODY carries an UNFIXED REAL PRODUCT BUG (CONFIRMED 2026-06-18): `./sb install --trust-github-user X` is a SILENT NO-OP on a box with a pending scheduled upgrade (dispatchInstallState handles StateScheduledUpgrade + returns handled=true BEFORE the --trust-github-user pre-flight at install.go:383-402). Albania-relevant. FIX (awaiting King nod): move the --trust-github-user block BEFORE dispatchInstallState. The 071-5d arc reshape avoids the TEST's .env-overwrite but does NOT fix this product bug. STAYS To Do (real bug pending). NEEDS A CLARITY REWRITE: split the misleading title from the buried product bug.
 <!-- SECTION:NOTES:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-06 16:13
+---
+RETITLED (2026-07-06, board sweep): the old title described the harness .env-overwrite symptom, which the 071 arc reshape made obsolete; the ticket's real content is the UNFIXED product bug its notes confirmed on 2026-06-18 — the trust flag is silently ignored when dispatchInstallState handles a pending scheduled upgrade before the pre-flight runs. The ruled fix (move the --trust-github-user block before dispatchInstallState) still awaits the King's nod; it is in the buildable-now queue.
+---
+<!-- COMMENTS:END -->
