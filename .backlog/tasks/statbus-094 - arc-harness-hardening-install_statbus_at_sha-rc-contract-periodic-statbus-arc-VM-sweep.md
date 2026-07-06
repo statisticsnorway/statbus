@@ -3,9 +3,10 @@ id: STATBUS-094
 title: >-
   arc-harness-hardening: install_statbus_at_sha rc-contract + periodic
   statbus-arc VM sweep
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-18 18:14'
+updated_date: '2026-07-06 15:59'
 labels:
   - upgrade
   - test-harness
@@ -27,3 +28,9 @@ Two non-blocking follow-ups flagged by the architect during the STATBUS-071 arc 
 
 Source: doc-012 / the arc (c) architect review. Low priority; framework correctness is unaffected.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+MERGED into STATBUS-071: two small arc-harness-hardening items for 071's hardening residual list (094's own text already said "addressed in the 071 hardening pass").
+<!-- SECTION:FINAL_SUMMARY:END -->
