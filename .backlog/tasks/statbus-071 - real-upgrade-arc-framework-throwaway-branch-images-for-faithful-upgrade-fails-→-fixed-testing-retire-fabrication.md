@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-03 10:47'
+updated_date: '2026-07-06 15:59'
 labels:
   - install-recovery
   - upgrade
@@ -144,5 +144,23 @@ author: foreman
 created: 2026-07-03 10:47
 ---
 INHERITED PROOF OBLIGATIONS (from the King-ratified consolidation's Cluster-6 verify-closes, 2026-07-03) — these three tasks closed on code evidence; their RUN-proof obligations transfer HERE, to be discharged as the reshaped scenario/arc suite goes green: (1) from STATBUS-084: the 4 no-host-compiler install scenarios (backup/binary-swap/checkout/4-rollback-kill freshness reds) green via sbimage.Procure — the scenarios couldn't run anyway until the controlled-B reshape (slices 3-4) lands; (2) from STATBUS-112: upgrade + rollback unaffected by the archiveBackup removal (the tar was never the rollback artifact — any green arc discharges this); (3) from STATBUS-113: the scheduled-backup behaviors on a real box (fires on cadence, SKIPS during service- and install-driven upgrades, catches up after downtime, purge keeps N, failure never crashes the service). Also standing from today: the working+failing arc re-run after the 110 exemption fix = 110's AC 1-3 + 118's DoD + 109's behavioral oracle.
+---
+
+author: engineer (board sweep)
+created: 2026-07-06 15:59
+---
+FOLDED IN from STATBUS-013 (merged 2026-07-06): 071's coverage map carries the after-commit arcs asserting rolled_back and cites 013. 013's King-ratified spec (a crash in the commit↔record gap MUST end rolled_back) is NOT superseded; its canonical spec+verify home is STATBUS-105, its arc coverage lives here.
+---
+
+author: engineer (board sweep)
+created: 2026-07-06 15:59
+---
+FOLDED IN from STATBUS-094 (merged 2026-07-06): two small arc-harness-hardening items for 071's residual list — 094's own text already said 'addressed in the 071 hardening pass'.
+---
+
+author: engineer (board sweep)
+created: 2026-07-06 15:59
+---
+FOLDED IN from STATBUS-101 (merged 2026-07-06): a ~10-line self-validating RED-gate option for one of 071's arcs — belongs on the same hardening list.
 ---
 <!-- COMMENTS:END -->
