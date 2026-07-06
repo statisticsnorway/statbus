@@ -1395,6 +1395,9 @@ erDiagram
 		docker_images_status_type docker_images_status
 		release_builds_status_type release_builds_status
 		boolean recreate
+		integer recovery_attempts
+		timestamp_with_time_zone recovery_parked_at
+		text recovery_parked_reason
 	}
 	upgrade_retention_caps["upgrade_retention_caps"] {
 		release_status_type release_status
