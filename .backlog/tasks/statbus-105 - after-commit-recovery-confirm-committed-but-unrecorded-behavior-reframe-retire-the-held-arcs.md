@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-20 10:48'
-updated_date: '2026-07-03 10:45'
+updated_date: '2026-07-06 15:59'
 labels:
   - auth-email
   - not-install-upgrade
@@ -40,3 +40,13 @@ RELATION: STATBUS-013 = the spec (rolled_back); STATBUS-097 = retired (atomicity
 - [ ] #2 Verdict recorded: box HONORS 013 (reaches rolled_back, no gap) vs DEVIATES to completed (real gap) — from the measurement, not presupposition
 - [ ] #3 If a gap: the recovery is fixed so a torn/pending migration restores → rolled_back per 013; the held arcs keep asserting rolled_back
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: engineer (board sweep)
+created: 2026-07-06 15:59
+---
+FOLDED IN from STATBUS-013 (merged 2026-07-06): 013's King-ratified spec — a crash between a migration committing and being recorded MUST end rolled_back — is NOT superseded and lives here as its canonical spec+verify home; 105 restates the spec verbatim and owns the open measurement. 013's dead mechanics (the inject/env analysis + the old fabricated scenario) predate the boot-migrate reality (STATBUS-044 comments #5–#6) and the budget hoist (cc660280f) and are dropped. The arc coverage asserting rolled_back lives on STATBUS-071.
+---
+<!-- COMMENTS:END -->
