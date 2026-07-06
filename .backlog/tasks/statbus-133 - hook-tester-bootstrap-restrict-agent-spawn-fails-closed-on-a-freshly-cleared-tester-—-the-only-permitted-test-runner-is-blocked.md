@@ -1,11 +1,12 @@
 ---
 id: STATBUS-133
 title: >-
-  hook-tester-bootstrap: restrict-agent-spawn fails closed on a freshly cleared
-  tester — the only permitted test runner is blocked
+  test-run-serialization: replace the hook's who-is-asking identity check with
+  an flock in the test runner
 status: To Do
 assignee: []
 created_date: '2026-07-04 12:15'
+updated_date: '2026-07-06 14:24'
 labels:
   - team-hooks
   - tooling
@@ -22,25 +23,32 @@ ordinal: 134000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-FOUND 2026-07-04 during the STATBUS-131 verification run, first ./dev.sh test invocation after the King cleared all five teammates.
+NORTH STAR: test results must be trustworthy — two test runs must never share the development database's templates at the same time, because concurrent runs corrupt each other and produce failures that are not real (violating "there are no flaky tests").
 
-THE GAP: .claude/hooks/restrict-agent-spawn.sh resolves caller identity by counting exact `"agentName":"<roster-member>"` occurrences in the session's own transcript .jsonl (roster-match, no first-agentName fallback — STATBUS-118). A freshly cleared/re-onboarded tester session has a near-empty transcript with zero (or too few) occurrences of its own roster name → caller resolves to "" → rule 4 (`./dev.sh test` = tester-only) FAILS CLOSED with "test command from unidentified caller". Net effect: right after every /clear, the ONE agent permitted to run tests is the one agent the hook cannot identify.
+KING RULING (2026-07-06): the original mechanism — a hook that identifies WHO is running the command from the session's transcript and only admits "the tester" — was overengineering. Identity was a proxy: one designated runner ⇒ serialized runs. Serialize DIRECTLY instead: a kernel flock taken by the test runner itself. Simpler, nothing to bootstrap after a clear/crash/compaction (the transcript-identity approach broke on all three: a fresh tester was refused, and the post-compaction foreman was unidentifiable), and the lock self-releases on process death — the same property the upgrade system already trusts flock for (tmp/upgrade-in-progress.json).
 
-NOT a misdesign of rule 4 itself — fail-closed on the test serializer is correct (concurrent runs corrupt shared DB templates), and the foreman must NOT run the sweep on the tester's behalf (permission laundering; defeats the single-serializer rule). The gap is purely the post-/clear bootstrap window.
+FIX SHAPE:
+1. dev.sh test entrypoints (the paths that touch shared pg_regress templates: test, create-db and friends) take an exclusive flock on a well-known lockfile (e.g. tmp/.test-run.lock) before touching templates; on contention, fail loudly and actionably ("another test run is in progress, pid/started-at ...") — never queue silently, never proceed.
+2. RETIRE the hook's rule 4 (the ./dev.sh test identity gate in .claude/hooks/restrict-agent-spawn.sh) — the flock supersedes it. "The tester runs the tests" remains a TEAM CONVENTION for coordination and reporting, not machine-enforced.
+3. While in the hook: fix the content false-positive (it pattern-matches './dev.sh test' inside heredoc/file CONTENT being written, not just executed commands — it blocked authoring a launcher script whose text mentioned the command).
+4. Update .claude/team docs + test-restrict-agent-spawn.sh cases to the new shape (drop rule-4 identity cases, keep the other rules' coverage).
 
-INTERIM (works today): tester retries after its transcript accrues occurrences of its own agentName (inbox messages + its own turns); foreman instruction sent 2026-07-04.
-
-FIX CANDIDATES for the King + hook owner to weigh (hook edits need the King's nod):
-(a) positive self-identification file — each teammate writes tmp/agents/<name>.session containing its session_id at onboard; hook matches session_id → name (deterministic, no transcript heuristics, cold-agent-test clean);
-(b) count the FIRST occurrence as sufficient for rule 4 only when exactly one roster member matches (still can never mis-grant a wrong member);
-(c) accept a bounded grace: unidentified caller + no other test run in flight (lockfile) → allow with loud note. (c) weakens the serializer guarantee — least preferred.
-
-Related, same morning-review family: require-bash-background.sh false-positives on instant detached nohup launches (from the overnight VM campaign).
+VERIFICATION: unit-style — two concurrent invocations, second fails loudly with the holder named; single invocation unaffected; lock vanishes with a killed holder.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A freshly cleared tester can run ./dev.sh test on its first attempt after onboarding (no transcript-accrual wait)
-- [ ] #2 Rule 4 still denies every non-tester caller, including the foreman (test-restrict-agent-spawn.sh case added)
-- [ ] #3 Chosen mechanism approved by the King before the hook is edited
+- [ ] #1 Two concurrent test runs are impossible: the second fails loudly naming the holder (no silent queueing, no silent proceed)
+- [ ] #2 A freshly started agent (post-clear/crash) can run tests on first attempt — no identity bootstrap of any kind remains on the test path
+- [ ] #3 The hook no longer matches test commands inside file content being written; a regression case is added to its test file
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-06 14:24
+---
+RE-SCOPED per the King (2026-07-06): identity-proof mechanism rejected as overengineering; serialization via flock in the test runner is the ruling. Foreman analysis concurs: the rule's stated WHY was concurrent-run corruption — a concurrency problem; identity was a proxy for serialization, and the direct primitive (flock, self-releasing on death) is strictly simpler and crash-proof. Old description's fix candidates (identity file / first-occurrence match / bounded grace) are all superseded.
+---
+<!-- COMMENTS:END -->
