@@ -3,9 +3,10 @@ id: STATBUS-135
 title: >-
   parked-contract-holes: completeInProgressUpgrade has no parked awareness —
   unconditional defer strips the flag, can mis-complete a parked row
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-07-04 22:31'
+updated_date: '2026-07-06 07:41'
 labels:
   - upgrade
   - install-recovery
@@ -30,3 +31,19 @@ FOUND live in r17 (2026-07-05, architect-traced to the line): after RecoveryBudg
 
 FIX SHAPE (architect): parked-skip at the TOP of completeInProgressUpgrade — right after the in_progress SELECT and BEFORE the defer arms: read upgradeParkedReason; parked → log the skip + return (flag kept, row untouched); read error → fail-open proceed (the 42703 bootstrap pattern, service.go:5792-5804 rationale verbatim). One check kills all three legs. Keep F1's recoveryRollback check unchanged (chokepoint stands). Test: behavioral — parked row + flag on disk → completeInProgressUpgrade returns with flag STILL present and row still parked/in_progress.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-06 07:41
+---
+CLOSED: shipped f9bdac46d, proven live by r18/r19's flag-present-after-park assertions across multiple daemon restarts.
+---
+<!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+NORTH STAR: once an upgrade is parked, NOTHING automatic may touch it — not a rollback, not a completion, not the flag file; only a deliberate operator act moves it. SHIPPED f9bdac46d (2026-07-04): parked-skip at the top of completeInProgressUpgrade, before the unconditional flag-removal defer arms. Closed three holes at once: the observed flag strip (next boot went flag-blind → ungated boot-migrate), the latent wrong-completed (a parked at-target row with broken app containers would have been marked completed — an automatic un-park-by-lie), and the defer firing even after the rollback parked-skip correctly refused. PROVEN LIVE in r18/r19: flag present after park across multiple restarts (assert 4 green).
+<!-- SECTION:FINAL_SUMMARY:END -->
