@@ -3,10 +3,10 @@ id: STATBUS-038
 title: >-
   branch-keep-pending: review the 11 keep-pending branches one-by-one with the
   King
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-12 08:21'
-updated_date: '2026-07-03 10:45'
+updated_date: '2026-07-06 15:59'
 labels:
   - git-hygiene
   - not-install-upgrade
@@ -46,3 +46,9 @@ PROCESS: go through one-by-one with the King; record each verdict (keep + ration
 - [ ] #2 Owner-gated branches (#6 hhssb, #9 Erik Søberg) routed to their owners; their answers recorded
 - [ ] #3 Approved deletes executed by the foreman; db-seed and all deploy pointers remain untouched
 <!-- AC:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+MERGED into STATBUS-035: same activity — one branch-hygiene sitting with the King (035 = the 13 approved deletes; 038 = the 11 keep-pending walk).
+<!-- SECTION:FINAL_SUMMARY:END -->
