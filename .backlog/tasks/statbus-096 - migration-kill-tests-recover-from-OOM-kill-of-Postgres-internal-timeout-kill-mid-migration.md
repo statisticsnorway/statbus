@@ -6,13 +6,14 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-18 21:18'
-updated_date: '2026-06-18 21:36'
+updated_date: '2026-07-06 16:05'
 labels:
   - upgrade
   - testing
   - install-recovery
 dependencies:
   - STATBUS-095
+  - STATBUS-071
 priority: medium
 ordinal: 96000
 ---
@@ -20,6 +21,14 @@ ordinal: 96000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+> NORTH STAR: the box recovers from real kills mid-migration — external OOM-kill of Postgres and our internal timeout-kill — no fabrication.
+> BENEFIT: the two remaining unproven rows in the coverage map ("eats all memory → OS kills it" and "runs past the ceiling → aborted") become run-proven — the failure modes big real databases actually produce, verified before a Norway-size migration meets them in production.
+> STAGE: Stage 1 proof.
+> COMPLEXITY: engineer-substantial (NOTIFY-handshake kill choreography on the arc framework); VM runs are the oracle.
+> DEPENDS ON: STATBUS-095 (scenario 2 needs the timeout to exist), STATBUS-071 (framework).
+
+---
+
 Verify the box recovers from real kills that happen WHILE a migration is running. No fabrication — a real migration, really running, really killed.
 
 THE MECHANISM (King, 2026-06-18) — pause-then-kill handshake, zero product change:
