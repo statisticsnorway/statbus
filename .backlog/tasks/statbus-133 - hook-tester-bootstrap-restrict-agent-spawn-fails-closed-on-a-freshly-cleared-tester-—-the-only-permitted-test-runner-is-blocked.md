@@ -3,11 +3,11 @@ id: STATBUS-133
 title: >-
   test-run-serialization: replace the hook's who-is-asking identity check with
   an flock in the test runner
-status: In Progress
+status: Done
 assignee:
   - engineer
 created_date: '2026-07-04 12:15'
-updated_date: '2026-07-06 15:26'
+updated_date: '2026-07-06 15:32'
 labels:
   - team-hooks
   - tooling
@@ -80,3 +80,9 @@ created: 2026-07-06 14:24
 RE-SCOPED per the King (2026-07-06): identity-proof mechanism rejected as overengineering; serialization via flock in the test runner is the ruling. Foreman analysis concurs: the rule's stated WHY was concurrent-run corruption — a concurrency problem; identity was a proxy for serialization, and the direct primitive (flock, self-releasing on death) is strictly simpler and crash-proof. Old description's fix candidates (identity file / first-occurrence match / bounded grace) are all superseded.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+NORTH STAR DELIVERED: test runs are serialized by a real kernel lock, not by guessing who is typing. SHIPPED 8bfd3d1f6 (2026-07-06): the 15 shared-state dev.sh entrypoints take an exclusive flock (fd opened by the shell, locked via perl — flock(1) doesn't exist on macOS, the kernel lock does); contention fails immediately with a loud banner naming the holder and exit 1; the lock survives while any child of a killed run lives and releases on tree death, even SIGKILL — no pid guessing, no reclaim races (the first mkdir-based core had one; the architect's review killed it by moving to the kernel primitive, which was also LESS code). The hook's who-is-asking rule is retired — "the tester runs the tests" is now convention, not enforcement; the hook's other rules gained heredoc-body stripping (writing a file that mentions a command is not running it) and its test file, found pre-broken at 7/41, is rewritten against the real hook at 42/42. ALL THREE ACs LIVE-PROVEN: fresh agent ran on first attempt (84/85 fast suite); visible banner + deterministic exit-1 under real contention; post-release acquisition normal. Bonus catches en route: an exec stderr-redirect that would have silently swallowed the banner (engineer, caught by checking the banner text, not just the exit code), and the pre-existing template-drop race filed as STATBUS-141.
+<!-- SECTION:FINAL_SUMMARY:END -->
