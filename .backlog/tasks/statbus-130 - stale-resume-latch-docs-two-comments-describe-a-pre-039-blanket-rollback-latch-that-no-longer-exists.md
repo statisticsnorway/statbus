@@ -3,9 +3,10 @@ id: STATBUS-130
 title: >-
   stale-resume-latch-docs: two comments describe a pre-039 blanket-rollback
   latch that no longer exists
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-07-03 21:38'
+updated_date: '2026-07-06 15:59'
 labels:
   - docs
   - install-recovery
@@ -27,3 +28,9 @@ THE CHANGE: a doc-comment pass on both files rewriting the recovery description 
 
 WHY IT MATTERS: these are exactly the comments an operator or future agent reads when diagnosing a mid-upgrade death; a stale "it will roll back" promise is a wrong mental model at the worst moment.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+MERGED into STATBUS-043: two stale comments claiming a pre-039 "always rolls back" latch — exactly the class 043's concept-level sweep kills.
+<!-- SECTION:FINAL_SUMMARY:END -->
