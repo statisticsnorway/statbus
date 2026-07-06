@@ -3,10 +3,10 @@ id: STATBUS-073
 title: >-
   rc04-gate-residual: RUN A comprehensive gate = 18 pass / 14 fail, 5 root-cause
   categories (NOT a fix regression)
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-17 10:13'
-updated_date: '2026-06-17 12:35'
+updated_date: '2026-07-06 15:58'
 labels:
   - install-recovery
   - rc.04
@@ -74,3 +74,9 @@ QUIESCE-MASK FIX COMMITTED (foreman, 2026-06-17): unmask --runtime committed e6c
 
 MASKED-UNIT CLASS PROVABLY COMPLETE (architect audit, 2026-06-17): `grep -rl "systemctl.*mask"` returns ONLY test/install-recovery/lib/wedge-helpers.sh — the shared quiesce_upgrade_service helper (:745 mask --runtime ↔ :749 unmask --runtime) is the SOLE mask/unmask site in the whole harness; no scenario masks via a separate path. So e6c85c193's one-line fix covers EVERY quiescing caller — no latent masked-unit bug anywhere else. Combined with STATBUS-076's audit (all 17 active fabricating scenarios coherent at fabricate), BOTH fixed classes are now provably complete → any 'third residual' the held run 27683157288 reveals is genuinely NEW (outside these two classes), not a missed instance.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+CLOSE — SUPERSEDED. Its purpose was getting the rc.04 gate green. That campaign concluded: the root causes were fixed (SIGKILL quiesce 3a0d6e6dd, config-generate 9bdba03cc, unmask e6c85c193), rc.04 was cut (recorded in STATBUS-071: the folded-in STATBUS-075 "cut-rc04 campaign" closed), and the old scenario suite it gated is being retired/reshaped under STATBUS-071. The coverage question now lives in 071's living coverage map.
+<!-- SECTION:FINAL_SUMMARY:END -->
