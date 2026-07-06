@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-21 19:41'
-updated_date: '2026-07-06 23:33'
+updated_date: '2026-07-06 23:39'
 labels:
   - upgrade
   - recovery
@@ -141,3 +141,13 @@ STILL OPEN, intentionally not touched: (a) target #4, the Go identifier rename (
 
 Verified: go build ./..., go vet ./..., go test ./... all green in cli/ after every edit. No test pins the literal operator-facing strings I changed (checked via grep before editing).
 <!-- SECTION:NOTES:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-06 23:39
+---
+OPERATOR-FACING STRING PASS SHIPPED: 6c90e2964 (2026-07-07). All ~20 operator-visible strings in service.go/root.go now use the ratified registry vocabulary (architect verified every slug against doc/upgrade-vocabulary.md; two corrections to exact registry terms applied at commit: the detail slug is new-sb-upgrading, the third verdict is position-unreadable). Diagrams' labels aligned + SVGs regenerated. The mechanic also corrected this ticket's stale 'STILL OPEN' notes (mechanisms-naming and diagram-structure work were already done). REMAINING — the ticket stays In Progress on exactly two named residuals: (1) the Go IDENTIFIER renames (GroundTruth* / FlagPhase* names; wire values untouched) — engineer slice; (2) the parked on-disk Phase serialization — arc-gated behind STATBUS-071.
+---
+<!-- COMMENTS:END -->
