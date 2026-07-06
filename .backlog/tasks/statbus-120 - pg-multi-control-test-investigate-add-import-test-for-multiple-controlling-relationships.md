@@ -17,6 +17,14 @@ ordinal: 106000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+> NORTH STAR: importing multiple controlling relationships into a power group is covered by tests before the reporting ships.
+> BENEFIT: the exclusion constraint (≤1 primary controller per unit per type) and the derivation are proven under batch import — so the power-group reporting the King designed launches on verified import behavior, not assumed behavior.
+> STAGE: Domain/import.
+> COMPLEXITY: engineer-substantial (verify the real gap against the real test files first — the 117-121 labels in the ticket were written from memory — then author the pg_regress tests).
+> DEPENDS ON: nothing.
+
+---
+
 Suspected GAP in test coverage: importing MULTIPLE control units / controlling relationships into a power group. The King flagged this while finalizing the power-group reporting design (see DRAFT-001 / `doc/power-groups.md`).
 
 Existing coverage (test/sql/): 117 power_group_fundamentals, 118 worker_derivation, 119 roller_data, 120 lifecycle (incl. cycle + multi-root), 121 worker_info/ordering. Suspected uncovered: importing several *controlling* (primary) relationships in a way that exercises —

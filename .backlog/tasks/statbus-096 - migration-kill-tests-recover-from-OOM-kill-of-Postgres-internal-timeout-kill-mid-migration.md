@@ -14,7 +14,6 @@ labels:
 dependencies:
   - STATBUS-095
   - STATBUS-071
-priority: medium
 ordinal: 96000
 ---
 

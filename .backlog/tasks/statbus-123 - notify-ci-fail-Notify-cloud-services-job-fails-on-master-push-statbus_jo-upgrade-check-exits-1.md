@@ -19,6 +19,14 @@ ordinal: 123000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+> NORTH STAR: a master push notifies every cloud box, and a red notify job means something real.
+> BENEFIT: the post-push upgrade poke reaches all 7 cloud slots again, and the 100%-red job stops training everyone to ignore CI failures on every single push.
+> STAGE: Ops (Stage 2 support).
+> COMPLEXITY: operator-simple — one King-approved line-edit in /etc/sshdoers on niue (discover→check in the 8 statbus_* entries) + a workflow re-run as the oracle.
+> DEPENDS ON: the King's nod (server write); pairs with STATBUS-128 (same server session) — soft, not a hard dependency.
+
+---
+
 On every master push, the Images/notify workflow's `notify (statbus_jo)` job fails. It SSHes (appleboy/drone-ssh v1.8.0) to cloud server statbus_jo and runs that server's own installed `./sb upgrade check`, which exits 1 ("Process exited with status 1"). Observed on run 28601676453 (push 1563e6887, 2026-07-02); pre-existing, NOT introduced by the seed/guardrail change (that change touches no upgrade/notify code and deploys nothing).
 
 This is a real red on master pushes — investigate the root cause, don't dismiss as flaky.

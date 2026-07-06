@@ -21,13 +21,20 @@ references:
   - .github/workflows/install-recovery-harness.yaml
   - cli/cmd/release_canary.go
   - doc/CLOUD.md
-priority: high
 ordinal: 36000
 ---
 
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+> NORTH STAR: unattended install/upgrade — the operator's sole action is the installer; Norway ships on the stable channel; then external standalone opens.
+> BENEFIT: everyone — King, foreman, every agent — orients work off one true map instead of 38 tickets; a stale map misroutes all of them.
+> STAGE: this ticket IS the roadmap (all stages).
+> COMPLEXITY: architect-design (rewrite the "WHERE WE STAND" block — it still narrates the rc.02 era, pre-park-arc); foreman applies.
+> DEPENDS ON: nothing — doable now, and highest-leverage single edit on the board.
+
+---
+
 Campaign master plan + critical path (architect, 2026-06-11; consolidated into this ticket from doc-007 per the 2026-06-12 King convention that plans live in tickets). This ticket is the sequencing/overview; per-item detail lives in the referenced work tickets.
 
 NORTH STAR: unattended install/upgrade. The operator's sole action is the installer; every failure self-recovers or terminates in a clean, actionable state. Norway (rune, 32 GB production data) rolls out on the stable channel; once one full RC→stable→deploy cycle is proven, external standalone opens.

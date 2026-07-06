@@ -23,7 +23,6 @@ documentation:
   - >-
     doc-022 -
     In-process-backoff-retry-for-recovery-—-detailed-design-STATBUS-109.md
-priority: medium
 ordinal: 109000
 ---
 

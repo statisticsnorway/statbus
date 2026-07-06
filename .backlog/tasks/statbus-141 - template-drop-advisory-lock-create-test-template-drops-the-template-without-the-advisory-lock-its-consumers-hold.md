@@ -15,7 +15,6 @@ dependencies:
 references:
   - dev.sh
   - STATBUS-133
-priority: low
 ordinal: 142000
 ---
 

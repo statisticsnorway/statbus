@@ -13,13 +13,20 @@ labels:
   - install
   - triage
 dependencies: []
-priority: high
 ordinal: 47000
 ---
 
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+> NORTH STAR: everything observed during the live Norway recovery install is triaged to zero.
+> BENEFIT: the two remaining observed warts get decided instead of forgotten — F: the retention tar blocked the install command ~17 minutes on rune (real operator-facing latency on every big-DB upgrade); H: the completion write raced the service recreate and survived only via retry (a robustness hole at the most important write). G (vestigial db-seed branch) folds into the 035 branch session.
+> STAGE: Stage 2 quality index. Items A–D and B1/B2 shipped (050/051/052); E was STATBUS-032.
+> COMPLEXITY: architect + King walk the two items; each agreed item becomes its own build ticket (F and H are likely engineer-substantial).
+> DEPENDS ON: nothing.
+
+---
+
 Register of issues observed during/after the NO (rune) recovery install of v2026.06.0-rc.02 on 2026-06-13. Logs: tmp/no-install.log (local), tmp/install-logs/2026.06.0-rc.02-20260613T082742Z.log (rune). UI: Software Upgrades page.
 
 PURPOSE: triage index. We walk these one-by-one; each agreed item gets its OWN detailed execution task (root cause + fix design). Captured here so nothing is lost.

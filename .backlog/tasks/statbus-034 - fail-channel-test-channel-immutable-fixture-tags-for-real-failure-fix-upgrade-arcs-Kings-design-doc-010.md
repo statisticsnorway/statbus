@@ -21,13 +21,20 @@ references:
   - cli/internal/upgrade/service.go
   - test/install-recovery/README.md
   - .github/workflows/images.yaml
-priority: medium
 ordinal: 34000
 ---
 
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+> NORTH STAR: real failure→fix upgrade arcs through the box's own discovery/procurement — branches as channels, zero test scaffolding.
+> BENEFIT: two concrete gains — (1) the box's DISCOVERY path (how Norway actually receives upgrades: channel → discover → procure) gets its first arc coverage, complementing 071's operator-push arcs; (2) commit-addressed binary download frees every box (and cloud deploys) from needing Go on the host — one converged procurement path.
+> STAGE: post-gate Testing foundation → Stage 3.
+> COMPLEXITY: architect-design first (AC#7 ratification of the open points), then engineer-substantial (procurement + CI + fixture branches).
+> DEPENDS ON: nothing open (its recorded dependency STATBUS-033 shipped); gated on the King's AC#7 ratification, which is a decision, not a ticket.
+
+---
+
 THE KING'S DESIGN (2026-06-12): test-family release channels backed by BRANCHES (channels are mutable pointers; branches are git's mutable pointer — the same primitive as the ops/*/deploy/* deploy branches). E.g. channel/fail (crash kind) and channel/stuck (wait kind). Each branch carries prepared, SIGNED fixture commits: base → a migration with a fixed always-latest timestamp and deliberately failing/stalling SQL → the fix-up commit. A test cycle oscillates the branch pointer between EXISTING commits (force-push base→fail→fix→base): SHAs stable → commit-addressed images stay built → ZERO CI wait per run; CI cost only when a fixture commit itself changes.
 
 WHAT IT BUYS (nothing else covers these): the full production loop with zero test scaffolding — real discovery → real procurement → real boot-migrate delta → real failure → clean terminal state → pointer to fix → re-upgrade COMPLETES. First-ever coverage of the fix→retry arc (the actual operator incident experience); dissolves the harness's chronic no-delta problem (baseline→fail always has a real delta); matches production reality (SSB cloud deploys ARE branch-pointer upgrades).

@@ -16,13 +16,20 @@ references:
   - docker-compose.rest.yml
   - docker/compose/upgrade-sandbox.yml
   - 'https://github.com/PostgREST/postgrest/blob/main/CHANGELOG.md'
-priority: medium
 ordinal: 54000
 ---
 
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+> NORTH STAR: stay current on PostgREST (v12→v14) without breaking a single query.
+> BENEFIT: we get off an aging pinned version (v12.2.8) onto the supported line — future security patches and features reachable — with the one known breaking change (#4075 aliased-embed filters) scoured and verified BEFORE the bump instead of discovered in production.
+> STAGE: post-Norway parallel lane. (110's role exemption is version-independent — nothing blocks on it.)
+> COMPLEXITY: mixed, King-specified split — operator scours app/src and reports candidates (stage 1); architect/engineer verify each (stage 2); mechanic bumps the two compose tags; tester runs the suite + smoke.
+> DEPENDS ON: nothing — deferred by the King's explicit "stabilize first" call, not by a ticket.
+
+---
+
 King decision 2026-06-15: FILE NOW, DO LATER — "we'll do that later; now we need to stabilize what we have." This item captures BOTH the bump and exactly what to check beforehand so we know whether it can fail.
 
 ## The bump (mechanical — one line)

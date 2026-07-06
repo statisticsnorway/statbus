@@ -11,13 +11,20 @@ labels:
   - tooling
   - not-install-upgrade
 dependencies: []
-priority: low
 ordinal: 93000
 ---
 
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+> NORTH STAR: dead code can't mislead.
+> BENEFIT: the retired Crystal tree — which has already misdirected root-cause analysis twice (dead Caddy templates read as live) — is confirmed unreferenced and deleted; nobody pays that tax a third time.
+> STAGE: Hygiene.
+> COMPLEXITY: mechanic-simple (confirm zero build-path references, git rm, doc sweep); foreman commits.
+> DEPENDS ON: nothing.
+
+---
+
 The Go CLI (cli/internal/ + cli/cmd/, the `sb` binary) replaced the legacy Crystal CLI (cli/src/ — manage.cr + manage-statbus.sh; the .sh wrapper was already deleted). The mechanic verified (2026-06-18, during STATBUS-089) that nothing OUTSIDE cli/src/ builds or imports it: external mentions are only doc references + Go source comments ("Ported from Crystal cli/src/manage.cr") + the separate `n/` worker tree. The dead cli/src/templates/*.caddyfile.ecr were already deleted in commit 14b792318 because they twice misled a root-cause analysis into reading dead code (the live templates are caddy/templates/*.caddyfile.tmpl, rendered by cli/internal/config/config.go).
 
 DO:

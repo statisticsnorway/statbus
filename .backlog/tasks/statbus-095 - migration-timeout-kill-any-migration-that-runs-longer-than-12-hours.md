@@ -10,13 +10,20 @@ labels:
   - migration
   - product-requirement
 dependencies: []
-priority: medium
 ordinal: 95000
 ---
 
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+> NORTH STAR: no migration runs forever on an unattended box — a 12-hour ceiling kills the runaway and the box recovers by the normal path.
+> BENEFIT: a stuck or runaway migration (the class heavy Norway-size rewrites can produce) can no longer hold a box hostage indefinitely with nobody there to notice; the configurable-short threshold makes the same kill path testable in seconds.
+> STAGE: Stage 1 (King requirement 2026-06-18; fills a TODO row in 071's coverage map).
+> COMPLEXITY: engineer-substantial, design-first (reconcile with the existing 60min-CLI/5min-boot/30min-resume bounds; King nod on the reconciliation before code).
+> DEPENDS ON: nothing.
+
+---
+
 NEW REQUIREMENT (King, 2026-06-18). A migration that runs longer than 12 hours must be killed by the system. A stuck or runaway migration cannot be allowed to run forever — especially on an unattended standalone box (Albania) with no remote rescue.
 
 WHAT TO BUILD:

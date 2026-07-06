@@ -12,7 +12,6 @@ labels:
 dependencies: []
 documentation:
   - doc/design/smtp2go-email.md
-priority: medium
 ordinal: 105000
 ---
 

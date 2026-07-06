@@ -16,13 +16,20 @@ references:
   - 'test/install-recovery/lib/vm-bootstrap.sh:489'
   - 'install.sh:164'
   - 'install.sh:177'
-priority: medium
 ordinal: 82000
 ---
 
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+> NORTH STAR: the recovery test procures its target through the operator's real action — install.sh, pinned to an exact commit.
+> BENEFIT: the harness stops bypassing the very script it exists to validate (the reuse-staged-binary gate), and the recurring master-moved-mid-run nondeterminism is gone — recovery runs test what Albania actually executes, pinned.
+> STAGE: Testing foundation (Mode B fidelity).
+> COMPLEXITY: engineer-substantial (a --commit procurement path in install.sh + harness switch-over).
+> DEPENDS ON: nothing.
+
+---
+
 WHAT: The install-recovery harness's recovery step (install_statbus_in_vm no-version branch, vm-bootstrap.sh:489-535) currently invokes `install.sh --channel edge`. That tracks the MOVING master tip, so if master advances during a run (it moved 11 commits in ~50min overnight) the recovery procures a drifted binary and the "binary unchanged after abort" assertions fail — a non-deterministic, master-move-dependent race. The rc.04 batch fixes this with Mode B option (b): an env-gate (SB_RECOVERY_REUSE_STAGED_BINARY=1) that makes recovery REUSE the already-staged target binary (~/statbus/sb from upload_sb_to_vm) instead of calling install.sh. That is deterministic and target-pinned, but it BYPASSES install.sh in the recovery path.
 
 WHY (the King's value): install.sh is the operator's SOLE action — especially for the no-remote-access boxes (Albania). The install-recovery harness exists to validate that the operator's install.sh recovery WORKS. Option (b) removes install.sh from the recovery test path, a real fidelity reduction. The fuller fix keeps install.sh in the loop while still being deterministic + target-pinned: teach install.sh a `--commit <sha>` procurement (today install.sh --version is v-TAG-only; a per-commit test has no tag, which is why edge was used). With `--commit <sha>`, the recovery test could run `install.sh --commit <target-sha>` — the real operator code path, pinned to the exact target, no master drift.

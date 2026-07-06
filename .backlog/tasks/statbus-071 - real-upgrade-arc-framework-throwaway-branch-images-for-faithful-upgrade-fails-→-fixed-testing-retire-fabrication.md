@@ -17,13 +17,20 @@ labels:
 dependencies: []
 documentation:
   - doc-012
-priority: high
 ordinal: 71000
 ---
 
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+> NORTH STAR: prove on real machines that a box installs → upgrades → breaks → fixes itself autonomously (the Albania contract).
+> BENEFIT: the confidence to cut a release comes from a barrage instead of hope — every recovery claim in the coverage map is run-proven, and the last fabrication (the test lying about how state arose) is deleted.
+> STAGE: Testing foundation for Stage 1; its coverage map is the checklist the stable gate reads.
+> COMPLEXITY: mixed — engineer builds the kill-family arcs and fabrication deletion; mechanic rebuilds individual scenarios; architect reviews; VM runs are the oracle. Absorbs 094+101 hardening items.
+> DEPENDS ON: nothing — it is the foundation others wait on.
+
+---
+
 ## North Star
 Prove, on real machines, that a StatBus box **installs -> upgrades -> hits a broken migration (or not) -> fixes itself -> upgrades again**, data intact, **entirely on its own**. That is Albania: a box inside a statistics office with no remote access — its only upgrade path is a local operator clicking "upgrade" in the web UI, after which the box applies and recovers autonomously, with no one to SSH in if it breaks. Passing this barrage earns the confidence to cut a release (the candidate also runs against the **large Norway database**, to catch slow/runaway migrations a small DB never reveals).
 

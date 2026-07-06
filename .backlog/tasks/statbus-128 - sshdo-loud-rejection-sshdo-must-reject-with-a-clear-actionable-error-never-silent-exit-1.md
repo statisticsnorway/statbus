@@ -11,13 +11,20 @@ labels:
   - ci
   - fail-fast
 dependencies: []
-priority: medium
 ordinal: 129000
 ---
 
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+> NORTH STAR: an allowlist rejection is loud and actionable at the caller — never weeks of bare exit 1.
+> BENEFIT: the next /etc/sshdoers drift (guaranteed, since the allowlist pins exact script bytes) is diagnosed from one CI log line naming user + attempted command + allowlist path, instead of the three-week silent outage we just lived through.
+> STAGE: Ops (the King's D5 ruling).
+> COMPLEXITY: mixed — operator settles sshdo's provenance (package vs local script) and drafts the change; the King applies or approves the server write; same verification on rune.
+> DEPENDS ON: nothing hard; pair with STATBUS-123's allowlist repair in the same niue session (soft).
+
+---
+
 King ruling (2026-07-02, D5 of the decision queue): the three-week notify-CI outage happened because `/usr/local/bin/sshdo` on niue rejects a non-allowlisted command SILENTLY — exit 1, zero output. "The job should have failed violently, according to the actionable fail-fast principle, so that we could have discovered this earlier, with clear error messages." Whitelisting runner IP ranges in CrowdSec was REJECTED as counterproductive (it would hide configuration errors).
 
 WHAT: make sshdo emit a clear rejection to stderr before exiting non-zero — naming the user, the attempted command (truncated), and where the allowlist lives, e.g.:

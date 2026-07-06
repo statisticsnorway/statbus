@@ -25,7 +25,6 @@ references:
 documentation:
   - doc-018 - Read-only-upgrade-window-—-detailed-design-STATBUS-110.md
   - doc-019 - Recovery-decision-model-—-the-complete-picture.md
-priority: medium
 ordinal: 110000
 ---
 

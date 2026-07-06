@@ -15,13 +15,20 @@ references:
   - .github/workflows/
   - cli/cmd/seed.go
   - test/install-recovery/lib/vm-bootstrap.sh
-priority: low
 ordinal: 35000
 ---
 
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+> NORTH STAR: every visible branch is live.
+> BENEFIT: 13 evidence-backed dead branches stop inviting wasted investigation (dead code has already misdirected root-cause work twice in this repo), and the 11 keep-pending branches each get their one owner answer instead of ambient uncertainty forever.
+> STAGE: Hygiene.
+> COMPLEXITY: one King sitting (approve + walk), then foreman-executes the deletes; owner-gated ones route to hhssb / Erik Søberg.
+> DEPENDS ON: nothing.
+
+---
+
 Actionable branch cleanup, folded from the engineer's full 36-branch analysis (was doc-008; consolidated into this ticket per the 2026-06-12 King convention that plans live in tickets). DELETE NOTHING until the King approves; foreman executes after.
 
 GROUND TRUTH (git ls-remote --heads origin): **36** remote branches, not the ~70 estimated. The seed/snapshot family is **8** branches, not ~40. No parked/* or wip/* exist. Every verdict is evidence-backed: merged status via `git rev-list --left-right --count master...<b>`, live-consumer grep across .github/cli/ops/test/dev.sh, and `git log -S` archaeology on the seed transport.

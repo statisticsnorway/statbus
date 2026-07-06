@@ -13,13 +13,20 @@ labels:
   - seed
   - performance
 dependencies: []
-priority: medium
 ordinal: 116000
 ---
 
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+> NORTH STAR: warm seed rebuilds in seconds instead of ~2 minutes, with hard in-code correctness gates.
+> BENEFIT: measured ~60s → ~16-20s in-stage on every migration-bearing push (vs ~2min from-empty originally) — faster CI cycles for the whole team, with the publish gate making an inconsistent seed unshippable. Feature is LIVE; remaining gain = the one deep identity proof (criterion 6) that certifies multi-migration deltas on a restored base.
+> STAGE: parallel build-speed lane — not on the Norway critical path.
+> COMPLEXITY: mechanic-simple/tester — one local oracle run (`sb db seed verify-multidelta --prior-image …`) once an eligible prior has ≥2 migrations of delta; engineer only if it goes RED.
+> DEPENDS ON: nothing ticket-wise — waits on delta accumulation from normal work.
+
+---
+
 Build-speed caching win (King's idea, confirmed viable in the caching review — tmp/engineer-caching-review.md).
 
 CREDIT — the existing seed caching is deliberate and good: the seedMeta content-fingerprint already decides optimally WHETHER to rebuild the seed (image-level skip, including post_restore.sql edits), and the seed reuses the db buildcache to skip the cold extension compile when warm. This task changes HOW the seed rebuilds when it MUST — it does not touch the whether-to-rebuild decision.

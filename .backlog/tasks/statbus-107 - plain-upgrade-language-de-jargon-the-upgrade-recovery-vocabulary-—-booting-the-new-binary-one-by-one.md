@@ -19,13 +19,20 @@ references:
   - doc/recovery/
   - cli/internal/upgrade/service.go
   - doc/upgrade-vocabulary.md
-priority: medium
 ordinal: 107000
 ---
 
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+> NORTH STAR: the most safety-critical code we own reads in plain language — understood without a glossary.
+> BENEFIT: reviewers and operators stop misreading the recovery model at the worst moment; every future review of upgrade code gets cheaper and safer because the words match the mechanics.
+> STAGE: Stage 1 (clarity lane; doc/upgrade-vocabulary.md is the registry).
+> COMPLEXITY: mixed — architect locks the remaining vocabulary (mechanisms & artifacts); mechanic applies the 3-diagram de-jargon; engineer does the code identifier pass (wire values preserved; the serialization change stays parked behind arcs).
+> DEPENDS ON: nothing for docs/diagrams; the parked on-disk serialization change alone waits on STATBUS-071 arc coverage.
+
+---
+
 ## Why
 The upgrade + recovery vocabulary is obtuse — "pre-swap", "post-swap", "Resuming", "positively-behind", "at-target". The King's standard: plain language a reader gets without a glossary. "Booting the new binary" beats "the binary-swap commit boundary". The upgrade is the most safety-critical, most-reviewed code we have — its words must be the clearest.
 

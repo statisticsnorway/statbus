@@ -12,13 +12,20 @@ labels:
   - fail-fast
   - follow-up
 dependencies: []
-priority: low
 ordinal: 130000
 ---
 
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+> NORTH STAR: a failed statement at cluster birth can never pass silently.
+> BENEFIT: a failed GRANT/role/notify-reader statement at cluster birth surfaces at birth as a named error instead of weeks later as a mystery on a deployed box — the same silent-loss class doc-025 D killed, closed for the remaining four heredocs.
+> STAGE: Stage 1.
+> COMPLEXITY: mechanic-simple (flag per heredoc) + tester proof (fresh create-db + full image build); King nod first (init path).
+> DEPENDS ON: nothing.
+
+---
+
 DISCOVERED during the doc-025 D birth-half review (2026-07-03): postgres/init-db.sh runs `set -euo pipefail`, but `set -e` is BLIND to SQL failures inside a psql heredoc — psql exits 0 on per-statement errors unless -v ON_ERROR_STOP=1 is passed. A failed statement in any of these blocks is silently lost at cluster birth.
 
 FIXED ALREADY (commit 98093f69f): the new role-GUC arming heredoc runs `psql -v ON_ERROR_STOP=1` (a silently-failed arming statement would re-mint the exact silent-loss class doc-025 D kills).

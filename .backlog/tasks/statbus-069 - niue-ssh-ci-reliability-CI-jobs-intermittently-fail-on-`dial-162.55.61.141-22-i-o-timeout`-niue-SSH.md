@@ -11,13 +11,20 @@ labels:
   - tooling
   - not-install-upgrade
 dependencies: []
-priority: low
 ordinal: 69000
 ---
 
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+> NORTH STAR: trustworthy CI — gated jobs must not fail on infrastructure noise.
+> BENEFIT: CI stops flapping on SSH timeouts to niue; gated jobs stop failing spuriously.
+> HYPOTHESIS (King): crowdsec on niue blocks GitHub's shared-runner IP ranges; operator verifying read-only now; fix direction if confirmed = self-hosted runner on the host via docker compose (King's proven pattern from another project).
+> COMPLEXITY: operator-verify then engineer-substantial.
+> DEPENDS ON: nothing.
+
+---
+
 CI jobs that SSH to niue.statbus.org (162.55.61.141) intermittently fail with `dial tcp 162.55.61.141:22: i/o timeout` (30s connect timeout) BEFORE any work runs — a niue SSH reachability/latency issue, NOT a code failure.
 
 CONCRETE INSTANCES (2026-06-17):

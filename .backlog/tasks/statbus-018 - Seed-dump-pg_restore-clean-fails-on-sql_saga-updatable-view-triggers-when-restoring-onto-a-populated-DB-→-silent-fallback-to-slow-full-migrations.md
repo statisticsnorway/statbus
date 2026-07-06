@@ -18,13 +18,20 @@ references:
   - cli/cmd/seed.go
   - cli/cmd/install.go
   - test/install-recovery/scenarios/4-rollback-kill.sh
-priority: medium
 ordinal: 18000
 ---
 
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+> NORTH STAR: re-running the installer on a populated box is calm and safe.
+> BENEFIT: the operator's only trained action stops printing a scary pg_restore ERROR on every routine refresh (which trains them to ignore errors), and re-installs stop silently falling back to the slow full-migrations path — calmer operators, faster refreshes, one less masked failure mode.
+> STAGE: Stage 1 → Stage 3 operator UX.
+> COMPLEXITY: engineer-substantial (fix the checkSeedRestored/R5 gate so Seed is quietly skipped — direction (c), architect-recommended; answers the 50fd4325f regression question en route).
+> DEPENDS ON: nothing.
+
+---
+
 FOUND overnight 2026-06-09 (foreman + engineer, run 27167617557 / 4-rollback-kill). NOT data-loss (atomic), but an operator-facing robustness + suite-wide reliability/speed issue.
 
 == SYMPTOM ==

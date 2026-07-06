@@ -21,13 +21,20 @@ references:
   - doc/CLOUD.md
   - doc/DEPLOYMENT.md
   - STATBUS-042
-priority: high
 ordinal: 43000
 ---
 
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+> NORTH STAR: documents are true — a reader of any doc, comment, or diagram sees only the shipped system.
+> BENEFIT: removes the wrong-mental-model class at its source: the two recovery docs still teach the pre-039 model under banners, CLAUDE.md/AGENTS.md still describe a refuse-only install ladder, and stale "it will roll back" promises sit exactly where an operator or agent looks mid-incident. Scope now includes post-046/park-arc drift.
+> STAGE: Stage 1 docs.
+> COMPLEXITY: architect-design (concept-level rewrite, not annotation; assigned).
+> DEPENDS ON: nothing hard; soft-after STATBUS-107's vocabulary registry for the recovery files (avoids re-touching them with pre-registry words).
+
+---
+
 King directive (2026-06-12): documents must be TRUE — the working tree is the present, git is the history. Banners over wrong content are half-measures.
 
 SCOPE (all verified stale):

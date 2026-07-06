@@ -19,13 +19,20 @@ references:
   - doc/diagrams/upgrade-timeline.plantuml
   - STATBUS-039
   - STATBUS-042
-priority: high
 ordinal: 44000
 ---
 
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+> NORTH STAR: (already leads the ticket) the park proof — delivered. Remaining: the rune-wedge takeover proof + systemd counter empirics.
+> BENEFIT: the exact failure Norway already lived through once (the rune wedge shape) gets a standing scenario proving takeover → forward → completed with zero restores — before Norway relies on it again; and the NRestarts/reset-failed semantics the crash-loop gate reads are confirmed rather than assumed.
+> STAGE: Stage 1 proof work.
+> COMPLEXITY: mixed — architect owns the rune-wedge scenario (AC#1, assigned); operator/tester run the one-VM systemd empirics (AC#2).
+> DEPENDS ON: nothing.
+
+---
+
 NORTH STAR (read this first): when an upgrade keeps killing the server, the system must STOP RETRYING, STAY ALIVE, and CALL FOR HELP ONCE — never loop forever unnoticed (the rune failure). The mechanism is built and shipped (STATBUS-046). THIS ticket is the PROOF: one test on a real cloud VM that crashes an upgrade during its real migration window three times, watches it park + siren, then un-parks it deliberately and watches it complete. Everything below and in the comments is detail in service of that one run.
 
 CURRENT STATE + THE APPROVED PLAN (King approved comment #6, 2026-07-04): 12 VM attempts exposed a product hole — migrations actually run at service BOOT (boot-migrate), before the crash counter starts, so a crash there loops uncounted. Approved fix: count attempts BEFORE boot-migrate (both entrypoints), stamp the boot-migrate step on the flag so same-step-twice covers it, parked servers skip boot-migrate, exhaustion at the early guard parks (never auto-rollback). Then the scenario kills during boot-migrate — simpler than the old construction AND tests the real window. Order: engineer builds the counting fix → mechanic rebuilds the scenario per comment #6's substitutions → VM run is the oracle. That run also closes STATBUS-131 AC#3 (siren from a .env.config-configured callback) and the doc-021 open gap.

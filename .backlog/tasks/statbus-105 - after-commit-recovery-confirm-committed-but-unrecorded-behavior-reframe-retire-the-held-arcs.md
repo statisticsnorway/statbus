@@ -13,7 +13,6 @@ labels:
   - install-recovery
 dependencies:
   - STATBUS-071
-priority: medium
 ordinal: 105000
 ---
 
