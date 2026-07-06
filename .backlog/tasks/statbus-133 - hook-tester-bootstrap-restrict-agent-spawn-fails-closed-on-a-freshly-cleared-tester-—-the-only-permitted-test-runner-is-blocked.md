@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-07-04 12:15'
-updated_date: '2026-07-06 14:31'
+updated_date: '2026-07-06 15:04'
 labels:
   - team-hooks
   - tooling
@@ -39,10 +39,29 @@ VERIFICATION: unit-style — two concurrent invocations, second fails loudly wit
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Two concurrent test runs are impossible: the second fails loudly naming the holder (no silent queueing, no silent proceed)
-- [ ] #2 A freshly started agent (post-clear/crash) can run tests on first attempt — no identity bootstrap of any kind remains on the test path
-- [ ] #3 The hook no longer matches test commands inside file content being written; a regression case is added to its test file
+- [x] #1 Two concurrent test runs are impossible: the second fails loudly naming the holder (no silent queueing, no silent proceed)
+- [x] #2 A freshly started agent (post-clear/crash) can run tests on first attempt — no identity bootstrap of any kind remains on the test path
+- [x] #3 The hook no longer matches test commands inside file content being written; a regression case is added to its test file
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+ENGINEER IMPLEMENTATION (verified, NOT yet committed — awaiting foreman review):
+
+PORTABILITY DECISION (settled by evidence on this machine): `command -v flock` → exit 1 (flock(1) ABSENT); bash 3.2.57. So the `exec 9>lock; flock -n 9` idiom is unavailable, as is the syscall.Flock the Go upgrade code uses. Chosen mechanism: atomic `mkdir` lock + pidfile (pid, started-at, action) + stale detection via `kill -0`. mkdir is atomic on every POSIX fs; the pidfile names the holder for the loud error; kill -0 gives the SAME crash-safety as a kernel flock (a SIGKILL'd holder whose EXIT trap never ran is reclaimed by the next run) without a kernel lock. Re-entrancy for nested `./dev.sh` calls via an exported STATBUS_TEST_LOCK_HELD env var (outermost process owns + releases; children pass through). Rejected perl-flock-via-inherited-fd: works but is obscure/hard to introspect, and would STILL need a pidfile for the holder message.
+
+FILES:
+- dev.sh: added acquire_test_run_lock/release_test_run_lock helpers + a case gating acquisition on the template-touching entrypoints (test, test-isolated, migrate-and-test, create-db, create-db-structure, reset-db-structure, delete-db, delete-db-structure, recreate-database, create-test-template, create-seed, delete-seed, recreate-seed, seed-clone, clean-test-databases). Chained release into the two entrypoints that overwrite the EXIT trap (cleanup_shared_test_db, cleanup_test_db); release is idempotent (no-op unless _TEST_LOCK_OWNED). continous-integration-test intentionally excluded (isolated runner; drives the above as children which each lock).
+- restrict-agent-spawn.sh: RETIRED rule 4 (test identity gate); renumbered git-ops→Rule 4, release→Rule 5; added general HEREDOC-body stripping before pattern-matching so authoring a file whose CONTENT mentions a gated command isn't blocked (fixes the reported false-positive AND the same latent class for rules 4/5).
+- test-restrict-agent-spawn.sh: the prior file was ALREADY RED (7/41 fail) — an unadapted upstream fixture (partner/intern/test-intern, asserting gating the hook never had). Rewrote it against the real statbus roster (foreman/engineer/mechanic/operator/tester); dropped rule-4 identity cases; added heredoc regression cases + over-strip controls. Now 40/40 green.
+- .claude/team/README.md + tester.md: updated to state test serialization is the flock, tester-single-runner is a coordination convention.
+
+VERIFICATION (actual output):
+- Lock helper exercised in isolation (real bytes extracted from dev.sh): (1) single run acquires+auto-releases; (2) concurrent → 2nd fails loudly exit 1 naming holder pid/started-at/action; (3) SIGKILL'd holder → next run reclaims stale lock, exit 0, no wedge; (4) re-entrancy: child with STATBUS_TEST_LOCK_HELD passes through and does NOT release parent's lock.
+- Hook suite: 40/40 green. shellcheck -S warning: hook clean, no new warnings in dev.sh lock region.
+All three acceptance criteria met.
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 
