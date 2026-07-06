@@ -993,7 +993,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	//     (flag.BackupPath, identity-keyed) to regain a runnable state to go
 	//     forward from when the fix ships (§ Complete / rollback).
 	if flag.Phase == FlagPhaseResuming {
-		// STATBUS-109 classify-then-act (doc-022 §4). Ground truth decides
+		// STATBUS-109 classify-then-act (doc-022 §4). The observed state decides
 		// DIRECTION; an Unknown verdict is no longer a blanket forward-on-a-guess.
 		// A NAMED intermittent cause (db-unreachable / commit-not-fetched) is
 		// retried IN-PROCESS (never exit-spin); it clears → re-read + dispatch the
@@ -1018,17 +1018,17 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 			gt, cause, gtReason := d.verifyUpgradeGroundTruthEx(ctx, flag.CommitSHA)
 			switch gt {
 			case GroundTruthAtTarget:
-				logRecover("Upgrade %d (%s) was interrupted while finishing; the database is at or past the new version — continuing forward, not rolling back. Your data is safe. (detail: resuming-phase, ground-truth=at-or-past target, STATBUS-039 rule 1)",
+				logRecover("Upgrade %d (%s) was interrupted while finishing; the database is already at the new version — continuing forward, not rolling back. Your data is safe. (detail: new-sb-upgrading, observed-state=already-at-new, STATBUS-039 rule 1)",
 					flag.ID, flag.Label())
 				closeAppend()
 				return d.resumePostSwap(ctx, flag)
 
 			case GroundTruthBehind:
-				logRecover("Upgrade %d (%s) was interrupted while finishing and the database is behind the new version; restoring this upgrade's pre-upgrade snapshot (one attempt, no retry). Data is restored to before the upgrade. (detail: resuming-phase, ground-truth-behind=%s)",
+				logRecover("Upgrade %d (%s) was interrupted while finishing and the database is confirmed behind the new version; restoring this upgrade's pre-upgrade snapshot (one attempt, no retry). Data is restored to before the upgrade. (detail: new-sb-upgrading, observed-state=cannot-reach-new: %s)",
 					flag.ID, flag.Label(), gtReason)
 				closeAppend()
 				d.recoveryRollback(ctx, flag, flag.Label(), logRelPath, fmt.Sprintf(
-					"%s: the upgrade was interrupted while finishing and was rolled back to the previous version (data restored). Re-run with ./sb install once the cause is fixed. (detail: ground-truth-behind=%s)",
+					"%s: the upgrade was interrupted while finishing and was rolled back to the previous version (data restored). Re-run with ./sb install once the cause is fixed. (detail: observed-state=cannot-reach-new: %s)",
 					ErrResumeDied, gtReason))
 				return nil
 
@@ -1040,46 +1040,46 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 				case CauseCommitNotFetched:
 					spec = d.commitNotFetchedSpec(fetchLog, flag.CommitSHA)
 				default: // CauseUnrecognized (or CauseNone defensively) → human stop
-					logRecover("Upgrade %d (%s) was interrupted while finishing and its position cannot be verified for an unrecognized reason — STOPPING rather than guessing; please contact support. (detail: resuming-phase, ground-truth=unverifiable, cause=%s: %s)",
+					logRecover("Upgrade %d (%s) was interrupted while finishing and its position cannot be verified for an unrecognized reason — STOPPING rather than guessing; please contact support. (detail: new-sb-upgrading, observed-state=position-unreadable, cause=%s: %s)",
 						flag.ID, flag.Label(), cause, gtReason)
 					closeAppend()
 					// Non-nil return → the :recoverFromFlag call site exits so
 					// systemd's StartLimit surfaces the human-stop (unchanged
 					// backstop; now the ONLY thing that reaches it is `unknown`).
-					return fmt.Errorf("recoverFromFlag: resuming-phase position unverifiable (cause=%s): %s — refusing to guess", cause, gtReason)
+					return fmt.Errorf("recoverFromFlag: position unreadable while continuing after a crash-restart (cause=%s): %s — refusing to guess", cause, gtReason)
 				}
 
 				if retried[cause] {
 					// Cleared once then the same cause recurred → treat as
 					// exhausted; roll back (data-safe) rather than loop forever.
-					logRecover("Upgrade %d (%s): %s recurred after a cleared backoff-retry — treating as exhausted and rolling back to the pre-upgrade snapshot (data restored). (detail: resuming-phase, cause=%s)",
+					logRecover("Upgrade %d (%s): %s recurred after a cleared backoff-retry — treating as exhausted and rolling back to the pre-upgrade snapshot (data restored). (detail: new-sb-upgrading, cause=%s)",
 						flag.ID, flag.Label(), spec.name, cause)
 					closeAppend()
 					d.recoveryRollback(ctx, flag, flag.Label(), logRelPath, fmt.Sprintf(
-						"%s: %s recurred after a cleared backoff-retry and was rolled back to the previous version (data restored). Re-run with ./sb install once the cause is fixed. (detail: resuming-phase, cause=%s)",
+						"%s: %s recurred after a cleared backoff-retry and was rolled back to the previous version (data restored). Re-run with ./sb install once the cause is fixed. (detail: new-sb-upgrading, cause=%s)",
 						ErrResumeDied, spec.name, cause))
 					return nil
 				}
 				retried[cause] = true
-				logRecover("Upgrade %d (%s) was interrupted while finishing; its position is temporarily unverifiable (%s) — retrying in-process before deciding, not exiting. Your data is safe. (detail: resuming-phase, cause=%s)",
+				logRecover("Upgrade %d (%s) was interrupted while finishing; its position is temporarily unverifiable (%s) — retrying in-process before deciding, not exiting. Your data is safe. (detail: new-sb-upgrading, cause=%s)",
 					flag.ID, flag.Label(), gtReason, cause)
 				if err := d.backoffRetry(ctx, spec); err != nil {
 					// Budget exhausted (or ctx cancelled) → data-safe rollback (110).
-					logRecover("Upgrade %d (%s): %s did not clear within the retry budget (%v) — rolling back to the pre-upgrade snapshot (data-safe via the read-only window). (detail: resuming-phase, cause=%s)",
+					logRecover("Upgrade %d (%s): %s did not clear within the retry budget (%v) — rolling back to the pre-upgrade snapshot (data-safe via the read-only window). (detail: new-sb-upgrading, cause=%s)",
 						flag.ID, flag.Label(), spec.name, err, cause)
 					closeAppend()
 					d.recoveryRollback(ctx, flag, flag.Label(), logRelPath, fmt.Sprintf(
-						"%s: %s did not clear within the retry budget and was rolled back to the previous version (data restored). Re-run with ./sb install once the cause is fixed. (detail: resuming-phase, cause=%s, %v)",
+						"%s: %s did not clear within the retry budget and was rolled back to the previous version (data restored). Re-run with ./sb install once the cause is fixed. (detail: new-sb-upgrading, cause=%s, %v)",
 						ErrResumeDied, spec.name, cause, err))
 					return nil
 				}
-				// Cleared → loop re-reads ground truth and dispatches the resolved verdict.
+				// Cleared → loop re-reads the observed state and dispatches the resolved verdict.
 
 			default:
 				// GroundTruth is a closed tri-state; a 4th value is state-machine
 				// drift — fail loud rather than spin.
 				closeAppend()
-				return fmt.Errorf("recoverFromFlag: unexpected ground-truth value %d for upgrade %d — refusing to act", gt, flag.ID)
+				return fmt.Errorf("recoverFromFlag: unexpected observed-state value %d for upgrade %d — refusing to act", gt, flag.ID)
 			}
 		}
 	}
@@ -1091,7 +1091,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	// onward rather than marking the row completed — the upgrade isn't
 	// actually done yet.
 	if flag.Phase == FlagPhasePostSwap {
-		logRecover("Resuming upgrade %d (%s) where it left off, now running the new version. (detail: post-swap restart, pid=%d)",
+		logRecover("Resuming upgrade %d (%s) where it left off, now running the new version. (detail: after booting the new binary, pid=%d)",
 			flag.ID, flag.Label(), os.Getpid())
 		if appendLog != nil {
 			appendLog.Close()
@@ -1143,7 +1143,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	// self-heal UPDATE and mark `state='completed'` for an upgrade that
 	// was killed before any commit happened.
 	if flag.Phase == FlagPhasePreSwap {
-		logRecover("Upgrade %d (%s) was interrupted before it changed anything; rolling back to the previous version. The database was not modified, so nothing needs restoring. (detail: pre-swap phase, no snapshot recorded)",
+		logRecover("Upgrade %d (%s) was interrupted before it changed anything; rolling back to the previous version. The database was not modified, so nothing needs restoring. (detail: before booting the new binary, no snapshot recorded)",
 			flag.ID, flag.Label())
 		if appendLog != nil {
 			appendLog.Close()
@@ -1152,7 +1152,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 		// flag.BackupPath is empty by construction at PreSwap (stamped only
 		// by updateFlagPostSwap) — restoreDatabase refuses on empty.
 		d.recoveryRollback(ctx, flag, flag.Label(), logRelPath, fmt.Sprintf(
-			"%s: the upgrade was interrupted before it changed anything and was rolled back to the previous version; the database was not modified. (detail: pre-swap, before binary-swap commit boundary)",
+			"%s: the upgrade was interrupted before it changed anything and was rolled back to the previous version; the database was not modified. (detail: before booting the new binary — the point of no return)",
 			ErrInstallPreconditionFailed))
 		return nil
 	}
@@ -4928,20 +4928,20 @@ func (d *Service) postSwapFailure(ctx context.Context, id int, displayName, rest
 	stepClass := classifyStepMessage(reason)
 	gt, _, gtReason := d.verifyUpgradeGroundTruthEx(ctx, commitSHA)
 	if gt != GroundTruthBehind {
-		verdict := "at-or-past target"
+		verdict := "already at the new version"
 		if gt == GroundTruthUnknown {
 			verdict = fmt.Sprintf("unverifiable (%s)", gtReason)
 		}
-		progress.Write("Post-swap failure [%s]: %s — ground truth is %s; NOT restoring (forward retry on the next recovery pass).", stepClass, reason, verdict)
+		progress.Write("Failure after booting the new binary [%s]: %s — observed state is %s; NOT restoring (forward retry on the next recovery pass).", stepClass, reason, verdict)
 		d.recordInProgressFailure(ctx, id,
-			fmt.Sprintf("forward step failed [%s]: %s; ground truth %s — no rollback, will resume forward on the next recovery pass (service restart or ./sb install)", stepClass, reason, verdict))
-		return fmt.Errorf("%s: post-swap step failed [%s] with ground truth %s (forward retry on next recovery): %s",
+			fmt.Sprintf("forward step failed [%s]: %s; observed state %s — no rollback, will resume forward on the next recovery pass (service restart or ./sb install)", stepClass, reason, verdict))
+		return fmt.Errorf("%s: step failed after booting the new binary [%s] with observed state %s (forward retry on next recovery): %s",
 			ErrInstallPreconditionFailed, stepClass, verdict, reason)
 	}
-	progress.Write("Post-swap failure [%s]: %s — ground truth positively behind (%s); auto-restoring from this upgrade's snapshot", stepClass, reason, gtReason)
+	progress.Write("Failure after booting the new binary [%s]: %s — observed state confirms it's behind the new version (%s); auto-restoring from this upgrade's snapshot", stepClass, reason, gtReason)
 	d.rollback(ctx, id, displayName, restoreTargetSHA,
 		fmt.Sprintf("forward failed: %s; auto-restored from snapshot", reason), backupPath, progress)
-	return fmt.Errorf("%s: post-swap failure auto-restored: %s",
+	return fmt.Errorf("%s: failure after booting the new binary auto-restored: %s",
 		ErrInstallPreconditionFailed, reason)
 }
 
@@ -4958,10 +4958,10 @@ func (d *Service) postSwapFailure(ctx context.Context, id int, displayName, rest
 func (d *Service) parkForDeterministicFailure(ctx context.Context, id int, displayName, restoreTargetSHA, commitSHA, backupPath, reason string, progress *ProgressLog) error {
 	gt, _, gtReason := d.verifyUpgradeGroundTruthEx(ctx, commitSHA)
 	if gt == GroundTruthBehind {
-		progress.Write("Deterministic post-swap failure: %s — ground truth positively behind (%s); auto-restoring from this upgrade's snapshot", reason, gtReason)
+		progress.Write("Deterministic failure after booting the new binary: %s — observed state confirms it's behind the new version (%s); auto-restoring from this upgrade's snapshot", reason, gtReason)
 		d.rollback(ctx, id, displayName, restoreTargetSHA,
 			fmt.Sprintf("deterministic forward failure: %s; auto-restored from snapshot", reason), backupPath, progress)
-		return fmt.Errorf("%s: deterministic post-swap failure auto-restored: %s", ErrInstallPreconditionFailed, reason)
+		return fmt.Errorf("%s: deterministic failure after booting the new binary auto-restored: %s", ErrInstallPreconditionFailed, reason)
 	}
 	freshlyParked, perr := d.parkUpgrade(ctx, id, reason)
 	if perr != nil {
@@ -6015,11 +6015,11 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 			}
 		}
 		if !binaryAtFlag && !binaryDescendsFlag {
-			progress.Write("Post-swap recovery: containers do not match flag target %s, AND running binary %s is not at or descendant of flag target. Mismatched: %v",
+			progress.Write("Recovery after booting the new binary: containers do not match flag target %s, AND running binary %s is not at or descendant of flag target. Mismatched: %v",
 				flag.Label(), ShortForDisplay(d.binaryCommit), mismatched)
 			progress.Close()
 			return fmt.Errorf(
-				"post-swap recovery: containers do not match flag target %s and running binary %s is not at or descendant of flag target.\n"+
+				"recovery after booting the new binary: containers do not match flag target %s and running binary %s is not at or descendant of flag target.\n"+
 					"  Mismatched: %v\n"+
 					"  This is a category-3 divergence per the recovery trifecta — the\n"+
 					"  running binary is BEHIND the flag's target (or on a sibling branch).\n"+
@@ -7251,7 +7251,7 @@ func (d *Service) selfUpdate(ctx context.Context, version string, progress *Prog
 		// narrative on disk / in maintenance.html doesn't lie about what
 		// just happened. Restart is still required — the running service
 		// process is still holding the old binary image in memory.
-		progress.Write("Binary already at target (swapped mid-flow). Restarting service...")
+		progress.Write("Binary already at the new version (swapped mid-flow). Restarting service...")
 	}
 	progress.Close()
 	// Exit 42 triggers systemd restart on the new binary. One-shot callers

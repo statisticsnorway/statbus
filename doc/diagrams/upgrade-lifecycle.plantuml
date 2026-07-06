@@ -35,14 +35,14 @@ in_progress --> completed : all steps OK\n(completed_at set, error NULL)
 ' [HUMAN: unknown] — unrecognised phase or unrecognised error: stays in_progress, loud
 in_progress --> in_progress : [HUMAN: **unknown**]\nunrecognised phase or unrecognised error —\nstays in_progress + loud, waiting for a person\n(systemd-StartLimit backstop surfaces it)
 
-' [PARKED — STATBUS-046] — at-target forward exhausted the crash-resume death
+' [PARKED — STATBUS-046] — already-at-new forward exhausted the crash-resume death
 ' budget (3 process deaths) OR hit same-step-twice (deterministic hang) OR a B/C failure fired:
 ' stays in_progress (forward-only preserved; rollback stays reachable ONLY via a
-' positively-Behind verdict, NEVER via exhaustion). The row gains
+' cannot-reach-new verdict, NEVER via exhaustion). The row gains
 ' recovery_parked_at + recovery_parked_reason; the service SKIPS resume
 ' (alive-idle, no crash loop) and the degraded siren fires ONCE. This is what
 ' replaces rune's loop-forever (10,229 restarts).
-in_progress --> in_progress : [PARKED — **STATBUS-046**]\nat-target forward: budget (3 process deaths) exhausted, same-step-twice,\nor a B/C failure — PARK (recovery_parked_at + reason).\nService skips resume (alive-idle), siren once.\nUn-park ONLY via a deliberate operator trigger (re-schedule / ./sb install)
+in_progress --> in_progress : [PARKED — **STATBUS-046**]\nalready-at-new forward: budget (3 process deaths) exhausted, same-step-twice,\nor a B/C failure — PARK (recovery_parked_at + reason).\nService skips resume (alive-idle), siren once.\nUn-park ONLY via a deliberate operator trigger (re-schedule / ./sb install)
 
 ' cannot-reach-new → roll back (also: intermittent exhausted backoff-retry, or persistent error)
 in_progress --> rolled_back : **cannot-reach-new** (observed-state) → roll back\nOR intermittent error exhausted **backoff-retry** → roll back\nOR persistent error (zero retries) → roll back\n(rolled_back_at + error)
@@ -61,7 +61,7 @@ note right of in_progress
   recognized phase   → §2
 
   **§2  Decide direction (observed-state)**
-  old-sb-upgrading (pre-swap)           → roll back trivially (nothing changed) [auto]
+  old-sb-upgrading (before booting the new binary) → roll back trivially (nothing changed) [auto]
   new-sb-swapped, already-at-new        → continue-upgrade / complete-upgrade → completed [auto]
   new-sb-upgrading, cannot-reach-new    → roll back → rolled_back [auto]
   new-sb-upgrading, can't-read-position → §3 (intermittent error)
@@ -82,15 +82,15 @@ note right of in_progress
   failed             — [HUMAN: restore-broke] restore itself broke
   (in_progress loop) — [HUMAN: unknown] waits for a person
 
-  **§5  Park (STATBUS-046 — at-target forward, can't roll back)**
-  Post-swap forward keeps failing at-target (integrators may have written
-  past the maintenance-off point → rollback forbidden). The bound is a
-  crash-resume DEATH BUDGET (3 process deaths; recovery_attempts counted at
-  attempt START so a death self-counts, deaths = attempts-1), plus
-  same-step-twice → deterministic-hang park, plus B/C failures → park on
-  first. On terminal:
-    at-target       → PARK  (recovery_parked_at + reason; stays in_progress)
-    data-safe/Behind→ roll back (039 direction; 110 makes it byte-safe)
+  **§5  Park (STATBUS-046 — already-at-new forward, can't roll back)**
+  Forward, after booting the new binary, keeps failing already-at-new
+  (integrators may have written past the maintenance-off point → rollback
+  forbidden). The bound is a crash-resume DEATH BUDGET (3 process deaths;
+  recovery_attempts counted at attempt START so a death self-counts, deaths =
+  attempts-1), plus same-step-twice → deterministic-hang park, plus B/C
+  failures → park on first. On terminal:
+    already-at-new        → PARK  (recovery_parked_at + reason; stays in_progress)
+    data-safe/cannot-reach-new → roll back (039 direction; 110 makes it byte-safe)
   A parked row is SKIPPED by every automatic resume (alive-idle, siren once).
   UN-PARK = the two deliberate operator triggers only (re-schedule / ./sb
   install) — each buys exactly ONE fresh attempt with a reset budget.

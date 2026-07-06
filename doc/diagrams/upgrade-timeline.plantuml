@@ -117,7 +117,7 @@ note over service, db #FFF9C4
     resume or rollback) — never a half-swapped row that lies about the running version.
 end note
 
-== new-sb-swapped → new-sb-upgrading — post-swap resume ==
+== new-sb-swapped → new-sb-upgrading — continuing after a crash-restart ==
 service -> systemd : exit 42 — **old-sb-swap**: switch to the new sb, request the ONE planned respawn
 systemd -> service : restart unit on the new binary
 service -> systemd : fresh boot: cheap init -> READY=1 (watchdog arms)
@@ -136,7 +136,7 @@ note over service, db
   The SAME dispatch runs on EVERY boot — the planned exit-42 here, or any unplanned-death restart.
 end note
 alt **new-sb-swapped** marker (stored: post_swap) — the PLANNED exit-42 handoff (the ONE legitimate continue)
-    service -> service : resumePostSwap: if row **PARKED** → skip (alive-idle, no attempt);\nelse recovery_attempts++ (attempt START) → resumeEscalation;\n3 deaths (budget) / same-step-twice → **PARK** (at-target);\nelse stamp **new-sb-upgrading** (stored: resuming, :4339) + continue
+    service -> service : resumePostSwap: if row **PARKED** → skip (alive-idle, no attempt);\nelse recovery_attempts++ (attempt START) → resumeEscalation;\n3 deaths (budget) / same-step-twice → **PARK** (already-at-new);\nelse stamp **new-sb-upgrading** (stored: resuming, :4339) + continue
     group applyPostSwap — remaining steps run on the new binary
         service -> service : config generate + docker compose pull
         service -> db : start DB + wait health + reconnect
@@ -171,9 +171,9 @@ note over systemd, service #FFE0B2
   every resumePostSwap entry is one forward ATTEMPT — recovery_attempts++ at attempt START, so a
   death self-counts. resumeEscalation bounds the loop that gave rune 10,229 restarts:
     • budget = 3 PROCESS DEATHS (deaths = attempts−1) exhausted, OR same-step-twice (deterministic hang, from the flag's dying-step) → TERMINAL
-    • at-target (can't roll back — integrators wrote past maintenance-off) → PARK:
+    • already-at-new (can't roll back — integrators wrote past maintenance-off) → PARK:
       recovery_parked_at + reason; row stays in_progress; service skips resume (alive-idle); siren ONCE
-    • data-safe / positively-Behind → roll back (039 owns direction; 110 makes it byte-safe)
+    • data-safe / cannot-reach-new → roll back (039 owns direction; 110 makes it byte-safe)
   Class A (readiness) waits IN PLACE (size-scaled) and NEVER consumes an attempt; B (deterministic) +
   C (resource) → park on first. Un-park = the two deliberate operator triggers only, each a
   single fresh attempt with a reset budget.
@@ -197,7 +197,7 @@ note over service, db #FFF9C4
     instead pinned both kills at the applyPostSwap StepMigrateUp (3.5) — a 12-run VM campaign (comment
     #4/#5) then proved that step is a NO-OP on every real resume: migrations actually apply in the
     BOOT-TIME schema catch-up (boot-migrate-up, :1909), which runs BEFORE recoverFromFlag on every
-    recovery boot, so by the time StepMigrateUp runs the tree is already at target — nothing pending. The
+    recovery boot, so by the time StepMigrateUp runs the tree is already at the new version — nothing pending. The
     SECOND rebuild (this one, comment #6) fabricates the resume state DIRECTLY (in_progress row +
     service-held post_swap flag, no dispatch/claim) with a synthetic pg_sleep(3600) migration — the REAL
     window, now covered by RecoveryBudgetGuard (commit cc660280f, hoists the attempt count + same-step
@@ -211,8 +211,8 @@ note over service, db #FFF9C4
     already-committed recovery_attempts increment. Two same-step deaths there PARK the upgrade
     (alive-idle, siren once via a `.env.config`-only UPGRADE_CALLBACK — STATBUS-131 AC#3 — never
     rolled_back) rather than looping loud forever OR rolling back — the pre-046 "one-shot latch => ONE
-    rollback" framing this note used to carry is ALSO stale: current recoverFromFlag ground-truth-gates
-    the Resuming branch (STATBUS-039) — AtTarget always resumes forward via resumePostSwap, never a
+    rollback" framing this note used to carry is ALSO stale: current recoverFromFlag observed-state-gates
+    the new-sb-upgrading branch (STATBUS-039) — already-at-new always resumes forward via resumePostSwap, never a
     blanket rollback-on-any-death.
   GREEN: 3-postswap-mid-migration-kill / 3-postswap-mid-tx-kill / 3-postswap-between-migrations-kill /
     3-postswap-migrate-killed-after-commit / 3-postswap-migration-deterministic-error (the last two
