@@ -3,11 +3,11 @@ id: STATBUS-046
 title: >-
   recovery-escalation: per-failure-class handling of the at-target forward path
   — no loop-forever, no rollback-by-exhaustion
-status: In Progress
+status: Done
 assignee:
   - '@engineer'
 created_date: '2026-06-12 22:15'
-updated_date: '2026-07-03 22:02'
+updated_date: '2026-07-06 07:40'
 labels:
   - install-recovery
   - upgrade
@@ -76,9 +76,9 @@ RELATION: resolves the loudness fork that STATBUS-044 is holding on; builds on S
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 King ratifies (or redirects) the four failure classes, the per-step mapping, the attempt-budget value, and the park-degraded mechanics
-- [ ] #2 Implementation: call-site classification + attempt budget + park marker; rollback remains reachable ONLY via a Behind verdict, never via exhaustion; parked unit stays alive-idle (no crash loop, no disk bleed)
-- [ ] #3 Both diagrams updated in the SAME commit as the shipped handling — every failure case visible with its decided handling
-- [ ] #4 STATBUS-044's held scenario rewritten against the decided behavior and green
+- [x] #2 Implementation: call-site classification + attempt budget + park marker; rollback remains reachable ONLY via a Behind verdict, never via exhaustion; parked unit stays alive-idle (no crash loop, no disk bleed)
+- [x] #3 Both diagrams updated in the SAME commit as the shipped handling — every failure case visible with its decided handling
+- [x] #4 STATBUS-044's held scenario rewritten against the decided behavior and green
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -178,4 +178,16 @@ created: 2026-07-03 22:02
 ---
 CLOSING UNIT COMMITTED + PUSHED: 886c79293 (6 files, +384/−16; no schema change) — the 046 BUILD SURFACE IS COMPLETE. Slice 1B: rollback crash-resume bound — ONE shared never-reset death counter, rollback terminals ONLY on two consecutive rollback deaths (never exhaust — a pre-swap exhaust routes to rollback and must get its re-attempt); pure sibling rollbackResumeIsTerminal(step, prior); the flag ROLLS prior←Step then stamps Step=rollback so the handoff free-pass holds by construction; terminal → restore-broke human stop with actionable message + recovery callback; hard bound 3 forward + 2 rollback = 5 deaths. NOTE FOR THE RECORD: both closing reviews (architect + foreman) independently caught the same off-by-one in the first cut (terminal after ONE rollback death — a single transient mid-restore OOM would have summoned a human with zero retries) — fixed pre-commit; the dual-review architecture earning its cost on recovery-critical code. Slice 3a: health-past-warmup → B park-on-first (verified: waitForRestReady's 5-min /ready warmup runs BEFORE the RPC loop — exhausted = genuinely can't serve). Slice 3b: PostSwapDBHealthTimeout=5min (WAL-replay-aware, generous-fixed doctrine). Slice 3c (mechanic-built, engineer-reviewed): images-ready CLAIM GATE at BOTH claim sites — building→loud wait + immediate re-probe (closes the 6h-starvation gap), failed→loud actionable no-op, past-grace→claim-anyway loud (delay-never-wedge); grace = the hoisted manifestTimeout shared with verifyArtifacts by construction; pure gate with conservative default; also fixes the latent wart where a fresh push was immediately claimed + half-published images pulled. Plus the required statfs log line. REMAINING on 046: the deferred classifier arms (inventoried comment 9) and the EMPIRICAL CAPSTONE — the park-scenario VM run (r3 in flight, task bj81y4tz6). AC#2 substantially complete pending the arc; AC#3 diagrams current; AC#4 = the VM run.
 ---
+
+author: foreman
+created: 2026-07-06 07:40
+---
+CLOSED on r19 green (2026-07-04): all four ACs met — D3 ratification, implementation complete (7 commits), diagrams shipped in-commit per slice, and the held scenario (3-postswap-resume-died-parked) fully green on a real VM. See final summary for the commit trail.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+NORTH STAR DELIVERED AND RUN-PROVEN: an upgrade that keeps killing the server now STOPS RETRYING (parks after 3 process deaths, or immediately on same-step-twice / deterministic / resource failures), STAYS ALIVE (unit alive-idle, no crash loop, no disk bleed), and CALLS FOR HELP ONCE (siren via UPGRADE_CALLBACK). Un-park is deliberate-only (re-trigger or ./sb install), each grants exactly ONE fresh attempt. Rollback is never reachable by exhaustion — only by a positively-Behind ground-truth verdict, and two consecutive rollback deaths declare the restore broken (STATBUS-134 restored that bound). Shipped across c1c4cbb7a (park substrate), f70ede5e4 (B/C classification + migrate exit-code contract), 886c79293 (rollback bound + allowances + claim gate), cc660280f (boot-migrate counting hoist — r12 proved migrations actually run at boot), f9bdac46d (flag survives park), 28aa1e920 (rollback pair terminal), 440c14cb2 (sessions verdict). EMPIRICAL PROOF: r19 (2026-07-04) — full park scenario green end-to-end on a real VM; r17 additionally saw the mechanism bound an UNPLANNED genuine crash loop. Deferred classifier arms inventoried in comment 9 remain future refinements (manifest-404 promotion, migrate 22/C plumbing) — none block the contract.
+<!-- SECTION:FINAL_SUMMARY:END -->
