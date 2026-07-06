@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-12 07:57'
-updated_date: '2026-07-03 10:45'
+updated_date: '2026-07-06 15:59'
 labels:
   - git-hygiene
   - not-install-upgrade
@@ -71,3 +71,13 @@ db-snapshot (legacy fallback name in shipped binaries — confirm no binary reli
 - [ ] #3 The 3 Dependabot branches handled by CLOSING their PRs (not branch-delete), so Dependabot does not recreate them
 - [ ] #4 The 11 keep-pending branches untouched (each routed to its owner for the one open question); the 12 never-delete set untouched
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: engineer (board sweep)
+created: 2026-07-06 15:59
+---
+FOLDED IN from STATBUS-038 (merged 2026-07-06): same activity — one branch-hygiene sitting with the King. 035 = the 13 approved deletes; 038 = the 11 keep-pending walk. Handle in one branch session.
+---
+<!-- COMMENTS:END -->
