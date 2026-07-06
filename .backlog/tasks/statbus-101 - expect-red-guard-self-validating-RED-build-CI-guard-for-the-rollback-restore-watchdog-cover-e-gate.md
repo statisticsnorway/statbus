@@ -3,9 +3,10 @@ id: STATBUS-101
 title: >-
   expect-red-guard: self-validating RED-build CI guard for the rollback-restore
   watchdog-cover (e)-gate
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-19 13:02'
+updated_date: '2026-07-06 15:59'
 labels: []
 dependencies: []
 ordinal: 101000
@@ -26,3 +27,9 @@ COST/TRADEOFF: ~10 lines for the EXPECT_RED env. A per-harness-run auto-matrix e
 
 OWNER: King prioritizes; if taken → engineer adds the EXPECT_RED env, foreman commits + fires the self-validating run. Pattern generalizes to the other watchdog/anti-vacuous gates (C15 reconnect, archivebackup, the CAT-C mechanisms).
 <!-- SECTION:DESCRIPTION:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+MERGED into STATBUS-071: a ~10-line self-validating RED-gate option for one of 071's arcs; belongs on the same hardening list.
+<!-- SECTION:FINAL_SUMMARY:END -->
