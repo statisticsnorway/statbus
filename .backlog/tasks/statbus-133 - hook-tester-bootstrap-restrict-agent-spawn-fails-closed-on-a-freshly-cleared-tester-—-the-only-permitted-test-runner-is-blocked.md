@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-07-04 12:15'
-updated_date: '2026-07-06 15:04'
+updated_date: '2026-07-06 15:26'
 labels:
   - team-hooks
   - tooling
@@ -61,6 +61,14 @@ VERIFICATION (actual output):
 - Lock helper exercised in isolation (real bytes extracted from dev.sh): (1) single run acquires+auto-releases; (2) concurrent → 2nd fails loudly exit 1 naming holder pid/started-at/action; (3) SIGKILL'd holder → next run reclaims stale lock, exit 0, no wedge; (4) re-entrancy: child with STATBUS_TEST_LOCK_HELD passes through and does NOT release parent's lock.
 - Hook suite: 40/40 green. shellcheck -S warning: hook clean, no new warnings in dev.sh lock region.
 All three acceptance criteria met.
+
+REVISION (architect FIX-THEN-SHIP verdict, 2026-07-06): swapped the acquire CORE from mkdir+pidfile+kill-0 to a REAL kernel flock(2) driven by perl on an fd inherited from bash (`exec 9>>lockfile` in bash; `perl -e 'open(my $fh, ">&=", 9)...flock(LOCK_EX|LOCK_NB)'`). flock(1) is absent on macOS but perl is always shipped. This eliminates the mkdir stale-reclaim TOCTOU the architect found (contender A reads dead pid, B reclaims+relocks in the window, A's rm deletes B's live lock), the kill-0-on-dead-parent-while-children-still-mutating hazard, and PID-reuse false-blocks. The lock lives with the open file description: released by the kernel on whole-process-tree death (even SIGKILL), and HELD while any child of a killed run still has fd 9 open. Deleted the pidfile-liveness/spin/reclaim machinery (~40 lines); the holder file is now purely informational for the banner. STATBUS_TEST_LOCK_HELD re-entrancy + trap-chaining into cleanup_shared_test_db/cleanup_test_db kept verbatim. Added a self-heal for the one-time mkdir-dir→file transition.
+
+BUG CAUGHT + FIXED during re-verify (empirical): `exec 9>&- 2>/dev/null` on a no-command exec PERMANENTLY redirects the shell's stderr to /dev/null — it was silently swallowing the loud contention banner (exit code was 1, but the banner was invisible). Fixed to bare `exec 9>&-` at both sites (fd 9 is guaranteed open when they run). Only caught because I checked the actual banner output, not just the exit code.
+
+Adds: hook test (h) gated command AFTER a heredoc terminator → still DENY (resumption); (i) here-string on line 1 + real git push on line 2 → DENY (the `(^|[^<])` guard stops `<<<` being misread as a heredoc opener and swallowing the following real command). Commented the two known strip residuals (here-strings; interpreter-fed heredocs = deliberate-laundering, out of scope).
+
+RE-VERIFIED (actual output, real dev.sh bytes extracted): ARM1 acquire+auto-release; ARM2 contention → exit 1 + LOUD banner naming pid/started-at/action; ARM3 whole-tree SIGKILL → released; ARM4 child outlives SIGKILL'd parent → lock still HELD, then child death → released; re-entrancy pass-through. bash -n + shellcheck clean; hook suite 42/42. Acquire diff saved at tmp/engineer-133-devsh.diff. Still NOT committed.
 <!-- SECTION:NOTES:END -->
 
 ## Comments
