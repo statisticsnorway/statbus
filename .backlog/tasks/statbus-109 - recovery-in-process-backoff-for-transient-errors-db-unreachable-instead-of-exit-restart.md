@@ -7,12 +7,13 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-24 12:21'
-updated_date: '2026-07-03 19:40'
+updated_date: '2026-07-06 16:05'
 labels:
   - upgrade
   - recovery
   - reliability
-dependencies: []
+dependencies:
+  - STATBUS-071
 references:
   - doc/upgrade-vocabulary.md
   - cli/internal/upgrade/service.go
@@ -29,6 +30,14 @@ ordinal: 109000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+> NORTH STAR: a transient blip (DB restarting mid-recovery) is retried quietly in-process — never exit-restart noise or a false unit failure.
+> BENEFIT: a brief DB hiccup during recovery no longer risks marching a healthy box toward StartLimit, and the operator's journal stops filling with restart noise that hides real signals. Code shipped (782ca2455); this ticket's remaining gain is the PROOF.
+> STAGE: Stage 1.
+> COMPLEXITY: engineer-substantial (two dedicated arc scenarios: kill the DB transiently mid-recovery; a stalled fetch); the VM run is the oracle.
+> DEPENDS ON: STATBUS-071 (the scenarios ride its arc lane).
+
+---
+
 ## Why
 Surfaced during the upgrade-vocabulary walkthrough (STATBUS-107). The recovery decision tree's "cannot verify" outcome (GroundTruthUnknown) currently EXITS the process on a TRANSIENT db-unreachable error and leans on systemd restart as its retry. That is noisy and risks a false unit-failure for a brief db blip. King's framing (2026-06-24): "To exit for a transient error creates noise."
 
