@@ -6,12 +6,12 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-20 10:48'
-updated_date: '2026-07-06 15:59'
+updated_date: '2026-07-06 16:05'
 labels:
   - auth-email
   - not-install-upgrade
 dependencies:
-  - STATBUS-013
+  - STATBUS-071
 priority: medium
 ordinal: 105000
 ---
@@ -19,6 +19,15 @@ ordinal: 105000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+> NORTH STAR: a torn migration (committed but unrecorded) must end rolled_back — restore to known-good, operator retries; never certified completed.
+> BENEFIT: either we prove the box honors the King's rolled_back ruling on the one state recovery cannot reconcile, or we catch it silently certifying torn state as completed (the overnight observation) — a real integrity gap — and fix it. One measurement decides; both outcomes are worth more than the current unknown.
+> STAGE: Stage 1.
+> COMPLEXITY: mixed — mechanic instruments the arc re-run (the measurement); architect rules on the verdict; engineer fixes if a gap is confirmed.
+> DEPENDS ON: STATBUS-071 (the after-commit kill arcs are the measurement vehicle).
+> Housekeeping: labels say "auth-email, not-install-upgrade" — plainly wrong; fix in the apply pass.
+
+---
+
 Per STATBUS-013 (THE SPEC, confirmed verbatim with the King 2026-06-08), a crash in the commit↔record gap MUST end ROLLED_BACK: restore the pre-upgrade backup → operator retries. This task verifies the box ACTUALLY does that, and fixes it if it does not.
 
 THE OBSERVATION (overnight 2026-06-19/20): the after-commit-kill arcs reached upgrade-row state 'completed', and NEVER passed through 'rolled_back' in 600s. By the recovery logic that is the SUSPECTED DEVIATION — the box "being clever" (certifying a torn migration as completed) instead of restoring → rolled_back, which 013 forbids.
