@@ -3,11 +3,11 @@ id: STATBUS-140
 title: >-
   env-config-trailing-newline: generated .env.config must end with a newline —
   the documented operator append silently corrupts settings
-status: In Progress
+status: Done
 assignee:
   - mechanic
 created_date: '2026-07-06 07:41'
-updated_date: '2026-07-06 14:26'
+updated_date: '2026-07-06 14:41'
 labels:
   - config
   - operator-ux
@@ -37,6 +37,12 @@ NOTE: the park scenario already carries its own defensive tail-c1 newline guard 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Generated .env.config always ends with a newline (unit test on the final byte)
-- [ ] #2 An append of KEY=value to a freshly generated .env.config lands on its own line and survives config generate into .env
+- [x] #1 Generated .env.config always ends with a newline (unit test on the final byte)
+- [x] #2 An append of KEY=value to a freshly generated .env.config lands on its own line and survives config generate into .env
 <!-- AC:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+NORTH STAR DELIVERED: an operator following our documentation can no longer corrupt their configuration by appending a key. SHIPPED 7054e7593 (2026-07-06): the fix landed at the shared seam — dotenv.File.Save() now always terminates the file with exactly one newline — covering .env.config, .env.credentials, and every other env-file writer (sb dotenv set, cert/upgrade/install writers) in one move; idempotent by construction. Architect verified all 14 Save call sites have no byte-exactness consumers and the roundtrip test keeps its full formatting pin. AC#1: unit test asserts the final byte. AC#2 observed literally on a real dev tree: the pre-fix .env.config ended without a newline; one `sb config generate` with the fixed binary later, both generated files end with one, and an appended key parses independently (test-pinned at the parser the generator reads with). Found in park-oracle run r13, where the append-glue corrupted ADMINISTRATOR_CONTACT on a live VM.
+<!-- SECTION:FINAL_SUMMARY:END -->
