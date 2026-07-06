@@ -6,11 +6,13 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-17 07:59'
-updated_date: '2026-07-06 17:31'
+updated_date: '2026-07-06 19:41'
 labels:
   - tooling
   - not-install-upgrade
 dependencies: []
+documentation:
+  - doc-026 - Self-hosted-GitHub-runner-on-niue-—-design-STATBUS-069.md
 ordinal: 69000
 ---
 
@@ -43,5 +45,11 @@ author: foreman
 created: 2026-07-06 17:31
 ---
 HYPOTHESIS CONFIRMED (2026-07-06, root inspection authorized by the King). Mechanism found and active: crowdsec on niue subscribes to the community blocklist (CAPI) — 38,822 active ban decisions, 38,821 from the community list, INVISIBLE in the default `cscli decisions list` (which showed zero; they appear only with -a). The community list currently bans hundreds of IPs inside the Azure prefixes GitHub Actions runners use: 399 in 20.x, 206 in 52.x, 72 in 4.x, 67 in 13.x, 64 in 40.x (cross-checked against api.github.com/meta actions ranges). A runner drawing a banned IP is firewall-DROPPED → exactly the observed `dial tcp 162.55.61.141:22: i/o timeout` signature (drop, not refusal), intermittent by IP lottery — the symptom fired again TODAY at 15:33 UTC during the board pushes. Local alert history (24 retained, all ssh brute-force from CN/VN/HK/etc.) contains zero Azure entries — the bans come from the community feed, not local detections, which is why they never showed in local alerts. FIX DIRECTION (King's proven pattern): self-hosted runner ON niue via docker compose — CI traffic never crosses the public SSH gate. Deliberately NOT whitelisting GitHub's ranges in crowdsec: attackers use GitHub runners for SSH attacks (the very reason the community list bans these IPs); a whitelist would re-open that door. COMPLEXITY: engineer-substantial. Buildable when prioritized.
+---
+
+author: architect
+created: 2026-07-06 19:41
+---
+DESIGN LANDED → doc-026 (architect, 2026-07-06; DESIGN ONLY — no server writes, no workflow edits, no runner registration). Core decision: the runner is a NETWORK-POSITION fix, not a privilege change — a repo-scoped ephemeral runner (GitHub's official image, own compose project under a new github-runner user, no docker socket, 2cpu/2g caps) moves the SSH CLIENT onto niue so CI never crosses the public gate; the per-slot keys + sshdo allowlists remain the sole authority for what CI may do. Load-bearing security rule (repo verified PUBLIC): no pull_request-triggered job ever carries the self-hosted labels — pg_regress splits into a hosted PR leg (unchanged, fork PRs keep failing harmlessly without secrets) and a self-hosted trusted leg; plus the require-approval-for-all-outside-collaborators repo setting as backstop. Migration order: runner idle → notify-all-clouds (canary) → pg_regress trusted legs → seq/docker-maintenance; rollback = one runs-on line per workflow. Loud-signal preserved: a hosted canary job fails red naming the runner when it is offline (a queued job would otherwise sit silent up to 24h). Explicitly NOT done, recorded so nobody simplifies to it later: whitelisting GitHub's public ranges in crowdsec (King-rejected); the only crowdsec change is whitelisting the private Docker bridge subnet so the runner cannot self-ban — unreachable from the public internet. Prior art: read-only niue inspection found no existing runner (seq is the log server); github-run.sh stays as the allowlist precedent. Awaiting the King's approval before any build.
 ---
 <!-- COMMENTS:END -->
