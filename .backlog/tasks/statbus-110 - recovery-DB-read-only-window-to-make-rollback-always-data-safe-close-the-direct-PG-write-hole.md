@@ -7,12 +7,13 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-06-26 11:30'
-updated_date: '2026-07-03 19:40'
+updated_date: '2026-07-06 16:05'
 labels:
   - upgrade
   - recovery
   - data-safety
-dependencies: []
+dependencies:
+  - STATBUS-071
 references:
   - doc/upgrade-vocabulary.md
   - cli/internal/upgrade/service.go
@@ -31,6 +32,14 @@ ordinal: 110000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+> NORTH STAR: no external write can slip into the destructive upgrade window, so rollback is always data-safe and recovery never has to stop for a human.
+> BENEFIT: closes the one remaining data-loss path in rollback (a direct-PG write landing mid-window and being silently erased by a restore) — the fact that made recovery conservative; with it proven, recovery stays autonomous. AC#1 proven; remaining gain = the crash-persistence proof + the formal 039 supersession so future readers inherit the right invariant.
+> STAGE: Stage 1.
+> COMPLEXITY: mixed — engineer: crash-mid-window arc (AC#2); architect: 039-supersession doc + decision-tree update (AC#3); mechanic-simple: the cost paragraph (AC#4).
+> DEPENDS ON: STATBUS-071 (AC#2's arc vehicle).
+
+---
+
 ## Why
 Surfaced reopening the "never restore on a guess" invariant (STATBUS-107 walkthrough, King 2026-06-26). During an upgrade's destructive+uncertain window the DIRECT Postgres path (Caddy Layer4 TCP) is UNGATED — maintenance mode is HTTP-only. A client with DB creds (a direct-PG integrator) can write during the window, and those writes are LOST on a rollback-restore. That data-loss risk is WHY recovery must never restore-on-a-guess (STATBUS-039) and instead holds for a human under uncertainty.
 
