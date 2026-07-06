@@ -6,17 +6,26 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-01 13:42'
-updated_date: '2026-07-03 10:45'
+updated_date: '2026-07-06 16:05'
 labels:
   - tooling
   - not-install-upgrade
-dependencies: []
+dependencies:
+  - STATBUS-133
 ordinal: 108000
 ---
 
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+> NORTH STAR: two checkouts can run their teams concurrently — ownership detected from the session/checkout, not a shared global name.
+> BENEFIT: the cross-clone deadlock that already bit a real session (couldn't spawn canonical names OR message replacements → forced specialist proliferation) becomes impossible, and the broken-symlink failure mode gets a named error instead of "unidentified caller" misdirection (three repair attempts lost to that).
+> STAGE: Team tooling.
+> COMPLEXITY: engineer-substantial (cwd/session-filtered roster in two hooks + the dangling-alias fallback + fixture tests).
+> DEPENDS ON: STATBUS-133 (hard in practice: same hook files; land after 133's commit to avoid conflicting edits).
+
+---
+
 ROOT CAUSE (proven 2026-07-01): `.claude/team.name = "statbus"` is git-tracked, so BOTH statbus checkouts (`/Users/jhf/ssb/statbus` and `/Users/jhf/ssb/statbus_speed`) resolve the SAME team name. A team name is a GLOBAL namespace (`${CLAUDE_CONFIG_DIR}/teams/<name>/config.json`) — ONE file shared by both clones. The live config's roster is ENTIRELY the OTHER clone's: `leadSessionId 2c632915`, all 6 members (team-lead/engineer/architect/mechanic/tester/operator) carry `agentId=…@session-2c632915` and `cwd=/Users/jhf/ssb/statbus`.
 
 CONSEQUENCE (the deadlock): from a statbus_speed session, `restrict-agent-spawn.sh` (name-collision guard, reads `.members[].name`) blocks spawning engineer/tester/etc. (they are "in the roster"), and `route-alias.sh` (`get_roster` = `.members[].name`) only accepts those 6 names for SendMessage — but they are not live in this session, so the harness silently drops the message. Net: cannot spawn canonical names, cannot message freshly-spawned `pg-*` names → every delegation forces a brand-new spawn (the specialist-proliferation anti-pattern).
