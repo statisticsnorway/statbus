@@ -251,11 +251,22 @@ func (f *File) String() string {
 
 // Save writes the file content back to disk.
 // Returns an error if the File was parsed from a string (no path).
+//
+// The written content always ends with a newline, even though String()
+// (used for in-memory composition, e.g. embedding into a larger generated
+// file) does not append one. Without this, a documented `echo 'KEY=value'
+// >> .env.config` append glues onto the last line instead of adding a new
+// one, silently corrupting both the last existing setting and the appended
+// key (see STATBUS-140).
 func (f *File) Save() error {
 	if f.path == "" {
 		return fmt.Errorf("dotenv: cannot save — no file path (parsed from string)")
 	}
-	return os.WriteFile(f.path, []byte(f.String()), 0644)
+	content := f.String()
+	if !strings.HasSuffix(content, "\n") {
+		content += "\n"
+	}
+	return os.WriteFile(f.path, []byte(content), 0644)
 }
 
 // Path returns the file path, or "" if parsed from string.

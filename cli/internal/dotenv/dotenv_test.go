@@ -311,8 +311,12 @@ invalid_no_equals
 			t.Fatal(err)
 		}
 
-		if reloaded.String() != content {
-			t.Errorf("roundtrip mismatch:\n--- got ---\n%s\n--- want ---\n%s", reloaded.String(), content)
+		// Save() guarantees a trailing newline (STATBUS-140) even though the
+		// original fixture content has none, so the roundtrip gains exactly
+		// one trailing newline versus the source string.
+		want := content + "\n"
+		if reloaded.String() != want {
+			t.Errorf("roundtrip mismatch:\n--- got ---\n%s\n--- want ---\n%s", reloaded.String(), want)
 		}
 	})
 }
@@ -349,6 +353,34 @@ func TestSaveAndReload(t *testing.T) {
 			t.Fatal(err)
 		}
 		assertGet(t, reloaded, "KEY", "new_value")
+	})
+}
+
+func TestSaveEndsWithNewline(t *testing.T) {
+	withTempFile(t, "KEY=value", func(path string) {
+		f, err := Load(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		f.Set("ADMINISTRATOR_CONTACT", "")
+		if err := f.Save(); err != nil {
+			t.Fatal(err)
+		}
+
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(data) == 0 || data[len(data)-1] != '\n' {
+			t.Fatalf("Save() must end with a newline, got %q", string(data))
+		}
+
+		// An operator append (`echo 'KEY=value' >> file`) must land on its
+		// own line, not glue onto the last written line.
+		appended := string(data) + "APPENDED_KEY=appended_value\n"
+		reloaded := FromString(appended)
+		assertGet(t, reloaded, "ADMINISTRATOR_CONTACT", "")
+		assertGet(t, reloaded, "APPENDED_KEY", "appended_value")
 	})
 }
 
