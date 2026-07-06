@@ -3,9 +3,10 @@ id: STATBUS-108
 title: >-
   worker-ddl-quiesce-ordering: end-to-end R1-quiesce proof via deterministic
   log-ordering (sidesteps the un-forceable timing race)
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-21 21:32'
+updated_date: '2026-07-06 15:58'
 labels:
   - install-recovery
   - upgrade
@@ -40,3 +41,9 @@ This sidesteps the un-forceable wedge timing race entirely (it proves the ORDERI
 
 REFERENCES: install.go:633-655 (R1 gate), service.go:4654-4665/:4207 (upgrade-path no-op), doc-017 §4 (worker-ddl design + the residual).
 <!-- SECTION:DESCRIPTION:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+CLOSE (King ruling 2026-07-06). Not grounded in an observable problem the King can judge; reopen only when an ordering failure is actually observed.
+<!-- SECTION:FINAL_SUMMARY:END -->
