@@ -3,9 +3,11 @@ id: STATBUS-140
 title: >-
   env-config-trailing-newline: generated .env.config must end with a newline —
   the documented operator append silently corrupts settings
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - mechanic
 created_date: '2026-07-06 07:41'
+updated_date: '2026-07-06 14:26'
 labels:
   - config
   - operator-ux
