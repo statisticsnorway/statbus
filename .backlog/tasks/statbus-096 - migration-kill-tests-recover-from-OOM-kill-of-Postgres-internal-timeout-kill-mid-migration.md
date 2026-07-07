@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-18 21:18'
-updated_date: '2026-07-07 04:10'
+updated_date: '2026-07-07 04:30'
 labels:
   - upgrade
   - testing
@@ -79,5 +79,11 @@ ARC CONSTRUCTION (postswap-migration-oom-arc, mechanic, the proven V_fail lineag
 EXPECTED OBSERVABLE CHAIN (stated with the honest uncertainty marked — the run is the oracle): migrate's psql loses its connection → the migrate step fails → the daemon's observed-state read initially cannot reach the DB → STATBUS-109's db-unreachable backoff-retry holds IN-PROCESS (this will be 109's first live firing in an arc — assert its named log line as a bonus leg) → the db container comes back (compose restart policy) + WAL recovery → the re-read says Behind (V's tx died uncommitted with its backend) → data-safe rollback → TERMINAL rolled_back. If the container does NOT auto-restart, the backoff exhausts → the same data-safe rollback (restoreDatabase is volume-level; rollback's own services-up brings the db back) → rolled_back either way. ASSERTION SPEC: midpoint pg_sleep-active + container-dead; the 109 backoff-retry marker (db-unreachable) in the log; terminal rolled_back (completed/failed → hard fail); V unrecorded (db.migration max == baseline); clean-slate fingerprint == post-A baseline; demo data intact; flag absent; NRestarts bounded — the DAEMON is never killed here, so the bound is the failing-arc's proven shape (the exit-42 handoff bump only); any daemon death would itself be a finding.
 
 BUILDER: mechanic per this ruling; architect reviews the arc before commit. Runs whenever a batch slot opens — no dependency on 095's knob.
+---
+
+author: foreman
+created: 2026-07-07 04:30
+---
+ADJUDICATION (architect, 2026-07-07): the mechanic's map-before-build trace REFUTED the construction ruling's causal narrative and the architect CONFIRMED it and went further — backoffRetry has exactly one call site (service.go:1085, the Resuming branch), and Run()'s boot does EnsureDBUp (docker compose up -d db, service.go:1808) on EVERY pass before any recovery branch, so after a single db kill the FRESH RE-RUN is destiny, not one arm of a race. The as-built arc (V_sleep=3600s, terminal rolled_back) would deterministically stall-red — derivable, not oracle territory. RESHAPE DISPATCHED (mechanic): V_sleep→60s, expected terminal COMPLETED (single-OOM contract = FORWARD recovery: boot revives db, uncommitted migration re-runs fresh, completes), assertion swap (V RECORDED + fixture present replace V-unrecorded/fingerprint), NRestarts ≤3 logged-observed, 109/017 markers best-effort. KING DECISION QUEUED: the 071 map cell literally says 'OOM → rolls back' — that wording matches the RECURRING-OOM story (a migration that OOMs every run → re-armed kill each midpoint → budget/same-step → Behind → rolled_back), which the architect pre-blessed as a SEPARATE follow-up arc, built only after the single-OOM arc is green and gated on the King blessing the split (single→completed, recurring→rolled_back) since it edits his cell's wording. The map cell is NOT edited until that nod.
 ---
 <!-- COMMENTS:END -->
