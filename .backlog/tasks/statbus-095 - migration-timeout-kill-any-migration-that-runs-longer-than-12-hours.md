@@ -4,7 +4,7 @@ title: 'migration-timeout: kill any migration that runs longer than 12 hours'
 status: To Do
 assignee: []
 created_date: '2026-06-18 21:18'
-updated_date: '2026-06-18 21:36'
+updated_date: '2026-07-07 04:09'
 labels:
   - upgrade
   - migration
@@ -54,3 +54,19 @@ DESIGN-FIRST: before implementing, reconcile the new 12-hour ceiling against the
 
 CLARITY ON SUCCESS: the load-bearing criterion is the CONFIGURABLE short threshold — that is exactly what lets STATBUS-096 scenario 2 exercise the real timeout-kill path in seconds instead of waiting 12 hours. The kill here is INTERNAL (our code's timeout fires); contrast STATBUS-096's OOM, which is an EXTERNAL kill of Postgres.
 <!-- SECTION:NOTES:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect
+created: 2026-07-07 04:09
+---
+CONSTRUCTION RULING (architect, 2026-07-07 — the artifact the King's approval and the build key on). PRODUCT FIRST, THEN ARC — two separately reviewed pieces.
+
+PIECE 1 — THE PRODUCT KNOB (engineer, reviewed diff BEFORE any arc work). The ceiling mechanism ALREADY EXISTS and is reused, not rebuilt: MigrateUpTimeout (watchdog.go:153, today 30 minutes) bounds every `sb migrate up` subprocess the upgrade system runs (boot-migrate, the applyPostSwap migrate step at service.go:5337, and the inline install's crash-recovery boot-migrate), and the #14 orphan-terminate (migrate_orphan machinery, noted at service.go:1884) already terminates the in-DB backend the killed subprocess leaves behind — the exact runaway-SQL problem a naive subprocess-kill would miss. The change: (a) RAISE the constant to the King's 12-hour allowance (a genuinely big Norway migration may legitimately need it; 30 minutes now that boot-migrate applies real deltas is too tight — this IS the ticket's reconciliation item AC#4); (b) make it ENV-OVERRIDABLE (e.g. STATBUS_MIGRATE_UP_TIMEOUT, parsed as a Go duration, default 12h, floor-guarded at something sane like 5s) so the arc can set seconds — the load-bearing criterion AC#2; (c) verify BOTH migrate sites (boot + applyPostSwap) run the orphan-terminate on timeout, not just boot — if the applyPostSwap site lacks it, add it in the same diff; (d) the timeout failure keeps its existing routing: step fails → observed state reads Behind (the killed migration is unrecorded) → in-process rollback → rolled_back — no new classification needed, and a NAMED log marker ('migration exceeded the ceiling (<duration>) — killed; rolling back') so the arc has a greppable observable. The 60-minute direct-CLI bound (migrate.go:503) is a DIFFERENT surface (developer terminal) and stays as-is — note that in the diff so AC#4's 'documented which bound changed and why' is discharged.
+
+PIECE 2 — THE ARC (mechanic, after piece 1 merges + its images build). postswap-migration-ceiling-arc, modeled on the proven V_fail lineage: construct B = A + V_sleep (fixture body `SELECT pg_sleep(3600);` — hand-authored WITHOUT its own BEGIN/END) via the 118 constructor; a dropin arms STATBUS_MIGRATE_UP_TIMEOUT=20s in the daemon env (the stall-dropin pattern, restart-for-env); real register → schedule → the daemon dispatches. OBSERVABLE CHAIN, in order: row in_progress → swap (exit-42 handoff, NRestarts +1) → migrate step starts V_sleep → MIDPOINT ANTI-VACUITY: poll pg_stat_activity for the active pg_sleep backend (the proven park/mid-tx pattern) — proves the migration genuinely ran INTO the ceiling rather than failing early → ceiling fires at ~20s: the named marker in the dispatch/progress log + subprocess killed + orphan backend terminated (assert the pg_sleep backend GONE within a short poll — the #14 leg observed live) → step fails → Behind → in-process rollback → TERMINAL: rolled_back. ASSERTION SPEC (the proven-arc discipline): midpoint pg_sleep-active; ceiling marker present; orphan backend gone; terminal rolled_back (completed/failed → hard fail); V unrecorded (db.migration max == baseline); clean-slate fingerprint == post-A baseline (this arc's rollback RESTORES the snapshot — the failing-arc apparatus verbatim); demo data intact; flag absent; NRestarts == the failing-arc's proven bound (the handoff bump only — the daemon survives the in-process rollback).
+
+SEQUENCING: piece 1 is a small, safety-relevant product diff → architect review before commit; the arc follows on its images. STATBUS-096's scenario 2 (internal timeout kill) IS this arc — it folds here and 096 keeps only the OOM scenario.
+---
+<!-- COMMENTS:END -->
