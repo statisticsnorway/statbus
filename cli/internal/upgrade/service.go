@@ -5417,6 +5417,15 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 			// conn BEFORE the rollback so its txn is deterministically aborted.
 			// Only on timeout: a clean migrate failure means psql exited.
 			if errors.Is(err, ErrCommandTimeout) {
+				// STATBUS-095: the migrate subprocess ran past MigrateUpTimeout (the 12h
+				// ceiling, or a STATBUS_MIGRATE_UP_TIMEOUT override) and was SIGKILLed at
+				// the ctx deadline. Emit the NAMED ceiling marker to the daemon journal
+				// BEFORE the orphan-reap + rollback so it precedes them — the greppable
+				// observable the STATBUS-095 ceiling arc keys on. The failure then routes
+				// by the existing path (a timeout is classUnknown → not parksOnFirst →
+				// postSwapFailure → observed state Behind → in-process rollback →
+				// rolled_back); no new classification.
+				fmt.Printf("migration exceeded the ceiling (%s) — killed; rolling back\n", MigrateUpTimeout)
 				d.terminateMigrateOrphan(ctx, progress)
 			}
 			// STATBUS-046 slice 2 (Q5): read the `sb migrate up` exit-code contract

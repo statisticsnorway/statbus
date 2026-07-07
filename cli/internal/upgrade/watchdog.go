@@ -2,6 +2,7 @@ package upgrade
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -136,21 +137,71 @@ const applyPostSwapStallThreshold = 3 * time.Minute
 // 120 s WatchdogSec budget gives wide jitter tolerance with trivial CPU cost.
 const applyPostSwapWatchdogCadence = 30 * time.Second
 
+// migrateUpTimeoutDefault is the STATBUS-095 ceiling: no migration on the
+// upgrade path runs longer than 12 hours. A genuinely big Norway-size migration
+// (CREATE INDEX / table rewrite on a huge table) may legitimately need most of a
+// day; the prior 30-minute bound was too tight now that boot-migrate applies
+// every upgrade's real migration delta (executeUpgrade Step 6b's unconditional
+// post-swap handoff). A migration exceeding this is KILLED at the ctx deadline
+// (the runCommandToLog CommandContext), the #14 orphan-terminate reaps the
+// in-DB backend the host-side SIGKILL leaves behind, and the failed step routes
+// by the existing path: observed state reads Behind → in-process rollback →
+// rolled_back. This IS the ticket's AC#4 reconciliation — the raise from 30m.
+const migrateUpTimeoutDefault = 12 * time.Hour
+
+// migrateUpTimeoutFloor guards the STATBUS_MIGRATE_UP_TIMEOUT override: a value
+// below this is clamped up (+ a WARN), so a fat-fingered override cannot make
+// the ceiling fire mid-legitimate-migration. 5s is low enough for the
+// STATBUS-095 ceiling arc to trigger the same real kill path in SECONDS (AC#2 —
+// the load-bearing criterion) yet high enough that no real migration hits it.
+const migrateUpTimeoutFloor = 5 * time.Second
+
 // MigrateUpTimeout bounds every `sb migrate up` subprocess the upgrade system
 // runs: the boot-migrate schema-skew guard in Service.Run, the applyPostSwap
 // migrate step, and (via cli/cmd — hence exported) the inline `./sb install`
-// crash-recovery boot-migrate. 30 minutes: a single big DDL on a large DB
-// (CREATE INDEX on a Norway-sized table) is legitimately SILENT for many
-// minutes — see the applyPostSwapStallThreshold note above — so the migrate
-// sites are exempted from output-gating (always-ping WATCHDOG=1 for the
-// duration) and bounded by THIS timeout instead of the watchdog.
+// crash-recovery boot-migrate. A single big DDL on a large DB is legitimately
+// SILENT for many minutes — see the applyPostSwapStallThreshold note above — so
+// the migrate sites are exempted from output-gating (always-ping WATCHDOG=1 for
+// the duration) and bounded by THIS timeout instead of the watchdog.
 //
-// One shared const so the sites cannot drift (STATBUS-012): boot-migrate sat
-// at 5 m while the applyPostSwap site had 30 m — yet after executeUpgrade
+// One shared value so the sites cannot drift (STATBUS-012): boot-migrate once
+// sat at 5 m while the applyPostSwap site had 30 m — yet after executeUpgrade
 // Step 6b's unconditional post-swap handoff it is BOOT-migrate that consumes
-// every upgrade's migration delta, making the generous budget on the
-// applyPostSwap site protection for a step that normally no-ops.
-const MigrateUpTimeout = 30 * time.Minute
+// every upgrade's migration delta, making a generous budget on the applyPostSwap
+// site protection for a step that normally no-ops.
+//
+// STATBUS-095: default migrateUpTimeoutDefault (12h), ENV-OVERRIDABLE via
+// STATBUS_MIGRATE_UP_TIMEOUT (a Go duration string, e.g. "20s", "6h"),
+// floor-guarded at migrateUpTimeoutFloor. Resolved ONCE at package init from the
+// process env — the daemon and the inline `./sb install` read it at start; a
+// unit restart picks up a changed env (the ceiling arc arms seconds via a
+// restart-for-env dropin). This is exported as a var (not a const) solely to
+// carry the env override; every call site is unchanged (`MigrateUpTimeout` as a
+// time.Duration value).
+var MigrateUpTimeout = resolveMigrateUpTimeout()
+
+// resolveMigrateUpTimeout reads STATBUS_MIGRATE_UP_TIMEOUT and returns the
+// effective ceiling: the parsed Go duration when valid and >= the floor; the
+// 12h default when unset or unparseable; the floor when a valid-but-too-small
+// value is given. Every non-default path WARNs to stderr so an operator (or the
+// arc log) sees exactly which ceiling is in force. Reads the env fresh on each
+// call so it is directly unit-testable.
+func resolveMigrateUpTimeout() time.Duration {
+	raw := os.Getenv("STATBUS_MIGRATE_UP_TIMEOUT")
+	if raw == "" {
+		return migrateUpTimeoutDefault
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "WARN: STATBUS_MIGRATE_UP_TIMEOUT=%q is not a valid Go duration (%v) — using the default %s\n", raw, err, migrateUpTimeoutDefault)
+		return migrateUpTimeoutDefault
+	}
+	if d < migrateUpTimeoutFloor {
+		fmt.Fprintf(os.Stderr, "WARN: STATBUS_MIGRATE_UP_TIMEOUT=%s is below the floor %s — clamping to the floor\n", d, migrateUpTimeoutFloor)
+		return migrateUpTimeoutFloor
+	}
+	return d
+}
 
 // runGatedWatchdogTicker is the shared bounded watchdog goroutine (plan
 // upgrade-resume-structural-whole.md piece #3). Three callers: applyPostSwap
