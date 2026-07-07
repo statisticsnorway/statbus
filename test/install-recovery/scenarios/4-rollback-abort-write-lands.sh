@@ -1,17 +1,28 @@
 #!/bin/bash
 # Scenario: 4-rollback-abort-write-lands  (STATBUS-136's own oracle — the
 # git-corrupt ABORT branch's terminal write survives, killing the r17 x3
-# death loop).
+# death loop — AND, promoted round 3 [architect autopsy], a live proof of
+# the flagless STATBUS-039 self-heal: this fabrication's commit_sha IS the
+# running binary's version, so once the flag + synthetic migration are gone
+# the very same boot that recorded the ABORT's 'failed' terminal is also a
+# genuinely-healthy-at-target box, and markCurrentVersionCompleted converts
+# it failed->completed, error->NULL. Both properties are asserted, each from
+# its own correctly-timed read — see the two combined state+error reads
+# below).
 #
 # MECHANISM — direct state fabrication (no dispatch, no claim gate, no real
 # executeUpgrade — same style as 3-postswap-resume-died-parked.sh's
 # fabricate_resume_state, see that file's header for the general rationale).
 # The point of THIS scenario is narrower and simpler than the park scenario:
 # prove that a SINGLE pass through rollback()'s git-corrupt ABORT branch now
-# concludes CLEANLY (state='failed', flag removed, one ordinary restart) —
-# ZERO kills required — where before STATBUS-136 it looped (r17: the ABORT's
-# own terminal write hit a DB it had just stopped, failed, kept the flag, and
-# the whole abort re-ran on the next restart, x3, forever).
+# concludes CLEANLY (state='failed', full ROLLBACK_FAILED_GIT_CORRUPT error,
+# flag removed, one ordinary restart) — ZERO kills required — where before
+# STATBUS-136 it looped (r17: the ABORT's own terminal write hit a DB it had
+# just stopped, failed, kept the flag, and the whole abort re-ran on the
+# next restart, x3, forever). Round 3's autopsy then found that the SAME
+# clean restart, being flagless AND genuinely at-target, self-heals to
+# 'completed' moments later — a real, separate, correct product behavior
+# this scenario now also asserts rather than being surprised by.
 #
 # WHY THIS IS A SEPARATE SCENARIO FROM rollback-pair-terminal-arc.sh
 # (STATBUS-134's oracle) — verified against shipped code, architect-ruled
@@ -103,6 +114,14 @@ echo "  HEAD: $HEAD_SHA ($(echo "$HEAD_SHA" | cut -c1-8))"
 
 row_state() { VM_EXEC bash -c "cd ~/statbus && echo 'SELECT state FROM public.upgrade ORDER BY id DESC LIMIT 1;' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "(db-down/?)"; }
 flag_present() { VM_EXEC bash -c "test -f ~/statbus/tmp/upgrade-in-progress.json && echo yes || echo no" 2>/dev/null | tr -d ' \r\n' || echo "no"; }
+# row_state_and_error — SELECT state + error in ONE query (park scenario's
+# recovery_row_cols pattern, pipe-separated). Used for the early combined
+# read immediately after the row leaves in_progress: a single query means
+# state and error are read from the SAME row snapshot, so there is no window
+# for the flagless self-heal boot (which needs daemon exit + RestartSec=30 +
+# boot — tens of seconds away) to change the answer between two separate
+# reads.
+row_state_and_error() { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state, COALESCE(error,'') FROM public.upgrade ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A -F'|'" 2>/dev/null | tr -d '\r'; }
 
 bootstrap_install_test_vm "$VM_NAME" "$INSTALL_VERSION"
 
@@ -215,6 +234,29 @@ while :; do
 done
 
 # ─────────────────────────────────────────────────────────────────────────
+# COMBINED early read (architect autopsy, round 3): state AND error must be
+# read from the SAME row snapshot, taken immediately here — the ABORT's
+# terminal write is complete at this point (single UPDATE, state='failed'
+# and the full ROLLBACK_FAILED_GIT_CORRUPT error land together), but this
+# fabricated row is a genuinely at-target shape (commit_sha IS the running
+# binary's version) on a box a flagless boot will find otherwise healthy —
+# so a LATER read races the flagless self-heal (markCurrentVersionCompleted),
+# which turns failed->completed and NULLs error. That self-heal cannot fire
+# before daemon exit + RestartSec=30s + boot, so this read (taken within
+# a few seconds of the wait loop's own break) is safe by comfortable margin
+# (>20s). Asserting here proves the ABORT terminal itself landed correctly,
+# independent of and before the self-heal this scenario now ALSO proves at
+# the end.
+# ─────────────────────────────────────────────────────────────────────────
+EARLY_ROW=$(row_state_and_error)
+EARLY_STATE=$(echo "$EARLY_ROW" | cut -d'|' -f1)
+EARLY_ERROR=$(echo "$EARLY_ROW" | cut -d'|' -f2-)
+echo "[OBSERVE] early combined read: state=$EARLY_STATE error=${EARLY_ERROR:0:100}..."
+[ "$EARLY_STATE" = "failed" ] || { echo "✗ expected the ABORT terminal 'failed' on the early read, got '$EARLY_STATE'" >&2; exit 1; }
+echo "$EARLY_ERROR" | grep -E "ROLLBACK_FAILED_GIT_CORRUPT" >/dev/null || { echo "✗ early error does not match ROLLBACK_FAILED_GIT_CORRUPT: $EARLY_ERROR" >&2; exit 1; }
+echo "  ✓ ABORT terminal landed correctly: state='failed', error matches ROLLBACK_FAILED_GIT_CORRUPT (read before the flagless self-heal window opens)"
+
+# ─────────────────────────────────────────────────────────────────────────
 # Delete the synthetic failing migration IMMEDIATELY the row leaves
 # in_progress — BEFORE any settle/NRestarts assertion (park-scenario cleanup
 # ordering, 3-postswap-resume-died-parked.sh:736-740, verbatim pattern).
@@ -260,38 +302,44 @@ done
 sleep 15
 
 echo ""
-echo "── convergence checks (ABORT concluded cleanly in ONE pass, zero kills) ──"
-echo "[OBSERVE] final row state: $FINAL_STATE"
-[ "$FINAL_STATE" != "rolled_back" ] || { echo "✗ state='rolled_back' — a git-restore-fail ABORT must record 'failed' (degraded, services stopped), never 'rolled_back' (which claims a healthy old-version box)" >&2; exit 1; }
-[ "$FINAL_STATE" != "completed" ] || { echo "✗ state='completed' — impossible on this route (ground truth read Behind, forward was never attempted)" >&2; exit 1; }
-[ "$FINAL_STATE" = "failed" ] || { echo "✗ expected terminal 'failed' (ABORT), got '$FINAL_STATE'" >&2; exit 1; }
-echo "  ✓ state='failed' (the ABORT's terminal, written by the FIRST and ONLY pass)"
+echo "── final convergence checks (the flagless self-heal, round-3 autopsy) ──"
+# By now the settle window has passed — comfortably past daemon exit +
+# RestartSec=30s + boot. The clean (flagless, thanks to the STATBUS-144
+# cleanup above) boot re-verifies ground truth: this fabrication's
+# commit_sha IS the running binary's version and the box is genuinely
+# healthy, so the SAME self-heal that resolves the rune class
+# (markCurrentVersionCompleted, STATBUS-039's designed at-target behavior)
+# converts the row failed->completed and NULLs error. A REAL abort box
+# (services actually stopped, genuinely not at-target) cannot self-heal this
+# way — this fabrication's "no resolvable git target" shape happens to also
+# be an at-target shape once the flag and migration are gone, which is
+# exactly what makes this scenario ALSO a live proof of the flagless
+# self-heal, not just of 136's terminal-write fix.
+FINAL_ROW=$(row_state_and_error)
+FINAL_STATE=$(echo "$FINAL_ROW" | cut -d'|' -f1)
+FINAL_ERROR=$(echo "$FINAL_ROW" | cut -d'|' -f2-)
+echo "[OBSERVE] final row: state=$FINAL_STATE error='${FINAL_ERROR}'"
+[ "$FINAL_STATE" = "completed" ] || { echo "✗ expected the flagless self-heal to converge to 'completed', got '$FINAL_STATE'" >&2; exit 1; }
+[ -z "$FINAL_ERROR" ] || { echo "✗ expected error IS NULL after the self-heal, got '$FINAL_ERROR'" >&2; exit 1; }
+echo "  ✓ state='completed', error IS NULL (the flagless self-heal converged cleanly, on top of the ABORT terminal already proven above)"
 
-assert_upgrade_row_error_matches "$VM_NAME" "ROLLBACK_FAILED_GIT_CORRUPT"
 assert_flag_file_absent "$VM_NAME"
 echo "  ✓ flag removed — the terminal write landed (STATBUS-136's fix: this used to hang the flag forever on a stopped DB, r17 x3)"
 
 # NRestarts bound of 1: this scenario never kills anything — the ONLY
 # restart in its entire lifetime is the ABORT branch's own unconditional
-# os.Exit(1) (rc.67 trifecta) after its terminal write succeeds. Anything
-# higher means the box is still looping (the exact r17 pathology 136 fixed).
+# os.Exit(1) (rc.67 trifecta) after its terminal write succeeds; the
+# flagless self-heal runs INSIDE that one restart's boot, not a second one.
+# Anything higher means the box is still looping (the exact r17 pathology
+# 136 fixed, or the STATBUS-144 flagless-migration churn the cleanup step
+# above prevents).
 assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 1
 
 CALLBACK_COUNT=$(VM_EXEC bash -c "wc -l < $CALLBACK_LOG 2>/dev/null" | tr -d ' \r\n' || echo "0")
 echo "  callback log line count: $CALLBACK_COUNT"
 [ "$CALLBACK_COUNT" = "1" ] || { echo "✗ expected exactly 1 callback line, got $CALLBACK_COUNT" >&2; VM_EXEC bash -c "cat $CALLBACK_LOG 2>/dev/null" >&2 || true; exit 1; }
 VM_EXEC bash -c "cat $CALLBACK_LOG" | grep -q "^1 " || { echo "✗ callback line does not carry STATBUS_ROLLBACK_FAILED=1" >&2; exit 1; }
-echo "  ✓ exactly one STATBUS_ROLLBACK_FAILED=1 callback fired (STATBUS-137's STATBUS_EVENT gap noted, not asserted)"
-
-# Note (intentionally NOT asserted here): the box is in the ABORT's
-# degraded-but-recorded state — services were stopped for the (never-run)
-# restore and this branch never brings them back up (maintenance stays ON,
-# by design, until an operator completes the manual recovery steps the
-# ABORT's progress log prints). health-passes / demo-data assertions do not
-# apply to this terminal the way they do to rollback-pair-terminal's (whose
-# services were never touched past the stop). This scenario's contract is
-# narrowly: does the terminal WRITE land, and does the box stay alive-idle
-# rather than crash-loop.
+echo "  ✓ exactly one STATBUS_ROLLBACK_FAILED=1 callback fired (STATBUS-137's STATBUS_EVENT gap noted, not asserted; fired by the ABORT branch, before the self-heal)"
 
 echo ""
-echo "PASS: 4-rollback-abort-write-lands (the git-corrupt ABORT branch concluded in exactly ONE pass — zero kills — state='failed', flag removed, callback fired once, unit alive-idle with NRestarts bounded at 1; STATBUS-136 killed the r17 x3 death loop)"
+echo "PASS: 4-rollback-abort-write-lands (the git-corrupt ABORT branch concluded in exactly ONE pass — zero kills — state='failed' + ROLLBACK_FAILED_GIT_CORRUPT error read early and correctly; the STATBUS-144 cleanup then let the SAME boot's flagless self-heal converge the row to state='completed'/error=NULL; flag removed, callback fired once, unit alive-idle with NRestarts bounded at 1; STATBUS-136 killed the r17 x3 death loop, and this scenario now also live-proves the flagless self-heal)"
