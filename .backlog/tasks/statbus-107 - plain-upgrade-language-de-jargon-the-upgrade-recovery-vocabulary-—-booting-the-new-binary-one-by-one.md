@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-21 19:41'
-updated_date: '2026-07-06 23:39'
+updated_date: '2026-07-07 00:00'
 labels:
   - upgrade
   - recovery
@@ -149,5 +149,11 @@ author: foreman
 created: 2026-07-06 23:39
 ---
 OPERATOR-FACING STRING PASS SHIPPED: 6c90e2964 (2026-07-07). All ~20 operator-visible strings in service.go/root.go now use the ratified registry vocabulary (architect verified every slug against doc/upgrade-vocabulary.md; two corrections to exact registry terms applied at commit: the detail slug is new-sb-upgrading, the third verdict is position-unreadable). Diagrams' labels aligned + SVGs regenerated. The mechanic also corrected this ticket's stale 'STILL OPEN' notes (mechanisms-naming and diagram-structure work were already done). REMAINING — the ticket stays In Progress on exactly two named residuals: (1) the Go IDENTIFIER renames (GroundTruth* / FlagPhase* names; wire values untouched) — engineer slice; (2) the parked on-disk Phase serialization — arc-gated behind STATBUS-071.
+---
+
+author: foreman
+created: 2026-07-07 00:00
+---
+IDENTIFIER SLICE SHIPPED: b2a54dc69 (2026-07-07). ObservedState family + Phase constant names now follow the registry slugs; wire values byte-identical (string-literal set-diff proof + flag round-trip tests); ~100 coupled comments de-jargoned with their identifiers; the one missed operator string fixed to the ratified wording; ground_truth_test.go → observed_state_test.go. THE TICKET'S PRECISE REMAINDER, both parked behind STATBUS-071 by architect ruling: (residual A) the post-swap FUNCTION-family rename — resumePostSwap, applyPostSwap, postSwapFailure, updateFlagPostSwap, writeFlagPhase, IsServiceForwardRecovery + ~250 coupled comment mentions, names to follow the registry slugs, lands AFTER the 071 arc campaign settles (that family is exactly the code the arcs exercise; renaming mid-proof multiplies re-verification cost for a purely internal surface); (residual B) the on-disk Phase serialization change — arc-gated, unchanged. Everything operator-visible and every wire value is done.
 ---
 <!-- COMMENTS:END -->
