@@ -36,7 +36,7 @@ func TestUpgradeFlagJSONRoundTrip_PostSwap(t *testing.T) {
 		InvokedBy:  "test",
 		Trigger:    "notify",
 		Holder:     HolderService,
-		Phase:      FlagPhasePostSwap,
+		Phase:      PhaseNewSbSwapped,
 		Recreate:   true,
 		BackupPath: "/home/x/statbus-backups/pre-upgrade-20260422T010203Z",
 	}
@@ -51,8 +51,8 @@ func TestUpgradeFlagJSONRoundTrip_PostSwap(t *testing.T) {
 		t.Fatalf("unmarshal: %v", err)
 	}
 
-	if got.Phase != FlagPhasePostSwap {
-		t.Errorf("Phase: got %q, want %q", got.Phase, FlagPhasePostSwap)
+	if got.Phase != PhaseNewSbSwapped {
+		t.Errorf("Phase: got %q, want %q", got.Phase, PhaseNewSbSwapped)
 	}
 	if !got.Recreate {
 		t.Errorf("Recreate: got false, want true")
@@ -64,7 +64,7 @@ func TestUpgradeFlagJSONRoundTrip_PostSwap(t *testing.T) {
 
 // TestUpgradeFlagJSONLegacy_OmitsOptionalFields verifies that legacy
 // pre-Option-C flag files (no phase/recreate/backup_path keys) round-trip
-// to zero values — the Phase="" default means FlagPhasePreSwap, which is
+// to zero values — the Phase="" default means PhaseOldSbUpgrading, which is
 // the pre-existing semantic.
 func TestUpgradeFlagJSONLegacy_OmitsOptionalFields(t *testing.T) {
 	legacyJSON := []byte(`{
@@ -81,8 +81,8 @@ func TestUpgradeFlagJSONLegacy_OmitsOptionalFields(t *testing.T) {
 	if err := json.Unmarshal(legacyJSON, &flag); err != nil {
 		t.Fatalf("unmarshal legacy: %v", err)
 	}
-	if flag.Phase != FlagPhasePreSwap {
-		t.Errorf("legacy Phase: got %q, want empty (FlagPhasePreSwap)", flag.Phase)
+	if flag.Phase != PhaseOldSbUpgrading {
+		t.Errorf("legacy Phase: got %q, want empty (PhaseOldSbUpgrading)", flag.Phase)
 	}
 	if flag.Recreate {
 		t.Errorf("legacy Recreate: got true, want false")
@@ -133,8 +133,8 @@ func TestWriteUpgradeFlag_PersistsRecreate(t *testing.T) {
 			if flag.Recreate != recreate {
 				t.Errorf("Recreate: got %v, want %v", flag.Recreate, recreate)
 			}
-			if flag.Phase != FlagPhasePreSwap {
-				t.Errorf("initial Phase: got %q, want empty (FlagPhasePreSwap)", flag.Phase)
+			if flag.Phase != PhaseOldSbUpgrading {
+				t.Errorf("initial Phase: got %q, want empty (PhaseOldSbUpgrading)", flag.Phase)
 			}
 			if flag.BackupPath != "" {
 				t.Errorf("initial BackupPath: got %q, want empty", flag.BackupPath)
@@ -170,8 +170,8 @@ func TestUpdateFlagPostSwap_RewritesInPlace(t *testing.T) {
 	if err := json.Unmarshal(data, &flag); err != nil {
 		t.Fatalf("unmarshal flag: %v", err)
 	}
-	if flag.Phase != FlagPhasePostSwap {
-		t.Errorf("Phase: got %q, want %q", flag.Phase, FlagPhasePostSwap)
+	if flag.Phase != PhaseNewSbSwapped {
+		t.Errorf("Phase: got %q, want %q", flag.Phase, PhaseNewSbSwapped)
 	}
 	if flag.BackupPath != backup {
 		t.Errorf("BackupPath: got %q, want %q", flag.BackupPath, backup)
@@ -201,7 +201,7 @@ func TestUpdateFlagPostSwap_RejectsNoFd(t *testing.T) {
 	}
 }
 
-// TestRecoverFromFlag_PhaseRoutingAndGroundTruthFirst is the structural
+// TestRecoverFromFlag_PhaseRoutingAndObservedStateFirst is the structural
 // guard for recoverFromFlag's routing after STATBUS-039:
 //
 //  1. Every produced phase has an explicit branch (PreSwap "", PostSwap,
@@ -210,15 +210,15 @@ func TestUpdateFlagPostSwap_RejectsNoFd(t *testing.T) {
 //  2. The pre-039 HEAD=target self-heal segment is GONE from recoverFromFlag
 //     (it was unreachable for every producible phase, and its headSHA
 //     discriminator misclassified harness/checkout states). The function
-//     must NOT regrow a `git rev-parse HEAD` discriminator — ground truth
-//     (verifyUpgradeGroundTruthEx) is the only direction oracle.
-//  3. In the Resuming branch, ground truth is consulted BEFORE
+//     must NOT regrow a `git rev-parse HEAD` discriminator — observed state
+//     (verifyUpgradeObservedStateEx) is the only direction oracle.
+//  3. In the Resuming branch, observed state is consulted BEFORE
 //     recoveryRollback can run (rule 1: forward when logically possible —
 //     a died attempt is not impossibility). The pre-039 one-shot latch
 //     rolled back unconditionally: one transient failure, no second chance,
 //     a restore behind it (the rune id=187 shape).
 //  4. An unknown phase fails LOUD (FLAG_PHASE_UNKNOWN) instead of guessing.
-func TestRecoverFromFlag_PhaseRoutingAndGroundTruthFirst(t *testing.T) {
+func TestRecoverFromFlag_PhaseRoutingAndObservedStateFirst(t *testing.T) {
 	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
 	if err != nil {
 		t.Fatalf("read service.go: %v", err)
@@ -239,7 +239,7 @@ func TestRecoverFromFlag_PhaseRoutingAndGroundTruthFirst(t *testing.T) {
 	fn := rest[:end[1]]
 
 	// (1) Phase discrimination present; PostSwap routes to resumePostSwap.
-	phaseIdx := strings.Index(fn, "flag.Phase == FlagPhasePostSwap")
+	phaseIdx := strings.Index(fn, "flag.Phase == PhaseNewSbSwapped")
 	if phaseIdx < 0 {
 		t.Fatal("recoverFromFlag missing the PostSwap phase branch — a post-swap restart would be misrouted")
 	}
@@ -255,29 +255,29 @@ func TestRecoverFromFlag_PhaseRoutingAndGroundTruthFirst(t *testing.T) {
 	if strings.Contains(fn, `"git", "rev-parse", "HEAD"`) {
 		t.Error("recoverFromFlag must NOT contain a git rev-parse HEAD discriminator — " +
 			"the dead HEAD=target self-heal segment was removed (STATBUS-039); " +
-			"direction is decided by verifyUpgradeGroundTruthEx in the phase branches, not by HEAD comparison")
+			"direction is decided by verifyUpgradeObservedStateEx in the phase branches, not by HEAD comparison")
 	}
 
-	// (3) Resuming branch: ground truth BEFORE rollback.
-	resumingIdx := strings.Index(fn, "flag.Phase == FlagPhaseResuming")
+	// (3) Resuming branch: observed state BEFORE rollback.
+	resumingIdx := strings.Index(fn, "flag.Phase == PhaseNewSbUpgrading")
 	if resumingIdx < 0 {
 		t.Fatal("recoverFromFlag missing the Resuming phase branch")
 	}
 	resumingBranch := fn[resumingIdx:]
-	if nextBranch := strings.Index(resumingBranch, "flag.Phase == FlagPhasePostSwap"); nextBranch > 0 {
+	if nextBranch := strings.Index(resumingBranch, "flag.Phase == PhaseNewSbSwapped"); nextBranch > 0 {
 		resumingBranch = resumingBranch[:nextBranch]
 	}
-	gtIdx := strings.Index(resumingBranch, "verifyUpgradeGroundTruthEx")
+	obsIdx := strings.Index(resumingBranch, "verifyUpgradeObservedStateEx")
 	rbIdx := strings.Index(resumingBranch, "recoveryRollback")
-	if gtIdx < 0 {
-		t.Fatal("Resuming branch must consult verifyUpgradeGroundTruthEx (STATBUS-039 rule 1: ground truth decides direction before any rollback)")
+	if obsIdx < 0 {
+		t.Fatal("Resuming branch must consult verifyUpgradeObservedStateEx (STATBUS-039 rule 1: ground truth decides direction before any rollback)")
 	}
 	if rbIdx < 0 {
 		t.Fatal("Resuming branch must retain the positively-behind rollback path (recoveryRollback)")
 	}
-	if gtIdx > rbIdx {
-		t.Errorf("ground truth must be consulted BEFORE recoveryRollback in the Resuming branch (gtIdx=%d, rbIdx=%d) — "+
-			"otherwise one died resume latches the next recovery into a restore over a possibly at-target box", gtIdx, rbIdx)
+	if obsIdx > rbIdx {
+		t.Errorf("ground truth must be consulted BEFORE recoveryRollback in the Resuming branch (obsIdx=%d, rbIdx=%d) — "+
+			"otherwise one died resume latches the next recovery into a restore over a possibly at-target box", obsIdx, rbIdx)
 	}
 	if !strings.Contains(resumingBranch, "d.resumePostSwap(ctx, flag)") {
 		t.Error("Resuming branch must route the at-target/unverifiable verdicts FORWARD via d.resumePostSwap")
@@ -401,33 +401,33 @@ func stripLineComments(src string) string {
 	return b.String()
 }
 
-// TestPostSwapFailure_GroundTruthBeforeRollback is the structural guard for
+// TestPostSwapFailure_ObservedStateBeforeRollback is the structural guard for
 // STATBUS-039 rule 1 at the applyPostSwap failure chokepoint: every step
 // failure routes through postSwapFailure, and postSwapFailure must consult
-// ground truth (verifyUpgradeGroundTruthEx) BEFORE d.rollback can run.
-// Only a POSITIVELY-behind verdict may restore; at-target and unverifiable
+// observed state (verifyUpgradeObservedStateEx) BEFORE d.rollback can run.
+// Only a POSITIVELY-behind verdict may restore; already-at-new and unverifiable
 // verdicts record the failure non-terminally and retry forward on the next
 // recovery pass. Without this ordering, one transient health blip on an
-// at-target box (rune id=187: everything at target except a lagging proxy)
+// already-at-new box (rune id=187: everything at target except a lagging proxy)
 // routes into a snapshot restore — destroying anything written past the
 // maintenance-off commit point.
-func TestPostSwapFailure_GroundTruthBeforeRollback(t *testing.T) {
+func TestPostSwapFailure_ObservedStateBeforeRollback(t *testing.T) {
 	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
 	if err != nil {
 		t.Fatalf("read service.go: %v", err)
 	}
 	body := extractFuncBody(t, string(src), "func (d *Service) postSwapFailure(")
 
-	gtIdx := strings.Index(body, "verifyUpgradeGroundTruthEx")
+	obsIdx := strings.Index(body, "verifyUpgradeObservedStateEx")
 	rbIdx := strings.Index(body, "d.rollback(")
-	if gtIdx < 0 {
-		t.Fatal("postSwapFailure must consult verifyUpgradeGroundTruthEx (STATBUS-039 rule 1)")
+	if obsIdx < 0 {
+		t.Fatal("postSwapFailure must consult verifyUpgradeObservedStateEx (STATBUS-039 rule 1)")
 	}
 	if rbIdx < 0 {
 		t.Fatal("postSwapFailure must retain the positively-behind rollback path (d.rollback)")
 	}
-	if gtIdx > rbIdx {
-		t.Errorf("ground truth must be consulted BEFORE d.rollback in postSwapFailure (gtIdx=%d, rbIdx=%d)", gtIdx, rbIdx)
+	if obsIdx > rbIdx {
+		t.Errorf("ground truth must be consulted BEFORE d.rollback in postSwapFailure (obsIdx=%d, rbIdx=%d)", obsIdx, rbIdx)
 	}
 	// The non-Behind verdicts must return WITHOUT rollback: the early
 	// return goes through recordInProgressFailure (non-terminal, row stays
@@ -435,8 +435,8 @@ func TestPostSwapFailure_GroundTruthBeforeRollback(t *testing.T) {
 	if !strings.Contains(body, "recordInProgressFailure") {
 		t.Error("postSwapFailure's at-target/unverifiable branch must record the failure non-terminally (recordInProgressFailure) and keep the row in_progress for the forward retry")
 	}
-	if !strings.Contains(body, "GroundTruthBehind") {
-		t.Error("postSwapFailure must discriminate on GroundTruthBehind — restore only on a POSITIVE behind verdict, never under uncertainty")
+	if !strings.Contains(body, "ObservedCannotReachNew") {
+		t.Error("postSwapFailure must discriminate on ObservedCannotReachNew — restore only on a POSITIVE behind verdict, never under uncertainty")
 	}
 }
 

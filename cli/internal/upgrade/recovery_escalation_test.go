@@ -16,7 +16,7 @@ import (
 // replaces the rune loop-forever. These lock the two terminal triggers (budget
 // exhaustion + same-step-twice), the death-count boundary (deaths == attempts-1;
 // RecoveryDeathBudget deaths exhaust it, so the resume at attempts==budget+1 is
-// terminal), and the safety routing (terminal → park at-target / rollback when
+// terminal), and the safety routing (terminal → park already-at-new / rollback when
 // data-safe). Direction is 039's; this only bounds how-long/how-loud.
 
 func TestResumeEscalation_ContinuesWithinBudgetDifferentSteps(t *testing.T) {
@@ -41,7 +41,7 @@ func TestResumeEscalation_BudgetBoundaryAtTarget(t *testing.T) {
 	if a, _ := resumeEscalation(RecoveryDeathBudget, StepHealthCheck, StepMigrateUp, false); a != recoveryContinue {
 		t.Fatalf("attempt %d (deaths %d < budget %d) must still run; got %s", RecoveryDeathBudget, RecoveryDeathBudget-1, RecoveryDeathBudget, a)
 	}
-	// attempts == budget+1 (deaths == budget) → exhausted → park (at-target).
+	// attempts == budget+1 (deaths == budget) → exhausted → park (already-at-new).
 	a, reason := resumeEscalation(RecoveryDeathBudget+1, StepHealthCheck, StepMigrateUp, false)
 	if a != recoveryPark {
 		t.Fatalf("budget+1 at-target must PARK; got %s", a)
@@ -264,7 +264,7 @@ func TestRecoveryBudgetGuard_DefersOnRollbackStep(t *testing.T) {
 // must PARKED-SKIP before it arms `defer d.removeUpgradeFlag()`, or the defer strips
 // the flag from a parked row (parked rows are state='in_progress', so the routine's
 // SELECT matches them) → next boot is flag-blind → RecoveryBudgetGuard no-op →
-// ungated boot-migrate boot-loop; and a parked at-target row could be mis-marked
+// ungated boot-migrate boot-loop; and a parked already-at-new row could be mis-marked
 // 'completed'. The load-bearing invariant is the ORDER: the parked-skip must precede
 // the defer (its `return` fires before the defer arms). Source-order guard —
 // completeInProgressUpgrade needs a live DB to exercise behaviorally.
@@ -298,7 +298,7 @@ func TestCompleteInProgressUpgrade_ParkedSkipPrecedesFlagStrip(t *testing.T) {
 func TestClearFlagStepHistory_ClearsDeathHistoryPreservesRest(t *testing.T) {
 	dir := t.TempDir()
 	seed := UpgradeFlag{
-		ID: 7, CommitSHA: "abc123", Holder: HolderService, Phase: FlagPhaseResuming,
+		ID: 7, CommitSHA: "abc123", Holder: HolderService, Phase: PhaseNewSbUpgrading,
 		Step: StepBootMigrate, PriorDeathStep: StepBootMigrate,
 	}
 	lock, err := acquireFlock(dir, seed)
@@ -319,7 +319,7 @@ func TestClearFlagStepHistory_ClearsDeathHistoryPreservesRest(t *testing.T) {
 		t.Errorf("death history not cleared: Step=%q PriorDeathStep=%q (both must be empty so a fresh attempt has no prior death)", got.Step, got.PriorDeathStep)
 	}
 	// Everything else must be preserved (identity, phase, holder).
-	if got.ID != 7 || got.CommitSHA != "abc123" || got.Holder != HolderService || got.Phase != FlagPhaseResuming {
+	if got.ID != 7 || got.CommitSHA != "abc123" || got.Holder != HolderService || got.Phase != PhaseNewSbUpgrading {
 		t.Errorf("ClearFlagStepHistory must preserve non-step fields; got %+v", *got)
 	}
 

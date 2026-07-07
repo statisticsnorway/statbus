@@ -69,7 +69,7 @@ type recoveryAction int
 
 const (
 	recoveryContinue recoveryAction = iota // proceed with this forward attempt
-	recoveryPark                           // at-target: stop + park (siren once, alive-idle)
+	recoveryPark                           // already-at-new: stop + park (siren once, alive-idle)
 	recoveryRollback                       // data-safe: roll back to this upgrade's snapshot
 )
 
@@ -94,7 +94,7 @@ func (a recoveryAction) String() string {
 //     flag); "" when unknown (the very first attempt, or a crash before any
 //     step was recorded).
 //   - priorDeathStep: the deathStep recorded at the PREVIOUS resume.
-//   - canRollBack: ground truth (STATBUS-039) says a rollback is data-safe
+//   - canRollBack: observed state (STATBUS-039) says a rollback is data-safe
 //     (pre-swap, or positively-Behind). Direction is NEVER decided here — this
 //     only routes a TERMINAL outcome to its safe terminal. Forward-vs-back is
 //     039's call; 046 governs only how-long / how-loud forward is tried.
@@ -106,7 +106,7 @@ func (a recoveryAction) String() string {
 //   - otherwise → continue.
 //
 // A terminal outcome routes by canRollBack: true → rollback (data-safe), false
-// → park (at-target — can't roll back; the loop-forever regime this ticket
+// → park (already-at-new — can't roll back; the loop-forever regime this ticket
 // kills). The park/rollback split is the ONLY place phase matters, and it is a
 // safety routing, never a direction decision.
 func resumeEscalation(attempts int, deathStep, priorDeathStep string, canRollBack bool) (action recoveryAction, reason string) {
@@ -167,7 +167,7 @@ func rollbackResumeIsTerminal(step, priorStep string) bool {
 // ─────────────────────────────────────────────────────────────────────────────
 // STATBUS-046 slice 2 — B/C failure classification (park-on-first).
 //
-// A step failure at-target already funnels into the death budget (postSwapFailure
+// A step failure already-at-new already funnels into the death budget (postSwapFailure
 // records the failure and returns → the process exits → the next crash-resume
 // increments recovery_attempts; after 3 deaths it parks). Slice 2 SHORT-CIRCUITS
 // that for a PROVABLY-deterministic (B) or resource (C) failure: park on the

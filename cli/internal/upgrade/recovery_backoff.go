@@ -27,7 +27,7 @@ import (
 // (classifyStepError); everything else is unknown → human stop.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// UnknownCause types WHY a ground-truth read returned GroundTruthUnknown, so the
+// UnknownCause types WHY a observed-state read returned ObservedPositionUnreadable, so the
 // recovery dispatch can branch on a typed value instead of re-parsing a reason
 // string (reach-for-types, doc-022 §1). The enum IS the curated known-
 // intermittent list at the position-read surface: nothing reaches backoff-retry
@@ -87,7 +87,7 @@ type retrySpec struct {
 	name   string                      // "db-unreachable" | "commit-not-fetched" — log + error text
 	gaps   []time.Duration             // backoff sequence; the LAST value is the cap (reused after the list)
 	budget time.Duration               // overall ceiling; on a failed try with elapsed >= budget → ErrRetryExhausted
-	probe  func(context.Context) error // one attempt; nil == cleared (caller re-reads ground truth)
+	probe  func(context.Context) error // one attempt; nil == cleared (caller re-reads observed state)
 }
 
 // backoffRetry runs spec.probe on spec's backoff schedule until it clears
@@ -154,7 +154,7 @@ func (d *Service) heartbeatingSleep(ctx context.Context, total time.Duration) er
 // upgrade-actor mutex the old exit-restart re-took on the fresh process — and
 // re-applies the STATBUS-110 read-only self-exempt), then a trivial SELECT 1
 // confirms the DB is actually reachable. On clear, queryConn is live +
-// write-enabled for the immediate ground-truth re-read. A 5s per-try timeout
+// write-enabled for the immediate observed-state re-read. A 5s per-try timeout
 // keeps each attempt a quick check, never a transfer.
 func (d *Service) dbUnreachableSpec() retrySpec {
 	return retrySpec{

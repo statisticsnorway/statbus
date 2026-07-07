@@ -18,12 +18,12 @@ func TestIsServiceForwardRecovery(t *testing.T) {
 		flag *UpgradeFlag
 		want bool
 	}{
-		{"service + post_swap → resume forward", &UpgradeFlag{Holder: HolderService, CommitSHA: sha, Phase: FlagPhasePostSwap}, true},
-		{"service + resuming → resume forward", &UpgradeFlag{Holder: HolderService, CommitSHA: sha, Phase: FlagPhaseResuming}, true},
-		{"service + pre_swap → rolls back, tree stays source", &UpgradeFlag{Holder: HolderService, CommitSHA: sha, Phase: FlagPhasePreSwap}, false},
-		{"install-held → no forward resume", &UpgradeFlag{Holder: HolderInstall, CommitSHA: sha, Phase: FlagPhasePostSwap}, false},
-		{"empty CommitSHA → no target to check out", &UpgradeFlag{Holder: HolderService, CommitSHA: "", Phase: FlagPhasePostSwap}, false},
-		{"empty Holder (legacy) → not the forward fast-path", &UpgradeFlag{Holder: "", CommitSHA: sha, Phase: FlagPhasePostSwap}, false},
+		{"service + post_swap → resume forward", &UpgradeFlag{Holder: HolderService, CommitSHA: sha, Phase: PhaseNewSbSwapped}, true},
+		{"service + resuming → resume forward", &UpgradeFlag{Holder: HolderService, CommitSHA: sha, Phase: PhaseNewSbUpgrading}, true},
+		{"service + pre_swap → rolls back, tree stays source", &UpgradeFlag{Holder: HolderService, CommitSHA: sha, Phase: PhaseOldSbUpgrading}, false},
+		{"install-held → no forward resume", &UpgradeFlag{Holder: HolderInstall, CommitSHA: sha, Phase: PhaseNewSbSwapped}, false},
+		{"empty CommitSHA → no target to check out", &UpgradeFlag{Holder: HolderService, CommitSHA: "", Phase: PhaseNewSbSwapped}, false},
+		{"empty Holder (legacy) → not the forward fast-path", &UpgradeFlag{Holder: "", CommitSHA: sha, Phase: PhaseNewSbSwapped}, false},
 		{"nil flag (no flag file present)", nil, false},
 	}
 	for _, tc := range cases {

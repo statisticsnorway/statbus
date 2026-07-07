@@ -49,7 +49,7 @@ func TestRestoreDatabase_AsideRenameWindow_NeverSelectsByRecency(t *testing.T) {
 	root := scopedBackupRoot(t)
 	legacyOld := makeBackupDir(t, root, "pre-upgrade-20260101T120000Z")
 	legacyNew := makeBackupDir(t, root, "pre-upgrade-20260615T060000Z") // the recency trap
-	syncing := makeBackupDir(t, root, backupSyncingName)               // the partial
+	syncing := makeBackupDir(t, root, backupSyncingName)                // the partial
 	// NO active dir — consumed by the aside-rename.
 
 	d := &Service{}
@@ -362,7 +362,7 @@ func TestH2_BackupDatabaseSingleCallSiteNotInResume(t *testing.T) {
 // during the INITIAL rsync (syncing exists, no active, flag NOT yet post_swap)
 // leaves a flag that never references an absent active, and recovery never tries
 // to restore from one. Structurally: only updateFlagPostSwap assigns
-// flag.BackupPath, and it sets Phase = FlagPhasePostSwap in the same function.
+// flag.BackupPath, and it sets Phase = PhaseNewSbSwapped in the same function.
 func TestH2_FlagBackupPathSetOnlyAtPostSwap(t *testing.T) {
 	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
 	if err != nil {
@@ -379,7 +379,7 @@ func TestH2_FlagBackupPathSetOnlyAtPostSwap(t *testing.T) {
 	if !strings.Contains(body, "flag.BackupPath =") {
 		t.Error("updateFlagPostSwap must be the function that sets flag.BackupPath (post_swap only)")
 	}
-	if !strings.Contains(body, "FlagPhasePostSwap") {
-		t.Error("updateFlagPostSwap must set Phase = FlagPhasePostSwap alongside BackupPath — the two must move together so a pre-post_swap kill never references active")
+	if !strings.Contains(body, "PhaseNewSbSwapped") {
+		t.Error("updateFlagPostSwap must set Phase = PhaseNewSbSwapped alongside BackupPath — the two must move together so a pre-post_swap kill never references active")
 	}
 }

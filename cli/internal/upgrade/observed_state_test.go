@@ -12,30 +12,30 @@ import (
 	"testing"
 )
 
-// TestVerifyUpgradeGroundTruth_BinarySHAmismatch is the core #49 contract:
+// TestVerifyUpgradeObservedState_BinarySHAmismatch is the core #49 contract:
 // when the running binary's compile-time commit (Service.binaryCommit) is
 // POSITIVELY behind the in_progress row's target commit_sha (both commits
-// resolved, ancestry definitively absent), verifyUpgradeGroundTruth returns
+// resolved, ancestry definitively absent), verifyUpgradeObservedState returns
 // (false, reason) so the caller transitions the row to `failed` with the
 // reason in its error column instead of silently marking it `completed`.
 //
 // Post-039: uses the git fixture so the mismatch is RESOLVED — two
 // synthetic unresolvable SHAs (the pre-039 fixture) now correctly classify
 // Unknown (clone-state, not ancestry; see
-// TestVerifyBinaryGroundTruth_UnresolvableBinaryIsUnknown), which still
+// TestVerifyBinaryObservedState_UnresolvableBinaryIsUnknown), which still
 // maps to ok=false in this two-state wrapper but with a different reason.
 //
 // Hermetic w.r.t. the DB: Check 1 (binary) verdicts non-AtTarget before
 // Check 2 (db.migration query) runs. That's the point of ordering the
 // checks this way — the cheap deterministic check runs first.
-func TestVerifyUpgradeGroundTruth_BinarySHAmismatch(t *testing.T) {
+func TestVerifyUpgradeObservedState_BinarySHAmismatch(t *testing.T) {
 	fix := newGitRepoFixture(t)
 	svc := &Service{
 		binaryCommit: fix.oldSHA, // positively behind the target
 		projDir:      fix.dir,
 	}
 
-	ok, reason := svc.verifyUpgradeGroundTruth(context.Background(), fix.newSHA)
+	ok, reason := svc.verifyUpgradeObservedState(context.Background(), fix.newSHA)
 	if ok {
 		t.Fatalf("ground-truth check returned ok=true despite SHA mismatch (binary=%q row=%q)", svc.binaryCommit, fix.newSHA)
 	}
@@ -64,86 +64,86 @@ func TestVerifyUpgradeGroundTruth_BinarySHAmismatch(t *testing.T) {
 // accepted and the row marks complete.
 //
 // Hermetic — no DB needed; the helper is pure (extracted from
-// verifyUpgradeGroundTruth specifically to be testable).
-func TestVerifyBinaryGroundTruth_DescendantAccepted(t *testing.T) {
+// verifyUpgradeObservedState specifically to be testable).
+func TestVerifyBinaryObservedState_DescendantAccepted(t *testing.T) {
 	fix := newGitRepoFixture(t)
 	svc := &Service{
 		binaryCommit: fix.newSHA, // running binary at child commit
 		projDir:      fix.dir,
 	}
-	gt, _, reason := svc.verifyBinaryGroundTruth(fix.oldSHA)
-	if gt != GroundTruthAtTarget {
+	obsState, _, reason := svc.verifyBinaryObservedState(fix.oldSHA)
+	if obsState != ObservedAlreadyAtNew {
 		t.Fatalf("expected AtTarget (binary %s descends from target %s); got %v reason=%q",
-			fix.newSHA[:8], fix.oldSHA[:8], gt, reason)
+			fix.newSHA[:8], fix.oldSHA[:8], obsState, reason)
 	}
 	if reason != "" {
 		t.Errorf("expected empty reason on success; got %q", reason)
 	}
 }
 
-// TestVerifyBinaryGroundTruth_BehindIsDefinitive: binary at the OLD commit,
+// TestVerifyBinaryObservedState_BehindIsDefinitive: binary at the OLD commit,
 // target the NEW one — both fully resolvable in history, so `git merge-base
 // --is-ancestor` exits 1: the definitive "not an ancestor". This is the ONLY
 // shape that may classify Behind (STATBUS-039 review finding 1): a Behind
 // verdict licenses a destructive restore, so it must rest on a
 // resolved-ancestry negative, never on a git error.
-func TestVerifyBinaryGroundTruth_BehindIsDefinitive(t *testing.T) {
+func TestVerifyBinaryObservedState_BehindIsDefinitive(t *testing.T) {
 	fix := newGitRepoFixture(t)
 	svc := &Service{
 		binaryCommit: fix.oldSHA, // binary genuinely behind
 		projDir:      fix.dir,
 	}
-	gt, _, reason := svc.verifyBinaryGroundTruth(fix.newSHA)
-	if gt != GroundTruthBehind {
+	obsState, _, reason := svc.verifyBinaryObservedState(fix.newSHA)
+	if obsState != ObservedCannotReachNew {
 		t.Fatalf("expected Behind (binary %s positively behind target %s); got %v reason=%q",
-			fix.oldSHA[:8], fix.newSHA[:8], gt, reason)
+			fix.oldSHA[:8], fix.newSHA[:8], obsState, reason)
 	}
 	if !strings.Contains(reason, "is not its descendant") {
 		t.Errorf("expected reason to mention 'is not its descendant'; got %q", reason)
 	}
 }
 
-// TestVerifyBinaryGroundTruth_UnresolvableBinaryIsUnknown rewrites the
+// TestVerifyBinaryObservedState_UnresolvableBinaryIsUnknown rewrites the
 // pre-039 NonAncestorRejected expectation, which PINNED the conflation the
 // review flagged: a binary SHA absent from the local clone makes merge-base
 // exit 128 ("unknown revision") — clone-state evidence, not ancestry
 // evidence. The pre-039 code classified it Behind, and the destructive
 // callers RESTORED on it. It must be Unknown: destroy nothing, retry
 // forward, let the next pass re-check (STATBUS-039 rule 1).
-func TestVerifyBinaryGroundTruth_UnresolvableBinaryIsUnknown(t *testing.T) {
+func TestVerifyBinaryObservedState_UnresolvableBinaryIsUnknown(t *testing.T) {
 	fix := newGitRepoFixture(t)
 	const unknownSHA = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
 	svc := &Service{
 		binaryCommit: unknownSHA, // not in fix's git history at all
 		projDir:      fix.dir,
 	}
-	gt, _, reason := svc.verifyBinaryGroundTruth(fix.oldSHA)
-	if gt != GroundTruthUnknown {
+	obsState, _, reason := svc.verifyBinaryObservedState(fix.oldSHA)
+	if obsState != ObservedPositionUnreadable {
 		t.Fatalf("expected Unknown (binary %s unresolvable = clone-state, not ancestry); got %v reason=%q",
-			unknownSHA[:8], gt, reason)
+			unknownSHA[:8], obsState, reason)
 	}
 	if !strings.Contains(reason, "cannot verify binary ancestry") {
 		t.Errorf("expected reason to say ancestry cannot be verified; got %q", reason)
 	}
 }
 
-// TestVerifyBinaryGroundTruth_TargetMissingFromCloneIsUnknown is the
+// TestVerifyBinaryObservedState_TargetMissingFromCloneIsUnknown is the
 // shallow-clone case from the review finding: the row's TARGET commit is
 // absent locally (shallow or pruned clone). merge-base exits 128; the
 // cat-file probe identifies the missing object so the operator-facing
 // reason is actionable. Must be Unknown — restoring because the clone is
-// shallow would destroy an at-target box over fetch-depth configuration.
-func TestVerifyBinaryGroundTruth_TargetMissingFromCloneIsUnknown(t *testing.T) {
+// shallow would destroy an already-at-new box over fetch-depth configuration.
+func TestVerifyBinaryObservedState_TargetMissingFromCloneIsUnknown(t *testing.T) {
 	fix := newGitRepoFixture(t)
 	const missingTarget = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
 	svc := &Service{
 		binaryCommit: fix.newSHA,
 		projDir:      fix.dir,
 	}
-	gt, cause, reason := svc.verifyBinaryGroundTruth(missingTarget)
-	if gt != GroundTruthUnknown {
+	obsState, cause, reason := svc.verifyBinaryObservedState(missingTarget)
+	if obsState != ObservedPositionUnreadable {
 		t.Fatalf("expected Unknown (target %s absent from clone); got %v reason=%q",
-			missingTarget[:8], gt, reason)
+			missingTarget[:8], obsState, reason)
 	}
 	// STATBUS-109: a target absent from the clone is a KNOWN-INTERMITTENT cause
 	// (a fetch acquires it) — it must classify CauseCommitNotFetched so recovery
@@ -156,24 +156,24 @@ func TestVerifyBinaryGroundTruth_TargetMissingFromCloneIsUnknown(t *testing.T) {
 	}
 }
 
-// TestVerifyBinaryGroundTruth_EqualSHAtrivially returns AtTarget
+// TestVerifyBinaryObservedState_EqualSHAtrivially returns AtTarget
 // without invoking git. The legacy strict-equality contract preserved.
-func TestVerifyBinaryGroundTruth_EqualSHAtrivially(t *testing.T) {
+func TestVerifyBinaryObservedState_EqualSHAtrivially(t *testing.T) {
 	fix := newGitRepoFixture(t)
 	svc := &Service{
 		binaryCommit: fix.newSHA,
 		projDir:      fix.dir,
 	}
-	gt, _, reason := svc.verifyBinaryGroundTruth(fix.newSHA)
-	if gt != GroundTruthAtTarget {
-		t.Fatalf("expected AtTarget on equal SHAs; got %v reason=%q", gt, reason)
+	obsState, _, reason := svc.verifyBinaryObservedState(fix.newSHA)
+	if obsState != ObservedAlreadyAtNew {
+		t.Fatalf("expected AtTarget on equal SHAs; got %v reason=%q", obsState, reason)
 	}
 	if reason != "" {
 		t.Errorf("expected empty reason; got %q", reason)
 	}
 }
 
-// TestVerifyUpgradeGroundTruth_UnknownBinarySkipsCheck verifies the
+// TestVerifyUpgradeObservedState_UnknownBinarySkipsCheck verifies the
 // degraded-mode path: when the binary was built without ldflags (e.g.
 // `go run`), binaryCommit is "unknown" and the check cannot assert
 // anything meaningful. Returning ok=true avoids false-positive FAILED
@@ -182,13 +182,13 @@ func TestVerifyBinaryGroundTruth_EqualSHAtrivially(t *testing.T) {
 // This test does NOT reach the DB check — the Service has no queryConn
 // and the migration check would panic. Sub-test bounds verify only the
 // binary-check branch.
-func TestVerifyUpgradeGroundTruth_UnknownBinarySkipsCheck(t *testing.T) {
+func TestVerifyUpgradeObservedState_UnknownBinarySkipsCheck(t *testing.T) {
 	// Swap a non-nil service value but don't exercise the DB path.
 	// We test by running against a projDir with no migrations/ directory,
 	// which makes Check 2 skip with a log line too.
 	projDir := t.TempDir()
 	// Migration dir absent → latestDiskMigrationVersion returns 0 →
-	// verifyUpgradeGroundTruth's check 2 early-returns true. But check 2
+	// verifyUpgradeObservedState's check 2 early-returns true. But check 2
 	// still queries the DB first; we can't run that without pgx. So for
 	// this test we only verify the early-skip structure by setting
 	// binaryCommit to one of the sentinel values ("unknown" / "") and
@@ -198,7 +198,7 @@ func TestVerifyUpgradeGroundTruth_UnknownBinarySkipsCheck(t *testing.T) {
 		binaryCommit: "unknown",
 		projDir:      projDir,
 	}
-	// We do not invoke verifyUpgradeGroundTruth end-to-end because the
+	// We do not invoke verifyUpgradeObservedState end-to-end because the
 	// DB query on nil queryConn would panic. Instead assert the
 	// documented semantic: binaryCommit=="unknown" degrades Check 1 to a
 	// no-op. The function source at service.go:~1530 shows this branch;
@@ -213,7 +213,7 @@ func TestVerifyUpgradeGroundTruth_UnknownBinarySkipsCheck(t *testing.T) {
 // that Check 2 uses to derive the expected-max migration version from
 // the on-disk migrations/ directory. Correctness here is the
 // precondition for the DB-vs-disk comparison in
-// verifyUpgradeGroundTruth to be meaningful.
+// verifyUpgradeObservedState to be meaningful.
 func TestLatestDiskMigrationVersion_ParsesVersionPrefix(t *testing.T) {
 	projDir := t.TempDir()
 	migDir := filepath.Join(projDir, "migrations")
@@ -246,7 +246,7 @@ func TestLatestDiskMigrationVersion_ParsesVersionPrefix(t *testing.T) {
 
 // TestLatestDiskMigrationVersion_MissingDirReturnsZero verifies the
 // degraded-mode path: when migrations/ doesn't exist,
-// latestDiskMigrationVersion returns 0 so verifyUpgradeGroundTruth's
+// latestDiskMigrationVersion returns 0 so verifyUpgradeObservedState's
 // Check 2 skips (avoiding a false failure in uninitialised projects).
 func TestLatestDiskMigrationVersion_MissingDirReturnsZero(t *testing.T) {
 	projDir := t.TempDir()
@@ -257,7 +257,7 @@ func TestLatestDiskMigrationVersion_MissingDirReturnsZero(t *testing.T) {
 	}
 }
 
-// TestVerifyUpgradeGroundTruth_MatchingBinaryAndNoMigrations verifies that
+// TestVerifyUpgradeObservedState_MatchingBinaryAndNoMigrations verifies that
 // when binaryCommit matches row.commit_sha AND the migrations/ directory
 // is empty-or-missing (so Check 2 degrades), the helper returns ok=true —
 // the happy path preserved.
@@ -270,13 +270,13 @@ func TestLatestDiskMigrationVersion_MissingDirReturnsZero(t *testing.T) {
 // unconditionally, this test will panic on a nil queryConn and the
 // implementer will see they need to preserve the "skip Check 2 when
 // disk max is 0 OR DB query fails" semantic.
-func TestVerifyUpgradeGroundTruth_MatchingBinaryAndNoMigrations(t *testing.T) {
+func TestVerifyUpgradeObservedState_MatchingBinaryAndNoMigrations(t *testing.T) {
 	// This case requires a working pgx connection to the point of
 	// executing `SELECT MAX(version) FROM db.migration`. Without the
 	// harness, we document the contract via TestLatestDiskMigrationVersion
-	// and TestVerifyUpgradeGroundTruth_BinarySHAmismatch above.
+	// and TestVerifyUpgradeObservedState_BinarySHAmismatch above.
 	// Marking skipped rather than running ensures this intent is
-	// visible when tests are run: `go test -v -run TestVerifyUpgradeGroundTruth`
+	// visible when tests are run: `go test -v -run TestVerifyUpgradeObservedState`
 	// lists all four cases and operator sees what's covered.
 	t.Skip("happy-path requires a live queryConn; covered by integration testing on dev — see task #49 description")
 }

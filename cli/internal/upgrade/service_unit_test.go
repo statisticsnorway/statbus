@@ -13,7 +13,7 @@ import (
 //
 // The cap guards ONLY repeated daemon-START failures — it is NOT an
 // upgrade-retry budget: the upgrade is one-shot (a death during the post-swap
-// resume rolls back via the FlagPhaseResuming latch rather than re-running).
+// resume rolls back via the PhaseNewSbUpgrading latch rather than re-running).
 // burst=5 rides out a legitimate ~3-start transient (a DB restart in a
 // maintenance window) while tripping a persistent start failure in ~150s; the
 // recovery path is `./sb install` (routes through StateDBUnreachable →
