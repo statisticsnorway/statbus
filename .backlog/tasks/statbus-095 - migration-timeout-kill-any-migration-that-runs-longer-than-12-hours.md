@@ -4,7 +4,7 @@ title: 'migration-timeout: kill any migration that runs longer than 12 hours'
 status: To Do
 assignee: []
 created_date: '2026-06-18 21:18'
-updated_date: '2026-07-07 04:09'
+updated_date: '2026-07-07 04:27'
 labels:
   - upgrade
   - migration
@@ -68,5 +68,11 @@ PIECE 1 — THE PRODUCT KNOB (engineer, reviewed diff BEFORE any arc work). The 
 PIECE 2 — THE ARC (mechanic, after piece 1 merges + its images build). postswap-migration-ceiling-arc, modeled on the proven V_fail lineage: construct B = A + V_sleep (fixture body `SELECT pg_sleep(3600);` — hand-authored WITHOUT its own BEGIN/END) via the 118 constructor; a dropin arms STATBUS_MIGRATE_UP_TIMEOUT=20s in the daemon env (the stall-dropin pattern, restart-for-env); real register → schedule → the daemon dispatches. OBSERVABLE CHAIN, in order: row in_progress → swap (exit-42 handoff, NRestarts +1) → migrate step starts V_sleep → MIDPOINT ANTI-VACUITY: poll pg_stat_activity for the active pg_sleep backend (the proven park/mid-tx pattern) — proves the migration genuinely ran INTO the ceiling rather than failing early → ceiling fires at ~20s: the named marker in the dispatch/progress log + subprocess killed + orphan backend terminated (assert the pg_sleep backend GONE within a short poll — the #14 leg observed live) → step fails → Behind → in-process rollback → TERMINAL: rolled_back. ASSERTION SPEC (the proven-arc discipline): midpoint pg_sleep-active; ceiling marker present; orphan backend gone; terminal rolled_back (completed/failed → hard fail); V unrecorded (db.migration max == baseline); clean-slate fingerprint == post-A baseline (this arc's rollback RESTORES the snapshot — the failing-arc apparatus verbatim); demo data intact; flag absent; NRestarts == the failing-arc's proven bound (the handoff bump only — the daemon survives the in-process rollback).
 
 SEQUENCING: piece 1 is a small, safety-relevant product diff → architect review before commit; the arc follows on its images. STATBUS-096's scenario 2 (internal timeout kill) IS this arc — it folds here and 096 keeps only the OOM scenario.
+---
+
+author: foreman
+created: 2026-07-07 04:27
+---
+PIECE 1 SHIPPED c500efc9d (2026-07-07), dual-reviewed (architect ship, both flags ruled; foreman first-hand): MigrateUpTimeout 30m→12h default; STATBUS_MIGRATE_UP_TIMEOUT env override (Go duration, 5s floor + WARN — the arc's seconds-scale knob); resolved ONCE at package init (architect: per-call env reads could change the ceiling MID-UPGRADE — the ambient-state class rejected in the 116 flag-retirement ruling; one process, one ceiling); const→var with identifier unchanged (call sites + structure guards untouched); both migrate sites verified orphan-terminate on timeout (no code needed); NAMED ceiling marker at the applyPostSwap timeout branch, emitted before orphan-reap+rollback — deliberately asymmetric (the flagless boot-migrate timeout REFUSES, so 'rolling back' would lie there; a ceiling-length migration reaches the marker site from both directions via the 017 defer→resume). AC#4 reconciliation documented at the const: 60-min direct-CLI bound is a different surface, unchanged. Resolver table test (10 cases) + 12h-default pin. NEXT: piece 2 — the ceiling arc (mechanic) once c500efc9d's images publish; V_sleep + 20s override dropin + the full proven-arc assertion discipline including the orphan-backend-gone leg.
 ---
 <!-- COMMENTS:END -->
