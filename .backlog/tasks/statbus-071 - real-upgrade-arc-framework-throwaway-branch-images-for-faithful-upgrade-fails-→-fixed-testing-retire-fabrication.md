@@ -81,13 +81,13 @@ The test also injects a **real** crash/stall at the other upgrade points — fet
 
 **...AFTER booting the new binary**
 - During the post-swap restart -> `postswap-container-restart-kill-arc` -> rolls back — **[PROVEN]**
-- Just after a migration commits, before it's recorded (parent killed) -> `postswap-after-commit-kill-arc` -> unrecorded migration -> rolls back, not forward — **[IN FLIGHT]** built+wired (doc-017), confirming VM-proven
-- Same instant, the migrate sub-process killed -> `after-commit-before-recorded-kill-arc` -> rolls back — **[IN FLIGHT]** built+wired (doc-017), confirming VM-proven
-- Mid-migration / between migrations / mid-transaction -> arcs being built (5d) -> forward-recovery, finishes — **[IN FLIGHT]**
+- Just after a migration commits, before it's recorded (parent killed) -> `postswap-after-commit-kill-arc` -> unrecorded migration -> rolls back, not forward — **[PROVEN]** run 28832014634 (the STATBUS-105 measurement: rolled_back, per the King's ratified rule)
+- Same instant, the migrate sub-process killed -> `after-commit-before-recorded-kill-arc` -> rolls back — **[PROVEN]** run 28832014634
+- Mid-migration / between migrations / mid-transaction -> mid-tx: parent-kill in the gap -> rolled_back **[PROVEN]** run 28832014634; between-migrations + mid-migration: subprocess kill -> in-dispatch forward recovery (dispatch survives, deferred-recovery path, completed at attempts==1) — **[PROVEN]** run 28837119781
 
 **The undo (rollback) itself is hit**
 - Killed during the rollback -> `rollback-kill-arc` (deterministic -> the built-in rollback) -> rolled back — **[PROVEN]**
-- The rollback's DB-restore HANGS (the heartbeat, formerly STATBUS-031) -> `postswap-rollback-restore-watchdog-arc` (`restore-db-stall-watchdog`) -> heartbeat keeps the box alive -> rolled back; without it, it restart-loops — **[IN FLIGHT]** observing now -> then asserts (5c-hard)
+- The rollback's DB-restore HANGS (the heartbeat, formerly STATBUS-031) -> `postswap-rollback-restore-watchdog-arc` (`restore-db-stall-watchdog`) -> heartbeat keeps the box alive -> rolled back; without it, it restart-loops — **[PROVEN]** run 28837119781 (cover HOLDS: NRestarts frozen through the stalled restore, clean rolled_back, byte-identical clean slate)
 
 **A step just stalls (slow, not killed) -> the heartbeat must keep the box alive -> finish**
 - DB reconnect stalls after a restart -> `postswap-watchdog-reconnect-arc` — **[PROVEN]**
