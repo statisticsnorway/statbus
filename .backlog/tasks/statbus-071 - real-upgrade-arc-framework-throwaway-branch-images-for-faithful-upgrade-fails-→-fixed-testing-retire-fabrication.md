@@ -116,17 +116,20 @@ The test also injects a **real** crash/stall at the other upgrade points — fet
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-STATUS (2026-06-21): both arcs GREEN on real VMs — working/accept-the-fix (run 27807092720) + failing/clean-slate-after-rollback (run 27811604893, the framework's unique value). Kill family being reshaped onto the real register+schedule path: CAT-A done; CAT-B/CAT-C in progress.
+STATUS (2026-07-07, supersedes the 2026-06-21 line): FOUNDATION DONE AND PROVEN — working + failing arcs GREEN on real VMs (originally runs 27807092720 / 27811604893; re-proven post-110/109 on run 28679526112). STATBUS-118 constructor shipped (0b1b07ef4); X/Y RESOLVED (King): build-on-CI + pull (doc-020 revised). ~11 coverage cells [PROVEN]. The U-campaign is executing the remainder (engineer's plan, architect-approved 2026-07-07): U1 = first live contact for the five kill arcs (run 28832014634) — all five red, ZERO product findings, two harness bug families diagnosed + fix list dispatched (comment #6, the ledger); U2 = rollback-restore-watchdog arc re-scoped observational→asserting (architect: SHIP + one anti-vacuity one-liner; VM run pending); U3 = STATBUS-136 abort-terminal fix built + architect-shipped (unblocks U4); U4 = split into TWO disjoint oracles per the architect's ruling — (a) rollback-pair-terminal via the PRE-SWAP route (2 kills; the V_fail route needs 4 and traverses forward machinery) + (b) rollback-abort-write-lands (the r17 shape, one boot, zero kills; Behind via a VALID-named far-future migration, never the invalid-version file = the 138 bug); U7 = the 044 rune-wedge scenario built (3-postswap-rune-wedge, uncommitted at note time).
 
-DISPATCH (remaining work — doc-016 is the engineer-ready plan):
-- 5c-hard: the ROLLBACK HEARTBEAT test (formerly STATBUS-031). Deliberately stall the rollback's database-restore (exec.go:761): with the heartbeat the box stays alive -> rolled_back; without it (RED = 79375b9f9) it restart-loops. Heartbeat code already shipped (a8279ed83); finish the observational arc to ASSERT; the broken standalone scenario (scenarios/4-rollback-restore-watchdog.sh) is retired (its harness can't drive a real failure). Closes the former 031.
-- 5d: CAT-C mid-tx kill (:202) + after-commit kill (:844/:845, terminal = rolled_back per STATBUS-013), each VM-proven; DELETE deterministic-error + checkout-kill-legacy; ASSESS worker-ddl-deadlock.
-- 5e: shared-fixture matrix (one dispatch, all scenarios parallel) -> DELETE fabricate_scheduled_upgrade_row at zero callers (AC#4 = done-criterion).
-- Plus STATBUS-095/096 (timeout + OOM failure modes).
+OPEN KING DECISION — the AC#4 ⇄ park-class fabrication carve-out (the true boundary of "retire fabrication"): the r19-green park scenario and the rune-wedge scenario CONSTRUCT resume states that real dispatch cannot present on cue (r12 proof, STATBUS-044 comment #6). Architect's framing before the King: sharpen the rule — "no fabrication where the real path can reach; construction permitted ONLY for a class with a written unreachability proof, consumed by the real recovery reader in the run"; today exactly ONE class qualifies (resume-state/boot-migrate). AC#4's "zero callers" is GATED on this ruling.
 
-FOLDED IN (2026-06-21, King-directed): STATBUS-091 (phase-2 charter — Waves 1+2 complete: 086 CLI verbs, 072 amend-conveyance, 087/088/089/090 fixes all landed) + STATBUS-075 (cut-rc04 campaign — install RC v2026.06.0-rc.04 cut). Both CLOSED; their only live remainder was this framework.
+DISPATCH (remaining, in campaign order):
+- Harness fix list from U1 (comment #6): shared kill-confirmed helper (fresh PID at kill time; never release a stall after an unconfirmed kill), transport-aware probes, split install-helper contract (RED midpoint then GREEN terminal).
+- Re-run the five kill arcs fixed — the after-commit pair's re-run IS the STATBUS-105 measurement (expected terminal: rolled_back per the King's ratified rule).
+- U2 VM run (cover-holds proof); U4 (a)+(b) builds (mechanic, ruled constructions); 5d deletes of superseded legacy scenarios after their arc replacements are PROVEN; 5e = fabricate_scheduled_upgrade_row deletion at zero callers (gated on the carve-out ruling; 2 arc callers remain: preswap checkout/backup).
+- Plus STATBUS-095/096 (timeout + OOM failure modes; fill the two [TODO] cells).
+- Hardening riders folded in from the board sweep: 094's two items + 101's EXPECT_RED option (comments #4/#5).
 
-Designs: doc-012 (build-spec), doc-016 (kill-arc reshape plan, §9(5) implementable). Full run-by-run build history (every commit + VM run, the bug-by-bug hardening) preserved in this task's git history.
+FOLDED IN (2026-06-21, King-directed): STATBUS-091 (phase-2 charter — Waves 1+2 complete: 086 CLI verbs, 072 amend-conveyance, 087/088/089/090 fixes all landed) + STATBUS-075 (cut-rc04 campaign — install RC v2026.06.0-rc.04 cut). Both CLOSED; their only live remainder was this framework. 2026-07-06 board sweep folded in: 013 (spec home = 105, arcs here), 094, 101.
+
+Designs: doc-012 (build-spec), doc-016 (kill-arc reshape plan), doc-017 (after-commit arcs). Full run-by-run build history (every commit + VM run, the bug-by-bug hardening) preserved in this task's git history.
 <!-- SECTION:NOTES:END -->
 
 ## Comments
