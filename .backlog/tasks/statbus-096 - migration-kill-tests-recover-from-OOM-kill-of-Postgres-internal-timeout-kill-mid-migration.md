@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-18 21:18'
-updated_date: '2026-07-07 04:30'
+updated_date: '2026-07-07 04:59'
 labels:
   - upgrade
   - testing
@@ -46,10 +46,10 @@ Source: King, 2026-06-18.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A test migration pauses mid-run and signals it (NOTIFY handshake) so the kill is deterministic
-- [ ] #2 OOM scenario: PostgreSQL killed (external) mid-migration → box recovers → asserted on a real VM
+- [x] #1 A test migration pauses mid-run and signals it (NOTIFY handshake) so the kill is deterministic
+- [x] #2 OOM scenario: PostgreSQL killed (external) mid-migration → box recovers → asserted on a real VM
 - [ ] #3 Timeout scenario: internal timeout-kill (short threshold) mid-migration → box recovers → asserted on a real VM
-- [ ] #4 No fabrication: the migration really runs and is really killed
+- [x] #4 No fabrication: the migration really runs and is really killed
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -85,5 +85,11 @@ author: foreman
 created: 2026-07-07 04:30
 ---
 ADJUDICATION (architect, 2026-07-07): the mechanic's map-before-build trace REFUTED the construction ruling's causal narrative and the architect CONFIRMED it and went further — backoffRetry has exactly one call site (service.go:1085, the Resuming branch), and Run()'s boot does EnsureDBUp (docker compose up -d db, service.go:1808) on EVERY pass before any recovery branch, so after a single db kill the FRESH RE-RUN is destiny, not one arm of a race. The as-built arc (V_sleep=3600s, terminal rolled_back) would deterministically stall-red — derivable, not oracle territory. RESHAPE DISPATCHED (mechanic): V_sleep→60s, expected terminal COMPLETED (single-OOM contract = FORWARD recovery: boot revives db, uncommitted migration re-runs fresh, completes), assertion swap (V RECORDED + fixture present replace V-unrecorded/fingerprint), NRestarts ≤3 logged-observed, 109/017 markers best-effort. KING DECISION QUEUED: the 071 map cell literally says 'OOM → rolls back' — that wording matches the RECURRING-OOM story (a migration that OOMs every run → re-armed kill each midpoint → budget/same-step → Behind → rolled_back), which the architect pre-blessed as a SEPARATE follow-up arc, built only after the single-OOM arc is green and gated on the King blessing the split (single→completed, recurring→rolled_back) since it edits his cell's wording. The map cell is NOT edited until that nod.
+---
+
+author: foreman
+created: 2026-07-07 04:59
+---
+OOM ARC GREEN ON FIRST CONTACT (run 28841893851, HEAD 39b94be8d, 2026-07-07 — all jobs green): the single-OOM contract proven live on a real VM. Real register+schedule dispatch, midpoint pg_stat_activity poll confirmed the migration genuinely mid-sleep (AC#1's deterministic-kill requirement, delivered by the proven poll pattern in place of the ticket's original NOTIFY sketch — architect-ruled substitution), db container SIGKILLed and observed dead, then the FORWARD recovery exactly as the reshaped contract predicted: the boot's own EnsureDBUp revived the db, the uncommitted migration re-ran fresh, terminal COMPLETED with V recorded + the fixture table present (ran end-to-end), demo data intact, flag absent, NRestarts within bound. AC#1, #2, #4 checked. AC#3 (the internal timeout kill) is the ceiling arc — folded to STATBUS-095 piece 2, on CI now (run 28842366163). STILL KING-GATED: the 071 coverage-map cell rewording (its 'rolls back' text matches the RECURRING-OOM story) + the recurring-OOM variant arc — the map cell stays untouched until the King blesses the split (single→completed, recurring→rolled_back).
 ---
 <!-- COMMENTS:END -->
