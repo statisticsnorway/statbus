@@ -40,11 +40,13 @@ EVIDENCE: rune-wedge first run log (night pair 2026-07-07), kept-VM autopsy (db 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The recovery reachability probe uses the same route as the subsequent connection (probe-pass implies connect-works)
+- [x] #1 The recovery reachability probe uses the same route as the subsequent connection (probe-pass implies connect-works)
 - [ ] #2 A crashed upgrade with a stopped-but-present proxy recovers autonomously (start-existing extended to the proxy)
-- [ ] #3 A crashed upgrade with a MISSING proxy produces an actionable named refusal, not a repeating identical error
+- [x] #3 A crashed upgrade with a MISSING proxy produces an actionable named refusal, not a repeating identical error
 - [ ] #4 A dedicated scenario drives the severed-proxy state once the fix lands
 <!-- AC:END -->
+
+
 
 ## Comments
 
