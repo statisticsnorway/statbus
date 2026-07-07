@@ -3,10 +3,10 @@ id: STATBUS-105
 title: >-
   after-commit-recovery: verify the box rolls back per 013 — overnight reached
   'completed' (suspected deviation)
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-20 10:48'
-updated_date: '2026-07-06 16:06'
+updated_date: '2026-07-07 02:29'
 labels:
   - upgrade
   - recovery
@@ -45,8 +45,8 @@ RELATION: STATBUS-013 = the spec (rolled_back); STATBUS-097 = retired (atomicity
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Instrumented re-run captures, on durable run-artifacts: was the killed migration V in db.migration at recovery (pending or not), and did the upgrade row EVER pass through rolled_back / did a restore fire
-- [ ] #2 Verdict recorded: box HONORS 013 (reaches rolled_back, no gap) vs DEVIATES to completed (real gap) — from the measurement, not presupposition
+- [x] #1 Instrumented re-run captures, on durable run-artifacts: was the killed migration V in db.migration at recovery (pending or not), and did the upgrade row EVER pass through rolled_back / did a restore fire
+- [x] #2 Verdict recorded: box HONORS 013 (reaches rolled_back, no gap) vs DEVIATES to completed (real gap) — from the measurement, not presupposition
 - [ ] #3 If a gap: the recovery is fixed so a torn/pending migration restores → rolled_back per 013; the held arcs keep asserting rolled_back
 <!-- AC:END -->
 
@@ -58,4 +58,16 @@ created: 2026-07-06 15:59
 ---
 FOLDED IN from STATBUS-013 (merged 2026-07-06): 013's King-ratified spec — a crash between a migration committing and being recorded MUST end rolled_back — is NOT superseded and lives here as its canonical spec+verify home; 105 restates the spec verbatim and owns the open measurement. 013's dead mechanics (the inject/env analysis + the old fabricated scenario) predate the boot-migrate reality (STATBUS-044 comments #5–#6) and the budget hoist (cc660280f) and are dropped. The arc coverage asserting rolled_back lives on STATBUS-071.
 ---
+
+author: foreman
+created: 2026-07-07 02:29
+---
+CLOSED on the measurement (architect's formal recommendation, 2026-07-07): run 28832014634, both after-commit arcs green under the confirmed-kill harness — torn window → rolled_back, live, twice. The founding 'completed' observation is fully explained as the missed-kill+release harness artifact (see final summary). The three proven cells (after-commit ×2, mid-tx) flip on STATBUS-071's coverage map.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+NORTH STAR DELIVERED: the torn-migration rule is now measured, not presumed — a migration that committed but lost its record ends rolled_back. THE MEASUREMENT (2026-07-07, arc run 28832014634): both after-commit kill arcs GREEN with the confirmed-kill harness — the torn window was constructed and verified live ("fixture committed, db.migration still=baseline, V unrecorded"), the daemon killed in that exact gap, and recovery drove the row to rolled_back per the King's ratified rule. VERDICT (AC#2): the box HONORS the rule; no gap; AC#3's fix branch is moot. THE PRIOR ANOMALY EXPLAINED: every historical 'completed' — including this ticket's founding overnight observation — was a harness artifact: the kill missed (stale PID captured before the exit-42 respawn; or a pgrep matching its own transport), and the arcs' cleanup then RELEASED the stall, letting the un-killed migrate finish its ledger INSERT legitimately. The box never certified torn state as completed; the harness manufactured completions. Fixed by the confirmed-kill helper (4b6da9fdd): fresh PID at kill time, abort loudly on any miss, never release after a miss. Durable artifacts: run 28832014634's arc logs (torn-state construction lines + rolled_back terminals); architect's code-path verdict on the session record; the standing regression net is the two after-commit arcs on STATBUS-071's coverage map, now [PROVEN].
+<!-- SECTION:FINAL_SUMMARY:END -->
