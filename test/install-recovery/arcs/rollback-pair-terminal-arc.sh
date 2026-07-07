@@ -103,7 +103,15 @@ flag_present()   { VM_EXEC bash -c "test -f ~/statbus/tmp/upgrade-in-progress.js
 # loop needed, unlike a persistent-service scenario watching a live process).
 read_flag_field() {
     local field="$1"
-    VM_EXEC bash -c "cd ~/statbus && grep -o '\"${field}\":\"[^\"]*\"' tmp/upgrade-in-progress.json 2>/dev/null | head -1 | sed -E 's/.*:\"([^\"]*)\"/\\1/'" 2>/dev/null | tr -d ' \r\n' || echo ""
+    # Space-tolerant (architect autopsy, run 28838952364): the flag is
+    # product-written via json.MarshalIndent, which renders `"step": "rollback"`
+    # WITH a space after the colon — the old compact-only `"step":"..."` grep
+    # matched nothing, silently reading both fields empty. Lifted from the
+    # park scenario's proven reader (3-postswap-resume-died-parked.sh
+    # read_flag_field): grep matches the KEY only (no value-shape assumption;
+    # "step" vs "prior_death_step" don't collide — the char before "step" in
+    # "prior_death_step" is '_', not '"'), sed's `: *"` tolerates 0+ spaces.
+    VM_EXEC bash -c "cd ~/statbus && grep '\"${field}\":' tmp/upgrade-in-progress.json 2>/dev/null | sed -E 's/.*\"${field}\": *\"([^\"]*)\".*/\\1/'" 2>/dev/null | tr -d ' \r\n' || echo ""
 }
 
 # ── A: install + prepare; register B ──
