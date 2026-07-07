@@ -1,10 +1,10 @@
 ---
 id: STATBUS-095
 title: 'migration-timeout: kill any migration that runs longer than 12 hours'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-18 21:18'
-updated_date: '2026-07-07 04:27'
+updated_date: '2026-07-07 05:18'
 labels:
   - upgrade
   - migration
@@ -39,13 +39,11 @@ Source: King, 2026-06-18.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A migration exceeding the 12-hour ceiling is killed by the system's own internal timeout
-- [ ] #2 The 12h threshold is configurable to a short value so a test triggers the same kill path in seconds
-- [ ] #3 After the timeout-kill the box recovers correctly (rollback/recovery)
+- [x] #1 A migration exceeding the 12-hour ceiling is killed by the system's own internal timeout
+- [x] #2 The 12h threshold is configurable to a short value so a test triggers the same kill path in seconds
+- [x] #3 After the timeout-kill the box recovers correctly (rollback/recovery)
 - [x] #4 Reconciled with the existing migrate.go timeouts (60-min CLI / 5-min boot / 30-min resume) — documented which bound changed and why
 <!-- AC:END -->
-
-
 
 ## Implementation Notes
 
@@ -78,3 +76,9 @@ created: 2026-07-07 04:27
 PIECE 1 SHIPPED c500efc9d (2026-07-07), dual-reviewed (architect ship, both flags ruled; foreman first-hand): MigrateUpTimeout 30m→12h default; STATBUS_MIGRATE_UP_TIMEOUT env override (Go duration, 5s floor + WARN — the arc's seconds-scale knob); resolved ONCE at package init (architect: per-call env reads could change the ceiling MID-UPGRADE — the ambient-state class rejected in the 116 flag-retirement ruling; one process, one ceiling); const→var with identifier unchanged (call sites + structure guards untouched); both migrate sites verified orphan-terminate on timeout (no code needed); NAMED ceiling marker at the applyPostSwap timeout branch, emitted before orphan-reap+rollback — deliberately asymmetric (the flagless boot-migrate timeout REFUSES, so 'rolling back' would lie there; a ceiling-length migration reaches the marker site from both directions via the 017 defer→resume). AC#4 reconciliation documented at the const: 60-min direct-CLI bound is a different surface, unchanged. Resolver table test (10 cases) + 12h-default pin. NEXT: piece 2 — the ceiling arc (mechanic) once c500efc9d's images publish; V_sleep + 20s override dropin + the full proven-arc assertion discipline including the orphan-backend-gone leg.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+NORTH STAR: no migration runs forever on an unattended box. DELIVERED IN TWO REVIEWED PIECES, both run-proven 2026-07-07. Piece 1 (c500efc9d): MigrateUpTimeout raised 30m→12h (the reconciliation: it is the shared upgrade-path bound across boot-migrate, applyPostSwap, and inline-install recovery; the 60-min direct-CLI bound is a different surface, unchanged), env-overridable via STATBUS_MIGRATE_UP_TIMEOUT (Go duration, 5s floor + WARN), resolved once per process (per-call env reads could change the ceiling mid-upgrade — the rejected ambient-state class), both migrate sites verified orphan-terminating, named ceiling marker at the applyPostSwap timeout branch. Piece 2 (89088341a): postswap-migration-ceiling-arc GREEN ON FIRST CONTACT (CI run 28842366163, all jobs) — real register+schedule, 20s ceiling armed by dropin, migration confirmed mid-sleep, the internal kill fired (the mechanic's route-verified DOUBLE-FIRE: boot-migrate times out silently and defers via the 017 path, the resume's own migrate re-fires the ceiling at the marker site), orphaned backend reaped and observed gone, terminal rolled_back with byte-identical clean slate, demo data intact, NRestarts bounded at 2 (handoff + rollback's unconditional exit 75). Every acceptance criterion checked; the coverage map's ceiling row flips PROVEN.
+<!-- SECTION:FINAL_SUMMARY:END -->
