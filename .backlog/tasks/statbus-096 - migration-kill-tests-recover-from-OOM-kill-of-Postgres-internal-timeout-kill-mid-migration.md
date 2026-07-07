@@ -3,10 +3,10 @@ id: STATBUS-096
 title: >-
   migration-kill-tests: recover from OOM-kill of Postgres + internal
   timeout-kill, mid-migration
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-18 21:18'
-updated_date: '2026-07-07 04:59'
+updated_date: '2026-07-07 05:18'
 labels:
   - upgrade
   - testing
@@ -48,7 +48,7 @@ Source: King, 2026-06-18.
 <!-- AC:BEGIN -->
 - [x] #1 A test migration pauses mid-run and signals it (NOTIFY handshake) so the kill is deterministic
 - [x] #2 OOM scenario: PostgreSQL killed (external) mid-migration → box recovers → asserted on a real VM
-- [ ] #3 Timeout scenario: internal timeout-kill (short threshold) mid-migration → box recovers → asserted on a real VM
+- [x] #3 Timeout scenario: internal timeout-kill (short threshold) mid-migration → box recovers → asserted on a real VM
 - [x] #4 No fabrication: the migration really runs and is really killed
 <!-- AC:END -->
 
@@ -93,3 +93,9 @@ created: 2026-07-07 04:59
 OOM ARC GREEN ON FIRST CONTACT (run 28841893851, HEAD 39b94be8d, 2026-07-07 — all jobs green): the single-OOM contract proven live on a real VM. Real register+schedule dispatch, midpoint pg_stat_activity poll confirmed the migration genuinely mid-sleep (AC#1's deterministic-kill requirement, delivered by the proven poll pattern in place of the ticket's original NOTIFY sketch — architect-ruled substitution), db container SIGKILLed and observed dead, then the FORWARD recovery exactly as the reshaped contract predicted: the boot's own EnsureDBUp revived the db, the uncommitted migration re-ran fresh, terminal COMPLETED with V recorded + the fixture table present (ran end-to-end), demo data intact, flag absent, NRestarts within bound. AC#1, #2, #4 checked. AC#3 (the internal timeout kill) is the ceiling arc — folded to STATBUS-095 piece 2, on CI now (run 28842366163). STILL KING-GATED: the 071 coverage-map cell rewording (its 'rolls back' text matches the RECURRING-OOM story) + the recurring-OOM variant arc — the map cell stays untouched until the King blesses the split (single→completed, recurring→rolled_back).
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+NORTH STAR: the box recovers from real kills mid-migration — no fabrication. DELIVERED, both scenarios run-proven on real VMs 2026-07-07, both green on FIRST CONTACT. OOM (this ticket's build, 39b94be8d, CI run 28841893851): real register+schedule, migration confirmed genuinely mid-sleep via the pg_stat_activity poll (the deterministic-midpoint requirement, delivered by the proven poll pattern superseding the original NOTIFY sketch), db container SIGKILLed (reproducing the OS OOM-killer's effect deterministically — real memory pressure on a shared 4GB box is the forbidden flaky class) and observed dead, then FORWARD recovery: the boot's own EnsureDBUp revived the db, the uncommitted migration re-ran fresh to COMPLETED with V recorded + fixture table present, demo data intact. The single-OOM contract is forward completion — established by the mechanic's map-before-build refutation of the original rolled_back narrative, architect-confirmed (backoffRetry's sole call site service.go:1085; EnsureDBUp unconditional at :1808). Timeout scenario (folded to STATBUS-095 piece 2): ceiling arc GREEN, run 28842366163 — internal 20s kill → rolled_back, clean slate. OPEN FOLLOW-UP (deliberately NOT lost): the RECURRING-OOM variant (OOMs every run → death budget → rolled_back) is pre-blessed as a separate arc, gated on the King blessing the single/recurring split since it rewords the 071 coverage-map cell — tracked on 071's open-decision list and this ticket's comments #2/#3.
+<!-- SECTION:FINAL_SUMMARY:END -->
