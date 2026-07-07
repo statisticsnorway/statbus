@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-07 04:01'
+updated_date: '2026-07-07 04:05'
 labels:
   - install-recovery
   - upgrade
@@ -208,5 +208,11 @@ author: foreman
 created: 2026-07-07 04:01
 ---
 PAIR-TERMINAL ARC GREEN (run 28839994287, HEAD b0df2af0d, 2026-07-07) — U4a PROVEN on a real VM: the pre-swap route construction (C5 → PreSwap → recoveryRollback → C9 kill inside rollback), TWO in-process kills with the recordRollbackCommit stamp now READ correctly (death 1: step='rollback' prior=''; death 2: same-step pair), and the STATBUS-134 pair-terminal bound fired at EXACTLY 2 consecutive rollback deaths → restore-broke terminal. All jobs green (construct / image-wait / run-arc / teardown / reap). With the abort oracle green (comment #8), BOTH U4 oracles are now run-proven. Remaining U-campaign: U5 legacy deletions (engineer sweep in flight — pair-terminal-gated holds now lifted), U6/AC#4 gated on the King's carve-out ruling, plus the 095/096 TODO cells.
+---
+
+author: foreman
+created: 2026-07-07 04:05
+---
+U5 COMPLETE (4a5d45913, 2026-07-07): 11 legacy scenarios DELETED, each with a named run-proven arc replacement (preswap backup/binary-swap/checkout, container-restart, migration-timeout, watchdog-reconnect, 4-rollback-kill → their long-proven arcs; after-commit-subprocess + mid-tx → run 28832014634; between-migrations + mid-migration → run 28837119781). Assertion set-difference checked per deletion; architect spot-check (between-migrations) found the arc's contract STRICTLY EXCEEDS the deleted scenario's. Scenario count 30→19, README rows → supersession notes naming arc + C-class + proving run. doc-016's named 5d targets were already absent (verified). KEPT: 3-postswap-migrate-killed-after-commit (known-RED, off-gate) per the architect's ruling. RESIDUAL (architect's exact wording): 'Add the clean-slate fingerprint assert to postswap-after-commit-kill-arc ON ITS NEXT NATURAL CI DISPATCH — never a dedicated run — then delete 3-postswap-migrate-killed-after-commit; the error-string residue is explicitly waived (fabrication artifact).' 5e stays correctly gated on the King's carve-out ruling — fabricate helper retains real callers (preswap backup/checkout arcs + kept scenarios). U-campaign remaining: 095/096 TODO cells, ddl-deadlock ASSESS, U6/AC#4 (King-gated), the fingerprint-assert residual above.
 ---
 <!-- COMMENTS:END -->
