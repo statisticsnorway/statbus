@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-06-08 02:11'
-updated_date: '2026-06-19 15:33'
+updated_date: '2026-07-07 03:26'
 labels:
   - install-recovery
   - recovery
@@ -47,3 +47,13 @@ Full diagnosis: tmp/architect-archivebackup-resume-diagnosis.md. Neither item bl
 <!-- SECTION:NOTES:BEGIN -->
 archivebackup-resume DELETED (subsumed by archivebackup-watchdog; doc-016:46)
 <!-- SECTION:NOTES:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-07 03:26
+---
+NEW WRINKLE for this family (abort-oracle round 3, 2026-07-07, architect-verified from the journal): the flagless rune-class self-heal (markCurrentVersionCompleted, ground-truth-gated) converts failed→completed AND NULLS THE ERROR COLUMN — so a fabricated/stale 'failed' record on a genuinely-at-target box loses its error trail when the self-heal corrects it. Same shape as the existing rolled_back→completed overwrite wrinkle (036-A4): the correction is RIGHT, but the trail should be preserved (e.g. move the old error into a note/prior field rather than NULL). Observed live: terminal 'failed' + full ROLLBACK_FAILED_GIT_CORRUPT text at 03:21:04, converted to completed with error NULL at 03:21:38.
+---
+<!-- COMMENTS:END -->
