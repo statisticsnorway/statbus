@@ -51,7 +51,7 @@ test/install-recovery/
 
 Each scenario is **a fresh Hetzner Cloud VM**, no state shared. Per-scenario isolation > shared-VM speed: bug-class regressions are caught reliably.
 
-## Scenario catalogue (32 scenarios)
+## Scenario catalogue (30 scenarios)
 
 Every entry leads with its **plain goal** — read it as **die HERE → the operator's `./sb install` re-run must end at THIS terminal state, data intact.** The goal is what the test is *for*; the *Grounding* column is the mechanism (inject site, C-class, the fix it guards) for the engineer. The full per-scenario detail lives in each `scenarios/<slug>.sh` header. The **phase prefix** says *when* in the timeline the wedge lands: `0` happy · `1-boot` pre-READY/startup · `2-preswap` before the binary+migration swap · `3-postswap` after the swap (migrate/restart/resume) · `4-rollback` during the built-in rollback · `5-install` the inline `./sb install` operator path.
 
@@ -103,8 +103,11 @@ Every entry leads with its **plain goal** — read it as **die HERE → the oper
 | Scenario | What it proves | Grounding |
 |---|---|---|
 | `4-rollback-kill` | Killed during the built-in rollback → the system still converges to a coherent terminal state (`completed` or `rolled_back`), data intact. | inject.KillHere in `d.rollback()` (C9); fires non-deterministically — diagnostic for the rollback path |
+| `4-rollback-abort-write-lands` | A rollback whose git-restore has no resolvable target (the true "r17" fabrication — direct state, no real executeUpgrade, so no `pre-upgrade` branch was ever pinned) aborts → the terminal write (`state=failed`) lands in ONE pass, ZERO kills, flag removed, unit alive-idle (NRestarts ≤ 1) — proving the box no longer loops forever writing its own terminal into a DB it just stopped. | STATBUS-136: `EnsureDBReachable`/`StartDBForRecovery` (`docker compose start db`) before the terminal write on `d.rollback()`'s git-corrupt ABORT branch; killed the r17 x3 death loop |
 
 > The STATBUS-031 rollback-restore watchdog cover (a large-DB `rollback()` restore that outruns `WatchdogSec`) is exercised by the **upgrade-arc-harness** arc `postswap-rollback-restore-watchdog` (V_fail → rollback → restore-stall at `exec.go` `inject.StallHere("restore-db-stall-watchdog")`), **not** an install-recovery scenario: this harness installs release images and re-tags them via `stage-head.sh`, so it can't build the per-commit V_fail image the real-upgrade trigger needs. The former `4-rollback-restore-watchdog` scenario (a death-during-resume trigger, now self-heal-blocked) was retired. (STATBUS-071 §9(5) 5c-hard.)
+
+> STATBUS-134's 2-consecutive-rollback-deaths restore-broke terminal is exercised by the **upgrade-arc-harness** arc `rollback-pair-terminal` (deterministic PreSwap-wedge entry — the same C5→C9 lineage as `4-rollback-kill`'s reshaped `rollback-kill` arc — with a SECOND, re-armed C9 kill added so the on-disk `(rollback, rollback)` step pair forms and `rollbackResumeIsTerminal` fires `state=failed` before any third restore attempt), **not** an install-recovery scenario: it needs the real register+schedule lineage `rollback-kill-arc.sh` already proved deterministic. Deliberately a SEPARATE arc from `4-rollback-abort-write-lands` above — STATBUS-136's DB-start-before-write fix lives exclusively in the git-corrupt ABORT branch, structurally disjoint from this pair-terminal's (non-abort) kill site; one fabrication cannot exercise both (verified against shipped code, architect-ruled 2026-07-06).
 
 ### 5-install — the inline `./sb install` operator path
 
