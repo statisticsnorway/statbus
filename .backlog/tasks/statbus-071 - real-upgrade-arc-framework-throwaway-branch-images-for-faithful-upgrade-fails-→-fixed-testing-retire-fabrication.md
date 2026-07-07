@@ -88,6 +88,8 @@ The test also injects a **real** crash/stall at the other upgrade points — fet
 **The undo (rollback) itself is hit**
 - Killed during the rollback -> `rollback-kill-arc` (deterministic -> the built-in rollback) -> rolled back — **[PROVEN]**
 - The rollback's DB-restore HANGS (the heartbeat, formerly STATBUS-031) -> `postswap-rollback-restore-watchdog-arc` (`restore-db-stall-watchdog`) -> heartbeat keeps the box alive -> rolled back; without it, it restart-loops — **[PROVEN]** run 28837119781 (cover HOLDS: NRestarts frozen through the stalled restore, clean rolled_back, byte-identical clean slate)
+- The rollback DIES twice in a row (process death, not hang) -> `rollback-pair-terminal-arc` -> restore-broke terminal (state='failed', human summoned) at EXACTLY 2 consecutive rollback deaths, never a third attempt (STATBUS-134's bound) — **[PROVEN]** run 28839994287
+- The rollback's git restore is CORRUPT (catastrophic abort) -> `4-rollback-abort-write-lands` scenario -> ABORT terminal write lands in ONE pass (state='failed' + error, flag removed — STATBUS-136), then the flagless self-heal converges — **[PROVEN]** local run 2026-07-07 on 089860e65 (dual oracle: also live-proves the STATBUS-039 flagless self-heal)
 
 **A step just stalls (slow, not killed) -> the heartbeat must keep the box alive -> finish**
 - DB reconnect stalls after a restart -> `postswap-watchdog-reconnect-arc` — **[PROVEN]**
