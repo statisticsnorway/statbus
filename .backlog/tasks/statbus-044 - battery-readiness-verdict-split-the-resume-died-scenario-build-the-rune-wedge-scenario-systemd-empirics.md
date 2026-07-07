@@ -3,11 +3,11 @@ id: STATBUS-044
 title: >-
   battery-readiness: verdict-split the resume-died scenario + build the
   rune-wedge scenario + systemd empirics
-status: To Do
+status: In Progress
 assignee:
   - architect
 created_date: '2026-06-12 21:51'
-updated_date: '2026-07-07 03:05'
+updated_date: '2026-07-07 08:31'
 labels:
   - install-recovery
   - testing
