@@ -59,7 +59,7 @@ on:
   workflow_dispatch:
     inputs:
       scenarios:
-        description: 'Space-separated scenario selectors (e.g. "3-postswap-watchdog-reconnect 3-postswap-migrate-killed-after-commit") — leave blank to run all'
+        description: 'Space-separated scenario selectors (e.g. "0-happy-upgrade 3-postswap-migrate-killed-after-commit") — leave blank to run all'
         required: false
         default: ''
 
@@ -151,7 +151,7 @@ jobs:
         run: |
           set -euo pipefail
           # SCENARIOS_INPUT is deliberately UNQUOTED: a space-separated selector
-          # string (e.g. "0-happy-upgrade 2-preswap-checkout-kill") must word-split
+          # string (e.g. "0-happy-upgrade 5-install-seed-on-populated") must word-split
           # into separate positional args to run.sh. Empty input → no args → full
           # suite. shellcheck can't see this is intentional, so silence SC2086.
           # shellcheck disable=SC2086

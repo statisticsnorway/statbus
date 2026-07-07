@@ -4,10 +4,10 @@
 # Sourced by `./dev.sh test-install-recovery [args]`. Implements:
 #   ./dev.sh test-install-recovery                 # all scenarios
 #   ./dev.sh test-install-recovery --list          # list available
-#   ./dev.sh test-install-recovery 2-preswap-backup-kill   # one scenario by slug
-#   ./dev.sh test-install-recovery 2-preswap 4-rollback    # several by phase prefix
+#   ./dev.sh test-install-recovery 3-postswap-worker-ddl-deadlock   # one scenario by slug
+#   ./dev.sh test-install-recovery 1-boot 5-install    # several by phase prefix
 #   ./dev.sh test-install-recovery bool-text       # run by name fragment
-#   ./dev.sh test-install-recovery --keep-vm 4-rollback-kill   # leave VM running on fail
+#   ./dev.sh test-install-recovery --keep-vm 5-install-seed-on-populated   # leave VM running on fail
 #
 # After all selected scenarios pass, writes the stamp
 # tmp/install-recovery-test-passed-sha so a future ./sb release stable
@@ -202,7 +202,7 @@ FAILED_NAMES=()
 
 for s in "${SELECTED[@]}"; do
     base=$(basename "$s" .sh)
-    slug="$base"  # the canonical slug IS the filename, e.g. "3-postswap-mid-tx-kill"
+    slug="$base"  # the canonical slug IS the filename, e.g. "3-postswap-worker-ddl-deadlock"
     vm_name="statbus-recovery-${base}"  # unique per scenario (one VM per scenario name)
     log_file="$HARNESS_ROOT/tmp/install-recovery-${base}.log"
 

@@ -14,7 +14,7 @@ The harness provisions **paid ephemeral [Hetzner Cloud](https://hetzner.cloud) V
 ./dev.sh test-install-recovery 2-preswap          # all scenarios in a phase (phase prefix)
 ./dev.sh test-install-recovery bool-text          # by slug fragment
 ./dev.sh test-install-recovery --list             # show available
-./dev.sh test-install-recovery --keep-vm 4-rollback-kill   # leave VM alive on failure (€0.17/day if forgotten)
+./dev.sh test-install-recovery --keep-vm 5-install-seed-on-populated   # leave VM alive on failure (€0.17/day if forgotten)
 ```
 
 **Prerequisite: CI images must exist on ghcr.io.** Each scenario installs StatBus by pulling `statbus-*:<commit_short>` images from ghcr.io. If the target commit's images have not been built and pushed by CI, the install fails with a pull error. Only run the harness against a commit whose images are green on ghcr.
@@ -51,7 +51,7 @@ test/install-recovery/
 
 Each scenario is **a fresh Hetzner Cloud VM**, no state shared. Per-scenario isolation > shared-VM speed: bug-class regressions are caught reliably.
 
-## Scenario catalogue (30 scenarios)
+## Scenario catalogue (19 scenarios)
 
 Every entry leads with its **plain goal** — read it as **die HERE → the operator's `./sb install` re-run must end at THIS terminal state, data intact.** The goal is what the test is *for*; the *Grounding* column is the mechanism (inject site, C-class, the fix it guards) for the engineer. The full per-scenario detail lives in each `scenarios/<slug>.sh` header. The **phase prefix** says *when* in the timeline the wedge lands: `0` happy · `1-boot` pre-READY/startup · `2-preswap` before the binary+migration swap · `3-postswap` after the swap (migrate/restart/resume) · `4-rollback` during the built-in rollback · `5-install` the inline `./sb install` operator path.
 
@@ -73,27 +73,17 @@ Every entry leads with its **plain goal** — read it as **die HERE → the oper
 
 ### 2-preswap — before the binary + migration swap
 
-| Scenario | What it proves | Grounding |
-|---|---|---|
-| `2-preswap-backup-kill` | Killed mid-backup, before the atomic rename → re-run aborts cleanly (terminal `failed`/`rolled_back`, **never** `completed` — the swap boundary wasn't crossed), `.tmp` cleaned up, data intact. | inject.KillHere in `backupDatabase` after rsync, before rename; PreSwap abort branch (C3) |
-| `2-preswap-binary-swap-kill` | Killed after the new binary is on disk but before the swap is recorded → re-run either forward-recovers or rolls back cleanly; either way data intact. | inject.KillHere after `replaceBinaryOnDisk`; recoverFromFlag HEAD-match (C5, Fix 5b) |
-| `2-preswap-checkout-kill` | Killed after the internal git checkout but before the binary swap → re-run restores the working tree to the old commit (via the pinned `pre-upgrade` branch), still old binary, data intact. | inject.KillHere after `git checkout`; `restoreGitState` (C4) |
-
-> `2-preswap-checkout-kill-legacy` was retired: the reshaped `2-preswap-checkout-kill` (post-086) supersedes it. (STATBUS-071 §9(5) 5d.)
+> The three pre-swap kill covers moved to the **upgrade-arc-harness** (real register+schedule path, no fabricated `./sb install` dispatch): `preswap-backup-kill-arc` (C3 — abort, never `completed`), `preswap-binary-swap-kill-arc` (C5 — recoverFromFlag HEAD-match), `preswap-checkout-kill-arc` (C4 — `restoreGitState` to the old commit). The legacy `2-preswap-{backup,binary-swap,checkout}-kill` scenarios (and the earlier `2-preswap-checkout-kill-legacy`) were retired once their arcs went [PROVEN]. (STATBUS-071 §9(5) 5d.)
 
 ### 3-postswap — after the swap (migrate / restart / resume)
 
+> The post-swap kill covers moved to the **upgrade-arc-harness** arcs (real register+schedule path): `postswap-between-migrations-kill-arc` (C7 — killed between migrations → in-dispatch forward-recovery → `completed`), `postswap-mid-migration-kill-arc` (C6 — killed before the first pending migration → forward-recovery), `postswap-mid-tx-kill-arc` (cell b — killed mid-tx before commit → aborts, re-applies → `completed`; the safe-case control), `postswap-after-commit-kill-arc` + `after-commit-before-recorded-kill-arc` (cell c — killed in the commit↔record gap → `rolled_back`, STATBUS-013/105), `postswap-container-restart-kill-arc` (C8 — `resumePostSwap` re-entry), `postswap-migration-timeout-arc` (C12 — watchdog keeps it alive → `completed`), `postswap-watchdog-reconnect-arc` (C15). The legacy `3-postswap-{between-migrations,mid-migration,mid-tx,container-restart,migration-timeout,watchdog-reconnect}-kill` scenarios were retired once their arcs went [PROVEN]. (STATBUS-071 §9(5) 5d.)
+
 | Scenario | What it proves | Grounding |
 |---|---|---|
-| `3-postswap-between-migrations-kill` | Killed between migration N and N+1 → re-run applies the remaining migrations cleanly (resume from the recorded point), data intact. | inject.KillHere in `migrate.runUp` loop; forward-recovery (C7) |
-| `3-postswap-container-restart-kill` | Killed mid-container-restart after migrations applied → re-run completes the restart, data intact. | inject.KillHere in `applyPostSwap`; `resumePostSwap` re-entry (C8) |
-| `3-postswap-mid-migration-kill` | Killed just before the first pending migration runs → re-run retries it cleanly (the outer tx never opened → no partial state). | inject.KillHere at top of `runPsqlFile`; atomic-tx retry (C6) |
-| `3-postswap-mid-tx-kill` | Killed mid-migration, *before* its transaction commits → Postgres aborts the tx (cleanly pending again), re-run re-applies and reaches `completed`, data intact. The **safe-case control** for the commit↔record boundary. | Test-only mid-tx inject (cell b); contrast the STATBUS-017 wedge |
-| `3-postswap-migrate-killed-after-commit` | Killed in the ~ms window after a migration commits but before its `db.migration` row is recorded → re-run recovers (forward-then-restore) without double-applying. | StallHere primitives; STATBUS-017 (cell c) |
-| `3-postswap-migration-timeout` | A post-swap migration that runs longer than the watchdog window → the unit keeps it alive (no SIGABRT kill-loop) and the upgrade reaches `completed`. | STATBUS-012 boot-migrate watchdog cover (WATCHDOG=1 ticker + 30-min timeout) |
+| `3-postswap-migrate-killed-after-commit` | Killed in the ~ms window after a migration commits but before its `db.migration` row is recorded → re-run recovers (forward-then-restore) without double-applying. Retained pending architect review: its full normalized-dump `_assert_faithful_restore` + `UPGRADE_DIED_DURING_RESUME` error-match have no counterpart in `postswap-after-commit-kill-arc` yet. | StallHere primitives; STATBUS-017 (cell c) |
 | `3-postswap-resume-died-parked` | A fabricated resume (in_progress row + service-held post_swap flag, no dispatch/claim involved) killed twice at the SAME step (boot-migrate, the resume-time schema catch-up that runs BEFORE recoverFromFlag) across two crash-resumes → the death budget PARKS the upgrade (alive-idle, NRestarts bounded+frozen, siren fires exactly once via a `.env.config`-only `UPGRADE_CALLBACK`, never `rolled_back`) instead of looping loud forever or rolling back; a deliberate `./sb install` un-parks it for exactly one fresh attempt, which completes. | STATBUS-046/D3 crash-resume death budget (`resumeEscalation`, same-step-twice) hoisted to `RecoveryBudgetGuard` (STATBUS-044 comment #6, commit cc660280f) so boot-migrate deaths self-count; STATBUS-131 AC#3 (`UPGRADE_CALLBACK` survives `sb config generate`). Renamed/rebuilt from the deleted `3-postswap-resume-died-rollback` (STATBUS-099) — that shape predates the death budget and asserted rollback, which the new mechanism no longer produces at-target. Rebuilt a second time (STATBUS-044 comment #6) after the 12-run park-oracle campaign proved the original migrate-up construction targeted an unreachable resume-time window. |
 | `3-postswap-rune-wedge` | The rune shape, fabricated (in_progress row + service-held post_swap flag with a dead pid + a stale container set incl. a stale-but-SERVING proxy, exactly as rune had) with the old daemon left running → `./sb install` takes over (SIGKILL-class quiesce, never SIGTERM, flock-confirmed death), resumes forward, recreates the full service set incl. the stale proxy at the flag target, converges to `completed` with ZERO restores, removes the flag; a second install reads nothing-scheduled. The standing regression net for the one-shot live rune recovery (STATBUS-047). | STATBUS-039 takeover + forward-when-at-target; STATBUS-052 flock-confirmed quiesce; STATBUS-044 AC#1 (case 0 of the verdict matrix). The crash-LOOPING reclassify gate is deliberately not driven — a natural loop is extinct on HEAD by design (046 park budget); that gate stays unit-tested + rune-live-validated. v1 removed the proxy as a "harsher variant of stale" — refuted by its first run: the DB path routes THROUGH the proxy (Caddy layer4), so a missing proxy severs recovery's own connection (that finding has its own product ticket); rune's proxy was old but serving. |
-| `3-postswap-watchdog-reconnect` | An upgrade that stalls reconnecting to the DB after a container restart → confirms the inject site is reachable, surfacing the missing watchdog cover there. | inject.StallHere after `waitForDBHealth`, before `reconnect` (C15); fix = WATCHDOG ticker, follow-up |
 | `3-postswap-worker-ddl-deadlock` | An upgrade whose migration needs a DDL lock the busy worker is holding → the installer must quiesce services first so the migration doesn't hang forever. | R1 quiesce-before-DDL (commit 02a144052); terminal within INSTALL_BUDGET_S |
 
 > `3-postswap-migration-deterministic-error` was retired: an upgrade whose migration errors on every apply (cell e — genuinely unapplyable) is now covered by the **upgrade-arc-harness** failing arc (real V_fail → rollback → byte-identical clean-slate restore). (STATBUS-071 §9(5) 5d.)
@@ -102,12 +92,11 @@ Every entry leads with its **plain goal** — read it as **die HERE → the oper
 
 | Scenario | What it proves | Grounding |
 |---|---|---|
-| `4-rollback-kill` | Killed during the built-in rollback → the system still converges to a coherent terminal state (`completed` or `rolled_back`), data intact. | inject.KillHere in `d.rollback()` (C9); fires non-deterministically — diagnostic for the rollback path |
 | `4-rollback-abort-write-lands` | A rollback whose git-restore has no resolvable target (the true "r17" fabrication — direct state, no real executeUpgrade, so no `pre-upgrade` branch was ever pinned) aborts → the terminal write (`state=failed`) lands in ONE pass, ZERO kills, flag removed, unit alive-idle (NRestarts ≤ 1) — proving the box no longer loops forever writing its own terminal into a DB it just stopped. | STATBUS-136: `EnsureDBReachable`/`StartDBForRecovery` (`docker compose start db`) before the terminal write on `d.rollback()`'s git-corrupt ABORT branch; killed the r17 x3 death loop |
 
 > The STATBUS-031 rollback-restore watchdog cover (a large-DB `rollback()` restore that outruns `WatchdogSec`) is exercised by the **upgrade-arc-harness** arc `postswap-rollback-restore-watchdog` (V_fail → rollback → restore-stall at `exec.go` `inject.StallHere("restore-db-stall-watchdog")`), **not** an install-recovery scenario: this harness installs release images and re-tags them via `stage-head.sh`, so it can't build the per-commit V_fail image the real-upgrade trigger needs. The former `4-rollback-restore-watchdog` scenario (a death-during-resume trigger, now self-heal-blocked) was retired. (STATBUS-071 §9(5) 5c-hard.)
 
-> STATBUS-134's 2-consecutive-rollback-deaths restore-broke terminal is exercised by the **upgrade-arc-harness** arc `rollback-pair-terminal` (deterministic PreSwap-wedge entry — the same C5→C9 lineage as `4-rollback-kill`'s reshaped `rollback-kill` arc — with a SECOND, re-armed C9 kill added so the on-disk `(rollback, rollback)` step pair forms and `rollbackResumeIsTerminal` fires `state=failed` before any third restore attempt), **not** an install-recovery scenario: it needs the real register+schedule lineage `rollback-kill-arc.sh` already proved deterministic. Deliberately a SEPARATE arc from `4-rollback-abort-write-lands` above — STATBUS-136's DB-start-before-write fix lives exclusively in the git-corrupt ABORT branch, structurally disjoint from this pair-terminal's (non-abort) kill site; one fabrication cannot exercise both (verified against shipped code, architect-ruled 2026-07-06).
+> STATBUS-134's 2-consecutive-rollback-deaths restore-broke terminal is exercised by the **upgrade-arc-harness** arc `rollback-pair-terminal` (deterministic PreSwap-wedge entry — the same C5→C9 lineage as the `rollback-kill-arc` that reshaped the retired `4-rollback-kill` scenario — with a SECOND, re-armed C9 kill added so the on-disk `(rollback, rollback)` step pair forms and `rollbackResumeIsTerminal` fires `state=failed` before any third restore attempt), **not** an install-recovery scenario: it needs the real register+schedule lineage `rollback-kill-arc.sh` already proved deterministic. Deliberately a SEPARATE arc from `4-rollback-abort-write-lands` above — STATBUS-136's DB-start-before-write fix lives exclusively in the git-corrupt ABORT branch, structurally disjoint from this pair-terminal's (non-abort) kill site; one fabrication cannot exercise both (verified against shipped code, architect-ruled 2026-07-06).
 
 ### 5-install — the inline `./sb install` operator path
 
@@ -188,5 +177,5 @@ CI-integrated via `.github/workflows/install-recovery-harness.yaml` — it runs 
 
 ```bash
 gh workflow run install-recovery-harness.yaml --ref master                                   # all scenarios (blank = all)
-gh workflow run install-recovery-harness.yaml --ref master -f scenarios="2-preswap-backup-kill 4-rollback-kill"
+gh workflow run install-recovery-harness.yaml --ref master -f scenarios="0-happy-upgrade 5-install-seed-on-populated"
 ```
