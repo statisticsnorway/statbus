@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-07 02:57'
+updated_date: '2026-07-07 03:07'
 labels:
   - upgrade
   - recovery
@@ -42,3 +43,13 @@ ORACLE: the abort-write-lands scenario run WITHOUT its cleanup step reproduces t
 - [ ] #2 Transient/unclassified boot-migrate failures keep the exit-and-restart behavior
 - [ ] #3 The abort-aftermath state (row=failed, no flag, broken migration on disk) leaves the daemon alive and serving its normal loop, verified by a scenario variant
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-07 03:07
+---
+LIVE SEVERITY EVIDENCE (banked from the kept abort-oracle VM 65.108.158.151 before reaping, systemd 255, operator empirics 2026-07-07): the flagless churn was observed running to its terminal — NRestarts climbed ~+1 per 30s (7 at the architect's read, 9 at the operator's) until the unit sat in state 'failed' — i.e. the StartLimit death is not hypothetical, it is the observed end state of this bug on a real box. Counter arithmetic for the fix's gate/tests, confirmed on the same box: `systemctl reset-failed` zeroes NRestarts in BOTH unit states (failed 9→0, active 1→0), and the counter increments by exactly +1 per restart (0→1→2, timestamped, no skips). The abort-oracle scenario now deletes its synthetic migration promptly and stays a narrow 136 oracle; THIS ticket's future oracle is that same scenario WITHOUT the cleanup step, asserting the StartLimit death (pointer in the scenario header).
+---
+<!-- COMMENTS:END -->
