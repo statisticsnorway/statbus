@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-07-04 22:30'
-updated_date: '2026-07-06 07:40'
+updated_date: '2026-07-07 04:01'
 labels:
   - upgrade
   - install-recovery
@@ -36,6 +36,12 @@ author: foreman
 created: 2026-07-06 07:40
 ---
 CLOSED: shipped 28aa1e920, architect-approved with all three review points verified. The dedicated pair-terminal VM scenario is deliberately NOT this ticket's scope — it needs STATBUS-136 first (the terminal write must survive the abort path before a scenario can assert it).
+---
+
+author: foreman
+created: 2026-07-07 04:01
+---
+RUN-PROVEN (2026-07-07, rollback-pair-terminal arc, CI run 28839994287 on b0df2af0d): the pair-terminal bound observed live on a real VM — two consecutive in-process deaths inside the rollback (recordRollbackCommit stamp verified present at each death via the arc's flag reads) drove the restore-broke terminal at EXACTLY 2, never a third rollback attempt. The RecoveryBudgetGuard rollback deferral + pair-terminal semantics this ticket shipped are now oracle-backed, not just unit-tested. Arc lineage: first real run (28838952364) validated the construction but was blinded by a compact-JSON-only flag reader; fixed b0df2af0d; green on the re-run.
 ---
 <!-- COMMENTS:END -->
 
