@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-07 02:59'
+updated_date: '2026-07-07 03:46'
 labels:
   - install-recovery
   - upgrade
@@ -194,5 +194,11 @@ author: foreman
 created: 2026-07-07 02:59
 ---
 KILL-FAMILY SWEEP COMPLETE (2026-07-07): run 28832014634 (after-commit ×2 + mid-tx GREEN — the 105 measurement; 105 closed on it) + run 28837119781 (between-migrations + mid-migration + rollback-restore-watchdog ALL GREEN). SIX cells flip [IN FLIGHT]→[PROVEN]: the two after-commit torn-window arcs (rolled_back per the ratified rule), mid-tx, the two migration-window arcs (reshaped to the product's real promise: in-dispatch forward recovery — kill lands, dispatch survives via the deferred-recovery path, completed at attempts==1), and the rollback-restore-watchdog cover-HOLDS arc (NRestarts frozen through a stalled restore → clean rolled_back with byte-identical clean slate; U2 proven). Harness classes ended en route: stale-PID kill miss + release-after-miss (the confirmed-kill helper, 4b6da9fdd), the transport self-match (bracket idiom), the hold-end assertion contradiction. NEW product tickets from the campaign's scenario legs: STATBUS-143 (probe-vs-connect route mismatch in install recovery) and STATBUS-144 (flagless post-terminal boot-migrate churn). Rune-wedge GREEN (044 AC#1 checked); abort oracle one cleanup-fix from green with the 136 property already run-proven. Remaining U-campaign: abort oracle round 3, pair-terminal arc run (after this sweep — lineage now confirmed green), U5 legacy deletions, U6/AC#4 gated on the King's carve-out ruling.
+---
+
+author: foreman
+created: 2026-07-07 03:46
+---
+ABORT ORACLE GREEN (round 4, 2026-07-07, HEAD 089860e65, local VM run): 4-rollback-abort-write-lands PASSED end-to-end as a DUAL oracle — (1) the STATBUS-136 property from the early single-snapshot read: ABORT terminal landed complete in ONE pass, zero kills (state='failed' + full ROLLBACK_FAILED_GIT_CORRUPT error together, flag removed, exactly one callback, NRestarts==1); (2) promoted round-3 finding: the SAME boot's flagless rune-class self-heal (STATBUS-039, ground-truth-gated markCurrentVersionCompleted) then converged the fabricated at-target row to completed/error-NULL — now a deliberate live-proven assertion, not a surprise. Round ledger: r2 red = flagless churn (→ filed STATBUS-144 + cleanup step); r3 red = late error read raced the self-heal (→ combined same-snapshot reads on both sides of the RestartSec boundary). Audit rider recorded on the 014 family: the self-heal NULLs the error trail (failed→completed). PAIR-TERMINAL ARC status: first real run (28838952364) proved the CONSTRUCTION works line-by-line (pre-swap route, kill inside rollback, recordRollbackCommit stamp fired) but the arc's flag reader was compact-JSON-only while the product writes MarshalIndent — one-line space-tolerant reader fix shipped (b0df2af0d), re-dispatched as run 28839994287.
 ---
 <!-- COMMENTS:END -->
