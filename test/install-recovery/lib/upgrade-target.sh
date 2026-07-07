@@ -41,7 +41,7 @@
 #   - writing outputs to $GITHUB_OUTPUT (CI)
 #   - trusting ARC_PUBKEY via arc-helpers.sh::trust_arc_signer (post-install)
 #
-# SPEC ∈ {working, failing, oom}
+# SPEC ∈ {working, failing, oom, ceiling}
 #   working  — B: genuine migration V that SUCCEEDS (CREATE TABLE upgrade_arc_fixture +
 #               upgrade_arc_fixture_2); C: B with V amended in place (prepends a comment
 #               → new bytes, same effect; triggers STATBUS-102 channel-bless re-stamp).
@@ -57,6 +57,11 @@
 #               db (EnsureDBUp) before any recovery branch runs, so the killed migration
 #               always gets a live DB back within the same crash-resume pass and
 #               completes forward on its re-attempt.
+#   ceiling  — B: a real, LONG V (`SELECT pg_sleep(3600);`, bare) that OUR OWN
+#               internal STATBUS_MIGRATE_UP_TIMEOUT ceiling SIGKILLs mid-sleep
+#               (STATBUS-095 piece 2) — contrast oom's EXTERNAL kill: nothing
+#               revives this one, so it IS a rollback story. SINGLE-PHASE like
+#               oom (no C; identical-to-B, unused). Terminal is rolled_back.
 #
 # Migration content is NON-IDEMPOTENT by design (no IF NOT EXISTS): a re-apply
 # CONFLICTS ('already exists') — load-bearing for the after-commit arcs' deterministic
@@ -154,6 +159,33 @@ _ut_write_oom_v() {
     echo "DROP TABLE IF EXISTS public.upgrade_arc_oom_fixture;" > "$v_down"
 }
 
+# _ut_write_ceiling_v V_UP V_DOWN
+# Write the CEILING fixture migration (STATBUS-095 piece 2): a real,
+# long-running statement OUR OWN internal STATBUS_MIGRATE_UP_TIMEOUT ceiling
+# kills — contrast with the oom spec, which is killed EXTERNALLY (an
+# operator/OS action) and completes forward on revival; this one is killed
+# INTERNALLY (the product's own ceiling) and is a ROLLBACK story, because
+# nothing external ever revives anything — the ceiling's own rollback IS the
+# terminal. Bare top-level statement (no BEGIN/END), matching the oom spec's
+# own reasoning: must show up as pg_stat_activity's own active query.
+# Deliberately LONG (3600s, unlike oom's 60s): with the ceiling armed via a
+# short STATBUS_MIGRATE_UP_TIMEOUT (the arc's dropin sets 20s), the migration
+# is SIGKILLed by the ceiling long before 3600s could ever elapse — a long
+# sleep here does not cost the arc any wall-clock (contrast oom, where NO
+# internal ceiling exists and a revived box would actually wait out the
+# sleep, which is why oom is short).
+_ut_write_ceiling_v() {
+    local v_up="$1" v_down="$2"
+    {
+      echo "-- Upgrade-arc CEILING fixture (STATBUS-095 piece 2): a real migration our"
+      echo "-- own STATBUS_MIGRATE_UP_TIMEOUT ceiling kills mid-sleep (SIGKILL at the"
+      echo "-- ctx deadline, service.go's applyPostSwap migrate call). Bare statement,"
+      echo "-- no BEGIN/END — must appear as pg_stat_activity's own active query."
+      echo "SELECT pg_sleep(3600);"
+    } > "$v_up"
+    echo "SELECT 1;  -- V_sleep commits nothing when killed; rollback is the volume-restore" > "$v_down"
+}
+
 # construct_upgrade_target BASE_SHA SPEC
 # See module header above for full documentation.
 construct_upgrade_target() {
@@ -207,7 +239,8 @@ construct_upgrade_target() {
         working) _ut_write_working_v "$_v_up" "$_v_down" "$_v2_up" "$_v2_down" ;;
         failing) _ut_write_failing_v "$_v_up" "$_v_down" ;;
         oom)     _ut_write_oom_v "$_v_up" "$_v_down" ;;
-        *) echo "construct_upgrade_target: unknown SPEC '${_spec}' (expected: working|failing|oom)" >&2; return 1 ;;
+        ceiling) _ut_write_ceiling_v "$_v_up" "$_v_down" ;;
+        *) echo "construct_upgrade_target: unknown SPEC '${_spec}' (expected: working|failing|oom|ceiling)" >&2; return 1 ;;
     esac
     git add migrations/
     # The synthetic upgrade-arc fixture migrations are exempted from the doc/db
@@ -242,13 +275,22 @@ construct_upgrade_target() {
             ;;
         oom)
             # No "fixed" phase for the OOM arc: it is single-phase (A→B only,
-            # terminal is rolled_back — there is nothing to apply afterward).
+            # terminal is completed — the box's own boot revives the db and
+            # re-runs V forward; there is nothing to apply afterward).
             # Deliberately NO commit here: C stays identical to B (same
             # commit, different branch name). construct_upgrade_target's
             # caller-scope contract still produces a C_BRANCH/C_FULL output
             # for uniformity across specs; the oom arc's own script simply
             # never references them (it declares only BASE_SHA/B_FULL/B_BRANCH
             # as required, mirroring rollback-kill-arc.sh's own B-only shape).
+            ;;
+        ceiling)
+            # No "fixed" phase for the ceiling arc either: single-phase
+            # (A→B only), terminal is rolled_back — the ceiling's own
+            # in-process rollback IS the terminal, nothing to apply
+            # afterward. Same no-commit shape as oom's C (unused, identical
+            # to B); the ceiling arc's own script declares only
+            # BASE_SHA/B_FULL/B_BRANCH as required.
             ;;
     esac
     local _c_short _c_full

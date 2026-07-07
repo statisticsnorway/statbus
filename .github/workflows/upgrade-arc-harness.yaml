@@ -89,6 +89,11 @@ jobs:
       oom_b_branch: ${{ steps.fixtures.outputs.oom_b_branch }}
       oom_b_short: ${{ steps.fixtures.outputs.oom_b_short }}
       oom_b_full: ${{ steps.fixtures.outputs.oom_b_full }}
+      # ceiling (STATBUS-095 piece 2): single-phase — B only.
+      # postswap-migration-ceiling-arc.sh is the sole rider; no C.
+      ceiling_b_branch: ${{ steps.fixtures.outputs.ceiling_b_branch }}
+      ceiling_b_short: ${{ steps.fixtures.outputs.ceiling_b_short }}
+      ceiling_b_full: ${{ steps.fixtures.outputs.ceiling_b_full }}
     steps:
       - name: Checkout (full history — branch fixtures are real commits off A)
         uses: actions/checkout@v4
@@ -145,6 +150,10 @@ jobs:
           construct_upgrade_target "$base_sha" oom
           oom_b_branch="$B_BRANCH"; oom_b_short="$B_SHORT"; oom_b_full="$B_FULL"
 
+          # ceiling (STATBUS-095 piece 2): single-phase, B only — same shape as oom.
+          construct_upgrade_target "$base_sha" ceiling
+          ceiling_b_branch="$B_BRANCH"; ceiling_b_short="$B_SHORT"; ceiling_b_full="$B_FULL"
+
           # ARC_PUBKEY set (and exported) by the library on the first call above.
           {
             echo "base_sha=${base_sha}"
@@ -167,9 +176,12 @@ jobs:
             echo "oom_b_branch=${oom_b_branch}"
             echo "oom_b_short=${oom_b_short}"
             echo "oom_b_full=${oom_b_full}"
+            echo "ceiling_b_branch=${ceiling_b_branch}"
+            echo "ceiling_b_short=${ceiling_b_short}"
+            echo "ceiling_b_full=${ceiling_b_full}"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Dispatch images.yaml for all 5 fixture branches (push does not trigger; dispatch does)
+      - name: Dispatch images.yaml for all 6 fixture branches (push does not trigger; dispatch does)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WORKING_B_BRANCH: ${{ steps.fixtures.outputs.working_b_branch }}
@@ -177,6 +189,7 @@ jobs:
           FAILING_B_BRANCH: ${{ steps.fixtures.outputs.failing_b_branch }}
           FAILING_C_BRANCH: ${{ steps.fixtures.outputs.failing_c_branch }}
           OOM_B_BRANCH: ${{ steps.fixtures.outputs.oom_b_branch }}
+          CEILING_B_BRANCH: ${{ steps.fixtures.outputs.ceiling_b_branch }}
         run: |
           set -euo pipefail
           # images.yaml is UNCHANGED — its workflow_dispatch is the public entry
@@ -206,6 +219,7 @@ jobs:
           dispatch_images "$FAILING_B_BRANCH"
           dispatch_images "$FAILING_C_BRANCH"
           dispatch_images "$OOM_B_BRANCH"
+          dispatch_images "$CEILING_B_BRANCH"
 
   image-wait:
     name: Wait for per-commit images (A + B + C)
@@ -228,7 +242,7 @@ jobs:
           DOCKER_CLI_EXPERIMENTAL: enabled
           IMAGES_WAIT_BUDGET_S: "2400"
           IMAGES_WAIT_INTERVAL_S: "30"
-          SHORTS: "${{ needs.construct.outputs.base_short }} ${{ needs.construct.outputs.working_b_short }} ${{ needs.construct.outputs.working_c_short }} ${{ needs.construct.outputs.failing_b_short }} ${{ needs.construct.outputs.failing_c_short }} ${{ needs.construct.outputs.oom_b_short }}"
+          SHORTS: "${{ needs.construct.outputs.base_short }} ${{ needs.construct.outputs.working_b_short }} ${{ needs.construct.outputs.working_c_short }} ${{ needs.construct.outputs.failing_b_short }} ${{ needs.construct.outputs.failing_c_short }} ${{ needs.construct.outputs.oom_b_short }} ${{ needs.construct.outputs.ceiling_b_short }}"
         run: |
           set -euo pipefail
           echo "${GH_TOKEN}" | docker login "$REGISTRY" -u "$ACTOR" --password-stdin
@@ -378,15 +392,17 @@ jobs:
           ssh-keygen -lf ~/.ssh/id_ed25519 | awk '{ print "SSH key fingerprint:", $2 }'
 
       - name: Resolve fixture lineage for the scenario
-        # §7 shared-fixture: each arc rides ONE of the 3 shared lineages. The
+        # §7 shared-fixture: each arc rides ONE of the 4 shared lineages. The
         # failing + rollback-restore arcs need the FAILING V (RAISE → rollback);
         # postswap-migration-oom needs its own OOM V (a real, long-running
-        # statement to kill mid-run — STATBUS-096); every other (kill/stall)
-        # arc rides the WORKING V. Map scenario→lineage and export the chosen
-        # pair's B/C refs to $GITHUB_ENV for the run step (the arc reads
-        # B_FULL/C_FULL/B_BRANCH/C_BRANCH from the environment). The oom
-        # lineage exports B_FULL/B_BRANCH only — it is single-phase (no C) and
-        # postswap-migration-oom-arc.sh does not reference C_FULL/C_BRANCH
+        # statement to kill mid-run — STATBUS-096); postswap-migration-ceiling
+        # needs its own CEILING V (a real, long-running statement OUR OWN
+        # STATBUS_MIGRATE_UP_TIMEOUT kills — STATBUS-095 piece 2); every other
+        # (kill/stall) arc rides the WORKING V. Map scenario→lineage and export
+        # the chosen pair's B/C refs to $GITHUB_ENV for the run step (the arc
+        # reads B_FULL/C_FULL/B_BRANCH/C_BRANCH from the environment). The oom
+        # and ceiling lineages export B_FULL/B_BRANCH only — both are
+        # single-phase (no C) and neither arc references C_FULL/C_BRANCH
         # (mirrors rollback-kill-arc.sh's own B-only shape).
         env:
           SCENARIO: ${{ matrix.scenario }}
@@ -400,11 +416,14 @@ jobs:
           FAILING_C_BRANCH: ${{ needs.construct.outputs.failing_c_branch }}
           OOM_B_FULL: ${{ needs.construct.outputs.oom_b_full }}
           OOM_B_BRANCH: ${{ needs.construct.outputs.oom_b_branch }}
+          CEILING_B_FULL: ${{ needs.construct.outputs.ceiling_b_full }}
+          CEILING_B_BRANCH: ${{ needs.construct.outputs.ceiling_b_branch }}
         run: |
           set -euo pipefail
           case "$SCENARIO" in
             failing|postswap-rollback-restore-watchdog) lineage=failing ;;
             postswap-migration-oom)                     lineage=oom ;;
+            postswap-migration-ceiling)                 lineage=ceiling ;;
             *)                                          lineage=working ;;
           esac
           echo "Scenario '${SCENARIO}' → fixture lineage '${lineage}'"
@@ -419,6 +438,11 @@ jobs:
             {
               echo "B_FULL=${OOM_B_FULL}"
               echo "B_BRANCH=${OOM_B_BRANCH}"
+            } >> "$GITHUB_ENV"
+          elif [ "$lineage" = ceiling ]; then
+            {
+              echo "B_FULL=${CEILING_B_FULL}"
+              echo "B_BRANCH=${CEILING_B_BRANCH}"
             } >> "$GITHUB_ENV"
           else
             {
