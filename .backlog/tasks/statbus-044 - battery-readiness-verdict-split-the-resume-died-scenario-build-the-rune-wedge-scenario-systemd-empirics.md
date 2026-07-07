@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - architect
 created_date: '2026-06-12 21:51'
-updated_date: '2026-07-07 02:55'
+updated_date: '2026-07-07 03:05'
 labels:
   - install-recovery
   - testing
@@ -51,7 +51,7 @@ Three items that gate the deferred install-recovery VM battery (post-rune-instal
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 rune-wedge scenario lands in test/install-recovery/scenarios/ and proves takeover→forward→completed with zero restores on a fabricated rune shape
-- [ ] #2 NRestarts-across-exit-42 + reset-failed-on-active-unit confirmed on a VM (or the documented conservative degradation confirmed for older systemd)
+- [x] #2 NRestarts-across-exit-42 + reset-failed-on-active-unit confirmed on a VM (or the documented conservative degradation confirmed for older systemd)
 - [ ] #3 All scenario commits land outside battery runs (freeze-window discipline)
 - [x] #4 3-postswap-resume-died-rollback rewritten to the four-case verdict matrix (canary-self-heal / transient-forward-succeeds / persistent-forward-loops / behind-rolls-back) ONLY AFTER the King settles the loudness question for the persistent case — on hold until then
 <!-- AC:END -->
@@ -179,5 +179,11 @@ author: foreman
 created: 2026-07-07 02:55
 ---
 AC#1 CHECKED — the rune-wedge scenario went GREEN on its second run (2026-07-07, night pair round 2, HEAD b709e82ef): fabricated rune shape (in_progress row + post_swap flag with dead holder, stale-but-SERVING proxy — the first run refuted proxy-removal: it severs the recovery's own DB route, filed as STATBUS-143) → ./sb install took over with the SIGKILL-class quiesce (never SIGTERM, flock-confirmed death), resumed forward, recreated the full service set at the target, converged to completed with attempts==1, ZERO restores (rolled_back_at NULL enforced), demo data byte-identical, flag removed, second install read nothing-scheduled. The one-shot live rune recovery now has its standing regression net. Remaining on this ticket: AC#2 systemd empirics (ride-along on a kept campaign VM).
+---
+
+author: foreman
+created: 2026-07-07 03:05
+---
+AC#2 CHECKED — systemd empirics measured live on the kept abort-oracle VM (65.108.158.151, systemd 255 / 255.4-1ubuntu8.15, operator ride-along 2026-07-07): (1) `systemctl reset-failed` ZEROES NRestarts in BOTH unit states — failed (9→0) and active (1→0) — so the gate's reset-then-count pattern is sound regardless of the unit's state when the gate runs. (2) NRestarts increments by exactly +1 per restart, clean sequence, no skips or collisions (0→1→2 tracked with timestamps). BONUS empiric for STATBUS-144's severity paragraph: the unit was observed in the flagless-churn death live — NRestarts climbed ~+1/30s (7 at the architect's read, 9 at the operator's) until the unit sat 'failed' — the StartLimit terminal the 144 fix must remove.
 ---
 <!-- COMMENTS:END -->
