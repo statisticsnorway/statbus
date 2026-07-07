@@ -387,3 +387,79 @@ arc_wait_row_state() {
     done
 }
 
+# ── arc_kill_confirmed <vm> <mode> [poll_budget_s] ───────────────────────────
+# SIGKILL a target captured FRESH at kill time, then POLL until it is CONFIRMED
+# gone. Returns 0 iff every targeted PID is dead; on a MISS (no live target at kill
+# time, or still alive after the budget) it prints a loud diagnostic and returns 1.
+#
+# WHY THIS EXISTS (STATBUS-021 bug class — the U1 stale-PID kill miss). The old
+# arcs captured the target PID into a variable EARLY (at stall-detection), but the
+# exit-42 binary-swap handoff RESPAWNS the daemon (systemd restart → new MainPID)
+# between capture and kill. The late SIGKILL then hit a dead PID ('No such process')
+# → the kill was MISSED → and because the arc went on to RELEASE the stall anyway,
+# the un-killed process finished the upgrade → a FALSE 'completed'. Capturing the
+# PID FRESH here — inside this helper, at kill time — closes that window.
+#
+# Modes (each captures FRESH; that is the whole point — never a stale variable):
+#   daemon-mainpid      the upgrade daemon's CURRENT systemd MainPID (authoritative
+#                       post-handoff PID — a stale variable is exactly the U1 bug).
+#   install-parent      the `./sb install` process (foreground or background).
+#   migrate-subprocess  the `/sb migrate up` child only (leaves the parent alive).
+#   install-tree        install-parent + migrate-subprocess together.
+#
+# ★★ IRON RULE — EVERY CALLER MUST HONOUR THIS ★★
+#   Never remove a release file / release a stall unless this returned 0. A missed
+#   kill means the target respawned or vanished before we could confirm; releasing
+#   after a miss lets the still-live process finish and manufactures a FALSE terminal
+#   (the 'completed' that isn't — the exact U1 failure). The call site is ALWAYS:
+#
+#       arc_kill_confirmed "$VM_NAME" <mode> || exit 1     # aborts loudly on a miss
+#       remove_release_file_in_vm "$VM_NAME" "$RELEASE_FILE"   # ONLY reached on a confirmed kill
+#
+arc_kill_confirmed() {
+    # shellcheck disable=SC2034  # vm kept for call-site signature parity (like pgrep_upgrade_service_parent); VM_EXEC targets the global VM_NAME
+    local vm="$1" mode="$2" budget="${3:-30}"
+    local pids=""
+    case "$mode" in
+        daemon-mainpid)
+            local mp
+            mp=$(VM_EXEC systemctl --user show "$ARC_UPGRADE_UNIT" --property=MainPID --value 2>/dev/null | tr -d ' \r\n' || echo "0")
+            { [ -n "$mp" ] && [ "$mp" != "0" ]; } && pids="$mp"
+            ;;
+        install-parent)
+            pids=$(VM_EXEC bash -c "pgrep -nf '[/]sb install' 2>/dev/null | head -1 || true" 2>/dev/null | tr -d ' \r\n')
+            ;;
+        migrate-subprocess)
+            pids=$(VM_EXEC bash -c "pgrep -nf '[/]sb migrate up' 2>/dev/null | head -1 || true" 2>/dev/null | tr -d ' \r\n')
+            ;;
+        install-tree)
+            local ip mp
+            ip=$(VM_EXEC bash -c "pgrep -nf '[/]sb install' 2>/dev/null | head -1 || true" 2>/dev/null | tr -d ' \r\n')
+            mp=$(VM_EXEC bash -c "pgrep -nf '[/]sb migrate up' 2>/dev/null | head -1 || true" 2>/dev/null | tr -d ' \r\n')
+            pids=$(printf '%s\n%s\n' "$ip" "$mp" | grep -E '^[0-9]+$' | sort -u | tr '\n' ' ')
+            ;;
+        *)
+            echo "✗ arc_kill_confirmed: unknown mode '$mode' (want daemon-mainpid|install-parent|migrate-subprocess|install-tree)" >&2
+            return 1 ;;
+    esac
+    pids=$(echo "$pids" | tr '\n' ' ' | tr -s ' ' | sed 's/^ *//;s/ *$//')
+    if [ -z "$pids" ]; then
+        echo "✗ arc_kill_confirmed($mode): NO live target PID at kill time — the kill window was MISSED (target respawned/vanished). ABORT: releasing now would manufacture a false terminal (STATBUS-021)." >&2
+        return 1
+    fi
+    echo "  arc_kill_confirmed($mode): SIGKILL fresh PID(s): $pids"
+    VM_EXEC bash -c "kill -9 $pids 2>/dev/null || true"
+    local start elapsed alive
+    start=$(date +%s)
+    while true; do
+        alive=$(VM_EXEC bash -c "for p in $pids; do kill -0 \$p 2>/dev/null && printf '%s ' \$p; done" 2>/dev/null | tr -d '\r' | sed 's/ *$//')
+        [ -z "$alive" ] && { echo "  ✓ kill CONFIRMED — target PID(s) gone: $pids"; return 0; }
+        elapsed=$(( $(date +%s) - start ))
+        if [ "$elapsed" -ge "$budget" ]; then
+            echo "✗ arc_kill_confirmed($mode): PID(s) STILL ALIVE after ${budget}s: $alive — kill NOT confirmed. ABORT." >&2
+            return 1
+        fi
+        sleep 2
+    done
+}
+

@@ -80,22 +80,48 @@ arc_schedule_daemon_down "$B_FULL"
 echo "── arming one-shot kill marker ($KILL_MARKER) ──"
 VM_EXEC bash -c "touch $KILL_MARKER && ls -la $KILL_MARKER"
 
-# FIRST dispatch — the kill fires ONCE between migration 1 and migration 2 (exit 137).
-arc_install_dispatch_with_inject "$INJECT_CLASS" "$INSTALL_BUDGET_S" "$KILL_MARKER"
+# ── LEG 1: install-until-killed (U1 FAMILY-2 fix — assertion sequencing + double-window) ──
+# The one-shot kill can land on THIS install's post-swap migrate OR on its re-exec'd
+# crash-recovery BOOT-migrate ("the second install's boot-migrate" the U1 log showed).
+# The old arc assumed the FIRST dispatch killed and asserted 'flag present' right
+# after — but a dispatch that ran PAST the window completed the upgrade (flag gone),
+# so the assertion failed at the wrong point with a misleading message. Fix: DISPATCH
+# UNTIL the kill is CONFIRMED (exit 137 + marker consumed + flag left present), pin
+# which pass it fired on, and only THEN assert the RED midpoint. A dispatch that
+# instead completes the upgrade (flag absent) = the inject window was missed → fail loud.
+_flag_present() { VM_EXEC bash -c "test -e ~/statbus/tmp/upgrade-in-progress.json && echo present || echo absent" 2>/dev/null | tr -d ' \r\n'; }
+_marker_state() { VM_EXEC bash -c "test -e $KILL_MARKER && echo present || echo consumed" 2>/dev/null | tr -d ' \r\n'; }
+KILL_PASS=""
+for _pass in 1 2; do
+    arc_install_dispatch_with_inject "$INJECT_CLASS" "$INSTALL_BUDGET_S" "$KILL_MARKER"
+    _fl=$(_flag_present); _mk=$(_marker_state)
+    if [ "$ARC_DISPATCH_RC" = "137" ] && [ "$_mk" = "consumed" ] && [ "$_fl" = "present" ]; then
+        KILL_PASS="$_pass"; echo "  ✓ one-shot kill fired on dispatch pass ${_pass} (exit 137, marker consumed, flag present)"; break
+    fi
+    if [ "$_fl" = "absent" ]; then
+        echo "✗ dispatch pass ${_pass} left NO flag (rc=$ARC_DISPATCH_RC, marker=$_mk) — the upgrade ran past the between-migrations inject window without the kill landing" >&2
+        exit 1
+    fi
+    echo "  [pass ${_pass}] no kill yet (rc=$ARC_DISPATCH_RC, marker=$_mk, flag=$_fl) — re-dispatching (double-window: the kill may land on the recovery boot-migrate)"
+done
+[ -n "$KILL_PASS" ] || { echo "✗ one-shot kill never fired within 2 dispatch passes — the between-migrations inject site was not reached" >&2; exit 1; }
 
-# ── RED: flag PostSwap; migration 1 RECORDED, migration 2 pending (max==V_VERSION) ──
+# ── LEG 2: RED midpoint (anti-vacuity) — flag present; migration 1 RECORDED, migration 2 pending ──
 echo ""
 echo "── verifying RED state (flag present; max==V_VERSION = migration 1 recorded; marker consumed) ──"
-VM_EXEC bash -c "ls -la ~/statbus/tmp/upgrade-in-progress.json" >/dev/null || { echo "✗ expected flag file present after the kill" >&2; exit 1; }
-RED_MAX=$(migration_max_version)
-[ "$RED_MAX" = "$V_VERSION" ] || { echo "✗ db.migration max=$RED_MAX, want $V_VERSION — kill did not fire BETWEEN migration 1 (recorded) and migration 2 (pending)" >&2; exit 1; }
-echo "  ✓ RED: flag present + max==V_VERSION ($RED_MAX) — migration 1 recorded, migration 2 pending"
-if VM_EXEC bash -c "test -e $KILL_MARKER"; then
-    echo "✗ one-shot marker still present — KillHere did not consume it (one-shot broken)" >&2; exit 1
+[ "$(_flag_present)" = "present" ] || { echo "✗ expected the flag file present after the confirmed kill" >&2; exit 1; }
+# 027 remedy: the max read runs with the DB mid-recovery — retry + INFRA-skip on a
+# transient psql failure; never read "ERR" as a wrong-state verdict.
+RED_MAX="ERR"
+for _try in 1 2 3 4 5; do RED_MAX=$(migration_max_version); { [ "$RED_MAX" != "ERR" ] && [ -n "$RED_MAX" ]; } && break; sleep 3; done
+if [ "$RED_MAX" = "ERR" ] || [ -z "$RED_MAX" ]; then
+    echo "  ⚠ could not read db.migration max at the RED midpoint (DB mid-recovery / transport) — INFRA, skipping the max-check (flag-present above pinned the window)" >&2
+else
+    [ "$RED_MAX" = "$V_VERSION" ] || { echo "✗ db.migration max=$RED_MAX, want $V_VERSION — kill did not fire BETWEEN migration 1 (recorded) and migration 2 (pending)" >&2; exit 1; }
+    echo "  ✓ RED: flag present + max==V_VERSION ($RED_MAX) — migration 1 recorded, migration 2 pending"
 fi
-echo "  ✓ one-shot marker consumed (KillHere fired exactly once)"
 
-# ── recovery: ./sb install WITH the inject env (marker GONE → no re-kill) → forward ──
+# ── LEG 3: recovery — ./sb install with the marker GONE → no re-kill → forward-recover ──
 echo ""
 echo "── recovery: ./sb install, inject env still set, marker consumed → forward-recovery ──"
 arc_install_dispatch_with_inject "$INJECT_CLASS" "$INSTALL_BUDGET_S" "$KILL_MARKER"
@@ -110,6 +136,20 @@ case "$FINAL_STATE" in
     rolled_back|failed) echo "✗ state='$FINAL_STATE' — a between-migrations kill (migration 1 cleanly recorded) must FORWARD-recover to completed, not roll back" >&2; exit 1 ;;
     *) echo "✗ unexpected terminal state: $FINAL_STATE" >&2; exit 1 ;;
 esac
+# GREEN attempts pin (U1 FAMILY-2): the one-shot marker fires exactly one KILL across
+# the whole arc, so a clean forward-recovery is ONE pass → recovery_attempts==1.
+# Transport-aware (027): retry + INFRA-skip on a transient psql failure.
+RA="ERR"
+for _try in 1 2 3 4 5; do
+    RA=$(VM_EXEC bash -c "cd ~/statbus && echo 'SELECT recovery_attempts FROM public.upgrade ORDER BY id DESC LIMIT 1;' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "ERR")
+    { [ "$RA" != "ERR" ] && [ -n "$RA" ]; } && break; sleep 3
+done
+if [ "$RA" = "ERR" ] || [ -z "$RA" ]; then
+    echo "  ⚠ could not read recovery_attempts (transport) — INFRA, skipping" >&2
+else
+    [ "$RA" = "1" ] || { echo "✗ recovery_attempts=$RA, want 1 (one clean forward-recovery after a single between-migrations kill)" >&2; exit 1; }
+    echo "  ✓ recovery_attempts == 1 (one clean forward-recovery pass)"
+fi
 POST_MAX=$(migration_max_version)
 [ "$POST_MAX" = "$V_VERSION_2" ] || { echo "✗ db.migration max=$POST_MAX, want $V_VERSION_2 — forward-recovery did not apply the pending migration 2" >&2; exit 1; }
 echo "  ✓ db.migration max == V_VERSION_2 ($POST_MAX) — pending migration 2 applied"

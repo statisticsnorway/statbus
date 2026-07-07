@@ -121,10 +121,12 @@ done
 # (service.go:4751 runCommandToLog); pgrep -nf '/sb migrate up' matches it.
 echo ""
 echo "── SIGKILL the migrate subprocess during the after-commit stall (V committed, ledger INSERT not yet run) ──"
-SUBPROCESS_PID=$(VM_EXEC bash -c "pgrep -nf '/sb migrate up' 2>/dev/null | head -1 || echo ''" | tr -d ' \r\n')
-[ -n "$SUBPROCESS_PID" ] || { echo "✗ could not find migrate subprocess PID (pgrep -nf '/sb migrate up' returned empty)" >&2; exit 1; }
-echo "  migrate subprocess PID=$SUBPROCESS_PID — SIGKILL"
-kill_pid_in_vm "$VM_NAME" "$SUBPROCESS_PID" KILL
+# STATBUS-021 / U1 fix: capture the migrate-subprocess PID FRESH at kill time and
+# CONFIRM it is dead BEFORE releasing the stall. The old path captured the PID into a
+# variable and released the stall unconditionally; a stale-PID miss then let the
+# un-killed subprocess finish → a FALSE 'completed'. arc_kill_confirmed aborts loudly
+# on a miss, so the release below is reached ONLY on a confirmed kill.
+arc_kill_confirmed "$VM_NAME" migrate-subprocess || exit 1
 
 # Remove the release file + dropin so the parent daemon's Layer 0 recovery
 # (postSwapFailure → rollback → os.Exit(75)) does not re-stall on exit-75's

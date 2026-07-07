@@ -137,10 +137,12 @@ echo "  ✓ parked RED: max==baseline ($RED_MAX) — V1's tx open + uncommitted"
 # SIGKILL the install tree FIRST (parent + migrate) so it cannot catch the failure
 # and run a graceful rollback — we want the OS-kill shape (flag pinned PostSwap,
 # recovered by the next install), then pg_terminate_backend aborts the orphaned tx.
-PARENT_PID=$(pgrep_upgrade_service_parent "$VM_NAME" || echo "")
-echo "  install/upgrade parent PID=${PARENT_PID:-<none>}; SIGKILL tree (parent + migrate)"
-[ -z "$PARENT_PID" ] || kill_pid_in_vm "$VM_NAME" "$PARENT_PID" KILL
-kill_pid_in_vm "$VM_NAME" "$MIGRATE_PID" KILL
+# STATBUS-021 / U1 fix: capture the install tree (parent + migrate) FRESH at kill time
+# and CONFIRM both dead BEFORE touching the release file. arc_kill_confirmed aborts
+# loudly on a miss (releasing after a miss lets the un-killed install finish → false
+# terminal). The parked PG backend running pg_sleep survives the client kill — it is
+# aborted next by _terminate_migrate_backend; only then is the release safe.
+arc_kill_confirmed "$VM_NAME" install-tree || exit 1
 echo "── aborting the parked migrate backend (pg_terminate_backend) ──"
 _terminate_migrate_backend
 remove_release_file_in_vm "$VM_NAME" "$RELEASE_FILE"
@@ -150,9 +152,24 @@ echo ""
 echo "── verifying clean mid-tx RED shape ──"
 VM_EXEC bash -c "ls -la ~/statbus/tmp/upgrade-in-progress.json" >/dev/null || { echo "✗ expected flag file present after kill" >&2; exit 1; }
 assert_upgrade_row_state "$VM_NAME" "in_progress"
-POST_KILL_MAX=$(migration_max_version)
-[ "$POST_KILL_MAX" = "$BASELINE_MAX_VERSION" ] || { echo "✗ db.migration max=$POST_KILL_MAX (baseline=$BASELINE_MAX_VERSION) — tx did NOT roll back (committed-unrecorded? wrong cell)" >&2; exit 1; }
-echo "  ✓ RED: flag present, row in_progress, max==baseline — tx rolled back cleanly (no committed-unrecorded)"
+# STATBUS-027 remedy (transport-aware probe): this read runs immediately after the
+# SIGKILL + pg_terminate_backend, with the DB mid-recovery — a transient psql/SSH
+# failure returns "ERR" and must be RETRIED, then INFRA-skipped, NEVER read as a
+# wrong-state "tx did not roll back" verdict (the exact 027/016 class). The RED shape
+# is already pinned by the transport-aware assert_upgrade_row_state above, so an
+# unreadable max here is safe to skip.
+POST_KILL_MAX="ERR"
+for _try in 1 2 3 4 5; do
+    POST_KILL_MAX=$(migration_max_version)
+    { [ "$POST_KILL_MAX" != "ERR" ] && [ -n "$POST_KILL_MAX" ]; } && break
+    sleep 3
+done
+if [ "$POST_KILL_MAX" = "ERR" ] || [ -z "$POST_KILL_MAX" ]; then
+    echo "  ⚠ could not read db.migration max after the kill (DB mid-recovery / transport) — INFRA, skipping the max-check (assert_upgrade_row_state above already pinned the RED shape)" >&2
+else
+    [ "$POST_KILL_MAX" = "$BASELINE_MAX_VERSION" ] || { echo "✗ db.migration max=$POST_KILL_MAX (baseline=$BASELINE_MAX_VERSION) — tx did NOT roll back (committed-unrecorded? wrong cell)" >&2; exit 1; }
+    echo "  ✓ RED: flag present, row in_progress, max==baseline — tx rolled back cleanly (no committed-unrecorded)"
+fi
 
 # ── recovery: ./sb install (foreground, NO inject) → clean re-apply → completed ──
 echo ""

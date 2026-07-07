@@ -113,10 +113,12 @@ done
 # ── SIGKILL the daemon during the stall → V left COMMITTED-but-UNRECORDED ──
 echo ""
 echo "── SIGKILL the upgrade-service parent during the after-commit stall (V committed, ledger INSERT not yet run) ──"
-PARENT_PID=$(pgrep_upgrade_service_parent "$VM_NAME")
-[ -n "$PARENT_PID" ] || { echo "✗ could not find the upgrade-service parent PID to kill" >&2; exit 1; }
-echo "  upgrade-service parent PID=$PARENT_PID — SIGKILL"
-kill_pid_in_vm "$VM_NAME" "$PARENT_PID" KILL
+# STATBUS-021 / U1 fix: SIGKILL the daemon's CURRENT systemd MainPID (captured FRESH
+# — it survives the exit-42 handoff respawn that made the old pgrep'd/captured PID
+# stale, so the SIGKILL no longer hits 'No such process') and CONFIRM the death BEFORE
+# releasing. arc_kill_confirmed aborts loudly on a miss → the release below runs ONLY
+# on a confirmed kill (releasing after a miss manufactured the U1 false 'completed').
+arc_kill_confirmed "$VM_NAME" daemon-mainpid || exit 1
 
 # Remove the release file + dropin so the AUTONOMOUS recovery re-run does NOT re-park
 # (the StallHere needs the release file; gone → re-run proceeds to the conflict).
