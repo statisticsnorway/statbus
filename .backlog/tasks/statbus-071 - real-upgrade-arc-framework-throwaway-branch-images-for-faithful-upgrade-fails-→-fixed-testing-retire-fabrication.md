@@ -71,8 +71,8 @@ The test also injects a **real** crash/stall at the other upgrade points — fet
 - Errors out -> `failing-arc` (real migration that `RAISE`s) -> rolls back, DB logically == old, fix applies fresh — **[PROVEN]**
 - Was broken but already succeeded here (the many) -> `working-arc` -> box accepts the fix, re-stamps, no re-run — **[PROVEN]**
 - Runs slow but keeps progressing -> `postswap-migration-timeout-arc` (`migration-slower-than-systemd-unit-timeout`) -> heartbeat keeps the box alive -> finishes — **[PROVEN]**
-- Runs past the hard ceiling -> aborted -> rolls back — **[TODO] STATBUS-095**
-- Eats all memory -> OS kills it -> rolls back — **[TODO] STATBUS-096**
+- Runs past the hard ceiling -> killed by our own 12h bound (`STATBUS_MIGRATE_UP_TIMEOUT`, seconds in test) -> `postswap-migration-ceiling-arc` -> rolled back, orphan backend reaped, clean slate — **[PROVEN]** run 28842366163 (STATBUS-095 closed on it)
+- Eats all memory -> OS kills Postgres ONCE -> `postswap-migration-oom-arc` -> the boot's own EnsureDBUp revives the db, the uncommitted migration re-runs fresh -> COMPLETED (forward) — **[PROVEN]** run 28841893851 (STATBUS-096 closed on it). NOTE: this row's original "rolls back" wording matches the RECURRING-OOM story (OOMs every run -> death budget -> rolled_back) — that variant arc is pre-blessed, built only on the King's nod to the single/recurring split (the open decision on this ticket).
 
 **Killed mid-upgrade, BEFORE booting the new binary -> roll back to old**
 - During the code checkout -> `preswap-checkout-kill-arc` — **[PROVEN]**
