@@ -6633,6 +6633,34 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 			"STATBUS_ROLLBACK_ERROR":  err.Error(),
 			"STATBUS_RECOVERY_CMD":    fmt.Sprintf(`ssh %s "cd statbus && ./sb install"`, hostname),
 		})
+		// STATBUS-136: bring the DB back up BEFORE the terminal write. The write
+		// below records state='failed' into public.upgrade, but every service —
+		// including db — was stopped for the restore (`docker compose stop … db`
+		// above) and this abort branch is the one rollback path that never brings
+		// them back up (unlike the normal rollback's `up -d`). So the write hit a
+		// stopped DB: writeRollbackTerminal's reconnect had nothing to connect to,
+		// exhausted its bounded retry, tripped INVARIANT ROLLBACK_TERMINAL_WRITE_FAILED,
+		// KEPT the flag, and the process exited → systemd re-ran the whole abort →
+		// a guaranteed death loop on a path that had already concluded (observed
+		// live, r17 ×3). Start the EXISTING db container so the write can land.
+		//
+		// Asymmetric-safe: StartDBForRecovery runs `docker compose start db`, which
+		// ONLY starts a stopped container — never `up -d`/recreate — so it cannot
+		// swap the DB image (same primitive + argument as install crash recovery's
+		// connect-first pattern, cli/cmd/install_upgrade.go). The volume already
+		// holds the just-restored old snapshot; starting its own stopped container
+		// touches no data. Best-effort: if the start or health-wait fails, we fall
+		// through to writeRollbackTerminal's own bounded retry, which then fails
+		// loud exactly as before — no regression, only the loop removed.
+		if err := d.EnsureDBReachable(ctx); err != nil {
+			progress.Write("Starting the existing database container to record the rollback outcome (docker compose start db)...")
+			if startErr := d.StartDBForRecovery(ctx); startErr != nil {
+				progress.Write("Warning: could not start the database to record the rollback outcome: %v (the terminal write will retry, then fail loud as before)", startErr)
+			} else if reachErr := d.EnsureDBReachable(ctx); reachErr != nil {
+				progress.Write("Warning: database still not reachable after start: %v", reachErr)
+			}
+		}
+
 		// Maintenance stays ON — operator must complete the manual rollback steps above.
 		// Durable terminal write with bounded retry (same contract as the two tiers
 		// below). On SUCCESS, release the flock + remove the file so the operator's
