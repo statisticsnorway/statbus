@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-06 15:59'
+updated_date: '2026-07-07 00:56'
 labels:
   - install-recovery
   - upgrade
@@ -169,5 +169,21 @@ author: engineer (board sweep)
 created: 2026-07-06 15:59
 ---
 FOLDED IN from STATBUS-101 (merged 2026-07-06): a ~10-line self-validating RED-gate option for one of 071's arcs — belongs on the same hardening list.
+---
+
+author: architect
+created: 2026-07-07 00:56
+---
+U1 LEDGER (run 28832014634 on c525de51c, 2026-07-07 — first live contact for five kill arcs; architect diagnosis from the CI logs, tmp/u1-failed-logs.txt). ALL FIVE ARCS RED — and ZERO of the reds are product findings. Two harness bug families explain everything:
+
+FAMILY 1 — STALE-PID KILL MISS (after-commit-before-recorded, postswap-after-commit, postswap-mid-tx). The hard part WORKED: the torn window was genuinely constructed — the logs show the stall engaged with the fixture table committed and db.migration still at baseline (V applied but unrecorded), exactly the commit↔record gap. Then the SIGKILL hit "No such process": the target PID had been captured BEFORE the exit-42 handoff respawned the process. And the arcs' cleanup then removed the stall's release file — un-parking the stalled migrate, whose very next statement was the ledger INSERT — so the migration became fully applied AND recorded and the upgrade finished normally. 'completed' was the CORRECT terminal for what physically happened; the arc had (unknowingly) cancelled its own experiment. mid-tx variant: park worked, parent-kill missed, only the migrate subprocess died, and the SURVIVING parent's own rollback (stopping the DB) made the arc's probe read a transport error as a wrong-state verdict.
+
+FAMILY 2 — ASSERTION SEQUENCING (between-migrations, mid-migration). The product story in these logs is EXEMPLARY: the inject kill fired mid-migration, the next pass detected crashed-upgrade, ran the SIGKILL-class quiesce, the still-armed inject killed the boot-migrate too and STATBUS-017's defer handled it, recovery resumed forward and reached completed with recovery_attempts=1 and the flag removed. The arc then asserted "flag present after the kill" — after its own install helper had already driven that entire recovery inside one step. Wrong assertion placement, right product.
+
+FIXES DISPATCHED (foreman): one shared kill helper ending the stale-PID class (fresh PID at kill time, kill, poll-until-gone; IRON RULE: never touch the release file unless the kill is CONFIRMED — releasing after a miss is what manufactured the false 'completed'); transport-aware state probes (a psql failure is never a state verdict); split the install-helper contract so the RED midpoint is asserted between kill and recovery.
+
+OBSERVED LIVE IN THE U1 LOGS (coverage-map annotations — seen working, NOT yet arc-green; cells flip [PROVEN] only on the fixed re-run): crashed-upgrade ladder detection · SIGKILL-class quiesce (the "never SIGTERM" line, live) · STATBUS-017 boot-migrate defer (a killed boot-migrate deferring to flag recovery) · budget-hoist attempt counting (exactly 1 attempt for one deliberate recovery) · completed self-heal · the completion-write reconnect save (the 047-H stale-connection retry, firing and succeeding twice).
+
+THE STATBUS-105 STATEMENT, plainly: the torn-migration measurement has NOT happened yet. Every 'completed' ever observed on this path — including the overnight observation that opened 105 — is explained by the harness miss above (a released stall finishing its bookkeeping legitimately). The King's rolled_back rule is UNTESTED live, not violated. The fixed re-run of the two after-commit arcs IS the 105 measurement.
 ---
 <!-- COMMENTS:END -->
