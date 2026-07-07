@@ -41,6 +41,25 @@ func (d *Service) markTerminal(name, observed string) {
 	invariants.MarkTerminal(d.projDir, name, observed)
 }
 
+// bootMigrateIsDeterministic reports whether a boot-migrate failure is the
+// DETERMINISTIC class of the migrate exit-code contract (exit 20 = a migration's
+// SQL failed identically on every apply — psql exit 3 under ON_ERROR_STOP; see
+// cli/internal/migrate/exit_codes.go). STATBUS-144: the FLAGLESS boot-migrate
+// handler stays alive-idle on this class (log-loud-once + continue) instead of
+// the exit-and-restart-churn that a systemd Restart=always unit turns into a
+// StartLimit death. Classifies on the numeric EXIT CODE ONLY, never stderr text
+// (doc-022). `sb migrate up` maps its deterministic failure to os.Exit(20)
+// (cli/cmd/migrate.go), and runCommandToLogCapture returns cmd.Run's raw
+// *exec.ExitError unwrapped on a clean (non-timeout) failure, so errors.As reads
+// the code directly. A timeout is ErrCommandTimeout (not an *exec.ExitError) and
+// every other failure (unclassified exit 1, resource exit 22, a non-ExitError)
+// is NOT this class — the caller keeps exit-and-restart for those (a re-run might
+// succeed), matching the transient/unclassified rule.
+func bootMigrateIsDeterministic(err error) bool {
+	var exitErr *exec.ExitError
+	return errors.As(err, &exitErr) && exitErr.ExitCode() == migrate.ExitDeterministic
+}
+
 // thisLine returns the caller's source line number. Guard-site transcripts
 // embed it so the stderr message always points at the real code location
 // even as the file is edited.
@@ -1906,7 +1925,13 @@ func (d *Service) Run(ctx context.Context) error {
 		go runGatedWatchdogTicker(bootMigrateTickerCtx, nil,
 			applyPostSwapStallThreshold, applyPostSwapWatchdogCadence,
 			func() { sdNotify("WATCHDOG=1") }, bootMigrateTickerDone)
-		bootMigrateErr := runCommandToLog(d.projDir, MigrateUpTimeout, io.Discard, "boot-migrate-up", nil,
+		// runCommandToLogCapture (not runCommandToLog) so a DETERMINISTIC failure's
+		// verbose tail is available as DATA for the STATBUS-144 operator report
+		// below (contract-blessed: exit_codes.go — "a stderr tail is text-as-DATA;
+		// text-as-CLASSIFIER is the banned thing"). Streaming to os.Stdout/os.Stderr
+		// (the journal) and the ErrCommandTimeout mapping are identical to the
+		// non-capturing variant; only the returned tail is added.
+		bootMigrateTail, bootMigrateErr := runCommandToLogCapture(d.projDir, MigrateUpTimeout, io.Discard, "boot-migrate-up", nil,
 			filepath.Join(d.projDir, "sb"), "migrate", "up", "--verbose")
 		bootMigrateTickerCancel()
 		<-bootMigrateTickerDone
@@ -1921,6 +1946,16 @@ func (d *Service) Run(ctx context.Context) error {
 			if errors.Is(err, ErrCommandTimeout) {
 				d.terminateMigrateOrphan(ctx, nil)
 			}
+			// STATBUS-144: classify a FLAGLESS boot-migrate failure by the migrate
+			// exit-code contract (cli/internal/migrate/exit_codes.go). exit 20 =
+			// DETERMINISTIC — a migration's SQL failed identically on every apply
+			// (psql exit 3 under ON_ERROR_STOP). Classify on the numeric EXIT CODE
+			// ONLY, never stderr text (doc-022). runCommandToLogCapture returns
+			// cmd.Run's raw *exec.ExitError unwrapped on a clean (non-timeout)
+			// failure, so errors.As reads the code directly; a timeout is
+			// ErrCommandTimeout (handled just above), NOT an ExitError, so it is
+			// correctly NOT deterministic → falls to the transient refuse branch.
+			bootMigrateDeterministic := bootMigrateIsDeterministic(err)
 			// STATBUS-017: a service-held in-progress flag means an interrupted upgrade
 			// left a half-applied migration the schema-skew guard CANNOT re-apply
 			// ("relation already exists" for an after-commit-but-unrecorded migration,
@@ -1939,6 +1974,43 @@ func (d *Service) Run(ctx context.Context) error {
 					"(id=%d, %s, phase=%q) — deferring to recoverFromFlag for snapshot restore (STATBUS-017): %v\n",
 					flag.ID, flag.Label(), flag.Phase, err)
 				// fall through — do NOT markTerminal/return; recoverFromFlag below handles it
+			} else if bootMigrateDeterministic {
+				// STATBUS-144: FLAGLESS + DETERMINISTIC (exit 20). The natural aftermath
+				// of a git-corrupt rollback ABORT (STATBUS-136): the abort's git restore
+				// FAILED, so the new version's broken migration REMAINS on disk with
+				// row=failed and NO flag. The refuse branch below would return here → the
+				// process exits → systemd Restart=always re-runs it every RestartSec
+				// until StartLimit kills the unit into a silent 'failed' state (observed
+				// live: NRestarts climbing +1/30s on VM 65.108.158.151). A re-run cannot
+				// help — the SQL fails identically — so the ratified deterministic-failure
+				// rule applies: fail-fast + actionable ONCE, then STAY ALIVE. The daemon's
+				// normal duties (discovery, backup ticker, LISTEN) do not need the pending
+				// migration's schema; the broken migration resurfaces actionably on the
+				// next deliberate upgrade. So LOG LOUD ONCE + CONTINUE into the main loop
+				// alive-idle: NO markTerminal (that is the refuse-and-exit signal) and NO
+				// return. recoverFromFlag below no-ops (no flag). The "once" is structural
+				// — not looping means it logs once per boot. The install-ladder twin
+				// (install_upgrade.go boot-migrate handler) is intentionally NOT changed:
+				// it is operator-invoked, one-shot, human-present — fail-fast to the
+				// terminal is correct there and it cannot churn (no systemd auto-restart).
+				fmt.Fprintf(os.Stderr,
+					"\n════════════════════════════════════════════════════════════════\n"+
+						"  BOOT MIGRATE FAILED DETERMINISTICALLY (exit %d) — upgrade daemon staying ALIVE\n"+
+						"════════════════════════════════════════════════════════════════\n"+
+						"  A pending database migration fails the SAME way on every attempt\n"+
+						"  (a deterministic SQL error). Re-running it cannot help, so this box\n"+
+						"  will NOT restart-loop — the upgrade service keeps serving its normal\n"+
+						"  duties and will apply/schedule NO upgrade until this is resolved.\n"+
+						"\n"+
+						"  OPERATOR ACTION — fix or remove the failing migration, then re-run install:\n"+
+						"     1. See the failure:   ./sb migrate up\n"+
+						"     2. Fix the broken migration file (or remove it if it should not ship).\n"+
+						"     3. Apply the fix:     ./sb install\n"+
+						"\n"+
+						"  Failing boot-migrate output (tail):\n%s\n"+
+						"════════════════════════════════════════════════════════════════\n",
+					migrate.ExitDeterministic, strings.TrimSpace(bootMigrateTail))
+				// fall through — alive-idle; do NOT markTerminal/return.
 			} else {
 				d.markTerminal("BOOT_MIGRATE_UP_FAILED",
 					fmt.Sprintf("./sb migrate up at boot failed: %v; service refuses to enter the loop on a stale schema", err))
