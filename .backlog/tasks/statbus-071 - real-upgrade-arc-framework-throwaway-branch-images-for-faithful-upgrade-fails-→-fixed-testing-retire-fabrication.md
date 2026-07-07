@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-07 03:46'
+updated_date: '2026-07-07 04:01'
 labels:
   - install-recovery
   - upgrade
@@ -200,5 +200,11 @@ author: foreman
 created: 2026-07-07 03:46
 ---
 ABORT ORACLE GREEN (round 4, 2026-07-07, HEAD 089860e65, local VM run): 4-rollback-abort-write-lands PASSED end-to-end as a DUAL oracle — (1) the STATBUS-136 property from the early single-snapshot read: ABORT terminal landed complete in ONE pass, zero kills (state='failed' + full ROLLBACK_FAILED_GIT_CORRUPT error together, flag removed, exactly one callback, NRestarts==1); (2) promoted round-3 finding: the SAME boot's flagless rune-class self-heal (STATBUS-039, ground-truth-gated markCurrentVersionCompleted) then converged the fabricated at-target row to completed/error-NULL — now a deliberate live-proven assertion, not a surprise. Round ledger: r2 red = flagless churn (→ filed STATBUS-144 + cleanup step); r3 red = late error read raced the self-heal (→ combined same-snapshot reads on both sides of the RestartSec boundary). Audit rider recorded on the 014 family: the self-heal NULLs the error trail (failed→completed). PAIR-TERMINAL ARC status: first real run (28838952364) proved the CONSTRUCTION works line-by-line (pre-swap route, kill inside rollback, recordRollbackCommit stamp fired) but the arc's flag reader was compact-JSON-only while the product writes MarshalIndent — one-line space-tolerant reader fix shipped (b0df2af0d), re-dispatched as run 28839994287.
+---
+
+author: foreman
+created: 2026-07-07 04:01
+---
+PAIR-TERMINAL ARC GREEN (run 28839994287, HEAD b0df2af0d, 2026-07-07) — U4a PROVEN on a real VM: the pre-swap route construction (C5 → PreSwap → recoveryRollback → C9 kill inside rollback), TWO in-process kills with the recordRollbackCommit stamp now READ correctly (death 1: step='rollback' prior=''; death 2: same-step pair), and the STATBUS-134 pair-terminal bound fired at EXACTLY 2 consecutive rollback deaths → restore-broke terminal. All jobs green (construct / image-wait / run-arc / teardown / reap). With the abort oracle green (comment #8), BOTH U4 oracles are now run-proven. Remaining U-campaign: U5 legacy deletions (engineer sweep in flight — pair-terminal-gated holds now lifted), U6/AC#4 gated on the King's carve-out ruling, plus the 095/096 TODO cells.
 ---
 <!-- COMMENTS:END -->
