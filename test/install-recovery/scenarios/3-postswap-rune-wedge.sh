@@ -68,12 +68,18 @@
 #
 # STALENESS CONSTRUCTION: after the baseline install at INSTALL_VERSION, the
 # working tree + binary + database are brought to HEAD (upload + checkout +
-# steady-state pre-apply, verbatim the park scenario's proven sequence), but
+# steady-state pre-apply, verbatim the park scenario's proven sequence), and
 # the CONTAINERS still run INSTALL_VERSION's images — a strict superset of
-# rune's single stale proxy. The proxy container is additionally REMOVED
-# entirely (docker rm -f), so the scenario also proves step 11 recreates a
-# container that is fully ABSENT, not merely outdated (rune's proxy was the
-# headline casualty; missing is the harsher variant of stale).
+# rune's single stale proxy, INCLUDING a stale-but-serving proxy exactly as
+# rune had. The proxy is deliberately NOT removed: v1 of this scenario
+# `docker rm -f`-ed it as a "harsher variant of stale" and the first run
+# proved that wrong — the DB connection routes THROUGH the proxy (Caddy's
+# layer4 on CADDY_DB_BIND:PORT), so a MISSING proxy severs the recovery's own
+# DB path (a different state than staleness; rune's proxy was old but
+# serving). That severed-route state exposed a REAL product sharp edge
+# (probe-vs-connect route mismatch in install crash recovery — its own
+# ticket); THIS scenario's job is the faithful rune shape, so the proxy
+# stays present and stale.
 #
 # SCENARIO SHAPE
 #   1. Install at INSTALL_VERSION; demo data + counts snapshot.
@@ -81,7 +87,8 @@
 #   3. Steady-state pre-apply: config generate + `sb migrate up` (DB reaches
 #      HEAD ⇒ observed-state reads already-at-new; boot-migrate at recovery
 #      time is a no-op). NO synthetic migrations — clean forward is the point.
-#   4. Fabricate the rune shape: remove the proxy container; fabricate the
+#   4. Fabricate the rune shape: assert the proxy is stale-but-SERVING (it is
+#      deliberately NOT removed — see STALENESS CONSTRUCTION); fabricate the
 #      in_progress row + post_swap flag (dead pid). The OLD daemon stays
 #      RUNNING — it is the takeover's target (park-scenario precedent proves
 #      fabricating under the idling old daemon is safe; act immediately).
@@ -188,16 +195,18 @@ VM_EXEC bash -c "cd ~/statbus && ./sb config generate"
 VM_EXEC bash -c "cd ~/statbus && timeout 600 ./sb migrate up --verbose"
 
 # ─────────────────────────────────────────────────────────────────────────
-# Phase 3 — fabricate the rune shape (stale set + missing proxy + row + flag)
+# Phase 3 — fabricate the rune shape (stale set incl. stale-but-SERVING proxy
+# + row + flag). The proxy is NOT removed — see the STALENESS CONSTRUCTION
+# header note: the DB path routes through it, and rune's proxy was serving.
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
-echo "── removing the proxy container (rune's headline casualty — missing is the harsher variant of stale) ──"
+echo "── confirming the stale-but-serving proxy (rune's headline: old image, still routing) ──"
 PROXY_BEFORE=$(running_image_for proxy)
-[ -n "$PROXY_BEFORE" ] || { echo "✗ precondition: no running proxy container found to remove" >&2; exit 1; }
-echo "  proxy before removal: $PROXY_BEFORE"
-VM_EXEC bash -c "docker ps --format '{{.Names}}' | grep -- '-proxy' | head -1 | xargs -r docker rm -f"
-[ -z "$(running_image_for proxy)" ] || { echo "✗ proxy container still running after rm -f" >&2; exit 1; }
-echo "  ✓ proxy container removed; remaining containers still run $INSTALL_VERSION images (the stale set)"
+[ -n "$PROXY_BEFORE" ] || { echo "✗ precondition: no running proxy container found — the stale set needs a SERVING stale proxy (the DB path routes through it)" >&2; exit 1; }
+case "$PROXY_BEFORE" in
+    *"$HEAD_SHORT"*) echo "✗ proxy already at the flag target ($PROXY_BEFORE) — nothing stale to converge; the baseline install did not leave the expected stale set" >&2; exit 1 ;;
+    *) echo "  ✓ proxy stale and serving: $PROXY_BEFORE (≠ flag target $HEAD_SHORT); remaining containers also on $INSTALL_VERSION images" ;;
+esac
 
 echo ""
 echo "── fabricating the in_progress row + service-held post_swap flag (dead pid; OLD daemon left RUNNING as the takeover target) ──"
@@ -262,7 +271,7 @@ echo "── assert 3: flag removed ──"
 assert_flag_file_absent "$VM_NAME"
 
 echo ""
-echo "── assert 4: full service set at the flag target (incl. the RECREATED proxy) ──"
+echo "── assert 4: full service set at the flag target (incl. the stale proxy RECREATED at target) ──"
 for svc in db app worker proxy; do
     IMG=$(running_image_for "$svc")
     [ -n "$IMG" ] || { echo "✗ container '-$svc' is not running after convergence" >&2; exit 1; }
@@ -274,7 +283,7 @@ done
 REST_IMG=$(running_image_for rest)
 [ -n "$REST_IMG" ] || { echo "✗ rest (PostgREST) container is not running" >&2; exit 1; }
 echo "  ✓ rest running: $REST_IMG (version-pinned image, not commit-tagged — presence is the assertion)"
-echo "  ✓ the removed proxy was RECREATED at the flag target — the rune headline leg"
+echo "  ✓ the stale proxy ($PROXY_BEFORE) was recreated at the flag target — the rune headline leg"
 
 echo ""
 echo "── assert 5: health + data intact (the empirical no-restore proof) ──"
