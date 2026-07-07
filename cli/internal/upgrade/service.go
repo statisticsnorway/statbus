@@ -3190,55 +3190,67 @@ func (d *Service) verifyCommitSignature(sha string) error {
 // assertion without a 5-min wait.
 var connectTimeout = 5 * time.Minute
 
-func (d *Service) connect(ctx context.Context) error {
-	envPath := filepath.Join(d.projDir, ".env")
-	f, err := dotenv.Load(envPath)
+// recoveryDSN is the SINGLE SOURCE OF TRUTH for how this box reaches its
+// database: the TCP-via-Caddy-layer4 route (CADDY_DB_BIND_ADDRESS:CADDY_DB_PORT),
+// the production-real path the whole service connects on. STATBUS-143: both
+// connect() and the crash-recovery reachability probe (EnsureDBReachable) dial
+// THIS exact DSN, so a probe can never again pass against a path the real
+// connection doesn't use (the observed severed-proxy dead end, where a
+// docker-exec psql probe reached the db container directly while the real pgx
+// connection — through the now-absent proxy — refused). The probe follows the
+// connection, never the reverse.
+//
+// The service runs on the host (not inside Docker), so it reaches PostgreSQL
+// through Caddy's Layer4 proxy; CADDY_DB_BIND_ADDRESS is where Caddy listens
+// (typically 127.0.0.1). Using SITE_DOMAIN would resolve to the public IP, which
+// Caddy doesn't listen on in private deployment mode. No fallback defaults — a
+// missing key means a broken .env, so we fail loud (actionable) rather than
+// silently connect to the wrong place. The password CAN be empty (trust auth).
+//
+// Per-call .env read is DELIBERATE (not an optimization miss): the crash-recovery
+// ladder regenerates .env immediately before probing, so an init-cached DSN would
+// dial the stale pre-regen route — a route-skew variant of the very bug this
+// function exists to kill. Both callers are low-frequency recovery paths.
+func (d *Service) recoveryDSN() (string, error) {
+	f, err := dotenv.Load(filepath.Join(d.projDir, ".env"))
 	if err != nil {
-		return err
+		return "", err
 	}
-
-	getOr := func(key, fallback string) string {
-		if v, ok := f.Get(key); ok {
-			return v
-		}
-		return fallback
-	}
-
-	// Connect to the Caddy DB proxy on the host's loopback address.
-	// The service runs on the host (not inside Docker), so it reaches PostgreSQL
-	// through Caddy's Layer4 proxy. CADDY_DB_BIND_ADDRESS is where Caddy listens
-	// (typically 127.0.0.1). Using SITE_DOMAIN would resolve to the public IP,
-	// which Caddy doesn't listen on in private deployment mode.
-	//
-	// No fallback defaults — if these are missing, the .env is broken and we
-	// must fail loud rather than silently connect to the wrong place.
 	requireKey := func(key string) (string, error) {
 		if v, ok := f.Get(key); ok && v != "" {
 			return v, nil
 		}
 		return "", fmt.Errorf("%s not found in .env — regenerate with: ./sb config generate", key)
 	}
-
 	dbHost, err := requireKey("CADDY_DB_BIND_ADDRESS")
 	if err != nil {
-		return err
+		return "", err
 	}
 	dbPort, err := requireKey("CADDY_DB_PORT")
 	if err != nil {
-		return err
+		return "", err
 	}
 	dbName, err := requireKey("POSTGRES_APP_DB")
 	if err != nil {
-		return err
+		return "", err
 	}
 	dbUser, err := requireKey("POSTGRES_ADMIN_USER")
 	if err != nil {
+		return "", err
+	}
+	dbPass, _ := f.Get("POSTGRES_ADMIN_PASSWORD") // password CAN be empty (trust auth)
+	return fmt.Sprintf("host=%s port=%s dbname=%s user=%s password=%s sslmode=disable",
+		dbHost, dbPort, dbName, dbUser, dbPass), nil
+}
+
+func (d *Service) connect(ctx context.Context) error {
+	// STATBUS-143: the DSN comes from the single-source recoveryDSN() — the SAME
+	// route the crash-recovery reachability probe (EnsureDBReachable) dials, so a
+	// probe-pass implies this connection works by construction.
+	connStr, err := d.recoveryDSN()
+	if err != nil {
 		return err
 	}
-	dbPass := getOr("POSTGRES_ADMIN_PASSWORD", "") // password CAN be empty (trust auth)
-
-	connStr := fmt.Sprintf("host=%s port=%s dbname=%s user=%s password=%s sslmode=disable",
-		dbHost, dbPort, dbName, dbUser, dbPass)
 
 	// Build a pgx config with aggressive TCP keepalive so a dead peer is
 	// detected at the kernel level within ~60s (30s idle + 3 × 10s probes)

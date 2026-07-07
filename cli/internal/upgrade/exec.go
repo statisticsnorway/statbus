@@ -15,9 +15,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/inject"
-	"github.com/statisticsnorway/statbus/cli/internal/migrate"
 )
 
 // DiskFree returns the free bytes on the filesystem containing the given path.
@@ -1148,39 +1148,87 @@ func (d *Service) EnsureDBUp(ctx context.Context) error {
 	return nil
 }
 
-// StartDBForRecovery tries to start the EXISTING db container (without
-// recreating it) and waits for it to become healthy. Used by
-// install.runCrashRecovery before falling back to EnsureDBReachable's
-// refusal — when the prior in-flight upgrade legitimately stopped the DB
-// container (preswap backup window: rsync from the named volume requires
-// pg to be stopped; post-swap intermediate state before the new binary
-// brings it back), the crash leaves a stopped-but-present container that
-// recovery must restart to continue.
+// StartDBForRecovery starts the EXISTING db+proxy containers (without recreating
+// them) and waits for the DB to become healthy. Used by install.runCrashRecovery
+// before falling back to EnsureDBReachable's refusal — when the prior in-flight
+// upgrade legitimately stopped the DB container (preswap backup window: rsync
+// from the named volume requires pg to be stopped; post-swap intermediate state
+// before the new binary brings it back), the crash leaves stopped-but-present
+// containers that recovery must restart to continue.
 //
-// `docker compose start db` ONLY starts an existing stopped container; it
-// NEVER recreates the container with the current binary's compose-template
-// image tag. That's the critical asymmetry with `docker compose up -d db`
-// (which IS forbidden here per the rc.66 → rc.67 lesson): up -d would
-// silently recreate the container against the operator's binary's image,
-// destroying resumePostSwap's containersAtFlagTarget self-heal precondition.
-// `start` preserves the in-flight upgrade's container exactly as it was —
-// we're just resuming a paused execution, not redeploying.
+// STATBUS-143: the service reaches PostgreSQL THROUGH the Caddy layer4 proxy, so
+// the asymmetric-safe start must cover the whole ROUTE — `docker compose start
+// db proxy`, not just the engine. A stopped proxy now resumes and recovery
+// proceeds (previously a severed proxy dead-ended every install re-run).
 //
-// If the container has been REMOVED (not just stopped), `docker compose
-// start db` errors with "no such service" — fall through to the caller's
-// refusal-with-diagnostic path. That's a category-3 divergence the
-// operator must investigate manually.
+// `docker compose start` ONLY starts existing stopped containers; it NEVER
+// recreates them with the current binary's compose-template image tag. That's
+// the critical asymmetry with `docker compose up -d` (which IS forbidden here
+// per the rc.66 → rc.67 lesson): up -d would silently recreate against the
+// operator's binary's image, destroying resumePostSwap's containersAtFlagTarget
+// self-heal precondition. `start` preserves the in-flight upgrade's containers
+// exactly as they were — resuming a paused execution, not redeploying (start on
+// a running container is a no-op).
 //
-// Returns nil on success (container started + DB healthy) or a wrapped
-// error describing the failure mode (gone, start failed, health timeout).
+// A truly-MISSING proxy (removed, not stopped) cannot be started and must NOT be
+// `up -d`'d (image-mismatch class above) — so we detect it up front and return
+// the precise category-3 refusal (newProxyRouteMissingError) instead of an
+// opaque docker "no container" error. If the db container has been REMOVED,
+// `docker compose start` errors and the wrapped error falls through to the
+// caller's refusal path.
+//
+// Returns nil on success (containers started + DB healthy) or a wrapped/named
+// error describing the failure mode (proxy gone, start failed, health timeout).
 func (d *Service) StartDBForRecovery(ctx context.Context) error {
-	if out, err := runCommandOutput(d.projDir, "docker", "compose", "start", "db"); err != nil {
-		return fmt.Errorf("docker compose start db: %w (%s)", err, strings.TrimSpace(out))
+	if missing, perr := d.proxyContainerMissing(ctx); perr == nil && missing {
+		return newProxyRouteMissingError()
+	}
+	if out, err := runCommandOutput(d.projDir, "docker", "compose", "start", "db", "proxy"); err != nil {
+		return fmt.Errorf("docker compose start db proxy: %w (%s)", err, strings.TrimSpace(out))
 	}
 	if err := d.waitForDBHealth(60 * time.Second); err != nil {
 		return fmt.Errorf("db did not become healthy after compose start: %w", err)
 	}
 	return nil
+}
+
+// proxyContainerMissing reports whether the proxy service has NO container at
+// all — removed, not merely stopped (the STATBUS-143 severed-route case). Uses
+// `docker compose ps -a` (includes stopped containers) so a STOPPED proxy is NOT
+// reported missing — StartDBForRecovery resumes that one. A ps error (docker
+// down, no project) returns (false, err): inconclusive, so the caller proceeds
+// to the start attempt rather than falsely refusing.
+func (d *Service) proxyContainerMissing(ctx context.Context) (bool, error) {
+	cmd := exec.CommandContext(ctx, "docker", "compose", "ps", "-a", "--format", "json")
+	cmd.Dir = d.projDir
+	out, err := cmd.Output()
+	if err != nil {
+		return false, fmt.Errorf("docker compose ps -a: %w", err)
+	}
+	entries, err := parseDockerComposePsJSON(out)
+	if err != nil {
+		return false, err
+	}
+	for _, e := range entries {
+		if e.Service == "proxy" {
+			return false, nil // container exists (stopped or running) — startable
+		}
+	}
+	return true, nil // no proxy container at all — severed route
+}
+
+// newProxyRouteMissingError is the STATBUS-143 category-3 refusal for the
+// severed-route case: the proxy container the service reaches PostgreSQL THROUGH
+// does not exist. Deliberately NOT auto-recreated — `up -d proxy` under the
+// operator's binary can pull a different image tag than the in-flight upgrade
+// target (the rc.66 → rc.67 mismatch class). Names the state + the manual
+// operator option with that caveat, so a re-run of `./sb install` gives an
+// actionable path out rather than a silent identical connection-refused loop.
+func newProxyRouteMissingError() error {
+	return fmt.Errorf(
+		"the db's connection route — the proxy container — does not exist; the crash that interrupted this upgrade may have removed it mid-recreate.\n" +
+			"  Recovery reaches PostgreSQL THROUGH this proxy (Caddy layer4 on CADDY_DB_BIND_ADDRESS:CADDY_DB_PORT), so it cannot connect, and it will not auto-recreate the proxy: `docker compose up -d proxy` under the current binary may pull a different image tag than the interrupted upgrade's target.\n" +
+			"  Operator action: inspect `docker compose ps -a`; recreate the proxy deliberately with `docker compose up -d proxy` (accepting that version caveat), then re-run `./sb install`.")
 }
 
 // EnsureDBReachable verifies the DB is reachable via the .env-configured
@@ -1196,32 +1244,41 @@ func (d *Service) StartDBForRecovery(ctx context.Context) error {
 // the operator can investigate, not silently bring up containers using a
 // possibly-mismatched compose template.
 func (d *Service) EnsureDBReachable(ctx context.Context) error {
-	psqlPath, prefix, env, err := migrate.PsqlCommand(d.projDir)
+	// STATBUS-143: probe the SAME route the real connection uses — a pgx dial +
+	// SELECT 1 on recoveryDSN() (TCP via the Caddy layer4 proxy on
+	// CADDY_DB_BIND_ADDRESS:CADDY_DB_PORT), NOT a docker-exec psql straight into
+	// the db container. The old psql probe reached the container by a DIFFERENT
+	// road: with the db healthy but the proxy absent it PASSED while the real pgx
+	// connection refused, and the start-fallback never fired — the severed-proxy
+	// dead end. Same route ⇒ probe-pass implies connect-works by construction.
+	connStr, err := d.recoveryDSN()
 	if err != nil {
-		return fmt.Errorf("EnsureDBReachable: resolve psql command: %w", err)
+		return fmt.Errorf("EnsureDBReachable: %w", err)
 	}
-	args := append(append([]string{}, prefix...),
-		"-v", "ON_ERROR_STOP=on",
-		"-X", "-A", "-t",
-		"-c", "SELECT 1")
+	config, err := pgx.ParseConfig(connStr)
+	if err != nil {
+		return fmt.Errorf("EnsureDBReachable: parse DSN: %w", err)
+	}
+	config.DialFunc = keepaliveDialer // dial EXACTLY as connect() does — same route, same peer
 
 	timedCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(timedCtx, psqlPath, args...)
-	cmd.Dir = d.projDir
-	cmd.Env = env
-	out, err := cmd.CombinedOutput()
+	conn, err := pgx.ConnectConfig(timedCtx, config)
 	if err != nil {
 		return fmt.Errorf(
-			"DB not reachable for crash recovery: %w\n"+
-				"  output: %s\n"+
+			"DB not reachable for crash recovery on the service's own route (CADDY_DB_BIND_ADDRESS:CADDY_DB_PORT): %w\n"+
+				"  The database is reached THROUGH the Caddy layer4 proxy — check `docker compose ps` for BOTH `db` AND `proxy`.\n"+
 				"  Containers from the prior in-flight upgrade must be running for recovery to proceed safely.\n"+
-				"  Investigate `docker compose ps` and the upgrade-progress log; do not blindly `docker compose up -d` (the\n"+
-				"  current binary's compose template may have a different image-tag scheme than what's actually running).",
-			err, strings.TrimSpace(string(out)))
+				"  Do not blindly `docker compose up -d` (the current binary's compose template may have a different image-tag scheme than what's actually running).",
+			err)
 	}
-	if strings.TrimSpace(string(out)) != "1" {
-		return fmt.Errorf("DB not reachable for crash recovery: SELECT 1 returned %q", strings.TrimSpace(string(out)))
+	defer conn.Close(context.Background())
+	var one int
+	if err := conn.QueryRow(timedCtx, "SELECT 1").Scan(&one); err != nil {
+		return fmt.Errorf("DB not reachable for crash recovery: SELECT 1 failed on the service route: %w", err)
+	}
+	if one != 1 {
+		return fmt.Errorf("DB not reachable for crash recovery: SELECT 1 returned %d, want 1", one)
 	}
 	return nil
 }
