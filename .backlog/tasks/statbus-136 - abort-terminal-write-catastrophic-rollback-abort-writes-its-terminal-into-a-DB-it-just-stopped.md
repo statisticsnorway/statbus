@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-07-04 22:31'
-updated_date: '2026-07-07 02:59'
+updated_date: '2026-07-07 03:46'
 labels:
   - upgrade
   - install-recovery
@@ -40,6 +40,12 @@ author: foreman
 created: 2026-07-07 02:59
 ---
 RUN-PROVEN (2026-07-07, abort-oracle scenario, night pair round 2): every assertion of this fix went green live — the git-corrupt abort concluded in its FIRST and only pass, wrote state='failed' with ROLLBACK_FAILED_GIT_CORRUPT recorded, and REMOVED the flag ('the terminal write landed — this used to hang the flag forever, r17 ×3'). The scenario's own green waits on one unrelated assertion (its cleanup timing exposed STATBUS-144, a NEW finding: flagless post-terminal boot-migrate churn), but this ticket's property is observed working on a real box.
+---
+
+author: foreman
+created: 2026-07-07 03:46
+---
+ORACLE FULLY GREEN (round 4, 2026-07-07, HEAD 089860e65): 4-rollback-abort-write-lands PASSED end-to-end — the round-2 residual (its own NRestarts assertion) is resolved. The scenario is now a standing DUAL oracle: this ticket's terminal-write property (asserted from an early single-snapshot state+error read) plus the flagless STATBUS-039 self-heal (the same boot converges the fabricated at-target row to completed/error-NULL). Full round ledger on STATBUS-071 comment #8.
 ---
 <!-- COMMENTS:END -->
 
