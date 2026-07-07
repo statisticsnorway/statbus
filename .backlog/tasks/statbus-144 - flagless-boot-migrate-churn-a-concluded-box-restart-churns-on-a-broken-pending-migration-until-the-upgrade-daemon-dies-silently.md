@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-07 02:57'
-updated_date: '2026-07-07 03:07'
+updated_date: '2026-07-07 04:19'
 labels:
   - upgrade
   - recovery
@@ -51,5 +51,11 @@ author: foreman
 created: 2026-07-07 03:07
 ---
 LIVE SEVERITY EVIDENCE (banked from the kept abort-oracle VM 65.108.158.151 before reaping, systemd 255, operator empirics 2026-07-07): the flagless churn was observed running to its terminal — NRestarts climbed ~+1 per 30s (7 at the architect's read, 9 at the operator's) until the unit sat in state 'failed' — i.e. the StartLimit death is not hypothetical, it is the observed end state of this bug on a real box. Counter arithmetic for the fix's gate/tests, confirmed on the same box: `systemctl reset-failed` zeroes NRestarts in BOTH unit states (failed 9→0, active 1→0), and the counter increments by exactly +1 per restart (0→1→2, timestamped, no skips). The abort-oracle scenario now deletes its synthetic migration promptly and stays a narrow 136 oracle; THIS ticket's future oracle is that same scenario WITHOUT the cleanup step, asserting the StartLimit death (pointer in the scenario header).
+---
+
+author: foreman
+created: 2026-07-07 04:19
+---
+FIX SHIPPED 46f979a3a (2026-07-07), dual-reviewed (architect ship, both flags ruled; foreman first-hand). AC#1+AC#2 covered by unit tests (classification table + source-structure guard pinning no-return/no-markTerminal on the deterministic branch); AC#3 (scenario variant) is the next oracle unit. ARCHITECT RULINGS recorded: (1) BROAD SHAPE confirmed — continue on ANY flagless exit-20, not terminal-row-only: a flagless in_progress row with a deterministic pending migration is exactly what the flagless recovery routing handles (tri-state disposition reads Behind after boot-migrate → designed rollback); a terminal-only guard would re-create the churn one row-state to the left. Decisive autonomy argument for the schema-skew trade: a StartLimit-dead daemon can repair NOTHING — it cannot even receive the corrected version; an alive-degraded daemon IS the delivery channel for the fix. The 42703 residual is bounded and loud. (2) NO filename extraction from migrate's prose (text-as-classifier's cousin); the verbose tail names the file in practice, ./sb migrate up reproduces deterministically. SOMEDAY option noted: a structured filename side-channel in the migrate exit-code contract (data, not parsed prose) if a real operator is ever bitten.
 ---
 <!-- COMMENTS:END -->
