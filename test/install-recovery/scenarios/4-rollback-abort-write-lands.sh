@@ -63,6 +63,16 @@
 # boot, which is what reaches recoveryRollback -> d.rollback() -> the ABORT
 # branch deterministically, in one pass.
 #
+# STATBUS-144 (real product finding, surfaced by this scenario's round-2 run):
+# a FLAGLESS crash loop is uncounted — once the terminal write removes the
+# flag, nothing stops a still-present deterministically-failing migration
+# from re-erroring boot-migrate on every restart, churning to a systemd
+# StartLimit death. THIS scenario deletes the synthetic migration right after
+# the terminal lands specifically so it stays a clean, narrow 136 oracle
+# (ONE restart, alive-idle). The scenario-WITHOUT-that-cleanup-step is 144's
+# own future oracle (assert the StartLimit death instead of alive-idle) —
+# not built here.
+#
 # Usage:
 #   INSTALL_VERSION=v2026.05.2 HCLOUD_LOCATION=fsn1 \
 #     ./test/install-recovery/scenarios/4-rollback-abort-write-lands.sh \
@@ -203,6 +213,31 @@ while :; do
     fi
     sleep 5
 done
+
+# ─────────────────────────────────────────────────────────────────────────
+# Delete the synthetic failing migration IMMEDIATELY the row leaves
+# in_progress — BEFORE any settle/NRestarts assertion (park-scenario cleanup
+# ordering, 3-postswap-resume-died-parked.sh:736-740, verbatim pattern).
+# Architect autopsy, round 2 (STATBUS-144, real product finding): the flag is
+# gone once the terminal write lands, but the migration file is NOT — a
+# FLAGLESS boot still runs boot-migrate, which still finds this
+# deterministically-failing migration pending and still fails on it, every
+# restart, forever, churning the daemon into a systemd StartLimit death (the
+# scenario's own second run caught this live: NRestarts was at 7 and
+# climbing on the kept VM). That is a genuine, separate bug (no death-budget
+# guard covers a FLAGLESS crash loop — filed as STATBUS-144) which this
+# 136-only scenario must not trip over. Deleting the migration promptly is
+# what makes the ABORT's own exit the ONLY legitimate restart in this
+# scenario's lifetime, so the strict NRestarts<=1 bound below still holds.
+# NOTE — 144's own future oracle is exactly THIS scenario WITHOUT this
+# cleanup step (leave the migration in place after the terminal write and
+# assert the StartLimit death instead of alive-idle); not built here.
+# ─────────────────────────────────────────────────────────────────────────
+echo ""
+echo "── deleting the synthetic failing migration (must not survive past the terminal — STATBUS-144) ──"
+VM_EXEC bash -c "cd ~/statbus && rm -f migrations/$FAIL_MIGRATION_FILE"
+VM_EXEC bash -c "test ! -f ~/statbus/migrations/$FAIL_MIGRATION_FILE" || { echo "✗ synthetic failing migration still present after rm" >&2; exit 1; }
+echo "  ✓ migrations/$FAIL_MIGRATION_FILE removed"
 
 # The unit's own restart (after the ABORT's unconditional os.Exit(1)) needs a
 # moment to come back up healthy before the alive-idle assertions below.
