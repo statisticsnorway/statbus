@@ -41,12 +41,22 @@
 #   - writing outputs to $GITHUB_OUTPUT (CI)
 #   - trusting ARC_PUBKEY via arc-helpers.sh::trust_arc_signer (post-install)
 #
-# SPEC ∈ {working, failing}
+# SPEC ∈ {working, failing, oom}
 #   working  — B: genuine migration V that SUCCEEDS (CREATE TABLE upgrade_arc_fixture +
 #               upgrade_arc_fixture_2); C: B with V amended in place (prepends a comment
 #               → new bytes, same effect; triggers STATBUS-102 channel-bless re-stamp).
 #   failing  — B: deterministic V that RAISES EXCEPTION (→ autonomous rollback); C: V
 #               replaced with the working migration (applies fresh after rollback).
+#   oom      — B: a real V (`SELECT pg_sleep(60);` + a fixture table, bare statement —
+#               NOT wrapped in a DO $$ block, so it shows up as pg_stat_activity's own
+#               active query) that the postswap-migration-oom arc SIGKILLs via its db
+#               container mid-sleep (STATBUS-096, reproducing the OS OOM-killer's effect
+#               deterministically). SINGLE-PHASE: no C is built (C is left identical to
+#               B, same commit, unused) — this arc has no "fixed" phase. Terminal is
+#               completed, NOT rolled_back: Run()'s own boot unconditionally revives the
+#               db (EnsureDBUp) before any recovery branch runs, so the killed migration
+#               always gets a live DB back within the same crash-resume pass and
+#               completes forward on its re-attempt.
 #
 # Migration content is NON-IDEMPOTENT by design (no IF NOT EXISTS): a re-apply
 # CONFLICTS ('already exists') — load-bearing for the after-commit arcs' deterministic
@@ -97,6 +107,51 @@ _ut_write_failing_v() {
       echo "END \$\$;"
     } > "$v_up"
     echo "SELECT 1;  -- V_fail commits nothing; rollback is the volume-restore" > "$v_down"
+}
+
+# _ut_write_oom_v V_UP V_DOWN
+# Write the OOM fixture migration (STATBUS-096): a real statement the
+# postswap-migration-oom arc SIGKILLs mid-run via its db container, to
+# reproduce the OS OOM-killer's effect on Postgres deterministically.
+# Deliberately a BARE top-level SELECT pg_sleep — NOT wrapped in a DO $$
+# BEGIN...END $$ block (construction ruling, STATBUS-096 comment #1): a DO
+# block would not appear as pg_stat_activity.query the same way, and the
+# arc's midpoint poll matches the literal `SELECT pg_sleep(60)%` text.
+#
+# 60s, NOT 3600s (architect reshape, 2026-07-07, confirmed against shipped
+# code): Run()'s own boot ALWAYS runs EnsureDBUp (service.go:1808,
+# unconditional on every pass, before any recovery branch) — so the killed
+# db is guaranteed to come back within the SAME boot that discovers the
+# service-held flag, and the re-attempted migrate always finds a live DB.
+# There is no code path where the box waits out a long sleep a second time;
+# a 3600s sleep would just re-run for another hour on every revival,
+# guaranteed-stall-red, derivable without a run. 60s keeps the arc's own
+# wall-clock bounded while still giving the midpoint poll below a comfortable
+# window to observe the ACTIVE query before the kill.
+#
+# The migration ALSO creates an observable fixture table (mirrors
+# _ut_write_working_v's own pattern) so the arc can assert the migration
+# genuinely completed on its post-revival re-run, not merely that
+# db.migration's ledger advanced.
+_ut_write_oom_v() {
+    local v_up="$1" v_down="$2"
+    {
+      echo "-- Upgrade-arc OOM fixture (STATBUS-096): a real migration the arc kills"
+      echo "-- mid-sleep (docker compose kill -s SIGKILL db) to reproduce the effect"
+      echo "-- of an OS OOM-kill of Postgres. Bare statement, no BEGIN/END — must"
+      echo "-- appear as pg_stat_activity's own active query for the arc's midpoint poll."
+      echo "-- ORDERING IS LOAD-BEARING: sleep BEFORE the DDL — no BEGIN/END means psql"
+      echo "-- autocommits per statement, so a committed-early table would turn the"
+      echo "-- revival's re-run into a relation-exists failure → rolled_back, the exact"
+      echo "-- opposite terminal. Sleep-first commits nothing on a mid-sleep kill."
+      echo "SELECT pg_sleep(60);"
+      echo "CREATE TABLE public.upgrade_arc_oom_fixture ("
+      echo "    id integer PRIMARY KEY,"
+      echo "    note text NOT NULL"
+      echo ");"
+      echo "INSERT INTO public.upgrade_arc_oom_fixture (id, note) VALUES (1, 'oom');"
+    } > "$v_up"
+    echo "DROP TABLE IF EXISTS public.upgrade_arc_oom_fixture;" > "$v_down"
 }
 
 # construct_upgrade_target BASE_SHA SPEC
@@ -151,7 +206,8 @@ construct_upgrade_target() {
     case "$_spec" in
         working) _ut_write_working_v "$_v_up" "$_v_down" "$_v2_up" "$_v2_down" ;;
         failing) _ut_write_failing_v "$_v_up" "$_v_down" ;;
-        *) echo "construct_upgrade_target: unknown SPEC '${_spec}' (expected: working|failing)" >&2; return 1 ;;
+        oom)     _ut_write_oom_v "$_v_up" "$_v_down" ;;
+        *) echo "construct_upgrade_target: unknown SPEC '${_spec}' (expected: working|failing|oom)" >&2; return 1 ;;
     esac
     git add migrations/
     # The synthetic upgrade-arc fixture migrations are exempted from the doc/db
@@ -183,6 +239,16 @@ construct_upgrade_target() {
             _ut_write_working_v "$_v_up" "$_v_down" "$_v2_up" "$_v2_down"
             git add migrations/
             git commit -S -q -m "test(upgrade-arc): ${_spec} fix V in place (C, applies fresh)"
+            ;;
+        oom)
+            # No "fixed" phase for the OOM arc: it is single-phase (A→B only,
+            # terminal is rolled_back — there is nothing to apply afterward).
+            # Deliberately NO commit here: C stays identical to B (same
+            # commit, different branch name). construct_upgrade_target's
+            # caller-scope contract still produces a C_BRANCH/C_FULL output
+            # for uniformity across specs; the oom arc's own script simply
+            # never references them (it declares only BASE_SHA/B_FULL/B_BRANCH
+            # as required, mirroring rollback-kill-arc.sh's own B-only shape).
             ;;
     esac
     local _c_short _c_full

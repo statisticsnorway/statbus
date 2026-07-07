@@ -88,6 +88,8 @@ Every entry leads with its **plain goal** — read it as **die HERE → the oper
 
 > `3-postswap-migration-deterministic-error` was retired: an upgrade whose migration errors on every apply (cell e — genuinely unapplyable) is now covered by the **upgrade-arc-harness** failing arc (real V_fail → rollback → byte-identical clean-slate restore). (STATBUS-071 §9(5) 5d.)
 
+> STATBUS-096's "eats all memory → OS kills it" coverage-map cell is exercised by the **upgrade-arc-harness** arc `postswap-migration-oom` (a real, running migration — `SELECT pg_sleep(3600);`, bare, no fabrication — SIGKILLed via `docker compose kill` on its db container at a pg_stat_activity-confirmed midpoint, reproducing the OS OOM-killer's effect on Postgres deterministically; real memory pressure is forbidden as a trigger on the shared 4 GB harness VM, where the kernel's own OOM heuristics could take the daemon or sshd instead), **not** an install-recovery scenario: it needs the real register+schedule lineage the arc harness provides. Single-phase (no C/fixed phase) — terminal is `rolled_back`, clean-slate fingerprint intact, data intact. Bonus leg: STATBUS-109's db-unreachable backoff-retry log line, its first live firing in an arc.
+
 ### 4-rollback — during the built-in rollback
 
 | Scenario | What it proves | Grounding |

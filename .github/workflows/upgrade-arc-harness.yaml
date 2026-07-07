@@ -84,6 +84,11 @@ jobs:
       failing_c_short: ${{ steps.fixtures.outputs.failing_c_short }}
       failing_b_full: ${{ steps.fixtures.outputs.failing_b_full }}
       failing_c_full: ${{ steps.fixtures.outputs.failing_c_full }}
+      # oom (STATBUS-096): single-phase — B only. postswap-migration-oom-arc.sh
+      # is the sole rider; no C is built or dispatched.
+      oom_b_branch: ${{ steps.fixtures.outputs.oom_b_branch }}
+      oom_b_short: ${{ steps.fixtures.outputs.oom_b_short }}
+      oom_b_full: ${{ steps.fixtures.outputs.oom_b_full }}
     steps:
       - name: Checkout (full history — branch fixtures are real commits off A)
         uses: actions/checkout@v4
@@ -134,6 +139,12 @@ jobs:
           failing_b_branch="$B_BRANCH"; failing_b_short="$B_SHORT"; failing_b_full="$B_FULL"
           failing_c_branch="$C_BRANCH"; failing_c_short="$C_SHORT"; failing_c_full="$C_FULL"
 
+          # oom (STATBUS-096): single-phase, B only — construct_upgrade_target's
+          # oom spec builds a C branch too (identical commit, unused) for
+          # uniformity, but only B is pushed/dispatched/waited-on below.
+          construct_upgrade_target "$base_sha" oom
+          oom_b_branch="$B_BRANCH"; oom_b_short="$B_SHORT"; oom_b_full="$B_FULL"
+
           # ARC_PUBKEY set (and exported) by the library on the first call above.
           {
             echo "base_sha=${base_sha}"
@@ -153,15 +164,19 @@ jobs:
             echo "failing_c_short=${failing_c_short}"
             echo "failing_b_full=${failing_b_full}"
             echo "failing_c_full=${failing_c_full}"
+            echo "oom_b_branch=${oom_b_branch}"
+            echo "oom_b_short=${oom_b_short}"
+            echo "oom_b_full=${oom_b_full}"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Dispatch images.yaml for all 4 fixture branches (push does not trigger; dispatch does)
+      - name: Dispatch images.yaml for all 5 fixture branches (push does not trigger; dispatch does)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WORKING_B_BRANCH: ${{ steps.fixtures.outputs.working_b_branch }}
           WORKING_C_BRANCH: ${{ steps.fixtures.outputs.working_c_branch }}
           FAILING_B_BRANCH: ${{ steps.fixtures.outputs.failing_b_branch }}
           FAILING_C_BRANCH: ${{ steps.fixtures.outputs.failing_c_branch }}
+          OOM_B_BRANCH: ${{ steps.fixtures.outputs.oom_b_branch }}
         run: |
           set -euo pipefail
           # images.yaml is UNCHANGED — its workflow_dispatch is the public entry
@@ -190,6 +205,7 @@ jobs:
           dispatch_images "$WORKING_C_BRANCH"
           dispatch_images "$FAILING_B_BRANCH"
           dispatch_images "$FAILING_C_BRANCH"
+          dispatch_images "$OOM_B_BRANCH"
 
   image-wait:
     name: Wait for per-commit images (A + B + C)
@@ -212,7 +228,7 @@ jobs:
           DOCKER_CLI_EXPERIMENTAL: enabled
           IMAGES_WAIT_BUDGET_S: "2400"
           IMAGES_WAIT_INTERVAL_S: "30"
-          SHORTS: "${{ needs.construct.outputs.base_short }} ${{ needs.construct.outputs.working_b_short }} ${{ needs.construct.outputs.working_c_short }} ${{ needs.construct.outputs.failing_b_short }} ${{ needs.construct.outputs.failing_c_short }}"
+          SHORTS: "${{ needs.construct.outputs.base_short }} ${{ needs.construct.outputs.working_b_short }} ${{ needs.construct.outputs.working_c_short }} ${{ needs.construct.outputs.failing_b_short }} ${{ needs.construct.outputs.failing_c_short }} ${{ needs.construct.outputs.oom_b_short }}"
         run: |
           set -euo pipefail
           echo "${GH_TOKEN}" | docker login "$REGISTRY" -u "$ACTOR" --password-stdin
@@ -362,11 +378,16 @@ jobs:
           ssh-keygen -lf ~/.ssh/id_ed25519 | awk '{ print "SSH key fingerprint:", $2 }'
 
       - name: Resolve fixture lineage for the scenario
-        # §7 shared-fixture: each arc rides ONE of the 2 shared lineages. The
+        # §7 shared-fixture: each arc rides ONE of the 3 shared lineages. The
         # failing + rollback-restore arcs need the FAILING V (RAISE → rollback);
-        # every other (kill/stall) arc rides the WORKING V. Map scenario→lineage
-        # and export the chosen pair's B/C refs to $GITHUB_ENV for the run step
-        # (the arc reads B_FULL/C_FULL/B_BRANCH/C_BRANCH from the environment).
+        # postswap-migration-oom needs its own OOM V (a real, long-running
+        # statement to kill mid-run — STATBUS-096); every other (kill/stall)
+        # arc rides the WORKING V. Map scenario→lineage and export the chosen
+        # pair's B/C refs to $GITHUB_ENV for the run step (the arc reads
+        # B_FULL/C_FULL/B_BRANCH/C_BRANCH from the environment). The oom
+        # lineage exports B_FULL/B_BRANCH only — it is single-phase (no C) and
+        # postswap-migration-oom-arc.sh does not reference C_FULL/C_BRANCH
+        # (mirrors rollback-kill-arc.sh's own B-only shape).
         env:
           SCENARIO: ${{ matrix.scenario }}
           WORKING_B_FULL: ${{ needs.construct.outputs.working_b_full }}
@@ -377,10 +398,13 @@ jobs:
           FAILING_C_FULL: ${{ needs.construct.outputs.failing_c_full }}
           FAILING_B_BRANCH: ${{ needs.construct.outputs.failing_b_branch }}
           FAILING_C_BRANCH: ${{ needs.construct.outputs.failing_c_branch }}
+          OOM_B_FULL: ${{ needs.construct.outputs.oom_b_full }}
+          OOM_B_BRANCH: ${{ needs.construct.outputs.oom_b_branch }}
         run: |
           set -euo pipefail
           case "$SCENARIO" in
             failing|postswap-rollback-restore-watchdog) lineage=failing ;;
+            postswap-migration-oom)                     lineage=oom ;;
             *)                                          lineage=working ;;
           esac
           echo "Scenario '${SCENARIO}' → fixture lineage '${lineage}'"
@@ -390,6 +414,11 @@ jobs:
               echo "C_FULL=${FAILING_C_FULL}"
               echo "B_BRANCH=${FAILING_B_BRANCH}"
               echo "C_BRANCH=${FAILING_C_BRANCH}"
+            } >> "$GITHUB_ENV"
+          elif [ "$lineage" = oom ]; then
+            {
+              echo "B_FULL=${OOM_B_FULL}"
+              echo "B_BRANCH=${OOM_B_BRANCH}"
             } >> "$GITHUB_ENV"
           else
             {
