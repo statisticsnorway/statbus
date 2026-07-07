@@ -42,8 +42,10 @@ Source: King, 2026-06-18.
 - [ ] #1 A migration exceeding the 12-hour ceiling is killed by the system's own internal timeout
 - [ ] #2 The 12h threshold is configurable to a short value so a test triggers the same kill path in seconds
 - [ ] #3 After the timeout-kill the box recovers correctly (rollback/recovery)
-- [ ] #4 Reconciled with the existing migrate.go timeouts (60-min CLI / 5-min boot / 30-min resume) — documented which bound changed and why
+- [x] #4 Reconciled with the existing migrate.go timeouts (60-min CLI / 5-min boot / 30-min resume) — documented which bound changed and why
 <!-- AC:END -->
+
+
 
 ## Implementation Notes
 
