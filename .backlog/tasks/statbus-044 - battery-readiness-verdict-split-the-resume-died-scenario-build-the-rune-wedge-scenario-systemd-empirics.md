@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-06-12 21:51'
-updated_date: '2026-07-07 08:31'
+updated_date: '2026-07-07 08:46'
 labels:
   - install-recovery
   - testing
@@ -185,5 +185,11 @@ author: foreman
 created: 2026-07-07 03:05
 ---
 AC#2 CHECKED — systemd empirics measured live on the kept abort-oracle VM (65.108.158.151, systemd 255 / 255.4-1ubuntu8.15, operator ride-along 2026-07-07): (1) `systemctl reset-failed` ZEROES NRestarts in BOTH unit states — failed (9→0) and active (1→0) — so the gate's reset-then-count pattern is sound regardless of the unit's state when the gate runs. (2) NRestarts increments by exactly +1 per restart, clean sequence, no skips or collisions (0→1→2 tracked with timestamps). BONUS empiric for STATBUS-144's severity paragraph: the unit was observed in the flagless-churn death live — NRestarts climbed ~+1/30s (7 at the architect's read, 9 at the operator's) until the unit sat 'failed' — the StartLimit terminal the 144 fix must remove.
+---
+
+author: architect
+created: 2026-07-07 08:46
+---
+THE ORDERED WALKTHROUGH THE KING ASKED FOR (2026-07-07, "why do we, at startup, apply migrations blindly? I need a sequence of events") is on the board as **doc-027** — 21 numbered events from fresh install through upgrade dispatch to the boot-migrate window, each with its command/trigger and file:line, re-verified against master HEAD today by a fresh-context architect (no inheritance from prior rulings). The one-sentence core: migrations land at startup because executeUpgrade ALWAYS hands off post-swap (a Go binary cannot hot-swap itself — service.go:4953/:4959), so the delta necessarily runs in the NEW binary's first process life, and it must run before recoverFromFlag because the new binary's ~23 public.upgrade queries need the new schema (the rc.63/rc.65 42703 incident). The window is gated, not blind: RecoveryBudgetGuard counts the pass BEFORE the migrations (service.go:1918/:5783), parked rows skip it, same-step-twice + the 3-death budget bound it, the 12h ceiling time-bounds it, and "pending" at that moment is exactly the delta of a tree a deliberate act put there (flag checkout / install.sh / deploy push). doc-027 §D names the ONE arm where 'apply at startup' is not the continuation of a dispatched upgrade — the flagless self-repair boot — and states the rulable trade (autonomy vs. explicit intent) if the King wants a gate there. The companion adversarial adjudication of retry-vs-classify is on STATBUS-096 comments #5-#6.
 ---
 <!-- COMMENTS:END -->
