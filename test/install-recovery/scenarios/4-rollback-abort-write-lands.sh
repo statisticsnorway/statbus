@@ -126,7 +126,7 @@ echo "\${STATBUS_ROLLBACK_FAILED:-} \$(date -u +%FT%TZ)" >> $CALLBACK_LOG
 CALLBACKSCRIPT
 scp -O "${SSH_OPTS[@]}" "$CALLBACK_SCRIPT_LOCAL" root@"$VM_IP":/tmp/rollback-abort-callback.sh >/dev/null
 rm -f "$CALLBACK_SCRIPT_LOCAL"
-VM_EXEC bash -c \
+ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
     'mv /tmp/rollback-abort-callback.sh /home/statbus/rollback-abort-callback.sh && chown statbus:statbus /home/statbus/rollback-abort-callback.sh && chmod 0755 /home/statbus/rollback-abort-callback.sh'
 echo "  ✓ /home/statbus/rollback-abort-callback.sh installed (chmod 0755)"
 

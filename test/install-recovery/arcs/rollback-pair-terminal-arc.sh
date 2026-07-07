@@ -138,7 +138,7 @@ echo "\${STATBUS_ROLLBACK_FAILED:-} \$(date -u +%FT%TZ)" >> $CALLBACK_LOG
 CALLBACKSCRIPT
 scp -O "${SSH_OPTS[@]}" "$CALLBACK_SCRIPT_LOCAL" root@"$VM_IP":/tmp/rollback-pair-terminal-callback.sh >/dev/null
 rm -f "$CALLBACK_SCRIPT_LOCAL"
-VM_EXEC bash -c \
+ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
     'mv /tmp/rollback-pair-terminal-callback.sh /home/statbus/rollback-pair-terminal-callback.sh && chown statbus:statbus /home/statbus/rollback-pair-terminal-callback.sh && chmod 0755 /home/statbus/rollback-pair-terminal-callback.sh'
 echo "  ✓ /home/statbus/rollback-pair-terminal-callback.sh installed (chmod 0755)"
 
