@@ -1,34 +1,42 @@
 #!/bin/bash
 # Arc: postswap-mid-migration-kill  (STATBUS-071 §9(5) 5d / doc-017 §1 — CAT-C)
 #
-# ONE-SHOT KillHere → FORWARD-recovery → COMPLETED (distinct from the CAT-A kills,
-# which roll back). The kill fires at the START of runPsqlFile (migrate.go:389,
-# killed-by-system-during-individual-migration-execution) — BEFORE migration 1's
-# psql runs, so nothing is committed. The recovery re-enters the SAME site with the
-# one-shot marker CONSUMED → no re-kill → migrate.Up re-runs BOTH shared working
-# migrations → completed. The PENDING migration defeats the STATBUS-067 self-heal
-# (HasPending=true → resumePostSwap does NOT short-circuit → applyPostSwap re-runs).
+# ONE-SHOT KillHere → IN-DISPATCH FORWARD-recovery → COMPLETED (distinct from the
+# CAT-A kills, which roll back). The kill fires at the START of runPsqlFile
+# (migrate.go:389, killed-by-system-during-individual-migration-execution) — BEFORE
+# migration 1's psql runs, so nothing is committed.
+#
+# NO EXPOSED RED MIDPOINT (architect ruling, from the U1 logs). On the inline path the
+# migrate delta runs in the re-exec'd pass's BOOT-migrate, and the KillHere site is in
+# the migrate SUBPROCESS. A dead subprocess is a STEP failure the SINGLE ./sb install
+# SURVIVES — it logs 'deferring to RecoverFromFlag (STATBUS-017): ... exit status 137'
+# and resumes FORWARD in the SAME invocation, re-running BOTH shared working migrations
+# to completed. So the dispatch-dies-mid-migration cell is STRUCTURALLY UNREACHABLE
+# from this inject site (the r12 class — the window closed because the product got
+# better); the old RED-midpoint + separate-recovery model is void, and we assert
+# IN-DISPATCH forward recovery instead. The whole-process-death-mid-migration variant
+# IS covered — by the after-commit pair (a daemon-mainpid kill of the migrate step,
+# proven green). The PENDING migration defeats the STATBUS-067 self-heal (HasPending=true
+# → resumePostSwap does NOT short-circuit → applyPostSwap re-runs).
 #
 # Rides the kill-arc driver (5a): daemon-DOWN + ./sb install inline-dispatch + the
-# REAL inject. NEW vs 5a: the ONE-SHOT MARKER (arc_install_dispatch_with_inject's
-# 3rd arg) — the kill fires EXACTLY ONCE; the 2nd (recovery) dispatch re-enters the
-# site, finds the marker gone, and forward-recovers. Uses the WORKING lineage's
-# 2-migration fixture (V1+V2); the load-bearing proof is db.migration max==V_VERSION_2
-# after recovery (forward-recovery re-applied BOTH migrations, not just one).
+# REAL inject + the ONE-SHOT MARKER (arc_install_dispatch_with_inject's 3rd arg — the
+# kill fires EXACTLY ONCE). Uses the WORKING lineage's 2-migration fixture (V1+V2); the
+# load-bearing proof is db.migration max==V_VERSION_2 (forward-recovery re-applied BOTH).
 #
-# Arc shape (A → B, killed mid-migration, recovered forward):
+# Arc shape (A → B, killed mid-migration, recovered forward IN-DISPATCH):
 #   A = base_sha   install fresh, pinned; populate; trust the arc signer.
 #   B = A + V1+V2  the signed shared WORKING fixture (register; the upgrade target).
-#   kill           register B (daemon up) → stop daemon + schedule B → touch the
+#   dispatch       register B (daemon up) → stop daemon + schedule B → touch the
 #                  one-shot marker → ./sb install WITH STATBUS_INJECT_AT + the marker
-#                  → KillHere fires ONCE (exit 137) at the start of runPsqlFile.
-#   RED            flag present (PostSwap); db.migration max STILL == baseline (the
-#                  kill fired before migration 1 committed); DB up.
-#   recovery       ./sb install WITH the same inject env (marker GONE → no re-kill)
-#                  → recoverFromFlag PostSwap → resumePostSwap → applyPostSwap →
-#                  migrate.Up re-runs V1+V2 → completed.
-#   GREEN          row completed; db.migration max == V_VERSION_2 (BOTH applied);
-#                  both fixture tables present; data intact; flag absent; healthy.
+#                  → KillHere fires ONCE in the migrate subprocess at runPsqlFile start.
+#   in-dispatch    the dispatch SURVIVES the subprocess death (rc=0), defers to
+#   recovery       RecoverFromFlag (STATBUS-017), re-runs V1+V2, and completes — all
+#                  within the same ./sb install.
+#   GREEN          kill landed (marker consumed) + rc=0 + the STATBUS-017 defer line;
+#                  row completed; recovery_attempts==1; db.migration max == V_VERSION_2
+#                  (BOTH applied); both fixture tables present; data intact; flag absent;
+#                  healthy.
 #
 # Inputs (env): BASE_SHA, B_FULL (40-hex), B_BRANCH, V_VERSION, V_VERSION_2,
 # SB_ARC_TRUSTED_SIGNER. VM name = $1.
@@ -82,51 +90,31 @@ arc_schedule_daemon_down "$B_FULL"
 echo "── arming one-shot kill marker ($KILL_MARKER) ──"
 VM_EXEC bash -c "touch $KILL_MARKER && ls -la $KILL_MARKER"
 
-# ── LEG 1: install-until-killed (U1 FAMILY-2 fix — assertion sequencing + double-window) ──
-# The one-shot kill can land on THIS install's post-swap migrate OR on its re-exec'd
-# crash-recovery BOOT-migrate ("the second install's boot-migrate" the U1 log showed).
-# The old arc assumed the FIRST dispatch killed and asserted 'flag present' right
-# after — but a dispatch that ran PAST the window completed the upgrade (flag gone),
-# so the assertion failed at the wrong point. Fix: DISPATCH UNTIL the kill is
-# CONFIRMED (exit 137 + marker consumed + flag left present), pin which pass it fired
-# on, and only THEN assert the RED midpoint. A dispatch that completes the upgrade
-# (flag absent) = the inject window was missed → fail loud.
-_flag_present() { VM_EXEC bash -c "test -e ~/statbus/tmp/upgrade-in-progress.json && echo present || echo absent" 2>/dev/null | tr -d ' \r\n'; }
+# ── SINGLE dispatch — the product recovers IN-PROCESS; there is NO exposed RED midpoint ──
+# CONFIRMED MECHANISM (architect, from the U1 logs): on the inline path the migrate
+# delta only ever runs in the re-exec'd pass's BOOT-migrate, and the KillHere site is
+# in the migrate SUBPROCESS. A dead subprocess is a STEP failure the dispatch SURVIVES
+# — the output shows 'deferring to RecoverFromFlag (STATBUS-017): ... exit status 137'
+# — then resumes FORWARD in the SAME ./sb install invocation to completed (rc=0, flag
+# cleared, attempts==1). So the dispatch-dies-mid-migration cell is STRUCTURALLY
+# UNREACHABLE from this inject site (the r12 class — the window closed because the
+# product got better); there is no torn midpoint to assert (the old RED-midpoint +
+# separate-recovery model is void). The whole-process-death-mid-migration variant IS
+# covered — by the after-commit pair (daemon-mainpid kill of the migrate step, green
+# tonight). We therefore assert IN-DISPATCH forward recovery.
 _marker_state() { VM_EXEC bash -c "test -e $KILL_MARKER && echo present || echo consumed" 2>/dev/null | tr -d ' \r\n'; }
-KILL_PASS=""
-for _pass in 1 2; do
-    arc_install_dispatch_with_inject "$INJECT_CLASS" "$INSTALL_BUDGET_S" "$KILL_MARKER"
-    _fl=$(_flag_present); _mk=$(_marker_state)
-    if [ "$ARC_DISPATCH_RC" = "137" ] && [ "$_mk" = "consumed" ] && [ "$_fl" = "present" ]; then
-        KILL_PASS="$_pass"; echo "  ✓ one-shot kill fired on dispatch pass ${_pass} (exit 137, marker consumed, flag present)"; break
-    fi
-    if [ "$_fl" = "absent" ]; then
-        echo "✗ dispatch pass ${_pass} left NO flag (rc=$ARC_DISPATCH_RC, marker=$_mk) — the upgrade ran past the mid-migration inject window without the kill landing" >&2
-        exit 1
-    fi
-    echo "  [pass ${_pass}] no kill yet (rc=$ARC_DISPATCH_RC, marker=$_mk, flag=$_fl) — re-dispatching (double-window: the kill may land on the recovery boot-migrate)"
-done
-[ -n "$KILL_PASS" ] || { echo "✗ one-shot kill never fired within 2 dispatch passes — the mid-migration inject site was not reached" >&2; exit 1; }
-
-# ── LEG 2: RED midpoint (anti-vacuity) — flag present; NOTHING committed yet (max==baseline) ──
-echo ""
-echo "── verifying RED state (flag present; max still baseline; marker consumed) ──"
-[ "$(_flag_present)" = "present" ] || { echo "✗ expected the flag file present after the confirmed kill" >&2; exit 1; }
-# 027 remedy: the max read runs with the DB mid-recovery — retry + INFRA-skip on a
-# transient psql failure; never read "ERR" as a wrong-state verdict.
-RED_MAX="ERR"
-for _try in 1 2 3 4 5; do RED_MAX=$(migration_max_version); { [ "$RED_MAX" != "ERR" ] && [ -n "$RED_MAX" ]; } && break; sleep 3; done
-if [ "$RED_MAX" = "ERR" ] || [ -z "$RED_MAX" ]; then
-    echo "  ⚠ could not read db.migration max at the RED midpoint (DB mid-recovery / transport) — INFRA, skipping the max-check (flag-present above pinned the window)" >&2
-else
-    [ "$RED_MAX" = "$BASELINE_MAX_VERSION" ] || { echo "✗ db.migration max moved to $RED_MAX (baseline=$BASELINE_MAX_VERSION) — kill did not fire before migration 1 committed" >&2; exit 1; }
-    echo "  ✓ RED: flag present + max==baseline ($RED_MAX) — killed before migration 1 applied"
-fi
-
-# ── LEG 3: recovery — ./sb install with the marker GONE → no re-kill → forward-recover ──
-echo ""
-echo "── recovery: ./sb install, inject env still set, marker consumed → forward-recovery ──"
 arc_install_dispatch_with_inject "$INJECT_CLASS" "$INSTALL_BUDGET_S" "$KILL_MARKER"
+
+echo ""
+echo "── verifying IN-DISPATCH forward recovery (kill landed; dispatch survived + deferred to RecoverFromFlag) ──"
+# The kill LANDED but did NOT kill the dispatch: the consumed marker proves KillHere
+# fired; rc=0 proves the dispatch deferred + recovered in-process rather than dying.
+[ "$(_marker_state)" = "consumed" ] || { echo "✗ one-shot marker still present — KillHere never fired (the mid-migration inject site was not reached)" >&2; exit 1; }
+echo "  ✓ one-shot kill landed (marker consumed)"
+[ "$ARC_DISPATCH_RC" = "0" ] || { echo "✗ dispatch exited $ARC_DISPATCH_RC — the killed migrate subprocess should be DEFERRED to RecoverFromFlag and the upgrade completed in-process (rc=0)" >&2; exit 1; }
+echo "  ✓ dispatch survived the subprocess kill (rc=0) — in-process forward recovery, not a dead dispatch"
+[ "$(arc_dispatch_log_has 'deferring to RecoverFromFlag (STATBUS-017)')" = "yes" ] || { echo "✗ dispatch output missing 'deferring to RecoverFromFlag (STATBUS-017)' — the in-process-recovery path is not pinned" >&2; exit 1; }
+echo "  ✓ path pinned: dispatch output shows the STATBUS-017 defer line (recovered via RecoverFromFlag)"
 
 # ── GREEN: completed + BOTH migrations applied (max==V_VERSION_2) ──
 echo ""

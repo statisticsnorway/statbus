@@ -186,13 +186,16 @@ WK=$(journal_watchdog_kills)
 [ "$WK" = "0" ] || { echo "✗ COVER FAILED: journal shows $WK 'watchdog timeout' kill(s) of $ARC_UPGRADE_UNIT — the restore was aborted" >&2; exit 1; }
 echo "  ✓ zero systemd watchdog-timeout kills in the unit journal"
 
-# The row must still be mid-flight (not prematurely terminal) and the db still down
-# (restore genuinely parked, i.e. the cover kept a REAL stall alive rather than the
-# stall having silently completed) — so the assertion above proved a live cover.
-ST_HOLD=$(row_state)
-[ "$ST_HOLD" = "in_progress" ] || { echo "✗ row is '$ST_HOLD' at hold-end, expected 'in_progress' (the restore should still be parked under the armed stall)" >&2; exit 1; }
+# Anti-vacuity at hold-end (architect ruling). The upgrade ROW lives in the very DB
+# the parked restore keeps DOWN — a row-state read here is UNSATISFIABLE (and the row
+# can't change while the writer is parked anyway), so it was meaningless: DELETED.
+# The live-cover proof is: NRestarts frozen + zero watchdog kills (above) + the DB is
+# DOWN + the on-disk FLAG FILE is still present (readable with the DB down, and proof
+# the upgrade has NOT concluded — a REAL parked stall, not a vacuous pass). Row
+# assertions run only at the post-release terminal.
 DB_HOLD=$(db_up); [ -z "$DB_HOLD" ] || { echo "✗ db is UP at hold-end — the restore stall did not genuinely park (vacuous cover test)" >&2; exit 1; }
-echo "  ✓ row still in_progress and db still down — the restore is genuinely parked; a live cover, not a vacuous pass"
+VM_EXEC bash -c "test -e ~/statbus/tmp/upgrade-in-progress.json" || { echo "✗ the upgrade flag file is GONE at hold-end — the upgrade concluded, so there was no live stall to cover (vacuous)" >&2; exit 1; }
+echo "  ✓ db down + flag file still present on disk — a live parked restore under the armed stall (not a vacuous pass)"
 
 # ── release the stall → assert the clean rolled_back terminal + clean-slate identity ──
 echo ""

@@ -291,6 +291,18 @@ arc_schedule_daemon_down() {
 # rollback-kill's outcome A [forward-recovery completed, exit 0] vs outcome B [the
 # rollback inject fired, exit 137]). The single-kill callers ignore it.
 ARC_DISPATCH_RC=0
+# ARC_DISPATCH_LOG — the VM-side file the last arc_install_dispatch_with_inject wrote
+# its ./sb install stdout+stderr to, so callers can grep the product's OWN path
+# markers (e.g. the STATBUS-017 in-process-recovery defer line).
+ARC_DISPATCH_LOG="/tmp/arc-install-dispatch.out"
+# arc_dispatch_log_has <substr> — echoes yes|no: did that captured output contain <substr>?
+# PLAIN SUBSTRINGS ONLY — no double quotes or dollar signs in <substr>: the
+# VM_EXEC transport misparses them (the sudo -i layer eats $, and nested double
+# quotes break the bash -c). Pick a marker that stops BEFORE any quoted/rendered
+# portion of the target line (see the STATBUS-017 defer-line callers).
+arc_dispatch_log_has() {
+    VM_EXEC bash -c "grep -qF \"$1\" ${ARC_DISPATCH_LOG} 2>/dev/null && echo yes || echo no" 2>/dev/null | tr -d ' \r\n' || echo "no"
+}
 arc_install_dispatch_with_inject() {
     local inject_class="$1" budget="${2:-${INSTALL_BUDGET_S:-900}}" kill_marker="${3:-}"
     # ONE-SHOT file-armed kill (doc-017 §1/§2, for the :389/:912 mid-migrate kills):
@@ -306,7 +318,13 @@ arc_install_dispatch_with_inject() {
     echo ""
     echo "── ./sb install dispatch with STATBUS_INJECT_AT=${inject_class}${kill_marker:+ (one-shot marker ${kill_marker})} (budget ${budget}s) ──"
     local rc=0
-    VM_EXEC bash -c "cd ~/statbus && ${kill_env}STATBUS_INJECT_AT=${inject_class} STATBUS_MIN_DISK_GB=5 timeout ${budget} ./sb install --non-interactive --trust-github-user jhf" || rc=$?
+    # Capture the dispatch stdout+stderr to ARC_DISPATCH_LOG on the VM so callers can
+    # grep the product's own path markers (e.g. the STATBUS-017 defer line that pins
+    # in-process forward recovery); still streamed to the run log via the cat below.
+    # Direct redirect (no pipe) keeps the install's OWN rc in $rc; fd 1 is inherited
+    # across ./sb install's syscall.Exec re-exec, so the recovery-boot output lands too.
+    VM_EXEC bash -c "cd ~/statbus && ${kill_env}STATBUS_INJECT_AT=${inject_class} STATBUS_MIN_DISK_GB=5 timeout ${budget} ./sb install --non-interactive --trust-github-user jhf > ${ARC_DISPATCH_LOG} 2>&1" || rc=$?
+    VM_EXEC bash -c "cat ${ARC_DISPATCH_LOG} 2>/dev/null" || true
     # shellcheck disable=SC2034  # read cross-file by the arc scripts (e.g. rollback-kill)
     ARC_DISPATCH_RC="$rc"
     echo "  ./sb install (injected) exit: $rc (137 = injected SIGKILL semantics)"
