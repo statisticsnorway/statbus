@@ -3,10 +3,10 @@ id: STATBUS-096
 title: >-
   migration-kill-tests: recover from OOM-kill of Postgres + internal
   timeout-kill, mid-migration
-status: Done
+status: In Progress
 assignee: []
 created_date: '2026-06-18 21:18'
-updated_date: '2026-07-07 05:18'
+updated_date: '2026-07-07 08:31'
 labels:
   - upgrade
   - testing
@@ -91,6 +91,12 @@ author: foreman
 created: 2026-07-07 04:59
 ---
 OOM ARC GREEN ON FIRST CONTACT (run 28841893851, HEAD 39b94be8d, 2026-07-07 — all jobs green): the single-OOM contract proven live on a real VM. Real register+schedule dispatch, midpoint pg_stat_activity poll confirmed the migration genuinely mid-sleep (AC#1's deterministic-kill requirement, delivered by the proven poll pattern in place of the ticket's original NOTIFY sketch — architect-ruled substitution), db container SIGKILLed and observed dead, then the FORWARD recovery exactly as the reshaped contract predicted: the boot's own EnsureDBUp revived the db, the uncommitted migration re-ran fresh, terminal COMPLETED with V recorded + the fixture table present (ran end-to-end), demo data intact, flag absent, NRestarts within bound. AC#1, #2, #4 checked. AC#3 (the internal timeout kill) is the ceiling arc — folded to STATBUS-095 piece 2, on CI now (run 28842366163). STILL KING-GATED: the 071 coverage-map cell rewording (its 'rolls back' text matches the RECURRING-OOM story) + the recurring-OOM variant arc — the map cell stays untouched until the King blesses the split (single→completed, recurring→rolled_back).
+---
+
+author: foreman
+created: 2026-07-07 08:31
+---
+REOPENED by the King's morning review (2026-07-07), two grounds: (1) WORDING — 'the box revives the database on its own boot' was sloppy: NO box restart is involved anywhere in this story. Precise mechanics: only the Postgres CONTAINER is killed; the upgrade daemon (a separate host process, systemd user service) survives, and it is the DAEMON'S OWN CODE that runs `docker compose up -d db` — unconditionally at the start of every daemon process pass (service.go:1808) and again inside the resume step — then waits for health and re-attempts the pending migration. Read 'boot' in prior comments as 'a boot pass of the upgrade daemon process', never 'the box'. (2) PRINCIPLE CHALLENGE (King, verbatim): 'isn't the problem here that you ratified 3 retries before aborting, while I tried to tell you we must immediately determine if it is a transient or permanent error? And you seem to do neither, just try again? And in the real case of a runaway migration, we have an incorrect strategy in principle?' — routed to the architect for a max-effort adversarial review of the retry-vs-classify strategy at the migration-failure site, plus the principled ordered walkthrough of how a box gets into boot-migrate applying migrations at startup. Done-status is SUSPENDED until that adjudication; the green runs stand as evidence, but whether they prove the RIGHT contract is exactly the open question.
 ---
 <!-- COMMENTS:END -->
 
