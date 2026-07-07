@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-07 00:56'
+updated_date: '2026-07-07 02:59'
 labels:
   - install-recovery
   - upgrade
@@ -188,5 +188,11 @@ FIXES DISPATCHED (foreman): one shared kill helper ending the stale-PID class (f
 OBSERVED LIVE IN THE U1 LOGS (coverage-map annotations — seen working, NOT yet arc-green; cells flip [PROVEN] only on the fixed re-run): crashed-upgrade ladder detection · SIGKILL-class quiesce (the "never SIGTERM" line, live) · STATBUS-017 boot-migrate defer (a killed boot-migrate deferring to flag recovery) · budget-hoist attempt counting (exactly 1 attempt for one deliberate recovery) · completed self-heal · the completion-write reconnect save (the 047-H stale-connection retry, firing and succeeding twice).
 
 THE STATBUS-105 STATEMENT, plainly: the torn-migration measurement has NOT happened yet. Every 'completed' ever observed on this path — including the overnight observation that opened 105 — is explained by the harness miss above (a released stall finishing its bookkeeping legitimately). The King's rolled_back rule is UNTESTED live, not violated. The fixed re-run of the two after-commit arcs IS the 105 measurement.
+---
+
+author: foreman
+created: 2026-07-07 02:59
+---
+KILL-FAMILY SWEEP COMPLETE (2026-07-07): run 28832014634 (after-commit ×2 + mid-tx GREEN — the 105 measurement; 105 closed on it) + run 28837119781 (between-migrations + mid-migration + rollback-restore-watchdog ALL GREEN). SIX cells flip [IN FLIGHT]→[PROVEN]: the two after-commit torn-window arcs (rolled_back per the ratified rule), mid-tx, the two migration-window arcs (reshaped to the product's real promise: in-dispatch forward recovery — kill lands, dispatch survives via the deferred-recovery path, completed at attempts==1), and the rollback-restore-watchdog cover-HOLDS arc (NRestarts frozen through a stalled restore → clean rolled_back with byte-identical clean slate; U2 proven). Harness classes ended en route: stale-PID kill miss + release-after-miss (the confirmed-kill helper, 4b6da9fdd), the transport self-match (bracket idiom), the hold-end assertion contradiction. NEW product tickets from the campaign's scenario legs: STATBUS-143 (probe-vs-connect route mismatch in install recovery) and STATBUS-144 (flagless post-terminal boot-migrate churn). Rune-wedge GREEN (044 AC#1 checked); abort oracle one cleanup-fix from green with the 136 property already run-proven. Remaining U-campaign: abort oracle round 3, pair-terminal arc run (after this sweep — lineage now confirmed green), U5 legacy deletions, U6/AC#4 gated on the King's carve-out ruling.
 ---
 <!-- COMMENTS:END -->
