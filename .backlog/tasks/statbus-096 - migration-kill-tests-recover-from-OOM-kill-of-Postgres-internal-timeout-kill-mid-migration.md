@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-18 21:18'
-updated_date: '2026-07-06 16:05'
+updated_date: '2026-07-07 04:10'
 labels:
   - upgrade
   - testing
@@ -63,3 +63,21 @@ DEPENDS / BUILDS ON: the STATBUS-071 arc framework (arc-helpers.sh + the NOTIFY-
 
 CLARITY ON THE TWO KILLS (do not conflate): scenario 1 OOM = the OS kills PostgreSQL from OUTSIDE (a bad migration on a big DB eats all memory); scenario 2 timeout = OUR code kills the migration from INSIDE (the 12h limit, short threshold in test). Both must end in a clean autonomous recovery on the box. The handshake (NOTIFY + pg_sleep + external kill) is the King's design and gives the deterministic kill moment.
 <!-- SECTION:NOTES:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect
+created: 2026-07-07 04:10
+---
+CONSTRUCTION RULING (architect, 2026-07-07). SCOPE FIRST: scenario 2 (the internal timeout kill) IS STATBUS-095's arc — it folds there (ruling on 095, comment #1); this ticket keeps exactly ONE build: the OOM arc. NO product knob needed — mechanic-buildable now, independent of 095.
+
+DETERMINISM RULING (the foreman's flag, settled): the harness VM is a CX23 (2 vCPU / 4 GB shared with the whole stack) — real memory pressure is NOT a deterministic trigger there: the kernel OOM-killer picks its victim by heuristics and can take the daemon, sshd, or the worker instead of postgres, which is exactly the flaky class we forbid. The King already ruled the honest shape in this ticket's own notes: reproduce the EFFECT deterministically — kill Postgres from OUTSIDE mid-migration — without exhausting memory. So the trigger is `docker kill --signal=SIGKILL <db-container>` at the confirmed midpoint: the postmaster dies by SIGKILL exactly as under the OOM-killer, uncommitted work is lost, and WAL recovery runs on the next start — the property under test ('when the OS OOM-kills Postgres mid-migration, the box recovers') is fully exercised. OPTIONAL higher-fidelity variant, NOT required and not now: a cgroup bound on the db container (docker update --memory) + a memory-hungry V — scopes the kill to the container so it IS deterministic, but adds machinery for the same observable; file it as a nicety only if the King ever wants the kernel's own killer in the loop.
+
+ARC CONSTRUCTION (postswap-migration-oom-arc, mechanic, the proven V_fail lineage): construct B = A + V_sleep (body `SELECT pg_sleep(3600);`, hand-authored WITHOUT its own BEGIN/END — the constructor must not wrap it) via 118; real register → schedule → daemon dispatches. MIDPOINT (anti-vacuity, the proven pattern): poll pg_stat_activity for the active pg_sleep backend — the mid-run confirmation the ticket's NOTIFY-handshake sketch wanted, delivered by the mechanism the park and mid-tx work already proved (no LISTEN client needed; the sketch predates those proofs) → THEN `docker kill --signal=SIGKILL` the db container, and assert the container observed dead (docker ps) — the kill-landed leg.
+
+EXPECTED OBSERVABLE CHAIN (stated with the honest uncertainty marked — the run is the oracle): migrate's psql loses its connection → the migrate step fails → the daemon's observed-state read initially cannot reach the DB → STATBUS-109's db-unreachable backoff-retry holds IN-PROCESS (this will be 109's first live firing in an arc — assert its named log line as a bonus leg) → the db container comes back (compose restart policy) + WAL recovery → the re-read says Behind (V's tx died uncommitted with its backend) → data-safe rollback → TERMINAL rolled_back. If the container does NOT auto-restart, the backoff exhausts → the same data-safe rollback (restoreDatabase is volume-level; rollback's own services-up brings the db back) → rolled_back either way. ASSERTION SPEC: midpoint pg_sleep-active + container-dead; the 109 backoff-retry marker (db-unreachable) in the log; terminal rolled_back (completed/failed → hard fail); V unrecorded (db.migration max == baseline); clean-slate fingerprint == post-A baseline; demo data intact; flag absent; NRestarts bounded — the DAEMON is never killed here, so the bound is the failing-arc's proven shape (the exit-42 handoff bump only); any daemon death would itself be a finding.
+
+BUILDER: mechanic per this ruling; architect reviews the arc before commit. Runs whenever a batch slot opens — no dependency on 095's knob.
+---
+<!-- COMMENTS:END -->
