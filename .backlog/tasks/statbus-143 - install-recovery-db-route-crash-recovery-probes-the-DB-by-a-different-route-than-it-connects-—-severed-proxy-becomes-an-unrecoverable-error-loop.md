@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-07 02:27'
-updated_date: '2026-07-07 04:32'
+updated_date: '2026-07-07 04:46'
 labels:
   - install-recovery
   - upgrade
@@ -67,5 +67,11 @@ WHAT THIS CANNOT BREAK, checked: the STATBUS-136 abort branch (the other EnsureD
 TESTS THAT PIN IT: (a) UNIT — the shared-builder single-source is structural: assert EnsureDBReachable and the service connect both call the one builder (the postswap_test source-structure pattern), plus a behavioral unit: with CADDY_DB_BIND/PORT pointing at a dead port, EnsureDBReachable must FAIL even if a live postgres is reachable by other means — the exact false-pass this ticket kills. (b) SCENARIO (mechanic, after the product diff): the STOPPED-PROXY leg — fabricate the crashed shape (the rune-wedge preamble verbatim), `docker stop` the proxy (stop, not rm), run `./sb install`, assert: probe fails on the real route → the extended start-fallback starts db AND proxy (named log line) → recovery proceeds to completed. The missing-proxy refusal can be a cheap second phase on the same VM (rm the proxy post-completion … simpler: assert the refusal text in a unit test against the error constructor; a full VM phase for a refusal message is not worth a VM-hour).
 
 WHO BUILDS: engineer (product diff — the shared builder + probe rewrite + start-extension + refusal text + unit tests), architect reviews before commit; mechanic builds the stopped-proxy scenario leg after the images build. No dependencies; buildable when the engineer frees up.
+---
+
+author: foreman
+created: 2026-07-07 04:46
+---
+FIX SHIPPED 06cf8415f (2026-07-07), dual-reviewed (architect ship, three flags ruled; foreman first-hand; build+tests re-verified green after the final comment edit). The probe now follows the connection: recoveryDSN() single-sources the CADDY_DB_BIND route, EnsureDBReachable is a 5s pgx SELECT-1 on exactly it (docker-exec psql probe DELETED), StartDBForRecovery starts db+proxy (route-wide asymmetric-safe start), truly-missing proxy → named category-3 refusal with the up-d-image-mismatch caveat. ARCHITECT RULINGS: (1) proxyContainerMissing's structured ps -a probe BLESSED as REQUIRED surface — distinguishing missing-from-stopped via docker's error STRING would be text-as-classifier, the banned pattern; fail-open on ps-error is correctly biased toward letting a recovery that might work try. (2) Nested refusal placement accepted — the text stands alone, pinned by test. (3) Per-call .env read reclassified from cost to BENEFIT: the recovery ladder regenerates .env immediately before probing, so an init-cached DSN would dial the stale pre-regen route — a route-skew variant of the bug itself; comment added at recoveryDSN. REMAINING on this ticket: the mechanic's scenario leg (stopped-proxy green ride-along; severed-proxy refusal is unit-covered) + the auto-recreate follow-up stays a King-blessable product decision, deliberately not built.
 ---
 <!-- COMMENTS:END -->
