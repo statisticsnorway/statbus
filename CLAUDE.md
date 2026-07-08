@@ -72,6 +72,12 @@ Main conversation is the COORDINATOR. Agents do research and propose edits. Coor
 3. Coordinator commits (agents don't commit directly)
 4. Verify build + tests pass after commit
 
+### Review Handoff = Freeze
+Reporting a unit for review FREEZES it — no further edits until the verdict lands,
+or the reviewer verifies a moving target and one-breaker-at-a-time silently slips.
+A better idea discovered mid-wait is ANNOUNCED first ("pulling the unit back,
+reason X"), then applied; the review restarts on the new state.
+
 ### Agent Scratchpads
 Every agent gets `tmp/agents/<agent-name>.md`. Writes progress, findings, decisions, next steps. If killed, read the scratchpad and continue. Not committed — working notes.
 
