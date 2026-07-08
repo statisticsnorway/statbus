@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-07-08 23:17'
-updated_date: '2026-07-08 23:41'
+updated_date: '2026-07-08 23:46'
 labels:
   - ci
   - testing
@@ -39,7 +39,7 @@ IMPACT: all SQL-test signal masked since 14:43; tonight's commits are Go/shell/d
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Mode 1 call chain named (guard site file:line, workflow env source, staleness rule that selects the recreate path) and the ruled fix shipped
+- [x] #1 Mode 1 call chain named (guard site file:line, workflow env source, staleness rule that selects the recreate path) and the ruled fix shipped
 - [ ] #2 Mode 3 failing init-db statement named verbatim from the test server's container logs and the ruled fix shipped (or 129 rolled back only if the architect rules the surfaced statement legitimate-by-design)
 - [ ] #3 Oracle: two consecutive green pg_regress + Fast Tests runs on master, one of which takes the recreate-seed path
 <!-- AC:END -->
@@ -63,5 +63,11 @@ author: foreman
 created: 2026-07-08 23:34
 ---
 RULED (architect, 2026-07-09). MODE 1: fix = a principled AMENDMENT to the 146 guard — an EXPLICIT --target (cobra flag.Changed, not the default) wins over inherited PGDATABASE with one loud override line; refuse stays for the default-target case. Three-part rationale: 146's refusal targets SILENT divergence and an explicit flag is maximal intent; psql precedence (cited at migrate.go:99-101) ranks explicit -d above PGDATABASE; the 146 refusal message itself advertises --target as the remedy, which today does not work — the amendment makes the guard's own message true. recreate-seed + postgres-variables unmodified. Engineer building FIRST (unblocks pg_regress + every dev host). MODE 3: DO NOT ship the CREATE USER idempotency guard — two architect-verified facts reframe it: init-db.sh is a docker-entrypoint-initdb.d script (Dockerfile:409, compose :37) run only on EMPTY PGDATA (a reused-volume restart cannot re-run it), and the Dockerfile bakes a booted cluster in-build (:441-508). Mechanic walking read-only: (i) what invocation printed the live role-exists + handing-off lines; (ii) volume-identity pin (no 'statbus-test-db-data' found in postgres/docker-compose.yml or dev.sh — the CI remove may target a volume the db never mounts, dissolving the fresh-volume contradiction) + the copy-on-first-mount question over baked PGDATA; (iii) only then judge the failing statement. Fallback if unnameable from repo evidence: per-section echo instrumentation, next natural red names it. UNLABELED MODE: folded into 150 — plausibly mode 3's DOWNSTREAM (abort between :104 and the roles block at :157 leaves no admin_user; pg_restore's error is that cluster meeting a seed restore). MANUAL-INTERVENTION SUSPICION: escalated to the King (morning question) — until answered, timeline observations in the 22:39-23:24 window are quarantined from mode analysis. SEQUENCING: mode-1 commit first; mode-3 walk parallel read-only, fix in a second commit; the 149 AC#3 oracle wave rides whichever commit is green at dispatch.
+---
+
+author: foreman
+created: 2026-07-08 23:46
+---
+MODE-1 FIX SHIPPED in 4ebc170c0 (dual-reviewed: architect ship-with-one-change — redo threading — applied and confirmed; foreman first-hand). An explicit --target (cobra flag.Changed, never the default) now wins over inherited-but-divergent PGDATABASE/POSTGRES_APP_DB with one loud override line; the default-target refuse is byte-identical to 146. Both --target-registering commands covered (up/up-one AND redo — redo's original strict boundary was rejected in review because redo registers --target at cmd/migrate.go:163, reproducing the advertised-remedy asymmetry); the internal edge-channel auto-redo keeps strict refuse (no operator flag, env pre-aligned). Pure classifyTargetOverride decision + full matrix tests + behavioral pin of the exact CI case. AC#1 checked. The push-triggered pg_regress run on 4ebc170c0 is the first mode-1-free run — it either goes green or isolates mode 3 cleanly (instrumentation build in flight in parallel).
 ---
 <!-- COMMENTS:END -->
