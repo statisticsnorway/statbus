@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - architect
 created_date: '2026-07-07 09:23'
-updated_date: '2026-07-08 14:54'
+updated_date: '2026-07-08 15:18'
 labels:
   - upgrade
   - recovery
@@ -149,5 +149,11 @@ author: foreman
 created: 2026-07-08 14:54
 ---
 SLICE 2 SHIPPED cb356663d (2026-07-08) — THE GEOMETRY CHANGE IS IN, dual-reviewed in two halves (architect ship on the code core with the WIDENED-SCOPE finding: postSwapFailure + parkForDeterministicFailure also read observed-state, so ALL pre-delta resume failures now roll back and park shrinks to guard-parks + post-delta at-target — doc'd; architect ship-with-one-change on the truth half). Both boot sites → --to DaemonSchemaFloor (AC#3 checked; step-table stays apply-all); flip invariant structurally pinned (pipeline migrate step stays apply-all forever); HasPendingAbove + flagless loud line; behaviorally inert today (floor==tree max). ATOMICITY FLIP is EMERGENT — zero new code at the disposition site. doc-021 + both diagrams updated in-commit (AC#5 checked). FOUR arcs gated [PENDING-145-REDERIVE] (loud named skip before any VM cost; map re-tagged, no gated cell shows [PROVEN]): between-migrations, mid-migration, OOM (terminal flip = mechanic's, lands with slice 4), and MID-TX — added by the closing review on stale-proof grounds (its proven PATH no longer exists under 145; its recorded rationale mis-described its own construction; corrected to the mechanism-independent invariant: any parent death in the migration window leaves the ledger unadvanced → Behind → rolled_back). Ceiling arc un-gated + gained the single-fire leg (exactly one ceiling marker per journal). Gates are TIME-BOUNDED: slice 4 must remove them. NEXT: slice 3 (evidence probe) to the engineer; architect writes the park-rebuild spec against the committed geometry; then slice 4's oracle dispatches.
+---
+
+author: foreman
+created: 2026-07-08 15:18
+---
+SLICE 3 SHIPPED 9b4710900 (2026-07-08), dual-reviewed (architect ship-with-changes; foreman first-hand). The 096 evidence probe at the single migrate-failure site: structured docker inspect + bounded postmaster-log tail, PER-LEG AFFIRMATIVE notes — the originally-ruled conjunction was found structurally NEAR-MUTE by the architect's adversarial trace (the two legs describe different kill anatomies that rarely co-occur: backend-OOM logs but doesn't exit the container; container-kill exits but silences the logger) and split so each leg claims only its own observed fact (OOMKilled → causal memory wording; bare exit-137 → facts only, innocent grace-kill possible; log-constant alone → backend death, no memory claim). Probe never touches disposition. TWO RIDERS: the empirical floor test's silent skip is now a SELF-ENFORCING TRIGGER (floor < tree max + DSN unset → FAIL with the provisioning recipe — the guard that finally matters can never be silently skipped); migrate.Up's doc comment records its real contract (create-db baseline required — bare CREATE DATABASE fails at the auth schema; all=true required for multi-migration catch-up) — both facts established by RUNNING the comment-#4 self-provisioning ruling and refuting it (the split DSN harness stays, re-ruled). SLICES 1-3 ALL SHIPPED. Remaining: slice 4 — the oracle campaign (four gated arcs + ceiling single-fire + regression set + the health-park arc, in build now per doc-029 Rev 2 with the mechanic's V3 correction adopted).
 ---
 <!-- COMMENTS:END -->
