@@ -2329,6 +2329,7 @@ func runInstallCallback(dir string) {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Env = append(os.Environ(),
+		"STATBUS_EVENT=install_completed", // STATBUS-137: name the event (was firing blank)
 		"STATBUS_VERSION="+version,
 		"STATBUS_SERVER="+hostname,
 		"STATBUS_URL="+statbusURL,

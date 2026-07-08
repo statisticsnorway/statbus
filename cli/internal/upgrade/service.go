@@ -2685,6 +2685,7 @@ func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displa
 		}
 		hostname, _ := os.Hostname()
 		d.runCallback(displayName, map[string]string{
+			"STATBUS_EVENT":           "rollback_failed", // STATBUS-137 (LabelFailedRollbackIncomplete)
 			"STATBUS_ROLLBACK_FAILED": "1",
 			"STATBUS_ROLLBACK_ERROR":  msg,
 			"STATBUS_RECOVERY_CMD":    fmt.Sprintf(`ssh %s "cd statbus && ./sb install"`, hostname),
@@ -6337,7 +6338,9 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 // Thin wrapper over runCallback with no extra env — preserved as a
 // distinct name so success-path call sites read clearly.
 func (d *Service) runUpgradeCallback(displayName string) {
-	d.runCallback(displayName, nil)
+	// STATBUS-137: name the success event so operator streams keyed on
+	// STATBUS_EVENT can route it (was firing blank).
+	d.runCallback(displayName, map[string]string{"STATBUS_EVENT": "completed"})
 }
 
 // runCallback executes the UPGRADE_CALLBACK shell command from .env, if
@@ -6779,6 +6782,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 		// with the recovery command body.
 		hostname, _ := os.Hostname()
 		d.runCallback(version, map[string]string{
+			"STATBUS_EVENT":           "rollback_aborted", // STATBUS-137 (LabelFailedAbort — mirrors the label; 'restore-broke' is doctrine vocabulary for the pair-terminal, which lands under rollback_failed)
 			"STATBUS_ROLLBACK_FAILED": "1",
 			"STATBUS_ROLLBACK_ERROR":  err.Error(),
 			"STATBUS_RECOVERY_CMD":    fmt.Sprintf(`ssh %s "cd statbus && ./sb install"`, hostname),
@@ -6981,6 +6985,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 		// git-restore ABORT path.
 		hostname, _ := os.Hostname()
 		d.runCallback(version, map[string]string{
+			"STATBUS_EVENT":           "rollback_failed", // STATBUS-137 (LabelFailedRollbackIncomplete)
 			"STATBUS_ROLLBACK_FAILED": "1",
 			"STATBUS_ROLLBACK_ERROR":  errMsg,
 			"STATBUS_RECOVERY_CMD":    fmt.Sprintf(`ssh %s "cd statbus && ./sb install"`, hostname),
@@ -7000,7 +7005,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 			// Notify (Slack) on the rolled_back terminal — the fail-fast rollback's
 			// single operator notification, regular-support tier (notify-slack.sh
 			// renders STATBUS_ROLLED_BACK).
-			d.runCallback(version, map[string]string{"STATBUS_ROLLED_BACK": "1"})
+			d.runCallback(version, map[string]string{"STATBUS_EVENT": "rolled_back", "STATBUS_ROLLED_BACK": "1"})
 			progress.Write("Rollback complete. The previous version has been restored.")
 		} else {
 			// Terminal write never landed (DB unreachable, or the advisory lock is
@@ -7066,14 +7071,27 @@ func (d *Service) restoreGitState(previousVersion string, progress *ProgressLog)
 // Free function (not a method) so the unit tests don't have to
 // construct a *Service or its DB connections.
 func restoreGitStateFn(projDir, previousVersion string, log func(format string, args ...interface{}), logWriter io.Writer) error {
-	log("Restoring git state to %s...", previousVersion)
+	// STATBUS-137 rider: recoveryRollback passes previousVersion="" deliberately
+	// (STATBUS-077 — the pinned pre-upgrade branch is the single source of truth).
+	// Name that rather than interpolate an empty ref ("Restoring git state to ..."
+	// / "Ref  does not resolve") on every rollback log. Log-only; the flow below is
+	// unchanged (an empty ref fails rev-parse and falls back to pre-upgrade).
+	if previousVersion == "" {
+		log("Restoring git state: no explicit target — using the pinned pre-upgrade branch...")
+	} else {
+		log("Restoring git state to %s...", previousVersion)
+	}
 
 	// Pre-validate: refuse to checkout a ref we can't resolve. If the
 	// requested ref is gone, fall back to the persistent `pre-upgrade`
 	// branch before erroring out.
 	expectedOut, err := runCommandOutput(projDir, "git", "rev-parse", "--verify", previousVersion+"^{commit}")
 	if err != nil {
-		log("Ref %s does not resolve, falling back to pre-upgrade...", previousVersion)
+		if previousVersion == "" {
+			log("Using the pinned pre-upgrade branch (no explicit target)...")
+		} else {
+			log("Ref %s does not resolve, falling back to pre-upgrade...", previousVersion)
+		}
 		fallbackOut, fallbackErr := runCommandOutput(projDir, "git", "rev-parse", "--verify", "pre-upgrade^{commit}")
 		if fallbackErr != nil {
 			return fmt.Errorf("neither %s nor pre-upgrade resolves: %v / %v", previousVersion, err, fallbackErr)
