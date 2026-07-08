@@ -41,7 +41,7 @@ env for this invocation; existing in-process callers (install, upgrade)
 that don't pass --target keep targeting POSTGRES_APP_DB exactly as
 before.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return runMigrateUp(migrateTo, true)
+		return runMigrateUp(migrateTo, true, cmd.Flags().Changed("target"))
 	},
 }
 
@@ -49,7 +49,7 @@ var migrateUpOneCmd = &cobra.Command{
 	Use:   "one",
 	Short: "Apply only one pending migration",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return runMigrateUp(migrateTo, false)
+		return runMigrateUp(migrateTo, false, cmd.Flags().Changed("target"))
 	},
 }
 
@@ -58,14 +58,17 @@ var migrateUpOneCmd = &cobra.Command{
 // defer so subsequent in-process commands aren't affected), and
 // invokes migrate.Up. The env override is the same shape Redo uses
 // and matches the existing dev.sh:998 pattern.
-func runMigrateUp(migrateTo int64, all bool) error {
+func runMigrateUp(migrateTo int64, all bool, targetExplicit bool) error {
 	projDir := config.ProjectDir()
 	dbName, err := migrate.ResolveTargetDB(projDir, migrateUpTarget)
 	if err != nil {
 		return err
 	}
 
-	restore, err := migrate.OverrideTargetDB(dbName)
+	// STATBUS-150: an explicit --target (targetExplicit == cmd.Flags().Changed
+	// ("target")) wins over an inherited-but-divergent PGDATABASE/POSTGRES_APP_DB
+	// with one loud line; the default-target case still refuses per 146.
+	restore, err := migrate.OverrideTargetDB(dbName, migrateUpTarget, targetExplicit)
 	if err != nil {
 		return err
 	}
@@ -141,7 +144,7 @@ Constraints (enforced):
 		if err != nil {
 			return fmt.Errorf("invalid version %q: must be a 14-digit YYYYMMDDHHMMSS timestamp", args[0])
 		}
-		return migrate.Redo(config.ProjectDir(), version, migrateRedoTarget, migrateRedoConfirm, verbose)
+		return migrate.Redo(config.ProjectDir(), version, migrateRedoTarget, migrateRedoConfirm, cmd.Flags().Changed("target"), verbose)
 	},
 }
 

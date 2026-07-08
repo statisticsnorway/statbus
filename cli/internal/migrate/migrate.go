@@ -295,6 +295,28 @@ func SetTargetDB(dbName string) (restore func()) {
 	}
 }
 
+// classifyTargetOverride is the PURE STATBUS-146/-150 decision for ONE inherited
+// env var. Given the inherited (varName, val), the resolved dbName, the --target
+// selector token, and whether --target was passed EXPLICITLY (cobra
+// flag.Changed), it returns the loud override log line to emit (empty when none)
+// and an error (the 146 refusal; nil when proceeding). Divergence = val is
+// non-empty AND != dbName; empty/equal is never divergence. An explicit --target
+// turns a divergence into an override-with-log (STATBUS-150); the default-target
+// case refuses exactly as 146 shipped. Factored out so the decision matrix is
+// unit-testable without touching the process env.
+func classifyTargetOverride(varName, val, dbName, targetSelector string, explicitTarget bool) (logLine string, err error) {
+	// Empty-string exports count as absent, matching getOr/PsqlCommand's
+	// convention (os.Getenv returns "" for both unset and explicitly-empty) —
+	// or a leaked `export PGDATABASE=` would trip the guard for no reason.
+	if val == "" || val == dbName {
+		return "", nil
+	}
+	if explicitTarget {
+		return fmt.Sprintf("overriding inherited %s=%s with explicit --target %s", varName, val, targetSelector), nil
+	}
+	return "", fmt.Errorf("%s=%s is set but this command targets %s; unset %s, or select a database with --target", varName, val, dbName, varName)
+}
+
 // OverrideTargetDB wraps SetTargetDB with STATBUS-146's refuse-on-divergence
 // check, for the two operator-facing target-selection entrypoints (`./sb
 // migrate up`, `./sb migrate redo`) where dbName was resolved FROM CONFIG
@@ -306,28 +328,39 @@ func SetTargetDB(dbName string) (restore func()) {
 // unset, or already equal to dbName (e.g. after the documented `eval $(./sb
 // config show --postgres)` workflow) → proceeds silently via SetTargetDB.
 //
+// STATBUS-150 amendment: an EXPLICIT --target (explicitTarget=true, i.e. cobra
+// flag.Changed, NOT the flag's default value) WINS over an inherited-but-
+// divergent POSTGRES_APP_DB / PGDATABASE — the override proceeds with one loud
+// line instead of refusing. Rationale: 146's refusal exists to stop SILENT
+// divergence, and a command-line flag is the most explicit intent expression
+// there is; psql's own precedence ranks an explicit -d above PGDATABASE (cited
+// at PsqlCommand, migrate.go:99-101); and the refusal message advertises
+// "--target" as the remedy — honoring it makes that advice true (the guard
+// previously refused even when --target WAS given, which wedged CI's
+// recreate-seed path: `./sb migrate up --target seed` under an inherited
+// PGDATABASE=statbus_test). The default-target case refuses EXACTLY as before.
+//
 // Do NOT use this at sites where dbName is an explicit, fixed internal
 // parameter rather than something resolved from the operator's env/config
 // — see SetTargetDB's doc comment for why (QueryDB, migrateNamedDb use
 // SetTargetDB directly).
-func OverrideTargetDB(dbName string) (restore func(), err error) {
-	prevApp, hadApp := os.LookupEnv("POSTGRES_APP_DB")
-	prevPG, hadPG := os.LookupEnv("PGDATABASE")
-
-	refuse := func(varName, val string) error {
-		return fmt.Errorf("%s=%s is set but this command targets %s; unset %s, or select a database with --target", varName, val, dbName, varName)
+func OverrideTargetDB(dbName, targetSelector string, explicitTarget bool) (restore func(), err error) {
+	prevApp, _ := os.LookupEnv("POSTGRES_APP_DB")
+	prevPG, _ := os.LookupEnv("PGDATABASE")
+	// Order (POSTGRES_APP_DB before PGDATABASE) is preserved from 146 so the
+	// refuse message for a single divergent var is byte-identical.
+	for _, v := range []struct{ name, val string }{
+		{"POSTGRES_APP_DB", prevApp},
+		{"PGDATABASE", prevPG},
+	} {
+		logLine, e := classifyTargetOverride(v.name, v.val, dbName, targetSelector, explicitTarget)
+		if e != nil {
+			return nil, e
+		}
+		if logLine != "" {
+			fmt.Fprintln(os.Stderr, logLine)
+		}
 	}
-	// Empty-string exports count as absent, matching getOr/PsqlCommand's
-	// existing convention (os.Getenv returns "" for both unset and
-	// explicitly-empty — treat divergence checks the same way, or a
-	// leaked `export PGDATABASE=` would refuse loudly for no reason).
-	if hadApp && prevApp != "" && prevApp != dbName {
-		return nil, refuse("POSTGRES_APP_DB", prevApp)
-	}
-	if hadPG && prevPG != "" && prevPG != dbName {
-		return nil, refuse("PGDATABASE", prevPG)
-	}
-
 	return SetTargetDB(dbName), nil
 }
 
@@ -1730,7 +1763,12 @@ func eagerContentHashCheck(projDir string) error {
 			// auto-recreate yet (Redo is latest-only) → fall through to the
 			// localDev guidance + a King-flag (STATBUS-102 follow-up).
 			if version == maxVersion {
-				if redoErr := Redo(projDir, version, "dev", true, false); redoErr != nil {
+				// targetExplicit=false: this is an internal edge-channel
+				// auto-redo, not an operator CLI --target, so it keeps 146's
+				// strict refuse-on-divergence (and the env was already set to
+				// the target by the enclosing runMigrateUp override, so there
+				// is no divergence in practice).
+				if redoErr := Redo(projDir, version, "dev", true, false, false); redoErr != nil {
 					return fmt.Errorf("edge auto-redo of migration %d: %w", version, redoErr)
 				}
 				fmt.Printf("[migrate]   ⟳ edge channel: re-ran (down+up) migration %d to absorb its content change\n", version)
@@ -1873,7 +1911,7 @@ func migrationChannelClass(projDir string) migrationChannel {
 //   - Restricted to LATEST applied version only. Intermediate redos
 //     leave dependent migrations' effects orphaned over a reverted
 //     base. Cascade semantics deferred until needed.
-func Redo(projDir string, version int64, target string, confirm bool, verbose bool) error {
+func Redo(projDir string, version int64, target string, confirm bool, targetExplicit bool, verbose bool) error {
 	if target == "" {
 		target = "seed"
 	}
@@ -1890,7 +1928,15 @@ func Redo(projDir string, version int64, target string, confirm bool, verbose bo
 		return err
 	}
 
-	restore, err := OverrideTargetDB(dbName)
+	// STATBUS-150: redo ALSO honors an explicit --target over a divergent
+	// inherited PGDATABASE/POSTGRES_APP_DB (targetExplicit == cmd.Flags().
+	// Changed("target")). Redo registers --target too (cmd/migrate.go), so
+	// without this it would reproduce the same broken advertised-remedy
+	// asymmetry: `migrate redo --target dev --confirm` under a divergent
+	// inherited PGDATABASE refused by a message telling the operator to pass
+	// the --target they just passed. flag.Changed is default-agnostic, so
+	// redo's "seed" default needs no special handling.
+	restore, err := OverrideTargetDB(dbName, target, targetExplicit)
 	if err != nil {
 		return err
 	}

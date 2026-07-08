@@ -244,7 +244,7 @@ func TestOverrideTargetDB_DivergentPOSTGRES_APP_DBRefusesLoudly(t *testing.T) {
 	t.Setenv("POSTGRES_APP_DB", "statbus_floor_test")
 	t.Setenv("PGDATABASE", "")
 
-	restore, err := OverrideTargetDB("statbus_local")
+	restore, err := OverrideTargetDB("statbus_local", "dev", false)
 	if err == nil {
 		if restore != nil {
 			restore()
@@ -268,7 +268,7 @@ func TestOverrideTargetDB_DivergentPGDATABASERefusesLoudly(t *testing.T) {
 	t.Setenv("POSTGRES_APP_DB", "")
 	t.Setenv("PGDATABASE", "statbus_scratch")
 
-	_, err := OverrideTargetDB("statbus_local")
+	_, err := OverrideTargetDB("statbus_local", "dev", false)
 	if err == nil {
 		t.Fatal("expected refusal on divergent PGDATABASE, got nil error")
 	}
@@ -287,7 +287,7 @@ func TestOverrideTargetDB_EqualProceedsSilently(t *testing.T) {
 	t.Setenv("POSTGRES_APP_DB", "statbus_local")
 	t.Setenv("PGDATABASE", "statbus_local")
 
-	restore, err := OverrideTargetDB("statbus_local")
+	restore, err := OverrideTargetDB("statbus_local", "dev", false)
 	if err != nil {
 		t.Fatalf("expected no error when already equal, got %v", err)
 	}
@@ -312,7 +312,7 @@ func TestOverrideTargetDB_UnsetSetsAndRestores(t *testing.T) {
 		os.Unsetenv("PGDATABASE")
 	})
 
-	restore, err := OverrideTargetDB("statbus_seed")
+	restore, err := OverrideTargetDB("statbus_seed", "seed", false)
 	if err != nil {
 		t.Fatalf("expected no error when unset, got %v", err)
 	}
@@ -338,11 +338,105 @@ func TestOverrideTargetDB_EmptyStringExportIsNotDivergence(t *testing.T) {
 	t.Setenv("POSTGRES_APP_DB", "")
 	t.Setenv("PGDATABASE", "")
 
-	restore, err := OverrideTargetDB("statbus_local")
+	restore, err := OverrideTargetDB("statbus_local", "dev", false)
 	if err != nil {
 		t.Fatalf("expected no error for empty-string exports, got %v", err)
 	}
 	defer restore()
+}
+
+// TestClassifyTargetOverride pins the STATBUS-146/-150 decision matrix per var:
+// absent/empty/equal → neither log nor error; divergent + default target →
+// 146 refusal (unchanged message); divergent + EXPLICIT --target → the loud
+// override log line, no error (150). Pure — no process env touched.
+func TestClassifyTargetOverride(t *testing.T) {
+	const dbName = "statbus_seed"
+	t.Run("empty is not divergence", func(t *testing.T) {
+		log, err := classifyTargetOverride("PGDATABASE", "", dbName, "seed", false)
+		if log != "" || err != nil {
+			t.Errorf("empty val: got (%q, %v), want (\"\", nil)", log, err)
+		}
+	})
+	t.Run("equal is not divergence", func(t *testing.T) {
+		log, err := classifyTargetOverride("PGDATABASE", dbName, dbName, "seed", true)
+		if log != "" || err != nil {
+			t.Errorf("equal val: got (%q, %v), want (\"\", nil) even when explicit", log, err)
+		}
+	})
+	t.Run("divergent + default target refuses (146 unchanged)", func(t *testing.T) {
+		log, err := classifyTargetOverride("PGDATABASE", "statbus_test", dbName, "seed", false)
+		if err == nil {
+			t.Fatalf("divergent default: want refusal, got log=%q err=nil", log)
+		}
+		if log != "" {
+			t.Errorf("refusal must not also log an override line, got %q", log)
+		}
+		for _, want := range []string{"PGDATABASE", "statbus_test", dbName, "--target"} {
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("refusal %q must mention %q", err.Error(), want)
+			}
+		}
+	})
+	t.Run("divergent + explicit --target overrides with loud line (150)", func(t *testing.T) {
+		log, err := classifyTargetOverride("PGDATABASE", "statbus_test", dbName, "seed", true)
+		if err != nil {
+			t.Fatalf("explicit --target must proceed, got err=%v", err)
+		}
+		for _, want := range []string{"overriding", "PGDATABASE", "statbus_test", "--target", "seed"} {
+			if !strings.Contains(log, want) {
+				t.Errorf("override line %q must mention %q", log, want)
+			}
+		}
+	})
+	// redo threads flag.Changed identically to up (STATBUS-150 SHIP-WITH-ONE-
+	// CHANGE): redo registers --target too, so it must honor an explicit one
+	// (`migrate redo --target dev --confirm`) and still refuse the default case.
+	t.Run("redo: divergent + explicit --target dev overrides (150)", func(t *testing.T) {
+		log, err := classifyTargetOverride("PGDATABASE", "statbus_test", "statbus_local", "dev", true)
+		if err != nil {
+			t.Fatalf("redo explicit --target dev must proceed, got err=%v", err)
+		}
+		for _, want := range []string{"overriding", "PGDATABASE", "statbus_test", "--target", "dev"} {
+			if !strings.Contains(log, want) {
+				t.Errorf("redo override line %q must mention %q", log, want)
+			}
+		}
+	})
+	t.Run("redo: divergent + default target refuses (146)", func(t *testing.T) {
+		log, err := classifyTargetOverride("PGDATABASE", "statbus_test", dbName, "seed", false)
+		if err == nil {
+			t.Fatalf("redo default target must refuse, got log=%q err=nil", log)
+		}
+		if log != "" {
+			t.Errorf("redo refusal must not also log an override line, got %q", log)
+		}
+	})
+}
+
+// TestOverrideTargetDB_ExplicitTargetOverridesDivergent is the STATBUS-150
+// behavioral pin: an explicit --target proceeds against a divergent inherited
+// PGDATABASE (rather than refusing) and actually retargets the process env — the
+// exact CI recreate-seed case (`./sb migrate up --target seed` under an
+// inherited PGDATABASE=statbus_test).
+func TestOverrideTargetDB_ExplicitTargetOverridesDivergent(t *testing.T) {
+	t.Setenv("POSTGRES_APP_DB", "")
+	t.Setenv("PGDATABASE", "statbus_test")
+
+	restore, err := OverrideTargetDB("statbus_seed", "seed", true)
+	if err != nil {
+		t.Fatalf("explicit --target must override a divergent PGDATABASE, got refusal: %v", err)
+	}
+	if restore == nil {
+		t.Fatal("expected a non-nil restore func on successful override")
+	}
+	defer restore()
+
+	if got := os.Getenv("PGDATABASE"); got != "statbus_seed" {
+		t.Errorf("PGDATABASE = %q after explicit override, want statbus_seed", got)
+	}
+	if got := os.Getenv("POSTGRES_APP_DB"); got != "statbus_seed" {
+		t.Errorf("POSTGRES_APP_DB = %q after explicit override, want statbus_seed", got)
+	}
 }
 
 func TestParseMigrationFile(t *testing.T) {
