@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-08 21:56'
-updated_date: '2026-07-08 23:11'
+updated_date: '2026-07-08 23:21'
 labels:
   - product
   - install
@@ -44,8 +44,8 @@ INVESTIGATION DELIVERABLE: the full mid-migration log section for 442's classifi
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The mechanism 442 actually took is NAMED from log + code (classification arm, why cleanup didn't remove it), not presumed
-- [ ] #2 Ruled fix shipped: the sessions step either reaps the class deterministically or fails naming the actionable cause (never bare re-run noise)
+- [x] #1 The mechanism 442 actually took is NAMED from log + code (classification arm, why cleanup didn't remove it), not presumed
+- [x] #2 Ruled fix shipped: the sessions step either reaps the class deterministically or fails naming the actionable cause (never bare re-run noise)
 - [ ] #3 Oracle: the mid-migration arc's post-completion install passes step 10/16 on the re-run wave
 <!-- AC:END -->
 
@@ -68,5 +68,11 @@ author: foreman
 created: 2026-07-08 23:11
 ---
 FIX-SHAPE RULED (architect, 2026-07-09), engineer building: (CORE) tag d.queryConn + d.listenConn with application_name 'statbus-upgrade-daemon-<pid>' in the connect DSN (service.go:3273) — one site covers daemon startup, the inline dispatch's service instance, and every reconnect. (a) classifyAdvisoryHolder mirrors the statbus-migrate-<pid> arm exactly: daemon tag + pid alive → legitimate, skip; tag + pid dead → zombie, kill; NOT routed through the live-upgrade refusal. Key case now correct by design: an idempotent-refresh install with a healthy daemon running was killing the daemon's queryConn on every pass — benign by luck until now. (b) empty-string catch-all KEEPS killing — with migrate, seed, and daemon all tagged, an empty-name holder on our DB is genuinely unidentified; classifier comment gains the known-tag enumeration for future diagnosis. (c) kill-in-loop + bound of 5 + regeneratingZombieError unchanged — with the daemon recognized, the regenerating class returns to genuinely-unknown clients, exactly what the bound exists to catch. (d) ROUTE-MISMATCH FRAMING CLOSED: the mechanism is misclassify → kill → reconnect → fresh untagged backend; zero causal role for the Caddy route — the 'regeneration' was reconnects, not TCP lingering. Oracle: the NEGATIVE marker — healthy installs log zero '→ terminating' advisory-holder lines once the tag ships (the two-per-pass cadence vanishes), riding the next natural arc wave; plus the DSN-tag structural pin and classification-arm unit tests.
+---
+
+author: foreman
+created: 2026-07-08 23:21
+---
+SOURCE FIX SHIPPED in 2c258a00c (dual-reviewed: architect ship zero changes, foreman first-hand). recoveryDSN now tags every daemon backend application_name=statbus-upgrade-daemon-<pid> (service.go, one site covering queryConn + listenConn, startup, inline dispatch, every reconnect); classifyAdvisoryHolder gains the mirroring arm (alive→legitimate, dead→zombie, malformed→leave); catch-all keeps killing with the known-tag enumeration in the doc comment; kill-in-loop + bound unchanged as the net for genuinely-unknown clients. The EnsureDBReachable probe sharing the DSN carries the tag too — confirmed correct (daemon-family, never takes the lock). Tests: three classifier cases + TestRecoveryDSNTagsApplicationName source pin. AC#1 and #2 checked. TICKET STAYS OPEN on AC#3 only: the negative-marker oracle — healthy installs log ZERO advisory-holder terminations — requires an arc wave built from a commit containing 2c258a00c; wave 4 (run 28982259924) predates it (built from 08a3c9471, will still show the old cadence — expected, not a failure), so AC#3 lands on the next natural wave.
 ---
 <!-- COMMENTS:END -->
