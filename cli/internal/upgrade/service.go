@@ -1866,8 +1866,10 @@ func (d *Service) Run(ctx context.Context) error {
 	// Schema-skew guard (rc.65 structural fix). The binary's column-name
 	// expectations must match the running schema before any service-level
 	// query touches public.upgrade (recoverFromFlag below is the first such
-	// query). Run `./sb migrate up` to bring the schema to HEAD; idempotent —
-	// a no-op when already current.
+	// query). STATBUS-145: `./sb migrate up --to DaemonSchemaFloor` brings the
+	// schema up ONLY to the daemon's operating floor — sufficient for every daemon
+	// query by the floor guarantee (migrate.DaemonRelationNames + the bump guard),
+	// NOT to HEAD. Idempotent — a no-op when already at/above the floor.
 	//
 	// Background: rc.63 renamed three columns (version → commit_version,
 	// from_version → from_commit_version, tags → commit_tags). When a new
@@ -1880,7 +1882,7 @@ func (d *Service) Run(ctx context.Context) error {
 	// Runs AFTER READY=1 (plan piece #2 boot-migrate-move): a large-DB boot
 	// migration is DB-size-scaled and would blow the fixed start-phase
 	// TimeoutStartSec; active-phase it runs under WatchdogSec instead. Stays
-	// BEFORE recoverFromFlag so the schema is at HEAD before the first
+	// BEFORE recoverFromFlag so the schema is at the daemon floor before the first
 	// public.upgrade query. A kill leaves a clean resumable state
 	// (transactional migrations + db.migration version table).
 	//
@@ -1891,10 +1893,13 @@ func (d *Service) Run(ctx context.Context) error {
 	// — so without its own cover boot-migrate has ZERO WATCHDOG=1 sources,
 	// and a single >120 s migration is SIGABRT'd by WatchdogSec into an
 	// unbounded restart loop (~160 s/cycle stays under StartLimitBurst=5 per
-	// 600 s — the rune wedge, WatchdogSec edition). And because executeUpgrade
-	// Step 6b ALWAYS hands off post-swap (exit-42 / exec), THIS site — not
-	// the protected applyPostSwap migrate — consumes every upgrade's
-	// migration delta. Cover: the same always-ping bounded ticker the
+	// 600 s — the rune wedge, WatchdogSec edition). PRE-STATBUS-145 this site
+	// consumed every upgrade's migration delta (executeUpgrade Step 6b's post-swap
+	// handoff routed the delta through the re-exec'd boot-migrate); under 145 boot
+	// goes only to the floor and the delta runs at the protected applyPostSwap
+	// migrate step, so this cover now protects the (small, rare) FLOOR migrations +
+	// unknown boot crashes — kept belt-and-suspenders. Cover: the same always-ping
+	// bounded ticker the
 	// applyPostSwap migrate gets via deferGating (nil progress = ping
 	// unconditionally, see runGatedWatchdogTicker; the stall-threshold arg
 	// is INERT under nil progress — passed for signature parity only),
@@ -1931,8 +1936,16 @@ func (d *Service) Run(ctx context.Context) error {
 		// text-as-CLASSIFIER is the banned thing"). Streaming to os.Stdout/os.Stderr
 		// (the journal) and the ErrCommandTimeout mapping are identical to the
 		// non-capturing variant; only the returned tail is added.
+		//
+		// STATBUS-145: `--to DaemonSchemaFloor` — boot catches the schema up only to
+		// the daemon's own operating floor, NOT to HEAD. Migrations above the floor
+		// are the real upgrade delta; they run EXACTLY ONCE inside the guarded
+		// applyPostSwap migrate step (write-ahead stamp, 12h ceiling + orphan reap,
+		// exit-20/22 classification, observed-state Behind → data-safe rollback), so
+		// no migration runs blindly at boot. On the normal single-release upgrade the
+		// floor migrations shipped earlier and are already applied → this is a no-op.
 		bootMigrateTail, bootMigrateErr := runCommandToLogCapture(d.projDir, MigrateUpTimeout, io.Discard, "boot-migrate-up", nil,
-			filepath.Join(d.projDir, "sb"), "migrate", "up", "--verbose")
+			filepath.Join(d.projDir, "sb"), "migrate", "up", "--to", strconv.FormatInt(migrate.DaemonSchemaFloor, 10), "--verbose")
 		bootMigrateTickerCancel()
 		<-bootMigrateTickerDone
 		if err := bootMigrateErr; err != nil {
@@ -1969,6 +1982,15 @@ func (d *Service) Run(ctx context.Context) error {
 			// Inert in every green scenario: the branch is reached only when
 			// boot-migrate-up FAILS, which it never does when the migration re-applies
 			// cleanly.
+			//
+			// STATBUS-145 (domain shrink): boot migrates only to the floor, so a
+			// service-held-flag boot-migrate failure here is a FLOOR-migration failure
+			// during recovery — the upgrade DELTA now applies at the guarded
+			// applyPostSwap step (recoverFromFlag → resumePostSwap → applyPostSwap),
+			// not here. The defer-to-recoverFromFlag path is unchanged; its domain is
+			// just the (small, rare) floor migrations plus the after-commit-unrecorded
+			// half-applied case, which the observed-state Behind → snapshot restore
+			// still owns.
 			if flag, _, ferr := ReadFlagFile(d.projDir); ferr == nil && flag != nil && flag.Holder == HolderService {
 				fmt.Printf("boot-migrate-up failed but a service-held in-progress upgrade flag is present "+
 					"(id=%d, %s, phase=%q) — deferring to recoverFromFlag for snapshot restore (STATBUS-017): %v\n",
@@ -1986,7 +2008,16 @@ func (d *Service) Run(ctx context.Context) error {
 				// rule applies: fail-fast + actionable ONCE, then STAY ALIVE. The daemon's
 				// normal duties (discovery, backup ticker, LISTEN) do not need the pending
 				// migration's schema; the broken migration resurfaces actionably on the
-				// next deliberate upgrade. So LOG LOUD ONCE + CONTINUE into the main loop
+				// next deliberate upgrade.
+				//
+				// STATBUS-145 (domain shrink): boot now migrates only to the floor, so a
+				// FLAGLESS boot-migrate runs ONLY floor migrations — this branch fires for
+				// a broken FLOOR migration (our own upgrade-lifecycle migrations, rare +
+				// small), NEVER for a broken upgrade DELTA. A broken delta is above the
+				// floor and runs only at the guarded applyPostSwap step, where it routes
+				// observed-state Behind → data-safe rollback, not here.
+				//
+				// So LOG LOUD ONCE + CONTINUE into the main loop
 				// alive-idle: NO markTerminal (that is the refuse-and-exit signal) and NO
 				// return. recoverFromFlag below no-ops (no flag). The "once" is structural
 				// — not looping means it logs once per boot. The install-ladder twin
@@ -2016,6 +2047,20 @@ func (d *Service) Run(ctx context.Context) error {
 					fmt.Sprintf("./sb migrate up at boot failed: %v; service refuses to enter the loop on a stale schema", err))
 				return fmt.Errorf("boot migrate up: %w", err)
 			}
+		}
+	}
+
+	// STATBUS-145: on a FLAGLESS boot the schema was caught up only to the daemon
+	// floor (above) — any migrations BEYOND the floor are the real upgrade delta,
+	// applied only by a deliberate upgrade or `./sb install`, never blindly here.
+	// Log ONE loud line naming how many are deferred so the state is visible in the
+	// journal (pre-145, boot silently applied them). Best-effort — a counting error
+	// never blocks the boot. Skipped on a recovery boot (a service-held flag), where
+	// recoverFromFlag below owns the delta's fate (resume forward, or roll back).
+	if flag, _, ferr := ReadFlagFile(d.projDir); !(ferr == nil && flag != nil && flag.Holder == HolderService) {
+		if pending, n, perr := migrate.HasPendingAbove(d.projDir, migrate.DaemonSchemaFloor); perr == nil && pending {
+			fmt.Printf("STATBUS-145: %d migration(s) pending beyond the daemon floor (%d) — they apply on the next deliberate upgrade or `./sb install`, not at boot.\n",
+				n, migrate.DaemonSchemaFloor)
 		}
 	}
 
@@ -6016,6 +6061,12 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 		// through to the continuation (re-acquire flock → applyPostSwap →
 		// migrate up re-hits the unrecorded migration → postSwapFailure →
 		// rollback).
+		//
+		// STATBUS-145: this HasPending gate is now MORE load-bearing — since boot
+		// migrates only to the floor, the whole upgrade DELTA is pending here on a
+		// resume, so HasPending==true correctly withholds self-heal until
+		// applyPostSwap applies the delta (or rolls back). It never short-circuits a
+		// delta-pending resume.
 		pending, perr := migrate.HasPending(d.projDir)
 		if perr != nil || pending {
 			log.Printf("resumePostSwap: containers healthy at %s but migrations pending/unknown (pending=%v err=%v) — NOT self-healing; deferring to rollback (STATBUS-067)",

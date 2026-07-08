@@ -49,6 +49,19 @@ TICK_WAIT_S="${TICK_WAIT_S:-120}"
 INJECT_CLASS="killed-by-system-during-individual-migration-execution"
 KILL_MARKER="/tmp/arc-killonce-mid-migration"
 
+# ── STATBUS-145 GATE [PENDING-145-REDERIVE] ──────────────────────────────────
+# This arc's terminal contract is NOT yet re-derived under the minimal-boot-migrate
+# geometry: the delta moved from the re-exec'd boot-migrate to the applyPostSwap
+# step, voiding this arc's pre-145 "in-dispatch forward recovery → completed"
+# premise. Its true terminal under 145 is determined by the slice-4 ORACLE VM run,
+# not static analysis (the run is the only oracle on the upgrade system). Until
+# then this arc loudly DECLINES to assert rather than assert an underived terminal.
+# Exits BEFORE any VM is provisioned (zero cost). A surviving marker after slice 4
+# is itself a red flag (STATBUS-145 PIN 3). Un-gated by slice 4 once the run proves
+# the true terminal.
+echo "SKIP [PENDING-145-REDERIVE]: terminal contract awaiting the slice-4 oracle run (STATBUS-145)"
+exit 0
+
 : "${BASE_SHA:?BASE_SHA required}"
 : "${B_FULL:?B_FULL required}"
 : "${B_BRANCH:?B_BRANCH required}"

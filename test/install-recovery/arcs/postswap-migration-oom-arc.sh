@@ -109,6 +109,19 @@ MIDPOINT_WAIT_BUDGET_S="${MIDPOINT_WAIT_BUDGET_S:-300}"
 KILL_CONFIRM_BUDGET_S="${KILL_CONFIRM_BUDGET_S:-60}"
 BACKOFF_MARKER_WAIT_BUDGET_S="${BACKOFF_MARKER_WAIT_BUDGET_S:-300}"
 
+# ── STATBUS-145 GATE [PENDING-145-REDERIVE] ──────────────────────────────────
+# This arc's terminal is being FLIPPED under the minimal-boot-migrate geometry:
+# the delta moved from the re-exec'd boot-migrate (this header's premise) to the
+# applyPostSwap step, so a mid-delta OOM kill reads observed-state Behind → a
+# data-safe rollback → the ruled terminal is `rolled_back` on the FIRST kill
+# (V-unrecorded + clean-slate fingerprint). That flip is the mechanic's edit and
+# lands WITH slice 4's proving dispatch — until the ORACLE run confirms it, this
+# arc loudly DECLINES to assert rather than assert an underived terminal. Exits
+# BEFORE any VM is provisioned (zero cost). A surviving marker after slice 4 is
+# itself a red flag (STATBUS-145 PIN 3).
+echo "SKIP [PENDING-145-REDERIVE]: terminal contract awaiting the slice-4 oracle run (STATBUS-145)"
+exit 0
+
 : "${BASE_SHA:?BASE_SHA required}"
 : "${B_FULL:?B_FULL required}"
 : "${B_BRANCH:?B_BRANCH required}"

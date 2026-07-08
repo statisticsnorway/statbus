@@ -28,52 +28,34 @@
 # must keep its own sleep short so a revived box doesn't wait out the full
 # duration for real).
 #
-# MECHANICS VERIFIED AGAINST SHIPPED CODE (mechanic, 2026-07-07) — read this
-# before touching the midpoint-wait budget or NRestarts bound: the "mind the
-# trap" instruction asked to confirm the marker/ceiling live on the
-# applyPostSwap path for a NORMAL (non-recovery) dispatch, not the
-# boot-migrate-up path — verified, with a load-bearing nuance:
+# MECHANICS UNDER STATBUS-145 (minimal-boot-migrate) — read this before touching
+# the midpoint-wait budget or NRestarts bound. The marker/ceiling live on the
+# applyPostSwap path, and under 145 they fire EXACTLY ONCE:
 #
-#   1. `MigrateUpTimeout` is the SAME package var used at BOTH migrate call
-#      sites: boot-migrate-up (service.go:~1934, Run()'s own unconditional
-#      post-exit-42-handoff step, BEFORE recoverFromFlag — confirmed by the
-#      postswap-migration-oom-arc's own trace: this is where a FRESH,
-#      non-crash upgrade's pending migrations actually run) AND applyPostSwap's
-#      own migrate call (service.go:~5416, normally a no-op fallback). Arming
-#      STATBUS_MIGRATE_UP_TIMEOUT governs BOTH sites identically — there is no
-#      way to make the ceiling apply to only one of them.
-#   2. CONSEQUENCE (the nuance): on a normal dispatch, boot-migrate-up hits
-#      the SAME 20s ceiling FIRST. Its own timeout handling does NOT print the
-#      named marker — it calls terminateMigrateOrphan (silently reaps the
-#      orphaned backend) then, because a service-held flag is present (a real
-#      in-flight upgrade), FALLS THROUGH to recoverFromFlag in the SAME
-#      process (service.go's STATBUS-017 defer: "deferring to recoverFromFlag
-#      for snapshot restore") — flag.Phase is still "post_swap" at this
-#      instant, so recoverFromFlag's PostSwap branch fires resumePostSwap ->
-#      applyPostSwap, same boot, no restart yet. applyPostSwap's OWN migrate
-#      call now finds V_sleep still pending (nothing committed) and
-#      genuinely re-attempts it FROM THE TOP — hitting the SAME 20s ceiling
-#      AGAIN. THIS second attempt is where the named marker actually prints,
-#      followed by its own terminateMigrateOrphan + observed-state Behind ->
-#      in-process d.rollback() -> rolled_back.
-#   3. NET EFFECT: total wall-clock to the marker is ~2x the ceiling (~40s
-#      with a 20s ceiling: one silent 20s attempt inside boot-migrate-up, one
-#      marked 20s attempt inside applyPostSwap), all within ONE continuous
-#      process/boot — the planned exit-42 handoff is still the ONLY restart
-#      before this point. rollback() itself then unconditionally os.Exit(75)
-#      at the end (the existing rc.67 trifecta, true of every rollback()
-#      call in the codebase) — a SECOND, planned, terminal restart. NRestarts
-#      bound below is therefore 2 (handoff + rollback's own terminal exit),
-#      not 1 — "the daemon survives the in-process rollback" is true in the
-#      sense that nothing CRASHES it; the terminal exit(75) is rollback()'s
-#      own designed conclusion, identical to what failing-arc.sh's V_fail
-#      produces (that arc does not assert NRestarts at all; this file adds
-#      the assertion explicitly, per the ruling's ask, with this bound).
-#   This does NOT put V_sleep through boot-migrate-up INSTEAD of applyPostSwap
-#   — it goes through BOTH, boot-migrate-up first (silently) then
-#   applyPostSwap (where the marker lives) — so the premise the ruling relies
-#   on (the marker fires, in-process, failing-arc shape) holds. Flagging the
-#   two-attempt wall-clock nuance rather than improvising past it silently.
+#   1. STATBUS-145: boot-migrate-up now runs `migrate up --to DaemonSchemaFloor`
+#      (service.go:~1934) — it catches the schema up ONLY to the daemon floor and
+#      NEVER touches the above-floor delta. So V_sleep (the delta migration, above
+#      the floor) does NOT run at boot-migrate. It runs EXACTLY ONCE at
+#      applyPostSwap's own migrate call (service.go:~5466 — the SINGLE
+#      delta-application site under 145), governed by the same `MigrateUpTimeout`
+#      ceiling armed via STATBUS_MIGRATE_UP_TIMEOUT.
+#   2. CONSEQUENCE (single-fire): V_sleep hits the 20s ceiling ONCE, inside
+#      applyPostSwap. That timeout handler prints the named marker, calls
+#      terminateMigrateOrphan (reaps the orphaned in-container backend), then —
+#      the delta unrecorded → observed-state Behind — routes postSwapFailure ->
+#      in-process d.rollback() -> rolled_back. There is NO silent boot-migrate
+#      first fire: pre-145 the delta ALSO ran at boot-migrate, giving a ~2x-ceiling
+#      double fire; 145 dissolves that. The single-fire leg below asserts EXACTLY
+#      ONE marker in the journal.
+#   3. NET EFFECT: total wall-clock to the marker is ~1x the ceiling (~20s with a
+#      20s ceiling), all within ONE continuous process/boot — the planned exit-42
+#      handoff is still the ONLY restart before this point. rollback() then
+#      unconditionally os.Exit(75) at the end (the rc.67 trifecta, true of every
+#      rollback() call) — a SECOND, planned, terminal restart. NRestarts bound
+#      below is therefore still 2 (handoff + rollback's own terminal exit), not 1 —
+#      the daemon is never CRASHED; the terminal exit(75) is rollback()'s own
+#      designed conclusion, identical to failing-arc.sh's V_fail. This arc asserts
+#      NRestarts explicitly with this bound.
 #
 # Inputs (env): BASE_SHA, B_FULL (40-hex), B_BRANCH, V_VERSION,
 #   SB_ARC_TRUSTED_SIGNER. No C_FULL/C_BRANCH — single-phase arc. VM name = $1.
@@ -187,7 +169,7 @@ while :; do
         break
     fi
     if [ "$ELAPSED" -ge "$MIDPOINT_WAIT_BUDGET_S" ]; then
-        echo "  [OBSERVE] V_sleep not seen active within ${MIDPOINT_WAIT_BUDGET_S}s — the ceiling (${CEILING_TIMEOUT}) may already have fired inside boot-migrate-up's silent first attempt before this poll started; continuing to the marker watch regardless"
+        echo "  [OBSERVE] V_sleep not seen active within ${MIDPOINT_WAIT_BUDGET_S}s — under STATBUS-145 the delta runs once at applyPostSwap; the ceiling (${CEILING_TIMEOUT}) may already have fired before this poll started; continuing to the marker watch regardless"
         break
     fi
     sleep 1
@@ -196,9 +178,9 @@ done
 # ─────────────────────────────────────────────────────────────────────────
 # THE MARKER (load-bearing, per the ruling — NOT best-effort: the ceiling is
 # an internal, deterministic mechanism with no external timing race). Per
-# the MECHANICS note, this fires on applyPostSwap's SECOND attempt (after
-# boot-migrate-up's own silent first ceiling hit), roughly 2x the ceiling
-# after schedule.
+# the STATBUS-145 MECHANICS note, this fires ONCE inside applyPostSwap's migrate
+# (the single delta site; boot-migrate is floor-only), ~1x the ceiling after
+# schedule. The single-fire leg below asserts exactly one marker.
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── watching for the named ceiling marker (budget ${UPGRADE_BUDGET_S}s) ──"
@@ -274,6 +256,16 @@ echo "  error: $(row_error)"
 MROWS_B=$(migration_row_count)
 [ "$MROWS_B" = "0" ] || { echo "✗ V_sleep left a ledger row (count=$MROWS_B, want 0) — rollback did not unrecord it" >&2; exit 1; }
 echo "  ✓ V_sleep not recorded in db.migration (rolled back, transaction died uncommitted with its backend)"
+
+# STATBUS-145 SINGLE-FIRE LEG: under the minimal-boot-migrate geometry the delta
+# runs EXACTLY ONCE at the applyPostSwap step — boot-migrate now goes only `--to`
+# the daemon floor and never touches the above-floor delta — so the ceiling fires
+# EXACTLY ONCE, not the pre-145 ~2× (a silent boot-migrate first fire + the
+# applyPostSwap second fire). Count the named marker across the WHOLE journal.
+MARKER_COUNT=$(VM_EXEC bash -c "journalctl --user -u $UPGRADE_UNIT --no-pager 2>/dev/null | grep -c 'migration exceeded the ceiling (${CEILING_TIMEOUT}) — killed; rolling back' || true" 2>/dev/null | tr -d ' \r\n')
+[ -n "$MARKER_COUNT" ] || MARKER_COUNT="?"
+[ "$MARKER_COUNT" = "1" ] || { echo "✗ ceiling marker fired ${MARKER_COUNT}× (want exactly 1) — STATBUS-145 single-fire violated: the delta must run ONCE at applyPostSwap, never also at boot-migrate" >&2; exit 1; }
+echo "  ✓ ceiling marker fired EXACTLY ONCE (STATBUS-145 single-fire — delta ran once at applyPostSwap, never at boot)"
 
 assert_fingerprint_matches "post-rollback == post-A" "$BASELINE_FP" baseline
 assert_demo_data_present "$VM_NAME"

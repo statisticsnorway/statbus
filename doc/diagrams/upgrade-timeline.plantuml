@@ -48,7 +48,7 @@ end note
 systemd -> service : start statbus-upgrade@$USER.service (Type=notify, Restart=always)
 service -> db : advisory lock + LISTEN upgrade channel\n(cheap, bounded init)
 service -> systemd : sd_notify READY=1\n(emitted here — heavy recovery below runs in the ACTIVE phase under WatchdogSec)
-service -> db : boot migrate up — bring schema to HEAD (schema-skew guard)
+service -> db : boot migrate up — schema to the daemon FLOOR (schema-skew guard; STATBUS-145 --to floor)
 service -> service : recoverFromFlag — reconcile a flag left on disk (flag-DRIVEN)
 service -> db : completeInProgressUpgrade — reconcile an in_progress row with NO flag\n(flag-INDEPENDENT belt; the SOLE recovery for a pre-flight kill)
 note over service, db
@@ -121,15 +121,17 @@ end note
 service -> systemd : exit 42 — **old-sb-swap**: switch to the new sb, request the ONE planned respawn
 systemd -> service : restart unit on the new binary
 service -> systemd : fresh boot: cheap init -> READY=1 (watchdog arms)
-service -> db : **boot-migrate-up (:1644) — applies the ENTIRE pending migration delta**
+service -> db : **boot-migrate-up — schema up to the DAEMON FLOOR only (migrate up --to DaemonSchemaFloor)**
 note over service, db
   The new binary BOOTS FRESH — nothing continues in memory; it re-runs the full Service-boot
-  sequence: cheap init -> READY=1 -> boot-migrate-up (:1644) -> recoverFromFlag (:1689).
-  Because the checkout, before the swap, already put the repo at the NEW version, boot-migrate-up is
-  the step that ACTUALLY APPLIES every upgrade's migrations — the applyPostSwap migrate below
-  is a no-op in the normal flow. boot-migrate runs post-READY with the watchdog armed and no
-  other WATCHDOG=1 source alive, so it carries its OWN always-ping ticker, bounded by the
-  shared 30-min MigrateUpTimeout (STATBUS-012; same exemption as the applyPostSwap migrate).
+  sequence: cheap init -> READY=1 -> boot-migrate-up -> recoverFromFlag.
+  STATBUS-145: boot-migrate catches the schema up ONLY to the daemon's operating floor, NOT to
+  HEAD. The upgrade DELTA is above the floor and runs EXACTLY ONCE at the applyPostSwap migrate
+  step below — that step is now the real, killable delta site, NOT a no-op. So a death mid-delta
+  leaves the schema positively Behind → data-safe rollback (the atomicity flip), and boot-migrate
+  runs only the small, rare FLOOR migrations. boot-migrate runs post-READY with the watchdog armed
+  and no other WATCHDOG=1 source alive, so it carries its OWN always-ping ticker, bounded by the
+  shared MigrateUpTimeout (12 h ceiling, STATBUS-095; same exemption as the applyPostSwap migrate).
   recoverFromFlag (service.go:682) then READS the upgrade-in-progress marker's phase to learn where the
   prior process died. Phase progresses old-sb-upgrading "" (:197) -> new-sb-swapped "post_swap" (stamped
   :403, before exit 42) -> new-sb-upgrading (stamped :4339, as resume commits; stored: "resuming").
@@ -140,7 +142,7 @@ alt **new-sb-swapped** marker (stored: post_swap) — the PLANNED exit-42 handof
     group applyPostSwap — remaining steps run on the new binary
         service -> service : config generate + docker compose pull
         service -> db : start DB + wait health + reconnect
-        service -> db : ./sb migrate up (no-op normally — boot-migrate above did the work;\nbounded retry executor on the STATBUS-017 fall-through)
+        service -> db : **./sb migrate up — apply the FULL delta to HEAD (the ONE delta-application site, STATBUS-145);\nmid-delta death/failure → observed Behind → data-safe one-shot rollback (atomic)**
         service -> service : start app services + health check
         service -> db : maintenance off
     end

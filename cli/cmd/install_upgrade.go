@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/statisticsnorway/statbus/cli/internal/install"
+	"github.com/statisticsnorway/statbus/cli/internal/migrate"
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
@@ -278,16 +279,21 @@ func runCrashRecovery(projDir string) error {
 	//
 	// Bounded by the shared migrate timeout (STATBUS-012). The inline path
 	// has no systemd watchdog (no NOTIFY_SOCKET → sdNotify no-ops), so the
-	// gap here was UNBOUNDEDNESS: runCmdDir had no timeout at all, and this
-	// boot-migrate carries the same full migration delta as the service
-	// path's (post-swap exec hands off to a fresh `./sb install` whose
-	// crash-recovery lands here). On timeout the operator gets an
-	// actionable error; the conn is live now (LoadConfigAndConnect ran
-	// above) but this path does not #14-terminate an orphan — the orphan
+	// gap here was UNBOUNDEDNESS: runCmdDir had no timeout at all.
+	//
+	// STATBUS-145: `--to DaemonSchemaFloor` — the crash-recovery boot-migrate
+	// catches the schema up only to the daemon floor, NOT to HEAD. Pre-145 it
+	// carried the full delta (post-swap exec hands off to a fresh `./sb install`
+	// whose crash-recovery lands here); under 145 the delta runs at the guarded
+	// applyPostSwap step. The operator's DELIBERATE install still applies
+	// everything — the step-table Migrations step (cmd/install.go) stays apply-all;
+	// only this crash-recovery pre-step is bounded to the floor. On timeout the
+	// operator gets an actionable error; the conn is live now (LoadConfigAndConnect
+	// ran above) but this path does not #14-terminate an orphan — the orphan
 	// self-resolves on client-gone, or the next service start's boot-migrate
 	// timeout handler reaps it.
 	if !skipBootMigrate {
-		if err := runCmdDirTimeout(projDir, upgrade.MigrateUpTimeout, sb, "migrate", "up", "--verbose"); err != nil {
+		if err := runCmdDirTimeout(projDir, upgrade.MigrateUpTimeout, sb, "migrate", "up", "--to", strconv.FormatInt(migrate.DaemonSchemaFloor, 10), "--verbose"); err != nil {
 			// STATBUS-017: symmetric to service.go's boot-migrate-up handler. A
 			// service-held in-progress flag means the guard can't re-apply the
 			// half-applied migration; defer to RecoverFromFlag (snapshot restore) below

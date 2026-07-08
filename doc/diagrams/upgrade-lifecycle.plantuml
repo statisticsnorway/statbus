@@ -92,6 +92,17 @@ note right of in_progress
     already-at-new        → PARK  (recovery_parked_at + reason; stays in_progress)
     data-safe/cannot-reach-new → roll back (039 direction; 110 makes it byte-safe)
   A parked row is SKIPPED by every automatic resume (alive-idle, siren once).
+
+  **§6  STATBUS-145 — the delta leaves the boot window; park shrinks**
+  boot-migrate now catches the schema up ONLY to the daemon floor; the upgrade
+  DELTA runs once at the applyPostSwap migrate step. So on a resume the delta is
+  PENDING → observed state reads cannot-reach-new (Behind) → the disposition is
+  ROLLBACK, not park, for EVERY pre-delta step failure (config, pull, db-up,
+  reconnect, AND deterministic B/C — §3/§5 park-on-first now applies only
+  at-target). PARK shrinks to exactly two cases: (a) repeated process deaths at
+  pre-delta steps (RecoveryBudgetGuard, canRollBack=false), and (b) a POST-delta
+  at-target failure (the health-check window). Upgrades are effectively ATOMIC:
+  apply the delta once, restore on any interruption.
   UN-PARK = the two deliberate operator triggers only (re-schedule / ./sb
   install) — each buys exactly ONE fresh attempt with a reset budget.
 end note

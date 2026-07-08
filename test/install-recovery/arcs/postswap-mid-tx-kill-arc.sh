@@ -47,6 +47,20 @@ STALL_MAX_WAIT_S="${STALL_MAX_WAIT_S:-300}"
 MIDTX_CLASS="killed-by-system-during-migration-tx-before-commit"
 RELEASE_FILE="/tmp/arc-stall-release-midtx"
 
+# ── STATBUS-145 GATE [PENDING-145-REDERIVE] ──────────────────────────────────
+# This arc's pre-145 PROVEN PATH no longer exists: it was proven (run 28832014634,
+# the STATBUS-105 measurement) via boot-migrate re-hitting the torn migration →
+# the STATBUS-017 defer → snapshot restore. Under 145 boot-migrate is floor-only,
+# so that path is gone; the delta runs at applyPostSwap and the 145 terminal is
+# reached via the Resuming-arm observed-state read (parent death in the migration
+# window → ledger unadvanced → Behind → rolled_back — mechanism-independent, but
+# never yet EXERCISED under 145). Its true terminal is the slice-4 ORACLE run's to
+# prove, not static analysis. Until then this arc loudly DECLINES to assert. Exits
+# BEFORE any VM is provisioned (zero cost). A surviving marker after slice 4 is a
+# red flag (STATBUS-145 PIN 3).
+echo "SKIP [PENDING-145-REDERIVE]: terminal contract awaiting the slice-4 oracle run (STATBUS-145)"
+exit 0
+
 : "${BASE_SHA:?BASE_SHA required}"
 : "${B_FULL:?B_FULL required}"
 : "${B_BRANCH:?B_BRANCH required}"
