@@ -29,10 +29,13 @@
 # OUTPUTS (bash vars set in the caller's scope after the call; no $GITHUB_OUTPUT touch)
 #   B_BRANCH / B_FULL / B_SHORT  — B (defect) branch name + full/short SHAs.
 #   C_BRANCH / C_FULL / C_SHORT  — C (fix) branch name + full/short SHAs.
-#   V_VERSION / V_VERSION_2      — synthetic migration version numbers (14-digit ts+1/+2
-#                                  from BASE_SHA's latest migration; shared across both
-#                                  lineages — the same value is produced by both calls
-#                                  for a given BASE_SHA, since it is deterministic).
+#   V_VERSION / V_VERSION_2 / V_VERSION_3 — synthetic migration version numbers
+#                                  (14-digit ts+1/+2/+3 from BASE_SHA's latest
+#                                  migration; shared across both lineages — the
+#                                  same value is produced by both calls for a
+#                                  given BASE_SHA, since it is deterministic).
+#                                  V_VERSION_3 is healthpark-only (C's fix
+#                                  migration); every other spec ignores it.
 #   ARC_PUBKEY                   — "<type> <key>" (2 fields, no trailing comment field)
 #                                  for the signing key. Exported by the library so
 #                                  downstream subshells see it without re-deriving.
@@ -41,7 +44,7 @@
 #   - writing outputs to $GITHUB_OUTPUT (CI)
 #   - trusting ARC_PUBKEY via arc-helpers.sh::trust_arc_signer (post-install)
 #
-# SPEC ∈ {working, failing, oom, ceiling}
+# SPEC ∈ {working, failing, oom, ceiling, healthpark}
 #   working  — B: genuine migration V that SUCCEEDS (CREATE TABLE upgrade_arc_fixture +
 #               upgrade_arc_fixture_2); C: B with V amended in place (prepends a comment
 #               → new bytes, same effect; triggers STATBUS-102 channel-bless re-stamp).
@@ -62,6 +65,17 @@
 #               (STATBUS-095 piece 2) — contrast oom's EXTERNAL kill: nothing
 #               revives this one, so it IS a rollback story. SINGLE-PHASE like
 #               oom (no C; identical-to-B, unused). Terminal is rolled_back.
+#   healthpark — B: V1 (V_marker, benign fixture-table migration, always
+#               succeeds) + V2 (CREATE OR REPLACE FUNCTION public.auth_status()
+#               to RAISE — itself a SUCCESSFUL migration, which is what makes
+#               the box genuinely AT-TARGET when the postswap-health-park-arc
+#               (STATBUS-145, doc-029) parks on the health leg's functional RPC
+#               probe failing past the /ready warmup). C: B + V3, a NEW migration
+#               that CREATE OR REPLACEs auth_status() back to its original body
+#               — NEVER an edit to V2 in place (a release-channel content_hash
+#               mismatch on an already-applied version is BLESSED/re-stamped,
+#               not re-run — doc-029 Rev 2). V1/V2 stay byte-identical between
+#               B and C.
 #
 # Migration content is NON-IDEMPOTENT by design (no IF NOT EXISTS): a re-apply
 # CONFLICTS ('already exists') — load-bearing for the after-commit arcs' deterministic
@@ -186,6 +200,154 @@ _ut_write_ceiling_v() {
     echo "SELECT 1;  -- V_sleep commits nothing when killed; rollback is the volume-restore" > "$v_down"
 }
 
+# _ut_write_healthpark_v1 V_UP V_DOWN
+# Write V1 (V_marker) for the healthpark spec (STATBUS-145 postswap-health-
+# park-arc, doc-029 Rev 2): a benign real migration, fixture-table pattern —
+# proves the delta genuinely applies (anti-vacuity), same shape as the
+# working/oom fixtures. This migration ALWAYS succeeds; V2 (below) is the one
+# that breaks health.
+_ut_write_healthpark_v1() {
+    local v_up="$1" v_down="$2"
+    {
+      echo "-- Upgrade-arc healthpark fixture V1 / V_marker (STATBUS-145 doc-029)."
+      echo "-- Benign, always succeeds — proves the delta genuinely applied before"
+      echo "-- V2 (below) breaks health past warmup."
+      echo "CREATE TABLE public.upgrade_arc_healthpark_fixture ("
+      echo "    id integer PRIMARY KEY,"
+      echo "    note text NOT NULL"
+      echo ");"
+      echo "INSERT INTO public.upgrade_arc_healthpark_fixture (id, note) VALUES (1, 'healthpark');"
+    } > "$v_up"
+    echo "DROP TABLE IF EXISTS public.upgrade_arc_healthpark_fixture;" > "$v_down"
+}
+
+# _ut_write_healthpark_break_v2 V_UP V_DOWN
+# Write V2 for the healthpark spec: the deterministic health break.
+# CREATE OR REPLACE FUNCTION public.auth_status() to RAISE — this migration
+# itself SUCCEEDS (a broken function is still a successful DDL statement),
+# which is exactly what makes the box genuinely AT-TARGET when the upgrade's
+# health leg parks (doc-029 Rev 2: "V2 SUCCEEDS as a migration ... which is
+# what makes the box genuinely AT-TARGET when the park fires").
+#
+# WHY THIS BREAKS HEALTH BUT NOT /ready (doc-029 Rev 2, mechanic trace,
+# cli/internal/upgrade/exec.go): the post-swap health leg first waits for
+# PostgREST's admin /ready endpoint (waitForRestReady — schema cache +
+# connection pool loaded; does NOT execute any function body, so it stays
+# green), THEN POSTs to /rpc/auth_status (healthURL, a DIFFERENT bind
+# address: REST_BIND_ADDRESS, not REST_ADMIN_BIND_ADDRESS). Once RAISE
+# EXCEPTION replaces the body, every call to that RPC 500s — the functional
+# probe fails deterministically "past warmup", exactly the reason string
+# parkForDeterministicFailure emits (service.go:5578).
+#
+# Signature preserved EXACTLY from the shipped function (doc/db/function/
+# public_auth_status().md) — RETURNS auth.auth_response, SECURITY DEFINER,
+# SET search_path — so PostgREST's schema-cache introspection (what /ready
+# actually checks) sees no change at all; only the BODY differs.
+#
+# NEVER "fixed" by editing this file in place — see V3 below and the Rev 2
+# note at the top of doc-029: a release-channel content_hash mismatch on an
+# ALREADY-APPLIED version is BLESSED (re-stamped, never re-run) by
+# migrate.go's channelRelease handler, so an in-place edit here would leave
+# auth_status broken forever. The fix ships as V3, a new migration.
+_ut_write_healthpark_break_v2() {
+    local v_up="$1" v_down="$2"
+    {
+      echo "-- Upgrade-arc healthpark fixture V2 (STATBUS-145 doc-029): deterministic"
+      echo "-- health-check break. Preserves auth_status's exact signature (schema-cache"
+      echo "-- introspection / PostgREST /ready is unaffected) but the body now RAISEs on"
+      echo "-- every call, so the post-swap health leg's functional RPC probe"
+      echo "-- (/rpc/auth_status, after /ready warmup passes) fails deterministically."
+      echo "-- This migration itself SUCCEEDS — the box is genuinely at-target when the"
+      echo "-- upgrade parks. NEVER fix by editing this file in place (see V3 / doc-029"
+      echo "-- Rev 2): a release-channel content_hash mismatch on an already-applied"
+      echo "-- version is BLESSED (re-stamped, never re-run), not re-executed."
+      echo "CREATE OR REPLACE FUNCTION public.auth_status()"
+      echo " RETURNS auth.auth_response"
+      echo " LANGUAGE plpgsql"
+      echo " SECURITY DEFINER"
+      echo " SET search_path TO 'public', 'pg_temp'"
+      echo "AS \$function\$"
+      echo "BEGIN"
+      echo "  RAISE EXCEPTION 'upgrade-arc healthpark fixture (STATBUS-145): deterministic health-check failure — auth_status intentionally broken';"
+      echo "END;"
+      echo "\$function\$;"
+    } > "$v_up"
+    echo "SELECT 1;  -- unused (oom/ceiling unused-down precedent, doc-029 Rev 2) — the original body lives in V3" > "$v_down"
+}
+
+# _ut_write_healthpark_fix_v3 V_UP V_DOWN
+# Write V3 for the healthpark spec's FIX release (C): a NEW, higher-version
+# migration that CREATE OR REPLACEs auth_status() back to its original,
+# shipped body (doc/db/function/public_auth_status().md, verbatim) — the
+# doc-029 Rev 2 correction. V1/V2 stay byte-identical between B and C; this
+# is the ONLY migration C adds. Because it is a genuinely NEW version (no
+# existing db.migration row), it applies via the normal pending-migrations
+# path on C's upgrade — the content_hash/channel-bless machinery is never
+# consulted for it at all.
+_ut_write_healthpark_fix_v3() {
+    local v_up="$1" v_down="$2"
+    {
+      echo "-- Upgrade-arc healthpark fixture V3 (STATBUS-145 doc-029 Rev 2): THE FIX."
+      echo "-- Restores auth_status() to its original, shipped body verbatim (doc/db/"
+      echo "-- function/public_auth_status().md). A NEW migration, never an edit to V2 —"
+      echo "-- migration immutability + the release-channel bless-not-rerun semantics"
+      echo "-- (migrate.go:1662-1685) mean an in-place edit to an already-applied"
+      echo "-- version would never actually re-execute."
+      echo "CREATE OR REPLACE FUNCTION public.auth_status()"
+      echo " RETURNS auth.auth_response"
+      echo " LANGUAGE plpgsql"
+      echo " SECURITY DEFINER"
+      echo " SET search_path TO 'public', 'pg_temp'"
+      echo "AS \$function\$"
+      echo "DECLARE"
+      echo "  access_token_value text;"
+      echo "  access_jwt_verify_result auth.jwt_verify_result;"
+      echo "  user_record auth.user;"
+      echo "  _token_expires_at timestamptz;"
+      echo "BEGIN"
+      echo "  RAISE DEBUG '[auth_status] Starting. This function can only see the statbus (access) cookie.';"
+      echo ""
+      echo "  access_token_value := auth.extract_access_token_from_cookies();"
+      echo ""
+      echo "  IF access_token_value IS NULL THEN"
+      echo "    RAISE DEBUG '[auth_status] No access token cookie found. Unauthenticated.';"
+      echo "    RETURN auth.build_auth_response();"
+      echo "  END IF;"
+      echo ""
+      echo "  access_jwt_verify_result := auth.jwt_verify(access_token_value);"
+      echo ""
+      echo "  -- Extract token expiration from claims"
+      echo "  _token_expires_at := to_timestamp((access_jwt_verify_result.claims->>'exp')::bigint);"
+      echo ""
+      echo "  IF access_jwt_verify_result.is_valid AND NOT access_jwt_verify_result.expired THEN"
+      echo "    RAISE DEBUG '[auth_status] Access token is valid and not expired.';"
+      echo "    SELECT * INTO user_record"
+      echo "    FROM auth.user"
+      echo "    WHERE sub = (access_jwt_verify_result.claims->>'sub')::uuid AND deleted_at IS NULL;"
+      echo ""
+      echo "    IF FOUND THEN"
+      echo "      RAISE DEBUG '[auth_status] User found. Authenticated.';"
+      echo "      RETURN auth.build_auth_response(p_user_record => user_record, p_token_expires_at => _token_expires_at);"
+      echo "    ELSE"
+      echo "      RAISE DEBUG '[auth_status] User from valid token not found in DB. Unauthenticated.';"
+      echo "      PERFORM auth.clear_auth_cookies();"
+      echo "      RETURN auth.build_auth_response();"
+      echo "    END IF;"
+      echo "  END IF;"
+      echo ""
+      echo "  IF access_jwt_verify_result.is_valid AND access_jwt_verify_result.expired THEN"
+      echo "    RAISE DEBUG '[auth_status] Access token is expired but signature is valid. Client should refresh.';"
+      echo "    RETURN auth.build_auth_response(p_expired_access_token_call_refresh => true);"
+      echo "  END IF;"
+      echo ""
+      echo "  RAISE DEBUG '[auth_status] Access token is invalid (e.g., bad signature). Unauthenticated.';"
+      echo "  RETURN auth.build_auth_response();"
+      echo "END;"
+      echo "\$function\$;"
+    } > "$v_up"
+    echo "SELECT 1;  -- unused (oom/ceiling unused-down precedent, doc-029 Rev 2) — C never rolls back within this arc" > "$v_down"
+}
+
 # construct_upgrade_target BASE_SHA SPEC
 # See module header above for full documentation.
 construct_upgrade_target() {
@@ -222,11 +384,17 @@ construct_upgrade_target() {
     _latest="$(printf '%s\n' migrations/*.up.sql | sed -E 's#.*/([0-9]{14})_.*#\1#' | sort -n | tail -1)"
     V_VERSION="$((_latest + 1))"
     V_VERSION_2="$((_latest + 2))"
+    # V_VERSION_3 — healthpark-only (C's fix migration, doc-029 Rev 2). Computed
+    # unconditionally for every spec, mirroring V_VERSION_2's own pattern (cheap;
+    # unused specs just ignore it).
+    V_VERSION_3="$((_latest + 3))"
     local _v_up="migrations/${V_VERSION}_upgrade_arc.up.sql"
     local _v_down="migrations/${V_VERSION}_upgrade_arc.down.sql"
     local _v2_up="migrations/${V_VERSION_2}_upgrade_arc_2.up.sql"
     local _v2_down="migrations/${V_VERSION_2}_upgrade_arc_2.down.sql"
-    echo "── construct_upgrade_target: spec=${_spec} base=${_base_sha:0:8} V=${V_VERSION} V2=${V_VERSION_2} ──"
+    local _v3_up="migrations/${V_VERSION_3}_upgrade_arc_3.up.sql"
+    local _v3_down="migrations/${V_VERSION_3}_upgrade_arc_3.down.sql"
+    echo "── construct_upgrade_target: spec=${_spec} base=${_base_sha:0:8} V=${V_VERSION} V2=${V_VERSION_2} V3=${V_VERSION_3} ──"
 
     # ── branch names (verbatim pattern from upgrade-arc-harness.yaml:201-202) ─
     local _b_branch="test/upgrade-arc-${_spec}-migration-${_run_id}"
@@ -236,11 +404,15 @@ construct_upgrade_target() {
     # ── build B ──────────────────────────────────────────────────────────────
     git checkout -B "$_b_branch" "$_base_sha"
     case "$_spec" in
-        working) _ut_write_working_v "$_v_up" "$_v_down" "$_v2_up" "$_v2_down" ;;
-        failing) _ut_write_failing_v "$_v_up" "$_v_down" ;;
-        oom)     _ut_write_oom_v "$_v_up" "$_v_down" ;;
-        ceiling) _ut_write_ceiling_v "$_v_up" "$_v_down" ;;
-        *) echo "construct_upgrade_target: unknown SPEC '${_spec}' (expected: working|failing|oom|ceiling)" >&2; return 1 ;;
+        working)    _ut_write_working_v "$_v_up" "$_v_down" "$_v2_up" "$_v2_down" ;;
+        failing)    _ut_write_failing_v "$_v_up" "$_v_down" ;;
+        oom)        _ut_write_oom_v "$_v_up" "$_v_down" ;;
+        ceiling)    _ut_write_ceiling_v "$_v_up" "$_v_down" ;;
+        healthpark)
+            _ut_write_healthpark_v1 "$_v_up" "$_v_down"
+            _ut_write_healthpark_break_v2 "$_v2_up" "$_v2_down"
+            ;;
+        *) echo "construct_upgrade_target: unknown SPEC '${_spec}' (expected: working|failing|oom|ceiling|healthpark)" >&2; return 1 ;;
     esac
     git add migrations/
     # The synthetic upgrade-arc fixture migrations are exempted from the doc/db
@@ -291,6 +463,16 @@ construct_upgrade_target() {
             # afterward. Same no-commit shape as oom's C (unused, identical
             # to B); the ceiling arc's own script declares only
             # BASE_SHA/B_FULL/B_BRANCH as required.
+            ;;
+        healthpark)
+            # C's fix: a NEW migration (V3), never an edit to V2 (doc-029 Rev 2 —
+            # the release-channel content_hash handler blesses an in-place edit to
+            # an already-applied version instead of re-running it; see
+            # _ut_write_healthpark_break_v2's doc comment). V1/V2 stay byte-
+            # identical to B — untouched here.
+            _ut_write_healthpark_fix_v3 "$_v3_up" "$_v3_down"
+            git add migrations/
+            git commit -S -q -m "test(upgrade-arc): ${_spec} fix auth_status via NEW migration V3 (C)"
             ;;
     esac
     local _c_short _c_full

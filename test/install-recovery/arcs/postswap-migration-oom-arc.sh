@@ -3,99 +3,124 @@
 # migration killed by an external SIGKILL to Postgres, reproducing the
 # OS-OOM-killer EFFECT deterministically without exhausting memory).
 #
-# THE STORY (architect reshape, 2026-07-07, confirmed against shipped code):
-# a migration is OOM-killed ONCE -> the box's own boot sequence revives the
-# db unconditionally -> the migration re-runs -> COMPLETED (forward). This is
-# NOT a rollback story. See the MECHANICS section below for why — this
-# reshape SUPERSEDES an earlier draft of this file that expected rolled_back;
-# that draft's own code-tracing is what surfaced the mechanism this version
-# is built on, so the trace is kept (updated) rather than discarded.
+# TERMINAL FLIPPED TO rolled_back (mechanic, 2026-07-08, STATBUS-145 slice 4 —
+# ruled content: STATBUS-145 comment #2's atomicity-flip trace + comment #6's
+# "OOM (terminal flip = mechanic's, lands with slice 4)"). This SUPERSEDES the
+# prior "completes forward" reshape: that reshape was correct for the PRE-145
+# geometry (boot-migrate-up applied the full delta unconditionally, so a
+# revived db always got a fresh, clean re-attempt of the SAME migration and
+# converged forward). Under 145's minimal-boot-migrate geometry the delta no
+# longer runs at boot at all — it runs EXACTLY ONCE, inside applyPostSwap's
+# guarded pipeline step (3.5) — so "at-target" is now decided by
+# verifyUpgradeObservedStateEx's db.migration-vs-on-disk-max comparison BEFORE
+# any forward re-attempt is even considered, and a migration killed mid-run
+# (uncommitted, never recorded) reads POSITIVELY BEHIND on the very next live
+# pass. Behind + pre-completion is the DESIGNED disposition: one-shot,
+# data-safe snapshot restore (STATBUS-039) — never a second forward attempt.
+# The delta ran ONCE.
 #
-# CONSTRUCTION RULING: STATBUS-096 comment #1 (architect, 2026-07-07). Real
-# memory pressure is FORBIDDEN as a trigger (the harness VM is a CX23, 2 vCPU
-# / 4 GB shared with the whole stack — the kernel OOM-killer picks its victim
-# by heuristics there and can take the daemon or sshd instead of postgres,
-# exactly the flaky class this suite forbids). The ruled trigger: `docker
-# compose kill` on the db service at a pg_stat_activity-confirmed midpoint of
-# a real, running migration — the postmaster dies by SIGKILL exactly as under
-# the OOM-killer, uncommitted work is lost, WAL recovery runs on the next
-# start. The property under test ("when the OS OOM-kills Postgres mid-
-# migration, the box recovers") is fully exercised without ever touching
-# memory limits.
+# CONSTRUCTION RULING (unchanged — STATBUS-096 comment #1, architect,
+# 2026-07-07): real memory pressure is FORBIDDEN as a trigger (the harness VM
+# is a CX23, 2 vCPU / 4 GB shared with the whole stack — the kernel
+# OOM-killer picks its victim by heuristics there and can take the daemon or
+# sshd instead of postgres, exactly the flaky class this suite forbids). The
+# ruled trigger: `docker compose kill` on the db service at a
+# pg_stat_activity-confirmed midpoint of a real, running migration — the
+# postmaster dies by SIGKILL exactly as under the OOM-killer, uncommitted
+# work is lost, WAL recovery runs on the next start. The property under test
+# ("when the OS OOM-kills Postgres mid-migration, the box recovers") is fully
+# exercised without ever touching memory limits.
 #
 # Single-phase arc (A→B only, no C/fixed phase — this differs from
-# working-arc.sh / failing-arc.sh): there is no "fix" to apply — B's own
-# migration is what completes, on its post-revival re-attempt.
+# working-arc.sh / failing-arc.sh, same shape as ceiling-arc.sh): there is no
+# "fix" to apply — the rollback IS the terminal; the box is restored to its
+# pre-upgrade clean slate and the operator re-triggers deliberately.
 #
-# V_sleep migration: `SELECT pg_sleep(60);` + a fixture table (so the arc can
-# assert it genuinely ran, not merely that db.migration's ledger advanced),
-# hand-authored WITHOUT its own BEGIN/END (construct_upgrade_target's oom
-# spec must not wrap it in a DO $$ block — a bare top-level statement is what
-# the midpoint poll below expects to see as pg_stat_activity's active query).
-# 60s, NOT 3600s: see MECHANICS point 3 for why a long sleep is actively
-# wrong here (every path revives the db and re-runs the SAME sleep from
-# scratch — a 3600s sleep means the arc waits out another hour on every
-# revival, guaranteed-stall-red, derivable without a run).
+# V_sleep migration: `SELECT pg_sleep(60);` + a fixture table (CREATE TABLE +
+# INSERT, AFTER the sleep — ORDERING IS LOAD-BEARING, see below), hand-authored
+# WITHOUT its own BEGIN/END (construct_upgrade_target's oom spec must not wrap
+# it in a DO $$ block — a bare top-level statement is what the midpoint poll
+# below expects to see as pg_stat_activity's active query; it ALSO means psql
+# autocommits each statement separately, so killing mid-sleep — BEFORE the
+# CREATE TABLE/INSERT statements are ever reached — leaves the fixture table
+# never created at all: the clean-slate fingerprint match below is the
+# stronger, sufficient proof of that, no separate fixture-absence check
+# needed). 60s, NOT 3600s: kept short so the arc's own wall-clock stays
+# bounded regardless of path (unlike ceiling, nothing here has an internal
+# ceiling forcing an early kill).
 #
-# MECHANICS VERIFIED AGAINST SHIPPED CODE (mechanic, 2026-07-07; confirmed +
-# extended by the architect the same day) — read this before touching the
-# NRestarts bound or the terminal-wait budget below:
+# MECHANICS VERIFIED AGAINST SHIPPED CODE UNDER THE 145 GEOMETRY (mechanic,
+# 2026-07-08; STATBUS-145 comment #2's own trace, applied to this arc's
+# specific external-kill-of-the-whole-container construction) — read this
+# before touching the NRestarts bound or the terminal-wait budget below:
 #
-#   1. Migrations for a FRESH (non-crash) upgrade are actually applied by
-#      Run()'s own unconditional "boot-migrate-up" step (service.go, right
-#      after the exit-42 handoff restart, BEFORE recoverFromFlag) — NOT by
-#      applyPostSwap's migrate call, which is normally a no-op fallback. So
-#      THIS is where V_sleep is running when the kill lands.
-#   2. When boot-migrate-up's psql subprocess loses its connection (the
-#      container was just SIGKILLed), Run() does NOT exit here: with a
-#      service-held flag present it explicitly FALLS THROUGH to
-#      recoverFromFlag in the SAME process (service.go:~1974: "deferring to
-#      recoverFromFlag for snapshot restore (STATBUS-017)"). At this point
-#      flag.Phase is still "post_swap" (resumePostSwap has not run yet), so
-#      recoverFromFlag's PostSwap branch fires resumePostSwap -> applyPostSwap
-#      in the SAME boot.
-#   3. THE DESTINY, not a race (architect correction of the original draft's
-#      "two sub-cases" framing): Run()'s boot ALWAYS runs EnsureDBUp
-#      (service.go:1808 — `docker compose up -d db`, unconditional, on EVERY
-#      pass, before any recovery branch) — so the db is guaranteed reachable
-#      again within the SAME crash-resume pass that discovers the
-#      service-held flag; there is no code path where the daemon proceeds
-#      with the db still down. Consequence: applyPostSwap's own migrate call
-#      always finds a live db and always re-attempts V_sleep fresh from the
-#      top (pg_sleep has no memory of the killed attempt) -> it completes ->
-#      applyPostSwap finishes -> state=completed. If EnsureDBUp itself is
-#      still racing docker's own restart at the exact moment applyPostSwap's
-#      earlier health-check step runs (a narrow timing window, NOT the
-#      steady-state destiny), postSwapFailure's observed-state read can
-#      still see the db as unreachable ONE time -> records a non-terminal
-#      failure and returns (verified: postSwapFailure's unreachable branch
-#      never calls backoffRetry — that only exists at recoverFromFlag's
-#      Resuming/ground-truth branch, service.go:1085) -> propagates up
-#      through Run() -> the process exits -> systemd restarts it (a SECOND
-#      restart beyond the planned exit-42 one) -> on THIS next boot
-#      EnsureDBUp runs again and by now the db is definitely up -> the
-#      Resuming branch's observed-state read + STATBUS-109's backoff-retry
-#      (service.go:1085) may fire for a beat if any residual race remains,
-#      then clears -> forward resumes -> completed. Either way the box
-#      converges to completed; the only variable is whether it takes the
-#      one-restart path (handoff only) or the two-restart path (handoff +
-#      one DB-unreachable exit) to get there.
+#   1. Migrations for a FRESH (non-crash) upgrade are NO LONGER applied by
+#      Run()'s boot-migrate-up step — under 145 that step is bounded `--to
+#      DaemonSchemaFloor` (service.go:~1934) and V_sleep (a real delta,
+#      strictly above the floor) is untouched by it; boot-migrate-up is a
+#      no-op here. V_sleep runs EXACTLY ONCE, inside applyPostSwap's own
+#      migrate call at the guarded pipeline step 3.5 (service.go:~5467) —
+#      the SAME single site STATBUS-095's ceiling and STATBUS-046's
+#      park-on-first classification already live at. THIS is where V_sleep
+#      is running when the kill lands.
+#   2. THE KILL — `docker compose kill -s SIGKILL db` — takes down the WHOLE
+#      db container (postmaster + every backend, including the migrate
+#      subprocess's), unlike ceiling's ctx-deadline SIGKILL of just the
+#      in-container psql backend (db stays up and reachable throughout
+#      ceiling's kill). `./sb migrate up`'s subprocess loses its connection
+#      mid-run → returns a non-deterministic (classUnknown) exit — no
+#      "already exists"/SQLSTATE-53 exit code, just a dead connection — so
+#      applyPostSwap's failure handler (service.go:~5506) does NOT classify
+#      it as parksOnFirst; it routes to postSwapFailure instead (service.go:
+#      5050).
+#   3. POSTSWAPFAILURE'S FIRST READ IS UNVERIFIABLE, NOT YET BEHIND: at the
+#      instant postSwapFailure calls verifyUpgradeObservedStateEx, the db
+#      container we JUST killed is not yet revived (EnsureDBUp only runs at
+#      the TOP of the NEXT boot pass, not mid-applyPostSwap) — so the read is
+#      ObservedPositionUnreadable, NOT ObservedCannotReachNew. postSwapFailure
+#      treats unreadable the SAME as already-at-new: destroying state under
+#      uncertainty is forbidden (STATBUS-039) — it records a NON-terminal
+#      failure ("observed state is unverifiable...NOT restoring (forward
+#      retry on the next recovery pass)") and returns an error. That error
+#      propagates up through Run() and the process EXITS (a genuine crash
+#      exit, not the planned exit-42 handoff) → systemd restarts it — this
+#      is restart #2 (restart #1 was the planned post-claim handoff).
+#   4. THE SECOND LIVE PASS IS WHERE ROLLBACK FIRES: on this restart,
+#      EnsureDBUp (service.go:~1808, unconditional on every boot) revives the
+#      db container fresh. Floor-migrate is again a no-op. recoverFromFlag →
+#      resumePostSwap: HasPending is TRUE (V_sleep never committed, never
+#      recorded) → the self-heal canary does NOT short-circuit (STATBUS-145
+#      slice 2's dependents audit: "never short-circuits a delta-pending
+#      resume") → the Resuming arm's OWN observed-state read runs FIRST, on a
+#      now-reachable db, with V_sleep genuinely absent from db.migration →
+#      ObservedCannotReachNew (positively Behind) → d.rollback() — NOT a
+#      second applyPostSwap/migrate attempt. THE ATOMICITY FLIP: V_sleep is
+#      never re-attempted; the rollback fires from the Resuming arm's own
+#      gate, before the pipeline migrate step is ever reached again. rollback()
+#      restores the pre-upgrade snapshot, marks the row rolled_back, clears
+#      the flag, restarts containers to the OLD version, and unconditionally
+#      os.Exit(75)s at the end (the rc.67 trifecta, true of every rollback()
+#      call, identical to ceiling's own terminal exit) — restart #3, this one
+#      planned (rollback's own designed conclusion).
 #
-#   CONSEQUENCE FOR THIS FILE'S ASSERTIONS: NRestarts bound stays at 3 (a
-#   generous ceiling covering both the one- and two-restart paths above with
-#   headroom) but is NOT the load-bearing claim here — the actual OBSERVED
-#   value is logged explicitly so a real run tells us which path fired and
-#   lets the bound be tightened later. Any restart beyond 3 is itself a
-#   finding (a genuine restart-loop pathology).
+#   CONSEQUENCE FOR THIS FILE'S ASSERTIONS: NRestarts bound is 4 (a generous
+#   ceiling over the 3-restart path derived above — handoff + the unverifiable
+#   forward-retry crash-exit + rollback's own terminal exit — with headroom;
+#   NOT the load-bearing claim: the actual observed value is logged explicitly).
+#   The terminal itself (rolled_back, V-unrecorded, clean-slate fingerprint
+#   match) IS load-bearing — mirrors ceiling-arc.sh's own rollback apparatus,
+#   adapted for the extra unverifiable-forward-retry pass this arc's
+#   whole-container kill introduces (ceiling's kill never takes the db down,
+#   so it never needs that extra pass).
 #
 #   NOT BUILT HERE (explicitly out of scope, pre-blessed but gated): a
 #   RECURRING-OOM variant — re-arm the kill at each new pg_stat_activity
-#   midpoint so the migration never gets a clean run, driving the crash-resume
-#   death budget to its same-step-twice/exhaustion PARK or restore-broke
-#   terminal instead of a clean forward completion. That variant is a
-#   deliberate, separate arc gated on a King map-wording nod (071 coverage-map
-#   cell rewording lives in the King's decision bundle) — do not build it as
-#   part of this ticket.
+#   midpoint. Under 145 this no longer has an on-cue same-step-twice/budget
+#   park construction either (same reasoning doc-029 traced for the park
+#   rebuild: pre-delta deaths now hit the atomicity flip on their VERY FIRST
+#   occurrence, so there is no "twice" to accumulate against). Deliberately
+#   left as a separate, King-flagged question (071 coverage-map wording) —
+#   do not build it as part of this ticket.
 #
 # Inputs (env): BASE_SHA, B_FULL (40-hex), B_BRANCH, V_VERSION,
 #   SB_ARC_TRUSTED_SIGNER. No C_FULL/C_BRANCH — single-phase arc. VM name = $1.
@@ -108,19 +133,6 @@ TICK_WAIT_S="${TICK_WAIT_S:-120}"
 MIDPOINT_WAIT_BUDGET_S="${MIDPOINT_WAIT_BUDGET_S:-300}"
 KILL_CONFIRM_BUDGET_S="${KILL_CONFIRM_BUDGET_S:-60}"
 BACKOFF_MARKER_WAIT_BUDGET_S="${BACKOFF_MARKER_WAIT_BUDGET_S:-300}"
-
-# ── STATBUS-145 GATE [PENDING-145-REDERIVE] ──────────────────────────────────
-# This arc's terminal is being FLIPPED under the minimal-boot-migrate geometry:
-# the delta moved from the re-exec'd boot-migrate (this header's premise) to the
-# applyPostSwap step, so a mid-delta OOM kill reads observed-state Behind → a
-# data-safe rollback → the ruled terminal is `rolled_back` on the FIRST kill
-# (V-unrecorded + clean-slate fingerprint). That flip is the mechanic's edit and
-# lands WITH slice 4's proving dispatch — until the ORACLE run confirms it, this
-# arc loudly DECLINES to assert rather than assert an underived terminal. Exits
-# BEFORE any VM is provisioned (zero cost). A surviving marker after slice 4 is
-# itself a red flag (STATBUS-145 PIN 3).
-echo "SKIP [PENDING-145-REDERIVE]: terminal contract awaiting the slice-4 oracle run (STATBUS-145)"
-exit 0
 
 : "${BASE_SHA:?BASE_SHA required}"
 : "${B_FULL:?B_FULL required}"
@@ -137,7 +149,7 @@ source "$LIB_DIR/arc-helpers.sh"
 trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Arc: postswap-migration-oom  (STATBUS-096 — external SIGKILL of Postgres mid-migration)"
+echo "  Arc: postswap-migration-oom  (STATBUS-096 — external SIGKILL of Postgres mid-migration; STATBUS-145 rollback geometry)"
 echo "  A=${BASE_SHA:0:8}  B=${B_FULL:0:8}"
 echo "════════════════════════════════════════════════════════════════"
 
@@ -149,14 +161,16 @@ row_state() { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.u
 row_error() { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT COALESCE(error,'') FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d '\r' || echo ""; }
 
 # ── A: install + prepare (bootstrap → install A → health → trust arc → populate) ──
-# NOTE: no baseline clean-slate fingerprint capture here (unlike failing-arc.sh)
-# — this arc's terminal is completed (forward), not rolled_back, so there is
-# no "must match pre-upgrade byte-for-byte" claim to make; the fixture-table +
-# migration-recorded assertions below are this arc's equivalent proof that the
-# forward path genuinely ran to completion.
 arc_prepare_box
 DATA_SNAPSHOT=$(snapshot_demo_data_counts "$VM_NAME")
 echo "  pre-arc data snapshot: $DATA_SNAPSHOT"
+
+# Baseline fingerprint (post-A + demo data) — THIS arc's terminal is now
+# rolled_back (the atomicity flip), so the failing/ceiling-arc apparatus
+# applies verbatim: the rollback must restore this byte-for-byte.
+echo "── capturing baseline clean-slate fingerprint (post-A) ──"
+BASELINE_FP=$(capture_db_fingerprint baseline)
+echo "  baseline fingerprint: $BASELINE_FP"
 
 # ─────────────────────────────────────────────────────────────────────────
 # Register + schedule B — real Albania path (register + schedule; the daemon
@@ -164,6 +178,7 @@ echo "  pre-arc data snapshot: $DATA_SNAPSHOT"
 # schedule steps verbatim (arc-helpers.sh); NOT calling arc_to itself because
 # its monolithic wait loop has no hook for the midpoint kill below.
 # ─────────────────────────────────────────────────────────────────────────
+echo ""
 dump_daemon_state "before B"
 VM_EXEC bash -c "cd ~/statbus && git fetch origin $B_BRANCH && git cat-file -e $B_FULL"
 echo "── register B ──"
@@ -230,33 +245,34 @@ done
 # ─────────────────────────────────────────────────────────────────────────
 # BEST-EFFORT OBSERVATION LEGS (per the ruling: stay best-effort, not
 # load-bearing — the terminal assertion below is the arc's real claim).
-# Two markers, either or neither may appear depending on which restart path
-# fires (see MECHANICS point 3):
-#   - the STATBUS-017 fall-through line, if boot-migrate-up's own failure is
-#     what's observed ("deferring to recoverFromFlag for snapshot restore").
-#   - STATBUS-109's db-unreachable backoff-retry marker (its first live
-#     firing in an arc), if the two-restart path's Resuming branch has to
-#     wait out any residual db-unreachable window.
+# Under the 145 geometry the kill lands at the pipeline migrate step (3.5),
+# not boot-migrate-up, so the OLD "STATBUS-017 fall-through" marker (which
+# only fires when boot-migrate-up itself fails) no longer applies to this
+# construction — replaced by postSwapFailure's own "unverifiable...forward
+# retry" line (MECHANICS point 3), the first pass's actual disposition.
+# STATBUS-109's db-unreachable backoff-retry marker (MECHANICS point 4's
+# Resuming-arm read) may still fire for a beat if EnsureDBUp is still racing
+# on the second pass — kept as a second best-effort leg.
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── watching for best-effort recovery markers (budget ${BACKOFF_MARKER_WAIT_BUDGET_S}s) ──"
 MARKER_START=$(date +%s)
-DEFER_SEEN="no"
+UNVERIFIABLE_SEEN="no"
 BACKOFF_SEEN="no"
 while :; do
     ELAPSED=$(( $(date +%s) - MARKER_START ))
     JOURNAL_TAIL=$(VM_EXEC bash -c "journalctl --user -u statbus-upgrade@statbus.service --no-pager -n 400 2>/dev/null" || echo "")
-    if [ "$DEFER_SEEN" = "no" ] && echo "$JOURNAL_TAIL" | grep -q 'deferring to recoverFromFlag for snapshot restore (STATBUS-017)'; then
-        DEFER_SEEN="yes"
-        echo "  ✓ STATBUS-017 fall-through observed after ${ELAPSED}s (boot-migrate-up's own failure deferred to recoverFromFlag)"
+    if [ "$UNVERIFIABLE_SEEN" = "no" ] && echo "$JOURNAL_TAIL" | grep -q 'observed state is unverifiable'; then
+        UNVERIFIABLE_SEEN="yes"
+        echo "  ✓ postSwapFailure's unverifiable/forward-retry line observed after ${ELAPSED}s (first pass: db down mid-failure-read, non-terminal)"
     fi
     if [ "$BACKOFF_SEEN" = "no" ] && echo "$JOURNAL_TAIL" | grep -q 'recovery backoff-retry \[db-unreachable\]'; then
         BACKOFF_SEEN="yes"
-        echo "  ✓ STATBUS-109 db-unreachable backoff-retry marker observed after ${ELAPSED}s (first live firing in an arc)"
+        echo "  ✓ STATBUS-109 db-unreachable backoff-retry marker observed after ${ELAPSED}s"
     fi
     CUR_STATE=$(row_state)
     if [ "$CUR_STATE" = "completed" ] || [ "$CUR_STATE" = "rolled_back" ] || [ "$CUR_STATE" = "failed" ]; then
-        echo "  [OBSERVE] row reached terminal '$CUR_STATE' — stopping the marker watch (defer_seen=$DEFER_SEEN backoff_seen=$BACKOFF_SEEN)"
+        echo "  [OBSERVE] row reached terminal '$CUR_STATE' — stopping the marker watch (unverifiable_seen=$UNVERIFIABLE_SEEN backoff_seen=$BACKOFF_SEEN)"
         break
     fi
     if [ "$ELAPSED" -ge "$BACKOFF_MARKER_WAIT_BUDGET_S" ]; then
@@ -265,14 +281,15 @@ while :; do
     fi
     sleep 5
 done
-echo "  markers observed: STATBUS-017 defer=$DEFER_SEEN, STATBUS-109 backoff-retry=$BACKOFF_SEEN"
+echo "  markers observed: unverifiable-forward-retry=$UNVERIFIABLE_SEEN, STATBUS-109 backoff-retry=$BACKOFF_SEEN"
 
 # ─────────────────────────────────────────────────────────────────────────
 # TERMINAL: wait for the row to reach a terminal state. Transport-aware
 # throughout (row_state already tolerates a dead DB); budget is generous —
-# per the mechanics note, this may involve the db container's own restart
-# window PLUS, on the two-restart path, an extra daemon crash-restart cycle
-# before EnsureDBUp + the observed-state re-read clear on the next boot.
+# per the mechanics note, this involves the db container's own restart
+# window PLUS a genuine daemon crash-restart cycle (the first pass's
+# unverifiable non-terminal failure) before the second pass's Resuming-arm
+# observed-state read fires the rollback.
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── waiting for B to reach a terminal state (budget ${UPGRADE_BUDGET_S}s) ──"
@@ -293,42 +310,35 @@ while :; do
 done
 
 echo ""
-echo "── convergence checks (the box recovered forward from a real SIGKILL of Postgres mid-migration) ──"
-[ "$FINAL_STATE" = "completed" ] || { echo "✗ B reached '$FINAL_STATE', expected 'completed' — the single-OOM contract is FORWARD recovery (Run()'s own EnsureDBUp always revives the db before any recovery branch runs)" >&2; VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, error FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 3;\" | ./sb psql" >&2 || true; exit 1; }
-echo "  ✓ state='completed'"
+echo "── convergence checks (the box rolled back autonomously from a real SIGKILL of Postgres mid-migration) ──"
+[ "$FINAL_STATE" != "completed" ] || { echo "✗ state='completed' — impossible under the 145 atomicity flip (V_sleep was SIGKILLed uncommitted; the Resuming arm's observed-state read must find it positively Behind, never re-attempt it forward)" >&2; exit 1; }
+[ "$FINAL_STATE" = "rolled_back" ] || { echo "✗ B reached '$FINAL_STATE', expected 'rolled_back'" >&2; VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, error FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 3;\" | ./sb psql" >&2 || true; exit 1; }
+echo "  ✓ state='rolled_back'"
 echo "  error: $(row_error)"
 
-# V RECORDED (flipped from the rollback story's V-unrecorded check): the
-# killed migration's ledger row must exist and be the highest applied
-# version — it genuinely completed on its post-revival re-attempt, not
-# merely "some migration or other" completed.
+# V UNRECORDED (flipped from the forward story's V-recorded check): the
+# killed migration's transaction died uncommitted with its backend — it must
+# never have reached db.migration.
 MROWS_B=$(migration_row_count)
-[ "$MROWS_B" = "1" ] || { echo "✗ V_sleep recorded ${MROWS_B} time(s) in db.migration (want exactly 1)" >&2; exit 1; }
-MAXV=$(migration_max_version)
-[ "$MAXV" = "$V_VERSION" ] || { echo "✗ db.migration max version=$MAXV, expected V_VERSION=$V_VERSION" >&2; exit 1; }
-echo "  ✓ V_sleep recorded exactly once in db.migration (max version == V_VERSION=$V_VERSION)"
+[ "$MROWS_B" = "0" ] || { echo "✗ V_sleep left a ledger row (count=$MROWS_B, want 0) — rollback did not unrecord it" >&2; exit 1; }
+echo "  ✓ V_sleep not recorded in db.migration (rolled back, transaction died uncommitted with its backend)"
 
-# FIXTURE TABLE PRESENT: the migration's own CREATE TABLE + INSERT actually
-# ran (not just its ledger row) — proof the re-attempt executed the real
-# migration body end to end, past the sleep.
-FIXTURE_COUNT=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM public.upgrade_arc_oom_fixture WHERE id = 1 AND note = 'oom';\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "0")
-[ "$FIXTURE_COUNT" = "1" ] || { echo "✗ public.upgrade_arc_oom_fixture missing its row (count=$FIXTURE_COUNT, want 1) — the migration's body did not fully execute" >&2; exit 1; }
-echo "  ✓ public.upgrade_arc_oom_fixture present (the migration genuinely ran to completion)"
-
+assert_fingerprint_matches "post-rollback == post-A" "$BASELINE_FP" baseline
 assert_demo_data_present "$VM_NAME"
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 assert_flag_file_absent "$VM_NAME"
 assert_no_orphan_backup "$VM_NAME"
 assert_health_passes "$VM_NAME"
 
-# NRestarts: see MECHANICS point 3 for the full derivation. Bound stays at 3
-# (a generous ceiling over both the one-restart [handoff only] and
-# two-restart [handoff + one DB-unreachable exit] paths) but is NOT the
-# load-bearing claim — the actual observed value is logged explicitly so a
-# real run tells us which path fired and lets the bound be tightened later.
+# NRestarts: see MECHANICS points 3-4 for the full derivation. Bound = 4 (a
+# generous ceiling over the derived 3-restart path — handoff + the
+# unverifiable forward-retry crash-exit + rollback's own terminal exit — with
+# headroom) but is NOT the load-bearing claim — the actual observed value is
+# logged explicitly so a real run tells us which path fired and lets the
+# bound be tightened later.
 OBSERVED_NRESTARTS=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
-echo "  [OBSERVE] NRestarts = ${OBSERVED_NRESTARTS} (1 = handoff-only path; 2 = handoff + one DB-unreachable restart; anything higher is a finding)"
-assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 3
+echo "  [OBSERVE] NRestarts = ${OBSERVED_NRESTARTS} (3 expected: handoff + unverifiable-forward-retry crash-exit + rollback's own terminal exit; anything higher is a finding)"
+assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 4
 
 echo ""
-echo "PASS: postswap-migration-oom (a real, running migration was SIGKILLed via its db container mid-sleep, reproducing the OS-OOM-killer effect deterministically; the box's own boot revived the db and re-ran the migration to completed; fixture present; data intact; healthy)"
+echo "PASS: postswap-migration-oom (a real, running migration was SIGKILLed via its db container mid-sleep, reproducing the OS-OOM-killer effect deterministically; under the STATBUS-145 atomicity flip the box rolled back autonomously — V_sleep never re-attempted, restored to a byte-identical clean slate — data intact, healthy)"

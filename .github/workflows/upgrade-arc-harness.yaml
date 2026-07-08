@@ -67,6 +67,7 @@ jobs:
       base_short: ${{ steps.fixtures.outputs.base_short }}
       v_version: ${{ steps.fixtures.outputs.v_version }}
       v_version_2: ${{ steps.fixtures.outputs.v_version_2 }}
+      v_version_3: ${{ steps.fixtures.outputs.v_version_3 }}
       arc_pubkey: ${{ steps.fixtures.outputs.arc_pubkey }}
       # §7 shared-fixture (STATBUS-071 5d-d): ONE working pair + ONE failing pair
       # cover ALL arcs (kill/stall arcs ride working; failing + rollback-restore
@@ -94,6 +95,16 @@ jobs:
       ceiling_b_branch: ${{ steps.fixtures.outputs.ceiling_b_branch }}
       ceiling_b_short: ${{ steps.fixtures.outputs.ceiling_b_short }}
       ceiling_b_full: ${{ steps.fixtures.outputs.ceiling_b_full }}
+      # healthpark (STATBUS-145, doc-029): TWO-phase like working/failing — B
+      # parks (health-past-warmup, at-target); C is a real fix release (a NEW
+      # migration V3) dispatched while B's row sits parked. postswap-health-
+      # park-arc.sh is the sole rider.
+      healthpark_b_branch: ${{ steps.fixtures.outputs.healthpark_b_branch }}
+      healthpark_c_branch: ${{ steps.fixtures.outputs.healthpark_c_branch }}
+      healthpark_b_short: ${{ steps.fixtures.outputs.healthpark_b_short }}
+      healthpark_c_short: ${{ steps.fixtures.outputs.healthpark_c_short }}
+      healthpark_b_full: ${{ steps.fixtures.outputs.healthpark_b_full }}
+      healthpark_c_full: ${{ steps.fixtures.outputs.healthpark_c_full }}
     steps:
       - name: Checkout (full history — branch fixtures are real commits off A)
         uses: actions/checkout@v4
@@ -154,12 +165,19 @@ jobs:
           construct_upgrade_target "$base_sha" ceiling
           ceiling_b_branch="$B_BRANCH"; ceiling_b_short="$B_SHORT"; ceiling_b_full="$B_FULL"
 
+          # healthpark (STATBUS-145, doc-029): TWO-phase like working/failing —
+          # B parks, C is a real fix release (a NEW migration V3).
+          construct_upgrade_target "$base_sha" healthpark
+          healthpark_b_branch="$B_BRANCH"; healthpark_b_short="$B_SHORT"; healthpark_b_full="$B_FULL"
+          healthpark_c_branch="$C_BRANCH"; healthpark_c_short="$C_SHORT"; healthpark_c_full="$C_FULL"
+
           # ARC_PUBKEY set (and exported) by the library on the first call above.
           {
             echo "base_sha=${base_sha}"
             echo "base_short=${base_short}"
             echo "v_version=${V_VERSION}"
             echo "v_version_2=${V_VERSION_2}"
+            echo "v_version_3=${V_VERSION_3}"
             echo "arc_pubkey=${ARC_PUBKEY}"
             echo "working_b_branch=${working_b_branch}"
             echo "working_c_branch=${working_c_branch}"
@@ -179,9 +197,15 @@ jobs:
             echo "ceiling_b_branch=${ceiling_b_branch}"
             echo "ceiling_b_short=${ceiling_b_short}"
             echo "ceiling_b_full=${ceiling_b_full}"
+            echo "healthpark_b_branch=${healthpark_b_branch}"
+            echo "healthpark_c_branch=${healthpark_c_branch}"
+            echo "healthpark_b_short=${healthpark_b_short}"
+            echo "healthpark_c_short=${healthpark_c_short}"
+            echo "healthpark_b_full=${healthpark_b_full}"
+            echo "healthpark_c_full=${healthpark_c_full}"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Dispatch images.yaml for all 6 fixture branches (push does not trigger; dispatch does)
+      - name: Dispatch images.yaml for all 8 fixture branches (push does not trigger; dispatch does)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WORKING_B_BRANCH: ${{ steps.fixtures.outputs.working_b_branch }}
@@ -190,6 +214,8 @@ jobs:
           FAILING_C_BRANCH: ${{ steps.fixtures.outputs.failing_c_branch }}
           OOM_B_BRANCH: ${{ steps.fixtures.outputs.oom_b_branch }}
           CEILING_B_BRANCH: ${{ steps.fixtures.outputs.ceiling_b_branch }}
+          HEALTHPARK_B_BRANCH: ${{ steps.fixtures.outputs.healthpark_b_branch }}
+          HEALTHPARK_C_BRANCH: ${{ steps.fixtures.outputs.healthpark_c_branch }}
         run: |
           set -euo pipefail
           # images.yaml is UNCHANGED — its workflow_dispatch is the public entry
@@ -220,6 +246,8 @@ jobs:
           dispatch_images "$FAILING_C_BRANCH"
           dispatch_images "$OOM_B_BRANCH"
           dispatch_images "$CEILING_B_BRANCH"
+          dispatch_images "$HEALTHPARK_B_BRANCH"
+          dispatch_images "$HEALTHPARK_C_BRANCH"
 
   image-wait:
     name: Wait for per-commit images (A + B + C)
@@ -242,7 +270,7 @@ jobs:
           DOCKER_CLI_EXPERIMENTAL: enabled
           IMAGES_WAIT_BUDGET_S: "2400"
           IMAGES_WAIT_INTERVAL_S: "30"
-          SHORTS: "${{ needs.construct.outputs.base_short }} ${{ needs.construct.outputs.working_b_short }} ${{ needs.construct.outputs.working_c_short }} ${{ needs.construct.outputs.failing_b_short }} ${{ needs.construct.outputs.failing_c_short }} ${{ needs.construct.outputs.oom_b_short }} ${{ needs.construct.outputs.ceiling_b_short }}"
+          SHORTS: "${{ needs.construct.outputs.base_short }} ${{ needs.construct.outputs.working_b_short }} ${{ needs.construct.outputs.working_c_short }} ${{ needs.construct.outputs.failing_b_short }} ${{ needs.construct.outputs.failing_c_short }} ${{ needs.construct.outputs.oom_b_short }} ${{ needs.construct.outputs.ceiling_b_short }} ${{ needs.construct.outputs.healthpark_b_short }} ${{ needs.construct.outputs.healthpark_c_short }}"
         run: |
           set -euo pipefail
           echo "${GH_TOKEN}" | docker login "$REGISTRY" -u "$ACTOR" --password-stdin
@@ -392,18 +420,22 @@ jobs:
           ssh-keygen -lf ~/.ssh/id_ed25519 | awk '{ print "SSH key fingerprint:", $2 }'
 
       - name: Resolve fixture lineage for the scenario
-        # §7 shared-fixture: each arc rides ONE of the 4 shared lineages. The
+        # §7 shared-fixture: each arc rides ONE of the 5 shared lineages. The
         # failing + rollback-restore arcs need the FAILING V (RAISE → rollback);
         # postswap-migration-oom needs its own OOM V (a real, long-running
         # statement to kill mid-run — STATBUS-096); postswap-migration-ceiling
         # needs its own CEILING V (a real, long-running statement OUR OWN
-        # STATBUS_MIGRATE_UP_TIMEOUT kills — STATBUS-095 piece 2); every other
-        # (kill/stall) arc rides the WORKING V. Map scenario→lineage and export
-        # the chosen pair's B/C refs to $GITHUB_ENV for the run step (the arc
-        # reads B_FULL/C_FULL/B_BRANCH/C_BRANCH from the environment). The oom
-        # and ceiling lineages export B_FULL/B_BRANCH only — both are
+        # STATBUS_MIGRATE_UP_TIMEOUT kills — STATBUS-095 piece 2); postswap-
+        # health-park needs its own HEALTHPARK V pair (V1/V2 break auth_status
+        # past warmup; C=V3 is a real fix release — STATBUS-145, doc-029);
+        # every other (kill/stall) arc rides the WORKING V. Map scenario→lineage
+        # and export the chosen pair's B/C refs to $GITHUB_ENV for the run step
+        # (the arc reads B_FULL/C_FULL/B_BRANCH/C_BRANCH from the environment).
+        # The oom and ceiling lineages export B_FULL/B_BRANCH only — both are
         # single-phase (no C) and neither arc references C_FULL/C_BRANCH
-        # (mirrors rollback-kill-arc.sh's own B-only shape).
+        # (mirrors rollback-kill-arc.sh's own B-only shape). healthpark ALSO
+        # exports B_SHORT (postswap-health-park-arc.sh's park-reason regex
+        # names the short SHA) — the only lineage that needs it.
         env:
           SCENARIO: ${{ matrix.scenario }}
           WORKING_B_FULL: ${{ needs.construct.outputs.working_b_full }}
@@ -418,12 +450,18 @@ jobs:
           OOM_B_BRANCH: ${{ needs.construct.outputs.oom_b_branch }}
           CEILING_B_FULL: ${{ needs.construct.outputs.ceiling_b_full }}
           CEILING_B_BRANCH: ${{ needs.construct.outputs.ceiling_b_branch }}
+          HEALTHPARK_B_FULL: ${{ needs.construct.outputs.healthpark_b_full }}
+          HEALTHPARK_C_FULL: ${{ needs.construct.outputs.healthpark_c_full }}
+          HEALTHPARK_B_BRANCH: ${{ needs.construct.outputs.healthpark_b_branch }}
+          HEALTHPARK_C_BRANCH: ${{ needs.construct.outputs.healthpark_c_branch }}
+          HEALTHPARK_B_SHORT: ${{ needs.construct.outputs.healthpark_b_short }}
         run: |
           set -euo pipefail
           case "$SCENARIO" in
             failing|postswap-rollback-restore-watchdog) lineage=failing ;;
             postswap-migration-oom)                     lineage=oom ;;
             postswap-migration-ceiling)                 lineage=ceiling ;;
+            postswap-health-park)                        lineage=healthpark ;;
             *)                                          lineage=working ;;
           esac
           echo "Scenario '${SCENARIO}' → fixture lineage '${lineage}'"
@@ -443,6 +481,14 @@ jobs:
             {
               echo "B_FULL=${CEILING_B_FULL}"
               echo "B_BRANCH=${CEILING_B_BRANCH}"
+            } >> "$GITHUB_ENV"
+          elif [ "$lineage" = healthpark ]; then
+            {
+              echo "B_FULL=${HEALTHPARK_B_FULL}"
+              echo "C_FULL=${HEALTHPARK_C_FULL}"
+              echo "B_BRANCH=${HEALTHPARK_B_BRANCH}"
+              echo "C_BRANCH=${HEALTHPARK_C_BRANCH}"
+              echo "B_SHORT=${HEALTHPARK_B_SHORT}"
             } >> "$GITHUB_ENV"
           else
             {
@@ -473,10 +519,12 @@ jobs:
           # daemon's verifyCommitSignature accepts the (signed) B/C commits.
           SB_ARC_TRUSTED_SIGNER: ${{ needs.construct.outputs.arc_pubkey }}
           BASE_SHA: ${{ needs.construct.outputs.base_sha }}
-          # B_FULL / C_FULL / B_BRANCH / C_BRANCH are exported to $GITHUB_ENV by the
-          # "Resolve fixture lineage" step above (scenario→working|failing pair).
+          # B_FULL / C_FULL / B_BRANCH / C_BRANCH (and, for healthpark, B_SHORT)
+          # are exported to $GITHUB_ENV by the "Resolve fixture lineage" step above
+          # (scenario→working|failing|oom|ceiling|healthpark pair).
           V_VERSION: ${{ needs.construct.outputs.v_version }}
           V_VERSION_2: ${{ needs.construct.outputs.v_version_2 }}
+          V_VERSION_3: ${{ needs.construct.outputs.v_version_3 }}
           SCENARIO: ${{ matrix.scenario }}
         run: |
           set -euo pipefail
