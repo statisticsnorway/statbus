@@ -204,7 +204,7 @@ preflight_head_on_origin() {
     # Fast path (no network): an ORIGIN remote-tracking branch already contains
     # it. Filtered to origin/ — a fork remote containing HEAD must not pass,
     # since origin is what the VM clones (reviewer tightening).
-    if [ -n "$(git -C "$HARNESS_ROOT" branch -r --contains "$sha" 2>/dev/null | grep '^ *origin/')" ]; then
+    if git -C "$HARNESS_ROOT" branch -r --contains "$sha" 2>/dev/null | grep -q '^ *origin/'; then
         return 0
     fi
     # Slow path: ask origin directly — local remote-tracking refs may be stale, or
