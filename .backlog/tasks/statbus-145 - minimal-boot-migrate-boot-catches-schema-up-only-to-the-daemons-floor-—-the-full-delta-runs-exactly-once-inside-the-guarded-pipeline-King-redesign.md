@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - architect
 created_date: '2026-07-07 09:23'
-updated_date: '2026-07-07 09:24'
+updated_date: '2026-07-08 13:48'
 labels:
   - upgrade
   - recovery
@@ -57,6 +57,41 @@ Full analysis: comment #1 (floor mechanism, bounded form, what it dissolves), co
 - [ ] #5 doc-021 step list + budget-boundary narrative + both diagrams updated in the same commit as the shipped change (docs describe the present)
 <!-- AC:END -->
 
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+KING RULED PROCEED (2026-07-08, via foreman): floor strategy + atomicity flip + flagless floor-only semantics approved; the 096 evidence probe approved as the naming refinement; the OOM single/recurring split question is SUPERSEDED by this build (mid-delta OOM → Behind → rolled_back structurally). AC#1 is thereby satisfied; ACs #2-#5 map to the slices below. Architect reviews every slice hands-on before commit; foreman dispatches and commits.
+
+## SLICE 1 — floor substrate (engineer; zero behavior change; ship-safe alone)
+
+1. Checked-in constant `DaemonSchemaFloor int64 = 20260703210000` (cli/internal/migrate or upgrade pkg — builder's call, one home). DECIDED: const + test-guard over build-time ldflags derivation — deterministic binary, reviewable diff, no build-step magic; the mechanical guard below makes forgetting impossible.
+2. BUMP-GUARD test: a Go test scanning migrations/*.up.sql with version > floor for the daemon relation set — public.upgrade, db.migration, public.system_info, plus whatever the builder's enumeration of service.go's query surface adds (architect reviews the enumeration against the ~23 sites). Any hit fails with "migration <v> touches daemon relation <r> — bump DaemonSchemaFloor in the same commit". Scanning our own migration SQL is data-scan, not the banned error-prose classification.
+3. EMPIRICAL FLOOR test: provision a scratch DB migrated `--to <floor>`, execute the daemon's boot+recovery query list, assert zero SQLSTATE 42703. Builder picks the cheapest harness that genuinely executes the queries (Go integration against the test cluster or a dev.sh test); the query list is the enumeration artifact from step 2.
+4. The existing 42703 fail-open patterns (RecoveryBudgetGuard :5777-5782 and kin) stay untouched as last-resort backstop.
+
+## SLICE 2 — the geometry change (engineer; THE ATOMICITY FLIP SHIPS HERE; architect hands-on review before commit)
+
+1. Both boot sites switch to the bounded form: service.go:1934 and install_upgrade.go:290 → `migrate up --to <floor> --verbose`. The deliberate step-table Migrations step (cmd/install.go:623) stays apply-all.
+2. New helper `migrate.HasPendingAbove(projDir, floor)`; flagless boot with pending-above-floor logs ONE loud line ("N migrations pending beyond the daemon floor — they apply on the next deliberate upgrade or ./sb install").
+3. DEPENDENTS AUDIT in-slice (grep the dying invariant "boot-migrate applies everything"; each finding recorded in the review): resumePostSwap self-heal canary (HasPending gate :6019 — correct as-is, never short-circuits a delta-pending resume); markCurrentVersionCompleted + completeInProgressUpgrade (observed-state-gated — refuse on pending delta, correct); the Resuming-branch obs read (Behind → rollback IS the flip, desired); 017-defer (:1972 — domain shrinks to floor migrations, code unchanged, comment updated); the 144 exit-20 alive-idle branch (:1977-2013 — same: unchanged code, shrunken domain, comment updated).
+4. IN THE SAME COMMIT (docs describe the present; diagrams land with the handling): doc-021 step-list + budget-boundary rewrite (boot window = floor-only, delta at the pipeline migrate step, the atomicity flip named as ratified); both diagrams (upgrade-timeline + upgrade-lifecycle); AND the assertion flips for every contract-changing arc so the next dispatch is truthful — OOM arc (terminal rolled_back on first kill; V-unrecorded + clean-slate fingerprint assertions return), between-migrations + mid-migration arcs (completed → rolled_back), ceiling arc gains the single-fire leg (exactly ONE ceiling marker in the journal; delta never runs at boot).
+5. Unit tests: bounded boot-migrate command construction; floor no-op path; the loud-line branch.
+
+## SLICE 3 — the 096 evidence probe (engineer; architect reviews under classifier discipline)
+
+1. Post-failure probe at the now-single migrate-failure site (applyPostSwap's handler, :5424+): docker inspect of the db container (STRUCTURED fields: running/dead, ExitCode, OOMKilled, StartedAt vs the migrate start) + a bounded db-log tail scan for the postmaster crash constants ("terminated by signal 9" — PostgreSQL-authored, version-pinned image; the strerror(ENOSPC) authorship tier).
+2. Conjunctive + positive-match-only (the ENOSPC asymmetry): evidence found → the failure/park/rollback REASON carries it as named data ("the database was killed by the OS while migration <v> ran — it likely exceeds this box's memory"); no evidence → today's path unchanged. Under-match degrades to leniency, never a wrong abort.
+3. Unit tests pin the verbatim constants; the probe is best-effort (its own failure never changes disposition).
+
+## SLICE 4 — the verification campaign (foreman dispatches; the run is the only oracle)
+
+1. Re-prove the flipped contracts on real VMs: OOM arc (rolled_back on first kill), ceiling arc (single fire), between-migrations + mid-migration arcs (rolled_back). Regression confidence set: failing arc, working arc, one preswap kill arc, rollback-restore-watchdog.
+2. PARK SCENARIO REAL-PATH REBUILD (per doc-028 + the King's carve-out ruling): mechanic builds from a short architect spec written AFTER slice 2 lands (the surviving park window under the new geometry = floor-migrate deaths + at-target post-delta crashes — e.g. repeated daemon kills at the health-check step, kill gate = the write-ahead step stamp). The r19-green fabricated scenario stays as the interim regression net until the rebuild is green — never delete proof coverage before its replacement is proven — then fabricate_resume_state drops to its ONE sanctioned caller (rune-wedge).
+3. On green: reword the 071 coverage-map OOM cell ("rolls back" — now literally true on first occurrence), update doc-027 §C/§D to the new geometry, and close this ticket's AC#4/#5.
+
+Build order: 1 → 2 → 3 → 4. Slices 1-3 are separate reviewable commits; slice 2 is the load-bearing review (the flip + in-commit docs + in-commit assertion flips).
+<!-- SECTION:PLAN:END -->
+
 ## Comments
 
 <!-- COMMENTS:BEGIN -->
@@ -84,5 +119,11 @@ THE ATOMICITY FLIP (the one consequence that must be ratified, not slipped in). 
 (e) WHO READS WHAT DURING THE WINDOW: the delta applying later exposes NO new-version container to pre-delta schema. Verified order in applyPostSwap: db up (3.3) → reconnect (3.4) → MIGRATE (3.5, :5347/:5421) → THEN app/worker/rest start (3.6, :5460+). App/worker/rest are stopped from pre-swap step 3 until 3.6, so they only ever boot post-delta. Between floor and delta only the DAEMON queries the DB — floor-covered by definition. The db container running the new image against pre-delta data during 3.3-3.5 is already today's order.
 
 COMPOSITION WITH 096 #6 (rule together): this redesign SUBSUMES THE DIRECTION HALF of the evidence-probe recommendation — rollback-on-first-occurrence for mid-delta db-death becomes STRUCTURAL (no probe needed to get the direction right). The probe remains as the NAMING + LATENCY refinement: it lets the failure reason say 'the database was killed by the OS while migration <v> ran' instead of a bare Behind-rollback narrative, and it can shortcut the one extra unreadable→Behind pass. It also simplifies under this design: ONE site (:5421's failure handler) instead of two. Recommendation: approve BOTH; build order = minimal-boot-migrate FIRST (it moves the classification site the probe attaches to), probe second as a small follow-up. The 096 single-OOM arc contract then flips to rolled_back-on-first-kill — which makes the King's original 071 map cell wording ('OOM → rolls back') literally true, now by structure rather than by classification.
+---
+
+author: architect
+created: 2026-07-08 13:48
+---
+BUILD SEQUENCED (architect, 2026-07-08, on the King's PROCEED ruling): the four-slice plan is in this ticket's Implementation Plan — slice 1 floor substrate (const + bump-guard + empirical floor test, zero behavior change), slice 2 the geometry change (the atomicity flip ships here, with doc-021/diagrams AND the contract-flipping arc assertions in the SAME commit), slice 3 the 096 evidence probe (naming refinement at the now-single site, classifier-discipline pins), slice 4 the VM verification campaign + the park scenario's real-path rebuild (spec written after slice 2 lands) + the 071 map-cell rewording on green. Engineer builds 1-3, architect reviews each slice hands-on before commit, foreman dispatches slice 4's runs. The recurring-OOM split question is recorded SUPERSEDED by this build per the King's ruling.
 ---
 <!-- COMMENTS:END -->
