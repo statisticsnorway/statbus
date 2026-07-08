@@ -102,6 +102,9 @@ TICK_WAIT_S="${TICK_WAIT_S:-120}"
 PARK_WAIT_BUDGET_S="${PARK_WAIT_BUDGET_S:-1200}"
 RESTART_WAIT_BUDGET_S="${RESTART_WAIT_BUDGET_S:-180}"
 INSTALL_BUDGET_S="${INSTALL_BUDGET_S:-900}"
+# One RestartSec=30 cycle + boot (~2s observed) + margin — the designed
+# auto-restart hold-off after the parking pass's own exit(1), not a bug.
+UNIT_ACTIVE_WAIT_BUDGET_S="${UNIT_ACTIVE_WAIT_BUDGET_S:-90}"
 UPGRADE_UNIT="statbus-upgrade@statbus.service"
 CALLBACK_LOG="/tmp/health-park-callback-log.txt"
 
@@ -182,6 +185,34 @@ wait_for_restart() {
             return 1
         fi
         sleep 2
+    done
+}
+
+# wait_for_unit_active — the parking pass exits status=1 BY DESIGN the
+# instant it writes the parked row (systemd then schedules the auto-restart,
+# RestartSec=30, and the NEXT boot is the parked-skip boot that goes active
+# in ~2s). The park-detection loop above breaks the moment the DB row shows
+# parked=true, which can land well inside that 30s auto-restart hold-off —
+# a bare one-shot `is-active` check here would race it (observed: fired at
+# t+10s into the hold-off, reporting 'activating (auto-restart)', not
+# 'active'). Poll instead, budget = one RestartSec cycle + boot + margin.
+wait_for_unit_active() {
+    local budget="$1"
+    local start now elapsed state
+    start=$(date +%s)
+    while true; do
+        now=$(date +%s); elapsed=$((now - start))
+        state=$(VM_EXEC bash -c "systemctl --user is-active '$UPGRADE_UNIT' 2>/dev/null || true" 2>/dev/null | tr -d ' \r\n')
+        if [ "$state" = "active" ]; then
+            echo "  ✓ unit active (t+${elapsed}s)"
+            return 0
+        fi
+        if [ "$elapsed" -ge "$budget" ]; then
+            echo "✗ unit did not reach 'active' within ${budget}s (last observed: '$state')" >&2
+            VM_EXEC systemctl --user status "$UPGRADE_UNIT" --no-pager -l 2>/dev/null | tail -30 >&2 || true
+            return 1
+        fi
+        sleep 3
     done
 }
 
@@ -300,6 +331,8 @@ echo "  ✓ V1 (fixture) + V2 (health-break) both recorded in db.migration; fixt
 
 echo ""
 echo "── assert 2: unit alive-idle, NRestarts BOUNDED and FROZEN across a settle window ──"
+echo "── waiting out the designed auto-restart hold-off (budget ${UNIT_ACTIVE_WAIT_BUDGET_S}s) before checking alive-idle ──"
+wait_for_unit_active "$UNIT_ACTIVE_WAIT_BUDGET_S" || exit 1
 assert_systemd_active "$VM_NAME" "$UPGRADE_UNIT" "active"
 NR_BEFORE=$(VM_EXEC systemctl --user show "$UPGRADE_UNIT" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n')
 echo "  NRestarts (pre-settle) = $NR_BEFORE"
