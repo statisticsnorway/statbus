@@ -43,7 +43,7 @@ fi
 echo "Creating template database with extensions..."
 
 # Create and configure template database
-psql <<'EOF'
+psql -v ON_ERROR_STOP=1 <<'EOF'
 CREATE DATABASE "template_statbus"
   ENCODING   'utf-8'
   -- Activate the chosen locale
@@ -101,20 +101,20 @@ echo "  App User: $POSTGRES_APP_USER"
 
 echo "Creating deployment-specific database user and database..."
 # Create deployment-specific database user and database
-psql -c "CREATE USER \"$POSTGRES_APP_USER\" WITH PASSWORD '$POSTGRES_APP_PASSWORD' CREATEDB;"
-psql -c "CREATE DATABASE \"$POSTGRES_APP_DB\" WITH template template_statbus OWNER \"$POSTGRES_APP_USER\";"
+psql -v ON_ERROR_STOP=1 -c "CREATE USER \"$POSTGRES_APP_USER\" WITH PASSWORD '$POSTGRES_APP_PASSWORD' CREATEDB;"
+psql -v ON_ERROR_STOP=1 -c "CREATE DATABASE \"$POSTGRES_APP_DB\" WITH template template_statbus OWNER \"$POSTGRES_APP_USER\";"
 
 echo "Setting up authentication roles..."
 # Create authenticator role for PostgREST
-psql -d "$POSTGRES_APP_DB" -c "CREATE ROLE authenticator NOINHERIT NOCREATEDB NOCREATEROLE NOSUPERUSER LOGIN PASSWORD '$POSTGRES_AUTHENTICATOR_PASSWORD';"
+psql -v ON_ERROR_STOP=1 -d "$POSTGRES_APP_DB" -c "CREATE ROLE authenticator NOINHERIT NOCREATEDB NOCREATEROLE NOSUPERUSER LOGIN PASSWORD '$POSTGRES_AUTHENTICATOR_PASSWORD';"
 
 # Create anon and authenticated roles
-psql -d "$POSTGRES_APP_DB" -c "CREATE ROLE anon NOLOGIN NOINHERIT NOCREATEDB NOCREATEROLE NOSUPERUSER;"
-psql -d "$POSTGRES_APP_DB" -c "CREATE ROLE authenticated NOLOGIN NOINHERIT NOCREATEDB NOCREATEROLE NOSUPERUSER;"
+psql -v ON_ERROR_STOP=1 -d "$POSTGRES_APP_DB" -c "CREATE ROLE anon NOLOGIN NOINHERIT NOCREATEDB NOCREATEROLE NOSUPERUSER;"
+psql -v ON_ERROR_STOP=1 -d "$POSTGRES_APP_DB" -c "CREATE ROLE authenticated NOLOGIN NOINHERIT NOCREATEDB NOCREATEROLE NOSUPERUSER;"
 
 # Grant roles to authenticator
-psql -d "$POSTGRES_APP_DB" -c "GRANT anon TO authenticator;"
-psql -d "$POSTGRES_APP_DB" -c "GRANT authenticated TO authenticator;"
+psql -v ON_ERROR_STOP=1 -d "$POSTGRES_APP_DB" -c "GRANT anon TO authenticator;"
+psql -v ON_ERROR_STOP=1 -d "$POSTGRES_APP_DB" -c "GRANT authenticated TO authenticator;"
 
 # Role GUCs (cluster-level: ALTER ROLE ... SET writes pg_db_role_setting, a
 # CLUSTER catalog that pg_dump CANNOT carry). This is the BIRTH half of
@@ -138,10 +138,10 @@ ALTER ROLE authenticator SET session_preload_libraries = safeupdate;
 EOF
 
 # Create auth schema (tables will be created by migrations)
-psql -d "$POSTGRES_APP_DB" -c "CREATE SCHEMA IF NOT EXISTS auth;"
+psql -v ON_ERROR_STOP=1 -d "$POSTGRES_APP_DB" -c "CREATE SCHEMA IF NOT EXISTS auth;"
 
 # Grant basic permissions
-psql -d "$POSTGRES_APP_DB" <<'EOF'
+psql -v ON_ERROR_STOP=1 -d "$POSTGRES_APP_DB" <<'EOF'
 -- Grant usage on auth schema
 GRANT USAGE ON SCHEMA auth TO authenticated;
 GRANT USAGE ON SCHEMA auth TO anon;
@@ -151,7 +151,7 @@ echo "Setting up STATBUS application roles..."
 # These roles are used by RLS policies and must exist before snapshot restore
 # They are also created by migrations (with IF NOT EXISTS), so this is idempotent
 # Using DO blocks with exception handling for idempotent role creation
-psql -d "$POSTGRES_APP_DB" <<'EOF'
+psql -v ON_ERROR_STOP=1 -d "$POSTGRES_APP_DB" <<'EOF'
 -- STATBUS user permission roles (used by RLS policies)
 -- Using exception handling for idempotent creation (CREATE ROLE IF NOT EXISTS isn't standard)
 DO $$ BEGIN CREATE ROLE admin_user NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
@@ -174,7 +174,7 @@ GRANT external_user TO restricted_user;
 EOF
 
 echo "Setting up notify reader role and user..."
-psql -d "$POSTGRES_APP_DB" <<EOSQL
+psql -v ON_ERROR_STOP=1 -d "$POSTGRES_APP_DB" <<EOSQL
 -- Create a role for read-only access for the notification listener
 CREATE ROLE notify_reader;
 
