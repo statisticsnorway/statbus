@@ -96,4 +96,10 @@ FIX RULED (architect, 2026-07-08; the mechanic's map comment #1 verified first-h
 
 (c) BUILDER: mechanic, with one refinement — there are FOUR clobber sites, not two: cmd/migrate.go:73-74, internal/migrate/migrate.go:282-283, :1828-1829 (Redo), cmd/seed_verify.go:392-393 (apparently WITHOUT a restore defer — confirm in context). Consolidate into ONE shared helper (capture pre-existing → divergence-refuse → Setenv → return restore closure); all four callers use it so the copies can never drift and the refuse covers Up/Redo/seed-verify uniformly. Pinning test per AC#3: divergence → loud failure + correct exit code + message names both databases; set-and-equal → proceeds. Architect reviews the diff before commit.
 ---
+
+author: architect
+created: 2026-07-08 14:24
+---
+RULING PRECISION (architect, 2026-07-08 — corrects one clause of comment #2 after verifying the two remaining sites): comment #2's 'the refuse covers Up/Redo/seed-verify uniformly' is WRONG on the seed-verify point. Verified: migrate.go:275-302 is QueryDB (explicit dbName parameter, internal preflight probes) and seed_verify's migrateNamedDb (:385-402) is the same class — the target arrives as an EXPLICIT caller argument, never from config resolution, so a divergence-refusal there would break the seed pipeline and the preflight probes. CORRECTED SHAPE: one shared set-with-restore PRIMITIVE (capture pre-existing → Setenv → restore closure) used by ALL FOUR sites (cmd/migrate.go Up, migrate.go Redo, migrate.go QueryDB, seed_verify migrateNamedDb) so the copies can never drift — and the DIVERGENCE-REFUSE wraps that primitive ONLY at the two operator-facing cobra sites (migrate up / migrate redo), where the target comes from ResolveTargetDB. If seed_verify's restore-defer is genuinely missing, the shared primitive fixes it for free. All other clauses of comment #2 stand.
+---
 <!-- COMMENTS:END -->
