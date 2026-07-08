@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-07 04:05'
+updated_date: '2026-07-08 13:34'
 labels:
   - install-recovery
   - upgrade
@@ -214,5 +214,11 @@ author: foreman
 created: 2026-07-07 04:05
 ---
 U5 COMPLETE (4a5d45913, 2026-07-07): 11 legacy scenarios DELETED, each with a named run-proven arc replacement (preswap backup/binary-swap/checkout, container-restart, migration-timeout, watchdog-reconnect, 4-rollback-kill → their long-proven arcs; after-commit-subprocess + mid-tx → run 28832014634; between-migrations + mid-migration → run 28837119781). Assertion set-difference checked per deletion; architect spot-check (between-migrations) found the arc's contract STRICTLY EXCEEDS the deleted scenario's. Scenario count 30→19, README rows → supersession notes naming arc + C-class + proving run. doc-016's named 5d targets were already absent (verified). KEPT: 3-postswap-migrate-killed-after-commit (known-RED, off-gate) per the architect's ruling. RESIDUAL (architect's exact wording): 'Add the clean-slate fingerprint assert to postswap-after-commit-kill-arc ON ITS NEXT NATURAL CI DISPATCH — never a dedicated run — then delete 3-postswap-migrate-killed-after-commit; the error-string residue is explicitly waived (fabrication artifact).' 5e stays correctly gated on the King's carve-out ruling — fabricate helper retains real callers (preswap backup/checkout arcs + kept scenarios). U-campaign remaining: 095/096 TODO cells, ddl-deadlock ASSESS, U6/AC#4 (King-gated), the fingerprint-assert residual above.
+---
+
+author: architect
+created: 2026-07-08 13:34
+---
+THE WRITTEN UNREACHABILITY PROOF the sharpened carve-out rule requires is on the board as **doc-028** (architect, 2026-07-08, fresh adversarial trace — the King asked to see the sequence in detail to judge unrepresentability). THE HONEST OUTCOME SPLITS THE CLASS: (1) RUNE-WEDGE — proof HOLDS, structurally: the natural producers are two FIXED bugs (the Apr 24 SDNOTIFY-collision abort, service.go:6002-6004; the step-11 proxy gap, :5461-5464); the fixed product cannot COMPOSE 'forward flag present + full container set running-stale' on any path (every mid-pipeline path has the app set stopped at :4773 or recreated-at-target at :5460+); and every approximation self-converges within one RestartSec=30s window, so persistence requires suppressing the unit — interference that destroys the takeover-of-a-live-unit subject itself. Construction is the honest substitute for a state whose producer we deliberately killed. (2) PARK/boot-migrate — proof FAILS today: the arc framework reaches the same state ON CUE through real dispatch (construct B = A + V_sleep → real register/schedule → real claim → exit-42 handoff → STATBUS-060's recovery checkout delivers V_sleep as pending → boot-migrate hangs → confirmed-midpoint daemon kill ×2 → same-step-twice park), every piece run-proven in adjacent arcs (OOM run 28841893851, mid-migration run 28837119781). The r12 impossibility was true of the OLD construction (delta on disk BEFORE dispatch → boot consumed it) and does not transfer to the arc path where the delta arrives only via the flag-gated post-handoff checkout. (3) STATBUS-145 interaction: if ratified, mid-delta deaths read Behind → one-shot rollback (Phase=resuming stamped at service.go:253/6255), so the park-at-boot-migrate subject dissolves for delta migrations and the park scenario must be rebuilt regardless — rebuild ONCE, as a real-path arc on 145's geometry, keeping the r19-green fabricated version as the interim net. ASKS (doc-028 §end): narrow the carve-out to DEAD-PRODUCER STATES (sole member: rune-wedge); reclassify the park scenario as real-path-reachable with its arc rebuild riding the 145 build; fabricate_resume_state then keeps exactly one sanctioned caller. AC#4's zero-callers gate updates accordingly if the King ratifies the narrowed rule.
 ---
 <!-- COMMENTS:END -->
