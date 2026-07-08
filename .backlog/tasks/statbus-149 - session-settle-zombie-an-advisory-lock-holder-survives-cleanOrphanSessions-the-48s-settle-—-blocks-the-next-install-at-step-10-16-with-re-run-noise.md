@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-08 21:56'
-updated_date: '2026-07-08 23:10'
+updated_date: '2026-07-08 23:11'
 labels:
   - product
   - install
@@ -62,5 +62,11 @@ author: foreman
 created: 2026-07-08 22:38
 ---
 KILL-IN-LOOP FIX SHIPPED in 46e30276a (2026-07-09) — with an honestly-disclosed process incident: the fix entered master UNREVIEWED because a stash-recovery had staged the two files and the foreman's arc-package commit swept all staged files under a message that did not mention them. The architect's POST-HOC review then PASSED it with zero changes, every ruling pin verified: one kill code path (Phase 2 refactored onto the extracted terminateZombieAdvisoryHolders; the settle loop calls the identical function; no new classification arms; dirty-but-no-zombies correctly gets NO kill), the required bound (pure settleLoopMayKillAgain, trips at N+1, cap 5), the loud regenerating-fail naming totals/attempts/ticket/evidence, per-kill logging with pid + classification so the instrumented run documents the source's cadence free, clean/timeout/error paths preserved. Four tests. The reviewer's honesty note stands on the record: zero cost THIS time was luck (conformant code + an accidental suite cover), and the new CLAUDE.md protocol (coordinator-only git mutation + staged-list check before every commit, 12083f237) is what makes the next occurrence impossible rather than lucky. TICKET STAYS OPEN for the SOURCE question: what generates the empty-app_name advisory-lock zombies (best-supported: the acquirer-rides-Caddy vs reaper-bypasses-it route mismatch) — gated on the wave-3 instrumented run's journal, no speculative route unification.
+---
+
+author: foreman
+created: 2026-07-08 23:11
+---
+FIX-SHAPE RULED (architect, 2026-07-09), engineer building: (CORE) tag d.queryConn + d.listenConn with application_name 'statbus-upgrade-daemon-<pid>' in the connect DSN (service.go:3273) — one site covers daemon startup, the inline dispatch's service instance, and every reconnect. (a) classifyAdvisoryHolder mirrors the statbus-migrate-<pid> arm exactly: daemon tag + pid alive → legitimate, skip; tag + pid dead → zombie, kill; NOT routed through the live-upgrade refusal. Key case now correct by design: an idempotent-refresh install with a healthy daemon running was killing the daemon's queryConn on every pass — benign by luck until now. (b) empty-string catch-all KEEPS killing — with migrate, seed, and daemon all tagged, an empty-name holder on our DB is genuinely unidentified; classifier comment gains the known-tag enumeration for future diagnosis. (c) kill-in-loop + bound of 5 + regeneratingZombieError unchanged — with the daemon recognized, the regenerating class returns to genuinely-unknown clients, exactly what the bound exists to catch. (d) ROUTE-MISMATCH FRAMING CLOSED: the mechanism is misclassify → kill → reconnect → fresh untagged backend; zero causal role for the Caddy route — the 'regeneration' was reconnects, not TCP lingering. Oracle: the NEGATIVE marker — healthy installs log zero '→ terminating' advisory-holder lines once the tag ships (the two-per-pass cadence vanishes), riding the next natural arc wave; plus the DSN-tag structural pin and classification-arm unit tests.
 ---
 <!-- COMMENTS:END -->
