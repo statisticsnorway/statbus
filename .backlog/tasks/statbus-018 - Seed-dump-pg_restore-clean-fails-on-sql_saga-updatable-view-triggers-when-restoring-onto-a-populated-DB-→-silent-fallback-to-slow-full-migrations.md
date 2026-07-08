@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-06-08 23:35'
-updated_date: '2026-07-08 22:43'
+updated_date: '2026-07-08 23:51'
 labels:
   - install-recovery
   - seed
@@ -71,6 +71,16 @@ Distinct from STATBUS-017 (the rune wedge). Related to the R5 seed-on-populated 
 <!-- SECTION:NOTES:BEGIN -->
 ARCHITECT RECOMMENDATION (2026-06-12, for the King's AC#1 call): direction (c) — fix the checkSeedRestored/R5 gate so the Seed step is correctly SKIPPED, quietly, on a populated DB. Why (c) over (a)/(b)/(d): the operator's sole action is the installer, and re-running it must always be safe and calm — a scary pg_restore ERROR on every routine refresh is an operator-UX defect, not cosmetics; (c) removes both the error AND the silent slow full-migrations fallback in one move, with no pg_restore/sql_saga surgery. AC#4 (did 50fd4325f regress the gate?) gets answered en route. Bonus: likely clears STATBUS-029 (stage-a red) with it. Not gate-blocking but cheap; can ride the gate-maker batch if capacity allows.
 <!-- SECTION:NOTES:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-08 23:51
+---
+END-TO-END PROOF LANDED (wave 4, run 28982749357, on 08a3c9471): fresh installs show '[11/16] Seed DONE' (health-park log line 15346); all four post-migration installs across both kill arcs show '[11/16] Seed SKIPPED — schema already migrated' (tmp/wave4-full-logs.txt lines 5668, 5712, 10583, 10633). The gate fires exactly as designed on the real install path — the commit's promised 'marker appears in the next natural CI dispatch' is now fact.
+---
+<!-- COMMENTS:END -->
 
 ## Final Summary
 
