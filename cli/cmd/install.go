@@ -687,7 +687,18 @@ func runInstall() (installErr error) {
 		}
 
 		if s.check(installDir) {
-			fmt.Printf("%s OK\n", prefix)
+			if s.name == "Seed" {
+				// STATBUS-018: a Seed skip here means checkSeedRestored found
+				// the schema already migrated / populated (its dbHasUserData /
+				// dbHasAppliedMigrations / migrations-done branches; the
+				// services-not-running defensive branch can't reach here — the
+				// Services step precedes Seed). Report it honestly rather than a
+				// bare "OK" so the operator sees the fast-path was deliberately
+				// bypassed, not silently skipped.
+				fmt.Printf("%s SKIPPED — schema already migrated\n", prefix)
+			} else {
+				fmt.Printf("%s OK\n", prefix)
+			}
 			// If we entered the quiesce window and Migrations was already
 			// done (check passed on re-run after a prior partial install),
 			// exit the window now — the DDL is fait accompli, services
@@ -702,6 +713,16 @@ func runInstall() (installErr error) {
 		fmt.Printf("%s RUNNING\n", prefix)
 
 		if err := s.run(installDir); err != nil {
+			line, fatal := stepRunOutcome(err)
+			if !fatal {
+				// Non-fatal degrade (the Seed fast-path was lost or no seed
+				// image existed): report honestly — NEVER "DONE" over a
+				// swallowed restore error (STATBUS-018) — and proceed to the
+				// next step (Migrations, still inside the quiesce window),
+				// which does the real work.
+				fmt.Printf("%s %s\n", prefix, line)
+				continue
+			}
 			fmt.Printf("%s FAILED: %v\n", prefix, err)
 			if i < total-1 {
 				fmt.Printf("\nFix the issue and re-run: ./sb install\n")
@@ -1743,6 +1764,18 @@ func checkSeedRestored(dir string) bool {
 		if dbHasUserData(dir) {
 			return true
 		}
+		// STATBUS-018: a schema ANY migration has touched already holds the
+		// sql_saga era objects (updatable views + their protected triggers)
+		// that the seed's pg_restore --clean would try to DROP — and the
+		// sql_saga_drop_protection sql_drop event trigger refuses that DROP,
+		// rolling the whole atomic restore back. dbHasUserData catches only
+		// the rows-present half of "populated"; this catches the
+		// schema-present-but-rowless half (the operator pulled a newer tree
+		// against a migrated-but-empty DB). Seed runs ONLY on a schema no
+		// migration has touched.
+		if dbHasAppliedMigrations(dir) {
+			return true
+		}
 		if checkMigrationsDone(dir) {
 			return true // DB has migrations — do NOT restore seed
 		}
@@ -1803,28 +1836,124 @@ SELECT EXISTS (
 	return strings.TrimSpace(string(out)) == "t"
 }
 
+// dbHasAppliedMigrations reports whether db.migration holds at least one
+// APPLIED row — i.e. whether any migration has touched this schema. It is the
+// STATBUS-018 companion to dbHasUserData: dbHasUserData gates on rows in the
+// user tables, this gates on schema having been migrated at all. The two
+// together mean the seed fast-path (pg_restore --clean) is attempted ONLY on a
+// schema no migration has touched.
+//
+// The probe is conservative in the same direction dbHasUserData is: any failure
+// (DB unreachable, psql absent, and crucially the db.migration table not
+// existing yet on a brand-new cluster) is treated as "not migrated" → false, so
+// the genuinely-fresh install path still runs the seed step. See
+// interpretAppliedMigrationsProbe for the (output, error) → verdict matrix.
+func dbHasAppliedMigrations(dir string) bool {
+	psqlPath, prefix, env, err := migrate.PsqlCommand(dir)
+	if err != nil {
+		return false
+	}
+	// EXISTS(... LIMIT 1) is O(1). When db.migration does not exist yet
+	// (fresh cluster, before ensureMigrationTable), psql errors with
+	// `relation "db.migration" does not exist` and cmd.Output returns a
+	// non-nil error — interpretAppliedMigrationsProbe maps that to false.
+	const probe = `SELECT EXISTS (SELECT 1 FROM db.migration LIMIT 1);`
+	args := append([]string{}, prefix...)
+	args = append(args, "-t", "-A", "-v", "ON_ERROR_STOP=on", "-c", probe)
+	cmd := exec.Command(psqlPath, args...)
+	cmd.Dir = dir
+	cmd.Env = env
+	out, err := cmd.Output()
+	return interpretAppliedMigrationsProbe(string(out), err)
+}
+
+// interpretAppliedMigrationsProbe is the PURE verdict behind
+// dbHasAppliedMigrations, factored out so the STATBUS-018 probe matrix is unit-
+// testable without a live database (the classifyAdvisoryHolder / classifySessions
+// pattern in this package). The matrix:
+//   - missing db.migration table (fresh cluster, pre-ensureMigrationTable):
+//     the probe ERRORS → probeErr != nil → false (schema untouched, seed winnable).
+//   - table present but EMPTY (ensureMigrationTable created it, no migration has
+//     applied yet): probe returns "f" → false (still winnable — no eras exist).
+//   - table present with >= 1 applied row: probe returns "t" → true (a migration
+//     has touched the schema; the seed's --clean would collide with sql_saga).
+//
+// Any unexpected output is treated conservatively as "not migrated" (false), the
+// same fresh-install-favouring default dbHasUserData uses; the downstream
+// migrate-forward path is the safety net if that guess is wrong.
+func interpretAppliedMigrationsProbe(out string, probeErr error) bool {
+	if probeErr != nil {
+		return false
+	}
+	return strings.TrimSpace(out) == "t"
+}
+
+// errSeedUnavailable / errSeedFallback are the two NON-FATAL outcomes of the
+// Seed step (runSeedRestore). Both degrade to full migrations, but NEITHER may
+// be reported as DONE: a swallowed seed failure that reads as success is the
+// exact STATBUS-018 silent ~10x-slowdown class. errSeedUnavailable is
+// calm-and-expected (no seed image published for this commit — fresh repos /
+// private forks); errSeedFallback is LOUD (a seed image exists but pg_restore
+// errored, which is unexpected once the gate only lets seed run on a fresh
+// schema). stepRunOutcome maps them to the install loop's reported status.
+var (
+	errSeedUnavailable = errors.New("no seed image available; running full migrations")
+	errSeedFallback    = errors.New("seed restore failed; falling back to full migrations")
+)
+
+// stepRunOutcome maps a step's run() error to the line the install loop prints
+// and whether the failure halts the install. It is the pure guard for the
+// STATBUS-018 invariant: a non-nil restore error is NEVER reported as DONE.
+// Only the two Seed sentinels are non-fatal; every other error is fatal (the
+// loop prints "FAILED: <err>" and stops — also never DONE). Kept pure + here so
+// the invariant is unit-pinned rather than buried in the loop.
+func stepRunOutcome(runErr error) (line string, fatal bool) {
+	switch {
+	case runErr == nil:
+		return "DONE", false
+	case errors.Is(runErr, errSeedFallback):
+		return "FAILED — falling back to full migrations", false
+	case errors.Is(runErr, errSeedUnavailable):
+		return "no seed image — full migrations will run", false
+	default:
+		return "", true // fatal: caller prints "FAILED: <err>" and halts
+	}
+}
+
 // runSeedRestore fetches the seed from the published statbus-seed image
 // and restores it into the database. This makes `migrate up` fast — only
-// migrations newer than the seed need to run. Non-fatal throughout: any
-// failure (no image for this commit, daemon down) falls through to
-// runMigrations, which replays all migrations from scratch.
+// migrations newer than the seed need to run. Non-fatal throughout: a missing
+// image (errSeedUnavailable) or a failed restore (errSeedFallback) both degrade
+// to runMigrations, which replays all migrations from scratch. Per STATBUS-018
+// the two are distinguished — the missing-image path is calm/expected, the
+// failed-restore path is loud — and neither is ever reported as DONE.
 func runSeedRestore(dir string) error {
 	sb := filepath.Join(dir, "sb")
 
 	// Fetch seed from the published image.
 	fmt.Println("  Fetching seed from the seed image (statbus-seed:<commit_short>)...")
 	if err := runCmdDir(dir, sb, "db", "seed", "fetch"); err != nil {
-		// Not fatal — fresh repos or private forks may not have the branch.
-		fmt.Println("  No seed available — will run all migrations")
-		return nil
+		// LEG 1 — no seed image for this commit (fresh repos / private forks).
+		// Calm + expected: full migrations run next and do the real work.
+		fmt.Println("  No seed image available — full migrations will run.")
+		return errSeedUnavailable
 	}
 
 	// Restore into the default database (configured in .env).
 	fmt.Println("  Restoring seed...")
 	if err := runCmdDir(dir, sb, "db", "seed", "restore"); err != nil {
-		// Not fatal — migrate up will run all migrations from scratch.
-		fmt.Println("  Seed restore failed — will run all migrations")
-		return nil
+		// LEG 2 — seed image present but pg_restore ERRORED. The fast path is
+		// lost; full migrations (~10x slower) run instead. This is UNEXPECTED
+		// on a genuinely fresh schema (checkSeedRestored now gates seed OFF
+		// once any migration has touched the DB — STATBUS-018), so announce it
+		// loudly. Non-fatal, but NEVER reported as DONE.
+		fmt.Println("  ============================================================")
+		fmt.Println("  ⚠ SEED FAST-PATH LOST — seed image present but pg_restore failed.")
+		fmt.Printf("     Cause: %v\n", err)
+		fmt.Println("     Falling back to FULL MIGRATIONS (~10x slower).")
+		fmt.Println("     Unexpected on a fresh database — worth investigating.")
+		fmt.Println("  ============================================================")
+		return errSeedFallback
 	}
 
 	return nil
