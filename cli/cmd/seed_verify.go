@@ -386,18 +386,14 @@ func restoreEnv(key, prev string, had bool) {
 // (the same shape runMigrateUp uses), reverted on return. migrateTo==0 → migrate
 // ALL pending; migrateTo>0 → all pending up to that version inclusive.
 func migrateNamedDb(projDir, dbName string, migrateTo int64) error {
-	prevApp, hadApp := os.LookupEnv("POSTGRES_APP_DB")
-	prevPG, hadPG := os.LookupEnv("PGDATABASE")
+	defer migrate.SetTargetDB(dbName)()
+
 	prevMode, hadMode := os.LookupEnv("CADDY_DEPLOYMENT_MODE")
-	os.Setenv("POSTGRES_APP_DB", dbName)
-	os.Setenv("PGDATABASE", dbName)
 	// standalone dodges migrate.Up's dev-only maybeRebuildTestTemplate side-effect
 	// (migrate.go) — the same dodge the hermetic seed-builder uses — so the verify
 	// run never rebuilds the dev statbus_test_template.
 	os.Setenv("CADDY_DEPLOYMENT_MODE", "standalone")
 	defer func() {
-		restoreEnv("POSTGRES_APP_DB", prevApp, hadApp)
-		restoreEnv("PGDATABASE", prevPG, hadPG)
 		restoreEnv("CADDY_DEPLOYMENT_MODE", prevMode, hadMode)
 	}()
 	// all=TRUE always: apply ALL pending migrations. The migrateTo>0 cap inside

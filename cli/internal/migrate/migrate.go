@@ -256,32 +256,32 @@ func runPsql(projDir string, sql string, extraArgs ...string) (string, error) {
 	return string(out), err
 }
 
-// QueryDB runs a SQL query against the named PostgreSQL database (overriding
-// the default PGDATABASE), returning trimmed stdout. Used by release-side
-// preflight probes that need to check state on a SPECIFIC database (e.g.,
-// statbus_seed during the seed-stale gate) without requiring the caller to
-// juggle PGDATABASE or POSTGRES_APP_DB env vars by hand.
+// SetTargetDB captures POSTGRES_APP_DB/PGDATABASE from the process env, then
+// points both at dbName for the duration of the caller's operation. Returns
+// a restore func the caller MUST defer to put the process env back the way
+// it found it. Unconditional — no divergence check.
 //
-// Note on side effects: this function MUTATES the process env (PGDATABASE +
-// POSTGRES_APP_DB) for the duration of the call, then restores it via
-// defer. It is NOT safe to call concurrently with another psql invocation
-// in the same process — the runPsql infra reads psqlEnv at call time and
-// would observe whichever env happened to be set last. The preflight call
-// sites are strictly serial, so this is fine.
+// This is the shared STATBUS-146 primitive behind all four env-clobber
+// sites (`./sb migrate up`, `redo`, QueryDB, the seed-verify pipeline's
+// migrateNamedDb), so the capture/restore logic can't drift between copies.
+// Two of those sites (QueryDB, migrateNamedDb) call this directly: dbName
+// there is an explicit, fixed internal parameter the caller's own logic
+// chose (e.g. "postgres", "statbus_seed") — NOT resolved from the
+// operator's env/config — so refusing on divergence would break the seed
+// pipeline and preflight probes every time an operator happened to have an
+// unrelated POSTGRES_APP_DB/PGDATABASE exported for something else
+// entirely. The other two sites wrap this with OverrideTargetDB below.
 //
-// extraArgs are appended to the psql invocation after -v ON_ERROR_STOP=on;
-// callers can pass -t / -A / etc. The SQL is sent via stdin per the
-// runPsql contract (avoids shell-quoting issues for embedded literals).
-func QueryDB(projDir, dbName, sql string, extraArgs ...string) (string, error) {
-	if dbName == "" {
-		return "", fmt.Errorf("QueryDB: dbName must not be empty")
-	}
-
+// Not safe to call concurrently with another call that reads/sets these
+// vars in the same process — callers are strictly serial (see QueryDB's
+// existing note, which this generalises).
+func SetTargetDB(dbName string) (restore func()) {
 	prevApp, hadApp := os.LookupEnv("POSTGRES_APP_DB")
 	prevPG, hadPG := os.LookupEnv("PGDATABASE")
+
 	os.Setenv("POSTGRES_APP_DB", dbName)
 	os.Setenv("PGDATABASE", dbName)
-	defer func() {
+	return func() {
 		if hadApp {
 			os.Setenv("POSTGRES_APP_DB", prevApp)
 		} else {
@@ -292,7 +292,67 @@ func QueryDB(projDir, dbName, sql string, extraArgs ...string) (string, error) {
 		} else {
 			os.Unsetenv("PGDATABASE")
 		}
-	}()
+	}
+}
+
+// OverrideTargetDB wraps SetTargetDB with STATBUS-146's refuse-on-divergence
+// check, for the two operator-facing target-selection entrypoints (`./sb
+// migrate up`, `./sb migrate redo`) where dbName was resolved FROM CONFIG
+// (ResolveTargetDB) on the operator's behalf. If the operator already
+// exported POSTGRES_APP_DB or PGDATABASE to something OTHER than dbName,
+// silently overriding it here would discard their override while the
+// command went on to report success — against the WRONG database. Refuses
+// loudly instead, naming both databases and the `--target` remedy. Already
+// unset, or already equal to dbName (e.g. after the documented `eval $(./sb
+// config show --postgres)` workflow) → proceeds silently via SetTargetDB.
+//
+// Do NOT use this at sites where dbName is an explicit, fixed internal
+// parameter rather than something resolved from the operator's env/config
+// — see SetTargetDB's doc comment for why (QueryDB, migrateNamedDb use
+// SetTargetDB directly).
+func OverrideTargetDB(dbName string) (restore func(), err error) {
+	prevApp, hadApp := os.LookupEnv("POSTGRES_APP_DB")
+	prevPG, hadPG := os.LookupEnv("PGDATABASE")
+
+	refuse := func(varName, val string) error {
+		return fmt.Errorf("%s=%s is set but this command targets %s; unset %s, or select a database with --target", varName, val, dbName, varName)
+	}
+	// Empty-string exports count as absent, matching getOr/PsqlCommand's
+	// existing convention (os.Getenv returns "" for both unset and
+	// explicitly-empty — treat divergence checks the same way, or a
+	// leaked `export PGDATABASE=` would refuse loudly for no reason).
+	if hadApp && prevApp != "" && prevApp != dbName {
+		return nil, refuse("POSTGRES_APP_DB", prevApp)
+	}
+	if hadPG && prevPG != "" && prevPG != dbName {
+		return nil, refuse("PGDATABASE", prevPG)
+	}
+
+	return SetTargetDB(dbName), nil
+}
+
+// QueryDB runs a SQL query against the named PostgreSQL database (overriding
+// the default PGDATABASE), returning trimmed stdout. Used by release-side
+// preflight probes that need to check state on a SPECIFIC database (e.g.,
+// statbus_seed during the seed-stale gate) without requiring the caller to
+// juggle PGDATABASE or POSTGRES_APP_DB env vars by hand.
+//
+// Note on side effects: this function MUTATES the process env (PGDATABASE +
+// POSTGRES_APP_DB) for the duration of the call, then restores it via
+// defer (see SetTargetDB). It is NOT safe to call concurrently with
+// another psql invocation in the same process — the runPsql infra reads
+// psqlEnv at call time and would observe whichever env happened to be set
+// last. The preflight call sites are strictly serial, so this is fine.
+//
+// extraArgs are appended to the psql invocation after -v ON_ERROR_STOP=on;
+// callers can pass -t / -A / etc. The SQL is sent via stdin per the
+// runPsql contract (avoids shell-quoting issues for embedded literals).
+func QueryDB(projDir, dbName, sql string, extraArgs ...string) (string, error) {
+	if dbName == "" {
+		return "", fmt.Errorf("QueryDB: dbName must not be empty")
+	}
+
+	defer SetTargetDB(dbName)()
 
 	out, err := runPsql(projDir, sql, extraArgs...)
 	if err != nil {
@@ -1790,22 +1850,11 @@ func Redo(projDir string, version int64, target string, confirm bool, verbose bo
 		return err
 	}
 
-	prevApp, hadApp := os.LookupEnv("POSTGRES_APP_DB")
-	prevPG, hadPG := os.LookupEnv("PGDATABASE")
-	os.Setenv("POSTGRES_APP_DB", dbName)
-	os.Setenv("PGDATABASE", dbName)
-	defer func() {
-		if hadApp {
-			os.Setenv("POSTGRES_APP_DB", prevApp)
-		} else {
-			os.Unsetenv("POSTGRES_APP_DB")
-		}
-		if hadPG {
-			os.Setenv("PGDATABASE", prevPG)
-		} else {
-			os.Unsetenv("PGDATABASE")
-		}
-	}()
+	restore, err := OverrideTargetDB(dbName)
+	if err != nil {
+		return err
+	}
+	defer restore()
 
 	ctx := context.Background()
 	lockConn, err := acquireAdvisoryLock(ctx, projDir)

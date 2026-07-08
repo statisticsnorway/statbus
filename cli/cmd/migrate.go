@@ -60,30 +60,16 @@ var migrateUpOneCmd = &cobra.Command{
 // and matches the existing dev.sh:998 pattern.
 func runMigrateUp(migrateTo int64, all bool) error {
 	projDir := config.ProjectDir()
-	if migrateUpTarget == "" {
-		migrateUpTarget = "dev"
-	}
 	dbName, err := migrate.ResolveTargetDB(projDir, migrateUpTarget)
 	if err != nil {
 		return err
 	}
 
-	prevApp, hadApp := os.LookupEnv("POSTGRES_APP_DB")
-	prevPG, hadPG := os.LookupEnv("PGDATABASE")
-	os.Setenv("POSTGRES_APP_DB", dbName)
-	os.Setenv("PGDATABASE", dbName)
-	defer func() {
-		if hadApp {
-			os.Setenv("POSTGRES_APP_DB", prevApp)
-		} else {
-			os.Unsetenv("POSTGRES_APP_DB")
-		}
-		if hadPG {
-			os.Setenv("PGDATABASE", prevPG)
-		} else {
-			os.Unsetenv("PGDATABASE")
-		}
-	}()
+	restore, err := migrate.OverrideTargetDB(dbName)
+	if err != nil {
+		return err
+	}
+	defer restore()
 
 	err = migrate.Up(projDir, migrateTo, all, verbose)
 

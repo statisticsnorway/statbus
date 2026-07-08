@@ -181,6 +181,170 @@ func TestAcquireAdvisoryLockConnStr(t *testing.T) {
 	}
 }
 
+// TestSetTargetDB_UnconditionalSetsAndRestores pins the shared primitive:
+// no divergence check, ever — this is what QueryDB and the seed-verify
+// pipeline's migrateNamedDb rely on, since their dbName is explicit fixed
+// internal state (e.g. "postgres", "statbus_seed"), not something resolved
+// from the operator's env/config. Overriding a DIFFERENT pre-existing value
+// must proceed silently here (the refuse behavior lives only in
+// OverrideTargetDB, below, for the two operator-facing cobra entrypoints).
+func TestSetTargetDB_UnconditionalSetsAndRestores(t *testing.T) {
+	t.Setenv("POSTGRES_APP_DB", "some_unrelated_db")
+	t.Setenv("PGDATABASE", "some_unrelated_db")
+
+	restore := SetTargetDB("statbus_seed")
+	if got := os.Getenv("POSTGRES_APP_DB"); got != "statbus_seed" {
+		t.Fatalf("POSTGRES_APP_DB = %q, want statbus_seed (no refusal expected)", got)
+	}
+	if got := os.Getenv("PGDATABASE"); got != "statbus_seed" {
+		t.Fatalf("PGDATABASE = %q, want statbus_seed (no refusal expected)", got)
+	}
+
+	restore()
+	if got := os.Getenv("POSTGRES_APP_DB"); got != "some_unrelated_db" {
+		t.Errorf("POSTGRES_APP_DB = %q after restore, want some_unrelated_db", got)
+	}
+	if got := os.Getenv("PGDATABASE"); got != "some_unrelated_db" {
+		t.Errorf("PGDATABASE = %q after restore, want some_unrelated_db", got)
+	}
+}
+
+// TestSetTargetDB_UnsetSetsAndRestoresToUnset: nothing exported beforehand →
+// restore() puts the process back to fully unset (not merely empty).
+func TestSetTargetDB_UnsetSetsAndRestoresToUnset(t *testing.T) {
+	os.Unsetenv("POSTGRES_APP_DB")
+	os.Unsetenv("PGDATABASE")
+	t.Cleanup(func() {
+		os.Unsetenv("POSTGRES_APP_DB")
+		os.Unsetenv("PGDATABASE")
+	})
+
+	restore := SetTargetDB("statbus_seed")
+	if got := os.Getenv("POSTGRES_APP_DB"); got != "statbus_seed" {
+		t.Fatalf("POSTGRES_APP_DB = %q, want statbus_seed", got)
+	}
+
+	restore()
+	if _, ok := os.LookupEnv("POSTGRES_APP_DB"); ok {
+		t.Error("expected POSTGRES_APP_DB unset after restore")
+	}
+	if _, ok := os.LookupEnv("PGDATABASE"); ok {
+		t.Error("expected PGDATABASE unset after restore")
+	}
+}
+
+// TestOverrideTargetDB_DivergentPOSTGRES_APP_DBRefusesLoudly is the
+// STATBUS-146 pin: at the two operator-facing target-selection entrypoints
+// (`./sb migrate up`/`redo`), a target-selection env var the operator set
+// must either work or refuse — never get silently discarded while the
+// command goes on to report success against a different database (the
+// original bug: `POSTGRES_APP_DB=statbus_floor_test ./sb migrate up`
+// silently targeted statbus_local and printed "up to date").
+func TestOverrideTargetDB_DivergentPOSTGRES_APP_DBRefusesLoudly(t *testing.T) {
+	t.Setenv("POSTGRES_APP_DB", "statbus_floor_test")
+	t.Setenv("PGDATABASE", "")
+
+	restore, err := OverrideTargetDB("statbus_local")
+	if err == nil {
+		if restore != nil {
+			restore()
+		}
+		t.Fatal("expected refusal on divergent POSTGRES_APP_DB, got nil error")
+	}
+	if restore != nil {
+		t.Error("expected nil restore func on refusal")
+	}
+	for _, want := range []string{"POSTGRES_APP_DB", "statbus_floor_test", "statbus_local", "--target"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q should mention %q (names both databases + the remedy)", err.Error(), want)
+		}
+	}
+}
+
+// TestOverrideTargetDB_DivergentPGDATABASERefusesLoudly covers the other
+// target-selection var — PGDATABASE is the operator-standard override
+// (psql's own convention); it must refuse identically to POSTGRES_APP_DB.
+func TestOverrideTargetDB_DivergentPGDATABASERefusesLoudly(t *testing.T) {
+	t.Setenv("POSTGRES_APP_DB", "")
+	t.Setenv("PGDATABASE", "statbus_scratch")
+
+	_, err := OverrideTargetDB("statbus_local")
+	if err == nil {
+		t.Fatal("expected refusal on divergent PGDATABASE, got nil error")
+	}
+	for _, want := range []string{"PGDATABASE", "statbus_scratch", "statbus_local"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q should mention %q", err.Error(), want)
+		}
+	}
+}
+
+// TestOverrideTargetDB_EqualProceedsSilently keeps the documented
+// `eval $(./sb config show --postgres)` workflow friction-free: when the
+// operator's exported value already matches the resolved target, there is
+// nothing to refuse.
+func TestOverrideTargetDB_EqualProceedsSilently(t *testing.T) {
+	t.Setenv("POSTGRES_APP_DB", "statbus_local")
+	t.Setenv("PGDATABASE", "statbus_local")
+
+	restore, err := OverrideTargetDB("statbus_local")
+	if err != nil {
+		t.Fatalf("expected no error when already equal, got %v", err)
+	}
+	defer restore()
+
+	if got := os.Getenv("POSTGRES_APP_DB"); got != "statbus_local" {
+		t.Errorf("POSTGRES_APP_DB = %q, want statbus_local", got)
+	}
+	if got := os.Getenv("PGDATABASE"); got != "statbus_local" {
+		t.Errorf("PGDATABASE = %q, want statbus_local", got)
+	}
+}
+
+// TestOverrideTargetDB_UnsetSetsAndRestores is the base case: nothing
+// exported beforehand → no divergence possible → proceeds, and restore()
+// puts the process back to fully unset (not merely empty).
+func TestOverrideTargetDB_UnsetSetsAndRestores(t *testing.T) {
+	os.Unsetenv("POSTGRES_APP_DB")
+	os.Unsetenv("PGDATABASE")
+	t.Cleanup(func() {
+		os.Unsetenv("POSTGRES_APP_DB")
+		os.Unsetenv("PGDATABASE")
+	})
+
+	restore, err := OverrideTargetDB("statbus_seed")
+	if err != nil {
+		t.Fatalf("expected no error when unset, got %v", err)
+	}
+	if got := os.Getenv("POSTGRES_APP_DB"); got != "statbus_seed" {
+		t.Fatalf("POSTGRES_APP_DB = %q, want statbus_seed", got)
+	}
+
+	restore()
+	if _, ok := os.LookupEnv("POSTGRES_APP_DB"); ok {
+		t.Error("expected POSTGRES_APP_DB unset after restore")
+	}
+	if _, ok := os.LookupEnv("PGDATABASE"); ok {
+		t.Error("expected PGDATABASE unset after restore")
+	}
+}
+
+// TestOverrideTargetDB_EmptyStringExportIsNotDivergence matches the
+// codebase-wide convention (getOr, PsqlCommand) that an explicitly-empty
+// env export is equivalent to absent — a test runner or CI job that leaks
+// `PGDATABASE=` (exported empty, not unset) must not trigger a false-positive
+// refusal.
+func TestOverrideTargetDB_EmptyStringExportIsNotDivergence(t *testing.T) {
+	t.Setenv("POSTGRES_APP_DB", "")
+	t.Setenv("PGDATABASE", "")
+
+	restore, err := OverrideTargetDB("statbus_local")
+	if err != nil {
+		t.Fatalf("expected no error for empty-string exports, got %v", err)
+	}
+	defer restore()
+}
+
 func TestParseMigrationFile(t *testing.T) {
 	valid := []struct {
 		path        string
