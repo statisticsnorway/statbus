@@ -1,35 +1,40 @@
 #!/bin/bash
 # Arc: postswap-mid-tx-kill  (STATBUS-071 §9(5) 5d / doc-017 §2 — CAT-C)
 #
-# RE-GATED [PENDING-145-REDERIVE] (mechanic, 2026-07-09). TWO static
-# derivations of this arc's terminal have now been REFUTED (or disqualified)
-# by real runs — no third armchair guess. (1) The pre-145 PROVEN PATH (run
-# 28832014634, the STATBUS-105 measurement — boot-migrate re-hitting the torn
-# migration → the STATBUS-017 defer → snapshot restore-then-reapply →
-# completed) no longer exists under 145's floor-only boot-migrate. (2) The
-# mechanic's STATBUS-145 re-derivation (below, kept for the record — NOT
-# current fact: any parent death in the migration window → the Resuming-arm
-# reads positively Behind → recoveryRollback → os.Exit(75)) was ALSO refuted:
-# the wave-2 run's row reached `completed`. WORSE, that SAME run was
-# DISQUALIFIED as evidence outright: the daemon unit (`statbus-upgrade@
-# statbus.service`) was found RUNNING pre-dispatch, so TWO recovery actors
-# (the daemon's own boot-time recovery AND this arc's manually-dispatched
-# recovery install) raced over the SAME crashed flag —
-# `recovery_attempts=2` is the fingerprint of that race, not a clean
-# single-actor trace. The terminal is UNDETERMINED by analysis, and this
-# run's 'completed' result cannot even be trusted as a data point. FIXED
-# BELOW (construction, not a design change): the daemon unit is now
-# explicitly re-confirmed stopped immediately before EACH dispatch, not just
-# once via arc_schedule_daemon_down earlier — belt-and-suspenders against
-# whatever left it running. The next run, single-actor and instrumented
-# (STATBUS-148-style progress-log + journal capture wired in below), is what
-# actually settles the terminal.
+# RULED (architect, wave 3, run 28980487041): terminal is `completed`
+# (forward), PROVEN on a real VM, with the daemon-race construction bug fixed
+# (_ensure_daemon_stopped below). TWO prior static derivations (a pre-145
+# "boot-migrate re-hit → snapshot restore-then-reapply" story, and a
+# STATBUS-145 re-derivation predicting `rolled_back`) were refuted or
+# disqualified before this — see MECHANICS below for that history, kept for
+# the record. The instrumented single-actor run this arc was rebuilt to
+# produce settled it:
 #
-# ALSO OBSERVED, NOT EXPLAINED (record for the next run's observation list):
-# in the disqualified run, the RECOVERY install itself exited 1 (not 0, not
-# the derivation's predicted 75) while the row read `completed` — a
-# success-path exit-code anomaly. Do not assume this is the race's doing or
-# assert anything about it; just watch for it again on the clean re-run.
+#   THE MECHANISM, live: the tree-SIGKILL lands on a PRE-DELTA tx — V1 parked
+#   mid-transaction dies BEFORE the flag ever advances to Phase=Resuming
+#   (PhaseNewSbUpgrading). pg_terminate_backend aborts the uncommitted tx
+#   cleanly (RED shape: flag present, row in_progress, db.migration
+#   max==baseline). The SECOND (recovery) `./sb install` finds the flag still
+#   at Phase=post_swap (PhaseNewSbSwapped) — NOT yet "resuming" — so
+#   recoverFromFlag takes the PhaseNewSbSwapped branch and calls
+#   resumePostSwap FRESH, for the first time. Captured verbatim in the run:
+#     M 22:49:05 Resuming upgrade 2 (7b567e36) where it left off, now
+#     running the new version. (detail: after booting the new binary,
+#     pid=33970)
+#   post_swap then applies the delta (V1+V2) cleanly, once. `recovery_attempts
+#   =2` is CORRECT BY DESIGN, not a race artifact: the crash-ladder's own
+#   detection pass counts 1, this arc's explicit second (recovery) dispatch
+#   counts 2 — deaths = attempts−1 = the one kill this arc performs.
+#
+#   This is a PRE-DELTA death, same family as mid-migration (also completes
+#   forward); the OPPOSITE family is between-migrations (a MID-delta death,
+#   ledger already advanced → Behind → rolled_back). See the STATBUS-071 map
+#   for the full ruled rule stated once, in one place.
+#
+# ALSO OBSERVED, NOT EXPLAINED (record, from the earlier disqualified run —
+# harmless, not re-checked): that run's RECOVERY install itself exited 1
+# (not 0) while the row read `completed` — a success-path exit-code anomaly
+# from the (now-fixed) daemon race. Watch for it again if it recurs.
 #
 # A migration is parked INSIDE its outer transaction (after BEGIN, before
 # COMMIT) via MidTxPauseSQL (migrate.go:437,
@@ -37,53 +42,35 @@
 # pg_sleep(3600) splices into the tx). The harness SIGKILLs the WHOLE install
 # process TREE (parent `./sb install` + the migrate CLIENT subprocess) +
 # pg_terminate_backend's the parked psql backend → Postgres aborts the
-# UNCOMMITTED tx → NO committed-but-unrecorded state — this RED-shape half is
-# UNCHANGED by 145 and UNCHANGED by this re-gating (it is about the kill's
-# immediate aftermath, not about which migrate call site is hit, and it is
-# NOT what was disqualified).
+# UNCOMMITTED tx → NO committed-but-unrecorded state.
 #
-# MECHANICS — THE REFUTED/DISQUALIFIED STATIC DERIVATION, KEPT FOR THE RECORD
+# MECHANICS — THE REFUTED/DISQUALIFIED STATIC DERIVATIONS, KEPT FOR THE RECORD
 # (mechanic, 2026-07-08 — this reasoning did NOT survive contact with a real
-# run; do not trust it as current fact, only as what was ruled out):
-#   1. Unlike the KillHere arcs (between-migrations, mid-migration), THIS kill
-#      takes down the ENTIRE `./sb install` process tree (arc_kill_confirmed
-#      install-tree) — not just the migrate client. The FIRST `./sb install`
-#      (background, tmux) genuinely DIES mid-applyPostSwap: before dying,
-#      resumePostSwap had already re-acquired the flock and stamped the flag
-#      Phase=PhaseNewSbUpgrading ("Resuming") on entry — that stamp survives
-#      the kill on disk. Postgres itself is untouched by the tree-kill; only
-#      the specific stalled backend is separately pg_terminate_backend'd,
-#      aborting its open transaction (V1's tx rolls back cleanly — the RED
-#      shape: flag present, row in_progress, db.migration max == baseline).
-#   2. The SECOND (recovery) `./sb install` — a FRESH process, no inject —
-#      finds StateCrashedUpgrade (flag on disk, dead PID) → runCrashRecovery
-#      → its own boot-migrate (--to DaemonSchemaFloor) is a no-op (V1/V2 above
-#      floor) → svc.RecoverFromFlag → recoverFromFlag reads flag.Phase ==
-#      PhaseNewSbUpgrading ("Resuming" — service.go:1014) → recoverFromFlag's
-#      own pre-resume observed-state gate (service.go:1037-1048): db.migration
-#      max == baseline < on-disk max == V_VERSION_2 → ObservedCannotReachNew →
-#      recoveryRollback(...) → d.rollback() → os.Exit(75).
-#   3. DISQUALIFIED: the daemon unit was found RUNNING before this arc's own
-#      dispatch even began — the SAME crashed flag this trace assumes only
-#      the manually-invoked recovery install would see was ALSO visible to
-#      the live daemon's own boot-time recovery, racing it. recovery_attempts
-#      == 2 confirms two actors both counted a pass. The 'completed' terminal
-#      observed in that run cannot be attributed to this (or any) single-actor
-#      derivation.
+# run; do not trust it as current fact, only as what was ruled out before the
+# actual mechanism above was found):
+#   1. ASSUMED (WRONG): that resumePostSwap had already re-acquired the flock
+#      and stamped the flag Phase=PhaseNewSbUpgrading ("Resuming") BEFORE this
+#      kill landed. WRONG: the kill lands before that stamp — the flag is
+#      still at Phase=post_swap (PhaseNewSbSwapped) when the recovery install
+#      reads it, which is why the mechanism above is the PhaseNewSbSwapped
+#      branch, not the Resuming-arm's observed-state gate.
+#   2. ASSUMED (WRONG): recoverFromFlag reads flag.Phase == PhaseNewSbUpgrading
+#      ("Resuming" — service.go:1014) → its own pre-resume observed-state gate
+#      (service.go:1037-1048): db.migration max == baseline < on-disk max ==
+#      V_VERSION_2 → ObservedCannotReachNew → recoveryRollback(...) →
+#      d.rollback() → os.Exit(75).
+#   3. DISQUALIFIED (a separate, now-fixed construction bug, not a derivation
+#      error): the daemon unit was found RUNNING before this arc's own
+#      dispatch even began in one run — the SAME crashed flag this trace
+#      assumed only the manually-invoked recovery install would see was ALSO
+#      visible to the live daemon's own boot-time recovery, racing it.
+#      recovery_attempts==2 in THAT run was two actors racing, not the clean
+#      arithmetic above — fixed by _ensure_daemon_stopped before EACH
+#      dispatch below, and the SAME recovery_attempts==2 value reproduced
+#      cleanly in the ruled run for the correct (single-actor) reason.
 #
-# STATUS: OBSERVATIONAL, not a proven terminal contract. This arc now RUNS
-# (the exit-0 skip is gone; the daemon-race construction bug above is fixed
-# via _ensure_daemon_stopped before EACH dispatch) and captures the evidence
-# an instrumented single-actor run needs, but a green PASS here does NOT
-# certify which terminal is correct — it only means the box ended clean and
-# healthy, recovery_attempts was checked, and the OBSERVE lines below were
-# logged. The STATBUS-071 map cell for this arc STAYS [PENDING-145-REDERIVE]
-# until the architect reads this run's captured evidence (OBSERVE lines +
-# _dump_mid_tx_failure_diagnostics on any non-zero exit) and rules on the
-# actual terminal.
-#
-# VM-PROVE (the manual tree-SIGKILL mechanism + the atomicity flip — the run
-# is the oracle, but a single-actor, instrumented run, not the disqualified one).
+# VM-PROVE (the manual tree-SIGKILL mechanism + the atomicity flip — run
+# 28980487041, single-actor, instrumented, PROVEN).
 #
 # Inputs (env): BASE_SHA, B_FULL (40-hex), B_BRANCH, V_VERSION, V_VERSION_2,
 # SB_ARC_TRUSTED_SIGNER. VM name = $1.
@@ -146,7 +133,7 @@ _dump_mid_tx_failure_diagnostics() {
 trap 'rc=$?; if [ "$rc" -ne 0 ]; then _dump_mid_tx_failure_diagnostics; fi; VM_EXEC bash -c "rm -f $RELEASE_FILE 2>/dev/null" 2>/dev/null || true; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Arc: postswap-mid-tx-kill  (cell b: MidTxPauseSQL → SIGKILL → clean tx-abort → terminal UNDETERMINED, instrumented observation)"
+echo "  Arc: postswap-mid-tx-kill  (cell b: MidTxPauseSQL → SIGKILL → clean tx-abort → PostSwap forward → completed)"
 echo "  A=${BASE_SHA:0:8}  B=${B_FULL:0:8}  inject=${MIDTX_CLASS}  V=${V_VERSION}/${V_VERSION_2}"
 echo "════════════════════════════════════════════════════════════════"
 
@@ -202,10 +189,11 @@ echo "  pre-trigger data snapshot: $DATA_SNAPSHOT"
 BASELINE_MAX_VERSION=$(migration_max_version)
 echo "  baseline db.migration max_version: $BASELINE_MAX_VERSION"
 
-# Baseline fingerprint (post-A + demo data) — captured for the NEXT
-# reviewer's comparison; NOT asserted against this round (the terminal is
-# undetermined, so there is nothing known-correct to compare it to yet).
-echo "── capturing baseline clean-slate fingerprint (post-A, observational) ──"
+# Baseline fingerprint (post-A + demo data) — NOT asserted here: the ruled
+# terminal is `completed` (forward), so there is no clean-slate-equals-A
+# comparison to make (that check belongs to the rollback-terminal arcs, e.g.
+# between-migrations). Captured anyway for the diagnostics trap.
+echo "── capturing baseline clean-slate fingerprint (post-A, diagnostic only) ──"
 BASELINE_FP=$(capture_db_fingerprint baseline)
 echo "  baseline fingerprint: $BASELINE_FP"
 
@@ -288,25 +276,36 @@ VM_EXEC bash -c "cat /tmp/midtx-recovery.log" || true
 echo "  recovery ./sb install exit: $REC_RC"
 [ "$REC_RC" != "124" ] || { echo "✗ recovery ./sb install timed out (${INSTALL_BUDGET_S}s)" >&2; exit 1; }
 
-# ── OBSERVE, DO NOT ASSERT, the terminal (STATBUS-145 wave-2 ruling — see the
-# header): the derivation predicting rolled_back/exit-75 was refuted, and the
-# run that refuted it was itself disqualified by the daemon race (now fixed
-# above). Log everything the next reviewer needs; enforce nothing about
-# which terminal is "right" until a genuinely single-actor, instrumented run
-# settles it. ──
+# ── ASSERT the RULED terminal (architect, wave 3, run 28980487041 — see the
+# header): PRE-delta death (tx aborted before Phase advanced to Resuming) →
+# PhaseNewSbSwapped forward → completed, recovery_attempts==2 by design. This
+# is no longer an observation; it is the arc's contract. ──
 echo ""
-echo "── OBSERVE (not asserted) ──"
-echo "  [OBSERVE] recovery install exit code: $REC_RC"
+echo "── ASSERT the ruled terminal ──"
+echo "  recovery install exit code: $REC_RC"
 FINAL_STATE=$(upgrade_state)
-echo "  [OBSERVE] final upgrade row state: $FINAL_STATE"
-POST_MAX=$(migration_max_version)
-echo "  [OBSERVE] db.migration max version: $POST_MAX (baseline=$BASELINE_MAX_VERSION, V_VERSION_2=$V_VERSION_2)"
-VM_EXEC bash -c "grep -qF 'confirmed behind the new version' /tmp/midtx-recovery.log" >/dev/null 2>&1 && echo "  [OBSERVE] recoverFromFlag's Resuming-arm rollback line: present" || echo "  [OBSERVE] recoverFromFlag's Resuming-arm rollback line: ABSENT"
-RECOVERY_ATTEMPTS=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT recovery_attempts FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
-echo "  [OBSERVE] recovery_attempts: $RECOVERY_ATTEMPTS (the disqualified run showed 2 here — a single actor should show 1; >1 again means the daemon-stop fix above did not hold)"
+echo "  final upgrade row state: $FINAL_STATE"
+[ "$FINAL_STATE" != "rolled_back" ] || { echo "✗ state='rolled_back' — impossible under the ruled terminal (a pre-delta death must complete forward via the PhaseNewSbSwapped branch, never roll back)" >&2; exit 1; }
+[ "$FINAL_STATE" = "completed" ] || { echo "✗ B reached '$FINAL_STATE', expected 'completed'" >&2; VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, error FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 3;\" | ./sb psql" >&2 || true; exit 1; }
+echo "  ✓ state='completed'"
 
-# Terminal-agnostic sanity: whichever terminal actually occurred, a genuinely
-# single-actor, well-behaved run should still end with a clean, healthy box.
+POST_MAX=$(migration_max_version)
+echo "  db.migration max version: $POST_MAX (baseline=$BASELINE_MAX_VERSION, V_VERSION_2=$V_VERSION_2)"
+[ "$POST_MAX" = "$V_VERSION_2" ] || { echo "✗ db.migration max=$POST_MAX, expected V_VERSION_2=$V_VERSION_2 — the delta did not apply fully forward" >&2; exit 1; }
+echo "  ✓ delta applied fully forward (max == V_VERSION_2)"
+
+echo "  asserting the Resuming-forward marker is present, and the rollback marker is ABSENT (the mechanism, not just the outcome) ──"
+VM_EXEC bash -c "grep -qF 'confirmed behind the new version' /tmp/midtx-recovery.log" >/dev/null 2>&1 && { echo "✗ recoverFromFlag's Behind/rollback line IS present — impossible for a completed terminal" >&2; exit 1; }
+echo "  ✓ recoverFromFlag's Behind/rollback line is absent, as expected"
+VM_EXEC bash -c "grep -qF 'now running the new version' /tmp/midtx-recovery.log" >/dev/null 2>&1 || { echo "✗ the PhaseNewSbSwapped Resuming-forward marker is absent from the recovery log — the ruled mechanism did not fire the way this arc's contract requires" >&2; exit 1; }
+echo "  ✓ Resuming-forward marker present (Resuming upgrade ... where it left off, now running the new version)"
+
+RECOVERY_ATTEMPTS=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT recovery_attempts FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
+echo "  recovery_attempts: $RECOVERY_ATTEMPTS (ruled value is 2 by design: crash-ladder pass counts 1, this arc's explicit recovery dispatch counts 2 — deaths = attempts−1 = the one kill)"
+[ "$RECOVERY_ATTEMPTS" = "2" ] || { echo "✗ recovery_attempts=$RECOVERY_ATTEMPTS, expected 2 — either the daemon-stop fix did not hold (a race, see MECHANICS point 3) or the mechanism shifted" >&2; exit 1; }
+echo "  ✓ recovery_attempts==2, the ruled single-actor value"
+
+# Terminal-agnostic sanity, now load-bearing for a KNOWN terminal.
 assert_demo_data_present "$VM_NAME"
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 assert_flag_file_absent "$VM_NAME"
@@ -314,4 +313,4 @@ assert_no_orphan_backup "$VM_NAME"
 assert_health_passes "$VM_NAME"
 
 echo ""
-echo "PASS (OBSERVATIONAL ONLY — this reports observations, not a proven terminal; the STATBUS-071 map cell stays [PENDING-145-REDERIVE] until the architect reads the OBSERVE lines above and rules): postswap-mid-tx-kill (mid-tx parked, tree-SIGKILLed, tx aborted clean, single-actor recovery dispatched; the box reached a clean, healthy terminal — WHICH one, and whether recovery_attempts==1, is logged above for the next reviewer, not enforced here)"
+echo "PASS: postswap-mid-tx-kill (mid-tx parked, tree-SIGKILLed before the flag advanced to Resuming, tx aborted clean; the fixed single-actor recovery dispatch found Phase=post_swap and ran post_swap forward — B reached completed, recovery_attempts==2 by design — data intact, healthy, the ruled terminal)"

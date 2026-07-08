@@ -1,69 +1,59 @@
 #!/bin/bash
 # Arc: postswap-mid-migration-kill  (STATBUS-071 §9(5) 5d / doc-017 §1 — CAT-C)
 #
-# RE-GATED [PENDING-145-REDERIVE] (mechanic, 2026-07-09). TWO static
-# derivations of this arc's terminal have now been REFUTED by real runs — no
-# third armchair guess. (1) The pre-145 story ("in-dispatch forward recovery
-# → completed at attempts==1", run 28837119781) was voided by STATBUS-145's
-# floor-only boot-migrate (the delta moved to applyPostSwap). (2) The
-# architect's STATBUS-145 slice-2 prediction and the mechanic's independent
-# STATBUS-145 re-derivation (both: a mid-delta kill reads observed-state
-# positively Behind at applyPostSwap's postSwapFailure site → one-shot
-# rollback → os.Exit(75) — see the MECHANICS section below, kept for the
-# record, NOT current fact) were BOTH REFUTED by the wave-2 dispatch: the row
-# reached `completed` via forward recovery instead. Something in the real
-# control flow diverges from both static traces in a way neither predicted.
-# The terminal is UNDETERMINED by analysis alone — the next run, single-actor
-# and instrumented (STATBUS-148-style progress-log + journal capture wired in
-# below, ready for when this arc is un-gated), is what settles it. Until then
-# this arc loudly DECLINES to assert a terminal, exits BEFORE any VM is
-# provisioned (zero cost). A surviving marker after the next dispatch is
-# itself a red flag (STATBUS-145 PIN 3).
+# RULED (architect, wave 3, run 28980487041): terminal is `completed`
+# (forward), PROVEN on a real VM. TWO prior static derivations of this arc's
+# terminal (a pre-145 "in-dispatch forward recovery" story, and a STATBUS-145
+# re-derivation predicting `rolled_back`) were both REFUTED by real runs before
+# this — see MECHANICS below for that history, kept for the record. The
+# instrumented single-actor run this arc was rebuilt to produce settled it:
+#
+#   THE MECHANISM, live: the one-shot KillHere fires inside the
+#   crash-recovery's OWN floor-bound boot-migrate (`--to DaemonSchemaFloor`,
+#   install_upgrade.go:296) — NOT inside the delta step. That bounded
+#   boot-migrate call then fails (exit 137). Captured verbatim in the run:
+#     crash recovery: boot migrate up failed but a service-held flag is
+#     present (id=2, phase="post_swap") — deferring to RecoverFromFlag
+#     (STATBUS-017): exit status 137
+#   A service-held flag is present, so STATBUS-017's defer fires instead of
+#   aborting crash recovery: RecoverFromFlag runs, and post_swap proceeds
+#   forward from there, applying the delta (V1+V2) fresh. recovery_attempts=1
+#   (single actor, single pass — this arc dispatches only once).
+#
+#   This is a PRE-DELTA death: the kill landed before the delta step
+#   (applyPostSwap's own migrate call) was ever reached, so there is nothing
+#   for the atomicity flip to catch Behind — the delta runs exactly once,
+#   cleanly, afterward. Same family as its mid-tx sibling (also a pre-delta
+#   death, also completes forward); the OPPOSITE family is between-migrations
+#   (a MID-delta death, ledger already advanced → Behind → rolled_back). See
+#   the STATBUS-071 map for the full ruled rule stated once, in one place.
 #
 # ONE-SHOT KillHere fires at the START of runPsqlFile (migrate.go:389,
 # killed-by-system-during-individual-migration-execution) — BEFORE migration
 # 1's psql even runs, so NOTHING is committed: db.migration stays at baseline
-# (neither V1 nor V2 recorded), unlike between-migrations-kill where V1 is
-# already recorded at kill time. This is the arc's DISTINGUISHING window from
-# its sibling — same kill mechanism (KillHere, os.Exit(137) in the migrate
-# CLIENT subprocess only; Postgres itself untouched), same failure classU
-# nknown routing — but the REFUTED derivation below assumed that routing
-# always lands at postSwapFailure and always reads Behind; the actual run
-# says otherwise, and WHERE it actually lands is exactly what the next
-# instrumented run must show (which flag phase, which disposition site).
+# (neither V1 nor V2 recorded) until the forward recovery pass applies both.
 #
-# MECHANICS — THE REFUTED STATIC DERIVATION, KEPT FOR THE RECORD (mechanic,
+# MECHANICS — THE REFUTED STATIC DERIVATIONS, KEPT FOR THE RECORD (mechanic,
 # 2026-07-08 — this reasoning did NOT survive contact with a real run; do
-# not trust it as current fact, only as what was ruled out):
+# not trust it as current fact, only as what was ruled out before the actual
+# mechanism above was found):
 #   1. KillHere os.Exit(137)s the migrate CLIENT subprocess only; the parent
 #      (the re-exec'd ./sb install process, running inside applyPostSwap)
 #      survives and observes the dead subprocess as an ordinary Go error.
-#   2. Under 145, applyPostSwap's own unbounded migrate call (service.go:
-#      ~5467) is the ONLY site the delta ever runs at — the re-exec'd
-#      runCrashRecovery's OWN boot-migrate (install_upgrade.go:290) is bounded
-#      `--to DaemonSchemaFloor`, a no-op for V1/V2 (both above floor), so the
-#      inject site is never reached there.
-#   3. Exit 137 is classUnknown (not ceiling's ErrCommandTimeout, not exit
-#      20/22) → routes to postSwapFailure (service.go:5050), which reads
-#      observed state IMMEDIATELY (Postgres was never touched by this kill —
-#      only the client process died) → db.migration max == BASELINE <
+#   2. ASSUMED (WRONG): that applyPostSwap's own migrate call (service.go:
+#      ~5467) was the ONLY site the delta could run at, so the re-exec'd
+#      runCrashRecovery's OWN boot-migrate (install_upgrade.go:290, bounded
+#      `--to DaemonSchemaFloor`) was assumed a no-op the kill could never
+#      reach. WRONG: the kill DOES land inside that bounded boot-migrate call.
+#   3. ASSUMED (WRONG): exit 137 routes to postSwapFailure (service.go:5050),
+#      reading observed state immediately → db.migration max == BASELINE <
 #      on-disk max == V_VERSION_2 → ObservedCannotReachNew (positively
-#      Behind) on the first and only read → d.rollback() → os.Exit(75).
-#   4. REFUTED: the wave-2 run showed `completed`, not `rolled_back` — this
-#      chain's step 3 (or an unstated precondition of it) is wrong. Possible
-#      unexamined factors for the next instrumented run to distinguish: a
-#      self-heal canary short-circuit this trace didn't account for, a
-#      different flag phase than assumed, or the kill landing somewhere other
-#      than believed. Read, don't guess again.
-#
-# STATUS: OBSERVATIONAL, not a proven terminal contract. This arc now RUNS
-# (the exit-0 skip is gone) and captures the evidence an instrumented
-# single-actor run needs, but a green PASS here does NOT certify which
-# terminal is correct — it only means the box ended clean and healthy and the
-# OBSERVE lines below were logged. The STATBUS-071 map cell for this arc
-# STAYS [PENDING-145-REDERIVE] until the architect reads this run's captured
-# evidence (OBSERVE lines + _dump_mid_migration_failure_diagnostics on any
-# non-zero exit) and rules on the actual terminal.
+#      Behind) → d.rollback() → os.Exit(75).
+#   4. REFUTED, then EXPLAINED: the wave-2 run showed `completed`, not
+#      `rolled_back` — step 2's assumption was the actual error (the kill
+#      reaches the bounded boot-migrate, not the unbounded delta step); the
+#      real disposition is the STATBUS-017 defer path documented above, not
+#      postSwapFailure at all.
 #
 # Rides the kill-arc driver (5a): daemon-DOWN + ./sb install inline-dispatch +
 # the REAL inject + the ONE-SHOT MARKER (arc_install_dispatch_with_inject's 3rd
@@ -124,7 +114,7 @@ _dump_mid_migration_failure_diagnostics() {
 trap 'rc=$?; if [ "$rc" -ne 0 ]; then _dump_mid_migration_failure_diagnostics; fi; VM_EXEC bash -c "rm -f $KILL_MARKER 2>/dev/null" 2>/dev/null || true; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Arc: postswap-mid-migration-kill  (one-shot KillHere before V1 → terminal UNDETERMINED, instrumented observation)"
+echo "  Arc: postswap-mid-migration-kill  (one-shot KillHere hits the floor boot-migrate → STATBUS-017 defer → forward → completed)"
 echo "  A=${BASE_SHA:0:8}  B=${B_FULL:0:8}  inject=${INJECT_CLASS}  V=${V_VERSION}/${V_VERSION_2}"
 echo "════════════════════════════════════════════════════════════════"
 
@@ -165,24 +155,31 @@ echo "── verifying the kill landed (mechanism check — valid regardless of 
 [ "$(_marker_state)" = "consumed" ] || { echo "✗ one-shot marker still present — KillHere never fired (the mid-migration inject site was not reached)" >&2; exit 1; }
 echo "  ✓ one-shot kill landed (marker consumed)"
 
-# ── OBSERVE, DO NOT ASSERT, the terminal (STATBUS-145 wave-2 ruling — see the
-# header): two static derivations were refuted by real runs. Log everything
-# the next reviewer needs; enforce nothing about which terminal is "right"
-# until an instrumented single-actor run settles it. ──
+# ── ASSERT the RULED terminal (architect, wave 3, run 28980487041 — see the
+# header): PRE-delta death → STATBUS-017 defer → forward → completed. This is
+# no longer an observation; it is the arc's contract. ──
 echo ""
-echo "── OBSERVE (not asserted) ──"
-echo "  [OBSERVE] dispatch exit code: $ARC_DISPATCH_RC"
+echo "── ASSERT the ruled terminal ──"
+echo "  dispatch exit code: $ARC_DISPATCH_RC"
 FINAL_STATE=$(upgrade_state)
-echo "  [OBSERVE] final upgrade row state: $FINAL_STATE"
-POST_MAX=$(migration_max_version)
-echo "  [OBSERVE] db.migration max version: $POST_MAX (baseline=$BASELINE_MAX_VERSION, V_VERSION_2=$V_VERSION_2)"
-echo "  [OBSERVE] postSwapFailure rollback line present: $(arc_dispatch_log_has "auto-restoring from this upgrade's snapshot")"
-echo "  [OBSERVE] any observed-state gap text present: $(arc_dispatch_log_has "db.migration max version")"
-RECOVERY_ATTEMPTS=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT recovery_attempts FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
-echo "  [OBSERVE] recovery_attempts: $RECOVERY_ATTEMPTS (>1 would indicate more than one recovery actor raced — see the mid-tx sibling's single-actor finding)"
+echo "  final upgrade row state: $FINAL_STATE"
+[ "$FINAL_STATE" != "rolled_back" ] || { echo "✗ state='rolled_back' — impossible under the ruled terminal (a pre-delta death must complete forward via the STATBUS-017 defer, never roll back)" >&2; exit 1; }
+[ "$FINAL_STATE" = "completed" ] || { echo "✗ B reached '$FINAL_STATE', expected 'completed'" >&2; VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, error FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 3;\" | ./sb psql" >&2 || true; exit 1; }
+echo "  ✓ state='completed'"
 
-# Terminal-agnostic sanity: whichever terminal actually occurred, a genuinely
-# single-actor, well-behaved run should still end with a clean, healthy box.
+POST_MAX=$(migration_max_version)
+echo "  db.migration max version: $POST_MAX (baseline=$BASELINE_MAX_VERSION, V_VERSION_2=$V_VERSION_2)"
+[ "$POST_MAX" = "$V_VERSION_2" ] || { echo "✗ db.migration max=$POST_MAX, expected V_VERSION_2=$V_VERSION_2 — the delta did not apply fully forward" >&2; exit 1; }
+echo "  ✓ delta applied fully forward (max == V_VERSION_2)"
+
+echo "  asserting the STATBUS-017 defer marker is present (the mechanism, not just the outcome) ──"
+[ "$(arc_dispatch_log_has "deferring to RecoverFromFlag (STATBUS-017)")" = "yes" ] || { echo "✗ the STATBUS-017 defer marker is absent from the dispatch log — the ruled mechanism did not fire the way this arc's contract requires" >&2; exit 1; }
+echo "  ✓ STATBUS-017 defer marker present (boot migrate up failed but a service-held flag is present → deferring to RecoverFromFlag)"
+
+RECOVERY_ATTEMPTS=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT recovery_attempts FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
+echo "  [OBSERVE] recovery_attempts: $RECOVERY_ATTEMPTS (ruled single-actor value is 1 — this arc dispatches only once; not hard-asserted here, logged for the next reviewer)"
+
+# Terminal-agnostic sanity, now load-bearing for a KNOWN terminal.
 assert_demo_data_present "$VM_NAME"
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 assert_flag_file_absent "$VM_NAME"
@@ -190,4 +187,4 @@ assert_no_orphan_backup "$VM_NAME"
 assert_health_passes "$VM_NAME"
 
 echo ""
-echo "PASS (OBSERVATIONAL ONLY — this reports observations, not a proven terminal; the STATBUS-071 map cell stays [PENDING-145-REDERIVE] until the architect reads the OBSERVE lines above and rules): postswap-mid-migration-kill (one-shot kill before migration 1 landed; the box reached a clean, healthy terminal — WHICH one is logged above for the next reviewer, not enforced here)"
+echo "PASS: postswap-mid-migration-kill (one-shot KillHere landed inside the floor-bound boot-migrate, before the delta step; STATBUS-017 deferred to RecoverFromFlag, post_swap ran the delta forward, B reached completed — data intact, healthy, the ruled terminal)"
