@@ -186,6 +186,57 @@ fi
 
 mkdir -p "$HARNESS_ROOT/tmp"
 
+# ── STATBUS-132: fail fast if the sb build commit is not on origin ──────────────
+# dev.sh rebuilds ./sb embedding `git rev-parse HEAD`; the VM's clone has ONLY
+# origin. If HEAD is a LOCAL commit (Backlog.md board edits create one on every
+# ticket edit, so HEAD routinely sits ahead of origin between code pushes), the
+# uploaded sb's embedded commit is unresolvable on the VM and the VM-side
+# freshness check dies late with "fatal: bad object" — AFTER provisioning +
+# bootstrap + install, i.e. a paid Hetzner VM + ~10 min to discover something
+# knowable here in milliseconds. Refuse BEFORE the first VM. Runs only on an
+# actual run (after --list / --print-selected have exited above).
+preflight_head_on_origin() {
+    local sha
+    sha="$(git -C "$HARNESS_ROOT" rev-parse HEAD 2>/dev/null)" || {
+        echo "WARN: could not resolve HEAD (git rev-parse) — skipping the origin preflight" >&2
+        return 0
+    }
+    # Fast path (no network): an ORIGIN remote-tracking branch already contains
+    # it. Filtered to origin/ — a fork remote containing HEAD must not pass,
+    # since origin is what the VM clones (reviewer tightening).
+    if [ -n "$(git -C "$HARNESS_ROOT" branch -r --contains "$sha" 2>/dev/null | grep '^ *origin/')" ]; then
+        return 0
+    fi
+    # Slow path: ask origin directly — local remote-tracking refs may be stale, or
+    # a CI checkout may lack them. GIT_TERMINAL_PROMPT=0 so a missing credential
+    # fails fast instead of hanging on a prompt. HEAD present as a ref tip ⇒ pushed.
+    local remote_refs
+    if remote_refs="$(GIT_TERMINAL_PROMPT=0 git -C "$HARNESS_ROOT" ls-remote origin 2>/dev/null)"; then
+        if printf '%s\n' "$remote_refs" | grep -q "^${sha}[[:space:]]"; then
+            return 0
+        fi
+    else
+        echo "WARN: could not reach origin (git ls-remote) to verify HEAD is pushed —" >&2
+        echo "      proceeding; a genuinely-unpushed commit will still fail VM-side as before." >&2
+        return 0
+    fi
+    # origin reachable, HEAD neither contained by a remote branch nor a ref tip → not pushed.
+    echo "" >&2
+    echo "════════════════════════════════════════════════════════════════" >&2
+    echo "  REFUSING: HEAD ($sha) is not on origin — the VM cannot resolve it." >&2
+    echo "════════════════════════════════════════════════════════════════" >&2
+    echo "  The harness builds ./sb from HEAD and uploads it; the VM's clone has only" >&2
+    echo "  origin, so an unpushed HEAD dies VM-side with 'fatal: bad object' AFTER" >&2
+    echo "  burning a paid VM + ~10 min. Push first (board edits create a local commit" >&2
+    echo "  on every ticket edit — mind the freeze discipline), then re-run:" >&2
+    echo "      git push" >&2
+    echo "  If you DID just push, refresh remote-tracking and re-run:" >&2
+    echo "      git -C \"$HARNESS_ROOT\" fetch origin" >&2
+    echo "════════════════════════════════════════════════════════════════" >&2
+    exit 3
+}
+preflight_head_on_origin
+
 # The one rule for install/upgrade work (printed on every run by design):
 # you cannot reason out whether these paths work — the only way to know is to
 # run them for real, which is what you are doing now. Full reasoning + why these
