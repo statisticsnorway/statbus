@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-08 14:16'
+updated_date: '2026-07-08 14:21'
 labels:
   - product
   - migrate
@@ -43,3 +44,44 @@ FIX DIRECTION (architect, for ratification after the map): ONE precedence, appli
 - [ ] #2 One precedence ruled and applied identically at every site; set-but-ignored target-selection env vars REFUSE loudly with an actionable message — no silent divergence between named target and acted-on target
 - [ ] #3 A test pins the refuse-loudly behavior (env set + config divergence → loud failure, correct exit code, message names both databases)
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: mechanic
+created: 2026-07-08 14:21
+---
+RESOLUTION MAP + VERDICT (mechanic, 2026-07-08).
+
+**ROOT CAUSE — single upstream clobber, not split-brain.**
+
+`cli/cmd/migrate.go:61-107` `runMigrateUp` (the `RunE` for `./sb migrate up`) runs on EVERY invocation, `--target` passed or not (cobra sets `migrateUpTarget` default `"dev"` at `cli/cmd/migrate.go:164`, so the `if migrateUpTarget == ""` guard at line 63 never actually fires — dead code, always resolves 'dev'):
+```
+dbName, err := migrate.ResolveTargetDB(projDir, migrateUpTarget)   // :66
+os.Setenv("POSTGRES_APP_DB", dbName)                               // :73
+os.Setenv("PGDATABASE", dbName)                                    // :74
+```
+`migrate.ResolveTargetDB` (`cli/internal/migrate/migrate.go:1304-1332`) reads `POSTGRES_APP_DB` **exclusively from the `.env` FILE** via `dotenv.Load` — process env is never consulted here at all. So `runMigrateUp` unconditionally overwrites the operator's exported `POSTGRES_APP_DB`/`PGDATABASE` with the `.env` file's value, in the CURRENT PROCESS, BEFORE `migrate.Up()` is ever called. `migrate.Redo` (`migrate.go:1800-1832`, via `migrateRedoCmd` at `cli/cmd/migrate.go:133-160`) does the identical clobber for `./sb migrate redo`.
+
+**Every downstream resolution site is individually correct (env-first) but all read the SAME already-clobbered value — hence no split-brain:**
+- `PsqlCommand` (`migrate.go:82-119`, docker branch :83-107 / host branch :110-118) — `PGDATABASE` (raw process env) > `getOr(POSTGRES_APP_DB)` (env > .env > default). Correct precedence, wrong input.
+- `psqlEnv` (`migrate.go:183-236`, host-psql env builder) — same precedence, same caveat.
+- `advisoryLockConnStr` (`migrate.go:692-733`, pgx conn string for the migrate advisory lock) — only checks `POSTGRES_APP_DB` (env-first, no PGDATABASE) — same caveat.
+- `listAppliedVersions` (`migrate.go:589-616`) — delegates to `runPsql`→`PsqlCommand`, inherits its (clobbered) resolution.
+- `maybeRebuildTestTemplate` (`migrate.go:1073-1082`) and `currentMigrationTarget` (`migrate.go:1715-1731`) both read `POSTGRES_APP_DB`/`PGDATABASE` straight from process env post-clobber; `currentMigrationTarget`'s own comment (:1710-1711) says outright: 'PGDATABASE is set by the caller (the cobra migrate up/redo command) after ResolveTargetDB' — the clobber is documented/intentional for the `--target` feature, just not gated on `--target` actually being requested.
+
+**Not implicated (internal orchestration, correctly scoped):** `cli/cmd/seed_verify.go:385-402` `migrateNamedDb` does the same clobber SHAPE but takes an explicit `dbName` param for the seed-verify pipeline — it never reads the operator's env, so it's not part of this bug. `cli/internal/config/config.go:309-329` (`loadOrGenerateConfig`, `POSTGRES_APP_DB` default `statbus_<slotCode>`) + `:679` (example .env.config writer) only explain WHY `.env`'s `POSTGRES_APP_DB=statbus_local` — they run at `config generate` time, not migrate time, and aren't part of the live resolution chain.
+
+**READ-ONLY REPRODUCTION** (`.env`'s `POSTGRES_APP_DB=statbus_local`; confirmed `statbus_floor_test` does not exist as a database — `\l` returns zero matches):
+```
+POSTGRES_APP_DB=statbus_floor_test ./sb migrate up --to 20260703210000 --verbose
+  → All migrations are up to date
+  → Running post-restore fixups...
+```
+No 'database "statbus_floor_test" does not exist' error anywhere in output. If the operator's override had reached ANY connection attempt (advisory lock, psql bookkeeping query, or the actual migration psql calls), it would have failed loudly since that database provably doesn't exist. The clean, silent success proves the override never reached a single connection — consistent with one upstream clobber erasing it before any resolution site saw it, not with different sites disagreeing on where to connect.
+
+**VERDICT: SET-BUT-IGNORED (single wrong source), NOT split-brain.** There is exactly one divergence point (`runMigrateUp`/`Redo`'s unconditional `ResolveTargetDB` + `Setenv`, always reading `.env` regardless of prior process env). Every downstream site then agrees with every other downstream site (all correctly implement env-first) — they just all agree on the wrong database, because the true operator value was already erased one level up. The architect's split-brain hypothesis (different internal sites resolving to different DBs within one run) is NOT what's happening — it's simpler and arguably worse in a different way: the override is silently discarded even for callers who never asked for `--target` at all.
+
+**Implication for the fix ruling:** the fail-fast check belongs in `runMigrateUp`/`Redo`, comparing the operator's pre-existing `os.LookupEnv("POSTGRES_APP_DB")`/`PGDATABASE` (captured at lines 71-72 / 1817-1818, BEFORE the Setenv) against the `ResolveTargetDB` result — if they differ and `--target` wasn't explicitly passed (or even if it was, per the ticket's 'REFUSE-LOUDLY' doctrine), refuse with a message naming both databases, rather than silently overwriting.
+---
+<!-- COMMENTS:END -->
