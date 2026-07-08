@@ -191,9 +191,10 @@ func IsStale(projDir, commitSHA string) string {
 	}
 	return fmt.Sprintf(
 		"./sb is stale: built from %s, HEAD is now %s with cli/ changes.\n"+
-			"  Rebuild:\n"+
-			"    ./dev.sh build-sb       (host-only, fast — for dev iteration)\n"+
-			"    ./dev.sh cross-build-sb (all platforms — for release artifacts)",
+			"  Refresh ./sb — no host toolchain needed (procures the HEAD-matching binary\n"+
+			"  from the commit-tagged image, then re-execs):\n"+
+			"    ./sb install\n"+
+			"  (dev box with a Go toolchain: ./dev.sh build-sb, or ./dev.sh cross-build-sb for all platforms)",
 		short, headShort)
 }
 

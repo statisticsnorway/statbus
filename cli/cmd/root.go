@@ -99,11 +99,20 @@ func stalenessGuard(c *cobra.Command, _ []string) {
 	if commitSHA == "" {
 		// Tier-1/tier-2 ambiguous identity. A binary with no identity can't
 		// reliably know what to rebuild against, so self-heal can't help here.
+		// STATBUS-085: an identity-less binary CANNOT self-heal (the guard
+		// short-circuits here, before the procurement path below — and there is no
+		// commit to procure against). So the operator-correct remedy on a
+		// no-toolchain box is to RE-FETCH a release binary, which replaces this
+		// binary from a properly-tagged build — the documented rescue bootstrap.
+		// `./sb install` is NOT the remedy here: it would hit this same branch and
+		// exit again. (A Go toolchain box can cross-build; that's the dev fallback.)
 		const msg = "./sb has no reliable commit identity (built without ldflags, or with uncommitted changes, or non-git build).\n" +
-			"  Rebuild from a clean tree: ./dev.sh cross-build-sb"
+			"  It cannot self-heal — there is no identity to procure against. Re-fetch a release binary (no toolchain):\n" +
+			"    curl -fsSL https://statbus.org/install.sh | bash\n" +
+			"  (dev box with a Go toolchain: ./dev.sh cross-build-sb)"
 		if isMutatingCommand(c) {
 			fmt.Fprintln(os.Stderr, msg)
-			fmt.Fprintf(os.Stderr, "  After rebuild, re-run: %s\n", reRun)
+			fmt.Fprintf(os.Stderr, "  Then re-run: %s\n", reRun)
 			os.Exit(2)
 		}
 		fmt.Fprintln(os.Stderr, "WARN: "+msg)
@@ -173,9 +182,12 @@ func stalenessGuard(c *cobra.Command, _ []string) {
 			fmt.Fprintf(os.Stderr, "  %s\n", reRun)
 			os.Exit(2)
 		}
-		// Non-self-healing mutating command on stale binary: hard-fail.
+		// Non-self-healing mutating command on a stale (but identified) binary:
+		// hard-fail. STATBUS-085: msg (freshness.IsStale) now names the
+		// toolchain-free `./sb install` refresh; follow it with the operator's own
+		// command to re-run (never "after rebuild" — wrong on a no-toolchain box).
 		fmt.Fprintln(os.Stderr, msg)
-		fmt.Fprintf(os.Stderr, "  After rebuild, re-run: %s\n", reRun)
+		fmt.Fprintf(os.Stderr, "  Then re-run: %s\n", reRun)
 		os.Exit(2)
 	}
 	fmt.Fprintln(os.Stderr, "WARN: "+msg)
