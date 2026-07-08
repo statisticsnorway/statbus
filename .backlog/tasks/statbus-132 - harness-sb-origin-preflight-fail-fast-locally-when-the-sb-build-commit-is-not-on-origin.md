@@ -3,9 +3,10 @@ id: STATBUS-132
 title: >-
   harness-sb-origin-preflight: fail fast locally when the sb build commit is not
   on origin
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-07-03 22:04'
+updated_date: '2026-07-08 21:39'
 labels:
   - install-recovery
   - testing
@@ -32,3 +33,9 @@ THE CHANGE: a local pre-flight in the install-recovery harness (before any VM is
 
 Same fail-fast-actionable pattern as the existing pre-flights. Filed by foreman; the r3 log (tmp/vm-run-park-scenario-8641445eb-r3.log) is the reproduction record.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+NORTH STAR: a local harness run must never burn a VM on a commit origin cannot serve. SHIPPED babb2fe2e + 23065aee3 (2026-07-08), dual-reviewed (architect ship with one tightening — the fast path filters to origin/ so a fork remote cannot false-pass; foreman applied it and the SC2143 style fix). The preflight runs before any VM is provisioned: fast path checks origin tracking refs, slow path asks origin directly with prompting disabled. Refusal fires only on positive evidence (origin reachable, HEAD absent), exit 3, with a message that names the cure — including the just-pushed-but-stale-refs case, whose remedy line heals the one theoretical false refusal. All uncertain paths warn and proceed: the check saves money, never wrongly blocks. Verified three ways without touching the shared tree; caught a genuinely unpushed HEAD live during its own verification.
+<!-- SECTION:FINAL_SUMMARY:END -->
