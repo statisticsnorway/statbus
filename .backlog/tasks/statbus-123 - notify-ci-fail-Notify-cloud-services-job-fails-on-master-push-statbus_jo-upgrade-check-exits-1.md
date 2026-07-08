@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - operator
 created_date: '2026-07-02 17:01'
-updated_date: '2026-07-08 13:49'
+updated_date: '2026-07-08 13:56'
 labels:
   - ci
   - notify
@@ -69,5 +69,11 @@ THREE ARTIFACTS, deliberately minimal:
 TRUST BOUNDARY, stated honestly (so the King rules with eyes open): allowlisting a path inside the slot user's own checkout means the checkout's content decides what runs — but that is the SAME trust anchor as today (the old allowlisted bytes ran `./sb upgrade check`, also repo-delivered code executing as the slot user). What sshdo protects — the CI key cannot run arbitrary commands, only the one pinned invocation — holds unchanged. No privilege change, no new surface.
 
 SEQUENCING: artifacts 1+2 can land on master BEFORE the niue visit (the notify job stays red until the sshdoers edit — no worse than today's 100%-red); the root session then makes it green in one edit. ORACLE: the next master push's notify-all-clouds run — all 7 slots green. FUTURE-PROOF: behavior changes edit ops/ci-notify.sh (repo review + normal deploy); the workflow line and the sshdoers entries never change again. Session budget: one file edit (8 same-shape line replacements) — does not grow the visit.
+---
+
+author: foreman
+created: 2026-07-08 13:56
+---
+DURABLE ENTRYPOINT DEPLOYED, both halves (2026-07-08, same King-approved root session as the runner phase 2): REPO half c07439b5b — new ops/ci-notify.sh (4 lines, behavior evolves via git) + the workflow script block reduced to the single byte-stable line `~/statbus/ops/ci-notify.sh` (od-verified). SERVER half — /etc/sshdoers: all 8 notify entries replaced with that single pinned line (old multi-line <binary>-escaped pins removed), comment block updated to stay true, backup at /etc/sshdoers.bak-20260708-statbus123, cat -A verified no trailing whitespace; the pg_regress and deploy entries untouched; local reference copy tmp/niue-sshdoers refreshed from the live file. DISCLOSURE from the live read: the file had ALREADY been hand-patched discover→check sometime after comment #2's diagnosis (it no longer matched our stale local copy) — presumably the King's own edit; yesterday's notify run still failed, consistent with the dial-lottery reds (STATBUS-069) rather than the allowlist. ORACLE STATUS: the 13:54 run (28948097390) fired with the new workflow BEFORE the allowlist edit landed — red as expected. Green now requires each slot to have ops/ci-notify.sh in its checkout (arrives with each slot's next upgrade); the byte-pinning failure CLASS is ended — future workflow-behavior changes edit the script via git, never the server. Full immunity from the dial-lottery reds comes when phase 3 moves notify onto the niue runner (069, after the observation day).
 ---
 <!-- COMMENTS:END -->
