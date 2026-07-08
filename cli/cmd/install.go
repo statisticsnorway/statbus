@@ -1459,9 +1459,18 @@ func checkSessionsClean(dir string) bool {
 // ASYNC wrt the SQL return, so a single probe races the drain; re-probe on a bounded
 // loop and succeed on the first clean read. Cap sized for a reconnection burst on a
 // small (max_connections=30) box — longer than the pre-139 fixed 2s.
+//
+// sessionsSettleMaxKillAttempts is STATBUS-149's REQUIRED bound on the settle
+// loop's kill authority (below): a zombie advisory holder that reappears after
+// being killed (the 173→312→442 escalation this ticket investigated — a genuine
+// regenerating source, mechanism not yet pinned) must FAIL LOUDLY once it has
+// happened this many times, never be silently re-killed forever. Without the
+// bound, kill-in-loop would convert a regenerating leak into a quiet success —
+// exactly the finding this ticket exists to keep visible, not paper over.
 const (
-	sessionsSettleInterval = 4 * time.Second
-	sessionsSettleCap      = 48 * time.Second
+	sessionsSettleInterval        = 4 * time.Second
+	sessionsSettleCap             = 48 * time.Second
+	sessionsSettleMaxKillAttempts = 5
 )
 
 // cleanOrphanSessions terminates leaked backends from prior crashed
@@ -1527,6 +1536,63 @@ const (
 // never ran. The two are complementary; Phase 1 now matches BOTH the libpq
 // default 'psql' and the #14 tag 'statbus-migrate-sql%' so it catches the
 // orphan whichever binary started the migrate.
+
+// terminateZombieAdvisoryHolders issues pg_terminate_backend for every zombie
+// in the given list (logging each one loudly: pid + classification reason —
+// STATBUS-149, so an instrumented run documents the kill cadence for free),
+// via the same docker-exec superuser path the rest of this file uses. Returns
+// the count killed. No-op (0, nil) on an empty list. Shared by
+// cleanOrphanSessions's initial Phase 2 pass AND its settle-loop re-kill
+// (STATBUS-149) — ONE kill code path, so they can never drift into different
+// kill logic ("no new classification arms").
+func terminateZombieAdvisoryHolders(dir, adminUser, dbName string, zombies []zombieHolder) (int, error) {
+	if len(zombies) == 0 {
+		return 0, nil
+	}
+	pidsToKill := make([]int, 0, len(zombies))
+	for _, h := range zombies {
+		fmt.Printf("  Advisory-lock holder PID %d (%s): %s → terminating\n", h.BackendPID, h.AppName, h.Reason)
+		pidsToKill = append(pidsToKill, h.BackendPID)
+	}
+	sqlPids := make([]string, len(pidsToKill))
+	for i, p := range pidsToKill {
+		sqlPids[i] = strconv.Itoa(p)
+	}
+	killSQL := fmt.Sprintf(`SELECT pg_terminate_backend(pid), pid FROM pg_stat_activity WHERE pid IN (%s);`,
+		strings.Join(sqlPids, ","))
+	killCmd := exec.Command("docker", "compose", "exec", "-T", "db",
+		"psql", "-U", adminUser, "-d", dbName, "-c", killSQL)
+	killCmd.Dir = dir
+	killCmd.Stdout = os.Stdout
+	killCmd.Stderr = os.Stderr
+	if err := killCmd.Run(); err != nil {
+		return 0, fmt.Errorf("pg_terminate_backend: %w", err)
+	}
+	return len(pidsToKill), nil
+}
+
+// settleLoopMayKillAgain is STATBUS-149's pure bound check: the settle loop
+// below may issue another zombie-kill attempt only while under
+// sessionsSettleMaxKillAttempts. Extracted so the bound itself is
+// Docker-free unit-tested (the "bound trips at N+1" case), independent of
+// the loop's own docker-exec plumbing.
+func settleLoopMayKillAgain(killAttempts, maxKillAttempts int) bool {
+	return killAttempts < maxKillAttempts
+}
+
+// regeneratingZombieError is STATBUS-149's bounded-exhaustion message: a
+// zombie advisory holder that keeps reappearing after being killed is a
+// regenerating source, not a one-off leak — kill-in-loop must fail loudly
+// once the bound is hit rather than silently mask it as eventual success.
+// Pure (no I/O) so the exact wording is unit-tested directly.
+func regeneratingZombieError(totalKilled, killAttempts int, last sessionsVerdict) error {
+	return fmt.Errorf(
+		"zombie advisory-lock source is REGENERATING (%d killed across %d attempt(s), still appearing) — "+
+			"not a one-off leak; the underlying source needs investigation (STATBUS-149), not another kill. "+
+			"Last observed: %s. Check `journalctl --user -u 'statbus-upgrade@*'` for the underlying cause and re-run ./sb install",
+		totalKilled, killAttempts, last.describe())
+}
+
 func cleanOrphanSessions(dir string) error {
 	envFile, err := dotenv.Load(filepath.Join(dir, ".env"))
 	if err != nil {
@@ -1575,51 +1641,62 @@ func cleanOrphanSessions(dir string) error {
 	// statbus-migrate-<pid>) via the SHARED detection (STATBUS-055) — the same
 	// zombieAdvisoryHolders helper the gate (checkSessionsClean) uses to decide
 	// whether to run this cleanup, so the gate can never be blind to what this
-	// kills. The kill authority stays HERE.
+	// kills. The kill authority stays HERE, in terminateZombieAdvisoryHolders —
+	// STATBUS-149 reuses this SAME kill code path from the settle loop below, so
+	// the two can never drift into different kill logic.
 	zombies, err := zombieAdvisoryHolders(dir)
 	if err != nil {
 		return fmt.Errorf("phase 2 detect zombie advisory holders: %w", err)
 	}
-	var pidsToKill []int
-	for _, h := range zombies {
-		fmt.Printf("  Advisory-lock holder PID %d (%s): %s → terminating\n", h.BackendPID, h.AppName, h.Reason)
-		pidsToKill = append(pidsToKill, h.BackendPID)
-	}
-	if len(pidsToKill) > 0 {
-		sqlPids := make([]string, len(pidsToKill))
-		for i, p := range pidsToKill {
-			sqlPids[i] = strconv.Itoa(p)
-		}
-		killSQL := fmt.Sprintf(`SELECT pg_terminate_backend(pid), pid FROM pg_stat_activity WHERE pid IN (%s);`,
-			strings.Join(sqlPids, ","))
-		killCmd := exec.Command("docker", "compose", "exec", "-T", "db",
-			"psql", "-U", adminUser, "-d", dbName, "-c", killSQL)
-		killCmd.Dir = dir
-		killCmd.Stdout = os.Stdout
-		killCmd.Stderr = os.Stderr
-		if err := killCmd.Run(); err != nil {
-			return fmt.Errorf("phase 2 pg_terminate_backend: %w", err)
-		}
+	if _, err := terminateZombieAdvisoryHolders(dir, adminUser, dbName, zombies); err != nil {
+		return fmt.Errorf("phase 2 pg_terminate_backend: %w", err)
 	}
 
-	// Bounded settle loop (STATBUS-139): re-probe the tri-state verdict on the
-	// pool-INDEPENDENT docker-exec transport and SUCCEED on the first verified-clean
-	// read. Slot release + a post-restart reconnection burst are async wrt the
-	// pg_terminate_backend return, so a single probe races the drain — the pre-139
-	// bug that turned a self-resolving transient into a hard 'still saturated' exit-1.
-	// We probe immediately (fast path: already clean → no wait), then poll every
-	// sessionsSettleInterval up to sessionsSettleCap. On timeout we FAIL naming what
-	// was actually observed (last.describe(): leaked count / zombie pids / probe
-	// error) — distinguishing 'draining' (retried, then genuinely wedged) from a
-	// probe that couldn't verify. Retry covers both DIRTY (draining) and UNVERIFIABLE
-	// (transient probe error) during the window; the terminal failure carries the
-	// evidence rather than a bare, misleading 'saturated'.
+	// Bounded settle loop (STATBUS-139), now WITH KILL AUTHORITY (STATBUS-149):
+	// re-probe the tri-state verdict on the pool-INDEPENDENT docker-exec transport
+	// and SUCCEED on the first verified-clean read. Slot release + a post-restart
+	// reconnection burst are async wrt the pg_terminate_backend return, so a single
+	// probe races the drain — the pre-139 bug that turned a self-resolving
+	// transient into a hard 'still saturated' exit-1. We probe immediately (fast
+	// path: already clean → no wait), then poll every sessionsSettleInterval up to
+	// sessionsSettleCap. On timeout we FAIL naming what was actually observed
+	// (last.describe(): leaked count / zombie pids / probe error) — distinguishing
+	// 'draining' (retried, then genuinely wedged) from a probe that couldn't verify.
+	//
+	// STATBUS-149: pre-149, this loop only re-PROBED — probeSessionsVerdict shares
+	// zombieAdvisoryHolders with Phase 2 above, so it correctly RE-CLASSIFIED any
+	// zombie appearing after Phase 2's one-shot kill, but had no way to reclaim it
+	// (the settle-loop-only zombie was the exact 149 finding: pid 442 was never
+	// killed because nothing in this loop ever called terminateZombieAdvisoryHolders
+	// on it). Now: any zombie the probe sees gets the SAME kill Phase 2 already
+	// performs — no new classification arms, same code path
+	// (terminateZombieAdvisoryHolders) — bounded at sessionsSettleMaxKillAttempts.
+	// The bound is REQUIRED, not incidental: a regenerating source (the
+	// 173→312→442 escalation this ticket investigated) killed in an unbounded loop
+	// would eventually "succeed" by outlasting the settle window while never
+	// actually fixing anything — converting a real, still-unexplained leak into
+	// silent green. Exceeding the bound fails loudly instead, naming exactly how
+	// many were killed and how many attempts it took, so the regenerating source
+	// stays visible rather than getting laundered into a passing step.
 	deadline := time.Now().Add(sessionsSettleCap)
 	var last sessionsVerdict
+	killAttempts := 0
+	totalKilled := 0
 	for {
 		last = probeSessionsVerdict(dir)
 		if last.kind == sessionsClean {
 			return nil
+		}
+		if last.kind == sessionsDirty && len(last.zombies) > 0 {
+			if !settleLoopMayKillAgain(killAttempts, sessionsSettleMaxKillAttempts) {
+				return regeneratingZombieError(totalKilled, killAttempts, last)
+			}
+			n, err := terminateZombieAdvisoryHolders(dir, adminUser, dbName, last.zombies)
+			if err != nil {
+				return fmt.Errorf("settle-loop zombie re-kill (attempt %d): %w", killAttempts+1, err)
+			}
+			killAttempts++
+			totalKilled += n
 		}
 		if !time.Now().Before(deadline) {
 			break

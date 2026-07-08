@@ -142,3 +142,73 @@ func TestSessionsVerdictDescribe(t *testing.T) {
 		}
 	}
 }
+
+// STATBUS-149 — the settle loop's kill-in-loop bound. A zombie reappearing
+// after being killed (the 173→312→442 escalation the investigation found)
+// must eventually FAIL LOUDLY, not be re-killed forever — settleLoopMayKillAgain
+// is the pure gate that decides "another attempt is allowed" vs "the bound is
+// exhausted". Pins the exact boundary: allowed for every attempt strictly
+// below the max, refused AT the max (the N+1th attempt is where it trips).
+func TestSettleLoopMayKillAgain(t *testing.T) {
+	const max = sessionsSettleMaxKillAttempts // 5
+	cases := []struct {
+		attemptsSoFar int
+		want          bool
+	}{
+		{0, true},        // first kill ever attempted — always allowed
+		{1, true},
+		{max - 1, true},  // the Nth attempt (still under the bound)
+		{max, false},     // the (N+1)th attempt — bound trips here
+		{max + 1, false}, // already over — stays refused
+	}
+	for _, c := range cases {
+		if got := settleLoopMayKillAgain(c.attemptsSoFar, max); got != c.want {
+			t.Errorf("settleLoopMayKillAgain(%d, %d) = %v, want %v", c.attemptsSoFar, max, got, c.want)
+		}
+	}
+}
+
+// A zombie appearing mid-window (not present on the first probe, only later)
+// is indistinguishable to the bound check from one present from the start —
+// settleLoopMayKillAgain only counts ATTEMPTS MADE, never WHEN in the window
+// they occurred. This is what lets a genuinely late-appearing zombie (like
+// pid 442, which only showed up in the settle loop's own re-probe, never in
+// Phase 2's initial snapshot) still get a kill attempt: the bound governs
+// how many times we may act, not which iteration we're on.
+func TestSettleLoopMayKillAgain_MidWindowZombieStillGetsAnAttempt(t *testing.T) {
+	// Simulate: iterations 1-3 were clean (no kill attempted, killAttempts
+	// stays 0), then a zombie appears on iteration 4 — it must still be
+	// allowed a kill attempt, since killAttempts (0) is well under the bound.
+	killAttempts := 0
+	if !settleLoopMayKillAgain(killAttempts, sessionsSettleMaxKillAttempts) {
+		t.Fatal("a zombie appearing after several clean iterations must still get a kill attempt (killAttempts is what's bounded, not elapsed iterations)")
+	}
+}
+
+// STATBUS-149 — the regenerating-source failure message names the evidence
+// (total killed, attempts made, the last observed verdict) an operator or the
+// next investigation needs — never a bare "still saturated".
+func TestRegeneratingZombieError(t *testing.T) {
+	last := classifySessions(0, []zombieHolder{{BackendPID: 442, AppName: "", Reason: "empty application_name → unidentified zombie"}}, nil)
+	err := regeneratingZombieError(3, 5, last)
+	for _, want := range []string{"REGENERATING", "3 killed", "5 attempt", "442", "STATBUS-149"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("regeneratingZombieError message missing %q; got %q", want, err.Error())
+		}
+	}
+}
+
+// STATBUS-149 — the zero-zombie path stays a true no-op: terminateZombieAdvisoryHolders
+// must return immediately without attempting any docker-exec call when there is
+// nothing to kill (verified by the empty list short-circuiting before the
+// exec.Command is ever constructed — no docker/DB access needed for this case,
+// so it's safe to run as a plain unit test).
+func TestTerminateZombieAdvisoryHolders_EmptyIsNoop(t *testing.T) {
+	n, err := terminateZombieAdvisoryHolders("/nonexistent-dir-must-never-be-touched", "postgres", "statbus_local", nil)
+	if err != nil {
+		t.Fatalf("empty zombie list must be a no-op, got error: %v", err)
+	}
+	if n != 0 {
+		t.Errorf("empty zombie list must kill 0, got %d", n)
+	}
+}
