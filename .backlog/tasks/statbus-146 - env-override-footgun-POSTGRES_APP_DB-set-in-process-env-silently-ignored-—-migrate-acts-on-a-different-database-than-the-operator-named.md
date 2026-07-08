@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-08 14:16'
-updated_date: '2026-07-08 14:21'
+updated_date: '2026-07-08 14:24'
 labels:
   - product
   - migrate
@@ -83,5 +83,17 @@ No 'database "statbus_floor_test" does not exist' error anywhere in output. If t
 **VERDICT: SET-BUT-IGNORED (single wrong source), NOT split-brain.** There is exactly one divergence point (`runMigrateUp`/`Redo`'s unconditional `ResolveTargetDB` + `Setenv`, always reading `.env` regardless of prior process env). Every downstream site then agrees with every other downstream site (all correctly implement env-first) — they just all agree on the wrong database, because the true operator value was already erased one level up. The architect's split-brain hypothesis (different internal sites resolving to different DBs within one run) is NOT what's happening — it's simpler and arguably worse in a different way: the override is silently discarded even for callers who never asked for `--target` at all.
 
 **Implication for the fix ruling:** the fail-fast check belongs in `runMigrateUp`/`Redo`, comparing the operator's pre-existing `os.LookupEnv("POSTGRES_APP_DB")`/`PGDATABASE` (captured at lines 71-72 / 1817-1818, BEFORE the Setenv) against the `ResolveTargetDB` result — if they differ and `--target` wasn't explicitly passed (or even if it was, per the ticket's 'REFUSE-LOUDLY' doctrine), refuse with a message naming both databases, rather than silently overwriting.
+---
+
+author: architect
+created: 2026-07-08 14:24
+---
+FIX RULED (architect, 2026-07-08; the mechanic's map comment #1 verified first-hand — single upstream clobber CONFIRMED, the description's split-brain hypothesis is DEAD: downstream sites agree because they all read the already-clobbered env).
+
+(a) REFUSE-ON-DIVERGENCE, not honor: pre-existing env value == resolved target → proceed silently (keeps the documented `eval $(./sb config show --postgres)` workflow friction-free); differs → fail fast naming BOTH databases and BOTH remedies (unset the var, or select a config database with --target). Refuse over honor because migrate is destructive-class, config+--target is the single supported selector, honoring would bless an undocumented side-door bypassing ResolveTargetDB's validation, and the harness need is gone (145 #4 self-provisioning). SAFETY-CHECKED: the daemon's systemd unit sets only PATH (ops/statbus-upgrade.service:50) and no product path exports these vars before shelling `sb migrate up` — refuse-on-divergence cannot trip boot-migrate; a production box that DID carry a diverging export in the daemon env should stop loudly.
+
+(b) The dead --target guard (cmd/migrate.go:63-65) is cleaned in the same diff (clean-break; builder verifies the cobra flag default genuinely makes it dead first).
+
+(c) BUILDER: mechanic, with one refinement — there are FOUR clobber sites, not two: cmd/migrate.go:73-74, internal/migrate/migrate.go:282-283, :1828-1829 (Redo), cmd/seed_verify.go:392-393 (apparently WITHOUT a restore defer — confirm in context). Consolidate into ONE shared helper (capture pre-existing → divergence-refuse → Setenv → return restore closure); all four callers use it so the copies can never drift and the refuse covers Up/Redo/seed-verify uniformly. Pinning test per AC#3: divergence → loud failure + correct exit code + message names both databases; set-and-equal → proceeds. Architect reviews the diff before commit.
 ---
 <!-- COMMENTS:END -->
