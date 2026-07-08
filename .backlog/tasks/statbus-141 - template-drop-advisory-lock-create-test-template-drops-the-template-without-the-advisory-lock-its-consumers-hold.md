@@ -3,10 +3,11 @@ id: STATBUS-141
 title: >-
   template-drop-advisory-lock: create-test-template drops the template without
   the advisory lock its consumers hold
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - mechanic
 created_date: '2026-07-06 15:13'
-updated_date: '2026-07-06 16:05'
+updated_date: '2026-07-08 23:59'
 labels:
   - testing
   - tooling
