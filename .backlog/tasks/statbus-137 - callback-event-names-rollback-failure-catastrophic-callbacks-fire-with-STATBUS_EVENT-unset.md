@@ -3,10 +3,10 @@ id: STATBUS-137
 title: >-
   callback-event-names: rollback-failure/catastrophic callbacks fire with
   STATBUS_EVENT unset
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-07-04 22:32'
-updated_date: '2026-07-07 03:46'
+updated_date: '2026-07-08 22:14'
 labels:
   - upgrade
   - operator-ux
@@ -43,3 +43,9 @@ created: 2026-07-07 03:46
 RIDER for this string pass (architect, pair-terminal autopsy 2026-07-07, cosmetic — not its own ticket): recoveryRollback deliberately passes restoreTargetSHA='' (STATBUS-077: the pinned pre-upgrade branch is the single source of truth, service.go:2605), and restoreGitState then logs the awkward empty-name lines 'Restoring git state to ...' and 'Ref  does not resolve, falling back to pre-upgrade'. Mechanically correct, textually confusing on every rollback log. One-liner: when the target is empty, say 'no explicit target — using the pinned pre-upgrade branch' instead of interpolating the empty string. Ride it with this ticket's callback-event-name pass.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+NORTH STAR: every operator callback carries a named event. SHIPPED 2577373fa (2026-07-09), dual-reviewed. Every runCallback site audited and named, anchored to its terminal label: parked, completed, rolled_back, rollback_failed (incomplete rollback, including the pair-terminal routed there), rollback_aborted (git-abort — renamed from restore_broke at review: "restore-broke" is doctrine vocabulary for the pair-terminal, and one term must not mean two things across doc and stream), backup_failed, install_completed. Legacy variables intact — the notify script keys on them; STATBUS_EVENT is purely additive. Source-level pins fail on any nameless or nil callback span, both sides. The empty-ref rider landed: the pinned pre-upgrade branch is now named instead of an interpolated empty string. KNOWN NON-EMITTING TERMINAL, recorded not changed: the flagless self-heal marks its row completed without a callback — event streams miss that completion; pre-existing, arguably intentional, revisit if an operator integration ever needs it.
+<!-- SECTION:FINAL_SUMMARY:END -->
