@@ -3,10 +3,11 @@ id: STATBUS-111
 title: >-
   recovery-ux: `./sb install` re-attempts a broken restore + recovery
   legend/forecast
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - engineer
 created_date: '2026-06-28 12:53'
-updated_date: '2026-06-28 13:19'
+updated_date: '2026-07-08 23:58'
 labels:
   - upgrade
   - recovery
