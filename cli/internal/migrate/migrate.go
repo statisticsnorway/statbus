@@ -824,7 +824,15 @@ func acquireAdvisoryLock(ctx context.Context, projDir string) (*pgx.Conn, error)
 
 // Up applies pending migrations.
 // If migrateTo > 0, only apply up to that version.
-// If all is false, apply only one pending migration.
+// If all is false, apply only ONE pending migration — so a multi-migration
+// catch-up REQUIRES all=true; passing all=false with many pending silently
+// applies just the first (STATBUS-096 gotcha).
+//
+// NOT from-scratch-runnable on a bare database: the migrations assume the
+// create-db baseline (roles + the `auth` schema, etc.) that `./dev.sh create-db`
+// / the seed clone establish. A plain `CREATE DATABASE` + Up fails early — e.g.
+// `schema "auth" does not exist` at migration 20240102100000. To provision a DB
+// at a specific version, create it via create-db/seed first, then Up --to <v>.
 func Up(projDir string, migrateTo int64, all bool, verbose bool) error {
 	// Take the migrate advisory lock to prevent concurrent invocations from
 	// racing on the db.migration bookkeeping table. The lock is released

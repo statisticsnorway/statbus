@@ -5460,6 +5460,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 		// uncovered, causing a watchdog kill in the post-migrate active phase;
 		// the unified gated ticker above subsumes the migrate-only one and
 		// closes the gap.
+		migrateStart := time.Now() // STATBUS-096: baseline for the db-container StartedAt comparison
 		err := func() error {
 			progress.setDeferGating(true)
 			defer progress.setDeferGating(false)
@@ -5485,6 +5486,17 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 				fmt.Printf("migration exceeded the ceiling (%s) — killed; rolling back\n", MigrateUpTimeout)
 				d.terminateMigrateOrphan(ctx, progress)
 			}
+			// STATBUS-096 slice 3: best-effort OS-kill (OOM) EVIDENCE probe at the
+			// now-single migrate-failure site. Structured docker inspect of the db
+			// container (OOMKilled / ExitCode / StartedAt-vs-migrate-start) + a bounded
+			// db-log tail scan for the postmaster crash constant. Conjunctive +
+			// positive-match-only (the ENOSPC asymmetry): only an AFFIRMATIVE OS-kill
+			// signature adds named data to the reason ("the database was killed by the
+			// OS while migration <v> ran — it likely exceeds this box's memory"); no
+			// evidence → empty suffix → today's reason unchanged. NEVER changes the
+			// disposition — the probe is downstream of the failure, only enriches the
+			// reason, and its own failure returns "" (leniency, never a wrong abort).
+			oomEvidence := probeMigrateOOMEvidence(ctx, projDir, displayName, migrateStart)
 			// STATBUS-046 slice 2 (Q5): read the `sb migrate up` exit-code contract
 			// (migrate/exit_codes.go) STRUCTURALLY — 20 = deterministic SQL (B),
 			// 22 = resource/SQLSTATE-class-53 (C) → PARK on FIRST with a class-real
@@ -5496,9 +5508,9 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 				if cls == classResource {
 					reason = fmt.Sprintf("disk full during migration at %s (SQLSTATE class 53) — free disk space, then re-trigger the upgrade: %v", displayName, err)
 				}
-				return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, reason, progress)
+				return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, reason+oomEvidence, progress)
 			}
-			return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: ./sb migrate up: %v", ErrMigrationFailed, err), progress)
+			return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: ./sb migrate up: %v", ErrMigrationFailed, err)+oomEvidence, progress)
 		}
 	}
 
