@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - architect
 created_date: '2026-07-07 09:23'
-updated_date: '2026-07-08 14:15'
+updated_date: '2026-07-08 14:54'
 labels:
   - upgrade
   - recovery
@@ -52,9 +52,9 @@ Full analysis: comment #1 (floor mechanism, bounded form, what it dissolves), co
 <!-- AC:BEGIN -->
 - [ ] #1 King ratifies: the floor strategy, the atomicity flip (mid-delta failure → one-shot rollback via the existing Behind rule), and the flagless floor-only semantics (pending-above-floor logged loud, applied only by deliberate upgrade/install)
 - [ ] #2 Floor mechanism shipped: derived from the daemon-relation set (public.upgrade, db.migration, public.system_info + builder-verified enumeration), sufficiency enforced mechanically (CI guard: migration touching the set ⇒ floor bump) + an empirical floor test (schema at exactly floor; daemon boot+recovery queries run 42703-clean); existing 42703 fail-opens retained as backstop
-- [ ] #3 Both boot sites switch to the bounded form (service.go:1934, install_upgrade.go:290 → migrate up --to FLOOR); the deliberate install step-table Migrations step stays apply-all (cmd/install.go:623)
+- [x] #3 Both boot sites switch to the bounded form (service.go:1934, install_upgrade.go:290 → migrate up --to FLOOR); the deliberate install step-table Migrations step stays apply-all (cmd/install.go:623)
 - [ ] #4 Oracles re-proven: ceiling arc single-fire (1×ceiling → rolled_back, not 2×), OOM arc terminal rolled_back on first kill, park scenario kill window moved back to the pipeline migrate step
-- [ ] #5 doc-021 step list + budget-boundary narrative + both diagrams updated in the same commit as the shipped change (docs describe the present)
+- [x] #5 doc-021 step list + budget-boundary narrative + both diagrams updated in the same commit as the shipped change (docs describe the present)
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -143,5 +143,11 @@ author: foreman
 created: 2026-07-08 14:15
 ---
 SLICE 1 SHIPPED 67565f60b (2026-07-08), dual-reviewed (architect ship-with-changes — all four applied: the package-wide enumeration gap [retention_plan/retention_apply from exec.go], the whole-SQL-surface scope rule, the self-consistency exclusion principle, the completeness-sweep test that makes one-file enumeration structurally unrepeatable; foreman first-hand test/vet/build). FOR-THE-RECORD EMPIRICAL RUN (tester, dev DB — schema-identical to floor while floor==tree max): ALL 10 entries PREPARE CLEAN, exit 0. THE CALL QUESTION RESOLVED: pgx protocol-level Parse resolves all three CALL entries (supersede_older, supersede_completed_prereleases, retention_apply) — the ::regprocedure fallback is NOT needed. Harness mechanics proven end-to-end; the run becomes schema-meaningful automatically once ordinary migrations accumulate above the floor. TWO HARNESS FINDINGS routed to the architect for this ticket's residual list: (1) the provisioning recipe isn't executable as designed — ./sb migrate up cannot target an arbitrary database; likely fix = the test provisions itself in-process via the migrate package; (2) FOOTGUN: POSTGRES_APP_DB env override is SILENTLY ignored in favor of the config file (the command reported against dev while apparently pointed elsewhere) — the wrong-place-write class, possibly its own ticket. SLICE 2 (the atomicity flip) in build now.
+---
+
+author: foreman
+created: 2026-07-08 14:54
+---
+SLICE 2 SHIPPED cb356663d (2026-07-08) — THE GEOMETRY CHANGE IS IN, dual-reviewed in two halves (architect ship on the code core with the WIDENED-SCOPE finding: postSwapFailure + parkForDeterministicFailure also read observed-state, so ALL pre-delta resume failures now roll back and park shrinks to guard-parks + post-delta at-target — doc'd; architect ship-with-one-change on the truth half). Both boot sites → --to DaemonSchemaFloor (AC#3 checked; step-table stays apply-all); flip invariant structurally pinned (pipeline migrate step stays apply-all forever); HasPendingAbove + flagless loud line; behaviorally inert today (floor==tree max). ATOMICITY FLIP is EMERGENT — zero new code at the disposition site. doc-021 + both diagrams updated in-commit (AC#5 checked). FOUR arcs gated [PENDING-145-REDERIVE] (loud named skip before any VM cost; map re-tagged, no gated cell shows [PROVEN]): between-migrations, mid-migration, OOM (terminal flip = mechanic's, lands with slice 4), and MID-TX — added by the closing review on stale-proof grounds (its proven PATH no longer exists under 145; its recorded rationale mis-described its own construction; corrected to the mechanism-independent invariant: any parent death in the migration window leaves the ledger unadvanced → Behind → rolled_back). Ceiling arc un-gated + gained the single-fire leg (exactly one ceiling marker per journal). Gates are TIME-BOUNDED: slice 4 must remove them. NEXT: slice 3 (evidence probe) to the engineer; architect writes the park-rebuild spec against the committed geometry; then slice 4's oracle dispatches.
 ---
 <!-- COMMENTS:END -->
