@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - operator
 created_date: '2026-07-02 17:01'
-updated_date: '2026-07-02 17:50'
+updated_date: '2026-07-08 13:49'
 labels:
   - ci
   - notify
@@ -54,5 +54,20 @@ author: foreman
 created: 2026-07-02 17:50
 ---
 ROOT CAUSE CONFIRMED (operator deep-dive with root read access; foreman-verified reasoning chain, 2026-07-02 ~17:50). The CI key in every statbus_* slot's authorized_keys on niue is FORCED through command="/usr/local/bin/sshdo" (a command allowlist). /etc/sshdoers (managed by hand; local copy tmp/niue-sshdoers, lines 31-38) whitelists the EXACT OLD script bytes containing `./sb upgrade discover`. Commit 8c0631ee9 (2026-06-18) renamed discover→check and updated the workflow — but not the server allowlist → sshdo rejects the new script SILENTLY (exit 1, zero output). TIMELINE MATCHES EXACTLY: last green run 2026-06-18T15:45 (4076fe1d4), first red 15:47 (8c0631ee9, the rename). Operator's earlier manual-SSH successes used his unrestricted personal key — the initial 'drone-ssh buffering' hypothesis is RETIRED. FIX (root write on niue — HELD FOR THE KING per no-writes-without-approval): edit /etc/sshdoers, replace `./sb upgrade discover` → `./sb upgrade check` in the 8 statbus_* entries; update the repo-side copy tmp/niue-sshdoers to match; re-run the notify workflow as the oracle. FRAGILITY NOTE for a follow-up decision: the allowlist pins exact script BYTES, so ANY future edit to the workflow's script block silently re-breaks notify — durable options (allowlist a stable server-side entrypoint, or manage /etc/sshdoers from the repo) worth a separate task.
+---
+
+author: architect
+created: 2026-07-08 13:49
+---
+DURABLE-ENTRYPOINT DESIGN (architect, 2026-07-08 — King folded the fix here: the byte-patch is DEAD; this ships in the same niue root session as runner phase 2, doc-026). The fragility being killed: /etc/sshdoers pins the EXACT BYTES of the workflow's script block, so every future edit to that block silently re-breaks notify (the discover→check rename proved it: green 15:45, red 15:47, comment #2). The durable shape moves the CONTENT into the repo and leaves only a never-changing INVOCATION LINE in the allowlist.
+
+THREE ARTIFACTS, deliberately minimal:
+1. REPO: `ops/ci-notify.sh` (committed, executable, ~5 lines): `#!/bin/sh` + `cd "$(dirname "$0")/.."` + `[ -x ./sb ] || exit 0` + `exec ./sb upgrade check`. Content evolves via normal git deploys — never touches the allowlist again.
+2. REPO: `.github/workflows/notify-all-clouds.yaml` script block becomes the single byte-stable line `~/statbus/ops/ci-notify.sh` (nothing else — no ifs, no cd; those live server-side in the script). This is the ONLY string sshdo ever sees again.
+3. NIUE (root, one visit, rides the runner-phase-2 session): edit the 8 statbus_* entries in /etc/sshdoers to allowlist exactly that one line, replacing the old pinned script bytes. Keep a repo-side reference copy of the edited entries (ops/niue-sshdoers.reference — documentation, not deployment; niue's file stays hand-managed as today).
+
+TRUST BOUNDARY, stated honestly (so the King rules with eyes open): allowlisting a path inside the slot user's own checkout means the checkout's content decides what runs — but that is the SAME trust anchor as today (the old allowlisted bytes ran `./sb upgrade check`, also repo-delivered code executing as the slot user). What sshdo protects — the CI key cannot run arbitrary commands, only the one pinned invocation — holds unchanged. No privilege change, no new surface.
+
+SEQUENCING: artifacts 1+2 can land on master BEFORE the niue visit (the notify job stays red until the sshdoers edit — no worse than today's 100%-red); the root session then makes it green in one edit. ORACLE: the next master push's notify-all-clouds run — all 7 slots green. FUTURE-PROOF: behavior changes edit ops/ci-notify.sh (repo review + normal deploy); the workflow line and the sshdoers entries never change again. Session budget: one file edit (8 same-shape line replacements) — does not grow the visit.
 ---
 <!-- COMMENTS:END -->
