@@ -5776,6 +5776,15 @@ func (d *Service) upgradeParkedReason(ctx context.Context, id int) (parked bool,
 	return parkedAt.Valid, r.String, nil
 }
 
+// UpgradeParkedReason is the exported counterpart of upgradeParkedReason, for
+// callers outside this package (cmd/install_upgrade.go's runCrashRecovery,
+// STATBUS-147: after a failed recovery, re-check whether the row re-parked so
+// the daemon unit can be restarted anyway — a parked row is alive-idle-safe by
+// construction, unlike a genuinely broken recovery).
+func (d *Service) UpgradeParkedReason(ctx context.Context, id int) (parked bool, reason string, err error) {
+	return d.upgradeParkedReason(ctx, id)
+}
+
 // incrementRecoveryAttempts bumps recovery_attempts by one at attempt START and
 // returns the new value (STATBUS-046/D3: incremented before the forward pipeline
 // re-runs so a dead process self-counts — no post-hoc bookkeeping). Counts

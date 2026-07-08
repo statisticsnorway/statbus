@@ -311,10 +311,39 @@ func runCrashRecovery(projDir string) error {
 	}
 
 	if err := svc.RecoverFromFlag(ctx); err != nil {
-		return fmt.Errorf("crash recovery: %w", err)
+		recoveryErr := fmt.Errorf("crash recovery: %w", err)
+		// STATBUS-147: a re-park on this deliberate un-park path is SAFE (the
+		// parked-skip in RecoveryBudgetGuard + resumePostSwap makes every future
+		// boot alive-idle by construction, unlike a genuinely broken recovery,
+		// which must not resurrect a crash loop) and NECESSARY (the eventual fix
+		// release can only arrive via schedule → NOTIFY → daemon claim, which
+		// cannot happen with the unit down — the 144 argument verbatim: a dead
+		// daemon can repair nothing). Re-read the park state — the flag survives
+		// a park untouched, so its ID is still valid — and restart anyway when
+		// parked; a non-park failure keeps the conservative no-restart arm below.
+		// install's own non-zero exit is unchanged either way: the attempt did fail.
+		if flag, _, ferr := upgrade.ReadFlagFile(projDir); ferr == nil && flag != nil && flag.ID != 0 {
+			parked, parkReason, perr := svc.UpgradeParkedReason(ctx, flag.ID)
+			if shouldRestartAfterFailedRecovery(parked, perr) {
+				fmt.Printf("crash recovery: upgrade %d re-parked (%s) — restarting the upgrade daemon alive-idle regardless: parked-skip makes every boot safe by construction, and the daemon must stay reachable to claim the eventual fix release.\n", flag.ID, parkReason)
+				recovered = true
+			}
+		}
+		return recoveryErr
 	}
 	recovered = true
 	return nil
+}
+
+// shouldRestartAfterFailedRecovery is runCrashRecovery's STATBUS-147 decision,
+// extracted pure so both branches are unit-testable without a live daemon/DB:
+// restart the quiesced upgrade unit despite RecoverFromFlag's error ONLY when
+// the row is genuinely PARKED (parked-skip makes every future boot alive-idle
+// by construction) and the park-state read itself succeeded. Any other case —
+// not parked, or the read failed — keeps the conservative no-restart arm: a
+// genuinely broken recovery must not resurrect a crash loop.
+func shouldRestartAfterFailedRecovery(parked bool, parkStateReadErr error) bool {
+	return parkStateReadErr == nil && parked
 }
 
 // stopRestartUpgradeUnit is Part 1's primitive. It QUIESCES the (possibly
