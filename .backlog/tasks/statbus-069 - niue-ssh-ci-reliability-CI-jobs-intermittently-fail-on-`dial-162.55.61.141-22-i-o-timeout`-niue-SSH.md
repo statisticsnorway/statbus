@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-17 07:59'
-updated_date: '2026-07-06 19:41'
+updated_date: '2026-07-08 13:52'
 labels:
   - tooling
   - not-install-upgrade
@@ -51,5 +51,11 @@ author: architect
 created: 2026-07-06 19:41
 ---
 DESIGN LANDED → doc-026 (architect, 2026-07-06; DESIGN ONLY — no server writes, no workflow edits, no runner registration). Core decision: the runner is a NETWORK-POSITION fix, not a privilege change — a repo-scoped ephemeral runner (GitHub's official image, own compose project under a new github-runner user, no docker socket, 2cpu/2g caps) moves the SSH CLIENT onto niue so CI never crosses the public gate; the per-slot keys + sshdo allowlists remain the sole authority for what CI may do. Load-bearing security rule (repo verified PUBLIC): no pull_request-triggered job ever carries the self-hosted labels — pg_regress splits into a hosted PR leg (unchanged, fork PRs keep failing harmlessly without secrets) and a self-hosted trusted leg; plus the require-approval-for-all-outside-collaborators repo setting as backstop. Migration order: runner idle → notify-all-clouds (canary) → pg_regress trusted legs → seq/docker-maintenance; rollback = one runs-on line per workflow. Loud-signal preserved: a hosted canary job fails red naming the runner when it is offline (a queued job would otherwise sit silent up to 24h). Explicitly NOT done, recorded so nobody simplifies to it later: whitelisting GitHub's public ranges in crowdsec (King-rejected); the only crowdsec change is whitelisting the private Docker bridge subnet so the runner cannot self-ban — unreachable from the public internet. Prior art: read-only niue inspection found no existing runner (seq is the log server); github-run.sh stays as the allowlist precedent. Awaiting the King's approval before any build.
+---
+
+author: foreman
+created: 2026-07-08 13:52
+---
+PHASE 2 DEPLOYED (2026-07-08, King-approved niue root session, foreman-driven per the README runbook, every step verified live): (1) github-runner user created — docker group, NO sudo (uid 1016, groups verified). (2) Four repo artifacts placed in /home/github-runner, owned github-runner. (3) 1h registration token minted via gh api, placed as .env mode 600, local copy destroyed. (4) Image built + container started as github-runner; runner REGISTERED AND ONLINE — container log 'Listening for Jobs', GitHub API shows runner 'niue' online with labels self-hosted,Linux,X64,niue; RUNNER_TOKEN blanked afterward. (5) CrowdSec: new ssb/gha-runner-whitelist (separate file, own identity) whitelisting the gha-runner_default bridge subnet 172.22.0.0/16 — the private RFC1918 bridge only, categorically NOT GitHub's public ranges; crowdsec reloaded, active, parser enabled+local. (6) Weekly refresh installed: upgrade-to-latest-gha-runner.sh → /usr/local/bin, service+timer enabled — next fire Sun 2026-07-12 03:17 UTC. (7) NOW OBSERVING: one day idle including Sunday's first timer pass before any workflow migrates (phase 3 gate per doc-026 §3). The same root session also carries the STATBUS-123 sshdoers durable-entrypoint edit — pending the mechanic's repo artifacts (exact byte-stable script line) landing so the allowlist pins the right bytes.
 ---
 <!-- COMMENTS:END -->
