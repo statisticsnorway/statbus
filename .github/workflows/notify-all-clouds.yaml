@@ -43,10 +43,4 @@ jobs:
           username: ${{ matrix.server }}
           key: ${{ secrets.SSH_KEY }}
           command_timeout: 30s
-          script: |
-            cd ~/statbus
-            if [ -x ./sb ]; then
-              ./sb upgrade check
-            else
-              echo "Skipping: ./sb not installed on ${{ matrix.server }}"
-            fi
+          script: ~/statbus/ops/ci-notify.sh
