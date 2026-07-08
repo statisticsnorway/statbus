@@ -7,6 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-07-08 23:17'
+updated_date: '2026-07-08 23:31'
 labels:
   - ci
   - testing
@@ -42,3 +43,13 @@ IMPACT: all SQL-test signal masked since 14:43; tonight's commits are Go/shell/d
 - [ ] #2 Mode 3 failing init-db statement named verbatim from the test server's container logs and the ruled fix shipped (or 129 rolled back only if the architect rules the surfaced statement legitimate-by-design)
 - [ ] #3 Oracle: two consecutive green pg_regress + Fast Tests runs on master, one of which takes the recreate-seed path
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+DIAGNOSIS (mechanic, read-only, 2026-07-09). MODE 1 root cause: c53bad203 (the STATBUS-146 set-but-ignored-override guard) is WORKING; the caller is wrong. Chain: CI → ./dev.sh create-db (dev.sh:625) → unconditional recreate-seed call (dev.sh:1223 — no staleness gate; the 'intermittent' framing was wrong: the last-green run had checked out c53bad203's PARENT 51af77a73 per its own checkout line) → recreate-seed's eval $(./dev.sh postgres-variables) (dev.sh:1564) exports PGDATABASE=$POSTGRES_APP_DB into its own process → ./sb migrate up --target seed (dev.sh:1571/:1622) → cmd/migrate.go:63-68 OverrideTargetDB(statbus_seed) sees inherited PGDATABASE=statbus_test → refuses. Deterministic on every host where POSTGRES_APP_DB != statbus_seed (i.e. everywhere).
+
+MODE 3 prime suspect: init-db.sh:104 CREATE USER $POSTGRES_APP_USER — no idempotency guard (unlike roles at :157-160), newly loud under 129's ON_ERROR_STOP, and under set -euo pipefail (line 4) an already-exists failure aborts ALL of init-db before CREATE DATABASE/auth/schema → container unhealthy. Corroboration: the identical 'role statbus_test already exists' caught LIVE on the test host on a reused volume. UNRESOLVED CONTRADICTION (foreman flag, blocks trusting the mechanism): the 23:09 failing run's CI log shows the volume REMOVED + RECREATED before the failure — a genuinely fresh cluster cannot collide on CREATE USER; and the live healthy container printed the ERROR then 'Handing off to docker-entrypoint', which contradicts a hard abort. Historical container logs unrecoverable (compose down'd). Architect to rule what evidence settles it (init-db.sh code walk + compose volume config, or instrument init-db to name the failing statement on the next run).
+
+UNLABELED THIRD MODE (runs on 46e30276a/12083f237/81e102a5c, 22:39-22:46): pg_restore 'role admin_user does not exist' → seed restore failed (transaction rolled back). Mode 1 STOPPED reproducing in that window with NO relevant commit in 2577373fa..46e30276a (git log over dev.sh + cli/internal/migrate/ + cli/cmd/migrate.go) — mechanic suspects server-side manual intervention on the test host; flagged to the architect (doctrine + timeline-confound). Timeline sanity: mode 3 absent from all pre-129 runs (spot-checked 21:30-22:24); first at 08a3c9471 (23:09), repeated 28982656608 (23:24).
+<!-- SECTION:NOTES:END -->
