@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-08 21:56'
-updated_date: '2026-07-08 22:38'
+updated_date: '2026-07-08 23:10'
 labels:
   - product
   - install
@@ -48,6 +48,12 @@ INVESTIGATION DELIVERABLE: the full mid-migration log section for 442's classifi
 - [ ] #2 Ruled fix shipped: the sessions step either reaps the class deterministically or fails naming the actionable cause (never bare re-run noise)
 - [ ] #3 Oracle: the mid-migration arc's post-completion install passes step 10/16 on the re-run wave
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+SOURCE FOUND (mechanic static enumeration, 2026-07-09, read-only — no fix built yet). Every advisory-lock acquirer enumerated: migrate.acquireAdvisoryLock (migrate.go:816) tags 'statbus-migrate-<pid>' at :833 — Up/Redo/template-rebuild all covered; migrate.AcquireSeedLock (seed_lock.go:104) tags at :117 and is moot anyway (connects to dbname=postgres; zombieAdvisoryHolders filters a.datname = current_database(), install.go:1295); no SQL-side acquirers in migrations/. THE ONE UNTAGGED ACQUIRER: (*Service).acquireAdvisoryLock (service.go:2368) on d.queryConn — the DSN at service.go:3273-3274 carries no application_name, and internal/upgrade contains zero SET application_name. Mechanism matching the observed cadence exactly: classifyAdvisoryHolder('') unconditionally reads empty app_name as zombie; the service's own LIVE lock connection is killed (PID 173), its next query hits isConnError, d.reconnect() (:3374-3395, ~10 call sites) opens a fresh untagged backend (PID 305/303), misclassified again. Explains the two-per-install-pass kills in the wave-3 arcs, the historical 173→312→442 escalation, and the pre-fix settle-loop timeout — one lock key (upgrade_daemon), one untagged connection, self-regenerating by design. Sharpened finding: the kill-in-loop fix is killing a LIVE self-regenerating connection; the bound of 5 would turn a healthy recognizable holder into regeneratingZombieError. Routed to the architect for the fix-shape ruling: tag both conns 'statbus-upgrade-daemon-<pid>' mirroring the migrate pattern; classification semantics for the new tag and for the empty-string catch-all after it ships; whether the Caddy-route-vs-reaper framing is closed by this.
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 
