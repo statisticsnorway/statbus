@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-07-08 23:17'
-updated_date: '2026-07-08 23:46'
+updated_date: '2026-07-08 23:52'
 labels:
   - ci
   - testing
@@ -40,7 +40,7 @@ IMPACT: all SQL-test signal masked since 14:43; tonight's commits are Go/shell/d
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 Mode 1 call chain named (guard site file:line, workflow env source, staleness rule that selects the recreate path) and the ruled fix shipped
-- [ ] #2 Mode 3 failing init-db statement named verbatim from the test server's container logs and the ruled fix shipped (or 129 rolled back only if the architect rules the surfaced statement legitimate-by-design)
+- [x] #2 Mode 3 failing init-db statement named verbatim from the test server's container logs and the ruled fix shipped (or 129 rolled back only if the architect rules the surfaced statement legitimate-by-design)
 - [ ] #3 Oracle: two consecutive green pg_regress + Fast Tests runs on master, one of which takes the recreate-seed path
 <!-- AC:END -->
 
@@ -69,5 +69,11 @@ author: foreman
 created: 2026-07-08 23:46
 ---
 MODE-1 FIX SHIPPED in 4ebc170c0 (dual-reviewed: architect ship-with-one-change — redo threading — applied and confirmed; foreman first-hand). An explicit --target (cobra flag.Changed, never the default) now wins over inherited-but-divergent PGDATABASE/POSTGRES_APP_DB with one loud override line; the default-target refuse is byte-identical to 146. Both --target-registering commands covered (up/up-one AND redo — redo's original strict boundary was rejected in review because redo registers --target at cmd/migrate.go:163, reproducing the advertised-remedy asymmetry); the internal edge-channel auto-redo keeps strict refuse (no operator flag, env pre-aligned). Pure classifyTargetOverride decision + full matrix tests + behavioral pin of the exact CI case. AC#1 checked. The push-triggered pg_regress run on 4ebc170c0 is the first mode-1-free run — it either goes green or isolates mode 3 cleanly (instrumentation build in flight in parallel).
+---
+
+author: foreman
+created: 2026-07-08 23:52
+---
+MODE 3 EXPLAINED-BY-COLLISION (architect ruling, 2026-07-09, no confirmation run needed — the signature is already captured): post-129, every fresh-volume boot aborts at init-db.sh:187 (the notify-user collision) → container exits with PGDATA initialized-but-partial → restart: unless-stopped (postgres/docker-compose.yml:12) boots it again → 'Skipping initialization' → healthy, minus the notify user + grant → whether the RUN goes red is the RACE between docker compose up --wait's budget and that restart cycle. Explains the conditionality (the race, not the cause — the cause became deterministic when 129 landed, matching mode 3's first appearance), the unhealthy-then-healthy-when-inspected sequence, and the mechanic's two-boots-concatenated log — which IS the direct evidence chain (abort, restart, skip-init, hand-off). AC#2 checked: the failing statement is named (init-db.sh:187) and the ruled fixes shipped (03b0dba26 guard + instrumentation; 129 stays — the refuse is right, a cluster silently missing its notify user is a real defect). STATBUS-151 stays distinct and quarantined. SEQUENCING LESSON (architect's own accounting, for the ledger): the 'was going to die anyway' premise was wrong for this host — the collision produced healthy-but-partial via the restart cycle, and the refuse converted working-with-a-wart into hard-dead. THE RULE: a guard that converts a known-existing-in-the-wild misconfig into a hard stop must ship with its remediation path IN THE SAME PACKAGE. The workflow-side correction (ruled doctrine-COMPLIANT: committed workflow code mutating its own host = the deploy-workflow precedent) ships tonight, one commit late — mechanic building with three pins: converge to the generator's default shape, loud-when-changing/idempotent, fires only on the collision. AC#3 (two consecutive greens) becomes reachable once it lands.
 ---
 <!-- COMMENTS:END -->
