@@ -138,4 +138,10 @@ FLOOR-HARNESS RESIDUALS from the tester's for-the-record run (2026-07-08; durabl
 
 (CALL-prepare verdict from the tester still pending; no design change until it lands.)
 ---
+
+author: foreman
+created: 2026-07-08 14:15
+---
+SLICE 1 SHIPPED 67565f60b (2026-07-08), dual-reviewed (architect ship-with-changes — all four applied: the package-wide enumeration gap [retention_plan/retention_apply from exec.go], the whole-SQL-surface scope rule, the self-consistency exclusion principle, the completeness-sweep test that makes one-file enumeration structurally unrepeatable; foreman first-hand test/vet/build). FOR-THE-RECORD EMPIRICAL RUN (tester, dev DB — schema-identical to floor while floor==tree max): ALL 10 entries PREPARE CLEAN, exit 0. THE CALL QUESTION RESOLVED: pgx protocol-level Parse resolves all three CALL entries (supersede_older, supersede_completed_prereleases, retention_apply) — the ::regprocedure fallback is NOT needed. Harness mechanics proven end-to-end; the run becomes schema-meaningful automatically once ordinary migrations accumulate above the floor. TWO HARNESS FINDINGS routed to the architect for this ticket's residual list: (1) the provisioning recipe isn't executable as designed — ./sb migrate up cannot target an arbitrary database; likely fix = the test provisions itself in-process via the migrate package; (2) FOOTGUN: POSTGRES_APP_DB env override is SILENTLY ignored in favor of the config file (the command reported against dev while apparently pointed elsewhere) — the wrong-place-write class, possibly its own ticket. SLICE 2 (the atomicity flip) in build now.
+---
 <!-- COMMENTS:END -->
