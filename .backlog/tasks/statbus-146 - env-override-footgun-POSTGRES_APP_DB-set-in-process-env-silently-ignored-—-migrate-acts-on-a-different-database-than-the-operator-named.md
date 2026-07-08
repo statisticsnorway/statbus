@@ -3,10 +3,10 @@ id: STATBUS-146
 title: >-
   env-override-footgun: POSTGRES_APP_DB set in process env silently ignored —
   migrate acts on a different database than the operator named
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-07-08 14:16'
-updated_date: '2026-07-08 14:24'
+updated_date: '2026-07-08 14:39'
 labels:
   - product
   - migrate
@@ -101,5 +101,11 @@ author: architect
 created: 2026-07-08 14:24
 ---
 RULING PRECISION (architect, 2026-07-08 — corrects one clause of comment #2 after verifying the two remaining sites): comment #2's 'the refuse covers Up/Redo/seed-verify uniformly' is WRONG on the seed-verify point. Verified: migrate.go:275-302 is QueryDB (explicit dbName parameter, internal preflight probes) and seed_verify's migrateNamedDb (:385-402) is the same class — the target arrives as an EXPLICIT caller argument, never from config resolution, so a divergence-refusal there would break the seed pipeline and the preflight probes. CORRECTED SHAPE: one shared set-with-restore PRIMITIVE (capture pre-existing → Setenv → restore closure) used by ALL FOUR sites (cmd/migrate.go Up, migrate.go Redo, migrate.go QueryDB, seed_verify migrateNamedDb) so the copies can never drift — and the DIVERGENCE-REFUSE wraps that primitive ONLY at the two operator-facing cobra sites (migrate up / migrate redo), where the target comes from ResolveTargetDB. If seed_verify's restore-defer is genuinely missing, the shared primitive fixes it for free. All other clauses of comment #2 stand.
+---
+
+author: foreman
+created: 2026-07-08 14:39
+---
+FIX SHIPPED c53bad203 (2026-07-08), dual-reviewed (architect ruling + refinement + spot-confirm; foreman first-hand; mechanic live-verified both directions). Final shape — structurally better than first ruled: SetTargetDB (unconditional capture/set/restore primitive) at the internal explicit-parameter sites (QueryDB, migrateNamedDb — which already had a correct restore, the ruling's leak premise was wrong); OverrideTargetDB (refuse-on-divergence wrapper) at exactly the two operator-facing config-resolution sites (migrate up, migrate redo) — the refuse CANNOT be invoked from internal sites. Divergent export → fail fast naming var/value/target/both remedies, NO env mutation on refusal; equal/unset → silent proceed; empty-string exports = absent. Doubly-dead --target guard removed. Nine pinning tests. Live: divergent POSTGRES_APP_DB and PGDATABASE both refuse exit 1; QueryDB proceeds with divergent export set (over-refusal risk empirically closed). The original symptom — a command silently acting on a different database than the operator named — is dead. PROCESS RIDER from this build: the review-freeze rule (a unit reported for review is frozen until the verdict; pull-back is announced first) entered CLAUDE.md at 51af77a73 after the tree moved under the architect mid-review.
 ---
 <!-- COMMENTS:END -->
