@@ -606,7 +606,21 @@ func listMigrationFiles(projDir string) ([]*MigrationFile, error) {
 	for _, f := range files {
 		mf, err := parseMigrationFile(f)
 		if err != nil {
-			return nil, err
+			// STATBUS-138 (two-tier validation): a file whose name is not a valid
+			// migration (bad prefix, or a 14-digit that is not a real timestamp — the
+			// r17 `99999999999999_*.up.sql`) is NOT a migration: an editor backup, a
+			// partial rsync, an operator copy with a mangled prefix. SKIP it with a
+			// LOUD warn naming the file — hard-erroring the whole run on a stray is
+			// what churns boxes (r17: it made `sb migrate up` fail every pass AND
+			// inflated ground-truth's disk-max into a permanent false Behind). This
+			// lister is THE single source both the applier (migrate.Up) and the
+			// ground-truth comparator (MaxDiskVersion) go through, so a skipped file
+			// is invisible to BOTH by construction — they can never disagree on what a
+			// migration is. Valid-name files with OTHER defects (duplicate version
+			// below; unreadable at apply time) still hard-error. The warn text is a
+			// stable, greppable marker.
+			fmt.Fprintf(os.Stderr, "WARN: ignoring invalid migration file %s: %v\n", filepath.Base(f), err)
+			continue
 		}
 		migrations = append(migrations, mf)
 	}
@@ -622,6 +636,24 @@ func listMigrationFiles(projDir string) ([]*MigrationFile, error) {
 		seen[m.Version] = filepath.Base(m.Path)
 	}
 	return migrations, nil
+}
+
+// MaxDiskVersion returns the highest VALID on-disk (up) migration version — the
+// single source of truth for ground truth's "on-disk max" comparison
+// (STATBUS-138). It goes through the same listMigrationFiles the applier uses, so
+// an invalid-named file (skipped + warned there) is invisible here too: the
+// comparator can never read a version the applier would refuse (no permanent
+// false Behind), and it counts .up.psql as well as .up.sql (no false AtNew from a
+// pending .psql). Returns 0 when there are no valid migrations.
+func MaxDiskVersion(projDir string) (int64, error) {
+	migrations, err := listMigrationFiles(projDir)
+	if err != nil {
+		return 0, err
+	}
+	if len(migrations) == 0 {
+		return 0, nil
+	}
+	return migrations[len(migrations)-1].Version, nil // sorted ascending
 }
 
 const ensureMigrationTableSQL = `

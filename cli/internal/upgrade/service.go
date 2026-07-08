@@ -2517,9 +2517,24 @@ func (d *Service) verifyUpgradeObservedStateEx(ctx context.Context, rowCommitSHA
 			queryErr)
 	}
 
-	diskMaxVersion := latestDiskMigrationVersion(d.projDir)
+	// STATBUS-138: the on-disk max comes from migrate.MaxDiskVersion — the SAME
+	// shared lister the applier (migrate.Up) uses — so an invalid-named file
+	// (skipped + warned there) is invisible here too. The comparator can no longer
+	// read a version migrate would refuse (the r17 permanent-false-Behind that
+	// drove the recoveryRollback crash loop), nor miss a pending .up.psql (the
+	// inverse false-AtNew). The old service-local latestDiskMigrationVersion —
+	// which globbed .up.sql only and accepted any numeric prefix (99999999999999
+	// passed) — is deleted; this reader and the applier cannot disagree anymore.
+	diskMaxVersion, diskErr := migrate.MaxDiskVersion(d.projDir)
+	if diskErr != nil {
+		// A real migrations-dir defect (e.g. a duplicate migration version) —
+		// unverifiable; never silently assume AtNew. Unrecognized → stop for a
+		// human, not a destructive auto-action.
+		return ObservedPositionUnreadable, CauseUnrecognized, fmt.Sprintf(
+			"cannot compute on-disk migration max: %v (cannot verify migrations applied)", diskErr)
+	}
 	if diskMaxVersion == 0 {
-		// No on-disk migrations found (odd but non-fatal); skip check.
+		// No valid on-disk migrations found (odd but non-fatal); skip check.
 		fmt.Printf("Ground-truth: no on-disk migrations found; skipping migration check.\n")
 		return ObservedAlreadyAtNew, CauseNone, ""
 	}
@@ -2531,36 +2546,6 @@ func (d *Service) verifyUpgradeObservedStateEx(ctx context.Context, rowCommitSHA
 	}
 
 	return ObservedAlreadyAtNew, CauseNone, ""
-}
-
-// latestDiskMigrationVersion returns the max YYYYMMDDHHMMSS version number
-// parsed from migrations/*.up.sql file basenames in projDir. Returns 0 when
-// the directory is unreadable or empty. Used by verifyUpgradeObservedState to
-// compare against db.migration's recorded max.
-func latestDiskMigrationVersion(projDir string) int64 {
-	entries, err := os.ReadDir(filepath.Join(projDir, "migrations"))
-	if err != nil {
-		return 0
-	}
-	var latest int64
-	for _, e := range entries {
-		name := e.Name()
-		if !strings.HasSuffix(name, ".up.sql") {
-			continue
-		}
-		parts := strings.SplitN(name, "_", 2)
-		if len(parts) == 0 {
-			continue
-		}
-		v, convErr := strconv.ParseInt(parts[0], 10, 64)
-		if convErr != nil {
-			continue
-		}
-		if v > latest {
-			latest = v
-		}
-	}
-	return latest
 }
 
 // recoveryRollback is the recovery-path wrapper around d.rollback() used by

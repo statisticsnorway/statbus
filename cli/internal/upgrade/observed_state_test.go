@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -187,7 +186,7 @@ func TestVerifyUpgradeObservedState_UnknownBinarySkipsCheck(t *testing.T) {
 	// We test by running against a projDir with no migrations/ directory,
 	// which makes Check 2 skip with a log line too.
 	projDir := t.TempDir()
-	// Migration dir absent → latestDiskMigrationVersion returns 0 →
+	// Migration dir absent → migrate.MaxDiskVersion returns 0 →
 	// verifyUpgradeObservedState's check 2 early-returns true. But check 2
 	// still queries the DB first; we can't run that without pgx. So for
 	// this test we only verify the early-skip structure by setting
@@ -209,53 +208,11 @@ func TestVerifyUpgradeObservedState_UnknownBinarySkipsCheck(t *testing.T) {
 	}
 }
 
-// TestLatestDiskMigrationVersion_ParsesVersionPrefix verifies the parser
-// that Check 2 uses to derive the expected-max migration version from
-// the on-disk migrations/ directory. Correctness here is the
-// precondition for the DB-vs-disk comparison in
-// verifyUpgradeObservedState to be meaningful.
-func TestLatestDiskMigrationVersion_ParsesVersionPrefix(t *testing.T) {
-	projDir := t.TempDir()
-	migDir := filepath.Join(projDir, "migrations")
-	if err := os.MkdirAll(migDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	// Ordinary release migrations
-	files := []string{
-		"20240101120000_first.up.sql",
-		"20260115080000_middle.up.sql",
-		"20260423070000_document_undocumented_entities.up.sql",
-		// down.sql should be ignored
-		"20260423080000_something.down.sql",
-		// file without underscore version should be ignored
-		"misc.up.sql",
-	}
-	for _, n := range files {
-		if err := os.WriteFile(filepath.Join(migDir, n), []byte("-- test"), 0644); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	got := latestDiskMigrationVersion(projDir)
-	var want int64 = 20260423070000
-	if got != want {
-		t.Fatalf("latestDiskMigrationVersion = %d, want %d", got, want)
-	}
-}
-
-// TestLatestDiskMigrationVersion_MissingDirReturnsZero verifies the
-// degraded-mode path: when migrations/ doesn't exist,
-// latestDiskMigrationVersion returns 0 so verifyUpgradeObservedState's
-// Check 2 skips (avoiding a false failure in uninitialised projects).
-func TestLatestDiskMigrationVersion_MissingDirReturnsZero(t *testing.T) {
-	projDir := t.TempDir()
-	// Intentionally no migrations/ subdirectory.
-	got := latestDiskMigrationVersion(projDir)
-	if got != 0 {
-		t.Fatalf("latestDiskMigrationVersion on missing dir = %d, want 0", got)
-	}
-}
+// NOTE (STATBUS-138): the on-disk-max parser tests moved to the migrate package
+// (TestListMigrationFilesIgnoresNonVersionAndDown, TestMaxDiskVersionMissingDir,
+// TestMaxDiskVersionIgnoresRefusedFile) when service.go's latestDiskMigrationVersion
+// was deleted in favour of the shared migrate.MaxDiskVersion — the applier and the
+// comparator now derive the on-disk max from the ONE lister.
 
 // TestVerifyUpgradeObservedState_MatchingBinaryAndNoMigrations verifies that
 // when binaryCommit matches row.commit_sha AND the migrations/ directory
