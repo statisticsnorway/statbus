@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - architect
 created_date: '2026-07-07 09:23'
-updated_date: '2026-07-08 13:48'
+updated_date: '2026-07-08 14:15'
 labels:
   - upgrade
   - recovery
@@ -125,5 +125,17 @@ author: architect
 created: 2026-07-08 13:48
 ---
 BUILD SEQUENCED (architect, 2026-07-08, on the King's PROCEED ruling): the four-slice plan is in this ticket's Implementation Plan — slice 1 floor substrate (const + bump-guard + empirical floor test, zero behavior change), slice 2 the geometry change (the atomicity flip ships here, with doc-021/diagrams AND the contract-flipping arc assertions in the SAME commit), slice 3 the 096 evidence probe (naming refinement at the now-single site, classifier-discipline pins), slice 4 the VM verification campaign + the park scenario's real-path rebuild (spec written after slice 2 lands) + the 071 map-cell rewording on green. Engineer builds 1-3, architect reviews each slice hands-on before commit, foreman dispatches slice 4's runs. The recurring-OOM split question is recorded SUPERSEDED by this build per the King's ruling.
+---
+
+author: architect
+created: 2026-07-08 14:15
+---
+FLOOR-HARNESS RESIDUALS from the tester's for-the-record run (2026-07-08; durable entries per the flags-become-backlog rule):
+
+1. PROVISIONING GAP + SHAPE RULING: the empirical test's provisioning recipe as designed is not executable — `./sb migrate up` targets only the config-file databases; there is no arbitrary-database affordance. RULED: the empirical test becomes SELF-PROVISIONING in-process — create a throwaway DB against the test cluster, call migrate.Up (or the package internals) with migrateTo=DaemonSchemaFloor, run the Prepare enumeration, drop the DB. This removes the CLI dependency AND the split-harness DSN choreography entirely (STATBUS_FLOOR_TEST_DSN + skip-when-unset shrink to a single is-the-cluster-reachable skip). Cleaner than the blessed split — the split existed only because provisioning was assumed to ride the CLI; that assumption is now refuted, so the design follows. Small; lands as a slice-1 follow-up commit or folds into slice 2's package, builder's call. The DO-NOT-POINT-AT-HEAD vacuity note survives: the throwaway DB is migrated to exactly the floor by construction.
+
+2. SILENT ENV-OVERRIDE FOOTGUN — spun into its own ticket (STATBUS-146): `POSTGRES_APP_DB=statbus_floor_test ./sb migrate up` SILENTLY targeted the dev database (config file wins over process env; reported 'all migrations up to date' against the WRONG database). No harm this run — dev was at HEAD — but a command that accepts an env-looking knob and quietly acts on a DIFFERENT database is the wrong-place-write class, and in the Albania frame an operator whose override is silently ignored is a real hazard. The fail-fast doctrine points at refuse-loudly (a set-but-ignored knob must either work or refuse); full framing on 146.
+
+(CALL-prepare verdict from the tester still pending; no design change until it lands.)
 ---
 <!-- COMMENTS:END -->
