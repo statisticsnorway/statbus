@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-07-08 23:17'
-updated_date: '2026-07-08 23:31'
+updated_date: '2026-07-08 23:34'
 labels:
   - ci
   - testing
@@ -53,3 +53,13 @@ MODE 3 prime suspect: init-db.sh:104 CREATE USER $POSTGRES_APP_USER — no idemp
 
 UNLABELED THIRD MODE (runs on 46e30276a/12083f237/81e102a5c, 22:39-22:46): pg_restore 'role admin_user does not exist' → seed restore failed (transaction rolled back). Mode 1 STOPPED reproducing in that window with NO relevant commit in 2577373fa..46e30276a (git log over dev.sh + cli/internal/migrate/ + cli/cmd/migrate.go) — mechanic suspects server-side manual intervention on the test host; flagged to the architect (doctrine + timeline-confound). Timeline sanity: mode 3 absent from all pre-129 runs (spot-checked 21:30-22:24); first at 08a3c9471 (23:09), repeated 28982656608 (23:24).
 <!-- SECTION:NOTES:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-08 23:34
+---
+RULED (architect, 2026-07-09). MODE 1: fix = a principled AMENDMENT to the 146 guard — an EXPLICIT --target (cobra flag.Changed, not the default) wins over inherited PGDATABASE with one loud override line; refuse stays for the default-target case. Three-part rationale: 146's refusal targets SILENT divergence and an explicit flag is maximal intent; psql precedence (cited at migrate.go:99-101) ranks explicit -d above PGDATABASE; the 146 refusal message itself advertises --target as the remedy, which today does not work — the amendment makes the guard's own message true. recreate-seed + postgres-variables unmodified. Engineer building FIRST (unblocks pg_regress + every dev host). MODE 3: DO NOT ship the CREATE USER idempotency guard — two architect-verified facts reframe it: init-db.sh is a docker-entrypoint-initdb.d script (Dockerfile:409, compose :37) run only on EMPTY PGDATA (a reused-volume restart cannot re-run it), and the Dockerfile bakes a booted cluster in-build (:441-508). Mechanic walking read-only: (i) what invocation printed the live role-exists + handing-off lines; (ii) volume-identity pin (no 'statbus-test-db-data' found in postgres/docker-compose.yml or dev.sh — the CI remove may target a volume the db never mounts, dissolving the fresh-volume contradiction) + the copy-on-first-mount question over baked PGDATA; (iii) only then judge the failing statement. Fallback if unnameable from repo evidence: per-section echo instrumentation, next natural red names it. UNLABELED MODE: folded into 150 — plausibly mode 3's DOWNSTREAM (abort between :104 and the roles block at :157 leaves no admin_user; pg_restore's error is that cluster meeting a seed restore). MANUAL-INTERVENTION SUSPICION: escalated to the King (morning question) — until answered, timeline observations in the 22:39-23:24 window are quarantined from mode analysis. SEQUENCING: mode-1 commit first; mode-3 walk parallel read-only, fix in a second commit; the 149 AC#3 oracle wave rides whichever commit is green at dispatch.
+---
+<!-- COMMENTS:END -->
