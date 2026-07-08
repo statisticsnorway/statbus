@@ -329,3 +329,23 @@ func assertStr(t *testing.T, name, got, want string) {
 		t.Errorf("%s = %q, want %q", name, got, want)
 	}
 }
+
+// STATBUS-150 — a POSTGRES_NOTIFY_USER == POSTGRES_APP_USER collision makes
+// init-db.sh's own later CREATE USER fail on every fresh cluster. This is a
+// WARN, never a refuse (config generate is the daemon's own boot pre-flight —
+// a hard refuse would brick a currently-functional misconfigured box), so the
+// exact trigger condition and wording are pinned here directly.
+func TestNotifyUserCollisionWarning(t *testing.T) {
+	if w := notifyUserCollisionWarning("statbus_local", "statbus_notify_local"); w != "" {
+		t.Errorf("distinct users must not warn; got %q", w)
+	}
+	if w := notifyUserCollisionWarning("statbus_local", ""); w != "" {
+		t.Errorf("empty notifyUser must not warn (never equal, never collide); got %q", w)
+	}
+	w := notifyUserCollisionWarning("statbus_test", "statbus_test")
+	for _, want := range []string{"WARN", "POSTGRES_NOTIFY_USER", "POSTGRES_APP_USER", "statbus_test", "fresh database cluster will fail to initialize"} {
+		if !strings.Contains(w, want) {
+			t.Errorf("collision warning missing %q; got %q", want, w)
+		}
+	}
+}

@@ -298,6 +298,20 @@ func loadOrGenerateCredentials(projDir string, verbose bool) (*Credentials, erro
 	return creds, nil
 }
 
+// notifyUserCollisionWarning returns the WARN message when appUser and
+// notifyUser are identical (empty string when they're distinct, i.e. no
+// warning). Pure (no I/O) so the exact wording and the trigger condition are
+// unit-tested directly without capturing stderr.
+func notifyUserCollisionWarning(appUser, notifyUser string) string {
+	if notifyUser == "" || notifyUser != appUser {
+		return ""
+	}
+	return fmt.Sprintf("WARN: POSTGRES_NOTIFY_USER and POSTGRES_APP_USER are both %q — "+
+		"any fresh database cluster will fail to initialize (init-db.sh creates the app user "+
+		"first, then refuses to create an identically-named notify user). Fix POSTGRES_NOTIFY_USER "+
+		"in .env.config.\n", appUser)
+}
+
 // loadOrGenerateConfig reads .env.config, generating missing values with defaults.
 func loadOrGenerateConfig(projDir string, verbose bool) (*ConfigEnv, error) {
 	cfgPath := filepath.Join(projDir, ".env.config")
@@ -320,6 +334,16 @@ func loadOrGenerateConfig(projDir string, verbose bool) (*ConfigEnv, error) {
 	seedDB := gen("POSTGRES_SEED_DB", "statbus_seed")
 	appUser := gen("POSTGRES_APP_USER", "statbus_"+slotCode)
 	notifyUser := gen("POSTGRES_NOTIFY_USER", "statbus_notify_"+slotCode)
+	// LOUD WARN, never refuse: config generate is the daemon's own boot
+	// pre-flight (service.go's connect path) and install's — a hard refuse
+	// here would brick a currently-functional misconfigured box. The
+	// collision is a LATENT hazard: a running box with an already-initialized
+	// cluster is unaffected; only a FRESH cluster under this config fails
+	// (init-db.sh's own hard refuse catches that case loudly). This warning
+	// is the only signal an operator gets before that fresh-cluster failure.
+	if w := notifyUserCollisionWarning(appUser, notifyUser); w != "" {
+		fmt.Fprint(os.Stderr, w)
+	}
 	mode := gen("CADDY_DEPLOYMENT_MODE", "development")
 	offsetStr := gen("DEPLOYMENT_SLOT_PORT_OFFSET", "1")
 	siteDomain := gen("SITE_DOMAIN", slotCode+".statbus.org")

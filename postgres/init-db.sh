@@ -19,6 +19,7 @@ required_vars=(
     "POSTGRES_NOTIFY_PASSWORD"
 )
 
+echo "init-db [1/8]: validate required environment variables" >&2
 echo "Validating required environment variables..."
 missing_vars=()
 for var in "${required_vars[@]}"; do
@@ -38,8 +39,25 @@ if [ ${#missing_vars[@]} -gt 0 ]; then
     exit 1
 fi
 
+# HARD REFUSE: POSTGRES_NOTIFY_USER and POSTGRES_APP_USER must be distinct
+# roles. init-db.sh creates POSTGRES_APP_USER first (section 3) then tries to
+# CREATE USER "$POSTGRES_NOTIFY_USER" later (section 7) — if the two names
+# collide, that second CREATE USER fails "role already exists" on EVERY
+# fresh cluster under this config, deterministically, ~180 lines and several
+# minutes into the script. Catching it here instead — one actionable line at
+# validation time, before any cluster object is created.
+if [ "$POSTGRES_NOTIFY_USER" = "$POSTGRES_APP_USER" ]; then
+    echo "Error: POSTGRES_NOTIFY_USER and POSTGRES_APP_USER are both '$POSTGRES_APP_USER'." >&2
+    echo "  These must be distinct roles — the notify-reader login user is created" >&2
+    echo "  separately from the app user later in this script, and a fresh cluster" >&2
+    echo "  will fail to initialize (CREATE USER: role already exists) if they collide." >&2
+    echo "  Fix POSTGRES_NOTIFY_USER in .env.config (regenerate with: ./sb config generate)." >&2
+    exit 1
+fi
+
 # The postgres role already exists as the default superuser
 
+echo "init-db [2/8]: template database + extensions" >&2
 echo "Creating template database with extensions..."
 
 # Create and configure template database
@@ -99,11 +117,13 @@ echo "Using database configuration:"
 echo "  App DB: $POSTGRES_APP_DB"
 echo "  App User: $POSTGRES_APP_USER"
 
+echo "init-db [3/8]: app user + database" >&2
 echo "Creating deployment-specific database user and database..."
 # Create deployment-specific database user and database
 psql -v ON_ERROR_STOP=1 -c "CREATE USER \"$POSTGRES_APP_USER\" WITH PASSWORD '$POSTGRES_APP_PASSWORD' CREATEDB;"
 psql -v ON_ERROR_STOP=1 -c "CREATE DATABASE \"$POSTGRES_APP_DB\" WITH template template_statbus OWNER \"$POSTGRES_APP_USER\";"
 
+echo "init-db [4/8]: authentication roles (authenticator, anon, authenticated)" >&2
 echo "Setting up authentication roles..."
 # Create authenticator role for PostgREST
 psql -v ON_ERROR_STOP=1 -d "$POSTGRES_APP_DB" -c "CREATE ROLE authenticator NOINHERIT NOCREATEDB NOCREATEROLE NOSUPERUSER LOGIN PASSWORD '$POSTGRES_AUTHENTICATOR_PASSWORD';"
@@ -137,6 +157,7 @@ ALTER ROLE authenticated SET lock_timeout = '8s';
 ALTER ROLE authenticator SET session_preload_libraries = safeupdate;
 EOF
 
+echo "init-db [5/8]: auth schema + grants" >&2
 # Create auth schema (tables will be created by migrations)
 psql -v ON_ERROR_STOP=1 -d "$POSTGRES_APP_DB" -c "CREATE SCHEMA IF NOT EXISTS auth;"
 
@@ -147,6 +168,7 @@ GRANT USAGE ON SCHEMA auth TO authenticated;
 GRANT USAGE ON SCHEMA auth TO anon;
 EOF
 
+echo "init-db [6/8]: STATBUS application roles" >&2
 echo "Setting up STATBUS application roles..."
 # These roles are used by RLS policies and must exist before snapshot restore
 # They are also created by migrations (with IF NOT EXISTS), so this is idempotent
@@ -173,6 +195,7 @@ GRANT restricted_user TO regular_user;
 GRANT external_user TO restricted_user;
 EOF
 
+echo "init-db [7/8]: notify reader role + user" >&2
 echo "Setting up notify reader role and user..."
 psql -v ON_ERROR_STOP=1 -d "$POSTGRES_APP_DB" <<EOSQL
 -- Create a role for read-only access for the notification listener
@@ -189,4 +212,5 @@ CREATE USER "$POSTGRES_NOTIFY_USER" WITH PASSWORD '$POSTGRES_NOTIFY_PASSWORD';
 GRANT notify_reader TO "$POSTGRES_NOTIFY_USER";
 EOSQL
 
+echo "init-db [8/8]: done" >&2
 echo "Database initialization completed successfully."
