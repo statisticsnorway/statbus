@@ -3,10 +3,10 @@ id: STATBUS-018
 title: >-
   Seed dump pg_restore --clean fails on sql_saga updatable-view triggers when
   restoring onto a populated DB → silent fallback to slow full-migrations
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-08 23:35'
-updated_date: '2026-06-12 07:52'
+updated_date: '2026-07-08 22:43'
 labels:
   - install-recovery
   - seed
@@ -71,3 +71,9 @@ Distinct from STATBUS-017 (the rune wedge). Related to the R5 seed-on-populated 
 <!-- SECTION:NOTES:BEGIN -->
 ARCHITECT RECOMMENDATION (2026-06-12, for the King's AC#1 call): direction (c) — fix the checkSeedRestored/R5 gate so the Seed step is correctly SKIPPED, quietly, on a populated DB. Why (c) over (a)/(b)/(d): the operator's sole action is the installer, and re-running it must always be safe and calm — a scary pg_restore ERROR on every routine refresh is an operator-UX defect, not cosmetics; (c) removes both the error AND the silent slow full-migrations fallback in one move, with no pg_restore/sql_saga surgery. AC#4 (did 50fd4325f regress the gate?) gets answered en route. Bonus: likely clears STATBUS-029 (stage-a red) with it. Not gate-blocking but cheap; can ride the gate-maker batch if capacity allows.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+NORTH STAR: the seed fast path never collides with a migrated schema, and losing it is never silent. SHIPPED 81e102a5c (2026-07-09), dual-reviewed. Diagnosis (engineer, read-only): the restore failure comes from sql_saga's drop-protection EVENT trigger — immune to --disable-triggers and session_replication_role, so every fight-the-trigger direction was rejected on evidence; the suspected regressor commit was refuted by grep (never touched the gate); the real gap was the gate probing user ROWS while the collision triggers on SCHEMA presence. Fix: the seed gate now probes applied migrations (EXISTS on db.migration — missing table and empty table both genuinely fresh and winnable; any row means skip); invariant: seed runs only on a schema no migration has touched. The double deception is dead structurally: every step error routes through one pure outcome function — restore failure renders a loud banner naming the lost fast path and ~10x cost with "Seed FAILED — falling back", missing image renders calm, gate skip says "Seed SKIPPED — schema already migrated", and DONE is unreachable for any non-nil error, pinned by test. E2E EVIDENCE SOURCE (architect): the skip marker fires on every install over a migrated database, which the arc suite performs constantly — greppable "Seed SKIPPED — schema already migrated" in the next natural CI dispatch's logs; no dedicated run needed.
+<!-- SECTION:FINAL_SUMMARY:END -->
