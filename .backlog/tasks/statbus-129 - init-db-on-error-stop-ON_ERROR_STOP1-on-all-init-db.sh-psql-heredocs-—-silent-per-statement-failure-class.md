@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-07-03 19:22'
-updated_date: '2026-07-08 22:21'
+updated_date: '2026-07-08 22:29'
 labels:
   - install
   - postgres
@@ -37,6 +37,16 @@ THE CHANGE: add `-v ON_ERROR_STOP=1` to every psql heredoc invocation in init-db
 
 Flagged by: engineer. Filed by: foreman. Needs the King's nod before build (init path).
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-08 22:29
+---
+PROOF, both halves recorded precisely (2026-07-09): (1) IMAGE HALF done — tester built all images green at c7d5ef5a; init-db.sh in the db image carries the flag on 13 of 13 psql invocations (log: tmp/tester-129-image-build.log). Precision note: the build COPIES the script into the image; it executes at a container's FIRST START on an empty cluster (docker-entrypoint-initdb.d), so the build proves flags-in-image, not execution. (2) EXECUTION HALF rides the next arc dispatch for free — every recovery-arc VM install starts the db container on a fresh cluster and runs init-db.sh end to end; the imminent observational dispatches are the execution record. Any init statement failure now aborts the install loudly, which would itself be a finding.
+---
+<!-- COMMENTS:END -->
 
 ## Final Summary
 
