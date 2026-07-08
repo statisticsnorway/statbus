@@ -3,11 +3,11 @@ id: STATBUS-027
 title: >-
   trust-flag-on-pending-upgrade: ./sb install --trust-github-user is a silent
   no-op when a scheduled upgrade is pending
-status: To Do
+status: Done
 assignee:
   - mechanic
 created_date: '2026-06-11 07:48'
-updated_date: '2026-07-08 21:47'
+updated_date: '2026-07-08 22:01'
 labels:
   - install-recovery
   - harness
@@ -60,3 +60,9 @@ created: 2026-07-08 21:47
 PROCEEDING WITHOUT A SEPARATE NOD (2026-07-08, frame doctrine): the 'awaiting King nod' marker predates the King's standing rule that decisions are pre-filtered through production reality. This one dissolves in that frame: an operator's explicit flag is silently ignored on exactly the path an Albania operator needs it (applying a pending upgrade), and there is no argued cost — the flag is a deliberate trust statement either way, and making it apply where it was silently dropped lowers no bar. The set-but-ignored class was ratified twice already (STATBUS-146's refuse-loudly ruling; the general fail-fast doctrine). Fix as ruled on this ticket: move the --trust-github-user pre-flight BEFORE dispatchInstallState so the flag works on the scheduled-upgrade path; a test pins it. Engineer builds; architect reviews the dispatch reorder before commit.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+NORTH STAR: the operator's trust flag works on every install path. RESOLVED as an alarm-reversal: the product fix shipped in c891fbaef on 2026-06-18 — the same day as the diagnosis — moving the --trust-github-user block before Detect, runCrashRecovery, and dispatchInstallState. The ticket never heard about it and carried an "awaiting King nod" marker for three weeks. The engineer's verify-first read caught the stale premise; the architect confirmed all three dispatch arms are covered (scheduled: the silent no-op case, fixed; crashed: trust precedes recovery; live: the trust statement persists to config before the refusal) and that nothing named in the confirmed-bug note remains. The one genuinely missing piece — a source-order pin test failing loudly if the trust block moves back behind dispatch — shipped as c4916ec78. The harness leg was legitimately closed by the 071 arc reshape earlier. PROCESS LESSON recorded for the ledger: fixes must land on the ticket, the mirror of flags-become-durable — a commit implementing a ruled fix cites the ticket and the committer drops the one-line board comment; the board lying in the conservative direction cost three weeks of a phantom open bug.
+<!-- SECTION:FINAL_SUMMARY:END -->
