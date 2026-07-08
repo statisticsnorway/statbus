@@ -78,6 +78,15 @@ or the reviewer verifies a moving target and one-breaker-at-a-time silently slip
 A better idea discovered mid-wait is ANNOUNCED first ("pulling the unit back,
 reason X"), then applied; the review restarts on the new state.
 
+### Only the Coordinator Mutates Shared Git State
+Teammates never pull, stash, checkout, or otherwise mutate the shared tree's git
+state — the tree is read-only to them except their assigned files. A pull on a
+dirty shared tree stashed three units of in-flight work off the disk, invisible
+to status, and the staged partial restore later swept unreviewed code into an
+unrelated commit. Coordinator's own guard: `git diff --cached --stat` against
+the intended file list before EVERY commit — staged state is part of the tree,
+not a private buffer.
+
 ### Agent Scratchpads
 Every agent gets `tmp/agents/<agent-name>.md`. Writes progress, findings, decisions, next steps. If killed, read the scratchpad and continue. Not committed — working notes.
 
