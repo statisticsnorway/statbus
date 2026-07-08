@@ -1421,7 +1421,7 @@ func (d *Service) healthCheck(progress *ProgressLog, retries int, interval time.
 		switch {
 		case err != nil:
 			lastDetail = fmt.Sprintf("transport error: %v", err)
-		case resp.StatusCode < 500:
+		case healthCheckStatusOK(resp.StatusCode):
 			resp.Body.Close()
 			if i > 0 {
 				logf("Health check OK on attempt %d/%d (status=%d)", i+1, retries, resp.StatusCode)
@@ -1436,6 +1436,20 @@ func (d *Service) healthCheck(progress *ProgressLog, retries int, interval time.
 		time.Sleep(interval)
 	}
 	return fmt.Errorf("health check failed after %d attempts; last: %s", retries, lastDetail)
+}
+
+// healthCheckStatusOK is healthCheck's success predicate (STATBUS-148 fix):
+// 2xx ONLY. The FIXED DEFECT: this used to be `resp.StatusCode < 500`, which
+// passed every 4xx — and PostgREST maps a PL/pgSQL RAISE EXCEPTION (P0001) to
+// HTTP 400, so a version whose auth_status RAISEs on EVERY call (every real
+// frontend load failing auth resolution) sailed through the gate to
+// 'completed'. auth_status is anonymous-callable by design and returns 200 on
+// every healthy deployment; any 4xx from it means real clients cannot
+// authenticate — the exact "cannot serve at <version> past warmup" class-B
+// park case (doc-021) this probe exists to catch. waitForRestReady (the admin
+// /ready warmup, a different endpoint entirely) is untouched by this fix.
+func healthCheckStatusOK(statusCode int) bool {
+	return statusCode >= 200 && statusCode < 300
 }
 
 // RestReadyTimeout caps how long the post-swap warmup waits for PostgREST to
