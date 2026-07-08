@@ -3,9 +3,10 @@ id: STATBUS-129
 title: >-
   init-db-on-error-stop: ON_ERROR_STOP=1 on all init-db.sh psql heredocs —
   silent per-statement failure class
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-07-03 19:22'
+updated_date: '2026-07-08 22:21'
 labels:
   - install
   - postgres
@@ -36,3 +37,9 @@ THE CHANGE: add `-v ON_ERROR_STOP=1` to every psql heredoc invocation in init-db
 
 Flagged by: engineer. Filed by: foreman. Needs the King's nod before build (init path).
 <!-- SECTION:DESCRIPTION:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+NORTH STAR: the script that builds every fresh database fails loudly on the first broken statement. SHIPPED 752e5b4f1 (2026-07-09), dual-reviewed. All 13 psql invocations in init-db.sh carry ON_ERROR_STOP=1 — one uniform rule, zero logic change. Silence-audit found nothing relying on the old behavior: create-if-not-exists sites, PL/pgSQL-internal duplicate handling (empirically proved compatible by double-run under the flag), and birth-once creates whose loud failure on a dirty cluster is this ticket's purpose. Mechanism proved both ways on a scratch heredoc. ROUTING RECORDED: the ticket's "King nod first" marker was pre-frame conservatism — this is the ratified fail-fast doctrine on the init script with audited zero cost (same class as 027's stale marker); and the full-path proof needed no destructive dev-machine create-db — init-db executes on a fresh in-container cluster at every postgres image build (tester's local build = the record) and on every arc VM install (the imminent observational dispatches exercise the real path free). The destructive-command gate stays untriggered.
+<!-- SECTION:FINAL_SUMMARY:END -->
