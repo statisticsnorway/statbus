@@ -30,6 +30,13 @@ func TestClassifyAdvisoryHolder(t *testing.T) {
 		{"tagged live-PID holder is a healthy migration — leave alone", "statbus-migrate-4242", alive, false},
 		{"subprocess sql tag is malformed as a holder — leave alone", "statbus-migrate-sql-4242", dead, false},
 		{"non-numeric migrate tag is malformed — leave alone", "statbus-migrate-notapid", dead, false},
+		// STATBUS-149 — the upgrade daemon's own advisory-lock connection, tagged
+		// 'statbus-upgrade-daemon-<pid>' (service.go recoveryDSN). A live daemon
+		// must be left alone (killing it was the self-regenerating "zombie" bug);
+		// a dead-PID daemon tag is a genuine leftover to reap.
+		{"live upgrade daemon holds its own lock — leave alone (STATBUS-149)", "statbus-upgrade-daemon-4242", alive, false},
+		{"dead-PID upgrade-daemon tag is a zombie (STATBUS-149)", "statbus-upgrade-daemon-99999", dead, true},
+		{"malformed upgrade-daemon tag — leave alone", "statbus-upgrade-daemon-notapid", dead, false},
 		{"worker is legitimate even with a dead probe", "worker", dead, false},
 		{"live operator psql is legitimate", "psql", dead, false},
 		{"PostgREST pool is legitimate", "PostgREST", dead, false},

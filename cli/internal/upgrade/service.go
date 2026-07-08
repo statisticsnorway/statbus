@@ -3270,8 +3270,19 @@ func (d *Service) recoveryDSN() (string, error) {
 		return "", err
 	}
 	dbPass, _ := f.Get("POSTGRES_ADMIN_PASSWORD") // password CAN be empty (trust auth)
-	return fmt.Sprintf("host=%s port=%s dbname=%s user=%s password=%s sslmode=disable",
-		dbHost, dbPort, dbName, dbUser, dbPass), nil
+	// STATBUS-149: tag the session application_name so install.cleanOrphanSessions
+	// can tell the daemon's OWN live advisory-lock connection from a genuine
+	// zombie. Mirrors migrate.acquireAdvisoryLock's 'statbus-migrate-<pid>'
+	// (migrate.go:833). This one DSN feeds both connect()'s d.queryConn +
+	// d.listenConn, and thus daemon startup, the inline-dispatch service instance,
+	// and every d.reconnect() — so the tag rides every daemon backend. Without it,
+	// classifyAdvisoryHolder read the daemon's empty app_name as an unidentified
+	// zombie and killed the live lock connection on every sessions-step pass; the
+	// daemon reconnected with a fresh (also untagged) backend, self-regenerating
+	// the "zombie" until the settle loop's bound tripped. The value has no spaces,
+	// so it needs no DSN quoting.
+	return fmt.Sprintf("host=%s port=%s dbname=%s user=%s password=%s sslmode=disable application_name=statbus-upgrade-daemon-%d",
+		dbHost, dbPort, dbName, dbUser, dbPass, os.Getpid()), nil
 }
 
 func (d *Service) connect(ctx context.Context) error {

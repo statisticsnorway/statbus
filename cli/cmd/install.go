@@ -1263,12 +1263,25 @@ func procAlive(pid int) bool { return syscall.Kill(pid, 0) == nil }
 // classifyAdvisoryHolder decides whether an advisory-lock holder with the given
 // application_name is a zombie whose lock should be reclaimed. Pure (the PID
 // liveness probe is injected), so it is Docker-free unit-tested:
-//   - ""                              → zombie (unidentified / pre-rc.07 killed migrate).
-//   - "statbus-migrate-<pid>" dead    → zombie.
-//   - "statbus-migrate-<pid>" alive   → legitimate (a healthy migration idling
-//     between statements); leave alone.
+//   - ""                                     → zombie (unidentified — see below).
+//   - "statbus-migrate-<pid>" dead           → zombie.
+//   - "statbus-migrate-<pid>" alive          → legitimate (a healthy migration
+//     idling between statements); leave alone.
+//   - "statbus-upgrade-daemon-<pid>" dead    → zombie (STATBUS-149).
+//   - "statbus-upgrade-daemon-<pid>" alive   → legitimate (the running upgrade
+//     daemon's own lock connection); leave alone.
 //   - malformed tag (Atoi fails, e.g. the "statbus-migrate-sql-<pid>" SUBPROCESS
 //     tag) or any other app_name (worker / psql / PostgREST pool) → leave alone.
+//
+// KNOWN STATBUS advisory-lock tags on the app DB (all our clients now tag
+// themselves): 'statbus-migrate-<pid>' (migrate.go:833) and
+// 'statbus-upgrade-daemon-<pid>' (service.go recoveryDSN). (migrate SUBPROCESS
+// psql tags 'statbus-migrate-sql-<pid>' but does not hold this lock;
+// 'statbus-seed-*' from AcquireSeedLock connects to dbname=postgres and is
+// filtered out by zombieAdvisoryHolders' a.datname = current_database().) With
+// every client tagged, an EMPTY application_name on our DB is genuinely
+// unidentified → kill it; a future untagged client is diagnosable by diffing an
+// observed tag against this list.
 func classifyAdvisoryHolder(appName string, pidAlive func(int) bool) (zombie bool, reason string) {
 	switch {
 	case appName == "":
@@ -1283,6 +1296,16 @@ func classifyAdvisoryHolder(appName string, pidAlive func(int) bool) (zombie boo
 			return true, fmt.Sprintf("owner PID %d is dead → zombie", ownerPID)
 		}
 		return false, fmt.Sprintf("owner PID %d is alive → legitimate", ownerPID)
+	case strings.HasPrefix(appName, "statbus-upgrade-daemon-"):
+		ownerStr := strings.TrimPrefix(appName, "statbus-upgrade-daemon-")
+		ownerPID, err := strconv.Atoi(ownerStr)
+		if err != nil {
+			return false, fmt.Sprintf("malformed upgrade-daemon tag %q → leaving alone", appName)
+		}
+		if !pidAlive(ownerPID) {
+			return true, fmt.Sprintf("upgrade-daemon owner PID %d is dead → zombie", ownerPID)
+		}
+		return false, fmt.Sprintf("upgrade-daemon owner PID %d is alive → legitimate", ownerPID)
 	default:
 		return false, fmt.Sprintf("non-statbus-managed application_name %q → legitimate", appName)
 	}
