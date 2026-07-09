@@ -1382,35 +1382,49 @@ EOF
 
         echo "Creating test template by cloning seed: $SEED_NAME -> $TEMPLATE_NAME"
 
-        # Drop any existing template — clone won't replace.
         TEMPLATE_EXISTS=$(./sb psql -d postgres -t -A -c \
             "SELECT 1 FROM pg_database WHERE datname = '$TEMPLATE_NAME';" 2>/dev/null || echo "0")
         if [ "$TEMPLATE_EXISTS" = "1" ]; then
             echo "Existing template found, removing it..."
-
-            ./sb psql -d postgres -c "
-                SELECT pg_terminate_backend(pid)
-                FROM pg_stat_activity
-                WHERE datname = '$TEMPLATE_NAME';
-            " || true
-
-            if ! ./sb psql -d postgres -c "
-                UPDATE pg_database SET datistemplate = false WHERE datname = '$TEMPLATE_NAME';
-            "; then
-                echo "Error: Failed to unmark template database. Check permissions."
-                exit 1
-            fi
-
-            if ! ./sb psql -d postgres -c "DROP DATABASE $TEMPLATE_NAME;"; then
-                echo "Error: Failed to drop existing template database."
-                echo "There may be active connections. Check with:"
-                echo "  ./sb psql -c \"SELECT * FROM pg_stat_activity WHERE datname = '$TEMPLATE_NAME';\""
-                exit 1
-            fi
         fi
 
-        # Fast clone via the seed-clone primitive.
-        ./dev.sh seed-clone "$TEMPLATE_NAME"
+        # STATBUS-141: drop + recreate under DB advisory lock 59328 — the SAME
+        # lock template CONSUMERS hold while cloning (generate-types, dev.sh
+        # ~1883: SELECT pg_advisory_lock(59328); ... CREATE DATABASE ... WITH
+        # TEMPLATE ...; SELECT pg_advisory_unlock(59328); one psql session).
+        # Without this, a rebuild could drop the template out from under a
+        # consumer's mid-clone (133 review finding). 59328 is SESSION-scoped
+        # (pg_advisory_lock, no xact variant here), so the drop and the
+        # recreate must run as ONE held psql session — lock first statement,
+        # unlock last — rather than delegating to `./dev.sh seed-clone` (a
+        # separate ./sb invocation opens a separate connection and would lose
+        # the lock); seed-clone's own CREATE DATABASE ... WITH TEMPLATE ...
+        # OWNER postgres statement is mirrored inline for that reason. Each
+        # drop step is idempotent (terminate/unmark/drop-if-exists) so this
+        # runs safely whether or not a prior template existed.
+        if ! ./sb psql -d postgres -v ON_ERROR_STOP=1 <<EOF
+            SELECT pg_advisory_lock(59328);
+            SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$TEMPLATE_NAME';
+            UPDATE pg_database SET datistemplate = false WHERE datname = '$TEMPLATE_NAME';
+            DROP DATABASE IF EXISTS $TEMPLATE_NAME;
+            SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$SEED_NAME';
+            -- STATBUS-141 keep-in-sync: mirrors the 'seed-clone' case's own
+            -- CREATE DATABASE statement (dev.sh ~1730). Kept inline, not called
+            -- as that subprocess, because 59328 is session-scoped and the
+            -- middle roads both fail: seed-clone taking the lock itself would
+            -- deadlock under this already-holding session; releasing here and
+            -- letting seed-clone re-acquire would reopen the drop-to-create gap
+            -- this fix exists to close. Update BOTH sites together if this
+            -- statement ever changes.
+            CREATE DATABASE $TEMPLATE_NAME WITH TEMPLATE $SEED_NAME OWNER postgres;
+            SELECT pg_advisory_unlock(59328);
+EOF
+        then
+            echo "Error: Failed to drop/recreate test template under advisory lock 59328."
+            echo "There may be active connections. Check with:"
+            echo "  ./sb psql -c \"SELECT * FROM pg_stat_activity WHERE datname = '$TEMPLATE_NAME';\""
+            exit 1
+        fi
 
         # Load JWT secret so auth works in tests. Seed excludes
         # auth.secrets data (security hard-rule); each consumer
@@ -1720,6 +1734,12 @@ EOF
             WHERE datname = '$SEED_NAME';
         " || true
 
+        # STATBUS-141 keep-in-sync: the 'create-test-template' case inlines this
+        # exact statement (dev.sh ~1411, under advisory lock 59328) rather than
+        # calling this subprocess, because 59328 is session-scoped and calling
+        # out here would either deadlock (if this case also took the lock) or
+        # reopen the drop-to-create gap (if it re-acquired after a release).
+        # Update BOTH sites together if this statement ever changes.
         if ! ./sb psql -d postgres -c "
             CREATE DATABASE $TARGET_NAME WITH TEMPLATE $SEED_NAME OWNER postgres;
         "; then
