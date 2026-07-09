@@ -575,6 +575,34 @@ EOS
     'is-db-running' )
         docker compose exec -T db pg_isready -U postgres > /dev/null 2>&1
       ;;
+    'ci-heal-notify-user' )
+        # STATBUS-150 self-heal for the pg_regress remote test host. MUST be
+        # invoked AFTER the target commit is checked out (so this ./sb matches
+        # that commit) and BEFORE continous-integration-test (which runs
+        # create-db / config generate) — like continous-integration-test
+        # itself, intentionally NOT in the acquire_test_run_lock serialize
+        # list above (it runs once, pre-suite, on a checked-out tree; a future
+        # workflow edit must not accidentally hoist it ahead of the checkout).
+        #
+        # POSTGRES_NOTIFY_USER and POSTGRES_APP_USER must be distinct roles —
+        # postgres/init-db.sh creates the app user first, then fails to create
+        # an identically-named notify user on every fresh cluster (STATBUS-150).
+        # Self-heals only when they actually collide (never overwrites a
+        # deliberately distinct override); converges by deleting the
+        # .env.config override and letting `./sb config generate` regenerate
+        # the default (statbus_notify_<slot>, cli/internal/config/config.go) —
+        # never hardcode that shape here.
+        if [ -x ./sb ] && ./sb --version >/dev/null 2>&1; then
+            APP_USER=$(./sb dotenv -f .env.config get POSTGRES_APP_USER 2>/dev/null || echo "")
+            NOTIFY_USER=$(./sb dotenv -f .env.config get POSTGRES_NOTIFY_USER 2>/dev/null || echo "")
+            if [ -n "$APP_USER" ] && [ "$APP_USER" = "$NOTIFY_USER" ]; then
+                echo "STATBUS-150: POSTGRES_NOTIFY_USER collides with POSTGRES_APP_USER ($APP_USER) in .env.config — deleting the override so config generate restores the distinct default."
+                ./sb dotenv -f .env.config set POSTGRES_NOTIFY_USER
+            else
+                echo "STATBUS-150: POSTGRES_NOTIFY_USER/POSTGRES_APP_USER OK, no collision."
+            fi
+        fi
+      ;;
     'continous-integration-test' )
         BRANCH=${BRANCH:-${1:-}}
         COMMIT=${COMMIT:-${2:-}}

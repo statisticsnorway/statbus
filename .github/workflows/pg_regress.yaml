@@ -38,26 +38,5 @@ jobs:
         username: statbus_test
         key: ${{ secrets.SSH_KEY }}
         command_timeout: 60m
-        script: |
-          cd statbus && git fetch origin && git checkout -- . && git checkout ${{ steps.ref.outputs.sha }}
-          # STATBUS-150: this persistent test host had POSTGRES_NOTIFY_USER
-          # explicitly overridden in .env.config to the same value as
-          # POSTGRES_APP_USER — a fresh cluster's init-db.sh then fails to
-          # create the notify user ("role already exists") on every run.
-          # Self-heal before create-db/config generate: only touches
-          # .env.config when the two actually collide (never overwrites a
-          # deliberately distinct override), and converges on the
-          # generator's own default (statbus_notify_<slot>) by deleting the
-          # override and letting `./sb config generate` regenerate it —
-          # not by hardcoding the naming convention here.
-          if [ -x ./sb ] && ./sb --version >/dev/null 2>&1; then
-            APP_USER=$(./sb dotenv -f .env.config get POSTGRES_APP_USER 2>/dev/null || echo "")
-            NOTIFY_USER=$(./sb dotenv -f .env.config get POSTGRES_NOTIFY_USER 2>/dev/null || echo "")
-            if [ -n "$APP_USER" ] && [ "$APP_USER" = "$NOTIFY_USER" ]; then
-              echo "STATBUS-150: POSTGRES_NOTIFY_USER collides with POSTGRES_APP_USER ($APP_USER) in .env.config — deleting the override so config generate restores the distinct default."
-              ./sb dotenv -f .env.config set POSTGRES_NOTIFY_USER
-            else
-              echo "STATBUS-150: POSTGRES_NOTIFY_USER/POSTGRES_APP_USER OK, no collision."
-            fi
-          fi
-          ./dev.sh continous-integration-test
+        # STATBUS-150 self-heal: ./dev.sh ci-heal-notify-user (mechanism there)
+        script: cd statbus && git fetch origin && git checkout -- . && git checkout ${{ steps.ref.outputs.sha }} && ./dev.sh ci-heal-notify-user && ./dev.sh continous-integration-test
