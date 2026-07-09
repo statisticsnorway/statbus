@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-28 12:53'
-updated_date: '2026-07-08 23:58'
+updated_date: '2026-07-09 00:47'
 labels:
   - upgrade
   - recovery
@@ -67,11 +67,11 @@ Safety-critical recovery path; prove via the install-recovery arcs (STATBUS-071)
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 On the common restore-broke path (flag removed, state='failed', backup_path retained), re-running `./sb install` RE-ATTEMPTS the snapshot restore (does not dead-end at the idempotent step-table) — proven by an install-recovery arc
-- [ ] #2 The re-attempt is HUMAN-gated: the systemd service does NOT auto-re-attempt a restore-broke terminal on restart (no auto-thrash to StartLimit)
-- [ ] #3 The failed-state message + the recovery-in-progress output show a state-relevant command LEGEND + a plain FORECAST; the headline action is always `./sb install`
-- [ ] #4 At the rolled_back terminal the output suggests the forward path TAILORED to cause — hard/persistent-error rollback → report + try a LATER release (not re-schedule the same version); exhausted-transient rollback → retry-when-healthy
+- [x] #2 The re-attempt is HUMAN-gated: the systemd service does NOT auto-re-attempt a restore-broke terminal on restart (no auto-thrash to StartLimit)
+- [x] #3 The failed-state message + the recovery-in-progress output show a state-relevant command LEGEND + a plain FORECAST; the headline action is always `./sb install`
+- [x] #4 At the rolled_back terminal the output suggests the forward path TAILORED to cause — hard/persistent-error rollback → report + try a LATER release (not re-schedule the same version); exhausted-transient rollback → retry-when-healthy
 - [ ] #5 restoreDatabase replay is idempotent and verified safe to re-run from the retained snapshot (arc-proven)
-- [ ] #6 Liveness relies SOLELY on the flock; the stored PID + `pidAlive()` are removed (no load-bearing PID use remains); the live-upgrade refusal (and any operator message needing the holder) emits the hint `lsof tmp/upgrade-in-progress.json`
+- [x] #6 Liveness relies SOLELY on the flock; the stored PID + `pidAlive()` are removed (no load-bearing PID use remains); the live-upgrade refusal (and any operator message needing the holder) emits the hint `lsof tmp/upgrade-in-progress.json`
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -79,3 +79,13 @@ Safety-critical recovery path; prove via the install-recovery arcs (STATBUS-071)
 <!-- SECTION:NOTES:BEGIN -->
 PID / LIVENESS DECISION (King, 2026-06-28): liveness = the FLOCK ALONE. DROP the stored PID field + `pidAlive()` (today diagnostic-only, service.go ~:244-247). Rationale: a stored PID is a footgun — after a crash the OS can REUSE that number for an unrelated process, so a `pidAlive()` check can read a stranger as 'still running' → recovery wrongly refuses → box stuck. The flock has no such hole (OS frees it on holder death, reused PID or not). Instead of storing the holder, OUTPUT the hint `lsof tmp/upgrade-in-progress.json` in operator messages WHEN APPROPRIATE — primarily the live-upgrade refusal ('an upgrade is already running' → here's how to see which process). Composable: give the operator the command, don't bake the PID into the file. Code pass: grep + remove all PID/pidAlive uses; confirm none load-bearing.
 <!-- SECTION:NOTES:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-09 00:47
+---
+CODE SHIPPED in 7c86b383e (dual-reviewed: architect ship-with-one-change — the git-first guard — applied; foreman first-hand; built by engineer in checkpointed passes). AC#2/#3/#4/#6 checked: re-attempt is ladder-only + human-gated (service RecoverFromFlag inert on the removed flag); legend/forecast at recovery-in-progress and all terminals with ./sb install as the headline; rolled_back forward path cause-tailored (hard-by-construction — invariant comment at the write site); flock-only liveness with PID + pidAlive removed everywhere and the lsof hint in holder-needing messages. KEY STRUCTURE: rollback()'s restore tail extracted to restoreAndFinalize (line-structural splice; purity machine-checked by the updated structural tests scanning the combined path; no process-lifecycle in the helper — exits stay at rollback()'s ABORT/terminal); ReattemptRestore = watchdog + restoreGitState FIRST (the review's catch: an abort row with a still-corrupt tree hard-fails actionably BEFORE any destructive step — never a mixed-era box; pair-terminal rows no-op through) + db stop + shared restoreAndFinalize; success marks rolled_back. Probe QueryReattemptableRestore (state='failed' AND backup_path IS NOT NULL) proven co-extensive with the three restore-broke terminals via the backup_path⟹post-swap⟹flag-held invariant, enumeration in its comment. CORRECTED ANCHORS: restoreAndFinalize service.go ~6678; rollback() 6856-7044 (exits @6843/@7044); rolled_back+PIN3 ~6829; ladder state.go StateRestoreReattemptable @50 / Detect @169; dispatch install_upgrade.go @40 / runInlineRestoreReattempt @98. OPEN: AC#1/#5 arc-proof — the restore-broke re-attempt arc rides a later wave and MUST exercise BOTH row classes: (a) pair-terminal re-attempt → restore completes → rolled_back; (b) abort-row re-attempt with still-corrupt git → hard-fails actionably (ErrRollbackGitCorrupt), never mixed-era.
+---
+<!-- COMMENTS:END -->
