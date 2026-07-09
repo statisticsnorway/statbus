@@ -3,9 +3,11 @@ id: STATBUS-154
 title: >-
   park-write-teardown-race: the park terminal's DB write can fail on the
   daemon's own canceled context — process exits parked, row says not parked
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - engineer
 created_date: '2026-07-09 00:48'
+updated_date: '2026-07-09 00:53'
 labels:
   - product
   - upgrade
@@ -44,3 +46,13 @@ EVIDENCE: tmp/wave5-healthpark-job.log lines 4708 (harness rc=1 at arc :408), 47
 - [ ] #2 Process outcome and row state cannot diverge: exiting as-parked REQUIRES the row write to have landed (or the exit path escalates loudly, never silently)
 - [ ] #3 Oracle: the health-park arc's un-park→re-park leg goes green — recovery_parked_at set after the fresh attempt re-parks
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-09 00:53
+---
+RULED (architect, 2026-07-09), engineer building. THE SHAPE: one teardown-immune terminal-write helper used by EVERY state-terminal writer (parkUpgrade, writeRollbackTerminal, the completed UPDATE, restoreAndFinalize's terminal — the 111 extraction made them shared machinery, exactly why the scope is all-of-them). Three properties: (i) never the pass context — context.Background + own ~30s deadline (a terminal write is the pass's last word and must not die with the pass); (ii) a fresh short-lived daemon-tagged connection per write (149's recoveryDSN), never the pass's queryConn — always-fresh sidesteps the cached-statement class entirely; (iii) bounded retry, generalizing the existing 047-H completion-write reconnect save (the house precedent that this class was known and patched at ONE terminal — 154 proves it needed all of them); idempotent by construction via parked_at-IS-NULL and state-guarded UPDATEs. EXIT INVARIANT: exiting as-terminal REQUIRES the write landed; on failure after retries, escalate loudly naming the divergence (row stays in_progress, next pass re-evaluates) — today's degraded behavior made honest. recordInProgressFailure stays best-effort (narrative, not state). Tests: helper + four call-site swaps + canceled-parent-ctx unit test. Oracle: the health-park arc re-run — the un-park→re-park leg landing recovery_parked_at is the exact assert that caught this.
+---
+<!-- COMMENTS:END -->
