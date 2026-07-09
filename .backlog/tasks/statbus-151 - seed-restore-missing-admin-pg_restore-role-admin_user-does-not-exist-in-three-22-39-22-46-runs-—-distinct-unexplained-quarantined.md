@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-08 23:42'
+updated_date: '2026-07-09 00:05'
 labels:
   - ci
   - testing
@@ -37,3 +38,9 @@ EVIDENCE POINTERS: gh runs on the three commits above (pg_regress workflow, 2026
 - [ ] #1 The King's manual-intervention answer is recorded here (yes → close as artifact with the doctrine restated; no → promote to live investigation)
 - [ ] #2 If promoted: the mechanism producing a cluster/restore-target without admin_user is named from evidence, not presumed
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+RECURRENCE OUTSIDE THE QUARANTINED WINDOW: run 28983725043 (03b0dba26, 2026-07-08 23:50) hit the same mode — db container went Healthy, then seed restore failed with pg_restore 'role admin_user does not exist' (Command was: CREATE POLICY activity_admin_user_manage...). This is ~70 minutes after the quarantined 22:39-22:46 cluster, on an image containing 03b0dba26's [1/8] validation refuse. Weakens the pure manual-intervention-artifact theory — the mode reproduces under current code. Candidate mechanism to test when promoted: a fresh volume whose FIRST boot aborts EARLY in init-db (e.g. the new [1/8] refuse under the still-present host collision, or any pre-:157 abort) leaves a cluster with NO admin_user; the restart boots it healthy ('Skipping initialization'); if the test flow then creates the app database itself, everything proceeds until the seed pg_restore needs the missing cluster-level role. Under that mechanism this mode is the collision's OTHER downstream — the abort-point decides which symptom appears: late abort (:187) → roles present, wait-race unhealthy (150 mode 3); early abort ([1/8] refuse or earlier failure) → healthy-but-roleless cluster → this pg_restore mode. The 23:50 run fits: 03b0dba26's refuse fires at [1/8] on the collision-carrying host, before the roles block. If that holds, this closes as ANOTHER collision downstream once the workflow self-heal (b2a5cbe8e) actually runs — blocked right now by the 3-second SSH failure under diagnosis on STATBUS-150.
+<!-- SECTION:NOTES:END -->
