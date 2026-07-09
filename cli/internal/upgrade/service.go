@@ -6676,6 +6676,22 @@ func (d *Service) terminalUpdate(updateSQL string, args ...any) (string, error) 
 			lastErr = derr
 		} else if conn, cerr := pgx.Connect(ctx, connStr); cerr != nil {
 			lastErr = cerr
+		} else if _, roErr := conn.Exec(ctx, "SET default_transaction_read_only = off"); roErr != nil {
+			// STATBUS-154 (wave-6 regression) + STATBUS-110/-021: this FRESH
+			// session postdates the post-swap read-only flip (ALTER DATABASE ...
+			// default_transaction_read_only = on), so it inherits read-only and
+			// the terminal UPDATE would hit 25006 (read_only_sql_transaction) —
+			// a NON-conn error → no retry → the write could never land (the park
+			// that never persisted). The read-only window is an accident-guard
+			// against APPLICATION writes, NEVER a lock on machinery bookkeeping;
+			// the pass conns self-exempt in connect() for exactly this reason, so
+			// this fresh session must too. USERSET GUC, no special privilege.
+			// (NOT via the DSN -c: that would demote every recoveryDSN consumer
+			// incl. the reachability probe. NOT BEGIN READ WRITE: needless tx
+			// choreography around a self-committing UPDATE.) A SET failure is a
+			// live-connection fault → close + retry within the bounded budget.
+			conn.Close(context.Background())
+			lastErr = roErr
 		} else {
 			lastErr = conn.QueryRow(ctx, updateSQL, args...).Scan(&rowJSON)
 			conn.Close(context.Background())

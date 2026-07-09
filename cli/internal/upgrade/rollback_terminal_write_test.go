@@ -97,6 +97,12 @@ func TestRollbackTerminalWrite_StructuralContract(t *testing.T) {
 			t.Errorf("terminalUpdate must use %q (teardown-immune: own context.Background, fresh daemon-tagged conn, bounded retry); not found", want)
 		}
 	}
+	// STATBUS-154 wave-6: the fresh session must self-exempt from the post-swap
+	// read-only window (SET default_transaction_read_only = off), or the terminal
+	// UPDATE hits 25006 (a non-conn error → no retry → the write never lands).
+	if !strings.Contains(prim, "default_transaction_read_only = off") {
+		t.Error("terminalUpdate must SET default_transaction_read_only = off on its fresh session — machinery writes through the read-only accident-guard (STATBUS-110/-021); without it the park write hits 25006 and never lands")
+	}
 	// PIN ii: the primitive must NOT use the pass's shared connection — a terminal
 	// write uses a FRESH connection so it survives the pass teardown.
 	if strings.Contains(prim, "d.queryConn") {
