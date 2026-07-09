@@ -3,11 +3,11 @@ id: STATBUS-141
 title: >-
   template-drop-advisory-lock: create-test-template drops the template without
   the advisory lock its consumers hold
-status: In Progress
+status: Done
 assignee:
   - mechanic
 created_date: '2026-07-06 15:13'
-updated_date: '2026-07-08 23:59'
+updated_date: '2026-07-09 00:12'
 labels:
   - testing
   - tooling
@@ -40,6 +40,12 @@ FIX: take advisory lock 59328 around the template drop/recreate in create-test-t
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The template drop/recreate path holds advisory lock 59328 for the duration, same as the consumers
-- [ ] #2 A consumer clone concurrent with a rebuild either completes or waits — never loses the template mid-clone
+- [x] #1 The template drop/recreate path holds advisory lock 59328 for the duration, same as the consumers
+- [x] #2 A consumer clone concurrent with a rebuild either completes or waits — never loses the template mid-clone
 <!-- AC:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+SHIPPED ad080611b (dual-reviewed: architect ship with the keep-in-sync comment pair ordered; foreman first-hand). create-test-template's drop + recreate now run as ONE held psql session under DB advisory lock 59328 — lock first statement, unlock last — matching the consumers' exact pattern (generate-types dev.sh:1883-1889, generate-doc-db :1945-1951, shared-tests :892-897). The session-scoped lock forced inlining seed-clone's CREATE DATABASE statement (subprocess = separate connection = lost lock; both middle roads verified failing: subcommand-takes-lock deadlocks under the holding parent, release-then-reacquire reopens the drop→create gap); both sites carry mutual keep-in-sync comments as the anti-drift device. AC#2 holds structurally: a consumer holding 59328 either sees the old template or waits through the entire drop+create. The residual post-unlock window (created-but-not-yet-marked template) was honestly flagged by the mechanic, ruled out of scope, and ticketed as STATBUS-152 with a pre-ruled build-aside + atomic-rename design.
+<!-- SECTION:FINAL_SUMMARY:END -->
