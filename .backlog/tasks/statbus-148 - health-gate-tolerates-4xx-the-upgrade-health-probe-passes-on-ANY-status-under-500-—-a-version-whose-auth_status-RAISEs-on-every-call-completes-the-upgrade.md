@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-07-08 21:34'
-updated_date: '2026-07-08 23:54'
+updated_date: '2026-07-09 00:53'
 labels:
   - upgrade
   - product
@@ -46,7 +46,7 @@ ALSO IN SCOPE (harness rider, one line): the health-park arc's failure diagnosti
 <!-- AC:BEGIN -->
 - [x] #1 healthCheck's functional probe passes ONLY on 2xx (exec.go:1424 predicate tightened); waitForRestReady untouched; unit test pins the matrix (200 pass; 400/401/404 fail; 503 fail; transport error fail)
 - [ ] #2 Health-park arc re-dispatched and GREEN: B parks at-target with the health-past-warmup reason, the full doc-029 substrate asserts, C completes — the arc is this fix's oracle
-- [ ] #3 Regression set re-proven under the tightened predicate on real VMs (happy install + working + failing + one preswap arc traverse healthCheck) — no false-fail
+- [x] #3 Regression set re-proven under the tightened predicate on real VMs (happy install + working + failing + one preswap arc traverse healthCheck) — no false-fail
 - [x] #4 Arc failure diagnostics capture the upgrade progress log + daemon journal for the upgrade window before teardown (the wave-1 gap: zero health-attempt lines in the captured log)
 <!-- AC:END -->
 
@@ -57,5 +57,11 @@ author: foreman
 created: 2026-07-08 23:54
 ---
 WAVE-4 PROGRESS (run 28982749357, on 08a3c9471): THE PARK IS PROVEN — B parked at t+179s with 'HEALTHCHECK_REST_DOWN: the application cannot serve at 25b02ffe past warmup — health check failed after 5 attempts; last: status=400 body P0001 healthpark fixture' (log line 15476). The 2xx-only gate refused the 400 exactly as ruled; the first-contact red is gone. AC#1 shipped earlier (d8dea08b2); AC#4's diagnostics trap shipped with it and FIRED this wave — the captured journal is what settled the follow-on question (the arc's remaining red was RULED HARNESS TIMING: the assert fired 10s into systemd's 30s auto-restart hold-off, the designed park shape — parking pass exits 1, RestartSec=30, next boot is the parked-skip boot). Mechanic fixing the arc's settle entry (poll is-active ≤~90s before the frozen-NRestarts window; r19's poll-then-settle shape). AC#2 (full arc green: parked-skip lines, un-park→re-park two-siren contract, step-5 fix-release leg) and AC#3 (named regression set under 2xx) land on the next wave's re-dispatch. Ledger note from the journal: the resume pass runs the health probe TWICE per pass (self-heal canary's + applyPostSwap's own) — ~50s of 400s per pass, correct behavior, remember when reading park timings.
+---
+
+author: foreman
+created: 2026-07-09 00:53
+---
+WAVE-5 (run 28984873852): AC#3 CHECKED — the regression set is re-proven under the 2xx predicate on real VMs: working GREEN, failing GREEN (health check explicitly logged passing at attempt 1 code=200), preswap-checkout-kill GREEN, and every arc's A-install (the happy path) traversed healthCheck green. No false-fail anywhere. AC#2 (health-park full green) is now BLOCKED BY STATBUS-154 — the arc's third red is a third distinct real finding: the un-park→re-park leg re-parked genuinely but the park's DB write failed on the daemon's own teardown context (parked-in-log, parked=f in the row). The arc red is correct and stays red until 154's fix lands; 148's own gate behavior is fully proven (the park fired with the right reason on every attempt — the journal shows HEALTHCHECK_REST_DOWN parks throughout).
 ---
 <!-- COMMENTS:END -->
