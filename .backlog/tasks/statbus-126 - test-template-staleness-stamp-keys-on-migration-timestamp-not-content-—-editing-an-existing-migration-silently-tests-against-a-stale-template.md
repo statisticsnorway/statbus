@@ -3,9 +3,10 @@ id: STATBUS-126
 title: >-
   test-template-staleness: stamp keys on migration timestamp, not content —
   editing an existing migration silently tests against a stale template
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-07-02 19:34'
+updated_date: '2026-07-09 00:28'
 labels:
   - testing
   - infra
@@ -36,7 +37,13 @@ WORKAROUND until fixed (for anyone editing an existing migration): remove `tmp/t
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The template-staleness check invalidates on any CONTENT change to any migration file (not only on a newer timestamp) — demonstrated by editing an applied migration's bytes and observing the template rebuild trigger
-- [ ] #2 No regression: an unchanged migrations/ directory still reuses the template (no rebuild-every-run)
-- [ ] #3 The stamp mechanism documents what it keys on, in place
+- [x] #1 The template-staleness check invalidates on any CONTENT change to any migration file (not only on a newer timestamp) — demonstrated by editing an applied migration's bytes and observing the template rebuild trigger
+- [x] #2 No regression: an unchanged migrations/ directory still reuses the template (no rebuild-every-run)
+- [x] #3 The stamp mechanism documents what it keys on, in place
 <!-- AC:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+SHIPPED f86afb799 (dual-reviewed: architect ship on shape B; foreman first-hand; committed jointly with the sshdo fold-in per the architect's corrected combined-commit plan — both units reviewed, the in-flight 111 package kept out via the staged-list check). The template staleness stamp now keys on the migration CONTENT fingerprint via the new read-only `./sb migrate fingerprint` verb — a thin wrapper on UpMigrationsFingerprintUpTo(projDir, MaxInt64), reusing the STATBUS-138 shared lister (one definition of "what is a migration"; a shell-local hash was rejected as recreating the 138 two-readers class at the fingerprint level). Both dev.sh stamp sites hard-exit with an actionable message when ./sb is missing — never an empty-string fingerprint that would compare equal and silently reuse a stale template. Demonstrated through the real binary on the exact 124 incident shape: appending a comment to an already-applied months-old migration changed the fingerprint; reverting restored it byte-for-byte (no rebuild-every-run). Rider in flight (non-blocking, next commit): a ~10-line structural pin that the verb stays UNBOUNDED (MaxInt64), since a bounded regression would silently resurrect this ticket's disease.
+<!-- SECTION:FINAL_SUMMARY:END -->
