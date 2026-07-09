@@ -274,21 +274,20 @@ const (
 // consults the file to decide what DB-level cleanup is needed based on
 // Holder.
 //
-// PID + pidAlive() is diagnostic only: if the file exists, flock
-// semantics already guarantee that either someone alive holds it or no
-// one does. The PID in the JSON surfaces WHO (for error messages);
-// liveness is known from whether the flock can be acquired.
+// STATBUS-111: liveness is the FLOCK ALONE (IsFlockHeld). A stored PID is a
+// footgun — after a crash the OS can reuse the number for an unrelated process,
+// so a PID-liveness check could read a stranger as "still running" and wrongly
+// refuse recovery. The flock has no such hole (the OS frees it on holder death,
+// reused PID or not). There is no PID field and no pidAlive(); operator messages
+// that need to point at the holder emit the hint `lsof tmp/upgrade-in-progress.json`.
 //
-// Legacy flag files written before Release 1 lack PID/StartedAt/InvokedBy
-// and deserialize with zero values. `pidAlive` treats PID<=0 as not-alive,
-// so a legacy flag produces the "crashed — recover required" path rather
-// than a false "still running" diagnosis. Holder also defaults to empty
-// (treated as "service").
+// Legacy flag files written before Release 1 lack StartedAt/InvokedBy and
+// deserialize with zero values; Holder also defaults to empty (treated as
+// "service"). A pre-111 flag's "pid" JSON key is simply ignored on unmarshal.
 type UpgradeFlag struct {
 	ID         int       `json:"id"`                    // 0 when Holder=="install"
 	CommitSHA  string    `json:"commit_sha"`            // "" when Holder=="install"
 	CommitTags []string  `json:"commit_tags,omitempty"` // release tags at CommitSHA; empty for install-held and untagged commits
-	PID        int       `json:"pid"`                   // os.Getpid() at write time
 	StartedAt  time.Time `json:"started_at"`            // time.Now() at write time
 	InvokedBy  string    `json:"invoked_by"`            // specific trigger (e.g. "notify:v2026.04.1", "operator:jhf")
 	Trigger    string    `json:"trigger"`               // coarse bucket ("notify"|"scheduled"|"recovery"|"install")
@@ -308,14 +307,15 @@ type UpgradeFlag struct {
 
 // Label returns a human-readable label for the flag. For service-held
 // flags, the label is renderDisplayName(CommitSHA, CommitTags). For
-// install-held flags, returns a synthetic "install (PID N)" string
-// since there is no commit-centric label.
+// install-held flags, returns "install" (there is no commit-centric label,
+// and STATBUS-111 removed the PID — liveness/identity is the flock, not a
+// stored number).
 func (f *UpgradeFlag) Label() string {
 	if f == nil {
 		return ""
 	}
 	if f.Holder == HolderInstall {
-		return fmt.Sprintf("install (PID %d)", f.PID)
+		return "install"
 	}
 	return renderDisplayName(CommitSHA(f.CommitSHA), f.CommitTags)
 }
@@ -382,10 +382,11 @@ func acquireFlock(projDir string, flag UpgradeFlag) (*FlagLock, error) {
 		return nil, fmt.Errorf("open flag: %w", err)
 	}
 	if lerr := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); lerr != nil {
-		// Contention: another live holder has the lock. Read what's on
-		// disk for diagnostics, without holding a lock.
+		// Contention: another LIVE holder has the lock (the flock failing IS
+		// the liveness signal — STATBUS-111). Read what's on disk for
+		// diagnostics, without holding a lock.
 		f.Close()
-		existing, alive, readErr := ReadFlagFile(projDir)
+		existing, readErr := ReadFlagFile(projDir)
 		if readErr != nil {
 			return nil, fmt.Errorf("flag file unreadable while locked: %w\n  Investigate %s manually.",
 				readErr, path)
@@ -395,7 +396,7 @@ func acquireFlock(projDir string, flag UpgradeFlag) (*FlagLock, error) {
 			// could read it. Report generically.
 			return nil, fmt.Errorf("flag file at %s is locked by another process (could not read metadata)", path)
 		}
-		return nil, formatContentionError(existing, alive)
+		return nil, formatContentionError(existing)
 	}
 	// We hold the lock. Truncate existing content and write ours.
 	if _, err := f.Seek(0, 0); err != nil {
@@ -448,7 +449,6 @@ func (d *Service) writeUpgradeFlag(id int, commitSHA string, commitTags []string
 		ID:         id,
 		CommitSHA:  commitSHA,
 		CommitTags: commitTags,
-		PID:        os.Getpid(),
 		StartedAt:  time.Now(),
 		InvokedBy:  invokedBy,
 		Trigger:    trigger,
@@ -604,7 +604,7 @@ func (d *Service) markStep(step string) {
 // clear-failure only risks a re-park the operator can retry), but it returns the
 // error so the caller can log it.
 func (d *Service) ClearFlagStepHistory() error {
-	flag, _, err := ReadFlagFile(d.projDir)
+	flag, err := ReadFlagFile(d.projDir)
 	if err != nil {
 		return err
 	}
@@ -716,7 +716,6 @@ func (d *Service) writeGoroutineDump() (string, error) {
 // file for the diagnostic.
 func AcquireInstallFlag(projDir, invokedBy string) (*FlagLock, error) {
 	flag := UpgradeFlag{
-		PID:       os.Getpid(),
 		StartedAt: time.Now(),
 		InvokedBy: invokedBy,
 		Trigger:   "install",
@@ -748,91 +747,63 @@ func ReleaseInstallFlag(lock *FlagLock) {
 }
 
 // formatContentionError builds the operator-facing message for a failed
-// AcquireInstallFlag. Branches on Holder + alive to produce one of:
-//   - live service: "upgrade in progress, wait"
-//   - live install: "another install running, wait"
-//   - dead any:    "previous {upgrade|install} crashed — re-run ./sb install"
+// acquireFlock. It is called ONLY from the flock-contention branch, where
+// another process demonstrably HOLDS the flock — so the holder is LIVE by
+// construction (STATBUS-111: liveness = the flock alone; there is no
+// PID-liveness branch and thus no "crashed" case here — a crashed holder frees
+// the flock, so acquireFlock succeeds and the recovery path takes over). It
+// branches on Holder to tailor the wait guidance, and emits the `lsof` hint so
+// the operator can see WHICH process holds the marker without a PID baked into
+// the file.
 //
 // Empty Holder (legacy pre-Release-1.1 flags) is treated as service.
-func formatContentionError(flag *UpgradeFlag, alive bool) error {
+func formatContentionError(flag *UpgradeFlag) error {
 	holder := flag.Holder
 	if holder == "" {
 		holder = HolderService
 	}
-	if alive {
-		switch holder {
-		case HolderInstall:
-			return fmt.Errorf(
-				"another ./sb install is already running: PID %d (%s, invoked_by=%s).\n\n"+
-					"  Wait for it to complete, then retry.",
-				flag.PID, flag.Label(), flag.InvokedBy)
-		default: // HolderService
-			return fmt.Errorf(
-				"an orchestrated upgrade is in progress: PID %d (%s, invoked_by=%s).\n\n"+
-					"  Wait for it to complete:\n"+
-					"    journalctl --user -u 'statbus-upgrade@*' -f\n\n"+
-					"  Do NOT pass --post-upgrade-fixup — that flag is the upgrade service's\n"+
-					"  internal contract with its own post-upgrade install step. Using it from the\n"+
-					"  command line would corrupt an upgrade that is currently running.",
-				flag.PID, flag.Label(), flag.InvokedBy)
-		}
+	const lsofHint = "  See which process holds it:\n    lsof tmp/upgrade-in-progress.json"
+	switch holder {
+	case HolderInstall:
+		return fmt.Errorf(
+			"another ./sb install is already running (%s, invoked_by=%s).\n\n%s\n\n"+
+				"  Wait for it to complete, then retry.",
+			flag.Label(), flag.InvokedBy, lsofHint)
+	default: // HolderService
+		return fmt.Errorf(
+			"an orchestrated upgrade is in progress (%s, invoked_by=%s).\n\n%s\n\n"+
+				"  Wait for it to complete:\n"+
+				"    journalctl --user -u 'statbus-upgrade@*' -f\n\n"+
+				"  Do NOT pass --post-upgrade-fixup — that flag is the upgrade service's\n"+
+				"  internal contract with its own post-upgrade install step. Using it from the\n"+
+				"  command line would corrupt an upgrade that is currently running.",
+			flag.Label(), flag.InvokedBy, lsofHint)
 	}
-	verb := "upgrade"
-	if holder == HolderInstall {
-		verb = "install"
-	}
-	return fmt.Errorf(
-		"a prior %s crashed or was stopped mid-run: flag file references PID %d (%s, invoked_by=%s)\n"+
-			"but that process is no longer alive.\n\n"+
-			"  Re-run ./sb install — it detects the stale flag and reconciles it automatically.",
-		verb, flag.PID, flag.Label(), flag.InvokedBy)
 }
 
 // ReadFlagFile inspects the upgrade-in-progress flag at <projDir>/tmp/upgrade-in-progress.json.
-// Returns (nil, false, nil) when the flag file is absent (upgrade-mutex is "Idle").
-// Returns (flag, alive, nil) when the flag exists, where `alive` is true iff the PID that
-// wrote the flag is still running. Callers use the liveness to pick between
-// "wait for the running upgrade" vs "restart the service to recover from a crash" messaging.
+// Returns (nil, nil) when the flag file is absent (upgrade-mutex is "Idle"),
+// (flag, nil) when it exists. STATBUS-111: it no longer reports liveness — a
+// stored PID is a reuse footgun. Callers that need to know whether a LIVE holder
+// exists call IsFlockHeld (the flock is the sole liveness source).
 //
 // Callers outside this package should treat this as read-only: never remove or modify
 // the flag file. Ownership belongs to the upgrade service (service.go:writeUpgradeFlag
 // and removeUpgradeFlag).
-func ReadFlagFile(projDir string) (*UpgradeFlag, bool, error) {
+func ReadFlagFile(projDir string) (*UpgradeFlag, error) {
 	path := filepath.Join(projDir, "tmp", "upgrade-in-progress.json")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, false, nil
+			return nil, nil
 		}
-		return nil, false, err
+		return nil, err
 	}
 	var flag UpgradeFlag
 	if err := json.Unmarshal(data, &flag); err != nil {
-		return nil, false, fmt.Errorf("parse upgrade flag file: %w", err)
+		return nil, fmt.Errorf("parse upgrade flag file: %w", err)
 	}
-	return &flag, pidAlive(flag.PID), nil
-}
-
-// pidAlive checks whether a process with the given PID currently exists and
-// is owned by a user whose signals we can deliver. Returns false for PID<=0
-// (which includes the zero value produced by deserializing legacy flag files).
-//
-// On Unix, os.FindProcess never fails; the real liveness check is
-// `kill -0 pid` (signal 0 = permission check without actually signaling).
-// ESRCH means "no such process" (dead); EPERM means "process exists but
-// we don't own it" which we treat as alive.
-func pidAlive(pid int) bool {
-	if pid <= 0 {
-		return false
-	}
-	proc, err := os.FindProcess(pid)
-	if err != nil {
-		return false
-	}
-	if err := proc.Signal(syscall.Signal(0)); err != nil {
-		return os.IsPermission(err)
-	}
-	return true
+	return &flag, nil
 }
 
 // isConnError returns true for errors that indicate a dead/stale TCP
@@ -958,15 +929,16 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	// post-swap continuation case (binary swap → exit 42 → fresh process
 	// finds its own flag). The downstream branch (install / post-swap /
 	// reconcile) emits the action-specific message.
-	logRecover("Recovering an interrupted upgrade — found a %s marker for %s. (detail: id=%d, pid=%d, invoked_by=%s)",
-		holder, flag.Label(), flag.ID, flag.PID, flag.InvokedBy)
+	logRecover("Recovering an interrupted upgrade — found a %s marker for %s. (detail: id=%d, invoked_by=%s)",
+		holder, flag.Label(), flag.ID, flag.InvokedBy)
 
 	// Guard removed: DetectState's flock-try is now authoritative for
 	// distinguishing ghost flags from live upgrades. If we reach here, the
 	// caller (DetectState → StateCrashedUpgrade, or service startup) has
-	// already confirmed the flock is NOT held. pidAlive was unreliable:
-	// the service survives SHA upgrades, so PID stays alive after the
-	// upgrade completes — creating a ghost flag that pidAlive can't detect.
+	// already confirmed the flock is NOT held. A stored PID was unreliable:
+	// the service survives SHA upgrades, so the PID stayed alive after the
+	// upgrade completed — a ghost flag a PID check couldn't detect. The flock
+	// has no such hole; STATBUS-111 removed the PID entirely.
 
 	// Install-held flag from a crashed install. The flock was released by
 	// the kernel when the install's fd closed; the on-disk JSON is pure
@@ -975,7 +947,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	// inspecting the directory doesn't suggest something is in flight.
 	// (If install ever grows DB-write semantics, add reconciliation here.)
 	if holder == HolderInstall {
-		logRecover("A previous install exited without finishing cleanup; clearing its leftover marker and continuing. (detail: stale install flag, pid=%d)", flag.PID)
+		logRecover("A previous install exited without finishing cleanup; clearing its leftover marker and continuing. (detail: stale install flag, invoked_by=%s)", flag.InvokedBy)
 		os.Remove(d.flagPath())
 		return nil
 	}
@@ -1769,7 +1741,7 @@ func (d *Service) Run(ctx context.Context) error {
 	// which already regenerates unconditionally before its DB probe. Fatal on
 	// failure: EnsureDBUp would fail anyway, and a clear "regenerate config"
 	// error is the actionable signal.
-	if flag, _, ferr := ReadFlagFile(d.projDir); ferr == nil && flag.IsServiceForwardRecovery() {
+	if flag, ferr := ReadFlagFile(d.projDir); ferr == nil && flag.IsServiceForwardRecovery() {
 		// Recovery boot, FORWARD phases ONLY (post_swap / resuming). executeUpgrade
 		// defers the target checkout to here (STATBUS-060) so the OLD binary never
 		// materializes target-compose. A post-swap/resuming recovery resumes
@@ -1991,7 +1963,7 @@ func (d *Service) Run(ctx context.Context) error {
 			// just the (small, rare) floor migrations plus the after-commit-unrecorded
 			// half-applied case, which the observed-state Behind → snapshot restore
 			// still owns.
-			if flag, _, ferr := ReadFlagFile(d.projDir); ferr == nil && flag != nil && flag.Holder == HolderService {
+			if flag, ferr := ReadFlagFile(d.projDir); ferr == nil && flag != nil && flag.Holder == HolderService {
 				fmt.Printf("boot-migrate-up failed but a service-held in-progress upgrade flag is present "+
 					"(id=%d, %s, phase=%q) — deferring to recoverFromFlag for snapshot restore (STATBUS-017): %v\n",
 					flag.ID, flag.Label(), flag.Phase, err)
@@ -2057,7 +2029,7 @@ func (d *Service) Run(ctx context.Context) error {
 	// journal (pre-145, boot silently applied them). Best-effort — a counting error
 	// never blocks the boot. Skipped on a recovery boot (a service-held flag), where
 	// recoverFromFlag below owns the delta's fate (resume forward, or roll back).
-	if flag, _, ferr := ReadFlagFile(d.projDir); !(ferr == nil && flag != nil && flag.Holder == HolderService) {
+	if flag, ferr := ReadFlagFile(d.projDir); !(ferr == nil && flag != nil && flag.Holder == HolderService) {
 		if pending, n, perr := migrate.HasPendingAbove(d.projDir, migrate.DaemonSchemaFloor); perr == nil && pending {
 			fmt.Printf("STATBUS-145: %d migration(s) pending beyond the daemon floor (%d) — they apply on the next deliberate upgrade or `./sb install`, not at boot.\n",
 				n, migrate.DaemonSchemaFloor)
@@ -2875,7 +2847,6 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 		d.recoveryRollback(ctx, UpgradeFlag{
 			ID:         id,
 			CommitSHA:  commitSHA,
-			PID:        os.Getpid(),
 			StartedAt:  time.Now(),
 			InvokedBy:  "recovery:completeInProgressUpgrade",
 			Trigger:    "recovery",
@@ -5844,7 +5815,7 @@ func (d *Service) countRecoveryAttemptOnce(ctx context.Context, id int) (int, er
 // through its own deferral window; the downstream resumePostSwap increment/consult
 // still bounds the pass. Fail-CLOSED here would loop uncounted on exactly that path.
 func (d *Service) RecoveryBudgetGuard(ctx context.Context) (skipBootMigrate bool) {
-	flag, _, ferr := ReadFlagFile(d.projDir)
+	flag, ferr := ReadFlagFile(d.projDir)
 	if ferr != nil || flag == nil || !flag.IsServiceForwardRecovery() {
 		// No service-held FORWARD recovery flag → not a resume pass (fresh boot,
 		// install-held, or a PreSwap flag that rolls back). Guard is a no-op; the
@@ -5856,10 +5827,10 @@ func (d *Service) RecoveryBudgetGuard(ctx context.Context) (skipBootMigrate bool
 	// dead and this process owns the recovery pass" signal — PID-reuse-immune, the
 	// same gate Detect + recoveryRollback key on. A live holder means this is not
 	// our pass to count; fall through and let the existing downstream recovery
-	// bound it. We update PID only here; the step is stamped below, only if we
-	// continue to the boot migrate.
+	// bound it. Re-write the flag content verbatim (the flock ownership, not any
+	// stored PID, is what matters — STATBUS-111); the step is stamped below, only
+	// if we continue to the boot migrate.
 	base := *flag
-	base.PID = os.Getpid()
 	lock, lerr := acquireFlock(d.projDir, base)
 	if lerr != nil {
 		log.Printf("RecoveryBudgetGuard: upgrade flock held by another actor (id=%d) — skipping early counting; downstream recovery still bounds this pass: %v", flag.ID, lerr)
@@ -6316,7 +6287,6 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 		ID:             flag.ID,
 		CommitSHA:      flag.CommitSHA,
 		CommitTags:     flag.CommitTags,
-		PID:            os.Getpid(),
 		StartedAt:      time.Now(),
 		InvokedBy:      flag.InvokedBy,
 		Trigger:        flag.Trigger,
@@ -6691,6 +6661,286 @@ func (d *Service) writeRollbackTerminal(ctx context.Context, id int, updateSQL, 
 // restore source (identity-keyed, STATBUS-039/-031). Empty means the upgrade
 // never finalised a snapshot (PreSwap): restoreDatabase then refuses to touch
 // the volume, which is exactly right — it was never mutated.
+// restoreAndFinalize runs the restore-through-terminal-write tail shared by
+// rollback() (the fail-fast upgrade rollback) and the install-driven restore
+// re-attempt (STATBUS-111, dispatchInstallState). It restores the binary,
+// regenerates config, rsync-restores the DB snapshot, brings services back,
+// clears the maintenance + read-only windows, then writes the terminal row
+// (rolled_back when healthy, failed when the restore/services degraded) and, on
+// a landed write, removes the flag + fires the operator callback. Returns whether
+// the outcome was degraded.
+//
+// PIN 1 (STATBUS-111): it makes NO process-lifecycle decision (no os.Exit) — the
+// caller owns that (rollback() → exit 75; the re-attempt → exit 0 / actionable
+// error). Callers must have stopped the db container and armed the watchdog
+// cover before calling (rollback() does both in its head; the re-attempt does
+// the same). Pure extraction of rollback()'s former tail — identical order.
+func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reason, backupPath string, progress *ProgressLog) bool {
+	projDir := d.projDir
+	// Restore ./sb to match the restored git era BEFORE running config
+	// generate (rc.67 trifecta). The current ./sb is the NEW binary; its
+	// PersistentPreRun staleness guard (rc.65 freshness check) compares
+	// the binary's compile-time COMMIT against git HEAD, which is now at
+	// restoreTargetSHA. The guard fires exit-2 → "Warning: config generate
+	// during rollback failed" (jo's 2026-04-28 deploy log line 105).
+	// Restoring the binary first puts ./sb back at the same era as the
+	// rolled-back git tree, so the staleness guard sees a match and
+	// config generate runs cleanly. Best-effort; ErrRollbackBinaryCorrupt
+	// is logged (non-fatal) if the rename fails.
+	d.restoreBinary(progress)
+
+	if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "rollback-config-generate", nil, filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
+		progress.Write("Warning: config generate during rollback failed: %v", err)
+	}
+
+	// Restore database backup. Now safe — git state matches the DB era. A
+	// non-nil error means the rsync restore was attempted and FAILED, leaving
+	// the volume inconsistent → the terminal row must record `failed` (degraded),
+	// not `rolled_back`.
+	dbRestoreErr := d.restoreDatabase(progress, backupPath)
+
+	// Harness-only kill site (C9): simulates the OS / orchestrator killing
+	// the process MID-ROLLBACK — specifically, after the destructive
+	// restore steps (restoreGitState, restoreBinary, restoreDatabase) have
+	// run but BEFORE the docker compose up + reconnect + setMaintenance
+	// + state='rolled_back' UPDATE land. At kill time the on-disk state
+	// is consistent (OLD git tree, OLD binary, OLD DB volume) but the
+	// services are still stopped, maintenance is still ON, and the
+	// upgrade row is still 'in_progress'.
+	//
+	// Recovery via the next recovery pass (service restart or ./sb
+	// install): the flag survives the kill (Phase PostSwap or Resuming).
+	// Observed state (STATBUS-039) sees the restored OLD state — for a
+	// Resuming flag the verdict is confirmed-behind (binary/migrations
+	// rolled back below target) → the one-shot rollback path re-runs the
+	// remaining reconcile: bring services up, set maintenance OFF, mark
+	// the row 'rolled_back'. restoreDatabase is idempotent over an
+	// already-restored volume.
+	//
+	// Reachability — TWO reach-paths to d.rollback() (hence to this site):
+	//   • PreSwap flag (e.g. a binary-swap kill): recoverFromFlag PreSwap →
+	//     recoveryRollback → d.rollback() UNCONDITIONALLY (no forward attempt),
+	//     so this site fires DETERMINISTICALLY. (Arc: rollback-kill, proven.)
+	//   • Resuming/PostSwap flag: d.rollback() is reached only on a POSITIVELY-
+	//     behind verdict (STATBUS-039: already-at-new and unverifiable failures retry
+	//     forward and never reach here). Via THIS path the site fires only when
+	//     forward-recovery NATURALLY fails — non-deterministic across the HEAD
+	//     migration set (legacy 4-rollback-kill documented it as that diagnostic).
+	// No-op in production. Drives scenario 4-rollback-kill.
+	inject.KillHere("killed-by-system-during-builtin-rollback")
+
+	// Start with old config — git is verified at restoreTargetSHA. A failure
+	// here means the old-version services would not come back up → degraded,
+	// recorded as `failed` below.
+	servicesUpErr := runCommandToLog(projDir, 5*time.Minute, progress.File(), "rollback-docker-up", nil, "docker", "compose", "--profile", "all", "up", "-d", "--remove-orphans")
+	if servicesUpErr != nil {
+		progress.Write("%s: docker compose up failed after rollback: %v", ErrRollbackServicesUp, servicesUpErr)
+	}
+
+	// Wait for the restored DB to accept connections BEFORE reconnecting: the
+	// restart above brings Postgres back and an immediate reconnect would race
+	// it coming ready (the scenario 2-preswap-backup-kill "connection reset by peer"). Mirrors
+	// applyPostSwap's post-restart waitForDBHealth on the normal path. This is
+	// the PRIMARY wait — writeRollbackTerminal's bounded retry below is the
+	// durable fallback. Log-not-raise: if the DB genuinely never returns, the
+	// wait elapses, the reconnect + terminal write fail, and the flag is KEPT
+	// for next-boot reconciliation (a degraded outcome already recorded failed).
+	progress.Write("Waiting for database to be healthy after rollback...")
+	if err := d.waitForDBHealth(30 * time.Second); err != nil {
+		progress.Write("Warning: database not healthy after rollback within 30s: %v", err)
+	}
+
+	// Reconnect (may fail if DB didn't come back)
+	if err := d.reconnect(ctx); err != nil {
+		progress.Write("Warning: could not reconnect after rollback: %v", err)
+	}
+
+	// Deactivate maintenance
+	d.setMaintenance(false)
+
+	// STATBUS-110: clear the read-only window on the rolled-back box. The restored
+	// snapshot carries default_transaction_read_only=on in its catalog (it was
+	// ALTERed before the pre-stop backup, F3), so without this the rolled-back
+	// (old-version, serving) box would reject external writes. Uses the conn just
+	// reopened above (best-effort; a reconnect failure leaves it for the next
+	// recovery to clear). NB: the git-restore-fail ABORT terminal exits before this
+	// point and deliberately leaves read-only ON alongside maintenance ON (F1(i)) —
+	// the box is degraded/down and the operator's ./sb install recovery clears both
+	// at its successful terminal.
+	if err := d.setDatabaseReadOnly(ctx, false); err != nil {
+		progress.Write("Warning: could not clear read-only window after rollback: %v", err)
+	}
+
+	// Persist the real failure reason in `error` (short, one-line). The
+	// full narrative lives in the on-disk log (referenced by
+	// log_relative_file_path) and is fetched by the admin UI's "Log"
+	// collapsible via /upgrade-logs/<name>.
+	errMsg := reason
+	if reason == "" {
+		errMsg = "Rollback completed (no reason captured — caller did not pass one)"
+	}
+	// Two-tier terminal (upgrade-timeline.md § Complete / rollback). The restore
+	// steps above are best-effort and log-not-raise, so a degraded outcome must be
+	// detected HERE: if the DB snapshot restore failed OR the old-version services
+	// would not come back up, the box is NOT "healthy at the old version" — record
+	// `failed` (degraded; manual recovery), never `rolled_back`. Recording
+	// rolled_back on a degraded box is the silent-operator-lie the codebase forbids
+	// (rolled_back's contract is "running normally on old version, no manual
+	// intervention"). (restoreBinary failure is excluded: ./sb being stale is
+	// self-healed by the staleness guard on the next invocation; the site's
+	// containers serve old code from the restored git tree, so it stays healthy.)
+	degraded := dbRestoreErr != nil || servicesUpErr != nil
+	// Bundle BEFORE the terminal UPDATE so a support ticket on the row has the
+	// sibling .bundle.txt available.
+	d.writeDiagnosticBundle(ctx, id, progress)
+
+	if degraded {
+		detail := ""
+		if dbRestoreErr != nil {
+			detail += "; DB snapshot restore failed"
+		}
+		if servicesUpErr != nil {
+			detail += "; services did not come back up"
+		}
+		errMsg = errMsg + " — ROLLBACK INCOMPLETE" + detail + ". The system is in a degraded state; manual CLI recovery is required (./sb install); contact SSB support and involve your IT staff."
+		// Durable terminal write with bounded retry + reconnect. removeUpgradeFlag
+		// ONLY on success: if the write never landed, KEEP the flag so the next
+		// boot's recoverFromFlag / completeInProgressUpgrade reconciles the row
+		// (writeRollbackTerminal has already failed loud). The degraded siren below
+		// fires regardless — the box IS degraded whether or not the row write landed.
+		if d.writeRollbackTerminal(ctx, id,
+			"UPDATE public.upgrade SET state = 'failed', error = $1 WHERE id = $2"+upgradeRowReturning,
+			errMsg, LabelFailedRollbackIncomplete) {
+			d.removeUpgradeFlag()
+		}
+		// Page on-call: the degraded/all-hands tier (siren), same signal as the
+		// git-restore ABORT path.
+		hostname, _ := os.Hostname()
+		d.runCallback(version, map[string]string{
+			"STATBUS_EVENT":           "rollback_failed", // STATBUS-137 (LabelFailedRollbackIncomplete)
+			"STATBUS_ROLLBACK_FAILED": "1",
+			"STATBUS_ROLLBACK_ERROR":  errMsg,
+			"STATBUS_RECOVERY_CMD":    fmt.Sprintf(`ssh %s "cd statbus && ./sb install"`, hostname),
+		})
+		progress.Write("Rollback INCOMPLETE — the system is degraded; manual recovery required.")
+	} else {
+		// Snapshot restore succeeded and services came back → healthy at the old
+		// version. Regular-support tier; the `error` column carries the next action.
+		//
+		// STATBUS-111 Part 2 / PIN 3 — cause-tailored forward path. INVARIANT:
+		// rollback()→rolled_back is HARD-ERROR BY CONSTRUCTION — a transient
+		// exhaustion (DB/network didn't clear) routes to the PARK path
+		// (parkForDeterministicFailure), never here; only a genuine (deterministic)
+		// failure reaches rollback(). So the forward guidance is always the
+		// hard-error one: report it, and try a LATER release — re-scheduling the
+		// SAME version repeats the same failure. If a future routing change ever
+		// sends a transient-exhaustion outcome to rollback()→rolled_back, this
+		// wording (and Decision 3) reopens: the message would need to branch on cause.
+		errMsg = errMsg + " — rolled back to the previous version; the system is running normally on the old version. " +
+			"The failure is recorded (log retained); report it to support. This version will fail the same way — do NOT re-schedule it; run `./sb upgrade check` and try a LATER release when one is available. No manual intervention needed."
+		if d.writeRollbackTerminal(ctx, id,
+			"UPDATE public.upgrade SET state = 'rolled_back', error = $1, rolled_back_at = now() WHERE id = $2"+upgradeRowReturning,
+			errMsg, LabelRolledBackNormal) {
+			// Terminal write landed → the row is rolled_back. Clear the in-progress
+			// flag so the mutex that blocks `./sb install` is released; without this
+			// the flag lingers until the next service restart, wedging future installs.
+			d.removeUpgradeFlag()
+			// Notify (Slack) on the rolled_back terminal — the fail-fast rollback's
+			// single operator notification, regular-support tier (notify-slack.sh
+			// renders STATBUS_ROLLED_BACK).
+			d.runCallback(version, map[string]string{"STATBUS_EVENT": "rolled_back", "STATBUS_ROLLED_BACK": "1"})
+			progress.Write("Rollback complete. The previous version has been restored.")
+		} else {
+			// Terminal write never landed (DB unreachable, or the advisory lock is
+			// held by a live service we must yield to). KEEP the flag — the next
+			// recoverFromFlag / completeInProgressUpgrade reconciles the row. Do NOT
+			// claim success or page STATBUS_ROLLED_BACK: with the row still
+			// in_progress that would be the operator-lie this fix removes.
+			// writeRollbackTerminal already failed loud (INVARIANT
+			// ROLLBACK_TERMINAL_WRITE_FAILED + markTerminal).
+			progress.Write("Rollback restored the previous version, but its terminal state could NOT be recorded in public.upgrade (DB unreachable). The in-progress flag is kept; the upgrade service reconciles the row on its next start. See INVARIANT ROLLBACK_TERMINAL_WRITE_FAILED.")
+		}
+	}
+	return degraded
+}
+
+// ReattemptRestore replays the DB-snapshot restore for a restore-broke row
+// (state='failed' with a retained backup_path) — the STATBUS-111 human-gated
+// re-attempt driven from `./sb install` (dispatchInstallState → here). On the
+// restore-broke path the original rollback's restore broke mid-way (rsync
+// failure or two crash-deaths), leaving state='failed' + backup_path set while
+// git + binary are already at the old era. This re-runs the idempotent restore
+// TAIL (restoreAndFinalize) under the SAME always-ping watchdog cover rollback()
+// uses, and returns:
+//   - nil   → the restore completed; the row is now rolled_back (healthy at the
+//     old version). The caller prints the success + forecast line.
+//   - error → the restore degraded again (row stays failed); actionable error.
+//
+// Human-gated (AC#2): this runs ONLY from the install ladder. The systemd
+// service's RecoverFromFlag keys on the flag file, which the restore-broke path
+// removed — so the service never auto-re-attempts (no StartLimit thrash).
+// Caller must have a connected d.queryConn (LoadConfigAndConnect).
+func (d *Service) ReattemptRestore(ctx context.Context, rowID int64, backupPath string) error {
+	// Load the row's commit label for the callback + progress continuity. Runs
+	// before the db stop below — the restore-broke box has the DB reachable.
+	var commitSHA, commitVersion sql.NullString
+	if err := d.queryConn.QueryRow(ctx,
+		"SELECT commit_sha, commit_version FROM public.upgrade WHERE id = $1", rowID).
+		Scan(&commitSHA, &commitVersion); err != nil {
+		return fmt.Errorf("ReattemptRestore: cannot load upgrade %d: %w", rowID, err)
+	}
+	displayName := commitVersion.String
+	if displayName == "" {
+		displayName = renderDisplayName(CommitSHA(commitSHA.String), nil)
+	}
+
+	// Append to the row's log so the restore narrative stays continuous; fall
+	// through to a fresh log if the original is gone.
+	progress := AppendProgressLog(d.projDir, d.loadLogRelPath(ctx, rowID))
+	if progress == nil {
+		progress = NewUpgradeLog(d.projDir, rowID, displayName, time.Now().UTC())
+	}
+	defer progress.Close()
+	progress.Write("Re-attempting the interrupted database restore for %s (operator-initiated via ./sb install)...", displayName)
+
+	// Watchdog cover — the SAME always-ping ticker rollback() arms, because
+	// restoreAndFinalize runs the two heartbeat-silent steps (the whole-volume
+	// rsync + the docker-up). restoreAndFinalize arms none itself (PIN 1: the
+	// cover is caller-owned), so without this a >120s restore trips WatchdogSec.
+	tickerCtx, tickerCancel := context.WithCancel(ctx)
+	tickerDone := make(chan struct{})
+	go runGatedWatchdogTicker(tickerCtx, nil,
+		applyPostSwapStallThreshold, applyPostSwapWatchdogCadence,
+		func() { sdNotify("WATCHDOG=1") }, tickerDone)
+	defer func() { tickerCancel(); <-tickerDone }()
+
+	// Restore git state FIRST (architect review of STATBUS-111). The re-attempt
+	// probe also matches the git-restore ABORT row (LabelFailedAbort — the tree
+	// is corrupt), and restoreAndFinalize only touches binary + DB. Without this,
+	// an abort-row re-attempt would restore binary + DB to the old era while the
+	// git tree stayed at the abort's wreckage → config generate against corrupt
+	// templates → the box comes up MIXED-ERA. Empty target = the STATBUS-077
+	// pinned pre-upgrade branch (single source), same call shape as rollback()'s
+	// head. On the common PAIR-TERMINAL row git is already at the old era →
+	// idempotent no-op; on an ABORT row this either genuinely cures the original
+	// failure (e.g. transient disk pressure since cleared) or hard-fails
+	// ACTIONABLY here — BEFORE any destructive stop/restore, never mixed-era.
+	if err := d.restoreGitState("", progress); err != nil {
+		return fmt.Errorf("%s: cannot restore the working tree before the database re-attempt (%w) — the git tree is corrupt; do NOT proceed. Manual recovery required: contact SSB support and involve your IT staff%s",
+			ErrRollbackGitCorrupt, err, contactSuffix(readAdministratorContact(d.projDir)))
+	}
+
+	// Stop clients + db before rsyncing the volume (restoreAndFinalize's
+	// docker-up brings them back). Mirrors rollback()'s pre-restore stop.
+	runCommand(d.projDir, "docker", "compose", "stop", "app", "worker", "rest", "db")
+
+	reason := fmt.Sprintf("operator re-attempt of the interrupted restore for %s", displayName)
+	if degraded := d.restoreAndFinalize(ctx, int(rowID), displayName, reason, backupPath, progress); degraded {
+		return fmt.Errorf("%s: the database restore did not complete — the system remains degraded; contact SSB support and involve your IT staff", ErrRollbackDBRestore)
+	}
+	return nil
+}
+
 func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSHA, reason string, backupPath string, progress *ProgressLog) {
 	// WATCHDOG COVER (STATBUS-031). rollback()'s body runs the two DB-size-scaled,
 	// heartbeat-SILENT steps an upgrade has: restoreDatabase's whole-volume rsync
@@ -6856,179 +7106,11 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 		progress.Close()
 		os.Exit(1)
 	}
-	// Restore ./sb to match the restored git era BEFORE running config
-	// generate (rc.67 trifecta). The current ./sb is the NEW binary; its
-	// PersistentPreRun staleness guard (rc.65 freshness check) compares
-	// the binary's compile-time COMMIT against git HEAD, which is now at
-	// restoreTargetSHA. The guard fires exit-2 → "Warning: config generate
-	// during rollback failed" (jo's 2026-04-28 deploy log line 105).
-	// Restoring the binary first puts ./sb back at the same era as the
-	// rolled-back git tree, so the staleness guard sees a match and
-	// config generate runs cleanly. Best-effort; ErrRollbackBinaryCorrupt
-	// is logged (non-fatal) if the rename fails.
-	d.restoreBinary(progress)
-
-	if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "rollback-config-generate", nil, filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
-		progress.Write("Warning: config generate during rollback failed: %v", err)
-	}
-
-	// Restore database backup. Now safe — git state matches the DB era. A
-	// non-nil error means the rsync restore was attempted and FAILED, leaving
-	// the volume inconsistent → the terminal row must record `failed` (degraded),
-	// not `rolled_back`.
-	dbRestoreErr := d.restoreDatabase(progress, backupPath)
-
-	// Harness-only kill site (C9): simulates the OS / orchestrator killing
-	// the process MID-ROLLBACK — specifically, after the destructive
-	// restore steps (restoreGitState, restoreBinary, restoreDatabase) have
-	// run but BEFORE the docker compose up + reconnect + setMaintenance
-	// + state='rolled_back' UPDATE land. At kill time the on-disk state
-	// is consistent (OLD git tree, OLD binary, OLD DB volume) but the
-	// services are still stopped, maintenance is still ON, and the
-	// upgrade row is still 'in_progress'.
-	//
-	// Recovery via the next recovery pass (service restart or ./sb
-	// install): the flag survives the kill (Phase PostSwap or Resuming).
-	// Observed state (STATBUS-039) sees the restored OLD state — for a
-	// Resuming flag the verdict is confirmed-behind (binary/migrations
-	// rolled back below target) → the one-shot rollback path re-runs the
-	// remaining reconcile: bring services up, set maintenance OFF, mark
-	// the row 'rolled_back'. restoreDatabase is idempotent over an
-	// already-restored volume.
-	//
-	// Reachability — TWO reach-paths to d.rollback() (hence to this site):
-	//   • PreSwap flag (e.g. a binary-swap kill): recoverFromFlag PreSwap →
-	//     recoveryRollback → d.rollback() UNCONDITIONALLY (no forward attempt),
-	//     so this site fires DETERMINISTICALLY. (Arc: rollback-kill, proven.)
-	//   • Resuming/PostSwap flag: d.rollback() is reached only on a POSITIVELY-
-	//     behind verdict (STATBUS-039: already-at-new and unverifiable failures retry
-	//     forward and never reach here). Via THIS path the site fires only when
-	//     forward-recovery NATURALLY fails — non-deterministic across the HEAD
-	//     migration set (legacy 4-rollback-kill documented it as that diagnostic).
-	// No-op in production. Drives scenario 4-rollback-kill.
-	inject.KillHere("killed-by-system-during-builtin-rollback")
-
-	// Start with old config — git is verified at restoreTargetSHA. A failure
-	// here means the old-version services would not come back up → degraded,
-	// recorded as `failed` below.
-	servicesUpErr := runCommandToLog(projDir, 5*time.Minute, progress.File(), "rollback-docker-up", nil, "docker", "compose", "--profile", "all", "up", "-d", "--remove-orphans")
-	if servicesUpErr != nil {
-		progress.Write("%s: docker compose up failed after rollback: %v", ErrRollbackServicesUp, servicesUpErr)
-	}
-
-	// Wait for the restored DB to accept connections BEFORE reconnecting: the
-	// restart above brings Postgres back and an immediate reconnect would race
-	// it coming ready (the scenario 2-preswap-backup-kill "connection reset by peer"). Mirrors
-	// applyPostSwap's post-restart waitForDBHealth on the normal path. This is
-	// the PRIMARY wait — writeRollbackTerminal's bounded retry below is the
-	// durable fallback. Log-not-raise: if the DB genuinely never returns, the
-	// wait elapses, the reconnect + terminal write fail, and the flag is KEPT
-	// for next-boot reconciliation (a degraded outcome already recorded failed).
-	progress.Write("Waiting for database to be healthy after rollback...")
-	if err := d.waitForDBHealth(30 * time.Second); err != nil {
-		progress.Write("Warning: database not healthy after rollback within 30s: %v", err)
-	}
-
-	// Reconnect (may fail if DB didn't come back)
-	if err := d.reconnect(ctx); err != nil {
-		progress.Write("Warning: could not reconnect after rollback: %v", err)
-	}
-
-	// Deactivate maintenance
-	d.setMaintenance(false)
-
-	// STATBUS-110: clear the read-only window on the rolled-back box. The restored
-	// snapshot carries default_transaction_read_only=on in its catalog (it was
-	// ALTERed before the pre-stop backup, F3), so without this the rolled-back
-	// (old-version, serving) box would reject external writes. Uses the conn just
-	// reopened above (best-effort; a reconnect failure leaves it for the next
-	// recovery to clear). NB: the git-restore-fail ABORT terminal exits before this
-	// point and deliberately leaves read-only ON alongside maintenance ON (F1(i)) —
-	// the box is degraded/down and the operator's ./sb install recovery clears both
-	// at its successful terminal.
-	if err := d.setDatabaseReadOnly(ctx, false); err != nil {
-		progress.Write("Warning: could not clear read-only window after rollback: %v", err)
-	}
-
-	// Persist the real failure reason in `error` (short, one-line). The
-	// full narrative lives in the on-disk log (referenced by
-	// log_relative_file_path) and is fetched by the admin UI's "Log"
-	// collapsible via /upgrade-logs/<name>.
-	errMsg := reason
-	if reason == "" {
-		errMsg = "Rollback completed (no reason captured — caller did not pass one)"
-	}
-	// Two-tier terminal (upgrade-timeline.md § Complete / rollback). The restore
-	// steps above are best-effort and log-not-raise, so a degraded outcome must be
-	// detected HERE: if the DB snapshot restore failed OR the old-version services
-	// would not come back up, the box is NOT "healthy at the old version" — record
-	// `failed` (degraded; manual recovery), never `rolled_back`. Recording
-	// rolled_back on a degraded box is the silent-operator-lie the codebase forbids
-	// (rolled_back's contract is "running normally on old version, no manual
-	// intervention"). (restoreBinary failure is excluded: ./sb being stale is
-	// self-healed by the staleness guard on the next invocation; the site's
-	// containers serve old code from the restored git tree, so it stays healthy.)
-	degraded := dbRestoreErr != nil || servicesUpErr != nil
-	// Bundle BEFORE the terminal UPDATE so a support ticket on the row has the
-	// sibling .bundle.txt available.
-	d.writeDiagnosticBundle(ctx, id, progress)
-
-	if degraded {
-		detail := ""
-		if dbRestoreErr != nil {
-			detail += "; DB snapshot restore failed"
-		}
-		if servicesUpErr != nil {
-			detail += "; services did not come back up"
-		}
-		errMsg = errMsg + " — ROLLBACK INCOMPLETE" + detail + ". The system is in a degraded state; manual CLI recovery is required (./sb install); contact SSB support and involve your IT staff."
-		// Durable terminal write with bounded retry + reconnect. removeUpgradeFlag
-		// ONLY on success: if the write never landed, KEEP the flag so the next
-		// boot's recoverFromFlag / completeInProgressUpgrade reconciles the row
-		// (writeRollbackTerminal has already failed loud). The degraded siren below
-		// fires regardless — the box IS degraded whether or not the row write landed.
-		if d.writeRollbackTerminal(ctx, id,
-			"UPDATE public.upgrade SET state = 'failed', error = $1 WHERE id = $2"+upgradeRowReturning,
-			errMsg, LabelFailedRollbackIncomplete) {
-			d.removeUpgradeFlag()
-		}
-		// Page on-call: the degraded/all-hands tier (siren), same signal as the
-		// git-restore ABORT path.
-		hostname, _ := os.Hostname()
-		d.runCallback(version, map[string]string{
-			"STATBUS_EVENT":           "rollback_failed", // STATBUS-137 (LabelFailedRollbackIncomplete)
-			"STATBUS_ROLLBACK_FAILED": "1",
-			"STATBUS_ROLLBACK_ERROR":  errMsg,
-			"STATBUS_RECOVERY_CMD":    fmt.Sprintf(`ssh %s "cd statbus && ./sb install"`, hostname),
-		})
-		progress.Write("Rollback INCOMPLETE — the system is degraded; manual recovery required.")
-	} else {
-		// Snapshot restore succeeded and services came back → healthy at the old
-		// version. Regular-support tier; the `error` column carries the next action.
-		errMsg = errMsg + " — rolled back to the previous version; the system is running normally on the old version. The failure is recorded; report it to support. No manual intervention needed."
-		if d.writeRollbackTerminal(ctx, id,
-			"UPDATE public.upgrade SET state = 'rolled_back', error = $1, rolled_back_at = now() WHERE id = $2"+upgradeRowReturning,
-			errMsg, LabelRolledBackNormal) {
-			// Terminal write landed → the row is rolled_back. Clear the in-progress
-			// flag so the mutex that blocks `./sb install` is released; without this
-			// the flag lingers until the next service restart, wedging future installs.
-			d.removeUpgradeFlag()
-			// Notify (Slack) on the rolled_back terminal — the fail-fast rollback's
-			// single operator notification, regular-support tier (notify-slack.sh
-			// renders STATBUS_ROLLED_BACK).
-			d.runCallback(version, map[string]string{"STATBUS_EVENT": "rolled_back", "STATBUS_ROLLED_BACK": "1"})
-			progress.Write("Rollback complete. The previous version has been restored.")
-		} else {
-			// Terminal write never landed (DB unreachable, or the advisory lock is
-			// held by a live service we must yield to). KEEP the flag — the next
-			// recoverFromFlag / completeInProgressUpgrade reconciles the row. Do NOT
-			// claim success or page STATBUS_ROLLED_BACK: with the row still
-			// in_progress that would be the operator-lie this fix removes.
-			// writeRollbackTerminal already failed loud (INVARIANT
-			// ROLLBACK_TERMINAL_WRITE_FAILED + markTerminal).
-			progress.Write("Rollback restored the previous version, but its terminal state could NOT be recorded in public.upgrade (DB unreachable). The in-progress flag is kept; the upgrade service reconciles the row on its next start. See INVARIANT ROLLBACK_TERMINAL_WRITE_FAILED.")
-		}
-	}
+	// STATBUS-111: the restore-through-terminal-write tail is now shared with the
+	// install-driven restore re-attempt via restoreAndFinalize. Process-lifecycle
+	// (os.Exit below) stays HERE per the extraction boundary — restoreAndFinalize
+	// only restores and writes the terminal, then returns.
+	d.restoreAndFinalize(ctx, id, version, reason, backupPath, progress)
 
 	// Exit 75 (sysexits EX_TEMPFAIL: "temporary failure, retry later")
 	// per the rc.67 trifecta. Distinct from:

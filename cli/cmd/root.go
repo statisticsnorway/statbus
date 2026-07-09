@@ -159,7 +159,7 @@ func stalenessGuard(c *cobra.Command, _ []string) {
 			// install-held, or pre_swap) still self-heals below. PreSwap is
 			// gated OUT by IsServiceForwardRecovery: it rolls back, so the
 			// tree must stay at the source commit.
-			if flag, _, ferr := upgrade.ReadFlagFile(config.ProjectDir()); ferr == nil && flag.IsServiceForwardRecovery() {
+			if flag, ferr := upgrade.ReadFlagFile(config.ProjectDir()); ferr == nil && flag.IsServiceForwardRecovery() {
 				fmt.Fprintln(os.Stderr, "WARN: "+msg)
 				fmt.Fprintln(os.Stderr, "In-flight upgrade recovery (service-held flag, already booted the new binary) — deferring to the recovery boot; not self-healing.")
 				return

@@ -22,6 +22,10 @@ type fakeProbe struct {
 	hasUpgradeErr   error
 	scheduledRow    *ScheduledRow
 	scheduledErr    error
+	reattemptRowID  int64
+	reattemptBackup string
+	reattemptFound  bool
+	reattemptErr    error
 }
 
 func (p *fakeProbe) FileExists(path string) bool { return p.files[path] }
@@ -32,6 +36,9 @@ func (p *fakeProbe) DBReachable(string) bool              { return p.dbReachable
 func (p *fakeProbe) HasUpgradeTable(string) (bool, error) { return p.hasUpgradeTable, p.hasUpgradeErr }
 func (p *fakeProbe) QueryScheduledUpgrade(string) (*ScheduledRow, error) {
 	return p.scheduledRow, p.scheduledErr
+}
+func (p *fakeProbe) QueryReattemptableRestore(string) (int64, string, bool, error) {
+	return p.reattemptRowID, p.reattemptBackup, p.reattemptFound, p.reattemptErr
 }
 
 func TestDetectWith(t *testing.T) {
@@ -57,39 +64,39 @@ func TestDetectWith(t *testing.T) {
 			},
 		},
 		{
-			name: "live upgrade: flag with alive pid",
+			name: "live upgrade: flag with flock held",
 			probe: fakeProbe{
 				files:     map[string]bool{cfgPath: true, credPath: true},
-				flag:      &upgrade.UpgradeFlag{PID: 42, CommitTags: []string{"v2026.04.0"}},
-				flagAlive: true,
+				flag:      &upgrade.UpgradeFlag{ID: 42, CommitTags: []string{"v2026.04.0"}},
+				flagAlive: true, // flock held → live
 			},
 			wantState: StateLiveUpgrade,
 			checkDetail: func(t *testing.T, d *Detail) {
-				if d.Flag == nil || d.Flag.PID != 42 {
-					t.Errorf("expected flag with PID 42, got %+v", d.Flag)
+				if d.Flag == nil || d.Flag.ID != 42 {
+					t.Errorf("expected flag with ID 42, got %+v", d.Flag)
 				}
 			},
 		},
 		{
-			name: "crashed upgrade: flag with dead pid",
+			name: "crashed upgrade: flag with flock free",
 			probe: fakeProbe{
 				files:     map[string]bool{cfgPath: true, credPath: true},
-				flag:      &upgrade.UpgradeFlag{PID: 1, CommitTags: []string{"v2026.04.0"}},
+				flag:      &upgrade.UpgradeFlag{ID: 1, CommitTags: []string{"v2026.04.0"}},
 				flagAlive: false,
 			},
 			wantState: StateCrashedUpgrade,
 		},
 		{
-			name: "ghost flag: PID alive but flock free → crashed (not live)",
+			name: "ghost flag: flock free → crashed (not live)",
 			probe: fakeProbe{
 				files:     map[string]bool{cfgPath: true, credPath: true},
-				flag:      &upgrade.UpgradeFlag{PID: 999, CommitSHA: "abc1234f0000000000000000000000000000abcd"},
+				flag:      &upgrade.UpgradeFlag{CommitSHA: "abc1234f0000000000000000000000000000abcd"},
 				flagAlive: false, // flock free — ghost flag from completed upgrade
 			},
 			wantState: StateCrashedUpgrade,
 			checkDetail: func(t *testing.T, d *Detail) {
-				if d.Flag == nil || d.Flag.PID != 999 {
-					t.Errorf("expected flag with PID 999, got %+v", d.Flag)
+				if d.Flag == nil || d.Flag.CommitSHA != "abc1234f0000000000000000000000000000abcd" {
+					t.Errorf("expected flag with the ghost CommitSHA, got %+v", d.Flag)
 				}
 			},
 		},
@@ -154,6 +161,44 @@ func TestDetectWith(t *testing.T) {
 				scheduledRow:    nil,
 			},
 			wantState: StateNothingScheduled,
+		},
+		{
+			// STATBUS-111: no scheduled row, but a restore-broke row (failed +
+			// retained backup_path) → re-attemptable, not a dead-end.
+			name: "restore re-attemptable: failed row with retained backup_path",
+			probe: fakeProbe{
+				files:           map[string]bool{cfgPath: true, credPath: true},
+				dbReachable:     true,
+				hasUpgradeTable: true,
+				scheduledRow:    nil,
+				reattemptFound:  true,
+				reattemptRowID:  9,
+				reattemptBackup: "/backup/pre-upgrade-active",
+			},
+			wantState: StateRestoreReattemptable,
+			checkDetail: func(t *testing.T, d *Detail) {
+				if d.ReattemptRowID != 9 {
+					t.Errorf("ReattemptRowID = %d, want 9", d.ReattemptRowID)
+				}
+				if d.ReattemptBackupPath != "/backup/pre-upgrade-active" {
+					t.Errorf("ReattemptBackupPath = %q", d.ReattemptBackupPath)
+				}
+			},
+		},
+		{
+			// A scheduled upgrade WINS over a lingering restore-broke row (probe
+			// order: scheduled before reattemptable).
+			name: "scheduled wins over a reattemptable restore-broke row",
+			probe: fakeProbe{
+				files:           map[string]bool{cfgPath: true, credPath: true},
+				dbReachable:     true,
+				hasUpgradeTable: true,
+				scheduledRow:    &ScheduledRow{ID: 12, CommitSHA: "beef", Version: "v9"},
+				reattemptFound:  true,
+				reattemptRowID:  9,
+				reattemptBackup: "/backup/x",
+			},
+			wantState: StateScheduledUpgrade,
 		},
 		{
 			name: "flag-read error propagates",

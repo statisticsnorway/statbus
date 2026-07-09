@@ -311,7 +311,7 @@ func TestClearFlagStepHistory_ClearsDeathHistoryPreservesRest(t *testing.T) {
 	if err := d.ClearFlagStepHistory(); err != nil {
 		t.Fatalf("ClearFlagStepHistory: %v", err)
 	}
-	got, _, err := ReadFlagFile(dir)
+	got, err := ReadFlagFile(dir)
 	if err != nil || got == nil {
 		t.Fatalf("read flag after clear: got=%v err=%v", got, err)
 	}

@@ -28,35 +28,76 @@ func TestRollbackWatchdogCover_SourceOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read service.go: %v", err)
 	}
-	rb := extractFuncBody(t, string(src), "func (d *Service) rollback(")
+	source := string(src)
+	rb := extractFuncBody(t, source, "func (d *Service) rollback(")
+	// STATBUS-111: the two heartbeat-silent steps (restoreDatabase rsync +
+	// rollback-docker-up) were extracted from rollback() into restoreAndFinalize
+	// (PIN 1). The always-ping cover invariant is UNCHANGED — it now reads:
+	// every caller of restoreAndFinalize arms the ticker BEFORE the call, and the
+	// silent steps live inside restoreAndFinalize.
+	raf := extractFuncBody(t, source, "func (d *Service) restoreAndFinalize(")
+	rar := extractFuncBody(t, source, "func (d *Service) ReattemptRestore(")
 
+	// (1) rollback() arms the always-ping ticker at the top and calls the
+	// extracted tail UNDER that cover.
 	tickerArmIdx := strings.Index(rb, "go runGatedWatchdogTicker(rollbackTickerCtx, nil,")
 	cancelIdx := strings.Index(rb, "rollbackTickerCancel()")
 	joinIdx := strings.Index(rb, "<-rollbackTickerDone")
-	restoreIdx := strings.Index(rb, "d.restoreDatabase(")
-	dockerUpIdx := strings.Index(rb, `"rollback-docker-up"`)
-
+	rbCallIdx := strings.Index(rb, "d.restoreAndFinalize(")
 	for name, idx := range map[string]int{
 		"rollback always-ping watchdog ticker arm (nil progress)": tickerArmIdx,
 		"rollbackTickerCancel()":                                  cancelIdx,
 		"<-rollbackTickerDone join":                               joinIdx,
-		"d.restoreDatabase( call":                                 restoreIdx,
-		`"rollback-docker-up" call`:                               dockerUpIdx,
+		"rollback → restoreAndFinalize call":                      rbCallIdx,
 	} {
 		if idx < 0 {
-			t.Fatalf("Service.rollback missing %s — STATBUS-031 watchdog cover removed or renamed?", name)
+			t.Fatalf("Service.rollback missing %s — STATBUS-031/-111 watchdog cover removed or renamed?", name)
 		}
 	}
-
-	if restoreIdx < tickerArmIdx {
-		t.Errorf("the always-ping watchdog ticker must arm BEFORE restoreDatabase "+
-			"(tickerArm=%d restore=%d): the whole-volume rsync is heartbeat-silent and on the "+
-			"startup recovery path otherwise uncovered → WatchdogSec kills it mid-restore (STATBUS-031).",
-			tickerArmIdx, restoreIdx)
+	if rbCallIdx < tickerArmIdx {
+		t.Errorf("rollback() must arm the always-ping watchdog BEFORE calling restoreAndFinalize "+
+			"(tickerArm=%d call=%d): the extracted rsync + docker-up are heartbeat-silent (STATBUS-031).",
+			tickerArmIdx, rbCallIdx)
 	}
-	if dockerUpIdx < tickerArmIdx {
-		t.Errorf("the always-ping watchdog ticker must arm BEFORE the rollback docker-up "+
-			"(tickerArm=%d dockerUp=%d): it is also onAdvance=nil silent.", tickerArmIdx, dockerUpIdx)
+
+	// (2) The extracted tail holds the two silent steps.
+	if !strings.Contains(raf, "d.restoreDatabase(") {
+		t.Error("restoreAndFinalize must contain the restoreDatabase rsync (the silent step it was extracted with)")
+	}
+	if !strings.Contains(raf, `"rollback-docker-up"`) {
+		t.Error("restoreAndFinalize must contain the rollback-docker-up (also onAdvance=nil silent)")
+	}
+	// It must NOT arm its own ticker — PIN 1: the cover is caller-owned (one
+	// cover per call site; a nested self-cover would double-ping).
+	if strings.Contains(raf, "runGatedWatchdogTicker(") {
+		t.Error("restoreAndFinalize must NOT arm a watchdog itself — PIN 1: callers own the cover")
+	}
+
+	// (3) STATBUS-111: the install-driven re-attempt runs the SAME tail, so it
+	// MUST arm its own cover BEFORE calling restoreAndFinalize.
+	rarTickerIdx := strings.Index(rar, "go runGatedWatchdogTicker(")
+	rarCallIdx := strings.Index(rar, "d.restoreAndFinalize(")
+	if rarTickerIdx < 0 || rarCallIdx < 0 {
+		t.Fatalf("ReattemptRestore must arm a watchdog ticker AND call restoreAndFinalize (ticker=%d call=%d)", rarTickerIdx, rarCallIdx)
+	}
+	if rarCallIdx < rarTickerIdx {
+		t.Errorf("ReattemptRestore must arm the watchdog BEFORE calling restoreAndFinalize (ticker=%d call=%d)", rarTickerIdx, rarCallIdx)
+	}
+
+	// (4) STATBUS-111 (architect review): the re-attempt probe also matches the
+	// git-restore ABORT row (tree corrupt). ReattemptRestore MUST restore git
+	// state FIRST — before the destructive stop + restoreAndFinalize — or an
+	// abort-row re-attempt restores binary+DB onto a wreckage tree → mixed-era.
+	rarGitIdx := strings.Index(rar, "d.restoreGitState(")
+	rarStopIdx := strings.Index(rar, `"stop", "app", "worker", "rest", "db"`)
+	if rarGitIdx < 0 {
+		t.Fatal("ReattemptRestore must call restoreGitState (the abort-row mixed-era guard) before the DB re-attempt")
+	}
+	if rarGitIdx > rarCallIdx {
+		t.Errorf("ReattemptRestore must restore git state BEFORE restoreAndFinalize (git=%d restoreAndFinalize=%d) — else an abort-row re-attempt comes up mixed-era", rarGitIdx, rarCallIdx)
+	}
+	if rarStopIdx >= 0 && rarGitIdx > rarStopIdx {
+		t.Errorf("ReattemptRestore must restore git state BEFORE the destructive db stop (git=%d stop=%d)", rarGitIdx, rarStopIdx)
 	}
 
 	// The restore rsync must use the shared RestoreDBTimeout, not a site-local

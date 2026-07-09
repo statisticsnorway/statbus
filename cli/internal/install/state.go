@@ -3,14 +3,15 @@
 // the pure probe function consumed by cli/cmd/install.
 //
 // Detection policy (locked):
-//   1. No .env.config ........................... StateFresh (use binary's version)
-//   2. Flag file present + flock held ........... StateLiveUpgrade (refuse)
-//   3. Flag file present + flock free ........... StateCrashedUpgrade (recover)
-//   4. Config present, credentials missing ...... StateHalfConfigured
-//   5. Config + creds, DB down .................. StateDBUnreachable
-//   6. DB up, no public.upgrade ................. StateLegacyNoUpgradeTable
-//   7. Scheduled row present .................... StateScheduledUpgrade
-//   8. Everything there, no scheduled row ....... StateNothingScheduled
+//  1. No .env.config ........................... StateFresh (use binary's version)
+//  2. Flag file present + flock held ........... StateLiveUpgrade (refuse)
+//  3. Flag file present + flock free ........... StateCrashedUpgrade (recover)
+//  4. Config present, credentials missing ...... StateHalfConfigured
+//  5. Config + creds, DB down .................. StateDBUnreachable
+//  6. DB up, no public.upgrade ................. StateLegacyNoUpgradeTable
+//  7. Scheduled row present .................... StateScheduledUpgrade
+//  8. Failed row w/ retained backup_path ....... StateRestoreReattemptable (STATBUS-111)
+//  9. Everything there, no scheduled row ....... StateNothingScheduled
 //
 // StateNothingScheduled is NOT an error: a healthy existing install with no
 // pending upgrade is the normal steady state, and `./sb install` on it runs
@@ -47,6 +48,7 @@ const (
 	StateDBUnreachable
 	StateLegacyNoUpgradeTable
 	StateScheduledUpgrade
+	StateRestoreReattemptable
 	StateNothingScheduled
 )
 
@@ -66,6 +68,8 @@ func (s State) String() string {
 		return "legacy-no-upgrade-table"
 	case StateScheduledUpgrade:
 		return "scheduled-upgrade"
+	case StateRestoreReattemptable:
+		return "restore-reattemptable"
 	case StateNothingScheduled:
 		return "nothing-scheduled"
 	default:
@@ -75,19 +79,21 @@ func (s State) String() string {
 
 // ScheduledRow is the minimal projection of a public.upgrade row awaiting apply.
 type ScheduledRow struct {
-	ID          int64
-	CommitSHA   string
-	Version     string // commit_version shape: CalVer tag, describe-off-tag, or 8-char commit_short
+	ID        int64
+	CommitSHA string
+	Version   string // commit_version shape: CalVer tag, describe-off-tag, or 8-char commit_short
 }
 
 // Detail is the evidence surfaced alongside a State.
 type Detail struct {
-	Flag              *upgrade.UpgradeFlag // populated for StateLive/StateCrashedUpgrade
-	CurrentVersion    string                // binary's compile-time ldflags version
-	TargetVersion     string                // what the caller should install (binary version or scheduled row's version)
-	ScheduledRowID    int64                 // populated for StateScheduledUpgrade
-	TargetCommitSHA   string                // populated for StateScheduledUpgrade
-	TargetDisplayName string                // populated for StateScheduledUpgrade
+	Flag                *upgrade.UpgradeFlag // populated for StateLive/StateCrashedUpgrade
+	CurrentVersion      string               // binary's compile-time ldflags version
+	TargetVersion       string               // what the caller should install (binary version or scheduled row's version)
+	ScheduledRowID      int64                // populated for StateScheduledUpgrade
+	TargetCommitSHA     string               // populated for StateScheduledUpgrade
+	TargetDisplayName   string               // populated for StateScheduledUpgrade
+	ReattemptRowID      int64                // populated for StateRestoreReattemptable (the failed row to re-attempt)
+	ReattemptBackupPath string               // populated for StateRestoreReattemptable (the retained snapshot to restore)
 }
 
 // Probe abstracts the environment queries Detect makes. The default probe hits
@@ -98,6 +104,7 @@ type Probe interface {
 	DBReachable(projDir string) bool
 	HasUpgradeTable(projDir string) (bool, error)
 	QueryScheduledUpgrade(projDir string) (*ScheduledRow, error)
+	QueryReattemptableRestore(projDir string) (rowID int64, backupPath string, found bool, err error)
 }
 
 // Detect runs the full ladder with the default probe.
@@ -153,6 +160,23 @@ func DetectWith(projDir, currentVersion string, probe Probe) (State, *Detail, er
 		return StateScheduledUpgrade, detail, nil
 	}
 
+	// STATBUS-111: a restore-broke row (state='failed' with a retained
+	// backup_path) is RE-ATTEMPTABLE — `./sb install` replays the interrupted
+	// snapshot restore rather than dead-ending at the idempotent step-table.
+	// Probed AFTER the scheduled-row check (a genuinely scheduled upgrade wins)
+	// and BEFORE nothing-scheduled. Human-gated: only the install ladder reaches
+	// here; the service's flag-based recovery is inert on this path (the flag was
+	// removed at the restore-broke terminal).
+	rid, bpath, found, err := probe.QueryReattemptableRestore(projDir)
+	if err != nil {
+		return 0, nil, fmt.Errorf("query reattemptable restore: %w", err)
+	}
+	if found {
+		detail.ReattemptRowID = rid
+		detail.ReattemptBackupPath = bpath
+		return StateRestoreReattemptable, detail, nil
+	}
+
 	return StateNothingScheduled, detail, nil
 }
 
@@ -165,7 +189,7 @@ func (defaultProbe) FileExists(path string) bool {
 }
 
 func (defaultProbe) ReadFlag(projDir string) (*upgrade.UpgradeFlag, bool, error) {
-	flag, _, err := upgrade.ReadFlagFile(projDir)
+	flag, err := upgrade.ReadFlagFile(projDir)
 	if err != nil || flag == nil {
 		return flag, false, err
 	}
@@ -221,6 +245,53 @@ func (defaultProbe) QueryScheduledUpgrade(projDir string) (*ScheduledRow, error)
 		CommitSHA: parts[1],
 		Version:   parts[2],
 	}, nil
+}
+
+// QueryReattemptableRestore finds a restore-broke row to re-attempt: the most
+// recent state='failed' row that still has a retained backup_path. STATBUS-111.
+//
+// PIN 2 co-extensiveness (proven by enumerating every state='failed' writer in
+// cli/internal/upgrade/service.go): failed-WITH-retained-backup_path is produced
+// ONLY by the restore-broke terminals —
+//   - rollback() degraded terminal (LabelFailedRollbackIncomplete)
+//   - rollback() git-restore ABORT terminal (LabelFailedAbort)
+//   - recoveryRollback pair-terminal (two rollback crash-deaths, LabelFailedRollbackIncomplete)
+//
+// The two OTHER failed writers cannot produce the combination:
+//   - failUpgrade runs ONLY before the snapshot (pre-backupDatabase) → backup_path NULL.
+//   - completeInProgressUpgrade's post-restart health-fail runs ONLY when NO
+//     service flag is held, but backup_path is written only post-swap under a
+//     held flag (released solely at a terminal write) → a no-flag in_progress
+//     row never carries backup_path.
+//
+// Invariant: backup_path-set ⟹ post-swap ⟹ flag held until terminal. So the
+// probe needs no structural discriminator; state='failed' AND backup_path
+// present is exactly the restore-broke set.
+func (defaultProbe) QueryReattemptableRestore(projDir string) (int64, string, bool, error) {
+	out, err := runQuery(projDir, 10*time.Second,
+		`SELECT id, backup_path FROM public.upgrade
+		  WHERE state = 'failed' AND backup_path IS NOT NULL
+		  ORDER BY id DESC LIMIT 1`)
+	if err != nil {
+		return 0, "", false, err
+	}
+	line := strings.TrimSpace(out)
+	if line == "" {
+		return 0, "", false, nil
+	}
+	parts := strings.SplitN(line, "|", 2)
+	if len(parts) < 2 {
+		return 0, "", false, fmt.Errorf("unexpected reattemptable-restore row: %q", line)
+	}
+	id, perr := strconv.ParseInt(strings.TrimSpace(parts[0]), 10, 64)
+	if perr != nil {
+		return 0, "", false, fmt.Errorf("parse id from %q: %w", parts[0], perr)
+	}
+	backupPath := strings.TrimSpace(parts[1])
+	if backupPath == "" {
+		return 0, "", false, nil
+	}
+	return id, backupPath, true, nil
 }
 
 // LiveMaxMigrationVersion queries db.migration for the highest applied

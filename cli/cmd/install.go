@@ -169,9 +169,9 @@ type step struct {
 // child install neither acquires nor releases. Otherwise:
 //   - No flag → atomic acquire succeeds; returns a release function the
 //     caller must defer.
-//   - Flag exists, live PID → returns a formatted error guiding the
-//     operator to wait.
-//   - Flag exists, dead PID → unreachable: install.Detect returns
+//   - Flag exists, flock held (live) → returns a formatted error guiding the
+//     operator to wait (with the `lsof` hint).
+//   - Flag exists, flock free (crashed) → unreachable: install.Detect returns
 //     StateCrashedUpgrade before acquireOrBypass is called, so the
 //     stale-flag path is handled by RecoverFromFlag, not here.
 //
@@ -190,9 +190,9 @@ func acquireOrBypass(installDir string, bypass bool) (release func(), err error)
 		//   3. Flag absent + no env signature → GENUINE misuse: the bare internal
 		//      flag was hand-passed. Audit it (A17) and proceed (harmless; the
 		//      step-table is idempotent).
-		if flag, _, rerr := upgrade.ReadFlagFile(installDir); rerr == nil && flag != nil {
-			fmt.Printf("Upgrade mutex bypass honored (--post-upgrade-fixup). Flag owned by PID %d (holder=%s), invoked_by=%s.\n",
-				flag.PID, flag.Holder, flag.InvokedBy)
+		if flag, rerr := upgrade.ReadFlagFile(installDir); rerr == nil && flag != nil {
+			fmt.Printf("Upgrade mutex bypass honored (--post-upgrade-fixup). Flag holder=%s, invoked_by=%s (see: lsof tmp/upgrade-in-progress.json).\n",
+				flag.Holder, flag.InvokedBy)
 		} else if os.Getenv("STATBUS_POST_UPGRADE_FIXUP") == "1" {
 			fmt.Println("Post-upgrade fixup: upgrade already completed and cleared its flag — proceeding (expected).")
 		} else {
@@ -2738,13 +2738,13 @@ func logInstallState(projDir string, state install.State, detail *install.Detail
 		fmt.Printf("  Fresh install; target version = %s (binary).\n", detail.TargetVersion)
 	case install.StateLiveUpgrade:
 		if detail.Flag != nil {
-			fmt.Printf("  Upgrade in progress (PID %d, %s). Install will refuse.\n",
-				detail.Flag.PID, detail.Flag.Label())
+			fmt.Printf("  Upgrade in progress (%s). Install will refuse. See which process holds it: lsof tmp/upgrade-in-progress.json\n",
+				detail.Flag.Label())
 		}
 	case install.StateCrashedUpgrade:
 		if detail.Flag != nil {
-			fmt.Printf("  Prior upgrade crashed (PID %d, %s). The stale lock was released when the PID died; recovering.\n",
-				detail.Flag.PID, detail.Flag.Label())
+			fmt.Printf("  Prior upgrade crashed (%s). Its flock is free (the holder is gone); recovering.\n",
+				detail.Flag.Label())
 		}
 	case install.StateHalfConfigured:
 		fmt.Println("  .env.credentials missing; step-table will generate it.")
@@ -2755,6 +2755,9 @@ func logInstallState(projDir string, state install.State, detail *install.Detail
 	case install.StateScheduledUpgrade:
 		fmt.Printf("  Upgrade scheduled (id=%d, version=%s). Dispatching inline upgrade.\n",
 			detail.ScheduledRowID, detail.TargetVersion)
+	case install.StateRestoreReattemptable:
+		fmt.Printf("  A prior rollback's database restore did not finish (row id=%d, snapshot retained). Re-attempting the restore.\n",
+			detail.ReattemptRowID)
 	case install.StateNothingScheduled:
 		fmt.Println("  Existing install, no upgrade scheduled; running idempotent step-table to refresh.")
 		// Surface DB-vs-disk migration drift so the operator knows

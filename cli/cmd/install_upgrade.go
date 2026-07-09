@@ -29,12 +29,16 @@ func dispatchInstallState(projDir string, state install.State, detail *install.D
 	switch state {
 	case install.StateLiveUpgrade:
 		if detail.Flag != nil {
-			return true, fmt.Errorf("upgrade in progress (PID %d, %s, started %s); wait for it to finish or re-run './sb install' if the process is dead",
-				detail.Flag.PID, detail.Flag.Label(), detail.Flag.StartedAt.Format(time.RFC3339))
+			return true, fmt.Errorf("upgrade in progress (%s, started %s); wait for it to finish.\n"+
+				"  See which process holds it: lsof tmp/upgrade-in-progress.json",
+				detail.Flag.Label(), detail.Flag.StartedAt.Format(time.RFC3339))
 		}
-		return true, fmt.Errorf("upgrade in progress; wait or re-run './sb install'")
+		return true, fmt.Errorf("upgrade in progress; wait for it to finish.\n" +
+			"  See which process holds it: lsof tmp/upgrade-in-progress.json")
 	case install.StateScheduledUpgrade:
 		return true, runInlineUpgradeScheduled(projDir, detail)
+	case install.StateRestoreReattemptable:
+		return true, runInlineRestoreReattempt(projDir, detail)
 	case install.StateLegacyNoUpgradeTable:
 		return true, fmt.Errorf("pre-1.0 install detected (public.upgrade table absent). Automatic upgrade from pre-1.0 is not yet implemented (tracked as #65.6). Contact support or follow the manual upgrade path in doc/CLOUD.md")
 	}
@@ -77,6 +81,51 @@ func runInlineUpgradeScheduled(projDir string, detail *install.Detail) error {
 	if err := svc.ExecuteUpgradeInline(ctx, int(detail.ScheduledRowID), detail.TargetCommitSHA, detail.TargetDisplayName); err != nil {
 		return err
 	}
+	restartUpgradeService(projDir)
+	return nil
+}
+
+// runInlineRestoreReattempt handles StateRestoreReattemptable (STATBUS-111): a
+// prior rollback's DB restore broke (row state='failed' with a retained
+// backup_path), so the operator's `./sb install` REPLAYS the interrupted
+// restore rather than dead-ending at the idempotent step-table. Human-gated by
+// construction — only this ladder reaches the state; the systemd service's
+// flag-based recovery is inert (the restore-broke terminal removed the flag).
+//
+// It prints the operator LEGEND/FORECAST (STATBUS-111 Part 2): what happened,
+// what is being done, and — on success — the forward path (report + try a LATER
+// release; NEVER re-schedule the same version, a hard failure repeats).
+func runInlineRestoreReattempt(projDir string, detail *install.Detail) error {
+	ctx := context.Background()
+	svc := upgrade.NewService(projDir, true /* verbose */, version, commit)
+	defer svc.Close()
+	if runtime.GOOS == "linux" {
+		svc.SetUnitInstance(serviceInstance(projDir))
+	}
+	if err := svc.LoadConfigAndConnect(ctx); err != nil {
+		return fmt.Errorf("load upgrade config: %w", err)
+	}
+
+	// LEGEND / where-you-are.
+	fmt.Printf("A previous upgrade's rollback did not finish restoring the database (row id=%d).\n"+
+		"Re-attempting the restore from the retained snapshot (this is what `./sb install` does here)...\n",
+		detail.ReattemptRowID)
+
+	if err := svc.ReattemptRestore(ctx, detail.ReattemptRowID, detail.ReattemptBackupPath); err != nil {
+		// FORECAST (degraded): the restore failed again — actionable next step.
+		return fmt.Errorf("%w\n\n"+
+			"  The database restore could not be completed; the system is still degraded.\n"+
+			"  Next: contact SSB support and involve your IT staff. Keep this box as-is for diagnosis;\n"+
+			"  re-running `./sb install` will re-attempt the same restore.", err)
+	}
+
+	// FORECAST (success): healthy at the OLD version. Do NOT re-schedule the same
+	// version — a hard failure repeats. Point forward at `./sb upgrade check`.
+	fmt.Println()
+	fmt.Println("Restore complete — the system is running normally on the previous version.")
+	fmt.Println("  The upgrade that failed has been rolled back. To move forward:")
+	fmt.Println("    • Find a newer release:  ./sb upgrade check")
+	fmt.Println("    • The version that failed will fail the same way — try a LATER release when one is available.")
 	restartUpgradeService(projDir)
 	return nil
 }
@@ -176,7 +225,7 @@ func runCrashRecovery(projDir string) error {
 	// restoreGitState owns the tree (→ OLD). Checking out the target here would
 	// advance the tree forward and make the boot-migrate below apply the TARGET
 	// migrations to a DB about to be rolled back (git=OLD + schema=TARGET skew).
-	if flag, _, ferr := upgrade.ReadFlagFile(projDir); ferr == nil && flag.IsServiceForwardRecovery() {
+	if flag, ferr := upgrade.ReadFlagFile(projDir); ferr == nil && flag.IsServiceForwardRecovery() {
 		if err := runCmdDir(projDir, "git", "-c", "advice.detachedHead=false", "checkout", flag.CommitSHA); err != nil {
 			return fmt.Errorf("crash recovery: git checkout target %s: %w", upgrade.ShortForDisplay(flag.CommitSHA), err)
 		}
@@ -236,7 +285,7 @@ func runCrashRecovery(projDir string) error {
 	// still park). Row-update only — never touches the flag handshake; RecoverFromFlag
 	// keeps sole flag ownership. A self-resume never runs this path, so the machine
 	// never un-parks itself.
-	if flag, _, ferr := upgrade.ReadFlagFile(projDir); ferr == nil && flag != nil && flag.Holder == upgrade.HolderService && flag.ID != 0 {
+	if flag, ferr := upgrade.ReadFlagFile(projDir); ferr == nil && flag != nil && flag.Holder == upgrade.HolderService && flag.ID != 0 {
 		// HARD-FAIL on error (STATBUS-046): the operator's deliberate ./sb install
 		// must never silently no-op into a still-parked row that resumePostSwap
 		// then skips — that would strand the box. An actionable stop is the correct
@@ -300,7 +349,7 @@ func runCrashRecovery(projDir string) error {
 			// instead of aborting crash recovery — aborting here boot-loops the
 			// operator's `./sb install`. Keep the refuse for the no-flag / install-held
 			// case (no recovery owner / no snapshot to restore).
-			if flag, _, ferr := upgrade.ReadFlagFile(projDir); ferr == nil && flag != nil && flag.Holder == upgrade.HolderService {
+			if flag, ferr := upgrade.ReadFlagFile(projDir); ferr == nil && flag != nil && flag.Holder == upgrade.HolderService {
 				fmt.Printf("crash recovery: boot migrate up failed but a service-held flag is present "+
 					"(id=%d, phase=%q) — deferring to RecoverFromFlag (STATBUS-017): %v\n", flag.ID, flag.Phase, err)
 				// fall through to svc.RecoverFromFlag below
@@ -322,7 +371,7 @@ func runCrashRecovery(projDir string) error {
 		// a park untouched, so its ID is still valid — and restart anyway when
 		// parked; a non-park failure keeps the conservative no-restart arm below.
 		// install's own non-zero exit is unchanged either way: the attempt did fail.
-		if flag, _, ferr := upgrade.ReadFlagFile(projDir); ferr == nil && flag != nil && flag.ID != 0 {
+		if flag, ferr := upgrade.ReadFlagFile(projDir); ferr == nil && flag != nil && flag.ID != 0 {
 			parked, parkReason, perr := svc.UpgradeParkedReason(ctx, flag.ID)
 			if shouldRestartAfterFailedRecovery(parked, perr) {
 				fmt.Printf("crash recovery: upgrade %d re-parked (%s) — restarting the upgrade daemon alive-idle regardless: parked-skip makes every boot safe by construction, and the daemon must stay reachable to claim the eventual fix release.\n", flag.ID, parkReason)
@@ -402,11 +451,11 @@ func shouldRestartAfterFailedRecovery(parked bool, parkStateReadErr error) bool 
 func stopRestartUpgradeUnit(projDir, instance string) func() {
 	wasEnabled := exec.Command("systemctl", "--user", "is-enabled", "--quiet", instance).Run() == nil
 
-	// Diagnostic WHO for the audit log. PID/Holder is DIAGNOSTIC ONLY — liveness
-	// is decided by the flock below, never by the PID (service.go:241-244).
+	// Diagnostic WHO for the audit log. Holder is DIAGNOSTIC ONLY — liveness is
+	// decided by the flock, never by a stored PID (STATBUS-111 removed the PID).
 	who := instance
-	if flag, _, ferr := upgrade.ReadFlagFile(projDir); ferr == nil && flag != nil {
-		who = fmt.Sprintf("%s (holder=%s, pid=%d, started=%s)", instance, flag.Holder, flag.PID, flag.StartedAt.Format(time.RFC3339))
+	if flag, ferr := upgrade.ReadFlagFile(projDir); ferr == nil && flag != nil {
+		who = fmt.Sprintf("%s (holder=%s, started=%s)", instance, flag.Holder, flag.StartedAt.Format(time.RFC3339))
 	}
 	fmt.Printf("Crash recovery: quiescing upgrade unit %s SIGKILL-class (was-enabled=%v) before reconciliation — never SIGTERM (TERM triggers the in-flight upgrade's rollback handler).\n", who, wasEnabled)
 	if err := exec.Command("systemctl", "--user", "mask", "--runtime", instance).Run(); err != nil {

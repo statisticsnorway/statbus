@@ -31,7 +31,6 @@ func TestUpgradeFlagJSONRoundTrip_PostSwap(t *testing.T) {
 		ID:         42,
 		CommitSHA:  "abc123def456",
 		CommitTags: []string{"v0.0.0-rc.test"},
-		PID:        os.Getpid(),
 		StartedAt:  time.Now().UTC().Truncate(time.Second),
 		InvokedBy:  "test",
 		Trigger:    "notify",
@@ -184,8 +183,7 @@ func TestUpdateFlagPostSwap_RewritesInPlace(t *testing.T) {
 	// Flock must still be held: a second acquirer in the same process
 	// gets a contention error (non-blocking LOCK_NB).
 	if _, err := acquireFlock(projDir, UpgradeFlag{
-		ID: 100, CommitSHA: "x", CommitTags: []string{"v0-other"}, PID: os.Getpid(),
-		Holder: HolderService, Trigger: "notify",
+		ID: 100, CommitSHA: "x", CommitTags: []string{"v0-other"}, Holder: HolderService, Trigger: "notify",
 	}); err == nil {
 		t.Errorf("expected second acquireFlock to fail (flock still held after updateFlagPostSwap)")
 	}
@@ -533,7 +531,7 @@ func TestRemoveUpgradeFlag_AtomicDispositions(t *testing.T) {
 			t.Errorf("flag file must be removed; stat err=%v", err)
 		}
 		// Lock must be released: a fresh acquire succeeds.
-		lock, err := acquireFlock(projDir, UpgradeFlag{ID: 8, CommitSHA: "x", PID: os.Getpid(), Holder: HolderService, Trigger: "notify"})
+		lock, err := acquireFlock(projDir, UpgradeFlag{ID: 8, CommitSHA: "x", Holder: HolderService, Trigger: "notify"})
 		if err != nil {
 			t.Fatalf("acquire after removeUpgradeFlag must succeed: %v", err)
 		}
@@ -560,7 +558,7 @@ func TestRemoveUpgradeFlag_AtomicDispositions(t *testing.T) {
 		if err := os.MkdirAll(filepath.Join(projDir, "tmp"), 0755); err != nil {
 			t.Fatal(err)
 		}
-		holder, err := acquireFlock(projDir, UpgradeFlag{ID: 10, CommitSHA: "h", PID: os.Getpid(), Holder: HolderService, Trigger: "notify"})
+		holder, err := acquireFlock(projDir, UpgradeFlag{ID: 10, CommitSHA: "h", Holder: HolderService, Trigger: "notify"})
 		if err != nil {
 			t.Fatalf("holder acquire: %v", err)
 		}
