@@ -7,7 +7,7 @@ status: Done
 assignee:
   - mechanic
 created_date: '2026-07-08 23:17'
-updated_date: '2026-07-09 01:11'
+updated_date: '2026-07-09 12:03'
 labels:
   - ci
   - testing
@@ -83,6 +83,12 @@ author: foreman
 created: 2026-07-09 01:09
 ---
 GREEN #1 LANDED: run 28985501497 (217edc7ee) — SUCCESS, all 85 tests passed, the first pg_regress green since 14:41. Watch points: (1) remote execution confirmed — the byte-exact SSH line matched /etc/sshdoers:44; (2) the heal line fired ON FIRST RUN and did its one-time work: 'STATBUS-150: POSTGRES_NOTIFY_USER collides with POSTGRES_APP_USER (statbus_test) in .env.config — deleting the override so config generate restores the distinct default.' — the host's collision is now permanently healed (subsequent runs print the calm OK line); (3) init-db [N/8] markers absent from workflow stdout as expected (container logs are not streamed there; the fresh test cluster initialized cleanly with distinct users — no refuse, no restart race, suite ran); (4) conclusion SUCCESS. Fast Tests also green on the same commit (28985501493). GREEN #2 candidate: the pending run 28986166289 on 7c86b383e — its calm heal line will additionally prove the subcommand's idempotency. Log: tmp/pg-regress-28985501497-logs.txt.
+---
+
+author: foreman
+created: 2026-07-09 12:03
+---
+KING'S MORNING RULING (2026-07-09): the self-heal subcommand was the wrong philosophy left standing — silent self-repair where the house standard is actionable fail-fast — and its one-time work was done (the host healed; greens #1/#2 proved both the healing pass and the calm no-op). REMOVED in b14e23dc4: ci-heal-notify-user and its invocation deleted from dev.sh; the workflow comment reworded. THE PERMANENT GUARDS STAY: config generate's WARN + init-db's validation refuse with the fix path named — a reappearing collision anywhere fails loudly and tells the operator exactly what to change. Zero code references remain (only this ticket's history).
 ---
 <!-- COMMENTS:END -->
 
