@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-07-09 00:48'
-updated_date: '2026-07-09 00:53'
+updated_date: '2026-07-09 01:12'
 labels:
   - product
   - upgrade
@@ -42,8 +42,8 @@ EVIDENCE: tmp/wave5-healthpark-job.log lines 4708 (harness rc=1 at arc :408), 47
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The park terminal write survives its pass's teardown: the write path does not depend on a context/connection that the exiting pass is simultaneously canceling (fix shape architect-ruled)
-- [ ] #2 Process outcome and row state cannot diverge: exiting as-parked REQUIRES the row write to have landed (or the exit path escalates loudly, never silently)
+- [x] #1 The park terminal write survives its pass's teardown: the write path does not depend on a context/connection that the exiting pass is simultaneously canceling (fix shape architect-ruled)
+- [x] #2 Process outcome and row state cannot diverge: exiting as-parked REQUIRES the row write to have landed (or the exit path escalates loudly, never silently)
 - [ ] #3 Oracle: the health-park arc's un-park→re-park leg goes green — recovery_parked_at set after the fresh attempt re-parks
 <!-- AC:END -->
 
@@ -54,5 +54,11 @@ author: foreman
 created: 2026-07-09 00:53
 ---
 RULED (architect, 2026-07-09), engineer building. THE SHAPE: one teardown-immune terminal-write helper used by EVERY state-terminal writer (parkUpgrade, writeRollbackTerminal, the completed UPDATE, restoreAndFinalize's terminal — the 111 extraction made them shared machinery, exactly why the scope is all-of-them). Three properties: (i) never the pass context — context.Background + own ~30s deadline (a terminal write is the pass's last word and must not die with the pass); (ii) a fresh short-lived daemon-tagged connection per write (149's recoveryDSN), never the pass's queryConn — always-fresh sidesteps the cached-statement class entirely; (iii) bounded retry, generalizing the existing 047-H completion-write reconnect save (the house precedent that this class was known and patched at ONE terminal — 154 proves it needed all of them); idempotent by construction via parked_at-IS-NULL and state-guarded UPDATEs. EXIT INVARIANT: exiting as-terminal REQUIRES the write landed; on failure after retries, escalate loudly naming the divergence (row stays in_progress, next pass re-evaluates) — today's degraded behavior made honest. recordInProgressFailure stays best-effort (narrative, not state). Tests: helper + four call-site swaps + canceled-parent-ctx unit test. Oracle: the health-park arc re-run — the un-park→re-park leg landing recovery_parked_at is the exact assert that caught this.
+---
+
+author: foreman
+created: 2026-07-09 01:12
+---
+SHIPPED in a4589c6d9 (dual-reviewed: architect ship zero changes; foreman first-hand). terminalUpdate carries all three ruled properties (Background+own deadline; fresh daemon-tagged conn per attempt via 149's recoveryDSN — cached-statement class structurally unreachable; bounded retry, callers own escalation). All four writer families swapped; the old bespoke 047-H retry ladders DELETED (clean break — precedent absorbed, not duplicated); writeRollbackTerminal's ctx param dropped (PIN-i structural). Park keeps siren-once through the verify-read resolving the ambiguous 0-rows case on the same immune primitive; exit-as-terminal requires the landed write everywhere, else the loud row-stays-in_progress escalation. Tests: structural pins (Background+recoveryDSN, not queryConn) + the canceled-parent-ctx behavioral proof. AC#1/#2 checked. AC#3 rides wave 6 (health-park re-run on a4589c6d9): the un-park→re-park leg landing recovery_parked_at — the exact assert that caught this.
 ---
 <!-- COMMENTS:END -->
