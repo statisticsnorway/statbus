@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 
@@ -148,6 +149,35 @@ Constraints (enforced):
 	},
 }
 
+var migrateFingerprintCmd = &cobra.Command{
+	Use:   "fingerprint",
+	Short: "Print the content fingerprint over all on-disk migrations",
+	Long: `Print a stable sha256 fingerprint over the ORDERED set of every
+up-migration file (*.up.sql and *.up.psql), each contributing its version and
+content hash — the whole-set fingerprint (no --to bound). Read-only, no
+database connection.
+
+STATBUS-126: this reuses the SAME lister STATBUS-138's fingerprint machinery
+already relies on (listMigrationFiles, fingerprint.go:29 — version-sorted,
+version-unique, both .up.sql AND .up.psql, invalid strays skipped loudly). A
+shell-local hash (e.g. cat migrations/*.up.sql | sha256sum) would recreate the
+138 two-readers class at the fingerprint level: it would miss .up.psql files,
+silently count invalid strays as content, and drift the moment the lister's
+own rules change without this verb changing too. One definition, one lister.
+
+Also useful standalone as a seed-pinning debug tool: compare two commits' or
+two environments' fingerprints to confirm their migration sets are byte-
+identical, without diffing the whole migrations/ directory by hand.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		fp, err := migrate.UpMigrationsFingerprintUpTo(config.ProjectDir(), math.MaxInt64)
+		if err != nil {
+			return err
+		}
+		fmt.Println(fp)
+		return nil
+	},
+}
+
 func init() {
 	migrateUpCmd.Flags().Int64Var(&migrateTo, "to", 0, "migrate up to this version (inclusive)")
 	migrateUpCmd.Flags().StringVar(&migrateUpTarget, "target", "dev", "target DB: 'dev' (POSTGRES_APP_DB) or 'seed' (POSTGRES_SEED_DB)")
@@ -167,5 +197,6 @@ func init() {
 	migrateCmd.AddCommand(migrateDownCmd)
 	migrateCmd.AddCommand(migrateNewCmd)
 	migrateCmd.AddCommand(migrateRedoCmd)
+	migrateCmd.AddCommand(migrateFingerprintCmd)
 	rootCmd.AddCommand(migrateCmd)
 }

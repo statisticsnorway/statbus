@@ -576,13 +576,21 @@ EOS
         docker compose exec -T db pg_isready -U postgres > /dev/null 2>&1
       ;;
     'ci-heal-notify-user' )
-        # STATBUS-150 self-heal for the pg_regress remote test host. MUST be
-        # invoked AFTER the target commit is checked out (so this ./sb matches
-        # that commit) and BEFORE continous-integration-test (which runs
-        # create-db / config generate) — like continous-integration-test
-        # itself, intentionally NOT in the acquire_test_run_lock serialize
-        # list above (it runs once, pre-suite, on a checked-out tree; a future
-        # workflow edit must not accidentally hoist it ahead of the checkout).
+        # STATBUS-150 self-heal for the pg_regress remote test host. Invoked
+        # BY continous-integration-test (as its first step, before config
+        # generate) rather than from the pg_regress workflow's SSH line —
+        # /etc/sshdoers:44 on that host allowlists the CI key to the EXACT
+        # command "cd statbus && git fetch origin && git checkout -- . &&
+        # git checkout <sha> && ./dev.sh continous-integration-test" and
+        # silently rejects anything else (this was STATBUS-128's exact
+        # complaint); any new pre-test step for the CI key must ride INSIDE
+        # continous-integration-test, never appended onto that SSH line. Still
+        # independently invocable by hand (`./dev.sh ci-heal-notify-user`).
+        # continous-integration-test itself runs post-checkout by the sshdoers
+        # contract (the checkout happens on the SSH line, before `./dev.sh
+        # continous-integration-test` is even reached), so this ./sb always
+        # matches the target commit. Intentionally NOT in the
+        # acquire_test_run_lock serialize list above (runs once, pre-suite).
         #
         # POSTGRES_NOTIFY_USER and POSTGRES_APP_USER must be distinct roles —
         # postgres/init-db.sh creates the app user first, then fails to create
@@ -638,6 +646,17 @@ EOS
             _SB_LDFLAGS="-X 'github.com/statisticsnorway/statbus/cli/cmd.version=${_SB_VERSION}' -X 'github.com/statisticsnorway/statbus/cli/cmd.commit=${_SB_COMMIT}'"
             (cd cli && go build -ldflags "$_SB_LDFLAGS" -o ../sb .)
         fi
+
+        # STATBUS-150 self-heal, invoked FIRST (before config generate reads
+        # .env.config): see 'ci-heal-notify-user' above for the mechanism.
+        # Lives HERE, inside continous-integration-test, not on the pg_regress
+        # SSH line: /etc/sshdoers:44 allowlists the CI key to this EXACT
+        # command shape (cd statbus && git fetch origin && git checkout -- . &&
+        # git checkout <sha> && ./dev.sh continous-integration-test) and
+        # silently rejects anything else — a new pre-test step on the SSH line
+        # itself (even appended with &&) breaks the match. Any future pre-test
+        # step for this host must ride inside this case, not on that line.
+        ./dev.sh ci-heal-notify-user
 
         ./sb config generate
 
@@ -1044,15 +1063,27 @@ EOF
         fi
 
         # Step 2: ensure test template fresh.
+        # STATBUS-126: the stamp keys on the migration CONTENT fingerprint
+        # (./sb migrate fingerprint, cli/internal/migrate/fingerprint.go) —
+        # not the max timestamp — so editing an already-applied migration's
+        # bytes invalidates the template; an unchanged migrations/ directory
+        # still fingerprints identically (no rebuild-every-run).
+        if [ ! -x ./sb ] || ! ./sb --version >/dev/null 2>&1; then
+            echo "Error: ./sb is missing or not runnable — cannot compute the migration content fingerprint." >&2
+            echo "  Build it first: ./dev.sh cross-build-sb (or: cd cli && go build -o ../sb .)" >&2
+            echo "  Refusing to guess template freshness without it." >&2
+            exit 1
+        fi
+        CURRENT_FINGERPRINT=$(./sb migrate fingerprint) || { echo "Error: ./sb migrate fingerprint failed." >&2; exit 1; }
         TEMPLATE_STAMP=""
         if [ -f "$WORKSPACE/tmp/test-template-migrations-sha" ]; then
             TEMPLATE_STAMP=$(cat "$WORKSPACE/tmp/test-template-migrations-sha")
         fi
-        if [ "$TEMPLATE_STAMP" != "$LATEST_MIGRATION" ]; then
-            echo "migrate-and-test: test template stale (stamp='$TEMPLATE_STAMP', want '$LATEST_MIGRATION'). Rebuilding..."
+        if [ "$TEMPLATE_STAMP" != "$CURRENT_FINGERPRINT" ]; then
+            echo "migrate-and-test: test template stale (content fingerprint changed). Rebuilding..."
             ./dev.sh create-test-template
         else
-            echo "migrate-and-test: test template already at $TEMPLATE_STAMP."
+            echo "migrate-and-test: test template content fingerprint unchanged ($CURRENT_FINGERPRINT) — reusing."
         fi
 
         # Step 3: run tests with whatever args were passed.
@@ -1472,29 +1503,43 @@ EOF
 
         echo "Template created: $TEMPLATE_NAME (cloned from $SEED_NAME)"
 
-        # Stamp the template with the CLONE's ACTUAL migration version — the
-        # seed's db.migration max — NOT the on-disk latest. The template is a
-        # clone of the seed, so they share a schema version. Stamping the
-        # on-disk latest LIES whenever the seed is behind HEAD: e.g. plain
-        # `./sb migrate up` migrates only the dev DB, then rebuilds this
-        # template from the STILL-stale seed (#24). An honest stamp (the seed's
-        # real version) means a stale clone gets a stale stamp, so the test
-        # template stamp check (dev.sh:826) REFUSES instead of silently testing
-        # a stale schema. Both sides of that check are bare 14-digit versions,
-        # so db.migration.max(version) and the on-disk timestamp compare equal
-        # on the happy path.
+        # STATBUS-126: the staleness stamp keys on the migration CONTENT
+        # fingerprint (`./sb migrate fingerprint` — cli/internal/migrate/
+        # fingerprint.go's UpMigrationsFingerprintUpTo, the SAME lister
+        # STATBUS-138/116 already share), NOT the max migration TIMESTAMP.
+        # A timestamp stamp is blind to editing an ALREADY-applied migration's
+        # bytes (STATBUS-124: the architect appended fixes to an applied
+        # migration, the timestamp stamp still matched, and a stale template
+        # silently reproduced the pre-fix diff — a false "fix didn't work").
+        # The content fingerprint changes on ANY byte edit anywhere in
+        # migrations/, so that class can't recur; an unchanged migrations/
+        # directory still fingerprints identically (no rebuild-every-run).
+        #
+        # The stamp is the WHOLE on-disk set's fingerprint (no version bound)
+        # — simpler than bounding it to the seed's own version, and correct
+        # for this stamp's actual job: "would re-running create-test-template
+        # right now reproduce a BYTE-IDENTICAL template" — which the seed's
+        # own staleness (tracked separately below, unchanged) doesn't affect.
+        if [ ! -x ./sb ] || ! ./sb --version >/dev/null 2>&1; then
+            echo "Error: ./sb is missing or not runnable — cannot compute the migration content fingerprint." >&2
+            echo "  Build it first: ./dev.sh cross-build-sb (or: cd cli && go build -o ../sb .)" >&2
+            echo "  Refusing to write a stamp without it — a stale/placeholder stamp would let a" >&2
+            echo "  later run silently reuse this template even after migrations/ content changes." >&2
+            exit 1
+        fi
+        FINGERPRINT=$(./sb migrate fingerprint) || { echo "Error: ./sb migrate fingerprint failed." >&2; exit 1; }
+
         SEED_VERSION=$(./sb psql -d "$SEED_NAME" -t -A -c \
             "SELECT max(version) FROM db.migration;" 2>/dev/null | tr -d '[:space:]')
-        # On-disk HEAD — used ONLY for the stale-seed diagnostic below, never
-        # as the stamp value (matches the .up.sql + .up.psql set, bare timestamp).
+        # On-disk HEAD — used ONLY for the stale-seed diagnostic below.
         LATEST_MIGRATION=$(for f in "$WORKSPACE/migrations/"*.up.sql "$WORKSPACE/migrations/"*.up.psql; do
             [ -e "$f" ] || continue
             basename "$f" | cut -d_ -f1
         done | sort | tail -1)
         if [ -n "$SEED_VERSION" ]; then
             mkdir -p "$WORKSPACE/tmp"
-            echo "$SEED_VERSION" > "$WORKSPACE/tmp/test-template-migrations-sha"
-            echo "Test template migration stamp recorded: $SEED_VERSION (cloned seed version)"
+            echo "$FINGERPRINT" > "$WORKSPACE/tmp/test-template-migrations-sha"
+            echo "Test template migration stamp recorded: $FINGERPRINT (content fingerprint via ./sb migrate fingerprint; cloned seed version $SEED_VERSION)"
             if [ -n "$LATEST_MIGRATION" ] && [ "$SEED_VERSION" -lt "$LATEST_MIGRATION" ]; then
                 echo "WARNING: cloned a STALE seed ($SEED_VERSION) — on-disk HEAD is $LATEST_MIGRATION."
                 echo "         The test template is BEHIND HEAD. Bring the seed to HEAD first:"
