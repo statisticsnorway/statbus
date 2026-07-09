@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-03 10:35'
+updated_date: '2026-07-09 00:23'
 labels:
   - ops
   - ci
@@ -45,3 +46,13 @@ RELATED: the residual intermittent CI→niue TCP timeouts (CrowdSec community-fe
 - [ ] #3 The change's provenance is settled first: sshdo's origin (package vs local script) documented, and the fix applied in the shape that survives updates
 - [ ] #4 Same verified on rune.statbus.org if it runs the same sshdo setup
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-09 00:23
+---
+COST EVIDENCE (2026-07-09, ~23:56-00:25): sshdo's silent rejection burned a four-agent investigation tonight. The pg_regress workflow's SSH command was changed (STATBUS-150 self-heal step); /etc/sshdoers:44 allowlists statbus_test's CI key to exactly one command shape and silently rejected the new one — exit 1, zero output, ~2s, across four consecutive CI runs. The silence sent the investigation through THREE wrong hypotheses (drone-ssh multi-line handling — even shipped a relocation commit on that theory; self-hosted-runner assignment; CrowdSec GHA-range bans) before a root read of the journal + /etc/sshdoers named it. Compounding factor: an exoneration experiment tested the wrong KEY (the operator's own unrestricted key instead of the forced CI key) and falsely cleared the sshdo hypothesis early. A loud rejection — one stderr line naming the received command and the expected template — would have ended this in one CI-log read. That is this ticket's case, now with a measured cost.
+---
+<!-- COMMENTS:END -->
