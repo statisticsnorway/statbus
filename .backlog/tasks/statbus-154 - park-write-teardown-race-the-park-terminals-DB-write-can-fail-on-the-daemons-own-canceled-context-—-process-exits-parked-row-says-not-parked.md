@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-07-09 00:48'
-updated_date: '2026-07-09 01:53'
+updated_date: '2026-07-09 02:32'
 labels:
   - product
   - upgrade
@@ -66,5 +66,11 @@ author: foreman
 created: 2026-07-09 01:53
 ---
 WAVE-6 FIRST-CONTACT REGRESSION, diagnosed by the fix's own design (run 28987136404 on a4589c6d9): the first park never landed in 1200s — terminalUpdate's FRESH session inherits the post-swap read-only window, and 'cannot execute UPDATE in a read-only transaction' (25006) is non-conn so the helper correctly returned it without retry. The journal named it three times via the new loud escalation ('park write failed (id=2) ... the row stays in_progress and the next pass re-evaluates') — no wrong terminal written, the row honestly in_progress: the exit invariant worked while the implementation was wrong. The old pass-conn wrote through the window because its session PREDATED the read-only flip — the established machinery-writes-through semantic, not luck (the window is an accident-guard against application writes, doc-021/110). RULED PATCH (architect): session-level SET default_transaction_read_only = off inside terminalUpdate right after connect (userset GUC — no privilege needed, consistent with accident-guard-not-hard-lock); DSN -c rejected (over-broad — flips everything on recoveryDSN); BEGIN READ WRITE rejected (choreography for no gain); rowIsParked rides the same helper unchanged. NAMED RESIDUAL, pre-existing, not tonight's patch: the same class exists latently on the daemon's MAIN conns — a mid-window reconnect() of queryConn would inherit read-only and break in-window machinery writes (recordInProgressFailure, the backup_path record) identically; now LOUD if it fires thanks to the 154 escalations — a future 25006 in the journal is this sibling, recognizable in seconds. Engineer patching; wave 7 is the oracle.
+---
+
+author: foreman
+created: 2026-07-09 02:32
+---
+WAVE-7 BOUNDED TRACE (engineer, 2026-07-09 02:30): DID NOT CLOSE — stopped at the bound per ruling, no fix shipped, no writer convicted. What it established: full state-writer enumeration recorded (13 sites: claims :1570/:4438, supersede :1404/:3942, completed :2877/:5579/:6104/:2945/install.go:2363, failed :2654/:6886/:7164/:2776/:6538, scheduled :4044/:4226, available :4584). BOTH SUSPECTS CLEARED WITH EVIDENCE: (a) the self-heal canary never fired (every boot logged 'NOT self-healing; deferring' — lines 4751/5233/5266) and applyPostSwap's own health failed 5× in the un-park attempt — NO completion of row 2 exists anywhere in the journal (all completed-markers grep empty); (b) UnparkByID/recoveryBudgetResetCols touches only attempts+parked columns, never state; also cleared: reschedule ('already scheduled or in progress — no action needed', :5059). THE PUZZLE: at re-park, state != in_progress AND parked_at IS NULL and the row exists — yet no state write to row 2 appears in the captured journal; the writer is invisible (unlogged path, or a boot the journal doesn't narrate). LATENT FINDING carried (not the convicted cause): none of the three completed-writes clears recovery_parked_at — a completion landing over a parked row leaves completed+parked_at, which RecoveryBudgetGuard reads as PARKED, un-park clears, re-park hits exactly 'not parkable'; same signature, worth checking against the next dump. MORNING PLAN: the row-state dump rider is in (653834672) — the next red captures state verbatim; the engineer's instrumentation recommendation stands for ruling: one log line on EVERY state write (id, old→new) — the honest park arm sees the symptom, the writer log would name the writer.
 ---
 <!-- COMMENTS:END -->
