@@ -3,10 +3,10 @@ id: STATBUS-149
 title: >-
   session-settle-zombie: an advisory-lock holder survives cleanOrphanSessions +
   the 48s settle — blocks the next install at step 10/16 with re-run noise
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-07-08 21:56'
-updated_date: '2026-07-08 23:21'
+updated_date: '2026-07-09 00:52'
 labels:
   - product
   - install
@@ -46,7 +46,7 @@ INVESTIGATION DELIVERABLE: the full mid-migration log section for 442's classifi
 <!-- AC:BEGIN -->
 - [x] #1 The mechanism 442 actually took is NAMED from log + code (classification arm, why cleanup didn't remove it), not presumed
 - [x] #2 Ruled fix shipped: the sessions step either reaps the class deterministically or fails naming the actionable cause (never bare re-run noise)
-- [ ] #3 Oracle: the mid-migration arc's post-completion install passes step 10/16 on the re-run wave
+- [x] #3 Oracle: the mid-migration arc's post-completion install passes step 10/16 on the re-run wave
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -76,3 +76,9 @@ created: 2026-07-08 23:21
 SOURCE FIX SHIPPED in 2c258a00c (dual-reviewed: architect ship zero changes, foreman first-hand). recoveryDSN now tags every daemon backend application_name=statbus-upgrade-daemon-<pid> (service.go, one site covering queryConn + listenConn, startup, inline dispatch, every reconnect); classifyAdvisoryHolder gains the mirroring arm (alive→legitimate, dead→zombie, malformed→leave); catch-all keeps killing with the known-tag enumeration in the doc comment; kill-in-loop + bound unchanged as the net for genuinely-unknown clients. The EnsureDBReachable probe sharing the DSN carries the tag too — confirmed correct (daemon-family, never takes the lock). Tests: three classifier cases + TestRecoveryDSNTagsApplicationName source pin. AC#1 and #2 checked. TICKET STAYS OPEN on AC#3 only: the negative-marker oracle — healthy installs log ZERO advisory-holder terminations — requires an arc wave built from a commit containing 2c258a00c; wave 4 (run 28982259924) predates it (built from 08a3c9471, will still show the old cadence — expected, not a failure), so AC#3 lands on the next natural wave.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+CLOSED on the wave-5 negative-marker oracle (run 28984873852, base b4df4bff2 — the first wave built from a tree containing the 2c258a00c tag fix): ZERO "→ terminating" advisory-holder lines across all four arcs' installs (health-park, working, failing, preswap-checkout-kill — many install passes each), where waves 3 and 4 showed the deterministic two-kills-per-pass cadence on every install. The self-regenerating "zombie" is gone at the source. Full fix history: kill-in-loop + bound (46e30276a) as the interim net — retained permanently for genuinely-unknown clients; source enumeration proving the upgrade service's own connection was the one untagged advisory-lock acquirer; source fix (2c258a00c) tagging every daemon backend statbus-upgrade-daemon-<pid> with the mirroring classifier arm (alive→skip, dead→reap). The route-mismatch hypothesis was closed as wrong (the "regeneration" was the daemon's reconnects after we killed its live connection); the wave-2 sessions-step failure (pid 442 surviving the settle) is fully explained by that loop. The named mid-migration post-completion install (the original AC#3 phrasing) re-confirms for free on that arc's next natural run; the oracle it stood for — the sessions step passing with zero zombie noise — is delivered by this wave's evidence.
+<!-- SECTION:FINAL_SUMMARY:END -->
