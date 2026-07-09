@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-07-08 23:17'
-updated_date: '2026-07-09 00:23'
+updated_date: '2026-07-09 01:09'
 labels:
   - ci
   - testing
@@ -77,5 +77,11 @@ author: foreman
 created: 2026-07-08 23:52
 ---
 MODE 3 EXPLAINED-BY-COLLISION (architect ruling, 2026-07-09, no confirmation run needed — the signature is already captured): post-129, every fresh-volume boot aborts at init-db.sh:187 (the notify-user collision) → container exits with PGDATA initialized-but-partial → restart: unless-stopped (postgres/docker-compose.yml:12) boots it again → 'Skipping initialization' → healthy, minus the notify user + grant → whether the RUN goes red is the RACE between docker compose up --wait's budget and that restart cycle. Explains the conditionality (the race, not the cause — the cause became deterministic when 129 landed, matching mode 3's first appearance), the unhealthy-then-healthy-when-inspected sequence, and the mechanic's two-boots-concatenated log — which IS the direct evidence chain (abort, restart, skip-init, hand-off). AC#2 checked: the failing statement is named (init-db.sh:187) and the ruled fixes shipped (03b0dba26 guard + instrumentation; 129 stays — the refuse is right, a cluster silently missing its notify user is a real defect). STATBUS-151 stays distinct and quarantined. SEQUENCING LESSON (architect's own accounting, for the ledger): the 'was going to die anyway' premise was wrong for this host — the collision produced healthy-but-partial via the restart cycle, and the refuse converted working-with-a-wart into hard-dead. THE RULE: a guard that converts a known-existing-in-the-wild misconfig into a hard stop must ship with its remediation path IN THE SAME PACKAGE. The workflow-side correction (ruled doctrine-COMPLIANT: committed workflow code mutating its own host = the deploy-workflow precedent) ships tonight, one commit late — mechanic building with three pins: converge to the generator's default shape, loud-when-changing/idempotent, fires only on the collision. AC#3 (two consecutive greens) becomes reachable once it lands.
+---
+
+author: foreman
+created: 2026-07-09 01:09
+---
+GREEN #1 LANDED: run 28985501497 (217edc7ee) — SUCCESS, all 85 tests passed, the first pg_regress green since 14:41. Watch points: (1) remote execution confirmed — the byte-exact SSH line matched /etc/sshdoers:44; (2) the heal line fired ON FIRST RUN and did its one-time work: 'STATBUS-150: POSTGRES_NOTIFY_USER collides with POSTGRES_APP_USER (statbus_test) in .env.config — deleting the override so config generate restores the distinct default.' — the host's collision is now permanently healed (subsequent runs print the calm OK line); (3) init-db [N/8] markers absent from workflow stdout as expected (container logs are not streamed there; the fresh test cluster initialized cleanly with distinct users — no refuse, no restart race, suite ran); (4) conclusion SUCCESS. Fast Tests also green on the same commit (28985501493). GREEN #2 candidate: the pending run 28986166289 on 7c86b383e — its calm heal line will additionally prove the subcommand's idempotency. Log: tmp/pg-regress-28985501497-logs.txt.
 ---
 <!-- COMMENTS:END -->
