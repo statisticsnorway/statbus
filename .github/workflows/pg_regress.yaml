@@ -38,7 +38,9 @@ jobs:
         username: statbus_test
         key: ${{ secrets.SSH_KEY }}
         command_timeout: 60m
-        # STATBUS-150 self-heal rides inside continous-integration-test (dev.sh) —
-        # the SSH line below must match /etc/sshdoers:44's allowlisted template
-        # on the test host EXACTLY, or the CI key's command is silently rejected.
+        # STATBUS-150: a POSTGRES_NOTIFY_USER/POSTGRES_APP_USER collision on this
+        # host is guarded loudly (init-db.sh validation refuse + config generate's
+        # WARN), not self-healed here — see the ticket for history. The SSH line
+        # below must match /etc/sshdoers:44's allowlisted template EXACTLY, or the
+        # CI key's command is silently rejected.
         script: cd statbus && git fetch origin && git checkout -- . && git checkout ${{ steps.ref.outputs.sha }} && ./dev.sh continous-integration-test

@@ -575,42 +575,6 @@ EOS
     'is-db-running' )
         docker compose exec -T db pg_isready -U postgres > /dev/null 2>&1
       ;;
-    'ci-heal-notify-user' )
-        # STATBUS-150 self-heal for the pg_regress remote test host. Invoked
-        # BY continous-integration-test (as its first step, before config
-        # generate) rather than from the pg_regress workflow's SSH line —
-        # /etc/sshdoers:44 on that host allowlists the CI key to the EXACT
-        # command "cd statbus && git fetch origin && git checkout -- . &&
-        # git checkout <sha> && ./dev.sh continous-integration-test" and
-        # silently rejects anything else (this was STATBUS-128's exact
-        # complaint); any new pre-test step for the CI key must ride INSIDE
-        # continous-integration-test, never appended onto that SSH line. Still
-        # independently invocable by hand (`./dev.sh ci-heal-notify-user`).
-        # continous-integration-test itself runs post-checkout by the sshdoers
-        # contract (the checkout happens on the SSH line, before `./dev.sh
-        # continous-integration-test` is even reached), so this ./sb always
-        # matches the target commit. Intentionally NOT in the
-        # acquire_test_run_lock serialize list above (runs once, pre-suite).
-        #
-        # POSTGRES_NOTIFY_USER and POSTGRES_APP_USER must be distinct roles —
-        # postgres/init-db.sh creates the app user first, then fails to create
-        # an identically-named notify user on every fresh cluster (STATBUS-150).
-        # Self-heals only when they actually collide (never overwrites a
-        # deliberately distinct override); converges by deleting the
-        # .env.config override and letting `./sb config generate` regenerate
-        # the default (statbus_notify_<slot>, cli/internal/config/config.go) —
-        # never hardcode that shape here.
-        if [ -x ./sb ] && ./sb --version >/dev/null 2>&1; then
-            APP_USER=$(./sb dotenv -f .env.config get POSTGRES_APP_USER 2>/dev/null || echo "")
-            NOTIFY_USER=$(./sb dotenv -f .env.config get POSTGRES_NOTIFY_USER 2>/dev/null || echo "")
-            if [ -n "$APP_USER" ] && [ "$APP_USER" = "$NOTIFY_USER" ]; then
-                echo "STATBUS-150: POSTGRES_NOTIFY_USER collides with POSTGRES_APP_USER ($APP_USER) in .env.config — deleting the override so config generate restores the distinct default."
-                ./sb dotenv -f .env.config set POSTGRES_NOTIFY_USER
-            else
-                echo "STATBUS-150: POSTGRES_NOTIFY_USER/POSTGRES_APP_USER OK, no collision."
-            fi
-        fi
-      ;;
     'continous-integration-test' )
         BRANCH=${BRANCH:-${1:-}}
         COMMIT=${COMMIT:-${2:-}}
@@ -646,17 +610,6 @@ EOS
             _SB_LDFLAGS="-X 'github.com/statisticsnorway/statbus/cli/cmd.version=${_SB_VERSION}' -X 'github.com/statisticsnorway/statbus/cli/cmd.commit=${_SB_COMMIT}'"
             (cd cli && go build -ldflags "$_SB_LDFLAGS" -o ../sb .)
         fi
-
-        # STATBUS-150 self-heal, invoked FIRST (before config generate reads
-        # .env.config): see 'ci-heal-notify-user' above for the mechanism.
-        # Lives HERE, inside continous-integration-test, not on the pg_regress
-        # SSH line: /etc/sshdoers:44 allowlists the CI key to this EXACT
-        # command shape (cd statbus && git fetch origin && git checkout -- . &&
-        # git checkout <sha> && ./dev.sh continous-integration-test) and
-        # silently rejects anything else — a new pre-test step on the SSH line
-        # itself (even appended with &&) breaks the match. Any future pre-test
-        # step for this host must ride inside this case, not on that line.
-        ./dev.sh ci-heal-notify-user
 
         ./sb config generate
 
