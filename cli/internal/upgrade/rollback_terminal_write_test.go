@@ -2,6 +2,7 @@ package upgrade
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -51,9 +52,11 @@ func TestWriteRollbackTerminal_ExhaustionMarksTerminalAndKeepsFlag(t *testing.T)
 		t.Fatalf("precondition: flag file should exist after writeUpgradeFlag; stat err=%v", err)
 	}
 
-	// No .env in projDir → reconnect()/connect() fails fast each attempt → the
-	// bounded retry exhausts (≈1.6s of backoff) without ever reaching a DB.
-	ok := d.writeRollbackTerminal(context.Background(), 7,
+	// No .env in projDir → terminalUpdate's recoveryDSN fails fast each attempt →
+	// the bounded retry exhausts (≈1.6s of backoff) without ever reaching a DB.
+	// STATBUS-154: writeRollbackTerminal no longer takes the pass ctx (the
+	// teardown-immune terminalUpdate makes its own context.Background).
+	ok := d.writeRollbackTerminal(7,
 		"UPDATE public.upgrade SET state = 'rolled_back', error = $1, rolled_back_at = now() WHERE id = $2"+upgradeRowReturning,
 		"some rollback reason", LabelRolledBackNormal)
 
@@ -85,15 +88,30 @@ func TestRollbackTerminalWrite_StructuralContract(t *testing.T) {
 	}
 	source := string(src)
 
-	helper := extractFuncBody(t, source, "func (d *Service) writeRollbackTerminal(")
-	for _, want := range []string{"retryBackoff(", "isConnError(", "d.reconnect(", "d.markTerminal("} {
-		if !strings.Contains(helper, want) {
-			t.Errorf("writeRollbackTerminal must reuse %q (no hand-rolled loop / silent swallow); not found in body", want)
+	// STATBUS-154: the retry/reconnect primitives moved into the shared
+	// teardown-immune terminalUpdate; writeRollbackTerminal now DELEGATES to it
+	// and owns only the terminal escalation. Pin both.
+	prim := extractFuncBody(t, source, "func (d *Service) terminalUpdate(")
+	for _, want := range []string{"context.Background()", "d.recoveryDSN(", "retryBackoff(", "isConnError("} {
+		if !strings.Contains(prim, want) {
+			t.Errorf("terminalUpdate must use %q (teardown-immune: own context.Background, fresh daemon-tagged conn, bounded retry); not found", want)
 		}
 	}
-	// The helper must NOT remove the flag — the caller owns the conditional
-	// removal so the flag is KEPT on failure. (Comments are stripped by
-	// extractFuncBody, so this matches code only.)
+	// PIN ii: the primitive must NOT use the pass's shared connection — a terminal
+	// write uses a FRESH connection so it survives the pass teardown.
+	if strings.Contains(prim, "d.queryConn") {
+		t.Error("terminalUpdate must NOT use d.queryConn — a terminal write uses a FRESH connection (STATBUS-154 PIN ii)")
+	}
+
+	helper := extractFuncBody(t, source, "func (d *Service) writeRollbackTerminal(")
+	if !strings.Contains(helper, "d.terminalUpdate(") {
+		t.Error("writeRollbackTerminal must delegate to the shared terminalUpdate (STATBUS-154)")
+	}
+	if !strings.Contains(helper, "d.markTerminal(") {
+		t.Error("writeRollbackTerminal must still fail loud via markTerminal on exhaustion")
+	}
+	// It must NOT remove the flag — the caller owns the conditional removal so the
+	// flag is KEPT on failure. (Comments are stripped by extractFuncBody.)
 	if strings.Contains(helper, "removeUpgradeFlag") {
 		t.Errorf("writeRollbackTerminal must NOT call removeUpgradeFlag — flag retention is the caller's conditional, so the breadcrumb survives a failed write")
 	}
@@ -127,5 +145,51 @@ func TestRollbackTerminalWrite_StructuralContract(t *testing.T) {
 		if strings.Contains(rbPath, gone) {
 			t.Errorf("rollback path still contains the single-shot swallow %q — it must route through writeRollbackTerminal", gone)
 		}
+	}
+}
+
+// TestParkUpgrade_TeardownImmuneStructural pins STATBUS-154 at the site the arc
+// caught: parkUpgrade (the park terminal) must write via the teardown-immune
+// terminalUpdate, never d.queryConn (the pass's conn that teardown cancels), and
+// must verify already-parked on a 0-row guard match so the exit invariant holds.
+func TestParkUpgrade_TeardownImmuneStructural(t *testing.T) {
+	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	body := extractFuncBody(t, string(src), "func (d *Service) parkUpgrade(")
+	if !strings.Contains(body, "d.terminalUpdate(") {
+		t.Error("parkUpgrade must write via the teardown-immune terminalUpdate (STATBUS-154)")
+	}
+	if strings.Contains(body, "d.queryConn") {
+		t.Error("parkUpgrade must NOT use d.queryConn — the park write must survive the pass teardown (the health-park re-park red)")
+	}
+	if !strings.Contains(body, "rowIsParked") {
+		t.Error("parkUpgrade must verify already-parked (rowIsParked) when the guarded UPDATE matches 0 rows — exit invariant AC#2")
+	}
+}
+
+// TestTerminalWrite_SurvivesCanceledPassContext pins STATBUS-154 (i): a terminal
+// write must not die with the pass. parkUpgrade is called with an ALREADY-CANCELED
+// pass ctx; because it routes through terminalUpdate (context.Background, fresh
+// conn) it still runs its own path and returns a connectivity error — NEVER
+// context.Canceled. Had it used the pass ctx it would short-circuit with
+// context.Canceled. DB-free: no .env in the TempDir → recoveryDSN/connect fails.
+func TestTerminalWrite_SurvivesCanceledPassContext(t *testing.T) {
+	projDir := t.TempDir() // no .env → terminalUpdate cannot reach a DB
+	d := &Service{projDir: projDir}
+
+	canceled, cancel := context.WithCancel(context.Background())
+	cancel() // the pass is already torn down
+
+	freshlyParked, err := d.parkUpgrade(canceled, 7, "test reason")
+	if freshlyParked {
+		t.Error("no DB → the park cannot land; freshlyParked must be false")
+	}
+	if err == nil {
+		t.Fatal("expected an error when the DB is unreachable")
+	}
+	if errors.Is(err, context.Canceled) {
+		t.Errorf("parkUpgrade used the canceled PASS ctx (got context.Canceled) — it must run under context.Background (STATBUS-154 PIN i); err=%v", err)
 	}
 }

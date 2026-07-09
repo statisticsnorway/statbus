@@ -2650,7 +2650,7 @@ func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displa
 		msg := fmt.Sprintf("%s: rollback could not complete — two consecutive crash-deaths during rollback (recovery attempt %d). The system is in a degraded state; manual CLI recovery is required (./sb install); contact SSB support and involve your IT staff.",
 			ErrRollbackDBRestore, attempts)
 		log.Printf("recoveryRollback: RESTORE-BROKE upgrade %d after %d attempt(s) — two consecutive rollback deaths", id, attempts)
-		if d.writeRollbackTerminal(ctx, id,
+		if d.writeRollbackTerminal(id,
 			"UPDATE public.upgrade SET state = 'failed', error = $1 WHERE id = $2"+upgradeRowReturning,
 			msg, LabelFailedRollbackIncomplete) {
 			d.removeUpgradeFlag()
@@ -2875,32 +2875,23 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 	// requires it NOT NULL on completed. Real upgrades are stamped at claim time
 	// (LOG_POINTER_STAMPED invariant) so $2 is a no-op fallback for legacy NULL rows only.
 	completedSQL := "UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready', error = NULL, log_relative_file_path = COALESCE(log_relative_file_path, $2) WHERE id = $1" + upgradeRowReturning
-	var fromInProgressJSON string
-	var scanErr error
-	for attempt := 0; attempt < 4; attempt++ {
-		scanErr = d.queryConn.QueryRow(ctx, completedSQL, id, appendLog.RelPath()).Scan(&fromInProgressJSON)
-		if scanErr == nil {
-			logUpgradeRow(LabelCompletedFromInProgress, fromInProgressJSON)
-			break
-		}
-		if attempt < 3 && isConnError(scanErr) {
-			time.Sleep(retryBackoff(attempt + 1))
-			continue
-		}
-		// C4: POST_RESTART_COMPLETED_TRANSITION_PERSISTED — bounded retry
-		// exhausted. Symmetric to C3; row was in_progress, we hold the flag,
-		// CHECK permits in_progress → completed. Fail-fast + bundle.
-		if dbName := d.markPgInvariantTerminal(scanErr, "service.go:completeInProgressUpgrade:completed"); dbName != "" {
-			d.writeDiagnosticBundle(ctx, int(id), nil)
-			break
-		}
-		fmt.Fprintf(os.Stderr,
-			"INVARIANT POST_RESTART_COMPLETED_TRANSITION_PERSISTED violated: state transition to completed matched 0 rows or errored (id=%d, err=%v) after %d attempts (service.go:%d, pid=%d)\n",
-			id, scanErr, attempt+1, thisLine(), os.Getpid())
-		d.markTerminal("POST_RESTART_COMPLETED_TRANSITION_PERSISTED",
-			fmt.Sprintf("id=%d; final Scan err=%v; attempts=%d", id, scanErr, attempt+1))
+	// STATBUS-154: teardown-immune completed write (fresh daemon-tagged conn +
+	// context.Background + bounded retry). Best-effort — on failure it marks the
+	// invariant + bundle and continues to cleanup (removeUpgradeFlag etc.), as
+	// before; the row stays in_progress for the next pass.
+	fromInProgressJSON, scanErr := d.terminalUpdate(completedSQL, id, appendLog.RelPath())
+	if scanErr == nil {
+		logUpgradeRow(LabelCompletedFromInProgress, fromInProgressJSON)
+	} else if dbName := d.markPgInvariantTerminal(scanErr, "service.go:completeInProgressUpgrade:completed"); dbName != "" {
+		// C4: DB-enforced invariant → prefer the specific name in the bundle.
 		d.writeDiagnosticBundle(ctx, int(id), nil)
-		break
+	} else {
+		fmt.Fprintf(os.Stderr,
+			"INVARIANT POST_RESTART_COMPLETED_TRANSITION_PERSISTED violated: state transition to completed matched 0 rows or errored (id=%d, err=%v) (service.go:%d, pid=%d)\n",
+			id, scanErr, thisLine(), os.Getpid())
+		d.markTerminal("POST_RESTART_COMPLETED_TRANSITION_PERSISTED",
+			fmt.Sprintf("id=%d; final err=%v", id, scanErr))
+		d.writeDiagnosticBundle(ctx, int(id), nil)
 	}
 	d.removeUpgradeFlag()
 	// Layer 3 of the rollback-on-SIGKILL hole plug — also fire pruneBackups
@@ -5586,46 +5577,28 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// write reports StepComplete (not the prior maintenance-off) for same-step-twice.
 	d.markStep(StepComplete)
 	completedSQL := "UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready', error = NULL, log_relative_file_path = COALESCE(log_relative_file_path, $2) WHERE id = $1" + upgradeRowReturning
-	var lastScanErr error
-	for attempt := 0; attempt < 4; attempt++ {
-		// C6: on retry following a stale-connection error, refresh the pool
-		// before issuing the UPDATE. If reconnect itself errors the pool is
-		// unrecoverable in this process — fail fast.
-		if attempt > 0 && isConnError(lastScanErr) {
-			log.Printf("Connection stale on state=completed UPDATE (id=%d, err=%v), reconnecting...", id, lastScanErr)
-			if reconErr := d.reconnect(ctx); reconErr != nil {
-				fmt.Fprintf(os.Stderr,
-					"INVARIANT RECONNECT_ON_STALE_CONN_SUCCEEDS violated: reconnect after stale conn on id=%d failed: %v (service.go:%d, pid=%d)\n",
-					id, reconErr, thisLine(), os.Getpid())
-				d.markTerminal("RECONNECT_ON_STALE_CONN_SUCCEEDS",
-					fmt.Sprintf("id=%d; reconnect err=%v", id, reconErr))
-				d.writeDiagnosticBundle(ctx, id, progress)
-				return fmt.Errorf("RECONNECT_ON_STALE_CONN_SUCCEEDS: %w", reconErr)
-			}
-		}
-		lastScanErr = d.queryConn.QueryRow(ctx, completedSQL, id, progress.RelPath()).Scan(&normalJSON)
-		if lastScanErr == nil {
-			break
-		}
-		if attempt < 3 && isConnError(lastScanErr) {
-			time.Sleep(retryBackoff(attempt + 1))
-			continue
-		}
-		// C7: terminal UPDATE errored (non-conn error, or retry budget exhausted).
-		// If the error is a DB-enforced invariant (e.g. chk_upgrade_state_attributes
-		// log-pointer arm), prefer the specific name so the support bundle surfaces
-		// the precise cause rather than the generic transition-persisted name.
-		if dbName := d.markPgInvariantTerminal(lastScanErr, "service.go:applyPostSwap:completed-terminal"); dbName != "" {
+	// STATBUS-154: the completed terminal write goes through the teardown-immune
+	// terminalUpdate (fresh daemon-tagged conn + context.Background + bounded
+	// retry — this generalizes the former inline C6 047-H reconnect save). The
+	// bespoke terminal escalation (DB-invariant naming + diagnostic bundle) stays
+	// here.
+	var cerr error
+	normalJSON, cerr = d.terminalUpdate(completedSQL, id, progress.RelPath())
+	if cerr != nil {
+		// C7: terminal UPDATE errored. If it's a DB-enforced invariant (e.g.
+		// chk_upgrade_state_attributes log-pointer arm), prefer the specific name
+		// so the support bundle surfaces the precise cause.
+		if dbName := d.markPgInvariantTerminal(cerr, "service.go:applyPostSwap:completed-terminal"); dbName != "" {
 			d.writeDiagnosticBundle(ctx, id, progress)
-			return fmt.Errorf("%s: %w", dbName, lastScanErr)
+			return fmt.Errorf("%s: %w", dbName, cerr)
 		}
 		fmt.Fprintf(os.Stderr,
-			"INVARIANT NORMAL_COMPLETED_TRANSITION_PERSISTED violated: terminal state transition to completed errored for id=%d: %v after %d attempts (service.go:%d, pid=%d)\n",
-			id, lastScanErr, attempt+1, thisLine(), os.Getpid())
+			"INVARIANT NORMAL_COMPLETED_TRANSITION_PERSISTED violated: terminal state transition to completed errored for id=%d: %v (service.go:%d, pid=%d)\n",
+			id, cerr, thisLine(), os.Getpid())
 		d.markTerminal("NORMAL_COMPLETED_TRANSITION_PERSISTED",
-			fmt.Sprintf("id=%d; final Scan err=%v; attempts=%d", id, lastScanErr, attempt+1))
+			fmt.Sprintf("id=%d; final err=%v", id, cerr))
 		d.writeDiagnosticBundle(ctx, id, progress)
-		return fmt.Errorf("NORMAL_COMPLETED_TRANSITION_PERSISTED: %w", lastScanErr)
+		return fmt.Errorf("NORMAL_COMPLETED_TRANSITION_PERSISTED: %w", cerr)
 	}
 	log.Println("state=completed")
 	logUpgradeRow(LabelCompletedNormal, normalJSON)
@@ -5938,14 +5911,55 @@ func (d *Service) RecoveryBudgetGuard(ctx context.Context) (skipBootMigrate bool
 // into parked (RowsAffected>0 under the `recovery_parked_at IS NULL` guard), so
 // the caller can fire the degraded siren EXACTLY ONCE per park event even when a
 // read-blip re-enters an already-parked row (STATBUS-046).
+// parkUpgrade parks the in_progress upgrade row via the teardown-immune
+// terminalUpdate (STATBUS-154) — the park terminal is the pass's last word and
+// must OUTLIVE the pass that decided to park (the "context already done: context
+// canceled" race that left a parked process with a not-parked row, the health-
+// park arc's re-park red). The guard parks only an in_progress, not-yet-parked
+// row (idempotent).
+//
+// ctx is retained for signature parity but is NOT used for the write — the
+// terminal write deliberately runs under context.Background (PIN i). Returns:
+//   - (true,  nil)  FRESHLY parked by this call → caller fires the one-shot siren.
+//   - (false, nil)  the row is ALREADY parked (a retry after our own committed
+//     write, or a prior pass) — the park LANDED, no siren.
+//   - (false, err)  NOT confirmed landed (connectivity exhausted, or the row is
+//     not parkable) — caller MUST keep the row in_progress and let the next pass
+//     re-evaluate (exit invariant AC#2); never exit as-parked on this.
 func (d *Service) parkUpgrade(ctx context.Context, id int, reason string) (freshlyParked bool, err error) {
-	ct, err := d.queryConn.Exec(ctx,
-		"UPDATE public.upgrade SET recovery_parked_at = now(), recovery_parked_reason = $2 WHERE id = $1 AND state = 'in_progress' AND recovery_parked_at IS NULL",
+	_, uerr := d.terminalUpdate(
+		"UPDATE public.upgrade SET recovery_parked_at = now(), recovery_parked_reason = $2 WHERE id = $1 AND state = 'in_progress' AND recovery_parked_at IS NULL"+upgradeRowReturning,
 		id, reason)
+	if uerr == nil {
+		return true, nil // guard matched + RETURNING scanned → freshly parked
+	}
+	if !errors.Is(uerr, pgx.ErrNoRows) {
+		return false, uerr // connectivity exhausted or a real error — NOT landed
+	}
+	// Guard matched 0 rows: EITHER our own prior attempt committed then the conn
+	// died (retry), OR a prior pass parked it, OR the row moved out of in_progress
+	// and is not parkable. Verify on a fresh connection whether it IS parked.
+	parked, verr := d.rowIsParked(id)
+	if verr != nil {
+		return false, fmt.Errorf("park write matched 0 rows and the parked-state verify failed for id=%d: %w", id, verr)
+	}
+	if parked {
+		return false, nil // already parked → landed, but not freshly (no siren)
+	}
+	return false, fmt.Errorf("park write matched 0 rows and the row is not parked (id=%d) — not parkable (state moved out of in_progress?)", id)
+}
+
+// rowIsParked reports whether the upgrade row's recovery_parked_at is set, read
+// on a FRESH short-lived connection (reuses terminalUpdate's teardown-immune
+// primitive for the single-row read). Used by parkUpgrade to confirm the exit
+// invariant when the guarded park UPDATE matched 0 rows.
+func (d *Service) rowIsParked(id int) (bool, error) {
+	out, err := d.terminalUpdate(
+		"SELECT (recovery_parked_at IS NOT NULL)::text FROM public.upgrade WHERE id = $1", id)
 	if err != nil {
 		return false, err
 	}
-	return ct.RowsAffected() > 0, nil
+	return strings.TrimSpace(out) == "true", nil
 }
 
 // STATBUS-046 (architect pin 2) — the SHARED park-reset column-set + guard,
@@ -6082,9 +6096,13 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 			// NOT NULL; a row that reached here with a NULL path
 			// (fabricated/legacy) would otherwise raise 23514. progress.RelPath()
 			// is the live log this function reopened/created above.
-			err := d.queryConn.QueryRow(ctx,
+			// STATBUS-154: teardown-immune self-heal completed write (fresh
+			// daemon-tagged conn + context.Background + retry). ErrNoRows here =
+			// the guarded row is already terminal → fall through to continuation
+			// (handled below), exactly as before.
+			selfHealJSON, err := d.terminalUpdate(
 				"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready', error = NULL, log_relative_file_path = COALESCE(log_relative_file_path, $2) WHERE id = $1 AND state = 'in_progress'"+upgradeRowReturning,
-				flag.ID, progress.RelPath()).Scan(&selfHealJSON)
+				flag.ID, progress.RelPath())
 			if err == nil {
 				logUpgradeRow(LabelCompletedSelfHeal, selfHealJSON)
 				d.queryConn.Exec(ctx, `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
@@ -6616,43 +6634,83 @@ func contactSuffix(contact string) string {
 // channel; the support bundle is already written once by rollback() before the
 // terminal write) and returns false — never swallows. The caller then KEEPS the
 // flag so the next boot reconciles.
-func (d *Service) writeRollbackTerminal(ctx context.Context, id int, updateSQL, errMsg, label string) bool {
+// terminalWriteTimeout / terminalWriteMaxAttempts bound the teardown-immune
+// terminal write (STATBUS-154). 30s comfortably covers a fresh connect + a
+// single guarded UPDATE; 4 attempts × retryBackoff rides a brief connectivity
+// blip without hanging the exiting pass.
+const (
+	terminalWriteTimeout     = 30 * time.Second
+	terminalWriteMaxAttempts = 4
+)
+
+// terminalUpdate is the teardown-immune primitive under EVERY state-terminal
+// writer (writeRollbackTerminal, the completed-state UPDATEs, parkUpgrade) —
+// STATBUS-154. Three properties, one per the failure class it kills:
+//
+//	(i)   context.Background() + its own short deadline — NEVER the caller's
+//	      pass ctx. A terminal write is the pass's LAST WORD; sharing the pass
+//	      ctx let teardown cancel it mid-flight ("context already done: context
+//	      canceled"), so the process exited as-terminal while the row disagreed.
+//	(ii)  a FRESH short-lived daemon-tagged connection per attempt (149's
+//	      recoveryDSN), NEVER d.queryConn — always-fresh sidesteps the
+//	      cached-statement-deallocation class ("failed to deallocate cached
+//	      statement(s)") entirely.
+//	(iii) bounded retry on connect/connection errors — generalizes the 047-H
+//	      completion-write reconnect save (patched at ONE terminal; 154 proves
+//	      every terminal needed it).
+//
+// Returns (rowJSON, nil) on a landed write. A NON-connection error (a CHECK
+// violation, or pgx.ErrNoRows when a guarded UPDATE matched 0 rows) is returned
+// IMMEDIATELY without retry — it will not self-heal; the caller interprets it
+// (e.g. parkUpgrade treats ErrNoRows as "verify the row is already parked").
+// Idempotent by construction: callers pass state-guarded UPDATEs safe to re-run.
+// Writes NO markTerminal/bundle — the caller owns terminal escalation.
+func (d *Service) terminalUpdate(updateSQL string, args ...any) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), terminalWriteTimeout)
+	defer cancel()
 	var rowJSON string
 	var lastErr error
-	for attempt := 0; attempt < 4; attempt++ {
-		// Ensure a live query connection: the post-rollback reconnect at the call
-		// site may have failed, leaving queryConn nil or dead. reconnect() failures
-		// are connectivity/lock and always worth retrying within the bounded budget
-		// (a held lock simply keeps failing → we exhaust and yield).
-		if d.queryConn == nil || d.queryConn.Ping(ctx) != nil {
-			if err := d.reconnect(ctx); err != nil {
-				lastErr = err
-				if attempt < 3 {
-					time.Sleep(retryBackoff(attempt + 1))
-					continue
-				}
-				break
+	for attempt := 0; attempt < terminalWriteMaxAttempts; attempt++ {
+		connStr, derr := d.recoveryDSN()
+		if derr != nil {
+			lastErr = derr
+		} else if conn, cerr := pgx.Connect(ctx, connStr); cerr != nil {
+			lastErr = cerr
+		} else {
+			lastErr = conn.QueryRow(ctx, updateSQL, args...).Scan(&rowJSON)
+			conn.Close(context.Background())
+			if lastErr == nil {
+				return rowJSON, nil
+			}
+			// A non-connection error (CHECK violation / ErrNoRows) will not
+			// self-heal on retry — hand it back for the caller to interpret.
+			if !isConnError(lastErr) {
+				return rowJSON, lastErr
 			}
 		}
-		lastErr = d.queryConn.QueryRow(ctx, updateSQL, errMsg, id).Scan(&rowJSON)
-		if lastErr == nil {
-			logUpgradeRow(label, rowJSON)
-			return true
-		}
-		// A non-connection UPDATE error (e.g. a CHECK violation) will not
-		// self-heal — fail fast to the loud terminal below, mirroring the
-		// isConnError gate in completeInProgressUpgrade / recoverFromFlag.
-		if attempt < 3 && isConnError(lastErr) {
+		if attempt < terminalWriteMaxAttempts-1 {
 			time.Sleep(retryBackoff(attempt + 1))
-			continue
 		}
-		break
+	}
+	return "", lastErr
+}
+
+// writeRollbackTerminal persists a rollback/abort terminal row via the
+// teardown-immune terminalUpdate (STATBUS-154 — it no longer takes the pass
+// ctx; the write must outlive the pass). Returns true iff the row landed; on
+// exhaustion it fails LOUD (markTerminal) and returns false so the caller KEEPS
+// the flag for the next reconcile.
+func (d *Service) writeRollbackTerminal(id int, updateSQL, errMsg, label string) bool {
+	rowJSON, err := d.terminalUpdate(updateSQL, errMsg, id)
+	if err == nil {
+		logUpgradeRow(label, rowJSON)
+		return true
 	}
 	fmt.Fprintf(os.Stderr,
 		"INVARIANT ROLLBACK_TERMINAL_WRITE_FAILED violated: rollback terminal write (%s) matched 0 rows or errored after retries (id=%d, err=%v) — KEEPING flag so the next recoverFromFlag/completeInProgressUpgrade reconciles (service.go:%d, pid=%d)\n",
-		label, id, lastErr, thisLine(), os.Getpid())
+		label, id, err, thisLine(), os.Getpid())
 	d.markTerminal("ROLLBACK_TERMINAL_WRITE_FAILED",
-		fmt.Sprintf("id=%d; label=%s; final err=%v", id, label, lastErr))
+		fmt.Sprintf("id=%d; label=%s; final err=%v", id, label, err))
 	return false
 }
 
@@ -6808,7 +6866,7 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reaso
 		// boot's recoverFromFlag / completeInProgressUpgrade reconciles the row
 		// (writeRollbackTerminal has already failed loud). The degraded siren below
 		// fires regardless — the box IS degraded whether or not the row write landed.
-		if d.writeRollbackTerminal(ctx, id,
+		if d.writeRollbackTerminal(id,
 			"UPDATE public.upgrade SET state = 'failed', error = $1 WHERE id = $2"+upgradeRowReturning,
 			errMsg, LabelFailedRollbackIncomplete) {
 			d.removeUpgradeFlag()
@@ -6838,7 +6896,7 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reaso
 		// wording (and Decision 3) reopens: the message would need to branch on cause.
 		errMsg = errMsg + " — rolled back to the previous version; the system is running normally on the old version. " +
 			"The failure is recorded (log retained); report it to support. This version will fail the same way — do NOT re-schedule it; run `./sb upgrade check` and try a LATER release when one is available. No manual intervention needed."
-		if d.writeRollbackTerminal(ctx, id,
+		if d.writeRollbackTerminal(id,
 			"UPDATE public.upgrade SET state = 'rolled_back', error = $1, rolled_back_at = now() WHERE id = $2"+upgradeRowReturning,
 			errMsg, LabelRolledBackNormal) {
 			// Terminal write landed → the row is rolled_back. Clear the in-progress
@@ -7086,7 +7144,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 		// StateCrashedUpgrade → RecoverFromFlag and reconciles the still in_progress
 		// row instead of leaving it stuck. writeRollbackTerminal already failed loud
 		// (INVARIANT ROLLBACK_TERMINAL_WRITE_FAILED + markTerminal).
-		if d.writeRollbackTerminal(ctx, id,
+		if d.writeRollbackTerminal(id,
 			"UPDATE public.upgrade SET state = 'failed', error = $1 WHERE id = $2"+upgradeRowReturning,
 			rollbackFailedMsg, LabelFailedAbort) {
 			d.removeUpgradeFlag()
