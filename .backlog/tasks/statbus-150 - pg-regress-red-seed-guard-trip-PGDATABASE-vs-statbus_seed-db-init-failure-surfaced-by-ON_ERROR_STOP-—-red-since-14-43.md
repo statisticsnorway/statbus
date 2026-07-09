@@ -3,11 +3,11 @@ id: STATBUS-150
 title: >-
   pg-regress-red: seed-guard trip (PGDATABASE vs statbus_seed) + db-init failure
   surfaced by ON_ERROR_STOP — red since 14:43
-status: In Progress
+status: Done
 assignee:
   - mechanic
 created_date: '2026-07-08 23:17'
-updated_date: '2026-07-09 01:09'
+updated_date: '2026-07-09 01:11'
 labels:
   - ci
   - testing
@@ -41,7 +41,7 @@ IMPACT: all SQL-test signal masked since 14:43; tonight's commits are Go/shell/d
 <!-- AC:BEGIN -->
 - [x] #1 Mode 1 call chain named (guard site file:line, workflow env source, staleness rule that selects the recreate path) and the ruled fix shipped
 - [x] #2 Mode 3 failing init-db statement named verbatim from the test server's container logs and the ruled fix shipped (or 129 rolled back only if the architect rules the surfaced statement legitimate-by-design)
-- [ ] #3 Oracle: two consecutive green pg_regress + Fast Tests runs on master, one of which takes the recreate-seed path
+- [x] #3 Oracle: two consecutive green pg_regress + Fast Tests runs on master, one of which takes the recreate-seed path
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -85,3 +85,9 @@ created: 2026-07-09 01:09
 GREEN #1 LANDED: run 28985501497 (217edc7ee) — SUCCESS, all 85 tests passed, the first pg_regress green since 14:41. Watch points: (1) remote execution confirmed — the byte-exact SSH line matched /etc/sshdoers:44; (2) the heal line fired ON FIRST RUN and did its one-time work: 'STATBUS-150: POSTGRES_NOTIFY_USER collides with POSTGRES_APP_USER (statbus_test) in .env.config — deleting the override so config generate restores the distinct default.' — the host's collision is now permanently healed (subsequent runs print the calm OK line); (3) init-db [N/8] markers absent from workflow stdout as expected (container logs are not streamed there; the fresh test cluster initialized cleanly with distinct users — no refuse, no restart race, suite ran); (4) conclusion SUCCESS. Fast Tests also green on the same commit (28985501493). GREEN #2 candidate: the pending run 28986166289 on 7c86b383e — its calm heal line will additionally prove the subcommand's idempotency. Log: tmp/pg-regress-28985501497-logs.txt.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+CLOSED — the pipeline is green again with every failure mode named and fixed by committed code, no server writes. AC#3's oracle delivered in full: two consecutive greens on BOTH pipelines — pg_regress 28985501497 (217edc7ee, all 85 tests) + 28986166289 (7c86b383e), Fast Tests 28985501493 + 28986166212 — with the recreate-seed path taken by construction (create-db calls it unconditionally), and the heal proving both halves of its contract across the pair: active line + override deletion on green #1, calm no-collision line on green #2. THE THREE STACKED CAUSES AND THEIR FIXES: (1) the 146 guard refused its caller's explicit --target — amended in 4ebc170c0 (explicit flag wins loudly; silent divergence still refuses; redo threaded equally). (2) The test host's years-silent notify-user==app-user collision, made loud by 129's ON_ERROR_STOP (129 working as ratified): every fresh cluster aborted at init-db.sh:187, the restart race deciding red vs healthy-but-partial — guarded two-sided in 03b0dba26 (config-generate warn, init-db validation refuse) + instrumented ([N/8] section markers) + self-healed by the committed ci-heal-notify-user subcommand (final home inside continous-integration-test, f86afb799). (3) sshdo's silent per-key allowlist (/etc/sshdoers:44) rejected both attempts to change the SSH command — final shape rides the heal inside the allowlisted entry point with the SSH line byte-for-byte the template; cost evidence recorded on STATBUS-128. LEDGER RULES BANKED: a guard converting a known-in-the-wild misconfig into a hard stop ships with its remediation in the same package; the false-exoneration lesson (test the RIGHT key — sshdo forces per-key). Residue tracked separately: STATBUS-151 (quarantined pg_restore mode), STATBUS-128 (loud rejection), STATBUS-069 (the pre-connect IP-ban timeouts seen twice tonight).
+<!-- SECTION:FINAL_SUMMARY:END -->
