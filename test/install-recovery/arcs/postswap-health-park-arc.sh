@@ -149,6 +149,18 @@ _dump_health_park_failure_diagnostics() {
     fi
     echo "── daemon journal ($UPGRADE_UNIT, last 400 lines) ──" >&2
     VM_EXEC bash -c "journalctl --user -u $UPGRADE_UNIT --no-pager -n 400 2>/dev/null" >&2 || echo "  (could not read the journal)" >&2
+    # STATBUS-141-review rider: the row-state dump this diagnostics function
+    # was missing (mid-migration/mid-tx's own diagnostics already have it —
+    # "flag file + row state at exit"). Without it, the only "upgrade row"
+    # JSON visible in the raw run log is whatever completes-and-prints on its
+    # OWN terminal (id=1, the initial ./sb install of A) — B's row (id=2,
+    # which never reaches that same print in a park scenario) has to be
+    # traced by hand through hundreds of log lines, exactly what wave 7 hit.
+    # Explicitly selects B's row by commit_sha = B_FULL (never id=1's), with
+    # the parked-specific columns this arc's whole story turns on.
+    echo "── flag file + row state at exit (B's row, commit_sha = ${B_FULL:-?}) ──" >&2
+    VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null || echo '(flag absent)'" >&2 || true
+    VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, recovery_attempts, recovery_parked_at IS NOT NULL AS parked, COALESCE(recovery_parked_reason,''), error FROM public.upgrade WHERE commit_sha = '${B_FULL:-}' ORDER BY id DESC LIMIT 1;\" | ./sb psql" >&2 || true
     echo "══════════ end failure diagnostics ══════════" >&2
 }
 
