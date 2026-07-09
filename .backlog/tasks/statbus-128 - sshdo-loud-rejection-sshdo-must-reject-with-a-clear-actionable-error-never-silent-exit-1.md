@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-03 10:35'
-updated_date: '2026-07-09 00:23'
+updated_date: '2026-07-09 13:00'
 labels:
   - ops
   - ci
@@ -41,10 +41,10 @@ RELATED: the residual intermittent CI→niue TCP timeouts (CrowdSec community-fe
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A non-allowlisted command over SSH with the restricted key produces a one-line actionable error on the caller's stderr (visible in a CI job log) naming the user and pointing at the allowlist — demonstrated with a deliberate mismatched command
+- [x] #1 A non-allowlisted command over SSH with the restricted key produces a one-line actionable error on the caller's stderr (visible in a CI job log) naming the user and pointing at the allowlist — demonstrated with a deliberate mismatched command
 - [ ] #2 The allowlist's enforcement behavior is unchanged (rejection still exits non-zero; allowed commands unaffected)
-- [ ] #3 The change's provenance is settled first: sshdo's origin (package vs local script) documented, and the fix applied in the shape that survives updates
-- [ ] #4 Same verified on rune.statbus.org if it runs the same sshdo setup
+- [x] #3 The change's provenance is settled first: sshdo's origin (package vs local script) documented, and the fix applied in the shape that survives updates
+- [x] #4 Same verified on rune.statbus.org if it runs the same sshdo setup
 <!-- AC:END -->
 
 ## Comments
@@ -54,5 +54,11 @@ author: foreman
 created: 2026-07-09 00:23
 ---
 COST EVIDENCE (2026-07-09, ~23:56-00:25): sshdo's silent rejection burned a four-agent investigation tonight. The pg_regress workflow's SSH command was changed (STATBUS-150 self-heal step); /etc/sshdoers:44 allowlists statbus_test's CI key to exactly one command shape and silently rejected the new one — exit 1, zero output, ~2s, across four consecutive CI runs. The silence sent the investigation through THREE wrong hypotheses (drone-ssh multi-line handling — even shipped a relocation commit on that theory; self-hosted-runner assignment; CrowdSec GHA-range bans) before a root read of the journal + /etc/sshdoers named it. Compounding factor: an exoneration experiment tested the wrong KEY (the operator's own unrestricted key instead of the forced CI key) and falsely cleared the sshdo hypothesis early. A loud rejection — one stderr line naming the received command and the expected template — would have ended this in one CI-log read. That is this ticket's case, now with a measured cost.
+---
+
+author: foreman
+created: 2026-07-09 13:00
+---
+APPLIED AND VERIFIED on niue (King's approval 2026-07-09, 'the word'). PROVENANCE (AC#3): /usr/local/bin/sshdo = raf.org sshdo 1.1.1 (2023-06-19), hand-deployed Python3 script, not in any package → patch-in-place. THE CHANGE: six lines inserted in the disallowed branch (after the existing syslog call, before banner/exit) — one stderr line: 'sshdo: command not in allowlist for user <user> (see /etc/sshdoers). Attempted: <command, truncated 120>'; enforcement, syslog, banner, exit 1 all unchanged. Backup: /usr/local/bin/sshdo.bak-20260709-statbus128. Verified: py_compile clean local+remote; LIVE REJECTION TEST as statbus_test with a bogus command printed the exact line and exited 1 (AC#1 demonstrated); syslog still records the disallowed event (dual logging intact); sshdo --check output identical under the backup — the 'No such user: statbus_no [/etc/sshdoers line 16]' warning is PRE-EXISTING config staleness (Norway moved to rune; the sshdoers entry remains — separate cleanup candidate, King's call). AC#4: rune has NO sshdo deployed — not applicable, closed. AC#2 half-proven: rejection path demonstrated; the allowed path is structurally untouched and gets its live proof on the next natural pg_regress run — ticket closes on that green. NOTE for later: the patched script has no repo-canonical copy (hand-managed server file) — consider ops/ placement per the fixes-ship-via-code doctrine.
 ---
 <!-- COMMENTS:END -->
