@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-07-09 00:48'
-updated_date: '2026-07-09 01:12'
+updated_date: '2026-07-09 01:53'
 labels:
   - product
   - upgrade
@@ -60,5 +60,11 @@ author: foreman
 created: 2026-07-09 01:12
 ---
 SHIPPED in a4589c6d9 (dual-reviewed: architect ship zero changes; foreman first-hand). terminalUpdate carries all three ruled properties (Background+own deadline; fresh daemon-tagged conn per attempt via 149's recoveryDSN — cached-statement class structurally unreachable; bounded retry, callers own escalation). All four writer families swapped; the old bespoke 047-H retry ladders DELETED (clean break — precedent absorbed, not duplicated); writeRollbackTerminal's ctx param dropped (PIN-i structural). Park keeps siren-once through the verify-read resolving the ambiguous 0-rows case on the same immune primitive; exit-as-terminal requires the landed write everywhere, else the loud row-stays-in_progress escalation. Tests: structural pins (Background+recoveryDSN, not queryConn) + the canceled-parent-ctx behavioral proof. AC#1/#2 checked. AC#3 rides wave 6 (health-park re-run on a4589c6d9): the un-park→re-park leg landing recovery_parked_at — the exact assert that caught this.
+---
+
+author: foreman
+created: 2026-07-09 01:53
+---
+WAVE-6 FIRST-CONTACT REGRESSION, diagnosed by the fix's own design (run 28987136404 on a4589c6d9): the first park never landed in 1200s — terminalUpdate's FRESH session inherits the post-swap read-only window, and 'cannot execute UPDATE in a read-only transaction' (25006) is non-conn so the helper correctly returned it without retry. The journal named it three times via the new loud escalation ('park write failed (id=2) ... the row stays in_progress and the next pass re-evaluates') — no wrong terminal written, the row honestly in_progress: the exit invariant worked while the implementation was wrong. The old pass-conn wrote through the window because its session PREDATED the read-only flip — the established machinery-writes-through semantic, not luck (the window is an accident-guard against application writes, doc-021/110). RULED PATCH (architect): session-level SET default_transaction_read_only = off inside terminalUpdate right after connect (userset GUC — no privilege needed, consistent with accident-guard-not-hard-lock); DSN -c rejected (over-broad — flips everything on recoveryDSN); BEGIN READ WRITE rejected (choreography for no gain); rowIsParked rides the same helper unchanged. NAMED RESIDUAL, pre-existing, not tonight's patch: the same class exists latently on the daemon's MAIN conns — a mid-window reconnect() of queryConn would inherit read-only and break in-window machinery writes (recordInProgressFailure, the backup_path record) identically; now LOUD if it fires thanks to the 154 escalations — a future 25006 in the journal is this sibling, recognizable in seconds. Engineer patching; wave 7 is the oracle.
 ---
 <!-- COMMENTS:END -->
