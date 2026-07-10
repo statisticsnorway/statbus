@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-03 10:35'
-updated_date: '2026-07-09 13:00'
+updated_date: '2026-07-10 07:38'
 labels:
   - ops
   - ci
@@ -60,5 +60,11 @@ author: foreman
 created: 2026-07-09 13:00
 ---
 APPLIED AND VERIFIED on niue (King's approval 2026-07-09, 'the word'). PROVENANCE (AC#3): /usr/local/bin/sshdo = raf.org sshdo 1.1.1 (2023-06-19), hand-deployed Python3 script, not in any package → patch-in-place. THE CHANGE: six lines inserted in the disallowed branch (after the existing syslog call, before banner/exit) — one stderr line: 'sshdo: command not in allowlist for user <user> (see /etc/sshdoers). Attempted: <command, truncated 120>'; enforcement, syslog, banner, exit 1 all unchanged. Backup: /usr/local/bin/sshdo.bak-20260709-statbus128. Verified: py_compile clean local+remote; LIVE REJECTION TEST as statbus_test with a bogus command printed the exact line and exited 1 (AC#1 demonstrated); syslog still records the disallowed event (dual logging intact); sshdo --check output identical under the backup — the 'No such user: statbus_no [/etc/sshdoers line 16]' warning is PRE-EXISTING config staleness (Norway moved to rune; the sshdoers entry remains — separate cleanup candidate, King's call). AC#4: rune has NO sshdo deployed — not applicable, closed. AC#2 half-proven: rejection path demonstrated; the allowed path is structurally untouched and gets its live proof on the next natural pg_regress run — ticket closes on that green. NOTE for later: the patched script has no repo-canonical copy (hand-managed server file) — consider ops/ placement per the fixes-ship-via-code doctrine.
+---
+
+author: foreman
+created: 2026-07-10 07:38
+---
+CLEAN-SHIP FOLLOW-THROUGH (King's order, 2026-07-10): both hand-managed server files now have repo-canonical copies under ops/niue/, committed in the history-tracking shape he named — the ORIGINALS as found (a5629179d: sshdo 1.1.1 pristine + sshdoers with its warts) then the CHANGES (6ac199afc: the loud-rejection patch + the statbus_no cleanup) — so every future change is a reviewable diff against a committed baseline. The sshdoers cleanup is APPLIED on niue (backup /etc/sshdoers.bak-20260710-statbus128): both stale statbus_no entries removed (deploy line 16 + notify line 31; Norway lives on rune, the user does not exist on niue). VERIFIED: sshdo --check now exits 0 with 'syntax OK' (was exit 1 with the dangling-user warning); md5 of /etc/sshdoers and /usr/local/bin/sshdo BYTE-IDENTICAL to the ops/niue/ copies — server and repo converged. Remaining for close: AC#2's allowed-path live proof on the next natural pg_regress green.
 ---
 <!-- COMMENTS:END -->
