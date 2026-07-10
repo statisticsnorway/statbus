@@ -140,6 +140,12 @@ def sshdo(config_fname, label):
 		shell_exec(config, ssh_user, label, ssh_cmd)
 	if auth == 'disallowed':
 		logmsg(config, syslog.LOG_ERR, 'disallowed', labelf(label), commandf(ssh_cmd))
+		# STATBUS-128: actionable fail-fast — a rejection must never be a bare
+		# silent exit 1 (it cost weeks once and a four-agent hour on 2026-07-09).
+		# One stderr line to the caller: who, what was attempted, where the rules
+		# live. Enforcement unchanged; syslog + optional banner + exit 1 as before.
+		print('sshdo: command not in allowlist for user %s (see %s). Attempted: %s'
+			% (ssh_user, config_fname, ssh_cmd[:120]), file=sys.stderr)
 		if 'banner:' in config:
 			try:
 				with open(config['banner:']) as f:

@@ -13,7 +13,6 @@ syslog auth
 # Deploy users — invoked by .github/workflows/deploy-to-<slot>.yaml via raw ssh.
 # Command shape: `cd ~/statbus && ./sb upgrade apply-latest`
 #
-statbus_no: cd ~/statbus && ./sb upgrade apply-latest
 statbus_tcc: cd ~/statbus && ./sb upgrade apply-latest
 statbus_dev: cd ~/statbus && ./sb upgrade apply-latest
 statbus_demo: cd ~/statbus && ./sb upgrade apply-latest
@@ -28,7 +27,6 @@ statbus_jo: cd ~/statbus && ./sb upgrade apply-latest
 # lives in ~/statbus/ops/ci-notify.sh (evolves via git); only the PATH is pinned.
 # One entry per user (sshdo requires it); identical command for all eight.
 #
-statbus_no: ~/statbus/ops/ci-notify.sh
 statbus_tcc: ~/statbus/ops/ci-notify.sh
 statbus_dev: ~/statbus/ops/ci-notify.sh
 statbus_demo: ~/statbus/ops/ci-notify.sh
