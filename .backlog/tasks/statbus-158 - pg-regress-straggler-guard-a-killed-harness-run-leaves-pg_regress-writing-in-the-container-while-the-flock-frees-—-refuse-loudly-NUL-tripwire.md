@@ -3,10 +3,11 @@ id: STATBUS-158
 title: >-
   pg-regress-straggler-guard: a killed harness run leaves pg_regress writing in
   the container while the flock frees — refuse loudly + NUL tripwire
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - mechanic
 created_date: '2026-07-11 20:57'
-updated_date: '2026-07-11 22:13'
+updated_date: '2026-07-11 23:30'
 labels:
   - testing
   - dev-tooling
