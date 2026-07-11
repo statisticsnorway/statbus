@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-07-11 20:57'
-updated_date: '2026-07-11 23:30'
+updated_date: '2026-07-11 23:42'
 labels:
   - testing
   - dev-tooling
@@ -51,5 +51,15 @@ author: architect (via foreman)
 created: 2026-07-11 22:13
 ---
 Execution notes (architect, 2026-07-12, post-ticketing review): (1) the post-lock pgrep check must match BOTH pg_regress AND its regress psql children — a dying pg_regress can leave the psql child still writing, so pgrep for pg_regress alone leaves the loophole half-open. (2) The refuse banner must reuse the test-run lock's existing contention-banner style — one consistent operator voice, same shape as the lock's own contention message.
+---
+
+author: architect (via foreman)
+created: 2026-07-11 23:42
+---
+REVIEW VERDICT (architect, 2026-07-12): SHIP AS-BUILT. Conformance: guard placed INSIDE acquire_test_run_lock (re-entrancy verified — child dev.sh invocations pass through via STATBUS_TEST_LOCK_HELD, so a run never blocks on its own pg_regress; only the outermost acquirer checks); tripwire covers both pg_regress invocation sites (the isolated site covers the fast/all loop by construction). The match pattern pgrep -af 'pg_regress|HIDE_TABLEAM' is empirically derived from a live process table: pg_regress redirects its psql child via fork+dup2, so the child's argv never carries the outputdir — path-matching would miss the orphaned-child case; HIDE_TABLEAM is a psql -v var only pg_regress injects, catching both parent and orphan.
+
+FAIL-OPEN RULED ACCEPTABLE, BY DESIGN (record so it reads as designed, not overlooked): the guard's exec rc=1 is ambiguous between pgrep-no-match, db-container-down, and daemon-unreachable — but every such state is either genuinely inert (a down container contains no processes; no straggler can exist in it) or fails THIS run loudly seconds later at its own docker compose exec on the same dependency; the guard never needs to be the fail point for infrastructure the run hard-depends on immediately after. Distinguishing exec-failure reasons would require parsing compose stderr (text-as-classifier, banned per doc-022) or a ps pre-check that can itself transiently fail. The residual — transient exec failure at guard time AND a live straggler AND an imminent collision — is a conjunction of rare events, and the NUL tripwire is the evidence-preserving backstop for exactly that class: two independent layers where the first fails open into the second's detection.
+
+All three legs live-verified by the mechanic (happy path inert; real fake straggler refused pre-pg_regress; real NUL-embedded .out detected + preserved byte-intact). One optional nit folded at commit: on cp failure the tripwire banner reports '(preservation FAILED — original left at <file>)' instead of naming a copy that does not exist.
 ---
 <!-- COMMENTS:END -->
