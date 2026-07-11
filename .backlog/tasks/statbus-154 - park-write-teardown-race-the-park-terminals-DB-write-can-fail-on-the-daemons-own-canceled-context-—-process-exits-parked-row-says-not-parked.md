@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-07-09 00:48'
-updated_date: '2026-07-11 20:21'
+updated_date: '2026-07-11 21:11'
 labels:
   - product
   - upgrade
@@ -90,5 +90,11 @@ author: foreman
 created: 2026-07-11 20:21
 ---
 BUILD IN FLIGHT (foreman, 2026-07-11): the ruled four-part package is dispatched to the engineer — (1) guard + logUpgradeRow marker on the convicted markCurrentVersionCompleted; (2) migration: chk_upgrade_parked_requires_in_progress constraint + one-time legacy cleanup; (3) parkUpgrade's not-parkable error names the actual state; (4) migration: the upgrade_state_log trigger table + the arc dump-rider extension. Migration-bearing → tester runs the SQL suite before ship; architect reviews the frozen package; foreman commits; wave 8 dispatches after — the oracle for fix + instrumentation together, and the closer for 154 AC#3, 148 AC#2, 147 ACs #1/#3, and 145's full acceptance.
+---
+
+author: foreman
+created: 2026-07-11 21:11
+---
+PACKAGE SHIPPED in 9d9bdc524 (22 files: the guarded writer with its new LabelCompletedCurrentVersion marker; the chk_upgrade_parked_requires_in_progress constraint migration with one-time legacy cleanup; the state-naming not-parkable error; the upgrade_state_log trigger-table migration + the arc dump rider; the 330 T8/T9 invariant pins; the five consequence-test updates; the regenerated artifacts — each diff verified as exactly the new objects; doc/db regen incl. cosmetic statistical_unit_def deparse drift, blessed in the commit message; T8's deliberate constraint-rejection ERROR justified per the expected-error gate). Dual-reviewed (architect ship-with-one-addition; foreman first-hand). PROVEN by the authoritative single-writer fast suite: 85/85 — including 303/307 clean, empirically confirming the straggler conviction (STATBUS-158). The floor bump to 20260711201432 rode as approved. WAVE 8 DISPATCHED on 9d9bdc524 — AC#3's oracle, shared with 148 AC#2, 147 #1/#3, and 145's full acceptance. Side findings banked this session: STATBUS-156 (seed stale-restored fallback), STATBUS-157 (fast-stamp overreach), STATBUS-158 (pg_regress straggler guard, HIGH).
 ---
 <!-- COMMENTS:END -->
