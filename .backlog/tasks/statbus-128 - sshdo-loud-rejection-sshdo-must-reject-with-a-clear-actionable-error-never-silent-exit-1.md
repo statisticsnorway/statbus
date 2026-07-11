@@ -3,10 +3,10 @@ id: STATBUS-128
 title: >-
   sshdo-loud-rejection: sshdo must reject with a clear actionable error, never
   silent exit 1
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-07-03 10:35'
-updated_date: '2026-07-10 07:38'
+updated_date: '2026-07-11 20:07'
 labels:
   - ops
   - ci
@@ -42,7 +42,7 @@ RELATED: the residual intermittent CI→niue TCP timeouts (CrowdSec community-fe
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 A non-allowlisted command over SSH with the restricted key produces a one-line actionable error on the caller's stderr (visible in a CI job log) naming the user and pointing at the allowlist — demonstrated with a deliberate mismatched command
-- [ ] #2 The allowlist's enforcement behavior is unchanged (rejection still exits non-zero; allowed commands unaffected)
+- [x] #2 The allowlist's enforcement behavior is unchanged (rejection still exits non-zero; allowed commands unaffected)
 - [x] #3 The change's provenance is settled first: sshdo's origin (package vs local script) documented, and the fix applied in the shape that survives updates
 - [x] #4 Same verified on rune.statbus.org if it runs the same sshdo setup
 <!-- AC:END -->
@@ -68,3 +68,9 @@ created: 2026-07-10 07:38
 CLEAN-SHIP FOLLOW-THROUGH (King's order, 2026-07-10): both hand-managed server files now have repo-canonical copies under ops/niue/, committed in the history-tracking shape he named — the ORIGINALS as found (a5629179d: sshdo 1.1.1 pristine + sshdoers with its warts) then the CHANGES (6ac199afc: the loud-rejection patch + the statbus_no cleanup) — so every future change is a reviewable diff against a committed baseline. The sshdoers cleanup is APPLIED on niue (backup /etc/sshdoers.bak-20260710-statbus128): both stale statbus_no entries removed (deploy line 16 + notify line 31; Norway lives on rune, the user does not exist on niue). VERIFIED: sshdo --check now exits 0 with 'syntax OK' (was exit 1 with the dangling-user warning); md5 of /etc/sshdoers and /usr/local/bin/sshdo BYTE-IDENTICAL to the ops/niue/ copies — server and repo converged. Remaining for close: AC#2's allowed-path live proof on the next natural pg_regress green.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+CLOSED — sshdo rejections are loud, and both halves are live-proven. The King's D5 ruling (2026-07-02) implemented 2026-07-09/10 with his explicit approval for the server write. THE CHANGE: six lines in /usr/local/bin/sshdo's disallowed branch — one stderr line to the caller (user, attempted command truncated at 120, allowlist path) before the unchanged syslog/banner/exit-1. PROVENANCE (AC#3): raf.org sshdo 1.1.1, hand-deployed Python3, unpackaged → patch-in-place; both server files now have repo-canonical copies under ops/niue/ committed as originals-then-changes (a5629179d → 6ac199afc) per the King's clean-ship order, server and repo byte-identical (md5-verified). AC#1: live rejection test as statbus_test printed the exact actionable line and exited 1; syslog dual-logging intact. AC#2: enforcement unchanged — proven live by pg_regress run #360 GREEN on 6ac199afc itself (the commit carrying the change), the allowed CI path running normally under the patched script. AC#4: rune has no sshdo — not applicable. RIDER CLEANUP (King, 2026-07-10): both stale statbus_no entries removed from /etc/sshdoers (Norway lives on rune); sshdo --check now exits 0 clean. Backups: sshdo.bak-20260709-statbus128, sshdoers.bak-20260710-statbus128. The measured cost that motivated this (a three-week silent outage + a four-agent hour on 2026-07-09) is on comment #1; the next allowlist mismatch names itself in the first CI log line.
+<!-- SECTION:FINAL_SUMMARY:END -->
