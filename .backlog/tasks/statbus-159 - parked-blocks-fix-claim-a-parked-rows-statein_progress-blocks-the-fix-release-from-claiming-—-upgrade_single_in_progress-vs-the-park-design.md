@@ -3,11 +3,11 @@ id: STATBUS-159
 title: >-
   parked-blocks-fix-claim: a parked row's state='in_progress' blocks the fix
   release from claiming — upgrade_single_in_progress vs the park design
-status: In Progress
+status: Done
 assignee:
   - engineer
 created_date: '2026-07-11 22:36'
-updated_date: '2026-07-11 23:21'
+updated_date: '2026-07-11 23:48'
 labels:
   - upgrade
   - recovery
@@ -45,8 +45,8 @@ Evidence artifact: upgrade-arc-log-postswap-health-park-29169447311 (14-day rete
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 Architect ruling recorded on this ticket: the constraint geometry that lets a fix release claim while a park stands, consistent with 154's parked-cannot-complete invariant
-- [ ] #2 A fix release claims and completes while a B row sits parked, proven by the health-park arc C-leg going green on a real box
-- [ ] #3 The parked row's final disposition after the fix succeeds is explicit and state-logged (no silent completion of the parked row)
+- [x] #2 A fix release claims and completes while a B row sits parked, proven by the health-park arc C-leg going green on a real box
+- [x] #3 The parked row's final disposition after the fix succeeds is explicit and state-logged (no silent completion of the parked row)
 <!-- AC:END -->
 
 ## Comments
@@ -82,3 +82,9 @@ created: 2026-07-11 23:21
 SHIPPED: 2581d71da (2026-07-12). Architect verdict SHIP after two review fixes: (1) both call sites take commit_tags from the claim's atomic RETURNING + displayName recomputed post-claim from the claimed tags (the mandatory part landed in the first amendment; the displayName recompute was architect-waived as cosmetic but applied anyway); (2) displacer identity corrected — the displacement note and loud line name the CLAIMING row's id, not d.version (which is the running binary = the displaced row itself post-swap; it would have named itself as its own displacer). Review also confirmed a property better than the ruling asked: the displacement rides the claim's transaction, so a failed claim rolls the displacement back — a park is never consumed without a successful takeover. Verification: go build/vet, gofmt, the 092 durability test green; arc bash -n + shellcheck clean. WAVE 10 dispatched to the operator on 2581d71da — its C-leg is the oracle for ACs #2/#3.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+SHIPPED 2581d71da; PROVEN by wave 10 (arc run #55, CI run 29171998401, 2026-07-12) — the health-park arc's first full end-to-end green. C (a genuine fix release, new migration V3) claimed OVER B's standing park via displacement-at-claim: B landed state='superseded' with the park reason AND the displacement note intact in error (AC#3 — explicit, state-logged disposition: the upgrade_state_log shows exactly one in_progress→superseded, parked→NULL row); B's stale flag was removed by the claim ladder's step A; C completed at t+66s with data intact (AC#2). The fix: claimScheduledUpgrade consolidates both claim sites; crash-safe ladder (flag removal first, then one explicit displace+claim transaction — a failed claim rolls the displacement back, so a park is never consumed without a successful takeover); a live unparked in_progress row matches the displacement WHERE on zero rows, keeping single-in-progress protection unchanged. Full ruling comment #1; dump-rider corroboration #2; review amendments #3/#4. Residual filed separately: STATBUS-160 (superseded-cannot-complete).
+<!-- SECTION:FINAL_SUMMARY:END -->
