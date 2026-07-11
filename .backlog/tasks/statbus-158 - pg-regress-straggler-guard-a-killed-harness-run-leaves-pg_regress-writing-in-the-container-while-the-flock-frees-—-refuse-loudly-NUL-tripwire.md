@@ -3,11 +3,11 @@ id: STATBUS-158
 title: >-
   pg-regress-straggler-guard: a killed harness run leaves pg_regress writing in
   the container while the flock frees — refuse loudly + NUL tripwire
-status: In Progress
+status: Done
 assignee:
   - mechanic
 created_date: '2026-07-11 20:57'
-updated_date: '2026-07-11 23:42'
+updated_date: '2026-07-11 23:43'
 labels:
   - testing
   - dev-tooling
@@ -39,9 +39,9 @@ THE RULED GUARD, two parts (architect, 2026-07-11):
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A run started while a container-side pg_regress exists refuses loudly, naming the pids and the exact kill command — no auto-kill, no silent race
-- [ ] #2 An embedded NUL in any .out fails with the distinct corrupted-output verdict naming the straggler first-check, and the corrupted file is preserved under tmp/ before any rerun
-- [ ] #3 The guard's check + the flock ride the same code path so the loophole cannot silently reopen
+- [x] #1 A run started while a container-side pg_regress exists refuses loudly, naming the pids and the exact kill command — no auto-kill, no silent race
+- [x] #2 An embedded NUL in any .out fails with the distinct corrupted-output verdict naming the straggler first-check, and the corrupted file is preserved under tmp/ before any rerun
+- [x] #3 The guard's check + the flock ride the same code path so the loophole cannot silently reopen
 <!-- AC:END -->
 
 ## Comments
@@ -63,3 +63,9 @@ FAIL-OPEN RULED ACCEPTABLE, BY DESIGN (record so it reads as designed, not overl
 All three legs live-verified by the mechanic (happy path inert; real fake straggler refused pre-pg_regress; real NUL-embedded .out detected + preserved byte-intact). One optional nit folded at commit: on cp failure the tripwire banner reports '(preservation FAILED — original left at <file>)' instead of naming a copy that does not exist.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+SHIPPED as df0cc8fcf (2026-07-12), dev.sh only, +137. Two independent layers per the architect-ruled shape: (a) straggler guard inside acquire_test_run_lock itself (AC#3 structural — no lock-taking entrypoint can skip it; re-entrancy verified: child invocations pass through via STATBUS_TEST_LOCK_HELD) — pgrep -af 'pg_regress|HIDE_TABLEAM' catches both the pg_regress parent and an orphaned psql child (pattern empirically derived from a live process table: fork+dup2 means the child's argv never carries the outputdir); on a hit, refuse loudly with pids + exact kill command, no auto-kill. (b) NUL tripwire after both pg_regress invocation sites: distinct corrupted-output verdict naming the straggler first-check; corrupted file preserved as tmp/corrupted-<test>-<timestamp>.out before any rerun, with an honest "preservation FAILED" fallback if the copy itself fails. Fail-open on exec failure ruled acceptable BY DESIGN (comment #2 carries the full reasoning). All three ACs live-verified on the dev box: happy path inert; a real orphaned container process refused before pg_regress started; a real NUL-embedded .out detected, preserved byte-intact (od-verified), distinct verdict printed. Review: architect SHIP as-built + one optional honesty nit, folded at commit.
+<!-- SECTION:FINAL_SUMMARY:END -->
