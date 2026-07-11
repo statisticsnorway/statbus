@@ -30,7 +30,7 @@ ordinal: 111000
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 > NORTH STAR: "./sb install" is the operator's single trained action and must never be a dead end.
-> BENEFIT: the one command we tell a stranded operator to run actually re-attempts a broken restore (today it dead-ends at the idempotent step-table on the common failed path), and every terminal tells them what happens next — the difference between self-service recovery in Senegal and a flight.
+> BENEFIT: the one command we tell a stranded operator to run actually re-attempts a broken restore (today it dead-ends at the idempotent step-table on the common failed path), and every terminal tells them what happens next — the difference between self-service recovery for a remote NSO and a flight.
 > STAGE: Stage 1 → Stage 3 (the last recovery-core unit; now unblocked since 046 closed).
 > COMPLEXITY: engineer-substantial (install-ladder re-attempt arm + legend/forecast output + the PID/pidAlive removal per the King's flock ruling); architect reviews; arc-proven.
 > DEPENDS ON: STATBUS-109, STATBUS-110 (recorded sequence 110→109→046→111; their code is landed — the remaining coupling is arc-lane scheduling on STATBUS-071).

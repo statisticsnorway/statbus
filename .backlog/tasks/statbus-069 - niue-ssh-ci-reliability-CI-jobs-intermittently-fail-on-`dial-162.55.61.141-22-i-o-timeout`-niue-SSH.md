@@ -22,12 +22,14 @@ ordinal: 69000
 > NORTH STAR: trustworthy CI — gated jobs must not fail on infrastructure noise.
 > BENEFIT: CI stops flapping on SSH timeouts to niue; gated jobs stop failing spuriously.
 > HYPOTHESIS (King): crowdsec on niue blocks GitHub's shared-runner IP ranges; operator verifying read-only now; fix direction if confirmed = self-hosted runner on the host via docker compose (King's proven pattern from another project).
-> COMPLEXITY: operator-verify then engineer-substantial.
+> COMPLEXITY: engineer-substantial (build phase shipped — remaining work is the Phase-3 workflow migration).
 > DEPENDS ON: nothing.
 
 ---
 
 CI jobs that SSH to niue.statbus.org (162.55.61.141) intermittently fail with `dial tcp 162.55.61.141:22: i/o timeout` (30s connect timeout) BEFORE any work runs — a niue SSH reachability/latency issue, NOT a code failure.
+
+WHERE THIS STANDS (2026-07-08): hypothesis CONFIRMED — CrowdSec's community IP blocklist bans hundreds of GitHub Actions runner IPs, causing intermittent SSH drops to niue. Design (doc-026) and Phase 2 are DONE: a self-hosted, repo-scoped ephemeral runner is built, registered, and online on niue (isolated user, no docker socket, own CrowdSec whitelist scoped to its private bridge network only — GitHub's public IP ranges are deliberately NOT whitelisted). Currently in a one-day observation window (through the first weekly refresh) before Phase 3: migrating the actual CI workflows (pg_regress trusted leg, notify-all-clouds, seq/docker-maintenance) onto the runner, per doc-026's migration order. Remaining work on this ticket = Phase 3 only.
 
 CONCRETE INSTANCES (2026-06-17):
 - notify-all-clouds.yaml: `notify (statbus_jo)` leg failed on push 55cb5c959 (the other 6 slots succeeded → niue up, single-slot/transient); SUCCEEDED on the next push c3e00f5f4.
