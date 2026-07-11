@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-11 20:57'
+updated_date: '2026-07-11 22:13'
 labels:
   - testing
   - dev-tooling
@@ -41,3 +42,13 @@ THE RULED GUARD, two parts (architect, 2026-07-11):
 - [ ] #2 An embedded NUL in any .out fails with the distinct corrupted-output verdict naming the straggler first-check, and the corrupted file is preserved under tmp/ before any rerun
 - [ ] #3 The guard's check + the flock ride the same code path so the loophole cannot silently reopen
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect (via foreman)
+created: 2026-07-11 22:13
+---
+Execution notes (architect, 2026-07-12, post-ticketing review): (1) the post-lock pgrep check must match BOTH pg_regress AND its regress psql children — a dying pg_regress can leave the psql child still writing, so pgrep for pg_regress alone leaves the loophole half-open. (2) The refuse banner must reuse the test-run lock's existing contention-banner style — one consistent operator voice, same shape as the lock's own contention message.
+---
+<!-- COMMENTS:END -->
