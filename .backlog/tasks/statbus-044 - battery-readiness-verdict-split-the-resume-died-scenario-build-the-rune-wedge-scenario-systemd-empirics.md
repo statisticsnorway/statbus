@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-06-12 21:51'
-updated_date: '2026-07-07 08:46'
+updated_date: '2026-07-11 22:58'
 labels:
   - install-recovery
   - testing
@@ -25,27 +25,27 @@ ordinal: 44000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-> NORTH STAR: (already leads the ticket) the park proof — delivered. Remaining: the rune-wedge takeover proof + systemd counter empirics.
-> BENEFIT: the exact failure Norway already lived through once (the rune wedge shape) gets a standing scenario proving takeover → forward → completed with zero restores — before Norway relies on it again; and the NRestarts/reset-failed semantics the crash-loop gate reads are confirmed rather than assumed.
+> NORTH STAR: an upgrade that keeps crashing the server must end, provably, in one of two states — and a real VM run is the proof, not reasoning:
+> 1. PARKED — after two crashes at the same step (or three in total), the server stops retrying, stays alive and reachable, and calls for help exactly once. Restarts do not wake it or re-alert.
+> 2. COMPLETED — when the operator deliberately reruns the install entrypoint, the parked upgrade gets exactly one fresh attempt and finishes. If the cause is still there, it parks again: fresh reason, one new alert.
+> Norway's rune box lived the failure this forbids: an upgrade crash-looping unnoticed, indefinitely. These scenarios are the standing regression net against that class.
+> BENEFIT: the exact failure Norway already lived through has a standing test proving takeover → forward → completed with zero restores, before Norway relies on it again; and the systemd restart-counter behavior the crash-loop gate reads is measured, not assumed.
 > STAGE: Stage 1 proof work.
-> COMPLEXITY: mixed — architect owns the rune-wedge scenario (AC#1, assigned); operator/tester run the one-VM systemd empirics (AC#2).
+> COMPLEXITY: mixed — architect owned the rune-wedge scenario (AC#1); operator/tester ran the systemd empirics (AC#2).
 > DEPENDS ON: nothing.
 
----
+PROVEN (each by a named run):
 
-NORTH STAR (read this first): when an upgrade keeps killing the server, the system must STOP RETRYING, STAY ALIVE, and CALL FOR HELP ONCE — never loop forever unnoticed (the rune failure). The mechanism is built and shipped (STATBUS-046). THIS ticket is the PROOF: one test on a real cloud VM that crashes an upgrade during its real migration window three times, watches it park + siren, then un-parks it deliberately and watches it complete. Everything below and in the comments is detail in service of that one run.
+1. Park + un-park end-to-end (AC#4 — run r19, comment #11): two same-step deaths in the boot migration window → park at attempts==3 → unit alive-idle, restart counter bounded and frozen → exactly one alert through an .env.config-configured callback (closes the STATBUS-131 AC#3 leg) → two extra restarts skip resume without re-alerting → deliberate install un-park → one fresh attempt → completed, demo data intact. The budget fix this required (count deaths BEFORE the boot migration, stamp the boot-migrate step, parked rows skip it) is ruled in comment #6, King-approved (comment #7), shipped as cc660280f.
 
-CURRENT STATE + THE APPROVED PLAN (King approved comment #6, 2026-07-04): 12 VM attempts exposed a product hole — migrations actually run at service BOOT (boot-migrate), before the crash counter starts, so a crash there loops uncounted. Approved fix: count attempts BEFORE boot-migrate (both entrypoints), stamp the boot-migrate step on the flag so same-step-twice covers it, parked servers skip boot-migrate, exhaustion at the early guard parks (never auto-rollback). Then the scenario kills during boot-migrate — simpler than the old construction AND tests the real window. Order: engineer builds the counting fix → mechanic rebuilds the scenario per comment #6's substitutions → VM run is the oracle. That run also closes STATBUS-131 AC#3 (siren from a .env.config-configured callback) and the doc-021 open gap.
+2. Rune takeover shape (AC#1 — comment #12): fabricated half-done upgrade — in_progress row, service flag with a dead holder, stale-but-serving proxy, crash-looping unit — the install entrypoint takes over (SIGKILL-class quiesce, never SIGTERM), resumes forward, recreates the full service set at the target, converges to completed with zero restores and byte-identical data; a second install reads nothing-scheduled.
 
---- Original battery items (pre-park-arc; still valid, deferred behind the run above) ---
+3. Systemd counter facts (AC#2 — comment #13, measured on systemd 255): reset-failed zeroes NRestarts on both failed and active units; NRestarts increments exactly +1 per restart. On older systemd (<244) the gate degrades to the conservative pre-039 behavior, logged.
 
-Three items that gate the deferred install-recovery VM battery (post-rune-install window; commits to scenarios must respect the freeze windows — land BEFORE a battery run starts or between runs, never during).
+OPEN — the single remaining AC:
+#3 freeze-window discipline: commits to scenario files land BEFORE a battery run starts or BETWEEN runs, never during one. A standing rule to hold through the deferred VM battery, not a build item.
 
-1. SCENARIO EXPECTATION UPDATE (battery-blocking, found in STATBUS-042): test/install-recovery/scenarios/3-postswap-resume-died-rollback asserts the PRE-039 contract — death during Phase=Resuming ⇒ always rolled_back (UPGRADE_DIED_DURING_RESUME). Post-039 (5eacd6305) the Resuming branch is ground-truth-gated: an AT-TARGET fabrication resumes FORWARD and converges to completed; only a POSITIVELY-BEHIND fabrication rolls back to the upgrade's own snapshot. The scenario almost certainly fabricates at-target state (a Resuming flag on a converged box) → RED against rc.02 for the RIGHT reason. Split it: fabricate-Behind → assert rolled_back + identity restore; fabricate-AtTarget → assert forward convergence to completed. Marked in doc/diagrams/upgrade-timeline.plantuml's TEST note.
-
-2. RUNE-WEDGE SCENARIO (STATBUS-039 verification plan item 2): fabricate the rune shape on a VM — in_progress post_swap row + stale proxy container + crash-looping unit (NRestarts past the gate) — and assert: ./sb install takes over (SIGKILL-class, no SIGTERM delivered), resumes forward, recreates the full service set incl. proxy at the flag target, converges the row to completed, no restore ran, flag removed, a subsequent install is nothing-scheduled. Owner: architect (reconstructed the shape in the Go tests).
-
-3. SYSTEMD EMPIRICS (engineer's confirm-empirically items from the 039 review): (a) NRestarts semantics across the exit-42 handoff — confirm the planned restart bumps the counter by exactly 1 and the per-dispatch reset-failed zeroes it (STATBUS-039 F2); (b) `systemctl --user reset-failed` on an ACTIVE unit resets the restart counter on the fleet's systemd version (≥244 behavior) — on older systemd the gate degrades to pre-039-conservative (logged), confirm the degradation is what ships. Both are one-VM checks; fold into the battery prep.
+HISTORY (in the comments, read there — not restated here): assertion spec (#1); why the original migrate-up kill window was unreachable and the boot-migrate reframe (#4–#5); the approved budget fix + scenario shape (#6); the 19-run campaign ledger with every failure named (#4, #9, #10, #11); the four-case verdict-matrix correction (implementation notes). The King's ordered boot-migrate walkthrough is doc-027.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
