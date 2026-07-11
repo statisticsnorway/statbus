@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - operator
 created_date: '2026-07-02 17:01'
-updated_date: '2026-07-08 13:56'
+updated_date: '2026-07-11 20:22'
 labels:
   - ci
   - notify
@@ -75,5 +75,11 @@ author: foreman
 created: 2026-07-08 13:56
 ---
 DURABLE ENTRYPOINT DEPLOYED, both halves (2026-07-08, same King-approved root session as the runner phase 2): REPO half c07439b5b — new ops/ci-notify.sh (4 lines, behavior evolves via git) + the workflow script block reduced to the single byte-stable line `~/statbus/ops/ci-notify.sh` (od-verified). SERVER half — /etc/sshdoers: all 8 notify entries replaced with that single pinned line (old multi-line <binary>-escaped pins removed), comment block updated to stay true, backup at /etc/sshdoers.bak-20260708-statbus123, cat -A verified no trailing whitespace; the pg_regress and deploy entries untouched; local reference copy tmp/niue-sshdoers refreshed from the live file. DISCLOSURE from the live read: the file had ALREADY been hand-patched discover→check sometime after comment #2's diagnosis (it no longer matched our stale local copy) — presumably the King's own edit; yesterday's notify run still failed, consistent with the dial-lottery reds (STATBUS-069) rather than the allowlist. ORACLE STATUS: the 13:54 run (28948097390) fired with the new workflow BEFORE the allowlist edit landed — red as expected. Green now requires each slot to have ops/ci-notify.sh in its checkout (arrives with each slot's next upgrade); the byte-pinning failure CLASS is ended — future workflow-behavior changes edit the script via git, never the server. Full immunity from the dial-lottery reds comes when phase 3 moves notify onto the niue runner (069, after the observation day).
+---
+
+author: foreman
+created: 2026-07-11 20:22
+---
+STATUS SYNC (foreman, 2026-07-11), honest correction to the overnight theory: 'Notify cloud services' is STILL FAILING on every master push — latest three: run 29077265816 (6ac199afc, 2026-07-10), 29016872841 (b14e23dc4, 2026-07-09), 28989777186 (653834672, 2026-07-09). The 2026-07-08 niue session deployed the sshdoers durable entrypoint (all 8 notify entries → ~/statbus/ops/ci-notify.sh) and the repo carries ops/ci-notify.sh + the single-line workflow (c07439b5b) — the expectation was 'greens as slots pull ci-notify.sh', which has NOT happened: slots only update their checkouts on DEPLOY, and no slot has deployed since, so ~/statbus/ops/ci-notify.sh likely does not exist yet on most slots — the sshdoers entry points at a file the slot hasn't pulled. NEXT STEP when picked up: operator reads one failing slot (does ~/statbus/ops/ci-notify.sh exist? what does the loud sshdo rejection now say — the 128 fix means the failure is finally NAMED in the CI log, read it first); the likely fix is either deploying the slots or a bootstrap shim, architect-ruled. Queued behind the 154/wave-8 closure.
 ---
 <!-- COMMENTS:END -->
