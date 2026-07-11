@@ -3,8 +3,9 @@ id: STATBUS-159
 title: >-
   parked-blocks-fix-claim: a parked row's state='in_progress' blocks the fix
   release from claiming — upgrade_single_in_progress vs the park design
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - engineer
 created_date: '2026-07-11 22:36'
 updated_date: '2026-07-11 22:45'
 labels:
@@ -43,10 +44,12 @@ Evidence artifact: upgrade-arc-log-postswap-health-park-29169447311 (14-day rete
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Architect ruling recorded on this ticket: the constraint geometry that lets a fix release claim while a park stands, consistent with 154's parked-cannot-complete invariant
+- [x] #1 Architect ruling recorded on this ticket: the constraint geometry that lets a fix release claim while a park stands, consistent with 154's parked-cannot-complete invariant
 - [ ] #2 A fix release claims and completes while a B row sits parked, proven by the health-park arc C-leg going green on a real box
 - [ ] #3 The parked row's final disposition after the fix succeeds is explicit and state-logged (no silent completion of the parked row)
 <!-- AC:END -->
+
+
 
 ## Comments
 
