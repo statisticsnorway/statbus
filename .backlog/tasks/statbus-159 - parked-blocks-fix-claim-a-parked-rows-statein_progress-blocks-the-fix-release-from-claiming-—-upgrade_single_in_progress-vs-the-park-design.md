@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-07-11 22:36'
-updated_date: '2026-07-11 22:59'
+updated_date: '2026-07-11 23:21'
 labels:
   - upgrade
   - recovery
@@ -74,5 +74,11 @@ author: foreman
 created: 2026-07-11 22:59
 ---
 RULING AMENDMENT (architect confirm, 2026-07-12): the two claim sites' MUTATING clause is byte-identical as ruled, but the RETURNING projections differ (service.go:1570 returns commit_tags+recreate; :4466 returns recreate only, sourcing commit_tags from the earlier pending-row SELECT at :4415). Engineer stopped on the named condition instead of adapting — correct. Confirmed shape: the shared claim helper uses the superset RETURNING (commit_tags, recreate); site 2 takes commit_tags from the helper's return. Strictly better than the old shape: the value now comes atomically from the claim UPDATE, closing the stale-read window between :4415's SELECT and the claim. Pending-row SELECT keeps commit_sha/scheduled_at/docker_images_status for the claim gate + displayName. Displacement ladder unchanged. Build proceeding.
+---
+
+author: foreman
+created: 2026-07-11 23:21
+---
+SHIPPED: 2581d71da (2026-07-12). Architect verdict SHIP after two review fixes: (1) both call sites take commit_tags from the claim's atomic RETURNING + displayName recomputed post-claim from the claimed tags (the mandatory part landed in the first amendment; the displayName recompute was architect-waived as cosmetic but applied anyway); (2) displacer identity corrected — the displacement note and loud line name the CLAIMING row's id, not d.version (which is the running binary = the displaced row itself post-swap; it would have named itself as its own displacer). Review also confirmed a property better than the ruling asked: the displacement rides the claim's transaction, so a failed claim rolls the displacement back — a park is never consumed without a successful takeover. Verification: go build/vet, gofmt, the 092 durability test green; arc bash -n + shellcheck clean. WAVE 10 dispatched to the operator on 2581d71da — its C-leg is the oracle for ACs #2/#3.
 ---
 <!-- COMMENTS:END -->
