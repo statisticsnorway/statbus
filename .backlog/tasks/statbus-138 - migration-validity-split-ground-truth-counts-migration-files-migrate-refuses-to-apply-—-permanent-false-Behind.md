@@ -3,10 +3,10 @@ id: STATBUS-138
 title: >-
   migration-validity-split: ground truth counts migration files migrate refuses
   to apply — permanent false Behind
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-07-04 22:32'
-updated_date: '2026-07-08 21:30'
+updated_date: '2026-07-11 20:20'
 labels:
   - upgrade
   - install-recovery
@@ -36,10 +36,10 @@ FOUND live in r17 (2026-07-05) and MORE SERIOUS than it first looks: the synthet
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 One shared version-validity predicate + lister in the migrate package; service.go's latestDiskMigrationVersion DELETED (clean break) and verifyUpgradeObservedStateEx reads the shared max — a file migrate refuses is INVISIBLE to the comparator
-- [ ] #2 Invalid-version *.up.sql files are SKIPPED LOUDLY by the shared lister (warn names the file), not a hard error for the whole run; valid-version files with other defects still hard-error
-- [ ] #3 Extension sets unified: .up.psql counted by BOTH readers (closes the inverse false-AtNew hazard)
-- [ ] #4 Pinning tests: valid+invalid fixture → identical sets from both readers + warn line; migrate.Up applies the valid file despite the stray; comparator never reads Behind from a refused file; .up.psql counted by both; floor bump-guard consistent on the same fixture
+- [x] #1 One shared version-validity predicate + lister in the migrate package; service.go's latestDiskMigrationVersion DELETED (clean break) and verifyUpgradeObservedStateEx reads the shared max — a file migrate refuses is INVISIBLE to the comparator
+- [x] #2 Invalid-version *.up.sql files are SKIPPED LOUDLY by the shared lister (warn names the file), not a hard error for the whole run; valid-version files with other defects still hard-error
+- [x] #3 Extension sets unified: .up.psql counted by BOTH readers (closes the inverse false-AtNew hazard)
+- [x] #4 Pinning tests: valid+invalid fixture → identical sets from both readers + warn line; migrate.Up applies the valid file despite the stray; comparator never reads Behind from a refused file; .up.psql counted by both; floor bump-guard consistent on the same fixture
 - [ ] #5 Flagless churn leg verified: a stray invalid file no longer makes boot-migrate fail exit-1 into restart churn (the exit-20-only 144 branch didn't cover it)
 <!-- AC:END -->
 
@@ -62,5 +62,11 @@ THE SINGLE-SOURCE SHAPE (lego): ONE predicate + ONE lister in the migrate packag
 PINNING TESTS (the ACs, now added): the r17 fixture (one valid + 99999999999999_stray.up.sql) → identical sets from both readers, warn names the stray, migrate.Up applies the valid file, comparator NEVER reads Behind from a refused file; a .up.psql counted by BOTH; flagless boot with the stray does not churn.
 
 BUILDER: engineer (cross-package clean-break + the skip-vs-refuse semantics change is design-sensitive); architect reviews the diff before commit. The r17 warn line should also be greppable as a stable marker — arcs may key on it later.
+---
+
+author: foreman
+created: 2026-07-11 20:20
+---
+STATUS SYNC (foreman, 2026-07-11): the fix SHIPPED overnight 2026-07-08 in dff5231de ('migrate: one definition of a pending migration for applier and observer') — shared lister + validity predicate, invalid-named files skipped with a loud warn naming the file, MaxDiskVersion exported, latestDiskMigrationVersion DELETED from service.go (clean break), .up.psql unified, migration_validity_test.go (182 lines) pinning both-readers agreement per the ruling; architect-reviewed pre-commit. ACs #1-#4 checked on that evidence. AC#5 (the flagless churn leg verified LIVE — a stray invalid file no longer restart-churns a flagless box) has no dedicated run on record — it is the one open criterion; candidate vehicle: a small variant leg on an existing arc or a targeted VM check whenever convenient. Status corrected To Do → In Progress (was never moved when the code landed).
 ---
 <!-- COMMENTS:END -->
