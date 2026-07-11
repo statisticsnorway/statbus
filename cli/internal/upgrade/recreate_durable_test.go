@@ -52,14 +52,19 @@ func TestRecreateIntentIsDurableOnRow_STATBUS092(t *testing.T) {
 			"recreate signal must be removed; intent is durable on the row.")
 	}
 
-	// (3) The durable intent is READ ATOMICALLY at BOTH claim sites via RETURNING,
-	//     so it can never be lost to NOTIFY timing.
-	if !strings.Contains(src, "RETURNING recreate") {
-		t.Errorf("STATBUS-092: executeScheduled's claim must read the durable column via RETURNING recreate.")
-	}
+	// (3) The durable intent is READ ATOMICALLY at claim via RETURNING, so it can
+	//     never be lost to NOTIFY timing. STATBUS-159 consolidated the two former
+	//     byte-identical claim sites into ONE shared helper (claimScheduledUpgrade)
+	//     whose claim RETURNs the superset (commit_tags, recreate); BOTH former sites
+	//     (executeScheduled + ExecuteUpgradeInline) now route through it, so both the
+	//     scheduled and install-inline paths read recreate durably at claim.
 	if !strings.Contains(src, "RETURNING commit_tags, recreate") {
-		t.Errorf("STATBUS-092: ExecuteUpgradeInline's claim must read the durable column via " +
-			"RETURNING commit_tags, recreate (the install-inline dispatch path).")
+		t.Errorf("STATBUS-092/159: the shared claim helper must read the durable column via " +
+			"RETURNING commit_tags, recreate.")
+	}
+	if strings.Count(src, "d.claimScheduledUpgrade(ctx, id)") < 2 {
+		t.Errorf("STATBUS-159: both claim sites (executeScheduled + ExecuteUpgradeInline) must route " +
+			"through the shared claimScheduledUpgrade helper so recreate is read durably at claim in both paths.")
 	}
 
 	// (4) The intent is SET durably at schedule time (RunSchedule's promote UPDATE),

@@ -474,14 +474,18 @@ assert_systemd_active "$VM_NAME" "$UPGRADE_UNIT" "active"
 echo "  ✓ daemon unit active post-re-park — ready to claim a newly-scheduled C"
 
 # ─────────────────────────────────────────────────────────────────────────
-# Step 5 (doc-029 Rev 2, DISCOVERY LEG — dual oracle): register + schedule C
-# while B's row sits parked with its flag on disk. The parked-B-row × new-C-
-# upgrade interaction (flag on disk, flock free, writeUpgradeFlag's acquire
-# against it; the parked row's supersession) is STATICALLY UNDETERMINED — the
-# run is the oracle. C's own row (a SEPARATE row, keyed by C_FULL) is what
-# arc_to polls; B's row is left to observe, not to hard-assert a specific
-# terminal shape for (doc-029: "ANY wedge here is a product finding of the
-# highest value, not an arc failure — report it, don't route around it").
+# Step 5 (doc-029 Rev 2 + STATBUS-159: DISPLACEMENT-AT-CLAIM oracle): register +
+# schedule C while B's row sits parked with its flag on disk. Wave 9 (this arc's
+# first fully-green park substrate) EXPOSED the parked-B-row × new-C interaction:
+# upgrade_single_in_progress (one in_progress) vs 154's parked⇒in_progress meant a
+# parked row blocked the fix release from ever claiming — the exact thing a park
+# exists to receive. STATBUS-159 ruled displacement-at-claim: the claim of a fix
+# release atomically displaces the standing park to 'superseded' (marker cleared in
+# the same UPDATE → 154's constraint holds by construction), so C proceeds. That
+# makes B's disposition DETERMINISTIC — no longer a discovery observation but a hard
+# oracle (ACs #2/#3): C completes over the park; B lands superseded with its park
+# narrative intact in error plus a displacement note; the 154 state-log records the
+# in_progress→superseded transition; B's stale flag is removed and C wrote its own.
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── step 5 (DISCOVERY): register + schedule C while B's row sits parked ──"
@@ -492,8 +496,39 @@ echo "  [OBSERVE] flag file present: $(VM_EXEC bash -c 'ls -la ~/statbus/tmp/upg
 arc_to "$C_FULL" "$C_BRANCH" "C (fix release, while B row sits parked with its flag on disk)" completed
 
 echo ""
-echo "── post-C-completion observation: B's row final shape (informational — not hard-asserted, per doc-029) ──"
+echo "── STATBUS-159 AC#2/#3: the fix release displaced the standing park at claim ──"
 VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, recovery_parked_at IS NOT NULL AS parked, error FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql" || true
+
+# B's disposition is now deterministic (displacement-at-claim): superseded, park
+# marker cleared, error carries BOTH the preserved park narrative and the
+# displacement note. Read each fact via SQL (LIKE keeps the huge error text out of
+# the shell). psql failures read as "?" → a loud miss, never a false pass.
+psql_scalar() { VM_EXEC bash -c "cd ~/statbus && echo \"$1\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
+
+B_STATE=$(psql_scalar "SELECT state FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;")
+[ "$B_STATE" = "superseded" ] || { echo "✗ STATBUS-159: B did not land 'superseded' after C's claim displaced it (got '$B_STATE') — the park was not displaced-at-claim" >&2; exit 1; }
+
+B_PARKED=$(psql_scalar "SELECT (recovery_parked_at IS NOT NULL) FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;")
+[ "$B_PARKED" = "f" ] || { echo "✗ STATBUS-159: B's recovery_parked_at was not cleared by the displacement (parked='$B_PARKED') — 154's parked⇒in_progress constraint would have rejected the superseded write" >&2; exit 1; }
+
+B_ERR_PARK=$(psql_scalar "SELECT (error LIKE '%parked on deterministic forward failure%')::int FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;")
+[ "$B_ERR_PARK" = "1" ] || { echo "✗ STATBUS-159: B's park narrative was NOT preserved in error after displacement (LIKE match='$B_ERR_PARK')" >&2; exit 1; }
+
+B_ERR_DISP=$(psql_scalar "SELECT (error LIKE '%displaced by %claim%')::int FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;")
+[ "$B_ERR_DISP" = "1" ] || { echo "✗ STATBUS-159: B's error is missing the displacement note (LIKE match='$B_ERR_DISP')" >&2; exit 1; }
+echo "  ✓ B superseded, park marker cleared, park narrative + displacement note both in error"
+
+# The 154 state-log audits the displacement for free: exactly one in_progress→
+# superseded, parked t→f transition on B's row.
+DISP_LOG=$(psql_scalar "SELECT count(*) FROM public.upgrade_state_log WHERE upgrade_id = (SELECT id FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1) AND old_state = 'in_progress' AND new_state = 'superseded' AND old_parked_at IS NOT NULL AND new_parked_at IS NULL;")
+[ "$DISP_LOG" = "1" ] || { echo "✗ STATBUS-159: the 154 state-log does not show exactly one displacement transition for B (got '$DISP_LOG')" >&2; VM_EXEC bash -c "cd ~/statbus && echo \"SELECT logged_at, old_state, new_state, (old_parked_at IS NOT NULL) AS was_parked, (new_parked_at IS NOT NULL) AS now_parked, application_name FROM public.upgrade_state_log WHERE upgrade_id = (SELECT id FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1) ORDER BY id;\" | ./sb psql -x" >&2 || true; exit 1; }
+echo "  ✓ 154 state-log shows the in_progress→superseded (parked→NULL) displacement row"
+
+# B's stale service-held flag was removed by the claim ladder's step A, and the
+# loud displacement line fired — both proven from the daemon journal.
+VM_EXEC bash -c "journalctl --user -u $UPGRADE_UNIT --no-pager 2>/dev/null | grep -q 'STATBUS-159: removed the parked row.s stale service-held flag'" || { echo "✗ STATBUS-159: no journal line proving step A removed B's stale flag before displacement" >&2; exit 1; }
+VM_EXEC bash -c "journalctl --user -u $UPGRADE_UNIT --no-pager 2>/dev/null | grep -q 'STATBUS-159: displaced parked upgrade id='" || { echo "✗ STATBUS-159: no journal line naming the displacement (id, park reason, claimant)" >&2; exit 1; }
+echo "  ✓ journal: B's stale flag removed by step A, displacement named loudly (C wrote its own flag by completing)"
 
 echo ""
 echo "── assert C's delta {V3} genuinely applied and fixed auth_status: health passes, data intact, no orphan flag ──"

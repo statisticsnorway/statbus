@@ -1564,11 +1564,10 @@ func (d *Service) ExecuteUpgradeInline(ctx context.Context, id int, commitSHA, d
 	// so the flag captures the full commit identity AND the durable recreate
 	// intent in one round-trip. ErrNoRows = the row is no longer 'scheduled'
 	// (another actor claimed it first).
-	var commitTags []string
-	var recreate bool
-	claimErr := d.queryConn.QueryRow(ctx,
-		"UPDATE public.upgrade SET state = 'in_progress', started_at = now(), from_commit_version = $1 WHERE id = $2 AND state = 'scheduled' AND started_at IS NULL RETURNING commit_tags, recreate",
-		d.version, id).Scan(&commitTags, &recreate)
+	// STATBUS-159: claimScheduledUpgrade is the shared claim path — it displaces
+	// any standing park before claiming, so a fix release proceeds while a park
+	// stands. commit_tags comes from the claim's RETURNING here.
+	commitTags, recreate, claimErr := d.claimScheduledUpgrade(ctx, id)
 	if errors.Is(claimErr, pgx.ErrNoRows) {
 		return fmt.Errorf("upgrade row %d no longer in 'scheduled' state (another actor claimed it first); re-run ./sb install after it finishes", id)
 	}
@@ -4402,6 +4401,106 @@ func (d *Service) TagsAtCommit(ctx context.Context, sha CommitSHA) ([]string, er
 	return tags, nil
 }
 
+// claimScheduledUpgrade is the single claim path (STATBUS-159): before claiming
+// scheduled row `id` for this daemon, it DISPLACES any standing park to an honest
+// 'superseded' terminal — so a fix release proceeds while a park stands (a parked
+// row exists precisely to WAIT for that fix; the park itself must not block it).
+// Consolidates the two former claim sites (ExecuteUpgradeInline, executeScheduled):
+// their mutating claim SQL (SET + WHERE) was byte-identical; only the RETURNING
+// projection differed, so this returns the SUPERSET (commit_tags, recreate) and
+// each caller uses what it needs.
+//
+// Ladder, crash-safe by ordering:
+//
+//	step A — if a service-held flag points at the parked in_progress row we are
+//	  about to displace, remove it FIRST. A displaced row's flag is dead weight;
+//	  removing it before the displace closes the window where a stale flag could
+//	  route resumePostSwap at a now-superseded row. Crash after A leaves B parked
+//	  with no flag — a state no recovery resumes; the next claim re-runs this
+//	  idempotent ladder.
+//	step B — ONE explicit transaction: displace THEN claim. Two statements, NOT a
+//	  data-modifying CTE (an unreferenced CTE's order vs the outer UPDATE's
+//	  unique-index check is unspecified). The displacement WHERE (state='in_progress'
+//	  AND recovery_parked_at IS NOT NULL) is the guard: a LIVE unparked in_progress
+//	  row matches 0 rows, so the claim still hits upgrade_single_in_progress's 23505
+//	  loudly — single-in-progress protection is UNCHANGED for genuinely live
+//	  upgrades. parked⇒in_progress + single-in-progress guarantee at most ONE
+//	  displaceable row. The marker is cleared in the SAME UPDATE, so
+//	  chk_upgrade_parked_requires_in_progress (STATBUS-154) holds by construction;
+//	  the 154 upgrade_state_log trigger audits the in_progress→superseded,
+//	  parked→NULL transition under this daemon's application_name. No new siren —
+//	  the park sirened at park time; the displacement is the remedy arriving.
+//
+// Returns pgx.ErrNoRows verbatim when the claim matched 0 rows (row no longer
+// 'scheduled' — another actor claimed it first); callers map it to their own message.
+func (d *Service) claimScheduledUpgrade(ctx context.Context, id int) (commitTags []string, recreate bool, err error) {
+	// Read the standing park once (if any): its id feeds step A's flag match and
+	// its reason names the displacement in the loud line after commit.
+	var parkedID int
+	var parkedReason string
+	hasPark := d.queryConn.QueryRow(ctx,
+		"SELECT id, COALESCE(recovery_parked_reason, '') FROM public.upgrade WHERE state = 'in_progress' AND recovery_parked_at IS NOT NULL").
+		Scan(&parkedID, &parkedReason) == nil
+
+	// step A: a service-held flag pointing at the parked row is dead weight once we
+	// displace it — remove it FIRST (crash-after-A is a safe, resumable state).
+	if hasPark {
+		if flag, ferr := ReadFlagFile(d.projDir); ferr == nil && flag != nil &&
+			flag.Holder == HolderService && flag.ID == parkedID {
+			d.removeUpgradeFlag()
+			fmt.Printf("STATBUS-159: removed the parked row's stale service-held flag (id=%d) before displacing it for the id=%d claim\n", parkedID, id)
+		}
+	}
+
+	// step B: one transaction — displace the standing park, then claim.
+	tx, txErr := d.queryConn.Begin(ctx)
+	if txErr != nil {
+		return nil, false, fmt.Errorf("claim id=%d: begin tx: %w", id, txErr)
+	}
+	defer tx.Rollback(ctx) // no-op after a successful Commit
+
+	displaced := false
+	if hasPark {
+		ct, dispErr := tx.Exec(ctx,
+			`UPDATE public.upgrade
+			    SET state = 'superseded',
+			        superseded_at = now(),
+			        error = COALESCE(error, '') || $1,
+			        recovery_parked_at = NULL,
+			        recovery_parked_reason = NULL
+			  WHERE state = 'in_progress' AND recovery_parked_at IS NOT NULL`,
+			// STATBUS-159 FIX: name the CLAIMANT (the row taking over), not d.version —
+			// d.version is the running binary, which post-swap is the displaced row
+			// itself (the FROM side in every topology), so it would name itself.
+			fmt.Sprintf(" — displaced by the claim of upgrade id=%d", id))
+		if dispErr != nil {
+			return nil, false, fmt.Errorf("claim id=%d: displace standing park: %w", id, dispErr)
+		}
+		displaced = ct.RowsAffected() > 0
+	}
+
+	// The claim itself: mutating SET + WHERE identical to the two former sites;
+	// RETURNING the superset so both callers are served by one helper.
+	claimErr := tx.QueryRow(ctx,
+		"UPDATE public.upgrade SET state = 'in_progress', started_at = now(), from_commit_version = $1 WHERE id = $2 AND state = 'scheduled' AND started_at IS NULL RETURNING commit_tags, recreate",
+		d.version, id).Scan(&commitTags, &recreate)
+	if claimErr != nil {
+		return nil, false, claimErr // includes pgx.ErrNoRows — callers map it to their own message
+	}
+
+	if commitErr := tx.Commit(ctx); commitErr != nil {
+		return nil, false, fmt.Errorf("claim id=%d: commit displace+claim: %w", id, commitErr)
+	}
+
+	// Loud line only after the displacement actually committed (never before —
+	// a rolled-back claim must not leave a false "displaced" line in the journal).
+	if displaced {
+		fmt.Printf("STATBUS-159: displaced parked upgrade id=%d (park reason: %q) → superseded; claimed upgrade id=%d\n",
+			parkedID, parkedReason, id)
+	}
+	return commitTags, recreate, nil
+}
+
 func (d *Service) executeScheduled(ctx context.Context) {
 	if err := d.ensureConnected(ctx); err != nil {
 		return
@@ -4461,10 +4560,14 @@ func (d *Service) executeScheduled(ctx context.Context) {
 	// STATBUS-092: read the durable recreate intent atomically WITH the claim
 	// (RETURNING) so it can never be lost to NOTIFY timing. ErrNoRows = the state
 	// guard matched 0 rows (another actor claimed first) — a benign skip.
-	var recreate bool
-	claimErr := d.queryConn.QueryRow(ctx,
-		"UPDATE public.upgrade SET state = 'in_progress', started_at = now(), from_commit_version = $1 WHERE id = $2 AND state = 'scheduled' AND started_at IS NULL RETURNING recreate",
-		d.version, id).Scan(&recreate)
+	// STATBUS-159: claimScheduledUpgrade is the shared claim path — it displaces
+	// any standing park before claiming. Take commit_tags from the helper's claim
+	// RETURNING, not the pending-row SELECT above: the value comes atomically from
+	// the claim UPDATE, so a write landing between that SELECT and the claim can't
+	// hand a stale commit_tags to executeUpgrade (architect-confirmed — strictly
+	// better than the old shape). The SELECT's commit_tags stays for displayName +
+	// the image gate, both computed before the claim.
+	claimedTags, recreate, claimErr := d.claimScheduledUpgrade(ctx, id)
 	if errors.Is(claimErr, pgx.ErrNoRows) {
 		fmt.Printf("Scheduled upgrade id=%d already claimed by another actor; skipping.\n", id)
 		return
@@ -4475,12 +4578,17 @@ func (d *Service) executeScheduled(ctx context.Context) {
 		return
 	}
 
+	// STATBUS-159 (take-from-helper residue): re-render displayName from the claim's
+	// atomic commit_tags so the post-claim messages + executeUpgrade can't carry a
+	// stale-tag rendering. The pre-claim gate log lines already used the SELECT's copy.
+	displayName = renderDisplayName(CommitSHA(commitSHA), claimedTags)
+
 	fmt.Printf("Executing upgrade to %s...\n", displayName)
 	// Invoker context for the flag file: the row was picked up from the scheduled queue.
 	// This covers admin-UI "Apply now", NOTIFY upgrade_apply from ./sb upgrade apply-latest,
 	// and the discovery loop's auto-schedule — we don't currently distinguish among them
 	// at this layer. Later improvement: record originator in public.upgrade when scheduling.
-	if err := d.executeUpgrade(ctx, id, commitSHA, displayName, commitTags, "scheduled", "scheduled", recreate); err != nil {
+	if err := d.executeUpgrade(ctx, id, commitSHA, displayName, claimedTags, "scheduled", "scheduled", recreate); err != nil {
 		fmt.Printf("Upgrade to %s failed: %v\n", displayName, err)
 	}
 }
