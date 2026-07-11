@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-07-09 00:48'
-updated_date: '2026-07-11 20:09'
+updated_date: '2026-07-11 20:21'
 labels:
   - product
   - upgrade
@@ -84,5 +84,11 @@ author: architect
 created: 2026-07-11 20:09
 ---
 RULED FIX PACKAGE (architect, 2026-07-11) — one package under 154, engineer-scoped, wave 8 is its oracle. (1) markCurrentVersionCompleted: add `AND state != 'in_progress' AND recovery_parked_at IS NULL` to the UPDATE; convert it to upgradeRowReturning + logUpgradeRow with a new label (LabelCompletedCurrentVersion) so this writer has a grep-able marker like every other state writer. Its charter is out-of-band (install.sh) deploys — an in_progress or parked row is inside the service flow and owned by completeInProgressUpgrade/recoverFromFlag/un-park. (2) Migration: new named constraint chk_upgrade_parked_requires_in_progress (recovery_parked_at IS NULL OR state = 'in_progress'), preceded by a one-time cleanup UPDATE for legacy divergent rows. This is the ruling on the parked-marker gap: SAME package, but as the class-level impossibility (loud DB guard), NOT clears added to the completed-writes — auto-clearing would be a standing self-heal that silently absorbs the next bug of this class. Legitimate transitions off a parked row (RunSchedule's atomic reschedule+reset, UnparkByID) already clear the marker in the same UPDATE, so they satisfy the constraint by construction. (3) parkUpgrade's not-parkable error names the actual state it found (extend rowIsParked to read state too) — the honest error becomes self-diagnosing. (4) INSTRUMENTATION RULING: DB trigger, not a Go wrapper, not terminalUpdate-only. Trigger on public.upgrade fires when state OR recovery_parked_at changes, inserts into public.upgrade_state_log (upgrade_id, old/new state, old/new parked_at, application_name, current_query(), pg_backend_pid(), clock_timestamp()). Decisive: the convicted writer was precisely a site OUTSIDE the blessed write path, and several writers aren't Go at all (supersedeOlderReleases is a shared SQL procedure; the step-table psql path) — a Go wrapper instruments only the paths you already know about; the trigger catches every writer including psql/PostgREST/procedures. application_name rides 149's connection tagging for writer identity; noise is ~zero (ops-plane writes only). Extend the arc's row-state dump rider to dump this table on red — every future invisible-writer puzzle becomes a read. SEQUENCING: no instrument-first blind run — the writer is already named; wave 8 dispatches AFTER the package ships and proves fix + instrumentation together (AC#3: un-park→re-park leg green; expected trace: parked-skip boots leave in_progress+parked, markCurrentVersionCompleted matches 0 rows silently, fresh attempt re-parks fresh with its own siren).
+---
+
+author: foreman
+created: 2026-07-11 20:21
+---
+BUILD IN FLIGHT (foreman, 2026-07-11): the ruled four-part package is dispatched to the engineer — (1) guard + logUpgradeRow marker on the convicted markCurrentVersionCompleted; (2) migration: chk_upgrade_parked_requires_in_progress constraint + one-time legacy cleanup; (3) parkUpgrade's not-parkable error names the actual state; (4) migration: the upgrade_state_log trigger table + the arc dump-rider extension. Migration-bearing → tester runs the SQL suite before ship; architect reviews the frozen package; foreman commits; wave 8 dispatches after — the oracle for fix + instrumentation together, and the closer for 154 AC#3, 148 AC#2, 147 ACs #1/#3, and 145's full acceptance.
 ---
 <!-- COMMENTS:END -->
