@@ -98,6 +98,9 @@ The test also injects a **real** crash/stall at the other upgrade points — fet
 - DB reconnect stalls after a restart -> `postswap-watchdog-reconnect-arc` — **[PROVEN]**
 - Archive-backup stalls -> `postswap-archivebackup-watchdog-arc` — **[PROVEN]**
 
+**The new version can't serve its users (health) -> park alive-idle, wait for the fix**
+- Health gate refuses a can't-serve version -> `postswap-health-park-arc` (doc-029) -> parks at-target with the named health reason, sirens exactly once per park event, parked-skip boots stay alive-idle, deliberate un-park grants one fresh attempt, re-park with fresh reason + second siren, daemon ACTIVE after re-park, and a genuine fix release DISPLACES the standing park (B superseded with its story intact) and completes with data intact — **[PROVEN]** run 29171998401 (2026-07-12, wave 10 — the arc's first full end-to-end green; waves 1-9 each caught a real product bug en route: STATBUS-148 health gate, STATBUS-154 teardown race + invisible writer, STATBUS-147 daemon-down, STATBUS-159 parked-blocks-claim). This IS the real-path park proof under the STATBUS-145 geometry (doc-028's reclassification): the r19 fabricated park scenario was the interim net and is now due for deletion, with fabricate_resume_state dropping to its ONE sanctioned dead-producer caller (rune-wedge) per the King's carve-out ruling.
+
 **Scheduling edge**
 - Daemon claims a scheduled upgrade with no live signal -> `claim-without-notify-arc` (STATBUS-098) -> claims + finishes — **[PROVEN]**
 
