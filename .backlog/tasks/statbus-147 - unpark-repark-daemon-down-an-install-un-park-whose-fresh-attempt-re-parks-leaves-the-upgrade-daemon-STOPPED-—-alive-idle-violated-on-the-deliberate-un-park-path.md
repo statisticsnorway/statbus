@@ -4,10 +4,10 @@ title: >-
   unpark-repark-daemon-down: an install un-park whose fresh attempt re-parks
   leaves the upgrade daemon STOPPED — alive-idle violated on the
   deliberate-un-park path
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-07-08 15:23'
-updated_date: '2026-07-11 20:20'
+updated_date: '2026-07-11 23:49'
 labels:
   - upgrade
   - recovery
@@ -45,9 +45,9 @@ ORACLE: the health-park arc (doc-029) — its step-4 workaround (explicit unit s
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 After an install un-park whose fresh attempt re-parks: the upgrade daemon unit is ACTIVE (alive-idle via parked-skip), install still exits non-zero, and a loud line names the restart decision
+- [x] #1 After an install un-park whose fresh attempt re-parks: the upgrade daemon unit is ACTIVE (alive-idle via parked-skip), install still exits non-zero, and a loud line names the restart decision
 - [x] #2 Non-park recovery failures keep today's conservative no-restart behavior
-- [ ] #3 The health-park arc's step-4 workaround is removed and replaced by the product assertion (unit active post-re-park), proven on a real VM run
+- [x] #3 The health-park arc's step-4 workaround is removed and replaced by the product assertion (unit active post-re-park), proven on a real VM run
 <!-- AC:END -->
 
 ## Comments
@@ -59,3 +59,9 @@ created: 2026-07-11 20:20
 STATUS SYNC (foreman, 2026-07-11): the fix SHIPPED overnight 2026-07-08 in 16829b65d ('upgrade: a failed un-park no longer strands the daemon stopped') — shouldRestartAfterFailedRecovery re-reads the row's park state after a failed recovery and fires the restart closure when PARKED, with the loud line; the conservative no-restart arm retained for non-park failures and unit-tested (AC#2 checked). ACs #1/#3 (live proof on a real VM + the arc's step-4 workaround flipped to a product assertion) are BLOCKED BY STATBUS-154's final fix: the health-park arc has not yet reached its full green (waves 5-7 each caught a distinct upstream product bug — the arc doing its job). They land on wave 8, dispatched after 154's ruled package ships. Status corrected To Do → In Progress.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+CLOSED on wave 10 (run 29171998401, 2026-07-12): the upgrade daemon unit was ACTIVE immediately after the fresh attempt re-parked — the product behavior asserted directly by the arc (no arc-side workaround start), on a real VM (AC#1/#3). The fix shipped 2026-07-08 in 16829b65d: shouldRestartAfterFailedRecovery re-reads the row's park state after a failed recovery and fires the restart closure when PARKED, with the loud line naming the decision; install still exits non-zero; the conservative no-restart arm remains for non-park failures (AC#2, unit-tested). The alive-idle contract now holds on the deliberate-un-park path: a parked box whose operator ran install and walked away keeps its delivery channel (discovery, NOTIFY listener, scheduled backups, future sirens) alive — proven end-to-end by wave 10's C-leg, where the fix release arrived at exactly such a box via the daemon and completed.
+<!-- SECTION:FINAL_SUMMARY:END -->
