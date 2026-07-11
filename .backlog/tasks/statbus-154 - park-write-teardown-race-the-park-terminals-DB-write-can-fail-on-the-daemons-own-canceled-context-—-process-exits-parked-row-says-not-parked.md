@@ -3,11 +3,11 @@ id: STATBUS-154
 title: >-
   park-write-teardown-race: the park terminal's DB write can fail on the
   daemon's own canceled context — process exits parked, row says not parked
-status: In Progress
+status: Done
 assignee:
   - engineer
 created_date: '2026-07-09 00:48'
-updated_date: '2026-07-11 21:11'
+updated_date: '2026-07-11 23:49'
 labels:
   - product
   - upgrade
@@ -44,7 +44,7 @@ EVIDENCE: tmp/wave5-healthpark-job.log lines 4708 (harness rc=1 at arc :408), 47
 <!-- AC:BEGIN -->
 - [x] #1 The park terminal write survives its pass's teardown: the write path does not depend on a context/connection that the exiting pass is simultaneously canceling (fix shape architect-ruled)
 - [x] #2 Process outcome and row state cannot diverge: exiting as-parked REQUIRES the row write to have landed (or the exit path escalates loudly, never silently)
-- [ ] #3 Oracle: the health-park arc's un-park→re-park leg goes green — recovery_parked_at set after the fresh attempt re-parks
+- [x] #3 Oracle: the health-park arc's un-park→re-park leg goes green — recovery_parked_at set after the fresh attempt re-parks
 <!-- AC:END -->
 
 ## Comments
@@ -98,3 +98,9 @@ created: 2026-07-11 21:11
 PACKAGE SHIPPED in 9d9bdc524 (22 files: the guarded writer with its new LabelCompletedCurrentVersion marker; the chk_upgrade_parked_requires_in_progress constraint migration with one-time legacy cleanup; the state-naming not-parkable error; the upgrade_state_log trigger-table migration + the arc dump rider; the 330 T8/T9 invariant pins; the five consequence-test updates; the regenerated artifacts — each diff verified as exactly the new objects; doc/db regen incl. cosmetic statistical_unit_def deparse drift, blessed in the commit message; T8's deliberate constraint-rejection ERROR justified per the expected-error gate). Dual-reviewed (architect ship-with-one-addition; foreman first-hand). PROVEN by the authoritative single-writer fast suite: 85/85 — including 303/307 clean, empirically confirming the straggler conviction (STATBUS-158). The floor bump to 20260711201432 rode as approved. WAVE 8 DISPATCHED on 9d9bdc524 — AC#3's oracle, shared with 148 AC#2, 147 #1/#3, and 145's full acceptance. Side findings banked this session: STATBUS-156 (seed stale-restored fallback), STATBUS-157 (fast-stamp overreach), STATBUS-158 (pg_regress straggler guard, HIGH).
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+CLOSED on wave 10 (run 29171998401, 2026-07-12): AC#3's oracle landed — the un-park→re-park leg went green with recovery_parked_at SET after the fresh attempt re-parked, second siren fired (once-per-park-event proven live), parked-skip boots held. The ticket's arc: (1) the teardown race fixed by terminalUpdate (a4589c6d9) — every state-terminal writer rides a teardown-immune helper (Background ctx + own deadline, fresh daemon-tagged connection, bounded retry; exit-as-terminal REQUIRES the landed write); (2) the read-only-window inheritance regression patched (session-level default_transaction_read_only=off); (3) the invisible writer convicted code-first — markCurrentVersionCompleted completing the parked row on parked-skip boots — and the four-part package shipped in 9d9bdc524: state/parked guard + grep-able marker on the writer, chk_upgrade_parked_requires_in_progress constraint + legacy cleanup, state-naming not-parkable error, and the upgrade_state_log trigger whose first live output (wave 9) proved the fix held and killed the invisible-writer class permanently. Every layer run-proven on real VMs across waves 6-10.
+<!-- SECTION:FINAL_SUMMARY:END -->
