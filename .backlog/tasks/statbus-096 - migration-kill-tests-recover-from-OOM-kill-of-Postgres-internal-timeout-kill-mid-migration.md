@@ -3,10 +3,10 @@ id: STATBUS-096
 title: >-
   migration-kill-tests: recover from OOM-kill of Postgres + internal
   timeout-kill, mid-migration
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-06-18 21:18'
-updated_date: '2026-07-07 08:47'
+updated_date: '2026-07-11 20:22'
 labels:
   - upgrade
   - testing
@@ -139,5 +139,5 @@ WHAT THE RUNAWAY-MIGRATION STORY BECOMES: symmetric, one-shot, evidence-named on
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
-NORTH STAR: the box recovers from real kills mid-migration — no fabrication. DELIVERED, both scenarios run-proven on real VMs 2026-07-07, both green on FIRST CONTACT. OOM (this ticket's build, 39b94be8d, CI run 28841893851): real register+schedule, migration confirmed genuinely mid-sleep via the pg_stat_activity poll (the deterministic-midpoint requirement, delivered by the proven poll pattern superseding the original NOTIFY sketch), db container SIGKILLed (reproducing the OS OOM-killer's effect deterministically — real memory pressure on a shared 4GB box is the forbidden flaky class) and observed dead, then FORWARD recovery: the boot's own EnsureDBUp revived the db, the uncommitted migration re-ran fresh to COMPLETED with V recorded + fixture table present, demo data intact. The single-OOM contract is forward completion — established by the mechanic's map-before-build refutation of the original rolled_back narrative, architect-confirmed (backoffRetry's sole call site service.go:1085; EnsureDBUp unconditional at :1808). Timeout scenario (folded to STATBUS-095 piece 2): ceiling arc GREEN, run 28842366163 — internal 20s kill → rolled_back, clean slate. OPEN FOLLOW-UP (deliberately NOT lost): the RECURRING-OOM variant (OOMs every run → death budget → rolled_back) is pre-blessed as a separate arc, gated on the King blessing the single/recurring split since it rewords the 071 coverage-map cell — tracked on 071's open-decision list and this ticket's comments #2/#3.
+NORTH STAR: the box recovers from real kills mid-migration — no fabrication. DELIVERED and, after the King's reopen, RE-DELIVERED under the corrected principle. History in full: both scenarios first went green 2026-07-07 (OOM forward-completed run 28841893851; ceiling rolled_back run 28842366163). The King REOPENED on the retry-vs-classify principle challenge; the architect's adversarial adjudication (comments #5/#6) found the charge factually correct for exactly one class (db-death-under-migration, classified nowhere) and recommended the evidence probe + contract flip. THE RESOLUTION CAME STRUCTURALLY VIA STATBUS-145 (the King's minimal-boot-migrate redesign, his PROCEED ruling superseding the single/recurring split question): under the atomicity flip a mid-delta OOM kill reads positively Behind → one-shot data-safe rollback — no second experiment on a dying database. RE-PROVEN under the new geometry: OOM arc GREEN, terminal ROLLED_BACK on the FIRST kill, V unrecorded, clean-slate fingerprint matching baseline (run 28955342618, wave 1 of the slice-4 campaign) — the King's original 071 map-cell wording ('OOM → rolls back') is now LITERALLY TRUE, by structure. The naming refinement (per-leg evidence probe: OOMKilled → causal memory wording; bare 137 → factual; log-constant → factual) shipped as 145 slice 3 (9b4710900). Ceiling single-fire re-proven wave 1 (one ceiling marker, delta never runs at boot). The recurring-OOM variant arc is retired as superseded — recurrence is bounded by the recovery budget and the first kill already rolls back. All four ACs stand checked under the flipped contract.
 <!-- SECTION:FINAL_SUMMARY:END -->
