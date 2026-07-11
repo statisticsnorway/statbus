@@ -33,6 +33,17 @@ ordinal: 107000
 
 ---
 
+## Where this stands (2026-07-12)
+Everything a reader or operator sees is DONE: the vocabulary registry is complete and ratified (doc/upgrade-vocabulary.md), the docs and all three diagrams speak it, the ~20 operator-facing log/error strings speak it (commit 6c90e2964), and the first identifier slice landed with wire values proven byte-identical (commit b2a54dc69).
+
+Two residuals remain, BOTH deliberately parked behind STATBUS-071's arc campaign by architect ruling:
+- (A) rename the post-swap FUNCTION family (resumePostSwap, applyPostSwap, postSwapFailure + ~250 coupled comments) — that family is exactly the code the arcs are proving right now; renaming mid-proof multiplies re-verification cost for a purely internal surface.
+- (B) the on-disk Phase serialization values — changing what the flag file stores needs the arcs to prove cross-version recovery first.
+
+When the 071 campaign settles, dispatch (A) to the engineer and rule (B) fresh. Nothing else is open here.
+
+---
+
 ## Why
 The upgrade + recovery vocabulary is obtuse — "pre-swap", "post-swap", "Resuming", "positively-behind", "at-target". The King's standard: plain language a reader gets without a glossary. "Booting the new binary" beats "the binary-swap commit boundary". The upgrade is the most safety-critical, most-reviewed code we have — its words must be the clearest.
 
