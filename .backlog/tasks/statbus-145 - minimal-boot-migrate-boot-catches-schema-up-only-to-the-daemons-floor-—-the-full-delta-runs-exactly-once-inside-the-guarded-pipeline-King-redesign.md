@@ -3,11 +3,11 @@ id: STATBUS-145
 title: >-
   minimal-boot-migrate: boot catches schema up only to the daemon's floor — the
   full delta runs exactly once, inside the guarded pipeline (King redesign)
-status: To Do
+status: In Progress
 assignee:
   - architect
 created_date: '2026-07-07 09:23'
-updated_date: '2026-07-08 15:18'
+updated_date: '2026-07-11 20:21'
 labels:
   - upgrade
   - recovery
@@ -155,5 +155,11 @@ author: foreman
 created: 2026-07-08 15:18
 ---
 SLICE 3 SHIPPED 9b4710900 (2026-07-08), dual-reviewed (architect ship-with-changes; foreman first-hand). The 096 evidence probe at the single migrate-failure site: structured docker inspect + bounded postmaster-log tail, PER-LEG AFFIRMATIVE notes — the originally-ruled conjunction was found structurally NEAR-MUTE by the architect's adversarial trace (the two legs describe different kill anatomies that rarely co-occur: backend-OOM logs but doesn't exit the container; container-kill exits but silences the logger) and split so each leg claims only its own observed fact (OOMKilled → causal memory wording; bare exit-137 → facts only, innocent grace-kill possible; log-constant alone → backend death, no memory claim). Probe never touches disposition. TWO RIDERS: the empirical floor test's silent skip is now a SELF-ENFORCING TRIGGER (floor < tree max + DSN unset → FAIL with the provisioning recipe — the guard that finally matters can never be silently skipped); migrate.Up's doc comment records its real contract (create-db baseline required — bare CREATE DATABASE fails at the auth schema; all=true required for multi-migration catch-up) — both facts established by RUNNING the comment-#4 self-provisioning ruling and refuting it (the split DSN harness stays, re-ruled). SLICES 1-3 ALL SHIPPED. Remaining: slice 4 — the oracle campaign (four gated arcs + ceiling single-fire + regression set + the health-park arc, in build now per doc-029 Rev 2 with the mechanic's V3 correction adopted).
+---
+
+author: foreman
+created: 2026-07-11 20:21
+---
+STATUS SYNC (foreman, 2026-07-11): status corrected To Do → In Progress — this has been the campaign's center for three days. SHIPPED: slice 1 (67565f60b: DaemonSchemaFloor + bump-guard + completeness sweep + empirical floor test), slice 2 (cb356663d: both boot sites floor-bounded --to DaemonSchemaFloor; the apply-all flip invariant structurally pinned at applyPostSwap), slice 3 (9b4710900: per-leg OOM evidence probe). SLICE 4 (the oracle campaign) RESULTS, all on the 071 map: the atomicity flip is RUN-PROVEN — mid-delta death → Behind → rolled_back (between-migrations run 28976918080; OOM run 28955342618 — the King's original 'rolls back' wording literally true); pre-delta death → STATBUS-017 defer → forward → completed (mid-migration + mid-tx, run 28980487041, re-proven as hard contracts wave 4); ceiling single-fire proven wave 1. The PARK LEG is proven through the first park + parked-skip boots + siren-once (wave 7). REMAINING FOR FULL ACCEPTANCE: the health-park arc's complete green (un-park→re-park + fix-release legs) — blocked by STATBUS-154's final fix (the convicted markCurrentVersionCompleted writer), whose package is in build; wave 8 is the closing oracle. One [ASSESS] map note stands (mid-V1-inside-the-resume's-delta — variant arc only on the King's ask).
 ---
 <!-- COMMENTS:END -->
