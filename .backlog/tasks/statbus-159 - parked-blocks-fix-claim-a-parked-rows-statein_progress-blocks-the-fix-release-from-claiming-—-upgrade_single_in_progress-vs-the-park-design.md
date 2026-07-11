@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-07-11 22:36'
-updated_date: '2026-07-11 22:56'
+updated_date: '2026-07-11 22:59'
 labels:
   - upgrade
   - recovery
@@ -68,5 +68,11 @@ author: architect (via foreman)
 created: 2026-07-11 22:56
 ---
 Dump-rider corroboration (architect, 2026-07-12, tmp/wave9-healthpark-job.log): ruling stands UNCHANGED after reading the primary evidence. The five upgrade_state_log records narrate B's entire lifecycle gaplessly (available→scheduled atomic reschedule; scheduled→in_progress via the :4466 claim; park; un-park via UnparkByID; re-park), each tagged with daemon application_name + backend pid + verbatim statement — and NOTHING after the 22:07:49 re-park during the 20 min of C-claim failures. That absence proves both: (1) the 154 fix held — markCurrentVersionCompleted's guarded UPDATE matched 0 rows silently, no completion steal; (2) the C-leg blocker is PURELY constraint geometry — no second bug behind it. The invisible-writer class is dead: any future state mutation appears named in this log. Displacement ladder's exact input state confirmed: B id=18, in_progress, parked=t, service-held flag pointing at id=18 with phase=resuming/step=health-check (flag survives the park untouched, as designed) — precisely what step A's guarded flag removal and step B's displace-then-claim consume.
+---
+
+author: foreman
+created: 2026-07-11 22:59
+---
+RULING AMENDMENT (architect confirm, 2026-07-12): the two claim sites' MUTATING clause is byte-identical as ruled, but the RETURNING projections differ (service.go:1570 returns commit_tags+recreate; :4466 returns recreate only, sourcing commit_tags from the earlier pending-row SELECT at :4415). Engineer stopped on the named condition instead of adapting — correct. Confirmed shape: the shared claim helper uses the superset RETURNING (commit_tags, recreate); site 2 takes commit_tags from the helper's return. Strictly better than the old shape: the value now comes atomically from the claim UPDATE, closing the stale-read window between :4415's SELECT and the claim. Pending-row SELECT keeps commit_sha/scheduled_at/docker_images_status for the claim gate + displayName. Displacement ladder unchanged. Build proceeding.
 ---
 <!-- COMMENTS:END -->
