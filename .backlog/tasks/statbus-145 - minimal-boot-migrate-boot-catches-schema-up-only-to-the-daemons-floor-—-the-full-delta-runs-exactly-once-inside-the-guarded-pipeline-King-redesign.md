@@ -3,11 +3,11 @@ id: STATBUS-145
 title: >-
   minimal-boot-migrate: boot catches schema up only to the daemon's floor — the
   full delta runs exactly once, inside the guarded pipeline (King redesign)
-status: In Progress
+status: Done
 assignee:
   - architect
 created_date: '2026-07-07 09:23'
-updated_date: '2026-07-11 20:21'
+updated_date: '2026-07-11 23:49'
 labels:
   - upgrade
   - recovery
@@ -50,10 +50,10 @@ Full analysis: comment #1 (floor mechanism, bounded form, what it dissolves), co
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 King ratifies: the floor strategy, the atomicity flip (mid-delta failure → one-shot rollback via the existing Behind rule), and the flagless floor-only semantics (pending-above-floor logged loud, applied only by deliberate upgrade/install)
-- [ ] #2 Floor mechanism shipped: derived from the daemon-relation set (public.upgrade, db.migration, public.system_info + builder-verified enumeration), sufficiency enforced mechanically (CI guard: migration touching the set ⇒ floor bump) + an empirical floor test (schema at exactly floor; daemon boot+recovery queries run 42703-clean); existing 42703 fail-opens retained as backstop
+- [x] #1 King ratifies: the floor strategy, the atomicity flip (mid-delta failure → one-shot rollback via the existing Behind rule), and the flagless floor-only semantics (pending-above-floor logged loud, applied only by deliberate upgrade/install)
+- [x] #2 Floor mechanism shipped: derived from the daemon-relation set (public.upgrade, db.migration, public.system_info + builder-verified enumeration), sufficiency enforced mechanically (CI guard: migration touching the set ⇒ floor bump) + an empirical floor test (schema at exactly floor; daemon boot+recovery queries run 42703-clean); existing 42703 fail-opens retained as backstop
 - [x] #3 Both boot sites switch to the bounded form (service.go:1934, install_upgrade.go:290 → migrate up --to FLOOR); the deliberate install step-table Migrations step stays apply-all (cmd/install.go:623)
-- [ ] #4 Oracles re-proven: ceiling arc single-fire (1×ceiling → rolled_back, not 2×), OOM arc terminal rolled_back on first kill, park scenario kill window moved back to the pipeline migrate step
+- [x] #4 Oracles re-proven: ceiling arc single-fire (1×ceiling → rolled_back, not 2×), OOM arc terminal rolled_back on first kill, park scenario kill window moved back to the pipeline migrate step
 - [x] #5 doc-021 step list + budget-boundary narrative + both diagrams updated in the same commit as the shipped change (docs describe the present)
 <!-- AC:END -->
 
@@ -163,3 +163,9 @@ created: 2026-07-11 20:21
 STATUS SYNC (foreman, 2026-07-11): status corrected To Do → In Progress — this has been the campaign's center for three days. SHIPPED: slice 1 (67565f60b: DaemonSchemaFloor + bump-guard + completeness sweep + empirical floor test), slice 2 (cb356663d: both boot sites floor-bounded --to DaemonSchemaFloor; the apply-all flip invariant structurally pinned at applyPostSwap), slice 3 (9b4710900: per-leg OOM evidence probe). SLICE 4 (the oracle campaign) RESULTS, all on the 071 map: the atomicity flip is RUN-PROVEN — mid-delta death → Behind → rolled_back (between-migrations run 28976918080; OOM run 28955342618 — the King's original 'rolls back' wording literally true); pre-delta death → STATBUS-017 defer → forward → completed (mid-migration + mid-tx, run 28980487041, re-proven as hard contracts wave 4); ceiling single-fire proven wave 1. The PARK LEG is proven through the first park + parked-skip boots + siren-once (wave 7). REMAINING FOR FULL ACCEPTANCE: the health-park arc's complete green (un-park→re-park + fix-release legs) — blocked by STATBUS-154's final fix (the convicted markCurrentVersionCompleted writer), whose package is in build; wave 8 is the closing oracle. One [ASSESS] map note stands (mid-V1-inside-the-resume's-delta — variant arc only on the King's ask).
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+FULL ACCEPTANCE on wave 10 (run 29171998401, 2026-07-12). The King's redesign is shipped and run-proven end to end: startup migrates only to the daemon's floor (slice 1, 67565f60b: DaemonSchemaFloor + bump-guard + completeness sweep + empirical floor test — AC#2); both boot sites bounded, the apply-all flip invariant pinned at the pipeline migrate step (slice 2, cb356663d — AC#3, with doc-021 + both diagrams in-commit, AC#5); the per-leg OOM evidence probe at the now-single failure site (slice 3, 9b4710900). AC#1 was ratified by the King 2026-07-08 (floor strategy + atomicity flip + flagless floor-only semantics). AC#4's oracles all landed: ceiling single-fire (wave 1), OOM terminal rolled_back on FIRST kill (run 28955342618 — the original "rolls back" wording literally true), mid-delta death → Behind → one-shot rollback (between-migrations run 28976918080), pre-delta death → defer → forward → completed (runs 28980487041), and the full park substrate through the health-park arc: park at-target with named reason, siren-once-per-park, parked-skip boots, un-park, re-park, and a fix release displacing the park to completion (waves 7-10, closing run 29171998401). Upgrades are now effectively atomic: the delta runs exactly once inside the guarded pipeline; any mid-delta death restores the pre-upgrade snapshot. RESIDUALS TRANSFERRED TO STATBUS-071 (their tracking home): delete the r19 fabricated park scenario now that the real-path proof is green + drop fabricate_resume_state to its one sanctioned caller (rune-wedge, per the King's dead-producer carve-out); update doc-027 §C/§D to the new geometry; reword the 071 OOM map cell.
+<!-- SECTION:FINAL_SUMMARY:END -->
