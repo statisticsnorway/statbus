@@ -462,6 +462,128 @@ release_test_run_lock() {
     fi
 }
 
+# ── STATBUS-158: straggler pg_regress guard + NUL-corruption tripwire ──
+#
+# WHY: the flock above lives on a HOST file descriptor and is released the
+# instant this process tree dies, even via SIGKILL — but pg_regress runs
+# INSIDE the db container via `docker compose exec`, spawned by containerd,
+# and does NOT inherit that fd. Kill a harness run after pg_regress starts
+# and the flock frees immediately while pg_regress (or its psql child, if
+# pg_regress itself died first) keeps running and writing in the container.
+# The next invocation then acquires the lock legitimately and starts a
+# SECOND pg_regress into the same --outputdir — two writers on one .out
+# file corrupt it silently: writer B's fopen truncates and writes its head,
+# writer A's next flush lands at its own saved offset, and the kernel
+# zero-fills the gap — a sparse NUL hole with correct content on both
+# sides, no error from either writer.
+#
+# MATCH: 'pg_regress' catches the parent binary while it's still alive;
+# 'HIDE_TABLEAM' catches its regress-runner psql children even after
+# pg_regress itself has died and the child was reparented — empirically
+# confirmed live (2026-07-12): a running pg_regress's psql child carries
+# exactly `-v HIDE_TABLEAM=on -v HIDE_TOAST_COMPRESSION=on` and nothing
+# else identifying it as a regress child (pg_regress redirects the child's
+# stdin/stdout via fork+dup2, not a shell string, so the child's own argv
+# never mentions the outputdir — matching on the path alone would miss an
+# orphaned child once its parent is gone). HIDE_TABLEAM/HIDE_TOAST_COMPRESSION
+# are psql -v vars only pg_regress injects; no real usage collides with them.
+#
+# NO AUTO-KILL (no-standing-self-heal rule): refuse loudly, name the exact
+# pids + kill command, and let the operator decide — recurrence must fail
+# loudly with the fix named, never be quietly repaired out from under them.
+check_no_straggler_pg_regress() {
+    # If the db service isn't even running there is nothing to race with —
+    # docker compose exec fails fast in that case; skip silently.
+    local _straggler
+    _straggler=$(docker compose exec -T db pgrep -af 'pg_regress|HIDE_TABLEAM' 2>/dev/null) || return 0
+    [ -n "$_straggler" ] || return 0
+
+    local _pids
+    _pids=$(printf '%s\n' "$_straggler" | awk '{print $1}' | tr '\n' ' ')
+
+    cat >&2 <<EOF
+
+═══════════════════════════════════════════════════════════════════════
+BLOCKED: a straggler pg_regress is still running in the db container.
+
+This command is about to start pg_regress against the shared outputdir
+(test/results/). A PREVIOUS harness run's pg_regress (or its psql child)
+is still alive in the db container even though the host-side test-run
+lock is free — the lock lives on a host file descriptor and does not
+reach into the container, so a killed run can leave pg_regress orphaned
+there, still writing into the same .out files this run is about to
+reuse. Two writers on one .out file corrupt it silently, with no error
+from either side (STATBUS-158).
+
+Straggler process(es) found in the db container:
+$_straggler
+
+WHAT TO DO:
+  - Confirm these are truly orphaned (not a run you intend to keep), then
+    kill them from the host:
+      docker compose exec db kill -9 $_pids
+  - Re-run this command once the container shows none left:
+      docker compose exec db pgrep -af 'pg_regress|HIDE_TABLEAM'
+
+Hook source: dev.sh check_no_straggler_pg_regress
+═══════════════════════════════════════════════════════════════════════
+EOF
+    exit 1
+}
+
+# check_results_for_nul_corruption — the tripwire half of STATBUS-158. An
+# embedded NUL in a pg_regress .out file is never legitimate output — psql
+# and postgres never emit one; it is the fingerprint of two writers racing
+# the same file (see check_no_straggler_pg_regress above) or any other
+# write-layer fault. Preserve the corrupted bytes BEFORE anything reruns
+# and overwrites them (the original STATBUS-158 incident lost its own byte
+# schedule to exactly that overwrite), then fail with a verdict distinct
+# from an ordinary test diff, naming the straggler check as the first thing
+# to run. Args: <PG_REGRESS_DIR> <test_basename>...
+check_results_for_nul_corruption() {
+    local _dir="$1"; shift
+    local _test _file _full _stripped _preserved _corrupted=""
+    for _test in "$@"; do
+        _file="$_dir/results/$_test.out"
+        [ -f "$_file" ] || continue
+        _full=$(wc -c < "$_file" | tr -d ' ')
+        _stripped=$(LC_ALL=C tr -d '\000' < "$_file" | wc -c | tr -d ' ')
+        if [ "$_full" != "$_stripped" ]; then
+            mkdir -p "$WORKSPACE/tmp"
+            _preserved="$WORKSPACE/tmp/corrupted-$_test-$(date '+%Y%m%d%H%M%S' 2>/dev/null || echo unknown).out"
+            if ! cp "$_file" "$_preserved" 2>/dev/null; then
+                _preserved="(preservation FAILED — original left at $_file)"
+            fi
+            _corrupted="$_corrupted  $_test -> $_preserved
+"
+        fi
+    done
+    [ -n "$_corrupted" ] || return 0
+
+    cat >&2 <<EOF
+
+═══════════════════════════════════════════════════════════════════════
+CORRUPTED OUTPUT: embedded NUL byte(s) found in a test result file.
+
+A .out file pg_regress just wrote contains an embedded NUL byte — psql and
+postgres never emit one; this is the fingerprint of two pg_regress writers
+racing the same file (a straggler from a killed run — see
+check_no_straggler_pg_regress / STATBUS-158), not a real test failure.
+
+Corrupted file(s), preserved before any rerun can overwrite them:
+$_corrupted
+WHAT TO DO:
+  - Check for a straggler right now:
+      docker compose exec db pgrep -af 'pg_regress|HIDE_TABLEAM'
+  - If found, kill it, THEN re-run this test — do not trust its diff, it
+    was never a real second failure.
+
+Hook source: dev.sh check_results_for_nul_corruption
+═══════════════════════════════════════════════════════════════════════
+EOF
+    return 1
+}
+
 acquire_test_run_lock() {
     local _label="${1:-./dev.sh}"
     # Re-entrant: an ancestor dev.sh already holds it → pass through.
@@ -495,6 +617,10 @@ acquire_test_run_lock() {
         _TEST_LOCK_OWNED=true
         export STATBUS_TEST_LOCK_HELD="$_TEST_LOCK_FILE"
         trap release_test_run_lock EXIT
+        # STATBUS-158 AC#3: the straggler check lives INSIDE the function that
+        # takes the lock — every caller that acquires the lock gets the check
+        # for free; there is no separate call site to forget it at.
+        check_no_straggler_pg_regress
         return 0
     fi
     exec 9>&- || true   # we did NOT acquire — drop our fd (no `2>…`: see release)
@@ -928,6 +1054,10 @@ EOF
                 --dbname="$SHARED_TEST_DB" \
                 --user=$PGUSER \
                 $SHARED_TESTS || OVERALL_EXIT_CODE=$?
+
+            # STATBUS-158 AC#2: an embedded NUL is never a legitimate test
+            # failure — check regardless of pass/fail above.
+            check_results_for_nul_corruption "$PG_REGRESS_DIR" $SHARED_TESTS || OVERALL_EXIT_CODE=1
         fi
 
         if [ -n "$ISOLATED_TESTS" ]; then
@@ -1891,6 +2021,13 @@ EOF
             --dbname="$TEST_DB" \
             --user=$PGUSER \
             "$TEST_NAME" || TEST_EXIT_CODE=$?
+
+        # STATBUS-158 AC#2: an embedded NUL is never a legitimate test
+        # failure — check regardless of pass/fail above. Also covers the
+        # `./dev.sh test` shared-tests action's isolated-tests loop, which
+        # runs each test through this same test-isolated action as a child
+        # process.
+        check_results_for_nul_corruption "$PG_REGRESS_DIR" "$TEST_NAME" || TEST_EXIT_CODE=1
 
         if [ -n "$LOG_CAPTURE_PID" ]; then
             kill "$LOG_CAPTURE_PID" 2>/dev/null || true
