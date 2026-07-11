@@ -3,10 +3,10 @@ id: STATBUS-143
 title: >-
   install-recovery-db-route: crash recovery probes the DB by a different route
   than it connects — severed proxy becomes an unrecoverable error loop
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-07-07 02:27'
-updated_date: '2026-07-07 04:46'
+updated_date: '2026-07-11 20:20'
 labels:
   - install-recovery
   - upgrade
@@ -46,8 +46,6 @@ EVIDENCE: rune-wedge first run log (night pair 2026-07-07), kept-VM autopsy (db 
 - [ ] #4 A dedicated scenario drives the severed-proxy state once the fix lands
 <!-- AC:END -->
 
-
-
 ## Comments
 
 <!-- COMMENTS:BEGIN -->
@@ -75,5 +73,11 @@ author: foreman
 created: 2026-07-07 04:46
 ---
 FIX SHIPPED 06cf8415f (2026-07-07), dual-reviewed (architect ship, three flags ruled; foreman first-hand; build+tests re-verified green after the final comment edit). The probe now follows the connection: recoveryDSN() single-sources the CADDY_DB_BIND route, EnsureDBReachable is a 5s pgx SELECT-1 on exactly it (docker-exec psql probe DELETED), StartDBForRecovery starts db+proxy (route-wide asymmetric-safe start), truly-missing proxy → named category-3 refusal with the up-d-image-mismatch caveat. ARCHITECT RULINGS: (1) proxyContainerMissing's structured ps -a probe BLESSED as REQUIRED surface — distinguishing missing-from-stopped via docker's error STRING would be text-as-classifier, the banned pattern; fail-open on ps-error is correctly biased toward letting a recovery that might work try. (2) Nested refusal placement accepted — the text stands alone, pinned by test. (3) Per-call .env read reclassified from cost to BENEFIT: the recovery ladder regenerates .env immediately before probing, so an init-cached DSN would dial the stale pre-regen route — a route-skew variant of the bug itself; comment added at recoveryDSN. REMAINING on this ticket: the mechanic's scenario leg (stopped-proxy green ride-along; severed-proxy refusal is unit-covered) + the auto-recreate follow-up stays a King-blessable product decision, deliberately not built.
+---
+
+author: foreman
+created: 2026-07-11 20:20
+---
+STATUS SYNC (foreman, 2026-07-11): status corrected To Do → In Progress — the fix shipped 06cf8415f (comment #2's record stands; ACs #1/#3 checked then). OPEN: AC#2's stopped-proxy scenario leg + AC#4's dedicated severed-proxy scenario — mechanic-buildable per the ruling, queued behind the 154/wave-8 closure. The auto-recreate follow-up remains a deliberately-unbuilt King-blessable option.
 ---
 <!-- COMMENTS:END -->
