@@ -39,6 +39,7 @@ Indexes:
     "upgrade_single_scheduled" UNIQUE, btree (state) WHERE state = 'scheduled'::upgrade_state
 Check constraints:
     "chk_upgrade_commit_sha_is_full_hex" CHECK (commit_sha ~ '^[a-f0-9]{40}$'::text)
+    "chk_upgrade_parked_requires_in_progress" CHECK (recovery_parked_at IS NULL OR state = 'in_progress'::upgrade_state)
     "chk_upgrade_state_attributes" CHECK (
 CASE state
     WHEN 'available'::upgrade_state THEN scheduled_at IS NULL AND started_at IS NULL AND completed_at IS NULL AND rolled_back_at IS NULL AND skipped_at IS NULL AND dismissed_at IS NULL AND superseded_at IS NULL
@@ -79,6 +80,7 @@ Triggers:
     upgrade_block_obsolete_pending_trigger BEFORE INSERT OR UPDATE OF state, committed_at, release_status ON upgrade FOR EACH ROW EXECUTE FUNCTION upgrade_block_obsolete_pending()
     upgrade_notify_daemon_trigger AFTER UPDATE ON upgrade FOR EACH ROW EXECUTE FUNCTION upgrade_notify_daemon()
     upgrade_notify_frontend_trigger AFTER INSERT OR DELETE OR UPDATE ON upgrade FOR EACH ROW EXECUTE FUNCTION upgrade_notify_frontend()
+    upgrade_state_log_trigger AFTER UPDATE ON upgrade FOR EACH ROW WHEN (old.state IS DISTINCT FROM new.state OR old.recovery_parked_at IS DISTINCT FROM new.recovery_parked_at) EXECUTE FUNCTION upgrade_state_log_capture()
 Access method: heap
 
 ```

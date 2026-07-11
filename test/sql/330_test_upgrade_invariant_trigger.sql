@@ -19,6 +19,12 @@
 --   T6. Backstop procedure: with trigger temporarily disabled, manually
 --       insert orphan ancestor; backstop reaps it
 --   T7. Backstop is idempotent (second call returns 0 from outer count)
+--   T8. STATBUS-154 constraint chk_upgrade_parked_requires_in_progress rejects
+--       moving a parked row to a non-in_progress state (parked + completed = the
+--       convicted corruption)
+--   T9. STATBUS-154 instrumentation: each state/parked-changing UPDATE lands
+--       exactly one public.upgrade_state_log row with the correct old→new state
+--       and parked_at transitions; a non-changing UPDATE lands none
 --
 -- Shared-test harness: wrap in BEGIN/ROLLBACK for cloned-template isolation.
 
@@ -161,6 +167,65 @@ CALL public.upgrade_reap_ancestors_of_completed(0);
 SELECT count(*) FILTER (WHERE state = 'superseded') AS superseded_count,
        count(*) FILTER (WHERE state = 'available')  AS available_count
   FROM public.upgrade;
+
+\echo '=== T8: parked-requires-in_progress constraint rejects parked → non-in_progress ==='
+
+TRUNCATE public.upgrade RESTART IDENTITY;
+
+-- A parked upgrade: STATBUS-046 keeps state='in_progress' (forward-only) with the
+-- recovery-park marker set. This is the only state in which a park marker is legal.
+INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, scheduled_at, started_at, recovery_parked_at, recovery_parked_reason)
+VALUES (lpad(to_hex(100), 40, '0'), now(), 'commit', 'in_progress',
+        'parked at-target', now(), now(), now(), 'attempt budget exhausted at migrate');
+
+-- Moving it to a terminal state while the park marker is still set is exactly the
+-- corruption STATBUS-154 convicted (parked + completed). The row is made valid for
+-- chk_upgrade_state_attributes as 'failed' (error set) so the ONLY constraint left
+-- to fail is chk_upgrade_parked_requires_in_progress — its error is deterministic.
+-- VERBOSITY terse: the ERROR line is stable; the DETAIL failing-row dump is not.
+\set VERBOSITY terse
+SAVEPOINT sp_t8;
+\set ON_ERROR_STOP off
+UPDATE public.upgrade SET state = 'failed', error = 'deterministic failure' WHERE id = 1;
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT sp_t8;
+\set VERBOSITY default
+
+-- The row is untouched: still in_progress and parked.
+SELECT id, state, recovery_parked_at IS NOT NULL AS parked FROM public.upgrade ORDER BY id;
+
+\echo '=== T9: instrumentation trigger logs exactly one row per state/parked change ==='
+
+TRUNCATE public.upgrade RESTART IDENTITY;
+-- Earlier tests (T4/T5) drive state-changing UPDATEs that this same trigger logs;
+-- start T9 from an empty log so the counts below are exact.
+TRUNCATE public.upgrade_state_log RESTART IDENTITY;
+
+-- A scheduled row. INSERT is not an UPDATE, so the AFTER UPDATE trigger stays silent.
+INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, scheduled_at)
+VALUES (lpad(to_hex(100), 40, '0'), now(), 'commit', 'scheduled',
+        'to be claimed', now());
+
+-- (1) claim: scheduled → in_progress. State changes → one log row (parked f→f).
+UPDATE public.upgrade SET state = 'in_progress', started_at = now() WHERE id = 1;
+
+-- (2) park: the guarded park write (parkUpgrade's shape). Parked f→t, state
+-- unchanged. recovery_parked_at changes → one log row.
+UPDATE public.upgrade SET recovery_parked_at = now(), recovery_parked_reason = 'budget exhausted'
+ WHERE id = 1 AND state = 'in_progress' AND recovery_parked_at IS NULL;
+
+-- (3) a non-state, non-parked UPDATE: touches summary only. WHEN clause is false
+-- → the trigger does NOT fire, so NO log row is added.
+UPDATE public.upgrade SET summary = 'touched, not logged' WHERE id = 1;
+
+-- Exactly two log rows (from steps 1 and 2), in order, with the transitions.
+SELECT upgrade_id,
+       old_state, new_state,
+       (old_parked_at IS NOT NULL) AS was_parked,
+       (new_parked_at IS NOT NULL) AS now_parked
+  FROM public.upgrade_state_log ORDER BY id;
+
+SELECT count(*) AS log_row_count FROM public.upgrade_state_log;
 
 \echo '=== all trigger + backstop tests done ==='
 

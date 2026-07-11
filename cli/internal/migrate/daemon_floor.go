@@ -18,12 +18,18 @@ package migrate
 // the floor impossible: any migration NEWER than the floor that touches a daemon
 // relation fails the test until the floor is bumped in the same commit.
 //
-// VALUE: today 20260703210000 (the STATBUS-046 recovery-park columns on
-// public.upgrade) is the NEWEST migration in the tree, so nothing is above the
-// floor and the boot-to-floor form (slice 2) is a no-op vs boot-to-HEAD — hence
-// slice 1 is genuinely ship-safe alone. The floor bites only once a heavier
-// migration lands above a later daemon-relation migration.
-const DaemonSchemaFloor int64 = 20260703210000
+// VALUE: today 20260711201432 (the STATBUS-154 upgrade-state-log instrumentation
+// trigger on public.upgrade), bumped from 20260703210000 in the same commit that
+// added the STATBUS-154 parked-invariant constraint (20260711201431) and this
+// state-write trigger (20260711201432) — both migrations touch public.upgrade, so
+// the bump guard forced this floor re-decision. Both only ADD objects (a CHECK
+// constraint, a diagnostic table + its AFTER UPDATE trigger); no daemon query
+// loses a column, so the daemon operates cleanly at the raised floor and the
+// new floor-era trigger fires on the floor-era table (internally self-consistent
+// per the exclusions rule below — public.upgrade_state_log is NOT a daemon
+// relation, the daemon's Go never SQL-references it). Nothing is above the floor
+// again, so the boot-to-floor form (slice 2) is once more a no-op vs boot-to-HEAD.
+const DaemonSchemaFloor int64 = 20260711201432
 
 // DaemonRelationNames is the schema surface the daemon's OWN SQL touches — the
 // set whose shape the floor must satisfy. The bump guard flags any migration

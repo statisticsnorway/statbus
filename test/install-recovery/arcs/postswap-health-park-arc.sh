@@ -161,6 +161,13 @@ _dump_health_park_failure_diagnostics() {
     echo "── flag file + row state at exit (B's row, commit_sha = ${B_FULL:-?}) ──" >&2
     VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null || echo '(flag absent)'" >&2 || true
     VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, recovery_attempts, recovery_parked_at IS NOT NULL AS parked, COALESCE(recovery_parked_reason,''), error FROM public.upgrade WHERE commit_sha = '${B_FULL:-}' ORDER BY id DESC LIMIT 1;\" | ./sb psql" >&2 || true
+    # STATBUS-154 instrumentation: the DB-side state-write log — EVERY writer of
+    # state / recovery_parked_at for B's row (Go path or not), tagged with the
+    # writing connection's application_name + backend_pid + statement. This is
+    # what convicts the invisible writer when the row lands in an unexpected
+    # state; without it the parked-completed steal had to be inferred by hand.
+    echo "── upgrade_state_log (B's row: every state/parked writer, tagged) ──" >&2
+    VM_EXEC bash -c "cd ~/statbus && echo \"SELECT logged_at, old_state, new_state, (old_parked_at IS NOT NULL) AS was_parked, (new_parked_at IS NOT NULL) AS now_parked, COALESCE(application_name,'') AS app, backend_pid, COALESCE(query,'') AS stmt FROM public.upgrade_state_log WHERE upgrade_id = (SELECT id FROM public.upgrade WHERE commit_sha = '${B_FULL:-}' ORDER BY id DESC LIMIT 1) ORDER BY id;\" | ./sb psql -x" >&2 || true
     echo "══════════ end failure diagnostics ══════════" >&2
 }
 

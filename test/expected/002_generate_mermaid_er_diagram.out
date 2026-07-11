@@ -1406,6 +1406,18 @@ erDiagram
 		integer count_cap
 		boolean install_purge
 	}
+	upgrade_state_log["upgrade_state_log"] {
+		bigint id
+		integer upgrade_id
+		upgrade_state old_state
+		upgrade_state new_state
+		timestamp_with_time_zone old_parked_at
+		timestamp_with_time_zone new_parked_at
+		text application_name
+		text query
+		integer backend_pid
+		timestamp_with_time_zone logged_at
+	}
 	sql_saga_era["sql_saga.era"] {
 		name table_schema
 		name table_name

@@ -6114,6 +6114,45 @@ export type Database = {
           time_cap?: string | null
         },
         Relationships: []
+      },
+      upgrade_state_log: {
+        Row: {
+          application_name: string | null
+          backend_pid: number | null
+          id: number
+          logged_at: string
+          new_parked_at: string | null
+          new_state: Database["public"]["Enums"]["upgrade_state"] | null
+          old_parked_at: string | null
+          old_state: Database["public"]["Enums"]["upgrade_state"] | null
+          query: string | null
+          upgrade_id: number
+        },
+        Insert: {
+          application_name?: string | null
+          backend_pid?: number | null
+          id?: never
+          logged_at?: string
+          new_parked_at?: string | null
+          new_state?: Database["public"]["Enums"]["upgrade_state"] | null
+          old_parked_at?: string | null
+          old_state?: Database["public"]["Enums"]["upgrade_state"] | null
+          query?: string | null
+          upgrade_id: number
+        },
+        Update: {
+          application_name?: string | null
+          backend_pid?: number | null
+          id?: never
+          logged_at?: string
+          new_parked_at?: string | null
+          new_state?: Database["public"]["Enums"]["upgrade_state"] | null
+          old_parked_at?: string | null
+          old_state?: Database["public"]["Enums"]["upgrade_state"] | null
+          query?: string | null
+          upgrade_id?: number
+        },
+        Relationships: []
       }
     },
     Views: {
@@ -15607,6 +15646,10 @@ export type Database = {
           p_installed_id?: number
         }
         Returns: Record<string, unknown>[]
+      },
+      upgrade_state_log_capture: {
+        Args: Record<string, never>
+        Returns: unknown
       },
       urlencode: {
         Args: {

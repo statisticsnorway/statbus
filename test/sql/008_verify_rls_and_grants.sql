@@ -152,7 +152,12 @@ DECLARE
     v_upgrade_funcs TEXT[] := ARRAY[
         'public.upgrade_notify_daemon',
         'public.upgrade_notify_frontend',
-        'public.upgrade_request_check'
+        'public.upgrade_request_check',
+        -- STATBUS-154: AFTER UPDATE trigger fn that appends to public.upgrade_state_log
+        -- on every state / recovery_parked_at change. SECURITY DEFINER so the INSERT
+        -- lands regardless of the writing role (the trigger sees Go, the supersede
+        -- procedure, and step-table psql writers alike).
+        'public.upgrade_state_log_capture'
     ];
 
     -- Combined registry (excluding sql_saga which is matched by schema)

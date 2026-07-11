@@ -1595,6 +1595,10 @@ func (d *Service) ExecuteUpgradeInline(ctx context.Context, id int, commitSHA, d
 //	                               version as a completed row (the install-side sibling of the
 //	                               recovery / executeUpgrade completion paths; see the two-row model
 //	                               in doc/upgrade-timeline.md)
+//	LabelCompletedCurrentVersion — markCurrentVersionCompleted: boot-time reconcile marks the
+//	                               running version's row completed (install.sh-deployed rows that
+//	                               bypass the upgrade-service flow). Guarded (STATBUS-154) to never
+//	                               steal an in_progress / parked row from recovery.
 //	LabelRolledBackNormal        — rollback normal path: upgrade failed, git restore succeeded,
 //	                               prior version restarted cleanly
 //	LabelFailedAbort             — rollback ABORT: git restore itself failed; row is failed
@@ -1610,6 +1614,7 @@ const (
 	LabelCompletedSelfHeal        = "completed-self-heal"
 	LabelCompletedFromInProgress  = "completed-from-in-progress"
 	LabelCompletedInstall         = "completed-install"
+	LabelCompletedCurrentVersion  = "completed-current-version"
 	LabelRolledBackNormal         = "rolled-back-normal"
 	LabelFailedAbort              = "failed-abort"
 	LabelFailedRollbackIncomplete = "failed-rollback-incomplete"
@@ -2940,7 +2945,22 @@ func (d *Service) markCurrentVersionCompleted(ctx context.Context) {
 		return
 	}
 
-	result, err := d.queryConn.Exec(ctx,
+	// STATBUS-154: GUARD THE WRITER. This is the convicted parked-completed
+	// writer. On a parked-skip boot the running binary IS the parked row's
+	// target, so verifyUpgradeObservedState above passes (binary + migrations
+	// match) — and the old, un-guarded UPDATE (WHERE commit_sha + completed_at
+	// IS NULL) then completed a still-PARKED, still-in_progress row, stealing it
+	// from recovery and printing "post-unpark row: completed". The two added
+	// conjuncts refuse to touch a live upgrade: a parked row stays
+	// state='in_progress' (forward-only), so `state != 'in_progress'` excludes
+	// it, and `recovery_parked_at IS NULL` is the belt-and-suspenders class guard
+	// (chk_upgrade_parked_requires_in_progress makes the parked+non-in_progress
+	// pair impossible DB-wide). We never auto-clear recovery_parked_at here —
+	// deliberate un-park is RunSchedule / UnparkByID only (no standing self-heal).
+	// Converted to upgradeRowReturning + logUpgradeRow so this write carries the
+	// same greppable marker as every other terminal writer.
+	var currentVersionJSON string
+	err := d.queryConn.QueryRow(ctx,
 		`UPDATE public.upgrade
 		 SET state = 'completed',
 		     completed_at = COALESCE(completed_at, now()),
@@ -2949,16 +2969,24 @@ func (d *Service) markCurrentVersionCompleted(ctx context.Context) {
 		     error = NULL,
 		     rolled_back_at = NULL
 		 WHERE commit_sha = $1
-		   AND completed_at IS NULL`,
-		headSHA)
+		   AND completed_at IS NULL
+		   AND state != 'in_progress'
+		   AND recovery_parked_at IS NULL`+upgradeRowReturning,
+		headSHA).Scan(&currentVersionJSON)
 	if err != nil {
+		// pgx.ErrNoRows = the guard matched nothing (already completed, or an
+		// in_progress/parked row we deliberately left alone) — expected, silent.
+		// Any other error is a real DB fault: surface it (the row stays as-is;
+		// the next boot or the upgrade service reconciles). Never mark terminal.
+		if !errors.Is(err, pgx.ErrNoRows) {
+			fmt.Fprintf(os.Stderr, "markCurrentVersionCompleted: UPDATE failed: %v\n", err)
+		}
 		return
 	}
-	if result.RowsAffected() > 0 {
-		fmt.Printf("Marked current version (%s) as completed\n", d.version)
-		d.supersedeOlderReleases(ctx, headSHA)
-		d.supersedeCompletedPrereleases(ctx, headSHA)
-	}
+	logUpgradeRow(LabelCompletedCurrentVersion, currentVersionJSON)
+	fmt.Printf("Marked current version (%s) as completed\n", d.version)
+	d.supersedeOlderReleases(ctx, headSHA)
+	d.supersedeCompletedPrereleases(ctx, headSHA)
 }
 
 // syncConfigToSystemInfo writes UPGRADE_* values from .env to system_info.
@@ -5939,27 +5967,34 @@ func (d *Service) parkUpgrade(ctx context.Context, id int, reason string) (fresh
 	// Guard matched 0 rows: EITHER our own prior attempt committed then the conn
 	// died (retry), OR a prior pass parked it, OR the row moved out of in_progress
 	// and is not parkable. Verify on a fresh connection whether it IS parked.
-	parked, verr := d.rowIsParked(id)
+	parked, state, verr := d.rowIsParked(id)
 	if verr != nil {
 		return false, fmt.Errorf("park write matched 0 rows and the parked-state verify failed for id=%d: %w", id, verr)
 	}
 	if parked {
 		return false, nil // already parked → landed, but not freshly (no siren)
 	}
-	return false, fmt.Errorf("park write matched 0 rows and the row is not parked (id=%d) — not parkable (state moved out of in_progress?)", id)
+	return false, fmt.Errorf("park write matched 0 rows and the row is not parked (id=%d, state=%s) — not parkable: a park marker requires state='in_progress', but the row is '%s'", id, state, state)
 }
 
-// rowIsParked reports whether the upgrade row's recovery_parked_at is set, read
-// on a FRESH short-lived connection (reuses terminalUpdate's teardown-immune
-// primitive for the single-row read). Used by parkUpgrade to confirm the exit
-// invariant when the guarded park UPDATE matched 0 rows.
-func (d *Service) rowIsParked(id int) (bool, error) {
+// rowIsParked reports whether the upgrade row's recovery_parked_at is set AND
+// the row's current state, read on a FRESH short-lived connection (reuses
+// terminalUpdate's teardown-immune primitive for the single-row read). Used by
+// parkUpgrade to confirm the exit invariant when the guarded park UPDATE matched
+// 0 rows — the state lets the not-parkable error name what it actually found
+// (STATBUS-154). Encoded as "<state>|<parked>" so the single-column primitive
+// carries both.
+func (d *Service) rowIsParked(id int) (parked bool, state string, err error) {
 	out, err := d.terminalUpdate(
-		"SELECT (recovery_parked_at IS NOT NULL)::text FROM public.upgrade WHERE id = $1", id)
+		"SELECT state::text || '|' || (recovery_parked_at IS NOT NULL)::text FROM public.upgrade WHERE id = $1", id)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
-	return strings.TrimSpace(out) == "true", nil
+	fields := strings.SplitN(strings.TrimSpace(out), "|", 2)
+	if len(fields) != 2 {
+		return false, "", fmt.Errorf("rowIsParked: malformed row read %q for id=%d", out, id)
+	}
+	return fields[1] == "true", fields[0], nil
 }
 
 // STATBUS-046 (architect pin 2) — the SHARED park-reset column-set + guard,
