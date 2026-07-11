@@ -3,10 +3,10 @@ id: STATBUS-144
 title: >-
   flagless-boot-migrate-churn: a concluded box restart-churns on a broken
   pending migration until the upgrade daemon dies silently
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-07-07 02:57'
-updated_date: '2026-07-07 04:19'
+updated_date: '2026-07-11 20:20'
 labels:
   - upgrade
   - recovery
@@ -39,8 +39,8 @@ ORACLE: the abort-write-lands scenario run WITHOUT its cleanup step reproduces t
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A flagless boot whose boot-migrate fails DETERMINISTICALLY (exit 20) logs one loud actionable report and continues to the main loop alive-idle — no restart churn, no StartLimit death
-- [ ] #2 Transient/unclassified boot-migrate failures keep the exit-and-restart behavior
+- [x] #1 A flagless boot whose boot-migrate fails DETERMINISTICALLY (exit 20) logs one loud actionable report and continues to the main loop alive-idle — no restart churn, no StartLimit death
+- [x] #2 Transient/unclassified boot-migrate failures keep the exit-and-restart behavior
 - [ ] #3 The abort-aftermath state (row=failed, no flag, broken migration on disk) leaves the daemon alive and serving its normal loop, verified by a scenario variant
 <!-- AC:END -->
 
@@ -57,5 +57,11 @@ author: foreman
 created: 2026-07-07 04:19
 ---
 FIX SHIPPED 46f979a3a (2026-07-07), dual-reviewed (architect ship, both flags ruled; foreman first-hand). AC#1+AC#2 covered by unit tests (classification table + source-structure guard pinning no-return/no-markTerminal on the deterministic branch); AC#3 (scenario variant) is the next oracle unit. ARCHITECT RULINGS recorded: (1) BROAD SHAPE confirmed — continue on ANY flagless exit-20, not terminal-row-only: a flagless in_progress row with a deterministic pending migration is exactly what the flagless recovery routing handles (tri-state disposition reads Behind after boot-migrate → designed rollback); a terminal-only guard would re-create the churn one row-state to the left. Decisive autonomy argument for the schema-skew trade: a StartLimit-dead daemon can repair NOTHING — it cannot even receive the corrected version; an alive-degraded daemon IS the delivery channel for the fix. The 42703 residual is bounded and loud. (2) NO filename extraction from migrate's prose (text-as-classifier's cousin); the verbose tail names the file in practice, ./sb migrate up reproduces deterministically. SOMEDAY option noted: a structured filename side-channel in the migrate exit-code contract (data, not parsed prose) if a real operator is ever bitten.
+---
+
+author: foreman
+created: 2026-07-11 20:20
+---
+STATUS SYNC (foreman, 2026-07-11): status corrected To Do → In Progress — the fix shipped 46f979a3a (comment #2's record stands). ACs #1/#2 now formally checked on the unit-test coverage recorded there (classification table + source-structure guard). OPEN: AC#3 only — the scenario variant (abort-oracle without its cleanup step, asserting the daemon stays alive-idle instead of the StartLimit death banked in comment #1). Queued as an arc-lane item behind the 154/wave-8 closure. Note for that variant's build: under the shipped 145 geometry the flagless boot-migrate is floor-bounded, so the broken-pending-migration inject must sit at or below the daemon floor to hit the boot path — confirm the inject site when building.
 ---
 <!-- COMMENTS:END -->
