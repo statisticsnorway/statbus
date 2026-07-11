@@ -23,7 +23,7 @@ ordinal: 71000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-> NORTH STAR: prove on real machines that a box installs → upgrades → breaks → fixes itself autonomously (the Albania contract).
+> NORTH STAR: prove on real machines that a box installs → upgrades → breaks → fixes itself autonomously — the contract StatBus makes with every country's statistical office that installs it.
 > BENEFIT: the confidence to cut a release comes from a barrage instead of hope — every recovery claim in the coverage map is run-proven, and the last fabrication (the test lying about how state arose) is deleted.
 > STAGE: Testing foundation for Stage 1; its coverage map is the checklist the stable gate reads.
 > COMPLEXITY: mixed — engineer builds the kill-family arcs and fabrication deletion; mechanic rebuilds individual scenarios; architect reviews; VM runs are the oracle. Absorbs 094+101 hardening items.
@@ -32,7 +32,7 @@ ordinal: 71000
 ---
 
 ## North Star
-Prove, on real machines, that a StatBus box **installs -> upgrades -> hits a broken migration (or not) -> fixes itself -> upgrades again**, data intact, **entirely on its own**. That is Albania: a box inside a statistics office with no remote access — its only upgrade path is a local operator clicking "upgrade" in the web UI, after which the box applies and recovers autonomously, with no one to SSH in if it breaks. Passing this barrage earns the confidence to cut a release (the candidate also runs against the **large Norway database**, to catch slow/runaway migrations a small DB never reveals).
+Prove, on real machines, that a StatBus box **installs -> upgrades -> hits a broken migration (or not) -> fixes itself -> upgrades again**, data intact, **entirely on its own**. This is the contract with ANY country's national statistical office that installs StatBus: a box inside the statistics office, no remote access assumed — its only upgrade path is a local operator clicking "upgrade" in the web UI, after which the box applies and recovers autonomously, with no one to SSH in if it breaks. Passing this barrage earns the confidence to cut a release (the candidate also runs against the **large Norway database**, to catch slow/runaway migrations a small DB never reveals).
 
 ## The issue
 We could not faithfully test "an upgrade breaks, a fix lands, the box recovers." The old tests **faked** the failure — a hand-written `public.upgrade` row + an injected kill — which never goes through the real schedule -> service -> apply machinery. A faked failure proves nothing about the real recovery.
@@ -41,7 +41,7 @@ We could not faithfully test "an upgrade breaks, a fix lands, the box recovers."
 Drive **real upgrades between throwaway git branches** on real VMs, through the **exact operator path** — no fabrication:
 - Off a base commit **A**, make two throwaway branches: **B** = A + the migration under test; **C** = B with that migration **corrected in place** (same file, fixed bytes — not a new migration on top). Pushing them builds per-commit images.
 - Four CI jobs on a fresh Hetzner VM: **construct** (the branches + images) -> **image-wait** -> **run-arc** -> **teardown**.
-- run-arc: install **A** + demo data -> `./sb upgrade register/schedule <B>` (writes the `public.upgrade` row; a DB trigger wakes the upgrade service, which claims + applies on its own) -> watch `public.upgrade.state` reach `completed` / `failed` / `rolled_back` -> same for **C**. No SSH, no deploy branch — exactly Albania's path.
+- run-arc: install **A** + demo data -> `./sb upgrade register/schedule <B>` (writes the `public.upgrade` row; a DB trigger wakes the upgrade service, which claims + applies on its own) -> watch `public.upgrade.state` reach `completed` / `failed` / `rolled_back` -> same for **C**. No SSH, no deploy branch — exactly the path the statistical office's operator walks.
 
 V's number = highest existing migration + 1 (so it sorts after A's and is genuinely *pending*). The working V creates `public.upgrade_arc_fixture(id,note)` and inserts `(1,'arc')`, so the test confirms V actually ran.
 
