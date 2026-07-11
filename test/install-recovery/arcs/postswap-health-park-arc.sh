@@ -468,6 +468,8 @@ echo "  ✓ SECOND siren fired (fires-once-per-park-EVENT contract exercised liv
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── STATBUS-147: assert the upgrade daemon unit is ACTIVE after the re-park (parked-skip made this safe; the daemon must stay reachable to claim the fix release) ──"
+echo "── waiting out the designed auto-restart hold-off (budget ${UNIT_ACTIVE_WAIT_BUDGET_S}s) before checking alive-idle ──"
+wait_for_unit_active "$UNIT_ACTIVE_WAIT_BUDGET_S" || exit 1
 assert_systemd_active "$VM_NAME" "$UPGRADE_UNIT" "active"
 echo "  ✓ daemon unit active post-re-park — ready to claim a newly-scheduled C"
 
