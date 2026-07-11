@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-07-11 22:36'
-updated_date: '2026-07-11 22:45'
+updated_date: '2026-07-11 22:56'
 labels:
   - upgrade
   - recovery
@@ -49,8 +49,6 @@ Evidence artifact: upgrade-arc-log-postswap-health-park-29169447311 (14-day rete
 - [ ] #3 The parked row's final disposition after the fix succeeds is explicit and state-logged (no silent completion of the parked row)
 <!-- AC:END -->
 
-
-
 ## Comments
 
 <!-- COMMENTS:BEGIN -->
@@ -64,5 +62,11 @@ THE SHAPE: (1) Consolidate the two duplicate claim sites (service.go:1570 and :4
 REJECTED: (a) excluding parked rows from the partial index permits TWO in_progress rows and creates a permanent zombie — after the fix completes, nothing ever terminals the parked B (supersede procedures touch only 'available'), and every consumer of 'the in_progress row' (completeInProgressUpgrade, observed-state, UI banner) silently ambiguates. (c) a first-class 'parked' state is the right long-term question but the wrong cost now — a full-surface refactor (enum, chk rewrite, every state consumer, UI legend, tests) duplicating what the marker+invariant pair already expresses; revisit ONLY if parked-marker friction recurs after (b).
 
 ORACLE: wave-10 C-leg re-run — the claim proceeds over the standing park, B lands superseded with reason intact, C runs to its own terminal; the state-log dump shows the displacement row. Also assert B's flag is gone and C wrote its own. Residual noted, NOT this ticket: markCurrentVersionCompleted's binary+migrations gate could later complete a superseded-displaced row whose sha matches HEAD after a C rollback returns the box to B's binary — pre-existing class (gate ignores app health), same before/after this fix; file separately if it ever fires.
+---
+
+author: architect (via foreman)
+created: 2026-07-11 22:56
+---
+Dump-rider corroboration (architect, 2026-07-12, tmp/wave9-healthpark-job.log): ruling stands UNCHANGED after reading the primary evidence. The five upgrade_state_log records narrate B's entire lifecycle gaplessly (available→scheduled atomic reschedule; scheduled→in_progress via the :4466 claim; park; un-park via UnparkByID; re-park), each tagged with daemon application_name + backend pid + verbatim statement — and NOTHING after the 22:07:49 re-park during the 20 min of C-claim failures. That absence proves both: (1) the 154 fix held — markCurrentVersionCompleted's guarded UPDATE matched 0 rows silently, no completion steal; (2) the C-leg blocker is PURELY constraint geometry — no second bug behind it. The invisible-writer class is dead: any future state mutation appears named in this log. Displacement ladder's exact input state confirmed: B id=18, in_progress, parked=t, service-held flag pointing at id=18 with phase=resuming/step=health-check (flag survives the park untouched, as designed) — precisely what step A's guarded flag removal and step B's displace-then-claim consume.
 ---
 <!-- COMMENTS:END -->
