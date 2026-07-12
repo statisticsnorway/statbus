@@ -1,13 +1,13 @@
 ---
 id: STATBUS-166
 title: >-
-  restamp-conveyance: a retroactively-edited released migration re-stamps the
-  production ledger via a declared old→new hash conveyance — the exit-21 remedy
-  the upgrade path lacks
+  release-cut-is-the-bless: boxes re-stamp gate-vetted migration bytes
+  (content-level trust) — the exit-21 remedy
 status: To Do
 assignee:
   - '@engineer'
 created_date: '2026-07-12 15:25'
+updated_date: '2026-07-12 21:33'
 labels:
   - upgrade
   - migrations
@@ -28,27 +28,42 @@ ordinal: 167000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-> NORTH STAR: a legitimately-merged retroactive edit to a released migration reaches every deployed box through the NORMAL upgrade path — the ledger re-stamps itself from a declared, auditable conveyance; the immutability refuse keeps its full teeth for everything undeclared.
-> STAGE: production upgrade path. FOUND: 2026-07-12 — the dev-slot deploy (row 323154) auto-rolled-back on `sb migrate up` exit 21: migration 20260218215337's ledger content_hash (cd82bc76) ≠ on-disk hash (71befa05) after the 8b5912a9a retroactive seed-drift fix. Every slot whose DB applied the old bytes fails identically; STATBUS-123's deploy sequence is blocked at the dev gate.
-> COMPLEXITY: engineer-scoped; fix shape architect-ruled (below). HIGH — blocks all slot deploys.
+> NORTH STAR: a gated release cut is the ONE bless for a retroactive edit to a released migration. Every box recognizes gate-vetted bytes and re-stamps itself through the NORMAL upgrade path; everything unvetted refuses loudly. No side channels, ever.
+> FOUND: 2026-07-12 — dev deploy (row 323154) auto-rolled-back on `sb migrate up` exit 21: migration 20260218215337's ledger hash (cd82bc76) ≠ on-disk hash (71befa05) after the legitimate 8b5912a9a edit. Every deploy blocked at the dev gate (STATBUS-123).
+> COMPLEXITY: engineer — one recognition branch + unit tests, plus one gated RC cut.
 
-THE DECISIVE STRUCTURAL FACT (rules out the obvious alternative): a "ledger repair migration" is DEAD by construction — eagerContentHashCheck refuses (exit 21) BEFORE `migrate up` applies anything, so a repair shipped AS a migration can never run. The remedy must live in the check itself.
+THE DESIGN (King, approved 2026-07-12 — also recorded BY DESIGN on `release.IntentionallyFixBrokenImmutableMigrationEnvVar`, immutability.go, so it is never re-derived again):
 
-RULED SHAPE (architect, 2026-07-12) — implement STATBUS-072's re-stamp conveyance (doc-014), scoped to the declaration mechanism:
+1. THE BLESS HAPPENS ONCE, AT THE RELEASE CUT. Cutting an RC/release refuses any changed released migration unless its version is named in `STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION` at the cut. Naming it is the deliberate, human, loud bless. (Shipped: release.go checkMigrationImmutability.)
 
-1. DECLARATION FILE, committed with any retroactive edit: `migrations/intentional-restamps.jsonl` — one line per conveyance: {version, old_sha256, new_sha256, reason, ticket}. The name carries the intent (the durable sibling of STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION — a bless is always explicit, named, and in git for review; never ambient).
-2. CHECK-TIME CONSULT: eagerContentHashCheck, on a released-tag mismatch, consults the declarations BEFORE any refuse or fallback. EXACT provenance match required — box ledger hash == declared old_sha256 AND on-disk hash == declared new_sha256 → machinery re-stamp (UPDATE db.migration.content_hash, a code write via the migrate runner, never manual) + ONE loud line naming the declaration (version, old→new, reason, ticket). Anything undeclared or partially matching → the existing refuse, unchanged. Blanket re-hash-if-clean is REJECTED: it silently blesses every future retroactive edit and removes the immutability guard's teeth; the declaration keeps each bless explicit and auditable.
-3. ORDERING vs STATBUS-156: the declaration consult runs FIRST (a declared restamp is more precise than a stale-cache full replay); 156's dev-only clean-file fallback stays as-is behind it. STATBUS-102's edge auto-recreate remains out of scope.
-4. BACKFILL the first declaration: version 20260218215337, old cd82bc76…, new 71befa05… (full hashes from the dev journal / recompute), reason "8b5912a9a retroactive seed-drift fix", ticket STATBUS-156-adjacent history.
-5. Idempotent + fleet-converging by construction: each slot re-stamps on its next NORMAL upgrade attempt (boot-migrate or pipeline migrate both route through the check); no manual DB writes anywhere; a box that never applied the old bytes matches nothing and is untouched.
+2. THE EXISTENCE OF THE RELEASE **IS** THE BLESS. A cut release carrying changed released-migration bytes can only exist because a human blessed exactly those versions at the gate. There is deliberately NO second record — no declaration file, no sanctioned list on boxes, no runtime provenance re-check. (A file-conveyed declaration set was built once and retired, STATBUS-102; this ticket's first draft re-proposed it and was withdrawn.)
 
-ORACLE: (i) Go unit tests on the match logic (exact match → restamp; wrong old-hash → refuse; undeclared → refuse; declared-but-dirty-file → refuse); (ii) THE REAL ONE: the blocked dev-slot deploy re-dispatched goes green through the normal path — STATBUS-123's dev gate is the oracle, and its current red is the RED half already in hand; (iii) the loud restamp line appears exactly once per slot per conveyance in the journal.
+3. TRUST IS CONTENT-LEVEL, NOT COMMIT-LEVEL. On a mismatch for version V, the box's on-disk bytes are trusted iff some cut release carries exactly those bytes for V. A master commit carrying release-vetted bytes is trusted; a newer, not-yet-gated edit has bytes no release carries → refuse until the next gated cut. Self-consistent, no windows.
+
+4. WHAT EACH CHANNEL DOES on a mismatch (migrate.go eagerContentHashCheck):
+   - stable/prerelease — SHIPPED, unchanged: the whole diet is releases, so re-stamp trusting the gate, one loud line.
+   - edge (dev: tests every master commit) — TO BUILD, the one code change: recognize vetted bytes. For mismatched version V with live hash H, check whether any release-shaped tag carries V with content hash H. Yes → re-stamp + the same loud line. No → refuse exactly as today. MUST work on a shallow clone: `git ls-remote` / tag fetch, never local tag-tree probes (documented unreliable on deployed boxes).
+   - local — unchanged: a human is present; stop and tell them.
+
+5. THE CONCRETE REMEDY for today's blockage: cut the next RC with `STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION=20260218215337`. Release-channel slots re-stamp on their next upgrade; dev re-stamps via the edge recognition branch. One blessed landing heals a box permanently for that edit (the ledger then matches all following commits).
+
+ORACLE: (i) unit tests on the recognition branch — vetted bytes → re-stamp; ungated-edit bytes → refuse; version in no release → existing WIP guidance; (ii) THE REAL ONE: the dev deploy goes green through the completely normal path (STATBUS-123's dev gate); (iii) the loud re-stamp line appears exactly once per box per blessed edit.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A declared conveyance (exact old→new hash match, clean file) re-stamps the ledger through the NORMAL migrate path with one loud named line — no manual writes, no exit 21
-- [ ] #2 Anything undeclared, partially matching, or dirty still hard-refuses exactly as today (immutability teeth intact) — unit-tested on all four branches
-- [ ] #3 The 20260218215337 conveyance is backfilled and the dev-slot deploy goes green through the normal path (the STATBUS-123 gate oracle)
-- [ ] #4 STATBUS-156's dev fallback ordering: declaration consult first, full-replay fallback second — verified in dev
+- [ ] #1 Edge recognition branch: a mismatch whose on-disk bytes match that version's bytes in a cut release re-stamps with one loud line — proven to work on a shallow clone
+- [ ] #2 Unvetted bytes still hard-refuse (unit-tested: newer ungated edit; version in no release keeps existing WIP guidance)
+- [ ] #3 The next RC is cut with STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION=20260218215337 — the gated bless executed
+- [ ] #4 The dev deploy goes green through the normal path (the STATBUS-123 dev-gate oracle)
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-12 21:33
+---
+REWRITTEN 2026-07-12 evening after the King's design review. The first draft's jsonl declaration file is WITHDRAWN — it re-introduced the side channel retired by STATBUS-102 ("declared intent lives ONLY in the env var at the cut", immutability.go). The King's design, played back and approved: the release cut is the single bless; the release's existence IS the bless; trust is content-level (his pushback sharpened commit-level to content-level: gated bytes are vetted bytes wherever a box got them). This is the FOURTH derivation of this design — to end that, the principle is now a BY DESIGN comment on release.IntentionallyFixBrokenImmutableMigrationEnvVar with a pointer at migrate.go's channel switch, committed alongside this rewrite. Architect's original ruling superseded by the King's own design.
+---
+<!-- COMMENTS:END -->
