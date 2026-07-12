@@ -32,9 +32,9 @@ ordinal: 110000
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 > NORTH STAR: no external write can slip into the destructive upgrade window, so rollback is always data-safe and recovery never has to stop for a human.
-> BENEFIT: closes the one remaining data-loss path in rollback (a direct-PG write landing mid-window and being silently erased by a restore) — the fact that made recovery conservative; with it proven, recovery stays autonomous. AC#1 proven; remaining gain = the crash-persistence proof + the formal 039 supersession so future readers inherit the right invariant.
+> BENEFIT: closes the one remaining data-loss path in rollback (a direct-PG write landing mid-window and being silently erased by a restore) — the fact that made recovery conservative; with it proven, recovery stays autonomous. AC#1, #3, #4 all proven/shipped (comments #11, #14); the only remaining gain is AC#2's crash-persistence proof — its arc rider is in flight (comment #14).
 > STAGE: Stage 1.
-> COMPLEXITY: mixed — engineer: crash-mid-window arc (AC#2); architect: 039-supersession doc + decision-tree update (AC#3); mechanic-simple: the cost paragraph (AC#4).
+> COMPLEXITY: engineer only — AC#2 (the crash-mid-window arc rider) is the sole remainder; AC#3 (039-supersession doc) and AC#4 (cost paragraph) are shipped (comments #12, #14).
 > DEPENDS ON: STATBUS-071 (AC#2's arc vehicle).
 
 ---

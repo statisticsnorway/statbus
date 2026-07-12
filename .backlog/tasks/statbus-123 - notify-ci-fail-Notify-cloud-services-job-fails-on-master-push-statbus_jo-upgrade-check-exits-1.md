@@ -22,7 +22,7 @@ ordinal: 123000
 > NORTH STAR: a master push notifies every cloud box, and a red notify job means something real.
 > BENEFIT: the post-push upgrade poke reaches all 7 cloud slots again, and the 100%-red job stops training everyone to ignore CI failures on every single push.
 > STAGE: Ops (Stage 2 support).
-> COMPLEXITY: operator-simple. The sshdoers durable-entrypoint fix already shipped (2026-07-08); the job is still red because most cloud slots haven't deployed the new ops/ci-notify.sh yet (they only pull it on their next deploy) — next step is confirming that gap on one slot and closing it.
+> COMPLEXITY: King-gated (deployment decision, not operator-simple). The sshdoers durable-entrypoint fix shipped (2026-07-08); the gap is CONFIRMED (comment #6, 2026-07-12): no slot has ops/ci-notify.sh yet, so all 7 slots fail identically on the missing script. Closing it means deploying master to some/all slots — production-touching for the country slots (ug/et/ma/jo/tcc) — queued for the King's evening decision.
 > DEPENDS ON: the King's nod (server write); pairs with STATBUS-128 (same server session) — soft, not a hard dependency.
 
 ---

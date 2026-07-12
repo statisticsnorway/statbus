@@ -37,6 +37,8 @@ ordinal: 109000
 
 ---
 
+> WHERE THIS STANDS (2026-07-12): the backoff-retry dispatch described as "Proposed" below is SHIPPED (782ca2455, comment #2) and the standard arc paths (working/failing) already pass through it clean (comment #3). The "Current behavior" and "Proposed" sections below describe the OLD exit-on-unknown design this replaced — read them as the original problem statement, not as what the code does today; the live dispatch now lives at recoverFromFlag (service.go:891, drifting — re-verify at build time). What's actually left: AC#1-#4, all gated on two DEDICATED arc scenarios (kill the DB transiently mid-recovery; a commit-not-fetched stall) that no existing arc exercises yet.
+
 ## Why
 Surfaced during the upgrade-vocabulary walkthrough (STATBUS-107). The recovery decision tree's "cannot verify" outcome (GroundTruthUnknown) currently EXITS the process on a TRANSIENT db-unreachable error and leans on systemd restart as its retry. That is noisy and risks a false unit-failure for a brief db blip. King's framing (2026-06-24): "To exit for a transient error creates noise."
 
@@ -47,7 +49,7 @@ Surfaced during the upgrade-vocabulary walkthrough (STATBUS-107). The recovery d
 4. CAN'T name it → stop for a human. → unrecognized phase (FLAG_PHASE_UNKNOWN).
 
 ## Current behavior (grounded, file:line)
-- verifyUpgradeGroundTruthEx (service.go:2105-2141) returns GroundTruthUnknown when: db.migration query fails (db unreachable, :2118-2125) OR git can't resolve the target commit (shallow/pruned clone, :2042-2048).
+- [HISTORICAL — pre-782ca2455] verifyUpgradeGroundTruthEx (renamed to verifyUpgradeObservedStateEx, now service.go:2463) used to return GroundTruthUnknown when: db.migration query fails (db unreachable) OR git can't resolve the target commit (shallow/pruned clone).
 - recovery-Unknown → record failure (row stays in_progress, error logged) → return error → Service.Run returns at service.go:1705-1706 → PROCESS EXITS → systemd restarts the unit (RestartSec delay + StartLimit ~10/600s cap per the :1702 comment) → fresh recoverFromFlag re-checks. NO in-process backoff. Same exit path for both the db (transient) and git-shallow (persistent) sub-causes.
 
 ## Proposed

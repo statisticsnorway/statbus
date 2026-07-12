@@ -53,12 +53,8 @@ Net: warm seed build ~2m -> seconds, with a hard correctness fallback. Evidence 
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
-FOUNDATION (decision half) COMMITTED c7b0ac286. Remaining (execution half), in order:
-1. AC#4 identity-check proof harness (GREENLIT, in progress) — semantic schema+data digest compare of incremental-built vs full-built seed; builds both once, not per-CI; live wiring must not flip to incremental until green.
-2. AC#1 execution — restore-prior-seed + delta-migrate in postgres/Dockerfile (gated on AC#4 green + Fork A King decision).
-3. AC#3 baseline — Fork B ruled B1: IncrementalDepth in seed.json (force full at depth>=N) + release=full.
-4. AC#5 measurement.
-PARKED FOR KING — Fork A: prior-seed selection (A1 floating base tag [rec] vs A2 ancestor-walk); correctness-neutral, build/caching-architecture call.
+DONE (per comments #17-30): AC#4 harness certified; AC#1 live incremental wiring shipped and proven on real pushes (walk → restore → delta-migrate → publish); AC#3 depth-cap (N=5) observed firing live; AC#5 timing measured (~60s → ~16-20s in-stage). Fork A resolved by the King: ancestor-walk. SEED_INCREMENTAL_ENABLED was later RETIRED (King, comment #25) — incremental now runs unconditionally in code; kill-switch = `git revert` of the enabling commit.
+REMAINING: criterion 6 only — run `sb db seed verify-multidelta --prior-image <ref>` against an eligible prior once it has ≥2 migrations of delta to HEAD (comment #29: not yet runnable as of 2026-07-04, needs one more migration-bearing commit past the current single-delta chain). See the COMPLEXITY line above for who runs it.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes

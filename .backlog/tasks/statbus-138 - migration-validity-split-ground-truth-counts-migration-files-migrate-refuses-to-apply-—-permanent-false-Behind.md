@@ -26,7 +26,7 @@ ordinal: 139000
 > NORTH STAR: one shared definition of "a migration file" for both the applier and ground truth.
 > BENEFIT: a stray invalid-named file in migrations/ can no longer make a healthy box read as Behind forever — which in a flag-driven recovery routes to an AUTOMATIC RESTORE of a healthy box (observed driving r17's rollback crash loop). Closes a silent-loss class with one shared predicate + a loud ignored-file warning.
 > STAGE: Stage 1 (r17 live finding).
-> COMPLEXITY: engineer-substantial (shared lister/validity predicate across migrate.go + the ground-truth diskMax; unit-tested).
+> COMPLEXITY: mechanic/tester (verification only) — the shared predicate shipped dff5231de (comment #2, 2026-07-08); AC#1-4 checked. What remains: AC#5, a live run proving a stray invalid-named migration file no longer restart-churns a flagless box.
 > DEPENDS ON: nothing.
 
 ---

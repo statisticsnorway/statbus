@@ -24,7 +24,7 @@ ordinal: 144000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-NORTH STAR: ./sb install recovery must reach the database the way the service does, or say precisely why it can't — a crashed upgrade must never become a dead end the operator's canonical action (run install again) cannot escape. BENEFIT: a crashed upgrade whose crash also took the proxy down stops being an unrecoverable error loop, and the reachability probe can never again pass against a path the real connection doesn't use. STAGE: Stage 1 (install/upgrade robustness). COMPLEXITY: engineer-substantial. DEPENDS ON: nothing.
+NORTH STAR: ./sb install recovery must reach the database the way the service does, or say precisely why it can't — a crashed upgrade must never become a dead end the operator's canonical action (run install again) cannot escape. BENEFIT: a crashed upgrade whose crash also took the proxy down stops being an unrecoverable error loop, and the reachability probe can never again pass against a path the real connection doesn't use. STAGE: Stage 1 (install/upgrade robustness). COMPLEXITY: mechanic-buildable (scenario legs only) — the product diff shipped 06cf8415f (comment #2); AC#1/#3 checked. What remains: AC#2 (stopped-proxy scenario) + AC#4 (severed-proxy scenario). DEPENDS ON: nothing.
 
 FOUND live (rune-wedge scenario first run, 2026-07-07, kept-VM autopsy by the architect): the scenario accidentally created a crashed-upgrade state with the proxy container ABSENT — and install crash recovery dead-ended:
 
