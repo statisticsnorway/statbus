@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-15 11:47'
-updated_date: '2026-07-12 21:43'
+updated_date: '2026-07-12 21:46'
 labels:
   - upgrade
   - postgrest
@@ -67,13 +67,11 @@ DEFERRED — not now. Stabilize the current install/upgrade surface first.
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 STAGE 1 done: an operator has scoured app/src (+ any other /rest query construction sites) and REPORTED every candidate location (file:line) of an aliased-embed-used-in-a-filter/order (#4075), plus any serialization-retry reliance — surfacing doubt, not deciding
-- [ ] #2 STAGE 2 done: a smarter agent (architect/engineer) verified each candidate and produced the definitive list of sites that #4075 actually breaks (or confirmed none)
-- [ ] #3 Any confirmed #4075 sites rewritten to not alias-then-filter
+- [x] #2 STAGE 2 done: a smarter agent (architect/engineer) verified each candidate and produced the definitive list of sites that #4075 actually breaks (or confirmed none)
+- [x] #3 Any confirmed #4075 sites rewritten to not alias-then-filter
 - [ ] #4 PostgREST bumped to the confirmed latest v14.x tag in docker-compose.rest.yml + docker/compose/upgrade-sandbox.yml; rest container restarts clean on v14
 - [ ] #5 Tested: full suite green + app smoke-test passes on v14 (queries return the same results); passive behavior changes (Vary, schema-cache best-effort, serialization-retry) confirmed harmless
 <!-- AC:END -->
-
-
 
 ## Comments
 
@@ -88,5 +86,19 @@ app/src/atoms/import.ts:240-242 — `.select("*, import_definition!inner(*)")` f
 Clean findings: no reliance on the removed automatic serialization-failure retry; no other #4075 patterns (other FK embeds either carry no alias modifier or never filter on the alias); all other query patterns v14-compatible.
 
 Stage 2 = verify the one site against v14 semantics and rule/execute the rewrite.
+---
+
+author: architect (relayed by foreman)
+created: 2026-07-12 21:46
+---
+STAGE 2 VERDICT (architect, 2026-07-12 night): the definitive #4075 list is EMPTY — zero sites in app/src break; no rewrites needed (AC#3 vacuously satisfied).
+
+THE RULE, CITED — PostgREST CHANGELOG v14.0 (2025-10-24): "Deprecate filters, orders and limits with the name of an embedded table WHEN IT HAS AN ALIAS ... e.g. ?select=alias:table(*)&table.id=eq.1 will not be possible anymore, use alias.id instead." Unaliased embeds keep supporting their real table names in filters.
+
+THE ONE STAGE-1 CANDIDATE, CLEARED: import.ts:240-242 — `import_definition!inner(*)` carries NO alias; `!inner` is a join hint. Filtering `.eq("import_definition.mode", ...)` on the real table name stays legal on v14. Stage 1 pattern-matched the join modifier as an alias.
+
+COMPLETENESS SWEEP with the corrected pattern: genuine alias-in-select sites repo-wide = TWO (`external_ident_type:type_id(...)` in establishments/ and legal-units/ inspect.tsx), both filtering only top-level columns — safe; dotted embedded filters = ONE (the cleared import.ts); non-eq dotted operators (.order/.filter/.in/.not/.gt) = ZERO; referencedTable/foreignTable options = ZERO; the command-palette.tsx:230 twin is select-only unaliased — safe. Stage 1's conclusion was wrong (pattern error) but its coverage claim survives the corrected sweep.
+
+REMAINING = AC#4 (bump the two compose tags) + AC#5 (suite + smoke on v14). The bump is now fully de-risked on the #4075 axis, but the ticket's DEFERRED status was the King's explicit "stabilize first" call — the bump executes on his word, not before. Queued as a one-line King decision.
 ---
 <!-- COMMENTS:END -->
