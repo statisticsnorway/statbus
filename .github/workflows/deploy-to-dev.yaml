@@ -11,10 +11,14 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    # STATBUS-069 phase 3: runs on the niue self-hosted runner — the SSH to the
-    # slot now originates on the box (host-gateway to niue's own sshd), not Azure.
-    runs-on: [self-hosted, niue]
+  # STATBUS-069 phase 3: the wait-for-images gate uses `gh` + `jq` — preinstalled
+  # on GitHub-hosted images but deliberately ABSENT from the niue runner image
+  # (ops/github-runner/Dockerfile) — and needs only GITHUB_TOKEN (no secrets, no
+  # SSH), so it stays HOSTED. The self-hosted deploy job `needs:` it. Scar: dev
+  # deploy run 29211799992 went red on `gh: command not found` after the runs-on
+  # move — a self-hosted move requires a preinstalled-tooling audit (doc-026).
+  images-ready:
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       actions: read
@@ -39,6 +43,14 @@ jobs:
           exit 1
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  deploy:
+    needs: images-ready
+    # STATBUS-069 phase 3: runs on the niue self-hosted runner — the SSH to the
+    # slot now originates on the box (host-gateway to niue's own sshd), not Azure.
+    runs-on: [self-hosted, niue]
+    permissions:
+      contents: read
+    steps:
       - name: Deploy via upgrade service
         # SSH to statbus_dev@niue and trigger the upgrade service through
         # `./sb upgrade apply-latest`. The server-side sshdo allowlist
