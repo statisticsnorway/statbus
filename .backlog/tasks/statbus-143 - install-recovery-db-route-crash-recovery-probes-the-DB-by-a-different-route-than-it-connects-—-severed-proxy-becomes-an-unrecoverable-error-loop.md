@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-07-07 02:27'
-updated_date: '2026-07-12 13:56'
+updated_date: '2026-07-12 22:17'
 labels:
   - install-recovery
   - upgrade
@@ -85,5 +85,15 @@ author: foreman
 created: 2026-07-12 13:56
 ---
 BOTH SCENARIO LEGS BUILT + SHIPPED (e8cfb269a, 2026-07-12), architect SHIP after a carve-out adjudication worth the record: the first drafts used fabricate_resume_state and were REBUILT on real-path construction per the King's dead-producer rule — real register/schedule → injected kill at the container-restart site (chosen by trace: it fires after the service set is up, so the proxy manipulation is the single variable — and the trace is now a run-time precondition assert) → docker stop (AC-2 arc) / rm -f -s (AC-4 arc) as environment manipulation. The rebuild hit no impossibility and forced a genuine correctness fix (commit-scoped row queries — real dispatch makes multiple rows where fabrication made one). postswap-stopped-proxy-recovery-arc asserts the start-fallback line, stopped→running, completed with zero restores, idempotence coda; postswap-severed-proxy-refusal-arc asserts the exact category-3 refusal + stability on re-run + the operator's advertised remedy closing the loop. Both carry the 155 failure-diagnostics rider. ACs 2/4 check on the VM runs — batched for tomorrow per the architect's sequencing agreement (nothing gates tonight; results deserve fresh eyes).
+---
+
+author: tester (relayed by foreman)
+created: 2026-07-12 22:17
+---
+BATCH-3 ARC RUN (2026-07-12 night, arc-harness run 29210173938; artifact 8265036889): SPLIT VERDICT.
+
+postswap-severed-proxy-refusal — GREEN ✓ (job 86696811582). The refusal leg of the carve-out holds on a real VM.
+
+postswap-stopped-proxy-recovery — RED ✗ (job 86696811569). The arc's oracle expects row state 'completed'; actual: id=2, state='in_progress', recovery_attempts=1, phase='resuming', step='start-services'. Flow evidence: real install A (7fe69c53) → register/schedule B (09e48f0a) → killed-by-system-during-container-restart inject fired (real crash post step 11), red state verified (flag present, row in_progress, proxy running) → `docker compose stop proxy` (env manipulation) → recovery `./sb install` ran and EXITED 0 — but the row never advanced past resuming/start-services. Post-restore fixups ran; listen loop started; daemon shut down gracefully (listenLoop ctx.Err=<nil>); ALL containers up and healthy at the end. So: services converged, exit 0, row stuck in_progress — either a resume state-machine defect (completion write never reached after start-services on this path) or the oracle read the row before an async completion landed. Under diagnosis — no-flaky-tests, the run is the oracle.
 ---
 <!-- COMMENTS:END -->
