@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-17 07:59'
-updated_date: '2026-07-08 13:52'
+updated_date: '2026-07-12 13:09'
 labels:
   - tooling
   - not-install-upgrade
@@ -59,5 +59,11 @@ author: foreman
 created: 2026-07-08 13:52
 ---
 PHASE 2 DEPLOYED (2026-07-08, King-approved niue root session, foreman-driven per the README runbook, every step verified live): (1) github-runner user created — docker group, NO sudo (uid 1016, groups verified). (2) Four repo artifacts placed in /home/github-runner, owned github-runner. (3) 1h registration token minted via gh api, placed as .env mode 600, local copy destroyed. (4) Image built + container started as github-runner; runner REGISTERED AND ONLINE — container log 'Listening for Jobs', GitHub API shows runner 'niue' online with labels self-hosted,Linux,X64,niue; RUNNER_TOKEN blanked afterward. (5) CrowdSec: new ssb/gha-runner-whitelist (separate file, own identity) whitelisting the gha-runner_default bridge subnet 172.22.0.0/16 — the private RFC1918 bridge only, categorically NOT GitHub's public ranges; crowdsec reloaded, active, parser enabled+local. (6) Weekly refresh installed: upgrade-to-latest-gha-runner.sh → /usr/local/bin, service+timer enabled — next fire Sun 2026-07-12 03:17 UTC. (7) NOW OBSERVING: one day idle including Sunday's first timer pass before any workflow migrates (phase 3 gate per doc-026 §3). The same root session also carries the STATBUS-123 sshdoers durable-entrypoint edit — pending the mechanic's repo artifacts (exact byte-stable script line) landing so the allowlist pins the right bytes.
+---
+
+author: foreman
+created: 2026-07-12 13:09
+---
+PHASE-3 GATE MET (operator verification, 2026-07-12): all three observation verdicts GREEN — (a) the weekly refresh timer fired on schedule (runner re-listening at 03:17:07Z, the exact Sunday window) and the service run succeeded; (b) the runner container up 10 hours, registered and online, continuous token refresh through 12:28Z; (c) zero CrowdSec alerts involving the runner's bridge subnet. The one-day observation window including the first timer pass is complete. PHASE 3 (migrating the workflows — pg_regress trusted leg, notify-all-clouds, seq/docker-maintenance — onto the runner per doc-026's migration order) is UNBLOCKED and queued to the engineer behind the STATBUS-163 build. Post-migration reminders recorded elsewhere: STATBUS-162's capture pipeline retires on the pg_regress move (named condition on that ticket).
 ---
 <!-- COMMENTS:END -->
