@@ -3,10 +3,11 @@ id: STATBUS-151
 title: >-
   seed-restore-missing-admin: pg_restore "role admin_user does not exist" in
   three 22:39-22:46 runs — distinct, unexplained, quarantined
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - engineer
 created_date: '2026-07-08 23:42'
-updated_date: '2026-07-09 12:01'
+updated_date: '2026-07-12 03:22'
 labels:
   - ci
   - testing
