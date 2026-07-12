@@ -266,6 +266,26 @@ else
     echo "  ✓ RED: flag present, row in_progress, max==baseline — tx rolled back cleanly (no committed-unrecorded)"
 fi
 
+# ── STATBUS-110 AC#2 (crash-freeze): the read-only window PERSISTS across the mid-
+#    window crash. Probed HERE — post-kill, pre-recovery: the install tree is dead
+#    (arc_kill_confirmed above) and the daemon is down (_ensure_daemon_stopped at the
+#    recovery dispatch below), so nothing has flipped the window OFF; the DB container
+#    survived the tree-SIGKILL (the RED-shape reads above proved it reachable), and
+#    default_transaction_read_only=on was ALTER-persisted into the catalog BEFORE the
+#    pre-swap DB stop (service.go:4887) so it survives the stop/restart. The probe is a
+#    FRESH ./sb psql session as POSTGRES_ADMIN_USER (postgres) — a NON-exempt role:
+#    the sole role-GUC exemption is `authenticator` (post_restore.sql), and the migrate
+#    read-write PGOPTIONS exemption is subprocess-only (migrate.go) — so this session
+#    honestly inherits the frozen window. Co-assert SHOW=on alongside the blocked write
+#    so a silent role exemption cannot pass as a green (the STATBUS-154 honesty lesson).
+echo ""
+echo "── STATBUS-110 AC#2: assert the read-only window is FROZEN ON post-crash / pre-recovery ──"
+RO_SHOW_ON=$(VM_EXEC bash -c "cd ~/statbus && echo 'SHOW default_transaction_read_only;' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
+[ "$RO_SHOW_ON" = "on" ] || { echo "✗ STATBUS-110 AC#2: fresh non-exempt session sees default_transaction_read_only='$RO_SHOW_ON' (expected 'on') — the crash did NOT leave the window frozen (or the probe role is unexpectedly exempt)" >&2; exit 1; }
+RO_WRITE_ON=$(VM_EXEC bash -c "cd ~/statbus && echo 'CREATE TABLE public._statbus110_ro_probe (n int);' | ./sb psql 2>&1" || true)
+echo "$RO_WRITE_ON" | grep -qi "read-only transaction" || { echo "✗ STATBUS-110 AC#2: a mid-window write was NOT blocked read-only (crash-freeze failed). psql said: $RO_WRITE_ON" >&2; exit 1; }
+echo "  ✓ crash-freeze holds: fresh non-exempt session is read-only (SHOW=on, write blocked with the read-only error) — external writes frozen until recovery decides"
+
 # ── recovery: ./sb install (foreground, NO inject) ──
 echo ""
 echo "── recovery: ./sb install (clean re-apply attempt, NO inject) ──"
@@ -288,6 +308,19 @@ echo "  final upgrade row state: $FINAL_STATE"
 [ "$FINAL_STATE" != "rolled_back" ] || { echo "✗ state='rolled_back' — impossible under the ruled terminal (a pre-delta death must complete forward via the PhaseNewSbSwapped branch, never roll back)" >&2; exit 1; }
 [ "$FINAL_STATE" = "completed" ] || { echo "✗ B reached '$FINAL_STATE', expected 'completed'" >&2; VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, error FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 3;\" | ./sb psql" >&2 || true; exit 1; }
 echo "  ✓ state='completed'"
+
+# ── STATBUS-110 AC#2 (terminal clears the window): recovery reached the `completed`
+#    terminal, which co-locates the read-only OFF (the completion / recovery-forward
+#    choke — doc/read-only-upgrade-window.md §5). A fresh non-exempt session must be
+#    read-write again. Same probe role; self-cleaning write (the ON probe's CREATE
+#    failed read-only, so nothing was left behind). ──
+echo ""
+echo "── STATBUS-110 AC#2: assert the read-only window is CLEARED after the recovery terminal ──"
+RO_SHOW_OFF=$(VM_EXEC bash -c "cd ~/statbus && echo 'SHOW default_transaction_read_only;' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
+[ "$RO_SHOW_OFF" = "off" ] || { echo "✗ STATBUS-110 AC#2: after the completed terminal, default_transaction_read_only='$RO_SHOW_OFF' (expected 'off') — the terminal did not clear the window" >&2; exit 1; }
+RO_WRITE_OFF=$(VM_EXEC bash -c "cd ~/statbus && echo 'CREATE TABLE IF NOT EXISTS public._statbus110_ro_probe (n int); DROP TABLE public._statbus110_ro_probe;' | ./sb psql 2>&1" || true)
+echo "$RO_WRITE_OFF" | grep -qi "read-only transaction" && { echo "✗ STATBUS-110 AC#2: a post-recovery write is STILL blocked read-only — the terminal did not resume writes. psql said: $RO_WRITE_OFF" >&2; exit 1; }
+echo "  ✓ window cleared: fresh non-exempt session is read-write again (SHOW=off, write succeeds) — external writes resumed after the honest completion"
 
 POST_MAX=$(migration_max_version)
 echo "  db.migration max version: $POST_MAX (baseline=$BASELINE_MAX_VERSION, V_VERSION_2=$V_VERSION_2)"
