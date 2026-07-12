@@ -88,25 +88,39 @@ func TestRollbackTerminalWrite_StructuralContract(t *testing.T) {
 	}
 	source := string(src)
 
-	// STATBUS-154: the retry/reconnect primitives moved into the shared
-	// teardown-immune terminalUpdate; writeRollbackTerminal now DELEGATES to it
-	// and owns only the terminal escalation. Pin both.
-	prim := extractFuncBody(t, source, "func (d *Service) terminalUpdate(")
+	// STATBUS-154/-163: the teardown-immune retry/reconnect/exemption core lives in
+	// ONE definition, terminalConnDo; terminalUpdate (row writes) and terminalExec
+	// (window flips) are thin wrappers. The pin is a contract on the PROPERTY, not
+	// on which function's lines carry it (163's closing lesson — one core, no
+	// hand-synced copies to drift). Pin the core + both wrappers' delegation.
+	core := extractFuncBody(t, source, "func (d *Service) terminalConnDo(")
 	for _, want := range []string{"context.Background()", "d.recoveryDSN(", "retryBackoff(", "isConnError("} {
-		if !strings.Contains(prim, want) {
-			t.Errorf("terminalUpdate must use %q (teardown-immune: own context.Background, fresh daemon-tagged conn, bounded retry); not found", want)
+		if !strings.Contains(core, want) {
+			t.Errorf("terminalConnDo must use %q (teardown-immune: own context.Background, fresh daemon-tagged conn, bounded retry); not found", want)
 		}
 	}
 	// STATBUS-154 wave-6: the fresh session must self-exempt from the post-swap
 	// read-only window (SET default_transaction_read_only = off), or the terminal
-	// UPDATE hits 25006 (a non-conn error → no retry → the write never lands).
-	if !strings.Contains(prim, "default_transaction_read_only = off") {
-		t.Error("terminalUpdate must SET default_transaction_read_only = off on its fresh session — machinery writes through the read-only accident-guard (STATBUS-110/-021); without it the park write hits 25006 and never lands")
+	// write/flip hits 25006 (a non-conn error → no retry → never lands).
+	if !strings.Contains(core, "default_transaction_read_only = off") {
+		t.Error("terminalConnDo must SET default_transaction_read_only = off on its fresh session — machinery writes through the read-only accident-guard (STATBUS-110/-021); without it the write hits 25006 and never lands")
 	}
-	// PIN ii: the primitive must NOT use the pass's shared connection — a terminal
-	// write uses a FRESH connection so it survives the pass teardown.
-	if strings.Contains(prim, "d.queryConn") {
-		t.Error("terminalUpdate must NOT use d.queryConn — a terminal write uses a FRESH connection (STATBUS-154 PIN ii)")
+	// PIN ii: the core (and thus every wrapper) must NOT use the pass's shared
+	// connection — a terminal write/flip uses a FRESH connection so it survives the
+	// pass teardown.
+	if strings.Contains(core, "d.queryConn") {
+		t.Error("terminalConnDo must NOT use d.queryConn — a terminal write/flip uses a FRESH connection (STATBUS-154 PIN ii)")
+	}
+	// Both wrappers must DELEGATE to the shared core (no hand-rolled retry copy)
+	// and neither may reach for the pass conn.
+	for _, wrap := range []string{"func (d *Service) terminalUpdate(", "func (d *Service) terminalExec("} {
+		w := extractFuncBody(t, source, wrap)
+		if !strings.Contains(w, "d.terminalConnDo(") {
+			t.Errorf("%s must delegate to the shared terminalConnDo (STATBUS-163 closing extraction) — no duplicated retry loop", wrap)
+		}
+		if strings.Contains(w, "d.queryConn") {
+			t.Errorf("%s must NOT use d.queryConn — it rides the fresh-conn core", wrap)
+		}
 	}
 
 	helper := extractFuncBody(t, source, "func (d *Service) writeRollbackTerminal(")

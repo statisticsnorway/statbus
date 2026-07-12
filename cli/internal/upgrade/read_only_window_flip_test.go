@@ -18,14 +18,14 @@ func TestReadOnlyWindowFlip_TeardownImmune_STATBUS163(t *testing.T) {
 	}
 	source := string(src)
 
-	// (1) terminalExec is teardown-immune, mirroring terminalUpdate: own
-	//     context.Background, fresh daemon-tagged conn via recoveryDSN, bounded
-	//     retry, self-exempt SET off; and NEVER the pass's d.queryConn.
+	// (1) terminalExec is a thin wrapper over the shared teardown-immune core
+	//     terminalConnDo (STATBUS-163 closing extraction) — it rides the fresh
+	//     daemon-tagged conn, never the pass's d.queryConn. The core's own
+	//     teardown-immune properties (Background, recoveryDSN, retry, SET-off) are
+	//     pinned on terminalConnDo by the STATBUS-154 structural test.
 	ex := extractFuncBody(t, source, "func (d *Service) terminalExec(")
-	for _, want := range []string{"context.Background()", "d.recoveryDSN(", "retryBackoff(", "isConnError(", "default_transaction_read_only = off"} {
-		if !strings.Contains(ex, want) {
-			t.Errorf("terminalExec must use %q (teardown-immune like terminalUpdate); not found", want)
-		}
+	if !strings.Contains(ex, "d.terminalConnDo(") {
+		t.Error("terminalExec must delegate to the shared teardown-immune terminalConnDo (STATBUS-163) — no duplicated retry loop")
 	}
 	if strings.Contains(ex, "d.queryConn") {
 		t.Error("terminalExec must NOT use d.queryConn — the terminal window flip needs a FRESH connection (STATBUS-163/154 PIN ii)")

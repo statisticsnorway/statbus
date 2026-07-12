@@ -6767,9 +6767,14 @@ const (
 	terminalWriteMaxAttempts = 4
 )
 
-// terminalUpdate is the teardown-immune primitive under EVERY state-terminal
-// writer (writeRollbackTerminal, the completed-state UPDATEs, parkUpgrade) —
-// STATBUS-154. Three properties, one per the failure class it kills:
+// terminalConnDo is the teardown-immune primitive under EVERY terminal write and
+// window flip — the shared core of terminalUpdate (row writes: writeRollbackTerminal,
+// the completed-state UPDATEs, parkUpgrade — STATBUS-154) and terminalExec (the
+// read-only-window OFF flip — STATBUS-163). ONE definition so a future backoff /
+// error-classification / exemption change lands in a single place; two hand-synced
+// copies would be the seed of the next 163 (163's own lesson: a teardown-immune
+// property applied non-uniformly across sites). Three properties, one per the
+// failure class it kills:
 //
 //	(i)   context.Background() + its own short deadline — NEVER the caller's
 //	      pass ctx. A terminal write is the pass's LAST WORD; sharing the pass
@@ -6778,21 +6783,19 @@ const (
 //	(ii)  a FRESH short-lived daemon-tagged connection per attempt (149's
 //	      recoveryDSN), NEVER d.queryConn — always-fresh sidesteps the
 //	      cached-statement-deallocation class ("failed to deallocate cached
-//	      statement(s)") entirely.
+//	      statement(s)") entirely, and structurally kills the 'conn closed' race.
 //	(iii) bounded retry on connect/connection errors — generalizes the 047-H
-//	      completion-write reconnect save (patched at ONE terminal; 154 proves
-//	      every terminal needed it).
+//	      completion-write reconnect save (patched at ONE terminal; 154/163 prove
+//	      every terminal write AND flip needed it).
 //
-// Returns (rowJSON, nil) on a landed write. A NON-connection error (a CHECK
-// violation, or pgx.ErrNoRows when a guarded UPDATE matched 0 rows) is returned
-// IMMEDIATELY without retry — it will not self-heal; the caller interprets it
-// (e.g. parkUpgrade treats ErrNoRows as "verify the row is already parked").
-// Idempotent by construction: callers pass state-guarded UPDATEs safe to re-run.
-// Writes NO markTerminal/bundle — the caller owns terminal escalation.
-func (d *Service) terminalUpdate(updateSQL string, args ...any) (string, error) {
+// fn runs on the fresh, read-only-exempt session. Returns nil on success. A
+// NON-connection error from fn (a CHECK violation, pgx.ErrNoRows on a 0-row guard,
+// or a genuine 25006 on a bad statement) is returned IMMEDIATELY without retry — it
+// will not self-heal; the caller interprets it. Writes NO markTerminal/bundle — the
+// caller owns terminal escalation.
+func (d *Service) terminalConnDo(fn func(ctx context.Context, conn *pgx.Conn) error) error {
 	ctx, cancel := context.WithTimeout(context.Background(), terminalWriteTimeout)
 	defer cancel()
-	var rowJSON string
 	var lastErr error
 	for attempt := 0; attempt < terminalWriteMaxAttempts; attempt++ {
 		connStr, derr := d.recoveryDSN()
@@ -6804,70 +6807,25 @@ func (d *Service) terminalUpdate(updateSQL string, args ...any) (string, error) 
 			// STATBUS-154 (wave-6 regression) + STATBUS-110/-021: this FRESH
 			// session postdates the post-swap read-only flip (ALTER DATABASE ...
 			// default_transaction_read_only = on), so it inherits read-only and
-			// the terminal UPDATE would hit 25006 (read_only_sql_transaction) —
-			// a NON-conn error → no retry → the write could never land (the park
-			// that never persisted). The read-only window is an accident-guard
-			// against APPLICATION writes, NEVER a lock on machinery bookkeeping;
-			// the pass conns self-exempt in connect() for exactly this reason, so
-			// this fresh session must too. USERSET GUC, no special privilege.
-			// (NOT via the DSN -c: that would demote every recoveryDSN consumer
-			// incl. the reachability probe. NOT BEGIN READ WRITE: needless tx
-			// choreography around a self-committing UPDATE.) A SET failure is a
-			// live-connection fault → close + retry within the bounded budget.
+			// the terminal write/flip would hit 25006 (read_only_sql_transaction) —
+			// a NON-conn error → no retry → it could never land. The read-only
+			// window is an accident-guard against APPLICATION writes, NEVER a lock
+			// on machinery bookkeeping; the pass conns self-exempt in connect() for
+			// exactly this reason, so this fresh session must too. USERSET GUC, no
+			// special privilege. (NOT via the DSN -c: that would demote every
+			// recoveryDSN consumer incl. the reachability probe. NOT BEGIN READ
+			// WRITE: needless tx choreography.) A SET failure is a live-connection
+			// fault → close + retry within the bounded budget.
 			conn.Close(context.Background())
 			lastErr = roErr
 		} else {
-			lastErr = conn.QueryRow(ctx, updateSQL, args...).Scan(&rowJSON)
-			conn.Close(context.Background())
-			if lastErr == nil {
-				return rowJSON, nil
-			}
-			// A non-connection error (CHECK violation / ErrNoRows) will not
-			// self-heal on retry — hand it back for the caller to interpret.
-			if !isConnError(lastErr) {
-				return rowJSON, lastErr
-			}
-		}
-		if attempt < terminalWriteMaxAttempts-1 {
-			time.Sleep(retryBackoff(attempt + 1))
-		}
-	}
-	return "", lastErr
-}
-
-// terminalExec is terminalUpdate's non-row-returning sibling (STATBUS-163): it
-// runs a self-committing statement on the SAME teardown-immune transport — its
-// OWN context.Background + deadline, a FRESH daemon-tagged connection per attempt
-// via recoveryDSN, the session read-only-off exemption, bounded retry, non-conn
-// errors returned immediately. It exists for the terminal read-only-WINDOW flips
-// (the OFF at completion/rollback), which must outlive the completing pass's dying
-// connection exactly as the terminal row write does — the 'conn closed' race
-// STATBUS-154 killed for row writes, now killed for the flip (STATBUS-163, the
-// STATBUS-110 AC#2 rider's first live red). Kept a SIBLING, not a shared inner
-// helper, so STATBUS-154's terminalUpdate body-structure pin stays intact.
-func (d *Service) terminalExec(execSQL string, args ...any) error {
-	ctx, cancel := context.WithTimeout(context.Background(), terminalWriteTimeout)
-	defer cancel()
-	var lastErr error
-	for attempt := 0; attempt < terminalWriteMaxAttempts; attempt++ {
-		connStr, derr := d.recoveryDSN()
-		if derr != nil {
-			lastErr = derr
-		} else if conn, cerr := pgx.Connect(ctx, connStr); cerr != nil {
-			lastErr = cerr
-		} else if _, roErr := conn.Exec(ctx, "SET default_transaction_read_only = off"); roErr != nil {
-			// Same rationale as terminalUpdate: the fresh session postdates the
-			// post-swap read-only flip and must self-exempt to run the ALTER
-			// DATABASE. A SET failure is a live-connection fault → close + retry.
-			conn.Close(context.Background())
-			lastErr = roErr
-		} else {
-			_, lastErr = conn.Exec(ctx, execSQL, args...)
+			lastErr = fn(ctx, conn)
 			conn.Close(context.Background())
 			if lastErr == nil {
 				return nil
 			}
-			// A non-connection error will not self-heal on retry — hand it back.
+			// A non-connection error will not self-heal on retry — hand it back
+			// for the caller to interpret.
 			if !isConnError(lastErr) {
 				return lastErr
 			}
@@ -6877,6 +6835,32 @@ func (d *Service) terminalExec(execSQL string, args ...any) error {
 		}
 	}
 	return lastErr
+}
+
+// terminalUpdate is the row-returning thin wrapper over terminalConnDo (STATBUS-154):
+// the terminal STATE writers persist an UPDATE ... RETURNING and scan the row JSON,
+// teardown-immune. Returns (rowJSON, nil) on a landed write; a non-conn error
+// (CHECK / ErrNoRows) is handed back for the caller to interpret (e.g. parkUpgrade
+// reads ErrNoRows as "verify already parked"). Idempotent by construction (callers
+// pass state-guarded UPDATEs); writes no markTerminal — the caller owns escalation.
+func (d *Service) terminalUpdate(updateSQL string, args ...any) (string, error) {
+	var rowJSON string
+	err := d.terminalConnDo(func(ctx context.Context, conn *pgx.Conn) error {
+		return conn.QueryRow(ctx, updateSQL, args...).Scan(&rowJSON)
+	})
+	return rowJSON, err
+}
+
+// terminalExec is the non-row-returning thin wrapper over terminalConnDo (STATBUS-163):
+// the terminal read-only-WINDOW flips (the OFF at completion/rollback) use it so the
+// flip outlives the completing pass's dying connection exactly as the terminal row
+// write does — the 'conn closed' race STATBUS-154 killed for row writes, now killed
+// for the flip (caught by the STATBUS-110 AC#2 rider's first live red).
+func (d *Service) terminalExec(execSQL string, args ...any) error {
+	return d.terminalConnDo(func(ctx context.Context, conn *pgx.Conn) error {
+		_, e := conn.Exec(ctx, execSQL, args...)
+		return e
+	})
 }
 
 // windowOffSQL clears the read-only upgrade window on the CURRENT database. Wrapped
