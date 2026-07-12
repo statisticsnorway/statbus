@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-12 14:54'
-updated_date: '2026-07-12 22:38'
+updated_date: '2026-07-12 22:40'
 labels:
   - git-hygiene
   - not-install-upgrade
@@ -37,7 +37,7 @@ Constraint: never-delete set (master, 11 deploy pointers, db-seed) untouched, as
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 Architect rules the retention mechanism (self-delete at end-of-run vs TTL sweep) and where it lives in the 071 framework
-- [ ] #2 One-time sweep executed: accumulated test/upgrade-arc-* branches deleted, never-delete set verified intact before and after
+- [x] #2 One-time sweep executed: accumulated test/upgrade-arc-* branches deleted, never-delete set verified intact before and after
 - [ ] #3 red/031-rollback-watchdog routed to its owner for one answer
 - [ ] #4 Framework change shipped per the ruling: LOCAL harness runs self-delete their branches at end-of-run (exit trap, ARC_NO_PUSH-symmetric), and the weekly image-cleanup workflow gains the 7-day branch-GC backstop; CI teardown untouched
 <!-- AC:END -->
@@ -65,5 +65,11 @@ DRY-RUN COMPLETE (mechanic, 2026-07-12) — AC#2's one-time sweep, per the archi
 FULL FINDING, HONEST: all 90 branches' tip commits date 2026-07-07T04:37:42Z through 2026-07-12T13:24:45Z — every one is WITHIN the last 7 days (cutoff for today's run: 2026-07-05T22:37:33Z). **Zero branches are eligible for deletion under the ruled age-based rule today.** This isn't a sweep failure — the ~100 branches this ticket's ground truth counted on 2026-07-12 are the SAME 90 I see now, all freshly created by this week's intense arc-testing campaign (U1-U12 kill-family sweep, wave 8-10 health-park, etc.) — none is old enough yet to qualify as dead cruft under the 7-day bound the architect set (`7d >> any run duration`). Full dated list: tmp/statbus-165-dry-run-list.txt (kept).
 
 No deletions performed (nothing qualified). The never-delete set needs no 'after' re-verification since nothing was touched. AC#2 is effectively satisfied as a no-op today — the sweep logic is proven correct (ran, listed, filtered, found 0), and the population WILL start aging past 7 days from 2026-07-14 onward, at which point the weekly image-cleanup.yaml GC backstop (AC#4, in progress) picks them up automatically without a second manual sweep.
+---
+
+author: foreman
+created: 2026-07-12 22:40
+---
+SWEEP EXECUTED (AC#2) + GC BACKSTOP SHIPPED (mechanic built, foreman reviewed + committed ed25061c1). Sweep outcome, honest: ZERO branches eligible — all 90 test/upgrade-arc-* tips date 2026-07-07ℓ2026-07-12, inside the ruled 7-day bound (dry-run list tmp/statbus-165-dry-run-list.txt + comment #2; never-delete 13 refs verified present and structurally unmatchable). The ~100-branch count this ticket opened against is entirely this week's arc-campaign debris, not aged cruft; the weekly branch-gc job (dry-run on manual dispatch, real delete on cron, prefix-guarded per destructive call, fail-loud on refusals) picks it up automatically from 2026-07-14. Remaining: AC#4's local-harness half (delete_throwaway_branches() in upgrade-target.sh — HELD while arc re-runs are in flight tonight) and AC#3's owner routing of red/031-rollback-watchdog (the 035 keep-pending walk).
 ---
 <!-- COMMENTS:END -->
