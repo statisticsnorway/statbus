@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-07-07 02:57'
-updated_date: '2026-07-11 20:20'
+updated_date: '2026-07-12 13:57'
 labels:
   - upgrade
   - recovery
@@ -63,5 +63,11 @@ author: foreman
 created: 2026-07-11 20:20
 ---
 STATUS SYNC (foreman, 2026-07-11): status corrected To Do → In Progress — the fix shipped 46f979a3a (comment #2's record stands). ACs #1/#2 now formally checked on the unit-test coverage recorded there (classification table + source-structure guard). OPEN: AC#3 only — the scenario variant (abort-oracle without its cleanup step, asserting the daemon stays alive-idle instead of the StartLimit death banked in comment #1). Queued as an arc-lane item behind the 154/wave-8 closure. Note for that variant's build: under the shipped 145 geometry the flagless boot-migrate is floor-bounded, so the broken-pending-migration inject must sit at or below the daemon floor to hit the boot path — confirm the inject site when building.
+---
+
+author: foreman
+created: 2026-07-12 13:57
+---
+AC-3 SCENARIO BUILT + SHIPPED (e8cfb269a, 2026-07-12), architect SHIP with the break-construction explicitly credited: the base scenario's own proposed oracle (keep the far-future stall migration) was REFUTED against the STATBUS-145 floor geometry before building — boot-migrate's --to DaemonSchemaFloor never attempts a file above the floor, so that construction would prove nothing — and 4-rollback-abort-churn-then-alive-idle.sh instead injects a run-time-computed, at-or-below-floor, validly named, deterministically failing migration (floor read from the checked-out daemon_floor.go; version computed between the top two real migrations; loud refuse on collision), with the pre-apply capped so the pending state is genuine. Asserts the full 144 contract: unit active through a 90s watch, NRestarts ≤ 1, row stays failed (no false self-heal), nothing recorded on any boot, the loud-once deterministic-failure banner, services serving throughout. The variant joins the 4-rollback-abort INTERIM construction family (reciprocal headers name both members; one construction, three oracles) and retires with it when the restore-broke re-attempt arc goes green. AC-3 checks on the VM run — batched for tomorrow.
 ---
 <!-- COMMENTS:END -->
