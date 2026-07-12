@@ -3,11 +3,11 @@ id: STATBUS-116
 title: >-
   seed-incremental-rebuild: delta-migrate from the prior published seed instead
   of a full ~362-migration re-run
-status: In Progress
+status: Done
 assignee:
   - engineer
 created_date: '2026-06-30 16:47'
-updated_date: '2026-07-04 00:22'
+updated_date: '2026-07-12 15:27'
 labels:
   - build-caching
   - seed
@@ -47,7 +47,7 @@ Net: warm seed build ~2m -> seconds, with a hard correctness fallback. Evidence 
 - [x] #3 A periodic full-baseline rebuild path exists to bound drift accumulation (cadence or explicit trigger)
 - [x] #4 The incrementally-built seed is verified identical to a full-rebuild seed (schema + data fingerprint)
 - [x] #5 Measured: a warm incremental seed build drops from ~2m to seconds; recorded in the task
-- [ ] #6 RECOMMENDED pre-AC#1-enable check (NOT an AC#4 gate; AC#4 certifies on single-delta): before enabling incremental live, run ONE prod-shaped multi-migration-delta INCR-vs-FULL (real prior-RELEASE seed + that release's delta, vs full). Only test exercising physical-state-independence across a release's restored-base boundary; FULL-vs-FULL can't see it. NARROW/low-prob (unordered-SELECT anti-pattern) BUT high-severity (silent corrupt seed) + cheap. King gates AC#1 via Fork A.
+- [x] #6 RECOMMENDED pre-AC#1-enable check (NOT an AC#4 gate; AC#4 certifies on single-delta): before enabling incremental live, run ONE prod-shaped multi-migration-delta INCR-vs-FULL (real prior-RELEASE seed + that release's delta, vs full). Only test exercising physical-state-independence across a release's restored-base boundary; FULL-vs-FULL can't see it. NARROW/low-prob (unordered-SELECT anti-pattern) BUT high-severity (silent corrupt seed) + cheap. King gates AC#1 via Fork A.
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -281,4 +281,16 @@ created: 2026-07-04 00:22
 ---
 DEPTH CAP OBSERVED LIVE (parked note from the freeze window; images run for 886c79293): decision log `prior-present=true decision-incremental=true -> PATH=FULL (from empty); reason: incremental depth cap reached (prior depth 4 + 1 >= 5) — forcing full baseline` (~62s in-stage). The COMPLETE lifecycle is now empirically observed on real pushes: chain a3eb522c(0) → 7910fbbb(1) → c1c4cbb7(2) → f70ede5e(3) → 8641445e(4) → 886c7929 FORCED FULL BASELINE — criterion 3's drift bound firing exactly as designed, correctly overriding an incremental-eligible decision at the cap. Every mechanism of this feature (walk, restore, delta-migrate, publish re-attestation, depth chaining, cap reset) has now been seen working in production CI. Only criterion 6 (the deep multi-delta identity run, needs delta≥2 from an eligible prior) remains; the overnight scenario-fix commits were test-harness-only (no migrations), so the delta clock is still at 1.
 ---
+
+author: foreman
+created: 2026-07-12 15:27
+---
+AC#6 RUN GREEN (mechanic, 2026-07-12): `./sb db seed verify-multidelta --prior-image ghcr.io/statisticsnorway/statbus-seed:c1c4cbb7 --verbose` — a real prior-RELEASE seed with a real 3-migration delta to HEAD (20260711201431 + 20260711201432 from STATBUS-154, 20260712024457 from STATBUS-160; V_prior=20260703210000). Verdict verbatim: CONTROL passed FULL==FULL deterministic (schema=d17450c23ab1 data=a932bfd59c9d ledger=ee5f5a6cd8b2), then `seed identity PROVEN: incremental == full` with ALL THREE digests identical between the incremental and full builds — the physical-state-independence property across a release's restored-base boundary, the one thing FULL-vs-FULL cannot see. Prior-pick method: `git ls-tree -r --name-only c1c4cbb7a -- migrations/` = 378 files vs HEAD 381, `comm -13` named the exact 3 delta files; c1c4cbb7a is the last migration-touching commit before the Jul-11/12 landings, so it is the newest qualifying published tag. A first attempt with select-prior's answer (47dbdbca) was correctly REFUSED by the tool's own 0-delta guard — the guard works. Logs kept: tmp/statbus-116-multidelta-verify.log (0-delta refusal), tmp/statbus-116-multidelta-verify-2.log (green run). Read-only run: no files edited, no commits, only the tool's own statbus_seed_verify_a/_b scratch DBs (self-dropped).
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Incremental seed rebuild (restore prior published seed + delta-migrate + re-dump) is LIVE and now fully certified. ACs 1-5 shipped earlier: prior-restore + delta path with fingerprint gate, full-rebuild fallback on mismatch/no-prior, periodic full-baseline path, single-delta INCR==FULL identity gate at publish, and the measured win (~2m → seconds warm, ~60s → ~16-20s in-stage). AC#6 — the one deep proof, physical-state-independence across a real release's restored-base boundary — closed GREEN 2026-07-12: verify-multidelta against real prior release ghcr.io/statisticsnorway/statbus-seed:c1c4cbb7 (3-migration delta, V_prior=20260703210000) proved incremental == full on all three digests (schema=d17450c23ab1 data=a932bfd59c9d ledger=ee5f5a6cd8b2), with the control FULL==FULL leg green and the tool's 0-delta guard demonstrated working on a first refused attempt. Logs: tmp/statbus-116-multidelta-verify.log, tmp/statbus-116-multidelta-verify-2.log.
+<!-- SECTION:FINAL_SUMMARY:END -->
