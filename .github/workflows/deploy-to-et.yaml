@@ -12,7 +12,9 @@ concurrency:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    # STATBUS-069 phase 3: runs on the niue self-hosted runner — the SSH to the
+    # slot now originates on the box (host-gateway to niue's own sshd), not Azure.
+    runs-on: [self-hosted, niue]
     permissions:
       contents: read
       actions: read
