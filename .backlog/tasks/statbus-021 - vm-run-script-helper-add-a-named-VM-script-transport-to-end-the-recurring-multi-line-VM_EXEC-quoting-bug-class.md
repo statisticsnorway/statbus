@@ -3,10 +3,11 @@ id: STATBUS-021
 title: >-
   vm-run-script-helper: add a named VM-script transport to end the recurring
   multi-line VM_EXEC quoting bug class
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - mechanic
 created_date: '2026-06-09 23:30'
-updated_date: '2026-07-12 02:43'
+updated_date: '2026-07-12 02:44'
 labels:
   - install-recovery
   - harness
