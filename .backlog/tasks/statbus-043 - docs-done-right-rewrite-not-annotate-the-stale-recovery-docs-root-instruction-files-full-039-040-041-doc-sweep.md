@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - architect
 created_date: '2026-06-12 21:51'
-updated_date: '2026-07-06 15:59'
+updated_date: '2026-07-12 00:00'
 labels:
   - docs
   - upgrade
@@ -68,5 +68,11 @@ author: engineer (board sweep)
 created: 2026-07-06 15:59
 ---
 FOLDED IN from STATBUS-130 (merged 2026-07-06): two stale comments claiming a pre-039 'always rolls back' latch — exactly the class 043's concept-level sweep kills. A named residual for that sweep.
+---
+
+author: foreman
+created: 2026-07-12 00:00
+---
+STALENESS FINDINGS for this sweep (mechanic, 2026-07-12, found while adding the read-only-window cost paragraph): (1) doc/read-only-upgrade-window.md's exemption section says the authenticator exemption is 'durable in a migration ... (migration 20260703104910)' — that migration was DELETED (never in a released tag); the real mechanism home is migrations/post_restore.sql (re-armed on every migrate up) + postgres/init-db.sh (armed at cluster birth). (2) Backlog doc-023 carries the identical staleness ('New migration: ALTER ROLE authenticator ...' as the delivery vehicle). (3) Lower confidence, needs a verification pass: the same doc's many service.go line citations (:4201/:4223/:4227/:4249/:4828/:4859+/:5684, connect() ~2746-2780) predate the STATBUS-145 floor rewrite and STATBUS-154's terminalUpdate consolidation (which deleted per-terminal write functions the doc cites as OFF co-location sites). Note: the architect's pending 110 AC-3 pass (the 039 supersession + decision-tree update) rewrites parts of this doc anyway — coordinate so the fix lands once.
 ---
 <!-- COMMENTS:END -->
