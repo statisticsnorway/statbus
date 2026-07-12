@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - architect
 created_date: '2026-06-12 21:51'
-updated_date: '2026-07-12 00:00'
+updated_date: '2026-07-12 03:30'
 labels:
   - docs
   - upgrade
@@ -74,5 +74,11 @@ author: foreman
 created: 2026-07-12 00:00
 ---
 STALENESS FINDINGS for this sweep (mechanic, 2026-07-12, found while adding the read-only-window cost paragraph): (1) doc/read-only-upgrade-window.md's exemption section says the authenticator exemption is 'durable in a migration ... (migration 20260703104910)' — that migration was DELETED (never in a released tag); the real mechanism home is migrations/post_restore.sql (re-armed on every migrate up) + postgres/init-db.sh (armed at cluster birth). (2) Backlog doc-023 carries the identical staleness ('New migration: ALTER ROLE authenticator ...' as the delivery vehicle). (3) Lower confidence, needs a verification pass: the same doc's many service.go line citations (:4201/:4223/:4227/:4249/:4828/:4859+/:5684, connect() ~2746-2780) predate the STATBUS-145 floor rewrite and STATBUS-154's terminalUpdate consolidation (which deleted per-terminal write functions the doc cites as OFF co-location sites). Note: the architect's pending 110 AC-3 pass (the 039 supersession + decision-tree update) rewrites parts of this doc anyway — coordinate so the fix lands once.
+---
+
+author: foreman
+created: 2026-07-12 03:30
+---
+SCOPE REDUCTION (2026-07-12): comment #3's findings 1-3 (the read-only-window doc's deleted-migration citation, doc-023's identical staleness, and the stale service.go line cites) are DONE — fixed by the architect's 110 AC-3 doctrine pass, shipped bd94737e2 (repo docs) + the doc-023 delivery-status note (backlog). The full 043 sweep should NOT re-touch doc/read-only-upgrade-window.md or doc/upgrade-recovery-model.md — both were re-verified line-by-line against the shipped tree in that pass. The sweep's remaining scope is unchanged: the two doc/recovery files, CLAUDE.md/AGENTS.md install-ladder rows, and the concept-level sweep of CLOUD/DEPLOYMENT/install-statbus/INTEGRATE + untouched diagrams.
 ---
 <!-- COMMENTS:END -->
