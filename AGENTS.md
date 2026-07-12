@@ -110,11 +110,12 @@ echo "SELECT ..." | ./sb psql             # Single queries
 | half-configured / DB unreachable   | Run the step-table to repair / continue setup                                           |
 | nothing-scheduled                  | Run the step-table as an idempotent config refresh                                      |
 | scheduled-upgrade                  | Dispatch the pending `public.upgrade` row through the same pipeline the service uses    |
-| crashed-upgrade (stale flag + dead PID) | Reconcile the flag, re-detect, re-dispatch                                         |
-| live-upgrade (service running)     | Refuse with diagnostic; do not touch state                                              |
+| crashed-upgrade (flag present, flock free) | Crash recovery: quiesce the unit, un-park a parked row, `RecoverFromFlag`, re-detect, re-dispatch |
+| live-upgrade (flag present, flock held) | Progressing → refuse with diagnostic. Crash-LOOPING unit → reclassified to crashed-upgrade and taken over SIGKILL-class (STATBUS-039; never SIGTERM) |
+| restore-reattemptable (`failed` row + retained `backup_path`) | Replay the restore — human-gated via `./sb install`, never the auto service (STATBUS-111) |
 | legacy pre-1.0 (no `public.upgrade` table) | Refuse with pointer to manual upgrade path (`doc/CLOUD.md`)                     |
 
-Canonical operator upgrade workflow: `./sb upgrade schedule <version>` to queue, then either wait for the service's next tick (production norm) or run `./sb install` to dispatch immediately. After a successful inline upgrade the systemd upgrade unit (if active) is restarted so it picks up the new binary + migrations. Full contract in `doc/upgrade-timeline.md`.
+Canonical operator upgrade workflow: `./sb upgrade schedule <version>` to queue, then either wait for the service's next tick (production norm) or run `./sb install` to dispatch immediately. After a successful inline upgrade the systemd upgrade unit (if active) is restarted so it picks up the new binary + migrations. A PARKED upgrade (deterministic failure at target — row `in_progress` + `recovery_parked_at`, box alive-idle) resolves by scheduling a fix release (its claim atomically displaces the park to `superseded`, STATBUS-159) or by `./sb install` (un-parks for one fresh attempt); parked rows are skipped by every automatic resume. Full contract in `doc/upgrade-timeline.md` and `doc/upgrade-recovery-model.md`.
 
 **Migration Best Practice for Modifying Existing Functions/Procedures:**
 

@@ -97,16 +97,17 @@ Agents that debug issues should BUILD DIAGNOSTIC TOOLS, not just debug. Add trac
 
 ## Install / Upgrade: the unified `./sb install` entrypoint
 
-`./sb install` is the single operator-facing entrypoint that covers first-install, repair, and dispatching a pending upgrade. It runs an 8-state probe ladder (`cli/internal/install/state.go`) and selects an action:
+`./sb install` is the single operator-facing entrypoint that covers first-install, repair, and dispatching a pending upgrade. It runs a 9-state probe ladder (`cli/internal/install/state.go`) and selects an action:
 
 1. **fresh** — no `.env.config` → step-table
-2. **live-upgrade** — flag present, holder PID alive → refuse
-3. **crashed-upgrade** — flag present, holder PID dead → `RecoverFromFlag`, re-detect, re-dispatch
+2. **live-upgrade** — flag present, flock HELD → a genuinely progressing upgrade refuses; a CRASH-LOOPING unit (`upgradeUnitCrashLooping`) is reclassified to crashed-upgrade and taken over SIGKILL-class (never SIGTERM — that would fire the in-flight upgrade's rollback handler)
+3. **crashed-upgrade** — flag present, flock FREE → `runCrashRecovery`: quiesce the unit, un-park a parked row (the deliberate un-park trigger), `RecoverFromFlag`, re-detect, re-dispatch
 4. **half-configured** — config present, `.env.credentials` missing → step-table
 5. **db-unreachable** — creds present, DB down → step-table (will start it)
 6. **legacy-no-upgrade-table** — DB up, no `public.upgrade` → refuse (pre-1.0; manual upgrade)
 7. **scheduled-upgrade** — pending row in `public.upgrade` → dispatch through `executeUpgrade` inline
-8. **nothing-scheduled** — everything healthy → step-table as an idempotent config refresh
+8. **restore-reattemptable** — `failed` row with a retained `backup_path` → replay the restore, human-gated via this very command (STATBUS-111; never the auto service)
+9. **nothing-scheduled** — everything healthy → step-table as an idempotent config refresh
 
 **Flag-file ownership contract.** The mutex primitive is `tmp/upgrade-in-progress.json`. Two distinct holders:
 - `Holder="install"` — written by `acquireOrBypass` when install runs the step-table. Released by `defer ReleaseInstallFlag` on any exit.
