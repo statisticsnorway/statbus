@@ -3,10 +3,10 @@ id: STATBUS-138
 title: >-
   migration-validity-split: ground truth counts migration files migrate refuses
   to apply — permanent false Behind
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-07-04 22:32'
-updated_date: '2026-07-11 20:20'
+updated_date: '2026-07-12 13:35'
 labels:
   - upgrade
   - install-recovery
@@ -40,7 +40,7 @@ FOUND live in r17 (2026-07-05) and MORE SERIOUS than it first looks: the synthet
 - [x] #2 Invalid-version *.up.sql files are SKIPPED LOUDLY by the shared lister (warn names the file), not a hard error for the whole run; valid-version files with other defects still hard-error
 - [x] #3 Extension sets unified: .up.psql counted by BOTH readers (closes the inverse false-AtNew hazard)
 - [x] #4 Pinning tests: valid+invalid fixture → identical sets from both readers + warn line; migrate.Up applies the valid file despite the stray; comparator never reads Behind from a refused file; .up.psql counted by both; floor bump-guard consistent on the same fixture
-- [ ] #5 Flagless churn leg verified: a stray invalid file no longer makes boot-migrate fail exit-1 into restart churn (the exit-20-only 144 branch didn't cover it)
+- [x] #5 Flagless churn leg verified: a stray invalid file no longer makes boot-migrate fail exit-1 into restart churn (the exit-20-only 144 branch didn't cover it)
 <!-- AC:END -->
 
 ## Comments
@@ -70,3 +70,9 @@ created: 2026-07-11 20:20
 STATUS SYNC (foreman, 2026-07-11): the fix SHIPPED overnight 2026-07-08 in dff5231de ('migrate: one definition of a pending migration for applier and observer') — shared lister + validity predicate, invalid-named files skipped with a loud warn naming the file, MaxDiskVersion exported, latestDiskMigrationVersion DELETED from service.go (clean break), .up.psql unified, migration_validity_test.go (182 lines) pinning both-readers agreement per the ruling; architect-reviewed pre-commit. ACs #1-#4 checked on that evidence. AC#5 (the flagless churn leg verified LIVE — a stray invalid file no longer restart-churns a flagless box) has no dedicated run on record — it is the one open criterion; candidate vehicle: a small variant leg on an existing arc or a targeted VM check whenever convenient. Status corrected To Do → In Progress (was never moved when the code landed).
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+CLOSED on the AC-5 live verification (2026-07-12, tmp/mechanic-138-ac5-verify.log). The fix shipped earlier as dff5231de: ONE shared validity predicate + ONE shared lister across the applier and the observed-state comparator — an invalid-VERSION file is SKIPPED with a loud warn naming the file (a file failing the naming contract is not a migration — warn, not fail-fast, per the two-tier doctrine and the NSO frame: a stray editor-backup file must not churn a box), while valid-named files with other defects still hard-error; latestDiskMigrationVersion deleted so the comparator cannot disagree with the applier BY CONSTRUCTION. AC-5's live proof, on the exact subprocess boundary boot-migrate execs (./sb migrate up --to DaemonSchemaFloor --verbose, binary rebuilt from HEAD first — the checked-in one was stale): a scratch clone of the test template at exactly the floor (the literal r17 shape: applied schema actually current) + one untracked stray 99999999999999_r17_verify_stray.up.sql in the REAL migrations tree → exit code 0 (the direct proof: churn can only start from a non-zero, non-20 exit that the fix prevents from existing), the loud WARN naming the stray verbatim, and the ledger untouched (max unchanged, stray never recorded). Mechanism note from the verification design: pre-fix, the stray made listMigrationFiles error with a non-ExitError → ExitUnclassified=1 → outside 144's log-once-stay-alive branch → daemon exit → systemd restart → churn; post-fix the failure never exists for any classifier to see — structurally gone, not reclassified. Lever discipline: .env edit via dotenv (the 146 footgun avoided), override VERIFIED via current_database() before the run, canonical config-generate restore, trap cleanup, porcelain-clean end state.
+<!-- SECTION:FINAL_SUMMARY:END -->
