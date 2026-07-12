@@ -13,10 +13,57 @@ on:
 # release and make it available in the admin UI. This is discovery
 # only — not a forced upgrade. Admins or deploy branches decide when
 # to apply.
+#
+# STATBUS-069 phase 3 (doc-026 §3 step 2 — the canary migration): the notify
+# legs now run on the niue self-hosted runner instead of ubuntu-latest. Two
+# changes from the pre-runner form, plus one new job:
+#   1. `notify` moves to runs-on [self-hosted, niue] — the SSH now originates on
+#      the box (via the Docker host gateway to niue's own sshd), not from Azure.
+#   2. The SSH step converts from appleboy/ssh-action (a Docker CONTAINER action,
+#      which cannot run on the socketless runner — doc-026 §2/delta 8) to a raw
+#      `ssh` run step. Host, user, key, and command stay identical to today: the
+#      command is still the exact sshdo-allowlisted path ~/statbus/ops/ci-notify.sh
+#      (ops/niue/sshdoers pins that byte-string; sshdo rejects anything else).
+#   3. A hosted `runner-online` canary (ubuntu-latest) fails red naming the runner
+#      when it is offline, so a self-hosted job queueing silently can never hide a
+#      down runner (doc-026 §4). notify `needs:` it, so an offline runner SKIPS the
+#      self-hosted legs instead of queueing them for up to 24h.
+# Rollback is one line: revert the `notify` runs-on back to ubuntu-latest and
+# restore the appleboy step (see git history / ops/github-runner/).
 
 jobs:
-  notify:
+  # Hosted canary — goes red on the next push if the niue runner is offline, so a
+  # silently-queueing self-hosted job can never mask a down runner (doc-026 §4).
+  # Auth: listing a repo's self-hosted runners needs repo ADMINISTRATION scope,
+  # which GITHUB_TOKEN cannot hold — so this uses a read-only RUNNER_STATUS_TOKEN
+  # PAT (doc-026 v3 delta 9: a read-only status PAT is accepted; it lives in GitHub,
+  # not on niue, and is strictly weaker than the removed runner-admin PAT).
+  runner-online:
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Assert the niue self-hosted runner is online
+        env:
+          GH_TOKEN: ${{ secrets.RUNNER_STATUS_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error::RUNNER_STATUS_TOKEN secret is not set: create the read-only runner-status PAT (King action, doc-026 delta 9) and add it as a repo secret"
+            exit 1
+          fi
+          status="$(gh api repos/statisticsnorway/statbus/actions/runners \
+            --jq '.runners[] | select(.name=="niue") | .status')"
+          if [ "$status" != "online" ]; then
+            echo "::error::The niue self-hosted runner is OFFLINE (status='${status:-not-registered}')."
+            echo "::error::Self-hosted notify legs will queue silently until it is back."
+            echo "::error::On niue: docker compose -f /home/github-runner/docker-compose.yml ps / logs gha-runner"
+            exit 1
+          fi
+          echo "niue runner is online."
+
+  notify:
+    needs: runner-online
+    runs-on: [self-hosted, niue]
     if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
     permissions:
       contents: read
@@ -37,10 +84,25 @@ jobs:
           - statbus_jo
     steps:
       - name: Notify ${{ matrix.server }}
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: niue.statbus.org
-          username: ${{ matrix.server }}
-          key: ${{ secrets.SSH_KEY }}
-          command_timeout: 30s
-          script: ~/statbus/ops/ci-notify.sh
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+        run: |
+          set -euo pipefail
+          keyfile="$(mktemp)"; chmod 600 "$keyfile"
+          printf '%s\n' "$SSH_KEY" > "$keyfile"
+          trap 'rm -f "$keyfile"' EXIT
+          known="$HOME/_work/.known_hosts"   # persists in the runner-work volume
+          # The command is the exact sshdo-allowlisted path (ops/niue/sshdoers);
+          # ci-notify.sh is `exec ./sb upgrade check`. sshdo matches the byte-string,
+          # so this must stay verbatim — an inlined `./sb upgrade check` is rejected.
+          # shellcheck disable=SC2088  # the literal '~' is load-bearing: it must go
+          # over the wire UNEXPANDED to match the sshdoers byte-string exactly; the
+          # remote sshd runs it via `sh -c` (sshdo shell_exec), which expands it there.
+          # Do NOT change to $HOME — that would expand to the runner's home, not the slot's.
+          timeout 40s ssh -i "$keyfile" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=15 \
+            -o StrictHostKeyChecking=accept-new \
+            -o "UserKnownHostsFile=$known" \
+            "${{ matrix.server }}@niue.statbus.org" \
+            '~/statbus/ops/ci-notify.sh'

@@ -96,10 +96,14 @@ jobs:
           printf '%s\n' "$SSH_KEY" > "$keyfile"
           trap 'rm -f "$keyfile"' EXIT
           known="$HOME/_work/.known_hosts"   # persists in the runner-work volume
+          # shellcheck disable=SC2088  # the literal '~' is load-bearing: it must go
+          # over the wire UNEXPANDED to match the sshdoers byte-string exactly; the
+          # remote sshd runs it via `sh -c` (sshdo shell_exec), which expands it there.
+          # Do NOT change to $HOME — that would expand to the runner's home, not the slot's.
           timeout 40s ssh -i "$keyfile" \
             -o BatchMode=yes \
             -o ConnectTimeout=15 \
             -o StrictHostKeyChecking=accept-new \
             -o "UserKnownHostsFile=$known" \
             "${{ matrix.server }}@niue.statbus.org" \
-            'cd ~/statbus && if [ -x ./sb ]; then ./sb upgrade check; else echo "Skipping: ./sb not installed on this slot"; fi'
+            '~/statbus/ops/ci-notify.sh'
