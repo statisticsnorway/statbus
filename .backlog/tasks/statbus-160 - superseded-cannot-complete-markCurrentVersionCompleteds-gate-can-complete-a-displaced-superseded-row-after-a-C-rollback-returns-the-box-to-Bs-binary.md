@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-07-11 22:46'
-updated_date: '2026-07-12 01:41'
+updated_date: '2026-07-12 01:42'
 labels:
   - upgrade
   - recovery
@@ -36,9 +36,11 @@ Origin: STATBUS-159 ruling comment #1 (architect, 2026-07-12); wave-9 evidence t
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Architect ruling recorded: the guard geometry preventing completion of a superseded row (code gate vs DB constraint) and the honest disposition for a box rolled back onto a displaced version's binary
+- [x] #1 Architect ruling recorded: the guard geometry preventing completion of a superseded row (code gate vs DB constraint) and the honest disposition for a box rolled back onto a displaced version's binary
 - [ ] #2 A displaced-superseded row provably cannot reach completed_at/state=completed under the post-rollback boot sequence (test proves it)
 <!-- AC:END -->
+
+
 
 ## Comments
 
