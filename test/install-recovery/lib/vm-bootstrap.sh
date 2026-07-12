@@ -359,18 +359,93 @@ EOF'
     # via a different escape; a lone `$` does not) — a `$` that must reach
     # the VM as LITERAL TEXT (e.g. building a shell script whose body
     # references `$SOME_VAR` for evaluation at a LATER, unrelated run) can
-    # come back silently expanded to empty. Never pass such content as a
-    # VM_EXEC/bash -c argument — write it to a local file (heredoc with a
-    # QUOTED delimiter) and scp it to the VM instead; see
-    # postswap-health-park-arc.sh's health-park-callback.sh transfer (the pattern
-    # originated in the retired 3-postswap-resume-died-parked).
+    # come back silently expanded to empty, and a multi-line body can be
+    # mangled outright. Never pass such content as a VM_EXEC/bash -c
+    # argument — use VM_SCRIPT (or VM_SCRIPT_INLINE for a short one-off body)
+    # below instead; VM_EXEC itself refuses a multi-line argument and names
+    # them as the remedy (STATBUS-021).
     VM_IP="$ip"
 }
 
 VM_EXEC() {
+    local arg
+    for arg in "$@"; do
+        case "$arg" in
+            *$'\n'*)
+                cat >&2 <<BANNER
+
+═══════════════════════════════════════════════════════════════════════
+BLOCKED: VM_EXEC was called with a multi-line argument.
+
+VM_EXEC's transport (printf %q + \`sudo -i -u statbus -- <args>\`) is safe
+ONLY for single-line, locally-expanded arguments (see the TRAP comment
+above this function) — the sudo -i login-shell re-quoting silently mangles
+multi-line content, and a script body's own \$VARNAME references can come
+back expanded instead of staying literal for later evaluation on the VM.
+
+Offending argument (first 200 chars):
+$(printf '%.200s' "$arg")
+
+WHAT TO DO:
+  - Ship a script FILE instead: VM_SCRIPT <local-script-path> [args...]
+  - For a short one-off body: VM_SCRIPT_INLINE <name> <<'EOF' ... EOF
+    (the heredoc delimiter MUST be quoted, or the body gets expanded
+    locally before it ever reaches the VM).
+
+Hook source: VM_EXEC (test/install-recovery/lib/vm-bootstrap.sh)
+═══════════════════════════════════════════════════════════════════════
+BANNER
+                return 1
+                ;;
+        esac
+    done
     local quoted_args
     quoted_args=$(printf '%q ' "$@")
     ssh "${SSH_OPTS[@]}" root@"$VM_IP" "sudo -i -u statbus -- $quoted_args"
+}
+
+# VM_SCRIPT <local-script-path> [args...] — STATBUS-021: scp a LOCAL file to
+# the VM and execute it there as the statbus user via VM_EXEC. NEVER
+# construct the script ON the VM via an ssh heredoc — that routes the
+# payload through the same ssh -> sudo -> shell evaluation layers the
+# multi-line VM_EXEC bug class lives in (see VM_EXEC's TRAP comment above).
+# Writing the file LOCALLY — the call site's heredoc uses a QUOTED delimiter,
+# so its content is never evaluated before it is written — and shipping the
+# finished bytes via scp is the only path where no shell ever touches the
+# payload in transit.
+#
+# The remote copy is named uniquely (PID-suffixed) and KEPT after execution
+# (never rm'd here) — the VM is ephemeral, and forensics on a kept/failed VM
+# benefit from being able to re-read exactly what ran.
+VM_SCRIPT() {
+    local local_path="$1"; shift
+    local remote_path
+    remote_path="/tmp/vm-script-$(basename "$local_path")-$$.sh"
+    scp -O "${SSH_OPTS[@]}" "$local_path" root@"$VM_IP":"$remote_path" >/dev/null
+    ssh "${SSH_OPTS[@]}" root@"$VM_IP" "chmod 0755 $remote_path"
+    VM_EXEC bash "$remote_path" "$@"
+}
+
+# VM_SCRIPT_INLINE <name> [args...] — the quoted-heredoc-stdin variant of
+# VM_SCRIPT, for short scripts that don't warrant their own file in the repo.
+# Call-site shape (the delimiter MUST be quoted — 'EOF', never bare EOF — or
+# bash expands/interprets the body locally before it ever reaches the VM):
+#   VM_SCRIPT_INLINE probe <<'EOF'
+#   #!/bin/sh
+#   echo "$SOME_VAR at $(date)"
+#   EOF
+# Reads the script body from STDIN, writes it to a local temp file, and
+# delegates to VM_SCRIPT — inheriting the same never-evaluate-on-the-VM
+# guarantee. Unlike VM_SCRIPT, the local temp file here is ours to clean up.
+VM_SCRIPT_INLINE() {
+    local name="$1"; shift
+    local local_path
+    local_path=$(mktemp "/tmp/vm-script-inline-${name}-XXXXXX")
+    cat > "$local_path"
+    VM_SCRIPT "$local_path" "$@"
+    local rc=$?
+    rm -f "$local_path"
+    return $rc
 }
 
 bootstrap_install_test_vm() {
