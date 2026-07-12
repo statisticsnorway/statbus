@@ -9,7 +9,7 @@ The upgrade service is a long-running process (`./sb upgrade service`) that:
 - Polls GitHub Releases for new StatBus versions
 - Pre-downloads Docker images so upgrades start instantly
 - Listens for operator commands via PostgreSQL LISTEN/NOTIFY
-- Executes upgrades with automatic database backup and rollback on failure
+- Executes upgrades with an automatic pre-upgrade database snapshot, a read-only window over the destructive phase, and classify-then-act recovery (data-safe rollback where the box is behind target; a PARK that waits for a fix release where it is at target)
 - Serves a maintenance page to users during the upgrade window
 - Self-updates the `sb` binary after a successful upgrade
 
@@ -174,45 +174,27 @@ The page auto-refreshes every 30 seconds. Upgrades with database migrations are 
 
 ## Upgrade Lifecycle
 
-When the upgrade service executes an upgrade, it follows these steps in order. If any step fails, the service rolls back automatically (see Rollback below).
+An upgrade runs in two halves split by a binary swap — the OLD binary does the safe preparation and the destructive pre-swap steps, then hands off; the NEW binary's process finishes the pipeline. In outline (the step-by-step walkthrough with every gate is `doc/upgrade-timeline.md`; the decision logic is `doc/upgrade-recovery-model.md`):
 
-| Step | Action | Detail |
-|------|--------|--------|
-| 1 | Pull images | `docker compose pull` with the target VERSION |
-| 2 | Close DB connection | Service disconnects from PostgreSQL |
-| 3 | Maintenance mode ON | Creates `~/statbus-maintenance/active` |
-| 4 | Stop app/worker/rest | `docker compose stop app worker rest` |
-| 5 | Stop database | `docker compose stop db` |
-| 6 | Backup database | `docker run alpine rsync` from named volume to `~/statbus-backups/pre-upgrade/` |
-| 7 | Git checkout | `git fetch --tags --depth 1 origin tag vX.Y.Z && git checkout vX.Y.Z` |
-| 7b | Verify tag SHA | Compares checked-out HEAD against `release-manifest.json` commit SHA |
-| 8 | Regenerate config | `./sb config generate` |
-| 9 | Pull updated images | `docker compose pull` (with new VERSION from regenerated .env) |
-| 10 | Start database | `docker compose up -d db` |
-| 11 | Wait for DB health | `pg_isready` check, 30 second timeout |
-| 12 | Reconnect service | Re-establishes DB connection and advisory lock |
-| 13 | Run migrations | `./sb migrate up --verbose` |
-| 14 | Start all services | `docker compose up -d --remove-orphans` |
-| 15 | Health check | HTTP GET to the app, 5 retries at 5 second intervals |
-| 16 | Maintenance mode OFF | Removes `~/statbus-maintenance/active` |
-| 17 | Archive backup | Compresses backup to `~/statbus-backups/vX.Y.Z-pre.tar.gz` |
-| 18 | Mark complete | Sets `completed_at` in the upgrade table |
-| 19 | Self-update | Downloads new `sb` binary from release manifest, verifies SHA256, exits with code 42 for systemd restart |
+1. **Pre-flight** (no marker yet) -- downgrade/platform/disk/signature checks; reject cleanly before anything destructive.
+2. **Marker + warm-up** -- the `upgrade-in-progress` marker is written (from here a crash is resumable); images pre-pulled.
+3. **Read-only window ON** -- external writes are blocked for the destructive phase (an accident-guard; `doc/read-only-upgrade-window.md`). Maintenance page ON; app/worker/rest stopped; **database stopped**.
+4. **Snapshot** -- the stopped volume is rsync'd to `~/statbus-backups/pre-upgrade-active/` (atomic dir-rename commit; this is the rollback artifact).
+5. **Fetch + binary swap** -- the target's git objects are fetched (no checkout yet), the new `./sb` lands on disk, and the process exits so the NEW binary takes over.
+6. **New binary's pipeline** -- checkout of the exact target, boot migration of the daemon's own small floor only, then the guarded resume: the upgrade's migration delta applies exactly once, services start, the health check must pass, maintenance OFF, the row reaches `completed`, and the read-only window lifts.
+
+There is no post-completion archive step -- the forensic tar was removed (the persistent snapshot dir is the single backup artifact).
 
 ## Rollback
 
-### Automatic rollback on failure
+### What happens on failure -- classify, then act
 
-If any step from 7 onward fails, the service automatically:
+A failed step is classified before anything acts (`doc/upgrade-recovery-model.md`):
 
-1. Stops all services (`docker compose stop app worker rest db`)
-2. Restores git to the previous version (`git checkout -f <previous_version>`)
-3. Regenerates config (`./sb config generate`)
-4. Restores the database backup via `sudo rsync -a --delete` from `~/statbus-backups/pre-upgrade/`
-5. Starts all services (`docker compose up -d --remove-orphans`)
-6. Reconnects to the database
-7. Deactivates maintenance mode
-8. Records `error` and `rolled_back_at` in the upgrade table
+- **Transient** (recognized: DB unreachable, fetch stall) -- retried in-process with backoff; if it clears, the upgrade continues; if it exhausts, it is treated as no-longer-transient.
+- **Deterministic, box BEHIND the target** -- automatic **rollback**: git and config restored to the previous version, the database restored from the pre-upgrade snapshot, services restarted, `rolled_back_at` + `error` recorded. The read-only window guarantees the restore loses no external data.
+- **Deterministic, box AT the target** (e.g. the new version cannot pass its health check) -- the upgrade **PARKS** instead of rolling back: the row stays `in_progress` with `recovery_parked_at` set, the box stays up and idle (no crash loop), and one alert fires. A parked upgrade resolves when you schedule a fix release (its claim displaces the park) or run the install entrypoint for one fresh attempt.
+- **Unknown** -- the service stops loudly and waits for a person; it neither retries nor rolls back on an error it cannot name.
 
 ### Manual binary rollback
 
@@ -225,14 +207,13 @@ If the `sb` binary self-update causes problems:
 
 ### Retrying after a rollback
 
-From the CLI:
+Re-dispatch through the normal scheduling path -- never by editing the table by hand:
 
 ```bash
-# Reset the upgrade for re-execution
-echo "UPDATE public.upgrade SET started_at = NULL, error = NULL, rolled_back_at = NULL, scheduled_at = now() WHERE version = 'v2026.03.1'" | ./sb psql
+./sb upgrade schedule v2026.03.1
 ```
 
-Or use the **Retry** button in the admin UI at `/admin/upgrades`.
+`schedule` atomically resets the row (including any park marker) and queues it; the service claims it on its next tick, or run the install entrypoint to dispatch immediately. The **Retry** button in the admin UI at `/admin/upgrades` does the same thing.
 
 ## Maintenance Mode
 

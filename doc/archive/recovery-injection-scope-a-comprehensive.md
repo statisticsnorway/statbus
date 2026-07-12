@@ -1,5 +1,7 @@
 # Recovery-injection scope (a) comprehensive — scenario inventory + execution plan
 
+**Status: HISTORICAL RECORD (archived 2026-07-12, STATBUS-043).** This is the 2026-05 scenario inventory and commit-by-commit execution journal of the original recovery-injection campaign — past tense throughout. The CURRENT scenario/proof ledger is STATBUS-071's coverage map (the checklist the stable release gate reads), and the current harness documentation is `test/install-recovery/README.md`. Several mechanisms journaled here as shipped were later replaced (e.g. archiveBackup was deleted; fabricated scenarios were retired for real-path arcs per the STATBUS-071 carve-out). Read for history, never for current operational shape.
+
 **Created 2026-05-22 from the recovery-injection-arc on branch `engineer/upgrade-recovery-validation` (currently at `38e44b111`).**
 
 This is the comprehensive scope-(a) plan as agreed: every named failure class gets an empirical scenario. Living document — user has additional classes incoming.

@@ -115,7 +115,7 @@ Every entry leads with its **plain goal** — read it as **die HERE → the oper
 | `5-install-stage-d-advisory-zombie` | Install with a *dead* process still holding the migrate advisory lock → re-run detects the zombie (PID-liveness) and proceeds. | Fix 6 PID-liveness + empty-app-name catch-all |
 | `5-install-stage-e-worker-busy` | Install while the worker is busy processing → install isn't fooled into a false "busy" failure. | Fix 8 (worker excluded from holders) / Fix 9 (no pool-busy false-fail) / Fix 10 (psql-only filter) |
 
-`*(TBD)*` rows are scaffolded but not yet implemented. Full forensics + the complete C-class / R-tag priority map: `doc/recovery/recovery-injection-scope-a-comprehensive.md`. Each `scenarios/<slug>.sh` header carries the complete per-scenario detail (inject site, expected behavior, status on current code).
+`*(TBD)*` rows are scaffolded but not yet implemented. Full forensics + the complete C-class / R-tag priority map: `doc/archive/recovery-injection-scope-a-comprehensive.md` (2026-05 execution journal, archived — the CURRENT proof ledger is STATBUS-071's coverage map). Each `scenarios/<slug>.sh` header carries the complete per-scenario detail (inject site, expected behavior, status on current code).
 
 ## Fix-to-scenario reverse mapping
 

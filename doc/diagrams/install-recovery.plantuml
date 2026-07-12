@@ -1,5 +1,5 @@
 @startuml install-recovery
-' Authoritative ACTIVITY diagram for `./sb install` — the 8-state probe ladder + the
+' Authoritative ACTIVITY diagram for `./sb install` — the 9-state probe ladder + the
 ' idempotent step-table, and WHERE each install-internal failure is detected and recovered.
 '
 ' Sibling to upgrade-timeline.plantuml, which owns the upgrade/service TIMELINE (a sequence).
@@ -55,7 +55,7 @@ if (services up AND connection pool not clean?) then (yes)
 else (clean / fresh)
 endif
 
-partition "Detect — 8-state probe ladder (state.go:104, short-circuit: first match wins)" {
+partition "Detect — 9-state probe ladder (state.go:104, short-circuit: first match wins)" {
   if (.env.config missing?) then (yes)
     :**fresh-install** (StateFresh)\n-> step-table;
     note right
@@ -121,6 +121,16 @@ partition "Detect — 8-state probe ladder (state.go:104, short-circuit: first m
       executeUpgrade writes its own service-held flag.
       NO TEST (gap): the inline-dispatch path (./sb install on a queued row) has no
       scenario; only the service/NOTIFY path is covered (0-happy-upgrade).
+    end note
+    stop
+  elseif (failed row with retained backup_path?) then (yes)
+    :**restore-reattemptable** (StateRestoreReattemptable)\nreplay the restore (STATBUS-111);
+    note right
+      The human-gated restore re-attempt: a `failed` row whose snapshot
+      (backup_path) is retained is re-attemptable — ONLY via ./sb install,
+      never the auto service (restore-broke stays a human stop, no
+      auto-thrash). Pair-terminal rows complete; an abort-row with corrupt
+      git refuses actionably. Arc proof tracked on STATBUS-071's map.
     end note
     stop
   else (nothing scheduled)

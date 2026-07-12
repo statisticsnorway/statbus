@@ -42,9 +42,10 @@ cd ~/statbus
 
 - **Fresh directory** — runs the step-table: checks prerequisites (Docker, Docker Compose, Git), clones the repository, writes initial `.users.yml` and `.env.config`, generates credentials, and starts services.
 - **Existing install with no pending upgrade** — runs the same step-table as an idempotent config-refresh checkpoint. Safe to re-run.
-- **Scheduled upgrade pending** (a row in `public.upgrade` with state=`scheduled`) — dispatches the upgrade inline through the same pipeline the service uses (backup, checkout, migrate, restart, health-check, rollback on failure).
-- **Stale crashed-upgrade flag** — reconciles the flag, re-probes state, and re-dispatches.
-- **Live upgrade running** — refuses and points at `journalctl --user -u 'statbus-upgrade@*' -f`.
+- **Scheduled upgrade pending** (a row in `public.upgrade` with state=`scheduled`) — dispatches the upgrade inline through the same pipeline the service uses (backup, checkout, migrate, restart, health-check; on failure it classifies and acts — rollback where behind target, park at target — `doc/upgrade-recovery-model.md`).
+- **Stale crashed-upgrade flag** (marker present, flock free) — crash recovery: quiesces the unit, un-parks a parked row, reconciles the flag, re-probes state, and re-dispatches.
+- **Live upgrade running** (flock held) — a genuinely progressing upgrade is refused, with a pointer at `journalctl --user -u 'statbus-upgrade@*' -f`; a crash-LOOPING unit is taken over SIGKILL-class and routed through crash recovery (STATBUS-039).
+- **Failed row with a retained snapshot** — replays the restore (the human-gated restore re-attempt, STATBUS-111).
 - **Pre-1.0 database** (no `public.upgrade` table) — refuses and points at the manual upgrade path in `doc/CLOUD.md`.
 
 For operator-triggered upgrades on an existing install, the canonical workflow is: `./sb upgrade schedule <version>` to queue, then either wait for the systemd service's next tick, or run `./sb install` to dispatch immediately.

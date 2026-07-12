@@ -417,7 +417,7 @@ Deployments are automated via GitHub Actions:
    - Checks out the target version
    - Runs pending migrations
    - Restarts application containers with health checks
-   - Rolls back automatically on failure
+   - Recovers on failure by classification: rolls back where the box is behind target (data-safe under the read-only window); PARKS at-target deterministic failures to await a fix release
    - Sends callback notification (Slack)
 
 View deployment status in GitHub Actions or Slack channel `statbus-utvikling`.
@@ -433,7 +433,7 @@ ssh statbus_ma@niue.statbus.org "cd statbus && ./sb upgrade check"
 
 Or use the **"Deploy via upgrade service"** workflow in GitHub Actions UI -- select the target server and version.
 
-The upgrade service handles: image pull, backup, migrations, restart, health check, and automatic rollback on failure. Progress is visible in the admin UI and via `journalctl -u statbus-upgrade@<user>`.
+The upgrade service handles: image pull, backup, migrations, restart, health check, and classify-then-act recovery (automatic data-safe rollback behind target; a park awaiting a fix release at target — `doc/upgrade-recovery-model.md`). Progress is visible in the admin UI and via `journalctl -u statbus-upgrade@<user>`.
 
 ### Managing Host-Level Caddy
 

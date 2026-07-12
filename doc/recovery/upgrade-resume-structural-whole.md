@@ -1,6 +1,6 @@
 # Upgrade-resume structural fix — ONE invariant, applied uniformly (final design for sign-off)
 
-**Status: SHIPPED design record** (converged 2026-05-27, architect; all eight pieces landed — commit refs inline; restore-selection passages updated to the STATBUS-039 identity-keyed reality, STATBUS-043 2026-07-12). The King chose the principled root fix and then sharpened it to a single invariant. The diagnosis this answered is archived at `doc/archive/recovery-arc-flaw-timeoutstartsec.md`; the decision model this machinery serves is `doc/upgrade-recovery-model.md`.
+**Status: SHIPPED design record** (converged 2026-05-27, architect; all eight pieces landed — commit refs inline. Two later evolutions, STATBUS-043 2026-07-12: restore-selection passages updated to the STATBUS-039 identity-keyed reality; and the CHANGE-1 forensic tar (`archiveBackup` + checkpoint machinery) was subsequently DELETED outright (STATBUS-112) — the persistent CHANGE-2 snapshot dir is the single backup artifact, so read the tar rows as history). The King chose the principled root fix and then sharpened it to a single invariant. The diagnosis this answered is archived at `doc/archive/recovery-arc-flaw-timeoutstartsec.md`; the decision model this machinery serves is `doc/upgrade-recovery-model.md`.
 
 ## The unifying principle (the King's OOM insight)
 
