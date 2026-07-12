@@ -3,11 +3,11 @@ id: STATBUS-043
 title: >-
   docs-done-right: rewrite (not annotate) the stale recovery docs + root
   instruction files + full 039/040/041 doc sweep
-status: To Do
+status: Done
 assignee:
   - architect
 created_date: '2026-06-12 21:51'
-updated_date: '2026-07-12 03:30'
+updated_date: '2026-07-12 13:19'
 labels:
   - docs
   - upgrade
@@ -49,10 +49,10 @@ CONTEXT: STATBUS-042 (0360caeb0) fixed doc/upgrade-timeline.md + the 3 lifecycle
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The two doc/recovery files contain NO pre-039 guidance presented as current — operational instructions rewritten to the shipped contract or the file archived out of the reading path; analysis clearly past-tense
-- [ ] #2 CLAUDE.md + AGENTS.md install-ladder rows match the shipped dispatch (takeover arm included)
-- [ ] #3 Concept-level sweep of CLOUD.md, DEPLOYMENT.md, install-statbus.md, INTEGRATE.md + untouched diagrams completed; every found drift fixed in the same commit
-- [ ] #4 A reader of ANY doc in the repo sees only the shipped architecture; supersession banners remain only on genuinely archived material
+- [x] #1 The two doc/recovery files contain NO pre-039 guidance presented as current — operational instructions rewritten to the shipped contract or the file archived out of the reading path; analysis clearly past-tense
+- [x] #2 CLAUDE.md + AGENTS.md install-ladder rows match the shipped dispatch (takeover arm included)
+- [x] #3 Concept-level sweep of CLOUD.md, DEPLOYMENT.md, install-statbus.md, INTEGRATE.md + untouched diagrams completed; every found drift fixed in the same commit
+- [x] #4 A reader of ANY doc in the repo sees only the shipped architecture; supersession banners remain only on genuinely archived material
 <!-- AC:END -->
 
 ## Comments
@@ -82,3 +82,9 @@ created: 2026-07-12 03:30
 SCOPE REDUCTION (2026-07-12): comment #3's findings 1-3 (the read-only-window doc's deleted-migration citation, doc-023's identical staleness, and the stale service.go line cites) are DONE — fixed by the architect's 110 AC-3 doctrine pass, shipped bd94737e2 (repo docs) + the doc-023 delivery-status note (backlog). The full 043 sweep should NOT re-touch doc/read-only-upgrade-window.md or doc/upgrade-recovery-model.md — both were re-verified line-by-line against the shipped tree in that pass. The sweep's remaining scope is unchanged: the two doc/recovery files, CLAUDE.md/AGENTS.md install-ladder rows, and the concept-level sweep of CLOUD/DEPLOYMENT/install-statbus/INTEGRATE + untouched diagrams.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+CLOSED in three architect passes, each committed after foreman first-hand diff review (db8fe6e30, 3a79a8fe9, 475ced9f7 + the 110 doctrine pass bd94737e2 that pre-cleared the read-only-window docs). PASS 1 (AC-1): the stop-first incident diagnosis ARCHIVED to the new doc/archive/ with a historical header naming what superseded each operational claim; the structural-whole design record REWRITTEN in place to the identity-keyed shipped truth (a dozen source comments cite it, so it stays put). PASS 2 (AC-2): CLAUDE.md + AGENTS.md install ladders corrected from 8-states-keyed-on-PID to the shipped 9-states-keyed-on-flock, gaining the 039 takeover arm, the real crash-recovery sequence with the un-park trigger, the 111 restore-reattemptable state, and the park-regime paragraph. PASS 3 (AC-3/AC-4): the operator upgrade guide was the repo's worst drift — a deleted pipeline step still listed, a blanket automatic-rollback promise, and a published RETRY RECIPE INSTRUCTING RAW psql UPDATEs on public.upgrade (a no-manual-DB-writes violation in operator docs) — all rewritten to the shipped contract (the schedule verb IS the retry, atomically resetting park marker included); CLOUD.md + install-statbus.md lose the same blanket; the install-recovery diagram redrawn to 9 states with svg regenerated; the four architecture diagrams swept concept-clean; the injection-scope journal archived with the coverage map named as the current ledger. HONEST RESIDUALS RECORDED: 130's two reported always-rolls-back comments were searched under five wordings and NO LONGER EXIST (the one candidate found — recovery_backoff.go:249 — is accurate post-046); 115's archive-refs list fixed via upgrades.md + the structural-whole correction (the tar machinery deleted outright per 112, the persistent snapshot dir the single artifact). Supersession banners now exist only on genuinely archived material (doc/archive/ holds both). A reader of any doc in the repo sees only the shipped architecture.
+<!-- SECTION:FINAL_SUMMARY:END -->
