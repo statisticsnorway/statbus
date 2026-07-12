@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-09 23:30'
-updated_date: '2026-07-03 10:45'
+updated_date: '2026-07-12 02:43'
 labels:
   - install-recovery
   - harness
@@ -40,3 +40,23 @@ NOT blocking the NO rollout or STATBUS-017 — this is durable harness hardening
 <!-- SECTION:NOTES:BEGIN -->
 MERGED IN from STATBUS-083 (King-ratified consolidation 2026-07-03): same multi-line-quoting root cause — VM_EXEC's printf-%q + sudo bash -c transport mangles multi-line if/then into syntax errors; the fix is ONE base64 VM-script transport covering both tasks' symptoms.
 <!-- SECTION:NOTES:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect
+created: 2026-07-12 02:43
+---
+RULED (architect, 2026-07-12). Verified first: VM_EXEC (vm-bootstrap.sh:370) %q-quotes its args but hands them to `sudo -i -u statbus` — a LOGIN shell that re-evaluates, which is the documented trap right above it (:360-366: literal-$ content comes back silently expanded; the prescribed remedy is already named there — local file + scp, the health-park callback precedent). Also verified: of 511 VM_EXEC call sites today, ZERO are multi-line — the dangerous instances were already hand-converted to scp over the campaign; the ticket's job is to make the safe pattern a named tool and the unsafe one impossible.
+
+(1) TRANSPORT SHAPE: scp-a-file, NEVER heredoc-to-VM-file — constructing the file ON the VM via an ssh heredoc routes the content through the same ssh→sudo→shell evaluation layers that caused the class; writing LOCALLY (call site uses a QUOTED heredoc delimiter, so content stays byte-literal) and scp-ing is the only shape where no shell ever evaluates the payload. Two helpers: `VM_SCRIPT <local-script-path> [args...]` — scp to a unique /tmp/vm-script-<basename>-$$.sh on the VM, chmod 0755, execute as the statbus user via the existing VM_EXEC (args are plain %q-safe words), propagate rc; remote file KEPT (ephemeral VM, forensics-friendly). And `VM_SCRIPT_INLINE <name>` reading the script body from STDIN — writes it to a local tmp file first, then delegates to VM_SCRIPT; the call-site pattern is `VM_SCRIPT_INLINE probe <<'EOF' ... EOF` (quoted delimiter mandatory — say so in the helper's comment).
+
+(2) LOCATION: vm-bootstrap.sh, directly beside VM_EXEC — it is transport, not arc logic; the existing warning comment (:360-366) is rewritten to point at VM_SCRIPT as the named tool instead of describing the manual pattern.
+
+(3) GUARD (the 158 pattern): YES — VM_EXEC refuses when any argument contains a newline: refuse loudly, exit 1, banner names VM_SCRIPT/VM_SCRIPT_INLINE as the remedy (house contention-banner style). Newline-only, NOT $-detection: single-line args legitimately carry locally-expanded $vars everywhere (407 bash -c sites), and literal-$-for-later is syntactically indistinguishable from intended expansion — a $-guard would be all false positives. The newline guard has ZERO false positives on the current 511 sites (verified: none multi-line).
+
+(4) MIGRATION POLICY: no sweep — there is nothing to sweep (zero multi-line sites, verified). New code MUST use VM_SCRIPT for any script-shaped payload (multi-line, or content with literal-$ semantics); existing single-line sites stay untouched; the guard makes the dangerous form structurally impossible going forward. This is the same two-layer economics as 158: a refuse-loudly guard at the entry point + the named safe tool.
+
+(5) SIZING + ORACLE: MECHANIC-SIMPLE, with 158 as the direct precedent (same author-pattern: guard + banner + live verification). Oracle, three legs live on one scratch VM exactly like 158's: (i) happy path inert — an existing arc's single-line VM_EXEC calls run unchanged; (ii) the guard refuses a synthetic multi-line VM_EXEC with the banner; (iii) ROUND-TRIP FIDELITY — VM_SCRIPT ships a script whose body contains a literal unexpanded `$CANARY` reference plus a multi-line construct, executes it, and asserts the VM-side output proves the content arrived byte-literal (the exact class the sudo -i trap corrupted). bash -n + shellcheck on the touched lib.
+---
+<!-- COMMENTS:END -->
