@@ -3,10 +3,10 @@ id: STATBUS-144
 title: >-
   flagless-boot-migrate-churn: a concluded box restart-churns on a broken
   pending migration until the upgrade daemon dies silently
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-07-07 02:57'
-updated_date: '2026-07-12 13:57'
+updated_date: '2026-07-12 22:08'
 labels:
   - upgrade
   - recovery
@@ -41,7 +41,7 @@ ORACLE: the abort-write-lands scenario run WITHOUT its cleanup step reproduces t
 <!-- AC:BEGIN -->
 - [x] #1 A flagless boot whose boot-migrate fails DETERMINISTICALLY (exit 20) logs one loud actionable report and continues to the main loop alive-idle — no restart churn, no StartLimit death
 - [x] #2 Transient/unclassified boot-migrate failures keep the exit-and-restart behavior
-- [ ] #3 The abort-aftermath state (row=failed, no flag, broken migration on disk) leaves the daemon alive and serving its normal loop, verified by a scenario variant
+- [x] #3 The abort-aftermath state (row=failed, no flag, broken migration on disk) leaves the daemon alive and serving its normal loop, verified by a scenario variant
 <!-- AC:END -->
 
 ## Comments
@@ -70,4 +70,16 @@ created: 2026-07-12 13:57
 ---
 AC-3 SCENARIO BUILT + SHIPPED (e8cfb269a, 2026-07-12), architect SHIP with the break-construction explicitly credited: the base scenario's own proposed oracle (keep the far-future stall migration) was REFUTED against the STATBUS-145 floor geometry before building — boot-migrate's --to DaemonSchemaFloor never attempts a file above the floor, so that construction would prove nothing — and 4-rollback-abort-churn-then-alive-idle.sh instead injects a run-time-computed, at-or-below-floor, validly named, deterministically failing migration (floor read from the checked-out daemon_floor.go; version computed between the top two real migrations; loud refuse on collision), with the pre-apply capped so the pending state is genuine. Asserts the full 144 contract: unit active through a 90s watch, NRestarts ≤ 1, row stays failed (no false self-heal), nothing recorded on any boot, the loud-once deterministic-failure banner, services serving throughout. The variant joins the 4-rollback-abort INTERIM construction family (reciprocal headers name both members; one construction, three oracles) and retires with it when the restore-broke re-attempt arc goes green. AC-3 checks on the VM run — batched for tomorrow.
 ---
+
+author: tester (relayed by foreman)
+created: 2026-07-12 22:08
+---
+AC#3 RUN-PROVEN GREEN (tester, batch-3 VM run, 2026-07-12 night; log tmp/night-batch3-churn-retry2.log). The abort-aftermath scenario variant (4-rollback-abort-churn-then-alive-idle): row='failed' with ROLLBACK_FAILED_GIT_CORRUPT, upgrade flag absent (the ABORT's own terminal write landed, STATBUS-136), broken migration floor-bound on disk — and the daemon stayed ALIVE-IDLE: NRestarts=1 ≤ bound 1 (no churn), unit active through the full 90s watch, services serving, row correctly NOT self-healed to completed, neither migration applied, exactly one loud diagnostic banner, demo-data counts intact (statistical_unit=126, legal_unit=23, establishment=50). Never the pre-fix StartLimit death. A first attempt earlier tonight was a false RED from a foreman-caused binary/checkout race on the shared tree (freshness check refused, as designed) — re-run clean.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+A concluded box with a broken pending migration no longer restart-churns itself to death. Shipped across this ticket's arc: deterministic boot-migrate failures (exit 20) log one loud actionable report and leave the daemon alive-idle in its main loop instead of exit-restart churn into StartLimit death; transient failures keep exit-and-restart; and the abort-aftermath state (row='failed', no flag, floor-bound broken migration on disk) is run-proven to leave the daemon alive and serving. Final proof: batch-3 VM scenario green 2026-07-12 — NRestarts=1, unit active throughout, one diagnostic banner, no self-heal, data intact (log: tmp/night-batch3-churn-retry2.log).
+<!-- SECTION:FINAL_SUMMARY:END -->
