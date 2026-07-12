@@ -3,10 +3,10 @@ id: STATBUS-107
 title: >-
   plain-upgrade-language: de-jargon the upgrade/recovery vocabulary — "booting
   the new binary", one by one
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-06-21 19:41'
-updated_date: '2026-07-07 00:00'
+updated_date: '2026-07-12 14:21'
 labels:
   - upgrade
   - recovery
@@ -168,3 +168,9 @@ created: 2026-07-07 00:00
 IDENTIFIER SLICE SHIPPED: b2a54dc69 (2026-07-07). ObservedState family + Phase constant names now follow the registry slugs; wire values byte-identical (string-literal set-diff proof + flag round-trip tests); ~100 coupled comments de-jargoned with their identifiers; the one missed operator string fixed to the ratified wording; ground_truth_test.go → observed_state_test.go. THE TICKET'S PRECISE REMAINDER, both parked behind STATBUS-071 by architect ruling: (residual A) the post-swap FUNCTION-family rename — resumePostSwap, applyPostSwap, postSwapFailure, updateFlagPostSwap, writeFlagPhase, IsServiceForwardRecovery + ~250 coupled comment mentions, names to follow the registry slugs, lands AFTER the 071 arc campaign settles (that family is exactly the code the arcs exercise; renaming mid-proof multiplies re-verification cost for a purely internal surface); (residual B) the on-disk Phase serialization change — arc-gated, unchanged. Everything operator-visible and every wire value is done.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+CLOSED in the King's clean-ship pass (2026-07-12, architect-adjudicated). Everything a reader or operator ever sees speaks the ratified plain vocabulary: the registry (doc/upgrade-vocabulary.md) complete and King-crystallised; the docs and all three upgrade diagrams de-jargoned; the ~20 operator-facing log/error strings on the ratified slugs (6c90e2964); the first Go identifier slice landed with wire values proven byte-identical by round-trip tests (b2a54dc69); the forward-vs-rollback plain-language section standing as the style anchor. The two deliberately-parked residuals (the post-swap function-family rename and the on-disk Phase serialization — parked behind the arc campaign by architect ruling, since that family is exactly the code the arcs were proving) are re-homed as STATBUS-164, an honestly-To-Do completion sweep carrying the original parking rationale and the serialization half's re-ruling requirement — a parked In Progress becomes a truthful board state. The plain-language standard this ticket established (understood without a glossary; jargon-to-plain map; one-by-one cosmetic-vs-load-bearing classification) is now the house norm applied board-wide in the two clarity sweeps.
+<!-- SECTION:FINAL_SUMMARY:END -->
