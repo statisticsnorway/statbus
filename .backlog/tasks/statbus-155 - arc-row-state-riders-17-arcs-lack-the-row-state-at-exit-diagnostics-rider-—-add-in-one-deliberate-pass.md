@@ -3,9 +3,11 @@ id: STATBUS-155
 title: >-
   arc-row-state-riders: 17 arcs lack the row-state-at-exit diagnostics rider —
   add in one deliberate pass
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - mechanic
 created_date: '2026-07-09 02:28'
+updated_date: '2026-07-12 00:08'
 labels:
   - install-recovery
   - tooling
