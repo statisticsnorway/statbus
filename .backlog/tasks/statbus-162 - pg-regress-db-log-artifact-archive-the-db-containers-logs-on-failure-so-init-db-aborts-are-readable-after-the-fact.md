@@ -3,9 +3,11 @@ id: STATBUS-162
 title: >-
   pg-regress-db-log-artifact: archive the db container's logs on failure so
   init-db aborts are readable after the fact
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - mechanic
 created_date: '2026-07-12 03:39'
+updated_date: '2026-07-12 04:04'
 labels:
   - ci
   - testing
