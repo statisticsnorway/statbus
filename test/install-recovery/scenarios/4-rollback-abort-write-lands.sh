@@ -10,11 +10,16 @@
 # its own correctly-timed read — see the two combined state+error reads
 # below).
 #
-# INTERIM: deleted when the restore-broke re-attempt arc goes green (same pattern
-# as the r19 park scenario). Architect-ruled (STATBUS-071): this scenario is the
-# sole remaining fabricate_resume_state caller besides 3-postswap-rune-wedge; its
-# abort-row construction produces exactly the state that arc's re-attempt will
-# build for real — one build, two oracles — so it stays until that arc proves out.
+# INTERIM: deleted, TOGETHER WITH its 4-rollback-abort-churn-then-alive-idle
+# variant (STATBUS-144 AC#3, which inherits this scenario's ABORT construction
+# verbatim to reach the abort-aftermath state), when the restore-broke
+# re-attempt arc goes green (same pattern as the r19 park scenario).
+# Architect-ruled (STATBUS-071): this scenario is a remaining
+# fabricate_resume_state caller alongside 3-postswap-rune-wedge and its own
+# churn-then-alive-idle variant; this scenario's abort-row construction
+# produces exactly the state that arc's re-attempt will build for real — one
+# construction, three oracles now — so BOTH members of this family stay until
+# that arc proves out.
 #
 # MECHANISM — direct state fabrication (no dispatch, no claim gate, no real
 # executeUpgrade — direct state fabrication via the fabricate_resume_state
