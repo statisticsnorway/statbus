@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-17 07:59'
-updated_date: '2026-07-12 13:09'
+updated_date: '2026-07-12 18:05'
 labels:
   - tooling
   - not-install-upgrade
@@ -65,5 +65,23 @@ author: foreman
 created: 2026-07-12 13:09
 ---
 PHASE-3 GATE MET (operator verification, 2026-07-12): all three observation verdicts GREEN — (a) the weekly refresh timer fired on schedule (runner re-listening at 03:17:07Z, the exact Sunday window) and the service run succeeded; (b) the runner container up 10 hours, registered and online, continuous token refresh through 12:28Z; (c) zero CrowdSec alerts involving the runner's bridge subnet. The one-day observation window including the first timer pass is complete. PHASE 3 (migrating the workflows — pg_regress trusted leg, notify-all-clouds, seq/docker-maintenance — onto the runner per doc-026's migration order) is UNBLOCKED and queued to the engineer behind the STATBUS-163 build. Post-migration reminders recorded elsewhere: STATBUS-162's capture pipeline retires on the pg_regress move (named condition on that ticket).
+---
+
+author: foreman
+created: 2026-07-12 18:05
+---
+KING APPROVED the SSH-key health-probe canary design (2026-07-12 evening). The design, in full, so this ticket stands alone:
+
+PROBLEM: a job targeting an offline self-hosted runner queues silently for up to 24h. We need a loud red on the next push when the runner is down. The first attempt (a hosted job asking GitHub's API) needed a personal access token — withdrawn: a standing GitHub credential is the wrong price for a liveness bit.
+
+APPROVED DESIGN: a hosted canary job SSHes to niue with a DEDICATED probe key and runs ONE allowlisted command; notify's self-hosted legs `needs:` it, so a red canary SKIPS them instead of queueing.
+
+1. IDENTITY: new keypair minted only for this. Public half → the github-runner account's authorized_keys on niue; private half → repo secret RUNNER_HEALTH_SSH_KEY (same custody class as the deploy key). Revocable server-side any time; no expiry lifecycle; no personal token.
+2. AUTHORIZATION: one sshdo allowlist line — `github-runner: /usr/local/sbin/statbus-runner-health` — that key can run exactly that command, nothing else.
+3. THE PROBED COMMAND is a ROOT-PROVISIONED, SELF-CONTAINED script (architect custody ruling): because github-runner has docker access (root-equivalent on the shared box), the script must NOT come from a git checkout — otherwise anyone with master-push could execute arbitrary privileged commands through it. The King installs it root-owned at /usr/local/sbin/statbus-runner-health from the reviewable canonical copy ops/github-runner/runner-health.sh — the same way sshdo/sshdoers themselves are managed. Self-contained (docker + shell builtins only) so nothing on the box needs keeping current.
+4. THE PROBE CHECKS two layers: (a) the runner container is running; (b) the runner's GitHub session is fresh — the freshness signal is being CALIBRATED from a live capture of the runner's real log behavior (idle cadence + a deliberate disconnect), never guessed.
+5. RESIDUALS, named: a runner locally green but dropped by GitHub can fake (b) — bounded by the notify legs failing loudly on the next push; the hosted canary crosses the public SSH gate, so crowdsec can occasionally ban it → one false-red push, self-correcting.
+
+ROLLOUT ORDER (the STATBUS-167 discipline): the King provisions all three artifacts in ONE session (script, sshdoers line, key) with the FINAL calibrated bytes — only then does the workflow re-add the canary job. Design ratified in doc-026 delta 9 v4 (commit f560bdd1d). Remaining sequence: King's trace capture → engineer calibrates layer (b) → architect reviews final bytes → King's one-session provisioning → workflow re-add.
 ---
 <!-- COMMENTS:END -->
