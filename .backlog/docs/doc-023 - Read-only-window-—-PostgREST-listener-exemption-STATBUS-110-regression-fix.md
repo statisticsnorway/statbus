@@ -3,7 +3,7 @@ id: doc-023
 title: Read-only window — PostgREST listener exemption (STATBUS-110 regression fix)
 type: specification
 created_date: '2026-07-02 18:46'
-updated_date: '2026-07-02 18:48'
+updated_date: '2026-07-12 03:29'
 tags:
   - upgrade
   - recovery
@@ -15,6 +15,8 @@ tags:
 # Read-only window — PostgREST listener exemption (STATBUS-110 regression fix)
 
 *Architect, 2026-07-02. Amends `doc/read-only-upgrade-window.md` (STATBUS-110). For King nod before build — this refines the ratified 110 semantics (adds one exempt role). Mechanism grounded first-hand in code + the repro logs (tmp/mechanic-rest-readonly-{baseline,repro}.log) + both VM arcs (run 28609876020).*
+
+> **DELIVERY STATUS (architect, 2026-07-12 — the shipped vehicle differs from §Delivery below):** the exemption shipped and holds, but NOT as the recommended migration — migration `20260703104910` was DELETED (never in a released tag). The durable homes are **`migrations/post_restore.sql:36`** (re-armed on every `migrate up`) and **`postgres/init-db.sh:154`** (armed at cluster birth). The design's rationale (role-GUC outranks database-GUC; declarative, durable, version-independent) is unchanged and is what those two homes express. Current canonical description: `doc/read-only-upgrade-window.md` (exempt-writer roster of five — the STATBUS-154 `terminalUpdate` sessions joined after this doc was written). The §Delivery and §change-set text below is the design history, kept as written.
 
 ## The regression
 STATBUS-110's read-only window (`ALTER DATABASE … SET default_transaction_read_only = on`, engaged before the destructive phase) makes **every upgrade fail its health check**. Under read-only, PostgREST loops forever:
@@ -90,6 +92,6 @@ With the migration applied and a crash mid-phase-3: database read-only stays `on
 - **Tie to STATBUS-054** (PostgREST v12→v14): the listener's connection strategy may change across versions; the role-GUC exemption is version-independent, so it holds through the bump — note it in 054's verification checklist.
 
 ## The change set
-1. New migration: `ALTER ROLE authenticator SET default_transaction_read_only = off;` (down: `RESET`). Must run after `authenticator` is created (it will — new migration sorts last).
+1. New migration: `ALTER ROLE authenticator SET default_transaction_read_only = off;` (down: `RESET`). Must run after `authenticator` is created (it will — new migration sorts last). *(Shipped vehicle differs — see the DELIVERY STATUS note at top.)*
 2. Amend `doc/read-only-upgrade-window.md`: add the authenticator exemption to the invariant + the "Self-exempt" section (the fourth exempt writer, alongside queryConn/migrate), with the maintenance-gates-REST rationale.
 3. No change to `setDatabaseReadOnly` or the window ON/OFF placement.
