@@ -48,6 +48,88 @@ env:
   OLDER_THAN_DAYS: '7'
 
 jobs:
+  branch-gc:
+    # STATBUS-165: backstop for the STATBUS-071 real-upgrade-arc framework's
+    # throwaway test/upgrade-arc-* branches. PRIMARY cleanup is end-of-run
+    # self-delete (CI's upgrade-arc-harness.yaml teardown job, already
+    # shipped; the local harness's own delete_throwaway_branches() closes the
+    # other half). This job is the BACKSTOP for the gaps neither reaches:
+    # runs that predate the teardown job, and teardown misses (cancelled
+    # pre-teardown, runner death, local Ctrl-C). Age alone is sufficient —
+    # OLDER_THAN_DAYS (7d) vastly exceeds any real arc run's duration, so no
+    # run-state check is needed, and the test/upgrade-arc- prefix can never
+    # match the never-delete set (master, the ops/*/deploy/* pointers,
+    # db-seed) by construction — this job deletes GIT BRANCHES, not package
+    # versions, so it needs its own `contents: write` (the cleanup job below
+    # only ever needed `packages: write`).
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      # schedule event -> empty inputs -> 'false' (real delete on the weekly cron).
+      # manual dispatch -> boolean input defaulting to 'true' (safe by default).
+      DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+    steps:
+      - name: Delete aged test/upgrade-arc-* branches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          REPO="${{ github.repository }}"
+          echo "== Branch GC: test/upgrade-arc-* older than ${OLDER_THAN_DAYS}d (dry_run=${DRY_RUN}) =="
+
+          cutoff_epoch=$(date -u -d "-${OLDER_THAN_DAYS} days" +%s)
+          deleted=0; kept_age=0; unreached=0
+
+          branches_ndjson=$(gh api --paginate "/repos/${REPO}/branches" \
+            --jq '.[] | select(.name | startswith("test/upgrade-arc-")) | {name: .name}')
+
+          if [ -z "${branches_ndjson}" ]; then
+            echo "No test/upgrade-arc-* branches found; nothing to do."
+            exit 0
+          fi
+
+          while IFS= read -r row; do
+            [ -z "${row}" ] && continue
+            name=$(echo "${row}" | jq -r '.name')
+
+            # Defensive re-check (belt-and-suspenders): the listing above
+            # already filters by prefix, but a destructive delete gets its
+            # own guard regardless — the never-delete set can never match
+            # this prefix, so this can only ever pass, never silently widen.
+            case "${name}" in
+              test/upgrade-arc-*) ;;
+              *) echo "::error title=image-cleanup: branch-gc guard tripped::'${name}' does not match the test/upgrade-arc-* prefix — refusing to touch it (this should be unreachable)"; exit 1 ;;
+            esac
+
+            created=$(gh api "/repos/${REPO}/branches/$(printf '%s' "${name}" | jq -rR '@uri')" --jq '.commit.commit.committer.date')
+            if [ "$(date -u -d "${created}" +%s)" -ge "${cutoff_epoch}" ]; then
+              kept_age=$((kept_age + 1)); continue
+            fi
+
+            if [ "${DRY_RUN}" = "true" ]; then
+              echo "DRY_RUN would delete branch ${name} (created=${created})"
+              deleted=$((deleted + 1))
+              continue
+            fi
+
+            if gh api --method DELETE "/repos/${REPO}/git/refs/heads/$(printf '%s' "${name}" | jq -rR '@uri')" >/dev/null 2>&1; then
+              echo "Deleted branch ${name} (created=${created})"
+              deleted=$((deleted + 1))
+            else
+              unreached=$((unreached + 1))
+              echo "::error title=image-cleanup: branch NOT deleted::${name} (created=${created}) — the delete API call refused; retry manually -> gh api --method DELETE /repos/${REPO}/git/refs/heads/<branch>"
+            fi
+          done <<< "${branches_ndjson}"
+
+          echo "Summary branch-gc: age_kept=${kept_age} deleted$([ "${DRY_RUN}" = "true" ] && echo _would)=${deleted} unreached=${unreached}"
+
+          if [ "${unreached}" -gt 0 ]; then
+            echo "::error title=image-cleanup: branch-gc incomplete::${unreached} branch(es) could not be deleted — see the per-branch escalations above."
+            exit 1
+          fi
+
   cleanup:
     runs-on: ubuntu-24.04
     strategy:
