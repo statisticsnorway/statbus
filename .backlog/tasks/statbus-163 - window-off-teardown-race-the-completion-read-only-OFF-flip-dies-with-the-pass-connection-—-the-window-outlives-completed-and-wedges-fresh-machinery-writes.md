@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-07-12 12:35'
-updated_date: '2026-07-12 12:44'
+updated_date: '2026-07-12 13:28'
 labels:
   - upgrade
   - recovery
@@ -51,8 +51,6 @@ EVIDENCE: tmp/110-rider-run-job.log lines 5550-5561 (invariant violation + probe
 - [ ] #3 A fresh machinery session after a completed terminal writes successfully (the install post-completion insert path proves it in the same run)
 <!-- AC:END -->
 
-
-
 ## Comments
 
 <!-- COMMENTS:BEGIN -->
@@ -68,5 +66,11 @@ RULED (architect, 2026-07-12). This is the 154 class on the window flip, and the
 (3) THE LOUD BACKSTOP: extend the existing boot-time stale-state reconciliation (cleanStaleMaintenance's surface) with a sibling: when NO upgrade is in flight (no flag, no in_progress row) and the database default is still read-only, clear it with ONE loud line naming what was found and why it is stale. This is the cleanStaleMaintenance precedent, not a silent self-heal — and it carries the recurrence-indicts property: post-fix the stale case is near-unreachable (the immune flip), so if this backstop EVER fires, the flip broke its invariant and that firing is the investigation trigger. Without the backstop, the unreachable residue is a frozen NSO registry waiting for a human who cannot SSH in — a travel event.
 
 (4) ORACLE: the 110 AC#2 rider re-run green on the mid-tx arc — the OFF probe is the exact assert that caught this (rider proven as an instrument on its first live red). Engineer-scoped; structural pins in the style of 154's (flip sites use terminalExec, never the pass conn) + the canceled-parent/closed-conn behavioral test on terminalExec.
+---
+
+author: foreman
+created: 2026-07-12 13:28
+---
+FIX + CLOSING COMMIT BOTH SHIPPED (2026-07-12): be318bb91 (the behavior — terminalExec-immune OFF flips at both terminals, row-write-first, named-invariant escalation replacing the proven-lie warning, the pg_db_role_setting-reading boot backstop that leaves a parked box alone) and 7c1cc9db0 (the structure — terminalConnDo extracted as the ONE teardown-immune core, both helpers thin wrappers, the 154/163 pins evolved to assert the properties once on the core plus delegation on both wrappers; net −2 lines; 'two hand-synced copies would be the seed of the next 163' now written at the definition site). Dual-reviewed throughout (architect SHIP on both; foreman first-hand). REMAINING: ACs 2/3 close on the mid-tx arc re-run in flight on be318bb91 — the OFF probe that caught this bug is the oracle; green also closes STATBUS-110 AC-2, completing the read-only-window arc.
 ---
 <!-- COMMENTS:END -->
