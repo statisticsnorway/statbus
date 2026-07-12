@@ -30,6 +30,31 @@ import (
 //     re-stamps db.migration.content_hash to the current file's hash for
 //     listed versions whose stored hash mismatches. Other versions still
 //     fail with the standard immutability error.
+//
+// BY DESIGN — the release cut is the ONLY bless. Read this before "improving"
+// the mismatch handling; the design has been re-derived and re-lost four times
+// (STATBUS-072/doc-014 → STATBUS-102 → STATBUS-166's withdrawn first draft),
+// so the answer now lives here (King, 2026-07-12):
+//
+//  1. The bless for a retroactive edit to a released migration happens ONCE,
+//     at the release cut, by naming the version in this variable. The cut gate
+//     is the single choke point where a human vets such an edit.
+//  2. Therefore the EXISTENCE of a cut release/RC whose migrations differ from
+//     the previous tag IS the bless: the gate refused every unnamed change, so
+//     whatever a release carries was deliberately vetted. Trust the artifact.
+//  3. There is deliberately NO second record. No declaration file, no
+//     sanctioned list shipped to boxes, no runtime provenance re-check. A
+//     file-conveyed declaration set was built once and RETIRED (STATBUS-102):
+//     it states the same intent twice — a redundant side channel that drifts.
+//     Do not re-introduce it.
+//  4. Trust is CONTENT-level, not commit-level (King, STATBUS-166): bytes for
+//     version V that any cut release carries are gate-vetted bytes, wherever a
+//     box got them. Release-channel boxes trust their whole diet (they apply
+//     only releases → blanket re-stamp on mismatch). Edge boxes apply ungated
+//     master commits, so they recognize vetted bytes by matching
+//     (version, live hash) against cut releases; unvetted bytes still refuse.
+//     Any release-tag reading on a deployed box must work on a shallow clone
+//     (git ls-remote / tag fetch — local tag-tree probes are unreliable there).
 const IntentionallyFixBrokenImmutableMigrationEnvVar = "STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION"
 
 // ParseIntentionallyFixBrokenImmutableMigrationVersions parses the value of STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION.

@@ -1695,6 +1695,13 @@ func eagerContentHashCheck(projDir string) error {
 	// list — release blesses (re-stamp, trusting the cut gate), edge re-runs,
 	// localDev errors for a human. maxVersion gates edge's auto-redo to the
 	// latest-applied migration (Redo is latest-only; deeper is a King-flag).
+	//
+	// BY DESIGN the release cut is the ONLY bless — the full principle lives on
+	// release.IntentionallyFixBrokenImmutableMigrationEnvVar (immutability.go).
+	// Read it before changing ANY branch below. In particular: never add a
+	// declaration file or sanctioned list (retired side channel), and trust is
+	// content-level — gate-vetted bytes may be re-stamped wherever a box got
+	// them (STATBUS-166, King-approved: edge gains recognition of vetted bytes).
 	channel := migrationChannelClass(projDir)
 	maxVerOut, err := runPsql(projDir, "SELECT COALESCE(MAX(version), 0) FROM db.migration", "-t", "-A")
 	if err != nil {
