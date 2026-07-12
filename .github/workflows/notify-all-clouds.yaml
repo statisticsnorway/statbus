@@ -14,55 +14,30 @@ on:
 # only — not a forced upgrade. Admins or deploy branches decide when
 # to apply.
 #
-# STATBUS-069 phase 3 (doc-026 §3 step 2 — the canary migration): the notify
-# legs now run on the niue self-hosted runner instead of ubuntu-latest. Two
-# changes from the pre-runner form, plus one new job:
-#   1. `notify` moves to runs-on [self-hosted, niue] — the SSH now originates on
-#      the box (via the Docker host gateway to niue's own sshd), not from Azure.
-#   2. The SSH step converts from appleboy/ssh-action (a Docker CONTAINER action,
-#      which cannot run on the socketless runner — doc-026 §2/delta 8) to a raw
-#      `ssh` run step. Host, user, key, and command stay identical to today: the
-#      command is still the exact sshdo-allowlisted path ~/statbus/ops/ci-notify.sh
+# STATBUS-069 phase 3 (doc-026 §3 step 2): the notify legs run on the niue
+# self-hosted runner instead of ubuntu-latest. Two changes from the pre-runner
+# form:
+#   1. `notify` runs on [self-hosted, niue] — the SSH now originates on the box
+#      (via the Docker host gateway to niue's own sshd), not from Azure.
+#   2. The SSH step is a raw `ssh` run step, not appleboy/ssh-action (a Docker
+#      CONTAINER action that cannot run on the socketless runner — doc-026 §2/
+#      delta 8). Host, user, key, and command are identical to today: the command
+#      is the exact sshdo-allowlisted path ~/statbus/ops/ci-notify.sh
 #      (ops/niue/sshdoers pins that byte-string; sshdo rejects anything else).
-#   3. A hosted `runner-online` canary (ubuntu-latest) fails red naming the runner
-#      when it is offline, so a self-hosted job queueing silently can never hide a
-#      down runner (doc-026 §4). notify `needs:` it, so an offline runner SKIPS the
-#      self-hosted legs instead of queueing them for up to 24h.
-# Rollback is one line: revert the `notify` runs-on back to ubuntu-latest and
-# restore the appleboy step (see git history / ops/github-runner/).
+#
+# INTERIM (STATBUS-069): the hosted `runner-online` canary that gated these legs
+# was REMOVED. It needed a runner-status PAT, and that ask was withdrawn (the King
+# challenged it; the architect ruling replaced doc-026 delta 9). A gate whose
+# precondition will never exist can only stay red and skip every notify leg, so it
+# is gone until its architect-ruled replacement — an sshdo health-probe canary —
+# lands. While the canary is absent notify runs ungated: if the runner is offline
+# the legs queue silently (the pre-canary behavior), a risk accepted only while the
+# runner is confirmed up.
+# Rollback is one line: revert `notify` runs-on back to ubuntu-latest and restore
+# the appleboy step (see git history / ops/github-runner/).
 
 jobs:
-  # Hosted canary — goes red on the next push if the niue runner is offline, so a
-  # silently-queueing self-hosted job can never mask a down runner (doc-026 §4).
-  # Auth: listing a repo's self-hosted runners needs repo ADMINISTRATION scope,
-  # which GITHUB_TOKEN cannot hold — so this uses a read-only RUNNER_STATUS_TOKEN
-  # PAT (doc-026 v3 delta 9: a read-only status PAT is accepted; it lives in GitHub,
-  # not on niue, and is strictly weaker than the removed runner-admin PAT).
-  runner-online:
-    runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
-    steps:
-      - name: Assert the niue self-hosted runner is online
-        env:
-          GH_TOKEN: ${{ secrets.RUNNER_STATUS_TOKEN }}
-        run: |
-          set -euo pipefail
-          if [ -z "${GH_TOKEN:-}" ]; then
-            echo "::error::RUNNER_STATUS_TOKEN secret is not set: create the read-only runner-status PAT (King action, doc-026 delta 9) and add it as a repo secret"
-            exit 1
-          fi
-          status="$(gh api repos/statisticsnorway/statbus/actions/runners \
-            --jq '.runners[] | select(.name=="niue") | .status')"
-          if [ "$status" != "online" ]; then
-            echo "::error::The niue self-hosted runner is OFFLINE (status='${status:-not-registered}')."
-            echo "::error::Self-hosted notify legs will queue silently until it is back."
-            echo "::error::On niue: docker compose -f /home/github-runner/docker-compose.yml ps / logs gha-runner"
-            exit 1
-          fi
-          echo "niue runner is online."
-
   notify:
-    needs: runner-online
     runs-on: [self-hosted, niue]
     if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
     permissions:
