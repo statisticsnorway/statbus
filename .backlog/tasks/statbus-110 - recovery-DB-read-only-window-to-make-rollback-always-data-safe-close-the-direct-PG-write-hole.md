@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-06-26 11:30'
-updated_date: '2026-07-06 16:05'
+updated_date: '2026-07-12 00:00'
 labels:
   - upgrade
   - recovery
@@ -68,7 +68,7 @@ Behavior change to upgrade + recovery — prove via install-recovery arcs (STATB
 - [x] #1 During the destructive+uncertain window, ALL external writes (browser, REST, AND direct Layer4 PG) are blocked while the upgrade's own migration session writes successfully (exempt) — proven by an install-recovery arc
 - [ ] #2 The read-only state persists across a mid-window crash so the post-crash state is frozen until recovery decides
 - [ ] #3 With the window guaranteed write-free, rollback-under-uncertainty is shown data-safe (no external writes to lose); STATBUS-039 'never restore on a guess' is re-evaluated and the recovery decision tree updated accordingly
-- [ ] #4 Cost/acceptability of the read-only write-window documented (reads stay available; upgrades are infrequent)
+- [x] #4 Cost/acceptability of the read-only write-window documented (reads stay available; upgrades are infrequent)
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -207,5 +207,11 @@ author: foreman
 created: 2026-07-03 19:40
 ---
 🟢 ARC ORACLE GREEN (run 28679526112, foreman verified logs first-hand) — the doc-025 D re-home is PROVEN on seed-restored VMs: zero HEALTHCHECK_REST_DOWN occurrences; working arc A→B forward-apply reached state='completed' (t+55s) with the health check passing on ATTEMPT 1, code=200 (the exact leg that deadlocked in 28609876020/28656025811); failing arc: V_fail → 'rolled_back' (t+79s, healthy) then V_fixed → 'completed' (t+58s, healthy). AC1 CHECKED on combined evidence: exempt half proven in-arc (migrations applied + completed under the window on a real VM), external-block half proven empirically (comment 8: non-exempt sessions write-blocked while the role exemption is armed; mechanic tmp/mechanic-rest-roleguc-check.log). REMAINING, precisely: AC2 needs a crash-mid-window arc scenario (catalog persistence holds by construction — ALTER DATABASE survives crash — but unproven in-arc); AC3 has its rollback-evidence (failing arc data-safe rollback green) but awaits the formal STATBUS-039 supersession + decision-tree doc update (impl-plan step 5; the code half landed in 782ca2455's classify-then-act dispatch); AC4 = write the cost/acceptability paragraph.
+---
+
+author: foreman
+created: 2026-07-12 00:00
+---
+AC-4 SHIPPED (8fdefb5ad, 2026-07-12): the cost/acceptability paragraph landed in doc/read-only-upgrade-window.md (its confirmed sole canonical home — doc-018 is a MOVED stub, doc-023 is the listener-regression amendment). Covers: writes pause minutes / reads available; only the direct-PG path newly restricted (browser+REST already maintenance-gated); acceptable for an infrequently-upgraded registry; accident-guard not lock (the King's no-wrong-without-intent principle); payoff = always-data-safe rollback = autonomous recovery on an unreachable box. STALENESS FLAGGED while in there (recorded on STATBUS-043 for the docs sweep, deliberately NOT fixed in this commit): the doc's own exemption section still names deleted migration 20260703104910 as the mechanism home (real home since the re-home: migrations/post_restore.sql + postgres/init-db.sh); doc-023 has identical staleness; the doc's service.go line-number citations predate the 145 floor rewrite and 154's terminalUpdate consolidation. The architect's AC-3 pass (039 supersession) touches this doc anyway — fix together there or in 043's sweep. REMAINING on this ticket: AC-2 (crash-mid-window persistence arc rider — engineer, queued behind the fabrication-retirement package) and AC-3 (architect).
 ---
 <!-- COMMENTS:END -->
