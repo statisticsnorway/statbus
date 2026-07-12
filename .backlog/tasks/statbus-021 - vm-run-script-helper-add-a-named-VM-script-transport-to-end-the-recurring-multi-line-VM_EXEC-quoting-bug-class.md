@@ -3,11 +3,11 @@ id: STATBUS-021
 title: >-
   vm-run-script-helper: add a named VM-script transport to end the recurring
   multi-line VM_EXEC quoting bug class
-status: In Progress
+status: Done
 assignee:
   - mechanic
 created_date: '2026-06-09 23:30'
-updated_date: '2026-07-12 02:44'
+updated_date: '2026-07-12 02:58'
 labels:
   - install-recovery
   - harness
@@ -61,3 +61,9 @@ RULED (architect, 2026-07-12). Verified first: VM_EXEC (vm-bootstrap.sh:370) %q-
 (5) SIZING + ORACLE: MECHANIC-SIMPLE, with 158 as the direct precedent (same author-pattern: guard + banner + live verification). Oracle, three legs live on one scratch VM exactly like 158's: (i) happy path inert — an existing arc's single-line VM_EXEC calls run unchanged; (ii) the guard refuses a synthetic multi-line VM_EXEC with the banner; (iii) ROUND-TRIP FIDELITY — VM_SCRIPT ships a script whose body contains a literal unexpanded `$CANARY` reference plus a multi-line construct, executes it, and asserts the VM-side output proves the content arrived byte-literal (the exact class the sudo -i trap corrupted). bash -n + shellcheck on the touched lib.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+SHIPPED 5a9913a8b (2026-07-12), vm-bootstrap.sh only, +80/−5. The multi-line VM quoting bug class (five separate debugging cycles: heredoc collapse, dash-quoting collapse, base64 double-eval, var-mangle, sudo -i dollar-expansion) is now structurally closed by the 158 two-layer economics: (1) VM_SCRIPT — scp a LOCAL file to a unique PID-suffixed /tmp path on the VM and execute it there; no shell ever evaluates the payload in transit; remote copy kept for forensics. VM_SCRIPT_INLINE — stdin body (quoted heredoc delimiter mandatory, documented with a call-site example) via a local mktemp, delegating to VM_SCRIPT. (2) VM_EXEC refuses any newline-bearing argument with a house-style banner naming both tools — newline-only detection (a $-guard would false-positive on all 407 legitimate locally-expanding bash -c sites, architect-verified); return-1 not exit-1, architect-blessed explicitly: diagnostics calls under || true stay composable, the banner prints at authoring time without overriding an arc's real exit path. Zero of the 511 existing call sites were multi-line (architect-verified), so no migration sweep — the ticket's job was naming the safe tool and making the unsafe form impossible. Live three-leg verification on a real scratch VM (torn down, hcloud-confirmed): happy path inert; a real two-line argument refused pre-ssh with the banner; the load-bearing round-trip — a byte-literal $CANARY inside a multi-line if/then arrived intact and was evaluated fresh by the VM's own shell. Ruling: comment #1; review: SHIP as-built.
+<!-- SECTION:FINAL_SUMMARY:END -->
