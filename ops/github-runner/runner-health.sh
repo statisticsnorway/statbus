@@ -11,8 +11,17 @@
 # sshdoers entry. It replaces the withdrawn runner-status PAT (the King challenged it;
 # architect ruling replaced doc-026 delta 9): instead of asking GitHub's API whether
 # the runner is registered-online, we ask the box directly, over the same SSH-key +
-# sshdo authorization boundary everything else here uses. sshdo pins only this PATH —
-# the logic below evolves in git, like ci-notify.sh.
+# sshdo authorization boundary everything else here uses.
+#
+# PROVENANCE (architect ruling, doc-026 delta 9 v4): ci-notify's safety was TWO legs —
+# a pinned PATH and an UNPRIVILEGED executor. This probe's executor MUST be privileged
+# (docker inspect needs the docker group), so the second leg is gone and is replaced by
+# CONTENT PROVENANCE: this is a ROOT-PROVISIONED, SELF-CONTAINED artifact installed at a
+# non-checkout path (/usr/local/sbin/statbus-runner-health) from THIS canonical copy —
+# same trust class as sshdo/sshdoers. So NOT evolve-in-git like ci-notify.sh. SELF-
+# CONTAINED is a HARD REQUIREMENT: depend on nothing but `docker` + POSIX/coreutils, no
+# repo, no sourced files — so there is no checkout to keep current and no STATBUS-167
+# gap by construction. Keep layer (b) within that constraint when calibrating.
 #
 # CONTRACT: print a one-line verdict and exit 0 = HEALTHY, non-zero = UNHEALTHY. The
 # canary surfaces the exit + stdout so a down runner reds the next push, naming why.
