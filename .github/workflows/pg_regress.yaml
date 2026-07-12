@@ -32,15 +32,56 @@ jobs:
           echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
         fi
     - name: Run tests on remote server
-      uses: appleboy/ssh-action@v1.2.0
+      id: pg_regress
+      # STATBUS-162: bumped v1.2.0 -> v1.2.1 (the nearest patch release) SOLELY
+      # to gain capture_stdout/outputs.stdout — no other behavior change. Needed
+      # so the db-container-logs step below can read this step's own remote
+      # stdout without opening a second SSH connection (niue's sshdo allowlist
+      # locks the statbus_test key to the ONE script line here; see the comment
+      # on it below — a follow-up SSH command would be silently rejected).
+      uses: appleboy/ssh-action@v1.2.1
       with:
         host: niue.statbus.org
         username: statbus_test
         key: ${{ secrets.SSH_KEY }}
         command_timeout: 60m
+        capture_stdout: true
         # STATBUS-150: a POSTGRES_NOTIFY_USER/POSTGRES_APP_USER collision on this
         # host is guarded loudly (init-db.sh validation refuse + config generate's
         # WARN), not self-healed here — see the ticket for history. The SSH line
         # below must match /etc/sshdoers:44's allowlisted template EXACTLY, or the
         # CI key's command is silently rejected.
         script: cd statbus && git fetch origin && git checkout -- . && git checkout ${{ steps.ref.outputs.sha }} && ./dev.sh continous-integration-test
+
+    - name: Extract db container logs (failure only)
+      # STATBUS-162: the db container is destroyed by continous-integration-test's
+      # own EXIT trap (./dev.sh delete-db -> docker compose down) before this
+      # workflow gets any further chance to look at it, and no follow-up SSH step
+      # could fetch anything anyway (see the sshdo note above) — so dev.sh prints
+      # the container's logs to STDOUT, delimited, on failure, BEFORE teardown,
+      # as part of the one already-allowed command. capture_stdout (above) exposes
+      # that output as steps.pg_regress.outputs.stdout; this step (runner-side
+      # only, no SSH) extracts the delimited section into a real file. The value
+      # is passed via `env:`, never interpolated directly into the script body —
+      # untrusted remote output must not be re-parsed as shell syntax.
+      if: failure()
+      env:
+        PG_REGRESS_STDOUT: ${{ steps.pg_regress.outputs.stdout }}
+      run: |
+        mkdir -p ci-artifacts
+        printf '%s\n' "$PG_REGRESS_STDOUT" \
+          | awk '/^::: STATBUS-162 db-container-logs-begin/{flag=1;next}/^::: STATBUS-162 db-container-logs-end :::$/{flag=0}flag' \
+          > ci-artifacts/db-container.log
+        if [ ! -s ci-artifacts/db-container.log ]; then
+          echo "No db container log markers found in the captured output (the failure likely occurred before the db container started)."
+          rm -f ci-artifacts/db-container.log
+        fi
+
+    - name: Upload db container logs (failure only)
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: pg-regress-db-logs
+        path: ci-artifacts/db-container.log
+        retention-days: 14
+        if-no-files-found: warn
