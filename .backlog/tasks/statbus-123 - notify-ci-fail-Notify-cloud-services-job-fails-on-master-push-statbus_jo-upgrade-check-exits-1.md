@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - operator
 created_date: '2026-07-02 17:01'
-updated_date: '2026-07-11 20:22'
+updated_date: '2026-07-12 13:09'
 labels:
   - ci
   - notify
@@ -81,5 +81,11 @@ author: foreman
 created: 2026-07-11 20:22
 ---
 STATUS SYNC (foreman, 2026-07-11), honest correction to the overnight theory: 'Notify cloud services' is STILL FAILING on every master push — latest three: run 29077265816 (6ac199afc, 2026-07-10), 29016872841 (b14e23dc4, 2026-07-09), 28989777186 (653834672, 2026-07-09). The 2026-07-08 niue session deployed the sshdoers durable entrypoint (all 8 notify entries → ~/statbus/ops/ci-notify.sh) and the repo carries ops/ci-notify.sh + the single-line workflow (c07439b5b) — the expectation was 'greens as slots pull ci-notify.sh', which has NOT happened: slots only update their checkouts on DEPLOY, and no slot has deployed since, so ~/statbus/ops/ci-notify.sh likely does not exist yet on most slots — the sshdoers entry points at a file the slot hasn't pulled. NEXT STEP when picked up: operator reads one failing slot (does ~/statbus/ops/ci-notify.sh exist? what does the loud sshdo rejection now say — the 128 fix means the failure is finally NAMED in the CI log, read it first); the likely fix is either deploying the slots or a bootstrap shim, architect-ruled. Queued behind the 154/wave-8 closure.
+---
+
+author: foreman
+created: 2026-07-12 13:09
+---
+GAP CONFIRMED ON A SLOT (operator, 2026-07-12): statbus_dev's deployed tree does NOT contain ops/ci-notify.sh (No such file or directory), and the latest Notify-cloud-services run (29192823293, 12:33Z) failed on ALL SEVEN slots with the ssh action exiting 1 on the missing script — exactly the predicted last leg: slots receive the file only on their next DEPLOY, and none has deployed since the script landed in master. THE RED IS TRUTHFUL (the job cannot notify a slot that lacks the script) and the fix is a DEPLOYMENT, which for the country slots (ug, et, ma, jo, tcc) is production-touching and therefore KING-GATED — queued for the evening decision: deploy master (or a chosen subset of slots) to carry the script, or accept the red until each slot's next organic deploy. NOT acceptable per doctrine: scp-ing the file to slots by hand (server writes forbidden — fixes ship via code + deploy), or softening the job to tolerate the missing script (a gate must not pass on something other than what it claims). Note for the decision: STATBUS-069 Phase-3 moves this workflow onto the niue runner regardless, which changes its transport but not the slots' need for the script.
 ---
 <!-- COMMENTS:END -->
