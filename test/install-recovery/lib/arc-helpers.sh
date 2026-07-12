@@ -470,7 +470,14 @@ arc_kill_confirmed() {
     local start elapsed alive
     start=$(date +%s)
     while true; do
-        alive=$(VM_EXEC bash -c "for p in $pids; do kill -0 \$p 2>/dev/null && printf '%s ' \$p; done" 2>/dev/null | tr -d '\r' | sed 's/ *$//')
+        # PROBES OBSERVE, ASSERTS JUDGE (STATBUS-143): the remote for-loop's exit is
+        # the LAST kill -0's status, which is NON-ZERO exactly when all target PIDs
+        # are gone — the SUCCESS case. The trailing `; true` decouples the loop's
+        # exit from that status so this probe always exits 0 and `alive` reflects the
+        # real output (empty ⇒ all gone), never a spurious errexit inside $(). Works
+        # today only because every caller invokes arc_kill_confirmed in a `|| exit 1`
+        # context (set -e suppressed); the safe terminal makes it correct regardless.
+        alive=$(VM_EXEC bash -c "for p in $pids; do kill -0 \$p 2>/dev/null && printf '%s ' \$p; done; true" 2>/dev/null | tr -d '\r' | sed 's/ *$//')
         [ -z "$alive" ] && { echo "  ✓ kill CONFIRMED — target PID(s) gone: $pids"; return 0; }
         elapsed=$(( $(date +%s) - start ))
         if [ "$elapsed" -ge "$budget" ]; then

@@ -111,11 +111,17 @@ echo "  Arc: postswap-stopped-proxy-recovery  (STATBUS-143 AC#2 — real kill + 
 echo "  A=${BASE_SHA:0:8}  B=${B_FULL:0:8}  inject=${INJECT_CLASS}"
 echo "════════════════════════════════════════════════════════════════"
 
+# PROBES OBSERVE, ASSERTS JUDGE (STATBUS-143 probe contract; README "Probe
+# conventions"): a probe ALWAYS exits 0 and returns a nameable value ('(unknown)'
+# on any transport/command hiccup), so it can never die inside $() under `set -e`
+# one line before its own assertion. proxy_state races the resume's in-flight
+# container restart, so the safe terminal is load-bearing here — its ABSENCE
+# killed this arc (rc=1 at :140, the probe dying one line before its tripwire).
 proxy_state() {
-    VM_EXEC bash -c "cd ~/statbus && docker compose ps -a --format '{{.Service}} {{.State}}' | awk '\$1==\"proxy\"{print \$2}'" 2>/dev/null | tr -d ' \r\n'
+    VM_EXEC bash -c "cd ~/statbus && docker compose ps -a --format '{{.Service}} {{.State}}' | awk '\$1==\"proxy\"{print \$2}'" 2>/dev/null | tr -d ' \r\n' || echo '(unknown)'
 }
 row_cols() {
-    VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state, recovery_attempts, recovery_parked_at IS NOT NULL, rolled_back_at IS NOT NULL, error IS NOT NULL FROM public.upgrade WHERE commit_sha = '${B_FULL}' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A -F'|'" 2>/dev/null | tr -d '\r'
+    VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state, recovery_attempts, recovery_parked_at IS NOT NULL, rolled_back_at IS NOT NULL, error IS NOT NULL FROM public.upgrade WHERE commit_sha = '${B_FULL}' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A -F'|'" 2>/dev/null | tr -d '\r' || echo '(unknown)'
 }
 
 # ── A: install + prepare; register B; schedule daemon-down; dispatch with the REAL post-swap kill ──
@@ -135,10 +141,25 @@ arc_install_dispatch_with_inject "$INJECT_CLASS"
 echo ""
 echo "── verifying RED state (flag Resuming; row in_progress; DB + ALL containers, incl. proxy, genuinely up) ──"
 VM_EXEC bash -c "ls -la ~/statbus/tmp/upgrade-in-progress.json" >/dev/null || { echo "✗ expected flag file present after the kill" >&2; exit 1; }
-ROW_STATE_RED=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '${B_FULL}' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n')
+ROW_STATE_RED=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '${B_FULL}' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo '(unknown)')
 [ "$ROW_STATE_RED" = "in_progress" ] || { echo "✗ expected row in_progress after the kill, got '$ROW_STATE_RED'" >&2; exit 1; }
-PROXY_BEFORE=$(proxy_state)
-[ "$PROXY_BEFORE" = "running" ] || { echo "✗ precondition: proxy must be running post-kill (step 11 completed before the kill site) — got '$PROXY_BEFORE'" >&2; exit 1; }
+# The inject fires DURING the resume's start-services (container restart), so the
+# proxy reaching "running" is an EVENTUAL state — the resume's orphaned
+# `docker compose up -d` must finish bringing it up. Poll (the safe probe makes
+# this loop safe under `set -e`) until it settles or the budget expires. The
+# precondition stays HARD: running within the budget, or refuse loudly naming the
+# observed value — a settle-wait establishes the precondition honestly, it does
+# NOT weaken it (STATBUS-143 ruling).
+PROXY_SETTLE_BUDGET_S="${PROXY_SETTLE_BUDGET_S:-60}"
+PROXY_BEFORE=""
+_proxy_deadline=$((SECONDS + PROXY_SETTLE_BUDGET_S))
+while :; do
+    PROXY_BEFORE=$(proxy_state)
+    [ "$PROXY_BEFORE" = "running" ] && break
+    [ "$SECONDS" -lt "$_proxy_deadline" ] || break
+    sleep 3
+done
+[ "$PROXY_BEFORE" = "running" ] || { echo "✗ precondition: proxy must be running within ${PROXY_SETTLE_BUDGET_S}s post-kill (step 11 completed before the kill site; the resume's container restart must settle) — got '$PROXY_BEFORE'" >&2; exit 1; }
 echo "  ✓ RED confirmed: flag present, row in_progress, proxy genuinely running (real crash, real containers)"
 
 echo ""

@@ -150,6 +150,36 @@ When you regress a fix, here's what fails:
 3. If you need a new assertion, add to `lib/assertions.sh` as `assert_*` returning 0 (pass) or 1 (fail).
 4. Update this README's scenario catalogue — lead the new entry with its plain goal (die HERE → re-run ends THERE, data intact), mechanism as grounding.
 
+## Probe conventions — PROBES OBSERVE, ASSERTS JUDGE (STATBUS-143)
+
+A **probe** (a helper that reads VM state — a container state, a row column, a pid)
+ALWAYS exits 0 and returns a *nameable* value, including `(unknown)` when the
+transport or command hiccups. The **assert** — never the probe — decides pass/fail,
+and it carries a **settle budget** wherever the expected state is *eventual* rather
+than immediate.
+
+- **State-demanding probes** (return a value the assert compares — a container state,
+  a row column) MUST carry a safe terminal so a transient failure yields a value, not
+  a non-zero exit: end the pipeline with `|| echo '(unknown)'`, or make the remote
+  command itself always exit 0 (`… || true`). Under the arcs' `set -euo pipefail`, a
+  probe that can exit non-zero dies inside `$(…)` and trips errexit — opaquely, one
+  line before its own assertion could have named the value.
+- **Existence probes** ask a yes/no question and answer it remotely
+  (`… | grep -qx proxy && echo yes || echo no`); existence is immediate, so they need
+  no settle budget.
+- **Settle budgets**: when the expected state arrives *after* the trigger (a container
+  restart still finishing, a daemon re-forming), poll the safe probe until it settles
+  or a bounded budget expires, THEN assert. The wait establishes the precondition
+  honestly — it does not weaken it: still running-or-refuse, just given the time the
+  system genuinely needs.
+
+The scar this codifies: `postswap-stopped-proxy-recovery-arc.sh` died `rc=1 at :140`
+— its `proxy_state` probe (an `awk`-terminated pipeline demanding exactly `running`)
+raced the resume's in-flight container restart and exited non-zero inside `$(…)`,
+tripping errexit one line before the `[ "$PROXY_BEFORE" = "running" ]` tripwire that
+would have named the transient. Its GREEN severed sibling survived the identical
+inject because its `proxy_present` probe ends in `echo yes || echo no` (always exits 0).
+
 ## Debugging a failing scenario
 
 Re-run with `--keep-vm` so the scenario's **Hetzner VM** survives the failure (it keeps billing ~€0.0072/hr until you delete it). The harness prints the exact connect commands on exit; in general, for VM `statbus-recovery-<slug>`:
