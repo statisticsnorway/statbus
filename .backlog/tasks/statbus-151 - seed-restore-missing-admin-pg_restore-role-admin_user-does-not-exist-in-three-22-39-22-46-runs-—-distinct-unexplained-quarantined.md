@@ -3,11 +3,11 @@ id: STATBUS-151
 title: >-
   seed-restore-missing-admin: pg_restore "role admin_user does not exist" in
   three 22:39-22:46 runs — distinct, unexplained, quarantined
-status: In Progress
+status: Done
 assignee:
   - engineer
 created_date: '2026-07-08 23:42'
-updated_date: '2026-07-12 03:22'
+updated_date: '2026-07-12 04:01'
 labels:
   - ci
   - testing
@@ -37,7 +37,7 @@ EVIDENCE POINTERS: gh runs on the three commits above (pg_regress workflow, 2026
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 The King's manual-intervention answer is recorded here (yes → close as artifact with the doctrine restated; no → promote to live investigation)
-- [ ] #2 If promoted: the mechanism producing a cluster/restore-target without admin_user is named from evidence, not presumed
+- [x] #2 If promoted: the mechanism producing a cluster/restore-target without admin_user is named from evidence, not presumed
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -55,3 +55,9 @@ created: 2026-07-09 12:01
 KING'S ANSWER (2026-07-09 morning): NO manual intervention on the test host in the 22:39-23:24 window. AC#1 recorded → PROMOTED to live investigation (priority raised to medium). The evidence base: three runs 22:39-22:46 + the 23:50 recurrence under current code (03b0dba26's image), all with pg_restore 'role admin_user does not exist' against a healthy-reporting cluster. The refuted fold-hypothesis stands refuted (an :187 abort cannot remove admin_user — the DO-blocks precede it). Open candidate from the 150 postmortem: an EARLY init-db abort (pre-:157) leaves a roleless-but-restartable cluster — but what aborted early in those runs is unestablished. Investigation should start from: which init-db section aborted (the [N/8] markers now exist), and whether the test flow creates statbus_test itself when init-db died early (making the cluster look usable until the seed restore needs the cluster-level role). Note: the notify-user collision is now healed on the host, so IF this mode was another collision downstream it should no longer reproduce — absence of recurrence in this week's runs is itself evidence; a recurrence despite the healed collision proves an independent mechanism.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+CLOSED on the architect's adjudication (2026-07-12) after the engineer's evidence-first investigation. THE RECORD, honestly stated: (1) CLASS CAUSE NAMED — the mode is collision-window-bound: across all 33 pg_regress failures 07-08→07-12 it appears in exactly 4 runs inside a 67-minute window on 07-08 (three quarantined + the 23:50 recurrence), with ZERO recurrence since the notify-user collision heal, across ~15 subsequent failures and all green runs on current code. (2) The 23:50 instance (run 28983725043, 03b0dba26) is FULLY NAMED and code-consistent: that commit's new [1/8] validation refuse aborts init-db before ANY role exists (admin_user is [6/8]) → fresh roleless PGDATA → restart reports Healthy via skip-initialization → pg_restore fails on the missing cluster role. (3) The three quarantined runs (22:39-22:46) are window-bound with the candidate mechanism REFUTED — their pre-refuse init-db created admin_user at :157 BEFORE the collision abort at :188 on verified-fresh volumes, so a collision abort could not remove it — and their exact mechanism is UNDETERMINED on destroyed evidence (the [N/8] markers print to the db container's stderr, which the Actions log does not carry and no artifact preserved). The designed reproduction was adjudicated SKIP on information economics: its confirming leg adds nothing to an already-named chain, its refuting leg structurally cannot terminate in a name, the trigger is structurally eliminated (158's straggler guard), and STATBUS-161's fix moots the mechanism question for production — once a refused init cannot leave a healthy-restartable cluster, every variant of the swallowed-refuse chain dies downstream. NOT a flaky-dismissal: root class named, trigger guarded, residual made loud. DURABLE OUTCOMES: STATBUS-161 (init-incomplete sentinel — the product fix, ruled shape) + STATBUS-162 (db-log artifact on failing pg_regress runs — the evidence gap that cost this investigation its markers).
+<!-- SECTION:FINAL_SUMMARY:END -->
