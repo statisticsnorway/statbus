@@ -42,7 +42,10 @@ jobs:
       - name: Deploy via upgrade service
         run: |
           install -m 600 /dev/stdin /tmp/key <<< "${{ secrets.SSH_KEY }}"
-          ssh -i /tmp/key -o StrictHostKeyChecking=no \
+          known="$HOME/_work/.known_hosts"   # pinned in the runner-work volume (doc-026 delta 8)
+          ssh -i /tmp/key \
+            -o StrictHostKeyChecking=accept-new \
+            -o "UserKnownHostsFile=$known" \
             statbus_ma@niue.statbus.org \
             "cd ~/statbus && ./sb upgrade apply-latest"
           rm -f /tmp/key

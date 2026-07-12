@@ -61,8 +61,12 @@ jobs:
           install -m 600 /dev/stdin /tmp/key <<< "${{ secrets.SSH_KEY }}"
           trap 'rm -f /tmp/key' EXIT
 
+          known="$HOME/_work/.known_hosts"   # pinned in the runner-work volume (doc-026 delta 8)
           ssh_dev() {
-            ssh -i /tmp/key -o StrictHostKeyChecking=no -o BatchMode=yes \
+            ssh -i /tmp/key \
+              -o StrictHostKeyChecking=accept-new \
+              -o "UserKnownHostsFile=$known" \
+              -o BatchMode=yes \
               statbus_dev@niue.statbus.org "$@" 2>&1
           }
 
