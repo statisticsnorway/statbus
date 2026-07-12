@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - '@engineer'
 created_date: '2026-07-12 15:25'
-updated_date: '2026-07-12 21:33'
+updated_date: '2026-07-12 21:36'
 labels:
   - upgrade
   - migrations
@@ -65,5 +65,11 @@ author: foreman
 created: 2026-07-12 21:33
 ---
 REWRITTEN 2026-07-12 evening after the King's design review. The first draft's jsonl declaration file is WITHDRAWN — it re-introduced the side channel retired by STATBUS-102 ("declared intent lives ONLY in the env var at the cut", immutability.go). The King's design, played back and approved: the release cut is the single bless; the release's existence IS the bless; trust is content-level (his pushback sharpened commit-level to content-level: gated bytes are vetted bytes wherever a box got them). This is the FOURTH derivation of this design — to end that, the principle is now a BY DESIGN comment on release.IntentionallyFixBrokenImmutableMigrationEnvVar with a pointer at migrate.go's channel switch, committed alongside this rewrite. Architect's original ruling superseded by the King's own design.
+---
+
+author: architect (relayed by foreman)
+created: 2026-07-12 21:36
+---
+ADVERSARIAL CHECK of the content-level rule (architect, 2026-07-12): two candidate holes examined, NEITHER blocks the build — the case is strengthened. (1) Reverse-direction re-stamp (a box on an older release's tree content-matching backward): benign — the cut's bless asserts hash-equivalence for ledger purposes, which is symmetric; the next forward upgrade re-stamps forward; the existing loud line already prints the old→new direction. (2) Bless-over-unknown-origin (rule matches only (V, live-hash), no constraint on what the ledger recorded): CLEARED, and it completes the soundness case — an unvetted-origin ledger entry for a released V cannot arise through the machinery (application-time refusal, FULL_REPLAY re-stamps from current bytes, manual writes forbidden doctrine). Origins are gated at APPLICATION time, which is exactly why origin-matching at RECOGNITION time — what the withdrawn jsonl design added — was redundant. The King's simpler rule is sound because the guard it seems to lack already exists upstream.
 ---
 <!-- COMMENTS:END -->
