@@ -3,9 +3,11 @@ id: STATBUS-161
 title: >-
   init-incomplete-sentinel: a refused or killed init-db must not leave a
   healthy-restartable cluster — sentinel-gated wipe and re-init
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - engineer
 created_date: '2026-07-12 03:35'
+updated_date: '2026-07-12 04:01'
 labels:
   - install
   - fail-fast
