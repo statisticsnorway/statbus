@@ -1661,6 +1661,23 @@ func (e *ErrStaleRestoredMigration) Error() string {
 // A/B/C contract, just a separate surface).
 const ExitStaleRestoredMigration = 21
 
+// restampVettedMigration updates db.migration.content_hash for `version` to the
+// live file hash and prints the single loud re-stamp line. It is the shared
+// action of the two branches that trust the SAME bless — the channelRelease case
+// (a cut release the box is applying) and the channelEdge content-recognition
+// branch (STATBUS-166: on-disk bytes that exactly match a cut release's bytes) —
+// so both re-stamp AND announce identically. One definition, no drift.
+func restampVettedMigration(projDir string, version int64, storedHash, liveHash string) error {
+	if _, err := runPsql(projDir, fmt.Sprintf(
+		"UPDATE db.migration SET content_hash = '%s' WHERE version = %d",
+		liveHash, version)); err != nil {
+		return fmt.Errorf("content_hash re-stamp UPDATE for migration %d: %w", version, err)
+	}
+	fmt.Printf("[migrate]   ⟳ Intentionally fixing broken (immutable) migration %d: re-stamped content_hash %s → %s\n",
+		version, shortHash(storedHash), shortHash(liveHash))
+	return nil
+}
+
 // eagerContentHashCheck verifies that every tracked migration's stored
 // content_hash matches the live file's sha256. On mismatch, branches:
 //   - migration version IS in a released tag → immutability violation
@@ -1771,22 +1788,33 @@ func eagerContentHashCheck(projDir string) error {
 			// unreliable on the shallow `git clone --depth 1` real boxes use (install.go:929;
 			// the tag's tree can be absent → it would FALSELY refuse a legit bless), and it
 			// is redundant with the cut gate that already gated the change.
-			if _, updateErr := runPsql(projDir, fmt.Sprintf(
-				"UPDATE db.migration SET content_hash = '%s' WHERE version = %d",
-				liveHash, version)); updateErr != nil {
-				return fmt.Errorf("content_hash re-stamp UPDATE for migration %d: %w", version, updateErr)
+			if err := restampVettedMigration(projDir, version, storedHash, liveHash); err != nil {
+				return err
 			}
-			oldShort, newShort := storedHash, liveHash
-			if len(oldShort) > 8 {
-				oldShort = oldShort[:8]
-			}
-			if len(newShort) > 8 {
-				newShort = newShort[:8]
-			}
-			fmt.Printf("[migrate]   ⟳ Intentionally fixing broken (immutable) migration %d: re-stamped content_hash %s → %s\n",
-				version, oldShort, newShort)
 			continue
 		case channelEdge:
+			// STATBUS-166 (King-approved): CONTENT-LEVEL recognition of gate-vetted
+			// bytes. An edge box applies ungated master commits, so a mismatch here
+			// may be either (a) bytes some cut release already blessed, reaching this
+			// box via master ahead of its ledger, or (b) a genuinely ungated edit.
+			// Distinguish by CONTENT: if some cut release carries version V with
+			// EXACTLY these on-disk bytes, the release gate blessed them → re-stamp
+			// trusting the gate, the SAME one loud line channelRelease prints. Only
+			// bytes no release carries fall through to today's edge behavior (latest
+			// → redo; deeper → refuse). Shallow-clone safe (ls-remote + tag fetch,
+			// never a local tag-tree probe). This is the branch that heals the
+			// STATBUS-123 dev gate blocking every deploy.
+			vettedTag, matchErr := release.ReleaseTagWithMigrationHash(projDir, version, liveHash)
+			if matchErr != nil {
+				return fmt.Errorf("edge release-content recognition for migration %d: %w", version, matchErr)
+			}
+			if vettedTag != "" {
+				if err := restampVettedMigration(projDir, version, storedHash, liveHash); err != nil {
+					return err
+				}
+				continue
+			}
+			// No cut release carries these bytes → exactly today's edge behavior.
 			// REDO: a deployed always-latest dev/edge box; data loss acceptable.
 			// Re-run the latest-applied migration (down+up) to absorb the change.
 			// A deeper-than-latest mismatch is a depth-asymmetry we do not

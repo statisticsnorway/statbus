@@ -1,12 +1,15 @@
 package release
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -162,6 +165,160 @@ func MigrationInReleasedTag(projDir string, version int64) (string, error) {
 		}
 	}
 	return "", nil
+}
+
+// ReleaseTagWithMigrationHash reports the first release-shaped tag whose
+// migrations/<version>_*.up.{sql,psql} blob has sha256 (hex) exactly equal to
+// wantHash, or "" if no cut release carries those exact bytes.
+//
+// This is CONTENT-level trust (STATBUS-166, King-approved): it answers "do the
+// on-disk bytes for version V match V's bytes in some cut release?" — never "is
+// the current commit tagged" and never "does a release merely contain version
+// V". A newer, not-yet-gated edit has bytes no release carries → "" → the caller
+// refuses (or, on an edge box's latest migration, redoes). It is the runtime
+// half of the BY DESIGN contract on IntentionallyFixBrokenImmutableMigrationEnvVar:
+// the release cut is the bless, so gate-vetted bytes are recognizable wherever a
+// box got them.
+//
+// SHALLOW-CLONE SAFE (a hard requirement — deployed boxes are `git clone
+// --depth 1`, install.go): tag objects/trees are ABSENT locally there, so a
+// local tag-tree probe (`git rev-parse <tag>:<path>`) would falsely miss and
+// refuse a legitimate bless. Instead this discovers tags with `git ls-remote
+// --tags origin` and reads each candidate's blob by FETCHING that tag shallowly
+// (`git fetch --depth 1 origin refs/tags/<tag>` → FETCH_HEAD), then `git
+// cat-file` — objects the shallow fetch is guaranteed to bring down. Candidates
+// are tried newest-first (CalVer descending) so the common heal (bytes just
+// blessed in the newest RC) matches on the first fetch; only the rare
+// unvetted-edit refuse walks every release tag.
+//
+// Returns ("", nil) when no release carries the matching bytes. Errors only on
+// git/transport failure: an unreachable origin must NOT be silently treated as
+// "unvetted" (that would redo/refuse a possibly-vetted migration on a network
+// blip) — the caller surfaces the error loudly.
+func ReleaseTagWithMigrationHash(projDir string, version int64, wantHash string) (string, error) {
+	tags, err := releaseTagsNewestFirst(projDir)
+	if err != nil {
+		return "", err
+	}
+	for _, tag := range tags {
+		hash, found, err := migrationUpBlobHashInTag(projDir, tag, version)
+		if err != nil {
+			return "", err
+		}
+		if found && hash == wantHash {
+			return tag, nil
+		}
+	}
+	return "", nil
+}
+
+// releaseTagParse extracts a release tag's CalVer components for ordering.
+var releaseTagParse = regexp.MustCompile(`^v(\d{4})\.(\d{2})\.(\d+)(?:-rc\.(\d+))?$`)
+
+// releaseTagsNewestFirst lists the remote's release-shaped tags (via
+// `git ls-remote --tags origin`, so it is correct on a shallow clone where the
+// local tag set is incomplete) sorted newest-first. Order is an EFFICIENCY
+// concern only — ReleaseTagWithMigrationHash scans until a content match, so any
+// order is correct — but newest-first makes the common heal a single fetch.
+func releaseTagsNewestFirst(projDir string) ([]string, error) {
+	cmd := exec.Command("git", "ls-remote", "--tags", "origin")
+	cmd.Dir = projDir
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("git ls-remote --tags origin: %w", err)
+	}
+	seen := make(map[string]bool)
+	var tags []string
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		// "<sha>\trefs/tags/<tag>" or "...^{}" (peeled annotated-tag line).
+		tag := strings.TrimSuffix(strings.TrimPrefix(fields[1], "refs/tags/"), "^{}")
+		if !ReleaseTagPattern.MatchString(tag) || seen[tag] {
+			continue
+		}
+		seen[tag] = true
+		tags = append(tags, tag)
+	}
+	sort.Slice(tags, func(i, j int) bool { return releaseTagLess(tags[j], tags[i]) })
+	return tags, nil
+}
+
+// releaseTagLess orders release tags chronologically (older < newer): by year,
+// month, patch, then rc — with a final release (no -rc.N) newer than every
+// -rc.N of the same patch line (a cut release supersedes its candidates).
+func releaseTagLess(a, b string) bool {
+	ay, am, ap, arc := releaseTagKey(a)
+	by, bm, bp, brc := releaseTagKey(b)
+	switch {
+	case ay != by:
+		return ay < by
+	case am != bm:
+		return am < bm
+	case ap != bp:
+		return ap < bp
+	default:
+		return arc < brc
+	}
+}
+
+// releaseTagKey parses a release tag into comparable components. A final release
+// gets an rc rank above any real -rc.N so it sorts as the newest of its patch.
+func releaseTagKey(tag string) (year, month, patch, rc int) {
+	m := releaseTagParse.FindStringSubmatch(tag)
+	if m == nil {
+		return 0, 0, 0, 0
+	}
+	year, _ = strconv.Atoi(m[1])
+	month, _ = strconv.Atoi(m[2])
+	patch, _ = strconv.Atoi(m[3])
+	if m[4] == "" {
+		rc = int(^uint(0) >> 1) // MaxInt: a final release is newer than any -rc.N
+	} else {
+		rc, _ = strconv.Atoi(m[4])
+	}
+	return
+}
+
+// migrationUpBlobHashInTag fetches `tag` shallowly and returns the sha256 (hex)
+// of its migrations/<version>_*.up.{sql,psql} blob. found=false (no error) when
+// that release predates version V (no such file in its tree). The hash is the
+// sha256 of the raw blob bytes — identical to migrate.sha256File — so it is
+// directly comparable to a db.migration.content_hash.
+func migrationUpBlobHashInTag(projDir, tag string, version int64) (hash string, found bool, err error) {
+	fetch := exec.Command("git", "fetch", "--depth", "1", "origin", "refs/tags/"+tag)
+	fetch.Dir = projDir
+	if out, ferr := fetch.CombinedOutput(); ferr != nil {
+		return "", false, fmt.Errorf("git fetch --depth 1 origin refs/tags/%s: %w: %s", tag, ferr, strings.TrimSpace(string(out)))
+	}
+	ls := exec.Command("git", "ls-tree", "--name-only", "-r", "FETCH_HEAD", "--", "migrations")
+	ls.Dir = projDir
+	lsOut, lerr := ls.Output()
+	if lerr != nil {
+		return "", false, fmt.Errorf("git ls-tree FETCH_HEAD migrations (tag %s): %w", tag, lerr)
+	}
+	prefix := fmt.Sprintf("migrations/%d_", version)
+	var rel string
+	for _, name := range strings.Split(strings.TrimSpace(string(lsOut)), "\n") {
+		name = strings.TrimSpace(name)
+		if strings.HasPrefix(name, prefix) && (strings.HasSuffix(name, ".up.sql") || strings.HasSuffix(name, ".up.psql")) {
+			rel = name
+			break
+		}
+	}
+	if rel == "" {
+		return "", false, nil
+	}
+	blob := exec.Command("git", "cat-file", "blob", "FETCH_HEAD:"+rel)
+	blob.Dir = projDir
+	content, berr := blob.Output()
+	if berr != nil {
+		return "", false, fmt.Errorf("git cat-file blob FETCH_HEAD:%s (tag %s): %w", rel, tag, berr)
+	}
+	sum := sha256.Sum256(content)
+	return hex.EncodeToString(sum[:]), true, nil
 }
 
 // FileIsDirty reports whether relPath (relative to projDir, e.g.
