@@ -3,11 +3,11 @@ id: STATBUS-109
 title: >-
   recovery: in-process backoff for transient errors (db-unreachable) instead of
   exit-restart
-status: In Progress
+status: Done
 assignee:
   - engineer
 created_date: '2026-06-24 12:21'
-updated_date: '2026-07-06 16:05'
+updated_date: '2026-07-12 14:23'
 labels:
   - upgrade
   - recovery
@@ -121,3 +121,9 @@ created: 2026-07-03 19:40
 ARC LANE GREEN (run 28679526112 on a3eb522c8, which includes 782ca2455's backoff + dispatch rewrite): the standard working/failing arcs pass end-to-end through the new classify-then-act recovery dispatch — no regression from the 109 commit on the normal paths (forward-apply completed; rollback clean; V_fixed completed). ACs 1-4 remain OPEN correctly: they require DEDICATED scenarios (kill the DB transiently mid-recovery for db-unreachable backoff-retry; a commit-not-fetched stall case) that the working/failing lineages do not exercise. The lane is no longer blocked by the 110/seed-fidelity regression — those scenarios can now be sequenced (candidates for the slice-3+ scenario migration onto controlled-B, STATBUS-071).
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+CLOSED in the King's clean-ship pass (2026-07-12, architect-adjudicated). The build shipped long since and is live on every box: in-process backoff-retry for the two ratified transient classes — db-unreachable (wall-clock 5s connect probes) and commit-not-fetched (stall-not-deadline git fetch, ~60s no-progress inside ~15min) — sitting in FRONT of the systemd backstop so a transient blip no longer burns an exit-restart cycle (and no longer eats into the death budget), with exhaust routing to the ratified error classifier. The vocabulary lives in doc/upgrade-vocabulary.md's 'Recovery — when a step fails' section (King-crystallised 2026-06-27). The one open obligation was the PROOF genre — a run demonstrating each backoff class live — and proof obligations live on the coverage map, not on build tickets: both legs are now standing [UNPROVEN] rows on STATBUS-071's map (transient-db-backoff and commit-not-fetched-backoff, commit a62d5a862), where the arc campaign burns rows down one by one. Build done, proof honestly tracked where proofs are tracked.
+<!-- SECTION:FINAL_SUMMARY:END -->
