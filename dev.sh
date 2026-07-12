@@ -1539,47 +1539,55 @@ EOF
 
         echo "Creating test template by cloning seed: $SEED_NAME -> $TEMPLATE_NAME"
 
-        TEMPLATE_EXISTS=$(./sb psql -d postgres -t -A -c \
-            "SELECT 1 FROM pg_database WHERE datname = '$TEMPLATE_NAME';" 2>/dev/null || echo "0")
-        if [ "$TEMPLATE_EXISTS" = "1" ]; then
-            echo "Existing template found, removing it..."
+        # STATBUS-152: BUILD ASIDE, then swap atomically. STATBUS-141 closed
+        # the mid-clone race (dropping the live template out from under a
+        # consumer) by moving the drop+recreate under advisory lock 59328 —
+        # but 59328 is session-scoped and could never cover the JWT-secret
+        # insert + IS_TEMPLATE/ALLOW_CONNECTIONS remark that ran AFTER that
+        # session closed, in separate ./sb psql invocations (a \c reconnect,
+        # or any new invocation, drops a session-scoped lock). A consumer
+        # taking 59328 in that gap could clone a template that EXISTS but is
+        # missing its JWT secret / not yet marked IS_TEMPLATE — the
+        # half-initialized window this fix closes.
+        #
+        # Shape: build the whole new template ASIDE as $BUILDING_NAME with NO
+        # lock at all (nobody clones that name, so nothing can race it); do
+        # every remaining setup step against it at leisure; THEN take 59328
+        # for a RENAME-ONLY swap — milliseconds, not the whole rebuild. A
+        # consumer during the build-aside phase gets the OLD, complete
+        # template (strictly better than today: it doesn't even queue behind
+        # the rebuild); a consumer during the swap gets either the old or the
+        # new complete template, never a partial one.
+        BUILDING_NAME="${TEMPLATE_NAME}_building"
+
+        # A crashed prior build can leave $BUILDING_NAME behind — drop it
+        # loudly first, or the clone below fails confusingly.
+        BUILDING_EXISTS=$(./sb psql -d postgres -t -A -c \
+            "SELECT 1 FROM pg_database WHERE datname = '$BUILDING_NAME';" 2>/dev/null || echo "0")
+        if [ "$BUILDING_EXISTS" = "1" ]; then
+            echo "Found a stale $BUILDING_NAME left over from a previous crashed build — dropping it."
+            # Two SEPARATE psql invocations, not one `-c "stmt1; stmt2;"`: a
+            # multi-statement simple-query string runs inside an IMPLICIT
+            # transaction, and DROP DATABASE refuses to run inside one
+            # ("DROP DATABASE cannot run inside a transaction block") —
+            # caught live while verifying this exact step.
+            ./sb psql -d postgres -c \
+                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$BUILDING_NAME';" || true
+            if ! ./sb psql -d postgres -c "DROP DATABASE IF EXISTS $BUILDING_NAME;"; then
+                echo "Error: Failed to drop the stale $BUILDING_NAME. Check for active connections:"
+                echo "  ./sb psql -c \"SELECT * FROM pg_stat_activity WHERE datname = '$BUILDING_NAME';\""
+                exit 1
+            fi
         fi
 
-        # STATBUS-141: drop + recreate under DB advisory lock 59328 — the SAME
-        # lock template CONSUMERS hold while cloning (generate-types, dev.sh
-        # ~1883: SELECT pg_advisory_lock(59328); ... CREATE DATABASE ... WITH
-        # TEMPLATE ...; SELECT pg_advisory_unlock(59328); one psql session).
-        # Without this, a rebuild could drop the template out from under a
-        # consumer's mid-clone (133 review finding). 59328 is SESSION-scoped
-        # (pg_advisory_lock, no xact variant here), so the drop and the
-        # recreate must run as ONE held psql session — lock first statement,
-        # unlock last — rather than delegating to `./dev.sh seed-clone` (a
-        # separate ./sb invocation opens a separate connection and would lose
-        # the lock); seed-clone's own CREATE DATABASE ... WITH TEMPLATE ...
-        # OWNER postgres statement is mirrored inline for that reason. Each
-        # drop step is idempotent (terminate/unmark/drop-if-exists) so this
-        # runs safely whether or not a prior template existed.
-        if ! ./sb psql -d postgres -v ON_ERROR_STOP=1 <<EOF
-            SELECT pg_advisory_lock(59328);
-            SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$TEMPLATE_NAME';
-            UPDATE pg_database SET datistemplate = false WHERE datname = '$TEMPLATE_NAME';
-            DROP DATABASE IF EXISTS $TEMPLATE_NAME;
-            SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$SEED_NAME';
-            -- STATBUS-141 keep-in-sync: mirrors the 'seed-clone' case's own
-            -- CREATE DATABASE statement (dev.sh ~1730). Kept inline, not called
-            -- as that subprocess, because 59328 is session-scoped and the
-            -- middle roads both fail: seed-clone taking the lock itself would
-            -- deadlock under this already-holding session; releasing here and
-            -- letting seed-clone re-acquire would reopen the drop-to-create gap
-            -- this fix exists to close. Update BOTH sites together if this
-            -- statement ever changes.
-            CREATE DATABASE $TEMPLATE_NAME WITH TEMPLATE $SEED_NAME OWNER postgres;
-            SELECT pg_advisory_unlock(59328);
-EOF
-        then
-            echo "Error: Failed to drop/recreate test template under advisory lock 59328."
-            echo "There may be active connections. Check with:"
-            echo "  ./sb psql -c \"SELECT * FROM pg_stat_activity WHERE datname = '$TEMPLATE_NAME';\""
+        # Build aside — no lock needed. Delegates to the seed-clone primitive
+        # (dev.sh ~1889): safe to call as a separate ./sb invocation now that
+        # nothing holds 59328 yet — the lock-loss concern that forced 141 to
+        # inline this statement only applied while the clone ran INSIDE the
+        # locked session. seed-clone's own terminate-backend covers the seed
+        # source; nothing else touches $BUILDING_NAME while it builds.
+        if ! ./dev.sh seed-clone "$BUILDING_NAME"; then
+            echo "Error: Failed to build the new template aside as $BUILDING_NAME."
             exit 1
         fi
 
@@ -1587,15 +1595,42 @@ EOF
         # auth.secrets data (security hard-rule); each consumer
         # injects its own JWT. Same as pre-rc.66 behavior.
         JWT_SECRET=$(./sb dotenv -f .env.credentials get JWT_SECRET)
-        ./sb psql -d $TEMPLATE_NAME -c \
+        ./sb psql -d "$BUILDING_NAME" -c \
             "INSERT INTO auth.secrets (key, value, description) VALUES ('jwt_secret', '$JWT_SECRET', 'JWT signing secret') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = clock_timestamp();"
 
         if ! ./sb psql -d postgres -c "
-            ALTER DATABASE $TEMPLATE_NAME WITH IS_TEMPLATE = true;
-            ALTER DATABASE $TEMPLATE_NAME WITH ALLOW_CONNECTIONS = false;
+            ALTER DATABASE $BUILDING_NAME WITH IS_TEMPLATE = true;
+            ALTER DATABASE $BUILDING_NAME WITH ALLOW_CONNECTIONS = false;
         "; then
-            echo "Error: Template created but failed to mark as template."
+            echo "Error: Template built but failed to mark as template."
             echo "This may cause issues with test isolation. Check database permissions."
+            exit 1
+        fi
+
+        TEMPLATE_EXISTS=$(./sb psql -d postgres -t -A -c \
+            "SELECT 1 FROM pg_database WHERE datname = '$TEMPLATE_NAME';" 2>/dev/null || echo "0")
+        if [ "$TEMPLATE_EXISTS" = "1" ]; then
+            echo "Existing template found — swapping it out atomically."
+        fi
+
+        # Swap — advisory lock 59328 held for a RENAME only (milliseconds).
+        # Session-scoped lock: must be ONE held psql session (lock first
+        # statement, unlock last), same session-scoping trap 141 traced — a
+        # \c reconnect or a separate ./sb invocation drops it mid-swap.
+        if ! ./sb psql -d postgres -v ON_ERROR_STOP=1 <<EOF
+            SELECT pg_advisory_lock(59328);
+            SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$TEMPLATE_NAME';
+            UPDATE pg_database SET datistemplate = false WHERE datname = '$TEMPLATE_NAME';
+            DROP DATABASE IF EXISTS $TEMPLATE_NAME;
+            SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$BUILDING_NAME';
+            ALTER DATABASE $BUILDING_NAME RENAME TO $TEMPLATE_NAME;
+            SELECT pg_advisory_unlock(59328);
+EOF
+        then
+            echo "Error: Failed to swap the built template into place under advisory lock 59328."
+            echo "The new template is left at $BUILDING_NAME for inspection/retry."
+            echo "There may be active connections. Check with:"
+            echo "  ./sb psql -c \"SELECT * FROM pg_stat_activity WHERE datname = '$TEMPLATE_NAME';\""
             exit 1
         fi
 
@@ -1925,12 +1960,13 @@ EOF
             WHERE datname = '$SEED_NAME';
         " || true
 
-        # STATBUS-141 keep-in-sync: the 'create-test-template' case inlines this
-        # exact statement (dev.sh ~1411, under advisory lock 59328) rather than
-        # calling this subprocess, because 59328 is session-scoped and calling
-        # out here would either deadlock (if this case also took the lock) or
-        # reopen the drop-to-create gap (if it re-acquired after a release).
-        # Update BOTH sites together if this statement ever changes.
+        # STATBUS-152: 'create-test-template' calls THIS subprocess directly
+        # (as `./dev.sh seed-clone "${TEMPLATE_NAME}_building"`) to build its
+        # new template aside, BEFORE it ever takes advisory lock 59328 — safe
+        # now that the clone step no longer runs inside the locked session
+        # (that lock-loss concern, STATBUS-141's reason to inline this
+        # statement there instead, no longer applies once the swap is a
+        # rename-only step). No keep-in-sync burden: one definition.
         if ! ./sb psql -d postgres -c "
             CREATE DATABASE $TARGET_NAME WITH TEMPLATE $SEED_NAME OWNER postgres;
         "; then
