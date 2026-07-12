@@ -1,6 +1,8 @@
 # The recovery arc missed the start phase — why NO is wedged, and the correct fix
 
-**Status:** diagnosis + recommended fix (architect, 2026-05-26). PARAMOUNT (Norway production is wedged). Belongs to the recovery-injection arc; routes into `doc/recovery/recovery-injection-scope-a-comprehensive.md` as a new class + RED scenario. NOT the UX plan.
+**Status: HISTORICAL RECORD (archived 2026-07-12, STATBUS-043).** This is the 2026-05 diagnosis of the Norway/rune start-phase wedge, kept as incident analysis — past tense throughout. **Nothing operational in this file is current**: the §4b recovery sequence is the superseded stop-first footgun (see its banner); §4a's A-alone decision was reversed (B1 shipped — the resume runs active-phase); and the recovery model has since moved to classify-then-act with the park regime and the read-only window (STATBUS-039/046/110/145/154/159/160). For the shipped system read `doc/upgrade-recovery-model.md`, `doc/upgrade-timeline.md`, and `doc/recovery/upgrade-resume-structural-whole.md` (the design that superseded this diagnosis's fix).
+
+*Original status (2026-05-26):* diagnosis + recommended fix (architect). PARAMOUNT (Norway production is wedged). Belongs to the recovery-injection arc. NOT the UX plan.
 
 **Evidence base:** dev journal upgrade id=183511; foreman SSH-confirmed NO ground truth (id=187); operator archaeology `tmp/operator-recovery-arc-archaeology.md`; operator unit/timeout reconcile `tmp/operator-timeoutstartsec-reconcile.md`; my direct reads of `service.go`, `exec.go`, `watchdog.go`, `ops/statbus-upgrade.service`; recovery-sequence mechanics `tmp/operator-no-recovery-sequence.md` (in flight — recovery section flagged where pending). All line numbers verified.
 
