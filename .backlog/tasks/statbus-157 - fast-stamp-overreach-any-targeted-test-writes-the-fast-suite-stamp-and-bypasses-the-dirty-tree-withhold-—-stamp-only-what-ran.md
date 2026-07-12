@@ -3,11 +3,11 @@ id: STATBUS-157
 title: >-
   fast-stamp-overreach: any targeted test writes the fast-suite stamp and
   bypasses the dirty-tree withhold — stamp only what ran
-status: In Progress
+status: Done
 assignee:
   - mechanic
 created_date: '2026-07-11 20:47'
-updated_date: '2026-07-12 03:23'
+updated_date: '2026-07-12 03:31'
 labels:
   - dev-tooling
   - testing
@@ -36,7 +36,13 @@ FIX SHAPE (architect confirms): the stamp write becomes conditional on the selec
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Only a full fast-suite run can write tmp/fast-test-passed-sha; targeted runs never do
-- [ ] #2 The dirty-tree withhold and the stamp write share one selector predicate (cannot diverge)
-- [ ] #3 A targeted run on a dirty tree leaves any existing stamp untouched
+- [x] #1 Only a full fast-suite run can write tmp/fast-test-passed-sha; targeted runs never do
+- [x] #2 The dirty-tree withhold and the stamp write share one selector predicate (cannot diverge)
+- [x] #3 A targeted run on a dirty tree leaves any existing stamp untouched
 <!-- AC:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+SHIPPED 1f88536ce (2026-07-12), dev.sh only, +23/−8, architect SHIP as-built. The build found the bug WORSE than the ticket framed: the stamp-write gate checked ONLY the exit code — never the selector at all — so any successful targeted run stamped. The fix: one shared predicate (IS_FAST_SUITE_RUN, computed once where TEST_ARGS finalizes) feeds BOTH the dirty-tree withhold and the stamp write — single source of truth, structurally non-divergent (AC-2). Targeted runs can neither write nor touch a stamp (ACs 1/3), proven live on the REAL bug scenario (the mechanic's own uncommitted edit dirtying the tree): targeted run green, no stamp line, pre-existing stamp byte-identical with UNCHANGED mtime — the block was skipped, not re-entered. Fast-path preservation by code reading (the predicate's condition is the withhold's original verbatim, routed through the variable); failure mode of a predicate typo is a withheld stamp — loud at preflight, never a false stamp; the next organic fast run is the confirming oracle. CONSCIOUS BEHAVIOR CHANGE recorded (architect note): "test all" no longer writes the fast stamp — it only ever did via the exit-code bug, and the stamp's claim is exactly "the fast suite passed on a clean tree"; all-run stamping, if ever wanted, is a deliberate one-line follow-up, not gate looseness. This closes the last known gate-integrity hole on the board.
+<!-- SECTION:FINAL_SUMMARY:END -->
