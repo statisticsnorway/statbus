@@ -52,11 +52,13 @@ ORACLE: (i) unit tests on the recognition branch — vetted bytes → re-stamp; 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Edge recognition branch: a mismatch whose on-disk bytes match that version's bytes in a cut release re-stamps with one loud line — proven to work on a shallow clone
-- [ ] #2 Unvetted bytes still hard-refuse (unit-tested: newer ungated edit; version in no release keeps existing WIP guidance)
+- [x] #1 Edge recognition branch: a mismatch whose on-disk bytes match that version's bytes in a cut release re-stamps with one loud line — proven to work on a shallow clone
+- [x] #2 Unvetted bytes still hard-refuse (unit-tested: newer ungated edit; version in no release keeps existing WIP guidance)
 - [x] #3 The next RC is cut with STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION=20260218215337 — the gated bless executed
 - [ ] #4 The dev deploy goes green through the normal path (the STATBUS-123 dev-gate oracle)
 <!-- AC:END -->
+
+
 
 ## Comments
 
