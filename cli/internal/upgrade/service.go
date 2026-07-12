@@ -2057,6 +2057,10 @@ func (d *Service) Run(ctx context.Context) error {
 	// Clean stale maintenance file
 	d.cleanStaleMaintenance(ctx)
 
+	// STATBUS-163: clear a stale read-only window (near-unreachable post-fix; its
+	// firing indicts a broken terminal OFF flip — see clearStaleReadOnlyWindow).
+	d.clearStaleReadOnlyWindow(ctx)
+
 	// Check for missed scheduled upgrades
 	d.checkMissedUpgrades(ctx)
 
@@ -3328,6 +3332,57 @@ func (d *Service) cleanStaleMaintenance(ctx context.Context) {
 		os.Remove(maintenanceFile)
 		fmt.Println("Cleaned stale maintenance file")
 	}
+}
+
+// clearStaleReadOnlyWindow is the STATBUS-163 boot-time reconciliation sibling of
+// cleanStaleMaintenance: clear a STALE read-only window. When NO upgrade is in
+// flight (no service flag, no in_progress row) yet the app database's default is
+// still read-only, a terminal OFF flip must have broken its invariant on a prior
+// boot. This is a NAMED, one-time, loud reconciliation — the cleanStaleMaintenance
+// precedent, NOT a silent standing self-heal.
+//
+// RECURRENCE INDICTS (carry this): post-STATBUS-163 the terminal flips ride the
+// teardown-immune terminalExec, so this stale case is near-unreachable — the flip
+// no longer dies with the pass conn. So if this backstop EVER fires, the flip
+// broke its invariant and that firing is the INVESTIGATION TRIGGER, not routine.
+// Without it, the unreachable residue is a frozen NSO registry rejecting every
+// write (25006), waiting for a human who cannot SSH in — a travel event.
+func (d *Service) clearStaleReadOnlyWindow(ctx context.Context) {
+	// A flag present (or unreadable) means an upgrade may be in flight → leave the
+	// window; it is legitimately engaged and its own terminal will lift it.
+	if flag, err := ReadFlagFile(d.projDir); err != nil || flag != nil {
+		return
+	}
+	var inProgress int
+	if err := d.queryConn.QueryRow(ctx,
+		"SELECT COUNT(*) FROM public.upgrade WHERE state = 'in_progress'").Scan(&inProgress); err != nil {
+		return // DB unreachable → leave it (safer, mirrors cleanStaleMaintenance)
+	}
+	if inProgress > 0 {
+		return // an upgrade IS in flight → the window is legitimately engaged
+	}
+	// Read the DATABASE-level default (pg_db_role_setting, setrole=0), independent
+	// of this daemon session's own read-only-off exemption.
+	var stale bool
+	if err := d.queryConn.QueryRow(ctx, `SELECT EXISTS (
+	    SELECT 1 FROM pg_db_role_setting s
+	      JOIN pg_database d ON d.oid = s.setdatabase
+	     WHERE d.datname = current_database()
+	       AND s.setrole = 0
+	       AND 'default_transaction_read_only=on' = ANY(s.setconfig))`).Scan(&stale); err != nil {
+		return
+	}
+	if !stale {
+		return
+	}
+	fmt.Fprintln(os.Stderr,
+		"STATBUS-163 BACKSTOP: the read-only upgrade window is STILL ON with NO upgrade in flight (no flag, no in_progress row) — a prior terminal OFF flip broke its invariant. This is near-unreachable post-fix; its firing INDICTS the flip and is an investigation trigger. Clearing it now so the box stops rejecting writes.")
+	if err := d.terminalExec(windowOffSQL); err != nil {
+		fmt.Fprintf(os.Stderr,
+			"STATBUS-163 BACKSTOP: FAILED to clear the stale read-only window (%v) — the box still rejects writes; `./sb install` clears it.\n", err)
+		return
+	}
+	fmt.Println("STATBUS-163 BACKSTOP: cleared the stale read-only window (no upgrade in flight).")
 }
 
 func (d *Service) checkMissedUpgrades(ctx context.Context) {
@@ -5665,8 +5720,22 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// GUARANTEED live once the completed UPDATE's reconnect-on-stale loop has
 	// succeeded (the NOTIFY just above proves it); clearing at the earlier
 	// setMaintenance(false) could silently miss on a stale conn and leak read-only.
-	if err := d.setDatabaseReadOnly(ctx, false); err != nil {
-		progress.Write("Warning: could not clear read-only window at completion: %v", err)
+	// STATBUS-163: the terminal OFF flip rides the teardown-immune terminalExec
+	// (a FRESH conn, not the completing pass's dying queryConn — the 'conn closed'
+	// race that left the window stuck ON with state='completed', wedging every
+	// fresh 25006 writer, caught by the STATBUS-110 AC#2 rider). The 'completed'
+	// row already landed above (senior truth); a failed flip may NOT
+	// complete-with-warning — a completed box that rejects every write is a broken
+	// box masquerading as healthy — so it ESCALATES LOUDLY (STATBUS-154 exit-
+	// invariant class), never the quiet Warning. The boot backstop clears the
+	// residue on the next start; its firing indicts this flip.
+	if err := d.terminalExec(windowOffSQL); err != nil {
+		fmt.Fprintf(os.Stderr,
+			"INVARIANT COMPLETION_READ_ONLY_WINDOW_LIFTED violated: the read-only window did not lift at completion after %d attempts (err=%v) — the database default is still read-only, so every fresh non-exempt session fails with 25006 (read_only_sql_transaction). Remedy: run `./sb install` to clear it (or the daemon's boot backstop clears it on the next start). (service.go:%d, pid=%d)\n",
+			terminalWriteMaxAttempts, err, thisLine(), os.Getpid())
+		d.markTerminal("COMPLETION_READ_ONLY_WINDOW_LIFTED",
+			fmt.Sprintf("window OFF flip failed at completion after retries: %v; DB default still read-only; ./sb install clears it", err))
+		progress.Write("FATAL: read-only window did NOT lift at completion (%v) — the box rejects external writes until `./sb install` clears it.", err)
 	}
 	d.removeUpgradeFlag()
 
@@ -6766,6 +6835,58 @@ func (d *Service) terminalUpdate(updateSQL string, args ...any) (string, error) 
 	return "", lastErr
 }
 
+// terminalExec is terminalUpdate's non-row-returning sibling (STATBUS-163): it
+// runs a self-committing statement on the SAME teardown-immune transport — its
+// OWN context.Background + deadline, a FRESH daemon-tagged connection per attempt
+// via recoveryDSN, the session read-only-off exemption, bounded retry, non-conn
+// errors returned immediately. It exists for the terminal read-only-WINDOW flips
+// (the OFF at completion/rollback), which must outlive the completing pass's dying
+// connection exactly as the terminal row write does — the 'conn closed' race
+// STATBUS-154 killed for row writes, now killed for the flip (STATBUS-163, the
+// STATBUS-110 AC#2 rider's first live red). Kept a SIBLING, not a shared inner
+// helper, so STATBUS-154's terminalUpdate body-structure pin stays intact.
+func (d *Service) terminalExec(execSQL string, args ...any) error {
+	ctx, cancel := context.WithTimeout(context.Background(), terminalWriteTimeout)
+	defer cancel()
+	var lastErr error
+	for attempt := 0; attempt < terminalWriteMaxAttempts; attempt++ {
+		connStr, derr := d.recoveryDSN()
+		if derr != nil {
+			lastErr = derr
+		} else if conn, cerr := pgx.Connect(ctx, connStr); cerr != nil {
+			lastErr = cerr
+		} else if _, roErr := conn.Exec(ctx, "SET default_transaction_read_only = off"); roErr != nil {
+			// Same rationale as terminalUpdate: the fresh session postdates the
+			// post-swap read-only flip and must self-exempt to run the ALTER
+			// DATABASE. A SET failure is a live-connection fault → close + retry.
+			conn.Close(context.Background())
+			lastErr = roErr
+		} else {
+			_, lastErr = conn.Exec(ctx, execSQL, args...)
+			conn.Close(context.Background())
+			if lastErr == nil {
+				return nil
+			}
+			// A non-connection error will not self-heal on retry — hand it back.
+			if !isConnError(lastErr) {
+				return lastErr
+			}
+		}
+		if attempt < terminalWriteMaxAttempts-1 {
+			time.Sleep(retryBackoff(attempt + 1))
+		}
+	}
+	return lastErr
+}
+
+// windowOffSQL clears the read-only upgrade window on the CURRENT database. Wrapped
+// in a DO block so it is a SINGLE self-committing statement terminalExec can run on
+// a fresh conn: current_database() resolves the app db on that connection
+// (recoveryDSN targets POSTGRES_APP_DB) and format('%I') quotes it. ALTER DATABASE
+// ... SET is catalog-durable — the same write setDatabaseReadOnly(false) performs,
+// now on the teardown-immune transport.
+const windowOffSQL = `DO $do$ BEGIN EXECUTE format('ALTER DATABASE %I SET default_transaction_read_only = off', current_database()); END $do$`
+
 // writeRollbackTerminal persists a rollback/abort terminal row via the
 // teardown-immune terminalUpdate (STATBUS-154 — it no longer takes the pass
 // ctx; the write must outlive the pass). Returns true iff the row landed; on
@@ -6896,8 +7017,20 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reaso
 	// point and deliberately leaves read-only ON alongside maintenance ON (F1(i)) —
 	// the box is degraded/down and the operator's ./sb install recovery clears both
 	// at its successful terminal.
-	if err := d.setDatabaseReadOnly(ctx, false); err != nil {
-		progress.Write("Warning: could not clear read-only window after rollback: %v", err)
+	// STATBUS-163: same teardown-immune flip + no-complete-with-warning invariant
+	// as the completion site. The rolled-back row is senior; a rolled_back box
+	// whose window never lifts rejects every external write (25006) on the
+	// restored (old, serving) version — a broken box masquerading as recovered —
+	// so a failed flip ESCALATES LOUDLY, never a Warning. (The git-restore-fail
+	// ABORT terminal exits BEFORE this point and deliberately holds read-only ON;
+	// that hold is untouched.)
+	if err := d.terminalExec(windowOffSQL); err != nil {
+		fmt.Fprintf(os.Stderr,
+			"INVARIANT ROLLBACK_READ_ONLY_WINDOW_LIFTED violated: the read-only window did not lift after rollback after %d attempts (err=%v) — the restored box's database default is still read-only, so every fresh non-exempt session fails with 25006. Remedy: run `./sb install` to clear it (or the daemon's boot backstop on the next start). (service.go:%d, pid=%d)\n",
+			terminalWriteMaxAttempts, err, thisLine(), os.Getpid())
+		d.markTerminal("ROLLBACK_READ_ONLY_WINDOW_LIFTED",
+			fmt.Sprintf("window OFF flip failed after rollback after retries: %v; DB default still read-only; ./sb install clears it", err))
+		progress.Write("FATAL: read-only window did NOT lift after rollback (%v) — the box rejects external writes until `./sb install` clears it.", err)
 	}
 
 	// Persist the real failure reason in `error` (short, one-line). The
