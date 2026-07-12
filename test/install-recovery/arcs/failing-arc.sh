@@ -46,7 +46,36 @@ source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 source "$LIB_DIR/arc-helpers.sh"
 
-trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
+# _dump_failing_failure_diagnostics — STATBUS-155 rider (mirrors
+# postswap-health-park-arc.sh's _dump_health_park_failure_diagnostics): on ANY
+# non-zero exit, pull B's own upgrade progress log + the daemon journal + the
+# row state to STDERR before cleanup_vm reaps the VM, so a red run is
+# self-sufficient without needing a kept VM. Best-effort throughout (|| true)
+# — a diagnostics failure must never mask the real assertion error that
+# triggered this trap. ADAPTED for this arc's two-phase (B then C) shape: the
+# row-state query matches BOTH B_FULL and C_FULL (ordered by id, so B's row
+# — if any — prints before C's), since a red can land in either phase and
+# filtering on B_FULL alone would miss C's row entirely.
+_dump_failing_failure_diagnostics() {
+    echo "" >&2
+    echo "══════════ failure diagnostics (B/C's progress log + daemon journal + row state) ══════════" >&2
+    local log_rel
+    log_rel=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT COALESCE(log_relative_file_path,'') FROM public.upgrade WHERE commit_sha IN ('${B_FULL:-}', '${C_FULL:-}') ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n')
+    if [ -n "$log_rel" ]; then
+        echo "── latest (B or C) upgrade progress log (tmp/upgrade-logs/$log_rel) ──" >&2
+        VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-logs/'$log_rel' 2>/dev/null" >&2 || echo "  (could not read the progress log)" >&2
+    else
+        echo "  (no log_relative_file_path found for B/C's row — row absent or DB unreachable)" >&2
+    fi
+    echo "── daemon journal (statbus-upgrade@statbus.service, last 400 lines) ──" >&2
+    VM_EXEC bash -c "journalctl --user -u statbus-upgrade@statbus.service --no-pager -n 400 2>/dev/null" >&2 || echo "  (could not read the journal)" >&2
+    echo "── flag file + row state at exit (B=${B_FULL:-?}, C=${C_FULL:-?}) ──" >&2
+    VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null || echo '(flag absent)'" >&2 || true
+    VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, recovery_attempts, recovery_parked_at IS NOT NULL AS parked, COALESCE(recovery_parked_reason,''), error FROM public.upgrade WHERE commit_sha IN ('${B_FULL:-}', '${C_FULL:-}') ORDER BY id;\" | ./sb psql" >&2 || true
+    echo "══════════ end failure diagnostics ══════════" >&2
+}
+
+trap 'rc=$?; if [ "$rc" -ne 0 ]; then _dump_failing_failure_diagnostics; fi; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
 echo "  Arc: failing → failing-fixed  (fail→rollback→fix + clean-slate)"
