@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-12 07:57'
-updated_date: '2026-07-06 15:59'
+updated_date: '2026-07-12 15:06'
 labels:
   - git-hygiene
   - not-install-upgrade
@@ -73,9 +73,9 @@ db-snapshot (legacy fallback name in shipped binaries — confirm no binary reli
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 King approves the 13-branch delete list
-- [ ] #2 The 10 non-dependabot branches deleted via `git push origin --delete`; foreman executes
-- [ ] #3 The 3 Dependabot branches handled by CLOSING their PRs (not branch-delete), so Dependabot does not recreate them
+- [x] #1 King approves the 13-branch delete list
+- [x] #2 The 10 non-dependabot branches deleted via `git push origin --delete`; foreman executes
+- [x] #3 The 3 Dependabot branches handled by CLOSING their PRs (not branch-delete), so Dependabot does not recreate them
 - [ ] #4 The 11 keep-pending branches untouched (each routed to its owner for the one open question); the 12 never-delete set untouched
 <!-- AC:END -->
 
@@ -86,5 +86,15 @@ author: engineer (board sweep)
 created: 2026-07-06 15:59
 ---
 FOLDED IN from STATBUS-038 (merged 2026-07-06): same activity — one branch-hygiene sitting with the King. 035 = the 13 approved deletes; 038 = the 11 keep-pending walk. Handle in one branch session.
+---
+
+author: foreman
+created: 2026-07-12 15:06
+---
+KING APPROVED the listed 13-branch cleanup (2026-07-12 evening). Pre-delete verification (`git ls-remote --heads origin` + `gh pr list`, run BEFORE issuing any delete) found the outcome already achieved: all 13 listed branches are GONE from origin — the 10 non-dependabot refs absent, the 3 dependabot PRs closed and their branches not recreated. Nothing was deleted in this sitting; the approval is satisfied by verified absence. The two guard sets are intact: never-delete 12 (master, 11 deploy pointers, db-seed) all present; keep-pending 11 all present and untouched.
+
+NEW STATE not covered by this approval, surfaced by the same verification: (a) two NEW open Dependabot PRs — #309 (golang.org/x/crypto 0.52.0) and #308 (undici 7.28.0) — these are current bumps, not stale cleanup; routed to the King as a review/merge question, not a delete. (b) ~100 test/upgrade-arc-* throwaway branches from the STATBUS-071 framework plus red/031-rollback-watchdog — no retention policy exists; broken out as STATBUS-165.
+
+Remaining on this ticket: AC #4's owner walk of the 11 keep-pending branches (the folded STATBUS-038 King sitting — hhssb, Erik Søberg, King).
 ---
 <!-- COMMENTS:END -->
