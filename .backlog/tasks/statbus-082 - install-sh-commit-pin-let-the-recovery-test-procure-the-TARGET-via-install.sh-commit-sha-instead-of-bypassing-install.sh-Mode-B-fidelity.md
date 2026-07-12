@@ -3,10 +3,11 @@ id: STATBUS-082
 title: >-
   install-sh-commit-pin: let the recovery test procure the TARGET via install.sh
   --commit <sha> instead of bypassing install.sh (Mode B fidelity)
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - engineer
 created_date: '2026-06-17 22:06'
-updated_date: '2026-07-12 02:42'
+updated_date: '2026-07-12 03:04'
 labels:
   - install-recovery
   - fidelity
