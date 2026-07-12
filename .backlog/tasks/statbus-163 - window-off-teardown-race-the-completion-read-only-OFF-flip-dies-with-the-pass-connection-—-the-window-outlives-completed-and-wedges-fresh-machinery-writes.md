@@ -3,11 +3,11 @@ id: STATBUS-163
 title: >-
   window-off-teardown-race: the completion read-only-OFF flip dies with the pass
   connection — the window outlives completed and wedges fresh machinery writes
-status: In Progress
+status: Done
 assignee:
   - engineer
 created_date: '2026-07-12 12:35'
-updated_date: '2026-07-12 13:28'
+updated_date: '2026-07-12 13:44'
 labels:
   - upgrade
   - recovery
@@ -47,8 +47,8 @@ EVIDENCE: tmp/110-rider-run-job.log lines 5550-5561 (invariant violation + probe
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 Architect ruling recorded: the teardown-immune shape for the terminal window flips, and whether a failed flip may ever complete-with-warning (vs the 154 exit invariant)
-- [ ] #2 The completion OFF flip survives its pass's teardown; the mid-tx arc's OFF probe goes green on a real box (the STATBUS-110 AC-2 oracle re-run)
-- [ ] #3 A fresh machinery session after a completed terminal writes successfully (the install post-completion insert path proves it in the same run)
+- [x] #2 The completion OFF flip survives its pass's teardown; the mid-tx arc's OFF probe goes green on a real box (the STATBUS-110 AC-2 oracle re-run)
+- [x] #3 A fresh machinery session after a completed terminal writes successfully (the install post-completion insert path proves it in the same run)
 <!-- AC:END -->
 
 ## Comments
@@ -74,3 +74,9 @@ created: 2026-07-12 13:28
 FIX + CLOSING COMMIT BOTH SHIPPED (2026-07-12): be318bb91 (the behavior — terminalExec-immune OFF flips at both terminals, row-write-first, named-invariant escalation replacing the proven-lie warning, the pg_db_role_setting-reading boot backstop that leaves a parked box alone) and 7c1cc9db0 (the structure — terminalConnDo extracted as the ONE teardown-immune core, both helpers thin wrappers, the 154/163 pins evolved to assert the properties once on the core plus delegation on both wrappers; net −2 lines; 'two hand-synced copies would be the seed of the next 163' now written at the definition site). Dual-reviewed throughout (architect SHIP on both; foreman first-hand). REMAINING: ACs 2/3 close on the mid-tx arc re-run in flight on be318bb91 — the OFF probe that caught this bug is the oracle; green also closes STATBUS-110 AC-2, completing the read-only-window arc.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+CLOSED on the oracle re-run (mid-tx arc, run 29194339962, 2026-07-12): ALL legs green — the four pre-existing asserts held, the ON probe held (window on post-kill, non-exempt write refused 25006), and the OFF probe that caught this bug went GREEN on be318bb91: the window provably lifted after the completed terminal, a fresh non-exempt session wrote successfully (AC-3 — the install post-completion insert path in the same run), no stale could-not-clear warning, no invariant escalation on the immune path. The full lifecycle: the 110 crash-window rider FIRED on its first run (pre-registered by the architect as a product signal); the mechanism was the 154 teardown-race class on the window flip, hidden behind a warning the evidence proved was a lie; the fix shipped in two reviewed commits — be318bb91 (behavior: terminalExec-immune OFF flips at both terminals, row-write-first, named-invariant escalation, the pg_db_role_setting-reading boot backstop with the recurrence-indicts property, parked boxes left alone) and 7c1cc9db0 (structure: terminalConnDo as the ONE teardown-immune core, both helpers thin wrappers, pins evolved to assert the properties once on the core plus delegation — contracts on properties, not line layout). The teardown-immune transport is now one definition under every terminal write and window flip in the system.
+<!-- SECTION:FINAL_SUMMARY:END -->
