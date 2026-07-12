@@ -3,11 +3,11 @@ id: STATBUS-044
 title: >-
   battery-readiness: verdict-split the resume-died scenario + build the
   rune-wedge scenario + systemd empirics
-status: In Progress
+status: Done
 assignee:
   - architect
 created_date: '2026-06-12 21:51'
-updated_date: '2026-07-11 22:58'
+updated_date: '2026-07-12 14:21'
 labels:
   - install-recovery
   - testing
@@ -52,7 +52,7 @@ HISTORY (in the comments, read there — not restated here): assertion spec (#1)
 <!-- AC:BEGIN -->
 - [x] #1 rune-wedge scenario lands in test/install-recovery/scenarios/ and proves takeover→forward→completed with zero restores on a fabricated rune shape
 - [x] #2 NRestarts-across-exit-42 + reset-failed-on-active-unit confirmed on a VM (or the documented conservative degradation confirmed for older systemd)
-- [ ] #3 All scenario commits land outside battery runs (freeze-window discipline)
+- [x] #3 All scenario commits land outside battery runs (freeze-window discipline)
 - [x] #4 3-postswap-resume-died-rollback rewritten to the four-case verdict matrix (canary-self-heal / transient-forward-succeeds / persistent-forward-loops / behind-rolls-back) ONLY AFTER the King settles the loudness question for the persistent case — on hold until then
 <!-- AC:END -->
 
@@ -193,3 +193,9 @@ created: 2026-07-07 08:46
 THE ORDERED WALKTHROUGH THE KING ASKED FOR (2026-07-07, "why do we, at startup, apply migrations blindly? I need a sequence of events") is on the board as **doc-027** — 21 numbered events from fresh install through upgrade dispatch to the boot-migrate window, each with its command/trigger and file:line, re-verified against master HEAD today by a fresh-context architect (no inheritance from prior rulings). The one-sentence core: migrations land at startup because executeUpgrade ALWAYS hands off post-swap (a Go binary cannot hot-swap itself — service.go:4953/:4959), so the delta necessarily runs in the NEW binary's first process life, and it must run before recoverFromFlag because the new binary's ~23 public.upgrade queries need the new schema (the rc.63/rc.65 42703 incident). The window is gated, not blind: RecoveryBudgetGuard counts the pass BEFORE the migrations (service.go:1918/:5783), parked rows skip it, same-step-twice + the 3-death budget bound it, the 12h ceiling time-bounds it, and "pending" at that moment is exactly the delta of a tree a deliberate act put there (flag checkout / install.sh / deploy push). doc-027 §D names the ONE arm where 'apply at startup' is not the continuation of a dispatched upgrade — the flagless self-repair boot — and states the rulable trade (autonomy vs. explicit intent) if the King wants a gate there. The companion adversarial adjudication of retry-vs-classify is on STATBUS-096 comments #5-#6.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+CLOSED in the King's clean-ship pass (2026-07-12, architect-adjudicated). The three proof ACs were delivered long since, each run-proven: the park+un-park oracle (r19, run 440c14cb2's campaign — later superseded in coverage by the real-path health-park arc), the rune-wedge takeover scenario (green 2026-07-07, the one-shot live rune recovery's standing regression net), and the systemd counter empirics (measured live on systemd 255: reset-failed zeroes NRestarts in both unit states; +1 per restart exactly). AC-4's verdict-matrix rewrite closed via r19 earlier. The last open item, AC-3, was a standing DISCIPLINE not a deliverable — the battery freeze window — and it is now re-homed where the people it binds actually read: test/install-recovery/README.md's prerequisites block (commit a62d5a862), placed with the run instructions an arc dispatcher has open at dispatch time, citing this campaign's own mid-run-commit incidents as the reason. The 19-run park-oracle campaign ledger, the boot-migrate budget-hoist ruling (comment #6, King-approved), and the doc-027 walkthrough remain on this ticket as history.
+<!-- SECTION:FINAL_SUMMARY:END -->
