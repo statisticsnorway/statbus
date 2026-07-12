@@ -37,10 +37,12 @@ Constraint: never-delete set (master, 11 deploy pointers, db-seed) untouched, as
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 Architect rules the retention mechanism (self-delete at end-of-run vs TTL sweep) and where it lives in the 071 framework
-- [ ] #2 Framework change shipped: new arc runs leave no branch behind after the image digest is recorded
-- [ ] #3 One-time sweep executed: accumulated test/upgrade-arc-* branches deleted, never-delete set verified intact before and after
-- [ ] #4 red/031-rollback-watchdog routed to its owner for one answer
+- [ ] #2 One-time sweep executed: accumulated test/upgrade-arc-* branches deleted, never-delete set verified intact before and after
+- [ ] #3 red/031-rollback-watchdog routed to its owner for one answer
+- [ ] #4 Framework change shipped per the ruling: LOCAL harness runs self-delete their branches at end-of-run (exit trap, ARC_NO_PUSH-symmetric), and the weekly image-cleanup workflow gains the 7-day branch-GC backstop; CI teardown untouched
 <!-- AC:END -->
+
+
 
 ## Comments
 
