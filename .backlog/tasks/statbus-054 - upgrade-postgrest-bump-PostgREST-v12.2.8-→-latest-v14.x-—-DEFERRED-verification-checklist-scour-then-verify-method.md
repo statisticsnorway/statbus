@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-15 11:47'
+updated_date: '2026-07-12 21:43'
 labels:
   - upgrade
   - postgrest
@@ -71,3 +72,19 @@ DEFERRED — not now. Stabilize the current install/upgrade surface first.
 - [ ] #4 PostgREST bumped to the confirmed latest v14.x tag in docker-compose.rest.yml + docker/compose/upgrade-sandbox.yml; rest container restarts clean on v14
 - [ ] #5 Tested: full suite green + app smoke-test passes on v14 (queries return the same results); passive behavior changes (Vary, schema-cache best-effort, serialization-retry) confirmed harmless
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: operator (relayed by foreman)
+created: 2026-07-12 21:43
+---
+STAGE 1 SCOUR COMPLETE (operator, 2026-07-12 night). Scope: app/src, 445 TypeScript files. ONE confirmed PostgREST #4075 breaking-change risk found:
+
+app/src/atoms/import.ts:240-242 — `.select("*, import_definition!inner(*)")` followed by `.eq("import_definition.mode", mode)`: the filter references the aliased embed name, which PostgREST v14 (#4075) forbids. Required fix direction: drop the alias modifier from the embed used in the filter, or restructure so the filter does not target the aliased name.
+
+Clean findings: no reliance on the removed automatic serialization-failure retry; no other #4075 patterns (other FK embeds either carry no alias modifier or never filter on the alias); all other query patterns v14-compatible.
+
+Stage 2 = verify the one site against v14 semantics and rule/execute the rewrite.
+---
+<!-- COMMENTS:END -->
