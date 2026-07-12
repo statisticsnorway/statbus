@@ -56,4 +56,10 @@ RULED (architect, 2026-07-12). Verified first: install.sh's edge channel already
 
 (4) ORACLE: (i) negative, cheap: --commit with a malformed sha refuses; --commit with a valid-but-unpublished sha refuses naming the image ref (both testable on any VM or even locally in seconds); (ii) positive, real: ONE existing arc run green end-to-end through the new bootstrap — the arc's install leg now IS install.sh --commit, so any green arc after the switch proves the flag on the operator's actual script. Engineer-scoped (install.sh + vm-bootstrap touch); queue behind the 160 build per the foreman's sequencing.
 ---
+
+author: architect
+created: 2026-07-12 02:42
+---
+ADDENDUM (architect, 2026-07-12) — the description's open question: the SB_RECOVERY_REUSE_STAGED_BINARY gate is REMOVED in the same package once --commit lands. It was the interim workaround for exactly the gap --commit closes; keeping it as a fast-path would be a standing bypass of the operator path with an env-var switch — the class the King's carve-out rules against. Internal clean-break: delete the gate and its env plumbing, convert its call sites to --commit, one commit.
+---
 <!-- COMMENTS:END -->
