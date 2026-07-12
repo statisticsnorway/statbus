@@ -56,6 +56,43 @@ fi
 PG_PARAMS="$PG_PARAMS -c log_min_messages=${LOG_MIN_MESSAGES}"
 PG_PARAMS="$PG_PARAMS -c log_min_duration_statement=${LOG_MIN_DURATION_STATEMENT}"
 
+# STATBUS-161: INIT-INCOMPLETE SENTINEL check — intercept the postgres image's
+# "Skipping initialization" path BEFORE we exec the official entrypoint below.
+#
+# WHY HERE: this wrapper is the container entrypoint (postgres/docker-compose.yml
+# entrypoint override) and runs on EVERY boot; the official docker-entrypoint.sh
+# we exec at the end owns the initdb-vs-"Skipping initialization" decision (it
+# inits only an empty PGDATA). init-db.sh writes .statbus-init-incomplete as its
+# first act and removes it as its last, so its PRESENCE means a prior init never
+# finished. Under `restart: unless-stopped` (postgres/docker-compose.yml) an
+# aborted init-db exits the container, docker restarts it, and the official
+# entrypoint would otherwise see a non-empty PGDATA and report the half-built
+# cluster HEALTHY ("Skipping initialization") — the exact STATBUS-151 mechanism (a
+# [1/8] validation refuse became a baffling downstream pg_restore role error).
+# Wiping PGDATA here forces a clean re-init, re-hitting the original failure
+# LOUDLY every boot until the cause is fixed, then succeeding on the first boot
+# after (init doing its job on an empty volume — NOT a standing self-heal).
+#
+# SAFETY (STATBUS-161 AC#3, by construction): the wipe fires ONLY when the sentinel
+# is present AND PGDATA is a non-empty path. The sentinel exists only in clusters
+# init-db.sh created and never finished — a completed init removed it, and a PGDATA
+# created any other way (plain postgres, a restored volume) never had it — so a
+# healthy cluster is UNWIPEABLE. A hand-planted sentinel is deliberate intent
+# (no-wrong-without-intent).
+#
+# BOUNDARY (named, not covered — by design): a kill during initdb ITSELF, before
+# the initdb.d hooks (thus before init-db.sh writes the sentinel), leaves a partial
+# PGDATA with NO sentinel. That is NOT the silent-healthy class this guards — an
+# incomplete initdb cluster fails postgres startup LOUDLY rather than reporting
+# healthy — so it needs no sentinel.
+STATBUS_PGDATA="${PGDATA:-/var/lib/postgresql/data}"
+if [ -n "$STATBUS_PGDATA" ] && [ -f "$STATBUS_PGDATA/.statbus-init-incomplete" ]; then
+    echo "FATAL-RECOVERY: a previous database initialization NEVER COMPLETED (sentinel $STATBUS_PGDATA/.statbus-init-incomplete present)." >&2
+    echo "  A half-initialized cluster would otherwise boot 'healthy' but be missing roles/schema (STATBUS-151)." >&2
+    echo "  Wiping the partial PGDATA and re-running initialization from scratch — the original failure repeats loudly until its cause is fixed." >&2
+    find "$STATBUS_PGDATA" -mindepth 1 -delete
+fi
+
 echo "Handing off to /usr/local/bin/docker-entrypoint.sh postgres $PG_PARAMS"
 # The `docker-entrypoint.sh` script (from the base PostgreSQL image)
 # will handle PGDATA initialization, chown/chmod, and then

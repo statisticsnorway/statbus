@@ -8,6 +8,18 @@ if [[ "${DEBUG:-}" == "true" || "${DEBUG:-}" == "1" ]]; then
   set -x  # Print all commands before running them
 fi
 
+# STATBUS-161: INIT-INCOMPLETE SENTINEL — write it as the VERY FIRST act, before
+# the validation refuse below can abort us. init-db.sh runs only inside the
+# postgres image's initdb.d hook (i.e. on a fresh, empty PGDATA that initdb just
+# created), so reaching this line means a fresh init is starting. If ANYTHING
+# after this — the validation refuse, a crash, an OOM — aborts init-db before the
+# [8/8] removal, the sentinel survives in PGDATA and start-postgres.sh wipes +
+# re-inits on the next boot instead of letting the half-built cluster masquerade
+# as healthy ("Skipping initialization"). See STATBUS-151 for the mechanism this
+# closes; the removal is the last line of this script.
+STATBUS_INIT_SENTINEL="${PGDATA:-/var/lib/postgresql/data}/.statbus-init-incomplete"
+touch "$STATBUS_INIT_SENTINEL"
+
 # FAIL FAST: Validate required environment variables
 # These are set by docker-compose from .env file
 required_vars=(
@@ -213,4 +225,11 @@ GRANT notify_reader TO "$POSTGRES_NOTIFY_USER";
 EOSQL
 
 echo "init-db [8/8]: done" >&2
+
+# STATBUS-161: clear the INIT-INCOMPLETE SENTINEL as the LAST act — reaching here
+# means every section committed, so the cluster is complete and must NOT be wiped
+# on the next boot. (set -euo pipefail guarantees we only get here on full success;
+# any earlier abort leaves the sentinel for start-postgres.sh to act on.)
+rm -f "$STATBUS_INIT_SENTINEL"
+
 echo "Database initialization completed successfully."
