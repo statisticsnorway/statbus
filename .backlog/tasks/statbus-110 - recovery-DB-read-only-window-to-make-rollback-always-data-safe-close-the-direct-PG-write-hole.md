@@ -3,11 +3,11 @@ id: STATBUS-110
 title: >-
   recovery: DB read-only window to make rollback always data-safe (close the
   direct-PG write hole)
-status: In Progress
+status: Done
 assignee:
   - '@engineer'
 created_date: '2026-06-26 11:30'
-updated_date: '2026-07-12 03:30'
+updated_date: '2026-07-12 13:44'
 labels:
   - upgrade
   - recovery
@@ -66,7 +66,7 @@ Behavior change to upgrade + recovery — prove via install-recovery arcs (STATB
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 During the destructive+uncertain window, ALL external writes (browser, REST, AND direct Layer4 PG) are blocked while the upgrade's own migration session writes successfully (exempt) — proven by an install-recovery arc
-- [ ] #2 The read-only state persists across a mid-window crash so the post-crash state is frozen until recovery decides
+- [x] #2 The read-only state persists across a mid-window crash so the post-crash state is frozen until recovery decides
 - [x] #3 With the window guaranteed write-free, rollback-under-uncertainty is shown data-safe (no external writes to lose); STATBUS-039 'never restore on a guess' is re-evaluated and the recovery decision tree updated accordingly
 - [x] #4 Cost/acceptability of the read-only write-window documented (reads stay available; upgrades are infrequent)
 <!-- AC:END -->
@@ -227,3 +227,9 @@ created: 2026-07-12 03:30
 AC-3 SHIPPED (bd94737e2, 2026-07-12): the formal STATBUS-039 supersession is in doc/read-only-upgrade-window.md's Effect-on-recovery section (the window invariant supersedes never-restore-on-a-guess; successor doctrine stated: classify-then-act, rollback universally data-safe, only two human stops — unknown and restore-broke, neither a data-safety hold), and doc/upgrade-recovery-model.md now records the SHIPPED run-proven model (wave 10 cited): the 046 position-branch + displacement-at-claim in the decision tree, the parked held-state terminal, the 111 restore-broke reality, implementation status all-shipped. The same pass fixed the 043 comment-3 staleness (exemption homes, line cites to the 145/154/159 geometry, the five-writer exempt roster, the deliberate ABORT hold documented as intended). doc-023 got its delivery-status note. REMAINING on this ticket: AC-2 only — the crash-window arc rider is committed (d07cae53b) and its run is in flight with the operator; green closes the ticket.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+CLOSED — all four ACs proven, completing the arc from the King's 2026-06-26 walkthrough question to a run-proven invariant. THE RESULT: no external write can slip into the destructive upgrade window (AC-1, arc run 28679526112 + the empirical role-scoped block), the window survives a mid-window crash so the post-crash box is frozen until recovery decides (AC-2, the crash-window rider's ON probe green on run 29194339962 — and that rider's FIRST run caught STATBUS-163, the window-off teardown race, whose fix made the OFF flip as immune as the terminal writes), rollback is universally data-safe and the doctrine is formally superseded — "never restore on a guess" replaced by the window invariant with classify-then-act as the successor model (AC-3, bd94737e2), and the cost is documented plainly (AC-4, 8fdefb5ad: writes pause minutes, reads flow, accident-guard not lock per the no-wrong-without-intent principle). THE JOURNEY, for the record: the build survived four real findings the arcs caught en route — the PostgREST listener deadlock (fixed by the authenticator role-GUC), the seed-restore cluster-state flaw (fixed by the post_restore.sql + init-db.sh re-home), the 154 teardown-race inheritance (session-level exemption in the immune helper), and 163's window-off race (terminalExec + the loud backstop). Autonomy is the goal; data-safety is the means — and both are now observed facts on real boxes, not design claims.
+<!-- SECTION:FINAL_SUMMARY:END -->
