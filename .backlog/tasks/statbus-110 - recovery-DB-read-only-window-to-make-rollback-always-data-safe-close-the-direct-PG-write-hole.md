@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-06-26 11:30'
-updated_date: '2026-07-12 01:48'
+updated_date: '2026-07-12 03:30'
 labels:
   - upgrade
   - recovery
@@ -67,7 +67,7 @@ Behavior change to upgrade + recovery — prove via install-recovery arcs (STATB
 <!-- AC:BEGIN -->
 - [x] #1 During the destructive+uncertain window, ALL external writes (browser, REST, AND direct Layer4 PG) are blocked while the upgrade's own migration session writes successfully (exempt) — proven by an install-recovery arc
 - [ ] #2 The read-only state persists across a mid-window crash so the post-crash state is frozen until recovery decides
-- [ ] #3 With the window guaranteed write-free, rollback-under-uncertainty is shown data-safe (no external writes to lose); STATBUS-039 'never restore on a guess' is re-evaluated and the recovery decision tree updated accordingly
+- [x] #3 With the window guaranteed write-free, rollback-under-uncertainty is shown data-safe (no external writes to lose); STATBUS-039 'never restore on a guess' is re-evaluated and the recovery decision tree updated accordingly
 - [x] #4 Cost/acceptability of the read-only write-window documented (reads stay available; upgrades are infrequent)
 <!-- AC:END -->
 
@@ -219,5 +219,11 @@ author: foreman
 created: 2026-07-12 01:48
 ---
 AC-2 BUILD IN FLIGHT (2026-07-12): engineer's rider design approved — carrier = postswap-mid-tx-kill-arc.sh (deterministic race-free post-kill window: recovery is one explicit install, daemon asserted inactive first; DB stays up post-kill; terminal 'completed' exercises the completion OFF choke). ON probe after the RED-shape block: a fresh NON-exempt session (plain admin role via ./sb psql — the authenticator role-GUC and migrate-subprocess exemptions both verified avoided) must fail a write with SQLSTATE 25006 AND co-assert SHOW default_transaction_read_only = on (the 154 honesty guard: a silent exemption fails loud). OFF probe after the completed assert: SHOW = off + a write succeeds (self-cleaning probe table). NAMED OPTIONAL, not in this package (recorded so it is not lost): the ROLLBACK OFF choke is a different site — an identical rider on an after-commit-kill arc (terminal rolled_back) would prove it; AC-2 as written does not require it. Build lands on the arc post-155 (row-state riders committed cb0447893).
+---
+
+author: foreman
+created: 2026-07-12 03:30
+---
+AC-3 SHIPPED (bd94737e2, 2026-07-12): the formal STATBUS-039 supersession is in doc/read-only-upgrade-window.md's Effect-on-recovery section (the window invariant supersedes never-restore-on-a-guess; successor doctrine stated: classify-then-act, rollback universally data-safe, only two human stops — unknown and restore-broke, neither a data-safety hold), and doc/upgrade-recovery-model.md now records the SHIPPED run-proven model (wave 10 cited): the 046 position-branch + displacement-at-claim in the decision tree, the parked held-state terminal, the 111 restore-broke reality, implementation status all-shipped. The same pass fixed the 043 comment-3 staleness (exemption homes, line cites to the 145/154/159 geometry, the five-writer exempt roster, the deliberate ABORT hold documented as intended). doc-023 got its delivery-status note. REMAINING on this ticket: AC-2 only — the crash-window arc rider is committed (d07cae53b) and its run is in flight with the operator; green closes the ticket.
 ---
 <!-- COMMENTS:END -->
