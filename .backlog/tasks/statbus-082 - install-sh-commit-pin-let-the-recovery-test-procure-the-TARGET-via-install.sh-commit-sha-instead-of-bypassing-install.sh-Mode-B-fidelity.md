@@ -3,11 +3,11 @@ id: STATBUS-082
 title: >-
   install-sh-commit-pin: let the recovery test procure the TARGET via install.sh
   --commit <sha> instead of bypassing install.sh (Mode B fidelity)
-status: In Progress
+status: Done
 assignee:
   - engineer
 created_date: '2026-06-17 22:06'
-updated_date: '2026-07-12 03:17'
+updated_date: '2026-07-12 12:33'
 labels:
   - install-recovery
   - fidelity
@@ -70,3 +70,9 @@ created: 2026-07-12 03:17
 SHIPPED f97f3754c (2026-07-12), architect SHIP as-built. install.sh +129 (the --commit flag, validation, the shared procure_sb_from_commit_image with fallback-policy-as-only-divergence, the sharp-edge unpublished-image refusal); vm-bootstrap.sh +59/−51 (per-commit bootstrap now installs through install.sh --commit <sha-under-test>; SB_RECOVERY_REUSE_STAGED_BINARY gate DELETED clean-break — nothing in the tree ever set it; scp-a-binary survives only in versioned/scenario branches). Composition confirmed at review: run.sh's preflight guarantees the fetch resolves inside the harness, and a manual unpushed-HEAD invocation gets the honest push-it-first refusal — both legs safe. Negatives all pass locally (malformed/uppercase/mutex ×2). POSITIVE ORACLE IN FLIGHT: working arc dispatched on f97f3754c via the operator — the arc's install leg now IS the operator's script, pinned; the ticket closes on that green. Review observations recorded (non-blocking): the procure function's version-echo assumes cwd=STATBUS_DIR (holds for both callers; harden with an explicit cd if a third caller appears); the wrapper heredoc travels as an scp'd file — the 021-blessed transport, clean composition.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+CLOSED on the positive oracle: working arc run 29178488239 GREEN end-to-end (2026-07-12) with the arc's install leg going through the REAL operator script — install.sh --commit <sha-under-test> — for the first time. Shipped f97f3754c (architect SHIP as-built): install.sh gains --commit <full-40-hex-sha> (mutex with --version/--channel; refuses non-matching input naming the rule), semantics edge-with-a-pin via the shared procure_sb_from_commit_image function whose ONLY divergence is fallback policy (edge keeps its in-container build fallback; --commit REFUSES an unpublished image naming the exact ref + both remedies — determinism is the pin's point: the harness tests the artifact CI ships). The harness's per-commit bootstrap installs through the script, pinned; scp-a-binary survives only as per-scenario named exceptions; the SB_RECOVERY_REUSE_STAGED_BINARY interim gate is DELETED clean-break (nothing in the tree ever set it). Composition confirmed at review: run.sh's push-preflight guarantees the fetch resolves in-harness; a manual unpushed-HEAD invocation gets the honest push-it-first refusal. Negatives proven locally (malformed/uppercase/mutex ×2). From f97f3754c forward, every green arc doubly proves the NSO operator's actual install script. The Mode-B fidelity gap open since the rc.04 triage (2026-06-17) is closed.
+<!-- SECTION:FINAL_SUMMARY:END -->
