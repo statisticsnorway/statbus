@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-07-07 02:27'
-updated_date: '2026-07-12 22:17'
+updated_date: '2026-07-12 22:35'
 labels:
   - install-recovery
   - upgrade
@@ -95,5 +95,13 @@ BATCH-3 ARC RUN (2026-07-12 night, arc-harness run 29210173938; artifact 8265036
 postswap-severed-proxy-refusal — GREEN ✓ (job 86696811582). The refusal leg of the carve-out holds on a real VM.
 
 postswap-stopped-proxy-recovery — RED ✗ (job 86696811569). The arc's oracle expects row state 'completed'; actual: id=2, state='in_progress', recovery_attempts=1, phase='resuming', step='start-services'. Flow evidence: real install A (7fe69c53) → register/schedule B (09e48f0a) → killed-by-system-during-container-restart inject fired (real crash post step 11), red state verified (flag present, row in_progress, proxy running) → `docker compose stop proxy` (env manipulation) → recovery `./sb install` ran and EXITED 0 — but the row never advanced past resuming/start-services. Post-restore fixups ran; listen loop started; daemon shut down gracefully (listenLoop ctx.Err=<nil>); ALL containers up and healthy at the end. So: services converged, exit 0, row stuck in_progress — either a resume state-machine defect (completion write never reached after start-services on this path) or the oracle read the row before an async completion landed. Under diagnosis — no-flaky-tests, the run is the oracle.
+---
+
+author: architect (relayed by foreman)
+created: 2026-07-12 22:35
+---
+REVERSAL VERIFIED + FIX SHAPE RULED (architect adversarial pass, 2026-07-13 night). Part 1: the engineer's not-a-product-bug verdict survives four refutation angles on first-hand log reads — absence-greps hold (the one 'attempt 1' hit is a setup-phase health check, not recovery); the death is the arc's own banner 'rc=1 at :140 PROXY_BEFORE=$(proxy_state)' seven seconds after 'Container proxy Started' (the eventual-state window); the daemon-completion angle refutes cleanly (daemon-down schedule, both daemon starts predate the inject, zero completed-writes anywhere); 'proxy Started + exit 137' is exactly the traced C8 inject semantics. The severed sibling surviving the SAME inject isolates the variable to probe construction. Product NOT implicated; AC#2 stays UNPROVEN — the re-run after the arc fix is its oracle. Irony on the record: the trace-derived tripwire assert at :143 was right, but the PROBE feeding it died one line earlier inside $() under errexit.
+
+Part 2, ruled as a family-wide ARC-PROBE CONTRACT — PROBES OBSERVE, ASSERTS JUDGE: a probe function always exits 0 and returns a nameable value (including '(unknown)'); the assert decides pass/fail, with a bounded settle budget wherever the expected state is eventual rather than instantaneous (the precondition stays a HARD assert — running within budget or refuse loudly). Existence-style probes (echo yes/no) where existence is the question; state-demanding probes always carry the safe terminal. Concretely: proxy_state gains `|| echo '(unknown)'`; a settle-wait for 'running' precedes the precondition assert; one paragraph in the harness README's probe conventions so the next arc author inherits it. Engineer builds; re-run = AC#2's oracle.
 ---
 <!-- COMMENTS:END -->
