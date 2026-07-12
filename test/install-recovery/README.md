@@ -19,6 +19,8 @@ The harness provisions **paid ephemeral [Hetzner Cloud](https://hetzner.cloud) V
 
 **Prerequisite: CI images must exist on ghcr.io.** Each scenario installs StatBus by pulling `statbus-*:<commit_short>` images from ghcr.io. If the target commit's images have not been built and pushed by CI, the install fails with a pull error. Only run the harness against a commit whose images are green on ghcr.
 
+**Battery freeze window (standing rule).** While a battery or arc run is in flight, no commits to scenario or arc files may land — the run's SHA is the tested SHA, and a mid-run commit makes the result unattributable. Land scenario changes BEFORE dispatching a run or BETWEEN runs, never during one. (Adopted from the STATBUS-044 campaign, where a mid-run board commit twice embedded untested code in the uploaded binary.)
+
 ## What every scenario proves (the one goal, in plain words)
 
 Operators of StatBus have exactly one recovery lever: re-run `./sb install`. They never run custom commands. So every scenario in this harness proves the same single thing:
