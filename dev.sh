@@ -1792,7 +1792,27 @@ EOF
         # Incremental: migrate up consults db.migration to apply only
         # migrations whose version isn't already recorded. Typical run
         # applies just the few migrations newer than the artifact.
-        ./sb migrate up --target seed --verbose
+        #
+        # STATBUS-156: exit 21 (migrate.ExitStaleRestoredMigration) is a
+        # DISTINCT, dedicated signal — never inferred from stderr text — that
+        # this cached seed predates a legitimately merged retroactive fix to
+        # an already-released migration (the restored ledger disagrees with a
+        # migration file that is otherwise clean, i.e. no live local edit).
+        # That is not the operator's fault and not recoverable by editing
+        # anything; the honest fix is to discard the stale cache and rebuild
+        # full. A genuine local edit to a released migration still hits the
+        # ordinary immutability refusal below (exit 1), unchanged.
+        set +e
+        MIGRATE_UP_OUT=$(./sb migrate up --target seed --verbose 2>&1)
+        MIGRATE_UP_RC=$?
+        set -e
+        echo "$MIGRATE_UP_OUT"
+        if [ "$MIGRATE_UP_RC" -eq 21 ]; then
+            echo "recreate-seed: cached seed predates a merged edit to a migration — replaying from scratch."
+            FULL_REPLAY=1 exec "$0" recreate-seed
+        elif [ "$MIGRATE_UP_RC" -ne 0 ]; then
+            exit "$MIGRATE_UP_RC"
+        fi
       ;;
     'seed-status' )
         eval $(./dev.sh postgres-variables)

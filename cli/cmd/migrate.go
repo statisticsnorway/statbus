@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -91,6 +92,18 @@ func runMigrateUp(migrateTo int64, all bool, targetExplicit bool) error {
 	if migrate.ClassifyUpErr(err) == migrate.ExitDeterministic {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(migrate.ExitDeterministic)
+	}
+
+	// STATBUS-156: a distinct, separate exit-code boundary from the check
+	// above — ErrStaleRestoredMigration is a dev-tooling-only signal (see its
+	// doc comment), unrelated to the STATBUS-046 A/B/C contract. `./dev.sh
+	// recreate-seed`'s catch-up checks this exit code (never stderr text) to
+	// auto-fall-back to FULL_REPLAY instead of surfacing a false immutability
+	// refusal.
+	var stale *migrate.ErrStaleRestoredMigration
+	if errors.As(err, &stale) {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(migrate.ExitStaleRestoredMigration)
 	}
 
 	return err

@@ -1621,11 +1621,20 @@ func restampBackfilledHashes(projDir string) error {
 	return nil
 }
 
-// ErrStaleRestoredMigration (STATBUS-116 Part C) reports that a restored prior
-// seed's ledger content_hash for a migration disagrees with the on-disk file —
-// detected by eagerContentHashCheck under channelSeedBuild. The seed-build caller
-// (`sb db seed build`) catches it (errors.As) and falls back to a FULL rebuild
-// rather than proceeding on a stale incremental base. Carries no git dependency.
+// ErrStaleRestoredMigration reports that a restored/cached base's ledger
+// content_hash for a migration disagrees with the on-disk file, in a context
+// where that disagreement cannot be a live human edit. Two producers:
+//   - channelSeedBuild (STATBUS-116 Part C): the hermetic seed-builder has no
+//     .git, so ANY mismatch there means the restored prior seed is stale.
+//   - channelLocalDev/default, released-migration branch (STATBUS-156): the
+//     migration file is clean (release.FileIsDirty == false), so the mismatch
+//     can only mean the caller's cached state (e.g. `./dev.sh recreate-seed`'s
+//     restored prior seed) predates a legitimately merged retroactive fix.
+//
+// Both callers (`sb db seed build`, `./dev.sh recreate-seed`'s catch-up)
+// catch it via errors.As and fall back to a FULL rebuild rather than
+// proceeding on — or refusing over — a stale incremental base. Carries no
+// git dependency of its own.
 type ErrStaleRestoredMigration struct {
 	Version    int64
 	StoredHash string
@@ -1633,10 +1642,24 @@ type ErrStaleRestoredMigration struct {
 }
 
 func (e *ErrStaleRestoredMigration) Error() string {
-	return fmt.Sprintf("restored prior seed is stale on migration %d: ledger content_hash %s != on-disk file %s "+
-		"(seed-build channel) — the incremental base must be discarded and rebuilt full",
+	return fmt.Sprintf("cached migration state is stale on migration %d: ledger content_hash %s != on-disk file %s "+
+		"— the base must be discarded and rebuilt full",
 		e.Version, shortHash(e.StoredHash), shortHash(e.LiveHash))
 }
+
+// ExitStaleRestoredMigration (STATBUS-156) is `./sb migrate up`'s dedicated
+// process exit code for ErrStaleRestoredMigration, DISTINCT from and
+// unrelated to the STATBUS-046 A/B/C production exit-code contract in
+// exit_codes.go (that contract is the upgrade daemon's Phase-3 classifier
+// surface; this one is a dev-tooling-only signal for `./dev.sh recreate-seed`,
+// which runs `./sb migrate up` as a separate process and cannot see the Go
+// error type across that boundary). `sb db seed build` doesn't need this — it
+// calls migrate.Up in-process and catches the typed error directly via
+// errors.As. `runMigrateUp` (cli/cmd/migrate.go) os.Exits with this code
+// specifically so the dev.sh caller can check $? without ever parsing stderr
+// text (the same text-as-DATA-never-text-as-CLASSIFIER discipline as the
+// A/B/C contract, just a separate surface).
+const ExitStaleRestoredMigration = 21
 
 // eagerContentHashCheck verifies that every tracked migration's stored
 // content_hash matches the live file's sha256. On mismatch, branches:
@@ -1786,6 +1809,19 @@ func eagerContentHashCheck(projDir string) error {
 				return fmt.Errorf("released-tag detection for migration %d: %w", version, relErr)
 			}
 			if releasedTag != "" {
+				// STATBUS-156: a mismatch on a CLEAN file cannot be a live human
+				// edit — the current on-disk bytes already match what's committed.
+				// That means this box's cached ledger (e.g. a restored prior seed)
+				// predates a legitimately merged retroactive fix to this migration,
+				// not an in-progress edit. Same recovery shape as channelSeedBuild's
+				// stale-restored-prior case: the caller falls back to a full
+				// rebuild instead of refusing. On a genuine live edit (dirty), or
+				// if dirtiness can't be determined, fall through unchanged to the
+				// hard refusal below — never silently downgrade an uncertain case.
+				dirty, dirtyErr := release.FileIsDirty(projDir, "migrations/"+filepath.Base(filePath))
+				if dirtyErr == nil && !dirty {
+					return &ErrStaleRestoredMigration{Version: version, StoredHash: storedHash, LiveHash: liveHash}
+				}
 				return fmt.Errorf(
 					"immutability violation: migration %d (%s) is in release %s and its file bytes have changed since apply.\n"+
 						"  Migration files in released tags must not be edited; create a new migration instead:\n"+

@@ -1,6 +1,7 @@
 package release
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -136,4 +137,45 @@ func MigrationInReleasedTag(projDir string, version int64) (string, error) {
 		}
 	}
 	return "", nil
+}
+
+// FileIsDirty reports whether relPath (relative to projDir, e.g.
+// "migrations/20260218215337_foo.up.sql") has uncommitted changes against
+// HEAD — the signal that distinguishes a LIVE human edit from a file whose
+// current on-disk bytes are exactly what's committed (STATBUS-156).
+//
+// Used by the migrate runner's content_hash mismatch handling: a mismatch on
+// a CLEAN file cannot be a live edit — it means the caller's cached state
+// (e.g. a restored prior seed) predates a legitimately committed change to
+// that file, not that someone is mid-edit on it right now.
+//
+// `git diff --quiet HEAD -- <path>` exits 0 for no difference, 1 for a
+// difference; any other exit status (or a non-*exec.ExitError failure, e.g.
+// git itself missing) is a genuine error the caller must not silently paper
+// over. Caveat (verified empirically): `git diff` never reports on an
+// UNTRACKED path — it returns "clean" (exit 0) for one, same as a genuinely
+// clean tracked file. Not a concern for this function's actual call site:
+// eagerContentHashCheck only calls it after confirming the migration is
+// already IN a released tag, so the file is necessarily tracked.
+func FileIsDirty(projDir, relPath string) (bool, error) {
+	// A missing repo (or no HEAD commit) also makes `git diff` exit 1 — the
+	// SAME code a real dirty-file diff produces — so exit-code alone can't
+	// tell them apart. Verify the repo exists FIRST via a separate, dedicated
+	// probe; that failure is unambiguous and never confusable with "dirty".
+	verify := exec.Command("git", "rev-parse", "--is-inside-work-tree")
+	verify.Dir = projDir
+	if err := verify.Run(); err != nil {
+		return false, fmt.Errorf("not a git repository (%s): %w", projDir, err)
+	}
+	cmd := exec.Command("git", "diff", "--quiet", "HEAD", "--", relPath)
+	cmd.Dir = projDir
+	err := cmd.Run()
+	if err == nil {
+		return false, nil
+	}
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+		return true, nil
+	}
+	return false, fmt.Errorf("git diff --quiet HEAD -- %s: %w", relPath, err)
 }

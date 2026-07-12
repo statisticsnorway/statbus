@@ -171,9 +171,12 @@ func TestErrStaleRestoredMigration_As(t *testing.T) {
 		t.Errorf("errors.As matched an unrelated error as ErrStaleRestoredMigration")
 	}
 
-	// Error() names the version and points at the seed-build channel + full rebuild.
+	// Error() names the version and points at the full rebuild. Channel-neutral
+	// wording (STATBUS-156): this sentinel now has two producers (channelSeedBuild
+	// and channelLocalDev's clean-file branch), so the message no longer names
+	// one specific channel.
 	msg := base.Error()
-	for _, want := range []string{"20260218215337", "seed-build", "rebuilt full"} {
+	for _, want := range []string{"20260218215337", "cached", "rebuilt full"} {
 		if !strings.Contains(msg, want) {
 			t.Errorf("Error() = %q, expected to contain %q", msg, want)
 		}
