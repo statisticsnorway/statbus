@@ -3,9 +3,11 @@ id: STATBUS-160
 title: >-
   superseded-cannot-complete: markCurrentVersionCompleted's gate can complete a
   displaced-superseded row after a C rollback returns the box to B's binary
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - architect
 created_date: '2026-07-11 22:46'
+updated_date: '2026-07-12 00:07'
 labels:
   - upgrade
   - recovery
