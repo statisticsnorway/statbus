@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 22:06'
-updated_date: '2026-07-12 03:04'
+updated_date: '2026-07-12 03:17'
 labels:
   - install-recovery
   - fidelity
@@ -62,5 +62,11 @@ author: architect
 created: 2026-07-12 02:42
 ---
 ADDENDUM (architect, 2026-07-12) — the description's open question: the SB_RECOVERY_REUSE_STAGED_BINARY gate is REMOVED in the same package once --commit lands. It was the interim workaround for exactly the gap --commit closes; keeping it as a fast-path would be a standing bypass of the operator path with an env-var switch — the class the King's carve-out rules against. Internal clean-break: delete the gate and its env plumbing, convert its call sites to --commit, one commit.
+---
+
+author: foreman
+created: 2026-07-12 03:17
+---
+SHIPPED f97f3754c (2026-07-12), architect SHIP as-built. install.sh +129 (the --commit flag, validation, the shared procure_sb_from_commit_image with fallback-policy-as-only-divergence, the sharp-edge unpublished-image refusal); vm-bootstrap.sh +59/−51 (per-commit bootstrap now installs through install.sh --commit <sha-under-test>; SB_RECOVERY_REUSE_STAGED_BINARY gate DELETED clean-break — nothing in the tree ever set it; scp-a-binary survives only in versioned/scenario branches). Composition confirmed at review: run.sh's preflight guarantees the fetch resolves inside the harness, and a manual unpushed-HEAD invocation gets the honest push-it-first refusal — both legs safe. Negatives all pass locally (malformed/uppercase/mutex ×2). POSITIVE ORACLE IN FLIGHT: working arc dispatched on f97f3754c via the operator — the arc's install leg now IS the operator's script, pinned; the ticket closes on that green. Review observations recorded (non-blocking): the procure function's version-echo assumes cwd=STATBUS_DIR (holds for both callers; harden with an explicit cd if a third caller appears); the wrapper heredoc travels as an scp'd file — the 021-blessed transport, clean composition.
 ---
 <!-- COMMENTS:END -->
