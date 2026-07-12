@@ -3,8 +3,9 @@ id: STATBUS-163
 title: >-
   window-off-teardown-race: the completion read-only-OFF flip dies with the pass
   connection — the window outlives completed and wedges fresh machinery writes
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - engineer
 created_date: '2026-07-12 12:35'
 updated_date: '2026-07-12 12:44'
 labels:
@@ -45,10 +46,12 @@ EVIDENCE: tmp/110-rider-run-job.log lines 5550-5561 (invariant violation + probe
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Architect ruling recorded: the teardown-immune shape for the terminal window flips, and whether a failed flip may ever complete-with-warning (vs the 154 exit invariant)
+- [x] #1 Architect ruling recorded: the teardown-immune shape for the terminal window flips, and whether a failed flip may ever complete-with-warning (vs the 154 exit invariant)
 - [ ] #2 The completion OFF flip survives its pass's teardown; the mid-tx arc's OFF probe goes green on a real box (the STATBUS-110 AC-2 oracle re-run)
 - [ ] #3 A fresh machinery session after a completed terminal writes successfully (the install post-completion insert path proves it in the same run)
 <!-- AC:END -->
+
+
 
 ## Comments
 
