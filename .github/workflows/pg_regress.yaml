@@ -8,12 +8,28 @@ on:
     branches-ignore:
       - 'ops/**'
 
+# STATBUS-069 Phase 3 (doc-026 §2 defense 1 + §3 step 3): the single job SPLITS
+# into two legs so the load-bearing fork-PR rule holds — no pull_request-triggered
+# job ever carries the self-hosted labels:
+#   • pg_regress_pr      — pull_request only, stays runs-on: ubuntu-latest, keeps the
+#                          appleboy ssh-action. Fork PRs still fail harmlessly here
+#                          for lack of secrets; the runner never touches the box.
+#   • pg_regress_trusted — workflow_run(Images) + workflow_dispatch only, runs-on
+#                          [self-hosted, niue]. The Docker-based ssh action can't run
+#                          on the socketless runner (doc-026 §2/delta 8), so it uses a
+#                          raw `ssh` step sending the BYTE-IDENTICAL sshdo-allowlisted
+#                          command (ops/niue/sshdoers:42).
+# Both legs share the statbus_test concurrency group (one remote test run at a time)
+# and route their db-log tail through .github/actions/extract-db-logs — the ONE
+# parser for the STATBUS-162 marker contract (STATBUS-163 one-definition ruling;
+# STATBUS-162's capture_stdout indirection retires on the trusted leg, where raw ssh
+# tees its stdout to a file natively — the in-band dump itself stays, it is the only
+# channel to the db logs while sshdo pins one command and the runner has no socket).
+# Rollback is one line: revert pg_regress_trusted's runs-on to ubuntu-latest.
+
 jobs:
-  pg_regress:
-    # Skip if Images failed (only applies to workflow_run trigger)
-    if: >-
-      github.event_name != 'workflow_run' ||
-      github.event.workflow_run.conclusion == 'success'
+  pg_regress_pr:
+    if: ${{ github.event_name == 'pull_request' }}
     concurrency:
       group: statbus_test
       cancel-in-progress: false
@@ -21,25 +37,26 @@ jobs:
     permissions:
       contents: read
     steps:
+    - name: Check out the composite action
+      # SHA-pinned per doc-026 delta 4 (this action also runs on the self-hosted
+      # trusted leg below): actions/checkout v4.3.1. Only .github/actions/ is needed;
+      # the code under test is checked out on the REMOTE by the ssh command.
+      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
     - name: Determine ref and sha
       id: ref
       run: |
-        if [ "${{ github.event_name }}" = "workflow_run" ]; then
-          echo "ref=${{ github.event.workflow_run.head_branch }}" >> "$GITHUB_OUTPUT"
-          echo "sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
-        else
-          echo "ref=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
-          echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
-        fi
+        echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
     - name: Run tests on remote server
       id: pg_regress
-      # STATBUS-162: bumped v1.2.0 -> v1.2.1 (the nearest patch release) SOLELY
-      # to gain capture_stdout/outputs.stdout — no other behavior change. Needed
-      # so the db-container-logs step below can read this step's own remote
-      # stdout without opening a second SSH connection (niue's sshdo allowlist
-      # locks the statbus_test key to the ONE script line here; see the comment
-      # on it below — a follow-up SSH command would be silently rejected).
-      uses: appleboy/ssh-action@v1.2.1
+      # PR leg stays on the appleboy ssh-action (the raw-ssh conversion is only on the
+      # trusted leg). SHA-pinned per doc-026 delta 4 — KEY CUSTODY: this action handles
+      # secrets.SSH_KEY (the statbus_test key to niue), so a supply-chain edit to a
+      # mutable tag could exfiltrate the key from the hosted runner regardless of where
+      # the action runs; one immutable SHA closes that vector. appleboy/ssh-action v1.2.1.
+      # capture_stdout exposes the in-band db-log section as an output; the next step
+      # writes it to a file so the shared extract-db-logs action can consume it exactly
+      # like the trusted leg.
+      uses: appleboy/ssh-action@8faa84277b88b6cd1455986f459aa66cf72bc8a3
       with:
         host: niue.statbus.org
         username: statbus_test
@@ -48,40 +65,78 @@ jobs:
         capture_stdout: true
         # STATBUS-150: a POSTGRES_NOTIFY_USER/POSTGRES_APP_USER collision on this
         # host is guarded loudly (init-db.sh validation refuse + config generate's
-        # WARN), not self-healed here — see the ticket for history. The SSH line
-        # below must match /etc/sshdoers:44's allowlisted template EXACTLY, or the
-        # CI key's command is silently rejected.
+        # WARN), not self-healed here — see the ticket for history. This line must
+        # match /etc/sshdoers:42's allowlisted template EXACTLY, or the CI key's
+        # command is silently rejected.
         script: cd statbus && git fetch origin && git checkout -- . && git checkout ${{ steps.ref.outputs.sha }} && ./dev.sh continous-integration-test
-
-    - name: Extract db container logs (failure only)
-      # STATBUS-162: the db container is destroyed by continous-integration-test's
-      # own EXIT trap (./dev.sh delete-db -> docker compose down) before this
-      # workflow gets any further chance to look at it, and no follow-up SSH step
-      # could fetch anything anyway (see the sshdo note above) — so dev.sh prints
-      # the container's logs to STDOUT, delimited, on failure, BEFORE teardown,
-      # as part of the one already-allowed command. capture_stdout (above) exposes
-      # that output as steps.pg_regress.outputs.stdout; this step (runner-side
-      # only, no SSH) extracts the delimited section into a real file. The value
-      # is passed via `env:`, never interpolated directly into the script body —
-      # untrusted remote output must not be re-parsed as shell syntax.
+    - name: Capture remote output to a file
       if: failure()
       env:
+        # env indirection — untrusted remote output is never interpolated into the
+        # script body.
         PG_REGRESS_STDOUT: ${{ steps.pg_regress.outputs.stdout }}
       run: |
+        set -euo pipefail
         mkdir -p ci-artifacts
-        printf '%s\n' "$PG_REGRESS_STDOUT" \
-          | awk '/^::: STATBUS-162 db-container-logs-begin/{flag=1;next}/^::: STATBUS-162 db-container-logs-end :::$/{flag=0}flag' \
-          > ci-artifacts/db-container.log
-        if [ ! -s ci-artifacts/db-container.log ]; then
-          echo "No db container log markers found in the captured output (the failure likely occurred before the db container started)."
-          rm -f ci-artifacts/db-container.log
-        fi
-
-    - name: Upload db container logs (failure only)
+        printf '%s\n' "$PG_REGRESS_STDOUT" > ci-artifacts/pg_regress-stdout.txt
+    - name: Extract and upload db container logs
       if: failure()
-      uses: actions/upload-artifact@v4
+      uses: ./.github/actions/extract-db-logs
       with:
-        name: pg-regress-db-logs
-        path: ci-artifacts/db-container.log
-        retention-days: 14
-        if-no-files-found: warn
+        raw-output-file: ci-artifacts/pg_regress-stdout.txt
+
+  pg_regress_trusted:
+    # workflow_run only when the Images build succeeded; workflow_dispatch always.
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' ||
+          (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
+    concurrency:
+      group: statbus_test
+      cancel-in-progress: false
+    runs-on: [self-hosted, niue]
+    permissions:
+      contents: read
+    steps:
+    - name: Check out the composite action
+      # SHA-pinned per doc-026 delta 4 (runs on the self-hosted runner):
+      # actions/checkout v4.3.1. Only .github/actions/ is needed here.
+      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+    - name: Determine ref and sha
+      id: ref
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_run" ]; then
+          echo "sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+        else
+          echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+        fi
+    - name: Run tests on remote server
+      id: pg_regress
+      env:
+        SSH_KEY: ${{ secrets.SSH_KEY }}
+      run: |
+        set -euo pipefail
+        mkdir -p ci-artifacts
+        keyfile="$(mktemp)"; chmod 600 "$keyfile"
+        printf '%s\n' "$SSH_KEY" > "$keyfile"
+        trap 'rm -f "$keyfile"' EXIT
+        known="$HOME/_work/.known_hosts"   # persists in the runner-work volume
+        # The command is byte-identical to the sshdo-allowlisted template
+        # (ops/niue/sshdoers:42); the 40-hex sha (github.sha / workflow_run.head_sha,
+        # never attacker-controlled) matches the 40 '#' hexdigit wildcard. sshdo
+        # exact-matches SSH_ORIGINAL_COMMAND, so this must stay verbatim. Raw ssh
+        # tees its own stdout to a file — the in-band STATBUS-162 db-log section is
+        # captured natively, retiring the appleboy capture_stdout indirection. pipefail
+        # propagates the remote exit so a test failure fails the step.
+        timeout 60m ssh -i "$keyfile" \
+          -o BatchMode=yes \
+          -o ConnectTimeout=15 \
+          -o StrictHostKeyChecking=accept-new \
+          -o "UserKnownHostsFile=$known" \
+          statbus_test@niue.statbus.org \
+          'cd statbus && git fetch origin && git checkout -- . && git checkout ${{ steps.ref.outputs.sha }} && ./dev.sh continous-integration-test' \
+          | tee ci-artifacts/pg_regress-stdout.txt
+    - name: Extract and upload db container logs
+      if: failure()
+      uses: ./.github/actions/extract-db-logs
+      with:
+        raw-output-file: ci-artifacts/pg_regress-stdout.txt

@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: Extract pg_regress db-container logs
+description: >-
+  Extract the STATBUS-162-delimited `docker compose logs db` section from a
+  captured pg_regress remote-run output file and upload it as a failure-only
+  artifact. This is the ONE parser for the STATBUS-162 marker contract — a
+  three-site agreement (the producer in dev.sh's CI EXIT trap, plus both
+  workflow legs that consume it). Two hand-synced copies would rot silently
+  (the STATBUS-163 one-definition ruling), so the hosted PR leg and the
+  self-hosted trusted leg both feed this single action a raw-output file path.
+#
+# Why in-band at all: sshdo pins the statbus_test CI key to exactly one command
+# line (ops/niue/sshdoers), so no second SSH command could fetch anything; and
+# that command's own EXIT trap destroys the db container before the workflow gets
+# another look. So the db logs travel INSIDE the test run's own stdout, wrapped in
+# STATBUS-162 delimiters, and this action carves them back out runner-side. This
+# stays true on the self-hosted runner too: it has no docker socket (doc-026 §2)
+# and reaches the db only through that one SSH command — there is no "direct
+# docker compose logs" path from the runner (STATBUS-069 Phase 3 finding).
+inputs:
+  raw-output-file:
+    description: Path to a file holding the remote test run's raw stdout.
+    required: true
+  artifact-name:
+    description: Name for the uploaded db-log artifact.
+    required: false
+    default: pg-regress-db-logs
+runs:
+  using: composite
+  steps:
+    - name: Extract db container logs from captured output
+      shell: bash
+      env:
+        # env indirection, never interpolated into the script body — untrusted
+        # remote output must not be re-parsed as shell syntax.
+        RAW_OUTPUT_FILE: ${{ inputs.raw-output-file }}
+      run: |
+        set -euo pipefail
+        mkdir -p ci-artifacts
+        # BEGIN marker is prefix-matched (the --tail bound annotation follows it on
+        # the same line — STATBUS-162 caught that an exact match would silently
+        # break); END marker is exact.
+        awk '/^::: STATBUS-162 db-container-logs-begin/{flag=1;next}/^::: STATBUS-162 db-container-logs-end :::$/{flag=0}flag' \
+          "$RAW_OUTPUT_FILE" > ci-artifacts/db-container.log
+        if [ ! -s ci-artifacts/db-container.log ]; then
+          echo "No db container log markers found in the captured output (the failure likely occurred before the db container started)."
+          rm -f ci-artifacts/db-container.log
+        fi
+    - name: Upload db container logs
+      # SHA-pinned per doc-026 delta 4 (this action runs on the self-hosted trusted
+      # leg): actions/upload-artifact v4.6.2.
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ci-artifacts/db-container.log
+        retention-days: 14
+        if-no-files-found: warn
