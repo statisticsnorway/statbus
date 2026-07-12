@@ -3,9 +3,11 @@ id: STATBUS-152
 title: >-
   template-partial-window: consumers can clone a created-but-not-yet-marked
   template — close via build-aside + atomic rename
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - mechanic
 created_date: '2026-07-09 00:08'
+updated_date: '2026-07-12 03:32'
 labels:
   - testing
   - tooling
