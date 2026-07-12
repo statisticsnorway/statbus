@@ -819,6 +819,16 @@ EOS
             exit 0
         fi
 
+        # STATBUS-157: ONE shared predicate for "is this the full fast suite" —
+        # used by BOTH the dirty-tree withhold guard and the stamp-write gate
+        # below, so they cannot diverge again. Previously each site re-checked
+        # `${TEST_ARGS[0]} = "fast"` independently; the withhold guard did, but
+        # the stamp-write site instead only ever checked $OVERALL_EXIT_CODE — so
+        # ANY successful `./dev.sh test <target>` (a single targeted test, not
+        # just `fast`) wrote the freshness stamp, even on a dirty tree.
+        IS_FAST_SUITE_RUN=false
+        [ "${TEST_ARGS[0]}" = "fast" ] && IS_FAST_SUITE_RUN=true
+
         if [ "${TEST_ARGS[0]}" = "all" ]; then
             ALL_TESTS=$(basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql)
             TEST_BASENAMES=""
@@ -923,7 +933,7 @@ EOS
         # tmp/fast-test-passed-sha on success. Refuse dirty migrations (stamp
         # would lie), skip when the stamp still represents HEAD's migrations +
         # test content.
-        if [ "${TEST_ARGS[0]}" = "fast" ]; then
+        if [ "$IS_FAST_SUITE_RUN" = "true" ]; then
             set +e
             check_stamp_guard "./dev.sh test fast" "fast-test-passed-sha" "migrations" "test"
             guard_rc=$?
@@ -1086,17 +1096,22 @@ EOF
             done
         fi
 
-        # Write the stamp unconditionally on success — the upfront REFUSE
-        # guard already verified migrations/ and test/ (minus non-strict
-        # baselines) were clean at RUN time, AND ./sb assert-db-at-head
-        # above confirmed the seed matches HEAD's on-disk migrations,
-        # so HEAD + SOURCE_VERSION is an honest pair. No silent skip:
-        # if we got here, we stamp.
+        # Write the stamp unconditionally on success of the FULL fast suite —
+        # the upfront REFUSE guard already verified migrations/ and test/
+        # (minus non-strict baselines) were clean at RUN time, AND
+        # ./sb assert-db-at-head above confirmed the seed matches HEAD's
+        # on-disk migrations, so HEAD + SOURCE_VERSION is an honest pair. No
+        # silent skip: if we got here on a fast-suite run, we stamp.
+        #
+        # STATBUS-157: gated on the SAME $IS_FAST_SUITE_RUN predicate as the
+        # withhold guard above — a targeted single-test run never reaches
+        # this block at all, so it can neither write a stamp nor touch an
+        # existing one, dirty tree or not.
         #
         # H1 two-line stamp:
         #   line 1: HEAD SHA at test-pass time
         #   line 2: source DB (test template) migration_version at test-pass time
-        if [ $OVERALL_EXIT_CODE -eq 0 ]; then
+        if [ "$IS_FAST_SUITE_RUN" = "true" ] && [ $OVERALL_EXIT_CODE -eq 0 ]; then
             if [ "${FAST_STAMP_WITHHELD:-0}" = "1" ]; then
                 # RUN_NO_STAMP: tree was dirty at guard time — withhold the stamp.
                 echo "Fast tests passed, but the freshness stamp was WITHHELD — migrations/ or test/"
