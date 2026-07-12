@@ -3,11 +3,11 @@ id: STATBUS-166
 title: >-
   release-cut-is-the-bless: boxes re-stamp gate-vetted migration bytes
   (content-level trust) — the exit-21 remedy
-status: To Do
+status: Done
 assignee:
   - '@engineer'
 created_date: '2026-07-12 15:25'
-updated_date: '2026-07-12 22:34'
+updated_date: '2026-07-12 23:24'
 labels:
   - upgrade
   - migrations
@@ -55,10 +55,8 @@ ORACLE: (i) unit tests on the recognition branch — vetted bytes → re-stamp; 
 - [x] #1 Edge recognition branch: a mismatch whose on-disk bytes match that version's bytes in a cut release re-stamps with one loud line — proven to work on a shallow clone
 - [x] #2 Unvetted bytes still hard-refuse (unit-tested: newer ungated edit; version in no release keeps existing WIP guidance)
 - [x] #3 The next RC is cut with STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION=20260218215337 — the gated bless executed
-- [ ] #4 The dev deploy goes green through the normal path (the STATBUS-123 dev-gate oracle)
+- [x] #4 The dev deploy goes green through the normal path (the STATBUS-123 dev-gate oracle)
 <!-- AC:END -->
-
-
 
 ## Comments
 
@@ -80,4 +78,16 @@ created: 2026-07-12 22:34
 ---
 AC#3 EXECUTED (foreman, night shift, King-authorized RC cuts): v2026.07.0-rc.01 tagged and pushed at 143cece86 with STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION=20260218215337 at the cut — the gated bless. Full preflight green (log tmp/night-rc-cut-3.log): immutability gate blessed exactly the declared version and warned about the stable-shipped coordination (v2026.05.5); no other migrations modified since previous stable; fast tests green in CI (run 29211352635), types/tsc/app-build/doc-db stamps fresh at HEAD, images green (run 29211255733). The recognition code (edge branch, 684993683) and the blessed bytes are both on master and in the tag. Next: AC#4 — dev deploy dispatched; dev's edge box should hit the mismatch, find v2026.07.0-rc.01 carrying the blessed bytes, re-stamp with the loud line, and complete through the wholly normal path.
 ---
+
+author: foreman
+created: 2026-07-12 23:24
+---
+AC#4 PROVEN LIVE (2026-07-12 23:21 UTC) — the dev deploy went green through the wholly normal path, and every oracle leg landed: (i) upgrade row 324228 state='completed' at 23:21:15, target 17d47c5e2, box checkout confirmed at that commit, all five containers healthy, PostgREST ready in 2s; (ii) THE LOUD LINE, exactly once, in the daemon journal at 23:20:55 during the new binary's boot-migrate — '[migrate] ⟳ Intentionally fixing broken (immutable) migration 20260218215337: re-stamped content_hash cd82bc76 → 71befa05' — the edge recognition finding the blessed bytes in v2026.07.0-rc.01 exactly as the King designed; (iii) db.migration on dev now records 71befa05 for the version. Sequence note: the run's progress log shows 'All migrations are up to date' because the re-stamp + pending migrations landed in the new binary's boot-migrate during the 23:20:17→23:21:04 handoff window — the resume's later migrate step correctly found nothing left to do. The deploy path itself needed one same-night CI fix (the images-wait gate back onto a hosted job after the runs-on move — 17d47c5e2). STATBUS-123's dev gate is GREEN; the fleet sequence proceeds (rune-no next, then the remaining cloud slots), each expected to re-stamp via its own channel bless on this same RC.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The release cut is the bless, end to end and live-proven. Design (King, fourth and final derivation — now a BY DESIGN code comment on the env var + the migrate channel switch): the bless for a retroactive edit to a released migration happens once, at the gated RC cut, by naming the version in STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION; the release's existence IS the bless (no declaration file — the withdrawn first draft's side channel stays retired); trust is content-level — bytes a cut release carries are gate-vetted wherever a box got them. Shipped: the edge recognition branch (release.ReleaseTagWithMigrationHash — shallow-clone-safe via ls-remote + tag fetch, newest-first; shared restampVettedMigration so release and edge announce identically), unit tests incl. a real --depth-1 clone, all refuse paths byte-unchanged. Executed: v2026.07.0-rc.01 cut with the bless. Proven live on dev (2026-07-12 23:21 UTC): row completed through the normal path, the loud re-stamp line exactly once (cd82bc76 → 71befa05 during boot-migrate), ledger re-stamped. Unblocks the whole STATBUS-123 deploy sequence and, through it, notify convergence (STATBUS-167).
+<!-- SECTION:FINAL_SUMMARY:END -->
