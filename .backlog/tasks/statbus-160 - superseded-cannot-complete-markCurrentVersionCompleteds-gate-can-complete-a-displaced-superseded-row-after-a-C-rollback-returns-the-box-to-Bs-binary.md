@@ -3,11 +3,11 @@ id: STATBUS-160
 title: >-
   superseded-cannot-complete: markCurrentVersionCompleted's gate can complete a
   displaced-superseded row after a C rollback returns the box to B's binary
-status: In Progress
+status: Done
 assignee:
   - architect
 created_date: '2026-07-11 22:46'
-updated_date: '2026-07-12 01:42'
+updated_date: '2026-07-12 03:03'
 labels:
   - upgrade
   - recovery
@@ -37,10 +37,8 @@ Origin: STATBUS-159 ruling comment #1 (architect, 2026-07-12); wave-9 evidence t
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 Architect ruling recorded: the guard geometry preventing completion of a superseded row (code gate vs DB constraint) and the honest disposition for a box rolled back onto a displaced version's binary
-- [ ] #2 A displaced-superseded row provably cannot reach completed_at/state=completed under the post-rollback boot sequence (test proves it)
+- [x] #2 A displaced-superseded row provably cannot reach completed_at/state=completed under the post-rollback boot sequence (test proves it)
 <!-- AC:END -->
-
-
 
 ## Comments
 
@@ -57,3 +55,9 @@ created: 2026-07-12 01:41
 RULED (architect, 2026-07-12) — (a) GUARD GEOMETRY, three layers, 154-pattern (writer fix + class-level DB impossibility): LAYER 1 — DELETE markCurrentVersionCompleted entirely (function :2926, sole call Run :2061). Not a WHERE tweak: its legitimate domain is empty (charter case chk-blocked; everything reachable is a lie), and the house rule is remove wrong paths, don't guard them. Its side-calls (supersedeOlderReleases/-Prereleases) are redundant — every real completion path and the discovery cycle fire them. The UI 'Upgrade Now' dedup it claimed to serve is ALREADY unserved today (chk-blocked, silent) — if that ever matters, the UI compares against the running version from system_info; out of scope. LAYER 2 — narrow the install-record upsert's ON CONFLICT: WHERE upgrade.state NOT IN ('completed','superseded','failed','rolled_back','skipped','dismissed') — install bookkeeping may complete only never-attempted rows (available, scheduled); a terminal row is never resurrected by bookkeeping. The deliberate route back to a displaced/failed version is register/schedule → claim → pipeline → healthCheck → an HONEST completion (RunSchedule's atomic reset exists precisely for this). LAYER 3 — DB floor, the always-add-constraints answer: trigger upgrade_block_terminal_resurrection — BEFORE UPDATE ON public.upgrade, WHEN NEW.state='completed' AND OLD.state IN ('superseded','failed','rolled_back','skipped','dismissed') → RAISE naming the remedy ('re-dispatch via ./sb upgrade schedule; terminal rows are not resurrectable'). No legitimate writer performs that transition after layers 1-2: pipeline completions are in_progress→completed, install INSERTs fresh rows or completes available/scheduled, re-dispatch is terminal→scheduled (stays legal). Migration + tests extend test/sql/330 (the canonical upgrade-invariant home, sibling of the 154 rows). The 154 state-log audits any future writer that trips it. (b) DISPOSITION for a box rolled back onto a displaced version's binary: REFUSE — no fresh row, no re-open, no completion. The ledger stays true: last-completed = the last version that verifiably served; B stays superseded with its park narrative; C stays rolled_back/failed. The RUNNING version is an observed fact (system_info / version endpoint), never a ledger edit. This is the three-tier doctrine's 'valid stored data': the absence of a completed-B row is a correct, principled absence. The operator's forward path is schedule-a-fix (or deliberately re-schedule B through the full pipeline, which completes honestly only if health passes). ORACLE: fast level — 330 trigger tests (superseded→completed REJECTED, available→completed allowed, terminal→scheduled reset allowed); e2e — a C-rollback leg on 071's map as [UNPROVEN]: fix release C2 that itself fails post-swap → rolls back → box at B's binary → daemon boots + operator ./sb install → assert B stays superseded, no completed transition for B in upgrade_state_log. Engineer-scoped; floor bump NOT needed unless the trigger migration touches daemon relations above the current floor — it does (public.upgrade), so expect the 145 bump guard to force a floor re-decision; both objects are additive, same reasoning as the 154 bump (approved precedent).
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+SHIPPED 643201f51 (2026-07-12), 10 files +222/−101, dual-gated (architect SHIP as-built; tester 85/85 fast suite on the frozen tree, 330 green with the new cases). The three ruled layers: (1) markCurrentVersionCompleted DELETED — total removal verified by grep (function, Run call site, label, taxonomy entry); its charter case was DB-impossible all along (never set log_relative_file_path, which chk_upgrade_state_attributes requires for completed), so everything it could complete was a lie. (2) install-record upsert narrowed to the six-state terminal exclusion — bookkeeping completes only never-attempted rows, with the serve-proof doctrine comment at the site. (3) Migration 20260712024457: BEFORE UPDATE trigger upgrade_block_terminal_resurrection — terminal→completed RAISEs naming the re-dispatch remedy; fires before the chk constraint so the reject needs no completed-column setup; plain invoker (touches no tables — deliberately unlike 154's state-log inserter). Floor bumped to the migration (touches public.upgrade; additive, 154 precedent). AC-2 proven at the fast level by 330 T10 (superseded→completed REJECTED, row verified untouched after the refusal), T11 (available→completed allowed, chk satisfied honestly), T12 (superseded→scheduled re-dispatch allowed). The e2e C-rollback resurrection leg lives on STATBUS-071's release-gate map as [UNPROVEN], as ruled. With this, the night's ledger-integrity arc completes: 154 (no invisible writers, teardown-immune terminals, parked⇒in_progress) + 159 (displacement-at-claim) + 160 (terminals unresurrectable; completed = verifiably serves) — the upgrade row is trustworthy at every point an NSO operator depends on it.
+<!-- SECTION:FINAL_SUMMARY:END -->
