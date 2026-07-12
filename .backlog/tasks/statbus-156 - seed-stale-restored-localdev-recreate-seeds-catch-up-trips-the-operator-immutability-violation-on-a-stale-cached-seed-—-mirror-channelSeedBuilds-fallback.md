@@ -4,9 +4,11 @@ title: >-
   seed-stale-restored-localdev: recreate-seed's catch-up trips the operator
   immutability violation on a stale cached seed — mirror channelSeedBuild's
   fallback
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - mechanic
 created_date: '2026-07-11 20:31'
+updated_date: '2026-07-12 03:04'
 labels:
   - dev-tooling
   - seed
