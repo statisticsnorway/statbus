@@ -3,11 +3,11 @@ id: STATBUS-111
 title: >-
   recovery-ux: `./sb install` re-attempts a broken restore + recovery
   legend/forecast
-status: In Progress
+status: Done
 assignee:
   - engineer
 created_date: '2026-06-28 12:53'
-updated_date: '2026-07-09 00:47'
+updated_date: '2026-07-12 00:04'
 labels:
   - upgrade
   - recovery
@@ -89,3 +89,13 @@ created: 2026-07-09 00:47
 CODE SHIPPED in 7c86b383e (dual-reviewed: architect ship-with-one-change — the git-first guard — applied; foreman first-hand; built by engineer in checkpointed passes). AC#2/#3/#4/#6 checked: re-attempt is ladder-only + human-gated (service RecoverFromFlag inert on the removed flag); legend/forecast at recovery-in-progress and all terminals with ./sb install as the headline; rolled_back forward path cause-tailored (hard-by-construction — invariant comment at the write site); flock-only liveness with PID + pidAlive removed everywhere and the lsof hint in holder-needing messages. KEY STRUCTURE: rollback()'s restore tail extracted to restoreAndFinalize (line-structural splice; purity machine-checked by the updated structural tests scanning the combined path; no process-lifecycle in the helper — exits stay at rollback()'s ABORT/terminal); ReattemptRestore = watchdog + restoreGitState FIRST (the review's catch: an abort row with a still-corrupt tree hard-fails actionably BEFORE any destructive step — never a mixed-era box; pair-terminal rows no-op through) + db stop + shared restoreAndFinalize; success marks rolled_back. Probe QueryReattemptableRestore (state='failed' AND backup_path IS NOT NULL) proven co-extensive with the three restore-broke terminals via the backup_path⟹post-swap⟹flag-held invariant, enumeration in its comment. CORRECTED ANCHORS: restoreAndFinalize service.go ~6678; rollback() 6856-7044 (exits @6843/@7044); rolled_back+PIN3 ~6829; ladder state.go StateRestoreReattemptable @50 / Detect @169; dispatch install_upgrade.go @40 / runInlineRestoreReattempt @98. OPEN: AC#1/#5 arc-proof — the restore-broke re-attempt arc rides a later wave and MUST exercise BOTH row classes: (a) pair-terminal re-attempt → restore completes → rolled_back; (b) abort-row re-attempt with still-corrupt git → hard-fails actionably (ErrRollbackGitCorrupt), never mixed-era.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+CLOSED by architect ruling (2026-07-12) with the arc-proof obligation MOVED to STATBUS-071's coverage map — the [UNPROVEN] restore-broke-reattempt row. Rationale: 071's map is the checklist the stable release gate reads, so an unproven row there is load-bearing and cannot silently vanish, whereas a dormant open ticket is the kind of standing flag that dies in a context reset; keeping both would put one obligation in two places.
+
+PRODUCT SUBSTANCE — fully shipped and dual-reviewed in 7c86b383e: the install ladder recognizes a restore-broke row (state='failed' + retained backup_path, probe proven co-extensive with the three restore-broke terminals) and RE-ATTEMPTS the restore instead of dead-ending at the idempotent step-table; the re-attempt is human-gated (the service never auto-re-attempts, AC-2); ReattemptRestore runs the git-state guard FIRST so an abort row with a still-corrupt tree hard-fails actionably before any destructive step; rollback()'s restore tail extracted to the shared restoreAndFinalize with structural purity tests; legend + forecast at every terminal with ./sb install as the single headline action (AC-3), the rolled_back forecast tailored to cause (AC-4); liveness is flock-only, PID + pidAlive removed, lsof hint in holder-needing messages (AC-6, the King's ruling).
+
+REMAINING (on 071's map, not here): ACs 1 and 5 — the dual-class arc proof: (i) pair-terminal re-attempt completes to rolled_back; (ii) abort-row re-attempt with corrupt git refuses actionably (ErrRollbackGitCorrupt), never a mixed-era box. Design pins for the arc builder: comment 1 (corrected file:line anchors) + this summary.
+<!-- SECTION:FINAL_SUMMARY:END -->
