@@ -362,7 +362,8 @@ EOF'
     # come back silently expanded to empty. Never pass such content as a
     # VM_EXEC/bash -c argument — write it to a local file (heredoc with a
     # QUOTED delimiter) and scp it to the VM instead; see
-    # 3-postswap-resume-died-parked.sh's park-callback.sh transfer.
+    # postswap-health-park-arc.sh's health-park-callback.sh transfer (the pattern
+    # originated in the retired 3-postswap-resume-died-parked).
     VM_IP="$ip"
 }
 

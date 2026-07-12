@@ -107,8 +107,8 @@ read_flag_field() {
     # product-written via json.MarshalIndent, which renders `"step": "rollback"`
     # WITH a space after the colon — the old compact-only `"step":"..."` grep
     # matched nothing, silently reading both fields empty. Lifted from the
-    # park scenario's proven reader (3-postswap-resume-died-parked.sh
-    # read_flag_field): grep matches the KEY only (no value-shape assumption;
+    # park proof's proven reader (postswap-health-park-arc.sh; the read_flag_field
+    # pattern originated in the retired 3-postswap-resume-died-parked): grep matches the KEY only (no value-shape assumption;
     # "step" vs "prior_death_step" don't collide — the char before "step" in
     # "prior_death_step" is '_', not '"'), sed's `: *"` tolerates 0+ spaces.
     VM_EXEC bash -c "cd ~/statbus && grep '\"${field}\":' tmp/upgrade-in-progress.json 2>/dev/null | sed -E 's/.*\"${field}\": *\"([^\"]*)\".*/\\1/'" 2>/dev/null | tr -d ' \r\n' || echo ""
@@ -130,8 +130,9 @@ wait_for_upgrade_candidate_ready "$VM_NAME" "$B_FULL" "$TICK_WAIT_S"
 # AC#3 style: survives every ./sb config generate). Script transferred as a
 # FILE (not an inline VM_EXEC arg with a raw $STATBUS_ROLLBACK_FAILED
 # reference) — sudo -i strips bare $-expansions in transit except literal
-# dollar signs (the same trap documented at length in
-# 3-postswap-resume-died-parked.sh); a file with the $ references INSIDE it,
+# dollar signs (the same trap documented at length in the retired
+# 3-postswap-resume-died-parked, pattern preserved in postswap-health-park-arc.sh);
+# a file with the $ references INSIDE it,
 # evaluated by the shell that finally execs it on the VM, sidesteps the whole
 # problem. STATBUS-137 is open (no STATBUS_EVENT on this path) — log
 # STATBUS_ROLLBACK_FAILED, the key this path DOES emit.

@@ -10,9 +10,16 @@
 # its own correctly-timed read — see the two combined state+error reads
 # below).
 #
+# INTERIM: deleted when the restore-broke re-attempt arc goes green (same pattern
+# as the r19 park scenario). Architect-ruled (STATBUS-071): this scenario is the
+# sole remaining fabricate_resume_state caller besides 3-postswap-rune-wedge; its
+# abort-row construction produces exactly the state that arc's re-attempt will
+# build for real — one build, two oracles — so it stays until that arc proves out.
+#
 # MECHANISM — direct state fabrication (no dispatch, no claim gate, no real
-# executeUpgrade — same style as 3-postswap-resume-died-parked.sh's
-# fabricate_resume_state, see that file's header for the general rationale).
+# executeUpgrade — direct state fabrication via the fabricate_resume_state
+# helper (see its header in lib/data-helpers.sh for the general rationale; the
+# 3-postswap-resume-died-parked scenario that also documented it was retired, STATBUS-071).
 # The point of THIS scenario is narrower and simpler than the park scenario:
 # prove that a SINGLE pass through rollback()'s git-corrupt ABORT branch now
 # concludes CLEANLY (state='failed', full ROLLBACK_FAILED_GIT_CORRUPT error,
@@ -139,7 +146,8 @@ assert_demo_data_present "$VM_NAME"
 
 # ─────────────────────────────────────────────────────────────────────────
 # UPGRADE_CALLBACK — same safe file-transfer + glue-proof-append pattern as
-# rollback-pair-terminal-arc.sh / 3-postswap-resume-died-parked.sh. The
+# rollback-pair-terminal-arc.sh / postswap-health-park-arc.sh (the latter
+# superseded the retired 3-postswap-resume-died-parked). The
 # ABORT branch's callback (service.go:~6631) fires the SAME env-var shape as
 # the pair-terminal's (STATBUS_ROLLBACK_FAILED / STATBUS_ROLLBACK_ERROR /
 # STATBUS_RECOVERY_CMD) — no STATBUS_EVENT (STATBUS-137, open; noted not
@@ -259,7 +267,8 @@ echo "  ✓ ABORT terminal landed correctly: state='failed', error matches ROLLB
 # ─────────────────────────────────────────────────────────────────────────
 # Delete the synthetic failing migration IMMEDIATELY the row leaves
 # in_progress — BEFORE any settle/NRestarts assertion (park-scenario cleanup
-# ordering, 3-postswap-resume-died-parked.sh:736-740, verbatim pattern).
+# ordering; the pattern lives on in postswap-health-park-arc.sh after the
+# retired 3-postswap-resume-died-parked was deleted, STATBUS-071).
 # Architect autopsy, round 2 (STATBUS-144, real product finding): the flag is
 # gone once the terminal write lands, but the migration file is NOT — a
 # FLAGLESS boot still runs boot-migrate, which still finds this

@@ -395,7 +395,8 @@ SQL
 # recovery-boot checkout (`git checkout flag.CommitSHA`) is a no-op — the
 # working tree must already be checked out to commit_sha before calling this
 # (mirrors 0-happy-upgrade.sh:118's fetch+checkout-HEAD stage; see the caller
-# in 3-postswap-resume-died-parked.sh).
+# in 3-postswap-rune-wedge.sh — the sole surviving fabricate_resume_state caller
+# after 3-postswap-resume-died-parked was retired, STATBUS-071).
 #
 # Row shape mirrors fabricate_scheduled_upgrade_row's field list but with
 # state='in_progress' directly — chk_upgrade_state_attributes' in_progress

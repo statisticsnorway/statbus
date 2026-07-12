@@ -190,8 +190,9 @@ VM_EXEC bash -c "cd ~/statbus && ./sb upgrade schedule $B_FULL 2>&1 | tail -20"
 
 # ─────────────────────────────────────────────────────────────────────────
 # MIDPOINT (anti-vacuity): poll pg_stat_activity for the active pg_sleep
-# backend — the proven pattern from the park/mid-tx arcs
-# (3-postswap-resume-died-parked.sh wait_for_active_pg_sleep), no LISTEN
+# backend — the proven pattern from the park/mid-tx arcs (the pg_sleep waiter
+# originated in the retired 3-postswap-resume-died-parked; live park proof is
+# now postswap-health-park-arc.sh), no LISTEN
 # client needed. Confirms V_sleep is GENUINELY running (not merely scheduled)
 # before the kill — the kill-landed leg starts from a known-good state.
 # ─────────────────────────────────────────────────────────────────────────
