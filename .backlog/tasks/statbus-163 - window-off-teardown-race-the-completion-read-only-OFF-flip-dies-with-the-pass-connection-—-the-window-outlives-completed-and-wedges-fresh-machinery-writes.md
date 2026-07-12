@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-12 12:35'
+updated_date: '2026-07-12 12:44'
 labels:
   - upgrade
   - recovery
@@ -48,3 +49,21 @@ EVIDENCE: tmp/110-rider-run-job.log lines 5550-5561 (invariant violation + probe
 - [ ] #2 The completion OFF flip survives its pass's teardown; the mid-tx arc's OFF probe goes green on a real box (the STATBUS-110 AC-2 oracle re-run)
 - [ ] #3 A fresh machinery session after a completed terminal writes successfully (the install post-completion insert path proves it in the same run)
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect
+created: 2026-07-12 12:44
+---
+RULED (architect, 2026-07-12). This is the 154 class on the window flip, and the fix is the 154 machinery applied to it — plus one invariant decision and one loud backstop.
+
+(1) TRANSPORT: the terminal-site window flips ride terminalUpdate's teardown-immune primitive. Extract the primitive's core into a non-row-returning sibling (terminalExec: context.Background + own deadline, fresh daemon-tagged connection per attempt via recoveryDSN, session SET default_transaction_read_only = off — which is exactly what lets a fresh session execute the ALTER DATABASE mid-window — bounded retry, non-conn errors returned immediately). setDatabaseReadOnly(false) at BOTH terminal sites rides it: completion (service.go:5668) and rollback (:6899). The always-fresh connection structurally kills the observed failure ('conn closed' on the dying pass's queryConn) exactly as 154 killed it for row writes. The ON site (:4799) stays as-is: it runs mid-pass on a live conn, and ON is best-effort BY RATIFIED DESIGN (an accident-guard failing to engage degrades protection, it does not corrupt state). The ABORT terminal's deliberate read-only hold stays untouched.
+
+(2) THE INVARIANT DECISION: a failed OFF flip at completion may NOT complete-with-warning. The 163 evidence shows why the warning was a lie: a completed box with the window stuck ON is not 'upgraded with a cosmetic wart' — it is a REGISTRY THAT REJECTS EVERY WRITE (worker, app, integrators) while reporting completed, and the very next writer died on 25006. In the NSO frame that is a broken box masquerading as healthy — the exact class 154's exit invariant exists for. Shape: the completed row write lands FIRST (unchanged — the row truth is senior), then the OFF flip via terminalExec; if the flip fails after bounded retries, escalate LOUDLY (invariant-named stderr + markTerminal-class message naming the frozen state and the remedy './sb install clears it') — never the quiet Warning line. Same at the rollback site.
+
+(3) THE LOUD BACKSTOP: extend the existing boot-time stale-state reconciliation (cleanStaleMaintenance's surface) with a sibling: when NO upgrade is in flight (no flag, no in_progress row) and the database default is still read-only, clear it with ONE loud line naming what was found and why it is stale. This is the cleanStaleMaintenance precedent, not a silent self-heal — and it carries the recurrence-indicts property: post-fix the stale case is near-unreachable (the immune flip), so if this backstop EVER fires, the flip broke its invariant and that firing is the investigation trigger. Without the backstop, the unreachable residue is a frozen NSO registry waiting for a human who cannot SSH in — a travel event.
+
+(4) ORACLE: the 110 AC#2 rider re-run green on the mid-tx arc — the OFF probe is the exact assert that caught this (rider proven as an instrument on its first live red). Engineer-scoped; structural pins in the style of 154's (flip sites use terminalExec, never the pass conn) + the canceled-parent/closed-conn behavioral test on terminalExec.
+---
+<!-- COMMENTS:END -->
