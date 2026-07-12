@@ -41,6 +41,9 @@ Rollback restores the snapshot (phase-2 state). So the **only** external writes 
 ## Effect on recovery
 With phase 3 write-free (against accidents), rollback can lose nothing → STATBUS-039 "never restore on a guess" retires → the *can't-verify → hold → human* branch collapses into safe-rollback / quiet-retry (STATBUS-109). Recovery self-decides → no operator travel.
 
+## Cost and acceptability
+During an upgrade's destructive window, external writes are blocked while reads keep working. This costs little in practice: browser and REST traffic already stop in this window under maintenance mode, so the only new restriction falls on a direct database connection, which few real users make. Upgrades are infrequent and this window lasts minutes, not hours, so a short write pause is a small price for a statistical registry. The block is a guard against accidents, not a lock: it exists to stop unintentional writes, but any session can deliberately turn it off for itself and write anyway, at its own risk — the ratified rule is that you cannot go wrong without meaning to, and if you mean to, you are allowed. In exchange, the payoff is real: nothing external can be lost during the window, so a rollback is always safe to run on its own — which is what lets a box nobody can reach recover by itself instead of waiting for a human to travel there.
+
 ## Critical files
 - `cli/internal/upgrade/exec.go:242` `setMaintenance` — the toggle to mirror; add a sibling `setDatabaseReadOnly(bool)` (`ALTER DATABASE …`).
 - `cli/internal/upgrade/service.go` — `:4201` maintenance ON · `:4223` stop db · `:4249` `backupDatabase` (snapshot) · the read-only ON site (before `:4223`).
