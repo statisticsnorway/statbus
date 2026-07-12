@@ -66,12 +66,14 @@ DEFERRED — not now. Stabilize the current install/upgrade surface first.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 STAGE 1 done: an operator has scoured app/src (+ any other /rest query construction sites) and REPORTED every candidate location (file:line) of an aliased-embed-used-in-a-filter/order (#4075), plus any serialization-retry reliance — surfacing doubt, not deciding
+- [x] #1 STAGE 1 done: an operator has scoured app/src (+ any other /rest query construction sites) and REPORTED every candidate location (file:line) of an aliased-embed-used-in-a-filter/order (#4075), plus any serialization-retry reliance — surfacing doubt, not deciding
 - [ ] #2 STAGE 2 done: a smarter agent (architect/engineer) verified each candidate and produced the definitive list of sites that #4075 actually breaks (or confirmed none)
 - [ ] #3 Any confirmed #4075 sites rewritten to not alias-then-filter
 - [ ] #4 PostgREST bumped to the confirmed latest v14.x tag in docker-compose.rest.yml + docker/compose/upgrade-sandbox.yml; rest container restarts clean on v14
 - [ ] #5 Tested: full suite green + app smoke-test passes on v14 (queries return the same results); passive behavior changes (Vary, schema-cache best-effort, serialization-retry) confirmed harmless
 <!-- AC:END -->
+
+
 
 ## Comments
 
