@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-17 22:06'
+updated_date: '2026-07-12 02:42'
 labels:
   - install-recovery
   - fidelity
@@ -38,3 +39,21 @@ STATUS / NON-GATING for rc.04: option (b) unblocks the cut deterministically (th
 
 FIX SHAPE: add a commit-SHA procurement path to install.sh (`--commit <sha>`: fetch + checkout the exact commit + procure/build its binary), then switch the harness recovery from `--channel edge` (or the SB_RECOVERY_REUSE_STAGED_BINARY gate) to `install.sh --commit <target-sha>`. Decide whether to keep the reuse-staged gate as a fast-path or remove it once the pin exists.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect
+created: 2026-07-12 02:42
+---
+RULED (architect, 2026-07-12). Verified first: install.sh's edge channel already contains the exact procurement --commit needs — checkout + procure sb from the commit-tagged image ghcr.io/statisticsnorway/statbus-sb:<short8> with in-container build fallback (install.sh:157-205); and the harness today runs `--channel edge` (vm-bootstrap.sh:562), which resolves MASTER AT RUN TIME — the exact unpinned drift the ticket names — while other bootstrap paths scp a locally-built binary, bypassing install.sh entirely.
+
+(1) FLAG SHAPE: `--commit <full-40-hex-sha>` — mutually exclusive with --version and --channel (any combination refuses). FULL hex only: the commit-is-authoritative doctrine names artifacts by full SHA (CommitSHA vocab, doc/canonical-commit-naming.md), the harness has full SHAs in hand (B_FULL/C_FULL), and this flag's audience is the harness + developers — NSO operators stay on stable/prerelease. Anything not matching ^[a-f0-9]{40}$ refuses naming the rule. Semantics = edge-with-a-pin: clone or reuse ~/statbus, `git fetch origin <sha>` (an unpushed commit fails here naturally → the refusal says 'push it first'), `git checkout -B current <sha>`, VERSION = short8 of the sha (the rc.63 bare-short convention, same as edge), then the SAME downstream steps as edge — no second code path; factor the edge block's procurement into a shared function both channels call.
+
+(2) IMAGE-VS-BUILD: --commit REFUSES when the image pull fails — no local-build fallback. Determinism is the flag's whole point: the harness must test the commit's PUBLISHED image (the artifact CI ships and the arc's upgrade legs will pull); a silent in-VM build would mask a CI-images gap and test a different artifact. The refusal is actionable: name the exact image ref, and the two remedies (wait for images.yaml to publish; use --channel edge if you genuinely want master HEAD with build fallback). Edge keeps its fallback unchanged — it serves the toolchain-free dev/rescue case.
+
+(3) HARNESS SWITCH (the ticket's point): the per-commit bootstrap paths stop bypassing — vm-bootstrap's install invocation becomes `bash /tmp/statbus-install.sh --commit <sha-under-test>`; the scp-a-binary path remains ONLY for scenarios that deliberately construct non-install states, each with a one-line justification comment, so 'bypasses install.sh' is a named exception, never a default.
+
+(4) ORACLE: (i) negative, cheap: --commit with a malformed sha refuses; --commit with a valid-but-unpublished sha refuses naming the image ref (both testable on any VM or even locally in seconds); (ii) positive, real: ONE existing arc run green end-to-end through the new bootstrap — the arc's install leg now IS install.sh --commit, so any green arc after the switch proves the flag on the operator's actual script. Engineer-scoped (install.sh + vm-bootstrap touch); queue behind the 160 build per the foreman's sequencing.
+---
+<!-- COMMENTS:END -->
