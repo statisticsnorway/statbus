@@ -25,6 +25,12 @@
 --   T9. STATBUS-154 instrumentation: each state/parked-changing UPDATE lands
 --       exactly one public.upgrade_state_log row with the correct old→new state
 --       and parked_at transitions; a non-changing UPDATE lands none
+--   T10. STATBUS-160 trigger upgrade_block_terminal_resurrection REJECTS a
+--        superseded → completed UPDATE (terminal rows are not resurrectable)
+--   T11. STATBUS-160: available → completed is ALLOWED (install bookkeeping of a
+--        never-attempted row)
+--   T12. STATBUS-160: superseded → scheduled is ALLOWED (deliberate re-dispatch
+--        stays legal)
 --
 -- Shared-test harness: wrap in BEGIN/ROLLBACK for cloned-template isolation.
 
@@ -226,6 +232,65 @@ SELECT upgrade_id,
   FROM public.upgrade_state_log ORDER BY id;
 
 SELECT count(*) AS log_row_count FROM public.upgrade_state_log;
+
+\echo '=== T10: superseded → completed is REJECTED (STATBUS-160, terminal not resurrectable) ==='
+
+TRUNCATE public.upgrade RESTART IDENTITY;
+
+-- A displaced (superseded) row — the STATBUS-159 outcome of a fix-release claim.
+INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, superseded_at)
+VALUES (lpad(to_hex(50), 40, '0'), now(), 'commit', 'superseded',
+        'displaced by a fix-release claim', now());
+
+-- Promoting it back to completed is exactly the STATBUS-160 lie. The BEFORE UPDATE
+-- trigger fires before any constraint check and raises the named-remedy error — so
+-- the target's chk_upgrade_state_attributes columns (log path etc.) need not be set.
+-- VERBOSITY terse: the ERROR line is deterministic; DETAIL/context are not. SAVEPOINT
+-- + ON_ERROR_STOP off are the expected-error gate's WANTED-context markers.
+\set VERBOSITY terse
+SAVEPOINT sp_t10;
+\set ON_ERROR_STOP off
+-- expected to fail: upgrade_block_terminal_resurrection rejects terminal→completed
+UPDATE public.upgrade SET state = 'completed', completed_at = now() WHERE id = 1;
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT sp_t10;
+\set VERBOSITY default
+
+-- The row is untouched: still superseded.
+SELECT id, state, superseded_at IS NOT NULL AS has_superseded_at FROM public.upgrade ORDER BY id;
+
+\echo '=== T11: available → completed is ALLOWED (STATBUS-160, never-attempted install bookkeeping) ==='
+
+TRUNCATE public.upgrade RESTART IDENTITY;
+
+INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary)
+VALUES (lpad(to_hex(50), 40, '0'), now(), 'commit', 'available',
+        'never attempted; install-record completes it');
+
+-- OLD.state='available' is NOT in the terminal set → the resurrection trigger's WHEN
+-- is false → the completion proceeds, satisfying chk_upgrade_state_attributes for
+-- completed (completed_at + log_relative_file_path NOT NULL).
+UPDATE public.upgrade SET state = 'completed', completed_at = now(), log_relative_file_path = 'log.txt' WHERE id = 1;
+
+SELECT id, state, completed_at IS NOT NULL AS has_completed_at FROM public.upgrade ORDER BY id;
+
+\echo '=== T12: superseded → scheduled is ALLOWED (STATBUS-160, deliberate re-dispatch) ==='
+
+TRUNCATE public.upgrade RESTART IDENTITY;
+
+INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, superseded_at)
+VALUES (lpad(to_hex(50), 40, '0'), now(), 'commit', 'superseded',
+        'displaced, will be re-dispatched', now());
+
+-- Re-dispatch (RunSchedule's atomic reset shape) is terminal→scheduled, which the
+-- resurrection trigger does NOT block (its WHEN gates only NEW.state='completed').
+UPDATE public.upgrade
+   SET state = 'scheduled', scheduled_at = now(),
+       superseded_at = NULL, started_at = NULL, completed_at = NULL,
+       rolled_back_at = NULL, error = NULL
+ WHERE id = 1;
+
+SELECT id, state, scheduled_at IS NOT NULL AS has_scheduled_at, superseded_at IS NOT NULL AS still_superseded FROM public.upgrade ORDER BY id;
 
 \echo '=== all trigger + backstop tests done ==='
 

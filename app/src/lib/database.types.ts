@@ -15622,6 +15622,10 @@ export type Database = {
         Args: Record<string, never>
         Returns: unknown
       },
+      upgrade_block_terminal_resurrection: {
+        Args: Record<string, never>
+        Returns: unknown
+      },
       upgrade_family: {
         Args: {
           u?: Database["public"]["Tables"]["upgrade"]["Row"]

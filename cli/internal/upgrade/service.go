@@ -1594,10 +1594,6 @@ func (d *Service) ExecuteUpgradeInline(ctx context.Context, id int, commitSHA, d
 //	                               version as a completed row (the install-side sibling of the
 //	                               recovery / executeUpgrade completion paths; see the two-row model
 //	                               in doc/upgrade-timeline.md)
-//	LabelCompletedCurrentVersion — markCurrentVersionCompleted: boot-time reconcile marks the
-//	                               running version's row completed (install.sh-deployed rows that
-//	                               bypass the upgrade-service flow). Guarded (STATBUS-154) to never
-//	                               steal an in_progress / parked row from recovery.
 //	LabelRolledBackNormal        — rollback normal path: upgrade failed, git restore succeeded,
 //	                               prior version restarted cleanly
 //	LabelFailedAbort             — rollback ABORT: git restore itself failed; row is failed
@@ -1613,7 +1609,6 @@ const (
 	LabelCompletedSelfHeal        = "completed-self-heal"
 	LabelCompletedFromInProgress  = "completed-from-in-progress"
 	LabelCompletedInstall         = "completed-install"
-	LabelCompletedCurrentVersion  = "completed-current-version"
 	LabelRolledBackNormal         = "rolled-back-normal"
 	LabelFailedAbort              = "failed-abort"
 	LabelFailedRollbackIncomplete = "failed-rollback-incomplete"
@@ -2055,10 +2050,6 @@ func (d *Service) Run(ctx context.Context) error {
 	// Complete any in-progress upgrade from a previous service instance
 	// (e.g., after self-update restart via exit code 42)
 	d.completeInProgressUpgrade(ctx)
-
-	// Mark the currently running version as completed. Handles versions
-	// installed via install.sh which bypasses the upgrade service flow.
-	d.markCurrentVersionCompleted(ctx)
 
 	// Sync UPGRADE_* config from .env to system_info table
 	d.syncConfigToSystemInfo(ctx)
@@ -2907,85 +2898,6 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 	d.supersedeOlderReleases(ctx, commitSHA)
 	d.supersedeCompletedPrereleases(ctx, commitSHA)
 	d.runUpgradeCallback(displayName)
-}
-
-// markCurrentVersionCompleted marks the service's own version as completed in
-// the upgrade table. This handles versions deployed via install.sh (which
-// bypasses the upgrade service flow) and ensures the UI doesn't show
-// "Upgrade Now" for the already-running version. Idempotent.
-//
-// Task #49 / Gap #5: observed-state check before the mark. Same blind spot
-// as recoverFromFlag's success branch — git HEAD might match a row's
-// commit_sha while the actual binary on disk is a prior version (crash
-// between git checkout and replaceBinaryOnDisk). On startup, that would
-// have us silently mark a "completed" upgrade we never actually ran.
-//
-// Resolution: if d.binaryCommit != git HEAD, the binary doesn't match
-// the checked-out tree — skip the auto-mark and log. The operator's
-// next install or the upgrade service's recovery path will reconcile.
-func (d *Service) markCurrentVersionCompleted(ctx context.Context) {
-	if d.version == "dev" {
-		return
-	}
-
-	// Match by tag name or commit SHA
-	headSHA, _ := runCommandOutput(d.projDir, "git", "rev-parse", "HEAD")
-	headSHA = strings.TrimSpace(headSHA)
-
-	// Observed-state verification (task #49 Gap #5): verify the running binary
-	// matches git HEAD AND that all required migrations have been applied.
-	// verifyUpgradeObservedState checks both conditions; it returns false if
-	// either condition fails. Demo bug (rc.63): binary=rc.63 ✓ but schema=rc.62
-	// (migration not applied) — without this check, markCurrentVersionCompleted
-	// would silently mark the row completed despite missing migrations.
-	if ok, reason := d.verifyUpgradeObservedState(ctx, headSHA); !ok {
-		fmt.Printf("markCurrentVersionCompleted: blocked — %s; "+
-			"leaving row in_progress for proper applyPostSwap\n", reason)
-		return
-	}
-
-	// STATBUS-154: GUARD THE WRITER. This is the convicted parked-completed
-	// writer. On a parked-skip boot the running binary IS the parked row's
-	// target, so verifyUpgradeObservedState above passes (binary + migrations
-	// match) — and the old, un-guarded UPDATE (WHERE commit_sha + completed_at
-	// IS NULL) then completed a still-PARKED, still-in_progress row, stealing it
-	// from recovery and printing "post-unpark row: completed". The two added
-	// conjuncts refuse to touch a live upgrade: a parked row stays
-	// state='in_progress' (forward-only), so `state != 'in_progress'` excludes
-	// it, and `recovery_parked_at IS NULL` is the belt-and-suspenders class guard
-	// (chk_upgrade_parked_requires_in_progress makes the parked+non-in_progress
-	// pair impossible DB-wide). We never auto-clear recovery_parked_at here —
-	// deliberate un-park is RunSchedule / UnparkByID only (no standing self-heal).
-	// Converted to upgradeRowReturning + logUpgradeRow so this write carries the
-	// same greppable marker as every other terminal writer.
-	var currentVersionJSON string
-	err := d.queryConn.QueryRow(ctx,
-		`UPDATE public.upgrade
-		 SET state = 'completed',
-		     completed_at = COALESCE(completed_at, now()),
-		     docker_images_status = 'ready',
-		     scheduled_at = NULL,
-		     error = NULL,
-		     rolled_back_at = NULL
-		 WHERE commit_sha = $1
-		   AND completed_at IS NULL
-		   AND state != 'in_progress'
-		   AND recovery_parked_at IS NULL`+upgradeRowReturning,
-		headSHA).Scan(&currentVersionJSON)
-	if err != nil {
-		// pgx.ErrNoRows = the guard matched nothing (already completed, or an
-		// in_progress/parked row we deliberately left alone) — expected, silent.
-		// Any other error is a real DB fault: surface it (the row stays as-is;
-		// the next boot or the upgrade service reconciles). Never mark terminal.
-		if !errors.Is(err, pgx.ErrNoRows) {
-			fmt.Fprintf(os.Stderr, "markCurrentVersionCompleted: UPDATE failed: %v\n", err)
-		}
-		return
-	}
-	logUpgradeRow(LabelCompletedCurrentVersion, currentVersionJSON)
-	fmt.Printf("Marked current version (%s) as completed\n", d.version)
-	d.supersedeOlderReleases(ctx, headSHA)
-	d.supersedeCompletedPrereleases(ctx, headSHA)
 }
 
 // syncConfigToSystemInfo writes UPGRADE_* values from .env to system_info.

@@ -2381,7 +2381,14 @@ func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, logRelPath str
 		   release_builds_status = 'ready',
 		   commit_version = COALESCE(EXCLUDED.commit_version, upgrade.commit_version),
 		   log_relative_file_path = COALESCE(EXCLUDED.log_relative_file_path, upgrade.log_relative_file_path)
-		 WHERE upgrade.state != 'completed'
+		 -- STATBUS-160: install bookkeeping may complete ONLY a never-attempted row
+		 -- (available / scheduled). A terminal row is NEVER resurrected to completed
+		 -- by bookkeeping — 'completed' means THIS VERSION VERIFIABLY SERVES, which
+		 -- only the pipeline's post-healthCheck completion may assert. The deliberate
+		 -- route back to a displaced/failed version is register/schedule → claim →
+		 -- pipeline → an honest completion. (chk enforced DB-wide by the trigger
+		 -- upgrade_block_terminal_resurrection.)
+		 WHERE upgrade.state NOT IN ('completed','superseded','failed','rolled_back','skipped','dismissed')
 		 RETURNING to_jsonb(upgrade.*)`,
 		sha,
 		commitDate,

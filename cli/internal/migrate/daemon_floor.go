@@ -18,18 +18,18 @@ package migrate
 // the floor impossible: any migration NEWER than the floor that touches a daemon
 // relation fails the test until the floor is bumped in the same commit.
 //
-// VALUE: today 20260711201432 (the STATBUS-154 upgrade-state-log instrumentation
-// trigger on public.upgrade), bumped from 20260703210000 in the same commit that
-// added the STATBUS-154 parked-invariant constraint (20260711201431) and this
-// state-write trigger (20260711201432) — both migrations touch public.upgrade, so
-// the bump guard forced this floor re-decision. Both only ADD objects (a CHECK
-// constraint, a diagnostic table + its AFTER UPDATE trigger); no daemon query
-// loses a column, so the daemon operates cleanly at the raised floor and the
-// new floor-era trigger fires on the floor-era table (internally self-consistent
-// per the exclusions rule below — public.upgrade_state_log is NOT a daemon
-// relation, the daemon's Go never SQL-references it). Nothing is above the floor
-// again, so the boot-to-floor form (slice 2) is once more a no-op vs boot-to-HEAD.
-const DaemonSchemaFloor int64 = 20260711201432
+// VALUE: today 20260712024457 (the STATBUS-160 upgrade_block_terminal_resurrection
+// BEFORE-UPDATE trigger on public.upgrade), bumped from 20260711201432 in the same
+// commit that added it. The trigger migration touches public.upgrade, so the bump
+// guard forced this floor re-decision — same reasoning and approved precedent as the
+// STATBUS-154 bump before it. It only ADDS a guard (a BEFORE UPDATE trigger + its
+// function) that raises on the terminal→completed transition; no daemon query loses
+// a column, and no legitimate daemon write performs that transition (pipeline
+// completions are in_progress→completed), so the daemon operates cleanly at the
+// raised floor and the new floor-era guard fires on the floor-era table. Nothing is
+// above the floor again, so the boot-to-floor form (slice 2) is once more a no-op vs
+// boot-to-HEAD.
+const DaemonSchemaFloor int64 = 20260712024457
 
 // DaemonRelationNames is the schema surface the daemon's OWN SQL touches — the
 // set whose shape the floor must satisfy. The bump guard flags any migration

@@ -78,6 +78,7 @@ Not-null constraints:
     "upgrade_recovery_attempts_not_null" NOT NULL "recovery_attempts"
 Triggers:
     upgrade_block_obsolete_pending_trigger BEFORE INSERT OR UPDATE OF state, committed_at, release_status ON upgrade FOR EACH ROW EXECUTE FUNCTION upgrade_block_obsolete_pending()
+    upgrade_block_terminal_resurrection_trigger BEFORE UPDATE ON upgrade FOR EACH ROW WHEN (new.state = 'completed'::upgrade_state AND (old.state = ANY (ARRAY['superseded'::upgrade_state, 'failed'::upgrade_state, 'rolled_back'::upgrade_state, 'skipped'::upgrade_state, 'dismissed'::upgrade_state]))) EXECUTE FUNCTION upgrade_block_terminal_resurrection()
     upgrade_notify_daemon_trigger AFTER UPDATE ON upgrade FOR EACH ROW EXECUTE FUNCTION upgrade_notify_daemon()
     upgrade_notify_frontend_trigger AFTER INSERT OR DELETE OR UPDATE ON upgrade FOR EACH ROW EXECUTE FUNCTION upgrade_notify_frontend()
     upgrade_state_log_trigger AFTER UPDATE ON upgrade FOR EACH ROW WHEN (old.state IS DISTINCT FROM new.state OR old.recovery_parked_at IS DISTINCT FROM new.recovery_parked_at) EXECUTE FUNCTION upgrade_state_log_capture()
