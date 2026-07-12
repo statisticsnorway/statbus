@@ -3,9 +3,11 @@ id: STATBUS-157
 title: >-
   fast-stamp-overreach: any targeted test writes the fast-suite stamp and
   bypasses the dirty-tree withhold — stamp only what ran
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - mechanic
 created_date: '2026-07-11 20:47'
+updated_date: '2026-07-12 03:23'
 labels:
   - dev-tooling
   - testing
