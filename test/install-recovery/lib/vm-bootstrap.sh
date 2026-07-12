@@ -536,7 +536,7 @@ reset_vm_state() {
 }
 
 # Run install inside a bootstrapped VM.
-#   install_statbus_in_vm <vm_name>                  → run the REAL install.sh --channel edge
+#   install_statbus_in_vm <vm_name>                  → run the REAL install.sh --commit <HEAD-sha>
 #   install_statbus_in_vm <vm_name> v2026.05.0-rc.X  → download from release
 # Caller may pre-set SB_INSTALL_EXTRA_ARGS (e.g. "--recovery=auto").
 #
@@ -575,47 +575,43 @@ install_statbus_in_vm() {
     local install_script
     install_script=$(mktemp)
     if [ -z "$install_version" ]; then
-        # STATBUS-060: run the REAL install.sh (operator path) with --channel edge.
-        # This is the genuine operator recovery entrypoint (STATBUS-039: the operator's
-        # only action is install.sh). install.sh --channel edge:
-        #   RESCUE mode (~/statbus/.git exists): git fetch origin master → checkout
-        #     current → procure binary via docker pull/build → ./sb install.
+        # STATBUS-060/082: run the REAL install.sh (operator path), PINNED to the
+        # exact commit under test with --commit (STATBUS-039: the operator's only
+        # action is install.sh). install.sh --commit <sha>:
+        #   RESCUE mode (~/statbus/.git exists): git fetch origin <sha> → checkout
+        #     current → procure binary from the PUBLISHED image → ./sb install.
         #   Binary procurement: docker pull ghcr.io/statisticsnorway/statbus-sb:<short>
-        #     (fast when image published); falls back to docker build -f cli/Dockerfile.sb
-        #     (~3-5 min, no host Go needed).
+        #     — NO build fallback under --commit (determinism: test the published
+        #     artifact CI ships; a missing image refuses, naming it).
         # install.sh exits 0 for both success and rollback; see EXIT CONTRACT above.
         #
         # Fork 1A: upload in-repo install.sh (matches HEAD, no curl network hop).
-        # Fork 2D: --channel edge provides real binary procurement fidelity.
+        # Fork 2D: --commit pins procurement to the exact target (no master drift).
         # Fork 3: no 75-tolerance at call sites; outcome from upgrade row state only.
 
         # Upload the in-repo install.sh as /tmp/statbus-install.sh (NOT /tmp/install.sh —
         # the shared section below uploads the wrapper script to /tmp/install.sh and runs
         # `bash /tmp/install.sh`; using the same name would cause the wrapper to call itself).
         _wait_for_ssh "$ip" 30
-        if [ -n "${SB_RECOVERY_REUSE_STAGED_BINARY:-}" ]; then
-            # Mode B (architect): reuse the already-staged target ./sb (upload_sb_to_vm) instead
-            # of install.sh --channel edge. --channel edge git-fetches origin/master + checks out
-            # the MOVING tip + procures THAT binary, drifting past the scheduled target when master
-            # advances mid-run (non-deterministic; abort scenarios assert binary-unchanged).
-            # recoverFromFlag owns the working-tree checkout; on-disk ./sb is already the target →
-            # deterministic + target-pinned recovery.
-            cat > "$install_script" << SCRIPT
-set -e
-cd ~/statbus
-cp /tmp/env-config .env.config
-cp /tmp/users.yml .users.yml
-STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf
-SCRIPT
-        else
-            scp -O "${SSH_OPTS[@]}" "$HARNESS_ROOT/install.sh" root@"$ip":/tmp/statbus-install.sh
-            ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0755 /tmp/statbus-install.sh'
+        # STATBUS-082: pin install.sh to the EXACT commit under test (git HEAD,
+        # guaranteed on origin by run.sh's preflight_head_on_origin) via --commit.
+        # This replaces the master-drifting `--channel edge` (which resolved the
+        # moving tip at run time — the nondeterminism this ticket names) AND removes
+        # the SB_RECOVERY_REUSE_STAGED_BINARY reuse-gate (deterministic but it
+        # BYPASSED install.sh — the fidelity loss). --commit is BOTH: deterministic
+        # (exact sha) and install.sh-in-the-loop (the operator's sole action,
+        # STATBUS-039). scp-a-binary bypasses now survive only as per-scenario named
+        # exceptions, never this default path.
+        local commit_under_test
+        commit_under_test="$(git -C "$HARNESS_ROOT" rev-parse HEAD)"
+        scp -O "${SSH_OPTS[@]}" "$HARNESS_ROOT/install.sh" root@"$ip":/tmp/statbus-install.sh
+        ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0755 /tmp/statbus-install.sh'
 
-            cat > "$install_script" << SCRIPT
+        cat > "$install_script" << SCRIPT
 set -e
 # If ~/statbus/.git does not exist (no prior install), do a minimal clone first
 # so install.sh always enters RESCUE mode (git update + binary procure + ./sb install).
-# install.sh --channel edge FRESH would clone ~/statbus itself but would then call
+# install.sh --commit FRESH would clone ~/statbus itself but would then call
 # ./sb install WITHOUT .env.config in place — we must pre-place config files before
 # install.sh's ./sb install step. The pre-clone ensures RESCUE mode so we control
 # timing: config files land before ./sb install runs. Idempotent for RESCUE callers.
@@ -631,12 +627,11 @@ cp /tmp/env-config ~/statbus/.env.config
 cp /tmp/users.yml ~/statbus/.users.yml
 # Run the real install.sh (uploaded as /tmp/statbus-install.sh to avoid a naming
 # conflict with the harness wrapper at /tmp/install.sh). Always in RESCUE mode
-# (~/statbus/.git guaranteed above). --channel edge: fetches origin/master, procures
-# HEAD binary via docker image (or build fallback), then calls ./sb install.
+# (~/statbus/.git guaranteed above). --commit <sha>: fetches the EXACT commit,
+# procures its PUBLISHED statbus-sb image (no build fallback), then calls ./sb install.
 # Exits 0 for both success and rollback; catastrophic failures are non-zero.
-STATBUS_MIN_DISK_GB=5 bash /tmp/statbus-install.sh --channel edge --trust-github-user jhf
+STATBUS_MIN_DISK_GB=5 bash /tmp/statbus-install.sh --commit ${commit_under_test} --trust-github-user jhf
 SCRIPT
-        fi
     else
         cat > "$install_script" << SCRIPT
 set -e
