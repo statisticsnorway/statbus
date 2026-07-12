@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-07-07 02:27'
-updated_date: '2026-07-11 20:20'
+updated_date: '2026-07-12 13:56'
 labels:
   - install-recovery
   - upgrade
@@ -79,5 +79,11 @@ author: foreman
 created: 2026-07-11 20:20
 ---
 STATUS SYNC (foreman, 2026-07-11): status corrected To Do → In Progress — the fix shipped 06cf8415f (comment #2's record stands; ACs #1/#3 checked then). OPEN: AC#2's stopped-proxy scenario leg + AC#4's dedicated severed-proxy scenario — mechanic-buildable per the ruling, queued behind the 154/wave-8 closure. The auto-recreate follow-up remains a deliberately-unbuilt King-blessable option.
+---
+
+author: foreman
+created: 2026-07-12 13:56
+---
+BOTH SCENARIO LEGS BUILT + SHIPPED (e8cfb269a, 2026-07-12), architect SHIP after a carve-out adjudication worth the record: the first drafts used fabricate_resume_state and were REBUILT on real-path construction per the King's dead-producer rule — real register/schedule → injected kill at the container-restart site (chosen by trace: it fires after the service set is up, so the proxy manipulation is the single variable — and the trace is now a run-time precondition assert) → docker stop (AC-2 arc) / rm -f -s (AC-4 arc) as environment manipulation. The rebuild hit no impossibility and forced a genuine correctness fix (commit-scoped row queries — real dispatch makes multiple rows where fabrication made one). postswap-stopped-proxy-recovery-arc asserts the start-fallback line, stopped→running, completed with zero restores, idempotence coda; postswap-severed-proxy-refusal-arc asserts the exact category-3 refusal + stability on re-run + the operator's advertised remedy closing the loop. Both carry the 155 failure-diagnostics rider. ACs 2/4 check on the VM runs — batched for tomorrow per the architect's sequencing agreement (nothing gates tonight; results deserve fresh eyes).
 ---
 <!-- COMMENTS:END -->
