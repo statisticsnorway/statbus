@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-06-26 11:30'
-updated_date: '2026-07-12 00:00'
+updated_date: '2026-07-12 01:48'
 labels:
   - upgrade
   - recovery
@@ -213,5 +213,11 @@ author: foreman
 created: 2026-07-12 00:00
 ---
 AC-4 SHIPPED (8fdefb5ad, 2026-07-12): the cost/acceptability paragraph landed in doc/read-only-upgrade-window.md (its confirmed sole canonical home — doc-018 is a MOVED stub, doc-023 is the listener-regression amendment). Covers: writes pause minutes / reads available; only the direct-PG path newly restricted (browser+REST already maintenance-gated); acceptable for an infrequently-upgraded registry; accident-guard not lock (the King's no-wrong-without-intent principle); payoff = always-data-safe rollback = autonomous recovery on an unreachable box. STALENESS FLAGGED while in there (recorded on STATBUS-043 for the docs sweep, deliberately NOT fixed in this commit): the doc's own exemption section still names deleted migration 20260703104910 as the mechanism home (real home since the re-home: migrations/post_restore.sql + postgres/init-db.sh); doc-023 has identical staleness; the doc's service.go line-number citations predate the 145 floor rewrite and 154's terminalUpdate consolidation. The architect's AC-3 pass (039 supersession) touches this doc anyway — fix together there or in 043's sweep. REMAINING on this ticket: AC-2 (crash-mid-window persistence arc rider — engineer, queued behind the fabrication-retirement package) and AC-3 (architect).
+---
+
+author: foreman
+created: 2026-07-12 01:48
+---
+AC-2 BUILD IN FLIGHT (2026-07-12): engineer's rider design approved — carrier = postswap-mid-tx-kill-arc.sh (deterministic race-free post-kill window: recovery is one explicit install, daemon asserted inactive first; DB stays up post-kill; terminal 'completed' exercises the completion OFF choke). ON probe after the RED-shape block: a fresh NON-exempt session (plain admin role via ./sb psql — the authenticator role-GUC and migrate-subprocess exemptions both verified avoided) must fail a write with SQLSTATE 25006 AND co-assert SHOW default_transaction_read_only = on (the 154 honesty guard: a silent exemption fails loud). OFF probe after the completed assert: SHOW = off + a write succeeds (self-cleaning probe table). NAMED OPTIONAL, not in this package (recorded so it is not lost): the ROLLBACK OFF choke is a different site — an identical rider on an after-commit-kill arc (terminal rolled_back) would prove it; AC-2 as written does not require it. Build lands on the arc post-155 (row-state riders committed cb0447893).
 ---
 <!-- COMMENTS:END -->
