@@ -3,10 +3,10 @@ id: STATBUS-034
 title: >-
   fail-channel: branches-as-channels for real failure/fix upgrade arcs (King's
   design)
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-12 05:44'
-updated_date: '2026-06-12 08:01'
+updated_date: '2026-07-13 10:46'
 labels:
   - install-recovery
   - upgrade
@@ -72,3 +72,21 @@ LAYERING: complements the inject scenarios, does not replace them — real migra
 
 OPEN POINTS to resolve at ratification (AC#7): (1) commit-addressed artifact store (ghcr OCI artifact vs commit-named asset vs other) + retention policy; (2) channel→branch mapping shape in .env.config (explicit ref vs channel/<family> naming convention); (3) fixture-branch baseline identity (track an rc commit vs pinned older baseline); (4) guard shape for non-test boxes (config ack vs validator refusal vs both); (5) committed-but-wrong family in v1 or first follow-up.
 <!-- SECTION:NOTES:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-13 10:46
+---
+CLOSED (King review, 2026-07-13) — delivered-in-substance, with the ONE real residual carved out as a firm ticket, NOT dropped. What the June design wanted, and where it landed: real fail→fix arcs with zero scaffolding = DELIVERED (071 arc framework, run-proven all week); commit-addressed procurement, no Go on boxes = DELIVERED (per-commit statbus-sb image + install.sh --commit; fleet converged on it today); channel exclusivity = DELIVERED as UPGRADE_CHANNEL (stable/prerelease/edge — which became the bless-trust boundary in STATBUS-166); the box's discovery path exercised = DELIVERED (whole fleet ran real discovery today). The branch-as-channel FORMALISM is what commit-registration made unnecessary — registering any commit is the lighter primitive that reaches the same goal.
+
+TWO honest corrections the King forced, on the record: (1) CACHING — 034's stable-fixture-oscillation would give near-zero CI on unchanged fixtures (cache hit on a reused commit_short); the CURRENT framework does NOT get this (it `git commit -S`'s a fresh commit per run → new commit_short → new image build every run). So 034's CI-cost advantage is REAL and UNREALIZED — not a reason 034 is obsolete. Recorded as a possible future perf ticket (stable-fixture caching), not pursued now. (2) The repair-by-follow-up family (a migration that SUCCEEDS but leaves bad state, fixed by a later migration) that 034 named as a future family has ZERO coverage and no ticket — now STATBUS-172, HIGH, non-optional, run-is-the-oracle. The foreman's initial 'optional if you want it' framing was wrong and retracted; the King refused it correctly.
+---
+<!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The King's June fail-channel vision is delivered by lighter primitives than its own formalism required. Its three concrete goals shipped: real fail→fix upgrade arcs with zero scaffolding (the 071 framework), commit-addressed procurement freeing every box from Go-on-host (per-commit statbus-sb image + install.sh --commit; the whole fleet converged on it 2026-07-13), and channel exclusivity (UPGRADE_CHANNEL stable/prerelease/edge, which became the trust boundary of the STATBUS-166 bless design). The branch-as-channel vehicle itself was made unnecessary by commit registration — registering any commit for upgrade is lighter than curating channel branches and reaches the same end. Two residuals carved out honestly rather than swept: 034's stable-fixture CI-CACHING advantage is real but unrealized (the current arcs rebuild fresh per run) — a possible future perf ticket; and the repair-by-follow-up / committed-but-wrong migration family it named is uncovered — now STATBUS-172 (HIGH, tested arc, non-negotiable), because a migration that succeeds but leaves bad state is the one failure class the loud recovery machinery cannot catch, and this weekend proved that only doing the real action finds such things.
+<!-- SECTION:FINAL_SUMMARY:END -->
