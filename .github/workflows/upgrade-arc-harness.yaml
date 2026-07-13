@@ -126,6 +126,22 @@ jobs:
           . test/install-recovery/lib/upgrade-target.sh
 
           base_sha="${BASE_SHA_INPUT:-${GITHUB_SHA}}"
+
+          # STATBUS-153: fetch-depth: 0 on the checkout above (present since this
+          # workflow's first commit) is NOT sufficient on its own — wave-5 dispatch
+          # 28984225540 (2026-07-09) died here with a bare `fatal: unable to read
+          # tree` because master had advanced past base_sha between dispatch and
+          # job start, and the checkout's own history did not reach back to it (the
+          # exact mechanism observed, not theorized: GitHub resolves the checkout's
+          # ref at job-start, not at dispatch-request time). An EXPLICIT fetch of
+          # the exact base_sha closes the gap regardless of how the checkout landed,
+          # and turns a genuinely unreachable SHA into a NAMED error instead of a
+          # bare git-internals message surfacing later, opaquely, at first read.
+          if ! git fetch origin "$base_sha" 2>/tmp/base_sha_fetch_err.log; then
+            echo "::error title=arc-fixture-shallow-fetch: base SHA unreachable::base_sha=${base_sha} could not be fetched from origin — it is likely genuinely unreachable (a deleted branch, a GC'd/pruned object, or a typo in the dispatch input), not a transient checkout-depth gap. git fetch said: $(cat /tmp/base_sha_fetch_err.log)" >&2
+            exit 1
+          fi
+
           base_short="$(git rev-parse --short=8 "$base_sha")"
           echo "A (base) = ${base_sha}"
 
