@@ -12,6 +12,7 @@ import { useBaseData } from "@/atoms/base-data";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useMemo } from "react";
+import { UnitHistoryExportButton } from "./unit-history-export-button";
 
 type CodeName = { code: string | null; name: string } | null;
 
@@ -165,6 +166,9 @@ export default function UnitHistoryTable({
 
   return (
     <div className="space-y-2">
+      <div className="flex justify-end">
+        <UnitHistoryExportButton unitId={unitId} unitType={unitType} />
+      </div>
       <Table>
         <TableHeader className="bg-gray-50 border-t">
           <TableRow>
