@@ -3,9 +3,11 @@ id: STATBUS-170
 title: >-
   deploy-green-means-converged: the deploy workflow reports green at schedule
   time — the async upgrade can roll back afterward unseen
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - architect
 created_date: '2026-07-13 01:35'
+updated_date: '2026-07-13 14:57'
 labels:
   - deploy
   - ci
