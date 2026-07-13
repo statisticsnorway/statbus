@@ -3,10 +3,11 @@ id: STATBUS-120
 title: >-
   pg-multi-control-test: investigate & add import test for multiple controlling
   relationships
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - engineer
 created_date: '2026-06-30 12:40'
-updated_date: '2026-07-03 10:45'
+updated_date: '2026-07-13 14:57'
 labels:
   - import
   - not-install-upgrade
