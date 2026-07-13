@@ -576,6 +576,20 @@ func computeDerived(cfg *ConfigEnv) *Derived {
 	}
 }
 
+// restExposedSchemas is the value config.go OWNS for PGRST_DB_SCHEMAS. Only
+// `public` is served over /rest: the app never sends Accept-Profile/Content-Profile
+// (it is single-schema), and the auth entry points are public.login/refresh/logout —
+// auth is reached THROUGH public, not exposed as its own REST schema. The worker
+// schema is deliberately excluded and surfaced via public views. The Supabase-legacy
+// `storage` and `graphql_public` in .env.example were NEVER created here; PostgREST
+// v14 HARD-FAILS the entire schema-cache load when any listed schema is absent (v12
+// silently loaded only what existed), which parked dev's v14 upgrade with `schema
+// "storage" does not exist` and a /ready that 503'd forever. config.go emitting only
+// existing schemas heals every box on `sb config generate` by overwriting the stale
+// template value persisted in a box's .env (STATBUS-054). Add a schema here only when
+// we genuinely expose it over /rest.
+const restExposedSchemas = "public"
+
 // generateEnvContent builds the full .env file content.
 func generateEnvContent(creds *Credentials, cfg *ConfigEnv, derived *Derived, dbMem *DbMemory, projDir string) (string, error) {
 	var b strings.Builder
@@ -740,6 +754,12 @@ PUBLIC_STATBUS_COMMIT_SHORT=%[23]s
 	example.Set("ENABLE_EMAIL_AUTOCONFIRM", strconv.FormatBool(derived.EnableEmailAutoconfirm))
 	example.Set("DISABLE_SIGNUP", strconv.FormatBool(derived.DisableSignup))
 	example.Set("STUDIO_DEFAULT_PROJECT", derived.StudioDefaultProject)
+
+	// PostgREST — OWN the exposed-schema list (STATBUS-054). Overrides whatever
+	// .env.example carries (historically the Supabase-legacy public,storage,
+	// graphql_public) so a regen emits only schemas that exist; PostgREST v14 hard-
+	// fails the schema-cache load otherwise. See restExposedSchemas.
+	example.Set("PGRST_DB_SCHEMAS", restExposedSchemas)
 
 	// Docker build config
 	example.Set("APT_USE_HTTPS_ONLY", cfg.AptUseHttpsOnly)

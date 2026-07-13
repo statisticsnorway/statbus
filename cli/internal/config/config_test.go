@@ -257,6 +257,50 @@ func TestGenerateEnvContent_RestAdminBindAddress(t *testing.T) {
 	}
 }
 
+// TestGenerateEnvContent_OwnsPGRSTSchemas_STATBUS054 proves config.go OWNS
+// PGRST_DB_SCHEMAS and overrides the Supabase-legacy value from .env.example.
+// PostgREST v14 HARD-FAILS the whole schema-cache load when any listed schema is
+// absent (v12 tolerated it); dev's .env carried the template's
+// public,storage,graphql_public where only `public` exists, parking the v14 upgrade.
+// A regen must emit ONLY public so `sb config generate` heals every box.
+func TestGenerateEnvContent_OwnsPGRSTSchemas_STATBUS054(t *testing.T) {
+	projDir := t.TempDir()
+	// Seed the .env.example with the EXACT legacy value a real deployed box carries,
+	// so this proves the override wins over the template — not merely that a minimal
+	// example lacks the key.
+	if err := os.WriteFile(filepath.Join(projDir, ".env.example"),
+		[]byte("PGRST_DB_SCHEMAS=public,storage,graphql_public\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &ConfigEnv{
+		DeploymentSlotCode:       "local",
+		DeploymentSlotName:       "local",
+		DeploymentSlotPortOffset: "1",
+		CaddyDeploymentMode:      "development",
+		SiteDomain:               "local.statbus.org",
+		StatbusURL:               "http://localhost:3010",
+		BrowserAPIURL:            "http://local.statbus.org:3010",
+	}
+	derived := computeDerived(cfg)
+
+	out, err := generateEnvContent(&Credentials{}, cfg, derived, &DbMemory{}, projDir)
+	if err != nil {
+		t.Fatalf("generateEnvContent: %v", err)
+	}
+
+	var line string
+	for _, l := range strings.Split(out, "\n") {
+		if strings.HasPrefix(l, "PGRST_DB_SCHEMAS=") {
+			line = l
+			break
+		}
+	}
+	if line != "PGRST_DB_SCHEMAS=public" {
+		t.Errorf("PGRST_DB_SCHEMAS must be owned as =public (v14 hard-fails on absent schemas; STATBUS-054); the legacy public,storage,graphql_public must be overridden. got %q", line)
+	}
+}
+
 // TestGenerateEnvContent_UpgradeCallbackSurvives guards STATBUS-131: UPGRADE_CALLBACK
 // set in .env.config must carry through into the generated .env. Before this fix,
 // sb config generate rebuilt .env from .env.example plus an enumerated Set list that
