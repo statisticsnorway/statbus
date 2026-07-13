@@ -3,10 +3,10 @@ id: STATBUS-122
 title: >-
   team-name-detection: fix cross-clone team collision + make roster detection
   session-aware
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-07-01 13:42'
-updated_date: '2026-07-13 09:06'
+updated_date: '2026-07-13 09:09'
 labels:
   - tooling
   - not-install-upgrade
@@ -89,3 +89,9 @@ created: 2026-07-13 09:06
 BOARD TRIAGE (architect, 2026-07-13) — MERGE INTO STATBUS-168. The root-cause premise here is dissolved by 168's findings: the harness itself moved to SESSION-SCOPED teams (teams/session-<id>/); teams/statbus/ no longer exists, so the git-tracked .claude/team.name is a dead pointer — the cross-clone shared-global-name collision this ticket exists to fix can no longer occur through that mechanism. What SURVIVES of this ticket is exactly 168's AC#1/#3: session/cwd-aware roster detection in the same two hooks, plus the loud-failure-on-missing-config requirement (168 AC#2) that this ticket's 'named error instead of unidentified caller' ask becomes. Same files, same mechanism, one ruling (mine, owed on 168) — two tickets would produce two conflicting edits to the same hooks. Recommend closing 122 as merged, with a pointer note on 168 naming the cross-clone concurrent-team scenario as an explicit test fixture the 168 fix must cover (122 AC#1/#5 carry over as that fixture).
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Merged into STATBUS-168 on the architect's triage (2026-07-13): the harness moved to session-scoped teams, killing the shared-global-team-name collision mechanism this ticket was filed against — what survives of the problem IS 168's acceptance criteria (identity across session rotation, loud failure on missing config). Carry-over recorded on 168: this ticket's cross-clone concurrent-team scenario becomes an explicit test fixture for the ruled fix.
+<!-- SECTION:FINAL_SUMMARY:END -->
