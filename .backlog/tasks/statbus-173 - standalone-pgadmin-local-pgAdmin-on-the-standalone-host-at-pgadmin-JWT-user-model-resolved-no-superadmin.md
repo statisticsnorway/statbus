@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-13 11:39'
-updated_date: '2026-07-13 11:55'
+updated_date: '2026-07-13 15:28'
 labels:
   - standalone
   - tooling
@@ -35,7 +35,7 @@ CONSTRAINT: standalone-only initially (no.statbus.org shape); the multi-tenant c
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Auth model ruled: how an operator authenticated to statbus reaches /pgadmin without a second credential (app-JWT reuse vs a forward_auth bridge), documented before build
+- [x] #1 Auth model ruled: how an operator authenticated to statbus reaches /pgadmin without a second credential (app-JWT reuse vs a forward_auth bridge), documented before build
 - [ ] #2 pgAdmin connects to Postgres as a scoped role that is NOT superadmin; the role and its grants are named and justified
 - [ ] #3 No second identity store: pgAdmin users are not a separate user list from statbus's — the mapping is explicit
 - [ ] #4 no.statbus.org/pgadmin serves pgAdmin path-based on the standalone host, proven on a real box (rune-no or a test standalone)
@@ -49,5 +49,19 @@ author: foreman
 created: 2026-07-13 11:55
 ---
 SCOPE CORRECTION (King, 2026-07-13): this ticket BUILDS ON feature/pgadmin — the branch is the foundation, not a reference to retire. Rebase/port its deployment mechanics forward and resolve the auth model on top. feature/pgadmin is KEPT (removed from the STATBUS-035 delete-candidates) until this ships.
+---
+
+author: architect
+created: 2026-07-13 15:28
+---
+AUTH MODEL RULED (architect, 2026-07-13) — grounded in the branch's actual content (auth_gate migration + servers.json read) and the auth schema (auth.user's sync_user_credentials_and_roles_trigger / drop_user_role_trigger, doc/db auth_user.md). The decisive existing fact: statbus users ALREADY have per-user PostgreSQL roles with synchronized credentials — the operator's statbus email+password IS a loginable PG identity carrying their statbus_role membership and RLS. The design is therefore an ASSEMBLY of existing machinery, not new auth:
+
+(1) PERIMETER — the forward_auth bridge, NOT app-JWT consumption by pgAdmin. pgAdmin (Flask, its own session model) cannot and should not consume our JWT natively — that would fork session semantics. The branch's own `public.auth_gate()` pattern is RATIFIED as the shape: Caddy forward_auth → PostgREST /rest/rpc/auth_gate → validates the statbus access-token COOKIE (SECURITY DEFINER, auth.jwt_verify) → 200 with the user's email in a response header / 401 with handle_response redirecting to statbus login. Reaching /pgadmin requires live statbus authentication; no second web credential exists. INSIDE the perimeter, pgAdmin runs WEBSERVER AUTH (AUTHENTICATION_SOURCES=['webserver'] + auto-create-user): it trusts the email header Caddy forwards from auth_gate — which the branch's gate already emits for exactly this — so pgAdmin's internal user record is DERIVED from statbus identity (a profile row keyed on the same email, holding NO password). One wiring rule: Caddy must strip/overwrite any client-supplied copy of that header before setting it — the header is an internal assertion, never client input.
+
+(2) THE DB ROLE — the operator's OWN synced PG role, entered at the pgAdmin server connection (the branch's servers.json shape: Username empty, the operator types their statbus email + password). Justified: the sync triggers already maintain these roles; RLS and statbus_role membership (regular_user/admin_user) apply exactly as they do through PostgREST — pgAdmin becomes just another PG client of the SAME identity, with the same visibility the operator already has. Explicitly REJECTED: superadmin/postgres (obvious), AND a shared read-only inspection role — a shared role blurs per-user audit attribution and bypasses the per-user RLS model we already paid for. Nothing weaker than the app's own model, nothing stronger than the operator's own rights.
+
+(3) NO SECOND IDENTITY STORE, enforced by two settings: identity + credentials live ONLY in auth.user + the synced PG roles; pgAdmin's internal table holds auto-created email-keyed profile rows with no passwords (webserver auth), and PASSWORD SAVING IS DISABLED (PGADMIN_CONFIG_ALLOW_SAVE_PASSWORD=False) so pgAdmin's sqlite can never accumulate PG credentials — the operator enters their password per session, same as psql. The mapping statbus-user ↔ pgAdmin-profile ↔ PG-role is one email, three views of one identity.
+
+MINED FROM THE BRANCH as deployment mechanics (not design): the custom image + SSLSNI patch, the compose shape (standalone subset — the multi-tenant servers.cloud.json is out of scope per the ticket), the handle_response redirect, the command-palette link. BUILD NOTES: the auth_gate migration needs re-porting against the CURRENT auth schema (it predates months of auth work — verify jwt_verify/extract_access_token signatures); AC#4's real-box proof on a standalone is the oracle. AC#2/#3's answers are contained above; they check when built and proven.
 ---
 <!-- COMMENTS:END -->
