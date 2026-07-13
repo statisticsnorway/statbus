@@ -70,7 +70,7 @@ DEFERRED — not now. Stabilize the current install/upgrade surface first.
 - [x] #2 STAGE 2 done: a smarter agent (architect/engineer) verified each candidate and produced the definitive list of sites that #4075 actually breaks (or confirmed none)
 - [x] #3 Any confirmed #4075 sites rewritten to not alias-then-filter
 - [x] #4 PostgREST bumped to the confirmed latest v14.x tag in docker-compose.rest.yml + docker/compose/upgrade-sandbox.yml; rest container restarts clean on v14
-- [x] #5 Tested: full suite green + app smoke-test passes on v14 (queries return the same results); passive behavior changes (Vary, schema-cache best-effort, serialization-retry) confirmed harmless
+- [ ] #5 Tested: full suite green + app smoke-test passes on v14 (queries return the same results); passive behavior changes (Vary, schema-cache best-effort, serialization-retry) confirmed harmless
 <!-- AC:END -->
 
 ## Comments
@@ -114,9 +114,3 @@ created: 2026-07-13 10:25
 REOPENED (2026-07-13) — the bump is NOT harmless; caught on dev, the run is the oracle. v14 upgrade PARKED dev's health check: PostgREST v14 HARD-FAILS the schema-cache load when a listed schema is missing, where v12 tolerated it. Dev's generated .env has `PGRST_DB_SCHEMAS=public,storage,graphql_public` (Supabase-legacy; only `public` exists) → v14 rest logs 'schema \"storage\" does not exist', /ready 503 forever, post-upgrade health check times out at 5m → clean park (154/160 held, data safe, no crash loop). AC#5's 'passive behavior changes confirmed harmless' was FALSELY satisfied: the mechanic's local smoke passed only because he'd corrected his own local .env to public-only BEFORE testing, masking the multi-schema case every deployed box actually has. THE FIX (engineer, in flight): config.go must OWN PGRST_DB_SCHEMAS and emit only existing schemas, so a config regen heals every box. Nothing releases until dev upgrades green through the v14 health check. This is precisely the King's 'does everything still return the same, not does it boot' — realized.
 ---
 <!-- COMMENTS:END -->
-
-## Final Summary
-
-<!-- SECTION:FINAL_SUMMARY:BEGIN -->
-PostgREST bumped v12.2.8 → v14.14 with zero query breakage, by doing the verification before the bump instead of discovering it in production. The King's two-stage method worked as designed: the operator scoured 445 app files and reported candidates without judging; the architect verified against the actual v14 changelog — the one candidate used a join hint, not an alias, and the corrected-pattern sweep confirmed zero aliased-embed-filter sites repo-wide. Config keys pre-cleared; serialization-retry reliance absent. The bump itself: two image-tag lines. Proof: rest boots clean on v14.14, authenticated smoke green including the exact examined query shape, local fast suite 85/85, CI pg_regress full suite green on the commit. We are off the aging v12 pin and on the supported line.
-<!-- SECTION:FINAL_SUMMARY:END -->
