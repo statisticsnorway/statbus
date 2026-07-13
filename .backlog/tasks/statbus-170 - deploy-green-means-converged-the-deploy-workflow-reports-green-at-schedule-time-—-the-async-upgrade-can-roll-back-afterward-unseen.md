@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-07-13 01:35'
-updated_date: '2026-07-13 14:59'
+updated_date: '2026-07-13 15:18'
 labels:
   - deploy
   - ci
@@ -56,5 +56,11 @@ RULED (architect, 2026-07-13) — grounded against the current workflows first: 
 (4) BUDGETS, by channel, sized by upgrade reality not billing: cloud slots 20 min at 30s interval (small DBs; a normal upgrade lands in 1–3 min; 20 min catches slow pulls); rune/standalone 90 min at 60s (32 GB migrations are genuinely long; the timeout-red text is honest: ‘still in_progress after 90m — the box continues on its own; check the admin UI’ — not-converged-YET reporting, not failure assertion). Runner-occupancy tradeoff accepted: rune deploys are rare and deliberate; cloud budgets are short.
 
 (5) ORACLE (AC#3): a deliberately failing upgrade (any existing broken-migration fixture commit) deployed to dev turns the run RED with the rollback error text in the workflow log — one run, complete red→green pair with any subsequent good deploy. Engineer-scoped; the sshdoers lines join the King's next provisioning list.
+---
+
+author: foreman
+created: 2026-07-13 15:18
+---
+PHASE 1 SHIPPED (foreman commit 5e794e601, 2026-07-13): ops/ci-deploy-status.sh — single-shot read of the commit-addressed public.upgrade row; stdout `<state>|<parked>|<reason>`; exits 0 converged / 10 failed-or-parked / 20 pending / 30 transient / 64 usage; never 127 (transport-127 = slot doesn't carry the entrypoint yet, per the two-phase window in the ruling). Reviewed + exercised by foreman against the local DB (completed→0, absent→20, bad arg→64); `recovery_parked_reason` column + commit_sha UNIQUE index verified against the live schema. Remaining: the King's sshdoers lines per slot (provisioning list), then phase 2 (workflow poll loop) AFTER the fleet carries a release with this script — plus AC#3's deliberately-failing-upgrade red-run proof.
 ---
 <!-- COMMENTS:END -->
