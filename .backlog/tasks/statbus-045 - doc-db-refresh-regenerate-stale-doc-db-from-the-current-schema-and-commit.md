@@ -1,11 +1,11 @@
 ---
 id: STATBUS-045
 title: 'doc-db-refresh: regenerate stale doc/db/ from the current schema and commit'
-status: To Do
+status: Done
 assignee:
   - architect
 created_date: '2026-06-12 21:51'
-updated_date: '2026-07-13 09:05'
+updated_date: '2026-07-13 09:09'
 labels:
   - docs
   - hygiene
@@ -56,3 +56,9 @@ created: 2026-07-13 09:05
 BOARD TRIAGE (architect, 2026-07-13) — CLOSE, overtaken by machinery: doc/db/ is no longer stale and can no longer GO stale silently. The migration↔doc/db pairing discipline (the commit gate) regenerates it with every schema change — last regeneration rode yesterday's STATBUS-160 commit (643201f51, 'a terminal row can never be resurrected'); the freshness hook passes today. The ticket's premise (a stale doc/db blocking offline greps, needing a one-time regenerate) is dissolved by the standing pairing guard, which is strictly stronger than the one-time fix this ticket asked for. Recommend closing with this as the final summary; the security-gate diff-review convention lives on in the pairing gate itself.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Closed on the architect's triage evidence (2026-07-13): the ticket's premise — a one-time regeneration of stale doc/db/ — is dissolved by standing machinery stronger than the ask. doc/db regenerates continuously via the migration↔doc-db pairing gate; the latest regeneration rode yesterday's migration commit (643201f51). Nothing stale remains to fix, and recurrence is structurally prevented.
+<!-- SECTION:FINAL_SUMMARY:END -->
