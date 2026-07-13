@@ -62,7 +62,7 @@ services:
 
   rest:
     container_name: statbus-sandbox-rest
-    image: postgrest/postgrest:v12.2.8
+    image: postgrest/postgrest:v14.14
     restart: "no"
     depends_on:
       db:
