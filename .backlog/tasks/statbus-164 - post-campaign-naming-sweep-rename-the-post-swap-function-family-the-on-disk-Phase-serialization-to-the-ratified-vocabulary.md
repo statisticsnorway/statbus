@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-07-12 14:05'
-updated_date: '2026-07-13 15:13'
+updated_date: '2026-07-13 15:25'
 labels:
   - clarity
   - de-jargon
@@ -39,7 +39,17 @@ Wire values are byte-identical today (proven by the 107 identifier slice's round
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The post-swap function family + coupled comments follow the registry slugs; go build/vet/test green; no wire value changes in this half
+- [x] #1 The post-swap function family + coupled comments follow the registry slugs; go build/vet/test green; no wire value changes in this half
 - [ ] #2 Architect ruling recorded for the serialization half (clean-break vs read-both, re-derived against the shipped 145/154/159/163 geometry), then built with cross-version recovery proven by an arc
 - [ ] #3 doc/upgrade-vocabulary.md's one open item (the parked serialization) closes with this ticket
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-13 15:25
+---
+HALF #1 SHIPPED (foreman commit 6cb5a7652, 2026-07-13): the post-swap function family renamed to registry slugs — resumeNewSb, applyNewSbUpgrading, newSbUpgradingFailure, updateFlagNewSbSwapped, IsServiceNewSbRecovery + coupled constants/test names (30 files, +310/−310, pure 1:1). writeFlagPhase turned out to be a stale comment mention, not a symbol — comment corrected. Foreman independently verified: zero-residual grep, no wire-literal changes in the diff (post_swap/resuming untouched), stray-pipe sweep clean, go build/vet/test all green. AC#1 checked. Mechanic's adjacent observations, deliberately out of scope: (1) needsPostSwapRollback survives only as a string in a must-not-call assertion + history comment (dead, nothing to rename); (2) ~10 prose comments use PreSwap/PostSwap/Resuming as informal phase shorthand — a broader de-jargon sweep if ever scoped; (3) fault-injection scenario names (3-postswap-*) + postswap_test.go filename are a different namespace, untouched. Half #2 (on-disk phase serialization) remains architect-gated per AC#2.
+---
+<!-- COMMENTS:END -->
