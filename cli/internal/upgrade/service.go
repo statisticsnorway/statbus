@@ -4414,7 +4414,15 @@ func (d *Service) CommitSHAsByTag(ctx context.Context, tag ReleaseTag) ([]Commit
 
 // RevParse satisfies CommitLookup.
 func (d *Service) RevParse(_ context.Context, ref string) (CommitSHA, error) {
-	out, err := runCommandOutput(d.projDir, "git", "rev-parse", ref)
+	// Peel with ^{commit} (STATBUS-169 follow-up). Release tags are ANNOTATED (cut
+	// with `git tag -m`), and a bare `git rev-parse <annotated-tag>` returns the TAG
+	// OBJECT sha, not the commit it points at. ^{commit} dereferences an annotated
+	// tag to its commit and is a no-op on a commit or a lightweight tag — so every
+	// caller (all want the commit; this method's return type is CommitSHA) gets the
+	// commit regardless of tag shape. Same idiom already used at restoreGitState /
+	// the pre-upgrade probe. Found live: the AC#1 write-guard refused every rc.04
+	// register with "tag <t> points at commit <tag-object>, not <commit>".
+	out, err := runCommandOutput(d.projDir, "git", "rev-parse", "--verify", ref+"^{commit}")
 	if err != nil {
 		return "", err
 	}
