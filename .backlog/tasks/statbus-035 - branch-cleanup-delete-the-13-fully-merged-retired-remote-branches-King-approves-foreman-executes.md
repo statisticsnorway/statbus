@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-12 07:57'
-updated_date: '2026-07-13 11:13'
+updated_date: '2026-07-13 11:56'
 labels:
   - git-hygiene
   - not-install-upgrade
@@ -110,5 +110,11 @@ created: 2026-07-13 11:13
 KEEP-PENDING WALK — owner-branch verdicts, foreman-VERIFIED against master (2026-07-13; corrects an operator error). (1) feat/statistical-variables-over-time-chart (hhssb): SAFE TO DELETE — fully content-superseded. Every file both branch commits touch is BYTE-IDENTICAL in master (chart, page, layout, history-reports wiring, and the postal_region_code export removal — verified file-by-file). The feature landed in master via a different commit path; the branch is a stale duplicate, no unmerged work. (The operator's report claimed 'content exists only on this branch' — FALSE; it conflated 'tip not an ancestor of master' with 'files absent'. The King's own read 'seems merged logically' was correct.) hhssb consult NOT needed — nothing to lose. (2) fix-custom-scripts (Erik Søberg): GENUINELY UNMERGED, KEEP pending Erik. custom/no.sql (Norway: hide stat idents, tax-ident→org-number rename) is ABSENT from master; custom/ke.sql EXISTS in master but DIFFERS. 2645 commits behind, ~31-line delta. Real work — deleting loses it. Route to Erik: port custom/no.sql, reconcile custom/ke.sql, confirm the custom/ ingestion pattern still holds + no schema drift broke the assumptions.
 
 Earlier-verdict branches (operator sweep, foreman-relayed): db-snapshot (no shipped binary references it — note: legacy `git fetch origin db-snapshot` remediation code lives in v2026.05.2's seed.go, so keep until ≤ that tag is EOL, same rule as db-seed), debug/archive-partial-at-final-rootcause (findings in master — delete-safe), engineer/image-distribution-design (stale draft doc, no master equivalent — King: keep-to-docs or delete), engineer/layer2-recovery-flag (--recovery=auto superseded by the shipped recovery ladder — delete-safe), test/upgrade-resume-new-scenarios (scenario 30 covered by the arc campaign — delete-safe), red/031-rollback-watchdog (proof build, scenario shipped — delete-safe), feature/pg-oauth + feature/pgadmin (unshipped prototypes — King's discretion). Awaiting the King's per-branch go.
+---
+
+author: foreman
+created: 2026-07-13 11:56
+---
+WALK EXECUTION (2026-07-13, King directives): DELETED feat/statistical-variables-over-time-chart (content-superseded, verified) + engineer/image-distribution-design (intent shipped — per-commit statbus-sb image + install.sh --commit are live; the 242-line draft doc's concept is realized). KEPT: feature/pgadmin (now the FOUNDATION for STATBUS-173, builds on it — not a delete-candidate), feature/pg-oauth (King: belongs to another project, keep until he moves it), fix-custom-scripts (Erik's work — operator analyzing no.sql/ke.sql content vs master for the KING to judge intent; the King judges, not Erik). SEQUENCING HOLD (King): the seed-class branches db-seed + db-snapshot are NOT deleted now — they go AFTER we cut RC and R and the fleet is fully off the binaries that fetch them (shipped binaries ≤ v2026.05.6-rc.03 fetch db-seed; the install-recovery harness also depends on db-seed at vm-bootstrap.sh:472,508 — so db-seed additionally waits until the harness is weaned). db-snapshot rides the same after-RC/R timing. Remaining delete-safe pending the King's per-branch go: debug/archive-partial-at-final-rootcause, engineer/layer2-recovery-flag, test/upgrade-resume-new-scenarios, red/031-rollback-watchdog.
 ---
 <!-- COMMENTS:END -->
