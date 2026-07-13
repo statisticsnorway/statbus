@@ -3,9 +3,11 @@ id: STATBUS-164
 title: >-
   post-campaign-naming-sweep: rename the post-swap function family + the on-disk
   Phase serialization to the ratified vocabulary
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - mechanic
 created_date: '2026-07-12 14:05'
+updated_date: '2026-07-13 15:13'
 labels:
   - clarity
   - de-jargon
