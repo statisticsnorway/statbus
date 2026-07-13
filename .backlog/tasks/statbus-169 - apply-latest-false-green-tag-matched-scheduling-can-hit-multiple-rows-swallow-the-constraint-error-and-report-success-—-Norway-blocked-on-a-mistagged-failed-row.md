@@ -8,7 +8,7 @@ status: To Do
 assignee:
   - '@engineer'
 created_date: '2026-07-13 00:16'
-updated_date: '2026-07-13 00:49'
+updated_date: '2026-07-13 01:34'
 labels:
   - upgrade
   - production
@@ -70,5 +70,11 @@ PRODUCER TRACE (read-only rune SELECT; the incident's named history — corrects
 What the data rules out and in: a1b58193d was COMMITTED 23:27:56 — LATER than the tag's real target — so there was never an earlier same-named tag at it (the delete/move hypothesis is dead). Both rows registered within ~1 second. The producer is a SAME-WINDOW MIS-ATTRIBUTION in rc.04's discovery: at 23:27:56 it registered the then-latest master commit as release_status=COMMIT and stapled the release tag onto it, one second before registering the tag's actual target. The exact rc.04 line is superseded on master; rune's journal for the 20s window rotated; the DB snapshot is the durable record.
 
 Coverage check against the shipped fixes: the AC#1 write-guard would have REFUSED the mis-attribution at write (rev-parse(tag)=143cece86 ≠ a1b58193d — row 222 never gains the tag); the pruner move-drop HEALS the existing row on its normal cycle. The event sits squarely in the fixed class.
+---
+
+author: engineer (relayed by foreman)
+created: 2026-07-13 01:34
+---
+DEV RETRY TRACE CORRECTION (2026-07-13 night, hard dev evidence): the foreman's retry-after-rollback false-green report was WRONG on all three hypotheses — the scheduler behaved correctly end to end. Dev row 331014: scheduled_at 01:22:19 → started_at 01:22:59 → rolled_back_at 01:23:16. RunSchedule's documented terminal-row re-run flipped rolled_back→scheduled (STATBUS-160's trigger only guards state='completed' flips — never fired, correctly); the daemon claimed and RAN the upgrade; "scheduled_at on a rolled_back row" was the leftover of a claim→run→rollback cycle, not a stuck write. The REAL dev blocker is downstream and deterministic: BINARY_REPLACE_FAILED — the procured rc.02 binary fails post-swap self-verify ("procured binary is still reported stale", exit 2, "will fail the same way") on the first TAG-identified upgrade attempt of the night (all successful dev upgrades were commit-identified). Root-cause trace in flight (mis-built artifact vs procurement race vs comparison defect); it gets its own ticket when named. Separate design gap extracted to its own entry: deploy-workflow green means SCHEDULED, not CONVERGED — the daemon's async run can roll back after the workflow exits green.
 ---
 <!-- COMMENTS:END -->
