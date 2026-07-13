@@ -8,7 +8,7 @@ package migrate
 // bookkeeping — BEFORE any upgrade's real migration delta applies. Under the
 // STATBUS-145 redesign (slice 2) the two boot sites catch the schema up only to
 // THIS floor with `migrate up --to DaemonSchemaFloor`; the full delta then runs
-// exactly once inside the guarded applyPostSwap pipeline step. This file only
+// exactly once inside the guarded applyNewSbUpgrading pipeline step. This file only
 // DECLARES the floor + the relation set the bump guard enforces — it changes no
 // boot behavior on its own.
 //

@@ -159,7 +159,7 @@ func evaluateContainersAtFlagTarget(statuses []dockerPsEntry, commitSHA, display
 
 // containersAtFlagTarget probes `docker compose ps` and reports whether
 // the production container set runs at the flag's target. Used by
-// resumePostSwap as a self-heal canary: when the flag is stale but the
+// resumeNewSb as a self-heal canary: when the flag is stale but the
 // world has actually converged on the target, mark the row completed
 // instead of rolling back a successful upgrade.
 //

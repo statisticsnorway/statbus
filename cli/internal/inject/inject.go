@@ -83,7 +83,7 @@ const EnvStallReleaseFile = "STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE"
 //
 // A filesystem marker is REQUIRED (not a sync.Once / in-memory flag)
 // because the upgrade pipeline re-execs the process mid-flight —
-// syscall.Exec(sbPath, os.Args, os.Environ()) in postSwapFailure's
+// syscall.Exec(sbPath, os.Args, os.Environ()) in newSbUpgradingFailure's
 // inline-mode hand-off (service.go) — which preserves the env but wipes
 // all in-memory state. The now-inline crash recovery (STATBUS-017) then
 // re-enters the same kill site with the env still set; only a consumed-
@@ -162,7 +162,7 @@ var classes = map[string]Kind{
 	"killed-by-system-during-builtin-rollback":               KindKill,
 
 	// Canonical Layer 2 case — real-SIGKILL via harness. The migrate
-	// subprocess (./sb migrate up under applyPostSwap) stalls at the
+	// subprocess (./sb migrate up under applyNewSbUpgrading) stalls at the
 	// ~ms window between a migration's outer-transaction commit and
 	// the db.migration INSERT; the harness sends real SIGKILL to the
 	// chosen target PID for genuine signal semantics. Two variants
@@ -170,7 +170,7 @@ var classes = map[string]Kind{
 	//
 	//   migrate-subprocess-killed-after-commit-before-recorded
 	//     Harness SIGKILLs the migrate subprocess. Parent's
-	//     postSwapFailure catches the subprocess death and runs the
+	//     newSbUpgradingFailure catches the subprocess death and runs the
 	//     in-process forward-then-restore (Layer 0 in-process
 	//     recovery). End state: row=rolled_back via parent's rollback.
 	//

@@ -239,7 +239,7 @@ file changes needed.`,
 		// this, apply-latest unconditionally flips state='scheduled', the
 		// upgrade_notify_daemon_trigger fires NOTIFY upgrade_apply, and the
 		// service runs a full no-op upgrade pipeline (stop containers,
-		// backup, exit-42, restart, applyPostSwap) for nothing.
+		// backup, exit-42, restart, applyNewSbUpgrading) for nothing.
 		//
 		// Resolve the latest's commit via the SAME git-authoritative resolver the
 		// scheduling path uses (STATBUS-169 skip-check fold: the LAST tag-as-selector

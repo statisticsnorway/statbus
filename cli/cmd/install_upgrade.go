@@ -180,7 +180,7 @@ func restartUpgradeService(projDir string) {
 // PART 2 (engineer audit Q3 / scenarios 21+27): the prior in-flight
 // upgrade can legitimately leave the db container stopped (preswap
 // backup's volume rsync needs pg quiesced; post-swap intermediate state
-// before applyPostSwap brings it back). On that legitimate state,
+// before applyNewSbUpgrading brings it back). On that legitimate state,
 // EnsureDBReachable refuses with a category-3 diagnostic — but the right
 // move is to `docker compose start db` the EXISTING container (not
 // recreate it via `up -d`, which is still forbidden per rc.66 → rc.67)
@@ -225,7 +225,7 @@ func runCrashRecovery(projDir string) error {
 	// restoreGitState owns the tree (→ OLD). Checking out the target here would
 	// advance the tree forward and make the boot-migrate below apply the TARGET
 	// migrations to a DB about to be rolled back (git=OLD + schema=TARGET skew).
-	if flag, ferr := upgrade.ReadFlagFile(projDir); ferr == nil && flag.IsServiceForwardRecovery() {
+	if flag, ferr := upgrade.ReadFlagFile(projDir); ferr == nil && flag.IsServiceNewSbRecovery() {
 		if err := runCmdDir(projDir, "git", "-c", "advice.detachedHead=false", "checkout", flag.CommitSHA); err != nil {
 			return fmt.Errorf("crash recovery: git checkout target %s: %w", upgrade.ShortForDisplay(flag.CommitSHA), err)
 		}
@@ -246,7 +246,7 @@ func runCrashRecovery(projDir string) error {
 	// operator's binary's compose template may reference a different
 	// image-tag scheme than what's actually running, so `up -d` would
 	// silently swap the DB container to the operator's binary's image,
-	// destroying resumePostSwap's containersAtFlagTarget self-heal
+	// destroying resumeNewSb's containersAtFlagTarget self-heal
 	// precondition. (Pre-rc.67 used EnsureDBUp here; that's the bug class
 	// jo's 2026-04-28 deploy exposed.)
 	//
@@ -277,7 +277,7 @@ func runCrashRecovery(projDir string) error {
 	}
 	// STATBUS-046 (architect option (a) + pin 1): `./sb install` is one of the two
 	// deliberate un-park triggers. A PARKED row stays in_progress with its flag on
-	// disk, so recovery reaches here — but resumePostSwap would SKIP it
+	// disk, so recovery reaches here — but resumeNewSb would SKIP it
 	// (parked-skip) without this. Un-park (clear the marker + reset the death
 	// budget) BEFORE the boot migrate + RecoverFromFlag so the deliberate resume
 	// proceeds with a FRESH budget (and the guard below re-counts from 1). PARKED-ONLY:
@@ -287,7 +287,7 @@ func runCrashRecovery(projDir string) error {
 	// never un-parks itself.
 	if flag, ferr := upgrade.ReadFlagFile(projDir); ferr == nil && flag != nil && flag.Holder == upgrade.HolderService && flag.ID != 0 {
 		// HARD-FAIL on error (STATBUS-046): the operator's deliberate ./sb install
-		// must never silently no-op into a still-parked row that resumePostSwap
+		// must never silently no-op into a still-parked row that resumeNewSb
 		// then skips — that would strand the box. An actionable stop is the correct
 		// fail-fast.
 		unparked, oldReason, uerr := svc.UnparkByID(ctx, flag.ID)
@@ -334,7 +334,7 @@ func runCrashRecovery(projDir string) error {
 	// catches the schema up only to the daemon floor, NOT to HEAD. Pre-145 it
 	// carried the full delta (post-swap exec hands off to a fresh `./sb install`
 	// whose crash-recovery lands here); under 145 the delta runs at the guarded
-	// applyPostSwap step. The operator's DELIBERATE install still applies
+	// applyNewSbUpgrading step. The operator's DELIBERATE install still applies
 	// everything — the step-table Migrations step (cmd/install.go) stays apply-all;
 	// only this crash-recovery pre-step is bounded to the floor. On timeout the
 	// operator gets an actionable error; the conn is live now (LoadConfigAndConnect
@@ -362,7 +362,7 @@ func runCrashRecovery(projDir string) error {
 	if err := svc.RecoverFromFlag(ctx); err != nil {
 		recoveryErr := fmt.Errorf("crash recovery: %w", err)
 		// STATBUS-147: a re-park on this deliberate un-park path is SAFE (the
-		// parked-skip in RecoveryBudgetGuard + resumePostSwap makes every future
+		// parked-skip in RecoveryBudgetGuard + resumeNewSb makes every future
 		// boot alive-idle by construction, unlike a genuinely broken recovery,
 		// which must not resurrect a crash loop) and NECESSARY (the eventual fix
 		// release can only arrive via schedule → NOTIFY → daemon claim, which
@@ -403,7 +403,7 @@ func shouldRestartAfterFailedRecovery(parked bool, parkStateReadErr error) bool 
 // SIGKILL-class, never SIGTERM (STATBUS-039 safe takeover). `systemctl
 // stop` sends SIGTERM, and an in-flight upgrade process — old binary or
 // new — catches TERM, cancels the upgrade context, and ROLLS BACK
-// (postSwapFailure → rollback → restore). The unit's TimeoutStopSec=15min
+// (newSbUpgradingFailure → rollback → restore). The unit's TimeoutStopSec=15min
 // exists precisely because stop→rollback→pg_restore is real (a prior rune
 // incident). The window is live even on the crashed-upgrade path: between
 // install.Detect (flock free, dead RestartSec window) and this call, the

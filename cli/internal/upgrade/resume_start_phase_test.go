@@ -28,7 +28,7 @@ func extractFuncBody(t *testing.T, src, signature string) string {
 
 // TestRunStartupOrder_B1AndBootMigrateActivePhase is the structural guard for
 // plan piece #2 (B1) + boot-migrate-move. The exit-42 RESUME
-// (recoverFromFlag → resumePostSwap → applyPostSwap) and boot-migrate-up both
+// (recoverFromFlag → resumeNewSb → applyNewSbUpgrading) and boot-migrate-up both
 // run heavy, DB-size-scaled work; they MUST run in systemd's ACTIVE phase
 // (post-READY=1, governed by WatchdogSec) rather than the START phase (under
 // the fixed TimeoutStartSec that can't bound DB-size-scaled work — the NO/rune
@@ -120,7 +120,7 @@ func TestRunStartupOrder_B1AndBootMigrateActivePhase(t *testing.T) {
 //     recoverFromFlag — an EXPLICIT bounded cover, not a process-lifetime
 //     pinger that would mask later genuine main-goroutine hangs
 //  4. the boot-migrate call is bounded by the shared MigrateUpTimeout (not a
-//     site-local literal that can drift from the applyPostSwap migrate site)
+//     site-local literal that can drift from the applyNewSbUpgrading migrate site)
 //  5. the ticker passes nil progress (= ping unconditionally,
 //     progress.go shouldPingWatchdog nil-receiver contract) — output-gating
 //     would starve on a silent single-DDL migration, the exact case the

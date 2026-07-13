@@ -40,7 +40,7 @@ func TestBackupDirNames(t *testing.T) {
 // aside-rename window of a backup on a migrated box. On-disk shape: legacy
 // per-stamp dirs present (pruneBackups keeps the last 3 forever), syncing
 // present (the partial), active ABSENT (consumed by the aside-rename). The
-// killed upgrade recorded NO snapshot (updateFlagPostSwap never ran →
+// killed upgrade recorded NO snapshot (updateFlagNewSbSwapped never ran →
 // identity empty). The pre-039 recency scan returned the newest LEGACY dir
 // here — another upgrade's months-old backup, rsync --delete'd over the
 // UNTOUCHED live volume, silently, with a green rolled_back row. The
@@ -317,9 +317,9 @@ func TestPrepareSnapshot_FirstEverCreatesSyncing(t *testing.T) {
 // invariant guard (architect-verified HYP1, plan piece #12). pre-upgrade-active
 // is a MUTABLE pointer; it stays stable — never rsync-overwritten — from
 // backupDatabase-completion until flag-removal BECAUSE the exit-42 resume
-// re-enters applyPostSwap POST-backup and NEVER re-runs backupDatabase. If a
-// future refactor added a backupDatabase call inside applyPostSwap /
-// resumePostSwap (the resume re-entry path), a resume would overwrite the
+// re-enters applyNewSbUpgrading POST-backup and NEVER re-runs backupDatabase. If a
+// future refactor added a backupDatabase call inside applyNewSbUpgrading /
+// resumeNewSb (the resume re-entry path), a resume would overwrite the
 // rollback snapshot the in-flight upgrade still needs. This pins that
 // structurally: backupDatabase is called from exactly ONE site, and it is NOT
 // in the resume path.
@@ -342,12 +342,12 @@ func TestH2_BackupDatabaseSingleCallSiteNotInResume(t *testing.T) {
 			"destroying the rollback snapshot the in-flight upgrade still needs (H2).", n)
 	}
 
-	// That one call site must NOT be inside applyPostSwap or resumePostSwap —
+	// That one call site must NOT be inside applyNewSbUpgrading or resumeNewSb —
 	// the exit-42 resume re-entry path. If it were, a resume would re-run the
 	// backup over active.
 	for _, fn := range []string{
-		"func (d *Service) applyPostSwap(",
-		"func (d *Service) resumePostSwap(",
+		"func (d *Service) applyNewSbUpgrading(",
+		"func (d *Service) resumeNewSb(",
 	} {
 		body := extractFuncBody(t, s, fn)
 		if strings.Contains(body, "d.backupDatabase(") {
@@ -357,29 +357,29 @@ func TestH2_BackupDatabaseSingleCallSiteNotInResume(t *testing.T) {
 	}
 }
 
-// TestH2_FlagBackupPathSetOnlyAtPostSwap pins HYP3: flag.BackupPath is populated
-// only at post_swap (updateFlagPostSwap), AFTER the backup succeeds — so a kill
+// TestH2_FlagBackupPathSetOnlyAtNewSbSwapped pins HYP3: flag.BackupPath is populated
+// only at post_swap (updateFlagNewSbSwapped), AFTER the backup succeeds — so a kill
 // during the INITIAL rsync (syncing exists, no active, flag NOT yet post_swap)
 // leaves a flag that never references an absent active, and recovery never tries
-// to restore from one. Structurally: only updateFlagPostSwap assigns
+// to restore from one. Structurally: only updateFlagNewSbSwapped assigns
 // flag.BackupPath, and it sets Phase = PhaseNewSbSwapped in the same function.
-func TestH2_FlagBackupPathSetOnlyAtPostSwap(t *testing.T) {
+func TestH2_FlagBackupPathSetOnlyAtNewSbSwapped(t *testing.T) {
 	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
 	if err != nil {
 		t.Fatalf("read service.go: %v", err)
 	}
 	s := string(src)
 
-	// The only assignment to the BackupPath field is in updateFlagPostSwap.
+	// The only assignment to the BackupPath field is in updateFlagNewSbSwapped.
 	if n := strings.Count(s, "flag.BackupPath ="); n != 1 {
-		t.Errorf("flag.BackupPath must be assigned in exactly ONE place (updateFlagPostSwap, at post_swap); found %d assignments. "+
+		t.Errorf("flag.BackupPath must be assigned in exactly ONE place (updateFlagNewSbSwapped, at post_swap); found %d assignments. "+
 			"Setting it earlier (pre-backup) would let recovery reference an active that a killed initial rsync never produced (H2/HYP3).", n)
 	}
-	body := extractFuncBody(t, s, "func (d *Service) updateFlagPostSwap(")
+	body := extractFuncBody(t, s, "func (d *Service) updateFlagNewSbSwapped(")
 	if !strings.Contains(body, "flag.BackupPath =") {
-		t.Error("updateFlagPostSwap must be the function that sets flag.BackupPath (post_swap only)")
+		t.Error("updateFlagNewSbSwapped must be the function that sets flag.BackupPath (post_swap only)")
 	}
 	if !strings.Contains(body, "PhaseNewSbSwapped") {
-		t.Error("updateFlagPostSwap must set Phase = PhaseNewSbSwapped alongside BackupPath — the two must move together so a pre-post_swap kill never references active")
+		t.Error("updateFlagNewSbSwapped must set Phase = PhaseNewSbSwapped alongside BackupPath — the two must move together so a pre-post_swap kill never references active")
 	}
 }

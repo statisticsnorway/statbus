@@ -32,18 +32,18 @@ const RecoveryDeathBudget = 3
 // SAME step = deterministic-hang evidence → terminal immediately, independent of
 // remaining budget (doc-021 D3). These are STABLE machine identifiers (never
 // English prose) so the same-step comparison is exact — the doc-022 lesson that
-// classification must not ride error text. Mapped to the applyPostSwap steps
+// classification must not ride error text. Mapped to the applyNewSbUpgrading steps
 // (doc-021 §Step-list 3.1–3.7 + the Phase-4 completion writes).
 const (
 	// StepBootMigrate is the RESUME-time schema catch-up (`sb migrate up` at
 	// service.go Run + the install ladder — the rc.65 schema-skew guard). It runs
-	// BEFORE recoverFromFlag/resumePostSwap on every recovery boot, and because
+	// BEFORE recoverFromFlag/resumeNewSb on every recovery boot, and because
 	// executeUpgrade Step 6b always hands off post-swap, THIS site — not the
-	// applyPostSwap StepMigrateUp below — consumes every upgrade's migration delta
+	// applyNewSbUpgrading StepMigrateUp below — consumes every upgrade's migration delta
 	// on a resume (STATBUS-044 comment #6 / r12). RecoveryBudgetGuard stamps it on
 	// the flag around the boot migrate so two consecutive deaths there trip
 	// same-step-twice, exactly like the Phase-3 steps. It is NOT a Phase-3
-	// applyPostSwap step (it runs earlier, in Run itself) — kept beside them so the
+	// applyNewSbUpgrading step (it runs earlier, in Run itself) — kept beside them so the
 	// same-step comparison is over one stable identifier set.
 	StepBootMigrate = "boot-migrate" // resume-time schema catch-up (Run + install ladder)
 
@@ -167,7 +167,7 @@ func rollbackResumeIsTerminal(step, priorStep string) bool {
 // ─────────────────────────────────────────────────────────────────────────────
 // STATBUS-046 slice 2 — B/C failure classification (park-on-first).
 //
-// A step failure already-at-new already funnels into the death budget (postSwapFailure
+// A step failure already-at-new already funnels into the death budget (newSbUpgradingFailure
 // records the failure and returns → the process exits → the next crash-resume
 // increments recovery_attempts; after 3 deaths it parks). Slice 2 SHORT-CIRCUITS
 // that for a PROVABLY-deterministic (B) or resource (C) failure: park on the
@@ -227,7 +227,7 @@ func (c failureClass) parksOnFirst() bool {
 // a possibly-slow step on its first timeout.
 //
 // UNKNOWN → A is safe (architect Q1) precisely because an error-exit COUNTS AS A
-// DEATH: the failing step returns → applyPostSwap stops → the process exits →
+// DEATH: the failing step returns → applyNewSbUpgrading stops → the process exits →
 // systemd restarts → the next resume increments recovery_attempts. So an
 // unknown-but-deterministic error parks on its SECOND occurrence via
 // same-step-twice (faster than the budget), while a transient unknown survives

@@ -120,7 +120,7 @@ func TestResumeEscalation_BootMigrateSameStepTwice(t *testing.T) {
 	}
 }
 
-// StepBootMigrate is a STABLE machine identifier, distinct from the applyPostSwap
+// StepBootMigrate is a STABLE machine identifier, distinct from the applyNewSbUpgrading
 // StepMigrateUp (3.5) — the two migrate windows must never collapse to one string,
 // or a boot-migrate death and a (near-impossible) step-3.5 death would falsely read
 // as same-step-twice across the two.
@@ -135,7 +135,7 @@ func TestStepBootMigrateIdentifier(t *testing.T) {
 
 // STATBUS-044 comment #6 part 3 — countRecoveryAttemptOnce counts EXACTLY ONCE per
 // process lifetime. Once RecoveryBudgetGuard has counted (recoveryPassCounted), a
-// later downstream caller (resumePostSwap / recoveryRollback) must reuse the stored
+// later downstream caller (resumeNewSb / recoveryRollback) must reuse the stored
 // value WITHOUT touching the DB — the load-bearing "don't double-count the same
 // pass" short-circuit. A nil queryConn proves the DB is never dereferenced on this
 // path.

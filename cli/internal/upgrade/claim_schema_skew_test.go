@@ -21,7 +21,7 @@ import (
 // twice (the pinned `pre-upgrade` BRANCH and this column), a redundancy. The
 // BRANCH becomes the single recovery source of truth; from_commit_VERSION stays
 // as the display record. In service.go: the two claim sites stop writing
-// from_commit_sha (keep from_commit_version); recoveryRollback + resumePostSwap +
+// from_commit_sha (keep from_commit_version); recoveryRollback + resumeNewSb +
 // the in-process rollback stop reading it and resolve the restore target solely
 // from the branch (restoreTargetSHA="" -> restoreGitStateFn's pre-upgrade-branch
 // fallback, now unconditional); the release-back UPDATE drops from_commit_sha=NULL;
@@ -55,7 +55,7 @@ func TestUpgrade_FromCommitSHARemoved_SingleSourceRecovery_STATBUS077(t *testing
 	//     truth = the pinned pre-upgrade branch.
 	sqlUses := []string{
 		"from_commit_sha = $",    // claim write (parametrized): ExecuteUpgradeInline + executeScheduled
-		"SELECT from_commit_sha", // recovery reads: recoveryRollback + resumePostSwap
+		"SELECT from_commit_sha", // recovery reads: recoveryRollback + resumeNewSb
 		"from_commit_sha = NULL", // release-back UPDATE
 	}
 	for _, frag := range sqlUses {

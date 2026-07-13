@@ -14,7 +14,7 @@ import (
 //   - UpgradeFlag struct carries Phase + Recreate + BackupPath across the
 //     exit-42 restart so the new binary's recoverFromFlag can resume.
 //   - writeUpgradeFlag persists the Recreate bit passed by executeUpgrade.
-//   - updateFlagPostSwap rewrites the on-disk JSON in place and keeps the
+//   - updateFlagNewSbSwapped rewrites the on-disk JSON in place and keeps the
 //     flock held (another acquirer must still be blocked).
 //   - recoverFromFlag branches on Phase BEFORE the HEAD=target self-heal
 //     logic, so a post-swap restart does NOT falsely mark the row
@@ -24,9 +24,9 @@ import (
 // live postgres + systemd restart and lives in the upgrade integration
 // smoke tests, not here.
 
-// TestUpgradeFlagJSONRoundTrip_PostSwap verifies the new fields (Phase,
+// TestUpgradeFlagJSONRoundTrip_NewSbSwapped verifies the new fields (Phase,
 // Recreate, BackupPath) serialise and deserialise cleanly.
-func TestUpgradeFlagJSONRoundTrip_PostSwap(t *testing.T) {
+func TestUpgradeFlagJSONRoundTrip_NewSbSwapped(t *testing.T) {
 	original := UpgradeFlag{
 		ID:         42,
 		CommitSHA:  "abc123def456",
@@ -142,10 +142,10 @@ func TestWriteUpgradeFlag_PersistsRecreate(t *testing.T) {
 	}
 }
 
-// TestUpdateFlagPostSwap_RewritesInPlace verifies the helper stamps
+// TestUpdateFlagNewSbSwapped_RewritesInPlace verifies the helper stamps
 // Phase=post_swap + BackupPath on the same fd, without releasing the
 // flock. Another actor trying to acquire must still be blocked afterwards.
-func TestUpdateFlagPostSwap_RewritesInPlace(t *testing.T) {
+func TestUpdateFlagNewSbSwapped_RewritesInPlace(t *testing.T) {
 	projDir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(projDir, "tmp"), 0755); err != nil {
 		t.Fatal(err)
@@ -157,8 +157,8 @@ func TestUpdateFlagPostSwap_RewritesInPlace(t *testing.T) {
 	defer d.removeUpgradeFlag()
 
 	backup := filepath.Join(projDir, "backup-dir")
-	if err := d.updateFlagPostSwap(backup); err != nil {
-		t.Fatalf("updateFlagPostSwap: %v", err)
+	if err := d.updateFlagNewSbSwapped(backup); err != nil {
+		t.Fatalf("updateFlagNewSbSwapped: %v", err)
 	}
 
 	data, err := os.ReadFile(d.flagPath())
@@ -177,7 +177,7 @@ func TestUpdateFlagPostSwap_RewritesInPlace(t *testing.T) {
 	}
 	// Pre-existing fields preserved.
 	if flag.ID != 99 || flag.CommitSHA != "sha99" || !flag.Recreate {
-		t.Errorf("updateFlagPostSwap dropped pre-existing fields: %+v", flag)
+		t.Errorf("updateFlagNewSbSwapped dropped pre-existing fields: %+v", flag)
 	}
 
 	// Flock must still be held: a second acquirer in the same process
@@ -185,17 +185,17 @@ func TestUpdateFlagPostSwap_RewritesInPlace(t *testing.T) {
 	if _, err := acquireFlock(projDir, UpgradeFlag{
 		ID: 100, CommitSHA: "x", CommitTags: []string{"v0-other"}, Holder: HolderService, Trigger: "notify",
 	}); err == nil {
-		t.Errorf("expected second acquireFlock to fail (flock still held after updateFlagPostSwap)")
+		t.Errorf("expected second acquireFlock to fail (flock still held after updateFlagNewSbSwapped)")
 	}
 }
 
-// TestUpdateFlagPostSwap_RejectsNoFd guards the precondition: if the
-// service never acquired the flag, updateFlagPostSwap must not silently
+// TestUpdateFlagNewSbSwapped_RejectsNoFd guards the precondition: if the
+// service never acquired the flag, updateFlagNewSbSwapped must not silently
 // succeed — that would write a phantom file without a held flock.
-func TestUpdateFlagPostSwap_RejectsNoFd(t *testing.T) {
+func TestUpdateFlagNewSbSwapped_RejectsNoFd(t *testing.T) {
 	d := &Service{projDir: t.TempDir()}
-	if err := d.updateFlagPostSwap("/tmp/x"); err == nil {
-		t.Error("expected updateFlagPostSwap on a Service without flagLock to error")
+	if err := d.updateFlagNewSbSwapped("/tmp/x"); err == nil {
+		t.Error("expected updateFlagNewSbSwapped on a Service without flagLock to error")
 	}
 }
 
@@ -203,7 +203,7 @@ func TestUpdateFlagPostSwap_RejectsNoFd(t *testing.T) {
 // guard for recoverFromFlag's routing after STATBUS-039:
 //
 //  1. Every produced phase has an explicit branch (PreSwap "", PostSwap,
-//     Resuming) and PostSwap routes to resumePostSwap — a post-swap restart
+//     Resuming) and PostSwap routes to resumeNewSb — a post-swap restart
 //     (exit-42 handoff) must resume the pipeline, never be misclassified.
 //  2. The pre-039 HEAD=target self-heal segment is GONE from recoverFromFlag
 //     (it was unreachable for every producible phase, and its headSHA
@@ -236,17 +236,17 @@ func TestRecoverFromFlag_PhaseRoutingAndObservedStateFirst(t *testing.T) {
 	}
 	fn := rest[:end[1]]
 
-	// (1) Phase discrimination present; PostSwap routes to resumePostSwap.
+	// (1) Phase discrimination present; PostSwap routes to resumeNewSb.
 	phaseIdx := strings.Index(fn, "flag.Phase == PhaseNewSbSwapped")
 	if phaseIdx < 0 {
 		t.Fatal("recoverFromFlag missing the PostSwap phase branch — a post-swap restart would be misrouted")
 	}
-	postSwapBranch := fn[phaseIdx:]
-	if close := strings.Index(postSwapBranch, "\n\t}\n"); close > 0 {
-		postSwapBranch = postSwapBranch[:close]
+	newSbSwappedBranch := fn[phaseIdx:]
+	if close := strings.Index(newSbSwappedBranch, "\n\t}\n"); close > 0 {
+		newSbSwappedBranch = newSbSwappedBranch[:close]
 	}
-	if !strings.Contains(postSwapBranch, "d.resumePostSwap(ctx, flag)") {
-		t.Errorf("PostSwap branch must call d.resumePostSwap(ctx, flag). Body:\n%s", postSwapBranch)
+	if !strings.Contains(newSbSwappedBranch, "d.resumeNewSb(ctx, flag)") {
+		t.Errorf("PostSwap branch must call d.resumeNewSb(ctx, flag). Body:\n%s", newSbSwappedBranch)
 	}
 
 	// (2) The HEAD=target self-heal segment must stay deleted.
@@ -277,8 +277,8 @@ func TestRecoverFromFlag_PhaseRoutingAndObservedStateFirst(t *testing.T) {
 		t.Errorf("ground truth must be consulted BEFORE recoveryRollback in the Resuming branch (obsIdx=%d, rbIdx=%d) — "+
 			"otherwise one died resume latches the next recovery into a restore over a possibly at-target box", obsIdx, rbIdx)
 	}
-	if !strings.Contains(resumingBranch, "d.resumePostSwap(ctx, flag)") {
-		t.Error("Resuming branch must route the at-target/unverifiable verdicts FORWARD via d.resumePostSwap")
+	if !strings.Contains(resumingBranch, "d.resumeNewSb(ctx, flag)") {
+		t.Error("Resuming branch must route the at-target/unverifiable verdicts FORWARD via d.resumeNewSb")
 	}
 
 	// (4) Unknown phase fails loud.
@@ -287,13 +287,13 @@ func TestRecoverFromFlag_PhaseRoutingAndObservedStateFirst(t *testing.T) {
 	}
 }
 
-// TestResumePostSwap_SelfHealContinueOrFailLoud is the structural guard
-// for the rc.67 recovery trifecta. resumePostSwap takes ONE of three
+// TestResumeNewSb_SelfHealContinueOrFailLoud is the structural guard
+// for the rc.67 recovery trifecta. resumeNewSb takes ONE of three
 // paths when handling a flagged in-flight upgrade after process restart:
 //
 //  1. self-heal: containers ARE at flag target → mark row completed
 //  2. continuation: containers stopped/missing AND running binary IS at
-//     flag target → fall through to applyPostSwap (normal mid-pipeline
+//     flag target → fall through to applyNewSbUpgrading (normal mid-pipeline
 //     resume after the binary swap that triggered exit-42)
 //  3. category-3 fail-loud: containers stopped/missing AND running binary
 //     is NOT at flag target (an unrelated install advanced past) → return
@@ -308,26 +308,26 @@ func TestRecoverFromFlag_PhaseRoutingAndObservedStateFirst(t *testing.T) {
 // "containers do not match flag target [app: old version not running, new version not started yet worker: old version not running, new version not started yet
 // rest: old version not running, new version not started yet]". The fix discriminates on d.binaryCommit vs
 // flag.CommitSHA.
-func TestResumePostSwap_SelfHealContinueOrFailLoud(t *testing.T) {
+func TestResumeNewSb_SelfHealContinueOrFailLoud(t *testing.T) {
 	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
 	if err != nil {
 		t.Fatalf("read service.go: %v", err)
 	}
 	body := string(src)
-	start := strings.Index(body, "func (d *Service) resumePostSwap(")
+	start := strings.Index(body, "func (d *Service) resumeNewSb(")
 	if start < 0 {
-		t.Fatal("resumePostSwap not found in service.go")
+		t.Fatal("resumeNewSb not found in service.go")
 	}
 	rest := body[start:]
 	end := regexp.MustCompile(`(?m)^}\n`).FindStringIndex(rest)
 	if end == nil {
-		t.Fatal("resumePostSwap closing brace not found")
+		t.Fatal("resumeNewSb closing brace not found")
 	}
 	fn := rest[:end[1]]
 
 	probeIdx := strings.Index(fn, "d.containersAtFlagTarget(ctx, flag)")
 	if probeIdx < 0 {
-		t.Fatal("resumePostSwap missing self-heal probe call. Add: " +
+		t.Fatal("resumeNewSb missing self-heal probe call. Add: " +
 			"`if ok, mismatched := d.containersAtFlagTarget(ctx, flag); ok { ... }`")
 	}
 
@@ -343,7 +343,7 @@ func TestResumePostSwap_SelfHealContinueOrFailLoud(t *testing.T) {
 		}
 	}
 
-	// rc.67 trifecta: NO auto-rollback in resumePostSwap. Both the
+	// rc.67 trifecta: NO auto-rollback in resumeNewSb. Both the
 	// helper and the heavyweight rollback driver must be absent here.
 	// Strip line comments first — the function body still mentions both
 	// names in a "removed in rc.67" comment for historical context, and
@@ -354,7 +354,7 @@ func TestResumePostSwap_SelfHealContinueOrFailLoud(t *testing.T) {
 		"recoveryRollback",
 	} {
 		if strings.Contains(codeOnly, banned) {
-			t.Errorf("resumePostSwap must not call %q (rc.67 trifecta: containers-not-at-flag-target is "+
+			t.Errorf("resumeNewSb must not call %q (rc.67 trifecta: containers-not-at-flag-target is "+
 				"category-3, fail loudly with a returned error instead of auto-rolling-back)", banned)
 		}
 	}
@@ -363,7 +363,7 @@ func TestResumePostSwap_SelfHealContinueOrFailLoud(t *testing.T) {
 	// silently masking the divergence. Match on the unique phrase from
 	// the error message we now produce.
 	if !strings.Contains(fn, "category-3") {
-		t.Error("resumePostSwap mismatch branch must return a category-3 error " +
+		t.Error("resumeNewSb mismatch branch must return a category-3 error " +
 			"(per the recovery trifecta) — looked for the literal token \"category-3\" " +
 			"in the function body and didn't find it.")
 	}
@@ -374,7 +374,7 @@ func TestResumePostSwap_SelfHealContinueOrFailLoud(t *testing.T) {
 	// fails post-swap because containers are stopped mid-pipeline by
 	// design.
 	if !strings.Contains(codeOnly, "d.binaryCommit") {
-		t.Error("resumePostSwap mismatch branch must check d.binaryCommit vs flag.CommitSHA " +
+		t.Error("resumeNewSb mismatch branch must check d.binaryCommit vs flag.CommitSHA " +
 			"to discriminate normal mid-pipeline state (binary at flag target → continue) " +
 			"from genuine category-3 divergence (binary != flag target → fail loud).")
 	}
@@ -399,9 +399,9 @@ func stripLineComments(src string) string {
 	return b.String()
 }
 
-// TestPostSwapFailure_ObservedStateBeforeRollback is the structural guard for
-// STATBUS-039 rule 1 at the applyPostSwap failure chokepoint: every step
-// failure routes through postSwapFailure, and postSwapFailure must consult
+// TestNewSbUpgradingFailure_ObservedStateBeforeRollback is the structural guard for
+// STATBUS-039 rule 1 at the applyNewSbUpgrading failure chokepoint: every step
+// failure routes through newSbUpgradingFailure, and newSbUpgradingFailure must consult
 // observed state (verifyUpgradeObservedStateEx) BEFORE d.rollback can run.
 // Only a POSITIVELY-behind verdict may restore; already-at-new and unverifiable
 // verdicts record the failure non-terminally and retry forward on the next
@@ -409,32 +409,32 @@ func stripLineComments(src string) string {
 // already-at-new box (rune id=187: everything at target except a lagging proxy)
 // routes into a snapshot restore — destroying anything written past the
 // maintenance-off commit point.
-func TestPostSwapFailure_ObservedStateBeforeRollback(t *testing.T) {
+func TestNewSbUpgradingFailure_ObservedStateBeforeRollback(t *testing.T) {
 	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
 	if err != nil {
 		t.Fatalf("read service.go: %v", err)
 	}
-	body := extractFuncBody(t, string(src), "func (d *Service) postSwapFailure(")
+	body := extractFuncBody(t, string(src), "func (d *Service) newSbUpgradingFailure(")
 
 	obsIdx := strings.Index(body, "verifyUpgradeObservedStateEx")
 	rbIdx := strings.Index(body, "d.rollback(")
 	if obsIdx < 0 {
-		t.Fatal("postSwapFailure must consult verifyUpgradeObservedStateEx (STATBUS-039 rule 1)")
+		t.Fatal("newSbUpgradingFailure must consult verifyUpgradeObservedStateEx (STATBUS-039 rule 1)")
 	}
 	if rbIdx < 0 {
-		t.Fatal("postSwapFailure must retain the positively-behind rollback path (d.rollback)")
+		t.Fatal("newSbUpgradingFailure must retain the positively-behind rollback path (d.rollback)")
 	}
 	if obsIdx > rbIdx {
-		t.Errorf("ground truth must be consulted BEFORE d.rollback in postSwapFailure (obsIdx=%d, rbIdx=%d)", obsIdx, rbIdx)
+		t.Errorf("ground truth must be consulted BEFORE d.rollback in newSbUpgradingFailure (obsIdx=%d, rbIdx=%d)", obsIdx, rbIdx)
 	}
 	// The non-Behind verdicts must return WITHOUT rollback: the early
 	// return goes through recordInProgressFailure (non-terminal, row stays
 	// in_progress for the forward retry).
 	if !strings.Contains(body, "recordInProgressFailure") {
-		t.Error("postSwapFailure's at-target/unverifiable branch must record the failure non-terminally (recordInProgressFailure) and keep the row in_progress for the forward retry")
+		t.Error("newSbUpgradingFailure's at-target/unverifiable branch must record the failure non-terminally (recordInProgressFailure) and keep the row in_progress for the forward retry")
 	}
 	if !strings.Contains(body, "ObservedCannotReachNew") {
-		t.Error("postSwapFailure must discriminate on ObservedCannotReachNew — restore only on a POSITIVE behind verdict, never under uncertainty")
+		t.Error("newSbUpgradingFailure must discriminate on ObservedCannotReachNew — restore only on a POSITIVE behind verdict, never under uncertainty")
 	}
 }
 
@@ -474,8 +474,8 @@ func TestRestoreDatabase_IdentityKeyed_NoRecencyScan(t *testing.T) {
 // daemon advisory lock when it reaches here, and a concurrently respawned
 // service's recovery is equally lock-free, so without the gate two
 // rsync --delete restores can hit the same DB volume at once. rollback()
-// itself must stay acquire-free: its in-process callers (resumePostSwap →
-// applyPostSwap → postSwapFailure) already hold the flock, and a second
+// itself must stay acquire-free: its in-process callers (resumeNewSb →
+// applyNewSbUpgrading → newSbUpgradingFailure) already hold the flock, and a second
 // flock on the same file fails even within one process.
 func TestRecoveryRollback_FlockGateBeforeDestructiveWork(t *testing.T) {
 	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))

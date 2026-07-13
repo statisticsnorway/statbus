@@ -37,7 +37,7 @@ type ProgressLog struct {
 	// for the #3 progress-gated watchdog (plan upgrade-resume-structural-whole.md).
 	// Bumped by (a) Write (every step boundary) and (b) the PrefixWriter onLine
 	// callback (every subprocess output line) threaded through runCommandToLog.
-	// The applyPostSwap WATCHDOG=1 ticker reads sinceLastAdvance() and pings
+	// The applyNewSbUpgrading WATCHDOG=1 ticker reads sinceLastAdvance() and pings
 	// systemd ONLY IF the pipeline advanced within stallThreshold — so a HUNG
 	// step (no advance) stops the pings and WatchdogSec fires (bounded), while
 	// an advancing step survives. atomic: the ticker goroutine reads while
@@ -295,7 +295,7 @@ func (p *ProgressLog) setDeferGating(v bool) {
 	p.deferGating.Store(v)
 }
 
-// shouldPingWatchdog is the #3 progress-gated decision the applyPostSwap
+// shouldPingWatchdog is the #3 progress-gated decision the applyNewSbUpgrading
 // WATCHDOG=1 ticker consults each tick: ping IFF the pipeline advanced within
 // stallThreshold, OR gating is deferred (the migrate/recreate step, bounded by
 // its own timeout). A stalled, non-deferred step → no ping → WatchdogSec fires

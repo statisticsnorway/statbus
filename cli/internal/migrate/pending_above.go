@@ -8,7 +8,7 @@ package migrate
 // greater than `floor`, and how many. STATBUS-145: a flagless boot catches the
 // schema up only to the daemon floor (`migrate up --to floor`); migrations ABOVE
 // the floor are the real upgrade delta, applied EXACTLY ONCE inside the guarded
-// applyPostSwap pipeline (or by the deliberate `./sb install` step-table), never
+// applyNewSbUpgrading pipeline (or by the deliberate `./sb install` step-table), never
 // blindly at boot. The count lets the flagless boot log one loud line naming how
 // many migrations are deferred rather than applying them silently.
 func HasPendingAbove(projDir string, floor int64) (pending bool, count int, err error) {

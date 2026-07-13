@@ -104,7 +104,7 @@ var clientServices = []string{"worker", "app", "rest"}
 // are currently running, and returns the list of services it actually
 // stopped. ResumeClients takes that list back to restart exactly those.
 //
-// Rationale: install.go's Seed + Migrations steps and applyPostSwap's
+// Rationale: install.go's Seed + Migrations steps and applyNewSbUpgrading's
 // migrate-up step issue DDL that needs AccessExclusiveLock on tables a
 // running worker (or app / rest under load) reads with AccessShareLock.
 // Postgres lock manager parks the DDL indefinitely behind the client's

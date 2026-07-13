@@ -27,8 +27,8 @@ import "testing"
 // Source-of-truth references:
 //   - containers.go's `versionTrackedServices` var
 //   - service.go's `step11RestartServices` var
-//   - service.go's step 11 in applyPostSwap (uses step11RestartServices)
-//   - service.go's step 9 in applyPostSwap (docker compose up -d --no-build db)
+//   - service.go's step 11 in applyNewSbUpgrading (uses step11RestartServices)
+//   - service.go's step 9 in applyNewSbUpgrading (docker compose up -d --no-build db)
 //
 // "rest" is in step11RestartServices but intentionally absent from
 // versionTrackedServices: postgrest's image tag is upstream-pinned

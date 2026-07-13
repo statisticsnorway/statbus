@@ -157,9 +157,9 @@ func stalenessGuard(c *cobra.Command, _ []string) {
 			// Procuring + re-exec'ing here would fight that recovery boot.
 			// Defer instead; the genuine stale-dev-binary case (no flag,
 			// install-held, or pre_swap) still self-heals below. PreSwap is
-			// gated OUT by IsServiceForwardRecovery: it rolls back, so the
+			// gated OUT by IsServiceNewSbRecovery: it rolls back, so the
 			// tree must stay at the source commit.
-			if flag, ferr := upgrade.ReadFlagFile(config.ProjectDir()); ferr == nil && flag.IsServiceForwardRecovery() {
+			if flag, ferr := upgrade.ReadFlagFile(config.ProjectDir()); ferr == nil && flag.IsServiceNewSbRecovery() {
 				fmt.Fprintln(os.Stderr, "WARN: "+msg)
 				fmt.Fprintln(os.Stderr, "In-flight upgrade recovery (service-held flag, already booted the new binary) — deferring to the recovery boot; not self-healing.")
 				return

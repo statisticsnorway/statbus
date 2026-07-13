@@ -71,7 +71,7 @@ func TestEmitHeartbeat_WritesAllSignals(t *testing.T) {
 }
 
 // TestSdNotifyWatchdog_WritesPayload verifies the ad-hoc
-// sdNotify("WATCHDOG=1") path used by the applyPostSwap migrate
+// sdNotify("WATCHDOG=1") path used by the applyNewSbUpgrading migrate
 // ticker. The migrate ticker bypasses emitHeartbeat (which also
 // writes the heartbeat file + logs a journal line — overkill for
 // the per-30s subprocess-keepalive cadence) and just resets the

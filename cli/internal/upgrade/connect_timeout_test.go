@@ -11,7 +11,7 @@ import (
 
 // reconnect-hung-bounded (plan upgrade-resume-structural-whole.md piece #3):
 // connect() must BOUND a hung dial+handshake by connectTimeout, so the
-// applyPostSwap reconnect — which the #3 watchdog defers gating during (it is a
+// applyNewSbUpgrading reconnect — which the #3 watchdog defers gating during (it is a
 // legitimately silent step) — cannot block forever. Before this guard, connStr
 // had no connect_timeout and callers passed the service-lifetime ctx (no
 // deadline), so a wedged pgx.Connect would ping the watchdog forever (the
@@ -47,7 +47,7 @@ func TestConnectBoundedByConnectTimeout(t *testing.T) {
 
 	d := &Service{projDir: dir}
 
-	// Pass a context with NO deadline — exactly the applyPostSwap reconnect
+	// Pass a context with NO deadline — exactly the applyNewSbUpgrading reconnect
 	// case. The bound MUST come from connectTimeout inside connect(), not from
 	// the caller's ctx.
 	done := make(chan error, 1)

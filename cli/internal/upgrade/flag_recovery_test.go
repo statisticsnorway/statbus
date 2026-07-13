@@ -2,7 +2,7 @@ package upgrade
 
 import "testing"
 
-// TestIsServiceForwardRecovery pins the single predicate that decides whether a
+// TestIsServiceNewSbRecovery pins the single predicate that decides whether a
 // flag represents an in-flight, service-held FORWARD recovery (post_swap /
 // resuming). Three callers depend on it — Service.Run's and runCrashRecovery's
 // recovery-boot checkout gates, and stalenessGuard's self-heal carve-out
@@ -11,7 +11,7 @@ import "testing"
 //     `make` on a toolchain-less tagged-release host → crash loop;
 //   - a false POSITIVE (esp. on PreSwap, which rolls back) would defer a
 //     genuinely-stale binary's rebuild AND let a rolling-back tree advance.
-func TestIsServiceForwardRecovery(t *testing.T) {
+func TestIsServiceNewSbRecovery(t *testing.T) {
 	const sha = "0123456789abcdef0123456789abcdef01234567"
 	cases := []struct {
 		name string
@@ -28,8 +28,8 @@ func TestIsServiceForwardRecovery(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := tc.flag.IsServiceForwardRecovery(); got != tc.want {
-				t.Errorf("IsServiceForwardRecovery() = %v, want %v", got, tc.want)
+			if got := tc.flag.IsServiceNewSbRecovery(); got != tc.want {
+				t.Errorf("IsServiceNewSbRecovery() = %v, want %v", got, tc.want)
 			}
 		})
 	}

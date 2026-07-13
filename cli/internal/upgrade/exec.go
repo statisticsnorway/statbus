@@ -73,7 +73,7 @@ func runCommand(dir string, name string, args ...string) error {
 
 // runInstallFixup runs `./sb install` as a post-upgrade idempotency step.
 //
-// Called at the TAIL of applyPostSwap — AFTER the terminal state='completed'
+// Called at the TAIL of applyNewSbUpgrading — AFTER the terminal state='completed'
 // UPDATE and removeUpgradeFlag (rune-stuck-fix A; service.go). By the time this
 // child runs, the upgrade flag is already GONE and the upgrade is COMPLETE, not
 // active. It sets --post-upgrade-fixup and STATBUS_POST_UPGRADE_FIXUP=1 to tell
@@ -412,7 +412,7 @@ func (d *Service) backupRoot() string {
 // clean/dirty state:
 //   - backupActiveName  — a COMPLETE, restorable snapshot (the incremental base
 //     for the next backup, and the rollback source). Only a COMMITTED path is
-//     ever recorded on the flag/row (updateFlagPostSwap runs after the
+//     ever recorded on the flag/row (updateFlagNewSbSwapped runs after the
 //     commit-rename), and restoreDatabase consumes ONLY that recorded path
 //     (identity-keyed, STATBUS-039/-031).
 //   - backupSyncingName — an IN-FLIGHT or killed-mid-rsync PARTIAL. Never
@@ -727,10 +727,10 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (string, e
 	// flight" (partial). The pre-upgrade git branch was already pinned upstream
 	// (executeUpgrade step before this call) so restoreGitState has its anchor.
 	// The next install's recoverFromFlag sees flag PreSwap (kill fired upstream
-	// of updateFlagPostSwap) and routes through the PreSwap recovery branch; the
+	// of updateFlagNewSbSwapped) and routes through the PreSwap recovery branch; the
 	// OLD DB volume is intact (backup was a COPY, source unmodified). A retry
 	// resumes by rsyncing into the leftover syncing, then commits. No backup
-	// path was recorded by the killed run (updateFlagPostSwap never ran), so
+	// path was recorded by the killed run (updateFlagNewSbSwapped never ran), so
 	// the identity-keyed restore refuses to touch the volume — the partial
 	// can never be a restore source.
 	//
@@ -836,7 +836,7 @@ const RestoreDBTimeout = 30 * time.Minute
 // WatchdogSec mid-restore.
 //
 // backupPath is the snapshot path the upgrade being recovered RECORDED for
-// itself: flag.BackupPath (stamped by updateFlagPostSwap after the snapshot
+// itself: flag.BackupPath (stamped by updateFlagNewSbSwapped after the snapshot
 // commit-rename) or the row's backup_path column. Selection by recency
 // (the former pickLatestBackup) is forbidden here: during the aside-rename
 // window of every backup the active dir is absent, and a recency scan would
@@ -1095,7 +1095,7 @@ func (d *Service) pruneUpgradeLogs(keep int) {
 	}
 }
 
-// PostSwapDBHealthTimeout is the class-A readiness allowance for the post-swap
+// NewSbUpgradingDBHealthTimeout is the class-A readiness allowance for the post-swap
 // db-up step (STATBUS-046 slice 3, doc-021 3.3). SIZE-SCALED-INTENT: after an
 // unclean stop, PostgreSQL replays the WAL before it accepts connections, and on
 // a Norway-sized volume that can legitimately take minutes — a 30s wait would
@@ -1103,7 +1103,7 @@ func (d *Service) pruneUpgradeLogs(keep int) {
 // the generous-fixed-budget doctrine of MigrateUpTimeout (30m) rather than a
 // per-volume formula (there is no such formula today). This is an IN-PLACE class-A
 // wait; it never consumes a death. Honest default, arc-reconcilable/tunable.
-const PostSwapDBHealthTimeout = 5 * time.Minute
+const NewSbUpgradingDBHealthTimeout = 5 * time.Minute
 
 func (d *Service) waitForDBHealth(timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
@@ -1125,7 +1125,7 @@ func (d *Service) waitForDBHealth(timeout time.Duration) error {
 // when the DB is already up (`docker compose up -d db` is a no-op in that
 // case). Used by Service.Run() at daemon startup, where the DB may be
 // intentionally stopped (post-swap intermediate state set up by
-// applyPostSwap step 2 for the consistent backup, cleared by step 9 on
+// applyNewSbUpgrading step 2 for the consistent backup, cleared by step 9 on
 // the new binary). The post-swap restart of the daemon comes back as the
 // IN-FLIGHT TARGET binary (exit-42 handoff), so this docker compose up uses
 // the in-flight target's compose template — pulling the in-flight target's
@@ -1135,7 +1135,7 @@ func (d *Service) waitForDBHealth(timeout time.Duration) error {
 // operator's `./sb install` invokes a binary whose compose template may
 // have a different image-tag scheme than what's actually running. A
 // docker compose up there would silently swap the DB container to the
-// operator's binary's image, destroying resumePostSwap's
+// operator's binary's image, destroying resumeNewSb's
 // containersAtFlagTarget self-heal precondition. That caller uses
 // EnsureDBReachable below.
 func (d *Service) EnsureDBUp(ctx context.Context) error {
@@ -1165,7 +1165,7 @@ func (d *Service) EnsureDBUp(ctx context.Context) error {
 // recreates them with the current binary's compose-template image tag. That's
 // the critical asymmetry with `docker compose up -d` (which IS forbidden here
 // per the rc.66 → rc.67 lesson): up -d would silently recreate against the
-// operator's binary's image, destroying resumePostSwap's containersAtFlagTarget
+// operator's binary's image, destroying resumeNewSb's containersAtFlagTarget
 // self-heal precondition. `start` preserves the in-flight upgrade's containers
 // exactly as they were — resuming a paused execution, not redeploying (start on
 // a running container is a no-op).
@@ -1235,7 +1235,7 @@ func newProxyRouteMissingError() error {
 // connection. Connect-only — no docker compose up, no image pull. Used by
 // operator-driven crash recovery where touching the container set with the
 // operator's binary's compose template would partially-swap the in-flight
-// upgrade's containers and break resumePostSwap's containersAtFlagTarget
+// upgrade's containers and break resumeNewSb's containersAtFlagTarget
 // self-heal (the rc.66 → rc.67 lesson learned from jo's failed deploy).
 //
 // Returns a category-3 error per the recovery trifecta when the DB isn't
@@ -1457,7 +1457,7 @@ func healthCheckStatusOK(statusCode int) bool {
 // doctrine: schema-cache load scales with schema size, so a fixed retry budget
 // would false-fail on a large schema (Norway). The wait can't itself trip the
 // unit's watchdog because the loop narrates progress on restReadyProgressInterval
-// (well under applyPostSwapStallThreshold = 3m), and every progress line pings
+// (well under applyNewSbUpgradingStallThreshold = 3m), and every progress line pings
 // sd_notify WATCHDOG=1 + bumps the progress gate (progress.Write).
 const RestReadyTimeout = 5 * time.Minute
 
@@ -1465,7 +1465,7 @@ const RestReadyTimeout = 5 * time.Minute
 const RestReadyPollInterval = 2 * time.Second
 
 // restReadyProgressInterval is how often the warmup emits a progress line while
-// still waiting. MUST stay comfortably below applyPostSwapStallThreshold (3m)
+// still waiting. MUST stay comfortably below applyNewSbUpgradingStallThreshold (3m)
 // so a long-but-live cache load keeps feeding the progress-gated watchdog.
 const restReadyProgressInterval = 15 * time.Second
 
@@ -1477,7 +1477,7 @@ const restReadyProgressInterval = 15 * time.Second
 // errors (process not accepting yet) take the SAME path: keep waiting until 200
 // or until timeout. The loop emits a progress line every progressInterval — this
 // is load-bearing, not cosmetic: each progress.Write pings sd_notify WATCHDOG=1
-// and bumps applyPostSwap's progress gate, so a multi-minute cache load cannot
+// and bumps applyNewSbUpgrading's progress gate, so a multi-minute cache load cannot
 // close the gate and get the unit SIGABRTed.
 //
 // On timeout the returned error distinguishes the two failure modes by whether

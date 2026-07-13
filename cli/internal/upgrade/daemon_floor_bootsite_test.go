@@ -7,7 +7,7 @@ import (
 )
 
 // STATBUS-145 slice 2 — the geometry: BOTH boot sites migrate only to the daemon
-// floor, while the applyPostSwap pipeline step still applies the full delta to
+// floor, while the applyNewSbUpgrading pipeline step still applies the full delta to
 // HEAD. This structural test pins that split (the atomicity flip depends on it:
 // boot-to-floor leaves the delta pending → mid-delta failure reads Behind → one-
 // shot rollback) and the flagless loud line.
@@ -23,11 +23,11 @@ func TestDaemonBootMigrateBoundedToFloor(t *testing.T) {
 	if !strings.Contains(body, `"migrate", "up", "--to", strconv.FormatInt(migrate.DaemonSchemaFloor, 10), "--verbose"`) {
 		t.Error("daemon boot-migrate (service.go) must run `migrate up --to DaemonSchemaFloor --verbose` — the STATBUS-145 bounded form")
 	}
-	// (2) THE FLIP INVARIANT: the applyPostSwap migrate step stays apply-all (no
+	// (2) THE FLIP INVARIANT: the applyNewSbUpgrading migrate step stays apply-all (no
 	// --to) — it is the ONE site that applies the upgrade delta. If this ever
 	// gains --to, the delta would never apply and every upgrade would stall.
 	if !strings.Contains(body, `progress.bump, filepath.Join(projDir, "sb"), "migrate", "up", "--verbose")`) {
-		t.Error("the applyPostSwap migrate step must stay apply-all (`migrate up --verbose`, NO --to) — it is the single delta-application site (STATBUS-145)")
+		t.Error("the applyNewSbUpgrading migrate step must stay apply-all (`migrate up --verbose`, NO --to) — it is the single delta-application site (STATBUS-145)")
 	}
 	// (3) The flagless loud line names the deferred delta via HasPendingAbove.
 	if !strings.Contains(body, "migrate.HasPendingAbove(d.projDir, migrate.DaemonSchemaFloor)") {

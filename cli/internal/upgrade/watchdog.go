@@ -12,11 +12,11 @@ import (
 
 // Historical note (2026-05-23): sdNotifyExtendTimeout was removed from
 // this file alongside the active-phase WATCHDOG=1 fix for Race B.
-// Original design assumed applyPostSwap ran in systemd's "activating"
+// Original design assumed applyNewSbUpgrading ran in systemd's "activating"
 // phase (pre-READY=1), where EXTEND_TIMEOUT_USEC is the right primitive.
-// Evidence (Service.Run sends READY=1 before the main loop; applyPostSwap
+// Evidence (Service.Run sends READY=1 before the main loop; applyNewSbUpgrading
 // is reached from inside the main loop via executeUpgrade) showed the
-// SCHEDULED path's applyPostSwap runs in the active phase, where
+// SCHEDULED path's applyNewSbUpgrading runs in the active phase, where
 // EXTEND_TIMEOUT_USEC is a no-op against WatchdogSec and only WATCHDOG=1
 // resets the watchdog deadline. Confirmed by operator's dev journalctl:
 // UNIT_RESULT=watchdog, NRestarts=111 — Fix 1's EXTEND_TIMEOUT_USEC ticker
@@ -25,20 +25,20 @@ import (
 // code paths must be removed).
 //
 // Addendum (2026-05-27, plan upgrade-resume-structural-whole.md):
-// the original note's "applyPostSwap always runs active-phase" WAS true only
-// for the SCHEDULED path. The exit-42 RESUME path reached applyPostSwap from
+// the original note's "applyNewSbUpgrading always runs active-phase" WAS true only
+// for the SCHEDULED path. The exit-42 RESUME path reached applyNewSbUpgrading from
 // recoverFromFlag DURING Service.Run startup — before READY=1 — so it ran in
 // the START phase under TimeoutStartSec, a fixed budget that can't bound
 // DB-size-scaled work, which blew the budget and wedged NO/rune in a
 // restart loop (~40 h). The fix (plan piece #2, B1) moves READY=1 + LISTEN to
 // BEFORE recoverFromFlag, so the resume now ALSO runs in the ACTIVE phase —
-// making "applyPostSwap always runs active-phase" universally true (#2 makes
+// making "applyNewSbUpgrading always runs active-phase" universally true (#2 makes
 // the WHOLE resume active-phase, not just the post-completion tail). The
 // EXTEND_TIMEOUT_USEC deletion stays correct: the
 // active phase needs only WATCHDOG=1, never the start-phase extender.
 //
 // What active-phase BUYS today vs. what's still coming: post-#2, WatchdogSec
-// (not TimeoutStartSec) governs the resume, and the existing applyPostSwap
+// (not TimeoutStartSec) governs the resume, and the existing applyNewSbUpgrading
 // WATCHDOG=1 ticker keeps it alive across long steps. The ticker is still a
 // BLIND 30 s timer here — it pings regardless of whether the pipeline is
 // advancing. Plan piece #3 (progress-gated watchdog, separate commit) makes
@@ -97,8 +97,8 @@ import (
 // should be rare — almost all liveness signalling goes through
 // emitHeartbeat so the three signals stay unified.
 //
-// One legitimate ad-hoc callsite is the applyPostSwap WATCHDOG=1 ticker
-// (service.go). applyPostSwap runs after Service.Run has sent READY=1 on BOTH
+// One legitimate ad-hoc callsite is the applyNewSbUpgrading WATCHDOG=1 ticker
+// (service.go). applyNewSbUpgrading runs after Service.Run has sent READY=1 on BOTH
 // paths: the SCHEDULED path (the main loop dispatches executeUpgrade
 // post-READY) and, since plan piece #2 (READY=1 moved before recoverFromFlag),
 // the exit-42 RESUME path. So the ticker is active-phase in both cases and
@@ -119,7 +119,7 @@ func sdNotify(state string) {
 	conn.Write([]byte(state))
 }
 
-// applyPostSwapStallThreshold is how long applyPostSwap's gated watchdog
+// applyNewSbUpgradingStallThreshold is how long applyNewSbUpgrading's gated watchdog
 // ticker tolerates output-silence before it STOPS pinging WATCHDOG=1 — at
 // which point systemd's WatchdogSec (=120 s per ops/statbus-upgrade.service)
 // trips and SIGABRTs the hung unit. 3 min > the 120 s deadline so the gate's
@@ -131,11 +131,11 @@ func sdNotify(state string) {
 // inside 3 min, so it never trips. The migrate/recreate step — silent for
 // minutes on a single big DDL — is exempted via deferGating (it is bounded by
 // its OWN runCommandToLog timeout + task #7's cumulative-activating cap).
-const applyPostSwapStallThreshold = 3 * time.Minute
+const applyNewSbUpgradingStallThreshold = 3 * time.Minute
 
-// applyPostSwapWatchdogCadence is the gated ticker's tick interval: 1/4 of the
+// applyNewSbUpgradingWatchdogCadence is the gated ticker's tick interval: 1/4 of the
 // 120 s WatchdogSec budget gives wide jitter tolerance with trivial CPU cost.
-const applyPostSwapWatchdogCadence = 30 * time.Second
+const applyNewSbUpgradingWatchdogCadence = 30 * time.Second
 
 // migrateUpTimeoutDefault is the STATBUS-095 ceiling: no migration on the
 // upgrade path runs longer than 12 hours. A genuinely big Norway-size migration
@@ -157,17 +157,17 @@ const migrateUpTimeoutDefault = 12 * time.Hour
 const migrateUpTimeoutFloor = 5 * time.Second
 
 // MigrateUpTimeout bounds every `sb migrate up` subprocess the upgrade system
-// runs: the boot-migrate schema-skew guard in Service.Run, the applyPostSwap
+// runs: the boot-migrate schema-skew guard in Service.Run, the applyNewSbUpgrading
 // migrate step, and (via cli/cmd — hence exported) the inline `./sb install`
 // crash-recovery boot-migrate. A single big DDL on a large DB is legitimately
-// SILENT for many minutes — see the applyPostSwapStallThreshold note above — so
+// SILENT for many minutes — see the applyNewSbUpgradingStallThreshold note above — so
 // the migrate sites are exempted from output-gating (always-ping WATCHDOG=1 for
 // the duration) and bounded by THIS timeout instead of the watchdog.
 //
 // One shared value so the sites cannot drift (STATBUS-012): boot-migrate once
-// sat at 5 m while the applyPostSwap site had 30 m — yet after executeUpgrade
+// sat at 5 m while the applyNewSbUpgrading site had 30 m — yet after executeUpgrade
 // Step 6b's unconditional post-swap handoff it is BOOT-migrate that consumes
-// every upgrade's migration delta, making a generous budget on the applyPostSwap
+// every upgrade's migration delta, making a generous budget on the applyNewSbUpgrading
 // site protection for a step that normally no-ops.
 //
 // STATBUS-095: default migrateUpTimeoutDefault (12h), ENV-OVERRIDABLE via
@@ -204,14 +204,14 @@ func resolveMigrateUpTimeout() time.Duration {
 }
 
 // runGatedWatchdogTicker is the shared bounded watchdog goroutine (plan
-// upgrade-resume-structural-whole.md piece #3). Three callers: applyPostSwap
+// upgrade-resume-structural-whole.md piece #3). Three callers: applyNewSbUpgrading
 // (GATED — real progress, gate closes on stall), and as an ALWAYS-PING cover
 // (nil progress) the boot-migrate site in Run() and rollback() (STATBUS-031). It
 // fires ping() every cadence IFF progress.shouldPingWatchdog(stall) is true, and
 // stops when ctx is done, closing doneCh so the caller can join.
 //
 // This collapses the prior TWO unconditional tickers (the reconnect-scoped one
-// and the applyPostSwap-remainder one, both blind 30 s timers) into one
+// and the applyNewSbUpgrading-remainder one, both blind 30 s timers) into one
 // progress-gated loop covering reconnect → migrate → step 11 → step 12. The
 // collapse is also a fix: an unconditional ticker is itself
 // a blind-watchdog hole — a step hung INSIDE the ticker's scope (e.g. a wedged

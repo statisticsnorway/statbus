@@ -245,7 +245,7 @@ func (d *Service) fetchWithStallDetection(ctx context.Context, logWriter io.Writ
 //
 // The position-read surface produces no deterministic errors (a read-only
 // SELECT MAX(version) never hits "already exists"). Persistent errors arise on
-// the forward STEP — migrate up inside resumePostSwap/applyPostSwap, which
+// the forward STEP — migrate up inside resumeNewSb/applyNewSbUpgrading, which
 // already rolls back on failure today. classifyStepError makes that
 // classification explicit + safe-by-default: a RECOGNISED deterministic error is
 // named persistent (roll back, zero retries — current behaviour); anything

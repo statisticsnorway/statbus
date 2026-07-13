@@ -19,7 +19,7 @@ import (
 //
 // THE FIX: a durable `recreate boolean` column on public.upgrade, set at every
 // promote-to-scheduled and read ATOMICALLY at claim (RETURNING recreate), carried
-// through executeUpgrade → writeUpgradeFlag → flag.Recreate → applyPostSwap. The
+// through executeUpgrade → writeUpgradeFlag → flag.Recreate → applyNewSbUpgrading. The
 // volatile d.pendingRecreate field and the ':recreate' NOTIFY protocol are removed.
 //
 // WHY A SOURCE-STRUCTURE GUARD (not a live-DB unit test): this package does not
@@ -82,6 +82,6 @@ func TestRecreateIntentIsDurableOnRow_STATBUS092(t *testing.T) {
 	//     volatile field: writeUpgradeFlag(..., trigger, recreate).
 	if !strings.Contains(src, "trigger, recreate)") {
 		t.Errorf("STATBUS-092: executeUpgrade must pass the claim-read recreate to writeUpgradeFlag so it " +
-			"flows durably to flag.Recreate → applyPostSwap.")
+			"flows durably to flag.Recreate → applyNewSbUpgrading.")
 	}
 }

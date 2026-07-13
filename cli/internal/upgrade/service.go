@@ -113,7 +113,7 @@ func retryBackoff(attempt int) time.Duration {
 	}
 }
 
-// step11RestartServices lists the services brought up by applyPostSwap's
+// step11RestartServices lists the services brought up by applyNewSbUpgrading's
 // step 11 (docker compose up -d --no-build ...). Together with step 9's
 // "db", these are EXACTLY the containers whose image tag the upgrade
 // pipeline advances to the post-upgrade target SHA.
@@ -172,7 +172,7 @@ type Service struct {
 	// STATBUS-046 / STATBUS-044 comment #6 — the crash-resume attempt is counted
 	// ONCE per process lifetime, at the START of the recovery pass (before the boot
 	// migrate). RecoveryBudgetGuard sets these; whichever downstream regime runs
-	// afterwards (resumePostSwap / recoveryRollback) reuses the count instead of
+	// afterwards (resumeNewSb / recoveryRollback) reuses the count instead of
 	// double-incrementing. A fresh process (new boot) starts false — that is the
 	// per-attempt reset (each boot IS one attempt).
 	recoveryPassCounted  bool // true once this process counted its recovery attempt
@@ -250,8 +250,8 @@ const (
 const (
 	PhaseOldSbUpgrading = ""          // default: written before replaceBinaryOnDisk, or legacy
 	PhaseNewSbSwapped   = "post_swap" // stamped after binary swap, before exit-42 handoff
-	// PhaseNewSbUpgrading is stamped the instant resumePostSwap commits to running
-	// applyPostSwap on the new binary. A recovery that finds it means the planned
+	// PhaseNewSbUpgrading is stamped the instant resumeNewSb commits to running
+	// applyNewSbUpgrading on the new binary. A recovery that finds it means the planned
 	// post-swap resume began and the process died before completing. Observed
 	// state decides direction (STATBUS-039): at-or-past target (or
 	// unverifiable) → resume FORWARD again; confirmed behind → one-shot
@@ -293,12 +293,12 @@ type UpgradeFlag struct {
 	Trigger    string    `json:"trigger"`               // coarse bucket ("notify"|"scheduled"|"recovery"|"install")
 	Holder     string    `json:"holder"`                // HolderService or HolderInstall
 	Phase      string    `json:"phase,omitempty"`       // PhaseOldSbUpgrading (default) or PhaseNewSbSwapped
-	Recreate   bool      `json:"recreate,omitempty"`    // durable recreate intent (from public.upgrade.recreate) so resumePostSwap can replay --recreate
-	BackupPath string    `json:"backup_path,omitempty"` // finalized backup dir, populated at Phase=post_swap so resumePostSwap can roll back without DB
+	Recreate   bool      `json:"recreate,omitempty"`    // durable recreate intent (from public.upgrade.recreate) so resumeNewSb can replay --recreate
+	BackupPath string    `json:"backup_path,omitempty"` // finalized backup dir, populated at Phase=post_swap so resumeNewSb can roll back without DB
 	// STATBUS-046 (doc-021): the dying-step fields for the crash-resume attempt
 	// budget. Step is rewritten to the currently-executing Phase-3 step as each
 	// step BEGINS (recordFlagStep), so a crash freezes the step it died at.
-	// PriorDeathStep is the Step observed at the PREVIOUS resume — resumePostSwap
+	// PriorDeathStep is the Step observed at the PREVIOUS resume — resumeNewSb
 	// rolls Step→PriorDeathStep on each new attempt so resumeEscalation can detect
 	// two consecutive deaths at the SAME step (deterministic hang → park early).
 	Step           string `json:"step,omitempty"`
@@ -320,7 +320,7 @@ func (f *UpgradeFlag) Label() string {
 	return renderDisplayName(CommitSHA(f.CommitSHA), f.CommitTags)
 }
 
-// IsServiceForwardRecovery reports whether this flag represents an in-flight,
+// IsServiceNewSbRecovery reports whether this flag represents an in-flight,
 // service-held upgrade that crashed in a FORWARD phase (post_swap or resuming):
 // the binary was already swapped on disk and the recovery boot must roll the
 // upgrade FORWARD, reconciling the working tree to the target via the deferred
@@ -336,7 +336,7 @@ func (f *UpgradeFlag) Label() string {
 // PreSwap (empty Phase) is deliberately EXCLUDED: that case rolls back, and the
 // rollback's restoreGitState owns the tree (→ source commit). Nil-safe — a nil
 // receiver (no flag file) is not a recovery.
-func (f *UpgradeFlag) IsServiceForwardRecovery() bool {
+func (f *UpgradeFlag) IsServiceNewSbRecovery() bool {
 	return f != nil &&
 		f.Holder == HolderService &&
 		f.CommitSHA != "" &&
@@ -440,7 +440,7 @@ func (l *FlagLock) Close() {
 // held on d.flagLock keeps the flock alive for the duration of
 // executeUpgrade. removeUpgradeFlag closes it to release.
 //
-// Phase is initialised to PhaseOldSbUpgrading; writeFlagPhase rewrites it to
+// Phase is initialised to PhaseOldSbUpgrading; updateFlagNewSbSwapped rewrites it to
 // PhaseNewSbSwapped after replaceBinaryOnDisk, right before the exit-42
 // handoff. Recreate carries the durable recreate intent (public.upgrade.recreate,
 // read at claim) so the resumed post-swap process can replay --recreate identically.
@@ -464,16 +464,16 @@ func (d *Service) writeUpgradeFlag(id int, commitSHA string, commitTags []string
 	return nil
 }
 
-// updateFlagPostSwap rewrites the on-disk flag JSON without releasing the
+// updateFlagNewSbSwapped rewrites the on-disk flag JSON without releasing the
 // flock: sets Phase=PhaseNewSbSwapped and stores backupPath so the new
-// binary's recoverFromFlag → resumePostSwap can resume without a live DB
+// binary's recoverFromFlag → resumeNewSb can resume without a live DB
 // connection (queryConn is closed mid-flow for the consistent backup).
 //
 // Preconditions: d.flagLock holds the flock (set by writeUpgradeFlag).
 // Uses the already-open fd so the flock is preserved across the rewrite.
-func (d *Service) updateFlagPostSwap(backupPath string) error {
+func (d *Service) updateFlagNewSbSwapped(backupPath string) error {
 	if d.flagLock == nil || d.flagLock.file == nil {
-		return fmt.Errorf("updateFlagPostSwap: no flag file held")
+		return fmt.Errorf("updateFlagNewSbSwapped: no flag file held")
 	}
 	f := d.flagLock.file
 	if _, err := f.Seek(0, 0); err != nil {
@@ -510,9 +510,9 @@ func (d *Service) updateFlagPostSwap(backupPath string) error {
 
 // recordFlagStep (STATBUS-046 doc-021) rewrites the held flag's Step field to
 // the currently-executing Phase-3 step as each step BEGINS, so a crash/kill
-// freezes the step it died at. resumePostSwap reads it on the next resume to
+// freezes the step it died at. resumeNewSb reads it on the next resume to
 // detect same-step-twice (deterministic hang → park early). Same in-place
-// seek/truncate/rewrite pattern as updateFlagPostSwap (flock held throughout).
+// seek/truncate/rewrite pattern as updateFlagNewSbSwapped (flock held throughout).
 // Best-effort: a failure to persist the step name must not abort the upgrade —
 // it only degrades same-step-twice detection to the plain attempt budget — so
 // callers log and continue rather than fail the step.
@@ -952,9 +952,9 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 		return nil
 	}
 
-	// Resuming-phase flag → the planned post-swap resume began (resumePostSwap
+	// Resuming-phase flag → the planned post-swap resume began (resumeNewSb
 	// re-acquired the flock and stamped Resuming) and THAT process died before
-	// completing applyPostSwap (watchdog SIGABRT on a hung step, OOM, reboot,
+	// completing applyNewSbUpgrading (watchdog SIGABRT on a hung step, OOM, reboot,
 	// kill).
 	//
 	// Observed state decides DIRECTION before any rollback (STATBUS-039, the
@@ -969,7 +969,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	//     NEXT recovery straight into a restore — one failure, no second
 	//     chance, data loss behind it (the rune id=187 shape). Loop-bounding
 	//     is not lost: every attempt is loud (progress log + journal),
-	//     applyPostSwap heartbeats through its WATCHDOG ticker, and systemd
+	//     applyNewSbUpgrading heartbeats through its WATCHDOG ticker, and systemd
 	//     StartLimit still catches a thrashing daemon. An already-at-new box that
 	//     keeps failing forward stays in_progress and LOUD — it never
 	//     destroys state to escape (rune sat 18 days already-at-new with zero
@@ -1012,7 +1012,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 				logRecover("Upgrade %d (%s) was interrupted while finishing; the database is already at the new version — continuing forward, not rolling back. Your data is safe. (detail: new-sb-upgrading, observed-state=already-at-new, STATBUS-039 rule 1)",
 					flag.ID, flag.Label())
 				closeAppend()
-				return d.resumePostSwap(ctx, flag)
+				return d.resumeNewSb(ctx, flag)
 
 			case ObservedCannotReachNew:
 				logRecover("Upgrade %d (%s) was interrupted while finishing and the database is confirmed behind the new version; restoring this upgrade's pre-upgrade snapshot (one attempt, no retry). Data is restored to before the upgrade. (detail: new-sb-upgrading, observed-state=cannot-reach-new: %s)",
@@ -1088,7 +1088,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 			appendLog.Close()
 			appendLog = nil
 		}
-		return d.resumePostSwap(ctx, flag)
+		return d.resumeNewSb(ctx, flag)
 	}
 
 	// PreSwap-phase flag → roll back, NEVER self-heal (engineer audit task
@@ -1107,7 +1107,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	// flag, restart services at the CURRENT (unchanged) binary, leave the
 	// DB alone. recoveryRollback → rollback → restoreDatabase is data-safe
 	// here BY IDENTITY (STATBUS-039/-031): a PreSwap flag carries an empty
-	// BackupPath (updateFlagPostSwap — which stamps it — never ran), and
+	// BackupPath (updateFlagNewSbSwapped — which stamps it — never ran), and
 	// the identity-keyed restoreDatabase refuses to touch the volume when
 	// no snapshot was recorded. The pre-039 recency selector
 	// (pickLatestBackup) only happened to be safe on legacy-free boxes; on
@@ -1141,7 +1141,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 			appendLog = nil
 		}
 		// flag.BackupPath is empty by construction at PreSwap (stamped only
-		// by updateFlagPostSwap) — restoreDatabase refuses on empty.
+		// by updateFlagNewSbSwapped) — restoreDatabase refuses on empty.
 		d.recoveryRollback(ctx, flag, flag.Label(), logRelPath, fmt.Sprintf(
 			"%s: the upgrade was interrupted before it changed anything and was rolled back to the previous version; the database was not modified. (detail: before booting the new binary — the point of no return)",
 			ErrInstallPreconditionFailed))
@@ -1155,7 +1155,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	// UNREACHABLE for every producible flag — the PreSwap guard intercepted
 	// every empty-phase flag first (verified 2026-06-09 and again 2026-06-12,
 	// STATBUS-039) — and its observed-state routing now lives in the LIVE
-	// branches above (Resuming) and in resumePostSwap/postSwapFailure.
+	// branches above (Resuming) and in resumeNewSb/newSbUpgradingFailure.
 	// Removed per the clean-break discipline rather than kept as plausible-
 	// looking cover.
 	//
@@ -1552,7 +1552,7 @@ func (d *Service) ExecuteUpgradeInline(ctx context.Context, id int, commitSHA, d
 		}
 	}
 	// gerr != nil (row vanished, or a pre-046 DB during the migration's own
-	// deferral window — mirrors resumePostSwap's fail-open posture on a read
+	// deferral window — mirrors resumeNewSb's fail-open posture on a read
 	// error): fall through to the claim UPDATE unchanged; its own ErrNoRows /
 	// state-guard branches are the correct diagnostic for a genuinely-absent
 	// or already-claimed row.
@@ -1740,7 +1740,7 @@ func (d *Service) Run(ctx context.Context) error {
 	// which already regenerates unconditionally before its DB probe. Fatal on
 	// failure: EnsureDBUp would fail anyway, and a clear "regenerate config"
 	// error is the actionable signal.
-	if flag, ferr := ReadFlagFile(d.projDir); ferr == nil && flag.IsServiceForwardRecovery() {
+	if flag, ferr := ReadFlagFile(d.projDir); ferr == nil && flag.IsServiceNewSbRecovery() {
 		// Recovery boot, FORWARD phases ONLY (post_swap / resuming). executeUpgrade
 		// defers the target checkout to here (STATBUS-060) so the OLD binary never
 		// materializes target-compose. A post-swap/resuming recovery resumes
@@ -1773,9 +1773,9 @@ func (d *Service) Run(ctx context.Context) error {
 	// Pre-flight B — ensure DB is up. Idempotent (no-op when already up).
 	// Covers the post-swap recovery path where the prior process image exited
 	// 42 after stamping Phase=post_swap and intentionally stopped the DB
-	// (applyPostSwap step 2 for the consistent backup). Without this pre-start,
+	// (applyNewSbUpgrading step 2 for the consistent backup). Without this pre-start,
 	// connect() would fail against the stopped DB and systemd would loop-restart
-	// us before recoverFromFlag → resumePostSwap → applyPostSwap ever runs.
+	// us before recoverFromFlag → resumeNewSb → applyNewSbUpgrading ever runs.
 	if err := d.EnsureDBUp(ctx); err != nil {
 		return fmt.Errorf("ensure DB up: %w", err)
 	}
@@ -1823,7 +1823,7 @@ func (d *Service) Run(ctx context.Context) error {
 	// B1 + boot-migrate-move). The cheap, genuine init that SHOULD gate
 	// readiness has run (EnsureDBUp → connect → advisory lock + LISTEN). The
 	// heavy, DB-size-scaled work below — boot-migrate-up and recoverFromFlag →
-	// resumePostSwap → applyPostSwap (rune: a large-DB migration) — must NOT
+	// resumeNewSb → applyNewSbUpgrading (rune: a large-DB migration) — must NOT
 	// run under the fixed start-phase
 	// TimeoutStartSec, which can never bound DB-size-scaled work (the NO/rune
 	// 40 h wedge). Emitting READY=1 here moves all of it into systemd's ACTIVE
@@ -1859,7 +1859,7 @@ func (d *Service) Run(ctx context.Context) error {
 	//
 	// STATBUS-012: active-phase alone is NOT survival. The watchdog armed at
 	// READY=1 above; the main-loop idle heartbeat ticker does not exist yet
-	// (created below, after recovery); the applyPostSwap gated ticker is not
+	// (created below, after recovery); the applyNewSbUpgrading gated ticker is not
 	// armed; and the main goroutine parks inside runCommandToLog's cmd.Run()
 	// — so without its own cover boot-migrate has ZERO WATCHDOG=1 sources,
 	// and a single >120 s migration is SIGABRT'd by WatchdogSec into an
@@ -1867,17 +1867,17 @@ func (d *Service) Run(ctx context.Context) error {
 	// 600 s — the rune wedge, WatchdogSec edition). PRE-STATBUS-145 this site
 	// consumed every upgrade's migration delta (executeUpgrade Step 6b's post-swap
 	// handoff routed the delta through the re-exec'd boot-migrate); under 145 boot
-	// goes only to the floor and the delta runs at the protected applyPostSwap
+	// goes only to the floor and the delta runs at the protected applyNewSbUpgrading
 	// migrate step, so this cover now protects the (small, rare) FLOOR migrations +
 	// unknown boot crashes — kept belt-and-suspenders. Cover: the same always-ping
 	// bounded ticker the
-	// applyPostSwap migrate gets via deferGating (nil progress = ping
+	// applyNewSbUpgrading migrate gets via deferGating (nil progress = ping
 	// unconditionally, see runGatedWatchdogTicker; the stall-threshold arg
 	// is INERT under nil progress — passed for signature parity only),
 	// bounded by the shared MigrateUpTimeout so the two migrate sites
 	// cannot drift. Stated tradeoff: a genuinely HUNG boot-migrate is now
 	// caught at MigrateUpTimeout + the #14 orphan-terminate below, not at
-	// WatchdogSec — identical to the protected applyPostSwap site, and the
+	// WatchdogSec — identical to the protected applyNewSbUpgrading site, and the
 	// point: the 120 s "detection" was a FALSE kill of legitimate slow
 	// migrations. Cancel+join is EXPLICIT and inline (before the error
 	// handling), not deferred: Run() IS the main loop, so a defer would
@@ -1899,7 +1899,7 @@ func (d *Service) Run(ctx context.Context) error {
 		bootMigrateTickerCtx, bootMigrateTickerCancel := context.WithCancel(ctx)
 		bootMigrateTickerDone := make(chan struct{})
 		go runGatedWatchdogTicker(bootMigrateTickerCtx, nil,
-			applyPostSwapStallThreshold, applyPostSwapWatchdogCadence,
+			applyNewSbUpgradingStallThreshold, applyNewSbUpgradingWatchdogCadence,
 			func() { sdNotify("WATCHDOG=1") }, bootMigrateTickerDone)
 		// runCommandToLogCapture (not runCommandToLog) so a DETERMINISTIC failure's
 		// verbose tail is available as DATA for the STATBUS-144 operator report
@@ -1911,7 +1911,7 @@ func (d *Service) Run(ctx context.Context) error {
 		// STATBUS-145: `--to DaemonSchemaFloor` — boot catches the schema up only to
 		// the daemon's own operating floor, NOT to HEAD. Migrations above the floor
 		// are the real upgrade delta; they run EXACTLY ONCE inside the guarded
-		// applyPostSwap migrate step (write-ahead stamp, 12h ceiling + orphan reap,
+		// applyNewSbUpgrading migrate step (write-ahead stamp, 12h ceiling + orphan reap,
 		// exit-20/22 classification, observed-state Behind → data-safe rollback), so
 		// no migration runs blindly at boot. On the normal single-release upgrade the
 		// floor migrations shipped earlier and are already applied → this is a no-op.
@@ -1957,7 +1957,7 @@ func (d *Service) Run(ctx context.Context) error {
 			// STATBUS-145 (domain shrink): boot migrates only to the floor, so a
 			// service-held-flag boot-migrate failure here is a FLOOR-migration failure
 			// during recovery — the upgrade DELTA now applies at the guarded
-			// applyPostSwap step (recoverFromFlag → resumePostSwap → applyPostSwap),
+			// applyNewSbUpgrading step (recoverFromFlag → resumeNewSb → applyNewSbUpgrading),
 			// not here. The defer-to-recoverFromFlag path is unchanged; its domain is
 			// just the (small, rare) floor migrations plus the after-commit-unrecorded
 			// half-applied case, which the observed-state Behind → snapshot restore
@@ -1985,7 +1985,7 @@ func (d *Service) Run(ctx context.Context) error {
 				// FLAGLESS boot-migrate runs ONLY floor migrations — this branch fires for
 				// a broken FLOOR migration (our own upgrade-lifecycle migrations, rare +
 				// small), NEVER for a broken upgrade DELTA. A broken delta is above the
-				// floor and runs only at the guarded applyPostSwap step, where it routes
+				// floor and runs only at the guarded applyNewSbUpgrading step, where it routes
 				// observed-state Behind → data-safe rollback, not here.
 				//
 				// So LOG LOUD ONCE + CONTINUE into the main loop
@@ -2374,9 +2374,9 @@ func (d *Service) acquireAdvisoryLock(ctx context.Context) error {
 //	                              cat-file probe distinguishes "target
 //	                              commit absent" for an actionable reason.
 //
-// Mirrors the pattern in resumePostSwap (search for "binaryDescendsFlag")
+// Mirrors the pattern in resumeNewSb (search for "binaryDescendsFlag")
 // so the at-or-descendant predicate is uniform across post-restart
-// recovery paths (resumePostSwap's copy stays conservative-false because
+// recovery paths (resumeNewSb's copy stays conservative-false because
 // its disposition is fail-loud-refuse, never restore).
 func (d *Service) verifyBinaryObservedState(rowCommitSHA string) (ObservedState, UnknownCause, string) {
 	if d.binaryCommit == "" || d.binaryCommit == "unknown" {
@@ -2569,10 +2569,10 @@ func (d *Service) verifyUpgradeObservedStateEx(ctx context.Context, rowCommitSHA
 // winning, so a losing attempt never clobbers the holder's record.
 //
 // Callers are all PRE-ACQUIRE — the in-process failure path
-// (resumePostSwap → applyPostSwap → postSwapFailure → rollback) already
+// (resumeNewSb → applyNewSbUpgrading → newSbUpgradingFailure → rollback) already
 // holds the flock and must NOT route through here: a second flock on the
 // same file fails even within one process (see
-// TestUpdateFlagPostSwap_RewritesInPlace). The d.flagLock != nil guard
+// TestUpdateFlagNewSbSwapped_RewritesInPlace). The d.flagLock != nil guard
 // fails fast if that wiring ever drifts.
 func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displayName, logRelPath, reason string) {
 	id := flag.ID
@@ -2580,10 +2580,10 @@ func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displa
 	if d.flagLock != nil {
 		// Mis-wiring: recoveryRollback is the PRE-ACQUIRE recovery wrapper;
 		// an in-process caller that already holds the flock must call
-		// d.rollback directly (postSwapFailure does). Proceeding would
+		// d.rollback directly (newSbUpgradingFailure does). Proceeding would
 		// self-deadlock on the second flock — fail loud instead.
 		fmt.Fprintf(os.Stderr,
-			"recoveryRollback: called while already holding the upgrade flock (id=%d) — in-process failures must route via postSwapFailure/rollback, not recoveryRollback; refusing to proceed\n", id)
+			"recoveryRollback: called while already holding the upgrade flock (id=%d) — in-process failures must route via newSbUpgradingFailure/rollback, not recoveryRollback; refusing to proceed\n", id)
 		return
 	}
 	lock, lerr := acquireFlock(d.projDir, flag)
@@ -2895,7 +2895,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 	d.removeUpgradeFlag()
 	// Layer 3 of the rollback-on-SIGKILL hole plug — also fire pruneBackups
 	// after the post-restart completion path. See the matching call in the
-	// resumePostSwap branch for full rationale. keep=3.
+	// resumeNewSb branch for full rationale. keep=3.
 	d.pruneBackups(ctx, 3)
 
 	// Skip older releases that are still "available" — no point upgrading to an older version
@@ -3118,7 +3118,7 @@ func (d *Service) verifyCommitSignature(sha string) error {
 // connectTimeout bounds the pgx dial+handshake in connect(). connStr sets no
 // connect_timeout and callers pass the service-lifetime ctx (no deadline), so
 // without this a hung connect would block forever — the latent gap that made
-// the applyPostSwap reconnect unbounded (plan upgrade-resume-structural-whole.md
+// the applyNewSbUpgrading reconnect unbounded (plan upgrade-resume-structural-whole.md
 // piece #3: deferring watchdog gating during reconnect is only safe if reconnect
 // is itself bounded). 5 min comfortably exceeds a legitimately slow reconnect
 // (scenario 3-postswap-watchdog-reconnect's 180 s synthetic stall) with margin. Package var, not const, so
@@ -3213,12 +3213,12 @@ func (d *Service) connect(ctx context.Context) error {
 	config.DialFunc = keepaliveDialer
 
 	// Bound the dial+handshake. connStr sets no connect_timeout and the ctx
-	// handed in by callers (e.g. applyPostSwap's reconnect) is the
+	// handed in by callers (e.g. applyNewSbUpgrading's reconnect) is the
 	// service-lifetime ctx with NO deadline — so a hung pgx.ConnectConfig
 	// (DB-side slow handshake, half-open socket the keepalive dialer can't
 	// catch because the conn isn't established yet, a wedged userland-proxy)
 	// would block INDEFINITELY. That is the latent gap that made the
-	// applyPostSwap reconnect unbounded; the #3 watchdog defers gating during
+	// applyNewSbUpgrading reconnect unbounded; the #3 watchdog defers gating during
 	// reconnect (it's a legitimately silent step), which is only SAFE if
 	// reconnect is itself bounded — mirroring how the migrate step is bounded
 	// by its runCommandToLog timeout. pgx honours a ctx deadline across the
@@ -3228,7 +3228,7 @@ func (d *Service) connect(ctx context.Context) error {
 	// only TCP connect. 5 min comfortably exceeds a legitimately slow
 	// reconnect (scenario 3-postswap-watchdog-reconnect holds 180 s) with margin; a genuine hang is killed
 	// at 5 min → connect() returns context.DeadlineExceeded → the caller fails
-	// out (applyPostSwap → postSwapFailure → rollback; task #7 backstops a
+	// out (applyNewSbUpgrading → newSbUpgradingFailure → rollback; task #7 backstops a
 	// loop) instead of pinging the watchdog forever.
 	connectCtx, cancel := context.WithTimeout(ctx, connectTimeout)
 	defer cancel()
@@ -4493,7 +4493,7 @@ func (d *Service) TagsAtCommit(ctx context.Context, sha CommitSHA) ([]string, er
 //	step A — if a service-held flag points at the parked in_progress row we are
 //	  about to displace, remove it FIRST. A displaced row's flag is dead weight;
 //	  removing it before the displace closes the window where a stale flag could
-//	  route resumePostSwap at a now-superseded row. Crash after A leaves B parked
+//	  route resumeNewSb at a now-superseded row. Crash after A leaves B parked
 //	  with no flag — a state no recovery resumes; the next claim re-runs this
 //	  idempotent ladder.
 //	step B — ONE explicit transaction: displace THEN claim. Two statements, NOT a
@@ -4888,7 +4888,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	}()
 	// Pre-stage the TARGET's images (by its COMMIT_SHORT = ShortForDisplay of the
 	// target commit), not whatever COMMIT_SHORT is currently in .env. This is a
-	// genuine warm-up: the same images applyPostSwap Step 8 needs post-swap are
+	// genuine warm-up: the same images applyNewSbUpgrading Step 8 needs post-swap are
 	// fetched now, before the swap, and a missing-image failure surfaces here —
 	// before any destructive step — rather than after. (The old form passed the
 	// display name to a VERSION-only override, which fetched current images.)
@@ -4942,7 +4942,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	progress.Write("Recording backup path on upgrade row (id=%d, path=%s)...", id, backupActivePath)
 	if _, err := d.queryConn.Exec(ctx, "UPDATE public.upgrade SET backup_path = $1 WHERE id = $2", backupActivePath, id); err != nil {
 		// Not fatal for restore: the FLAG carries the same path
-		// (updateFlagPostSwap stamps flag.BackupPath after the snapshot
+		// (updateFlagNewSbSwapped stamps flag.BackupPath after the snapshot
 		// commit-rename), and flag-driven recovery restores from the flag's
 		// identity. A missed row write only loses the reconcile
 		// cross-reference and the flagless-recovery (completeInProgressUpgrade)
@@ -5166,7 +5166,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// back without a live DB connection. queryConn was closed back at
 	// Step 2 for the consistent-backup stop, so we can't persist to
 	// public.upgrade here — the flag file is the handoff channel.
-	if err := d.updateFlagPostSwap(backupPath); err != nil {
+	if err := d.updateFlagNewSbSwapped(backupPath); err != nil {
 		d.rollback(ctx, id, displayName, restoreTargetSHA, fmt.Sprintf("stamp post_swap flag: %v", err), backupPath, progress)
 		return err
 	}
@@ -5174,15 +5174,15 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	progress.Close()
 
 	// Hand off to fresh process. Mechanism differs by mode; the semantic
-	// (next process sees post_swap flag → dispatches resumePostSwap →
-	// re-enters the pipeline at applyPostSwap) is the same.
+	// (next process sees post_swap flag → dispatches resumeNewSb →
+	// re-enters the pipeline at applyNewSbUpgrading) is the same.
 	if d.runningAsService {
 		// systemd-managed daemon: exit-42 → unit restarts on the new binary.
 		os.Exit(42)
 	}
 	// Install-inline (one-shot foreground): replace this process image
 	// with the new ./sb in-place. argv/env preserved; the new binary
-	// hits recoverFromFlag at startup and resumes at applyPostSwap.
+	// hits recoverFromFlag at startup and resumes at applyNewSbUpgrading.
 	sbPath := filepath.Join(d.projDir, "sb")
 	if err := syscall.Exec(sbPath, os.Args, os.Environ()); err != nil {
 		// exec is rare-fail (ENOEXEC on a corrupted just-built binary,
@@ -5195,8 +5195,8 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	return nil
 }
 
-// postSwapFailure is the single failure path for the steps inside
-// applyPostSwap. All step failures share one narrative and one return shape
+// newSbUpgradingFailure is the single failure path for the steps inside
+// applyNewSbUpgrading. All step failures share one narrative and one return shape
 // — operators reading the row's `error` column see the same prefix
 // regardless of which post-swap step tripped.
 //
@@ -5230,7 +5230,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 //
 // The error return is reached on the already-at-new/unknown branches, and on the
 // rare degraded path where d.rollback() returns without exiting.
-func (d *Service) postSwapFailure(ctx context.Context, id int, displayName, restoreTargetSHA, commitSHA, backupPath, reason string, progress *ProgressLog) error {
+func (d *Service) newSbUpgradingFailure(ctx context.Context, id int, displayName, restoreTargetSHA, commitSHA, backupPath, reason string, progress *ProgressLog) error {
 	// STATBUS-109 (doc-022 §5): NAME the forward-step failure class explicitly.
 	// A recognised deterministic failure is `persistent-error`; anything
 	// unrecognised is `unknown-error` (the default). This is a diagnostic label
@@ -5260,11 +5260,11 @@ func (d *Service) postSwapFailure(ctx context.Context, id int, displayName, rest
 // parkForDeterministicFailure (STATBUS-046 slice 2) handles a STRUCTURALLY B/C
 // step failure at a Phase-3 site: park on the FIRST occurrence instead of letting
 // it burn the death budget over three crash-resumes. Observed state still governs
-// DIRECTION (STATBUS-039), exactly as postSwapFailure: positively-Behind →
+// DIRECTION (STATBUS-039), exactly as newSbUpgradingFailure: positively-Behind →
 // data-safe rollback; at-or-past-target OR unverifiable → PARK (retrying a
 // deterministic failure cannot help, and already-at-new can't safely roll back —
 // integrators may have written past maintenance-off). Returns an error so
-// applyPostSwap stops; the row is now parked, so the next recovery pass's
+// applyNewSbUpgrading stops; the row is now parked, so the next recovery pass's
 // parked-skip keeps the unit alive-idle. Fires the degraded siren exactly once
 // (freshlyParked), consistent with the budget-park path.
 func (d *Service) parkForDeterministicFailure(ctx context.Context, id int, displayName, restoreTargetSHA, commitSHA, backupPath, reason string, progress *ProgressLog) error {
@@ -5333,19 +5333,19 @@ func (d *Service) recordInProgressFailure(ctx context.Context, id int, errMsg st
 	}
 }
 
-// applyPostSwap runs the upgrade steps that require the target binary's
+// applyNewSbUpgrading runs the upgrade steps that require the target binary's
 // compiled code: config generate → docker pull → db up → waitForDBHealth →
 // reconnect → persist final backup_path → migrate → app/worker/rest up →
 // health check → maintenance off → archive → install-fixup → state=completed.
 //
-// Single entry point: resumePostSwap, dispatched by recoverFromFlag when
+// Single entry point: resumeNewSb, dispatched by recoverFromFlag when
 // a fresh process (post exit-42 systemd restart for service mode, post
 // syscall.Exec for inline mode) sees Phase=PhaseNewSbSwapped. Every
 // upgrade — tagged or edge, service or inline — handsoff in executeUpgrade
-// before reaching here, so applyPostSwap always runs against the NEW
+// before reaching here, so applyNewSbUpgrading always runs against the NEW
 // compiled Go code.
 //
-// Step failures route through postSwapFailure (single rollback path with
+// Step failures route through newSbUpgradingFailure (single rollback path with
 // unified narrative). The legacy direct d.rollback() pattern was retired
 // so the row's `error` column reads consistently across all nine sites.
 //
@@ -5353,10 +5353,10 @@ func (d *Service) recordInProgressFailure(ctx context.Context, id int, errMsg st
 // on disk at backupPath; git HEAD at target commit; ./sb binary at target
 // version; d.queryConn is nil (reopened via reconnect() below). Flag file
 // and its flock are held by d.flagLock.
-func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayName, restoreTargetSHA, backupPath string, recreate bool, progress *ProgressLog) error {
+func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, displayName, restoreTargetSHA, backupPath string, recreate bool, progress *ProgressLog) error {
 	projDir := d.projDir
 
-	// SINGLE progress-gated WATCHDOG=1 ticker for the ENTIRE applyPostSwap body
+	// SINGLE progress-gated WATCHDOG=1 ticker for the ENTIRE applyNewSbUpgrading body
 	// (config-generate → docker pull → docker up db → waitForDBHealth →
 	// reconnect → migrations → step-11 docker up → health → terminal UPDATE).
 	// All of these can run for many minutes on real data (cold image pull on a
@@ -5367,7 +5367,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// systemd SIGABRTs the unit → restart loop → never reaches
 	// `state='completed'`.
 	//
-	// applyPostSwap runs in the unit's ACTIVE phase on BOTH entries (READY=1
+	// applyNewSbUpgrading runs in the unit's ACTIVE phase on BOTH entries (READY=1
 	// fired in Service.Run before the main loop / before recoverFromFlag since
 	// plan piece #2), so systemd enforces WatchdogSec, and per sd_notify(3)
 	// only WATCHDOG=1 — not the deleted EXTEND_TIMEOUT_USEC — resets that
@@ -5401,7 +5401,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	//
 	// COLLAPSE: this one ticker replaces the prior TWO unconditional tickers —
 	// the reconnect-scoped one (which protected only d.reconnect) and the
-	// applyPostSwap-remainder one (d416a50a0's migrate-only ticker, later
+	// applyNewSbUpgrading-remainder one (d416a50a0's migrate-only ticker, later
 	// widened). Both were blind 30 s timers; an unconditional ticker is itself
 	// a blind-watchdog hole — the old reconnect ticker would have pinged forever
 	// past a wedged pgx.Connect (which was unbounded). The fix is twofold: the
@@ -5410,9 +5410,9 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// 5-min ctx) so deferring gating during them is safe, not blind-forever.
 	// Reproduced empirically by scenario 19 (reconnect stall).
 	//
-	// Cancelled via defer so every error-return path in applyPostSwap reaps the
+	// Cancelled via defer so every error-return path in applyNewSbUpgrading reaps the
 	// goroutine cleanly. The first tick is gated like every other (no special
-	// unconditional initial ping); reaching applyPostSwap IS an advance, so we
+	// unconditional initial ping); reaching applyNewSbUpgrading IS an advance, so we
 	// bump lastAdvanceAt right here — making the gate-open-on-entry guarantee
 	// structural (independent of whether an upstream progress.Write happened to
 	// fire recently) so the deadline resets before config-generate can run long.
@@ -5420,7 +5420,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	applyExtendCtx, applyExtendCancel := context.WithCancel(ctx)
 	applyTickerDone := make(chan struct{})
 	go runGatedWatchdogTicker(applyExtendCtx, progress,
-		applyPostSwapStallThreshold, applyPostSwapWatchdogCadence,
+		applyNewSbUpgradingStallThreshold, applyNewSbUpgradingWatchdogCadence,
 		func() { sdNotify("WATCHDOG=1") }, applyTickerDone)
 	defer func() {
 		applyExtendCancel()
@@ -5440,7 +5440,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 			return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath,
 				fmt.Sprintf("config generate failed at %s: %v", displayName, err), progress)
 		}
-		return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("./sb config generate: %v", err), progress)
+		return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("./sb config generate: %v", err), progress)
 	}
 
 	// Step 8: Pull updated images. --profile all is MANDATORY, not cosmetic:
@@ -5464,7 +5464,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 			return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath,
 				fmt.Sprintf("disk full during image pull at %s (no space left on device) — free disk space, then re-trigger the upgrade", displayName), progress)
 		}
-		return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: docker compose pull: %v", ErrDockerUpFailed, err), progress)
+		return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: docker compose pull: %v", ErrDockerUpFailed, err), progress)
 	}
 
 	// Step 9: Start database. --no-build forces compose to USE THE PULLED IMAGE
@@ -5485,16 +5485,16 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 				"then retry the upgrade. Check status: "+
 				"gh run list --workflow=images.yaml",
 			ErrDockerUpFailed, err, displayName)
-		return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, reason, progress)
+		return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, reason, progress)
 	}
 
 	// Wait for DB health — STATBUS-046 slice 3 (doc-021 3.3): class-A readiness
-	// allowance, size-scaled-intent to the WAL-replay worst case (PostSwapDBHealthTimeout,
+	// allowance, size-scaled-intent to the WAL-replay worst case (NewSbUpgradingDBHealthTimeout,
 	// generous fixed budget) so a healthy-but-replaying large volume isn't
 	// mis-read as a failure. In-place; never consumes a death.
 	progress.Write("Waiting for database to be healthy...")
-	if err := d.waitForDBHealth(PostSwapDBHealthTimeout); err != nil {
-		return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: DB health check: %v", ErrHealthcheckDBDown, err), progress)
+	if err := d.waitForDBHealth(NewSbUpgradingDBHealthTimeout); err != nil {
+		return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: DB health check: %v", ErrHealthcheckDBDown, err), progress)
 	}
 
 	// Reconnect service DB connection — a legitimately SILENT blocking step
@@ -5504,7 +5504,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// it) — SAFE only because reconnect is now itself BOUNDED: connect() wraps
 	// the dial+handshake in a 5-min ctx deadline (see connect()), mirroring how
 	// migrate is bounded by its runCommandToLog timeout. A genuine hang is
-	// killed at 5 min → reconnect returns DeadlineExceeded → postSwapFailure →
+	// killed at 5 min → reconnect returns DeadlineExceeded → newSbUpgradingFailure →
 	// rollback (task #7 backstops a loop), NOT pinged forever (the
 	// blind-unbounded hole the old unconditional reconnect ticker left open).
 	//
@@ -5537,7 +5537,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 		return d.reconnect(ctx)
 	}()
 	if reconnErr != nil {
-		return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: reconnect to DB: %v", ErrHealthcheckDBDown, reconnErr), progress)
+		return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: reconnect to DB: %v", ErrHealthcheckDBDown, reconnErr), progress)
 	}
 	progress.Write("Database reconnected.")
 
@@ -5550,17 +5550,17 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	}
 
 	// R1 quiesce: stop worker / app / rest if any are still running
-	// before step 10's DDL phase. In the normal applyPostSwap flow the
+	// before step 10's DDL phase. In the normal applyNewSbUpgrading flow the
 	// pre-swap teardown already stopped them, so this is usually a
 	// no-op; the defensive call covers recovery paths where
-	// resumePostSwap re-enters applyPostSwap and a prior partial run
+	// resumeNewSb re-enters applyNewSbUpgrading and a prior partial run
 	// may have left clients up. Step 11 below starts worker/app/rest
 	// unconditionally as the natural resume point — no separate
 	// ResumeClients call needed here. db, proxy, caddy stay running
 	// throughout (db is the DDL target).
 	quiescedClients, quiesceErr := compose.QuiesceClients(projDir)
 	if quiesceErr != nil {
-		return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath,
+		return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath,
 			fmt.Sprintf("quiesce clients before migrations: %v (must not proceed with DDL on live services)", quiesceErr), progress)
 	}
 	if len(quiescedClients) > 0 {
@@ -5571,7 +5571,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// `recreate` arrives via parameter — sourced from the DURABLE
 	// public.upgrade.recreate column read atomically at claim (STATBUS-092) and
 	// carried through executeUpgrade → writeUpgradeFlag → flag.Recreate →
-	// applyPostSwap. No volatile in-memory flag to reset.
+	// applyNewSbUpgrading. No volatile in-memory flag to reset.
 	d.markStep(StepMigrateUp)
 	if recreate {
 		progress.Write("Recreating database from scratch (--recreate)...")
@@ -5596,23 +5596,23 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 				// rollback (timeout-only; see the migrate arm below).
 				d.terminateMigrateOrphan(ctx, progress)
 			}
-			return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: ./dev.sh recreate-database: %v", ErrMigrationFailed, err), progress)
+			return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: ./dev.sh recreate-database: %v", ErrMigrationFailed, err), progress)
 		}
 	} else {
 		progress.Write("Applying database migrations...")
 
-		// Phase note: applyPostSwap runs in the unit's ACTIVE phase on BOTH
+		// Phase note: applyNewSbUpgrading runs in the unit's ACTIVE phase on BOTH
 		// entries. SCHEDULED path: the main loop dispatches executeUpgrade
 		// after Service.Run sent READY=1. RESUME path (recoverFromFlag →
-		// resumePostSwap → applyPostSwap): since plan
+		// resumeNewSb → applyNewSbUpgrading): since plan
 		// upgrade-resume-structural-whole.md piece #2, READY=1 is emitted
 		// BEFORE recoverFromFlag, so the resume is active-phase too. Active-
 		// phase systemd enforces WatchdogSec (=120 s per
 		// ops/statbus-upgrade.service); only WATCHDOG=1 resets that deadline.
 		//
-		// The single gated ticker started at the top of applyPostSwap
+		// The single gated ticker started at the top of applyNewSbUpgrading
 		// handles the active-phase WATCHDOG=1 heartbeat for the remainder of
-		// applyPostSwap -- migrate-up + step 11 + step 12 + terminal UPDATE. On
+		// applyNewSbUpgrading -- migrate-up + step 11 + step 12 + terminal UPDATE. On
 		// BOTH paths it keeps the unit alive across long
 		// steps WHILE THEY ADVANCE (plan piece #3 progress-gating).
 		//
@@ -5664,7 +5664,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 				// BEFORE the orphan-reap + rollback so it precedes them — the greppable
 				// observable the STATBUS-095 ceiling arc keys on. The failure then routes
 				// by the existing path (a timeout is classUnknown → not parksOnFirst →
-				// postSwapFailure → observed state Behind → in-process rollback →
+				// newSbUpgradingFailure → observed state Behind → in-process rollback →
 				// rolled_back); no new classification.
 				fmt.Printf("migration exceeded the ceiling (%s) — killed; rolling back\n", MigrateUpTimeout)
 				d.terminateMigrateOrphan(ctx, progress)
@@ -5693,7 +5693,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 				}
 				return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, reason+oomEvidence, progress)
 			}
-			return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: ./sb migrate up: %v", ErrMigrationFailed, err)+oomEvidence, progress)
+			return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: ./sb migrate up: %v", ErrMigrationFailed, err)+oomEvidence, progress)
 		}
 	}
 
@@ -5732,7 +5732,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 				"Wait for that workflow to finish, then retry the upgrade. Check status: "+
 				"gh run list --workflow=images.yaml",
 			ErrDockerUpFailed, strings.Join(step11RestartServices, " "), err, displayName)
-		return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, reason, progress)
+		return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, reason, progress)
 	}
 
 	// C8 injection site. Containers have been started (docker compose
@@ -5743,7 +5743,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// state (some up, some not, health checks not yet validated).
 	// The next install must complete the restart by re-running
 	// step 11 + step 12 — the recoverFromFlag PostSwap path resumes
-	// applyPostSwap from the top. No-op in production.
+	// applyNewSbUpgrading from the top. No-op in production.
 	inject.KillHere("killed-by-system-during-container-restart")
 
 	// Step 12: Verify health. STATBUS-046 slice 3 (doc-021 3.7): healthCheck IS
@@ -5812,7 +5812,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 		// C7: terminal UPDATE errored. If it's a DB-enforced invariant (e.g.
 		// chk_upgrade_state_attributes log-pointer arm), prefer the specific name
 		// so the support bundle surfaces the precise cause.
-		if dbName := d.markPgInvariantTerminal(cerr, "service.go:applyPostSwap:completed-terminal"); dbName != "" {
+		if dbName := d.markPgInvariantTerminal(cerr, "service.go:applyNewSbUpgrading:completed-terminal"); dbName != "" {
 			d.writeDiagnosticBundle(ctx, id, progress)
 			return fmt.Errorf("%s: %w", dbName, cerr)
 		}
@@ -5833,7 +5833,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// bug, STATBUS-090). The completed UPDATE's DB trigger also fires the real
 	// completion NOTIFY; this explicit belt guarantees delivery if the app's
 	// LISTEN wasn't yet established when the trigger fired. Mirrors the recovery
-	// self-heal path's NOTIFY-after-completed ordering (resumePostSwap).
+	// self-heal path's NOTIFY-after-completed ordering (resumeNewSb).
 	d.queryConn.Exec(ctx, `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
 	// STATBUS-110: clear the read-only upgrade window — health passed, no rollback
 	// pending, box reopening. Placed HERE (right after the completed UPDATE landed)
@@ -5927,7 +5927,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	return nil
 }
 
-// resumePostSwap re-enters the upgrade pipeline in the new binary after a
+// resumeNewSb re-enters the upgrade pipeline in the new binary after a
 // mid-flow exit-42 restart. Called from recoverFromFlag when the flag's
 // Phase is PhaseNewSbSwapped.
 //
@@ -5936,9 +5936,9 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 // restore target is the pinned `pre-upgrade` branch (STATBUS-077 single source;
 // the from_commit_sha column was removed). Then re-acquires the flock (prior
 // process died, kernel released it), reopens the progress log in append mode,
-// and calls applyPostSwap.
+// and calls applyNewSbUpgrading.
 //
-// Control returns to Run() after applyPostSwap completes. If applyPostSwap
+// Control returns to Run() after applyNewSbUpgrading completes. If applyNewSbUpgrading
 // fails, rollback() has already run inside it.
 // upgradeParkedReason reports whether upgrade `id` is PARKED (STATBUS-046):
 // recovery_parked_at IS NOT NULL. A parked row is SKIPPED by every automatic
@@ -5981,7 +5981,7 @@ func (d *Service) incrementRecoveryAttempts(ctx context.Context, id int) (int, e
 // countRecoveryAttemptOnce increments recovery_attempts EXACTLY ONCE per process
 // lifetime (STATBUS-044 comment #6 part 3). RecoveryBudgetGuard is the first
 // counter — it runs at the start of the recovery pass, before the boot migrate —
-// and whichever downstream regime runs afterwards (resumePostSwap /
+// and whichever downstream regime runs afterwards (resumeNewSb /
 // recoveryRollback) reuses that count via this helper instead of double-counting
 // the same pass. When nothing counted yet this lifetime (e.g. a PreSwap→rollback
 // pass, where the forward guard is a no-op), it increments and records the value
@@ -6017,17 +6017,17 @@ func (d *Service) countRecoveryAttemptOnce(ctx context.Context, id int) (int, er
 //
 // Returns skipBootMigrate: true when the caller must NOT run the boot migrate (row
 // parked, or just parked by this guard). The downstream recoverFromFlag →
-// resumePostSwap parked-skip then keeps the unit alive-idle.
+// resumeNewSb parked-skip then keeps the unit alive-idle.
 //
-// FAIL-OPEN on any DB read/write error (the resumePostSwap :5792-5804 bootstrap
+// FAIL-OPEN on any DB read/write error (the resumeNewSb :5792-5804 bootstrap
 // pattern, verbatim): the 046-shipping upgrade's own recovery boot runs these
 // queries against the pre-migrate schema (recovery_* columns absent → SQLSTATE
 // 42703). Proceed so the boot migrate ships the columns and the feature bootstraps
-// through its own deferral window; the downstream resumePostSwap increment/consult
+// through its own deferral window; the downstream resumeNewSb increment/consult
 // still bounds the pass. Fail-CLOSED here would loop uncounted on exactly that path.
 func (d *Service) RecoveryBudgetGuard(ctx context.Context) (skipBootMigrate bool) {
 	flag, ferr := ReadFlagFile(d.projDir)
-	if ferr != nil || flag == nil || !flag.IsServiceForwardRecovery() {
+	if ferr != nil || flag == nil || !flag.IsServiceNewSbRecovery() {
 		// No service-held FORWARD recovery flag → not a resume pass (fresh boot,
 		// install-held, or a PreSwap flag that rolls back). Guard is a no-op; the
 		// PreSwap→rollback path keeps recoveryRollback's own increment.
@@ -6114,7 +6114,7 @@ func (d *Service) RecoveryBudgetGuard(ctx context.Context) (skipBootMigrate bool
 		}
 		log.Printf("RecoveryBudgetGuard: PARKED upgrade %d after %d attempt(s) — %s", flag.ID, attempts, reason)
 		// Degraded siren — fires EXACTLY ONCE per park event (freshlyParked from the
-		// parkUpgrade parked_at guard), matching resumePostSwap's contract.
+		// parkUpgrade parked_at guard), matching resumeNewSb's contract.
 		if freshlyParked {
 			d.runCallback(flag.Label(), map[string]string{"STATBUS_EVENT": "parked", "STATBUS_PARKED": "1", "STATBUS_PARK_REASON": reason})
 		}
@@ -6123,7 +6123,7 @@ func (d *Service) RecoveryBudgetGuard(ctx context.Context) (skipBootMigrate bool
 
 	// Continue: stamp the boot-migrate step + roll the death history so two
 	// consecutive deaths IN the boot migrate trip same-step-twice via
-	// StepBootMigrate. Mirrors resumePostSwap's reacquire roll, hoisted to cover
+	// StepBootMigrate. Mirrors resumeNewSb's reacquire roll, hoisted to cover
 	// the boot window. Best-effort (mutateHeldFlag needs the flock we still hold):
 	// a failure only degrades same-step detection to the plain attempt budget.
 	if err := d.mutateHeldFlag(func(f *UpgradeFlag) {
@@ -6132,7 +6132,7 @@ func (d *Service) RecoveryBudgetGuard(ctx context.Context) (skipBootMigrate bool
 	}); err != nil {
 		log.Printf("RecoveryBudgetGuard: could not stamp boot-migrate step (id=%d): %v — same-step-twice detection degraded; the attempt budget still bounds the loop", flag.ID, err)
 	}
-	// Release before the boot migrate: the downstream resumePostSwap /
+	// Release before the boot migrate: the downstream resumeNewSb /
 	// recoveryRollback re-acquire the flock on their own fd (a second flock on the
 	// held fd would EWOULDBLOCK). The stamped step is already persisted on disk.
 	release()
@@ -6214,7 +6214,7 @@ func (d *Service) rowIsParked(id int) (parked bool, state string, err error) {
 // reschedule matters: runOneShot is NOT transactional, so a two-statement
 // "reschedule then reset" would leave a window where a rescheduled row is still
 // parked — the daemon could claim+crash it there and inherit the stale marker,
-// then get wrongly skipped by resumePostSwap's parked-skip.
+// then get wrongly skipped by resumeNewSb's parked-skip.
 //
 // The guard NEVER clobbers a genuinely-live upgrade:
 //   - RunSchedule: the same UPDATE moves the row to 'scheduled' (or it's a
@@ -6230,7 +6230,7 @@ const (
 // UnparkByID is the ./sb install un-park (trigger 2). Called ONLY on the
 // deliberate install crash-recovery path (runCrashRecovery), NEVER on an
 // automatic self-resume — which is why the marker persists across boots and
-// resumePostSwap keeps skipping the parked row until a human acts. The
+// resumeNewSb keeps skipping the parked row until a human acts. The
 // FROM-subquery captures the PRE-reset reason so the caller can name it in the
 // loud un-park line. Returns whether a parked row was un-parked + that reason.
 func (d *Service) UnparkByID(ctx context.Context, id int) (unparked bool, oldReason string, err error) {
@@ -6249,13 +6249,13 @@ func (d *Service) UnparkByID(ctx context.Context, id int) (unparked bool, oldRea
 	return true, r.String, nil
 }
 
-func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
+func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 	var logRelPath sql.NullString
 	err := d.queryConn.QueryRow(ctx,
 		"SELECT log_relative_file_path FROM public.upgrade WHERE id = $1", flag.ID).
 		Scan(&logRelPath)
 	if err != nil {
-		return fmt.Errorf("resumePostSwap: cannot load upgrade %d state (err=%v) — leaving flag for manual triage", flag.ID, err)
+		return fmt.Errorf("resumeNewSb: cannot load upgrade %d state (err=%v) — leaving flag for manual triage", flag.ID, err)
 	}
 	// STATBUS-077: restore target = the pinned pre-upgrade branch (single source).
 	restoreTargetSHA := ""
@@ -6269,13 +6269,13 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 	}
 	// Dedup: recoverFromFlag already emitted "Post-swap restart detected
 	// for upgrade %d (%s) — resuming pipeline on new binary (pid=%d)"
-	// before calling here. A second line in resumePostSwap was redundant.
+	// before calling here. A second line in resumeNewSb was redundant.
 
 	// Observed-state guard (task #49 Gap #6, rune-stuck fix). If the
 	// running binary's compile-time commit SHA doesn't match the flag's
 	// target commit SHA, the flag is stale: a subsequent install
 	// advanced the server past this in_progress upgrade without
-	// clearing the flag. Running applyPostSwap in this state would
+	// clearing the flag. Running applyNewSbUpgrading in this state would
 	// "complete" the row against a different binary — a silent lie.
 	// Treat it as a rollback instead: mark row rolled_back via
 	// recoveryRollback (which also clears the flag), leave the running
@@ -6306,29 +6306,29 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 		// that boot-migrate-up's STATBUS-017 deferral (service.go:1675-1697)
 		// routes here for, silently certifying a half-migrated DB. Only
 		// self-heal when migrations are genuinely complete; otherwise fall
-		// through to the continuation (re-acquire flock → applyPostSwap →
-		// migrate up re-hits the unrecorded migration → postSwapFailure →
+		// through to the continuation (re-acquire flock → applyNewSbUpgrading →
+		// migrate up re-hits the unrecorded migration → newSbUpgradingFailure →
 		// rollback).
 		//
 		// STATBUS-145: this HasPending gate is now MORE load-bearing — since boot
 		// migrates only to the floor, the whole upgrade DELTA is pending here on a
 		// resume, so HasPending==true correctly withholds self-heal until
-		// applyPostSwap applies the delta (or rolls back). It never short-circuits a
+		// applyNewSbUpgrading applies the delta (or rolls back). It never short-circuits a
 		// delta-pending resume.
 		pending, perr := migrate.HasPending(d.projDir)
 		if perr != nil || pending {
-			log.Printf("resumePostSwap: containers healthy at %s but migrations pending/unknown (pending=%v err=%v) — NOT self-healing; deferring to rollback (STATBUS-067)",
+			log.Printf("resumeNewSb: containers healthy at %s but migrations pending/unknown (pending=%v err=%v) — NOT self-healing; deferring to rollback (STATBUS-067)",
 				flag.Label(), pending, perr)
 		} else if hcErr := d.healthCheck(progress, 5, 5*time.Second); hcErr != nil {
 			// STATBUS-104: containers-already-at-new + no-pending is necessary but NOT
-			// sufficient — run the SAME bounded probe the normal applyPostSwap path
+			// sufficient — run the SAME bounded probe the normal applyNewSbUpgrading path
 			// uses (exec.go:4809) before certifying 'completed'. On FAIL, do NOT
 			// self-heal: fall through to the continuation (re-acquire flock →
-			// applyPostSwap → its own healthCheck → completed OR rollback), so a
+			// applyNewSbUpgrading → its own healthCheck → completed OR rollback), so a
 			// self-heal can never certify an unhealthy box as completed.
-			log.Printf("resumePostSwap: containers at target but healthCheck failed (%v) — NOT self-healing; deferring to applyPostSwap re-verify", hcErr)
+			log.Printf("resumeNewSb: containers at target but healthCheck failed (%v) — NOT self-healing; deferring to applyNewSbUpgrading re-verify", hcErr)
 		} else {
-			log.Printf("resumePostSwap: containers healthy at %s (sha %s), no pending migrations — self-healing row %d to completed",
+			log.Printf("resumeNewSb: containers healthy at %s (sha %s), no pending migrations — self-healing row %d to completed",
 				flag.Label(), ShortForDisplay(flag.CommitSHA), flag.ID)
 			var selfHealJSON string
 			// error = NULL: clears any non-terminal error stamped by a prior
@@ -6354,7 +6354,7 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 				os.Remove(d.flagPath())
 				d.supersedeOlderReleases(ctx, flag.CommitSHA)
 				d.supersedeCompletedPrereleases(ctx, flag.CommitSHA)
-				progress.Write("Post-swap self-heal: containers already at %s; row %d marked completed without re-running applyPostSwap.",
+				progress.Write("Post-swap self-heal: containers already at %s; row %d marked completed without re-running applyNewSbUpgrading.",
 					flag.Label(), flag.ID)
 				progress.Close()
 				return nil
@@ -6362,10 +6362,10 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 			// UPDATE didn't land (ErrNoRows: row already terminal; or
 			// chk_upgrade_state_attributes violation: row carries an `error`
 			// the constraint forbids on completed). Fall through to the
-			// continuation path — re-acquire flock and resume applyPostSwap
+			// continuation path — re-acquire flock and resume applyNewSbUpgrading
 			// from where the prior process died. The continuation handles
 			// its own terminal-row idempotency.
-			log.Printf("resumePostSwap: self-heal UPDATE skipped for row %d (err=%v) — falling through to continuation",
+			log.Printf("resumeNewSb: self-heal UPDATE skipped for row %d (err=%v) — falling through to continuation",
 				flag.ID, err)
 		}
 	} else {
@@ -6375,7 +6375,7 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 		// (a) Normal mid-pipeline state. Binary was just swapped on
 		//     disk by replaceBinaryOnDisk; old containers were stopped
 		//     before swap; new containers haven't been started yet
-		//     (that's literally applyPostSwap's job below). The running
+		//     (that's literally applyNewSbUpgrading's job below). The running
 		//     process IS the freshly-restarted post-swap binary, so
 		//     d.binaryCommit == flag.CommitSHA exactly. Continue.
 		//
@@ -6385,7 +6385,7 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 		//     flag.CommitSHA — the new binary subsumes everything the
 		//     flag's target could do (its column-name expectations,
 		//     its compose template, its post-swap steps). Continuing
-		//     is safe; the new binary's applyPostSwap brings the
+		//     is safe; the new binary's applyNewSbUpgrading brings the
 		//     world to a state at LEAST as new as the flag implies.
 		//
 		// (c) Genuine category-3 divergence (rc.67 trifecta). The
@@ -6442,7 +6442,7 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 
 	// STATBUS-046 (doc-021/D3) — the crash-resume ATTEMPT BUDGET, the bound that
 	// replaces the rune loop-forever. We are past the self-heal early return, so
-	// this resume IS a fresh forward attempt. resumePostSwap is only reached in
+	// this resume IS a fresh forward attempt. resumeNewSb is only reached in
 	// the already-at-new forward regime (recoverFromFlag routes a positively-Behind
 	// observed state to rollback, never here), so a terminal verdict PARKS
 	// (canRollBack=false); direction stays STATBUS-039's call — 046 only bounds
@@ -6468,7 +6468,7 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 	// STATBUS-044 comment #6 — RecoveryBudgetGuard (Run + install ladder) may have
 	// ALREADY counted + consulted this pass at boot, before the boot migrate. Capture
 	// that at entry: the parked-skip below runs REGARDLESS (a row the guard just
-	// parked must not run applyPostSwap — the parked-skip is what returns the unit
+	// parked must not run applyNewSbUpgrading — the parked-skip is what returns the unit
 	// to alive-idle), but the increment + consult are SKIPPED when the guard ran.
 	// Skipping the CONSULT is load-bearing: after a boot migrate that SUCCEEDS
 	// following a boot-migrate death, flag.Step == flag.PriorDeathStep ==
@@ -6477,9 +6477,9 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 	guardCounted := d.recoveryPassCounted
 	parked, parkReason, perr := d.upgradeParkedReason(ctx, flag.ID)
 	if perr != nil {
-		log.Printf("resumePostSwap: park-state read failed for upgrade %d: %v — proceeding; the escalation budget still bounds this attempt", flag.ID, perr)
+		log.Printf("resumeNewSb: park-state read failed for upgrade %d: %v — proceeding; the escalation budget still bounds this attempt", flag.ID, perr)
 	} else if parked {
-		log.Printf("resumePostSwap: upgrade %d is PARKED (%s) — skipping automatic resume; re-trigger the upgrade or run ./sb install to make a fresh attempt", flag.ID, parkReason)
+		log.Printf("resumeNewSb: upgrade %d is PARKED (%s) — skipping automatic resume; re-trigger the upgrade or run ./sb install to make a fresh attempt", flag.ID, parkReason)
 		progress.Write("Upgrade %d is parked: %s. Skipping automatic resume — re-trigger the upgrade (NOTIFY/apply) or run ./sb install for a fresh attempt.", flag.ID, parkReason)
 		progress.Close()
 		return nil
@@ -6491,7 +6491,7 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 		//     also records the count so a later recoveryRollback in the same pass reuses it.
 		attempts, aerr := d.countRecoveryAttemptOnce(ctx, flag.ID)
 		if aerr != nil {
-			log.Printf("resumePostSwap: could not increment recovery_attempts for %d (%v) — proceeding with a single attempt", flag.ID, aerr)
+			log.Printf("resumeNewSb: could not increment recovery_attempts for %d (%v) — proceeding with a single attempt", flag.ID, aerr)
 			attempts = 1
 		}
 		// (3) Consult the pure escalation core. deathStep = where the PREVIOUS attempt
@@ -6500,11 +6500,11 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 		if action, reason := resumeEscalation(attempts, flag.Step, flag.PriorDeathStep, false); action != recoveryContinue {
 			freshlyParked, parkErr := d.parkUpgrade(ctx, flag.ID, reason)
 			if parkErr != nil {
-				progress.Write("resumePostSwap: park write failed for upgrade %d: %v", flag.ID, parkErr)
+				progress.Write("resumeNewSb: park write failed for upgrade %d: %v", flag.ID, parkErr)
 				progress.Close()
-				return fmt.Errorf("resumePostSwap: park write failed for upgrade %d: %w", flag.ID, parkErr)
+				return fmt.Errorf("resumeNewSb: park write failed for upgrade %d: %w", flag.ID, parkErr)
 			}
-			log.Printf("resumePostSwap: PARKED upgrade %d after %d attempt(s) — %s", flag.ID, attempts, reason)
+			log.Printf("resumeNewSb: PARKED upgrade %d after %d attempt(s) — %s", flag.ID, attempts, reason)
 			progress.Write("PARKED after %d crash-resume attempt(s): %s. The unit stays running and idle (no crash loop); re-trigger the upgrade or run ./sb install to make a fresh attempt — each deliberate trigger is exactly one attempt.", attempts, reason)
 			progress.Close()
 			// Degraded siren — fires EXACTLY ONCE per park EVENT: only when THIS call
@@ -6520,7 +6520,7 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 	}
 
 	// Re-acquire the flock on the flag file AND advance the on-disk phase to
-	// Resuming: from here this process commits to running applyPostSwap on the
+	// Resuming: from here this process commits to running applyNewSbUpgrading on the
 	// new binary. If it dies before completing (watchdog SIGABRT on a hung step,
 	// OOM, reboot, kill), the next recoverFromFlag sees Phase=Resuming and
 	// consults observed state (STATBUS-039): at-or-past target → resume forward
@@ -6533,7 +6533,7 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 	// STATBUS-046: roll flag.Step (where THIS attempt's predecessor died) into
 	// PriorDeathStep so the NEXT resume can detect two consecutive deaths at the
 	// same step (deterministic hang → park early). Step itself resets to "" and
-	// recordFlagStep re-stamps it as applyPostSwap progresses.
+	// recordFlagStep re-stamps it as applyNewSbUpgrading progresses.
 	//
 	// STATBUS-044 comment #6: when RecoveryBudgetGuard already ran this pass
 	// (guardCounted), it ALREADY rolled the death history (PriorDeathStep ← the prior
@@ -6561,16 +6561,16 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 	}
 	lock, lerr := acquireFlock(d.projDir, reacquired)
 	if lerr != nil {
-		progress.Write("resumePostSwap: re-acquire flock failed: %v", lerr)
+		progress.Write("resumeNewSb: re-acquire flock failed: %v", lerr)
 		progress.Close()
-		return fmt.Errorf("resumePostSwap: re-acquire flock: %w", lerr)
+		return fmt.Errorf("resumeNewSb: re-acquire flock: %w", lerr)
 	}
 	d.flagLock = lock
 	d.upgrading = true
 	defer func() { d.upgrading = false }()
 
-	if applyErr := d.applyPostSwap(ctx, flag.ID, flag.CommitSHA, flag.Label(), restoreTargetSHA, flag.BackupPath, flag.Recreate, progress); applyErr != nil {
-		// rollback() already ran inside applyPostSwap and (post-rc.67)
+	if applyErr := d.applyNewSbUpgrading(ctx, flag.ID, flag.CommitSHA, flag.Label(), restoreTargetSHA, flag.BackupPath, flag.Recreate, progress); applyErr != nil {
+		// rollback() already ran inside applyNewSbUpgrading and (post-rc.67)
 		// exits the process unconditionally. If we somehow got here
 		// without exiting, propagate the error to the caller.
 		return applyErr
@@ -7095,7 +7095,7 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reaso
 	// Wait for the restored DB to accept connections BEFORE reconnecting: the
 	// restart above brings Postgres back and an immediate reconnect would race
 	// it coming ready (the scenario 2-preswap-backup-kill "connection reset by peer"). Mirrors
-	// applyPostSwap's post-restart waitForDBHealth on the normal path. This is
+	// applyNewSbUpgrading's post-restart waitForDBHealth on the normal path. This is
 	// the PRIMARY wait — writeRollbackTerminal's bounded retry below is the
 	// durable fallback. Log-not-raise: if the DB genuinely never returns, the
 	// wait elapses, the reconnect + terminal write fail, and the flag is KEPT
@@ -7277,7 +7277,7 @@ func (d *Service) ReattemptRestore(ctx context.Context, rowID int64, backupPath 
 	tickerCtx, tickerCancel := context.WithCancel(ctx)
 	tickerDone := make(chan struct{})
 	go runGatedWatchdogTicker(tickerCtx, nil,
-		applyPostSwapStallThreshold, applyPostSwapWatchdogCadence,
+		applyNewSbUpgradingStallThreshold, applyNewSbUpgradingWatchdogCadence,
 		func() { sdNotify("WATCHDOG=1") }, tickerDone)
 	defer func() { tickerCancel(); <-tickerDone }()
 
@@ -7314,7 +7314,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 	// (exec.go, onAdvance=nil → output bypasses the heartbeat) and the rollback
 	// docker-up (5m, onAdvance=nil). On the STARTUP recovery path (recoverFromFlag →
 	// recoveryRollback → here) NO watchdog ticker is armed; on the execute path the
-	// applyPostSwap gated ticker closes its gate after applyPostSwapStallThreshold of
+	// applyNewSbUpgrading gated ticker closes its gate after applyNewSbUpgradingStallThreshold of
 	// rsync silence — so either way a >120s restore (Norway 32 GB ⇒ guaranteed) gets
 	// the unit SIGABRT'd mid-restore. Because the flag is removed only AFTER the
 	// restore completes, the next boot restores from scratch and is killed again — an
@@ -7333,7 +7333,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 	rollbackTickerCtx, rollbackTickerCancel := context.WithCancel(ctx)
 	rollbackTickerDone := make(chan struct{})
 	go runGatedWatchdogTicker(rollbackTickerCtx, nil,
-		applyPostSwapStallThreshold, applyPostSwapWatchdogCadence,
+		applyNewSbUpgradingStallThreshold, applyNewSbUpgradingWatchdogCadence,
 		func() { sdNotify("WATCHDOG=1") }, rollbackTickerDone)
 	defer func() { rollbackTickerCancel(); <-rollbackTickerDone }()
 

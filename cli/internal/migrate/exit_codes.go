@@ -8,7 +8,7 @@ import (
 // STATBUS-046 slice 2 (architect Q5) — the `sb migrate up` FAILURE-CLASS EXIT-CODE
 // CONTRACT. This is the SHARED surface between the producer (`sb migrate up`,
 // which maps psql's documented exit semantics to these codes) and the consumer
-// (upgrade.applyPostSwap, which reads ONLY the exit code via
+// (upgrade.applyNewSbUpgrading, which reads ONLY the exit code via
 // exec.ExitError.ExitCode() — never the stderr text — to classify a Phase-3
 // migrate failure as A/B/C). Text-as-DATA (a stderr tail in the park reason) is
 // fine; text-as-CLASSIFIER is the doc-022-banned thing this contract removes.

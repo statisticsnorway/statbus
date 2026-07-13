@@ -69,7 +69,7 @@ func TestPrefixWriter_NilOnLineSafe(t *testing.T) {
 	w.Flush()
 }
 
-// #3 (b) gate: the applyPostSwap WATCHDOG=1 ticker pings ONLY IF
+// #3 (b) gate: the applyNewSbUpgrading WATCHDOG=1 ticker pings ONLY IF
 // shouldPingWatchdog(stallThreshold) is true:
 //   advancing (sinceLastAdvance < stallThreshold) → ping (step is alive)
 //   stalled (>= stallThreshold) → NO ping → WatchdogSec fires (hung, caught)
@@ -106,9 +106,9 @@ func TestShouldPingWatchdog_DeferOverridesStall(t *testing.T) {
 	}
 }
 
-// #3 (b) ticker: runGatedWatchdogTicker is the single applyPostSwap watchdog
+// #3 (b) ticker: runGatedWatchdogTicker is the single applyNewSbUpgrading watchdog
 // goroutine. It pings ONLY when progress.shouldPingWatchdog(stall) is true —
-// collapsing the prior two unconditional tickers (reconnect + applyPostSwap)
+// collapsing the prior two unconditional tickers (reconnect + applyNewSbUpgrading)
 // into one progress-gated loop. A hung step (no advance) stops the pings so
 // WatchdogSec fires; a live or migrate-deferred step keeps pinging. These
 // guards drive the loop with a fast cadence + an injected ping counter (no

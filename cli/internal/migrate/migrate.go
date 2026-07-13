@@ -523,7 +523,7 @@ func runPsqlFile(projDir string, filePath string) (string, error) {
 	// STATBUS_INJECT_AT=migration-slower-than-systemd-unit-timeout,
 	// holds here until the harness removes
 	// STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE. Validates the Race B fix
-	// in applyPostSwap's WATCHDOG=1 ticker (commit `e6df084b7`): with
+	// in applyNewSbUpgrading's WATCHDOG=1 ticker (commit `e6df084b7`): with
 	// the migrate subprocess blocked here, the parent upgrade-service
 	// must keep the unit alive via its independent ticker, otherwise
 	// systemd's WatchdogSec=120s fires and triggers a restart loop.
@@ -543,10 +543,10 @@ func runPsqlFile(projDir string, filePath string) (string, error) {
 	// nothing to roll back; from the install state-machine's
 	// perspective the kill produced the same shape as "subprocess
 	// killed before completing": flag is whatever the prior step
-	// stamped (PostSwap inside applyPostSwap), binary is the NEW
+	// stamped (PostSwap inside applyNewSbUpgrading), binary is the NEW
 	// binary, db.migration max version UNCHANGED, no committed schema
 	// changes from this migration. Recovery via the next install's
-	// recoverFromFlag → resumePostSwap path re-enters applyPostSwap
+	// recoverFromFlag → resumeNewSb path re-enters applyNewSbUpgrading
 	// and the migration applies cleanly (no leftover state to
 	// conflict with). Drives scenario 3-postswap-mid-migration-kill.
 	//
@@ -1005,7 +1005,7 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 		// (PrefixWriter) which fires WATCHDOG=1, so per-migration output
 		// also serves as a heartbeat during multi-minute migrations
 		// (complements the active-phase WATCHDOG=1 ticker in
-		// applyPostSwap that fires every 30 s independently).
+		// applyNewSbUpgrading that fires every 30 s independently).
 		fmt.Printf("[migrate]   ▶ applying %s\n", filepath.Base(m.Path))
 
 		if verbose {
@@ -1120,8 +1120,8 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 		// The harness ensures ≥ 2 pending migrations so the "between"
 		// point exists.
 		//
-		// Recovery via the next install's recoverFromFlag → resumePostSwap
-		// → applyPostSwap re-entry → migrate.Up: forward-recovery resumes
+		// Recovery via the next install's recoverFromFlag → resumeNewSb
+		// → applyNewSbUpgrading re-entry → migrate.Up: forward-recovery resumes
 		// from the unrecorded pending set (N+1 onwards) and applies them
 		// cleanly. No partial state to reconcile since N's transaction
 		// committed and N+1's never opened.

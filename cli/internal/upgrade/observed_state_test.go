@@ -243,7 +243,7 @@ func TestVerifyUpgradeObservedState_MatchingBinaryAndNoMigrations(t *testing.T) 
 // Note: the binary-mismatch → auto-rollback branch (Gap #6) is gone in
 // rc.67. The test that pinned needsPostSwapRollback was removed when
 // the helper itself was deleted; the structural guard now lives in
-// postswap_test.go's TestResumePostSwap_SelfHealOrFailLoud, which
+// postswap_test.go's TestResumeNewSb_SelfHealOrFailLoud, which
 // asserts the function fails loudly with a category-3 error instead
 // of auto-rolling back. See tmp/rc67-recovery-rootcause.md.
 
@@ -283,8 +283,8 @@ func TestIsConnError_CancellationStrings(t *testing.T) {
 	}
 }
 
-// TestApplyPostSwap_CompletedUpdateBeforeCompleteLog verifies Fix A's
-// source-ordering contract: in applyPostSwap, the `state='completed'`
+// TestApplyNewSbUpgrading_CompletedUpdateBeforeCompleteLog verifies Fix A's
+// source-ordering contract: in applyNewSbUpgrading, the `state='completed'`
 // UPDATE (line with `completedSQL`) must appear BEFORE the
 // "Upgrade to %s complete!" progress.Write AND before the
 // runInstallFixup call. Violating this ordering would revive the rune
@@ -293,24 +293,24 @@ func TestIsConnError_CancellationStrings(t *testing.T) {
 //
 // Hermetic test — parses service.go directly and asserts line-number
 // ordering. Regression guard for the specific mistake.
-func TestApplyPostSwap_CompletedUpdateBeforeCompleteLog(t *testing.T) {
+func TestApplyNewSbUpgrading_CompletedUpdateBeforeCompleteLog(t *testing.T) {
 	source, err := os.ReadFile("service.go")
 	if err != nil {
 		t.Fatalf("read service.go: %v", err)
 	}
 
-	// Find the applyPostSwap function body and assert the ordering within it.
-	funcRe := regexp.MustCompile(`func \(d \*Service\) applyPostSwap\(`)
+	// Find the applyNewSbUpgrading function body and assert the ordering within it.
+	funcRe := regexp.MustCompile(`func \(d \*Service\) applyNewSbUpgrading\(`)
 	funcLoc := funcRe.FindIndex(source)
 	if funcLoc == nil {
-		t.Fatal("couldn't locate applyPostSwap in service.go")
+		t.Fatal("couldn't locate applyNewSbUpgrading in service.go")
 	}
 	// Scan forward to the next top-level func boundary.
 	body := source[funcLoc[0]:]
-	nextFuncRe := regexp.MustCompile(`\nfunc \(d \*Service\) resumePostSwap\(`)
+	nextFuncRe := regexp.MustCompile(`\nfunc \(d \*Service\) resumeNewSb\(`)
 	end := nextFuncRe.FindIndex(body)
 	if end == nil {
-		t.Fatal("couldn't locate end of applyPostSwap (resumePostSwap not found after it)")
+		t.Fatal("couldn't locate end of applyNewSbUpgrading (resumeNewSb not found after it)")
 	}
 	body = body[:end[0]]
 
@@ -319,13 +319,13 @@ func TestApplyPostSwap_CompletedUpdateBeforeCompleteLog(t *testing.T) {
 	idxFixup := strings.Index(string(body), `runInstallFixup(projDir)`)
 
 	if idxCompletedSQL < 0 {
-		t.Fatal("applyPostSwap does not contain the expected completedSQL UPDATE — did you rename?")
+		t.Fatal("applyNewSbUpgrading does not contain the expected completedSQL UPDATE — did you rename?")
 	}
 	if idxCompleteLog < 0 {
-		t.Fatal(`applyPostSwap does not contain the "Upgrade to ... complete!" log — did you remove it?`)
+		t.Fatal(`applyNewSbUpgrading does not contain the "Upgrade to ... complete!" log — did you remove it?`)
 	}
 	if idxFixup < 0 {
-		t.Fatal("applyPostSwap does not contain runInstallFixup(projDir) call — did you rename?")
+		t.Fatal("applyNewSbUpgrading does not contain runInstallFixup(projDir) call — did you rename?")
 	}
 	if idxCompleteLog < idxCompletedSQL {
 		t.Errorf(`"Upgrade to %%s complete!" log appears BEFORE completedSQL UPDATE (rune-stuck-fix A regression)`)

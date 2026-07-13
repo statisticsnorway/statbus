@@ -184,7 +184,7 @@ func acquireOrBypass(installDir string, bypass bool) (release func(), err error)
 		//      holder for the audit log (e.g. a fixup racing an unrelated install).
 		//   2. Flag absent + STATBUS_POST_UPGRADE_FIXUP=1 → the EXPECTED steady
 		//      state: the upgrade service spawned us as its post-completion fixup,
-		//      and applyPostSwap removes the upgrade flag BEFORE running this fixup
+		//      and applyNewSbUpgrading removes the upgrade flag BEFORE running this fixup
 		//      (rune-stuck-fix A, service.go). The absent flag is by design — not
 		//      an anomaly — so proceed quietly, no invariant.
 		//   3. Flag absent + no env signature → GENUINE misuse: the bare internal
@@ -289,10 +289,10 @@ func runInstall() (installErr error) {
 	// acquireOrBypass below so any other actor — running upgrade service,
 	// another install — sees us and aborts. ReleaseInstallFlag in defer cleans
 	// up on every exit path. The ONLY caller allowed to bypass is the upgrade
-	// service's own post-completion fixup (service.go:applyPostSwap →
+	// service's own post-completion fixup (service.go:applyNewSbUpgrading →
 	// runInstallFixup, with --post-upgrade-fixup + STATBUS_POST_UPGRADE_FIXUP=1);
 	// `bypass` was computed at the top of runInstall. By the time that fixup
-	// runs, applyPostSwap has already removed the flag — acquireOrBypass treats
+	// runs, applyNewSbUpgrading has already removed the flag — acquireOrBypass treats
 	// that (absent flag + env signature) as the expected steady state.
 
 	// === State detection + dispatch ===
