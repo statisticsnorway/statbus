@@ -339,6 +339,18 @@ The import system handles power groups as a **holistic step** (not batched per-r
 1. **`analyse_power_group_link`**: Builds combined graph of existing + new relationships (all types), computes clusters via iterative label propagation, assigns `cluster_root_legal_unit_id` to each data row
 2. **`process_power_group_link`**: Creates/finds power groups for each cluster, updates `legal_relationship.derived_power_group_id` and `derived_influenced_power_level` for all relationships
 
+### Cross-border members (foreign / UTLA)
+
+A power group can span national borders. Real Norwegian konsern data (e.g. Aker Solutions ASA, org 913748174) contains many "Utenlandsk enhet" (UTLA = foreign) members, registered in BRREG with Norwegian org numbers but with a foreign business address.
+
+A foreign member is representable **only** as an ordinary `legal_unit`: both `legal_relationship` endpoints (`influencing_id`, `influenced_id`) are hard temporal FKs to `legal_unit`, with no external-party escape hatch. `legal_unit` carries no country of its own — country lives in `location.country_id` and surfaces as `statistical_unit.physical_country_iso_2` (and the derived `domestic` flag).
+
+Consequence for import: the `legal_relationship` step (`import.analyse_legal_relationship`) does **not** materialize endpoints — it only resolves them (`external_ident` → `legal_unit`). An endpoint `tax_ident` with no existing `legal_unit` is flagged `unknown_influencing` / `unknown_influenced` → `state='error'`, `action='skip'`. This is correct tier-1 validation: the relationship step legitimately cannot invent a legal_unit.
+
+So foreign members must be materialized **first**, through the ordinary hovedenhet (enheter) import, which maps `forretningsadresse.landkode` → `physical_country_iso_2`. A UTLA enhet record carries its foreign country there (e.g. AKER SOLUTIONS KOREA → `KR`). When the enheter feed includes the foreign members — as real BRREG konsern data does — they materialize as legal_units with a foreign `physical_country_iso_2`, the konsern edges resolve, and the power group renders fully across the border with no truncation at the Norwegian boundary. **No special cross-border ingestion path is needed; the requirement is data completeness in the enheter feed.**
+
+Proven end-to-end by `test/sql/403_cross_border_power_group.sql` on the real Aker konsern (23 members, 14 foreign across 9 countries — CA, CN, CY, FI, GB, KR, MY, TZ, US — in a single power group with the 9 Norwegian members). The committed fixtures (`samples/norway/legal_unit/konsern-enheter.csv`, `samples/norway/legal_relationship/konsern-roller.csv`) are generated from a BRREG konsernstruktur CSV by `samples/norway/brreg/fetch-konsern-fixture.py`.
+
 ### Change Detection and the Derive Pipeline
 
 Legal relationship changes **only affect power groups** — they do NOT affect individual legal units or their connected enterprises. The change detection system is designed around this principle:
