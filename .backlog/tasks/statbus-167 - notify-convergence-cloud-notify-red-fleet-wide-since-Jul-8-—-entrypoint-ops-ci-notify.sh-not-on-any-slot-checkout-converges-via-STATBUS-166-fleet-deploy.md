@@ -4,10 +4,10 @@ title: >-
   notify-convergence: cloud-notify red fleet-wide since Jul 8 — entrypoint
   ops/ci-notify.sh not on any slot checkout; converges via STATBUS-166 + fleet
   deploy
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-07-12 15:57'
-updated_date: '2026-07-13 08:14'
+updated_date: '2026-07-13 08:17'
 labels:
   - ci
   - not-install-upgrade
@@ -39,9 +39,9 @@ CONVERGENCE PATH: STATBUS-166 ships the restamp conveyance → dev deploys green
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 After the fleet deploy, one notify-all-clouds run is fully green (all 7 legs) — run ID cited on this ticket
-- [ ] #2 Any slot deliberately NOT deployed is named here with its expected-red status instead of being left ambient
-- [ ] #3 The structural lesson (server-side entrypoints ship before callers reference them) is recorded in doc-026 or the STATBUS-123 design doc — one home, cited here
+- [x] #1 After the fleet deploy, one notify-all-clouds run is fully green (all 7 legs) — run ID cited on this ticket
+- [x] #2 Any slot deliberately NOT deployed is named here with its expected-red status instead of being left ambient
+- [x] #3 The structural lesson (server-side entrypoints ship before callers reference them) is recorded in doc-026 or the STATBUS-123 design doc — one home, cited here
 <!-- AC:END -->
 
 ## Comments
@@ -52,4 +52,16 @@ created: 2026-07-13 08:14
 ---
 CONVERGENCE MECHANISM PROVEN (2026-07-13 morning): the first notify run after dev upgraded past Jul 8 shows dev's leg GREEN (run 29221352954: statbus_dev success, the other six slots still red exactly as predicted). One slot upgraded → that slot's notify leg healed — the ticket's convergence theory confirmed by the live run. Norway is standalone (not a notify leg). The six cloud slots' wave is released; AC#1's fully-green run should follow their convergence.
 ---
+
+author: foreman
+created: 2026-07-13 08:17
+---
+ALL LEGS GREEN (2026-07-13 08:2x UTC, run 29234810216) — the first fully green notify-all-clouds run since 2026-07-08, immediately after the fleet wave converged all six cloud slots on 111546eeb (verified by per-box reads, completed rows 08:13:31–08:14:21). AC#1 cited. AC#2: no slot was left un-deployed — all seven legs' slots (dev + the six) are converged; nothing expected-red remains. AC#3: the structural lesson is recorded in doc-026 as the named discipline 'ship the entrypoint to the fleet before any caller references it (STATBUS-167)' with the ~40-masked-runs scar attached (committed in the doc-026 v4 delta, f560bdd1d), and it has already governed two builds since (the canary's three-artifact provisioning order and the runner-health capture-block correction).
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Cloud-notify was red on every run since 2026-07-08: the workflow was converted to call a byte-stable server-side entrypoint (ops/ci-notify.sh) that no slot's checkout carried — the caller shipped a month before the file could reach any executor, and a broken canary masked the reds as skips. No interim existed by doctrine (the old byte-string was no longer allowlisted; hand-placing files on slots is forbidden). Converged exactly as diagnosed: the deploy blockage was fixed (STATBUS-166/169/171), the fleet deployed (dev overnight, Norway + all six cloud slots on the 2026-07-13 morning wave), each slot's leg healed as its checkout gained the script — dev's leg first (proving the mechanism), then all seven green on run 29234810216. The structural lesson is a named doc-026 discipline: a server-side entrypoint ships to the whole fleet BEFORE any caller references it.
+<!-- SECTION:FINAL_SUMMARY:END -->
