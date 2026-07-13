@@ -3,9 +3,10 @@ id: STATBUS-153
 title: >-
   arc-fixture-shallow-fetch: fixture construction cannot read a base SHA once
   master moves — fetch the base explicitly
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-07-09 00:15'
+updated_date: '2026-07-13 09:59'
 labels:
   - install-recovery
   - ci
@@ -34,6 +35,12 @@ ACCEPTANCE: a dispatch whose base SHA is N commits behind master's tip at job-st
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Fixture construction explicitly fetches the base SHA (or full history) before first use — a moved master tip can no longer starve it
-- [ ] #2 A genuinely unreachable base SHA fails with a loud, named error (SHA + probable cause), not a bare git internals message
+- [x] #1 Fixture construction explicitly fetches the base SHA (or full history) before first use — a moved master tip can no longer starve it
+- [x] #2 A genuinely unreachable base SHA fails with a loud, named error (SHA + probable cause), not a bare git internals message
 <!-- AC:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Arc fixture construction died once ('fatal: unable to read tree', wave-5 dispatch 28984225540) when master advanced between dispatch and job start, leaving the requested base SHA outside the checkout's history — fetch-depth:0 was present the whole time and demonstrably insufficient (GitHub resolves the checkout ref at job-start). Fixed (b08456f50): an explicit `git fetch origin <base_sha>` before first use, with a genuinely unreachable SHA failing immediately as a named ::error (SHA + probable causes + git's own message) instead of a bare git-internals line later. Both paths sanity-probed live against origin before writing (ancestor SHA fetches clean; fabricated SHA yields the distinguishable 'not our ref'). The next arc-harness run exercises it organically.
+<!-- SECTION:FINAL_SUMMARY:END -->
