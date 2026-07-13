@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-12 07:57'
-updated_date: '2026-07-13 11:56'
+updated_date: '2026-07-13 11:58'
 labels:
   - git-hygiene
   - not-install-upgrade
@@ -116,5 +116,11 @@ author: foreman
 created: 2026-07-13 11:56
 ---
 WALK EXECUTION (2026-07-13, King directives): DELETED feat/statistical-variables-over-time-chart (content-superseded, verified) + engineer/image-distribution-design (intent shipped — per-commit statbus-sb image + install.sh --commit are live; the 242-line draft doc's concept is realized). KEPT: feature/pgadmin (now the FOUNDATION for STATBUS-173, builds on it — not a delete-candidate), feature/pg-oauth (King: belongs to another project, keep until he moves it), fix-custom-scripts (Erik's work — operator analyzing no.sql/ke.sql content vs master for the KING to judge intent; the King judges, not Erik). SEQUENCING HOLD (King): the seed-class branches db-seed + db-snapshot are NOT deleted now — they go AFTER we cut RC and R and the fleet is fully off the binaries that fetch them (shipped binaries ≤ v2026.05.6-rc.03 fetch db-seed; the install-recovery harness also depends on db-seed at vm-bootstrap.sh:472,508 — so db-seed additionally waits until the harness is weaned). db-snapshot rides the same after-RC/R timing. Remaining delete-safe pending the King's per-branch go: debug/archive-partial-at-final-rootcause, engineer/layer2-recovery-flag, test/upgrade-resume-new-scenarios, red/031-rollback-watchdog.
+---
+
+author: foreman
+created: 2026-07-13 11:58
+---
+fix-custom-scripts CONTENT ANALYSIS (operator, foreman-VERIFIED 2026-07-13) — for the King's intent judgment. custom/ke.sql: master SUPERSEDES the branch. Master commit ea721b8c5 (2026-03-13, 'Replace custom reset hack with public.reset(getting-started)') rewrote ke.sql's reset call AND DELETED custom/reset.sql (61 lines) — so the branch's `\ir ./reset.sql` references a file master no longer has; the branch also sets `enabled=TRUE` where master sets `FALSE` (opposite intent on hiding the default Kenya ident type). Porting the branch's ke.sql as-is would regress to deleted/broken code. VERDICT: do NOT port ke.sql; master's is production-current. custom/no.sql: NET-NEW (absent from master), a Norway customization — hide all external_ident_type except tax_ident, rename tax_ident→'Org.Number'. It uses the SAME old `\ir ./reset.sql` pattern, so if ported it must be MODERNIZED to `SELECT public.reset(true,'getting-started')` first. THE KING'S DECISION (roadmap, his to make): does Norway want this ident-hiding/rename customization? YES → port no.sql modernized, then the branch retires; NO → drop the branch. The branch's only live value is no.sql; ke.sql is dead against master. Full evidence: tmp/operator-custom-scripts-analysis.md.
 ---
 <!-- COMMENTS:END -->
