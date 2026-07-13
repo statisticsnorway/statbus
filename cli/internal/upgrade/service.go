@@ -5088,6 +5088,16 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// rollback. Both upgrades go through the same swap+handoff plumbing,
 	// so every upgrade exercises the path — no rarely-run "skip handoff"
 	// branch can rot silently (the failure mode that bit edge in rc.70).
+	// STATBUS-171 condition-vs-circumstance (STRUCTURAL, proven on dev evidence):
+	// only the tagged branch runs a self-verify subprocess, so only it needed the
+	// target-identity fix. replaceBinaryOnDisk → selfupdate.ReplaceBinaryOnDisk
+	// EXECS `upgrade self-verify` (step 3b) — that is where the STATBUS-060
+	// deferred-checkout worktree tripped the old stalenessGuard. buildBinaryOnDisk
+	// → procureSbFromImage swaps ./sb via `docker create`+`docker cp`+chmod and
+	// NEVER execs the new binary mid-swap, so it never invoked the guard: the
+	// commit/edge path survived BY CONSTRUCTION, not by circumstance, and carries
+	// no latent copy of the bug. (dev row 331014: tag rc.02 rolled back; the
+	// same-night commit-identified deploys completed.)
 	var (
 		procureErr  error
 		procureCode string
@@ -7568,7 +7578,9 @@ func (d *Service) replaceBinaryOnDisk(version string, progress *ProgressLog) err
 	}
 	sbPath := filepath.Join(d.projDir, "sb")
 	progress.Write("Replacing ./sb with %s binary (subsequent subprocesses will run the new code)...", version)
-	if err := selfupdate.ReplaceBinaryOnDisk(sbPath, binary.URL, binary.SHA256); err != nil {
+	// STATBUS-171: pass the target commit so the new binary's self-verify asserts
+	// its own identity against the TARGET, not the STATBUS-060 deferred-source worktree.
+	if err := selfupdate.ReplaceBinaryOnDisk(sbPath, binary.URL, binary.SHA256, manifest.CommitSHA); err != nil {
 		return err
 	}
 	progress.Write("./sb replaced; ./sb.old kept as rollback.")
@@ -7838,7 +7850,7 @@ func (d *Service) selfUpdate(ctx context.Context, version string, progress *Prog
 
 	sbPath := filepath.Join(d.projDir, "sb")
 	progress.Write("Self-updating binary...")
-	swapped, err := selfupdate.Update(sbPath, binary.URL, binary.SHA256)
+	swapped, err := selfupdate.Update(sbPath, binary.URL, binary.SHA256, manifest.CommitSHA)
 	if err != nil {
 		msg := fmt.Sprintf("Self-update failed for %s: %v", version, err)
 		progress.Write("%s", msg)

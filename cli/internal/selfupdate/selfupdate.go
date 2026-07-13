@@ -25,11 +25,16 @@ import (
 // (replaceBinaryOnDisk before migrations) has already swapped the binary,
 // and lets the caller pick an honest log phrasing ("already at target"
 // vs "Self-updating binary...").
-func Update(currentPath, downloadURL, expectedSHA256 string) (swapped bool, err error) {
+//
+// expectCommit is the upgrade target's commit SHA; it is forwarded to the
+// self-verify subprocess (see ReplaceBinaryOnDisk) so the freshly-written binary
+// asserts it IS the target — never against the worktree, which STATBUS-060 leaves
+// at the source mid-upgrade. Empty means "boot-only self-verify" (legacy callers).
+func Update(currentPath, downloadURL, expectedSHA256, expectCommit string) (swapped bool, err error) {
 	if match, _ := sha256Match(currentPath, expectedSHA256); match {
 		return false, nil
 	}
-	if err := ReplaceBinaryOnDisk(currentPath, downloadURL, expectedSHA256); err != nil {
+	if err := ReplaceBinaryOnDisk(currentPath, downloadURL, expectedSHA256, expectCommit); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -43,7 +48,16 @@ func Update(currentPath, downloadURL, expectedSHA256 string) (swapped bool, err 
 // Unlike Update, this always performs the download+swap even if the current
 // file already matches — callers use it as the explicit "swap now" primitive
 // (e.g. upgrade service's mid-flow swap between git-checkout and migrate).
-func ReplaceBinaryOnDisk(currentPath, downloadURL, expectedSHA256 string) error {
+//
+// expectCommit (STATBUS-171) is the upgrade target's commit SHA. When non-empty
+// it is passed to `upgrade self-verify --expect-commit`, so the freshly-written
+// binary asserts its OWN embedded commit equals the target — the fact this step
+// exists to check. The self-verify is guard-exempt (freshness_probe): a
+// worktree-relative staleness check there is a category error, because
+// STATBUS-060 deliberately leaves the worktree at the SOURCE commit during the
+// swap, so a target binary would ALWAYS (correctly, per that contract) be judged
+// "stale" and abort. Empty expectCommit means boot-only self-verify (legacy).
+func ReplaceBinaryOnDisk(currentPath, downloadURL, expectedSHA256, expectCommit string) error {
 	newPath := currentPath + ".new"
 	oldPath := currentPath + ".old"
 
@@ -85,8 +99,16 @@ func ReplaceBinaryOnDisk(currentPath, downloadURL, expectedSHA256 string) error 
 		return fmt.Errorf("chmod: %w", err)
 	}
 
-	// Step 3b: Verify the new binary can boot (self-verify)
-	cmd := exec.Command(newPath, "upgrade", "self-verify")
+	// Step 3b: Verify the new binary can boot AND is the intended target
+	// (STATBUS-171). --expect-commit makes self-verify assert its embedded commit
+	// equals the upgrade target, rather than run the worktree-relative
+	// stalenessGuard (a category error mid-upgrade under STATBUS-060's deferred
+	// checkout — see this function's doc comment).
+	verifyArgs := []string{"upgrade", "self-verify"}
+	if expectCommit != "" {
+		verifyArgs = append(verifyArgs, "--expect-commit", expectCommit)
+	}
+	cmd := exec.Command(newPath, verifyArgs...)
 	cmd.Dir = filepath.Dir(currentPath)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		os.Remove(newPath)

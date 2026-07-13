@@ -350,15 +350,62 @@ Typically run via systemd (ops/statbus-upgrade.service).`,
 	RunE:        upgradeServiceRunE,
 }
 
+// selfVerifyExpectCommit is bound to `upgrade self-verify --expect-commit`. When
+// set (by selfupdate.ReplaceBinaryOnDisk's step 3b), self-verify asserts THIS
+// binary's embedded commit equals the named upgrade target. See STATBUS-171.
+var selfVerifyExpectCommit string
+
 var upgradeSelfVerifyCmd = &cobra.Command{
 	Use:    "self-verify",
-	Short:  "Verify the binary can boot and connect (used during self-update)",
+	Short:  "Verify the binary can boot and embeds the expected target commit (used during self-update)",
 	Hidden: true,
+	// STATBUS-171: guard-exempt, exactly like the `committed-drift` probe. This
+	// command runs mid-upgrade INSIDE the freshly-procured target binary, while
+	// STATBUS-060 deliberately leaves the worktree at the SOURCE commit until the
+	// recovery boot. A worktree-relative stalenessGuard here would ALWAYS —
+	// correctly, per its own binary-matches-worktree contract — judge the target
+	// binary "stale" and abort the swap (BINARY_REPLACE_FAILED; dev row 331014).
+	// That is a category error: the question at this site is not "does the binary
+	// match the worktree" but "is the binary we just wrote the TARGET we intended",
+	// which --expect-commit answers below. stalenessGuard's contract stays the
+	// right check at DAEMON BOOT (post-recovery-checkout, HEAD=target) — that
+	// coverage is untouched; only this mid-upgrade call site is exempted.
+	Annotations: map[string]string{"freshness_probe": "true"},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Printf("sb version: %s\n", rootCmd.Version)
+		if err := selfVerifyIdentity(string(commitSHA), selfVerifyExpectCommit); err != nil {
+			return err
+		}
 		fmt.Println("Self-verify: OK")
 		return nil
 	},
+}
+
+// selfVerifyIdentity is the pure core of `upgrade self-verify --expect-commit`
+// (STATBUS-171). It confirms a freshly-procured binary whose EMBEDDED build commit
+// is `embedded` is the intended upgrade target `expect` — comparing against the
+// TARGET, never the worktree. Under STATBUS-060 the worktree is deliberately left
+// at the SOURCE commit during the swap, so a worktree-relative check here is a
+// category error that fails every tag-identified upgrade.
+//
+//   - expect == "":   boot-only self-verify (legacy caller); no identity assertion.
+//   - embedded == "": unidentifiable binary (no ldflags) with a target demanded →
+//     hard fail; we cannot confirm it is the target.
+//   - otherwise: prefix-both-ways match (short-vs-full SHA), mirroring the manifest
+//     anti-tamper check (the adjacent 060 fix in service.go executeUpgrade).
+func selfVerifyIdentity(embedded, expect string) error {
+	if expect == "" {
+		return nil
+	}
+	if embedded == "" {
+		return fmt.Errorf("self-verify: this binary has no reliable commit identity (built without ldflags) — cannot confirm it is the upgrade target %s",
+			upgrade.ShortForDisplay(expect))
+	}
+	if !strings.HasPrefix(embedded, expect) && !strings.HasPrefix(expect, embedded) {
+		return fmt.Errorf("self-verify: procured binary embeds commit %s but the upgrade target is %s — wrong or mis-built artifact",
+			upgrade.ShortForDisplay(embedded), upgrade.ShortForDisplay(expect))
+	}
+	return nil
 }
 
 var upgradeSelfRollbackCmd = &cobra.Command{
@@ -777,6 +824,8 @@ func init() {
 	upgradeCmd.AddCommand(upgradeApplyLatestCmd)
 	upgradeCmd.AddCommand(upgradeChannelCmd)
 	upgradeCmd.AddCommand(upgradeServiceCmd)
+	upgradeSelfVerifyCmd.Flags().StringVar(&selfVerifyExpectCommit, "expect-commit", "",
+		"assert this binary embeds the given target commit (used by the upgrade self-update; STATBUS-171)")
 	upgradeCmd.AddCommand(upgradeSelfVerifyCmd)
 	upgradeCmd.AddCommand(upgradeSelfRollbackCmd)
 	upgradeCmd.AddCommand(trustKeyCmd)
