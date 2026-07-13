@@ -3,10 +3,10 @@ id: STATBUS-054
 title: >-
   upgrade-postgrest: bump PostgREST v12.2.8 → latest (v14.x) — DEFERRED;
   verification checklist + scour-then-verify method
-status: Done
+status: In Progress
 assignee: []
 created_date: '2026-06-15 11:47'
-updated_date: '2026-07-13 08:29'
+updated_date: '2026-07-13 10:25'
 labels:
   - upgrade
   - postgrest
@@ -106,6 +106,12 @@ author: foreman
 created: 2026-07-13 08:29
 ---
 CLOSED (2026-07-13 morning, King un-deferred): PostgREST bumped v12.2.8 → v14.14 in both compose files (9ee0a3056; v14.14 confirmed the newest v14.x patch against Docker Hub). AC#4: rest restarts clean on v14.14 — schema cache loads 186 relations / 193 RPCs in 3.4ms. AC#5: authenticated smoke green through Caddy including the EXACT aliased-embed-analysis query shape (unaliased embed + dotted filter → 200 with real rows — the stage-2 zero-breaks verdict confirmed empirically); local fast suite 85/85 green on the new image (tmp/test-fast-postgrest14.log); CI on the commit: pg_regress full suite success, Images/Go Test/Notify success. Passive behavior changes harmless in practice (no Vary-related or schema-cache issues in smoke or suite; serialization-retry reliance was verified absent in stage 1). One local-only finding en route: a stray hand-edited PGRST_DB_SCHEMAS in a generated .env (schemas that never existed) — fixed locally, not repo state.
+---
+
+author: foreman
+created: 2026-07-13 10:25
+---
+REOPENED (2026-07-13) — the bump is NOT harmless; caught on dev, the run is the oracle. v14 upgrade PARKED dev's health check: PostgREST v14 HARD-FAILS the schema-cache load when a listed schema is missing, where v12 tolerated it. Dev's generated .env has `PGRST_DB_SCHEMAS=public,storage,graphql_public` (Supabase-legacy; only `public` exists) → v14 rest logs 'schema \"storage\" does not exist', /ready 503 forever, post-upgrade health check times out at 5m → clean park (154/160 held, data safe, no crash loop). AC#5's 'passive behavior changes confirmed harmless' was FALSELY satisfied: the mechanic's local smoke passed only because he'd corrected his own local .env to public-only BEFORE testing, masking the multi-schema case every deployed box actually has. THE FIX (engineer, in flight): config.go must OWN PGRST_DB_SCHEMAS and emit only existing schemas, so a config regen heals every box. Nothing releases until dev upgrades green through the v14 health check. This is precisely the King's 'does everything still return the same, not does it boot' — realized.
 ---
 <!-- COMMENTS:END -->
 
