@@ -3,10 +3,10 @@ id: STATBUS-143
 title: >-
   install-recovery-db-route: crash recovery probes the DB by a different route
   than it connects — severed proxy becomes an unrecoverable error loop
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-07-07 02:27'
-updated_date: '2026-07-12 22:35'
+updated_date: '2026-07-13 03:16'
 labels:
   - install-recovery
   - upgrade
@@ -41,9 +41,9 @@ EVIDENCE: rune-wedge first run log (night pair 2026-07-07), kept-VM autopsy (db 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 The recovery reachability probe uses the same route as the subsequent connection (probe-pass implies connect-works)
-- [ ] #2 A crashed upgrade with a stopped-but-present proxy recovers autonomously (start-existing extended to the proxy)
+- [x] #2 A crashed upgrade with a stopped-but-present proxy recovers autonomously (start-existing extended to the proxy)
 - [x] #3 A crashed upgrade with a MISSING proxy produces an actionable named refusal, not a repeating identical error
-- [ ] #4 A dedicated scenario drives the severed-proxy state once the fix lands
+- [x] #4 A dedicated scenario drives the severed-proxy state once the fix lands
 <!-- AC:END -->
 
 ## Comments
@@ -104,4 +104,16 @@ REVERSAL VERIFIED + FIX SHAPE RULED (architect adversarial pass, 2026-07-13 nigh
 
 Part 2, ruled as a family-wide ARC-PROBE CONTRACT — PROBES OBSERVE, ASSERTS JUDGE: a probe function always exits 0 and returns a nameable value (including '(unknown)'); the assert decides pass/fail, with a bounded settle budget wherever the expected state is eventual rather than instantaneous (the precondition stays a HARD assert — running within budget or refuse loudly). Existence-style probes (echo yes/no) where existence is the question; state-demanding probes always carry the safe terminal. Concretely: proxy_state gains `|| echo '(unknown)'`; a settle-wait for 'running' precedes the precondition assert; one paragraph in the harness README's probe conventions so the next arc author inherits it. Engineer builds; re-run = AC#2's oracle.
 ---
+
+author: tester (relayed by foreman)
+created: 2026-07-13 03:16
+---
+AC#2 RUN-PROVEN GREEN (fourth arc run 29220713472, 2026-07-13): the full stopped-proxy recovery executed end-to-end on a real VM — real install A → register/schedule B → killed-by-system-during-container-restart inject (real crash) → RED verified (flag present, row in_progress, proxy running) → `docker compose stop proxy` → recovery `./sb install` detected the crashed upgrade, the probe failed on the REAL route, the extended start-fallback resumed db+proxy → row state='completed'. AC#4's severed-proxy refusal arc was green on the first batch-3 run (job 86696811582). The road to this green hardened the harness itself: three arc-side defects peeled across three runs (errexit-fragile probe → deterministic probe command → stale assert vocabulary), producing the PROBES OBSERVE / ASSERTS JUDGE / NO OBSERVATION WITHOUT A REASON contract now durable in the harness README — the final diagnosis took seconds because the failed probe named its own reason.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Crash recovery now reaches the database the way the service does, and a crashed upgrade whose crash also took the proxy down is no longer a dead end. Shipped: recoveryDSN() single-sources the CADDY_DB_BIND route; EnsureDBReachable is a bounded pgx SELECT-1 on exactly that route (probe-pass implies connect-works by construction — the docker-exec psql probe deleted); StartDBForRecovery starts db AND proxy (asymmetric-safe, start-only); a truly missing proxy gets a named category-3 refusal with the image-mismatch caveat. Proven on real VMs (both arcs real-path constructed, no fabrication): the severed-proxy refusal green first run; the stopped-proxy recovery green end-to-end on run 29220713472 — crash → stop proxy → ./sb install → route probe fails honestly → start-fallback resumes db+proxy → completed. Byproduct worth its own weight: the arc-probe contract (probes always exit 0 and return nameable values carrying their failure reason; asserts judge, with settle budgets for eventual states) — hardened across three diagnosed arc-side failures and now the harness standard.
+<!-- SECTION:FINAL_SUMMARY:END -->
