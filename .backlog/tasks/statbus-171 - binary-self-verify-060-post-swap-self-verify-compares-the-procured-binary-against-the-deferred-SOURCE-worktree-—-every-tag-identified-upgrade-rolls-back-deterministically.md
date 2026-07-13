@@ -8,7 +8,7 @@ status: To Do
 assignee:
   - '@engineer'
 created_date: '2026-07-13 01:40'
-updated_date: '2026-07-13 01:45'
+updated_date: '2026-07-13 02:01'
 labels:
   - upgrade
   - production
@@ -41,7 +41,7 @@ RELATION: found while tracing the 169-adjacent dev retry (scheduler and STATBUS-
 <!-- AC:BEGIN -->
 - [ ] #1 The self-verify compares the procured binary's embedded commit against the UPGRADE TARGET (the manifest check's 060 pattern); the stalenessGuard-vs-source path is removed from this call site
 - [ ] #2 Unit test pins it: a target binary verifying against a source-checkout worktree passes when its embedded commit equals the target (and fails when it does not)
-- [ ] #3 The commit-path survival question is answered with evidence: why did commit-identified upgrades succeed the same night — condition named, or also-broken documented
+- [x] #3 The commit-path survival question is answered with evidence: why did commit-identified upgrades succeed the same night — condition named, or also-broken documented
 - [ ] #4 Proven live: dev completes a tag-identified upgrade through the normal path (the run is the oracle)
 <!-- AC:END -->
 
@@ -56,5 +56,21 @@ RATIFIED (architect, 2026-07-13 night), reasoning stated precisely: the self-ver
 TWO RIDERS: (1) the condition-vs-circumstance answer is PART OF THE UNIT — if commit-identified upgrades survive by STRUCTURE, the fix as shaped is complete; if by CIRCUMSTANCE (e.g. those schedules happened to equal the box's HEAD), the commit path carries the same latent bug and the target-identity verify must cover it in this same unit. Don't ship without knowing which; the answer lands as evidence + a comment at the fixed site. (2) Oracle = a tag-identified upgrade green end-to-end (row 331014's deterministic rollback is the RED half in hand — a complete red→green pair), plus one commit-identified re-run on the fixed binary proving no regression.
 
 RECORD NOTE: row 331014's forecast told the operator 'this version will fail the same way — do NOT re-schedule' — for THIS bug the machinery was blaming the VERSION for its own defect. No text change needed (the advice is true for genuine version failures), but this stands as a known case where the forecast's attribution was wrong: the next investigator must not treat the forecast as evidence.
+---
+
+author: engineer (relayed by foreman)
+created: 2026-07-13 02:01
+---
+ROOT-CAUSE TRACE COMPLETE (read-only; AC#3's verdict = STRUCTURAL, checked). The chain, all code-confirmed: tag upgrade → replaceBinaryOnDisk → selfupdate.go:89 execs `<newBinary> upgrade self-verify` → cobra PersistentPreRun stalenessGuard (root.go:62) → freshness.IsStale runs `git diff --quiet <newBinaryCommit> HEAD -- cli/` (check.go:214) — HEAD is the deferred SOURCE under 060 → stale → `upgrade self-verify` is in no exemption list → hard-exit 2 → BINARY_REPLACE_FAILED. Local reproduction: `git diff --quiet 49b2e6ea 17d47c5e -- cli/` → exit 1; the drifting files ARE STATBUS-169's. Deterministic by operands.
+
+REFUTED: mis-built artifact (a stale hard-exit REQUIRES the binary's commit to resolve correctly — the symptom itself proves the right embed; the manifest anti-tamper check passed before the rollback) and procurement race (the 'race' phrase is the recursion-guard's generic hint text, root.go:181; the pure git-diff reproduces deterministically).
+
+CONDITION-VS-CIRCUMSTANCE = STRUCTURAL (rider 1 satisfied): the fork is service.go:5095 ValidateVersion — tagged → replaceBinaryOnDisk → execs self-verify → guard; edge commit → buildBinaryOnDisk → procureSbFromImage (docker create/cp, never execs the new binary) → guard never runs mid-swap. The commit path is safe by construction; 171's fix is complete as shaped.
+
+WHY NO ARC EVER CAUGHT IT (coverage-map fact, STATBUS-071-relevant): root.go:137 — STATBUS_INJECT_AT (set by the whole install-recovery harness) downgrades stalenessGuard to advisory WARN. The class is invisible to every arc BY CONSTRUCTION; only a real tag upgrade exposes it → the oracle must be the real dev tag re-dispatch (rider 2's plan; row 331014 is the RED half).
+
+REFINED FIX (within the ratification): exempt `upgrade self-verify` from stalenessGuard via the freshness_probe annotation (root.go:89, the committed-drift pattern) AND make self-verify positively assert TARGET IDENTITY (embedded commit == expected target passed by the caller) — the manifest check's 060 pattern. Boot-time guard coverage untouched, stated at the site.
+
+RECORDED RESIDUAL (flag, not folded): selfupdate.go:89 execs the child WITHOUT clearing env — it inherits freshness.SelfHealAttemptEnv (why row 331014 hit the recursion-guard branch rather than the plain hard-fail). Moot for self-verify once exempted; a latent sharp edge for any future child-exec — candidate follow-up, architect's morning call.
 ---
 <!-- COMMENTS:END -->
