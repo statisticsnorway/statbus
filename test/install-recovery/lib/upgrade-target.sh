@@ -503,3 +503,68 @@ construct_upgrade_target() {
 
     echo "── ${_spec}: B=${_b_branch} (${_b_short}) C=${_c_branch} (${_c_short}) ──"
 }
+
+# delete_throwaway_branches SPEC [RUN_ID] — STATBUS-165 AC#4, the LOCAL half of
+# end-of-run branch self-delete. CI's own teardown (upgrade-arc-harness.yaml
+# :572-596, `if: always()`) already does this for the working+failing lineage
+# it drives; this is the SAME recompute-from-run-id shape, generalized to any
+# SPEC construct_upgrade_target supports (working|failing|oom|ceiling|
+# healthpark), for callers that push their OWN B/C pair directly (the "install-
+# recovery scenario harness" this file's own header describes) rather than
+# consuming the shared CI construct job's outputs.
+#
+# RECOMPUTES the two branch names from SPEC + RUN_ID — never reads B_BRANCH/
+# C_BRANCH — so it still works if construct_upgrade_target died partway (a
+# push that succeeded but a later step failed leaves the branches nameable
+# even though the caller-scope vars this function does not touch may be
+# unset). Both names are ALWAYS produced by construct_upgrade_target
+# regardless of spec (oom/ceiling push a C branch too — same commit as B,
+# no separate commit, but still its own pushed ref; see the spec case
+# statement above), so no spec-specific branch-count logic is needed here.
+#
+# ARC_NO_PUSH-GUARDED, SYMMETRICALLY with the :483 push: when ARC_NO_PUSH=1
+# nothing was ever pushed (the push step above is skipped identically), so
+# there is nothing to delete — this function must not attempt to reach
+# origin for state a local unit test deliberately kept local-only.
+#
+# BEST-EFFORT, ALWAYS RETURNS 0 (mirrors CI teardown's own philosophy: a
+# missing/already-deleted branch, or a delete that fails, must never fail the
+# caller's exit trap — the weekly image-cleanup.yaml branch-gc step, STATBUS-
+# 165 AC#4's other half, is the backstop for anything this misses).
+#
+# WIRING (the caller's responsibility — this function does not register its
+# own trap, to avoid clobbering a caller's existing `trap ... EXIT`, e.g. the
+# cleanup_vm pattern every arcs/*.sh already uses): compose it into the SAME
+# trap string, called before the exit:
+#   trap 'rc=$?; delete_throwaway_branches "$SPEC" "$RUN_ID"; cleanup_vm "$VM_NAME"; exit $rc' EXIT
+delete_throwaway_branches() {
+    local _spec="$1"
+    local _run_id="${2:-${RUN_ID:-}}"
+
+    if [ -z "$_spec" ]; then
+        echo "delete_throwaway_branches: SPEC required (working|failing|oom|ceiling|healthpark) — skipping" >&2
+        return 0
+    fi
+    if [ -z "$_run_id" ]; then
+        echo "delete_throwaway_branches: no RUN_ID given or exported — cannot recompute branch names; skipping" >&2
+        return 0
+    fi
+    if [ "${ARC_NO_PUSH:-0}" = "1" ]; then
+        echo "delete_throwaway_branches: ARC_NO_PUSH=1 — nothing was pushed, nothing to delete." >&2
+        return 0
+    fi
+
+    local _b_branch="test/upgrade-arc-${_spec}-migration-${_run_id}"
+    local _c_branch="test/upgrade-arc-${_spec}-fixed-migration-${_run_id}"
+    local _br
+    for _br in "$_b_branch" "$_c_branch"; do
+        if git ls-remote --exit-code --heads origin "$_br" >/dev/null 2>&1; then
+            echo "delete_throwaway_branches: deleting ${_br}"
+            git push origin --delete "$_br" \
+                || echo "  (delete failed — best-effort; the weekly image-cleanup.yaml branch-gc sweep is the backstop)" >&2
+        else
+            echo "delete_throwaway_branches: ${_br} not present (already gone / never pushed) — nothing to delete."
+        fi
+    done
+    return 0
+}
