@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - architect
 created_date: '2026-06-12 21:51'
-updated_date: '2026-06-30 21:58'
+updated_date: '2026-07-13 09:05'
 labels:
   - docs
   - hygiene
@@ -46,3 +46,13 @@ Standing hygiene — cheap, unblocks offline schema searches for every agent.
 <!-- SECTION:NOTES:BEGIN -->
 doc/db is STALE (architect noted 2026-06-30, during seed-identity verification): the doc-db-freshness hook blocks doc/db searches because migrations are newer than the last regen (migrations last commit ~2026-06-20; doc/db last commit ~2026-06-17). Had to query the live DB instead of doc/db for the seed audit-column scan. Refresh via `./dev.sh generate-doc-db` + commit.
 <!-- SECTION:NOTES:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect
+created: 2026-07-13 09:05
+---
+BOARD TRIAGE (architect, 2026-07-13) — CLOSE, overtaken by machinery: doc/db/ is no longer stale and can no longer GO stale silently. The migration↔doc/db pairing discipline (the commit gate) regenerates it with every schema change — last regeneration rode yesterday's STATBUS-160 commit (643201f51, 'a terminal row can never be resurrected'); the freshness hook passes today. The ticket's premise (a stale doc/db blocking offline greps, needing a one-time regenerate) is dissolved by the standing pairing guard, which is strictly stronger than the one-time fix this ticket asked for. Recommend closing with this as the final summary; the security-gate diff-review convention lives on in the pairing gate itself.
+---
+<!-- COMMENTS:END -->
