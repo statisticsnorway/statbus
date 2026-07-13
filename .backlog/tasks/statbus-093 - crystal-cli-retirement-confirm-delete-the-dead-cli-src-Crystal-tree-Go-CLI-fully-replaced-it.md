@@ -1,14 +1,16 @@
 ---
 id: STATBUS-093
 title: >-
-  crystal-cli-retirement: confirm + delete the dead cli/src/ Crystal tree (Go
-  CLI fully replaced it)
+  go-worker: recreate the Crystal worker in Go, then delete cli/src/ — end the
+  Crystal/Go overlap
 status: To Do
 assignee: []
 created_date: '2026-06-18 17:05'
 updated_date: '2026-07-13 12:13'
 labels:
   - tooling
+  - worker
+  - go-port
   - not-install-upgrade
 dependencies: []
 ordinal: 93000
@@ -17,22 +19,24 @@ ordinal: 93000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-> NORTH STAR: dead code can't mislead.
-> BENEFIT: the retired Crystal tree — which has already misdirected root-cause analysis twice (dead Caddy templates read as live) — is confirmed unreferenced and deleted; nobody pays that tax a third time.
-> STAGE: Hygiene.
-> COMPLEXITY: mechanic-simple (confirm zero build-path references, git rm, doc sweep); foreman commits.
+> NORTH STAR: one language for the CLI + worker. The `sb` Go binary already owns config/migrations/ops (it replaced manage.cr); the worker is the last Crystal holdout. Recreate it in Go, then delete cli/src/ entirely — no service runs two languages, no dead-but-compiled Crystal shadows the live Go.
+> RESHAPED (King, 2026-07-13): the original "delete the dead Crystal tree" premise was REFUTED — cli/src/ is the LIVE worker (builds the production statbus-worker image, running on every box; the mechanic's pre-delete sweep caught it, comment #1). The real state: cli/src/ holds BOTH the live worker AND Crystal code (dotenv.cr/config.cr) whose job the Go CLI now ALSO does — a genuine overlap. Two ways out; the King chose the first.
+> COMPLEXITY: engineer-substantial — a real port + a proof, then the deletion.
 > DEPENDS ON: nothing.
 
----
+THE OVERLAP (why this is not hygiene): cli/src/ compiles ONE Crystal binary `statbus worker` from cli.cr → {dotenv, config, import, worker}.cr, built by cli/Dockerfile (Crystal toolchain, `shards build`) as the worker image (images.yaml:60, release.yaml:68). The Go CLI (cli/internal/, cli/cmd/) independently reimplements dotenv/config/migration/ops — so config parsing, .env handling, etc. exist in BOTH languages, maintained twice, able to drift. The worker's actual job (doc/worker.md §1: a long-running process that listens for NOTIFY and calls worker.process_tasks()) is the only part with no Go equivalent.
 
-The Go CLI (cli/internal/ + cli/cmd/, the `sb` binary) replaced the legacy Crystal CLI (cli/src/ — manage.cr + manage-statbus.sh; the .sh wrapper was already deleted). The mechanic verified (2026-06-18, during STATBUS-089) that nothing OUTSIDE cli/src/ builds or imports it: external mentions are only doc references + Go source comments ("Ported from Crystal cli/src/manage.cr") + the separate `n/` worker tree. The dead cli/src/templates/*.caddyfile.ecr were already deleted in commit 14b792318 because they twice misled a root-cause analysis into reading dead code (the live templates are caddy/templates/*.caddyfile.tmpl, rendered by cli/internal/config/config.go).
+THE DECISION (King, 2026-07-13): TWO options, he chose RECREATE-IN-GO.
+- CHOSEN — recreate the worker in Go: port worker.cr's task-processing loop + NOTIFY listener into the Go tree (reuse the existing Go dotenv/config/migration code — no duplication), build the worker image from Go (cli/Dockerfile.sb-style, no Crystal toolchain), then DELETE cli/src/ + cli/lib/ (9 vendored shards) + shard.yml/lock + the Crystal Dockerfile path. Rationale (King): "this is the age of AI, and AI is good with Go" — a Go worker is far more maintainable by this team than Crystal. (Not chosen: trim cli/src/ down to only the worker, removing the Go-duplicated Crystal — leaves two languages forever.)
 
-DO:
-1. Confirm the Crystal CLI is fully retired — no build path, Makefile, CI workflow, dev.sh, or `sb` wrapper invokes cli/src/ or uses cli/shard.yml / cli/shard.lock.
-2. If confirmed dead, `git rm` the cli/src/ tree (+ cli/shard.yml, cli/shard.lock if unused).
-3. Sweep any remaining stale doc/comment references to the Crystal CLI.
+SCOPE (engineer to detail, architect to review the port design first):
+1. Map worker.cr + its real dependencies (what of import.cr/dotenv.cr/config.cr the worker path actually uses vs what the Go CLI already provides).
+2. Port the worker: the NOTIFY-listen loop, worker.process_tasks(), the task/queue model (cross-check the worker's structured-concurrency model in doc/worker-structured-concurrency.md + doc/derive-pipeline.md — the Go port must preserve the ONE-top-level-task-per-queue + scoped-parallel-children semantics, not just the surface behavior).
+3. Build the worker image from the Go binary; retire the Crystal Dockerfile/shards path (images.yaml + release.yaml worker matrix entries point at the Go build).
+4. PROVE equivalence on a real box: the Go worker processes the same task types with the same concurrency semantics as the Crystal worker (the derive pipeline still runs correctly) — a real run, not just unit tests.
+5. Only after the Go worker is proven live: delete cli/src/, cli/lib/, shard.yml, shard.lock, and sweep doc/comment references (doc/worker.md updated to the Go worker).
 
-Hygiene / footgun-removal (dead code mistaken for live). NOT on the framework critical path. Low priority. Foreman reviews + commits the deletion (agents stage + verify).
+NON-NEGOTIABLE: the Crystal worker is NOT deleted until the Go worker is proven equivalent on a real box. No overlap window where neither is authoritative.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
