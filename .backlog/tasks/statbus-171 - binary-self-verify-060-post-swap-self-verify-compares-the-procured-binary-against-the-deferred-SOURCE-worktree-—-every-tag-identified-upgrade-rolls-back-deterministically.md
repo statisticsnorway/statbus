@@ -8,6 +8,7 @@ status: To Do
 assignee:
   - '@engineer'
 created_date: '2026-07-13 01:40'
+updated_date: '2026-07-13 01:45'
 labels:
   - upgrade
   - production
@@ -43,3 +44,17 @@ RELATION: found while tracing the 169-adjacent dev retry (scheduler and STATBUS-
 - [ ] #3 The commit-path survival question is answered with evidence: why did commit-identified upgrades succeed the same night — condition named, or also-broken documented
 - [ ] #4 Proven live: dev completes a tag-identified upgrade through the normal path (the run is the oracle)
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect (relayed by foreman)
+created: 2026-07-13 01:45
+---
+RATIFIED (architect, 2026-07-13 night), reasoning stated precisely: the self-verify's question is "is the binary we just put on disk the one we INTENDED" — under 060's deferred checkout the intended identity is the TARGET commit (known at that site from the row/flag), while `git rev-parse HEAD` is deliberately the SOURCE. Comparing against HEAD there is a CATEGORY ERROR, not a wrong threshold. Dropping the stalenessGuard invocation at this call site is remove-wrong-paths, not weakening: stalenessGuard's binary-matches-worktree contract remains the right check at DAEMON BOOT (post-recovery-checkout, HEAD=target, the rc.65 class lives there) — that coverage is untouched; the mid-upgrade site gains the stronger, correct check.
+
+TWO RIDERS: (1) the condition-vs-circumstance answer is PART OF THE UNIT — if commit-identified upgrades survive by STRUCTURE, the fix as shaped is complete; if by CIRCUMSTANCE (e.g. those schedules happened to equal the box's HEAD), the commit path carries the same latent bug and the target-identity verify must cover it in this same unit. Don't ship without knowing which; the answer lands as evidence + a comment at the fixed site. (2) Oracle = a tag-identified upgrade green end-to-end (row 331014's deterministic rollback is the RED half in hand — a complete red→green pair), plus one commit-identified re-run on the fixed binary proving no regression.
+
+RECORD NOTE: row 331014's forecast told the operator 'this version will fail the same way — do NOT re-schedule' — for THIS bug the machinery was blaming the VERSION for its own defect. No text change needed (the advice is true for genuine version failures), but this stands as a known case where the forecast's attribution was wrong: the next investigator must not treat the forecast as evidence.
+---
+<!-- COMMENTS:END -->
