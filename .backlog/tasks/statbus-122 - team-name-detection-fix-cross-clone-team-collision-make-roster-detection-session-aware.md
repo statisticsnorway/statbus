@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-01 13:42'
-updated_date: '2026-07-06 16:05'
+updated_date: '2026-07-13 09:06'
 labels:
   - tooling
   - not-install-upgrade
@@ -81,5 +81,11 @@ author: foreman
 created: 2026-07-02 19:05
 ---
 CORRECTION + TRUE ROOT CAUSE (supersedes comment #1's mechanism blame; foreman first-hand, 2026-07-02 ~19:05): the caller-ID failures were NOT the transcript-grep mechanism — `~/.claude-veridit/teams/statbus` was a BROKEN SYMLINK → session-2c632915 (created Jun 18; that session's team dir was deleted when the previous team was shut down). The hook's TEAM_CONFIG therefore read as EMPTY → leadSessionId empty + roster loop iterates zero members → EVERY caller 'unidentified' for gated commands (tester AND foreman alike); both advertised remedies were unreachable because identification never ran, not because they're mis-coded (untested either way — note: I found no code implementing the 'assign a Backlog task' remedy, only deny-text advertising it; verify when fixing). REPAIR APPLIED (state, not settings): repointed the symlink to the live team dir (session-12238063); hook now resolves leadSessionId + the 6-member roster; tester unblocked. DESIGN IMPLICATIONS for this task: (1) the named-team alias must not dangle when a session's team dir is deleted — either TeamDelete should clean/repoint the alias, or the hook should fall back to a cwd-filtered scan of session-*/config.json (this task's planned fix) instead of hard-trusting one symlink; (2) the hook should distinguish 'config missing/unreadable' (fail with a CONFIG error naming the path) from 'caller not in roster' — today both print 'unidentified caller', which cost three misdirected repair attempts; (3) the deny-text remedies should be code-backed or removed.
+---
+
+author: architect
+created: 2026-07-13 09:06
+---
+BOARD TRIAGE (architect, 2026-07-13) — MERGE INTO STATBUS-168. The root-cause premise here is dissolved by 168's findings: the harness itself moved to SESSION-SCOPED teams (teams/session-<id>/); teams/statbus/ no longer exists, so the git-tracked .claude/team.name is a dead pointer — the cross-clone shared-global-name collision this ticket exists to fix can no longer occur through that mechanism. What SURVIVES of this ticket is exactly 168's AC#1/#3: session/cwd-aware roster detection in the same two hooks, plus the loud-failure-on-missing-config requirement (168 AC#2) that this ticket's 'named error instead of unidentified caller' ask becomes. Same files, same mechanism, one ruling (mine, owed on 168) — two tickets would produce two conflicting edits to the same hooks. Recommend closing 122 as merged, with a pointer note on 168 naming the cross-clone concurrent-team scenario as an explicit test fixture the 168 fix must cover (122 AC#1/#5 carry over as that fixture).
 ---
 <!-- COMMENTS:END -->
