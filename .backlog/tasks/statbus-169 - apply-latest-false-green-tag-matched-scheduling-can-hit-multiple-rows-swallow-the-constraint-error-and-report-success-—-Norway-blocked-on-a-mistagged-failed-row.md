@@ -8,7 +8,7 @@ status: To Do
 assignee:
   - '@engineer'
 created_date: '2026-07-13 00:16'
-updated_date: '2026-07-13 00:29'
+updated_date: '2026-07-13 00:49'
 labels:
   - upgrade
   - production
@@ -60,5 +60,15 @@ DESIGN RULED (architect, 2026-07-13 night) + master-verification reshape (engine
 THE RULING — commit_tags is a CACHE of git state (the King's commit-authoritative doctrine decides it: tags are after-the-fact, movable, prunable; a mirror of movable references goes stale BY DESIGN). Judged by WHEN an entry is wrong: at WRITE time, appending a non-pointing tag is machinery writing a false fact → the write-guard REFUSES loudly (fail-fast). At REST, a moved tag is staleness from legitimate tag movement → refreshing against the source of truth is the cache's normal contract, NOT a standing self-heal (that rule targets quiet repairs of machinery failures, not a cache honoring its source). So the existing pruner — which already drops DELETED tags — is EXTENDED to drop MOVED tags, one log line per drop naming tag, old row, and current target. Norway's row 222 heals on the pruner's normal cycle: machinery-executed, no manual write, no one-off script.
 
 Resolver doctrine: git-first BY DEFINITION; a DB fallback may exist only for source-unreachable moments, must never override readable git, and needs a NAMED consumer that genuinely schedules with git unreachable — or it gets deleted (a fallback without a named consumer is dead defensive cover). Mismatch shape: both readable and disagreeing → trust git, log the stale entry loudly, pruner cleans on cycle. Producer-trace of the original tag-move event: finish for the record; nothing gates on it. Architect rules final on the frozen code.
+---
+
+author: engineer (relayed by foreman)
+created: 2026-07-13 00:49
+---
+PRODUCER TRACE (read-only rune SELECT; the incident's named history — corrects both prior hypotheses). Row 222: commit a1b58193d, commit_tags={v2026.07.0-rc.01}, state=failed, release_status=COMMIT, discovered 23:27:56. Row 223: commit 143cece86 (committed 22:17:02), same tag, release_status=prerelease, discovered 23:27:57.
+
+What the data rules out and in: a1b58193d was COMMITTED 23:27:56 — LATER than the tag's real target — so there was never an earlier same-named tag at it (the delete/move hypothesis is dead). Both rows registered within ~1 second. The producer is a SAME-WINDOW MIS-ATTRIBUTION in rc.04's discovery: at 23:27:56 it registered the then-latest master commit as release_status=COMMIT and stapled the release tag onto it, one second before registering the tag's actual target. The exact rc.04 line is superseded on master; rune's journal for the 20s window rotated; the DB snapshot is the durable record.
+
+Coverage check against the shipped fixes: the AC#1 write-guard would have REFUSED the mis-attribution at write (rev-parse(tag)=143cece86 ≠ a1b58193d — row 222 never gains the tag); the pruner move-drop HEALS the existing row on its normal cycle. The event sits squarely in the fixed class.
 ---
 <!-- COMMENTS:END -->
