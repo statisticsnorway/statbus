@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-12 07:57'
-updated_date: '2026-07-13 08:15'
+updated_date: '2026-07-13 11:13'
 labels:
   - git-hygiene
   - not-install-upgrade
@@ -102,5 +102,13 @@ author: foreman
 created: 2026-07-13 08:15
 ---
 DEPENDABOT PRs RESOLVED per the King's morning directive and the STATBUS-049 written procedure (bump, then run that ecosystem's gates): #309 (golang.org/x/crypto 0.51.0→0.52.0) and #308 (undici 7.25.0→7.28.0) merged LOCALLY in one merge commit (dc271478d), gates green on both ecosystems — Go: vet/build/test all packages ok; app: tsc clean, jest suites pass, production build clean — then pushed; GitHub marked both PRs MERGED at 08:13:53Z and dependabot deletes their branches. No dependabot branches remain open.
+---
+
+author: foreman
+created: 2026-07-13 11:13
+---
+KEEP-PENDING WALK — owner-branch verdicts, foreman-VERIFIED against master (2026-07-13; corrects an operator error). (1) feat/statistical-variables-over-time-chart (hhssb): SAFE TO DELETE — fully content-superseded. Every file both branch commits touch is BYTE-IDENTICAL in master (chart, page, layout, history-reports wiring, and the postal_region_code export removal — verified file-by-file). The feature landed in master via a different commit path; the branch is a stale duplicate, no unmerged work. (The operator's report claimed 'content exists only on this branch' — FALSE; it conflated 'tip not an ancestor of master' with 'files absent'. The King's own read 'seems merged logically' was correct.) hhssb consult NOT needed — nothing to lose. (2) fix-custom-scripts (Erik Søberg): GENUINELY UNMERGED, KEEP pending Erik. custom/no.sql (Norway: hide stat idents, tax-ident→org-number rename) is ABSENT from master; custom/ke.sql EXISTS in master but DIFFERS. 2645 commits behind, ~31-line delta. Real work — deleting loses it. Route to Erik: port custom/no.sql, reconcile custom/ke.sql, confirm the custom/ ingestion pattern still holds + no schema drift broke the assumptions.
+
+Earlier-verdict branches (operator sweep, foreman-relayed): db-snapshot (no shipped binary references it — note: legacy `git fetch origin db-snapshot` remediation code lives in v2026.05.2's seed.go, so keep until ≤ that tag is EOL, same rule as db-seed), debug/archive-partial-at-final-rootcause (findings in master — delete-safe), engineer/image-distribution-design (stale draft doc, no master equivalent — King: keep-to-docs or delete), engineer/layer2-recovery-flag (--recovery=auto superseded by the shipped recovery ladder — delete-safe), test/upgrade-resume-new-scenarios (scenario 30 covered by the arc campaign — delete-safe), red/031-rollback-watchdog (proof build, scenario shipped — delete-safe), feature/pg-oauth + feature/pgadmin (unshipped prototypes — King's discretion). Awaiting the King's per-branch go.
 ---
 <!-- COMMENTS:END -->
