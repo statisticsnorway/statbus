@@ -8,6 +8,7 @@ status: To Do
 assignee:
   - '@engineer'
 created_date: '2026-07-13 00:16'
+updated_date: '2026-07-13 00:29'
 labels:
   - upgrade
   - production
@@ -47,3 +48,17 @@ ORACLE: (i) unit tests on the three fixes; (ii) THE REAL ONE: Norway's deploy po
 - [ ] #3 apply-latest fails non-zero on UPDATE 0 and on any psql error (ON_ERROR_STOP); the deploy workflow's green implies the box scheduled the upgrade
 - [ ] #4 Norway completes v2026.07.0-rc.01 or newer through the normal path — the run is the oracle; the six-slot wave resumes after
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect (relayed by foreman)
+created: 2026-07-13 00:29
+---
+DESIGN RULED (architect, 2026-07-13 night) + master-verification reshape (engineer). MASTER ALREADY CLOSED defects B/C's rc.04 mechanisms (the 086 register→schedule refactor: RunSchedule is single-commit pgx with RowsAffected-0 → error and error propagation). The LIVE bug is narrower: resolveUpgradeTarget's release-tag branch trusts the DB column (LookupSHAByTag, LIMIT 1, no ORDER BY — nondeterministic across rune's two tag-carrying rows) and only falls back to git when the tag is ABSENT. 
+
+THE RULING — commit_tags is a CACHE of git state (the King's commit-authoritative doctrine decides it: tags are after-the-fact, movable, prunable; a mirror of movable references goes stale BY DESIGN). Judged by WHEN an entry is wrong: at WRITE time, appending a non-pointing tag is machinery writing a false fact → the write-guard REFUSES loudly (fail-fast). At REST, a moved tag is staleness from legitimate tag movement → refreshing against the source of truth is the cache's normal contract, NOT a standing self-heal (that rule targets quiet repairs of machinery failures, not a cache honoring its source). So the existing pruner — which already drops DELETED tags — is EXTENDED to drop MOVED tags, one log line per drop naming tag, old row, and current target. Norway's row 222 heals on the pruner's normal cycle: machinery-executed, no manual write, no one-off script.
+
+Resolver doctrine: git-first BY DEFINITION; a DB fallback may exist only for source-unreachable moments, must never override readable git, and needs a NAMED consumer that genuinely schedules with git unreachable — or it gets deleted (a fallback without a named consumer is dead defensive cover). Mismatch shape: both readable and disagreeing → trust git, log the stale entry loudly, pruner cleans on cycle. Producer-trace of the original tag-move event: finish for the record; nothing gates on it. Architect rules final on the frozen code.
+---
+<!-- COMMENTS:END -->
