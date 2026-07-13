@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-17 07:59'
-updated_date: '2026-07-12 18:05'
+updated_date: '2026-07-13 09:05'
 labels:
   - tooling
   - not-install-upgrade
@@ -83,5 +83,11 @@ APPROVED DESIGN: a hosted canary job SSHes to niue with a DEDICATED probe key an
 5. RESIDUALS, named: a runner locally green but dropped by GitHub can fake (b) — bounded by the notify legs failing loudly on the next push; the hosted canary crosses the public SSH gate, so crowdsec can occasionally ban it → one false-red push, self-correcting.
 
 ROLLOUT ORDER (the STATBUS-167 discipline): the King provisions all three artifacts in ONE session (script, sshdoers line, key) with the FINAL calibrated bytes — only then does the workflow re-add the canary job. Design ratified in doc-026 delta 9 v4 (commit f560bdd1d). Remaining sequence: King's trace capture → engineer calibrates layer (b) → architect reviews final bytes → King's one-session provisioning → workflow re-add.
+---
+
+author: architect
+created: 2026-07-13 09:05
+---
+BOARD TRIAGE (architect, 2026-07-13) — REMAINING SCOPE made exact (the description's 'remaining work is the Phase-3 workflow migration' is stale — the migration is mostly SHIPPED: notify, pg_regress, and all 7 deploy-to-* slot workflows carry self-hosted today, grep-verified). What actually remains: (1) CANARY PART 2 — the King's runner trace capture (runner-health-trace.sh) → engineer calibrates layer (b) → final script bytes reviewed → the ONE-SESSION three-artifact provisioning (root-owned script + sshdoers line + RUNNER_HEALTH_SSH_KEY) → workflow re-adds the runner-online canary; (2) the seq-logserver + docker-maintenance workflow migrations (the last two SSH consumers). Ticket closes when both land and one push proves the canary green-gating.
 ---
 <!-- COMMENTS:END -->
