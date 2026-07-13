@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - operator
 created_date: '2026-07-02 17:01'
-updated_date: '2026-07-12 13:09'
+updated_date: '2026-07-13 08:14'
 labels:
   - ci
   - notify
@@ -87,5 +87,11 @@ author: foreman
 created: 2026-07-12 13:09
 ---
 GAP CONFIRMED ON A SLOT (operator, 2026-07-12): statbus_dev's deployed tree does NOT contain ops/ci-notify.sh (No such file or directory), and the latest Notify-cloud-services run (29192823293, 12:33Z) failed on ALL SEVEN slots with the ssh action exiting 1 on the missing script — exactly the predicted last leg: slots receive the file only on their next DEPLOY, and none has deployed since the script landed in master. THE RED IS TRUTHFUL (the job cannot notify a slot that lacks the script) and the fix is a DEPLOYMENT, which for the country slots (ug, et, ma, jo, tcc) is production-touching and therefore KING-GATED — queued for the evening decision: deploy master (or a chosen subset of slots) to carry the script, or accept the red until each slot's next organic deploy. NOT acceptable per doctrine: scp-ing the file to slots by hand (server writes forbidden — fixes ship via code + deploy), or softening the job to tolerate the missing script (a gate must not pass on something other than what it claims). Note for the decision: STATBUS-069 Phase-3 moves this workflow onto the niue runner regardless, which changes its transport but not the slots' need for the script.
+---
+
+author: foreman
+created: 2026-07-13 08:14
+---
+SEQUENCE STATUS (2026-07-13 morning): dev GREEN (three completed upgrades over the night, box on v2026.07.0-rc.03+; the original exit-21 blocker resolved by the 166 release-cut-is-the-bless design — loud re-stamp proven live). Norway GREEN (King ran `./standalone.sh install no v2026.07.0-rc.03` 08:10 UTC; binary rc.03, 7 migrations incl. the blessed re-stamp, row 3916 completed). THE SIX-SLOT WAVE IS RELEASED (demo, ma, et, jo, tcc, ug — all pointers pushed to cbcfa068b) and being watched, with per-box reads to follow (deploy-workflow green ≠ converged, STATBUS-170). Closing condition: all six boxes converged + one fully green notify-all-clouds run (STATBUS-167's oracle — dev's leg already went green this morning, the first since Jul 8, proving the convergence mechanism).
 ---
 <!-- COMMENTS:END -->
