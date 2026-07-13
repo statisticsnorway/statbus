@@ -3,11 +3,11 @@ id: STATBUS-123
 title: >-
   notify-ci-fail: 'Notify cloud services' job fails on master push (statbus_jo
   upgrade check exits 1)
-status: In Progress
+status: Done
 assignee:
   - operator
 created_date: '2026-07-02 17:01'
-updated_date: '2026-07-13 08:14'
+updated_date: '2026-07-13 08:17'
 labels:
   - ci
   - notify
@@ -94,4 +94,16 @@ created: 2026-07-13 08:14
 ---
 SEQUENCE STATUS (2026-07-13 morning): dev GREEN (three completed upgrades over the night, box on v2026.07.0-rc.03+; the original exit-21 blocker resolved by the 166 release-cut-is-the-bless design — loud re-stamp proven live). Norway GREEN (King ran `./standalone.sh install no v2026.07.0-rc.03` 08:10 UTC; binary rc.03, 7 migrations incl. the blessed re-stamp, row 3916 completed). THE SIX-SLOT WAVE IS RELEASED (demo, ma, et, jo, tcc, ug — all pointers pushed to cbcfa068b) and being watched, with per-box reads to follow (deploy-workflow green ≠ converged, STATBUS-170). Closing condition: all six boxes converged + one fully green notify-all-clouds run (STATBUS-167's oracle — dev's leg already went green this morning, the first since Jul 8, proving the convergence mechanism).
 ---
+
+author: foreman
+created: 2026-07-13 08:17
+---
+CLOSED GREEN (2026-07-13 08:2x UTC): notify-all-clouds run 29234810216 — ALL SEVEN legs success, the ticket's North Star realized: a master push notifies every cloud box again, and after this arc a red on this job genuinely means something real. The full causal chain from this ticket's first red to green, for the record: pinned-bytes sshdo rejection (the discover→check rename) → durable entrypoint design (repo script + pinned path) → the entrypoint's own bootstrap gap (no slot had the file; STATBUS-167) → the deploy path that would carry it was itself broken twice over (exit-21 stale ledger → STATBUS-166; the tag-upgrade self-verify → STATBUS-171; plus Norway's tag-cache corruption → STATBUS-169) → all fixed, fleet deployed (dev + rune + six slots on v2026.07.0-rc.03-level code), every leg healed. The King's original deploy sequence (dev → no → the rest) executed exactly as ordered.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The 'Notify cloud services' job was red on every master push. The trail led through four distinct real defects, each fixed at its root: (1) the sshdo allowlist pinned the workflow's exact script bytes, so a rename silently broke it — replaced by the durable-entrypoint design (repo-managed ops/ci-notify.sh, only the path pinned); (2) the entrypoint itself couldn't bootstrap (no slot's checkout carried it — the STATBUS-167 discipline was born here); (3) the fleet deploy that would deliver it was blocked by the stale-ledger exit-21 (STATBUS-166, the King's release-cut-is-the-bless design) and then by the tag-upgrade self-verify bug (STATBUS-171) and Norway's tag-cache corruption (STATBUS-169). With all four fixed and the fleet converged on 2026-07-13 (dev overnight; Norway via ./standalone.sh install; the six cloud slots in one wave, each verified by direct box read), run 29234810216 went green on all seven legs — the first fully green notify since 2026-07-08. A master push notifies every cloud box, and a red on this job means something real.
+<!-- SECTION:FINAL_SUMMARY:END -->
