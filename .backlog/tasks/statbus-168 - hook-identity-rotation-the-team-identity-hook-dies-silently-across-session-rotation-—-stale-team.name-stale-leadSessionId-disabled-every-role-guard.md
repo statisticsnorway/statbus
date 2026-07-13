@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-12 22:14'
-updated_date: '2026-07-13 09:09'
+updated_date: '2026-07-13 14:56'
 labels:
   - tooling
   - team
@@ -55,5 +55,11 @@ author: foreman
 created: 2026-07-13 09:09
 ---
 CARRY-OVER from STATBUS-122 (merged here on the 2026-07-13 triage): the cross-clone concurrent-team scenario — two checkouts on one machine, each with its own live team — becomes an explicit TEST FIXTURE for the ruled identity mechanism (AC#3's test file gains it). 122's original collision mechanism (shared global team name) died with the harness's move to session-scoped teams; what survived is exactly this ticket's scope.
+---
+
+author: foreman
+created: 2026-07-13 14:56
+---
+RECURRENCE (2026-07-13 ~14:40, night shift resume after /clear): the hook denied `./sb release prerelease` from the foreman — caller unidentifiable. Anatomy this time: `.claude/team.name` pointed at team `session-7719192b` whose leadSessionId was the PRE-/clear session (5e89a6d0-…); the new session (0409b59d-…) matched nothing, and the transcript roster-grep found no member name in a fresh post-/clear transcript. Workaround applied: jq-edit the team config's leadSessionId to the current session id (verified by newest transcript filename), after which the release gate passed. Note the failure was at least LOUD here (release path denies unknown callers) — the silent half of this ticket is the permissive fallback on other paths. Fix design should cover the /clear rotation case explicitly: the lead's identity must survive session-id rotation or be re-derivable without hand-editing config.json.
 ---
 <!-- COMMENTS:END -->
