@@ -3,14 +3,21 @@ id: STATBUS-121
 title: >-
   pg-foreign-import: ensure BRREG import materializes legal_unit rows for
   foreign (UTLA) power-group members
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-06-30 15:21'
-updated_date: '2026-07-13 13:14'
+updated_date: '2026-07-13 13:16'
 labels:
   - import
   - not-install-upgrade
 dependencies: []
+modified_files:
+  - test/sql/403_cross_border_power_group.sql
+  - test/expected/403_cross_border_power_group.out
+  - samples/norway/legal_unit/konsern-enheter.csv
+  - samples/norway/legal_relationship/konsern-roller.csv
+  - samples/norway/brreg/fetch-konsern-fixture.py
+  - doc/power-groups.md
 ordinal: 107000
 ---
 
@@ -63,3 +70,19 @@ created: 2026-07-13 13:14
 Stability being confirmed (deterministic-by-construction: shared setup includes are output-suppressed, only explicit assertions print). Commit + status→Done to follow.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+DONE — cross-border power group renders fully, proven end-to-end. Commit f536b38e2 on master (pushed).
+
+FINDING (AC#1, empirical + static file:line): the legal_relationship import step (import.analyse_legal_relationship) does NOT materialize endpoints — it only resolves them via external_ident -> legal_unit (lines 62-71/81-90). An endpoint tax_ident with no existing legal_unit is flagged unknown_influencing/unknown_influenced (lines 128-129) -> state='error', action='skip' (lines 159-173). Correct tier-1 validation: the relationship step cannot invent a legal_unit.
+
+RESOLUTION (AC#2): no new ingestion code needed. Foreign (UTLA) members are materialized FIRST by the ordinary hovedenhet (enheter) import, which maps forretningsadresse.landkode -> physical_country_iso_2 (create-import-definition-hovedenhet-2024.sql line 68). A UTLA enhet record carries its foreign country there (verified live: AKER SOLUTIONS KOREA 914636191 -> KR). Cross-border groups render fully iff the foreign members are present in the enheter feed — which real BRREG konsern data provides. The requirement is data completeness, not a special path.
+
+PROOF (AC#3): test/sql/403_cross_border_power_group.sql loads the real Aker Solutions ASA konsern (org 913748174) through the same pipeline as brreg-import-selection.sh — 23 members, 14 foreign across 9 countries (CA, CN×3, CY, FI, GB×4, KR, MY, TZ, US), 9 Norwegian. Both jobs finish, 23/23 LUs + 22/22 edges, ZERO error rows. All 14 foreign members render as legal_units with physical_country_iso_2 != 'NO' and domestic=false. Power group PG0001 spans all 23 (9 domestic + 14 foreign) — no truncation at the border. Green + deterministic across 4 runs (shared setup includes output-suppressed so the expected asserts only this test's own queries).
+
+DOC (AC#4): doc/power-groups.md gains a 'Cross-border members (foreign / UTLA)' subsection.
+
+FIXTURES (hermetic, committed): samples/norway/legal_unit/konsern-enheter.csv (23 members), samples/norway/legal_relationship/konsern-roller.csv (22 HFOR edges). Generator: samples/norway/brreg/fetch-konsern-fixture.py (run-once, regenerates from a BRREG konsernstruktur CSV; tests load the committed CSVs, no network).
+<!-- SECTION:FINAL_SUMMARY:END -->
