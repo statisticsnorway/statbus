@@ -3,10 +3,10 @@ id: STATBUS-047
 title: >-
   rc02-recovery-review: issue register from the NO recovery install log + UI
   (triage index)
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-13 08:41'
-updated_date: '2026-07-13 09:05'
+updated_date: '2026-07-13 09:09'
 labels:
   - review
   - upgrade
@@ -139,3 +139,9 @@ created: 2026-07-13 09:05
 BOARD TRIAGE (architect, 2026-07-13) — CLOSE, all three remaining items overtaken with evidence: F (the retention tar blocking the install ~17 min on rune) DISSOLVED — the forensic archiveBackup tar was DELETED outright (STATBUS-112); the persistent rsync snapshot dir is the single backup artifact, and no tar exists to block anything. H (the completion write surviving only via retry — 'a robustness hole at the most important write') ABSORBED AND GENERALIZED by STATBUS-154: the teardown-immune terminalUpdate/terminalConnDo core explicitly generalized the 047-H completion-write reconnect save to EVERY terminal write and window flip (cited by name in the 154 ruling), run-proven through the health-park arc campaign. G (vestigial db-seed branch) already folded into STATBUS-035's keep-pending walk. Items A-E/B1/B2 shipped long ago per the ticket's own header. Nothing remains; recommend closing with this as the final summary.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Closed on the architect's triage evidence (2026-07-13): the rc02-era issue register is triaged to zero. Item F dissolved (the blocking tar was deleted under STATBUS-112); item H was absorbed and generalized (STATBUS-154's terminalUpdate cites 047-H by name as its precedent); item G folded into STATBUS-035's branch work. Nothing on the register survives as open work.
+<!-- SECTION:FINAL_SUMMARY:END -->
