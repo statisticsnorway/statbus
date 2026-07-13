@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-12 07:57'
-updated_date: '2026-07-12 15:06'
+updated_date: '2026-07-13 08:15'
 labels:
   - git-hygiene
   - not-install-upgrade
@@ -96,5 +96,11 @@ KING APPROVED the listed 13-branch cleanup (2026-07-12 evening). Pre-delete veri
 NEW STATE not covered by this approval, surfaced by the same verification: (a) two NEW open Dependabot PRs — #309 (golang.org/x/crypto 0.52.0) and #308 (undici 7.28.0) — these are current bumps, not stale cleanup; routed to the King as a review/merge question, not a delete. (b) ~100 test/upgrade-arc-* throwaway branches from the STATBUS-071 framework plus red/031-rollback-watchdog — no retention policy exists; broken out as STATBUS-165.
 
 Remaining on this ticket: AC #4's owner walk of the 11 keep-pending branches (the folded STATBUS-038 King sitting — hhssb, Erik Søberg, King).
+---
+
+author: foreman
+created: 2026-07-13 08:15
+---
+DEPENDABOT PRs RESOLVED per the King's morning directive and the STATBUS-049 written procedure (bump, then run that ecosystem's gates): #309 (golang.org/x/crypto 0.51.0→0.52.0) and #308 (undici 7.25.0→7.28.0) merged LOCALLY in one merge commit (dc271478d), gates green on both ecosystems — Go: vet/build/test all packages ok; app: tsc clean, jest suites pass, production build clean — then pushed; GitHub marked both PRs MERGED at 08:13:53Z and dependabot deletes their branches. No dependabot branches remain open.
 ---
 <!-- COMMENTS:END -->
