@@ -150,35 +150,57 @@ When you regress a fix, here's what fails:
 3. If you need a new assertion, add to `lib/assertions.sh` as `assert_*` returning 0 (pass) or 1 (fail).
 4. Update this README's scenario catalogue — lead the new entry with its plain goal (die HERE → re-run ends THERE, data intact), mechanism as grounding.
 
-## Probe conventions — PROBES OBSERVE, ASSERTS JUDGE (STATBUS-143)
+## Probe conventions — PROBES OBSERVE, ASSERTS JUDGE; NO OBSERVATION WITHOUT A REASON (STATBUS-143)
 
 A **probe** (a helper that reads VM state — a container state, a row column, a pid)
-ALWAYS exits 0 and returns a *nameable* value, including `(unknown)` when the
-transport or command hiccups. The **assert** — never the probe — decides pass/fail,
-and it carries a **settle budget** wherever the expected state is *eventual* rather
-than immediate.
+ALWAYS exits 0 and returns a *nameable* value. The **assert** — never the probe —
+decides pass/fail, and it carries a **settle budget** wherever the expected state is
+*eventual* rather than immediate.
 
+The value a probe returns on failure MUST **name why it failed**. A bare `(unknown)`
+is a dead end — it cost a full VM run (29212146524): a probe that demanded a running
+proxy returned `(unknown)` on *every* poll for the whole settle budget, and the arc
+log could not distinguish "the proxy genuinely isn't up" from "the probe's own remote
+command is broken." The second turned out to be true and *deterministic*, not a
+transient race — but the bare token hid that for an entire paid run. So:
+
+- **`_probe` (lib/arc-helpers.sh) is the one channel for VM observation.** It runs a
+  remote command, returns its stdout on success, and on ANY failure (transport OR
+  command) returns `(unknown: <first stderr line, ≤120 chars, newline-stripped>)`. The
+  reason is **bounded** and **single-line** because the value flows through `$(…)` and
+  can reach a later `VM_EXEC` argument — a multi-line reason would re-open the quoting
+  hazard class STATBUS-021 closed. The reason REPLACES any terminal `|| echo
+  '(unknown)'`: a terminal echo swallows the remote command's non-zero exit and throws
+  away the stderr that names it, fusing "state absent" with "probe broken."
 - **State-demanding probes** (return a value the assert compares — a container state,
-  a row column) MUST carry a safe terminal so a transient failure yields a value, not
-  a non-zero exit: end the pipeline with `|| echo '(unknown)'`, or make the remote
-  command itself always exit 0 (`… || true`). Under the arcs' `set -euo pipefail`, a
-  probe that can exit non-zero dies inside `$(…)` and trips errexit — opaquely, one
-  line before its own assertion could have named the value.
-- **Existence probes** ask a yes/no question and answer it remotely
-  (`… | grep -qx proxy && echo yes || echo no`); existence is immediate, so they need
-  no settle budget.
-- **Settle budgets**: when the expected state arrives *after* the trigger (a container
-  restart still finishing, a daemon re-forming), poll the safe probe until it settles
-  or a bounded budget expires, THEN assert. The wait establishes the precondition
-  honestly — it does not weaken it: still running-or-refuse, just given the time the
-  system genuinely needs.
+  a row column) call `_probe` and pass its value straight through. Under the arcs'
+  `set -euo pipefail`, `_probe` never trips errexit inside `$(…)`; a failure surfaces
+  as a named value one line before its own assertion, not an opaque `rc=1`.
+- **Existence probes** ask a yes/no question, but keep the yes/no decision **local**
+  (`svc=$(_probe "… ps -a --format '{{.Service}}'"); grep -qx proxy && echo yes || echo
+  no`), so a broken remote command yields `(unknown: …)` instead of masquerading as a
+  clean "no." Existence is immediate, so they still need no settle budget.
+- **Probe the proven shape.** `proxy_state` reads running services with
+  `docker compose ps --format '{{.Service}}'` — WITHOUT `-a`, so `ps` lists only running
+  services by default, using ONLY the `.Service` template the severed sibling has always
+  run GREEN. No new flag is introduced. The old two-field `--format '{{.Service}}
+  {{.State}}'` form is what failed remotely; a probe reaches for the narrowest proven
+  `docker compose` shape, not the richest one.
+- **Settle budgets** (secondary, defense in depth): when the expected state arrives
+  *after* the trigger (a container restart still finishing), poll the safe probe until
+  it settles or a bounded budget expires, THEN assert. The wait establishes the
+  precondition honestly — it does not weaken it: still running-or-refuse, just given the
+  time the system genuinely needs. The reason-carrying probe, not the budget, is what
+  diagnoses a *deterministic* failure — a budget only ever forgives a slow-but-real one.
 
-The scar this codifies: `postswap-stopped-proxy-recovery-arc.sh` died `rc=1 at :140`
-— its `proxy_state` probe (an `awk`-terminated pipeline demanding exactly `running`)
-raced the resume's in-flight container restart and exited non-zero inside `$(…)`,
-tripping errexit one line before the `[ "$PROXY_BEFORE" = "running" ]` tripwire that
-would have named the transient. Its GREEN severed sibling survived the identical
-inject because its `proxy_present` probe ends in `echo yes || echo no` (always exits 0).
+The scar this codifies: `postswap-stopped-proxy-recovery-arc.sh` died `rc=1 at :140`,
+then on re-run returned `(unknown)` for the FULL settle budget — proving the failure
+was not a transient race but its own `proxy_state` probe: an `awk`-terminated
+`--format '{{.Service}} {{.State}}'` pipeline whose remote `docker compose` invocation
+failed deterministically, discarded behind `2>/dev/null || echo '(unknown)'`. Its GREEN
+severed sibling survived the identical inject because its `proxy_present` probe used the
+narrower `.Service`-only form. Both now route through `_probe`, so the next such failure
+names itself in the arc log instead of costing a run to diagnose.
 
 ## Debugging a failing scenario
 

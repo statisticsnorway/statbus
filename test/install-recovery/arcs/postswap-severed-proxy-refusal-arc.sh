@@ -100,11 +100,22 @@ echo "  Arc: postswap-severed-proxy-refusal  (STATBUS-143 AC#4 — real kill + r
 echo "  A=${BASE_SHA:0:8}  B=${B_FULL:0:8}  inject=${INJECT_CLASS}"
 echo "════════════════════════════════════════════════════════════════"
 
+# proxy_present: "yes" | "no" | "(unknown: <reason>)". Existence check over ALL
+# services (`-a --format '{{.Service}}'`) — the proven `.Service` form this arc
+# already ran GREEN. Amendment 1 (STATBUS-143, contract-wide): the grep/echo moves
+# OUT of the remote command into the local case, so `_probe` can distinguish a
+# clean "proxy absent" (→ "no") from a remote-command failure (→ reason). The old
+# form fused them: a docker failure and a genuinely-absent proxy both echoed "no".
 proxy_present() {
-    VM_EXEC bash -c "cd ~/statbus && docker compose ps -a --format '{{.Service}}' | grep -qx proxy && echo yes || echo no" 2>/dev/null | tr -d ' \r\n'
+    local svc
+    svc=$(_probe "cd ~/statbus && docker compose ps -a --format '{{.Service}}'")
+    case "$svc" in
+        "(unknown:"*) printf '%s' "$svc" ;;
+        *) printf '%s\n' "$svc" | grep -qx proxy && echo yes || echo no ;;
+    esac
 }
 row_state() {
-    VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '${B_FULL}' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "(db-down/?)"
+    _probe "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '${B_FULL}' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A"
 }
 
 # run_install <out-file> — attempts ./sb install, never fails the arc itself

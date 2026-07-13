@@ -21,6 +21,34 @@
 # does NOT run checkSignersDone, so the key survives into .env; restarting the
 # upgrade unit makes loadTrustedSigners re-read .env WITH arc → the daemon trusts
 # B/C. (After B applies, HEAD becomes arc-signed, so later checkSignersDone passes.)
+# _probe <remote-command> — run <remote-command> on the VM and echo its stdout on
+# success, or "(unknown: <first stderr line, ≤120 chars, single-line>)" on ANY
+# failure (transport OR command). PROBES OBSERVE, ASSERTS JUDGE + NO OBSERVATION
+# WITHOUT A REASON (STATBUS-143): a probe ALWAYS exits 0 and returns a nameable
+# value that carries WHY it failed — so a DETERMINISTIC failure names itself in
+# the arc log instead of hiding behind a bare '(unknown)' (that hiding cost a full
+# VM run, 29212146524). The reason is BOUNDED (≤120 chars) and newline-stripped:
+# the value flows through $() and can reach a later VM_EXEC argument, so a
+# multi-line reason would re-import the quoting hazard class STATBUS-021 closed.
+# The first stderr line IS the diagnosis; full text is trap-dump material.
+_probe() {
+    local out rc errfile err
+    errfile=$(mktemp)
+    out=$(VM_EXEC bash -c "$1" 2>"$errfile"); rc=$?
+    err=$(head -n1 "$errfile" 2>/dev/null | tr -d '\r')
+    rm -f "$errfile"
+    # $() already strips trailing newlines; strip stray CRs too so a caller can
+    # compare the value directly without a lossy `tr -d ' '` that would also eat
+    # the spaces out of a failure reason (the ratification: newline-stripped, NOT
+    # space-stripped). SQL/service values never legitimately contain a CR.
+    out=${out//$'\r'/}
+    if [ "$rc" -eq 0 ]; then
+        printf '%s' "$out"
+    else
+        printf '(unknown: %.120s)' "$err"
+    fi
+}
+
 trust_arc_signer() {
     if [ -z "${SB_ARC_TRUSTED_SIGNER:-}" ]; then
         echo "✗ SB_ARC_TRUSTED_SIGNER not set — cannot trust the arc signer; B/C would fail verification" >&2

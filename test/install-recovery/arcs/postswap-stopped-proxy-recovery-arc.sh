@@ -111,17 +111,36 @@ echo "  Arc: postswap-stopped-proxy-recovery  (STATBUS-143 AC#2 — real kill + 
 echo "  A=${BASE_SHA:0:8}  B=${B_FULL:0:8}  inject=${INJECT_CLASS}"
 echo "════════════════════════════════════════════════════════════════"
 
-# PROBES OBSERVE, ASSERTS JUDGE (STATBUS-143 probe contract; README "Probe
-# conventions"): a probe ALWAYS exits 0 and returns a nameable value ('(unknown)'
-# on any transport/command hiccup), so it can never die inside $() under `set -e`
-# one line before its own assertion. proxy_state races the resume's in-flight
-# container restart, so the safe terminal is load-bearing here — its ABSENCE
-# killed this arc (rc=1 at :140, the probe dying one line before its tripwire).
+# PROBES OBSERVE, ASSERTS JUDGE; NO OBSERVATION WITHOUT A REASON (STATBUS-143 probe
+# contract; README "Probe conventions"): a probe ALWAYS exits 0 via `_probe`, which
+# returns a NAMEABLE value — the remote stdout on success, or `(unknown: <first
+# stderr line>)` on any transport/command failure — so it can never die inside $()
+# under `set -e` one line before its own assertion, AND a deterministic failure
+# names itself instead of hiding behind a bare '(unknown)'. This arc's first RED
+# (rc=1 at :140) then its re-run (`(unknown)` for the FULL settle budget) proved the
+# proxy_state probe's own remote command was failing DETERMINISTICALLY, not racing
+# the container restart — the reason capture is what turns that from a lost VM run
+# into a self-describing log line.
+# proxy_state: "running" | "not-running" | "(unknown: <reason>)". Reshaped for
+# STATBUS-143 amendment 2 — `docker compose ps --format '{{.Service}}'` (WITHOUT
+# `-a`) lists only running services, using ONLY the `.Service` template the severed
+# sibling has always run GREEN — no new flag. This DROPS the two-field `--format
+# '{{.Service}} {{.State}}'` form whose remote failure this arc's DETERMINISTIC RED
+# traced to. A stopped-but-present proxy is absent from the no-`-a` listing → grep
+# misses → "not-running"; running → present → "running". Amendment 1: the
+# reason-carrying `_probe` REPLACES the old terminal-echo `|| echo '(unknown)'` —
+# a terminal echo would mask a remote docker failure as bare "(unknown)" and throw
+# away the stderr that names it, defeating the whole point of the reason capture.
 proxy_state() {
-    VM_EXEC bash -c "cd ~/statbus && docker compose ps -a --format '{{.Service}} {{.State}}' | awk '\$1==\"proxy\"{print \$2}'" 2>/dev/null | tr -d ' \r\n' || echo '(unknown)'
+    local svc
+    svc=$(_probe "cd ~/statbus && docker compose ps --format '{{.Service}}'")
+    case "$svc" in
+        "(unknown:"*) printf '%s' "$svc" ;;
+        *) printf '%s\n' "$svc" | grep -qx proxy && echo running || echo not-running ;;
+    esac
 }
 row_cols() {
-    VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state, recovery_attempts, recovery_parked_at IS NOT NULL, rolled_back_at IS NOT NULL, error IS NOT NULL FROM public.upgrade WHERE commit_sha = '${B_FULL}' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A -F'|'" 2>/dev/null | tr -d '\r' || echo '(unknown)'
+    _probe "cd ~/statbus && echo \"SELECT state, recovery_attempts, recovery_parked_at IS NOT NULL, rolled_back_at IS NOT NULL, error IS NOT NULL FROM public.upgrade WHERE commit_sha = '${B_FULL}' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A -F'|'"
 }
 
 # ── A: install + prepare; register B; schedule daemon-down; dispatch with the REAL post-swap kill ──
@@ -141,7 +160,7 @@ arc_install_dispatch_with_inject "$INJECT_CLASS"
 echo ""
 echo "── verifying RED state (flag Resuming; row in_progress; DB + ALL containers, incl. proxy, genuinely up) ──"
 VM_EXEC bash -c "ls -la ~/statbus/tmp/upgrade-in-progress.json" >/dev/null || { echo "✗ expected flag file present after the kill" >&2; exit 1; }
-ROW_STATE_RED=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '${B_FULL}' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo '(unknown)')
+ROW_STATE_RED=$(_probe "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '${B_FULL}' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A")
 [ "$ROW_STATE_RED" = "in_progress" ] || { echo "✗ expected row in_progress after the kill, got '$ROW_STATE_RED'" >&2; exit 1; }
 # The inject fires DURING the resume's start-services (container restart), so the
 # proxy reaching "running" is an EVENTUAL state — the resume's orphaned
@@ -150,7 +169,12 @@ ROW_STATE_RED=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public
 # precondition stays HARD: running within the budget, or refuse loudly naming the
 # observed value — a settle-wait establishes the precondition honestly, it does
 # NOT weaken it (STATBUS-143 ruling).
-PROXY_SETTLE_BUDGET_S="${PROXY_SETTLE_BUDGET_S:-60}"
+# Amendment 3 (STATBUS-143, secondary): budget widened 60→120s. The loop is
+# already settle-aware (polls proxy_state until "running" or the deadline); the
+# wider budget only guards against a slow container restart tipping a genuinely-
+# recovering box into a false precondition failure. The reason-carrying probe
+# (amendment 1) is what actually diagnosed the RED — this is defense in depth.
+PROXY_SETTLE_BUDGET_S="${PROXY_SETTLE_BUDGET_S:-120}"
 PROXY_BEFORE=""
 _proxy_deadline=$((SECONDS + PROXY_SETTLE_BUDGET_S))
 while :; do
