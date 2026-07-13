@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-13 08:41'
-updated_date: '2026-06-15 10:53'
+updated_date: '2026-07-13 09:05'
 labels:
   - review
   - upgrade
@@ -129,3 +129,13 @@ Item D SHIPPED → STATBUS-052 (commit 3ea22ae27, master, pushed, full suite gre
 
 REMAINING one-by-one triage: E (PGRST002 first-fail / admin-/ready-on-+6 — this IS STATBUS-032, already In Progress; handling = finish/confirm 032's +6 admin-port readiness probe, not a fresh diagnosis), F (retention tar blocks the install command), G (db-seed branch vestigial), H (DB connection races the completion write).
 <!-- SECTION:NOTES:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect
+created: 2026-07-13 09:05
+---
+BOARD TRIAGE (architect, 2026-07-13) — CLOSE, all three remaining items overtaken with evidence: F (the retention tar blocking the install ~17 min on rune) DISSOLVED — the forensic archiveBackup tar was DELETED outright (STATBUS-112); the persistent rsync snapshot dir is the single backup artifact, and no tar exists to block anything. H (the completion write surviving only via retry — 'a robustness hole at the most important write') ABSORBED AND GENERALIZED by STATBUS-154: the teardown-immune terminalUpdate/terminalConnDo core explicitly generalized the 047-H completion-write reconnect save to EVERY terminal write and window flip (cited by name in the 154 ruling), run-proven through the health-park arc campaign. G (vestigial db-seed branch) already folded into STATBUS-035's keep-pending walk. Items A-E/B1/B2 shipped long ago per the ticket's own header. Nothing remains; recommend closing with this as the final summary.
+---
+<!-- COMMENTS:END -->
