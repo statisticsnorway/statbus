@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-13 11:39'
+updated_date: '2026-07-13 11:55'
 labels:
   - standalone
   - tooling
@@ -38,5 +39,15 @@ CONSTRAINT: standalone-only initially (no.statbus.org shape); the multi-tenant c
 - [ ] #2 pgAdmin connects to Postgres as a scoped role that is NOT superadmin; the role and its grants are named and justified
 - [ ] #3 No second identity store: pgAdmin users are not a separate user list from statbus's — the mapping is explicit
 - [ ] #4 no.statbus.org/pgadmin serves pgAdmin path-based on the standalone host, proven on a real box (rune-no or a test standalone)
-- [ ] #5 The feature/pgadmin branch's reusable deployment mechanics are mined into the shipped form; the branch is then retired
+- [ ] #5 BUILDS ON the feature/pgadmin branch (King, 2026-07-13): the branch is the working foundation — rebase/port its deployment mechanics forward (multi-tenant compose, custom pgAdmin image + SSLSNI patch, forward_auth handle_response, command-palette link, DEPLOYMENT.md doc) and resolve the auth model on top. The branch is KEPT, not retired, until this ships.
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-13 11:55
+---
+SCOPE CORRECTION (King, 2026-07-13): this ticket BUILDS ON feature/pgadmin — the branch is the foundation, not a reference to retire. Rebase/port its deployment mechanics forward and resolve the auth model on top. feature/pgadmin is KEPT (removed from the STATBUS-035 delete-candidates) until this ships.
+---
+<!-- COMMENTS:END -->
