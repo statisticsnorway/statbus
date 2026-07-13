@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-13 12:08'
-updated_date: '2026-07-13 12:20'
+updated_date: '2026-07-13 12:39'
 labels:
   - norway
   - data-model
@@ -80,5 +80,11 @@ RECONCILIATION RESOLVED by investigation (foreman-verified against doc/db + samp
 2. HIDE (enabled=FALSE WHERE code<>'tax_ident') = affects import, but harmless for Norway. `enabled` is NOT cosmetic — the import iterates the VIEW `external_ident_type_enabled` (import_generate_external_ident_data_columns, import_analyse_external_idents, import_helper_process_external_idents all loop/join it), so enabled=FALSE removes a type from the import's active set. BUT Norway's brreg import loads ONLY tax_ident (samples/norway/brreg: organisasjonsnummer→tax_ident, overordnetEnhet→legal_unit_tax_ident — still the tax type; no stat_ident, no other type). Disabling the only other seeded type (stat_ident) removes something Norway never loads → breaks nothing, correctly hides it.
 
 HONEST BOUNDARY (must be a comment at the shipped site): the customization is safe BECAUSE Norway's import is org-number-only. If a future Norway import adds stat_ident or another type, enabled=FALSE on it would then gate THAT import — safety is coupled to Norway's import scope. So it's still a genuine data-model op (not literally UI-only), but for the current Norway pipeline it is effectively a presentation change with zero load impact. Ship it by code (AC#6), modernize the reset pattern (AC#3), prove on a real Norway load (AC#4).
+---
+
+author: foreman
+created: 2026-07-13 12:39
+---
+BRREG SPELLING CORRECTION (King directive, checked against the official brreg guide, 2026-07-13): the label is NOT the anglicized 'Org.Number'. Official terms — Norwegian: **'Organisasjonsnummer'** (one word, the official brreg term; 75 occurrences in samples/norway as `organisasjonsnummer`); English (brreg's own docs, data.brreg.no): 'organisation number' (British spelling); standard abbreviation: 'Org.nr.' (5 occurrences in-repo). no.statbus.org is Norwegian, so the shipped label is **'Organisasjonsnummer'** (or 'Org.nr.' if a compact UI label is wanted — the King's pick). The rename UPDATE becomes: `UPDATE external_ident_type SET name = 'Organisasjonsnummer' WHERE code = 'tax_ident';`. Supersedes the 'Org.Number' in the earlier comments/AC.
 ---
 <!-- COMMENTS:END -->
