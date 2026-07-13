@@ -4,11 +4,11 @@ title: >-
   binary-self-verify-060: post-swap self-verify compares the procured binary
   against the deferred SOURCE worktree — every tag-identified upgrade rolls back
   deterministically
-status: To Do
+status: Done
 assignee:
   - '@engineer'
 created_date: '2026-07-13 01:40'
-updated_date: '2026-07-13 02:01'
+updated_date: '2026-07-13 02:42'
 labels:
   - upgrade
   - production
@@ -39,10 +39,10 @@ RELATION: found while tracing the 169-adjacent dev retry (scheduler and STATBUS-
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The self-verify compares the procured binary's embedded commit against the UPGRADE TARGET (the manifest check's 060 pattern); the stalenessGuard-vs-source path is removed from this call site
-- [ ] #2 Unit test pins it: a target binary verifying against a source-checkout worktree passes when its embedded commit equals the target (and fails when it does not)
+- [x] #1 The self-verify compares the procured binary's embedded commit against the UPGRADE TARGET (the manifest check's 060 pattern); the stalenessGuard-vs-source path is removed from this call site
+- [x] #2 Unit test pins it: a target binary verifying against a source-checkout worktree passes when its embedded commit equals the target (and fails when it does not)
 - [x] #3 The commit-path survival question is answered with evidence: why did commit-identified upgrades succeed the same night — condition named, or also-broken documented
-- [ ] #4 Proven live: dev completes a tag-identified upgrade through the normal path (the run is the oracle)
+- [x] #4 Proven live: dev completes a tag-identified upgrade through the normal path (the run is the oracle)
 <!-- AC:END -->
 
 ## Comments
@@ -73,4 +73,16 @@ REFINED FIX (within the ratification): exempt `upgrade self-verify` from stalene
 
 RECORDED RESIDUAL (flag, not folded): selfupdate.go:89 execs the child WITHOUT clearing env — it inherits freshness.SelfHealAttemptEnv (why row 331014 hit the recursion-guard branch rather than the plain hard-fail). Moot for self-verify once exempted; a latent sharp edge for any future child-exec — candidate follow-up, architect's morning call.
 ---
+
+author: foreman
+created: 2026-07-13 02:42
+---
+AC#4 PROVEN LIVE (2026-07-13 02:41 UTC) — the red→green pair is complete. Fix committed 111546eeb; v2026.07.0-rc.03 cut carrying it (chain: CI green → cut → release assets published → dispatch — the rc.02 asset-race lesson applied); dev deploy run green; box oracle: row 337286 state='completed' at 02:41:09, checkout 111546eeb, and `sb version v2026.07.0-rc.03 (commit 111546ee)` — the box RUNS the tag-procured binary, meaning the TAG-identified path executed the FIXED self-verify (--expect-commit target-identity assert, guard-exempt) and passed. Row 331014's deterministic rollback was the red half; this is the first tag-identified upgrade to complete since STATBUS-060 shipped. Remaining rider (commit-identified regression re-run on the fixed binary): the next master deploy-pointer push — executing now as the board commits move HEAD.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Every tag-identified upgrade since STATBUS-060 rolled back deterministically: the binary-replace step execs the target binary's self-verify, whose stalenessGuard compared the binary against worktree HEAD — deliberately still the SOURCE under 060's deferred checkout. A category error at that site (architect-ruled): the question is "is this binary the intended TARGET", not "does it match the worktree". Fixed in the target binary itself (111546eeb): `upgrade self-verify` is guard-exempt (freshness_probe, the committed-drift pattern — which also moots the inherited self-heal env residual) and positively asserts target identity via --expect-commit (prefix-both-ways, the manifest anti-tamper 060 pattern) — strictly stronger, it now catches wrong/mis-built artifacts too. Commit-identified upgrades were structurally never affected (edge procures via docker cp, never execs mid-swap). Notable for the coverage map: the class is invisible to every install-recovery arc by construction (STATBUS_INJECT_AT downgrades the guard to advisory) — only a real tag deploy could expose it, and did. Proven live 2026-07-13 02:41: rc.03 cut with the fix, dev completed the tag path (row 337286, box running v2026.07.0-rc.03) — the red→green pair with row 331014. Boot-time stalenessGuard coverage untouched.
+<!-- SECTION:FINAL_SUMMARY:END -->
