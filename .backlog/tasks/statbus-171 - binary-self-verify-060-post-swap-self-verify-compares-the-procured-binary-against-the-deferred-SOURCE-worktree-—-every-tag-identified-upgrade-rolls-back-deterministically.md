@@ -8,7 +8,7 @@ status: Done
 assignee:
   - '@engineer'
 created_date: '2026-07-13 01:40'
-updated_date: '2026-07-13 02:42'
+updated_date: '2026-07-13 02:49'
 labels:
   - upgrade
   - production
@@ -78,6 +78,12 @@ author: foreman
 created: 2026-07-13 02:42
 ---
 AC#4 PROVEN LIVE (2026-07-13 02:41 UTC) — the red→green pair is complete. Fix committed 111546eeb; v2026.07.0-rc.03 cut carrying it (chain: CI green → cut → release assets published → dispatch — the rc.02 asset-race lesson applied); dev deploy run green; box oracle: row 337286 state='completed' at 02:41:09, checkout 111546eeb, and `sb version v2026.07.0-rc.03 (commit 111546ee)` — the box RUNS the tag-procured binary, meaning the TAG-identified path executed the FIXED self-verify (--expect-commit target-identity assert, guard-exempt) and passed. Row 331014's deterministic rollback was the red half; this is the first tag-identified upgrade to complete since STATBUS-060 shipped. Remaining rider (commit-identified regression re-run on the fixed binary): the next master deploy-pointer push — executing now as the board commits move HEAD.
+---
+
+author: foreman
+created: 2026-07-13 02:49
+---
+RIDER 2 FULLY CLOSED (2026-07-13 02:49 UTC): the commit-identified regression re-run on the fixed binary is GREEN — dev row 339397 state='completed' at 02:49:16, target a9040f8f2 (a plain board commit through the edge path), box checkout confirmed. Both oracle halves now proven on real deploys: tag-identified green (row 337286, rc.03) and commit-identified no-regression (row 339397). Dev completed three upgrades tonight through three distinct paths — blessed-restamp edge recognition (17d47c5e2), fixed tag self-verify (111546eeb/rc.03), and plain commit (a9040f8f2).
 ---
 <!-- COMMENTS:END -->
 
