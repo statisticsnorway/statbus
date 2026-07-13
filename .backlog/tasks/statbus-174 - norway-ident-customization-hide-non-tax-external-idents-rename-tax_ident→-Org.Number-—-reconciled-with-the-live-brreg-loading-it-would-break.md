@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-13 12:08'
-updated_date: '2026-07-13 12:15'
+updated_date: '2026-07-13 12:20'
 labels:
   - norway
   - data-model
@@ -47,7 +47,7 @@ SOURCE BRANCH (for archaeology, retired): fix-custom-scripts, tip 7b01c88cb, fil
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The reconciliation is established: whether 'hide non-tax idents' must be presentation-only (UI) vs enabled=FALSE, decided against what the current brreg 2024/2025 import definitions actually create and use — with the answer that does NOT break brreg loading
+- [x] #1 The reconciliation is established: whether 'hide non-tax idents' must be presentation-only (UI) vs enabled=FALSE, decided against what the current brreg 2024/2025 import definitions actually create and use — with the answer that does NOT break brreg loading
 - [ ] #2 tax_ident relabelled to 'Org.Number' with no code keyed on the type name broken
 - [ ] #3 The customization uses the current pattern (public.reset('getting-started')), not the deleted \ir ./reset.sql
 - [ ] #4 Proven on a real Norway load: brreg getting-started + an import still loads data AND the UI shows only Org.Number — the run is the oracle
@@ -68,5 +68,17 @@ UPDATE external_ident_type SET enabled = FALSE WHERE code <> 'tax_ident';
 UPDATE external_ident_type SET name = 'Org.Number'  WHERE code =  'tax_ident';
 ```
 No magic numbers, self-describing, stable if row ids ever shift. This is a general principle for the port, not just these two lines — semantic codes over physical ids everywhere the customization touches. (The enabled=FALSE-vs-presentation-only reconciliation from AC#1 still governs whether these run as-is or become a UI-only hide — the code-not-id rule applies to whichever form ships.)
+---
+
+author: foreman
+created: 2026-07-13 12:20
+---
+RECONCILIATION RESOLVED by investigation (foreman-verified against doc/db + samples/norway, 2026-07-13) — AC#1 answered, the customization IS feasible and safe for Norway. TWO HALVES:
+
+1. RENAME (name→'Org.Number') = UI-ONLY, safe. The import path keys on `code` EVERYWHERE (import_analyse_link_* JOIN xit.code; import_analyse_legal_relationship `WHERE code='tax_ident'`; import_get_statistical_unit_data_partial `jsonb_object_agg(eit.code,...)`). `name` is a pure display label — nothing functional reads it. The King's insight confirmed: renaming while retaining the code touches nothing but the UI.
+
+2. HIDE (enabled=FALSE WHERE code<>'tax_ident') = affects import, but harmless for Norway. `enabled` is NOT cosmetic — the import iterates the VIEW `external_ident_type_enabled` (import_generate_external_ident_data_columns, import_analyse_external_idents, import_helper_process_external_idents all loop/join it), so enabled=FALSE removes a type from the import's active set. BUT Norway's brreg import loads ONLY tax_ident (samples/norway/brreg: organisasjonsnummer→tax_ident, overordnetEnhet→legal_unit_tax_ident — still the tax type; no stat_ident, no other type). Disabling the only other seeded type (stat_ident) removes something Norway never loads → breaks nothing, correctly hides it.
+
+HONEST BOUNDARY (must be a comment at the shipped site): the customization is safe BECAUSE Norway's import is org-number-only. If a future Norway import adds stat_ident or another type, enabled=FALSE on it would then gate THAT import — safety is coupled to Norway's import scope. So it's still a genuine data-model op (not literally UI-only), but for the current Norway pipeline it is effectively a presentation change with zero load impact. Ship it by code (AC#6), modernize the reset pattern (AC#3), prove on a real Norway load (AC#4).
 ---
 <!-- COMMENTS:END -->
