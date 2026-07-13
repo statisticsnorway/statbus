@@ -3,9 +3,10 @@ id: STATBUS-172
 title: >-
   arc-repair-by-follow-up: a migration that SUCCEEDS but leaves bad state,
   repaired by a later migration — the uncovered silent-corruption family
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-07-13 10:42'
+updated_date: '2026-07-13 11:15'
 labels:
   - install-recovery
   - upgrade
@@ -42,3 +43,19 @@ NON-NEGOTIABLE (King, 2026-07-13): this is NOT optional coverage. It ships as a 
 - [ ] #3 The arc runs GREEN on a real Hetzner VM through real discovery/procurement (the 034 zero-scaffolding standard; the run is the oracle, not a unit test)
 - [ ] #4 The mid-point RED-half is genuine: the assertion that the bad state persists across the healthy upgrade would fire if completion were ever conflated with correctness
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-13 11:15
+---
+CLOSED as invented-arc (King's challenge + architect's adversarial steelman, 2026-07-13). The King: a migration that succeeds but leaves bad state has only two cases — already-applied → fixed by a LATER migration (immutability forbids editing it); not-applied → fix the migration pre-release; both ordinary, no special recovery path. The architect steelmanned FOUR gap families before agreeing, each landing in existing coverage: (1) fleet-skew/repair-against-live-writes — REAL but pg_regress's genre (apply-V/write-data/apply-W/assert), an arc proves nothing extra at 100× cost; (2) repair-reaches-every-box — the existing arcs already prove forward-migration convergence from HARDER states (parked/failed/rolled_back); a completed box is the trivial case; (3) bad-state-breaks-machinery-later — already the health-park 145 fixture (a committed-but-wrong migration surfacing at health→park) + the fail-arc family; the machinery-INVISIBLE half is by definition not machinery-testable, only data-equality-testable = pg_regress; (4) the one real human trap — a restamp repairs BYTES not applied STATE. Verdict: the arc framework tests failure→recovery; a successful migration has neither. Foreman's original 'optional if you want it' framing was wrong and retracted at the King's push; the ticket itself was then correctly closed as inventing an arc for a data-correctness concern. RESIDUE MADE DURABLE (1b4e2bbdd, not left as notes): AGENTS.md repair-migration pg_regress pattern + the bless BY DESIGN block point 5 (restamp ≠ state repair). Real coverage was NOT dropped — machinery-visible arc-proven, data-correctness is pg_regress's charter, the human trap has its warning sign.
+---
+<!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Closed as an invented arc, not a real gap — the King's challenge, confirmed by the architect's four-family adversarial steelman. The arc framework tests failure→recovery; a migration that SUCCEEDS (exit 0, box healthy, upgrade completes) has neither, so "committed-but-wrong repaired by follow-up" is normal forward migration sequencing, not a recovery scenario. Every steelman landed in existing coverage: data correctness (fleet-skew, repair-against-live-writes) is pg_regress's charter and cheaper there; forward-convergence is already arc-proven from harder states (parked/failed/rolled_back); the machinery-visible committed-but-wrong case is the health-park 145 fixture and the fail-arc family; the machinery-invisible half is by definition not machinery-testable. The two honest residues were made durable in docs (1b4e2bbdd): the repair-migration pg_regress pattern in AGENTS.md, and the restamp-repairs-bytes-not-state caveat as point 5 of the bless BY DESIGN block. Lesson banked: a "close as no-gap" conclusion got adversarial verification before action, not settled on assertion.
+<!-- SECTION:FINAL_SUMMARY:END -->
