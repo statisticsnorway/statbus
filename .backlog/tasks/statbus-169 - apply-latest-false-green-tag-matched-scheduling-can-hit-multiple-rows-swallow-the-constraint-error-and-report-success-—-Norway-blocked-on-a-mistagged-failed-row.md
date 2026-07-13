@@ -43,11 +43,13 @@ ORACLE: (i) unit tests on the three fixes; (ii) THE REAL ONE: Norway's deploy po
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Tag-to-row assignment is commit-authoritative: a row's commit_tags can only contain tags pointing at its commit_sha, enforced at write with a loud refusal; the rune misassignment's producer is found and fixed (cite the code path)
-- [ ] #2 apply-latest schedules exactly ONE row, resolved tag→commit first; multi-match is structurally impossible
-- [ ] #3 apply-latest fails non-zero on UPDATE 0 and on any psql error (ON_ERROR_STOP); the deploy workflow's green implies the box scheduled the upgrade
+- [x] #1 Tag-to-row assignment is commit-authoritative: a row's commit_tags can only contain tags pointing at its commit_sha, enforced at write with a loud refusal; the rune misassignment's producer is found and fixed (cite the code path)
+- [x] #2 apply-latest schedules exactly ONE row, resolved tag→commit first; multi-match is structurally impossible
+- [x] #3 apply-latest fails non-zero on UPDATE 0 and on any psql error (ON_ERROR_STOP); the deploy workflow's green implies the box scheduled the upgrade
 - [x] #4 Norway completes v2026.07.0-rc.01 or newer through the normal path — the run is the oracle; the six-slot wave resumes after
 <!-- AC:END -->
+
+
 
 ## Comments
 
