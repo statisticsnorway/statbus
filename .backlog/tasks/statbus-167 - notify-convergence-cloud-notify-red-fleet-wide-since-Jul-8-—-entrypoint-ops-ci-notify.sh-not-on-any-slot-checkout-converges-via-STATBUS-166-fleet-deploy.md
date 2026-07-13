@@ -7,6 +7,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-12 15:57'
+updated_date: '2026-07-13 08:14'
 labels:
   - ci
   - not-install-upgrade
@@ -42,3 +43,13 @@ CONVERGENCE PATH: STATBUS-166 ships the restamp conveyance → dev deploys green
 - [ ] #2 Any slot deliberately NOT deployed is named here with its expected-red status instead of being left ambient
 - [ ] #3 The structural lesson (server-side entrypoints ship before callers reference them) is recorded in doc-026 or the STATBUS-123 design doc — one home, cited here
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-13 08:14
+---
+CONVERGENCE MECHANISM PROVEN (2026-07-13 morning): the first notify run after dev upgraded past Jul 8 shows dev's leg GREEN (run 29221352954: statbus_dev success, the other six slots still red exactly as predicted). One slot upgraded → that slot's notify leg healed — the ticket's convergence theory confirmed by the live run. Norway is standalone (not a notify leg). The six cloud slots' wave is released; AC#1's fully-green run should follow their convergence.
+---
+<!-- COMMENTS:END -->
