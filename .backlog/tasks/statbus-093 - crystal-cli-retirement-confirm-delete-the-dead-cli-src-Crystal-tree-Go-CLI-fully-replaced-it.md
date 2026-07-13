@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-18 17:05'
-updated_date: '2026-07-13 12:13'
+updated_date: '2026-07-13 15:00'
 labels:
   - tooling
   - worker
@@ -41,7 +41,7 @@ NON-NEGOTIABLE: the Crystal worker is NOT deleted until the Go worker is proven 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Architect reviews the port design FIRST: the worker's real dependency surface (what it uses vs what Go already provides), and the structured-concurrency semantics the Go port must preserve (one-top-task-per-queue + scoped parallel children, per doc/worker-structured-concurrency.md)
+- [x] #1 Architect reviews the port design FIRST: the worker's real dependency surface (what it uses vs what Go already provides), and the structured-concurrency semantics the Go port must preserve (one-top-task-per-queue + scoped parallel children, per doc/worker-structured-concurrency.md)
 - [ ] #2 The worker's NOTIFY-listen loop + task processing + the derive pipeline are ported to Go, reusing the existing Go dotenv/config/migration code (no re-duplication)
 - [ ] #3 The worker image builds from the Go binary; the Crystal Dockerfile/shards path is retired from images.yaml + release.yaml
 - [ ] #4 PROVEN on a real box: the Go worker processes tasks with the same concurrency semantics as Crystal (the derive pipeline runs correctly) — the run is the oracle
@@ -61,5 +61,19 @@ author: foreman
 created: 2026-07-13 12:13
 ---
 RESHAPED (King, 2026-07-13) from 'delete dead Crystal tree' to 'recreate the worker in Go, then delete Crystal'. The original premise was refuted (cli/src/ is the LIVE worker — comment #1); the King ruled the real fix is to end the Crystal/Go OVERLAP, and chose recreate-in-Go over trim-to-worker-only: 'this is the age of AI, and AI is good with Go' — a Go worker is maintainable by this team in a way Crystal is not (his words: he personally loves Crystal, but the age of AI decides it). Priority medium, engineer-substantial, NOT on the current release critical path. Hard gate: the Crystal worker is not deleted until the Go worker is proven equivalent on a real box (the derive pipeline runs with the same structured-concurrency semantics) — no window where neither is authoritative.
+---
+
+author: architect
+created: 2026-07-13 15:00
+---
+GO-WORKER PORT DESIGN RULED (architect, 2026-07-13) — grounded in the actual .cr surface first (worker.cr 1288 lines read; requires ONLY ./config — import.cr is NOT in its dependency graph).
+
+(1) SCOPE — port worker.cr's ORCHESTRATION only; everything else already exists in Go: config.cr's surface (PG params, project dir, per-queue concurrency map + default) is cli/internal/config plus a small env-parse extension; dotenv.cr is cli/internal/dotenv; the PG driver incl. LISTEN is pgx (the upgrade daemon's listenConn is the in-house precedent). import.cr (475 lines, legacy CSV import) is out of the worker's graph — confirm zero live callers and it dies with the tree. Deliverable: cli/internal/worker + a `sb worker` subcommand; the worker image's CMD becomes the sb binary and cli/Dockerfile (Crystal toolchain, shards) leaves the build entirely — one binary, one toolchain, the 093 deletion happens as a CONSEQUENCE of the port, not before it.
+
+(2) THE SEMANTICS THAT MUST SURVIVE, as behavior contracts (from worker.cr + doc/worker-structured-concurrency.md): (a) THE KEY INVARIANT — notifications are HINTS, the TABLE is the queue: bounded channels (8192) may coalesce/drop under load and nothing is lost because processors drain worker.tasks, not the channel — the Go port must preserve exactly this hint semantic (non-blocking sends, never unbounded buffering); (b) structured concurrency: ONE top-level task per queue, serialized; parent fans out scoped children and WAITS for all before completing — goroutines + errgroup.WithContext per parent IS the nursery analogue (fan-out / sync / continue); (c) the task-state machine verbatim: pending→processing→{completed,failed,waiting}; interrupted (engine crash) retried BEFORE pending by the serial loop; (d) dynamic queue discovery from command_registry ⋈ queue_registry with env-overridable per-queue concurrency; (e) the advisory lock (hashtext('worker.tasks')) single-worker guard; (f) pause/resume via pg_notify('worker_control','pause:N'/'resume') with auto-expiry; (g) graceful shutdown ordering (close channels → bounded fiber drain → timeout warn). The SQL contract is THE interface — the port calls the same worker.* procedures, ZERO schema changes.
+
+(3) ORACLE — three layers, because pg_regress does NOT exercise the live orchestration (tests call worker.process_tasks() manually per worker.cr's own header): (i) Go unit tests on the state machine + queue discovery + pause/resume + hint-coalescing; (ii) ONE live integration test against real PG: spawn `sb worker`, drive a real import job end-to-end via the dev stack, assert task trajectories incl. an interrupted-retry (kill the worker mid-task, restart, assert interrupted picked before pending); (iii) the full pg_regress suite green (derivation correctness unchanged) + a dev-slot soak via the normal deploy channel before the fleet sees it. 
+
+(4) SEQUENCING + RISK: engineer-substantial, post-campaign; the port rides the normal image pipeline so dev-slot canary is free; fiber-vs-goroutine scheduling differences are absorbed by the SQL-side transactional claims, and the one place they could leak (channel buffering) is pinned by contract (a). The Crystal tree's deletion — this ticket's original ask — becomes the port's final commit.
 ---
 <!-- COMMENTS:END -->
