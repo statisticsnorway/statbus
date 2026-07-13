@@ -4,11 +4,11 @@ title: >-
   apply-latest-false-green: tag-matched scheduling can hit multiple rows,
   swallow the constraint error, and report success — Norway blocked on a
   mistagged failed row
-status: To Do
+status: Done
 assignee:
   - '@engineer'
 created_date: '2026-07-13 00:16'
-updated_date: '2026-07-13 01:34'
+updated_date: '2026-07-13 08:13'
 labels:
   - upgrade
   - production
@@ -46,7 +46,7 @@ ORACLE: (i) unit tests on the three fixes; (ii) THE REAL ONE: Norway's deploy po
 - [ ] #1 Tag-to-row assignment is commit-authoritative: a row's commit_tags can only contain tags pointing at its commit_sha, enforced at write with a loud refusal; the rune misassignment's producer is found and fixed (cite the code path)
 - [ ] #2 apply-latest schedules exactly ONE row, resolved tag→commit first; multi-match is structurally impossible
 - [ ] #3 apply-latest fails non-zero on UPDATE 0 and on any psql error (ON_ERROR_STOP); the deploy workflow's green implies the box scheduled the upgrade
-- [ ] #4 Norway completes v2026.07.0-rc.01 or newer through the normal path — the run is the oracle; the six-slot wave resumes after
+- [x] #4 Norway completes v2026.07.0-rc.01 or newer through the normal path — the run is the oracle; the six-slot wave resumes after
 <!-- AC:END -->
 
 ## Comments
@@ -77,4 +77,16 @@ created: 2026-07-13 01:34
 ---
 DEV RETRY TRACE CORRECTION (2026-07-13 night, hard dev evidence): the foreman's retry-after-rollback false-green report was WRONG on all three hypotheses — the scheduler behaved correctly end to end. Dev row 331014: scheduled_at 01:22:19 → started_at 01:22:59 → rolled_back_at 01:23:16. RunSchedule's documented terminal-row re-run flipped rolled_back→scheduled (STATBUS-160's trigger only guards state='completed' flips — never fired, correctly); the daemon claimed and RAN the upgrade; "scheduled_at on a rolled_back row" was the leftover of a claim→run→rollback cycle, not a stuck write. The REAL dev blocker is downstream and deterministic: BINARY_REPLACE_FAILED — the procured rc.02 binary fails post-swap self-verify ("procured binary is still reported stale", exit 2, "will fail the same way") on the first TAG-identified upgrade attempt of the night (all successful dev upgrades were commit-identified). Root-cause trace in flight (mis-built artifact vs procurement race vs comparison defect); it gets its own ticket when named. Separate design gap extracted to its own entry: deploy-workflow green means SCHEDULED, not CONVERGED — the daemon's async run can roll back after the workflow exits green.
 ---
+
+author: foreman
+created: 2026-07-13 08:13
+---
+AC#4 CLOSED (2026-07-13 08:10 UTC): Norway completed v2026.07.0-rc.03 through the operator's canonical path — the King ran `./standalone.sh install no v2026.07.0-rc.03` (his own correction of my ssh suggestion; install.sh is THE operator action). Full green: artifacts pre-checked, binary v2026.07.0-rc.03 (commit 111546ee), 7 migrations applied INCLUDING the loud release-channel re-stamp of 20260218215337 (cd82bc76 → 71befa05 — the 166 bless working on the standalone box class), all services healthy, upgrade row 3916 completed, 3 older releases superseded (the corrupt row 222 wedge is history). The six-slot cloud wave is RELEASED and being watched — with per-box reads after, per the 170 lesson (workflow green is not converged). The fixes themselves (git-first resolver, write-guard, pruner move-drop, deploy-by-commit) shipped in 49b2e6eae and ride in rc.03 fleet-wide.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Norway's deploy was workflow-green twice with the box untouched. Root causes, all fixed and live: the rc.04 discovery stapled a release tag onto a same-window master commit's row (corrupt cache data); the old apply-latest scheduled ALL tag-matching rows, tripping the single-scheduled index with the error swallowed into exit 0. Ruled doctrine, shipped 49b2e6eae: commit_tags is a CACHE of git state — git-first tag resolution (the DB column is never the selector; the dead fallback deleted with its consumer trace), a write-guard refusing non-pointing tag writes, the pruner extended to reconcile moved tags, RunSchedule fail-loud pins, and the standalone deploy workflow poking by COMMIT (the commit-authoritative doctrine reaching the deploy channel). Norway converged 2026-07-13 08:10 via the operator's canonical `./standalone.sh install no v2026.07.0-rc.03` — binary rc.03, the blessed re-stamp fired, row 3916 completed, corrupt row superseded. Follow-ups extracted: deploy-green-means-converged (STATBUS-170), the self-verify bug the rc.02 attempt exposed (STATBUS-171, fixed and closed same night).
+<!-- SECTION:FINAL_SUMMARY:END -->
