@@ -38,9 +38,23 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Deploy via upgrade service
+        # STATBUS-169: COMMIT-AUTHORITATIVE deploy (architect doctrine). Poke by the
+        # exact deployed commit (register + schedule ${{ github.sha }}) instead of
+        # apply-latest's tag resolution — a commit matches exactly one row under the
+        # commit-authoritative scheduling, aligning standalone with the cloud slots'
+        # single-row intent. register+schedule (not bare schedule) keeps it race-proof:
+        # schedule requires a registered candidate (STATBUS-086), so register upserts
+        # the exact commit first. CAVEAT: the CURRENTLY-INSTALLED rc.04 CLI rejects a
+        # bare 40-hex arg (its ValidateVersion is release-tag-only), so the FIRST
+        # rune deploy under this change fails loudly at the CLI gate — rune is
+        # bootstrapped onto the new binary via the King's one-tap once, COMMIT-
+        # addressed (`./sb upgrade apply <short8>`; rc.04's apply accepts a commit
+        # short and matches exactly one row — a TAG-addressed poke through rc.04's
+        # discovery could recreate the very two-row cache state this fixes), and
+        # every deploy thereafter is commit-authoritative.
         run: |
           install -m 600 /dev/stdin /tmp/key <<< "${{ secrets.SSH_KEY }}"
           ssh -i /tmp/key -o StrictHostKeyChecking=no \
             statbus@rune.statbus.org \
-            "cd ~/statbus && ./sb upgrade apply-latest"
+            "cd ~/statbus && ./sb upgrade register ${{ github.sha }} && ./sb upgrade schedule ${{ github.sha }}"
           rm -f /tmp/key

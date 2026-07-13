@@ -23,8 +23,8 @@ func TestNewCommitSHA(t *testing.T) {
 	invalid := []string{
 		"",
 		"61e79e26",
-		"61E79E265a1288e9babc7e3f2e9d4c51d5d42f01", // uppercase
-		"61e79e265a1288e9babc7e3f2e9d4c51d5d42f0",  // 39 chars
+		"61E79E265a1288e9babc7e3f2e9d4c51d5d42f01",  // uppercase
+		"61e79e265a1288e9babc7e3f2e9d4c51d5d42f0",   // 39 chars
 		"61e79e265a1288e9babc7e3f2e9d4c51d5d42f011", // 41 chars
 		"sha-61e79e265a1288e9babc7e3f2e9d4c51d5d42f01",
 		"v2026.04.0-rc.61",
@@ -78,11 +78,11 @@ func TestNewReleaseTag(t *testing.T) {
 	}
 	invalid := []string{
 		"",
-		"2026.04.0",     // missing v
+		"2026.04.0", // missing v
 		"2026.04.0-rc.61",
-		"v26.04.0",      // too-short year
-		"v2026.4.0",     // too-short month
-		"v2026.04",      // missing patch
+		"v26.04.0",  // too-short year
+		"v2026.4.0", // too-short month
+		"v2026.04",  // missing patch
 		"sha-abc12345",
 		"dev",
 		"install-verified",
@@ -249,12 +249,11 @@ func TestPreferredReleaseTag(t *testing.T) {
 type fakeLookup struct {
 	tagsAtCommit map[CommitSHA][]string
 	revParse     map[string]CommitSHA
-	tagToSHA     map[ReleaseTag]CommitSHA
+	tagToSHAs    map[ReleaseTag][]CommitSHA
 }
 
-func (f *fakeLookup) LookupSHAByTag(_ context.Context, tag ReleaseTag) (CommitSHA, bool, error) {
-	s, ok := f.tagToSHA[tag]
-	return s, ok, nil
+func (f *fakeLookup) CommitSHAsByTag(_ context.Context, tag ReleaseTag) ([]CommitSHA, error) {
+	return f.tagToSHAs[tag], nil
 }
 func (f *fakeLookup) RevParse(_ context.Context, ref string) (CommitSHA, error) {
 	if s, ok := f.revParse[ref]; ok {
@@ -277,11 +276,11 @@ func TestResolveUpgradeTarget(t *testing.T) {
 			"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {},
 		},
 		revParse: map[string]CommitSHA{
-			short: full,
+			short:              full,
 			"v2026.04.0-rc.61": full,
 		},
-		tagToSHA: map[ReleaseTag]CommitSHA{
-			tag: full,
+		tagToSHAs: map[ReleaseTag][]CommitSHA{
+			tag: {full},
 		},
 	}
 
@@ -491,4 +490,57 @@ func lineContaining(body []byte, off int) string {
 		end++
 	}
 	return string(body[start:end])
+}
+
+// TestResolveUpgradeTarget_GitAuthoritative_STATBUS169 pins the git-authoritative
+// tag→commit resolution: git rev-parse is the selector; the commit_tags cache is
+// consulted only to cross-check (loud refusal on disagreement — the exact rune
+// row-222 corruption) or as a git-unavailable fallback (a split cache refuses).
+func TestResolveUpgradeTarget_GitAuthoritative_STATBUS169(t *testing.T) {
+	ctx := context.Background()
+	gitCommit := CommitSHA("143cece86aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")   // where the tag points NOW
+	staleCommit := CommitSHA("a1b58193daaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa") // a row that still carries the tag (moved-away)
+	tag := "v2026.07.0-rc.01"
+
+	newLookup := func(gitResolvable bool, cache []CommitSHA) *fakeLookup {
+		rp := map[string]CommitSHA{}
+		if gitResolvable {
+			rp[tag] = gitCommit
+		}
+		return &fakeLookup{
+			revParse:  rp,
+			tagToSHAs: map[ReleaseTag][]CommitSHA{ReleaseTag(tag): cache},
+		}
+	}
+
+	t.Run("cache agrees with git → git's commit", func(t *testing.T) {
+		got, err := resolveUpgradeTarget(ctx, newLookup(true, []CommitSHA{gitCommit}), tag)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got.(TaggedTarget).SHA != gitCommit {
+			t.Errorf("SHA = %s, want git's %s", got.(TaggedTarget).SHA, gitCommit)
+		}
+	})
+
+	t.Run("rune corruption: cache also carries a stale commit → TRUST GIT, not refuse", func(t *testing.T) {
+		// git-first BY DEFINITION (architect ruling): a stale cache entry does NOT
+		// block or override git — resolve to git's commit; the staleness is logged
+		// and the pruner drops it. The corrupt row is HARMLESS for scheduling.
+		got, err := resolveUpgradeTarget(ctx, newLookup(true, []CommitSHA{staleCommit, gitCommit}), tag)
+		if err != nil {
+			t.Fatalf("must trust git over a stale cache, not refuse: %v", err)
+		}
+		if got.(TaggedTarget).SHA != gitCommit {
+			t.Errorf("must resolve to git's commit %s (never the stale cache commit); got %s", gitCommit, got.(TaggedTarget).SHA)
+		}
+	})
+
+	t.Run("git unresolvable → hard error (no DB fallback)", func(t *testing.T) {
+		// The DB fallback was DELETED as dead cover: a tag git cannot resolve is a
+		// hard, actionable error, even if a (corruptible) cache entry exists.
+		if _, err := resolveUpgradeTarget(ctx, newLookup(false, []CommitSHA{gitCommit}), tag); err == nil {
+			t.Fatal("expected a hard error when git cannot resolve the tag — the DB fallback must not silently stand in")
+		}
+	})
 }

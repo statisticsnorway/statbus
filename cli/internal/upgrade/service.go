@@ -3419,6 +3419,17 @@ type candidateMeta struct {
 func (d *Service) upsertCandidate(ctx context.Context, sha CommitSHA, meta candidateMeta) (int64, error) {
 	if len(meta.tags) > 0 {
 		tag := meta.tags[0]
+		// STATBUS-169 AC#1: never write a false fact. A tag may be recorded on a
+		// row ONLY if git says the tag points at that commit. A tag that rev-parses
+		// to a DIFFERENT commit — or that git cannot resolve — is machinery about to
+		// write a corrupt commit_tags cache entry fresh; refuse loudly. (A tag that
+		// MOVES after a valid write is a separate concern the pruner reconciles;
+		// this guard stops a bad write at the source.)
+		if resolved, rerr := d.RevParse(ctx, tag); rerr != nil {
+			return 0, fmt.Errorf("refusing to register tag %s on commit %s: cannot verify the tag points here (git rev-parse %s: %w)", tag, commitShort(sha), tag, rerr)
+		} else if resolved != sha {
+			return 0, fmt.Errorf("refusing to register: tag %s points at commit %s in git, not %s — a tag may only be recorded on the commit it points at (STATBUS-169 AC#1)", tag, commitShort(resolved), commitShort(sha))
+		}
 		// Tagged: ON CONFLICT appends the tag and promotes release_status
 		// (a newer release shape re-flags release_builds_status='building').
 		ct, err := d.queryConn.Exec(ctx,
@@ -3624,44 +3635,73 @@ func (d *Service) discover(ctx context.Context) {
 	}
 }
 
-// pruneDeletedTags removes tags from the upgrade table that no longer exist in git.
-// When a tag is deleted upstream, git fetch --prune-tags removes it locally.
-// This function syncs the database to match.
+// keepTagForRow reports whether a tag on a row survives a prune pass: the tag
+// must still EXIST in git AND still POINT at that row's commit. A deleted tag
+// (absent) or a MOVED tag (git points it at a different commit now) is dropped —
+// commit_tags is a CACHE of git tag state (STATBUS-169), so a non-pointing entry
+// is stale, not truth.
+func keepTagForRow(tag string, gitTagSHAs map[string]CommitSHA, rowSHA CommitSHA) bool {
+	target, exists := gitTagSHAs[tag]
+	return exists && target == rowSHA
+}
+
+// pruneDeletedTags reconciles commit_tags to its git source: it drops any tag
+// that no longer EXISTS in git (deleted upstream) OR no longer POINTS at the
+// row's commit (moved — STATBUS-169). commit_tags is a cache of git tag state,
+// so this is the cache honoring its source, not self-heal — a moved tag (e.g.
+// rune's row 222) heals on the pruner's normal cycle. One log line per drop.
 func (d *Service) pruneDeletedTags(ctx context.Context, currentTags []GitTag) {
-	// Build set of tags that exist in git
-	gitTags := make(map[string]bool, len(currentTags))
+	// Map each git tag to the commit it points at NOW (GitTag carries it).
+	gitTagSHAs := make(map[string]CommitSHA, len(currentTags))
 	for _, t := range currentTags {
-		gitTags[t.TagName] = true
+		gitTagSHAs[t.TagName] = CommitSHA(t.CommitSHA)
 	}
 
-	// Find rows with tags that no longer exist
 	rows, err := d.queryConn.Query(ctx,
-		`SELECT id, commit_tags FROM public.upgrade WHERE array_length(commit_tags, 1) > 0`)
+		`SELECT id, commit_sha, commit_tags FROM public.upgrade WHERE array_length(commit_tags, 1) > 0`)
 	if err != nil {
 		return
 	}
-	defer rows.Close()
-
+	// Drain fully BEFORE any UPDATE — an Exec on the same conn while rows are
+	// still open would contend with the open portal.
+	type pruneRow struct {
+		id     int
+		rowSHA CommitSHA
+		tags   []string
+	}
+	var pending []pruneRow
 	for rows.Next() {
 		var id int
+		var rowSHA string
 		var tags []string
-		if err := rows.Scan(&id, &tags); err != nil {
+		if err := rows.Scan(&id, &rowSHA, &tags); err != nil {
 			continue
 		}
+		pending = append(pending, pruneRow{id: id, rowSHA: CommitSHA(rowSHA), tags: tags})
+	}
+	rows.Close()
 
-		// Filter to only tags that still exist in git
+	for _, p := range pending {
 		var kept []string
-		for _, tag := range tags {
-			if gitTags[tag] {
+		dropped := false
+		for _, tag := range p.tags {
+			if keepTagForRow(tag, gitTagSHAs, p.rowSHA) {
 				kept = append(kept, tag)
+				continue
+			}
+			dropped = true
+			if target, exists := gitTagSHAs[tag]; exists {
+				fmt.Printf("Pruned MOVED tag %s from upgrade %d (commit %s): the tag now points at commit %s — commit_tags is a cache of git state (STATBUS-169)\n",
+					tag, p.id, commitShort(p.rowSHA), commitShort(target))
+			} else {
+				fmt.Printf("Pruned DELETED tag %s from upgrade %d (commit %s): the tag no longer exists in git\n",
+					tag, p.id, commitShort(p.rowSHA))
 			}
 		}
-
-		if len(kept) == len(tags) {
-			continue // nothing pruned
+		if !dropped {
+			continue
 		}
-
-		// Update the row: remove deleted tags, demote status if all tags gone
+		// Demote release_status to match the surviving tags.
 		newStatus := "commit"
 		for _, tag := range kept {
 			if !strings.Contains(tag, "-") {
@@ -3670,11 +3710,9 @@ func (d *Service) pruneDeletedTags(ctx context.Context, currentTags []GitTag) {
 			}
 			newStatus = "prerelease"
 		}
-
 		d.queryConn.Exec(ctx,
 			`UPDATE public.upgrade SET commit_tags = $1, release_status = $2::public.release_status_type WHERE id = $3`,
-			kept, newStatus, id)
-		fmt.Printf("Pruned deleted tags from upgrade %d: %v → %v (status: %s)\n", id, tags, kept, newStatus)
+			kept, newStatus, p.id)
 	}
 }
 
@@ -4263,6 +4301,32 @@ func (d *Service) RunSchedule(ctx context.Context, input string, recreate bool) 
 	})
 }
 
+// ResolveToCommit resolves any upgrade-target reference (release tag, commit
+// short, or full sha) to its canonical commit via the SINGLE git-authoritative
+// resolver (resolveUpgradeTarget) — one resolution shape for every tag→commit
+// read (STATBUS-169: the last tag-as-selector site, apply-latest's "already at
+// latest?" skip-check, folds onto this). Runs in a one-shot connection because
+// the resolver's cache cross-check reads the DB.
+func (d *Service) ResolveToCommit(ctx context.Context, input string) (CommitSHA, error) {
+	var sha CommitSHA
+	err := d.runOneShot(ctx, func(ctx context.Context) error {
+		target, terr := resolveUpgradeTarget(ctx, d, input)
+		if terr != nil {
+			return terr
+		}
+		switch t := target.(type) {
+		case TaggedTarget:
+			sha = t.SHA
+		case UntaggedTarget:
+			sha = t.SHA
+		default:
+			return fmt.Errorf("unhandled target type %T", target)
+		}
+		return nil
+	})
+	return sha, err
+}
+
 // RunCheck fetches releases from GitHub and registers each one newer than the
 // running version as a candidate (via the shared upsertCandidate path), then
 // pokes the service to prepare. `./sb upgrade check`.
@@ -4325,17 +4389,27 @@ func (d *Service) RunCheck(ctx context.Context) error {
 // resolveUpgradeTarget (see commit.go). These methods are the
 // DB/git-accessing primitives; all shape detection lives in commit.go.
 
-// LookupSHAByTag satisfies CommitLookup.
-func (d *Service) LookupSHAByTag(ctx context.Context, tag ReleaseTag) (CommitSHA, bool, error) {
-	var sha string
-	err := d.queryConn.QueryRow(ctx,
-		"SELECT commit_sha FROM public.upgrade WHERE $1 = ANY(commit_tags) LIMIT 1",
-		string(tag)).Scan(&sha)
+// CommitSHAsByTag satisfies CommitLookup — returns the DISTINCT commit_shas of
+// every row whose commit_tags cache carries the tag (STATBUS-169). No LIMIT: a
+// tag on more than one commit is a stale-cache signal the resolver must SEE, not
+// a nondeterministic single pick.
+func (d *Service) CommitSHAsByTag(ctx context.Context, tag ReleaseTag) ([]CommitSHA, error) {
+	rows, err := d.queryConn.Query(ctx,
+		"SELECT DISTINCT commit_sha FROM public.upgrade WHERE $1 = ANY(commit_tags)",
+		string(tag))
 	if err != nil {
-		// pgx returns ErrNoRows or similar on empty result; treat as not-found.
-		return "", false, nil
+		return nil, err
 	}
-	return CommitSHA(sha), true, nil
+	defer rows.Close()
+	var out []CommitSHA
+	for rows.Next() {
+		var sha string
+		if err := rows.Scan(&sha); err != nil {
+			return nil, err
+		}
+		out = append(out, CommitSHA(sha))
+	}
+	return out, rows.Err()
 }
 
 // RevParse satisfies CommitLookup.

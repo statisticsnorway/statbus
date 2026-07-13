@@ -239,9 +239,14 @@ func (UntaggedTarget) isUpgradeTarget() {}
 // translate user-supplied references into canonical commit identity.
 // Service satisfies this interface; a test fake can too.
 type CommitLookup interface {
-	// LookupSHAByTag returns the commit_sha that a release tag points
-	// at, or ("", false, nil) if the tag is unknown.
-	LookupSHAByTag(ctx context.Context, tag ReleaseTag) (CommitSHA, bool, error)
+	// CommitSHAsByTag returns the DISTINCT commit_shas of every row whose
+	// commit_tags cache contains the release tag (empty if none). This is a
+	// CACHE read, never the authoritative selector (STATBUS-169): tags move in
+	// this repo's release practice, so the cache can carry a tag on a commit the
+	// tag no longer points at. The resolver consults it only to CROSS-CHECK git's
+	// authoritative answer and as a git-unavailable fallback — so it must expose
+	// ALL carrying commits (not a nondeterministic LIMIT 1) to detect a split.
+	CommitSHAsByTag(ctx context.Context, tag ReleaseTag) ([]CommitSHA, error)
 
 	// RevParse runs `git rev-parse <ref>` and returns the resolved
 	// full 40-char SHA. Used to expand short references and release
@@ -299,18 +304,35 @@ func resolveUpgradeTarget(ctx context.Context, lookup CommitLookup, input string
 
 	case isReleaseTagShape(input):
 		tag := ReleaseTag(input)
-		sha, found, err := lookup.LookupSHAByTag(ctx, tag)
+		// STATBUS-169 AC#2 (architect-ruled): tag→commit resolution is GIT-FIRST BY
+		// DEFINITION. A release tag points at the commit `git rev-parse` says it
+		// points at NOW; the commit_tags DB column is a CACHE of git tag state (tags
+		// move in this repo's release practice), never the selector and never an
+		// override of a readable git answer. There is NO DB fallback: every caller
+		// that reaches here has git available (apply-latest fetches --tags;
+		// register/schedule act on already-fetched tags), so a DB fallback would be
+		// dead defensive cover — a tag git cannot resolve is a hard, actionable
+		// error, not a reason to trust the corruptible cache.
+		gitSHA, err := lookup.RevParse(ctx, input)
 		if err != nil {
-			return nil, fmt.Errorf("lookup tag %s: %w", tag, err)
+			return nil, fmt.Errorf("cannot resolve release tag %s via git (rev-parse: %w) — fetch it (git fetch --tags) and retry", tag, err)
 		}
-		if !found {
-			// Tag not yet discovered in the DB. Resolve via git directly.
-			sha, err = lookup.RevParse(ctx, input)
-			if err != nil {
-				return nil, fmt.Errorf("rev-parse %s: %w", input, err)
+		// Cross-check the cache for a stale/moved entry (a tag lingering on a row
+		// whose commit it no longer points at — the rune row-222 corruption). Git
+		// is authoritative, so TRUST GIT and log the stale entry LOUDLY; the pruner
+		// reconciles the cache to its git source on its next cycle. Never refuse
+		// over a readable git answer, never let the cache be the selector. The
+		// cross-check is best-effort — a cache read error must not block a resolvable
+		// git answer.
+		if cacheSHAs, cacheErr := lookup.CommitSHAsByTag(ctx, tag); cacheErr == nil {
+			for _, c := range cacheSHAs {
+				if c != gitSHA {
+					fmt.Printf("[upgrade] tag %s points at commit %s in git but the commit_tags cache still records it on commit %s — trusting git; the stale cache entry will be pruned (STATBUS-169)\n",
+						tag, commitShort(gitSHA), commitShort(c))
+				}
 			}
 		}
-		return TaggedTarget{SHA: sha, Tag: tag}, nil
+		return TaggedTarget{SHA: gitSHA, Tag: tag}, nil
 	}
 
 	return nil, fmt.Errorf("cannot resolve %q: expected commit_sha (40-hex), commit_short (8-hex), or release tag (vYYYY.MM.patch[-suffix])", input)

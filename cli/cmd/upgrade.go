@@ -241,25 +241,21 @@ file changes needed.`,
 		// service runs a full no-op upgrade pipeline (stop containers,
 		// backup, exit-42, restart, applyPostSwap) for nothing.
 		//
-		// Lookup the latest's resolved commit_sha and compare to the
-		// running binary's compiled-in `commit` (cli/cmd/root.go:17,
-		// ldflags-set). Three fall-throughs to existing behavior:
+		// Resolve the latest's commit via the SAME git-authoritative resolver the
+		// scheduling path uses (STATBUS-169 skip-check fold: the LAST tag-as-selector
+		// site — the old psql `ANY(commit_tags)` lookup — moves onto ResolveToCommit
+		// so there is ONE resolution shape for every tag→commit read). Compare to the
+		// running binary's compiled-in `commit` (cli/cmd/root.go:17, ldflags-set).
+		// Fall-throughs to existing behavior:
 		//   - commit=="unknown" (local go run): can't compare reliably.
-		//   - SELECT returns nothing: discovery race; let apply-latest
-		//     schedule it normally.
-		//   - returned commit_sha != running binary: slot is genuinely
-		//     behind; proceed with the apply.
+		//   - resolve errors (discovery race / not fetched): let apply-latest
+		//     register+schedule it normally — an error NEVER causes a false skip
+		//     (the ON_ERROR_STOP floor, now the resolver's error → the rerr guard).
+		//   - resolved commit != running binary: genuinely behind; proceed.
 		if commit != "" && commit != "unknown" {
-			lookupSQL := `SELECT commit_sha FROM public.upgrade
- WHERE state = 'completed'
-   AND (:'tv' = ANY(commit_tags)
-        OR commit_sha = :'tv'
-        OR commit_sha LIKE :'tv' || '%')
- LIMIT 1`
-			lookupOut, lookupErr := runUpgradePsql(lookupSQL, "-v", "tv="+latestVersion, "-t", "-A")
-			if lookupErr == nil {
-				latestCommitSHA := strings.TrimSpace(string(lookupOut))
-				if len(latestCommitSHA) >= 8 && len(commit) >= 8 && latestCommitSHA[:8] == commit[:8] {
+			if resolved, rerr := newUpgradeService(projDir).ResolveToCommit(context.Background(), latestVersion); rerr == nil {
+				rs := string(resolved)
+				if len(rs) >= 8 && len(commit) >= 8 && rs[:8] == commit[:8] {
 					fmt.Printf("Already at %s (commit %s) — nothing to apply.\n", latestVersion, commit[:8])
 					return nil
 				}

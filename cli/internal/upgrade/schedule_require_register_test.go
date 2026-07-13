@@ -63,6 +63,83 @@ func TestOnScheduledNotify_NoInsert(t *testing.T) {
 	}
 }
 
+// TestRunSchedule_CommitAuthoritative_FailLoud_STATBUS169 pins the two
+// STATBUS-169 properties on the scheduling UPDATE (already true on master via the
+// STATBUS-086 refactor; this guards against regressing back toward rc.04):
+//   - AC#2/B: the promote-UPDATE selects by COMMIT (`WHERE commit_sha = $1`),
+//     NEVER by a tag (`ANY(commit_tags)`) — a tag can never match multiple rows.
+//   - AC#3: a 0-row promote fails LOUDLY (RowsAffected()==0 → errNotRegistered /
+//     the in-progress refusal), never a silent exit-0 success.
+func TestRunSchedule_CommitAuthoritative_FailLoud_STATBUS169(t *testing.T) {
+	body := funcBody(t, "service.go", "func (d *Service) RunSchedule(")
+	if !strings.Contains(body, "WHERE commit_sha = $1") {
+		t.Error("RunSchedule's scheduling UPDATE must select by `WHERE commit_sha = $1` (commit-authoritative, single row) — STATBUS-169 AC#2")
+	}
+	if strings.Contains(body, "ANY(commit_tags)") {
+		t.Error("RunSchedule must NOT select rows by commit_tags — a tag is never the row selector (STATBUS-169 AC#2)")
+	}
+	if !strings.Contains(body, "RowsAffected() == 0") {
+		t.Error("RunSchedule must check RowsAffected()==0 — a 0-row promote must fail loudly, never report success (STATBUS-169 AC#3)")
+	}
+	if !strings.Contains(body, "errNotRegistered") {
+		t.Error("RunSchedule's 0-row path must return the actionable errNotRegistered (STATBUS-169 AC#3)")
+	}
+}
+
+// TestKeepTagForRow_STATBUS169 pins the pruner's cache-reconciliation rule: a tag
+// on a row survives ONLY if git still has it AND it still points at that row's
+// commit. Deleted (absent) and MOVED (points elsewhere) both drop.
+func TestKeepTagForRow_STATBUS169(t *testing.T) {
+	rowSHA := CommitSHA("143cece86aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+	elsewhere := CommitSHA("a1b58193daaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+	tag := "v2026.07.0-rc.01"
+	cases := []struct {
+		name string
+		git  map[string]CommitSHA
+		want bool
+	}{
+		{"points at the row's commit → keep", map[string]CommitSHA{tag: rowSHA}, true},
+		{"moved (git points it elsewhere) → drop", map[string]CommitSHA{tag: elsewhere}, false},
+		{"deleted (absent from git) → drop", map[string]CommitSHA{}, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := keepTagForRow(tag, c.git, rowSHA); got != c.want {
+				t.Errorf("keepTagForRow = %v, want %v", got, c.want)
+			}
+		})
+	}
+}
+
+// TestUpsertCandidate_WriteGuard_STATBUS169 pins AC#1: the register write refuses
+// to record a tag that git does not point at the target commit — a false cache
+// fact never gets written fresh.
+func TestUpsertCandidate_WriteGuard_STATBUS169(t *testing.T) {
+	body := funcBody(t, "service.go", "func (d *Service) upsertCandidate(")
+	if !strings.Contains(body, "RevParse") {
+		t.Error("upsertCandidate must rev-parse the tag to verify it points at the commit BEFORE writing (STATBUS-169 AC#1)")
+	}
+	if !strings.Contains(body, "refusing to register") {
+		t.Error("upsertCandidate must LOUDLY refuse to record a tag that does not point at the row's commit (STATBUS-169 AC#1)")
+	}
+}
+
+// TestPruneDeletedTags_DropsMovedTags_STATBUS169 pins the pruner extension: it
+// checks tag→commit POINTING (via keepTagForRow + the row's commit_sha), not tag
+// existence alone, and drops+logs MOVED tags.
+func TestPruneDeletedTags_DropsMovedTags_STATBUS169(t *testing.T) {
+	body := funcBody(t, "service.go", "func (d *Service) pruneDeletedTags(")
+	if !strings.Contains(body, "keepTagForRow") {
+		t.Error("pruneDeletedTags must decide via keepTagForRow (existence AND pointing), not existence alone (STATBUS-169)")
+	}
+	if !strings.Contains(body, "MOVED") {
+		t.Error("pruneDeletedTags must drop + log MOVED tags, not only DELETED ones (STATBUS-169)")
+	}
+	if !strings.Contains(body, "commit_sha, commit_tags") {
+		t.Error("pruneDeletedTags must SELECT commit_sha to check tag→commit pointing (STATBUS-169)")
+	}
+}
+
 // funcBody returns the source text of the function whose signature prefix is
 // `sig`, from `file`, up to (not including) the next top-level `func ` after it.
 // Mirrors the source-inspection guards already used in this package
