@@ -117,6 +117,19 @@ echo "SELECT ..." | ./sb psql             # Single queries
 
 Canonical operator upgrade workflow: `./sb upgrade schedule <version>` to queue, then either wait for the service's next tick (production norm) or run `./sb install` to dispatch immediately. After a successful inline upgrade the systemd upgrade unit (if active) is restarted so it picks up the new binary + migrations. A PARKED upgrade (deterministic failure at target — row `in_progress` + `recovery_parked_at`, box alive-idle) resolves by scheduling a fix release (its claim atomically displaces the park to `superseded`, STATBUS-159) or by `./sb install` (un-parks for one fresh attempt); parked rows are skipped by every automatic resume. Full contract in `doc/upgrade-timeline.md` and `doc/upgrade-recovery-model.md`.
 
+**Repairing a released migration that succeeded but left WRONG DATA (STATBUS-172):**
+
+A released migration is immutable — you cannot edit it to fix bad data it already
+wrote (boxes have applied it). The remedy is a **forward repair migration**, and it
+must be correct against data written *under* the corruption, not just seed state —
+because a box may have run the app for weeks with live writes against the bad state
+before the repair arrives. Test the repair in **pg_regress**, not a VM arc (the
+upgrade machinery just applies two green migrations; the substance is the SQL vs
+data): apply the wrong migration V → INSERT/UPDATE rows that exploit the bad state →
+apply the repair migration W → assert the state is now correct for BOTH the migrated
+seed rows and the app-written rows. (A restamp/bless repairs the file hash, never the
+fleet's applied state — see `IntentionallyFixBrokenImmutableMigrationEnvVar`.)
+
 **Migration Best Practice for Modifying Existing Functions/Procedures:**
 
 When modifying an existing database function or procedure, **always dump the current definition first** rather than rewriting from scratch:

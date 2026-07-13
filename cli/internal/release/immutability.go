@@ -58,6 +58,14 @@ import (
 //     (version, live hash) against cut releases; unvetted bytes still refuse.
 //     Any release-tag reading on a deployed box must work on a shallow clone
 //     (git ls-remote / tag fetch — local tag-tree probes are unreliable there).
+//  5. A restamp repairs the FILE, never the fleet's applied STATE (STATBUS-172).
+//     Blessing a retroactive edit at the cut re-stamps the ledger hash so boxes
+//     accept the new bytes — it does NOT re-run the migration. If the old bytes
+//     did the wrong thing to data, boxes that already applied them still carry
+//     that bad state; you must ALSO ship a FORWARD repair migration. Never assume
+//     a restamp healed anything but the hash. (Which is why STATBUS-172 — a
+//     "committed-but-wrong" arc — was closed: the machinery-invisible half is a
+//     data-correctness concern for pg_regress, not an upgrade-recovery arc.)
 const IntentionallyFixBrokenImmutableMigrationEnvVar = "STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION"
 
 // ParseIntentionallyFixBrokenImmutableMigrationVersions parses the value of STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION.
