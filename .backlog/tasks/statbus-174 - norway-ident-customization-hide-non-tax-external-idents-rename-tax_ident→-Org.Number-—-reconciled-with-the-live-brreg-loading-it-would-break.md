@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-13 12:08'
+updated_date: '2026-07-13 12:15'
 labels:
   - norway
   - data-model
@@ -51,4 +52,21 @@ SOURCE BRANCH (for archaeology, retired): fix-custom-scripts, tip 7b01c88cb, fil
 - [ ] #3 The customization uses the current pattern (public.reset('getting-started')), not the deleted \ir ./reset.sql
 - [ ] #4 Proven on a real Norway load: brreg getting-started + an import still loads data AND the UI shows only Org.Number — the run is the oracle
 - [ ] #5 fix-custom-scripts branch retired (its no.sql intent lives here; ke.sql confirmed dead)
+- [ ] #6 DESIGN CONSTRAINT (King, 2026-07-13): reference external_ident_type by its semantic CODE ('tax_ident'), NEVER by a hardcoded id — no magic numbers. Erik's branch used `WHERE id != 1`; the shipped form works in a semantical, clear world: `WHERE code = 'tax_ident'` / `WHERE code <> 'tax_ident'`. (Verified seeded codes: 'tax_ident', 'stat_ident'.)
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-13 12:15
+---
+DESIGN DIRECTIVE (King, 2026-07-13): do NOT carry Erik's hardcoded id — work by semantic code. Verified against the seed: external_ident_type codes are 'tax_ident' and 'stat_ident' (samples/norway/getting-started.sql + migrations), so Erik's `id = 1` was merely the tax_ident row's physical id. The shipped customization references the CODE:
+```sql
+-- only the org number (tax_ident) visible in Norway
+UPDATE external_ident_type SET enabled = FALSE WHERE code <> 'tax_ident';
+UPDATE external_ident_type SET name = 'Org.Number'  WHERE code =  'tax_ident';
+```
+No magic numbers, self-describing, stable if row ids ever shift. This is a general principle for the port, not just these two lines — semantic codes over physical ids everywhere the customization touches. (The enabled=FALSE-vs-presentation-only reconciliation from AC#1 still governs whether these run as-is or become a UI-only hide — the code-not-id rule applies to whichever form ships.)
+---
+<!-- COMMENTS:END -->
