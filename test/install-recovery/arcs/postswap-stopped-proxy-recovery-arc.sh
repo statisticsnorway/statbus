@@ -189,10 +189,18 @@ echo "  ✓ RED confirmed: flag present, row in_progress, proxy genuinely runnin
 echo ""
 echo "── ENVIRONMENT MANIPULATION: stopping the proxy container (docker compose stop — existing, merely not running) ──"
 VM_EXEC bash -c "cd ~/statbus && docker compose stop proxy"
+# proxy_state's vocabulary is running | not-running | (unknown: reason) after the
+# STATBUS-143 reshape (no `-a`, so a stopped-but-present container is absent from
+# the running list). A stopped proxy therefore reads "not-running", NOT the old
+# raw-docker "exited". The stopped-vs-removed distinction this scenario turns on
+# (merely stopped, not severed) is confirmed RETROACTIVELY by the recovery assert
+# below: only a present-but-stopped container is restartable, so PROXY_AFTER
+# reaching "running" proves it was stopped-not-removed. "running" here means the
+# stop didn't land; "(unknown: …)" surfaces its own reason — both fail loudly.
 PROXY_STOPPED=$(proxy_state)
 case "$PROXY_STOPPED" in
-    exited|"") echo "  ✓ proxy stopped: state=$PROXY_STOPPED" ;;
-    *) echo "✗ expected the proxy to be stopped (state=exited), got '$PROXY_STOPPED'" >&2; exit 1 ;;
+    not-running) echo "  ✓ proxy stopped (not-running; presence confirmed by the recovery restart below)" ;;
+    *) echo "✗ expected the proxy to be stopped (not-running), got '$PROXY_STOPPED'" >&2; exit 1 ;;
 esac
 
 # ─────────────────────────────────────────────────────────────────────────
