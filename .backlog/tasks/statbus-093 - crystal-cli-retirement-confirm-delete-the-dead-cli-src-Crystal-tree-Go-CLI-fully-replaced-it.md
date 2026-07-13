@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-18 17:05'
-updated_date: '2026-07-03 10:45'
+updated_date: '2026-07-13 09:55'
 labels:
   - tooling
   - not-install-upgrade
@@ -34,3 +34,13 @@ DO:
 
 Hygiene / footgun-removal (dead code mistaken for live). NOT on the framework critical path. Low priority. Foreman reviews + commits the deletion (agents stage + verify).
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: mechanic (relayed by foreman)
+created: 2026-07-13 09:55
+---
+PREMISE REFUTED AT EXECUTION (mechanic verification sweep, 2026-07-13) — NOTHING DELETED. cli/src/ is the LIVE source of the production WORKER image, built by CI today: images.yaml:60 + release.yaml:68 build {name: worker, context: ./cli, file: ./cli/Dockerfile}; that Dockerfile installs the Crystal toolchain, `shards build statbus --release`, CMD [/app/bin/statbus, worker]; all five .cr files compile into that one binary (cli.cr requires dotenv/config/import/worker); doc/worker.md §1 documents worker.cr as the CURRENT architecture; the built image (statbus-worker:23101161) is running on this machine right now; cli/lib/ (9 vendored shards) is required by the same build; test/test_concurrent_worker.sh/.py stat-compare cli/src/worker.cr as a second live consumer. WHAT IS TRUE: the Go CLI replaced manage.cr's territory (config/migrations/ops — the 'Ported from Crystal' comments in cli/internal confirm), and no obviously-dead individual file exists inside cli/src/. RE-SCOPE NEEDED (King-level): either (a) close this ticket as wrong-premise — the Crystal worker is live BY current design and its retirement is a real Go-rewrite project someone must deliberately choose, or (b) re-purpose it into that rewrite decision. The triage's 'verified zero-reference' verdict is corrected by this sweep.
+---
+<!-- COMMENTS:END -->
