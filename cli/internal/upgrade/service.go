@@ -4170,11 +4170,40 @@ func (d *Service) commitMeta(sha CommitSHA) (committedAt time.Time, describe, su
 	return committedAt, describe, subject, nil
 }
 
+// ensureCommitLocal makes a full-SHA commit available in the local repo before
+// register resolves and reads it. The deploy-by-commit doctrine (STATBUS-169)
+// promises any box can be poked to any commit; but a standalone box only fetches
+// during an upgrade it is already running, so a fresh `register <sha>` for an
+// unfetched commit otherwise died at `git show <sha>: bad object` (rune, commit
+// 5e037225 — same fetch-before-use class as STATBUS-153). Idempotent: a commit
+// already present is a no-op (no network). Gated to the full 40-hex shape by the
+// caller — GitHub's want-by-SHA needs the full SHA, and that is the shape the
+// deploy poke sends; a release TAG carries its own `git fetch --tags` concern
+// (discovery / apply-latest), out of scope here.
+func (d *Service) ensureCommitLocal(sha string) error {
+	if _, err := runCommandOutput(d.projDir, "git", "cat-file", "-e", sha+"^{commit}"); err == nil {
+		return nil // already local — no network
+	}
+	if out, err := runCommandOutput(d.projDir, "git", "fetch", "origin", sha); err != nil {
+		return fmt.Errorf("register could not fetch commit %s to make it local (deploy-by-commit needs the target present): %w\n  output: %s",
+			ShortForDisplay(sha), err, strings.TrimSpace(out))
+	}
+	return nil
+}
+
 // RunRegister records a release tag or commit as an upgrade candidate
 // (state='available') and pokes the service to prepare it (NOTIFY upgrade_check).
 // Shares the same upsertCandidate path as discovery. `./sb upgrade register`.
 func (d *Service) RunRegister(ctx context.Context, input string) error {
 	return d.runOneShot(ctx, func(ctx context.Context) error {
+		// Register-by-commit owns "make the target commit local" (STATBUS-169
+		// deploy-by-commit doctrine) — BEFORE resolveUpgradeTarget, so its
+		// TagsAtCommit probe and the later commitMeta both read a present commit.
+		if isCommitSHAShape(input) {
+			if err := d.ensureCommitLocal(input); err != nil {
+				return err
+			}
+		}
 		target, err := resolveUpgradeTarget(ctx, d, input)
 		if err != nil {
 			return fmt.Errorf("resolve %q: %w", input, err)
