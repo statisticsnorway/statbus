@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-13 15:09'
+updated_date: '2026-07-13 15:14'
 labels:
   - import
   - defect
@@ -40,9 +41,31 @@ GATE: fix design must be ratified by the architect and one-tapped by the King BE
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Architect ratifies the analyse-layer detector design (intra-batch + vs-existing, temporal-overlap semantics) — recorded on this ticket
+- [x] #1 Architect ratifies the analyse-layer detector design (intra-batch + vs-existing, temporal-overlap semantics) — recorded on this ticket
 - [ ] #2 King approves the ratified design before any build
 - [ ] #3 Migration adds the tier-1 duplicate_primary_controller detector to import.analyse_legal_relationship; valid rows in a poisoned batch import, conflict rows error per-row with actionable message
 - [ ] #4 Test 124 lands green asserting the corrected behavior (direct-INSERT constraint + per-row tier-1 errors + mixed-batch isolation)
 - [ ] #5 STATBUS-120 ACs close via the same unit
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect
+created: 2026-07-13 15:14
+---
+RATIFIED WITH FIVE EXPLICIT RULINGS (architect, 2026-07-13; grounded in the constraint definition doc/db public_legal_relationship.md:36 + the frozen reproducer + both procs per the ticket's trace). The analyse-layer detector is the right design — the two-tier doctrine verbatim: an unprincipled ROW fails fast with an actionable per-row message; the batch lives. The five design points:
+
+(1) OVERLAP SEMANTICS — BYTE-MIRROR THE CONSTRAINT: the detector's predicate is exactly (influenced_id =, type_id =, valid_range &&) among primary-only rows. PostgreSQL range && on half-open ranges means ADJACENT periods ([a,b) then [b,c)) do NOT conflict — disjoint and adjacent are allowed, same as the exclusion. ONE non-obvious detail the build must get right: primary_influencer_only is DENORMALIZED onto legal_relationship rows by a trigger — at analyse time the batch row does not carry it, so the detector derives it from the RESOLVED legal_rel_type.primary_influencer_only, never from a row column.
+
+(2) WHICH ROW ERRORS — ASYMMETRIC BY PROVENANCE: intra-batch conflicts → BOTH rows error. A CSV carries no principled ordering; first-wins invents authority and silently prefers arbitrary data — ambiguity is unprincipled, the operator resolves which is true. vs-EXISTING conflicts → only the INCOMING row errors; the existing row passed the gate before and is settled truth. Same-influencing_id repeats stay OUT of this detector's scope (a different class, temporal-merge's own idempotency territory) — the distinct-influencing_id filter in the proposal is correct.
+
+(3) SOFT-DELETED/SUPERSEDED — the detector's only honest question is 'would process's write violate the exclusion', so it considers EXACTLY the rows the constraint indexes: WHERE primary_influencer_only IS TRUE, nothing more (the constraint has no status predicate). Temporally ended rows exclude themselves via range algebra (closed ranges don't overlap). NO extra status filtering — any divergence from the constraint's predicate is a future false-pass or false-error.
+
+(4) PERFORMANCE SHAPE: intra-batch = an equality-keyed self-join on (influenced_id, type_id) + range && + distinct influencing_id — quadratic only WITHIN each tiny group, linear across the batch; vs-existing = an EXISTS probe per primary batch row that hits the exclusion's own GiST index (same three columns). Explicitly NOT pairwise-across-batch. Per the house rule, EXPLAIN-verify both queries on a large synthetic batch before ship.
+
+(5) ANALYSE IS THE RIGHT LAYER, with two riders: (a) the DEFERRED CONSTRAINT REMAINS THE TRUTH — the detector is UX, not the guard; a concurrent writer between analyse and process still lands on the exclusion, by design; nobody ever weakens the constraint because 'analyse catches it'. (b) BACKSTOP HONESTY: process's EXCEPTION handler stays, but if the exclusion ever fires post-detector that is a DETECTOR GAP — the handler should surface the constraint NAME in the job error (not the generic unhandled_error_*) so the gap is recognizable on sight. That's a two-line improvement riding the same migration.
+
+GATE HONORED: test 124 stays frozen with no expected file until the King's one-tap + the build — blessing imported_rows=0 would enshrine the bug. Ready for the King's morning approval (AC#2).
+---
+<!-- COMMENTS:END -->
