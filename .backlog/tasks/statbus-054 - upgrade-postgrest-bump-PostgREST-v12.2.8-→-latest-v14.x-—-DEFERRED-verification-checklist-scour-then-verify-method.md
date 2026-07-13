@@ -3,10 +3,10 @@ id: STATBUS-054
 title: >-
   upgrade-postgrest: bump PostgREST v12.2.8 → latest (v14.x) — DEFERRED;
   verification checklist + scour-then-verify method
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-15 11:47'
-updated_date: '2026-07-12 21:46'
+updated_date: '2026-07-13 08:29'
 labels:
   - upgrade
   - postgrest
@@ -69,8 +69,8 @@ DEFERRED — not now. Stabilize the current install/upgrade surface first.
 - [x] #1 STAGE 1 done: an operator has scoured app/src (+ any other /rest query construction sites) and REPORTED every candidate location (file:line) of an aliased-embed-used-in-a-filter/order (#4075), plus any serialization-retry reliance — surfacing doubt, not deciding
 - [x] #2 STAGE 2 done: a smarter agent (architect/engineer) verified each candidate and produced the definitive list of sites that #4075 actually breaks (or confirmed none)
 - [x] #3 Any confirmed #4075 sites rewritten to not alias-then-filter
-- [ ] #4 PostgREST bumped to the confirmed latest v14.x tag in docker-compose.rest.yml + docker/compose/upgrade-sandbox.yml; rest container restarts clean on v14
-- [ ] #5 Tested: full suite green + app smoke-test passes on v14 (queries return the same results); passive behavior changes (Vary, schema-cache best-effort, serialization-retry) confirmed harmless
+- [x] #4 PostgREST bumped to the confirmed latest v14.x tag in docker-compose.rest.yml + docker/compose/upgrade-sandbox.yml; rest container restarts clean on v14
+- [x] #5 Tested: full suite green + app smoke-test passes on v14 (queries return the same results); passive behavior changes (Vary, schema-cache best-effort, serialization-retry) confirmed harmless
 <!-- AC:END -->
 
 ## Comments
@@ -101,4 +101,16 @@ COMPLETENESS SWEEP with the corrected pattern: genuine alias-in-select sites rep
 
 REMAINING = AC#4 (bump the two compose tags) + AC#5 (suite + smoke on v14). The bump is now fully de-risked on the #4075 axis, but the ticket's DEFERRED status was the King's explicit "stabilize first" call — the bump executes on his word, not before. Queued as a one-line King decision.
 ---
+
+author: foreman
+created: 2026-07-13 08:29
+---
+CLOSED (2026-07-13 morning, King un-deferred): PostgREST bumped v12.2.8 → v14.14 in both compose files (9ee0a3056; v14.14 confirmed the newest v14.x patch against Docker Hub). AC#4: rest restarts clean on v14.14 — schema cache loads 186 relations / 193 RPCs in 3.4ms. AC#5: authenticated smoke green through Caddy including the EXACT aliased-embed-analysis query shape (unaliased embed + dotted filter → 200 with real rows — the stage-2 zero-breaks verdict confirmed empirically); local fast suite 85/85 green on the new image (tmp/test-fast-postgrest14.log); CI on the commit: pg_regress full suite success, Images/Go Test/Notify success. Passive behavior changes harmless in practice (no Vary-related or schema-cache issues in smoke or suite; serialization-retry reliance was verified absent in stage 1). One local-only finding en route: a stray hand-edited PGRST_DB_SCHEMAS in a generated .env (schemas that never existed) — fixed locally, not repo state.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+PostgREST bumped v12.2.8 → v14.14 with zero query breakage, by doing the verification before the bump instead of discovering it in production. The King's two-stage method worked as designed: the operator scoured 445 app files and reported candidates without judging; the architect verified against the actual v14 changelog — the one candidate used a join hint, not an alias, and the corrected-pattern sweep confirmed zero aliased-embed-filter sites repo-wide. Config keys pre-cleared; serialization-retry reliance absent. The bump itself: two image-tag lines. Proof: rest boots clean on v14.14, authenticated smoke green including the exact examined query shape, local fast suite 85/85, CI pg_regress full suite green on the commit. We are off the aging v12 pin and on the supported line.
+<!-- SECTION:FINAL_SUMMARY:END -->
