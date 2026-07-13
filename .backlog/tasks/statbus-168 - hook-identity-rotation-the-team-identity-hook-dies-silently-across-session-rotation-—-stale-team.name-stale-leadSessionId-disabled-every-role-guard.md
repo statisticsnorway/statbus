@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-12 22:14'
+updated_date: '2026-07-13 09:09'
 labels:
   - tooling
   - team
@@ -46,3 +47,13 @@ DURABLE FIX for the architect to rule (the repairs are one-time; recurrence must
 - [ ] #3 The ruled fix is implemented with the hook's test file extended to cover: continuation-foreman identification, missing-config loudness, and team-lead↔foreman vocabulary
 - [ ] #4 The night-shift data repairs (701477b3a + config leadSessionId) are superseded by the mechanism — nothing depends on hand-maintained session ids
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-13 09:09
+---
+CARRY-OVER from STATBUS-122 (merged here on the 2026-07-13 triage): the cross-clone concurrent-team scenario — two checkouts on one machine, each with its own live team — becomes an explicit TEST FIXTURE for the ruled identity mechanism (AC#3's test file gains it). 122's original collision mechanism (shared global team name) died with the harness's move to session-scoped teams; what survived is exactly this ticket's scope.
+---
+<!-- COMMENTS:END -->
