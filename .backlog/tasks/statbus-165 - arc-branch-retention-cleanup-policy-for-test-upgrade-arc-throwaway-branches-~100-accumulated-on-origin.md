@@ -3,10 +3,10 @@ id: STATBUS-165
 title: >-
   arc-branch-retention: cleanup policy for test/upgrade-arc-* throwaway branches
   (~100 accumulated on origin)
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-07-12 14:54'
-updated_date: '2026-07-12 22:40'
+updated_date: '2026-07-13 09:08'
 labels:
   - git-hygiene
   - not-install-upgrade
@@ -39,7 +39,7 @@ Constraint: never-delete set (master, 11 deploy pointers, db-seed) untouched, as
 - [x] #1 Architect rules the retention mechanism (self-delete at end-of-run vs TTL sweep) and where it lives in the 071 framework
 - [x] #2 One-time sweep executed: accumulated test/upgrade-arc-* branches deleted, never-delete set verified intact before and after
 - [ ] #3 red/031-rollback-watchdog routed to its owner for one answer
-- [ ] #4 Framework change shipped per the ruling: LOCAL harness runs self-delete their branches at end-of-run (exit trap, ARC_NO_PUSH-symmetric), and the weekly image-cleanup workflow gains the 7-day branch-GC backstop; CI teardown untouched
+- [x] #4 Framework change shipped per the ruling: LOCAL harness runs self-delete their branches at end-of-run (exit trap, ARC_NO_PUSH-symmetric), and the weekly image-cleanup workflow gains the 7-day branch-GC backstop; CI teardown untouched
 <!-- AC:END -->
 
 ## Comments
@@ -72,4 +72,16 @@ created: 2026-07-12 22:40
 ---
 SWEEP EXECUTED (AC#2) + GC BACKSTOP SHIPPED (mechanic built, foreman reviewed + committed ed25061c1). Sweep outcome, honest: ZERO branches eligible — all 90 test/upgrade-arc-* tips date 2026-07-07ℓ2026-07-12, inside the ruled 7-day bound (dry-run list tmp/statbus-165-dry-run-list.txt + comment #2; never-delete 13 refs verified present and structurally unmatchable). The ~100-branch count this ticket opened against is entirely this week's arc-campaign debris, not aged cruft; the weekly branch-gc job (dry-run on manual dispatch, real delete on cron, prefix-guarded per destructive call, fail-loud on refusals) picks it up automatically from 2026-07-14. Remaining: AC#4's local-harness half (delete_throwaway_branches() in upgrade-target.sh — HELD while arc re-runs are in flight tonight) and AC#3's owner routing of red/031-rollback-watchdog (the 035 keep-pending walk).
 ---
+
+author: foreman
+created: 2026-07-13 09:08
+---
+AC#4 COMPLETE (9fe0b4ca6): the local-harness half shipped — delete_throwaway_branches() in upgrade-target.sh (recompute-from-run-id, ARC_NO_PUSH-symmetric, best-effort exit-0 for trap use, no trap clobbering; honest note in the commit: no local caller pushes its own pair TODAY — the function completes the file's own documented contract beside its producer, and the weekly GC covers the interim). The GC backstop half shipped earlier (ed25061c1). AC#3 (red/031-rollback-watchdog owner routing) is RE-HOMED to STATBUS-035's keep-pending walk — it is already named in 035's comment #2 and belongs in that one King sitting; closing this ticket with that fold recorded rather than holding it open for a one-branch question that lives elsewhere.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The 071 arc framework's throwaway branches now have a complete retention mechanism. Ruled (with two ground-truth corrections: CI already self-deleted its lineage; delete-at-digest was too early — branches keep the commit fetchable until end-of-run): PRIMARY = end-of-run self-delete (CI teardown pre-existing; the local harness's delete_throwaway_branches() added, 9fe0b4ca6), BACKSTOP = the weekly image-cleanup branch-gc step (ed25061c1: 7-day age gate, dry-run on manual dispatch, prefix-guarded per destructive call, fail-loud on refusals). The one-time sweep executed honestly to ZERO deletions — all ~90 accumulated branches were that week's campaign debris inside the age gate, and the backstop absorbs them on its own cycle from 2026-07-14. red/031-rollback-watchdog's owner question re-homed to STATBUS-035's keep-pending walk.
+<!-- SECTION:FINAL_SUMMARY:END -->
