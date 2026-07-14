@@ -437,7 +437,12 @@ jobs:
 
       - name: Resolve fixture lineage for the scenario
         # §7 shared-fixture: each arc rides ONE of the 5 shared lineages. The
-        # failing + rollback-restore arcs need the FAILING V (RAISE → rollback);
+        # failing + rollback-restore + restore-broke-reattempt arcs need the
+        # FAILING pair (RAISE → rollback; restore-broke-reattempt rides BOTH
+        # B and C — content is irrelevant to either of its kill sites, which
+        # both fire before the migration ever runs, but a distinct SECOND
+        # commit is required since commit_sha is UNIQUE and phase (i) leaves
+        # B terminal);
         # postswap-migration-oom needs its own OOM V (a real, long-running
         # statement to kill mid-run — STATBUS-096); postswap-migration-ceiling
         # needs its own CEILING V (a real, long-running statement OUR OWN
@@ -474,7 +479,7 @@ jobs:
         run: |
           set -euo pipefail
           case "$SCENARIO" in
-            failing|postswap-rollback-restore-watchdog) lineage=failing ;;
+            failing|postswap-rollback-restore-watchdog|restore-broke-reattempt) lineage=failing ;;
             postswap-migration-oom)                     lineage=oom ;;
             postswap-migration-ceiling)                 lineage=ceiling ;;
             postswap-health-park)                        lineage=healthpark ;;
