@@ -3,11 +3,11 @@ id: STATBUS-120
 title: >-
   pg-multi-control-test: investigate & add import test for multiple controlling
   relationships
-status: In Progress
+status: Done
 assignee:
   - engineer
 created_date: '2026-06-30 12:40'
-updated_date: '2026-07-14 09:46'
+updated_date: '2026-07-14 10:36'
 labels:
   - import
   - not-install-upgrade
@@ -38,10 +38,10 @@ INVESTIGATE the precise gap first (don't assume), then add the missing pg_regres
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Identify the specific uncovered scenario(s) for importing multiple controlling relationships (confirm the gap against tests 117-121 before writing)
-- [ ] #2 Add pg_regress test(s) covering import of multiple control relationships into a power group
-- [ ] #3 Assert exclusion-constraint behavior (<=1 primary influencer per influenced unit per type) and the process_power_group_link derivation outcome
-- [ ] #4 Expected .out blessed and the test passes under ./dev.sh test
+- [x] #1 Identify the specific uncovered scenario(s) for importing multiple controlling relationships (confirm the gap against tests 117-121 before writing)
+- [x] #2 Add pg_regress test(s) covering import of multiple control relationships into a power group
+- [x] #3 Assert exclusion-constraint behavior (<=1 primary influencer per influenced unit per type) and the process_power_group_link derivation outcome
+- [x] #4 Expected .out blessed and the test passes under ./dev.sh test
 <!-- AC:END -->
 
 ## Comments
@@ -61,3 +61,9 @@ KING REFRAME (2026-07-14 morning): two issues are mixed in this ticket — (a) r
 FOREMAN GROUNDING (verified this morning): primary-ness is per-TYPE config — legal_rel_type.primary_influencer_only, NSO-defined, denormalized onto rows (doc/power-groups.md:99,139-146). Norway's mapping (samples/norway/brreg/seed-legal-rel-types.sql + README): HFOR/EIKM/KOMP = primary TRUE (structurally 1:1 in BRREG); DTPR/DTSO (deltaker pro-rata/solidarisk — the delt-ansvar shapes for ANS/DA/KS) = FALSE. The brreg README's own 'Partnership Structures (Future)' section says DTPR/DTSO 'don't currently form power groups but could in the future via multi-root support' — while doc/power-groups.md:24 says ALL types contribute to formation and non-primary edges cluster into the same component. THE TWO DOCS DISAGREE (or the README predates multi-root support, which test 120 Phase 6 asserts exists). Open questions for the discussion: (1) does an import of only-DTPR/DTSO edges actually form a power group today? — empirically checkable; (2) is BRREG's no-percentage reality correctly modeled by type-only classification, or do we need percentage-bearing equal-share support for other sources; (3) does the 178 both-rows-error detector risk rejecting LEGITIMATE shared-control data that merely got mapped to a primary type?
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Investigation refuted 2 of the 3 suspected gaps ((b) multi-edge batches and (c) multi-root via control were already covered by tests 119/120/403) and confirmed gap (a) — duplicate primary controllers under import — which turned out to hide a real defect: one conflicting row failed the whole batch (STATBUS-178). Closed as one unit with 178 (commit fefa3fc36): test 124 covers the direct-INSERT exclusion rejection, per-row tier-1 errors on duplicate primaries, and mixed-batch isolation. The King's delt-ansvar reframe (equal-share non-controlling relationships, selectable reporting viewpoint) spun off as STATBUS-179.
+<!-- SECTION:FINAL_SUMMARY:END -->
