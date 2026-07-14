@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-07-13 13:20'
-updated_date: '2026-07-14 22:47'
+updated_date: '2026-07-14 23:33'
 labels:
   - testing
   - not-install-upgrade
@@ -72,5 +72,11 @@ author: foreman
 created: 2026-07-14 22:47
 ---
 INFRA EVENT DURING BATCH 1 (2026-07-14 ~22:06-22:44 UTC, local dev db): TWO postgres crash-recovery cycles inside the mechanic's own heavy-run windows (investigation load variant; the long 401 regeneration). Foreman pulled the db logs: no explicit OOM lines, but the shape (backend silently killed → postmaster crash recovery → container never restarted) is the macOS Docker memory-pressure signature under heavy import load — most probable cause is the runs' own resource pressure, not an external actor. The killed 401 run died mid dev.sh DROP DATABASE (22:43:53 'connection to client lost') and orphaned a pg_regress+psql straggler — a NATURAL occurrence of exactly the straggler/orphan vector this ticket's AC#1 investigation deliberately left unforced; no echo-drop or output corruption was observed from it (the run died outright), recorded here per the accumulation rule. Mechanic cleaned up via dev.sh's own documented remediation (stragglers killed, isolated test DB dropped, recovery confirmed complete). Guard rule for the rest of the sweep: plain serialized runs only; a THIRD recovery cycle during a plain run is stop-and-report (falsifies the memory-pressure read → check Docker Desktop memory allocation).
+---
+
+author: foreman
+created: 2026-07-14 23:33
+---
+BATCH-1 SPLIT AFTER THIRD RECOVERY CYCLE (2026-07-15 night): the stop-rule fired — a third dev-db crash-recovery cycle landed ~30s after the mechanic's straggler kill -9, 2-for-2 timing across incidents, which falsifies the simple memory-pressure read (a killed CLIENT psql cannot crash-recover the postmaster; only a backend death can). Foreman's own log check found postgres's root-event evidence UNREACHABLE (no 'terminated by signal' line in the container's entire docker-log history; the in-container collector file is empty) — escalated as STATBUS-188 (dev-db-crash-cycles) with the runner-timeout chain-starter (401's ~28-min regeneration exceeds the background-runner budget, manufacturing stragglers by construction) in scope. RESOLUTION FOR THIS TICKET: batch 1a = the 18 completed files (all regenerated + diff-reviewed removal-only), freezing now for foreman review+commit; 401 is DEFERRED to after STATBUS-188's infra answers — not retried in a timeout-bounded runner. Standing order to the mechanic: no more kill -9 in the db container (the remediation itself is under investigation, 188 AC#3); stragglers get reported and left.
 ---
 <!-- COMMENTS:END -->
