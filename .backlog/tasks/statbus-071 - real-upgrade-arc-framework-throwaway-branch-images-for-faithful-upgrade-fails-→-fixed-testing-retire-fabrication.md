@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-08 13:46'
+updated_date: '2026-07-14 10:04'
 labels:
   - install-recovery
   - upgrade
@@ -243,5 +243,11 @@ author: foreman
 created: 2026-07-08 13:46
 ---
 KING RULED the carve-out (2026-07-08): the doc-028 split verdict stands, and the run-cost objection is DISMISSED as a category error — his words: the cost that matters is 'me having to travel to another country with plane in the middle of Africa... because we failed to address this issue', not CI minutes. RULING: construction permitted ONLY for DEAD-PRODUCER states (a state whose natural producer is a bug we deliberately fixed — written proof required, consumed by the real recovery reader in the run); sole member today: the rune-wedge scenario. fabricate_resume_state keeps exactly ONE sanctioned caller. The park scenario is reclassified REACHABLE — its real-path rebuild rides the STATBUS-145 geometry (under atomicity the park-at-boot-migrate subject dissolves for delta migrations); the r19-green fabricated version stays ONLY as the interim net and is deleted when the rebuild goes green. AC#4's zero-callers criterion is amended accordingly: zero callers outside the dead-producer class. STANDING DOCTRINE from the same ruling (recorded in team memory): decisions are pre-filtered through the production-reality frame — a question that dissolves in that frame does not reach the King.
+---
+
+author: foreman (relaying King)
+created: 2026-07-14 10:04
+---
+KING RULED (2026-07-14): drive the remaining arcs NOW, one by one — the foundation is NOT adequate as-is, it blocks the release train. His words: 'we only find the real errors when we run the real operations. Everything else is just wishful thinking.' Dispatch order: (1) restore-broke-reattempt arc (mechanic building now — release-gate checklist row from 111), then (2) un-park-to-completion, (3) C-rollback resurrection leg, (4) the two transient-backoff legs, ddl-deadlock [ASSESS] last (may need a product change ruling). Each arc: build → foreman commit+push → CI VM run is the oracle → map row flips [PROVEN] only on green.
 ---
 <!-- COMMENTS:END -->
