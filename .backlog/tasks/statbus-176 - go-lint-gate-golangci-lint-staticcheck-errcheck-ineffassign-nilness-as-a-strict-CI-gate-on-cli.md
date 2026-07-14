@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-13 14:42'
+updated_date: '2026-07-14 17:45'
 labels:
   - ci
   - quality-gate
@@ -34,3 +35,13 @@ Config lives in cli/.golangci.yml so local `golangci-lint run` matches CI exactl
 - [ ] #3 Existing findings burned down so the gate lands green on master
 - [ ] #4 cli/.golangci.yml checked in so local runs match CI
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-14 17:45
+---
+INVENTORY (operator, 2026-07-14, golangci-lint v2.12.2, no-config, staticcheck+errcheck+ineffassign; nilness unavailable as a standalone enable in this version — the build must wire it via govet's analyzer set): 69 findings total — errcheck 50, staticcheck 11, unused 7 (default-included), ineffassign 1. Concentration: migrate.go 8, invariants/registry.go 7, upgrade/service.go 6, release/check_test.go 6, upgrade/exec.go 5, selfupdate 5, cmd/install.go 5; top-3 files = 30% of total. Log: tmp/lint-inventory-176.log. SIZING VERDICT: a one-session burn-down — errcheck dominates and most hits are likely deliberate best-effort calls needing explicit `_ =` or error handling; the gate can land green quickly once the burn-down unit is dispatched. Queued behind the current arc/fix units.
+---
+<!-- COMMENTS:END -->
