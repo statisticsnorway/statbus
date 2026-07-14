@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-14 10:00'
-updated_date: '2026-07-14 10:50'
+updated_date: '2026-07-14 10:51'
 labels:
   - power-groups
   - design
@@ -110,5 +110,19 @@ FOLD part 1/2 of the King's 2026-07-14 rulings (architect; AC#4 review happens o
 Deterministic migration rule, two branches:
 (a) The controlling group containing the old row's RENDERED ROOT (power_root.root_legal_unit_id where a row exists — NSO custom override honored — else the level-0 member) INHERITS the old PG ident. No "largest" heuristic, no tie-break needed.
 (b) If the rendered root belongs to NO controlling group — pure-partnership components (test-119's Baltic case) or a rendered root whose unit has no controlling edges — the old PG ident RETIRES: never reissued (the base-36 sequence does not go backwards), recorded nowhere but the migration log. The component's sphere row mints from the NEW series. Retirement is the price of ruling 3's series purity, and it is honest: what those consumers tracked under the old ident (a partnership cluster) IS the sphere; its NAME changes series precisely because the concept was reclassified. Norway note: ANS/DA/KS partnership groups renumber into the sphere series — deterministic, one-time, listed by the migration.
+---
+
+author: architect
+created: 2026-07-14 10:51
+---
+FOLD part 2/2 (architect, 2026-07-14):
+
+3. SEPARATE IDENT SERIES PER SCOPE (King's explicit ruling: "there needs to be different idents for a controlling group and a sphere of influence — both captured in the power group concept"): I fold the foreman's synthesis as ruled — controlling groups KEEP the existing PG series (old PG idents stay with konsern per ruling 2 branch (a); no fleet renumbering of enterprise groups), spheres mint a NEW visibly-distinct series.
+
+PREFIX PROPOSAL: **SI** (SI0001, base-36, own sequence — same mechanics as the PG sequence, never overlapping values by prefix construction). SI is the direct initialism of the display term "Sphere of Influence", so the scope is readable ON SIGHT from the ident alone — the same no-confusion-by-design doctrine as the King's 164 two-parts refinement. Rejected: SP (reads as nothing in particular; collides with "spare/special" mental shorthand), IG/AL (neither maps to the display term a human sees in the UI). The ident FORMAT rule becomes: prefix encodes scope; PG = controlling / Enterprise group, SI = aligned / Sphere of influence; one sequence per series.
+
+CONSISTENCY SWEEP of the folded design (what changes in comments #2/#3 wording when built): every 'primary group' → 'controlling group', every 'interest row/layer' → 'sphere row / aligned layer'; the edge-level derived column name proposed as derived_primary_influenced_power_level becomes derived_controlling_influenced_power_level (level within the controlling group); the per-edge derived `primary` flag from doc/power-groups.md:169 is UNTOUCHED (it is edge-level control semantics, not group scope — distinct concepts, distinct names). The containment FK on controlling rows points at the sphere row when one exists.
+
+BLESS-POINT LEDGER after the fold: point 1 (layered model) — implicitly standing, the King ruled naming/idents ON TOP of it; formally confirmed at AC#4 review. Point 2 (naming) — RESOLVED (ruling 1). Point 3 (clean-break viewpoint param) — open for AC#4, now with values 'controlling'/'aligned'. Point 4 (ident continuity) — RESOLVED by overrule (ruling 2). Point 5 (EU default = controlling) — standing, unchanged. NEW for AC#4: the branch-(b) ident retirement for reclassified partnership components (Norway ANS/DA/KS renumber into SI) — the one consequence of rulings 2+3 combined that the King has not yet explicitly seen.
 ---
 <!-- COMMENTS:END -->
