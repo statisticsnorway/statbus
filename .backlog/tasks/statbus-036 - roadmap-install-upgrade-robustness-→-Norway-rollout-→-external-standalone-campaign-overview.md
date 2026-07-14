@@ -118,4 +118,34 @@ WHERE WE STAND (proven, not hoped — refreshed 2026-07-14):
 
 5. THE GATE MACHINERY IS TRUSTWORTHY BY CONSTRUCTION. Test runs serialize on a kernel lock; Go tests run in CI; per-scenario install-recovery stamps compose local-or-CI runs against the RC tag's commit; the migration bless lives in the release cut alone — no second records of intent anywhere in the pipeline.
 ---
+
+author: architect
+created: 2026-07-14 10:54
+---
+ROADMAP REWRITE part 2/2 (architect, 2026-07-14) — the gap, the walk, and the AC replacement.
+
+WHAT STANDS BETWEEN HERE AND NORWAY-STABLE (the honest gap — every item named, nothing hidden):
+- 170 deploy-green-means-converged (In Progress; ruled, phase-1 status script built): the deploy workflow must go green only when the box CONVERGED — otherwise the fleet walk lies to whoever reads it. Two-phase rollout rides 167's pattern.
+- 164 half-2 (In Progress; ruled 2026-07-14, King-ratified: slug bytes + legacy-alias floor): the King gates the NEXT RC on the right names — "better to land on the right names before we make this release". Its cross-version arc is the oracle; no RC carries the bytes before that arc is green.
+- 178 duplicate-primary detector (King-approved, in build): rides the same next RC.
+- 071 wrap-up (In Progress): the campaign is closed green; the ticket closes when the framework's remaining reshaping lands. Not a gate on the stable cut — named here so nothing In Progress is invisible on the map.
+- 069 canary transport (To Do): niue SSH flake + runner provisioning — hardens the gate's own transport so a red means the product, never the pipe. Supporting lane, not a gate.
+
+TRACK C — THE WALK (unchanged structure, current positions): rune/Norway is a hardcoded canary slot for `./sb release stable` (release_canary.go:43-45) — Norway go-live and the stable gate remain the SAME motion. C1 RC cut ✓ (rc.05). C2 gate-capable RC = rc.06, the first RC carrying 164's names + 178 — cut when their oracles are green. C3 canary deploys ✓ ALREADY PROVEN AT rc.05 (dev edge + rune tag path both converged 2026-07-13) — repeat mechanically at rc.06. C4 `./sb release stable` → v2026.07.0 → Norway live on stable. C5 external standalone: scoped AFTER one full RC→stable→deploy cycle proven.
+
+PARALLEL LANES (never block the path): quality gates 176 (go-lint) + 177 (ts-any); product 093 (Go worker port — ends the Crystal overlap), 142 (email), 173 (pgAdmin), 174 (Norway ident display), 179 (power-group viewpoints — designed, King review); tooling 168 (hook identity — re-ruled, in build), 175 (pg_regress echo flake); hygiene 035 (branch cleanup, King-gated).
+
+CRITICAL PATH: 164-half-2 bytes + arc green, 178 landed, 170 phase-2 wired → cut rc.06 → fleet canary green (dev + rune, now convergence-honest) → `./sb release stable` → Norway live → scope C5.
+
+DONE line: UNCHANGED from the original — it is still exactly right: `./sb release stable` exits green with zero SKIP_* bypasses; the stable tag upgrades unattended on rune with zero watchdog kills + zero manual intervention; a deliberately-failed upgrade on a Norway-size DB rolls back to completion under the watchdog; the next RC cycle repeats it all untouched.
+
+ACCEPTANCE CRITERIA REPLACEMENT (for the foreman to apply; King ratifies): old #1-#3 are CONSUMED by reality at higher versions than they were written for (gate batch landed pre-rc.04; rc.05 green fleet-wide; canary deploys proven at rc.05). Replace the list with:
+1. Gate-capable RC (rc.06) cut carrying 164 half-2 (cross-version arc green first) + 178; per-scenario stamps green at its commit
+2. 170 landed: deploy green = box converged, proven by one real fleet deploy reading the new signal
+3. Canary deploys completed at the gate-capable RC: dev (edge) + rune-no (tag) converged rows
+4. `./sb release stable` exits green with zero SKIP_* bypasses → v2026.07.0 → Norway live on stable  [carries over]
+5. External-standalone gate (C5) scoped + tasked after one full RC→stable→deploy cycle proven  [carries over]
+
+The Implementation Notes (B5-vs-034, tag-path resolution, gate-batch coupling) stay — they are decision history, all settled, and the tag-path note is now live-proven rather than merely pinned.
+---
 <!-- COMMENTS:END -->
