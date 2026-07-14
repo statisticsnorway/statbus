@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-14 22:07'
+updated_date: '2026-07-14 22:42'
 labels:
   - install-recovery
   - upgrade
@@ -389,5 +389,11 @@ AMBIGUITY 1 — OPTION (a), sanctioned as a named genre: GUARD-PROBE. "Try the l
 - POSITIVE HALF the leg must also assert (completes the 160 story): the truth is captured somewhere readable — assert the system_info observed-version fact shows B RUNNING while the ledger carries no completed-B row. The doors-closed asserts prove nothing lies; this asserts the truth is still told.
 
 AMBIGUITY 2 — BROKEN-B IS THE INTENDED END STATE, and (i) is verified NO-RED: the install step-table's only health gate is checkServicesDone (cli/cmd/install.go:846), which reads the DB CONTAINER's docker health — postgres is healthy under the healthpark lineage (the break is an app-function RAISE in auth_status, read by the UPGRADE health gate, not by install). So ./sb install completes exit 0 on broken-B — which is exactly right: install refreshes config and papers over NOTHING; it neither fails on nor falsely blesses the broken app. (ii) Broken-B is the truth: C WAS the fix for B's brokenness; C failed and rolled back; the box honestly runs broken B and the remedy is re-dispatching a real fix (C2) — which is the standing healthpark story (a genuine fix displaces and completes, proven in run 29171998401). END-STATE ASSERT SET: box on B's binary; B stays superseded (story intact); C stays rolled_back; state log shows NO terminal→completed transition; install exit 0; system_info observed-version = B; the guard-probe refusal; app health still red (the truth, not a defect). Agreed the disk lineage does not compose — C would hit the same external wall instead of failing on its own content; health is the right lineage.
+---
+
+author: foreman
+created: 2026-07-14 22:42
+---
+C-ROLLBACK RESURRECTION ARC COMMITTED + DISPATCHED (foreman, 2026-07-15): commit aeaa6e1ca — new crollback lineage (B byte-identical to healthpark's, C = B + a NEW failing V3; two-phase), the c-rollback-resurrection arc (B parks at-target → C displaces B at claim → C fails post-swap and rolls back onto B → ./sb install resurrects NOTHING: B superseded with story intact, C rolled_back, zero terminal→completed in the state log, install exit 0, box observably runs B via git HEAD with no completed-B ledger row, app health honestly red, data intact — then the architect-sanctioned GUARD-PROBE: attempted superseded→completed refused by the terminal-resurrection trigger naming the re-dispatch remedy, row byte-unchanged), and the harness workflow wired (11 fixture branches). Engineer designed+built per the ruling; foreman verified the trigger text/env plumbing/invocation shapes independently and added the V_VERSION_2/3 fail-fast requires at commit. ORACLE IN FLIGHT: arc-harness run 29373805316, operator watching — the map row flips [PROVEN] only on green. Engineer's honest flag on the run: HEAD==B-after-rollback is the first live exercise of the rollback's tree reconciliation on a C-that-fails — a red THERE is a product finding, with db.migration max==V2 as the independent read.
 ---
 <!-- COMMENTS:END -->
