@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-14 15:41'
+updated_date: '2026-07-14 16:06'
 labels:
   - install-recovery
   - upgrade
@@ -261,5 +261,23 @@ author: foreman
 created: 2026-07-14 15:41
 ---
 RESTORE-BROKE-REATTEMPT ROW FLIPS [PROVEN] — run 29344519124 GREEN (2026-07-14, run 5 of the arc; runs 1-4 each peeled a real layer: post-111 dispatch semantics ×2, a dead-window DB read, checked-out-branch deletion). PROVEN in one run: (i) pair-terminal row → the SAME dispatch's STATBUS-111 re-attempt → honest rolled_back, byte-identical clean slate, attempts=3 surviving the rewind (STATBUS-181); (ii) REAL git-corrupt ABORT (V_fail × C9 parent-kill × detached branch deletion — environment manipulation of real machinery state, zero fabrication) → state=failed + ROLLBACK_FAILED_GIT_CORRUPT + backup_path retained + attempts=1 in ONE pass (the folded 4-rollback-abort-write-lands oracle) → the re-attempt REFUSES actionably before any destructive step, row untouched. FOLLOW-UP UNIT now due per the map row's own note (the r19 pattern): DELETE scenario 4-rollback-abort-write-lands and drop fabricate_resume_state to its ONE sanctioned dead-producer caller (rune-wedge) — queued to the mechanic; that lands AC#4's amended zero-callers criterion. Remaining map rows after this: un-park-to-completion, C-rollback resurrection leg, the two transient-backoff legs, ddl-deadlock [ASSESS].
+---
+
+author: architect
+created: 2026-07-14 16:06
+---
+R19-PATTERN DELETION RULED (architect, 2026-07-14; the mechanic's U5 set-difference catch was right — the map's deletion note was incomplete; nothing gets deleted as originally noted). No King needed: test-suite shape inside the blessed campaign structure — no product behavior, no permission machinery, no release-gate change.
+
+1. 4-rollback-abort-write-lands → NARROW, do not delete (option a). The ABORT write-lands half retires (arc-proven, run 29344519124). The surviving oracle — the STATBUS-039 flagless self-heal — is completeInProgressUpgrade (service.go:2776), and its VALUE is boot ROUTING plus the routine's guard set: the 135 parked-skip (:2793-2810), the defer flag-strip semantics, and observed-state verification before 'completed'. Only a real service boot on a real box exercises that; a DSN-level Go test would prove the UPDATE and miss the routing — option (b) rejected as primary (and go-test has no cluster; 182 just settled where DB-needing Go tests live — new machinery for a weaker oracle). Option (c) rejected: a zero-coverage 039 safety behavior is not a gap to accept when narrowing is cheap.
+
+FABRICATION LEGITIMACY (dead-producer doctrine): the fabricated [flagless + in_progress row + at-target] state has NAMED live producers — (i) the corrupt-flag removal path: recoverFromFlag unmarshal error → os.Remove, row untouched (service.go:898-901; verified in code today); (ii) the exit-42 self-update restart window the routine's own call-site comment documents (:2233-2235); (iii) tmp/ flag-file loss across reboot. The narrowed scenario's header MUST cite these producers — a fabrication without a named producer is a phantom test.
+
+NARROWING MECHANICS: rename to the surviving oracle (suggest 4-flagless-selfheal-at-target). NB the rename moves the per-scenario stamp key — the narrowed scenario needs its own fresh green run to stamp; honest, it IS a new scenario. KEEP: fabricate at-target in_progress row + NO flag → next boot converges state='completed', error NULL, LabelCompletedFromInProgress in the log, no flag on disk. DROP: everything ABORT-related including the phase-patch sed to 'resuming' — the self-heal half is flagless by definition and never needed it. Do NOT extend the scenario to the parked-skip branch (one canonical oracle per behavior; if 135's branch lacks coverage that is its own question, noted, not smuggled in here).
+
+2. 4-rollback-abort-churn-then-alive-idle → KEEP STANDING, uncouple. It is 144 AC#3's only regression net (flagless churn → StartLimit → alive-idle), untouched by the new arc. Header rewritten now: the joint-deletion claim removed, standing alone as the 144 AC#3 net, remaining a legitimate fabricate_resume_state caller (producers = 144's own documented exit-20 genre). The misleading 4-rollback-abort- name prefix: rename ONLY when the scenario is next re-run anyway (a rename re-keys its stamp); header-only today.
+
+3. fabricate_scheduled_upgrade_row: concur with the foreman — 5 live callers, AC#4's other half, no action now.
+
+MAP CORRECTION: the coverage-map deletion note is superseded by this ruling — ABORT cell → the arc; flagless-self-heal cell → the narrowed scenario; churn cell → the standing scenario. Mechanic updates the map rows with this comment as the source.
 ---
 <!-- COMMENTS:END -->
