@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-14 10:00'
-updated_date: '2026-07-14 10:51'
+updated_date: '2026-07-14 19:51'
 labels:
   - power-groups
   - design
@@ -21,17 +21,68 @@ ordinal: 180000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-> NORTH STAR: an NSO can report on the PRIMARY power group (konsern — controlling edges only; what the EU wants in reports today) AND on the larger interest-alignment grouping (non-controlling edges included: delt ansvar, equal shares, two-50% holders), choosing the viewpoint at reporting time.
-> ORIGIN: King, 2026-07-14 morning, from the STATBUS-120/178 discussion + the meeting with Swedish NSO staff reporting to the EU: both viewpoints are useful; the EU wants the primary one in their reports, for now. Delt-ansvar-forms-power-groups is WANTED, but OPTIONAL — a selectable viewpoint, not a forced merge.
-> COMPLEXITY: architect design first (this is the ticket's substance), King reviews; build follows as its own scope.
+> NORTH STAR: an NSO reports on the CONTROLLING group ("Enterprise group" — Eurostat's unit, what the EU wants today) AND on the larger ALIGNED grouping ("Sphere of influence"), choosing the viewpoint at reporting time.
+> STAGE: design ratified by the King (2026-07-14); build follows as its own scope. History/journal in comments #1-#7.
 
-THE OPEN DESIGN QUESTION (King's words, near-verbatim): is a non-controlling cluster part of the SAME power group, or do we have MULTIPLE power groups — a primary power group and a non-primary power group that can SPAN multiple other (primary) power groups? The design must be looked at for how that can work.
+## 1. Concepts (ratified)
+- CONTROLLING group — scope `controlling`, display "Enterprise group". Components over CONTROLLING edges only, where a controlling edge = `legal_rel_type.primary_influencer_only OR percentage > 50` (the unified flag, doc/power-groups.md §"primary"). Carries hierarchy: root, levels, depth/width/reach, NSO custom root.
+- ALIGNED group — scope `aligned`, display "Sphere of influence". Components over ALL edges. SPARSE: a row exists ONLY when the all-edge component's membership differs from exactly-one controlling component's (spans ≥2 konsern; adds units e.g. a 50/50 JV; or contains no controlling edges at all — pure DTPR/DTSO partnerships).
+- Nesting law: controlling edges ⊂ all edges ⇒ controlling components REFINE aligned components; every controlling group lies in at most one sphere; a sphere may span several controlling groups.
 
-GROUNDING (current state, verified 2026-07-14): primary-ness is per-type (legal_rel_type.primary_influencer_only); Norway maps HFOR/EIKM/KOMP primary, DTPR/DTSO (delt ansvar) non-primary. Two docs currently DISAGREE on whether non-primary edges form power groups today: samples/norway/brreg/README.md says DTPR/DTSO don't (future, via multi-root); doc/power-groups.md:24 says all types contribute to clustering. The design work must first establish the empirical current behavior (one import experiment) and fix whichever doc is wrong, then rule the layered model.
+## 2. Schema
+```sql
+CREATE TYPE public.power_group_scope AS ENUM ('controlling','aligned');
 
-DESIGN POINTS: (1) edge marking vs group multiplicity — one clustered group with primary/non-primary marked edges queryable per viewpoint, or two group layers where a non-primary group may span several primary groups; (2) how two-50% holders (legal, must be expressible) attach without violating the primary exclusion; (3) reporting API: viewpoint selection (primary-only default per EU; expanded on request); (4) relation to derived_root_status multi-root machinery; (5) migration/derivation cost of whichever model wins.
+ALTER TABLE public.power_group
+  ADD COLUMN scope public.power_group_scope NOT NULL DEFAULT 'controlling',
+  ADD COLUMN aligned_power_group_id integer
+      REFERENCES public.power_group(id) ON DELETE SET NULL,
+  ADD CONSTRAINT power_group_aligned_only_on_controlling
+      CHECK (aligned_power_group_id IS NULL OR scope = 'controlling'),
+  ADD CONSTRAINT power_group_ident_prefix_matches_scope
+      CHECK ((scope = 'controlling' AND ident LIKE 'PG%')
+          OR (scope = 'aligned'     AND ident LIKE 'SI%'));
+CREATE INDEX ix_power_group_aligned ON public.power_group(aligned_power_group_id)
+  WHERE aligned_power_group_id IS NOT NULL;
 
-RELATED: STATBUS-178 (duplicate PRIMARIES stay illogical and per-row-erroring regardless of this design), STATBUS-120 (test coverage; closes with 178's unit), doc/power-groups.md DRAFT-001 reporting design.
+ALTER TABLE public.legal_relationship
+  ADD COLUMN derived_controlling_influenced_power_level integer;  -- konsern-internal BFS depth; NULL on non-controlling edges
+```
+- `aligned_power_group_id` = the containing sphere, set only on `controlling` rows inside one (the CHECK forbids sphere-of-sphere — exactly two layers).
+- Edge storage rule (existing `derived_power_group_id`, name and FK unchanged): a controlling edge points at its controlling group; a non-controlling edge points at its sphere when one exists, else at the controlling group it is internal to (intra-konsern DTPR edges render inside the konsern as today).
+- Existing `derived_influenced_power_level` keeps its all-edge semantics (partnership trees keep rendering). `power_root` is unchanged and attaches per group row in either scope (per-konsern NSO custom roots included).
+
+## 3. Ident series (ratified: PG stays with konsern; spheres mint SI)
+- New sequence `public.sphere_ident_seq` + `public.generate_sphere_ident()` — byte-mirror of `generate_power_ident()` (base-36, lpad 4, SECURITY DEFINER) returning `'SI' || …`.
+- The column DEFAULT stays `generate_power_ident()` (operator/import-created rows are controlling); the derivation inserts sphere rows with `ident = generate_sphere_ident()` explicitly. The prefix-matches-scope CHECK makes a wrong-series row impossible — scope readable on sight (the King's no-confusion-by-design doctrine).
+- Neither sequence ever reissues; retired PG idents (see §5) stay retired.
+
+## 4. Derivation (import.analyse_power_group_link / process_power_group_link, extended in place)
+- PASS 1 (controlling): label-propagation over controlling edges only → controlling components; reuse/merge exactly today's semantics; BFS over controlling edges from controlling roots → `derived_controlling_influenced_power_level`.
+- PASS 2 (all edges): today's clustering UNCHANGED → all-edge components + today's BFS/levels. Then sparsity: a component whose membership equals exactly-one controlling component's gets NO sphere row; otherwise find-or-create the sphere row, stamp `aligned_power_group_id` on its contained controlling rows, and point non-controlling edges per the §2 edge rule.
+- Same asymptotics, ~2× today's constant. `base_change_log.power_group_ids` logs BOTH layers' ids so the derive pipeline refreshes both.
+
+## 5. One-time migration (deterministic, set-based; ratified ident rules)
+1. Compute controlling components over existing edges.
+2. An existing group whose membership equals one controlling component (the vast majority): `scope='controlling'`, ident kept. Done.
+3. A SPANNING cluster: the controlling group containing the old row's RENDERED ROOT (`power_root.root_legal_unit_id` — NSO custom override honored — else the level-0 member) INHERITS the old PG ident; other contained konsern mint fresh PG idents; the sphere row mints SI and the old row's memberships move accordingly.
+4. A PURE-PARTNERSHIP component (no controlling edges — e.g. Norway ANS/DA/KS): the old PG ident RETIRES (logged by the migration, never reissued); the component becomes a sphere row with a fresh SI ident. This is the ratified PG→SI renumber.
+5. The migration RAISEs a summary: kept / inherited / minted / retired counts + the retired-ident list.
+
+## 6. Reporting API (clean break — boolean removed, app updated same commit)
+- `statistical_unit_hierarchy(unit_type, unit_id, scope, valid_on, viewpoint public.power_group_scope DEFAULT 'controlling')` — replaces `primary_only boolean`; threaded to:
+  - `power_group_hierarchy(power_group_id, scope, valid_on, viewpoint)`
+  - `power_group_link(parent_legal_unit_id, parent_enterprise_id, parent_power_group_id, valid_on, viewpoint)`
+  - `power_group_membership_hierarchy(parent_legal_unit_id, valid_on, viewpoint)`
+- `viewpoint='controlling'` (DEFAULT — the EU report view): renders the konsern row — its members, controlling spine, `derived_controlling_influenced_power_level` depths, per-konsern root incl. custom override.
+- `viewpoint='aligned'`: renders the containing sphere — all members across spanned konsern, all edges, all-edge levels — FALLING BACK to the controlling group itself when no sphere row exists (sparsity-transparent).
+- Enumeration/search/statistical-unit surfaces filter on `scope`; EU exports read `scope='controlling'`. UI copy: "Enterprise group" / "Sphere of influence". TypeScript types regenerate (`./sb types generate`) in the same commit.
+
+## 7. Test plan
+- pg_regress: extend 117/118/120 to two layers. 119's Baltic (all-DTPR) becomes the zero-controlling case: asserts ONE sphere row, SI ident, all-edge levels intact. NEW JV fixture: konsern A + konsern B each hold exactly 50% of X → asserts the sparse sphere spans A+B+X, X in NO konsern under `controlling`, both viewpoints render, ident inheritance per the rendered-root rule.
+- Migration test per the 172 discipline: apply the split migration against pre-split data INCLUDING app-written rows (not just seed); assert kept/inherited/minted/retired outcomes and the retirement log.
+- Constraint tests: the two CHECKs reject wrong-prefix and sphere-of-sphere rows.
+- Reporting: hierarchy outputs under both viewpoints byte-asserted; `primary_only` absent from the API surface; app tests assert the display names.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
@@ -41,6 +92,17 @@ RELATED: STATBUS-178 (duplicate PRIMARIES stay illogical and per-row-erroring re
 - [x] #3 Reporting viewpoint selection designed: primary-only (EU default, for now) vs expanded interest-alignment view
 - [ ] #4 King reviews and approves the design before any build
 <!-- AC:END -->
+
+## Definition of Done
+<!-- DOD:BEGIN -->
+- [ ] #1 Schema per §2-3 shipped: scope enum, aligned_power_group_id FK, both CHECK constraints, derived_controlling_influenced_power_level, sphere_ident_seq + generate_sphere_ident()
+- [ ] #2 One-time migration proven in pg_regress against pre-split data INCLUDING app-written rows (STATBUS-172 discipline), with the kept/inherited/minted/retired summary asserted
+- [ ] #3 Derivation runs both passes with base_change_log carrying both layers' ids; derive pipeline refreshes both scopes
+- [ ] #4 Both viewpoints render correctly on the JV fixture (sparse sphere, X in no konsern) and the Baltic fixture (PG→SI renumber)
+- [ ] #5 viewpoint parameter replaces primary_only across all three fragments + statistical_unit_hierarchy in ONE commit; app + generated types updated; UI shows "Enterprise group" / "Sphere of influence"
+- [ ] #6 doc/power-groups.md rewritten to the two-layer model; samples/norway/brreg/README.md consistent with it
+- [ ] #7 EU export / statistical-unit surfaces read scope='controlling' by default
+<!-- DOD:END -->
 
 ## Comments
 
@@ -124,5 +186,25 @@ PREFIX PROPOSAL: **SI** (SI0001, base-36, own sequence — same mechanics as the
 CONSISTENCY SWEEP of the folded design (what changes in comments #2/#3 wording when built): every 'primary group' → 'controlling group', every 'interest row/layer' → 'sphere row / aligned layer'; the edge-level derived column name proposed as derived_primary_influenced_power_level becomes derived_controlling_influenced_power_level (level within the controlling group); the per-edge derived `primary` flag from doc/power-groups.md:169 is UNTOUCHED (it is edge-level control semantics, not group scope — distinct concepts, distinct names). The containment FK on controlling rows points at the sphere row when one exists.
 
 BLESS-POINT LEDGER after the fold: point 1 (layered model) — implicitly standing, the King ruled naming/idents ON TOP of it; formally confirmed at AC#4 review. Point 2 (naming) — RESOLVED (ruling 1). Point 3 (clean-break viewpoint param) — open for AC#4, now with values 'controlling'/'aligned'. Point 4 (ident continuity) — RESOLVED by overrule (ruling 2). Point 5 (EU default = controlling) — standing, unchanged. NEW for AC#4: the branch-(b) ident retirement for reclassified partnership components (Norway ANS/DA/KS renumber into SI) — the one consequence of rulings 2+3 combined that the King has not yet explicitly seen.
+---
+
+author: architect
+created: 2026-07-14 19:51
+---
+ORIGINAL DESCRIPTION (journal), moved here verbatim on the King's rewrite directive (2026-07-14) — the description is now the pure design; this preserves the discovery record:
+
+> NORTH STAR: an NSO can report on the PRIMARY power group (konsern — controlling edges only; what the EU wants in reports today) AND on the larger interest-alignment grouping (non-controlling edges included: delt ansvar, equal shares, two-50% holders), choosing the viewpoint at reporting time.
+> ORIGIN: King, 2026-07-14 morning, from the STATBUS-120/178 discussion + the meeting with Swedish NSO staff reporting to the EU: both viewpoints are useful; the EU wants the primary one in their reports, for now. Delt-ansvar-forms-power-groups is WANTED, but OPTIONAL — a selectable viewpoint, not a forced merge.
+> COMPLEXITY: architect design first (this is the ticket's substance), King reviews; build follows as its own scope.
+
+THE OPEN DESIGN QUESTION (King's words, near-verbatim): is a non-controlling cluster part of the SAME power group, or do we have MULTIPLE power groups — a primary power group and a non-primary power group that can SPAN multiple other (primary) power groups? The design must be looked at for how that can work.
+
+GROUNDING (current state, verified 2026-07-14): primary-ness is per-type (legal_rel_type.primary_influencer_only); Norway maps HFOR/EIKM/KOMP primary, DTPR/DTSO (delt ansvar) non-primary. Two docs currently DISAGREE on whether non-primary edges form power groups today: samples/norway/brreg/README.md says DTPR/DTSO don't (future, via multi-root); doc/power-groups.md:24 says all types contribute to clustering. The design work must first establish the empirical current behavior (one import experiment) and fix whichever doc is wrong, then rule the layered model.
+
+DESIGN POINTS: (1) edge marking vs group multiplicity — one clustered group with primary/non-primary marked edges queryable per viewpoint, or two group layers where a non-primary group may span several primary groups; (2) how two-50% holders (legal, must be expressible) attach without violating the primary exclusion; (3) reporting API: viewpoint selection (primary-only default per EU; expanded on request); (4) relation to derived_root_status multi-root machinery; (5) migration/derivation cost of whichever model wins.
+
+RELATED: STATBUS-178 (duplicate PRIMARIES stay illogical and per-row-erroring regardless of this design), STATBUS-120 (test coverage; closes with 178's unit), doc/power-groups.md DRAFT-001 reporting design.
+
+(The empirical result, the layered-model ruling, and the King's three naming/ident rulings are comments #1-#5; the design description above encodes all of them plus the exact schema.)
 ---
 <!-- COMMENTS:END -->
