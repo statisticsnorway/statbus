@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-30 12:40'
-updated_date: '2026-07-13 14:57'
+updated_date: '2026-07-14 09:46'
 labels:
   - import
   - not-install-upgrade
@@ -51,5 +51,13 @@ author: foreman
 created: 2026-07-02 18:13
 ---
 DISPATCH-CLARITY NOTE (foreman, 2026-07-02): before relying on the 'existing coverage' list in the description, verify the actual test-file names first-hand (`ls test/sql/ | grep -iE 'power|legal_rel'`) — the 117-121 subject labels above were written from memory in another working copy and may not match the files exactly (e.g. 118 is described elsewhere as power_group_hierarchy). The INVESTIGATE-first instruction (criterion 1) covers this: confirm the real gap against the real files before writing any test.
+---
+
+author: foreman (relaying King)
+created: 2026-07-14 09:46
+---
+KING REFRAME (2026-07-14 morning): two issues are mixed in this ticket — (a) real primary seeding (konsern) from custom URL, and (b) loading NON-controlling relationships (delt ansvar: multiple units in equal share control, none >50%) — which he believes today's load does NOT support. Must be discussed more before the 178 fix design is approved.
+
+FOREMAN GROUNDING (verified this morning): primary-ness is per-TYPE config — legal_rel_type.primary_influencer_only, NSO-defined, denormalized onto rows (doc/power-groups.md:99,139-146). Norway's mapping (samples/norway/brreg/seed-legal-rel-types.sql + README): HFOR/EIKM/KOMP = primary TRUE (structurally 1:1 in BRREG); DTPR/DTSO (deltaker pro-rata/solidarisk — the delt-ansvar shapes for ANS/DA/KS) = FALSE. The brreg README's own 'Partnership Structures (Future)' section says DTPR/DTSO 'don't currently form power groups but could in the future via multi-root support' — while doc/power-groups.md:24 says ALL types contribute to formation and non-primary edges cluster into the same component. THE TWO DOCS DISAGREE (or the README predates multi-root support, which test 120 Phase 6 asserts exists). Open questions for the discussion: (1) does an import of only-DTPR/DTSO edges actually form a power group today? — empirically checkable; (2) is BRREG's no-percentage reality correctly modeled by type-only classification, or do we need percentage-bearing equal-share support for other sources; (3) does the 178 both-rows-error detector risk rejecting LEGITIMATE shared-control data that merely got mapped to a primary type?
 ---
 <!-- COMMENTS:END -->
