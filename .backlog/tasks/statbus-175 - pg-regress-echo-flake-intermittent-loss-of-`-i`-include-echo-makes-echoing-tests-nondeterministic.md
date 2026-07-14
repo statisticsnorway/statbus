@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-07-13 13:20'
-updated_date: '2026-07-14 22:30'
+updated_date: '2026-07-14 22:47'
 labels:
   - testing
   - not-install-upgrade
@@ -66,5 +66,11 @@ author: foreman
 created: 2026-07-14 22:30
 ---
 AC#3 AUDIT RESULT + SCOPE RULING (2026-07-14/15 night): the mechanic's read-only audit found 61 exposed tests (37 via the Norway getting-started chain, 24 via demo; verified genuine \i-echo in expected, not coincidental substrings; list at tmp/175-ac3-audit-exposed-list.txt) — essentially the whole 1xx-4xx suite, not the handful the dispatch assumed. FOREMAN SCOPE RULING: full sweep stands (the North Star tolerates no committed expected depending on echo luck) but ships in BATCHES of ~15, each independently reviewed+committed — batch 1 = 401 + fast-suite members + 4xx series, then numeric order. Per-file PURPOSE GUARD adopted from the mechanic's flag: any test whose stated purpose involves the seed/definition content itself is EXCLUDED from the blanket wrap and gets an individual ruling; likewise any regenerated expected whose diff is not purely removal-of-echo. Regeneration is serialized by the dev.sh global test flock — batches bound each run-block.
+---
+
+author: foreman
+created: 2026-07-14 22:47
+---
+INFRA EVENT DURING BATCH 1 (2026-07-14 ~22:06-22:44 UTC, local dev db): TWO postgres crash-recovery cycles inside the mechanic's own heavy-run windows (investigation load variant; the long 401 regeneration). Foreman pulled the db logs: no explicit OOM lines, but the shape (backend silently killed → postmaster crash recovery → container never restarted) is the macOS Docker memory-pressure signature under heavy import load — most probable cause is the runs' own resource pressure, not an external actor. The killed 401 run died mid dev.sh DROP DATABASE (22:43:53 'connection to client lost') and orphaned a pg_regress+psql straggler — a NATURAL occurrence of exactly the straggler/orphan vector this ticket's AC#1 investigation deliberately left unforced; no echo-drop or output corruption was observed from it (the run died outright), recorded here per the accumulation rule. Mechanic cleaned up via dev.sh's own documented remediation (stragglers killed, isolated test DB dropped, recovery confirmed complete). Guard rule for the rest of the sweep: plain serialized runs only; a THIRD recovery cycle during a plain run is stop-and-report (falsifies the memory-pressure read → check Docker Desktop memory allocation).
 ---
 <!-- COMMENTS:END -->
