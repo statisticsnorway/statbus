@@ -752,12 +752,17 @@ END $$;
 			jwtCmd.Dir = projDir
 			jwtCmd.Stdout = os.Stdout
 			jwtCmd.Stderr = os.Stderr
-			// STATBUS-176 lint burn-down: pre-existing silent ignore, left
-			// as-is rather than changed to a hard failure — behavior-change
-			// candidate flagged in the burn-down report (a silently-failed
-			// JWT reload here would leave the restored DB serving with the
-			// WRONG jwt_secret, with no operator-visible signal).
-			_ = jwtCmd.Run()
+			// STATBUS-185: hard-fail. The restored dump carries ITS OWN
+			// jwt_secret; this reload rewrites it to match .env.credentials.
+			// If it fails silently the DB serves with the wrong secret and
+			// EVERY authentication fails token verification — an auth outage
+			// with no other signal. The DB is already in a wrong state, so
+			// proceeding is the corruption path: refuse loudly with a remedy.
+			if err := jwtCmd.Run(); err != nil {
+				return fmt.Errorf("failed to reload the JWT secret into auth.secrets after restore: %w\n"+
+					"The database would serve with the dump's stale jwt_secret — every authentication would fail token verification, with no other signal. "+
+					"Fix the DB connection (check `docker compose exec -T db psql`), then re-run the restore (the reload is idempotent)", err)
+			}
 		}
 	}
 

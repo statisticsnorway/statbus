@@ -2209,11 +2209,19 @@ func runInstallService(dir string) error {
 	// Enable linger so the user service runs even when not logged in.
 	// This requires loginctl which is available on systemd systems.
 	fmt.Println("  Enabling linger for user services")
-	// STATBUS-176 lint burn-down: pre-existing silent ignore, left as-is —
-	// behavior-change candidate flagged in the burn-down report (a failed
-	// enable-linger here means the user unit will NOT survive logout, with
-	// no operator-visible warning).
-	_ = runCmd("loginctl", "enable-linger", os.Getenv("USER"))
+	// STATBUS-185: warn loudly with a remedy, do NOT hard-fail. The install
+	// can still complete and the box is fully operable while the operator's
+	// session is up; linger is what keeps the upgrade daemon alive AFTER
+	// logout. So this is degraded-but-operable, not a wrong state — a hard
+	// fail would abort an otherwise-good install over something the operator
+	// can enable by hand. But it must not be silent: without linger the
+	// daemon dies at logout with no signal.
+	lingerUser := os.Getenv("USER")
+	if err := runCmd("loginctl", "enable-linger", lingerUser); err != nil {
+		fmt.Fprintf(os.Stderr, "  WARNING: `loginctl enable-linger %s` failed: %v\n", lingerUser, err)
+		fmt.Fprintf(os.Stderr, "  The install will continue, but the upgrade daemon will NOT survive your logout — it stops when your login session ends.\n")
+		fmt.Fprintf(os.Stderr, "  Remedy: run `sudo loginctl enable-linger %s` (or as root), then verify with `loginctl show-user %s -p Linger`.\n", lingerUser, lingerUser)
+	}
 
 	// Recovery: if the unit is in `failed` state from a prior crashed
 	// upgrade (e.g. the rune wedge — systemd hit StartLimitBurst after

@@ -978,12 +978,16 @@ func Generate(verbose bool) error {
 			if verbose {
 				fmt.Fprintf(os.Stderr, "Backing up .env to %s\n", backupPath)
 			}
-			// STATBUS-176 lint burn-down: pre-existing silent ignore, left
-			// as-is — behavior-change candidate flagged in the burn-down
-			// report (a silently-failed backup write here means a bad
-			// .env regeneration below has no recovery copy, with no
-			// operator-visible signal).
-			_ = os.WriteFile(backupPath, existing, 0644)
+			// STATBUS-185: hard-fail. This backup is the recovery copy of the
+			// current .env, and the overwrite below is exactly when it is
+			// needed. Returning here — BEFORE the overwrite — is non-destructive:
+			// the working .env is left intact, so a backup failure never
+			// destroys the operator's only copy. Refuse loudly with a remedy.
+			if err := os.WriteFile(backupPath, existing, 0644); err != nil {
+				return fmt.Errorf("failed to back up the existing .env to %s: %w\n"+
+					"Refusing to overwrite .env without a recovery copy — your current .env is left untouched. "+
+					"Fix the cause (disk space / permissions in %s), then re-run", backupPath, err, projDir)
+			}
 		}
 		if err := os.WriteFile(envPath, []byte(envContent), 0644); err != nil {
 			return fmt.Errorf("write .env: %w", err)
