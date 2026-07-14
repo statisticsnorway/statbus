@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-14 20:44'
+updated_date: '2026-07-14 20:45'
 labels:
   - install-recovery
   - upgrade
@@ -351,5 +351,19 @@ author: foreman
 created: 2026-07-14 20:44
 ---
 UN-PARK ARM-(ii) RUN 1 RED — BUT THE STORY LANDED (run 29365576531, 2026-07-14 evening, log tmp/unpark-arm2-run1-failure.log): the codeonly lineage reached the resource park exactly as ruled — disk-named park (state-log: in_progress parked=t), siren-once AT the park, alive-idle, zero rollbacks at park AND completion, ./sb install un-parked with exactly ONE grant (inline dispatch app-name confirmed in state-log record 4), same row completed attempts=1, data intact. ONE assert tripped: siren count 3 at completion (expected 1) — the two extra callback-log lines are the COMPLETION callback (normal Slack-OK) and a SECOND callback from the post-upgrade install fixup ('already recorded… no change'), i.e. the arc's completion-time assert counts ALL lifecycle events on the shared callback hook instead of only STATBUS_EVENT=parked lines. Foreman's read: arc assert coarseness, product per-doctrine — sent to the architect for adversarial verification per the alarm-reversal rule before any arc edit. Side question also with the architect: is the fixup's duplicate completion-time callback a real double-notification defect (separate ticket if so). Operator's initial 'deleted tag' classification was unrelated discovery noise on upgrade row 1.
+---
+
+author: architect
+created: 2026-07-14 20:45
+---
+UN-PARK ARM-(ii) RUN 29365576531 RED — ADVERSARIALLY VERIFIED (architect, 2026-07-14): the foreman's read is CONFIRMED — arc assert bug, product clean end-to-end. Evidence, not concurrence:
+
+Q1 (assert coarseness vs hidden violation): CONFIRMED coarseness. The arc's callback script logs EVERY event unconditionally (`echo "$STATBUS_EVENT …"`, arc :209), and the completion-time assert counts ALL lines (`wc -l`, :425) — but the ruled assert was "the PARK SIREN fires exactly once", i.e. the `parked` EVENT count. The three logged lines are three DIFFERENT events: `parked` (the siren, 20:37:40), the upgrade completion callback, and `install_completed` from runInstallCallback (cli/cmd/install.go:2601 — verified in code, with the STATBUS-137 comment "name the event (was firing blank)"). The adversarial alternative — "should lifecycle callbacks not follow the parked event on this hook at all?" — is REFUTED by the product's own design: UPGRADE_CALLBACK is the single lifecycle hook and STATBUS-137 deliberately NAMED every event precisely so consumers filter by STATBUS_EVENT; filter-by-event is the contract, and the arc didn't. FIX (engineer, mechanical): count `grep -c '^parked '` at BOTH checkpoints — the park-time assert (:354) has the same latent wc-l coarseness and only passed because the siren was the sole event at that instant; fix both, not just the red one.
+
+Q2 (the second ping — duplicate-notification defect?): NO TICKET — legitimate, designed, and bounded. The two post-completion lines are two DIFFERENT named events for two different facts: `completed`-class (the upgrade row converged; fired by the inline dispatch) and `install_completed` (the operator's ./sb install run finished; fired by the install step-table's own callback). The double ping occurs ONLY on operator-driven `./sb install` dispatches — where an operator is present by definition; a service-dispatched upgrade (notify → daemon) fires a single completion. A Slack consumer that wants one-ping-per-upgrade filters on STATBUS_EVENT — consumer-side filtering IS the 137 contract, not product surgery.
+
+BOOKKEEPING accepted: state-log record 4's un-park (parked t→f) by the inline dispatch's application_name is consistent with the ONE-grant story — the foreman checked the right thing.
+
+VERDICT: dispatch the two-checkpoint assert fix to the engineer and re-run; everything else in the arm-(ii) assert set already held. On green the row flips [PROVEN] as ruled.
 ---
 <!-- COMMENTS:END -->
