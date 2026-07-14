@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-07-14 19:23'
-updated_date: '2026-07-14 20:58'
+updated_date: '2026-07-14 20:59'
 labels:
   - fail-fast
   - upgrade
@@ -126,5 +126,21 @@ author: foreman
 created: 2026-07-14 20:58
 ---
 STALE-FLAG CLASS COMMITTED — AC#3 DONE (foreman, 2026-07-14 evening): commit 46dbaf36e. Uniform loud-warn per the architect's comment #7 ruling via one shared helper (warnOnStaleFlagRemoveFailure): ENOENT silent (double-removal race unit-tested silent + flock still cleared), any other unlink error → one line with path + raw error + per-site consequence + remedy. Sites: removeUpgradeFlag ×2, ReleaseInstallFlag, resumeNewSb self-heal flag remove, and cleanStaleMaintenance (ranked #7, pre-ruled same shape — its 'Cleaned' line now prints only on confirmed removal, log-honesty per the same principle as the #3 progress-line move; foreman-approved addition). All four markers replaced with ruling-citing comments. Unit tests: nil/ENOENT silent, other-error loud with all three parts present. Mechanic self-caught a doc-comment-attachment repeat of the unit-#2 mistake via go doc before freezing — the lesson stuck. REMAINING ON TICKET: AC#4's accepted-sites half only — ranked #8/#9 (migrate.go ledger DELETEs + full-rollback DROP leftovers, LEDGER DIVERGENCE tier, unruled), #10 (accepted-bounded, needs its ruling-citing comment), #11/#12 (cosmetic tier, accept-documented). One architect pass over the tail closes the ticket.
+---
+
+author: architect
+created: 2026-07-14 20:59
+---
+TAIL RULED (architect, 2026-07-14) — closes the catalog. Per tier:
+
+#8/#9 LEDGER DIVERGENCE — FIX NOW, HARD-FAIL. The down-path `DELETE FROM db.migration` and the full-rollback DROP TABLE/SCHEMA are LEDGER WRITES, and the ledger is the ground-truth input to the observed-state direction oracle (MAX(version) feeds Behind/AtTarget — STATBUS-039's machinery). A silently-failed DELETE leaves schema at N−1 with the ledger saying N: a later `migrate up` skips the re-apply, and every observed-state read LIES. Exposure is dev/operator-driven (`./sb migrate down` is not on the autonomous pipeline — rollback restores volumes, never runs migrate down), but a lying ledger on any box poisons everything downstream that reads it. Shape: check runPsql's error at all three sites; on failure RETURN THE ERROR immediately (stopping the down loop — continuing would compound the divergence), wrapped naming the consequence ("schema reverted but the migration ledger still records it as applied — the ledger now lies to migrate up and to observed-state"). Cheap: the surrounding function already returns errors.
+
+#10 recoverFromFlag corrupt-flag + stale-install-flag removes — ACCEPT-BOUNDED, formal. A failed remove re-enters the SAME handling next boot by construction: the corrupt flag is re-read as corrupt and re-removed; no decision is taken on the stale artifact in the meantime, so no lie follows the failure. The existing FLAG_CORRUPT print already names the event. Marker → ruling-citing comment.
+
+#11 backup/log prune RemoveAlls — LOUD-WARN, not silent accept, and history is the argument: jo's box accumulated NINE backup dirs over months precisely because prune failed silently (the "Backup ownership" heal step in the install ladder exists because of it — install.go's own comment records the incident). Same shape as the stale-flag class (46dbaf36e): os.IsNotExist silent; other errors → one loud line with path + error + consequence ("backups/logs accumulate; disk fills over months — the exact pre-heal jo failure") + remedy. Not the siren.
+
+#12 periodic-poll UPDATEs + PostgREST NOTIFYs — ACCEPT-DOCUMENTED, formal. Self-correction is real by construction: the poll re-runs on its own cadence and re-issues the same UPDATE; the reload NOTIFYs are re-sent on the next cycle/config change. No decision reads the outcome in between. Markers → ruling-citing comments.
+
+SUMMARY OF THE WHOLE CATALOG (for AC#4's final sweep): hard-fail — #3 (shipped 792300943), #8/#9 (this ruling); ABORT tier — #2 (shipped 3d7cf6b22); capture-and-fold — #1 (shipped 792300943); loud-warn — #4/#5/#6 (shipped 46dbaf36e), #7 (pre-ruled, shipped 46dbaf36e), #11 (this ruling); accept-documented — #10, #12 (this ruling). Oracle for the closing unit: go test (the migrate-down error paths get unit coverage — a failing runPsql stub returning error must abort the loop) + build/vet; no arc (dev-command surface).
 ---
 <!-- COMMENTS:END -->
