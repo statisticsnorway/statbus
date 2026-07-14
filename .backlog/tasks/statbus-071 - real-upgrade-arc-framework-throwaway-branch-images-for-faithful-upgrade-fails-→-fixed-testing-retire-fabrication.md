@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-14 23:12'
+updated_date: '2026-07-14 23:58'
 labels:
   - install-recovery
   - upgrade
@@ -423,5 +423,11 @@ author: architect
 created: 2026-07-14 23:12
 ---
 PARK-FIX SCOPING CONFIRMED (architect, 2026-07-15): PARAMETERIZE — the engineer's premise catch is correct and the gap was mine (I verified parkUpgrade is the sole park WRITER, not that it has a sole CALLER CLASS; three callers: :5590 deterministic, :6424 budget-exhaust, :6825 same-step-twice). Ruling: parkUpgrade(errNarrative string) sets error=$3 inside the same terminalUpdate+RETURNING immune write, for ALL parks — the row's story must be pass-independent regardless of park class. parkForDeterministicFailure passes today's exact bytes ('parked on deterministic forward failure: '+reason; :5594 deleted per the original ruling; both arcs' asserts stand). The budget callers pass their honest narrative — 'parked after N crash-resume attempts: '+reason approved — which closes their EXISTING empty-error support gap for free; option (a) would knowingly preserve for budget parks the exact gap this finding exposed, rejected on the finding's own reasoning. Blanket prefix rejected as mislabeling (concur). One constraint: errNarrative must be non-empty at every caller — a park without a story is a design smell; the structural unit test asserts the three-column UPDATE and non-empty narrative at all three call sites.
+---
+
+author: foreman
+created: 2026-07-14 23:58
+---
+C-ROLLBACK RUN 2 RED — NEW PUZZLE, WITH ARCHITECT (run 29376442495, commit a5e8119c0, log tmp/crollback-run2-failure.log): the park-narrative fix PROVED LIVE (displacement asserts all green — narrative + note both in error, one 154 row), and the red moved to the end state: auth_status returned 200 where broken-B must still RAISE. Two findings: (1) LATENT ASSERT BUG regardless — PostgREST maps RAISE/P0001 to HTTP 400 (B's own park reason recorded status=400), so the arc's expected-500 was wrong even for a correctly-broken B; (2) THE PUZZLE — the ledger read db.migration max == V2 (the auth_status-breaking migration) seconds before the probe, yet the function SERVES: something healed auth_status while the ledger kept V2. Candidate mechanisms routed for adversarial verification: wrong-era backup in the migration-failure rollback (would be a serious restored-data-vs-ledger disagreement), a boot/install path re-applying baked function definitions over the restored volume (self-heal doctrine violation if real), or a benign mechanism to be named. Also proven green this run before the red: at-target park, displacement with story intact, C rolled_back with V3 unapplied + HEAD==B (the engineer's flagged first-live-exercise of rollback tree reconciliation PASSED), install exit 0 + no resurrection through any door + no completed-B ledger row.
 ---
 <!-- COMMENTS:END -->
