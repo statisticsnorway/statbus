@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-14 16:12'
-updated_date: '2026-07-14 16:41'
+updated_date: '2026-07-14 17:06'
 labels:
   - upgrade
   - deploy
@@ -56,5 +56,25 @@ FIX SHAPE RULED (architect, 2026-07-14) — AC#2. Verdict: (A) inline register-t
 5. ORACLE (AC#3): unit tests on the unregistered branch (resolvable tag → registered+promoted with the 169 guard exercised; unresolvable-after-fetch → durable refusal written; refusal cleared on next promote) + the run: the next RC's deploy poke sent within seconds of the cut — the natural repeat of this incident — must converge row-completed. 170 phase-2 stays the independent net.
 
 WHY NO KING BLESS: his 086 intent (no blind inserts; loud actionable refusals) and his 169 guard both run UNCHANGED — only the invoker of the already-sanctioned register machinery moves from the operator's hands into the handler, for inputs the operator's own remedy command would have accepted identically. Nothing in the permission/verification surface weakens; one silent path becomes convergent and every refusal becomes durable. If the King reads it differently this evening, the build waits on his word — the engineer can start on points 2-4, which stand regardless.
+---
+
+author: architect
+created: 2026-07-14 17:06
+---
+SAFETY-CORE PASS on the frozen build (architect, 2026-07-14): AMEND before commit — one real defect found and EMPIRICALLY confirmed; everything else ships as built.
+
+THE DEFECT (A1, mandatory): the fetch leg is VACUOUS for the exact rc.06 incident case. ensureCommitLocal's fetch is `git fetch origin <input>` — correct for a full SHA (the rc.04 deploy-by-commit case it was built for), but for a TAG NAME git fetches into FETCH_HEAD ONLY and does NOT create refs/tags/<tag>; the subsequent resolveUpgradeTarget RevParse still fails. Reproduced in a scratch repo just now, clean clone, tag created on the remote after: plain `git fetch origin vtest-2` → `* tag vtest-2 -> FETCH_HEAD`, rev-parse still fatal; the refspec form `git fetch origin refs/tags/vtest-2:refs/tags/vtest-2` → `[new tag]`, rev-parse succeeds. As frozen, the rc.06 race would now end in a DURABLE REFUSAL instead of silence — an improvement — but not the ruled CONVERGENCE. Fix: class-branch the fetch inside ensureCommitLocal (one chokepoint, mirrors registerTarget's design): cat-file short-circuit unchanged; on miss, isCommitSHAShape → the current SHA fetch; else → `git fetch origin refs/tags/<input>:refs/tags/<input>`. Also generalize its error text — it currently says "register could not fetch commit … deploy-by-commit", the wrong voice for the apply/tag path. RunRegister's SHA-gated call keeps identical behavior.
+
+A2 (mandatory, cheap): the 7 tests did not catch A1 — TestApplyRace_FetchLegBeforeResolve asserts call ORDER only. Add a structural assert that the tag-class fetch uses the refs/tags refspec form (funcBody contains `refs/tags/`), with a comment citing the FETCH_HEAD-only behavior so nobody simplifies it back.
+
+A3 (verify-or-tighten): the foreman's blocking-hazard question — runCommandOutput bounds every command at 2 MINUTES (exec.go:226-232, context timeout; verified), so no unbounded hang. But 2m sits at the unit watchdog window's scale: builder either confirms the notify-dispatch path stays heartbeat-covered through a 2m block, or passes a shorter bound (~30s — ample for a single ref fetch) for the handler call.
+
+ADJUDICATIONS — the rest ships as built:
+- THE DEVIATION (clear refusal on scheduleResultAlreadyScheduled): ACCEPTED. The key's semantics are single-latest-outcome; an already-scheduled/running named version means the poke's intent IS actioned, and a stale refusal beside it would be a false red for 170 phase-2. The engineer's rationale is correct and consistently applied in both the first-pass and post-register branches. The ruling's "promoted-only" is superseded on this point.
+- RunRegister rewiring: faithful port through registerTarget (meta construction verbatim; commitMeta errors now wrapped with "register <name>:" — an improvement, no regression); the single-guarded-register-path invariant is now literal code structure.
+- recordApplyRefused: best-effort with a printed log line on failure — acceptable per the ruling; SQL matches the system_info genre, occurred_at DB-authoritative via clock_timestamp.
+- The reshaped structural guard correctly encodes the stronger invariant (no raw INSERT + registerTarget + promoteExistingCandidate required).
+
+After A1-A3: SHIP; AC#3's run oracle (next RC's poke within seconds of the cut) stands as ruled.
 ---
 <!-- COMMENTS:END -->
