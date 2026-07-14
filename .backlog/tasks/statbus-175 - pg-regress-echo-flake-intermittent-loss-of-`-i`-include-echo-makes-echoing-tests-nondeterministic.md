@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-13 13:20'
+updated_date: '2026-07-14 10:47'
 labels:
   - testing
   - not-install-upgrade
@@ -42,3 +43,13 @@ SUSPECTS to investigate: interaction of test/setup.sql's `\o /dev/null` (line 3)
 - [ ] #2 Decide the fix: either root-cause the echo drop in the harness/setup.sql, or adopt the 403 pattern (suppress shared-include output) as the standard for tests that \i getting-started.sql + definitions
 - [ ] #3 Audit existing echoing tests (401, others) for exposure; apply the chosen fix so no committed expected depends on include-echo luck
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-14 10:47
+---
+POSSIBLY-RELATED OBSERVATION (2026-07-14): during the engineer's STATBUS-178 fast-suite run, test 314_consecutive_demo_loads (the slowest test, ~40-59s) failed with OUTPUT-FILE CORRUPTION — a line truncated mid-token plus whitespace explosion in the results file; the test passed clean solo immediately after, and my full-suite counter-run the same hour was 86/86 green (314 ok in 39s). One occurrence, not reproduced. Same family as this ticket's \i-echo nondeterminism? Both are pg_regress OUTPUT-stream integrity flakes on long/slow tests rather than SQL behavior differences. No dismissal — recording so the pattern accumulates; if a third distinct corruption shape appears, this ticket's investigation should cover the output-capture path (psql → results file I/O), not just the echo semantics.
+---
+<!-- COMMENTS:END -->
