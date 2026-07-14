@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-07-12 14:05'
-updated_date: '2026-07-14 10:17'
+updated_date: '2026-07-14 13:04'
 labels:
   - clarity
   - de-jargon
@@ -41,7 +41,7 @@ Wire values are byte-identical today (proven by the 107 identifier slice's round
 <!-- AC:BEGIN -->
 - [x] #1 The post-swap function family + coupled comments follow the registry slugs; go build/vet/test green; no wire value changes in this half
 - [ ] #2 Architect ruling recorded for the serialization half (clean-break vs read-both, re-derived against the shipped 145/154/159/163 geometry), then built with cross-version recovery proven by an arc
-- [ ] #3 doc/upgrade-vocabulary.md's one open item (the parked serialization) closes with this ticket
+- [x] #3 doc/upgrade-vocabulary.md's one open item (the parked serialization) closes with this ticket
 <!-- AC:END -->
 
 ## Comments
@@ -93,5 +93,11 @@ author: foreman (relaying King)
 created: 2026-07-14 10:17
 ---
 KING RATIFIED the alias ruling (2026-07-14), reversing his 2026-06-22 clean-restart decision on the architect's new fact (the unrecognized read is MAINLINE on the boundary upgrade, not a crash corner), WITH ONE DESIGN REFINEMENT: keep the primary mapping and the legacy aliases as TWO CONCATENATED PARTS — structurally and nominally separate (e.g. the canonical slug table and a clearly-named legacy-alias table joined at the decode chokepoint), so there is no confusion by design and naming. Never one merged map where canonical and legacy spellings are indistinguishable. Build (engineer, after 178): clean-break writers (slugs verbatim), the single UnmarshalJSON-level chokepoint reading canonical-then-legacy from the two named parts, LEGACY-PHASE-BYTES marker + written removal condition, FLAG_PHASE_UNKNOWN guard untouched, harness sweep (fabricate_resume_state + scenario-4 sed), unit round-trips + the ONE cross-version arc (pre-rename box → renamed build, alias resumes handoff, row completed) gating any release that carries the new bytes.
+---
+
+author: foreman
+created: 2026-07-14 13:04
+---
+HALF #2 BUILD SHIPPED (foreman commit 0e04a9613, 2026-07-14): writers stamp the registry slugs; ONE UnmarshalJSON chokepoint normalizes the two historical spellings via TWO structurally separate named tables (canonicalPhaseBytes set + legacyPhaseByteAliases map — the King's two-concatenated-parts refinement, verified in review); junk still reaches FLAG_PHASE_UNKNOWN; LEGACY-PHASE-BYTES marker + removal condition + reverse-boundary residual documented in place. Round-trip oracle green (foreman-verified independently): legacy→canonical through every read path, RMW rewrites, IsServiceNewSbRecovery across spellings, tables-disjoint. Harness swept to new bytes (fabricate_resume_state + scenario-4); the restore-broke-reattempt arc's product-written flag assert flipped in the SAME commit (engineer's all-consumers sweep caught it; master self-consistent at every commit). AC#3 checked — doc/upgrade-vocabulary.md's parked item closed. AC#2 remains OPEN until the cross-version arc (pre-rename box → renamed build, alias resumes the handoff, row completed) runs green — engineer building it next; that arc gates any release carrying the new bytes. Soft residual accepted: scenario-3 + rollback-abort-churn still fabricate OLD bytes and pass via the alias — left deliberately as incidental legacy-path coverage.
 ---
 <!-- COMMENTS:END -->
