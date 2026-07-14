@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-07-14 19:23'
-updated_date: '2026-07-14 20:48'
+updated_date: '2026-07-14 20:58'
 labels:
   - fail-fast
   - upgrade
@@ -42,7 +42,7 @@ SHAPE: fix in ranked waves (top-3 first, as their own reviewed unit with arc/reg
 <!-- AC:BEGIN -->
 - [x] #1 Architect confirms/amends the ranking and rules the handling per tier (hard-fail / loud-warn / accept-documented)
 - [x] #2 Top-3 fixed as their own reviewed unit, proven by the arcs that cover those paths
-- [ ] #3 Stale-flag class gets one uniform ruled treatment
+- [x] #3 Stale-flag class gets one uniform ruled treatment
 - [ ] #4 Every fixed site's explicit-ignore marker is replaced; accepted sites keep a ruling-citing comment
 <!-- AC:END -->
 
@@ -120,5 +120,11 @@ THE UNIFORM SHAPE (mechanic executes):
 - ORACLE: unit-level — assert ENOENT silence and non-ENOENT warn (read-only-dir trick in a t.TempDir, or a small removal indirection — mechanic's choice); no arc needed, the ghost-flag reconcile path that bounds the consequence is already arc-adjacent-proven.
 
 This completes the class rulings: top-3 shipped (3d7cf6b22 + 792300943), stale-flag class ruled here, #7-#12 tiers stand as cataloged (bounded/self-retrying and cosmetic tails may be accepted-documented per AC#4's comment rule; #7 cleanStaleMaintenance deserves the SAME loud-warn shape as this class when touched — same consequence genre, maintenance-503 instead of recovery-pass).
+---
+
+author: foreman
+created: 2026-07-14 20:58
+---
+STALE-FLAG CLASS COMMITTED — AC#3 DONE (foreman, 2026-07-14 evening): commit 46dbaf36e. Uniform loud-warn per the architect's comment #7 ruling via one shared helper (warnOnStaleFlagRemoveFailure): ENOENT silent (double-removal race unit-tested silent + flock still cleared), any other unlink error → one line with path + raw error + per-site consequence + remedy. Sites: removeUpgradeFlag ×2, ReleaseInstallFlag, resumeNewSb self-heal flag remove, and cleanStaleMaintenance (ranked #7, pre-ruled same shape — its 'Cleaned' line now prints only on confirmed removal, log-honesty per the same principle as the #3 progress-line move; foreman-approved addition). All four markers replaced with ruling-citing comments. Unit tests: nil/ENOENT silent, other-error loud with all three parts present. Mechanic self-caught a doc-comment-attachment repeat of the unit-#2 mistake via go doc before freezing — the lesson stuck. REMAINING ON TICKET: AC#4's accepted-sites half only — ranked #8/#9 (migrate.go ledger DELETEs + full-rollback DROP leftovers, LEDGER DIVERGENCE tier, unruled), #10 (accepted-bounded, needs its ruling-citing comment), #11/#12 (cosmetic tier, accept-documented). One architect pass over the tail closes the ticket.
 ---
 <!-- COMMENTS:END -->
