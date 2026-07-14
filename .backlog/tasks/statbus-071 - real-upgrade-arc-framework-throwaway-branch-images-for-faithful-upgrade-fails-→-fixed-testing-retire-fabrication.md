@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-14 22:42'
+updated_date: '2026-07-14 23:04'
 labels:
   - install-recovery
   - upgrade
@@ -395,5 +395,11 @@ author: foreman
 created: 2026-07-14 22:42
 ---
 C-ROLLBACK RESURRECTION ARC COMMITTED + DISPATCHED (foreman, 2026-07-15): commit aeaa6e1ca — new crollback lineage (B byte-identical to healthpark's, C = B + a NEW failing V3; two-phase), the c-rollback-resurrection arc (B parks at-target → C displaces B at claim → C fails post-swap and rolls back onto B → ./sb install resurrects NOTHING: B superseded with story intact, C rolled_back, zero terminal→completed in the state log, install exit 0, box observably runs B via git HEAD with no completed-B ledger row, app health honestly red, data intact — then the architect-sanctioned GUARD-PROBE: attempted superseded→completed refused by the terminal-resurrection trigger naming the re-dispatch remedy, row byte-unchanged), and the harness workflow wired (11 fixture branches). Engineer designed+built per the ruling; foreman verified the trigger text/env plumbing/invocation shapes independently and added the V_VERSION_2/3 fail-fast requires at commit. ORACLE IN FLIGHT: arc-harness run 29373805316, operator watching — the map row flips [PROVEN] only on green. Engineer's honest flag on the run: HEAD==B-after-rollback is the first live exercise of the rollback's tree reconciliation on a C-that-fails — a red THERE is a product finding, with db.migration max==V2 as the independent read.
+---
+
+author: foreman
+created: 2026-07-14 23:04
+---
+C-ROLLBACK ARC RUN 1 RED — POSSIBLE PRODUCT FINDING, WITH ARCHITECT (run 29373805316, log tmp/crollback-run1-failure.log): failed at the displacement-narrative assert — after C displaced B, B's error held ONLY ' — displaced by the claim of upgrade id=3' (the note appended to an EMPTY error); the park narrative never lived in error this run. Puzzle: the assert is byte-copied from postswap-health-park, which went GREEN with it on run 29171998401 — same lineage, same break, different error-field outcome. Mechanism candidate from the journal: THIS run's B parked via the RECOVER-FROM-FLAG path (reason written to recovery_parked_reason, error left NULL, unit exit 1), while health-park's green presumably parked inline — i.e. two park writers with different error-field contracts, selection timing-dependent. If confirmed: (a) the displacement story's 'narrative + note both in error' contract silently depends on which writer parked you — an operator/support-story gap; (b) health-park's own assert is latently flaky (no-flaky-tests → must be fixed either way). Architect ruling requested: verify the two-writer hypothesis, rule product-fix vs contract-restatement (both arcs' asserts move together), and explain the inline-vs-recover selection nondeterminism. Everything up to that assert was GREEN: at-target park, reason names B, V1+V2 applied, C displaced B (superseded, marker cleared, one 154 displacement row).
 ---
 <!-- COMMENTS:END -->
