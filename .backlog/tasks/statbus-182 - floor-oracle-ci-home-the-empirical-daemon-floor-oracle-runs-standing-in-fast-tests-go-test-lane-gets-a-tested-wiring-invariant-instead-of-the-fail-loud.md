@@ -4,10 +4,10 @@ title: >-
   floor-oracle-ci-home: the empirical daemon-floor oracle runs standing in
   fast-tests; go-test lane gets a tested wiring invariant instead of the
   fail-loud
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-07-14 13:29'
-updated_date: '2026-07-14 13:38'
+updated_date: '2026-07-14 14:25'
 labels:
   - ci
   - upgrade
@@ -30,11 +30,11 @@ Resolution ruled by the architect (comment #1): floor NOT bumped (option b rejec
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 fast-tests.yaml provisions a database at EXACTLY DaemonSchemaFloor (template-clone at the migration waypoint preferred; second-baseline DB as fallback) and runs TestDaemonFloorSchemaSufficient with STATBUS_FLOOR_TEST_DSN — strict, failing the lane on any prepare failure
-- [ ] #2 The oracle self-asserts non-vacuity: SELECT MAX(version) FROM db.migration must equal DaemonSchemaFloor or the test FAILS (replaces the do-not-point-at-HEAD comment with machinery)
-- [ ] #3 go-test lane: the DSN-unset fail-loud becomes skip-with-notice (naming the CI home + local recipe), and a NEW TestFloorOracleWiredInCI in the pure lane asserts fast-tests.yaml carries the oracle invocation + floor-derivation — the wiring is a tested invariant
-- [ ] #4 Master green restored at the landing commit; the oracle observed GREEN in fast-tests at that same sha (the first genuine empirical floor verdict)
-- [ ] #5 DaemonSchemaFloor NOT bumped — 178 is outside the daemon SQL surface per the scope rule; the bump guard remains the only legitimate bump trigger
+- [x] #1 fast-tests.yaml provisions a database at EXACTLY DaemonSchemaFloor (template-clone at the migration waypoint preferred; second-baseline DB as fallback) and runs TestDaemonFloorSchemaSufficient with STATBUS_FLOOR_TEST_DSN — strict, failing the lane on any prepare failure
+- [x] #2 The oracle self-asserts non-vacuity: SELECT MAX(version) FROM db.migration must equal DaemonSchemaFloor or the test FAILS (replaces the do-not-point-at-HEAD comment with machinery)
+- [x] #3 go-test lane: the DSN-unset fail-loud becomes skip-with-notice (naming the CI home + local recipe), and a NEW TestFloorOracleWiredInCI in the pure lane asserts fast-tests.yaml carries the oracle invocation + floor-derivation — the wiring is a tested invariant
+- [x] #4 Master green restored at the landing commit; the oracle observed GREEN in fast-tests at that same sha (the first genuine empirical floor verdict)
+- [x] #5 DaemonSchemaFloor NOT bumped — 178 is outside the daemon SQL surface per the scope rule; the bump guard remains the only legitimate bump trigger
 <!-- AC:END -->
 
 ## Comments
@@ -72,4 +72,16 @@ SPEC RIDER (architect, 2026-07-14; folding the foreman's catch from the engineer
 
 No AC change needed: AC#3's wiring-assert already covers the workflow side; the comment fix rides the same unit.
 ---
+
+author: foreman
+created: 2026-07-14 14:25
+---
+SHIPPED + RUN-PROVEN (foreman commit 1374e89ba, 2026-07-14). Engineer built to the spec with the architect's own named FALLBACK provisioning (dedicated floor DB from the seed baseline via a scoped POSTGRES_SEED_DB override, reverted after) — the preferred waypoint-clone was structurally unavailable (migrate-and-test is monolithic; workflow_run mode seed-restores PAST the floor), and the non-vacuity guard makes the fallback self-checking. Floor derived by grep from the constant; PGPASSWORD masked (set +x window); recipe comment made symbolic per the rider. Foreman line-review + independent local runs (wiring test green, skip-with-recipe correct, actionlint clean). VERDICTS at the landing sha (operator-watched): Go Test 29339381259 SUCCESS (skip + wiring test — master GREEN again), Fast Tests 29339617708 SUCCESS with the floor-oracle step delivering the FIRST genuine empirical floor verdict in CI. All five ACs checked; floor NOT bumped. The release train unblocks.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The empirical daemon-floor oracle now runs standing in CI. The first-ever floor lag (STATBUS-178's import migration) tripped the designed fail-loud on a DSN-less CI; the resolution built the oracle its home instead of bumping the floor: fast-tests provisions a dedicated DB at exactly DaemonSchemaFloor (value grepped from the constant, never hardcoded; non-vacuity guard fails a mis-provisioned HEAD DB) and runs the oracle strict on every master push; go-test's Fatal became Skip-with-notice with TestFloorOracleWiredInCI asserting the cross-lane wiring as tested machinery — deleting the workflow step turns go-test red by construction. Proven at the landing commit: both lanes green, the oracle's first real verdict GREEN. Floor unbumped per its own scope rule (178 touches zero daemon relations).
+<!-- SECTION:FINAL_SUMMARY:END -->
