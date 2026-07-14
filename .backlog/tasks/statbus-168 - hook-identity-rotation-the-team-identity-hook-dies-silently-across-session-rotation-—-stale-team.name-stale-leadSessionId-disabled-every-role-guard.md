@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-12 22:14'
-updated_date: '2026-07-14 10:17'
+updated_date: '2026-07-14 10:26'
 labels:
   - tooling
   - team
@@ -109,5 +109,11 @@ author: foreman (relaying King)
 created: 2026-07-14 10:17
 ---
 KING BLESSED all three judgment calls (2026-07-14) — AC#1 complete. (1) Root-session⇒foreman: approved — 'it's the one I control.' (2) Fail-closed release for unknown children: approved — he notes the real cost (the foreman cannot delegate a release cut to a smart agent like the engineer) and accepts it as sensible given technical constraints. (3) The P2 residual: approved, WITH A DESIGN RIDER that partially supersedes the concern: the release gate is what matters, regardless of who trips it — so the gate's deny/notice text MUST carry an explicit instruction to the calling LLM: 'You cannot work around this gating unless you have an explicit blessing from the King (or person in control).' His reasoning: that instruction voids the workaround space itself (an agent that inherits env and passes identification is still bound by the no-workaround instruction at the gate) — same doctrine as naming dangerous operations so any agent calls the human. BUILD SPEC ADDITION: the no-workaround sentence goes in every authority-gate message (deny AND the allow paths that carry notices), phrased to the LLM reader. Build queued (mechanic, after the 071 restore-broke-reattempt arc): implement per comments #3/#4 + this rider, with the AC#3 test list including the P1/P2 env probes.
+---
+
+author: foreman
+created: 2026-07-14 10:26
+---
+P1 PROBE REFUTES the step-2 discriminator (foreman, 2026-07-14 ~10:30): the LIVE foreman session's env HAS `CLAUDE_CODE_CHILD_SESSION=1` (probe run in-session; no agent/team identity vars alongside it). The ruling's 'lead sessions run bare → marker absent' inference is empirically false on the exact machine this hook protects. Built as ruled, the legitimate foreman classifies unknown-child → Tier-2 release DENY — the original incident, now by design. Identity half of the build ON HOLD; architect re-ruling the discriminator (candidate directions passed along: identity-vars/argv presence instead of the bare marker; process-ancestry argv walk). Unaffected build parts proceed (loud missing-config, vocabulary normalization + routable hints, the King's no-workaround rider, two-tier structure with the classifier as a marked seam; leadSessionId NOT yet removed). The probes were in the ruling for exactly this reason — the run was the oracle, and it fired before the build instead of after.
 ---
 <!-- COMMENTS:END -->
