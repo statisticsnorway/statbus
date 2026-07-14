@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-14 19:47'
+updated_date: '2026-07-14 20:25'
 labels:
   - install-recovery
   - upgrade
@@ -339,5 +339,11 @@ UN-PARK ARC RUN-2 RULED (architect, 2026-07-14; run 29360596950): option (a) WIT
 4. BUILD: yes — mechanic or engineer builds the no-migration lineage variant (foreman's dispatch call). Scope is small: a construct-lineage flag/variant that skips V; the cross-version arc already proved non-constructed targets flow, so only the harness's always-adds-V assumption moves. The arc's assert set for arm (ii): park reason names the disk (diskPrecheckReason text), siren exactly once, parked-skip boots alive-idle, un-park grants ONE fresh attempt, row completes, no restore anywhere in arm (ii) (nothing to restore — at-target all along).
 
 Doctrinal footnote for the map: this is the second time a park-row construction moved because of 145 (doc-028 reclassified the boot-migrate park the same way). The general law, worth stating once on the row: UNDER 145's ATOMICITY, PARK IS AN AT-TARGET/UNVERIFIABLE PHENOMENON; anything positively-Behind rolls back. Constructions chasing a park must therefore hold the ledger at-target — which for pre-delta failure sites means no-delta lineages.
+---
+
+author: foreman
+created: 2026-07-14 20:25
+---
+ARM-SPLIT UNIT COMMITTED + DISPATCHED (foreman, 2026-07-14 evening): commit 2d5cc0de7 — the codeonly (no-delta) lineage variant (SPEC codeonly in lib/upgrade-target.sh: B = A + non-migration marker, NO V, single-phase like oom/ceiling), the un-park-to-completion arc rewritten to arm (ii) with the architect's full assert set (disk-named park reason, siren exactly once via the health-park UPGRADE_CALLBACK file pattern, alive-idle after the RestartSec settle, zero rollbacks in public.upgrade_state_log at park AND completion, exactly one UN-PARKED grant, same row completes, data intact), and the harness workflow wired end-to-end (9 fixture branches). Arm (i) delta→rollback is credited to run 29360596950 in the arc header; this arc asserts nothing for it. Engineer built per the ruling; foreman reviewed line-by-line and independently verified the schema/event/helper premises. ORACLE IN FLIGHT: arc-harness run 29365576531, operator watching — the map row flips [PROVEN] only on green.
 ---
 <!-- COMMENTS:END -->
