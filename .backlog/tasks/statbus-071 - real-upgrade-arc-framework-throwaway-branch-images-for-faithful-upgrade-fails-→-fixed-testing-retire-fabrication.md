@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-14 17:34'
+updated_date: '2026-07-14 17:45'
 labels:
   - install-recovery
   - upgrade
@@ -303,5 +303,22 @@ author: foreman
 created: 2026-07-14 17:34
 ---
 INTERIM-NET FIRST GREEN (2026-07-14 evening): 4-flagless-selfheal-at-target (the narrowed rename of 4-rollback-abort-write-lands' surviving oracle) PASSED its required fresh run — install-recovery-harness run 29353418547, dispatched via CI after two LOCAL attempts died to VM SSH drops (rc=255 mid-bootstrap / mid-install — infra, not asserts; a third local attempt earlier died to the STATBUS-184 tip-race). The flagless self-heal (orphan at-target in_progress row → next ordinary boot → completeInProgressUpgrade → completed/error-NULL, [completed-from-in-progress] in the journal, no flag ever, NRestarts≤1, data intact) is proven on a real box under the narrowed scenario's own name. The STATBUS-039 coverage the set-difference check protected is intact and freshly stamped.
+---
+
+author: architect
+created: 2026-07-14 17:45
+---
+DDL-DEADLOCK CELL ASSESSED (architect, 2026-07-14) — the last [ASSESS] row, now decision-ready. HEADLINE: the product change the cell was waiting on ALREADY SHIPPED; the scenario's "no fix exists" premise is stale; one bounded VM run flips the cell [PROVEN].
+
+(1) WHAT THE SCENARIO CONSTRUCTS (3-postswap-worker-ddl-deadlock, read in full): a real install at a pinned baseline + demo data + a CONTINUOUS worker workload (statistical_history_reduce enqueued every 2s — AccessShareLock held seconds at a time on history tables) + `./sb install` at HEAD applying the real migration delta. Zero fabrication — this is the jo/tcc forensics wedge's exact shape: an operator install over a live, loaded box. Real-path reachable under the 145 geometry: YES — the install step-table's Migrations step is deliberately apply-all (145 bounded only the crash-recovery boot-migrate).
+
+(2) TRIGGER DETERMINISM: the GREEN direction (the regression net) is deterministic — with the quiesce in place, completion does not depend on winning any lock race; the workload proves the quiesce beats a genuinely-busy worker. The RED direction (observing the wedge) is per-lock nondeterministic AND would require un-fixing the product — pointless; the wedge is forensics-documented history, not a claim needing re-proof.
+
+(3) THE PRODUCT CHANGE: SHIPPED, both paths, verified today — the scenario header (written at 1f077e545) predates it.
+- INSTALL PATH: the R1 quiesce window is wired into the step loop (cli/cmd/install.go:633-680): compose.QuiesceClients stops worker/app/rest before Seed/Migrations whenever those steps actually need to run, HARD-FAILS if the quiesce fails ("must not proceed with DDL on live services"), and ResumeClients restarts exactly the stopped set after the window closes (compose.go:126/:158); db/proxy stay up throughout.
+- UPGRADE PATH: Step 3 stops app/worker/rest before backup/swap (service.go:5190-5193); the delta then runs on the new binary with clients still down, services returning only after migrate + health.
+- Boot-time floor catch-up on a live box is a no-op on any healthy box (floor migrations long applied); recovery boots run with clients down. Residual, out of the cell's scope: a freehand `./sb migrate up` by an operator on a live box — operator action outside the machinery's promise.
+
+(4) KING FRAMING — one recommendation: RUN-THE-SCENARIO. Not fix-the-product (done); not retire-the-cell (one bounded run converts the map's last question mark into proof on the exact forensics wedge, and the scenario's own activation condition — "activates the moment the R1 fix is ready" — is met). Pre-run refresh, small (mechanic): rewrite the stale header (fix landed, cite install.go:633-680 + service.go:5190), re-pin INSTALL_VERSION to a recent baseline so the delta is realistic, keep the existing pass criteria (terminal within the 15-min budget, data intact, counts match snapshot, NRestarts ≤ 2). Cost: one VM, bounded. On green the cell flips [PROVEN] and the coverage map carries no [ASSESS] rows.
 ---
 <!-- COMMENTS:END -->
