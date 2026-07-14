@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-13 14:42'
-updated_date: '2026-07-14 17:45'
+updated_date: '2026-07-14 18:09'
 labels:
   - ci
   - quality-gate
@@ -43,5 +43,11 @@ author: foreman
 created: 2026-07-14 17:45
 ---
 INVENTORY (operator, 2026-07-14, golangci-lint v2.12.2, no-config, staticcheck+errcheck+ineffassign; nilness unavailable as a standalone enable in this version — the build must wire it via govet's analyzer set): 69 findings total — errcheck 50, staticcheck 11, unused 7 (default-included), ineffassign 1. Concentration: migrate.go 8, invariants/registry.go 7, upgrade/service.go 6, release/check_test.go 6, upgrade/exec.go 5, selfupdate 5, cmd/install.go 5; top-3 files = 30% of total. Log: tmp/lint-inventory-176.log. SIZING VERDICT: a one-session burn-down — errcheck dominates and most hits are likely deliberate best-effort calls needing explicit `_ =` or error handling; the gate can land green quickly once the burn-down unit is dispatched. Queued behind the current arc/fix units.
+---
+
+author: foreman
+created: 2026-07-14 18:09
+---
+INVENTORY CORRECTED (mechanic, 2026-07-14): the 69-finding count was SILENTLY TRUNCATED by golangci-lint's own defaults (max-issues-per-linter: 50, max-same-issues: 3 — errcheck's reported 50 was the cap, not the truth). With both caps disabled in cli/.golangci.yml and the cache cleared: 283 findings — errcheck 247, staticcheck 35, ineffassign 1. Concentration: upgrade/service.go 61 (!), upgrade/exec.go 23, migrate/migrate.go 20, invariants/registry.go 14, ~35 files in the tail. Config is DONE and nilness wiring EMPIRICALLY proven (deliberate nil-deref probe caught, then deleted); 'unused' explicitly off (7 residuals out of scope). cert.go batch already burned (7 findings incl. 3 that drifted in today). PLAN: proceed through all 283 in PER-PACKAGE FREEZE BATCHES — mechanical tail first, the three safety-core files (service.go/migrate.go/exec.go) LAST as their own batch with an architect pass; behavior-change candidates (an error that should have been handled) get listed, never silently fixed. The truncation itself is a lesson: the gate's CI job must run with the caps DISABLED, or a red gate could under-report.
 ---
 <!-- COMMENTS:END -->
