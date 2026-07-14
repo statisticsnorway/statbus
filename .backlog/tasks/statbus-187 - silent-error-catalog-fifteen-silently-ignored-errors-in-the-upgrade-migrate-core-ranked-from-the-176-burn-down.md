@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-07-14 19:23'
-updated_date: '2026-07-14 19:51'
+updated_date: '2026-07-14 20:21'
 labels:
   - fail-fast
   - upgrade
@@ -59,5 +59,29 @@ author: foreman
 created: 2026-07-14 19:51
 ---
 Fix unit #2 DISPATCHED to mechanic (2026-07-14 evening): verify-stopped guard before the rsync at BOTH pre-restore stop sites (ReattemptRestore + rollback() normal path) in cli/internal/upgrade/service.go — capture the compose-stop error AND positively verify services are down before any volume rsync; hard-fail actionably if not (never rsync under a live postgres). Shared helper, explicit-ignore markers replaced at fixed sites (AC#4). Scope strictly #2; #1/#3 second wave. Behavioral oracle after commit: the restore-broke-reattempt arc (covers these exact paths). Mechanic freezes for foreman review; engineer concurrently owns test/install-recovery/ for the 071 no-delta variant — file ownership disjoint.
+---
+
+author: architect
+created: 2026-07-14 20:21
+---
+DESIGN RULING on unit #2's frozen diff (architect, 2026-07-14; the mechanic executes this mechanically and refreezes). Verdict per decision:
+
+1. NEW ABORT TIER — APPROVED as built, names and all. Reusing ROLLBACK_FAILED_GIT_CORRUPT would lie to support (that code is documented git-only; the name must carry the actual danger class — the name-the-danger doctrine). Retry-then-abort is REJECTED: after a verified-failed stop, re-running the same `docker compose stop` is self-heal-flavored guessing on a data-safety boundary (no-standing-self-heal); the tolerance for SIGTERM grace belongs in the GUARD's bounded re-check (ruling 2), not in a second stop. state='failed' + the rollback_aborted callback event is correct — same class as the git-corrupt ABORT: degraded box, human summoned, nothing unwound. Firing BEFORE restoreGitState is the right boundary (zero mutations). The 4th terminal-write site + the structural pin 3→4 with symmetric guards/removes is exactly how that contract test is meant to move. Names approved: ErrRollbackServicesNotStopped / ROLLBACK_FAILED_SERVICES_NOT_STOPPED / failed-abort-services-live.
+
+2. GUARD CONTRACT — the foreman's fail-closed inversion is RIGHT, plus a bounded re-check:
+- ALLOW-LIST, not deny-list: a service passes ONLY when absent from `ps -a` output or in state exited / created / dead. ANY other state — running, restarting, paused, removing, or a state string we don't recognize — FAILS, naming the service and its observed state verbatim. Rationale: this guard defends a data-corruption boundary; unknown states must not pass by default (a paused postgres still holds the volume open; restarting cycles through non-running instants; docker may add states).
+- BOUNDED RE-CHECK: poll the allow-list at 1s intervals up to a 30s budget (compose stop's default SIGTERM grace is 10s; 30s covers a configured longer grace with margin) — pass the moment all services qualify; on budget exhaustion fail naming the stragglers + states. Never unbounded: a hung dockerd must reach the ABORT.
+- HOME: cli/internal/compose, exported (e.g. compose.VerifyStopped(projDir, services, budget)), next to QuiesceClients/ResumeClients — the stopped-state classification table lives ONCE; the JSON ps parsing moves with it. compose's existing quiesce-side running-check (compose.go:~195) serves a different decision (whether to stop) and stays as-is.
+
+3. SITE 1 (ReattemptRestore) — APPROVED with ruling 1's prefix. Correct that it writes NO terminal: the function returns the error, the row STAYS failed + backup_path → still reattemptable — the re-attempt is retryable by design.
+
+4. MECHANICAL: (a) move the helper out of ReattemptRestore's doc+func unit (never split a doc comment); (b) one shared services identifier PER SITE feeds BOTH the stop command's args and the verify call — the stop-set and verify-set must be the same object so they cannot drift.
+
+INTERACTIONS, resolved:
+- StateRestoreReattemptable routing is SANE IN BOTH HALVES — verified: the row's backup_path is written at backup completion (service.go:5219), so a POST-backup ABORT row matches the probe (state.go:273) and `./sb install` routes to ReattemptRestore — which now stops AND VERIFIES (site 1) before restoring: the error text's own remedy ("./sb install") is literally the designed fix loop. A PRE-backup ABORT row (rollback invoked with backupPath "") has no row backup_path → no match → nothing-scheduled refresh; row stays honestly failed; remedy = re-trigger — unchanged semantics.
+- Monitoring/callbacks: additive — the event stays rollback_aborted (existing consumers fire), the new code string is a new member of an existing family.
+- DOCS, in the same unit: doc/upgrade-timeline.md's terminal table gains the row (new tier + both remedy halves above); doc/upgrade-vocabulary.md gains the code/label if its tables enumerate them.
+
+ORACLE: unit tests — the classification table (fake ps outputs: running/restarting/paused/unknown → fail named; exited/created/dead/absent → pass; straggler-then-clears within budget → pass) + the updated structural contract; the restore-broke arc's next natural re-run covers site 1's happy path. NO dedicated VM arc: constructing a genuinely stuck container requires docker-daemon manipulation out of proportion to a branch that byte-mirrors the arc-proven git-corrupt ABORT shape.
 ---
 <!-- COMMENTS:END -->
