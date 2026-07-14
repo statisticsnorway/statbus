@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-07-14 19:23'
-updated_date: '2026-07-14 20:46'
+updated_date: '2026-07-14 20:48'
 labels:
   - fail-fast
   - upgrade
@@ -101,5 +101,24 @@ author: foreman
 created: 2026-07-14 20:46
 ---
 SECOND WAVE COMMITTED — TOP-3 UNIT COMPLETE (foreman, 2026-07-14 evening): commit 792300943. Ranked #1: rollback()'s git-corrupt ABORT branch captures its restoreDatabase error and folds the outcome into rollbackFailedMsg + progress log (succeeded / ALSO FAILED: <err>) — same tier/code/label/event/flow. Ranked #3: executeUpgrade's CI-not-ready unschedule HARD-FAILS per the architect's comment #4 ruling — Exec error AND RowsAffected==0 both route through markPgInvariantTerminal (promoteExistingCandidate byte-pattern) and return the error, never nil; the 'unscheduled' progress line moved after the confirmed reset. Both markers replaced. AC#2 CHECKED: all top-3 fixed as reviewed units (3d7cf6b22 wave 1 + 792300943 wave 2), proven by unit tests + the structural contract; the restore-broke-reattempt arc covers the restore paths on its next natural re-run. Remaining on this ticket: AC#3 (stale-flag class uniform treatment — needs an architect ruling) and AC#4's accepted-sites half (tail sites keep ruling-citing comments once the tail is ruled).
+---
+
+author: architect
+created: 2026-07-14 20:48
+---
+STALE-FLAG CLASS RULED (architect, 2026-07-14) — AC#3, one uniform treatment, no per-site deviation: LOUD-WARN, never hard-fail, with ENOENT-as-success.
+
+WHY LOUD-WARN IS THE HONEST TIER FOR THIS CLASS (and hard-fail would be wrong):
+1. Severity inversion: all three sites are cleanup-AFTER-terminal — the terminal write already landed, the row is honest, the work SUCCEEDED. Hard-failing there converts a successful upgrade/rollback conclusion into a reported failure because a janitorial unlink failed — the punishment lands on the wrong actor.
+2. The consequence is a BOUNDED availability wedge, not corruption, and the bound is existing machinery: a persisting flag makes the next dispatch read crashed-upgrade → the ghost-flag/reconcile path runs → which itself re-attempts the removal — every boot retries, nothing accumulates silently. (This is the same reasoning that accepted ranked #10 as bounded; the difference here is these sites get the WARN because the operator deserves the signal at the moment it happens, not a silent extra recovery pass later.)
+3. A filesystem that persistently refuses unlink (EROFS, EACCES, IO) is a box-level problem every other path will also scream about; the warn names it first.
+
+THE UNIFORM SHAPE (mechanic executes):
+- The treatment lives INSIDE the flag-owning functions, not at call sites: removeUpgradeFlag (covers both its callers), ReleaseInstallFlag, and the post-swap self-heal completion Remove routed through the same pattern (through removeUpgradeFlag itself if it isn't already).
+- ENOENT IS SUCCESS: `os.IsNotExist(err)` → no warn (a benign double-removal race must not cry wolf). Every OTHER error → one loud line naming (a) the path, (b) the error verbatim, (c) the CONSEQUENCE ("the next ./sb install will read this box as crashed-upgrade and run a harmless recovery pass"), (d) the REMEDY ("investigate why the file could not be removed; remove it manually"). Log/progress loudness — NOT the siren (no park, no degraded state).
+- AC#4 at these sites: the explicit-ignore markers are replaced by the warn + a comment citing this ruling.
+- ORACLE: unit-level — assert ENOENT silence and non-ENOENT warn (read-only-dir trick in a t.TempDir, or a small removal indirection — mechanic's choice); no arc needed, the ghost-flag reconcile path that bounds the consequence is already arc-adjacent-proven.
+
+This completes the class rulings: top-3 shipped (3d7cf6b22 + 792300943), stale-flag class ruled here, #7-#12 tiers stand as cataloged (bounded/self-retrying and cosmetic tails may be accepted-documented per AC#4's comment rule; #7 cleanStaleMaintenance deserves the SAME loud-warn shape as this class when touched — same consequence genre, maintenance-503 instead of recovery-pass).
 ---
 <!-- COMMENTS:END -->
