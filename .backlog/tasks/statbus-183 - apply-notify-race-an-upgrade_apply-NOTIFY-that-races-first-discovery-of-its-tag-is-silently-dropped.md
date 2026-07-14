@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-14 16:12'
+updated_date: '2026-07-14 16:28'
 labels:
   - upgrade
   - deploy
@@ -29,7 +30,17 @@ ordinal: 184000
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Engineer traces the exact drop site in the upgrade_apply NOTIFY handler with file:line (why discovery ran but scheduling didn't, and where the error went)
+- [x] #1 Engineer traces the exact drop site in the upgrade_apply NOTIFY handler with file:line (why discovery ran but scheduling didn't, and where the error went)
 - [ ] #2 Architect rules the fix shape: apply always either schedules the named version (registering it first if needed) or fails loudly
 - [ ] #3 Fix proven by a run: a poke sent within seconds of a fresh release schedules correctly (or fails loudly) — no silent available-forever row
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: engineer (relayed by foreman)
+created: 2026-07-14 16:28
+---
+DROP-SITE TRACE (engineer, 2026-07-14, read-only) — AC#1 checked; the ticket's 'between discovery and schedule' framing CORRECTED: the apply handler never triggers discovery at all. Chain: service.go:2394 `case "upgrade_apply"` does NOT call d.discover() (contrast :2393 upgrade_check, which does) → :2406-2413 onScheduledNotify → :4112 resolveUpgradeTarget → commit.go:279 git-first RevParse resolves the tag WITHOUT any DB row → service.go:4152-4167 the promote UPDATE touches only an existing row (STATBUS-086 deliberately removed insert-if-missing) → 0 rows → :4176-4183 EXISTS probe false → :4184+:4195-4199 classifyScheduleResult=unregistered → fmt.Printf 'NOTIFY upgrade_apply for UNREGISTERED commit … — ignored. Register it first' → return. THE DROP: a plain stdout line, void return, no DB write, nothing the poke (already exited, :4099) or any later reader can see — and the independent discovery registers the row moments later as plain 'available', never re-firing the apply. FIX-SHAPE READ (architect to rule): code structure favors (A) inline register-then-schedule in the unregistered branch — resolveUpgradeTarget already returns a git-resolved SHA+Tag and upsertCandidate exists at :3497; re-run the promote after upsert. CAVEAT for the ruling: (A) narrows STATBUS-086's require-register doctrine — but the principled line is visible: 086 forbade inserting UNKNOWN commits; a GIT-RESOLVABLE, signed, image-ready release tag racing its own discovery is a different class. (B) fail-loudly-to-the-poke is structurally unreachable from the async NOTIFY handler (no channel back); its honest realization would be moving the deploy poke to synchronous `./sb upgrade schedule`, which still needs register-first on the race.
+---
+<!-- COMMENTS:END -->
