@@ -111,6 +111,16 @@ jobs:
       codeonly_b_branch: ${{ steps.fixtures.outputs.codeonly_b_branch }}
       codeonly_b_short: ${{ steps.fixtures.outputs.codeonly_b_short }}
       codeonly_b_full: ${{ steps.fixtures.outputs.codeonly_b_full }}
+      # crollback (STATBUS-071 C-rollback resurrection leg): TWO-PHASE like
+      # healthpark — B parks at-target, C displaces B then FAILS + rolls back onto
+      # B. c-rollback-resurrection-arc.sh is the sole rider (needs B_SHORT too: its
+      # park-reason regex names B's short SHA, same as health-park).
+      crollback_b_branch: ${{ steps.fixtures.outputs.crollback_b_branch }}
+      crollback_c_branch: ${{ steps.fixtures.outputs.crollback_c_branch }}
+      crollback_b_short: ${{ steps.fixtures.outputs.crollback_b_short }}
+      crollback_c_short: ${{ steps.fixtures.outputs.crollback_c_short }}
+      crollback_b_full: ${{ steps.fixtures.outputs.crollback_b_full }}
+      crollback_c_full: ${{ steps.fixtures.outputs.crollback_c_full }}
     steps:
       - name: Checkout (full history — branch fixtures are real commits off A)
         uses: actions/checkout@v4
@@ -200,6 +210,12 @@ jobs:
           construct_upgrade_target "$base_sha" codeonly
           codeonly_b_branch="$B_BRANCH"; codeonly_b_short="$B_SHORT"; codeonly_b_full="$B_FULL"
 
+          # crollback (STATBUS-071 C-rollback resurrection leg): two-phase — B parks
+          # (healthpark's B), C = failing V3 that displaces B then rolls back onto it.
+          construct_upgrade_target "$base_sha" crollback
+          crollback_b_branch="$B_BRANCH"; crollback_b_short="$B_SHORT"; crollback_b_full="$B_FULL"
+          crollback_c_branch="$C_BRANCH"; crollback_c_short="$C_SHORT"; crollback_c_full="$C_FULL"
+
           # ARC_PUBKEY set (and exported) by the library on the first call above.
           {
             echo "base_sha=${base_sha}"
@@ -235,9 +251,15 @@ jobs:
             echo "codeonly_b_branch=${codeonly_b_branch}"
             echo "codeonly_b_short=${codeonly_b_short}"
             echo "codeonly_b_full=${codeonly_b_full}"
+            echo "crollback_b_branch=${crollback_b_branch}"
+            echo "crollback_c_branch=${crollback_c_branch}"
+            echo "crollback_b_short=${crollback_b_short}"
+            echo "crollback_c_short=${crollback_c_short}"
+            echo "crollback_b_full=${crollback_b_full}"
+            echo "crollback_c_full=${crollback_c_full}"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Dispatch images.yaml for all 9 fixture branches (push does not trigger; dispatch does)
+      - name: Dispatch images.yaml for all 11 fixture branches (push does not trigger; dispatch does)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WORKING_B_BRANCH: ${{ steps.fixtures.outputs.working_b_branch }}
@@ -249,6 +271,8 @@ jobs:
           HEALTHPARK_B_BRANCH: ${{ steps.fixtures.outputs.healthpark_b_branch }}
           HEALTHPARK_C_BRANCH: ${{ steps.fixtures.outputs.healthpark_c_branch }}
           CODEONLY_B_BRANCH: ${{ steps.fixtures.outputs.codeonly_b_branch }}
+          CROLLBACK_B_BRANCH: ${{ steps.fixtures.outputs.crollback_b_branch }}
+          CROLLBACK_C_BRANCH: ${{ steps.fixtures.outputs.crollback_c_branch }}
         run: |
           set -euo pipefail
           # images.yaml is UNCHANGED — its workflow_dispatch is the public entry
@@ -282,6 +306,8 @@ jobs:
           dispatch_images "$HEALTHPARK_B_BRANCH"
           dispatch_images "$HEALTHPARK_C_BRANCH"
           dispatch_images "$CODEONLY_B_BRANCH"
+          dispatch_images "$CROLLBACK_B_BRANCH"
+          dispatch_images "$CROLLBACK_C_BRANCH"
 
   image-wait:
     name: Wait for per-commit images (A + B + C)
@@ -304,7 +330,7 @@ jobs:
           DOCKER_CLI_EXPERIMENTAL: enabled
           IMAGES_WAIT_BUDGET_S: "2400"
           IMAGES_WAIT_INTERVAL_S: "30"
-          SHORTS: "${{ needs.construct.outputs.base_short }} ${{ needs.construct.outputs.working_b_short }} ${{ needs.construct.outputs.working_c_short }} ${{ needs.construct.outputs.failing_b_short }} ${{ needs.construct.outputs.failing_c_short }} ${{ needs.construct.outputs.oom_b_short }} ${{ needs.construct.outputs.ceiling_b_short }} ${{ needs.construct.outputs.healthpark_b_short }} ${{ needs.construct.outputs.healthpark_c_short }} ${{ needs.construct.outputs.codeonly_b_short }}"
+          SHORTS: "${{ needs.construct.outputs.base_short }} ${{ needs.construct.outputs.working_b_short }} ${{ needs.construct.outputs.working_c_short }} ${{ needs.construct.outputs.failing_b_short }} ${{ needs.construct.outputs.failing_c_short }} ${{ needs.construct.outputs.oom_b_short }} ${{ needs.construct.outputs.ceiling_b_short }} ${{ needs.construct.outputs.healthpark_b_short }} ${{ needs.construct.outputs.healthpark_c_short }} ${{ needs.construct.outputs.codeonly_b_short }} ${{ needs.construct.outputs.crollback_b_short }} ${{ needs.construct.outputs.crollback_c_short }}"
         run: |
           set -euo pipefail
           echo "${GH_TOKEN}" | docker login "$REGISTRY" -u "$ACTOR" --password-stdin
@@ -496,6 +522,11 @@ jobs:
           HEALTHPARK_B_SHORT: ${{ needs.construct.outputs.healthpark_b_short }}
           CODEONLY_B_FULL: ${{ needs.construct.outputs.codeonly_b_full }}
           CODEONLY_B_BRANCH: ${{ needs.construct.outputs.codeonly_b_branch }}
+          CROLLBACK_B_FULL: ${{ needs.construct.outputs.crollback_b_full }}
+          CROLLBACK_C_FULL: ${{ needs.construct.outputs.crollback_c_full }}
+          CROLLBACK_B_BRANCH: ${{ needs.construct.outputs.crollback_b_branch }}
+          CROLLBACK_C_BRANCH: ${{ needs.construct.outputs.crollback_c_branch }}
+          CROLLBACK_B_SHORT: ${{ needs.construct.outputs.crollback_b_short }}
         run: |
           set -euo pipefail
           case "$SCENARIO" in
@@ -504,6 +535,7 @@ jobs:
             postswap-migration-ceiling)                 lineage=ceiling ;;
             postswap-health-park)                        lineage=healthpark ;;
             un-park-to-completion)                       lineage=codeonly ;;
+            c-rollback-resurrection)                     lineage=crollback ;;
             cross-version-rename-handoff)               lineage=crossversion ;;
             *)                                          lineage=working ;;
           esac
@@ -541,6 +573,18 @@ jobs:
             {
               echo "B_FULL=${CODEONLY_B_FULL}"
               echo "B_BRANCH=${CODEONLY_B_BRANCH}"
+            } >> "$GITHUB_ENV"
+          elif [ "$lineage" = crollback ]; then
+            # STATBUS-071 C-rollback resurrection leg — two-phase. B parks at-target
+            # (healthpark's B); C displaces B then FAILS + rolls back onto B. The arc
+            # reads B_FULL/C_FULL/B_BRANCH/C_BRANCH and B_SHORT (its park-reason regex
+            # names B's short SHA, same as health-park).
+            {
+              echo "B_FULL=${CROLLBACK_B_FULL}"
+              echo "C_FULL=${CROLLBACK_C_FULL}"
+              echo "B_BRANCH=${CROLLBACK_B_BRANCH}"
+              echo "C_BRANCH=${CROLLBACK_C_BRANCH}"
+              echo "B_SHORT=${CROLLBACK_B_SHORT}"
             } >> "$GITHUB_ENV"
           elif [ "$lineage" = crossversion ]; then
             # STATBUS-164 half #2 cross-version arc — the ONLY arc whose base is NOT

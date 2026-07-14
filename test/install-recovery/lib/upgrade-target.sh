@@ -44,7 +44,7 @@
 #   - writing outputs to $GITHUB_OUTPUT (CI)
 #   - trusting ARC_PUBKEY via arc-helpers.sh::trust_arc_signer (post-install)
 #
-# SPEC ∈ {working, failing, oom, ceiling, healthpark, codeonly}
+# SPEC ∈ {working, failing, oom, ceiling, healthpark, codeonly, crollback}
 #   working  — B: genuine migration V that SUCCEEDS (CREATE TABLE upgrade_arc_fixture +
 #               upgrade_arc_fixture_2); C: B with V amended in place (prepends a comment
 #               → new bytes, same effect; triggers STATBUS-102 channel-bless re-stamp).
@@ -85,6 +85,14 @@
 #               29360596950). Represents a code-/app-/CLI-only release. SINGLE-PHASE
 #               like oom/ceiling (no C; identical-to-B, unused) — the arc completes
 #               B's own row via un-park, there is no separate fix release.
+#   crollback — B: byte-identical to healthpark's B (V1 benign + V2 breaks
+#               auth_status → B parks AT-TARGET on the health leg). C: B + a NEW
+#               FAILING V3 (RAISES EXCEPTION). C displaces the parked B at claim
+#               (STATBUS-159 → B superseded), swaps in, then V3 RAISEs → the daemon
+#               rolls C back onto B → C terminal 'rolled_back', box left running B
+#               (STATBUS-071 C-rollback resurrection leg; the c-rollback-resurrection
+#               arc then proves `./sb install` does NOT resurrect the superseded B).
+#               TWO-PHASE like healthpark (B + a real distinct C).
 #
 # Migration content is NON-IDEMPOTENT by design (no IF NOT EXISTS): a re-apply
 # CONFLICTS ('already exists') — load-bearing for the after-commit arcs' deterministic
@@ -450,7 +458,11 @@ construct_upgrade_target() {
         failing)    _ut_write_failing_v "$_v_up" "$_v_down" ;;
         oom)        _ut_write_oom_v "$_v_up" "$_v_down" ;;
         ceiling)    _ut_write_ceiling_v "$_v_up" "$_v_down" ;;
-        healthpark)
+        healthpark|crollback)
+            # B is byte-identical for healthpark and crollback: V1 (benign fixture)
+            # + V2 (breaks auth_status → B parks AT-TARGET on the health leg). The
+            # two specs diverge only in C (healthpark's C fixes; crollback's C fails
+            # and rolls back — STATBUS-071 C-rollback resurrection leg).
             _ut_write_healthpark_v1 "$_v_up" "$_v_down"
             _ut_write_healthpark_break_v2 "$_v2_up" "$_v2_down"
             ;;
@@ -460,7 +472,7 @@ construct_upgrade_target() {
             _ut_write_codeonly_change "$_marker"
             git add "$_marker"
             ;;
-        *) echo "construct_upgrade_target: unknown SPEC '${_spec}' (expected: working|failing|oom|ceiling|healthpark|codeonly)" >&2; return 1 ;;
+        *) echo "construct_upgrade_target: unknown SPEC '${_spec}' (expected: working|failing|oom|ceiling|healthpark|codeonly|crollback)" >&2; return 1 ;;
     esac
     git add migrations/
     # The synthetic upgrade-arc fixture migrations are exempted from the doc/db
@@ -521,6 +533,16 @@ construct_upgrade_target() {
             _ut_write_healthpark_fix_v3 "$_v3_up" "$_v3_down"
             git add migrations/
             git commit -S -q -m "test(upgrade-arc): ${_spec} fix auth_status via NEW migration V3 (C)"
+            ;;
+        crollback)
+            # C is a fix release that FAILS: it displaces the parked B at claim
+            # (STATBUS-159), swaps in, then its NEW migration V3 RAISES → the daemon
+            # rolls C back onto B (STATBUS-071 C-rollback resurrection leg). V3 is a
+            # fresh higher version (never an edit to V1/V2), so it runs via the normal
+            # pending-migrations path and its RAISE is the deterministic rollback.
+            _ut_write_failing_v "$_v3_up" "$_v3_down"
+            git add migrations/
+            git commit -S -q -m "test(upgrade-arc): ${_spec} C = failing V3 (displaces B, then rolls back)"
             ;;
         codeonly)
             # No "fixed" phase: single-phase (A→B only). The un-park-to-completion
@@ -597,7 +619,7 @@ delete_throwaway_branches() {
     local _run_id="${2:-${RUN_ID:-}}"
 
     if [ -z "$_spec" ]; then
-        echo "delete_throwaway_branches: SPEC required (working|failing|oom|ceiling|healthpark|codeonly) — skipping" >&2
+        echo "delete_throwaway_branches: SPEC required (working|failing|oom|ceiling|healthpark|codeonly|crollback) — skipping" >&2
         return 0
     fi
     if [ -z "$_run_id" ]; then
