@@ -417,9 +417,16 @@ STEP_AFTER_D5=$(read_flag_field "step")
 echo "[OBSERVE] C9 wedge: exit 137, flag.phase=\"$PHASE_AFTER_D5\" flag.step=\"$STEP_AFTER_D5\""
 [ "$PHASE_AFTER_D5" = "new-sb-upgrading" ] || { echo "✗ expected flag.phase=\"new-sb-upgrading\" after the C9 kill (resumeNewSb already committed to applyNewSbUpgrading), got \"$PHASE_AFTER_D5\"" >&2; exit 1; }
 [ "$STEP_AFTER_D5" = "migrate-up" ] || { echo "✗ expected flag.step=\"migrate-up\" after the C9 kill (the direct rollback() call never stamps Step=\"rollback\" itself — only recoveryRollback's recordRollbackCommit does, and this path never reaches it), got \"$STEP_AFTER_D5\"" >&2; exit 1; }
-MROWS_B_PRECORRUPT=$(migration_row_count)
-[ "$MROWS_B_PRECORRUPT" = "0" ] || { echo "✗ B's failing migration left a ledger row (count=$MROWS_B_PRECORRUPT, want 0) — it should have RAISEd, never committing" >&2; exit 1; }
-assert_db_migration_max_version_unchanged "$VM_NAME" "$BASELINE_MAX_VERSION"
+# NO DB READ HERE (run 3 finding, 29340418176): C9 fires in/around
+# restoreDatabase — d.rollback() has already run `docker compose stop … db`
+# and restoreDatabase may still be mid-rsync when the kill lands, so the DB
+# is DOWN or in an indeterminate mid-restore state in this exact window. A
+# `./sb psql` read here can never reliably succeed; the migration_row_count/
+# migration_max_version checks that used to live here are asserted instead
+# right after the 6th (ABORT) dispatch concludes below, where STATBUS-136's
+# own "bring the DB up before the terminal write" step guarantees a live,
+# consistent connection to read from. Only file-level checks (flag fields,
+# the git branch) belong in this dead window.
 [ "$(pre_upgrade_branch_present)" = "yes" ] || { echo "✗ the 'pre-upgrade' branch is already gone before we corrupted anything — construction invalid" >&2; exit 1; }
 echo "  ✓ crashed mid-rollback (natural forward failure → restoreGitState/restoreDatabase already ran → C9 killed the parent before the terminal write); 'pre-upgrade' branch present (not yet corrupted)"
 
@@ -453,6 +460,20 @@ assert_flag_file_absent "$VM_NAME"
 [ "$(row_has_backup_path_for "$B_FULL")" = "t" ] || { echo "✗ B's row has NO retained backup_path after the ABORT — the STATBUS-111 probe would not match it" >&2; exit 1; }
 [ "$(pre_upgrade_branch_present)" = "no" ] || { echo "✗ 'pre-upgrade' branch reappeared after the ABORT — the tree should still be corrupt (nothing restores it)" >&2; exit 1; }
 echo "  ✓ ABORT terminal landed in ONE pass (STATBUS-136): state='failed' + ROLLBACK_FAILED_GIT_CORRUPT together, flag removed, backup_path retained, tree still corrupt"
+
+# "V_fail never committed" — moved HERE from the dead window (run 3 finding,
+# 29340418176): the DB is unreadable right after the C9 kill (down or
+# mid-restore), but STATBUS-136 brings it back up before the ABORT's own
+# terminal write lands, so a read here is safe and this is the earliest
+# point the property can be checked directly instead of inferred.
+MROWS_B_POSTABORT=$(migration_row_count)
+if [ "$MROWS_B_POSTABORT" = "ERR" ]; then
+    echo "✗ could not read db.migration row count after the ABORT (DB unreachable — unexpected here; STATBUS-136 brings it up before the terminal write lands) — not a real row count, treating as failure" >&2
+    exit 1
+fi
+[ "$MROWS_B_POSTABORT" = "0" ] || { echo "✗ B's failing migration left a ledger row (count=$MROWS_B_POSTABORT, want 0) — it should have RAISEd, never committing" >&2; exit 1; }
+assert_db_migration_max_version_unchanged "$VM_NAME" "$BASELINE_MAX_VERSION"
+echo "  ✓ db.migration confirms V_fail never committed (row count=0, max version unchanged) — read post-ABORT where the DB is guaranteed up"
 
 CALLBACK_COUNT_3=$(VM_EXEC bash -c "wc -l < $CALLBACK_LOG 2>/dev/null" | tr -d ' \r\n' || echo "0")
 [ "$CALLBACK_COUNT_3" = "1" ] || { echo "✗ expected exactly 1 callback line for the ABORT, got $CALLBACK_COUNT_3" >&2; VM_EXEC bash -c "cat $CALLBACK_LOG 2>/dev/null" >&2 || true; exit 1; }
