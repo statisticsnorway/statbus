@@ -37,10 +37,12 @@ RELATED: STATBUS-178 (duplicate PRIMARIES stay illogical and per-row-erroring re
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 Empirical current behavior established: do only-DTPR/DTSO edges form a power group today — and the losing doc (brreg README vs doc/power-groups.md) corrected
-- [ ] #2 Architect design ruling: one marked-edge group vs layered primary/non-primary groups (spanning allowed) — with the two-50% case expressible
-- [ ] #3 Reporting viewpoint selection designed: primary-only (EU default, for now) vs expanded interest-alignment view
+- [x] #2 Architect design ruling: one marked-edge group vs layered primary/non-primary groups (spanning allowed) — with the two-50% case expressible
+- [x] #3 Reporting viewpoint selection designed: primary-only (EU default, for now) vs expanded interest-alignment view
 - [ ] #4 King reviews and approves the design before any build
 <!-- AC:END -->
+
+
 
 ## Comments
 
