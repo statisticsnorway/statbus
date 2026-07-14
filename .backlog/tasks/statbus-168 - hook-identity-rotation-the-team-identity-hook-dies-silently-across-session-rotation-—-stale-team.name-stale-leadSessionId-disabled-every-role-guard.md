@@ -3,10 +3,10 @@ id: STATBUS-168
 title: >-
   hook-identity-rotation: the team identity hook dies silently across session
   rotation — stale team.name + stale leadSessionId disabled every role guard
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-07-12 22:14'
-updated_date: '2026-07-14 10:29'
+updated_date: '2026-07-14 13:01'
 labels:
   - tooling
   - team
@@ -43,9 +43,9 @@ DURABLE FIX for the architect to rule (the repairs are one-time; recurrence must
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 Architect rules the lead-identification mechanism across session rotation and the deny-vs-permissive contradiction for release commands; King blesses the shape (permission machinery)
-- [ ] #2 The hook fails LOUDLY when its resolved team config does not exist — silent disarm is impossible
-- [ ] #3 The ruled fix is implemented with the hook's test file extended to cover: continuation-foreman identification, missing-config loudness, and team-lead↔foreman vocabulary
-- [ ] #4 The night-shift data repairs (701477b3a + config leadSessionId) are superseded by the mechanism — nothing depends on hand-maintained session ids
+- [x] #2 The hook fails LOUDLY when its resolved team config does not exist — silent disarm is impossible
+- [x] #3 The ruled fix is implemented with the hook's test file extended to cover: continuation-foreman identification, missing-config loudness, and team-lead↔foreman vocabulary
+- [x] #4 The night-shift data repairs (701477b3a + config leadSessionId) are superseded by the mechanism — nothing depends on hand-maintained session ids
 <!-- AC:END -->
 
 ## Comments
@@ -151,4 +151,16 @@ created: 2026-07-14 10:29
 ---
 PR1 CONFIRMED (foreman, run in the live root session, 2026-07-14): ancestry walk → hop 1 = the Bash tool's zsh, hop 2 = `claude --effort max --resume` — a claude ancestor with NO --agent-name/--agent-id/--team-name argv, then shell/terminal above. Exactly the ruled root shape, matching the architect's prediction verbatim. With PR2 (teammate side, claude ancestor WITH identity argv) already confirmed, both live endpoints validate the spawn-argv-ancestry discriminator. Identity half of the build UNBLOCKED for the mechanic, with PR3 as the build's FIRST act (validate the ancestry shape from INSIDE a PreToolUse hook on both a root and a teammate session before wiring the decision), then PR4/PR5 per the ruling. Bless status per the architect: the three King-blessed policy calls are unchanged in substance (the point-3 residual becomes deterministic, an improvement); mechanism change flagged to the King for transparency in chat — no re-bless required.
 ---
+
+author: foreman
+created: 2026-07-14 13:01
+---
+SHIPPED (foreman commit dc3e673bb, 2026-07-14) + LIVE-PROBED. Foreman's independent verification: 60/60 test suite green on my own run; the rebuilt hook was live on disk through dozens of my real root-session calls (all correctly classified foreman via the argv walk); the mechanic's live release-deny on his own session proved the child side end-to-end with the routable hint + the King's rider. MISSING-CONFIG PROBE, run for real (team.name moved aside for exactly one gated call, then restored): the call was ALLOWED — root identification is config-independent, which is precisely the property that would have prevented BOTH original incidents. ONE HONEST RESIDUAL: the systemMessage emission is unit-asserted and documented against the hooks reference, but its UI rendering could not be verified from inside the model transcript (the field is a user-facing channel) — the King should eyeball it the first time a stale/missing config occurs for real; if it doesn't render, escalate the channel per the ruling. Design lineage: env-marker discriminator REFUTED by probe P1 pre-build (comment #6), re-ruled to argv ancestry (comment #7), PR1-PR5 all confirmed from inside real hook invocations, PR4 showing the in-process residual class is EMPTY on this harness.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The team identity hook no longer depends on any stored session id. Caller identity is derived fresh on every call: spawn-argv ancestry (the harness's own --agent-name declaration, cross-clone-guarded by --team-name) → transcript roster-grep fallback → positive-evidence root = foreman. Release commands stay fail-closed for unknown children; ordinary ops stay permissive; every authority-gate message carries the King's no-workaround-without-blessing instruction; a missing team config emits a loud allow-note + systemMessage instead of silently disarming — and the root foreman is config-independent, ending the stale-pointer incident class. The original env-marker design was refuted by its own mandated probe BEFORE build (the foreman session carries CLAUDE_CODE_CHILD_SESSION=1 too) — the probe discipline caught a would-be regression at zero cost; the argv re-ruling was validated on both endpoints from inside real hook invocations (PR1-PR5). 60/60 hook tests green. Residual: systemMessage UI rendering awaits the King's visual confirmation on first real occurrence.
+<!-- SECTION:FINAL_SUMMARY:END -->
