@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-13 14:42'
-updated_date: '2026-07-14 18:09'
+updated_date: '2026-07-14 19:25'
 labels:
   - ci
   - quality-gate
@@ -49,5 +49,22 @@ author: foreman
 created: 2026-07-14 18:09
 ---
 INVENTORY CORRECTED (mechanic, 2026-07-14): the 69-finding count was SILENTLY TRUNCATED by golangci-lint's own defaults (max-issues-per-linter: 50, max-same-issues: 3 — errcheck's reported 50 was the cap, not the truth). With both caps disabled in cli/.golangci.yml and the cache cleared: 283 findings — errcheck 247, staticcheck 35, ineffassign 1. Concentration: upgrade/service.go 61 (!), upgrade/exec.go 23, migrate/migrate.go 20, invariants/registry.go 14, ~35 files in the tail. Config is DONE and nilness wiring EMPIRICALLY proven (deliberate nil-deref probe caught, then deleted); 'unused' explicitly off (7 residuals out of scope). cert.go batch already burned (7 findings incl. 3 that drifted in today). PLAN: proceed through all 283 in PER-PACKAGE FREEZE BATCHES — mechanical tail first, the three safety-core files (service.go/migrate.go/exec.go) LAST as their own batch with an architect pass; behavior-change candidates (an error that should have been handled) get listed, never silently fixed. The truncation itself is a lesson: the gate's CI job must run with the caps DISABLED, or a red gate could under-report.
+---
+
+author: architect
+created: 2026-07-14 19:25
+---
+BATCH-2 SAFETY-CORE PASS (architect, 2026-07-14): SHIP, zero amendments. Bounded-complete scan — all 115 deleted lines decomposed into verified classes, not sampled:
+(a) 83 `_ =` explicit-ignores — pure annotation by construction (errcheck flags calls whose error was ALREADY dropped; making the drop explicit changes nothing at runtime). No deleted error-handling anywhere in the diff.
+(b) Message-text trims (ST1005 trailing-punctuation class) — text only.
+(c) The four logic-bearing style rewrites, each verified: De Morgan's at the pending-above gate is term-by-term exact AND preserves the nil-guard short-circuit order (`flag == nil ||` still protects `flag.Holder`); both QF1003 tagged-switch rewrites are semantically identical (no default = no else existed); the QF1011 `var fetchLog = io.Discard` keeps the identical static type (io.Discard is declared io.Writer in the stdlib) and its Discard default stays load-bearing for the nil-appendLog arm.
+(d) ONE genuine behavior addition, benign and correct: the 1KB `io.Copy(io.Discard, io.LimitReader(resp.Body, 1024))` drain before Close (connection-reuse hygiene) — call it out in the commit message as the single non-annotative change.
+Also noted approvingly: candidates cataloged in place with concern-comments (e.g. the pruneBackups RemoveAll note) instead of silently fixed — exactly the discipline the ticket asked for.
+
+TOP-3 CANDIDATE SEVERITY (my take, for the candidates ticket): REORDER to #2 > #1 > #3.
+- Mechanic's #2 first (pre-restore compose-stop ignored on both restore paths): highest CONSEQUENCE — a silently-failed stop means rsync-restoring the volume UNDER a live postgres, a torn-restored-volume data-corruption pathway. Low likelihood, cheap principled fix (verify-stopped guard before the rsync, fail-fast). Deserves its OWN small ticket, MED.
+- Mechanic's #1 second (ABORT-branch restoreDatabase error dropped, service.go:7482): a fail-loud gap in a human-summon path — the progress line claims 'consistent old DB + old code' that a failed restore did not deliver, and support may act on it. No autonomous consumer (services stay down, state=failed). Fix = capture + fold into the ABORT error string. LOW-MED, next wave.
+- #3 (CI-not-ready unschedule returns nil regardless): ledger-honesty family, bounded by retry-tick semantics. LOW-MED, rides the family ticket.
+None of the three blocks rc.06.
 ---
 <!-- COMMENTS:END -->
