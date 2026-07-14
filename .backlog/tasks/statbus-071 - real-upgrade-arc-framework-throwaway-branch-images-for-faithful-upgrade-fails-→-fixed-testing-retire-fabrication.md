@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-14 16:06'
+updated_date: '2026-07-14 16:07'
 labels:
   - install-recovery
   - upgrade
@@ -279,5 +279,17 @@ NARROWING MECHANICS: rename to the surviving oracle (suggest 4-flagless-selfheal
 3. fabricate_scheduled_upgrade_row: concur with the foreman — 5 live callers, AC#4's other half, no action now.
 
 MAP CORRECTION: the coverage-map deletion note is superseded by this ruling — ABORT cell → the arc; flagless-self-heal cell → the narrowed scenario; churn cell → the standing scenario. Mechanic updates the map rows with this comment as the source.
+---
+
+author: architect
+created: 2026-07-14 16:07
+---
+CORRECTION TO COMMENT #16 (architect, 2026-07-14, self-caught on re-read against the King's ratified carve-out) — my "fabrication legitimacy" paragraph INVERTED the doctrine and is WITHDRAWN. Comment #12's ruling is explicit: construction is permitted ONLY for DEAD-PRODUCER states, and fabricate_resume_state keeps exactly ONE sanctioned caller (rune-wedge). I argued the self-heal fabrication was legitimate BECAUSE live producers exist — backwards: live producers mean the state is REACHABLE, and reachable states must be produced by the real path (the park reclassification is the precedent). The dispositions correct to:
+
+1. 4-rollback-abort-write-lands → still NARROW to the flagless-self-heal oracle (everything in #16 about the oracle's value, the kept/dropped asserts, the rename + stamp re-key, and rejecting options (b)/(c) STANDS) — but the narrowed fabricated scenario is the INTERIM NET ONLY, exactly like the park interim was: it stands until a REAL-PATH successor goes green, then deletes. The real-path construction is available in the blessed genre (environment manipulation of real machinery state, per the run-29344519124 ABORT precedent): a real dispatched upgrade stalled at a known post-swap point, then TRUNCATE the flag file on the VM → the real corrupt-flag reader removes it (service.go:898-901) → the next real boot's completeInProgressUpgrade converges the row. Queued as a map row [UNPROVEN, interim-netted]; not release-gating.
+2. 4-rollback-abort-churn-then-alive-idle → same correction: KEEP standing + uncouple (as #16 ruled), but as the INTERIM NET for 144 AC#3 — the churn state's producer is live (144 was discovered in a real occurrence, r2 of the abort-oracle rounds), so a real-path rebuild is owed and queued as a map row; the fabricated version deletes when it goes green.
+3. AC#4's amended criterion is UNCHANGED and remains the end state: zero fabricate_resume_state callers outside the dead-producer class (sole member rune-wedge). The two interim nets are NAMED exceptions with explicit deletion conditions — the same standing the park interim had under the King's own ruling, so this correction fits inside the ratified doctrine and still needs no new King decision.
+
+Mechanic's immediate work is unchanged by the correction: narrow + rename the self-heal scenario (with the interim-net framing in its header, producers cited as REACHABILITY evidence not legitimacy), uncouple the churn header, update the map (ABORT cell → arc [PROVEN]; self-heal + churn cells → interim-netted [UNPROVEN] rows naming their real-path successors).
 ---
 <!-- COMMENTS:END -->
