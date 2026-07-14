@@ -461,10 +461,10 @@ func acquireFlock(projDir string, flag UpgradeFlag) (*FlagLock, error) {
 		// Contention: another LIVE holder has the lock (the flock failing IS
 		// the liveness signal — STATBUS-111). Read what's on disk for
 		// diagnostics, without holding a lock.
-		f.Close()
+		_ = f.Close() // best-effort; already erroring out
 		existing, readErr := ReadFlagFile(projDir)
 		if readErr != nil {
-			return nil, fmt.Errorf("flag file unreadable while locked: %w\n  Investigate %s manually.",
+			return nil, fmt.Errorf("flag file unreadable while locked: %w\n  Investigate %s manually",
 				readErr, path)
 		}
 		if existing == nil {
@@ -476,19 +476,19 @@ func acquireFlock(projDir string, flag UpgradeFlag) (*FlagLock, error) {
 	}
 	// We hold the lock. Truncate existing content and write ours.
 	if _, err := f.Seek(0, 0); err != nil {
-		f.Close()
+		_ = f.Close() // best-effort; already erroring out
 		return nil, fmt.Errorf("seek flag: %w", err)
 	}
 	if err := f.Truncate(0); err != nil {
-		f.Close()
+		_ = f.Close() // best-effort; already erroring out
 		return nil, fmt.Errorf("truncate flag: %w", err)
 	}
 	if _, err := f.Write(data); err != nil {
-		f.Close()
+		_ = f.Close() // best-effort; already erroring out
 		return nil, fmt.Errorf("write flag: %w", err)
 	}
 	if err := f.Sync(); err != nil {
-		f.Close()
+		_ = f.Close() // best-effort; already erroring out
 		return nil, fmt.Errorf("sync flag: %w", err)
 	}
 	return &FlagLock{file: f}, nil
@@ -508,7 +508,7 @@ func (l *FlagLock) Close() {
 	if l == nil || l.file == nil {
 		return
 	}
-	l.file.Close()
+	_ = l.file.Close() // best-effort; Close() has no return value for callers to act on anyway
 	l.file = nil
 }
 
@@ -730,7 +730,14 @@ func (d *Service) ClearFlagStepHistory() error {
 //     flag while cleaning one up).
 func (d *Service) removeUpgradeFlag() {
 	if d.flagLock != nil {
-		os.Remove(d.flagPath())
+		// STATBUS-176 lint burn-down: pre-existing silent ignore, left
+		// as-is — behavior-change candidate flagged in the burn-down
+		// report (a failed unlink here, followed unconditionally by
+		// closing our own flock below, leaves a STALE flag file on disk
+		// with NO live flock on it — indistinguishable from a genuine
+		// crashed upgrade to the next boot's recovery detection; no
+		// operator-visible signal today).
+		_ = os.Remove(d.flagPath())
 		d.flagLock.Close()
 		d.flagLock = nil
 		return
@@ -739,12 +746,14 @@ func (d *Service) removeUpgradeFlag() {
 	if err != nil {
 		return // absent (nothing to remove) or unreadable (leave it)
 	}
-	defer f.Close() // releases the flock (on the unlinked inode after removal)
+	defer func() { _ = f.Close() }() // releases the flock (on the unlinked inode after removal)
 	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		log.Printf("removeUpgradeFlag: upgrade flock held by another live actor — leaving the flag file in place (not ours to remove)")
 		return
 	}
-	os.Remove(d.flagPath())
+	// STATBUS-176 lint burn-down: same behavior-change candidate as above —
+	// a failed unlink here leaves a stale, now-unlocked flag file behind.
+	_ = os.Remove(d.flagPath())
 }
 
 // writeGoroutineDump captures all goroutine stacks via runtime.Stack and
@@ -815,7 +824,13 @@ func AcquireInstallFlag(projDir, invokedBy string) (*FlagLock, error) {
 // is never the one we unlinked. Same discipline as removeUpgradeFlag.
 func ReleaseInstallFlag(lock *FlagLock) {
 	if lock != nil && lock.file != nil {
-		os.Remove(lock.file.Name())
+		// STATBUS-176 lint burn-down: pre-existing silent ignore, left
+		// as-is — same behavior-change candidate as removeUpgradeFlag
+		// above (a failed unlink here, followed unconditionally by
+		// Close() releasing the flock, leaves a stale, now-unlocked flag
+		// file behind — indistinguishable from a genuine crash to the
+		// next install's detection; no operator-visible signal today).
+		_ = os.Remove(lock.file.Name())
 		lock.Close()
 	} else {
 		lock.Close()
@@ -843,7 +858,7 @@ func formatContentionError(flag *UpgradeFlag) error {
 	case HolderInstall:
 		return fmt.Errorf(
 			"another ./sb install is already running (%s, invoked_by=%s).\n\n%s\n\n"+
-				"  Wait for it to complete, then retry.",
+				"  Wait for it to complete, then retry",
 			flag.Label(), flag.InvokedBy, lsofHint)
 	default: // HolderService
 		return fmt.Errorf(
@@ -852,7 +867,7 @@ func formatContentionError(flag *UpgradeFlag) error {
 				"    journalctl --user -u 'statbus-upgrade@*' -f\n\n"+
 				"  Do NOT pass --post-upgrade-fixup — that flag is the upgrade service's\n"+
 				"  internal contract with its own post-upgrade install step. Using it from the\n"+
-				"  command line would corrupt an upgrade that is currently running.",
+				"  command line would corrupt an upgrade that is currently running",
 			flag.Label(), flag.InvokedBy, lsofHint)
 	}
 }
@@ -929,7 +944,7 @@ func IsFlockHeld(projDir string) bool {
 	if err != nil {
 		return false
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		return true // flock held → genuinely live upgrade
 	}
@@ -973,7 +988,13 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	var flag UpgradeFlag
 	if jsonErr := json.Unmarshal(data, &flag); jsonErr != nil {
 		fmt.Printf("FLAG_CORRUPT: upgrade flag file unreadable, removing: %v\n", jsonErr)
-		os.Remove(d.flagPath())
+		// STATBUS-176 lint burn-down: pre-existing silent ignore, left
+		// as-is — behavior-change candidate flagged in the burn-down
+		// report (a failed Remove here leaves the SAME corrupt flag on
+		// disk; bounded, not silent data loss — the next boot re-enters
+		// this exact branch and retries the same removal, rather than
+		// wedging forever on a different error path).
+		_ = os.Remove(d.flagPath())
 		return nil
 	}
 
@@ -1024,7 +1045,13 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	// (If install ever grows DB-write semantics, add reconciliation here.)
 	if holder == HolderInstall {
 		logRecover("A previous install exited without finishing cleanup; clearing its leftover marker and continuing. (detail: stale install flag, invoked_by=%s)", flag.InvokedBy)
-		os.Remove(d.flagPath())
+		// STATBUS-176 lint burn-down: pre-existing silent ignore, left
+		// as-is — behavior-change candidate flagged in the burn-down
+		// report (a failed Remove here leaves the stale install flag on
+		// disk; low severity — every subsequent boot just re-logs and
+		// re-attempts this same removal, tmp/ stays untidy but nothing
+		// wedges).
+		_ = os.Remove(d.flagPath())
 		return nil
 	}
 
@@ -1074,7 +1101,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 				appendLog = nil
 			}
 		}
-		var fetchLog io.Writer = io.Discard
+		var fetchLog = io.Discard
 		if appendLog != nil {
 			fetchLog = appendLog.File()
 		}
@@ -1453,7 +1480,11 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 				}
 			}
 			if allPresent {
-				d.queryConn.Exec(ctx,
+				// STATBUS-176 lint burn-down: pre-existing silent ignore, left
+				// as-is — self-correcting, not a behavior-change candidate:
+				// verifyArtifacts runs on every discovery cycle (periodic
+				// poll), so a failed UPDATE here just gets retried next cycle.
+				_, _ = d.queryConn.Exec(ctx,
 					"UPDATE public.upgrade SET docker_images_status = 'ready' WHERE id = $1 AND docker_images_status != 'ready'",
 					r.id)
 				fmt.Printf("Images verified for commit %s (tag=%s)\n", ShortForDisplay(r.sha), tag)
@@ -1502,9 +1533,10 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 					hasSuccess := false
 					hasFailure := false
 					for _, c := range conclusions {
-						if c == "success" {
+						switch c {
+						case "success":
 							hasSuccess = true
-						} else if c == "failure" {
+						case "failure":
 							hasFailure = true
 						}
 					}
@@ -1578,10 +1610,10 @@ func (d *Service) LoadConfigAndConnect(ctx context.Context) error {
 // Safe to call when connections were never opened.
 func (d *Service) Close() {
 	if d.queryConn != nil {
-		d.queryConn.Close(context.Background())
+		_ = d.queryConn.Close(context.Background()) // best-effort; process/caller is tearing down regardless
 	}
 	if d.listenConn != nil {
-		d.listenConn.Close(context.Background())
+		_ = d.listenConn.Close(context.Background()) // best-effort; process/caller is tearing down regardless
 	}
 }
 
@@ -1861,8 +1893,8 @@ func (d *Service) Run(ctx context.Context) error {
 	if err := d.connect(ctx); err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
-	defer d.listenConn.Close(context.Background())
-	defer d.queryConn.Close(context.Background())
+	defer func() { _ = d.listenConn.Close(context.Background()) }()
+	defer func() { _ = d.queryConn.Close(context.Background()) }()
 
 	// Acquire advisory lock to prevent multiple instances
 	if err := d.acquireAdvisoryLock(ctx); err != nil {
@@ -2106,7 +2138,7 @@ func (d *Service) Run(ctx context.Context) error {
 	// journal (pre-145, boot silently applied them). Best-effort — a counting error
 	// never blocks the boot. Skipped on a recovery boot (a service-held flag), where
 	// recoverFromFlag below owns the delta's fate (resume forward, or roll back).
-	if flag, ferr := ReadFlagFile(d.projDir); !(ferr == nil && flag != nil && flag.Holder == HolderService) {
+	if flag, ferr := ReadFlagFile(d.projDir); ferr != nil || flag == nil || flag.Holder != HolderService {
 		if pending, n, perr := migrate.HasPendingAbove(d.projDir, migrate.DaemonSchemaFloor); perr == nil && pending {
 			fmt.Printf("STATBUS-145: %d migration(s) pending beyond the daemon floor (%d) — they apply on the next deliberate upgrade or `./sb install`, not at boot.\n",
 				n, migrate.DaemonSchemaFloor)
@@ -3015,7 +3047,9 @@ func (d *Service) reportDiskSpace(ctx context.Context) {
 	}
 	if freeBytes, err := DiskFree(d.projDir); err == nil {
 		freeGB := freeBytes / (1024 * 1024 * 1024)
-		d.queryConn.Exec(ctx,
+		// Best-effort; a periodic informational report (admin UI display),
+		// not load-bearing for any decision logic — self-corrects next cycle.
+		_, _ = d.queryConn.Exec(ctx,
 			`INSERT INTO public.system_info (key, value, updated_at)
 			 VALUES ('disk_free_gb', $1::text, clock_timestamp())
 			 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = clock_timestamp()`,
@@ -3152,7 +3186,7 @@ func (d *Service) loadTrustedSigners() error {
 
 	// Write allowed-signers file
 	tmpDir := filepath.Join(d.projDir, "tmp")
-	os.MkdirAll(tmpDir, 0755)
+	_ = os.MkdirAll(tmpDir, 0755) // best-effort; the WriteFile right after surfaces any real failure
 	allowedSignersPath := filepath.Join(tmpDir, "allowed-signers")
 	if err := os.WriteFile(allowedSignersPath, []byte(strings.Join(signerLines, "\n")+"\n"), 0644); err != nil {
 		return fmt.Errorf("write allowed-signers: %w", err)
@@ -3317,7 +3351,7 @@ func (d *Service) connect(ctx context.Context) error {
 	}
 	d.queryConn, err = pgx.ConnectConfig(connectCtx, config)
 	if err != nil {
-		d.listenConn.Close(context.Background())
+		_ = d.listenConn.Close(context.Background())
 		return fmt.Errorf("query connection: %w", err)
 	}
 
@@ -3334,8 +3368,8 @@ func (d *Service) connect(ctx context.Context) error {
 	// set — a read-only writer session is unusable); listenConn only does LISTEN
 	// (allowed under read-only), so its exempt is belt-and-suspenders / best-effort.
 	if _, err := d.queryConn.Exec(ctx, "SET default_transaction_read_only = off"); err != nil {
-		d.listenConn.Close(context.Background())
-		d.queryConn.Close(context.Background())
+		_ = d.listenConn.Close(context.Background())
+		_ = d.queryConn.Close(context.Background())
 		return fmt.Errorf("self-exempt query connection from read-only window: %w", err)
 	}
 	if _, err := d.listenConn.Exec(ctx, "SET default_transaction_read_only = off"); err != nil {
@@ -3367,10 +3401,10 @@ func (d *Service) ensureConnected(ctx context.Context) error {
 
 func (d *Service) reconnect(ctx context.Context) error {
 	if d.listenConn != nil {
-		d.listenConn.Close(context.Background())
+		_ = d.listenConn.Close(context.Background())
 	}
 	if d.queryConn != nil {
-		d.queryConn.Close(context.Background())
+		_ = d.queryConn.Close(context.Background())
 	}
 	if err := d.connect(ctx); err != nil {
 		return err
@@ -3407,7 +3441,14 @@ func (d *Service) cleanStaleMaintenance(ctx context.Context) {
 		return
 	}
 	if count == 0 {
-		os.Remove(maintenanceFile)
+		// STATBUS-176 lint burn-down: pre-existing silent ignore, left
+		// as-is — behavior-change candidate flagged in the burn-down
+		// report. cleanStaleMaintenance runs ONCE at daemon boot (Run()'s
+		// startup sequence), not on a periodic ticker — a failed Remove
+		// here leaves the site stuck in maintenance mode (Caddy serving
+		// 503) with no operator-visible signal and no automatic retry
+		// until the next full daemon restart.
+		_ = os.Remove(maintenanceFile)
 		fmt.Println("Cleaned stale maintenance file")
 	}
 }
@@ -3620,7 +3661,9 @@ func (d *Service) discover(ctx context.Context) {
 	// regardless of whether the tag is newer, equal, or older than the service.
 	for _, t := range filtered {
 		targetStatus := ClassifyReleaseShape(t.TagName).ReleaseStatus()
-		d.queryConn.Exec(ctx,
+		// Best-effort; discover() runs on every discovery cycle (6h ticker or
+		// NOTIFY), so a failed enrichment UPDATE here is retried next cycle.
+		_, _ = d.queryConn.Exec(ctx,
 			`UPDATE public.upgrade SET
 			   commit_tags = CASE WHEN $2 = ANY(upgrade.commit_tags) THEN upgrade.commit_tags
 			                      ELSE array_append(upgrade.commit_tags, $2) END,
@@ -3639,7 +3682,9 @@ func (d *Service) discover(ctx context.Context) {
 	// If manifest is missing, check if the release workflow has failed.
 	for _, t := range filtered {
 		if _, err := FetchManifest(t.TagName); err == nil {
-			d.queryConn.Exec(ctx,
+			// Best-effort; same self-correcting shape as the enrichment
+			// UPDATE above — retried on the next discovery cycle.
+			_, _ = d.queryConn.Exec(ctx,
 				"UPDATE public.upgrade SET release_builds_status = 'ready' WHERE commit_sha = $1 AND release_builds_status != 'ready'",
 				t.CommitSHA)
 		} else {
@@ -3652,14 +3697,23 @@ func (d *Service) discover(ctx context.Context) {
 				hasSuccess := false
 				hasFailure := false
 				for _, c := range conclusions {
-					if c == "success" {
+					switch c {
+					case "success":
 						hasSuccess = true
-					} else if c == "failure" {
+					case "failure":
 						hasFailure = true
 					}
 				}
 				if hasFailure && !hasSuccess {
-					d.queryConn.Exec(ctx,
+					// STATBUS-176 lint burn-down: pre-existing silent ignore,
+					// left as-is — behavior-change candidate flagged in the
+					// burn-down report (a failed UPDATE here leaves
+					// release_builds_status stuck at 'building' even though
+					// this poll already observed the CI failure — the next
+					// poll re-observes the same CI result and retries the
+					// same UPDATE, so this is self-healing, not a permanent
+					// miss, but the row can lag one extra poll interval).
+					_, _ = d.queryConn.Exec(ctx,
 						"UPDATE public.upgrade SET release_builds_status = 'failed' WHERE commit_sha = $1 AND release_builds_status = 'building'",
 						t.CommitSHA)
 					fmt.Printf("Release build failed for %s\n", t.TagName)
@@ -3788,7 +3842,9 @@ func (d *Service) pruneDeletedTags(ctx context.Context, currentTags []GitTag) {
 			}
 			newStatus = "prerelease"
 		}
-		d.queryConn.Exec(ctx,
+		// Best-effort; called from discover()'s periodic pass — a failed
+		// demotion here is retried on the next discovery cycle.
+		_, _ = d.queryConn.Exec(ctx,
 			`UPDATE public.upgrade SET commit_tags = $1, release_status = $2::public.release_status_type WHERE id = $3`,
 			kept, newStatus, p.id)
 	}
@@ -3997,7 +4053,10 @@ func (d *Service) preDownloadImages(ctx context.Context) {
 		return
 	}
 
-	d.queryConn.Exec(ctx,
+	// Best-effort; called from discover()'s periodic pass — a failed marker
+	// UPDATE here just costs a redundant re-download attempt next cycle,
+	// not a correctness issue.
+	_, _ = d.queryConn.Exec(ctx,
 		"UPDATE public.upgrade SET docker_images_downloaded = true WHERE commit_sha = $1",
 		chosen.CommitSHA)
 }
@@ -4337,10 +4396,10 @@ func (d *Service) runOneShot(ctx context.Context, fn func(context.Context) error
 	}
 	defer func() {
 		if d.listenConn != nil {
-			d.listenConn.Close(context.Background())
+			_ = d.listenConn.Close(context.Background())
 		}
 		if d.queryConn != nil {
-			d.queryConn.Close(context.Background())
+			_ = d.queryConn.Close(context.Background())
 		}
 	}()
 	return fn(ctx)
@@ -4734,7 +4793,7 @@ func (d *Service) claimScheduledUpgrade(ctx context.Context, id int) (commitTags
 	if txErr != nil {
 		return nil, false, fmt.Errorf("claim id=%d: begin tx: %w", id, txErr)
 	}
-	defer tx.Rollback(ctx) // no-op after a successful Commit
+	defer func() { _ = tx.Rollback(ctx) }() // no-op after a successful Commit
 
 	displaced := false
 	if hasPark {
@@ -4796,7 +4855,6 @@ func (d *Service) executeScheduled(ctx context.Context) {
 	if err != nil {
 		return // no pending upgrades
 	}
-	displayName := renderDisplayName(CommitSHA(commitSHA), commitTags)
 	fmt.Printf("Claiming id=%d, lag=%s\n", id, time.Since(scheduledAt).Truncate(time.Second))
 
 	// STATBUS-046 slice 3c — images-ready CLAIM GATE (evaluateImageClaimGate,
@@ -4855,10 +4913,14 @@ func (d *Service) executeScheduled(ctx context.Context) {
 		return
 	}
 
-	// STATBUS-159 (take-from-helper residue): re-render displayName from the claim's
-	// atomic commit_tags so the post-claim messages + executeUpgrade can't carry a
-	// stale-tag rendering. The pre-claim gate log lines already used the SELECT's copy.
-	displayName = renderDisplayName(CommitSHA(commitSHA), claimedTags)
+	// STATBUS-159 (take-from-helper residue): render displayName from the
+	// claim's atomic commit_tags so the post-claim messages + executeUpgrade
+	// can't carry a stale-tag rendering. STATBUS-176 lint burn-down: this
+	// used to be a RE-render (ineffassign flagged the pre-claim first render
+	// as dead — the pre-claim gate log lines below use `id`, not
+	// displayName, so the earlier SELECT-based render was never read); the
+	// stale comment claiming otherwise is gone too.
+	displayName := renderDisplayName(CommitSHA(commitSHA), claimedTags)
 
 	fmt.Printf("Executing upgrade to %s...\n", displayName)
 	// Invoker context for the flag file: the row was picked up from the scheduled queue.
@@ -4993,7 +5055,15 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 			// (state='available' requires all lifecycle timestamps NULL).
 			// The service will flip docker_images_status and release_builds_status
 			// on the next discovery cycle when CI finishes, re-enabling "Upgrade Now".
-			d.queryConn.Exec(ctx,
+			//
+			// STATBUS-176 lint burn-down: pre-existing silent ignore, left
+			// as-is — behavior-change candidate flagged in the burn-down
+			// report (this function returns nil — success — regardless of
+			// whether this UPDATE actually lands; if it silently fails, the
+			// row stays wedged at whatever state it was in before this
+			// unschedule attempt, is never claimable again as 'available',
+			// and the caller has no way to know the reset didn't happen).
+			_, _ = d.queryConn.Exec(ctx,
 				"UPDATE public.upgrade SET state = 'available', scheduled_at = NULL, started_at = NULL, from_commit_version = NULL WHERE id = $1", id)
 			progress.Write("Release assets not ready for %s — unscheduled. Will be available when CI finishes.", displayName)
 			return nil
@@ -5173,13 +5243,13 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	progress.Write("Listen-loop goroutine stopped.")
 	if d.listenConn != nil {
 		progress.Write("Closing listen connection to the database...")
-		d.listenConn.Close(context.Background())
+		_ = d.listenConn.Close(context.Background())
 		d.listenConn = nil
 		progress.Write("Listen connection closed.")
 	}
 	if d.queryConn != nil {
 		progress.Write("Closing query connection to the database...")
-		d.queryConn.Close(context.Background())
+		_ = d.queryConn.Close(context.Background())
 		d.queryConn = nil
 		progress.Write("Query connection closed.")
 	}
@@ -5193,13 +5263,13 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	if err := runCommand(projDir, "docker", "compose", "stop", "app", "worker", "rest"); err != nil {
 		errMsg := fmt.Sprintf("could not stop application services before backup: %v", err)
 		progress.Write("FAILED: %s", errMsg)
-		runCommand(projDir, "docker", "compose", "up", "-d", "app", "worker", "rest")
+		_ = runCommand(projDir, "docker", "compose", "up", "-d", "app", "worker", "rest") // best-effort revert attempt; errMsg below is the actionable failure regardless
 		d.setMaintenance(false)
 		if reconErr := d.reconnect(ctx); reconErr == nil {
 			// STATBUS-110: DB is still up (we aborted before the stop) and the
 			// window was engaged above — clear it now on the reconnected conn so
 			// the box returns to service read-write. Best-effort.
-			d.setDatabaseReadOnly(ctx, false)
+			_ = d.setDatabaseReadOnly(ctx, false)
 			d.failUpgrade(ctx, id, errMsg, progress)
 		} else {
 			d.removeUpgradeFlag()
@@ -5213,13 +5283,13 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	if err := runCommand(projDir, "docker", "compose", "stop", "db"); err != nil {
 		errMsg := fmt.Sprintf("could not stop database for consistent backup: %v", err)
 		progress.Write("FAILED: %s", errMsg)
-		runCommand(projDir, "docker", "compose", "up", "-d", "app", "worker", "rest", "db")
+		_ = runCommand(projDir, "docker", "compose", "up", "-d", "app", "worker", "rest", "db") // best-effort revert attempt; errMsg below is the actionable failure regardless
 		d.setMaintenance(false)
 		if reconErr := d.reconnect(ctx); reconErr == nil {
 			// STATBUS-110: the db stop FAILED, so the DB is still up and the window
 			// (engaged above) is still set — clear it on the reconnected conn so the
 			// box returns to service read-write. Best-effort.
-			d.setDatabaseReadOnly(ctx, false)
+			_ = d.setDatabaseReadOnly(ctx, false)
 			d.failUpgrade(ctx, id, errMsg, progress)
 		} else {
 			d.removeUpgradeFlag()
@@ -6033,7 +6103,10 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	// completion NOTIFY; this explicit belt guarantees delivery if the app's
 	// LISTEN wasn't yet established when the trigger fired. Mirrors the recovery
 	// self-heal path's NOTIFY-after-completed ordering (resumeNewSb).
-	d.queryConn.Exec(ctx, `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
+	// Best-effort; this is an explicit BELT on top of the completed UPDATE's
+	// own DB trigger NOTIFY (see comment above) — if this one fails, the
+	// trigger-fired NOTIFY still delivers in the common case.
+	_, _ = d.queryConn.Exec(ctx, `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
 	// STATBUS-110: clear the read-only upgrade window — health passed, no rollback
 	// pending, box reopening. Placed HERE (right after the completed UPDATE landed)
 	// rather than at the setMaintenance(false) above because queryConn is only
@@ -6080,7 +6153,7 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	// means we're committed to the new version. Best-effort delete; if
 	// the branch is missing (best-effort create at the start failed),
 	// the -D returns non-zero and we just move on.
-	runCommand(d.projDir, "git", "branch", "-D", "pre-upgrade")
+	_ = runCommand(d.projDir, "git", "branch", "-D", "pre-upgrade")
 	d.supersedeOlderReleases(ctx, commitSHA)
 	d.supersedeCompletedPrereleases(ctx, commitSHA)
 	// Retention pass scoped to the just-installed row: rules A/B/C fire
@@ -6549,8 +6622,16 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 				flag.ID, progress.RelPath())
 			if err == nil {
 				logUpgradeRow(LabelCompletedSelfHeal, selfHealJSON)
-				d.queryConn.Exec(ctx, `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
-				os.Remove(d.flagPath())
+				// Best-effort NOTIFY belt, same shape as the normal-completion
+				// path above.
+				_, _ = d.queryConn.Exec(ctx, `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
+				// STATBUS-176 lint burn-down: pre-existing silent ignore, left
+				// as-is — same stale-flag behavior-change candidate as
+				// removeUpgradeFlag/ReleaseInstallFlag above (a failed Remove
+				// here leaves the flag file on disk even though the row is
+				// now genuinely 'completed', which the next boot could
+				// misread as a crashed/in-progress upgrade).
+				_ = os.Remove(d.flagPath())
 				d.supersedeOlderReleases(ctx, flag.CommitSHA)
 				d.supersedeCompletedPrereleases(ctx, flag.CommitSHA)
 				progress.Write("Post-swap self-heal: containers already at %s; row %d marked completed without re-running applyNewSbUpgrading.",
@@ -6620,7 +6701,7 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 					"  running binary is BEHIND the flag's target (or on a sibling branch).\n"+
 					"  Continuing would query a schema newer than the binary speaks.\n"+
 					"  Investigate `docker compose ps` and the upgrade-progress log;\n"+
-					"  ./sb install will resume after the divergence is resolved.",
+					"  ./sb install will resume after the divergence is resolved",
 				flag.Label(), ShortForDisplay(d.binaryCommit), mismatched)
 		}
 		// "mismatched" is the expected post-swap state — the prior process
@@ -7023,7 +7104,7 @@ func captureContainerLogs(projDir string, progress *ProgressLog, services []stri
 		cancel()
 		path := filepath.Join(dirAbs, svc+".log")
 		if err != nil && len(out) == 0 {
-			os.WriteFile(path, []byte(fmt.Sprintf("# capture failed: %v\n", err)), 0644)
+			_ = os.WriteFile(path, []byte(fmt.Sprintf("# capture failed: %v\n", err)), 0644) // best-effort diagnostic placeholder
 			continue
 		}
 		if writeErr := os.WriteFile(path, out, 0644); writeErr != nil {
@@ -7136,11 +7217,11 @@ func (d *Service) terminalConnDo(fn func(ctx context.Context, conn *pgx.Conn) er
 			// recoveryDSN consumer incl. the reachability probe. NOT BEGIN READ
 			// WRITE: needless tx choreography.) A SET failure is a live-connection
 			// fault → close + retry within the bounded budget.
-			conn.Close(context.Background())
+			_ = conn.Close(context.Background()) // best-effort; retrying with a fresh connection regardless
 			lastErr = roErr
 		} else {
 			lastErr = fn(ctx, conn)
-			conn.Close(context.Background())
+			_ = conn.Close(context.Background()) // best-effort; this attempt's connection is being discarded either way
 			if lastErr == nil {
 				return nil
 			}
@@ -7519,7 +7600,15 @@ func (d *Service) ReattemptRestore(ctx context.Context, rowID int64, backupPath 
 
 	// Stop clients + db before rsyncing the volume (restoreAndFinalize's
 	// docker-up brings them back). Mirrors rollback()'s pre-restore stop.
-	runCommand(d.projDir, "docker", "compose", "stop", "app", "worker", "rest", "db")
+	//
+	// STATBUS-176 lint burn-down: pre-existing silent ignore, left as-is —
+	// behavior-change candidate flagged in the burn-down report (this is
+	// STATBUS-111's own restore-broke re-attempt path: if this stop fails,
+	// restoreAndFinalize's rsync below still proceeds to restore the DB
+	// volume while services may still be running against it — a real
+	// data-consistency risk, not just a cosmetic one, with no
+	// operator-visible signal if the stop silently failed).
+	_ = runCommand(d.projDir, "docker", "compose", "stop", "app", "worker", "rest", "db")
 
 	reason := fmt.Sprintf("operator re-attempt of the interrupted restore for %s", displayName)
 	if degraded := d.restoreAndFinalize(ctx, int(rowID), displayName, reason, backupPath, attemptsAtCall, progress); degraded {
@@ -7585,7 +7674,13 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 	captureContainerLogs(projDir, progress, []string{"rest", "app", "worker", "db"})
 
 	// Stop everything before we touch the git tree or restore the DB.
-	runCommand(projDir, "docker", "compose", "stop", "app", "worker", "rest", "db")
+	//
+	// STATBUS-176 lint burn-down: pre-existing silent ignore, left as-is —
+	// behavior-change candidate flagged in the burn-down report (same
+	// concern as ReattemptRestore's pre-restore stop: if this silently
+	// fails, the restore below still proceeds against volumes/containers
+	// that may still be live).
+	_ = runCommand(projDir, "docker", "compose", "stop", "app", "worker", "rest", "db")
 
 	// Restore git state — ALWAYS, with no `restoreTargetSHA != ""` guard: an
 	// empty or unresolvable restoreTargetSHA falls back to the pinned `pre-upgrade`
@@ -7600,7 +7695,16 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 	if err := d.restoreGitState(restoreTargetSHA, progress); err != nil {
 		progress.Write("ABORT: rollback could not restore git state to %s: %v", restoreTargetSHA, err)
 		progress.Write("Restoring database to keep on-disk state consistent...")
-		d.restoreDatabase(progress, backupPath)
+		// STATBUS-176 lint burn-down: pre-existing silent ignore, left as-is
+		// — behavior-change candidate flagged in the burn-down report. This
+		// is the ABORT branch's OWN restoreDatabase call (confirmed present
+		// and load-bearing this session, STATBUS-181): if it silently
+		// fails here, the DB volume may be left inconsistent while the
+		// terminal write below still reports the same generic
+		// ROLLBACK_FAILED_GIT_CORRUPT — the operator would have no signal
+		// that the database-side restore ALSO failed, not just the git
+		// restore the message names.
+		_ = d.restoreDatabase(progress, backupPath)
 		// Restore ./sb to match the attempted-but-failed git era so the
 		// operator's `./sb` at least stops being the NEW (mismatched)
 		// binary. Best-effort: if it fails, we log ErrRollbackBinaryCorrupt
@@ -8126,9 +8230,10 @@ func (d *Service) selfUpdate(ctx context.Context, version string, progress *Prog
 		msg := fmt.Sprintf("Self-update failed for %s: %v", version, err)
 		progress.Write("%s", msg)
 		fmt.Fprintln(os.Stderr, msg)
-		// Record in system_info so admins can see the failure
+		// Record in system_info so admins can see the failure. Best-effort;
+		// the failure is already logged to stderr + progress above regardless.
 		if d.queryConn != nil {
-			d.queryConn.Exec(ctx,
+			_, _ = d.queryConn.Exec(ctx,
 				`INSERT INTO public.system_info (key, value, updated_at) VALUES ('self_update_error', $1, now())
 				 ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = now()`, msg)
 		}

@@ -66,3 +66,42 @@ jobs:
       - name: go test
         working-directory: cli
         run: go test ./...
+
+  # go-lint (STATBUS-176) — King-approved quality gate: staticcheck, errcheck,
+  # ineffassign, nilness, exactly (cli/.golangci.yml pins the analyzer set and
+  # disables golangci-lint's own default issue caps — max-issues-per-linter /
+  # max-same-issues — which silently truncated the FIRST inventory of this
+  # gate's findings; the config here is what makes `golangci-lint run` in cli/
+  # match this job byte-for-byte). Strict per the ratified strict-gating
+  # doctrine (same shape as go-test above): no continue-on-error. The ONLY
+  # bypass is the loud, explicit SKIP_GO_LINT=1 repository variable — never a
+  # silently-tolerated red job. Separate job (not a step bolted onto go-test)
+  # so its own red/green verdict is unambiguous and it can be gated on
+  # independently by the release checker.
+  go-lint:
+    name: cli golangci-lint (staticcheck, errcheck, ineffassign, nilness)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+
+      - name: SKIP_GO_LINT bypass notice
+        if: ${{ vars.SKIP_GO_LINT == '1' }}
+        run: |
+          echo "::warning::SKIP_GO_LINT=1 is set — the golangci-lint gate is BYPASSED for this run. This must be a deliberate, temporary operator decision (a repository variable someone set on purpose), never a silent default."
+          echo "⚠️⚠️⚠️  golangci-lint gate BYPASSED (SKIP_GO_LINT=1)  ⚠️⚠️⚠️"
+
+      - name: Install golangci-lint
+        if: ${{ vars.SKIP_GO_LINT != '1' }}
+        run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$(go env GOPATH)/bin" v2.12.2
+
+      - name: golangci-lint run
+        if: ${{ vars.SKIP_GO_LINT != '1' }}
+        working-directory: cli
+        run: golangci-lint run ./...

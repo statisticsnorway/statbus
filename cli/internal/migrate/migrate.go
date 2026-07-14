@@ -279,18 +279,21 @@ func SetTargetDB(dbName string) (restore func()) {
 	prevApp, hadApp := os.LookupEnv("POSTGRES_APP_DB")
 	prevPG, hadPG := os.LookupEnv("PGDATABASE")
 
-	os.Setenv("POSTGRES_APP_DB", dbName)
-	os.Setenv("PGDATABASE", dbName)
+	// os.Setenv/Unsetenv only fail on an invalid (NUL-containing) key/value;
+	// dbName is always an internal, fixed literal (never operator input at
+	// this layer) — best-effort, not a reachable error path in practice.
+	_ = os.Setenv("POSTGRES_APP_DB", dbName)
+	_ = os.Setenv("PGDATABASE", dbName)
 	return func() {
 		if hadApp {
-			os.Setenv("POSTGRES_APP_DB", prevApp)
+			_ = os.Setenv("POSTGRES_APP_DB", prevApp)
 		} else {
-			os.Unsetenv("POSTGRES_APP_DB")
+			_ = os.Unsetenv("POSTGRES_APP_DB")
 		}
 		if hadPG {
-			os.Setenv("PGDATABASE", prevPG)
+			_ = os.Setenv("PGDATABASE", prevPG)
 		} else {
-			os.Unsetenv("PGDATABASE")
+			_ = os.Unsetenv("PGDATABASE")
 		}
 	}
 }
@@ -567,7 +570,7 @@ func runPsqlFile(projDir string, filePath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("open migration file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	args := append(prefix, "-v", "ON_ERROR_STOP=on")
 
@@ -864,7 +867,7 @@ func acquireAdvisoryLock(ctx context.Context, projDir string) (*pgx.Conn, error)
 	// migration's owner is alive and gets skipped, a killed migration's
 	// owner is ESRCH and gets terminated.
 	if _, tagErr := conn.Exec(ctx, fmt.Sprintf("SET application_name = 'statbus-migrate-%d'", os.Getpid())); tagErr != nil {
-		conn.Close(ctx)
+		_ = conn.Close(ctx) // best-effort; already erroring out
 		return nil, fmt.Errorf("tag advisory lock connection: %w", tagErr)
 	}
 	// advisory lock objid: hashtext('migrate_up') = -1978276407
@@ -881,7 +884,7 @@ func acquireAdvisoryLock(ctx context.Context, projDir string) (*pgx.Conn, error)
 	hintTimer.Stop()
 	recursionHintTimer.Stop()
 	if err != nil {
-		conn.Close(ctx)
+		_ = conn.Close(ctx) // best-effort; already erroring out
 		return nil, fmt.Errorf("acquire advisory lock: %w", err)
 	}
 	return conn, nil
@@ -914,7 +917,10 @@ func Up(projDir string, migrateTo int64, all bool, verbose bool) error {
 	// `dev.sh create-test-template` which calls `./sb migrate up`, which
 	// tries to acquire the same lock. Holding it through the spawn causes
 	// a self-deadlock (parent waits for child; child blocks on parent's lock).
-	lockConn.Close(context.Background())
+	// Best-effort: a Close failure here doesn't change what's reported below
+	// (the runUp err, if any, is the actionable one) and Postgres releases a
+	// session-scoped advisory lock on connection termination regardless.
+	_ = lockConn.Close(context.Background())
 	if err != nil {
 		return err
 	}
@@ -1144,9 +1150,13 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 		appliedCount++
 	}
 
-	// Notify PostgREST
+	// Notify PostgREST. STATBUS-176 lint burn-down: pre-existing silent
+	// ignore, left as-is — behavior-change candidate flagged in the
+	// burn-down report (a failed NOTIFY leaves PostgREST's schema cache
+	// stale until its next reload, with no operator-visible signal; low
+	// severity — self-correcting, and migrations already applied).
 	if appliedCount > 0 {
-		runPsql(projDir, "NOTIFY pgrst, 'reload config'; NOTIFY pgrst, 'reload schema';")
+		_, _ = runPsql(projDir, "NOTIFY pgrst, 'reload config'; NOTIFY pgrst, 'reload schema';")
 		fmt.Printf("Applied %d migration(s)\n", appliedCount)
 	}
 
@@ -1296,7 +1306,13 @@ func Down(projDir string, migrateTo int64, all bool, verbose bool) error {
 				fmt.Println("[empty - skipped]")
 			}
 			deleteSQL := fmt.Sprintf("DELETE FROM db.migration WHERE version = %d", version)
-			runPsql(projDir, deleteSQL)
+			// STATBUS-176 lint burn-down: pre-existing silent ignore, left
+			// as-is — behavior-change candidate flagged in the burn-down
+			// report (a failed ledger DELETE here leaves db.migration
+			// showing this version as still applied even though its
+			// down-migration path was taken — a ledger/reality divergence,
+			// with no operator-visible signal).
+			_, _ = runPsql(projDir, deleteSQL)
 			appliedCount++
 			continue
 		}
@@ -1317,9 +1333,14 @@ func Down(projDir string, migrateTo int64, all bool, verbose bool) error {
 			return fmt.Errorf("rollback %d (%s) failed: %w\n%s", version, filepath.Base(downPath), err, out)
 		}
 
-		// Remove migration record
+		// Remove migration record. STATBUS-176 lint burn-down: pre-existing
+		// silent ignore, left as-is — behavior-change candidate flagged in
+		// the burn-down report (a failed ledger DELETE here leaves
+		// db.migration showing this version as still applied even though
+		// runPsqlFile above just rolled it back — a ledger/reality
+		// divergence, with no operator-visible signal).
 		deleteSQL := fmt.Sprintf("DELETE FROM db.migration WHERE version = %d", version)
-		runPsql(projDir, deleteSQL)
+		_, _ = runPsql(projDir, deleteSQL)
 
 		if verbose {
 			fmt.Printf("done (%dms)\n", durationMs)
@@ -1327,17 +1348,21 @@ func Down(projDir string, migrateTo int64, all bool, verbose bool) error {
 		appliedCount++
 	}
 
-	// Clean up schema if full rollback
+	// Clean up schema if full rollback. STATBUS-176 lint burn-down:
+	// pre-existing silent ignore, left as-is — behavior-change candidate
+	// flagged in the burn-down report (a failed DROP here leaves the
+	// db.migration table/schema behind when the caller expected a full
+	// teardown, with no operator-visible signal).
 	if all && migrateTo == 0 {
-		runPsql(projDir, "DROP TABLE IF EXISTS db.migration; DROP SCHEMA IF EXISTS db CASCADE;")
+		_, _ = runPsql(projDir, "DROP TABLE IF EXISTS db.migration; DROP SCHEMA IF EXISTS db CASCADE;")
 		if verbose {
 			fmt.Println("Removed migration tracking table and schema")
 		}
 	}
 
-	// Notify PostgREST
+	// Notify PostgREST — same best-effort shape as the forward-apply path above.
 	if appliedCount > 0 {
-		runPsql(projDir, "NOTIFY pgrst, 'reload config'; NOTIFY pgrst, 'reload schema';")
+		_, _ = runPsql(projDir, "NOTIFY pgrst, 'reload config'; NOTIFY pgrst, 'reload schema';")
 		fmt.Printf("Rolled back %d migration(s)\n", appliedCount)
 	}
 
@@ -1753,7 +1778,7 @@ func eagerContentHashCheck(projDir string) error {
 			// If we ever see it, the constraint was bypassed (manual
 			// SQL, schema desync). Fail loudly.
 			return fmt.Errorf("invariant violated: db.migration.content_hash is NULL for version %d "+
-				"despite NOT NULL constraint. Schema desync; investigate manually.", version)
+				"despite NOT NULL constraint. Schema desync; investigate manually", version)
 		}
 
 		filePath, fileErr := findUpFile(projDir, version)
@@ -1879,7 +1904,7 @@ func eagerContentHashCheck(projDir string) error {
 			return fmt.Errorf(
 				"migration %d (%s) content has changed since apply to %s (WIP edit).\n"+
 					"  Fix: %s\n"+
-					"  This re-runs the migration's down + up against %s and re-stamps content_hash.",
+					"  This re-runs the migration's down + up against %s and re-stamps content_hash",
 				version, filepath.Base(filePath), dbName, fixCmd, dbName)
 		}
 	}
@@ -1992,7 +2017,7 @@ func Redo(projDir string, version int64, target string, confirm bool, targetExpl
 	if target == "dev" && !confirm {
 		return fmt.Errorf("./sb migrate redo --target dev requires --confirm.\n" +
 			"  Redo runs the migration's down.sql which is destructive on a dev DB with custom data.\n" +
-			"  Default --target seed is safe (build-time DB; disposable).")
+			"  Default --target seed is safe (build-time DB; disposable)")
 	}
 	dbName, err := ResolveTargetDB(projDir, target)
 	if err != nil {
@@ -2018,7 +2043,7 @@ func Redo(projDir string, version int64, target string, confirm bool, targetExpl
 	if err != nil {
 		return err
 	}
-	defer lockConn.Close(context.Background())
+	defer func() { _ = lockConn.Close(context.Background()) }()
 
 	applied, err := listAppliedVersions(projDir)
 	if err != nil {
@@ -2035,7 +2060,7 @@ func Redo(projDir string, version int64, target string, confirm bool, targetExpl
 	}
 	if version != latest {
 		return fmt.Errorf("./sb migrate redo only supports the latest applied migration (currently %d in %s).\n"+
-			"  To revisit older migrations, manually migrate down past it then back up.",
+			"  To revisit older migrations, manually migrate down past it then back up",
 			latest, dbName)
 	}
 

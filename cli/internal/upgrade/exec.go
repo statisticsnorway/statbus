@@ -511,7 +511,7 @@ func syncTree(root string) error {
 		if syncErr := f.Sync(); syncErr != nil {
 			note(syncErr)
 		}
-		f.Close()
+		_ = f.Close() // best-effort; the durability guarantee this function provides is Sync(), already captured above
 		return nil
 	})
 	note(walkErr)
@@ -816,13 +816,13 @@ func copyRegularFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 	out, err := os.Create(dst)
 	if err != nil {
 		return err
 	}
 	if _, err := io.Copy(out, in); err != nil {
-		out.Close()
+		_ = out.Close() // best-effort; already erroring out
 		return err
 	}
 	return out.Close()
@@ -947,7 +947,14 @@ func (d *Service) pruneBackups(ctx context.Context, keep int) {
 					continue // retry next tick
 				}
 			}
-			os.RemoveAll(p)
+			// STATBUS-176 lint burn-down: pre-existing silent ignore, left
+			// as-is — behavior-change candidate flagged in the burn-down
+			// report (a failed RemoveAll here leaves the backup dir on
+			// disk with its DB row already nulled — reconcileBackupDir's
+			// normal path no longer finds it via backup_path, so it can
+			// leak on disk indefinitely; moderate severity — disk usage,
+			// not correctness).
+			_ = os.RemoveAll(p)
 			log.Printf("Pruned backup: %s", filepath.Base(p))
 			pruned++
 			// Prune the matching upgrade-logs-<stamp> sibling (created by
@@ -957,7 +964,7 @@ func (d *Service) pruneBackups(ctx context.Context, keep int) {
 			stamp := strings.TrimPrefix(base, "pre-upgrade-")
 			if stamp != base { // only if the prefix was present
 				logsDir := filepath.Join(d.backupRoot(), "upgrade-logs-"+stamp)
-				os.RemoveAll(logsDir)
+				_ = os.RemoveAll(logsDir) // best-effort; a leftover logs dir is disk usage only, not correctness
 			}
 		}
 		if pruned > 0 {
@@ -1019,8 +1026,8 @@ func (d *Service) runRetentionPurge(ctx context.Context, scope string, installed
 	logsDir := upgradeLogsDir(d.projDir)
 	for _, rel := range plannedLogs {
 		stem := strings.TrimSuffix(rel, ".log")
-		os.Remove(filepath.Join(logsDir, rel))
-		os.Remove(filepath.Join(logsDir, stem+".bundle.txt"))
+		_ = os.Remove(filepath.Join(logsDir, rel))                // best-effort; a leftover log is disk usage only
+		_ = os.Remove(filepath.Join(logsDir, stem+".bundle.txt")) // best-effort; a leftover bundle is disk usage only
 	}
 
 	// Third arg is the INOUT p_deleted; the procedure overwrites it. We pass 0
@@ -1096,8 +1103,8 @@ func (d *Service) pruneUpgradeLogs(keep int) {
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].mtime.Before(sorted[j].mtime) })
 	toPrune := sorted[:len(sorted)-keep]
 	for _, p := range toPrune {
-		os.Remove(filepath.Join(dir, p.stem+".log"))        // no-op if absent
-		os.Remove(filepath.Join(dir, p.stem+".bundle.txt")) // no-op if absent
+		_ = os.Remove(filepath.Join(dir, p.stem+".log"))        // best-effort, no-op if absent
+		_ = os.Remove(filepath.Join(dir, p.stem+".bundle.txt")) // best-effort, no-op if absent
 	}
 	if len(toPrune) > 0 {
 		log.Printf("Pruned %d upgrade log(s), keeping %d newest", len(toPrune), keep)
@@ -1237,7 +1244,7 @@ func newProxyRouteMissingError() error {
 	return fmt.Errorf(
 		"the db's connection route — the proxy container — does not exist; the crash that interrupted this upgrade may have removed it mid-recreate.\n" +
 			"  Recovery reaches PostgreSQL THROUGH this proxy (Caddy layer4 on CADDY_DB_BIND_ADDRESS:CADDY_DB_PORT), so it cannot connect, and it will not auto-recreate the proxy: `docker compose up -d proxy` under the current binary may pull a different image tag than the interrupted upgrade's target.\n" +
-			"  Operator action: inspect `docker compose ps -a`; recreate the proxy deliberately with `docker compose up -d proxy` (accepting that version caveat), then re-run `./sb install`.")
+			"  Operator action: inspect `docker compose ps -a`; recreate the proxy deliberately with `docker compose up -d proxy` (accepting that version caveat), then re-run `./sb install`")
 }
 
 // EnsureDBReachable verifies the DB is reachable via the .env-configured
@@ -1278,10 +1285,10 @@ func (d *Service) EnsureDBReachable(ctx context.Context) error {
 			"DB not reachable for crash recovery on the service's own route (CADDY_DB_BIND_ADDRESS:CADDY_DB_PORT): %w\n"+
 				"  The database is reached THROUGH the Caddy layer4 proxy — check `docker compose ps` for BOTH `db` AND `proxy`.\n"+
 				"  Containers from the prior in-flight upgrade must be running for recovery to proceed safely.\n"+
-				"  Do not blindly `docker compose up -d` (the current binary's compose template may have a different image-tag scheme than what's actually running).",
+				"  Do not blindly `docker compose up -d` (the current binary's compose template may have a different image-tag scheme than what's actually running)",
 			err)
 	}
-	defer conn.Close(context.Background())
+	defer func() { _ = conn.Close(context.Background()) }()
 	var one int
 	if err := conn.QueryRow(timedCtx, "SELECT 1").Scan(&one); err != nil {
 		return fmt.Errorf("DB not reachable for crash recovery: SELECT 1 failed on the service route: %w", err)
@@ -1334,7 +1341,7 @@ func (d *Service) healthURL() (string, error) {
 		return "", fmt.Errorf(
 			"health check: cannot read %s to resolve REST_BIND_ADDRESS: %w\n"+
 				"Fix: run `./sb config generate` to regenerate .env from .env.config, "+
-				"or verify the file exists and is readable.",
+				"or verify the file exists and is readable",
 			envPath, err)
 	}
 	bind, ok := f.Get("REST_BIND_ADDRESS")
@@ -1343,7 +1350,7 @@ func (d *Service) healthURL() (string, error) {
 		return "", fmt.Errorf(
 			"health check: REST_BIND_ADDRESS is not set in %s.\n"+
 				"Fix: run `./sb config generate` to regenerate .env from .env.config, "+
-				"or check that REST_BIND_ADDRESS=<host>:<port> is populated in your .env file.",
+				"or check that REST_BIND_ADDRESS=<host>:<port> is populated in your .env file",
 			envPath)
 	}
 	d.cachedURL = fmt.Sprintf("http://%s/rpc/auth_status", bind)
@@ -1371,7 +1378,7 @@ func (d *Service) readyURL() (string, error) {
 		return "", fmt.Errorf(
 			"readiness check: cannot read %s to resolve REST_ADMIN_BIND_ADDRESS: %w\n"+
 				"Fix: run `./sb config generate` to regenerate .env from .env.config, "+
-				"or verify the file exists and is readable.",
+				"or verify the file exists and is readable",
 			envPath, err)
 	}
 	bind, ok := f.Get("REST_ADMIN_BIND_ADDRESS")
@@ -1380,7 +1387,7 @@ func (d *Service) readyURL() (string, error) {
 		return "", fmt.Errorf(
 			"readiness check: REST_ADMIN_BIND_ADDRESS is not set in %s.\n"+
 				"Fix: run `./sb config generate` to regenerate .env from .env.config so the "+
-				"PostgREST admin server bind address (127.0.0.1:<port>) is populated.",
+				"PostgREST admin server bind address (127.0.0.1:<port>) is populated",
 			envPath)
 	}
 	d.cachedReadyURL = fmt.Sprintf("http://%s/ready", bind)
@@ -1431,14 +1438,14 @@ func (d *Service) healthCheck(progress *ProgressLog, retries int, interval time.
 		case err != nil:
 			lastDetail = fmt.Sprintf("transport error: %v", err)
 		case healthCheckStatusOK(resp.StatusCode):
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			if i > 0 {
 				logf("Health check OK on attempt %d/%d (status=%d)", i+1, retries, resp.StatusCode)
 			}
 			return nil
 		default:
 			body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			lastDetail = fmt.Sprintf("status=%d body=%q", resp.StatusCode, strings.TrimSpace(string(body)))
 		}
 		logf("Health check attempt %d/%d failed: %s (url=%s)", i+1, retries, lastDetail, healthURL)
@@ -1536,15 +1543,15 @@ func (d *Service) waitForRestReady(progress *ProgressLog, pollInterval, progress
 		resp, getErr := client.Get(readyURL)
 		switch {
 		case getErr == nil && resp.StatusCode == http.StatusOK:
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			logf("PostgREST is ready (admin /ready=200 after %s, %d poll(s))",
 				time.Since(start).Round(time.Millisecond), polls)
 			return nil
 		case getErr != nil:
 			lastDetail = fmt.Sprintf("connection error: %v", getErr)
 		default:
-			io.Copy(io.Discard, io.LimitReader(resp.Body, 1024))
-			resp.Body.Close()
+			_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1024)) // best-effort drain so the connection can be reused
+			_ = resp.Body.Close()
 			sawConnection = true
 			lastDetail = fmt.Sprintf("status=%d (schema cache still loading)", resp.StatusCode)
 		}
@@ -1554,13 +1561,13 @@ func (d *Service) waitForRestReady(progress *ProgressLog, pollInterval, progress
 				return fmt.Errorf(
 					"PostgREST schema cache never loaded — admin /ready did not return 200 within %s "+
 						"(last: %s). Check `docker compose logs rest`; the cache load may be failing, or the "+
-						"schema may be too large for the %s budget.",
+						"schema may be too large for the %s budget",
 					timeout, lastDetail, timeout)
 			}
 			return fmt.Errorf(
 				"PostgREST admin server unreachable — /ready at %s never accepted a connection within %s "+
 					"(last: %s). The admin mapping is likely missing from your config — run "+
-					"`./sb config generate` to regenerate .env and recreate the rest container.",
+					"`./sb config generate` to regenerate .env and recreate the rest container",
 				readyURL, timeout, lastDetail)
 		} else if now.Sub(lastProgressAt) >= progressInterval {
 			logf("Still waiting for PostgREST /ready (elapsed %s, last: %s)",
