@@ -109,6 +109,51 @@ _check_name_safety() {
     esac
 }
 
+# _assert_head_still_on_origin — STATBUS-184: re-verify HEAD is STILL on origin
+# immediately before it is captured for the VM's --commit pin. run.sh's own
+# preflight_head_on_origin checks this ONCE at the very top of a run, before
+# any VM is provisioned — but VM provisioning + any earlier scenarios in a
+# multi-scenario run take many minutes, during which a busy team session's
+# Backlog.md auto-commits (every board edit creates one) can advance local
+# HEAD past what that top-level check saw (the exact race two burned VM runs
+# demonstrated on 4-flagless-selfheal-at-target: run 1's local HEAD was a
+# just-landed board-edit commit; run 2's local HEAD moved again between the
+# push and this capture point). This is the SAME check, repeated at the
+# actual point of no return — right before `git rev-parse HEAD` gets baked
+# into what the VM checks out. Deliberately NOT shared code with run.sh's own
+# copy: run.sh has zero lib dependencies by design (kept lightweight for
+# --list/--print-selected), so duplicating this ~20-line check here is
+# cheaper than introducing a new source dependency into the dispatcher for it.
+_assert_head_still_on_origin() {
+    local sha
+    sha="$(git -C "$HARNESS_ROOT" rev-parse HEAD 2>/dev/null)" || {
+        echo "WARN: could not resolve HEAD (git rev-parse) — skipping the origin re-check" >&2
+        return 0
+    }
+    if git -C "$HARNESS_ROOT" branch -r --contains "$sha" 2>/dev/null | grep -q '^ *origin/'; then
+        return 0
+    fi
+    local remote_refs
+    if remote_refs="$(GIT_TERMINAL_PROMPT=0 git -C "$HARNESS_ROOT" ls-remote origin 2>/dev/null)"; then
+        if printf '%s\n' "$remote_refs" | grep -q "^${sha}[[:space:]]"; then
+            return 0
+        fi
+    else
+        echo "WARN: could not reach origin (git ls-remote) to verify HEAD is pushed — proceeding; a genuinely-unpushed commit still fails VM-side as before." >&2
+        return 0
+    fi
+    echo "" >&2
+    echo "════════════════════════════════════════════════════════════════" >&2
+    echo "  REFUSING: HEAD ($sha) is not on origin — the VM cannot resolve it." >&2
+    echo "════════════════════════════════════════════════════════════════" >&2
+    echo "  HEAD moved past what run.sh's top-level preflight checked (STATBUS-184 —" >&2
+    echo "  a busy session's Backlog.md auto-commits can land during VM provisioning" >&2
+    echo "  or an earlier scenario's run time). Push, then re-run:" >&2
+    echo "      git push" >&2
+    echo "════════════════════════════════════════════════════════════════" >&2
+    exit 3
+}
+
 _wait_for_ssh() {
     local ip="$1" max="${2:-90}"
     local i
@@ -602,6 +647,12 @@ install_statbus_in_vm() {
         # (exact sha) and install.sh-in-the-loop (the operator's sole action,
         # STATBUS-039). scp-a-binary bypasses now survive only as per-scenario named
         # exceptions, never this default path.
+        #
+        # STATBUS-184: re-verify HEAD is STILL on origin RIGHT HERE, immediately
+        # before it is captured — run.sh's top-level check ran before this VM was
+        # even provisioned (and before any earlier scenario in a multi-scenario
+        # run), which is not "guaranteed" against a HEAD that moved since.
+        _assert_head_still_on_origin
         local commit_under_test
         commit_under_test="$(git -C "$HARNESS_ROOT" rev-parse HEAD)"
         scp -O "${SSH_OPTS[@]}" "$HARNESS_ROOT/install.sh" root@"$ip":/tmp/statbus-install.sh
