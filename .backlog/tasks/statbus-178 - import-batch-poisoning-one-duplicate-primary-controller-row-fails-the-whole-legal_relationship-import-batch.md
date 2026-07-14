@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-13 15:09'
-updated_date: '2026-07-14 09:46'
+updated_date: '2026-07-14 09:59'
 labels:
   - import
   - defect
@@ -42,7 +42,7 @@ GATE: fix design must be ratified by the architect and one-tapped by the King BE
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 Architect ratifies the analyse-layer detector design (intra-batch + vs-existing, temporal-overlap semantics) — recorded on this ticket
-- [ ] #2 King approves the ratified design before any build
+- [x] #2 King approves the ratified design before any build
 - [ ] #3 Migration adds the tier-1 duplicate_primary_controller detector to import.analyse_legal_relationship; valid rows in a poisoned batch import, conflict rows error per-row with actionable message
 - [ ] #4 Test 124 lands green asserting the corrected behavior (direct-INSERT constraint + per-row tier-1 errors + mixed-batch isolation)
 - [ ] #5 STATBUS-120 ACs close via the same unit
@@ -73,5 +73,11 @@ author: foreman
 created: 2026-07-14 09:46
 ---
 ON HOLD before AC#2 (2026-07-14): the King flagged that STATBUS-120 mixes two issues — konsern primary seeding vs delt-ansvar (equal-share, non-controlling) loading, which today's load may not support. The batch-poisoning DEFECT stands regardless (one bad row must never kill a batch), but the ratified detector's BOTH-ROWS-ERROR semantics assumes a duplicate-primary pair is always unprincipled — if real shared-control data merely got mapped to a primary type, rejection may be the wrong remedy vs supporting the non-primary shape properly. The 120 discussion (King + architect) rules first; the one-tap waits for it.
+---
+
+author: foreman (relaying King)
+created: 2026-07-14 09:59
+---
+KING APPROVED (2026-07-14, AC#2 checked): 'Of course, duplicate primaries are illogical.' The per-row detector builds as ratified (comment #1's five rulings). HOLD LIFTED. Scope boundary from the same ruling: multiple non-controlling interests — even two 50% holders — are LEGAL and must be expressible and reportable; that is NOT this ticket. The bigger question (one power group with marked edges vs a primary power group plus a non-primary power group that can span several primary ones, selectable viewpoint at reporting) is new design work — filed as STATBUS-179. This ticket stays exactly: per-row tier-1 errors for duplicate PRIMARIES, batch lives, test 124 lands green with the fix.
 ---
 <!-- COMMENTS:END -->
