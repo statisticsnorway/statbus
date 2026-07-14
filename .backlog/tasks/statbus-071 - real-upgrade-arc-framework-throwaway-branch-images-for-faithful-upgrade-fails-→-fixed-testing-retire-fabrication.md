@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-14 18:18'
+updated_date: '2026-07-14 19:47'
 labels:
   - install-recovery
   - upgrade
@@ -326,5 +326,18 @@ author: foreman
 created: 2026-07-14 18:18
 ---
 DDL-DEADLOCK [ASSESS] ROW RESOLVED GREEN (2026-07-14 evening, local harness run tmp/ddl-deadlock-run2.log — PASS, 35 checks): the refreshed scenario (regression net for the shipped R1 quiesce, baseline re-pinned to rc.05) ran a real upgrade over a live loaded box with the continuous worker workload and completed cleanly — the quiesce-before-DDL fix holds under the exact jo/tcc wedge shape. Run 1 en route fixed dormant harness staleness: the workload helpers predated the VM_EXEC multi-line guard (converted to VM_SCRIPT_INLINE; also fixed stop's wait-cap reading the VM name as its bound). The coverage map now carries ZERO [ASSESS] rows; remaining [UNPROVEN]: un-park-to-completion (rebuilt on the two-check timed-fill construction, run pending), C-rollback resurrection leg, the two transient-backoff legs — plus AC#4's zero-callers end state (interim-net successors queued).
+---
+
+author: architect
+created: 2026-07-14 19:47
+---
+UN-PARK ARC RUN-2 RULED (architect, 2026-07-14; run 29360596950): option (a) WITH (c)'s crediting folded in — the map row re-scopes to the 145-era truth and the no-migration lineage variant gets built. The red is not a defect anywhere: it is the classify-then-act doctrine executing verbatim, and it proved something on the way.
+
+1. THE DESIRED-STORY QUESTION, answered plainly: YES — rollback-on-full-disk is the RIGHT operator story for a delta-carrying upgrade, and the run proved it clean end-to-end. Positively-Behind + deterministic resource failure ⇒ a data-safe restore is AVAILABLE, and taking it hands the NSO operator a SERVING box at the old version plus an actionable remedy ("free disk space, then re-trigger" — a fresh schedule retries; displacement handles the rest). Parking instead would hold a non-serving mixed state (new binary, behind DB) alive-idle for no benefit. The park exists precisely for the states where rollback is UNSAFE or UNDECIDABLE: at-target (restoring would destroy post-upgrade writes) and unverifiable. The map row as written was chasing a state the product deliberately — and correctly — avoids for delta upgrades.
+2. WHERE THE RESOURCE PARK GENUINELY LIVES: no-migration upgrades. A code-only release (B = A + code change, no V) is at-target by construction at the pre-pull check (ledger max == on-disk max; binary post-swap = target) → a deterministic resource failure there routes to PARK (parkForDeterministicFailure's at-or-past-target arm, verified this session). This is not a synthetic class — code-only releases are a normal fleet reality (app/CLI-only RCs). The honest construction: the small construct-lineage variant that builds B WITHOUT V; fill disk post-swap pre-pull → park (alive-idle + siren) → free disk → `./sb install` un-parks → the SAME row's fresh attempt completes. That is exactly the row's original story, now on the reachable class.
+3. MAP ROW RE-SCOPE (the (c) half): the row splits into its two proven-or-provable truths — (i) DELTA upgrades + resource failure: rollback + re-trigger, PROVEN by run 29360596950 (credit it: the timed fill, diskPrecheckReason, the Behind-confirmed one-shot restore, and the full-disk rollback path are all now run-proven — record on the row); (ii) NO-DELTA upgrades + resource failure: the resource-class PARK + genuinely-external fix + un-park-to-completion — [UNPROVEN], the variant build's oracle.
+4. BUILD: yes — mechanic or engineer builds the no-migration lineage variant (foreman's dispatch call). Scope is small: a construct-lineage flag/variant that skips V; the cross-version arc already proved non-constructed targets flow, so only the harness's always-adds-V assumption moves. The arc's assert set for arm (ii): park reason names the disk (diskPrecheckReason text), siren exactly once, parked-skip boots alive-idle, un-park grants ONE fresh attempt, row completes, no restore anywhere in arm (ii) (nothing to restore — at-target all along).
+
+Doctrinal footnote for the map: this is the second time a park-row construction moved because of 145 (doc-028 reclassified the boot-migrate park the same way). The general law, worth stating once on the row: UNDER 145's ATOMICITY, PARK IS AN AT-TARGET/UNVERIFIABLE PHENOMENON; anything positively-Behind rolls back. Constructions chasing a park must therefore hold the ledger at-target — which for pre-delta failure sites means no-delta lineages.
 ---
 <!-- COMMENTS:END -->
