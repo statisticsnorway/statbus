@@ -3,10 +3,10 @@ id: STATBUS-180
 title: >-
   daemon-restart-race: crash-recovery restarts the upgrade daemon while the same
   dispatch's restore re-attempt tears down the DB
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-07-14 13:05'
-updated_date: '2026-07-14 17:57'
+updated_date: '2026-07-14 18:33'
 labels:
   - upgrade
   - install-recovery
@@ -31,8 +31,8 @@ EVIDENCE: run 29325230294 log 10:41:23 window; the arc's NRestarts bound (2) del
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Architect rules the fix shape (reorder daemon start vs re-attempt, or accept-and-document)
-- [ ] #2 If reordered: the restore-broke-reattempt arc's NRestarts bound tightens back and the journal shows no FAILURE line in the window — proven by the arc run
+- [x] #1 Architect rules the fix shape (reorder daemon start vs re-attempt, or accept-and-document)
+- [x] #2 If reordered: the restore-broke-reattempt arc's NRestarts bound tightens back and the journal shows no FAILURE line in the window — proven by the arc run
 - [ ] #3 If accepted: the window is documented at runCrashRecovery's start call with a pointer to this ticket
 <!-- AC:END -->
 
@@ -72,3 +72,9 @@ SAFETY-CORE PASS (architect, 2026-07-14): SHIP with ONE comment-line amendment. 
 After A1: commit; the arc re-run is AC#2's oracle as ruled.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The crash-recovery daemon restart no longer races the same dispatch's restore re-attempt: the restart closure hands up from runCrashRecovery (out-param, set inside the recovered gate) to runInstall's own deferred fire at dispatch conclusion — every return path fires it, including failed re-attempts and the re-parked error return; the one non-return exit (the inline dispatch's exec handoff) is compensated and documented in place. Architect-ruled (reorder over accept-and-document), architect-passed with one comment amendment, and run-proven on arc run 29356003709: NRestarts bound tightened from 2 to 0 and held, with negative journal asserts on the raced run's exact error lines both absent. The benign-but-noisy timing window found by the restore-broke-reattempt arc's first run is structurally gone.
+<!-- SECTION:FINAL_SUMMARY:END -->
