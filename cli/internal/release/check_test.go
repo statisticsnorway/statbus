@@ -97,7 +97,7 @@ func lastIndex(s, sep string) int {
 func TestCheckAssets_HappyPath(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(releaseJSON(requiredAssets))
+		_, _ = w.Write(releaseJSON(requiredAssets))
 	}))
 	defer srv.Close()
 
@@ -139,7 +139,7 @@ func TestCheckAssets_MissingOneAsset(t *testing.T) {
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(releaseJSON(present))
+		_, _ = w.Write(releaseJSON(present))
 	}))
 	defer srv.Close()
 
@@ -161,7 +161,7 @@ func TestCheckAssets_NetworkError(t *testing.T) {
 		t.Fatal(err)
 	}
 	addr := "http://" + ln.Addr().String()
-	ln.Close() // close immediately so connections are refused
+	_ = ln.Close() // close immediately so connections are refused
 
 	results := checkAssetsAt(addr, "v2026.04.0-rc.9")
 	if countFailed(results) != len(requiredAssets) {
@@ -343,7 +343,7 @@ func TestCheckManifests_GithubApiUnreachable(t *testing.T) {
 		t.Fatal(err)
 	}
 	deadAPI := "http://" + ln.Addr().String()
-	ln.Close()
+	_ = ln.Close()
 
 	allowed := map[string]map[string]bool{}
 	for _, svc := range dockerServices {

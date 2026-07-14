@@ -115,7 +115,7 @@ func AcquireSeedLock(ctx context.Context, projDir string, exclusive bool, lockTi
 	// pg_stat_activity. Mirrors acquireAdvisoryLock's pattern for the
 	// migrate_up lock — keeps the diagnostic surface uniform.
 	if _, tagErr := conn.Exec(ctx, fmt.Sprintf("SET application_name = 'statbus-seed-lock-%d'", os.Getpid())); tagErr != nil {
-		conn.Close(ctx)
+		_ = conn.Close(ctx) // best-effort; already erroring out
 		return nil, fmt.Errorf("%s: tag seed-lock connection: %w", caller, tagErr)
 	}
 
@@ -124,7 +124,7 @@ func AcquireSeedLock(ctx context.Context, projDir string, exclusive bool, lockTi
 	// table/row locks).
 	if lockTimeout > 0 {
 		if _, err := conn.Exec(ctx, fmt.Sprintf("SET lock_timeout = '%dms'", lockTimeout.Milliseconds())); err != nil {
-			conn.Close(ctx)
+			_ = conn.Close(ctx) // best-effort; already erroring out
 			return nil, fmt.Errorf("%s: set lock_timeout: %w", caller, err)
 		}
 	}
@@ -138,7 +138,7 @@ func AcquireSeedLock(ctx context.Context, projDir string, exclusive bool, lockTi
 		lockSQL = fmt.Sprintf("SELECT pg_advisory_lock_shared(hashtext('%s'))", SeedMutationLockKey)
 	}
 	if _, err := conn.Exec(ctx, lockSQL); err != nil {
-		conn.Close(ctx)
+		_ = conn.Close(ctx) // best-effort; already erroring out
 		mode := "shared"
 		if exclusive {
 			mode = "exclusive"

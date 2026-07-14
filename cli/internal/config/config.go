@@ -53,7 +53,7 @@ type Credentials struct {
 	PostgresAuthenticatorPassword string
 	PostgresNotifyPassword        string
 	JwtSecret                     string
-	DashboardUsername              string
+	DashboardUsername             string
 	DashboardPassword             string
 	ServiceRoleKey                string
 }
@@ -76,60 +76,60 @@ type ConfigEnv struct {
 	// Build-time only; never worker-active. Dumped by `./sb db seed
 	// dump` into the published statbus-seed image. Slot-independent
 	// (one seed per workspace, not per deployment slot).
-	PostgresSeedDB     string
-	PostgresAppUser    string
-	PostgresNotifyUser string
-	AccessJwtExpiry          string
-	RefreshJwtExpiry         string
-	CaddyDeploymentMode      string
-	SiteDomain               string
-	Debug                    string
-	NextPublicDebug          string
-	DbMemLimit               string
-	TlsCertFile              string
-	TlsKeyFile               string
-	AptUseHttpsOnly          string
-	AdministratorContact     string
+	PostgresSeedDB       string
+	PostgresAppUser      string
+	PostgresNotifyUser   string
+	AccessJwtExpiry      string
+	RefreshJwtExpiry     string
+	CaddyDeploymentMode  string
+	SiteDomain           string
+	Debug                string
+	NextPublicDebug      string
+	DbMemLimit           string
+	TlsCertFile          string
+	TlsKeyFile           string
+	AptUseHttpsOnly      string
+	AdministratorContact string
 }
 
 // DbMemory holds derived PostgreSQL memory tuning values.
 type DbMemory struct {
-	DbMemLimit          string
-	DbShmSize           string
-	DbMemReservation    string
-	DbSharedBuffers     string
+	DbMemLimit           string
+	DbShmSize            string
+	DbMemReservation     string
+	DbSharedBuffers      string
 	DbMaintenanceWorkMem string
 	DbEffectiveCacheSize string
-	DbWorkMem           string
-	DbTempBuffers       string
-	DbWalBuffers        string
-	DbMaxConnections    int64
-	DbMaxWalSize        string
-	DbMinWalSize        string
+	DbWorkMem            string
+	DbTempBuffers        string
+	DbWalBuffers         string
+	DbMaxConnections     int64
+	DbMaxWalSize         string
+	DbMinWalSize         string
 }
 
 // Derived holds values computed from config + credentials.
 type Derived struct {
-	CaddyHttpPort           int
-	CaddyHttpBindAddress    string
-	CaddyHttpsPort          int
-	CaddyHttpsBindAddress   string
-	CaddyDbPort             int
-	CaddyDbTlsPort          int
-	CaddyDbBindAddress      string
-	CaddyDbTlsBindAddress   string
-	AppPort                 int
-	AppBindAddress          string
-	PostgrestPort           int
-	PostgrestBindAddress    string
+	CaddyHttpPort         int
+	CaddyHttpBindAddress  string
+	CaddyHttpsPort        int
+	CaddyHttpsBindAddress string
+	CaddyDbPort           int
+	CaddyDbTlsPort        int
+	CaddyDbBindAddress    string
+	CaddyDbTlsBindAddress string
+	AppPort               int
+	AppBindAddress        string
+	PostgrestPort         int
+	PostgrestBindAddress  string
 	// RestAdminBindAddress is the loopback host mapping for PostgREST's admin
 	// server (slot offset+6), the source of the /ready signal the post-swap
 	// upgrade warmup polls. Bound 127.0.0.1-only and never routed through
 	// Caddy: the admin endpoints (/ready,/live,/config,/schema_cache) are
 	// unauthenticated in v12, same trust level as the main REST loopback port.
-	RestAdminPort           int
-	RestAdminBindAddress    string
-	Version                 string
+	RestAdminPort        int
+	RestAdminBindAddress string
+	Version              string
 	// CommitShort is the 8-char display form of the git commit (produced by
 	// `git rev-parse --short=8 HEAD`). Length fixed at 8; not encoded in
 	// the field name — there's only one short form (rc.63 canonical
@@ -141,16 +141,16 @@ type Derived struct {
 	//
 	// NOTE: COMMIT_SHORT is also the canonical Docker image tag — see
 	// docker-compose.app.yml and .github/workflows/release.yaml.
-	CommitShort             string
-	SiteURL                 string
-	ApiExternalURL          string
-	ApiPublicURL            string
-	DeploymentUser          string
-	Domain                  string
-	EnableEmailSignup       bool
-	EnableEmailAutoconfirm  bool
-	DisableSignup           bool
-	StudioDefaultProject    string
+	CommitShort            string
+	SiteURL                string
+	ApiExternalURL         string
+	ApiPublicURL           string
+	DeploymentUser         string
+	Domain                 string
+	EnableEmailSignup      bool
+	EnableEmailAutoconfirm bool
+	DisableSignup          bool
+	StudioDefaultProject   string
 }
 
 // CaddyTemplateData is the data passed to Caddyfile Go templates.
@@ -384,7 +384,7 @@ func loadOrGenerateConfig(projDir string, verbose bool) (*ConfigEnv, error) {
 		PostgresNotifyUser:       notifyUser,
 		AccessJwtExpiry:          gen("ACCESS_JWT_EXPIRY", "3600"),
 		RefreshJwtExpiry:         gen("REFRESH_JWT_EXPIRY", "2592000"),
-		CaddyDeploymentMode:     mode,
+		CaddyDeploymentMode:      mode,
 		SiteDomain:               siteDomain,
 		Debug:                    gen("DEBUG", "false"),
 		NextPublicDebug:          gen("PUBLIC_DEBUG", "false"),
@@ -506,10 +506,10 @@ func computeDerived(cfg *ConfigEnv) *Derived {
 	restAdminPort := portOffset + 6
 
 	var (
-		caddyHttpBind    string
-		caddyHttpsBind   string
-		caddyDbBind      string
-		caddyDbTlsBind   string
+		caddyHttpBind  string
+		caddyHttpsBind string
+		caddyDbBind    string
+		caddyDbTlsBind string
 	)
 
 	if cfg.CaddyDeploymentMode == "standalone" {
@@ -676,29 +676,29 @@ PUBLIC_STATBUS_COMMIT_SHORT=%[23]s
 %[24]s
 `,
 		".env.credentials", ".env.config", ".env",
-		cfg.DeploymentSlotName,           // 4
-		cfg.DeploymentSlotCode,           // 5
-		cfg.StatbusURL,                   // 6
-		cfg.BrowserAPIURL,                // 7
-		cfg.ServerAPIURL,                 // 8
-		cfg.SeqServerURL,                 // 9
-		cfg.SeqAPIKey,                    // 10
-		cfg.SlackToken,                   // 11
-		derived.CaddyHttpPort,            // 12
-		derived.CaddyHttpsPort,           // 13
-		derived.CaddyHttpBindAddress,     // 14
-		derived.CaddyHttpsBindAddress,    // 15
-		derived.AppBindAddress,           // 16
-		derived.PostgrestBindAddress,     // 17
-		derived.CaddyDbPort,              // 18
-		derived.CaddyDbTlsPort,          // 19
-		derived.CaddyDbBindAddress,       // 20
-		derived.CaddyDbTlsBindAddress,    // 21
-		derived.Version,                  // 22
-		derived.CommitShort,              // 23
-		debugBlock("DEBUG", cfg.Debug),   // 24
-		cfg.SiteDomain,                  // 25
-		derived.RestAdminBindAddress,     // 26
+		cfg.DeploymentSlotName,         // 4
+		cfg.DeploymentSlotCode,         // 5
+		cfg.StatbusURL,                 // 6
+		cfg.BrowserAPIURL,              // 7
+		cfg.ServerAPIURL,               // 8
+		cfg.SeqServerURL,               // 9
+		cfg.SeqAPIKey,                  // 10
+		cfg.SlackToken,                 // 11
+		derived.CaddyHttpPort,          // 12
+		derived.CaddyHttpsPort,         // 13
+		derived.CaddyHttpBindAddress,   // 14
+		derived.CaddyHttpsBindAddress,  // 15
+		derived.AppBindAddress,         // 16
+		derived.PostgrestBindAddress,   // 17
+		derived.CaddyDbPort,            // 18
+		derived.CaddyDbTlsPort,         // 19
+		derived.CaddyDbBindAddress,     // 20
+		derived.CaddyDbTlsBindAddress,  // 21
+		derived.Version,                // 22
+		derived.CommitShort,            // 23
+		debugBlock("DEBUG", cfg.Debug), // 24
+		cfg.SiteDomain,                 // 25
+		derived.RestAdminBindAddress,   // 26
 	)
 
 	// Load .env.example and apply overrides
@@ -880,11 +880,11 @@ func generateCaddyFiles(derived *Derived, cfg *ConfigEnv, projDir string, verbos
 	}
 
 	templates := map[string]string{
-		"Caddyfile":                            "Caddyfile.tmpl",
-		"development.caddyfile":                "development.caddyfile.tmpl",
-		"private.caddyfile":                    "private.caddyfile.tmpl",
-		"standalone.caddyfile":                 "standalone.caddyfile.tmpl",
-		"public.caddyfile":                     "public.caddyfile.tmpl",
+		"Caddyfile":                              "Caddyfile.tmpl",
+		"development.caddyfile":                  "development.caddyfile.tmpl",
+		"private.caddyfile":                      "private.caddyfile.tmpl",
+		"standalone.caddyfile":                   "standalone.caddyfile.tmpl",
+		"public.caddyfile":                       "public.caddyfile.tmpl",
 		"public-layer4-tcp-5432-route.caddyfile": "public-layer4-tcp-5432-route.caddyfile.tmpl",
 	}
 
@@ -978,7 +978,12 @@ func Generate(verbose bool) error {
 			if verbose {
 				fmt.Fprintf(os.Stderr, "Backing up .env to %s\n", backupPath)
 			}
-			os.WriteFile(backupPath, existing, 0644)
+			// STATBUS-176 lint burn-down: pre-existing silent ignore, left
+			// as-is — behavior-change candidate flagged in the burn-down
+			// report (a silently-failed backup write here means a bad
+			// .env regeneration below has no recovery copy, with no
+			// operator-visible signal).
+			_ = os.WriteFile(backupPath, existing, 0644)
 		}
 		if err := os.WriteFile(envPath, []byte(envContent), 0644); err != nil {
 			return fmt.Errorf("write .env: %w", err)

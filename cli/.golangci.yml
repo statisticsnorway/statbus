@@ -1,0 +1,33 @@
+version: "2"
+
+# STATBUS-176: King-approved quality gate. Exactly these four analyzers —
+# no more, no less. `unused` and every other default-enabled linter are
+# deliberately turned off (`default: none`); nilness has no standalone
+# golangci-lint entry in this version, so it is wired via govet's own
+# enable list instead (govet's OTHER default checks are left off too —
+# `enable-all: false` — so this stays exactly the four, not "govet plus
+# three others").
+linters:
+  default: none
+  enable:
+    - errcheck
+    - staticcheck
+    - ineffassign
+    - govet
+  settings:
+    govet:
+      enable-all: false
+      enable:
+        - nilness
+
+# STATBUS-176: this is a STRICT gate — every finding must surface, never a
+# silently-truncated subset. golangci-lint's own defaults (max-issues-per-
+# linter: 50, max-same-issues: 3) hide findings past those caps with NO
+# indication anything was cut — discovered live while burning this gate down:
+# a full `./...` run reported exactly 50 errcheck hits (the cap, not the
+# truth) and silently dropped every finding in internal/migrate/migrate.go
+# and several other files that only appeared when linting that package
+# directly. Both caps are disabled (0 = unlimited).
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

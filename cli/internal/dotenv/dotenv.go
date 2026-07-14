@@ -213,7 +213,7 @@ func (f *File) Parse(keys ...string) map[string]string {
 // Export sets all key-value pairs as OS environment variables.
 func (f *File) Export() {
 	for k, l := range f.mapping {
-		os.Setenv(k, l.value)
+		_ = os.Setenv(k, l.value) // best-effort; os.Setenv only fails on an invalid (NUL-containing) key/value
 	}
 }
 

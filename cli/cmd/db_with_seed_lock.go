@@ -72,7 +72,7 @@ Examples:
 		if err != nil {
 			return err
 		}
-		defer conn.Close(ctx)
+		defer func() { _ = conn.Close(ctx) }()
 
 		mode := "shared"
 		if withSeedLockExclusive {

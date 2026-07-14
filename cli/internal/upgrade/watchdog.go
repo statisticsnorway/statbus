@@ -115,8 +115,8 @@ func sdNotify(state string) {
 	if err != nil {
 		return
 	}
-	defer conn.Close()
-	conn.Write([]byte(state))
+	defer func() { _ = conn.Close() }()
+	_, _ = conn.Write([]byte(state)) // best-effort; a missed sd_notify just skips one heartbeat tick
 }
 
 // applyNewSbUpgradingStallThreshold is how long applyNewSbUpgrading's gated watchdog

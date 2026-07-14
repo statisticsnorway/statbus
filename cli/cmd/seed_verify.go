@@ -136,7 +136,7 @@ func dataDigestOfRows(rows []string) string {
 	sort.Strings(s)
 	h := md5.New()
 	for _, r := range s {
-		io.WriteString(h, r)
+		_, _ = io.WriteString(h, r) // hash.Hash.Write never returns an error
 	}
 	return hex.EncodeToString(h.Sum(nil))
 }
@@ -376,9 +376,9 @@ const seedVerifyDBName = "statbus_seed_verify" // dedicated; never the real POST
 
 func restoreEnv(key, prev string, had bool) {
 	if had {
-		os.Setenv(key, prev)
+		_ = os.Setenv(key, prev)
 	} else {
-		os.Unsetenv(key)
+		_ = os.Unsetenv(key)
 	}
 }
 
@@ -392,7 +392,7 @@ func migrateNamedDb(projDir, dbName string, migrateTo int64) error {
 	// standalone dodges migrate.Up's dev-only maybeRebuildTestTemplate side-effect
 	// (migrate.go) — the same dodge the hermetic seed-builder uses — so the verify
 	// run never rebuilds the dev statbus_test_template.
-	os.Setenv("CADDY_DEPLOYMENT_MODE", "standalone")
+	_ = os.Setenv("CADDY_DEPLOYMENT_MODE", "standalone")
 	defer func() {
 		restoreEnv("CADDY_DEPLOYMENT_MODE", prevMode, hadMode)
 	}()
@@ -453,7 +453,7 @@ func dumpVerifyDB(projDir, dbName, outPath string) error {
 	if err != nil {
 		return fmt.Errorf("create %s: %w", outPath, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	args := append(append([]string{}, prefix...),
 		"-U", "postgres", "-Fc", "--no-owner", "--exclude-table-data=auth.secrets", dbName)
 	cmd := exec.Command(pgDumpPath, args...)
@@ -475,7 +475,7 @@ func restoreVerifyDB(projDir, dbName, dumpPath string) error {
 	if err != nil {
 		return fmt.Errorf("open %s: %w", dumpPath, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	cmd := exec.Command("docker", "compose", "exec", "-T", "db",
 		"pg_restore", "-U", "postgres",
 		"--clean", "--if-exists", "--no-owner", "--disable-triggers",

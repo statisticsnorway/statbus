@@ -12,10 +12,10 @@ import (
 // gitRepoFixture builds a minimal repo with two commits + a tag on the
 // first one, returns the projDir + the two commit SHAs (oldest first).
 type gitRepoFixture struct {
-	dir              string
-	oldSHA, newSHA   string
-	tagOnOld         string
-	branchOnOld      string
+	dir            string
+	oldSHA, newSHA string
+	tagOnOld       string
+	branchOnOld    string
 }
 
 func newGitRepoFixture(t *testing.T) *gitRepoFixture {
@@ -102,7 +102,7 @@ func TestRestoreGitState_HappyPathBySHA(t *testing.T) {
 func TestRestoreGitState_BogusRefNoFallback(t *testing.T) {
 	fix := newGitRepoFixture(t)
 	// Remove the fallback branch so we exercise the pure-failure path.
-	exec.Command("git", "-C", fix.dir, "branch", "-D", fix.branchOnOld).Run()
+	_ = exec.Command("git", "-C", fix.dir, "branch", "-D", fix.branchOnOld).Run()
 
 	err := restoreGitStateFn(fix.dir, "v999.999.999", discardLog, io.Discard)
 	if err == nil {
@@ -122,7 +122,7 @@ func TestRestoreGitState_BogusRefNoFallback(t *testing.T) {
 func TestRestoreGitState_FallbackToBranch(t *testing.T) {
 	fix := newGitRepoFixture(t)
 	// Remove the tag so the primary ref doesn't resolve.
-	exec.Command("git", "-C", fix.dir, "tag", "-d", fix.tagOnOld).Run()
+	_ = exec.Command("git", "-C", fix.dir, "tag", "-d", fix.tagOnOld).Run()
 
 	err := restoreGitStateFn(fix.dir, fix.tagOnOld, discardLog, io.Discard)
 	if err != nil {
@@ -172,7 +172,7 @@ func TestRestoreGitState_EmptyPreviousVersionUsesPreUpgrade(t *testing.T) {
 // (services NOT started, row state='failed'). HEAD must stay put on a failure.
 func TestRestoreGitState_EmptyPreviousVersionNoFallbackErrors(t *testing.T) {
 	fix := newGitRepoFixture(t)
-	exec.Command("git", "-C", fix.dir, "branch", "-D", fix.branchOnOld).Run()
+	_ = exec.Command("git", "-C", fix.dir, "branch", "-D", fix.branchOnOld).Run()
 
 	err := restoreGitStateFn(fix.dir, "", discardLog, io.Discard)
 	if err == nil {

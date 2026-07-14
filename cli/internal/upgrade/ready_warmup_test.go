@@ -67,7 +67,7 @@ func TestWaitForRestReady_RefusedThenReady(t *testing.T) {
 			// response so the client sees a transport error.
 			if hj, ok := w.(http.Hijacker); ok {
 				if conn, _, err := hj.Hijack(); err == nil {
-					conn.Close()
+					_ = conn.Close()
 				}
 			}
 		case 2:

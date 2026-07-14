@@ -448,7 +448,7 @@ func runInstall() (installErr error) {
 					"  Pre-configure before running install:\n" +
 					"    ./sb upgrade trust-key add <github-username>\n" +
 					"  Or pass --trust-github-user <username> to install.\n" +
-					"  Then re-run the install.")
+					"  Then re-run the install")
 			}
 			fmt.Println("No valid trusted signers configured. You must approve at least one signer before the install can proceed.")
 			if err := runTrustSigners(installDir); err != nil {
@@ -531,8 +531,11 @@ func runInstall() (installErr error) {
 				for {
 					n, readErr := pr.Read(buf)
 					if n > 0 {
-						origStdout.Write(buf[:n])
-						installLog.File().Write(buf[:n])
+						// Best-effort tee: a write failure here means the
+						// log file misses a chunk of console output, not a
+						// failed install.
+						_, _ = origStdout.Write(buf[:n])
+						_, _ = installLog.File().Write(buf[:n])
 					}
 					if readErr != nil {
 						break
@@ -543,7 +546,7 @@ func runInstall() (installErr error) {
 	}
 	defer func() {
 		if pipeW != nil {
-			pipeW.Close()
+			_ = pipeW.Close() // best-effort; unblocks the tee goroutine's Read below
 			<-teeDone
 			os.Stdout = origStdout
 		}
@@ -560,7 +563,7 @@ func runInstall() (installErr error) {
 			// the step-table's "Services" step completed before we get here.
 			conn, connErr := connectInstallDB(installDir)
 			if conn != nil {
-				defer conn.Close(context.Background())
+				defer func() { _ = conn.Close(context.Background()) }()
 			}
 
 			// A3: POST_COMPLETION_DB_REACHABLE_AFTER_STEP_TABLE —
@@ -1021,7 +1024,7 @@ func configureDeployFetch(dir string) {
 
 	add := exec.Command("git", "config", "--add", "remote.origin.fetch", refspec)
 	add.Dir = dir
-	add.Run()
+	_ = add.Run() // best-effort; a failed refspec add just means the next fetch narrows less, not a broken install
 }
 
 func runInstallBinary(dir string) error {
@@ -2051,7 +2054,7 @@ func checkSignersDone(dir string) bool {
 	// Write a temporary allowed-signers file and run git verify-commit.
 	// If HEAD is unsigned (development), accept key existence alone.
 	tmpDir := filepath.Join(dir, "tmp")
-	os.MkdirAll(tmpDir, 0755)
+	_ = os.MkdirAll(tmpDir, 0755) // best-effort; the WriteFile right after surfaces any real failure
 	allowedSignersPath := filepath.Join(tmpDir, "allowed-signers")
 	if err := os.WriteFile(allowedSignersPath, []byte(strings.Join(signerLines, "\n")+"\n"), 0644); err != nil {
 		return true // can't write temp file — don't block install
@@ -2206,7 +2209,11 @@ func runInstallService(dir string) error {
 	// Enable linger so the user service runs even when not logged in.
 	// This requires loginctl which is available on systemd systems.
 	fmt.Println("  Enabling linger for user services")
-	runCmd("loginctl", "enable-linger", os.Getenv("USER"))
+	// STATBUS-176 lint burn-down: pre-existing silent ignore, left as-is —
+	// behavior-change candidate flagged in the burn-down report (a failed
+	// enable-linger here means the user unit will NOT survive logout, with
+	// no operator-visible warning).
+	_ = runCmd("loginctl", "enable-linger", os.Getenv("USER"))
 
 	// Recovery: if the unit is in `failed` state from a prior crashed
 	// upgrade (e.g. the rune wedge — systemd hit StartLimitBurst after
@@ -2668,10 +2675,10 @@ func runRootInstall() error {
 
 func checkPrerequisites() error {
 	if _, err := exec.LookPath("docker"); err != nil {
-		return fmt.Errorf("Docker is required but not found. Install from https://docs.docker.com/engine/install/")
+		return fmt.Errorf("docker is required but not found — install from https://docs.docker.com/engine/install/")
 	}
 	if err := runCmd("docker", "compose", "version"); err != nil {
-		return fmt.Errorf("Docker Compose is required. Install the compose plugin: https://docs.docker.com/compose/install/")
+		return fmt.Errorf("docker compose is required — install the compose plugin: https://docs.docker.com/compose/install/")
 	}
 	if _, err := exec.LookPath("git"); err != nil {
 		return fmt.Errorf("git is required but not found. Install with: sudo apt install git")

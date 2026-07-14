@@ -48,7 +48,7 @@ Requires the database to be running.`,
 		if err != nil {
 			return fmt.Errorf("open type generator: %w", err)
 		}
-		defer sqlFile.Close()
+		defer func() { _ = sqlFile.Close() }()
 
 		psqlPath, prefix, env, err := migrate.PsqlCommand(projDir)
 		if err != nil {

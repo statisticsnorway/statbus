@@ -287,7 +287,7 @@ var seedRestoreCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("open seed file: %w", err)
 		}
-		defer dumpFile.Close()
+		defer func() { _ = dumpFile.Close() }()
 
 		restoreCmd := exec.Command("docker", "compose", "exec", "-T", "db",
 			"pg_restore", "-U", "postgres",
@@ -533,8 +533,8 @@ func DumpSeed(projDir, commitOverride string, incrementalDepth int) (seedMeta, e
 
 	pgDumpPath, pgDumpPrefix, pgDumpEnv, err := migrate.PgDumpCommand(projDir)
 	if err != nil {
-		dumpFile.Close()
-		os.Remove(dumpPath)
+		_ = dumpFile.Close()    // best-effort; already erroring out
+		_ = os.Remove(dumpPath) // best-effort cleanup of the empty dump file
 		return seedMeta{}, fmt.Errorf("resolve pg_dump command: %w", err)
 	}
 	dumpArgs := append(append([]string{}, pgDumpPrefix...),
@@ -548,18 +548,18 @@ func DumpSeed(projDir, commitOverride string, incrementalDepth int) (seedMeta, e
 	dumpCmd.Stderr = os.Stderr
 
 	if err := dumpCmd.Run(); err != nil {
-		dumpFile.Close()
-		os.Remove(dumpPath)
+		_ = dumpFile.Close()    // best-effort; already erroring out
+		_ = os.Remove(dumpPath) // best-effort cleanup of the partial dump
 		return seedMeta{}, fmt.Errorf("pg_dump failed: %w", err)
 	}
-	dumpFile.Close()
+	_ = dumpFile.Close() // checked implicitly by the size check below
 
 	info, err := os.Stat(dumpPath)
 	if err != nil {
 		return seedMeta{}, err
 	}
 	if info.Size() == 0 {
-		os.Remove(dumpPath)
+		_ = os.Remove(dumpPath) // best-effort cleanup of the empty dump
 		return seedMeta{}, fmt.Errorf("pg_dump produced an empty file — check database connectivity")
 	}
 

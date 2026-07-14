@@ -328,7 +328,7 @@ func verifyCommonTagShape(projDir, tagName, expectedSubject string) (commit stri
 		if len(short) > 12 {
 			short = short[:12]
 		}
-		return "", fmt.Errorf("commit %s (target of %s) failed signature verification — all release commits must be signed.\n  output: %s\n  Fix: sign the commit (git commit --amend --no-edit -S) and re-tag.",
+		return "", fmt.Errorf("commit %s (target of %s) failed signature verification — all release commits must be signed.\n  output: %s\n  Fix: sign the commit (git commit --amend --no-edit -S) and re-tag",
 			short, tagName, strings.TrimSpace(verifyOut))
 	}
 	return commit, nil
@@ -596,7 +596,7 @@ or replay anything locally; it just asks GitHub what its own CI said.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		sha := args[0]
 		if len(sha) != 40 {
-			return fmt.Errorf("commit-sha must be the full 40-char SHA (got %d chars: %q)\n  Fix: pass `git rev-list -1 <ref>` output, not a short SHA.", len(sha), sha)
+			return fmt.Errorf("commit-sha must be the full 40-char SHA (got %d chars: %q)\n  Fix: pass `git rev-list -1 <ref>` output, not a short SHA", len(sha), sha)
 		}
 		shortSHA := sha[:12]
 		result := release.CheckWorkflowAtCommit(release.WorkflowImages, sha)
@@ -616,16 +616,16 @@ or replay anything locally; it just asks GitHub what its own CI said.`,
 			fmt.Printf("OK: images green at %s\n  Run: %s\n", shortSHA, result.RunURL)
 			return nil
 		case release.WorkflowCheckPending:
-			return fmt.Errorf("images is still pending at %s\n  Watch: gh run watch %d\n  URL:   %s\n  Fix: wait for the run to complete, then retry the push.", shortSHA, result.RunID, result.RunURL)
+			return fmt.Errorf("images is still pending at %s\n  Watch: gh run watch %d\n  URL:   %s\n  Fix: wait for the run to complete, then retry the push", shortSHA, result.RunID, result.RunURL)
 		case release.WorkflowCheckFailed:
-			return fmt.Errorf("images failed at %s (conclusion: %s)\n  See: gh run view %d --log-failed\n  URL: %s\n  Fix:\n    Retry the failed jobs (if transient — network, ghcr.io timeout): gh run rerun --failed %d\n    Or push a fix to master (if real defect), then retry the push.", shortSHA, result.Detail, result.RunID, result.RunURL, result.RunID)
+			return fmt.Errorf("images failed at %s (conclusion: %s)\n  See: gh run view %d --log-failed\n  URL: %s\n  Fix:\n    Retry the failed jobs (if transient — network, ghcr.io timeout): gh run rerun --failed %d\n    Or push a fix to master (if real defect), then retry the push", shortSHA, result.Detail, result.RunID, result.RunURL, result.RunID)
 		case release.WorkflowCheckMissing:
 			if ref, ok := dispatchRefForMasterTip(config.ProjectDir(), sha); ok {
-				return fmt.Errorf("images has not run for %s\n  Trigger: %s\n  Watch:   %s\n  Fix: run the trigger command above, wait for green, then retry the push.", shortSHA, release.WorkflowTriggerCommand(release.WorkflowImages, ref), release.WorkflowURL(release.WorkflowImages))
+				return fmt.Errorf("images has not run for %s\n  Trigger: %s\n  Watch:   %s\n  Fix: run the trigger command above, wait for green, then retry the push", shortSHA, release.WorkflowTriggerCommand(release.WorkflowImages, ref), release.WorkflowURL(release.WorkflowImages))
 			}
-			return fmt.Errorf("images has not run for %s\n  %s is not origin/master's tip — workflow_dispatch builds a branch/tag tip, not a bare SHA.\n  Fix: push this commit to master (images builds on push), then retry the push.", shortSHA, shortSHA)
+			return fmt.Errorf("images has not run for %s\n  %s is not origin/master's tip — workflow_dispatch builds a branch/tag tip, not a bare SHA.\n  Fix: push this commit to master (images builds on push), then retry the push", shortSHA, shortSHA)
 		case release.WorkflowCheckUnknown:
-			return fmt.Errorf("images status check failed (GitHub API error)\n  Detail: %s\n  Fix: check network connectivity / GITHUB_TOKEN, or retry shortly.", result.Detail)
+			return fmt.Errorf("images status check failed (GitHub API error)\n  Detail: %s\n  Fix: check network connectivity / GITHUB_TOKEN, or retry shortly", result.Detail)
 		}
 		return fmt.Errorf("unexpected images status: %q", result.Status)
 	},

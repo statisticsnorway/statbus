@@ -95,27 +95,27 @@ func writeAtomic(finalPath string, produce func(io.Writer) error) error {
 	}
 
 	if err := produce(tmp); err != nil {
-		tmp.Close()
-		os.Remove(tmpPath)
+		_ = tmp.Close()        // best-effort; already erroring out
+		_ = os.Remove(tmpPath) // best-effort cleanup of the partial dump
 		return err
 	}
 	if err := tmp.Close(); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath) // best-effort cleanup of the partial dump
 		return fmt.Errorf("close temp dump file: %w", err)
 	}
 
 	info, err := os.Stat(tmpPath)
 	if err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath) // best-effort cleanup
 		return fmt.Errorf("stat temp dump file: %w", err)
 	}
 	if info.Size() == 0 {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath) // best-effort cleanup of the empty dump
 		return fmt.Errorf("dump produced an empty file — check database connectivity")
 	}
 
 	if err := os.Rename(tmpPath, finalPath); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath) // best-effort cleanup
 		return fmt.Errorf("commit dump (rename .tmp -> .pg_dump): %w", err)
 	}
 	return nil

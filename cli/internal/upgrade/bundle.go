@@ -53,9 +53,9 @@ const (
 // splits the visual section, never corrupts downstream tools.
 
 const (
-	bundleLogTailLines     = 500
-	bundleJournalctlLines  = 200
-	bundleGitLogCount      = 20
+	bundleLogTailLines      = 500
+	bundleJournalctlLines   = 200
+	bundleGitLogCount       = 20
 	bundleSectionCmdTimeout = 8 * time.Second
 )
 
@@ -127,24 +127,24 @@ func (d *Service) writeDiagnosticBundle(parent context.Context, id int, progress
 
 	if err := bw.Flush(); err != nil {
 		narrate("Warning: bundle write failed (flush): %v", err)
-		f.Close()
-		os.Remove(tmpPath)
+		_ = f.Close()          // best-effort; already erroring out
+		_ = os.Remove(tmpPath) // best-effort cleanup of the broken tempfile
 		return
 	}
 	if err := f.Sync(); err != nil {
 		narrate("Warning: bundle write failed (fsync): %v", err)
-		f.Close()
-		os.Remove(tmpPath)
+		_ = f.Close()          // best-effort; already erroring out
+		_ = os.Remove(tmpPath) // best-effort cleanup of the broken tempfile
 		return
 	}
 	if err := f.Close(); err != nil {
 		narrate("Warning: bundle write failed (close): %v", err)
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath) // best-effort cleanup of the broken tempfile
 		return
 	}
 	if err := os.Rename(tmpPath, bundlePath); err != nil {
 		narrate("Warning: bundle write failed (rename): %v", err)
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath) // best-effort cleanup of the broken tempfile
 		return
 	}
 	narrate("Support bundle written to %s", bundlePath)
@@ -255,14 +255,14 @@ func bundleContainerLogsBody(projDir, logAbsPath string) string {
 // and timestamp sections that are headers only.
 func bundleSection(w io.Writer, name, body string) {
 	if body == "" {
-		fmt.Fprintf(w, "=== %s ===\n\n", name)
+		_, _ = fmt.Fprintf(w, "=== %s ===\n\n", name) // best-effort; caller owns the underlying writer's error path
 		return
 	}
 	// Ensure the body ends with exactly one newline before the blank
 	// separator so sections render uniformly regardless of whether the
 	// producer remembered the trailing \n.
 	trimmed := strings.TrimRight(body, "\n")
-	fmt.Fprintf(w, "=== %s ===\n%s\n\n", name, trimmed)
+	_, _ = fmt.Fprintf(w, "=== %s ===\n%s\n\n", name, trimmed) // best-effort; caller owns the underlying writer's error path
 }
 
 // bundleRowBody formats the upgrade row as sorted `key: value` lines.

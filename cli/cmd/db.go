@@ -197,7 +197,7 @@ func confirmAction(prompt string) bool {
 		}
 		return false
 	}
-	defer tty.Close()
+	defer func() { _ = tty.Close() }()
 	scanner := bufio.NewScanner(tty)
 	if scanner.Scan() {
 		answer := strings.TrimSpace(strings.ToLower(scanner.Text()))
@@ -303,13 +303,13 @@ Connects to statbus_{code}@niue.statbus.org and streams a pg_dump.`,
 		if err != nil {
 			return fmt.Errorf("create output file: %w", err)
 		}
-		defer outFile.Close()
+		defer func() { _ = outFile.Close() }()
 
 		sshCmd.Stdout = outFile
 		sshCmd.Stderr = os.Stderr
 
 		if err := sshCmd.Run(); err != nil {
-			os.Remove(outPath)
+			_ = os.Remove(outPath) // best-effort cleanup of the partial dump
 			return fmt.Errorf("remote pg_dump failed: %w", err)
 		}
 
@@ -318,7 +318,7 @@ Connects to statbus_{code}@niue.statbus.org and streams a pg_dump.`,
 			return err
 		}
 		if info.Size() == 0 {
-			os.Remove(outPath)
+			_ = os.Remove(outPath) // best-effort cleanup of the empty dump
 			return fmt.Errorf("download produced an empty file — check remote database")
 		}
 
@@ -579,7 +579,7 @@ WHERE datname = '%s' AND pid <> pg_backend_pid();
 	terminateCmd.Dir = projDir
 	terminateCmd.Stdout = os.Stdout
 	terminateCmd.Stderr = os.Stderr
-	terminateCmd.Run() // Ignore error — no connections is fine
+	_ = terminateCmd.Run() // Ignore error — no connections is fine
 
 	// Use separate -c flags: DROP/CREATE DATABASE cannot run inside a transaction,
 	// and a single -c with multiple statements is wrapped in a transaction by psql.
@@ -633,7 +633,7 @@ WHERE datname = '%s' AND pid <> pg_backend_pid();
 			"/tmp/restore-acl.list",
 			"/tmp/restore-phase3.list")
 		rm.Dir = projDir
-		rm.Run()
+		_ = rm.Run() // best-effort temp-file cleanup inside the container
 	}()
 
 	buildList := exec.Command("docker", "compose", "exec", "-T", "db", "sh", "-c",
@@ -752,7 +752,12 @@ END $$;
 			jwtCmd.Dir = projDir
 			jwtCmd.Stdout = os.Stdout
 			jwtCmd.Stderr = os.Stderr
-			jwtCmd.Run()
+			// STATBUS-176 lint burn-down: pre-existing silent ignore, left
+			// as-is rather than changed to a hard failure — behavior-change
+			// candidate flagged in the burn-down report (a silently-failed
+			// JWT reload here would leave the restored DB serving with the
+			// WRONG jwt_secret, with no operator-visible signal).
+			_ = jwtCmd.Run()
 		}
 	}
 
@@ -1105,9 +1110,10 @@ The database will be briefly unavailable during the rsync.`,
 		rsyncCmd.Stdout = os.Stdout
 		rsyncCmd.Stderr = os.Stderr
 		if err := rsyncCmd.Run(); err != nil {
-			// Try to restart db even if rsync fails
+			// Try to restart db even if rsync fails — best-effort: the
+			// function already returns the rsync error below regardless.
 			fmt.Println("Restarting database after rsync failure ...")
-			dockerComposeStart(projDir, "db")
+			_ = dockerComposeStart(projDir, "db")
 			return fmt.Errorf("rsync from volume failed: %w", err)
 		}
 
@@ -1130,7 +1136,7 @@ The database will be briefly unavailable during the rsync.`,
 		}
 
 		// Clean up staging directory
-		os.RemoveAll(stagingDir)
+		_ = os.RemoveAll(stagingDir) // best-effort cleanup; a leftover staging dir is harmless
 
 		info, err := os.Stat(archivePath)
 		if err != nil {
@@ -1180,7 +1186,7 @@ a basename without extension, or just the timestamp portion.`,
 		stagingDir := filepath.Join(bkDir, "staging")
 
 		// Clean staging first
-		os.RemoveAll(stagingDir)
+		_ = os.RemoveAll(stagingDir) // best-effort cleanup; a leftover staging dir is harmless
 
 		// Step 1: Extract archive to staging
 		fmt.Printf("Extracting %s ...\n", filepath.Base(archivePath))
@@ -1213,7 +1219,7 @@ a basename without extension, or just the timestamp portion.`,
 		}
 
 		// Clean up staging
-		os.RemoveAll(stagingDir)
+		_ = os.RemoveAll(stagingDir) // best-effort cleanup; a leftover staging dir is harmless
 
 		// Step 4: Start all services
 		fmt.Println("Starting all services ...")

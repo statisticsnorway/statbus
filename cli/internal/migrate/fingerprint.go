@@ -41,7 +41,7 @@ func UpMigrationsFingerprintUpTo(projDir string, maxVersion int64) (string, erro
 		fileSum := sha256.Sum256(content)
 		// version pins identity/order; content sha pins the bytes; the trailing
 		// newline delimits records unambiguously.
-		fmt.Fprintf(h, "%d|%s\n", m.Version, hex.EncodeToString(fileSum[:]))
+		_, _ = fmt.Fprintf(h, "%d|%s\n", m.Version, hex.EncodeToString(fileSum[:])) // hash.Hash.Write never returns an error
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
 }

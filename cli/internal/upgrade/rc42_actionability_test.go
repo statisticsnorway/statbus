@@ -67,7 +67,7 @@ func TestCaptureContainerLogs_NoProgress(t *testing.T) {
 func TestHealthCheck_PerAttemptLogging(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
-		w.Write([]byte(`{"code":"PGRST002","message":"Could not connect to PostgREST"}`))
+		_, _ = w.Write([]byte(`{"code":"PGRST002","message":"Could not connect to PostgREST"}`))
 	}))
 	defer srv.Close()
 

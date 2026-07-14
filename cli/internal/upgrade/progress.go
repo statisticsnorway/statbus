@@ -130,12 +130,13 @@ func createProgressLogFile(projDir, relPath, absPath string) *ProgressLog {
 		return &ProgressLog{projDir: projDir, relPath: relPath, absPath: absPath}
 	}
 
-	// Write legend so every log is self-describing.
-	fmt.Fprintf(f, "# Statbus upgrade log v1\n")
-	fmt.Fprintf(f, "# M <time> content               main service narration\n")
-	fmt.Fprintf(f, "# O <name> <time> content        child stdout  (name: migrate, docker-compose, git, rsync)\n")
-	fmt.Fprintf(f, "# E <name> <time> content        child stderr\n")
-	fmt.Fprintf(f, "# ---\n")
+	// Write legend so every log is self-describing. Best-effort — a write
+	// failure here leaves an incomplete legend, not a broken upgrade.
+	_, _ = fmt.Fprintf(f, "# Statbus upgrade log v1\n")
+	_, _ = fmt.Fprintf(f, "# M <time> content               main service narration\n")
+	_, _ = fmt.Fprintf(f, "# O <name> <time> content        child stdout  (name: migrate, docker-compose, git, rsync)\n")
+	_, _ = fmt.Fprintf(f, "# E <name> <time> content        child stderr\n")
+	_, _ = fmt.Fprintf(f, "# ---\n")
 
 	return &ProgressLog{projDir: projDir, relPath: relPath, absPath: absPath, file: f}
 }
@@ -144,7 +145,7 @@ func createProgressLogFile(projDir, relPath, absPath string) *ProgressLog {
 // RelPath() to get the value to persist on public.upgrade.log_relative_file_path.
 func NewUpgradeLog(projDir string, id int64, version string, startTime time.Time) *ProgressLog {
 	dir := upgradeLogsDir(projDir)
-	os.MkdirAll(dir, 0755)
+	_ = os.MkdirAll(dir, 0755) // best-effort; the os.Create right after surfaces any real failure
 
 	relPath := BuildLogRelPath(id, version, startTime)
 	absPath := filepath.Join(dir, relPath)
@@ -160,7 +161,7 @@ func NewUpgradeLog(projDir string, id int64, version string, startTime time.Time
 // successful completion.
 func NewInstallLog(projDir string, version string, startTime time.Time) *ProgressLog {
 	dir := installLogsDir(projDir)
-	os.MkdirAll(dir, 0755)
+	_ = os.MkdirAll(dir, 0755) // best-effort; the os.Create right after surfaces any real failure
 
 	relPath := buildInstallLogRelPath(version, startTime)
 	absPath := filepath.Join(dir, relPath)
@@ -193,8 +194,8 @@ func AppendProgressLog(projDir, relPath string) *ProgressLog {
 // non-fatal.
 func refreshLegacySymlink(projDir, relPath string) {
 	symlinkPath := filepath.Join(projDir, "tmp", "upgrade-progress.log")
-	os.Remove(symlinkPath)
-	os.Symlink(filepath.Join("upgrade-logs", relPath), symlinkPath)
+	_ = os.Remove(symlinkPath)                                          // best-effort, see doc comment above
+	_ = os.Symlink(filepath.Join("upgrade-logs", relPath), symlinkPath) // best-effort, see doc comment above
 }
 
 // RelPath returns the basename of the log file — the value stored on
@@ -238,8 +239,11 @@ func (p *ProgressLog) Write(format string, args ...interface{}) {
 	fmt.Print(line)
 
 	if p != nil && p.file != nil {
-		p.file.WriteString(line)
-		p.file.Sync()
+		// Best-effort: stdout (above) is the primary channel; the file is
+		// the secondary on-disk narrative. A disk write failure here must
+		// not abort the upgrade the log is narrating.
+		_, _ = p.file.WriteString(line)
+		_ = p.file.Sync()
 	}
 
 	// Heartbeat. Nil ProgressLog still fires sd_notify + file touch
@@ -314,6 +318,6 @@ func (p *ProgressLog) shouldPingWatchdog(stallThreshold time.Duration) bool {
 // Close closes the log file.
 func (p *ProgressLog) Close() {
 	if p != nil && p.file != nil {
-		p.file.Close()
+		_ = p.file.Close() // best-effort; nothing further writes to this log after Close
 	}
 }

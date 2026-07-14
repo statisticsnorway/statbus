@@ -375,12 +375,12 @@ func runCertInstall(projDir string, args []string) error {
 	if mode != "standalone" {
 		return fmt.Errorf("./sb cert install is only supported in standalone deployment mode (current: %q).\n"+
 			"  - private mode: the upstream proxy owns the certificate; install it there.\n"+
-			"  - development mode: Caddy uses its internal CA; no install needed.",
+			"  - development mode: Caddy uses its internal CA; no install needed",
 			mode)
 	}
 	if siteDomain == "" {
 		return errors.New("SITE_DOMAIN not set in .env.config — post-install TLS probe needs it. " +
-			"Set SITE_DOMAIN, run `./sb config generate`, then retry.")
+			"Set SITE_DOMAIN, run `./sb config generate`, then retry")
 	}
 
 	chain, key, baseName, err := loadCertMaterial(args)
@@ -394,7 +394,7 @@ func runCertInstall(projDir string, args []string) error {
 	if err := validateCertKeyMatch(leaf, key); err != nil {
 		return fmt.Errorf("certificate/key mismatch: %w\n"+
 			"  The certificate's public key does not match the private key.\n"+
-			"  Most likely cause: PFX or PEM file is malformed, or wrong key paired with wrong cert.",
+			"  Most likely cause: PFX or PEM file is malformed, or wrong key paired with wrong cert",
 			err)
 	}
 	fmt.Println("✓ Certificate and key match (public-key check)")
@@ -542,7 +542,7 @@ func readCertFile(path string) ([]byte, error) {
 			return nil, fmt.Errorf("permission denied reading %s\n"+
 				"  Check file ownership / permissions:\n"+
 				"    ls -la %s\n"+
-				"  The file must be readable by the user running ./sb cert.", path, path)
+				"  The file must be readable by the user running ./sb cert", path, path)
 		}
 		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
@@ -848,7 +848,7 @@ func writeCertAndKey(projDir, baseName string, chain []*x509.Certificate, key in
 	keyBytes, err := x509.MarshalPKCS8PrivateKey(key)
 	if err != nil {
 		return "", "", fmt.Errorf("marshal private key: %w\n"+
-			"  The key type may be unsupported (RSA / ECDSA / Ed25519 are supported).", err)
+			"  The key type may be unsupported (RSA / ECDSA / Ed25519 are supported)", err)
 	}
 	keyPem := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyBytes})
 
@@ -864,7 +864,7 @@ func writeCertAndKey(projDir, baseName string, chain []*x509.Certificate, key in
 	if err := writeAtomic(keyPath, keyPem, 0o600); err != nil {
 		_ = os.Remove(certPath)
 		return "", "", fmt.Errorf("write private key %s: %w\n"+
-			"  Cleaned up the partial certificate file; no orphan state left behind.", keyPath, err)
+			"  Cleaned up the partial certificate file; no orphan state left behind", keyPath, err)
 	}
 	return certPath, keyPath, nil
 }
@@ -1140,7 +1140,7 @@ func fingerprintHex(sum [32]byte) string {
 		if i > 0 {
 			sb.WriteByte(':')
 		}
-		sb.WriteString(fmt.Sprintf("%02x", b))
+		fmt.Fprintf(&sb, "%02x", b)
 	}
 	return sb.String()
 }

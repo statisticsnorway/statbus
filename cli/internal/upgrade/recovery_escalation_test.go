@@ -441,8 +441,8 @@ func TestClassifyDockerFailure_Markers(t *testing.T) {
 // keep the TAIL (where kernel error markers appear) and never grow unbounded.
 func TestTailBuffer_KeepsBoundedTail(t *testing.T) {
 	tb := &tailBuffer{max: 16}
-	tb.Write([]byte("0123456789"))
-	tb.Write([]byte("abcdef: no space left on device"))
+	_, _ = tb.Write([]byte("0123456789"))
+	_, _ = tb.Write([]byte("abcdef: no space left on device"))
 	got := tb.String()
 	if len(got) > 16 {
 		t.Fatalf("tailBuffer exceeded its cap: %d bytes (%q)", len(got), got)
@@ -453,7 +453,7 @@ func TestTailBuffer_KeepsBoundedTail(t *testing.T) {
 	}
 	// And that tail must still let the classifier see the marker when it's within cap.
 	tb2 := &tailBuffer{max: 4096}
-	tb2.Write([]byte("failed to register layer: write /x: no space left on device"))
+	_, _ = tb2.Write([]byte("failed to register layer: write /x: no space left on device"))
 	if !strings.Contains(tb2.String(), kernelMarkerENOSPC) {
 		t.Errorf("a within-cap ENOSPC line must survive capture; got %q", tb2.String())
 	}

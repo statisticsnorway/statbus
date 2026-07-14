@@ -35,7 +35,7 @@ func TestConfirmUpgradeDeathViaFlock(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create flag file: %v", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	if _, err := f.WriteString(`{"holder":"service","pid":4242}`); err != nil {
 		t.Fatalf("write flag: %v", err)
 	}

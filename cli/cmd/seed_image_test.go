@@ -60,7 +60,7 @@ func TestExtractSeedFromImage(t *testing.T) {
 	if out, err := exec.Command("docker", "build", "--platform", "linux/amd64", "-t", imageRef, ctx).CombinedOutput(); err != nil {
 		t.Fatalf("docker build test seed image: %v\n%s", err, out)
 	}
-	defer exec.Command("docker", "rmi", "-f", imageRef).Run()
+	defer func() { _ = exec.Command("docker", "rmi", "-f", imageRef).Run() }()
 
 	seedDir := filepath.Join(tmp, ".db-seed")
 	if err := os.MkdirAll(seedDir, 0o755); err != nil {

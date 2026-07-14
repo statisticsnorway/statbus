@@ -200,12 +200,12 @@ func TestIsStale_ExecFailure(t *testing.T) {
 	// resolvable. Restore on cleanup.
 	emptyDir := t.TempDir()
 	prevPath, hadPath := os.LookupEnv("PATH")
-	os.Setenv("PATH", emptyDir)
+	_ = os.Setenv("PATH", emptyDir)
 	t.Cleanup(func() {
 		if hadPath {
-			os.Setenv("PATH", prevPath)
+			_ = os.Setenv("PATH", prevPath)
 		} else {
-			os.Unsetenv("PATH")
+			_ = os.Unsetenv("PATH")
 		}
 	})
 

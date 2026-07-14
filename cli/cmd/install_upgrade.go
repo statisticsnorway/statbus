@@ -116,7 +116,7 @@ func runInlineRestoreReattempt(projDir string, detail *install.Detail) error {
 		return fmt.Errorf("%w\n\n"+
 			"  The database restore could not be completed; the system is still degraded.\n"+
 			"  Next: contact SSB support and involve your IT staff. Keep this box as-is for diagnosis;\n"+
-			"  re-running `./sb install` will re-attempt the same restore.", err)
+			"  re-running `./sb install` will re-attempt the same restore", err)
 	}
 
 	// FORECAST (success): healthy at the OLD version. Do NOT re-schedule the same

@@ -101,18 +101,18 @@ success so install.sh can capture it for the SYSTEM UNUSABLE banner.`,
 		upgrade.WriteBundleSections(context.Background(), bw, projDir, 0, "{}", logPath, trig)
 
 		if err := bw.Flush(); err != nil {
-			f.Close()
-			os.Remove(tmpPath)
+			_ = f.Close()          // best-effort; already erroring out
+			_ = os.Remove(tmpPath) // best-effort cleanup of the broken tempfile
 			return fmt.Errorf("flush: %w", err)
 		}
 		if err := f.Sync(); err != nil {
-			f.Close()
-			os.Remove(tmpPath)
+			_ = f.Close()          // best-effort; already erroring out
+			_ = os.Remove(tmpPath) // best-effort cleanup of the broken tempfile
 			return fmt.Errorf("fsync: %w", err)
 		}
-		f.Close()
+		_ = f.Close() // checked implicitly by the Rename below succeeding or not
 		if err := os.Rename(tmpPath, outPath); err != nil {
-			os.Remove(tmpPath)
+			_ = os.Remove(tmpPath) // best-effort cleanup of the broken tempfile
 			return fmt.Errorf("rename: %w", err)
 		}
 
@@ -200,7 +200,7 @@ separate key so the admin UI can link an operator to the on-disk path.`,
 			fmt.Fprintf(os.Stderr, "write-admin-ui-row: skipped (DB unreachable within %s: %v)\n", timeout, err)
 			return nil
 		}
-		defer conn.Close(context.Background())
+		defer func() { _ = conn.Close(context.Background()) }()
 
 		// Upsert three keys atomically. If the install actually succeeded
 		// later, the upgrade-service completion path clears these (that

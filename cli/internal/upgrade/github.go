@@ -41,12 +41,12 @@ type Asset struct {
 
 // Manifest is the release-manifest.json attached to each release.
 type Manifest struct {
-	Version    string            `json:"version"`
-	CommitSHA  string            `json:"commit_sha"`
-	Prerelease bool              `json:"prerelease"`
-	Images     map[string]string `json:"images"`
-	HasMigrations bool           `json:"has_migrations"`
-	Binaries   map[string]struct {
+	Version       string            `json:"version"`
+	CommitSHA     string            `json:"commit_sha"`
+	Prerelease    bool              `json:"prerelease"`
+	Images        map[string]string `json:"images"`
+	HasMigrations bool              `json:"has_migrations"`
+	Binaries      map[string]struct {
 		URL    string `json:"url"`
 		SHA256 string `json:"sha256"`
 	} `json:"binaries"`
@@ -170,7 +170,7 @@ func githubDo(req *http.Request) (*http.Response, error) {
 	}
 	if resp.StatusCode == http.StatusForbidden {
 		if ra := resp.Header.Get("Retry-After"); ra != "" {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			if seconds, err := strconv.Atoi(ra); err == nil && seconds > 0 && seconds <= 300 {
 				time.Sleep(time.Duration(seconds) * time.Second)
 				return client.Do(req)
@@ -192,7 +192,7 @@ func FetchReleases() ([]Release, error) {
 	if err != nil {
 		return nil, fmt.Errorf("fetch releases: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -227,7 +227,7 @@ func FetchManifest(version string) (*Manifest, error) {
 	if err != nil {
 		return nil, fmt.Errorf("fetch manifest: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("manifest not found for %s (HTTP %d)", version, resp.StatusCode)
@@ -364,7 +364,7 @@ func FetchCommits(count int) ([]Commit, error) {
 	if err != nil {
 		return nil, fmt.Errorf("fetch commits: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)

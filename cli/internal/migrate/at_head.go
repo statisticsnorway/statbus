@@ -62,7 +62,7 @@ func AssertDBAtHead(projDir, dbName, caller string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", caller, err)
 	}
-	defer lockConn.Close(ctx)
+	defer func() { _ = lockConn.Close(ctx) }()
 
 	// Refuse PG template DBs (datistemplate=true, e.g. statbus_test_template
 	// after create-test-template sets IS_TEMPLATE=true + ALLOW_CONNECTIONS=false).
@@ -83,7 +83,7 @@ func AssertDBAtHead(projDir, dbName, caller string) (string, error) {
 		return "", fmt.Errorf(
 			"REFUSED: %s\n"+
 				"Reason:  %q is a PG template (datistemplate=true, ALLOW_CONNECTIONS=false) — not directly queryable.\n"+
-				"Fix:     callers should assert against the SEED (canonical source-of-truth: ${POSTGRES_SEED_DB:-statbus_seed}), NOT downstream template artifacts.",
+				"Fix:     callers should assert against the SEED (canonical source-of-truth: ${POSTGRES_SEED_DB:-statbus_seed}), NOT downstream template artifacts",
 			caller, dbName)
 	}
 

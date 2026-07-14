@@ -134,21 +134,24 @@ func Dump(w io.Writer) {
 	}
 	sort.Strings(names)
 
-	fmt.Fprintln(w, "# Invariants registered by the currently-shipped binary.")
-	fmt.Fprintln(w, "# Each block documents one guard site the binary is capable of")
-	fmt.Fprintln(w, "# checking at runtime. A violation whose name is NOT listed here is")
-	fmt.Fprintln(w, "# a forward-compat mismatch or an extraction bug.")
-	fmt.Fprintln(w)
+	// Best-effort: a Dump write failure has no better recovery within this
+	// function — the caller (support-bundle writer / stdout) owns whatever
+	// happens to the underlying writer.
+	_, _ = fmt.Fprintln(w, "# Invariants registered by the currently-shipped binary.")
+	_, _ = fmt.Fprintln(w, "# Each block documents one guard site the binary is capable of")
+	_, _ = fmt.Fprintln(w, "# checking at runtime. A violation whose name is NOT listed here is")
+	_, _ = fmt.Fprintln(w, "# a forward-compat mismatch or an extraction bug.")
+	_, _ = fmt.Fprintln(w)
 	for _, n := range names {
 		inv := registry[n]
-		fmt.Fprintf(w, "Name: %s\n", inv.Name)
-		fmt.Fprintf(w, "Class: %s\n", inv.Class)
-		fmt.Fprintf(w, "Location: %s\n", inv.SourceLocation)
-		fmt.Fprintf(w, "ExpectedToHold: %s\n", inv.ExpectedToHold)
-		fmt.Fprintf(w, "WhyExpected: %s\n", inv.WhyExpected)
-		fmt.Fprintf(w, "ViolationShape: %s\n", inv.ViolationShape)
-		fmt.Fprintf(w, "TranscriptFormat: %s\n", inv.TranscriptFormat)
-		fmt.Fprintln(w)
+		_, _ = fmt.Fprintf(w, "Name: %s\n", inv.Name)
+		_, _ = fmt.Fprintf(w, "Class: %s\n", inv.Class)
+		_, _ = fmt.Fprintf(w, "Location: %s\n", inv.SourceLocation)
+		_, _ = fmt.Fprintf(w, "ExpectedToHold: %s\n", inv.ExpectedToHold)
+		_, _ = fmt.Fprintf(w, "WhyExpected: %s\n", inv.WhyExpected)
+		_, _ = fmt.Fprintf(w, "ViolationShape: %s\n", inv.ViolationShape)
+		_, _ = fmt.Fprintf(w, "TranscriptFormat: %s\n", inv.TranscriptFormat)
+		_, _ = fmt.Fprintln(w)
 	}
 }
 
@@ -184,7 +187,7 @@ func MarkTerminal(projDir, name, observed string) {
 		fmt.Fprintf(os.Stderr, "invariants.MarkTerminal: open %s: %v\n", path, err)
 		return
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }() // best-effort; the write below is what matters
 	if _, err := fmt.Fprintf(f, "INVARIANT %s violated: %s\n", name, observed); err != nil {
 		fmt.Fprintf(os.Stderr, "invariants.MarkTerminal: write %s: %v\n", path, err)
 	}

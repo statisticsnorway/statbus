@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	githubOrg = "statisticsnorway"
+	githubOrg  = "statisticsnorway"
 	githubRepo = "statbus"
 )
 
@@ -87,7 +87,7 @@ func checkAssetsAt(apiBase, tag string) []CheckResult {
 	if err != nil {
 		return errorResults(assetNames(), fmt.Sprintf("request failed: %v", err))
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusNotFound {
 		return errorResults(assetNames(), fmt.Sprintf("tag %s not found on GitHub", tag))
@@ -167,7 +167,7 @@ func resolveTagToCommitShort(apiBase, tag string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("GitHub API returned HTTP %d", resp.StatusCode)
 	}
@@ -294,7 +294,7 @@ func headManifest(registryBase, image, tag, token string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	return resp.StatusCode, nil
 }
 
@@ -311,7 +311,7 @@ func ghcrPullToken(registryBase, image string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("token endpoint: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("token endpoint returned HTTP %d", resp.StatusCode)
 	}

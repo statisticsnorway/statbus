@@ -61,9 +61,9 @@ func TestConnectBoundedByConnectTimeout(t *testing.T) {
 		// The error should reflect a timeout / deadline — pgx wraps
 		// context.DeadlineExceeded into its connection error message.
 		msg := err.Error()
-		if !(strings.Contains(msg, "context deadline exceeded") ||
-			strings.Contains(msg, "timeout") ||
-			strings.Contains(msg, "deadline")) {
+		if !strings.Contains(msg, "context deadline exceeded") &&
+			!strings.Contains(msg, "timeout") &&
+			!strings.Contains(msg, "deadline") {
 			t.Errorf("connect() error should indicate a timeout/deadline (connectTimeout bound), got: %v", err)
 		}
 	case <-time.After(10 * time.Second):

@@ -30,7 +30,7 @@ func CleanStaleRefspecs(projDir string) {
 	removeRefspec := func(pattern string) {
 		rm := exec.Command("git", "config", "--unset", "remote.origin.fetch", pattern)
 		rm.Dir = projDir
-		rm.Run()
+		_ = rm.Run() // best-effort self-heal; a failed unset just means the stale refspec survives to the next attempt
 	}
 
 	for _, line := range strings.Split(string(out), "\n") {

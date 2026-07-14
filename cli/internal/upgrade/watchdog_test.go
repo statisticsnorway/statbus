@@ -27,7 +27,7 @@ func TestEmitHeartbeat_WritesAllSignals(t *testing.T) {
 	if err != nil {
 		t.Fatalf("mkdir tmp: %v", err)
 	}
-	defer os.RemoveAll(dir)
+	defer func() { _ = os.RemoveAll(dir) }()
 	socketPath := filepath.Join(dir, "n.sock")
 	addr, err := net.ResolveUnixAddr("unixgram", socketPath)
 	if err != nil {
@@ -37,7 +37,7 @@ func TestEmitHeartbeat_WritesAllSignals(t *testing.T) {
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	t.Setenv("NOTIFY_SOCKET", socketPath)
 
@@ -50,7 +50,7 @@ func TestEmitHeartbeat_WritesAllSignals(t *testing.T) {
 
 	emitHeartbeat(dir)
 
-	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	_ = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 	buf := make([]byte, 256)
 	n, _, err := conn.ReadFromUnix(buf)
 	if err != nil {
@@ -82,7 +82,7 @@ func TestSdNotifyWatchdog_WritesPayload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("mkdir tmp: %v", err)
 	}
-	defer os.RemoveAll(dir)
+	defer func() { _ = os.RemoveAll(dir) }()
 	socketPath := filepath.Join(dir, "n.sock")
 	addr, err := net.ResolveUnixAddr("unixgram", socketPath)
 	if err != nil {
@@ -92,13 +92,13 @@ func TestSdNotifyWatchdog_WritesPayload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	t.Setenv("NOTIFY_SOCKET", socketPath)
 
 	sdNotify("WATCHDOG=1")
 
-	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	_ = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 	buf := make([]byte, 256)
 	n, _, err := conn.ReadFromUnix(buf)
 	if err != nil {

@@ -212,11 +212,11 @@ func TestSetTargetDB_UnconditionalSetsAndRestores(t *testing.T) {
 // TestSetTargetDB_UnsetSetsAndRestoresToUnset: nothing exported beforehand →
 // restore() puts the process back to fully unset (not merely empty).
 func TestSetTargetDB_UnsetSetsAndRestoresToUnset(t *testing.T) {
-	os.Unsetenv("POSTGRES_APP_DB")
-	os.Unsetenv("PGDATABASE")
+	_ = os.Unsetenv("POSTGRES_APP_DB")
+	_ = os.Unsetenv("PGDATABASE")
 	t.Cleanup(func() {
-		os.Unsetenv("POSTGRES_APP_DB")
-		os.Unsetenv("PGDATABASE")
+		_ = os.Unsetenv("POSTGRES_APP_DB")
+		_ = os.Unsetenv("PGDATABASE")
 	})
 
 	restore := SetTargetDB("statbus_seed")
@@ -305,11 +305,11 @@ func TestOverrideTargetDB_EqualProceedsSilently(t *testing.T) {
 // exported beforehand → no divergence possible → proceeds, and restore()
 // puts the process back to fully unset (not merely empty).
 func TestOverrideTargetDB_UnsetSetsAndRestores(t *testing.T) {
-	os.Unsetenv("POSTGRES_APP_DB")
-	os.Unsetenv("PGDATABASE")
+	_ = os.Unsetenv("POSTGRES_APP_DB")
+	_ = os.Unsetenv("PGDATABASE")
 	t.Cleanup(func() {
-		os.Unsetenv("POSTGRES_APP_DB")
-		os.Unsetenv("PGDATABASE")
+		_ = os.Unsetenv("POSTGRES_APP_DB")
+		_ = os.Unsetenv("PGDATABASE")
 	})
 
 	restore, err := OverrideTargetDB("statbus_seed", "seed", false)

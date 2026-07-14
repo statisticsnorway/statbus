@@ -78,7 +78,7 @@ func checkReleaseWorkflowAt(apiBase, tag string) ReleaseWorkflowResult {
 	if err != nil {
 		return ReleaseWorkflowResult{Status: ReleaseWorkflowUnknown, Detail: fmt.Sprintf("request failed: %v", err)}
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return ReleaseWorkflowResult{Status: ReleaseWorkflowUnknown, Detail: fmt.Sprintf("GitHub API returned HTTP %d", resp.StatusCode)}
 	}

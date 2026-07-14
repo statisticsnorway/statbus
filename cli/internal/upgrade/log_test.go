@@ -20,11 +20,11 @@ func TestLogUpgradeRow_EmitsRawJSON(t *testing.T) {
 
 	logUpgradeRow("test-label", `{"id":42,"state":"completed"}`)
 
-	w.Close()
+	_ = w.Close()
 	os.Stdout = orig
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	output := buf.String()
 
 	// Must contain raw JSON opening brace — not an escaped \"{

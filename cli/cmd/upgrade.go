@@ -110,7 +110,7 @@ var upgradeListCmd = &cobra.Command{
 		LIMIT 20;`
 
 		out, err := runUpgradePsql(sql)
-		os.Stdout.Write(out)
+		_, _ = os.Stdout.Write(out) // best-effort; a stdout write failure here is unrecoverable anyway
 		return err
 	},
 }
@@ -279,8 +279,8 @@ file changes needed.`,
 		}
 
 		if w, err := syslog.New(syslog.LOG_INFO, "statbus-upgrade"); err == nil {
-			w.Info(fmt.Sprintf("upgrade apply-latest: registered + scheduled %s (channel=%s, recreate=%v)", latestVersion, channel, recreateFlag))
-			w.Close()
+			_ = w.Info(fmt.Sprintf("upgrade apply-latest: registered + scheduled %s (channel=%s, recreate=%v)", latestVersion, channel, recreateFlag)) // best-effort syslog note
+			_ = w.Close()
 		}
 
 		return nil
@@ -534,7 +534,7 @@ func fetchGitHubSigningKeys(url string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("fetch signing keys from %s: %w", url, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("status %d from %s", resp.StatusCode, url)
@@ -560,7 +560,7 @@ func fetchGitHubAuthKeys(url, username string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("fetch keys from %s: %w", url, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == 404 {
 		return nil, fmt.Errorf("GitHub user %q not found (404 from %s)", username, url)
@@ -786,7 +786,7 @@ var trustKeyVerifyCmd = &cobra.Command{
 
 		// Write allowed-signers file
 		allowedSignersPath := filepath.Join(projDir, "tmp", "allowed-signers")
-		os.MkdirAll(filepath.Join(projDir, "tmp"), 0755)
+		_ = os.MkdirAll(filepath.Join(projDir, "tmp"), 0755) // best-effort; the WriteFile right after surfaces any real failure
 		if err := os.WriteFile(allowedSignersPath, []byte(strings.Join(signerLines, "\n")+"\n"), 0644); err != nil {
 			return fmt.Errorf("write allowed-signers: %w", err)
 		}

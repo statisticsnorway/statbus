@@ -67,7 +67,7 @@ func ReplaceBinaryOnDisk(currentPath, downloadURL, expectedSHA256, expectCommit 
 	if err != nil {
 		return fmt.Errorf("download: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("download returned HTTP %d", resp.StatusCode)
@@ -80,22 +80,22 @@ func ReplaceBinaryOnDisk(currentPath, downloadURL, expectedSHA256, expectCommit 
 
 	h := sha256.New()
 	if _, err := io.Copy(io.MultiWriter(out, h), resp.Body); err != nil {
-		out.Close()
-		os.Remove(newPath)
+		_ = out.Close()
+		_ = os.Remove(newPath) // best-effort cleanup of the partial download
 		return fmt.Errorf("write: %w", err)
 	}
-	out.Close()
+	_ = out.Close()
 
 	// Step 2: Verify SHA256
 	actual := hex.EncodeToString(h.Sum(nil))
 	if actual != expectedSHA256 {
-		os.Remove(newPath)
+		_ = os.Remove(newPath) // best-effort cleanup of the bad download
 		return fmt.Errorf("checksum mismatch: got %s, want %s", actual, expectedSHA256)
 	}
 
 	// Step 3: Make executable
 	if err := os.Chmod(newPath, 0755); err != nil {
-		os.Remove(newPath)
+		_ = os.Remove(newPath) // best-effort cleanup
 		return fmt.Errorf("chmod: %w", err)
 	}
 
@@ -111,21 +111,23 @@ func ReplaceBinaryOnDisk(currentPath, downloadURL, expectedSHA256, expectCommit 
 	cmd := exec.Command(newPath, verifyArgs...)
 	cmd.Dir = filepath.Dir(currentPath)
 	if out, err := cmd.CombinedOutput(); err != nil {
-		os.Remove(newPath)
+		_ = os.Remove(newPath) // best-effort cleanup of the unverified binary
 		return fmt.Errorf("self-verify failed: %w\n%s", err, string(out))
 	}
 
 	// Step 4: Keep old as rollback
-	os.Remove(oldPath) // ignore error — might not exist
+	_ = os.Remove(oldPath) // ignore error — might not exist
 	if err := os.Rename(currentPath, oldPath); err != nil {
-		os.Remove(newPath)
+		_ = os.Remove(newPath) // best-effort cleanup
 		return fmt.Errorf("backup current binary: %w", err)
 	}
 
 	// Step 5: Atomic replace
 	if err := os.Rename(newPath, currentPath); err != nil {
-		// Try to restore old binary
-		os.Rename(oldPath, currentPath)
+		// Try to restore old binary — best-effort: if this ALSO fails, the
+		// original "replace binary" error below is still the right one to
+		// surface; there is nothing better to do mid-catastrophe.
+		_ = os.Rename(oldPath, currentPath)
 		return fmt.Errorf("replace binary: %w", err)
 	}
 
@@ -139,7 +141,7 @@ func sha256Match(path, expectedHex string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	h := sha256.New()
 	if _, err := io.Copy(h, f); err != nil {
 		return false, err
@@ -158,7 +160,7 @@ func Rollback(currentPath string) error {
 
 // CleanOld removes the .old backup after a successful self-update.
 func CleanOld(currentPath string) {
-	os.Remove(currentPath + ".old")
+	_ = os.Remove(currentPath + ".old") // best-effort; a leftover .old is harmless
 }
 
 // Platform returns the platform identifier for binary downloads.

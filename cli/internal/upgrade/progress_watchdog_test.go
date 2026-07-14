@@ -47,12 +47,12 @@ func TestProgressLog_WriteBumps(t *testing.T) {
 func TestPrefixWriter_OnLineFiresPerLine(t *testing.T) {
 	var n int
 	w := NewPrefixWriter("O", "migrate", io.Discard, func() { n++ })
-	w.Write([]byte("line one\nline two\n"))
+	_, _ = w.Write([]byte("line one\nline two\n"))
 	if n != 2 {
 		t.Errorf("onLine should fire once per newline (2 lines), got %d", n)
 	}
 	// A partial line (no newline) does not fire until flushed.
-	w.Write([]byte("partial"))
+	_, _ = w.Write([]byte("partial"))
 	if n != 2 {
 		t.Errorf("partial line (no newline) must NOT fire onLine yet, got %d", n)
 	}
@@ -65,7 +65,7 @@ func TestPrefixWriter_OnLineFiresPerLine(t *testing.T) {
 // TestPrefixWriter_NilOnLineSafe: a nil onLine (non-tracked callers) must not panic.
 func TestPrefixWriter_NilOnLineSafe(t *testing.T) {
 	w := NewPrefixWriter("O", "git", io.Discard, nil)
-	w.Write([]byte("no callback here\n"))
+	_, _ = w.Write([]byte("no callback here\n"))
 	w.Flush()
 }
 

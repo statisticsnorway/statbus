@@ -196,7 +196,7 @@ func restoreSeedDump(projDir, dbName, dumpPath string) error {
 	if err != nil {
 		return fmt.Errorf("open prior seed dump %s: %w", dumpPath, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	pgRestorePath, prefix, env, err := migrate.PgRestoreCommand(projDir)
 	if err != nil {
 		return fmt.Errorf("resolve pg_restore: %w", err)

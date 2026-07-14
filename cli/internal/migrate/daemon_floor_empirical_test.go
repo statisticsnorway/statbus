@@ -107,7 +107,7 @@ func TestDaemonFloorSchemaSufficient(t *testing.T) {
 	if err != nil {
 		t.Skipf("STATBUS_FLOOR_TEST_DSN unreachable (%v) — skipping empirical floor oracle", err)
 	}
-	defer conn.Close(context.Background())
+	defer func() { _ = conn.Close(context.Background()) }()
 
 	// NON-VACUITY (STATBUS-182): the DB must be at EXACTLY the floor, not HEAD — a
 	// HEAD DB (HEAD ⊇ floor) would prepare every query and pass while proving

@@ -24,17 +24,17 @@ func withEnv(t *testing.T, kv map[string]string) {
 			prior[k] = nil
 		}
 		if v == "" {
-			os.Unsetenv(k)
+			_ = os.Unsetenv(k)
 		} else {
-			os.Setenv(k, v)
+			_ = os.Setenv(k, v)
 		}
 	}
 	t.Cleanup(func() {
 		for k, p := range prior {
 			if p == nil {
-				os.Unsetenv(k)
+				_ = os.Unsetenv(k)
 			} else {
-				os.Setenv(k, *p)
+				_ = os.Setenv(k, *p)
 			}
 		}
 	})
@@ -136,8 +136,8 @@ func TestKillHere_NoOpUnmatchedName(t *testing.T) {
 // through a re-exec subprocess — the only way to observe os.Exit without
 // killing the test process. It asserts the canonical one-shot contract:
 //
-//	1. ARMED (marker file exists)  → child exits 137 AND consumes the marker.
-//	2. DISARMED (marker gone)      → child exits 0 (no-op), marker stays absent.
+//  1. ARMED (marker file exists)  → child exits 137 AND consumes the marker.
+//  2. DISARMED (marker gone)      → child exits 0 (no-op), marker stays absent.
 //
 // This is the load-bearing property for the now-inline crash recovery
 // (STATBUS-017): the upgrade pipeline's syscall.Exec re-exec preserves the
@@ -343,11 +343,11 @@ func TestRegistry_AllClassesSeeded(t *testing.T) {
 		// Concurrent-install detection.
 		"concurrent-install-attempted-during-migrate-up": KindStall,
 		// Forensics-surfaced classes (call sites + scenarios land later).
-		"migration-deadlocks-with-running-worker-holding-table-lock":          KindStall,
-		"install-flag-released-without-clean-handoff-detected-as-stale":       KindExternal,
+		"migration-deadlocks-with-running-worker-holding-table-lock":           KindStall,
+		"install-flag-released-without-clean-handoff-detected-as-stale":        KindExternal,
 		"service-watchdog-timeout-during-db-reconnect-after-container-restart": KindStall,
-		"advisory-lock-attempted-before-db-ready-after-container-restart":     KindExternal,
-		"seed-restore-runs-on-populated-database-destroying-data":             KindStall,
+		"advisory-lock-attempted-before-db-ready-after-container-restart":      KindExternal,
+		"seed-restore-runs-on-populated-database-destroying-data":              KindStall,
 	}
 	for name, want := range required {
 		got, ok := classes[name]

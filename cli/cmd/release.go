@@ -196,9 +196,9 @@ func preflightChecks(projDir string) bool {
 			latestMig, _ := migrate.LatestOnDiskMigrationVersion(projDir)
 			fmt.Printf("  ✓ Fast tests passed in CI for %s (writing local stamp, source version %s)\n", headShort, latestMig)
 			fmt.Printf("    Run: %s\n", pgRegressResult.RunURL)
-			os.MkdirAll(filepath.Join(projDir, "tmp"), 0755)
+			_ = os.MkdirAll(filepath.Join(projDir, "tmp"), 0755) // best-effort; the WriteFile right after surfaces any real failure
 			stampContent := headFull + "\n" + latestMig + "\n"
-			os.WriteFile(stampPath, []byte(stampContent), 0644)
+			_ = os.WriteFile(stampPath, []byte(stampContent), 0644) // best-effort local stamp; a write failure just means the fast path re-checks next time
 			stampBytes = []byte(stampContent)
 		case release.WorkflowCheckPending:
 			fmt.Printf("  ✗ pg_regress is still pending at %s (no local stamp)\n", headShort)
@@ -606,13 +606,13 @@ func noSameKindTagAtHEAD(projDir string, isPrerelease bool) error {
 			return fmt.Errorf(
 				"HEAD already carries a prerelease tag: %s\n"+
 					"  Make a new commit before tagging another RC — bumping the\n"+
-					"  number without an underlying change is wasteful.",
+					"  number without an underlying change is wasteful",
 				tag)
 		case !isPrerelease && !isRC:
 			return fmt.Errorf(
 				"HEAD already carries a stable release tag: %s\n"+
 					"  Make a new commit before tagging another release — bumping\n"+
-					"  the patch number without an underlying change is wasteful.",
+					"  the patch number without an underlying change is wasteful",
 				tag)
 		}
 	}

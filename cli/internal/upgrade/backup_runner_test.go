@@ -39,12 +39,12 @@ func holdUpgradeFlock(t *testing.T, proj string) func() {
 		t.Fatal(err)
 	}
 	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		f.Close()
+		_ = f.Close()
 		t.Fatalf("hold flock: %v", err)
 	}
 	return func() {
 		_ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
-		f.Close()
+		_ = f.Close()
 	}
 }
 
