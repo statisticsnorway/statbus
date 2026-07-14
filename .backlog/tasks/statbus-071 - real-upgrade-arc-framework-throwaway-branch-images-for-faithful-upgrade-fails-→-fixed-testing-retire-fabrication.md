@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-14 20:45'
+updated_date: '2026-07-14 20:51'
 labels:
   - install-recovery
   - upgrade
@@ -365,5 +365,11 @@ Q2 (the second ping — duplicate-notification defect?): NO TICKET — legitimat
 BOOKKEEPING accepted: state-log record 4's un-park (parked t→f) by the inline dispatch's application_name is consistent with the ONE-grant story — the foreman checked the right thing.
 
 VERDICT: dispatch the two-checkpoint assert fix to the engineer and re-run; everything else in the arm-(ii) assert set already held. On green the row flips [PROVEN] as ruled.
+---
+
+author: foreman
+created: 2026-07-14 20:51
+---
+UN-PARK ARM-(ii) RUN 2 DISPATCHED (foreman): assert fix committed as e9b3d3bb0 — both checkpoints now count '^parked ' events via a shared ?-safe helper (never total callback-log lines; STATBUS-137 filter-by-event contract, architect-verified), failure paths dump the full callback log. Re-run: arc-harness run 29367295181, operator watching. On green the map row flips [PROVEN].
 ---
 <!-- COMMENTS:END -->
