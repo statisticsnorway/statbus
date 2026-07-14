@@ -483,6 +483,7 @@ jobs:
             postswap-migration-oom)                     lineage=oom ;;
             postswap-migration-ceiling)                 lineage=ceiling ;;
             postswap-health-park)                        lineage=healthpark ;;
+            cross-version-rename-handoff)               lineage=crossversion ;;
             *)                                          lineage=working ;;
           esac
           echo "Scenario '${SCENARIO}' → fixture lineage '${lineage}'"
@@ -510,6 +511,20 @@ jobs:
               echo "B_BRANCH=${HEALTHPARK_B_BRANCH}"
               echo "C_BRANCH=${HEALTHPARK_C_BRANCH}"
               echo "B_SHORT=${HEALTHPARK_B_SHORT}"
+            } >> "$GITHUB_ENV"
+          elif [ "$lineage" = crossversion ]; then
+            # STATBUS-164 half #2 cross-version arc — the ONLY arc whose base is NOT
+            # the run SHA: it pins a FIXED pre-rename release commit (rc.05
+            # 730b5001c — an ancestor of the rename commit 0e04a9613, where the source
+            # still stamps "post_swap") and targets the run's OWN post-rename commit,
+            # so the exit-42 handoff crosses the rename boundary. No construct lineage:
+            # both images already exist (A = the rc.05 release image; the target = the
+            # run's per-commit build == base_short). Update the pin only if rc.05's
+            # image is GC'd (then a newer STILL-pre-rename release).
+            {
+              echo "PRE_RENAME_BASE_SHA=${PRE_RENAME_BASE_SHA:-730b5001c099a660dc8ce28d9bf8167781704695}"
+              echo "TARGET_SHA=${GITHUB_SHA}"
+              echo "TARGET_BRANCH=${GITHUB_REF_NAME}"
             } >> "$GITHUB_ENV"
           else
             {
