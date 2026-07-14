@@ -1,9 +1,9 @@
 #!/bin/bash
 # restrict-agent-spawn.sh — PreToolUse hook on Agent and Bash tools.
 #
-# Team roles on this project: foreman (team-lead), engineer, mechanic,
-# tester, operator. See .claude/team/README.md for the full roster and
-# the cost-aware delegation pattern.
+# Team roles on this project: foreman (roster name "team-lead"), engineer,
+# mechanic, tester, operator. See .claude/team/README.md for the full roster
+# and the cost-aware delegation pattern.
 #
 # === AGENT tool rules ===
 #
@@ -41,10 +41,118 @@
 # 5. `./sb release prerelease` → only the foreman may run it. Release
 #    commands modify tags and branches — foreman's authority.
 #
-# Caller identification:
-#   - session_id == leadSessionId (from team config) → "foreman"
-#   - else grep agentName from the session's transcript .jsonl
-#   - if unidentifiable → permissive fallback (never hard-break legitimate work)
+# === Caller identification (STATBUS-168 — architect ruling + re-ruling, 2026-07-14) ===
+#
+# DERIVE, DON'T RECORD. No hand-maintained session id survives session
+# rotation (/clear, crash, compaction) — two production incidents (STATBUS-168)
+# proved a stored `leadSessionId` goes stale and either silently disarms every
+# guard (if the resolved team config doesn't even exist) or hard-denies a
+# legitimate rotated foreman (if it does). Identity now comes ONLY from live
+# process lineage, resolved fresh on every call.
+#
+# THE FIRST DESIGN (env marker CLAUDE_CODE_CHILD_SESSION) WAS REFUTED BY ITS
+# OWN MANDATED PROBE before ship: the ruling's premise was "root sessions run
+# bare, so the marker is absent for the lead" — P1, run in the LIVE foreman
+# session, found the marker SET there too (root and teammate sessions are
+# indistinguishable by that env var on this harness). The probe existed
+# exactly to catch this; it did. Re-ruled same day to SPAWN-ARGV ANCESTRY
+# (candidate b), validated live on both endpoints — PR1 (root): hop 2 of the
+# root session's own process ancestry is `claude --effort max --resume`, no
+# --agent-* flags. PR2 (teammate): hop 2 is `claude ... --agent-id
+# X@<team> --agent-name X --team-name <team> ...` — the harness's own spawn
+# declaration, positive identity, not a heuristic. PR3 re-validated the SAME
+# shape from INSIDE a real PreToolUse hook invocation on both a root and a
+# teammate session (the hook's own process adds one ancestry hop vs. a plain
+# Bash-tool command; the bounded walk-to-nearest-claude-ancestor tolerates
+# that transparently). PR4 found the in-process-subagent residual EMPTY on
+# this harness (see BOUNDED RESIDUAL below) — better than the original design
+# assumed. PR5 found zero argv truncation on `ps -ww` across every live
+# teammate process observed (longest 287 chars).
+#
+# RESOLUTION ORDER (comment #7; each step can only mis-DENY, never mis-GRANT):
+#   Step 1 — ARGV IDENTITY (authoritative when a claude ancestor is found).
+#            Walk this process's own ancestry (bounded ~15 hops, `ps -ww -o
+#            ppid=,command=`, full untruncated argv) to the nearest `claude`
+#            entrypoint.
+#              - No --agent-name on that entrypoint → POSITIVE evidence of a
+#                ROOT session (the lead's own shell, or the King's — a
+#                spawned teammate ALWAYS carries the flag) → caller="foreman".
+#              - --agent-name X present → the caller IS X: a roster hit
+#                normalizes X to "foreman" when that member's agentType==
+#                "team-lead", otherwise caller=X; a NON-roster X is
+#                unknown-child (an argv identity that doesn't name a real
+#                teammate is still authoritative — it does NOT fall through
+#                to Step 2). A `--team-name` on the same entrypoint that does
+#                NOT match this checkout's OWN resolved team name means that
+#                ancestor belongs to a different clone/team and is treated as
+#                not-found here (defends the cross-clone fixture, comment #1).
+#   Step 2 — no claude ancestor found AT ALL within the bounded walk →
+#            TRANSCRIPT ROSTER-GREP fallback (STATBUS-118 most-count match,
+#            unchanged mechanics): covers a roster teammate whose process
+#            happens to lack spawn argv. A hit normalizes team-lead→foreman
+#            exactly as Step 1 does.
+#   Step 3 — neither step resolved anything → unknown-child. Permissive on
+#            ordinary ops (Tier 1 below); DENY on release (Tier 2).
+#
+# BOUNDED RESIDUAL (documented, not silently assumed — PR4, 2026-07-14): an
+# IN-PROCESS background subagent (spawned via the Agent tool while the
+# foreman keeps running, named "pr4-probe" for the probe) was probed live and
+# found to be a SEPARATE, FULLY TEAMED process — the harness's spawn hooks
+# required it to join the roster, and its own ancestry (log evidence,
+# /tmp/statbus-hook-ancestry-debug.log, 2026-07-14T10:41:59Z) carries
+# `--agent-id pr4-probe@session-7719192b --agent-name pr4-probe --team-name
+# session-7719192b --parent-session-id <foreman's>` — full identity argv,
+# exactly like any other teammate (and, before its spawn teamed it, a
+# non-roster --agent-name would have landed unknown-child: Tier 1
+# permissive, Tier 2 denied — the classifier's mis-deny-never-mis-grant
+# property held on this data too). The residual this ruling anticipated (an
+# unidentifiable in-process child inheriting the lead's identity) is EMPTY on
+# this harness — every spawned agent, in-process or not, is independently
+# identifiable. Kept documented rather than deleted: a future harness change
+# that runs a subagent truly in-process (no separate claude entrypoint at
+# all) would hit Step 1's "no claude ancestor found" path and fall to Step
+# 2/3, same as any other unidentifiable child — never silently inherit
+# foreman. The release gate ALSO carries an explicit no-workaround
+# instruction to the calling LLM (see NO_WORKAROUND below) as DEFENSE IN
+# DEPTH regardless of this residual's current emptiness: an agent that
+# somehow did pass identification is still bound by that sentence at the
+# gate (same doctrine as naming dangerous operations so any agent calls the
+# human) — so even if a future harness change reopened the residual, the
+# gate's own text still voids the workaround space.
+#
+# TWO-TIER POLICY (replaces the old blanket "unidentifiable → permissive"
+# sentence, which directly contradicted Rule 5's existing deny-on-unknown):
+#   Tier 1 — ordinary ops (Agent spawn's bg/bypass rules, Rule 4 git ops):
+#            unidentifiable caller → PERMISSIVE (never hard-break legitimate
+#            work; these are role guards on IDENTIFIED callers, not identity
+#            checks in themselves).
+#   Tier 2 — authority-gated ops (Rule 5, `./sb release prerelease`):
+#            caller MUST resolve positively to "foreman"; unknown-child →
+#            DENY. This no longer costs anything legitimate: a genuine
+#            foreman (root OR a roster-matched team-lead transcript) can no
+#            longer land in "unknown" — only a confused/unaccountable child
+#            can, and that is exactly what Tier 2 exists to block.
+#
+# MISSING CONFIG = LOUD, NEVER SILENT. If the resolved TEAM_CONFIG file does
+# not exist, every ALLOW decision on the Agent/Bash gated paths ALSO carries a
+# top-level `systemMessage` (Claude Code hooks JSON schema — a warning shown to
+# the user regardless of tool/decision, verified against the official hooks
+# reference 2026-07-14: https://code.claude.com/docs/en/hooks) so the operator
+# SEES that role guards are inactive instead of the guard silently disarming
+# (STATBUS-168's root incident). NOT a deny: a missing config is legitimate in
+# a solo session, and the root foreman must never be bricked by a stale
+# pointer — root identification above is config-independent by design. A
+# CHILD session with no config still resolves unknown-child, so the release
+# gate stays fail-closed regardless.
+#
+# VOCABULARY — ONE NORMALIZATION BOUNDARY (fixes the previously-broken
+# SendMessage hints, which hardcoded 'foreman' — not a routable roster name).
+# Role tests keep "foreman" internally (matches every rule/doc/message
+# above). Every EMITTED SendMessage hint instead interpolates $LEAD_NAME, the
+# routable name read from config: the roster member whose agentId equals the
+# config's top-level `leadAgentId` (today "team-lead"). Lead RECOGNITION
+# (Step 1 above) keys on agentType=="team-lead", never on a hardcoded display
+# name — the display name is free to change; the type tag is not.
 #
 # Parameterization (precedence: high → low):
 #   CLAUDE_TEAM_NAME   — team name inside ${CLAUDE_CONFIG_DIR}/teams/. Set
@@ -53,7 +161,10 @@
 #                        name. Lets per-checkout teams coexist (e.g. one user
 #                        running two statbus checkouts in parallel, each with
 #                        its own tester slot) without touching settings.json
-#                        or shell env.
+#                        or shell env. Resolved relative to the invoking
+#                        shell's cwd — each checkout's hook call only ever
+#                        reads ITS OWN .claude/team.name, so two clones on one
+#                        machine never cross-resolve each other's team config.
 #   default            — "team"
 
 set -euo pipefail
@@ -75,6 +186,11 @@ resolve_team_name() {
 }
 
 TEAM_CONFIG="${CLAUDE_CONFIG_DIR}/teams/$(resolve_team_name)/config.json"
+TEAM_CONFIG_MISSING=false
+if [[ ! -f "$TEAM_CONFIG" ]]; then
+  TEAM_CONFIG_MISSING=true
+fi
+MISSING_CONFIG_SYSMSG="restrict-agent-spawn: team config NOT FOUND at ${TEAM_CONFIG} (resolved via CLAUDE_TEAM_NAME | .claude/team.name | default); teammate role guards INACTIVE — fix .claude/team.name"
 
 payload=$(cat)
 tool=$(jq -r '.tool_name // empty' <<<"$payload")
@@ -86,6 +202,13 @@ fi
 
 session_id=$(jq -r '.session_id // empty' <<<"$payload")
 transcript_path=$(jq -r '.transcript_path // empty' <<<"$payload")
+
+# ── the King's rider (2026-07-14): every authority-gate message (deny, and
+# the allow/notice paths that carry identity-uncertainty) must tell the
+# calling LLM it cannot route around the gate. Doctrine: same as naming
+# dangerous operations so any agent calls the human — the sentence voids the
+# workaround space itself, regardless of who or what tripped the gate. ──
+NO_WORKAROUND="You cannot work around this gating unless you have an explicit blessing from the King (or person in control)."
 
 # ── helpers ──
 
@@ -104,11 +227,27 @@ emit_deny() {
 EOF
 }
 
+# emit_allow_note <reason> — allow with an explanatory reason. When the team
+# config is missing, ALSO attaches the top-level systemMessage (loud, never
+# silent — STATBUS-168 AC#2) so the operator sees role guards are inactive.
 emit_allow_note() {
   local _note="$1"
-  local _escaped
+  local _escaped _sys
   _escaped=$(jq -Rn --arg r "$_note" '$r')
-  cat <<EOF
+  if [[ "$TEAM_CONFIG_MISSING" == "true" ]]; then
+    _sys=$(jq -Rn --arg m "$MISSING_CONFIG_SYSMSG" '$m')
+    cat <<EOF
+{
+  "systemMessage": ${_sys},
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "allow",
+    "permissionDecisionReason": ${_escaped}
+  }
+}
+EOF
+  else
+    cat <<EOF
 {
   "hookSpecificOutput": {
     "hookEventName": "PreToolUse",
@@ -117,48 +256,160 @@ emit_allow_note() {
   }
 }
 EOF
+  fi
 }
 
-# ── identify caller ──
+# emit_allow — bare allow, no note. Still carries the missing-config
+# systemMessage (STATBUS-168 AC#2: loud on EVERY gated-path allow, not just
+# the ones that already had a reason to explain).
+emit_allow() {
+  if [[ "$TEAM_CONFIG_MISSING" == "true" ]]; then
+    jq -n --arg m "$MISSING_CONFIG_SYSMSG" '{systemMessage: $m}'
+  else
+    echo "{}"
+  fi
+}
+
+# ── identify caller (STATBUS-168) ──
 # The harness concept is "team-lead"; in our vocabulary that's the foreman.
 
-lead_session_id=""
+# LEAD_NAME — the routable roster name for SendMessage hints (today
+# "team-lead"). Looked up via the config's leadAgentId, never hardcoded, so a
+# future rename of the lead's display name doesn't re-break the hints the way
+# a bare 'foreman' string did. Falls back to "foreman" only if config/lookup
+# is unavailable — still a usable (if possibly stale) hint, never a crash.
+LEAD_NAME="foreman"
 if [[ -f "$TEAM_CONFIG" ]]; then
-  lead_session_id=$(jq -r '.leadSessionId // empty' "$TEAM_CONFIG" 2>/dev/null || echo "")
+  _lead_agent_id=$(jq -r '.leadAgentId // empty' "$TEAM_CONFIG" 2>/dev/null || echo "")
+  if [[ -n "$_lead_agent_id" ]]; then
+    _lead_name_lookup=$(jq -r --arg id "$_lead_agent_id" '.members[] | select(.agentId == $id) | .name // empty' "$TEAM_CONFIG" 2>/dev/null || echo "")
+    if [[ -n "$_lead_name_lookup" ]]; then
+      LEAD_NAME="$_lead_name_lookup"
+    fi
+  fi
 fi
 
+# THIS_TEAM_NAME — this checkout's own resolved team, used to gate the argv
+# walk's --team-name bonus check below (a cross-clone/other-team ancestor
+# must never be treated as identifying THIS checkout's caller).
+THIS_TEAM_NAME="$(resolve_team_name)"
+
+# _resolve_via_argv — STATBUS-168 Step 1 (architect re-ruling, comment #7).
+# Walks this process's own ancestry (bounded ~15 hops) to the nearest
+# `claude` entrypoint and echoes exactly one of:
+#   ROOT         — a claude ancestor was found with NO --agent-name (positive
+#                  evidence of a root/user-driven session).
+#   AGENT:<name> — a claude ancestor was found WITH --agent-name <name>, and
+#                  (if present) its --team-name matches THIS checkout.
+#   (empty)      — no claude ancestor found within the bounded walk, OR the
+#                  nearest one's --team-name belongs to a DIFFERENT
+#                  checkout/team (treated as not-found here, comment #1's
+#                  cross-clone fixture).
+# `ps -ww` (unlimited width) avoids argv truncation — PR5 verified this clean
+# up to 287 chars across every live teammate process observed, 2026-07-14.
+#
+# TEST SEAM: STATBUS_HOOK_TEST_ARGV_RESULT, when SET (including to an empty
+# string — `${VAR+x}`, not `${VAR:-}`), short-circuits the real `ps` walk and
+# echoes that value instead. Lets the unit test suite stub all three
+# resolution outcomes deterministically; the live `ps` walk itself is
+# validated separately by the PR1-PR5 acceptance probes against real
+# sessions (STATBUS-168), not by this suite. Unset in production — the real
+# walk always runs.
+_resolve_via_argv() {
+  if [[ -n "${STATBUS_HOOK_TEST_ARGV_RESULT+x}" ]]; then
+    printf '%s' "$STATBUS_HOOK_TEST_ARGV_RESULT"
+    return 0
+  fi
+  local _pid=$$ _hop _line _ppid _cmd
+  for _hop in $(seq 1 15); do
+    _line=$(ps -ww -o ppid=,command= -p "$_pid" 2>/dev/null) || break
+    [ -n "$_line" ] || break
+    _ppid=$(printf '%s' "$_line" | awk '{print $1}')
+    _cmd=$(printf '%s' "$_line" | sed -E 's/^[[:space:]]*[0-9]+[[:space:]]+//')
+    if [[ "$_cmd" =~ ^([^[:space:]]*/)?claude(/versions/[^[:space:]/]+)?([[:space:]]|$) ]]; then
+      if [[ "$_cmd" =~ --agent-name[[:space:]]+([^[:space:]]+) ]]; then
+        local _an="${BASH_REMATCH[1]}"
+        if [[ "$_cmd" =~ --team-name[[:space:]]+([^[:space:]]+) ]]; then
+          local _tn="${BASH_REMATCH[1]}"
+          if [[ "$_tn" != "$THIS_TEAM_NAME" ]]; then
+            echo ""
+            return 0
+          fi
+        fi
+        echo "AGENT:${_an}"
+        return 0
+      fi
+      echo "ROOT"
+      return 0
+    fi
+    [ -n "$_ppid" ] || break
+    if [ "$_ppid" -le 1 ] 2>/dev/null; then break; fi
+    _pid=$_ppid
+  done
+  echo ""
+}
+
 caller=""
-if [[ -n "$session_id" && -n "$lead_session_id" && "$session_id" == "$lead_session_id" ]]; then
+caller_basis="unresolved"
+_argv_result=$(_resolve_via_argv)
+if [[ "$_argv_result" == "ROOT" ]]; then
   caller="foreman"
-elif [[ -n "$transcript_path" && -f "$transcript_path" ]]; then
-  # Resolve identity by the team ROSTER name, robust against newer Claude Code
-  # CLIs that can record a session's auto-generated ai-title in `agentName`
-  # (e.g. a reused pane keeps an old throwaway title) instead of the routing
-  # name — which broke the naive first-`agentName` match. Pick the roster
-  # member whose agentName appears MOST in this transcript: the session's own
-  # identity dominates; any relayed/quoted name is rare. Can never mis-GRANT
-  # identity — it only matches exact current roster names.
+  caller_basis="argv: root (claude ancestor found, no --agent-name)"
+elif [[ "$_argv_result" == AGENT:* ]]; then
+  _argv_name="${_argv_result#AGENT:}"
+  caller_basis="argv --agent-name ${_argv_name}"
+  # Authoritative once a claude ancestor names an agent — never falls
+  # through to Step 2, even when the name isn't a roster member (that IS
+  # unknown-child, decisively, not a cue to go guess via the transcript).
   if [[ -f "$TEAM_CONFIG" ]]; then
-    caller=$(
+    _argv_type=$(jq -r --arg n "$_argv_name" '.members[] | select(.name == $n) | .agentType // empty' "$TEAM_CONFIG" 2>/dev/null || echo "")
+    if [[ "$_argv_type" == "team-lead" ]]; then
+      caller="foreman"
+    else
+      _argv_hit=$(jq -r --arg n "$_argv_name" '.members[] | select(.name == $n) | .name' "$TEAM_CONFIG" 2>/dev/null || echo "")
+      if [[ -n "$_argv_hit" ]]; then
+        caller="$_argv_name"
+      fi
+    fi
+  fi
+else
+  # Step 2 (STATBUS-168 comment #7): the argv walk found NO claude ancestor
+  # at all — fall back to transcript roster-grep (STATBUS-118 most-count
+  # match, unchanged mechanics; covers a roster teammate whose process
+  # happens to lack spawn argv). Robust against newer Claude Code CLIs that
+  # can record a session's auto-generated ai-title in `agentName` (e.g. a
+  # reused pane keeps an old throwaway title) instead of the routing name —
+  # picking the roster member whose agentName appears MOST avoids the naive
+  # first-match false-positive. NO first-agentName fallback: `agentName` can
+  # hold a non-role ai-title, which falsely blocked the foreman's OWN spawns
+  # before this rewrite — on no roster hit, caller stays "" (Step 3: unknown).
+  if [[ -n "$transcript_path" && -f "$transcript_path" && -f "$TEAM_CONFIG" ]]; then
+    _winning_name=$(
       while IFS= read -r _member; do
         if [[ -z "$_member" ]]; then continue; fi
         _count=$(grep -cF "\"agentName\":\"${_member}\"" "$transcript_path" 2>/dev/null || true)
         # NB: `[[ … ]] && printf` here would trip `set -e` (+ pipefail via the
         # surrounding pipeline) whenever the test is false — i.e. for every
-        # roster member NOT in this transcript — crashing the hook before it can
-        # decide. Use an explicit `if` so the false branch is set -e-safe.
+        # roster member NOT in this transcript — crashing the hook before it
+        # can decide. Use an explicit `if` so the false branch is set -e-safe.
         if [[ "${_count:-0}" -gt 0 ]]; then printf '%s %s\n' "$_count" "$_member"; fi
       done < <(jq -r '.members[].name' "$TEAM_CONFIG" 2>/dev/null || true) \
         | sort -rn | head -1 | awk '{print $2}'
     )
+    if [[ -n "$_winning_name" ]]; then
+      caller_basis="transcript roster-grep: ${_winning_name} (no claude ancestor found via argv)"
+      _winning_type=$(jq -r --arg n "$_winning_name" '.members[] | select(.name == $n) | .agentType // empty' "$TEAM_CONFIG" 2>/dev/null || echo "")
+      if [[ "$_winning_type" == "team-lead" ]]; then
+        caller="foreman"
+      else
+        caller="$_winning_name"
+      fi
+    else
+      caller_basis="unknown: no claude ancestor found via argv, no transcript roster hit"
+    fi
+  else
+    caller_basis="unknown: no claude ancestor found via argv, no usable transcript"
   fi
-  # NO first-agentName fallback. `agentName` can hold the session's auto-derived
-  # ai-title (after /rename it became "statbus-speed") — that is NOT a role, and
-  # it falsely blocked the foreman's OWN spawns. The roster-match above only ever
-  # returns a REAL member name; on no match the caller stays "" and is treated
-  # permissively below (bootstrap, post-/clear, and unknown sessions). Never
-  # derive a role from the session name/ai-title. (STATBUS-118)
-  :
 fi
 
 # ── Agent tool ────────────────────────────────────────────────────────
@@ -227,9 +478,12 @@ Hook source: .claude/hooks/restrict-agent-spawn.sh"
       ;;
 
     "")
-      # Unknown caller — apply background + bypassPermissions blanket rules.
+      # Unknown (child, no roster hit) — Tier 1 (ordinary op): apply
+      # background + bypassPermissions blanket rules, then permissive allow.
+      # The no-workaround sentence still applies — an unidentified spawner
+      # is exactly the confused-child case the doctrine targets.
       check_bg_and_bypass
-      emit_allow_note "restrict-agent-spawn: caller identity could not be determined (session_id=${session_id}, leadSessionId=${lead_session_id}, transcript_path=${transcript_path}). Background + bypassPermissions verified. Allowing."
+      emit_allow_note "restrict-agent-spawn: caller identity could not be determined (${caller_basis}; session_id=${session_id}, transcript_path=${transcript_path}). Background + bypassPermissions verified. Allowing (Tier 1: ordinary op). ${NO_WORKAROUND}"
       exit 0
       ;;
 
@@ -244,7 +498,9 @@ WHAT TO DO:
   - TESTS: SendMessage(to: 'tester', ...) or assign a Backlog.md task to 'tester'.
   - DIAGNOSIS and targeted fixes: SendMessage(to: 'mechanic', ...).
   - DESIGN or architectural work: SendMessage(to: 'engineer', ...).
-  - NEW ROLE (truly needed): SendMessage(to: 'foreman', ...) and ask.${context_suffix}
+  - NEW ROLE (truly needed): SendMessage(to: '${LEAD_NAME}', ...) and ask.${context_suffix}
+
+${NO_WORKAROUND}
 
 Hook source: .claude/hooks/restrict-agent-spawn.sh"
       exit 0
@@ -348,7 +604,9 @@ WHAT TO DO:
   - For a targeted fix: SendMessage({to: 'mechanic', message: '...'}).
   - For a substantive change: SendMessage({to: 'engineer', message: '...'}).
   - For a plan: SendMessage({to: 'architect', message: '...'}).
-  - If genuinely needed, surface to foreman: SendMessage({to: 'foreman', ...}).
+  - If genuinely needed, surface to the foreman: SendMessage({to: '${LEAD_NAME}', ...}).
+
+${NO_WORKAROUND}
 
 Command: ${normalized:0:200}
 Caller: ${caller}
@@ -358,18 +616,22 @@ Hook source: .claude/hooks/restrict-agent-spawn.sh"
     fi
   fi
 
-  # Rule 5: `./sb release prerelease` → only the foreman.
+  # Rule 5: `./sb release prerelease` → only the foreman (Tier 2:
+  # authority-gated — caller must resolve positively to foreman; unknown-child
+  # is DENIED, never permissive. See the two-tier policy header note.)
   if echo "$normalized_for_match" | grep -qE '\./sb\s+release\s+prerelease\b'; then
     if [[ "$caller" == "foreman" ]]; then
-      echo "{}"
+      emit_allow
       exit 0
     fi
     if [[ -z "$caller" ]]; then
-      emit_deny "BLOCKED (restrict-agent-spawn.sh): release command from unidentified caller — cannot confirm this is the foreman.
+      emit_deny "BLOCKED (restrict-agent-spawn.sh): release command from an unidentified (unknown-child) caller — cannot confirm this is the foreman (${caller_basis}).
 
-WHY: only the foreman may run release commands. They modify tags and branches — foreman's authority.
+WHY: only the foreman may run release commands. They modify tags and branches — foreman's authority. This is a Tier 2, authority-gated op: unlike ordinary rules, an unidentified caller here is DENIED, not given the benefit of the doubt.
 
-WHAT TO DO: SendMessage(to: 'foreman') and ask them to run it.
+WHAT TO DO: SendMessage(to: '${LEAD_NAME}') and ask them to run it.
+
+${NO_WORKAROUND}
 
 Command: ${normalized:0:200}
 
@@ -380,7 +642,9 @@ Hook source: .claude/hooks/restrict-agent-spawn.sh"
 
 WHY: release commands are foreman's authority — they modify tags and branches.
 
-WHAT TO DO: SendMessage({to: 'foreman', message: 'please run: ${normalized:0:120}'}).
+WHAT TO DO: SendMessage({to: '${LEAD_NAME}', message: 'please run: ${normalized:0:120}'}).
+
+${NO_WORKAROUND}
 
 Command: ${normalized:0:200}
 Caller: ${caller}
@@ -391,4 +655,4 @@ Hook source: .claude/hooks/restrict-agent-spawn.sh"
 fi
 
 # Passed all checks — allow.
-echo "{}"
+emit_allow
