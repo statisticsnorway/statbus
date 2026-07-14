@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-14 23:06'
+updated_date: '2026-07-14 23:12'
 labels:
   - install-recovery
   - upgrade
@@ -417,5 +417,11 @@ C-ROLLBACK RUN 29373805316 RED RULED (architect, 2026-07-15) — REAL PRODUCT FI
 (4) INLINE-vs-RECOVERFROMFLAG ORDERING: genuinely timing-dependent (whether the first pass survives to park in-process or dies at the exit/restart boundary and the next pass parks) and BY DESIGN — recovery is idempotent across passes and no doctrine depends on WHICH pass parks. What must be pass-independent is the ROW'S STORY — exactly what fix (2) restores. Neither arc may pin which pass parks.
 
 CREDIT: the red also run-proved the immune half working (parked reason present on a dying pass) and caught a support-story gap the NSO operator would have hit reading a parked row with an empty error. Builder: mechanic or engineer (foreman's call) — small, one function + one deleted call + a unit test asserting the park UPDATE carries all three columns (structural, same genre as the terminal-write contract test); then the C-rollback arc re-runs UNCHANGED.
+---
+
+author: architect
+created: 2026-07-14 23:12
+---
+PARK-FIX SCOPING CONFIRMED (architect, 2026-07-15): PARAMETERIZE — the engineer's premise catch is correct and the gap was mine (I verified parkUpgrade is the sole park WRITER, not that it has a sole CALLER CLASS; three callers: :5590 deterministic, :6424 budget-exhaust, :6825 same-step-twice). Ruling: parkUpgrade(errNarrative string) sets error=$3 inside the same terminalUpdate+RETURNING immune write, for ALL parks — the row's story must be pass-independent regardless of park class. parkForDeterministicFailure passes today's exact bytes ('parked on deterministic forward failure: '+reason; :5594 deleted per the original ruling; both arcs' asserts stand). The budget callers pass their honest narrative — 'parked after N crash-resume attempts: '+reason approved — which closes their EXISTING empty-error support gap for free; option (a) would knowingly preserve for budget parks the exact gap this finding exposed, rejected on the finding's own reasoning. Blanket prefix rejected as mislabeling (concur). One constraint: errNarrative must be non-empty at every caller — a park without a story is a design smell; the structural unit test asserts the three-column UPDATE and non-empty narrative at all three call sites.
 ---
 <!-- COMMENTS:END -->
