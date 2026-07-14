@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-14 16:12'
-updated_date: '2026-07-14 17:06'
+updated_date: '2026-07-14 17:13'
 labels:
   - upgrade
   - deploy
@@ -31,7 +31,7 @@ ordinal: 184000
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 Engineer traces the exact drop site in the upgrade_apply NOTIFY handler with file:line (why discovery ran but scheduling didn't, and where the error went)
-- [ ] #2 Architect rules the fix shape: apply always either schedules the named version (registering it first if needed) or fails loudly
+- [x] #2 Architect rules the fix shape: apply always either schedules the named version (registering it first if needed) or fails loudly
 - [ ] #3 Fix proven by a run: a poke sent within seconds of a fresh release schedules correctly (or fails loudly) — no silent available-forever row
 <!-- AC:END -->
 
@@ -76,5 +76,11 @@ ADJUDICATIONS — the rest ships as built:
 - The reshaped structural guard correctly encodes the stronger invariant (no raw INSERT + registerTarget + promoteExistingCandidate required).
 
 After A1-A3: SHIP; AC#3's run oracle (next RC's poke within seconds of the cut) stands as ruled.
+---
+
+author: foreman
+created: 2026-07-14 17:13
+---
+FIX SHIPPED (foreman commit 5ae1147fe, 2026-07-14) after the full review chain: engineer build → foreman line review → architect pass (comment #3: one real defect caught — the vacuous tag fetch, scratch-repo-proven) → A1-A3 amendments → foreman independent test run → commit. Shipped shape: register-then-promote through the SINGLE guarded path (registerTarget; RunRegister rewired through it — the invariant is now structural: no candidate row exists except via the guarded register); tag fetches use the refs/tags refspec with a real-git behavioral test; notify-path fetch bounded at 30s (the handler shares the main goroutine carrying the WatchdogSec=120s heartbeat — engineer-verified at service.go:2258; a 2m block risks systemd SIGKILL); durable upgrade_apply_refused system_info signal on every refuse path, cleared on promoted OR already-scheduled (deviation architect-accepted). 8 oracle tests + 2 real-git behavioral tests green. AC#3 (live oracle) rides the NEXT release cut: poke within seconds of the cut must converge row-completed — checked at rc.07/stable time.
 ---
 <!-- COMMENTS:END -->
