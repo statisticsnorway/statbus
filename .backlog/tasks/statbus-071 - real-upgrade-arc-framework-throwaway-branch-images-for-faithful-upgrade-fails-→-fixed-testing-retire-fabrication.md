@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-14 20:25'
+updated_date: '2026-07-14 20:44'
 labels:
   - install-recovery
   - upgrade
@@ -345,5 +345,11 @@ author: foreman
 created: 2026-07-14 20:25
 ---
 ARM-SPLIT UNIT COMMITTED + DISPATCHED (foreman, 2026-07-14 evening): commit 2d5cc0de7 — the codeonly (no-delta) lineage variant (SPEC codeonly in lib/upgrade-target.sh: B = A + non-migration marker, NO V, single-phase like oom/ceiling), the un-park-to-completion arc rewritten to arm (ii) with the architect's full assert set (disk-named park reason, siren exactly once via the health-park UPGRADE_CALLBACK file pattern, alive-idle after the RestartSec settle, zero rollbacks in public.upgrade_state_log at park AND completion, exactly one UN-PARKED grant, same row completes, data intact), and the harness workflow wired end-to-end (9 fixture branches). Arm (i) delta→rollback is credited to run 29360596950 in the arc header; this arc asserts nothing for it. Engineer built per the ruling; foreman reviewed line-by-line and independently verified the schema/event/helper premises. ORACLE IN FLIGHT: arc-harness run 29365576531, operator watching — the map row flips [PROVEN] only on green.
+---
+
+author: foreman
+created: 2026-07-14 20:44
+---
+UN-PARK ARM-(ii) RUN 1 RED — BUT THE STORY LANDED (run 29365576531, 2026-07-14 evening, log tmp/unpark-arm2-run1-failure.log): the codeonly lineage reached the resource park exactly as ruled — disk-named park (state-log: in_progress parked=t), siren-once AT the park, alive-idle, zero rollbacks at park AND completion, ./sb install un-parked with exactly ONE grant (inline dispatch app-name confirmed in state-log record 4), same row completed attempts=1, data intact. ONE assert tripped: siren count 3 at completion (expected 1) — the two extra callback-log lines are the COMPLETION callback (normal Slack-OK) and a SECOND callback from the post-upgrade install fixup ('already recorded… no change'), i.e. the arc's completion-time assert counts ALL lifecycle events on the shared callback hook instead of only STATBUS_EVENT=parked lines. Foreman's read: arc assert coarseness, product per-doctrine — sent to the architect for adversarial verification per the alarm-reversal rule before any arc edit. Side question also with the architect: is the fixup's duplicate completion-time callback a real double-notification defect (separate ticket if so). Operator's initial 'deleted tag' classification was unrelated discovery noise on upgrade row 1.
 ---
 <!-- COMMENTS:END -->
