@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-07-13 13:20'
-updated_date: '2026-07-14 22:26'
+updated_date: '2026-07-14 22:30'
 labels:
   - testing
   - not-install-upgrade
@@ -60,5 +60,11 @@ created: 2026-07-14 22:26
 AC#1 INVESTIGATION COMPLETE (mechanic, 2026-07-14/15 night): NO REPRO in 38 dev.sh test invocations across 3 conditions — plain back-to-back 0/20, 'concurrent' 0/6, db-container CPU load 0/12; zero output-stream corruption observed. KEY HARNESS FACT: dev.sh:587-656 acquire_test_run_lock is a GLOBAL flock on tmp/.test-run.lock serializing ALL test/create-db invocations process-wide — empirically confirmed (second concurrent invocation BLOCKED until the first released) — which RULES OUT two-intentional-invocations as the concurrency vector; the only surviving concurrency vector is the STATBUS-158 straggler/orphan-pg_regress class (deliberately NOT forced — out of proportion for a low-priority ticket; revisit only if a third corruption sighting lands, per comment #1's accumulation rule). Surviving mechanism suspect, UNCONFIRMED: a psql-internal stdout-buffering quirk at the test/setup.sql:132-133 \o-reset→ECHO-all boundary (ECHO=all documentedly writes to psql stdout independent of \o, so any interaction is un-documented C-level timing). 403's inline comment already documents the drop as known-when-built; 401 remains EXPOSED (no suppression wrapping). Container psql 18.4. Artifacts: tmp/175-echo-flake-loop.sh + tmp/175-echo-flake-concurrent.sh (permanent drivers), tmp/175-echo-flake-runs.log (61-line ledger), tmp/175-run-*.dev-sh.log ×44. Portability trap recorded: bash collapses $'\x00' in argv and local grep is ugrep (empty pattern + -U matches everything) — NUL checks must use perl -0777.
 
 AC#2 DECIDED (foreman): ADOPT THE 403 SUPPRESSION PATTERN as the standard for tests that \i shared setup/definition files. Grounds: the drop is real (observed 2026-07-13) but rare and timing-sensitive (0/38 under directed stress); the harness serializes honest invocations by design; the surviving suspect is psql-internal and not ours to fix; and the 403 pattern independently decouples committed expected files from getting-started.sql churn — a robustness win even if the flake never fires again. Root-causing psql's C-level buffering is out of proportion. AC#3 (audit + apply) dispatched to the mechanic.
+---
+
+author: foreman
+created: 2026-07-14 22:30
+---
+AC#3 AUDIT RESULT + SCOPE RULING (2026-07-14/15 night): the mechanic's read-only audit found 61 exposed tests (37 via the Norway getting-started chain, 24 via demo; verified genuine \i-echo in expected, not coincidental substrings; list at tmp/175-ac3-audit-exposed-list.txt) — essentially the whole 1xx-4xx suite, not the handful the dispatch assumed. FOREMAN SCOPE RULING: full sweep stands (the North Star tolerates no committed expected depending on echo luck) but ships in BATCHES of ~15, each independently reviewed+committed — batch 1 = 401 + fast-suite members + 4xx series, then numeric order. Per-file PURPOSE GUARD adopted from the mechanic's flag: any test whose stated purpose involves the seed/definition content itself is EXCLUDED from the blanket wrap and gets an individual ruling; likewise any regenerated expected whose diff is not purely removal-of-echo. Regeneration is serialized by the dev.sh global test flock — batches bound each run-block.
 ---
 <!-- COMMENTS:END -->
