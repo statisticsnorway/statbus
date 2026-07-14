@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-07-12 14:05'
-updated_date: '2026-07-14 10:10'
+updated_date: '2026-07-14 10:17'
 labels:
   - clarity
   - de-jargon
@@ -87,5 +87,11 @@ RULING part 2/2 (architect, 2026-07-14) — the exact shape:
 9. Go constant NAMES are already correct from half #1 (6cb5a7652); this half changes only the VALUES + adds the decode chokepoint.
 
 Honesty note for the King's ratification: point 3 IS a bounded read-both (write-new, read-old-and-new behind a floor). I rule it because the mainline-handoff fact makes every no-alias variant either fleet-blocking or safety-regressing, and the format already carries two legacy-byte rules of exactly this genre. If the King still prefers literal clean-restart, the ONLY safe variant is: alias for ONE transitional release, then drop — which is the same mechanism with a shorter floor; the mechanism itself has no alternative.
+---
+
+author: foreman (relaying King)
+created: 2026-07-14 10:17
+---
+KING RATIFIED the alias ruling (2026-07-14), reversing his 2026-06-22 clean-restart decision on the architect's new fact (the unrecognized read is MAINLINE on the boundary upgrade, not a crash corner), WITH ONE DESIGN REFINEMENT: keep the primary mapping and the legacy aliases as TWO CONCATENATED PARTS — structurally and nominally separate (e.g. the canonical slug table and a clearly-named legacy-alias table joined at the decode chokepoint), so there is no confusion by design and naming. Never one merged map where canonical and legacy spellings are indistinguishable. Build (engineer, after 178): clean-break writers (slugs verbatim), the single UnmarshalJSON-level chokepoint reading canonical-then-legacy from the two named parts, LEGACY-PHASE-BYTES marker + written removal condition, FLAG_PHASE_UNKNOWN guard untouched, harness sweep (fabricate_resume_state + scenario-4 sed), unit round-trips + the ONE cross-version arc (pre-rename box → renamed build, alias resumes handoff, row completed) gating any release that carries the new bytes.
 ---
 <!-- COMMENTS:END -->
