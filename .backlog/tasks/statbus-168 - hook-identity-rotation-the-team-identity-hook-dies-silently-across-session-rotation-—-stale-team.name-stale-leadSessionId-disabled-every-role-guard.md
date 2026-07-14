@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-12 22:14'
-updated_date: '2026-07-14 10:26'
+updated_date: '2026-07-14 10:27'
 labels:
   - tooling
   - team
@@ -115,5 +115,34 @@ author: foreman
 created: 2026-07-14 10:26
 ---
 P1 PROBE REFUTES the step-2 discriminator (foreman, 2026-07-14 ~10:30): the LIVE foreman session's env HAS `CLAUDE_CODE_CHILD_SESSION=1` (probe run in-session; no agent/team identity vars alongside it). The ruling's 'lead sessions run bare → marker absent' inference is empirically false on the exact machine this hook protects. Built as ruled, the legitimate foreman classifies unknown-child → Tier-2 release DENY — the original incident, now by design. Identity half of the build ON HOLD; architect re-ruling the discriminator (candidate directions passed along: identity-vars/argv presence instead of the bare marker; process-ancestry argv walk). Unaffected build parts proceed (loud missing-config, vocabulary normalization + routable hints, the King's no-workaround rider, two-tier structure with the classifier as a marked seam; leadSessionId NOT yet removed). The probes were in the ruling for exactly this reason — the run was the oracle, and it fired before the build instead of after.
+---
+
+author: architect
+created: 2026-07-14 10:27
+---
+RE-RULING (architect, 2026-07-14) — step-2 discriminator REVISED after probe P1 refuted the env marker. This is exactly what the mandated probes were for; the run spoke.
+
+WHAT P1 KILLED: `CLAUDE_CODE_CHILD_SESSION=1` is set in the LIVE FOREMAN's env (genuine root session) — the var does not mean "spawned teammate". Candidate (a) (identity env vars) is ALSO dead on the same data: neither the foreman's env nor a teammate's env carries any CLAUDE_AGENT_NAME/CLAUDE_TEAM_NAME-style var (verified both sides). Env distinguishes NOTHING here.
+
+WHAT REPLACES IT — SPAWN-ARGV ANCESTRY (candidate b), now empirically validated on the teammate side: walking the architect session's own process ancestry, hop 2 is the claude process itself with the harness-stamped identity argv:
+  `/Users/jhf/.local/share/claude/versions/2.1.201 --agent-id architect@session-7719192b --agent-name architect --team-name session-7719192b --agent-color blue --parent-session-id 7004d88d-…`
+Root sessions run WITHOUT any --agent-* flags (`claude --effort max [--resume]`, prior ps sweep). The argv is the harness's own spawn declaration — positive identity, not a heuristic.
+
+REVISED CALLER RESOLUTION (order matters; each step can only mis-DENY, never mis-grant):
+1. ARGV IDENTITY (new, authoritative): walk own ancestry (bounded ~15 hops, `ps -ww -o ppid=,command=`, full argv — no truncation) to the nearest claude entrypoint. `--agent-name X` present → the caller IS X: in roster → that member (agentType=="team-lead" → foreman); not in roster → unknown-child. Bonus: `--team-name` in the same argv lets the hook confirm the caller belongs to THIS checkout's team — the cross-clone fixture (comment #1) gets a direct assert.
+2. TRANSCRIPT ROSTER-GREP (kept as fallback, unchanged STATBUS-118 mechanics): covers any roster teammate whose process lacks spawn argv.
+3. ROOT REQUIRES POSITIVE EVIDENCE: only when the claude ancestor was FOUND and its argv carries no --agent-name → root → foreman. If the walk cannot locate a claude ancestor at all → unknown (loud allow-note; release stays denied). Root status is never granted on a broken walk.
+
+EVERYTHING ELSE STANDS: leadSessionId still removed; two-tier release policy unchanged; missing-config loudness unchanged; vocabulary boundary unchanged; the King's workaround-voiding rider applies to all gate messages as blessed. The allow-note/systemMessage now names the discriminator used ("argv --agent-name X" / "root: claude ancestor pid N, no agent argv").
+
+BLESS STATUS: the three blessed judgment calls are POLICY and are unchanged in substance — (1) root⇒foreman equivalence, (2) fail-closed release for unknown children, (3) the in-process-subagent residual. Point 3 actually IMPROVES: it was conditional on probe P2; under argv it is deterministic and known (an in-process non-roster subagent shares the root process → classifies foreman — same accepted residual, no probe dependency). Mechanism-level change within the architect's scope; no re-bless required, flagged to the King for transparency via the foreman.
+
+VALIDATION PROBES FOR THE BUILD (the run is the only oracle — P1 just proved it):
+- PR1 (root side): from the live foreman session, run the ancestry walk — expect a claude ancestor with NO --agent-name. Exact command: `pid=$$; for i in $(seq 1 15); do line=$(ps -ww -o ppid=,command= -p "$pid") || break; echo "$line" | head -c 300; echo; ppid=$(echo "$line" | awk '{print $1}'); [ "$ppid" -le 1 ] && break; pid=$ppid; done`
+- PR2 (teammate side): DONE this session — architect hop-2 argv above.
+- PR3 (hook context): the mechanism runs inside a PreToolUse hook, not a Bash tool — validate the SAME ancestry shape from within a hook (temporary debug logging or an env-gated trace in the real hook) on BOTH a root and a teammate session before wiring the decision to it.
+- PR4 (in-process subagent): foreman spawns an in-process background subagent that runs PR1's command — expect NO --agent-name; records the deterministic residual.
+- PR5 (truncation): confirm `ps -ww` returns untruncated argv for the longest live teammate command line.
+The hook's test file additionally simulates all three resolution outcomes by stubbing the walk (unit level), with PR1-PR4 as the live acceptance pass.
 ---
 <!-- COMMENTS:END -->
