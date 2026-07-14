@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-14 10:50'
+updated_date: '2026-07-14 15:41'
 labels:
   - install-recovery
   - upgrade
@@ -255,5 +255,11 @@ author: foreman
 created: 2026-07-14 10:50
 ---
 RESTORE-BROKE-REATTEMPT run 1 (29325230294) RED — HARNESS SEQUENCING, PRODUCT EXEMPLARY: the pair-terminal construction worked end-to-end (C5 wedge, two rollback deaths, (rollback,rollback) pair, terminal in one pass: failed + ROLLBACK_FAILED_DB_RESTORE + backup_path retained), and then the arc's 4th dispatch — copied from the pre-111 pair-terminal arc as a 'terminal stays stable' check — actually RAN THE RE-ATTEMPT (post-STATBUS-111, ./sb install on failed+backup_path routes to StateRestoreReattemptable) and completed the restore to rolled_back, exit 0. Phase (i)'s intended proof happened one dispatch early; the assert expected the obsolete pre-111 stability semantics. Fix dispatched (mechanic, after his 168 freeze): the post-terminal dispatch IS the re-attempt — move the rolled_back/fingerprint asserts onto it, drop the duplicate 5th; ALSO audit rollback-pair-terminal-arc's own tail for the same latent post-111 assumption, and explain the 10:41:23 unit boot-migrate failure in the journal before re-dispatch.
+---
+
+author: foreman
+created: 2026-07-14 15:41
+---
+RESTORE-BROKE-REATTEMPT ROW FLIPS [PROVEN] — run 29344519124 GREEN (2026-07-14, run 5 of the arc; runs 1-4 each peeled a real layer: post-111 dispatch semantics ×2, a dead-window DB read, checked-out-branch deletion). PROVEN in one run: (i) pair-terminal row → the SAME dispatch's STATBUS-111 re-attempt → honest rolled_back, byte-identical clean slate, attempts=3 surviving the rewind (STATBUS-181); (ii) REAL git-corrupt ABORT (V_fail × C9 parent-kill × detached branch deletion — environment manipulation of real machinery state, zero fabrication) → state=failed + ROLLBACK_FAILED_GIT_CORRUPT + backup_path retained + attempts=1 in ONE pass (the folded 4-rollback-abort-write-lands oracle) → the re-attempt REFUSES actionably before any destructive step, row untouched. FOLLOW-UP UNIT now due per the map row's own note (the r19 pattern): DELETE scenario 4-rollback-abort-write-lands and drop fabricate_resume_state to its ONE sanctioned dead-producer caller (rune-wedge) — queued to the mechanic; that lands AC#4's amended zero-callers criterion. Remaining map rows after this: un-park-to-completion, C-rollback resurrection leg, the two transient-backoff legs, ddl-deadlock [ASSESS].
 ---
 <!-- COMMENTS:END -->
