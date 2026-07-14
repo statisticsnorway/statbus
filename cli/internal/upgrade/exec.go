@@ -904,6 +904,21 @@ func (d *Service) restoreDatabase(progress *ProgressLog, backupPath string) erro
 	return nil
 }
 
+// warnOnPruneRemoveFailure is STATBUS-187 #11's loud-warn treatment for
+// exec.go's backup/log prune RemoveAlls (architect ruling, ticket comment
+// #9). Same anatomy as warnOnStaleFlagRemoveFailure (service.go) — path +
+// raw error + caller-supplied consequence + remedy, os.IsNotExist silent
+// (a benign double-removal/already-gone race must not cry wolf) — but a
+// deliberate sibling rather than a reuse: "stale flag file" would lie
+// about what is actually being pruned here (a backup/log directory tree,
+// not a mutex flag).
+func warnOnPruneRemoveFailure(path string, err error, consequence string) {
+	if err == nil || os.IsNotExist(err) {
+		return
+	}
+	log.Printf("WARNING: could not remove %s: %v — %s. Remove it manually if it persists; a filesystem that refuses unlink is a box-level problem.", path, err, consequence)
+}
+
 // pruneBackups trims LEGACY finalised pre-upgrade-<stamp> backups to the `keep`
 // most recent. Before removing each dir it NULLs backup_path on the matching
 // upgrade row so reconcileBackupDir does not emit BACKUP_MISSING noise for
@@ -948,14 +963,17 @@ func (d *Service) pruneBackups(ctx context.Context, keep int) {
 					continue // retry next tick
 				}
 			}
-			// STATBUS-176 lint burn-down: pre-existing silent ignore, left
-			// as-is — behavior-change candidate flagged in the burn-down
-			// report (a failed RemoveAll here leaves the backup dir on
-			// disk with its DB row already nulled — reconcileBackupDir's
-			// normal path no longer finds it via backup_path, so it can
-			// leak on disk indefinitely; moderate severity — disk usage,
-			// not correctness).
-			_ = os.RemoveAll(p)
+			// STATBUS-187 #11 (architect ruling, ticket comment #9):
+			// LOUD-WARN, not silent-accept — history is the argument: jo's
+			// box accumulated NINE backup dirs over months because THIS
+			// RemoveAll failed silently (the install ladder's "Backup
+			// ownership" heal step exists because of that incident). Only
+			// log "Pruned" once the removal is confirmed — the log must
+			// not claim what didn't happen.
+			if err := os.RemoveAll(p); err != nil {
+				warnOnPruneRemoveFailure(p, err, "backups accumulate; disk fills over months — the exact pre-heal jo failure")
+				continue
+			}
 			log.Printf("Pruned backup: %s", filepath.Base(p))
 			pruned++
 			// Prune the matching upgrade-logs-<stamp> sibling (created by
@@ -965,7 +983,8 @@ func (d *Service) pruneBackups(ctx context.Context, keep int) {
 			stamp := strings.TrimPrefix(base, "pre-upgrade-")
 			if stamp != base { // only if the prefix was present
 				logsDir := filepath.Join(d.backupRoot(), "upgrade-logs-"+stamp)
-				_ = os.RemoveAll(logsDir) // best-effort; a leftover logs dir is disk usage only, not correctness
+				warnOnPruneRemoveFailure(logsDir, os.RemoveAll(logsDir),
+					"a leftover logs dir accumulates disk usage alongside the pruned backup dir")
 			}
 		}
 		if pruned > 0 {

@@ -1001,12 +1001,12 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	var flag UpgradeFlag
 	if jsonErr := json.Unmarshal(data, &flag); jsonErr != nil {
 		fmt.Printf("FLAG_CORRUPT: upgrade flag file unreadable, removing: %v\n", jsonErr)
-		// STATBUS-176 lint burn-down: pre-existing silent ignore, left
-		// as-is — behavior-change candidate flagged in the burn-down
-		// report (a failed Remove here leaves the SAME corrupt flag on
-		// disk; bounded, not silent data loss — the next boot re-enters
-		// this exact branch and retries the same removal, rather than
-		// wedging forever on a different error path).
+		// STATBUS-187 #10 (architect ruling, ticket comment #9):
+		// ACCEPT-BOUNDED, formal. A failed Remove here re-enters this SAME
+		// branch next boot by construction — the corrupt flag is re-read
+		// as corrupt and re-removed; no decision is taken on the stale
+		// artifact in the meantime, so no lie follows the failure. The
+		// FLAG_CORRUPT print above already names the event.
 		_ = os.Remove(d.flagPath())
 		return nil
 	}
@@ -1058,12 +1058,12 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	// (If install ever grows DB-write semantics, add reconciliation here.)
 	if holder == HolderInstall {
 		logRecover("A previous install exited without finishing cleanup; clearing its leftover marker and continuing. (detail: stale install flag, invoked_by=%s)", flag.InvokedBy)
-		// STATBUS-176 lint burn-down: pre-existing silent ignore, left
-		// as-is — behavior-change candidate flagged in the burn-down
-		// report (a failed Remove here leaves the stale install flag on
-		// disk; low severity — every subsequent boot just re-logs and
-		// re-attempts this same removal, tmp/ stays untidy but nothing
-		// wedges).
+		// STATBUS-187 #10 (architect ruling, ticket comment #9):
+		// ACCEPT-BOUNDED, formal. A failed Remove here re-enters this SAME
+		// branch next boot by construction — every subsequent boot just
+		// re-logs and re-attempts this same removal; tmp/ stays untidy but
+		// nothing wedges, and no decision is taken on the stale artifact
+		// in between.
 		_ = os.Remove(d.flagPath())
 		return nil
 	}
@@ -1493,10 +1493,12 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 				}
 			}
 			if allPresent {
-				// STATBUS-176 lint burn-down: pre-existing silent ignore, left
-				// as-is — self-correcting, not a behavior-change candidate:
-				// verifyArtifacts runs on every discovery cycle (periodic
-				// poll), so a failed UPDATE here just gets retried next cycle.
+				// STATBUS-187 #12 (architect ruling, ticket comment #9):
+				// ACCEPT-DOCUMENTED — self-correcting by construction, not a
+				// behavior-change candidate: verifyArtifacts runs on every
+				// discovery cycle (periodic poll), so a failed UPDATE here
+				// just gets retried next cycle; no decision reads the
+				// outcome in between.
 				_, _ = d.queryConn.Exec(ctx,
 					"UPDATE public.upgrade SET docker_images_status = 'ready' WHERE id = $1 AND docker_images_status != 'ready'",
 					r.id)
@@ -3731,14 +3733,14 @@ func (d *Service) discover(ctx context.Context) {
 					}
 				}
 				if hasFailure && !hasSuccess {
-					// STATBUS-176 lint burn-down: pre-existing silent ignore,
-					// left as-is — behavior-change candidate flagged in the
-					// burn-down report (a failed UPDATE here leaves
-					// release_builds_status stuck at 'building' even though
-					// this poll already observed the CI failure — the next
-					// poll re-observes the same CI result and retries the
-					// same UPDATE, so this is self-healing, not a permanent
-					// miss, but the row can lag one extra poll interval).
+					// STATBUS-187 #12 (architect ruling, ticket comment #9):
+					// ACCEPT-DOCUMENTED — self-correcting by construction: a
+					// failed UPDATE here leaves release_builds_status stuck
+					// at 'building' even though this poll already observed
+					// the CI failure, but the next poll re-observes the same
+					// CI result and retries the same UPDATE; no decision
+					// reads the outcome in between, only an extra poll-
+					// interval lag.
 					_, _ = d.queryConn.Exec(ctx,
 						"UPDATE public.upgrade SET release_builds_status = 'failed' WHERE commit_sha = $1 AND release_builds_status = 'building'",
 						t.CommitSHA)

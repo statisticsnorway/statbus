@@ -1150,11 +1150,12 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 		appliedCount++
 	}
 
-	// Notify PostgREST. STATBUS-176 lint burn-down: pre-existing silent
-	// ignore, left as-is — behavior-change candidate flagged in the
-	// burn-down report (a failed NOTIFY leaves PostgREST's schema cache
-	// stale until its next reload, with no operator-visible signal; low
-	// severity — self-correcting, and migrations already applied).
+	// Notify PostgREST. STATBUS-187 #12 (architect ruling, ticket comment
+	// #9): ACCEPT-DOCUMENTED — self-correcting by construction, not a
+	// behavior-change candidate. A failed NOTIFY leaves PostgREST's
+	// schema cache stale until its next reload/config-change cycle, which
+	// re-sends the same NOTIFY; no decision reads the outcome in between,
+	// and migrations are already applied regardless.
 	if appliedCount > 0 {
 		_, _ = runPsql(projDir, "NOTIFY pgrst, 'reload config'; NOTIFY pgrst, 'reload schema';")
 		fmt.Printf("Applied %d migration(s)\n", appliedCount)
@@ -1234,12 +1235,21 @@ func maybeRebuildTestTemplate(projDir string) {
 	}
 }
 
+// runPsqlFn indirects runPsql for the WHOLE Down() function (STATBUS-187
+// #8/#9's oracle): a package-level var, not a parameter, so Down()'s
+// signature is unchanged and production code always runs through the real
+// runPsql, but a test can substitute a stub returning a controlled error at
+// any of Down()'s ledger-write sites (the two per-version DELETEs, the
+// full-rollback DROP) to prove the hard-fail actually aborts the loop
+// rather than continuing to compound the divergence.
+var runPsqlFn = runPsql
+
 // Down rolls back migrations.
 // If migrateTo > 0, roll back all migrations >= that version.
 // If all is true, roll back all. Otherwise roll back just the last one.
 func Down(projDir string, migrateTo int64, all bool, verbose bool) error {
 	// Check if migration table exists
-	checkOut, err := runPsql(projDir, "SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'db' AND tablename = 'migration')", "-t", "-A")
+	checkOut, err := runPsqlFn(projDir, "SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'db' AND tablename = 'migration')", "-t", "-A")
 	if err != nil || strings.TrimSpace(checkOut) != "t" {
 		fmt.Println("No migrations to roll back - migration table doesn't exist")
 		return nil
@@ -1255,7 +1265,7 @@ func Down(projDir string, migrateTo int64, all bool, verbose bool) error {
 		query = "SELECT version FROM db.migration ORDER BY version DESC LIMIT 1"
 	}
 
-	versionsOut, err := runPsql(projDir, query, "-t", "-A")
+	versionsOut, err := runPsqlFn(projDir, query, "-t", "-A")
 	if err != nil {
 		return fmt.Errorf("query migrations to roll back: %w", err)
 	}
@@ -1306,13 +1316,18 @@ func Down(projDir string, migrateTo int64, all bool, verbose bool) error {
 				fmt.Println("[empty - skipped]")
 			}
 			deleteSQL := fmt.Sprintf("DELETE FROM db.migration WHERE version = %d", version)
-			// STATBUS-176 lint burn-down: pre-existing silent ignore, left
-			// as-is — behavior-change candidate flagged in the burn-down
-			// report (a failed ledger DELETE here leaves db.migration
-			// showing this version as still applied even though its
-			// down-migration path was taken — a ledger/reality divergence,
-			// with no operator-visible signal).
-			_, _ = runPsql(projDir, deleteSQL)
+			// STATBUS-187 #8/#9 (architect ruling, ticket comment #9):
+			// HARD-FAIL. The ledger is the ground-truth input to migrate
+			// up's re-apply decision and STATBUS-039's observed-state
+			// direction oracle (MAX(version) feeds Behind/AtTarget) — a
+			// silently-failed DELETE leaves this version recorded as still
+			// applied even though its (empty) down-migration path was
+			// taken, and every downstream read now lies. Return
+			// immediately: continuing the loop would compound the
+			// divergence across further versions.
+			if _, err := runPsqlFn(projDir, deleteSQL); err != nil {
+				return fmt.Errorf("rollback %d: migration file is empty but the ledger DELETE failed: %w — the migration ledger still records it as applied; the ledger now lies to migrate up and to observed-state", version, err)
+			}
 			appliedCount++
 			continue
 		}
@@ -1333,14 +1348,19 @@ func Down(projDir string, migrateTo int64, all bool, verbose bool) error {
 			return fmt.Errorf("rollback %d (%s) failed: %w\n%s", version, filepath.Base(downPath), err, out)
 		}
 
-		// Remove migration record. STATBUS-176 lint burn-down: pre-existing
-		// silent ignore, left as-is — behavior-change candidate flagged in
-		// the burn-down report (a failed ledger DELETE here leaves
-		// db.migration showing this version as still applied even though
-		// runPsqlFile above just rolled it back — a ledger/reality
-		// divergence, with no operator-visible signal).
+		// Remove migration record. STATBUS-187 #8/#9 (architect ruling,
+		// ticket comment #9): HARD-FAIL. Same ledger-ground-truth reasoning
+		// as the empty-file branch above — a silently-failed DELETE here
+		// leaves db.migration showing this version as still applied even
+		// though runPsqlFile above just rolled it back: schema reverted
+		// but the migration ledger still records it as applied, so the
+		// ledger now lies to migrate up and to observed-state. Return
+		// immediately; continuing would compound the divergence across
+		// further versions.
 		deleteSQL := fmt.Sprintf("DELETE FROM db.migration WHERE version = %d", version)
-		_, _ = runPsql(projDir, deleteSQL)
+		if _, err := runPsqlFn(projDir, deleteSQL); err != nil {
+			return fmt.Errorf("rollback %d (%s): schema reverted but the ledger DELETE failed: %w — the migration ledger still records it as applied; the ledger now lies to migrate up and to observed-state", version, filepath.Base(downPath), err)
+		}
 
 		if verbose {
 			fmt.Printf("done (%dms)\n", durationMs)
@@ -1348,21 +1368,27 @@ func Down(projDir string, migrateTo int64, all bool, verbose bool) error {
 		appliedCount++
 	}
 
-	// Clean up schema if full rollback. STATBUS-176 lint burn-down:
-	// pre-existing silent ignore, left as-is — behavior-change candidate
-	// flagged in the burn-down report (a failed DROP here leaves the
-	// db.migration table/schema behind when the caller expected a full
-	// teardown, with no operator-visible signal).
+	// Clean up schema if full rollback. STATBUS-187 #8/#9 (architect
+	// ruling, ticket comment #9): HARD-FAIL — same ledger-write reasoning
+	// as the per-version DELETEs above. A failed DROP leaves db.migration
+	// (the ledger table itself) behind when the caller expected a full
+	// teardown; a later fresh install/migrate reading this box would find
+	// a stale ledger instead of the clean slate the operation promised.
 	if all && migrateTo == 0 {
-		_, _ = runPsql(projDir, "DROP TABLE IF EXISTS db.migration; DROP SCHEMA IF EXISTS db CASCADE;")
+		if _, err := runPsqlFn(projDir, "DROP TABLE IF EXISTS db.migration; DROP SCHEMA IF EXISTS db CASCADE;"); err != nil {
+			return fmt.Errorf("full rollback: could not drop the migration ledger table/schema: %w — db.migration and/or schema db were left behind instead of the full teardown the caller requested", err)
+		}
 		if verbose {
 			fmt.Println("Removed migration tracking table and schema")
 		}
 	}
 
-	// Notify PostgREST — same best-effort shape as the forward-apply path above.
+	// Notify PostgREST. STATBUS-187 #12 (architect ruling, ticket comment
+	// #9): ACCEPT-DOCUMENTED — same self-correcting shape as the
+	// forward-apply path above; a failed NOTIFY here is re-sent on the
+	// next reload/config-change cycle.
 	if appliedCount > 0 {
-		_, _ = runPsql(projDir, "NOTIFY pgrst, 'reload config'; NOTIFY pgrst, 'reload schema';")
+		_, _ = runPsqlFn(projDir, "NOTIFY pgrst, 'reload config'; NOTIFY pgrst, 'reload schema';")
 		fmt.Printf("Rolled back %d migration(s)\n", appliedCount)
 	}
 
