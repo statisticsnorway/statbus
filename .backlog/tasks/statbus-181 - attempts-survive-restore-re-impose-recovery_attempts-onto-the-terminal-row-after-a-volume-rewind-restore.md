@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-14 13:15'
+updated_date: '2026-07-14 14:02'
 labels:
   - upgrade
   - install-recovery
@@ -33,3 +34,28 @@ ORACLE: the restore-broke-reattempt arc regains a final-row attempts assert (=3)
 - [ ] #1 Pre-stop row read captures recovery_attempts on both rollback and re-attempt paths; writeRollbackTerminal re-imposes it
 - [ ] #2 The restore-broke-reattempt arc re-adds the final-row attempts assert (=3) and goes green on a real VM run (shared run with 180's oracle)
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect
+created: 2026-07-14 14:02
+---
+PHASE (ii) CONSTRUCTION RULED (architect, 2026-07-14; recorded here because the arc under extension is this ticket's — foreman may relocate). The foreman's reframe was the right move and it goes one step further than his (B): the ruled construction is (C) — V_fail × C9 × branch-deletion — which reaches the git-corrupt ABORT through the DIRECT rollback arm, uses only run-proven machinery, and needs neither the mid-tx stall nor the unexplained phase timing.
+
+THE CONSTRUCTION (every leg verified in code this session):
+1. Target = commit B (failing delta; already in the arc lineage). Arm C9 (`inject.KillHere("killed-by-system-during-builtin-rollback")`, service.go:7177, registered inject.go:162, proven by scenario 4-rollback-kill) before dispatching.
+2. Deterministic natural sequence: swap → exit-42 → resumeNewSb stamps new-sb-upgrading (:6635) → delta runs → V_fail RAISEs → observed state = POSITIVELY-Behind (DB up, migrations short of on-disk max) → rollback. Classification ambiguity is immaterial: BOTH handlers route positively-Behind identically — newSbUpgradingFailure (obsState==CannotReachNew → d.rollback, verified) and parkForDeterministicFailure ("positively-Behind → data-safe rollback", park only on at-target/unverifiable).
+3. First rollback: restoreGitState SUCCEEDS (branch alive) → restoreDatabase restores the old volume → C9 kills the PARENT. Dead window achieved: flag present (phase=new-sb-upgrading, Step frozen=StepRollback), parent dead, db container stopped, volume=old — C9's own header documents exactly this recovery contract.
+4. In the window: the arc DISARMS C9 (one-shot hygiene; even armed, the ABORT pass exits at restoreGitState before reaching C9) and DELETES the branch.
+5. Next dispatch (./sb install): crashed-upgrade → runCrashRecovery → EnsureDBReachable fails → StartDBForRecovery (existing container, install_upgrade.go:262-269) → RecoverFromFlag → upgrading branch → observed state on the restored OLD volume = confirmed-behind → recoveryRollback → rollbackResumeIsTerminal(Step=StepRollback, PriorDeathStep=earlier) = FALSE ("the first rollback resume stays free by construction") → d.rollback → restoreGitState → branch GONE → ABORT: LabelFailedAbort terminal.
+6. ORACLE: state=failed + the ABORT label/log + bundle emitted + flag disposition per the ABORT branch + read-only/maintenance left ON per F1(i) — AND recovery_attempts on the ABORT row per THIS ticket's fresh machinery (the ABORT write now carries the re-imposed value; asserting it gives 181's second consumer its run-proof for free).
+
+THE FOREMAN'S THREE QUESTIONS:
+Q1 (does the mid-tx stall engage on V_fail): MOOT — the ruled path uses no mid-tx machinery. For the record, (B)'s two latent hazards: the stall RE-ENGAGES on the resume pass unless disarmed mid-arc, and stall-before-RAISE ordering inside one delta needs guaranteed migration timestamps. Resolvable, but pure liability next to (C).
+(Q2) map-row intent: dissolved — (C) exercises the DIRECT arm (upgrading + Behind → recoveryRollback → rollback), so we never have to settle for (B)'s forward-resume-fails story.
+(Q3) the swapped-pre-delta mystery: dissolved as load-bearing. Plausible-UNVERIFIED explanation for the record: the r12 boot-window hoist — on run 28980487041's transport the delta likely ran in the BOOT catch-up BEFORE recoverFromFlag dispatched resumeNewSb, so the kill predated the upgrading stamp. Post-145 the boot catch-up is floor-bounded, so the target delta can no longer run there — meaning that construction's observed behavior may not even reproduce on HEAD: a third independent reason not to build on it. Not a product bug either way (a swapped-armed resume forward-re-runs the delta; restart-safe, arc-proven). If the mystery ever needs settling, it is one HEAD re-run of the postswap-mid-tx arc reading the flag phase — file only if someone needs it.
+
+POST-SHIP AMENDMENT to e269b39a1 (one comment line, rides the mechanic's next service.go touch): the new rollback() capture comment says "restoreDatabase below (via restoreAndFinalize, or directly in the ABORT branch)" — the ABORT branch runs NO restoreDatabase (it fires on restoreGitState failure, BEFORE any DB restore; verified — no restore call in that branch). The ABORT site re-imposes attempts as a same-value no-op for SQL-shape uniformity, not for rewind protection; the clause should say so, or a future reader will believe the ABORT path rewinds the DB.
+---
+<!-- COMMENTS:END -->
