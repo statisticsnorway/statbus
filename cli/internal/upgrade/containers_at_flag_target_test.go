@@ -3,6 +3,8 @@ package upgrade
 import (
 	"strings"
 	"testing"
+
+	"github.com/statisticsnorway/statbus/cli/internal/compose"
 )
 
 // TestParseDockerComposePsJSON_NDJSON covers the Compose v2 path: one
@@ -15,7 +17,7 @@ func TestParseDockerComposePsJSON_NDJSON(t *testing.T) {
 		`  `,
 		`{"Service":"worker","State":"running","Image":"ghcr.io/statisticsnorway/statbus-worker:9ac0666c"}`,
 	}, "\n"))
-	got, err := parseDockerComposePsJSON(in)
+	got, err := compose.ParsePsJSON(in)
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}
@@ -33,7 +35,7 @@ func TestParseDockerComposePsJSON_Array(t *testing.T) {
 		{"Service":"db","State":"running","Image":"postgres:18-alpine"},
 		{"Service":"app","State":"running","Image":"ghcr.io/statisticsnorway/statbus-app:9ac0666c"}
 	]`)
-	got, err := parseDockerComposePsJSON(in)
+	got, err := compose.ParsePsJSON(in)
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}
@@ -45,7 +47,7 @@ func TestParseDockerComposePsJSON_Array(t *testing.T) {
 // TestParseDockerComposePsJSON_Empty: ps on empty project → no error,
 // no entries.
 func TestParseDockerComposePsJSON_Empty(t *testing.T) {
-	got, err := parseDockerComposePsJSON([]byte("   \n\n  "))
+	got, err := compose.ParsePsJSON([]byte("   \n\n  "))
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}
@@ -55,7 +57,7 @@ func TestParseDockerComposePsJSON_Empty(t *testing.T) {
 }
 
 func TestParseDockerComposePsJSON_Malformed(t *testing.T) {
-	if _, err := parseDockerComposePsJSON([]byte("not-json")); err == nil {
+	if _, err := compose.ParsePsJSON([]byte("not-json")); err == nil {
 		t.Error("expected error for malformed input, got nil")
 	}
 }
@@ -86,14 +88,14 @@ func TestEvaluateContainersAtFlagTarget(t *testing.T) {
 	const flagSHA = "96e07627abcdef1234567890abcdef1234567890"
 	const flagDisplay = "v2026.04.0-rc.55"
 
-	allFiveAtTagScheme := []dockerPsEntry{
+	allFiveAtTagScheme := []compose.PsEntry{
 		{Service: "db", State: "running", Image: "postgres:" + flagDisplay},
 		{Service: "app", State: "running", Image: "ghcr.io/x/statbus-app:" + flagDisplay},
 		{Service: "worker", State: "running", Image: "ghcr.io/x/statbus-worker:" + flagDisplay},
 		{Service: "proxy", State: "running", Image: "ghcr.io/x/statbus-proxy:" + flagDisplay},
 		{Service: "rest", State: "running", Image: "postgrest/postgrest:v12.2.8"},
 	}
-	allFiveAtSHAScheme := []dockerPsEntry{
+	allFiveAtSHAScheme := []compose.PsEntry{
 		{Service: "db", State: "running", Image: "postgres:96e07627"},
 		{Service: "app", State: "running", Image: "ghcr.io/x/statbus-app:96e07627"},
 		{Service: "worker", State: "running", Image: "ghcr.io/x/statbus-worker:96e07627"},
@@ -103,7 +105,7 @@ func TestEvaluateContainersAtFlagTarget(t *testing.T) {
 
 	cases := []struct {
 		name           string
-		statuses       []dockerPsEntry
+		statuses       []compose.PsEntry
 		wantOK         bool
 		wantMismatched int // count of mismatched entries
 	}{
@@ -119,7 +121,7 @@ func TestEvaluateContainersAtFlagTarget(t *testing.T) {
 		},
 		{
 			name: "version_tracked_at_older_release",
-			statuses: []dockerPsEntry{
+			statuses: []compose.PsEntry{
 				{Service: "db", State: "running", Image: "postgres:v2026.04.0-rc.50"},
 				{Service: "app", State: "running", Image: "ghcr.io/x/statbus-app:v2026.04.0-rc.50"},
 				{Service: "worker", State: "running", Image: "ghcr.io/x/statbus-worker:v2026.04.0-rc.50"},
@@ -131,7 +133,7 @@ func TestEvaluateContainersAtFlagTarget(t *testing.T) {
 		},
 		{
 			name: "single_service_mismatched_app",
-			statuses: []dockerPsEntry{
+			statuses: []compose.PsEntry{
 				{Service: "db", State: "running", Image: "postgres:" + flagDisplay},
 				{Service: "app", State: "running", Image: "ghcr.io/x/statbus-app:v2026.04.0-rc.50"},
 				{Service: "worker", State: "running", Image: "ghcr.io/x/statbus-worker:" + flagDisplay},
@@ -143,7 +145,7 @@ func TestEvaluateContainersAtFlagTarget(t *testing.T) {
 		},
 		{
 			name: "rest_not_running",
-			statuses: []dockerPsEntry{
+			statuses: []compose.PsEntry{
 				{Service: "db", State: "running", Image: "postgres:" + flagDisplay},
 				{Service: "app", State: "running", Image: "ghcr.io/x/statbus-app:" + flagDisplay},
 				{Service: "worker", State: "running", Image: "ghcr.io/x/statbus-worker:" + flagDisplay},
@@ -155,7 +157,7 @@ func TestEvaluateContainersAtFlagTarget(t *testing.T) {
 		},
 		{
 			name: "missing_db_container",
-			statuses: []dockerPsEntry{
+			statuses: []compose.PsEntry{
 				{Service: "app", State: "running", Image: "ghcr.io/x/statbus-app:" + flagDisplay},
 				{Service: "worker", State: "running", Image: "ghcr.io/x/statbus-worker:" + flagDisplay},
 				{Service: "proxy", State: "running", Image: "ghcr.io/x/statbus-proxy:" + flagDisplay},
@@ -190,7 +192,7 @@ func TestEvaluateContainersAtFlagTarget(t *testing.T) {
 // already <= 8 chars (synthetic test fixture) must be matched verbatim,
 // not panic on an out-of-bounds slice.
 func TestEvaluateContainersAtFlagTarget_ShortSHA(t *testing.T) {
-	statuses := []dockerPsEntry{
+	statuses := []compose.PsEntry{
 		{Service: "db", State: "running", Image: "postgres:abc"},
 		{Service: "app", State: "running", Image: "ghcr.io/x/statbus-app:abc"},
 		{Service: "worker", State: "running", Image: "ghcr.io/x/statbus-worker:abc"},

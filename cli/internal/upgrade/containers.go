@@ -1,56 +1,13 @@
 package upgrade
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os/exec"
 	"strings"
+
+	"github.com/statisticsnorway/statbus/cli/internal/compose"
 )
-
-// dockerPsEntry mirrors the fields of `docker compose ps --format json` we
-// care about. The JSON keys are upper-camel as Compose v2 emits them.
-type dockerPsEntry struct {
-	Service string `json:"Service"`
-	State   string `json:"State"`
-	Image   string `json:"Image"`
-}
-
-// parseDockerComposePsJSON tolerates both forms of `docker compose ps
-// --format json`:
-//   - Compose v2 NDJSON: one entry per line.
-//   - Older Compose: a single JSON array.
-// Empty/whitespace input → empty slice, no error (matches `ps` on empty
-// project).
-func parseDockerComposePsJSON(out []byte) ([]dockerPsEntry, error) {
-	trimmed := bytes.TrimSpace(out)
-	if len(trimmed) == 0 {
-		return nil, nil
-	}
-	if trimmed[0] == '[' {
-		var arr []dockerPsEntry
-		if err := json.Unmarshal(trimmed, &arr); err != nil {
-			return nil, fmt.Errorf("parse docker compose ps json array: %w", err)
-		}
-		return arr, nil
-	}
-	// NDJSON path. Iterate line-by-line — robust against trailing whitespace
-	// and embedded blank lines.
-	var entries []dockerPsEntry
-	for _, line := range bytes.Split(trimmed, []byte("\n")) {
-		line = bytes.TrimSpace(line)
-		if len(line) == 0 {
-			continue
-		}
-		var entry dockerPsEntry
-		if err := json.Unmarshal(line, &entry); err != nil {
-			return nil, fmt.Errorf("parse docker compose ps json line %q: %w", string(line), err)
-		}
-		entries = append(entries, entry)
-	}
-	return entries, nil
-}
 
 // extractImageTag returns the tag suffix from an image reference, or "" if
 // the reference has no tag. Examples:
@@ -119,14 +76,14 @@ var versionTrackedServices = []string{"db", "app", "worker", "proxy"}
 // Returns (true, nil) when every expected service is present, running,
 // and (where applicable) at the right tag. On any deviation, returns
 // (false, mismatched) with a human-readable reason per service.
-func evaluateContainersAtFlagTarget(statuses []dockerPsEntry, commitSHA, displayName string) (ok bool, mismatched []string) {
+func evaluateContainersAtFlagTarget(statuses []compose.PsEntry, commitSHA, displayName string) (ok bool, mismatched []string) {
 	versionTracked := make(map[string]bool, len(versionTrackedServices))
 	for _, s := range versionTrackedServices {
 		versionTracked[s] = true
 	}
 	expected := []string{"db", "app", "worker", "proxy", "rest"}
 
-	seen := map[string]dockerPsEntry{}
+	seen := map[string]compose.PsEntry{}
 	for _, s := range statuses {
 		seen[s.Service] = s
 	}
@@ -173,7 +130,7 @@ func (d *Service) containersAtFlagTarget(ctx context.Context, flag UpgradeFlag) 
 	if err != nil {
 		return false, []string{fmt.Sprintf("docker compose ps failed: %v", err)}
 	}
-	statuses, perr := parseDockerComposePsJSON(out)
+	statuses, perr := compose.ParsePsJSON(out)
 	if perr != nil {
 		return false, []string{fmt.Sprintf("parse docker compose ps json failed: %v", perr)}
 	}

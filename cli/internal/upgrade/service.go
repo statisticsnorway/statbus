@@ -1708,6 +1708,10 @@ func (d *Service) ExecuteUpgradeInline(ctx context.Context, id int, commitSHA, d
 //	                               prior version restarted cleanly
 //	LabelFailedAbort             — rollback ABORT: git restore itself failed; row is failed
 //	                               (degraded — services down, maintenance on, manual recovery)
+//	LabelFailedAbortServicesLive — rollback ABORT (STATBUS-187): the pre-restore `docker compose
+//	                               stop` did not actually stop every service; refused BEFORE any
+//	                               restore step rather than risk a torn-restore under a live postgres
+//	                               (degraded — maintenance on, manual recovery)
 //	LabelFailedRollbackIncomplete — rollback normal path BUT a restore step failed (DB snapshot
 //	                               restore or services-up): row is failed (degraded), not rolled_back
 //	LabelRolledBackCrashRecovery — recoverFromFlag: prior binary crashed mid-upgrade; new binary
@@ -1721,6 +1725,7 @@ const (
 	LabelCompletedInstall         = "completed-install"
 	LabelRolledBackNormal         = "rolled-back-normal"
 	LabelFailedAbort              = "failed-abort"
+	LabelFailedAbortServicesLive  = "failed-abort-services-live"
 	LabelFailedRollbackIncomplete = "failed-rollback-incomplete"
 	LabelRolledBackCrashRecovery  = "rolled-back-crash-recovery"
 	LabelFailed                   = "failed"
@@ -1753,25 +1758,27 @@ func logUpgradeRow(label string, row string) {
 //	ErrRollbackGitCorrupt    — rollback git-restore failed: other / corrupt (support-only)
 //	ErrRollbackDBRestore     — rollback database volume restore failed
 //	ErrRollbackServicesUp    — rollback docker compose up failed after DB restore
+//	ErrRollbackServicesNotStopped — pre-restore `docker compose stop` did not actually stop every service (STATBUS-187); refused before any restore step
 //	ErrRollbackBinaryCorrupt — rollback could not restore ./sb from ./sb.old (operator must mv manually)
 //	ErrBinaryReplaceFailed   — mid-flow binary replacement (download/verify/swap) failed before migrations
 //	ErrBinaryBuildFailed     — mid-flow sb image procurement failed (pull miss + in-container build fallback failed; edge channel, no release artifact)
 //	ErrInstallFixupFailed    — post-upgrade ./sb install fixup step failed (non-fatal)
 //	ErrResumeDied            — post-swap resume began (flag Phase=resuming) then the process died → roll back, no retry
 const (
-	ErrMigrationFailed       = "MIGRATION_FAILED"
-	ErrBackupFailed          = "BACKUP_FAILED"
-	ErrDockerUpFailed        = "DOCKER_UP_FAILED"
-	ErrHealthcheckRESTDown   = "HEALTHCHECK_REST_DOWN"
-	ErrHealthcheckAppDown    = "HEALTHCHECK_APP_DOWN"
-	ErrHealthcheckDBDown     = "HEALTHCHECK_DB_DOWN"
-	ErrRollbackGitCorrupt    = "ROLLBACK_FAILED_GIT_CORRUPT"
-	ErrRollbackDBRestore     = "ROLLBACK_FAILED_DB_RESTORE"
-	ErrRollbackServicesUp    = "ROLLBACK_FAILED_SERVICES_UP"
-	ErrRollbackBinaryCorrupt = "ROLLBACK_FAILED_BINARY_CORRUPT"
-	ErrBinaryReplaceFailed   = "BINARY_REPLACE_FAILED"
-	ErrBinaryBuildFailed     = "BINARY_BUILD_FAILED"
-	ErrInstallFixupFailed    = "INSTALL_FIXUP_FAILED"
+	ErrMigrationFailed            = "MIGRATION_FAILED"
+	ErrBackupFailed               = "BACKUP_FAILED"
+	ErrDockerUpFailed             = "DOCKER_UP_FAILED"
+	ErrHealthcheckRESTDown        = "HEALTHCHECK_REST_DOWN"
+	ErrHealthcheckAppDown         = "HEALTHCHECK_APP_DOWN"
+	ErrHealthcheckDBDown          = "HEALTHCHECK_DB_DOWN"
+	ErrRollbackGitCorrupt         = "ROLLBACK_FAILED_GIT_CORRUPT"
+	ErrRollbackDBRestore          = "ROLLBACK_FAILED_DB_RESTORE"
+	ErrRollbackServicesUp         = "ROLLBACK_FAILED_SERVICES_UP"
+	ErrRollbackServicesNotStopped = "ROLLBACK_FAILED_SERVICES_NOT_STOPPED"
+	ErrRollbackBinaryCorrupt      = "ROLLBACK_FAILED_BINARY_CORRUPT"
+	ErrBinaryReplaceFailed        = "BINARY_REPLACE_FAILED"
+	ErrBinaryBuildFailed          = "BINARY_BUILD_FAILED"
+	ErrInstallFixupFailed         = "INSTALL_FIXUP_FAILED"
 	// ErrInstallPreconditionFailed — an installable precondition was not
 	// met at recovery time (binary SHA mismatch, migration gap, etc.).
 	// Used by completeInProgressUpgrade's observed-state check (task #49)
@@ -7525,6 +7532,19 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reaso
 	return degraded
 }
 
+// preRestoreStopServices is the service set both pre-restore stop sites
+// (ReattemptRestore, rollback()'s normal path) shut down before touching
+// the database volume — a single object feeds both the `docker compose
+// stop` args and the compose.VerifyStopped call at each site, so the two
+// sets cannot drift apart (STATBUS-187 fix unit #2).
+var preRestoreStopServices = []string{"app", "worker", "rest", "db"}
+
+// preRestoreStopVerifyBudget bounds compose.VerifyStopped's re-check
+// polling: covers `docker compose stop`'s default 10s SIGTERM grace with
+// margin, while still forcing a hung dockerd to reach the caller's ABORT
+// / error path rather than block forever.
+const preRestoreStopVerifyBudget = 30 * time.Second
+
 // ReattemptRestore replays the DB-snapshot restore for a restore-broke row
 // (state='failed' with a retained backup_path) — the STATBUS-111 human-gated
 // re-attempt driven from `./sb install` (dispatchInstallState → here). On the
@@ -7601,14 +7621,16 @@ func (d *Service) ReattemptRestore(ctx context.Context, rowID int64, backupPath 
 	// Stop clients + db before rsyncing the volume (restoreAndFinalize's
 	// docker-up brings them back). Mirrors rollback()'s pre-restore stop.
 	//
-	// STATBUS-176 lint burn-down: pre-existing silent ignore, left as-is —
-	// behavior-change candidate flagged in the burn-down report (this is
-	// STATBUS-111's own restore-broke re-attempt path: if this stop fails,
-	// restoreAndFinalize's rsync below still proceeds to restore the DB
-	// volume while services may still be running against it — a real
-	// data-consistency risk, not just a cosmetic one, with no
-	// operator-visible signal if the stop silently failed).
-	_ = runCommand(d.projDir, "docker", "compose", "stop", "app", "worker", "rest", "db")
+	// STATBUS-187 fix unit #2: capture the stop error AND positively verify
+	// every service is actually down before the rsync — this is STATBUS-111's
+	// own restore-broke re-attempt path, and a torn-restore under a still-live
+	// postgres is a real data-corruption pathway, not a cosmetic gap.
+	if err := runCommand(d.projDir, "docker", append([]string{"compose", "stop"}, preRestoreStopServices...)...); err != nil {
+		return fmt.Errorf("%s: stop services before database re-attempt: %w", ErrRollbackServicesNotStopped, err)
+	}
+	if err := compose.VerifyStopped(d.projDir, preRestoreStopServices, preRestoreStopVerifyBudget); err != nil {
+		return fmt.Errorf("%s: %w", ErrRollbackServicesNotStopped, err)
+	}
 
 	reason := fmt.Sprintf("operator re-attempt of the interrupted restore for %s", displayName)
 	if degraded := d.restoreAndFinalize(ctx, int(rowID), displayName, reason, backupPath, attemptsAtCall, progress); degraded {
@@ -7675,12 +7697,60 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 
 	// Stop everything before we touch the git tree or restore the DB.
 	//
-	// STATBUS-176 lint burn-down: pre-existing silent ignore, left as-is —
-	// behavior-change candidate flagged in the burn-down report (same
-	// concern as ReattemptRestore's pre-restore stop: if this silently
-	// fails, the restore below still proceeds against volumes/containers
-	// that may still be live).
-	_ = runCommand(projDir, "docker", "compose", "stop", "app", "worker", "rest", "db")
+	// STATBUS-187 fix unit #2: capture the stop error AND positively verify
+	// every service is actually down before any restore below — a torn
+	// restore under a still-live postgres is a real data-corruption
+	// pathway, not a cosmetic gap. Both failure modes route to the SAME
+	// ABORT shape the git-corrupt branch below uses (no restore attempted
+	// yet, so nothing to unwind): bundle, callback, bring DB up so the
+	// terminal write can land, terminal write, exit — never proceed to
+	// restoreGitState/restoreDatabase on an unconfirmed stop.
+	stopErr := runCommand(projDir, "docker", append([]string{"compose", "stop"}, preRestoreStopServices...)...)
+	if stopErr == nil {
+		stopErr = compose.VerifyStopped(projDir, preRestoreStopServices, preRestoreStopVerifyBudget)
+	}
+	if stopErr != nil {
+		progress.Write("ABORT: %v", stopErr)
+		fmt.Fprintf(os.Stderr, "ABORT: rollback refused — %v\n", stopErr)
+
+		rollbackFailedMsg := fmt.Sprintf("%s: %v (originally: %s) — ROLLBACK FAILED; the system is in a degraded state. Manual CLI recovery is required (./sb install); contact SSB support and involve your IT staff.", ErrRollbackServicesNotStopped, stopErr, reason)
+		// Bundle BEFORE the ABORT UPDATE so a forensic inspection of a wedged
+		// `failed` row has the sibling .bundle.txt (mirrors the git-corrupt
+		// ABORT branch below).
+		d.writeDiagnosticBundle(ctx, id, progress)
+		hostname, _ := os.Hostname()
+		d.runCallback(version, map[string]string{
+			"STATBUS_EVENT":           "rollback_aborted",
+			"STATBUS_ROLLBACK_FAILED": "1",
+			"STATBUS_ROLLBACK_ERROR":  stopErr.Error(),
+			"STATBUS_RECOVERY_CMD":    fmt.Sprintf(`ssh %s "cd statbus && ./sb install"`, hostname),
+		})
+		// STATBUS-136: bring the DB back up BEFORE the terminal write, same
+		// reasoning as the git-corrupt ABORT branch below — some services in
+		// preRestoreStopServices may genuinely be down (only the ones named
+		// in stopErr are confirmed still running), so the terminal write can
+		// still hit a stopped DB.
+		if err := d.EnsureDBReachable(ctx); err != nil {
+			progress.Write("Starting the existing database container to record the rollback outcome (docker compose start db)...")
+			if startErr := d.StartDBForRecovery(ctx); startErr != nil {
+				progress.Write("Warning: could not start the database to record the rollback outcome: %v (the terminal write will retry, then fail loud as before)", startErr)
+			} else if reachErr := d.EnsureDBReachable(ctx); reachErr != nil {
+				progress.Write("Warning: database still not reachable after start: %v", reachErr)
+			}
+		}
+		progress.Write("Services will NOT be started — manual intervention required.")
+		progress.Write("    1. Investigate why `docker compose stop` did not stop every service: docker compose ps -a")
+		progress.Write("    2. Stop the remaining service(s) manually, then decide whether to retry: ./sb install")
+		progress.Write("CATASTROPHIC FAILURE [%s]. Services stopped. Contact your administrator%s.",
+			ErrRollbackServicesNotStopped, contactSuffix(readAdministratorContact(d.projDir)))
+		if d.writeRollbackTerminal(id,
+			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2 WHERE id = $3"+upgradeRowReturning,
+			rollbackFailedMsg, LabelFailedAbortServicesLive, attemptsAtCall) {
+			d.removeUpgradeFlag()
+		}
+		progress.Close()
+		os.Exit(1)
+	}
 
 	// Restore git state — ALWAYS, with no `restoreTargetSHA != ""` guard: an
 	// empty or unresolvable restoreTargetSHA falls back to the pinned `pre-upgrade`

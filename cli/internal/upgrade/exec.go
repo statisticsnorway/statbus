@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/statisticsnorway/statbus/cli/internal/compose"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/inject"
 )
@@ -1221,7 +1222,7 @@ func (d *Service) proxyContainerMissing(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("docker compose ps -a: %w", err)
 	}
-	entries, err := parseDockerComposePsJSON(out)
+	entries, err := compose.ParsePsJSON(out)
 	if err != nil {
 		return false, err
 	}

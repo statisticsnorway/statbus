@@ -139,26 +139,30 @@ func TestRollbackTerminalWrite_StructuralContract(t *testing.T) {
 	// STATBUS-111: the restore-through-terminal-write TAIL (the degraded `failed`
 	// tier + the `rolled_back` tier) was extracted from rollback() into
 	// restoreAndFinalize (PIN 1). The catastrophic git-restore-ABORT `failed`
-	// stays in rollback() (it precedes the extraction boundary). The 3-write /
-	// guarded-removal invariant is unchanged — it now holds across the rollback
-	// PATH = rollback() + restoreAndFinalize, so scan both.
+	// stays in rollback() (it precedes the extraction boundary), as does its
+	// STATBUS-187 sibling — the pre-restore services-not-stopped ABORT (same
+	// shape, same bug class, fires even earlier in rollback() than the
+	// git-restore ABORT). The guarded-removal invariant is unchanged — it now
+	// holds across the rollback PATH = rollback() + restoreAndFinalize, so
+	// scan both.
 	rbPath := extractFuncBody(t, source, "func (d *Service) rollback(") + "\n" +
 		extractFuncBody(t, source, "func (d *Service) restoreAndFinalize(")
-	// ALL THREE terminal writes route through the helper: the catastrophic
-	// git-restore-abort `failed` (in rollback), the degraded `failed`, and the
-	// `rolled_back` tier (both in restoreAndFinalize). (The abort path is the
-	// same bug class — single-shot swallow + unconditional removeUpgradeFlag
-	// before os.Exit — so it gets the same fix.)
-	if n := strings.Count(rbPath, "d.writeRollbackTerminal("); n != 3 {
-		t.Errorf("rollback path (rollback + restoreAndFinalize) must call writeRollbackTerminal exactly 3× (abort-failed + degraded-failed + rolled_back); got %d", n)
+	// ALL FOUR terminal writes route through the helper: the two catastrophic
+	// ABORTs in rollback() (services-not-stopped, STATBUS-187; git-restore,
+	// pre-existing), and the degraded `failed` + `rolled_back` tiers in
+	// restoreAndFinalize. (Every ABORT tier is the same bug class — single-shot
+	// swallow + unconditional removeUpgradeFlag before os.Exit — so each gets
+	// the same fix.)
+	if n := strings.Count(rbPath, "d.writeRollbackTerminal("); n != 4 {
+		t.Errorf("rollback path (rollback + restoreAndFinalize) must call writeRollbackTerminal exactly 4× (abort-services-not-stopped + abort-git-corrupt + degraded-failed + rolled_back); got %d", n)
 	}
 	// Every flag removal is guarded by a landed terminal write: the count of
 	// `if d.writeRollbackTerminal(` guards equals the count of removeUpgradeFlag()
-	// calls, and both equal 3 — no unconditional removal survives.
+	// calls, and both equal 4 — no unconditional removal survives.
 	removes := strings.Count(rbPath, "d.removeUpgradeFlag()")
 	guards := strings.Count(rbPath, "if d.writeRollbackTerminal(")
-	if removes != 3 || guards != 3 {
-		t.Errorf("flag-removal symmetry: want 3 removeUpgradeFlag() each guarded by `if d.writeRollbackTerminal(`; got removes=%d guards=%d", removes, guards)
+	if removes != 4 || guards != 4 {
+		t.Errorf("flag-removal symmetry: want 4 removeUpgradeFlag() each guarded by `if d.writeRollbackTerminal(`; got removes=%d guards=%d", removes, guards)
 	}
 	// The old single-shot swallow must be gone from every tier.
 	for _, gone := range []string{"Scan(&failedJSON)", "Scan(&rollbackJSON)", "Scan(&abortJSON)"} {

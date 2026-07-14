@@ -2,10 +2,14 @@
 package compose
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/statisticsnorway/statbus/cli/internal/config"
 )
@@ -168,6 +172,142 @@ func ResumeClients(projDir string, services []string) error {
 		return fmt.Errorf("docker compose up %v: %w", services, err)
 	}
 	return nil
+}
+
+// PsEntry mirrors the fields of `docker compose ps --format json` we care
+// about. The JSON keys are upper-camel as Compose v2 emits them.
+type PsEntry struct {
+	Service string `json:"Service"`
+	State   string `json:"State"`
+	Image   string `json:"Image"`
+}
+
+// ParsePsJSON tolerates both forms of `docker compose ps --format json`:
+//   - Compose v2 NDJSON: one entry per line.
+//   - Older Compose: a single JSON array.
+//
+// Empty/whitespace input → empty slice, no error (matches `ps` on an empty
+// project).
+func ParsePsJSON(out []byte) ([]PsEntry, error) {
+	trimmed := bytes.TrimSpace(out)
+	if len(trimmed) == 0 {
+		return nil, nil
+	}
+	if trimmed[0] == '[' {
+		var arr []PsEntry
+		if err := json.Unmarshal(trimmed, &arr); err != nil {
+			return nil, fmt.Errorf("parse docker compose ps json array: %w", err)
+		}
+		return arr, nil
+	}
+	// NDJSON path. Iterate line-by-line — robust against trailing whitespace
+	// and embedded blank lines.
+	var entries []PsEntry
+	for _, line := range bytes.Split(trimmed, []byte("\n")) {
+		line = bytes.TrimSpace(line)
+		if len(line) == 0 {
+			continue
+		}
+		var entry PsEntry
+		if err := json.Unmarshal(line, &entry); err != nil {
+			return nil, fmt.Errorf("parse docker compose ps json line %q: %w", string(line), err)
+		}
+		entries = append(entries, entry)
+	}
+	return entries, nil
+}
+
+// stoppedStates is the allow-list VerifyStopped checks a service's
+// docker-compose-reported state against. Fail-closed by design: this
+// guards the pre-restore boundary (rsyncing a database volume out from
+// under a still-live postgres is a torn-restore data-corruption pathway),
+// so only states docker itself uses to mean "definitely not running"
+// pass. "restarting" (a restart policy fighting the stop), "paused"
+// (still holds the volume open), and any future/unrecognized docker
+// state all fail.
+var stoppedStates = map[string]bool{
+	"exited":  true,
+	"created": true,
+	"dead":    true,
+}
+
+// notStoppedFrom returns every entry of services whose state per statuses
+// is not in stoppedStates, formatted as "service (state)". A service
+// absent from statuses entirely counts as stopped. Pure — no I/O — so the
+// allow-list classification is unit-testable against fake ps output
+// without shelling out to docker.
+func notStoppedFrom(statuses []PsEntry, services []string) []string {
+	observed := make(map[string]string, len(statuses))
+	for _, s := range statuses {
+		observed[s.Service] = s.State
+	}
+	var notStopped []string
+	for _, svc := range services {
+		state, present := observed[svc]
+		if !present || stoppedStates[state] {
+			continue
+		}
+		notStopped = append(notStopped, fmt.Sprintf("%s (%s)", svc, state))
+	}
+	return notStopped
+}
+
+// verifyStopped is VerifyStopped's core: polls probe() every pollInterval
+// up to budget, passing the moment every service in services is confirmed
+// stopped (per notStoppedFrom). Separated from VerifyStopped so tests can
+// supply a fake probe and a short pollInterval instead of shelling out to
+// docker and sleeping in real seconds.
+func verifyStopped(probe func() ([]PsEntry, error), services []string, budget, pollInterval time.Duration) error {
+	deadline := time.Now().Add(budget)
+	for {
+		statuses, err := probe()
+		if err != nil {
+			return fmt.Errorf("verify services stopped before restore: %w", err)
+		}
+		stillNotStopped := notStoppedFrom(statuses, services)
+		if len(stillNotStopped) == 0 {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("refusing to restore the database volume: %s still not stopped after 'docker compose stop' — a volume restore must never run under a live service; investigate `docker compose ps -a` and stop it manually before retrying",
+				strings.Join(stillNotStopped, ", "))
+		}
+		time.Sleep(pollInterval)
+	}
+}
+
+// VerifyStopped positively confirms every service in services is stopped in
+// projDir. STATBUS-187: a `docker compose stop` that exits 0 is not proof
+// the named containers are actually down — a slow SIGTERM+timeout grace
+// period, a race against a concurrent `docker compose up`, or a docker
+// daemon hiccup can all leave a container running after a "successful"
+// stop. This guards the boundary immediately before a database volume
+// rsync: restoring a volume out from under a still-live postgres is a
+// torn-restore data-corruption pathway, not a cosmetic gap.
+//
+// Bounded re-check: polls `docker compose ps -a` every second up to budget
+// before failing, so a normal SIGTERM grace period (compose's default is
+// 10s) passes without the caller guessing a fixed sleep. On budget
+// exhaustion, fails naming every straggler and its last-observed state.
+// Never polls unboundedly — a hung dockerd must reach the caller's
+// failure path, not spin forever.
+func VerifyStopped(projDir string, services []string, budget time.Duration) error {
+	// The probe itself is bounded by the same budget as the poll loop: a
+	// hung `docker compose ps` (dead/wedged dockerd) must surface as a
+	// probe error once the budget is spent, not block cmd.Output() forever
+	// underneath the loop's own deadline check.
+	ctx, cancel := context.WithTimeout(context.Background(), budget)
+	defer cancel()
+	probe := func() ([]PsEntry, error) {
+		cmd := exec.CommandContext(ctx, "docker", "compose", "ps", "-a", "--format", "json")
+		cmd.Dir = projDir
+		out, err := cmd.Output()
+		if err != nil {
+			return nil, fmt.Errorf("docker compose ps -a: %w", err)
+		}
+		return ParsePsJSON(out)
+	}
+	return verifyStopped(probe, services, budget, time.Second)
 }
 
 // serviceStateView carries the docker-compose-reported view of one

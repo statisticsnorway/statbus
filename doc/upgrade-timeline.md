@@ -157,11 +157,22 @@ does it **roll back once** to this upgrade's own backup (`service.go:860-884`, S
 - **Success:** mark `completed_at` (`state=completed`), remove the flag, supersede older
   rows, notify the UI, post the Slack "OK" callback.
 - **Failure (one attempt, no retry):** `rollback()` restores git state, the DB snapshot,
-  and services, then records one of **two terminal tiers**:
+  and services, then records one of **three terminal tiers**:
   - `rolled_back` (`rolled_back_at` + `error`) — the snapshot restored cleanly; the
     server is **healthy at the old version**.
   - `failed` (`error`, no `rolled_back_at`) — the restore **also failed**; the server
     needs **hands-on recovery**.
+  - `failed`, pre-restore ABORT (`error`, no `rolled_back_at`; code
+    `ROLLBACK_FAILED_SERVICES_NOT_STOPPED`, label `failed-abort-services-live`,
+    STATBUS-187) — before touching git or the database, `rollback()` stops
+    `app`/`worker`/`rest`/`db` and positively re-checks (`compose.VerifyStopped`,
+    allow-list `exited`/`created`/`dead`/absent, polled up to 30s) that every one is
+    actually down — a `docker compose stop` that exits 0 is not proof, and rsyncing the
+    database volume under a still-live postgres is a torn-restore data-corruption
+    pathway. If any service is still up (running/restarting/paused/an unrecognized
+    state) once the budget is exhausted, rollback ABORTS **before any restore step** —
+    nothing has been touched yet, so there is nothing to unwind — same degraded/
+    hands-on shape as above.
 
   The flag is removed and a Slack "FAILED" callback carries the exact failing step and
   reason. See [Recovery contract](#recovery-contract--fail-fast-one-shot).
@@ -183,7 +194,7 @@ at most one row in each of those states. Authoritative column reference:
 | `in_progress` | Claimed; the pipeline is running. | `started_at` set, `completed_at`/`rolled_back_at` NULL |
 | `completed` | Upgrade landed. | `completed_at` set, `error` NULL |
 | `rolled_back` | Forward failed → snapshot restored; healthy at old version. | `rolled_back_at` + `error` set |
-| `failed` | Forward failed **and** restore also failed; needs hands-on. | `error` set, `completed_at`/`rolled_back_at` NULL |
+| `failed` | Forward failed **and** restore also failed; needs hands-on. Also entered pre-restore if the stop-verification guard fails (`ROLLBACK_FAILED_SERVICES_NOT_STOPPED` / `failed-abort-services-live`, STATBUS-187). | `error` set, `completed_at`/`rolled_back_at` NULL |
 | `skipped` | Operator chose not to apply an available upgrade. | `skipped_at` set |
 | `superseded` | A newer release replaced this one before it ran. | `superseded_at` set |
 | `dismissed` | Operator acknowledged a `failed`/`rolled_back` row. | `dismissed_at` set |
