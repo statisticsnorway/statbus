@@ -121,7 +121,6 @@ echo "  A=${BASE_SHA:0:8}  B=${B_FULL:0:8}"
 echo "════════════════════════════════════════════════════════════════"
 
 row_state()      { VM_EXEC bash -c "cd ~/statbus && echo 'SELECT state FROM public.upgrade ORDER BY id DESC LIMIT 1;' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "(db-down/?)"; }
-row_attempts()   { VM_EXEC bash -c "cd ~/statbus && echo 'SELECT recovery_attempts FROM public.upgrade ORDER BY id DESC LIMIT 1;' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
 flag_present()   { VM_EXEC bash -c "test -f ~/statbus/tmp/upgrade-in-progress.json && echo yes || echo no" 2>/dev/null | tr -d ' \r\n' || echo "no"; }
 # read_flag_field <field> — grep/sed the on-disk flag JSON (no dependency on
 # the live daemon — every dispatch here is a synchronous ./sb install
@@ -239,49 +238,74 @@ echo "  ✓ the (rollback, rollback) pair is on disk — the NEXT dispatch must 
 # ─────────────────────────────────────────────────────────────────────────
 # 4th dispatch — clean (no inject). rollbackResumeIsTerminal fires directly;
 # no third restore attempt; the C9 site is never reached this dispatch.
+#
+# POST-STATBUS-111 UPDATE: this dispatch no longer STOPS at the pair-terminal
+# write. `runInstall` re-runs `install.Detect()` after crash-recovery settles
+# (dispatchInstallState fires on both the initial Detect and the post-
+# recovery re-Detect, same process, same `./sb install` invocation) — and
+# since STATBUS-111 shipped (after this arc was authored), a row that is now
+# `state='failed' AND backup_path IS NOT NULL` (true here: the DB COLUMN
+# backup_path is set during the very first dispatch's backup step, before the
+# C5 kill — a PreSwap-route fact independent of flag.BackupPath, which IS
+# empty on this route) hits StateRestoreReattemptable and gets IMMEDIATELY
+# re-attempted, in this SAME dispatch. Empirically confirmed by the identical
+# mechanism in test/install-recovery/arcs/restore-broke-reattempt-arc.sh
+# (arc run 29325230294: 'failed' then 'rolled_back' ~23s apart, one VM_EXEC
+# call). THE STATBUS-134 PAIR-BOUND ORACLE ITSELF IS UNCHANGED: 2 killed
+# rollback passes + the terminal pass that fires WITHOUT a third restore
+# attempt (recovery_attempts=3 at that moment, verified via the dispatch
+# log's JSON row dump before it's overwritten) still holds — what changed is
+# only what happens AFTER that terminal, automatically, later in the same
+# process.
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
-echo "── 4th dispatch: ./sb install (no inject) → restore-broke terminal fires directly ──"
+echo "── 4th dispatch: ./sb install (no inject) → pair-terminal fires, THEN the SAME dispatch re-attempts it (STATBUS-111) ──"
 REC_RC=0
-VM_EXEC bash -c "cd ~/statbus && STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf" || REC_RC=$?
+VM_EXEC bash -c "cd ~/statbus && STATBUS_MIN_DISK_GB=5 timeout ${INSTALL_BUDGET_S} ./sb install --non-interactive --trust-github-user jhf > ${ARC_DISPATCH_LOG} 2>&1" || REC_RC=$?
+VM_EXEC bash -c "cat ${ARC_DISPATCH_LOG} 2>/dev/null" || true
 echo "[OBSERVE] 4th dispatch exit: $REC_RC"
+[ "$REC_RC" = "0" ] || { echo "✗ 4th dispatch (pair-terminal + re-attempt, one clean pass, no crash) exited $REC_RC, expected 0" >&2; exit 1; }
 
 echo ""
-echo "── convergence checks (restore-broke: exactly 2 rollback deaths, human stop) ──"
-FINAL_STATE=$(row_state)
-FINAL_ATTEMPTS=$(row_attempts)
-echo "[OBSERVE] final row: state=$FINAL_STATE attempts=$FINAL_ATTEMPTS"
-[ "$FINAL_STATE" != "rolled_back" ] || { echo "✗ state='rolled_back' — two consecutive mid-rollback deaths must terminal to 'failed' (restore-broke human stop), never a silent successful rollback" >&2; exit 1; }
-[ "$FINAL_STATE" != "completed" ] || { echo "✗ state='completed' — impossible on this route (never a forward attempt); a regression somewhere upstream" >&2; exit 1; }
-[ "$FINAL_STATE" = "failed" ] || { echo "✗ expected terminal 'failed' (restore-broke), got '$FINAL_STATE'" >&2; exit 1; }
-echo "  ✓ state='failed' (restore-broke human stop)"
-[ "$FINAL_ATTEMPTS" = "3" ] || { echo "✗ recovery_attempts=$FINAL_ATTEMPTS — expected exactly 3 (2 killed rollback passes + the terminal pass that fires without another restore), got $FINAL_ATTEMPTS" >&2; exit 1; }
-echo "  ✓ recovery_attempts=3 (2 rollback deaths + the terminal pass)"
+echo "── convergence checks (2 rollback deaths -> pair-terminal -> immediate STATBUS-111 re-attempt -> 'rolled_back') ──"
+# The pair-terminal's own moment: verified via the dispatch log (the stdlib
+# `log` summary line names both the mechanism and the exact attempts count —
+# service.go recoveryRollback/rollbackResumeIsTerminal), NOT a DB re-read
+# after the fact — by the time this dispatch returns, the row's error column
+# has already been overwritten by the re-attempt's own success message.
+[ "$(arc_dispatch_log_has "RESTORE-BROKE upgrade")" = "yes" ] || { echo "✗ dispatch output does not show the pair-terminal's own log line — did rollbackResumeIsTerminal actually fire?" >&2; exit 1; }
+[ "$(arc_dispatch_log_has "after 3 attempt(s)")" = "yes" ] || { echo "✗ dispatch output does not confirm recovery_attempts=3 at the pair-terminal moment (2 killed rollback passes + the terminal pass, no third restore attempt)" >&2; exit 1; }
+echo "  ✓ pair-terminal fired with recovery_attempts=3 (2 rollback deaths + the terminal pass, no third restore attempt) — the STATBUS-134 oracle itself, unchanged"
 
-# The message names BOTH the mechanism ("two consecutive crash-deaths during
-# rollback") and the ONLY legal source (ErrRollbackDBRestore) — see
-# recovery_escalation.go rollbackResumeIsTerminal + service.go:2575-2591.
-assert_upgrade_row_error_matches "$VM_NAME" "two consecutive crash-deaths during rollback"
+[ "$(arc_dispatch_log_has "Re-attempting the restore from the retained snapshot")" = "yes" ] || { echo "✗ dispatch output does not show the STATBUS-111 re-attempt legend — did it really re-detect StateRestoreReattemptable in the same pass?" >&2; exit 1; }
+echo "  ✓ dispatch log shows the STATBUS-111 re-attempt legend — the same clean pass continued past the pair-terminal"
+
+FINAL_STATE=$(row_state)
+echo "[OBSERVE] final row: state=$FINAL_STATE"
+[ "$FINAL_STATE" != "completed" ] || { echo "✗ state='completed' — impossible on this route (never a forward attempt); a regression somewhere upstream" >&2; exit 1; }
+[ "$FINAL_STATE" = "rolled_back" ] || { echo "✗ expected terminal 'rolled_back' (pair-terminal immediately re-attempted, STATBUS-111), got '$FINAL_STATE'" >&2; exit 1; }
+echo "  ✓ state='rolled_back' — the pair-terminal's own re-attempt completed the restore for real"
+
 assert_flag_file_absent "$VM_NAME"
 assert_health_passes "$VM_NAME"
 assert_demo_data_present "$VM_NAME"
-# NOTE: intentionally NOT asserting counts-match-snapshot here — no restore
-# ever ran (the pair-terminal fires BEFORE any third restore attempt), so the
-# DB is whatever state the FIRST killed restoreDatabase pass left it in
-# (identity-keyed, PreSwap backupPath is empty -> restoreDatabase refuses to
-# touch the volume in every pass here — data present is the right bar, an
-# exact snapshot match is not a claim this route makes).
+# A REAL restore now runs (the re-attempt), unlike before STATBUS-111 landed
+# — the exact-count claim is now true and asserted (it was deliberately NOT
+# claimed pre-111, since no restore ever ran on this route back then).
+assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 2
 
-# ── callback: exactly ONE STATBUS_ROLLBACK_FAILED=1 line (fired once, at the
-# terminal — the two killed passes never reach runCallback; only the 4th,
-# terminal-writing dispatch calls it). STATBUS-137 (open): no STATBUS_EVENT
-# key exists on this path — assert on what ships today, not a future key.
+# ── callback: TWO lines now, not one — the pair-terminal's own
+# STATBUS_ROLLBACK_FAILED=1 (rollbackResumeIsTerminal's write), THEN the
+# re-attempt's own success callback (STATBUS_EVENT=rolled_back, no
+# STATBUS_ROLLBACK_FAILED key — restoreAndFinalize's success branch), both
+# firing in this one dispatch since STATBUS-111. STATBUS-137 (open): no
+# STATBUS_EVENT key on the FIRST callback — assert on what ships today.
 CALLBACK_COUNT=$(VM_EXEC bash -c "wc -l < $CALLBACK_LOG 2>/dev/null" | tr -d ' \r\n' || echo "0")
 echo "  callback log line count: $CALLBACK_COUNT"
-[ "$CALLBACK_COUNT" = "1" ] || { echo "✗ expected exactly 1 callback line, got $CALLBACK_COUNT" >&2; VM_EXEC bash -c "cat $CALLBACK_LOG 2>/dev/null" >&2 || true; exit 1; }
-VM_EXEC bash -c "cat $CALLBACK_LOG" | grep -q "^1 " || { echo "✗ callback line does not carry STATBUS_ROLLBACK_FAILED=1" >&2; exit 1; }
-echo "  ✓ exactly one STATBUS_ROLLBACK_FAILED=1 callback fired (STATBUS-137's STATBUS_EVENT gap noted, not asserted)"
+[ "$CALLBACK_COUNT" = "2" ] || { echo "✗ expected exactly 2 callback lines (pair-terminal + re-attempt success), got $CALLBACK_COUNT" >&2; VM_EXEC bash -c "cat $CALLBACK_LOG 2>/dev/null" >&2 || true; exit 1; }
+VM_EXEC bash -c "head -1 $CALLBACK_LOG" | grep -q "^1 " || { echo "✗ first callback line does not carry STATBUS_ROLLBACK_FAILED=1 (the pair-terminal's own callback)" >&2; exit 1; }
+echo "  ✓ exactly 2 callback lines: the pair-terminal's STATBUS_ROLLBACK_FAILED=1, then the re-attempt's own success callback (STATBUS-137's STATBUS_EVENT gap noted, not asserted)"
 
 echo ""
-echo "PASS: rollback-pair-terminal (2 consecutive mid-rollback deaths formed the (rollback,rollback) step pair; the 3rd recovery pass fired the restore-broke 'failed' terminal BEFORE any further restore attempt; flag removed; unit alive-idle; callback fired once; data intact)"
+echo "PASS: rollback-pair-terminal (2 consecutive mid-rollback deaths formed the (rollback,rollback) step pair; the 3rd recovery pass fired the restore-broke terminal with recovery_attempts=3 BEFORE any further restore attempt — the STATBUS-134 oracle; the SAME dispatch then immediately re-attempted it per STATBUS-111, completing to a healthy 'rolled_back' with data intact)"
