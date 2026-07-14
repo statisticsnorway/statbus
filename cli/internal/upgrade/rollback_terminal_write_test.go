@@ -193,6 +193,59 @@ func TestParkUpgrade_TeardownImmuneStructural(t *testing.T) {
 	}
 }
 
+// TestParkUpgrade_ImmuneNarrativeStructural pins the STATBUS-071 C-rollback fix:
+// the error narrative rides the SAME teardown-immune terminalUpdate write as the
+// park columns (not the old split write via recordInProgressFailure on the pass's
+// own conn, which no-op'd on a dying recoverFromFlag pass and lost the story — the
+// c-rollback arc's red). Two halves: (1) the park UPDATE carries all THREE columns
+// in one write; (2) EVERY parkUpgrade caller passes a non-empty narrative (a park
+// without a story is a design smell — architect confirm, 2026-07-15). Source-scan:
+// the columns + the per-caller narratives are the invariant; the write needs a
+// live DB to exercise behaviorally.
+func TestParkUpgrade_ImmuneNarrativeStructural(t *testing.T) {
+	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	source := string(src)
+	body := extractFuncBody(t, source, "func (d *Service) parkUpgrade(")
+
+	// (1) THREE-COLUMN immune UPDATE: park timestamp + reason + error narrative all
+	// ride the SAME terminalUpdate write.
+	for _, col := range []string{"recovery_parked_at = now()", "recovery_parked_reason = $2", "error = $3"} {
+		if !strings.Contains(body, col) {
+			t.Errorf("parkUpgrade's immune UPDATE must set %q — the narrative must ride the park columns' write, not a separate one (STATBUS-071)", col)
+		}
+	}
+	if !strings.Contains(body, "id, reason, errNarrative)") {
+		t.Error("parkUpgrade must bind errNarrative ($3) into the SAME terminalUpdate call as the park columns (three-column contract)")
+	}
+
+	// (2) NON-EMPTY narrative at EVERY call site. Exactly three callers today: the
+	// deterministic park + the two crash-resume budget parks; each passes a concrete
+	// non-empty narrative. If a caller is added/removed, update this pin deliberately.
+	callCount := strings.Count(source, "d.parkUpgrade(")
+	if callCount != 3 {
+		t.Fatalf("expected exactly 3 parkUpgrade call sites (deterministic + 2 budget); got %d — a park caller was added/removed, re-audit its narrative", callCount)
+	}
+	// The deterministic caller's exact bytes (the arcs' `error LIKE '%parked on
+	// deterministic forward failure%'` asserts depend on these).
+	if !strings.Contains(source, `d.parkUpgrade(ctx, id, reason, "parked on deterministic forward failure: "+reason)`) {
+		t.Error("the deterministic park caller must pass \"parked on deterministic forward failure: \"+reason (the arcs assert on these bytes)")
+	}
+	// Both budget callers pass the crash-resume narrative — 2 occurrences pins both
+	// budget sites carry a non-empty story.
+	if n := strings.Count(source, `fmt.Sprintf("parked after %d crash-resume attempts: %s", attempts, reason)`); n != 2 {
+		t.Errorf("both budget park callers (RecoveryBudgetGuard + resumeNewSb) must pass the \"parked after N crash-resume attempts\" narrative; found %d of 2", n)
+	}
+	// The vulnerable split-write half is gone: no parkUpgrade caller passes an empty
+	// narrative, and the deterministic caller no longer follows up with a separate
+	// recordInProgressFailure (its narrative now rides the immune write).
+	if strings.Contains(source, `d.parkUpgrade(ctx, id, reason, "")`) {
+		t.Error("a parkUpgrade caller passes an empty narrative — every park must carry a story (STATBUS-071)")
+	}
+}
+
 // TestTerminalWrite_SurvivesCanceledPassContext pins STATBUS-154 (i): a terminal
 // write must not die with the pass. parkUpgrade is called with an ALREADY-CANCELED
 // pass ctx; because it routes through terminalUpdate (context.Background, fresh
@@ -206,7 +259,7 @@ func TestTerminalWrite_SurvivesCanceledPassContext(t *testing.T) {
 	canceled, cancel := context.WithCancel(context.Background())
 	cancel() // the pass is already torn down
 
-	freshlyParked, err := d.parkUpgrade(canceled, 7, "test reason")
+	freshlyParked, err := d.parkUpgrade(canceled, 7, "test reason", "parked: test reason")
 	if freshlyParked {
 		t.Error("no DB → the park cannot land; freshlyParked must be false")
 	}

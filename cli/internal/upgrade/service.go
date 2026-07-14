@@ -5587,11 +5587,14 @@ func (d *Service) parkForDeterministicFailure(ctx context.Context, id int, displ
 			fmt.Sprintf("deterministic forward failure: %s; auto-restored from snapshot", reason), backupPath, progress)
 		return fmt.Errorf("%s: deterministic failure after booting the new binary auto-restored: %s", ErrInstallPreconditionFailed, reason)
 	}
-	freshlyParked, perr := d.parkUpgrade(ctx, id, reason)
+	// The narrative now rides parkUpgrade's SINGLE immune write (STATBUS-071): today's
+	// exact bytes, so the arcs' `error LIKE '%parked on deterministic forward failure%'`
+	// asserts stand. The former recordInProgressFailure call here was the split-write's
+	// vulnerable half (nil-conn no-op on a dying pass) and is deleted.
+	freshlyParked, perr := d.parkUpgrade(ctx, id, reason, "parked on deterministic forward failure: "+reason)
 	if perr != nil {
 		return fmt.Errorf("park deterministic forward failure for upgrade %d: %w", id, perr)
 	}
-	d.recordInProgressFailure(ctx, id, "parked on deterministic forward failure: "+reason)
 	progress.Write("PARKED on first deterministic failure: %s. The unit stays running and idle (no crash loop); fix the cause, then re-trigger the upgrade or run ./sb install for a fresh attempt.", reason)
 	if freshlyParked {
 		d.runCallback(displayName, map[string]string{"STATBUS_EVENT": "parked", "STATBUS_PARKED": "1", "STATBUS_PARK_REASON": reason})
@@ -6421,7 +6424,8 @@ func (d *Service) RecoveryBudgetGuard(ctx context.Context) (skipBootMigrate bool
 	// (the just-crashed attempt's frozen step) — the in-memory `flag`, not the
 	// PID-updated on-disk copy.
 	if action, reason := resumeEscalation(attempts, flag.Step, flag.PriorDeathStep, false); action != recoveryContinue {
-		freshlyParked, parkErr := d.parkUpgrade(ctx, flag.ID, reason)
+		freshlyParked, parkErr := d.parkUpgrade(ctx, flag.ID, reason,
+			fmt.Sprintf("parked after %d crash-resume attempts: %s", attempts, reason))
 		release()
 		if parkErr != nil {
 			log.Printf("RecoveryBudgetGuard: park write failed (id=%d): %v — skipping boot migrate anyway; the row stays in_progress and the next pass re-evaluates", flag.ID, parkErr)
@@ -6479,10 +6483,17 @@ func (d *Service) RecoveryBudgetGuard(ctx context.Context) (skipBootMigrate bool
 //   - (false, err)  NOT confirmed landed (connectivity exhausted, or the row is
 //     not parkable) — caller MUST keep the row in_progress and let the next pass
 //     re-evaluate (exit invariant AC#2); never exit as-parked on this.
-func (d *Service) parkUpgrade(ctx context.Context, id int, reason string) (freshlyParked bool, err error) {
+func (d *Service) parkUpgrade(ctx context.Context, id int, reason, errNarrative string) (freshlyParked bool, err error) {
+	// errNarrative rides the SAME immune terminalUpdate write as the park columns
+	// (STATBUS-071 C-rollback finding): the old split write — park columns via this
+	// teardown-immune terminalUpdate, but the error narrative via
+	// recordInProgressFailure on the pass's OWN conn with a silent nil-conn no-op —
+	// lost the story whenever a park landed on a dying recoverFromFlag pass (park
+	// columns set, error empty). One write, one guarantee, atomic. EVERY caller MUST
+	// pass a non-empty narrative — a park without a story is a design smell.
 	_, uerr := d.terminalUpdate(
-		"UPDATE public.upgrade SET recovery_parked_at = now(), recovery_parked_reason = $2 WHERE id = $1 AND state = 'in_progress' AND recovery_parked_at IS NULL"+upgradeRowReturning,
-		id, reason)
+		"UPDATE public.upgrade SET recovery_parked_at = now(), recovery_parked_reason = $2, error = $3 WHERE id = $1 AND state = 'in_progress' AND recovery_parked_at IS NULL"+upgradeRowReturning,
+		id, reason, errNarrative)
 	if uerr == nil {
 		return true, nil // guard matched + RETURNING scanned → freshly parked
 	}
@@ -6822,7 +6833,8 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 		//     died (flag.Step, frozen by that crash); priorDeathStep = the death two
 		//     attempts ago (flag.PriorDeathStep). Terminal already-at-new → PARK.
 		if action, reason := resumeEscalation(attempts, flag.Step, flag.PriorDeathStep, false); action != recoveryContinue {
-			freshlyParked, parkErr := d.parkUpgrade(ctx, flag.ID, reason)
+			freshlyParked, parkErr := d.parkUpgrade(ctx, flag.ID, reason,
+				fmt.Sprintf("parked after %d crash-resume attempts: %s", attempts, reason))
 			if parkErr != nil {
 				progress.Write("resumeNewSb: park write failed for upgrade %d: %v", flag.ID, parkErr)
 				progress.Close()
