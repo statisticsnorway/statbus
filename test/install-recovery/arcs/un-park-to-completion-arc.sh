@@ -139,6 +139,19 @@ state_log_rollback_count() {
     VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM public.upgrade_state_log WHERE upgrade_id = (SELECT id FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1) AND new_state = 'rolled_back';\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"
 }
 
+# parked_siren_count — how many STATBUS_EVENT=parked callbacks fired. UPGRADE_CALLBACK
+# is the SINGLE lifecycle hook (STATBUS-137): it fires for EVERY named event
+# (parked, completed, install_completed, ...) and consumers filter by STATBUS_EVENT.
+# So the park-siren-once contract counts '^parked ' lines ONLY — never total lines
+# (a total count is polluted by the completion + install_completed callbacks). A
+# missing/unreadable log normalizes to 0, so the ==1 assert FAILS (never a false
+# pass). Robust against grep -c's exit-1-on-zero-matches (|| true, then :-0).
+parked_siren_count() {
+    local _n
+    _n=$(VM_EXEC bash -c "grep -c '^parked ' $CALLBACK_LOG 2>/dev/null || true" | tr -d ' \r\n')
+    echo "${_n:-0}"
+}
+
 # _dump_unpark_failure_diagnostics — STATBUS-155 rider (mirrors the park-family
 # arcs): on ANY non-zero exit, pull B's progress log + the daemon journal + row
 # state + the state-log to STDERR before cleanup_vm reaps the VM. Best-effort.
@@ -348,12 +361,16 @@ ROLLBACKS=$(state_log_rollback_count)
 [ "$ROLLBACKS" = "0" ] || { echo "✗ B's state-log shows $ROLLBACKS rollback(s) — arm (ii) must be at-target and PARK, never roll back (a rollback means B carried a delta / was Behind)" >&2; exit 1; }
 echo "  ✓ zero rollbacks in the state-log — at-target park, not a Behind rollback"
 
-# SIREN fired EXACTLY ONCE on the park (STATBUS-131 park-callback contract).
+# SIREN (park event) fired EXACTLY ONCE on the park. UPGRADE_CALLBACK is the SINGLE
+# lifecycle hook (STATBUS-137): it fires for EVERY named event (parked, completed,
+# install_completed, ...), and consumers filter by STATBUS_EVENT. So the contract is
+# "exactly one PARKED event", not "the log has one line" — count '^parked ', never
+# total lines. (A total-line count only passed on run 1 because parked was the sole
+# event at that instant; run 29365576531 exposed the coarseness at completion.)
 echo ""
-echo "── assert the park siren fired exactly once ──"
-SIREN_COUNT=$(VM_EXEC bash -c "wc -l < $CALLBACK_LOG 2>/dev/null" | tr -d ' \r\n' || echo "0")
-[ "$SIREN_COUNT" = "1" ] || { echo "✗ expected exactly 1 park-callback (siren) line, got $SIREN_COUNT" >&2; VM_EXEC bash -c "cat $CALLBACK_LOG 2>/dev/null" >&2 || true; exit 1; }
-VM_EXEC bash -c "cat $CALLBACK_LOG" | grep -q "^parked " || { echo "✗ siren line does not carry STATBUS_EVENT=parked" >&2; exit 1; }
+echo "── assert exactly one STATBUS_EVENT=parked siren fired ──"
+PARKED_SIRENS=$(parked_siren_count)
+[ "$PARKED_SIRENS" = "1" ] || { echo "✗ expected exactly 1 parked-event siren, got parked-event count=$PARKED_SIRENS — full callback log:" >&2; VM_EXEC bash -c "cat $CALLBACK_LOG 2>/dev/null" >&2 || true; exit 1; }
 echo "  ✓ exactly one STATBUS_EVENT=parked siren fired"
 
 # The box is ALIVE-IDLE while parked (the pull never ran, the OLD version keeps
@@ -420,10 +437,13 @@ echo "  final row: $ROW"
 # was nothing to restore; a restore would be a correctness violation of the ruling.
 ROLLBACKS_FINAL=$(state_log_rollback_count)
 [ "$ROLLBACKS_FINAL" = "0" ] || { echo "✗ B's state-log shows $ROLLBACKS_FINAL rollback(s) across the whole arc — arm (ii) must complete with ZERO restores (nothing to restore: at-target throughout)" >&2; exit 1; }
-# The siren fired once (at the park) and NOT again through the un-park→complete leg
-# (completion is not a park event).
-SIREN_FINAL=$(VM_EXEC bash -c "wc -l < $CALLBACK_LOG 2>/dev/null" | tr -d ' \r\n' || echo "0")
-[ "$SIREN_FINAL" = "1" ] || { echo "✗ siren count is $SIREN_FINAL at completion (expected still 1 — the park sirens once; un-park→complete must not re-siren)" >&2; exit 1; }
+# The PARK event fired once and NOT again through the un-park→complete leg (completion
+# is not a park event). Count '^parked ' ONLY — the log legitimately grew other
+# lifecycle lines by now (the completion + install_completed callbacks fire on the
+# successful un-park; STATBUS-137's single hook, filter-by-event), so a total-line
+# count would false-RED here (run 29365576531: 3 lines at completion).
+PARKED_SIRENS_FINAL=$(parked_siren_count)
+[ "$PARKED_SIRENS_FINAL" = "1" ] || { echo "✗ parked-event count is $PARKED_SIRENS_FINAL at completion (expected still 1 — the park sirens once; un-park→complete must not re-emit a parked event) — full callback log:" >&2; VM_EXEC bash -c "cat $CALLBACK_LOG 2>/dev/null" >&2 || true; exit 1; }
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 assert_health_passes "$VM_NAME"
 echo "  ✓ same row completed, park cleared, ZERO restores, siren still once, data intact, healthy"
