@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-07-14 19:23'
-updated_date: '2026-07-14 20:21'
+updated_date: '2026-07-14 20:38'
 labels:
   - fail-fast
   - upgrade
@@ -83,5 +83,11 @@ INTERACTIONS, resolved:
 - DOCS, in the same unit: doc/upgrade-timeline.md's terminal table gains the row (new tier + both remedy halves above); doc/upgrade-vocabulary.md gains the code/label if its tables enumerate them.
 
 ORACLE: unit tests — the classification table (fake ps outputs: running/restarting/paused/unknown → fail named; exited/created/dead/absent → pass; straggler-then-clears within budget → pass) + the updated structural contract; the restore-broke arc's next natural re-run covers site 1's happy path. NO dedicated VM arc: constructing a genuinely stuck container requires docker-daemon manipulation out of proportion to a branch that byte-mirrors the arc-proven git-corrupt ABORT shape.
+---
+
+author: foreman
+created: 2026-07-14 20:38
+---
+FIX UNIT #2 COMMITTED (foreman, 2026-07-14 evening): commit 3d7cf6b22 — compose.VerifyStopped (exported, fail-closed allow-list exited/created/dead/absent, 1s poll × 30s budget, probe under a context deadline so a hung dockerd surfaces at budget), ps-JSON parsing relocated to compose (PsEntry/ParsePsJSON) with all upgrade-package callers updated; ReattemptRestore returns actionably prefixed ROLLBACK_FAILED_SERVICES_NOT_STOPPED with NO terminal write (row stays reattemptable — the error's own ./sb install remedy is the designed fix loop); rollback() normal path gets the NEW ABORT tier (failed-abort-services-live) mirroring git-corrupt, firing before restoreGitState; structural pin 3→4; one shared preRestoreStopServices at both sites; classification unit tests (injected probe + real NDJSON); doc/upgrade-timeline.md third terminal tier + states-table cross-ref. Architect ruled the design (comment #3); mechanic executed; foreman line-reviewed twice and verified build/vet/test independently. Both explicit-ignore markers replaced (AC#4 progress). Remaining for AC#2: ranked #1 (ABORT-branch restoreDatabase error — ruled: capture + fold into the ABORT error string) and #3 (CI-not-ready unschedule — handling shape needs one architect line). Oracle: restore-broke-reattempt arc's next natural re-run.
 ---
 <!-- COMMENTS:END -->
