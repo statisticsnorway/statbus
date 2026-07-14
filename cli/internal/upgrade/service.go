@@ -2728,8 +2728,8 @@ func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displa
 			ErrRollbackDBRestore, attempts)
 		log.Printf("recoveryRollback: RESTORE-BROKE upgrade %d after %d attempt(s) — two consecutive rollback deaths", id, attempts)
 		if d.writeRollbackTerminal(id,
-			"UPDATE public.upgrade SET state = 'failed', error = $1 WHERE id = $2"+upgradeRowReturning,
-			msg, LabelFailedRollbackIncomplete) {
+			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2 WHERE id = $3"+upgradeRowReturning,
+			msg, LabelFailedRollbackIncomplete, attempts) {
 			d.removeUpgradeFlag()
 		}
 		hostname, _ := os.Hostname()
@@ -7075,8 +7075,15 @@ const windowOffSQL = `DO $do$ BEGIN EXECUTE format('ALTER DATABASE %I SET defaul
 // ctx; the write must outlive the pass). Returns true iff the row landed; on
 // exhaustion it fails LOUD (markTerminal) and returns false so the caller KEEPS
 // the flag for the next reconcile.
-func (d *Service) writeRollbackTerminal(id int, updateSQL, errMsg, label string) bool {
-	rowJSON, err := d.terminalUpdate(updateSQL, errMsg, id)
+// attempts (STATBUS-181) re-imposes recovery_attempts onto the terminal row.
+// Callers pass the value they read BEFORE any destructive restore step — a
+// volume-rewind restore (restoreDatabase) reverts the column to whatever the
+// pre-upgrade snapshot had (typically 0), and this UPDATE is what runs AFTER
+// that rewind, so every updateSQL string passed in here MUST include
+// `recovery_attempts = $2` (with id shifted to $3) or the re-impose is a
+// silent no-op. See callers for the exact SQL shape.
+func (d *Service) writeRollbackTerminal(id int, updateSQL, errMsg, label string, attempts int) bool {
+	rowJSON, err := d.terminalUpdate(updateSQL, errMsg, attempts, id)
 	if err == nil {
 		logUpgradeRow(label, rowJSON)
 		return true
@@ -7108,7 +7115,14 @@ func (d *Service) writeRollbackTerminal(id int, updateSQL, errMsg, label string)
 // error). Callers must have stopped the db container and armed the watchdog
 // cover before calling (rollback() does both in its head; the re-attempt does
 // the same). Pure extraction of rollback()'s former tail — identical order.
-func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reason, backupPath string, progress *ProgressLog) bool {
+//
+// attemptsAtCall (STATBUS-181): recovery_attempts read by the CALLER before
+// any destructive step (restoreDatabase below rewinds the volume to the
+// pre-upgrade snapshot, where the column reads whatever it was BEFORE this
+// upgrade's recovery passes ran — typically 0). Re-imposed onto the terminal
+// row alongside state/error so the volume rewind doesn't silently erase the
+// audit-trail value the row had at the moment this restore began.
+func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reason, backupPath string, attemptsAtCall int, progress *ProgressLog) bool {
 	projDir := d.projDir
 	// Restore ./sb to match the restored git era BEFORE running config
 	// generate (rc.67 trifecta). The current ./sb is the NEW binary; its
@@ -7254,8 +7268,8 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reaso
 		// (writeRollbackTerminal has already failed loud). The degraded siren below
 		// fires regardless — the box IS degraded whether or not the row write landed.
 		if d.writeRollbackTerminal(id,
-			"UPDATE public.upgrade SET state = 'failed', error = $1 WHERE id = $2"+upgradeRowReturning,
-			errMsg, LabelFailedRollbackIncomplete) {
+			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2 WHERE id = $3"+upgradeRowReturning,
+			errMsg, LabelFailedRollbackIncomplete, attemptsAtCall) {
 			d.removeUpgradeFlag()
 		}
 		// Page on-call: the degraded/all-hands tier (siren), same signal as the
@@ -7284,8 +7298,8 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reaso
 		errMsg = errMsg + " — rolled back to the previous version; the system is running normally on the old version. " +
 			"The failure is recorded (log retained); report it to support. This version will fail the same way — do NOT re-schedule it; run `./sb upgrade check` and try a LATER release when one is available. No manual intervention needed."
 		if d.writeRollbackTerminal(id,
-			"UPDATE public.upgrade SET state = 'rolled_back', error = $1, rolled_back_at = now() WHERE id = $2"+upgradeRowReturning,
-			errMsg, LabelRolledBackNormal) {
+			"UPDATE public.upgrade SET state = 'rolled_back', error = $1, recovery_attempts = $2, rolled_back_at = now() WHERE id = $3"+upgradeRowReturning,
+			errMsg, LabelRolledBackNormal, attemptsAtCall) {
 			// Terminal write landed → the row is rolled_back. Clear the in-progress
 			// flag so the mutex that blocks `./sb install` is released; without this
 			// the flag lingers until the next service restart, wedging future installs.
@@ -7326,12 +7340,19 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reaso
 // removed — so the service never auto-re-attempts (no StartLimit thrash).
 // Caller must have a connected d.queryConn (LoadConfigAndConnect).
 func (d *Service) ReattemptRestore(ctx context.Context, rowID int64, backupPath string) error {
-	// Load the row's commit label for the callback + progress continuity. Runs
-	// before the db stop below — the restore-broke box has the DB reachable.
+	// Load the row's commit label for the callback + progress continuity, AND
+	// its recovery_attempts (STATBUS-181). Runs before the db stop below — the
+	// restore-broke box has the DB reachable. recovery_attempts must be
+	// captured HERE, in memory, because restoreAndFinalize's restoreDatabase
+	// rewinds the volume to the pre-upgrade snapshot (attempts=0 there); the
+	// terminal UPDATE that follows only re-imposes state/error/timestamps, so
+	// without this capture the audit-trail value is silently erased by the
+	// volume rewind (found live, arc run 29325230294: 3 → 0).
 	var commitSHA, commitVersion sql.NullString
+	var attemptsAtCall int
 	if err := d.queryConn.QueryRow(ctx,
-		"SELECT commit_sha, commit_version FROM public.upgrade WHERE id = $1", rowID).
-		Scan(&commitSHA, &commitVersion); err != nil {
+		"SELECT commit_sha, commit_version, recovery_attempts FROM public.upgrade WHERE id = $1", rowID).
+		Scan(&commitSHA, &commitVersion, &attemptsAtCall); err != nil {
 		return fmt.Errorf("ReattemptRestore: cannot load upgrade %d: %w", rowID, err)
 	}
 	displayName := commitVersion.String
@@ -7380,7 +7401,7 @@ func (d *Service) ReattemptRestore(ctx context.Context, rowID int64, backupPath 
 	runCommand(d.projDir, "docker", "compose", "stop", "app", "worker", "rest", "db")
 
 	reason := fmt.Sprintf("operator re-attempt of the interrupted restore for %s", displayName)
-	if degraded := d.restoreAndFinalize(ctx, int(rowID), displayName, reason, backupPath, progress); degraded {
+	if degraded := d.restoreAndFinalize(ctx, int(rowID), displayName, reason, backupPath, attemptsAtCall, progress); degraded {
 		return fmt.Errorf("%s: the database restore did not complete — the system remains degraded; contact SSB support and involve your IT staff", ErrRollbackDBRestore)
 	}
 	return nil
@@ -7419,6 +7440,20 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 	progress.Write("Reason: %s", reason)
 
 	projDir := d.projDir
+
+	// STATBUS-181: capture recovery_attempts BEFORE any destructive step —
+	// restoreDatabase below (via restoreAndFinalize, or directly in the ABORT
+	// branch) rewinds the volume to the pre-upgrade snapshot, where the column
+	// reads whatever it was before this upgrade ran (typically 0); the
+	// terminal write that follows only re-imposes state/error/timestamps, so
+	// without this capture the value is silently erased by the rewind (found
+	// live, arc run 29325230294: 3 → 0). Best-effort: on read failure, 0 is
+	// re-imposed — the same value a rollback with no prior recovery pass
+	// would carry anyway (the common, non-recovery-triggered case).
+	var attemptsAtCall int
+	if err := d.queryConn.QueryRow(ctx, "SELECT recovery_attempts FROM public.upgrade WHERE id = $1", id).Scan(&attemptsAtCall); err != nil {
+		log.Printf("rollback: could not read recovery_attempts for %d before the restore (%v) — re-imposing 0", id, err)
+	}
 
 	// Capture failure-time container logs BEFORE the docker compose stop
 	// destroys the running containers. The rollback later does
@@ -7532,8 +7567,8 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 		// row instead of leaving it stuck. writeRollbackTerminal already failed loud
 		// (INVARIANT ROLLBACK_TERMINAL_WRITE_FAILED + markTerminal).
 		if d.writeRollbackTerminal(id,
-			"UPDATE public.upgrade SET state = 'failed', error = $1 WHERE id = $2"+upgradeRowReturning,
-			rollbackFailedMsg, LabelFailedAbort) {
+			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2 WHERE id = $3"+upgradeRowReturning,
+			rollbackFailedMsg, LabelFailedAbort, attemptsAtCall) {
 			d.removeUpgradeFlag()
 		}
 
@@ -7555,7 +7590,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 	// install-driven restore re-attempt via restoreAndFinalize. Process-lifecycle
 	// (os.Exit below) stays HERE per the extraction boundary — restoreAndFinalize
 	// only restores and writes the terminal, then returns.
-	d.restoreAndFinalize(ctx, id, version, reason, backupPath, progress)
+	d.restoreAndFinalize(ctx, id, version, reason, backupPath, attemptsAtCall, progress)
 
 	// Exit 75 (sysexits EX_TEMPFAIL: "temporary failure, retry later")
 	// per the rc.67 trifecta. Distinct from:

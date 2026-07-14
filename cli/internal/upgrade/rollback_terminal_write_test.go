@@ -57,8 +57,8 @@ func TestWriteRollbackTerminal_ExhaustionMarksTerminalAndKeepsFlag(t *testing.T)
 	// STATBUS-154: writeRollbackTerminal no longer takes the pass ctx (the
 	// teardown-immune terminalUpdate makes its own context.Background).
 	ok := d.writeRollbackTerminal(7,
-		"UPDATE public.upgrade SET state = 'rolled_back', error = $1, rolled_back_at = now() WHERE id = $2"+upgradeRowReturning,
-		"some rollback reason", LabelRolledBackNormal)
+		"UPDATE public.upgrade SET state = 'rolled_back', error = $1, recovery_attempts = $2, rolled_back_at = now() WHERE id = $3"+upgradeRowReturning,
+		"some rollback reason", LabelRolledBackNormal, 2)
 
 	if ok {
 		t.Fatalf("writeRollbackTerminal must return false when the DB is unreachable")
