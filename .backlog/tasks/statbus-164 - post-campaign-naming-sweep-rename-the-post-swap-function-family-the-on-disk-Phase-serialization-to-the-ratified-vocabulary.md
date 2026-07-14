@@ -3,11 +3,11 @@ id: STATBUS-164
 title: >-
   post-campaign-naming-sweep: rename the post-swap function family + the on-disk
   Phase serialization to the ratified vocabulary
-status: In Progress
+status: Done
 assignee:
   - mechanic
 created_date: '2026-07-12 14:05'
-updated_date: '2026-07-14 13:04'
+updated_date: '2026-07-14 13:58'
 labels:
   - clarity
   - de-jargon
@@ -40,7 +40,7 @@ Wire values are byte-identical today (proven by the 107 identifier slice's round
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 The post-swap function family + coupled comments follow the registry slugs; go build/vet/test green; no wire value changes in this half
-- [ ] #2 Architect ruling recorded for the serialization half (clean-break vs read-both, re-derived against the shipped 145/154/159/163 geometry), then built with cross-version recovery proven by an arc
+- [x] #2 Architect ruling recorded for the serialization half (clean-break vs read-both, re-derived against the shipped 145/154/159/163 geometry), then built with cross-version recovery proven by an arc
 - [x] #3 doc/upgrade-vocabulary.md's one open item (the parked serialization) closes with this ticket
 <!-- AC:END -->
 
@@ -100,4 +100,16 @@ created: 2026-07-14 13:04
 ---
 HALF #2 BUILD SHIPPED (foreman commit 0e04a9613, 2026-07-14): writers stamp the registry slugs; ONE UnmarshalJSON chokepoint normalizes the two historical spellings via TWO structurally separate named tables (canonicalPhaseBytes set + legacyPhaseByteAliases map — the King's two-concatenated-parts refinement, verified in review); junk still reaches FLAG_PHASE_UNKNOWN; LEGACY-PHASE-BYTES marker + removal condition + reverse-boundary residual documented in place. Round-trip oracle green (foreman-verified independently): legacy→canonical through every read path, RMW rewrites, IsServiceNewSbRecovery across spellings, tables-disjoint. Harness swept to new bytes (fabricate_resume_state + scenario-4); the restore-broke-reattempt arc's product-written flag assert flipped in the SAME commit (engineer's all-consumers sweep caught it; master self-consistent at every commit). AC#3 checked — doc/upgrade-vocabulary.md's parked item closed. AC#2 remains OPEN until the cross-version arc (pre-rename box → renamed build, alias resumes the handoff, row completed) runs green — engineer building it next; that arc gates any release carrying the new bytes. Soft residual accepted: scenario-3 + rollback-abort-churn still fabricate OLD bytes and pass via the alias — left deliberately as incidental legacy-path coverage.
 ---
+
+author: foreman
+created: 2026-07-14 13:58
+---
+AC#2 ORACLE GREEN — CLOSED (2026-07-14): cross-version-rename-handoff arc run 29337437970 SUCCESS on a real VM. Base = rc.05 (730b5001c, pre-rename — stamps "post_swap"), target = post-rename master; the exit-42 handoff crossed the rename boundary, the new binary's decode chokepoint normalized the legacy bytes through the two-part alias table, recovery resumed forward, row completed, zero rollback, box HEAD at target. (First dispatch 29336510544 died at Hetzner VM placement — resource_unavailable in hel1, provider transient; retry green.) All three ACs now checked: half #1 identifiers (6cb5a7652), half #2 wire bytes + chokepoint (0e04a9613), vocabulary doc closed, cross-version recovery run-proven. The King's rc.06 naming gate ("land on the right names before we make this release") is satisfied.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Both jargon holdouts now speak the registry vocabulary. Half #1 (6cb5a7652): the post-swap Go function family renamed to registry slugs, 30 files, 1:1, wire bytes untouched. Half #2 (0e04a9613): the on-disk flag phase bytes renamed to the slugs with clean-break writers and a single UnmarshalJSON decode chokepoint reading canonical-then-legacy from TWO structurally separate named tables (the King's two-concatenated-parts refinement); FLAG_PHASE_UNKNOWN drift guard intact; LEGACY-PHASE-BYTES marker with a written removal condition; reverse-boundary residual documented. The architect's ruling deliberately reversed the King's 2026-06-22 clean-restart decision on a new fact (the unrecognized-sentinel read is the MAINLINE handoff, not a crash corner) and the King ratified. Proven end-to-end: unit round-trips through every read path + cross-version arc run 29337437970 (rc.05 box → renamed build, alias resumes the handoff, completed, zero rollback).
+<!-- SECTION:FINAL_SUMMARY:END -->
