@@ -12,7 +12,16 @@ ALTER SEQUENCE public.power_group_ident_seq RESTART WITH 1;
 CALL test.set_user_from_email('test.admin@statbus.org');
 
 -- Load base configuration (regions, activity categories, status codes, etc.)
+-- Suppress the verbatim echo of the shared include. Its content is not what
+-- this test asserts, and echoing it makes the expected file both
+-- churn-prone and flaky (the `\i` echo has been observed to intermittently
+-- drop under the harness — STATBUS-175). Only this test's own queries below
+-- contribute to the expected output.
+\o /dev/null
+\set ECHO none
 \i samples/norway/getting-started.sql
+\o
+\set ECHO all
 
 -- Seed test relationship types
 -- parent_company: structurally 1:1 (a subsidiary has at most one parent) → TRUE

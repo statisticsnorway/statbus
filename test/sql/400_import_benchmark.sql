@@ -44,11 +44,19 @@ BEGIN;
 
 CALL test.set_user_from_email('test.admin@statbus.org');
 
-\echo 'Setting up Statbus for Norway'
+\echo 'Setting up Statbus for Norway (output suppressed)'
+-- Suppress the verbatim echo of the shared includes. Their content is not
+-- what this test asserts, and echoing it makes the expected file both
+-- churn-prone and flaky (the `\i` echo has been observed to intermittently
+-- drop under the harness — STATBUS-175). Only this test's own queries below
+-- contribute to the expected output.
+\o /dev/null
+\set ECHO none
 \i samples/norway/getting-started.sql
-
 \i samples/norway/brreg/create-import-definition-hovedenhet-2024.sql
 \i samples/norway/brreg/create-import-definition-underenhet-2024.sql
+\o
+\set ECHO all
 
 -- Create benchmark results table
 CREATE TEMP TABLE benchmark_results (

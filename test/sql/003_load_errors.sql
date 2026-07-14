@@ -1,7 +1,16 @@
 BEGIN;
 \echo "Setting up Statbus to load establishments without legal units"
 -- Only load settings and sectors from samples/norway/getting-started.sql to get lots of errors due to missing lookup information.
+-- Suppress the verbatim echo of the shared include. Its content is not what
+-- this test asserts, and echoing it makes the expected file both
+-- churn-prone and flaky (the `\i` echo has been observed to intermittently
+-- drop under the harness — STATBUS-175). Only this test's own queries below
+-- contribute to the expected output.
+\o /dev/null
+\set ECHO none
 \i samples/norway/settings.sql
+\o
+\set ECHO all
 -- \i samples/norway/activity_category/activity_category_norway.sql
 -- \i samples/norway/regions/norway-regions-2024.sql
 -- \i samples/norway/sector/sector_norway.sql

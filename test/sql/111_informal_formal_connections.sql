@@ -7,7 +7,16 @@ BEGIN;
 -- A Super User configures statbus.
 CALL test.set_user_from_email('test.admin@statbus.org');
 
+-- Suppress the verbatim echo of the shared include. Its content is not what
+-- this test asserts, and echoing it makes the expected file both
+-- churn-prone and flaky (the `\i` echo has been observed to intermittently
+-- drop under the harness — STATBUS-175). Only this test's own queries below
+-- contribute to the expected output.
+\o /dev/null
+\set ECHO none
 \i samples/demo/getting-started.sql
+\o
+\set ECHO all
 
 
 SELECT
