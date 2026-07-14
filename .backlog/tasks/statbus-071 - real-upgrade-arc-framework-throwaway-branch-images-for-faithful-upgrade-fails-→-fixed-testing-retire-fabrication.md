@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-14 17:45'
+updated_date: '2026-07-14 18:18'
 labels:
   - install-recovery
   - upgrade
@@ -320,5 +320,11 @@ DDL-DEADLOCK CELL ASSESSED (architect, 2026-07-14) — the last [ASSESS] row, no
 - Boot-time floor catch-up on a live box is a no-op on any healthy box (floor migrations long applied); recovery boots run with clients down. Residual, out of the cell's scope: a freehand `./sb migrate up` by an operator on a live box — operator action outside the machinery's promise.
 
 (4) KING FRAMING — one recommendation: RUN-THE-SCENARIO. Not fix-the-product (done); not retire-the-cell (one bounded run converts the map's last question mark into proof on the exact forensics wedge, and the scenario's own activation condition — "activates the moment the R1 fix is ready" — is met). Pre-run refresh, small (mechanic): rewrite the stale header (fix landed, cite install.go:633-680 + service.go:5190), re-pin INSTALL_VERSION to a recent baseline so the delta is realistic, keep the existing pass criteria (terminal within the 15-min budget, data intact, counts match snapshot, NRestarts ≤ 2). Cost: one VM, bounded. On green the cell flips [PROVEN] and the coverage map carries no [ASSESS] rows.
+---
+
+author: foreman
+created: 2026-07-14 18:18
+---
+DDL-DEADLOCK [ASSESS] ROW RESOLVED GREEN (2026-07-14 evening, local harness run tmp/ddl-deadlock-run2.log — PASS, 35 checks): the refreshed scenario (regression net for the shipped R1 quiesce, baseline re-pinned to rc.05) ran a real upgrade over a live loaded box with the continuous worker workload and completed cleanly — the quiesce-before-DDL fix holds under the exact jo/tcc wedge shape. Run 1 en route fixed dormant harness staleness: the workload helpers predated the VM_EXEC multi-line guard (converted to VM_SCRIPT_INLINE; also fixed stop's wait-cap reading the VM name as its bound). The coverage map now carries ZERO [ASSESS] rows; remaining [UNPROVEN]: un-park-to-completion (rebuilt on the two-check timed-fill construction, run pending), C-rollback resurrection leg, the two transient-backoff legs — plus AC#4's zero-callers end state (interim-net successors queued).
 ---
 <!-- COMMENTS:END -->
