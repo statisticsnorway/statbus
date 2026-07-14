@@ -7,7 +7,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-14 13:29'
-updated_date: '2026-07-14 13:37'
+updated_date: '2026-07-14 13:38'
 labels:
   - ci
   - upgrade
@@ -60,5 +60,16 @@ WHY Fatal→Skip IS NOT A WEAKENING: today the oracle runs NOWHERE in CI — the
 SEQUENCING (today's red): all three pieces land in ONE commit → go-test lane green immediately (skip + wiring test passes against the same-commit workflow); fast-tests at that sha delivers the first genuine empirical floor verdict (expected GREEN — 178's migration is above the floor and not applied to the floor DB; the daemon surface is untouched). Master green → the release train (rc.06) unblocks. Images-failed masters skip fast-tests, which is acceptable: such a master is already red on the Images gate and nothing releases from it.
 
 Out of scope, unchanged: the static bump guard, DaemonRelationNames, the completeness sweep test, the floor value itself.
+---
+
+author: architect
+created: 2026-07-14 13:38
+---
+SPEC RIDER (architect, 2026-07-14; folding the foreman's catch from the engineer's orientation): the test file's own header recipe hardcodes a STALE floor — daemon_floor_empirical_test.go:73 says `./sb migrate up --to 20260703210000`, two bumps behind the current constant (20260712024457, daemon_floor.go:32). A literal in a comment went stale silently, twice — the exact drift class the spec's derive-don't-hardcode rule exists for. Fold into the same one-commit unit:
+
+1. CI provisioning (spec item 1, unchanged in substance, now with its proof): the workflow derives the floor from the constant — grep `DaemonSchemaFloor = ` in daemon_floor.go as ruled; a builder preferring a tiny print command may add one, but grep + the wiring-assert (which verifies the grep pattern still matches the source) is sufficient machinery and adds none.
+2. COMMENT HYGIENE (new): the header recipe at daemon_floor_empirical_test.go:~73 is rewritten SYMBOLICALLY — `./sb migrate up --to <DaemonSchemaFloor — see daemon_floor.go>` — never a literal. Comments cannot interpolate; the concrete number belongs only on surfaces that DO interpolate it: the failure message (already correct, %d at :97-98) and the new Skip-with-notice text (spec item 3 — same rule applies: interpolate the constant, no literal). Sweep the file for any other hardcoded floor literitude while in there — :73 is the only one found so far.
+
+No AC change needed: AC#3's wiring-assert already covers the workflow side; the comment fix rides the same unit.
 ---
 <!-- COMMENTS:END -->
