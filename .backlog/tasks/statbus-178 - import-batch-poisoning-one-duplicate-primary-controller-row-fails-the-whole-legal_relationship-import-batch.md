@@ -3,10 +3,10 @@ id: STATBUS-178
 title: >-
   import-batch-poisoning: one duplicate-primary controller row fails the whole
   legal_relationship import batch
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-07-13 15:09'
-updated_date: '2026-07-14 09:59'
+updated_date: '2026-07-14 10:36'
 labels:
   - import
   - defect
@@ -43,9 +43,9 @@ GATE: fix design must be ratified by the architect and one-tapped by the King BE
 <!-- AC:BEGIN -->
 - [x] #1 Architect ratifies the analyse-layer detector design (intra-batch + vs-existing, temporal-overlap semantics) — recorded on this ticket
 - [x] #2 King approves the ratified design before any build
-- [ ] #3 Migration adds the tier-1 duplicate_primary_controller detector to import.analyse_legal_relationship; valid rows in a poisoned batch import, conflict rows error per-row with actionable message
-- [ ] #4 Test 124 lands green asserting the corrected behavior (direct-INSERT constraint + per-row tier-1 errors + mixed-batch isolation)
-- [ ] #5 STATBUS-120 ACs close via the same unit
+- [x] #3 Migration adds the tier-1 duplicate_primary_controller detector to import.analyse_legal_relationship; valid rows in a poisoned batch import, conflict rows error per-row with actionable message
+- [x] #4 Test 124 lands green asserting the corrected behavior (direct-INSERT constraint + per-row tier-1 errors + mixed-batch isolation)
+- [x] #5 STATBUS-120 ACs close via the same unit
 <!-- AC:END -->
 
 ## Comments
@@ -81,3 +81,9 @@ created: 2026-07-14 09:59
 KING APPROVED (2026-07-14, AC#2 checked): 'Of course, duplicate primaries are illogical.' The per-row detector builds as ratified (comment #1's five rulings). HOLD LIFTED. Scope boundary from the same ruling: multiple non-controlling interests — even two 50% holders — are LEGAL and must be expressible and reportable; that is NOT this ticket. The bigger question (one power group with marked edges vs a primary power group plus a non-primary power group that can span several primary ones, selectable viewpoint at reporting) is new design work — filed as STATBUS-179. This ticket stays exactly: per-row tier-1 errors for duplicate PRIMARIES, batch lives, test 124 lands green with the fix.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The batch-poisoning defect is fixed at the ruled layer: import.analyse_legal_relationship gained a STEP 3b tier-1 duplicate-primary detector (commit fefa3fc36) that byte-mirrors the exclusion constraint — intra-batch conflicts error BOTH rows, vs-existing conflicts error only the incoming row, valid rows import. process_legal_relationship's backstop now names the fired constraint (detector gaps recognizable on sight). EXPLAIN-verified: intra-batch equality-keyed hash join (38ms @ 50k all-conflict), vs-existing GiST index probe (0.18ms @ 200×300k). Test 124 asserts the corrected behavior: pure-conflict batch → job finished with per-row duplicate_primary_controller errors; mixed batch → 2 valid edges import, only the conflict pair errors. Found test-first by the STATBUS-120 investigation; architect-ratified (5 rulings), King-approved. The expected direct-INSERT constraint rejection is justified per-line in the commit message per the expected-error gate.
+<!-- SECTION:FINAL_SUMMARY:END -->
