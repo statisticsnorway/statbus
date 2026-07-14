@@ -3,11 +3,11 @@ id: STATBUS-187
 title: >-
   silent-error-catalog: fifteen silently-ignored errors in the upgrade/migrate
   core, ranked (from the 176 burn-down)
-status: In Progress
+status: Done
 assignee:
   - '@mechanic'
 created_date: '2026-07-14 19:23'
-updated_date: '2026-07-14 20:59'
+updated_date: '2026-07-14 21:10'
 labels:
   - fail-fast
   - upgrade
@@ -43,7 +43,7 @@ SHAPE: fix in ranked waves (top-3 first, as their own reviewed unit with arc/reg
 - [x] #1 Architect confirms/amends the ranking and rules the handling per tier (hard-fail / loud-warn / accept-documented)
 - [x] #2 Top-3 fixed as their own reviewed unit, proven by the arcs that cover those paths
 - [x] #3 Stale-flag class gets one uniform ruled treatment
-- [ ] #4 Every fixed site's explicit-ignore marker is replaced; accepted sites keep a ruling-citing comment
+- [x] #4 Every fixed site's explicit-ignore marker is replaced; accepted sites keep a ruling-citing comment
 <!-- AC:END -->
 
 ## Comments
@@ -144,3 +144,16 @@ TAIL RULED (architect, 2026-07-14) — closes the catalog. Per tier:
 SUMMARY OF THE WHOLE CATALOG (for AC#4's final sweep): hard-fail — #3 (shipped 792300943), #8/#9 (this ruling); ABORT tier — #2 (shipped 3d7cf6b22); capture-and-fold — #1 (shipped 792300943); loud-warn — #4/#5/#6 (shipped 46dbaf36e), #7 (pre-ruled, shipped 46dbaf36e), #11 (this ruling); accept-documented — #10, #12 (this ruling). Oracle for the closing unit: go test (the migrate-down error paths get unit coverage — a failing runPsql stub returning error must abort the loop) + build/vet; no arc (dev-command surface).
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+All fifteen cataloged silently-ignored errors in the upgrade/migrate core are now fixed or formally accepted with ruling-citing comments, across four reviewed units:
+
+- 3d7cf6b22 (ranked #2, highest consequence): compose.VerifyStopped — fail-closed allow-list + bounded re-check before any pre-restore volume rsync; new honest ABORT tier (ROLLBACK_FAILED_SERVICES_NOT_STOPPED / failed-abort-services-live) in rollback(); ReattemptRestore stays reattemptable; structural pin 3→4; timeline doc row.
+- 792300943 (ranked #1 + #3): ABORT-branch restoreDatabase outcome folded into the terminal message; CI-not-ready unschedule hard-fails through markPgInvariantTerminal on Exec error or RowsAffected==0.
+- 46dbaf36e (stale-flag class, ranked #4-#7): uniform loud-warn via warnOnStaleFlagRemoveFailure — ENOENT silent, every other unlink error names path + error + consequence + remedy; cleanStaleMaintenance included with its maintenance-503 consequence.
+- c526c8e81 (tail, ranked #8-#12): migrate-down ledger writes hard-fail and abort the loop (unit-proven via runPsqlFn seam); prune RemoveAlls loud-warn (the nine-backup-dirs incident); #10 accept-bounded and #12 accept-documented with formal comments.
+
+Every fix replaced its STATBUS-176 explicit-ignore marker; the final sweep confirms the only remaining marker in cli/ is a historical note unrelated to the catalog. Architect ruled every tier (comments #1, #3, #5, #7, #9); mechanic executed; foreman line-reviewed and independently verified each unit. Oracles: unit tests (classification table, structural contract, down-loop abort, ENOENT/warn split) + the restore-broke-reattempt arc covering the restore paths on its next natural re-run.
+<!-- SECTION:FINAL_SUMMARY:END -->
