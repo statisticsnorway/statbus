@@ -224,14 +224,23 @@ func runCommandToLogCtx(ctx context.Context, dir string, logWriter io.Writer, so
 
 // runCommandOutput executes a command and returns combined output.
 func runCommandOutput(dir string, name string, args ...string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	return runCommandOutputTimeout(dir, 2*time.Minute, name, args...)
+}
+
+// runCommandOutputTimeout is runCommandOutput with an explicit deadline. The
+// daemon's NOTIFY handler runs SYNCHRONOUSLY on the main goroutine, which also
+// carries the WatchdogSec=120s heartbeat (service.go main select) — so a network
+// call from that path (STATBUS-183's apply-race fetch) must be bounded well under
+// 120s, not left at the 2m default that could starve the heartbeat into a SIGKILL.
+func runCommandOutputTimeout(dir string, timeout time.Duration, name string, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, name, gitArgs(name, args)...)
 	cmd.Dir = dir
 	prepareCmd(cmd)
 	out, err := cmd.CombinedOutput()
 	if ctx.Err() == context.DeadlineExceeded {
-		return string(out), fmt.Errorf("command timed out after 2m: %s %v", name, args)
+		return string(out), fmt.Errorf("command timed out after %s: %s %v", timeout, name, args)
 	}
 	return string(out), err
 }

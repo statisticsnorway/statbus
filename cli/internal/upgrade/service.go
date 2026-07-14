@@ -4094,6 +4094,12 @@ func errNotRegistered(displayName, input string) error {
 	return fmt.Errorf("%s is not registered — run `./sb upgrade register %s` first", displayName, input)
 }
 
+// applyNotifyFetchTimeout bounds the STATBUS-183 apply-race fetch inside the
+// NOTIFY handler. The handler runs on the daemon's main goroutine under
+// WatchdogSec=120s, so this is deliberately short (A3) — a hung fetch fails fast
+// into a durable refusal rather than blocking the heartbeat.
+const applyNotifyFetchTimeout = 30 * time.Second
+
 // onScheduledNotify REACTS to a NOTIFY upgrade_apply (fired by
 // upgrade_notify_daemon_trigger when a row is promoted to 'scheduled', or sent
 // directly by `./sb upgrade apply-latest`). The CLI `./sb upgrade schedule` is
@@ -4110,9 +4116,27 @@ func errNotRegistered(displayName, input string) error {
 // The input may be a full 40-char commit_sha, an 8-char commit_short, or a
 // CalVer release tag (see resolveUpgradeTarget for the parse contract).
 func (d *Service) onScheduledNotify(ctx context.Context, input string) {
+	// STATBUS-183 piece 2: an apply NOTIFY can beat the box's own fetch of a
+	// freshly-cut release (the rc.06 race). Make the target local with ONE targeted
+	// fetch before resolving — best-effort, a SINGLE attempt (never a backoff loop
+	// in a NOTIFY handler); ensureCommitLocal short-circuits with no network when the
+	// ref is already present (the common case, once discovery has fetched it).
+	//
+	// A3: this handler runs SYNCHRONOUSLY on the daemon's main goroutine (see the
+	// `case n := <-notifyCh` in Run's select), which also carries the WatchdogSec=120s
+	// heartbeat — so the fetch is bounded to applyNotifyFetchTimeout (well under 120s),
+	// never the 2m default: a hung fetch must fail fast into a durable refusal, not
+	// starve the heartbeat into a systemd SIGKILL.
+	if ferr := d.ensureCommitLocal(input, applyNotifyFetchTimeout); ferr != nil {
+		fmt.Printf("apply: pre-resolve fetch of %q did not land (continuing to resolve): %v\n", input, ferr)
+	}
+
 	target, err := resolveUpgradeTarget(ctx, d, input)
 	if err != nil {
+		// STATBUS-183 piece 3: even after the fetch the input names nothing git can
+		// resolve — refuse DURABLY (not just a stdout line 170 phase-2 cannot see).
 		fmt.Printf("Cannot resolve %q: %v\n", input, err)
+		d.recordApplyRefused(ctx, input, fmt.Sprintf("cannot resolve target: %v", err))
 		return
 	}
 
@@ -4130,25 +4154,78 @@ func (d *Service) onScheduledNotify(ctx context.Context, input string) {
 		return
 	}
 
-	// Promote ONLY an existing candidate — NO insert. The WHERE state guard
-	// both makes an already-scheduled row a no-op and prevents a NOTIFY loop
-	// (the UPDATE re-fires upgrade_notify_daemon_trigger).
-	//
-	// STATBUS-046 edit 6: onScheduledNotify is the apply/NOTIFY arm of the
-	// operator re-trigger (un-park trigger 1, parallel to RunSchedule). Compose
-	// RunSchedule's guard verbatim with the existing no-op condition + inline the
-	// SHARED recovery-reset cols in the SET (atomic with the promote — same
-	// reasoning as the pin-2 relaxation). Row semantics: scheduled → excluded
-	// (NOTIFY-loop protection unchanged); parked → reset + reschedule (the gap
-	// closed); terminal → rescheduled with clean park columns; LIVE in_progress
-	// (parked_at NULL) → now EXCLUDED — a NOTIFY apply on a live same-commit
-	// upgrade no longer clobbers the running row back to scheduled (a pre-existing
-	// hazard RunSchedule's arm always guarded; the asymmetry was oversight).
-	// DEFERRED-POISON rationale (why BOTH columns must reset at every deliberate
-	// trigger): a rescheduled-but-still-parked row works until its FIRST crash,
-	// then the stale recovery_parked_at skips the row the operator deliberately
-	// re-triggered, and stale recovery_attempts makes the first legitimate
-	// crash-resume instantly terminal.
+	res, err := d.promoteExistingCandidate(ctx, commitSHA)
+	if err != nil {
+		fmt.Printf("Failed to schedule %s: %v\n", displayName, err)
+		return
+	}
+	switch res {
+	case scheduleResultPromoted:
+		d.onApplyScheduled(ctx, commitSHA, displayName)
+	case scheduleResultAlreadyScheduled:
+		// STATBUS-046: since edit 6 excludes a LIVE in_progress row from the
+		// re-schedule, this covers BOTH "already scheduled" and "already running".
+		fmt.Printf("Version %s is already scheduled or in progress — no action needed\n", displayName)
+		d.clearApplyRefused(ctx) // the named version is already actioned
+	case scheduleResultUnregistered:
+		// STATBUS-183 piece 1: the tag/commit resolved (git says it exists) but has
+		// no candidate row yet — the rc.06 race. Instead of the old drop, register it
+		// through the SAME guarded path the drop message prescribed ("Register it
+		// first: ./sb upgrade register …"), then re-run the promote. upsertCandidate
+		// carries the STATBUS-169 tag↔commit write-guard INTERNALLY, so no candidate
+		// row is ever created except via that guard; a garbage-but-resolvable input
+		// still dies later at verifyArtifacts/images gating, never at execute.
+		if _, _, rerr := d.registerTarget(ctx, target); rerr != nil {
+			// The class guard (e.g. the 169 tag-pointing check) refused — durable.
+			fmt.Printf("NOTIFY upgrade_apply: refusing to register %s: %v\n", displayName, rerr)
+			d.recordApplyRefused(ctx, input, fmt.Sprintf("register refused: %v", rerr))
+			return
+		}
+		// The row now exists via the guarded upsert — re-run the SAME promote so
+		// supersedeOlderReleases fires on the promoted path exactly as usual.
+		res2, err2 := d.promoteExistingCandidate(ctx, commitSHA)
+		if err2 != nil {
+			fmt.Printf("Failed to schedule %s after registering: %v\n", displayName, err2)
+			d.recordApplyRefused(ctx, input, fmt.Sprintf("promote after register failed: %v", err2))
+			return
+		}
+		switch res2 {
+		case scheduleResultPromoted:
+			d.onApplyScheduled(ctx, commitSHA, displayName)
+		case scheduleResultAlreadyScheduled:
+			// The independent discovery+schedule (or a concurrent apply) beat us to
+			// it — benign; the deploy still converges (race hygiene: upsertCandidate
+			// is idempotent on commit_sha, so both orders land the same row).
+			fmt.Printf("Version %s is already scheduled or in progress — no action needed\n", displayName)
+			d.clearApplyRefused(ctx)
+		default:
+			// Registered but promote found no row: impossible (the upsert guaranteed
+			// it) — surface it durably rather than silently.
+			fmt.Printf("NOTIFY upgrade_apply: %s registered but did not promote (unexpected)\n", displayName)
+			d.recordApplyRefused(ctx, input, "registered but promote found no row (unexpected)")
+		}
+	}
+}
+
+// onApplyScheduled finishes a successful promote: announce, supersede older
+// releases, and clear any prior durable apply-refusal (STATBUS-183 piece 3 — the
+// refusal signal is a single latest-outcome key, cleared on the next successful
+// schedule).
+func (d *Service) onApplyScheduled(ctx context.Context, commitSHA CommitSHA, displayName string) {
+	fmt.Printf("Scheduled upgrade to %s\n", displayName)
+	d.supersedeOlderReleases(ctx, string(commitSHA))
+	d.clearApplyRefused(ctx)
+}
+
+// promoteExistingCandidate runs the promote-only UPDATE (NO insert) + classifies
+// the outcome; shared by the first pass and the post-register re-run in
+// onScheduledNotify. The UPDATE promotes an existing candidate to 'scheduled',
+// resetting the lifecycle + recovery budget ATOMICALLY (recoveryBudgetResetCols —
+// see RunSchedule for the DEFERRED-POISON rationale) while excluding an already-
+// scheduled row (NOTIFY-loop protection: the UPDATE re-fires the trigger) and a
+// LIVE in_progress row (recoveryBudgetResetGuard — never clobber a running upgrade
+// back to scheduled; STATBUS-046 edit 6). Returns the scheduleResult classification.
+func (d *Service) promoteExistingCandidate(ctx context.Context, commitSHA CommitSHA) (scheduleResult, error) {
 	result, err := d.queryConn.Exec(ctx,
 		`UPDATE public.upgrade SET
 		   state = 'scheduled',
@@ -4166,9 +4243,8 @@ func (d *Service) onScheduledNotify(ctx context.Context, input string) {
 		 WHERE commit_sha = $1 AND state != 'scheduled' AND `+recoveryBudgetResetGuard,
 		string(commitSHA))
 	if err != nil {
-		d.markPgInvariantTerminal(err, "service.go:onScheduledNotify:update")
-		fmt.Printf("Failed to schedule %s: %v\n", displayName, err)
-		return
+		d.markPgInvariantTerminal(err, "service.go:promoteExistingCandidate:update")
+		return 0, err
 	}
 	// Only probe existence on the 0-rows case; when rows>0 the row plainly exists.
 	rows := result.RowsAffected()
@@ -4177,25 +4253,71 @@ func (d *Service) onScheduledNotify(ctx context.Context, input string) {
 		if err := d.queryConn.QueryRow(ctx,
 			`SELECT EXISTS(SELECT 1 FROM public.upgrade WHERE commit_sha = $1)`,
 			string(commitSHA)).Scan(&exists); err != nil {
-			fmt.Printf("Could not check registration of %s: %v\n", displayName, err)
-			return
+			return 0, err
 		}
 	}
-	switch classifyScheduleResult(rows, exists) {
-	case scheduleResultPromoted:
-		fmt.Printf("Scheduled upgrade to %s\n", displayName)
-		// Once a commit is selected, all older ones are obsolete.
-		d.supersedeOlderReleases(ctx, string(commitSHA))
-	case scheduleResultAlreadyScheduled:
-		// STATBUS-046: since edit 6 excludes a LIVE in_progress row from the
-		// re-schedule, rows==0 here now covers BOTH "already scheduled" and
-		// "already running" — name both so the message isn't imprecise for the
-		// in_progress case.
-		fmt.Printf("Version %s is already scheduled or in progress — no action needed\n", displayName)
-	case scheduleResultUnregistered:
-		// require-register: NEVER insert — loud, actionable no-op.
-		fmt.Printf("NOTIFY upgrade_apply for UNREGISTERED commit %s — ignored.\n", displayName)
-		fmt.Printf("  Register it first: ./sb upgrade register %s\n", displayName)
+	return classifyScheduleResult(rows, exists), nil
+}
+
+// registerTarget registers an already-resolved target through the SINGLE guarded
+// register path (upsertCandidate, which carries the STATBUS-169 tag↔commit
+// write-guard internally). RunRegister (the CLI verb) and onScheduledNotify (the
+// STATBUS-183 apply-race fix) both go through here, so NO candidate row is ever
+// created except via that guard — the surviving-and-stronger form of the 086
+// require-register invariant. Returns the target's commit + display name.
+func (d *Service) registerTarget(ctx context.Context, target UpgradeTarget) (CommitSHA, string, error) {
+	var sha CommitSHA
+	var tag, displayName string
+	switch t := target.(type) {
+	case TaggedTarget:
+		sha, tag, displayName = t.SHA, string(t.Tag), string(t.Tag)
+	case UntaggedTarget:
+		sha, displayName = t.SHA, string(commitShort(t.SHA))
+	default:
+		return "", "", fmt.Errorf("unhandled target type %T", target)
+	}
+	committedAt, describe, subject, err := d.commitMeta(sha)
+	if err != nil {
+		return sha, displayName, err
+	}
+	meta := candidateMeta{committedAt: committedAt}
+	if tag != "" {
+		meta.tags = []string{tag}
+		meta.releaseStatus = ClassifyReleaseShape(tag).ReleaseStatus()
+		meta.summary = tag
+	} else {
+		meta.commitVersion = describe
+		meta.summary = subject
+	}
+	if _, err := d.upsertCandidate(ctx, sha, meta); err != nil {
+		return sha, displayName, err
+	}
+	return sha, displayName, nil
+}
+
+// recordApplyRefused persists a durable apply-refusal signal (STATBUS-183 piece 3)
+// so a refused/undeliverable poke is visible to STATBUS-170 phase-2 polling and the
+// admin UI, not just the daemon journal — killing the incident's silence class even
+// for refuse paths we have not imagined yet. Single latest-outcome key; occurred_at
+// is DB-authoritative. Best-effort: a signal-write failure must not mask the refusal.
+func (d *Service) recordApplyRefused(ctx context.Context, input, reason string) {
+	if _, err := d.queryConn.Exec(ctx,
+		`INSERT INTO public.system_info (key, value, updated_at)
+		 VALUES ('upgrade_apply_refused',
+		         jsonb_build_object('input', $1::text, 'reason', $2::text, 'occurred_at', clock_timestamp())::text,
+		         clock_timestamp())
+		 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = clock_timestamp()`,
+		input, reason); err != nil {
+		fmt.Printf("could not persist upgrade_apply_refused signal: %v\n", err)
+	}
+}
+
+// clearApplyRefused removes the durable apply-refusal signal on the next successful
+// schedule (STATBUS-183 piece 3). Best-effort.
+func (d *Service) clearApplyRefused(ctx context.Context) {
+	if _, err := d.queryConn.Exec(ctx,
+		`DELETE FROM public.system_info WHERE key = 'upgrade_apply_refused'`); err != nil {
+		fmt.Printf("could not clear upgrade_apply_refused signal: %v\n", err)
 	}
 }
 
@@ -4258,13 +4380,33 @@ func (d *Service) commitMeta(sha CommitSHA) (committedAt time.Time, describe, su
 // caller — GitHub's want-by-SHA needs the full SHA, and that is the shape the
 // deploy poke sends; a release TAG carries its own `git fetch --tags` concern
 // (discovery / apply-latest), out of scope here.
-func (d *Service) ensureCommitLocal(sha string) error {
-	if _, err := runCommandOutput(d.projDir, "git", "cat-file", "-e", sha+"^{commit}"); err == nil {
+// ensureCommitLocal makes <ref> resolvable in the LOCAL repo (STATBUS-169
+// deploy-by-commit; generalized for tags in STATBUS-183 A1). cat-file
+// short-circuits with NO network when the ref is already present. On a miss it
+// fetches by CLASS (A1):
+//   - a full commit SHA → `git fetch origin <sha>` (the rc.04 register-by-commit form).
+//   - ANYTHING ELSE (a release tag) → the REFSPEC form
+//     `git fetch origin refs/tags/<ref>:refs/tags/<ref>`. Plain `git fetch origin
+//     <tag>` lands the commit in FETCH_HEAD ONLY and does NOT create the local tag
+//     ref, so a subsequent `git rev-parse <tag>` still fails — the exact rc.06 race
+//     this fix targets. The explicit refspec writes refs/tags/<ref> locally.
+//
+// fetchTimeout bounds the network fetch: RunRegister (a one-shot CLI process) can
+// use the 2m default, but onScheduledNotify runs on the daemon's MAIN goroutine
+// under WatchdogSec=120s, so it passes a short timeout (STATBUS-183 A3).
+func (d *Service) ensureCommitLocal(ref string, fetchTimeout time.Duration) error {
+	if _, err := runCommandOutput(d.projDir, "git", "cat-file", "-e", ref+"^{commit}"); err == nil {
 		return nil // already local — no network
 	}
-	if out, err := runCommandOutput(d.projDir, "git", "fetch", "origin", sha); err != nil {
-		return fmt.Errorf("register could not fetch commit %s to make it local (deploy-by-commit needs the target present): %w\n  output: %s",
-			ShortForDisplay(sha), err, strings.TrimSpace(out))
+	var fetchArgs []string
+	if isCommitSHAShape(ref) {
+		fetchArgs = []string{"fetch", "origin", ref}
+	} else {
+		fetchArgs = []string{"fetch", "origin", "refs/tags/" + ref + ":refs/tags/" + ref}
+	}
+	if out, err := runCommandOutputTimeout(d.projDir, fetchTimeout, "git", fetchArgs...); err != nil {
+		return fmt.Errorf("could not fetch %s to make it local: %w\n  output: %s",
+			ShortForDisplay(ref), err, strings.TrimSpace(out))
 	}
 	return nil
 }
@@ -4278,7 +4420,8 @@ func (d *Service) RunRegister(ctx context.Context, input string) error {
 		// deploy-by-commit doctrine) — BEFORE resolveUpgradeTarget, so its
 		// TagsAtCommit probe and the later commitMeta both read a present commit.
 		if isCommitSHAShape(input) {
-			if err := d.ensureCommitLocal(input); err != nil {
+			// One-shot CLI process (no watchdog) → the 2m default is fine here.
+			if err := d.ensureCommitLocal(input, 2*time.Minute); err != nil {
 				return err
 			}
 		}
@@ -4286,33 +4429,11 @@ func (d *Service) RunRegister(ctx context.Context, input string) error {
 		if err != nil {
 			return fmt.Errorf("resolve %q: %w", input, err)
 		}
-		var sha CommitSHA
-		switch t := target.(type) {
-		case TaggedTarget:
-			sha = t.SHA
-		case UntaggedTarget:
-			sha = t.SHA
-		default:
-			return fmt.Errorf("unhandled target type %T", target)
-		}
-		committedAt, describe, subject, err := d.commitMeta(sha)
+		// Register through the SINGLE guarded path shared with onScheduledNotify
+		// (STATBUS-183) — the STATBUS-169 tag↔commit write-guard lives inside
+		// upsertCandidate, so a candidate row is only ever created here.
+		sha, displayName, err := d.registerTarget(ctx, target)
 		if err != nil {
-			return err
-		}
-		meta := candidateMeta{committedAt: committedAt}
-		var displayName string
-		switch t := target.(type) {
-		case TaggedTarget:
-			meta.tags = []string{string(t.Tag)}
-			meta.releaseStatus = ClassifyReleaseShape(string(t.Tag)).ReleaseStatus()
-			meta.summary = string(t.Tag)
-			displayName = string(t.Tag)
-		case UntaggedTarget:
-			meta.commitVersion = describe
-			meta.summary = subject
-			displayName = string(commitShort(t.SHA))
-		}
-		if _, err := d.upsertCandidate(ctx, sha, meta); err != nil {
 			return fmt.Errorf("register %s: %w", displayName, err)
 		}
 		fmt.Printf("Registered candidate %s (commit %s)\n", displayName, commitShort(sha))

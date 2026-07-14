@@ -48,18 +48,24 @@ func TestErrNotRegistered_Actionable(t *testing.T) {
 	}
 }
 
-// TestOnScheduledNotify_NoInsert is a structural guard for AC#9: the NOTIFY
-// upgrade_apply handler must promote an EXISTING candidate via UPDATE and must
-// NEVER insert-if-missing (the removed scheduleImmediate behavior). A future
-// edit that reintroduces an INSERT into onScheduledNotify would silently revive
-// the fabricate-a-row-from-a-NOTIFY path the require-register rule forbids.
-func TestOnScheduledNotify_NoInsert(t *testing.T) {
+// TestOnScheduledNotify_NoRawInsert is the STRONGER form of the old AC#9 guard,
+// updated for STATBUS-183: the NOTIFY upgrade_apply handler MAY now create a
+// candidate row (the apply-race fix), but ONLY through the guarded register path
+// (registerTarget → upsertCandidate, which carries the STATBUS-169 tag↔commit
+// write-guard) — NEVER a raw insert-if-missing inline in the handler. The
+// surviving-and-stronger invariant: no candidate row is created except via the
+// guarded path. A future edit that inlined a raw INSERT would revive the
+// fabricate-a-row-from-a-NOTIFY path 086 forbade.
+func TestOnScheduledNotify_NoRawInsert(t *testing.T) {
 	body := funcBody(t, "service.go", "func (d *Service) onScheduledNotify(")
 	if strings.Contains(body, "INSERT INTO public.upgrade") {
-		t.Error("onScheduledNotify must NOT INSERT — require-register forbids insert-if-missing (STATBUS-086 AC#9)")
+		t.Error("onScheduledNotify must NOT raw-INSERT — a candidate row is created only via the guarded registerTarget/upsertCandidate path (STATBUS-086/183)")
 	}
-	if !strings.Contains(body, "UPDATE public.upgrade") {
-		t.Error("onScheduledNotify must promote a registered candidate via UPDATE public.upgrade")
+	if !strings.Contains(body, "registerTarget") {
+		t.Error("onScheduledNotify's unregistered branch must register via registerTarget (the guarded path), not drop the apply (STATBUS-183 piece 1)")
+	}
+	if !strings.Contains(body, "promoteExistingCandidate") {
+		t.Error("onScheduledNotify must promote via promoteExistingCandidate (STATBUS-183)")
 	}
 }
 
