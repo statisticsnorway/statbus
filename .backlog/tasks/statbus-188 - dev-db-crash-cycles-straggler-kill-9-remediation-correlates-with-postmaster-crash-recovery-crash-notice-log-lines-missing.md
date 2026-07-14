@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-14 23:17'
+updated_date: '2026-07-14 23:53'
 labels:
   - testing
   - infrastructure
@@ -34,3 +35,13 @@ CHAIN-STARTER, also in scope: 401's regeneration ran ~28 min and was killed by t
 - [ ] #3 dev.sh straggler remediation re-ruled if implicated: safe kill order/signal (TERM to clients first, never blind -9 in the db container) documented in the BLOCKED-lock message
 - [ ] #4 Long-test regeneration path documented so runner timeouts stop manufacturing stragglers (adequate timeout or detached run for 400/401-class tests)
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-14 23:53
+---
+AC#2 EVIDENCE (mechanic's verbatim pgrep -af output from BOTH kill events, recorded before scrollback loss): both kill lists were PURE CLIENTS — pg_regress parent (/usr/lib/postgresql/18/lib/pgxs/src/test/regress/pg_regress --use-existing ... 401_import_jobs_for_brreg_selection) + its psql child (/usr/lib/postgresql/18/bin/psql -X -a -q -d test_401_... -v HIDE_TABLEAM=on ...). PIDs 33240/33246 (event 1, test DB ..._97365) and 33849/33855 (event 2, ..._66023) — different pairs, same shape. VERDICT ON THE HYPOTHESES: (b) pgrep-pattern-matched-a-backend is FALSIFIED (cmdlines are unambiguous clients). (a) PID-reuse-within-the-window remains possible but implausible twice consecutively. Surviving candidates: (c) coincidental OOM at cleanup time, or a NEW one worth testing under AC#2 — killing the psql client mid-29K-row import forces the server backend to ABORT a very large transaction; if the abort path spikes memory or hits a bug, the backend death would follow the client kill by seconds, exactly matching the observed ~30s correlation with NO backend in the kill list. AC#1 (make the postmaster log stream reachable) is the prerequisite for distinguishing these — the crash-notice line names the dead PID and signal.
+---
+<!-- COMMENTS:END -->
