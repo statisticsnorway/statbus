@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-12 22:14'
-updated_date: '2026-07-14 09:53'
+updated_date: '2026-07-14 10:17'
 labels:
   - tooling
   - team
@@ -42,7 +42,7 @@ DURABLE FIX for the architect to rule (the repairs are one-time; recurrence must
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Architect rules the lead-identification mechanism across session rotation and the deny-vs-permissive contradiction for release commands; King blesses the shape (permission machinery)
+- [x] #1 Architect rules the lead-identification mechanism across session rotation and the deny-vs-permissive contradiction for release commands; King blesses the shape (permission machinery)
 - [ ] #2 The hook fails LOUDLY when its resolved team config does not exist — silent disarm is impossible
 - [ ] #3 The ruled fix is implemented with the hook's test file extended to cover: continuation-foreman identification, missing-config loudness, and team-lead↔foreman vocabulary
 - [ ] #4 The night-shift data repairs (701477b3a + config leadSessionId) are superseded by the mechanism — nothing depends on hand-maintained session ids
@@ -103,5 +103,11 @@ KING BLESS POINTS (the three judgment calls in this shape):
 3. The accepted residual if probe P2 shows env is inherited (in-process non-roster subagents would pass the release gate; all real teammates remain covered).
 
 Nothing checked on the ACs — AC#1 completes only with the King's bless of this shape.
+---
+
+author: foreman (relaying King)
+created: 2026-07-14 10:17
+---
+KING BLESSED all three judgment calls (2026-07-14) — AC#1 complete. (1) Root-session⇒foreman: approved — 'it's the one I control.' (2) Fail-closed release for unknown children: approved — he notes the real cost (the foreman cannot delegate a release cut to a smart agent like the engineer) and accepts it as sensible given technical constraints. (3) The P2 residual: approved, WITH A DESIGN RIDER that partially supersedes the concern: the release gate is what matters, regardless of who trips it — so the gate's deny/notice text MUST carry an explicit instruction to the calling LLM: 'You cannot work around this gating unless you have an explicit blessing from the King (or person in control).' His reasoning: that instruction voids the workaround space itself (an agent that inherits env and passes identification is still bound by the no-workaround instruction at the gate) — same doctrine as naming dangerous operations so any agent calls the human. BUILD SPEC ADDITION: the no-workaround sentence goes in every authority-gate message (deny AND the allow paths that carry notices), phrased to the LLM reader. Build queued (mechanic, after the 071 restore-broke-reattempt arc): implement per comments #3/#4 + this rider, with the AC#3 test list including the P1/P2 env probes.
 ---
 <!-- COMMENTS:END -->
