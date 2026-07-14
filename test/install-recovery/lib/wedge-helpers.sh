@@ -229,58 +229,74 @@ start_continuous_worker_workload() {
     local insert_interval_s="${WORKLOAD_INSERT_INTERVAL_S:-2}"
     echo "  [wedge] starting continuous worker workload on $vm_name (duration=${duration_s}s, interval=${insert_interval_s}s)"
 
-    VM_EXEC bash -c "
-        cd ~/statbus
-        # Marker file the loop polls for. The stop primitive removes it.
-        # Place under /tmp so a VM rebuild wipes it.
-        rm -f /tmp/continuous-workload.run
-        touch /tmp/continuous-workload.run
-
-        # Detached tmux session named 'continuous-workload' so we can poll
-        # for completion in the stop primitive without ssh-port-hopping.
-        command -v tmux >/dev/null 2>&1 || sudo apt-get install -y tmux >/dev/null 2>&1 || true
-        tmux kill-session -t continuous-workload 2>/dev/null || true
-        tmux new-session -d -s continuous-workload \"bash -lc '
-            cd ~/statbus
-            elapsed=0
-            while [ -f /tmp/continuous-workload.run ] && [ \$elapsed -lt $duration_s ]; do
-                ./sb psql -c \\\"INSERT INTO worker.tasks (command, payload) VALUES ('\''statistical_history_reduce'\'', jsonb_build_object('\''command'\'', '\''statistical_history_reduce'\'')); \\\" >/dev/null 2>&1 || true
-                sleep $insert_interval_s
-                elapsed=\$((elapsed + $insert_interval_s))
-            done
-            rm -f /tmp/continuous-workload.run
-            echo done > /tmp/continuous-workload.exit
-        '\"
-        # Give the loop one cycle to enqueue something measurable before
-        # the caller proceeds to whatever wedge it's setting up.
-        sleep $((insert_interval_s + 1))
-        ./sb psql -t -A -c \"SELECT count(*) FROM worker.tasks WHERE state IN ('pending','processing');\" 2>/dev/null | xargs -I{} echo '  [wedge] continuous workload running: queue depth {}'
-    "
+    # VM_SCRIPT_INLINE (quoted heredoc) per the VM_EXEC multi-line guard: the
+    # body ships verbatim to the VM; the loop is written there as its OWN file
+    # so tmux runs a FILE, never a locally-quoted string (the old triple-nested
+    # bash -c/tmux/bash -lc quoting is exactly what the guard exists to end).
+    VM_SCRIPT_INLINE start-continuous-workload "$duration_s" "$insert_interval_s" << 'SCRIPT'
+#!/bin/bash
+set -euo pipefail
+duration_s="$1"
+insert_interval_s="$2"
+cd ~/statbus
+# Marker file the loop polls for. The stop primitive removes it.
+# Placed under /tmp so a VM rebuild wipes it.
+rm -f /tmp/continuous-workload.run /tmp/continuous-workload.exit
+touch /tmp/continuous-workload.run
+# The loop body, materialized remotely; the UNQUOTED heredoc delimiter is
+# deliberate — $duration_s/$insert_interval_s interpolate HERE (remote), while
+# \$elapsed stays literal for the loop's own runtime.
+cat > /tmp/continuous-workload-loop.sh << LOOP
+#!/bin/bash
+cd ~/statbus
+elapsed=0
+while [ -f /tmp/continuous-workload.run ] && [ "\$elapsed" -lt $duration_s ]; do
+    ./sb psql -c "INSERT INTO worker.tasks (command, payload) VALUES ('statistical_history_reduce', jsonb_build_object('command', 'statistical_history_reduce'));" >/dev/null 2>&1 || true
+    sleep $insert_interval_s
+    elapsed=\$((elapsed + $insert_interval_s))
+done
+rm -f /tmp/continuous-workload.run
+echo done > /tmp/continuous-workload.exit
+LOOP
+chmod 0755 /tmp/continuous-workload-loop.sh
+# Detached tmux session named 'continuous-workload' so the stop primitive can
+# poll for completion without ssh-port-hopping.
+command -v tmux >/dev/null 2>&1 || sudo apt-get install -y tmux >/dev/null 2>&1 || true
+tmux kill-session -t continuous-workload 2>/dev/null || true
+tmux new-session -d -s continuous-workload /tmp/continuous-workload-loop.sh
+# Give the loop one cycle to enqueue something measurable before the caller
+# proceeds to whatever wedge it is setting up.
+sleep $((insert_interval_s + 1))
+./sb psql -t -A -c "SELECT count(*) FROM worker.tasks WHERE state IN ('pending','processing');" 2>/dev/null | xargs -I{} echo "  [wedge] continuous workload running: queue depth {}"
+SCRIPT
 }
 
 stop_continuous_worker_workload() {
     local vm_name="$1"
-    local max_wait_s="${1:-30}"
+    # NB: was "${1:-30}" — a pre-existing bug that read the VM NAME as the
+    # wait cap (non-numeric, so the remote [ -lt ] test errored every poll).
+    local max_wait_s="${2:-30}"
     echo "  [wedge] stopping continuous worker workload on $vm_name"
 
-    VM_EXEC bash -c "
-        # Signal the loop to exit cleanly. The loop polls every <interval> s.
-        rm -f /tmp/continuous-workload.run
-
-        # Wait for the loop's exit sentinel (written when it returns).
-        # Caps at $max_wait_s so a wedged loop can't block scenario cleanup.
-        elapsed=0
-        while [ ! -f /tmp/continuous-workload.exit ] && [ \$elapsed -lt $max_wait_s ]; do
-            sleep 1
-            elapsed=\$((elapsed + 1))
-        done
-
-        # Tear down the tmux session regardless — if the loop didn't exit
-        # cleanly we still don't want a stale session hanging around.
-        tmux kill-session -t continuous-workload 2>/dev/null || true
-        rm -f /tmp/continuous-workload.exit
-        echo '  [wedge] continuous workload stopped (elapsed='\$elapsed's)'
-    "
+    VM_SCRIPT_INLINE stop-continuous-workload "$max_wait_s" << 'SCRIPT'
+#!/bin/bash
+set -euo pipefail
+max_wait_s="$1"
+# Signal the loop to exit cleanly. The loop polls every <interval> s.
+rm -f /tmp/continuous-workload.run
+# Wait for the loop's exit sentinel (written when it returns); capped so a
+# wedged loop cannot block scenario cleanup.
+elapsed=0
+while [ ! -f /tmp/continuous-workload.exit ] && [ "$elapsed" -lt "$max_wait_s" ]; do
+    sleep 1
+    elapsed=$((elapsed + 1))
+done
+# Tear down the tmux session regardless — if the loop did not exit cleanly we
+# still do not want a stale session hanging around.
+tmux kill-session -t continuous-workload 2>/dev/null || true
+rm -f /tmp/continuous-workload.exit /tmp/continuous-workload-loop.sh
+echo "  [wedge] continuous workload stopped (elapsed=${elapsed}s)"
+SCRIPT
 }
 
 # ─────────────────────────────────────────────────────────────────────────
