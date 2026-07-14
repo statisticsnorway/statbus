@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-14 20:51'
+updated_date: '2026-07-14 21:11'
 labels:
   - install-recovery
   - upgrade
@@ -371,5 +371,11 @@ author: foreman
 created: 2026-07-14 20:51
 ---
 UN-PARK ARM-(ii) RUN 2 DISPATCHED (foreman): assert fix committed as e9b3d3bb0 — both checkpoints now count '^parked ' events via a shared ?-safe helper (never total callback-log lines; STATBUS-137 filter-by-event contract, architect-verified), failure paths dump the full callback log. Re-run: arc-harness run 29367295181, operator watching. On green the map row flips [PROVEN].
+---
+
+author: foreman
+created: 2026-07-14 21:11
+---
+UN-PARK-TO-COMPLETION ROW PROVEN — RUN 2 GREEN (run 29367295181, commit e9b3d3bb0, 2026-07-14 evening): the full arm-(ii) story on the codeonly (no-delta) lineage — real code-only upgrade parks AT-TARGET on the disk shortfall (disk-named reason, exactly one STATBUS_EVENT=parked siren, alive-idle through the RestartSec settle, zero rollbacks in the state-log), operator frees the disk, ./sb install grants exactly ONE fresh attempt, the SAME row completes with ZERO restores anywhere and data intact. Arm (i) (delta→rollback + re-trigger) stands credited to run 29360596950. The two-arm map row is now fully [PROVEN]. Remaining [UNPROVEN] rows: C-rollback resurrection leg, the two transient-backoff legs, plus the two interim-net real-path successors (flagless-selfheal, churn) — non-release-gating per the doctrine notes. Mechanic flips the map row + README; engineer proceeds to the C-rollback resurrection leg per the King's dispatch order.
 ---
 <!-- COMMENTS:END -->
