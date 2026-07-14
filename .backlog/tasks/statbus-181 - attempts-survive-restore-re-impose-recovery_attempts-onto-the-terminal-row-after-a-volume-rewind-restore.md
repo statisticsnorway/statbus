@@ -3,10 +3,10 @@ id: STATBUS-181
 title: >-
   attempts-survive-restore: re-impose recovery_attempts onto the terminal row
   after a volume-rewind restore
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-07-14 13:15'
-updated_date: '2026-07-14 14:16'
+updated_date: '2026-07-14 15:40'
 labels:
   - upgrade
   - install-recovery
@@ -31,8 +31,8 @@ ORACLE: the restore-broke-reattempt arc regains a final-row attempts assert (=3)
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Pre-stop row read captures recovery_attempts on both rollback and re-attempt paths; writeRollbackTerminal re-imposes it
-- [ ] #2 The restore-broke-reattempt arc re-adds the final-row attempts assert (=3) and goes green on a real VM run (shared run with 180's oracle)
+- [x] #1 Pre-stop row read captures recovery_attempts on both rollback and re-attempt paths; writeRollbackTerminal re-imposes it
+- [x] #2 The restore-broke-reattempt arc re-adds the final-row attempts assert (=3) and goes green on a real VM run (shared run with 180's oracle)
 <!-- AC:END -->
 
 ## Comments
@@ -71,3 +71,9 @@ CORRECTIONS to comment #1 (architect, 2026-07-14; both premises refuted by the m
 The mechanic builds on the corrected intermediates; run 3 is the oracle.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+recovery_attempts now survives the volume-rewind restore on every terminal-write path: writeRollbackTerminal re-imposes the pre-stop-captured value alongside state/error at all four call sites (both restore paths capture before any destructive step; commit e269b39a1). Run-proven on a real VM in arc run 29344519124: phase (i) final row attempts=3 after the re-attempt's rewind, phase (ii) ABORT row attempts=1 across the ABORT's own restore — both consumers of the fix asserted in one run. Root cause was the architect's volume-rewind trace (the value was never UPDATEd away; the snapshot restore physically reverted it and the terminal UPDATE re-imposed only state/error). En route the same arc proved the whole STATBUS-111 re-attempt story: pair-terminal + immediate in-dispatch re-attempt to a byte-identical rolled_back, and the still-corrupt-git refusal before any destructive step.
+<!-- SECTION:FINAL_SUMMARY:END -->
