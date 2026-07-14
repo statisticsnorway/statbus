@@ -105,6 +105,12 @@ jobs:
       healthpark_c_short: ${{ steps.fixtures.outputs.healthpark_c_short }}
       healthpark_b_full: ${{ steps.fixtures.outputs.healthpark_b_full }}
       healthpark_c_full: ${{ steps.fixtures.outputs.healthpark_c_full }}
+      # codeonly (STATBUS-071 arm ii): SINGLE-PHASE (B only, like oom/ceiling) — B
+      # carries NO migration, so it stays at-target at the pre-pull check and PARKS
+      # on a resource shortfall. un-park-to-completion-arc.sh is the sole rider.
+      codeonly_b_branch: ${{ steps.fixtures.outputs.codeonly_b_branch }}
+      codeonly_b_short: ${{ steps.fixtures.outputs.codeonly_b_short }}
+      codeonly_b_full: ${{ steps.fixtures.outputs.codeonly_b_full }}
     steps:
       - name: Checkout (full history — branch fixtures are real commits off A)
         uses: actions/checkout@v4
@@ -187,6 +193,13 @@ jobs:
           healthpark_b_branch="$B_BRANCH"; healthpark_b_short="$B_SHORT"; healthpark_b_full="$B_FULL"
           healthpark_c_branch="$C_BRANCH"; healthpark_c_short="$C_SHORT"; healthpark_c_full="$C_FULL"
 
+          # codeonly (STATBUS-071 arm ii): single-phase, B only — construct's
+          # codeonly spec writes NO migration (a non-migration marker), so B is
+          # at-target at the pre-pull check. C is left identical to B (unused),
+          # same shape as oom/ceiling; only B is dispatched/waited-on below.
+          construct_upgrade_target "$base_sha" codeonly
+          codeonly_b_branch="$B_BRANCH"; codeonly_b_short="$B_SHORT"; codeonly_b_full="$B_FULL"
+
           # ARC_PUBKEY set (and exported) by the library on the first call above.
           {
             echo "base_sha=${base_sha}"
@@ -219,9 +232,12 @@ jobs:
             echo "healthpark_c_short=${healthpark_c_short}"
             echo "healthpark_b_full=${healthpark_b_full}"
             echo "healthpark_c_full=${healthpark_c_full}"
+            echo "codeonly_b_branch=${codeonly_b_branch}"
+            echo "codeonly_b_short=${codeonly_b_short}"
+            echo "codeonly_b_full=${codeonly_b_full}"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Dispatch images.yaml for all 8 fixture branches (push does not trigger; dispatch does)
+      - name: Dispatch images.yaml for all 9 fixture branches (push does not trigger; dispatch does)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WORKING_B_BRANCH: ${{ steps.fixtures.outputs.working_b_branch }}
@@ -232,6 +248,7 @@ jobs:
           CEILING_B_BRANCH: ${{ steps.fixtures.outputs.ceiling_b_branch }}
           HEALTHPARK_B_BRANCH: ${{ steps.fixtures.outputs.healthpark_b_branch }}
           HEALTHPARK_C_BRANCH: ${{ steps.fixtures.outputs.healthpark_c_branch }}
+          CODEONLY_B_BRANCH: ${{ steps.fixtures.outputs.codeonly_b_branch }}
         run: |
           set -euo pipefail
           # images.yaml is UNCHANGED — its workflow_dispatch is the public entry
@@ -264,6 +281,7 @@ jobs:
           dispatch_images "$CEILING_B_BRANCH"
           dispatch_images "$HEALTHPARK_B_BRANCH"
           dispatch_images "$HEALTHPARK_C_BRANCH"
+          dispatch_images "$CODEONLY_B_BRANCH"
 
   image-wait:
     name: Wait for per-commit images (A + B + C)
@@ -286,7 +304,7 @@ jobs:
           DOCKER_CLI_EXPERIMENTAL: enabled
           IMAGES_WAIT_BUDGET_S: "2400"
           IMAGES_WAIT_INTERVAL_S: "30"
-          SHORTS: "${{ needs.construct.outputs.base_short }} ${{ needs.construct.outputs.working_b_short }} ${{ needs.construct.outputs.working_c_short }} ${{ needs.construct.outputs.failing_b_short }} ${{ needs.construct.outputs.failing_c_short }} ${{ needs.construct.outputs.oom_b_short }} ${{ needs.construct.outputs.ceiling_b_short }} ${{ needs.construct.outputs.healthpark_b_short }} ${{ needs.construct.outputs.healthpark_c_short }}"
+          SHORTS: "${{ needs.construct.outputs.base_short }} ${{ needs.construct.outputs.working_b_short }} ${{ needs.construct.outputs.working_c_short }} ${{ needs.construct.outputs.failing_b_short }} ${{ needs.construct.outputs.failing_c_short }} ${{ needs.construct.outputs.oom_b_short }} ${{ needs.construct.outputs.ceiling_b_short }} ${{ needs.construct.outputs.healthpark_b_short }} ${{ needs.construct.outputs.healthpark_c_short }} ${{ needs.construct.outputs.codeonly_b_short }}"
         run: |
           set -euo pipefail
           echo "${GH_TOKEN}" | docker login "$REGISTRY" -u "$ACTOR" --password-stdin
@@ -476,6 +494,8 @@ jobs:
           HEALTHPARK_B_BRANCH: ${{ needs.construct.outputs.healthpark_b_branch }}
           HEALTHPARK_C_BRANCH: ${{ needs.construct.outputs.healthpark_c_branch }}
           HEALTHPARK_B_SHORT: ${{ needs.construct.outputs.healthpark_b_short }}
+          CODEONLY_B_FULL: ${{ needs.construct.outputs.codeonly_b_full }}
+          CODEONLY_B_BRANCH: ${{ needs.construct.outputs.codeonly_b_branch }}
         run: |
           set -euo pipefail
           case "$SCENARIO" in
@@ -483,6 +503,7 @@ jobs:
             postswap-migration-oom)                     lineage=oom ;;
             postswap-migration-ceiling)                 lineage=ceiling ;;
             postswap-health-park)                        lineage=healthpark ;;
+            un-park-to-completion)                       lineage=codeonly ;;
             cross-version-rename-handoff)               lineage=crossversion ;;
             *)                                          lineage=working ;;
           esac
@@ -511,6 +532,15 @@ jobs:
               echo "B_BRANCH=${HEALTHPARK_B_BRANCH}"
               echo "C_BRANCH=${HEALTHPARK_C_BRANCH}"
               echo "B_SHORT=${HEALTHPARK_B_SHORT}"
+            } >> "$GITHUB_ENV"
+          elif [ "$lineage" = codeonly ]; then
+            # STATBUS-071 arm ii — single-phase (B only, no C). B carries NO
+            # migration, so it is at-target at the pre-pull check and PARKS on a
+            # resource shortfall (un-park-to-completion-arc.sh declares only
+            # BASE_SHA/B_FULL/B_BRANCH; it never references C).
+            {
+              echo "B_FULL=${CODEONLY_B_FULL}"
+              echo "B_BRANCH=${CODEONLY_B_BRANCH}"
             } >> "$GITHUB_ENV"
           elif [ "$lineage" = crossversion ]; then
             # STATBUS-164 half #2 cross-version arc — the ONLY arc whose base is NOT

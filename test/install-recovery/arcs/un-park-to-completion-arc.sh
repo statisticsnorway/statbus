@@ -1,21 +1,43 @@
 #!/bin/bash
 # Arc: un-park-to-completion  (STATBUS-071 coverage map — the row AFTER
-# restore-broke-reattempt; architect-pinned 2026-07-12: a RESOURCE-class park
-# whose fix is genuinely EXTERNAL).
+# restore-broke-reattempt; architect-ruled 2026-07-14, comment #22: a RESOURCE-class
+# park whose fix is genuinely EXTERNAL, on the ONLY lineage that can reach it).
 #
-# WHAT THIS PROVES — the composition suffix the park family did not yet have end to
-# end: a real upgrade PARKS on an external resource shortfall (disk), the operator
-# fixes the resource, `./sb install` UN-PARKS, and the SAME row runs its one fresh
-# attempt to 'completed' with data intact. The park SUBSTRATE itself (row state,
-# alive-idle, parked-skip, un-park single-fresh-attempt) is already proven by
-# postswap-health-park-arc + waves 9/10; this arc keeps the park asserts TIGHT and
-# focuses on the NEW property: un-park → same row → completed.
+# THE DOCTRINAL LAW THIS ARC OBEYS (architect, STATBUS-071 #22; the general law,
+# stated once here so the next reader does not re-derive it from a red run):
+#   UNDER 145's ATOMICITY, A PARK IS AN AT-TARGET / UNVERIFIABLE PHENOMENON.
+#   Anything positively-BEHIND target rolls back instead. So a construction chasing
+#   a park must hold the ledger AT-TARGET — which, for a failure site BEFORE the
+#   migrations run (the pre-pull disk pre-check), means a NO-DELTA lineage: B carries
+#   NO migration, so at that check the ledger max == on-disk max and the box is
+#   genuinely at-target (ObservedAlreadyAtNew, service.go newSbUpgradingFailure) →
+#   the resource failure PARKS. A delta-carrying B is positively-Behind at that same
+#   check → its resource failure ROLLS BACK. (Second time a park construction moved
+#   for 145: doc-028 reclassified the boot-migrate park the same way.)
+#
+# THE ROW'S TWO ARMS (this ruling split the map row into its two truths):
+#   ARM (i) — DELTA upgrade + resource failure ⇒ ROLLBACK + re-trigger. Already
+#     PROVEN by run 29360596950 (the timed-fill construction on the WORKING lineage
+#     rolled back on the full disk — the RIGHT operator story for a delta: a serving
+#     box at the old version + "free disk space, then re-trigger"). The map row
+#     CREDITS that run; this arc asserts nothing for arm (i).
+#   ARM (ii) — NO-DELTA upgrade + resource failure ⇒ resource-class PARK + external
+#     fix + un-park-to-completion. This arc IS arm (ii), on the codeonly lineage.
+#
+# WHAT THIS ARC PROVES (arm ii): a real NO-DELTA upgrade PARKS on an external
+# resource shortfall (disk) at the pre-pull check while genuinely at-target; the
+# park sirens exactly once; the parked box boots alive-idle; the operator frees the
+# disk; `./sb install` UN-PARKS; and the SAME row runs its ONE fresh attempt to
+# 'completed' — with ZERO restores anywhere (nothing to restore: at-target all
+# along), data intact.
 #
 # NOT a health-park leg: the health-park break is release-INTERNAL (the new version
 # cannot serve past warmup — removing it would be a manual DB write = fabrication).
 # Here the break is EXTERNAL (disk), so the un-parked fresh attempt genuinely
 # SUCCEEDS once the disk is freed — the class the health-park arc's re-park cannot
-# reach.
+# reach. And unlike health-park (a delta lineage that parks on the POST-migration
+# health leg), this arc parks PRE-migration, which is why it needs the no-delta
+# lineage to stay at-target.
 #
 # THE TWO-CHECK DISK LANDSCAPE (the load-bearing fact — do NOT re-learn it from a
 # red run). executeUpgrade guards disk TWICE, and the two checks have OPPOSITE
@@ -60,16 +82,19 @@
 # STATBUS_MIN_DISK_GB=5 to `./sb install` so the ladder itself never refuses on the
 # small arc VM.
 #
-# CONSTRUCTION: install A, populate data. Register B (working lineage — a genuine
-# migration V that SUCCEEDS) so its images pre-download READY while the disk is
-# healthy. Schedule B on a HEALTHY disk (CHECK 1 passes). Poll the flag for
-# phase=new-sb-swapped (backup + swap done), THEN fallocate below 5 GB so the
-# resumed binary parks at CHECK 2 (images already cached, but the pre-check is a
-# headroom gate, so it parks regardless). Free the disk, `./sb install` un-parks,
-# the SAME row completes. Defensive: if the fill loses the race and B COMPLETES
-# without parking, fail with THAT story named — never a generic wrong-state assert.
+# CONSTRUCTION: install A, populate data. Register B (CODEONLY / no-delta lineage —
+# B = A + a non-migration marker, NO migration V — so the box stays at-target at the
+# pre-pull check and parks rather than rolling back) so its images pre-download READY
+# while the disk is healthy. Schedule B on a HEALTHY disk (CHECK 1 passes). Poll the
+# flag for phase=new-sb-swapped (backup + swap done), THEN fallocate below 5 GB so
+# the resumed binary parks at CHECK 2 (images already cached, but the pre-check is a
+# headroom gate, so it parks regardless). Free the disk, `./sb install` un-parks, the
+# SAME row completes with ZERO restores. Defensive: if the fill loses the race and B
+# COMPLETES without parking, fail with THAT story named — never a generic wrong-state
+# assert.
 #
-# Inputs (env): BASE_SHA, B_FULL (40-hex), B_BRANCH, V_VERSION. VM name = $1.
+# Inputs (env): BASE_SHA, B_FULL (40-hex), B_BRANCH. NO V_VERSION — the codeonly
+# lineage carries no migration by design. VM name = $1.
 
 set -euo pipefail
 
@@ -88,7 +113,8 @@ FILL_TARGET_FREE_GB="${FILL_TARGET_FREE_GB:-4}"
 : "${BASE_SHA:?BASE_SHA required}"
 : "${B_FULL:?B_FULL required}"
 : "${B_BRANCH:?B_BRANCH required}"
-: "${V_VERSION:?V_VERSION required}"
+# NO V_VERSION: the codeonly lineage carries no migration — asserting a fixture
+# version here would be a category error (arm ii is at-target with zero delta).
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
 source "$LIB_DIR/vm-bootstrap.sh"
@@ -99,6 +125,19 @@ source "$LIB_DIR/arc-helpers.sh"
 
 UPGRADE_UNIT="statbus-upgrade@statbus.service"
 FILL_FILE="tmp/arc-diskfill.bin"
+# Siren (park-callback) log + the alive-idle settle budget (mirrors the health-park
+# arc — the RestartSec=30 auto-restart hold-off must elapse before "alive-idle" is
+# a real verdict, not a between-restarts snapshot).
+CALLBACK_LOG="/tmp/un-park-callback-log.txt"
+UNIT_ACTIVE_WAIT_BUDGET_S="${UNIT_ACTIVE_WAIT_BUDGET_S:-90}"
+
+# state_log_rollback_count — how many times B's row has entered 'rolled_back' in
+# public.upgrade_state_log. Arm (ii) is at-target all along, so a restore/rollback
+# must NEVER happen; this is the DB-level "zero restores" oracle (a restore is the
+# rollback path). Returns "?" on a transport/DB failure (never a false zero).
+state_log_rollback_count() {
+    VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM public.upgrade_state_log WHERE upgrade_id = (SELECT id FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1) AND new_state = 'rolled_back';\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"
+}
 
 # _dump_unpark_failure_diagnostics — STATBUS-155 rider (mirrors the park-family
 # arcs): on ANY non-zero exit, pull B's progress log + the daemon journal + row
@@ -124,8 +163,8 @@ _dump_unpark_failure_diagnostics() {
 trap 'rc=$?; if [ "$rc" -ne 0 ]; then _dump_unpark_failure_diagnostics; fi; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Arc: un-park-to-completion  (RESOURCE-class park → un-park → completed)"
-echo "  A=${BASE_SHA:0:8}  B=${B_FULL:0:8}  V=${V_VERSION}"
+echo "  Arc: un-park-to-completion  (arm ii: no-delta at-target park → un-park → completed)"
+echo "  A=${BASE_SHA:0:8}  B=${B_FULL:0:8}  (codeonly lineage — no migration V)"
 echo "════════════════════════════════════════════════════════════════"
 
 # Transport-aware row reader (a psql failure reads as "?", never a state verdict).
@@ -157,6 +196,29 @@ flag_phase() {
 arc_prepare_box
 DATA_SNAPSHOT=$(snapshot_demo_data_counts "$VM_NAME")
 echo "  pre-arc data snapshot: $DATA_SNAPSHOT"
+
+# ── configure the park-callback (siren) so the arc can assert it fires exactly
+#    once on the park. Same pattern as postswap-health-park-arc: a callback SCRIPT
+#    transferred as a FILE (never inline — the sudo -i re-quoting layer eats bare
+#    $VARNAME), wired via .env.config so it survives every `sb config generate`. ──
+echo ""
+echo "── writing the park-callback (siren) script + wiring UPGRADE_CALLBACK ──"
+CALLBACK_SCRIPT_LOCAL=$(mktemp)
+cat > "$CALLBACK_SCRIPT_LOCAL" << CALLBACKSCRIPT
+#!/bin/sh
+echo "\$STATBUS_EVENT \$(date -u +%FT%TZ)" >> $CALLBACK_LOG
+CALLBACKSCRIPT
+scp -O "${SSH_OPTS[@]}" "$CALLBACK_SCRIPT_LOCAL" root@"$VM_IP":/tmp/un-park-callback.sh >/dev/null
+rm -f "$CALLBACK_SCRIPT_LOCAL"
+ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
+    'mv /tmp/un-park-callback.sh /home/statbus/un-park-callback.sh && chown statbus:statbus /home/statbus/un-park-callback.sh && chmod 0755 /home/statbus/un-park-callback.sh'
+VM_EXEC bash -c "rm -f $CALLBACK_LOG"
+# Trailing-newline guard: .env.config's last line has no trailing \n, so a naive
+# >> would glue UPGRADE_CALLBACK onto it.
+VM_EXEC bash -c 'cd ~/statbus && (tail -c1 .env.config | grep -q "^$" || printf "\n" >> .env.config) && printf "UPGRADE_CALLBACK=/home/statbus/un-park-callback.sh\n" >> .env.config'
+VM_EXEC bash -c "cd ~/statbus && ./sb config generate"
+VM_EXEC bash -c "grep '^UPGRADE_CALLBACK=' ~/statbus/.env" || { echo "✗ UPGRADE_CALLBACK did not land in .env after config generate" >&2; exit 1; }
+echo "  ✓ siren configured (survives config generate; runCallback reads .env fresh at fire time)"
 
 # ── register B — images pre-download READY while the disk is still healthy ──
 echo ""
@@ -278,13 +340,34 @@ echo "  parked row: id=$PARKED_ID state=$PARK_STATE reason=$PARK_REASON"
 echo "$PARK_REASON" | grep -qiE "disk (nearly full|full)" || { echo "✗ recovery_parked_reason is not the disk/resource reason: $PARK_REASON" >&2; exit 1; }
 echo "  ✓ RESOURCE park landed (in_progress, parked, disk reason), row id=$PARKED_ID"
 
-# The box is ALIVE-IDLE while parked (the pull never ran, the OLD version keeps
-# serving) — a valid read window (not a dead/teardown window): data must be intact.
+# NEVER ROLLED BACK (the arm (i)/(ii) fork, the doctrinal crux): a no-delta B is
+# at-target at the pre-pull check, so it PARKS. If this row EVER entered
+# 'rolled_back', the lineage was not actually at-target (a stray migration slipped
+# in) — the whole arm-(ii) premise is void. Assert zero rollbacks in the state-log.
+ROLLBACKS=$(state_log_rollback_count)
+[ "$ROLLBACKS" = "0" ] || { echo "✗ B's state-log shows $ROLLBACKS rollback(s) — arm (ii) must be at-target and PARK, never roll back (a rollback means B carried a delta / was Behind)" >&2; exit 1; }
+echo "  ✓ zero rollbacks in the state-log — at-target park, not a Behind rollback"
+
+# SIREN fired EXACTLY ONCE on the park (STATBUS-131 park-callback contract).
 echo ""
-echo "── assert box alive-idle + data intact while parked (valid read window) ──"
+echo "── assert the park siren fired exactly once ──"
+SIREN_COUNT=$(VM_EXEC bash -c "wc -l < $CALLBACK_LOG 2>/dev/null" | tr -d ' \r\n' || echo "0")
+[ "$SIREN_COUNT" = "1" ] || { echo "✗ expected exactly 1 park-callback (siren) line, got $SIREN_COUNT" >&2; VM_EXEC bash -c "cat $CALLBACK_LOG 2>/dev/null" >&2 || true; exit 1; }
+VM_EXEC bash -c "cat $CALLBACK_LOG" | grep -q "^parked " || { echo "✗ siren line does not carry STATBUS_EVENT=parked" >&2; exit 1; }
+echo "  ✓ exactly one STATBUS_EVENT=parked siren fired"
+
+# The box is ALIVE-IDLE while parked (the pull never ran, the OLD version keeps
+# serving) — a valid read window (not a dead/teardown window): the daemon unit is
+# active-idle (not crash-looping) and data must be intact. Wait out the RestartSec
+# hold-off first so "active" is a settled verdict, not a between-restarts snapshot.
+echo ""
+echo "── assert box alive-idle (daemon active, not crash-looping) + data intact while parked ──"
+echo "── waiting out the auto-restart hold-off (budget ${UNIT_ACTIVE_WAIT_BUDGET_S}s) before the alive-idle check ──"
+sleep "$UNIT_ACTIVE_WAIT_BUDGET_S"
+assert_systemd_active "$VM_NAME" "$UPGRADE_UNIT" "active"
 assert_health_passes "$VM_NAME"
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
-echo "  ✓ healthy + data intact under the park"
+echo "  ✓ daemon alive-idle, healthy + data intact under the park"
 
 # ── FREE the disk — the external fix. ──
 echo ""
@@ -310,15 +393,20 @@ echo "  ./sb install (un-park) exit: $INSTALL_RC"
 # Dispatch-log evidence (the un-park line is written before the row settles): the
 # install must announce it un-parked, and exit 0 (the fresh attempt completes now
 # that the disk is fixed — unlike the health-park re-park, which exits non-zero).
-grep -qE "UN-PARKED upgrade id=[0-9]+" "$INSTALL_OUT" || { echo "✗ expected the 'UN-PARKED upgrade id=N' line in ./sb install's output" >&2; rm -f "$INSTALL_OUT"; exit 1; }
+# ONE fresh attempt: the un-park line must appear EXACTLY once (a single grant, not
+# a churn of re-un-parks). Count it rather than merely grep -q.
+UNPARK_LINES=$(grep -cE "UN-PARKED upgrade id=[0-9]+" "$INSTALL_OUT" || true)
+[ "$UNPARK_LINES" = "1" ] || { echo "✗ expected exactly ONE 'UN-PARKED upgrade id=N' line (one fresh attempt), got $UNPARK_LINES" >&2; rm -f "$INSTALL_OUT"; exit 1; }
 [ "$INSTALL_RC" -eq 0 ] || { echo "✗ ./sb install exited $INSTALL_RC on the un-park — expected 0 (the fresh attempt should complete with the disk freed)" >&2; rm -f "$INSTALL_OUT"; exit 1; }
 rm -f "$INSTALL_OUT"
-echo "  ✓ install logged UN-PARKED and exited 0"
+echo "  ✓ install logged UN-PARKED exactly once (one fresh attempt) and exited 0"
 
 # ── ASSERT COMPLETION (ruled terminal): the SAME row reached 'completed', park
-#    cleared, V applied (anti-vacuity: the completion is genuine), data intact. ──
+#    cleared, data intact — and ZERO restores anywhere (arm ii is at-target all
+#    along, so nothing was ever restored). NO fixture/V assertion: the codeonly
+#    lineage carries no migration by design (that absence is the whole point). ──
 echo ""
-echo "── assert completion: SAME row id=$PARKED_ID reached 'completed', un-parked, V applied, data intact ──"
+echo "── assert completion: SAME row id=$PARKED_ID reached 'completed', un-parked, ZERO restores, data intact ──"
 ROW=$(row_cols_for "$B_FULL")
 DONE_ID=$(echo "$ROW" | cut -d'|' -f1)
 DONE_STATE=$(echo "$ROW" | cut -d'|' -f2)
@@ -327,11 +415,18 @@ echo "  final row: $ROW"
 [ "$DONE_ID" = "$PARKED_ID" ] || { echo "✗ the completed row id=$DONE_ID is NOT the parked row id=$PARKED_ID — un-park must run the SAME row, not a fresh one" >&2; exit 1; }
 [ "$DONE_STATE" = "completed" ] || { echo "✗ expected state='completed' after un-park, got '$DONE_STATE'" >&2; exit 1; }
 [ "$DONE_PARKED" = "f" ] || { echo "✗ recovery_parked_at is still set after completion (parked=$DONE_PARKED) — un-park must clear it" >&2; exit 1; }
-RC=$(fixture_row_count)
-[ "$RC" = "1" ] || { echo "✗ V (V_VERSION=$V_VERSION) not applied: public.upgrade_arc_fixture count=$RC (want 1) — the completion is vacuous" >&2; exit 1; }
+# ZERO restores anywhere (arm ii's signature): the row must never have rolled back —
+# not at the park, not during the un-park attempt. At-target all along means there
+# was nothing to restore; a restore would be a correctness violation of the ruling.
+ROLLBACKS_FINAL=$(state_log_rollback_count)
+[ "$ROLLBACKS_FINAL" = "0" ] || { echo "✗ B's state-log shows $ROLLBACKS_FINAL rollback(s) across the whole arc — arm (ii) must complete with ZERO restores (nothing to restore: at-target throughout)" >&2; exit 1; }
+# The siren fired once (at the park) and NOT again through the un-park→complete leg
+# (completion is not a park event).
+SIREN_FINAL=$(VM_EXEC bash -c "wc -l < $CALLBACK_LOG 2>/dev/null" | tr -d ' \r\n' || echo "0")
+[ "$SIREN_FINAL" = "1" ] || { echo "✗ siren count is $SIREN_FINAL at completion (expected still 1 — the park sirens once; un-park→complete must not re-siren)" >&2; exit 1; }
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 assert_health_passes "$VM_NAME"
-echo "  ✓ same row completed, park cleared, V applied, data intact, healthy"
+echo "  ✓ same row completed, park cleared, ZERO restores, siren still once, data intact, healthy"
 
 echo ""
-echo "PASS: un-park-to-completion — a real upgrade PARKED on the external disk shortfall (row $PARKED_ID, in_progress, disk reason, box alive-idle, data intact), the operator freed the disk, ./sb install un-parked, and the SAME row (id $PARKED_ID) ran its fresh attempt to 'completed' with V applied and data intact. The RESOURCE-park → external-fix → un-park-to-completion composition is proven end-to-end."
+echo "PASS: un-park-to-completion (arm ii, no-delta lineage) — a real CODE-ONLY upgrade PARKED at-target on the external disk shortfall (row $PARKED_ID, in_progress, disk reason, siren once, daemon alive-idle, zero rollbacks, data intact), the operator freed the disk, ./sb install un-parked (one fresh attempt), and the SAME row (id $PARKED_ID) ran to 'completed' with ZERO restores anywhere and data intact. The at-target RESOURCE-park → external-fix → un-park-to-completion composition is proven end-to-end on the only lineage that can reach it. (Arm (i), delta→rollback, is credited to run 29360596950.)"

@@ -44,7 +44,7 @@
 #   - writing outputs to $GITHUB_OUTPUT (CI)
 #   - trusting ARC_PUBKEY via arc-helpers.sh::trust_arc_signer (post-install)
 #
-# SPEC ∈ {working, failing, oom, ceiling, healthpark}
+# SPEC ∈ {working, failing, oom, ceiling, healthpark, codeonly}
 #   working  — B: genuine migration V that SUCCEEDS (CREATE TABLE upgrade_arc_fixture +
 #               upgrade_arc_fixture_2); C: B with V amended in place (prepends a comment
 #               → new bytes, same effect; triggers STATBUS-102 channel-bless re-stamp).
@@ -76,6 +76,15 @@
 #               mismatch on an already-applied version is BLESSED/re-stamped,
 #               not re-run — doc-029 Rev 2). V1/V2 stay byte-identical between
 #               B and C.
+#   codeonly — B: NO migration at all — a single non-migration marker file, so B
+#               is a distinct signed commit from A with ZERO migration delta. This
+#               is the ONLY no-delta lineage: at the post-swap pre-pull disk
+#               pre-check the box is genuinely AT-TARGET, so a resource failure
+#               there PARKS (the un-park-to-completion arm-(ii) arc's story) — a
+#               delta lineage would ROLL BACK instead (positively-Behind; run
+#               29360596950). Represents a code-/app-/CLI-only release. SINGLE-PHASE
+#               like oom/ceiling (no C; identical-to-B, unused) — the arc completes
+#               B's own row via un-park, there is no separate fix release.
 #
 # Migration content is NON-IDEMPOTENT by design (no IF NOT EXISTS): a re-apply
 # CONFLICTS ('already exists') — load-bearing for the after-commit arcs' deterministic
@@ -348,6 +357,36 @@ _ut_write_healthpark_fix_v3() {
     echo "SELECT 1;  -- unused (oom/ceiling unused-down precedent, doc-029 Rev 2) — C never rolls back within this arc" > "$v_down"
 }
 
+# _ut_write_codeonly_change MARKER
+# Write the CODE-ONLY (no-delta) fixture: a single non-migration marker file,
+# and NO migration at all. STATBUS-071 arm (ii): B = A + code change, no V.
+#
+# WHY NO MIGRATION IS THE LOAD-BEARING PROPERTY (architect law, STATBUS-071 #22,
+# 145 atomicity): at the post-swap pre-pull disk pre-check the ledger's max
+# version == the on-disk max and the binary is already the target — the box is
+# genuinely AT-TARGET (ObservedAlreadyAtNew, service.go newSbUpgradingFailure).
+# A deterministic resource failure there therefore PARKS (restore forbidden —
+# forward remains possible), it does NOT roll back. A delta-carrying lineage
+# (working/etc.) is positively BEHIND at that same check, so its resource
+# failure ROLLS BACK instead (proven by run 29360596950). The resource PARK
+# genuinely lives only on no-migration upgrades — a normal fleet reality
+# (app-/CLI-only RCs). The marker's CONTENT is irrelevant to the running box:
+# unlike working's fixture table, the arm-(ii) arc asserts on the park + un-park
+# + zero-restore, never on this file. It exists only so B is a distinct signed
+# commit from A with NO migration delta.
+_ut_write_codeonly_change() {
+    local _marker="$1"
+    mkdir -p "$(dirname "$_marker")"
+    {
+      echo "Upgrade-arc CODE-ONLY (no-delta) fixture (STATBUS-071 arm ii)."
+      echo "B = A + this non-migration change; NO migration is written, so B is"
+      echo "AT-TARGET at the post-swap pre-pull disk pre-check → a resource failure"
+      echo "there PARKS (forward possible) rather than rolling back (which needs a"
+      echo "positively-Behind ledger). Represents a normal code-only / app-or-CLI-only"
+      echo "release. This file's content is never asserted by the running box."
+    } > "$_marker"
+}
+
 # construct_upgrade_target BASE_SHA SPEC
 # See module header above for full documentation.
 construct_upgrade_target() {
@@ -394,6 +433,9 @@ construct_upgrade_target() {
     local _v2_down="migrations/${V_VERSION_2}_upgrade_arc_2.down.sql"
     local _v3_up="migrations/${V_VERSION_3}_upgrade_arc_3.up.sql"
     local _v3_down="migrations/${V_VERSION_3}_upgrade_arc_3.down.sql"
+    # codeonly (no-delta) marker — a non-migration file so B is a distinct
+    # signed commit from A with NO migration V (STATBUS-071 arm ii).
+    local _marker="test/install-recovery/fixtures/upgrade-arc-codeonly.marker"
     echo "── construct_upgrade_target: spec=${_spec} base=${_base_sha:0:8} V=${V_VERSION} V2=${V_VERSION_2} V3=${V_VERSION_3} ──"
 
     # ── branch names (verbatim pattern from upgrade-arc-harness.yaml:201-202) ─
@@ -412,7 +454,13 @@ construct_upgrade_target() {
             _ut_write_healthpark_v1 "$_v_up" "$_v_down"
             _ut_write_healthpark_break_v2 "$_v2_up" "$_v2_down"
             ;;
-        *) echo "construct_upgrade_target: unknown SPEC '${_spec}' (expected: working|failing|oom|ceiling|healthpark)" >&2; return 1 ;;
+        codeonly)
+            # No migration — a non-migration marker only. Stage it here (the
+            # shared `git add migrations/` below adds nothing for this spec).
+            _ut_write_codeonly_change "$_marker"
+            git add "$_marker"
+            ;;
+        *) echo "construct_upgrade_target: unknown SPEC '${_spec}' (expected: working|failing|oom|ceiling|healthpark|codeonly)" >&2; return 1 ;;
     esac
     git add migrations/
     # The synthetic upgrade-arc fixture migrations are exempted from the doc/db
@@ -473,6 +521,13 @@ construct_upgrade_target() {
             _ut_write_healthpark_fix_v3 "$_v3_up" "$_v3_down"
             git add migrations/
             git commit -S -q -m "test(upgrade-arc): ${_spec} fix auth_status via NEW migration V3 (C)"
+            ;;
+        codeonly)
+            # No "fixed" phase: single-phase (A→B only). The un-park-to-completion
+            # arm-(ii) arc completes B's OWN row (park → un-park → same row
+            # completes); there is no separate fix release. Same no-commit shape as
+            # oom/ceiling — C stays identical to B (unused); the arc declares only
+            # BASE_SHA/B_FULL/B_BRANCH as required.
             ;;
     esac
     local _c_short _c_full
@@ -542,7 +597,7 @@ delete_throwaway_branches() {
     local _run_id="${2:-${RUN_ID:-}}"
 
     if [ -z "$_spec" ]; then
-        echo "delete_throwaway_branches: SPEC required (working|failing|oom|ceiling|healthpark) — skipping" >&2
+        echo "delete_throwaway_branches: SPEC required (working|failing|oom|ceiling|healthpark|codeonly) — skipping" >&2
         return 0
     fi
     if [ -z "$_run_id" ]; then
