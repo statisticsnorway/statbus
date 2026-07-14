@@ -250,7 +250,7 @@ class AuthStore {
   /**
    * Get debug information about the store state
    */
-  public getDebugInfo(): Record<string, any> {
+  public getDebugInfo(): Record<string, unknown> {
     return {
       fetchStatus: this.fetchStatus,
       lastFetchTime: this.lastFetchTime,

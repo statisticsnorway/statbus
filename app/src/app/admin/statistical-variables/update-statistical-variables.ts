@@ -14,7 +14,7 @@ const schema = zfd.formData({
 
 
 export async function createStatDefinition(
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<UpdateResponse> {
   const client = await getServerRestClient();
@@ -47,7 +47,7 @@ export async function createStatDefinition(
 
 export async function updateStatDefinition(
   id: number,
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<UpdateResponse> {
   const client = await getServerRestClient();

@@ -7,11 +7,11 @@ import { logger } from '@/lib/client-logger';
 
 import { addEventJournalEntryAtom, debugInspectorVisibleAtom, type EventJournalEntry, MachineID } from './app';
 
-const flattenStateValue = (value: any): string => {
+const flattenStateValue = (value: unknown): string => {
   if (typeof value === 'string') return value;
   if (typeof value === 'object' && value !== null && Object.keys(value).length > 0) {
     const key = Object.keys(value)[0];
-    return `${key}.${flattenStateValue((value as any)[key])}`;
+    return `${key}.${flattenStateValue((value as Record<string, unknown>)[key])}`;
   }
   return JSON.stringify(value);
 };
@@ -30,7 +30,7 @@ const inspectorVisibilityAtom = atom(null, (_, set, isVisible: boolean) => {
 });
 
 // A cache to hold the last snapshot for each actor to compare against.
-const lastSnapshot: Record<string, any> = {};
+const lastSnapshot: Record<string, unknown> = {};
 
 function handleInspectionEvent(inspectionEvent: InspectionEvent) {
   if (inspectionEvent.type !== '@xstate.snapshot') {
@@ -52,17 +52,15 @@ function handleInspectionEvent(inspectionEvent: InspectionEvent) {
   // Now that we've confirmed we're dealing with a machine actor, we can safely
   // access its properties.
   const snapshot = genericSnapshot as AnyMachineSnapshot;
-  const machineId = (actorRef.logic as any).id as EventJournalEntry['machine'];
+  const machineId = (actorRef.logic as { id: EventJournalEntry['machine'] }).id;
 
   if (![MachineID.Auth, MachineID.LoginUI, MachineID.Navigation].includes(machineId)) {
     return;
   }
 
-  // BATTLE WISDOM: The `id` property *does* exist on the actorRef according to
-  // XState's types, but the TypeScript compiler is getting confused and reporting
-  // an error. Using `as any` is a pragmatic workaround to bypass this confusing
-  // and likely incorrect compiler error.
-  const actorId = (actorRef as any).id;
+  // XState's runtime actorRef carries `id`, but its published types omit it on
+  // this union; the narrowing cast to { id: string } is the typed boundary.
+  const actorId = (actorRef as unknown as { id: string }).id;
   const prevSnapshot = lastSnapshot[actorId] as AnyMachineSnapshot | undefined;
   lastSnapshot[actorId] = snapshot;
 
@@ -92,7 +90,7 @@ function handleInspectionEvent(inspectionEvent: InspectionEvent) {
     if (machineId === MachineID.Navigation) {
       eventForLog = { type: 'CONTEXT_UPDATED' };
       const changedKeys = Object.keys(snapshot.context).filter(key =>
-        JSON.stringify((prevSnapshot.context as any)[key]) !== JSON.stringify((snapshot.context as any)[key])
+        JSON.stringify((prevSnapshot.context as Record<string, unknown>)[key]) !== JSON.stringify((snapshot.context as Record<string, unknown>)[key])
       );
       if (changedKeys.length === 0 || (changedKeys.length === 1 && changedKeys[0] === 'sideEffect')) {
         return;

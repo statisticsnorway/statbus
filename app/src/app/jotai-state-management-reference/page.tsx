@@ -14,7 +14,7 @@ import type { Database } from '@/lib/database.types';
 const DEBUG_LOGGING = true;
 
 // --- Helper Functions ---
-const log = (...args: any[]) => {
+const log = (...args: unknown[]) => {
   if (DEBUG_LOGGING) {
     console.log('[JotaiRef]', ...args);
   }
@@ -26,7 +26,7 @@ interface SimpleAuthStatus {
   isAuthenticated: boolean;
   expired_access_token_call_refresh: boolean;
   statusMessage: string;
-  rawResponse?: any;
+  rawResponse?: unknown;
 }
 
 interface LocalLoginCredentials {
@@ -34,26 +34,30 @@ interface LocalLoginCredentials {
   password: string;
 }
 
-const parseSimpleAuthResponse = (rpcResponseData: any, errorObj?: any): Omit<SimpleAuthStatus, 'loading' | 'rawResponse'> => {
+const parseSimpleAuthResponse = (rpcResponseData: unknown, errorObj?: unknown): Omit<SimpleAuthStatus, 'loading' | 'rawResponse'> => {
   log('parseSimpleAuthResponse: Parsing...', { rpcResponseData, errorObj });
-  if (errorObj) {
-    const result = { isAuthenticated: false, expired_access_token_call_refresh: false, statusMessage: `Error: ${errorObj.message || 'Unknown fetch error'}` };
+  // The RPC/loadable sources are loosely-typed; narrow to the fields this
+  // reference example reads.
+  const data = rpcResponseData as { is_authenticated?: boolean; expired_access_token_call_refresh?: boolean; email?: string; error_code?: string } | null | undefined;
+  const err = errorObj as { message?: string } | null | undefined;
+  if (err) {
+    const result = { isAuthenticated: false, expired_access_token_call_refresh: false, statusMessage: `Error: ${err.message || 'Unknown fetch error'}` };
     log('parseSimpleAuthResponse: Result (from error):', result);
     return result;
   }
-  if (!rpcResponseData && !errorObj) {
+  if (!data && !err) {
     const result = { isAuthenticated: false, expired_access_token_call_refresh: false, statusMessage: "Error: No data from server (RPC success, but null data)" };
     log('parseSimpleAuthResponse: Result (no data):', result);
     return result;
   }
-  const isAuthenticated = rpcResponseData?.is_authenticated ?? false;
-  const expired_access_token_call_refresh = rpcResponseData?.expired_access_token_call_refresh ?? false;
+  const isAuthenticated = data?.is_authenticated ?? false;
+  const expired_access_token_call_refresh = data?.expired_access_token_call_refresh ?? false;
   const result = {
     isAuthenticated,
     expired_access_token_call_refresh,
     statusMessage: isAuthenticated
-      ? `Authenticated (User: ${rpcResponseData.email || 'N/A'})`
-      : (rpcResponseData?.error_code ? `Error: ${rpcResponseData.error_code}` : "Not Authenticated"),
+      ? `Authenticated (User: ${data?.email || 'N/A'})`
+      : (data?.error_code ? `Error: ${data.error_code}` : "Not Authenticated"),
   };
   log('parseSimpleAuthResponse: Result (from data):', result);
   return result;
@@ -91,7 +95,7 @@ const localAuthStatusAtom = atom<SimpleAuthStatus>((get) => {
       return { loading: true, statusMessage: "Loading...", isAuthenticated: false, expired_access_token_call_refresh: false };
     case 'hasError':
       log('localAuthStatusAtom: State is "hasError".', loadableState.error);
-      const errorData = (loadableState.error as any)?.data || (loadableState.error as any)?.error || loadableState.error;
+      const errorData = (loadableState.error as { data?: unknown; error?: unknown })?.data || (loadableState.error as { data?: unknown; error?: unknown })?.error || loadableState.error;
       return { loading: false, ...parseSimpleAuthResponse(null, errorData), rawResponse: errorData };
     case 'hasData':
       log('localAuthStatusAtom: State is "hasData".', loadableState.data);
@@ -406,7 +410,7 @@ const LocalLoginForm: React.FC = () => {
     try {
       await performLogin({ credentials: { email, password }, pathname });
       setEmail(''); setPassword('');
-    } catch (err: any) { setError(err.message || 'Login failed.'); }
+    } catch (err: unknown) { setError((err instanceof Error ? err.message : String(err)) || 'Login failed.'); }
     finally { setIsLoading(false); }
   };
   return (
@@ -436,7 +440,7 @@ const LocalLogoutButton: React.FC = () => {
   const handleClick = async () => {
     setError(null); setIsLoading(true);
     try { await performLogout(pathname); }
-    catch (err: any) { setError(err.message || 'Logout failed.'); }
+    catch (err: unknown) { setError((err instanceof Error ? err.message : String(err)) || 'Logout failed.'); }
     finally { setIsLoading(false); }
   };
   return (
@@ -457,7 +461,7 @@ const RemoveAccessTokenButton: React.FC = () => {
   const handleClick = async () => {
     setError(null); setIsLoading(true);
     try { await performRemove(); }
-    catch (err: any) { setError(err.message || 'Failed to remove cookie.'); }
+    catch (err: unknown) { setError((err instanceof Error ? err.message : String(err)) || 'Failed to remove cookie.'); }
     finally { setIsLoading(false); }
   };
   return (
@@ -477,7 +481,7 @@ const RefreshTokenButton: React.FC = () => {
   const handleClick = async () => {
     setError(null); setIsLoading(true);
     try { await performRefresh(); }
-    catch (err: any) { setError(err.message || 'Failed to refresh token.'); }
+    catch (err: unknown) { setError((err instanceof Error ? err.message : String(err)) || 'Failed to refresh token.'); }
     finally { setIsLoading(false); }
   };
   return (

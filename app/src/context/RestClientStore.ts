@@ -129,7 +129,7 @@ class RestClientStore {
   /**
    * Get debug information about the store state
    */
-  public getDebugInfo(): Record<string, any> {
+  public getDebugInfo(): Record<string, unknown> {
     // Server client state is no longer stored globally in the store
     const serverDebugInfo = {
       status: 'N/A (created per request)',
@@ -319,8 +319,8 @@ class RestClientStore {
 
     try {
       return await fetch(url, fetchOptions);
-    } catch (error: any) {
-      if (error.name !== 'AbortError') {
+    } catch (error: unknown) {
+      if (!(error instanceof Error && error.name === 'AbortError')) {
         console.error(`[RestClientStore.fetchWithAuthRefresh] Fetch failed for URL: ${url}`, error);
       }
       throw error;

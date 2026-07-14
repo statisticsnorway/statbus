@@ -25,13 +25,20 @@ import { atomEffect } from 'jotai-effect'
 import { createMachine, assign, setup, fromPromise, type SnapshotFrom } from 'xstate'
 import { atomWithMachine } from 'jotai-xstate'
 
+import { PostgrestClient } from '@supabase/postgrest-js';
 import { type User, type AuthStatus as CoreAuthStatus, _parseAuthStatusRpcResponseToAuthStatus } from '@/lib/auth.types';
+import type { Database } from '@/lib/database.types';
 import { logger } from '@/lib/client-logger';
 import { authStore } from '@/context/AuthStore';
 import { inspector } from './inspector';
 import { statbusConfig } from '@/lib/statbus-config';
 
-const addAndPurgeLog = (log: Record<number, any> | undefined, type: string, response: any, timestamp: number): Record<number, any> => {
+// The PostgREST client threaded through this machine's context and events.
+type RestClient = PostgrestClient<Database>;
+// One auth-API call record kept in the rolling diagnostic log.
+type AuthApiLogEntry = { type: string; response: unknown };
+
+const addAndPurgeLog = (log: Record<number, AuthApiLogEntry> | undefined, type: string, response: unknown, timestamp: number): Record<number, AuthApiLogEntry> => {
   if (!response) {
     return log || {};
   }
@@ -50,9 +57,9 @@ const addAndPurgeLog = (log: Record<number, any> | undefined, type: string, resp
 
 const authMachine = setup({
   types: {
-    context: {} as CoreAuthStatus & { client: any | null; justLoggedOut?: boolean; authApiResponseLog?: Record<number, { type: string; response: any; }>; },
+    context: {} as CoreAuthStatus & { client: RestClient | null; justLoggedOut?: boolean; authApiResponseLog?: Record<number, AuthApiLogEntry>; },
     events: {} as
-      | { type: 'CLIENT_READY'; client: any }
+      | { type: 'CLIENT_READY'; client: RestClient }
       | { type: 'CLIENT_UNREADY' }
       | { type: 'CHECK' }
       | { type: 'REFRESH' }
@@ -61,7 +68,7 @@ const authMachine = setup({
       | { type: 'ACK_LOGOUT_CLEANUP' },
   },
   actors: {
-    checkAuthStatus: fromPromise(async ({ input }: { input: { client: any }}) => {
+    checkAuthStatus: fromPromise(async ({ input }: { input: { client: RestClient }}) => {
       logger.debug("auth-machine:checkAuthStatus", "Actor invoked.");
       const { data, error } = await input.client.rpc("auth_status");
       if (error) {
@@ -74,10 +81,10 @@ const authMachine = setup({
       const outcome = status.expired_access_token_call_refresh ? 'refresh_needed' : 'ok';
       logger.debug("auth-machine:checkAuthStatus", `Final outcome determined: '${outcome}'.`);
 
-      const rawResponseWithTimestamp = { ...data, timestamp: new Date().toISOString() };
+      const rawResponseWithTimestamp = { ...(data as Record<string, unknown>), timestamp: new Date().toISOString() };
       return { outcome, status, rawResponse: rawResponseWithTimestamp };
     }),
-    refreshToken: fromPromise(async ({ input }: { input: { client: any }}) => {
+    refreshToken: fromPromise(async ({ input }: { input: { client: RestClient }}) => {
       logger.debug("auth-machine:refreshToken", "Actor invoked.");
       // Re-implement the core logic of _performClientSideRefresh here for the actor.
       const apiUrl = statbusConfig.browserRestUrl;
@@ -123,12 +130,12 @@ const authMachine = setup({
 
       const parsedStatus = _parseAuthStatusRpcResponseToAuthStatus(responseData);
       const rawResponseWithTimestamp = { ...responseData, timestamp: new Date().toISOString() };
-      const canaryResponseWithTimestamp = canaryData ? { ...canaryData, timestamp: new Date().toISOString() } : null;
+      const canaryResponseWithTimestamp = canaryData ? { ...(canaryData as Record<string, unknown>), timestamp: new Date().toISOString() } : null;
       
       logger.debug("auth-machine:refreshToken", "Refresh and canary successful. Returning data.");
       return { parsedStatus, rawResponse: rawResponseWithTimestamp, canaryResponse: canaryResponseWithTimestamp };
     }),
-    login: fromPromise(async ({ input }: { input: { client: any, credentials: { email: string; password: string } } }) => {
+    login: fromPromise(async ({ input }: { input: { client: RestClient, credentials: { email: string; password: string } } }) => {
       const apiUrl = statbusConfig.browserRestUrl;
       const loginUrl = `${apiUrl}/rest/rpc/login`;
       const response = await fetch(loginUrl, {
@@ -159,11 +166,11 @@ const authMachine = setup({
 
       const status = _parseAuthStatusRpcResponseToAuthStatus(responseData);
       const rawResponseWithTimestamp = { ...responseData, timestamp: new Date().toISOString() };
-      const canaryResponseWithTimestamp = canaryData ? { ...canaryData, timestamp: new Date().toISOString() } : null;
+      const canaryResponseWithTimestamp = canaryData ? { ...(canaryData as Record<string, unknown>), timestamp: new Date().toISOString() } : null;
 
       return { status, rawResponse: rawResponseWithTimestamp, canaryResponse: canaryResponseWithTimestamp };
     }),
-    logout: fromPromise(async ({ input }: { input: { client: any }}) => {
+    logout: fromPromise(async ({ input }: { input: { client: RestClient }}) => {
       const apiUrl = statbusConfig.browserRestUrl;
       const logoutUrl = `${apiUrl}/rest/rpc/logout`;
       const response = await fetch(logoutUrl, {
@@ -219,7 +226,7 @@ const authMachine = setup({
       invoke: {
         id: 'checkAuthStatus',
         src: 'checkAuthStatus',
-        input: ({ context }) => ({ client: context.client }),
+        input: ({ context }) => ({ client: context.client! }),
         onDone: {
           actions: assign(({ event, context }) => {
             const now = Date.now();
@@ -255,7 +262,7 @@ const authMachine = setup({
       invoke: {
         id: 'refreshToken',
         src: 'refreshToken',
-        input: ({ context }) => ({ client: context.client }),
+        input: ({ context }) => ({ client: context.client! }),
         onDone: {
           actions: assign(({ event, context }) => {
             const now = Date.now();
@@ -310,7 +317,7 @@ const authMachine = setup({
           invoke: {
             id: 'checkAuthStatus',
             src: 'checkAuthStatus',
-            input: ({ context }) => ({ client: context.client }),
+            input: ({ context }) => ({ client: context.client! }),
             onDone: [
               {
                 // If a refresh is needed, go to the background refresh state.
@@ -357,7 +364,7 @@ const authMachine = setup({
           invoke: {
             id: 'refreshTokenInBackground',
             src: 'refreshToken',
-            input: ({ context }) => ({ client: context.client }),
+            input: ({ context }) => ({ client: context.client! }),
             onDone: [
               {
                 target: 'stable',
@@ -432,7 +439,7 @@ const authMachine = setup({
         src: 'login',
         input: ({ context, event }) => {
           if (event.type !== 'LOGIN') throw new Error('Invalid event');
-          return { client: context.client, credentials: event.credentials }
+          return { client: context.client!, credentials: event.credentials }
         },
         onDone: {
           target: 'idle_authenticated',
@@ -462,7 +469,7 @@ const authMachine = setup({
           target: 'idle_unauthenticated',
           actions: assign({
             // Prepend "LOGIN_" to distinguish this from other errors.
-            error_code: ({ event }) => `LOGIN_${(event.error as any)?.error_code || 'UNKNOWN_FAILURE'}`
+            error_code: ({ event }) => `LOGIN_${(event.error as { error_code?: string })?.error_code || 'UNKNOWN_FAILURE'}`
           })
         }
       }
@@ -472,7 +479,7 @@ const authMachine = setup({
       invoke: {
         id: 'logout',
         src: 'logout',
-        input: ({ context }) => ({ client: context.client }),
+        input: ({ context }) => ({ client: context.client! }),
         onDone: {
           target: 'idle_unauthenticated',
           actions: assign(({ event, context }) => ({

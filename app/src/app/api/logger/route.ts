@@ -31,20 +31,21 @@ const parseLogPayload = (event: LogEvent) => {
 };
 
 // Function to limit data size
-const limitDataSize = (payload: any, maxSize: number) => {
-  const limitedPayload: any = {};
+const limitDataSize = (payload: Record<string, unknown>, maxSize: number) => {
+  const limitedPayload: Record<string, unknown> = {};
   for (const key in payload) {
-    if (typeof payload[key] === "string" && payload[key].length > maxSize) {
-      limitedPayload[key] = payload[key].substring(0, maxSize) + '...';
+    const value = payload[key];
+    if (typeof value === "string" && value.length > maxSize) {
+      limitedPayload[key] = value.substring(0, maxSize) + '...';
     } else {
-      limitedPayload[key] = payload[key];
+      limitedPayload[key] = value;
     }
   }
   return limitedPayload;
 };
 
 // Function to log events - level is validated before this function is called
-const logEvent = async (logger: Logger<never>, level: ValidLogLevel, payload: any, event: LogEvent, useragent: string) => {
+const logEvent = async (logger: Logger<never>, level: ValidLogLevel, payload: Record<string, unknown>, event: LogEvent, useragent: string) => {
   logger[level](
     {
       ...payload,

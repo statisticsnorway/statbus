@@ -30,7 +30,7 @@ const updateUserSchema = zfd.formData(
 );
 
 export async function createUser(
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<UpdateResponse> {
   const client = await getServerRestClient();
@@ -64,7 +64,7 @@ export async function createUser(
 }
 
 export async function updateUser(
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<UpdateResponse> {
   const client = await getServerRestClient();
@@ -83,7 +83,7 @@ export async function updateUser(
 
   const { id, password, ...updatedFields } = validatedFields.data;
 
-  const updatePayload: { [key: string]: any } = { ...updatedFields };
+  const updatePayload: Record<string, unknown> = { ...updatedFields };
 
   if (password) {
     updatePayload.password = password;

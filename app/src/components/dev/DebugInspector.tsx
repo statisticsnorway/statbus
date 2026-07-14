@@ -55,8 +55,13 @@ import {
 } from '@/hooks/use-guarded-effect';
 
 
+// A single changed value; a nested tree mirrors the object shape down to leaves.
+type DiffLeaf = { oldValue: unknown; newValue: unknown };
+type DiffTree = { [key: string]: DiffNode };
+type DiffNode = DiffLeaf | DiffTree;
+
 // Helper to recursively calculate the difference between two objects.
-const objectDiff = (obj1: any, obj2: any): any | undefined => {
+const objectDiff = (obj1: unknown, obj2: unknown): DiffNode | undefined => {
   // Simple comparison for non-objects or if they are identical
   if (Object.is(obj1, obj2)) {
     return undefined;
@@ -74,12 +79,14 @@ const objectDiff = (obj1: any, obj2: any): any | undefined => {
     return undefined;
   }
 
-  const keys = [...new Set([...Object.keys(obj1), ...Object.keys(obj2)])];
-  const diff: { [key: string]: any } = {};
+  const rec1 = obj1 as Record<string, unknown>;
+  const rec2 = obj2 as Record<string, unknown>;
+  const keys = [...new Set([...Object.keys(rec1), ...Object.keys(rec2)])];
+  const diff: DiffTree = {};
   let hasChanges = false;
 
   for (const key of keys) {
-    const result = objectDiff(obj1[key], obj2[key]);
+    const result = objectDiff(rec1[key], rec2[key]);
     if (result !== undefined) {
       diff[key] = result;
       hasChanges = true;
@@ -90,15 +97,16 @@ const objectDiff = (obj1: any, obj2: any): any | undefined => {
 };
 
 // Helper to format the diff object into a readable string for clipboard.
-const formatDiffToString = (diff: any, path: string = ''): string => {
+const formatDiffToString = (diff: DiffNode | undefined, path: string = ''): string => {
   let result = '';
   if (!diff) return '';
   for (const key in diff) {
     const newPath = path ? `${path}.${key}` : key;
-    const value = diff[key];
-    if (value && typeof value.oldValue !== 'undefined') {
-      result += `- ${newPath}: ${JSON.stringify(value.oldValue)}\n`;
-      result += `+ ${newPath}: ${JSON.stringify(value.newValue)}\n`;
+    const value = (diff as DiffTree)[key];
+    if (value && typeof value === 'object' && 'oldValue' in value) {
+      const leaf = value as DiffLeaf;
+      result += `- ${newPath}: ${JSON.stringify(leaf.oldValue)}\n`;
+      result += `+ ${newPath}: ${JSON.stringify(leaf.newValue)}\n`;
     } else if (typeof value === 'object' && value !== null) {
       result += formatDiffToString(value, newPath);
     }
@@ -107,14 +115,14 @@ const formatDiffToString = (diff: any, path: string = ''): string => {
 };
 
 // Helper component to visually render the diff.
-const StateDiff = ({ diff, path = '' }: { diff: any, path?: string }) => {
+const StateDiff = ({ diff, path = '' }: { diff: DiffNode | undefined, path?: string }) => {
   if (!diff) return null;
 
   return (
     <div className="pl-2 border-l border-gray-600 font-mono">
-      {Object.entries(diff).map(([key, value]: [string, any]) => {
+      {Object.entries(diff as DiffTree).map(([key, value]) => {
         const newPath = path ? `${path}.${key}` : key;
-        const hasNestedDiff = typeof value === 'object' && value !== null && !value.hasOwnProperty('oldValue');
+        const hasNestedDiff = typeof value === 'object' && value !== null && !Object.prototype.hasOwnProperty.call(value, 'oldValue');
 
         return (
           <div key={newPath}>
@@ -123,8 +131,8 @@ const StateDiff = ({ diff, path = '' }: { diff: any, path?: string }) => {
               <StateDiff diff={value} path={newPath} />
             ) : (
               <div className="pl-2">
-                <div className="text-red-400 whitespace-pre-wrap break-all">- {JSON.stringify(value.oldValue)}</div>
-                <div className="text-green-400 whitespace-pre-wrap break-all">+ {JSON.stringify(value.newValue)}</div>
+                <div className="text-red-400 whitespace-pre-wrap break-all">- {JSON.stringify((value as DiffLeaf).oldValue)}</div>
+                <div className="text-green-400 whitespace-pre-wrap break-all">+ {JSON.stringify((value as DiffLeaf).newValue)}</div>
               </div>
             )}
           </div>
@@ -159,8 +167,8 @@ export const DebugInspector = () => {
   const [eventJournalCopyStatus, setEventJournalCopyStatus] = React.useState('');
   const [diffsCopyStatus, setDiffsCopyStatus] = React.useState('');
   const [isStateDiffVisible, setIsStateDiffVisible] = React.useState(false);
-  const [stateHistory, setStateHistory] = React.useState<any[]>([]);
-  const [diffs, setDiffs] = React.useState<any[]>([]);
+  const [stateHistory, setStateHistory] = React.useState<unknown[]>([]);
+  const [diffs, setDiffs] = React.useState<{ diff: DiffNode; timestamp: Date }[]>([]);
   const [isTokenManuallyExpired, setIsTokenManuallyExpired] = useAtom(isTokenManuallyExpiredAtom);
   const bumpCacheGeneration = useSetAtom(exactCountCacheGenerationAtom);
   const journal = useAtomValue(combinedJournalViewAtom);
@@ -463,8 +471,14 @@ export const DebugInspector = () => {
     setTimeout(() => setCacheClearStatus(''), 2000);
   };
 
-  const getSimpleStatus = (s: any) => s.state === 'loading' ? 'Loading' : s.state === 'hasError' ? 'Error' : 'OK';
-  const getWorkerSummary = (d: any) => !d ? 'N/A' : d.isImporting ? 'Importing' : d.isDerivingUnits ? 'Deriving Units' : d.isDerivingReports ? 'Deriving Reports' : 'Idle';
+  const getSimpleStatus = (s: unknown) => {
+    const state = (s as { state?: string } | null | undefined)?.state;
+    return state === 'loading' ? 'Loading' : state === 'hasError' ? 'Error' : 'OK';
+  };
+  const getWorkerSummary = (d: unknown) => {
+    const w = d as { isImporting?: boolean; isDerivingUnits?: boolean; isDerivingReports?: boolean } | null | undefined;
+    return !w ? 'N/A' : w.isImporting ? 'Importing' : w.isDerivingUnits ? 'Deriving Units' : w.isDerivingReports ? 'Deriving Reports' : 'Idle';
+  };
 
   if (!mounted) {
     // During SSR or initial client render, we cannot know if the inspector should be visible
@@ -917,7 +931,7 @@ export const DebugInspector = () => {
                     <div className="pl-4 mt-1 space-y-2 font-mono text-xs max-h-48 overflow-y-auto border border-gray-600 rounded p-1 bg-black/20">
                       {Object.entries(stateToDisplay.authApiResponseLog)
                         .sort(([keyA], [keyB]) => Number(keyB) - Number(keyA)) // Newest first
-                        .map(([timestamp, logEntry]: [string, any]) => (
+                        .map(([timestamp, logEntry]) => (
                           <div key={timestamp} className="border-b border-gray-700 pb-1 mb-1 last:border-b-0">
                             <p className="text-yellow-400 font-bold">
                               {`[${new Date(Number(timestamp)).toLocaleTimeString()}.${String(Number(timestamp) % 1000).padStart(3, '0')}] ${logEntry.type.replace(/_/g, ' ').toUpperCase()}`}

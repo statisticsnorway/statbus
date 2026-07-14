@@ -66,7 +66,7 @@ export function logResponseDebug(response: Response, context: string = 'API Resp
  * Safely parses JSON with better error handling
  * Returns null if parsing fails
  */
-export async function safeParseJSON(response: Response): Promise<any | null> {
+export async function safeParseJSON(response: Response): Promise<unknown> {
   try {
     // First check if response is likely to contain JSON
     const contentType = response.headers.get('Content-Type');

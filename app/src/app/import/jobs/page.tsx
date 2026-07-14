@@ -275,9 +275,9 @@ export default function ImportJobsPage() {
       const { error } = await client.from("import_job").delete().in("id", jobIds);
       if (error) throw error;
       mutate(swrKeyRef.current);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to delete import jobs:", err);
-      alert(`Error deleting jobs: ${err.message}`);
+      alert(`Error deleting jobs: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setIsDeleting(false);
     }
@@ -685,9 +685,9 @@ export default function ImportJobsPage() {
               const { error } = await client.from("import_job").update({ state: newState }).eq("id", job.id);
               if (error) throw error;
               mutate(swrKeyRef.current);
-            } catch (err: any) {
+            } catch (err: unknown) {
               console.error(`Failed to ${newState} job:`, err);
-              alert(`Error: ${err.message}`);
+              alert(`Error: ${err instanceof Error ? err.message : String(err)}`);
             }
           };
           return (

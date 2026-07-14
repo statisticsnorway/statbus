@@ -190,7 +190,7 @@ function isBaseDataEqual(a: BaseData, b: BaseData): boolean {
 
   // Create a key from an array of objects using their primary identifiers.
   // This is more efficient than a full deep equal and robust enough for this data.
-  const idKey = (arr: any[]) => arr.map((item) => item?.id ?? item?.code ?? item?.ident ?? JSON.stringify(item)).join(',');
+  const idKey = (arr: ReadonlyArray<{ id?: unknown; code?: unknown; ident?: unknown }>) => arr.map((item) => item?.id ?? item?.code ?? item?.ident ?? JSON.stringify(item)).join(',');
 
   if (idKey(a.statDefinitions) !== idKey(b.statDefinitions)) return false;
   if (idKey(a.externalIdentTypes) !== idKey(b.externalIdentTypes)) return false;

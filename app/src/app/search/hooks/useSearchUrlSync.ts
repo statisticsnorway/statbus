@@ -54,7 +54,7 @@ interface UseSearchUrlSyncProps {
 
 // This function derives a URL search string from state atoms.
 // It is a pure function and is the single source of truth for State -> URL conversion.
-type FullSearchState = { query: string; filters: Record<string, any>; pagination: SearchPagination; sorting: SearchSorting };
+type FullSearchState = { query: string; filters: Record<string, unknown>; pagination: SearchPagination; sorting: SearchSorting };
 
 const deriveUrlFromState = (
   fullState: FullSearchState,
@@ -167,7 +167,7 @@ export function useSearchUrlSync() {
       ...statisticalVariableActions,
     ];
     
-    const newFilters: Record<string, any> = {};
+    const newFilters: Record<string, unknown> = {};
     let newQuery: string | null = null;
     
     actions.forEach(action => {

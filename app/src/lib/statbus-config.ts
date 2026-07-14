@@ -25,11 +25,13 @@ const SSR_DEFAULTS: StatbusConfig = {
   commit: "",
 };
 
+// Window.__STATBUS_CONFIG__ is declared in src/types/global.d.ts.
+
 /**
  * Client-side runtime config. Reads from window.__STATBUS_CONFIG__ which is
  * injected by layout.tsx at request time. Returns defaults during SSR.
  */
 export const statbusConfig: StatbusConfig =
-  typeof window !== "undefined" && (window as any).__STATBUS_CONFIG__
-    ? ((window as any).__STATBUS_CONFIG__ as StatbusConfig)
+  typeof window !== "undefined" && window.__STATBUS_CONFIG__
+    ? window.__STATBUS_CONFIG__
     : SSR_DEFAULTS;

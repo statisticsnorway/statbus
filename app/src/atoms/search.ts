@@ -84,10 +84,10 @@ export const queryAtom = atom<string>('');
 // truth for filter state. Using localStorage here would create a race condition
 // where the stored state could overwrite the state derived from the URL on
 // navigation.
-export const filtersAtom = atom<Record<string, any>>({});
+export const filtersAtom = atom<Record<string, unknown>>({});
 
 export interface SearchResult {
-  data: any[]
+  data: StatisticalUnit[]
   total: number | null  // null means count not yet fetched
   loading: boolean      // true while fetching data
   countLoading: boolean // true while fetching count in background
@@ -1296,7 +1296,7 @@ export const useSearchFilters = () => {
   const resetPagination = useSetAtom(resetPaginationAtom);
 
   const updateFilters = useCallback(
-    (newFilters: Record<string, any>) => {
+    (newFilters: Record<string, unknown>) => {
       // This is now an atomic update to just the filters.
       // We still need to reset pagination when filters change.
       resetPagination();

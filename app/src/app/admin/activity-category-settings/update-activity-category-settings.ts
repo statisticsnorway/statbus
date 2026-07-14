@@ -13,7 +13,7 @@ const schema = zfd.formData({
 
 export async function updateActivityCategorySettings(
   id: number,
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<UpdateResponse> {
   const client = await getServerRestClient();

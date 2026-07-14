@@ -3,7 +3,7 @@
 import { isDebugInspectorUIVisible } from '@/atoms/inspector';
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
-type LogCall = { level: LogLevel; context: string; message: string; args: any[] };
+type LogCall = { level: LogLevel; context: string; message: string; args: unknown[] };
 
 class ClientLogger {
   private buffer: LogCall[] = [];
@@ -25,7 +25,7 @@ class ClientLogger {
     this.buffer = [];
   }
 
-  private log(level: LogLevel, context: string, message: string, ...args: any[]) {
+  private log(level: LogLevel, context: string, message: string, ...args: unknown[]) {
     // During the brief period before initialization, buffer debug messages.
     // Other levels are logged immediately.
     if (!this.isInitialized && level === 'debug') {
@@ -62,19 +62,19 @@ class ClientLogger {
     }
   }
 
-  public debug(context: string, message: string, ...args: any[]) {
+  public debug(context: string, message: string, ...args: unknown[]) {
     this.log('debug', context, message, ...args);
   }
 
-  public info(context: string, message: string, ...args: any[]) {
+  public info(context: string, message: string, ...args: unknown[]) {
     this.log('info', context, message, ...args);
   }
 
-  public warn(context: string, message: string, ...args: any[]) {
+  public warn(context: string, message: string, ...args: unknown[]) {
     this.log('warn', context, message, ...args);
   }
 
-  public error(context: string, message: string, ...args: any[]) {
+  public error(context: string, message: string, ...args: unknown[]) {
     this.log('error', context, message, ...args);
   }
 }

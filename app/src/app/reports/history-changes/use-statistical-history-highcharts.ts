@@ -17,7 +17,7 @@ export const useStatisticalHistoryHighcharts = (
     year ?? "",
   ];
 
-  const fetcher = async (): Promise<any> => {
+  const fetcher = async () => {
     const client = await getBrowserRestClient();
     const { data, error } = await client.rpc("statistical_history_highcharts", {
       p_resolution: resolution,
@@ -34,7 +34,9 @@ export const useStatisticalHistoryHighcharts = (
       // just the failure summary.
       throw new Error([error.message, error.hint].filter(Boolean).join("\n"));
     }
-    return data;
+    // PostgREST types the RPC result as generic Json; the function contract
+    // guarantees the StatisticalHistoryHighcharts shape (external-boundary cast).
+    return data as unknown as StatisticalHistoryHighcharts;
   };
 
   const {

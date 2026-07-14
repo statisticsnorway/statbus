@@ -15,7 +15,7 @@ const schema = zfd.formData({
 
 
 export async function createStatusCode(
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<UpdateResponse> {
   const client = await getServerRestClient();
@@ -45,7 +45,7 @@ export async function createStatusCode(
 
 export async function updateStatusCode(
   id: number,
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<UpdateResponse> {
   const client = await getServerRestClient();

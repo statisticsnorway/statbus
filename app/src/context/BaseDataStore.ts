@@ -100,8 +100,8 @@ class BaseDataStore {
           name: error.name,
           message: error.message,
           stack: error.stack,
-          originalError: (error as any).originalError,
-          clientInfo: (error as any).clientInfo
+          originalError: (error as Error & { originalError?: unknown; clientInfo?: unknown }).originalError,
+          clientInfo: (error as Error & { originalError?: unknown; clientInfo?: unknown }).clientInfo
         });
       }
       
@@ -206,7 +206,7 @@ class BaseDataStore {
    * Get debug information about the store state
    * This is useful for diagnosing issues
    */
-  public getDebugInfo(): Record<string, any> {
+  public getDebugInfo(): Record<string, unknown> {
     return {
       status: this.status,
       lastFetchTime: this.lastFetchTime,
@@ -237,7 +237,7 @@ class BaseDataStore {
     // Enhanced debugging for client object
     const clientDebugInfo = {
       hasFrom: typeof client.from === 'function',
-      hasAuth: !!(client as any).auth,
+      hasAuth: !!(client as { auth?: unknown }).auth,
       url: client.url,
       type: typeof window !== 'undefined' ? 'browser' : 'server'
     };

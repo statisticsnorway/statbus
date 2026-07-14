@@ -168,7 +168,7 @@ This approach:
 ```bash
 cd app && pnpm run dev          # Development server with Turbopack
 cd app && pnpm run build        # Production build
-cd app && pnpm run lint         # ESLint
+cd app && pnpm run lint         # ESLint (flat config; @typescript-eslint/no-explicit-any is an error gate)
 cd app && pnpm run format       # Check Prettier
 cd app && pnpm run format:fix   # Fix Prettier issues
 cd app && pnpm run tsc          # Type check without emit

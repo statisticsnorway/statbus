@@ -73,9 +73,9 @@ export interface EventJournalEntry {
   timestamp_epoch: number; // For machine sorting and calculations
   timestamp_iso: string;   // For human readability in logs and debugging
   machine: MachineID;
-  from: any; // JSON-serializable state value
-  to: any;   // JSON-serializable state value
-  event: any; // JSON-serializable event
+  from: unknown; // JSON-serializable state value
+  to: unknown;   // JSON-serializable state value
+  event: { type: string; [key: string]: unknown }; // JSON-serializable event (xstate event shape)
   reason: string;
 }
 
@@ -300,7 +300,7 @@ export const debugInspectorMountJournalVisibleAtom = atomWithStorage('debugInspe
 /**
  * Hook for debugging atom values in development
  */
-export const useAtomDebug = (atomName: string, atomValue: any) => {
+export const useAtomDebug = (atomName: string, atomValue: unknown) => {
   useGuardedEffect(() => {
     if (process.env.NODE_ENV === 'development') {
       console.log(`[Atom Debug] ${atomName}:`, atomValue)

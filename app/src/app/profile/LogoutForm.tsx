@@ -17,8 +17,8 @@ export default function LogoutForm() {
     try {
       await logout();
       // On success, the RedirectHandler will navigate away.
-    } catch (err: any) {
-      setError(err.message || "An unexpected error occurred during logout.");
+    } catch (err: unknown) {
+      setError((err instanceof Error ? err.message : String(err)) || "An unexpected error occurred during logout.");
     } finally {
       setIsLoading(false);
     }

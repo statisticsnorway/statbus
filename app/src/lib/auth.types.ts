@@ -34,7 +34,25 @@ export interface AuthStatus {
  * @param rpcResponse - The raw data object from the PostgREST RPC response.
  * @returns A structured AuthStatus object.
  */
-export const _parseAuthStatusRpcResponseToAuthStatus = (rpcResponse: any): AuthStatus => {
+// The raw PostgREST RPC JSON shape (login / logout / refresh / auth_status). The
+// user fields are present when is_authenticated is true; this typed cast is the
+// external-boundary narrowing (replaces `any`).
+type AuthStatusRpcResponse = {
+  is_authenticated?: boolean;
+  uid: number;
+  sub: string;
+  email: string;
+  display_name: string;
+  role: string;
+  statbus_role: string;
+  last_sign_in_at: string;
+  created_at: string;
+  expired_access_token_call_refresh?: boolean;
+  error_code?: string | null;
+  token_expires_at?: string | null;
+};
+
+export const _parseAuthStatusRpcResponseToAuthStatus = (rpcResponse: unknown): AuthStatus => {
   if (!rpcResponse) {
     return {
       isAuthenticated: false,
@@ -45,25 +63,26 @@ export const _parseAuthStatusRpcResponseToAuthStatus = (rpcResponse: any): AuthS
     };
   }
 
-  const isAuthenticated = rpcResponse.is_authenticated === true;
+  const r = rpcResponse as AuthStatusRpcResponse;
+  const isAuthenticated = r.is_authenticated === true;
   const user: User | null = isAuthenticated
     ? {
-        uid: rpcResponse.uid,
-        sub: rpcResponse.sub,
-        email: rpcResponse.email,
-        display_name: rpcResponse.display_name,
-        role: rpcResponse.role,
-        statbus_role: rpcResponse.statbus_role,
-        last_sign_in_at: rpcResponse.last_sign_in_at,
-        created_at: rpcResponse.created_at,
+        uid: r.uid,
+        sub: r.sub,
+        email: r.email,
+        display_name: r.display_name,
+        role: r.role,
+        statbus_role: r.statbus_role,
+        last_sign_in_at: r.last_sign_in_at,
+        created_at: r.created_at,
       }
     : null;
 
   return {
     isAuthenticated,
     user,
-    expired_access_token_call_refresh: rpcResponse.expired_access_token_call_refresh === true,
-    error_code: rpcResponse.error_code || null,
-    token_expires_at: rpcResponse.token_expires_at || null,
+    expired_access_token_call_refresh: r.expired_access_token_call_refresh === true,
+    error_code: r.error_code || null,
+    token_expires_at: r.token_expires_at || null,
   };
 };

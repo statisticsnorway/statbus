@@ -19,14 +19,14 @@ export interface ColumnDefinition<T> {
   className?: string;
 }
 
-interface AdminTableProps<T extends { id: any }> {
+interface AdminTableProps<T extends { id: string | number | null }> {
   readonly data: T[];
   readonly columns: ColumnDefinition<T>[];
   readonly onEdit: (item: T) => void;
   readonly isLoading?: boolean;
 }
 
-export default function AdminTable<T extends { id: any }>({
+export default function AdminTable<T extends { id: string | number | null }>({
   data,
   columns,
   onEdit,

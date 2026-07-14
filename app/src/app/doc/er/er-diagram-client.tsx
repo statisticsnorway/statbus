@@ -50,9 +50,9 @@ ${diagramText}`;
         );
         setSvg(renderedSvg);
         setError(null);
-      } catch (e: any) {
+      } catch (e: unknown) {
         console.error("Fetching or rendering error:", e);
-        setError(e.message || "Failed to load or render diagram");
+        setError((e instanceof Error ? e.message : String(e)) || "Failed to load or render diagram");
         setSvg(null);
       } finally {
         setLoading(false);

@@ -4,6 +4,7 @@ import React from "react";
 import { useParams } from 'next/navigation';
 import { useSWRConfig } from 'swr';
 import { getBrowserRestClient } from "@/context/RestClientStore";
+import type { Enums } from "@/lib/database.types";
 import { DataTableSkeleton } from "@/components/data-table/data-table-skeleton";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataTable } from "@/components/data-table/data-table";
@@ -29,8 +30,7 @@ import {
   JwtExpiredError 
 } from "@/hooks/use-swr-with-auth-refresh";
 import { statbusConfig } from '@/lib/statbus-config';
-// Per instruction, improve typing for ImportJobDataRow to make 'state' work
-// in useDataTable. This is a first step, with 'any' types to be refined.
+
 const formatNumber = (num: number | null | undefined): string => {
   if (num === null || num === undefined) return "0";
   return num.toLocaleString('nb-NO');
@@ -38,45 +38,52 @@ const formatNumber = (num: number | null | undefined): string => {
 
 type ImportJobDataRow = {
   row_id: number;
-  state: any;
+  state: Enums<'import_data_state'>;
   name?: string | null;
-  operation?: any;
-  action?: any;
-  errors?: any;
-  warnings?: any;
-  merge_status?: any;
-  [key:string]: any;
+  operation?: Enums<'import_row_operation_type'> | null;
+  action?: Enums<'import_row_action_type'> | null;
+  errors?: Record<string, string> | null;
+  warnings?: Record<string, string> | null;
+  merge_status?: string | null;
+  // The per-job import data table carries arbitrary source columns (plus their
+  // _raw/_id derived siblings); those are addressed dynamically by column key.
+  [key: string]: unknown;
 };
 
 // For manual filtering, tanstack-table's `getCanFilter()` returns true only if a `filterFn` is defined.
 // The function itself is never called, but its presence (with the correct signature) is required to enable the UI.
 const placeholderFilterFn: FilterFn<ImportJobDataRow> = (
-  row: Row<ImportJobDataRow>,
-  columnId: string,
-  value: any,
-  addMeta: (meta: any) => void
+  row,
+  columnId,
+  value,
+  addMeta
 ) => true;
 
-const fetcher = async (key: string): Promise<any> => {
+const jobFetcher = async (key: string): Promise<ImportJob> => {
   const client = await getBrowserRestClient();
   if (!client) throw new Error("REST client not available");
 
-  const [type, ...args] = key.split('/');
-
-  if (type === 'import-job' && args[0]) {
-    const { data, error } = await client
-      .from("import_job")
-      .select("*, import_definition(name)")
-      .eq("slug", args[0])
-      .single();
-    if (error) {
-      if (isJwtExpiredError(error)) throw new JwtExpiredError();
-      throw error;
-    }
-    return data;
+  const [, slug] = key.split('/');
+  const { data, error } = await client
+    .from("import_job")
+    .select("*, import_definition(name)")
+    .eq("slug", slug)
+    .single();
+  if (error) {
+    if (isJwtExpiredError(error)) throw new JwtExpiredError();
+    throw error;
   }
+  // This list view only reads import_definition.name, so the select is
+  // deliberately narrower than ImportJobWithDetails' import_definition Pick.
+  return data as unknown as ImportJob;
+};
 
-  if (type === 'import-data' && args[0]) {
+const dataFetcher = async (key: string): Promise<{ data: ImportJobDataRow[]; count: number | null }> => {
+  const client = await getBrowserRestClient();
+  if (!client) throw new Error("REST client not available");
+
+  const [, ...args] = key.split('/');
+  {
     const [tableName, query] = args[0].split('?');
     const searchParams = new URLSearchParams(query);
     const page = parseInt(searchParams.get('page') || '0', 10);
@@ -87,6 +94,7 @@ const fetcher = async (key: string): Promise<any> => {
     const to = from + pageSize - 1;
 
     let queryBuilder = client
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the per-job import data table name is a validated runtime string, not a member of the generated schema's relation union.
       .from(tableName as any)
       .select('*', { count: 'exact' })
       .range(from, to);
@@ -134,10 +142,8 @@ const fetcher = async (key: string): Promise<any> => {
       if (isJwtExpiredError(error)) throw new JwtExpiredError();
       throw error;
     }
-    return { data, count };
+    return { data: (data ?? []) as unknown as ImportJobDataRow[], count };
   }
-
-  throw new Error(`Unrecognized SWR key: ${key}`);
 };
 
 
@@ -163,7 +169,7 @@ export default function ImportJobDataPage() {
 
   const { data: job, error: jobError, isLoading: isJobLoading, mutate: mutateJob } = useSWRWithAuthRefresh<ImportJob, Error>(
     `import-job/${jobSlug}`,
-    fetcher,
+    jobFetcher,
     undefined,
     "ImportJobDataPage:job"
   );
@@ -203,7 +209,7 @@ export default function ImportJobDataPage() {
     count: number | null;
   }, Error>(
     tableDataSWRKey,
-    fetcher,
+    dataFetcher,
     { revalidateOnFocus: false, keepPreviousData: true },
     "ImportJobDataPage:tableData"
   );
@@ -381,7 +387,7 @@ export default function ImportJobDataPage() {
               const activityCategoryCodeRawValue = hasActivityCategoryCodeRaw ? row.original[activityCategoryCodeRawKey as keyof ImportJobDataRow] : undefined;
               const activityCategoryIdValue = hasActivityCategoryId ? row.original[activityCategoryIdKey as keyof ImportJobDataRow] : undefined;
               
-              const renderSingleValue = (val: any, className: string = '') => {
+              const renderSingleValue = (val: unknown, className: string = '') => {
                   if (val === undefined || val === null) return null;
                   let displayValue;
                   if (typeof val === 'object') {
@@ -685,7 +691,7 @@ export default function ImportJobDataPage() {
             className="border-red-300 text-red-600 hover:bg-red-50"
             onClick={async () => {
               const client = await getBrowserRestClient();
-              const { error } = await client.from("import_job").update({ state: 'rejected' as any }).eq("id", job.id);
+              const { error } = await client.from("import_job").update({ state: 'rejected' }).eq("id", job.id);
               if (error) { console.error("Reject failed:", error); alert(`Error: ${error.message}`); }
               else { mutateJob(); }
             }}
@@ -698,7 +704,7 @@ export default function ImportJobDataPage() {
             className="bg-green-600 hover:bg-green-700 text-white"
             onClick={async () => {
               const client = await getBrowserRestClient();
-              const { error } = await client.from("import_job").update({ state: 'approved' as any }).eq("id", job.id);
+              const { error } = await client.from("import_job").update({ state: 'approved' }).eq("id", job.id);
               if (error) { console.error("Approve failed:", error); alert(`Error: ${error.message}`); }
               else { mutateJob(); }
             }}

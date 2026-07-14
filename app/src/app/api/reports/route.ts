@@ -5,7 +5,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
 
   // Convert URLSearchParams to object
-  const requestParams: any = {};
+  const requestParams: Record<string, string> = {};
   searchParams.forEach((value, key) => {
     requestParams[key] = value;
   });

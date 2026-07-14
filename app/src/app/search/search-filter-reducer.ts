@@ -2,10 +2,10 @@ import { SearchAction, SearchOrder } from "./search.d";
 
 export const defaultOrder: SearchOrder = {field: "name", direction: "asc"};
 
-export function modifySearchStateReducer(
-  state: any,
+export function modifySearchStateReducer<S>(
+  state: S,
   action: SearchAction
-): any {
+): S {
   switch (action.type) {
     case "set_query": {
       const {

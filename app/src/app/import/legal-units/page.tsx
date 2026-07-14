@@ -88,9 +88,9 @@ export default function LegalUnitsPage() {
         throw error;
       }
       refreshJobs(); // Refresh the list after deletion
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to delete import job:", err);
-      alert(`Error deleting job: ${err.message}`);
+      alert(`Error deleting job: ${err instanceof Error ? err.message : String(err)}`);
     }
   };
 

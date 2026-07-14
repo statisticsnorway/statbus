@@ -253,14 +253,14 @@ export const refreshPendingJobsByModeAtom = atom(
           lastFetched: Date.now(),
         },
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(`Failed to refresh pending jobs for mode ${mode}:`, error);
       set(allPendingJobsByModeStateAtom, (prev) => ({
         ...prev,
         [mode]: {
           ...(prev[mode] || { jobs: [], loading: false, lastFetched: null }),
           loading: false,
-          error: error.message || `Failed to fetch pending jobs for ${mode}`,
+          error: (error instanceof Error ? error.message : String(error)) || `Failed to fetch pending jobs for ${mode}`,
         },
       }));
     }
@@ -347,7 +347,7 @@ export const loadImportDefinitionsAtom = atom(
         set(importStateAtom, (prev) => ({ ...prev, selectedDefinition: defaultSelection }));
       }
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(`Failed to load import definitions for mode ${mode}:`, error);
       // Ensure definition is null on error
       set(importStateAtom, (prev) => ({ ...prev, selectedDefinition: null, availableDefinitions: [] }));

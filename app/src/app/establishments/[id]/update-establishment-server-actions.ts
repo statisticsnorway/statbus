@@ -12,7 +12,7 @@ import {
 export async function updateEstablishment(
   id: string,
   schemaType: SchemaType,
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<UpdateResponse> {
   const client = await getServerRestClient();
@@ -131,7 +131,7 @@ export async function updateEstablishment(
 
 export async function updateEstablishmentImage(
   id: string,
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<UpdateResponse> {
   const client = await getServerRestClient();
@@ -205,7 +205,7 @@ export async function updateEstablishmentImage(
 
 export async function deleteEstablishmentImage(
   id: string,
-  _prevState: any
+  _prevState: unknown
 ): Promise<UpdateResponse> {
   const client = await getServerRestClient();
   const logger = await createServerLogger();

@@ -45,7 +45,7 @@ const deriveStateFromUrl = (
   urlSearchParams: URLSearchParams,
   externalIdentTypes: Tables<'external_ident_type_enabled'>[],
   statDefinitions: Tables<'stat_definition_enabled'>[]
-): { _initialQuery: string; _initialFilters: Record<string, any>; _initialPagination: SearchPagination; _initialSorting: SearchSorting } => {
+): { _initialQuery: string; _initialFilters: Record<string, unknown>; _initialPagination: SearchPagination; _initialSorting: SearchSorting } => {
 
   const ftsAction = fullTextSearchDeriveStateUpdateFromSearchParams(urlSearchParams);
   const unitTypeAction = unitTypeDeriveStateUpdateFromSearchParams(urlSearchParams);
@@ -87,7 +87,7 @@ const deriveStateFromUrl = (
   ].filter(Boolean) as SearchAction[];
 
   let newInitialQuery = '';
-  const newInitialFilters: Record<string, any> = {};
+  const newInitialFilters: Record<string, unknown> = {};
 
   allActions.forEach(action => {
     if (action.type === 'set_query') {

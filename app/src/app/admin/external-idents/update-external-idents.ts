@@ -25,7 +25,7 @@ const schema = zfd.formData(z.discriminatedUnion("shape", [
 
 
 export async function createExternalIdentType(
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<UpdateResponse> {
   const client = await getServerRestClient();
@@ -58,7 +58,7 @@ export async function createExternalIdentType(
 
 export async function updateExternalIdentType(
   id: number,
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<UpdateResponse> {
   const client = await getServerRestClient();

@@ -51,7 +51,7 @@ function constructHierarchicalPath(
 export async function updateExternalIdent(
   id: string,
   unitType: "establishment" | "legal_unit",
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<UpdateResponse> {
   const logger = await createServerLogger();

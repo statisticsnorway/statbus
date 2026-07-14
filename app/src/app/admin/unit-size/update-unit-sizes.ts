@@ -11,7 +11,7 @@ const schema = zfd.formData({
 
 
 export async function createUnitSize(
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<UpdateResponse> {
   const client = await getServerRestClient();
@@ -41,7 +41,7 @@ export async function createUnitSize(
 
 export async function updateUnitSize(
   id: number,
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<UpdateResponse> {
   const client = await getServerRestClient();

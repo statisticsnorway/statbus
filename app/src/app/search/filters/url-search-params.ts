@@ -379,7 +379,7 @@ export function statisticalVariableParse(rawValue: string | null): ConditionalVa
       const colonMatch = trimmed.match(/^(?<operator>[^:]+):(?<operand>.+)$/);
       if (colonMatch?.groups) {
         conditions.push({
-          operator: colonMatch.groups.operator as any,
+          operator: colonMatch.groups.operator as Condition["operator"],
           operand: colonMatch.groups.operand
         });
       } else {
@@ -397,21 +397,21 @@ export function statisticalVariableParse(rawValue: string | null): ConditionalVa
   const inRegex = /^(?<operator>in)\.\((?<operand>.*)\)$/;
   const inMatch = rawValue.match(inRegex);
   if (inMatch?.groups) {
-    return { operator: inMatch.groups.operator as any, operand: inMatch.groups.operand };
+    return { operator: inMatch.groups.operator as Condition["operator"], operand: inMatch.groups.operand };
   }
 
   // Regex for standard 'operator.operand' format (legacy API format)
   const standardDotRegex = /^(?<operator>[^.]+)\.(?<operand>[^()]+)$/;
   const standardDotMatch = rawValue.match(standardDotRegex);
   if (standardDotMatch?.groups) {
-    return { operator: standardDotMatch.groups.operator as any, operand: standardDotMatch.groups.operand };
+    return { operator: standardDotMatch.groups.operator as Condition["operator"], operand: standardDotMatch.groups.operand };
   }
 
   // Regex for 'operator:operand' format (single condition, current format)
   const colonRegex = /^(?<operator>[^:]+):(?<operand>.+)$/;
   const colonMatch = rawValue.match(colonRegex);
   if (colonMatch?.groups) {
-    return { operator: colonMatch.groups.operator as any, operand: colonMatch.groups.operand };
+    return { operator: colonMatch.groups.operator as Condition["operator"], operand: colonMatch.groups.operand };
   }
   
   // Return null if no regex matches the expected formats

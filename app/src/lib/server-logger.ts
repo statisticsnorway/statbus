@@ -18,6 +18,7 @@ export async function createServerLogger(user?: { email: string } | null) {
   // Runtime: export default { createStream: ... }
   // Types: export = PinoSeq (namespace with createStream function)
   const pinoSeqModule = await import("pino-seq");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- pino-seq's runtime ESM `export default` vs its CommonJS `export =` types genuinely disagree (see note above); this interop unwrap is the boundary.
   const pinoToSeq = (pinoSeqModule as any).default || pinoSeqModule;
   const stream = pinoToSeq.createStream({ serverUrl: seqServerUrl, apiKey: seqApiKey });
 

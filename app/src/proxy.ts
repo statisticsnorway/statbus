@@ -71,7 +71,7 @@ export async function proxy(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   if (path.startsWith("/admin")) {
-    const roleFromStatbus = (authStatus as any).user.statbus_role;
+    const roleFromStatbus = authStatus.user?.statbus_role;
 
     const ADMIN_ROLES = new Set(["admin_user"]);
 

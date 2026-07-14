@@ -14,7 +14,7 @@ import {
 } from "@/components/form/helper-functions";
 import { z } from "zod";
 
-export async function getEditMetadata(client: any) {
+export async function getEditMetadata(client: Awaited<ReturnType<typeof getServerRestClient>>) {
   const { data } = await client.rpc("auth_status", {}, { get: true });
   const parsedAuthStatus = _parseAuthStatusRpcResponseToAuthStatus(data);
   if (!parsedAuthStatus.isAuthenticated || !parsedAuthStatus.user) {
@@ -37,7 +37,7 @@ export async function getEditMetadata(client: any) {
 export async function updateLegalUnit(
   id: string,
   schemaType: SchemaType,
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<UpdateResponse> {
   const client = await getServerRestClient();
@@ -148,7 +148,7 @@ export async function updateLegalUnit(
 
 export async function updateLegalUnitImage(
   id: string,
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<UpdateResponse> {
   const client = await getServerRestClient();
@@ -216,7 +216,7 @@ export async function updateLegalUnitImage(
 
 export async function deleteLegalUnitImage(
   id: string,
-  _prevState: any
+  _prevState: unknown
 ): Promise<UpdateResponse> {
   const client = await getServerRestClient();
   const logger = await createServerLogger();
@@ -280,7 +280,7 @@ export async function deleteLegalUnitImage(
 export async function updateLocation(
   id: string,
   unitType: "establishment" | "legal_unit",
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<UpdateResponse> {
   return upsertTemporalRecord({
@@ -297,7 +297,7 @@ export async function updateLocation(
 export async function updateContact(
   id: string,
   unitType: "establishment" | "legal_unit",
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<UpdateResponse> {
   return upsertTemporalRecord({
@@ -313,7 +313,7 @@ export async function updateContact(
 export async function updateActivity(
   id: string,
   unitType: "establishment" | "legal_unit",
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<UpdateResponse> {
   return upsertTemporalRecord({
@@ -330,7 +330,7 @@ export async function updateActivity(
 export async function updateStatisticalVariables(
   id: string,
   unitType: "establishment" | "legal_unit",
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<UpdateResponse> {
   return upsertTemporalRecord({
@@ -379,7 +379,7 @@ export async function upsertTemporalRecord({
   const unitIdFieldName = `${unitType}_id`;
   const unitId = parseInt(id, 10);
   const { valid_from, valid_to } = validatedFields.data;
-  const naturalKeyValues: { [key: string]: any } = {
+  const naturalKeyValues: Record<string, string | number> = {
     [unitIdFieldName]: unitId,
   };
   for (const key of naturalKeys) {
