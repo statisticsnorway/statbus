@@ -167,4 +167,36 @@ func TestRemoveUpgradeFlag_IgnoresNilLock(t *testing.T) {
 	d.removeUpgradeFlag()
 }
 
+// TestRemoveUpgradeFlag_DoubleRemovalRaceIsSilent is STATBUS-187 AC#3's
+// seam on this function: a second removeUpgradeFlag call after the file is
+// already gone (the double-removal race two concurrent cleanup actors can
+// hit) must stay silent — os.IsNotExist must never "cry wolf" — and must
+// not panic, whether or not this instance still holds the flock.
+func TestRemoveUpgradeFlag_DoubleRemovalRaceIsSilent(t *testing.T) {
+	projDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(projDir, "tmp"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	d := &Service{projDir: projDir}
+	if err := d.writeUpgradeFlag(44, "abc123def458", []string{"v0.0.0-test3"}, "test", string(TriggerService), false); err != nil {
+		t.Fatalf("writeUpgradeFlag failed: %v", err)
+	}
+
+	got := captureLogOutput(t, func() {
+		// Simulate a racing actor already having removed the file out from
+		// under us, THEN this instance's own removeUpgradeFlag runs (still
+		// holding d.flagLock) and hits ENOENT on its own unlink.
+		if err := os.Remove(d.flagPath()); err != nil {
+			t.Fatalf("pre-removal for the race simulation failed: %v", err)
+		}
+		d.removeUpgradeFlag()
+	})
+	if got != "" {
+		t.Errorf("double-removal race must be silent (ENOENT is success); got log output: %q", got)
+	}
+	if d.flagLock != nil {
+		t.Error("removeUpgradeFlag must still clear d.flagLock even when the unlink hit ENOENT")
+	}
+}
+
 // flagPath is already defined in service.go — these tests reuse it.

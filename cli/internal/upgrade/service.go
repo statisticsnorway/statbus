@@ -697,6 +697,28 @@ func (d *Service) ClearFlagStepHistory() error {
 	return nil
 }
 
+// warnOnStaleFlagRemoveFailure is STATBUS-187 AC#3's uniform stale-flag-
+// class treatment (architect ruling, ticket comment #7), shared by every
+// flag-owning function's unlink: removeUpgradeFlag's two internal sites,
+// ReleaseInstallFlag, the post-swap self-heal completion-flag remove, and
+// cleanStaleMaintenance's maintenance-flag remove.
+//
+// LOUD-WARN, never hard-fail — these are cleanup-AFTER-terminal sites;
+// hard-failing would convert a successful upgrade/rollback/install into a
+// reported failure over a janitorial unlink. os.IsNotExist is SILENT
+// success: a double-removal race (two actors both cleaning up the same
+// already-gone file) must not cry wolf. Any OTHER unlink error gets
+// exactly one loud line naming the path, the raw error, the consequence
+// (caller-supplied — what a later boot/run will misread the stale file
+// as), and the remedy: remove it manually if it persists — a filesystem
+// that refuses unlink is a box-level problem, not a code bug.
+func warnOnStaleFlagRemoveFailure(path string, err error, consequence string) {
+	if err == nil || os.IsNotExist(err) {
+		return
+	}
+	log.Printf("WARNING: could not remove stale flag file %s: %v — %s. Remove it manually if it persists; a filesystem that refuses unlink is a box-level problem.", path, err, consequence)
+}
+
 // removeUpgradeFlag releases the service's flock AND removes the
 // on-disk JSON. Symmetric with ReleaseInstallFlag (line 314): once
 // the service has reconciled the upgrade row to a terminal state,
@@ -729,20 +751,15 @@ func (d *Service) ClearFlagStepHistory() error {
 //     File absent → nothing to do (and no O_CREATE — never manufacture a
 //     flag while cleaning one up).
 func (d *Service) removeUpgradeFlag() {
+	const consequence = "a later boot will read this stale flag and route to crash-recovery/ghost-flag reconcile (an availability wedge, not corruption; that path re-attempts this same removal every boot)"
+	path := d.flagPath()
 	if d.flagLock != nil {
-		// STATBUS-176 lint burn-down: pre-existing silent ignore, left
-		// as-is — behavior-change candidate flagged in the burn-down
-		// report (a failed unlink here, followed unconditionally by
-		// closing our own flock below, leaves a STALE flag file on disk
-		// with NO live flock on it — indistinguishable from a genuine
-		// crashed upgrade to the next boot's recovery detection; no
-		// operator-visible signal today).
-		_ = os.Remove(d.flagPath())
+		warnOnStaleFlagRemoveFailure(path, os.Remove(path), consequence)
 		d.flagLock.Close()
 		d.flagLock = nil
 		return
 	}
-	f, err := os.OpenFile(d.flagPath(), os.O_RDWR, 0)
+	f, err := os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {
 		return // absent (nothing to remove) or unreadable (leave it)
 	}
@@ -751,9 +768,7 @@ func (d *Service) removeUpgradeFlag() {
 		log.Printf("removeUpgradeFlag: upgrade flock held by another live actor — leaving the flag file in place (not ours to remove)")
 		return
 	}
-	// STATBUS-176 lint burn-down: same behavior-change candidate as above —
-	// a failed unlink here leaves a stale, now-unlocked flag file behind.
-	_ = os.Remove(d.flagPath())
+	warnOnStaleFlagRemoveFailure(path, os.Remove(path), consequence)
 }
 
 // writeGoroutineDump captures all goroutine stacks via runtime.Stack and
@@ -824,13 +839,11 @@ func AcquireInstallFlag(projDir, invokedBy string) (*FlagLock, error) {
 // is never the one we unlinked. Same discipline as removeUpgradeFlag.
 func ReleaseInstallFlag(lock *FlagLock) {
 	if lock != nil && lock.file != nil {
-		// STATBUS-176 lint burn-down: pre-existing silent ignore, left
-		// as-is — same behavior-change candidate as removeUpgradeFlag
-		// above (a failed unlink here, followed unconditionally by
-		// Close() releasing the flock, leaves a stale, now-unlocked flag
-		// file behind — indistinguishable from a genuine crash to the
-		// next install's detection; no operator-visible signal today).
-		_ = os.Remove(lock.file.Name())
+		// STATBUS-187 AC#3 (architect ruling, ticket comment #7): uniform
+		// stale-flag-class treatment — see warnOnStaleFlagRemoveFailure.
+		path := lock.file.Name()
+		warnOnStaleFlagRemoveFailure(path, os.Remove(path),
+			"a later `./sb install` run will read this stale flag and misdetect a crashed install (an availability wedge, not corruption; that path re-attempts this same removal every boot)")
 		lock.Close()
 	} else {
 		lock.Close()
@@ -3448,15 +3461,21 @@ func (d *Service) cleanStaleMaintenance(ctx context.Context) {
 		return
 	}
 	if count == 0 {
-		// STATBUS-176 lint burn-down: pre-existing silent ignore, left
-		// as-is — behavior-change candidate flagged in the burn-down
-		// report. cleanStaleMaintenance runs ONCE at daemon boot (Run()'s
-		// startup sequence), not on a periodic ticker — a failed Remove
-		// here leaves the site stuck in maintenance mode (Caddy serving
-		// 503) with no operator-visible signal and no automatic retry
-		// until the next full daemon restart.
-		_ = os.Remove(maintenanceFile)
-		fmt.Println("Cleaned stale maintenance file")
+		// STATBUS-187 AC#3 / ranked #7 (architect ruling, ticket comment
+		// #7): same loud-warn SHAPE as the upgrade-flag sites above
+		// (warnOnStaleFlagRemoveFailure), but a DIFFERENT consequence —
+		// cleanStaleMaintenance runs ONCE at daemon boot (Run()'s startup
+		// sequence), not on a periodic ticker, so a failed Remove here
+		// leaves the site stuck in maintenance mode (Caddy serving 503)
+		// until the next FULL DAEMON RESTART, not the next recovery pass.
+		// Only claim "Cleaned" once the removal is confirmed — the log
+		// must not claim what didn't happen.
+		removeErr := os.Remove(maintenanceFile)
+		warnOnStaleFlagRemoveFailure(maintenanceFile, removeErr,
+			"the site stays in maintenance mode (Caddy serving 503) until the next daemon restart, not the next recovery pass")
+		if removeErr == nil {
+			fmt.Println("Cleaned stale maintenance file")
+		}
 	}
 }
 
@@ -6647,13 +6666,14 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 				// Best-effort NOTIFY belt, same shape as the normal-completion
 				// path above.
 				_, _ = d.queryConn.Exec(ctx, `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
-				// STATBUS-176 lint burn-down: pre-existing silent ignore, left
-				// as-is — same stale-flag behavior-change candidate as
-				// removeUpgradeFlag/ReleaseInstallFlag above (a failed Remove
-				// here leaves the flag file on disk even though the row is
-				// now genuinely 'completed', which the next boot could
-				// misread as a crashed/in-progress upgrade).
-				_ = os.Remove(d.flagPath())
+				// STATBUS-187 AC#3 (architect ruling, ticket comment #7): same
+				// uniform stale-flag-class treatment as removeUpgradeFlag/
+				// ReleaseInstallFlag above — see warnOnStaleFlagRemoveFailure.
+				// This site's consequence: the row is now genuinely
+				// 'completed', so a stale flag would make the next boot
+				// misread a HEALTHY upgrade as crashed/in-progress.
+				warnOnStaleFlagRemoveFailure(d.flagPath(), os.Remove(d.flagPath()),
+					"a later boot will read this stale flag and misread this genuinely completed upgrade as crashed/in-progress (an availability wedge, not corruption; that path re-attempts this same removal every boot)")
 				d.supersedeOlderReleases(ctx, flag.CommitSHA)
 				d.supersedeCompletedPrereleases(ctx, flag.CommitSHA)
 				progress.Write("Post-swap self-heal: containers already at %s; row %d marked completed without re-running applyNewSbUpgrading.",
