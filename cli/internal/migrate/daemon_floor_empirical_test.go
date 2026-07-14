@@ -69,36 +69,37 @@ var daemonFloorQueries = []struct {
 // clean. Backstop for the bump guard's one blind spot (a daemon relation
 // referenced only unqualified in a migration).
 //
-// PROVISIONING (tester/CI supplies the floor DB — `./dev.sh create-db` on a
-// scratch DB then `./sb migrate up --to 20260703210000`, then point the DSN):
+// STANDING HOME (STATBUS-182): CI runs this oracle on every master push from the
+// fast-tests "Daemon floor oracle" step, which provisions a DB at EXACTLY
+// DaemonSchemaFloor (the floor value is grepped from daemon_floor.go, never
+// hardcoded) and points STATBUS_FLOOR_TEST_DSN at it. That the step exists and is
+// wired to this test is itself a tested invariant (TestFloorOracleWiredInCI).
 //
-//	STATBUS_FLOOR_TEST_DSN='postgres://…/statbus_floor_test' go test ./cli/internal/migrate/ -run TestDaemonFloorSchemaSufficient
+// Locally (no cluster): skips with the recipe below — the floor value comes from
+// the DaemonSchemaFloor constant, so this recipe can never go stale:
 //
-// Skips when unset/unreachable → `go test` stays green without a cluster. DO NOT
-// point it at a HEAD DB — HEAD ⊇ floor would pass vacuously; the DSN must be a DB
-// migrated to exactly the floor.
+//	./dev.sh create-db
+//	./sb migrate up --to <DaemonSchemaFloor>            # exactly the floor, NOT HEAD
+//	STATBUS_FLOOR_TEST_DSN='postgres://…/<db>' go test ./cli/internal/migrate/ -run TestDaemonFloorSchemaSufficient
+//
+// Pointing at a HEAD DB can no longer pass vacuously: the non-vacuity guard below
+// FAILS unless MAX(db.migration.version) == DaemonSchemaFloor.
 func TestDaemonFloorSchemaSufficient(t *testing.T) {
 	dsn := os.Getenv("STATBUS_FLOOR_TEST_DSN")
 	if dsn == "" {
-		// The silent skip is safe ONLY while the floor is the newest migration (the
-		// oracle is vacuous then — HEAD == floor). The moment the floor LAGS the
-		// tree, this is the guard that finally matters, and a silent skip would hide
-		// a floor insufficiency. So FAIL with the provisioning recipe the instant the
-		// floor first lags — the recipe gets built exactly when first needed.
-		migs, err := listMigrationFiles(repoRoot(t))
-		if err != nil || len(migs) == 0 {
-			t.Fatalf("list migrations: %v (n=%d)", err, len(migs))
-		}
-		treeMax := migs[len(migs)-1].Version // listMigrationFiles sorts ascending
-		if DaemonSchemaFloor < treeMax {
-			t.Fatalf("DaemonSchemaFloor (%d) now LAGS the newest migration (%d) — the empirical floor oracle MUST run, but STATBUS_FLOOR_TEST_DSN is unset.\n"+
-				"Provision a floor DB and set it:\n"+
-				"  ./dev.sh create-db                 # scratch DB WITH the create-db baseline (roles + auth schema)\n"+
-				"  ./sb migrate up --to %d            # bring it to exactly the floor (NOT HEAD — HEAD would pass vacuously)\n"+
-				"  STATBUS_FLOOR_TEST_DSN='postgres://…/<db>' go test ./cli/internal/migrate/ -run TestDaemonFloorSchemaSufficient",
-				DaemonSchemaFloor, treeMax, DaemonSchemaFloor)
-		}
-		t.Skip("STATBUS_FLOOR_TEST_DSN unset and the floor is still the newest migration (oracle vacuous) — skipping")
+		// STATBUS-182: was a fail-loud the instant the floor lagged the tree. That
+		// tripwire has served its purpose — the floor now lags by design, and the
+		// oracle has a STANDING CI HOME (the fast-tests "Daemon floor oracle" step).
+		// So DSN-unset SKIPS here; the teeth moved, not vanished: TestFloorOracleWiredInCI
+		// (pure lane) FAILS if fast-tests stops running this oracle, so a deleted CI
+		// step reddens master by construction. Local `go test ./...` without a cluster
+		// skips with the recipe rather than failing on every laptop forever — the
+		// duty-holder for the empirical verdict is CI.
+		t.Skipf("STATBUS_FLOOR_TEST_DSN unset — the empirical floor oracle runs standing in CI (the fast-tests 'Daemon floor oracle' step). To run it locally, provision a DB at EXACTLY the floor (%d — NOT HEAD, which the non-vacuity guard rejects):\n"+
+			"  ./dev.sh create-db\n"+
+			"  ./sb migrate up --to %d\n"+
+			"  STATBUS_FLOOR_TEST_DSN='postgres://…/<db>' go test ./cli/internal/migrate/ -run TestDaemonFloorSchemaSufficient",
+			DaemonSchemaFloor, DaemonSchemaFloor)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -107,6 +108,18 @@ func TestDaemonFloorSchemaSufficient(t *testing.T) {
 		t.Skipf("STATBUS_FLOOR_TEST_DSN unreachable (%v) — skipping empirical floor oracle", err)
 	}
 	defer conn.Close(context.Background())
+
+	// NON-VACUITY (STATBUS-182): the DB must be at EXACTLY the floor, not HEAD — a
+	// HEAD DB (HEAD ⊇ floor) would prepare every query and pass while proving
+	// nothing about floor sufficiency. Assert it in machinery, not a comment: the
+	// highest recorded migration must equal DaemonSchemaFloor.
+	var provisionedMax int64
+	if err := conn.QueryRow(ctx, "SELECT COALESCE(MAX(version), 0) FROM db.migration").Scan(&provisionedMax); err != nil {
+		t.Fatalf("read MAX(db.migration.version) from the floor DB: %v", err)
+	}
+	if provisionedMax != DaemonSchemaFloor {
+		t.Fatalf("VACUITY GUARD: STATBUS_FLOOR_TEST_DSN points at a DB migrated to %d, not EXACTLY the daemon floor %d — the empirical oracle only means something at exactly-floor (a HEAD DB passes vacuously). Provision a floor DB per the fast-tests floor-oracle step.", provisionedMax, DaemonSchemaFloor)
+	}
 
 	for _, q := range daemonFloorQueries {
 		t.Run(q.name, func(t *testing.T) {

@@ -175,6 +175,38 @@ jobs:
           set -euxo pipefail
           ./dev.sh migrate-and-test fast
 
+      - name: Daemon floor oracle
+        # STATBUS-182: the empirical daemon-floor oracle's STANDING HOME. Provisions a
+        # DB at EXACTLY DaemonSchemaFloor and PREPAREs every daemon boot/recovery query
+        # against it — a green master proves the floor is sufficient. The floor now lags
+        # the tree by design (the first lag was the STATBUS-178 import migration), so this
+        # must run standing, forever. The floor value is DERIVED from the single source of
+        # truth cli/internal/migrate/daemon_floor.go's DaemonSchemaFloor, never hardcoded
+        # (TestFloorOracleWiredInCI asserts this wiring in the pure Go lane).
+        run: |
+          set -euxo pipefail
+          FLOOR=$(grep -oE 'DaemonSchemaFloor[[:space:]]+int64[[:space:]]*=[[:space:]]*[0-9]+' cli/internal/migrate/daemon_floor.go | grep -oE '[0-9]+$')
+          [ -n "$FLOOR" ] || { echo "::error::could not derive DaemonSchemaFloor from cli/internal/migrate/daemon_floor.go"; exit 1; }
+          echo "Derived DaemonSchemaFloor=$FLOOR"
+          # A bare template_statbus lacks the per-DB auth schema, so migrate.Up cannot run
+          # on it directly (the refuted self-provisioning note in daemon_floor_empirical_test.go).
+          # Reuse the seed-baseline primitive (`db seed create-db` = template_statbus + auth
+          # grants) against a DEDICATED db name via a SCOPED POSTGRES_SEED_DB override, so the
+          # real statbus_seed the pg_regress flow built stays untouched; reverted right after.
+          ORIG_SEED=$(./sb dotenv -f .env get POSTGRES_SEED_DB || true)
+          ./sb dotenv -f .env set POSTGRES_SEED_DB statbus_floor
+          ./sb db seed create-db                        # statbus_floor at baseline (auth schema, no migrations)
+          ./sb migrate up --target seed --to "$FLOOR"   # → EXACTLY the floor (NOT HEAD)
+          ./sb dotenv -f .env set POSTGRES_SEED_DB "${ORIG_SEED:-statbus_seed}"
+          # Point the oracle at the floor DB and run it STRICT (no continue-on-error). The
+          # test's non-vacuity guard FAILS unless MAX(db.migration.version) == the floor.
+          # -x off around the DSN so the generated PGPASSWORD never lands in the CI log.
+          set +x
+          eval "$(./sb config show --postgres)"
+          export STATBUS_FLOOR_TEST_DSN="postgres://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/statbus_floor?sslmode=${PGSSLMODE:-disable}"
+          set -x
+          ( cd cli && go test ./internal/migrate/ -run TestDaemonFloorSchemaSufficient -count=1 -v )
+
       - name: Show regression diffs on failure
         if: failure()
         run: |
