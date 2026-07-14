@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-13 14:45'
+updated_date: '2026-07-14 17:45'
 labels:
   - ci
   - quality-gate
@@ -32,3 +33,13 @@ Rollout: the existing codebase has `any` usages; burn them down to zero (typed r
 - [ ] #3 Existing any usages resolved with real types or per-line justified disables
 - [ ] #4 Gate lands green on master
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-14 17:45
+---
+SCOPE FINDING + INVENTORY (2026-07-14): the app has NO ESLINT AT ALL — verified directly in app/package.json: no lint script, zero eslint dependencies, no config file. AGENTS.md's documented `pnpm run lint` is STALE documentation (the doc fix rides this ticket). So this ticket's real scope is: (1) INTRODUCE ESLint to the app (eslint + typescript-eslint + eslint-config-next per Next.js 15 convention, flat config), (2) set no-explicit-any to error, (3) burn down, (4) wire the CI gate (check what app_build_and_lint-workflow.yaml actually runs today — presumably build+prettier only — and add the lint job strictly). ROUGH INVENTORY (tester, grep-based proxy since eslint can't run yet — pattern `: any`, misses `as any`/`any[]`/generics): 94 hits. Concentration: atoms/ 16, lib/ 10, legal-units/[id] 10, import/jobs/[jobSlug]/data 10 (one file alone has 10), jotai-state-management-reference 7 (a REFERENCE page — candidate for per-line justified disables rather than typing). Log: tmp/any-inventory-177.log. The true count lands only after ESLint is introduced (rule-based, not grep).
+---
+<!-- COMMENTS:END -->
