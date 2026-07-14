@@ -3,10 +3,11 @@ id: STATBUS-175
 title: >-
   pg-regress-echo-flake: intermittent loss of `\i` include echo makes echoing
   tests nondeterministic
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@mechanic'
 created_date: '2026-07-13 13:20'
-updated_date: '2026-07-14 10:47'
+updated_date: '2026-07-14 22:01'
 labels:
   - testing
   - not-install-upgrade
