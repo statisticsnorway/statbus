@@ -5063,15 +5063,30 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 			// The service will flip docker_images_status and release_builds_status
 			// on the next discovery cycle when CI finishes, re-enabling "Upgrade Now".
 			//
-			// STATBUS-176 lint burn-down: pre-existing silent ignore, left
-			// as-is — behavior-change candidate flagged in the burn-down
-			// report (this function returns nil — success — regardless of
-			// whether this UPDATE actually lands; if it silently fails, the
-			// row stays wedged at whatever state it was in before this
-			// unschedule attempt, is never claimable again as 'available',
-			// and the caller has no way to know the reset didn't happen).
-			_, _ = d.queryConn.Exec(ctx,
+			// STATBUS-187 fix unit #3 (architect-ruled, ticket comment #4):
+			// HARD-FAIL if this reset doesn't land — check both the Exec
+			// error and RowsAffected==0 (an id-scoped UPDATE affecting 0
+			// rows means the reset never happened even though Exec itself
+			// returned no error). Discovery ticks skip in_progress rows, so
+			// a silently-wedged row here would sit stuck until the next
+			// boot-time completeInProgressUpgrade, not bounded by "the next
+			// retry tick" as originally assumed — loud-warn isn't the
+			// honest floor. markPgInvariantTerminal is the established
+			// genre for ledger-write failures (promoteExistingCandidate is
+			// the byte-pattern); return the error, never nil. The
+			// "unscheduled" progress line moves to AFTER the confirmed
+			// reset so the log cannot claim what didn't happen.
+			result, resetErr := d.queryConn.Exec(ctx,
 				"UPDATE public.upgrade SET state = 'available', scheduled_at = NULL, started_at = NULL, from_commit_version = NULL WHERE id = $1", id)
+			if resetErr != nil {
+				d.markPgInvariantTerminal(resetErr, "service.go:executeUpgrade:ci-not-ready-unschedule")
+				return fmt.Errorf("CI not ready for %s, and the unschedule reset also failed: %w", displayName, resetErr)
+			}
+			if result.RowsAffected() == 0 {
+				noRowsErr := fmt.Errorf("CI-not-ready unschedule UPDATE affected 0 rows for upgrade id %d — row not reset to 'available'", id)
+				d.markPgInvariantTerminal(noRowsErr, "service.go:executeUpgrade:ci-not-ready-unschedule")
+				return noRowsErr
+			}
 			progress.Write("Release assets not ready for %s — unscheduled. Will be available when CI finishes.", displayName)
 			return nil
 		}
@@ -7765,16 +7780,23 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 	if err := d.restoreGitState(restoreTargetSHA, progress); err != nil {
 		progress.Write("ABORT: rollback could not restore git state to %s: %v", restoreTargetSHA, err)
 		progress.Write("Restoring database to keep on-disk state consistent...")
-		// STATBUS-176 lint burn-down: pre-existing silent ignore, left as-is
-		// — behavior-change candidate flagged in the burn-down report. This
-		// is the ABORT branch's OWN restoreDatabase call (confirmed present
-		// and load-bearing this session, STATBUS-181): if it silently
-		// fails here, the DB volume may be left inconsistent while the
-		// terminal write below still reports the same generic
-		// ROLLBACK_FAILED_GIT_CORRUPT — the operator would have no signal
-		// that the database-side restore ALSO failed, not just the git
-		// restore the message names.
-		_ = d.restoreDatabase(progress, backupPath)
+		// STATBUS-187 fix unit #1 (second wave, architect-ruled: "fix =
+		// capture + fold into the ABORT error string"): capture the ABORT
+		// branch's OWN restoreDatabase outcome (confirmed present and
+		// load-bearing this session, STATBUS-181) and fold it into
+		// rollbackFailedMsg + the progress log below, so support sees the
+		// WHOLE story — git restore failed AND whether the DB-side restore
+		// also failed — not just the generic ROLLBACK_FAILED_GIT_CORRUPT the
+		// message already names. Same tier/code/label/callback-event/exit as
+		// before; only the message is enriched.
+		dbRestoreErr := d.restoreDatabase(progress, backupPath)
+		dbRestoreOutcome := "succeeded"
+		if dbRestoreErr != nil {
+			dbRestoreOutcome = fmt.Sprintf("ALSO FAILED: %v", dbRestoreErr)
+			progress.Write("WARNING: database restore also failed: %v — the database is in an inconsistent state alongside the failed git restore.", dbRestoreErr)
+		} else {
+			progress.Write("Database restore succeeded.")
+		}
 		// Restore ./sb to match the attempted-but-failed git era so the
 		// operator's `./sb` at least stops being the NEW (mismatched)
 		// binary. Best-effort: if it fails, we log ErrRollbackBinaryCorrupt
@@ -7808,7 +7830,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 		// intervention needed) would be a silent operator lie to monitoring/UI.
 		// failed is valid here (started_at is set, no rolled_back_at). See
 		// upgrade-timeline.md § Complete / rollback.
-		rollbackFailedMsg := fmt.Sprintf("%s: %v (originally: %s) — ROLLBACK FAILED; the system is in a degraded state. Manual CLI recovery is required (./sb install); contact SSB support and involve your IT staff.", ErrRollbackGitCorrupt, err, reason)
+		rollbackFailedMsg := fmt.Sprintf("%s: %v (originally: %s) — ROLLBACK FAILED; the system is in a degraded state. Manual CLI recovery is required (./sb install); contact SSB support and involve your IT staff. Database restore %s.", ErrRollbackGitCorrupt, err, reason, dbRestoreOutcome)
 		// Bundle BEFORE the ABORT UPDATE so a forensic inspection of
 		// a wedged `failed` row has the sibling .bundle.txt.
 		d.writeDiagnosticBundle(ctx, id, progress)
