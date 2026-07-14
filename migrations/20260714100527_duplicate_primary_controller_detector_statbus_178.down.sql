@@ -1,4 +1,8 @@
-```sql
+-- Migration 20260714100527: duplicate primary controller detector statbus 178 (DOWN)
+-- Restores import.analyse_legal_relationship and import.process_legal_relationship
+-- to their pre-STATBUS-178 definitions (verbatim \sf dump).
+BEGIN;
+
 CREATE OR REPLACE PROCEDURE import.analyse_legal_relationship(IN p_job_id integer, IN p_batch_seq integer, IN p_step_code text)
  LANGUAGE plpgsql
 AS $procedure$
@@ -17,8 +21,7 @@ DECLARE
         'unknown_influenced_tax_ident',
         'missing_rel_type_code',
         'unknown_rel_type_code',
-        'invalid_percentage',
-        'duplicate_primary_controller'
+        'invalid_percentage'
     ];
     v_warning_keys_arr TEXT[] := ARRAY['rel_type_code'];
 BEGIN
@@ -212,89 +215,6 @@ BEGIN
         UPDATE public.import_job SET error = jsonb_build_object('analyse_legal_relationship_batch_error', SQLERRM)::TEXT, state = 'failed' WHERE id = p_job_id;
     END;
 
-    -- STEP 3b (STATBUS-178): tier-1 duplicate PRIMARY controller detection.
-    -- A unit can have only ONE primary influencer of a given type at overlapping time
-    -- (the DEFERRABLE exclusion legal_relationship_influenced_primary_excl). Without this
-    -- check the conflict reached process_legal_relationship, where sql_saga.temporal_merge
-    -- hit the exclusion and the EXCEPTION handler failed the WHOLE batch (STATBUS-120).
-    -- Catch it here per-row so valid rows still import.
-    --
-    -- Overlap predicate BYTE-MIRRORS the constraint: (influenced_id =, type_id =,
-    -- valid_range &&) among PRIMARY-only rows. Half-open ranges mean adjacent periods
-    -- ([a,b) then [b,c)) do NOT conflict, exactly like the exclusion. primary-ness is
-    -- derived from the RESOLVED legal_rel_type.primary_influencer_only (trigger-
-    -- denormalized onto legal_relationship; the batch row does not carry it).
-    --   Intra-batch conflict (distinct influencing_id, overlapping) -> BOTH rows error:
-    --     a CSV has no principled ordering, so the pair is ambiguous; the operator resolves.
-    --   vs-EXISTING conflict -> only the INCOMING row errors: the existing row passed the
-    --     gate before and is settled truth. Same-influencing_id repeats are OUT of scope
-    --     (temporal_merge idempotency territory) -- the distinct-influencing_id filter drops them.
-    v_sql := format($SQL$
-        WITH primary_rows AS (
-            SELECT
-                dt.row_id,
-                dt.influencing_id,
-                dt.influenced_id,
-                dt.type_id,
-                daterange(dt.valid_from, dt.valid_until, '[)') AS vr
-            FROM public.%1$I AS dt
-            JOIN public.legal_rel_type AS lrt
-                ON lrt.id = dt.type_id AND lrt.primary_influencer_only IS TRUE
-            WHERE dt.batch_seq = $1
-              AND dt.action = 'use'
-              AND dt.influencing_id IS NOT NULL
-              AND dt.influenced_id IS NOT NULL
-              AND dt.type_id IS NOT NULL
-        ),
-        intra_batch_conflicts AS (
-            -- equality-keyed self-join within (influenced_id, type_id); overlapping range;
-            -- a DIFFERENT influencing unit -> the pair is ambiguous, both rows error.
-            SELECT DISTINCT a.row_id
-            FROM primary_rows AS a
-            JOIN primary_rows AS b
-                ON a.influenced_id = b.influenced_id
-               AND a.type_id = b.type_id
-               AND a.influencing_id <> b.influencing_id
-               AND a.vr && b.vr
-        ),
-        existing_conflicts AS (
-            -- GiST-probed EXISTS on the exclusion's own index; a different influencing unit
-            -- already holds the primary slot over an overlapping period -> the incoming row errors.
-            SELECT pr.row_id
-            FROM primary_rows AS pr
-            WHERE EXISTS (
-                SELECT 1
-                FROM public.legal_relationship AS lr
-                WHERE lr.primary_influencer_only IS TRUE
-                  AND lr.influenced_id = pr.influenced_id
-                  AND lr.type_id = pr.type_id
-                  AND lr.influencing_id <> pr.influencing_id
-                  AND lr.valid_range && pr.vr
-            )
-        ),
-        conflicts AS (
-            SELECT row_id FROM intra_batch_conflicts
-            UNION
-            SELECT row_id FROM existing_conflicts
-        )
-        UPDATE public.%1$I dt SET
-            state = 'error'::public.import_data_state,
-            action = 'skip'::public.import_row_action_type,
-            operation = NULL,
-            errors = dt.errors || jsonb_build_object(
-                'duplicate_primary_controller',
-                'Another legal unit is already the primary influencer of this influenced unit for the same relationship type over an overlapping period. A unit may have only one primary influencer per type at a time; resolve which controller is correct.')
-        FROM conflicts AS c
-        WHERE dt.row_id = c.row_id;
-    $SQL$, v_data_table_name);
-    BEGIN
-        EXECUTE v_sql USING p_batch_seq;
-        GET DIAGNOSTICS v_update_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] analyse_legal_relationship: Flagged % duplicate-primary-controller rows.', p_job_id, v_update_count;
-    EXCEPTION WHEN others THEN
-        RAISE WARNING '[Job %] analyse_legal_relationship: Error during duplicate-primary detection: %', p_job_id, SQLERRM;
-    END;
-
     -- STEP 4: Compute founding_row_id for rows with same natural key in the batch.
     -- When multiple rows share (influencing_id, influenced_id, type_id) -- e.g., different
     -- temporal periods for the same relationship -- they must be linked via founding_row_id
@@ -350,5 +270,134 @@ BEGIN
 
     RAISE DEBUG '[Job %] analyse_legal_relationship (Batch): Finished analysis for batch. Total errors: %', p_job_id, v_error_count;
 END;
-$procedure$
-```
+$procedure$;
+
+CREATE OR REPLACE PROCEDURE import.process_legal_relationship(IN p_job_id integer, IN p_batch_seq integer, IN p_step_code text)
+ LANGUAGE plpgsql
+AS $procedure$
+DECLARE
+    v_job public.import_job;
+    v_definition public.import_definition;
+    v_step public.import_step;
+    v_data_table_name TEXT;
+    v_sql TEXT;
+    v_error_count INT := 0;
+    v_update_count INT := 0;
+    error_message TEXT;
+    v_start_time TIMESTAMPTZ;
+    v_duration_ms NUMERIC;
+    v_merge_mode sql_saga.temporal_merge_mode;
+BEGIN
+    v_start_time := clock_timestamp();
+    RAISE DEBUG '[Job %] process_legal_relationship (Batch): Starting operation for batch_seq %', p_job_id, p_batch_seq;
+
+    SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
+    v_data_table_name := v_job.data_table_name;
+
+    SELECT * INTO v_definition FROM jsonb_populate_record(NULL::public.import_definition, v_job.definition_snapshot->'import_definition');
+    IF v_definition IS NULL THEN RAISE EXCEPTION '[Job %] Failed to load import_definition from snapshot', p_job_id; END IF;
+
+    SELECT * INTO v_step
+    FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list')
+    WHERE code = 'legal_relationship';
+    IF NOT FOUND THEN RAISE EXCEPTION '[Job %] legal_relationship target step not found in snapshot', p_job_id; END IF;
+
+    -- Create updatable view over batch data mapping to legal_relationship columns
+    v_sql := format($$
+        CREATE OR REPLACE TEMP VIEW temp_legal_relationship_source_view AS
+        SELECT
+            row_id AS data_row_id,
+            founding_row_id,
+            legal_relationship_id AS id,
+            influencing_id,
+            influenced_id,
+            type_id,
+            percentage,
+            valid_from,
+            valid_until,
+            edit_by_user_id,
+            edit_at,
+            edit_comment,
+            NULLIF(warnings,'{}'::JSONB) AS warnings,
+            errors,
+            merge_status
+        FROM public.%1$I
+        WHERE batch_seq = %2$L AND action = 'use';
+    $$, v_data_table_name, p_batch_seq);
+    EXECUTE v_sql;
+
+    BEGIN
+        v_merge_mode := CASE v_definition.strategy
+            WHEN 'insert_or_replace' THEN 'MERGE_ENTITY_REPLACE'::sql_saga.temporal_merge_mode
+            WHEN 'replace_only' THEN 'REPLACE_FOR_PORTION_OF'::sql_saga.temporal_merge_mode
+            WHEN 'insert_or_update' THEN 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode
+            WHEN 'update_only' THEN 'UPDATE_FOR_PORTION_OF'::sql_saga.temporal_merge_mode
+            ELSE 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode
+        END;
+        RAISE DEBUG '[Job %] process_legal_relationship: Determined merge mode % from strategy %', p_job_id, v_merge_mode, v_definition.strategy;
+
+        CALL sql_saga.temporal_merge(
+            target_table => 'public.legal_relationship'::regclass,
+            source_table => 'temp_legal_relationship_source_view'::regclass,
+            primary_identity_columns => ARRAY['id'],
+            mode => v_merge_mode,
+            row_id_column => 'data_row_id',
+            founding_id_column => 'founding_row_id',
+            update_source_with_identity => true,
+            update_source_with_feedback => true,
+            feedback_status_column => 'merge_status',
+            feedback_status_key => 'legal_relationship',
+            feedback_error_column => 'errors',
+            feedback_error_key => 'legal_relationship'
+        );
+
+        v_sql := format($$ SELECT count(*) FROM public.%1$I dt WHERE dt.batch_seq = $1 AND dt.errors->'legal_relationship' IS NOT NULL $$, v_data_table_name);
+        EXECUTE v_sql INTO v_error_count USING p_batch_seq;
+
+        v_sql := format($$
+            UPDATE public.%1$I dt SET
+                state = CASE WHEN dt.errors ? 'legal_relationship' THEN 'error'::public.import_data_state ELSE 'processing'::public.import_data_state END
+            WHERE dt.batch_seq = $1 AND dt.action = 'use';
+        $$, v_data_table_name);
+        EXECUTE v_sql USING p_batch_seq;
+        GET DIAGNOSTICS v_update_count = ROW_COUNT;
+        v_update_count := v_update_count - v_error_count;
+
+        RAISE DEBUG '[Job %] process_legal_relationship: temporal_merge finished. Success: %, Errors: %', p_job_id, v_update_count, v_error_count;
+
+        -- Propagate newly assigned legal_relationship_id within batch
+        v_sql := format($$
+            WITH id_source AS (
+                SELECT DISTINCT src.founding_row_id, src.legal_relationship_id
+                FROM public.%1$I src
+                WHERE src.batch_seq = $1
+                  AND src.legal_relationship_id IS NOT NULL
+            )
+            UPDATE public.%1$I dt
+            SET legal_relationship_id = id_source.legal_relationship_id
+            FROM id_source
+            WHERE dt.batch_seq = $1
+              AND dt.founding_row_id = id_source.founding_row_id
+              AND dt.legal_relationship_id IS NULL;
+        $$, v_data_table_name);
+        EXECUTE v_sql USING p_batch_seq;
+
+    EXCEPTION WHEN OTHERS THEN
+        GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
+        RAISE WARNING '[Job %] process_legal_relationship: Unhandled error: %', p_job_id, replace(error_message, '%', '%%');
+        BEGIN
+            v_sql := format($$UPDATE public.%1$I dt SET state = 'error'::public.import_data_state, errors = errors || jsonb_build_object('unhandled_error_process_legal_relationship', %2$L) WHERE dt.batch_seq = $1 AND dt.state != 'error'::public.import_data_state$$,
+                           v_data_table_name, error_message);
+            EXECUTE v_sql USING p_batch_seq;
+        EXCEPTION WHEN OTHERS THEN
+            RAISE WARNING '[Job %] process_legal_relationship: Failed to mark rows as error: %', p_job_id, SQLERRM;
+        END;
+        UPDATE public.import_job SET error = jsonb_build_object('process_legal_relationship_unhandled_error', error_message)::TEXT, state = 'failed' WHERE id = p_job_id;
+    END;
+
+    v_duration_ms := (EXTRACT(EPOCH FROM (clock_timestamp() - v_start_time)) * 1000);
+    RAISE DEBUG '[Job %] process_legal_relationship (Batch): Finished in % ms. Success: %, Errors: %', p_job_id, round(v_duration_ms, 2), v_update_count, v_error_count;
+END;
+$procedure$;
+
+END;

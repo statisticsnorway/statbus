@@ -14,6 +14,7 @@ DECLARE
     v_start_time TIMESTAMPTZ;
     v_duration_ms NUMERIC;
     v_merge_mode sql_saga.temporal_merge_mode;
+    v_constraint_name TEXT;
 BEGIN
     v_start_time := clock_timestamp();
     RAISE DEBUG '[Job %] process_legal_relationship (Batch): Starting operation for batch_seq %', p_job_id, p_batch_seq;
@@ -110,8 +111,13 @@ BEGIN
         EXECUTE v_sql USING p_batch_seq;
 
     EXCEPTION WHEN OTHERS THEN
-        GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
-        RAISE WARNING '[Job %] process_legal_relationship: Unhandled error: %', p_job_id, replace(error_message, '%', '%%');
+        -- STATBUS-178 BACKSTOP: the DEFERRABLE exclusion legal_relationship_influenced_primary_excl
+        -- remains the truth -- analyse's STEP 3b detector is UX, not the guard. If the exclusion
+        -- (or any constraint) fires HERE despite the detector, that is a DETECTOR GAP (e.g. a
+        -- concurrent writer between analyse and process), so surface the constraint NAME in the
+        -- job error rather than a generic unhandled_error_* -- the gap is then recognizable on sight.
+        GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT, v_constraint_name = CONSTRAINT_NAME;
+        RAISE WARNING '[Job %] process_legal_relationship: Unhandled error (constraint %): %', p_job_id, COALESCE(NULLIF(v_constraint_name, ''), '-'), replace(error_message, '%', '%%');
         BEGIN
             v_sql := format($$UPDATE public.%1$I dt SET state = 'error'::public.import_data_state, errors = errors || jsonb_build_object('unhandled_error_process_legal_relationship', %2$L) WHERE dt.batch_seq = $1 AND dt.state != 'error'::public.import_data_state$$,
                            v_data_table_name, error_message);
@@ -119,7 +125,11 @@ BEGIN
         EXCEPTION WHEN OTHERS THEN
             RAISE WARNING '[Job %] process_legal_relationship: Failed to mark rows as error: %', p_job_id, SQLERRM;
         END;
-        UPDATE public.import_job SET error = jsonb_build_object('process_legal_relationship_unhandled_error', error_message)::TEXT, state = 'failed' WHERE id = p_job_id;
+        UPDATE public.import_job SET error = jsonb_build_object(
+            CASE WHEN NULLIF(v_constraint_name, '') IS NOT NULL
+                 THEN 'process_legal_relationship_constraint_violation_' || v_constraint_name
+                 ELSE 'process_legal_relationship_unhandled_error' END,
+            error_message)::TEXT, state = 'failed' WHERE id = p_job_id;
     END;
 
     v_duration_ms := (EXTRACT(EPOCH FROM (clock_timestamp() - v_start_time)) * 1000);
