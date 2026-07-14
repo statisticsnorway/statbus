@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-14 19:23'
+updated_date: '2026-07-14 19:41'
 labels:
   - fail-fast
   - upgrade
@@ -38,8 +39,18 @@ SHAPE: fix in ranked waves (top-3 first, as their own reviewed unit with arc/reg
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Architect confirms/amends the ranking and rules the handling per tier (hard-fail / loud-warn / accept-documented)
+- [x] #1 Architect confirms/amends the ranking and rules the handling per tier (hard-fail / loud-warn / accept-documented)
 - [ ] #2 Top-3 fixed as their own reviewed unit, proven by the arcs that cover those paths
 - [ ] #3 Stale-flag class gets one uniform ruled treatment
 - [ ] #4 Every fixed site's explicit-ignore marker is replaced; accepted sites keep a ruling-citing comment
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman (relaying architect)
+created: 2026-07-14 19:41
+---
+ARCHITECT RANKING REVIEW (2026-07-14, from the batch-2 pass) — AC#1's ranking half done, handling rulings included: TOP-3 REORDERED to #2 > #1 > #3. (2) pre-restore compose-stop ignored (both restore paths) is the HIGHEST consequence — a silently-failed stop means rsync-restoring the volume UNDER a live postgres: a torn-restored-volume data-corruption pathway. Low likelihood, cheap principled fix: a verify-stopped guard before the rsync. FIRST FIX UNIT, medium. (1) ABORT-branch restoreDatabase error dropped — real fail-loud gap but on a human-summon path with no autonomous consumer (the progress line lies to support, not machinery); fix = capture + fold into the ABORT error string. Low-med, second wave. (3) CI-not-ready unschedule returning nil — ledger-honesty bounded by retry-tick semantics; rides the family. None of the three blocks rc.06/stable per the architect — but the King's all-install-upgrade-tickets gate makes the top-3 unit part of the stable list regardless (his rule governs).
+---
+<!-- COMMENTS:END -->
