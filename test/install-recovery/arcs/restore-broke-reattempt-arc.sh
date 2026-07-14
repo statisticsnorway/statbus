@@ -431,10 +431,30 @@ echo "[OBSERVE] C9 wedge: exit 137, flag.phase=\"$PHASE_AFTER_D5\" flag.step=\"$
 echo "  ✓ crashed mid-rollback (natural forward failure → restoreGitState/restoreDatabase already ran → C9 killed the parent before the terminal write); 'pre-upgrade' branch present (not yet corrupted)"
 
 echo ""
-echo "── corrupting the restore input FOR REAL: deleting the pinned 'pre-upgrade' git branch on the VM (no C9 disarm needed — the next dispatch carries no inject env at all) ──"
-VM_EXEC bash -c "cd ~/statbus && git branch -D pre-upgrade"
+echo "── corrupting the restore input FOR REAL: detach HEAD first (run 4 finding, 29342325537 — the rollback's restoreGitState checked out 'pre-upgrade' before the C9 kill, \"Switched to branch 'pre-upgrade'\", so HEAD is ON it; git refuses to delete the branch you're standing on) then delete the pinned 'pre-upgrade' git branch on the VM (no C9 disarm needed — the next dispatch carries no inject env at all) ──"
+# --detach (no target) re-points HEAD at the SAME commit it already holds —
+# no tree content changes, only the branch REF is what disappears next,
+# which is exactly the intended corruption. Capture+echo stderr so a future
+# rc!=0 here NAMES itself (e.g. "error: Cannot delete branch ... checked
+# out") instead of surfacing as a bare harness failure.
+# `|| CORRUPT_RC=$?` (not a bare `$?` on the next line): under set -e a failing
+# command substitution would kill the script AT the assignment, skipping the
+# echo + gated message below — the exact silent-failure shape this capture exists
+# to prevent.
+CORRUPT_RC=0
+CORRUPT_OUT=$(VM_EXEC bash -c "cd ~/statbus && git checkout --detach 2>&1 && git branch -D pre-upgrade 2>&1") || CORRUPT_RC=$?
+echo "$CORRUPT_OUT"
+[ "$CORRUPT_RC" = "0" ] || { echo "✗ detach+delete of 'pre-upgrade' failed (rc=$CORRUPT_RC): $CORRUPT_OUT" >&2; exit 1; }
 [ "$(pre_upgrade_branch_present)" = "no" ] || { echo "✗ 'pre-upgrade' branch still resolves after deletion — corruption did not take" >&2; exit 1; }
-echo "  ✓ 'pre-upgrade' branch deleted — restoreGitState now has no resolvable target (the true r17/136 shape, constructed live)"
+# restoreGitStateFn's ONLY fallback (service.go:7646) is a plain
+# `git rev-parse --verify pre-upgrade^{commit}` — a bare ref-name lookup, no
+# reflog (`@{...}`) consultation and no tag/second-ref fallback coded
+# anywhere in that function. Nothing else in this repo is named
+# 'pre-upgrade', so once the branch ref is gone there is no other path that
+# could let restoreGitState resolve and dodge the ABORT. Confirm the repo
+# isn't wrecked BEYOND that one intended ref deletion.
+VM_EXEC bash -c "cd ~/statbus && git status >/dev/null 2>&1" || { echo "✗ 'git status' fails after the corruption — the repo is wrecked beyond the intended single-ref deletion" >&2; exit 1; }
+echo "  ✓ 'pre-upgrade' branch deleted (HEAD detached first, same commit, no tree change) — restoreGitState now has no resolvable target (the true r17/136 shape, constructed live); 'git status' still works — only the one ref is gone"
 
 echo ""
 echo "── 6th dispatch: ./sb install (no inject) → crash recovery starts the existing db container, observes still-Behind, rolls back AGAIN → restoreGitState fails for real → the ABORT branch fires ──"
