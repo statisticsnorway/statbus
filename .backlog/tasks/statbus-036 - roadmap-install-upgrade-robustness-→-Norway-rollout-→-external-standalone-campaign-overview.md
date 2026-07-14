@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-12 07:59'
-updated_date: '2026-06-12 13:16'
+updated_date: '2026-07-14 10:54'
 labels:
   - roadmap
   - install-recovery
@@ -97,3 +97,25 @@ GATE-BATCH COUPLING — REFRAMED + GUARD SHIPPED (King correction 2026-06-12). T
 
 doc-007 open-questions reconciliation: Q1 (031 gates stable/Norway) SETTLED. Q4 (B5 file-now) NOT superseded — stays live. Live King calls: 015 (confirm-the-Resuming-latch-contract) + 014 (redesign-to-reach-archiveBackup) + B5 (file-now).
 <!-- SECTION:NOTES:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect
+created: 2026-07-14 10:54
+---
+ROADMAP REWRITE part 1/2 (architect, 2026-07-14; King ratifies, foreman applies to the description). The 2026-07-06 block is consumed: Tracks A and B are DONE IN FULL — every named item closed on the board (git history preserves the old text). The description below the campaign header should be REPLACED by this text, tracks dropped. Verified premises: board snapshot 2026-07-14 (12 To Do + 3 In Progress, nothing else open); newest tag v2026.07.0-rc.05; newest STABLE tag v2026.05.5 (the 2026.06/07 series are rc-only); canary slots dev + rune hardcoded (release_canary.go:43-45).
+
+WHERE WE STAND (proven, not hoped — refreshed 2026-07-14):
+
+1. THE RECOVERY SYSTEM IS CAMPAIGN-PROVEN. The install-recovery arc campaign closed GREEN: every coverage-map cell run-proven on real VMs (071 carries the map + campaign ledger). Park-degraded, ground-truth self-heal routing, OOM, migration-ceiling double-fire, stopped-proxy recovery (143), flagless exit-20 (144), the 12h migration ceiling (095) — shipped and run-proven. The rune failure class (10,229 restarts, nobody told) is dead in code and dead in observation.
+
+2. THE LEDGER IS INTEGRITY-PROVEN. The ledger-integrity arc shipped whole: terminal states are teardown-immune with a state-log audit (154); a new claim atomically displaces a parked row to superseded (159); terminal rows are unresurrectable (160); every terminal write rides one core connection path (163). The upgrade row's story can no longer lie.
+
+3. THE RELEASE PIPELINE IS LIVE-PROVEN ON BOTH PROCUREMENT PATHS. rc.05 is cut and the fleet is green on it: Norway converged on the TAG path (row 42441 completed 2026-07-13; the annotated-tag peel and register-fetch defects were found and fixed by those very runs — 169/054) and dev converged on the EDGE/commit path. The old B5 worry — zero coverage of the tag-manifest path — is closed by live deployments, twice. The release cut is the one migration bless (166); registration is git-first with commit_tags as cache (169); self-verify checks target identity (171); config generation owns PGRST_DB_SCHEMAS (the PostgREST v12→14 hard-fail, fixed at the shared writer).
+
+4. THE OPERATOR CONTRACT HOLDS. "Run the installer" is still the sole operator action — through park, un-park, crash recovery, and repair. Norway's own rc.03 go-live was executed by the King via ./standalone.sh install, the canonical operator path. The last known import-side operator trap in this arc (batch-poisoning by duplicate primary controllers, 178) is King-approved and in build.
+
+5. THE GATE MACHINERY IS TRUSTWORTHY BY CONSTRUCTION. Test runs serialize on a kernel lock; Go tests run in CI; per-scenario install-recovery stamps compose local-or-CI runs against the RC tag's commit; the migration bless lives in the release cut alone — no second records of intent anywhere in the pipeline.
+---
+<!-- COMMENTS:END -->
