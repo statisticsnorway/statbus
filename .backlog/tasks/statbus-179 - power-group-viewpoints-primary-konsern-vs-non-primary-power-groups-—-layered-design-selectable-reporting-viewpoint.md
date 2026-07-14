@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-14 10:00'
-updated_date: '2026-07-14 10:16'
+updated_date: '2026-07-14 10:50'
 labels:
   - power-groups
   - design
@@ -41,8 +41,6 @@ RELATED: STATBUS-178 (duplicate PRIMARIES stay illogical and per-row-erroring re
 - [x] #3 Reporting viewpoint selection designed: primary-only (EU default, for now) vs expanded interest-alignment view
 - [ ] #4 King reviews and approves the design before any build
 <!-- AC:END -->
-
-
 
 ## Comments
 
@@ -98,5 +96,19 @@ KING BLESS POINTS (AC#4):
 5. EU default = viewpoint 'primary', revisited when the EU asks for more.
 
 Build follows as its own scope after his review; test 119/117/118/120 extend naturally (Baltic becomes the zero-primary interest case; a new JV-spanning fixture proves the sparse row + both viewpoints).
+---
+
+author: architect
+created: 2026-07-14 10:50
+---
+FOLD part 1/2 of the King's 2026-07-14 rulings (architect; AC#4 review happens on THIS folded design when he returns; still no build). Three rulings integrated; they supersede the corresponding bless points of comments #2/#3.
+
+1. NAMING (King: "Agreed"; supersedes bless point 2): scope ∈ {'controlling', 'aligned'} — replacing my proposed 'primary'/'interest' EVERYWHERE the design said them: the power_group.scope enum, the reporting `viewpoint` parameter values ('controlling' = default, 'aligned'), log keys, test names. One concept → one slug; no parallel vocabulary. Display terms carry the human/EU intuition: CONTROLLING renders as "Enterprise group" (the Eurostat term — King confirmed) and ALIGNED as "Sphere of influence" (his words). I CONCUR with the foreman's delegated call to keep the adjectival pair as the internal enum over the floated 'control'/'influence' nouns: the adjectives read correctly as row qualifiers (scope='controlling'), and the two display names already own the noun space — a second internal noun pair would be exactly the double-vocabulary the 164 refinement forbids.
+
+2. IDENT CONTINUITY (King's overrule of my ruling #4 STANDS, sharpened; supersedes bless point 4): humans track the konsern lineage — the durable ident anchors to the most stable point. I fold the foreman's two supporting arguments, both of which I verify as correct: (a) the old ident's OPERATIONAL meaning in the default primary view was the pruned konsern tree, so konsern-continuity preserves what report consumers actually SAW under the old ident; (b) the aligned layer is sparse and ephemeral by design — a JV forms and the sphere row appears, it dissolves and the row goes inactive — anchoring the durable ident to the ephemeral layer is backwards.
+
+Deterministic migration rule, two branches:
+(a) The controlling group containing the old row's RENDERED ROOT (power_root.root_legal_unit_id where a row exists — NSO custom override honored — else the level-0 member) INHERITS the old PG ident. No "largest" heuristic, no tie-break needed.
+(b) If the rendered root belongs to NO controlling group — pure-partnership components (test-119's Baltic case) or a rendered root whose unit has no controlling edges — the old PG ident RETIRES: never reissued (the base-36 sequence does not go backwards), recorded nowhere but the migration log. The component's sphere row mints from the NEW series. Retirement is the price of ruling 3's series purity, and it is honest: what those consumers tracked under the old ident (a partnership cluster) IS the sphere; its NAME changes series precisely because the concept was reclassified. Norway note: ANS/DA/KS partnership groups renumber into the sphere series — deterministic, one-time, listed by the migration.
 ---
 <!-- COMMENTS:END -->
