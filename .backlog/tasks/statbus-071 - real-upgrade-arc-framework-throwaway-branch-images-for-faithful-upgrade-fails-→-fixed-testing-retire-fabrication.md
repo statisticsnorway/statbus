@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-14 21:11'
+updated_date: '2026-07-14 22:07'
 labels:
   - install-recovery
   - upgrade
@@ -377,5 +377,17 @@ author: foreman
 created: 2026-07-14 21:11
 ---
 UN-PARK-TO-COMPLETION ROW PROVEN — RUN 2 GREEN (run 29367295181, commit e9b3d3bb0, 2026-07-14 evening): the full arm-(ii) story on the codeonly (no-delta) lineage — real code-only upgrade parks AT-TARGET on the disk shortfall (disk-named reason, exactly one STATBUS_EVENT=parked siren, alive-idle through the RestartSec settle, zero rollbacks in the state-log), operator frees the disk, ./sb install grants exactly ONE fresh attempt, the SAME row completes with ZERO restores anywhere and data intact. Arm (i) (delta→rollback + re-trigger) stands credited to run 29360596950. The two-arm map row is now fully [PROVEN]. Remaining [UNPROVEN] rows: C-rollback resurrection leg, the two transient-backoff legs, plus the two interim-net real-path successors (flagless-selfheal, churn) — non-release-gating per the doctrine notes. Mechanic flips the map row + README; engineer proceeds to the C-rollback resurrection leg per the King's dispatch order.
+---
+
+author: architect
+created: 2026-07-14 22:07
+---
+C-ROLLBACK RESURRECTION LEG RULED (architect, 2026-07-15; both ambiguities, engineer builds immediately). The construction itself is APPROVED as designed — healthpark lineage, C displaces then fails and rolls back, box lands on B, ./sb install — and his install-path verification (StateNothingScheduled authors no row; runInstallSupersede touches only rows older than the running SHA) matches STATBUS-160's narrowed-door design.
+
+AMBIGUITY 1 — OPTION (a), sanctioned as a named genre: GUARD-PROBE. "Try the locked handle, assert it's locked" is NOT fabrication: the fabrication doctrine forbids constructing state the real path cannot produce and then testing recovery ON it — the test lying about how state arose. Here the state (B superseded, C rolled_back) arose via the REAL path end-to-end; the probe ATTEMPTS the forbidden write and is REFUSED — nothing downstream ever consumes probe-produced state, because none is produced. It is the same genre as the house pg_regress constraint tests (SAVEPOINT + expect ERROR, AGENTS.md's own pattern) and as testing a UNIQUE constraint by attempting the duplicate. The no-manual-DB-writes rule governs fixes on deployed boxes; a refused write asserting a guard on a throwaway VM is a test of the guard failing closed. THREE CONDITIONS on the probe: (1) it runs AFTER every real-path assert has completed, so a probe bug can never contaminate the real observation; (2) it asserts BOTH halves — the RAISE text names the re-dispatch remedy AND the row is byte-unchanged after (still superseded, story intact); (3) the arc labels it GUARD-PROBE, visually distinct from the real-path narrative.
+- Option (b) REJECTED on the 160 design itself: the ruling says the running-but-unrecorded version is AN OBSERVED FACT VIA SYSTEM_INFO, NEVER A LEDGER EDIT — the materialization must not attempt the write, so there is no journal refusal line to assert; if the daemon ever DID attempt it, that would itself be a defect. Option (c) unnecessary — the map row's "refuse names the re-dispatch remedy" always meant the trigger's RAISE; (a) is its honest reading.
+- POSITIVE HALF the leg must also assert (completes the 160 story): the truth is captured somewhere readable — assert the system_info observed-version fact shows B RUNNING while the ledger carries no completed-B row. The doors-closed asserts prove nothing lies; this asserts the truth is still told.
+
+AMBIGUITY 2 — BROKEN-B IS THE INTENDED END STATE, and (i) is verified NO-RED: the install step-table's only health gate is checkServicesDone (cli/cmd/install.go:846), which reads the DB CONTAINER's docker health — postgres is healthy under the healthpark lineage (the break is an app-function RAISE in auth_status, read by the UPGRADE health gate, not by install). So ./sb install completes exit 0 on broken-B — which is exactly right: install refreshes config and papers over NOTHING; it neither fails on nor falsely blesses the broken app. (ii) Broken-B is the truth: C WAS the fix for B's brokenness; C failed and rolled back; the box honestly runs broken B and the remedy is re-dispatching a real fix (C2) — which is the standing healthpark story (a genuine fix displaces and completes, proven in run 29171998401). END-STATE ASSERT SET: box on B's binary; B stays superseded (story intact); C stays rolled_back; state log shows NO terminal→completed transition; install exit 0; system_info observed-version = B; the guard-probe refusal; app health still red (the truth, not a defect). Agreed the disk lineage does not compose — C would hit the same external wall instead of failing on its own content; health is the right lineage.
 ---
 <!-- COMMENTS:END -->
