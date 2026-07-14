@@ -1,37 +1,50 @@
 #!/bin/bash
 # Scenario: 4-rollback-abort-churn-then-alive-idle  (STATBUS-144 AC#3)
 #
-# THE SHAPE THIS PROVES: this is 4-rollback-abort-write-lands.sh WITHOUT its
-# cleanup step, updated for two things that changed since that scenario's
-# header first sketched this variant (STATBUS-144's own note, comment #3):
+# THE SHAPE THIS PROVES: this reuses the ABORT construction the former
+# 4-rollback-abort-write-lands scenario built (that scenario has since been
+# narrowed + renamed to 4-flagless-selfheal-at-target, keeping only its OTHER
+# half — the flagless self-heal — because its ABORT half is now arc-proven
+# for real by the restore-broke-reattempt arc, run 29344519124), WITHOUT the
+# cleanup step that scenario used, updated for two things that changed since
+# this variant's header first sketched it (STATBUS-144's own note, comment #3):
 #
 #   (1) STATBUS-138 (shared migration validity predicate): the failing
 #       migration must be VALID-named (already true here — same far-future
-#       14-digit-timestamp construction the base scenario uses, NOT an
+#       14-digit-timestamp construction the base construction used, NOT an
 #       invalid-version file; that class is now silently skipped-with-warn
 #       and can never reach a churn at all).
 #   (2) STATBUS-145 (floor-bounded boot-migrate): boot-migrate now runs
-#       `--to DaemonSchemaFloor`, NOT to HEAD. The base scenario's far-future
-#       migration (20990101000000-class, used ONLY to drive a ground-truth
-#       Behind read and route recoverFromFlag into the ABORT branch) sits
-#       WAY above the floor — boot-migrate's pending filter
+#       `--to DaemonSchemaFloor`, NOT to HEAD. The far-future ground-truth
+#       driver migration (20990101000000-class, used ONLY to drive a
+#       ground-truth Behind read and route recoverFromFlag into the ABORT
+#       branch) sits WAY above the floor — boot-migrate's pending filter
 #       (`m.Version > migrateTo -> skip`) NEVER attempts it, at any restart
-#       count. Simply "not deleting" that file (the base header's original
-#       plan) would NOT reproduce a churn today — it would just leave the
-#       ABORT's own flagless self-heal to converge to 'completed', identical
-#       to the base scenario's own end state. STATBUS-144's own comment #3
-#       flags exactly this: "the inject must sit AT OR BELOW the daemon
-#       floor to hit the boot path."
+#       count. Simply "not deleting" that file would NOT reproduce a churn
+#       today — it would just leave the ABORT's own flagless self-heal to
+#       converge to 'completed'. STATBUS-144's own comment #3 flags exactly
+#       this: "the inject must sit AT OR BELOW the daemon floor to hit the
+#       boot path."
 #
-# INTERIM: deleted, TOGETHER WITH its base scenario 4-rollback-abort-write-lands.sh
-# (which this variant inherits its ABORT construction from verbatim), when the
-# restore-broke re-attempt arc goes green (same pattern as the r19 park
-# scenario). Architect-ruled (STATBUS-071): this variant is a remaining
-# fabricate_resume_state caller alongside 3-postswap-rune-wedge and its own
-# base scenario; the base scenario's abort-row construction produces exactly
-# the state that arc's re-attempt will build for real — one construction,
-# three oracles now (this variant's alive-idle proof included) — so BOTH
-# members of this family stay until that arc proves out.
+# STANDING (STATBUS-071 comments #16/#17, 2026-07-14 — corrects this file's
+# former joint-deletion plan): this variant does NOT delete alongside the
+# ABORT half. It KEEPS STANDING, uncoupled, as its own INTERIM NET for
+# STATBUS-144 AC#3 — the flagless-churn-then-alive-idle property has no other
+# coverage. Its [in_progress row + service-held flag + no cleanup, so the
+# floor-bound migration survives] state has a LIVE producer, not a dead one
+# (STATBUS-144 was discovered from a REAL occurrence during round 2 of the
+# old abort-oracle's own build, not invented for this test) — per the
+# dead-producer doctrine (comment #12) that means this fabrication owes a
+# real-path successor too, queued as its own future map row, and THIS file
+# deletes only once that successor goes green (same standing the interim
+# self-heal scenario has, not the permanent-fabrication reading comment #16
+# originally floated and comment #17 withdrew). It remains a legitimate
+# fabricate_resume_state caller alongside 3-postswap-rune-wedge and
+# 4-flagless-selfheal-at-target until then.
+#
+# The misleading `4-rollback-abort-` name prefix is left alone for now — a
+# rename re-keys the per-scenario stamp, so it happens only when this
+# scenario is next re-run anyway, not as a drive-by edit here.
 #
 # So this variant injects a SECOND, SEPARATE deterministically-failing
 # migration whose version is AT OR BELOW the floor and GENUINELY PENDING —
@@ -181,9 +194,10 @@ VM_EXEC bash -c "test -f ~/statbus/migrations/$BROKEN_FLOOR_MIGRATION" || { echo
 echo "  ✓ migrations/$BROKEN_FLOOR_MIGRATION written (version=$INJECT_VERSION ≤ floor=$FLOOR)"
 
 # ─────────────────────────────────────────────────────────────────────────
-# The far-future ground-truth-Behind driver — IDENTICAL construction to
-# 4-rollback-abort-write-lands.sh (valid 14-digit far-future version, body
-# fails deterministically). Its ONLY job is to make ground truth read Behind
+# The far-future ground-truth-Behind driver — the SAME construction the
+# former 4-rollback-abort-write-lands scenario's ABORT half used (valid
+# 14-digit far-future version, body fails deterministically). Its ONLY job is
+# to make ground truth read Behind
 # so recoverFromFlag's Resuming branch routes into rollback()'s ABORT
 # branch. It sits WAY above the floor so it never interacts with boot-migrate
 # — the two injected migrations are deliberately independent, each doing
