@@ -393,7 +393,32 @@ func runInstall() (installErr error) {
 				}
 			}
 			if state == install.StateCrashedUpgrade {
-				if err := runCrashRecovery(installDir); err != nil {
+				// STATBUS-180: fire the daemon-restart closure DEFERRED at this
+				// dispatch's conclusion (runInstall's own return), not inside
+				// runCrashRecovery itself — a same-dispatch re-attempt below
+				// (StateRestoreReattemptable → ReattemptRestore) stops/restores
+				// the DB containers, and starting the daemon before that races
+				// its boot-migrate against the mid-teardown DB. Registered here,
+				// before the runCrashRecovery call, so it still fires even when
+				// recovery itself returns an error (the re-parked case sets
+				// recovered=true on an error return — a degraded box must still
+				// get its daemon back, since that daemon is how it receives the
+				// eventual fix release) — covering every RETURN path below,
+				// including a failed re-attempt. ONE non-return exit skips it:
+				// an inline scheduled-upgrade dispatch's syscall.Exec handoff
+				// replaces the process and fires no defers — compensated, not
+				// covered: the inline upgrade restarts the unit itself at
+				// completion, a mid-exec crash leaves the flag so the next
+				// install hands the closure up again, and the daemon staying
+				// down through the inline dispatch is deliberate claim-race
+				// avoidance (STATBUS-180 comment #2).
+				var restartIfRecovered func()
+				defer func() {
+					if restartIfRecovered != nil {
+						restartIfRecovered()
+					}
+				}()
+				if err := runCrashRecovery(installDir, &restartIfRecovered); err != nil {
 					return fmt.Errorf("crash recovery: %w", err)
 				}
 				state, detail, derr = install.Detect(installDir, version)

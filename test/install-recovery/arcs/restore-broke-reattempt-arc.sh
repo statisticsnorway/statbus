@@ -531,21 +531,32 @@ CALLBACK_COUNT_4=$(VM_EXEC bash -c "wc -l < $CALLBACK_LOG 2>/dev/null" | tr -d '
 echo "  ✓ row untouched by the refusal: state='failed', identical error, recovery_attempts=1, backup_path retained, flag absent, no callback fired"
 echo "  ✓ phase (ii) COMPLETE: git-corrupt ABORT row (recovery_attempts=1 survived its own restore, STATBUS-181) → re-attempt REFUSES actionably before any destructive step, never mixed-era"
 
-# Bound=2: phase (i)'s merged 4th dispatch is the only remaining contributor.
-# `runCrashRecovery` explicitly `systemctl --user start`s the quiesced daemon
-# right after the pair-terminal write (install_upgrade.go, restartUpgradeService's
-# is-active gate would no-op there, so crash-recovery uses an explicit start
-# instead), in the SAME window the 4th dispatch's own re-attempt is stopping/
-# restoring the DB containers (both inside that one merged dispatch, run
-# 29325230294's own journal: daemon start 10:41:19-20, its own boot-migrate
-# fails ~10:41:23 against the DB the re-attempt is mid-teardown/restore on,
-# systemd Restart=always retries at 10:41:53 and succeeds once the restore has
-# completed). Benign and self-healing. Phase (ii) no longer contributes here —
-# construction (C) has no daemon-driven SIGKILL (unlike the superseded stall
-# construction it replaces): every phase (ii) dispatch runs `./sb install`
-# directly over SSH with the daemon stopped throughout, so there is no
-# systemd-supervised process for Restart=always to react to.
-assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 2
+# Bound=0: STATBUS-180 closed phase (i)'s own contributor. Before that fix,
+# runCrashRecovery fired the daemon-restart closure itself (deferred inside
+# the function), so the merged 4th dispatch explicitly `systemctl --user
+# start`ed the quiesced daemon WHILE that SAME dispatch's re-attempt was still
+# stopping/restoring the DB containers — the freshly-started daemon's own
+# boot-migrate raced the mid-teardown DB, failed, and systemd's Restart=always
+# ticked NRestarts once before the retry succeeded (run 29325230294's journal:
+# daemon start 10:41:19-20, boot-migrate failure ~10:41:23, successful auto-
+# restart at 10:41:53). The fix hoists the closure out of runCrashRecovery to
+# the install dispatch ladder, which now fires it deferred at the WHOLE
+# dispatch's conclusion — after the same-dispatch re-attempt has already
+# finished restoring the DB — so the daemon's own boot-migrate never races a
+# mid-teardown DB again. Phase (ii) contributes nothing either: construction
+# (C) has no daemon-driven SIGKILL — every phase (ii) dispatch runs
+# `./sb install` directly over SSH with the daemon stopped throughout, so
+# there is no systemd-supervised process for Restart=always to react to.
+assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 0
+
+# STATBUS-180 AC#2's second half: the journal must show NO boot-migrate
+# failure line at all — not just a bounded restart count. Direct evidence the
+# race window (the daemon's boot-migrate hitting a mid-teardown DB) never
+# opened, using the exact error substrings the ticket's own FOUND section
+# quoted from the raced run (29325230294).
+VM_EXEC bash -c "journalctl --user -u statbus-upgrade@statbus.service --no-pager 2>/dev/null | grep -qE 'query applied migrations: exit status|boot migrate up: exit status'" \
+    && { echo "✗ daemon journal shows a boot-migrate failure line — the STATBUS-180 race window reopened" >&2; exit 1; }
+echo "  ✓ daemon journal shows no boot-migrate failure line (STATBUS-180 race window closed)"
 
 echo ""
 echo "PASS: restore-broke-reattempt (dual-class STATBUS-111 proof — (i) a pair-terminal restore-broke row's re-attempt replays the restore to a byte-identical 'rolled_back'; (ii) a git-corrupt ABORT row (recovery_attempts=1 surviving its own restore, STATBUS-181) whose re-attempt refuses actionably, ErrRollbackGitCorrupt, before any destructive step, never mixed-era; both rows constructed via real dispatch + real kills + a real on-disk git-branch deletion, not fabrication)"

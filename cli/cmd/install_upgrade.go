@@ -186,7 +186,24 @@ func restartUpgradeService(projDir string) {
 // recreate it via `up -d`, which is still forbidden per rc.66 → rc.67)
 // and retry. Refusal stays reserved for the "container is gone or stays
 // unreachable after start" case, which IS the operator-investigate path.
-func runCrashRecovery(projDir string) error {
+//
+// STATBUS-180: the daemon restart closure used to fire in THIS function's own
+// defer — i.e. before the caller re-detects state and dispatches the
+// same-dispatch re-attempt (StateRestoreReattemptable → ReattemptRestore).
+// That re-attempt's own pre-restore `docker compose stop` raced the freshly-
+// started daemon's boot-migrate check against the DB it was mid-teardown on
+// (benign, self-healing, but a real timing window + a stray NRestarts tick +
+// a FAILURE journal line). The architect's ruling (STATBUS-180 comment #1):
+// hoist the closure to the caller via the restartIfRecovered out-param below,
+// so the DISPATCH LADDER fires it deferred at its own conclusion — after any
+// same-dispatch re-attempt has already stopped/restored the DB, never before.
+// restartIfRecovered may be nil (callers that don't need the hand-up); when
+// non-nil, this function sets *restartIfRecovered to the gated closure iff
+// `recovered` ends up true (unchanged semantics: recovered=false leaves the
+// unit stopped — a failed recovery must not resurrect a crash loop;
+// wasEnabled=false stays the no-op closure stopRestartUpgradeUnit already
+// returns) — it does NOT invoke the closure itself anymore.
+func runCrashRecovery(projDir string, restartIfRecovered *func()) error {
 	ctx := context.Background()
 	svc := upgrade.NewService(projDir, true /* verbose */, version, commit)
 	defer svc.Close()
@@ -194,20 +211,25 @@ func runCrashRecovery(projDir string) error {
 	// PART 1: stop the looping upgrade unit before any recovery work.
 	// stopRestartUpgradeUnit captures is-enabled, runs `systemctl --user
 	// stop` + `reset-failed`, and returns a closure that restarts the
-	// unit iff it was enabled when we entered. The closure is deferred
-	// to fire only on successful recovery (no-op on early return errors)
-	// so a failed recovery does not resurrect the unit into another loop.
+	// unit iff it was enabled when we entered. STATBUS-180: the closure is
+	// handed UP to the caller via restartIfRecovered (below) rather than
+	// invoked here — the caller fires it deferred at dispatch conclusion, so
+	// a same-dispatch re-attempt's own DB teardown never races the daemon's
+	// boot-migrate. Gated the same as before: only when `recovered` ends up
+	// true (never on an early-return error that leaves recovered false).
 	var restartIfEnabled func()
 	recovered := false
 	if runtime.GOOS == "linux" {
 		instance := serviceInstance(projDir)
 		if instance != "" {
 			restartIfEnabled = stopRestartUpgradeUnit(projDir, instance)
-			defer func() {
-				if recovered && restartIfEnabled != nil {
-					restartIfEnabled()
-				}
-			}()
+			if restartIfRecovered != nil {
+				defer func() {
+					if recovered {
+						*restartIfRecovered = restartIfEnabled
+					}
+				}()
+			}
 		}
 	}
 
