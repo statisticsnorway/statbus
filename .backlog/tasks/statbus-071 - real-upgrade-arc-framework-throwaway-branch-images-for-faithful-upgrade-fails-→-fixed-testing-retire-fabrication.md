@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-14 23:04'
+updated_date: '2026-07-14 23:06'
 labels:
   - install-recovery
   - upgrade
@@ -401,5 +401,21 @@ author: foreman
 created: 2026-07-14 23:04
 ---
 C-ROLLBACK ARC RUN 1 RED — POSSIBLE PRODUCT FINDING, WITH ARCHITECT (run 29373805316, log tmp/crollback-run1-failure.log): failed at the displacement-narrative assert — after C displaced B, B's error held ONLY ' — displaced by the claim of upgrade id=3' (the note appended to an EMPTY error); the park narrative never lived in error this run. Puzzle: the assert is byte-copied from postswap-health-park, which went GREEN with it on run 29171998401 — same lineage, same break, different error-field outcome. Mechanism candidate from the journal: THIS run's B parked via the RECOVER-FROM-FLAG path (reason written to recovery_parked_reason, error left NULL, unit exit 1), while health-park's green presumably parked inline — i.e. two park writers with different error-field contracts, selection timing-dependent. If confirmed: (a) the displacement story's 'narrative + note both in error' contract silently depends on which writer parked you — an operator/support-story gap; (b) health-park's own assert is latently flaky (no-flaky-tests → must be fixed either way). Architect ruling requested: verify the two-writer hypothesis, rule product-fix vs contract-restatement (both arcs' asserts move together), and explain the inline-vs-recover selection nondeterminism. Everything up to that assert was GREEN: at-target park, reason names B, V1+V2 applied, C displaced B (superseded, marker cleared, one 154 displacement row).
+---
+
+author: architect
+created: 2026-07-14 23:06
+---
+C-ROLLBACK RUN 29373805316 RED RULED (architect, 2026-07-15) — REAL PRODUCT FINDING, max-effort verified in code; both runs are explained by ONE mechanism and neither run lied.
+
+(1) THE TWO-WRITER HYPOTHESIS, VERIFIED IN REFINED FORM: there are NOT two park sites — there is exactly ONE (parkForDeterministicFailure → parkUpgrade, the sole `recovery_parked_at = now()` writer, service.go:6484) — but the park is a SPLIT WRITE with two different guarantees. The park columns (parked_at + reason) ride terminalUpdate — the STATBUS-154 teardown-immune channel (context.Background, bounded retry, must outlive the dying pass; parkUpgrade's own doc says so verbatim). The error NARRATIVE rides recordInProgressFailure (:5594) on the PASS's queryConn and the PASS's ctx, with `if d.queryConn == nil { return }` (silent no-op) and a printf-swallowed Exec failure. On health-park's green run the parking pass had a live conn → narrative landed (its assert string is written ONLY at :5594 — grep-verified). On this run the park landed via the recoverFromFlag pass whose conn/ctx was dead or dying at park time → the immune half landed (the arc's parked-reason assert PASSED), the mortal half vanished. This is the EXACT race 154 was built to kill — the fix made the park immune and left its narrative behind. NOT intended; a 154 completeness gap.
+
+(2) PRODUCT FIX SHAPE (rides a product commit before the arc re-runs): fold the narrative INTO the immune write — parkUpgrade's single UPDATE becomes `SET recovery_parked_at = now(), recovery_parked_reason = $2, error = $3 WHERE id = $1 AND state = 'in_progress' AND recovery_parked_at IS NULL` (error value: 'parked on deterministic forward failure: '+reason, today's exact bytes), still via terminalUpdate + upgradeRowReturning; DELETE the :5594 recordInProgressFailure call. One write, one guarantee, atomic — the narrative can never again diverge from the park it narrates. BOUNDED: the only other recordInProgressFailure caller (:5560, the forward-retry transient note) stays best-effort — correct there, it is a live-pass note no terminal story depends on.
+
+(3) DISPLACEMENT CONTRACT: NO restatement needed. With the fix, the narrative deterministically lives in `error` at displacement time, and STATBUS-159's displacement appender composes on top — BOTH arcs' asserts stand AS WRITTEN. Health-park's green becomes deterministic instead of lucky; its latent flake dies with the product fix (no-flaky-tests satisfied by fixing the product, not the assert).
+
+(4) INLINE-vs-RECOVERFROMFLAG ORDERING: genuinely timing-dependent (whether the first pass survives to park in-process or dies at the exit/restart boundary and the next pass parks) and BY DESIGN — recovery is idempotent across passes and no doctrine depends on WHICH pass parks. What must be pass-independent is the ROW'S STORY — exactly what fix (2) restores. Neither arc may pin which pass parks.
+
+CREDIT: the red also run-proved the immune half working (parked reason present on a dying pass) and caught a support-story gap the NSO operator would have hit reading a parked row with an empty error. Builder: mechanic or engineer (foreman's call) — small, one function + one deleted call + a unit test asserting the park UPDATE carries all three columns (structural, same genre as the terminal-write contract test); then the C-rollback arc re-runs UNCHANGED.
 ---
 <!-- COMMENTS:END -->
