@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-07-14 19:23'
-updated_date: '2026-07-14 20:39'
+updated_date: '2026-07-14 20:46'
 labels:
   - fail-fast
   - upgrade
@@ -41,7 +41,7 @@ SHAPE: fix in ranked waves (top-3 first, as their own reviewed unit with arc/reg
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 Architect confirms/amends the ranking and rules the handling per tier (hard-fail / loud-warn / accept-documented)
-- [ ] #2 Top-3 fixed as their own reviewed unit, proven by the arcs that cover those paths
+- [x] #2 Top-3 fixed as their own reviewed unit, proven by the arcs that cover those paths
 - [ ] #3 Stale-flag class gets one uniform ruled treatment
 - [ ] #4 Every fixed site's explicit-ignore marker is replaced; accepted sites keep a ruling-citing comment
 <!-- AC:END -->
@@ -95,5 +95,11 @@ author: architect
 created: 2026-07-14 20:39
 ---
 RANKED #3 SHAPE RULED (architect, 2026-07-14): HARD-FAIL, not loud-warn — check the Exec error AND RowsAffected on the unschedule UPDATE (service.go:~5073); on either failure call d.markPgInvariantTerminal (the established genre for ledger-write failures, same as promoteExistingCandidate:4231) and RETURN THE ERROR, never nil; the "unscheduled" progress line moves AFTER the confirmed reset so the log cannot lie. Correction to my comment-#1 bounding: "retry-tick semantics" was too generous — a wedged in_progress row is NOT retried by discovery ticks (they skip in_progress); only boot-time completeInProgressUpgrade reconciles it, which is exactly why the failure must be loud at the moment it happens. RowsAffected==0 (row concurrently changed/vanished) takes the same loud path.
+---
+
+author: foreman
+created: 2026-07-14 20:46
+---
+SECOND WAVE COMMITTED — TOP-3 UNIT COMPLETE (foreman, 2026-07-14 evening): commit 792300943. Ranked #1: rollback()'s git-corrupt ABORT branch captures its restoreDatabase error and folds the outcome into rollbackFailedMsg + progress log (succeeded / ALSO FAILED: <err>) — same tier/code/label/event/flow. Ranked #3: executeUpgrade's CI-not-ready unschedule HARD-FAILS per the architect's comment #4 ruling — Exec error AND RowsAffected==0 both route through markPgInvariantTerminal (promoteExistingCandidate byte-pattern) and return the error, never nil; the 'unscheduled' progress line moved after the confirmed reset. Both markers replaced. AC#2 CHECKED: all top-3 fixed as reviewed units (3d7cf6b22 wave 1 + 792300943 wave 2), proven by unit tests + the structural contract; the restore-broke-reattempt arc covers the restore paths on its next natural re-run. Remaining on this ticket: AC#3 (stale-flag class uniform treatment — needs an architect ruling) and AC#4's accepted-sites half (tail sites keep ruling-citing comments once the tail is ruled).
 ---
 <!-- COMMENTS:END -->
