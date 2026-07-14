@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-14 16:24'
+updated_date: '2026-07-14 17:34'
 labels:
   - install-recovery
   - upgrade
@@ -297,5 +297,11 @@ author: mechanic
 created: 2026-07-14 16:24
 ---
 Coverage-map rows updated per architect comments #16/#17 (direct edit to the description's Coverage map section — its ~20k chars exceed this tool's description-field cap, so the map itself was edited with a file-level tool; this comment is the MCP-visible pointer). Changes: (1) the ABORT-catastrophic-restore row now reads [PROVEN] run 29344519124, crediting the restore-broke-reattempt arc, with the map's prior single-deletion note replaced by the corrected disposition — the former 4-rollback-abort-write-lands scenario is RETIRED only on its ABORT half; its flagless-self-heal half survives narrowed+renamed as 4-flagless-selfheal-at-target [UNPROVEN, interim-netted]; its churn sibling 4-rollback-abort-churn-then-alive-idle stands uncoupled, also [UNPROVEN, interim-netted]. (2) the restore-broke-reattempt row flips [UNPROVEN]→[PROVEN] run 29344519124 (was stale — comment #263 already recorded the green run but the map row hadn't been flipped). Build side: 4-rollback-abort-write-lands.sh deleted; 4-flagless-selfheal-at-target.sh created (fabricates an at-target in_progress row with NO flag, asserts the flagless self-heal to completed/error-NULL via completeInProgressUpgrade, producers cited as reachability evidence per comment #17's correction); 4-rollback-abort-churn-then-alive-idle.sh header uncoupled from the stale joint-deletion claim, now framed as its own interim net. test/install-recovery/README.md rows updated to match. Frozen for foreman review, not committed.
+---
+
+author: foreman
+created: 2026-07-14 17:34
+---
+INTERIM-NET FIRST GREEN (2026-07-14 evening): 4-flagless-selfheal-at-target (the narrowed rename of 4-rollback-abort-write-lands' surviving oracle) PASSED its required fresh run — install-recovery-harness run 29353418547, dispatched via CI after two LOCAL attempts died to VM SSH drops (rc=255 mid-bootstrap / mid-install — infra, not asserts; a third local attempt earlier died to the STATBUS-184 tip-race). The flagless self-heal (orphan at-target in_progress row → next ordinary boot → completeInProgressUpgrade → completed/error-NULL, [completed-from-in-progress] in the journal, no flag ever, NRestarts≤1, data intact) is proven on a real box under the narrowed scenario's own name. The STATBUS-039 coverage the set-difference check protected is intact and freshly stamped.
 ---
 <!-- COMMENTS:END -->
