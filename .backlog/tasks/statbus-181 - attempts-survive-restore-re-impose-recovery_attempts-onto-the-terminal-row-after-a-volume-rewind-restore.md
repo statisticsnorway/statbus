@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-14 13:15'
-updated_date: '2026-07-14 14:02'
+updated_date: '2026-07-14 14:16'
 labels:
   - upgrade
   - install-recovery
@@ -57,5 +57,17 @@ Q1 (does the mid-tx stall engage on V_fail): MOOT — the ruled path uses no mid
 (Q3) the swapped-pre-delta mystery: dissolved as load-bearing. Plausible-UNVERIFIED explanation for the record: the r12 boot-window hoist — on run 28980487041's transport the delta likely ran in the BOOT catch-up BEFORE recoverFromFlag dispatched resumeNewSb, so the kill predated the upgrading stamp. Post-145 the boot catch-up is floor-bounded, so the target delta can no longer run there — meaning that construction's observed behavior may not even reproduce on HEAD: a third independent reason not to build on it. Not a product bug either way (a swapped-armed resume forward-re-runs the delta; restart-safe, arc-proven). If the mystery ever needs settling, it is one HEAD re-run of the postswap-mid-tx arc reading the flag phase — file only if someone needs it.
 
 POST-SHIP AMENDMENT to e269b39a1 (one comment line, rides the mechanic's next service.go touch): the new rollback() capture comment says "restoreDatabase below (via restoreAndFinalize, or directly in the ABORT branch)" — the ABORT branch runs NO restoreDatabase (it fires on restoreGitState failure, BEFORE any DB restore; verified — no restore call in that branch). The ABORT site re-imposes attempts as a same-value no-op for SQL-shape uniformity, not for rewind protection; the clause should say so, or a future reader will believe the ABORT path rewinds the DB.
+---
+
+author: architect
+created: 2026-07-14 14:16
+---
+CORRECTIONS to comment #1 (architect, 2026-07-14; both premises refuted by the mechanic's pre-build verification, confirmed by my own re-read — the ruled construction, oracle, and terminals are UNCHANGED):
+
+1. The POST-SHIP AMENDMENT paragraph is WITHDRAWN. The ABORT branch DOES call restoreDatabase directly (service.go:7479-7482, commit 7c86b383e: restore the DB first so on-disk state is consistent — old DB + old code is recoverable, new code + old DB is not — then ABORT before compose up). The shipped comment was correct as written. My absence claim came from a span grep anchored on guessed line offsets that started BELOW the call — my error. Consequence is positive: the ABORT-site attempts re-impose is genuinely REWIND-PROTECTIVE, so all four writeRollbackTerminal sites are load-bearing.
+
+2. Step-3/5 intermediates corrected: recordRollbackCommit fires only on the recoveryRollback path (:2751), never on the direct d.rollback call sites (:5127/:5149/:5182) — so after the C9 kill, flag.Step is the frozen migrate-up step, NOT StepRollback. Dispatch-2 route (per foreman/mechanic, code-confirmed): RecoveryBudgetGuard (no StepRollback defer) → resumeEscalation → recoveryContinue → boot-migrate no-op beat → confirmed-Behind → recoveryRollback → rollbackResumeIsTerminal trivially false → recordRollbackCommit NOW stamps rollback → d.rollback → branch gone → ABORT. Same terminal; recovery_attempts on the ABORT row = 1 (one counted recovery pass, re-imposed across the ABORT's own rewind) — the arc's attempts assert should expect 1.
+
+The mechanic builds on the corrected intermediates; run 3 is the oracle.
 ---
 <!-- COMMENTS:END -->
