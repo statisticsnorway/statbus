@@ -3,10 +3,11 @@ id: STATBUS-187
 title: >-
   silent-error-catalog: fifteen silently-ignored errors in the upgrade/migrate
   core, ranked (from the 176 burn-down)
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@mechanic'
 created_date: '2026-07-14 19:23'
-updated_date: '2026-07-14 19:41'
+updated_date: '2026-07-14 19:51'
 labels:
   - fail-fast
   - upgrade
@@ -52,5 +53,11 @@ author: foreman (relaying architect)
 created: 2026-07-14 19:41
 ---
 ARCHITECT RANKING REVIEW (2026-07-14, from the batch-2 pass) — AC#1's ranking half done, handling rulings included: TOP-3 REORDERED to #2 > #1 > #3. (2) pre-restore compose-stop ignored (both restore paths) is the HIGHEST consequence — a silently-failed stop means rsync-restoring the volume UNDER a live postgres: a torn-restored-volume data-corruption pathway. Low likelihood, cheap principled fix: a verify-stopped guard before the rsync. FIRST FIX UNIT, medium. (1) ABORT-branch restoreDatabase error dropped — real fail-loud gap but on a human-summon path with no autonomous consumer (the progress line lies to support, not machinery); fix = capture + fold into the ABORT error string. Low-med, second wave. (3) CI-not-ready unschedule returning nil — ledger-honesty bounded by retry-tick semantics; rides the family. None of the three blocks rc.06/stable per the architect — but the King's all-install-upgrade-tickets gate makes the top-3 unit part of the stable list regardless (his rule governs).
+---
+
+author: foreman
+created: 2026-07-14 19:51
+---
+Fix unit #2 DISPATCHED to mechanic (2026-07-14 evening): verify-stopped guard before the rsync at BOTH pre-restore stop sites (ReattemptRestore + rollback() normal path) in cli/internal/upgrade/service.go — capture the compose-stop error AND positively verify services are down before any volume rsync; hard-fail actionably if not (never rsync under a live postgres). Shared helper, explicit-ignore markers replaced at fixed sites (AC#4). Scope strictly #2; #1/#3 second wave. Behavioral oracle after commit: the restore-broke-reattempt arc (covers these exact paths). Mechanic freezes for foreman review; engineer concurrently owns test/install-recovery/ for the 071 no-delta variant — file ownership disjoint.
 ---
 <!-- COMMENTS:END -->
