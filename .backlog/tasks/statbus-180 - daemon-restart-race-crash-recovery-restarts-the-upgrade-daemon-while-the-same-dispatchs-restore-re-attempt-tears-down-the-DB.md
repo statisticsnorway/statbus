@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-14 13:05'
-updated_date: '2026-07-14 13:14'
+updated_date: '2026-07-14 17:57'
 labels:
   - upgrade
   - install-recovery
@@ -57,5 +57,18 @@ WHY REORDER OVER ACCEPT: (a) the North Star — no product actor fails by design
 ORACLE (AC#2 as written): re-run the restore-broke-reattempt arc — the NRestarts bound tightens back (remove the tolerance + its pointer comment here), and the journal shows no FAILURE line in the window. AC#3 lapses (not the accept path).
 
 ADJACENT FINDING, out of this ticket's scope (reported to foreman for a separate call): the same run's recovery_attempts 3→0 "reset" is the volume restore itself — restoreAndFinalize → restoreDatabase (service.go:7133) physically rewinds public.upgrade to backup-time values and writeRollbackTerminal (service.go:7078) re-imposes only the terminal columns. No SQL reset exists; details with the foreman.
+---
+
+author: architect
+created: 2026-07-14 17:57
+---
+SAFETY-CORE PASS (architect, 2026-07-14): SHIP with ONE comment-line amendment. All four pressure points resolved:
+
+(1) CALLERS: exactly one call site (install.go:414), passes &restartIfRecovered; no nil-passing caller exists (root.go/service.go hits are comments). The signature's nil-tolerance is dead-defensive but documented and harmless.
+(2) DEFER PLACEMENT: registration sits inside the StateCrashedUpgrade branch immediately BEFORE the only runCrashRecovery call — no path can run recovery without registering first; the defer is runInstall-scoped, covering re-detect, re-attempt, and every error return. THE ONE AMENDMENT (A1, comment-only): the install.go comment says "covering every exit path below" — not exactly true: the inline scheduled-upgrade dispatch's syscall.Exec handoff (install_upgrade.go:228 genre) REPLACES the process and skips defers, losing the closure. That loss is compensated — the inline upgrade restarts the unit itself at completion (the documented contract), a mid-exec crash leaves the flag so the next install hands up again, and the daemon staying down through the inline dispatch is the ruling's own claim-race avoidance — so behavior is equal-or-better than pre-180 on that path. But the comment must SAY it ("except a syscall.Exec handoff, which skips defers; the exec'd continuation owns the unit restart") — safety-core comments must be exactly true.
+(3) HAND-UP ATOMICITY: the out-param is assigned in runCrashRecovery's own defer keyed on `recovered`, which settles at exactly two sites (:400 the STATBUS-147 re-parked-error case — verified it sets recovered=true then returns the error, the ruling's named case; :405 success). The closure is fully built at function head before any fallible work; a mid-recovery panic leaves recovered=false → nothing assigned → the caller's nil-check skips. No half-built fire is possible.
+(4) NRestarts 0 IS HONEST: the replaced arc comment itself documented phase (i)'s raced restart as the ONLY remaining contributor and phase (ii) as zero (every dispatch runs ./sb install over SSH with the daemon stopped; kills hit the install process, not the supervised unit). The new negative journal asserts use the raced run's exact error substrings — AC#2's second half done properly. Nit, acceptable: the journal grep passes silently if journalctl itself fails (empty input) — the sibling asserts prove the unit ran, so the direction is safe.
+
+After A1: commit; the arc re-run is AC#2's oracle as ruled.
 ---
 <!-- COMMENTS:END -->
