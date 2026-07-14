@@ -76,13 +76,14 @@
 # error, not a stall — this scenario asserts a CLEAN CONCLUSION, not a
 # kill/hang, so pg_sleep is the wrong tool here).
 #
-# Phase IS "resuming" (FlagPhaseResuming), NOT "post_swap": fabricate_resume_state's
-# default ("post_swap") would route recoverFromFlag through the FlagPhasePostSwap
-# branch -> resumePostSwap -> applyPostSwap -> postSwapFailure -> d.rollback()
-# DIRECTLY (IN-PROCESS, never through recoveryRollback) — a completely
-# different, non-deterministic path this scenario does not want. Patching the
-# fabricated flag's phase to "resuming" routes recoverFromFlag straight to its
-# ground-truth branch (service.go's FlagPhaseResuming case) on the very FIRST
+# Phase IS "new-sb-upgrading" (PhaseNewSbUpgrading), NOT "new-sb-swapped":
+# fabricate_resume_state's default ("new-sb-swapped") would route recoverFromFlag
+# through the PhaseNewSbSwapped branch -> resumeNewSb -> applyNewSbUpgrading ->
+# newSbUpgradingFailure -> d.rollback() DIRECTLY (IN-PROCESS, never through
+# recoveryRollback) — a completely different, non-deterministic path this scenario
+# does not want. Patching the fabricated flag's phase to "new-sb-upgrading" routes
+# recoverFromFlag straight to its ground-truth branch (service.go's
+# PhaseNewSbUpgrading case) on the very FIRST
 # boot, which is what reaches recoveryRollback -> d.rollback() -> the ABORT
 # branch deterministically, in one pass.
 #
@@ -199,24 +200,24 @@ VM_EXEC bash -c "test -f ~/statbus/migrations/$FAIL_MIGRATION_FILE" || { echo "�
 echo "  ✓ migrations/$FAIL_MIGRATION_FILE written"
 
 echo ""
-echo "── fabricating the in_progress row + service-held flag (dead pid), then patching phase to 'resuming' ──"
+echo "── fabricating the in_progress row + service-held flag (dead pid), then patching phase to 'new-sb-upgrading' ──"
 fabricate_resume_state "$VM_NAME" "$HEAD_SHA" >/dev/null
-# fabricate_resume_state's default phase is "post_swap" (routes through
-# resumePostSwap — the wrong, non-deterministic path for THIS scenario; see
-# the header). Patch to "resuming" so recoverFromFlag routes straight to its
-# ground-truth branch on the very first boot. No other field needs to
+# fabricate_resume_state's default phase is "new-sb-swapped" (routes through
+# resumeNewSb — the wrong, non-deterministic path for THIS scenario; see
+# the header). Patch to "new-sb-upgrading" so recoverFromFlag routes straight to
+# its ground-truth branch on the very first boot. No other field needs to
 # change: Step/PriorDeathStep are already omitted (fresh crash, never
 # recorded a death) and BackupPath is already absent (empty — this
 # fabrication was never a real upgrade, so there is no snapshot; restoreDatabase
 # refuses to touch the volume on every pass here, matching the true r17
 # fabrication exactly).
-VM_EXEC bash -c "cd ~/statbus && sed -i 's/\"phase\":\"post_swap\"/\"phase\":\"resuming\"/' tmp/upgrade-in-progress.json"
-VM_EXEC bash -c "grep -q '\"phase\":\"resuming\"' ~/statbus/tmp/upgrade-in-progress.json" || {
-    echo "✗ phase patch to 'resuming' did not land" >&2
+VM_EXEC bash -c "cd ~/statbus && sed -i 's/\"phase\":\"new-sb-swapped\"/\"phase\":\"new-sb-upgrading\"/' tmp/upgrade-in-progress.json"
+VM_EXEC bash -c "grep -q '\"phase\":\"new-sb-upgrading\"' ~/statbus/tmp/upgrade-in-progress.json" || {
+    echo "✗ phase patch to 'new-sb-upgrading' did not land" >&2
     VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-in-progress.json" >&2 || true
     exit 1
 }
-echo "  ✓ flag fabricated + patched: phase=resuming, commit_sha=$HEAD_SHA"
+echo "  ✓ flag fabricated + patched: phase=new-sb-upgrading, commit_sha=$HEAD_SHA"
 
 echo ""
 echo "── restarting upgrade-service unit onto HEAD (discovers the fabricated flag — this single boot IS the whole scenario, no kill) ──"

@@ -247,9 +247,17 @@ const (
 // Legacy flags pre-dating Option C lack the field and deserialize as empty;
 // recoverFromFlag treats empty as PhaseOldSbUpgrading, preserving the prior
 // "HEAD=target => self-heal to completed" semantics.
+// CANONICAL phase slugs — the wire bytes THIS build writes (registry vocabulary,
+// doc/upgrade-vocabulary.md). PhaseOldSbUpgrading stays the empty string: absence
+// is the value (omitempty), never written, legacy-compatible by construction.
+// Legacy wire bytes ("post_swap"/"resuming") written by pre-rename releases are
+// normalized to these slugs at the UnmarshalJSON chokepoint — see
+// legacyPhaseByteAliases below. This is the CANONICAL half of the two-part table
+// the decode chokepoint joins; the legacy-alias half is kept structurally and
+// nominally separate so canonical and legacy spellings never merge.
 const (
-	PhaseOldSbUpgrading = ""          // default: written before replaceBinaryOnDisk, or legacy
-	PhaseNewSbSwapped   = "post_swap" // stamped after binary swap, before exit-42 handoff
+	PhaseOldSbUpgrading = ""               // default: written before replaceBinaryOnDisk, or legacy (absence is the value)
+	PhaseNewSbSwapped   = "new-sb-swapped" // stamped after binary swap, before exit-42 handoff
 	// PhaseNewSbUpgrading is stamped the instant resumeNewSb commits to running
 	// applyNewSbUpgrading on the new binary. A recovery that finds it means the planned
 	// post-swap resume began and the process died before completing. Observed
@@ -257,8 +265,56 @@ const (
 	// unverifiable) → resume FORWARD again; confirmed behind → one-shot
 	// rollback to THIS upgrade's own snapshot. See upgrade-timeline.md
 	// § Binary-swap restart + resume.
-	PhaseNewSbUpgrading = "resuming"
+	PhaseNewSbUpgrading = "new-sb-upgrading"
 )
+
+// canonicalPhaseBytes is the set of wire values THIS build writes (the empty
+// string included — PhaseOldSbUpgrading is canonical-by-absence). The decode
+// chokepoint passes these through unchanged.
+var canonicalPhaseBytes = map[string]struct{}{
+	PhaseOldSbUpgrading: {},
+	PhaseNewSbSwapped:   {},
+	PhaseNewSbUpgrading: {},
+}
+
+// LEGACY-PHASE-BYTES: legacyPhaseByteAliases maps the two historical wire
+// spellings that pre-rename releases stamped to their canonical slugs. It is the
+// LEGACY half of the two-part table (kept separate from canonicalPhaseBytes so
+// canonical and legacy spellings are never indistinguishable — King's refinement,
+// STATBUS-164). This is a COMPATIBILITY FLOOR, not read-both-forever: the same
+// genre as the empty-Holder⇒service and empty-Phase⇒old-sb-upgrading rules the
+// format already carries. It exists because the unrecognized-sentinel read is
+// MAINLINE, not a crash corner — during the one upgrade that crosses the rename
+// boundary the OLD binary stamps "post_swap" and exits 42, and the NEW binary
+// reads those bytes on its normal handoff (architect ruling, STATBUS-164 #2/#3).
+//
+// REMOVAL CONDITION: drop this table when pre-rename releases are no longer
+// supported upgrade sources (the newest ./sb, fetched by install.sh to recover a
+// broken box, must read every flag spelling still in the field until then).
+//
+// REVERSE-BOUNDARY RESIDUAL (documented, not fixed): a crash inside the rollback
+// window after ./sb.old (a pre-rename binary) is restored but before flag removal
+// leaves the OLD binary reading NEW bytes → its shipped FLAG_PHASE_UNKNOWN loud
+// stop. Safe (stop, touch nothing), rare (crash inside rollback), and unfixable
+// retroactively (the pre-rename binary already shipped).
+var legacyPhaseByteAliases = map[string]string{
+	"post_swap": PhaseNewSbSwapped,   // pre-rename updateFlagNewSbSwapped stamp
+	"resuming":  PhaseNewSbUpgrading, // pre-rename resumeNewSb stamp
+}
+
+// normalizePhaseBytes joins the two named tables at the decode chokepoint,
+// canonical-then-legacy: a canonical slug passes through; a legacy spelling
+// normalizes to its slug; anything else is left untouched so the downstream
+// FLAG_PHASE_UNKNOWN drift guard (recoverFromFlag) still fires on genuine drift.
+func normalizePhaseBytes(phase string) string {
+	if _, ok := canonicalPhaseBytes[phase]; ok {
+		return phase
+	}
+	if canonical, ok := legacyPhaseByteAliases[phase]; ok {
+		return canonical
+	}
+	return phase
+}
 
 // UpgradeFlag is written to tmp/upgrade-in-progress.json before destructive
 // steps begin (by either the upgrade service or `./sb install`). The file
@@ -294,7 +350,7 @@ type UpgradeFlag struct {
 	Holder     string    `json:"holder"`                // HolderService or HolderInstall
 	Phase      string    `json:"phase,omitempty"`       // PhaseOldSbUpgrading (default) or PhaseNewSbSwapped
 	Recreate   bool      `json:"recreate,omitempty"`    // durable recreate intent (from public.upgrade.recreate) so resumeNewSb can replay --recreate
-	BackupPath string    `json:"backup_path,omitempty"` // finalized backup dir, populated at Phase=post_swap so resumeNewSb can roll back without DB
+	BackupPath string    `json:"backup_path,omitempty"` // finalized backup dir, populated at Phase=PhaseNewSbSwapped so resumeNewSb can roll back without DB
 	// STATBUS-046 (doc-021): the dying-step fields for the crash-resume attempt
 	// budget. Step is rewritten to the currently-executing Phase-3 step as each
 	// step BEGINS (recordFlagStep), so a crash freezes the step it died at.
@@ -303,6 +359,26 @@ type UpgradeFlag struct {
 	// two consecutive deaths at the SAME step (deterministic hang → park early).
 	Step           string `json:"step,omitempty"`
 	PriorDeathStep string `json:"prior_death_step,omitempty"`
+}
+
+// UnmarshalJSON is the ONE decode chokepoint for the on-disk flag: every read
+// site (ReadFlagFile, recoverFromFlag, and the in-place read-modify-write stamps)
+// decodes into an UpgradeFlag and so passes through here. It defers to the default
+// struct decode, then normalizes the Phase wire byte through normalizePhaseBytes —
+// so a pre-rename flag's legacy spelling ("post_swap"/"resuming") becomes its
+// canonical slug before any semantic compare sees it, and a read-modify-write
+// rewrite therefore persists the NEW bytes. No raw-byte phase comparison survives
+// downstream; the state machine (the four Phase compares) is unchanged.
+func (f *UpgradeFlag) UnmarshalJSON(data []byte) error {
+	// Alias type strips the method set to avoid infinite recursion.
+	type rawUpgradeFlag UpgradeFlag
+	var raw rawUpgradeFlag
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	*f = UpgradeFlag(raw)
+	f.Phase = normalizePhaseBytes(f.Phase)
+	return nil
 }
 
 // Label returns a human-readable label for the flag. For service-held
@@ -321,7 +397,7 @@ func (f *UpgradeFlag) Label() string {
 }
 
 // IsServiceNewSbRecovery reports whether this flag represents an in-flight,
-// service-held upgrade that crashed in a FORWARD phase (post_swap or resuming):
+// service-held upgrade that crashed in a FORWARD phase (new-sb-swapped or new-sb-upgrading):
 // the binary was already swapped on disk and the recovery boot must roll the
 // upgrade FORWARD, reconciling the working tree to the target via the deferred
 // target checkout (STATBUS-060). It is the single predicate shared by every
@@ -1150,7 +1226,9 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 
 	// Every flag phase the codebase writes is handled above: install-held,
 	// "" (PreSwap — PhaseOldSbUpgrading is the empty string, so it also covers
-	// legacy flags), post_swap, and resuming. The headSHA-reconcile +
+	// legacy flags), new-sb-swapped, and new-sb-upgrading (legacy wire bytes
+	// post_swap/resuming normalize to these at the UnmarshalJSON chokepoint before
+	// this point, so they route through the same branches). The headSHA-reconcile +
 	// forward-recovery + self-heal segment that used to follow here was
 	// UNREACHABLE for every producible flag — the PreSwap guard intercepted
 	// every empty-phase flag first (verified 2026-06-09 and again 2026-06-12,

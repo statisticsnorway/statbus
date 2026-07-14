@@ -313,7 +313,7 @@ arc_install_dispatch_with_inject "killed-by-system-during-individual-migration-e
 [ "$(flag_present)" = "yes" ] || { echo "✗ expected flag file present after the C6 kill (crashed post-swap, pre-migrate)" >&2; exit 1; }
 PHASE_AFTER_D6=$(read_flag_field "phase")
 echo "[OBSERVE] C6 wedge: exit 137, flag present, flag.phase=\"$PHASE_AFTER_D6\""
-[ "$PHASE_AFTER_D6" = "resuming" ] || { echo "✗ expected flag.phase=\"resuming\" after the C6 kill (resumeNewSb already committed to applyNewSbUpgrading), got \"$PHASE_AFTER_D6\"" >&2; exit 1; }
+[ "$PHASE_AFTER_D6" = "new-sb-upgrading" ] || { echo "✗ expected flag.phase=\"new-sb-upgrading\" after the C6 kill (resumeNewSb already committed to applyNewSbUpgrading; canonical bytes since STATBUS-164 half 2), got \"$PHASE_AFTER_D6\"" >&2; exit 1; }
 assert_db_migration_max_version_unchanged "$VM_NAME" "$BASELINE_MAX_VERSION"
 [ "$(pre_upgrade_branch_present)" = "yes" ] || { echo "✗ the 'pre-upgrade' branch is already gone before we corrupted anything — construction invalid" >&2; exit 1; }
 echo "  ✓ crashed mid-post-swap with ground truth Behind (migration never ran); 'pre-upgrade' branch present (executeUpgrade's own pin, not yet corrupted)"

@@ -374,9 +374,11 @@ SQL
 #
 # STATBUS-044 comment #6 (architect, King-approved 2026-07-04): fabricates
 # the RESUME state DIRECTLY — an in_progress public.upgrade row + a
-# service-held FORWARD recovery flag (Phase=post_swap, per the architect's
+# service-held FORWARD recovery flag (Phase=new-sb-swapped, per the architect's
 # explicit reminder — either phase is safe with the F1 parked-skip fix, but
-# post_swap keeps the assertion surface identical to comment #1's spec) with
+# new-sb-swapped keeps the assertion surface identical to comment #1's spec) with
+# (STATBUS-164 half #2: fabrication writes the CANONICAL slug the current product
+# stamps; the pre-rename "post_swap" spelling is now a legacy decode-alias only)
 # a DEAD pid. There is NO dispatch and NO claim gate involved — unlike
 # fabricate_scheduled_upgrade_row (state='scheduled', requires a LIVE daemon
 # to claim + dispatch it), this writes the row and the flag file straight to
@@ -419,7 +421,7 @@ fabricate_resume_state() {
         return 1
     fi
 
-    echo "  [data] fabricating in_progress row + service-held post_swap flag (dead pid=$dead_pid) for $commit_sha"
+    echo "  [data] fabricating in_progress row + service-held new-sb-swapped flag (dead pid=$dead_pid) for $commit_sha"
 
     # Same BASH-3.2 quote-parity trap as fabricate_scheduled_upgrade_row's
     # heredoc above: keep the single-quote count in this heredoc EVEN.
@@ -499,18 +501,18 @@ SQL
     # has never recorded a death, matching a genuine first-time crash).
     local started_at_utc flag_json
     started_at_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-    flag_json="{\"id\":${row_id},\"commit_sha\":\"${commit_sha}\",\"pid\":${dead_pid},\"started_at\":\"${started_at_utc}\",\"invoked_by\":\"harness-fabricate-resume-state\",\"trigger\":\"recovery\",\"holder\":\"service\",\"phase\":\"post_swap\"}"
+    flag_json="{\"id\":${row_id},\"commit_sha\":\"${commit_sha}\",\"pid\":${dead_pid},\"started_at\":\"${started_at_utc}\",\"invoked_by\":\"harness-fabricate-resume-state\",\"trigger\":\"recovery\",\"holder\":\"service\",\"phase\":\"new-sb-swapped\"}"
 
     if ! VM_EXEC bash -c "cd ~/statbus && mkdir -p tmp && printf '%s\n' '$flag_json' > tmp/upgrade-in-progress.json"; then
         echo "✗ fabricate_resume_state: could not write tmp/upgrade-in-progress.json" >&2
         return 1
     fi
-    VM_EXEC bash -c "grep -q '\"phase\": *\"post_swap\"' ~/statbus/tmp/upgrade-in-progress.json" || {
+    VM_EXEC bash -c "grep -q '\"phase\": *\"new-sb-swapped\"' ~/statbus/tmp/upgrade-in-progress.json" || {
         echo "✗ fabricate_resume_state: flag file did not land as expected" >&2
         VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-in-progress.json" >&2 || true
         return 1
     }
-    echo "  ✓ flag fabricated: tmp/upgrade-in-progress.json (holder=service phase=post_swap pid=$dead_pid)"
+    echo "  ✓ flag fabricated: tmp/upgrade-in-progress.json (holder=service phase=new-sb-swapped pid=$dead_pid)"
     echo "$row_id"
     return 0
 }

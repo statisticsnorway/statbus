@@ -12,15 +12,25 @@ This is not new — the fault-injection classes and test scenarios already work 
 (`killed-by-system-during-preswap-backup`, `restore-db-stall-watchdog`,
 `migration-slower-than-systemd-unit-timeout`). This glossary extends that proven pattern to the whole vocabulary.
 
-### The one constraint — serialized values (UNDER REVISION)
+### The one constraint — serialized values (RESOLVED, STATBUS-164)
 
-> **King decision (2026-06-22):** we *will* change the on-disk serialized values to match the slugs (clean break), with a **clean restart** on an old/unrecognized sentinel instead of read-both. Whether that is safe hinges on the upgrade being restart-safe from a post-swap, partially-migrated state — provable only by the install-recovery arcs. Until that lands, the bytes below are the conservative default; slug / identifier / prose renames are already free.
+> **RESOLVED (King, 2026-07-14, STATBUS-164 — reverses the 2026-06-22 clean-restart decision):** the
+> on-disk serialized `Phase` values are now the slugs verbatim (`""`, `new-sb-swapped`,
+> `new-sb-upgrading`) — a **clean-break write** paired with a **floor-scoped legacy-alias read** at
+> one `UnmarshalJSON` chokepoint (legacy bytes: `post_swap`→`new-sb-swapped`, `resuming`→`new-sb-upgrading`).
+> The reversal turned on a fact the earlier decision lacked: the unrecognized read is **mainline, not a
+> crash corner** — during the one upgrade that crosses the rename boundary the *old* binary stamps
+> `post_swap` and the *new* binary reads those bytes on its normal exit-42 handoff. The alias is a
+> compatibility floor (removal condition: pre-rename releases are no longer supported upgrade sources),
+> the same genre as the format's existing empty-Holder⇒service and empty-Phase⇒old-sb-upgrading rules.
+> The `FLAG_PHASE_UNKNOWN` drift guard is untouched for everything outside the alias table.
 
-The slug is free everywhere **except the values written to disk**. The `Phase` stored in the
-`upgrade-sentinel` file (today: `""`, `post_swap`, `resuming`) is read back by the **new** sb
-during recovery — so a box that is mid-upgrade has the *old* bytes on disk. Those **stored values
-keep their current bytes** (or the new sb reads both old+new) even as the slug, the identifier, and
-the prose around them change. Renaming a serialized value breaks recovery across the version boundary.
+The slug is now written to disk verbatim. The `Phase` stored in the `upgrade-in-progress` file is one of
+`""` (old-sb-upgrading), `new-sb-swapped`, or `new-sb-upgrading`. A box mid-upgrade at the rename
+boundary may still carry the **legacy bytes** (`post_swap`/`resuming`) a pre-rename binary wrote; the
+new sb's single decode chokepoint normalizes those to the canonical slugs on read (`legacyPhaseByteAliases`,
+`service.go`), so recovery reads every spelling still in the field. The canonical slug table and the
+legacy-alias table are kept structurally and nominally separate, joined only at that chokepoint.
 
 ### Code identifiers follow the slug
 
@@ -35,8 +45,8 @@ the prose around them change. Renaming a serialized value breaks recovery across
 |---|---|---|
 | `old-sb-upgrading` | the **old** sb binary is running the upgrade (before the swap; was `Phase=PreSwap`) | "still on the old sb — preparing the upgrade" |
 | `old-sb-swap` | the **old** sb's last act — it performs the swap, then `exit 42` (the point of no return) | "switching to the new sb" |
-| `new-sb-swapped` | the **new** sb is swapped in — checking whether it's already converged before migrating (stored `post_swap`; was `Phase=PostSwap`) | "now running the new sb" |
-| `new-sb-upgrading` | the **new** sb binary is running the post-swap migrations (stored `resuming`; was `Phase=Resuming`) | "now on the new sb — finishing the upgrade" |
+| `new-sb-swapped` | the **new** sb is swapped in — checking whether it's already converged before migrating (stored `new-sb-swapped`; legacy bytes: `post_swap`; was `Phase=PostSwap`) | "now running the new sb" |
+| `new-sb-upgrading` | the **new** sb binary is running the post-swap migrations (stored `new-sb-upgrading`; legacy bytes: `resuming`; was `Phase=Resuming`) | "now on the new sb — finishing the upgrade" |
 ## Upgrade states (the `public.upgrade.state` column)
 
 One candidate row per release; `state` walks the lifecycle below. **Three actors** drive it:
@@ -176,4 +186,4 @@ Recovery is autonomous everywhere except two cases — both principled, both rar
 
 ---
 
-*Status: the recovery vocabulary — the read pair, the direction verdicts, the error classification ("when a step fails": `intermittent-error` / `persistent-error` / `unknown-error`, the one `backoff-retry` strategy + its two cases), and the two human stops (`unknown`, `restore-broke`) — is **ratified (King, 2026-06-27)** and crystallised here + in `doc/upgrade-recovery-model.md`. Mechanisms & artifacts are now locked too (`upgrade-in-progress`, `db-snapshot` / `db-snapshot-backup` / `db-snapshot-restore` / `db-dump`, `stop-app-services`, `restart-loop`, `heartbeat`); the `restore-broke` operator output is specced (STATBUS-111). The vocabulary is **complete** — only open item is the on-disk Phase serialization values (parked, arc-gated). Applying the vocabulary to docs/diagrams/code/logs is STATBUS-107. Once a section locks, apply one site at a time per STATBUS-107 — docs → diagrams → code/variables → logs.*
+*Status: the recovery vocabulary — the read pair, the direction verdicts, the error classification ("when a step fails": `intermittent-error` / `persistent-error` / `unknown-error`, the one `backoff-retry` strategy + its two cases), and the two human stops (`unknown`, `restore-broke`) — is **ratified (King, 2026-06-27)** and crystallised here + in `doc/upgrade-recovery-model.md`. Mechanisms & artifacts are now locked too (`upgrade-in-progress`, `db-snapshot` / `db-snapshot-backup` / `db-snapshot-restore` / `db-dump`, `stop-app-services`, `restart-loop`, `heartbeat`); the `restore-broke` operator output is specced (STATBUS-111). The vocabulary is **complete** — the last open item, the on-disk Phase serialization values, shipped in STATBUS-164 (clean-break write of the slugs + a floor-scoped legacy-alias read; legacy bytes `post_swap`/`resuming`). Applying the vocabulary to docs/diagrams/code/logs is STATBUS-107. Once a section locks, apply one site at a time per STATBUS-107 — docs → diagrams → code/variables → logs.*
