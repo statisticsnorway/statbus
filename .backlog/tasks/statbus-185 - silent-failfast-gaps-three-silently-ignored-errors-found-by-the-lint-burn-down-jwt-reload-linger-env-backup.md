@@ -3,9 +3,10 @@ id: STATBUS-185
 title: >-
   silent-failfast-gaps: three silently-ignored errors found by the lint
   burn-down (jwt reload, linger, env backup)
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-07-14 18:40'
+updated_date: '2026-07-14 19:21'
 labels:
   - fail-fast
   - defect
@@ -29,6 +30,12 @@ FIX SHAPE (per site, engineer judgment + review): surface the error — hard-fai
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Each of the three sites either hard-fails or warns loudly with a named remedy — ruled per site, none stays silent
-- [ ] #2 The explicit-ignore markers from the 176 burn-down at these sites are replaced by the ruled handling
+- [x] #1 Each of the three sites either hard-fails or warns loudly with a named remedy — ruled per site, none stays silent
+- [x] #2 The explicit-ignore markers from the 176 burn-down at these sites are replaced by the ruled handling
 <!-- AC:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+All three sites ruled per consequence and shipped (130f2351d): (1) restore's JWT-secret reload HARD-FAILS with the auth-outage consequence and idempotent-retry remedy named — a restored DB can no longer silently serve the dump's stale secret; (2) enable-linger failure WARNS loudly with the exact sudo remedy and verification command — degraded-but-operable, so the install proceeds; (3) the pre-overwrite .env backup failure REFUSES before the overwrite — non-destructive by construction, the operator keeps a coherent config. Engineer ruled, foreman reviewed line-by-line and independently re-ran the affected test packages. The 176 burn-down's explicit-ignore markers at these sites are replaced by the ruled handling.
+<!-- SECTION:FINAL_SUMMARY:END -->
