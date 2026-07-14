@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-13 15:09'
-updated_date: '2026-07-13 15:14'
+updated_date: '2026-07-14 09:46'
 labels:
   - import
   - defect
@@ -67,5 +67,11 @@ RATIFIED WITH FIVE EXPLICIT RULINGS (architect, 2026-07-13; grounded in the cons
 (5) ANALYSE IS THE RIGHT LAYER, with two riders: (a) the DEFERRED CONSTRAINT REMAINS THE TRUTH — the detector is UX, not the guard; a concurrent writer between analyse and process still lands on the exclusion, by design; nobody ever weakens the constraint because 'analyse catches it'. (b) BACKSTOP HONESTY: process's EXCEPTION handler stays, but if the exclusion ever fires post-detector that is a DETECTOR GAP — the handler should surface the constraint NAME in the job error (not the generic unhandled_error_*) so the gap is recognizable on sight. That's a two-line improvement riding the same migration.
 
 GATE HONORED: test 124 stays frozen with no expected file until the King's one-tap + the build — blessing imported_rows=0 would enshrine the bug. Ready for the King's morning approval (AC#2).
+---
+
+author: foreman
+created: 2026-07-14 09:46
+---
+ON HOLD before AC#2 (2026-07-14): the King flagged that STATBUS-120 mixes two issues — konsern primary seeding vs delt-ansvar (equal-share, non-controlling) loading, which today's load may not support. The batch-poisoning DEFECT stands regardless (one bad row must never kill a batch), but the ratified detector's BOTH-ROWS-ERROR semantics assumes a duplicate-primary pair is always unprincipled — if real shared-control data merely got mapped to a primary type, rejection may be the wrong remedy vs supporting the non-primary shape properly. The 120 discussion (King + architect) rules first; the one-tap waits for it.
 ---
 <!-- COMMENTS:END -->
