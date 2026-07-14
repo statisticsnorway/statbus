@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-12 22:14'
-updated_date: '2026-07-14 10:27'
+updated_date: '2026-07-14 10:29'
 labels:
   - tooling
   - team
@@ -144,5 +144,11 @@ VALIDATION PROBES FOR THE BUILD (the run is the only oracle — P1 just proved i
 - PR4 (in-process subagent): foreman spawns an in-process background subagent that runs PR1's command — expect NO --agent-name; records the deterministic residual.
 - PR5 (truncation): confirm `ps -ww` returns untruncated argv for the longest live teammate command line.
 The hook's test file additionally simulates all three resolution outcomes by stubbing the walk (unit level), with PR1-PR4 as the live acceptance pass.
+---
+
+author: foreman
+created: 2026-07-14 10:29
+---
+PR1 CONFIRMED (foreman, run in the live root session, 2026-07-14): ancestry walk → hop 1 = the Bash tool's zsh, hop 2 = `claude --effort max --resume` — a claude ancestor with NO --agent-name/--agent-id/--team-name argv, then shell/terminal above. Exactly the ruled root shape, matching the architect's prediction verbatim. With PR2 (teammate side, claude ancestor WITH identity argv) already confirmed, both live endpoints validate the spawn-argv-ancestry discriminator. Identity half of the build UNBLOCKED for the mechanic, with PR3 as the build's FIRST act (validate the ancestry shape from INSIDE a PreToolUse hook on both a root and a teammate session before wiring the decision), then PR4/PR5 per the ruling. Bless status per the architect: the three King-blessed policy calls are unchanged in substance (the point-3 residual becomes deterministic, an improvement); mechanism change flagged to the King for transparency in chat — no re-bless required.
 ---
 <!-- COMMENTS:END -->
