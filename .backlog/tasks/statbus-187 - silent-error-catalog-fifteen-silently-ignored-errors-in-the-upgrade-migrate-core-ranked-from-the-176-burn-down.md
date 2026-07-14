@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-07-14 19:23'
-updated_date: '2026-07-14 20:38'
+updated_date: '2026-07-14 20:39'
 labels:
   - fail-fast
   - upgrade
@@ -89,5 +89,11 @@ author: foreman
 created: 2026-07-14 20:38
 ---
 FIX UNIT #2 COMMITTED (foreman, 2026-07-14 evening): commit 3d7cf6b22 — compose.VerifyStopped (exported, fail-closed allow-list exited/created/dead/absent, 1s poll × 30s budget, probe under a context deadline so a hung dockerd surfaces at budget), ps-JSON parsing relocated to compose (PsEntry/ParsePsJSON) with all upgrade-package callers updated; ReattemptRestore returns actionably prefixed ROLLBACK_FAILED_SERVICES_NOT_STOPPED with NO terminal write (row stays reattemptable — the error's own ./sb install remedy is the designed fix loop); rollback() normal path gets the NEW ABORT tier (failed-abort-services-live) mirroring git-corrupt, firing before restoreGitState; structural pin 3→4; one shared preRestoreStopServices at both sites; classification unit tests (injected probe + real NDJSON); doc/upgrade-timeline.md third terminal tier + states-table cross-ref. Architect ruled the design (comment #3); mechanic executed; foreman line-reviewed twice and verified build/vet/test independently. Both explicit-ignore markers replaced (AC#4 progress). Remaining for AC#2: ranked #1 (ABORT-branch restoreDatabase error — ruled: capture + fold into the ABORT error string) and #3 (CI-not-ready unschedule — handling shape needs one architect line). Oracle: restore-broke-reattempt arc's next natural re-run.
+---
+
+author: architect
+created: 2026-07-14 20:39
+---
+RANKED #3 SHAPE RULED (architect, 2026-07-14): HARD-FAIL, not loud-warn — check the Exec error AND RowsAffected on the unschedule UPDATE (service.go:~5073); on either failure call d.markPgInvariantTerminal (the established genre for ledger-write failures, same as promoteExistingCandidate:4231) and RETURN THE ERROR, never nil; the "unscheduled" progress line moves AFTER the confirmed reset so the log cannot lie. Correction to my comment-#1 bounding: "retry-tick semantics" was too generous — a wedged in_progress row is NOT retried by discovery ticks (they skip in_progress); only boot-time completeInProgressUpgrade reconciles it, which is exactly why the failure must be loud at the moment it happens. RowsAffected==0 (row concurrently changed/vanished) takes the same loud path.
 ---
 <!-- COMMENTS:END -->
