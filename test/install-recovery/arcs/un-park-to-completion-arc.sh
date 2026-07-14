@@ -17,22 +17,57 @@
 # SUCCEEDS once the disk is freed — the class the health-park arc's re-park cannot
 # reach.
 #
-# THE PARK SITE (disk-check trace): the daemon parks BEFORE the docker pull via
-# diskPrecheckReason (cli/internal/upgrade/service.go:5503), a structured statfs
-# check (DiskFree(projDir), exec.go:24 → syscall.Statfs) against
-# dockerStepMinFreeGB=5 (service.go:5495). executeUpgrade calls it at
-# service.go:5657 right before `docker compose pull` and, on a non-empty reason,
-# parkForDeterministicFailure fires — so we fill relative to that 5 GB floor. Note
-# this is the DAEMON's docker-step floor, NOT the install ladder's STATBUS_MIN_DISK_GB
-# (install.go:441, default 100 GB) — we pass STATBUS_MIN_DISK_GB=5 to `./sb install`
-# so the ladder itself never refuses on the small arc VM.
+# THE TWO-CHECK DISK LANDSCAPE (the load-bearing fact — do NOT re-learn it from a
+# red run). executeUpgrade guards disk TWICE, and the two checks have OPPOSITE
+# outcomes. A naive "fill the disk, then schedule" trips the WRONG one and the row
+# FAILS instead of parking (this arc's first red run: "Insufficient disk space:
+# 3 GB free" — a fail, not a park):
+#
+#   CHECK 1 — PRE-SWAP, FAILS (service.go:5011). At the very top of executeUpgrade,
+#     before the backup, DiskFree(projDir) < 5 GB → failUpgrade with
+#     "Insufficient disk space: %d GB free (need at least 5 GB for backup +
+#     images)". This is a hard FAIL (state=failed), NOT a park. A disk already
+#     full when the daemon claims the row dies here — the park site is never
+#     reached.
+#
+#   CHECK 2 — POST-SWAP, PARKS (service.go:5657). After the binary swap and the
+#     exit-42 handoff, the resumed NEW binary calls diskPrecheckReason(StepImagePull)
+#     (service.go:5503, DiskFree vs dockerStepMinFreeGB=5, service.go:5495) right
+#     before `docker compose pull`; a non-empty reason → parkForDeterministicFailure
+#     ("disk nearly full: %d GB free (< 5 GB needed) before image pull"). THIS is a
+#     PARK (state=in_progress, recovery_parked_at set, box alive-idle).
+#
+# So the disk must be HEALTHY at CHECK 1 and FULL at CHECK 2. The construction fills
+# the disk in the gap BETWEEN them. The gap is generous, not a microsecond race:
+#   backup (pre-swap, service.go:~5105) → warm-up image pull (pre-swap, caches B's
+#   images while disk is healthy) → binary swap → updateFlagNewSbSwapped stamps
+#   phase=new-sb-swapped + BackupPath (service.go:5368) → os.Exit(42) (service.go:5380)
+#   → systemd RestartSec=30 (ops/statbus-upgrade.service) → new binary boots,
+#   deferred checkout, reaches CHECK 2.
+# The flag file (tmp/upgrade-in-progress.json) carries phase across the exit-42
+# restart and PERSISTS during the ~30 s RestartSec wait — so polling it for
+# phase=new-sb-swapped gives a seconds-to-tens-of-seconds window to land the fill
+# before CHECK 2, not a knife-edge.
+#
+# BACKUP IS PRE-FILL BY CONSTRUCTION (rollback stays clean): the snapshot is
+# finalised at service.go:~5105 and stamped into flag.BackupPath at
+# updateFlagNewSbSwapped (5368) — both BEFORE phase=new-sb-swapped is observable and
+# thus before our fill. The backup we restore-from on any rollback was taken on a
+# healthy disk; the fill never touches it.
+#
+# Note dockerStepMinFreeGB=5 is the DAEMON's docker-step floor, NOT the install
+# ladder's STATBUS_MIN_DISK_GB (install.go:441, default 100 GB) — we pass
+# STATBUS_MIN_DISK_GB=5 to `./sb install` so the ladder itself never refuses on the
+# small arc VM.
 #
 # CONSTRUCTION: install A, populate data. Register B (working lineage — a genuine
 # migration V that SUCCEEDS) so its images pre-download READY while the disk is
-# healthy. THEN fill the disk below 5 GB and schedule B — the daemon claims and,
-# at the pre-pull disk pre-check, parks (images already cached, but the pre-check is
-# a headroom gate, so it parks regardless). Free the disk, `./sb install` un-parks,
-# the same row completes.
+# healthy. Schedule B on a HEALTHY disk (CHECK 1 passes). Poll the flag for
+# phase=new-sb-swapped (backup + swap done), THEN fallocate below 5 GB so the
+# resumed binary parks at CHECK 2 (images already cached, but the pre-check is a
+# headroom gate, so it parks regardless). Free the disk, `./sb install` un-parks,
+# the SAME row completes. Defensive: if the fill loses the race and B COMPLETES
+# without parking, fail with THAT story named — never a generic wrong-state assert.
 #
 # Inputs (env): BASE_SHA, B_FULL (40-hex), B_BRANCH, V_VERSION. VM name = $1.
 
@@ -40,6 +75,9 @@ set -euo pipefail
 
 VM_NAME="${1:-statbus-arc-un-park-to-completion}"
 TICK_WAIT_S="${TICK_WAIT_S:-120}"
+# The pre-swap phase (claim → backup → warm-up image pull ~2 GB → binary swap →
+# phase=new-sb-swapped stamp) can take a few minutes on a small VM; budget for it.
+SWAP_WAIT_BUDGET_S="${SWAP_WAIT_BUDGET_S:-600}"
 PARK_WAIT_BUDGET_S="${PARK_WAIT_BUDGET_S:-600}"
 INSTALL_BUDGET_S="${INSTALL_BUDGET_S:-1200}"
 # Leave this much free after the fill — comfortably BELOW dockerStepMinFreeGB=5 so
@@ -99,6 +137,21 @@ row_cols_for() {
 avail_bytes() {
     VM_EXEC bash -c "df -B1 --output=avail ~/statbus | tail -1 | tr -d ' '" 2>/dev/null | tr -d '\r'
 }
+# The upgrade flag's phase field (tmp/upgrade-in-progress.json). Empty when the flag
+# is absent OR still pre-swap: phase has `omitempty`, so PhaseOldSbUpgrading ("") is
+# OMITTED from the JSON — no "phase" key means pre-swap. A non-empty value
+# (new-sb-swapped / new-sb-upgrading) means the binary swap has committed and
+# CHECK 1 is behind us: the safe moment to fill.
+flag_phase() {
+    # Must return 0 even when the flag is absent or has no phase key (the normal
+    # pre-swap case): under `set -euo pipefail` a grep-no-match would otherwise
+    # abort the arc at `PHASE=$(flag_phase)`. The trailing `|| true` absorbs it.
+    local json
+    json=$(VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null" 2>/dev/null) || true
+    echo "$json" \
+        | grep -oE '"phase"[[:space:]]*:[[:space:]]*"[^"]*"' \
+        | sed -E 's/.*:[[:space:]]*"([^"]*)".*/\1/' | head -1 | tr -d '\r' || true
+}
 
 # ── A: install + prepare (bootstrap → install A → health → trust arc → populate) ──
 arc_prepare_box
@@ -114,26 +167,71 @@ VM_EXEC bash -c "cd ~/statbus && ./sb upgrade register $B_FULL 2>&1 | tail -20"
 wait_for_upgrade_candidate_ready "$VM_NAME" "$B_FULL" "$TICK_WAIT_S"
 dump_signing_diagnostics "$B_FULL"
 
-# ── fill the disk BELOW dockerStepMinFreeGB=5, BEFORE scheduling, so the daemon's
-#    claim → executeUpgrade hits the pre-pull disk pre-check and parks. ──
+# ── schedule B on a HEALTHY disk — CHECK 1 (pre-swap, service.go:5011) must PASS.
+#    Filling before this point would trip CHECK 1 and FAIL the row (this arc's
+#    first red run). The daemon claims, runs the backup + warm-up pull + swap. ──
+echo ""
+echo "── schedule B (disk HEALTHY so CHECK 1 passes; daemon claims → backup → swap) ──"
+AVAIL_AT_SCHEDULE=$(avail_bytes)
+AVAIL_AT_SCHEDULE_GB=$(( AVAIL_AT_SCHEDULE / 1024 / 1024 / 1024 ))
+[ "$AVAIL_AT_SCHEDULE_GB" -ge 5 ] || { echo "✗ disk is only ${AVAIL_AT_SCHEDULE_GB} GB free at schedule time — CHECK 1 (service.go:5011) would FAIL the row before it can reach the park site" >&2; exit 1; }
+echo "  disk at schedule: ${AVAIL_AT_SCHEDULE_GB} GB free (≥ 5 GB — CHECK 1 passes)"
+VM_EXEC bash -c "cd ~/statbus && ./sb upgrade schedule $B_FULL 2>&1 | tail -20"
+
+# ── WATCH for the swap: poll the flag for phase=new-sb-swapped. Once it is
+#    non-empty the backup + binary swap are DONE (CHECK 1 is behind us) and the
+#    resumed binary is ~30 s (RestartSec) from CHECK 2 — the window to fill. ──
+echo ""
+echo "── watching the flag for the binary swap (phase=new-sb-swapped), budget ${SWAP_WAIT_BUDGET_S}s ──"
+SWAP_START=$(date +%s)
+while true; do
+    ELAPSED=$(( $(date +%s) - SWAP_START ))
+    PHASE=$(flag_phase)
+    if [ -n "$PHASE" ]; then
+        echo "  ✓ swap observed (t+${ELAPSED}s): flag phase='$PHASE' — backup + swap done, CHECK 1 passed"
+        break
+    fi
+    # If B fails/parks/completes before we ever see a swap, the swap window was
+    # missed (or CHECK 1 fired despite the healthy schedule) — surface it now.
+    ROW=$(row_cols_for "$B_FULL")
+    CUR_STATE=$(echo "$ROW" | cut -d'|' -f2)
+    PARKED_FLAG=$(echo "$ROW" | cut -d'|' -f3)
+    if [ "$PARKED_FLAG" = "t" ]; then
+        echo "✗ B parked BEFORE we observed the swap — unexpected; the fill never ran, so this is not the post-swap CHECK-2 park we intend to prove (last: $ROW)" >&2
+        exit 1
+    fi
+    case "$CUR_STATE" in
+        failed|rolled_back)
+            echo "✗ B reached terminal '$CUR_STATE' during the pre-swap phase — CHECK 1 (service.go:5011) likely failed the row despite the healthy schedule; the disk must stay ≥ 5 GB until the swap (last: $ROW)" >&2
+            exit 1
+            ;;
+        completed)
+            echo "✗ B COMPLETED before we ever observed the swap — the swap-watch poll was too slow to catch phase=new-sb-swapped; widen SWAP_WAIT poll cadence (last: $ROW)" >&2
+            exit 1
+            ;;
+    esac
+    if [ "$ELAPSED" -ge "$SWAP_WAIT_BUDGET_S" ]; then
+        echo "✗ never observed phase=new-sb-swapped within ${SWAP_WAIT_BUDGET_S}s (last row: $ROW, last phase: '$PHASE')" >&2
+        exit 1
+    fi
+    sleep 3
+done
+
+# ── FILL the disk below dockerStepMinFreeGB=5, now that the swap is done, so the
+#    resumed binary parks at CHECK 2 (service.go:5657) before the docker pull. ──
 echo ""
 echo "── filling the disk below the 5 GB docker-step floor (leaving ~${FILL_TARGET_FREE_GB} GB) ──"
 AVAIL=$(avail_bytes)
 [[ "$AVAIL" =~ ^[0-9]+$ ]] || { echo "✗ could not read available bytes on ~/statbus (got '$AVAIL')" >&2; exit 1; }
 TARGET_FREE=$(( FILL_TARGET_FREE_GB * 1024 * 1024 * 1024 ))
 FILL_BYTES=$(( AVAIL - TARGET_FREE ))
-[ "$FILL_BYTES" -gt 0 ] || { echo "✗ disk already below ${FILL_TARGET_FREE_GB} GB free before the fill (avail=$AVAIL) — cannot construct the pre-pull park deterministically" >&2; exit 1; }
+[ "$FILL_BYTES" -gt 0 ] || { echo "✗ disk already below ${FILL_TARGET_FREE_GB} GB free before the fill (avail=$AVAIL) — cannot construct the CHECK-2 park deterministically" >&2; exit 1; }
 VM_EXEC bash -c "cd ~/statbus && fallocate -l ${FILL_BYTES} ${FILL_FILE}" || { echo "✗ fallocate of ${FILL_BYTES} bytes failed" >&2; exit 1; }
 AVAIL_AFTER=$(avail_bytes)
 AVAIL_AFTER_GB=$(( AVAIL_AFTER / 1024 / 1024 / 1024 ))
 echo "  free after fill: ${AVAIL_AFTER_GB} GB (was $(( AVAIL / 1024 / 1024 / 1024 )) GB)"
-[ "$AVAIL_AFTER_GB" -lt 5 ] || { echo "✗ free space is ${AVAIL_AFTER_GB} GB after fill, not below the 5 GB docker-step floor — the pre-pull park would not fire" >&2; exit 1; }
-echo "  ✓ disk below 5 GB — the daemon's pre-pull disk pre-check will park"
-
-# ── schedule B → daemon claims + runs executeUpgrade → parks before the pull ──
-echo ""
-echo "── schedule B (daemon claims + executeUpgrade → pre-pull disk pre-check parks) ──"
-VM_EXEC bash -c "cd ~/statbus && ./sb upgrade schedule $B_FULL 2>&1 | tail -20"
+[ "$AVAIL_AFTER_GB" -lt 5 ] || { echo "✗ free space is ${AVAIL_AFTER_GB} GB after fill, not below the 5 GB docker-step floor — CHECK 2 would not park" >&2; exit 1; }
+echo "  ✓ disk below 5 GB — the resumed binary's CHECK 2 pre-pull pre-check will park"
 
 echo ""
 echo "── waiting for the RESOURCE park (recovery_parked_at IS NOT NULL), budget ${PARK_WAIT_BUDGET_S}s ──"
@@ -148,8 +246,14 @@ while true; do
     fi
     CUR_STATE=$(echo "$ROW" | cut -d'|' -f2)
     case "$CUR_STATE" in
-        completed|failed|rolled_back)
-            echo "✗ B reached terminal '$CUR_STATE' instead of parking — the disk-fill did not trip the pre-pull pre-check" >&2
+        completed)
+            # The defensive branch (foreman rider): the fill lost the race to
+            # CHECK 2. Name that exact story — do NOT report a generic wrong-state.
+            echo "✗ B COMPLETED without parking — the disk-fill LOST THE RACE to CHECK 2 (service.go:5657): the resumed binary passed the pre-pull pre-check with a healthy disk before our fallocate landed (B's images were cached by the pre-swap warm-up, so the post-swap pull was fast). The fill must land in the RestartSec≈30 s window after phase=new-sb-swapped; re-run, or shorten the poll→fill latency (last: $ROW)" >&2
+            exit 1
+            ;;
+        failed|rolled_back)
+            echo "✗ B reached terminal '$CUR_STATE' instead of parking — the disk-fill did not trip CHECK 2 (or tripped a fail-class check instead) (last: $ROW)" >&2
             exit 1
             ;;
     esac
