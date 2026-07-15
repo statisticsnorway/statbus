@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-14 23:58'
+updated_date: '2026-07-15 00:09'
 labels:
   - install-recovery
   - upgrade
@@ -429,5 +429,19 @@ author: foreman
 created: 2026-07-14 23:58
 ---
 C-ROLLBACK RUN 2 RED — NEW PUZZLE, WITH ARCHITECT (run 29376442495, commit a5e8119c0, log tmp/crollback-run2-failure.log): the park-narrative fix PROVED LIVE (displacement asserts all green — narrative + note both in error, one 154 row), and the red moved to the end state: auth_status returned 200 where broken-B must still RAISE. Two findings: (1) LATENT ASSERT BUG regardless — PostgREST maps RAISE/P0001 to HTTP 400 (B's own park reason recorded status=400), so the arc's expected-500 was wrong even for a correctly-broken B; (2) THE PUZZLE — the ledger read db.migration max == V2 (the auth_status-breaking migration) seconds before the probe, yet the function SERVES: something healed auth_status while the ledger kept V2. Candidate mechanisms routed for adversarial verification: wrong-era backup in the migration-failure rollback (would be a serious restored-data-vs-ledger disagreement), a boot/install path re-applying baked function definitions over the restored volume (self-heal doctrine violation if real), or a benign mechanism to be named. Also proven green this run before the red: at-target park, displacement with story intact, C rolled_back with V3 unapplied + HEAD==B (the engineer's flagged first-live-exercise of rollback tree reconciliation PASSED), install exit 0 + no resurrection through any door + no completed-B ledger row.
+---
+
+author: architect
+created: 2026-07-15 00:09
+---
+C-ROLLBACK RUN-2 RED RULED (architect, 2026-07-15; max-effort, seven mechanisms eliminated in code+log) — TWO findings, one CONFIRMED and one genuinely UNEXPLAINED; the unexplained one is treated as a potential product finding until named, and the arc must not flip [PROVEN] on any run whose end state cannot be explained.
+
+FINDING 1, CONFIRMED (fix regardless): the assert expects 500; the product's own health gate proves broken auth_status manifests as 400 P0001 through PostgREST (journal 23:51:24-44, url=127.0.0.1:3013/rpc/auth_status, status=400 body P0001). Fix: expect 400 + grep the fixture's P0001 body — the honest broken signature.
+
+FINDING 2, UNEXPLAINED HEAL: at probe time (23:54:35) auth_status EXECUTED SUCCESSFULLY (200) while the ledger read V2 — by both the arc (23:54:08) and THE PRODUCT ITSELF (install preamble 23:54:19: 'DB migration_version 20260714100529 matches on-disk max'). The pair [ledger=V2 + working auth] matches NO reachable state: B-era snapshot = V2+broken (gate 400s at 23:51:44, backup 23:52:23-26 seconds later); A-era = ledger …27 not …29; no-restore = V2+broken (V3's tx rolled back). ELIMINATED WITH EVIDENCE: (1) install refresh — Seed SKIPPED, migrations no-op (its own step output); (2) post_restore.sql — zero auth_status content (55 lines, grepped); (3) db-image entrypoint — config-only params, init-db.sh is first-init only; (4) the proxy's @auth_paths special route — strip_prefix + reverse_proxy to the SAME rest:3000 (standalone.caddyfile.tmpl:101-113); (5) C's migrate re-running a fixed V2 — the delta applied ONLY 20260714100530 (V3, FAILED); the lineage doc confirms V1/V2 stay byte-identical between B and C (upgrade-target.sh crollback section); (6) wrong-era restore — contradicted by the product's own V2 ledger read; (7) restore-never-ran — contradicted by the 9s restore narrative AND would leave broken auth anyway. Something wrote the WORKING function body between 23:53:39 and 23:54:35 without touching db.migration — no known writer fits.
+
+RULING — EMPIRICS BEFORE ANY RE-RUN COUNTS: the engineer adds to the arc, at the probe site AND in _dump_crollback_failure_diagnostics: (a) direct `curl 127.0.0.1:3013/rpc/auth_status` (the product's own route — discriminates proxy-vs-db); (b) `SELECT md5(prosrc) FROM pg_proc WHERE proname='auth_status'` + a grep of prosrc for the fixture RAISE (is the live body broken or original?); (c) db.migration max read THROUGH PostgREST (rules out split-brain reads between psql and rest); (d) a fingerprint of pre-upgrade-active vs the live volume (one known file's checksum — did the restore actually change bytes). Then re-run with the 400-assert fix. If 200 reproduces, the instrumentation names the writer — and whatever silently rewrites database functions after a rollback is a SERIOUS product finding (self-heal doctrine at minimum). If it does not reproduce, the instrumented single-occurrence stands recorded here and the arc proceeds — but no assert gets loosened to 'tolerate 200': the 200 is an unexplained state mutation and no-flaky-tests demands its cause, not its accommodation.
+
+Credit intact from run 2: the park-narrative fix proven live (displacement asserts green), the whole displacement + rollback + no-resurrection + truth-told chain green — only the final honest-broken probe is at issue.
 ---
 <!-- COMMENTS:END -->
