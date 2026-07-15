@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: Seq Periodic Update
 on:
   # Allow manual deployment in github
@@ -11,16 +12,26 @@ concurrency: seq
 jobs:
   seq:
     name: Upgrade Seq Logging Server
-    runs-on: ubuntu-latest
+    # STATBUS-069/191 phase 3: runs on the niue self-hosted runner — the SSH now
+    # originates on the box (host-gateway to niue's own sshd), not Azure. No PR
+    # trigger carries these labels (fork-PR safety): this workflow is
+    # workflow_dispatch + schedule only.
+    runs-on: [self-hosted, niue]
     permissions:
       contents: read
     steps:
-    - name: Run commands
-      uses: appleboy/ssh-action@master
-      with:
-        host: niue.statbus.org
-        username: devops
-        key: ${{ secrets.SSH_KEY }}
-        script_stop: true
-        script: |
-          ./bin/github-run.sh upgrade-to-latest-seq
+    - name: Upgrade Seq
+      # Raw ssh, not appleboy/ssh-action: the runner has no docker socket
+      # (doc-026 §2) so a Docker CONTAINER action cannot execute on it. devops is a
+      # free admin shell (bare authorized_keys, not n-gated) — the login shell
+      # starts at $HOME, so ./bin/... resolves under /home/devops exactly as the
+      # appleboy `script:` did.
+      run: |
+        install -m 600 /dev/stdin /tmp/key <<< "${{ secrets.SSH_KEY }}"
+        known="$HOME/_work/.known_hosts"   # pinned in the runner-work volume (doc-026 delta 8)
+        ssh -i /tmp/key \
+          -o StrictHostKeyChecking=accept-new \
+          -o "UserKnownHostsFile=$known" \
+          devops@niue.statbus.org \
+          "./bin/github-run.sh upgrade-to-latest-seq"
+        rm -f /tmp/key
