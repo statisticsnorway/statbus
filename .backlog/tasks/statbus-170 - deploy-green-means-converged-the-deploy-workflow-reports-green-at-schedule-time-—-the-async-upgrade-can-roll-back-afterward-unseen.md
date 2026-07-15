@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-07-13 01:35'
-updated_date: '2026-07-13 15:18'
+updated_date: '2026-07-15 07:39'
 labels:
   - deploy
   - ci
@@ -62,5 +62,11 @@ author: foreman
 created: 2026-07-13 15:18
 ---
 PHASE 1 SHIPPED (foreman commit 5e794e601, 2026-07-13): ops/ci-deploy-status.sh — single-shot read of the commit-addressed public.upgrade row; stdout `<state>|<parked>|<reason>`; exits 0 converged / 10 failed-or-parked / 20 pending / 30 transient / 64 usage; never 127 (transport-127 = slot doesn't carry the entrypoint yet, per the two-phase window in the ruling). Reviewed + exercised by foreman against the local DB (completed→0, absent→20, bad arg→64); `recovery_parked_reason` column + commit_sha UNIQUE index verified against the live schema. Remaining: the King's sshdoers lines per slot (provisioning list), then phase 2 (workflow poll loop) AFTER the fleet carries a release with this script — plus AC#3's deliberately-failing-upgrade red-run proof.
+---
+
+author: foreman
+created: 2026-07-15 07:39
+---
+SSHDOERS LINES APPLIED + PROVEN (King-directed, 2026-07-15, niue root session): the seven per-slot STATBUS-170 poll lines added to /etc/sshdoers on niue (tcc, dev, demo, ma, ug, et, jo), pattern `statbus_<slot>: ~/statbus/ops/ci-deploy-status.sh ########################################` — PATH-pinned like ci-notify (behavior evolves via git), 40 hexdigit wildcards matching the deployed SHA via `match hexdigits`. Backed up to /etc/sshdoers.bak-20260715-statbus170 first. PROVEN on the exact CI forced-command path (authorized_keys forces command="/usr/local/bin/sshdo"): allowed = `SSH_ORIGINAL_COMMAND="~/statbus/ops/ci-deploy-status.sh <sha>"` runs the script (returned `available|false|`, exit 20 = pending, correct for a non-deployed commit); refused = arbitrary `ls /` denied with 'command not in allowlist for user statbus_dev'. Phase-2 unblocked: the sshdoers dependency in the architect's ruling (comment #1) and the phase-1-ship note (comment #2) is now satisfied. Remaining: AC#2 (the workflow poll loop) + AC#3 (deliberately-failing-upgrade red-run proof) — engineer-scoped, now unblocked. rune/standalone needs no sshdo (own box, polls the script directly).
 ---
 <!-- COMMENTS:END -->
