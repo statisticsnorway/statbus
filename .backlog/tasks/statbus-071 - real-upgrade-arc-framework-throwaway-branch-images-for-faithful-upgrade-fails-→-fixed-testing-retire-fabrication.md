@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-15 06:01'
+updated_date: '2026-07-15 06:23'
 labels:
   - install-recovery
   - upgrade
@@ -535,5 +535,11 @@ author: foreman
 created: 2026-07-15 06:01
 ---
 DB-BACKOFF RUN 3 (29391895536, log tmp/db-backoff-run3-failure.log): TWO WINS + ONE ARC BUG. Win 1 — STATBUS-190 PROVEN LIVE: the paused-DB hang classified as CauseDBUnreachable in 11s, backoff engaged (6 attempts across the 60s budget), exhausted on schedule — run 2's watchdog wedge is dead. Win 2 — the exhaust-arm PRODUCT story ran end-to-end unaided: at exhaust the rollback stopped all services INCLUDING the paused db (compose stop handles paused, journal 05:52:55), the STATBUS-187 verify-stopped guard passed honestly, volume restored, containers recreated, db healthy in 6s. The red was the ARC's own step: arm 1's db_unpause fired 4s after exhaust, by which time the rollback had already stopped+recreated the container — the step's premise ('the restore needs a live DB') is FALSE, run-disproven. Foreman-ruled arc fix (empirical, no doctrine): arm 1 drops the unpause entirely (never touch the container after the exhaust marker — racing the rollback was the red), arm 2 keeps its load-bearing strict unpause, and the unpause helper stops discarding docker's stderr. Engineer executing; run 4 next.
+---
+
+author: foreman
+created: 2026-07-15 06:23
+---
+TRANSIENT-DB-BACKOFF ROW PROVEN — RUN 4 GREEN (run 29393095941, commit f17528214, 2026-07-15): both arms end-to-end on one run. EXHAUST: at-Behind crash base → stall → paused-DB hang classified as CauseDBUnreachable (the STATBUS-190 bounded reads) → in-process backoff engaged → budget exhausted → the rollback stopped the paused container itself, restored, rolled_back with the cause named, NRestarts bounded, data intact. RESOLVES: the NEW at-target crash base (killed-by-system-after-migrations-before-completion) → stall → pause → backoff engaged → unpause within budget → cleared → re-read AlreadyAtNew → FORWARD COMPLETION (state=completed), flag gone, no orphan backup, healthy, data intact. Four runs, three real findings en route: the images-ready harness precondition (caught in the wild by STATBUS-187's #3 hard-fail), the hang-shaped-unreachable product gap (STATBUS-190, fixed + live-proven), and the false arm-1 unpause premise (run-disproven, removed). WITH THIS, THE COVERAGE MAP'S RELEASE-GATING REMAINDER IS EMPTY — every release-gating row is [PROVEN] or honestly [RETIRED] with invariants cited. Remaining on the TICKET (non-release-gating per the architect's rulings, but the King's all-tickets stable gate governs): the two interim-net real-path successors — flagless-selfheal (its producer NOW EXISTS: the dual-use at-target kill site) and the churn successor — plus AC#4's zero-callers end state. Mechanic flips the map row; engineer proceeds to the flagless-selfheal successor.
 ---
 <!-- COMMENTS:END -->
