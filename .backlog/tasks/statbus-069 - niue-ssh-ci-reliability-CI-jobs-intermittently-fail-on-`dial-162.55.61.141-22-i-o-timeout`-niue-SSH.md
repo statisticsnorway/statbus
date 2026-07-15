@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-17 07:59'
-updated_date: '2026-07-15 08:29'
+updated_date: '2026-07-15 08:34'
 labels:
   - tooling
   - not-install-upgrade
@@ -36,8 +36,6 @@ ordinal: 69000
 - [ ] #5 Engineer re-adds the hosted canary job (self-hosted legs `needs:` it); foreman pushes; ONE PUSH proves the canary green-gating the self-hosted legs — the ticket's canary half closes on that run
 - [x] #6 seq-logserver + docker-maintenance migrations land via STATBUS-191 (engineer-ready, NOT King-gated, may close first); zero public-SSH CI consumers remain
 <!-- AC:END -->
-
-
 
 ## Comments
 
@@ -103,5 +101,22 @@ OWNER SEQUENCE (matching the ACs): S1 engineer pre-stages trace+runbook → S2 a
 WORKSTREAM 2 SPLIT OUT: seq-logserver + docker-maintenance → STATBUS-191 (engineer, not King-gated, closes independently — ship-bit-by-bit). 069 closes when the canary chain's one-push proof lands AND 191 is done (final AC).
 
 Sequencing note for the foreman's drive: S1-S3 start NOW (no gate); K1 is the first King touchpoint and everything up to S3 exists purely to make it a two-minute ask.
+---
+
+author: architect
+created: 2026-07-15 08:34
+---
+S2 BYTE REVIEW (architect, 2026-07-15): trace script SHIP AS-IS; runbook AMEND (4 items, 2 mandatory). Rulings first:
+
+A. PART-D MECHANISM — the engineer's `docker network disconnect/connect` is CONFIRMED, overriding my own comment-#7 "docker stop/start" wording. His justification is correct and load-bearing: disconnect keeps the runner PROCESS alive, so the trace captures the in-process session-recovery signature — exactly layer (b)'s subject (a live process whose GitHub session died is the true-positive class the probe must detect). stop/start would capture a fresh-start registration signature — the wrong class.
+B. FORCED-COMMAND PREFIX — HARDENED, not bare: keep `no-agent-forwarding,no-port-forwarding,no-pty,no-X11-forwarding,no-user-rc`. The restrictions are free for a one-command probe key held as a repo secret (the most exposed key class). Consistency with the fleet's bare form is restored by LEVELING UP, not down: the fleet's slot keys get the same options in a separate small King-session item (foreman adds to the K-list / files LOW — separate because a broken forced-command locks CI out and needs its own careful verification; never smuggled into K2).
+
+RUNBOOK AMENDMENTS:
+A1 (MANDATORY): the prefix template says `command="/usr/bin/sshdo"` — wrong; the live path is `/usr/local/bin/sshdo` (foreman's root probe). The committed bytes must be correct — 167 discipline means the in-session grep is a CONFIRMATION, never a correction.
+A2 (MANDATORY): reword step 3 — the grep-the-live-convention step confirms the SSHDO PATH ONLY; the hardening options DELIBERATELY diverge from the (older, bare) fleet convention per ruling B, with the fleet leveling-up tracked separately. Without this rewording, the King ratifying "against the live line" would strip the hardening.
+A3 (minor): step 5's refused-test `|| echo OK` also prints OK on a transport failure (false pass) — assert the refusal TEXT instead (grep for 'not in allowlist', the exact string the 170 sshdo proof used).
+A4 (minor): the hand-back section says "AC#9" — 069's canary re-add is AC#5.
+
+APPROVED BEYOND SPEC, noted: the smoke-test-BEFORE-shred step (5) — proves key+sshdo+script end-to-end while recovery is still one keygen away; and the trace tool's read-only-default + refuses-while-Runner.Worker-alive + unknown-arg exit 2 are all right. After A1-A4 the foreman commits; K1 becomes the one-command ask.
 ---
 <!-- COMMENTS:END -->
