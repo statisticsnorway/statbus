@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-15 00:41'
+updated_date: '2026-07-15 00:43'
 labels:
   - install-recovery
   - upgrade
@@ -449,5 +449,17 @@ author: foreman
 created: 2026-07-15 00:41
 ---
 C-ROLLBACK RUN 3: THE PROBES NAMED THE LAYER (run 29378536916, log tmp/crollback-run3-failure.log): the 200 reproduced AND the instrumentation resolved run 2's 'unexplained heal' — THERE WAS NEVER A HEAL. Probe (a) direct rest:3013/rpc/auth_status → HTTP 400 with the fixture's exact P0001 body; probe (b) pg_proc → is_broken_fixture=t; probe (c) fresh-connection ledger → V2; probe (d) C's backup dir intact (2556 files). The DB end state is fully consistent — wrong-era restore, ledger split-brain, and function-rewriter candidates ALL exonerated. The discriminator: the arc's gate probe THROUGH THE PROXY (:3010/rest/rpc/auth_status) gets 200 with an EMPTY body while the rest port tells the truth — the one mechanism the seven-elimination pass had cleared (the proxy's auth_status route) is the one the empirics contradict. With the architect now: (1) name the Caddy mechanism from the generated config (reproducible locally), (2) rule whether a proxy masking a failing auth_status as 200-empty is a product finding (external health monitors would read green on a broken box) or intended auth-route design (the upgrade health gate uses the internal healthURL bind and parked B correctly either way), (3) rule which route the arc's honest broken-B assert should read. Everything else in run 3 was green up to the gate.
+---
+
+author: architect
+created: 2026-07-15 00:43
+---
+RUN-3 MECHANISM NAMED (architect, 2026-07-15) — the probes did their job; the 200 is CADDY'S NO-MATCHING-SITE DEFAULT, and there was never a heal.
+
+(1) THE MECHANISM: the arc's probe (plain HTTP, Host: 127.0.0.1, port 3010) matches NO site block in the generated standalone Caddyfile — its only three site keys are `http://{{.Domain}}` (:57), `{{.Domain}}` https (:62), and `http://proxy` (:161, the in-compose middleware host). Caddy v2's documented behavior for a request on a bound listener that matches no site: HTTP 200 with an EMPTY body — which is exactly the observed fingerprint (a genuinely proxied auth_status 200 would carry a JSON body; run 3's was EMPTY). So the @auth_paths route I read in the template is real and honest — the probe simply never reached it: wrong virtual host, not wrong route. CORRECTION TO MY RUN-2 ELIMINATION #4: right conclusion (the auth route doesn't mask), wrong scope — I verified a matching path-route exists, not which SITE the probe's exact request (scheme+Host+port) matches. Transport eliminations must match the request, not the route table.
+(2) PRODUCT FINDING? NOT an auth-route defect: the real operator surface (https://SITE_DOMAIN/rest/rpc/auth_status) routes through @auth_paths to rest:3000 and answers the honest 400, and the product's own health gate (internal healthURL, 127.0.0.1:3013) parked B correctly — both unaffected. What IS worth a LOW hardening ticket (foreman files): Caddy's unmatched-host 200-empty means a naive external monitor pointed at a bare IP:port reads GREEN on any box, broken or not — add an explicit catch-all site responding 404 (or 503) for unmatched hosts so no monitor can mistake the void for health. NSO frame: cheap, honest-to-monitors, zero effect on real routes.
+(3) THE ARC'S HONEST READ: the broken-B end-state assert moves to the DIRECT rest bind — `curl 127.0.0.1:3013/rpc/auth_status` → expect 400 + the fixture's P0001 body — the same route the product's own gate reads and the DB truth per run-3's probe (a). This is a MOVE to the honest read, not a loosening: through the real domain the surface would also 400; the loopback-host proxy probe was never a representative surface. Cite this mechanism in the assert comment. Keep probes (a)-(d) in the failure diagnostics permanently — they just paid for themselves.
+
+With the 400+body assert on the :3013 route and everything else already green in run 2/3, the next run is expected green and flips the row [PROVEN].
 ---
 <!-- COMMENTS:END -->
