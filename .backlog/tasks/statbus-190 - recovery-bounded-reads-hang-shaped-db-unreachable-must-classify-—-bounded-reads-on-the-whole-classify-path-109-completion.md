@@ -3,10 +3,10 @@ id: STATBUS-190
 title: >-
   recovery-bounded-reads: hang-shaped db-unreachable must classify — bounded
   reads on the whole classify path (109-completion)
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-07-15 04:49'
-updated_date: '2026-07-15 05:35'
+updated_date: '2026-07-15 06:23'
 labels:
   - install-recovery
   - upgrade
@@ -37,10 +37,10 @@ PROCESS: engineer builds; ARCHITECT frozen-diff review (King's rule — foreman/
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Every DB read between recoverFromFlag entry and backoff engagement is bounded by the shared 5s constant (loadLogRelPath + all verifyUpgradeObservedStateEx reads); EnsureDBUp/connect bounds VERIFIED not assumed
-- [ ] #2 A hung read classifies as ObservedPositionUnreadable + CauseDBUnreachable and enters the backoff (arc-proven: pause-induced hang → backoff → resolve/exhaust arms both green)
-- [ ] #3 Unit test: a refused connection classifies identically (fast-refusal and hang are one class)
-- [ ] #4 Architect frozen-diff review before commit; no new heartbeat machinery
+- [x] #1 Every DB read between recoverFromFlag entry and backoff engagement is bounded by the shared 5s constant (loadLogRelPath + all verifyUpgradeObservedStateEx reads); EnsureDBUp/connect bounds VERIFIED not assumed
+- [x] #2 A hung read classifies as ObservedPositionUnreadable + CauseDBUnreachable and enters the backoff (arc-proven: pause-induced hang → backoff → resolve/exhaust arms both green)
+- [x] #3 Unit test: a refused connection classifies identically (fast-refusal and hang are one class)
+- [x] #4 Architect frozen-diff review before commit; no new heartbeat machinery
 <!-- AC:END -->
 
 ## Comments
@@ -56,3 +56,9 @@ TEST-CHOICE RULED: the STRUCTURAL PIN IS SUFFICIENT — no STATBUS-182 DB-gated 
 Foreman: commit + chain push + re-dispatch the arc — run 3 is the release-gating oracle.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Shipped as d471f6e2e and arc-proven by transient-db-backoff run 29393095941 (both arms green). The recovery classify path's exactly-two unbounded DB reads (loadLogRelPath at recoverFromFlag entry; verifyUpgradeObservedStateEx's db.migration read) are bounded by one named constant (recoveryReadTimeout = 5s, the backoff probe's own per-try bound with its literal folded in); a bounded-read timeout flows into the existing queryErr → ObservedPositionUnreadable + CauseDBUnreachable path, so hang-shaped and fast-refusal unreachable are ONE class at the classifier. No new heartbeat machinery — bounded reads reach the self-heartbeating backoffRetry within seconds; WatchdogSec stays the outer net. Bounds on connect() (connectTimeout=5m) and EnsureDBUp (waitForDBHealth 60s) verified with citations, not assumed. TestClassifyPathReadsBounded pins the constant-bound reads and the one-class property structurally (architect ruled the structural pin sufficient — pgx.Conn is not constructible DB-free, and the arc, which keeps docker pause as the stronger hang inducement, is the single canonical behavioral oracle). Live proof: run 3 classified the paused-DB hang in 11s where run 2 had watchdog-wedged; run 4 proved both backoff arms end-to-end. Engineer built; architect frozen-diff reviewed (SHIP, zero amendments); foreman verified independently and committed.
+<!-- SECTION:FINAL_SUMMARY:END -->
