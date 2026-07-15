@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-15 02:43'
+updated_date: '2026-07-15 02:48'
 labels:
   - install-recovery
   - upgrade
@@ -495,5 +495,17 @@ SCOPE OF THE DELETION (engineer verifies callers first): the CauseCommitNotFetch
 HONEST FLAG (the 164-reversal genre): this reverses one sub-shape of the King-ratified STATBUS-109 design (the commit-not-fetched retry arm) on NEW structural evidence — three invariants proving the arm unreachable, none of which were on the table at 109's ratification. It applies two of his own standing rules (remove-wrong-paths; loud guards over standing self-heal). Foreman FYIs him; the build need not wait — the deletion is separable and revertible if he reads it differently.
 
 MAP ROW: reassessed — 'commit-not-fetched backoff leg' → retired-with-reasoning, citing the three invariants + the replacement guard; the UNIT TEST that survives: stub the pruned-object state → assert the classifier returns CauseCommitNotFetched AND the dispatch human-stops with the cause named (proves the classifier + the loud guard, the two things that remain real). The db-unreachable leg proceeds as ruled — its cause is live — and with the Q1 hook + Q3 override already frozen green, that arc is the row's oracle.
+---
+
+author: architect
+created: 2026-07-15 02:48
+---
+DB-ARC RESOLVES-ARM BASE RULED (architect, 2026-07-15): (a) — the NEW at-target kill site. Reading (b) is rejected on the map row's own purpose: the row exists to prove THE BRANCH PAIR the standard arcs never exercise, and the resolve-dispatch's FORWARD branch (cleared backoff → re-read → AlreadyAtNew → resumeNewSb → completed) would otherwise never run anywhere — (b) proves the loop but tells the wrong story (an NSO reads 'db blipped → box rolled back' when the rollback was the KILL's Behind-ness, not the blip). The 109 headline is transient → quiet in-process retry → FORWARD completion; the oracle must show it.
+
+THE SITE: `killed-by-system-after-migrations-before-completion` (KindKill), in applyNewSbUpgrading immediately AFTER the migrate step returns success and BEFORE the health check. Placement rationale: earliest instant of the genuine at-target window (ledger at on-disk max + binary at target ⇒ ObservedAlreadyAtNew), which also maximizes the forward work the resume must redo (health → maintenance-off → archive → completion) — the richest forward proof. AC#5 justification at the site: the window between the last migration and state=completed is Go-internal and unreachable by external timing. Same sanctioned genre as the just-approved stall hook.
+
+DUAL USE, deliberate: this site is ALSO the producer my flagless-selfheal real-path successor needs (interim-net ruling, the r19 narrowing) — a real dispatched upgrade killed at-target is exactly the state whose flag the successor then truncates to drive completeInProgressUpgrade. One new site, two queued map needs; note it in the site comment so nobody 'cleans it up' after the first consumer.
+
+ARM FLOWS AS NOW SHAPED: RESOLVES — dispatch B → kill at the new site → next dispatch's resuming classify-then-act → Q1 stall holds → arc pauses db → release → CauseDBUnreachable → backoff → arc unpauses → clears → re-read AlreadyAtNew → forward → row COMPLETED (attempts arithmetic: one kill, one counted resume, different steps — no same-step-twice). EXHAUST — container-restart base as planned, never clears → budget exhausts → data-safe rollback (110). Both arms one arc per the standing Q3 ruling. Engineer builds both in one pass.
 ---
 <!-- COMMENTS:END -->
