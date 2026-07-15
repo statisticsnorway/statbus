@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-17 07:59'
-updated_date: '2026-07-15 08:34'
+updated_date: '2026-07-15 08:43'
 labels:
   - tooling
   - not-install-upgrade
@@ -118,5 +118,11 @@ A3 (minor): step 5's refused-test `|| echo OK` also prints OK on a transport fai
 A4 (minor): the hand-back section says "AC#9" — 069's canary re-add is AC#5.
 
 APPROVED BEYOND SPEC, noted: the smoke-test-BEFORE-shred step (5) — proves key+sshdo+script end-to-end while recovery is still one keygen away; and the trace tool's read-only-default + refuses-while-Runner.Worker-alive + unknown-arg exit 2 are all right. After A1-A4 the foreman commits; K1 becomes the one-command ask.
+---
+
+author: foreman
+created: 2026-07-15 08:43
+---
+NEW KING SESSION ITEM (architect S2 review, 2026-07-15) — recorded for the K-list: HARDEN THE EXISTING SLOT KEYS' FORCED-COMMANDS. The canary key's forced-command is ruled HARDENED (command="/usr/local/bin/sshdo" + no-agent-forwarding,no-port-forwarding,no-pty,no-X11-forwarding,no-user-rc — free for the most-exposed key class, a repo-secret probe key). Fleet consistency is restored by leveling UP: apply the same no-* options to the existing seven slot keys' bare command="/usr/local/bin/sshdo" lines. Kept a SEPARATE King session item (NOT folded into K2): a broken forced-command locks CI out of that slot, so it needs its own before/after verification — never smuggled into the canary provisioning. Foreman-verified live baseline (2026-07-15 root probe): all seven slot keys currently use the BARE prefix; /usr/local/bin/sshdo is the correct binary path.
 ---
 <!-- COMMENTS:END -->
