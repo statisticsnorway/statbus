@@ -6029,6 +6029,18 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 		}
 	}
 
+	// STATBUS-071 AT-TARGET resume-crash producer (KindKill). Fires HERE — the
+	// migrate step returned success (db.migration at on-disk max) and the binary is
+	// the target, so a crash-recovery reads ObservedAlreadyAtNew — yet the forward
+	// tail (start services → health → maintenance-off → archive → state=completed)
+	// is ALL still to redo. Earliest at-target instant + maximal remaining forward
+	// work: the resume must genuinely re-run everything below to reach completed.
+	// No-op in production (env unset). DUAL-USE (see inject.go — do not remove after
+	// the first consumer): (1) the transient-db-backoff arc's RESOLVES arm needs an
+	// at-target crashed flag so the post-backoff re-read resolves FORWARD; (2) the
+	// flagless-selfheal real-path successor needs exactly this at-target killed state.
+	inject.KillHere("killed-by-system-after-migrations-before-completion")
+
 	// Step 11: Start application services — the FULL version-tracked set,
 	// INCLUDING the proxy. (A drifted older note here claimed "proxy already
 	// running from step 2"; that was only true on the fresh executeUpgrade

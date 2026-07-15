@@ -376,9 +376,14 @@ ARC_UPGRADE_UNIT="statbus-upgrade@statbus.service"
 # scan finds nothing → 098 doesn't pre-claim). Heredocs don't survive VM_EXEC's
 # %q, so write the dropin script locally + upload + run (the legacy pattern).
 arc_install_stall_dropin() {
-    local inject_class="$1" release_file="$2"
+    local inject_class="$1" release_file="$2" extra_env="${3:-}"
+    # extra_env (optional): one additional `Environment=KEY=VALUE` line, e.g. the
+    # transient-backoff arc arming STATBUS_RECOVERY_BACKOFF_BUDGET=60s so the recovery
+    # boot's backoff exhausts in seconds. Empty (default) → the legacy two-line dropin.
+    local extra_line=""
+    [ -z "$extra_env" ] || extra_line="Environment=${extra_env}"
     echo ""
-    echo "── install stall dropin (STATBUS_INJECT_AT=${inject_class}) + RESTART unit (arms env in the daemon process) ──"
+    echo "── install stall dropin (STATBUS_INJECT_AT=${inject_class}${extra_env:+, ${extra_env}}) + RESTART unit (arms env in the daemon process) ──"
     VM_EXEC systemctl --user stop "$ARC_UPGRADE_UNIT" 2>/dev/null || true
     local script
     script=$(mktemp /tmp/arc-stall-dropin-XXXXXX.sh)
@@ -391,6 +396,7 @@ cat > "\$DROPIN_DIR/inject.conf" << 'DROPIN_EOF'
 [Service]
 Environment=STATBUS_INJECT_AT=${inject_class}
 Environment=STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE=${release_file}
+${extra_line}
 DROPIN_EOF
 touch ${release_file}
 systemctl --user daemon-reload

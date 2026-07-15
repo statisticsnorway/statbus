@@ -161,6 +161,19 @@ var classes = map[string]Kind{
 	"killed-by-system-during-container-restart":              KindKill,
 	"killed-by-system-during-builtin-rollback":               KindKill,
 
+	// STATBUS-071 — the AT-TARGET resume-crash producer. Fires in
+	// applyNewSbUpgrading immediately AFTER the migrate step returns success but
+	// BEFORE the health check: the earliest instant of the genuine at-target
+	// window (db.migration at on-disk max + binary at target ⇒ recovery reads
+	// ObservedAlreadyAtNew), maximizing the forward work the resume must redo.
+	// DELIBERATELY DUAL-USE — do NOT remove after its first consumer lands:
+	//   (1) the transient-db-backoff arc's RESOLVES arm needs an at-target crashed
+	//       flag so the post-backoff re-read resolves to FORWARD completion; and
+	//   (2) the flagless-selfheal real-path successor (STATBUS-071 comment #17)
+	//       needs exactly a real upgrade killed AT-TARGET as the state whose flag
+	//       it truncates. One hook serves two queued map needs.
+	"killed-by-system-after-migrations-before-completion": KindKill,
+
 	// Canonical Layer 2 case — real-SIGKILL via harness. The migrate
 	// subprocess (./sb migrate up under applyNewSbUpgrading) stalls at the
 	// ~ms window between a migration's outer-transaction commit and
@@ -490,6 +503,12 @@ func StallHere(name string) {
 	if releaseFile == "" {
 		return
 	}
+	// Observable marker (STATBUS-071): the harness polls this line to know the
+	// stall is REACHED before it acts (e.g. the transient-backoff arc waits for
+	// this, then pauses the DB, then removes the release file). Without it a
+	// harness can only guess-time the sub-second window to the stall. Emitted once,
+	// only on the active-injection path — no-op in production (env unset above).
+	fmt.Printf("INJECT: stalling at %q until %s is removed\n", name, releaseFile)
 	for {
 		if _, err := os.Stat(releaseFile); err != nil {
 			if errors.Is(err, os.ErrNotExist) {
