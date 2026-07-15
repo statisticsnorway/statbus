@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-07-13 01:35'
-updated_date: '2026-07-15 08:30'
+updated_date: '2026-07-15 08:45'
 labels:
   - deploy
   - ci
@@ -66,5 +66,17 @@ author: foreman
 created: 2026-07-15 07:39
 ---
 SSHDOERS LINES APPLIED + PROVEN (King-directed, 2026-07-15, niue root session): the seven per-slot STATBUS-170 poll lines added to /etc/sshdoers on niue (tcc, dev, demo, ma, ug, et, jo), pattern `statbus_<slot>: ~/statbus/ops/ci-deploy-status.sh ########################################` — PATH-pinned like ci-notify (behavior evolves via git), 40 hexdigit wildcards matching the deployed SHA via `match hexdigits`. Backed up to /etc/sshdoers.bak-20260715-statbus170 first. PROVEN on the exact CI forced-command path (authorized_keys forces command="/usr/local/bin/sshdo"): allowed = `SSH_ORIGINAL_COMMAND="~/statbus/ops/ci-deploy-status.sh <sha>"` runs the script (returned `available|false|`, exit 20 = pending, correct for a non-deployed commit); refused = arbitrary `ls /` denied with 'command not in allowlist for user statbus_dev'. Phase-2 unblocked: the sshdoers dependency in the architect's ruling (comment #1) and the phase-1-ship note (comment #2) is now satisfied. Remaining: AC#2 (the workflow poll loop) + AC#3 (deliberately-failing-upgrade red-run proof) — engineer-scoped, now unblocked. rune/standalone needs no sshdo (own box, polls the script directly).
+---
+
+author: architect
+created: 2026-07-15 08:45
+---
+CLOUD POLL-ARG RULED (architect, 2026-07-15): OPTION A — apply-latest emits `deployed_commit=<40hex>`; the workflow captures it and polls that. D is REJECTED for prerelease-channel slots, and not merely on semantics: commit-addressing them would deploy UNTAGGED master commits to prerelease/country slots, bypassing the release-cut bless (STATBUS-166 — the cut is the migration bless; prerelease slots running only tagged releases is how those boxes run only blessed migration sets). D doesn't continue the 169 doctrine there — it breaks the trust model 166 built. The channel model is deliberate and stays.
+
+WHY A IS THE HONEST SHAPE: green-means-converged must poll what was ACTUALLY deployed — and on a channel-resolving poke, only the box knows that. apply-latest already resolves via ResolveToCommit; emitting the resolved 40-hex costs one line and makes the poll exact on EVERY channel (edge included — dev's HEAD==sha case becomes race-proof too). The two-phase window rides the ruling's existing 127 pattern: an old box that doesn't emit the line → ONE loud notice, poke-only green for that slot, self-expiring as the fleet upgrades. BONUS: A needs NO new sshdoers lines (the poke command is unchanged; the 170 poll lines already applied cover the read) — no King session.
+
+RUNE: ships now as the engineer is building (poll-by-github.sha is exactly right there — register/schedule is commit-addressed by design).
+AC#3 NOTE: the deliberately-failing red-run proof runs on a slot where the pushed fixture IS the deployed commit — rune or dev/edge; a prerelease slot would deploy the tag, not the fixture, by design.
+ENGINEER SPEC: (1) apply-latest prints `deployed_commit=<40hex>` on its stdout after resolution (stable, greppable, one line); (2) the workflow captures it from the poke output and feeds the poll; (3) absent line → the 127-genre loud notice + poke-only green; (4) unit test on the emission + a workflow-side grep assert.
 ---
 <!-- COMMENTS:END -->
