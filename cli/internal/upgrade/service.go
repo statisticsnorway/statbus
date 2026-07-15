@@ -974,8 +974,14 @@ func (d *Service) loadLogRelPath(ctx context.Context, id int64) string {
 	if id <= 0 {
 		return ""
 	}
+	// STATBUS-190: bound the read — this is the FIRST DB read on the recovery
+	// classify path; a paused/frozen DB would otherwise hang it before recovery
+	// even reaches the observed-state verify. The timeout degrades to the existing
+	// "" fallback (the on-disk log is operator-facing, not load-bearing).
+	readCtx, cancel := context.WithTimeout(ctx, recoveryReadTimeout)
+	defer cancel()
 	var relPath sql.NullString
-	if err := d.queryConn.QueryRow(ctx,
+	if err := d.queryConn.QueryRow(readCtx,
 		"SELECT log_relative_file_path FROM public.upgrade WHERE id = $1", id).
 		Scan(&relPath); err != nil {
 		return ""
@@ -2623,8 +2629,15 @@ func (d *Service) verifyUpgradeObservedStateEx(ctx context.Context, rowCommitSHA
 	}
 
 	// Check 2: migration max version — DB vs on-disk
+	// STATBUS-190: bound the read with the shared classify-path timeout. A paused/
+	// frozen DB makes this query HANG on the live-but-unanswering conn; the timeout
+	// turns that hang into a DeadlineExceeded error that classifies as
+	// CauseDBUnreachable below — so a HANG and a fast connection-refusal are ONE
+	// class at the classifier, both routed to the in-process backoff.
+	readCtx, cancel := context.WithTimeout(ctx, recoveryReadTimeout)
+	defer cancel()
 	var dbMaxVersion int64
-	queryErr := d.queryConn.QueryRow(ctx,
+	queryErr := d.queryConn.QueryRow(readCtx,
 		`SELECT COALESCE(MAX(version), 0) FROM db.migration`).Scan(&dbMaxVersion)
 	if queryErr != nil {
 		// Cannot verify — DB unreachable (mid-restart). Loud, never silent (the

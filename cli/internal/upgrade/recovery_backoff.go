@@ -81,6 +81,19 @@ var ErrFetchStalled = errors.New("git fetch stalled (no progress)")
 // watchdog — the loop must self-heartbeat.
 const heartbeatBeat = 30 * time.Second
 
+// recoveryReadTimeout bounds EVERY DB read on the recovery classify path with ONE
+// shared value (STATBUS-190; no scattered literals): the top-of-path loadLogRelPath,
+// the observed-state verify's db.migration read, AND the db-unreachable probe's own
+// reconnect+SELECT-1. WHY: a paused/frozen DB makes an already-open conn's query HANG
+// (the conn is alive; the server never answers), which — on the classify path, before
+// backoffRetry ever engages — would wedge recovery indefinitely (the run-2 finding).
+// Bounding these reads turns that hang into a fast CauseDBUnreachable classification:
+// HANG and fast-refusal become ONE class at the classifier, and the path reaches the
+// self-heartbeating backoffRetry within seconds — so WatchdogSec stays the outer net,
+// NO new heartbeat machinery. 5s = the probe's existing per-try bound (a quick check,
+// never a transfer).
+const recoveryReadTimeout = 5 * time.Second
+
 // retrySpec parameterises backoffRetry for one known-intermittent cause
 // (doc-022 §2). Only the probe and the backoff shape differ per cause; the loop,
 // the per-iteration heartbeat, and the budget ceiling are shared.
@@ -193,7 +206,7 @@ func (d *Service) dbUnreachableSpec() retrySpec {
 		gaps:   []time.Duration{1 * time.Second, 2 * time.Second, 4 * time.Second, 8 * time.Second, 16 * time.Second, 30 * time.Second},
 		budget: resolveBackoffBudget(5 * time.Minute),
 		probe: func(ctx context.Context) error {
-			probeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			probeCtx, cancel := context.WithTimeout(ctx, recoveryReadTimeout)
 			defer cancel()
 			if err := d.reconnect(probeCtx); err != nil {
 				return err

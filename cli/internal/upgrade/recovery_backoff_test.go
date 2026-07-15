@@ -14,6 +14,55 @@ import (
 // here Docker/DB-free; the end-to-end behaviour is the install-recovery arcs'
 // job (STATBUS-071, the only behavioural oracle).
 
+// TestClassifyPathReadsBounded pins STATBUS-190: EVERY DB read on the recovery
+// classify path (recoverFromFlag entry → backoff engagement) is bounded by the ONE
+// shared recoveryReadTimeout, and the observed-state read's error classifies as
+// CauseDBUnreachable — so a paused/frozen DB (which HANGS a live-but-unanswering
+// conn) and a fast connection-refusal are ONE class routed to the in-process
+// backoff, never a wedge before backoff engages (the run-2 finding).
+//
+// STRUCTURAL, not behavioural: a live-but-broken *pgx.Conn (the "refused/hung DB"
+// state) is not constructible DB-free — pgx.Connect to a dead address returns no
+// conn, and the package deliberately avoids DB-needing Go tests (STATBUS-182). So
+// the boundedness + the single-class classification are pinned here; the runtime
+// hang→backoff behaviour is the transient-db-backoff arc's oracle (it keeps
+// docker-pause as the stronger inducement).
+func TestClassifyPathReadsBounded(t *testing.T) {
+	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	source := string(src)
+
+	// (1) loadLogRelPath — the FIRST classify-path read — bounds with the shared
+	// const and uses the bounded ctx (not the raw ctx) for its QueryRow.
+	logBody := extractFuncBody(t, source, "func (d *Service) loadLogRelPath(")
+	if !strings.Contains(logBody, "context.WithTimeout(ctx, recoveryReadTimeout)") {
+		t.Error("loadLogRelPath must bound its read with recoveryReadTimeout (STATBUS-190) — an unbounded read on a paused DB hangs the classify path before backoff engages")
+	}
+	if strings.Contains(logBody, "QueryRow(ctx,") {
+		t.Error("loadLogRelPath must pass the bounded readCtx (not the raw ctx) to QueryRow")
+	}
+
+	// (2) verifyUpgradeObservedStateEx — the db.migration read — bounds with the
+	// SAME const, and its error classifies CauseDBUnreachable (hang == refusal).
+	verifyBody := extractFuncBody(t, source, "func (d *Service) verifyUpgradeObservedStateEx(")
+	if !strings.Contains(verifyBody, "context.WithTimeout(ctx, recoveryReadTimeout)") {
+		t.Error("verifyUpgradeObservedStateEx must bound the db.migration read with recoveryReadTimeout (STATBUS-190)")
+	}
+	if strings.Contains(verifyBody, "QueryRow(ctx,") {
+		t.Error("the db.migration read must pass the bounded readCtx (not the raw ctx)")
+	}
+	if !strings.Contains(verifyBody, "CauseDBUnreachable") {
+		t.Error("the db.migration read error must classify as CauseDBUnreachable — a bounded-read timeout and a connection-refusal are ONE class at the classifier")
+	}
+
+	// (3) ONE shared constant — no scattered classify-path timeout literals.
+	if !strings.Contains(source, "recoveryReadTimeout") {
+		t.Error("the classify-path reads must share the recoveryReadTimeout constant, not scattered literals")
+	}
+}
+
 // TestCommitNotFetchedDispatch_Retired pins STATBUS-071 (architect ruling
 // 2026-07-15): the CauseCommitNotFetched DISPATCH arm is deleted from the resuming
 // classify-then-act because the cause is structurally unreachable there (three
