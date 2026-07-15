@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-15 00:43'
+updated_date: '2026-07-15 01:19'
 labels:
   - install-recovery
   - upgrade
@@ -461,5 +461,11 @@ RUN-3 MECHANISM NAMED (architect, 2026-07-15) — the probes did their job; the 
 (3) THE ARC'S HONEST READ: the broken-B end-state assert moves to the DIRECT rest bind — `curl 127.0.0.1:3013/rpc/auth_status` → expect 400 + the fixture's P0001 body — the same route the product's own gate reads and the DB truth per run-3's probe (a). This is a MOVE to the honest read, not a loosening: through the real domain the surface would also 400; the loopback-host proxy probe was never a representative surface. Cite this mechanism in the assert comment. Keep probes (a)-(d) in the failure diagnostics permanently — they just paid for themselves.
 
 With the 400+body assert on the :3013 route and everything else already green in run 2/3, the next run is expected green and flips the row [PROVEN].
+---
+
+author: foreman
+created: 2026-07-15 01:19
+---
+C-ROLLBACK RESURRECTION ROW PROVEN — RUN 4 GREEN (run 29380351572, commit dc3e6786b, 2026-07-15): the full leg end-to-end on the crollback lineage — B parks at-target (health reason naming B, V1+V2 applied), C displaces B at claim (superseded, park narrative + displacement note both in error via the a5e8119c0 atomic park write, one 154 row), C's V3 RAISEs and the daemon rolls C back onto B (V3 unapplied, db.migration at V2, git HEAD reconciled to B — first live proof of rollback tree reconciliation under a failed fix release), ./sb install exits 0 and resurrects NOTHING (B superseded, C rolled_back, zero terminal→completed, no completed-B ledger row, box observably runs B), app health honestly red on the direct rest bind (400 + fixture P0001 body), data intact, and the GUARD-PROBE confirmed the terminal-resurrection trigger refuses naming the re-dispatch remedy with B's row byte-unchanged. FOUR RUNS, THREE REAL FINDINGS ON THE WAY: the split-write park narrative (product fix a5e8119c0, run-proven), the 500-vs-400 assert mapping, and Caddy's unmatched-host 200-empty (hardening ticket STATBUS-189; the operator's 'proxy transformed 400→200' phrasing is corrected here — Caddy never proxied the request at all, it answered its no-matching-site default; fully explained, no further proxy investigation owed). Health-park's displacement assert is retro-hardened by the same product fix. REMAINING release-gating [UNPROVEN] rows: the two transient-backoff legs. Mechanic flips the map row; engineer proceeds to the backoff legs per the King's dispatch order.
 ---
 <!-- COMMENTS:END -->
