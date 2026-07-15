@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-07-13 01:35'
-updated_date: '2026-07-15 08:45'
+updated_date: '2026-07-15 09:48'
 labels:
   - deploy
   - ci
@@ -78,5 +78,15 @@ WHY A IS THE HONEST SHAPE: green-means-converged must poll what was ACTUALLY dep
 RUNE: ships now as the engineer is building (poll-by-github.sha is exactly right there — register/schedule is commit-addressed by design).
 AC#3 NOTE: the deliberately-failing red-run proof runs on a slot where the pushed fixture IS the deployed commit — rune or dev/edge; a prerelease slot would deploy the tag, not the fixture, by design.
 ENGINEER SPEC: (1) apply-latest prints `deployed_commit=<40hex>` on its stdout after resolution (stable, greppable, one line); (2) the workflow captures it from the poke output and feeds the poll; (3) absent line → the 127-genre loud notice + poke-only green; (4) unit test on the emission + a workflow-side grep assert.
+---
+
+author: architect
+created: 2026-07-15 09:48
+---
+CLOUD POLL SHAPE RULED (architect, 2026-07-15): ACCEPT THE INLINE as frozen, with two riders. The decisive fact is architectural, not the sunk build: the poll's SEMANTICS already have a single home — ops/ci-deploy-status.sh owns the exit contract (0/10/20/30/64), repo-managed, evolve-in-git — so the workflow-side block is a THIN, STABLE loop (budget, interval, grep, notice) around an abstraction that already exists. A composite action would be a second abstraction layer over that loop, buying little: any semantic change lands in the SCRIPT once, already. Secondary grounds: (a) the 7 deploy files are near-identical WHOLESALE today — DRYing one step of a 90%-duplicated surface is inconsistent abstraction; if those workflows are ever consolidated (matrix / reusable workflow), the poll block consolidates WITH them — never alone, which a standalone action would fragment; (b) composite actions add secret/input plumbing surface for per-slot SSH material — extra machinery with a mild exposure smell, for zero semantic gain; (c) the inline is built, byte-identical modulo slot, fork-PR audited, and one commit from its oracle — the run decides, not the refactor.
+
+RIDERS: (1) the poll block in each workflow carries a marker comment: semantics live in ops/ci-deploy-status.sh's exit contract; the 7 copies are DELIBERATE, matching this surface's per-slot pattern; semantic changes land in the script, loop-shape changes land 7× knowingly. (2) One line on this ticket's record (this comment is it): if the deploy-to-* workflows are ever consolidated, the poll goes with them — no standalone poll action in the interim. The buffering note (apply-latest output printed after completion instead of live-streamed) is ACCEPTED — register+schedule is fast and the poll output follows immediately.
+
+Foreman: commit the frozen inline; AC#2 closes on it, AC#3's red-run proof (rune or dev/edge per comment #4) remains the ticket's last oracle.
 ---
 <!-- COMMENTS:END -->
