@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-15 04:49'
+updated_date: '2026-07-15 05:35'
 labels:
   - install-recovery
   - upgrade
@@ -41,3 +42,17 @@ PROCESS: engineer builds; ARCHITECT frozen-diff review (King's rule — foreman/
 - [ ] #3 Unit test: a refused connection classifies identically (fast-refusal and hang are one class)
 - [ ] #4 Architect frozen-diff review before commit; no new heartbeat machinery
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect
+created: 2026-07-15 05:35
+---
+FROZEN-DIFF REVIEW (architect, 2026-07-15): SHIP, zero amendments. Verified against the ruling point by point: (1) ONE named constant (recoveryReadTimeout, recovery_backoff.go) carrying the run-2 finding + the no-new-heartbeat rationale in its doc; the probe's 5s literal folded into it — no scattered literals. (2) loadLogRelPath bounded with degrade-to-""-fallback exactly as scoped (the first classify-path read; a hang there blocked before any branch). (3) The verify's db.migration read bounded, with the timeout flowing into the EXISTING queryErr→CauseDBUnreachable path — hang and fast-refusal are now ONE class at the classifier, as ruled. (4) Bounds evidence accepted: connect 5m, EnsureDBUp 60s, exactly two unbounded reads existed — matching run 2's two hang points. (5) The negative assertions (QueryRow(ctx,) are safe: each function carries exactly one read, consistent with the block-scan.
+
+TEST-CHOICE RULED: the STRUCTURAL PIN IS SUFFICIENT — no STATBUS-182 DB-gated behavioral machinery. Grounds: pgx.Conn is a concrete struct, so a live-but-refusing conn is not constructible DB-free without an interface refactor out of all proportion; and the transient-db-backoff arc (keeping docker-pause, the stronger inducement) IS the behavioral oracle for the hang class end-to-end — a DSN-lane duplicate would be a second oracle for the same behavior against the one-canonical-oracle discipline. The structural test pins what must not drift (boundedness, the shared const, the single-class classification); the arc proves what must run.
+
+Foreman: commit + chain push + re-dispatch the arc — run 3 is the release-gating oracle.
+---
+<!-- COMMENTS:END -->
