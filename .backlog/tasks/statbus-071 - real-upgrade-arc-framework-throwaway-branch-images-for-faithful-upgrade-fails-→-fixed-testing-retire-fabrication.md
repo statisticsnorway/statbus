@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-15 00:09'
+updated_date: '2026-07-15 00:41'
 labels:
   - install-recovery
   - upgrade
@@ -443,5 +443,11 @@ FINDING 2, UNEXPLAINED HEAL: at probe time (23:54:35) auth_status EXECUTED SUCCE
 RULING — EMPIRICS BEFORE ANY RE-RUN COUNTS: the engineer adds to the arc, at the probe site AND in _dump_crollback_failure_diagnostics: (a) direct `curl 127.0.0.1:3013/rpc/auth_status` (the product's own route — discriminates proxy-vs-db); (b) `SELECT md5(prosrc) FROM pg_proc WHERE proname='auth_status'` + a grep of prosrc for the fixture RAISE (is the live body broken or original?); (c) db.migration max read THROUGH PostgREST (rules out split-brain reads between psql and rest); (d) a fingerprint of pre-upgrade-active vs the live volume (one known file's checksum — did the restore actually change bytes). Then re-run with the 400-assert fix. If 200 reproduces, the instrumentation names the writer — and whatever silently rewrites database functions after a rollback is a SERIOUS product finding (self-heal doctrine at minimum). If it does not reproduce, the instrumented single-occurrence stands recorded here and the arc proceeds — but no assert gets loosened to 'tolerate 200': the 200 is an unexplained state mutation and no-flaky-tests demands its cause, not its accommodation.
 
 Credit intact from run 2: the park-narrative fix proven live (displacement asserts green), the whole displacement + rollback + no-resurrection + truth-told chain green — only the final honest-broken probe is at issue.
+---
+
+author: foreman
+created: 2026-07-15 00:41
+---
+C-ROLLBACK RUN 3: THE PROBES NAMED THE LAYER (run 29378536916, log tmp/crollback-run3-failure.log): the 200 reproduced AND the instrumentation resolved run 2's 'unexplained heal' — THERE WAS NEVER A HEAL. Probe (a) direct rest:3013/rpc/auth_status → HTTP 400 with the fixture's exact P0001 body; probe (b) pg_proc → is_broken_fixture=t; probe (c) fresh-connection ledger → V2; probe (d) C's backup dir intact (2556 files). The DB end state is fully consistent — wrong-era restore, ledger split-brain, and function-rewriter candidates ALL exonerated. The discriminator: the arc's gate probe THROUGH THE PROXY (:3010/rest/rpc/auth_status) gets 200 with an EMPTY body while the rest port tells the truth — the one mechanism the seven-elimination pass had cleared (the proxy's auth_status route) is the one the empirics contradict. With the architect now: (1) name the Caddy mechanism from the generated config (reproducible locally), (2) rule whether a proxy masking a failing auth_status as 200-empty is a product finding (external health monitors would read green on a broken box) or intended auth-route design (the upgrade health gate uses the internal healthURL bind and parked B correctly either way), (3) rule which route the arc's honest broken-B assert should read. Everything else in run 3 was green up to the gate.
 ---
 <!-- COMMENTS:END -->
