@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-15 02:48'
+updated_date: '2026-07-15 04:46'
 labels:
   - install-recovery
   - upgrade
@@ -507,5 +507,11 @@ THE SITE: `killed-by-system-after-migrations-before-completion` (KindKill), in a
 DUAL USE, deliberate: this site is ALSO the producer my flagless-selfheal real-path successor needs (interim-net ruling, the r19 narrowing) — a real dispatched upgrade killed at-target is exactly the state whose flag the successor then truncates to drive completeInProgressUpgrade. One new site, two queued map needs; note it in the site comment so nobody 'cleans it up' after the first consumer.
 
 ARM FLOWS AS NOW SHAPED: RESOLVES — dispatch B → kill at the new site → next dispatch's resuming classify-then-act → Q1 stall holds → arc pauses db → release → CauseDBUnreachable → backoff → arc unpauses → clears → re-read AlreadyAtNew → forward → row COMPLETED (attempts arithmetic: one kill, one counted resume, different steps — no same-step-twice). EXHAUST — container-restart base as planned, never clears → budget exhausts → data-safe rollback (110). Both arms one arc per the standing Q3 ruling. Engineer builds both in one pass.
+---
+
+author: foreman
+created: 2026-07-15 04:46
+---
+DB-BACKOFF RUN 2 RED — REAL PRODUCT FINDING, WITH ARCHITECT (run 29388951223, log tmp/db-backoff-run2-failure.log): the arc's first product catch. Arm 1 reached the stall (t+2s), paused the db, released the stall — then NOTHING until systemd 'Watchdog timeout (limit 2min)' killed the unit. Mechanism: docker pause = HANG-shaped unreachable (connections stall, no error); the resuming verify's observed-state read (service.go:2611) has NO bounded timeout and the pass doesn't heartbeat outside backoffRetry — so the hang variant of db-unreachable (network partition, silent packet drop, frozen container — real NSO production modes) NEVER reaches classification: CauseDBUnreachable fires only on fast-fail reads. The whole 109 classify-then-act is bypassed and the box lands on watchdog exit-restart churn — the exact noise 109 exists to eliminate. The backoff PROBE spec already bounds its tries (5s ctx); the VERIFY read is the gap. Rulings requested: (1) bounded-timeout fix shape + scope (just the verify SELECT or every pre-backoff recovery read; heartbeat during the read?); (2) arc inducement stays PAUSE post-fix (the stronger hang-class test) vs switching to stop's easy fast-refusal class — foreman lean: fix product, keep pause. Run-1 red (images-ready precondition, harness) fixed in ae081d02b with the STATBUS-187 #3 hard-fail catching it in the wild.
 ---
 <!-- COMMENTS:END -->
