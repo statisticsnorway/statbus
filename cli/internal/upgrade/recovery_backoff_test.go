@@ -3,6 +3,8 @@ package upgrade
 import (
 	"context"
 	"errors"
+	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -11,6 +13,39 @@ import (
 // The pure classifiers + the loop's gap/budget/clear/cancel logic are tested
 // here Docker/DB-free; the end-to-end behaviour is the install-recovery arcs'
 // job (STATBUS-071, the only behavioural oracle).
+
+// TestCommitNotFetchedDispatch_Retired pins STATBUS-071 (architect ruling
+// 2026-07-15): the CauseCommitNotFetched DISPATCH arm is deleted from the resuming
+// classify-then-act because the cause is structurally unreachable there (three
+// invariants — the caller, the pre-swap-fetch phase invariant, and the recovery-
+// boot checkout gate). This is the "the two things that remain real" surviving
+// oracle's HALF-TWO: the classifier still NAMES the cause (proven behaviourally by
+// TestVerifyBinaryObservedState_TargetMissingFromCloneIsUnknown in observed_state_test.go),
+// and — pinned here — with no dispatch arm the cause falls to the DEFAULT human-stop
+// WITH THE CAUSE NAMED (loud, actionable, zero retry of a structurally-impossible
+// state). If a future refactor breaks an invariant, the box stops and says why.
+func TestCommitNotFetchedDispatch_Retired(t *testing.T) {
+	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	body := extractFuncBody(t, string(src), "func (d *Service) recoverFromFlag(")
+
+	// No CauseCommitNotFetched dispatch arm survives — the retirement holds.
+	if strings.Contains(body, "case CauseCommitNotFetched:") {
+		t.Error("recoverFromFlag still has a `case CauseCommitNotFetched:` dispatch arm — the retired arm must stay deleted (STATBUS-071); the cause is structurally unreachable and must fall to the default human-stop")
+	}
+	// The surviving live arm proves the switch was surgically trimmed, not gutted.
+	if !strings.Contains(body, "case CauseDBUnreachable:") {
+		t.Error("recoverFromFlag lost the CauseDBUnreachable dispatch arm — only the commit-not-fetched arm was to be deleted")
+	}
+	// The default human-stop must NAME the cause (cause=%s) and refuse to guess —
+	// so a retired/unrecognized cause reaching here is loud + actionable, never a
+	// silent retry of an unknown.
+	if !strings.Contains(body, "cause=%s") || !strings.Contains(body, "refusing to guess") {
+		t.Error("the default arm must human-stop naming the cause (a cause= token plus 'refusing to guess') — a retired/unrecognized cause must be loud + actionable")
+	}
+}
 
 // ── classifyStepError (§5, the known-persistent list) ────────────────────────
 
@@ -150,7 +185,10 @@ func TestBackoffRetry_HonoursContextCancel(t *testing.T) {
 // fetch spec's cap must be < WatchdogSec so a stall aborts before the watchdog.
 func TestRetrySpecs_GapsStayInsideWatchdog(t *testing.T) {
 	d := testService(t)
-	for _, spec := range []retrySpec{d.dbUnreachableSpec(), d.commitNotFetchedSpec(nil, "deadbeef")} {
+	// commitNotFetchedSpec was deleted (STATBUS-071, dead dispatch arm); its
+	// fetch machinery's watchdog constraint is guarded by the fetchStallTimeout
+	// assertion below (fetchWithStallDetection lives on the forward-fetch path).
+	for _, spec := range []retrySpec{d.dbUnreachableSpec()} {
 		for _, g := range spec.gaps {
 			if g >= 120*time.Second {
 				t.Errorf("%s gap %v must stay under WatchdogSec=120s", spec.name, g)

@@ -1114,10 +1114,6 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 				appendLog = nil
 			}
 		}
-		var fetchLog = io.Discard
-		if appendLog != nil {
-			fetchLog = appendLog.File()
-		}
 		// One backoff budget per cause per recovery pass: a cause that clears
 		// then re-fails is treated as exhausted (→ rollback), never re-retried.
 		retried := map[UnknownCause]bool{}
@@ -1153,10 +1149,22 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 				switch cause {
 				case CauseDBUnreachable:
 					spec = d.dbUnreachableSpec()
-				case CauseCommitNotFetched:
-					spec = d.commitNotFetchedSpec(fetchLog, flag.CommitSHA)
-				default: // CauseUnrecognized (or CauseNone defensively) → human stop
-					logRecover("Upgrade %d (%s) was interrupted while finishing and its position cannot be verified for an unrecognized reason — STOPPING rather than guessing; please contact support. (detail: new-sb-upgrading, observed-state=position-unreadable, cause=%s: %s)",
+				// STATBUS-071: NO CauseCommitNotFetched dispatch arm. The
+				// classifier still NAMES the cause (verifyBinaryObservedState,
+				// :2545) — but it is STRUCTURALLY UNREACHABLE here, proven by three
+				// invariants: (1) the ONLY caller that uses the cause for dispatch is
+				// this Phase==NewSbUpgrading block; (2) a NewSbUpgrading flag exists
+				// only AFTER executeUpgrade's pre-swap fetch (the objects are local
+				// by construction of the phase, :1893); (3) the recovery-boot checkout
+				// gate (:1903) runs `git checkout flag.CommitSHA` and FAILS the boot on
+				// a missing object, so a missing commit never reaches this verify.
+				// A live path was designed for a shallow-clone edge the phase invariant
+				// excludes here. Retiring the arm (architect ruling 2026-07-15) sends
+				// the cause to the default human-stop below WITH THE CAUSE NAMED:
+				// loud + actionable, zero retry of a structurally-impossible state. If
+				// a future refactor breaks any invariant, the box stops and says why.
+				default: // CauseUnrecognized (or the retired CauseCommitNotFetched) → human stop, cause named
+					logRecover("Upgrade %d (%s) was interrupted while finishing and its position cannot be verified for an unretryable reason — STOPPING rather than guessing; please contact support. (detail: new-sb-upgrading, observed-state=position-unreadable, cause=%s: %s)",
 						flag.ID, flag.Label(), cause, obsReason)
 					closeAppend()
 					// Non-nil return → the :recoverFromFlag call site exits so

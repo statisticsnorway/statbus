@@ -204,21 +204,14 @@ func (d *Service) dbUnreachableSpec() retrySpec {
 	}
 }
 
-// commitNotFetchedSpec is the backoff-retry for CauseCommitNotFetched (doc-022
-// §2). The probe is fetchWithStallDetection — the per-try failure is a STALL
-// (no progress ~60s), never a wall-clock deadline, so a healthy slow transfer
-// runs as long as it legitimately needs. logWriter tees git output into the
-// per-upgrade log.
-func (d *Service) commitNotFetchedSpec(logWriter io.Writer, commitSHA string) retrySpec {
-	return retrySpec{
-		name:   "commit-not-fetched",
-		gaps:   []time.Duration{10 * time.Second, 30 * time.Second, 60 * time.Second},
-		budget: resolveBackoffBudget(15 * time.Minute),
-		probe: func(ctx context.Context) error {
-			return d.fetchWithStallDetection(ctx, logWriter, commitSHA)
-		},
-	}
-}
+// commitNotFetchedSpec was the backoff-retry for CauseCommitNotFetched — DELETED
+// (STATBUS-071, architect ruling 2026-07-15) as orphaned machinery: its ONLY
+// dispatch caller (the resuming classify-then-act arm) was retired because the
+// cause is structurally unreachable at that site (three invariants — see the
+// retirement note at service.go's resuming switch). fetchWithStallDetection is
+// KEPT: it still has a live caller on the FORWARD fetch path (service.go:5390,
+// the stall-not-deadline fetch that replaced a wall-clock deadline), so only the
+// spec wrapper — never the fetch machinery — goes with the dead dispatch arm.
 
 // fetchStallTimeout is the per-try no-progress window: a fetch that emits no
 // output line for this long is aborted as a stall. 60s < WatchdogSec=120s, so
