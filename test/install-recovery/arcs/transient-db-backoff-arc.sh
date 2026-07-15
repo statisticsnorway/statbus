@@ -88,7 +88,13 @@ row_error_for() { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT COALESCE(error,
 # deterministic per arm regardless of history (and stays correct if a 3rd arm is added).
 journal_has() { VM_EXEC bash -c "journalctl --user -u $UPGRADE_UNIT --since \"$2\" --no-pager 2>/dev/null | grep -qF \"$1\" && echo yes || echo no" 2>/dev/null | tr -d ' \r\n' || echo "no"; }
 db_pause()   { VM_EXEC bash -c "cd ~/statbus && docker compose pause db"   >/dev/null 2>&1 && echo "  ✓ db container PAUSED (unreachable)"   || { echo "✗ docker compose pause db failed" >&2; exit 1; }; }
-db_unpause() { VM_EXEC bash -c "cd ~/statbus && docker compose unpause db" >/dev/null 2>&1 && echo "  ✓ db container UNPAUSED (reachable)"    || { echo "✗ docker compose unpause db failed" >&2; exit 1; }; }
+db_unpause() {
+    local out
+    out=$(VM_EXEC bash -c "cd ~/statbus && docker compose unpause db 2>&1") && { echo "  ✓ db container UNPAUSED (reachable)"; return 0; }
+    # Surface docker's OWN stderr so a future unpause red names the real reason
+    # (not-paused / no-such-container / recreated) instead of a bare "failed".
+    echo "✗ docker compose unpause db failed: ${out}" >&2; exit 1
+}
 remove_stall() { VM_EXEC bash -c "rm -f ${STALL_RELEASE_FILE}"; echo "  ✓ stall release file removed — recovery proceeds to the verify"; }
 
 # wait_for_stall — poll the daemon journal for the stall marker (StallHere prints it
@@ -171,8 +177,14 @@ remove_stall
 wait_for_journal "recovery backoff-retry [db-unreachable]" 120 "$ARM_SINCE"
 echo "── leaving the DB paused past the ${BACKOFF_BUDGET} budget → the backoff must EXHAUST ──"
 wait_for_journal "did not clear within the retry budget" 180 "$ARM_SINCE"
-# Un-pause so the ensuing data-safe rollback's restore has a live DB.
-db_unpause
+# Do NOT touch the db container after the exhaust marker (run-3-proven, 29391895536):
+# the exhaust rollback stops the PAUSED container ITSELF — `docker compose stop`
+# unfreezes + stops a paused container cleanly (journal "…-db Stopped"), the
+# STATBUS-187 verify-stopped guard passes, then it recreates the db fresh and
+# restores the volume. A db_unpause here RACES that: by the time it ran, the rollback
+# had already stopped + recreated the container, so `docker compose unpause` failed
+# on a not-paused/recreated container — the run-3 red. Arm 1 goes straight from the
+# exhaust marker to the rolled_back terminal; the product needs no help.
 echo "── assert EXHAUST terminal: rolled_back, error names the un-cleared cause, data restored, NRestarts bounded ──"
 arc_wait_row_state "$B_FULL" "rolled_back" "$ROW_WAIT_BUDGET_S"
 EXHAUST_ERR=$(row_error_for "$B_FULL")
