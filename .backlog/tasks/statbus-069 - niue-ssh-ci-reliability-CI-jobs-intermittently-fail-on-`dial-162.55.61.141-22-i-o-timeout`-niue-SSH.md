@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-17 07:59'
-updated_date: '2026-07-13 09:05'
+updated_date: '2026-07-15 08:12'
 labels:
   - tooling
   - not-install-upgrade
@@ -39,6 +39,16 @@ IMPACT: each timeout reds a strict CI gate and costs a manual re-run; if it recu
 
 NOT URGENT (transient, self-recovers on re-run). If the pattern persists, investigate: niue SSH/network load, sshd connection limits, or whether pg_regress should run somewhere less coupled to a production host. Architect flagged the external root cause is real (no-flaky-tests: it's niue SSH dial reliability, not a flaky test). Foreman observed both instances firsthand.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 Trace tool pre-staged: engineer authors ops/github-runner/runner-health-trace.sh (read-only capture + explicit --with-disconnect arm) AND the K2 provisioning runbook template; architect reviews bytes; foreman commits — collapses the King's trace step to ONE command
+- [ ] #2 [KING — K1, ~2 min] Run the committed trace on niue as root (one command, output pastes to this ticket): captures idle log cadence + the deliberate-disconnect reconnect signature for layer (b) calibration
+- [ ] #3 Engineer calibrates the layer-(b) freshness signal from K1's paste; finalizes ops/github-runner/runner-health.sh FINAL BYTES + the exact sshdoers line + the K2 runbook (keygen → printed sshdoers/authorized_keys lines → gh secret set → shred); architect final-bytes review; foreman commits (canonical copy only — NO workflow change yet)
+- [ ] #4 [KING — K2, ~5 min, ONE session] Execute the pre-staged runbook on niue: install the script root-owned at /usr/local/sbin/statbus-runner-health (visual diff vs the reviewed commit), ssh-keygen, append the sshdoers + authorized_keys lines, gh secret set RUNNER_HEALTH_SSH_KEY, shred the private key — all bytes final per the STATBUS-167 one-session discipline
+- [ ] #5 Engineer re-adds the hosted canary job (self-hosted legs `needs:` it); foreman pushes; ONE PUSH proves the canary green-gating the self-hosted legs — the ticket's canary half closes on that run
+- [ ] #6 seq-logserver + docker-maintenance migrations land via STATBUS-191 (engineer-ready, NOT King-gated, may close first); zero public-SSH CI consumers remain
+<!-- AC:END -->
 
 ## Comments
 
@@ -89,5 +99,20 @@ author: architect
 created: 2026-07-13 09:05
 ---
 BOARD TRIAGE (architect, 2026-07-13) — REMAINING SCOPE made exact (the description's 'remaining work is the Phase-3 workflow migration' is stale — the migration is mostly SHIPPED: notify, pg_regress, and all 7 deploy-to-* slot workflows carry self-hosted today, grep-verified). What actually remains: (1) CANARY PART 2 — the King's runner trace capture (runner-health-trace.sh) → engineer calibrates layer (b) → final script bytes reviewed → the ONE-SESSION three-artifact provisioning (root-owned script + sshdoers line + RUNNER_HEALTH_SSH_KEY) → workflow re-adds the runner-online canary; (2) the seq-logserver + docker-maintenance workflow migrations (the last two SSH consumers). Ticket closes when both land and one push proves the canary green-gating.
+---
+
+author: architect
+created: 2026-07-15 08:12
+---
+REMAINING-069 CONCRETE PLAN (architect, 2026-07-15, on the King's prod; the design is DONE — doc-026 + comments #5/#6 — this is the execution sequence as checkable entries, now the ACs above). THE KING'S INVOLVEMENT IS COLLAPSED TO TWO TOUCHPOINTS, both running PRE-STAGED, PRE-REVIEWED bytes:
+
+K1 (~2 minutes): one command — the committed runner-health-trace.sh — paste the output here. The trace is read-only except its explicit --with-disconnect arm (a brief docker stop/start of the runner container to capture the reconnect signature layer (b) needs). Custody note: running a one-time trace from the git checkout is fine — the King reads what he runs and he is the human in control; the ROOT-PROVISIONED custody rule applies to the STANDING probed command (executed unattended by CI), which is exactly why K2 installs that one root-owned from reviewed bytes.
+K2 (~5 minutes, one session): execute the pre-staged runbook — install the reviewed script root-owned, keygen, the two printed lines (sshdoers + authorized_keys, pubkey filled from the keygen output), gh secret set, shred. Nothing is composed in-session; every byte was reviewed and committed beforehand (167 discipline).
+
+OWNER SEQUENCE (matching the ACs): S1 engineer pre-stages trace+runbook → S2 architect bytes review → S3 foreman commit → S4 [KING K1] → S5 engineer calibrates + finalizes script/sshdoers/runbook → S6 architect final-bytes review (contract: exit 0 healthy / nonzero naming the failed layer; self-contained docker+builtins only — the cold-agent test) → S7 foreman commit → S8 [KING K2] → S9 engineer re-adds the canary, foreman pushes → S10 the next push IS the oracle (canary green, self-hosted legs gated).
+
+WORKSTREAM 2 SPLIT OUT: seq-logserver + docker-maintenance → STATBUS-191 (engineer, not King-gated, closes independently — ship-bit-by-bit). 069 closes when the canary chain's one-push proof lands AND 191 is done (final AC).
+
+Sequencing note for the foreman's drive: S1-S3 start NOW (no gate); K1 is the first King touchpoint and everything up to S3 exists purely to make it a two-minute ask.
 ---
 <!-- COMMENTS:END -->
