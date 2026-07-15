@@ -88,6 +88,9 @@ _dump_crollback_failure_diagnostics() {
     VM_EXEC bash -c "cd ~/statbus && echo \"SELECT logged_at, old_state, new_state, (new_parked_at IS NOT NULL) AS now_parked, application_name FROM public.upgrade_state_log WHERE upgrade_id = (SELECT id FROM public.upgrade WHERE commit_sha = '${B_FULL:-}' ORDER BY id DESC LIMIT 1) ORDER BY id;\" | ./sb psql -x" >&2 || true
     echo "── git HEAD + db.migration max ──" >&2
     VM_EXEC bash -c "cd ~/statbus && git rev-parse HEAD 2>/dev/null; echo 'SELECT max(version) FROM db.migration;' | ./sb psql -t -A" >&2 || true
+    # The run-2 unexplained-heal probes, duplicated here so a red at ANY site (not
+    # just the health assert) captures the end-state function/ledger/backup evidence.
+    _crollback_instrumentation "failure diagnostics" >&2 || true
     echo "══════════ end failure diagnostics ══════════" >&2
 }
 
@@ -108,6 +111,42 @@ row_cols_for() {
 psql_scalar() { VM_EXEC bash -c "cd ~/statbus && echo \"$1\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
 # git HEAD on the box — the observed running version (what the box actually runs).
 box_head() { VM_EXEC bash -c "cd ~/statbus && git rev-parse HEAD" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
+
+# _crollback_instrumentation LABEL — the run-2 UNEXPLAINED-HEAL probes (architect
+# ruling, 2026-07-15). At probe time run 29376442495 read the ledger at V2 (broken
+# fixture) yet auth_status SERVED (200) — a [ledger=V2 + working auth] pair that
+# matches NO reachable state; seven mechanisms were eliminated in code+log. These
+# four probes OBSERVE the end state so a reproduction NAMES the writer; they never
+# gate (the only gate is the ruled 400 assert below). Best-effort — a probe failure
+# prints a note, never fails the arc.
+_crollback_instrumentation() {
+    local _label="$1"
+    local _rest_port=$(( ${HEALTH_PORT:-3010} + 3 ))  # proxy http port +3 = rest port (3010→3013), slot-agnostic
+    echo ""
+    echo "══════════ INSTRUMENTATION (${_label}) — run-2 unexplained-heal probes ══════════"
+    # (a) DIRECT to the rest port, bypassing the proxy path the :3010 probe takes —
+    #     discriminates proxy-vs-db (is the heal in the proxy route or the DB?).
+    echo "── probe (a): direct POST rest:${_rest_port}/rpc/auth_status (bypasses the proxy) ──"
+    VM_EXEC bash -c "curl -s -m 5 -w '\n    HTTP %{http_code}\n' -X POST http://127.0.0.1:${_rest_port}/rpc/auth_status -H 'Content-Type: application/json' -d '{}'" 2>/dev/null | sed 's/^/    /' || echo "    (probe a failed)"
+    # (b) LIVE function body: is the on-disk auth_status the broken fixture or a
+    #     healed body, at probe time? (the smoking gun if it differs from probe a.)
+    echo "── probe (b): live auth_status body (md5 + is-broken-fixture) via psql ──"
+    VM_EXEC bash -c "cd ~/statbus && echo \"SELECT md5(prosrc) AS prosrc_md5, (prosrc LIKE '%auth_status intentionally broken%') AS is_broken_fixture FROM pg_proc WHERE proname = 'auth_status';\" | ./sb psql -x" 2>/dev/null | sed 's/^/    /' || echo "    (probe b failed)"
+    # (c) db.migration max via a FRESH psql connection (no rest surface exposes the
+    #     db schema — the ruling's sanctioned fallback) — rules out split-brain reads.
+    echo "── probe (c): db.migration max via a fresh psql connection ──"
+    VM_EXEC bash -c "cd ~/statbus && echo 'SELECT max(version) AS migration_max FROM db.migration;' | ./sb psql -t -A" 2>/dev/null | sed 's/^/    migration_max=/' || echo "    (probe c failed)"
+    # (d) fingerprint C's backup dir (the restore SOURCE) — find|sort|md5sum chain,
+    #     answering DID THE RESTORE SOURCE CONTAIN these bytes (vs the live volume).
+    echo "── probe (d): fingerprint of C's backup dir (the restore source) ──"
+    local _bpath
+    _bpath=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT COALESCE(backup_path,'') FROM public.upgrade WHERE commit_sha = '$C_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n')
+    echo "    C backup_path=${_bpath:-<none>}"
+    if [ -n "$_bpath" ]; then
+        VM_EXEC bash -c "if [ -e '$_bpath' ]; then echo -n '    backup fingerprint (find|sort|md5sum): '; find '$_bpath' -type f 2>/dev/null | sort | xargs md5sum 2>/dev/null | md5sum | awk '{print \$1}'; echo \"    file count: \$(find '$_bpath' -type f 2>/dev/null | wc -l)\"; else echo '    (backup path does not exist on disk)'; fi" 2>/dev/null || echo "    (probe d failed)"
+    fi
+    echo "══════════ end INSTRUMENTATION (${_label}) ══════════"
+}
 
 # ── A: install + prepare (bootstrap → install A → health → trust arc → populate) ──
 arc_prepare_box
@@ -250,13 +289,24 @@ echo "  ✓ B superseded, C rolled_back, zero terminal→completed; box runs B (
 
 # App health still RED — the honest truth. The healthpark break is in auth_status
 # (an app RPC), invisible to install's docker-health gate. PostgREST root (/rest/)
-# is up, but /rest/rpc/auth_status 500s under B's V2. That red IS the state (C was
-# the fix; C failed; the remedy is a real re-dispatched fix), not a defect.
+# is up, but /rest/rpc/auth_status must still surface B's V2 RAISE. That red IS the
+# state (C was the fix; C failed; the remedy is a real re-dispatched fix), not a
+# defect. PostgREST maps a RAISE/P0001 to HTTP 400 (NOT 500 — B's own park reason
+# recorded status=400); assert 400 AND the fixture's own P0001 body — the honest
+# broken signature, never a bare status code (FINDING 1, architect 2026-07-15).
 echo ""
-echo "── app health still red (auth_status 500s under broken B — the honest truth) ──"
-AUTH_CODE=$(VM_EXEC bash -c "curl -s -m 5 -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:${HEALTH_PORT:-3010}/rest/rpc/auth_status -H 'Content-Type: application/json' -d '{}'" 2>/dev/null | tr -d ' \r\n' || echo "000")
-[ "$AUTH_CODE" = "500" ] || { echo "✗ /rest/rpc/auth_status returned $AUTH_CODE, expected 500 — broken-B is the intended honest end state (auth_status must still RAISE)" >&2; exit 1; }
-echo "  ✓ auth_status 500s — the box honestly runs broken B; the remedy is a real re-dispatched fix"
+# INSTRUMENTATION first (observe the end state unconditionally — run-2 empirics),
+# then the ruled 400 assert (the only gate here). If auth_status HEALED (the run-2
+# puzzle), the probes above name the writer and the assert below REDs — never loosened.
+_crollback_instrumentation "end-state health probe"
+echo ""
+echo "── app health still red (auth_status = the broken healthpark fixture: HTTP 400 + P0001 body) ──"
+AUTH_OUT=$(VM_EXEC bash -c "curl -s -m 5 -w '\n__HTTP__%{http_code}' -X POST http://127.0.0.1:${HEALTH_PORT:-3010}/rest/rpc/auth_status -H 'Content-Type: application/json' -d '{}'" 2>/dev/null || echo "__HTTP__000")
+AUTH_CODE=$(echo "$AUTH_OUT" | grep -oE '__HTTP__[0-9]+' | grep -oE '[0-9]+$' | tail -1)
+AUTH_BODY=$(echo "$AUTH_OUT" | sed 's/__HTTP__[0-9]*$//')
+[ "$AUTH_CODE" = "400" ] || { echo "✗ auth_status returned HTTP '$AUTH_CODE', expected 400 (PostgREST maps the broken fixture's P0001 RAISE to 400). A 200 = the run-2 UNEXPLAINED HEAL reproduced; the instrumentation above names the writer. Body: $AUTH_BODY" >&2; exit 1; }
+echo "$AUTH_BODY" | grep -q "auth_status intentionally broken" || { echo "✗ auth_status 400'd but the body is NOT the healthpark fixture's P0001 message ('auth_status intentionally broken') — a DIFFERENT 400 (wrong error), not the honest broken-B signature. Body: $AUTH_BODY" >&2; exit 1; }
+echo "  ✓ auth_status → HTTP 400 with the fixture P0001 body ('auth_status intentionally broken') — the box honestly runs broken B"
 
 # Data intact throughout.
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
