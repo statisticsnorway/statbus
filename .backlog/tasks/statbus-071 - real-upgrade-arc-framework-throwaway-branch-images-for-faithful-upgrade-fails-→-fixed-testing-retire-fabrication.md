@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-15 04:47'
+updated_date: '2026-07-15 06:01'
 labels:
   - install-recovery
   - upgrade
@@ -529,5 +529,11 @@ BACKOFF-ARC RUN-2 RULED (architect, 2026-07-15) — REAL PRODUCT FINDING accepte
 2. ARC INDUCEMENT — KEEP PAUSE, concur, and it is now the STRONGER oracle by construction: pause proves the hang class end-to-end (hang → classified → backoff → unpause → resolve → forward completion), which is the class the run just exposed as broken. Switching to docker stop would prove only the easy fast-refusal class and leave the exposed gap untested — the no-accommodation doctrine forbids it. The fast-refusal class needs no VM arm: a unit test stubbing a refused connection → CauseDBUnreachable covers its classification at zero VM cost.
 
 BOOKKEEPING credit: run 1's red validated STATBUS-187 #3's hard-fail in the wild (the guard caught a harness precondition violation loudly — the fail-fast wave paying for itself), and run 2 is the backoff arc's first product catch — the campaign doing what the King built it for: 'we only find the real errors when we run the real operations.'
+---
+
+author: foreman
+created: 2026-07-15 06:01
+---
+DB-BACKOFF RUN 3 (29391895536, log tmp/db-backoff-run3-failure.log): TWO WINS + ONE ARC BUG. Win 1 — STATBUS-190 PROVEN LIVE: the paused-DB hang classified as CauseDBUnreachable in 11s, backoff engaged (6 attempts across the 60s budget), exhausted on schedule — run 2's watchdog wedge is dead. Win 2 — the exhaust-arm PRODUCT story ran end-to-end unaided: at exhaust the rollback stopped all services INCLUDING the paused db (compose stop handles paused, journal 05:52:55), the STATBUS-187 verify-stopped guard passed honestly, volume restored, containers recreated, db healthy in 6s. The red was the ARC's own step: arm 1's db_unpause fired 4s after exhaust, by which time the rollback had already stopped+recreated the container — the step's premise ('the restore needs a live DB') is FALSE, run-disproven. Foreman-ruled arc fix (empirical, no doctrine): arm 1 drops the unpause entirely (never touch the container after the exhaust marker — racing the rollback was the red), arm 2 keeps its load-bearing strict unpause, and the unpause helper stops discarding docker's stderr. Engineer executing; run 4 next.
 ---
 <!-- COMMENTS:END -->
