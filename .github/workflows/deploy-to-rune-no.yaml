@@ -58,3 +58,74 @@ jobs:
             statbus@rune.statbus.org \
             "cd ~/statbus && ./sb upgrade register ${{ github.sha }} && ./sb upgrade schedule ${{ github.sha }}"
           rm -f /tmp/key
+
+      - name: Poll until the upgrade converges
+        # STATBUS-170 phase 2: a green deploy must mean the box CONVERGED (row reached
+        # `completed`), not merely that the poke was delivered — the daemon runs the
+        # upgrade asynchronously and can roll back AFTER the poke returns (the bug this
+        # closes). rune pokes commit-addressed (register/schedule ${{ github.sha }}), so
+        # the row is keyed by github.sha and ops/ci-deploy-status.sh reads exactly that
+        # row. Standalone box: no sshdo — the script is called directly over rune's own
+        # ssh. Budget 90m @ 60s (architect ruling STATBUS-170 comment #1: 32 GB
+        # migrations are genuinely long). Terminal→red / tolerated-transient / graceful
+        # two-phase-127 mappings all per that ruling + ci-deploy-status.sh's exit codes.
+        run: |
+          set -uo pipefail
+          SHA="${{ github.sha }}"
+          BUDGET=5400          # 90 minutes (standalone budget)
+          INTERVAL=60
+          DEADLINE=$(( $(date +%s) + BUDGET ))
+          install -m 600 /dev/stdin /tmp/pollkey <<< "${{ secrets.SSH_KEY }}"
+          trap 'rm -f /tmp/pollkey' EXIT
+
+          # The literal '~' below is load-bearing: it must reach rune UNEXPANDED so the
+          # REMOTE shell expands it to statbus's home (the existing deploy step's
+          # `cd ~/statbus` relies on the same). Do NOT change it to $HOME — that would
+          # expand to the runner's home, not rune's. (shellcheck SC2088 is expected here.)
+          poll() {
+            ssh -i /tmp/pollkey \
+              -o StrictHostKeyChecking=no \
+              -o BatchMode=yes \
+              -o ConnectTimeout=15 \
+              statbus@rune.statbus.org \
+              "~/statbus/ops/ci-deploy-status.sh $SHA"
+          }
+
+          last="(no reading yet)"
+          while :; do
+            out="$(poll)"; rc=$?
+            [ -n "$out" ] && last="$out"
+            case "$rc" in
+              0)   # CONVERGED — state=completed
+                echo "::notice::deploy converged: $out"
+                echo "GREEN — $SHA reached 'completed' on rune."
+                exit 0 ;;
+              10)  # FAILED / rolled_back / superseded / skipped / dismissed / parked
+                echo "::error::deploy did NOT converge (terminal): $out"
+                echo "RED — terminal non-converged state for $SHA (state|parked|reason above)."
+                echo "Full detail on the box: journalctl -u 'statbus-upgrade@*' / the admin UI."
+                exit 1 ;;
+              20|30)  # 20 pending → keep polling; 30 transient read → tolerated tick
+                : ;;    # (both consume budget, never a verdict)
+              64)  # usage — a malformed 40-hex arg; should never happen with github.sha
+                echo "::error::ci-deploy-status.sh usage error (rc=64): $out — misconfigured poll arg"
+                exit 1 ;;
+              127) # remote script absent — the two-phase rollout window (box not yet
+                   # upgraded past the script's introduction). ONE loud notice, never a
+                   # false red; self-expiring once rune carries the script.
+                echo "::notice::rune does not carry ops/ci-deploy-status.sh yet (two-phase rollout window)."
+                echo "Deploy stays poke-only for this run — the poke itself succeeded; convergence unverified."
+                exit 0 ;;
+              255) # ssh transport failure — tolerated tick (never a verdict)
+                echo "ssh transport hiccup (rc=255) — tolerated tick, consuming budget" ;;
+              *)
+                echo "unexpected poll rc=$rc (out='$out') — tolerated tick" ;;
+            esac
+            if [ "$(date +%s)" -ge "$DEADLINE" ]; then
+              echo "::error::poll budget exhausted (90m) — last observed: $last"
+              echo "RED — $SHA still not converged after 90m. The box continues the upgrade on its own;"
+              echo "check the admin UI / journalctl on rune to see whether it lands or rolls back."
+              exit 1
+            fi
+            sleep "$INTERVAL"
+          done
