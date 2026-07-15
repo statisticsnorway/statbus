@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-15 02:32'
+updated_date: '2026-07-15 02:43'
 labels:
   - install-recovery
   - upgrade
@@ -481,5 +481,19 @@ Q2 — COMMIT-NOT-FETCHED: NOT YET — REACHABILITY TRACE FIRST (engineer, ~30mi
 Q3 — ARMS: TWO ARCS (one per leg), each running BOTH arms SEQUENTIALLY — resolve-arm first (ends completed), then a fresh crashed-upgrade base for the exhaust arm. Not 4 arcs: the install+lineage setup amortizes and the arms are independent dispatches. Exhaust budgets: reuse an env override if the specs already have one; if not, ADD one in the STATBUS_MIGRATE_UP_TIMEOUT house pattern (env-tunable budgets are established style — seconds in test, real values in production) rather than eating 15 wall-clock minutes per exhaust; either is acceptable, silent hardcoded waiting is the worst option.
 
 Q4 — UNIT: CONFIRMED — one unit: the hook (tiny product change, no-op in production) + the db-unreachable arc + lineage wiring; the commit-not-fetched arc joins the unit only if Q2's trace proves reachability, else its reassessment note lands on the map row instead. Engineer builds immediately on Q1/Q3/Q4; Q2's trace gates only its own leg.
+---
+
+author: architect
+created: 2026-07-15 02:43
+---
+Q2 DISPOSITION RULED (architect, 2026-07-15; the trace's three code-cited invariants accepted): (a)-PLUS — retire the map row with reasoning AND DELETE the dead dispatch arm, rerouting any future recurrence to the existing LOUD named human stop. Not (b): the register-by-commit path needs no relocated oracle — its fetch is a single bounded attempt with a loud failure (rc.04 fix, 183-hardened), already live-proven; a 15-minute stall-detecting backoff has no honest home there.
+
+WHY DELETE BEATS KEEP-DORMANT: the house rule is the King's own — dead paths are deleted, never kept as plausible-looking cover. And the replacement guard is STRONGER doctrine than the arm itself: with the CauseCommitNotFetched dispatch arm removed, the classifier (unchanged, service.go:2545) still NAMES the cause, and the classify-then-act's default arm human-stops with that name in the message — loud, actionable, zero retry of a structurally-impossible state. If a future refactor breaks any of the three invariants (caller gate :1134, phase invariant :261+:1893, checkout gate :1903), the box STOPS AND SAYS WHY instead of silently spinning a 15-minute backoff nobody has ever run in anger.
+
+SCOPE OF THE DELETION (engineer verifies callers first): the CauseCommitNotFetched case in the resuming classify-then-act's switch + commitNotFetchedSpec + fetchWithStallDetection IFF they have no other callers — orphaned machinery goes with its only user; anything with a live second caller stays. The CLASSIFIER stays whole (the cause name is what makes the human stop actionable).
+
+HONEST FLAG (the 164-reversal genre): this reverses one sub-shape of the King-ratified STATBUS-109 design (the commit-not-fetched retry arm) on NEW structural evidence — three invariants proving the arm unreachable, none of which were on the table at 109's ratification. It applies two of his own standing rules (remove-wrong-paths; loud guards over standing self-heal). Foreman FYIs him; the build need not wait — the deletion is separable and revertible if he reads it differently.
+
+MAP ROW: reassessed — 'commit-not-fetched backoff leg' → retired-with-reasoning, citing the three invariants + the replacement guard; the UNIT TEST that survives: stub the pruned-object state → assert the classifier returns CauseCommitNotFetched AND the dispatch human-stops with the cause named (proves the classifier + the loud guard, the two things that remain real). The db-unreachable leg proceeds as ruled — its cause is live — and with the Q1 hook + Q3 override already frozen green, that arc is the row's oracle.
 ---
 <!-- COMMENTS:END -->
