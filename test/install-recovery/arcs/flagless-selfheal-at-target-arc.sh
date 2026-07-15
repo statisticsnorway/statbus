@@ -42,7 +42,8 @@ CONVERGE_BUDGET_S="${CONVERGE_BUDGET_S:-600}"
 : "${BASE_SHA:?BASE_SHA required}"
 : "${B_FULL:?B_FULL required}"
 : "${B_BRANCH:?B_BRANCH required}"
-: "${V_VERSION:?V_VERSION required - the at-target anti-vacuity reads db.migration max}"
+: "${V_VERSION:?V_VERSION required - the working lineage B migration set}"
+: "${V_VERSION_2:?V_VERSION_2 required - the working lineage B applies V1+V2, so at-target max == V_VERSION_2}"
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
 source "$LIB_DIR/vm-bootstrap.sh"
@@ -101,10 +102,13 @@ echo "── assert crashed AT-TARGET: in_progress row, flag present, box genuin
 [ "$(row_state_for "$B_FULL")" = "in_progress" ] || { echo "✗ B is not 'in_progress' after the at-target kill (got '$(row_state_for "$B_FULL")')" >&2; exit 1; }
 [ "$(flag_present)" = "yes" ] || { echo "✗ no flag file after the kill — the at-target kill did not leave a resumable flag" >&2; exit 1; }
 DBMAX=$(psql_scalar "SELECT max(version) FROM db.migration;")
-[ "$DBMAX" = "${V_VERSION}" ] || { echo "✗ box is not at-target: db.migration max=$DBMAX, expected V=${V_VERSION} (migrations must be applied — the kill is AFTER migrate)" >&2; exit 1; }
+# The working lineage's B writes TWO migrations (V1 at V_VERSION + V2 at V_VERSION_2,
+# _ut_write_working_v); an at-target box (killed AFTER migrate) has BOTH applied →
+# max == V_VERSION_2 (mirrors c-rollback-resurrection-arc.sh's same-B at-target assert).
+[ "$DBMAX" = "${V_VERSION_2}" ] || { echo "✗ box is not at-target: db.migration max=$DBMAX, expected V2=${V_VERSION_2} (V1+V2 both applied — the kill is AFTER migrate)" >&2; exit 1; }
 HEAD_NOW=$(box_head)
 [ "$HEAD_NOW" = "$B_FULL" ] || { echo "✗ git HEAD=$HEAD_NOW, expected B ($B_FULL) — the binary/tree must be at target for AtTarget" >&2; exit 1; }
-echo "  ✓ at-target crash: in_progress, flag present, db.migration max=$DBMAX (V), HEAD==B"
+echo "  ✓ at-target crash: in_progress, flag present, db.migration max=$DBMAX (V1+V2), HEAD==B"
 
 # ── TRUNCATE the flag → corrupt (real machinery manipulation) ──
 echo ""
