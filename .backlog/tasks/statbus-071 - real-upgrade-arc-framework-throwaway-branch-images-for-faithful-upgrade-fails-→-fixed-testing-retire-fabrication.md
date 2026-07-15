@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-15 01:19'
+updated_date: '2026-07-15 02:32'
 labels:
   - install-recovery
   - upgrade
@@ -467,5 +467,19 @@ author: foreman
 created: 2026-07-15 01:19
 ---
 C-ROLLBACK RESURRECTION ROW PROVEN — RUN 4 GREEN (run 29380351572, commit dc3e6786b, 2026-07-15): the full leg end-to-end on the crollback lineage — B parks at-target (health reason naming B, V1+V2 applied), C displaces B at claim (superseded, park narrative + displacement note both in error via the a5e8119c0 atomic park write, one 154 row), C's V3 RAISEs and the daemon rolls C back onto B (V3 unapplied, db.migration at V2, git HEAD reconciled to B — first live proof of rollback tree reconciliation under a failed fix release), ./sb install exits 0 and resurrects NOTHING (B superseded, C rolled_back, zero terminal→completed, no completed-B ledger row, box observably runs B), app health honestly red on the direct rest bind (400 + fixture P0001 body), data intact, and the GUARD-PROBE confirmed the terminal-resurrection trigger refuses naming the re-dispatch remedy with B's row byte-unchanged. FOUR RUNS, THREE REAL FINDINGS ON THE WAY: the split-write park narrative (product fix a5e8119c0, run-proven), the 500-vs-400 assert mapping, and Caddy's unmatched-host 200-empty (hardening ticket STATBUS-189; the operator's 'proxy transformed 400→200' phrasing is corrected here — Caddy never proxied the request at all, it answered its no-matching-site default; fully explained, no further proxy investigation owed). Health-park's displacement assert is retro-hardened by the same product fix. REMAINING release-gating [UNPROVEN] rows: the two transient-backoff legs. Mechanic flips the map row; engineer proceeds to the backoff legs per the King's dispatch order.
+---
+
+author: architect
+created: 2026-07-15 02:32
+---
+BACKOFF LEGS RULED (architect, 2026-07-15; four questions).
+
+Q1 — THE HOOK: APPROVED. One new inject stall hook at the top of the Phase=NewSbUpgrading classify-then-act, immediately before verifyUpgradeObservedStateEx. This is exactly AC#5's sanctioned residue — a Go-internal sub-second window no SQL or external timing can reach; the alternatives are window-racing (the U1 stale-PID lesson's forbidden genre) or pre-boot pauses that fail the BOOT connect instead and never reach the branch under test. Name per the house inject vocabulary: `stalled-before-resuming-verify` (KindStall); the site comment carries the AC#5 justification (the window between boot-connect and observed-state verify) + a pointer to this ruling. One hook serves BOTH legs — it holds the world still while the arc arranges the trigger (db pause, or Q2's state), which is what makes both legs deterministic and honest.
+
+Q2 — COMMIT-NOT-FETCHED: NOT YET — REACHABILITY TRACE FIRST (engineer, ~30min, before any construction). Under the current geometry every path I know REACHES the resuming verify only AFTER the recovery-boot checkout gate has put HEAD at the target (Service.Run's gate, runCrashRecovery's gate at install_upgrade.go:228ff, root.go:162's carve-out) — and HEAD=target implies the object is LOCAL, so CauseCommitNotFetched at THIS site may be structurally dead, not merely rare (a checkout of a missing ref fails the boot BEFORE the verify, a different branch entirely). The trace answers: does ANY current path reach the verify with the target object absent? If NO: the leg's map row is REASSESSED like the ddl cell — either retire-with-reasoning (defensive-dead code kept as belt-and-braces, tested at unit level with a stubbed cause) or relocate the oracle to where the fetch machinery GENUINELY fires (the register-by-commit path, rc.04's fix). If YES: the construction rides the Q1 hook, and the object-absence manipulation is sanctioned in the ABORT-arc genre (environment manipulation of real machinery state) ONLY with the producing path named in the arc header — no object surgery for a state we cannot name a producer for (the dead-producer doctrine's exact line). Do not build on the King's 'defensive edge' phrasing alone; verify the edge exists.
+
+Q3 — ARMS: TWO ARCS (one per leg), each running BOTH arms SEQUENTIALLY — resolve-arm first (ends completed), then a fresh crashed-upgrade base for the exhaust arm. Not 4 arcs: the install+lineage setup amortizes and the arms are independent dispatches. Exhaust budgets: reuse an env override if the specs already have one; if not, ADD one in the STATBUS_MIGRATE_UP_TIMEOUT house pattern (env-tunable budgets are established style — seconds in test, real values in production) rather than eating 15 wall-clock minutes per exhaust; either is acceptable, silent hardcoded waiting is the worst option.
+
+Q4 — UNIT: CONFIRMED — one unit: the hook (tiny product change, no-op in production) + the db-unreachable arc + lineage wiring; the commit-not-fetched arc joins the unit only if Q2's trace proves reachability, else its reassessment note lands on the map row instead. Engineer builds immediately on Q1/Q3/Q4; Q2's trace gates only its own leg.
 ---
 <!-- COMMENTS:END -->
