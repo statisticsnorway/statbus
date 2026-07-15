@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-07-13 01:35'
-updated_date: '2026-07-15 07:39'
+updated_date: '2026-07-15 08:30'
 labels:
   - deploy
   - ci
@@ -22,12 +22,10 @@ ordinal: 171000
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 > NORTH STAR: a green deploy run means the box CONVERGED (row completed, services healthy on the target) — not merely that a poke was delivered. Every other meaning of green is a false signal an operator will eventually trust to their cost.
-> FOUND: 2026-07-13 night, dev rc.02 attempt — apply-latest exited green at 01:22:19 (row scheduled); the daemon claimed and ran the upgrade asynchronously and ROLLED IT BACK at 01:23:16 (BINARY_REPLACE_FAILED); the workflow stayed green. Two other same-night shapes (Norway's UPDATE-0 and swallowed-constraint pokes) were fixed by STATBUS-169, but this one is structural: even a perfectly honest scheduler leaves green meaning "scheduled".
-> COMPLEXITY: small workflow change + architect design ruling (what green promises, how long to poll, what terminal states map to red).
+> FOUND: 2026-07-13 night, dev rc.02 attempt — apply-latest exited green at 01:22:19 (row scheduled); the daemon ran the upgrade asynchronously and ROLLED IT BACK at 01:23:16 (BINARY_REPLACE_FAILED); the workflow stayed green. STATBUS-169 fixed the same night's two scheduler-honesty shapes; this one is structural — even a perfectly honest scheduler leaves green meaning "scheduled".
+> WHERE THIS STANDS (2026-07-15): AC#1 ruled (green = row completed AND observed; parked/superseded are deploy terminals → red; transient poll ticks tolerated, never decisive). PHASE 1 SHIPPED: ops/ci-deploy-status.sh — the single-shot, sshdo-compatible read the workflow will poll — built, committed, and its niue sshdoers lines applied + CI-path-proven (comment #3). REMAINDER = PHASE 2 ONLY: wire the poll loop into the deploy-to-* workflows (AC#2) and prove it with one deliberately failing upgrade turning the run red (AC#3).
 
-THE GAP: deploy-to-<slot>.yaml's deploy job ends when the ssh poke exits. The upgrade itself runs in the box's daemon, seconds-to-minutes later. A post-poke rollback (like tonight's) is invisible to CI — the operator sees green and believes the fleet moved.
-
-SHAPE (architect to rule): after the poke, the workflow polls the box's upgrade row (read-only ssh, the row is commit-addressed) until a terminal state or a bounded timeout: completed → green; rolled_back/failed/parked → RED with the row's error text surfaced in the workflow log; timeout → red naming the last observed state. Design points: poll budget vs GitHub Actions billing; whether the edge slots (fast) and release slots (slower) need different budgets; the read command must be sshdo-compatible on niue slots.
+THE GAP: deploy-to-<slot>.yaml's deploy job ends when the ssh poke exits. The upgrade runs in the box's daemon seconds-to-minutes later; a post-poke rollback is invisible to CI — the operator sees green and believes the fleet moved.
 
 RELATION: completes the STATBUS-169 arc (green implies scheduled) up the stack (green implies converged). The night's oracle discipline caught all three shapes by reading boxes directly — this ticket makes the workflow do that reading itself.
 <!-- SECTION:DESCRIPTION:END -->
