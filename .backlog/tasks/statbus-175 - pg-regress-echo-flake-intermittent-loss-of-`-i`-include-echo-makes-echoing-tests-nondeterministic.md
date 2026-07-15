@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-07-13 13:20'
-updated_date: '2026-07-14 23:33'
+updated_date: '2026-07-15 08:31'
 labels:
   - testing
   - not-install-upgrade
@@ -25,17 +25,15 @@ ordinal: 176000
 <!-- SECTION:DESCRIPTION:BEGIN -->
 NORTH STAR: a pg_regress test's expected output never depends on luck.
 
+> WHERE THIS STANDS (2026-07-15): AC#1/#2 done — the drop was characterised and the fix decided (the 403 suppress-shared-include pattern is the standard). BATCH 1a SHIPPED: 16 echoing tests converted and committed. The remaining three (401, 402, 500) are DEFERRED — their conversion runs collided with dev-DB crash cycles, split out as STATBUS-188 (straggler kill -9 remediation correlates with postmaster crash recovery); they convert after 188 lands. AC#3 closes when those three are converted and no committed expected depends on include-echo luck.
+
 CONCRETE OBSERVATION (2026-07-13, while building test/sql/403_cross_border_power_group.sql): the same test file, same command (`./dev.sh test 403_cross_border_power_group`), run three times back-to-back on the same DB, produced TWO different result-file lengths:
-- runs b6wfa8a41 and bal7nbzfy: 569 lines — the `\i`-included setup files (getting-started.sql + the BRREG import-definition SQL + seed) were ECHOED in full (this is the normal, expected behaviour, matching committed test 401).
-- run bamd270dk: 296 lines — those same includes were NOT echoed. The test still COMPLETED with identical final query results (PG0001, 23 members, exit 0); only the include echo was absent.
+- runs b6wfa8a41 and bal7nbzfy: 569 lines — the `\i`-included setup files (getting-started.sql + the BRREG import-definition SQL + seed) were ECHOED in full (the normal behaviour, matching committed test 401).
+- run bamd270dk: 296 lines — the same includes were NOT echoed. The test still COMPLETED with identical final query results (PG0001, 23 members, exit 0); only the include echo was absent.
 
-So `\set ECHO all` (set at test/setup.sql:133) intermittently fails to echo subsequent `\i` file contents. It is not truncation (the run reached PHASE 4 cleanup) and not a query-result difference — purely whether the included SQL text is echoed.
+So `\set ECHO all` (test/setup.sql:133) intermittently fails to echo subsequent `\i` file contents. Not truncation (the run reached PHASE 4 cleanup), not a query-result difference — purely whether included SQL text is echoed.
 
-WHY IT MATTERS: every test that echoes its includes (e.g. test/sql/401_import_jobs_for_brreg_selection.sql, which commits the full echoed hovedenhet/underenhet definition SQL in its expected) is susceptible to a spurious diff-failure when this drop occurs. Per the project's "there are NO flaky tests" principle, this latent harness nondeterminism should be root-caused, not tolerated.
-
-WORKAROUND ALREADY IN PLACE (403 only): 403 wraps its shared includes in `\o /dev/null` + `\set ECHO none` ... `\o` + `\set ECHO all`, so the includes contribute nothing to its expected — deterministic and decoupled from getting-started.sql churn. That pattern is a candidate fix to generalise, but the underlying intermittent echo drop is unexplained and worth understanding first.
-
-SUSPECTS to investigate: interaction of test/setup.sql's `\o /dev/null` (line 3) + `\o` reset (line 132) + `\set ECHO all` (line 133) with pg_regress's psql invocation; possible buffering/flush timing on the `\o` redirect; possible harness-level concurrency (dev.sh has straggler-pg_regress guards for a reason).
+WHY IT MATTERS: every test that echoes its includes is susceptible to a spurious diff-failure when the drop occurs. Per "there are NO flaky tests", this harness nondeterminism is being removed, not tolerated: the fix makes expected outputs independent of include echo entirely (the 403 pattern — `\o /dev/null` + `\set ECHO none` around shared includes).
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
