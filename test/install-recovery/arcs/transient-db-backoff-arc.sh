@@ -130,8 +130,19 @@ crash_at() {
     echo ""
     echo "── crash base: register+schedule B daemon-down, dispatch with STATBUS_INJECT_AT=${inject_class} ──"
     VM_EXEC bash -c "cd ~/statbus && ./sb upgrade register $B_FULL 2>&1 | tail -5" || true
+    # Wait for the candidate to verify READY while the daemon is still UP — the
+    # daemon's discovery is what flips the row's images-status to ready.
+    # arc_schedule_daemon_down (below) STOPS the daemon, so a down-daemon inline
+    # dispatch would honestly REFUSE ("images not yet verified ready", STATBUS-187
+    # hard-fail, exit 1) and the kill inject would never fire. Proven pattern:
+    # postswap-between-migrations-kill-arc.sh / rollback-kill-arc.sh.
+    wait_for_upgrade_candidate_ready "$VM_NAME" "$B_FULL" "$TICK_WAIT_S"
     arc_schedule_daemon_down "$B_FULL"
     arc_install_dispatch_with_inject "$inject_class"
+    # The kill must have FIRED: inject.KillHere is os.Exit(137). A different exit
+    # (0=completed, 1=refused/precondition) means the inject never fired — fail HERE
+    # with the true cause, one step before the flag check.
+    [ "$ARC_DISPATCH_RC" = "137" ] || { echo "✗ dispatch exit was $ARC_DISPATCH_RC, expected 137 (KillHere SIGKILL semantics) — the kill inject '${inject_class}' did not fire (non-137 = the dispatch refused or completed, not a crash)" >&2; exit 1; }
     VM_EXEC bash -c "ls -la ~/statbus/tmp/upgrade-in-progress.json" >/dev/null 2>&1 || { echo "✗ no crashed flag after the kill — the inject did not leave a resumable flag" >&2; exit 1; }
     echo "  ✓ crashed flag present (Phase=NewSbUpgrading), flock free, daemon down"
 }
