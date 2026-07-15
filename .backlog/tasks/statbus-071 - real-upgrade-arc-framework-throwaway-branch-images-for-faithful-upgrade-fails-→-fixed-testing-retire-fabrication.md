@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-15 06:23'
+updated_date: '2026-07-15 08:30'
 labels:
   - install-recovery
   - upgrade
@@ -131,24 +131,15 @@ The test also injects a **real** crash/stall at the other upgrade points — fet
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-> STATUS (2026-07-12): the U-campaign this recap once dispatched is now COMPLETE — U1 fixed + re-run (comment #7, the STATBUS-105 measurement), U2 proven (comment #7), U4a+U4b both GREEN (comments #8/#9), U5's 5d legacy deletions done (comment #10), the AC#4 carve-out King-ruled (comment #12: construction permitted only for dead-producer states, sole member = rune-wedge), and STATBUS-095/096 both [PROVEN] in the Coverage map above. **The Coverage map above is the authoritative living state — read it, not this recap, for what's open today.** Per the map as of 2026-07-12, what remains: the restore-broke-reattempt arc, the un-park-to-completion arc, the C-rollback resurrection leg, the ddl-deadlock [ASSESS] cell, and AC#4's 5e cleanup (re-verify the current fabricate_scheduled_upgrade_row caller count at build time).
+> STATUS (2026-07-15, supersedes the 2026-07-12 recap; prior dispatch history in this file's git log): THE RELEASE-GATING REMAINDER IS EMPTY — every coverage-map row above is [PROVEN] on a real VM or RETIRED with a written ruling. Tonight's closers: restore-broke-reattempt (run 29344519124, dual-class incl. the folded ABORT oracle), un-park-to-completion both arms (delta→rollback run 29360596950; no-delta park→un-park→completed on the codeonly lineage), C-rollback resurrection (guard-probe + honest broken-B end state), transient-db-backoff both arms (hang-class via docker pause, post-STATBUS-190 bounded reads), commit-not-fetched RETIRED (structurally dead at the resuming verify — three code-cited invariants; the classifier + named human stop remain, unit-pinned), ddl-deadlock assessed (R1 quiesce already shipped on both paths — scenario refresh + one bounded run when prioritized, non-gating).
 >
-> The blocks below are the 2026-07-07 campaign dispatch, preserved as history — every item in them is done (see above).
-
-STATUS (2026-07-07, supersedes the 2026-06-21 line): FOUNDATION DONE AND PROVEN — working + failing arcs GREEN on real VMs (originally runs 27807092720 / 27811604893; re-proven post-110/109 on run 28679526112). STATBUS-118 constructor shipped (0b1b07ef4); X/Y RESOLVED (King): build-on-CI + pull (doc-020 revised). ~11 coverage cells [PROVEN]. The U-campaign is executing the remainder (engineer's plan, architect-approved 2026-07-07): U1 = first live contact for the five kill arcs (run 28832014634) — all five red, ZERO product findings, two harness bug families diagnosed + fix list dispatched (comment #6, the ledger); U2 = rollback-restore-watchdog arc re-scoped observational→asserting (architect: SHIP + one anti-vacuity one-liner; VM run pending); U3 = STATBUS-136 abort-terminal fix built + architect-shipped (unblocks U4); U4 = split into TWO disjoint oracles per the architect's ruling — (a) rollback-pair-terminal via the PRE-SWAP route (2 kills; the V_fail route needs 4 and traverses forward machinery) + (b) rollback-abort-write-lands (the r17 shape, one boot, zero kills; Behind via a VALID-named far-future migration, never the invalid-version file = the 138 bug); U7 = the 044 rune-wedge scenario built (3-postswap-rune-wedge, uncommitted at note time).
-
-OPEN KING DECISION [RESOLVED 2026-07-08, see comment #12 — dead-producer rule ratified] — the AC#4 ⇄ park-class fabrication carve-out (the true boundary of "retire fabrication"): the r19-green park scenario and the rune-wedge scenario CONSTRUCT resume states that real dispatch cannot present on cue (r12 proof, STATBUS-044 comment #6). Architect's framing before the King: sharpen the rule — "no fabrication where the real path can reach; construction permitted ONLY for a class with a written unreachability proof, consumed by the real recovery reader in the run"; today exactly ONE class qualifies (resume-state/boot-migrate). AC#4's "zero callers" is GATED on this ruling.
-
-DISPATCH (remaining, in campaign order):
-- Harness fix list from U1 (comment #6): shared kill-confirmed helper (fresh PID at kill time; never release a stall after an unconfirmed kill), transport-aware probes, split install-helper contract (RED midpoint then GREEN terminal).
-- Re-run the five kill arcs fixed — the after-commit pair's re-run IS the STATBUS-105 measurement (expected terminal: rolled_back per the King's ratified rule).
-- U2 VM run (cover-holds proof); U4 (a)+(b) builds (mechanic, ruled constructions); 5d deletes of superseded legacy scenarios after their arc replacements are PROVEN; 5e = fabricate_scheduled_upgrade_row deletion at zero callers (gated on the carve-out ruling; 2 arc callers remain: preswap checkout/backup).
-- Plus STATBUS-095/096 (timeout + OOM failure modes; fill the two [TODO] cells).
-- Hardening riders folded in from the board sweep: 094's two items + 101's EXPECT_RED option (comments #4/#5).
-
-FOLDED IN (2026-06-21, King-directed): STATBUS-091 (phase-2 charter — Waves 1+2 complete: 086 CLI verbs, 072 amend-conveyance, 087/088/089/090 fixes all landed) + STATBUS-075 (cut-rc04 campaign — install RC v2026.06.0-rc.04 cut). Both CLOSED; their only live remainder was this framework. 2026-07-06 board sweep folded in: 013 (spec home = 105, arcs here), 094, 101.
-
-Designs: doc-012 (build-spec), doc-016 (kill-arc reshape plan), doc-017 (after-commit arcs). Full run-by-run build history (every commit + VM run, the bug-by-bug hardening) preserved in this task's git history.
+> WHAT REMAINS ON THIS TICKET (tail, none release-gating):
+> 1. Flagless-selfheal real-path successor — narrowed interim scenario stands; successor arc uses the killed-by-system-after-migrations-before-completion site + flag truncation (run 2 in flight).
+> 2. Churn-scenario real-path successor (144 AC#3's interim net stands until it goes green).
+> 3. AC#4's zero-callers end state: fabricate_resume_state down to the sanctioned dead-producer caller (rune-wedge) once both successors land; fabricate_scheduled_upgrade_row still has live arc callers (AC#4's other half).
+> 4. AC#5 stretch unchanged.
+>
+> The coverage map above is the authoritative living state; the Implementation-Notes history that used to live here (U-campaign dispatches, X/Y resolution, carve-out ruling chronology) is preserved in git history and the comment thread.
 <!-- SECTION:NOTES:END -->
 
 ## Comments
