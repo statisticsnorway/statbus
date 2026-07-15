@@ -295,18 +295,22 @@ echo "  ✓ B superseded, C rolled_back, zero terminal→completed; box runs B (
 # recorded status=400); assert 400 AND the fixture's own P0001 body — the honest
 # broken signature, never a bare status code (FINDING 1, architect 2026-07-15).
 echo ""
-# INSTRUMENTATION first (observe the end state unconditionally — run-2 empirics),
-# then the ruled 400 assert (the only gate here). If auth_status HEALED (the run-2
-# puzzle), the probes above name the writer and the assert below REDs — never loosened.
-_crollback_instrumentation "end-state health probe"
-echo ""
-echo "── app health still red (auth_status = the broken healthpark fixture: HTTP 400 + P0001 body) ──"
-AUTH_OUT=$(VM_EXEC bash -c "curl -s -m 5 -w '\n__HTTP__%{http_code}' -X POST http://127.0.0.1:${HEALTH_PORT:-3010}/rest/rpc/auth_status -H 'Content-Type: application/json' -d '{}'" 2>/dev/null || echo "__HTTP__000")
+# THE GATE reads the DIRECT rest bind (:3013 = HEALTH_PORT+3), NOT the :3010 proxy.
+# WHY (architect run-3 ruling, 2026-07-15): a POST to the proxy with Host 127.0.0.1
+# matches NONE of the standalone Caddyfile's site keys, and Caddy v2 answers an
+# unmatched host with 200-EMPTY — the exact "heal" fingerprint runs 2-3 saw (a real
+# proxied response would carry JSON). It was never a heal or a bad route — it was the
+# wrong virtual host. The rest bind is the honest read: the same route the product's
+# own health gate polls, and probe (a) proved the DB truth there (400 P0001). The
+# real public domain surface would also 400 (matched host → real proxied RAISE).
+echo "── app health still red (auth_status = the broken healthpark fixture: HTTP 400 + P0001 body, read on the DIRECT rest bind :3013) ──"
+REST_PORT=$(( ${HEALTH_PORT:-3010} + 3 ))
+AUTH_OUT=$(VM_EXEC bash -c "curl -s -m 5 -w '\n__HTTP__%{http_code}' -X POST http://127.0.0.1:${REST_PORT}/rpc/auth_status -H 'Content-Type: application/json' -d '{}'" 2>/dev/null || echo "__HTTP__000")
 AUTH_CODE=$(echo "$AUTH_OUT" | grep -oE '__HTTP__[0-9]+' | grep -oE '[0-9]+$' | tail -1)
 AUTH_BODY=$(echo "$AUTH_OUT" | sed 's/__HTTP__[0-9]*$//')
-[ "$AUTH_CODE" = "400" ] || { echo "✗ auth_status returned HTTP '$AUTH_CODE', expected 400 (PostgREST maps the broken fixture's P0001 RAISE to 400). A 200 = the run-2 UNEXPLAINED HEAL reproduced; the instrumentation above names the writer. Body: $AUTH_BODY" >&2; exit 1; }
+[ "$AUTH_CODE" = "400" ] || { echo "✗ auth_status (direct rest :${REST_PORT}) returned HTTP '$AUTH_CODE', expected 400 (PostgREST maps the broken fixture's P0001 RAISE to 400). A 200 here (not the proxy's unmatched-host 200) would be a REAL heal — the diagnostics probes name the writer. Body: $AUTH_BODY" >&2; exit 1; }
 echo "$AUTH_BODY" | grep -q "auth_status intentionally broken" || { echo "✗ auth_status 400'd but the body is NOT the healthpark fixture's P0001 message ('auth_status intentionally broken') — a DIFFERENT 400 (wrong error), not the honest broken-B signature. Body: $AUTH_BODY" >&2; exit 1; }
-echo "  ✓ auth_status → HTTP 400 with the fixture P0001 body ('auth_status intentionally broken') — the box honestly runs broken B"
+echo "  ✓ auth_status (direct rest :${REST_PORT}) → HTTP 400 with the fixture P0001 body — the box honestly runs broken B"
 
 # Data intact throughout.
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
