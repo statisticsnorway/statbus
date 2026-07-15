@@ -143,6 +143,15 @@ var (
 	recreateFlag bool
 )
 
+// deployedCommitLine formats the STATBUS-170 green-means-converged emit: a stable,
+// greppable one-liner naming the exact 40-hex commit apply-latest resolved for
+// deployment. The deploy workflow greps `^deployed_commit=<40hex>$` to learn what to
+// poll. Keep this format and that regex in lockstep — guarded by
+// TestDeployedCommitLine_WorkflowGrepContract.
+func deployedCommitLine(commit string) string {
+	return "deployed_commit=" + commit
+}
+
 var upgradeApplyLatestCmd = &cobra.Command{
 	Use:   "apply-latest",
 	Short: "Discover and apply the latest available version",
@@ -235,30 +244,43 @@ file changes needed.`,
 
 		fmt.Printf("Channel %s: latest version is %s\n", channel, latestVersion)
 
-		// Skip when the running binary is already at the latest. Without
-		// this, apply-latest unconditionally flips state='scheduled', the
-		// upgrade_notify_daemon_trigger fires NOTIFY upgrade_apply, and the
-		// service runs a full no-op upgrade pipeline (stop containers,
-		// backup, exit-42, restart, applyNewSbUpgrading) for nothing.
-		//
 		// Resolve the latest's commit via the SAME git-authoritative resolver the
 		// scheduling path uses (STATBUS-169 skip-check fold: the LAST tag-as-selector
 		// site — the old psql `ANY(commit_tags)` lookup — moves onto ResolveToCommit
-		// so there is ONE resolution shape for every tag→commit read). Compare to the
-		// running binary's compiled-in `commit` (cli/cmd/root.go:17, ldflags-set).
-		// Fall-throughs to existing behavior:
+		// so there is ONE resolution shape for every tag→commit read). Resolve ONCE and
+		// reuse for the deployed_commit emit (below) and the already-at-target skip.
+		svc := newUpgradeService(projDir)
+		var resolvedCommit string
+		if resolved, rerr := svc.ResolveToCommit(context.Background(), latestVersion); rerr == nil {
+			resolvedCommit = string(resolved)
+			// STATBUS-170 (green-means-converged): emit what WILL be deployed as a
+			// stable, greppable one-liner. The deploy workflow captures this and polls
+			// ci-deploy-status.sh by the EXACT deployed commit — correct on every
+			// channel (apply-latest resolves a tag on prerelease/stable, master HEAD on
+			// edge), which the workflow cannot know on its own. A resolve error omits
+			// the line; the workflow's absent-line fallback (the two-phase 127 genre)
+			// degrades to poke-only green + one loud notice, self-expiring as the fleet
+			// upgrades. Keep this on its own line and prefix-stable for the grep.
+			fmt.Println(deployedCommitLine(resolvedCommit))
+		} else {
+			fmt.Fprintf(os.Stderr, "warn: could not resolve %s to a commit — deployed_commit line omitted (poll degrades to poke-only): %v\n", latestVersion, rerr)
+		}
+
+		// Skip when the running binary is already at the latest. Without this,
+		// apply-latest unconditionally flips state='scheduled', the
+		// upgrade_notify_daemon_trigger fires NOTIFY upgrade_apply, and the service
+		// runs a full no-op upgrade pipeline (stop containers, backup, exit-42,
+		// restart, applyNewSbUpgrading) for nothing. Compare the resolved target to
+		// the running binary's compiled-in `commit` (cli/cmd/root.go:17, ldflags-set).
+		// Fall-throughs to existing behavior (never a false skip):
 		//   - commit=="unknown" (local go run): can't compare reliably.
-		//   - resolve errors (discovery race / not fetched): let apply-latest
-		//     register+schedule it normally — an error NEVER causes a false skip
-		//     (the ON_ERROR_STOP floor, now the resolver's error → the rerr guard).
+		//   - resolvedCommit=="" (resolve error): let apply-latest register+schedule
+		//     it normally — an error NEVER causes a false skip.
 		//   - resolved commit != running binary: genuinely behind; proceed.
-		if commit != "" && commit != "unknown" {
-			if resolved, rerr := newUpgradeService(projDir).ResolveToCommit(context.Background(), latestVersion); rerr == nil {
-				rs := string(resolved)
-				if len(rs) >= 8 && len(commit) >= 8 && rs[:8] == commit[:8] {
-					fmt.Printf("Already at %s (commit %s) — nothing to apply.\n", latestVersion, commit[:8])
-					return nil
-				}
+		if commit != "" && commit != "unknown" && resolvedCommit != "" {
+			if len(resolvedCommit) >= 8 && len(commit) >= 8 && resolvedCommit[:8] == commit[:8] {
+				fmt.Printf("Already at %s (commit %s) — nothing to apply.\n", latestVersion, commit[:8])
+				return nil
 			}
 		}
 
@@ -270,11 +292,10 @@ file changes needed.`,
 		// no-op → deploy didn't upgrade, and the "will apply next cycle" message
 		// lied). register→schedule completes the clean break and keeps deploys
 		// deployable. recreateFlag is carried by RunSchedule.
-		d := newUpgradeService(projDir)
-		if err := d.RunRegister(context.Background(), latestVersion); err != nil {
+		if err := svc.RunRegister(context.Background(), latestVersion); err != nil {
 			return fmt.Errorf("apply-latest register %s: %w", latestVersion, err)
 		}
-		if err := d.RunSchedule(context.Background(), latestVersion, recreateFlag); err != nil {
+		if err := svc.RunSchedule(context.Background(), latestVersion, recreateFlag); err != nil {
 			return fmt.Errorf("apply-latest schedule %s: %w", latestVersion, err)
 		}
 
