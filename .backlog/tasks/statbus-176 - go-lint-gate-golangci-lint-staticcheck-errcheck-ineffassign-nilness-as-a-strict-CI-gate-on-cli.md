@@ -3,10 +3,10 @@ id: STATBUS-176
 title: >-
   go-lint-gate: golangci-lint (staticcheck, errcheck, ineffassign, nilness) as a
   strict CI gate on cli/
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-07-13 14:42'
-updated_date: '2026-07-14 19:25'
+updated_date: '2026-07-15 08:39'
 labels:
   - ci
   - quality-gate
@@ -30,10 +30,10 @@ Config lives in cli/.golangci.yml so local `golangci-lint run` matches CI exactl
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 CI job runs golangci-lint on cli/ with staticcheck, errcheck, ineffassign, nilness enabled and fails the workflow on any finding
-- [ ] #2 No continue-on-error on the lint job; any bypass is an explicit loud env toggle
-- [ ] #3 Existing findings burned down so the gate lands green on master
-- [ ] #4 cli/.golangci.yml checked in so local runs match CI
+- [x] #1 CI job runs golangci-lint on cli/ with staticcheck, errcheck, ineffassign, nilness enabled and fails the workflow on any finding
+- [x] #2 No continue-on-error on the lint job; any bypass is an explicit loud env toggle
+- [x] #3 Existing findings burned down so the gate lands green on master
+- [x] #4 cli/.golangci.yml checked in so local runs match CI
 <!-- AC:END -->
 
 ## Comments
@@ -68,3 +68,9 @@ TOP-3 CANDIDATE SEVERITY (my take, for the candidates ticket): REORDER to #2 > #
 None of the three blocks rc.06.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The golangci-lint gate is live and born green. The job runs in go-test.yaml (staticcheck, errcheck, ineffassign; nilness wired via govet's analyzer set — unavailable as a standalone enable in v2.12.2), strict per the ratified doctrine: fails the workflow on any finding, no continue-on-error, caps disabled in cli/.golangci.yml so the gate can never silently under-report (the initial 69-finding inventory was itself cap-truncated — the true count was 283). The burn-down went 283→0 across per-package freeze batches with the three safety-core files reviewed by the architect (batch 2: SHIP, zero amendments — 83 explicit-ignores verified annotation-only, four logic-bearing style rewrites truth-table-verified). Behavior-change candidates were never silently fixed: the fifteen-site catalog spun out as STATBUS-187 (itself fully ruled and shipped). cli/.golangci.yml is checked in so local runs match CI exactly.
+<!-- SECTION:FINAL_SUMMARY:END -->
