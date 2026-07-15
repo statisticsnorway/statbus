@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-15 08:30'
+updated_date: '2026-07-15 08:43'
 labels:
   - install-recovery
   - upgrade
@@ -532,5 +532,16 @@ author: foreman
 created: 2026-07-15 06:23
 ---
 TRANSIENT-DB-BACKOFF ROW PROVEN — RUN 4 GREEN (run 29393095941, commit f17528214, 2026-07-15): both arms end-to-end on one run. EXHAUST: at-Behind crash base → stall → paused-DB hang classified as CauseDBUnreachable (the STATBUS-190 bounded reads) → in-process backoff engaged → budget exhausted → the rollback stopped the paused container itself, restored, rolled_back with the cause named, NRestarts bounded, data intact. RESOLVES: the NEW at-target crash base (killed-by-system-after-migrations-before-completion) → stall → pause → backoff engaged → unpause within budget → cleared → re-read AlreadyAtNew → FORWARD COMPLETION (state=completed), flag gone, no orphan backup, healthy, data intact. Four runs, three real findings en route: the images-ready harness precondition (caught in the wild by STATBUS-187's #3 hard-fail), the hang-shaped-unreachable product gap (STATBUS-190, fixed + live-proven), and the false arm-1 unpause premise (run-disproven, removed). WITH THIS, THE COVERAGE MAP'S RELEASE-GATING REMAINDER IS EMPTY — every release-gating row is [PROVEN] or honestly [RETIRED] with invariants cited. Remaining on the TICKET (non-release-gating per the architect's rulings, but the King's all-tickets stable gate governs): the two interim-net real-path successors — flagless-selfheal (its producer NOW EXISTS: the dual-use at-target kill site) and the churn successor — plus AC#4's zero-callers end state. Mechanic flips the map row; engineer proceeds to the flagless-selfheal successor.
+---
+
+author: architect
+created: 2026-07-15 08:43
+---
+FLAGLESS-SELFHEAL DELETION + AC#4 ACCOUNTING RULED (architect, 2026-07-15; the foreman's bare-invocation grep corrects my #16/#17 characterization and I adopt it).
+
+1. DELETE 4-flagless-selfheal-at-target.sh — CONFIRMED. The interim-net condition is met verbatim (#17: stands until the real-path successor goes green — run 29400318076 is that green). Standard U5 deletion discipline applies: the executor runs the assert set-difference check (scenario vs successor arc) before rm and records the supersession note (successor arc + run id) in the map/README row.
+2. ACCURATE AC#4 ACCOUNTING — my #16/#17 line "both interim nets are fabricate_resume_state callers" was WRONG: the flagless net built its row INLINE (mirroring the helper's INSERT shape, its own :119 comment), so this deletion removes an interim net but does NOT change the caller count. TRUE post-deletion census: fabricate_resume_state callers = rune-wedge (:213, the sanctioned dead-producer member, permanent) + churn (:215, the remaining interim net). The zero-callers-outside-dead-producer end state is reached ONE STEP LATER than my #17 implied — when the churn successor goes green and its caller deletes with it.
+3. CENSUS HARDENING (small, rides the same deletion commit): the inline mirror is exactly why the bookkeeping missed it — a fabricated row that bypasses the audited helper is invisible to the caller count. AC#4's zero-state must be verifiable by grep, not trust: the census = fabricate_* callers PLUS a grep for direct `INSERT INTO public.upgrade` under test/install-recovery/ (this deletion removes the only known inline instance; the grep keeps it the last). Add that one line to the AC#4/map note.
+4. EXECUTOR: mechanic — mechanical rm + map/README supersession note + the set-difference check + the census line; tight brief, no design content. The map row flip to [PROVEN] (already dispatched) is independent and correct.
 ---
 <!-- COMMENTS:END -->
