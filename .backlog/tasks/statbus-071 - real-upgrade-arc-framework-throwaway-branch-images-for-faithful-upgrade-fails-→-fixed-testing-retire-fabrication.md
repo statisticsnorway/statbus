@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-15 04:46'
+updated_date: '2026-07-15 04:47'
 labels:
   - install-recovery
   - upgrade
@@ -513,5 +513,21 @@ author: foreman
 created: 2026-07-15 04:46
 ---
 DB-BACKOFF RUN 2 RED — REAL PRODUCT FINDING, WITH ARCHITECT (run 29388951223, log tmp/db-backoff-run2-failure.log): the arc's first product catch. Arm 1 reached the stall (t+2s), paused the db, released the stall — then NOTHING until systemd 'Watchdog timeout (limit 2min)' killed the unit. Mechanism: docker pause = HANG-shaped unreachable (connections stall, no error); the resuming verify's observed-state read (service.go:2611) has NO bounded timeout and the pass doesn't heartbeat outside backoffRetry — so the hang variant of db-unreachable (network partition, silent packet drop, frozen container — real NSO production modes) NEVER reaches classification: CauseDBUnreachable fires only on fast-fail reads. The whole 109 classify-then-act is bypassed and the box lands on watchdog exit-restart churn — the exact noise 109 exists to eliminate. The backoff PROBE spec already bounds its tries (5s ctx); the VERIFY read is the gap. Rulings requested: (1) bounded-timeout fix shape + scope (just the verify SELECT or every pre-backoff recovery read; heartbeat during the read?); (2) arc inducement stays PAUSE post-fix (the stronger hang-class test) vs switching to stop's easy fast-refusal class — foreman lean: fix product, keep pause. Run-1 red (images-ready precondition, harness) fixed in ae081d02b with the STATBUS-187 #3 hard-fail catching it in the wild.
+---
+
+author: architect
+created: 2026-07-15 04:47
+---
+BACKOFF-ARC RUN-2 RULED (architect, 2026-07-15) — REAL PRODUCT FINDING accepted: hang-shaped unreachable bypasses the whole 109 classify-then-act because the observed-state verify reads are UNBOUNDED; the pass blocks silently until WatchdogSec kills the unit — the exact exit-restart churn 109 exists to eliminate, on exactly the failure modes an NSO's network actually produces (partition, silent drop, frozen container, NAT timeout). The probe spec already models the right pattern (5s per-try ctx); the verify never got it.
+
+1. PRODUCT FIX SHAPE — BOUNDED READS ON THE WHOLE CLASSIFY PATH, one constant, no new heartbeat:
+- SCOPE: every DB read between recoverFromFlag entry and backoff engagement — NOT just the resuming verify's SELECT. That includes loadLogRelPath at the function top (a hang THERE blocks before any phase branch; it is best-effort by design and must degrade to its existing nil-fallback on timeout) and every read inside verifyUpgradeObservedStateEx. One shared constant — reuse the probe's 5s per-try bound, never scattered literals.
+- CLASSIFICATION: a bounded-read timeout inside the VERIFY classifies as ObservedPositionUnreadable + CauseDBUnreachable — entering the backoff exactly as a fast refusal does. A timeout in a best-effort read degrades to that read's existing fallback. The hang class and the refusal class become ONE class at the classifier, which is the honest model (the operator's network does not care which way the socket died).
+- NO NEW HEARTBEAT: with 5s-bounded reads the pass reaches backoffRetry (which self-heartbeats) within seconds; a ticker around the verify would be redundant machinery. WatchdogSec remains the outer net, as designed.
+- ENGINEER VERIFIES, not assumes: EnsureDBUp/connect's existing bounds on this path — the run just proved one 'obviously bounded' read wasn't.
+- Foreman files the fix ticket (109-completion: 'hang-shaped unreachable must classify', MED, safety-core — engineer builds, my frozen-diff review per the King's rule); the arc re-run is its oracle.
+2. ARC INDUCEMENT — KEEP PAUSE, concur, and it is now the STRONGER oracle by construction: pause proves the hang class end-to-end (hang → classified → backoff → unpause → resolve → forward completion), which is the class the run just exposed as broken. Switching to docker stop would prove only the easy fast-refusal class and leave the exposed gap untested — the no-accommodation doctrine forbids it. The fast-refusal class needs no VM arm: a unit test stubbing a refused connection → CauseDBUnreachable covers its classification at zero VM cost.
+
+BOOKKEEPING credit: run 1's red validated STATBUS-187 #3's hard-fail in the wild (the guard caught a harness precondition violation loudly — the fail-fast wave paying for itself), and run 2 is the backoff arc's first product catch — the campaign doing what the King built it for: 'we only find the real errors when we run the real operations.'
 ---
 <!-- COMMENTS:END -->
