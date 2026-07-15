@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-17 07:59'
-updated_date: '2026-07-15 08:12'
+updated_date: '2026-07-15 08:29'
 labels:
   - tooling
   - not-install-upgrade
@@ -20,24 +20,11 @@ ordinal: 69000
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 > NORTH STAR: trustworthy CI — gated jobs must not fail on infrastructure noise.
-> BENEFIT: CI stops flapping on SSH timeouts to niue; gated jobs stop failing spuriously.
-> HYPOTHESIS (King): crowdsec on niue blocks GitHub's shared-runner IP ranges; operator verifying read-only now; fix direction if confirmed = self-hosted runner on the host via docker compose (King's proven pattern from another project).
-> COMPLEXITY: engineer-substantial (build phase shipped — remaining work is the Phase-3 workflow migration).
-> DEPENDS ON: nothing.
-
----
-
-CI jobs that SSH to niue.statbus.org (162.55.61.141) intermittently fail with `dial tcp 162.55.61.141:22: i/o timeout` (30s connect timeout) BEFORE any work runs — a niue SSH reachability/latency issue, NOT a code failure.
-
-WHERE THIS STANDS (2026-07-08): hypothesis CONFIRMED — CrowdSec's community IP blocklist bans hundreds of GitHub Actions runner IPs, causing intermittent SSH drops to niue. Design (doc-026) and Phase 2 are DONE: a self-hosted, repo-scoped ephemeral runner is built, registered, and online on niue (isolated user, no docker socket, own CrowdSec whitelist scoped to its private bridge network only — GitHub's public IP ranges are deliberately NOT whitelisted). Currently in a one-day observation window (through the first weekly refresh) before Phase 3: migrating the actual CI workflows (pg_regress trusted leg, notify-all-clouds, seq/docker-maintenance) onto the runner, per doc-026's migration order. Remaining work on this ticket = Phase 3 only.
-
-CONCRETE INSTANCES (2026-06-17):
-- notify-all-clouds.yaml: `notify (statbus_jo)` leg failed on push 55cb5c959 (the other 6 slots succeeded → niue up, single-slot/transient); SUCCEEDED on the next push c3e00f5f4.
-- pg_regress.yaml (`Run tests on remote server`): failed on push 73ea5210f — the SSH dial timed out before checkout/tests; Fast Tests (same SQL, different path) PASSED, corroborating code is fine. Manual re-run unblocked it.
-
-IMPACT: each timeout reds a strict CI gate and costs a manual re-run; if it recurs it can gate the rc.04 release gate spuriously. pg_regress runs ON niue via SSH (`git fetch && git checkout <sha> && ./dev.sh continous-integration-test`), so its reliability is coupled to niue SSH reachability.
-
-NOT URGENT (transient, self-recovers on re-run). If the pattern persists, investigate: niue SSH/network load, sshd connection limits, or whether pg_regress should run somewhere less coupled to a production host. Architect flagged the external root cause is real (no-flaky-tests: it's niue SSH dial reliability, not a flaky test). Foreman observed both instances firsthand.
+> ROOT CAUSE (confirmed 2026-07-06): CrowdSec's community blocklist on niue bans hundreds of GitHub-runner IPs; a runner drawing a banned IP is firewall-dropped — the `dial tcp 162.55.61.141:22: i/o timeout` signature. Details in comment #1.
+> FIX (doc-026, shipped in phases): a self-hosted, repo-scoped ephemeral runner ON niue moves the SSH client onto the host, so CI never crosses the public gate. Runner built, registered, observed stable (comments #2-#4). Workflow migrations SHIPPED: notify, pg_regress trusted leg, all 7 deploy-to-* slots, and (via STATBUS-191, commit e26d9b6c5) seq-logserver + docker-maintenance — zero public-SSH CI consumers remain.
+> REMAINING WORK = the runner-health CANARY ONLY (design King-approved, comment #5): a hosted canary job probes the runner over SSH with a dedicated key + one allowlisted root-provisioned command; self-hosted legs `needs:` it, so an offline runner reds the push instead of queueing silently for 24h.
+> EXECUTION PLAN: the six ACs below, sequenced, owner per step (comment #7). The King's involvement is collapsed to two pre-staged touchpoints: K1 (~2 min, one trace command) and K2 (~5 min, one provisioning session). Steps S1-S3 (trace tool + runbook, review, commit) have no gate and can start immediately.
+> CLOSES WHEN: one push proves the canary green-gating the self-hosted legs (AC#5) — AC#6 (the migration tail) is already done.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
@@ -47,8 +34,10 @@ NOT URGENT (transient, self-recovers on re-run). If the pattern persists, invest
 - [ ] #3 Engineer calibrates the layer-(b) freshness signal from K1's paste; finalizes ops/github-runner/runner-health.sh FINAL BYTES + the exact sshdoers line + the K2 runbook (keygen → printed sshdoers/authorized_keys lines → gh secret set → shred); architect final-bytes review; foreman commits (canonical copy only — NO workflow change yet)
 - [ ] #4 [KING — K2, ~5 min, ONE session] Execute the pre-staged runbook on niue: install the script root-owned at /usr/local/sbin/statbus-runner-health (visual diff vs the reviewed commit), ssh-keygen, append the sshdoers + authorized_keys lines, gh secret set RUNNER_HEALTH_SSH_KEY, shred the private key — all bytes final per the STATBUS-167 one-session discipline
 - [ ] #5 Engineer re-adds the hosted canary job (self-hosted legs `needs:` it); foreman pushes; ONE PUSH proves the canary green-gating the self-hosted legs — the ticket's canary half closes on that run
-- [ ] #6 seq-logserver + docker-maintenance migrations land via STATBUS-191 (engineer-ready, NOT King-gated, may close first); zero public-SSH CI consumers remain
+- [x] #6 seq-logserver + docker-maintenance migrations land via STATBUS-191 (engineer-ready, NOT King-gated, may close first); zero public-SSH CI consumers remain
 <!-- AC:END -->
+
+
 
 ## Comments
 
