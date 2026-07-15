@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-14 16:12'
-updated_date: '2026-07-14 17:13'
+updated_date: '2026-07-15 08:39'
 labels:
   - upgrade
   - deploy
@@ -34,6 +34,12 @@ ordinal: 184000
 - [x] #2 Architect rules the fix shape: apply always either schedules the named version (registering it first if needed) or fails loudly
 - [ ] #3 Fix proven by a run: a poke sent within seconds of a fresh release schedules correctly (or fails loudly) — no silent available-forever row
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Fix landed (5ae1147fe, 2026-07-14): inline register-then-promote through the guarded registerTarget path; class-branched tag fetch with the refs/tags refspec + real-git behavioral test; notify-path fetch bounded at 30s; durable upgrade_apply_refused signal on every refuse path, cleared on promote. Awaiting the next-RC poke oracle (AC#3) — a poke sent within seconds of the cut must converge row-completed.
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 
