@@ -3,10 +3,11 @@ id: STATBUS-191
 title: >-
   runner-migration-tail: move seq-logserver + docker-maintenance workflows onto
   the self-hosted runner (last two public-SSH CI consumers)
-status: To Do
+status: In Progress
 assignee:
   - engineer
 created_date: '2026-07-15 07:42'
+updated_date: '2026-07-15 08:32'
 labels:
   - ci
   - tooling
@@ -34,3 +35,9 @@ ORACLE: both workflows GREEN on the runner on their next natural trigger, and a 
 - [ ] #2 docker-maintenance workflow runs-on the self-hosted runner; next natural trigger GREEN
 - [ ] #3 Grep proves zero public-SSH niue consumers remain in .github/workflows/; doc-026 security rule re-verified (no PR-triggered job carries self-hosted labels)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Migrations committed (e26d9b6c5, 2026-07-15). Remaining: AC#1/#2 close on each workflow's next natural trigger running GREEN on the self-hosted runner; AC#3's grep + security-rule re-verification records with the closing note.
+<!-- SECTION:NOTES:END -->
