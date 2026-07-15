@@ -235,6 +235,21 @@ var classes = map[string]Kind{
 	// rollback completes, the flag is removed (GREEN).
 	"restore-db-stall-watchdog": KindStall,
 
+	// STATBUS-109 — the transient-backoff proof legs. The recoverFromFlag
+	// classify-then-act path (Phase=NewSbUpgrading) reads the observed state to
+	// decide direction; a NAMED transient cause (db-unreachable / commit-not-
+	// fetched) is retried IN-PROCESS via backoffRetry (clears → re-dispatch;
+	// exhausts → data-safe rollback). To PROVE that live, the arc must make the
+	// observed-state read fail transiently — and the window between the recovery
+	// boot's EnsureDBUp+connect and this verify is a sub-second Go-internal span
+	// nothing external can reach. This stall (right before verifyUpgradeObserved
+	// StateEx) is the sanctioned way in (AC#5 residue, architect-ruled 2026-07-15):
+	// the arc stalls here, induces the transient condition (docker pause db →
+	// db-unreachable), releases, and observes the backoff live. The alternatives —
+	// racing the sub-second window externally, or pre-boot pauses that never reach
+	// this branch — are the forbidden window-racing genre / miss the site entirely.
+	"stalled-before-resuming-verify": KindStall,
+
 	// Concurrent-install detection (probe 2 — live-upgrade refusal).
 	"concurrent-install-attempted-during-migrate-up": KindStall,
 

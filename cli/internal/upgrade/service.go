@@ -1121,6 +1121,15 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 		// One backoff budget per cause per recovery pass: a cause that clears
 		// then re-fails is treated as exhausted (→ rollback), never re-retried.
 		retried := map[UnknownCause]bool{}
+		// STATBUS-109 transient-backoff proof hook (AC#5 sanctioned residue). The
+		// window between the recovery boot's EnsureDBUp+connect and this verify is a
+		// sub-second Go-internal span nothing external can reach; the arc stalls HERE
+		// (before the first observed-state read), induces the transient condition
+		// (docker pause db → the db.migration SELECT below fails → CauseDBUnreachable
+		// → backoffRetry), then releases + clears it (docker unpause). No-op in
+		// production (env unset). Stalls once — StallHere is a no-op once its release
+		// file is gone, so the loop's later re-verifies proceed unhindered.
+		inject.StallHere("stalled-before-resuming-verify")
 		for {
 			obsState, cause, obsReason := d.verifyUpgradeObservedStateEx(ctx, flag.CommitSHA)
 			switch obsState {

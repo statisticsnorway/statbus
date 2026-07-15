@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -148,6 +149,36 @@ func (d *Service) heartbeatingSleep(ctx context.Context, total time.Duration) er
 	}
 }
 
+// recoveryBackoffBudgetFloor guards the STATBUS_RECOVERY_BACKOFF_BUDGET override:
+// a value below this is clamped up (+ a WARN), so a fat-fingered override cannot
+// make the backoff exhaust mid-legitimate-blip. 1s is low enough for the
+// transient-backoff arcs to exercise the RESOLVES + EXHAUST arms in SECONDS (the
+// load-bearing test criterion) yet non-zero.
+const recoveryBackoffBudgetFloor = 1 * time.Second
+
+// resolveBackoffBudget returns the effective backoff-retry budget: the
+// STATBUS_RECOVERY_BACKOFF_BUDGET override (a Go duration string, e.g. "30s")
+// when valid and >= the floor, else the per-spec production default. Same house
+// pattern as resolveMigrateUpTimeout (watchdog.go) — read fresh so the arc can
+// arm seconds via a restart-for-env dropin; every non-default path WARNs so the
+// arc log shows exactly which budget is in force. No-op in production (env unset).
+func resolveBackoffBudget(defaultBudget time.Duration) time.Duration {
+	raw := os.Getenv("STATBUS_RECOVERY_BACKOFF_BUDGET")
+	if raw == "" {
+		return defaultBudget
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "WARN: STATBUS_RECOVERY_BACKOFF_BUDGET=%q is not a valid Go duration (%v) — using the default %s\n", raw, err, defaultBudget)
+		return defaultBudget
+	}
+	if d < recoveryBackoffBudgetFloor {
+		fmt.Fprintf(os.Stderr, "WARN: STATBUS_RECOVERY_BACKOFF_BUDGET=%s is below the floor %s — clamping to the floor\n", d, recoveryBackoffBudgetFloor)
+		return recoveryBackoffBudgetFloor
+	}
+	return d
+}
+
 // dbUnreachableSpec is the backoff-retry for CauseDBUnreachable (doc-022 §2). The
 // probe RECONNECTS the service's sessions (reconnect closes the dead conns,
 // re-establishes queryConn/listenConn, re-acquires the advisory lock — the
@@ -160,7 +191,7 @@ func (d *Service) dbUnreachableSpec() retrySpec {
 	return retrySpec{
 		name:   "db-unreachable",
 		gaps:   []time.Duration{1 * time.Second, 2 * time.Second, 4 * time.Second, 8 * time.Second, 16 * time.Second, 30 * time.Second},
-		budget: 5 * time.Minute,
+		budget: resolveBackoffBudget(5 * time.Minute),
 		probe: func(ctx context.Context) error {
 			probeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()
@@ -182,7 +213,7 @@ func (d *Service) commitNotFetchedSpec(logWriter io.Writer, commitSHA string) re
 	return retrySpec{
 		name:   "commit-not-fetched",
 		gaps:   []time.Duration{10 * time.Second, 30 * time.Second, 60 * time.Second},
-		budget: 15 * time.Minute,
+		budget: resolveBackoffBudget(15 * time.Minute),
 		probe: func(ctx context.Context) error {
 			return d.fetchWithStallDetection(ctx, logWriter, commitSHA)
 		},
