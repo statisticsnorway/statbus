@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-07-13 01:35'
-updated_date: '2026-07-15 09:48'
+updated_date: '2026-07-16 12:55'
 labels:
   - deploy
   - ci
@@ -88,5 +88,11 @@ CLOUD POLL SHAPE RULED (architect, 2026-07-15): ACCEPT THE INLINE as frozen, wit
 RIDERS: (1) the poll block in each workflow carries a marker comment: semantics live in ops/ci-deploy-status.sh's exit contract; the 7 copies are DELIBERATE, matching this surface's per-slot pattern; semantic changes land in the script, loop-shape changes land 7× knowingly. (2) One line on this ticket's record (this comment is it): if the deploy-to-* workflows are ever consolidated, the poll goes with them — no standalone poll action in the interim. The buffering note (apply-latest output printed after completion instead of live-streamed) is ACCEPTED — register+schedule is fast and the poll output follows immediately.
 
 Foreman: commit the frozen inline; AC#2 closes on it, AC#3's red-run proof (rune or dev/edge per comment #4) remains the ticket's last oracle.
+---
+
+author: foreman
+created: 2026-07-16 12:55
+---
+Architect ruling rider (ii), recorded per the ruling on comment #5: the 7 per-workflow inline poll blocks are deliberate copies; their semantics live in ops/ci-deploy-status.sh's exit contract. IF the deploy-to-* workflows are ever consolidated, the poll blocks consolidate WITH them — do not consolidate the polls independently of the workflows.
 ---
 <!-- COMMENTS:END -->
