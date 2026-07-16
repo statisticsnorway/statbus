@@ -3,9 +3,11 @@ id: STATBUS-192
 title: >-
   selfheal-serve-proven: completeInProgressUpgrade marks 'completed' without
   serving — the flagless self-heal must converge the BOX, not just the row
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - engineer
 created_date: '2026-07-15 08:52'
+updated_date: '2026-07-16 12:55'
 labels:
   - upgrade
   - install-recovery
@@ -36,3 +38,13 @@ ORACLE: the flagless-selfheal successor arc gains the health assert (assert_heal
 - [ ] #3 The flagless-selfheal successor arc gains assert_health_passes after convergence — RED on pre-fix code, GREEN with the fix (the run is the oracle)
 - [ ] #4 Architect frozen-diff review before commit (recovery safety-core)
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-16 12:55
+---
+King ruling (2026-07-16): STATBUS-192 GATES the stable cut. Fork resolved as 'finish tail first' — no cut until the serve-proven completed write ships and is proven. Fix as ruled: completeInProgressUpgrade's completed write becomes serve-proven — run resumeNewSb's tail (app setup → app health gate → maintenance off → completed); health failure → park-at-target. RED→GREEN oracle: the flagless-selfheal arc's kill-before-StartServices run. Engineer builds, architect frozen-diff review.
+---
+<!-- COMMENTS:END -->
