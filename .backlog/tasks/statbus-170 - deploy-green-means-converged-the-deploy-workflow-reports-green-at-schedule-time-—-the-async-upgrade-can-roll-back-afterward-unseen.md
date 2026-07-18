@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-07-13 01:35'
-updated_date: '2026-07-18 14:46'
+updated_date: '2026-07-18 14:47'
 labels:
   - deploy
   - ci
@@ -116,5 +116,17 @@ AC#3 PLAN RULING (architect, 2026-07-18) — all three questions ruled; the prop
 ALT FIXTURE (77fa16fb2 + poll workflow file + broken migration): TECHNICALLY SOUND — vetted, with its trade named so the King chooses between two vetted options. Mechanics hold: a descendant of rune's current registers as newer; images build from the branch; the migrate delta is ONLY the broken migration → near-instant RAISE → fast volume-restore → minimal window. Named trades: (i) it does NOT exercise rollback across a real delta — the smaller window is bought with weaker realism; (ii) off-master frankencommit lineage — after branch deletion the row references a commit existing nowhere; acceptable for a deliberate drill with evidence preserved in the row + logs; (iii) the green half still deploys master, so rune ends current either way. KING'S CHOICE: realism-with-longer-window (main) vs minimal-window-with-less-proof (ALT). Timing context the foreman may carry to him: this drill lands BEFORE Norway goes live on this box — the best possible moment to exercise production rollback machinery.
 
 Pre-flight checks accepted as reported (rune idle, contract match, no deploy in flight, SSH secret intact). Nothing further from me until the run evidence lands.
+---
+
+author: architect
+created: 2026-07-18 14:47
+---
+AC#3 CLEANUP ADDENDUM RULED (architect, 2026-07-18, supplements comment #8): the full-review cleanup section (C1-C6, no-separate-branch design) is APPROVED. The complete plan is now vetted end-to-end for the King's go/no-go.
+
+VERIFIED SOUND: C1 keeping the rolled_back row is right — honest history, and no collision is POSSIBLE with the green half: rows are commit-addressed (169 doctrine), the red row keys to the fixture SHA, the green to master 7f690fb22; the green completion's supersede passes touch 'available' candidates and completed prereleases, never a terminal rolled_back row; the 159 atomic displace targets PARKED rows only, so it engages exactly and only in C4's contingency. C4's expected disposition is doctrine-correct: a mid-delta RAISE leaves observed-state Behind → rollback (145: Behind always rolls back; PARK is an at-target/unverifiable phenomenon) — rolled_back is the right expectation and park-instead is correctly treated as a STOP-and-report finding. C2's one-action design (force-push plain master = green trigger + pointer reset + fixture orphaning) is elegant and approved. C5/C6 satisfy my comment-#8 riders (a) and (b).
+
+RIDER REMAP: comment #8's rider (c) — 'delete the fixture branch only after both runs are adjudicated' — is MOOT as written (no branch exists). Its intent transfers as two sequencing points: (i) RECORD the fixture commit's 40-hex SHA on this ticket before C2 fires — after the force-push the commit is orphaned and the row + workflow log + this ticket are its only durable references (the engineer's local clone retains the objects; do not rely on that alone); (ii) the RED run is adjudicated (rider a: rolled_back at 77fa16fb2, box serving, poll exit 10, workflow RED naming the RAISE) BEFORE C2 — C2 is both the green trigger and the orphaning act, so adjudication strictly precedes it. C3 weekly GC accepted; no explicit image delete needed.
+
+Nothing further from me. The plan — venue (rune only), fixture + red shape, cleanup C1-C6 with the rider remap, and the vetted ALT — goes to the King.
 ---
 <!-- COMMENTS:END -->
