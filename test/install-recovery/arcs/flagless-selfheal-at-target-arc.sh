@@ -26,8 +26,15 @@
 #
 # The end state is a reconciled LEDGER (row completed), NOT a restarted app: the
 # flagless self-heal reconciles the DB+binary truth, it does not run Step 11
-# (StartServices). So — like the fabricated scenario — this arc asserts the ledger
-# convergence + data intact, NOT app-health (the kill died before the app came up).
+# (StartServices). This arc deliberately omits assert_health_passes — the current
+# product does not serve on this path (completeInProgressUpgrade marks the row
+# completed without ever bringing services up here). The now-deleted fabricated
+# scenario's own health-assert was ILLUSORY: it passed only because its
+# construction never touched the app (the box was already running the whole
+# time from the initial install), not because the self-heal itself produced a
+# serving instance — so its green health check proved nothing about this arc's
+# actual claim. When STATBUS-192 ships (serve-proven completed write), this arc
+# GAINS assert_health_passes for real.
 #
 # Inputs (env): BASE_SHA, B_FULL (40-hex), B_BRANCH, V_VERSION (working lineage —
 # no construct spec; reuses the shared working B). VM name = $1.
