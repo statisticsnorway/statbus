@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-07-15 08:52'
-updated_date: '2026-07-18 13:44'
+updated_date: '2026-07-18 14:14'
 labels:
   - upgrade
   - install-recovery
@@ -112,5 +112,11 @@ author: foreman
 created: 2026-07-18 13:44
 ---
 COMMITTED (7f690fb22, pushed to master) on the architect's delta re-review SHIP verdict (comment #5, AC#4 checked). The 6-file unit: service.go (serve-proven tail: disk precheck → compose up → app health gate → maintenance off → completed write → window lift with loud escalation, all under the gated watchdog ticker; health-fail → faithful-flag-then-park with parkedExit-guarded defer; compose-up failure → existing three-way; parked-skip guard first, untouched), watchdog.go (four-callers doc note), the two re-anchored structural tests, the arc (assert_health_passes + negative journal assert on the STATBUS-163 backstop marker + real-table write-probe belt), assertions.sh (Host: <SITE_DOMAIN> — deliberate fleet-wide strictness increase; illusory greens elsewhere may now fail, which is the gate working). REMAINING: AC#3 VM oracle — RED run on pre-fix product (must fail AT the fixed assert_health_passes with 502 on the dark box; failing anywhere else or passing → STOP, back to the architect, no assert loosening) and GREEN run on 7f690fb22 (everything passes incl. backstop-silence + write probe; PROVEN only on an explained green). Runs dispatched to the engineer.
+---
+
+author: foreman
+created: 2026-07-18 14:14
+---
+AC#3 RED ARM: PROVEN (run 29646835552, conclusion=failure, log tmp/red-29646835552.log). Arc code from 7f690fb22 (Host-fixed assert) against pre-fix product 83ce5b030 — base identity confirmed in the row itself (from_commit_version=83ce5b03). Sequence: all convergence asserts PASSED (pre-fix marks the row completed on DB-health+at-target alone: [completed-from-in-progress], error NULL, flag absent, data intact, NRestarts bounded) — then FAILED EXACTLY AT assert_health_passes: 60/60 attempts code=502 (log lines 6279-6334), budget exhausted at line 6340, harness rc=1 at arc line 172 which IS the assert_health_passes call. This proves BOTH halves: the bug (pre-fix self-heals to completed-while-dark) AND must-fix 2's Host header (the probe now traverses the real site key to rest:3000 and reddens a dark box — 502, not the old illusory no-matching-site 200). Exactly the architect's stated failure mode from comment #5; no deviation, no assert loosening. GREEN ARM dispatched: run 29647643813, base_sha=7f690fb22, same arc; verdict + explained-green serve-proof evidence to follow.
 ---
 <!-- COMMENTS:END -->
