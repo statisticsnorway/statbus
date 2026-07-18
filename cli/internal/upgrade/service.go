@@ -2904,7 +2904,18 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 	// removeUpgradeFlag is idempotent: nil flagLock falls through to
 	// os.Remove, and a second invocation after the explicit call is a
 	// harmless no-op.
-	defer d.removeUpgradeFlag()
+	//
+	// STATBUS-192: the serve-proof start/health-fail PARK path (below) materializes a
+	// faithful flag so `./sb install` can un-park it — that flag MUST survive this
+	// defer. parkedExit is set true on that path and is the truth of THIS pass; do NOT
+	// re-read park state here (a failed read would default wrong). 135's principle:
+	// parked rows keep their flag.
+	parkedExit := false
+	defer func() {
+		if !parkedExit {
+			d.removeUpgradeFlag()
+		}
+	}()
 
 	// Append recovery narrative to the prior run's progress log so the
 	// on-disk log (served via /upgrade-logs/<name>) captures both the
@@ -3020,14 +3031,115 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 		return
 	}
 
-	logRecover("Upgrade to %s completed (verified after service restart)", displayName)
+	// STATBUS-192 — SERVE-PROVEN completed. At-target (binary + migrations, verified
+	// above) is necessary but NOT sufficient: the STATBUS-160 doctrine is that
+	// 'completed' means THIS VERSION VERIFIABLY SERVES, at EVERY writer including this
+	// flagless self-heal. A flagless-state producer (corrupt-flag removal, tmp/ flag
+	// loss) can land at a pre-StartServices point — app/worker/rest DOWN while
+	// binary+migrations sit at target. The old code marked 'completed' on DB-health +
+	// at-target alone, certifying a dark box (and STATBUS-170's poll inherits the lie).
+	// Run the SAME tail applyNewSbUpgrading runs: app set up → app health gate →
+	// maintenance off → completed → read-only-window lift (STATBUS-192 refinement 1).
+	restoreTargetSHA := "" // at-target; a Behind rollback (ruled out above) is its only use
 
-	// Close the appender so the post-restart lines are flushed to disk
-	// before we mark the row completed.
-	if appendLog != nil {
-		appendLog.Close()
-		appendLog = nil
+	// The tail + its dispositions write to a progress log unconditionally; ensure one
+	// exists even if AppendProgressLog returned nil (missing on-disk log), mirroring
+	// resumeNewSb's fallback. Kept OPEN through the completed write + window flip so the
+	// whole serve-proof narrative reaches the on-disk log served at /upgrade-logs
+	// (STATBUS-192 build note a). The deferred Close (armed above, or here) closes it.
+	if appendLog == nil {
+		appendLog = NewUpgradeLog(d.projDir, int64(id), displayName, time.Now().UTC())
+		defer appendLog.Close()
 	}
+
+	// parkAtTarget is the start/health-fail disposition (STATBUS-192 refinement 2):
+	// materialize a FAITHFUL flag BEFORE parking so `./sb install` can un-park it. A
+	// row-only park (parkUpgrade) from THIS flagless caller would be invisible to the
+	// install ladder — UnparkByID is reachable only via StateCrashedUpgrade (flag
+	// present) — yet parkForDeterministicFailure's operator message promises "./sb
+	// install for a fresh attempt". Phase=PhaseNewSbSwapped is the at-target truth →
+	// next boot's recoverFromFlag routes to resumeNewSb, whose parked-skip holds the
+	// unit alive-idle with the flag kept. Written DIRECTLY (no acquireFlock: the flock
+	// is the destructive-work mutex and this pass is going idle; flag-present +
+	// flock-free is exactly the un-parkable shape, and install quiesces the unit before
+	// takeover). Order: flag FIRST, then park the row — a crash between the two leaves
+	// an ordinary crashed-upgrade, never the invisible row-only shape. A flag-write
+	// failure (ENOSPC is itself a live park cause) does NOT block the park: warn that
+	// install-un-park is unavailable (a fix-release schedule remains the trigger) and
+	// park anyway.
+	parkAtTarget := func(reason string) {
+		flag := UpgradeFlag{
+			ID:         id,
+			CommitSHA:  commitSHA,
+			StartedAt:  time.Now(),
+			InvokedBy:  "recovery:completeInProgressUpgrade",
+			Trigger:    "recovery",
+			Holder:     HolderService,
+			Phase:      PhaseNewSbSwapped,
+			BackupPath: rowBackupPath.String,
+		}
+		_ = os.MkdirAll(filepath.Dir(d.flagPath()), 0755)
+		if data, merr := json.MarshalIndent(flag, "", "  "); merr != nil {
+			logRecover("WARNING: could not marshal the recovery flag before parking %s (%v) — `./sb install` un-park is UNAVAILABLE for this park; schedule a fix release to retrigger. Parking anyway.", displayName, merr)
+		} else if werr := os.WriteFile(d.flagPath(), data, 0644); werr != nil {
+			logRecover("WARNING: could not write the recovery flag before parking %s (%v) — `./sb install` un-park is UNAVAILABLE for this park; schedule a fix release to retrigger. Parking anyway.", displayName, werr)
+		} else {
+			parkedExit = true // the defer must NOT strip this flag (STATBUS-192/135)
+		}
+		_ = d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, rowBackupPath.String, reason, appendLog)
+	}
+
+	// STATBUS-192 MUST-FIX 1 — WATCHDOG COVER for the serve-proof tail. This runs in the
+	// daemon's ACTIVE phase under WatchdogSec=120 (READY=1 fired before recoverFromFlag,
+	// :2222). Subprocess output only bump()s the progress gate (PrefixWriter onLine); it
+	// never sd_notify. A `--no-build` compose that pulls images pruned since the crash can
+	// stay >120s between our explicit Write()s → the daemon SIGKILLs the heal mid-flight →
+	// StartLimit loop → dark box. Wrap the tail (compose + health) in the SAME gated
+	// ticker applyNewSbUpgrading uses (:5874): it pings WATCHDOG=1 while the gate is open
+	// (real progress) and goes quiet on a true stall (the 5-min command timeout then
+	// bounds it → forward retry — the gate closing on a real hang IS the watchdog
+	// working). Cancel+join via ONE deferred closure — every post-ticker path returns from
+	// the function, so the Run() no-defer rationale at :2038 does not apply here.
+	appendLog.bump() // gate-open on entry (structural, matches applyNewSbUpgrading :5872)
+	healTickerCtx, healTickerCancel := context.WithCancel(ctx)
+	healTickerDone := make(chan struct{})
+	go runGatedWatchdogTicker(healTickerCtx, appendLog,
+		applyNewSbUpgradingStallThreshold, applyNewSbUpgradingWatchdogCadence,
+		func() { sdNotify("WATCHDOG=1") }, healTickerDone)
+	defer func() {
+		healTickerCancel()
+		<-healTickerDone
+	}()
+
+	if reason := d.diskPrecheckReason(StepStartServices); reason != "" {
+		parkAtTarget(reason)
+		return
+	}
+	logRecover("At-target verified; starting application services to prove %s serves...", displayName)
+	composeArgs := append([]string{"compose", "up", "-d", "--no-build"}, step11RestartServices...)
+	if stderrTail, cerr := runCommandToLogCapture(d.projDir, 5*time.Minute, appendLog.File(), "docker-compose", appendLog.bump, "docker", composeArgs...); cerr != nil {
+		// STATBUS-192 refinement 3: mirror applyNewSbUpgrading's three-way
+		// (service.go:6074-6093). ENOSPC (classResource) → park; anything else →
+		// newSbUpgradingFailure, which AT-TARGET reduces to recordInProgressFailure (row
+		// stays in_progress, forward retry on the next tick/boot) — never a completed
+		// lie, never a hand-rolled disposition. (The diskPrecheck park above is the
+		// class-C primary; this is the in-flight ENOSPC backstop.)
+		if classifyDockerFailure(cerr, stderrTail) == classResource {
+			parkAtTarget(fmt.Sprintf("disk full starting services at %s (no space left on device) — free disk space, then re-trigger the upgrade", displayName))
+			return
+		}
+		_ = d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, rowBackupPath.String,
+			fmt.Sprintf("%s: could not start the application at %s during flagless recovery: %v", ErrDockerUpFailed, displayName, cerr), appendLog)
+		return
+	}
+	if hcErr := d.healthCheck(appendLog, 5, 5*time.Second); hcErr != nil {
+		parkAtTarget(fmt.Sprintf("%s: the application cannot serve at %s past warmup after flagless recovery — %v; fix the cause, then re-trigger the upgrade", ErrHealthcheckRESTDown, displayName, hcErr))
+		return
+	}
+	d.setMaintenance(false)
+
+	logRecover("Upgrade to %s completed (verified serving after flagless recovery)", displayName)
+
 	// error = NULL: chk_upgrade_state_attributes forbids a non-NULL error on
 	// completed, and recordInProgressFailure may have stamped one during an
 	// earlier forward-retry pass (STATBUS-039). Completing resolves it; the
@@ -3054,6 +3166,28 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 			fmt.Sprintf("id=%d; final err=%v", id, scanErr))
 		d.writeDiagnosticBundle(ctx, int(id), nil)
 	}
+
+	// STATBUS-192 refinement 1: lift the read-only window. It engaged at step 2
+	// (service.go:5305) and every flagless at-target orphan carries it ON; a 'completed'
+	// box that still rejects every write with 25006 is "a broken box masquerading as
+	// healthy" (:6209). This flip runs REGARDLESS of the completed-write outcome above —
+	// a DELIBERATE divergence from applyNewSbUpgrading, which returns on a completed-write
+	// failure (:6168): this routine's contract is continue-to-cleanup (the completed-write
+	// failure already escalated loudly and the tick-belt at :2312 retries it next pass),
+	// and the box is SERVING now, so holding an NSO's registry read-only over a
+	// bookkeeping write would be the wrong trade. When the completed UPDATE DID land it is
+	// senior truth and the flip simply follows it. This flagless belt has no backstop
+	// after :2312, so the escalation is the signal. terminalExec is the teardown-immune
+	// fresh-conn writer.
+	if werr := d.terminalExec(windowOffSQL); werr != nil {
+		fmt.Fprintf(os.Stderr,
+			"INVARIANT COMPLETION_READ_ONLY_WINDOW_LIFTED violated: the read-only window did not lift at flagless-recovery completion after %d attempts (err=%v) — the database default is still read-only, so every fresh non-exempt session fails with 25006 (read_only_sql_transaction). Remedy: run `./sb install` to clear it (or the daemon's boot backstop clears it on the next start). (service.go:%d, pid=%d)\n",
+			terminalWriteMaxAttempts, werr, thisLine(), os.Getpid())
+		d.markTerminal("COMPLETION_READ_ONLY_WINDOW_LIFTED",
+			fmt.Sprintf("window OFF flip failed at flagless-recovery completion after retries: %v; DB default still read-only; ./sb install clears it", werr))
+		logRecover("FATAL: read-only window did NOT lift at completion (%v) — the box rejects external writes until `./sb install` clears it.", werr)
+	}
+
 	d.removeUpgradeFlag()
 	// Layer 3 of the rollback-on-SIGKILL hole plug — also fire pruneBackups
 	// after the post-restart completion path. See the matching call in the

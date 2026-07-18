@@ -204,11 +204,12 @@ func resolveMigrateUpTimeout() time.Duration {
 }
 
 // runGatedWatchdogTicker is the shared bounded watchdog goroutine (plan
-// upgrade-resume-structural-whole.md piece #3). Three callers: applyNewSbUpgrading
-// (GATED — real progress, gate closes on stall), and as an ALWAYS-PING cover
-// (nil progress) the boot-migrate site in Run() and rollback() (STATBUS-031). It
-// fires ping() every cadence IFF progress.shouldPingWatchdog(stall) is true, and
-// stops when ctx is done, closing doneCh so the caller can join.
+// upgrade-resume-structural-whole.md piece #3). Four callers: applyNewSbUpgrading and
+// completeInProgressUpgrade's serve-proof tail (STATBUS-192) — both GATED (real
+// progress, gate closes on stall) — and as an ALWAYS-PING cover (nil progress) the
+// boot-migrate site in Run() and rollback() (STATBUS-031). It fires ping() every
+// cadence IFF progress.shouldPingWatchdog(stall) is true, and stops when ctx is done,
+// closing doneCh so the caller can join.
 //
 // This collapses the prior TWO unconditional tickers (the reconnect-scoped one
 // and the applyNewSbUpgrading-remainder one, both blind 30 s timers) into one

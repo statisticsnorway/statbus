@@ -31,11 +31,13 @@ func TestReadOnlyWindowFlip_TeardownImmune_STATBUS163(t *testing.T) {
 		t.Error("terminalExec must NOT use d.queryConn — the terminal window flip needs a FRESH connection (STATBUS-163/154 PIN ii)")
 	}
 
-	// (2) BOTH terminal OFF flips ride terminalExec(windowOffSQL); the
-	//     complete-with-warning lines are GONE; a failed flip escalates via a named
-	//     invariant (markTerminal-class), not a Warning.
+	// (2) The terminal OFF flips ride terminalExec(windowOffSQL) — applyNewSbUpgrading
+	//     completion + rollback, plus the STATBUS-192 flagless-recovery completion
+	//     (completeInProgressUpgrade). The complete-with-warning lines are GONE; a failed
+	//     flip escalates via a named invariant (markTerminal-class), not a Warning. The
+	//     floor stays ≥2 (the 163 completion+rollback pair); the 192 site is additive.
 	if n := strings.Count(source, "d.terminalExec(windowOffSQL)"); n < 2 {
-		t.Errorf("both terminal OFF sites (completion + rollback) must flip via terminalExec(windowOffSQL); found %d", n)
+		t.Errorf("the terminal OFF sites (completion + rollback, + STATBUS-192 flagless completion) must flip via terminalExec(windowOffSQL); found %d", n)
 	}
 	for _, gone := range []string{
 		"Warning: could not clear read-only window at completion",
@@ -49,6 +51,13 @@ func TestReadOnlyWindowFlip_TeardownImmune_STATBUS163(t *testing.T) {
 		if !strings.Contains(source, inv) {
 			t.Errorf("a failed OFF flip must escalate via the named invariant %q (markTerminal-class), never a Warning", inv)
 		}
+	}
+	// STATBUS-192: pin the flagless-recovery flip site specifically — the ≥2 floor above
+	// pins nothing new (backstop + completion + rollback pre-existed), so a future
+	// refactor could silently drop the completeInProgressUpgrade lift. Its escalation
+	// narrative is unique ("flagless-recovery completion").
+	if !strings.Contains(source, "flagless-recovery completion") {
+		t.Error("STATBUS-192: the flagless-recovery window flip (completeInProgressUpgrade) must be present — its escalation narrative 'flagless-recovery completion' cannot silently drop from a refactor")
 	}
 
 	// (3) The ON site stays best-effort on the LIVE pass conn (setDatabaseReadOnly,

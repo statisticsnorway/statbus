@@ -261,13 +261,18 @@ func TestRecoveryBudgetGuard_DefersOnRollbackStep(t *testing.T) {
 }
 
 // STATBUS-135 — completeInProgressUpgrade (the flagless-row reconciliation belt)
-// must PARKED-SKIP before it arms `defer d.removeUpgradeFlag()`, or the defer strips
-// the flag from a parked row (parked rows are state='in_progress', so the routine's
-// SELECT matches them) → next boot is flag-blind → RecoveryBudgetGuard no-op →
-// ungated boot-migrate boot-loop; and a parked already-at-new row could be mis-marked
+// must PARKED-SKIP before it arms the flag-cleanup defer, or the defer strips the flag
+// from a parked row (parked rows are state='in_progress', so the routine's SELECT
+// matches them) → next boot is flag-blind → RecoveryBudgetGuard no-op → ungated
+// boot-migrate boot-loop; and a parked already-at-new row could be mis-marked
 // 'completed'. The load-bearing invariant is the ORDER: the parked-skip must precede
 // the defer (its `return` fires before the defer arms). Source-order guard —
 // completeInProgressUpgrade needs a live DB to exercise behaviorally.
+//
+// STATBUS-192: the flag-cleanup defer is now GUARDED (`defer func(){ if !parkedExit
+// { d.removeUpgradeFlag() } }()`), so the serve-proof start/health-fail PARK path can
+// materialize + KEEP a faithful flag (`./sb install` un-park). This test anchors on
+// that guard and still asserts the parked-skip precedes it.
 func TestCompleteInProgressUpgrade_ParkedSkipPrecedesFlagStrip(t *testing.T) {
 	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
 	if err != nil {
@@ -275,17 +280,19 @@ func TestCompleteInProgressUpgrade_ParkedSkipPrecedesFlagStrip(t *testing.T) {
 	}
 	body := extractFuncBody(t, string(src), "func (d *Service) completeInProgressUpgrade(")
 	parkedIdx := strings.Index(body, "d.upgradeParkedReason(ctx, id)")
-	deferIdx := strings.Index(body, "defer d.removeUpgradeFlag()")
+	// The guarded flag-cleanup defer (STATBUS-192): `if !parkedExit {` is its unique,
+	// stable anchor — the conditional strip that replaced the bare defer.
+	deferIdx := strings.Index(body, "if !parkedExit {")
 	for name, idx := range map[string]int{
-		"d.upgradeParkedReason(ctx, id)": parkedIdx,
-		"defer d.removeUpgradeFlag()":    deferIdx,
+		"d.upgradeParkedReason(ctx, id)":                             parkedIdx,
+		"if !parkedExit { (guarded flag-cleanup defer, STATBUS-192)": deferIdx,
 	} {
 		if idx < 0 {
-			t.Fatalf("completeInProgressUpgrade missing %s — test is stale (STATBUS-135 parked-skip removed?)", name)
+			t.Fatalf("completeInProgressUpgrade missing %s — test is stale (STATBUS-135 parked-skip / STATBUS-192 guarded defer removed?)", name)
 		}
 	}
 	if parkedIdx > deferIdx {
-		t.Errorf("STATBUS-135: the parked-skip (upgradeParkedReason, idx=%d) must PRECEDE `defer d.removeUpgradeFlag()` (idx=%d) — otherwise the defer strips a parked row's flag on the skip's return.",
+		t.Errorf("STATBUS-135: the parked-skip (upgradeParkedReason, idx=%d) must PRECEDE the guarded flag-cleanup defer (if !parkedExit, idx=%d) — otherwise the defer strips a parked row's flag on the skip's return.",
 			parkedIdx, deferIdx)
 	}
 }

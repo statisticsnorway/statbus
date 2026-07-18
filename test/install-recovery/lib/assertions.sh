@@ -18,8 +18,23 @@ assert_health_passes() {
     local port="${HEALTH_PORT:-3010}"
     local i http_code
 
+    # STATBUS-192 must-fix 2: send Host: <SITE_DOMAIN> so the request matches the
+    # development Caddyfile's http://{{.Domain}} site key and traverses handle @rest →
+    # reverse_proxy rest:3000. With Host 127.0.0.1 (NO matching site key) Caddy returns
+    # its no-matching-site EMPTY 200 off the live proxy — an ILLUSORY pass on a dark box
+    # (proxy stays up for the maintenance page even when app/rest are down; the
+    # C-rollback run-3 mechanism, 2026-07-15). Down rest → 502 (RED, correct); healthy
+    # rest → PostgREST root 200 (GREEN). Resolve the domain from the VM's .env.config,
+    # override via $SITE_DOMAIN, default to the vm-bootstrap value.
+    local domain="${SITE_DOMAIN:-}"
+    if [ -z "$domain" ]; then
+        domain=$(VM_EXEC bash -c "cd ~/statbus && ./sb dotenv -f .env.config get SITE_DOMAIN 2>/dev/null" 2>/dev/null | tr -d ' \r\n' || true)
+    fi
+    [ -z "$domain" ] && domain="statbus-test.local"
+    echo "  (health probe Host: $domain → :$port/rest/)"
+
     for i in $(seq 1 60); do
-        http_code=$(VM_EXEC bash -c "curl -s -m 3 http://127.0.0.1:${port}/rest/ -o /dev/null -w '%{http_code}'" 2>/dev/null || echo "000")
+        http_code=$(VM_EXEC bash -c "curl -s -m 3 -H 'Host: ${domain}' http://127.0.0.1:${port}/rest/ -o /dev/null -w '%{http_code}'" 2>/dev/null || echo "000")
         if echo "$http_code" | grep -q "^[23]"; then
             echo "  ✓ health check passed (attempt $i, code=$http_code, ${i}×5s)"
             return 0

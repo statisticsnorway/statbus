@@ -24,17 +24,18 @@
 # (its interim-net deletion condition) and fabricate_resume_state drops one caller
 # toward AC#4's zero-callers end state.
 #
-# The end state is a reconciled LEDGER (row completed), NOT a restarted app: the
-# flagless self-heal reconciles the DB+binary truth, it does not run Step 11
-# (StartServices). This arc deliberately omits assert_health_passes — the current
-# product does not serve on this path (completeInProgressUpgrade marks the row
-# completed without ever bringing services up here). The now-deleted fabricated
-# scenario's own health-assert was ILLUSORY: it passed only because its
-# construction never touched the app (the box was already running the whole
-# time from the initial install), not because the self-heal itself produced a
-# serving instance — so its green health check proved nothing about this arc's
-# actual claim. When STATBUS-192 ships (serve-proven completed write), this arc
-# GAINS assert_health_passes for real.
+# The end state is a SERVING box (STATBUS-192): completeInProgressUpgrade's completed
+# write is now serve-proven — after the DB-health + at-target gates it runs the SAME tail
+# applyNewSbUpgrading runs (Step 11 StartServices → app health gate → maintenance off)
+# BEFORE state=completed, and a start/health failure parks at-target instead of certifying
+# a dark box. The kill site here (killed-by-system-after-migrations-before-completion,
+# service.go:6055) fires BEFORE Step 11, so the orphan's app/worker/rest are genuinely
+# DOWN — which makes this arc's assert_health_passes the STATBUS-192 RED→GREEN oracle: RED
+# on pre-fix code (the row goes 'completed' while the app never started — a dark box), GREEN
+# with the fix (the self-heal starts services + health-gates before completing). The
+# now-deleted fabricated scenario's own health-assert was ILLUSORY — it passed only because
+# its construction never touched the app (the box was already running from the initial
+# install), not because the self-heal itself produced a serving instance.
 #
 # Inputs (env): BASE_SHA, B_FULL (40-hex), B_BRANCH, V_VERSION (working lineage —
 # no construct spec; reuses the shared working B). VM name = $1.
@@ -161,5 +162,37 @@ assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 assert_systemd_restart_counter_bounded "$VM_NAME" "$UPGRADE_UNIT" 2
 echo "  ✓ completed + error NULL, [completed-from-in-progress] logged, flag absent, data intact, NRestarts bounded"
 
+# ── assert SERVING (STATBUS-192 serve-proof) — the RED→GREEN oracle ──
+# The kill fired BEFORE Step 11 (StartServices), so the orphan's app is DOWN. A
+# serve-proven completeInProgressUpgrade must have brought the app set up + passed the
+# app health gate BEFORE writing 'completed'. On pre-fix code the row goes 'completed'
+# while the app never started → this assert FAILS (RED). With STATBUS-192 → GREEN.
 echo ""
-echo "PASS: flagless-selfheal-at-target — a REAL at-target upgrade crash + a REAL flag truncation produced the [at-target in_progress row + no flag] orphan (the corrupt-flag reader removed the truncated flag, row untouched), and the SAME boot's completeInProgressUpgrade converged it to 'completed' (error NULL, [completed-from-in-progress] logged), flag absent, data intact, no restart loop. The fabricated 4-flagless-selfheal-at-target scenario's state now has a run-proven real-path producer — it deletes, and fabricate_resume_state drops one caller."
+echo "── assert SERVING (STATBUS-192): the self-heal started services + health-gated before 'completed' ──"
+assert_health_passes "$VM_NAME"
+
+# ── assert the READ-ONLY WINDOW was lifted BY THE TAIL (STATBUS-192 refinement 1) ──
+# Two-part discriminator (a write probe alone can't tell the arms apart — pre-fix, the
+# boot backstop clearStaleReadOnlyWindow runs right AFTER completeInProgressUpgrade and
+# clears the window, so a probe would be green on BOTH arms):
+#   (a) NEGATIVE journal assert — the backstop 'STATBUS-163 BACKSTOP' must be ABSENT in
+#       the arm window. Its firing is defined as an investigation trigger; its silence
+#       proves the tail lifted the window ITSELF (the right mechanism, refinement 1).
+#   (b) write-probe BELT — a fresh psql session must accept a write (no read_only 25006),
+#       proving the operator-visible truth (box accepts writes) regardless of mechanism.
+#       BEGIN/UPDATE(0-row still trips read-only)/ROLLBACK keeps the box byte-identical;
+#       NOT a temp table (temp writes are ALLOWED under read-only → illusory).
+echo ""
+echo "── assert refinement 1: the tail lifted the read-only window itself (backstop silent) + box accepts writes ──"
+[ "$(journal_has "STATBUS-163 BACKSTOP" "$SINCE")" = "no" ] || { echo "✗ boot backstop 'STATBUS-163 BACKSTOP' fired in the arm window — the serve-proof tail did NOT lift the read-only window itself (refinement 1 regressed)" >&2; exit 1; }
+echo "  ✓ no STATBUS-163 BACKSTOP in the arm window — the tail lifted the window itself"
+WRITE_PROBE=$(VM_EXEC bash -c "cd ~/statbus && printf 'BEGIN;\nUPDATE public.system_info SET value = value;\nROLLBACK;\n' | ./sb psql 2>&1" || true)
+if echo "$WRITE_PROBE" | grep -qiE "read_only_sql_transaction|read-only transaction|25006"; then
+    echo "✗ write probe hit read-only (25006) — the window is still ON after completion (refinement 1 did not lift it):" >&2
+    echo "$WRITE_PROBE" >&2
+    exit 1
+fi
+echo "  ✓ write probe accepted (BEGIN/UPDATE/ROLLBACK, no 25006) — the box serves writes"
+
+echo ""
+echo "PASS: flagless-selfheal-at-target — a REAL at-target upgrade crash + a REAL flag truncation produced the [at-target in_progress row + no flag] orphan (the corrupt-flag reader removed the truncated flag, row untouched), and the SAME boot's completeInProgressUpgrade SERVE-PROVENLY converged it to 'completed' (services started + app health gate passed + maintenance off BEFORE the completed write; error NULL, [completed-from-in-progress] logged), flag absent, data intact, no restart loop, the box SERVES (assert_health_passes with a real Host header — the STATBUS-192 oracle), and the read-only window was lifted BY THE TAIL (no STATBUS-163 BACKSTOP; a fresh write is accepted with no 25006 — refinement 1). The fabricated 4-flagless-selfheal-at-target scenario's state now has a run-proven real-path producer — it deletes, and fabricate_resume_state drops one caller."
