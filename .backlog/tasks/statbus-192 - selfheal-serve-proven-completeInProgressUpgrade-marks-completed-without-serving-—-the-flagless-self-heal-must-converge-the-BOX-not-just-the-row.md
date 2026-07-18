@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-07-15 08:52'
-updated_date: '2026-07-16 12:55'
+updated_date: '2026-07-18 12:49'
 labels:
   - upgrade
   - install-recovery
@@ -46,5 +46,19 @@ author: foreman
 created: 2026-07-16 12:55
 ---
 King ruling (2026-07-16): STATBUS-192 GATES the stable cut. Fork resolved as 'finish tail first' — no cut until the serve-proven completed write ships and is proven. Fix as ruled: completeInProgressUpgrade's completed write becomes serve-proven — run resumeNewSb's tail (app setup → app health gate → maintenance off → completed); health failure → park-at-target. RED→GREEN oracle: the flagless-selfheal arc's kill-before-StartServices run. Engineer builds, architect frozen-diff review.
+---
+
+author: architect
+created: 2026-07-18 12:49
+---
+FIX SHAPE refinement (architect, 2026-07-18, pre-build — premises verified at writing time). Three additions the build must carry; my AC#4 frozen-diff review checks them.
+
+1. THE TAIL INCLUDES THE READ-ONLY WINDOW LIFT. The window engages at step 2 (service.go:5305) and lifts only at completion (:6213) or rollback (:7524). Every flagless at-target orphan therefore carries window ON. Today's heal completes without lifting it, so the boot backstop clearStaleReadOnlyWindow (:2217) fires ROUTINELY on this path — but its firing is defined as an investigation trigger (:3521 'RECURRENCE INDICTS'), and the tick-belt caller (:2312) has no backstop after it at all. A completed box that rejects every write with 25006 is 'a broken box masquerading as healthy' (:6209). Build: after the completed write lands, run terminalExec(windowOffSQL) with the same COMPLETION_READ_ONLY_WINDOW_LIFTED escalation as :6213-6220. Ordering as in applyNewSbUpgrading — completed UPDATE first (senior truth), then the flip, loud on failure.
+
+2. HEALTH-FAIL PARK MUST END IN THE STANDARD PARKED SHAPE: parked row + flag file on disk + flock free + unit alive-idle. Premise: UnparkByID's sole caller is install_upgrade.go:315, inside runCrashRecovery, reachable only via StateCrashedUpgrade (flag present, flock free). A park from THIS caller writes no flag (parkUpgrade is row-only, :6528), so the parked row would be invisible to the install ladder (box probes nothing-scheduled) — while the park's own operator message (:5628) promises 'run ./sb install for a fresh attempt'. The promise must be kept. Build: on the health-fail path, BEFORE parking, materialize a faithful flag — the synthesized-flag genre already ruled for the flagless rollback (:3001-3019): ID/CommitSHA from the row, Trigger 'recovery', Holder service, Phase PhaseNewSbSwapped (the at-target truth; next boot's recoverFromFlag routes it to resumeNewSb, whose parked-skip holds alive-idle, flag kept), BackupPath from the row (persisted pre-migrate, so populated at-target). Write the file directly (json.MarshalIndent + os.WriteFile), do NOT acquireFlock — the flock is the destructive-work mutex and this pass is going idle; flag-present + flock-free is exactly the un-parkable state, and install's takeover quiesces the unit first by design. Order: flag write, THEN park row — a crash between the two leaves an ordinary crashed-upgrade, never the invisible shape. If the flag write itself fails (ENOSPC is a live park cause), park anyway and warn loudly that install-un-park is unavailable and scheduling a fix release remains the trigger (degrade, don't block the park). Consequence: the unconditional defer removeUpgradeFlag() (:2907) must NOT strip this flag — set a named parkedExit bool on the park path and check it in the defer. Do not re-read park state in the defer (a failed read defaults wrong); the bool is the truth of THIS pass. 135's own principle: parked rows keep their flag.
+
+3. COMPOSE-UP FAILURE MIRRORS THE EXISTING THREE-WAY (:6074-6093): diskPrecheckReason → park; classResource (ENOSPC backstop) → park; anything else → newSbUpgradingFailure, which at-target reduces to recordInProgressFailure — row stays in_progress, forward retry on the next tick/boot. Never completed, never a new hand-rolled disposition.
+
+Build notes (review checklist, not new rulings): (a) the tail runs with a LIVE progress log — today appendLog is closed at :3027 right before the completed write; the health/park narrative must reach the on-disk log served at /upgrade-logs. (b) 135 parked-skip stays first, unchanged. (c) supersede/callback/pruneBackups ordering stays post-completed as today. (d) AC#3: the arc adds assert_health_passes after convergence; compose-up + waitForRestReady warmup now sit inside CONVERGE_BUDGET_S=600 — do not pre-tune, the run is the oracle; if it times out, the budget is the first suspect, not the fix.
 ---
 <!-- COMMENTS:END -->
