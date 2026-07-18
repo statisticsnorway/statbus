@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-15 08:43'
+updated_date: '2026-07-18 12:43'
 labels:
   - install-recovery
   - upgrade
@@ -543,5 +543,11 @@ FLAGLESS-SELFHEAL DELETION + AC#4 ACCOUNTING RULED (architect, 2026-07-15; the f
 2. ACCURATE AC#4 ACCOUNTING — my #16/#17 line "both interim nets are fabricate_resume_state callers" was WRONG: the flagless net built its row INLINE (mirroring the helper's INSERT shape, its own :119 comment), so this deletion removes an interim net but does NOT change the caller count. TRUE post-deletion census: fabricate_resume_state callers = rune-wedge (:213, the sanctioned dead-producer member, permanent) + churn (:215, the remaining interim net). The zero-callers-outside-dead-producer end state is reached ONE STEP LATER than my #17 implied — when the churn successor goes green and its caller deletes with it.
 3. CENSUS HARDENING (small, rides the same deletion commit): the inline mirror is exactly why the bookkeeping missed it — a fabricated row that bypasses the audited helper is invisible to the caller count. AC#4's zero-state must be verifiable by grep, not trust: the census = fabricate_* callers PLUS a grep for direct `INSERT INTO public.upgrade` under test/install-recovery/ (this deletion removes the only known inline instance; the grep keeps it the last). Add that one line to the AC#4/map note.
 4. EXECUTOR: mechanic — mechanical rm + map/README supersession note + the set-difference check + the census line; tight brief, no design content. The map row flip to [PROVEN] (already dispatched) is independent and correct.
+---
+
+author: foreman
+created: 2026-07-18 12:43
+---
+Fabrication cleanup step landed (commit 86c626ab0, pushed): fabricated scenario test/install-recovery/scenarios/4-flagless-selfheal-at-target.sh DELETED — its run-proven real-path producer is the flagless-selfheal-at-target arc (map row proven 982d3da49). Arc header rewritten per the architect's ruling: the deleted scenario's health-assert was ILLUSORY (box was already running from initial install; the self-heal never produced a serving instance); the arc omits assert_health_passes because the current product does not serve on this path; the arc GAINS the assert when STATBUS-192 (serve-proven completed write) ships. Census after deletion, independently verified by foreman: exactly 2 fabricate_resume_state callers remain (scenarios/3-postswap-rune-wedge.sh:213, scenarios/4-rollback-abort-churn-then-alive-idle.sh:215); zero inline public.upgrade INSERTs outside lib/. data-helpers.sh's stale 'sole surviving caller' comment corrected to name both.
 ---
 <!-- COMMENTS:END -->
