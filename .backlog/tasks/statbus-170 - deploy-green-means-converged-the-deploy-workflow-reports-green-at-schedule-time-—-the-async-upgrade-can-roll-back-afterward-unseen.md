@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-07-13 01:35'
-updated_date: '2026-07-18 12:45'
+updated_date: '2026-07-18 14:46'
 labels:
   - deploy
   - ci
@@ -100,5 +100,21 @@ author: foreman
 created: 2026-07-18 12:45
 ---
 AC#2 SHIPPED (commit 83ce5b030, pushed to master): all 7 deploy-to-*.yaml workflows now capture apply-latest's deployed_commit= emit and poll the slot's byte-pinned ops/ci-deploy-status.sh <40hex> to a terminal verdict — rc 0 completed → green; rc 10 terminal non-converged → red with the row's detail in the log; rc 20/30 → keep polling; rc 127 (script absent, two-phase window) → poke-only green with self-expiring notice; budget exhausted (20m@30s, cloud budget per comment #4) → red naming last observed state. Rider (i) marker comment carried on every poll block per the accept-inline ruling (comment #5): semantics live in the script's exit contract, the 7 copies are deliberate, semantic changes land in the script once, loop-shape changes land 7× knowingly, consolidation moves the blocks with the workflows. Foreman review: six files byte-identical modulo slot name (normalized diff), dev differs only in its pre-existing ssh_dev wrapper; YAML parse verified on all 7. REMAINING: AC#3 red-run proof — deliberately failing upgrade → deploy run RED, on rune or dev/edge ONLY (prerelease slots deploy the tag, not the fixture — comment #4). Engineer has moved to the STATBUS-192 build; AC#3 scheduling follows.
+---
+
+author: architect
+created: 2026-07-18 14:46
+---
+AC#3 PLAN RULING (architect, 2026-07-18) — all three questions ruled; the proposal is fully vetted for the King's go/no-go.
+
+1. DEV/EDGE REJECTION: CONFIRMED — and I withdraw the dev/edge arm of my comment #4 ruling as a correction of my own error. Code-verified now: apply-latest on channel=edge fetches origin/master and deploys its HEAD (cli/cmd/upgrade.go:191-209) — the deploy-branch content is irrelevant on edge slots, so a fixture red-run there REQUIRES pushing the broken migration to master itself: a master-is-stable violation that propagates to every edge consumer and CI. rune is commit-addressed (deploy-to-rune-no.yaml:59: register + schedule ${{ github.sha }} from ops/standalone/deploy/rune-no), so the fixture stays entirely off master. RUNE ONLY.
+
+2. FIXTURE + RED SHAPE: SOUND, conforms to the ruled shape. Affirmed: fixture = master 7f690fb22 + one broken migration (DO RAISE, the arc harness's _ut_write_failing_v genre; no-op down is CORRECT — rollback is volume-restore per STATBUS-039, migrate-down never runs); branch force-pushed to the deploy branch only; images via images.yaml --ref the fixture branch; expected chain backup → real 4-day delta applies → RAISE → autonomous rollback to 77fa16fb2 → row rolled_back carrying the exception text → poll exit 10 → workflow RED naming it. Review-time check: the timestamp-after-seed-target claim (image build survives, only the deploy fails). Note for the King's framing: this variant exercises rollback across a REAL delta — higher realism, longer Norway maintenance window.
+
+3. CLEANUP: SOUND with three riders. (a) SEQUENCING — after the RED run, verify the box state matches expectation (rolled_back at 77fa16fb2, box serving) BEFORE firing the green half; never stack a deploy on an unexplained red state. (b) The GREEN half (clean master 7f690fb22 → same branch → real upgrade → completed → poll green) must be an EXPLAINED green (row completed keyed to 7f690fb22, box serving) before AC#3 checks; bonus accepted — it brings rune current. (c) EVIDENCE — reset the deploy branch to plain master and delete the fixture branch only AFTER both runs are adjudicated; weekly image GC is fine.
+
+ALT FIXTURE (77fa16fb2 + poll workflow file + broken migration): TECHNICALLY SOUND — vetted, with its trade named so the King chooses between two vetted options. Mechanics hold: a descendant of rune's current registers as newer; images build from the branch; the migrate delta is ONLY the broken migration → near-instant RAISE → fast volume-restore → minimal window. Named trades: (i) it does NOT exercise rollback across a real delta — the smaller window is bought with weaker realism; (ii) off-master frankencommit lineage — after branch deletion the row references a commit existing nowhere; acceptable for a deliberate drill with evidence preserved in the row + logs; (iii) the green half still deploys master, so rune ends current either way. KING'S CHOICE: realism-with-longer-window (main) vs minimal-window-with-less-proof (ALT). Timing context the foreman may carry to him: this drill lands BEFORE Norway goes live on this box — the best possible moment to exercise production rollback machinery.
+
+Pre-flight checks accepted as reported (rune idle, contract match, no deploy in flight, SSH secret intact). Nothing further from me until the run evidence lands.
 ---
 <!-- COMMENTS:END -->
