@@ -55,9 +55,100 @@ jobs:
         run: |
           install -m 600 /dev/stdin /tmp/key <<< "${{ secrets.SSH_KEY }}"
           known="$HOME/_work/.known_hosts"   # pinned in the runner-work volume (doc-026 delta 8)
-          ssh -i /tmp/key \
+          # STATBUS-170: capture apply-latest's stdout so the poll step learns the EXACT
+          # deployed commit (it emits `deployed_commit=<40hex>` after resolving the
+          # channel's target). The '~' in the ssh command is load-bearing (expands on the
+          # slot, not the runner) — do NOT change it to $HOME.
+          out="$(ssh -i /tmp/key \
             -o StrictHostKeyChecking=accept-new \
             -o "UserKnownHostsFile=$known" \
             statbus_jo@niue.statbus.org \
-            "cd ~/statbus && ./sb upgrade apply-latest"
+            "cd ~/statbus && ./sb upgrade apply-latest")"
+          rc=$?
           rm -f /tmp/key
+          printf '%s\n' "$out"
+          [ "$rc" -eq 0 ] || exit "$rc"
+          # Stash the resolved deployed commit for the poll step (empty if the box
+          # predates the emit → the poll degrades to poke-only green).
+          echo "DEPLOYED_COMMIT=$(printf '%s\n' "$out" | grep -oE '^deployed_commit=[a-f0-9]{40}$' | head -1 | cut -d= -f2)" >> "$GITHUB_ENV"
+
+      - name: Poll until the upgrade converges
+        # STATBUS-170 phase 2 (green-means-converged): a green deploy must mean the box
+        # CONVERGED (row `completed`), not merely that the poke was delivered — the daemon
+        # runs the upgrade asynchronously and can roll back after the poke returns. Poll
+        # the EXACT deployed commit (from apply-latest's deployed_commit= emit, Option A)
+        # so the read is correct on every channel. Cloud budget 20m@30s (architect ruling
+        # comment #4). The poll command is byte-pinned in the slot's sshdo allowlist
+        # (ops/niue/sshdoers): `~/statbus/ops/ci-deploy-status.sh <40hex>`. Absent emit
+        # (old box) → poke-only green + one notice (the two-phase 127 genre, self-expiring).
+        #
+        # RIDER (STATBUS-170 comment #5, architect — accept-inline ruling): the poll
+        # SEMANTICS live in ops/ci-deploy-status.sh's exit contract (0/10/20/30/64) — the
+        # single home. This per-workflow block is a THIN, STABLE loop (budget/interval/
+        # grep/notice) around that contract. The 7 copies across deploy-to-*.yaml are
+        # DELIBERATE, matching this surface's per-slot duplication — do NOT extract them
+        # into a standalone action. A SEMANTIC change lands in the script (once); a
+        # LOOP-SHAPE change lands here 7× knowingly. If the deploy-to-* workflows are
+        # ever consolidated, the poll blocks consolidate WITH them (not independently).
+        run: |
+          set -uo pipefail
+          if [ -z "${DEPLOYED_COMMIT:-}" ]; then
+            echo "::notice::apply-latest did not emit deployed_commit= (box predates the STATBUS-170 emit, or resolution failed) — deploy stays poke-only for this run; convergence unverified. Self-expiring as the fleet upgrades."
+            exit 0
+          fi
+          SHA="$DEPLOYED_COMMIT"
+          BUDGET=1200          # 20 minutes (cloud budget)
+          INTERVAL=30
+          DEADLINE=$(( $(date +%s) + BUDGET ))
+          install -m 600 /dev/stdin /tmp/pollkey <<< "${{ secrets.SSH_KEY }}"
+          trap 'rm -f /tmp/pollkey' EXIT
+          known="$HOME/_work/.known_hosts"
+
+          # The literal '~' below is load-bearing: it must reach the slot UNEXPANDED so
+          # the slot's shell expands it, AND it must match the sshdo-pinned byte-string
+          # exactly (ops/niue/sshdoers). Do NOT change it to $HOME.
+          poll() {
+            ssh -i /tmp/pollkey \
+              -o StrictHostKeyChecking=accept-new \
+              -o "UserKnownHostsFile=$known" \
+              -o BatchMode=yes \
+              -o ConnectTimeout=15 \
+              statbus_jo@niue.statbus.org \
+              "~/statbus/ops/ci-deploy-status.sh $SHA"
+          }
+
+          last="(no reading yet)"
+          while :; do
+            out="$(poll)"; rc=$?
+            [ -n "$out" ] && last="$out"
+            case "$rc" in
+              0)   # CONVERGED — state=completed
+                echo "::notice::deploy converged: $out"
+                echo "GREEN — $SHA reached 'completed' on jo."
+                exit 0 ;;
+              10)  # FAILED / rolled_back / superseded / skipped / dismissed / parked
+                echo "::error::deploy did NOT converge (terminal): $out"
+                echo "RED — terminal non-converged state for $SHA (state|parked|reason above)."
+                echo "Full detail on the box: journalctl -u 'statbus-upgrade@*' / the admin UI."
+                exit 1 ;;
+              20|30)  # 20 pending → keep polling; 30 transient read → tolerated tick
+                : ;;
+              64)  # usage — malformed arg; shouldn't happen with a 40-hex commit
+                echo "::error::ci-deploy-status.sh usage error (rc=64): $out"
+                exit 1 ;;
+              127) # remote script absent — two-phase rollout window; poke-only green
+                echo "::notice::jo does not carry ops/ci-deploy-status.sh yet (two-phase rollout window) — poke-only green for this run; convergence unverified. Self-expiring."
+                exit 0 ;;
+              255) # ssh transport failure — tolerated tick
+                echo "ssh transport hiccup (rc=255) — tolerated tick, consuming budget" ;;
+              *)
+                echo "unexpected poll rc=$rc (out='$out') — tolerated tick" ;;
+            esac
+            if [ "$(date +%s)" -ge "$DEADLINE" ]; then
+              echo "::error::poll budget exhausted (20m) — last observed: $last"
+              echo "RED — $SHA still not converged after 20m. The box continues the upgrade on its own;"
+              echo "check the admin UI / journalctl on niue (statbus_jo) to see whether it lands or rolls back."
+              exit 1
+            fi
+            sleep "$INTERVAL"
+          done
