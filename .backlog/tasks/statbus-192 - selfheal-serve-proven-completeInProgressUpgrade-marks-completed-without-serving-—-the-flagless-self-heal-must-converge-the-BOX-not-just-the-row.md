@@ -3,11 +3,11 @@ id: STATBUS-192
 title: >-
   selfheal-serve-proven: completeInProgressUpgrade marks 'completed' without
   serving — the flagless self-heal must converge the BOX, not just the row
-status: In Progress
+status: Done
 assignee:
   - engineer
 created_date: '2026-07-15 08:52'
-updated_date: '2026-07-18 14:14'
+updated_date: '2026-07-18 14:35'
 labels:
   - upgrade
   - install-recovery
@@ -33,9 +33,9 @@ ORACLE: the flagless-selfheal successor arc gains the health assert (assert_heal
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 completeInProgressUpgrade brings the app set up + runs the app health gate + maintenance off BEFORE the completed write; DB-health + observed-state gates unchanged; 135 parked-skip stays first
-- [ ] #2 Health failure routes to park-at-target (parkForDeterministicFailure: named reason, one siren, alive-idle) — never completed-while-dark, never a silent dark box
-- [ ] #3 The flagless-selfheal successor arc gains assert_health_passes after convergence — RED on pre-fix code, GREEN with the fix (the run is the oracle)
+- [x] #1 completeInProgressUpgrade brings the app set up + runs the app health gate + maintenance off BEFORE the completed write; DB-health + observed-state gates unchanged; 135 parked-skip stays first
+- [x] #2 Health failure routes to park-at-target (parkForDeterministicFailure: named reason, one siren, alive-idle) — never completed-while-dark, never a silent dark box
+- [x] #3 The flagless-selfheal successor arc gains assert_health_passes after convergence — RED on pre-fix code, GREEN with the fix (the run is the oracle)
 - [x] #4 Architect frozen-diff review before commit (recovery safety-core)
 <!-- AC:END -->
 
@@ -119,4 +119,16 @@ created: 2026-07-18 14:14
 ---
 AC#3 RED ARM: PROVEN (run 29646835552, conclusion=failure, log tmp/red-29646835552.log). Arc code from 7f690fb22 (Host-fixed assert) against pre-fix product 83ce5b030 — base identity confirmed in the row itself (from_commit_version=83ce5b03). Sequence: all convergence asserts PASSED (pre-fix marks the row completed on DB-health+at-target alone: [completed-from-in-progress], error NULL, flag absent, data intact, NRestarts bounded) — then FAILED EXACTLY AT assert_health_passes: 60/60 attempts code=502 (log lines 6279-6334), budget exhausted at line 6340, harness rc=1 at arc line 172 which IS the assert_health_passes call. This proves BOTH halves: the bug (pre-fix self-heals to completed-while-dark) AND must-fix 2's Host header (the probe now traverses the real site key to rest:3000 and reddens a dark box — 502, not the old illusory no-matching-site 200). Exactly the architect's stated failure mode from comment #5; no deviation, no assert loosening. GREEN ARM dispatched: run 29647643813, base_sha=7f690fb22, same arc; verdict + explained-green serve-proof evidence to follow.
 ---
+
+author: foreman
+created: 2026-07-18 14:35
+---
+AC#3 GREEN ARM: PROVEN + EXPLAINED (run 29647643813, conclusion=SUCCESS, log tmp/green-29647643813.log). Fix product identity: install row commit_sha=7f690fb22 (line 6018). Assert order in the log: convergence — row completed, error NULL, flag absent, data intact (6241) → health 200 on attempt 1 with Host: statbus-test.local (6244-6245) → no 'STATBUS-163 BACKSTOP' in the arm window, the tail lifted the read-only window itself (6248) → write probe accepted, no 25006 (6249) → PASS (6251). The explanation is the RED/GREEN contrast on the SAME kill-before-StartServices construction: RED (pre-fix) = dark box, 60/60 × 502 at the same assert; GREEN (fix) = serving on the first attempt — the serve-proof tail demonstrably started the app. Note for future readers: the [completed-from-in-progress] row JSON with from_commit_version prints only on FAILURE via _dump_selfheal_diagnostics, which is why RED shows it and GREEN grounds identity via the install row instead. TICKET COMPLETE: AC#1/#2 shipped in 7f690fb22 under the architect's byte-level review (comments #3-#5), AC#3 both arms delivered per the exact expected failure/pass modes, AC#4 checked at the delta re-review. The King's gate condition (comment #1: serve-proven fix ships AND proven on a real run) is satisfied.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The flagless at-target self-heal (completeInProgressUpgrade) no longer marks an upgrade row 'completed' without proving the box serves. Shipped in commit 7f690fb22: after the existing DB-health + at-target gates, the routine runs the serve-proof tail — disk precheck → compose up (step 11 services) → app health gate → maintenance off → completed write → read-only window lift with loud escalation — all under the gated systemd watchdog ticker. Health failure parks at target in the standard parked shape (faithful flag materialized before the row park, parkedExit-guarded flag-cleanup defer) so ./sb install can un-park as its message promises. Compose-up failure mirrors the existing three-way disposition. Architect frozen-diff review + delta re-review (byte-verified, independent test battery). Proven on real VMs: RED run 29646835552 (pre-fix product 83ce5b030) failed exactly at the transport-real health assert with 60/60 × 502 on the dark box; GREEN run 29647643813 (fix product) passed the full serve-proven narrative — health 200, backstop-silence journal negative (the tail lifted the window itself), real-table write probe accepted. Side effects shipped: assert_health_passes now sends Host: <SITE_DOMAIN> (fleet-wide strictness increase on the shared gate); the arc carries the window-lift discriminator. Spin-off filed: STATBUS-193 (resumeNewSb self-heal can complete a parked row, pre-existing).
+<!-- SECTION:FINAL_SUMMARY:END -->
