@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-12 07:59'
-updated_date: '2026-07-14 19:40'
+updated_date: '2026-07-18 14:35'
 labels:
   - roadmap
   - install-recovery
@@ -76,8 +76,6 @@ DONE = `./sb release stable` exits green with zero SKIP_* bypasses; the stable t
 - [ ] #5 External-standalone gate (C5) scoped + tasked after one full RC→stable→deploy cycle proven
 <!-- AC:END -->
 
-
-
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
@@ -141,5 +139,11 @@ ACCEPTANCE CRITERIA REPLACEMENT (for the foreman to apply; King ratifies): old #
 5. External-standalone gate (C5) scoped + tasked after one full RC→stable→deploy cycle proven  [carries over]
 
 The Implementation Notes (B5-vs-034, tag-path resolution, gate-batch coupling) stay — they are decision history, all settled, and the tag-path note is now live-proven rather than merely pinned.
+---
+
+author: foreman
+created: 2026-07-18 14:35
+---
+GATE UPDATE (2026-07-18): the King-ruled stable-cut gate STATBUS-192 (serve-proven completed write; ruling 2026-07-16, 'finish tail first') is SATISFIED — fix shipped (7f690fb22, architect byte-reviewed) and proven on real VMs (RED run 29646835552 failed exactly at the transport-real health assert on the pre-fix product; GREEN run 29647643813 passed the full serve-proven narrative incl. backstop-silence + write probe). 192 is Done. Also today: 170 AC#2 shipped (83ce5b030 — all 7 deploy workflows poll to a terminal verdict; only AC#3's deliberately-failing red-run remains) and the fabricated flagless-selfheal scenario deleted per ruling (86c626ab0). Fleet-wide note: assert_health_passes is now transport-real (Host header) — a strictness increase on a shared gate; illusorily-green scenarios may redden on the next full suite run, which is the gate working. New triage entry: STATBUS-193 (resumeNewSb can complete a parked row, pre-existing, architect-flagged).
 ---
 <!-- COMMENTS:END -->
