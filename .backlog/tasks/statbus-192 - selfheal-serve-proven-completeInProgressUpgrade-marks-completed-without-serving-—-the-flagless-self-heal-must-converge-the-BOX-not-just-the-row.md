@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-07-15 08:52'
-updated_date: '2026-07-18 13:12'
+updated_date: '2026-07-18 13:43'
 labels:
   - upgrade
   - install-recovery
@@ -36,7 +36,7 @@ ORACLE: the flagless-selfheal successor arc gains the health assert (assert_heal
 - [ ] #1 completeInProgressUpgrade brings the app set up + runs the app health gate + maintenance off BEFORE the completed write; DB-health + observed-state gates unchanged; 135 parked-skip stays first
 - [ ] #2 Health failure routes to park-at-target (parkForDeterministicFailure: named reason, one siren, alive-idle) — never completed-while-dark, never a silent dark box
 - [ ] #3 The flagless-selfheal successor arc gains assert_health_passes after convergence — RED on pre-fix code, GREEN with the fix (the run is the oracle)
-- [ ] #4 Architect frozen-diff review before commit (recovery safety-core)
+- [x] #4 Architect frozen-diff review before commit (recovery safety-core)
 <!-- AC:END -->
 
 ## Comments
@@ -88,5 +88,23 @@ MINOR 5 — PIN THE 192 FLIP SITE IN THE STRUCTURAL TEST. read_only_window_flip_
 OBSERVATION (pre-existing, NOT this diff's scope — foreman may want a backlog entry): resumeNewSb's self-heal branch (:6668-6737) can complete a PARKED row — its UPDATE guards on state='in_progress' only, and a parked row IS in_progress, so a parked box that later finds itself serving at target (containers up, no pending, health passes) completes without a deliberate un-park. Outcome-wise this satisfies the 160 doctrine (completed-only-when-serving) but contradicts 'a parked row un-parks ONLY via a deliberate operator trigger' as written on the 135 guard. Pre-dates this diff; the parked state THIS fix creates has containers down, so the branch cannot fire on it immediately. Flagging, not expanding scope.
 
 PROCESS: amendments 1-5 are engineer work on the same frozen unit; when they land I do a DELTA re-review of the amended hunks only, then the commit → AC#3 RED run (pre-fix HEAD) → GREEN run (the commit). The RED run must now fail at the FIXED assert_health_passes (502 on a dark box), not at the old illusory 200.
+---
+
+author: architect
+created: 2026-07-18 13:43
+---
+AC#4 DELTA RE-REVIEW (architect, 2026-07-18) — verdict: SHIP. All five amendments verified in the bytes, not from the report. AC#4 checked.
+
+1. Watchdog cover: byte-mirrors :5874 (gated ticker, appendLog progress, same stall/cadence constants), gate-open bump on entry, cancel+join via one deferred closure. Defer ordering verified LIFO-correct: ticker joins FIRST, then the progress log closes, then the parkedExit-guarded flag cleanup runs last — no use-after-close, no ping past return. Ticker scope extends past healthCheck through the completed write + flip — broader than my minimum, harmless (gate stays open ≤3m past the last Write; terminal writes are bounded). watchdog.go doc note updated to four callers.
+2. Health probe: Host header + domain resolution (env → VM .env.config → statbus-test.local default, matching vm-bootstrap:270). The probe now traverses http://{{.Domain}} → handle @rest → reverse_proxy rest:3000; dark box → 502 → RED.
+3. Arc discriminator: negative journal assert on 'STATBUS-163 BACKSTOP' (arm-scoped SINCE) + write-probe belt (BEGIN; UPDATE public.system_info SET value=value; ROLLBACK — the dropped WHERE clause vs my example is fine: all-rows-rolled-back is still byte-identical, and even an empty table trips read-only at the executor; temp-table trap correctly avoided).
+4. Window-flip comment now states the flip runs regardless of the completed-write outcome and names the deliberate divergence from :6168. Truthful.
+5. Flip test pins the 192 site via its unique escalation narrative.
+
+ACCEPTED RESIDUALS (recorded, no further iteration): (a) journal_has returns 'no' on a journalctl/ssh failure too, so the negative backstop assert could vacuously pass on a transport blip — narrow double-fault corner (blip AND backstop-fired AND lift-failed), partially covered by the write-probe belt; the run oracle + failure diagnostics dump would surface it on any later red. (b) The write probe's grep can't distinguish 'DB unreachable' from 'no 25006' — acceptable because the arc proved the DB reachable moments earlier (row-state polling).
+
+INDEPENDENT VERIFY (not the engineer's report): go build ./... clean, go vet clean, go test ./internal/upgrade -count=1 PASS (12.7s), bash -n clean on the arc + assertions.sh.
+
+GREEN LIGHT: foreman commits the frozen 6-file unit. Then AC#3: RED run on pre-fix HEAD — expected failure point is the FIXED assert_health_passes (502 on the dark box; if it instead fails elsewhere or passes, STOP and bring it back, no assert loosening); GREEN run on the commit — expected full pass including backstop-silence + write probe. The run is the oracle; PROVEN only on an explained green.
 ---
 <!-- COMMENTS:END -->
