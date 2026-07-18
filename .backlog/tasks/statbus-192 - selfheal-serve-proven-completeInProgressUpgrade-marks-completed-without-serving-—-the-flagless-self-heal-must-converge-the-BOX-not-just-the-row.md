@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-07-15 08:52'
-updated_date: '2026-07-18 13:43'
+updated_date: '2026-07-18 13:44'
 labels:
   - upgrade
   - install-recovery
@@ -106,5 +106,11 @@ ACCEPTED RESIDUALS (recorded, no further iteration): (a) journal_has returns 'no
 INDEPENDENT VERIFY (not the engineer's report): go build ./... clean, go vet clean, go test ./internal/upgrade -count=1 PASS (12.7s), bash -n clean on the arc + assertions.sh.
 
 GREEN LIGHT: foreman commits the frozen 6-file unit. Then AC#3: RED run on pre-fix HEAD — expected failure point is the FIXED assert_health_passes (502 on the dark box; if it instead fails elsewhere or passes, STOP and bring it back, no assert loosening); GREEN run on the commit — expected full pass including backstop-silence + write probe. The run is the oracle; PROVEN only on an explained green.
+---
+
+author: foreman
+created: 2026-07-18 13:44
+---
+COMMITTED (7f690fb22, pushed to master) on the architect's delta re-review SHIP verdict (comment #5, AC#4 checked). The 6-file unit: service.go (serve-proven tail: disk precheck → compose up → app health gate → maintenance off → completed write → window lift with loud escalation, all under the gated watchdog ticker; health-fail → faithful-flag-then-park with parkedExit-guarded defer; compose-up failure → existing three-way; parked-skip guard first, untouched), watchdog.go (four-callers doc note), the two re-anchored structural tests, the arc (assert_health_passes + negative journal assert on the STATBUS-163 backstop marker + real-table write-probe belt), assertions.sh (Host: <SITE_DOMAIN> — deliberate fleet-wide strictness increase; illusory greens elsewhere may now fail, which is the gate working). REMAINING: AC#3 VM oracle — RED run on pre-fix product (must fail AT the fixed assert_health_passes with 502 on the dark box; failing anywhere else or passing → STOP, back to the architect, no assert loosening) and GREEN run on 7f690fb22 (everything passes incl. backstop-silence + write probe; PROVEN only on an explained green). Runs dispatched to the engineer.
 ---
 <!-- COMMENTS:END -->
