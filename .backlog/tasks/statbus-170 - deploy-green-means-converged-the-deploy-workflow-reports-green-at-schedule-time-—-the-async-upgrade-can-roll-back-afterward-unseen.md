@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-07-13 01:35'
-updated_date: '2026-07-16 12:55'
+updated_date: '2026-07-18 12:45'
 labels:
   - deploy
   - ci
@@ -33,7 +33,7 @@ RELATION: completes the STATBUS-169 arc (green implies scheduled) up the stack (
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 Architect rules the polling shape (budget, per-channel differences, sshdo compatibility) — what green PROMISES is written down
-- [ ] #2 The deploy workflows poll to a terminal outcome: completed → green; rolled_back/failed/parked → red with the row's error text in the workflow log; timeout → red naming the last state
+- [x] #2 The deploy workflows poll to a terminal outcome: completed → green; rolled_back/failed/parked → red with the row's error text in the workflow log; timeout → red naming the last state
 - [ ] #3 Proven by a run: a deliberately failing upgrade turns the deploy run RED with the failure named (the run is the oracle)
 <!-- AC:END -->
 
@@ -94,5 +94,11 @@ author: foreman
 created: 2026-07-16 12:55
 ---
 Architect ruling rider (ii), recorded per the ruling on comment #5: the 7 per-workflow inline poll blocks are deliberate copies; their semantics live in ops/ci-deploy-status.sh's exit contract. IF the deploy-to-* workflows are ever consolidated, the poll blocks consolidate WITH them — do not consolidate the polls independently of the workflows.
+---
+
+author: foreman
+created: 2026-07-18 12:45
+---
+AC#2 SHIPPED (commit 83ce5b030, pushed to master): all 7 deploy-to-*.yaml workflows now capture apply-latest's deployed_commit= emit and poll the slot's byte-pinned ops/ci-deploy-status.sh <40hex> to a terminal verdict — rc 0 completed → green; rc 10 terminal non-converged → red with the row's detail in the log; rc 20/30 → keep polling; rc 127 (script absent, two-phase window) → poke-only green with self-expiring notice; budget exhausted (20m@30s, cloud budget per comment #4) → red naming last observed state. Rider (i) marker comment carried on every poll block per the accept-inline ruling (comment #5): semantics live in the script's exit contract, the 7 copies are deliberate, semantic changes land in the script once, loop-shape changes land 7× knowingly, consolidation moves the blocks with the workflows. Foreman review: six files byte-identical modulo slot name (normalized diff), dev differs only in its pre-existing ssh_dev wrapper; YAML parse verified on all 7. REMAINING: AC#3 red-run proof — deliberately failing upgrade → deploy run RED, on rune or dev/edge ONLY (prerelease slots deploy the tag, not the fixture — comment #4). Engineer has moved to the STATBUS-192 build; AC#3 scheduling follows.
 ---
 <!-- COMMENTS:END -->
