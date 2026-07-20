@@ -31,7 +31,7 @@ ordinal: 69000
 <!-- AC:BEGIN -->
 - [ ] #1 Trace tool pre-staged: engineer authors ops/github-runner/runner-health-trace.sh (read-only capture + explicit --with-disconnect arm) AND the K2 provisioning runbook template; architect reviews bytes; foreman commits — collapses the King's trace step to ONE command
 - [x] #2 [KING — K1, ~2 min] Run the committed trace on niue as root (one command, output pastes to this ticket): captures idle log cadence + the deliberate-disconnect reconnect signature for layer (b) calibration
-- [ ] #3 Engineer calibrates the layer-(b) freshness signal from K1's paste; finalizes ops/github-runner/runner-health.sh FINAL BYTES + the exact sshdoers line + the K2 runbook (keygen → printed sshdoers/authorized_keys lines → gh secret set → shred); architect final-bytes review; foreman commits (canonical copy only — NO workflow change yet)
+- [x] #3 Engineer calibrates the layer-(b) freshness signal from K1's paste; finalizes ops/github-runner/runner-health.sh FINAL BYTES + the exact sshdoers line + the K2 runbook (keygen → printed sshdoers/authorized_keys lines → gh secret set → shred); architect final-bytes review; foreman commits (canonical copy only — NO workflow change yet)
 - [ ] #4 [KING — K2, ~5 min, ONE session] Execute the pre-staged runbook on niue: install the script root-owned at /usr/local/sbin/statbus-runner-health (visual diff vs the reviewed commit), ssh-keygen, append the sshdoers + authorized_keys lines, gh secret set RUNNER_HEALTH_SSH_KEY, shred the private key — all bytes final per the STATBUS-167 one-session discipline
 - [ ] #5 Engineer re-adds the hosted canary job (self-hosted legs `needs:` it); foreman pushes; ONE PUSH proves the canary green-gating the self-hosted legs — the ticket's canary half closes on that run
 - [x] #6 seq-logserver + docker-maintenance migrations land via STATBUS-191 (engineer-ready, NOT King-gated, may close first); zero public-SSH CI consumers remain
@@ -163,5 +163,11 @@ author: architect
 created: 2026-07-20 12:09
 ---
 S6 DELTA LOOK (architect, 2026-07-20) — SHIP. Both amended hunks are byte-faithful to comment #11: b1 = host-side `docker top "$C" -eo pid,args` with capture-and-distinguish (docker-error vs no-match, distinct messages, both exit 2) and the pinned pid-column constraint comment; b2's exit-4 branch names the captured docker error. Independent bash -n clean. Self-containment is now total — external surface is docker inspect/top/logs + POSIX builtins, zero in-container dependencies. Foreman: commit (S7); K2 joins the King's queue with the runbook installing these exact bytes.
+---
+
+author: foreman
+created: 2026-07-20 12:09
+---
+S7 COMMITTED (da7e46af4, pushed): runner-health.sh final bytes — layer (b) = b1 (Listener alive via host-side docker top, capture-and-distinguish, pid-column constraint pinned) AND b2 (token-refresh marker within FRESH_WINDOW=65m, env-overridable), both fail-closed, exit 0 only on container+Listener+fresh. Calibrated from the K1 trace (comment #10); architect S6 review (comment #11) + delta look (comment #12) both green; engineer applied the amendment verbatim. AC#3 checked. NEXT: K2 — the King's one-session provisioning (runbook ops/github-runner/runner-health-K2-runbook.md at these committed bytes: install script root-owned at /usr/local/sbin/statbus-runner-health with visual diff, ssh-keygen, the printed sshdoers + authorized_keys lines, gh secret set RUNNER_HEALTH_SSH_KEY, shred) — queued to the King. Then S9 canary re-add + the one-push proof (AC#5) closes the canary half.
 ---
 <!-- COMMENTS:END -->
