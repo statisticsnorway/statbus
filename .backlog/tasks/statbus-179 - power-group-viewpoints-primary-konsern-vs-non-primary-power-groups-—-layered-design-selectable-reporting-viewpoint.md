@@ -1,7 +1,7 @@
 ---
 id: STATBUS-179
 title: >-
-  power-group-viewpoints: primary (konsern) vs non-primary power groups —
+  power-group-viewpoints: primary (EU:Enterprise Group,NO:konsern) vs non-primary power groups —
   layered design + selectable reporting viewpoint
 status: To Do
 assignee: []
