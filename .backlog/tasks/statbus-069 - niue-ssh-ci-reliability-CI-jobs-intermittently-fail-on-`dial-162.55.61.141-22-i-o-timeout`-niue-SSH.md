@@ -3,10 +3,10 @@ id: STATBUS-069
 title: >-
   niue-ssh-ci-reliability: CI jobs intermittently fail on `dial 162.55.61.141:22
   i/o timeout` (niue SSH)
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-06-17 07:59'
-updated_date: '2026-07-20 12:09'
+updated_date: '2026-07-20 12:14'
 labels:
   - tooling
   - not-install-upgrade
