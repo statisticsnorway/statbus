@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-12 07:59'
-updated_date: '2026-07-18 14:35'
+updated_date: '2026-07-20 12:41'
 labels:
   - roadmap
   - install-recovery
@@ -27,44 +27,36 @@ ordinal: 36000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-> NORTH STAR: unattended install/upgrade — the operator's sole action is the installer; Norway ships on the stable channel; then external standalone opens.
-> BENEFIT: everyone — King, foreman, every agent — orients work off one true map instead of the whole board; a stale map misroutes all of them.
-> STAGE: this ticket IS the roadmap (all stages).
-> COMPLEXITY: architect-design; foreman applies; King ratifies.
-> DEPENDS ON: nothing.
+> NORTH STAR: unattended install/upgrade. The operator runs the installer; everything else recovers on its own or stops in a clean, named state. Norway ships on the stable channel. Then external standalone opens.
 
----
+THE SPINE (the whole plan in one line):
+cut an RC → rune (no.statbus.org) installs it and converges → the gate list below is empty → `./sb release stable` → v2026.07.0 → Norway live on stable → scope external standalone.
 
-Campaign master plan + critical path. This ticket is the sequencing/overview; per-item detail lives in the referenced work tickets. Rewritten 2026-07-14 (architect, King-ratified); the prior Tracks A/B era text is preserved in git history — both tracks completed in full.
+Norway go-live and the stable gate are ONE motion: rune is a hardcoded canary slot of `./sb release stable` (release_canary.go:43-45).
 
-NORTH STAR: unattended install/upgrade. The operator's sole action is the installer; every failure self-recovers or terminates in a clean, actionable state. Norway (rune, 32 GB production data) rolls out on the stable channel; once one full RC→stable→deploy cycle is proven, external standalone opens.
+WHAT IS PROVEN (not hoped — refreshed 2026-07-20):
+- Recovery: the arc campaign closed green. Every coverage-map cell is run-proven on real VMs (071 holds the map). The rune failure class (10,229 restarts, nobody told) is dead in code and dead in observation.
+- Ledger: terminal states are teardown-immune, unresurrectable, and ride one writer path (154/159/160/163). The upgrade row cannot lie.
+- Release pipeline: rc.05 and rc.06 are cut; the fleet is green on both procurement paths — rune on the tag path, dev on the edge path. The release cut is the one migration bless (166).
+- Serve-proof: 'completed' now means the box VERIFIABLY SERVES, at every writer including the self-heal (192 — proven RED→GREEN on real VMs, 2026-07-18). This was the King's stable-cut gate. It is satisfied.
+- Operator contract: "run the installer" is still the only operator action — through park, un-park, crash recovery, repair, and the broken-restore re-attempt.
+- Deploy honesty, wiring half: all 8 deploy workflows poll the box to a terminal verdict — green now means CONVERGED, not poked (170 AC#2, commit 83ce5b030).
 
-WHERE WE STAND (proven, not hoped — refreshed 2026-07-14):
+WHAT REMAINS BEFORE THE STABLE CUT (the honest list, 2026-07-20):
+- 170 red-proof: the deploy pipeline must be SEEN reporting red on a failed deploy. King-ratified today as fully automated: the arc suite asserts the status script's verdicts on real rolled-back/completed rows, and a proof arc polls a broken deploy through a production-replica sshdo transport with a per-run ephemeral key. Code is built; one commit + one harness run remain. No fleet box is ever deliberately broken.
+- 187 top-3: three ruled silent-error fixes (the ABORT-branch restore error, the pre-restore compose-stop, the CI-not-ready unschedule). Ruled; the fix unit has not landed yet.
+- 183 live oracle: free at the next cut — the cut's own poke must converge row-completed.
+- 193 parked-row self-heal leak: ruled (guard the self-heal; small build), queued. Named here because the gate is "all install/upgrade tickets done"; the King may exclude it.
+- 071 tail: DOES NOT GATE — stated plainly. The release-gating remainder is empty; every coverage-map row is proven or retired. What is left is harness quality (the churn successor, retiring the last fabrication helper).
+- 069 canary (supporting lane, not a gate): the runner-health probe is provisioned on niue; a smoke-found probe bug is ruled and in fix, then re-provision + the one-push proof. It hardens the gate's own transport so a red means the product, never the pipe.
 
-1. THE RECOVERY SYSTEM IS CAMPAIGN-PROVEN. The install-recovery arc campaign closed GREEN: every coverage-map cell run-proven on real VMs (071 carries the map + campaign ledger). Park-degraded, ground-truth self-heal routing, OOM, migration-ceiling double-fire, stopped-proxy recovery (143), flagless exit-20 (144), the 12h migration ceiling (095) — shipped and run-proven. The rune failure class (10,229 restarts, nobody told) is dead in code and dead in observation.
+THE WALK: C1 RC cut ✓. C2 gate-capable RC ✓ (rc.06). C3 canary converged ✓ (rune tag + dev edge, at rc.05 AND rc.06). C4 `./sb release stable` → v2026.07.0 → Norway live — on the King's word once the list above is empty. C5 external standalone — scoped after one full RC→stable→deploy cycle is proven.
 
-2. THE LEDGER IS INTEGRITY-PROVEN. The ledger-integrity arc shipped whole: terminal states are teardown-immune with a state-log audit (154); a new claim atomically displaces a parked row to superseded (159); terminal rows are unresurrectable (160); every terminal write rides one core connection path (163). The upgrade row's story can no longer lie.
+PARALLEL LANES (never block the path): quality gates 176 (go-lint) + 186 (react-hooks); product 093 (Go worker), 142 (email), 173 (pgAdmin), 174 (Norway ident display), 179 (power-groups — King review); tooling 175 (pg_regress echo flake); hygiene 035 (branch cleanup, King-gated).
 
-3. THE RELEASE PIPELINE IS LIVE-PROVEN ON BOTH PROCUREMENT PATHS. rc.05 and rc.06 are cut and the fleet is green on both: Norway converged on the TAG path and dev on the EDGE/commit path, two days running. The old tag-manifest coverage worry is closed by live deployments. The release cut is the one migration bless (166); registration is git-first with commit_tags as cache (169); self-verify checks target identity (171); config generation owns PGRST_DB_SCHEMAS (the PostgREST v12→14 hard-fail, fixed at the shared writer); a delivered apply poke can no longer be silently dropped (183 — refusals are durably queryable).
+DONE = `./sb release stable` exits green with zero SKIP_* bypasses; the stable tag upgrades unattended on rune with zero watchdog kills and zero manual intervention; a deliberately-failed upgrade on a Norway-size DB rolls back to completion under the watchdog; the next RC cycle repeats it all untouched.
 
-4. THE OPERATOR CONTRACT HOLDS. "Run the installer" is still the sole operator action — through park, un-park, crash recovery, repair, and the broken-restore re-attempt (both classes run-proven). Norway's own rc.03 go-live was executed by the King via ./standalone.sh install, the canonical operator path. The batch-poisoning import trap (178) is fixed and shipped.
-
-5. THE GATE MACHINERY IS TRUSTWORTHY BY CONSTRUCTION. Test runs serialize on a kernel lock; Go tests run in CI; the empirical daemon-floor oracle runs standing on every master push (182); per-scenario install-recovery stamps compose local-or-CI runs against the RC tag's commit; the migration bless lives in the release cut alone — no second records of intent anywhere in the pipeline.
-
-WHAT STANDS BETWEEN HERE AND NORWAY-STABLE (the King's gate: all install/upgrade tickets done):
-- 071 wrap-up (In Progress): un-park-to-completion arc, C-rollback resurrection leg, the two transient-backoff legs, final fabrication cleanup (interim-net successors).
-- 170 phase 2 (In Progress): the deploy workflow polls ops/ci-deploy-status.sh to a terminal verdict — needs the King's sshdoers lines on the niue slots (the fleet carries the script as of rc.06), then the workflow poll + the deliberately-failing red-run proof.
-- 183 live oracle: the next cut's poke-within-seconds must converge row-completed (free at the next RC/stable cut).
-- 187 top-3 (silent-error catalog from the 176 burn-down): the ABORT-branch restoreDatabase error, the pre-restore compose-stop, the CI-not-ready unschedule — ruled and fixed as their own unit.
-- 069 canary transport (To Do; supporting lane): niue SSH flake + runner provisioning — the King rules whether it gates.
-
-TRACK C — THE WALK (current positions): rune/Norway is a hardcoded canary slot for `./sb release stable` (release_canary.go:43-45) — Norway go-live and the stable gate are the SAME motion. C1 RC cut ✓. C2 gate-capable RC ✓ (rc.06, carrying 164's names + 178). C3 canary deploys ✓ (dev edge + rune tag converged at rc.05 AND rc.06). C4 `./sb release stable` → v2026.07.0 → Norway live — on the King's word once the gate list clears. C5 external standalone: scoped AFTER one full RC→stable→deploy cycle proven.
-
-PARALLEL LANES (never block the path): quality gates 176 (go-lint, burn-down in flight) + 177 (ts-any, landed) + 186 (react-hooks warnings); product 093 (Go worker port), 142 (email), 173 (pgAdmin), 174 (Norway ident display), 179 (power-group viewpoints — designed, King review); tooling 168 (done), 175 (pg_regress echo flake), 184 (done); hygiene 035 (branch cleanup, King-gated).
-
-CRITICAL PATH: 071 remaining arcs green + 170 phase-2 wired + 187 top-3 landed → next cut (rc.07 or straight to the stable candidate; its poke live-proves 183) → fleet canary green (convergence-honest via 170) → `./sb release stable` → Norway live → scope C5.
-
-DONE = `./sb release stable` exits green with zero SKIP_* bypasses; the stable tag upgrades unattended on rune with zero watchdog kills + zero manual intervention; a deliberately-failed upgrade on a Norway-size DB rolls back to completion under the watchdog; the next RC cycle repeats it all untouched.
+Per-item detail lives in the work tickets. The 2026-07-14 rewrite and the Tracks A/B era text are preserved in git history.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
