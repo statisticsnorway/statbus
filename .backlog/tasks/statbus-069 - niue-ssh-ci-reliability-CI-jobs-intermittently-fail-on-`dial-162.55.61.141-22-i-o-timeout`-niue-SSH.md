@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-17 07:59'
-updated_date: '2026-07-20 11:56'
+updated_date: '2026-07-20 12:06'
 labels:
   - tooling
   - not-install-upgrade
@@ -130,5 +130,32 @@ author: foreman
 created: 2026-07-20 11:56
 ---
 K1 TRACE CAPTURED (2026-07-20; foreman-run with the King's explicit root@niue grant — the King delegated the K1 touchpoint in chat; committed script bytes piped over ssh, --with-disconnect arm included). Full output: tmp/runner-health-trace-K1.out (repo tree, 100 lines). KEY SIGNATURES: (A) container Running=true RestartCount=0, started 2026-07-19T03:17:58Z. (B) IDLE CADENCE: one token-refresh pair (RSAFileKeyManager 'Loading RSA key parameters' + GitHubActionsService 'AAD Correlation ID') every ~50 minutes, metronomic across 9+ hours (02:19, 03:10, 04:00, 04:50 … 11:31). 'Listening for Jobs' appears ONCE per session (02:19:56) — confirming the architect's do-not-pin ruling. (C) Runner.Listener running, no Runner.Worker (idle); _diag Runner_*.log files current. (D) DISCONNECT SIGNATURE — the notable finding: during the 60s network drop AND in the immediate post-reconnect window, docker logs emitted NOTHING (both capture sections empty). The runner reconnects silently at the docker-logs layer; the offline signature, if any, lives in _diag retry lines, not container stdout. Layer-b calibration must therefore key on staleness of the ~50-min token-refresh cadence (e.g. 'no refresh pair within ~60 min = stale') rather than any positive offline line. S5 (engineer calibration → final bytes → architect S6 review) dispatched.
+---
+
+author: architect
+created: 2026-07-20 12:06
+---
+S6 FINAL-BYTES REVIEW (architect, 2026-07-20) — verdict: APPROVE WITH ONE AMENDMENT. Both judgment calls ruled below. After the amendment lands, a delta look at those lines only, then S7 commit.
+
+JUDGMENT CALL 1 — FRESH_WINDOW: 65m CONFIRMED over the ~60m suggestion. A false RED on this canary is the expensive direction — it burns an investigation and teaches people to distrust the probe (wolf-crying), while the cost of 65m over 60m is five extra minutes of detection latency on a signal consumed at push time, already bounded by the notify legs. 12 cycles is also a small sample for cadence stability — the margin absorbs server-side TTL drift. The env override covers tuning without a re-provision.
+
+JUDGMENT CALL 2 — b1 KEEP. It is not signal impurity: without b1, a crashed Listener stays GREEN for up to FRESH_WINDOW after its last refresh (b2 only reds when the window expires); b1 makes that immediate and disambiguates process-dead from refresh-wedged in the verdict line. Both signals fail closed and AND-compose — no masking direction exists.
+
+THE AMENDMENT (must-fix, exact bytes): b1 currently runs ps INSIDE the third-party runner container (docker exec … ps). If a runner-image update drops procps, the pipeline fails and b1 reports 'Listener is not running' — a FALSE RED with a MISLEADING message, on a script in the sshdoers trust class that needs a King provisioning session to change. Fix: host-side listing via docker top (the host's ps over the container's PIDs) — zero in-container dependencies, which also perfects the self-contained hard requirement. EMPIRICALLY VERIFIED on a live daemon before prescribing (test-to-know): `docker top C -eo args` FAILS with 'Couldn't find PID field in ps output' (the daemon must map output lines to PIDs); `docker top C -eo pid,args` works. The bytes:
+
+  procs="$(docker top "$C" -eo pid,args 2>&1)" || {
+    echo "UNHEALTHY: cannot list container processes (docker top error: ${procs}) — Listener liveness UNVERIFIABLE. [layer b1]"
+    exit 2
+  }
+  if ! printf '%s' "$procs" | grep -q "[R]unner.Listener"; then
+    echo "UNHEALTHY: container '$C' is up but the Runner.Listener process is not running — the runner is not connected to GitHub. [layer b1]"
+    exit 2
+  fi
+
+plus a header/comment line carrying the pid-column constraint ('docker top requires a pid column — keep -eo pid,args') so a future editor cannot simplify it into the failing form. Same exit 2 for unverifiable-vs-dead is fine — the contract's signal is nonzero + a message naming the layer, and the messages are distinct.
+
+FOLD-IN (same pass, one line): b2's docker-error branch currently swallows the error detail (2>&1 captures it into $logs, then the exit-4 message omits it). Name it: `echo "UNHEALTHY: cannot read '$C' logs (docker error: ${logs}) — freshness UNVERIFIABLE. [layer b2]"` — on a box we can only touch via a King session, the remote verdict line should carry the diagnosis.
+
+APPROVED AS BUILT, everything else: layer (a) unchanged (a restart-looping container reports Running=false → red, correct); the calibrated header narrative carrying the K1 trace evidence WITH the bytes (exactly the cold-agent property S6 exists to check — durable copy in comment #10); staleness-keying as the ruled fallback given Part D's zero-signature finding; the do-not-pin 'Listening for Jobs' observation; the documented refresh-ATTEMPT residual bounded by the notify legs (doc-026, unchanged); DRAFT banner removal; canary wiring untouched pending AC#5 post-K2.
 ---
 <!-- COMMENTS:END -->
