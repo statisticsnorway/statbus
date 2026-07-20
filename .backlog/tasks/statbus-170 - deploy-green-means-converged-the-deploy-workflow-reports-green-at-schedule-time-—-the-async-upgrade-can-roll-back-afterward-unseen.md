@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-07-13 01:35'
-updated_date: '2026-07-20 12:43'
+updated_date: '2026-07-20 15:43'
 labels:
   - deploy
   - ci
@@ -169,5 +169,17 @@ author: architect
 created: 2026-07-20 12:43
 ---
 AMENDMENT after foreman line review (architect, 2026-07-20): confirmed bug in my sshdo-probe.sh, owned and fixed — ssh flattens argv into one remote-shell-parsed string, so the three-word pubkey re-split and arrived as $1='ssh-ed25519' with the key material dropped; comment #11's 'pubkey as an ARGUMENT — no shell touches the payload' claim was wrong at exactly that hop (the foreman verified the flattening against a live sshd). RULED (a): STDIN delivery — the setup script reads pubkey="$(cat)", the invocation feeds it via herestring (bash reads the script from the FILE so stdin stays free), making the STATBUS-021 claim literally true — PLUS a remote fail-fast validation (pubkey must match 'ssh-* <material>') that catches this truncation class at provision time instead of as an opaque transport failure three steps later. Locally verified: 3 fields / 99 chars preserved through the stdin path; bash -n + shellcheck clean. Header comment updated to name the argv-flattening hazard. Ready for the foreman's delta re-review of the changed lines → commit all five → the single harness oracle run (scenarios="failing deploy-status-proof").
+---
+
+author: architect
+created: 2026-07-20 15:43
+---
+RUN 29743621767 ADJUDICATED (architect, 2026-07-20) — AC#3 PROVEN on the failing leg's green (both verdict asserts passed on real rows; foreman may check AC#3). The deploy-status-proof red is ruled in two parts:
+
+1. RAISE-TEXT ASSERT — RULED (a), RE-ANCHORED, my rider corrected. The evidence rider 'explained red = the fixture's RAISE text in the reason' assumed a propagation the product does not do AND SHOULD NOT do: the row error is the CLASSED operator message by design — failure class ('deterministic forward failure') + the exact failing commit + remediation — while raw migration stderr stays in the retained migrate log + journal (the STATBUS-144 doctrine: a stderr tail is text-as-DATA; text-as-classifier is banned). The run showed the product delivering EXACTLY comment #1's promise — red with the row's error text, class + sha ca5142cb + what-to-do — which is BETTER operator text than a raw RAISE string. This is a legitimate (b)-rejection: propagating RAISE text into the row would duplicate the retained log and re-open the text-as-classifier door. Amended bytes applied to the arc (three hunks, my build): header + assert block + PASS line — the assert now requires state=rolled_back AND reason contains 'deterministic forward failure' AND the failing commit's 8-hex short (both via herestrings, keeping the no-pipes-into-grep-q hygiene). bash -n + shellcheck clean. NOT assert loosening: the new assert is TIGHTER than the old in what matters — it pins the class AND the exact commit, where the RAISE grep pinned neither.
+
+2. THE GOROUTINE DUMP — READ IN THE DIAGNOSTICS, NOT A PANIC, AND NOT BENIGN: it is a WATCHDOG kill ('Failed with result watchdog' — systemd SIGABRT makes the Go runtime dump all stacks and exit 2). The first daemon was ALIVE and progressing: discovery was serially verifying candidate images at ~17-21s each (13:05:48/13:06:09/13:06:30/13:06:47 journal lines) on the MAIN goroutine with no heartbeat — 8 cold candidates × ~20s > WatchdogSec=120. The known FALSE-KILL class (the boot-migrate precedent, service.go:2036) at an uncovered site. Bounded + self-correcting (restart → docker manifest cache → 35s discovery → clean claim + run), pre-claim, ledger untouched — so NOT release-gating and NOT this arc's defect — but a real product finding: FILED as STATBUS-195 with the fix shape (per-candidate heartbeat, hang-detection preserved) and a build-time interaction check (kill-after-claim recovery).
+
+ORACLE: one re-dispatch of deploy-status-proof alone — expected full green; AC#4 checks on it. The failing leg needs no re-run.
 ---
 <!-- COMMENTS:END -->
