@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-17 07:59'
-updated_date: '2026-07-20 12:46'
+updated_date: '2026-07-20 12:47'
 labels:
   - tooling
   - not-install-upgrade
@@ -32,7 +32,7 @@ ordinal: 69000
 - [ ] #1 Trace tool pre-staged: engineer authors ops/github-runner/runner-health-trace.sh (read-only capture + explicit --with-disconnect arm) AND the K2 provisioning runbook template; architect reviews bytes; foreman commits — collapses the King's trace step to ONE command
 - [x] #2 [KING — K1, ~2 min] Run the committed trace on niue as root (one command, output pastes to this ticket): captures idle log cadence + the deliberate-disconnect reconnect signature for layer (b) calibration
 - [x] #3 Engineer calibrates the layer-(b) freshness signal from K1's paste; finalizes ops/github-runner/runner-health.sh FINAL BYTES + the exact sshdoers line + the K2 runbook (keygen → printed sshdoers/authorized_keys lines → gh secret set → shred); architect final-bytes review; foreman commits (canonical copy only — NO workflow change yet)
-- [ ] #4 [KING — K2, ~5 min, ONE session] Execute the pre-staged runbook on niue: install the script root-owned at /usr/local/sbin/statbus-runner-health (visual diff vs the reviewed commit), ssh-keygen, append the sshdoers + authorized_keys lines, gh secret set RUNNER_HEALTH_SSH_KEY, shred the private key — all bytes final per the STATBUS-167 one-session discipline
+- [x] #4 [KING — K2, ~5 min, ONE session] Execute the pre-staged runbook on niue: install the script root-owned at /usr/local/sbin/statbus-runner-health (visual diff vs the reviewed commit), ssh-keygen, append the sshdoers + authorized_keys lines, gh secret set RUNNER_HEALTH_SSH_KEY, shred the private key — all bytes final per the STATBUS-167 one-session discipline
 - [ ] #5 Engineer re-adds the hosted canary job (self-hosted legs `needs:` it); foreman pushes; ONE PUSH proves the canary green-gating the self-hosted legs — the ticket's canary half closes on that run
 - [x] #6 seq-logserver + docker-maintenance migrations land via STATBUS-191 (engineer-ready, NOT King-gated, may close first); zero public-SSH CI consumers remain
 <!-- AC:END -->
@@ -201,5 +201,11 @@ author: architect
 created: 2026-07-20 12:46
 ---
 HERESTRING FIX DELTA LOOK (architect, 2026-07-20) — SHIP. Byte-faithful to comment #14: b1 and b2 both read `if ! grep -q… <<<"$buf"`, the class-naming comment sits at the set -uo pipefail line carrying the mechanism + the K2 catch. Independently verified: bash -n clean, shellcheck clean, and a whole-file grep confirms ZERO pipes into grep -q remain. Foreman: re-commit → re-provision root-owned under the standing grant (fresh visual diff against the new commit's sha) → re-smoke — the permitted probe must return HEALTHY exit 0 against the SAME job-inflated buffer class that triggered the false-stale, refused path re-checked — → only then K2 step 6 (gh secret set + shred). The re-smoke against the inflated buffer is the load-bearing check: it is the exact condition all pre-fix green tests never exercised.
+---
+
+author: foreman
+created: 2026-07-20 12:47
+---
+K2 COMPLETE (2026-07-20, foreman under the King's explicit grant; AC#4 checked). Full session record: (1) probe script installed root-owned at /usr/local/sbin/statbus-runner-health — first from da7e46af4, then RE-PROVISIONED from 0e3d524a5 after the smoke test caught the pipe-into-grep-q false-stale (comments #14/#15); installed sha256 fe6837a6… verified byte-identical to the reviewed commit both times. (2) Ephemeral-mint deviation, custody-equivalent: keypair minted on the foreman's machine (not on niue) so the PRIVATE half never crossed the wire; public half scp'd. (3) Hardened forced-command line on github-runner's authorized_keys (canary standard prefix); sshdoers line 'github-runner: /usr/local/sbin/statbus-runner-health' appended with backup /etc/sshdoers.bak-20260720-statbus069-k2. (4) SMOKE, the load-bearing run: refused path — 'id' denied 'not in allowlist'; permitted path — FIRST smoke returned false-stale exit 3 + broken-pipe on line 84 (the bug find, with a 91k-line job-inflated buffer); after the herestring fix + re-provision, the re-smoke against the SAME 91,141-line buffer returned: 'HEALTHY: container running, Runner.Listener alive, GitHub session fresh (token refresh within 65m).' exit 0 — the first real b2 proof under the runner's common post-job state. (5) Step 6: RUNNER_HEALTH_SSH_KEY repo secret set (2026-07-20T12:46:58Z, verified via gh secret list); local private key overwrite-deleted, zero key files remain. REMAINING on this ticket: AC#5 only — engineer re-adds the hosted runner-online canary job (self-hosted legs needs: it), foreman pushes, ONE PUSH proves the canary green-gating. Queued to the engineer behind the STATBUS-193 build.
 ---
 <!-- COMMENTS:END -->
