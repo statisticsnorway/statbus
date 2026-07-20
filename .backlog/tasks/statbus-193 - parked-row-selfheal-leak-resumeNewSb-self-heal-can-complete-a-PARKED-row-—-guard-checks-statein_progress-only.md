@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-18 13:27'
-updated_date: '2026-07-18 14:38'
+updated_date: '2026-07-20 15:46'
 labels:
   - upgrade
   - recovery
@@ -59,5 +59,19 @@ BUILD SHAPE (small; engineer or mechanic with this design):
 5. Architect frozen-diff review before commit (recovery safety-core, same lane as 192).
 
 Queueing: no urgency — behind 170 AC#3 per the foreman's sequencing; it is a latent leak with a siren-erasure consequence, not an active breaker.
+---
+
+author: architect
+created: 2026-07-20 15:46
+---
+FROZEN-DIFF REVIEW (architect, 2026-07-20) — verdict: SHIP, zero amendments. All three files byte-verified against the comment-#1 design:
+
+service.go: PRIMARY parked-read is the FIRST branch of the self-heal gate chain (inside the containers-at-target arm — no extra DB read on the normal mismatch path), 42703 fail-open with a log line that names the belt as the remaining protection; loud skip line naming the park reason + both deliberate exits; BELT = parkUpgrade's exact guard bytes on the self-heal UPDATE, ErrNoRows → the existing continuation fall-through with the comment updated truthfully (terminal OR PARKED). The schema premise is even documented in-line (20260703210000 ≤ floor 20260712024457 — confirmed, the fail-open is belt-and-suspenders by construction). One accepted non-issue: HasPending is computed before the branch chain even on a parked pass — one wasted read on a rare path, not worth the reorder.
+
+Structural pin: correct ordering semantics — strings.Index finds the EARLIEST upgradeParkedReason, so if the new read were removed while the continuation's later one survived, the precedence assert fails (the pin cannot be satisfied by the wrong read). Belt assert pins the guard bytes on the UPDATE's own line.
+
+Arc leg — the refinement is APPROVED and better than my design's caveat handling: because the guard is the FIRST branch, its journal line ('is PARKED … NOT self-healing') can only print when containersAtFlagTarget passed AND the row is parked — so on this still-health-failing fixture the line's presence behaviorally proves GUARD-BEFORE-GATE placement (a regression moving the guard after the health gate reds the arc: the gate would skip silently and the line never prints). The serving-while-parked state my design worried about is not needed; the discriminator is placement, not box health. The bounded journal-tail grep matches the file's local convention and cannot hit the runner-health SIGPIPE class (small buffer, single write).
+
+AC#2 stays UNCHECKED until the arc leg runs green — the run is the oracle. BUNDLED DISPATCH APPROVED: one harness run with scenarios="postswap-health-park deploy-status-proof" closes this ticket's arc oracle AND 170 AC#4 together — the two arcs are independent scenarios on separate VMs, no coupling.
 ---
 <!-- COMMENTS:END -->
