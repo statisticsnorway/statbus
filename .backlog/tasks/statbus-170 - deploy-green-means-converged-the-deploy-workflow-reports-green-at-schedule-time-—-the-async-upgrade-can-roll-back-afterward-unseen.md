@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-07-13 01:35'
-updated_date: '2026-07-20 15:43'
+updated_date: '2026-07-20 15:47'
 labels:
   - deploy
   - ci
@@ -34,7 +34,7 @@ RELATION: completes the STATBUS-169 arc (green implies scheduled) up the stack (
 <!-- AC:BEGIN -->
 - [x] #1 Architect rules the polling shape (budget, per-channel differences, sshdo compatibility) — what green PROMISES is written down
 - [x] #2 The deploy workflows poll to a terminal outcome: completed → green; rolled_back/failed/parked → red with the row's error text in the workflow log; timeout → red naming the last state
-- [ ] #3 The arc suite asserts ops/ci-deploy-status.sh's verdict contract on REAL end states: exit 10 + state=rolled_back on the failing arc's B row, exit 0 + state=completed on its C row — the script-contract leg, re-proven on every arc pass
+- [x] #3 The arc suite asserts ops/ci-deploy-status.sh's verdict contract on REAL end states: exit 10 + state=rolled_back on the failing arc's B row, exit 0 + state=completed on its C row — the script-contract leg, re-proven on every arc pass
 - [ ] #4 A dispatchable proof workflow drives a broken-fixture arc VM and polls it through PRODUCTION-REPLICATED transport (probe user, sshdo/sshdoers from ops/niue/, hardened forced command, per-run ephemeral keypair — no standing secret) using the poll-block bytes (8th deliberate copy); the poll reports the failure red with the row's error text and a refused non-allowlisted command proves the gate — the workflow run is the oracle
 <!-- AC:END -->
 
@@ -181,5 +181,11 @@ RUN 29743621767 ADJUDICATED (architect, 2026-07-20) — AC#3 PROVEN on the faili
 2. THE GOROUTINE DUMP — READ IN THE DIAGNOSTICS, NOT A PANIC, AND NOT BENIGN: it is a WATCHDOG kill ('Failed with result watchdog' — systemd SIGABRT makes the Go runtime dump all stacks and exit 2). The first daemon was ALIVE and progressing: discovery was serially verifying candidate images at ~17-21s each (13:05:48/13:06:09/13:06:30/13:06:47 journal lines) on the MAIN goroutine with no heartbeat — 8 cold candidates × ~20s > WatchdogSec=120. The known FALSE-KILL class (the boot-migrate precedent, service.go:2036) at an uncovered site. Bounded + self-correcting (restart → docker manifest cache → 35s discovery → clean claim + run), pre-claim, ledger untouched — so NOT release-gating and NOT this arc's defect — but a real product finding: FILED as STATBUS-195 with the fix shape (per-candidate heartbeat, hang-detection preserved) and a build-time interaction check (kill-after-claim recovery).
 
 ORACLE: one re-dispatch of deploy-status-proof alone — expected full green; AC#4 checks on it. The failing leg needs no re-run.
+---
+
+author: foreman
+created: 2026-07-20 15:47
+---
+AC#3 CHECKED per the architect's adjudication of run 29743621767 (comment #13): the failing leg passed green WITH both verdict asserts — exit 10 + state=rolled_back on the real B row, exit 0 + state=completed on the real C row. The script-contract leg now re-proves on every arc pass. The re-anchored explained-red assert (product's classed error: failure class + failing commit 8-hex + remediation — TIGHTER than the old RAISE-text grep, which pinned a string the product deliberately never writes) committed as abc3a9ed1 after foreman delta look; pushed. Re-dispatch of deploy-status-proof ALONE chained behind the images build on abc3a9ed1 — AC#4 checks on its green. Side finding from the same run filed as STATBUS-195 (discovery-loop watchdog starvation, bounded + self-correcting, not release-gating per the architect).
 ---
 <!-- COMMENTS:END -->
