@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-17 07:59'
-updated_date: '2026-07-20 12:14'
+updated_date: '2026-07-20 12:40'
 labels:
   - tooling
   - not-install-upgrade
@@ -169,5 +169,31 @@ author: foreman
 created: 2026-07-20 12:09
 ---
 S7 COMMITTED (da7e46af4, pushed): runner-health.sh final bytes — layer (b) = b1 (Listener alive via host-side docker top, capture-and-distinguish, pid-column constraint pinned) AND b2 (token-refresh marker within FRESH_WINDOW=65m, env-overridable), both fail-closed, exit 0 only on container+Listener+fresh. Calibrated from the K1 trace (comment #10); architect S6 review (comment #11) + delta look (comment #12) both green; engineer applied the amendment verbatim. AC#3 checked. NEXT: K2 — the King's one-session provisioning (runbook ops/github-runner/runner-health-K2-runbook.md at these committed bytes: install script root-owned at /usr/local/sbin/statbus-runner-health with visual diff, ssh-keygen, the printed sshdoers + authorized_keys lines, gh secret set RUNNER_HEALTH_SSH_KEY, shred) — queued to the King. Then S9 canary re-add + the one-push proof (AC#5) closes the canary half.
+---
+
+author: architect
+created: 2026-07-20 12:40
+---
+b2 FALSE-STALE BUG RULED (architect, 2026-07-20) — root cause CONFIRMED by local repro before ruling; exact bytes below. And owned plainly: my S6 + delta reviews missed this class — the smoke test caught what three reviews did not, which is the K2 runbook's smoke-before-shred step doing exactly its job (test-to-know).
+
+MECHANISM, verified: under `set -o pipefail`, `printf '%s' "$logs" | grep -qF …` breaks on a LARGE buffer — grep -q exits 0 at the FIRST match and closes the pipe; printf is still writing → SIGPIPE → rc 141 → pipefail turns the whole pipeline non-zero → `if !` reads a MATCH as a MISS → false STALE (exit 3) with the observed 'printf: write error: Broken pipe'. Repro (run locally, 2026-07-20): pipe form → WRONG-STALE; herestring form → correct. The trigger condition — a big docker-logs buffer — is precisely 'a CI job ran recently', the runner's COMMON state: every prior green test had small idle buffers. b1's `printf "$procs" | grep -q` is the same latent shape, masked only by small process lists. FALSE-RED direction, and worse: a WRONG false red (names staleness while the session is fresh) — exactly the wolf-crying class the 65m ruling paid to avoid.
+
+THE FIX (exact bytes — eliminate the PIPE, not the -q; herestrings have no writer to SIGPIPE):
+
+b1 line:
+  if ! grep -q "[R]unner.Listener" <<<"$procs"; then
+
+b2 line:
+  if ! grep -qF "$TOKEN_MARK" <<<"$logs"; then
+
+plus ONE class-naming comment, placed at the `set -uo pipefail` line so the constraint travels with its cause:
+  # NO pipes into grep -q in this script: under pipefail, grep -q's early exit
+  # SIGPIPEs the writer on a large buffer (rc 141) → the pipeline goes non-zero
+  # → a MATCH reads as a MISS (false STALE — caught by the K2 smoke test,
+  # 2026-07-20, right after a CI job ran). Herestrings (<<<) have no pipe.
+
+Rejected alternative, for the record: `… | grep -F … >/dev/null` (full read, no early exit) also works but KEEPS the pipe — the class survives for the next editor who 'optimizes' back to -q. The herestring deletes the class.
+
+PROCESS: engineer applies verbatim → my delta look at the two lines + comment → foreman re-commits AND re-provisions root-owned under the standing grant (the installed sha256 changes — re-verify the visual diff against the new commit) → re-smoke: permitted probe must return HEALTHY exit 0 with the job-inflated log buffer, refused path re-checked → only then K2 step 6 (gh secret set + shred). Holding step 6 was the right call — the key never leaves the scratchpad until the probe tells the truth.
 ---
 <!-- COMMENTS:END -->
