@@ -6817,8 +6817,27 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 		// resume, so HasPending==true correctly withholds self-heal until
 		// applyNewSbUpgrading applies the delta (or rolls back). It never short-circuits a
 		// delta-pending resume.
+		// STATBUS-193 PRIMARY (loud): a PARKED row must NEVER self-heal here. Parked rows
+		// are skipped by every automatic resume (the 135 parked-skip genre); this self-heal
+		// was the lone exception — its UPDATE guarded state='in_progress' only, and a parked
+		// row IS in_progress (recovery_parked_at set). Since STATBUS-192 the reach is real: a
+		// 192 health-fail park leaves containers UP at target, so if the cause clears by this
+		// boot all three gates below pass and the parked row would quietly complete — erasing
+		// the siren an operator was paged to investigate (the no-standing-self-heal doctrine).
+		// Read park state FIRST (same 42703 fail-open precedent as completeInProgressUpgrade;
+		// recovery_parked_at's migration 20260703210000 ships ≤ DaemonSchemaFloor 20260712024457,
+		// so by construction the column exists here — the fail-open is belt-and-suspenders). If
+		// parked, skip self-heal and fall through to the continuation, whose STATBUS-046
+		// budget-section parked-skip returns the unit to alive-idle with the flag kept. A parked
+		// row resolves ONLY by a fix-release re-trigger (STATBUS-159 displacement) or ./sb install.
+		parked, parkReason, pkErr := d.upgradeParkedReason(ctx, flag.ID)
+		if pkErr != nil {
+			log.Printf("resumeNewSb: park-state read failed for upgrade %d: %v — proceeding fail-open; the belt guard (AND recovery_parked_at IS NULL) on the self-heal UPDATE still protects a parked row", flag.ID, pkErr)
+		}
 		pending, perr := migrate.HasPending(d.projDir)
-		if perr != nil || pending {
+		if parked {
+			log.Printf("resumeNewSb: containers healthy at target but row %d is PARKED (%s) — NOT self-healing; a parked row resolves only by a fix-release re-trigger or ./sb install un-park (STATBUS-193)", flag.ID, parkReason)
+		} else if perr != nil || pending {
 			log.Printf("resumeNewSb: containers healthy at %s but migrations pending/unknown (pending=%v err=%v) — NOT self-healing; deferring to rollback (STATBUS-067)",
 				flag.Label(), pending, perr)
 		} else if hcErr := d.healthCheck(progress, 5, 5*time.Second); hcErr != nil {
@@ -6845,10 +6864,12 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 			// is the live log this function reopened/created above.
 			// STATBUS-154: teardown-immune self-heal completed write (fresh
 			// daemon-tagged conn + context.Background + retry). ErrNoRows here =
-			// the guarded row is already terminal → fall through to continuation
-			// (handled below), exactly as before.
+			// the guarded row is already terminal OR PARKED (STATBUS-193 belt:
+			// `AND recovery_parked_at IS NULL`, the same guard bytes parkUpgrade
+			// uses — covers the TOCTOU window and the primary read's fail-open) →
+			// fall through to continuation (handled below), exactly as before.
 			selfHealJSON, err := d.terminalUpdate(
-				"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready', error = NULL, log_relative_file_path = COALESCE(log_relative_file_path, $2) WHERE id = $1 AND state = 'in_progress'"+upgradeRowReturning,
+				"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready', error = NULL, log_relative_file_path = COALESCE(log_relative_file_path, $2) WHERE id = $1 AND state = 'in_progress' AND recovery_parked_at IS NULL"+upgradeRowReturning,
 				flag.ID, progress.RelPath())
 			if err == nil {
 				logUpgradeRow(LabelCompletedSelfHeal, selfHealJSON)

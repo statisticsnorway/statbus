@@ -406,6 +406,23 @@ for i in 1 2; do
         exit 1
     }
     echo "  ✓ extra restart #$i logged the resumePostSwap parked-skip line"
+    # STATBUS-193: the SAME restart must ALSO show resumeNewSb's SELF-HEAL parked-guard
+    # line — "containers healthy at target but row N is PARKED — NOT self-healing" — proving
+    # the new PRIMARY guard fired. It is the FIRST branch of the self-heal gate chain, so it
+    # SHORT-CIRCUITS the self-heal on the parked read, BEFORE the health gate. On this
+    # still-health-failing fixture the health gate would otherwise have done the skipping
+    # (the design's named landing-state caveat: serving-at-target-while-parked can't be
+    # produced here — B's auth_status RAISEs until C's V3 fix, which un-parks by
+    # displacement — so this leg lands in health-still-failing, where the guard-BEFORE-gate
+    # placement is exactly what makes the guard, not the health gate, the skipper; the belt
+    # `AND recovery_parked_at IS NULL` on the UPDATE + the resumeNewSb structural pin in
+    # recovery_escalation_test.go carry the atomic half).
+    echo "$JOURNAL_TAIL" | grep -qE "is PARKED.*NOT self-healing" || {
+        echo "✗ extra restart #$i: journal lacks resumeNewSb's STATBUS-193 self-heal parked-guard line ('… is PARKED … NOT self-healing') — a parked row could reach the self-heal completing UPDATE" >&2
+        echo "$JOURNAL_TAIL" | tail -30 >&2
+        exit 1
+    }
+    echo "  ✓ extra restart #$i: STATBUS-193 self-heal parked-guard fired (short-circuits before the health gate)"
     ATTEMPTS_AFTER=$(row_cols_for "$B_FULL" | cut -d'|' -f2)
     [ "$ATTEMPTS_AFTER" = "$ATTEMPTS_BEFORE" ] || { echo "✗ extra restart #$i: recovery_attempts changed ($ATTEMPTS_BEFORE → $ATTEMPTS_AFTER) — a parked-skip must NOT consume an attempt" >&2; exit 1; }
     echo "  ✓ extra restart #$i: recovery_attempts unchanged ($ATTEMPTS_AFTER)"
@@ -543,4 +560,4 @@ assert_flag_file_absent "$VM_NAME"
 assert_no_orphan_backup "$VM_NAME"
 
 echo ""
-echo "PASS: postswap-health-park (a real B-class at-target park — health past warmup, first occurrence, never same-step-twice — proved the full park substrate: alive-idle, NRestarts bounded+frozen, siren exactly once per park-event across an install-driven re-park [daemon unit stays ACTIVE post-re-park, STATBUS-147], resumePostSwap's own parked-skip line across two extra restarts, never rolled_back — then a genuine fix release [C, a NEW migration V3] arrived at the parked box and completed, restoring health with data intact)"
+echo "PASS: postswap-health-park (a real B-class at-target park — health past warmup, first occurrence, never same-step-twice — proved the full park substrate: alive-idle, NRestarts bounded+frozen, siren exactly once per park-event across an install-driven re-park [daemon unit stays ACTIVE post-re-park, STATBUS-147], resumePostSwap's own parked-skip line across two extra restarts, the STATBUS-193 self-heal parked-guard firing on each [containers-at-target + parked → NOT self-healing, short-circuiting the health gate], never rolled_back — then a genuine fix release [C, a NEW migration V3] arrived at the parked box and completed, restoring health with data intact)"

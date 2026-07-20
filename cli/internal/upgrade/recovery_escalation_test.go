@@ -297,6 +297,52 @@ func TestCompleteInProgressUpgrade_ParkedSkipPrecedesFlagStrip(t *testing.T) {
 	}
 }
 
+// STATBUS-193 — resumeNewSb's post-swap SELF-HEAL must not complete a PARKED row. A
+// parked row is state='in_progress' with recovery_parked_at set, so the self-heal UPDATE's
+// state='in_progress'-only guard did NOT exclude it — the lone exception to the 135
+// "parked rows are skipped by every automatic resume" invariant. Two guards, both pinned:
+//
+//	PRIMARY (loud): a park-state read (upgradeParkedReason) PRECEDES the self-heal UPDATE,
+//	  so a parked row is logged + skipped before the completing write.
+//	BELT (atomic): the self-heal UPDATE carries `AND recovery_parked_at IS NULL` (the same
+//	  guard bytes parkUpgrade uses) → a parked row yields ErrNoRows → fall-through, covering
+//	  the TOCTOU window and the primary read's 42703 fail-open.
+//
+// Source-order guard — resumeNewSb needs a live DB to exercise behaviorally.
+func TestResumeNewSb_SelfHealSkipsParkedRow(t *testing.T) {
+	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	body := extractFuncBody(t, string(src), "func (d *Service) resumeNewSb(")
+
+	// The self-heal completed-UPDATE (the only 'SET state = completed' in resumeNewSb;
+	// the continuation delegates to applyNewSbUpgrading, a separate func body).
+	selfHealUpdIdx := strings.Index(body, "SET state = 'completed'")
+	if selfHealUpdIdx < 0 {
+		t.Fatal("resumeNewSb: self-heal completed UPDATE not found — test is stale (STATBUS-193)")
+	}
+	// BELT: the parked guard must be on that UPDATE's line.
+	selfHealLine := body[selfHealUpdIdx:]
+	if nl := strings.IndexByte(selfHealLine, '\n'); nl > 0 {
+		selfHealLine = selfHealLine[:nl]
+	}
+	if !strings.Contains(selfHealLine, "AND recovery_parked_at IS NULL") {
+		t.Error("STATBUS-193 BELT: resumeNewSb's self-heal UPDATE must carry `AND recovery_parked_at IS NULL` — a parked row (which is in_progress) must not be completed by the self-heal")
+	}
+
+	// PRIMARY: the park-state read (first upgradeParkedReason — the continuation's is later)
+	// must PRECEDE the self-heal UPDATE.
+	parkedReadIdx := strings.Index(body, "d.upgradeParkedReason(ctx, flag.ID)")
+	if parkedReadIdx < 0 {
+		t.Fatal("STATBUS-193 PRIMARY: resumeNewSb must read park state (upgradeParkedReason) before self-healing — not found")
+	}
+	if parkedReadIdx > selfHealUpdIdx {
+		t.Errorf("STATBUS-193 PRIMARY: the park-state read (idx=%d) must PRECEDE the self-heal UPDATE (idx=%d) — a parked row must be skipped before the completing write.",
+			parkedReadIdx, selfHealUpdIdx)
+	}
+}
+
 // STATBUS-044 comment #6 (architect F2) — a deliberate ./sb install un-park must
 // grant ONE genuinely-fresh attempt. UnparkByID resets the ROW's recovery_attempts,
 // but the flag's frozen Step + PriorDeathStep survive on disk; ClearFlagStepHistory
