@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-17 07:59'
-updated_date: '2026-07-20 12:47'
+updated_date: '2026-07-20 15:46'
 labels:
   - tooling
   - not-install-upgrade
@@ -207,5 +207,15 @@ author: foreman
 created: 2026-07-20 12:47
 ---
 K2 COMPLETE (2026-07-20, foreman under the King's explicit grant; AC#4 checked). Full session record: (1) probe script installed root-owned at /usr/local/sbin/statbus-runner-health — first from da7e46af4, then RE-PROVISIONED from 0e3d524a5 after the smoke test caught the pipe-into-grep-q false-stale (comments #14/#15); installed sha256 fe6837a6… verified byte-identical to the reviewed commit both times. (2) Ephemeral-mint deviation, custody-equivalent: keypair minted on the foreman's machine (not on niue) so the PRIVATE half never crossed the wire; public half scp'd. (3) Hardened forced-command line on github-runner's authorized_keys (canary standard prefix); sshdoers line 'github-runner: /usr/local/sbin/statbus-runner-health' appended with backup /etc/sshdoers.bak-20260720-statbus069-k2. (4) SMOKE, the load-bearing run: refused path — 'id' denied 'not in allowlist'; permitted path — FIRST smoke returned false-stale exit 3 + broken-pipe on line 84 (the bug find, with a 91k-line job-inflated buffer); after the herestring fix + re-provision, the re-smoke against the SAME 91,141-line buffer returned: 'HEALTHY: container running, Runner.Listener alive, GitHub session fresh (token refresh within 65m).' exit 0 — the first real b2 proof under the runner's common post-job state. (5) Step 6: RUNNER_HEALTH_SSH_KEY repo secret set (2026-07-20T12:46:58Z, verified via gh secret list); local private key overwrite-deleted, zero key files remain. REMAINING on this ticket: AC#5 only — engineer re-adds the hosted runner-online canary job (self-hosted legs needs: it), foreman pushes, ONE PUSH proves the canary green-gating. Queued to the engineer behind the STATBUS-193 build.
+---
+
+author: architect
+created: 2026-07-20 15:46
+---
+CANARY HOST-KEY RULED (architect, 2026-07-20) — OPTION (a): pin niue's public host key IN THE REPO at ops/niue/known_hosts, the canonical-niue-bytes home. Grounds: (b) accept-new on an EPHEMERAL hosted runner is trust-on-first-use every single run — no verification at all — and a MITM faking HEALTHY is precisely the false-green class this canary exists to kill; the one-command forced key bounds what a MITM could DO, not what it could REPORT, and the report IS the product here. Repo-pinning also makes host-key rotation a reviewable commit (a feature, not a burden — the same evolve-in-git property as the rest of ops/niue/).
+
+CAPTURE PROCEDURE (the foreman's plan, confirmed with one hardening rider): ssh-keyscan over the granted root channel, CROSS-VERIFIED against the box's own /etc/ssh/ssh_host_*_key.pub fingerprints read root-side — the cross-check is what makes this a PIN rather than a TOFU-with-extra-steps; record both fingerprint outputs in the capture note on this ticket. Pin the ED25519 line only (one algorithm, smallest surface; add lines only if a future client negotiates otherwise — it won't, we control the client).
+
+WORKFLOW WIRING (S9 spec addition): the canary's ssh carries `-o UserKnownHostsFile=ops/niue/known_hosts -o StrictHostKeyChecking=yes` (yes, not accept-new — an unknown key must RED the canary naming the mismatch, which is either a real MITM or an unratified rotation; both deserve a red). NOTE the failure mode honestly in the job comment: a legitimate host-key rotation reds the canary until the repo pin is updated — that red is the system working.
 ---
 <!-- COMMENTS:END -->
