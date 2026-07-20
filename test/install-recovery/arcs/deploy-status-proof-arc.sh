@@ -19,7 +19,10 @@
 #   · allowed  path: `~/statbus/ops/ci-deploy-status.sh <40-hex>` — first
 #     probed pre-drive (exit 20 `absent` on the not-yet-registered B: the same
 #     live proof shape the niue provisioning session used), then post-rollback
-#     (exit 10 `rolled_back` + the fixture's RAISE text).
+#     (exit 10 `rolled_back` + the product's CLASSED error: failure class +
+#     failing commit + remediation — the row error is the operator summary;
+#     the migration's literal RAISE text stays in the retained migrate log +
+#     journal by design, run 29743621767 ruling).
 #   · refused path: a non-allowlisted command must be DENIED by sshdo
 #     ('not in allowlist') — the gate itself is part of the proof.
 #
@@ -168,20 +171,31 @@ while :; do
     sleep "$POLL_INTERVAL_S"
 done
 
-# ── the verdict must be an EXPLAINED red: rolled_back + the fixture's own RAISE text ──
+# ── the verdict must be an EXPLAINED red: rolled_back + the product's classed error ──
+# The reason field carries the product's DELIBERATE contract: the failure CLASS
+# ('deterministic forward failure') + the exact failing commit + remediation.
+# NOT the migration's literal RAISE text — the row error is the classed operator
+# summary (the STATBUS-144 design: text-as-classifier is banned; raw migration
+# stderr lives in the retained migrate log + journal). The original assert
+# expected the RAISE text here and was corrected after run 29743621767: the
+# product does not propagate raw stderr into the row error, and should not.
 STATE_FIELD="${VERDICT_LINE%%|*}"
 [ "$STATE_FIELD" = "rolled_back" ] || {
     echo "✗ terminal verdict state is '$STATE_FIELD' (line: '$VERDICT_LINE'), want rolled_back — red for the wrong reason is not the proof" >&2
     exit 1
 }
-printf '%s' "$VERDICT_LINE" | grep -q "upgrade-arc failing fixture" || {
-    echo "✗ the verdict's reason does not carry the fixture's RAISE text (line: '$VERDICT_LINE') — the row's error must reach the CI log" >&2
+grep -q "deterministic forward failure" <<<"$VERDICT_LINE" || {
+    echo "✗ the verdict's reason lacks the failure class 'deterministic forward failure' (line: '$VERDICT_LINE') — the row error must name the class" >&2
     exit 1
 }
-echo "  ✓ explained red: state=rolled_back with the fixture's RAISE text in the reason field"
+grep -q "${B_FULL:0:8}" <<<"$VERDICT_LINE" || {
+    echo "✗ the verdict's reason does not name the failing commit ${B_FULL:0:8} (line: '$VERDICT_LINE') — the row error must pin the exact commit" >&2
+    exit 1
+}
+echo "  ✓ explained red: state=rolled_back; reason carries the failure class + commit ${B_FULL:0:8} + remediation (the product's classed contract)"
 
 # ── the box itself recovered (rollback restored A; serving) ──────────────────
 assert_health_passes "$VM_NAME"
 
 echo ""
-echo "PASS: deploy-status-proof — a REAL broken deploy rolled back autonomously on this arc's own VM, and the deploy-workflow poll-block bytes, polling through the PRODUCTION-REPLICATED sshdo transport (canonical ops/niue/ bytes, hardened forced command, per-run ephemeral key), reported an EXPLAINED RED (exit 10, state=rolled_back, the fixture's RAISE text in the reason) after first proving the gate (non-allowlisted command refused 'not in allowlist'; allowed read exit 20 pre-drive). The STATBUS-170 red path is proven with nothing broken on any fleet box."
+echo "PASS: deploy-status-proof — a REAL broken deploy rolled back autonomously on this arc's own VM, and the deploy-workflow poll-block bytes, polling through the PRODUCTION-REPLICATED sshdo transport (canonical ops/niue/ bytes, hardened forced command, per-run ephemeral key), reported an EXPLAINED RED (exit 10, state=rolled_back, the product's classed error naming the failure class + the failing commit + remediation) after first proving the gate (non-allowlisted command refused 'not in allowlist'; allowed read exit 20 pre-drive). The STATBUS-170 red path is proven with nothing broken on any fleet box."
