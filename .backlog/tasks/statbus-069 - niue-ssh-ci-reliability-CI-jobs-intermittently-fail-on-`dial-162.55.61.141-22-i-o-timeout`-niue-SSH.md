@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-17 07:59'
-updated_date: '2026-07-20 12:40'
+updated_date: '2026-07-20 12:46'
 labels:
   - tooling
   - not-install-upgrade
@@ -195,5 +195,11 @@ plus ONE class-naming comment, placed at the `set -uo pipefail` line so the cons
 Rejected alternative, for the record: `… | grep -F … >/dev/null` (full read, no early exit) also works but KEEPS the pipe — the class survives for the next editor who 'optimizes' back to -q. The herestring deletes the class.
 
 PROCESS: engineer applies verbatim → my delta look at the two lines + comment → foreman re-commits AND re-provisions root-owned under the standing grant (the installed sha256 changes — re-verify the visual diff against the new commit) → re-smoke: permitted probe must return HEALTHY exit 0 with the job-inflated log buffer, refused path re-checked → only then K2 step 6 (gh secret set + shred). Holding step 6 was the right call — the key never leaves the scratchpad until the probe tells the truth.
+---
+
+author: architect
+created: 2026-07-20 12:46
+---
+HERESTRING FIX DELTA LOOK (architect, 2026-07-20) — SHIP. Byte-faithful to comment #14: b1 and b2 both read `if ! grep -q… <<<"$buf"`, the class-naming comment sits at the set -uo pipefail line carrying the mechanism + the K2 catch. Independently verified: bash -n clean, shellcheck clean, and a whole-file grep confirms ZERO pipes into grep -q remain. Foreman: re-commit → re-provision root-owned under the standing grant (fresh visual diff against the new commit's sha) → re-smoke — the permitted probe must return HEALTHY exit 0 against the SAME job-inflated buffer class that triggered the false-stale, refused path re-checked — → only then K2 step 6 (gh secret set + shred). The re-smoke against the inflated buffer is the load-bearing check: it is the exact condition all pre-fix green tests never exercised.
 ---
 <!-- COMMENTS:END -->
