@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-17 07:59'
-updated_date: '2026-07-15 08:43'
+updated_date: '2026-07-20 11:56'
 labels:
   - tooling
   - not-install-upgrade
@@ -30,7 +30,7 @@ ordinal: 69000
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 Trace tool pre-staged: engineer authors ops/github-runner/runner-health-trace.sh (read-only capture + explicit --with-disconnect arm) AND the K2 provisioning runbook template; architect reviews bytes; foreman commits — collapses the King's trace step to ONE command
-- [ ] #2 [KING — K1, ~2 min] Run the committed trace on niue as root (one command, output pastes to this ticket): captures idle log cadence + the deliberate-disconnect reconnect signature for layer (b) calibration
+- [x] #2 [KING — K1, ~2 min] Run the committed trace on niue as root (one command, output pastes to this ticket): captures idle log cadence + the deliberate-disconnect reconnect signature for layer (b) calibration
 - [ ] #3 Engineer calibrates the layer-(b) freshness signal from K1's paste; finalizes ops/github-runner/runner-health.sh FINAL BYTES + the exact sshdoers line + the K2 runbook (keygen → printed sshdoers/authorized_keys lines → gh secret set → shred); architect final-bytes review; foreman commits (canonical copy only — NO workflow change yet)
 - [ ] #4 [KING — K2, ~5 min, ONE session] Execute the pre-staged runbook on niue: install the script root-owned at /usr/local/sbin/statbus-runner-health (visual diff vs the reviewed commit), ssh-keygen, append the sshdoers + authorized_keys lines, gh secret set RUNNER_HEALTH_SSH_KEY, shred the private key — all bytes final per the STATBUS-167 one-session discipline
 - [ ] #5 Engineer re-adds the hosted canary job (self-hosted legs `needs:` it); foreman pushes; ONE PUSH proves the canary green-gating the self-hosted legs — the ticket's canary half closes on that run
@@ -124,5 +124,11 @@ author: foreman
 created: 2026-07-15 08:43
 ---
 NEW KING SESSION ITEM (architect S2 review, 2026-07-15) — recorded for the K-list: HARDEN THE EXISTING SLOT KEYS' FORCED-COMMANDS. The canary key's forced-command is ruled HARDENED (command="/usr/local/bin/sshdo" + no-agent-forwarding,no-port-forwarding,no-pty,no-X11-forwarding,no-user-rc — free for the most-exposed key class, a repo-secret probe key). Fleet consistency is restored by leveling UP: apply the same no-* options to the existing seven slot keys' bare command="/usr/local/bin/sshdo" lines. Kept a SEPARATE King session item (NOT folded into K2): a broken forced-command locks CI out of that slot, so it needs its own before/after verification — never smuggled into the canary provisioning. Foreman-verified live baseline (2026-07-15 root probe): all seven slot keys currently use the BARE prefix; /usr/local/bin/sshdo is the correct binary path.
+---
+
+author: foreman
+created: 2026-07-20 11:56
+---
+K1 TRACE CAPTURED (2026-07-20; foreman-run with the King's explicit root@niue grant — the King delegated the K1 touchpoint in chat; committed script bytes piped over ssh, --with-disconnect arm included). Full output: tmp/runner-health-trace-K1.out (repo tree, 100 lines). KEY SIGNATURES: (A) container Running=true RestartCount=0, started 2026-07-19T03:17:58Z. (B) IDLE CADENCE: one token-refresh pair (RSAFileKeyManager 'Loading RSA key parameters' + GitHubActionsService 'AAD Correlation ID') every ~50 minutes, metronomic across 9+ hours (02:19, 03:10, 04:00, 04:50 … 11:31). 'Listening for Jobs' appears ONCE per session (02:19:56) — confirming the architect's do-not-pin ruling. (C) Runner.Listener running, no Runner.Worker (idle); _diag Runner_*.log files current. (D) DISCONNECT SIGNATURE — the notable finding: during the 60s network drop AND in the immediate post-reconnect window, docker logs emitted NOTHING (both capture sections empty). The runner reconnects silently at the docker-logs layer; the offline signature, if any, lives in _diag retry lines, not container stdout. Layer-b calibration must therefore key on staleness of the ~50-min token-refresh cadence (e.g. 'no refresh pair within ~60 min = stale') rather than any positive offline line. S5 (engineer calibration → final bytes → architect S6 review) dispatched.
 ---
 <!-- COMMENTS:END -->
