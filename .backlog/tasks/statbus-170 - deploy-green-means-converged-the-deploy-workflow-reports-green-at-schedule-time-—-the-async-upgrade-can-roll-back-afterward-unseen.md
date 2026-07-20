@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-07-13 01:35'
-updated_date: '2026-07-18 14:47'
+updated_date: '2026-07-20 12:24'
 labels:
   - deploy
   - ci
@@ -34,7 +34,8 @@ RELATION: completes the STATBUS-169 arc (green implies scheduled) up the stack (
 <!-- AC:BEGIN -->
 - [x] #1 Architect rules the polling shape (budget, per-channel differences, sshdo compatibility) — what green PROMISES is written down
 - [x] #2 The deploy workflows poll to a terminal outcome: completed → green; rolled_back/failed/parked → red with the row's error text in the workflow log; timeout → red naming the last state
-- [ ] #3 Proven by a run: a deliberately failing upgrade turns the deploy run RED with the failure named (the run is the oracle)
+- [ ] #3 The arc suite asserts ops/ci-deploy-status.sh's verdict contract on REAL end states: exit 10 + state=rolled_back on the failing arc's B row, exit 0 + state=completed on its C row — the script-contract leg, re-proven on every arc pass
+- [ ] #4 A dispatchable proof workflow drives a broken-fixture arc VM and polls it through PRODUCTION-REPLICATED transport (probe user, sshdo/sshdoers from ops/niue/, hardened forced command, per-run ephemeral keypair — no standing secret) using the poll-block bytes (8th deliberate copy); the poll reports the failure red with the row's error text and a refused non-allowlisted command proves the gate — the workflow run is the oracle
 <!-- AC:END -->
 
 ## Comments
@@ -128,5 +129,20 @@ VERIFIED SOUND: C1 keeping the rolled_back row is right — honest history, and 
 RIDER REMAP: comment #8's rider (c) — 'delete the fixture branch only after both runs are adjudicated' — is MOOT as written (no branch exists). Its intent transfers as two sequencing points: (i) RECORD the fixture commit's 40-hex SHA on this ticket before C2 fires — after the force-push the commit is orphaned and the row + workflow log + this ticket are its only durable references (the engineer's local clone retains the objects; do not rely on that alone); (ii) the RED run is adjudicated (rider a: rolled_back at 77fa16fb2, box serving, poll exit 10, workflow RED naming the RAISE) BEFORE C2 — C2 is both the green trigger and the orphaning act, so adjudication strictly precedes it. C3 weekly GC accepted; no explicit image delete needed.
 
 Nothing further from me. The plan — venue (rune only), fixture + red shape, cleanup C1-C6 with the rider remap, and the vetted ALT — goes to the King.
+---
+
+author: architect
+created: 2026-07-20 12:24
+---
+KING RATIFIED + PLAN REVISED (architect at the King's console, 2026-07-20) — AC#3 is REPLACED by the two automated ACs above; the rune drill is RETIRED. This comment supersedes the drill plan in comments #8/#9 (their venue analysis stands as history; their execution never runs).
+
+THE KING'S CHALLENGE, and what it corrected: the drill proposal conflated 'the workflow only exists in CI' with 'the proof requires a fleet box'. It does not. What AC#3 must prove is poll-loop bytes + transport + status script against a genuinely failed upgrade — and an ARC VM can carry all of it: the arc suite already produces real rolled_back/completed rows via the real service pipeline, and the VM can be provisioned with the SAME transport as production because sshdo/sshdoers' canonical copies live in-repo (ops/niue/). Nothing is ever deliberately broken on a fleet box — dev cannot take a fixture at all (edge deploys origin/master HEAD, cli/cmd/upgrade.go:191-209), and rune no longer needs to.
+
+THE TWO BUILD UNITS (architect builds hands-on per the King's direct instruction; foreman commits + runs oracles):
+U1 — SCRIPT-CONTRACT ARC LEG: assertions.sh gains assert_deploy_status <vm> <40hex> <want_exit> <want_state> (runs ~/statbus/ops/ci-deploy-status.sh on the VM over the harness transport, asserts exit code + state field). failing-arc.sh calls it after phase B (10/rolled_back) and phase C (0/completed) — both verdict classes, one existing arc, no new VM cost.
+U2 — TRANSPORT PROOF WORKFLOW: (a) a probe-provisioning helper installs sshdo root-owned from ops/niue/sshdo onto the arc VM, writes the sshdoers line for the probe user (the 40-hexdigit wildcard pattern), and installs the run's ephemeral pubkey under the HARDENED forced command (command=sshdo + no-agent-forwarding,no-port-forwarding,no-pty,no-X11-forwarding,no-user-rc — the 069-ruled prefix); (b) deploy-status-proof.yaml (workflow_dispatch, [self-hosted, niue], HCLOUD_TOKEN already a repo secret — verified) mints the keypair, drives install + broken-fixture deploy to rolled_back, then ITS OWN poll-block copy polls through the forced-command transport expecting exit 10 + the row's error text, plus one refused-command probe ('not in allowlist'); VM reaped in an always() step.
+CADENCE: workflow_dispatch now; the foreman may add a schedule later — each run costs ~1 VM-hour.
+RESIDUAL, named: the seven production workflows' red-branch lines are not executed by this proof — bounded by rider (i) (semantics live in the script, copies deliberately thin) and by every real deploy exercising the green path.
+EVIDENCE RIDER carried over from the drill ruling where it still applies: the proof run must be an EXPLAINED red (state=rolled_back with the fixture's RAISE text) before the AC checks.
 ---
 <!-- COMMENTS:END -->
