@@ -48,6 +48,10 @@
 # b2 — bounded by the notify legs themselves screaming on the next push (they queue/fail
 # when the runner truly cannot take jobs). b1+b2 detect the primary failure mode (the
 # Listener process crashed or its refresh loop wedged), which is what a canary must catch.
+# NO pipes into grep -q in this script: under pipefail, grep -q's early exit
+# SIGPIPEs the writer on a large buffer (rc 141) → the pipeline goes non-zero
+# → a MATCH reads as a MISS (false STALE — caught by the K2 smoke test,
+# 2026-07-20, right after a CI job ran). Herestrings (<<<) have no pipe.
 set -uo pipefail
 
 C=gha-runner   # container_name from ops/github-runner/docker-compose.yml
@@ -71,7 +75,7 @@ procs="$(docker top "$C" -eo pid,args 2>&1)" || {
   echo "UNHEALTHY: cannot list container processes (docker top error: ${procs}) — Listener liveness UNVERIFIABLE. [layer b1]"
   exit 2
 }
-if ! printf '%s' "$procs" | grep -q "[R]unner.Listener"; then
+if ! grep -q "[R]unner.Listener" <<<"$procs"; then
   echo "UNHEALTHY: container '$C' is up but the Runner.Listener process is not running — the runner is not connected to GitHub. [layer b1]"
   exit 2
 fi
@@ -81,7 +85,7 @@ logs="$(docker logs "$C" --since "$FRESH_WINDOW" 2>&1)" || {
   echo "UNHEALTHY: cannot read '$C' logs (docker error: ${logs}) — freshness UNVERIFIABLE. [layer b2]"
   exit 4
 }
-if ! printf '%s' "$logs" | grep -qF "$TOKEN_MARK"; then
+if ! grep -qF "$TOKEN_MARK" <<<"$logs"; then
   echo "UNHEALTHY: no OAuth token refresh in the last $FRESH_WINDOW — the runner's GitHub session is stale (its Listener stopped refreshing; expected cadence ~50m). [layer b2]"
   exit 3
 fi
