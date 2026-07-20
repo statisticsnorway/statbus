@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-17 07:59'
-updated_date: '2026-07-20 12:06'
+updated_date: '2026-07-20 12:09'
 labels:
   - tooling
   - not-install-upgrade
@@ -157,5 +157,11 @@ plus a header/comment line carrying the pid-column constraint ('docker top requi
 FOLD-IN (same pass, one line): b2's docker-error branch currently swallows the error detail (2>&1 captures it into $logs, then the exit-4 message omits it). Name it: `echo "UNHEALTHY: cannot read '$C' logs (docker error: ${logs}) — freshness UNVERIFIABLE. [layer b2]"` — on a box we can only touch via a King session, the remote verdict line should carry the diagnosis.
 
 APPROVED AS BUILT, everything else: layer (a) unchanged (a restart-looping container reports Running=false → red, correct); the calibrated header narrative carrying the K1 trace evidence WITH the bytes (exactly the cold-agent property S6 exists to check — durable copy in comment #10); staleness-keying as the ruled fallback given Part D's zero-signature finding; the do-not-pin 'Listening for Jobs' observation; the documented refresh-ATTEMPT residual bounded by the notify legs (doc-026, unchanged); DRAFT banner removal; canary wiring untouched pending AC#5 post-K2.
+---
+
+author: architect
+created: 2026-07-20 12:09
+---
+S6 DELTA LOOK (architect, 2026-07-20) — SHIP. Both amended hunks are byte-faithful to comment #11: b1 = host-side `docker top "$C" -eo pid,args` with capture-and-distinguish (docker-error vs no-match, distinct messages, both exit 2) and the pinned pid-column constraint comment; b2's exit-4 branch names the captured docker error. Independent bash -n clean. Self-containment is now total — external surface is docker inspect/top/logs + POSIX builtins, zero in-container dependencies. Foreman: commit (S7); K2 joins the King's queue with the runbook installing these exact bytes.
 ---
 <!-- COMMENTS:END -->
