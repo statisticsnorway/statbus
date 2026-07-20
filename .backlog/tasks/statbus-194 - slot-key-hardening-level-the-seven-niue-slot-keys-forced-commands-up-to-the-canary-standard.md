@@ -3,9 +3,10 @@ id: STATBUS-194
 title: >-
   slot-key-hardening: level the seven niue slot keys' forced-commands up to the
   canary standard
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-07-20 11:40'
+updated_date: '2026-07-20 12:39'
 labels:
   - ops
   - security
@@ -32,8 +33,24 @@ METHOD (per key, one at a time): backup the authorized_keys file first; edit ONE
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 All seven slot keys carry the hardened prefix (command="/usr/local/bin/sshdo" + no-agent-forwarding,no-port-forwarding,no-pty,no-X11-forwarding,no-user-rc); before/after lines recorded on this ticket
-- [ ] #2 Per-key verification after EACH edit: allowed probe succeeds AND arbitrary command refused, on the forced-command path
-- [ ] #3 CI deploy path proven intact after the change (one real workflow ssh or equivalent sshdo probe per slot)
-- [ ] #4 authorized_keys backed up before the first edit; backup path recorded here
+- [x] #1 All seven slot keys carry the hardened prefix (command="/usr/local/bin/sshdo" + no-agent-forwarding,no-port-forwarding,no-pty,no-X11-forwarding,no-user-rc); before/after lines recorded on this ticket
+- [x] #2 Per-key verification after EACH edit: allowed probe succeeds AND arbitrary command refused, on the forced-command path
+- [x] #3 CI deploy path proven intact after the change (one real workflow ssh or equivalent sshdo probe per slot)
+- [x] #4 authorized_keys backed up before the first edit; backup path recorded here
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-20 12:39
+---
+EXECUTED 2026-07-20 (foreman, King-granted root@niue session). BEFORE: all seven slot keys bare `command="/usr/local/bin/sshdo"` (each file: 3 human keys untouched + 1 CI key line). AFTER: CI key line on all seven = `command="/usr/local/bin/sshdo",no-agent-forwarding,no-port-forwarding,no-pty,no-X11-forwarding,no-user-rc` (the canary standard). METHOD, per key one at a time: backup to authorized_keys.bak-20260720-statbus194 in each user's .ssh (AC#4); sed the one CI line; verify hardened=1/bare=0 lines; ssh-keygen -lf parse = 4 keys; sshdo allowed probe (SSH_ORIGINAL_COMMAND ci-deploy-status 40-hex — dev rc=20 correct verdict; the six others rc=127 script-absent, which PROVES sshdo allowed+executed the command; the boxes predate the script — the deploy workflows' ruled two-phase 127 branch covers this); refused probe `ls /` → 'not in allowlist' on all seven (AC#2). AC#3 real-CI proof: deploy-to-dev run 29742695414 SSHed as statbus_dev THROUGH the hardened line — apply-latest executed, poke green (poke-only path with the loud self-expiring notice: dev's installed sb predated the deployed_commit emit), and the box then CONVERGED: row 360738 commit b15eb24d2 completed 12:38:14. The six other slots carry byte-identical line transformations + the equivalent sshdo probes; their next routine deploys ride the same hardened form. Bonus finding en route: the first deploy attempt was refused by the images-ready freshness gate (local backlog auto-commits unpushed to master — the STATBUS-184 genre, caught live by the deploy path's own gate); resolved by syncing master properly and redeploying. Scripts + outputs: tmp/statbus194-*.{sh,out}.
+---
+<!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+All seven niue slot CI deploy keys leveled up from the bare forced-command to the canary-standard hardened prefix (command="/usr/local/bin/sshdo" + no-agent-forwarding,no-port-forwarding,no-pty,no-X11-forwarding,no-user-rc), executed one key at a time with per-key backups, parse checks, and allowed/refused sshdo probes; human keys untouched. Proven end-to-end by a real CI deploy (run 29742695414) SSHing through the hardened statbus_dev line, with the dev box converging on the deployed commit (row 360738 completed). Backups: authorized_keys.bak-20260720-statbus194 in each slot user's ~/.ssh.
+<!-- SECTION:FINAL_SUMMARY:END -->
