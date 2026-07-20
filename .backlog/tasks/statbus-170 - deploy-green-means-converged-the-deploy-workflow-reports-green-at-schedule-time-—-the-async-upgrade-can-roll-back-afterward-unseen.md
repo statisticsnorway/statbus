@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-07-13 01:35'
-updated_date: '2026-07-20 12:24'
+updated_date: '2026-07-20 12:38'
 labels:
   - deploy
   - ci
@@ -144,5 +144,24 @@ U2 — TRANSPORT PROOF WORKFLOW: (a) a probe-provisioning helper installs sshdo 
 CADENCE: workflow_dispatch now; the foreman may add a schedule later — each run costs ~1 VM-hour.
 RESIDUAL, named: the seven production workflows' red-branch lines are not executed by this proof — bounded by rider (i) (semantics live in the script, copies deliberately thin) and by every real deploy exercising the green path.
 EVIDENCE RIDER carried over from the drill ruling where it still applies: the proof run must be an EXPLAINED red (state=rolled_back with the fixture's RAISE text) before the AC checks.
+---
+
+author: architect
+created: 2026-07-20 12:38
+---
+BUILD DELIVERED (architect hands-on per the King's instruction, 2026-07-20) — both units coded, verified locally (bash -n + shellcheck clean incl. the deliberate SC2088 pair, workflow YAML parses), UNCOMMITTED in the working tree for the foreman's line review + commit. Five changes:
+
+U1 (AC#3) — script-contract leg:
+· test/install-recovery/lib/assertions.sh: new assert_deploy_status <vm> <sha> <want-exit> <want-state> — runs ops/ci-deploy-status.sh ON the VM, asserts exit code + the state field of the one-line verdict.
+· test/install-recovery/arcs/failing-arc.sh: two calls — after phase B (10/rolled_back), after phase C (0/completed). Both verdict classes on real rows, every arc pass, zero new VM cost.
+
+U2 (AC#4) — transport proof:
+· test/install-recovery/lib/sshdo-probe.sh (new): setup_sshdo_probe <pubkey> — installs /usr/local/bin/sshdo root-owned from the canonical ops/niue/sshdo, writes /etc/sshdoers (match hexdigits + the 40-'#' status-read line for the statbus user — the faithful niue shape: the key lands on the service-owning user, the ALLOWLIST is the power), and appends the ephemeral pubkey under the hardened 069 forced-command prefix. STATBUS-021 discipline: the root-side script is written locally (quoted heredoc), scp'd, executed with the pubkey as an argument — no shell touches the payload in transit.
+· test/install-recovery/arcs/deploy-status-proof-arc.sh (new): mints the per-run ed25519 keypair → installs the probe → GATE PROOFS pre-drive (refused: 'ls /' must deny with 'not in allowlist'; allowed: status read exits 20/absent — the niue provisioning proof shape) → drives B to rolled_back via the real daemon (arc_to, shared failing lineage) → THE POLL: the 8th deliberate poll-block copy (rider-i marker carried) through the ephemeral-key sshdo transport, INVERTED (exit 10 = PASS, exit 0 = FAIL, 127 = hard FAIL since the two-phase window can't apply on an arc VM) → asserts the EXPLAINED red (state=rolled_back + the fixture's RAISE text in the reason — the evidence rider) → assert_health_passes (the box itself recovered). Failure trap dumps row + journal + sshdo state incl. the sshdo auth log.
+· .github/workflows/upgrade-arc-harness.yaml: one line — deploy-status-proof joins the failing-lineage case. The arc self-registers in the matrix (arcs/*-arc.sh glob), so the DISPATCHABLE proof run is: gh workflow run upgrade-arc-harness.yaml -f scenarios="deploy-status-proof" — and the full-suite run carries it recurringly.
+
+HOSTING NOTE (one deliberate refinement vs the ratified wording, flagged for the King's visibility): the poll-block copy lives in the ARC SCRIPT inside the existing dispatchable harness, not in a separate workflow YAML — same bytes, same transport, same verdict, but zero duplication of the harness's construct/image-wait/cleanup machinery, plus the proof runs with every full-suite pass instead of only on dedicated dispatches. The mechanics the King ratified (arc VM, sshdo replica, ephemeral key, poll bytes, refused-command gate, no fleet box ever) are all intact.
+
+ORACLES (foreman): (1) commit after line review; (2) one harness dispatch with scenarios="failing deploy-status-proof" proves BOTH units — AC#3 checks on failing's green (its two new asserts), AC#4 on deploy-status-proof's green (explained red observed through the gate). Local run works too (HCLOUD_TOKEN in .env.credentials). The run is the oracle.
 ---
 <!-- COMMENTS:END -->
