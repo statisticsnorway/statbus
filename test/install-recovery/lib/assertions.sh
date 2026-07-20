@@ -428,3 +428,31 @@ assert_systemd_restart_counter_bounded() {
     echo "  ✗ $unit NRestarts=$actual EXCEEDS bound=$max_restarts — Race B restart-loop pathology"
     return 1
 }
+
+# assert_deploy_status <vm-name> <40-hex-sha> <want-exit> <want-state>
+#
+# STATBUS-170 AC#3 — the deploy-status script-contract leg. Runs
+# ops/ci-deploy-status.sh ON the VM against the commit-addressed row and asserts
+# its verdict: the exit code AND the state field of the one-line stdout
+# (`<state>|<parked>|<reason>`). The script is the single home of the deploy
+# poll's semantics (exit contract 0 converged / 10 failed / 20 pending /
+# 30 transient / 64 usage — the workflow poll blocks deliberately defer to it,
+# STATBUS-170 comment #5 rider i). Asserting it here against REAL end states on
+# every arc pass means CI's meaning of deploy-green/red can never silently drift
+# from what the boxes actually report. Transport: the harness root path running
+# as the statbus user (VM_EXEC) — the same identity class production's sshdo
+# lines execute as; the sshdo-gated transport itself is proven separately by
+# deploy-status-proof-arc.sh (AC#4).
+assert_deploy_status() {
+    local vm_name="$1" sha="$2" want_exit="$3" want_state="$4"
+    local out rc line state
+    out=$(VM_EXEC bash -c "cd ~/statbus && ops/ci-deploy-status.sh $sha" 2>/dev/null) && rc=0 || rc=$?
+    line=$(printf '%s' "$out" | tail -n 1 | tr -d '\r')
+    state="${line%%|*}"
+    if [ "$rc" = "$want_exit" ] && [ "$state" = "$want_state" ]; then
+        echo "  ✓ deploy-status verdict for ${sha:0:8}: exit=$rc state=$state ($line)"
+        return 0
+    fi
+    echo "  ✗ deploy-status verdict MISMATCH for ${sha:0:8}: got exit=$rc state='$state' (line: '$line'), want exit=$want_exit state=$want_state" >&2
+    return 1
+}

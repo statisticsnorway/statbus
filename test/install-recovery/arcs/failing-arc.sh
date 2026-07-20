@@ -105,6 +105,9 @@ assert_fingerprint_matches "post-rollback == post-A" "$BASELINE_FP" baseline
 assert_demo_data_present "$VM_NAME"
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 assert_flag_file_absent "$VM_NAME"
+# STATBUS-170 AC#3: the deploy poll's verdict on THIS rolled-back row — the
+# exact reading a deploy workflow would take. exit 10 = deploy RED.
+assert_deploy_status "$VM_NAME" "$B_FULL" 10 rolled_back
 
 # ── C: V replaced with the working migration → applies FRESH (no re-stamp) ──
 arc_to "$C_FULL" "$C_BRANCH" "C (V_fixed applies fresh)" "completed"
@@ -121,6 +124,8 @@ assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 assert_flag_file_absent "$VM_NAME"
 assert_no_orphan_backup "$VM_NAME"
 assert_health_passes "$VM_NAME"
+# STATBUS-170 AC#3: the converged verdict on C — exit 0 = deploy GREEN.
+assert_deploy_status "$VM_NAME" "$C_FULL" 0 completed
 
 echo ""
 echo "PASS: failing → failing-fixed (A→B failed + rolled back to a byte-identical clean slate; A→C applied the fix fresh; data intact; healthy)"

@@ -530,7 +530,7 @@ jobs:
         run: |
           set -euo pipefail
           case "$SCENARIO" in
-            failing|postswap-rollback-restore-watchdog|restore-broke-reattempt) lineage=failing ;;
+            failing|postswap-rollback-restore-watchdog|restore-broke-reattempt|deploy-status-proof) lineage=failing ;;
             postswap-migration-oom)                     lineage=oom ;;
             postswap-migration-ceiling)                 lineage=ceiling ;;
             postswap-health-park)                        lineage=healthpark ;;
