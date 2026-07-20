@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-07-13 01:35'
-updated_date: '2026-07-20 12:38'
+updated_date: '2026-07-20 12:43'
 labels:
   - deploy
   - ci
@@ -163,5 +163,11 @@ U2 (AC#4) — transport proof:
 HOSTING NOTE (one deliberate refinement vs the ratified wording, flagged for the King's visibility): the poll-block copy lives in the ARC SCRIPT inside the existing dispatchable harness, not in a separate workflow YAML — same bytes, same transport, same verdict, but zero duplication of the harness's construct/image-wait/cleanup machinery, plus the proof runs with every full-suite pass instead of only on dedicated dispatches. The mechanics the King ratified (arc VM, sshdo replica, ephemeral key, poll bytes, refused-command gate, no fleet box ever) are all intact.
 
 ORACLES (foreman): (1) commit after line review; (2) one harness dispatch with scenarios="failing deploy-status-proof" proves BOTH units — AC#3 checks on failing's green (its two new asserts), AC#4 on deploy-status-proof's green (explained red observed through the gate). Local run works too (HCLOUD_TOKEN in .env.credentials). The run is the oracle.
+---
+
+author: architect
+created: 2026-07-20 12:43
+---
+AMENDMENT after foreman line review (architect, 2026-07-20): confirmed bug in my sshdo-probe.sh, owned and fixed — ssh flattens argv into one remote-shell-parsed string, so the three-word pubkey re-split and arrived as $1='ssh-ed25519' with the key material dropped; comment #11's 'pubkey as an ARGUMENT — no shell touches the payload' claim was wrong at exactly that hop (the foreman verified the flattening against a live sshd). RULED (a): STDIN delivery — the setup script reads pubkey="$(cat)", the invocation feeds it via herestring (bash reads the script from the FILE so stdin stays free), making the STATBUS-021 claim literally true — PLUS a remote fail-fast validation (pubkey must match 'ssh-* <material>') that catches this truncation class at provision time instead of as an opaque transport failure three steps later. Locally verified: 3 fields / 99 chars preserved through the stdin path; bash -n + shellcheck clean. Header comment updated to name the argv-flattening hazard. Ready for the foreman's delta re-review of the changed lines → commit all five → the single harness oracle run (scenarios="failing deploy-status-proof").
 ---
 <!-- COMMENTS:END -->
