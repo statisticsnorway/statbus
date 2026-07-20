@@ -3,10 +3,10 @@ id: STATBUS-184
 title: >-
   harness-tip-race: scenario runs build sb from the local tip while the VM
   checks out origin — backlog auto-commits make runs fail on freshness
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-07-14 16:47'
-updated_date: '2026-07-15 08:32'
+updated_date: '2026-07-20 15:31'
 labels:
   - install-recovery
   - harness
@@ -28,5 +28,21 @@ ordinal: 185000
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 Fix shape picked (refuse-on-unpushed vs build-from-origin) and implemented in the scenario/arc dispatch path
-- [ ] #2 A dispatch with a deliberately unpushed local commit either refuses loudly naming the remedy, or succeeds self-consistently — proven by a run
+- [x] #2 A dispatch with a deliberately unpushed local commit either refuses loudly naming the remedy, or succeeds self-consistently — proven by a run
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-20 15:31
+---
+AC#2 PROVEN BY A RUN (2026-07-20, foreman). Method: pushed all pending local commits first (origin tip 3747eb117), created a deliberate EMPTY unpushed commit 7795036c9, then dispatched a real run (bash run.sh 0-happy-install). The preflight REFUSED in seconds, before any VM: banner names the exact unpushed HEAD (7795036c9...), the consequence it prevents ('the VM's clone has only origin, so an unpushed HEAD dies VM-side with fatal: bad object AFTER burning a paid VM + ~10 min'), and the remedy verbatim ('git push', with the fetch-refresh alternative and the board-edits-create-local-commits warning). Zero Hetzner calls made. Cleanup: git reset --soft HEAD~1 (empty commit, tree untouched — teammate in-flight work preserved). Log: tmp/statbus184-ac2-proof.log. Note the fix also proved itself against a REAL freshness race earlier today on the deploy path's sibling gate: local backlog auto-commits rode a deploy push and images-ready refused (recorded on STATBUS-194 comment #1) — the same genre this ticket closed for the harness. Both ACs checked; ticket Done.
+---
+<!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The harness dispatch path refuses to run with an unpushed HEAD instead of burning a paid VM on a commit the VM cannot resolve. Fix shipped earlier at 347cc7e85 (re-check at the commit-pin point, closing the TOCTOU window against backlog auto-commits); proven 2026-07-20 by a deliberate run: an empty unpushed commit + a real dispatch produced the loud refusal naming the commit, the consequence, and the remedy (git push), with zero VMs created.
+<!-- SECTION:FINAL_SUMMARY:END -->
