@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-07-15 07:42'
-updated_date: '2026-07-15 08:32'
+updated_date: '2026-07-23 16:23'
 labels:
   - ci
   - tooling
@@ -31,8 +31,8 @@ ORACLE: both workflows GREEN on the runner on their next natural trigger, and a 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 seq-logserver workflow runs-on the self-hosted runner; next natural trigger GREEN
-- [ ] #2 docker-maintenance workflow runs-on the self-hosted runner; next natural trigger GREEN
+- [x] #1 seq-logserver workflow runs-on the self-hosted runner; next natural trigger GREEN
+- [x] #2 docker-maintenance workflow runs-on the self-hosted runner; next natural trigger GREEN
 - [ ] #3 Grep proves zero public-SSH niue consumers remain in .github/workflows/; doc-026 security rule re-verified (no PR-triggered job carries self-hosted labels)
 <!-- AC:END -->
 
@@ -41,3 +41,13 @@ ORACLE: both workflows GREEN on the runner on their next natural trigger, and a 
 <!-- SECTION:NOTES:BEGIN -->
 Migrations committed (e26d9b6c5, 2026-07-15). Remaining: AC#1/#2 close on each workflow's next natural trigger running GREEN on the self-hosted runner; AC#3's grep + security-rule re-verification records with the closing note.
 <!-- SECTION:NOTES:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-23 16:23
+---
+AC#1 + AC#2 PROVEN (foreman verification 2026-07-23, prompted by the King's pre-cut review — nothing was holding this ticket back except nobody checking the oracle): both workflows' NATURAL SCHEDULED TRIGGERS fired 2026-07-19 (post-migration commit e26d9b6c5 of 07-15) and ran GREEN ON THE SELF-HOSTED RUNNER — verified via the GitHub API: seq-logserver job 'Upgrade Seq Logging Server' labels self-hosted,niue runner=niue; docker-maintenance job 'Remove obsolete docker artifacts' labels self-hosted,niue runner=niue. AC#3 grep result, precise: (a) fast-tests.yaml's niue mention is a COMMENT only — no SSH; (b) pg_regress.yaml's self-hosted job is gated `if: workflow_dispatch || workflow_run` — never pull_request; the doc-026 security rule HOLDS at job level; (c) ONE real remainder: deploy-via-upgrade.yaml — a workflow_dispatch-ONLY manual deploy tool (target input statbus_<slot>@niue) that would SSH from a HOSTED runner if invoked; superseded in practice by the deploy branches + upgrade service. Disposition routed to the King: retire it (recommended — superseded) or one-line runs-on migration. AC#3 checks on that disposition.
+---
+<!-- COMMENTS:END -->
