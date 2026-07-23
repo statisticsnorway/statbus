@@ -3,10 +3,10 @@ id: STATBUS-069
 title: >-
   niue-ssh-ci-reliability: CI jobs intermittently fail on `dial 162.55.61.141:22
   i/o timeout` (niue SSH)
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-06-17 07:59'
-updated_date: '2026-07-20 15:46'
+updated_date: '2026-07-23 14:58'
 labels:
   - tooling
   - not-install-upgrade
@@ -29,11 +29,11 @@ ordinal: 69000
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Trace tool pre-staged: engineer authors ops/github-runner/runner-health-trace.sh (read-only capture + explicit --with-disconnect arm) AND the K2 provisioning runbook template; architect reviews bytes; foreman commits — collapses the King's trace step to ONE command
+- [x] #1 Trace tool pre-staged: engineer authors ops/github-runner/runner-health-trace.sh (read-only capture + explicit --with-disconnect arm) AND the K2 provisioning runbook template; architect reviews bytes; foreman commits — collapses the King's trace step to ONE command
 - [x] #2 [KING — K1, ~2 min] Run the committed trace on niue as root (one command, output pastes to this ticket): captures idle log cadence + the deliberate-disconnect reconnect signature for layer (b) calibration
 - [x] #3 Engineer calibrates the layer-(b) freshness signal from K1's paste; finalizes ops/github-runner/runner-health.sh FINAL BYTES + the exact sshdoers line + the K2 runbook (keygen → printed sshdoers/authorized_keys lines → gh secret set → shred); architect final-bytes review; foreman commits (canonical copy only — NO workflow change yet)
 - [x] #4 [KING — K2, ~5 min, ONE session] Execute the pre-staged runbook on niue: install the script root-owned at /usr/local/sbin/statbus-runner-health (visual diff vs the reviewed commit), ssh-keygen, append the sshdoers + authorized_keys lines, gh secret set RUNNER_HEALTH_SSH_KEY, shred the private key — all bytes final per the STATBUS-167 one-session discipline
-- [ ] #5 Engineer re-adds the hosted canary job (self-hosted legs `needs:` it); foreman pushes; ONE PUSH proves the canary green-gating the self-hosted legs — the ticket's canary half closes on that run
+- [x] #5 Engineer re-adds the hosted canary job (self-hosted legs `needs:` it); foreman pushes; ONE PUSH proves the canary green-gating the self-hosted legs — the ticket's canary half closes on that run
 - [x] #6 seq-logserver + docker-maintenance migrations land via STATBUS-191 (engineer-ready, NOT King-gated, may close first); zero public-SSH CI consumers remain
 <!-- AC:END -->
 
@@ -218,4 +218,16 @@ CAPTURE PROCEDURE (the foreman's plan, confirmed with one hardening rider): ssh-
 
 WORKFLOW WIRING (S9 spec addition): the canary's ssh carries `-o UserKnownHostsFile=ops/niue/known_hosts -o StrictHostKeyChecking=yes` (yes, not accept-new — an unknown key must RED the canary naming the mismatch, which is either a real MITM or an unratified rotation; both deserve a red). NOTE the failure mode honestly in the job comment: a legitimate host-key rotation reds the canary until the repo pin is updated — that red is the system working.
 ---
+
+author: foreman
+created: 2026-07-23 14:58
+---
+AC#5 PROVEN — TICKET COMPLETE (2026-07-23). The canary re-add (engineer S9, foreman-reviewed: ssh flags verbatim to the ruling, checkout SHA-pin verified against the real v4.3.1 tag and identical to pg_regress's pin, YAML parses, fork-PR-safe triggers) committed as afe582f70; the push WAS the oracle. Run 30018072694: runner-online=SUCCESS with the probe's verdict line in the CI log — 'HEALTHY: container running, Runner.Listener alive, GitHub session fresh (token refresh within 65m).' — delivered over the repo-pinned host key (ops/niue/known_hosts, StrictHostKeyChecking=yes, commit 137b692e4 with the cross-verified fingerprint) through the hardened forced command and sshdo; all SEVEN self-hosted notify legs ran gated behind it (needs: runner-online) and completed green. An offline runner now reds the push naming the failed layer and SKIPS the legs — the silent-24h-queue class is dead. AC#1 also checked (the pre-staging it described shipped at 6935de7fc + the runbook amendments; housekeeping). With AC#6 (STATBUS-191) long closed, every AC is checked: root cause (CrowdSec community-blocklist IP lottery) eliminated by the on-box runner, zero public-SSH CI consumers, and the runner's own liveness now loudly observable. Full chain today: K1 trace → calibration → reviewed bytes → K2 provisioning → smoke-caught pipefail bug → herestring fix → re-provision → HEALTHY re-smoke on a 91k-line buffer → secret set → canary wired → one-push proof.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+CI jobs no longer cross niue's public SSH gate (the CrowdSec community-blocklist IP lottery that caused intermittent dial timeouts): a repo-scoped self-hosted runner on niue carries all SSH-consuming workflows, and its own liveness is guarded by the runner-online canary — a hosted job that SSHes in with a dedicated repo-secret key over a repo-pinned host key, forced through sshdo to a single root-provisioned health probe (container running + Runner.Listener alive + token-refresh freshness within 65m, calibrated from a live trace). The self-hosted legs need: the canary, so an offline runner is a loud red naming the failed layer instead of a silent 24-hour queue. Proven end-to-end by push run 30018072694 (canary HEALTHY, all seven notify legs gated and green). The probe's smoke test also caught and fixed a pipefail/SIGPIPE false-stale before the key was ever published.
+<!-- SECTION:FINAL_SUMMARY:END -->
