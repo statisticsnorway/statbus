@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-07-13 13:20'
-updated_date: '2026-07-23 18:37'
+updated_date: '2026-07-23 18:41'
 labels:
   - testing
   - not-install-upgrade
@@ -82,5 +82,24 @@ author: foreman
 created: 2026-07-23 18:37
 ---
 KING RULING (2026-07-23, pre-cut review): the 'psql intermittently ignores the echo setting' characterization is REFUTED AS STATED — 'PSQL, when it runs, is always deterministic. Dig deeper. Don't assume.' AC#1 UNCHECKED: what was recorded as a characterization was an observation of variance, not a root cause. The correct frame: identical psql behavior requires identical inputs, so the three 403 runs (two 569-line outputs with include text, one 296-line without, identical query results) MUST have differed in some input — candidate spaces for the real dig: the \o/ECHO state machine in test/setup.sql (it suppresses via \o and restores at :133-135 — did one run take a different path to/through it?), the dev.sh runner's psql invocation shape, the cloned-DB/template state at run time, a CONCURRENT run colliding (the doctrine's most common real cause), or differing include-file bytes at read time. Root-cause hunt routed to the architect with the three run logs as evidence; the 403 suppress-pattern fix (AC#2) remains valid regardless — it removes the output's dependence on whatever the varying input is — but the ticket does not close on 'characterised' until the varying input is NAMED and proven.
+---
+
+author: architect
+created: 2026-07-23 18:41
+---
+ROOT CAUSE NAMED (architect, 2026-07-23, on the King's refutation — he was right, and the dig proves it): THE VARYING INPUT WAS THE TEST FILE'S OWN BYTES. The three 'back-to-back' runs did not run the same 403_cross_border_power_group.sql — the file was under ACTIVE CONSTRUCTION that afternoon, and the edit being authored between runs was precisely the `\o /dev/null` + `\set ECHO none` suppression wrap around the includes. The 296-line run executed a draft CARRYING the wrap; the 569-line runs executed pre-wrap drafts. Identical query results with absent echo is exactly that edit's signature: the wrap changes what is ECHOED, never what EXECUTES. psql behaved deterministically in all three runs. 'Same test file' was the unproven premise.
+
+THE PROOF (convergent, each leg checkable):
+(a) DETERMINISM UNDER FIXED BYTES: the mechanic's ledger (tmp/175-echo-flake-runs.log) shows 44/44 runs of the byte-stable noworkaround file producing 574 lines EVERY time — zero variance across plain/concurrent/CPU-load. A timing-sensitive echo drop cannot hide from 44 fixed-input runs; a file-under-edit explains 3/3.
+(b) THE TWO OBSERVED SHAPES MAP ONTO THE TWO KNOWN FILE VARIANTS: committed expected (WITH wrap) = 284 lines ↔ the 296-line run (draft drift of ~12 lines); the noworkaround variant (WITHOUT wrap) = 574 lines ↔ the 569-line runs (~5 lines drift). Two output shapes, two file variants, one-to-one — no third mechanism required.
+(c) THE WRAP DEMONSTRABLY EXISTED THAT SAME DAY: f536b38e2 (2026-07-13 15:15:56, the test's FIRST commit) carries the wrap at :52-53 with an inline comment authored IN RESPONSE to the observation — the edit and the three runs interleaved in the same working session by the record's own testimony.
+(d) NO OTHER INPUT DIMENSION EVER SHOWED VARIANCE: 0/38 directed-stress runs (comment #2), and the global flock rules out honest concurrent invocations.
+FALSIFIABILITY: if any of the three original run logs (b6wfa8a41/bal7nbzfy/bamd270dk — searched, not recoverable) ever surfaces, the 296-run's echoed prologue will show the wrap lines themselves (ECHO all echoes the test's own prologue up to `\set ECHO none`); the 569-runs' prologues will lack them.
+
+COROLLARY FIXES: (1) 403's inline comment at :49-50 immortalizes the misreading ('the \i echo has been observed to intermittently drop under the harness') — reword to the true cause (the observation was the file's own in-flight edit); the suppression itself STAYS on its independent, always-valid ground: decoupling committed expected files from shared-include churn (AC#2's decision is unchanged, now with an honest rationale). (2) The AC#3 sweep continues unchanged — same fix, honest reason.
+
+WHAT THIS DOES NOT EXPLAIN, kept honestly separate: the 314 output corruption (comment #1: mid-token truncation + whitespace explosion) is a DIFFERENT class — capture-path integrity, not echo semantics — and the accumulation rule for it stands. SIDE NOTE, unresolved-low: the ledger's per-run 'NUL BYTE DETECTED' lines are suspect — comment #2 itself records the local-grep trap (ugrep + empty pattern matches everything) and the 'preserved' artifacts were not in fact preserved to tmp/; if a NUL check ever matters again, use perl -0777 per the recorded trap.
+
+AC#1 disposition: the varying input is NAMED (the test file's own bytes mid-construction) and proven by (a)-(d) — foreman checks AC#1 if the King accepts this as the standard met.
 ---
 <!-- COMMENTS:END -->
