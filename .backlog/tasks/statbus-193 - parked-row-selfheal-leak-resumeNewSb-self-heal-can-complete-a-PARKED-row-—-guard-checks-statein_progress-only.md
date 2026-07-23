@@ -3,10 +3,10 @@ id: STATBUS-193
 title: >-
   parked-row-selfheal-leak: resumeNewSb self-heal can complete a PARKED row —
   guard checks state='in_progress' only
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-07-18 13:27'
-updated_date: '2026-07-20 15:46'
+updated_date: '2026-07-23 14:59'
 labels:
   - upgrade
   - recovery
@@ -73,5 +73,11 @@ Structural pin: correct ordering semantics — strings.Index finds the EARLIEST 
 Arc leg — the refinement is APPROVED and better than my design's caveat handling: because the guard is the FIRST branch, its journal line ('is PARKED … NOT self-healing') can only print when containersAtFlagTarget passed AND the row is parked — so on this still-health-failing fixture the line's presence behaviorally proves GUARD-BEFORE-GATE placement (a regression moving the guard after the health gate reds the arc: the gate would skip silently and the line never prints). The serving-while-parked state my design worried about is not needed; the discriminator is placement, not box health. The bounded journal-tail grep matches the file's local convention and cannot hit the runner-health SIGPIPE class (small buffer, single write).
 
 AC#2 stays UNCHECKED until the arc leg runs green — the run is the oracle. BUNDLED DISPATCH APPROVED: one harness run with scenarios="postswap-health-park deploy-status-proof" closes this ticket's arc oracle AND 170 AC#4 together — the two arcs are independent scenarios on separate VMs, no coupling.
+---
+
+author: foreman
+created: 2026-07-23 14:59
+---
+KING RULING (2026-07-23): 193 is IN the stable-cut gate. Build committed a8b4bdcf6 (architect frozen-diff review: SHIP, zero amendments — comment #2); structural pin passing; the arc-leg run-proof (postswap-health-park's restart leg asserting the parked-guard journal line) is in the bundled harness dispatch now running. AC#2 checks on its green.
 ---
 <!-- COMMENTS:END -->
