@@ -3,10 +3,10 @@ id: STATBUS-193
 title: >-
   parked-row-selfheal-leak: resumeNewSb self-heal can complete a PARKED row —
   guard checks state='in_progress' only
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-07-18 13:27'
-updated_date: '2026-07-23 14:59'
+updated_date: '2026-07-23 15:54'
 labels:
   - upgrade
   - recovery
@@ -35,7 +35,7 @@ SCOPE NOTE: do not conflate with STATBUS-192's completeInProgressUpgrade path (w
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 Architect rules the disposition: add the parked-skip guard to resumeNewSb's self-heal, or bless the current behavior in writing (doc + code comment naming why parked-complete is acceptable here)
-- [ ] #2 The ruled outcome is built and its oracle named (structural test or arc leg) — or the bless is recorded on the ticket and in the code
+- [x] #2 The ruled outcome is built and its oracle named (structural test or arc leg) — or the bless is recorded on the ticket and in the code
 <!-- AC:END -->
 
 ## Comments
@@ -80,4 +80,16 @@ created: 2026-07-23 14:59
 ---
 KING RULING (2026-07-23): 193 is IN the stable-cut gate. Build committed a8b4bdcf6 (architect frozen-diff review: SHIP, zero amendments — comment #2); structural pin passing; the arc-leg run-proof (postswap-health-park's restart leg asserting the parked-guard journal line) is in the bundled harness dispatch now running. AC#2 checks on its green.
 ---
+
+author: foreman
+created: 2026-07-23 15:54
+---
+AC#2 PROVEN — TICKET COMPLETE (2026-07-23, run 30017980913, postswap-health-park=SUCCESS, explained green): the arc's PASS narrative names the guard directly — 'the STATBUS-193 self-heal parked-guard firing on each [containers-at-target + parked → NOT self-healing, short-circuiting the health gate]' across the two extra parked restarts; the row never rolled back, never completed while parked; the genuine fix release (C) then arrived, displaced the park, and completed with data intact — both deliberate exits intact, the automatic exit dead. Structural pin was already passing. Guard shipped a8b4bdcf6; King ruled the ticket IN the stable-cut gate (comment #3) — gate satisfied same day.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+resumeNewSb's self-heal can no longer complete a PARKED row. Two fail-closed layers shipped in a8b4bdcf6: a loud parked-read as the FIRST branch of the self-heal gate chain (named journal skip, falls through to the alive-idle continuation with the flag kept) and the parkUpgrade guard bytes (AND recovery_parked_at IS NULL) on the self-heal UPDATE itself. Guard-first placement is behaviorally proven: its journal line can only print when containers are at target AND the row is parked, so the postswap-health-park arc's restart legs asserting the line prove guard-before-health-gate; run 30017980913 delivered exactly that on each parked restart, with the park surviving until a genuine fix release displaced it. A park's siren now persists until the operator acts — fix release or installer — never erased by an automatic path.
+<!-- SECTION:FINAL_SUMMARY:END -->
