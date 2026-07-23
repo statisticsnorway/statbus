@@ -1,0 +1,13 @@
+# niue.statbus.org SSH host key — the repo-pinned trust anchor for GitHub-HOSTED
+# CI jobs that SSH to niue (the runner-online canary, STATBUS-069). Hosted
+# runners are fresh VMs every run, so accept-new would be trust-on-first-use
+# EVERY run (no verification); workflows pin this file instead:
+#   -o UserKnownHostsFile=ops/niue/known_hosts -o StrictHostKeyChecking=yes
+# A host-key rotation therefore REDS the canary until this file is updated —
+# that is the system working, not a flake.
+#
+# Captured 2026-07-20 (foreman, King-granted root session), CROSS-VERIFIED per
+# the architect's pin ruling: ssh-keyscan over the network AND a root-side read
+# of /etc/ssh/ssh_host_ed25519_key.pub returned the SAME key
+# (SHA256:8oS1+xpG+T+W63uh+G6r2Uhrz+Tm5sClSgMUpWnHvBo). ED25519 only, per ruling.
+niue.statbus.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPWUgpGjQHZFuv3RtthM6huJg5azmaJBLIZ4AWbkSJCw
