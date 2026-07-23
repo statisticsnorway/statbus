@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-12 07:57'
-updated_date: '2026-07-23 15:54'
+updated_date: '2026-07-23 16:23'
 labels:
   - git-hygiene
   - not-install-upgrade
@@ -76,7 +76,7 @@ db-snapshot (legacy fallback name in shipped binaries — confirm no binary reli
 - [x] #1 King approves the 13-branch delete list
 - [x] #2 The 10 non-dependabot branches deleted via `git push origin --delete`; foreman executes
 - [x] #3 The 3 Dependabot branches handled by CLOSING their PRs (not branch-delete), so Dependabot does not recreate them
-- [ ] #4 The 11 keep-pending branches untouched (each routed to its owner for the one open question); the 12 never-delete set untouched
+- [x] #4 The 11 keep-pending branches untouched (each routed to its owner for the one open question); the 12 never-delete set untouched
 <!-- AC:END -->
 
 ## Comments
@@ -128,5 +128,18 @@ author: foreman
 created: 2026-07-23 15:54
 ---
 WALK EXECUTION 2 (2026-07-23, King directives in chat): DELETED on the King's GO, verified absent — debug/archive-partial-at-final-rootcause, engineer/layer2-recovery-flag, test/upgrade-resume-new-scenarios, red/031-rollback-watchdog. fix-custom-scripts RETIRED per STATBUS-174's own recorded plan (the King confirmed 174 is where the Norway decision lives; no.sql intent preserved verbatim there, tip 7b01c88cb recorded; verified absent from origin). LEGACY-DOTNET ANSWER for the King's history question, empirically verified: BOTH legacy-dotnet-3-ms-sql (3412 commits) and legacy-dotnet-7-postgresql (3682 commits) are FULLY CONTAINED in master (merge-base ancestor check) — deleting them loses ZERO history; the branch names are only labels/signposts on commits master already carries forever. Awaiting the King's one word on that pair. REMAINING on this ticket after that word: only the seed-class sequencing holds (db-seed + db-snapshot go after RC + stable release + fleet off old binaries + harness weaned — the King's 2026-07-13 ruling).
+---
+
+author: foreman
+created: 2026-07-23 16:23
+---
+TRIAGE COMPLETE — FINAL DISPOSITION TABLE (2026-07-23, King's closing directives; recorded so this triage is NEVER repeated). Every one of the original 36 branches is now accounted for:
+· DELETED, fully-merged/retired (the 13-list): done 2026-07-12 by verified absence.
+· DELETED in the walk: feat/statistical-variables-over-time-chart, engineer/image-distribution-design (2026-07-13); debug/archive-partial-at-final-rootcause, engineer/layer2-recovery-flag, test/upgrade-resume-new-scenarios, red/031-rollback-watchdog (2026-07-23, King GO); legacy-dotnet-3-ms-sql + legacy-dotnet-7-postgresql (2026-07-23, King order — both verified FULLY CONTAINED in master first: 3412/3682 commits all reachable, zero history lost, only the labels removed).
+· RETIRED with intent preserved: fix-custom-scripts → STATBUS-174 carries the Norway no.sql intent verbatim + all King directives (semantic codes, Organisasjonsnummer label, reconciliation resolved); ke.sql confirmed dead. Tip 7b01c88cb recorded there.
+· KEPT deliberately: feature/pgadmin (foundation for STATBUS-173), feature/pg-oauth (King: belongs to another project, keep until he moves it).
+· NEVER-DELETE: master + 11 deploy pointers.
+· SEQUENCING HOLD (the ONLY remaining action on this ticket): db-seed + db-snapshot delete AFTER the RC + stable release land, the fleet is off binaries ≤ v2026.05.6-rc.03, and the harness is weaned off db-seed (vm-bootstrap.sh:472,508) — King ruling 2026-07-13. The ticket closes when that hold releases and the two are deleted.
+AC#4 checked — the keep-pending walk is complete; no owner question remains open anywhere.
 ---
 <!-- COMMENTS:END -->
