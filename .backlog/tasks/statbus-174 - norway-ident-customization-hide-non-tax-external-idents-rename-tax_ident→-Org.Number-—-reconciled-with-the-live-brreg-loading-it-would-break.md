@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-13 12:08'
-updated_date: '2026-07-13 12:39'
+updated_date: '2026-07-23 15:54'
 labels:
   - norway
   - data-model
@@ -51,7 +51,7 @@ SOURCE BRANCH (for archaeology, retired): fix-custom-scripts, tip 7b01c88cb, fil
 - [ ] #2 tax_ident relabelled to 'Org.Number' with no code keyed on the type name broken
 - [ ] #3 The customization uses the current pattern (public.reset('getting-started')), not the deleted \ir ./reset.sql
 - [ ] #4 Proven on a real Norway load: brreg getting-started + an import still loads data AND the UI shows only Org.Number — the run is the oracle
-- [ ] #5 fix-custom-scripts branch retired (its no.sql intent lives here; ke.sql confirmed dead)
+- [x] #5 fix-custom-scripts branch retired (its no.sql intent lives here; ke.sql confirmed dead)
 - [ ] #6 DESIGN CONSTRAINT (King, 2026-07-13): reference external_ident_type by its semantic CODE ('tax_ident'), NEVER by a hardcoded id — no magic numbers. Erik's branch used `WHERE id != 1`; the shipped form works in a semantical, clear world: `WHERE code = 'tax_ident'` / `WHERE code <> 'tax_ident'`. (Verified seeded codes: 'tax_ident', 'stat_ident'.)
 <!-- AC:END -->
 
@@ -86,5 +86,11 @@ author: foreman
 created: 2026-07-13 12:39
 ---
 BRREG SPELLING CORRECTION (King directive, checked against the official brreg guide, 2026-07-13): the label is NOT the anglicized 'Org.Number'. Official terms — Norwegian: **'Organisasjonsnummer'** (one word, the official brreg term; 75 occurrences in samples/norway as `organisasjonsnummer`); English (brreg's own docs, data.brreg.no): 'organisation number' (British spelling); standard abbreviation: 'Org.nr.' (5 occurrences in-repo). no.statbus.org is Norwegian, so the shipped label is **'Organisasjonsnummer'** (or 'Org.nr.' if a compact UI label is wanted — the King's pick). The rename UPDATE becomes: `UPDATE external_ident_type SET name = 'Organisasjonsnummer' WHERE code = 'tax_ident';`. Supersedes the 'Org.Number' in the earlier comments/AC.
+---
+
+author: foreman
+created: 2026-07-23 15:54
+---
+AC#5 DONE (2026-07-23): fix-custom-scripts is retired from origin — verified absent by ls-remote. Per this ticket's own plan ('the branch is retired once this ticket exists'): the no.sql intent lives verbatim in the description (source tip 7b01c88cb recorded for archaeology), ke.sql confirmed dead against master. The King confirmed in chat today that this ticket is where the Norway-customization decision + pending state live; the branch question on STATBUS-035 is closed by this retirement. Remaining here: AC#1's reconciliation is checked; ACs #2-#4 + #6 are the build — unscheduled, parallel lane.
 ---
 <!-- COMMENTS:END -->
