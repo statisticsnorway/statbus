@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-07-13 13:20'
-updated_date: '2026-07-15 08:31'
+updated_date: '2026-07-23 18:37'
 labels:
   - testing
   - not-install-upgrade
@@ -38,7 +38,7 @@ WHY IT MATTERS: every test that echoes its includes is susceptible to a spurious
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [x] #1 Reproduce the intermittent include-echo drop deterministically (or characterise the trigger: concurrency, \o flush timing, psql version) with a minimal repro
+- [ ] #1 Reproduce the intermittent include-echo drop deterministically (or characterise the trigger: concurrency, \o flush timing, psql version) with a minimal repro
 - [x] #2 Decide the fix: either root-cause the echo drop in the harness/setup.sql, or adopt the 403 pattern (suppress shared-include output) as the standard for tests that \i getting-started.sql + definitions
 - [ ] #3 Audit existing echoing tests (401, others) for exposure; apply the chosen fix so no committed expected depends on include-echo luck
 <!-- AC:END -->
@@ -76,5 +76,11 @@ author: foreman
 created: 2026-07-14 23:33
 ---
 BATCH-1 SPLIT AFTER THIRD RECOVERY CYCLE (2026-07-15 night): the stop-rule fired — a third dev-db crash-recovery cycle landed ~30s after the mechanic's straggler kill -9, 2-for-2 timing across incidents, which falsifies the simple memory-pressure read (a killed CLIENT psql cannot crash-recover the postmaster; only a backend death can). Foreman's own log check found postgres's root-event evidence UNREACHABLE (no 'terminated by signal' line in the container's entire docker-log history; the in-container collector file is empty) — escalated as STATBUS-188 (dev-db-crash-cycles) with the runner-timeout chain-starter (401's ~28-min regeneration exceeds the background-runner budget, manufacturing stragglers by construction) in scope. RESOLUTION FOR THIS TICKET: batch 1a = the 18 completed files (all regenerated + diff-reviewed removal-only), freezing now for foreman review+commit; 401 is DEFERRED to after STATBUS-188's infra answers — not retried in a timeout-bounded runner. Standing order to the mechanic: no more kill -9 in the db container (the remediation itself is under investigation, 188 AC#3); stragglers get reported and left.
+---
+
+author: foreman
+created: 2026-07-23 18:37
+---
+KING RULING (2026-07-23, pre-cut review): the 'psql intermittently ignores the echo setting' characterization is REFUTED AS STATED — 'PSQL, when it runs, is always deterministic. Dig deeper. Don't assume.' AC#1 UNCHECKED: what was recorded as a characterization was an observation of variance, not a root cause. The correct frame: identical psql behavior requires identical inputs, so the three 403 runs (two 569-line outputs with include text, one 296-line without, identical query results) MUST have differed in some input — candidate spaces for the real dig: the \o/ECHO state machine in test/setup.sql (it suppresses via \o and restores at :133-135 — did one run take a different path to/through it?), the dev.sh runner's psql invocation shape, the cloned-DB/template state at run time, a CONCURRENT run colliding (the doctrine's most common real cause), or differing include-file bytes at read time. Root-cause hunt routed to the architect with the three run logs as evidence; the 403 suppress-pattern fix (AC#2) remains valid regardless — it removes the output's dependence on whatever the varying input is — but the ticket does not close on 'characterised' until the varying input is NAMED and proven.
 ---
 <!-- COMMENTS:END -->
