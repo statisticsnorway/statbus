@@ -3,11 +3,11 @@ id: STATBUS-170
 title: >-
   deploy-green-means-converged: the deploy workflow reports green at schedule
   time — the async upgrade can roll back afterward unseen
-status: In Progress
+status: Done
 assignee:
   - architect
 created_date: '2026-07-13 01:35'
-updated_date: '2026-07-20 15:47'
+updated_date: '2026-07-23 15:54'
 labels:
   - deploy
   - ci
@@ -35,7 +35,7 @@ RELATION: completes the STATBUS-169 arc (green implies scheduled) up the stack (
 - [x] #1 Architect rules the polling shape (budget, per-channel differences, sshdo compatibility) — what green PROMISES is written down
 - [x] #2 The deploy workflows poll to a terminal outcome: completed → green; rolled_back/failed/parked → red with the row's error text in the workflow log; timeout → red naming the last state
 - [x] #3 The arc suite asserts ops/ci-deploy-status.sh's verdict contract on REAL end states: exit 10 + state=rolled_back on the failing arc's B row, exit 0 + state=completed on its C row — the script-contract leg, re-proven on every arc pass
-- [ ] #4 A dispatchable proof workflow drives a broken-fixture arc VM and polls it through PRODUCTION-REPLICATED transport (probe user, sshdo/sshdoers from ops/niue/, hardened forced command, per-run ephemeral keypair — no standing secret) using the poll-block bytes (8th deliberate copy); the poll reports the failure red with the row's error text and a refused non-allowlisted command proves the gate — the workflow run is the oracle
+- [x] #4 A dispatchable proof workflow drives a broken-fixture arc VM and polls it through PRODUCTION-REPLICATED transport (probe user, sshdo/sshdoers from ops/niue/, hardened forced command, per-run ephemeral keypair — no standing secret) using the poll-block bytes (8th deliberate copy); the poll reports the failure red with the row's error text and a refused non-allowlisted command proves the gate — the workflow run is the oracle
 <!-- AC:END -->
 
 ## Comments
@@ -188,4 +188,16 @@ created: 2026-07-20 15:47
 ---
 AC#3 CHECKED per the architect's adjudication of run 29743621767 (comment #13): the failing leg passed green WITH both verdict asserts — exit 10 + state=rolled_back on the real B row, exit 0 + state=completed on the real C row. The script-contract leg now re-proves on every arc pass. The re-anchored explained-red assert (product's classed error: failure class + failing commit 8-hex + remediation — TIGHTER than the old RAISE-text grep, which pinned a string the product deliberately never writes) committed as abc3a9ed1 after foreman delta look; pushed. Re-dispatch of deploy-status-proof ALONE chained behind the images build on abc3a9ed1 — AC#4 checks on its green. Side finding from the same run filed as STATBUS-195 (discovery-loop watchdog starvation, bounded + self-correcting, not release-gating per the architect).
 ---
+
+author: foreman
+created: 2026-07-23 15:54
+---
+AC#4 PROVEN — TICKET COMPLETE (2026-07-23, run 30017980913, deploy-status-proof=SUCCESS, explained green verified in the log): gate proofs first (refused 'ls /' → 'not in allowlist'; allowed read exit 20 pre-drive), then a REAL broken deploy rolled back autonomously on the arc's own VM, and the deploy-workflow poll-block bytes — polling through the PRODUCTION-REPLICATED sshdo transport (canonical ops/niue bytes root-owned, hardened forced command, per-run ephemeral key delivered on stdin) — reported the EXPLAINED RED: exit 10, state=rolled_back, reason carrying the failure class + failing commit ff90dbc8 + remediation. Nothing was ever broken on a fleet box. All four ACs checked: green means CONVERGED (AC#2, all 8 workflows), the script contract re-proves on every arc pass (AC#3), and the red path is run-proven through production-replica transport (AC#4). Deploy honesty is complete.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+A green deploy now means the box CONVERGED, and the claim is proven in both directions. All 8 deploy workflows capture apply-latest's deployed_commit emit and poll ops/ci-deploy-status.sh (the single semantic home, exit contract 0/10/20/30/64) to a terminal verdict — completed → green; rolled_back/failed/parked → red with the row's classed error; script-absent → self-expiring poke-only notice. Proven: the green path by real fleet deploys; the script contract on real rolled-back and completed rows on every arc-suite pass; and the red path by a dedicated arc that drives a genuinely broken deploy on its own VM and polls it through a production-replicated sshdo transport (repo-canonical bytes, hardened forced command, ephemeral key), asserting the explained red (failure class + exact commit + remediation) and the refused-command gate. The one-time production drill was retired — nothing is ever deliberately broken on a fleet box. Along the way the proof surfaced and fixed an argv-flattening bug in the transport installer, corrected the explained-red assert to the product's deliberate classed-error contract, and filed the discovery-loop watchdog starvation as STATBUS-195.
+<!-- SECTION:FINAL_SUMMARY:END -->
