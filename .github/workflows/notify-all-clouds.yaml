@@ -25,19 +25,68 @@ on:
 #      is the exact sshdo-allowlisted path ~/statbus/ops/ci-notify.sh
 #      (ops/niue/sshdoers pins that byte-string; sshdo rejects anything else).
 #
-# INTERIM (STATBUS-069): the hosted `runner-online` canary that gated these legs
-# was REMOVED. It needed a runner-status PAT, and that ask was withdrawn (the King
-# challenged it; the architect ruling replaced doc-026 delta 9). A gate whose
-# precondition will never exist can only stay red and skip every notify leg, so it
-# is gone until its architect-ruled replacement — an sshdo health-probe canary —
-# lands. While the canary is absent notify runs ungated: if the runner is offline
-# the legs queue silently (the pre-canary behavior), a risk accepted only while the
-# runner is confirmed up.
-# Rollback is one line: revert `notify` runs-on back to ubuntu-latest and restore
-# the appleboy step (see git history / ops/github-runner/).
+# STATBUS-069 (AC#5): the self-hosted `notify` legs are GATED by the hosted
+# `runner-online` canary below — a job that SSHes to niue and runs the sshdo-allowlisted,
+# root-provisioned health probe (/usr/local/sbin/statbus-runner-health). `notify`
+# `needs:` it, so when the runner is offline the canary reds and the notify legs SKIP —
+# a LOUD red on the next push — instead of queueing silently for up to 24h. The probe
+# uses a DEDICATED key (secret RUNNER_HEALTH_SSH_KEY, revocable server-side, no PAT — the
+# withdrawn runner-status-PAT canary's replacement, architect ruling, doc-026 delta 9)
+# and the repo-pinned host key (ops/niue/known_hosts, StrictHostKeyChecking=yes — the
+# canary job carries the full note on why accept-new is banned and why a key rotation
+# reds it).
+# Residuals (doc-026, accepted): crowdsec may occasionally ban the hosted canary's IP →
+# ONE false-red push, self-correcting; a runner locally-green but dropped by GitHub is
+# bounded by the notify legs themselves failing on the next push.
+# Rollback: drop `needs: runner-online` + delete the runner-online job (notify runs
+# ungated, pre-canary behavior); or revert `notify` runs-on to ubuntu-latest and restore
+# the appleboy step (git history / ops/github-runner/).
 
 jobs:
+  # STATBUS-069 canary: SSH to niue as the dedicated probe user and run the
+  # root-provisioned health probe. Reds (skipping the notify legs) when the runner is
+  # offline, so an offline runner is a loud red on the next push, not a silent 24h queue.
+  runner-online:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      contents: read
+    steps:
+      - name: Check out (for the repo-pinned known_hosts)
+        # SHA-pinned (doc-026 delta 4): this job handles a secret (RUNNER_HEALTH_SSH_KEY)
+        # on a hosted runner, so a mutable-tag supply-chain edit is a key-exfiltration
+        # vector. actions/checkout v4.3.1.
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - name: Probe that the niue self-hosted runner is healthy
+        env:
+          RUNNER_HEALTH_SSH_KEY: ${{ secrets.RUNNER_HEALTH_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          keyfile="$(mktemp)"; chmod 600 "$keyfile"
+          printf '%s\n' "$RUNNER_HEALTH_SSH_KEY" > "$keyfile"
+          trap 'rm -f "$keyfile"' EXIT
+          # The probe is the root-provisioned, sshdo-allowlisted command
+          # /usr/local/sbin/statbus-runner-health (STATBUS-069, K2-provisioned): it prints a
+          # ONE-LINE verdict and exits 0 HEALTHY / nonzero naming the failed layer. ssh
+          # relays that stdout into THIS job log, so a red canary names WHY. On nonzero the
+          # step (set -e) fails → this job reds → the notify legs `needs:` it and SKIP.
+          #
+          # HOST KEY: the repo-pinned ops/niue/known_hosts + StrictHostKeyChecking=yes — NOT
+          # accept-new (architect ruling, 069 comment #17). A hosted runner is a fresh VM
+          # every run, so accept-new would be trust-on-first-use EVERY run (no verification),
+          # and a MITM faking a HEALTHY verdict is the exact false-green this canary exists to
+          # kill. CONSEQUENCE: a niue host-key ROTATION reds this canary (and skips the notify
+          # legs) until ops/niue/known_hosts is updated to the new key — the system working.
+          ssh -i "$keyfile" \
+            -o UserKnownHostsFile=ops/niue/known_hosts \
+            -o StrictHostKeyChecking=yes \
+            -o BatchMode=yes \
+            -o ConnectTimeout=15 \
+            github-runner@niue.statbus.org \
+            /usr/local/sbin/statbus-runner-health
+
   notify:
+    needs: runner-online
     runs-on: [self-hosted, niue]
     if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
     permissions:
