@@ -3,11 +3,11 @@ id: STATBUS-191
 title: >-
   runner-migration-tail: move seq-logserver + docker-maintenance workflows onto
   the self-hosted runner (last two public-SSH CI consumers)
-status: In Progress
+status: Done
 assignee:
   - engineer
 created_date: '2026-07-15 07:42'
-updated_date: '2026-07-23 16:23'
+updated_date: '2026-07-23 18:37'
 labels:
   - ci
   - tooling
@@ -33,7 +33,7 @@ ORACLE: both workflows GREEN on the runner on their next natural trigger, and a 
 <!-- AC:BEGIN -->
 - [x] #1 seq-logserver workflow runs-on the self-hosted runner; next natural trigger GREEN
 - [x] #2 docker-maintenance workflow runs-on the self-hosted runner; next natural trigger GREEN
-- [ ] #3 Grep proves zero public-SSH niue consumers remain in .github/workflows/; doc-026 security rule re-verified (no PR-triggered job carries self-hosted labels)
+- [x] #3 Grep proves zero public-SSH niue consumers remain in .github/workflows/; doc-026 security rule re-verified (no PR-triggered job carries self-hosted labels)
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -50,4 +50,16 @@ created: 2026-07-23 16:23
 ---
 AC#1 + AC#2 PROVEN (foreman verification 2026-07-23, prompted by the King's pre-cut review — nothing was holding this ticket back except nobody checking the oracle): both workflows' NATURAL SCHEDULED TRIGGERS fired 2026-07-19 (post-migration commit e26d9b6c5 of 07-15) and ran GREEN ON THE SELF-HOSTED RUNNER — verified via the GitHub API: seq-logserver job 'Upgrade Seq Logging Server' labels self-hosted,niue runner=niue; docker-maintenance job 'Remove obsolete docker artifacts' labels self-hosted,niue runner=niue. AC#3 grep result, precise: (a) fast-tests.yaml's niue mention is a COMMENT only — no SSH; (b) pg_regress.yaml's self-hosted job is gated `if: workflow_dispatch || workflow_run` — never pull_request; the doc-026 security rule HOLDS at job level; (c) ONE real remainder: deploy-via-upgrade.yaml — a workflow_dispatch-ONLY manual deploy tool (target input statbus_<slot>@niue) that would SSH from a HOSTED runner if invoked; superseded in practice by the deploy branches + upgrade service. Disposition routed to the King: retire it (recommended — superseded) or one-line runs-on migration. AC#3 checks on that disposition.
 ---
+
+author: foreman
+created: 2026-07-23 18:37
+---
+AC#3 COMPLETE — TICKET DONE (2026-07-23): deploy-via-upgrade.yaml RETIRED (a0409d293, King directive — superseded by the deploy branches + upgrade service; it was the last workflow that could SSH niue from a hosted runner, manual-dispatch-only). Final sweep state: fast-tests.yaml's niue mention is a comment; pg_regress's self-hosted job is if-gated to workflow_dispatch/workflow_run (never pull_request) — the doc-026 rule holds at job level; ZERO public-SSH niue consumers remain in .github/workflows/. AC#1/#2 were proven by the 2026-07-19 natural scheduled triggers running green on runner 'niue' (API-verified labels).
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The last two public-SSH CI consumers (seq-logserver, docker-maintenance) moved onto the self-hosted niue runner (e26d9b6c5) and were proven by their natural scheduled triggers running green on the runner (2026-07-19, API-verified). The closing sweep retired the superseded manual deploy-via-upgrade workflow (a0409d293), leaving zero workflows that cross niue's public SSH gate; the doc-026 rule (no PR-triggered job on self-hosted labels) re-verified at job level.
+<!-- SECTION:FINAL_SUMMARY:END -->
