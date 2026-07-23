@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-12 07:59'
-updated_date: '2026-07-23 15:01'
+updated_date: '2026-07-23 15:54'
 labels:
   - roadmap
   - install-recovery
@@ -151,5 +151,11 @@ author: foreman
 created: 2026-07-23 15:00
 ---
 CORRECTION immediately after ratification (foreman, 2026-07-23) — a stale premise in the ratified text, caught by checking the ticket rather than trusting the list: STATBUS-187 is NOT remaining — it closed 2026-07-14 21:10 with all fifteen cataloged silent errors fixed or formally accepted across four reviewed units; its commits verified present on master (3d7cf6b22 services-stopped verification before pre-restore rsync; 792300943 ABORT-branch restore + CI-not-ready unschedule fail-loud). The 07-20 rewrite (and my relays of it) carried 187 as unlanded — wrong since six days before the rewrite. Description corrected. THE GATE LIST NOW READS: 170 (one green run, in flight) + 193 (same run) + 183 (free at the cut). When the bundled harness run lands green, the gate is EMPTY except the free-at-cut item — the next motion is cutting the RC.
+---
+
+author: foreman
+created: 2026-07-23 15:54
+---
+THE GATE IS EMPTY (2026-07-23, run 30017980913 — both arcs green, both explained): 170 Done (deploy honesty complete in both directions — the red path proven through production-replica transport with the classed error + commit + remediation) and 193 Done (the parked-guard fired on each parked restart; a park now survives every automatic path until a fix release or the installer resolves it). With 187 already Done and 183 free at the cut, NOTHING remains on the gate list. THE NEXT MOTION ON THE MAP IS CUTTING THE RC — on the King's word; its fleet deploys then live-prove 183 and AC#2's converged-green reading, and rune's convergence on the tag is the walk's C4 approach.
 ---
 <!-- COMMENTS:END -->
