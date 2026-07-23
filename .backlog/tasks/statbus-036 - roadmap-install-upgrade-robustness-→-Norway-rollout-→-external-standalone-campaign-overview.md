@@ -146,4 +146,10 @@ created: 2026-07-23 14:59
 ---
 KING RATIFIED (2026-07-23, in chat): the rewritten roadmap description stands as the map. Same ruling: STATBUS-193 is IN the stable-cut gate ('all install/upgrade tickets done' includes it). 193 state at ratification: built, architect-approved zero amendments, committed a8b4bdcf6; its run-proof (the postswap-health-park arc leg) is in the bundled harness dispatch currently running alongside 170's deploy-status-proof re-run. Gate list after today's closures (069 Done, 184 Done, 194 Done): 170 (one green run), 193 (same run), 187 top-3 (unstarted), 183 (free at the cut).
 ---
+
+author: foreman
+created: 2026-07-23 15:00
+---
+CORRECTION immediately after ratification (foreman, 2026-07-23) — a stale premise in the ratified text, caught by checking the ticket rather than trusting the list: STATBUS-187 is NOT remaining — it closed 2026-07-14 21:10 with all fifteen cataloged silent errors fixed or formally accepted across four reviewed units; its commits verified present on master (3d7cf6b22 services-stopped verification before pre-restore rsync; 792300943 ABORT-branch restore + CI-not-ready unschedule fail-loud). The 07-20 rewrite (and my relays of it) carried 187 as unlanded — wrong since six days before the rewrite. Description corrected. THE GATE LIST NOW READS: 170 (one green run, in flight) + 193 (same run) + 183 (free at the cut). When the bundled harness run lands green, the gate is EMPTY except the free-at-cut item — the next motion is cutting the RC.
+---
 <!-- COMMENTS:END -->
