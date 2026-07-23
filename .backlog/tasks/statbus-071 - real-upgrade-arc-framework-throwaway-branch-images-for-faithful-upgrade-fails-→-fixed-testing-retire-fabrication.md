@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-23 18:43'
+updated_date: '2026-07-23 18:44'
 labels:
   - install-recovery
   - upgrade
@@ -568,5 +568,19 @@ P2 [AC#3] MIGRATE-KILLED-AFTER-COMMIT → RETIRE ONTO THE ARC. The synthetic sch
 P3 [AC#4a] DELETE fabricate_scheduled_upgrade_row. After P1+P2 it has zero callers: delete the helper (data-helpers.sh:266-365 block incl. its 'harness fabricate…' marker string). ORACLE: rg 'fabricate_scheduled_upgrade_row' = 0 hits repo-wide; the next full harness pass green.
 
 P4 [AC#4b-1] CHURN SUCCESSOR ARC → caller 2 of fabricate_resume_state goes. Build rollback-abort-churn's real-path successor: real dispatched upgrade on the failing lineage → real rollback begins → kill at the REAL mid-rollback instant (killed-by-system-during-builtin-rollback :7632 today; P7 may later replace with flag-Step-keyed external kill) → resume → the churn guard engages → alive-idle. On its green + U5 set-difference, scenario 4-rollback-abort-churn-then-alive-idle DELETES (my earlier ruling standing: the interim net's caller goes when its successor greens — this is that successor, now as a checkable entry). ORACLE: successor arc green; scenario deleted; caller count drops to 1.
+---
+
+author: architect
+created: 2026-07-23 18:44
+---
+NO-FABRICATION PLAN, part 2/2 (architect, 2026-07-23).
+
+P5 [AC#4b-2] RUNE-WEDGE DISPOSITION — my recommendation: RETIRE, reaching zero fabrication WITHOUT exceptions. The rune-wedge state's producer is EXTINCT (the Apr-24 old-binary SDNOTIFY collision — no current code produces it); under the King's frame (the framework proves REAL operations) an extinct state is no longer a real operation, and the LIVE code it exercises (resumeNewSb's containers-at-target self-heal) gets real coverage instead: PRE-STEP — add the [completed-self-heal] label assert to postswap-container-restart-kill-arc.sh (its C8 kill leaves containers started + health unconfirmed; the next boot's REAL self-heal completes — grep-verified today the arc does NOT yet assert the label; one journal assert, no new VM cost). Once that assert is green, the rune-wedge scenario retires (its map row re-classed historical, one line in the ledger), fabricate_resume_state reaches ZERO callers, and the helper DELETES. FALLBACK if the King rules extinct-wreckage coverage must stay: the named-exception form — helper renamed fabricate_extinct_wreckage_replay, guard header naming the SOLE sanctioned caller + this ruling, the King's bless recorded on this ticket. DECISION CRITERION for his one-word call: is proving today's recovery against yesterday's extinct wreckage worth one labeled fabrication? My answer: no — the live paths are what Norway runs.
+
+P6 [AC#4 CLOSE] THE LOUD GUARD that keeps the scaffolding down (no-standing-self-heal doctrine applied to the harness itself): after P3+P5, (i) rg 'fabricate_' across test/install-recovery = 0; (ii) the EFFECT census per the hardened rule — rg 'INSERT INTO public.upgrade|UPDATE public.upgrade' across scenarios/+arcs/ = 0 outside read-only assert helpers (writes to the ledger belong to the PRODUCT only); (iii) a structural check in the harness lib (or 008-genre test) that FAILS LOUDLY if any scenario/arc file matches those write patterns — so a future convenience fabrication cannot land silently. ORACLE: the check exists, is exercised by CI (harness workflow), and a deliberate probe commit… no — simpler: the check's own unit run on a synthetic offending line proves it fires (local, free).
+
+P7 [AC#5 STRETCH] INJECT HOOKS → external timing where an OBSERVABLE exists. Method, per hook: classify window width + external observable (the flag's persisted Step field — recordFlagStep writes the current step to tmp/upgrade-in-progress.json — plus db.migration max, compose ps, backup-dir growth). (i) WIDE windows with an observable marker (≥1s: during-container-restart — compose up runs seconds; preswap-backup — backup runs seconds-minutes; during-builtin-rollback — restore runs seconds) → replace the in-code hook with a harness-side kill-on-observed-marker: poll the flag Step (or the named observable) over the existing transport, SIGKILL the unit when it appears — a REAL external kill at a REAL observable instant, no product code involved. (ii) SUB-SECOND Go-internal windows (after-migrations-before-completion — milliseconds between the last migration recording and StartServices; preswap-checkout/binary-swap boundaries; before-resuming-verify — already ruled AC#5's sanctioned residue) → STAY, each with an in-code justification comment naming why no external signal separates the instants. (iii) STALLS: docker pause is the ruled external stall inducement where the stalled subject is a container interaction (restore-db-stall, db-reconnect-watchdog candidates); in-process stalls of the daemon's own control flow (startup-slower-than-unit-timeout, before-resuming-verify) stay Go-internal. ORACLE per replacement: the owning arc re-greens with the hook CALL DELETED from the product source (the hook not merely unused — dead paths are deleted, per doctrine); the classification table itself lands as a comment on this ticket when P7 executes, each surviving hook justified in one line.
+
+SEQUENCING (none of this gates the cut — the King has said so; this is the rigor ladder): P1+P2 mechanic/engineer small → P3 → P4 engineer (one new arc) → P5 [KING: retire vs named-exception — my recommendation retire] → P6 guard → P7 batched stretch. Every deletion follows its replacement's GREEN, never precedes it; every U5 set-difference is recorded on this ticket. The scaffolding comes down in the order it can bear.
 ---
 <!-- COMMENTS:END -->
