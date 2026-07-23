@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-12 07:59'
-updated_date: '2026-07-23 15:00'
+updated_date: '2026-07-23 15:01'
 labels:
   - roadmap
   - install-recovery
@@ -34,13 +34,14 @@ cut an RC → rune (no.statbus.org) installs it and converges → the gate list 
 
 Norway go-live and the stable gate are ONE motion: rune is a hardcoded canary slot of `./sb release stable` (release_canary.go:43-45).
 
-KING-RATIFIED 2026-07-23 (in chat, recorded comment #4); 193 ruled IN the gate in the same word.
+KING-RATIFIED 2026-07-23 (in chat, recorded comment #4); 193 ruled IN the gate in the same word. 187 corrected to DONE immediately after (comment #5).
 
 WHAT IS PROVEN (not hoped — refreshed 2026-07-23):
 - Recovery: the arc campaign closed green. Every coverage-map cell is run-proven on real VMs (071 holds the map). The rune failure class (10,229 restarts, nobody told) is dead in code and dead in observation.
 - Ledger: terminal states are teardown-immune, unresurrectable, and ride one writer path (154/159/160/163). The upgrade row cannot lie.
 - Release pipeline: rc.05 and rc.06 are cut; the fleet is green on both procurement paths — rune on the tag path, dev on the edge path. The release cut is the one migration bless (166).
 - Serve-proof: 'completed' now means the box VERIFIABLY SERVES, at every writer including the self-heal (192 — proven RED→GREEN on real VMs, 2026-07-18). This was the King's stable-cut gate. It is satisfied.
+- Silent errors: all fifteen cataloged silently-ignored errors in the upgrade/migrate core fixed or formally accepted (187 DONE 2026-07-14; commits 3d7cf6b22, 792300943 verified on master).
 - Operator contract: "run the installer" is still the only operator action — through park, un-park, crash recovery, repair, and the broken-restore re-attempt.
 - Deploy honesty, wiring half: all 8 deploy workflows poll the box to a terminal verdict — green now means CONVERGED, not poked (170 AC#2, commit 83ce5b030). The script-contract half is run-proven (170 AC#3, run 29743621767).
 - CI transport: zero CI jobs cross the public SSH gate, and the runner's own liveness is canary-gated — an offline runner is a loud red naming the failed layer, never a silent queue (069 DONE 2026-07-23, proof run 30018072694).
@@ -48,7 +49,6 @@ WHAT IS PROVEN (not hoped — refreshed 2026-07-23):
 WHAT REMAINS BEFORE THE STABLE CUT (the honest list, 2026-07-23):
 - 170 red-proof, last box: the transport-proof arc (broken deploy → production-replica sshdo poll → explained red) must run green. Built, committed, re-anchored to the product's classed error; the bundled harness run is in flight.
 - 193 parked-row guard — IN THE GATE (King ruling 2026-07-23): built, architect-approved zero amendments, committed a8b4bdcf6; its run-proof rides the SAME bundled harness run.
-- 187 top-3: three ruled silent-error fixes (the ABORT-branch restore error, the pre-restore compose-stop, the CI-not-ready unschedule). Ruled; the fix unit has not landed yet. The only unstarted work on the path.
 - 183 live oracle: free at the next cut — the cut's own poke must converge row-completed.
 - 071 tail: DOES NOT GATE — stated plainly. The release-gating remainder is empty; what is left is harness quality (the churn successor, retiring the last fabrication helper).
 
