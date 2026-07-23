@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-12 07:57'
-updated_date: '2026-07-13 11:58'
+updated_date: '2026-07-23 15:54'
 labels:
   - git-hygiene
   - not-install-upgrade
@@ -122,5 +122,11 @@ author: foreman
 created: 2026-07-13 11:58
 ---
 fix-custom-scripts CONTENT ANALYSIS (operator, foreman-VERIFIED 2026-07-13) — for the King's intent judgment. custom/ke.sql: master SUPERSEDES the branch. Master commit ea721b8c5 (2026-03-13, 'Replace custom reset hack with public.reset(getting-started)') rewrote ke.sql's reset call AND DELETED custom/reset.sql (61 lines) — so the branch's `\ir ./reset.sql` references a file master no longer has; the branch also sets `enabled=TRUE` where master sets `FALSE` (opposite intent on hiding the default Kenya ident type). Porting the branch's ke.sql as-is would regress to deleted/broken code. VERDICT: do NOT port ke.sql; master's is production-current. custom/no.sql: NET-NEW (absent from master), a Norway customization — hide all external_ident_type except tax_ident, rename tax_ident→'Org.Number'. It uses the SAME old `\ir ./reset.sql` pattern, so if ported it must be MODERNIZED to `SELECT public.reset(true,'getting-started')` first. THE KING'S DECISION (roadmap, his to make): does Norway want this ident-hiding/rename customization? YES → port no.sql modernized, then the branch retires; NO → drop the branch. The branch's only live value is no.sql; ke.sql is dead against master. Full evidence: tmp/operator-custom-scripts-analysis.md.
+---
+
+author: foreman
+created: 2026-07-23 15:54
+---
+WALK EXECUTION 2 (2026-07-23, King directives in chat): DELETED on the King's GO, verified absent — debug/archive-partial-at-final-rootcause, engineer/layer2-recovery-flag, test/upgrade-resume-new-scenarios, red/031-rollback-watchdog. fix-custom-scripts RETIRED per STATBUS-174's own recorded plan (the King confirmed 174 is where the Norway decision lives; no.sql intent preserved verbatim there, tip 7b01c88cb recorded; verified absent from origin). LEGACY-DOTNET ANSWER for the King's history question, empirically verified: BOTH legacy-dotnet-3-ms-sql (3412 commits) and legacy-dotnet-7-postgresql (3682 commits) are FULLY CONTAINED in master (merge-base ancestor check) — deleting them loses ZERO history; the branch names are only labels/signposts on commits master already carries forever. Awaiting the King's one word on that pair. REMAINING on this ticket after that word: only the seed-class sequencing holds (db-seed + db-snapshot go after RC + stable release + fleet off old binaries + harness weaned — the King's 2026-07-13 ruling).
 ---
 <!-- COMMENTS:END -->
