@@ -1,12 +1,12 @@
 ---
 id: STATBUS-179
 title: >-
-  power-group-viewpoints: primary (EU:Enterprise Group,NO:konsern) vs non-primary power groups —
-  layered design + selectable reporting viewpoint
+  power-group-viewpoints: primary (EU:Enterprise Group,NO:konsern) vs
+  non-primary power groups — layered design + selectable reporting viewpoint
 status: To Do
 assignee: []
 created_date: '2026-07-14 10:00'
-updated_date: '2026-07-14 19:51'
+updated_date: '2026-07-23 15:07'
 labels:
   - power-groups
   - design
@@ -206,5 +206,11 @@ DESIGN POINTS: (1) edge marking vs group multiplicity — one clustered group wi
 RELATED: STATBUS-178 (duplicate PRIMARIES stay illogical and per-row-erroring regardless of this design), STATBUS-120 (test coverage; closes with 178's unit), doc/power-groups.md DRAFT-001 reporting design.
 
 (The empirical result, the layered-model ruling, and the King's three naming/ident rulings are comments #1-#5; the design description above encodes all of them plus the exact schema.)
+---
+
+author: foreman
+created: 2026-07-23 15:07
+---
+PARKED BY THE KING (2026-07-23, in chat): the interactive design-review session is deferred — 'too many ongoing backlog items for me to interact with this yet.' The design (description + the EU:Enterprise Group / NO:konsern two-layer model, AC#2/#3 ruled) stands unchanged and unbuilt; AC#4 (King review) remains the gate before any build. Re-raise when the board quiets — nothing on this ticket is dispatched.
 ---
 <!-- COMMENTS:END -->
