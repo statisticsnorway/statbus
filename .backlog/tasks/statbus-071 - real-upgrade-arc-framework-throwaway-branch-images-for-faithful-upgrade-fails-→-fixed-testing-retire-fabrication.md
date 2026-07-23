@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-18 12:43'
+updated_date: '2026-07-23 18:43'
 labels:
   - install-recovery
   - upgrade
@@ -549,5 +549,24 @@ author: foreman
 created: 2026-07-18 12:43
 ---
 Fabrication cleanup step landed (commit 86c626ab0, pushed): fabricated scenario test/install-recovery/scenarios/4-flagless-selfheal-at-target.sh DELETED — its run-proven real-path producer is the flagless-selfheal-at-target arc (map row proven 982d3da49). Arc header rewritten per the architect's ruling: the deleted scenario's health-assert was ILLUSORY (box was already running from initial install; the self-heal never produced a serving instance); the arc omits assert_health_passes because the current product does not serve on this path; the arc GAINS the assert when STATBUS-192 (serve-proven completed write) ships. Census after deletion, independently verified by foreman: exactly 2 fabricate_resume_state callers remain (scenarios/3-postswap-rune-wedge.sh:213, scenarios/4-rollback-abort-churn-then-alive-idle.sh:215); zero inline public.upgrade INSERTs outside lib/. data-helpers.sh's stale 'sole surviving caller' comment corrected to name both.
+---
+
+author: architect
+created: 2026-07-23 18:43
+---
+NO-FABRICATION PLAN, part 1/2 (architect, 2026-07-23, on the King's directive: 'there shall be no fabrication'). The full fabrication census, then the retirement steps — each with its real-producer construction and run oracle. The King approves exactly these entries.
+
+CENSUS (grep-verified today): TWO fabrication helpers in data-helpers.sh, FOUR callers total.
+· fabricate_scheduled_upgrade_row — callers: 3-postswap-worker-ddl-deadlock.sh:189 (fabricates a scheduled row with the daemon quiesced so ./sb install dispatches it); 3-postswap-migrate-killed-after-commit.sh:225 (WORSE: _fabricate_in_progress_row fabricates scheduled then manually UPDATEs to in_progress — a two-step synthetic crash state).
+· fabricate_resume_state — callers: 3-postswap-rune-wedge.sh:213 (the doctrine's sole sanctioned dead-producer caller); 4-rollback-abort-churn-then-alive-idle.sh:215 (standing as 144 AC#3's regression net until its successor greens).
+· Inject hooks (AC#5's subject): 10 sites — 6 kills (preswap-backup exec.go:750, preswap-checkout :5563, binary-swap :5638, after-migrations-before-completion :6189, during-container-restart :6238, during-builtin-rollback :7632) + 4 stalls (restore-db-stall exec.go:893, before-resuming-verify :1134, startup-slower-than-unit-timeout :1959, db-reconnect-watchdog :6009).
+
+P1 [AC#3] WORKER-DDL-DEADLOCK → REAL SCHEDULE. Replace the :189 fabricate with the real producer the arcs already use: `./sb upgrade register $HEAD_SHA && ./sb upgrade schedule $HEAD_SHA` under the existing quiesce (arc_schedule_daemon_down's exact shape — the daemon is down, so the scheduled row survives for ./sb install to dispatch; the quiesce the scenario already does for the claim-race is unchanged). The DDL contention inducement (real worker holding locks) and the crash stay real. ORACLE: the scenario re-greens with zero fabricate calls; its R1 assert unchanged.
+
+P2 [AC#3] MIGRATE-KILLED-AFTER-COMMIT → RETIRE ONTO THE ARC. The synthetic scheduled→in_progress two-step is a fabricated CRASH state whose real producer already exists and is green: after-commit-before-recorded-kill-arc.sh drives a REAL dispatched upgrade and kills it at the real after-commit instant, leaving the genuine in_progress wreckage. Step: U5 set-difference check (the flagless precedent's discipline — enumerate the scenario's asserts, confirm each is carried by the arc or add it to the arc; any assert that passes only from the fabrication's ambient state is named illusory and dropped with a note), then the scenario DELETES. ORACLE: the arc green with any transplanted asserts; rg confirms the scenario gone.
+
+P3 [AC#4a] DELETE fabricate_scheduled_upgrade_row. After P1+P2 it has zero callers: delete the helper (data-helpers.sh:266-365 block incl. its 'harness fabricate…' marker string). ORACLE: rg 'fabricate_scheduled_upgrade_row' = 0 hits repo-wide; the next full harness pass green.
+
+P4 [AC#4b-1] CHURN SUCCESSOR ARC → caller 2 of fabricate_resume_state goes. Build rollback-abort-churn's real-path successor: real dispatched upgrade on the failing lineage → real rollback begins → kill at the REAL mid-rollback instant (killed-by-system-during-builtin-rollback :7632 today; P7 may later replace with flag-Step-keyed external kill) → resume → the churn guard engages → alive-idle. On its green + U5 set-difference, scenario 4-rollback-abort-churn-then-alive-idle DELETES (my earlier ruling standing: the interim net's caller goes when its successor greens — this is that successor, now as a checkable entry). ORACLE: successor arc green; scenario deleted; caller count drops to 1.
 ---
 <!-- COMMENTS:END -->
