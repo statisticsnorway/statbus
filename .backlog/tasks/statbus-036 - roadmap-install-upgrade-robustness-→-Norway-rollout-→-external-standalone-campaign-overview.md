@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-12 07:59'
-updated_date: '2026-07-20 12:41'
+updated_date: '2026-07-23 14:59'
 labels:
   - roadmap
   - install-recovery
@@ -137,5 +137,11 @@ author: foreman
 created: 2026-07-18 14:35
 ---
 GATE UPDATE (2026-07-18): the King-ruled stable-cut gate STATBUS-192 (serve-proven completed write; ruling 2026-07-16, 'finish tail first') is SATISFIED — fix shipped (7f690fb22, architect byte-reviewed) and proven on real VMs (RED run 29646835552 failed exactly at the transport-real health assert on the pre-fix product; GREEN run 29647643813 passed the full serve-proven narrative incl. backstop-silence + write probe). 192 is Done. Also today: 170 AC#2 shipped (83ce5b030 — all 7 deploy workflows poll to a terminal verdict; only AC#3's deliberately-failing red-run remains) and the fabricated flagless-selfheal scenario deleted per ruling (86c626ab0). Fleet-wide note: assert_health_passes is now transport-real (Host header) — a strictness increase on a shared gate; illusorily-green scenarios may redden on the next full suite run, which is the gate working. New triage entry: STATBUS-193 (resumeNewSb can complete a parked row, pre-existing, architect-flagged).
+---
+
+author: foreman
+created: 2026-07-23 14:59
+---
+KING RATIFIED (2026-07-23, in chat): the rewritten roadmap description stands as the map. Same ruling: STATBUS-193 is IN the stable-cut gate ('all install/upgrade tickets done' includes it). 193 state at ratification: built, architect-approved zero amendments, committed a8b4bdcf6; its run-proof (the postswap-health-park arc leg) is in the bundled harness dispatch currently running alongside 170's deploy-status-proof re-run. Gate list after today's closures (069 Done, 184 Done, 194 Done): 170 (one green run), 193 (same run), 187 top-3 (unstarted), 183 (free at the cut).
 ---
 <!-- COMMENTS:END -->
