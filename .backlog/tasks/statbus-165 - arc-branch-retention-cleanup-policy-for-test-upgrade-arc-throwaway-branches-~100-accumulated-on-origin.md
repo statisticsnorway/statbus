@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-07-12 14:54'
-updated_date: '2026-07-13 09:08'
+updated_date: '2026-07-25 19:38'
 labels:
   - git-hygiene
   - not-install-upgrade
@@ -38,7 +38,7 @@ Constraint: never-delete set (master, 11 deploy pointers, db-seed) untouched, as
 <!-- AC:BEGIN -->
 - [x] #1 Architect rules the retention mechanism (self-delete at end-of-run vs TTL sweep) and where it lives in the 071 framework
 - [x] #2 One-time sweep executed: accumulated test/upgrade-arc-* branches deleted, never-delete set verified intact before and after
-- [ ] #3 red/031-rollback-watchdog routed to its owner for one answer
+- [x] #3 red/031-rollback-watchdog routed to its owner for one answer
 - [x] #4 Framework change shipped per the ruling: LOCAL harness runs self-delete their branches at end-of-run (exit trap, ARC_NO_PUSH-symmetric), and the weekly image-cleanup workflow gains the 7-day branch-GC backstop; CI teardown untouched
 <!-- AC:END -->
 
@@ -77,6 +77,12 @@ author: foreman
 created: 2026-07-13 09:08
 ---
 AC#4 COMPLETE (9fe0b4ca6): the local-harness half shipped — delete_throwaway_branches() in upgrade-target.sh (recompute-from-run-id, ARC_NO_PUSH-symmetric, best-effort exit-0 for trap use, no trap clobbering; honest note in the commit: no local caller pushes its own pair TODAY — the function completes the file's own documented contract beside its producer, and the weekly GC covers the interim). The GC backstop half shipped earlier (ed25061c1). AC#3 (red/031-rollback-watchdog owner routing) is RE-HOMED to STATBUS-035's keep-pending walk — it is already named in 035's comment #2 and belongs in that one King sitting; closing this ticket with that fold recorded rather than holding it open for a one-branch question that lives elsewhere.
+---
+
+author: foreman
+created: 2026-07-25 19:38
+---
+AC#3 CLOSED + LIVE VERIFICATION (2026-07-25, prompted by the King's branch question mid-session): red/031-rollback-watchdog received its owner answer in the STATBUS-035 walk (delete-safe: proof build, scenario shipped) and was DELETED on the King's GO 2026-07-23 — verified absent from origin. RETENTION MECHANISM PROVEN WORKING: the 2026-07-19 weekly branch-gc run deleted 84 aged branches, kept 226 younger than the 7-day window (Summary line pulled from the job log), unreached=0. Census today: 246 test/upgrade-arc-* on origin, ALL within the rolling window (oldest surviving tip 2026-07-12T13:24 — correctly younger than the 07-19 cutoff by ~8h); zero parked/*, zero red/*, zero seed/<sha>/snapshot/<sha> pins remain; db-seed + db-snapshot held per the 035 post-release ruling. The King's sighting of parked/015 + red/031 was stale LOCAL remote-tracking refs — remedy git fetch --prune. Steady state by design: up to ~one week of throwaway churn visible between Sunday GCs; OLDER_THAN_DAYS is the one-line knob if the King wants a shorter window.
 ---
 <!-- COMMENTS:END -->
 
