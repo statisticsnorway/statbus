@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-07-13 13:20'
-updated_date: '2026-07-23 18:41'
+updated_date: '2026-07-25 18:37'
 labels:
   - testing
   - not-install-upgrade
@@ -38,7 +38,7 @@ WHY IT MATTERS: every test that echoes its includes is susceptible to a spurious
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Reproduce the intermittent include-echo drop deterministically (or characterise the trigger: concurrency, \o flush timing, psql version) with a minimal repro
+- [x] #1 Reproduce the intermittent include-echo drop deterministically (or characterise the trigger: concurrency, \o flush timing, psql version) with a minimal repro
 - [x] #2 Decide the fix: either root-cause the echo drop in the harness/setup.sql, or adopt the 403 pattern (suppress shared-include output) as the standard for tests that \i getting-started.sql + definitions
 - [ ] #3 Audit existing echoing tests (401, others) for exposure; apply the chosen fix so no committed expected depends on include-echo luck
 <!-- AC:END -->
@@ -101,5 +101,11 @@ COROLLARY FIXES: (1) 403's inline comment at :49-50 immortalizes the misreading 
 WHAT THIS DOES NOT EXPLAIN, kept honestly separate: the 314 output corruption (comment #1: mid-token truncation + whitespace explosion) is a DIFFERENT class — capture-path integrity, not echo semantics — and the accumulation rule for it stands. SIDE NOTE, unresolved-low: the ledger's per-run 'NUL BYTE DETECTED' lines are suspect — comment #2 itself records the local-grep trap (ugrep + empty pattern matches everything) and the 'preserved' artifacts were not in fact preserved to tmp/; if a NUL check ever matters again, use perl -0777 per the recorded trap.
 
 AC#1 disposition: the varying input is NAMED (the test file's own bytes mid-construction) and proven by (a)-(d) — foreman checks AC#1 if the King accepts this as the standard met.
+---
+
+author: foreman
+created: 2026-07-25 18:37
+---
+KING ACCEPTED the root cause (2026-07-25): 'meets my standard.' AC#1 checked — the varying input NAMED and proven (the test file's own bytes mid-edit; psql deterministic throughout; 44/44 fixed-byte runs zero-variance). WHAT REMAINS on this ticket (the King asked): AC#3's sweep tail only — (a) the 403 inline comment reword (one line, removes the immortalized misreading); (b) the three deferred conversions 401/402/500, blocked on STATBUS-188 (dev-db crash cycles) per comment #5; (c) the remaining batches of the 61-test exposure sweep (batch 1a's ~18 shipped; ~40 remain, batched ≤≈15 with per-file purpose guard per the comment-#3 scope ruling). All mechanic-lane, serialized, none release-gating.
 ---
 <!-- COMMENTS:END -->
