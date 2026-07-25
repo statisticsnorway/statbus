@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-25 18:37'
+updated_date: '2026-07-25 18:40'
 labels:
   - install-recovery
   - upgrade
@@ -591,5 +591,21 @@ KING RESPONSE to the no-fabrication plan (2026-07-25) — three parts, recorded 
 1. RUNE-WEDGE (P5): CONDITIONAL RETIRE — 'if the root cause is fixed, then the issue can be retired.' The retire therefore rests on proving the producer is extinct BECAUSE the root cause was fixed (the Apr-24 old-binary SDNOTIFY collision) — the plan's extinct-producer claim must cite the fixing commit/mechanism, not just absence of a current producer.
 2. COVERAGE-COHERENCE DIRECTIVE (new, standing): 'the important part is to ensure that these scenarios we have diagrams over for install and upgrade cover all the things that we need to have covered' — specifically: (a) one scenario must cover what ACTUALLY went wrong on Rune; (b) 071's own content must be covered by the scenarios; (c) THE DIAGRAMS MUST BE ONE COHERENT WHOLE WITH THE ACTUAL CODE AND TESTS — diagram ↔ code ↔ test, no drift. This is the acceptance frame for the whole plan, above the per-step oracles.
 3. CONSOLE SESSION REQUESTED: the King is confused — he believed the fabrication retirement had LANDED already, and wonders whether the code and the test framework match his mental model. He talks to the ARCHITECT directly at the architect's console; the architect prepares: the fabrication history (what landed when, what remained and why), the current census, the plan, and the diagram-code-test coherence walk. Plan approval happens THERE, entry by entry.
+---
+
+author: architect
+created: 2026-07-25 18:40
+---
+CONSOLE SESSION BRIEF (architect, 2026-07-25 — prepared for the King's session; plain words, every claim carries its citation).
+
+1. THE HISTORY — you did land this, in five waves; what remains is the last four props. Scenario-file fabrication retirement SHIPPED: 2026-06-30 (three retirements: c5cc5707c, 57481ad30, 0d0c3bb6d), 2026-07-07 (4a5d45913 — ELEVEN legacy scenarios deleted, superseded by run-proven arcs), 2026-07-12 (8bb3edda8 — the fabricated park scenario retired for its real-path arc), 2026-07-14 (5f670fb86), 2026-07-18 (86c626ab0 — the fabricated flagless-selfheal deleted after its real-path successor greened). Roughly seventeen fabricated or legacy scenarios are GONE. What remained: the two fabrication HELPERS with four callers — each kept because its real-producer replacement was not yet green (the rule has always been: delete only after the replacement proves). Nothing was missed in design; the tail was sequenced behind its replacements, and the P1-P7 plan (comments above) is exactly that tail made checkable.
+
+2. CURRENT CENSUS (grep-verified): fabricate_scheduled_upgrade_row (data-helpers.sh:266) props up 3-postswap-worker-ddl-deadlock.sh:189 (needs a scheduled row with the daemon quiesced — replaceable TODAY by real register+schedule) and 3-postswap-migrate-killed-after-commit.sh:225 (fabricates scheduled then hand-edits to in_progress — its real producer, the after-commit kill arc, already exists and is green). fabricate_resume_state (data-helpers.sh:416) props up 3-postswap-rune-wedge.sh:213 and 4-rollback-abort-churn-then-alive-idle.sh:215 (standing regression net until the churn successor arc greens). That is ALL the fabrication that exists.
+
+3. RUNE-WEDGE — your retire condition is MET; the root cause IS fixed, with commits: the Apr-24 wedge happened because the install fixup ran `systemctl --now` INSIDE an active upgrade, colliding with the parent's sd_notify lifecycle — the parent was aborted before the completed row UPDATE landed. Fixed at the cause by e76505eec (2026-04-26: 'skip --now in install fixup inside active upgrade'), hardened by ordering in 61e79e265 (2026-04-24: the terminal UPDATE lands BEFORE the fixup runs — today a fixup cannot abort a pre-UPDATE parent because there is no pre-UPDATE window left), and netted by cb7344dd6 (2026-04-26: the containers-at-target self-heal that recovers any such wreckage). Three independent layers; the producing path no longer exists in the code. Per your condition → the scenario retires (P5), with the live self-heal getting a REAL assert on the container-restart kill arc first (verified absent today; one journal line).
+
+4. THE COHERENCE WALK — what I verified before this session. Diagram inventory: doc/upgrade-timeline.md (last touched 2026-07-14), doc/upgrade-recovery-model.md (2026-07-12), doc/upgrade-vocabulary.md, doc/upgrades.md, doc/upgrade-hardening.md, doc/read-only-upgrade-window.md, doc/install-upgrade-testing.md, doc/recovery/upgrade-resume-structural-whole.md, plus this ticket's coverage map. NAMED DRIFT, found by probe today: (i) upgrade-timeline.md contains ZERO mention of the PARK lifecycle and zero of the serve-proven completed contract — the operator-facing diagram predates the campaign's two biggest state-machine additions; (ii) both timeline and recovery-model predate 192 (completed = verifiably serves, at every writer), 193 (the self-heal parked guard), and 195 (the discovery watchdog false-kill); (iii) your point (b) — 'one scenario covers what actually went wrong on Rune' — resolves into two layers: the EXTINCT wedge state (fixed, citations above; historical) and the LIVE class 'box loops forever and nobody is told' (covered by the budget/park arcs, the NRestarts-bounded asserts, and the 069 canary chain). Proposal for the session: a dedicated coherence ticket — reconcile timeline + recovery-model to post-192/193 reality; cross-link every diagram element to its covering arc/scenario and every arc to its diagram element; close with a drift gate (a structural check that a new terminal state or recovery path cannot land without its diagram line). Draft entry ready; you approve or reshape it at the console.
+
+Session agenda in one line: history (nothing missed — sequenced), census (four props, plan P1-P7 walks each), rune-wedge (condition met, citations), coherence (drift named, ticket drafted).
 ---
 <!-- COMMENTS:END -->
