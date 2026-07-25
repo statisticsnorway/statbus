@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-23 18:44'
+updated_date: '2026-07-25 18:37'
 labels:
   - install-recovery
   - upgrade
@@ -582,5 +582,14 @@ P6 [AC#4 CLOSE] THE LOUD GUARD that keeps the scaffolding down (no-standing-self
 P7 [AC#5 STRETCH] INJECT HOOKS → external timing where an OBSERVABLE exists. Method, per hook: classify window width + external observable (the flag's persisted Step field — recordFlagStep writes the current step to tmp/upgrade-in-progress.json — plus db.migration max, compose ps, backup-dir growth). (i) WIDE windows with an observable marker (≥1s: during-container-restart — compose up runs seconds; preswap-backup — backup runs seconds-minutes; during-builtin-rollback — restore runs seconds) → replace the in-code hook with a harness-side kill-on-observed-marker: poll the flag Step (or the named observable) over the existing transport, SIGKILL the unit when it appears — a REAL external kill at a REAL observable instant, no product code involved. (ii) SUB-SECOND Go-internal windows (after-migrations-before-completion — milliseconds between the last migration recording and StartServices; preswap-checkout/binary-swap boundaries; before-resuming-verify — already ruled AC#5's sanctioned residue) → STAY, each with an in-code justification comment naming why no external signal separates the instants. (iii) STALLS: docker pause is the ruled external stall inducement where the stalled subject is a container interaction (restore-db-stall, db-reconnect-watchdog candidates); in-process stalls of the daemon's own control flow (startup-slower-than-unit-timeout, before-resuming-verify) stay Go-internal. ORACLE per replacement: the owning arc re-greens with the hook CALL DELETED from the product source (the hook not merely unused — dead paths are deleted, per doctrine); the classification table itself lands as a comment on this ticket when P7 executes, each surviving hook justified in one line.
 
 SEQUENCING (none of this gates the cut — the King has said so; this is the rigor ladder): P1+P2 mechanic/engineer small → P3 → P4 engineer (one new arc) → P5 [KING: retire vs named-exception — my recommendation retire] → P6 guard → P7 batched stretch. Every deletion follows its replacement's GREEN, never precedes it; every U5 set-difference is recorded on this ticket. The scaffolding comes down in the order it can bear.
+---
+
+author: foreman
+created: 2026-07-25 18:37
+---
+KING RESPONSE to the no-fabrication plan (2026-07-25) — three parts, recorded verbatim in substance:
+1. RUNE-WEDGE (P5): CONDITIONAL RETIRE — 'if the root cause is fixed, then the issue can be retired.' The retire therefore rests on proving the producer is extinct BECAUSE the root cause was fixed (the Apr-24 old-binary SDNOTIFY collision) — the plan's extinct-producer claim must cite the fixing commit/mechanism, not just absence of a current producer.
+2. COVERAGE-COHERENCE DIRECTIVE (new, standing): 'the important part is to ensure that these scenarios we have diagrams over for install and upgrade cover all the things that we need to have covered' — specifically: (a) one scenario must cover what ACTUALLY went wrong on Rune; (b) 071's own content must be covered by the scenarios; (c) THE DIAGRAMS MUST BE ONE COHERENT WHOLE WITH THE ACTUAL CODE AND TESTS — diagram ↔ code ↔ test, no drift. This is the acceptance frame for the whole plan, above the per-step oracles.
+3. CONSOLE SESSION REQUESTED: the King is confused — he believed the fabrication retirement had LANDED already, and wonders whether the code and the test framework match his mental model. He talks to the ARCHITECT directly at the architect's console; the architect prepares: the fabrication history (what landed when, what remained and why), the current census, the plan, and the diagram-code-test coherence walk. Plan approval happens THERE, entry by entry.
 ---
 <!-- COMMENTS:END -->
