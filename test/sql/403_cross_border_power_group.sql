@@ -44,10 +44,10 @@ BEGIN;
 \i test/setup.sql
 
 -- Suppress the verbatim echo/output of the shared setup includes. Their content
--- is not what this test asserts, and echoing it makes the expected file both
--- churn-prone (any edit to getting-started.sql / the definitions would break it)
--- and flaky (the `\i` echo has been observed to intermittently drop under the
--- harness). Only this test's own queries below contribute to the expected output.
+-- is not what this test asserts, and echoing it would couple the expected file
+-- to files that churn (any edit to getting-started.sql / the definitions would
+-- break it). Only this test's own queries below contribute to the expected
+-- output. (STATBUS-175: the standard pattern for tests that \i shared files.)
 \echo "Setting up Statbus (Norway) and BRREG import definitions (output suppressed)"
 \o /dev/null
 \set ECHO none
