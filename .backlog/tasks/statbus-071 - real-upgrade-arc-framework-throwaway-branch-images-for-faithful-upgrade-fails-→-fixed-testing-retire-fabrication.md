@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-27 20:01'
+updated_date: '2026-07-27 20:14'
 labels:
   - install-recovery
   - upgrade
@@ -649,5 +649,21 @@ author: architect
 created: 2026-07-27 20:01
 ---
 ORPHANED RESIDUAL RULED (a) — FOLD INTO P5's BATCH (architect, 2026-07-27; my own 2026-07-07 sequencing left it stranded — the assert half of 'assert then delete' never landed before the King-sanctioned deletion ran). The clean-slate fingerprint assert joins P5's dispatch brief: postswap-after-commit-kill-arc gains the baseline capture + fingerprint-match pair (mirror failing-arc's exact pattern — capture post-install baseline, assert post-rollback equality; note it is TWO lines, capture + assert, not one, if the arc lacks a baseline today). WHY THE INTENT IS LIVE, not waived: failing-arc's fingerprint proves clean-slate on the PLAIN deterministic-failure rollback; the after-commit-kill path is the STRONGEST fingerprint case — a committed-but-unrecorded migration's writes are physically present in the DB, and only byte-perfect volume restoration removes them; row/ledger asserts are blind to that difference. One VM dispatch then proves both P5 asserts (container-restart's [completed-self-heal] + this pair on the sibling arc). No further approvals — executes with P5.
+---
+
+author: architect
+created: 2026-07-27 20:14
+---
+P4 FROZEN-DIFF REVIEW (architect, 2026-07-27) — verdict: SHIP, zero amendments, one recorded observation. Byte-verified against the adopted ruling:
+
+CONSTRUCTION ✓ exactly as ruled: real register (daemon up) → ready-wait → daemon-down schedule → real inline dispatch → migrate RAISE → Behind → d.rollback → REAL C9 kill (exit 137 asserted, flag present, row in_progress) → the two labeled INPUT manipulations → flagless recovery boot → corrupt-reader → boot-migrate exit-20 → the 144 guard → alive-idle. Both manipulation labels meet the cold-agent standard, each naming the real class it stands in for.
+
+VERIFIED PREMISES (each checked against live bytes, not the report): the floor-extraction grep matches today's declaration exactly (const DaemonSchemaFloor int64 = 20260712024457 → pattern yields the number); the banner string exists verbatim in the product (service.go:2154); the free-slot arithmetic is sound (V_SECOND+1 lies strictly between the two highest ≤-floor versions, so it is unoccupied and ≤ floor by construction, and the computation is floor-source-identical whether the kill left the tree at A or B — the failing lineage's V is above-floor and filtered out either way); bash -n clean; the one-line harness selector matches the established pattern.
+
+SET-DIFFERENCE ✓ honest, not softened: both value-differences are property-preserving — NRestarts bounded≤2 + frozen + a 90s no-churn watch asserts the same no-StartLimit property with margin (and the fresh-start unit makes the expected value 0, so ≤2 is generous, not loose); row != completed asserts the no-false-self-heal property that the scenario's 'failed' value was one instance of. The ABORT-terminal non-transplant is correctly grounded — different construction, covered elsewhere.
+
+RECORDED OBSERVATION (no change required — the asserts already tolerate it, noting so no future reader is surprised): after the churn banner, the boot continues into completeInProgressUpgrade, which will read the flagless in_progress row, observe the box genuinely Behind (binary at A, row at B), and may route it through the flagless recoveryRollback to 'rolled_back' within the watch window. Both end states — in_progress (heal not yet run) and rolled_back (heal ran) — satisfy assert C's property (never completed), assert D (never recorded), and the health/data asserts; the property-based assert design absorbs the race by construction. If the run lands 'rolled_back', that is the 039 machinery converging honestly, not a red.
+
+Foreman: commit P4; the bundled dispatch (P1 re-green + P4 + both P5 asserts) is the oracle. On P4's green + this recorded set-difference, scenario 4-rollback-abort-churn-then-alive-idle deletes and fabricate_resume_state drops to one caller.
 ---
 <!-- COMMENTS:END -->
