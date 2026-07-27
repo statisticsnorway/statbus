@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-27 19:46'
+updated_date: '2026-07-27 19:56'
 labels:
   - install-recovery
   - upgrade
@@ -125,7 +125,7 @@ The test also injects a **real** crash/stall at the other upgrade points — fet
 - [x] #2 FAILING arc GREEN on a real VM: install A → B's V deliberately fails → box rolls back to 'rolled_back' → clean-slate fingerprint equals the post-A baseline → C applies the fix fresh; data intact
 - [ ] #3 Kill-family scenarios reshaped: the FABRICATED scheduled-upgrade row replaced by a real register+schedule (086); the crash stays real (existing inject / external NOTIFY-handshake kill)
 - [ ] #4 fabricate_scheduled_upgrade_row DELETED with zero callers; NO synthetic crash-state fabrication remains anywhere (King's no-residual rule)
-- [ ] #5 STRETCH (product-pristine): in-migration-SQL inject hooks retired in favour of the NOTIFY-handshake + external-kill-timing where feasible; remaining hooks limited to the Go-internal windows that no SQL can reach, each justified
+- [x] #5 WITHDRAWN by the King (2026-07-27): the inject-marker system stays wholesale — it is his design and the standard (real code driving all the way, markers naming the instant); no hook conversions without a new ruling
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -133,11 +133,14 @@ The test also injects a **real** crash/stall at the other upgrade points — fet
 <!-- SECTION:NOTES:BEGIN -->
 > STATUS (2026-07-15, supersedes the 2026-07-12 recap; prior dispatch history in this file's git log): THE RELEASE-GATING REMAINDER IS EMPTY — every coverage-map row above is [PROVEN] on a real VM or RETIRED with a written ruling. Tonight's closers: restore-broke-reattempt (run 29344519124, dual-class incl. the folded ABORT oracle), un-park-to-completion both arms (delta→rollback run 29360596950; no-delta park→un-park→completed on the codeonly lineage), C-rollback resurrection (guard-probe + honest broken-B end state), transient-db-backoff both arms (hang-class via docker pause, post-STATBUS-190 bounded reads), commit-not-fetched RETIRED (structurally dead at the resuming verify — three code-cited invariants; the classifier + named human stop remain, unit-pinned), ddl-deadlock assessed (R1 quiesce already shipped on both paths — scenario refresh + one bounded run when prioritized, non-gating).
 >
-> WHAT REMAINS ON THIS TICKET (tail, none release-gating):
-> 1. Flagless-selfheal real-path successor — narrowed interim scenario stands; successor arc uses the killed-by-system-after-migrations-before-completion site + flag truncation (run 2 in flight).
-> 2. Churn-scenario real-path successor (144 AC#3's interim net stands until it goes green).
-> 3. AC#4's zero-callers end state: fabricate_resume_state down to the sanctioned dead-producer caller (rune-wedge) once both successors land; fabricate_scheduled_upgrade_row still has live arc callers (AC#4's other half).
-> 4. AC#5 stretch unchanged.
+> WHAT REMAINS ON THIS TICKET (tail, none release-gating — the King collapsed the no-fabrication plan to EXECUTION on 2026-07-27; specs live in the P1-P7 comments):
+> 1. P1 — worker-ddl-deadlock swaps its fabricated scheduled row for the real sequence: register (daemon up, NOTIFY-driven) → wait ready → quiesce + schedule. Approved; spec in the comments.
+> 2. P2 — migrate-killed-after-commit DELETES: an artificial failure mode replaced by the actual failure on the same code paths (after-commit-before-recorded-kill-arc, green). Set-difference recorded at deletion.
+> 3. P3 — fabricate_scheduled_upgrade_row deletes at zero callers (after P1+P2).
+> 4. P4 — the churn successor arc; on its green, scenario 4-rollback-abort-churn deletes.
+> 5. P5 — rune-wedge RETIRES: the King's condition is met — the Apr-24 root cause is fixed (e76505eec skips --now in the fixup during an active upgrade; 61e79e265 lands the terminal UPDATE before the fixup; cb7344dd6 adds the self-heal net). The container-restart arc gains the [completed-self-heal] assert first; fabricate_resume_state then deletes at ZERO callers — no sanctioned exceptions remain.
+> 6. P6 — the structural guard: the harness can never again write public.upgrade directly; a regression fails loudly.
+> P7 is WITHDRAWN — the inject-marker system is the King's design and the standard (real code driving all the way, markers naming the instant); it stays wholesale.
 >
 > The coverage map above is the authoritative living state; the Implementation-Notes history that used to live here (U-campaign dispatches, X/Y resolution, carve-out ruling chronology) is preserved in git history and the comment thread.
 <!-- SECTION:NOTES:END -->
@@ -630,5 +633,15 @@ PLAN COLLAPSED TO EXECUTION (the King at the architect's console, 2026-07-27). H
 · P5: DECIDED by his prior conditional + the fix citations (e76505eec / 61e79e265 / cb7344dd6) — rune-wedge retires; the container-restart arc gains the [completed-self-heal] assert first; fabricate_resume_state deletes at zero callers.
 · P7 WITHDRAWN: the marker system stays wholesale — it is the standard, not a residue to thin. No hook conversions. (Justification comments on individual hooks may land as documentation whenever a hook is touched anyway; no dedicated work.)
 PROCESS CORRECTION, owned by the architect: entry-by-entry approval was over-applied to mechanical items; henceforth only genuine decisions reach the King — executions report.
+---
+
+author: architect
+created: 2026-07-27 19:56
+---
+P4 RULED on the engineer's stop-and-route (architect, 2026-07-27) — his mismatch finding is CORRECT and the flaw was in my ruled construction: I conflated two alive-idle classes under one word. The scenario P4 replaces proves the BOOT-MIGRATE-EXIT-20 churn class (flagless boot → boot-migrate --to floor hits a deterministic-failing ≤-floor migration → the 144 guard banner once → stops at the broken file → NRestarts 1 → row failed → app serves). My construction (failing lineage → :7632 mid-rollback kill → resume) produces the DEATH-BUDGET class instead, and the failing lineage's V at _latest+1 sits ABOVE the floor where boot-migrate never looks. Right stop, no VM spent.
+
+ANSWERS: (1) YES — P4 targets the boot-migrate-exit-20 class; the scenario→arc mapping stands. The ≤-floor broken-migration-ON-DISK producer is SANCTIONED as the real path, genre-labeled: it is ENVIRONMENT MANIPULATION OF INPUT STATE (the blessed class — flag truncation, restore-input corruption), not fabrication. The no-fabrication rule bars synthetic MACHINERY-OUTCOME state (DB rows, faked flags); a migration file in the checkout is INPUT, representing a real arrival class — a shipped broken below-floor migration — and every line of machinery that then runs (boot-migrate, the exit-20 classify, the 144 guard, the stop, alive-idle) is real code driving. (2) Moot — no re-ruling of the mapping. (3) I do not assert a hidden path against his code-verified analysis; the lineage-CARRIED variant (a ≤-floor broken migration minted into B's commit) was considered and is NOT required — it would alter the pre-kill trajectory (the upgrade's own migrate hits the file first) and hinges on kill-before-git-restore ordering; his shape keeps the ruled trajectory intact up to the kill and reproduces the scenario's mechanism exactly.
+
+BUILD SPEC, final — his reconciliation adopted verbatim: real dispatched upgrade on the failing lineage → real :7632 mid-rollback kill → flag TRUNCATED (the flagless-selfheal precedent, labeled) → a deterministic-failing ≤-floor migration placed in the checkout (labeled in the arc header: environment manipulation representing the shipped-broken-migration class) → next boot flagless → boot-migrate exit-20 → guard → alive-idle. RIDERS: (i) the arc header names BOTH manipulations and the real class each represents — the cold-agent reader must never mistake them for machinery outcomes; (ii) the set-difference maps every scenario assert (banner-once, stops-at-file, NRestarts bound, row state, app serves) to an arc assert before the scenario deletes; (iii) template reuse as he proposed (rollback-kill-arc + failing-arc). ORACLE: the arc green on a real VM; then scenario 4-rollback-abort-churn-then-alive-idle deletes and fabricate_resume_state drops to one caller (rune-wedge, itself retiring under P5). This ruling sits on the RC-cut ladder — build proceeds immediately; my frozen-diff review on the arc before commit.
 ---
 <!-- COMMENTS:END -->
