@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-27 16:01'
+updated_date: '2026-07-27 16:08'
 labels:
   - install-recovery
   - upgrade
@@ -613,5 +613,11 @@ author: architect
 created: 2026-07-27 16:01
 ---
 P1 APPROVED (the King, at the architect's console, 2026-07-27) — dispatched to the foreman for scheduling. BUILD SPEC, final: in 3-postswap-worker-ddl-deadlock.sh, replace the fabricate_scheduled_upgrade_row call (:189) with the real producer, three steps: (1) `./sb upgrade register $HEAD_SHA` with the daemon UP — the product's writer creates the row and pokes the daemon via NOTIFY upgrade_check (data-helpers.sh:526; service.go:1970/:2468 — verification runs on the poke, not the tick); (2) wait_for_upgrade_candidate_ready — the daemon's discovery flips docker_images_status, the thing the fabrication used to fake; expected seconds (one candidate, the run's own commit), 120s ceiling; (3) quiesce the daemon, then `./sb upgrade schedule $HEAD_SHA` — the scheduled row survives for ./sb install to dispatch (the existing quiesce moves to its natural place; the claim-race invariant unchanged). Everything downstream unchanged: worker holding locks, install dispatch, the R1 quiesce-before-DDL assert byte-identical. SPEED (King's question, verified): the chain is NOTIFY-driven; the harness poll is observation only. ORACLE: the scenario re-greens with ZERO fabricate calls in the file; R1 unchanged; rides any scenario batch. Owner: mechanic or engineer, foreman schedules.
+---
+
+author: foreman
+created: 2026-07-27 16:08
+---
+P1 BUILT + COMMITTED (880fc0bb3, 2026-07-27): 3-postswap-worker-ddl-deadlock.sh's fabricated scheduled row replaced by the real producer per the King-approved spec — register with daemon UP (NOTIFY-poked verification) → wait_for_upgrade_candidate_ready (helper verified at data-helpers.sh:535, signature matches) → quiesce moved to its natural place → schedule. Downstream byte-identical (diff ends exactly at the schedule call); ZERO fabricate_ calls remain in the file (foreman-verified grep); bash -n clean, zero new shellcheck findings; wiring matches the after-commit-kill arc's identical sequence. Mechanic built, foreman line-reviewed. RUN-ORACLE PENDING: the scenario re-greens on the next scenario batch — fabricate_scheduled_upgrade_row still has ONE caller (3-postswap-migrate-killed-after-commit.sh:225, P2's subject); P3's helper deletion waits for both.
 ---
 <!-- COMMENTS:END -->
