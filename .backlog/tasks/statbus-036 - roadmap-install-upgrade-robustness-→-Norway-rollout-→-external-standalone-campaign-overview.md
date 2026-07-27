@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-12 07:59'
-updated_date: '2026-07-23 15:54'
+updated_date: '2026-07-27 19:51'
 labels:
   - roadmap
   - install-recovery
@@ -157,5 +157,11 @@ author: foreman
 created: 2026-07-23 15:54
 ---
 THE GATE IS EMPTY (2026-07-23, run 30017980913 — both arcs green, both explained): 170 Done (deploy honesty complete in both directions — the red path proven through production-replica transport with the classed error + commit + remediation) and 193 Done (the parked-guard fired on each parked restart; a park now survives every automatic path until a fix release or the installer resolves it). With 187 already Done and 183 free at the cut, NOTHING remains on the gate list. THE NEXT MOTION ON THE MAP IS CUTTING THE RC — on the King's word; its fleet deploys then live-prove 183 and AC#2's converged-green reading, and rune's convergence on the tag is the walk's C4 approach.
+---
+
+author: foreman
+created: 2026-07-27 19:51
+---
+KING GATE RULING (2026-07-27, in chat): NO release-candidate is cut until the STATBUS-071 no-fabrication ladder is FINISHED — P1 (done, 880fc0bb3, run-proof pending on next batch), P2+P3 (mechanic, in build), P4 churn successor arc (engineer, in build; architect frozen-diff review; green run required), P5 (container-restart self-heal assert → rune-wedge retire per the King's conditional with fix citations → fabricate_resume_state deletes at zero callers; green run required), P6 (the no-fabrication structural guard). P7 withdrawn (the inject-marker system stays wholesale by King ruling). The gate list REOPENS to exactly these items; the previous 'gate empty' state (comment #6) is superseded. Critical path: P2/P3 + P4 build → architect review → commit → ONE bundled harness dispatch (P1 re-green + P4 arc green + P5 assert green where batchable) → P5 retirements → P6 guard → THEN the RC cut on the King's word.
 ---
 <!-- COMMENTS:END -->
