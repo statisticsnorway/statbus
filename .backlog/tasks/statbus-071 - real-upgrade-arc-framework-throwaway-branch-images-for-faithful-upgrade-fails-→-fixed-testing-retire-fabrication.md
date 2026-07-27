@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-27 16:08'
+updated_date: '2026-07-27 19:46'
 labels:
   - install-recovery
   - upgrade
@@ -619,5 +619,16 @@ author: foreman
 created: 2026-07-27 16:08
 ---
 P1 BUILT + COMMITTED (880fc0bb3, 2026-07-27): 3-postswap-worker-ddl-deadlock.sh's fabricated scheduled row replaced by the real producer per the King-approved spec — register with daemon UP (NOTIFY-poked verification) → wait_for_upgrade_candidate_ready (helper verified at data-helpers.sh:535, signature matches) → quiesce moved to its natural place → schedule. Downstream byte-identical (diff ends exactly at the schedule call); ZERO fabricate_ calls remain in the file (foreman-verified grep); bash -n clean, zero new shellcheck findings; wiring matches the after-commit-kill arc's identical sequence. Mechanic built, foreman line-reviewed. RUN-ORACLE PENDING: the scenario re-greens on the next scenario batch — fabricate_scheduled_upgrade_row still has ONE caller (3-postswap-migrate-killed-after-commit.sh:225, P2's subject); P3's helper deletion waits for both.
+---
+
+author: architect
+created: 2026-07-27 19:46
+---
+PLAN COLLAPSED TO EXECUTION (the King at the architect's console, 2026-07-27). His ruling, restated: the inject-marker system is HIS design and IS the real system — real code driving all the way, markers naming the instant. Fabrication was the pre-marker scaffolding; where a marker-driven arc is green, the fabricated twin retires WITHOUT ceremony. Consequences, effective now:
+· P2 SANCTIONED — the King's words: an artificial failure mode replaced by an actual failure on the same code paths; retire the code. Scenario 3-postswap-migrate-killed-after-commit deletes under the set-difference discipline (recorded here, results reported — no further approval).
+· P1 (already approved), P3, P4, P6: MECHANICAL — foreman schedules and executes; set-differences and grep-proofs land as comments; the King reads results, not proposals.
+· P5: DECIDED by his prior conditional + the fix citations (e76505eec / 61e79e265 / cb7344dd6) — rune-wedge retires; the container-restart arc gains the [completed-self-heal] assert first; fabricate_resume_state deletes at zero callers.
+· P7 WITHDRAWN: the marker system stays wholesale — it is the standard, not a residue to thin. No hook conversions. (Justification comments on individual hooks may land as documentation whenever a hook is touched anyway; no dedicated work.)
+PROCESS CORRECTION, owned by the architect: entry-by-entry approval was over-applied to mechanical items; henceforth only genuine decisions reach the King — executions report.
 ---
 <!-- COMMENTS:END -->
