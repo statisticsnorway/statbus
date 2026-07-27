@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-07-13 13:20'
-updated_date: '2026-07-25 18:37'
+updated_date: '2026-07-27 19:53'
 labels:
   - testing
   - not-install-upgrade
@@ -25,15 +25,13 @@ ordinal: 176000
 <!-- SECTION:DESCRIPTION:BEGIN -->
 NORTH STAR: a pg_regress test's expected output never depends on luck.
 
-> WHERE THIS STANDS (2026-07-15): AC#1/#2 done — the drop was characterised and the fix decided (the 403 suppress-shared-include pattern is the standard). BATCH 1a SHIPPED: 16 echoing tests converted and committed. The remaining three (401, 402, 500) are DEFERRED — their conversion runs collided with dev-DB crash cycles, split out as STATBUS-188 (straggler kill -9 remediation correlates with postmaster crash recovery); they convert after 188 lands. AC#3 closes when those three are converted and no committed expected depends on include-echo luck.
+> WHERE THIS STANDS (2026-07-27): ROOT CAUSE NAMED AND ACCEPTED (comment #7; the King: 'meets my standard'). There was no flake. The three 2026-07-13 runs executed DIFFERENT BYTES of the 403 test file — it was under construction, and the suppression wrap being authored between runs is exactly what removed the include echo. psql was deterministic throughout. AC#1 done. AC#2 stands on its independent ground: suppressing shared-include echo decouples committed expected files from include churn. Batch 1a shipped (16 tests converted). REMAINING = AC#3's last three (401, 402, 500), deferred behind STATBUS-188 (dev-DB crash cycles), plus one corollary riding the sweep: reword 403's inline comment at :49-50, which still calls the drop a harness flake.
 
-CONCRETE OBSERVATION (2026-07-13, while building test/sql/403_cross_border_power_group.sql): the same test file, same command (`./dev.sh test 403_cross_border_power_group`), run three times back-to-back on the same DB, produced TWO different result-file lengths:
-- runs b6wfa8a41 and bal7nbzfy: 569 lines — the `\i`-included setup files (getting-started.sql + the BRREG import-definition SQL + seed) were ECHOED in full (the normal behaviour, matching committed test 401).
-- run bamd270dk: 296 lines — the same includes were NOT echoed. The test still COMPLETED with identical final query results (PG0001, 23 members, exit 0); only the include echo was absent.
+THE 2026-07-13 OBSERVATION, RESOLVED: the same command run three times "back-to-back" gave 569-, 569-, and 296-line outputs with identical query results. The cause was not psql. The test file itself changed between runs: the 296-line run executed a draft already carrying the `\o /dev/null` + `\set ECHO none` wrap around its includes; the 569-line runs executed pre-wrap drafts. Identical results with missing echo is that edit's exact signature — the wrap changes what is echoed, never what executes. Proof in comment #7: 44/44 fixed-byte runs identical; the two output shapes map one-to-one onto the two file variants; the wrap was committed the same afternoon (f536b38e2) with a comment authored in response to the observation.
 
-So `\set ECHO all` (test/setup.sql:133) intermittently fails to echo subsequent `\i` file contents. Not truncation (the run reached PHASE 4 cleanup), not a query-result difference — purely whether included SQL text is echoed.
+WHY THE SWEEP CONTINUES ANYWAY: no committed expected file should depend on the text of shared includes. The 403 suppression pattern removes that dependence — a robustness win independent of the resolved observation.
 
-WHY IT MATTERS: every test that echoes its includes is susceptible to a spurious diff-failure when the drop occurs. Per "there are NO flaky tests", this harness nondeterminism is being removed, not tolerated: the fix makes expected outputs independent of include echo entirely (the 403 pattern — `\o /dev/null` + `\set ECHO none` around shared includes).
+LESSON, recorded for the next investigator: when variance is observed during active file construction, the file's own bytes are the first suspect input. "Same test file" must be proven, not assumed.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
