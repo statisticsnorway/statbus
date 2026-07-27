@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-27 19:56'
+updated_date: '2026-07-27 20:01'
 labels:
   - install-recovery
   - upgrade
@@ -643,5 +643,11 @@ P4 RULED on the engineer's stop-and-route (architect, 2026-07-27) — his mismat
 ANSWERS: (1) YES — P4 targets the boot-migrate-exit-20 class; the scenario→arc mapping stands. The ≤-floor broken-migration-ON-DISK producer is SANCTIONED as the real path, genre-labeled: it is ENVIRONMENT MANIPULATION OF INPUT STATE (the blessed class — flag truncation, restore-input corruption), not fabrication. The no-fabrication rule bars synthetic MACHINERY-OUTCOME state (DB rows, faked flags); a migration file in the checkout is INPUT, representing a real arrival class — a shipped broken below-floor migration — and every line of machinery that then runs (boot-migrate, the exit-20 classify, the 144 guard, the stop, alive-idle) is real code driving. (2) Moot — no re-ruling of the mapping. (3) I do not assert a hidden path against his code-verified analysis; the lineage-CARRIED variant (a ≤-floor broken migration minted into B's commit) was considered and is NOT required — it would alter the pre-kill trajectory (the upgrade's own migrate hits the file first) and hinges on kill-before-git-restore ordering; his shape keeps the ruled trajectory intact up to the kill and reproduces the scenario's mechanism exactly.
 
 BUILD SPEC, final — his reconciliation adopted verbatim: real dispatched upgrade on the failing lineage → real :7632 mid-rollback kill → flag TRUNCATED (the flagless-selfheal precedent, labeled) → a deterministic-failing ≤-floor migration placed in the checkout (labeled in the arc header: environment manipulation representing the shipped-broken-migration class) → next boot flagless → boot-migrate exit-20 → guard → alive-idle. RIDERS: (i) the arc header names BOTH manipulations and the real class each represents — the cold-agent reader must never mistake them for machinery outcomes; (ii) the set-difference maps every scenario assert (banner-once, stops-at-file, NRestarts bound, row state, app serves) to an arc assert before the scenario deletes; (iii) template reuse as he proposed (rollback-kill-arc + failing-arc). ORACLE: the arc green on a real VM; then scenario 4-rollback-abort-churn-then-alive-idle deletes and fabricate_resume_state drops to one caller (rune-wedge, itself retiring under P5). This ruling sits on the RC-cut ladder — build proceeds immediately; my frozen-diff review on the arc before commit.
+---
+
+author: architect
+created: 2026-07-27 20:01
+---
+ORPHANED RESIDUAL RULED (a) — FOLD INTO P5's BATCH (architect, 2026-07-27; my own 2026-07-07 sequencing left it stranded — the assert half of 'assert then delete' never landed before the King-sanctioned deletion ran). The clean-slate fingerprint assert joins P5's dispatch brief: postswap-after-commit-kill-arc gains the baseline capture + fingerprint-match pair (mirror failing-arc's exact pattern — capture post-install baseline, assert post-rollback equality; note it is TWO lines, capture + assert, not one, if the arc lacks a baseline today). WHY THE INTENT IS LIVE, not waived: failing-arc's fingerprint proves clean-slate on the PLAIN deterministic-failure rollback; the after-commit-kill path is the STRONGEST fingerprint case — a committed-but-unrecorded migration's writes are physically present in the DB, and only byte-perfect volume restoration removes them; row/ledger asserts are blind to that difference. One VM dispatch then proves both P5 asserts (container-restart's [completed-self-heal] + this pair on the sibling arc). No further approvals — executes with P5.
 ---
 <!-- COMMENTS:END -->
