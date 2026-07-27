@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-12 07:57'
-updated_date: '2026-07-23 16:23'
+updated_date: '2026-07-27 16:01'
 labels:
   - git-hygiene
   - not-install-upgrade
@@ -141,5 +141,11 @@ TRIAGE COMPLETE — FINAL DISPOSITION TABLE (2026-07-23, King's closing directiv
 · NEVER-DELETE: master + 11 deploy pointers.
 · SEQUENCING HOLD (the ONLY remaining action on this ticket): db-seed + db-snapshot delete AFTER the RC + stable release land, the fleet is off binaries ≤ v2026.05.6-rc.03, and the harness is weaned off db-seed (vm-bootstrap.sh:472,508) — King ruling 2026-07-13. The ticket closes when that hold releases and the two are deleted.
 AC#4 checked — the keep-pending walk is complete; no owner question remains open anywhere.
+---
+
+author: foreman
+created: 2026-07-27 16:01
+---
+LOCAL-CLONE APPENDIX (2026-07-27, King ruling: 'keep for now'): the King's clone carried local-only leftovers surfaced by his git-gone run. RESOLVED: four stale agent worktrees removed (all verified clean, branches contained in master) + six contained/pinned local branches deleted. KEPT on the King's word: parked/015-container-restart-superseded, red/031-rollback-watchdog (local twin), wip/rc.42-broken-70x, fix/upgrade-resume-start-phase-timeout, feature/mint-prototype, feat/import-definition-editor — all local-only, no origin presence, revisit at his leisure. The 49 local seed/<sha> branches ride the existing post-release seed-family hold. Origin itself is clean (master + 11 deploy pointers + db-seed/db-snapshot held + pgadmin/pg-oauth kept + the weekly-swept test churn).
 ---
 <!-- COMMENTS:END -->
