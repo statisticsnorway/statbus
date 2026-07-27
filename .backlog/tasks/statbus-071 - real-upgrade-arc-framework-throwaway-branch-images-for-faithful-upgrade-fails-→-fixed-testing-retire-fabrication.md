@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-27 20:14'
+updated_date: '2026-07-27 20:18'
 labels:
   - install-recovery
   - upgrade
@@ -665,5 +665,17 @@ SET-DIFFERENCE ✓ honest, not softened: both value-differences are property-pre
 RECORDED OBSERVATION (no change required — the asserts already tolerate it, noting so no future reader is surprised): after the churn banner, the boot continues into completeInProgressUpgrade, which will read the flagless in_progress row, observe the box genuinely Behind (binary at A, row at B), and may route it through the flagless recoveryRollback to 'rolled_back' within the watch window. Both end states — in_progress (heal not yet run) and rolled_back (heal ran) — satisfy assert C's property (never completed), assert D (never recorded), and the health/data asserts; the property-based assert design absorbs the race by construction. If the run lands 'rolled_back', that is the 039 machinery converging honestly, not a red.
 
 Foreman: commit P4; the bundled dispatch (P1 re-green + P4 + both P5 asserts) is the oracle. On P4's green + this recorded set-difference, scenario 4-rollback-abort-churn-then-alive-idle deletes and fabricate_resume_state drops to one caller.
+---
+
+author: architect
+created: 2026-07-27 20:18
+---
+P5 ADDITION-1 RULED (architect, 2026-07-27) — the mechanic's stop is correct, fork answer (a), and the wrong premise was MINE: my 193-review sentence ('the C8 kill leaves containers up; the next boot's real self-heal completes') was written from the kill-site comment without reading the target arc's own terminal contract. That arc pins rolled_back with a HARD FAIL on completed because the resume-death latch is its entire subject — a death DURING resume must never re-resume — and its green runs are the empirical proof that the self-heal does not fire in that construction. Addition-1 on that arc is WITHDRAWN; its anti-completed contract stands untouched.
+
+WHERE REAL SELF-HEAL COVERAGE ACTUALLY LIVES — by elimination over the census, NO existing arc reaches [containers-at-target + unparked + flag present + no latch]: health-park reaches containers-at-target but parked (the 193 guard blocks, by design); the C8 arc latches to rollback (by design); the at-target kill site fires BEFORE StartServices (containers down → the flagless heal, already proven). The state needs its own SMALL construction, and it has a LIVE producer: a kill in the window between the health-check pass and the completed terminal write — the box is converged (migrations recorded, containers healthy at target) and only the bookkeeping is unlanded. This is the rune class itself with the extinct part removed: the April SDNOTIFY route died (e76505eec et al.), but ANY kill in that window (power loss, OOM) still produces the class — a live-class construction that serves the King's 'covers what went wrong on Rune' directive far better than the fabricated replay did.
+
+BUILD SPEC — P5-NEW-ARC (small): (1) NEW inject marker `killed-after-health-before-completed-write` (KindKill) in applyNewSbUpgrading, after healthCheck success + setMaintenance(false), before markStep(StepComplete)/the completed terminalUpdate — one line, no-op in production, the established dual-use genre; MY frozen-diff review on the product line. (2) NEW single-phase arc on the WORKING lineage: install A → real register/schedule B → kill at the marker (exit 137, flag present, row in_progress, box converged) → recovery boot → resumeNewSb: containersAtFlagTarget TRUE, no pending, health passes → SELF-HEAL completes → asserts: [completed-self-heal] journal label (service.go:6874's LabelCompletedSelfHeal), row completed error-NULL, flag absent, ONE death so the latch stays silent (no UPGRADE_DIED_DURING_RESUME), NRestarts bounded, health + data intact.
+
+SEQUENCING — rune-wedge retirement does NOT wait: the King's retire condition was 'root cause fixed' (met, cited); the coverage pre-step was MY rider, not his condition. Retirement + fabricate_resume_state deletion proceed with P5 once P4 greens; between retirement and the new arc's green the unparked-self-heal map cell reads UNCOVERED-NAMED (real arc in build) — the doctrine's preferred honest state over fabricated coverage, with the branch's decision logic still pinned by TestResumeNewSb_SelfHealSkipsParkedRow and the 193 guard legs. Addition 2 (fingerprint pair, 15a1e7e48) acknowledged — exactly as specified.
 ---
 <!-- COMMENTS:END -->
