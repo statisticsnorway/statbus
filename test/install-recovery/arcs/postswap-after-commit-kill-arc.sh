@@ -103,6 +103,18 @@ echo "  pre-trigger data snapshot: $DATA_SNAPSHOT"
 BASELINE_MAX_VERSION=$(migration_max)
 echo "  baseline db.migration max_version: $BASELINE_MAX_VERSION"
 
+# Baseline clean-slate fingerprint (post-A + demo data) — STATBUS-071 comment
+# #651 (architect, 2026-07-27; folds the 2026-07-07 residual): this is the
+# STRONGEST fingerprint case of all the arcs — a committed-but-unrecorded
+# migration's writes are physically present in the DB, and only byte-perfect
+# volume restoration removes them; row/ledger asserts (orphan-gone,
+# migration-max-at-baseline, below) are blind to that distinction. Mirrors
+# failing-arc.sh's exact pattern: capture AFTER populate (arc_prepare_box
+# already ran it), assert equality after the rollback converges.
+echo "── capturing baseline clean-slate fingerprint (post-A) ──"
+BASELINE_FP=$(capture_db_fingerprint baseline)
+echo "  baseline fingerprint: $BASELINE_FP"
+
 echo ""
 echo "── register B (daemon up) ──"
 VM_EXEC bash -c "cd ~/statbus && git fetch origin $B_BRANCH && git cat-file -e $B_FULL"
@@ -169,6 +181,10 @@ echo "  ✓ orphan $FIXTURE_TABLE gone — the pre-upgrade snapshot was actually
 POST_MAX=$(migration_max)
 [ "$POST_MAX" = "$BASELINE_MAX_VERSION" ] || { echo "✗ db.migration max changed ($BASELINE_MAX_VERSION → $POST_MAX) — V was recorded; expected rolled-back-to-baseline" >&2; exit 1; }
 echo "  ✓ db.migration max back at baseline ($POST_MAX) — V unrecorded (rolled back, not forward-completed)"
+
+# CONTRACT (clean-slate, the centerpiece — STATBUS-071 #651): byte-perfect
+# volume restoration, not just ledger/row bookkeeping matching up.
+assert_fingerprint_matches "post-rollback == post-A" "$BASELINE_FP" baseline
 
 assert_demo_data_present "$VM_NAME"
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
