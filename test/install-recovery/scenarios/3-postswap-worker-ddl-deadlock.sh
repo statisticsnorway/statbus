@@ -173,20 +173,29 @@ sleep 10
 # assertions below interpret the install's exit code.
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
-echo "── fabricating scheduled public.upgrade row for HEAD ──"
-# Seed a scheduled upgrade row so ./sb install routes through
-# ExecuteUpgradeInline -> executeUpgrade, whose Step 3 (service.go:5190-5193)
-# stops app/worker/rest before the backup/swap — the worker is quiesced
-# BEFORE the delta migration ever runs in applyNewSbUpgrading — rather than
-# detecting nothing-scheduled and running the no-op step-table path.
-# Uses HEAD_SHA (the variable this file defines at line ~103).
-# Quiesce first: the running upgrade service (NOTIFY listener + poll tick)
-# would otherwise claim this scheduled row before `./sb install` reaches it
-# → StateNothingScheduled → no-op step-table → the DDL contention never
-# happens, so R1 ("service quiescence before DDL") could never validate here.
-# Fabricate-claim race invariant (see quiesce_upgrade_service in wedge-helpers).
+echo "── registering HEAD as an upgrade candidate (daemon UP — its own writer creates the row and pokes verification) ──"
+# Real producer, not fabrication: `./sb upgrade register` writes the candidate
+# row itself and pokes the daemon via NOTIFY upgrade_check (data-helpers.sh:526;
+# service.go:1970/:2468 — verification runs on the poke, not the discovery
+# tick's own cadence), so the row exists and gets verified promptly.
+VM_EXEC bash -c "cd ~/statbus && ./sb upgrade register $HEAD_SHA 2>&1 | tail -20"
+
+echo ""
+echo "── waiting for the candidate's images to verify ready (daemon's own discovery flips docker_images_status) ──"
+wait_for_upgrade_candidate_ready "$VM_NAME" "$HEAD_SHA" 120
+
+echo ""
+echo "── quiescing the upgrade service, THEN scheduling HEAD ──"
+# Quiesce NOW — after register+ready, before schedule: the running upgrade
+# service (NOTIFY listener + poll tick) would otherwise claim the row the
+# instant it's scheduled, before `./sb install` reaches it -> StateNothingScheduled
+# -> no-op step-table -> the DDL contention this scenario exists to exercise
+# never happens. The claim-race invariant is unchanged from the prior
+# fabricated-row construction (see quiesce_upgrade_service in wedge-helpers) —
+# only the row's producer changed, from a synthesized INSERT to the product's
+# own `./sb upgrade register` + `./sb upgrade schedule` writers.
 quiesce_upgrade_service "$VM_NAME"
-fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_SHA"
+VM_EXEC bash -c "cd ~/statbus && ./sb upgrade schedule $HEAD_SHA 2>&1 | tail -20"
 
 echo ""
 echo "── triggering install at HEAD with worker still holding locks ──"
