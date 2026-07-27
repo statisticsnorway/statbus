@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-25 18:40'
+updated_date: '2026-07-27 16:01'
 labels:
   - install-recovery
   - upgrade
@@ -607,5 +607,11 @@ CONSOLE SESSION BRIEF (architect, 2026-07-25 — prepared for the King's session
 4. THE COHERENCE WALK — what I verified before this session. Diagram inventory: doc/upgrade-timeline.md (last touched 2026-07-14), doc/upgrade-recovery-model.md (2026-07-12), doc/upgrade-vocabulary.md, doc/upgrades.md, doc/upgrade-hardening.md, doc/read-only-upgrade-window.md, doc/install-upgrade-testing.md, doc/recovery/upgrade-resume-structural-whole.md, plus this ticket's coverage map. NAMED DRIFT, found by probe today: (i) upgrade-timeline.md contains ZERO mention of the PARK lifecycle and zero of the serve-proven completed contract — the operator-facing diagram predates the campaign's two biggest state-machine additions; (ii) both timeline and recovery-model predate 192 (completed = verifiably serves, at every writer), 193 (the self-heal parked guard), and 195 (the discovery watchdog false-kill); (iii) your point (b) — 'one scenario covers what actually went wrong on Rune' — resolves into two layers: the EXTINCT wedge state (fixed, citations above; historical) and the LIVE class 'box loops forever and nobody is told' (covered by the budget/park arcs, the NRestarts-bounded asserts, and the 069 canary chain). Proposal for the session: a dedicated coherence ticket — reconcile timeline + recovery-model to post-192/193 reality; cross-link every diagram element to its covering arc/scenario and every arc to its diagram element; close with a drift gate (a structural check that a new terminal state or recovery path cannot land without its diagram line). Draft entry ready; you approve or reshape it at the console.
 
 Session agenda in one line: history (nothing missed — sequenced), census (four props, plan P1-P7 walks each), rune-wedge (condition met, citations), coherence (drift named, ticket drafted).
+---
+
+author: architect
+created: 2026-07-27 16:01
+---
+P1 APPROVED (the King, at the architect's console, 2026-07-27) — dispatched to the foreman for scheduling. BUILD SPEC, final: in 3-postswap-worker-ddl-deadlock.sh, replace the fabricate_scheduled_upgrade_row call (:189) with the real producer, three steps: (1) `./sb upgrade register $HEAD_SHA` with the daemon UP — the product's writer creates the row and pokes the daemon via NOTIFY upgrade_check (data-helpers.sh:526; service.go:1970/:2468 — verification runs on the poke, not the tick); (2) wait_for_upgrade_candidate_ready — the daemon's discovery flips docker_images_status, the thing the fabrication used to fake; expected seconds (one candidate, the run's own commit), 120s ceiling; (3) quiesce the daemon, then `./sb upgrade schedule $HEAD_SHA` — the scheduled row survives for ./sb install to dispatch (the existing quiesce moves to its natural place; the claim-race invariant unchanged). Everything downstream unchanged: worker holding locks, install dispatch, the R1 quiesce-before-DDL assert byte-identical. SPEED (King's question, verified): the chain is NOTIFY-driven; the harness poll is observation only. ORACLE: the scenario re-greens with ZERO fabricate calls in the file; R1 unchanged; rides any scenario batch. Owner: mechanic or engineer, foreman schedules.
 ---
 <!-- COMMENTS:END -->
