@@ -213,163 +213,6 @@ wait_for_worker_quiesce() {
 }
 
 # ─────────────────────────────────────────────────────────────────────────
-# fabricate_scheduled_upgrade_row <vm_name> <head_sha>
-#
-# Inserts a row in public.upgrade with state='scheduled' for the given
-# commit SHA, satisfying chk_upgrade_state_attributes' scheduled-arm
-# (scheduled_at NOT NULL; started_at + completed_at + rolled_back_at
-# NULL). Used by harness scenarios that need the supervised systemd
-# upgrade-service unit to dispatch an upgrade against HEAD's SHA —
-# the unit's `discover` machinery only populates rows for commits
-# matching git tags, so HEAD (typically untagged in harness flow)
-# never appears as state='available' via the natural path.
-#
-# Idempotent: if a row already exists for the SHA, transitions it to
-# 'scheduled' if it isn't already (and clears the lifecycle timestamps
-# that would conflict with the 'scheduled' arm). If a fabricated row
-# is already in state='scheduled', returns 0 unchanged.
-#
-# Field rationale (per discover's INSERT shape in service.go:2579 +
-# the create_upgrade_table.up.sql + commit_centric_upgrade_table.up.sql
-# schema lineage; verified against chk_upgrade_state_attributes in
-# migration 20260424160235_commit_canonical_naming.up.sql):
-#
-#   commit_sha     — required UNIQUE; the HEAD SHA passed in.
-#   committed_at   — required NOT NULL; we use now() (the harness
-#                    isn't asserting a specific commit timestamp).
-#   commit_tags    — TEXT[] default '{}'; we leave empty (HEAD is
-#                    untagged in this codepath by construction).
-#   release_status — public.release_status_type, default 'commit';
-#                    explicit 'commit' satisfies the discover-style
-#                    shape and prevents accidental misclassification.
-#   summary        — NOT NULL TEXT; static harness marker so an
-#                    operator browsing the table sees the row's
-#                    provenance.
-#   has_migrations — default FALSE; the upgrade-service's discover
-#                    leaves this false too — has_migrations is
-#                    determined by manifest at upgrade execution
-#                    time, not at discover/fabrication time.
-#   commit_version — synthetic harness sentinel. discover normally
-#                    sets this to a tag name; we use a placeholder
-#                    that doesn't collide with any real release tag
-#                    shape so a stray operator query that filters by
-#                    release tag won't match.
-#   state          — 'scheduled' (the row's purpose; satisfies
-#                    chk_upgrade_state_attributes' scheduled arm).
-#   scheduled_at   — now() (required by the scheduled arm).
-#
-# Usage:
-#   fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_SHA"
-#
-# Returns 0 on successful insert/update; non-zero on SQL error.
-# ─────────────────────────────────────────────────────────────────────────
-fabricate_scheduled_upgrade_row() {
-    local vm_name="$1"
-    local head_sha="$2"
-
-    if [ -z "$head_sha" ]; then
-        echo "  ✗ fabricate_scheduled_upgrade_row: head_sha is required" >&2
-        return 1
-    fi
-
-    echo "  [data] fabricating public.upgrade row for $head_sha (state=scheduled)"
-
-    # Pre-existing row? Transition to 'scheduled' if it isn't already,
-    # clearing lifecycle timestamps that would conflict with the
-    # scheduled arm. The WHERE clause is intentionally permissive — we
-    # accept rows in any state and force-reset them into scheduled,
-    # because the helper's contract is "make this row scheduled now";
-    # callers expect a deterministic post-condition regardless of
-    # whatever prior state the row was in.
-    # BASH-3.2 TRAP (macOS /bin/bash, which runs this harness locally): inside
-    # $( ... << HEREDOC ... ), the 3.2 parser naively counts single quotes in
-    # the heredoc BODY while scanning for the closing paren. An UNPAIRED
-    # apostrophe in a comment (e.g. a contraction like are+not written the
-    # short way) breaks the parse with a misleading "unexpected token )" at
-    # the substitution's end — run r11 burned a VM on exactly this. Keep the
-    # heredoc's single-quote count EVEN: no contractions in SQL comments;
-    # quoted literals like 'ready' are fine because they pair.
-    local upsert_sql
-    upsert_sql=$(cat << SQL
-WITH input(commit_sha) AS (VALUES ('${head_sha}'))
-INSERT INTO public.upgrade
-  (commit_sha, committed_at, commit_tags, release_status, summary,
-   has_migrations, commit_version, state, scheduled_at,
-   started_at, completed_at, rolled_back_at, error,
-   log_relative_file_path, skipped_at, dismissed_at, superseded_at,
-   docker_images_status, release_builds_status)
-SELECT
-  input.commit_sha,
-  now(),
-  '{}'::text[],
-  'commit'::public.release_status_type,
-  'harness fabricate_scheduled_upgrade_row',
-  false,
-  'harness-' || substring(input.commit_sha for 8),
-  'scheduled'::public.upgrade_state,
-  now(),
-  NULL, NULL, NULL, NULL,
-  'harness-' || substring(input.commit_sha for 8) || '.log', NULL, NULL, NULL,
-  'ready'::public.docker_images_status_type,
-  'ready'::public.release_builds_status_type
-FROM input
-ON CONFLICT (commit_sha) DO UPDATE SET
-  state            = 'scheduled'::public.upgrade_state,
-  scheduled_at     = now(),
-  started_at       = NULL,
-  completed_at     = NULL,
-  rolled_back_at   = NULL,
-  error            = NULL,
-  skipped_at       = NULL,
-  dismissed_at     = NULL,
-  superseded_at    = NULL,
-  log_relative_file_path = EXCLUDED.log_relative_file_path,
-  -- STATBUS-046 claim gate (commit 886c79293) refuses to claim scheduled rows
-  -- with docker_images_status='building' (the column default). Fabricated
-  -- rows bypass discover()/verifyArtifacts — the only path that would
-  -- otherwise flip 'building' to 'ready' — so this helper must declare
-  -- 'ready' explicitly. Legitimate, not a gate bypass: the harness has just
-  -- installed the target commit from the very per-commit-image registry
-  -- verifyArtifacts would have checked, so the images ARE actually present.
-  docker_images_status = 'ready'::public.docker_images_status_type,
-  -- Same rationale as docker_images_status, other half of the two-level
-  -- artifact-readiness check verifyArtifacts owns (fabrication bypasses the
-  -- prober that would otherwise flip this too): for commit-channel targets,
-  -- release artifacts are not used at all, so 'ready' is the honest declared
-  -- state, not just a gate-satisfying default.
-  release_builds_status = 'ready'::public.release_builds_status_type
-RETURNING id, commit_sha, state, scheduled_at;
-SQL
-)
-
-    # CLAUDE.md: never echo SQL over SSH — quoting collapses multiline SQL.
-    # Write to a local tmp file, scp to VM, pipe via file redirect.
-    local sql_file
-    sql_file=$(mktemp /tmp/harness-fabricate-XXXXXX.sql)
-    printf '%s\n' "$upsert_sql" > "$sql_file"
-    chmod 644 "$sql_file"  # mktemp creates mode 600; statbus user needs read access
-    scp -O "${SSH_OPTS[@]}" "$sql_file" root@"$VM_IP":/tmp/harness-fabricate.sql
-    rm -f "$sql_file"
-
-    # Capture output + exit code separately.
-    # The `|| echo "FAILED"` pattern would conflate a successful psql run
-    # that emits a WARN (e.g. sb's freshness check on a depth-1 clone) with
-    # an actual SSH/psql failure — any WARN containing "failed" would trigger
-    # the grep below even though the INSERT succeeded. Instead: check the
-    # exit code directly; treat non-zero SSH exit as the failure signal.
-    local result ssh_rc=0
-    result=$(ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
-        "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb config generate && ./sb psql -t -A < /tmp/harness-fabricate.sql' && rm -f /tmp/harness-fabricate.sql" \
-        2>&1) || ssh_rc=$?
-    if [ $ssh_rc -ne 0 ]; then
-        echo "✗ fabricate_scheduled_upgrade_row psql failed (rc=$ssh_rc): $result" >&2
-        return 1
-    fi
-    echo "  ✓ row fabricated/transitioned: $result"
-    return 0
-}
-
-# ─────────────────────────────────────────────────────────────────────────
 # fabricate_resume_state <vm_name> <commit_sha> [dead_pid]
 #
 # STATBUS-044 comment #6 (architect, King-approved 2026-07-04): fabricates
@@ -379,12 +222,13 @@ SQL
 # new-sb-swapped keeps the assertion surface identical to comment #1's spec) with
 # (STATBUS-164 half #2: fabrication writes the CANONICAL slug the current product
 # stamps; the pre-rename "post_swap" spelling is now a legacy decode-alias only)
-# a DEAD pid. There is NO dispatch and NO claim gate involved — unlike
-# fabricate_scheduled_upgrade_row (state='scheduled', requires a LIVE daemon
-# to claim + dispatch it), this writes the row and the flag file straight to
-# disk/DB so the very NEXT service boot's RecoveryBudgetGuard/recoverFromFlag
-# discovers them exactly as it would a real crash-resume — the mechanism
-# this scenario drives lives entirely in that discovery, not in dispatch.
+# a DEAD pid. There is NO dispatch and NO claim gate involved — unlike a row
+# reaching state='scheduled' for real (`./sb upgrade register` + `./sb upgrade
+# schedule`, which requires a LIVE daemon to claim + dispatch it), this writes
+# the row and the flag file straight to disk/DB so the very NEXT service
+# boot's RecoveryBudgetGuard/recoverFromFlag discovers them exactly as it
+# would a real crash-resume — the mechanism this scenario drives lives
+# entirely in that discovery, not in dispatch.
 #
 # "Dead PID" is diagnostic-only (UpgradeFlag's own doc comment, service.go):
 # the REAL mutex is the kernel flock, which nobody holds since this function
@@ -400,7 +244,7 @@ SQL
 # in 3-postswap-rune-wedge.sh and 4-rollback-abort-churn-then-alive-idle.sh —
 # the two surviving fabricate_resume_state callers, STATBUS-071).
 #
-# Row shape mirrors fabricate_scheduled_upgrade_row's field list but with
+# Row shape follows discover()'s own INSERT field list but with
 # state='in_progress' directly — chk_upgrade_state_attributes' in_progress
 # arm requires scheduled_at + started_at NOT NULL, completed_at +
 # rolled_back_at NULL (verified against migration
@@ -423,8 +267,10 @@ fabricate_resume_state() {
 
     echo "  [data] fabricating in_progress row + service-held new-sb-swapped flag (dead pid=$dead_pid) for $commit_sha"
 
-    # Same BASH-3.2 quote-parity trap as fabricate_scheduled_upgrade_row's
-    # heredoc above: keep the single-quote count in this heredoc EVEN.
+    # BASH-3.2 quote-parity trap (macOS /bin/bash, which runs this harness
+    # locally): keep the single-quote count in this heredoc EVEN — an unpaired
+    # apostrophe in a comment breaks the $( ... << HEREDOC ... ) parse with a
+    # misleading "unexpected token )" at the substitution's end.
     local upsert_sql
     upsert_sql=$(cat << SQL
 WITH input(commit_sha) AS (VALUES ('${commit_sha}'))

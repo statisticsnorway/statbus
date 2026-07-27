@@ -136,11 +136,12 @@ echo "  ✓ unit active on the HEAD binary"
 # Phase 4 — REGISTER HEAD as an upgrade candidate (the real post-086 path)
 #
 # STATBUS-086 (criterion-8 real-path proof): drive the upgrade through the NEW
-# operator verbs `./sb upgrade register` + `./sb upgrade schedule` — NOT
-# fabricate_scheduled_upgrade_row (which hand-INSERTs a synthetic 'scheduled'
-# row, bypassing the real mechanism; fabricate stays for the v2026.05.2-baseline
-# kill scenarios that have no daemon-independent scheduling verb — STATBUS-071
-# reshapes those). The box is already at HEAD's binary (staged + unit restarted
+# operator verbs `./sb upgrade register` + `./sb upgrade schedule` — NOT a
+# hand-INSERTed synthetic 'scheduled' row bypassing the real mechanism (the
+# former fabricate_scheduled_upgrade_row helper; deleted at zero callers,
+# STATBUS-071 P3, once every kill scenario that used it was reshaped onto the
+# arc framework's real register+schedule producer). The box is already at
+# HEAD's binary (staged + unit restarted
 # above), so it HAS register/schedule. register upserts the candidate
 # (state='available') through the SAME upsertCandidate path discovery uses, and
 # pokes the service to prepare it: NOTIFY upgrade_check → the daemon's

@@ -550,9 +550,10 @@ remove_release_file_in_vm() {
 #      swap never happened).
 #
 # CALLER ORDERING IS LOAD-BEARING:
-#   Call fabricate_scheduled_upgrade_row BEFORE this helper (DB must be up
-#   to transition the row to in_progress). The helper stops the DB as
-#   step 2, so no SQL is possible after it returns.
+#   The row must reach state='scheduled' BEFORE this helper (DB must be up
+#   to transition it to in_progress) — via the REAL producer (register +
+#   quiesce + schedule, 086; fabricate_scheduled_upgrade_row is deleted, P3).
+#   The helper stops the DB as step 2, so no SQL is possible after it returns.
 #
 # PARAMETERS:
 #   vm_name      — target VM (used via VM_EXEC and SSH_OPTS/VM_IP)
@@ -578,8 +579,8 @@ write_preswap_wedge() {
     echo "          from_commit_version: ${from_version:-(empty→NULL)}"
 
     # ── step 1: transition upgrade row to in_progress and capture id ──
-    # DB is still up at this point (fabricate_scheduled_upgrade_row was called
-    # by the caller before invoking this helper). UPDATE → RETURNING id.
+    # DB is still up at this point (the row reached 'scheduled' via the real
+    # register+schedule producer before this helper was invoked). UPDATE → RETURNING id.
     # CLAUDE.md: never echo SQL over SSH — write to a local tmp file, scp to VM.
     local sql_file row_id sql_result
     sql_file=$(mktemp /tmp/harness-wedge-inprogress-XXXXXX.sql)
@@ -669,7 +670,7 @@ echo "    [wedge] working tree now at: \$(git rev-parse --short HEAD)"
 #                 treats dead PID as StateCrashedUpgrade)
 #   started_at  — RFC3339 timestamp
 #   invoked_by  — informational; "harness:legacy-wedge" for traceability
-#   trigger     — "scheduled" (mirrors fabricate_scheduled_upgrade_row context)
+#   trigger     — "scheduled" (the shape a scheduled-row claim writes)
 #   holder      — "service" (HolderService; executeUpgrade always writes this)
 # Absent fields (omitempty): phase (= "" = PreSwap), backup_path, recreate.
 echo "    [wedge] writing flag JSON (id=\$ROW_ID, holder=service, phase=PreSwap)..."
@@ -708,19 +709,22 @@ WEDGE_SCRIPT
 # quiesce_upgrade_service <vm_name>
 #
 # Stop both the upgrade service AND its timer so neither a NOTIFY-driven
-# nor a poll/timer-driven claim can race the next fabricate_scheduled_upgrade_row
-# call.  Call this immediately BEFORE fabricate_scheduled_upgrade_row in every
-# scenario that has a running upgrade service and a fabricate step.
+# nor a poll/timer-driven claim can race the row's transition to 'scheduled'.
+# Call this immediately BEFORE `./sb upgrade schedule` in every scenario that
+# has a running upgrade service and needs the row to survive for its own
+# dispatch (`./sb install`) instead of the live daemon.
 #
-# Why this matters: if the HEAD row already exists (e.g. from discover()),
-# fabricate_scheduled_upgrade_row's ON CONFLICT DO UPDATE fires the
-# upgrade_notify_daemon_trigger (AFTER UPDATE), which pg_notify's the
+# Why this matters: `./sb upgrade schedule`'s own UPDATE to state='scheduled'
+# fires the upgrade_notify_daemon_trigger (AFTER UPDATE), which pg_notify's the
 # running service.  The service calls executeScheduled → claims the row
 # (started_at = now()) → QueryScheduledUpgrade returns nil (started_at IS NOT
 # NULL filtered) → ./sb install sees StateNothingScheduled → step-table →
 # completeInstallUpgradeRow.  The inject never fires.  Quiescing first
 # eliminates the listener: the NOTIFY goes unheard, the row stays 'scheduled'
 # for ./sb install or the restarted service to pick up with the inject in place.
+# (Formerly documented against fabricate_scheduled_upgrade_row's identical
+# ON CONFLICT DO UPDATE race — that helper is deleted, STATBUS-071 P3; the
+# real `./sb upgrade schedule` producer hits the same trigger the same way.)
 #
 # The timer (statbus-upgrade@statbus.timer) may be absent on some VMs;
 # the || true makes the stop idempotent whether or not the unit exists.
@@ -734,17 +738,17 @@ WEDGE_SCRIPT
 # phase.
 #
 # INVARIANT — call quiesce_upgrade_service before EVERY
-# fabricate_scheduled_upgrade_row EXCEPT the scenarios whose POINT is the
+# `./sb upgrade schedule` EXCEPT the scenarios/arcs whose POINT is the
 # service-DISPATCHED path (the running service must claim + dispatch the row):
-#   - 0-happy-upgrade              (unattended service dispatch IS the test)
-#   - 3-postswap-migration-timeout (service dispatches, then hits the
-#                                    startup-timeout inject on its restart)
-# Every other fabricate caller drives recovery via `./sb install` and carries
-# a fabricate-claim race the running service would otherwise win — quiesce it.
+#   - 0-happy-upgrade                    (unattended service dispatch IS the test)
+#   - postswap-migration-timeout-arc     (service dispatches, then hits the
+#                                          startup-timeout inject on its restart)
+# Every other caller drives recovery via `./sb install` and carries a
+# claim race the running service would otherwise win — quiesce it.
 # ─────────────────────────────────────────────────────────────────────────
 quiesce_upgrade_service() {
     local vm_name="$1"
-    echo "  [quiesce] SIGKILL-class quiescing upgrade timer + service on $vm_name (pre-fabricate race prevention)"
+    echo "  [quiesce] SIGKILL-class quiescing upgrade timer + service on $vm_name (pre-schedule claim-race prevention)"
     # NEVER `systemctl --user stop <service>`: that sends SIGTERM, which the upgrade
     # daemon catches (signal.NotifyContext(ctx, …SIGTERM), service.go:1460) → cancels
     # the upgrade context → deferred rollback() fires (pg_restore + restoreGitState),

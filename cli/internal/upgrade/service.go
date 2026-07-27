@@ -1263,9 +1263,8 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	// migrations + healthcheck genuinely landed before the crash), but for
 	// a PreSwap-phase flag, headSHA-matches-target says NOTHING about
 	// whether the upgrade reached the commit boundary — the harness has
-	// HEAD == target by construction (fabricate_scheduled_upgrade_row
-	// schedules HEAD against a binary that is also HEAD via
-	// upload_sb_to_vm), and real customers can also have HEAD == target
+	// HEAD == target by construction (its scenarios register+schedule
+	// HEAD against a binary that is also HEAD via upload_sb_to_vm), and real customers can also have HEAD == target
 	// after `git checkout` step 6 but before replaceBinaryOnDisk step 6b
 	// (the comment at line 773-778 already documents this window for
 	// PostSwap; it applies symmetrically here for PreSwap). Without this
@@ -8322,7 +8321,7 @@ func (d *Service) replaceBinaryOnDisk(version string, progress *ProgressLog) err
 //     would needlessly re-pull a binary that's already at the target.
 //  2. The install-recovery harness's upload_sb_to_vm pre-stages ./sb
 //     from HEAD to the VM (vm-bootstrap.sh:577) and then schedules an
-//     upgrade for HEAD via fabricate_scheduled_upgrade_row. Scenarios
+//     upgrade for HEAD via the real ./sb upgrade register+schedule chain. Scenarios
 //     26 + 27 (and any future post-swap scenario) reach buildBinary-
 //     OnDisk; the skip lets them proceed without a published image —
 //     an UNPUSHED harness HEAD has no statbus-sb:<short> image in the
