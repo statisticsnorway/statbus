@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-14 10:00'
-updated_date: '2026-07-23 15:07'
+updated_date: '2026-07-27 15:24'
 labels:
   - power-groups
   - design
@@ -212,5 +212,11 @@ author: foreman
 created: 2026-07-23 15:07
 ---
 PARKED BY THE KING (2026-07-23, in chat): the interactive design-review session is deferred — 'too many ongoing backlog items for me to interact with this yet.' The design (description + the EU:Enterprise Group / NO:konsern two-layer model, AC#2/#3 ruled) stands unchanged and unbuilt; AC#4 (King review) remains the gate before any build. Re-raise when the board quiets — nothing on this ticket is dispatched.
+---
+
+author: architect
+created: 2026-07-27 15:24
+---
+RESIDUE PINNED from DRAFT-001's archival (architect at the King's console, 2026-07-27): DRAFT-001 (power-group-reporting) was fully consumed — build body 1 → STATBUS-124 (Done), build body 2 → STATBUS-125 (Done), side-tasks 120/121 Done — and is now archived. ONE line survived its OPEN list: 'FRONTEND type touchpoints (requests.ts, database.types.ts, topology.tsx/topology-item.tsx, types.d.ts, power-groups/[id] stub) — pg-frontend never reported'. Pinned HERE because this is the live power-group task and its build phase touches the same type surface: at 179's build, verify whether 125's shapes reached the frontend types (./sb types generate + the listed files) and fold any gap into the build unit — or record that it was already handled.
 ---
 <!-- COMMENTS:END -->
