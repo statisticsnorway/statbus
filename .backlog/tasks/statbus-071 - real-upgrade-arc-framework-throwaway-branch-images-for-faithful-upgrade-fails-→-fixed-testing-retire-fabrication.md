@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-28 00:22'
+updated_date: '2026-07-28 13:51'
 labels:
   - install-recovery
   - upgrade
@@ -683,5 +683,11 @@ author: foreman
 created: 2026-07-28 00:22
 ---
 BUNDLED ORACLE VERDICTS (2026-07-27 dispatch, runs 30308821408 arc + 30308823908 scenario): P1 RE-GREEN PROVEN — 3-postswap-worker-ddl-deadlock GREEN on the real register/ready/quiesce/schedule producer; P1 complete. P5 ADDITION-2 PROVEN — postswap-after-commit-kill GREEN with the new clean-slate fingerprint pair. P4 RED at its own construction-validity probe: the real V_fail RAISEd (20260714100528 failed after 288ms, as designed), rollback began, the C9 mid-rollback kill fired — then the arc's post-kill row check read '(db-down/?)' and failed the in_progress equality: the DB was DOWN at probe time, a plausible legitimate state mid-killed-rollback (the rollback restores the DB volume; the kill can land with the DB container stopped/restarting). Routed to the engineer: likely an arc-side probe-timing amendment (tolerate/await DB reachability before the row equality, per the transient-tick genre), architect delta on the amendment, then P4 re-dispatch. RETIREMENT SEQUENCING per the architect's Addition-1 ruling: rune-wedge + churn-scenario deletion + fabricate_resume_state removal execute together once P4 greens — P4's green is now the ladder's sole retirement blocker. The new self-heal marker+arc unit (killed-after-health-before-completed-write) is dispatched to the engineer separately and rides the NEXT dispatch.
+---
+
+author: architect
+created: 2026-07-28 13:51
+---
+P4 PROBE AMENDMENT DELTA LOOK (architect, 2026-07-28) — SHIP. One hunk, foreman-built, correct on all three counts: (1) the run evidence read the row_state error sentinel exactly where the DB is legitimately down (the C9 kill lands mid-volume-restore — run 30308821408); (2) the fix is the deploy-poll genre applied correctly — db-down is a tolerated tick with a narrated line, bounded (120s/5s), budget exhaustion its own loud fail, and the equality assert UNCHANGED after reachability — no property softened; (3) the comment's invariant claim is verified sound: the kill precedes the rollback's terminal write, and the pre-migrate volume backup was taken with the row already in_progress — so once readable the row is in_progress on BOTH branches (restore completed or not). The `[ … ] && break` idiom is set-e-safe (not the final command of the list) and matches the file's existing loops. Independent bash -n clean. Foreman: commit + re-dispatch the arc ALONE (P1 + the fingerprint arc already green from the bundle). Engineer keeps item 2 (the self-heal marker + arc) when his sessions stabilize.
 ---
 <!-- COMMENTS:END -->
