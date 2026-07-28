@@ -31,6 +31,90 @@ STAMP_FILE="$HARNESS_ROOT/tmp/install-recovery-test-passed-sha"
 SKIP_DEFAULT_MARKER="HARNESS_SKIP_DEFAULT"
 _is_skip_default() { grep -q "$SKIP_DEFAULT_MARKER" "$1" 2>/dev/null; }
 
+# ─────────────────────────────────────────────────────────────────────────
+# STATBUS-071 P6 — the structural guard: no fabrication, ever again.
+#
+# The whole framework (STATBUS-071) exists to prove upgrade/recovery against
+# REAL machinery, not hand-built rows. By P5 every scenario/arc that used to
+# fabricate a crash state directly (fabricate_scheduled_upgrade_row,
+# fabricate_resume_state — both deleted at zero callers) was reshaped onto the
+# real register+schedule+dispatch path. This check is what keeps it that way:
+# it fails loudly if a future "just this once" convenience fabrication tries
+# to land, so the doctrine is self-enforcing instead of tribal memory.
+#
+# Two forbidden shapes, scanned across every *.sh under scenarios/ and arcs/:
+#   (a) a CALL-shaped `fabricate_*` reference — a line that (after leading
+#       whitespace) BEGINS with `fabricate_<name>` followed by a space or `(`.
+#       This catches both a call (`fabricate_foo "$VM_NAME" ...`) and a bare
+#       function definition (`fabricate_foo() {`) landing directly in a
+#       scenario/arc file. It does NOT catch prose — a comment (`# ... uses
+#       fabricate_foo ...`) or an echo/PASS string quoting the name never
+#       starts the line with the identifier itself, so historical/supersession
+#       notes (which must stay, per STATBUS-071 P3/P5) never trip it.
+#   (b) a ledger-write pattern (`INSERT INTO public.upgrade` / `UPDATE
+#       public.upgrade`) anywhere in the file. Writes to the ledger belong to
+#       the PRODUCT only — a scenario/arc proves behavior by driving the real
+#       machinery and reading the result, never by hand-writing the row the
+#       machinery is supposed to produce. The ONE sanctioned exception is a
+#       GUARD-PROBE that deliberately attempts a forbidden write to prove a DB
+#       trigger REFUSES it (c-rollback-resurrection-arc.sh's terminal-
+#       resurrection probe, STATBUS-160) — such a line must carry the literal
+#       marker below on the SAME line, naming itself as sanctioned and why.
+#
+# Runs unconditionally, before any flag is even parsed — every invocation of
+# this script (a real scenario run, --list, --print-selected) exercises it,
+# which means the install-recovery-harness.yaml CI workflow's `discover` job
+# already runs it for free today (it calls `--print-selected` before spinning
+# up a single VM).
+LEDGER_WRITE_SANCTION_MARKER="HARNESS-SANCTIONED-LEDGER-WRITE"
+
+check_no_fabrication_or_ledger_writes() {
+    local scan_dir file line violations=0
+    for scan_dir in "$@"; do
+        [ -d "$scan_dir" ] || continue
+        while IFS= read -r file; do
+            while IFS= read -r line; do
+                local lineno content
+                lineno="${line%%:*}"
+                content="${line#*:}"
+                echo "✗ FABRICATION: $file:$lineno matches a call-shaped 'fabricate_*' reference:" >&2
+                echo "    $content" >&2
+                echo "    Doctrine (STATBUS-071 P6, no-fabrication): scenarios/arcs must drive the" >&2
+                echo "    real register+schedule+dispatch path, never hand-construct crash state." >&2
+                violations=$((violations + 1))
+            done < <(grep -nE '^[[:space:]]*fabricate_[A-Za-z0-9_]+[[:space:](]' "$file" || true)
+
+            while IFS= read -r line; do
+                local lineno content
+                lineno="${line%%:*}"
+                content="${line#*:}"
+                if [[ "$content" == *"$LEDGER_WRITE_SANCTION_MARKER"* ]]; then
+                    continue
+                fi
+                echo "✗ LEDGER WRITE: $file:$lineno writes public.upgrade directly:" >&2
+                echo "    $content" >&2
+                echo "    Doctrine (STATBUS-071 P6, no-fabrication): writes to the ledger belong to" >&2
+                echo "    the PRODUCT only. If this is a deliberate GUARD-PROBE proving a DB trigger" >&2
+                echo "    REFUSES the write (STATBUS-160 genre), mark the SAME line with the literal" >&2
+                echo "    string ${LEDGER_WRITE_SANCTION_MARKER} and name the doctrine it proves." >&2
+                violations=$((violations + 1))
+            done < <(grep -nE 'INSERT INTO public\.upgrade|UPDATE public\.upgrade' "$file" || true)
+        done < <(find "$scan_dir" -maxdepth 1 -name '*.sh' -type f | sort)
+    done
+    if [ "$violations" -gt 0 ]; then
+        echo "" >&2
+        echo "════════════════════════════════════════════════════════════════" >&2
+        echo "  REFUSING: $violations fabrication/ledger-write violation(s) found (STATBUS-071 P6)." >&2
+        echo "  The harness proves upgrade/recovery against REAL machinery — see the header" >&2
+        echo "  of this check in run.sh for the doctrine and the sanctioned-exception marker." >&2
+        echo "════════════════════════════════════════════════════════════════" >&2
+        return 1
+    fi
+    return 0
+}
+
+check_no_fabrication_or_ledger_writes "$SCENARIOS_DIR" "$HARNESS_DIR/arcs"
+
 # Append a scenario path to SELECTED unless it is already there. Selection MUST be
 # duplicate-free: a repeated scenario becomes two matrix jobs with the same name →
 # two Hetzner VMs both named "statbus-recovery-<scenario>" → an `hcloud server

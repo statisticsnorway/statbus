@@ -331,7 +331,7 @@ B_FP_BEFORE=$(psql_scalar "SELECT state || '|' || (recovery_parked_at IS NOT NUL
 PROBE_OUT=$(mktemp)
 cat > /tmp/crollback-guard-probe.sql <<PROBESQL
 \set ON_ERROR_STOP off
-UPDATE public.upgrade SET state = 'completed' WHERE id = ${B_ROW_ID};
+UPDATE public.upgrade SET state = 'completed' WHERE id = ${B_ROW_ID};  -- HARNESS-SANCTIONED-LEDGER-WRITE (GUARD-PROBE above; must be REFUSED by the trigger, STATBUS-071 P6)
 PROBESQL
 scp -O "${SSH_OPTS[@]}" /tmp/crollback-guard-probe.sql statbus@"$(hcloud server ip "$VM_NAME")":/tmp/crollback-guard-probe.sql >/dev/null
 rm -f /tmp/crollback-guard-probe.sql
