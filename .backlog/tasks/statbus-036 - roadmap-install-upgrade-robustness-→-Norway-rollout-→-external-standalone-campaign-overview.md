@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-12 07:59'
-updated_date: '2026-07-27 19:52'
+updated_date: '2026-07-28 15:38'
 labels:
   - roadmap
   - install-recovery
@@ -166,5 +166,11 @@ author: foreman
 created: 2026-07-27 19:51
 ---
 KING GATE RULING (2026-07-27, in chat): NO release-candidate is cut until the STATBUS-071 no-fabrication ladder is FINISHED — P1 (done, 880fc0bb3, run-proof pending on next batch), P2+P3 (mechanic, in build), P4 churn successor arc (engineer, in build; architect frozen-diff review; green run required), P5 (container-restart self-heal assert → rune-wedge retire per the King's conditional with fix citations → fabricate_resume_state deletes at zero callers; green run required), P6 (the no-fabrication structural guard). P7 withdrawn (the inject-marker system stays wholesale by King ruling). The gate list REOPENS to exactly these items; the previous 'gate empty' state (comment #6) is superseded. Critical path: P2/P3 + P4 build → architect review → commit → ONE bundled harness dispatch (P1 re-green + P4 arc green + P5 assert green where batchable) → P5 retirements → P6 guard → THEN the RC cut on the King's word.
+---
+
+author: foreman
+created: 2026-07-28 15:38
+---
+THE GATE IS SATISFIED (2026-07-28): the King's RC-cut gate — the STATBUS-071 no-fabrication ladder — is FINISHED and 071 is Done. Every rung run-proven: real producers everywhere, both fabrication helpers deleted at zero callers, the structural guard live on every harness invocation, and a bonus the ladder earned — the third completed-writer's read-only-window gap found by the new real-path arc and fixed, so ALL THREE completed writers are serve-proven in the full 192 sense (runs 30308823908, 30369283526, 30372633117). Remaining before Norway-stable: NOTHING but the cut itself — 183's live oracle proves free on the cut's own deploys. THE NEXT MOTION IS CUTTING THE RC, on the King's word.
 ---
 <!-- COMMENTS:END -->
