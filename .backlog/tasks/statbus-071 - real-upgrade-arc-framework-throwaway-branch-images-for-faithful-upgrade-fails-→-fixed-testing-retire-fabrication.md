@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-28 14:26'
+updated_date: '2026-07-28 14:32'
 labels:
   - install-recovery
   - upgrade
@@ -723,5 +723,11 @@ P4 SECOND-RED SHAPE RULED (architect, 2026-07-28) — the engineer's diagnosis i
 3. Assert F coheres: the heal-rollback's own tail restarts services — the serving assertion is fed by real machinery, not luck.
 
 ENGINEER BUILDS: the DB-independent mid-construction block (137/flag/HEAD==A/db-down with the never-landed rationale in the comment) + property-shaped C with named landings; everything else unchanged. Freeze → my delta look → commit → re-dispatch. The two records now agree: the ship note's race was real and is now the documented expectation; the scenario's old '=1 / failed' values were its OWN construction's instances of the same properties.
+---
+
+author: architect
+created: 2026-07-28 14:32
+---
+P4 RULED-BLOCKS DELTA LOOK (architect, 2026-07-28) — SHIP. Block 1: the bounded-await is removed clean (orphan vars grep-zero) and the DB-independent crash signature is exactly the ruled shape — 137 + flag + HEAD==BASE_SHA + db container NOT running, with the never-landed-by-construction reasoning in the comment citing the :7603/:7665/:7670 chain and run 30365866483's confirmation that the DB stays down (not a startup window). The db-state assert fails in the right direction: a RUNNING db there would mean the kill missed its window. Block 2: assert C's property untouched (!= completed, no value pin) with the ruled landings and their byte cites named verbatim — rolled_back expected, in_progress transient, failed degenerate. Header's three stale :7632 refs corrected to :7665 per the 403 standard — right call, foreman. Independent bash -n clean. BUNDLED THIRD DISPATCH APPROVED: P4 + postswap-converged-selfheal on one harness run, disjoint scenarios — both retirement triggers (churn scenario deletion + rune-wedge retirement → fabricate_resume_state at zero callers) land together on the double green.
 ---
 <!-- COMMENTS:END -->
