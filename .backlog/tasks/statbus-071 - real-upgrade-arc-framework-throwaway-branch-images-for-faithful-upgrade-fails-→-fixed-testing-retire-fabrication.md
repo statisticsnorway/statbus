@@ -3,11 +3,11 @@ id: STATBUS-071
 title: >-
   real-upgrade-arc-framework: throwaway-branch images for faithful "upgrade
   fails → fixed" testing (retire fabrication)
-status: In Progress
+status: Done
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-28 15:17'
+updated_date: '2026-07-28 15:38'
 labels:
   - install-recovery
   - upgrade
@@ -742,4 +742,16 @@ created: 2026-07-28 15:17
 ---
 RETIREMENTS EXECUTED — ZERO FABRICATION (bda638f22, 2026-07-28): scenarios 4-rollback-abort-churn (superseded by boot-migrate-churn-alive-idle-arc, run 30369283526) and 3-postswap-rune-wedge (HISTORICAL — producer extinct per the King's root-cause-fixed condition, citations e76505eec/61e79e265/cb7344dd6) deleted; fabricate_resume_state deleted at zero callers; repo-wide sweep leaves only explicitly-historical mentions, including two pre-existing wrong claims in the flagless arc corrected with citation. AC#3 CHECKED (kill-family reshaped onto real register+schedule, P1+P2). AC#4 CHECKED (both fabrication helpers deleted at zero callers; no synthetic crash-state fabrication remains anywhere — the no-residual rule met; P6's structural guard will make the state self-enforcing). AC#5 note: the P7 stretch was WITHDRAWN by the King (2026-07-27 — the inject-marker system stays wholesale; no hook conversions without a new ruling); the checkbox stays open only as the record of that withdrawal unless the close-out re-words it. REMAINING ON THE LADDER: the selfheal arc's solo re-run (in flight — the final run-proof, first exercise of the window-lift asserts) and P6 (dispatched to the mechanic).
 ---
+
+author: foreman
+created: 2026-07-28 15:38
+---
+LADDER COMPLETE — TICKET DONE (2026-07-28, run 30372633117, postswap-converged-selfheal GREEN, fully explained): the real converged crash (exit 137, faithful flag, box serving) self-healed to completed in 2 SECONDS on the next boot — [completed-self-heal] logged, error NULL, flag removed, resume-death latch SILENT, NRestarts=0 — and the window-lift asserts passed on their FIRST exercise: no STATBUS-163 BACKSTOP in the arm window (the self-heal tail lifted the window itself) and a fresh write accepted with no 25006. THE THIRD COMPLETED WRITER IS SERVE-PROVEN IN THE FULL 192 SENSE. Final ladder ledger: P1 proven (real producer, run 30308823908) · P2+P3 done (scenario + helper deleted, ee90fbbd6) · P4 proven (churn arc green, run 30369283526; scenario deleted) · P5 done (fingerprint pair proven run 30017980913-successor; marker+arc built, product window-lift gap FOUND AND FIXED by the real path, arc green; rune-wedge retired historical per the King's root-cause-fixed condition; fabricate_resume_state deleted at zero callers, bda638f22) · P6 shipped (the structural guard, c9d5fb77e, proven firing + green) · P7 WITHDRAWN by the King (inject markers stay wholesale; AC#5's checkbox deliberately left open as the record of that withdrawal, not unfinished work). ZERO FABRICATION remains; the state is self-enforcing. The King's RC-cut gate (2026-07-27 ruling) is SATISFIED.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The real-upgrade-arc framework reached the King's no-fabrication end state: every scenario and arc drives real machinery (register → schedule → dispatch → real crashes at real instants), both fabrication helpers are deleted at zero callers, and a structural guard makes the state self-enforcing — any future call-shaped fabrication or harness ledger-write refuses loudly before a VM spins up, with one named sanctioned-exception class for adversarial guard-probes. The retirement ladder (P1-P6; P7 withdrawn by the King) was proven rung by rung on paid VM runs, and the runs earned their keep: the churn class's real construction corrected two wrong transient theories and landed exactly on the ruled expected state; the new converged-selfheal producer — the live Rune class — immediately surfaced and fixed a real product gap (the third completed-writer never lifted the read-only window), so all three completed writers are now serve-proven in the full 192 sense. The rune-wedge fabrication retired historical under the King's root-cause-fixed condition with its three fix citations. Campaign history, coverage map, and every set-difference live on this ticket.
+<!-- SECTION:FINAL_SUMMARY:END -->
