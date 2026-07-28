@@ -50,6 +50,8 @@ _dump_selfheal_diagnostics() {
     echo "" >&2
     echo "══════════ failure diagnostics (row + journal + flag) ══════════" >&2
     VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, recovery_attempts, recovery_parked_at IS NOT NULL AS parked, COALESCE(error,'') FROM public.upgrade ORDER BY id DESC LIMIT 5;\" | ./sb psql -x" >&2 || true
+    # B's OWN row by identity — the LIMIT 5 above can be shadowed by discovery-registered 'available' candidates.
+    VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, recovery_attempts, COALESCE(error,'') FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -x" >&2 || true
     VM_EXEC bash -c "journalctl --user -u $UPGRADE_UNIT --no-pager -n 400 2>/dev/null" >&2 || true
     VM_EXEC bash -c "cat ~/statbus/$FLAG_PATH 2>/dev/null || echo '(flag absent)'" >&2 || true
     echo "══════════ end failure diagnostics ══════════" >&2
@@ -61,8 +63,14 @@ echo "  Arc: postswap-converged-selfheal  (real converged crash before the compl
 echo "  A=${BASE_SHA:0:8}  B=${B_FULL:0:8}  V=${V_VERSION}"
 echo "════════════════════════════════════════════════════════════════"
 
-row_state()   { VM_EXEC bash -c "cd ~/statbus && echo 'SELECT state FROM public.upgrade ORDER BY id DESC LIMIT 1;' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "(db-down/?)"; }
-row_error()   { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT COALESCE(error,'') FROM public.upgrade ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d '\r' || echo "?"; }
+# Read the UPGRADE's OWN row BY IDENTITY (commit_sha = B), never "newest". The recovery boot's
+# discovery registers 'available' CANDIDATE rows with HIGHER ids; an ORDER BY id DESC read reads
+# a candidate and shadows B's row (run 30369283526: the heal completed row 2 to 'completed' + logged
+# [completed-self-heal] at t+6s, but a plain-newest poll read a discovery 'available' candidate and
+# timed out at 600s — a WRONG-ROW read, not a product gap). B_FULL is this arc's single upgrade
+# target; its row's commit_sha == B_FULL (mirrors flagless-selfheal-at-target's row_state_for).
+row_state()   { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "(db-down/?)"; }
+row_error()   { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT COALESCE(error,'') FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d '\r' || echo "?"; }
 flag_present(){ VM_EXEC bash -c "test -f ~/statbus/$FLAG_PATH && echo yes || echo no" 2>/dev/null | tr -d ' \r\n' || echo "no"; }
 arm_since()   { VM_EXEC bash -c "date '+%Y-%m-%d %H:%M:%S'" 2>/dev/null | tr -d '\r'; }
 journal_has() { VM_EXEC bash -c "journalctl --user -u $UPGRADE_UNIT --since \"$2\" --no-pager 2>/dev/null | grep -qF \"$1\" && echo yes || echo no" 2>/dev/null | tr -d ' \r\n' || echo "no"; }
