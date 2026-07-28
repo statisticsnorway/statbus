@@ -12,9 +12,9 @@
 # is then PURE ENVIRONMENT MANIPULATION layered on top of that real crash —
 # same class as corrupting git objects or filling disk: the proxy genuinely
 # IS stopped, not a fabricated resume-state row. Neither shape is
-# dead-producer class, so fabricate_resume_state gains no new caller here
-# (the earlier scenario-style draft that used it was withdrawn in favor of
-# this construction).
+# dead-producer class, so this construction never used fabricate_resume_state
+# (deleted at zero callers, STATBUS-071 P5) — the earlier scenario-style draft
+# that used it was withdrawn in favor of this construction.
 #
 # THE SHAPE THIS PROVES: same claim as before the rebuild — a crashed
 # upgrade whose proxy container is STOPPED (not removed) must recover

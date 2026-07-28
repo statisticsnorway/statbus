@@ -21,8 +21,11 @@
 #      max ≥ on-disk max), and marks state='completed', error=NULL, logging its own
 #      LabelCompletedFromInProgress ("[completed-from-in-progress]").
 # On this arc's GREEN the fabricated scenario 4-flagless-selfheal-at-target DELETES
-# (its interim-net deletion condition) and fabricate_resume_state drops one caller
-# toward AC#4's zero-callers end state.
+# (its interim-net deletion condition; commit 86c626ab0). NOTE (correcting the
+# original framing, STATBUS-071 comment #546): that scenario built its row INLINE,
+# not via fabricate_resume_state, so its deletion never changed that helper's
+# caller count — fabricate_resume_state's own retirement is a separate unit
+# (STATBUS-071 P4/P5; the helper is now deleted at zero callers).
 #
 # The end state is a SERVING box (STATBUS-192): completeInProgressUpgrade's completed
 # write is now serve-proven — after the DB-health + at-target gates it runs the SAME tail
@@ -195,4 +198,4 @@ fi
 echo "  ✓ write probe accepted (BEGIN/UPDATE/ROLLBACK, no 25006) — the box serves writes"
 
 echo ""
-echo "PASS: flagless-selfheal-at-target — a REAL at-target upgrade crash + a REAL flag truncation produced the [at-target in_progress row + no flag] orphan (the corrupt-flag reader removed the truncated flag, row untouched), and the SAME boot's completeInProgressUpgrade SERVE-PROVENLY converged it to 'completed' (services started + app health gate passed + maintenance off BEFORE the completed write; error NULL, [completed-from-in-progress] logged), flag absent, data intact, no restart loop, the box SERVES (assert_health_passes with a real Host header — the STATBUS-192 oracle), and the read-only window was lifted BY THE TAIL (no STATBUS-163 BACKSTOP; a fresh write is accepted with no 25006 — refinement 1). The fabricated 4-flagless-selfheal-at-target scenario's state now has a run-proven real-path producer — it deletes, and fabricate_resume_state drops one caller."
+echo "PASS: flagless-selfheal-at-target — a REAL at-target upgrade crash + a REAL flag truncation produced the [at-target in_progress row + no flag] orphan (the corrupt-flag reader removed the truncated flag, row untouched), and the SAME boot's completeInProgressUpgrade SERVE-PROVENLY converged it to 'completed' (services started + app health gate passed + maintenance off BEFORE the completed write; error NULL, [completed-from-in-progress] logged), flag absent, data intact, no restart loop, the box SERVES (assert_health_passes with a real Host header — the STATBUS-192 oracle), and the read-only window was lifted BY THE TAIL (no STATBUS-163 BACKSTOP; a fresh write is accepted with no 25006 — refinement 1). The fabricated 4-flagless-selfheal-at-target scenario's state now has a run-proven real-path producer — it deletes (that scenario never called fabricate_resume_state; see STATBUS-071 comment #546)."

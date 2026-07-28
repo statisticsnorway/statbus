@@ -8,8 +8,8 @@
 # machinery (real register/schedule → inject.KillHere at the real post-swap
 # container-restart site); the proxy state (REMOVED, not merely stopped) is
 # then pure environment manipulation on top of that real crash — the same
-# class as corrupting git objects or filling disk. fabricate_resume_state
-# gains no new caller.
+# class as corrupting git objects or filling disk. This construction never
+# used fabricate_resume_state (deleted at zero callers, STATBUS-071 P5).
 #
 # THE SHAPE THIS PROVES: unchanged claim — a crashed upgrade whose proxy
 # container is MISSING (removed) must produce an ACTIONABLE NAMED REFUSAL,
