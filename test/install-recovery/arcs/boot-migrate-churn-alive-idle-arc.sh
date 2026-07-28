@@ -39,7 +39,7 @@
 # of the failing-lineage B → a real ./sb install dispatch runs executeUpgrade inline: migrate
 # hits V_fail (RAISE EXCEPTION) → newSbUpgradingFailure → observed Behind → d.rollback →
 # restoreGitState/Binary/Database restore the box to A → the C9 inject fires at the REAL
-# mid-rollback instant (killed-by-system-during-builtin-rollback, service.go:7632, exit 137),
+# mid-rollback instant (killed-by-system-during-builtin-rollback, service.go:7665, exit 137),
 # leaving the service-held flag on disk with the row still in_progress and the tree restored
 # to A. Then the two input manipulations, then the daemon recovery boot drives the flagless
 # boot-migrate churn for real.
@@ -103,6 +103,10 @@ echo "════════════════════════�
 
 row_state()    { VM_EXEC bash -c "cd ~/statbus && echo 'SELECT state FROM public.upgrade ORDER BY id DESC LIMIT 1;' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "(db-down/?)"; }
 flag_present() { VM_EXEC bash -c "test -f ~/statbus/$FLAG_PATH && echo yes || echo no" 2>/dev/null | tr -d ' \r\n' || echo "no"; }
+# DB-INDEPENDENT crash-signature probes (readable while the DB is down): the git tree the rollback
+# rewound to, and the db container's compose state (evidence genre: 'service "db" is not running').
+box_head()          { VM_EXEC bash -c "cd ~/statbus && git rev-parse HEAD" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
+db_container_state() { VM_EXEC bash -c "cd ~/statbus && docker compose ps db --format '{{.State}}' 2>/dev/null" 2>/dev/null | tr -d ' \r\n' || echo "unknown"; }
 migration_recorded() { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM db.migration WHERE version = $1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n'; }
 # ARM-scoped journal (the paid-for lesson — the persistent unit journal matches prior boots'
 # markers; anchor at the VM clock captured before the recovery boot).
@@ -124,32 +128,26 @@ wait_for_upgrade_candidate_ready "$VM_NAME" "$B_FULL" "$TICK_WAIT_S"
 arc_schedule_daemon_down "$B_FULL"
 
 echo ""
-echo "── dispatch B with the C9 mid-rollback kill (migrate fails → d.rollback → :7632) ──"
+echo "── dispatch B with the C9 mid-rollback kill (migrate fails → d.rollback → :7665) ──"
 arc_install_dispatch_with_inject "killed-by-system-during-builtin-rollback"
-[ "$ARC_DISPATCH_RC" = "137" ] || { echo "✗ dispatch exit was $ARC_DISPATCH_RC, expected 137 — the C9 mid-rollback kill did not fire (failing migrate must route newSbUpgradingFailure → Behind → d.rollback → :7632)" >&2; exit 1; }
+[ "$ARC_DISPATCH_RC" = "137" ] || { echo "✗ dispatch exit was $ARC_DISPATCH_RC, expected 137 — the C9 mid-rollback kill did not fire (failing migrate must route newSbUpgradingFailure → Behind → d.rollback → :7665)" >&2; exit 1; }
 [ "$(flag_present)" = "yes" ] || { echo "✗ no flag file after the C9 kill — the mid-rollback crash must leave a service-held flag" >&2; exit 1; }
-# The C9 kill lands MID-d.rollback — the DB volume restore may be in flight,
-# so the DB container can be legitimately down/restarting at probe time (run
-# 30308821408 read '(db-down/?)' exactly here). DB-down is a tolerated tick,
-# never a verdict (the deploy-poll genre): await reachability with a bounded
-# budget, THEN assert. Once readable the row must be in_progress either way —
-# the kill preceded the rollback's terminal write, and a restored volume
-# carries the pre-migrate backup's in_progress row.
-ROW_READ_BUDGET_S="${ROW_READ_BUDGET_S:-120}"
-_row=""
-_row_deadline=$(( $(date +%s) + ROW_READ_BUDGET_S ))
-while :; do
-    _row="$(row_state)"
-    [ "$_row" != "(db-down/?)" ] && break
-    if [ "$(date +%s)" -ge "$_row_deadline" ]; then
-        echo "✗ DB unreachable for ${ROW_READ_BUDGET_S}s after the mid-rollback kill — cannot read the row to validate the construction" >&2
-        exit 1
-    fi
-    echo "  … DB not yet reachable after the mid-rollback kill (volume restore in flight) — tolerated tick"
-    sleep 5
-done
-[ "$_row" = "in_progress" ] || { echo "✗ row is not 'in_progress' after the mid-rollback kill (got '$_row') — the rollback's terminal write must not have landed" >&2; exit 1; }
-echo "  ✓ real mid-rollback crash: exit 137, flag present, row in_progress, tree restored to A"
+# The C9 kill lands MID-d.rollback: AFTER restoreGitState/Binary/Database rewound the box to A,
+# but BEFORE the rollback's docker-compose-up (service.go:7670) and terminal write. By CONSTRUCTION
+# the DB is DOWN and STAYS down here — not a transient: the caller stopped the db container before
+# restoreAndFinalize (service.go:7603-05), the compose-up that would restart it sits AFTER the C9
+# site (service.go:7665), and the crash killed the ./sb-install process that was the rollback's
+# ONLY driver (the daemon is down via arc_schedule_daemon_down). So the row is UNREADABLE here —
+# and no row read is needed for the proof: a DB that is down cannot have accepted the rollback's
+# terminal write, so "db container DOWN" IS the terminal-write-never-landed proof by construction
+# (run 30365866483 confirmed it stays down, not a startup window). Validate the crash signature
+# with DB-INDEPENDENT observables only; the row's settled value is proven later, after the recovery
+# boot's EnsureDBUp brings the DB up (assert C).
+HEAD_NOW=$(box_head)
+[ "$HEAD_NOW" = "$BASE_SHA" ] || { echo "✗ git HEAD=$HEAD_NOW, expected A ($BASE_SHA) — restoreGitState must have rewound the tree to A at the mid-rollback kill" >&2; exit 1; }
+DB_STATE=$(db_container_state)
+[ "$DB_STATE" != "running" ] || { echo "✗ the db container is 'running' after the C9 kill — the mid-rollback crash must leave it stopped (the rollback's compose-up is AFTER the C9 site); a running DB here means the terminal write could have landed and the kill did not land where intended" >&2; exit 1; }
+echo "  ✓ real mid-rollback crash: exit 137, flag present, tree rewound to A (HEAD==BASE_SHA), db container down ('$DB_STATE') — the rollback terminal write cannot have landed"
 
 # ── MANIPULATION 2: file-drop a deterministically-failing ≤-floor migration ──
 echo ""
@@ -237,9 +235,19 @@ echo "  ✓ NRestarts bounded ($NR_BEFORE) and frozen across the 30s settle wind
 
 echo ""
 echo "── assert C (scenario#3): row did NOT self-heal to 'completed' (genuinely-behind box) ──"
+# PROPERTY-shaped by design — the row's exact value is NOT the oracle (the churn oracles are the
+# banner E, NRestarts B, never-recorded D, and serving F). The ruled landings (STATBUS-071
+# architect): at Run() start EnsureDBUp (service.go:1933) brings the DB up itself before boot-migrate
+# — so the DB is reachable HERE even though it was down at the C9 instant, and the 144 guard logs
+# once and CONTINUES (:2145-2148, no return). The flagless heal then observes the box Behind and
+# recoveryRollback COMPLETES the interrupted rollback, so 'rolled_back' is the EXPECTED settled
+# landing; 'in_progress' is the pre-heal transient the C9 kill left, and 'failed' a possible
+# degenerate on DB-health timing. ALL of these are non-completed — the invariant that MUST hold is
+# the no-false-self-heal-to-completed property (the false-convergence 039/192 forbid on a
+# genuinely-behind box), so the assert stays `!= completed`, never a value pin.
 STILL_STATE=$(row_state)
 [ "$STILL_STATE" != "completed" ] || { echo "✗ row self-healed to 'completed' — the box is genuinely behind (the ≤-floor migration never applied); a self-heal here is the false-convergence 039/192 forbids" >&2; exit 1; }
-echo "  ✓ row is '$STILL_STATE' (non-completed, honest) — no false self-heal (scenario's 'failed' value differs; the no-false-completed PROPERTY holds)"
+echo "  ✓ row is '$STILL_STATE' (non-completed, honest) — no false self-heal; expected settled landing is 'rolled_back' (heal completed the interrupted rollback), with 'in_progress'/'failed' also admissible"
 
 echo ""
 echo "── assert D (scenario#4): the broken ≤-floor migration is never recorded as applied ──"
