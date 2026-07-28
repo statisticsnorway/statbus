@@ -128,7 +128,27 @@ echo "── dispatch B with the C9 mid-rollback kill (migrate fails → d.rollb
 arc_install_dispatch_with_inject "killed-by-system-during-builtin-rollback"
 [ "$ARC_DISPATCH_RC" = "137" ] || { echo "✗ dispatch exit was $ARC_DISPATCH_RC, expected 137 — the C9 mid-rollback kill did not fire (failing migrate must route newSbUpgradingFailure → Behind → d.rollback → :7632)" >&2; exit 1; }
 [ "$(flag_present)" = "yes" ] || { echo "✗ no flag file after the C9 kill — the mid-rollback crash must leave a service-held flag" >&2; exit 1; }
-[ "$(row_state)" = "in_progress" ] || { echo "✗ row is not 'in_progress' after the mid-rollback kill (got '$(row_state)') — the rollback's terminal write must not have landed" >&2; exit 1; }
+# The C9 kill lands MID-d.rollback — the DB volume restore may be in flight,
+# so the DB container can be legitimately down/restarting at probe time (run
+# 30308821408 read '(db-down/?)' exactly here). DB-down is a tolerated tick,
+# never a verdict (the deploy-poll genre): await reachability with a bounded
+# budget, THEN assert. Once readable the row must be in_progress either way —
+# the kill preceded the rollback's terminal write, and a restored volume
+# carries the pre-migrate backup's in_progress row.
+ROW_READ_BUDGET_S="${ROW_READ_BUDGET_S:-120}"
+_row=""
+_row_deadline=$(( $(date +%s) + ROW_READ_BUDGET_S ))
+while :; do
+    _row="$(row_state)"
+    [ "$_row" != "(db-down/?)" ] && break
+    if [ "$(date +%s)" -ge "$_row_deadline" ]; then
+        echo "✗ DB unreachable for ${ROW_READ_BUDGET_S}s after the mid-rollback kill — cannot read the row to validate the construction" >&2
+        exit 1
+    fi
+    echo "  … DB not yet reachable after the mid-rollback kill (volume restore in flight) — tolerated tick"
+    sleep 5
+done
+[ "$_row" = "in_progress" ] || { echo "✗ row is not 'in_progress' after the mid-rollback kill (got '$_row') — the rollback's terminal write must not have landed" >&2; exit 1; }
 echo "  ✓ real mid-rollback crash: exit 137, flag present, row in_progress, tree restored to A"
 
 # ── MANIPULATION 2: file-drop a deterministically-failing ≤-floor migration ──
