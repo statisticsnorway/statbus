@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-28 13:51'
+updated_date: '2026-07-28 14:07'
 labels:
   - install-recovery
   - upgrade
@@ -689,5 +689,19 @@ author: architect
 created: 2026-07-28 13:51
 ---
 P4 PROBE AMENDMENT DELTA LOOK (architect, 2026-07-28) — SHIP. One hunk, foreman-built, correct on all three counts: (1) the run evidence read the row_state error sentinel exactly where the DB is legitimately down (the C9 kill lands mid-volume-restore — run 30308821408); (2) the fix is the deploy-poll genre applied correctly — db-down is a tolerated tick with a narrated line, bounded (120s/5s), budget exhaustion its own loud fail, and the equality assert UNCHANGED after reachability — no property softened; (3) the comment's invariant claim is verified sound: the kill precedes the rollback's terminal write, and the pre-migrate volume backup was taken with the row already in_progress — so once readable the row is in_progress on BOTH branches (restore completed or not). The `[ … ] && break` idiom is set-e-safe (not the final command of the list) and matches the file's existing loops. Independent bash -n clean. Foreman: commit + re-dispatch the arc ALONE (P1 + the fingerprint arc already green from the bundle). Engineer keeps item 2 (the self-heal marker + arc) when his sessions stabilize.
+---
+
+author: architect
+created: 2026-07-28 14:07
+---
+SELF-HEAL MARKER+ARC REVIEW (architect, 2026-07-28) — verdict: APPROVE THE CONSTRUCTION, ONE MUST-FIX AMENDMENT before commit. Byte-verified: Part A's placement is exactly as specified (after setMaintenance(false), before StepComplete/the completed write), class map + required-map test additions clean, the marker comment carries the live-rune-class rationale and the no-op-in-production note. Part B is a fully REAL path — zero manipulations, the service-held flag kept faithful — with the latch-silence assert (UPGRADE_DIED_DURING_RESUME absent: one death, BEFORE resume) and the label pinned to the product's exact bytes. The immediate in_progress probe is correct here, unlike P4's: this kill leaves the DB up (no restore in flight).
+
+THE MUST-FIX — THE THIRD COMPLETED WRITER LACKS THE WINDOW LIFT, and this arc's producer makes it routine: at the kill instant the read-only window is still ON (it lifts only AFTER the completed write, :6213+). resumeNewSb's self-heal branch writes completed → NOTIFY → flag-remove → supersede and NEVER lifts the window (byte-verified: zero terminalExec(windowOffSQL) in the branch). The same-boot backstop clearStaleReadOnlyWindow then clears it — which means EVERY green of this arc fires the STATBUS-163 backstop routinely, the exact indictment-inversion refused in the 192 ruling, and the box the self-heal certifies rejects all external writes (25006) until the backstop runs. 160/192 doctrine: completed means VERIFIABLY SERVES at every writer — writes included. The kill class is live, so this is a real product gap surfaced by the new producer, not arc pedantry.
+
+AMENDMENT SPEC (same pass, then delta look): (A2) PRODUCT — resumeNewSb's self-heal branch gains terminalExec(windowOffSQL) with the named-invariant escalation, mirroring the two existing completion sites' ordering (completed write = senior truth → flip, loud on failure → cleanup); narrative names 'self-heal completion'; read_only_window_flip_test gains the contains-assert pinning this third site (the 192 minor-5 genre — the ≥2 floor pins nothing). (B2) ARC — after convergence, the two 192-genre asserts byte-mirrored from the flagless-selfheal arc: 'STATBUS-163 BACKSTOP' ABSENT in the arm window (the mechanism discriminator — the tail lifted the window ITSELF) + the write probe (BEGIN; UPDATE public.system_info SET value = value; ROLLBACK; fail on 25006 — never a TEMP table).
+
+GOFMT FLAG RULED: the minimal diff is correct — the pre-existing whitespace non-cleanliness in inject.go's doc comment rides a LATER mechanical commit, never bundled into a safety-core marker diff. No dedicated unit; fold it into any future mechanical touch of that file.
+
+SEQUENCING unchanged: on the amended unit's commit + the arc's GREEN, rune-wedge retires and fabricate_resume_state deletes at zero callers — the King's no-fabrication end state, with the last completed writer also serve-proven in the full 192 sense.
 ---
 <!-- COMMENTS:END -->
