@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-28 15:12'
+updated_date: '2026-07-28 15:17'
 labels:
   - install-recovery
   - upgrade
@@ -123,8 +123,8 @@ The test also injects a **real** crash/stall at the other upgrade points — fet
 <!-- AC:BEGIN -->
 - [x] #1 WORKING arc GREEN on a real VM: install A → B applies migration V → C re-stamps V's content_hash autonomously; data intact; zero orphan branches/VMs
 - [x] #2 FAILING arc GREEN on a real VM: install A → B's V deliberately fails → box rolls back to 'rolled_back' → clean-slate fingerprint equals the post-A baseline → C applies the fix fresh; data intact
-- [ ] #3 Kill-family scenarios reshaped: the FABRICATED scheduled-upgrade row replaced by a real register+schedule (086); the crash stays real (existing inject / external NOTIFY-handshake kill)
-- [ ] #4 fabricate_scheduled_upgrade_row DELETED with zero callers; NO synthetic crash-state fabrication remains anywhere (King's no-residual rule)
+- [x] #3 Kill-family scenarios reshaped: the FABRICATED scheduled-upgrade row replaced by a real register+schedule (086); the crash stays real (existing inject / external NOTIFY-handshake kill)
+- [x] #4 fabricate_scheduled_upgrade_row DELETED with zero callers; NO synthetic crash-state fabrication remains anywhere (King's no-residual rule)
 - [x] #5 WITHDRAWN by the King (2026-07-27): the inject-marker system stays wholesale — it is his design and the standard (real code driving all the way, markers naming the instant); no hook conversions without a new ruling
 <!-- AC:END -->
 
@@ -735,5 +735,11 @@ author: architect
 created: 2026-07-28 15:12
 ---
 SELFHEAL WRONG-ROW FIX DELTA LOOK (architect, 2026-07-28) — SHIP. The red was the best kind: the PRODUCT performed perfectly (heal fired at t+6s, [completed-self-heal] logged, the new window-lift live on the path) and the arc read the WRONG ROW — position-addressed (newest id) where the 169/170 doctrine this very ladder proves says commit-addressed: discovery's five 'available' candidates shadowed row 2. The fix aligns the arc with its own subject's doctrine: row_state/row_error now identity-filtered (WHERE commit_sha = B_FULL, the flagless arc's row_state_for precedent), run-cited comment naming the mechanism, and the diagnostics gain B's own row by identity — the LIMIT 5 breadth blind spot was real and is closed while the breadth view intentionally stays. Verified: all three remaining ORDER-BY-id reads sit INSIDE identity-filtered queries (harmless tiebreak); bash -n clean. NOTED HONESTLY: the backstop-silence + write-probe asserts never executed on the red run (the poll died first) — the re-run is their FIRST exercise; expected green, and if either reds THAT is a finding, not noise. Foreman: commit + re-dispatch the selfheal arc alone; its green completes every run-proof on the ladder — only P6's structural guard remains after it.
+---
+
+author: foreman
+created: 2026-07-28 15:17
+---
+RETIREMENTS EXECUTED — ZERO FABRICATION (bda638f22, 2026-07-28): scenarios 4-rollback-abort-churn (superseded by boot-migrate-churn-alive-idle-arc, run 30369283526) and 3-postswap-rune-wedge (HISTORICAL — producer extinct per the King's root-cause-fixed condition, citations e76505eec/61e79e265/cb7344dd6) deleted; fabricate_resume_state deleted at zero callers; repo-wide sweep leaves only explicitly-historical mentions, including two pre-existing wrong claims in the flagless arc corrected with citation. AC#3 CHECKED (kill-family reshaped onto real register+schedule, P1+P2). AC#4 CHECKED (both fabrication helpers deleted at zero callers; no synthetic crash-state fabrication remains anywhere — the no-residual rule met; P6's structural guard will make the state self-enforcing). AC#5 note: the P7 stretch was WITHDRAWN by the King (2026-07-27 — the inject-marker system stays wholesale; no hook conversions without a new ruling); the checkbox stays open only as the record of that withdrawal unless the close-out re-words it. REMAINING ON THE LADDER: the selfheal arc's solo re-run (in flight — the final run-proof, first exercise of the window-lift asserts) and P6 (dispatched to the mechanic).
 ---
 <!-- COMMENTS:END -->
