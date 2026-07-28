@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-28 14:16'
+updated_date: '2026-07-28 14:26'
 labels:
   - install-recovery
   - upgrade
@@ -709,5 +709,19 @@ author: architect
 created: 2026-07-28 14:16
 ---
 WINDOW-LIFT AMENDMENT DELTA LOOK (architect, 2026-07-28) — SHIP. All three hunks byte-faithful to the must-fix spec: (A2) the lift sits in the self-heal SUCCESS branch after the NOTIFY with the full named-invariant escalation (markTerminal + FATAL progress write, never a warning) and the unique narrative 'post-swap self-heal completion'; BOTH deliberate divergences are stated in the comment and verified sound — success-path-only is correct because the err fall-through re-enters applyNewSbUpgrading whose own completion site lifts there (and the ErrNoRows/parked landing correctly leaves a parked box's window ON, degraded by design), and the boot-backstop remedy wording is honest at THIS site since a next-boot backstop genuinely exists here. (A2-pin) the flip test pins the third site by its unique narrative — the ≥2 floor pins nothing at five sites. (B2) backstop-silence negative + real-table write probe byte-mirrored from the flagless arc; PASS line carries the third-writer claim. Independent checks: the flip test passes (go test -run TestReadOnlyWindowFlip, 0.5s), arc bash -n clean. Foreman: commit the whole unit; the arc rides the next dispatch bundled per P4's verdict. On its GREEN: rune-wedge retires, fabricate_resume_state deletes at zero callers — the no-fabrication end state, with all three completed writers serve-proven.
+---
+
+author: architect
+created: 2026-07-28 14:26
+---
+P4 SECOND-RED SHAPE RULED (architect, 2026-07-28) — the engineer's diagnosis is confirmed from source and his proposal is ADOPTED WITH ONE CORRECTION; the foreman's tension flag is resolved from bytes, and both prior records survive refined.
+
+1. MID-CONSTRUCTION PROOF — adopted, with a STRONGER reading than proposed: exit 137 + flag present + git HEAD == BASE_SHA + DB CONFIRMED DOWN (positive assert). The DB-down assert is not just the crash signature — it IS the terminal-write-never-landed proof, by construction: services stopped at :7603, the DB never restarted before the kill (compose-up sits at :7670, after the C9 site at :7665), and a terminal write to a stopped database cannot land. No row read needed to prove it; the relocation of that proof to a row value is unnecessary.
+
+2. ASSERT C STAYS PROPERTY-SHAPED — the engineer's `== in_progress` tightening is REJECTED, and my ship-note race is upgraded from 'possible' to EXPECTED, all byte-pinned: the 144 guard's own comment says LOG ONCE + CONTINUE, no return (service.go:2145-2148) → the boot proceeds; EnsureDBUp at Run()'s start (:1933) brings the DB up before boot-migrate (so the foreman's stack-down worry and the connect-fail-loop trajectory are closed — no hand-start needed, the product does it); completeInProgressUpgrade then reads the flagless in_progress row, observes the box genuinely Behind (binary at A, row at B) → CannotReachNew → the flagless recoveryRollback RE-RUNS and COMPLETES the interrupted rollback → row 'rolled_back'. That is the designed 039 convergence of a crashed rollback — the EXPECTED settled landing, with in_progress only as the pre-heal transient and 'failed' possible in degenerate DB-health timing. The churn class's oracles are E (banner once) + B (NRestarts bounded/frozen) + D (never recorded) + F (serving); the load-bearing ROW property is exactly `!= completed` (no false convergence). Spec: C asserts row != completed and its comment NAMES the expected landings and why rolled_back is the honest settled state.
+
+3. Assert F coheres: the heal-rollback's own tail restarts services — the serving assertion is fed by real machinery, not luck.
+
+ENGINEER BUILDS: the DB-independent mid-construction block (137/flag/HEAD==A/db-down with the never-landed rationale in the comment) + property-shaped C with named landings; everything else unchanged. Freeze → my delta look → commit → re-dispatch. The two records now agree: the ship note's race was real and is now the documented expectation; the scenario's old '=1 / failed' values were its OWN construction's instances of the same properties.
 ---
 <!-- COMMENTS:END -->
