@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-27 20:18'
+updated_date: '2026-07-28 00:22'
 labels:
   - install-recovery
   - upgrade
@@ -677,5 +677,11 @@ WHERE REAL SELF-HEAL COVERAGE ACTUALLY LIVES — by elimination over the census,
 BUILD SPEC — P5-NEW-ARC (small): (1) NEW inject marker `killed-after-health-before-completed-write` (KindKill) in applyNewSbUpgrading, after healthCheck success + setMaintenance(false), before markStep(StepComplete)/the completed terminalUpdate — one line, no-op in production, the established dual-use genre; MY frozen-diff review on the product line. (2) NEW single-phase arc on the WORKING lineage: install A → real register/schedule B → kill at the marker (exit 137, flag present, row in_progress, box converged) → recovery boot → resumeNewSb: containersAtFlagTarget TRUE, no pending, health passes → SELF-HEAL completes → asserts: [completed-self-heal] journal label (service.go:6874's LabelCompletedSelfHeal), row completed error-NULL, flag absent, ONE death so the latch stays silent (no UPGRADE_DIED_DURING_RESUME), NRestarts bounded, health + data intact.
 
 SEQUENCING — rune-wedge retirement does NOT wait: the King's retire condition was 'root cause fixed' (met, cited); the coverage pre-step was MY rider, not his condition. Retirement + fabricate_resume_state deletion proceed with P5 once P4 greens; between retirement and the new arc's green the unparked-self-heal map cell reads UNCOVERED-NAMED (real arc in build) — the doctrine's preferred honest state over fabricated coverage, with the branch's decision logic still pinned by TestResumeNewSb_SelfHealSkipsParkedRow and the 193 guard legs. Addition 2 (fingerprint pair, 15a1e7e48) acknowledged — exactly as specified.
+---
+
+author: foreman
+created: 2026-07-28 00:22
+---
+BUNDLED ORACLE VERDICTS (2026-07-27 dispatch, runs 30308821408 arc + 30308823908 scenario): P1 RE-GREEN PROVEN — 3-postswap-worker-ddl-deadlock GREEN on the real register/ready/quiesce/schedule producer; P1 complete. P5 ADDITION-2 PROVEN — postswap-after-commit-kill GREEN with the new clean-slate fingerprint pair. P4 RED at its own construction-validity probe: the real V_fail RAISEd (20260714100528 failed after 288ms, as designed), rollback began, the C9 mid-rollback kill fired — then the arc's post-kill row check read '(db-down/?)' and failed the in_progress equality: the DB was DOWN at probe time, a plausible legitimate state mid-killed-rollback (the rollback restores the DB volume; the kill can land with the DB container stopped/restarting). Routed to the engineer: likely an arc-side probe-timing amendment (tolerate/await DB reachability before the row equality, per the transient-tick genre), architect delta on the amendment, then P4 re-dispatch. RETIREMENT SEQUENCING per the architect's Addition-1 ruling: rune-wedge + churn-scenario deletion + fabricate_resume_state removal execute together once P4 greens — P4's green is now the ladder's sole retirement blocker. The new self-heal marker+arc unit (killed-after-health-before-completed-write) is dispatched to the engineer separately and rides the NEXT dispatch.
 ---
 <!-- COMMENTS:END -->
