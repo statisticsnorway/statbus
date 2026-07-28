@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-28 14:07'
+updated_date: '2026-07-28 14:16'
 labels:
   - install-recovery
   - upgrade
@@ -703,5 +703,11 @@ AMENDMENT SPEC (same pass, then delta look): (A2) PRODUCT — resumeNewSb's self
 GOFMT FLAG RULED: the minimal diff is correct — the pre-existing whitespace non-cleanliness in inject.go's doc comment rides a LATER mechanical commit, never bundled into a safety-core marker diff. No dedicated unit; fold it into any future mechanical touch of that file.
 
 SEQUENCING unchanged: on the amended unit's commit + the arc's GREEN, rune-wedge retires and fabricate_resume_state deletes at zero callers — the King's no-fabrication end state, with the last completed writer also serve-proven in the full 192 sense.
+---
+
+author: architect
+created: 2026-07-28 14:16
+---
+WINDOW-LIFT AMENDMENT DELTA LOOK (architect, 2026-07-28) — SHIP. All three hunks byte-faithful to the must-fix spec: (A2) the lift sits in the self-heal SUCCESS branch after the NOTIFY with the full named-invariant escalation (markTerminal + FATAL progress write, never a warning) and the unique narrative 'post-swap self-heal completion'; BOTH deliberate divergences are stated in the comment and verified sound — success-path-only is correct because the err fall-through re-enters applyNewSbUpgrading whose own completion site lifts there (and the ErrNoRows/parked landing correctly leaves a parked box's window ON, degraded by design), and the boot-backstop remedy wording is honest at THIS site since a next-boot backstop genuinely exists here. (A2-pin) the flip test pins the third site by its unique narrative — the ≥2 floor pins nothing at five sites. (B2) backstop-silence negative + real-table write probe byte-mirrored from the flagless arc; PASS line carries the third-writer claim. Independent checks: the flip test passes (go test -run TestReadOnlyWindowFlip, 0.5s), arc bash -n clean. Foreman: commit the whole unit; the arc rides the next dispatch bundled per P4's verdict. On its GREEN: rune-wedge retires, fabricate_resume_state deletes at zero callers — the no-fabrication end state, with all three completed writers serve-proven.
 ---
 <!-- COMMENTS:END -->
