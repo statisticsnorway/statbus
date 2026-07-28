@@ -6261,6 +6261,16 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	d.markStep(StepMaintenanceOff)
 	d.setMaintenance(false)
 
+	// STATBUS-071 P5 — the CONVERGED-but-bookkeeping-unlanded resume-crash producer. Fires
+	// AFTER healthCheck success + setMaintenance(false) but BEFORE the completed terminalUpdate
+	// below: the box is fully converged (services healthy at target, maintenance off) and only
+	// the ledger's 'completed' write is unlanded — the live rune class (the Apr-24 SDNOTIFY
+	// collision) minus its now-extinct route. A KindKill here (os.Exit(137), no defers run)
+	// leaves a service-held flag + an in_progress row on a genuinely-serving box, so the next
+	// boot's resumeNewSb self-heal (containers-at-target + no-pending + health) completes it for
+	// real — the [completed-self-heal] path. No-op in production (STATBUS_INJECT_AT unset).
+	inject.KillHere("killed-after-health-before-completed-write")
+
 	// selfUpdate is intentionally NOT invoked here: Option C moved the
 	// binary-swap handoff earlier (right after replaceBinaryOnDisk in
 	// executeUpgrade) so the current process is already running the target
@@ -6875,6 +6885,30 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 				// Best-effort NOTIFY belt, same shape as the normal-completion
 				// path above.
 				_, _ = d.queryConn.Exec(ctx, `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
+				// STATBUS-071 P5: lift the read-only window. This self-heal is the
+				// THIRD completed writer (alongside the applyNewSbUpgrading completion
+				// site and the flagless completeInProgressUpgrade belt), and the crash
+				// it recovers fired at the CONVERGED-but-unlanded instant: the window
+				// engaged at step 2 (:5305) is still ON, so a self-heal that writes
+				// 'completed' without lifting it certifies a box that rejects every
+				// fresh write with 25006 — "a broken box masquerading as healthy" — and
+				// would routinely trip the STATBUS-163 boot backstop on the next start.
+				// The completed row already landed above (senior truth); mirror the two
+				// completion sites: the teardown-immune terminalExec (a FRESH conn, not
+				// the completing pass's queryConn) flips it, and a failed flip ESCALATES
+				// LOUDLY via the named invariant (never a Warning — a completed box that
+				// rejects writes is not healthy). This runs ONLY on the self-heal-success
+				// path; the err != nil fall-through below re-enters applyNewSbUpgrading,
+				// whose own completion site lifts the window there. The boot backstop
+				// clears the residue on the next start; its firing indicts this flip.
+				if werr := d.terminalExec(windowOffSQL); werr != nil {
+					fmt.Fprintf(os.Stderr,
+						"INVARIANT COMPLETION_READ_ONLY_WINDOW_LIFTED violated: the read-only window did not lift at post-swap self-heal completion after %d attempts (err=%v) — the database default is still read-only, so every fresh non-exempt session fails with 25006 (read_only_sql_transaction). Remedy: run `./sb install` to clear it (or the daemon's boot backstop clears it on the next start). (service.go:%d, pid=%d)\n",
+						terminalWriteMaxAttempts, werr, thisLine(), os.Getpid())
+					d.markTerminal("COMPLETION_READ_ONLY_WINDOW_LIFTED",
+						fmt.Sprintf("window OFF flip failed at post-swap self-heal completion after retries: %v; DB default still read-only; ./sb install clears it", werr))
+					progress.Write("FATAL: read-only window did NOT lift at post-swap self-heal completion (%v) — the box rejects external writes until `./sb install` clears it.", werr)
+				}
 				// STATBUS-187 AC#3 (architect ruling, ticket comment #7): same
 				// uniform stale-flag-class treatment as removeUpgradeFlag/
 				// ReleaseInstallFlag above — see warnOnStaleFlagRemoveFailure.

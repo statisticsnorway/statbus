@@ -59,6 +59,14 @@ func TestReadOnlyWindowFlip_TeardownImmune_STATBUS163(t *testing.T) {
 	if !strings.Contains(source, "flagless-recovery completion") {
 		t.Error("STATBUS-192: the flagless-recovery window flip (completeInProgressUpgrade) must be present — its escalation narrative 'flagless-recovery completion' cannot silently drop from a refactor")
 	}
+	// STATBUS-071 P5: pin the THIRD completed writer's flip site specifically — the
+	// resumeNewSb containers-at-target self-heal. Same reasoning as the 192 pin: the
+	// ≥2 floor above pins nothing new, so a refactor could silently drop the self-heal
+	// lift, re-opening the STATBUS-163-backstop-every-boot gap the P5 arc catches. Its
+	// escalation narrative is unique ("post-swap self-heal completion").
+	if !strings.Contains(source, "post-swap self-heal completion") {
+		t.Error("STATBUS-071 P5: the post-swap self-heal window flip (resumeNewSb containers-at-target branch) must be present — its escalation narrative 'post-swap self-heal completion' cannot silently drop from a refactor")
+	}
 
 	// (3) The ON site stays best-effort on the LIVE pass conn (setDatabaseReadOnly,
 	//     NOT terminalExec) — the ratified asymmetry: failing to ENGAGE degrades

@@ -160,6 +160,11 @@ var classes = map[string]Kind{
 	"killed-by-system-between-migrations":                    KindKill,
 	"killed-by-system-during-container-restart":              KindKill,
 	"killed-by-system-during-builtin-rollback":               KindKill,
+	// STATBUS-071 P5 — the CONVERGED resume-crash producer: fires after healthCheck
+	// success + setMaintenance(false), before the completed write; the box serves at
+	// target and only the ledger write is unlanded (the live rune class), so the next
+	// boot's resumeNewSb self-heal completes it.
+	"killed-after-health-before-completed-write": KindKill,
 
 	// STATBUS-071 — the AT-TARGET resume-crash producer. Fires in
 	// applyNewSbUpgrading immediately AFTER the migrate step returns success but

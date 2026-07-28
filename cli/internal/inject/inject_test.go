@@ -334,6 +334,7 @@ func TestRegistry_AllClassesSeeded(t *testing.T) {
 		"killed-by-system-between-migrations":                    KindKill,
 		"killed-by-system-during-container-restart":              KindKill,
 		"killed-by-system-during-builtin-rollback":               KindKill,
+		"killed-after-health-before-completed-write":             KindKill,
 		// Canonical Layer 2 case — harness sends real SIGKILL.
 		"migrate-subprocess-killed-after-commit-before-recorded":     KindStall,
 		"upgrade-service-parent-killed-after-commit-before-recorded": KindStall,
