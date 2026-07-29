@@ -13,8 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    container:
-      image: node:20.10-alpine
     steps:
       - uses: actions/checkout@v3
       - name: Build app
