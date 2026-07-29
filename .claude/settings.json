@@ -54,6 +54,14 @@
           { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/require-backlog-slug.sh", "timeout": 5 }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/remind-backlog-after-commit.sh", "timeout": 5 }
+        ]
+      }
     ]
   }
 }
