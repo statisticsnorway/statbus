@@ -39,7 +39,7 @@ COPY --from=install /app /app
 WORKDIR /app
 CMD pnpm run tsc && \
   pnpm run lint --quiet && \
-  pnpm test -- --ci --silent && \
+  pnpm test --ci --silent && \
   pnpm run build
 
 FROM base AS runner
