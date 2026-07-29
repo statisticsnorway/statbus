@@ -4,10 +4,11 @@ title: >-
   upgrade-docs-coherence: diagrams ↔ code ↔ tests reconciled as one whole —
   timeline + recovery-model carry post-192/193 reality, every cell cross-linked,
   drift gated
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - architect
 created_date: '2026-07-25 19:21'
-updated_date: '2026-07-27 07:45'
+updated_date: '2026-07-29 11:14'
 labels:
   - upgrade
   - install-recovery
@@ -47,3 +48,18 @@ THE WORK, five steps:
 - [ ] #4 The Rune two-layer statement stands in the recovery model with its fix citations
 - [ ] #5 The drift gate exists and a probe proves it fires
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+created: 2026-07-29 11:14
+---
+GROUNDING RECONCILED (architect, 2026-07-29; operator legwork at tmp/agents/operator-196-142-legwork.md + my term-count verification — two partial records, one truth from the bytes):
+
+TERM COUNTS, verified today: upgrade-timeline.md (last touch 07-14): parked 0, serve-proven 0, read-only-window 0 — but self-heal 7, boot-migrate 3. upgrade-recovery-model.md (07-12): parked 3, read-only-window 3 — but serve-proven 0, self-heal 0. So: the TIMELINE is the big gap exactly as drift-flagged (the park lifecycle, the serve-proven contract, and the window are entirely absent from the operator-facing lifecycle doc); the MODEL is NOT park-blind — it carries park + window and needs UPDATING to post-192/193/195 reality (serve-proven at every writer; the self-heal named inside the decision rules with its 193 parked-guard; the 195 watchdog-cover principle), not fresh authoring. My earlier 'both docs lack park' was overbroad; the operator's 'coherent and current' was too generous on the timeline — the counts are the record.
+
+INVENTORY for step 3's cross-links: 30 real-path arcs + 15 scenarios, each with its one-line purpose, listed in the operator's file — the join-table raw material is gathered; the coverage-map on 071 remains the run-ledger side.
+
+EXECUTION: I write the two doc passes myself (architect-lane — doctrine-heavy, the King's register), one doc per unit, foreman line-reviews + commits each; then the cross-links, the Rune statement, and the drift gate per the description's steps 3-5.
+---
+<!-- COMMENTS:END -->

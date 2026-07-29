@@ -4,7 +4,7 @@ title: 'smtp2go-email: transactional email — send on user creation'
 status: To Do
 assignee: []
 created_date: '2026-06-23 11:53'
-updated_date: '2026-07-06 16:13'
+updated_date: '2026-07-29 11:15'
 labels:
   - email
   - auth
@@ -19,28 +19,23 @@ ordinal: 143000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-NORTH STAR: a newly created user receives their account-setup email automatically — no password ever returned to the admin, no manual handoff. BENEFIT: closes the manual (and security-smelly) step between creating a user and that user logging in; prerequisite for self-serve onboarding when external standalone installs open. STAGE: Stage 3 support (external standalone) — outside the 036 critical path. COMPLEXITY: engineer-substantial, split into subtasks at execution (schema+RLS, worker command, sender loop, webhook RPC, user_create change, templates); the security ACs are architect-review-gated. DEPENDS ON: nothing on the board — buildable when prioritized; internally gated on the locale decision (AC#8).
+> NORTH STAR: a newly created user receives their credentials/welcome by email — no operator copy-pasting secrets over side channels.
+> STAGE: design DONE and review-hardened; implementation not started. Build follows doc/design/smtp2go-email.md — the authoritative design — not a fresh sketch. One sequencing decision below.
 
-RE-IDENTIFIED 2026-07-06: this ticket previously carried the duplicate id STATBUS-105 (colliding with the after-commit-recovery ticket) and was shadowed — unreachable by MCP id and missed by the board triage. Re-numbered to STATBUS-142; content unchanged below.
+WHERE THIS ACTUALLY STANDS (corrected 2026-07-29 — the operator's code sweep confirmed no implementation exists, but the DESIGN is far from greenfield):
+- PART A, VERIFIED LIVE: SMTP2GO is the transactional relay for statbus.org — sender domain verified, DKIM/SPF/DMARC(p=reject) published and validated, DNS complete. Nothing to build here; re-validate against the SMTP2GO dashboard + dig at build time per the doc.
+- PART B, DECIDED + HARDENED, NOT BUILT: the application-layer architecture is designed and was hardened against an adversarial review (2026-06-23) — the token/webhook/RLS security model fixes (H1–H5, M1–M4) are folded into the doc. The doc marks each item VERIFIED / DECIDED / TODO.
+- CODE, GREENFIELD (operator-verified): no SMTP config keys, no email client, no notification machinery in the repo; user creation (CLI `./sb users create` + the web path) has no hook. The worker task queue (worker.tasks) is the ready dispatch substrate.
 
----
+THE BUILD = implement Part B as the doc specifies, including every H/M hardening — the doc supersedes any sketch, including earlier versions of this ticket.
 
-DB-centric transactional email via SMTP2GO: when a user is created, email them a single-use password-setup link instead of returning the password to the admin caller.
-
-Design is committed and review-hardened — see `doc/design/smtp2go-email.md` (master `ca0a3c603`, hardened 2026-06-23). Deliverability (DNS/DKIM/DMARC) is already live. The app layer is DECIDED: `user_create` → `worker.tasks` `send_email` (PL/pgSQL renders from `email_template`, mints a single-use token via a SECURITY DEFINER fn, inserts `email_outbox`, NOTIFY) → a separately-supervised sender loop POSTs the SMTP2GO HTTP API (key in process env) → SMTP2GO events ingested via an HMAC-verified DEFINER webhook RPC into `email_event`.
-
-This is the TRACKING ANCHOR for the feature; at execution it should be split into subtasks (schema+RLS, worker command+render, sender loop, webhook RPC, user_create change, set-password route, templates). An adversarial review found the security model load-bearing — the acceptance criteria below are the gates that must hold before this ships. Build is also gated on resolving the locale source (M3): statbus has no per-user/instance locale today.
+THE ONE SEQUENCING DECISION (open — decide at prioritization, AC#4): the worker is Crystal today; STATBUS-093 (the Go worker port) replaces it. Implementing the email task in Crystal means porting it again under 093; landing it as 093's first new task class means 142 waits on 093. Decide when either is prioritized — never build the two in ignorance of each other.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Setup-link token is scoped and single-use: claims type='password_setup' (never 'access') + role='anon' + short TTL + unique jti, consumed via a new auth.password_setup_token table; a captured link cannot be replayed as an access token against /rest
-- [ ] #2 Token minting is the ONLY code path reading auth.secrets and is a dedicated SECURITY DEFINER function (worker role + user_create INVOKER context cannot otherwise read force-RLS auth.secrets)
-- [ ] #3 SMTP2GO webhook ingest verifies the HMAC signature inside a SECURITY DEFINER RPC granted only to a dedicated low-privilege role; a forged POST cannot insert arbitrary email_event rows or flip email_outbox.state
-- [ ] #4 email_outbox, email_event, and email_template have RLS ON with no authenticated/regular_user SELECT; rendered bodies containing the live token are not readable and are redacted/dropped after state='sent'
-- [ ] #5 Sending runs in a separately-supervised sender loop (documented as NOT part of worker.tasks structured concurrency); a crash leaves a resumable state via claim (FOR UPDATE SKIP LOCKED) + a dedicated outbox reset of stale 'sending' rows
-- [ ] #6 user_create stops returning the password; an unparseable email is a hard error (no user row), a well-formed-but-unverified email is a soft status (never silent)
-- [ ] #7 Render path is pg_regress-testable with zero network (sender loop absent in tests); delivery is fakeable via UPDATE email_outbox SET state='sent'
-- [ ] #8 Locale source for email bodies is decided and implemented (M3) — statbus currently has no user.locale or settings locale
-- [ ] #9 Tests and documentation are included in this work (not deferred)
+- [ ] #1 Part B built exactly per doc/design/smtp2go-email.md including every H1–H5 / M1–M4 hardening — any deviation is a doc update first, reviewed
+- [ ] #2 Part A deliverability re-validated at build time against the SMTP2GO dashboard + dig per the doc's live-state check
+- [ ] #3 User creation (CLI and web, one shared hook per the doc's model) enqueues the email through the worker task queue; permanent failure is a visible task state, never silence
+- [ ] #4 The 093 sequencing decision is recorded before build: ride the current worker or land as the Go worker's first new task class
 <!-- AC:END -->
