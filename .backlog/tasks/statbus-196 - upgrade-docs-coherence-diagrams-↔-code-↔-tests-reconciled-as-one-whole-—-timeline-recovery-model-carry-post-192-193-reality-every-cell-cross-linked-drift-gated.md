@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-07-25 19:21'
-updated_date: '2026-07-29 11:29'
+updated_date: '2026-07-29 11:32'
 labels:
   - upgrade
   - install-recovery
@@ -43,9 +43,9 @@ THE WORK, five steps:
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 The timeline carries the park lifecycle and the serve-proven completed contract; architect-reviewed
-- [ ] #2 The recovery model carries the parked-skip invariant and the watchdog-cover principle
+- [x] #2 The recovery model carries the parked-skip invariant and the watchdog-cover principle
 - [ ] #3 Cross-links stand in both directions; "uncovered" is stated, never implied
-- [ ] #4 The Rune two-layer statement stands in the recovery model with its fix citations
+- [x] #4 The Rune two-layer statement stands in the recovery model with its fix citations
 - [ ] #5 The drift gate exists and a probe proves it fires
 <!-- AC:END -->
 
@@ -99,5 +99,11 @@ UNIT 2 BUILT — THE RECOVERY-MODEL PASS, carrying steps 2 AND 4 in one frozen d
 5. STATUS refresh: re-verified date → 2026-07-29; three new SHIPPED lines (serve-proven 160/192 with the window-flip + guarded-defer pins; 193 parked-guard with TestResumeNewSb_SelfHealSkipsParkedRow + the postswap-converged-selfheal arc; 195 with TestVerifyArtifacts_FeedsWatchdogPerCandidate) — all pin names verified present in recovery_escalation_test.go / read_only_window_flip_test.go today.
 
 Stale-name sweep: resumePostSwap/applyPostSwap/Phase=PostSwap grep-zero in the doc. FROZEN for foreman line review + commit; AC#2 and AC#4 check together on that commit. Next: unit 3 (cross-links, using the operator's 30-arc/15-scenario inventory) and unit 5 (drift gate).
+---
+
+author: foreman
+created: 2026-07-29 11:32
+---
+UNIT 2 (recovery-model pass) REVIEWED + COMMITTED 4ea57df17 (foreman, 2026-07-29). Citation-verified before commit: all three Rune fix SHAs (61e79e265 / e76505eec / cb7344dd6) resolve in git with good signatures; the parked-guard SQL (`recovery_parked_at IS NULL`) at service.go:6690 with its guard rationale at :6659-6663; completeInProgressUpgrade at service.go:2869; both cited pin tests exist (recovery_escalation_test.go, read_only_window_flip_test.go) and were green in today's full upgrade-package run; WatchdogSec=120 confirmed in ops/statbus-upgrade.service, 30s cadence constants in watchdog.go/service.go. Acceptance criteria 2 and 4 checked — the architect's merge of both steps into one unit was right (same file, same bytes, one review). Remaining: step 3 (cross-links both ways) and step 5 (drift gate) → acceptance criteria 3 and 5.
 ---
 <!-- COMMENTS:END -->
