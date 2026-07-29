@@ -17,11 +17,16 @@ systemd unit owns the whole lifecycle.
 
 ## Diagrams
 
-**Test-coverage convention.** Both diagrams double as a visual test-coverage map: every
-failure-injection point carries a pale-yellow note `TEST <scenario-slug> (<NN>): <the forward
-invariant the scenario must prove>` — framed as the guarantee that must hold, not the failure.
-A point with no scenario is marked `NO TEST (gap): <unproven invariant>`, so coverage holes are
-visible at a glance. Slugs are `test/install-recovery/scenarios/` names.
+**Test-coverage convention.** The diagrams double as a visual test-coverage map: every
+failure-injection point carries a pale-yellow note `TEST <slug>: <the forward invariant the
+test must prove>` — framed as the guarantee that must hold, not the failure. A point with no
+covering test is marked `NO TEST (gap): <unproven invariant>`, so coverage holes are visible
+at a glance. Slugs name `test/install-recovery/arcs/` (the `*-arc` real-dispatch family,
+STATBUS-071) or `test/install-recovery/scenarios/` (the install-ladder + boot battery). The
+join is two-way: the diagrams name their covering test here, and every arc and scenario names
+its diagram element in
+[test/install-recovery/README.md § Coverage join table](../test/install-recovery/README.md#coverage-join-table--every-test-names-its-diagram-element).
+The run-proof ledger (which cell is proven on which VM run) is STATBUS-071's coverage map.
 
 ### Sequence — the upgrade timeline
 
@@ -44,7 +49,7 @@ Source: [`diagrams/upgrade-lifecycle.plantuml`](diagrams/upgrade-lifecycle.plant
 ### Activity — the `./sb install` state ladder + recovery map
 
 Where the sequence diagram above owns the upgrade *timeline*, this activity diagram owns the
-`./sb install` path — the 8-state probe ladder, the dispatch, and the point at which each
+`./sb install` path — the 9-state probe ladder, the dispatch, and the point at which each
 install-internal failure is detected and recovered. Detailed in
 [Install state ladder](#install-state-ladder).
 
@@ -294,7 +299,7 @@ never call `./sb install` directly.
 ## Install state ladder
 
 `./sb install` runs `install.Detect` (`cli/internal/install/state.go`) once and dispatches
-on the result. The 8 states are an ordered top-down ladder.
+on the result. The 9 states are an ordered top-down ladder.
 
 Unlike the upgrade *timeline* (a sequence), the install path is a **state classifier + an
 idempotent step sequence** — its honest shape is an activity diagram. The diagram below shows
@@ -307,19 +312,21 @@ diagram's `==` bands):
 Source: [`diagrams/install-recovery.plantuml`](diagrams/install-recovery.plantuml). Regenerated
 by the same `.githooks/pre-commit` hook as the other diagrams.
 
-The **Proven by** column closes the ladder↔scenario loop — `test/install-recovery/scenarios/`.
-A `—` marks a real, reachable state with **no dedicated scenario** (a coverage gap):
+The **Proven by** column closes the ladder↔test loop — slugs name
+`test/install-recovery/scenarios/` or `test/install-recovery/arcs/` (`*-arc`).
+A `—` marks a real, reachable state with **no dedicated test** (a coverage gap):
 
 | # | State | Probe signal | Dispatch | Proven by |
 |---|---|---|---|---|
 | 1 | `StateFresh` | no `.env.config` | step-table (set up a clean install) | `0-happy-install` |
-| 2 | `StateLiveUpgrade` | flag present, flock held | crash-looping unit (`NRestarts ≥ 3`) → SIGKILL-class takeover, treat as state 3 (STATBUS-039); genuinely progressing → refuse with diagnostic — point at `journalctl` | `1-boot-concurrent-install` |
-| 3 | `StateCrashedUpgrade` | flag present, holder PID dead | `RecoverFromFlag` → re-`Detect` → re-dispatch | `1-boot-flag-stale-handoff`, `08` (next-install recovery) |
+| 2 | `StateLiveUpgrade` | flag present, flock held | crash-looping unit (`NRestarts ≥ 3`) → SIGKILL-class takeover, treat as state 3 (STATBUS-039); genuinely progressing → refuse with diagnostic — point at `journalctl` | `1-boot-concurrent-install` (refuse arm; the takeover arm is a gap) |
+| 3 | `StateCrashedUpgrade` | flag present, holder PID dead | `RecoverFromFlag` → re-`Detect` → re-dispatch | `1-boot-flag-stale-handoff` (install-held stale flag); every kill-family arc's recovery dispatch (e.g. `preswap-backup-kill-arc`); `postswap-stopped-proxy-recovery-arc` / `postswap-severed-proxy-refusal-arc` (STATBUS-143 probe-route + refusal) |
 | 4 | `StateHalfConfigured` | `.env.config` present, `.env.credentials` missing | step-table | — (gap) |
 | 5 | `StateDBUnreachable` | creds present, DB not reachable | step-table (brings services up) | — (gap) |
 | 6 | `StateLegacyNoUpgradeTable` | DB up, no `public.upgrade` table | refuse — pre-1.0 install, manual path in `doc/CLOUD.md` | — (gap) |
-| 7 | `StateScheduledUpgrade` | pending row (`state='scheduled'`, `started_at IS NULL`) | `executeUpgrade` inline via `upgrade.Service.ExecuteUpgradeInline` | — (inline path; service path: `0-happy-upgrade`) |
-| 8 | `StateNothingScheduled` | no pending row; everything else healthy | step-table (idempotent config-refresh checkpoint) | `5-install-drifted-unit-reconciled` |
+| 7 | `StateScheduledUpgrade` | pending row (`state='scheduled'`, `started_at IS NULL`) | `executeUpgrade` inline via `upgrade.Service.ExecuteUpgradeInline` | — (gap on the inline path; service path: `0-happy-upgrade`, `claim-without-notify-arc`) |
+| 8 | `StateRestoreReattemptable` | `failed` row with retained `backup_path` | replay the restore — human-gated via `./sb install`, never the auto service (STATBUS-111) | `restore-broke-reattempt-arc` (both classes: replay → honest `rolled_back`; still-corrupt git → actionable refusal) |
+| 9 | `StateNothingScheduled` | no pending row; everything else healthy | step-table (idempotent config-refresh checkpoint) | `5-install-drifted-unit-reconciled` |
 
 The install-internal failures are recovered inside the **step-table** (and the pre-detect cleanup),
 not at a ladder state. Their scenario coverage (closing the rest of the loop):

@@ -107,6 +107,38 @@ note right of in_progress
   install) — each buys exactly ONE fresh attempt with a reset budget.
 end note
 
+note as TESTCOV #FFF9C4
+  TEST COVERAGE — transitions (slugs: test/install-recovery/{arcs,scenarios}/;
+  test→diagram join: test/install-recovery/README.md § Coverage join table;
+  run-proof ledger: STATBUS-071's coverage map)
+  scheduled → in_progress (claim): claim-without-notify-arc (a LOST NOTIFY never
+    strands a row); 0-happy-upgrade (the NOTIFY path).
+  in_progress → completed: 0-happy-upgrade (normal); postswap-converged-selfheal-arc
+    ([completed-self-heal]); flagless-selfheal-at-target-arc ([completed-from-in-progress]);
+    postswap-mid-migration-kill-arc / postswap-mid-tx-kill-arc (pre-delta death → forward).
+    Every writer is serve-proven (STATBUS-160/192).
+  PARKED self-loop: postswap-health-park-arc (park, siren-once, alive-idle, displacement
+    by a fix release); un-park-to-completion-arc (both deliberate exits); same-step-twice /
+    budget-exhaust pinned by recovery_escalation_test.go.
+  in_progress → rolled_back: failing-arc (deterministic error); preswap-backup-kill-arc /
+    preswap-checkout-kill-arc / preswap-binary-swap-kill-arc; postswap-after-commit-kill-arc
+    + after-commit-before-recorded-kill-arc (lost-stamp); postswap-between-migrations-kill-arc
+    (mid-delta); postswap-migration-ceiling-arc / postswap-migration-oom-arc;
+    transient-db-backoff-arc (exhaust arm); rollback-kill-arc +
+    postswap-rollback-restore-watchdog-arc (the undo itself hit, still converges).
+  in_progress → failed ([HUMAN: restore-broke]): rollback-pair-terminal-arc (exactly-2
+    bound, STATBUS-134); restore-broke-reattempt-arc (ABORT write-lands + the human-gated
+    ./sb install replay, STATBUS-111).
+  scheduled/parked → superseded (displacement): postswap-health-park-arc (a fix release
+    displaces a standing park, STATBUS-159); c-rollback-resurrection-arc (a superseded row
+    never resurrects, STATBUS-160).
+  completed (re-stamp, no transition): working-arc — a broken-but-succeeded migration's
+    fix is ACCEPTED by re-stamp, never re-run.
+  [HUMAN: unknown] self-loop: UNCOVERED — no test drives an unrecognized phase/error.
+  available → skipped, and terminal → dismissed (operator acknowledgements): UNCOVERED —
+    no test drives the acknowledgement paths.
+end note
+
 rolled_back --> dismissed : operator acknowledges
 failed --> dismissed : operator acknowledges
 

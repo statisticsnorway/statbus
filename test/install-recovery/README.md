@@ -53,7 +53,7 @@ test/install-recovery/
 
 Each scenario is **a fresh Hetzner Cloud VM**, no state shared. Per-scenario isolation > shared-VM speed: bug-class regressions are caught reliably.
 
-## Scenario catalogue (19 scenarios)
+## Scenario catalogue (15 scenarios; retired rows kept as supersession records)
 
 Every entry leads with its **plain goal** — read it as **die HERE → the operator's `./sb install` re-run must end at THIS terminal state, data intact.** The goal is what the test is *for*; the *Grounding* column is the mechanism (inject site, C-class, the fix it guards) for the engineer. The full per-scenario detail lives in each `scenarios/<slug>.sh` header. The **phase prefix** says *when* in the timeline the wedge lands: `0` happy · `1-boot` pre-READY/startup · `2-preswap` before the binary+migration swap · `3-postswap` after the swap (migrate/restart/resume) · `4-rollback` during the built-in rollback · `5-install` the inline `./sb install` operator path.
 
@@ -99,7 +99,7 @@ Every entry leads with its **plain goal** — read it as **die HERE → the oper
 | Scenario | What it proves | Grounding |
 |---|---|---|
 | `4-rollback-abort-write-lands` *(RETIRED — superseded by the `restore-broke-reattempt` arc)* | **RETIRED (STATBUS-071 comments #16/#17; file deleted).** The git-corrupt ABORT terminal write (`state=failed` in ONE pass, ZERO kills, flag removed, STATBUS-136) is now proven for REAL by the **upgrade-arc-harness** arc `restore-broke-reattempt` (run 29344519124: a genuine dispatched upgrade + a real `killed-by-system-during-builtin-rollback` parent-kill + a real detached `pre-upgrade` branch deletion on the VM — environment manipulation of real machinery state, not a fabricated row). This scenario's OTHER half — the SAME box's flagless self-heal to `completed` — is NOT covered by the arc (the arc's corruption is real and permanent, so it never self-heals) and survives, narrowed + renamed, as `4-flagless-selfheal-at-target` below. | Superseded per STATBUS-071 comments #16/#17. Original grounding retained for history: STATBUS-136 `EnsureDBReachable`/`StartDBForRecovery` before the terminal write on `d.rollback()`'s git-corrupt ABORT branch; killed the r17 x3 death loop. |
-| `4-flagless-selfheal-at-target` *(interim net, STATBUS-071 comment #17)* | An orphan `in_progress` row that is genuinely at-target (`commit_sha` == the running binary) with NO flag on disk self-heals to `state='completed'`, `error=NULL` on the very next ordinary boot — `completeInProgressUpgrade`'s own flagless reconciliation (STATBUS-039), confirmed via its `[completed-from-in-progress]` journal label. Narrowed + renamed from `4-rollback-abort-write-lands` (its ABORT half retired above); the rename re-keys the per-scenario stamp, so this is honestly a fresh scenario needing its own green run. Fabrication stands ONLY as an interim net (dead-producer doctrine, comment #12) — live producers (`recoverFromFlag`'s corrupt-flag-JSON removal, service.go:974-977; `Service.Run`'s own post-`recoverFromFlag` boot call, service.go:2130; the periodic poll-tick's belt reconciliation, service.go:2235; tmp/ flag loss across reboot) are cited as REACHABILITY evidence, not legitimacy — a real-path successor (a real dispatched upgrade stalled post-swap, then a real flag-file truncation on the VM) is owed and queued; this scenario deletes once that successor goes green. | STATBUS-039 `completeInProgressUpgrade`'s ground-truth-gated flagless self-heal; STATBUS-071 comments #16/#17 (dead-producer doctrine, interim-net framing) — **[UNPROVEN pending its first fresh run under the new name]** |
+| `4-flagless-selfheal-at-target` *(RETIRED — superseded by `flagless-selfheal-at-target-arc`)* | **RETIRED (file deleted, commit 86c626ab0).** The STATBUS-039 flagless at-target self-heal is proven on the REAL path by the arc `flagless-selfheal-at-target-arc`: a real dispatched upgrade crashed at-target plus a real flag-file truncation produced the orphan `[at-target in_progress row + no flag]` entirely via real machinery; the real corrupt-flag reader removed the truncated flag (row untouched), and the same boot's `completeInProgressUpgrade` converged it to `completed` (`[completed-from-in-progress]`, `error=NULL`, data intact) — **[PROVEN]** run 29400318076, commit 074429076. That green run was this interim net's own advertised deletion condition. | Superseded per STATBUS-071 comment #17 (real-path successor); deletion commit 86c626ab0 records the arc header's illusory-health-assert note. |
 | `4-rollback-abort-churn-then-alive-idle` *(RETIRED — superseded by `boot-migrate-churn-alive-idle-arc`, STATBUS-071 P4)* | **RETIRED (file deleted; set-difference recorded on STATBUS-071).** The flagless-churn-then-alive-idle property (STATBUS-144 AC#3: a post-terminal boot hits a floor-bound broken migration and, instead of restart-looping to `StartLimit` death, logs the diagnostic banner ONCE and stays alive-idle) is now driven for real by `boot-migrate-churn-alive-idle-arc`: a REAL failing-lineage dispatch crashed at the REAL mid-rollback instant (C9, exit 137); the flag was truncated by the real corrupt-flag reader (flagless) and a deterministically-failing ≤-floor migration was file-dropped (environment manipulation representing the shipped-broken-migration class, named in the arc's own header); the daemon's flagless boot-migrate hit it, exited 20, and the STATBUS-144 guard logged the banner once and stayed ALIVE-IDLE through a bounded watch window — NRestarts bounded+frozen, row correctly stayed `failed` (never self-healed, the box is genuinely behind), the broken migration never recorded, app/db/rest/worker serving throughout — **[PROVEN]** run 30369283526. Set-difference: banner-once, NRestarts-bounded, row-stays-failed, migration-never-recorded, and the serving asserts all carry over onto the real construction verbatim. | STATBUS-144 AC#3 (flagless post-terminal boot-migrate churn → alive-idle fix, shipped 46f979a3a); STATBUS-071 comments #16/#17 (dead-producer doctrine, interim-net framing, now superseded) — run 30369283526. |
 
 > The STATBUS-031 rollback-restore watchdog cover (a large-DB `rollback()` restore that outruns `WatchdogSec`) is exercised by the **upgrade-arc-harness** arc `postswap-rollback-restore-watchdog` (V_fail → rollback → restore-stall at `exec.go` `inject.StallHere("restore-db-stall-watchdog")`), **not** an install-recovery scenario: this harness installs release images and re-tags them via `stage-head.sh`, so it can't build the per-commit V_fail image the real-upgrade trigger needs. The former `4-rollback-restore-watchdog` scenario (a death-during-resume trigger, now self-heal-blocked) was retired. (STATBUS-071 §9(5) 5c-hard.)
@@ -122,6 +122,77 @@ Every entry leads with its **plain goal** — read it as **die HERE → the oper
 | `5-install-stage-e-worker-busy` | Install while the worker is busy processing → install isn't fooled into a false "busy" failure. | Fix 8 (worker excluded from holders) / Fix 9 (no pool-busy false-fail) / Fix 10 (psql-only filter) |
 
 `*(TBD)*` rows are scaffolded but not yet implemented. Full forensics + the complete C-class / R-tag priority map: `doc/archive/recovery-injection-scope-a-comprehensive.md` (2026-05 execution journal, archived — the CURRENT proof ledger is STATBUS-071's coverage map). Each `scenarios/<slug>.sh` header carries the complete per-scenario detail (inject site, expected behavior, status on current code).
+
+## Coverage join table — every test names its diagram element
+
+The upgrade diagrams (`doc/diagrams/upgrade-timeline.plantuml`, `upgrade-lifecycle.plantuml`,
+`install-recovery.plantuml`) carry the diagram→test direction as in-diagram `TEST <slug>` /
+`NO TEST (gap)` notes. This table is the reverse direction: every arc and scenario names the
+diagram element it covers. Elements cite the sequence diagram's `== … ==` bands, the state
+diagram's transitions, and the activity diagram's partitions/arms. The run-proof ledger
+(which row is proven on which VM run) is STATBUS-071's coverage map.
+
+### Arcs (`arcs/*.sh` — the real-dispatch family, STATBUS-071)
+
+| Arc | Diagram element |
+|---|---|
+| `after-commit-before-recorded-kill-arc` | upgrade-timeline § new-sb-swapped → new-sb-upgrading — commit↔record cell (3), migrate-subprocess kill |
+| `boot-migrate-churn-alive-idle-arc` | upgrade-timeline § Service boot — flagless deterministic boot-migrate → alive-idle (STATBUS-144) |
+| `c-rollback-resurrection-arc` | upgrade-lifecycle § superseded — no resurrection through any door (STATBUS-160); upgrade-timeline § Complete / rollback |
+| `claim-without-notify-arc` | upgrade-timeline § Schedule + dispatch — claim without a live NOTIFY (STATBUS-098) |
+| `cross-version-rename-handoff-arc` | upgrade-timeline § new-sb-swapped handoff — legacy-alias phase read across the swap (STATBUS-164) |
+| `deploy-status-proof-arc` | upgrade-timeline § Schedule + dispatch — deploy pipeline RED-path status truth (STATBUS-170) |
+| `failing-arc` | upgrade-timeline § commit↔record cell (e) — always-erroring migration → rolled_back, fix applies fresh |
+| `flagless-selfheal-at-target-arc` | upgrade-timeline § Service boot — the flagless belt, at-target half (`[completed-from-in-progress]`) |
+| `postswap-after-commit-kill-arc` | upgrade-timeline § commit↔record cell (3) — parent kill in the lost-stamp window |
+| `postswap-between-migrations-kill-arc` | upgrade-timeline § commit↔record cell (4) — mid-delta, ledger advanced → rolled_back |
+| `postswap-container-restart-kill-arc` | upgrade-timeline § new-sb-swapped resume tail — kill between app-services start and health |
+| `postswap-converged-selfheal-arc` | upgrade-timeline § new-sb-swapped resume tail — converged-but-unlanded → `[completed-self-heal]` (STATBUS-192/193) |
+| `postswap-health-park-arc` | upgrade-lifecycle § PARKED self-loop — park, siren-once, alive-idle, displacement (STATBUS-046/159) |
+| `postswap-mid-migration-kill-arc` | upgrade-timeline § commit↔record cell (1) — pre-delta death → forward → completed |
+| `postswap-mid-tx-kill-arc` | upgrade-timeline § commit↔record cell (2) — uncommitted pre-delta tx aborted → forward |
+| `postswap-migration-ceiling-arc` | upgrade-timeline § delta under duress — MigrateUpTimeout ceiling kill → rolled_back |
+| `postswap-migration-oom-arc` | upgrade-timeline § delta under duress — OS OOM-kills Postgres mid-delta → rolled_back |
+| `postswap-migration-timeout-arc` | upgrade-timeline § delta under duress — slow-but-live delta survives the watchdog (STATBUS-012) |
+| `postswap-rollback-restore-watchdog-arc` | upgrade-timeline § Complete / rollback — stalled restore, heartbeat keeps the box alive |
+| `postswap-severed-proxy-refusal-arc` | install-recovery § Detect / crashed-upgrade — severed proxy → actionable named refusal (STATBUS-143) |
+| `postswap-stopped-proxy-recovery-arc` | install-recovery § Detect / crashed-upgrade — stopped proxy → autonomous recovery (STATBUS-143) |
+| `postswap-watchdog-reconnect-arc` | upgrade-timeline § new-sb-swapped resume tail — slow-but-advancing reconnect survives the watchdog |
+| `preswap-backup-kill-arc` | upgrade-timeline § old-sb-upgrading — kill during the DB snapshot |
+| `preswap-binary-swap-kill-arc` | upgrade-timeline § old-sb-upgrading — kill at the replaceBinaryOnDisk pivot |
+| `preswap-checkout-kill-arc` | upgrade-timeline § old-sb-upgrading — kill during git checkout |
+| `restore-broke-reattempt-arc` | install-recovery § Detect / restore-reattemptable (STATBUS-111); upgrade-timeline § Complete / rollback — [HUMAN: restore-broke] |
+| `rollback-kill-arc` | upgrade-timeline § Complete / rollback — kill mid-rollback() still converges |
+| `rollback-pair-terminal-arc` | upgrade-timeline § Complete / rollback → upgrade-lifecycle § failed — exactly-2 rollback-death bound (STATBUS-134) |
+| `transient-db-backoff-arc` | upgrade-lifecycle § 3 error classifier — backoff-retry resolves forward / exhausts to rollback (STATBUS-109/190) |
+| `un-park-to-completion-arc` | upgrade-lifecycle § PARKED — both deliberate un-park exits (delta: rollback + re-trigger; no-delta: same-row completion) |
+| `working-arc` | upgrade-lifecycle § completed — accept-the-fix re-stamp of a broken-but-succeeded migration (no re-run) |
+
+### Scenarios (`scenarios/*.sh` — the install-ladder + boot battery)
+
+| Scenario | Diagram element |
+|---|---|
+| `0-happy-install` | install-recovery § Detect / fresh-install + the full step-table (the no-injection baseline) |
+| `0-happy-upgrade` | upgrade-timeline § the full happy path (claim → old-sb-upgrading → exit-42 → resume → completed) |
+| `1-boot-advisory-too-early` | upgrade-timeline § Service boot — advisory lock before the DB is ready |
+| `1-boot-concurrent-install` | install-recovery § Detect / live-upgrade → refuse |
+| `1-boot-flag-stale-handoff` | install-recovery § Detect / crashed-upgrade — install-held stale flag |
+| `1-boot-startup-timeout` | upgrade-timeline § Service boot — TimeoutStartSec stays bounded |
+| `3-postswap-worker-ddl-deadlock` | install-recovery § step-table / [DDL] stop-app-services — quiesce before the DDL window |
+| `5-install-bool-text-regression` | install-recovery § step-table / Database sessions — bool::text parse |
+| `5-install-drifted-unit-reconciled` | install-recovery § step-table / Upgrade service — drift reconcile |
+| `5-install-seed-on-populated` | install-recovery § step-table / Seed gate (data-loss grade) |
+| `5-install-stage-a-killed-migrate` | install-recovery § step-table / Database sessions — orphan backend cleanup |
+| `5-install-stage-b-pool-exhaustion` | install-recovery § pre-detect cleanOrphanSessions — docker-exec bypass |
+| `5-install-stage-c-systemd-failed` | install-recovery § step-table / Upgrade service — reset-failed |
+| `5-install-stage-d-advisory-zombie` | install-recovery § step-table / Database sessions — dead-PID advisory lock |
+| `5-install-stage-e-worker-busy` | install-recovery § step-table / Database sessions — holder filter, no false-fail |
+
+Diagram elements with NO covering test say so in the diagrams themselves (`NO TEST (gap)`
+notes): the pre-flight claim-window kill (STATBUS-197), the live-upgrade takeover arm,
+`StateHalfConfigured`, `StateDBUnreachable`, the pre-1.0 legacy refusal, the inline
+`StateScheduledUpgrade` dispatch, the `[HUMAN: unknown]` self-loop, and the operator
+acknowledgement transitions (`skipped` / `dismissed`).
 
 ## Fix-to-scenario reverse mapping
 
@@ -152,7 +223,7 @@ When you regress a fix, here's what fails:
    string names the file, the runner, this table, the diagram TEST notes, and the code comments.
 2. If you need a new wedge primitive, add it to `lib/wedge-helpers.sh` as a `simulate_*` function.
 3. If you need a new assertion, add to `lib/assertions.sh` as `assert_*` returning 0 (pass) or 1 (fail).
-4. Update this README's scenario catalogue — lead the new entry with its plain goal (die HERE → re-run ends THERE, data intact), mechanism as grounding.
+4. Update this README's scenario catalogue — lead the new entry with its plain goal (die HERE → re-run ends THERE, data intact), mechanism as grounding — and add its row (test → diagram element) to the Coverage join table above. The same applies to a new arc.
 
 ## Probe conventions — PROBES OBSERVE, ASSERTS JUDGE; NO OBSERVATION WITHOUT A REASON (STATBUS-143)
 

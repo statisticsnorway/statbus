@@ -18,9 +18,11 @@
 '
 ' TEST-NOTE CONVENTION (shared with upgrade-timeline.plantuml — this diagram doubles
 ' as a visual test-coverage map): every failure-handling point carries a note
-'     TEST <scenario-slug>: <forward invariant the scenario must prove>
-' framed as the GUARANTEE that must hold, NOT the failure. A point with no scenario is
-' marked  NO TEST (gap): <unproven invariant>  so coverage holes are visible.
+'     TEST <slug>: <forward invariant the test must prove>
+' framed as the GUARANTEE that must hold, NOT the failure. A point with no covering
+' test is marked  NO TEST (gap): <unproven invariant>  so coverage holes are visible.
+' Slugs name test/install-recovery/arcs/ (*-arc) or scenarios/. Test→diagram join:
+' test/install-recovery/README.md § Coverage join table.
 skinparam backgroundColor #FEFEFE
 skinparam activity {
     BackgroundColor #E3F2FD
@@ -92,6 +94,13 @@ partition "Detect — 9-state probe ladder (state.go:104, short-circuit: first m
     note right
       TEST 1-boot-flag-stale-handoff: an install that exited without releasing the
       upgrade-in-progress marker (dead holder) is reconciled, then a single re-Detect resolves to a step-table state.
+      TEST postswap-stopped-proxy-recovery-arc: recovery of a real crashed upgrade proceeds
+      autonomously with the proxy container STOPPED — the probe dials the SAME route the
+      recovery connection uses, so a stopped proxy is never invisible to it (STATBUS-143).
+      TEST postswap-severed-proxy-refusal-arc: with the proxy MISSING (severed route),
+      recovery REFUSES actionably with the remedy named — never a silent
+      connection-refused loop (STATBUS-143).
+      Every kill-family arc's recovery dispatch also lands here (crashed-upgrade → RecoverFromFlag).
       Recovery routes by observed-state — see the **upgrade-lifecycle** diagram for the full decision tree (§1–§4).
     end note
     :re-Detect -> resolves to a step-table state;
@@ -120,7 +129,8 @@ partition "Detect — 9-state probe ladder (state.go:104, short-circuit: first m
       § old-sb-upgrading. Install does NOT run the step-table here;
       executeUpgrade writes its own service-held flag.
       NO TEST (gap): the inline-dispatch path (./sb install on a queued row) has no
-      scenario; only the service/NOTIFY path is covered (0-happy-upgrade).
+      covering test; only the service path is covered (0-happy-upgrade via NOTIFY,
+      claim-without-notify-arc via the poll tick).
     end note
     stop
   elseif (failed row with retained backup_path?) then (yes)
@@ -130,7 +140,10 @@ partition "Detect — 9-state probe ladder (state.go:104, short-circuit: first m
       (backup_path) is retained is re-attemptable — ONLY via ./sb install,
       never the auto service (restore-broke stays a human stop, no
       auto-thrash). Pair-terminal rows complete; an abort-row with corrupt
-      git refuses actionably. Arc proof tracked on STATBUS-071's map.
+      git refuses actionably.
+      TEST restore-broke-reattempt-arc: both classes on one run — the replay
+      completes to an honest rolled_back; still-corrupt git refuses before
+      any destructive step.
     end note
     stop
   else (nothing scheduled)
