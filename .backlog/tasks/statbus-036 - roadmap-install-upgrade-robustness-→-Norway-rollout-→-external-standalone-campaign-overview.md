@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-12 07:59'
-updated_date: '2026-07-28 15:38'
+updated_date: '2026-07-29 10:59'
 labels:
   - roadmap
   - install-recovery
@@ -34,34 +34,27 @@ cut an RC → rune (no.statbus.org) installs it and converges → the gate list 
 
 Norway go-live and the stable gate are ONE motion: rune is a hardcoded canary slot of `./sb release stable` (release_canary.go:43-45).
 
-KING-RATIFIED 2026-07-23 (comment #4); 193 ruled in-gate same word; 187 corrected to Done (comment #5). GATE REOPENED 2026-07-27 (comment #7): the RC cut waits for the 071 no-fabrication ladder.
-
-WHAT IS PROVEN (not hoped — refreshed 2026-07-27):
-- Recovery: the arc campaign closed green; every coverage-map cell run-proven on real VMs (071 holds the map). The rune failure class (10,229 restarts, nobody told) is dead in code and dead in observation.
+WHAT IS PROVEN (not hoped — refreshed 2026-07-29):
+- Recovery: the arc campaign closed green. Every coverage-map cell is run-proven on real VMs (071 holds the map). The rune failure class (10,229 restarts, nobody told) is dead in code and dead in observation.
 - Ledger: terminal states are teardown-immune, unresurrectable, and ride one writer path (154/159/160/163). The upgrade row cannot lie.
-- Release pipeline: rc.05 and rc.06 cut; fleet green on both procurement paths — rune tag, dev edge. The release cut is the one migration bless (166).
-- Serve-proof: 'completed' means the box VERIFIABLY SERVES, at every writer including the self-heal (192, RED→GREEN proven). A park survives every automatic path until a fix release or the installer resolves it (193, run-proven).
-- Silent errors: all fifteen cataloged fixed or formally accepted (187, commits verified on master).
-- Deploy honesty, complete: green = CONVERGED on all 8 workflows; the script contract re-proves on every arc pass; the red path proven through production-replica transport (170 Done, runs 29743621767 + 30017980913).
-- CI transport: zero public-SSH CI consumers; the runner's liveness canary-gated (069 Done, run 30018072694).
-- Operator contract: "run the installer" is still the only operator action, through every recovery class.
+- Release pipeline: rc.05 and rc.06 are cut; the fleet is green on both procurement paths — rune on the tag path, dev on the edge path. The release cut is the one migration bless (166).
+- Serve-proof AT EVERY COMPLETED WRITER: 'completed' means the box verifiably serves — the normal pipeline, the flagless heal (192), and the post-swap self-heal all lift the read-only window and health-gate before certifying (192/193 + the 071 ladder's third-writer fix). Proven RED→GREEN on real VMs.
+- Deploy honesty, both halves: all 8 deploy workflows poll the box to a terminal verdict — green means CONVERGED (170 AC#2) — and the red path is PROVEN: the arc suite asserts the status script's verdicts on real rolled-back and completed rows, and the deploy-status-proof arc polls a real broken deploy through a production-replica sshdo transport to an explained red (170 closed).
+- NO FABRICATION: the King's directive is delivered — both fabrication helpers deleted at zero callers; every crash state the harness proves arises via real machinery plus labeled input-state manipulation only; the structural guard fails loudly on regression (071 closed, P1-P6).
+- CI transport: the runner-health canary green-gates the self-hosted legs (069 closed); the seven slot keys leveled to the hardened forced-command standard (194).
+- Operator contract: "run the installer" is still the only operator action — through park, un-park, crash recovery, repair, and the broken-restore re-attempt.
 
-WHAT REMAINS BEFORE THE RC CUT (King gate ruling 2026-07-27 — the 071 no-fabrication ladder, then the cut):
-- P1 real-producer swap in the ddl-deadlock scenario: BUILT (880fc0bb3); re-green rides the next scenario batch.
-- P2+P3 delete the after-commit scenario (set-difference discipline; replacement arc already green) + delete fabricate_scheduled_upgrade_row at zero callers: in build (mechanic).
-- P4 churn successor arc (real producer for the flagless-churn net): in build (engineer); architect frozen-diff review; GREEN RUN required; then scenario 4-rollback-abort-churn deletes.
-- P5 container-restart arc gains the [completed-self-heal] assert → rune-wedge retires (King conditional met: root cause fixed e76505eec + 61e79e265 + cb7344dd6) → fabricate_resume_state deletes at zero callers. GREEN RUN required.
-- P6 the no-fabrication structural guard (zero fabricate greps, zero harness ledger-writes, fails loudly on regression).
-- P7 WITHDRAWN — the King's inject-marker system stays wholesale; no hook conversions without a new King ruling.
-- 183 live oracle: free at the cut — the cut's own poke must converge row-completed.
+WHAT REMAINS BEFORE THE STABLE CUT (the honest list, 2026-07-29):
+- 183 live oracle ONLY — and it is a cut-TIME check, not pre-cut work: the next cut's own poke must converge row-completed (the fix is shipped; the cut proves it for free).
+- NOTHING ELSE GATES. The gate list is empty. C4 executes on the King's word.
 
-THE WALK: C1 RC cut ✓. C2 gate-capable RC ✓ (rc.06). C3 canary converged ✓ (rune tag + dev edge, rc.05 AND rc.06). C4 `./sb release stable` → v2026.07.0 → Norway live — on the King's word once the ladder above is done and the next RC's canaries are green. C5 external standalone — scoped after one full RC→stable→deploy cycle is proven.
+NON-GATING OPEN WORK (parallel lanes, never block the path): 196 docs coherence (King directive — architect drives); 195 discovery watchdog false-kill (ruled, small); 189 caddy catch-all 404 (small); 188 dev-db crash cycles (local dev infra; blocks 175's last three conversions); 175 sweep tail; product 093 (Go worker), 142 (email), 173 (pgAdmin), 174 (Norway idents), 179 (power-groups — PARKED by the King, his review gate); quality 186 (react-hooks), 177 (ts-any tail); hygiene 035 (branch cleanup, King-gated).
 
-PARALLEL LANES (never block the path): 196 upgrade-docs-coherence (from the King's 071 session — diagrams ↔ code ↔ tests one coherent whole); quality gates 176 + 186; product 093, 142, 173, 174, 179 (parked for King review), 195 (not-gating); tooling 175 sweep tail (behind 188), 188 dev-db crash cycles; hygiene 035 (only the post-release seed-family hold remains).
+THE WALK: C1 RC cut ✓. C2 gate-capable RC ✓ (rc.06). C3 canary converged ✓ (rune tag + dev edge, twice). C4 `./sb release stable` → v2026.07.0 → Norway live — READY ON THE KING'S WORD. C5 external standalone — scoped after one full RC→stable→deploy cycle is proven.
 
 DONE = `./sb release stable` exits green with zero SKIP_* bypasses; the stable tag upgrades unattended on rune with zero watchdog kills and zero manual intervention; a deliberately-failed upgrade on a Norway-size DB rolls back to completion under the watchdog; the next RC cycle repeats it all untouched.
 
-Per-item detail lives in the work tickets. Prior map states preserved in git history.
+Per-item detail lives in the work tickets. Prior text is preserved in git history.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
