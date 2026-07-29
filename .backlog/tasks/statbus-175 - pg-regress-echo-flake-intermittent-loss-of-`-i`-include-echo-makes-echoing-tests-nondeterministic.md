@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-07-13 13:20'
-updated_date: '2026-07-29 15:59'
+updated_date: '2026-07-29 16:42'
 labels:
   - testing
   - not-install-upgrade
@@ -129,5 +129,11 @@ author: foreman
 created: 2026-07-29 15:59
 ---
 BATCH-1A REMEDIATION LANDED 8d2205d0f (foreman, 2026-07-29): the 16 July-14 pairs (003, 103-107, 109-113, 117-120, 400) now carry the canonical honest wording — 130 insertions / 130 deletions, perfectly symmetric (4/4 per singular file, 5/5 for 400's plural). Independently re-verified before commit: sql↔out byte-identical on all 16 pairs, grep zero (with the '--' terminator), mechanic's spot-runs green across all three chain shapes (104 Norway / 111 demo / 400 multi-include). With this, the refuted flake claim is grep-zero across the ENTIRE repo — the misreading is fully retired from code, comments, and expected files. ARITHMETIC CORRECTION to comment #11: remaining conversions = 27, not ~12 (61 exposed − 16 batch-1a − 15 batch-2 − 3 transferred to 188 = 27; 403 was never on the exposure list). Mechanic proceeds to batch 3 (next ≤15, numeric order, canonical wording from the start) per the standing order. Note for the record: test/install-recovery/README.md is modified in the tree by the ARCHITECT'S in-flight 196 step-3 cross-link work — attributed, deliberately excluded from this commit.
+---
+
+author: foreman
+created: 2026-07-29 16:42
+---
+BATCH 3 LANDED d5258d758 (foreman, 2026-07-29): 12 pairs (309-315, 318, both 319s, enterprise-name 320, 321), 192 insertions / 267 deletions, canonical wording from the start. Independently verified: sql↔out blocks byte-identical on all 12, grep zero, .sql diffs additions-only, 314's expected NUL-checked clean (perl -0777 per the recorded trap), zero baseline drift. AUDIT-CORRECTION RULING (foreman): 316_update_legal_form_legal_unit, 317_update_name_legal_unit, 320_test_region_validation_fail_fast are STRUCK from the exposure list as FALSE POSITIVES — verified by direct inspection: each includes ONLY test/setup.sql (no getting-started/definitions \i anywhere), and their audit markers (nace_v2.1 / isic_v4 / Activity-Category-Standard strings, 2/2/1 hits) are authored INLINE by the tests themselves — there is no included echo to suppress. The 61-item list therefore over-counted by 3; tmp/175-ac3-audit-exposed-list.txt stays as the historical artifact, THIS comment is the authoritative correction. STRAGGLER INCIDENT, survived by the book: the mechanic's first regen was EXTERNALLY killed mid-flight (after 309, during 310), orphaning a pg_regress+psql pair; dev.sh's check_no_straggler_pg_regress guard correctly refused the second attempt; NO manual kills per the standing order; the orphan self-cleared; and — the exemplary part — the second attempt's visually-clean results were DISCARDED wholesale (dev.sh's own dual-writer warning says corruption can be silent), with the frozen output coming from a clean third run. Cross-recorded on 188 (natural runner-timeout/straggler occurrence). POSITION: 44 of 55 in-scope conversions done (16+15+12+403's precedent excluded from count; 61 − 3 false positives − 3 transferred = 55). BATCH 4 = the final 12: 322-325, 340-347. On its landing, AC#3 checks with the 401/402/500 carve-out.
 ---
 <!-- COMMENTS:END -->

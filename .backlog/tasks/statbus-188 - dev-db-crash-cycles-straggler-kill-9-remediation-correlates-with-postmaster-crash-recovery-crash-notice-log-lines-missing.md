@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-14 23:17'
-updated_date: '2026-07-29 11:05'
+updated_date: '2026-07-29 16:43'
 labels:
   - testing
   - infrastructure
@@ -49,5 +49,11 @@ author: foreman
 created: 2026-07-29 11:05
 ---
 SCOPE TRANSFER IN (foreman, 2026-07-29): the three remaining STATBUS-175 echo-suppression conversions (401, 402, 500) now ride THIS ticket as a finalization step, so 175 can close on its own completed work. Rationale: 401's ~28-minute expected-file regeneration is exactly the workload that triggered the crash cycles under investigation here (175 comments #4/#5) — re-attempting it before this ticket answers the infra questions would just reproduce the incident. Sequence: answer AC#1-#4 → then run the three conversions as the proof-of-fix workload (a successful 401 regeneration under the corrected infra is a natural acceptance run). The King may override this transfer during his review of this ticket.
+---
+
+author: foreman
+created: 2026-07-29 16:43
+---
+NATURAL OCCURRENCE RECORD (foreman, 2026-07-29, from the 175 batch-3 regeneration): the mechanic's first regen attempt was EXTERNALLY killed mid-flight (he did not kill it; after test 309 completed, during 310) — the runner-timeout/external-kill class this ticket's AC#4 names, occurring naturally again. Chain: kill → orphaned pg_regress+psql pair in the db container → dev.sh's check_no_straggler_pg_regress guard REFUSED the next attempt by name (the STATBUS-158 protection working as designed) → orphan self-cleared within minutes → clean re-run. Notable for AC#3's re-rule: NO manual kill was needed — the orphan exited on its own, which supports 'report and wait' over kill -9 as the default remediation. Also notable: NO postmaster crash-recovery cycle followed this straggler episode (unlike the 07-14 incidents where recovery followed the kill -9 within ~30s, 2-for-2) — consistent with the hypothesis that the KILL, not the straggler, correlates with backend death. Evidence value: one more data point for the kill-causality question (AC#2), zero db mutation, all handled within standing orders.
 ---
 <!-- COMMENTS:END -->
