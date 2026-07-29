@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-07-13 13:20'
-updated_date: '2026-07-29 11:17'
+updated_date: '2026-07-29 15:54'
 labels:
   - testing
   - not-install-upgrade
@@ -117,5 +117,11 @@ author: foreman
 created: 2026-07-29 11:17
 ---
 BATCH 2 REVIEW (foreman, 2026-07-29): HELD for one systemic fix; structure otherwise clean (exactly 30 files; .sql wraps additions-only — 303's one deleted line is a blank line inside the wrap span, accepted; .out numstats match the wrap shape: 7 added/≈23 removed for the 13 singles, 375 removed for 302/303's BRREG-def echo; zero purpose-guard exclusions, verified plausible). SYSTEMIC FINDING: the wrap comment — copied verbatim from batch-1a's committed style — still claims 'the \i echo has been observed to intermittently drop under the harness', the exact characterization REFUTED by the King (comment #6) and replaced by the proven root cause (comment #7). Only 403 itself was ever re-worded; batch 1a (16 committed pairs: 003, 103-107, 109-113, 117-120, 400) carries the stale claim in .sql AND .out (the comment echoes into expected output). Grep-verified: 31 sql + 31 expected files total (15 frozen batch-2 + 16 committed batch-1a). RESOLUTION: batch 2 returns to the mechanic for a synchronized byte-identical reword in both pair members (canonical honest texts issued, modeled on 403:45-49), verified by mechanical sql↔out byte-compare on all pairs + spot-runs of 124/302/303 (one per shape class); then a BATCH-1A REMEDIATION unit (same fix in the 16 committed pairs) lands BEFORE batch 3. The sweep's canonical comment text is now pinned in this comment's dispatch — batches 3+ use it directly.
+---
+
+author: foreman
+created: 2026-07-29 15:54
+---
+BATCH 2 LANDED 335fc86ee (foreman, 2026-07-29): 15 tests (124, 200-204, 300-308), 30 files, 256 insertions / 1048 deletions of echoed include text. Held-fix verified before commit BY INDEPENDENT RE-CHECK: my own sql↔out byte-compare across all wrap blocks in all 15 pairs (byte-identical, including 302's two blocks), grep zero on the refuted wording, mechanic's three spot-runs green (124/302/303 — one per wrap shape). One review-harness note for the record: my first byte-compare run false-reported 18 mismatches because local grep is ugrep and the block text starts with '--' — exactly the portability trap comment #2 recorded; fixed with the '--' option terminator. Mechanic's infra note logged: the 12:06 network outage broke DNS for local.statbus.org and dev.sh's template-check misreported it as 'template not found' (stderr swallowed) — a harness-diagnostics gap worth a look if it recurs; no db mutation occurred. SWEEP POSITION: 31 of the 58 in-scope tests converted (batch 1a's 16 + 403 + batch 2's 15 minus overlap — batch 1a 16, batch 2 15, 403 pre-existing). REMAINING: batch-1a REWORD remediation (in build now — mechanic already has 003/103/104 in the tree), then ~12 remaining conversions in batch 3, then AC#3 checks with the 401/402/500 carve-out (riding 188).
 ---
 <!-- COMMENTS:END -->
