@@ -45,6 +45,7 @@ type dbContainerState struct {
 //     it — the OOM of a child, or an external kill).
 //   - ExitCode 137 ALONE → FACTUAL only, NO cause: 137 can be an innocent
 //     docker/compose grace-kill; the operator judges.
+//
 // The probe NEVER changes disposition — it only enriches the reason — so a
 // leg-precise note is honest and a no-match ("") is simply the unchanged reason.
 func classifyMigrateOOMEvidence(st dbContainerState, dbLogTail, displayName string, migrateStart time.Time) string {

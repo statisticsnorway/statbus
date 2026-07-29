@@ -93,7 +93,7 @@ func Test_matchSbVersionCommit(t *testing.T) {
 		{
 			name:        "displayname_not_8_chars_falls_through",
 			versionOut:  "dev (commit b6aa14b8)",
-			commitSHA:   "", // displayName-only path
+			commitSHA:   "",                 // displayName-only path
 			displayName: "v2026.05.6-rc.03", // tagged shape, not 8-char SHA — should not match
 			wantOk:      false,
 		},

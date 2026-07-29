@@ -239,7 +239,7 @@ func TestClassifyReleaseShape(t *testing.T) {
 		// Commit references → commit.
 		{"dev", ShapeCommit},
 		{"", ShapeCommit},
-		{"v2026.04.0-7-gf483d1d2e", ShapeCommit},      // git-describe off a release
+		{"v2026.04.0-7-gf483d1d2e", ShapeCommit},       // git-describe off a release
 		{"v2026.04.0-rc.15-1-gf483d1d2e", ShapeCommit}, // git-describe off an rc
 		// Garbage / invalid CalVer → unknown.
 		{"latest", ShapeUnknown},
@@ -279,11 +279,11 @@ func TestFilterTagsByChannel(t *testing.T) {
 	const betaTag = "v2026.05.1-beta.1" // the footgun shape
 
 	tags := []GitTag{
-		{TagName: "v2026.03.0"},     // release
-		{TagName: "v2026.04.0"},     // release
+		{TagName: "v2026.03.0"},      // release
+		{TagName: "v2026.04.0"},      // release
 		{TagName: "v2026.04.1-rc.1"}, // rc / prerelease
 		{TagName: "v2026.04.2-rc.5"}, // rc / prerelease
-		{TagName: betaTag},          // non-rc hyphenated — matches NO channel
+		{TagName: betaTag},           // non-rc hyphenated — matches NO channel
 	}
 
 	cases := []struct {

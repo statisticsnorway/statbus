@@ -40,16 +40,17 @@ var migrateOrphanTerminateSQL = fmt.Sprintf(`
 // (non-timeout) migrate failure means psql exited and there is no orphan.
 //
 // Orphan-class split (the two are COMPLEMENTARY — neither is the sole defense):
-//   1. migrate TIMED OUT while the owning ./sb migrate process is alive → the
-//      runCommandToLog ctx-deadline fires Cancel=SIGKILL on the process group,
-//      reaping the host docker-exec client but NOT the in-container psql backend
-//      (docker-exec doesn't forward the signal). THIS function handles that
-//      class, in-line, immediately, on the live service conn.
-//   2. the owning Go process itself died mid-migrate (service OOM / host SIGKILL
-//      / reboot) → no runCommandToLog timeout fires, so this function never runs;
-//      the migrate AND its psql are both orphaned. That class is cleanOrphanSessions'
-//      job (install.go) — it exists precisely for "owning process died" and runs
-//      at install / crash-recovery, matching the same statbus-migrate-sql% prefix.
+//  1. migrate TIMED OUT while the owning ./sb migrate process is alive → the
+//     runCommandToLog ctx-deadline fires Cancel=SIGKILL on the process group,
+//     reaping the host docker-exec client but NOT the in-container psql backend
+//     (docker-exec doesn't forward the signal). THIS function handles that
+//     class, in-line, immediately, on the live service conn.
+//  2. the owning Go process itself died mid-migrate (service OOM / host SIGKILL
+//     / reboot) → no runCommandToLog timeout fires, so this function never runs;
+//     the migrate AND its psql are both orphaned. That class is cleanOrphanSessions'
+//     job (install.go) — it exists precisely for "owning process died" and runs
+//     at install / crash-recovery, matching the same statbus-migrate-sql% prefix.
+//
 // Together: terminate-on-timeout (here) + cleanOrphanSessions-at-recovery cover
 // both ways a migrate psql backend can be orphaned.
 func (d *Service) terminateMigrateOrphan(ctx context.Context, progress *ProgressLog) {
