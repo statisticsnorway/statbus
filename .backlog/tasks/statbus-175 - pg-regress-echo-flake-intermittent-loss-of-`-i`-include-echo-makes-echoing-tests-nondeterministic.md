@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-07-13 13:20'
-updated_date: '2026-07-27 19:53'
+updated_date: '2026-07-29 11:05'
 labels:
   - testing
   - not-install-upgrade
@@ -105,5 +105,11 @@ author: foreman
 created: 2026-07-25 18:37
 ---
 KING ACCEPTED the root cause (2026-07-25): 'meets my standard.' AC#1 checked — the varying input NAMED and proven (the test file's own bytes mid-edit; psql deterministic throughout; 44/44 fixed-byte runs zero-variance). WHAT REMAINS on this ticket (the King asked): AC#3's sweep tail only — (a) the 403 inline comment reword (one line, removes the immortalized misreading); (b) the three deferred conversions 401/402/500, blocked on STATBUS-188 (dev-db crash cycles) per comment #5; (c) the remaining batches of the 61-test exposure sweep (batch 1a's ~18 shipped; ~40 remain, batched ≤≈15 with per-file purpose guard per the comment-#3 scope ruling). All mechanic-lane, serialized, none release-gating.
+---
+
+author: foreman
+created: 2026-07-29 11:05
+---
+PLAN-TO-FINISH (foreman, 2026-07-29 — King directive: drive this ticket to Done without further King/foreman attention). ASSIGNEE: mechanic (stays — the sweep was scope-ruled mechanic-lane in comment #3; no design content remains). STANDING ORDER: batches 2..N run back-to-back — mechanic builds a batch (≤15, numeric order, per-file purpose guard), reports, foreman line-reviews + commits, mechanic proceeds to the next batch immediately; purpose-guard exclusions get individual foreman rulings without stalling the rest of the batch. Batch 2 dispatched today. All stop-rules stand (plain serialized runs; no kill -9 in the db container; stragglers/crash-cycles reported and left). FINISH LINE for THIS ticket: every test on the 61-test exposure list (tmp/175-ac3-audit-exposed-list.txt) is either converted or individually ruled excluded — EXCEPT 401, 402, 500, whose conversions TRANSFER to STATBUS-188 as a finalization step there (401's ~28-min regeneration is the very workload 188 investigates; recorded on 188 same-turn; the King is visiting 188 and can override the transfer). When the sweep-minus-three is green and committed, AC#3 checks with the carve-out noted and 175 closes Done. The 403 comment-reword corollary is already done (verified at test/sql/403_cross_border_power_group.sql:45-49).
 ---
 <!-- COMMENTS:END -->
