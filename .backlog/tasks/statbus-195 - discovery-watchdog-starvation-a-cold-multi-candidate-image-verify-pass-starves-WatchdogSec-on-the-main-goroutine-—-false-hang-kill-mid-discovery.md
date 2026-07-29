@@ -3,9 +3,11 @@ id: STATBUS-195
 title: >-
   discovery-watchdog-starvation: a cold multi-candidate image-verify pass
   starves WatchdogSec on the main goroutine — false 'hang' kill mid-discovery
-status: To Do
-assignee: []
+status: Done
+assignee:
+  - architect
 created_date: '2026-07-20 15:30'
+updated_date: '2026-07-29 11:12'
 labels:
   - upgrade
   - recovery
@@ -33,7 +35,29 @@ FIX SHAPE (architect): heartbeat cover for the discovery verify loop, following 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The discovery image-verify pass feeds the watchdog per candidate (or rides a gated ticker bounded by its own timeout) — a slow-but-progressing multi-candidate pass no longer gets killed; a verify genuinely stuck on one candidate still does
-- [ ] #2 Build-time check recorded: a watchdog kill mid-discovery AFTER a claim (row claimed, upgrade not yet started) recovers cleanly on restart
-- [ ] #3 Oracle named at build: Go test on the heartbeat seam (structural or behavioral); the arc fleet's journals stop showing 'Failed with result watchdog' during discovery
+- [x] #1 The discovery image-verify pass feeds the watchdog per candidate (or rides a gated ticker bounded by its own timeout) — a slow-but-progressing multi-candidate pass no longer gets killed; a verify genuinely stuck on one candidate still does
+- [x] #2 Build-time check recorded: a watchdog kill mid-discovery AFTER a claim (row claimed, upgrade not yet started) recovers cleanly on restart
+- [x] #3 Oracle named at build: Go test on the heartbeat seam (structural or behavioral); the arc fleet's journals stop showing 'Failed with result watchdog' during discovery
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect
+created: 2026-07-29 11:09
+---
+BUILT (architect hands-on, 2026-07-29) — frozen in the tree for the foreman's line review + commit. AC#1: emitHeartbeat(d.projDir) at the top of verifyArtifacts' pending-candidate loop — each completed candidate feeds the watchdog; a verify stuck on ONE candidate emits nothing further and still starves it (the correct kill preserved); comment carries the run citation + the false-kill class. The seam existed, so the per-candidate form was used (cheaper and more faithful than the gated-ticker alternative). AC#2 RECORDED: the observed pre-claim kill recovered cleanly (run evidence); the post-claim sub-second window [in_progress row + no flag + backup_path NULL] is DB-SAFE by the existing empty-backup refusal (exec.go:858-874) but raises a stale-pre-upgrade-pin question on the GIT side — split to STATBUS-197 (triage, analysis-only, no observed occurrence) rather than resolved from the chair. AC#3: structural pin TestVerifyArtifacts_FeedsWatchdogPerCandidate (heartbeat INSIDE the loop, order-asserted) — passing; the behavioral half is the standing arc fleet: journals stop showing 'Failed with result watchdog' during discovery, checked by observation on subsequent runs. go build + vet + targeted tests green, gofmt clean.
+---
+
+author: foreman
+created: 2026-07-29 11:12
+---
+FOREMAN LINE REVIEW + COMMIT (2026-07-29): reviewed the frozen diff in full — the per-candidate emitHeartbeat(d.projDir) sits at the top of verifyArtifacts' pending loop (service.go:1508), same form as the existing boot-migrate cover call site (service.go:2300); the structural pin order-asserts heartbeat INSIDE the loop and self-invalidates loudly if the loop is renamed. Independently verified: go build + vet green, gofmt clean on both changed files, targeted tests green, FULL upgrade-package suite green (9.3s). COMMITTED a316b1a2b, pushed to master. Closing Done: all three ACs checked; AC#3's behavioral half (arc-fleet journals stop showing 'Failed with result watchdog' during discovery) is a standing observation on every subsequent arc run — any recurrence reopens loudly against the pin's run citation. Side hygiene rider, separate commit 341175701: gofmt drift in four untouched upgrade files (formatting only). The AC#2 git-side question lives on in STATBUS-197 (triage, analysis-only).
+---
+<!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Watchdog false-kill during cold multi-candidate discovery fixed at the uncovered site: emitHeartbeat per completed candidate inside verifyArtifacts' pending loop (each completed candidate is genuine progress; a verify stuck on one candidate still starves the watchdog — the correct kill preserved). Structural pin TestVerifyArtifacts_FeedsWatchdogPerCandidate order-asserts the heartbeat inside the loop. Built by architect, foreman line-reviewed + committed a316b1a2b. Behavioral oracle stands on every subsequent arc run: journals must stop showing 'Failed with result watchdog' during discovery. Post-claim sub-second-window git-side question split to STATBUS-197.
+<!-- SECTION:FINAL_SUMMARY:END -->
