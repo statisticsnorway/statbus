@@ -3,11 +3,11 @@ id: STATBUS-177
 title: >-
   ts-no-explicit-any-gate: ESLint @typescript-eslint/no-explicit-any as a strict
   CI gate on app/
-status: In Progress
+status: Done
 assignee:
   - '@foreman'
 created_date: '2026-07-13 14:45'
-updated_date: '2026-07-29 15:49'
+updated_date: '2026-07-29 15:53'
 labels:
   - ci
   - quality-gate
@@ -30,9 +30,9 @@ Rollout: the existing codebase has `any` usages; burn them down to zero (typed r
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 @typescript-eslint/no-explicit-any set to error in app/ ESLint config
-- [ ] #2 CI lint job fails on violations — no continue-on-error, no warn-level soft landing
+- [x] #2 CI lint job fails on violations — no continue-on-error, no warn-level soft landing
 - [x] #3 Existing any usages resolved with real types or per-line justified disables
-- [ ] #4 Gate lands green on master
+- [x] #4 Gate lands green on master
 <!-- AC:END -->
 
 ## Comments
@@ -61,4 +61,16 @@ created: 2026-07-29 15:49
 ---
 THIRD TAIL FOUND AND FIXED (foreman, 2026-07-29): the f5e73c468 run got further again — typegen generated, tsc PASSED, and the lint gate itself PASSED in CI for the first time in this workflow's history. The next serial failure was jest: the Dockerfile ran `pnpm test -- --ci --silent`, and pnpm forwards the `--` literally, so jest parsed `--ci --silent` as a test-NAME pattern (log: 'Pattern: --ci|--silent - 0 matches'), matched zero tests, and exited 1 — despite one real suite existing. Reproduced locally both ways: the `--` form fails identically; without it the suite runs — 12 tests green. FIX 9881bdf90: drop the `--` in the test-target CMD. Remaining unproven step in the chain: `pnpm run build` (the production build inside the test container) — the run on 9881bdf90 is the next oracle; polling.
 ---
+
+author: foreman
+created: 2026-07-29 15:53
+---
+GREEN — CLOSED (foreman, 2026-07-29): the run on 9881bdf90 completed SUCCESS — the first green in this workflow's history, with every step of the chain executing for real: typegen → tsc → eslint (the no-explicit-any gate) → jest (12 tests) → production build. Criterion 2 checked: the gate's strictness is not just structural (&& chain, no continue-on-error) but OBSERVED — the lane failed loudly on three distinct real defects before passing, proving failure propagates to a red job. Criterion 4 checked: green on master at 9881bdf90. The resurrection surfaced and fixed three serial latent defects, each reproduced locally before the fix: (1) the alpine container shadowing docker (b67caefe8), (2) gitignored next-env.d.ts breaking fresh-checkout typechecking (f5e73c468), (3) pnpm's literal `--` turning jest flags into a no-match test pattern (9881bdf90). The AGENTS.md lint documentation is already correct (verified: it documents the flat config + error gate). From this commit forward, new `any` cannot land on master without a red workflow.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The no-explicit-any ESLint gate is live and enforced by a genuinely-running CI lane. The rule + burn-down had shipped July 14 (fbb00753c: flat config, sole error rule, 141 real types + 1 justified disable), but the CI lane never executed once — a leftover alpine container block meant 'docker: not found' on every run, and the constant red masked itself. Board reconciliation surfaced it; three serial latent defects were then fixed with local reproduction each time: the container block (b67caefe8), gitignored next-env.d.ts vs fresh checkouts — next typegen now runs before tsc (f5e73c468), and pnpm's literal '--' making jest see flags as a test pattern (9881bdf90). First-ever green on 9881bdf90 with the full chain real: typegen, tsc, eslint gate, 12 jest tests, production build. Strictness observed, not assumed: the lane failed red on all three defects before passing.
+<!-- SECTION:FINAL_SUMMARY:END -->
