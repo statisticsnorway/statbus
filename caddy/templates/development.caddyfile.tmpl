@@ -206,3 +206,15 @@ http://{{.Domain}} {
 http://proxy {
     import statbus_routes
 }
+
+# STATBUS-189: explicit catch-all for this HTTP listener. A request whose Host
+# matches no site above would otherwise get Caddy's implicit answer for unmatched
+# requests — HTTP 200 with an EMPTY body — and an external monitor pointed at a
+# bare IP:port would read GREEN regardless of the box's health (observed: the
+# STATBUS-071 c-rollback arc read two such 200s as an "unexplained heal" before
+# instrumentation named the mechanism). 404 is the honest answer. Real site-key
+# routes are unaffected: host-matched sites always take precedence over this
+# hostless block.
+:80 {
+    respond "no matching site for this host" 404
+}

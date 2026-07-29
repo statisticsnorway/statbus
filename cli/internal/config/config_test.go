@@ -124,7 +124,7 @@ func TestComputeDerivedDevelopment(t *testing.T) {
 		DeploymentSlotCode:       "local",
 		DeploymentSlotName:       "local",
 		DeploymentSlotPortOffset: "1",
-		CaddyDeploymentMode:     "development",
+		CaddyDeploymentMode:      "development",
 		SiteDomain:               "local.statbus.org",
 		StatbusURL:               "http://localhost:3010",
 		BrowserAPIURL:            "http://local.statbus.org:3010",
@@ -171,7 +171,7 @@ func TestComputeDerivedStandalone(t *testing.T) {
 		DeploymentSlotCode:       "mw",
 		DeploymentSlotName:       "Malawi Statistics",
 		DeploymentSlotPortOffset: "1",
-		CaddyDeploymentMode:     "standalone",
+		CaddyDeploymentMode:      "standalone",
 		SiteDomain:               "statbus.nso.mw",
 	}
 
@@ -390,6 +390,33 @@ func TestNotifyUserCollisionWarning(t *testing.T) {
 	for _, want := range []string{"WARN", "POSTGRES_NOTIFY_USER", "POSTGRES_APP_USER", "statbus_test", "fresh database cluster will fail to initialize"} {
 		if !strings.Contains(w, want) {
 			t.Errorf("collision warning missing %q; got %q", want, w)
+		}
+	}
+}
+
+// TestCaddyTemplates_UnmatchedHostCatchAll_STATBUS189 pins the explicit :80
+// catch-all in every deployment-mode Caddy template. Without it, Caddy answers a
+// request that matches no site key with HTTP 200 and an EMPTY body — so an
+// external monitor pointed at a bare IP:port reads GREEN regardless of the box's
+// health (the STATBUS-071 c-rollback arc read two such 200s as an "unexplained
+// heal"). The block is static (no template variables), so a source-level pin is
+// exactly as strong as a render-level one. If a template legitimately drops the
+// block, this test is the reviewed place to say why.
+func TestCaddyTemplates_UnmatchedHostCatchAll_STATBUS189(t *testing.T) {
+	templates := []string{
+		"development.caddyfile.tmpl",
+		"standalone.caddyfile.tmpl",
+		"private.caddyfile.tmpl",
+	}
+	for _, name := range templates {
+		path := filepath.Join("..", "..", "..", "caddy", "templates", name)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		src := string(data)
+		if !strings.Contains(src, "STATBUS-189") || !strings.Contains(src, `respond "no matching site for this host" 404`) {
+			t.Errorf("%s: missing the STATBUS-189 unmatched-host catch-all (:80 respond 404) — unmatched hosts would read Caddy's implicit 200-empty and false-green external monitors", name)
 		}
 	}
 }
