@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-07-13 13:20'
-updated_date: '2026-07-29 15:54'
+updated_date: '2026-07-29 15:59'
 labels:
   - testing
   - not-install-upgrade
@@ -123,5 +123,11 @@ author: foreman
 created: 2026-07-29 15:54
 ---
 BATCH 2 LANDED 335fc86ee (foreman, 2026-07-29): 15 tests (124, 200-204, 300-308), 30 files, 256 insertions / 1048 deletions of echoed include text. Held-fix verified before commit BY INDEPENDENT RE-CHECK: my own sql↔out byte-compare across all wrap blocks in all 15 pairs (byte-identical, including 302's two blocks), grep zero on the refuted wording, mechanic's three spot-runs green (124/302/303 — one per wrap shape). One review-harness note for the record: my first byte-compare run false-reported 18 mismatches because local grep is ugrep and the block text starts with '--' — exactly the portability trap comment #2 recorded; fixed with the '--' option terminator. Mechanic's infra note logged: the 12:06 network outage broke DNS for local.statbus.org and dev.sh's template-check misreported it as 'template not found' (stderr swallowed) — a harness-diagnostics gap worth a look if it recurs; no db mutation occurred. SWEEP POSITION: 31 of the 58 in-scope tests converted (batch 1a's 16 + 403 + batch 2's 15 minus overlap — batch 1a 16, batch 2 15, 403 pre-existing). REMAINING: batch-1a REWORD remediation (in build now — mechanic already has 003/103/104 in the tree), then ~12 remaining conversions in batch 3, then AC#3 checks with the 401/402/500 carve-out (riding 188).
+---
+
+author: foreman
+created: 2026-07-29 15:59
+---
+BATCH-1A REMEDIATION LANDED 8d2205d0f (foreman, 2026-07-29): the 16 July-14 pairs (003, 103-107, 109-113, 117-120, 400) now carry the canonical honest wording — 130 insertions / 130 deletions, perfectly symmetric (4/4 per singular file, 5/5 for 400's plural). Independently re-verified before commit: sql↔out byte-identical on all 16 pairs, grep zero (with the '--' terminator), mechanic's spot-runs green across all three chain shapes (104 Norway / 111 demo / 400 multi-include). With this, the refuted flake claim is grep-zero across the ENTIRE repo — the misreading is fully retired from code, comments, and expected files. ARITHMETIC CORRECTION to comment #11: remaining conversions = 27, not ~12 (61 exposed − 16 batch-1a − 15 batch-2 − 3 transferred to 188 = 27; 403 was never on the exposure list). Mechanic proceeds to batch 3 (next ≤15, numeric order, canonical wording from the start) per the standing order. Note for the record: test/install-recovery/README.md is modified in the tree by the ARCHITECT'S in-flight 196 step-3 cross-link work — attributed, deliberately excluded from this commit.
 ---
 <!-- COMMENTS:END -->
