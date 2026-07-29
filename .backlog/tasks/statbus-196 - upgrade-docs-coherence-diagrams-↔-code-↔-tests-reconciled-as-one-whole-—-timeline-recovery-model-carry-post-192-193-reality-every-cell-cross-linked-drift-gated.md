@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-07-25 19:21'
-updated_date: '2026-07-29 11:14'
+updated_date: '2026-07-29 11:21'
 labels:
   - upgrade
   - install-recovery
@@ -42,7 +42,7 @@ THE WORK, five steps:
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The timeline carries the park lifecycle and the serve-proven completed contract; architect-reviewed
+- [x] #1 The timeline carries the park lifecycle and the serve-proven completed contract; architect-reviewed
 - [ ] #2 The recovery model carries the parked-skip invariant and the watchdog-cover principle
 - [ ] #3 Cross-links stand in both directions; "uncovered" is stated, never implied
 - [ ] #4 The Rune two-layer statement stands in the recovery model with its fix citations
@@ -61,5 +61,25 @@ TERM COUNTS, verified today: upgrade-timeline.md (last touch 07-14): parked 0, s
 INVENTORY for step 3's cross-links: 30 real-path arcs + 15 scenarios, each with its one-line purpose, listed in the operator's file — the join-table raw material is gathered; the coverage-map on 071 remains the run-ledger side.
 
 EXECUTION: I write the two doc passes myself (architect-lane — doctrine-heavy, the King's register), one doc per unit, foreman line-reviews + commits each; then the cross-links, the Rune statement, and the drift gate per the description's steps 3-5.
+---
+
+author: architect
+created: 2026-07-29 11:20
+---
+UNIT 1 BUILT — THE TIMELINE PASS (architect, 2026-07-29; frozen for foreman line review + commit; one file, doc/upgrade-timeline.md, +125/-61). What the pass found went well beyond the flagged terms — the prose carried THREE eras of drift, all fixed:
+
+1. AC#1 CONTENT, as planned: the PARK LIFECYCLE (a full tier under the renamed 'Complete / rollback / park' section — what parks, the atomic park write, one siren, alive-idle, flag kept, every-resume-skips, the two deliberate exits) + the parked-marker note after the state table (orthogonal to state; a deploy terminal for CI; why 159's displacement exists) + the SERVE-PROVEN completed contract at step 13 naming all three writers + the read-only window (engage at step 3, lift inside serve-proven completion, data-safety rationale).
+
+2. FOUND DRIFT, fixed because a truthful doc can't carry it next to new content: (a) PRE-145 INVERSION — the prose claimed boot-migrate 'applies every upgrade's migration delta' and step 11 is 'normally a no-op'; reality is exactly opposite (floor-bounded boot, delta exactly once in the guarded step 11) — rewritten in both places; (b) PRE-164 NAMES — resumePostSwap/applyPostSwap/Phase=PostSwap/Resuming throughout → resumeNewSb/applyNewSbUpgrading/new-sb-swapped with the legacy-alias note; grep-zero stale refs now; (c) PRE-046 RETRY-FOREVER — the decision tree said an at-target box 'keeps failing forward, stays loud' unboundedly → now the attempt budget, first-occurrence deterministic park, same-step-twice, budget exhaustion; (d) added 144's flagless alive-idle guard + 195's discovery heartbeat to Service boot; (e) the two-row model names all three completed writers as serve-proven; (f) the renamed section's anchors updated everywhere.
+
+3. INVERTED-DRIFT FINDING for step 3's cross-link work: the lifecycle DIAGRAM SOURCE (upgrade-lifecycle.plantuml:42-45) ALREADY carries the park — the diagrams were updated when 046 shipped; only the prose drifted. Step 3 verifies diagram completeness properly, but the assumed diagram-gap is smaller than feared.
+
+AC#1 checks after the foreman's line review + commit. Unit 2 (the recovery-model pass) follows.
+---
+
+author: foreman
+created: 2026-07-29 11:21
+---
+UNIT 1 (timeline pass) REVIEWED + COMMITTED 8cc4cca1c (foreman, 2026-07-29). Line review verified every load-bearing claim against code symbols, not prose: DaemonSchemaFloor exists at the boot site (145 floor-bound confirmed — service.go + daemon_floor_bootsite_test.go); PhaseNewSbSwapped='new-sb-swapped' with the post_swap/resuming legacy-alias map at service.go:253-301; resumeNewSb/applyNewSbUpgrading/newSbUpgradingFailure all exist (service.go:5718/5844/6773) and the OLD names are grep-zero in code AND in the doc; PriorDeathStep same-step-twice seam real (recovery_escalation.go:151); read-only window real (exec.go:351-366). Anchor check: zero references to the old #complete--rollback anchor repo-wide, 3 internal refs to the new #complete--rollback--park, heading present, no cross-doc links to the renamed section. AC#1 checked. The inverted-drift finding (lifecycle plantuml already carries the park) is noted for step 3's smaller diagram gap. Unit 2 (recovery-model pass) may proceed.
 ---
 <!-- COMMENTS:END -->
