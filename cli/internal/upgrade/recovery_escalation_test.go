@@ -297,6 +297,35 @@ func TestCompleteInProgressUpgrade_ParkedSkipPrecedesFlagStrip(t *testing.T) {
 	}
 }
 
+// STATBUS-195 — verifyArtifacts' per-candidate verify loop must feed the watchdog.
+// The loop runs on the MAIN goroutine (the discovery tick); each cold candidate costs
+// up to four `docker manifest inspect` network calls, and a multi-candidate cold pass
+// exceeded WatchdogSec=120 with no WATCHDOG=1 — systemd killed a progressing daemon
+// (run 29743621767, the boot-migrate false-kill class). The fix: emitHeartbeat per
+// candidate INSIDE the loop — each completed candidate is genuine progress, while a
+// verify stuck on ONE candidate still starves the watchdog (correct kill preserved).
+// Source-order guard — verifyArtifacts needs a registry + live DB to exercise
+// behaviorally; the pin is that the heartbeat call sits inside the pending loop.
+func TestVerifyArtifacts_FeedsWatchdogPerCandidate(t *testing.T) {
+	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	body := extractFuncBody(t, string(src), "func (d *Service) verifyArtifacts(")
+	loopIdx := strings.Index(body, "for _, r := range pending")
+	if loopIdx < 0 {
+		t.Fatal("verifyArtifacts: pending-candidate loop not found — test is stale (STATBUS-195)")
+	}
+	hbIdx := strings.Index(body, "emitHeartbeat(")
+	if hbIdx < 0 {
+		t.Fatal("STATBUS-195: verifyArtifacts must call emitHeartbeat per candidate — a cold multi-candidate pass otherwise starves WatchdogSec on the main goroutine (false 'hang' kill of a progressing daemon)")
+	}
+	if hbIdx < loopIdx {
+		t.Errorf("STATBUS-195: emitHeartbeat (idx=%d) must sit INSIDE the pending-candidate loop (loop starts idx=%d) — a single pre-loop heartbeat does not cover the per-candidate cost.",
+			hbIdx, loopIdx)
+	}
+}
+
 // STATBUS-193 — resumeNewSb's post-swap SELF-HEAL must not complete a PARKED row. A
 // parked row is state='in_progress' with recovery_parked_at set, so the self-heal UPDATE's
 // state='in_progress'-only guard did NOT exclude it — the lone exception to the 135

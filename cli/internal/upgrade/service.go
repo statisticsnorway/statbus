@@ -1496,6 +1496,16 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 	rows.Close()
 
 	for _, r := range pending {
+		// STATBUS-195: this loop runs on the MAIN goroutine (the discovery tick), and
+		// each cold candidate costs up to four `docker manifest inspect` network calls
+		// (~20s observed per candidate). Eight cold candidates exceeded WatchdogSec=120
+		// with no WATCHDOG=1 emitted, and systemd killed a demonstrably-progressing
+		// daemon (run 29743621767 — the false-kill class of the boot-migrate precedent
+		// above). Each completed candidate IS genuine progress, so feed the watchdog
+		// per candidate. Hang detection is preserved by construction: a verify stuck
+		// on ONE candidate emits nothing further and still starves the watchdog —
+		// which is then a correct kill.
+		emitHeartbeat(d.projDir)
 		if r.dockerImagesStatus == "failed" {
 			continue // Already marked as failed — don't re-check
 		}
