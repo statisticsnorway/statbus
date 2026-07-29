@@ -16,7 +16,16 @@ BEGIN;
 -- A Super User configures statbus.
 CALL test.set_user_from_email('test.admin@statbus.org');
 
+-- Suppress the verbatim echo of the shared include. Its content is not what
+-- this test asserts, and echoing it would couple the expected file to a file
+-- that churns (any edit to it would break this test's expected output). Only
+-- this test's own queries below contribute to the expected output.
+-- (STATBUS-175: the standard pattern for tests that \i shared files.)
+\o /dev/null
+\set ECHO none
 \i samples/demo/getting-started.sql
+\o
+\set ECHO all
 
 -- Create Import Job for Legal Units (Demo CSV)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
