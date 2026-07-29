@@ -70,15 +70,25 @@ therefore runs in the **active phase** under `WatchdogSec`, never in the
 Because the watchdog is armed from `READY=1` and the main-loop idle heartbeat does not
 exist yet, boot `migrate up` carries its **own always-ping `WATCHDOG=1` ticker** for
 the subprocess duration, bounded by the shared 30-min `MigrateUpTimeout`
-(STATBUS-012) — and note that after the unconditional post-swap handoff (below) this
-boot migrate is the step that applies **every upgrade's migration delta**, not a rare
-guard. The advisory lock guarantees a single live
-service per slot. On **failure** of the boot `migrate up` guard *with a service-held
-in-progress flag present*, the guard **defers** to `recoverFromFlag` (the snapshot-restore
-owner) rather than refusing — so a half-applied migration that can't be re-applied
-(after-commit "relation already exists", or a deterministic migration error) restores to
-`rolled_back` instead of boot-looping (STATBUS-017). It still refuses for the no-flag /
-install-held case, a genuine stale-schema refusal with no recovery owner.
+(STATBUS-012). The boot migrate is **floor-bounded** (STATBUS-145): it runs
+`migrate up --to DaemonSchemaFloor` — only the daemon's own operating-floor
+migrations, never an upgrade's delta. The delta applies **exactly once**, inside the
+guarded resume pipeline (step 11 below), where the write-ahead stamp, the migration
+ceiling, and the observed-state rollback all cover it; boot never applies it blindly.
+The advisory lock guarantees a single live service per slot. On **failure** of the
+boot `migrate up` guard: *with a service-held in-progress flag present*, the guard
+**defers** to `recoverFromFlag` (the snapshot-restore owner) rather than refusing —
+so a half-applied migration that can't be re-applied restores to `rolled_back`
+instead of boot-looping (STATBUS-017). On a **flagless** boot whose floor migration
+fails **deterministically** (exit 20 — the same SQL error on every attempt), the
+daemon logs the loud `BOOT MIGRATE FAILED DETERMINISTICALLY` banner **once and stays
+alive-idle** (STATBUS-144): re-running cannot help, the daemon's normal duties don't
+need the pending schema, and the broken migration resurfaces actionably on the next
+deliberate `./sb install` — never the pre-144 restart-loop into a silent StartLimit
+death. It still refuses (terminal) for other no-flag / install-held failures — a
+genuine stale-schema refusal with no recovery owner. Discovery's per-candidate image
+verification feeds the watchdog per candidate (STATBUS-195), so a slow multi-candidate
+pass is never mistaken for a hang.
 
 ### Schedule + dispatch
 
@@ -101,14 +111,20 @@ The binary swap + `exit 42` is the **pivot** (step 6): everything after it runs 
 1. Pre-flight checks: downgrade guard, release-assets manifest, disk space, commit signature.
 2. **writeUpgradeFlag** — `acquireFlock` opens the marker `O_CREATE|O_RDWR` and takes a
    non-blocking `flock(LOCK_EX|LOCK_NB)`; the mutex (the kernel lock on the held fd) is now held.
-3. Maintenance mode on (the web UI shows "upgrading").
+3. Maintenance mode on (the web UI shows "upgrading"); the **read-only upgrade window**
+   engages (`ALTER DATABASE … SET default_transaction_read_only = on`, STATBUS-110) —
+   external writes are blocked until completion or rollback, which is what makes any
+   later rollback data-safe by construction. The pipeline's own sessions self-exempt
+   on every (re)connect.
 4. Stop application services; **take the DB snapshot** (recorded as `backup_path`).
 5. `git checkout` the target commit.
 6. **Binary swap (the pivot)** — `replaceBinaryOnDisk` swaps `./sb`, the flag advances to
-   `Phase=PostSwap`, and the service `exit 42`s → systemd respawns it on the **new binary**.
+   `Phase=new-sb-swapped` (`PhaseNewSbSwapped`; pre-rename releases wrote `post_swap`,
+   still read as a legacy alias), and the service `exit 42`s → systemd respawns it on
+   the **new binary**.
 
 **Fail-fast.** Any step (pre- or post-swap) from the snapshot (4) onward that errors *or
-hangs* aborts the single attempt and routes to [Complete / rollback](#complete--rollback).
+hangs* aborts the single attempt and routes to [Complete / rollback / park](#complete--rollback--park).
 The attempt is never retried.
 
 ### Binary-swap restart + resume
@@ -116,26 +132,37 @@ The attempt is never retried.
 Booting the new binary (the `exit 42` above) makes systemd restart the service **on the new
 binary** — the unit declares `SuccessExitStatus=42` + `RestartForceExitStatus=42` — this is the
 **one planned restart** of an upgrade. The fresh process **boots through the full
-[Service boot](#service-boot) sequence**: cheap init → `READY=1` → **boot `migrate up`,
-which applies the entire pending migration set right here** (the repo is already at the
-new version from the earlier checkout; the always-ping watchdog ticker +
-`MigrateUpTimeout` cover it — STATBUS-012) → the recovery step `recoverFromFlag`, which sees the
-on-disk marker say *the new binary is booted* (`Phase=PostSwap`), marks it *now-finishing*
-(`Phase=Resuming`), and continues the **same** attempt via `resumePostSwap` → `applyPostSwap`.
-The remaining steps all run on the new binary:
+[Service boot](#service-boot) sequence**: cheap init → `READY=1` → **boot `migrate up`
+to the daemon floor only** (STATBUS-145 — the upgrade's whole delta is still pending
+here, deliberately: it applies inside the guarded step 11 below, never blindly at
+boot) → the recovery step `recoverFromFlag`, which sees the on-disk marker say *the
+new binary is booted* (`Phase=new-sb-swapped`) and continues the **same** attempt via
+`resumeNewSb` → `applyNewSbUpgrading`. The remaining steps all run on the new binary:
 
 7. `./sb config generate`.
 8. `docker compose pull` the new images.
 9. Start the database; wait for health.
 10. Reconnect to the database.
-11. `./sb migrate up --verbose` — **normally a no-op** (the boot migrate above already
-    brought the schema to HEAD); this is the bounded retry executor for the case where
-    the boot migrate failed and fell through to the resume (STATBUS-017 path).
-12. Start application services; wait for health.
-13. Mark `completed_at` (`state=completed`); **removeUpgradeFlag** (mutex released);
-    supersede older `available` rows; notify the UI; archive the snapshot. This runs
-    **before** the fixup (rune-stuck-fix A): the terminal UPDATE must land on a live
-    connection, and the fixup can restart docker/db and RST our pgx socket.
+11. `./sb migrate up --verbose` — **applies the upgrade's entire migration delta,
+    exactly once and exactly here** (STATBUS-145): the write-ahead step stamp, the
+    12-hour migration ceiling + orphan reap, the exit-20/22 classification, and the
+    observed-state Behind → data-safe rollback all guard this one application site.
+12. Start application services; wait for the **app health gate** (PostgREST `/ready`
+    warm-up, then the functional probe). A health failure past warm-up is a
+    deterministic B-class failure → **park at target** (see the park lifecycle under
+    [Complete / rollback / park](#complete--rollback--park)) — never a completed lie,
+    never a silent dark box.
+13. **Serve-proven completion** (STATBUS-160/192 — `completed` means *this version
+    verifiably serves*, at **every** writer): maintenance off → mark `completed_at`
+    (`state=completed`) → lift the **read-only window** (loud named-invariant
+    escalation if the flip fails) → **removeUpgradeFlag** (mutex released) →
+    supersede older `available` rows; notify the UI; archive the snapshot. The same
+    contract binds the flagless heal (`completeInProgressUpgrade`, STATBUS-192) and
+    the containers-at-target self-heal (`resumeNewSb`, STATBUS-071) — no completed
+    writer certifies a box that has not served through the health gate with the
+    window lifted. This all runs **before** the fixup (rune-stuck-fix A): the
+    terminal UPDATE must land on a live connection, and the fixup can restart
+    docker/db and RST our pgx socket.
 14. Post-upgrade install fixup (**last**): `runInstallFixup` runs `./sb install
     --non-interactive --post-upgrade-fixup` with `STATBUS_POST_UPGRADE_FIXUP=1`. By now
     the flag is **already gone** (step 13) and the upgrade is *complete*, not active. The
@@ -145,19 +172,36 @@ The remaining steps all run on the new binary:
     bare hand-passed `--post-upgrade-fixup`, lacking the env signature, is audited as A17.)
 
 The restart is expected exactly once. Any **other** restart while an upgrade is in progress
-(a watchdog kill, out-of-memory, an operator `systemctl restart`) leaves the on-disk marker at
-*now-finishing* (`Phase=Resuming`). The box then decides **forward-or-roll-back from its real
-state on disk**: if the binary and migrations are **already at (or past) the new version** (or
-the database is unreachable), `recoverFromFlag` **finishes forward**; only when it can **confirm
-the box is genuinely behind** (the binary or migrations didn't fully land, database reachable)
-does it **roll back once** to this upgrade's own backup (`service.go:860-884`, STATBUS-039).
+(a watchdog kill, out-of-memory, an operator `systemctl restart`) leaves the on-disk marker
+in place. The box then decides **forward-or-roll-back from its real state on disk**: if the
+binary and migrations are **already at (or past) the new version** (or the database is
+unreachable), `recoverFromFlag` **finishes forward**; only when it can **confirm the box is
+genuinely behind** (the binary or migrations didn't fully land, database reachable) does it
+**roll back once** to this upgrade's own backup (STATBUS-039). A crash-resume **attempt
+budget** bounds the forward regime (STATBUS-046): attempts are counted, a deterministic
+failure at target parks on the **first** occurrence, and same-step-twice detection parks a
+resume that dies at the same step twice — the rune loop-forever class cannot recur.
 
-### Complete / rollback
+### Complete / rollback / park
 
-- **Success:** mark `completed_at` (`state=completed`), remove the flag, supersede older
-  rows, notify the UI, post the Slack "OK" callback.
-- **Failure (one attempt, no retry):** `rollback()` restores git state, the DB snapshot,
-  and services, then records one of **three terminal tiers**:
+- **Success — serve-proven:** the completed write happens only after the app health gate
+  passed, maintenance is off, and the read-only window lifts (step 13 above). Then the
+  flag is removed, older rows superseded, the UI notified, the Slack "OK" callback posted.
+- **Deterministic failure at (or unverifiably near) target → PARK (STATBUS-046):** when
+  retrying provably cannot help — the version can't serve past warm-up, disk is full, a
+  resume died at the same step twice, or the attempt budget is exhausted — the box
+  **parks**: the row **stays `in_progress`** with `recovery_parked_at` + a **named
+  `recovery_parked_reason`** and the error narrative (one atomic write, STATBUS-154/071),
+  the flag **stays on disk**, the degraded-siren callback fires **exactly once**, and the
+  unit sits **alive-idle**. Every automatic resume skips a parked row — the boot recovery,
+  the flagless heal, and the containers-at-target self-heal all carry the parked-skip
+  guard (STATBUS-135/193). A park has exactly **two deliberate exits**: scheduling a fix
+  release (its claim atomically displaces the park to `superseded`, STATBUS-159), or
+  `./sb install` (un-parks for **one** fresh attempt). Parking is not a rollback: an
+  at-or-past-target box cannot be restored safely (integrators may have written past
+  maintenance-off), so it holds honestly instead of guessing.
+- **Confirmed-Behind failure (one attempt, no retry):** `rollback()` restores git state,
+  the DB snapshot, and services, then records one of **three terminal tiers**:
   - `rolled_back` (`rolled_back_at` + `error`) — the snapshot restored cleanly; the
     server is **healthy at the old version**.
   - `failed` (`error`, no `rolled_back_at`) — the restore **also failed**; the server
@@ -203,15 +247,27 @@ The spine the upgrade pipeline drives is `scheduled → in_progress → {complet
 rolled_back | failed}`; the other states are discovery/housekeeping (`available`,
 `skipped`, `superseded`) and post-terminal operator acknowledgement (`dismissed`).
 
+**The parked marker is orthogonal to `state`** (STATBUS-046): a parked row is
+`state='in_progress'` **with `recovery_parked_at` set** — not a tenth state, but a
+held position. It is a **deploy terminal** for anything reading convergence (the CI
+deploy poll reports it red with the park reason, STATBUS-170) while remaining
+non-terminal in the lifecycle: it resolves only through the two deliberate exits
+named under [Complete / rollback / park](#complete--rollback--park). The
+`upgrade_single_in_progress` unique index is exactly why a parked row must be
+displaced (→ `superseded`) by a fix release's claim rather than left behind
+(STATBUS-159).
+
 ### Two completed rows after a recovery (the two-row model)
 
 Two *different* completion paths write `completed` rows, and a single `./sb install`
 that heals a wedged box produces both — correctly:
 
 - The **upgrade / recovery** path (`executeUpgrade` / `recoverFromFlag` →
-  `applyPostSwap`) completes the *in-flight* upgrade row it was driving — logged
+  `applyNewSbUpgrading`) completes the *in-flight* upgrade row it was driving — logged
   `upgrade row [completed-normal]` (or `[completed-self-heal]` /
-  `[completed-from-in-progress]`).
+  `[completed-from-in-progress]`). All three writers are **serve-proven** (step 13
+  above): none certifies a box that has not passed the health gate with maintenance
+  off and the read-only window lifted.
 - A **top-level `./sb install`** then records the *running* version as its own
   `completed` row via `completeInstallUpgradeRow` — logged `upgrade row
   [completed-install]`. On a recovery run this is the operator install's
@@ -472,7 +528,7 @@ If any new code path writes the flag, it MUST also remove it on all exit paths.
 Two signals exist; either triggers the bypass: the CLI flag `--post-upgrade-fixup`
 (hidden from `--help`) and the env var `STATBUS_POST_UPGRADE_FIXUP=1`. **Only one caller
 sets these: `runInstallFixup` in `cli/internal/upgrade/exec.go`**, called at the **tail**
-of `applyPostSwap` — *after* the terminal `completed` UPDATE and `removeUpgradeFlag`
+of `applyNewSbUpgrading` — *after* the terminal `completed` UPDATE and `removeUpgradeFlag`
 (rune-stuck-fix A). So by the time the fixup runs the flag is already gone; the signals
 are **load-bearing**, not just audit: they make the child bypass the mutex (don't acquire,
 don't expect a flag) **and** skip state detection, row-authoring, and install-log creation
@@ -559,20 +615,26 @@ crashed-upgrade dispatch (state 3). It reconciles any flag on disk:
      `restoreDatabase` refuses to touch the volume when no snapshot was recorded. **Roll
      back** — mark the row terminal, restart services on the unchanged binary. Never
      self-heal: a `PreSwap` flag says nothing about whether the commit boundary was reached.
-   - **`Phase=PostSwap`** (stamped after `replaceBinaryOnDisk`, before the exit-42 handoff)
-     → the planned restart landed on the new binary. **Stamp `Phase=Resuming`, then resume**
-     (`resumePostSwap` → `applyPostSwap`: config gen → pull → db up → health → reconnect →
-     migrate → app up → health → archive). This is the legitimate continue.
-   - **`Phase=Resuming`** → the resume was already entered and the process died **again**
-     (watchdog SIGABRT on a hung step, OOM, reboot, kill). **The observed state decides** via the
-     tri-state `verifyUpgradeGroundTruthEx` (binary at-or-descendant of the target +
-     migrations at-or-past the on-disk max):
-       - **AtTarget** (`already-at-new`) → resume **forward** again. Rolling back an at-target box is forbidden
-         — past (or at) the maintenance-off commit point, API integrators may have written
-         data the snapshot predates (the app's upgrade guard only gates browsers). Each
-         retry is loud (progress log + journal, the failure stamped non-terminally on the
-         row's `error` column) and heartbeated; an at-target box that keeps failing forward
-         stays `in_progress` and loud — it never destroys state to escape.
+   - **`Phase=new-sb-swapped`** (stamped after `replaceBinaryOnDisk`, before the exit-42
+     handoff; pre-rename releases wrote `post_swap`/`resuming`, read as legacy aliases) →
+     the planned restart landed on the new binary. **Resume** (`resumeNewSb` →
+     `applyNewSbUpgrading`: config gen → pull → db up → health → reconnect → migrate →
+     app up → health → serve-proven complete). This is the legitimate continue. A
+     **parked** row is skipped here entirely — alive-idle, flag kept, no attempt
+     consumed (STATBUS-046/135).
+   - **The resume died again** (watchdog SIGABRT on a hung step, OOM, reboot, kill —
+     detected by the flag's persisted `Step`/`PriorDeathStep`, not a phase): **the
+     observed state decides** via the tri-state ground-truth check (binary
+     at-or-descendant of the target + migrations at-or-past the on-disk max):
+       - **AtTarget** (`already-at-new`) → resume **forward** again, under the
+         **crash-resume attempt budget** (STATBUS-046). Rolling back an at-target box is
+         forbidden — past (or at) the maintenance-off commit point, API integrators may
+         have written data the snapshot predates (the app's upgrade guard only gates
+         browsers). Each retry is loud and heartbeated — but never unbounded: a
+         **deterministic** failure parks on its **first** occurrence, a resume dying at
+         the **same step twice** parks, and **budget exhaustion** parks. A parked box
+         sits alive-idle with its named reason; it never destroys state to escape and
+         never loops forever (the rune class).
        - **Unknown** (`position-unreadable`, DB unreachable mid-check) → never destroy state under uncertainty:
          resume forward; the next pass re-checks.
        - **Behind** (`cannot-reach-new`, confirmed: binary mismatch, or migrations missing with a
@@ -586,9 +648,11 @@ crashed-upgrade dispatch (state 3). It reconciles any flag on disk:
    `HEAD == flag.CommitSHA` is **not** a recovery discriminator anywhere — the old
    headSHA-reconcile/self-heal segment inside `recoverFromFlag` was unreachable for every
    producible flag phase and was **deleted** (STATBUS-039). The legitimate self-heals live
-   where the work can be verified: `resumePostSwap`'s container canary (every
-   version-tracked service already at the flag's target → mark `completed`) and the
-   flagless `completeInProgressUpgrade` (verified against the observed state → mark `completed`). The
+   where the work can be verified: `resumeNewSb`'s container canary (every
+   version-tracked service already at the flag's target, no pending migrations, health
+   passing, row **not parked** — STATBUS-067/104/193 — → serve-proven `completed`) and the
+   flagless `completeInProgressUpgrade` (observed-state-verified, then the full serve-proof
+   tail: app up → health gate → maintenance off → `completed` → window lift, STATBUS-192). The
    binary check is the tri-state `verifyBinaryGroundTruth`: `git merge-base --is-ancestor`
    exit 0 → at/descendant; exit 1 (both commits resolved, ancestry definitively absent) →
    **Behind** — the only verdict that licenses a restore; **any other git error** (exit 128
@@ -743,7 +807,7 @@ being simulated without reading the code where the primitive fires.
 | `killed-by-system-during-binary-swap` | kill | killed during `replaceBinaryOnDisk` |
 | `killed-by-system-during-individual-migration-execution` | kill | killed inside a single migration's outer transaction (rolled back by Postgres) |
 | `killed-by-system-between-migrations` | kill | killed in the loop body between two migrations (state recorded, partial) |
-| `migrate-subprocess-killed-after-commit-before-recorded` | stall | **canonical case — in-process recovery.** Stalls the migrate subprocess in the ~ms window between a migration's outer-transaction commit and the `db.migration` INSERT. The harness SIGKILLs the **subprocess**; the parent `applyPostSwap` catches the death and runs the in-process restore via `postSwapFailure`. Row ends `rolled_back` in-process. |
+| `migrate-subprocess-killed-after-commit-before-recorded` | stall | **canonical case — in-process recovery.** Stalls the migrate subprocess in the ~ms window between a migration's outer-transaction commit and the `db.migration` INSERT. The harness SIGKILLs the **subprocess**; the parent `applyNewSbUpgrading` catches the death and runs the in-process restore via `newSbUpgradingFailure`. Row ends `rolled_back` in-process. |
 | `upgrade-service-parent-killed-after-commit-before-recorded` | stall | **canonical case — next-install recovery.** Same stall point, but the harness SIGKILLs the **upgrade-service parent** (and the orphan subprocess). The flag is left behind, the row stays `in_progress`, the partial migration persists with the `db.migration` row missing. The next `./sb install` detects crashed-upgrade and runs `recoverFromFlag`; forward fails on "relation already exists" and falls through to snapshot restore. |
 | `killed-by-system-during-container-restart` | kill | killed mid-`docker compose up` during postswap restart |
 | `killed-by-system-during-builtin-rollback` | kill | killed while the built-in rollback pipeline is running |
