@@ -3,11 +3,11 @@ id: STATBUS-175
 title: >-
   pg-regress-echo-flake: intermittent loss of `\i` include echo makes echoing
   tests nondeterministic
-status: In Progress
+status: Done
 assignee:
   - '@mechanic'
 created_date: '2026-07-13 13:20'
-updated_date: '2026-07-29 16:42'
+updated_date: '2026-07-29 16:51'
 labels:
   - testing
   - not-install-upgrade
@@ -38,7 +38,7 @@ LESSON, recorded for the next investigator: when variance is observed during act
 <!-- AC:BEGIN -->
 - [x] #1 Reproduce the intermittent include-echo drop deterministically (or characterise the trigger: concurrency, \o flush timing, psql version) with a minimal repro
 - [x] #2 Decide the fix: either root-cause the echo drop in the harness/setup.sql, or adopt the 403 pattern (suppress shared-include output) as the standard for tests that \i getting-started.sql + definitions
-- [ ] #3 Audit existing echoing tests (401, others) for exposure; apply the chosen fix so no committed expected depends on include-echo luck
+- [x] #3 Audit existing echoing tests (401, others) for exposure; apply the chosen fix so no committed expected depends on include-echo luck
 <!-- AC:END -->
 
 ## Comments
@@ -136,4 +136,16 @@ created: 2026-07-29 16:42
 ---
 BATCH 3 LANDED d5258d758 (foreman, 2026-07-29): 12 pairs (309-315, 318, both 319s, enterprise-name 320, 321), 192 insertions / 267 deletions, canonical wording from the start. Independently verified: sql↔out blocks byte-identical on all 12, grep zero, .sql diffs additions-only, 314's expected NUL-checked clean (perl -0777 per the recorded trap), zero baseline drift. AUDIT-CORRECTION RULING (foreman): 316_update_legal_form_legal_unit, 317_update_name_legal_unit, 320_test_region_validation_fail_fast are STRUCK from the exposure list as FALSE POSITIVES — verified by direct inspection: each includes ONLY test/setup.sql (no getting-started/definitions \i anywhere), and their audit markers (nace_v2.1 / isic_v4 / Activity-Category-Standard strings, 2/2/1 hits) are authored INLINE by the tests themselves — there is no included echo to suppress. The 61-item list therefore over-counted by 3; tmp/175-ac3-audit-exposed-list.txt stays as the historical artifact, THIS comment is the authoritative correction. STRAGGLER INCIDENT, survived by the book: the mechanic's first regen was EXTERNALLY killed mid-flight (after 309, during 310), orphaning a pg_regress+psql pair; dev.sh's check_no_straggler_pg_regress guard correctly refused the second attempt; NO manual kills per the standing order; the orphan self-cleared; and — the exemplary part — the second attempt's visually-clean results were DISCARDED wholesale (dev.sh's own dual-writer warning says corruption can be silent), with the frozen output coming from a clean third run. Cross-recorded on 188 (natural runner-timeout/straggler occurrence). POSITION: 44 of 55 in-scope conversions done (16+15+12+403's precedent excluded from count; 61 − 3 false positives − 3 transferred = 55). BATCH 4 = the final 12: 322-325, 340-347. On its landing, AC#3 checks with the 401/402/500 carve-out.
 ---
+
+author: foreman
+created: 2026-07-29 16:51
+---
+BATCH 4 LANDED b14278f36 — SWEEP COMPLETE, TICKET CLOSED (foreman, 2026-07-29): the final 12 pairs (322-325, 340-347), 192 insertions / 269 deletions, zero exclusions, canonical wording. Independently verified as every batch before it: sql↔out blocks byte-identical on all 12, grep zero, additions-only .sql diffs, zero baseline drift. AC#3 CHECKED with the recorded carve-out: the whole-repo exposure check now shows getting-started echo remaining ONLY in 402/500's expected files (plus 401's BRREG-def echo) — exactly the three conversions transferred to STATBUS-188 as its proof-of-fix workload (comment #9's finish line, met). FULL RECONCILIATION of the 61-item audit: 16 (batch 1a, 29550772c + reword 8d2205d0f) + 15 (batch 2, 335fc86ee) + 12 (batch 3, d5258d758) + 12 (batch 4, b14278f36) = 55 converted; 3 false positives struck by inspection (comment #13); 3 carved to 188 — 61 accounted for, every item. The refuted flake claim is grep-zero repo-wide. CLOSING Done: AC#1 root cause named+proven+King-accepted; AC#2 the 403 pattern adopted as standard with the honest rationale; AC#3 the sweep complete minus the recorded carve-out. The one open observation that OUTLIVES this ticket: comment #1's 314 output-corruption sighting (capture-path class, one occurrence) — its accumulation rule now lives on 188's straggler/output-integrity context if a third sighting ever lands.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+There was no flake — and now there is no luck. The 2026-07-13 observation (three "identical" runs, two output shapes) was proven to be the test file's own bytes changing mid-edit; psql was deterministic throughout (44/44 fixed-byte runs identical; King-accepted root cause). The lasting robustness win shipped anyway: the 403 suppression pattern (wrap shared \i includes in \o /dev/null + ECHO none) is now the repo standard, applied across the entire exposure audit — 55 tests converted in four reviewed batches (29550772c/8d2205d0f, 335fc86ee, d5258d758, b14278f36), 3 audit false-positives struck by inspection, 3 (401/402/500) carved out to STATBUS-188 as its proof-of-fix workload. No committed expected file outside that carve-out depends on shared-include text; the refuted "intermittent echo drop" claim is grep-zero repo-wide. En route the sweep produced: the canonical honest wrap-comment wording, a natural-occurrence evidence trail for 188's kill-causality question, and the recorded ugrep/NUL portability traps for future reviewers.
+<!-- SECTION:FINAL_SUMMARY:END -->
