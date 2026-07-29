@@ -49,11 +49,11 @@ BEGIN;
 CALL test.set_user_from_email('test.admin@statbus.org');
 \echo 'Setting up Statbus for Norway (output suppressed)'
 Setting up Statbus for Norway (output suppressed)
--- Suppress the verbatim echo of the shared includes. Their content is not
--- what this test asserts, and echoing it makes the expected file both
--- churn-prone and flaky (the `\i` echo has been observed to intermittently
--- drop under the harness — STATBUS-175). Only this test's own queries below
--- contribute to the expected output.
+-- Suppress the verbatim echo of these shared includes. Their content is not
+-- what this test asserts, and echoing it would couple the expected file to
+-- files that churn (any edit to them would break this test's expected
+-- output). Only this test's own queries below contribute to the expected
+-- output. (STATBUS-175: the standard pattern for tests that \i shared files.)
 \o /dev/null
 \set ECHO none
 -- Create benchmark results table

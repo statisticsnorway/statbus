@@ -14,10 +14,10 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 
 -- Load base configuration
 -- Suppress the verbatim echo of the shared include. Its content is not what
--- this test asserts, and echoing it makes the expected file both
--- churn-prone and flaky (the `\i` echo has been observed to intermittently
--- drop under the harness — STATBUS-175). Only this test's own queries below
--- contribute to the expected output.
+-- this test asserts, and echoing it would couple the expected file to a file
+-- that churns (any edit to it would break this test's expected output). Only
+-- this test's own queries below contribute to the expected output.
+-- (STATBUS-175: the standard pattern for tests that \i shared files.)
 \o /dev/null
 \set ECHO none
 \i samples/norway/getting-started.sql
