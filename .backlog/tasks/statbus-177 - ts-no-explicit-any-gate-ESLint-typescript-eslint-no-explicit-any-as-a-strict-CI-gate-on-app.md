@@ -3,10 +3,11 @@ id: STATBUS-177
 title: >-
   ts-no-explicit-any-gate: ESLint @typescript-eslint/no-explicit-any as a strict
   CI gate on app/
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@foreman'
 created_date: '2026-07-13 14:45'
-updated_date: '2026-07-14 17:45'
+updated_date: '2026-07-29 11:08'
 labels:
   - ci
   - quality-gate
@@ -28,9 +29,9 @@ Rollout: the existing codebase has `any` usages; burn them down to zero (typed r
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 @typescript-eslint/no-explicit-any set to error in app/ ESLint config
+- [x] #1 @typescript-eslint/no-explicit-any set to error in app/ ESLint config
 - [ ] #2 CI lint job fails on violations — no continue-on-error, no warn-level soft landing
-- [ ] #3 Existing any usages resolved with real types or per-line justified disables
+- [x] #3 Existing any usages resolved with real types or per-line justified disables
 - [ ] #4 Gate lands green on master
 <!-- AC:END -->
 
@@ -41,5 +42,11 @@ author: foreman
 created: 2026-07-14 17:45
 ---
 SCOPE FINDING + INVENTORY (2026-07-14): the app has NO ESLINT AT ALL — verified directly in app/package.json: no lint script, zero eslint dependencies, no config file. AGENTS.md's documented `pnpm run lint` is STALE documentation (the doc fix rides this ticket). So this ticket's real scope is: (1) INTRODUCE ESLint to the app (eslint + typescript-eslint + eslint-config-next per Next.js 15 convention, flat config), (2) set no-explicit-any to error, (3) burn down, (4) wire the CI gate (check what app_build_and_lint-workflow.yaml actually runs today — presumably build+prettier only — and add the lint job strictly). ROUGH INVENTORY (tester, grep-based proxy since eslint can't run yet — pattern `: any`, misses `as any`/`any[]`/generics): 94 hits. Concentration: atoms/ 16, lib/ 10, legal-units/[id] 10, import/jobs/[jobSlug]/data 10 (one file alone has 10), jotai-state-management-reference 7 (a REFERENCE page — candidate for per-line justified disables rather than typing). Log: tmp/any-inventory-177.log. The true count lands only after ESLint is introduced (rule-based, not grep).
+---
+
+author: foreman
+created: 2026-07-29 11:08
+---
+BOARD RECONCILIATION (foreman, 2026-07-29, on the architect-relayed King directive 'close it or name its tail'): the tail is NAMED and its fix is IN FLIGHT. What already landed (fbb00753c, 2026-07-14): ESLint introduced to the app (flat config, eslint.config.mjs) with @typescript-eslint/no-explicit-any as the SOLE error rule (:27) — AC#1 checked; the burn-down shipped in the same commit (141 real types + 1 justified boundary disable) and local `pnpm run lint` exits 0 today — AC#3 checked. THE TAIL: the CI lane NEVER ACTUALLY RAN. fbb00753c bumped the retired ubuntu-20.04 runner to ubuntu-latest but left the `container: node:20.10-alpine` block, so every step ran inside alpine where docker does not exist — 'docker: not found', exit 127, every run red since 2026-07-14 (verified in the run list + failure log). The commit's 'the chain now actually runs' claim was never true; the zombie lane became a corpse lane, and its constant red also masked itself (red was the lane's only observed state). FIX: b67caefe8 drops the container block; the job runs on the ubuntu-latest VM which has docker, building the Dockerfile test target (tsc && lint --quiet && jest && build, chained with && — strict, no continue-on-error; AGENTS-doctrine shape). AC#2/#4 check ONLY on the green run of b67caefe8 — polling now; ticket closes on that conclusion, per the run-is-the-oracle rule.
 ---
 <!-- COMMENTS:END -->
