@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-07-25 19:21'
-updated_date: '2026-07-29 11:21'
+updated_date: '2026-07-29 11:29'
 labels:
   - upgrade
   - install-recovery
@@ -81,5 +81,23 @@ author: foreman
 created: 2026-07-29 11:21
 ---
 UNIT 1 (timeline pass) REVIEWED + COMMITTED 8cc4cca1c (foreman, 2026-07-29). Line review verified every load-bearing claim against code symbols, not prose: DaemonSchemaFloor exists at the boot site (145 floor-bound confirmed — service.go + daemon_floor_bootsite_test.go); PhaseNewSbSwapped='new-sb-swapped' with the post_swap/resuming legacy-alias map at service.go:253-301; resumeNewSb/applyNewSbUpgrading/newSbUpgradingFailure all exist (service.go:5718/5844/6773) and the OLD names are grep-zero in code AND in the doc; PriorDeathStep same-step-twice seam real (recovery_escalation.go:151); read-only window real (exec.go:351-366). Anchor check: zero references to the old #complete--rollback anchor repo-wide, 3 internal refs to the new #complete--rollback--park, heading present, no cross-doc links to the renamed section. AC#1 checked. The inverted-drift finding (lifecycle plantuml already carries the park) is noted for step 3's smaller diagram gap. Unit 2 (recovery-model pass) may proceed.
+---
+
+author: architect
+created: 2026-07-29 11:29
+---
+UNIT 2 BUILT — THE RECOVERY-MODEL PASS, carrying steps 2 AND 4 in one frozen diff (architect, 2026-07-29; doc/upgrade-recovery-model.md, +16/-4). Both steps edit the SAME file, so I merged them into one review unit — one foreman line-review instead of two on the same bytes. Five touch points, every claim verified against code or git before writing:
+
+1. AC#2a PARKED-SKIP INVARIANT: the §4 parked entry now names all three enforcement sites — the flagless heal's skip-before-the-defer-arms (completeInProgressUpgrade, 135), the budget section's skip-without-consuming-an-attempt (046), and the self-heal's primary read + atomic `recovery_parked_at IS NULL` write guard (193, the lone-exception closure). Closing line: no automatic path can complete a parked row, strip its flag, or consume one of its attempts.
+
+2. AC#2b WATCHDOG-COVER PRINCIPLE: new third bullet under §What enables it — the watchdog kills hung daemons, never slow-but-live ones; every long-running main-goroutine loop feeds it per unit of genuine progress (idle ticker, executeUpgrade progress writes, boot-migrate ticker, discovery per-candidate — the 195 false-kill, run 29743621767, cited from the a316b1a2b commit message). Per-unit heartbeats keep hang detection by construction: stuck-on-ONE-unit still starves it.
+
+3. AC#4 THE RUNE STATEMENT: new named section 'What actually went wrong on Rune (the 18-day hang, in two layers)'. Layer 1 extinct wedge with the three fix citations — all three SHAs verified in git log today (61e79e265 terminal-UPDATE-before-fixup, e76505eec skip --now inside active upgrade, cb7344dd6 self-heal net). Layer 2 the live loops-forever-while-nobody-is-told class, held down by budget/park + the harness NRestarts asserts + the 069 canary. The §window bullet's '18-day rune hang' mention now cross-references the section.
+
+4. SERVE-PROVEN at §4 completed (the drift the grounding comment flagged): completed = verifiably serves at EVERY writer; all three writers named with their tickets (192 flagless heal; 071 P5 self-heal tail — verified via commit 2616d02ea as the commit that added the self-heal's window lift); health-fail at target → park, never a completed lie.
+
+5. STATUS refresh: re-verified date → 2026-07-29; three new SHIPPED lines (serve-proven 160/192 with the window-flip + guarded-defer pins; 193 parked-guard with TestResumeNewSb_SelfHealSkipsParkedRow + the postswap-converged-selfheal arc; 195 with TestVerifyArtifacts_FeedsWatchdogPerCandidate) — all pin names verified present in recovery_escalation_test.go / read_only_window_flip_test.go today.
+
+Stale-name sweep: resumePostSwap/applyPostSwap/Phase=PostSwap grep-zero in the doc. FROZEN for foreman line review + commit; AC#2 and AC#4 check together on that commit. Next: unit 3 (cross-links, using the operator's 30-arc/15-scenario inventory) and unit 5 (drift gate).
 ---
 <!-- COMMENTS:END -->
