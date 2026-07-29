@@ -7,7 +7,7 @@ status: Done
 assignee:
   - engineer
 created_date: '2026-06-17 09:05'
-updated_date: '2026-07-28 15:38'
+updated_date: '2026-07-29 16:01'
 labels:
   - install-recovery
   - upgrade
@@ -747,6 +747,12 @@ author: foreman
 created: 2026-07-28 15:38
 ---
 LADDER COMPLETE — TICKET DONE (2026-07-28, run 30372633117, postswap-converged-selfheal GREEN, fully explained): the real converged crash (exit 137, faithful flag, box serving) self-healed to completed in 2 SECONDS on the next boot — [completed-self-heal] logged, error NULL, flag removed, resume-death latch SILENT, NRestarts=0 — and the window-lift asserts passed on their FIRST exercise: no STATBUS-163 BACKSTOP in the arm window (the self-heal tail lifted the window itself) and a fresh write accepted with no 25006. THE THIRD COMPLETED WRITER IS SERVE-PROVEN IN THE FULL 192 SENSE. Final ladder ledger: P1 proven (real producer, run 30308823908) · P2+P3 done (scenario + helper deleted, ee90fbbd6) · P4 proven (churn arc green, run 30369283526; scenario deleted) · P5 done (fingerprint pair proven run 30017980913-successor; marker+arc built, product window-lift gap FOUND AND FIXED by the real path, arc green; rune-wedge retired historical per the King's root-cause-fixed condition; fabricate_resume_state deleted at zero callers, bda638f22) · P6 shipped (the structural guard, c9d5fb77e, proven firing + green) · P7 WITHDRAWN by the King (inject markers stay wholesale; AC#5's checkbox deliberately left open as the record of that withdrawal, not unfinished work). ZERO FABRICATION remains; the state is self-enforcing. The King's RC-cut gate (2026-07-27 ruling) is SATISFIED.
+---
+
+author: foreman
+created: 2026-07-29 16:01
+---
+LEDGER NOTE (foreman, 2026-07-29, surfaced by the architect during STATBUS-196's cross-link pass; verified — zero matching files in test/install-recovery/arcs/): this ticket's coverage map cites `postswap-archivebackup-watchdog-arc` as [PROVEN], but the arc FILE no longer exists — it was deleted together with the archiveBackup step it exercised (STATBUS-112 removed archiveBackup itself). The historical proof stands (the run happened; the cell was real when it was proven) and the covered code path is GONE, so nothing is unproven today — but the map row now points at a test that cannot re-run. No re-proof owed; recorded so a future map reader doesn't chase a ghost arc. The current authoritative join is the STATBUS-196 coverage join table (test/install-recovery/README.md, commit c95e7de4a), which lists only living tests.
 ---
 <!-- COMMENTS:END -->
 

@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-07-25 19:21'
-updated_date: '2026-07-29 11:32'
+updated_date: '2026-07-29 16:01'
 labels:
   - upgrade
   - install-recovery
@@ -44,7 +44,7 @@ THE WORK, five steps:
 <!-- AC:BEGIN -->
 - [x] #1 The timeline carries the park lifecycle and the serve-proven completed contract; architect-reviewed
 - [x] #2 The recovery model carries the parked-skip invariant and the watchdog-cover principle
-- [ ] #3 Cross-links stand in both directions; "uncovered" is stated, never implied
+- [x] #3 Cross-links stand in both directions; "uncovered" is stated, never implied
 - [x] #4 The Rune two-layer statement stands in the recovery model with its fix citations
 - [ ] #5 The drift gate exists and a probe proves it fires
 <!-- AC:END -->
@@ -105,5 +105,37 @@ author: foreman
 created: 2026-07-29 11:32
 ---
 UNIT 2 (recovery-model pass) REVIEWED + COMMITTED 4ea57df17 (foreman, 2026-07-29). Citation-verified before commit: all three Rune fix SHAs (61e79e265 / e76505eec / cb7344dd6) resolve in git with good signatures; the parked-guard SQL (`recovery_parked_at IS NULL`) at service.go:6690 with its guard rationale at :6659-6663; completeInProgressUpgrade at service.go:2869; both cited pin tests exist (recovery_escalation_test.go, read_only_window_flip_test.go) and were green in today's full upgrade-package run; WatchdogSec=120 confirmed in ops/statbus-upgrade.service, 30s cadence constants in watchdog.go/service.go. Acceptance criteria 2 and 4 checked — the architect's merge of both steps into one unit was right (same file, same bytes, one review). Remaining: step 3 (cross-links both ways) and step 5 (drift gate) → acceptance criteria 3 and 5.
+---
+
+author: architect
+created: 2026-07-29 15:59
+---
+UNIT 3 BUILT — CROSS-LINKS BOTH WAYS (architect, 2026-07-29; FROZEN for foreman line review + commit). Five files: doc/diagrams/upgrade-timeline.plantuml, upgrade-lifecycle.plantuml, install-recovery.plantuml, doc/upgrade-timeline.md, test/install-recovery/README.md. Every claim below verified against the FILES today (arcs dir: 31 files, not the 30 previously reported; scenarios: 15).
+
+DIRECTION diagram→test (the in-diagram TEST notes, refreshed to current truth):
+1. upgrade-timeline.plantuml's notes were a full era stale — they cited 10+ scenario slugs DELETED in the U5 sweep (2-preswap-*, 4-rollback-kill, 3-postswap-mid-*/between-*/migration-*, resume-died-parked). All now name the covering arcs. The giant resume-died-parked historical narrative is replaced by the current park coverage (postswap-health-park-arc, un-park-to-completion-arc, recovery_escalation_test.go logic-pins).
+2. TWO in-diagram drifts corrected beyond slugs: (a) the note claimed the commit↔record cells fire at BOOT-MIGRATE — pre-145, contradicting the same file's own :124-134; now: all cells fire at the applyPostSwap delta site, with THE RULED RULE stated (pre-delta death → forward → completed; mid-delta with ledger advanced → Behind → one-shot rollback). (b) the between-migrations cell claimed 'completed' — the proving run 28976918080 says rolled_back; corrected. The pre-145 kill-during-migration INVARIANT note rewritten to the atomicity flip.
+3. New TEST lines where coverage existed but was unnamed: schedule band (claim-without-notify-arc, deploy-status-proof-arc), boot band (flagless-selfheal-at-target-arc, boot-migrate-churn-alive-idle-arc), rollback band (restore-watchdog, pair-terminal, restore-broke-reattempt, transient-db-backoff, c-rollback-resurrection), postswap tail (converged-selfheal, cross-version-rename-handoff).
+4. Gaps kept honest and now ticketed: the preflight claim-window kill gap cites STATBUS-197 (ruled; fix design pending) in both the boot-belt and preflight notes; takeover arm, StateHalfConfigured, StateDBUnreachable, legacy-refuse, inline-dispatch, [HUMAN: unknown] self-loop, skipped/dismissed all stay NO TEST / UNCOVERED, stated plainly.
+---
+
+author: architect
+created: 2026-07-29 16:00
+---
+UNIT 3, second half of the record (architect, 2026-07-29):
+
+DIRECTION test→diagram: NEW section in test/install-recovery/README.md — 'Coverage join table — every test names its diagram element'. All 31 arcs + all 15 scenarios mapped to their diagram element (the sequence diagram's == bands, the state diagram's transitions, the activity diagram's partitions/arms), closing footnote listing every uncovered element by name. The join carries ELEMENT MAPPING only; run-proof stays on 071's map (runs change, the element mapping doesn't — smaller drift surface).
+
+MORE DRIFT FIXED EN ROUTE (all file-verified): (a) doc/upgrade-timeline.md said '8-state probe ladder' in two places and its ladder table had 8 rows — state.go has NINE; StateRestoreReattemptable was missing entirely; row added with its proving arc, rows renumbered. (b) The ladder's crashed-upgrade row cited a stale scenario ref ('08') — replaced with the real provers (kill-family recovery dispatches + the two STATBUS-143 proxy arcs). (c) The upgrade-lifecycle diagram had NO coverage notes at all — new TESTCOV note maps every transition, UNCOVERED stated for the [HUMAN: unknown] self-loop and the skipped/dismissed acknowledgement paths. (d) README catalogue heading said 19 scenarios; 15 files exist — fixed. (e) README's 4-flagless-selfheal-at-target row claimed the scenario exists as an interim net [UNPROVEN] — the file was deleted in 86c626ab0 after its real-path successor arc went green (run 29400318076); row rewritten as RETIRED with the citations. (f) The add-a-scenario checklist now requires a join-table row for new tests.
+
+FOUND FOR THE RECORD, needs no action now: 071's coverage map cites postswap-archivebackup-watchdog-arc as [PROVEN], but no such file exists — the archiveBackup feature was removed in STATBUS-112 and the arc went with it. One stale map row; the join was built from the FILES, which are the record.
+
+VERIFICATION: plantuml -checkonly green on all three sources; stale-slug sweep grep-zero across the three diagrams + both docs; the anchors in the new cross-references resolve; SVGs regenerate via the .githooks/pre-commit hook when the foreman stages the .plantuml files (no manual step). AC#3 checks on the foreman's commit. NEXT: unit 5, the drift gate (design first, probe must prove it fires).
+---
+
+author: foreman
+created: 2026-07-29 16:01
+---
+UNIT 3 (cross-links both ways) REVIEWED + COMMITTED c95e7de4a (foreman, 2026-07-29; 8 files — the five sources plus the three hook-regenerated SVGs). Independent verification before commit: plantuml -checkonly green on all three sources (re-run myself); the 9-state ladder matches cli/internal/install/state.go exactly (StateRestoreReattemptable present at :51, ladder position 8, populated fields at :95-96); all six newly cited arc slugs exist on disk (postswap-stopped/severed-proxy, claim-without-notify, restore-broke-reattempt, preswap-backup-kill, flagless-selfheal-at-target); retired scenario slugs grep-zero in the diagram sources; the join table's 31-arc count matches the arcs/ directory exactly. Acceptance criterion 3 checked — both directions stand and every gap is stated plainly (the state-2 takeover arm, states 4/5/6, the state-7 inline path). Remaining on this ticket: step 5 only (the drift gate, criterion 5). The architect's 071-ledger finding (map cites postswap-archivebackup-watchdog-arc [PROVEN] but the arc died with STATBUS-112's archiveBackup removal — verified: zero matching files in arcs/) is recorded on STATBUS-071 same-turn so it survives as a durable note.
 ---
 <!-- COMMENTS:END -->
