@@ -462,6 +462,27 @@ release_test_run_lock() {
     fi
 }
 
+# ── STATBUS-188 AC#4: long-test ownership + timeout policy ──
+#
+# Test executions are OWNED by the TESTER agent (single-owner serialization,
+# King-ruled 2026-07-30) — no other agent runs a test suite against the
+# shared db, full stop. This dev.sh has no timeout knob of its own for a
+# regeneration run (grep-verified — none exists); the discipline is entirely
+# in HOW the owning agent invokes it.
+#
+# 400/401-class regenerations (a full expected-file rebuild against a large
+# fixture, historically ~20-28 minutes for 401) MUST run either detached
+# (backgrounded, no wrapper-imposed budget) or under an EXPLICITLY raised
+# timeout long enough to let the real run finish. A generic background-task
+# runner's default budget killing a regeneration MID-FLIGHT is exactly what
+# manufactures a straggler: the killed run's pg_regress/psql orphans inside
+# the db container (the flock above releases on host-process death, but that
+# fd is never inherited into the container — see the straggler guard just
+# below). This is not hypothetical: it is the STATBUS-175 batch-3 external-
+# kill incident (2026-07-29) AND the original 401 chain-starter (2026-07-14)
+# that opened this ticket. Size the run's own timeout to the workload, or
+# detach it — never let an unrelated runner-budget default decide.
+#
 # ── STATBUS-158: straggler pg_regress guard + NUL-corruption tripwire ──
 #
 # WHY: the flock above lives on a HOST file descriptor and is released the
@@ -518,12 +539,18 @@ from either side (STATBUS-158).
 Straggler process(es) found in the db container:
 $_straggler
 
-WHAT TO DO:
-  - Confirm these are truly orphaned (not a run you intend to keep), then
-    kill them from the host:
-      docker compose exec db kill -9 $_pids
-  - Re-run this command once the container shows none left:
-      docker compose exec db pgrep -af 'pg_regress|HIDE_TABLEAM'
+WHAT TO DO (STATBUS-188 evidence-based ladder — replaces blind kill -9):
+  1. DEFAULT: report this and WAIT. An orphaned pg_regress/psql client has
+     self-cleared within minutes every time this was directly observed
+     (2026-07-29) — a waiting orphan has never been implicated in a crash.
+     Re-check with:
+       docker compose exec db pgrep -af 'pg_regress|HIDE_TABLEAM'
+  2. If STILL present after ~10 minutes: SIGTERM the CLIENT processes only
+     (never -9 first) and let them exit cleanly:
+       docker compose exec db kill -TERM $_pids
+  3. NEVER blind kill -9 in the db container. The 2026-07-14 postgres
+     crash-recovery cycles clustered around kill -9 remediation windows
+     under memory pressure, and -9 denies the client its own cleanup path.
 
 Hook source: dev.sh check_no_straggler_pg_regress
 ═══════════════════════════════════════════════════════════════════════
@@ -575,8 +602,11 @@ $_corrupted
 WHAT TO DO:
   - Check for a straggler right now:
       docker compose exec db pgrep -af 'pg_regress|HIDE_TABLEAM'
-  - If found, kill it, THEN re-run this test — do not trust its diff, it
-    was never a real second failure.
+  - If found, follow the SAME evidence-based ladder as the straggler guard
+    (STATBUS-188: default report-and-wait, SIGTERM the client only if still
+    stuck after ~10min, never blind kill -9 — see check_no_straggler_pg_regress
+    above), THEN re-run this test — do not trust its diff, it was never a
+    real second failure.
 
 Hook source: dev.sh check_results_for_nul_corruption
 ═══════════════════════════════════════════════════════════════════════
