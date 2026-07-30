@@ -3,10 +3,11 @@ id: STATBUS-188
 title: >-
   dev-db-crash-cycles: straggler kill -9 remediation correlates with postmaster
   crash recovery; crash-notice log lines missing
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@mechanic'
 created_date: '2026-07-14 23:17'
-updated_date: '2026-07-29 16:43'
+updated_date: '2026-07-30 22:20'
 labels:
   - testing
   - infrastructure
@@ -55,5 +56,11 @@ author: foreman
 created: 2026-07-29 16:43
 ---
 NATURAL OCCURRENCE RECORD (foreman, 2026-07-29, from the 175 batch-3 regeneration): the mechanic's first regen attempt was EXTERNALLY killed mid-flight (he did not kill it; after test 309 completed, during 310) — the runner-timeout/external-kill class this ticket's AC#4 names, occurring naturally again. Chain: kill → orphaned pg_regress+psql pair in the db container → dev.sh's check_no_straggler_pg_regress guard REFUSED the next attempt by name (the STATBUS-158 protection working as designed) → orphan self-cleared within minutes → clean re-run. Notable for AC#3's re-rule: NO manual kill was needed — the orphan exited on its own, which supports 'report and wait' over kill -9 as the default remediation. Also notable: NO postmaster crash-recovery cycle followed this straggler episode (unlike the 07-14 incidents where recovery followed the kill -9 within ~30s, 2-for-2) — consistent with the hypothesis that the KILL, not the straggler, correlates with backend death. Evidence value: one more data point for the kill-causality question (AC#2), zero db mutation, all handled within standing orders.
+---
+
+author: foreman
+created: 2026-07-30 22:20
+---
+KING-RULED TRACKING DESIGN (2026-07-31; foreman proposal, King: 'I agree', double-check completed): THE EVIDENCE HOLE IS OUR OWN FILTER. start-postgres.sh runs the db with log_min_messages=fatal by default (start-postgres.sh LOG_MIN_MESSAGES default + postgresql.conf:57); postgres emits its crash notices ('server process (PID n) was terminated by signal 9', 'automatic recovery in progress') at LOG severity, which sits BELOW fatal in the ordering — the postmaster reported every kill and the filter discarded exactly those lines. What we saw (recovery-mode refusals) are FATAL client messages: symptom passed, cause dropped. The empty collector file is a red herring (logging_collector=off is deliberate; stderr→docker logs is the correct container posture). THE DYNAMIC SWITCH EXISTS as the King recalled (DEBUG=true → INFO + auto_explain, start-postgres.sh:41-54) but it is two-position and both positions are wrong for crash tracking: quiet=crash-blind, loud=firehose. RULED FIX, three layers: (1) raise the QUIET floor fatal→log in BOTH places (one token each; admits exactly the LOG-class postmaster lines while ERROR/WARNING stay suppressed — severity ordering puts them below LOG; DEBUG switch untouched). FLEET-RELEVANT: postgres/postgresql.conf is the image config for every deployment — production boxes are equally crash-blind today. (2) dev.sh db crash-evidence — on-demand dumper: container cgroup memory.events oom_kill counter, Docker-VM dmesg extract, docker-logs tail, container inspect; evidence collection only, no standing daemon. (3) RED→GREEN probe on a THROWAWAY container (never the dev db): kill -9 a backend, assert the crash-notice line lands in docker logs — red under fatal, green under log; this is AC#1's oracle. THEN AC#2 resolves by controlled reproduction on the same throwaway rig (big import + client kill → does the backend's large-tx abort draw an OOM?). ASSIGNMENTS: mechanic builds layers 1+2; TESTER runs layer 3 and all subsequent test executions — per the King's serialization ruling (2026-07-30): the tester agent OWNS test-run execution, Erlang-style single ownership; AC#4's concrete shape = tester-owned execution + a right-sized/detached timeout for 400/401-class regenerations, which removes the straggler manufacturing step.
 ---
 <!-- COMMENTS:END -->
