@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-07-14 23:17'
-updated_date: '2026-07-30 22:29'
+updated_date: '2026-07-30 22:48'
 labels:
   - testing
   - infrastructure
@@ -74,5 +74,11 @@ author: foreman
 created: 2026-07-30 22:29
 ---
 AC#1 CHECKED — PROBE GREEN + DEV DB LIVE ON THE NEW FLOOR (foreman, 2026-07-31). The tester's RED→GREEN probe delivered both legs with SHOW-verified config bytes: RED (pre-fix config, SHOW=fatal) — backend kill -9, terminated-by-signal line ABSENT while recovery occurred (the July-14 blindness reproduced on demand); GREEN (b39bbf347 config, SHOW=log) — same kill, line PRESENT verbatim: '2026-07-30 22:27:17.152 GMT [1] LOG:  client backend (PID 61) was terminated by signal 9: Killed'. Crash-evidence tool captured the incident; throwaway container + volume destroyed; dev db untouched during the probe. ROLLOUT COMPLETED: both config files are bind-mounted (postgres/docker-compose.yml:35,38), so a container restart suffices — foreman restarted the dev db in a verified no-runs-in-flight window (pgrep clean first); SHOW on the live dev db now says log. Every future backend death on this box self-reports with PID, signal, and the query it was running. NEXT: AC#2 causality reproduction dispatched to the tester (throwaway rig, big import, kill the CLIENT mid-import, watch for backend death / oom_kill counter movement with the new floor making any death visible).
+---
+
+author: foreman
+created: 2026-07-30 22:48
+---
+CAUSALITY REPORT no.1 REJECTED (foreman, 2026-07-31) — recorded so the rejected 'CONFIRMED' verdict is never cited: the tester's three client-kill trials reported 'backend DEAD → hypothesis CONFIRMED', but the report conflates a backend's NORMAL post-disconnect exit (notice dead client → abort transaction → exit; his own rows=0 is that clean rollback) with ABNORMAL death (postmaster's terminated-by-signal line + 'terminating any other active server processes' + recovery). The July-14 signature is the RECOVERY sequence; the dispatch required recovery yes/no per trial and the report omitted it; no crash line was quoted despite the green-config rig making any abnormal death self-report; oom_kill stayed 0. What the reported observations actually SUPPORT is the opposite reading — clean exit, no crash — but the verdict cannot be flipped on absence-in-a-summary: the per-trial logs were NOT preserved and the rig is destroyed (the oracle's output was discarded). RE-RUN ordered with mandatory per-trial evidence capture (full docker-log windows saved before teardown; the four crash markers each reported PRESENT-verbatim/ABSENT; recovery decided only by those lines; corrected verdict vocabulary where 3× clean exit = REFUTED-on-this-rig for the abort-path variant, ambient-memory-pressure variant explicitly left open).
 ---
 <!-- COMMENTS:END -->
