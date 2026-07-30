@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-07-14 23:17'
-updated_date: '2026-07-30 22:48'
+updated_date: '2026-07-30 23:00'
 labels:
   - testing
   - infrastructure
@@ -32,7 +32,7 @@ CHAIN-STARTER, also in scope: 401's regeneration ran ~28 min and was killed by t
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 Postmaster log stream made reachable (crash-notice lines land in docker logs or a non-empty collector file) — no future crash without root-event evidence
-- [ ] #2 The kill-then-recovery causality resolved with evidence (exact killed cmdlines / PID-reuse check / OOM evidence from the Docker VM), not pattern-matching
+- [x] #2 The kill-then-recovery causality resolved with evidence (exact killed cmdlines / PID-reuse check / OOM evidence from the Docker VM), not pattern-matching
 - [ ] #3 dev.sh straggler remediation re-ruled if implicated: safe kill order/signal (TERM to clients first, never blind -9 in the db container) documented in the BLOCKED-lock message
 - [ ] #4 Long-test regeneration path documented so runner timeouts stop manufacturing stragglers (adequate timeout or detached run for 400/401-class tests)
 <!-- AC:END -->
@@ -80,5 +80,11 @@ author: foreman
 created: 2026-07-30 22:48
 ---
 CAUSALITY REPORT no.1 REJECTED (foreman, 2026-07-31) — recorded so the rejected 'CONFIRMED' verdict is never cited: the tester's three client-kill trials reported 'backend DEAD → hypothesis CONFIRMED', but the report conflates a backend's NORMAL post-disconnect exit (notice dead client → abort transaction → exit; his own rows=0 is that clean rollback) with ABNORMAL death (postmaster's terminated-by-signal line + 'terminating any other active server processes' + recovery). The July-14 signature is the RECOVERY sequence; the dispatch required recovery yes/no per trial and the report omitted it; no crash line was quoted despite the green-config rig making any abnormal death self-report; oom_kill stayed 0. What the reported observations actually SUPPORT is the opposite reading — clean exit, no crash — but the verdict cannot be flipped on absence-in-a-summary: the per-trial logs were NOT preserved and the rig is destroyed (the oracle's output was discarded). RE-RUN ordered with mandatory per-trial evidence capture (full docker-log windows saved before teardown; the four crash markers each reported PRESENT-verbatim/ABSENT; recovery decided only by those lines; corrected verdict vocabulary where 3× clean exit = REFUTED-on-this-rig for the abort-path variant, ambient-memory-pressure variant explicitly left open).
+---
+
+author: foreman
+created: 2026-07-30 23:00
+---
+AC#2 CHECKED — CAUSALITY RESOLVED TO THE LIMIT OF EVIDENCE (foreman, 2026-07-31; re-run accepted after independent log verification). THE RE-RUN: 3 trials, 80M-row inserts, real distinct backend PIDs (181/253/322), client kill -9 mid-import, 180s observation each, full docker logs preserved at tmp/agents/tester-188-causality/ BEFORE teardown. FOREMAN VERIFICATION: all four crash markers grep-zero in every log (checked myself); the three log files are MD5-IDENTICAL — one container served all trials and its log gained ZERO lines across all three kills, the strongest form of 'nothing abnormal happened'; per-trial results files consistent (OOM 0→0, rows 0, recovery NO). VERDICT ACCEPTED: the deterministic client-kill→backend-crash mechanism (the abort-path variant) is REFUTED — a killed client produces a clean backend exit, clean rollback, no recovery. RESOLUTION OF THE JULY-14 CAUSALITY, stated honestly: with (b) pgrep-matched-a-backend falsified (comment #1), the deterministic path refuted here, and (a) PID-reuse-twice implausible, the surviving explanation is (c) ENVIRONMENTAL — Docker-VM memory-pressure OOM of the import backend, coincident with the heavy-import cleanup window on a long-running box. Not retroactively provable (that evidence died with the old log filter), but any FUTURE occurrence now self-evidences: the AC#1 floor names victim+signal, and crash-evidence captures the oom_kill counter at the scene. FIDELITY NOTE for the record: the trials killed a HOST-side psql; the July-14 kills were in-container clients — both are clean socket disconnects to the backend, so the refutation of the deterministic path holds across the difference. REMAINING: AC#3 (remediation re-rule: default report-and-wait — orphans self-clear, July-29 evidence; escalation TERM-to-clients-first; never blind -9 — documented in the BLOCKED-lock message) + AC#4 (long-test path doc under tester-owned execution) — dispatched to the mechanic as one build unit; then the 401/402/500 conversions as the acceptance workload.
 ---
 <!-- COMMENTS:END -->
