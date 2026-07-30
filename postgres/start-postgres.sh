@@ -34,7 +34,13 @@ PG_PARAMS="$PG_PARAMS -c wal_compression=lz4"
 # Default logging levels (these match postgresql.conf but will be overridden if DEBUG=true)
 # These values are set here to be passed as command-line arguments,
 # which take precedence over postgresql.conf settings.
-LOG_MIN_MESSAGES="fatal" # Default, matches postgresql.conf
+# STATBUS-188: "log" (not "fatal") so postgres's own crash notices — "server
+# process (PID n) was terminated by signal N", "automatic recovery in
+# progress" — reach docker logs; those lines are emitted at LOG severity,
+# which "fatal" silently filtered out (the July-14 evidence hole: three
+# crash-recovery cycles left no reachable root-event evidence). ERROR/WARNING
+# chatter stays suppressed — they sit below LOG in the severity ordering.
+LOG_MIN_MESSAGES="log" # Default, matches postgresql.conf
 LOG_MIN_DURATION_STATEMENT="1000" # Default, matches postgresql.conf
 
 # Check DEBUG environment variable (default to false if not set)

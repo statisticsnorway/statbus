@@ -2818,6 +2818,79 @@ EOS
           ;;
       esac
       ;;
+    'db' )
+      # STATBUS-188: on-demand, read-only evidence collection for db
+      # crash-recovery cycles. No kills, no restarts, no standing daemon —
+      # a snapshot of whatever is still reachable RIGHT NOW, since the
+      # root-event evidence (a killed backend's PID + signal) can rotate
+      # out of docker logs or vanish with the process before anyone thinks
+      # to look. Nested like `upgrade-sandbox <verb>` above.
+      DB_SUBCMD="${1:-}"
+      shift || true
+      case "$DB_SUBCMD" in
+        'crash-evidence' )
+          EVIDENCE_DIR="$WORKSPACE/tmp/db-crash-evidence"
+          mkdir -p "$EVIDENCE_DIR"
+          EVIDENCE_STAMP=$(date -u '+%Y%m%dT%H%M%SZ' 2>/dev/null || echo "unknown-time")
+          EVIDENCE_FILE="$EVIDENCE_DIR/${EVIDENCE_STAMP}.log"
+
+          {
+            echo "════════════════════════════════════════════════════════════════"
+            echo "STATBUS-188 db crash-evidence snapshot — $EVIDENCE_STAMP"
+            echo "════════════════════════════════════════════════════════════════"
+
+            echo ""
+            echo "── (a) docker logs db --tail=300 ──"
+            docker compose logs db --tail=300 2>&1 || echo "  (docker compose logs failed — db container not up?)"
+
+            echo ""
+            echo "── (b) db container cgroup memory.events (oom_kill counter) ──"
+            if _mem_events=$(docker compose exec -T db sh -c 'cat /sys/fs/cgroup/memory.events* 2>/dev/null' 2>/dev/null) && [ -n "$_mem_events" ]; then
+              printf '%s\n' "$_mem_events"
+              echo "  oom_kill counter: $(printf '%s\n' "$_mem_events" | grep -F 'oom_kill' || echo '(no oom_kill line found — cgroup v1 host?)')"
+            else
+              echo "  (memory.events not readable — cgroup v1 host, container down, or exec failed)"
+            fi
+
+            echo ""
+            echo "── (c) Docker-VM dmesg tail (100 lines) ──"
+            if ! docker run --rm --privileged --pid=host alpine dmesg 2>/dev/null | tail -100; then
+              echo "  (dmesg unavailable — could not run a privileged --pid=host container against the"
+              echo "   Docker VM; some Docker Desktop editions/configs block privileged host-PID access."
+              echo "   Continuing with the rest of the snapshot.)"
+            fi
+
+            echo ""
+            echo "── (d) docker inspect state (db container) ──"
+            DB_CID=$(docker compose ps -q db 2>/dev/null)
+            if [ -n "$DB_CID" ]; then
+              docker inspect --format '{"RestartCount":{{.RestartCount}},"State":{{json .State}}}' "$DB_CID" 2>&1
+            else
+              echo "  (could not resolve the db container id via 'docker compose ps -q db')"
+            fi
+          } | tee "$EVIDENCE_FILE"
+
+          echo ""
+          echo "Evidence written to: $EVIDENCE_FILE"
+          ;;
+        * )
+          echo "Usage: ./dev.sh db <crash-evidence>"
+          echo ""
+          echo "  crash-evidence   Read-only snapshot for db-crash root-cause evidence:"
+          echo "                   docker logs (db, tail 300), cgroup memory.events"
+          echo "                   (oom_kill counter), a Docker-VM dmesg tail, and the"
+          echo "                   db container's inspect state (OOMKilled, RestartCount,"
+          echo "                   StartedAt). Printed to stdout AND saved under"
+          echo "                   tmp/db-crash-evidence/<timestamp>.log. No kills, no"
+          echo "                   restarts — evidence collection only."
+          if [ -n "$DB_SUBCMD" ]; then
+              echo ""
+              echo "Error: Unknown subcommand '$DB_SUBCMD'"
+              exit 1
+          fi
+          ;;
+      esac
+      ;;
      * )
       echo "dev.sh — Development-only commands for StatBus"
       echo ""
@@ -2875,6 +2948,7 @@ EOS
       echo "Helpers:"
       echo "  postgres-variables                 Export PG connection variables"
       echo "  is-db-running                      Check if database is accepting connections"
+      echo "  db crash-evidence                  Read-only db-crash evidence snapshot (STATBUS-188)"
       echo ""
       echo "For production/ops commands, use ./sb (start, stop, psql, migrate, etc.)"
       if [ -n "$action" ]; then
