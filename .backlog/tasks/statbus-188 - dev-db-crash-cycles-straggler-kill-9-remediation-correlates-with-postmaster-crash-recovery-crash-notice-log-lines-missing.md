@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-07-14 23:17'
-updated_date: '2026-07-30 22:27'
+updated_date: '2026-07-30 22:29'
 labels:
   - testing
   - infrastructure
@@ -31,7 +31,7 @@ CHAIN-STARTER, also in scope: 401's regeneration ran ~28 min and was killed by t
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Postmaster log stream made reachable (crash-notice lines land in docker logs or a non-empty collector file) — no future crash without root-event evidence
+- [x] #1 Postmaster log stream made reachable (crash-notice lines land in docker logs or a non-empty collector file) — no future crash without root-event evidence
 - [ ] #2 The kill-then-recovery causality resolved with evidence (exact killed cmdlines / PID-reuse check / OOM evidence from the Docker VM), not pattern-matching
 - [ ] #3 dev.sh straggler remediation re-ruled if implicated: safe kill order/signal (TERM to clients first, never blind -9 in the db container) documented in the BLOCKED-lock message
 - [ ] #4 Long-test regeneration path documented so runner timeouts stop manufacturing stragglers (adequate timeout or detached run for 400/401-class tests)
@@ -68,5 +68,11 @@ author: foreman
 created: 2026-07-30 22:27
 ---
 LAYERS 1+2 REVIEWED + COMMITTED b39bbf347 (foreman, 2026-07-31): the quiet floor is raised (fatal→log in start-postgres.sh's default AND postgresql.conf, WHY-comments in both, DEBUG branch untouched — diffs read in full) and `./dev.sh db crash-evidence` is live (read-only 4-part snapshot: logs tail / cgroup oom_kill counter / Docker-VM dmesg / inspect state incl. the RestartCount-is-top-level fix the mechanic caught himself; bash -n clean; smoke-run against the live dev db produced tmp/db-crash-evidence/20260730T222515Z.log, correctly surfacing the historical July-14 lines). NOTE: the running dev container still has the OLD filter until its next recreate — the new floor applies from the next container start. AC#1 checks ONLY on the tester's RED→GREEN probe: RED leg = the config at commit 87ca3aef9 (pre-fix, extracted via git show — pinned by SHA since HEAD has now moved), must show the crash line ABSENT under SHOW log_min_messages=fatal; GREEN leg = b39bbf347's config, line PRESENT verbatim. PROCESS VIOLATION RECORDED, corrected with the mechanic directly: he ran git stash/stash-pop on the SHARED tree for a shellcheck before/after comparison — teammates never touch git state, stash included (a stash sweeps ALL agents' in-flight work off disk; a pop conflict would have been unrecoverable mid-flight). Tree verified intact after the fact (his 3 files only; no stash residue — the 33 listed stashes are months-old historical entries). The correct tool for before/after comparison is `git show <sha>:<file>` into a scratch dir — read-only, no shared state touched.
+---
+
+author: foreman
+created: 2026-07-30 22:29
+---
+AC#1 CHECKED — PROBE GREEN + DEV DB LIVE ON THE NEW FLOOR (foreman, 2026-07-31). The tester's RED→GREEN probe delivered both legs with SHOW-verified config bytes: RED (pre-fix config, SHOW=fatal) — backend kill -9, terminated-by-signal line ABSENT while recovery occurred (the July-14 blindness reproduced on demand); GREEN (b39bbf347 config, SHOW=log) — same kill, line PRESENT verbatim: '2026-07-30 22:27:17.152 GMT [1] LOG:  client backend (PID 61) was terminated by signal 9: Killed'. Crash-evidence tool captured the incident; throwaway container + volume destroyed; dev db untouched during the probe. ROLLOUT COMPLETED: both config files are bind-mounted (postgres/docker-compose.yml:35,38), so a container restart suffices — foreman restarted the dev db in a verified no-runs-in-flight window (pgrep clean first); SHOW on the live dev db now says log. Every future backend death on this box self-reports with PID, signal, and the query it was running. NEXT: AC#2 causality reproduction dispatched to the tester (throwaway rig, big import, kill the CLIENT mid-import, watch for backend death / oom_kill counter movement with the new floor making any death visible).
 ---
 <!-- COMMENTS:END -->
