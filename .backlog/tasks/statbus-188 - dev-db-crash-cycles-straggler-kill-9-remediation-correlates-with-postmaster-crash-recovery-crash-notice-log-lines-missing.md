@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-07-14 23:17'
-updated_date: '2026-07-30 23:00'
+updated_date: '2026-07-30 23:04'
 labels:
   - testing
   - infrastructure
@@ -33,8 +33,8 @@ CHAIN-STARTER, also in scope: 401's regeneration ran ~28 min and was killed by t
 <!-- AC:BEGIN -->
 - [x] #1 Postmaster log stream made reachable (crash-notice lines land in docker logs or a non-empty collector file) — no future crash without root-event evidence
 - [x] #2 The kill-then-recovery causality resolved with evidence (exact killed cmdlines / PID-reuse check / OOM evidence from the Docker VM), not pattern-matching
-- [ ] #3 dev.sh straggler remediation re-ruled if implicated: safe kill order/signal (TERM to clients first, never blind -9 in the db container) documented in the BLOCKED-lock message
-- [ ] #4 Long-test regeneration path documented so runner timeouts stop manufacturing stragglers (adequate timeout or detached run for 400/401-class tests)
+- [x] #3 dev.sh straggler remediation re-ruled if implicated: safe kill order/signal (TERM to clients first, never blind -9 in the db container) documented in the BLOCKED-lock message
+- [x] #4 Long-test regeneration path documented so runner timeouts stop manufacturing stragglers (adequate timeout or detached run for 400/401-class tests)
 <!-- AC:END -->
 
 ## Comments
@@ -86,5 +86,11 @@ author: foreman
 created: 2026-07-30 23:00
 ---
 AC#2 CHECKED — CAUSALITY RESOLVED TO THE LIMIT OF EVIDENCE (foreman, 2026-07-31; re-run accepted after independent log verification). THE RE-RUN: 3 trials, 80M-row inserts, real distinct backend PIDs (181/253/322), client kill -9 mid-import, 180s observation each, full docker logs preserved at tmp/agents/tester-188-causality/ BEFORE teardown. FOREMAN VERIFICATION: all four crash markers grep-zero in every log (checked myself); the three log files are MD5-IDENTICAL — one container served all trials and its log gained ZERO lines across all three kills, the strongest form of 'nothing abnormal happened'; per-trial results files consistent (OOM 0→0, rows 0, recovery NO). VERDICT ACCEPTED: the deterministic client-kill→backend-crash mechanism (the abort-path variant) is REFUTED — a killed client produces a clean backend exit, clean rollback, no recovery. RESOLUTION OF THE JULY-14 CAUSALITY, stated honestly: with (b) pgrep-matched-a-backend falsified (comment #1), the deterministic path refuted here, and (a) PID-reuse-twice implausible, the surviving explanation is (c) ENVIRONMENTAL — Docker-VM memory-pressure OOM of the import backend, coincident with the heavy-import cleanup window on a long-running box. Not retroactively provable (that evidence died with the old log filter), but any FUTURE occurrence now self-evidences: the AC#1 floor names victim+signal, and crash-evidence captures the oom_kill counter at the scene. FIDELITY NOTE for the record: the trials killed a HOST-side psql; the July-14 kills were in-container clients — both are clean socket disconnects to the backend, so the refutation of the deterministic path holds across the difference. REMAINING: AC#3 (remediation re-rule: default report-and-wait — orphans self-clear, July-29 evidence; escalation TERM-to-clients-first; never blind -9 — documented in the BLOCKED-lock message) + AC#4 (long-test path doc under tester-owned execution) — dispatched to the mechanic as one build unit; then the 401/402/500 conversions as the acceptance workload.
+---
+
+author: foreman
+created: 2026-07-30 23:04
+---
+CRITERIA 3+4 CHECKED — FINAL BUILD UNIT COMMITTED bd590ebd3 (foreman, 2026-07-31). Line-reviewed in full: text/comments only, guard refusal behavior unchanged, bash -n clean, shellcheck finding-content byte-identical before/after (mechanic used the read-only git-show comparison this time — the stash correction stuck). AC#3: the straggler guard's WHAT-TO-DO now carries the evidence-based ladder — default report-and-wait (orphans self-clear, 2026-07-29 observation; a waiting orphan has never been implicated in a crash), SIGTERM to CLIENT processes only after ~10 min, NEVER blind kill -9 (the July-14 cycles clustered around -9 windows under memory pressure) — with STATBUS-188 cited in the message. One accepted scope extension, mechanic-flagged with justification: check_results_for_nul_corruption's message still said bare 'kill it' while cross-referencing the corrected guard — aligned to point at the same ladder rather than leaving a contradictory second kill instruction standing (remove-wrong-paths). AC#4: the ownership + timeout policy block sits directly above the straggler guard: tester-owned execution (King-ruled 2026-07-30), long regenerations detached or explicitly-sized timeout, with the accurate mechanism note (the host flock releases on process death but its fd never enters the container — why a runner-budget kill manufactures stragglers) and both historical incidents cited. REMAINING, the LAST item on this ticket: the acceptance workload — the three carved-out STATBUS-175 conversions (401, 402, 500) run by the TESTER under the new regime (detached, no runner budget), proving the corrected infrastructure end-to-end: a clean ~28-min 401 regeneration with zero stragglers, zero crash-recovery cycles, and — if anything DOES die — a self-reporting log line. Dispatching now.
 ---
 <!-- COMMENTS:END -->
