@@ -42,10 +42,19 @@ BEGIN;
 CALL test.set_user_from_email('test.admin@statbus.org');
 
 \echo "Setting up Statbus for Norway"
+-- Suppress the verbatim echo of these shared includes. Their content is not
+-- what this test asserts, and echoing it would couple the expected file to
+-- files that churn (any edit to them would break this test's expected
+-- output). Only this test's own queries below contribute to the expected
+-- output. (STATBUS-175: the standard pattern for tests that \i shared files.)
+\o /dev/null
+\set ECHO none
 \i samples/norway/getting-started.sql
 
 \i samples/norway/brreg/create-import-definition-hovedenhet-2024.sql
 \i samples/norway/brreg/create-import-definition-underenhet-2024.sql
+\o
+\set ECHO all
 
 -- Display summary of created definitions
 SELECT slug, name, note, valid_time_from, strategy, valid, validation_error
