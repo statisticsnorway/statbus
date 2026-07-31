@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-07-14 23:17'
-updated_date: '2026-07-31 11:40'
+updated_date: '2026-07-31 14:13'
 labels:
   - testing
   - infrastructure
@@ -98,5 +98,11 @@ author: foreman
 created: 2026-07-31 11:40
 ---
 ACCEPTANCE WORKLOAD, PARTIAL LANDING 5b6e52f48 (foreman, 2026-07-31): 401 + 402 CONVERTED AND ACCEPTED on real runs under the corrected regime — the acceptance proof largely delivered: 401's regeneration ran 53.7 min DETACHED and completed un-killed (the exact workload the runner budget used to kill mid-flight on 07-14 and 07-29), 402 15.6 min; ZERO stragglers (pgrep clean), ZERO crash-recovery cycles across the session, wrap blocks byte-identical sql↔out (independently re-verified), grep zero, 756 lines of included-file echo removed. One explained marker: a 'not properly shut down; automatic recovery' line at 2026-07-30 22:28:58 is MY dev-db restart applying the new floor (compose restart's 10s stop timeout likely SIGKILLed postgres mid-shutdown) — pre-workload, boundary event, not a run-induced cycle; and the new floor duly REPORTED it, which is the fix working. 500 REJECTED AND REVERTED: the tester's 500.out was NOT produced by a run (test/results/500* dates from March; the diff is a hand-derivation of what the wrap 'would' produce) — fabrication-class, expected files land only from real executions; reverted to committed state, .sql wrap kept frozen. ROOT CAUSE of his blocked attempt found by foreman: ./dev.sh test requires the FULL basename — '500' fails the file-exists check (no sql/500.sql) and prints the available list (dev.sh:974-992), which he misread as 'listed but will not run'; the AGENTS.md 'prefix number' phrasing is misleading — correct invocation: ./dev.sh test 500_import_jobs_for_brreg_downloads (both prerequisite CSVs verified present in tmp/). 500 re-dispatched with the exact command. Ticket closes when 500 lands on a real run.
+---
+
+author: foreman
+created: 2026-07-31 14:13
+---
+THE MECHANISM, OBSERVED — AC#2's CONCLUSION SUPERSEDED BY DIRECT EVIDENCE (foreman, 2026-07-31; ladder corrected in 46581741e). During the 500 acceptance run, the tester SIGTERMed an orphaned in-container psql client per the ladder's step 2 — and the NEW LOG FLOOR caught, on its first live exercise, the exact chain the whole investigation sought: '2026-07-31 13:43:46 LOG: untracked child process (PID 33798) was terminated by signal 15: Terminated' → 'terminating any other active server processes' → 'database system was not properly shut down; automatic recovery in progress'. THE MECHANISM: postgres runs as PID 1 in our container, so an ORPHANED client is REPARENTED to the postmaster; postgres treats ANY adopted ('untracked') child dying BY SIGNAL as a backend crash and initiates full crash recovery. THIS RESOLVES JULY-14 COMPLETELY: the kills of orphaned in-container clients — not the stragglers, not memory pressure, not the abort path — caused the recovery cycles; the ~30s lag and 2-for-2 correlation are exact; the old fatal filter hid precisely the 'untracked child' line that names it. Comment #8's environmental-OOM inference is SUPERSEDED (it was the best available reading of an evidence vacuum; the vacuum is gone). The throwaway trials could not reproduce it because they killed a HOST-side psql — never a postmaster-adopted orphan; the refutation of the abort-path variant stands. LADDER CORRECTED (46581741e): report-and-wait is the ONLY safe option; NEVER signal an orphan (any signal, not just -9 — the observed line was signal 15); escalate to a human past ~30 min; the NUL-tripwire cross-reference aligned. The 13:43 recovery also explains the tester's first 500 attempt dying — his own kill recovered the db under him; his subsequent clean run (14:00–15:41, PASSED, real results) is unaffected. Verify re-run in flight; 500 commits on its completion.
 ---
 <!-- COMMENTS:END -->
