@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-07-14 23:17'
-updated_date: '2026-07-30 23:04'
+updated_date: '2026-07-31 11:40'
 labels:
   - testing
   - infrastructure
@@ -92,5 +92,11 @@ author: foreman
 created: 2026-07-30 23:04
 ---
 CRITERIA 3+4 CHECKED — FINAL BUILD UNIT COMMITTED bd590ebd3 (foreman, 2026-07-31). Line-reviewed in full: text/comments only, guard refusal behavior unchanged, bash -n clean, shellcheck finding-content byte-identical before/after (mechanic used the read-only git-show comparison this time — the stash correction stuck). AC#3: the straggler guard's WHAT-TO-DO now carries the evidence-based ladder — default report-and-wait (orphans self-clear, 2026-07-29 observation; a waiting orphan has never been implicated in a crash), SIGTERM to CLIENT processes only after ~10 min, NEVER blind kill -9 (the July-14 cycles clustered around -9 windows under memory pressure) — with STATBUS-188 cited in the message. One accepted scope extension, mechanic-flagged with justification: check_results_for_nul_corruption's message still said bare 'kill it' while cross-referencing the corrected guard — aligned to point at the same ladder rather than leaving a contradictory second kill instruction standing (remove-wrong-paths). AC#4: the ownership + timeout policy block sits directly above the straggler guard: tester-owned execution (King-ruled 2026-07-30), long regenerations detached or explicitly-sized timeout, with the accurate mechanism note (the host flock releases on process death but its fd never enters the container — why a runner-budget kill manufactures stragglers) and both historical incidents cited. REMAINING, the LAST item on this ticket: the acceptance workload — the three carved-out STATBUS-175 conversions (401, 402, 500) run by the TESTER under the new regime (detached, no runner budget), proving the corrected infrastructure end-to-end: a clean ~28-min 401 regeneration with zero stragglers, zero crash-recovery cycles, and — if anything DOES die — a self-reporting log line. Dispatching now.
+---
+
+author: foreman
+created: 2026-07-31 11:40
+---
+ACCEPTANCE WORKLOAD, PARTIAL LANDING 5b6e52f48 (foreman, 2026-07-31): 401 + 402 CONVERTED AND ACCEPTED on real runs under the corrected regime — the acceptance proof largely delivered: 401's regeneration ran 53.7 min DETACHED and completed un-killed (the exact workload the runner budget used to kill mid-flight on 07-14 and 07-29), 402 15.6 min; ZERO stragglers (pgrep clean), ZERO crash-recovery cycles across the session, wrap blocks byte-identical sql↔out (independently re-verified), grep zero, 756 lines of included-file echo removed. One explained marker: a 'not properly shut down; automatic recovery' line at 2026-07-30 22:28:58 is MY dev-db restart applying the new floor (compose restart's 10s stop timeout likely SIGKILLed postgres mid-shutdown) — pre-workload, boundary event, not a run-induced cycle; and the new floor duly REPORTED it, which is the fix working. 500 REJECTED AND REVERTED: the tester's 500.out was NOT produced by a run (test/results/500* dates from March; the diff is a hand-derivation of what the wrap 'would' produce) — fabrication-class, expected files land only from real executions; reverted to committed state, .sql wrap kept frozen. ROOT CAUSE of his blocked attempt found by foreman: ./dev.sh test requires the FULL basename — '500' fails the file-exists check (no sql/500.sql) and prints the available list (dev.sh:974-992), which he misread as 'listed but will not run'; the AGENTS.md 'prefix number' phrasing is misleading — correct invocation: ./dev.sh test 500_import_jobs_for_brreg_downloads (both prerequisite CSVs verified present in tmp/). 500 re-dispatched with the exact command. Ticket closes when 500 lands on a real run.
 ---
 <!-- COMMENTS:END -->
