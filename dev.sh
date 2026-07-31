@@ -539,18 +539,23 @@ from either side (STATBUS-158).
 Straggler process(es) found in the db container:
 $_straggler
 
-WHAT TO DO (STATBUS-188 evidence-based ladder — replaces blind kill -9):
-  1. DEFAULT: report this and WAIT. An orphaned pg_regress/psql client has
-     self-cleared within minutes every time this was directly observed
-     (2026-07-29) — a waiting orphan has never been implicated in a crash.
+WHAT TO DO (STATBUS-188 evidence-based rule — observed mechanism, not caution):
+  1. Report this and WAIT. Waiting is not the safe option — it is the ONLY
+     safe option. An orphaned pg_regress/psql client self-clears within
+     minutes every time this was directly observed (2026-07-29, 2026-07-31),
+     and a self-clearing orphan exits cleanly — no recovery follows.
      Re-check with:
        docker compose exec db pgrep -af 'pg_regress|HIDE_TABLEAM'
-  2. If STILL present after ~10 minutes: SIGTERM the CLIENT processes only
-     (never -9 first) and let them exit cleanly:
-       docker compose exec db kill -TERM $_pids
-  3. NEVER blind kill -9 in the db container. The 2026-07-14 postgres
-     crash-recovery cycles clustered around kill -9 remediation windows
-     under memory pressure, and -9 denies the client its own cleanup path.
+  2. NEVER signal these processes — not SIGTERM, not -9, nothing. Postgres
+     runs as PID 1 in this container, so an ORPHANED client is REPARENTED
+     to the postmaster, and postgres treats ANY adopted child that dies by
+     signal as a backend crash: it kills every live session and runs full
+     crash recovery. OBSERVED 2026-07-31 13:43 ('untracked child process
+     (PID 33798) was terminated by signal 15' -> 'terminating any other
+     active server processes' -> recovery) — and this same mechanism is the
+     resolved cause of the 2026-07-14 crash-recovery cycles (STATBUS-188).
+  3. If an orphan genuinely persists past ~30 minutes, escalate to a human —
+     do not signal it yourself.
 
 Hook source: dev.sh check_no_straggler_pg_regress
 ═══════════════════════════════════════════════════════════════════════
@@ -602,11 +607,11 @@ $_corrupted
 WHAT TO DO:
   - Check for a straggler right now:
       docker compose exec db pgrep -af 'pg_regress|HIDE_TABLEAM'
-  - If found, follow the SAME evidence-based ladder as the straggler guard
-    (STATBUS-188: default report-and-wait, SIGTERM the client only if still
-    stuck after ~10min, never blind kill -9 — see check_no_straggler_pg_regress
-    above), THEN re-run this test — do not trust its diff, it was never a
-    real second failure.
+  - If found, follow the SAME rule as the straggler guard (STATBUS-188:
+    report and WAIT — never signal an orphan; it is reparented to the
+    PID-1 postmaster and a signal death triggers full crash recovery — see
+    check_no_straggler_pg_regress above), THEN re-run this test — do not
+    trust its diff, it was never a real second failure.
 
 Hook source: dev.sh check_results_for_nul_corruption
 ═══════════════════════════════════════════════════════════════════════
