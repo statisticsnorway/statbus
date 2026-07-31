@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-07-14 23:17'
-updated_date: '2026-07-31 14:13'
+updated_date: '2026-07-31 16:16'
 labels:
   - testing
   - infrastructure
@@ -104,5 +104,11 @@ author: foreman
 created: 2026-07-31 14:13
 ---
 THE MECHANISM, OBSERVED — AC#2's CONCLUSION SUPERSEDED BY DIRECT EVIDENCE (foreman, 2026-07-31; ladder corrected in 46581741e). During the 500 acceptance run, the tester SIGTERMed an orphaned in-container psql client per the ladder's step 2 — and the NEW LOG FLOOR caught, on its first live exercise, the exact chain the whole investigation sought: '2026-07-31 13:43:46 LOG: untracked child process (PID 33798) was terminated by signal 15: Terminated' → 'terminating any other active server processes' → 'database system was not properly shut down; automatic recovery in progress'. THE MECHANISM: postgres runs as PID 1 in our container, so an ORPHANED client is REPARENTED to the postmaster; postgres treats ANY adopted ('untracked') child dying BY SIGNAL as a backend crash and initiates full crash recovery. THIS RESOLVES JULY-14 COMPLETELY: the kills of orphaned in-container clients — not the stragglers, not memory pressure, not the abort path — caused the recovery cycles; the ~30s lag and 2-for-2 correlation are exact; the old fatal filter hid precisely the 'untracked child' line that names it. Comment #8's environmental-OOM inference is SUPERSEDED (it was the best available reading of an evidence vacuum; the vacuum is gone). The throwaway trials could not reproduce it because they killed a HOST-side psql — never a postmaster-adopted orphan; the refutation of the abort-path variant stands. LADDER CORRECTED (46581741e): report-and-wait is the ONLY safe option; NEVER signal an orphan (any signal, not just -9 — the observed line was signal 15); escalate to a human past ~30 min; the NUL-tripwire cross-reference aligned. The 13:43 recovery also explains the tester's first 500 attempt dying — his own kill recovered the db under him; his subsequent clean run (14:00–15:41, PASSED, real results) is unaffected. Verify re-run in flight; 500 commits on its completion.
+---
+
+author: foreman
+created: 2026-07-31 16:16
+---
+500 VERIFY RE-RUN: SLOW, NOT STUCK — allowed to complete (foreman, 2026-07-31 evening). The re-run's import progresses at ~1,600 rows/min (504,000/1,134,476 at sampling; 8k rows over a decisive 5-min two-point sample) vs the original run's ~18,000 rows/min — ~11× slower, backend active on CPU, no lock waits, zero crash markers. Both runs clone the same template, so the differential is ENVIRONMENTAL runtime state, not data: the fast run rode a freshly-recovered postgres (the 13:43 crash recovery restarted the instance minutes before it began); the slow run started immediately after the fast run's 101-min import on a warm, memory-pressured instance — the same macOS-Docker memory-pressure pattern implicated on July-14. DECISION: let it run to completion (isolated test db, harms nothing; killing it would both violate the no-signal rule and discard the only live specimen); overnight watcher armed; 500 commits on its green. OBSERVATION RECORDED for a possible follow-up ticket, not ruled a defect: an 11× import-throughput swing on identical data depending on instance warmth/pressure is worth a look under the performance-is-paramount lens — an NSO's production import hits exactly this variance class; candidate future investigation, NOT part of this ticket's scope.
 ---
 <!-- COMMENTS:END -->
