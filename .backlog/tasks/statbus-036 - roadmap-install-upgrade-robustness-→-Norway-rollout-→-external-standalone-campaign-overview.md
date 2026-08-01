@@ -3,10 +3,11 @@ id: STATBUS-036
 title: >-
   roadmap: install/upgrade robustness → Norway rollout → external standalone
   (campaign overview)
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@foreman'
 created_date: '2026-06-12 07:59'
-updated_date: '2026-07-29 10:59'
+updated_date: '2026-08-01 10:44'
 labels:
   - roadmap
   - install-recovery

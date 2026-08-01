@@ -3,11 +3,11 @@ id: STATBUS-188
 title: >-
   dev-db-crash-cycles: straggler kill -9 remediation correlates with postmaster
   crash recovery; crash-notice log lines missing
-status: In Progress
+status: Done
 assignee:
   - '@mechanic'
 created_date: '2026-07-14 23:17'
-updated_date: '2026-07-31 16:16'
+updated_date: '2026-08-01 10:44'
 labels:
   - testing
   - infrastructure
@@ -111,4 +111,16 @@ created: 2026-07-31 16:16
 ---
 500 VERIFY RE-RUN: SLOW, NOT STUCK — allowed to complete (foreman, 2026-07-31 evening). The re-run's import progresses at ~1,600 rows/min (504,000/1,134,476 at sampling; 8k rows over a decisive 5-min two-point sample) vs the original run's ~18,000 rows/min — ~11× slower, backend active on CPU, no lock waits, zero crash markers. Both runs clone the same template, so the differential is ENVIRONMENTAL runtime state, not data: the fast run rode a freshly-recovered postgres (the 13:43 crash recovery restarted the instance minutes before it began); the slow run started immediately after the fast run's 101-min import on a warm, memory-pressured instance — the same macOS-Docker memory-pressure pattern implicated on July-14. DECISION: let it run to completion (isolated test db, harms nothing; killing it would both violate the no-signal rule and discard the only live specimen); overnight watcher armed; 500 commits on its green. OBSERVATION RECORDED for a possible follow-up ticket, not ruled a defect: an 11× import-throughput swing on identical data depending on instance warmth/pressure is worth a look under the performance-is-paramount lens — an NSO's production import hits exactly this variance class; candidate future investigation, NOT part of this ticket's scope.
 ---
+
+author: foreman
+created: 2026-08-01 10:44
+---
+CLOSED DONE (foreman, 2026-08-01, on the King's test-500 diagnosis). The 500 verify re-run's true nature, King-diagnosed: the test drives the ENTIRE ~2M-row import in ONE transaction (a single CALL worker.process_tasks) — 'crisis level' — and its worker.pause('1 hour') is shorter than the test's own healthy runtime. The 21-hour single transaction was aborted SERVER-SIDE per the no-signal rule (pg_cancel_backend 46797 → psql errored → pg_regress exited on its own → ZERO crash markers → 17GB test db dropped) — the safe-abort path proven: cancel the QUERY, never signal the process. The King's own ./dev.sh test attempt was correctly BLOCKED by the straggler guard naming the live run — the guard and the new message working as shipped. DISPOSITION: 500's conversion is RE-CARVED to STATBUS-198 (test-500-one-transaction: multi-transaction redesign per test_concurrent_worker.sh + right-sized pause; the frozen 175 wrap rides it). 188's own scope is COMPLETE: all four criteria checked, the observability fix live fleet-wide, the July-14 mechanism OBSERVED (PID-1 postmaster adopts orphans; signal death → crash recovery), remediation re-ruled to never-signal, tester-owned execution + long-run policy documented, and the acceptance proven by 401 (53.7 min detached, un-killed) + 402 on real runs (5b6e52f48).
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Every postgres crash now names itself, and the July-14 mystery is solved by observation. The evidence hole was our own filter: log_min_messages=fatal discarded exactly the LOG-severity crash notices — raised to 'log' fleet-wide (b39bbf347; production boxes were equally crash-blind). The mechanism, caught live by the new floor on its first exercise: postgres runs as PID 1 in our container, orphaned test clients are REPARENTED to the postmaster, and ANY adopted child dying by signal triggers full crash recovery — the July-14 kills of orphaned clients caused the cycles; stragglers, memory pressure, and the abort path are all exonerated (host-side client kills: 3 trials, clean exits, preserved logs). Shipped: the fatal→log floor, ./dev.sh db crash-evidence (on-demand OOM/dmesg/logs/inspect snapshot), the never-signal-an-orphan remediation rule (safe abort = pg_cancel_backend, proven on a 21-hour runaway), tester-owned test execution + detached long-run policy, and the RED→GREEN visibility probe. Acceptance proven by 401's 53.7-min detached regeneration completing un-killed — the exact workload whose mid-flight kill opened this ticket. 500's conversion re-carved to STATBUS-198 (its single-transaction design is a separate King-diagnosed defect).
+<!-- SECTION:FINAL_SUMMARY:END -->
