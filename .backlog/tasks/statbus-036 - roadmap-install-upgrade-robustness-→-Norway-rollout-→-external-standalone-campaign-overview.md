@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@foreman'
 created_date: '2026-06-12 07:59'
-updated_date: '2026-08-01 10:44'
+updated_date: '2026-08-02 14:49'
 labels:
   - roadmap
   - install-recovery
@@ -166,5 +166,11 @@ author: foreman
 created: 2026-07-28 15:38
 ---
 THE GATE IS SATISFIED (2026-07-28): the King's RC-cut gate — the STATBUS-071 no-fabrication ladder — is FINISHED and 071 is Done. Every rung run-proven: real producers everywhere, both fabrication helpers deleted at zero callers, the structural guard live on every harness invocation, and a bonus the ladder earned — the third completed-writer's read-only-window gap found by the new real-path arc and fixed, so ALL THREE completed writers are serve-proven in the full 192 sense (runs 30308823908, 30369283526, 30372633117). Remaining before Norway-stable: NOTHING but the cut itself — 183's live oracle proves free on the cut's own deploys. THE NEXT MOTION IS CUTTING THE RC, on the King's word.
+---
+
+author: foreman
+created: 2026-08-02 14:49
+---
+RC-CUT READINESS CHECK (foreman, 2026-08-02, on the King's 'is it time to cut?'): premises re-verified instead of trusting the 07-28 'gate satisfied' state. FOUND AND FIXED: the Go Test workflow sat RED on master since 2026-07-29 — NOT a product failure (cli go test ./... green throughout) but the golangci-lint INSTALLER: the lane curled install.sh from upstream MASTER while pinning the binary to v2.12.2; upstream rotated its checksum table and the download failed hash verification. Fix: both script and binary pinned to one tag (go-test.yaml, commit in flight; strict-gating doctrine — fix the lane, never bypass). SECOND PREREQUISITE, named: since the gate ruling, three PRODUCT-SURFACE changes landed that no VM run has exercised — 195 (watchdog heartbeat in the upgrade service), 189 (caddy templates), 188 (postgres log floor, ships in the db image). Per the-run-is-the-only-oracle and the per-scenario stamp design (stamps compose against the RC TAG's commit), the cut commit needs one bundled install-recovery harness dispatch green at that commit. PATH TO CUT: lint lane green (poll in flight) → harness dispatch at the cut commit → stamps green → cut on the King's word. Nothing else pushes back; the board gates nothing (198 is post-cut work; 196 drift gate + 197 non-gating).
 ---
 <!-- COMMENTS:END -->
