@@ -17,10 +17,10 @@ export default function Slot() {
   const primaryEstablishment = hierarchy?.enterprise?.establishment?.find(
     (es: Establishment) => es.primary_for_enterprise
   );
-  const informal =
-    hierarchy &&
-    (!hierarchy.enterprise?.legal_unit ||
-      hierarchy.enterprise.legal_unit.length === 0);
+  const hasLegalUnit =
+    !!hierarchy &&
+    !!hierarchy.enterprise?.legal_unit &&
+    hierarchy.enterprise.legal_unit.length > 0;
   return (
     <HeaderSlot
       id={id}
@@ -28,12 +28,13 @@ export default function Slot() {
       error={error}
       loading={isLoading}
       className={
-        informal
-          ? "border-informal-400 bg-informal-300"
-          : "border-enterprise-200 bg-enterprise-100"
+        hasLegalUnit
+          ? "border-enterprise-200 bg-enterprise-100"
+          : "border-informal-400 bg-informal-300"
       }
       unitType="enterprise"
       unitTypeLabel="Enterprise"
+      hasLegalUnit={hasLegalUnit}
     />
   );
 }
