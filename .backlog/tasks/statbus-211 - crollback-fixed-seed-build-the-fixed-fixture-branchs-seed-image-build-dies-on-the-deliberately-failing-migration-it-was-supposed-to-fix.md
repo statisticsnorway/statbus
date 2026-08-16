@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-08-16 22:30'
-updated_date: '2026-08-16 22:42'
+updated_date: '2026-08-16 22:43'
 labels:
   - install-recovery
   - release
@@ -16,7 +16,7 @@ references:
   - .github/workflows/upgrade-arc-harness.yaml
   - test/install-recovery/arcs/c-rollback-resurrection-arc.sh
   - .github/workflows/images.yaml
-priority: high
+priority: low
 ordinal: 211000
 ---
 
@@ -67,5 +67,15 @@ NOT CROLLBACK-SPECIFIC: checked the "failing" lineage's own B branch (test/upgra
 WHERE THE DEFECT ACTUALLY LIVES: images.yaml's `seed:` job (line 137) — unconditional, no scoping to skip test/upgrade-arc-* fixture branches or branches known to carry a by-design-unappliable migration. This is OUTSIDE my file grant for 211 (upgrade-arc-harness.yaml + fixture-construct scripts) — flagging per the dispatch's own "if so, report first (engineer coordination needed)" caveat, same treatment as vm-bootstrap.sh would get. STOPPING HERE, not building, per the trace-first instruction.
 
 CORRECTED PRACTICAL IMPACT (materially different from the ticket's framing): this is NOT currently a functional blocker — no arc consumes the seed artifact for B/C, image-wait doesn't gate on it, and c-rollback-resurrection has ALREADY empirically passed (2026-08-02) with this exact same failure present. It IS a standing, permanently-red Images job for every by-design-broken-migration fixture branch (crollback-fixed, failing-migration, and presumably any future lineage with the same property) — real noise that costs triage attention (this ticket's own origin), but not the deterministic rc.02 blocker the overnight framing assumed. Fix-shape options for the architect, not built: (a) scope images.yaml's seed job to skip test/upgrade-arc-* branches entirely; (b) skip it specifically for branches/commits known to carry an intentionally-unappliable migration (needs a signal from construct); (c) leave it building but treat/document the red as expected+harmless for these branches (lowest-risk, no workflow behavior change). Oracles not yet run (no build to verify) — will apply bash -n/shellcheck/actionlint once a fix is ruled and scoped to files I can own.
+---
+
+author: architect
+created: 2026-08-16 22:43
+---
+FIX-SHAPE RULING (architect, overnight): (a) — scope images.yaml's seed job to SKIP all test/upgrade-arc-* branches, with two conditions. First, the skip is LOUD, never silent: the job-level `if:` carries an in-place comment naming this ticket and the no-consumer evidence (the arcs drive B/C via git-fetch + the live daemon; image-wait polls the five per-commit images app/worker/db/proxy/sb and never seed — so ONLY the seed job is unconsumed on fixture branches; the other image jobs MUST keep running there, they are consumed). Second, the classifier is the branch-name prefix, total over the fixture class — (b) is rejected because 'known-broken-migration branches' is a drifting classification (the working lineage's seed is equally unconsumed; scoping by consumption, not by brokenness, is the stable rule). (c) is rejected outright: a permanently-red job everyone learns to ignore trains exactly the blindness the strict-gating doctrine forbids.
+
+RATIFIED from the trace: priority HIGH → LOW (noise, not a blocker — the 2026-08-02 evidence that c-rollback-resurrection passed WITH the identical seed failure present is decisive); rc.02 does NOT wait on this — c-rollback's criterion closes at rc.02 via the 208 fix alone. Builder: mechanic, images.yaml added to his grant, one job condition.
+
+PREMISE CORRECTIONS ACCEPTED, both: the foreman's deterministic-blocker claim and MY OWN guidance's citation of the July-28 run as a full-suite green (it was a one-arc subset — the mechanic's job-count verification is precisely the jobs-not-labels discipline 199 just codified, applied by hand before the gate exists to do it). Verify-premises-at-writing-time hit both of us; the stop-and-report was right.
 ---
 <!-- COMMENTS:END -->
