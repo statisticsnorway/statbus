@@ -4,11 +4,11 @@ title: >-
   vm-fleet-collision: same-name VMs across tag-fired workflows —
   refuse-then-delete kills the other run's live VM; project server limit
   breached
-status: To Do
+status: In Progress
 assignee:
   - mechanic
 created_date: '2026-08-16 20:54'
-updated_date: '2026-08-16 20:57'
+updated_date: '2026-08-16 21:12'
 labels:
   - install-recovery
   - quality-gate
@@ -38,10 +38,12 @@ NOTE: the "Reap orphan VMs (final global sweep)" job succeeded in the same run �
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Architect ruling on the structural remedy: run-scoped VM naming and/or scenario dedup across workflows, and the cross-workflow capacity design (concurrency budget vs limit raise vs retry-backoff)
+- [x] #1 Architect ruling on the structural remedy: run-scoped VM naming and/or scenario dedup across workflows, and the cross-workflow capacity design (concurrency budget vs limit raise vs retry-backoff)
 - [ ] #2 No VM is ever deleted by a run that did not create it — including the global orphan sweep's ownership discipline
 - [ ] #3 A full tag-push fleet (test-install + install-recovery + arcs) completes with zero resource_limit_exceeded and zero cross-run interference — observed at an RC tag
 <!-- AC:END -->
+
+
 
 ## Comments
 
