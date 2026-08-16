@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-08-02 14:55'
-updated_date: '2026-08-16 17:57'
+updated_date: '2026-08-16 18:08'
 labels:
   - release
   - ci
@@ -30,11 +30,11 @@ FIX SHAPE: add WorkflowUpgradeArcHarness to the stable gate chain in release.go 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 release stable gates on the upgrade-arc harness at the RC's commit, same shape as the install-recovery gate, with a loud SKIP_UPGRADE_ARCS bypass
-- [ ] #2 A red or missing arc run at the RC commit blocks the stable promotion with an actionable message (trigger command + watch URL)
+- [x] #1 release stable gates on the upgrade-arc harness at the RC's commit, same shape as the install-recovery gate, with a loud SKIP_UPGRADE_ARCS bypass
+- [x] #2 A red or missing arc run at the RC commit blocks the stable promotion with an actionable message (trigger command + watch URL)
 - [ ] #3 Proven by observation: one stable-promotion attempt shown blocked (or green) by this gate on a real RC
-- [ ] #4 Commit-scope oracles gate at the PRERELEASE preflight (go-test, app-build-lint, test-hardening, fast-tests, test-install join the existing pg_regress + images); the stable gate no longer re-owns them and prints that it rides the RC cut's gating
-- [ ] #5 The arc gate is path-sensitive: an RC whose diff touches no upgrade-sensitive path rides the newest FULL-SUITE green LOUDLY (inherited tag + the path list printed); a sensitive change with no covering FULL-SUITE green blocks with the dispatch remedy
+- [x] #4 Commit-scope oracles gate at the PRERELEASE preflight (go-test, app-build-lint, test-hardening, fast-tests, test-install join the existing pg_regress + images); the stable gate no longer re-owns them and prints that it rides the RC cut's gating
+- [x] #5 The arc gate is path-sensitive: an RC whose diff touches no upgrade-sensitive path rides the newest FULL-SUITE green LOUDLY (inherited tag + the path list printed); a sensitive change with no covering FULL-SUITE green blocks with the dispatch remedy
 <!-- AC:END -->
 
 ## Comments
@@ -131,5 +131,21 @@ author: foreman
 created: 2026-08-16 17:57
 ---
 REVIEW RETURNED FOR COMPLETION (architect, 2026-08-16; durable copy — mechanic works from THIS comment): LOGIC APPROVED across the whole freeze — D1 re-map, jobs-completeness gate, commit-accurate scenario domain, decide job, sensitivity file with matched-files printing, first-ever-RC-treated-as-sensitive fail-safe, the .gitignore un-ignore, and the pre-approved run-name omission all read to the letter or better. RETURNED on exactly TWO MISSING UNIT ORACLES from the comment-#3 set (test-writing only, zero open design questions): (1) the completeness-check unit — workflowJobsCompleteAtCommit already has its testable apiBase seam; add the httptest-family test covering the three arms: complete, missing-jobs, and pagination-overflow (total_count > returned jobs must FAIL loudly, never truncate); (2) the walk-classification unit — diffTouchesSensitivePath: prefix matching semantics + matched-files reporting. PRIORITY: this return comes AHEAD of 203 (immediate architect turnaround promised; he line-reads the walk on the re-freeze). Add the two units, re-freeze, report to the foreman with test names + RED-first evidence where the arms allow it.
+---
+
+author: architect
+created: 2026-08-16 18:08
+---
+FINAL REVIEW — APPROVED (architect, 2026-08-16; re-freeze with both units, line-read of checkUpgradeArcHarnessGate complete). The walk is correct end to end: green-but-incomplete falls through to the ride walk (an incomplete green is not proof, but an older full green may still cover); pending/failed/unknown block with actionable remedies; the rcTag-not-found fallback walking the whole list is logically sound (the diff comparison is endpoint-based and direction-agnostic, so even a newer anchor rides only when nothing sensitive differs); per-candidate API/resolve failures skip — they can deny a ride but never grant a pass; the domain is computed at each CANDIDATE's own commit (its suite proved its own arc set — correct, not an oversight).
+
+ONE COMMENT NIT, recorded for the next touch (behavior fine, wording overclaims): the early-break comment asserts a sensitive change since the newest full-suite green is 'necessarily also within every OLDER candidate's (bigger) diff range' — not strictly true under reverts (a sensitive file changed after the newest anchor and later reverted to an older anchor's exact state makes the OLDER endpoint-diff clean while the newer one shows it). The BEHAVIOR is right anyway — breaking early is a conservative block, never a false green; at worst it demands a fresh full run in a rare byte-revert edge. The comment should say 'deliberately conservative' rather than 'necessarily' so nobody later relies on the false claim to 'optimize' the walk. Next-touch fix, not a re-freeze.
+
+The two returned units landed exactly to spec (completeness: complete / missing-with-order / pagination-overflow with a genuinely non-vacuous err assertion; classifier: matched-files exactness, negative arm, and the containment-contract pin so the substring semantics cannot be silently narrowed to HasPrefix). The mechanic's own broken-fixture catch ('not-ops-related' lacking the 'ops/' substring, found by character-level RED tracing) is the discipline working. Criteria 1/2/4/5 close code-side on the foreman's commit; AC#3 and the observation arms of #4/#5 ride the next real cut and promotion, as ruled — the run remains the only oracle.
+---
+
+author: foreman
+created: 2026-08-16 18:08
+---
+COMMITTED f97281ac2 (foreman, 2026-08-16; architect final approval in comment #9 after the walk line-read — the two returned units landed to spec, executed GREEN by the foreman: both new oracles plus the full internal/release and cmd packages). Ten files, 987 insertions / 78 deletions. Criteria 1, 2, 4, 5 CHECKED code-side: the arc harness is a codified stable gate with the loud SKIP_UPGRADE_ARCS bypass and the block-with-remedy arm; commit-scope oracles gate at the prerelease preflight (app-build-lint gated for the first time anywhere) with stable riding the cut's gating; the gate is path-sensitive with the loud RIDES line naming the inherited tag and the checked-in list. AC#3 (one real stable-promotion attempt observed through the gate) stays open — it rides the next promotion, as does the AC#4/#5 observation arms' live half (a real cut refusing-or-passing with the moved gates printed; a real RIDE on a doc-only RC). The architect's comment-wording nit (the early-break 'necessarily' overclaim — behavior correct, wording conservative-not-necessary) is recorded for the next touch of release.go, not this commit. FROM THE NEXT CUT ONWARD: the tag-push trigger fires the arc suite automatically and the manual-dispatch era ends. The mechanic's lane is now clear; 204 remains queued behind the engineer's 197.
 ---
 <!-- COMMENTS:END -->
