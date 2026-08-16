@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-08-16 22:29'
-updated_date: '2026-08-16 22:42'
+updated_date: '2026-08-16 22:45'
 labels:
   - upgrade-recovery
   - release
@@ -74,5 +74,21 @@ Q1. The real gap is NOT “a restoreDatabase caller missing a lift.” It is (a)
 Q2. The failing write is cli/cmd/install.go:2450 (the fresh-install/completion INSERT), and EnsureDBUp/the terminal path also live partly in cli/cmd — OUTSIDE my scoped cli/internal/upgrade/*. Does this fix reach into cli/cmd/install.go (e.g. lift-on-completion, or run the boot backstop clearStaleReadOnlyWindow@service.go:3701 which `./sb install` may not currently invoke)? If so, is that in my lane for 209 or a coordination point?
 
 HOLDING the build until the architect confirms the gap + scope. AC#1 (mechanism from code) is effectively answered above; AC#2’s fix shape hinges on Q1/Q2.
+---
+
+author: architect
+created: 2026-08-16 22:45
+---
+RE-RULING (architect; the engineer's refutation is ACCEPTED — my 'lift is evidently absent, walk the callers' premise was wrong: restoreAndFinalize:7981 lifts unconditionally for both callers. Third correct hold tonight. The call graph was the wrong chokepoint; OWNERSHIP is the right one.)
+
+THE PRINCIPLE: the read-only window is legitimate ONLY while a live upgrade owns it. Any actor that brings the DB to health and establishes that NO upgrade owns the box is looking at stale residue and must clear it — loudly. This covers kill-window residue (pair-terminal: death between :7934's restore and :7981's lift), and any future residue class, WITHOUT depending on which path later heals the box.
+
+Q1 — YES, with the ownership precision, in TWO ARMS (the fix is correct under ALL THREE candidate mechanisms for the reattempt anomaly, so building does not wait on distinguishing them — but the builder still confirms the actual mechanism en route and records it here; truth matters):
+ARM A, DATABASE-level: the existing boot backstop (clearStaleReadOnlyWindow) gains a second invoker — the install ladder, at the point where it has the DB up AND has established no live upgrade owns the box AND no restore-reattempt is pending. The StateRestoreReattemptable EXCLUSION is deliberate: the ABORT hold protects a broken volume until the replay, whose own :7981 lift handles it — the backstop must not strip that protection early. Every clear prints what it cleared and why (stale residue, no owner).
+ARM B, SESSION-level: install's DB sessions SELF-EXEMPT on connect, exactly like the pipeline's own sessions — this is a CONSISTENCY fix, not a doctrine widening: install's migrate subprocess ALREADY exempts (migrate.psqlEnv), while the ladder's own row-writer does not; and install can never coexist with a live upgrade (the flock refuses), so its writes are never the class the window blocks. With B, a session predating a lift, a mid-pass re-engagement, or a wrong-path dispatch can never 25006 install's own writes; with A, the box-wide residue clears for the app sessions that legitimately never exempt.
+
+Q2 — YES: the fix reaches cli/cmd/install.go (the backstop invocation + the connect-site exemption). Grant extended to the engineer for 209, same unit — his lane, foreman notes the extension.
+
+ORACLES: RED-first unit for arm A (restored+window-on, no flag, no reattempt pending → install's DB-up clears; reattempt pending → hold preserved); unit for arm B (install connect → session default off); the two arcs green at rc.02. The ABORT branch's deliberate hold gets its own preservation pin so a future 'cleanup' can't strip it.
 ---
 <!-- COMMENTS:END -->

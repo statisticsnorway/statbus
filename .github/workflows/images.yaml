@@ -145,6 +145,31 @@ jobs:
     #   - multi-context — needs the migrations dir + the statbus-sb image;
     #   - ordered AFTER the sb image manifest exists (statbus-sb:<sha> is pulled
     #     as a build-context).
+    #
+    # STATBUS-211: SKIPPED for test/upgrade-arc-* fixture branches (the `if:`
+    # below) — LOUD, not silent (the job still appears in the run, shown
+    # skipped, rather than vanishing). The upgrade-arc-harness construct step
+    # (test/install-recovery/lib/upgrade-target.sh) builds several lineages
+    # whose HEAD commit carries a migration that is INTENTIONALLY,
+    # PERMANENTLY unappliable by design — e.g. crollback's C branch (the
+    # entire point of "C-rollback" is that C's migration RAISEs and the
+    # daemon rolls it back onto B) and failing's B branch (the deliberate
+    # RAISE that drives its own rollback story). `sb db seed build` fully
+    # migrates a database as part of building this artifact, so it can never
+    # succeed on those branches — not a bug in construct or in the seed
+    # builder, a category mismatch: this job was never buildable there.
+    #
+    # Verified (STATBUS-211 trace) that skipping it costs nothing: no arc
+    # consumes the seed artifact for its B or C leg — both are driven via
+    # `git fetch` + the LIVE upgrade daemon (register/schedule), never a
+    # Docker image pull. upgrade-arc-harness.yaml's image-wait gate polls
+    # only `app worker db proxy sb` (never `seed`) before any arc is allowed
+    # to start. Classified by CONSUMPTION, not by which branches happen to
+    # have a broken migration today (architect ruling, STATBUS-211 comment
+    # #3) — the working lineage's seed is equally unconsumed despite
+    # building cleanly, so the skip is unconditional for the whole
+    # test/upgrade-arc-* prefix, not just the branches currently red.
+    if: ${{ !startsWith(github.ref_name, 'test/upgrade-arc-') }}
     needs: [describe, manifest]
     runs-on: ubuntu-24.04
     steps:
