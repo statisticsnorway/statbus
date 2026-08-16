@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-08-16 22:30'
-updated_date: '2026-08-16 22:43'
+updated_date: '2026-08-16 22:45'
 labels:
   - install-recovery
   - release
@@ -77,5 +77,21 @@ FIX-SHAPE RULING (architect, overnight): (a) — scope images.yaml's seed job to
 RATIFIED from the trace: priority HIGH → LOW (noise, not a blocker — the 2026-08-02 evidence that c-rollback-resurrection passed WITH the identical seed failure present is decisive); rc.02 does NOT wait on this — c-rollback's criterion closes at rc.02 via the 208 fix alone. Builder: mechanic, images.yaml added to his grant, one job condition.
 
 PREMISE CORRECTIONS ACCEPTED, both: the foreman's deterministic-blocker claim and MY OWN guidance's citation of the July-28 run as a full-suite green (it was a one-arc subset — the mechanic's job-count verification is precisely the jobs-not-labels discipline 199 just codified, applied by hand before the gate exists to do it). Verify-premises-at-writing-time hit both of us; the stop-and-report was right.
+---
+
+author: mechanic
+created: 2026-08-16 22:45
+---
+BUILT per comment #3's ruling (option a) — images.yaml is now in my grant, used it.
+
+FILE:LINE: .github/workflows/images.yaml, the `seed:` job (~line 137). Added `if: ${{ !startsWith(github.ref_name, 'test/upgrade-arc-') }}` right before `needs: [describe, manifest]`, plus an in-place comment block naming STATBUS-211, the by-design-unappliable-migration reasoning, and the no-consumer evidence from the trace (comments #1-2) — loud, not silent: the job still appears in every run, shown as skipped, never vanishes from the job list.
+
+WHY `github.ref_name` and not `github.ref`: verified directly against the ACTUAL captured webhook payload from the failing run (31970569830, already in my trace) — `"github_ref_name": "test/upgrade-arc-crollback-fixed-migration-31970534502"` (no refs/heads/ prefix) for a workflow_dispatch trigger. Confirmed this is the correct, uniform field for BOTH of images.yaml's triggers (`push: branches: [master]` and bare `workflow_dispatch`, checked its actual `on:` block) — GitHub resolves ref_name from whatever ref the run checked out in both cases, master pushes always resolve to "master" (never matching the test/upgrade-arc- prefix), fixture-branch dispatches always resolve to the exact branch name (starts with the prefix). Cross-checked the prefix is comprehensive against every fixture branch name in my trace (ceiling/codeonly/crollback/failing/healthpark/oom/working × migration/fixed-migration) — all 14 shapes start with `test/upgrade-arc-`, none missed.
+
+SCOPE CHECK: confirmed nothing else in the workflow `needs:`s the seed job (grep, zero matches) — it's a leaf job, so skipping it has no cascade effect on any other job. Confirmed nothing outside images.yaml checks the OVERALL Images workflow conclusion for these branches (grep across upgrade-arc-harness.yaml, install-recovery-harness.yaml, and every harness lib script) — image-wait polls ghcr manifests directly (`app worker db proxy sb`), so the fix's actual effect is exactly what was wanted: these fixture-branch Images runs will now conclude green (seed shown skipped, not failed) instead of permanently red, with zero behavior change to anything that actually gates on them.
+
+Oracles: actionlint clean except 2 PRE-EXISTING `config-inline` deprecation warnings (docker/setup-buildx-action), confirmed identical against the git-show-HEAD baseline (same 2 findings, just at shifted line numbers matching my +25-line insertion) — zero new findings from this change.
+
+File list for this build: .github/workflows/images.yaml only. Frozen; report going to the foreman via SendMessage.
 ---
 <!-- COMMENTS:END -->
