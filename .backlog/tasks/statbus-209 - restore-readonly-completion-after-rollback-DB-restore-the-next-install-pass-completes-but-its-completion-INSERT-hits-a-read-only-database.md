@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-08-16 22:29'
-updated_date: '2026-08-16 22:34'
+updated_date: '2026-08-16 22:42'
 labels:
   - upgrade-recovery
   - release
@@ -54,5 +54,25 @@ THE FIX — THE RESTORE OWNS THE LIFT (chokepoint-owns-invariant, the 200/204 sh
 REJECTED: lane (c), a blanket lift in post_restore.sql — post_restore runs on EVERY migrate up including inside an ACTIVE upgrade window; a blanket lift there would tear down the very protection mid-upgrade. The lift belongs solely to restore-completion.
 
 SEVERITY CONFIRMED as filed: this is data-plane (a restored box silently refusing all writes), and the fact it surfaced as a LOUD insert failure instead of silence is the 197-era invariant working. ORACLES: RED-first unit on the replay path (restore → health → window state read must be OFF); both arcs green at rc.02; the exemption discipline untouched (pipeline sessions still self-exempt — no widening).
+---
+
+author: engineer
+created: 2026-08-16 22:42
+---
+BUILD-TIME FINDINGS (engineer byte-walk on current HEAD, 2026-08-17) — the ruled mechanism ("route all restoreDatabase callers through one restore→health→windowOff helper") appears LARGELY ALREADY SATISFIED, so before building I need the architect to confirm the true gap. Details:
+
+1. restoreDatabase (Service method) has exactly TWO non-test callers: service.go:7904 (inside restoreAndFinalize) and service.go:8335 (the rollback git-restore ABORT branch, which DELIBERATELY holds read-only ON — degraded box). restoreAndFinalize is the SHARED restore tail for BOTH d.rollback (call @8453) AND ReattemptRestore / the STATBUS-111 replay (call @8184).
+
+2. restoreAndFinalize ALREADY LIFTS at service.go:7981 — `d.terminalExec(windowOffSQL)` with the ROLLBACK_READ_ONLY_WINDOW_LIFTED escalation — UNCONDITIONALLY, right after waitForDBHealth(7953)+reconnect(7958)+setMaintenance(7963), and BEFORE the degraded/failed branch (8008). So both callers already route through a lift. This contradicts “the lift is evidently absent.”
+
+3. WHY THE ARCS STILL FAIL (two different mechanisms, same 25006 signature):
+   • rollback-pair-terminal: the C9 kill site (killed-by-system-during-builtin-rollback, service.go:7934) sits BETWEEN restoreDatabase(7904) and the lift(7981). Dispatches 2+3 die there → the DB is restored (read-only ALTER captured in the snapshot) but the lift NEVER executes. The 4th (clean) dispatch fires rollbackResumeIsTerminal (restore-broke terminal) with NO third restore — so it never reaches restoreDatabase/7981 — brings the DB up via EnsureDBUp(service.go:1943), and the install completes → the completion INSERT (cli/cmd/install.go:2450) is the FIRST write → 25006.
+   • restore-broke-reattempt phase(i): the 4th dispatch fires rollbackResumeIsTerminal THEN re-detects StateRestoreReattemptable and replays via ReattemptRestore → restoreAndFinalize → the 7981 lift SHOULD run — yet the install still hits 25006 at completion. So on that path the 7981 lift is either not running or does not stick to the later install-completion session.
+
+OPEN QUESTIONS (build shape depends on these):
+Q1. The real gap is NOT “a restoreDatabase caller missing a lift.” It is (a) the restore-broke-TERMINAL path (rollbackResumeIsTerminal, 4th dispatch) — no restoreDatabase call, so OUTSIDE “walk all restoreDatabase callers” — which brings a previously-restored (read-only) DB to health but never lifts; and (b) the reattempt’s lift not reaching the install completion. Should the helper key on “wherever a restored DB reaches health” (covering the terminal path + the install-completion boundary), rather than “at each restoreDatabase call”?
+Q2. The failing write is cli/cmd/install.go:2450 (the fresh-install/completion INSERT), and EnsureDBUp/the terminal path also live partly in cli/cmd — OUTSIDE my scoped cli/internal/upgrade/*. Does this fix reach into cli/cmd/install.go (e.g. lift-on-completion, or run the boot backstop clearStaleReadOnlyWindow@service.go:3701 which `./sb install` may not currently invoke)? If so, is that in my lane for 209 or a coordination point?
+
+HOLDING the build until the architect confirms the gap + scope. AC#1 (mechanism from code) is effectively answered above; AC#2’s fix shape hinges on Q1/Q2.
 ---
 <!-- COMMENTS:END -->
