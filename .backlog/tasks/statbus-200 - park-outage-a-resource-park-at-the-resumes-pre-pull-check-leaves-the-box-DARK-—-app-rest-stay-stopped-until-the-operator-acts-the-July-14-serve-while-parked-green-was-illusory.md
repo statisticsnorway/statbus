@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-02 19:10'
-updated_date: '2026-08-16 14:42'
+updated_date: '2026-08-16 17:55'
 labels:
   - upgrade
   - recovery
@@ -98,5 +98,11 @@ author: foreman
 created: 2026-08-16 14:42
 ---
 BUILT + FROZEN, foreman-verified (2026-08-16; architect frozen-diff review queued behind the cut window). Two files: service.go + park_service_recovery_test.go. All four rulings realized: single chokepoint (parkAtTarget delegates through parkForDeterministicFailure — one parkServiceRecovery call after the park write covers all three sites, idempotent so a next-boot re-entry completes a crash-interrupted restore); SOURCE-IDENTITY era guard (db_max via the teardown-immune read — no queryConn dependency at the pre-reconnect park — vs the source sha's migration max via git ls-tree, NO checkout; permit iff equal, every anomaly REFUSES toward dark-behind-maintenance); restore = rollback tail minus restoreDatabase, window lifted only after health; appendParkNarrative narrative-only under recovery_parked_at IS NOT NULL, never assigns the timestamp — parkUpgrade stays sole writer, 196 gate green with token count exactly 1. Foreman re-ran: package build+vet, all three RED-first oracles PASS (the era unit would have gone RED on the withdrawn HasPending design), drift gate PASS. Honest flags recorded: pre-existing env-dependent DB-integration test failure (missing generated test .env — routes to the tester); AC#2's VM proof (unchanged un-park arc, honest probe) rides the post-commit dispatch. Commit follows architect review after the cut window.
+---
+
+author: foreman
+created: 2026-08-16 17:55
+---
+COMMITTED b47a2bce9 (foreman, 2026-08-16; architect approved from the freeze snapshot, cut window closed with byte-identical restore first). AC#1/#3/#4's code side is landed: the chokepoint helper after every park write, the source-identity era guard refusing every anomaly toward dark-behind-maintenance, the narrative-only failure append, the idempotent re-entry. TICKET STAYS OPEN on its run oracle: AC#2 — the UNCHANGED un-park-to-completion arc green on a real VM with the honest probe — rides the next arc-suite dispatch (the King's cut tag, or the manual dispatch that follows it). The architect's one review finding is filed as STATBUS-204 (the two budget-park sites still bypass the helper — same class, rarer trigger; queued after 197); his non-blocking naming note (terminalUpdate used for SELECTs → a later rename like terminalQueryRow) rides any future pass. 197 dispatches to the engineer now on the freed service.go baseline.
 ---
 <!-- COMMENTS:END -->
