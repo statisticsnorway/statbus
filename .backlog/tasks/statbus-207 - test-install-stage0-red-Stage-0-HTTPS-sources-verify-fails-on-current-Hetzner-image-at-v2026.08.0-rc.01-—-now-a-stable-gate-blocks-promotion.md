@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-08-16 20:38'
-updated_date: '2026-08-16 21:07'
+updated_date: '2026-08-16 21:10'
 labels:
   - release
   - quality-gate
@@ -155,5 +155,27 @@ created: 2026-08-16 21:07
 REVIEW VERDICT: three of four pieces APPROVED as frozen (hcloud helper, ownership guard, verify-aggregation — all to spec). RETURNED on ONE blocking precision defect in piece 1: the http-detection greps (:418, :430) and the goal-verify (:454) are COMMENT-BLIND — they match 'http://' anywhere, and stock Ubuntu/cloud-init sources files routinely carry comment lines with http:// links ('# See http://help.ubuntu.com…', commented-out deb entries). Ghost-red story on a fully-hardened image: all real URIs HTTPS → detection trips on a comment → rewrite runs, changes nothing → verify trips on the same comment → aggregation (correctly) fails the run → rc.02 RED on a ghost. Goal-vs-mechanism one level down: the goal is 'no http:// URI in an ACTIVE source line', not 'no http:// substring anywhere'.
 
 THE FIX (small, half-present already): the diagnostics dump anchors on real source lines — `^[[:space:]]*(URIs:|deb(-src)?[[:space:]])` — so DETECTION and VERIFY must reuse exactly that anchoring (active URIs:/deb/deb-src lines containing http://; comments excluded by the anchor). The sed's comment-blindness becomes moot once detection is line-anchored; scoping the sed to the same line shapes is optional tidy, mechanic's call. REQUIRED new fixture arm: all-HTTPS active URIs PLUS a comment containing an http:// link → detection skips, verify passes, exit 0. One more re-freeze; instant turnaround promised — last precision pass, the unit is otherwise done.
+---
+
+author: mechanic
+created: 2026-08-16 21:10
+---
+FIXED per comment #10's blocking precision defect — line-anchored the http-detection greps and the goal-verify to active URI-bearing lines only, reusing the diagnostics dump's own anchor. In ops/setup-ubuntu-lts-24.sh's stage_https_sources:
+
+1. New `local uri_line_re='^[[:space:]]*(URIs:|deb(-src)?[[:space:]])'` (right before the DEB822/legacy branch), ONE definition shared by every check that follows — detection, the shipped-mirror log line, verify, and the diagnostics dump all now agree on what counts as an active URI line, so they can never drift out of sync again.
+2. Both detection checks: `grep -q 'http://' "$file"` → `grep -qE "${uri_line_re}.*http://" "$file"`.
+3. Both shipped-mirror log lines: simplified to `grep -E "$uri_line_re" "$file" | grep -oE 'https://[^[:space:]]+' | head -1` (filter to active lines first, then extract the URL — so a comment's https:// link can't get logged as 'the shipped mirror' either, matching the same precision principle even though it wasn't named as blocking).
+4. The verify command: `! grep -rq 'http://' ...` → `! grep -rqE '${uri_line_re}.*http://' ...`.
+5. Left the sed unscoped, per the reviewer's 'optional, your call' — now genuinely benign: since detection and verify are both anchored, a sed that also touches a matching comment (only possible when a REAL active http:// URI already triggered the rewrite branch) is cosmetic, never a false-fail.
+
+FULL FIXTURE SET re-run (throwaway local files, no VM), now 4 arms including the required new one:
+- All-HTTPS active URIs (DEB822) → detection skips rewrite, verify passes, exit 0.
+- REQUIRED NEW ARM: all-HTTPS active URIs PLUS a comment containing an http:// link (both 'See http://help.ubuntu.com/...' prose and a commented-out 'deb http://old.../ubuntu' entry) → detection correctly skips rewrite, verify correctly passes, shipped-mirror log correctly extracts the REAL https:// URL not the comment's link. This is the exact ghost-red scenario from comment #10, now proven fixed.
+- Legacy format equivalent of the above (commented-out `# deb http://...` entry alongside real HTTPS `deb`/`deb-src` lines) → same correct skip/pass.
+- Real http:// active URI needing rewrite (unchanged from the prior checkpoint) → detection still triggers, verify still correctly fails pre-rewrite.
+
+Oracles: bash -n clean on both files. shellcheck identical to the git-show-HEAD baseline for both — setup-ubuntu-lts-24.sh 9→9, vm-bootstrap.sh 21→21, zero new findings at this checkpoint either (vm-bootstrap.sh untouched this round, re-confirmed anyway).
+
+All four pieces now complete and precision-passed. Re-freezing; consolidated report to the foreman via SendMessage.
 ---
 <!-- COMMENTS:END -->
