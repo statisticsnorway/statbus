@@ -738,11 +738,27 @@ func checkMigrationImmutability(projDir, prevTag, label string) error {
 	// as the deliberate per-cut declaration it is, never a "Fix:".
 	fmt.Printf("  ✗ Migrations modified since %s (%s)\n", prevTag, label)
 	fmt.Println()
+
+	// STATBUS-202 AC#5: the `git log` suggestion below assumes prevTag is
+	// reachable from HEAD. On a rebaselined line (e.g. the 2026-07-14
+	// source-version consolidation) it is not — the log would show the
+	// wholesale consolidation commit, not the edit, and mislead the
+	// operator. Only offer it when merge-base actually proves the
+	// ancestry; prevTag is fixed for this whole call, so check once. The
+	// `git diff` line above is history-independent and stays unconditional
+	// either way.
+	_, ancestorErr := upgrade.RunCommandOutput(projDir, "git", "merge-base", "--is-ancestor", prevTag, "HEAD")
+	prevIsAncestor := ancestorErr == nil
+
 	for _, m := range modified {
 		fmt.Printf("  %s %s\n", m.status, m.file)
 		fmt.Printf("    A released migration differs from its bytes at %s. Inspect and explain the change before deciding:\n", prevTag)
 		fmt.Printf("      git diff %s HEAD -- %s\n", prevTag, m.file)
-		fmt.Printf("      git log %s..HEAD -- %s\n", prevTag, m.file)
+		if prevIsAncestor {
+			fmt.Printf("      git log %s..HEAD -- %s\n", prevTag, m.file)
+		} else {
+			fmt.Printf("    note: %s is not an ancestor of HEAD (history was rebaselined since the stable) — commit-level log cannot isolate this edit; the git diff above is the authoritative comparison.\n", prevTag)
+		}
 
 		// A deleted file has no current bytes to hash or bless — this check
 		// only applies to files still present at HEAD.
