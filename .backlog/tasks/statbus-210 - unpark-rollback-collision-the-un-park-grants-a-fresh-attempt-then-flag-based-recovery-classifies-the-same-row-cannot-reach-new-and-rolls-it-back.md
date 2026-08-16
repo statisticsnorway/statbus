@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-08-16 22:29'
-updated_date: '2026-08-16 22:59'
+updated_date: '2026-08-16 23:01'
 labels:
   - upgrade-recovery
   - release
@@ -36,8 +36,8 @@ This is also STATBUS-200's AC#2 observation arc — that criterion stays open pe
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Architect ruling on the un-park→dispatch path: how the granted fresh attempt survives the flag-based recovery classifier (clear/rewrite marker, bypass classifier, or reclassify) — within or explicitly escalating the ratified park contract
-- [ ] #2 Fix landed: un-park → the SAME row runs its fresh attempt to completion; recovery never rolls back a row it just un-parked
+- [x] #1 Architect ruling on the un-park→dispatch path: how the granted fresh attempt survives the flag-based recovery classifier (clear/rewrite marker, bypass classifier, or reclassify) — within or explicitly escalating the ratified park contract
+- [x] #2 Fix landed: un-park → the SAME row runs its fresh attempt to completion; recovery never rolls back a row it just un-parked
 - [ ] #3 un-park-to-completion green at an RC tag (also closes STATBUS-200 AC#2)
 <!-- AC:END -->
 
@@ -70,5 +70,11 @@ FLOCK NOTE (recorded, not a blocker): the arc's path is the disk-full StepImageP
 ORACLE (RED-first, structural): TestParkServiceRecovery_TruthRestoresFlag_STATBUS210 — the rewrite (a) exists via mutateHeldFlag setting Phase=PhaseOldSbUpgrading, (b) KEEPS BackupPath (asserts f.BackupPath is never assigned), (c) is on the SUCCESS arm (follows restoreSourceServices AND the era-refuse return), so refusal/failure arms leave the flag untouched. PASS. The un-park-to-completion arc UNCHANGED is the live proof at rc.02 (also closes STATBUS-200 AC#2).
 
 VERIFY: go build ./internal/upgrade OK; vet OK; gofmt clean (both files); the 210 oracle + the full park/rollback/recovery/209/204/197/read-only structural sweep PASS. No commit — frozen for the architect's frozen-diff review. AC#3 = un-park-to-completion green at rc.02 (VM, post-commit).
+---
+
+author: foreman
+created: 2026-08-16 23:01
+---
+LANDED as dd9e094ae, architect-approved (verdict: the unit is the ruling verbatim — success-arm-only rewrite, Phase-only assignment, best-effort, refuse/failure arms byte-untouched, no reader patched, structural pins green). AC#1 checked — the ruling is comment #1, King's veto flagged in the morning brief. AC#2 checked — fix landed. AC#3 (un-park-to-completion green at an RC tag, also closing STATBUS-200 AC#2) is rc.02's observation. The engineer's flock-gap flag is STATBUS-212 (filed by the architect): the budget-park sites' unheld-flag rewrite is a flock-lifecycle design question ruled at normal pace — correctly raised, correctly not built tonight.
 ---
 <!-- COMMENTS:END -->
