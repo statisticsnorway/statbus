@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-08-16 20:38'
-updated_date: '2026-08-16 20:54'
+updated_date: '2026-08-16 21:04'
 labels:
   - release
   - quality-gate
@@ -107,5 +107,23 @@ CAUSAL CHAIN CORRECTED (full-log evidence; supersedes comment #2's remaining ass
 3. Scope consequence, relayed to the mechanic: primary Stage-0 goal-based fix UNCHANGED (the ✗ is real on the current image and verify must state the goal); secondary REPLACED with the tactical ownership guard — cleanup never deletes a VM the job did not create (refuse-branch exit skips deletion, logs the foreign owner). Structural remedies (run-scoped names, cross-workflow capacity) are STATBUS-208, architect ruling pending.
 
 4. Fleet context: install-recovery red = 14/16, of which 13 are STATBUS-208 defect B (resource_limit_exceeded at create) and the 0-happy job is defect A's other side. Test Hardening GREEN. Arc harness still queued.
+---
+
+author: mechanic
+created: 2026-08-16 21:04
+---
+BUILT per comment #6 point 3's revised secondary scope — the tactical ownership guard (cleanup never deletes a VM this run did not create), on top of the already-built Stage 0 goal-based rewrite (unchanged) and hcloud-stderr diagnosability (kept — complementary, not superseded; still useful for ANY future hcloud failure regardless of cause).
+
+Design: new global VM_OWNED_BY_THIS_RUN, set to 1 in bootstrap_install_test_vm ONLY immediately after `hcloud server create` itself succeeds (vm-bootstrap.sh, right after the create call — set -e means a failed create, e.g. STATBUS-208 defect B's resource_limit_exceeded, never reaches that line either, correctly). cleanup_vm checks the flag as its FIRST action (before dump_stage_tmux_logs, before any KEEP_VM/delete branching): unset/not-1 → log "NOT deleting '$vm_name' — this run never created it" and return 0 without touching the VM at all (no tmux-log SSH probe either — we shouldn't be poking a VM we don't own). A caller whose bootstrap hit the refuse-on-existing check (vm-bootstrap.sh ~:561, unchanged per the ruling) never sets the flag, so its scenario's EXIT-trap cleanup_vm call becomes exactly this no-op — the STATBUS-208 defect A mechanism this guard targets.
+
+Verified empirically with the stub harness (not just read-through) against BOTH branches:
+- Owned case: hcloud stub reports "not found" on describe (proceed to create) → create succeeds → VM_OWNED_BY_THIS_RUN=1 confirmed printed → cleanup_vm's EXIT-trap call reaches "Deleting VM: ..." as before — no regression for the normal path.
+- Foreign case: hcloud stub reports the VM already exists on describe → refuse-on-existing correctly fires, bootstrap returns 1, VM_OWNED_BY_THIS_RUN never set → cleanup_vm's EXIT-trap call prints the NOT-deleting message and returns 0 — confirmed via a marker file (not just absent stderr, since the real delete call has `2>/dev/null`, which would silently swallow a stub print too) that `hcloud server delete` was genuinely never invoked.
+
+Oracles: bash -n clean on both files. shellcheck finding-count identical to the git-show-HEAD baseline for both (setup-ubuntu-lts-24.sh 9→9, vm-bootstrap.sh 21→21 — zero new findings, confirmed via git show HEAD:<path> to a scratch file, never git stash). All fixture/command-string testing (the Stage 0 verify command's exact eval behavior against realistic DEB822/legacy apt-sources fixtures, the diagnostic-dump grep's precision, and this ownership guard) was done via throwaway local fixtures/stub commands — no real Hetzner VM provisioned, no test suite run.
+
+One bug caught and fixed during this build, worth recording: my first draft of _hcloud_server_ip captured `rc=$?` AFTER the if/fi construct completed (condition false, no else) — empirically this is ALWAYS 0 per POSIX (an if with no else branch taken exits 0 regardless of the tested command's real status), not hcloud's real exit code. Caught via a minimal isolated repro before it shipped; fixed by capturing $? as the first statement inside an explicit else branch instead, then re-verified via the full stub harness that the diagnostic now shows the correct rc.
+
+Still open, not decided by me: whether the setup.sh verify()-failures-never-propagate gap (flagged in comment #5) is in-scope for this ticket — haven't seen the exact extend-brief mentioned in 208's sequencing comment yet. Holding on that piece pending the foreman/architect. Everything else (Stage 0 rewrite, hcloud diagnosability, ownership guard) is frozen and ready for review.
 ---
 <!-- COMMENTS:END -->
