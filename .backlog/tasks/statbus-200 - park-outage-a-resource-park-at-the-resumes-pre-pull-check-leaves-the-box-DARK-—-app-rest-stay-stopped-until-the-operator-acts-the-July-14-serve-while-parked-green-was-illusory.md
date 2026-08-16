@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-02 19:10'
-updated_date: '2026-08-16 14:23'
+updated_date: '2026-08-16 14:42'
 labels:
   - upgrade
   - recovery
@@ -92,5 +92,11 @@ Q3 — (a) SANCTIONED, as a NARRATIVE-ONLY operation: appendParkNarrative — a 
 Q4 — IN SCOPE BY UNIFICATION, no site map judgment: ONE shared helper (parkServiceRecovery) called after the park write at ALL THREE sites; the Q1 guard computes the verdict, so at-target parks (completeInProgressUpgrade's parkAtTarget, and post-delta StepStartServices) refuse NATURALLY with the named narrative — no site-local special cases. Hard rule for the helper: it only ever STARTS services on permit; on refuse it stops NOTHING and changes nothing but the narrative (the health-park arcs' at-target parks keep their running-but-unhealthy services exactly as today).
 
 ORACLES, RED-first, per the engineer's set plus: pre-delta permit, post-delta refuse, codeonly permit, identity-unresolvable refuse, narrative-append single-caller pin, helper-never-stops pin. The un-park arc unchanged remains the VM proof.
+---
+
+author: foreman
+created: 2026-08-16 14:42
+---
+BUILT + FROZEN, foreman-verified (2026-08-16; architect frozen-diff review queued behind the cut window). Two files: service.go + park_service_recovery_test.go. All four rulings realized: single chokepoint (parkAtTarget delegates through parkForDeterministicFailure — one parkServiceRecovery call after the park write covers all three sites, idempotent so a next-boot re-entry completes a crash-interrupted restore); SOURCE-IDENTITY era guard (db_max via the teardown-immune read — no queryConn dependency at the pre-reconnect park — vs the source sha's migration max via git ls-tree, NO checkout; permit iff equal, every anomaly REFUSES toward dark-behind-maintenance); restore = rollback tail minus restoreDatabase, window lifted only after health; appendParkNarrative narrative-only under recovery_parked_at IS NOT NULL, never assigns the timestamp — parkUpgrade stays sole writer, 196 gate green with token count exactly 1. Foreman re-ran: package build+vet, all three RED-first oracles PASS (the era unit would have gone RED on the withdrawn HasPending design), drift gate PASS. Honest flags recorded: pre-existing env-dependent DB-integration test failure (missing generated test .env — routes to the tester); AC#2's VM proof (unchanged un-park arc, honest probe) rides the post-commit dispatch. Commit follows architect review after the cut window.
 ---
 <!-- COMMENTS:END -->
