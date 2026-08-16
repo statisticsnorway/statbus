@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-08-16 22:29'
-updated_date: '2026-08-16 22:54'
+updated_date: '2026-08-16 22:56'
 labels:
   - upgrade-recovery
   - release
@@ -36,8 +36,8 @@ Note: the read-only state would poison EVERY later write on the box, not just th
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Mechanism established from the restore path code (not hypothesis): where the read-only state comes from and why the next pass keeps it
-- [ ] #2 Fix architect-ruled and landed: a rollback-restored database is fully writable for the next attempt, with the write-path proven by the arcs
+- [x] #1 Mechanism established from the restore path code (not hypothesis): where the read-only state comes from and why the next pass keeps it
+- [x] #2 Fix architect-ruled and landed: a rollback-restored database is fully writable for the next attempt, with the write-path proven by the arcs
 - [ ] #3 rollback-pair-terminal and restore-broke-reattempt green at an RC tag
 <!-- AC:END -->
 
@@ -110,5 +110,13 @@ CONFIRMED MECHANISM (en route, per the ask):
 ORACLES (RED-first, structural — the DB-behavioral proof is the two arcs at rc.02, VM): TestClearStaleReadOnlyWindow_ReattemptExclusion_STATBUS209 (ARM A exclusion precedes the clear + the ABORT-hold preservation pin + wrapper delegates); TestConnectInstallDB_SelfExempts_STATBUS209 (ARM B SET read_only=off before returning the conn); TestInstallCompletion_ClearsStaleWindow_STATBUS209 (ARM A install invoker follows the completion INSERT). All PASS. The STATBUS-163 flip-test pin (read_only_window_flip_test) still green — clearStaleReadOnlyWindow kept its ReadFlagFile/in_progress/pg_db_role_setting/terminalExec guards.
 
 VERIFY: go build ./internal/upgrade ./cmd OK; go vet OK; gofmt clean (all 4 files); the 3 oracles + broad upgrade-package structural sweep PASS. No commit — frozen for the architect's frozen-diff review. (AC#1 mechanism / AC#2 fix landed pending review / AC#3 arcs green at rc.02 = the VM oracle after commit.)
+---
+
+author: foreman
+created: 2026-08-16 22:56
+---
+LANDED as 8b58e533c, architect-approved (verdict: Arm B fail-closed — right; Arm A's exclusion lives at the chokepoint so BOTH invokers inherit the ABORT-hold preservation; the exported entrypoint delegates; the unresolved reattempt mechanism recorded as unresolved is exactly the discipline). AC#1 checked — mechanism established from code for pair-terminal, the reattempt residual honestly bounded with rc.02 as decider. AC#2 checked — both arms landed. AC#3 (both arcs green at an RC tag) is rc.02's observation.
+
+NEXT-TOUCH NOTE, architect's non-blocking placement observation (record and move on): on a residue box, app sessions opened mid-ladder inherit read-only until they recycle, because the clear runs post-completion rather than at earliest-established-ownership (DB-up + state known). Rare (kill-window residue only), self-healing on reconnect, arcs' oracle unaffected — but moving the invoker earlier in the ladder is the strictly-better placement when someone next touches this path.
 ---
 <!-- COMMENTS:END -->
