@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-08-16 20:38'
-updated_date: '2026-08-16 21:04'
+updated_date: '2026-08-16 21:06'
 labels:
   - release
   - quality-gate
@@ -131,5 +131,21 @@ author: foreman
 created: 2026-08-16 21:04
 ---
 EXTEND-BRIEF, pinned here because the SendMessage copy was lost in transit (mechanic's freeze report says it never arrived — durable-channel lesson re-learned): VERIFY-AGGREGATION IS RULED IN for this unit (architect's word). Shape, exactly: run ALL stages to completion — do NOT fail-at-first; maximal diagnostics per torn-down VM — collect every verify() failure (verify() may count/record into a global), print the failed set at the very end of main(), exit non-zero if any verify failed. Safety evidence already gathered: the rc.01 run shows 18 ✓ and exactly ONE ✗ (Stage 0, fixed by this same unit), so aggregation introduces no new red at rc.02. The 207 freeze is PULLED BACK for exactly this addition — announced, not silent: mechanic adds aggregation to ops/setup-ubuntu-lts-24.sh, re-freezes, and the architect reviews ONCE on the complete unit.
+---
+
+author: mechanic
+created: 2026-08-16 21:06
+---
+BUILT: verify-aggregation, per the released-hold ruling (run all stages to completion, collect every verify() failure, print the failed set at the end, exit non-zero if any failed). This is the last of 207's three pieces — ops/setup-ubuntu-lts-24.sh now has:
+
+1. FAILED_VERIFICATIONS=() — new global near the top config block (SKIP_STAGES's neighbor).
+2. verify() appends the description to it on the failure branch (one line added, existing print/return behavior otherwise untouched).
+3. main()'s LAST action, after the reboot-required check (so every stage genuinely ran to completion first, matching 'maximal diagnostics' — unchanged from today's no-fail-fast behavior): if the array is non-empty, print a numbered failed-set list and `exit 1`.
+
+Empirically tested (throwaway harness reproducing the exact verify()/aggregation shape, not the real script — no VM): a 2-of-4-checks-fail case ran ALL FOUR checks (no fail-fast), printed both failures in a clear final list, exited 1; an all-pass case exited 0 and reached past the aggregation check. Both confirmed via direct execution, not read-through.
+
+Oracles, full file this time: bash -n clean. shellcheck identical to the git-show-HEAD baseline — 9→9 findings, zero new (same as the Stage-0-only checkpoint; this addition introduced nothing new either).
+
+207's build is now complete: Stage 0 goal-based rewrite + hcloud-stderr diagnosability + ownership guard + verify-aggregation. Full consolidated freeze report going to the foreman via SendMessage now.
 ---
 <!-- COMMENTS:END -->
