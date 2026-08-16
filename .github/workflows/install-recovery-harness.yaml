@@ -1,6 +1,17 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: Install Recovery Harness
 
+# run-name (STATBUS-199 §5): COSMETIC only (comment #4 superseded the
+# original display_title marker-aware gate check — the stable release gate
+# now verifies full-suite proof via the run's JOB LIST, not a self-reported
+# label; see checkInstallRecoveryHarnessGate in cli/cmd/release.go). Kept
+# because it's free — computable entirely from trigger-time context
+# (github.event_name + github.event.inputs.scenarios), no job output
+# needed — and gives operators an at-a-glance read of what a run actually
+# covers in the Actions UI.
+run-name: >-
+  Install Recovery Harness — ${{ github.event_name == 'push' && format('FULL SUITE @ {0}', github.ref_name) || (github.event.inputs.scenarios == '' && 'FULL SUITE (dispatch)' || format('subset: {0}', github.event.inputs.scenarios)) }}
+
 # Install Recovery Harness — RC-time end-to-end RECOVERY gate via Hetzner
 # Cloud VMs. Sister to test-install.yaml (which runs only scenario 0-happy-install / the
 # happy-install baseline). Where test-install validates "fresh install works",

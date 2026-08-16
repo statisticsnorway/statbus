@@ -1,0 +1,27 @@
+# STATBUS-199: paths whose changes make an RC "upgrade-sensitive" — the
+# stable release gate's upgrade-arc-harness walk (cli/cmd/release.go)
+# requires a genuine FULL-SUITE green run at or since the newest such
+# change before an RC may promote to stable. An RC whose diff against the
+# previous RC touches NONE of these may instead ride the newest prior
+# FULL-SUITE green (printed loudly, naming the inherited tag).
+#
+# Matching is substring containment against each changed file's repo-root-
+# relative path (as `git diff --name-only` prints it) — deliberately
+# over-inclusive rather than under-inclusive: a coincidental substring hit
+# just costs one extra full-suite run, a missed genuine change costs an
+# unproven promotion. One entry per line; blank lines and lines starting
+# with # are ignored.
+#
+# Touching THIS FILE is itself sensitive by definition — narrowing the
+# gate is exactly the kind of change the gate must catch, so the entry
+# below is deliberately explicit even though ops/ already covers it.
+cli/
+postgres/
+caddy/
+migrations/
+docker-compose
+ops/
+test/install-recovery/
+.github/workflows/upgrade-arc-harness.yaml
+.github/workflows/images.yaml
+ops/release/upgrade-sensitive-paths.txt

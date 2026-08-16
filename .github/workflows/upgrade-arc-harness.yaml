@@ -36,7 +36,17 @@ name: Upgrade Arc Harness
 # NEXT (doc-012 §9 d): the 3-dim clean-slate fingerprint + the hanging→hanging-
 # fixed fail→rollback→fix arc; then §9 (5) reshapes the kill scenarios.
 
+# STATBUS-199 D2: tag-push (v*-rc.*) is the CODIFIED trigger — the stable
+# release gate (checkUpgradeArcHarnessGate, cli/cmd/release.go) needs a
+# genuine full-suite run to exist at (or ride from) every RC cut without
+# depending on someone remembering to dispatch it by hand. workflow_dispatch
+# stays the iteration tool (single-arc re-runs, ad-hoc base_sha); its
+# subset runs can never satisfy the gate (see the `decide` job below and
+# the gate's own job-list completeness check).
 on:
+  push:
+    tags:
+      - 'v*-rc.*'
   workflow_dispatch:
     inputs:
       base_sha:
@@ -370,8 +380,62 @@ jobs:
             sleep "$IMAGES_WAIT_INTERVAL_S"
           done
 
+  decide:
+    name: Decide FULL SUITE vs RIDE (path-sensitivity, tag-push only)
+    # STATBUS-199 D2 cost optimizer. NOT a correctness source — the stable
+    # release gate (checkUpgradeArcHarnessGate) computes its own diff
+    # independently and never trusts this job's verdict; a wrong answer
+    # here only costs an avoidable/skipped run, never a bad promotion.
+    # workflow_dispatch runs skip this entirely — the subset selector is
+    # the iteration tool, path-sensitivity doesn't apply to it.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    if: github.event_name == 'push'
+    outputs:
+      sensitive: ${{ steps.check.outputs.sensitive }}
+    steps:
+      - name: Checkout (full history + tags — need the previous RC tag)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Diff against the previous RC tag vs the sensitivity list
+        id: check
+        # PREV_TAG derivation mirrors release.yaml's existing
+        # migration-detection step (git tag --sort=-version:refname |
+        # sed -n '2p' — line 1 is the tag that triggered this run), narrowed
+        # to RC tags. Matching is substring containment, same rule
+        # ops/release/upgrade-sensitive-paths.txt documents for the Go-side
+        # gate (deliberately over-inclusive).
+        run: |
+          set -euo pipefail
+          PREV_RC="$(git tag --sort=-version:refname | grep -- '-rc\.' | sed -n '2p')"
+          if [ -z "$PREV_RC" ]; then
+            echo "No previous RC tag found (first-ever RC, or not yet visible via this checkout) — treating as sensitive."
+            echo "sensitive=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Previous RC tag: $PREV_RC"
+          echo "Sensitive paths (ops/release/upgrade-sensitive-paths.txt):"
+          grep -v '^#' ops/release/upgrade-sensitive-paths.txt | grep -v '^[[:space:]]*$' | sed 's/^/  /'
+          CHANGED="$(git diff --name-only "$PREV_RC"..HEAD)"
+          echo "Changed files since $PREV_RC:"
+          printf '%s\n' "$CHANGED" | sed 's/^/  /'
+          PATTERNS="$(grep -v '^#' ops/release/upgrade-sensitive-paths.txt | grep -v '^[[:space:]]*$')"
+          if printf '%s\n' "$CHANGED" | grep -F -f <(printf '%s\n' "$PATTERNS") -q; then
+            echo "Sensitive change detected since $PREV_RC — full suite required."
+            echo "sensitive=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No upgrade-sensitive changes since $PREV_RC — this run may RIDE it. The stable release gate independently re-verifies this before ever promoting."
+            echo "sensitive=false" >> "$GITHUB_OUTPUT"
+          fi
+
   discover:
     name: Discover arc scenarios
+    needs: [decide]
+    # decide is skipped (not failed) on workflow_dispatch — always() so
+    # discover still runs for the iteration-tool path.
+    if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
@@ -393,10 +457,23 @@ jobs:
         # Blank or "all" → the full suite (the 5e matrix); a space-separated
         # selector narrows it (single-arc re-runs). An unknown selector fails
         # LOUD rather than silently producing an empty matrix.
+        #
+        # RIDE (STATBUS-199 D2): a tag-push run whose decide job found no
+        # upgrade-sensitive changes short-circuits to an empty matrix —
+        # zero VMs, workflow conclusion success. This is the cost
+        # optimizer only; the release gate re-derives the RIDE decision
+        # itself and never trusts this shortcut.
         env:
           SCENARIOS_INPUT: ${{ github.event.inputs.scenarios }}
+          RIDE: ${{ github.event_name == 'push' && needs.decide.outputs.sensitive == 'false' }}
         run: |
           set -euo pipefail
+          if [ "$RIDE" = "true" ]; then
+            echo "matrix=[]" >> "$GITHUB_OUTPUT"
+            echo "count=0" >> "$GITHUB_OUTPUT"
+            echo "Path-sensitivity RIDE (STATBUS-199 D2): no upgrade-sensitive changes since the previous RC — skipping the arc matrix (0 VMs). The stable release gate independently verifies this before promoting."
+            exit 0
+          fi
           all="$(for f in test/install-recovery/arcs/*-arc.sh; do b="$(basename "$f")"; echo "${b%-arc.sh}"; done | sort)"
           sel="$(printf '%s' "${SCENARIOS_INPUT:-}" | tr -s ' ' ' ' | sed 's/^ *//; s/ *$//')"
           if [ -z "$sel" ] || [ "$sel" = "all" ]; then

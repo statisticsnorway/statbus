@@ -204,7 +204,7 @@ func MigrationInReleasedTag(projDir string, version int64) (string, error) {
 // "unvetted" (that would redo/refuse a possibly-vetted migration on a network
 // blip) — the caller surfaces the error loudly.
 func ReleaseTagWithMigrationHash(projDir string, version int64, wantHash string) (string, error) {
-	tags, err := releaseTagsNewestFirst(projDir)
+	tags, err := ReleaseTagsNewestFirst(projDir)
 	if err != nil {
 		return "", err
 	}
@@ -223,12 +223,19 @@ func ReleaseTagWithMigrationHash(projDir string, version int64, wantHash string)
 // releaseTagParse extracts a release tag's CalVer components for ordering.
 var releaseTagParse = regexp.MustCompile(`^v(\d{4})\.(\d{2})\.(\d+)(?:-rc\.(\d+))?$`)
 
-// releaseTagsNewestFirst lists the remote's release-shaped tags (via
+// ReleaseTagsNewestFirst lists the remote's release-shaped tags (via
 // `git ls-remote --tags origin`, so it is correct on a shallow clone where the
 // local tag set is incomplete) sorted newest-first. Order is an EFFICIENCY
-// concern only — ReleaseTagWithMigrationHash scans until a content match, so any
-// order is correct — but newest-first makes the common heal a single fetch.
-func releaseTagsNewestFirst(projDir string) ([]string, error) {
+// concern only for ReleaseTagWithMigrationHash — it scans until a content
+// match, so any order is correct — but newest-first makes the common heal
+// a single fetch.
+//
+// Exported (STATBUS-199): also the single source of truth for the stable
+// release gate's upgrade-arc-harness path-sensitivity walk (cli/cmd/
+// release.go) — that walk needs the same newest-first, shallow-clone-safe
+// RC-tag enumeration (filtered to `-rc.` tags by the caller) rather than a
+// second, drifting copy of this tag-listing logic.
+func ReleaseTagsNewestFirst(projDir string) ([]string, error) {
 	cmd := exec.Command("git", "ls-remote", "--tags", "origin")
 	cmd.Dir = projDir
 	out, err := cmd.Output()

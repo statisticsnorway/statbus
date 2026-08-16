@@ -19,6 +19,18 @@ const (
 	WorkflowTestInstall            = "test-install.yaml"
 	WorkflowInstallRecoveryHarness = "install-recovery-harness.yaml"
 	WorkflowPgRegress              = "pg_regress.yaml"
+	// WorkflowAppBuildLint (STATBUS-199): app/ build + lint. Never gated
+	// anywhere before this — gains its first release-gate consumer at the
+	// prerelease preflight (D1 layer re-map).
+	WorkflowAppBuildLint = "app_build_and_lint-workflow.yaml"
+	// WorkflowUpgradeArcHarness (STATBUS-199): the 31 real-dispatch upgrade
+	// arcs (STATBUS-071). Gated at STABLE (needs the RC tag to exist), not
+	// prerelease — same reasoning as WorkflowInstallRecoveryHarness. A
+	// green run only satisfies the gate when its job list is COMPLETE
+	// against the arcs present in the tree at its commit (see
+	// WorkflowJobsCompleteAtCommit) — STATBUS-199 comment #4: the gate
+	// verifies what ran, not what the run claims via a self-reported label.
+	WorkflowUpgradeArcHarness = "upgrade-arc-harness.yaml"
 )
 
 // WorkflowCheckStatus describes the state of a workflow at a commit.
@@ -149,6 +161,70 @@ func checkWorkflowAt(apiBase, workflow, commitSHA string) WorkflowCheckResult {
 	}
 	latest := body.WorkflowRuns[0]
 	return WorkflowCheckResult{Status: WorkflowCheckFailed, RunURL: latest.HTMLURL, RunID: latest.ID, Detail: latest.Conclusion}
+}
+
+// WorkflowJobsCompleteAtCommit is the STATBUS-199 comment #4 completeness
+// check: "the gate verifies what ran, not what the run claims." A run's
+// job list is ground truth the GitHub API already exposes — unlike a
+// self-reported run-name label, a subset dispatch or a decide-only skip
+// run cannot fake having every required job. requiredJobNames must be the
+// exact job `name:` values (both upgrade-arc-harness's `run-arc` and
+// install-recovery-harness's `run-scenario` matrix jobs declare
+// `name: ${{ matrix.scenario }}` — the bare scenario string, no prefix).
+//
+// Pagination: per_page=100 covers every known matrix (31 arcs, ~15
+// scenarios) plus the harness's own non-matrix jobs in one page. This
+// asserts total_count <= len(returned jobs) rather than silently trusting
+// a truncated first page — a growing matrix must fail loud, not pass on
+// an incomplete read.
+func WorkflowJobsCompleteAtCommit(runID int64, requiredJobNames []string) (complete bool, missingJobs []string, err error) {
+	return workflowJobsCompleteAtCommit("https://api.github.com", runID, requiredJobNames)
+}
+
+func workflowJobsCompleteAtCommit(apiBase string, runID int64, requiredJobNames []string) (complete bool, missingJobs []string, err error) {
+	url := fmt.Sprintf("%s/repos/%s/%s/actions/runs/%d/jobs?per_page=100", apiBase, githubOrg, githubRepo, runID)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return false, nil, fmt.Errorf("build request: %w", err)
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("User-Agent", "statbus-release-check")
+	if auth := githubAuthHeader(); auth != "" {
+		req.Header.Set("Authorization", auth)
+	}
+
+	resp, err := httpClient().Do(req)
+	if err != nil {
+		return false, nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return false, nil, fmt.Errorf("GitHub API returned HTTP %d", resp.StatusCode)
+	}
+
+	var body struct {
+		TotalCount int `json:"total_count"`
+		Jobs       []struct {
+			Name string `json:"name"`
+		} `json:"jobs"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return false, nil, fmt.Errorf("decode response: %w", err)
+	}
+	if body.TotalCount > len(body.Jobs) {
+		return false, nil, fmt.Errorf("run %d has %d jobs but only %d returned on one page (per_page=100) — refusing to silently truncate the completeness check", runID, body.TotalCount, len(body.Jobs))
+	}
+
+	present := make(map[string]bool, len(body.Jobs))
+	for _, j := range body.Jobs {
+		present[j.Name] = true
+	}
+	for _, name := range requiredJobNames {
+		if !present[name] {
+			missingJobs = append(missingJobs, name)
+		}
+	}
+	return len(missingJobs) == 0, missingJobs, nil
 }
 
 // WorkflowTriggerCommand returns the gh CLI invocation an operator runs to

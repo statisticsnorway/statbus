@@ -87,6 +87,11 @@ bld/
 [Bb]in/
 [Oo]bj/
 [Ll]og/
+# STATBUS-199: ops/release/ is a checked-in config directory (release-gate
+# machinery, e.g. upgrade-sensitive-paths.txt), not a .NET build-output dir —
+# un-ignore it from the generic [Rr]elease/ boilerplate rule above.
+!ops/release/
+!ops/release/**
 
 # Visual Studio 2015 cache/options directory
 .vs/

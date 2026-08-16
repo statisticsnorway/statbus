@@ -2,6 +2,7 @@ package release
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -232,4 +233,119 @@ func TestWorkflowURL(t *testing.T) {
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
+}
+
+// TestWorkflowJobsCompleteAtCommit pins STATBUS-199 comment #4's
+// completeness primitive: "the gate verifies what ran, not what the run
+// claims." Three arms match the architect's ruling directly:
+//   - complete: every required job name is present → complete=true,
+//     no missing jobs.
+//   - missing-jobs: a subset dispatch (or a decide-only ride/skip run)
+//     has fewer jobs than required → complete=false, missingJobs names
+//     exactly what's absent — this is the case that makes a self-reported
+//     "FULL SUITE" label untrustworthy and the whole reason this
+//     function exists instead of trusting run-name.
+//   - pagination-overflow: total_count exceeds the single page returned
+//     (per_page=100) → the check must refuse to silently truncate and
+//     return an error, never a false "complete".
+func TestWorkflowJobsCompleteAtCommit(t *testing.T) {
+	cases := []struct {
+		name         string
+		totalCount   int
+		jobNames     []string
+		required     []string
+		wantComplete bool
+		wantMissing  []string
+		wantErr      bool
+		wantErrSub   string
+	}{
+		{
+			name:         "complete",
+			totalCount:   3,
+			jobNames:     []string{"working", "failing", "postswap-migration-oom"},
+			required:     []string{"working", "failing", "postswap-migration-oom"},
+			wantComplete: true,
+			wantMissing:  nil,
+		},
+		{
+			name:         "missing-jobs: subset dispatch has fewer jobs than required",
+			totalCount:   2,
+			jobNames:     []string{"working", "failing"},
+			required:     []string{"working", "failing", "postswap-migration-oom", "c-rollback-resurrection"},
+			wantComplete: false,
+			wantMissing:  []string{"postswap-migration-oom", "c-rollback-resurrection"},
+		},
+		{
+			name:       "pagination-overflow: total_count exceeds the returned page",
+			totalCount: 150,
+			// Only 100 returned even though total_count says 150 — a
+			// truncated first page (per_page=100 caps the response).
+			jobNames:     namesN(100),
+			required:     []string{"working"},
+			wantComplete: false,
+			wantErr:      true,
+			wantErrSub:   "only 100 returned on one page",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				wantPath := "/repos/statisticsnorway/statbus/actions/runs/42/jobs"
+				if r.URL.Path != wantPath {
+					http.Error(w, "unexpected path "+r.URL.Path, http.StatusNotFound)
+					return
+				}
+				jobs := make([]map[string]any, len(tc.jobNames))
+				for i, n := range tc.jobNames {
+					jobs[i] = map[string]any{"name": n}
+				}
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"total_count": tc.totalCount,
+					"jobs":        jobs,
+				})
+			}))
+			defer server.Close()
+
+			complete, missing, err := workflowJobsCompleteAtCommit(server.URL, 42, tc.required)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("want error, got nil")
+				}
+				if !strings.Contains(err.Error(), tc.wantErrSub) {
+					t.Errorf("error %q does not contain %q", err.Error(), tc.wantErrSub)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if complete != tc.wantComplete {
+				t.Errorf("complete: got %v, want %v", complete, tc.wantComplete)
+			}
+			if !equalStringSlices(missing, tc.wantMissing) {
+				t.Errorf("missingJobs: got %v, want %v", missing, tc.wantMissing)
+			}
+		})
+	}
+}
+
+func namesN(n int) []string {
+	names := make([]string, n)
+	for i := range names {
+		names[i] = fmt.Sprintf("job-%d", i)
+	}
+	return names
+}
+
+func equalStringSlices(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
