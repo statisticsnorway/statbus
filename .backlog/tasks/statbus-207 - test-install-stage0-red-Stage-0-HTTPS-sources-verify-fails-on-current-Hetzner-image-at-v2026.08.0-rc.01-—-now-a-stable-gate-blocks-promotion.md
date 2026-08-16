@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-08-16 20:38'
-updated_date: '2026-08-16 20:44'
+updated_date: '2026-08-16 20:53'
 labels:
   - release
   - quality-gate
@@ -69,5 +69,29 @@ author: architect (relayed by foreman)
 created: 2026-08-16 20:44
 ---
 TRACE POINTER for open question (a): bash disables errexit inside any function invoked from a condition context — an `if fn`, `fn || ...`, `fn && ...`, or `$(fn)` anywhere UP the call chain suppresses `set -e` for the whole function body. _apply_hardening's `return 1` sailing past errexit almost certainly means an ancestor call sits in such a context: grep the CALL SITES' syntactic position (run.sh → scenario → bootstrap), not the function bodies. The fix class that survives this gotcha is EXPLICIT propagation — capture rc at the call site and exit on it — never reliance on set -e through a call chain. For (b): surface hcloud's stderr verbatim either way; a failing probe that eats its own reason is the (unknown)-token scar the README already codifies. Review on the freeze as usual.
+---
+
+author: mechanic
+created: 2026-08-16 20:53
+---
+TRACE FINDINGS pt.1/2, comment #2's question (a) — via `gh run view 31970534511 --log`, the actual run's raw log, plus an isolated stub-based dry-run harness (real vm-bootstrap.sh sourced with faked ssh/scp/hcloud) to test bash control flow without provisioning a VM.
+
+THE STATED PREMISE IS FALSE — there was no hardening failure to be swallowed. Exhaustive grep of the full run log for "HARDENING FAILED" (case-insensitive) returns ZERO matches. Decisively: the log contains the LITERAL line `VM statbus-recovery-0-happy-install bootstrap complete.` at 20:33:49.2147608Z — vm-bootstrap.sh:549, printed only AFTER `_apply_hardening` returns. So `_apply_hardening` genuinely returned 0 (success), not 1.
+
+ROOT CAUSE of why it returned 0 despite Stage 0's verify printing ✗: ops/setup-ubuntu-lts-24.sh has NO mechanism anywhere that aggregates verify() failures into the script's own process exit code. Read main() end-to-end (lines 1155-1258): it calls all 8 stages as bare sequential statements (`stage_https_sources; stage_base_system; ...`), none of their return values are checked, and the script has only `set -o pipefail` at its top (line 17) — no `set -e`. verify() (line 70) itself just prints ✓/✗ and returns 0/1 to ITS OWN caller (the stage function), but nothing upstream inspects that. main()'s actual final statement is `if [[ -f /var/run/reboot-required ]]; then log_warn ...; fi` (line 1253), success regardless of branch taken. So setup.sh's exit code is effectively ALWAYS 0, independent of any verify() failure in any of its 8 stages — confirmed by the log itself: right after the ✗, `✓ APT update succeeds` appears (apt-get update -qq succeeded against whatever URIs are actually there), and all 7 remaining stages ran to completion normally.
+
+I independently verified the OTHER half — that errexit DOES correctly propagate through vm-bootstrap.sh's bare-statement/sourced-function chain WHEN _apply_hardening genuinely returns non-zero — via a stub harness (stub ssh/scp/hcloud, forced harden_exit="1"): bootstrap_install_test_vm correctly stopped immediately, the scenario's EXIT trap fired, install_statbus_in_vm was never reached. So there is no errexit-suppression bug in vm-bootstrap.sh's control flow itself — the mechanism works; it was never triggered because setup.sh never signals stage-level failure to its caller AT ALL, for any of its 8 stages, not just Stage 0.
+---
+
+author: mechanic
+created: 2026-08-16 20:53
+---
+TRACE FINDINGS pt.2/2, comment #2's question (b), plus one adjacent gap found.
+
+(b) ANSWERED with direct log evidence. At 20:33:49.6907983Z, immediately after "bootstrap complete" (< 0.5s later), the raw log contains: `hcloud: Server not found: statbus-recovery-0-happy-install` — hcloud's own stderr, printed unredirected, right before the two ERR-trap lines at vm-bootstrap.sh:618 (the trap fires twice for that one line: once for the inner command substitution's own subshell context, once for the outer assignment — both `set -E`-propagated, same root failure). So hcloud's real reason IS already reaching the raw workflow log today — it's just not surfaced AS PART OF the harness's own diagnostic (the "✗ harness failure: rc=1 at ..." trap text doesn't include it), so a reader looking only at the harness-failure lines (or a truncated/filtered view) would miss it.
+
+The mystery of WHY hcloud reported "Server not found": the SAME call (`hcloud server ip "$vm_name"`) succeeded for this exact VM name at 20:27:31.2260411Z (VM_IP=95.217.222.186), immediately after `hcloud server create`. The VM was then actively used for 6+ minutes — SSH reachable throughout (cloud-init wait, hardening via detached tmux, statbus user creation, SSH key fetch all succeeded per the log) — before hcloud's control-plane API reported it not found at 20:33:49, a 6m18s gap. No concurrent process or premature cleanup is visible in the log (the harness's own "Deleting VM" line fires AFTER this failure, as the EXIT trap's cleanup_vm). I cannot determine from logs alone whether this is a genuine Hetzner API-side transient/eventual-consistency issue or something else — flagging honestly as unresolved, not fabricating a cause. Given the architect's ruling scopes the ask to DIAGNOSABILITY (not root-causing Hetzner's side), implementing that: wrap the bare `hcloud server ip` call sites so a failure's diagnostic explicitly includes hcloud's own stderr, rather than relying on it being incidentally visible elsewhere in an unfiltered raw log.
+
+ADJACENT GAP FOUND, not asked for, flagging rather than silently fixing or silently ignoring (per 'never defer known bugs'): the verify()-failures-never-propagate defect in setup-ubuntu-lts-24.sh is NOT Stage-0-specific — true for all 8 stages. Fixing ONLY Stage 0's verify semantics (ruling point 1) makes Stage 0's check goal-accurate, but even a redefined, goal-accurate Stage 0 verify failing would STILL not stop the script or signal the harness — the same silent-success shape persists for Stage 0 and stays latent for stages 1-8. Broader than the ticket's stated scope (Stage 0 rewrite + harness diagnosability). NOT touching main()'s stage-orchestration/exit-code aggregation as part of this build — cross-stage behavioral change beyond the two files' named scope in the dispatch; deserves an explicit call: fix now (small, scoped: fail the script if ANY verify() call failed, checked once at the very end of main()) or file separately. Proceeding with the ruled scope (Stage 0 rewrite + verify redefinition + hcloud diagnosability); noting this explicitly in my freeze report to the foreman for a decision, not deciding it myself.
 ---
 <!-- COMMENTS:END -->
