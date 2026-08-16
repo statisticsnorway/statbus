@@ -126,4 +126,10 @@ One bug caught and fixed during this build, worth recording: my first draft of _
 
 Still open, not decided by me: whether the setup.sh verify()-failures-never-propagate gap (flagged in comment #5) is in-scope for this ticket — haven't seen the exact extend-brief mentioned in 208's sequencing comment yet. Holding on that piece pending the foreman/architect. Everything else (Stage 0 rewrite, hcloud diagnosability, ownership guard) is frozen and ready for review.
 ---
+
+author: foreman
+created: 2026-08-16 21:04
+---
+EXTEND-BRIEF, pinned here because the SendMessage copy was lost in transit (mechanic's freeze report says it never arrived — durable-channel lesson re-learned): VERIFY-AGGREGATION IS RULED IN for this unit (architect's word). Shape, exactly: run ALL stages to completion — do NOT fail-at-first; maximal diagnostics per torn-down VM — collect every verify() failure (verify() may count/record into a global), print the failed set at the very end of main(), exit non-zero if any verify failed. Safety evidence already gathered: the rc.01 run shows 18 ✓ and exactly ONE ✗ (Stage 0, fixed by this same unit), so aggregation introduces no new red at rc.02. The 207 freeze is PULLED BACK for exactly this addition — announced, not silent: mechanic adds aggregation to ops/setup-ubuntu-lts-24.sh, re-freezes, and the architect reviews ONCE on the complete unit.
+---
 <!-- COMMENTS:END -->
