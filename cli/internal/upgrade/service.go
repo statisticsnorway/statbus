@@ -3682,6 +3682,21 @@ func (d *Service) clearStaleReadOnlyWindow(ctx context.Context) {
 	if inProgress > 0 {
 		return // an upgrade IS in flight → the window is legitimately engaged
 	}
+	// STATBUS-209 ARM A — PRESERVE THE ABORT HOLD. A restore-reattemptable row (state='failed'
+	// with a retained backup_path) means a human-gated `./sb install` replay is pending, and the
+	// replay's OWN restore→:7981 lift clears the window. The git-restore-fail ABORT deliberately
+	// holds read-only on a broken volume until that replay — this backstop must NOT strip that
+	// protection early, whether invoked at boot OR from the install ladder (ARM A's second
+	// invoker). Pinned by unit so a future cleanup can't drop it. (A read error → leave it, the
+	// safe direction, mirroring the in_progress read above.)
+	var reattemptPending int
+	if err := d.queryConn.QueryRow(ctx,
+		"SELECT COUNT(*) FROM public.upgrade WHERE state = 'failed' AND backup_path IS NOT NULL").Scan(&reattemptPending); err != nil {
+		return
+	}
+	if reattemptPending > 0 {
+		return // a restore replay is pending → its own lift owns the window; never strip the ABORT hold
+	}
 	// Read the DATABASE-level default (pg_db_role_setting, setrole=0), independent
 	// of this daemon session's own read-only-off exemption.
 	var stale bool
@@ -3704,6 +3719,19 @@ func (d *Service) clearStaleReadOnlyWindow(ctx context.Context) {
 		return
 	}
 	fmt.Println("STATBUS-163 BACKSTOP: cleared the stale read-only window (no upgrade in flight).")
+}
+
+// ClearStaleReadOnlyWindowIfUnowned is the STATBUS-209 ARM A exported entrypoint: it lets the
+// install ladder invoke the SAME ownership-gated backstop the daemon runs at boot (:2226), so a
+// stale read-only window left by a crash between a restore and its lift (the pair-terminal
+// residue) is cleared for the box's APP sessions — which legitimately never self-exempt — the
+// moment an install pass has the DB up and establishes that no upgrade owns the box. The window
+// is legitimate only while a live upgrade owns it; any actor bringing the DB to health with no
+// owner present (no flag, no in_progress row, no restore-reattempt pending) is looking at stale
+// residue and clears it loudly. Requires a live queryConn (LoadConfigAndConnect). Install's own
+// completion INSERT is covered separately by ARM B (session self-exemption).
+func (d *Service) ClearStaleReadOnlyWindowIfUnowned(ctx context.Context) {
+	d.clearStaleReadOnlyWindow(ctx)
 }
 
 func (d *Service) checkMissedUpgrades(ctx context.Context) {

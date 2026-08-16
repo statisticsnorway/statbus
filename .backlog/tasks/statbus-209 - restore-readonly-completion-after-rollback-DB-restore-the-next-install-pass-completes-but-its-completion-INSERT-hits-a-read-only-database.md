@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-08-16 22:29'
-updated_date: '2026-08-16 22:45'
+updated_date: '2026-08-16 22:54'
 labels:
   - upgrade-recovery
   - release
@@ -90,5 +90,25 @@ ARM B, SESSION-level: install's DB sessions SELF-EXEMPT on connect, exactly like
 Q2 — YES: the fix reaches cli/cmd/install.go (the backstop invocation + the connect-site exemption). Grant extended to the engineer for 209, same unit — his lane, foreman notes the extension.
 
 ORACLES: RED-first unit for arm A (restored+window-on, no flag, no reattempt pending → install's DB-up clears; reattempt pending → hold preserved); unit for arm B (install connect → session default off); the two arcs green at rc.02. The ABORT branch's deliberate hold gets its own preservation pin so a future 'cleanup' can't strip it.
+---
+
+author: engineer
+created: 2026-08-16 22:54
+---
+BUILT per comment #3 (both arms), FROZEN for review. Files: cli/internal/upgrade/service.go, cli/cmd/install.go, + tests cli/internal/upgrade/restore_readonly_lift_test.go, cli/cmd/install_readonly_exempt_test.go.
+
+ARM B (session self-exemption) — cli/cmd/install.go connectInstallDB (~:2329): after pgx.Connect, `SET default_transaction_read_only = off` on the session (closes+errors if it fails). Every install DB session (incl. the completion-INSERT session) now self-exempts, exactly like the pipeline's connect() and install's migrate subprocess (migrate.psqlEnv). This is the direct fix for the 25006 at install.go POST_COMPLETION.
+
+ARM A (box-wide residue clear, ownership-gated) — two edits:
+• cli/internal/upgrade/service.go clearStaleReadOnlyWindow: added the StateRestoreReattemptable EXCLUSION (skip the clear when a row is state='failed' AND backup_path IS NOT NULL) BEFORE the windowOff — preserves the git-restore-fail ABORT hold until the replay's own :7981 lift. Existing guards (no flag / no in_progress / pg_db_role_setting DB-level read) intact. New exported entrypoint ClearStaleReadOnlyWindowIfUnowned delegates to it (reuse, not replicate).
+• cli/cmd/install.go post-completion defer (after completeInstallUpgradeRow, installErr==nil): constructs an upgrade.Service (LoadConfigAndConnect) and calls svc.ClearStaleReadOnlyWindowIfUnowned — the install ladder is the backstop's second invoker, clearing stale residue for the box's APP sessions (which legitimately never self-exempt).
+
+CONFIRMED MECHANISM (en route, per the ask):
+• pair-terminal (rollback-pair-terminal): CONFIRMED from code — the two C9 kills die between restoreDatabase(:7904) and the lift(:7981), so no lift runs; the DB-level default stays read_only=on (captured in the snapshot), and the completion-INSERT session inherits it at connect time (default_transaction_read_only is evaluated per-transaction from the session default, itself inherited from the DATABASE default at connect). ARM B overrides it on the session; ARM A clears it box-wide.
+• restore-broke-reattempt: the reattempt DOES run restoreAndFinalize:7981, yet the completion INSERT still 25006'd. The residual candidate (not fully distinguishable from static code) is that ALTER DATABASE ... SET read_only=off only affects FUTURE sessions, so a completion session established across the reattempt boundary, or a re-engagement during the reattempt's own restore (which rsyncs the read_only=on snapshot back before its lift), inherits read_only=on. ARM B makes this moot for install's own writes under ALL three timings (session-predates-lift / re-engagement / lift-not-reaching); the rc.02 arc + its window-state read is the definitive oracle. Recording honestly: pair-terminal is code-confirmed; the reattempt's exact timing is arc-confirmed at rc.02.
+
+ORACLES (RED-first, structural — the DB-behavioral proof is the two arcs at rc.02, VM): TestClearStaleReadOnlyWindow_ReattemptExclusion_STATBUS209 (ARM A exclusion precedes the clear + the ABORT-hold preservation pin + wrapper delegates); TestConnectInstallDB_SelfExempts_STATBUS209 (ARM B SET read_only=off before returning the conn); TestInstallCompletion_ClearsStaleWindow_STATBUS209 (ARM A install invoker follows the completion INSERT). All PASS. The STATBUS-163 flip-test pin (read_only_window_flip_test) still green — clearStaleReadOnlyWindow kept its ReadFlagFile/in_progress/pg_db_role_setting/terminalExec guards.
+
+VERIFY: go build ./internal/upgrade ./cmd OK; go vet OK; gofmt clean (all 4 files); the 3 oracles + broad upgrade-package structural sweep PASS. No commit — frozen for the architect's frozen-diff review. (AC#1 mechanism / AC#2 fix landed pending review / AC#3 arcs green at rc.02 = the VM oracle after commit.)
 ---
 <!-- COMMENTS:END -->

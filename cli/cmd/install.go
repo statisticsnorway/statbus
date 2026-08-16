@@ -589,6 +589,21 @@ func runInstall() (installErr error) {
 					installErr = err
 					return
 				}
+				// STATBUS-209 ARM A: clear box-wide read-only residue for the box's APP sessions
+				// (which legitimately never self-exempt). Install has the DB up and, on this normal
+				// completion, owns no upgrade — so a still-engaged window is STALE RESIDUE (e.g. a
+				// crash between a rollback restore and its :7981 lift — the pair-terminal class).
+				// Reuse the SAME ownership-gated backstop the daemon runs at boot: it self-guards
+				// (no flag, no in_progress row, no restore-reattempt pending — the ABORT hold is
+				// preserved) and clears loudly. Install's OWN completion write was already covered
+				// by ARM B's session exemption; this is the box-wide clear for app writes. Best-
+				// effort — a clear failure never fails a successful install.
+				if svc := upgrade.NewService(installDir, false, version, commit); svc != nil {
+					if lerr := svc.LoadConfigAndConnect(context.Background()); lerr == nil {
+						svc.ClearStaleReadOnlyWindowIfUnowned(context.Background())
+					}
+					svc.Close()
+				}
 				// Notify the daemon so it picks up any newly available releases.
 				// Best-effort: periodic discovery tick recovers on drop.
 				if _, err := conn.Exec(context.Background(), "NOTIFY upgrade_check"); err != nil {
@@ -2333,7 +2348,23 @@ func connectInstallDB(dir string) (*pgx.Conn, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	return pgx.Connect(ctx, connStr)
+	conn, err := pgx.Connect(ctx, connStr)
+	if err != nil {
+		return nil, err
+	}
+	// STATBUS-209 ARM B — self-exempt this session from the read-only upgrade window, exactly
+	// like the pipeline's own sessions (service.go connect()) and install's own migrate
+	// subprocess (migrate.psqlEnv). A CONSISTENCY fix, not doctrine widening: install can NEVER
+	// coexist with a live upgrade (the flock refuses), so install's writes are never the class
+	// the window blocks. Without this, a session that predates a restore's window-lift (the DB
+	// default is captured at connect time; ALTER DATABASE only affects FUTURE sessions), a
+	// mid-pass re-engagement, or a wrong-path dispatch can 25006 install's OWN completion INSERT
+	// (install.go POST_COMPLETION_UPGRADE_ROW_INSERT_SUCCEEDS) — the rc.01 restore-broke arcs.
+	if _, err := conn.Exec(ctx, "SET default_transaction_read_only = off"); err != nil {
+		conn.Close(ctx)
+		return nil, fmt.Errorf("exempt install DB session from the read-only window: %w", err)
+	}
+	return conn, nil
 }
 
 // completeInstallUpgradeRow creates a fresh `completed` upgrade row for the
