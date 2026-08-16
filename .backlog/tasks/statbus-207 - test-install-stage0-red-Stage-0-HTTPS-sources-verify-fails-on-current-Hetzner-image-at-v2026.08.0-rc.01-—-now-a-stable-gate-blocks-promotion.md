@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-08-16 20:38'
-updated_date: '2026-08-16 20:53'
+updated_date: '2026-08-16 20:54'
 labels:
   - release
   - quality-gate
@@ -93,5 +93,19 @@ TRACE FINDINGS pt.2/2, comment #2's question (b), plus one adjacent gap found.
 The mystery of WHY hcloud reported "Server not found": the SAME call (`hcloud server ip "$vm_name"`) succeeded for this exact VM name at 20:27:31.2260411Z (VM_IP=95.217.222.186), immediately after `hcloud server create`. The VM was then actively used for 6+ minutes — SSH reachable throughout (cloud-init wait, hardening via detached tmux, statbus user creation, SSH key fetch all succeeded per the log) — before hcloud's control-plane API reported it not found at 20:33:49, a 6m18s gap. No concurrent process or premature cleanup is visible in the log (the harness's own "Deleting VM" line fires AFTER this failure, as the EXIT trap's cleanup_vm). I cannot determine from logs alone whether this is a genuine Hetzner API-side transient/eventual-consistency issue or something else — flagging honestly as unresolved, not fabricating a cause. Given the architect's ruling scopes the ask to DIAGNOSABILITY (not root-causing Hetzner's side), implementing that: wrap the bare `hcloud server ip` call sites so a failure's diagnostic explicitly includes hcloud's own stderr, rather than relying on it being incidentally visible elsewhere in an unfiltered raw log.
 
 ADJACENT GAP FOUND, not asked for, flagging rather than silently fixing or silently ignoring (per 'never defer known bugs'): the verify()-failures-never-propagate defect in setup-ubuntu-lts-24.sh is NOT Stage-0-specific — true for all 8 stages. Fixing ONLY Stage 0's verify semantics (ruling point 1) makes Stage 0's check goal-accurate, but even a redefined, goal-accurate Stage 0 verify failing would STILL not stop the script or signal the harness — the same silent-success shape persists for Stage 0 and stays latent for stages 1-8. Broader than the ticket's stated scope (Stage 0 rewrite + harness diagnosability). NOT touching main()'s stage-orchestration/exit-code aggregation as part of this build — cross-stage behavioral change beyond the two files' named scope in the dispatch; deserves an explicit call: fix now (small, scoped: fail the script if ANY verify() call failed, checked once at the very end of main()) or file separately. Proceeding with the ruled scope (Stage 0 rewrite + verify redefinition + hcloud diagnosability); noting this explicitly in my freeze report to the foreman for a decision, not deciding it myself.
+---
+
+author: foreman
+created: 2026-08-16 20:54
+---
+CAUSAL CHAIN CORRECTED (full-log evidence; supersedes comment #2's remaining assumptions and dissolves comment #3's trace pointer):
+
+1. Stage 0's ✗ is REAL but NON-FATAL. The full test-install log shows: '✗ HTTPS sources configured' → '✓ APT update succeeds' → Stages 1-3 verifying → 'creating statbus user + linger...' → 'VM bootstrap complete.' setup-ubuntu-lts-24.sh has NO set -e (only `set -o pipefail`, :17): verify() returns 1, the script continues, hardening exits 0. There was never a hardening failure and never an errexit-propagation bug — open question (a) is CLOSED as a ghost; the architect's condition-context pointer chased my wrong premise.
+
+2. The test-install killer is CROSS-RUN VM DELETION, now STATBUS-208 defect A: the concurrent install-recovery run's 0-happy-install job refused-on-existing at 20:28:12 (correct) and then its cleanup/reap DELETED the foreign VM at 20:28:39 ('Server statbus-recovery-0-happy-install deleted'). test-install kept SSH-ing its cached IP — recycled to a sibling scenario VM running identical hardening, hence 4 minutes of plausible cross-wired log — and died at :618 on 'hcloud: Server not found' (question (b) answered: the stderr WAS surfaced; the VM was genuinely gone).
+
+3. Scope consequence, relayed to the mechanic: primary Stage-0 goal-based fix UNCHANGED (the ✗ is real on the current image and verify must state the goal); secondary REPLACED with the tactical ownership guard — cleanup never deletes a VM the job did not create (refuse-branch exit skips deletion, logs the foreign owner). Structural remedies (run-scoped names, cross-workflow capacity) are STATBUS-208, architect ruling pending.
+
+4. Fleet context: install-recovery red = 14/16, of which 13 are STATBUS-208 defect B (resource_limit_exceeded at create) and the 0-happy job is defect A's other side. Test Hardening GREEN. Arc harness still queued.
 ---
 <!-- COMMENTS:END -->
