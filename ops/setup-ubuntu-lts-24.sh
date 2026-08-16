@@ -26,6 +26,13 @@ NON_INTERACTIVE=false
 # Space-separated list of stage numbers to skip (e.g. "0 4"). Honored in both
 # interactive and non-interactive mode. Also settable via --skip-stages.
 SKIP_STAGES="${SKIP_STAGES:-}"
+# STATBUS-207: verify() failures, collected across every stage. main() runs
+# every stage to completion regardless (maximal diagnostics — the VM is
+# torn down after this run, so a fail-fast here would hide whatever came
+# after the first ✗) and exits non-zero at the very end if this is
+# non-empty, so a real regression finally reaches the harness's exit code
+# instead of vanishing into stage output nobody's automation checks.
+FAILED_VERIFICATIONS=()
 
 # =============================================================================
 # Colors and Formatting
@@ -70,12 +77,13 @@ log_header() {
 verify() {
     local description="$1"
     local command="$2"
-    
+
     if eval "$command" &>/dev/null; then
         echo -e "  ${GREEN}✓${NC} $description"
         return 0
     else
         echo -e "  ${RED}✗${NC} $description"
+        FAILED_VERIFICATIONS+=("$description")
         return 1
     fi
 }
@@ -379,59 +387,90 @@ stage_https_sources() {
     fi
 
     echo "This stage will:"
-    echo "  - Switch APT sources from HTTP to HTTPS"
-    echo "  - Use mirrors.edge.kernel.org (reliable HTTPS mirror)"
+    echo "  - Ensure APT sources are HTTPS (the goal — no http:// URI left)"
+    echo "  - Rewrite any http://.../ubuntu URI to mirrors.edge.kernel.org (reliable HTTPS mirror)"
+    echo "  - Leave already-HTTPS sources untouched (e.g. the image's own shipped mirror)"
     echo ""
     echo -e "${YELLOW}NOTE: Required if your network blocks HTTP traffic.${NC}"
     echo -e "${YELLOW}      Ubuntu's default mirrors use HTTP for package updates.${NC}"
     echo ""
-    
+
     if ! ask_yes_no "Run this stage?"; then
         log "Skipping Stage 0"
         return 0
     fi
-    
+
     local sources_file="/etc/apt/sources.list.d/ubuntu.sources"
     local old_sources="/etc/apt/sources.list"
-    
+
+    # STATBUS-207: the goal is HTTPS apt sources, not the kernel.org mirror
+    # specifically. Detect ANY remaining http:// URI on an ACTIVE source
+    # line (not presence/absence of mirrors.edge.kernel.org, and NOT a bare
+    # http:// substring anywhere — stock Ubuntu/cloud-init sources files
+    # routinely carry comment lines with http:// links, e.g. "# See
+    # http://help.ubuntu.com/..." or a commented-out deb entry; matching
+    # those would ghost-red an already-fully-HTTPS image). uri_line_re
+    # anchors to real URI-bearing lines only — DEB822's "URIs:" stanza key,
+    # or legacy "deb"/"deb-src" entries — the exact same anchor the
+    # diagnostics dump below already used, now shared by detection and
+    # verify too so all three agree on what counts as an active URI line.
+    # An image that already ships its own HTTPS mirror (e.g. current
+    # Hetzner Ubuntu 24.04 images) has nothing to rewrite, and forcing
+    # kernel.org over it would be churn, not hardening. When a rewrite IS
+    # needed, only the http://.../ubuntu shape is targeted, exactly as
+    # before (the sed itself doesn't need the same anchor — once detection
+    # is line-anchored, a sed that also touches a matching comment is
+    # cosmetic, not a false-fail: verify is anchored too).
+    local uri_line_re='^[[:space:]]*(URIs:|deb(-src)?[[:space:]])'
+
     # Handle both old-style sources.list and new DEB822 format
     if [[ -f "$sources_file" ]]; then
         log "Detected DEB822 format (ubuntu.sources)"
-        
-        if grep -q "mirrors.edge.kernel.org" "$sources_file"; then
-            log "HTTPS mirror already configured"
-        else
+
+        if grep -qE "${uri_line_re}.*http://" "$sources_file"; then
             log "Backing up original sources..."
             cp "$sources_file" "${sources_file}.bak"
-            
-            log "Switching to HTTPS mirror..."
+
+            log "Switching http:// URIs to HTTPS mirror..."
             sed -i 's|http://[^/]*/ubuntu|https://mirrors.edge.kernel.org/ubuntu|g' "$sources_file"
+        else
+            log "HTTPS sources already configured — shipped mirror: $(grep -E "$uri_line_re" "$sources_file" | grep -oE 'https://[^[:space:]]+' | head -1)"
         fi
     elif [[ -f "$old_sources" ]]; then
         log "Detected legacy sources.list format"
-        
-        if grep -q "mirrors.edge.kernel.org" "$old_sources"; then
-            log "HTTPS mirror already configured"
-        else
+
+        if grep -qE "${uri_line_re}.*http://" "$old_sources"; then
             log "Backing up original sources..."
             cp "$old_sources" "${old_sources}.bak"
-            
-            log "Switching to HTTPS mirror..."
+
+            log "Switching http:// URIs to HTTPS mirror..."
             sed -i 's|http://[^/]*/ubuntu|https://mirrors.edge.kernel.org/ubuntu|g' "$old_sources"
+        else
+            log "HTTPS sources already configured — shipped mirror: $(grep -E "$uri_line_re" "$old_sources" | grep -oE 'https://[^[:space:]]+' | head -1)"
         fi
     else
         log_warn "No standard sources file found"
     fi
-    
+
     log "Updating package lists..."
     apt-get update -qq
-    
-    # Verification
+
+    # Verification. Goal-stated (STATBUS-207): no http:// URI remains on
+    # any ACTIVE source line, replacing the old kernel-org-presence grep —
+    # an already-HTTPS image (no rewrite performed above) must verify
+    # green too, and a comment mentioning http:// must never trip it
+    # (same uri_line_re as detection above, so the two can never disagree
+    # about what counts). On failure, print the actual URIs found so the
+    # next triage never needs a live VM (the VM is torn down after every
+    # harness run — the log is the only oracle).
     echo ""
     log "Verifying Stage 0..."
-    verify "HTTPS sources configured" "grep -r 'https://mirrors.edge.kernel.org' /etc/apt/sources.list.d/ /etc/apt/sources.list 2>/dev/null | grep -q https"
+    if ! verify "HTTPS sources configured (no http:// URI remains)" "! grep -rqE '${uri_line_re}.*http://' /etc/apt/sources.list.d/ /etc/apt/sources.list 2>/dev/null"; then
+        log_error "Actual apt source URIs on this image (diagnose without a live VM):"
+        grep -rnE "$uri_line_re" /etc/apt/sources.list.d/ /etc/apt/sources.list 2>/dev/null | sed 's/^/    /'
+    fi
     verify "APT update succeeds" "apt-get update -qq"
-    
+
     pause
 }
 
@@ -1252,6 +1291,22 @@ main() {
 
     if [[ -f /var/run/reboot-required ]]; then
         log_warn "A reboot is required to complete the setup"
+    fi
+
+    # STATBUS-207: the only point in main() that turns any verify()
+    # failure, from any stage, into a non-zero process exit. Checked AFTER
+    # every stage has run to completion (maximal diagnostics — the VM is
+    # torn down right after this run, so fail-fast would hide whatever
+    # came after the first ✗) so a real regression anywhere finally
+    # reaches the caller's (harness's) exit code instead of vanishing into
+    # stage output nobody's automation checks.
+    if [[ ${#FAILED_VERIFICATIONS[@]} -gt 0 ]]; then
+        echo ""
+        log_error "${#FAILED_VERIFICATIONS[@]} verification(s) failed across the run:"
+        for failed in "${FAILED_VERIFICATIONS[@]}"; do
+            echo "  ✗ $failed"
+        done
+        exit 1
     fi
 }
 

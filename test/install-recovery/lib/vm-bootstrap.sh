@@ -27,12 +27,22 @@
 #
 #   cleanup_vm <vm_name>
 #       Delete the VM. KEEP_VM=1 leaves it running (€0.0072/hr) for debugging.
+#       STATBUS-207: refuses to delete unless THIS run actually created the
+#       VM (VM_OWNED_BY_THIS_RUN) — a cross-run name collision (two
+#       workflows deriving the same VM name from the same scenario slug,
+#       STATBUS-208) must never let one job's cleanup delete another job's
+#       live VM. A caller whose bootstrap hit the refuse-on-existing check
+#       never sets the flag, so its EXIT-trap cleanup_vm call becomes a
+#       no-op that logs the foreign ownership instead of deleting.
 #
 #   $VM_EXEC            ssh prefix to run as the statbus user inside the VM.
 #                       Sources .profile so XDG_RUNTIME_DIR is set for
 #                       systemctl --user.
 #   $VM_IP              VM's public IPv4 address.
 #   $STATBUS_UID        Numeric UID of the statbus user inside the VM.
+#   $VM_OWNED_BY_THIS_RUN  Set to 1 by bootstrap_install_test_vm immediately
+#                       after `hcloud server create` succeeds. cleanup_vm's
+#                       ownership guard (STATBUS-207).
 #
 # Cost model: one CX23 in hel1 = €0.0064/hr + €0.0008/hr for primary IPv4 =
 # €0.0072/hr. Hetzner bills hourly with 1-hour minimum (no per-minute), so
@@ -107,6 +117,40 @@ _check_name_safety() {
             return 1
             ;;
     esac
+}
+
+# _hcloud_server_ip prints vm_name's public IPv4 on success. On failure it
+# prints an explicit diagnostic naming hcloud's OWN error text and returns
+# non-zero — STATBUS-207: hcloud's stderr already reaches the raw CI log
+# unredirected today, but unlabeled and disconnected from the harness's own
+# "✗ harness failure: rc=N at FILE:LINE: COMMAND" ERR-trap line; a reader
+# scanning only the harness-failure lines (or a filtered/truncated log
+# view) can miss it entirely. Every authoritative (non-best-effort) caller
+# of `hcloud server ip` goes through this so a failure is self-explaining
+# without needing the full raw log — the probe-shape discipline the
+# architect's ruling names (README §probes): capture the reason, never
+# swallow it. Best-effort cleanup/probe call sites that deliberately
+# discard hcloud's stderr (2>/dev/null, optional VM existence checks) are
+# a different, intentionally-silent use case and are NOT routed through
+# this helper.
+_hcloud_server_ip() {
+    local vm_name="$1"
+    local ip stderr_file rc
+    stderr_file=$(mktemp)
+    # $? must be captured as the FIRST statement of the else branch, not
+    # after the if/fi construct — POSIX defines an if/then with no else
+    # branch taken as exiting 0 regardless of the tested command's real
+    # status (verified empirically; a genuine gotcha, not an assumption).
+    if ip=$(hcloud server ip "$vm_name" 2>"$stderr_file"); then
+        rm -f "$stderr_file"
+        echo "$ip"
+        return 0
+    else
+        rc=$?
+        echo "ERROR: hcloud server ip failed for VM '$vm_name' (rc=$rc): $(cat "$stderr_file")" >&2
+        rm -f "$stderr_file"
+        return "$rc"
+    fi
 }
 
 # _assert_head_still_on_origin — STATBUS-184: re-verify HEAD is STILL on origin
@@ -539,8 +583,13 @@ bootstrap_install_test_vm() {
         --location "$HCLOUD_LOCATION" \
         --ssh-key "$HCLOUD_SSH_KEY" \
         > /dev/null
+    # STATBUS-207 ownership guard: only set once `hcloud server create`
+    # itself has actually succeeded (set -e would have exited above on
+    # failure, e.g. DEFECT B's resource_limit_exceeded — the flag never
+    # gets set on that path either, correctly).
+    VM_OWNED_BY_THIS_RUN=1
 
-    VM_IP=$(hcloud server ip "$vm_name")
+    VM_IP=$(_hcloud_server_ip "$vm_name") || return 1
     echo "  VM_IP=$VM_IP"
 
     _wait_for_ssh "$VM_IP" 90
@@ -564,7 +613,7 @@ reset_vm_state() {
     echo "Reimaging $vm_name to fresh $HCLOUD_IMAGE (server id and IP preserved)..."
     hcloud server rebuild "$vm_name" --image "$HCLOUD_IMAGE" > /dev/null
 
-    VM_IP=$(hcloud server ip "$vm_name")
+    VM_IP=$(_hcloud_server_ip "$vm_name") || return 1
     echo "  VM_IP=$VM_IP (unchanged)"
 
     # Caller pre-built sb_binary is already cached in $HARNESS_ROOT —
@@ -615,7 +664,7 @@ install_statbus_in_vm() {
     _check_name_safety "$vm_name" || return 1
 
     local ip
-    ip=$(hcloud server ip "$vm_name")
+    ip=$(_hcloud_server_ip "$vm_name") || return 1
 
     local install_script
     install_script=$(mktemp)
@@ -770,7 +819,7 @@ install_statbus_at_sha() {
     # scrub); the caller adds arc afterward via config generate + unit restart.
 
     local ip
-    ip=$(hcloud server ip "$vm_name")
+    ip=$(_hcloud_server_ip "$vm_name") || return 1
 
     local install_script
     install_script=$(mktemp)
@@ -837,7 +886,7 @@ upload_sb_to_vm() {
     local vm_name="$1"
     _check_name_safety "$vm_name" || return 1
     local ip
-    ip=$(hcloud server ip "$vm_name")
+    ip=$(_hcloud_server_ip "$vm_name") || return 1
     local sb_binary="${STATBUS_SB_BINARY:-}"
     if [ -z "$sb_binary" ]; then
         echo "  Building sb-linux-amd64 from HEAD (always rebuild to prevent staleness)..."
@@ -1010,7 +1059,7 @@ upload_install_script_to_vm() {
     local dest_path="$3"
     _check_name_safety "$vm_name" || return 1
     local ip
-    ip=$(hcloud server ip "$vm_name")
+    ip=$(_hcloud_server_ip "$vm_name") || return 1
     scp -O "${SSH_OPTS[@]}" "$src_path" root@"$ip":"$dest_path"
     ssh "${SSH_OPTS[@]}" root@"$ip" "chmod 0755 $dest_path"
     rm -f "$src_path"
@@ -1129,6 +1178,22 @@ vm_start_unit() { _vm_unit_op start "$@"; }
 cleanup_vm() {
     local vm_name="$1"
     _check_name_safety "$vm_name" || return 1
+
+    # STATBUS-207/208 ownership guard: refuse to act on a VM this run did
+    # not create — a cross-run name collision (two workflows deriving the
+    # same VM name from the same scenario slug, e.g. test-install.yaml and
+    # install-recovery-harness.yaml both running 0-happy-install) must
+    # never let one job's cleanup delete (or even probe) another job's
+    # live VM. bootstrap_install_test_vm only sets VM_OWNED_BY_THIS_RUN
+    # after `hcloud server create` itself succeeded; a caller whose
+    # bootstrap hit the refuse-on-existing check (another run's VM already
+    # has this name) never sets it, so this call becomes a logged no-op
+    # instead of deleting a VM this job never created.
+    if [ "${VM_OWNED_BY_THIS_RUN:-0}" != "1" ]; then
+        echo "cleanup_vm: NOT deleting '$vm_name' — this run never created it (VM_OWNED_BY_THIS_RUN unset)." >&2
+        echo "  If this fired after a refuse-on-existing error, '$vm_name' belongs to a different run — leaving it to its own owner." >&2
+        return 0
+    fi
 
     # Surface detached-tmux stage logs (success OR failure) BEFORE reaping/leaving
     # the VM. Best-effort; a no-op for scenarios that never used a tmux install.
