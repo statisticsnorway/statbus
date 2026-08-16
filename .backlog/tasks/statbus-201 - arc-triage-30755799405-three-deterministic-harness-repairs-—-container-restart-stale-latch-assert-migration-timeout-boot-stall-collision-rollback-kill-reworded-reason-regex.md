@@ -4,9 +4,11 @@ title: >-
   arc-triage-30755799405: three deterministic harness repairs —
   container-restart stale latch assert, migration-timeout boot-stall collision,
   rollback-kill reworded-reason regex
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@engineer'
 created_date: '2026-08-02 19:10'
+updated_date: '2026-08-16 14:10'
 labels:
   - install-recovery
   - upgrade
@@ -45,3 +47,13 @@ NOTE FOR THE RECORD: all three arcs were last green BEFORE the code changes that
 - [ ] #3 rollback-kill-arc matches the ratified plain-vocabulary reason and is green on a real VM
 - [ ] #4 The inject-marker addition is registered in inject.go with the naming discipline; no existing marker removed or narrowed
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-08-16 14:10
+---
+BUILT + ARCHITECT-APPROVED + COMMITTED 78d9e34f0 (foreman, 2026-08-16). Engineer built the three repairs to the brief; architect frozen-diff review approved with zero amendments, calling the container-restart re-anchor BETTER than the brief asked — it asserts completion via the product's own [completed-self-heal] label (proving the exact converging branch: resumeNewSb's containers-at-target, not the flagless belt) AND asserts the ABSENCE of UPGRADE_DIED_DURING_RESUME, so a resurrected retired latch can never hide behind a coincidental completion. Foreman's independent verification pre-commit: full upgrade+inject package tests green, bash -n on all three arcs, marker registered/sited/pinned (inject.go:255, service.go:6148), generic marker untouched (addition-only per the King's wholesale ruling). TICKET STAYS OPEN on its oracle: the three repaired arcs must run GREEN on real VMs — the re-runs ride the King's cut tag or the foreman's dispatch; the ticket closes on those runs, per the-run-is-the-only-oracle.
+---
+<!-- COMMENTS:END -->
