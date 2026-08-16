@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -573,9 +575,9 @@ func checkImmutabilityGate(projDir string) bool {
 		label = "previous stable"
 	}
 	if err := checkMigrationImmutability(projDir, prevTag, label); err != nil {
-		// checkMigrationImmutability already printed the per-file
-		// rejection list. Surface the actionable fix on its own line.
-		fmt.Printf("    Fix: see message above; or set %s=<version>[,...] to bypass for listed versions.\n", release.IntentionallyFixBrokenImmutableMigrationEnvVar)
+		// checkMigrationImmutability already printed the full per-file
+		// explanation (STATBUS-202: inspect-first, bless-declaration last)
+		// — nothing to add here.
 		return false
 	}
 	return true
@@ -661,7 +663,12 @@ func checkMigrationImmutability(projDir, prevTag, label string) error {
 
 	// Parse the diff output. Format: "M\tmigrations/file" or "D\tmigrations/file"
 	// A (added) = new migration, fine. M (modified) or D (deleted) = immutability violation.
-	var modified []string
+	type modifiedMigration struct {
+		status  string
+		file    string
+		version int64 // 0 if the filename didn't parse as <14-digit>_...
+	}
+	var modified []modifiedMigration
 	var fixedBroken []int64
 	for _, line := range strings.Split(diff, "\n") {
 		line = strings.TrimSpace(line)
@@ -685,19 +692,25 @@ func checkMigrationImmutability(projDir, prevTag, label string) error {
 			continue
 		}
 
-		// Honour STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION: extract the
-		// 14-digit version prefix from the filename and skip if listed.
-		if len(fixBroken) > 0 {
-			base := filepath.Base(file)
-			if underscore := strings.Index(base, "_"); underscore > 0 {
-				if v, parseErr := strconv.ParseInt(base[:underscore], 10, 64); parseErr == nil && fixBroken[v] {
-					fixedBroken = append(fixedBroken, v)
-					continue
-				}
+		// Extract the 14-digit version prefix from the filename — needed both
+		// for STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION below and
+		// for the STATBUS-202 already-blessed lookup further down.
+		var version int64
+		base := filepath.Base(file)
+		if underscore := strings.Index(base, "_"); underscore > 0 {
+			if v, parseErr := strconv.ParseInt(base[:underscore], 10, 64); parseErr == nil {
+				version = v
 			}
 		}
 
-		modified = append(modified, fmt.Sprintf("  %s %s", status, file))
+		// Honour STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION: skip if
+		// this version is explicitly listed.
+		if version != 0 && fixBroken[version] {
+			fixedBroken = append(fixedBroken, version)
+			continue
+		}
+
+		modified = append(modified, modifiedMigration{status: status, file: file, version: version})
 	}
 
 	// Log fix-broken activity before the gate decision so the operator
@@ -716,22 +729,51 @@ func checkMigrationImmutability(projDir, prevTag, label string) error {
 		return nil
 	}
 
+	// STATBUS-202: inspect-and-explain BEFORE the remedy. Per modified file:
+	// the reframe sentence, then paste-ready `git diff`/`git log` commands
+	// against the real tag and real path (no placeholders), then — when the
+	// file's CURRENT bytes are already carried by a cut release (STATBUS-166
+	// content-level trust) — the already-blessed context naming that tag. The
+	// bless-declaration env var is the LAST line of the whole message, framed
+	// as the deliberate per-cut declaration it is, never a "Fix:".
 	fmt.Printf("  ✗ Migrations modified since %s (%s)\n", prevTag, label)
+	fmt.Println()
 	for _, m := range modified {
-		fmt.Println("   ", m)
+		fmt.Printf("  %s %s\n", m.status, m.file)
+		fmt.Printf("    A released migration differs from its bytes at %s. Inspect and explain the change before deciding:\n", prevTag)
+		fmt.Printf("      git diff %s HEAD -- %s\n", prevTag, m.file)
+		fmt.Printf("      git log %s..HEAD -- %s\n", prevTag, m.file)
+
+		// A deleted file has no current bytes to hash or bless — this check
+		// only applies to files still present at HEAD.
+		if m.status != "D" && m.version != 0 {
+			if data, readErr := os.ReadFile(filepath.Join(projDir, m.file)); readErr == nil {
+				sum := sha256.Sum256(data)
+				hash := hex.EncodeToString(sum[:])
+				if tag, blessErr := release.ReleaseTagWithMigrationHash(projDir, m.version, hash); blessErr != nil {
+					fmt.Printf("    (could not check already-blessed status: %v)\n", blessErr)
+				} else if tag != "" {
+					fmt.Printf("    These exact bytes are already carried by %s — prior cuts declared this bless; re-declare to proceed.\n", tag)
+				}
+			}
+		}
+		fmt.Println()
 	}
-	return fmt.Errorf("migrations modified since %s — deployed migrations are immutable.\n"+
-		"  The ONLY sanctioned reason to change a released migration is to FIX A GENUINELY\n"+
-		"  BROKEN one: a crash/timeout/OOM fix that PRESERVES THE RESULT. A result change\n"+
-		"  goes in a NEW forward migration (./sb migrate new), never by editing this file.\n"+
-		"  If you are NOT certain the migration is genuinely broken AND that your fix\n"+
-		"  preserves the result, STOP and consult the maintainer — do not set the var on a guess:\n"+
-		"  it silently overrides a safety invariant on every box that already ran the migration.\n"+
-		"  ONLY if you are certain, and deliberately fixing a broken migration, declare each version:\n"+
-		"    %s=<version>[,...] ./sb release prerelease\n"+
-		"  Otherwise, revert your change to the original file:\n"+
-		"    git checkout %s -- migrations/<file>",
-		prevTag, release.IntentionallyFixBrokenImmutableMigrationEnvVar, prevTag)
+
+	fmt.Println("  The ONLY sanctioned reason to change a released migration is to FIX A GENUINELY")
+	fmt.Println("  BROKEN one: a crash/timeout/OOM fix that PRESERVES THE RESULT. A result change")
+	fmt.Println("  goes in a NEW forward migration (./sb migrate new), never by editing this file.")
+	fmt.Println("  If you are NOT certain the migration is genuinely broken AND that your fix")
+	fmt.Println("  preserves the result, STOP and consult the maintainer — do not set the var on a guess:")
+	fmt.Println("  it silently overrides a safety invariant on every box that already ran the migration.")
+	fmt.Printf("  Otherwise, revert to the bytes at %s (see the git diff commands above).\n", prevTag)
+	fmt.Println()
+	fmt.Println("  ONLY if you have inspected the diff above and are certain this is a deliberate,")
+	fmt.Println("  sanctioned fix: declare it. Each cut re-declares intent — there is no stored")
+	fmt.Println("  second record; setting this is itself the bless, made fresh at this cut:")
+	fmt.Printf("    %s=<version>[,...] ./sb release prerelease\n", release.IntentionallyFixBrokenImmutableMigrationEnvVar)
+
+	return fmt.Errorf("migrations modified since %s — deployed migrations are immutable (see per-file explanation above)", prevTag)
 }
 
 // dedupeInt64Sorted returns the input with duplicates removed and entries
