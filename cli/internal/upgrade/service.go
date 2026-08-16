@@ -3164,6 +3164,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 	fromInProgressJSON, scanErr := d.terminalUpdate(completedSQL, id, appendLog.RelPath())
 	if scanErr == nil {
 		logUpgradeRow(LabelCompletedFromInProgress, fromInProgressJSON)
+		d.deleteRollbackBinaryOnCompletion() // STATBUS-197 C3: swap resolved → ./sb.old must not linger
 	} else if dbName := d.markPgInvariantTerminal(scanErr, "service.go:completeInProgressUpgrade:completed"); dbName != "" {
 		// C4: DB-enforced invariant → prefer the specific name in the bundle.
 		d.writeDiagnosticBundle(ctx, int(id), nil)
@@ -5400,7 +5401,6 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// upgrade-logs-<stamp> correlation (still per-upgrade); it no longer names
 	// the rsync dir.
 	backupStamp := time.Now().UTC().Format("20060102T150405Z")
-	backupActivePath := filepath.Join(d.backupRoot(), backupActiveName)
 
 	// L2 — stale-connection detection before the first DB write after the
 	// multi-second pullImagesForCommitShort step. The pull leaves queryConn idle for the
@@ -5416,27 +5416,21 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	pingErr := d.queryConn.Ping(pingCtx)
 	pingCancel()
 	if pingErr != nil {
-		progress.Write("Stale queryConn detected before backup_path UPDATE (Ping: %v) — reconnecting...", pingErr)
+		progress.Write("Stale queryConn detected before the read-only window engage (Ping: %v) — reconnecting...", pingErr)
 		if reErr := d.reconnect(ctx); reErr != nil {
-			progress.Write("Reconnect failed: %v — proceeding; reconcileBackupDir can still correlate via on-disk stamp if the Exec also fails.", reErr)
+			progress.Write("Reconnect failed: %v — proceeding; the read-only ALTER below is best-effort.", reErr)
 		} else {
 			progress.Write("queryConn reconnected successfully.")
 		}
 	}
 
-	progress.Write("Recording backup path on upgrade row (id=%d, path=%s)...", id, backupActivePath)
-	if _, err := d.queryConn.Exec(ctx, "UPDATE public.upgrade SET backup_path = $1 WHERE id = $2", backupActivePath, id); err != nil {
-		// Not fatal for restore: the FLAG carries the same path
-		// (updateFlagNewSbSwapped stamps flag.BackupPath after the snapshot
-		// commit-rename), and flag-driven recovery restores from the flag's
-		// identity. A missed row write only loses the reconcile
-		// cross-reference and the flagless-recovery (completeInProgressUpgrade)
-		// identity — both degrade loudly, never into a wrong restore. Log and
-		// proceed.
-		progress.Write("Warning: backup_path UPDATE failed: %v (proceeding — flag.BackupPath carries the restore identity)", err)
-	} else {
-		progress.Write("Backup path recorded.")
-	}
+	// STATBUS-197 C1: backup_path is NO LONGER recorded here as early intent. Recording it
+	// BEFORE the snapshot commits violated the identity contract — a flag-lost heal in the
+	// [record → snapshot] span would restore the PREVIOUS attempt's snapshot (weeks-of-data
+	// regression). The row AND flag backup_path are now stamped together RIGHT AFTER
+	// backupDatabase returns (the commit moment, below), so "backup_path == '' ⇔ nothing moved"
+	// holds in EVERY carrier (row, flag, synthesized flag) — the invariant the rollback
+	// no-touch guard (C2) keys on. reconcileBackupDir keeps its on-disk-stamp fallback.
 
 	// STATBUS-110: engage the read-only upgrade window NOW — before we tear down
 	// connections and stop the DB — while queryConn is still live. The ALTER
@@ -5533,6 +5527,24 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		// touch the volume; it was never mutated.
 		d.rollback(ctx, id, displayName, restoreTargetSHA, fmt.Sprintf("%s: %v", ErrBackupFailed, err), "", progress)
 		return err
+	}
+
+	// STATBUS-197 C1: the snapshot has COMMITTED (backupDatabase returned a real path). Record
+	// the restore identity NOW, on both carriers, and NOWHERE earlier. After this point
+	// backup_path is non-empty; before it, it is "" — and every destructive step (the target
+	// checkout at recovery boot, the binary swap below, migrations) sits AFTER here, so
+	// "backup_path == '' ⇔ nothing moved" is exact. The row write rides the teardown-immune
+	// terminalExec (queryConn was closed for the consistent backup and the read-only window is
+	// engaged — the same fresh-conn path the completion 'completed' write uses under the
+	// window); the flag write rides mutateHeldFlag with the Phase UNCHANGED (still
+	// old-sb-upgrading — the swap stamp flips it to NewSbSwapped later). Both best-effort with a
+	// loud warning: the OTHER carrier still holds the identity, and neither failure can turn
+	// into a wrong restore (it can only degrade to the no-touch skip, which is the safe side).
+	if err := d.terminalExec("UPDATE public.upgrade SET backup_path = $1 WHERE id = $2", backupPath, id); err != nil {
+		progress.Write("Warning: could not record backup_path on the upgrade row at commit (%v) — flag.BackupPath still carries the restore identity; reconcile correlation degraded.", err)
+	}
+	if err := d.mutateHeldFlag(func(f *UpgradeFlag) { f.BackupPath = backupPath }); err != nil {
+		progress.Write("Warning: could not stamp backup_path on the flag at commit (%v) — the row still carries the restore identity; flag-driven recovery correlation degraded.", err)
 	}
 
 	// Step 6: Fetch the target's git objects — but do NOT check out the working
@@ -6532,6 +6544,7 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	}
 	log.Println("state=completed")
 	logUpgradeRow(LabelCompletedNormal, normalJSON)
+	d.deleteRollbackBinaryOnCompletion() // STATBUS-197 C3: swap resolved → ./sb.old must not linger
 	// Notify the frontend the upgrade state changed — fired AFTER the terminal
 	// state='completed' UPDATE above, NOT before it (its prior position fired
 	// while the row was still in_progress, so a client returning from the
@@ -7088,6 +7101,7 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 				flag.ID, progress.RelPath())
 			if err == nil {
 				logUpgradeRow(LabelCompletedSelfHeal, selfHealJSON)
+				d.deleteRollbackBinaryOnCompletion() // STATBUS-197 C3: swap resolved → ./sb.old must not linger
 				// Best-effort NOTIFY belt, same shape as the normal-completion
 				// path above.
 				_, _ = d.queryConn.Exec(ctx, `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
@@ -7828,7 +7842,13 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reaso
 	// rolled-back git tree, so the staleness guard sees a match and
 	// config generate runs cleanly. Best-effort; ErrRollbackBinaryCorrupt
 	// is logged (non-fatal) if the rename fails.
-	d.restoreBinary(progress)
+	// STATBUS-197 C2: skip when this attempt committed no snapshot — nothing swapped (the swap
+	// sits after backupDatabase), so ./sb.old (if any) belongs to a PRIOR attempt and restoring
+	// it would install the wrong binary. The empty-path rollback skipped the git restore too;
+	// the box is untouched at the source, so leave ./sb alone.
+	if backupPath != "" {
+		d.restoreBinary(progress)
+	}
 
 	if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "rollback-config-generate", nil, filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
 		progress.Write("Warning: config generate during rollback failed: %v", err)
@@ -8237,17 +8257,27 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 		os.Exit(1)
 	}
 
-	// Restore git state — ALWAYS, with no `restoreTargetSHA != ""` guard: an
-	// empty or unresolvable restoreTargetSHA falls back to the pinned `pre-upgrade`
-	// branch inside restoreGitStateFn (executeUpgrade pins `pre-upgrade` at HEAD
-	// before every destructive step), so the normal case still restores the old
-	// code. Only when NEITHER resolves does restoreGitState error → abort below.
-	// If this FAILS we MUST NOT bring the application services back up — they
-	// would run NEW code against the just-restored OLD database, the exact
-	// silent-data-corruption scenario rollback exists to prevent. Restore the
-	// database first so the on-disk state is consistent (old DB + old code is
-	// recoverable; new code + old DB is not), then ABORT before docker compose up.
-	if err := d.restoreGitState(restoreTargetSHA, progress); err != nil {
+	// STATBUS-197 C2 — THE NO-TOUCH GUARD. backupPath == "" means this attempt died BEFORE its
+	// snapshot committed (C1 records backup_path at the commit moment, and every destructive
+	// step — the recovery-boot checkout, the binary swap, migrations — sits AFTER it), so
+	// NOTHING moved on ANY axis. Restoring git/binary here would check out the standing
+	// `pre-upgrade` pin and install ./sb.old — both belong to a PRIOR attempt (one version
+	// back) — moving the box to a version no one asked for while the DB stays current: the
+	// mixed-era class. So skip BOTH the git restore and the binary restore (the DB leg already
+	// refuses on "" — restoreDatabase, exec.go). Keep the full tail (compose up, reconnect,
+	// terminal write, maintenance off, window lift) so the box returns to service at the
+	// untouched source and 'rolled_back' lands honestly. This one identity key covers W1
+	// (claim→commit stale pin, flagless heal), W2 (commit-window PreSwap recovery), AND the
+	// first-upgrade no-pin CATASTROPHIC abort (this guard precedes the git-restore error branch).
+	//
+	// When backupPath != "": restore git state as before. An empty/unresolvable restoreTargetSHA
+	// falls back to the pinned `pre-upgrade` branch inside restoreGitStateFn — which is now
+	// identity-correct because a committed snapshot proves THIS attempt owns that pin. If it
+	// FAILS we MUST NOT bring services up (NEW code on the just-restored OLD DB = corruption);
+	// restore the DB first to keep on-disk state consistent, then ABORT before docker compose up.
+	if backupPath == "" {
+		progress.Write("STATBUS-197: this attempt recorded no committed snapshot — it died before any destructive step; NOT restoring git or the binary from state that may predate this attempt. Returning the box to service at the untouched source version.")
+	} else if err := d.restoreGitState(restoreTargetSHA, progress); err != nil {
 		progress.Write("ABORT: rollback could not restore git state to %s: %v", restoreTargetSHA, err)
 		progress.Write("Restoring database to keep on-disk state consistent...")
 		// STATBUS-187 fix unit #1 (second wave, architect-ruled: "fix =
@@ -8741,6 +8771,23 @@ func matchSbVersionCommit(versionOut, commitSHA, displayName string) (string, bo
 // No separate CATASTROPHIC headline: the data-layer rollback succeeded,
 // so maintenance already reflects the right state; the binary mismatch
 // is a cosmetic-but-loud error in the log.
+// deleteRollbackBinaryOnCompletion removes ./sb.old at a SERVE-PROVEN completion (STATBUS-197
+// C3). Once EVERY completion path runs this, the invariant `./sb.old exists ⇔ an unresolved
+// swap` holds — so a LATER attempt's rollback that reaches restoreBinary can only ever install
+// THIS attempt's own swapped-out binary, never a predecessor's (F3's stale-binary class, which
+// the first-upgrade preswap arcs never caught). Called at all three serve-proven completions
+// (executeUpgrade normal, completeInProgressUpgrade flagless, resumeNewSb self-heal) — each
+// resolves a real swap, so a stale .old at any of them would defeat the invariant. Best-effort:
+// a leftover .old is only a latent wrong-restore risk that C2's backup-path identity guard
+// already blocks, so a removal failure is logged, never fatal; os.IsNotExist is the normal case
+// on a box's first-ever upgrade (no prior swap to resolve).
+func (d *Service) deleteRollbackBinaryOnCompletion() {
+	sbOldPath := filepath.Join(d.projDir, "sb") + ".old"
+	if err := os.Remove(sbOldPath); err != nil && !os.IsNotExist(err) {
+		fmt.Printf("STATBUS-197: could not delete ./sb.old at completion (%v) — a stale rollback binary may persist; C2's backup-path identity guard still prevents a wrong-version restore\n", err)
+	}
+}
+
 func (d *Service) restoreBinary(progress *ProgressLog) {
 	sbPath := filepath.Join(d.projDir, "sb")
 	sbOldPath := sbPath + ".old"
