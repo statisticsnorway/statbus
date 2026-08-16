@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-08-16 19:55'
-updated_date: '2026-08-16 20:07'
+updated_date: '2026-08-16 20:39'
 labels:
   - release
   - quality-gate
@@ -75,5 +75,11 @@ author: foreman
 created: 2026-08-16 20:07
 ---
 Architect APPROVED (independent verification: re-ran all four oracles himself, green; ratified the lane deviation as emergency-only, the no-completeness-arm call, and keeping the doc correction in the unit). Committed as 2438cbc0f on master (3 files, +354/−50). AC#1 and AC#2 checked — both are code-level facts now pinned by release_gate_layer_test.go. AC#3 (the King's clean cut to the tag) remains open as the live observation; the ticket closes when his cut lands. Pushing next.
+---
+
+author: foreman
+created: 2026-08-16 20:39
+---
+AC#3 evidence (not yet checked): the King's cut reached the tag — v2026.08.0-rc.01 exists at 5d141d3ca (the month rolled to August, hence the new prefix) and the tag push fired test-hardening + test-install + both harnesses + release.yaml, exactly the layer contract. What I cannot observe from here is his shell: whether any SKIP_* bypass beyond the bless declaration was set. Leaving AC#3 for the King/architect to confirm in the morning readout; everything observable is consistent with a clean cut.
 ---
 <!-- COMMENTS:END -->
