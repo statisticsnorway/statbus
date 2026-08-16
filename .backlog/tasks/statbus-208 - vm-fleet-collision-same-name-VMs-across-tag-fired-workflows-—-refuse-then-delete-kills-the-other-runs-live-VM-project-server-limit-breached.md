@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-08-16 20:54'
-updated_date: '2026-08-16 21:28'
+updated_date: '2026-08-16 22:30'
 labels:
   - install-recovery
   - quality-gate
@@ -108,5 +108,11 @@ author: foreman
 created: 2026-08-16 21:28
 ---
 LANDED as 4662b9147 on master, architect-approved with the scope expansion RATIFIED on all three pieces: (a) per-job reap suffix derived from the SAME env var as the lib's formula, must-match comment verified in the bytes (next-touch nicety recorded, not tonight: single-source the name via a job output so the reconstruction disappears); (b) exact-name reap strictly narrower, correct; (c) the age-gate ruled a SOUND cross-run-safe orphan definition — any VM older than every job timeout is an orphan by construction, so the sweep cannot touch a live run's VM; shipped sweeps use plain runner-native `date` (verified — gdate was local stubs only). AC#2 checked: ownership guard (207) + unique names + exact/suffix-matched reaps + age-gated sweeps together make foreign deletion impossible by construction at every deletion site. AC#3 (full tag-push fleet: zero resource_limit_exceeded, zero cross-run interference) is rc.02's observation. Tree is CLEAN — the overnight queue is complete.
+---
+
+author: foreman
+created: 2026-08-16 22:30
+---
+ARC RUN COMPLETE (31970534502, overall failure): 21 arcs green, 10 red. SEVEN of the ten reds are THIS ticket's defect B verbatim — all died in ~60-70s at `hcloud: server limit reached (resource_limit_exceeded)` during the 20:29-20:34 stampede window (claim-without-notify, boot-migrate-churn-alive-idle, deploy-status-proof, failing, postswap-after-commit-kill, c-rollback-resurrection, cross-version-rename-handoff; two spot-verified in the logs, timing+duration signature identical across all seven). Everything started after ~20:44 — once install-recovery's fleet stopped competing — ran real scenarios. Superseded-by-construction claim: the landed fixes (shared fleet group + create retry) remove this class; rc.02 is the proof (AC#3). The remaining THREE reds ran post-stampede for 12-17 min and are genuine, now filed: STATBUS-209 (read-only completion INSERT after rollback restore — rollback-pair-terminal + restore-broke-reattempt, same invariant), STATBUS-210 (un-park destroyed by the flag-recovery classifier — un-park-to-completion), STATBUS-211 (crollback-fixed fixture seed image build failure — masked this run by capacity, deterministic at rc.02). Also noted: the three 197-observation preswap arcs (preswap-backup-kill, preswap-binary-swap-kill, preswap-checkout-kill) all GREEN at this tag, post-stampede.
 ---
 <!-- COMMENTS:END -->
