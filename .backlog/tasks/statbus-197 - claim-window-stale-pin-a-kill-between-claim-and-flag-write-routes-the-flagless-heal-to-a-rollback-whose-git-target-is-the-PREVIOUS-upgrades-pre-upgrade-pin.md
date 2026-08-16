@@ -7,7 +7,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-07-29 11:09'
-updated_date: '2026-08-02 15:32'
+updated_date: '2026-08-16 18:11'
 labels:
   - upgrade
   - recovery
@@ -38,11 +38,13 @@ TO RULE: (a) read restoreGitState + the recovery-boot checkout gate (STATBUS-061
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 Architect disposition: the stale-pin git-restore path for a never-started claimed row is either PROVEN guarded (cite the refusing check) or ruled a real gap with the no-restore fix shape
-- [ ] #2 If real: the never-started heal marks the row terminal without touching git/binary/volume; oracle named and green
-- [ ] #3 Restore identity is recorded ONLY at snapshot commit: the pre-commit row backup_path write is gone; row AND flag BackupPath are both stamped right after backupDatabase returns (phase unchanged); source-order pinned by a Go unit
-- [ ] #4 ./sb.old is deleted at serve-proven completion, so sb.old-exists ⇔ an unresolved swap; pinned by a Go unit
+- [x] #2 If real: the never-started heal marks the row terminal without touching git/binary/volume; oracle named and green
+- [x] #3 Restore identity is recorded ONLY at snapshot commit: the pre-commit row backup_path write is gone; row AND flag BackupPath are both stamped right after backupDatabase returns (phase unchanged); source-order pinned by a Go unit
+- [x] #4 ./sb.old is deleted at serve-proven completion, so sb.old-exists ⇔ an unresolved swap; pinned by a Go unit
 - [ ] #5 The three preswap arcs stay green on the changed geometry: preswap-backup-kill (empty-path refusal arm), preswap-checkout-kill (full-restore arm, data intact), preswap-binary-swap-kill (binary restored from THIS attempt's sb.old)
 <!-- AC:END -->
+
+
 
 ## Comments
 
@@ -93,5 +95,11 @@ O4 (AC#5): the three preswap arcs on a real VM — backup-kill exercises the ref
 O5 (optional, King's call): a claim-window KillHere inject class (vocabulary ADDITION) to run-prove W1 end-to-end; the Go seam already pins the disposition.
 
 SEQUENCING: engineer builds AFTER the RC tag lands (tracked files; same hold as 199). Priority raised LOW→MEDIUM on F1/F3 (real defect surface on every multi-upgrade box, not just the sub-second window).
+---
+
+author: foreman
+created: 2026-08-16 18:11
+---
+BUILT + ARCHITECT-APPROVED + COMMITTED 21ec09911 (foreman, 2026-08-16). All four changes landed per comment #2: C1 — the early intent write is DELETED and both carriers (row via teardown-immune terminalExec, flag via mutateHeldFlag with Phase untouched) stamp at the snapshot-commit moment; every destructive step sits after it, so backup_path=='' ⇔ nothing-moved is exact in every carrier. C2 — the no-touch guard covers the git AND binary legs on the same identity key the DB leg always obeyed, keeps the full service tail, and precedes the git-restore ABORT branch — the first-upgrade no-pin catastrophic abort dissolves. C3 — deleteRollbackBinaryOnCompletion at ALL THREE serve-proven completion writers: the engineer's flagged extension beyond the brief's singular site was RULED IN HIS FAVOR (architect: 'close the invariant, don't sample it' — sb.old surviving any completion arms the F3 stale-restore class one attempt later). C4 — no new states, no flag-format change. Foreman verification pre-commit: build/vet/gofmt clean, all three STATBUS197 oracles green under my own execution, full upgrade package green, byte-check confirmed exactly two remaining backup_path writes (commit-moment :5543 + the pre-existing post-reconnect rename :6233). TICKET STAYS OPEN on O4: the three preswap arcs (backup-kill empty-path refusal, checkout-kill full-restore, binary-swap-kill own-sb.old restore) re-proven on real VMs — rides the next arc-suite dispatch, which in one run also proves 200's un-park arc and 201's three repairs. O5 (claim-window inject class) skipped per the architect's optional marking. 204 dispatches next on the clean baseline.
 ---
 <!-- COMMENTS:END -->
