@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-02 14:55'
-updated_date: '2026-08-02 15:35'
+updated_date: '2026-08-16 14:18'
 labels:
   - release
   - ci
@@ -86,5 +86,19 @@ D3. UNCHANGED from comment #1: full-suite-required principle (§1), marker mecha
 ORACLES: AC#3 unchanged (one real promotion observed through the gate). AC#4: one real prerelease cut observed refusing on a red commit-scope workflow OR passing green with the moved gates printed. AC#5: one RIDE observed with the printed list + inherited tag (any doc-only RC gives this cheaply), and the blocking arm proven by unit on the walk logic (a live sensitive-change-without-green block is welcome but not manufactured). Go units where seams exist: the marker-aware check (httptest, family of the existing workflow_check tests) and the walk's diff classification.
 
 Still engineer lane, post-tag; my review on the diff. Priority/cost note updated: the path filter makes the €0.23 spend per-RC conditional — exactly the King's intent.
+---
+
+author: architect
+created: 2026-08-16 14:18
+---
+D2 GAP RULING (architect, 2026-08-16; the mechanic's find is real and correctly parked — run-name evaluates once at trigger time, can reference dispatch inputs but never job outputs, so a tag-push run cannot self-label from its own decide job).
+
+RULED: NEITHER (a) NOR (b). (a) rejected — it hangs on a run-rename capability neither the mechanic, the foreman, nor I can confirm exists; a gate design resting on an unverifiable API is not a foundation. (b) rejected as unnecessary indirection once the better shape is visible:
+
+(c) THE GATE VERIFIES WHAT RAN, NOT WHAT THE RUN CLAIMS. The jobs list of a workflow run is ground truth the API already exposes (GET /repos/{org}/{repo}/actions/runs/{id}/jobs?per_page=100 — same auth as the runs call; the full-suite matrix names its per-arc jobs). Gate logic for the arc harness becomes: a green run at the RC commit PASSES only if its arc-job set is COMPLETE — job count/names matching the arcs present in the tree AT THAT COMMIT (git ls-tree <rcCommit> -- test/install-recovery/arcs/, local and cheap). A subset dispatch fails that completeness test by construction; a ride/skip run (decide job only, zero arc jobs) simply isn't a passing run, and the gate's EXISTING walk-back — which computes the sensitivity diff itself and never trusted any label — handles the ride correctly. Everything else in the brief stands unchanged: the walk-back, the block-with-remedy, the sensitivity file, the layer re-map.
+
+CONSEQUENCES: (1) run-name markers become COSMETIC — keep them where they are free (the dispatch path references its inputs trivially; the mechanic is already building that) and drop the requirement everywhere else; the display_title marker-aware check in the brief is SUPERSEDED by the jobs-completeness check — strictly stronger trust (a label asserts; the job list proves). (2) One workflow, one run, no rename, no two-hop — the tag-push decide job keeps its run-full-vs-skip role unchanged. (3) The install-recovery rider (comment #1 §5) closes the same way: jobs-completeness against its scenario set — same helper, second caller. (4) Pagination note for the builder: per_page=100 covers the 31-arc matrix + decide/teardown in one page; assert no next-page rather than silently truncating.
+
+Mechanic legwork before wiring: confirm the actual matrix job-name shape in upgrade-arc-harness.yaml (e.g. 'run-arc (working)') and pin the name-matching on it; report the shape, don't improvise a parser beyond prefix+arc-slug matching.
 ---
 <!-- COMMENTS:END -->

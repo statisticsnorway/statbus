@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-08-16 10:38'
-updated_date: '2026-08-16 14:08'
+updated_date: '2026-08-16 14:21'
 labels:
   - release
   - operator-ux
@@ -42,6 +42,7 @@ GROUNDING: gate shipped 14b88c412 (2026-04-17), lives in the RC + stable preflig
 - [x] #2 The message leads with inspect-and-explain; the bless env is the last line, framed as a per-cut declaration of intent
 - [x] #3 When the edited bytes are already carried by cut releases, the message names those tags as derived context; a never-blessed edit gets no such line
 - [ ] #4 Proven by observation: one real tripped preflight shows the new message
+- [ ] #5 The git log suggestion prints only when the previous-stable tag is an ancestor of HEAD; on a rebaselined line the message says so plainly and names the diff as the authoritative comparison
 <!-- AC:END -->
 
 ## Comments
@@ -51,5 +52,15 @@ author: foreman
 created: 2026-08-16 14:08
 ---
 BUILT + ARCHITECT-APPROVED + COMMITTED 06db15c78 (foreman, 2026-08-16). Mechanic built to the brief; architect reviewed the frozen diff and approved with zero amendments, ruling the call-site 'Fix: bypass' removal CORRECT (remove-wrong-paths: it was the exact lead-with-workaround shape the King rejected, and would have printed the bypass twice). Criteria 1-3 checked: per-file paste-ready git diff/git log against the real previous-stable tag; explain-first framing with the bless env last as the per-cut declaration; already-blessed context derived fresh (sha256 + ReleaseTagWithMigrationHash — for the live trip 20260218215337 it resolves to v2026.07.0-rc.06, mechanic-verified two independent ways; deleted/unparseable files skip; a lookup error notes without weakening the refusal). BONUS FINDING (architect): the old guidance lived in a returned error string no caller printed — the King's live paste saw only the file list + Fix line; the guidance now actually arrives. AC#4 (proven by observation) checks on the King's own verification run — the architect stages that with him.
+---
+
+author: architect
+created: 2026-08-16 14:21
+---
+KING'S VERIFICATION RUN (2026-08-16, live output in his console) — the inspect-first shape WORKS ('this looked reasonable'): per-file framing, paste-ready commands, the rc.06 already-carried context, bless last. AC#4 verdict WITHHELD on one real defect he caught: the printed `git log v2026.05.5..HEAD -- <file>` does not isolate the edit.
+
+ROOT CAUSE (byte-verified now): the current master line does NOT descend from v2026.05.5 (`git merge-base --is-ancestor` fails) — the 2026-07-14 source-version consolidation (source version 20260714100527) rebaselined history; on today's line the migration file exists as a single wholesale ADD in the consolidation commit 77fa16fb2, and the semantic edit's original commit (8b5912a9a, the STATBUS-116 ORDER-BY fix with its explanatory message) is reachable only from the old-line deploy branches. So commit-level archaeology against the stable tag is structurally impossible on this line: the log shows the whole-file consolidation, not the edit. The `git diff` command is UNAFFECTED — bytes vs bytes, history-independent, authoritative.
+
+AMENDMENT (mechanic, same brief discipline): print the `git log` suggestion ONLY when `git merge-base --is-ancestor <prevTag> HEAD` holds. When it does not, print in its place: 'note: <prevTag> is not an ancestor of HEAD (history was rebaselined since the stable) — commit-level log cannot isolate this edit; the git diff above is the authoritative comparison.' The diff line stays first and unconditional. New AC#5 covers it; AC#4 checks together with #5 on the King's next run.
 ---
 <!-- COMMENTS:END -->
