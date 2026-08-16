@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-02 19:10'
-updated_date: '2026-08-16 14:05'
+updated_date: '2026-08-16 14:18'
 labels:
   - upgrade
   - recovery
@@ -70,5 +70,11 @@ author: foreman
 created: 2026-08-16 14:05
 ---
 KING AUTHORIZED (2026-08-16, via the architect's console): 'Don't delay, do the park fix.' Moves to In Progress ahead of 197 on the engineer's lane — both touch service.go, strictly sequential, 200 first (197 dispatches after 200 lands). Build brief is comment #1 (whispers-proof, four spec points: pre-start-site restoration with LOCAL source images; the ERA GUARD as the safety core — restore only when no migration delta applied, AC#4; restoration-failure folds into the one atomic park narrative; ordering pin — park write FIRST so a mid-restoration crash still leaves a parked row). Oracle: the unchanged un-park arc on a real VM. Engineer proceeds to this directly after freezing 201; architect frozen-diff review (safety core), foreman commits.
+---
+
+author: foreman
+created: 2026-08-16 14:18
+---
+BUILD HELD — BRIEF DEFECT FOUND IN THE SAFETY CORE (engineer byte-walk, 2026-08-16; four rulings pending with the architect): comment #1's named era-guard reuse point (resumeNewSb's HasPending) produces the WRONG verdict in two of three cases — a PRE-delta park (e.g. disk-full at StepImagePull :5946, before migrate at :6135) has HasPending=TRUE with the DB still pure source (must permit; bare check wrongly refuses), and a POST-delta park (StepStartServices :6230, after migrate) has HasPending=FALSE with the delta applied (must refuse; bare check wrongly PERMITS — the mixed-era corruption the guard exists to stop). Open rulings: Q1 how 'no applied delta' is computed (baseline-max-at-claim vs source-expected-max comparison); Q2 restoration mechanic = rollback restore tail MINUS restoreDatabase (git+binary+config to source first — target images were never pulled, so compose-up-local from the target tree cannot work); Q3 restoration-failure narrative needs a SANCTIONED second write to the already-parked row (guard recovery_parked_at IS NOT NULL) vs journal-only; Q4 whether completeInProgressUpgrade's AT-TARGET parkAtTarget sites (:3123/:3137) are in scope — 'restore source' doesn't apply at target. Engineer's three RED-first Go units stand ready; build resumes on the rulings.
 ---
 <!-- COMMENTS:END -->
