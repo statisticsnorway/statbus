@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-08-02 14:55'
-updated_date: '2026-08-16 14:34'
+updated_date: '2026-08-16 14:42'
 labels:
   - release
   - ci
@@ -119,5 +119,11 @@ RULED: COMMIT-ACCURATE REPRODUCTION — the gate derives the scenario domain fro
 DUPLICATION GUARD (the cost of reproduction is a second copy of the exclusion semantics, and copies drift): a Go unit pins the gate's marker constant against the harness's own — read run.sh, assert the literal the gate greps for is byte-identical to the one run.sh applies (same source-parsing family as the 196 drift gate). If the harness marker ever changes, the pin fails loudly instead of the gate silently diverging.
 
 CONFIRMED from his legwork: bare `${{ matrix.scenario }}` job names in both workflows → the shared comparison is exact set-equality, no parser. The pluggable split stands: domain derivation per caller (arcs = plain ls-tree glob; scenarios = ls-tree + marker exclusion), job-set comparison shared. Future note, not build scope: if arcs ever gain an exclusion mechanism, the same commit-accurate reproduction applies — the pluggable seam is where it lands.
+---
+
+author: foreman
+created: 2026-08-16 14:42
+---
+TIME-SENSITIVE, mechanic (durable copy of the message request): CUT WINDOW PENDING — the King is ready to run the release cut, which requires a clean tracked tree. PAUSE editing tracked files at a safe point and ACK the foreman via SendMessage (include your modified-file list + rework status). Your tracked WIP rides one combined patch (export → restore-to-HEAD → King's ~5-minute cut → byte-verified re-apply; HEAD cannot move — a tag is not a commit — so restoration is deterministic). Untracked files (your sensitivity list) are invisible to the preflight and stay put. The engineer has already acked; the window opens on YOUR ack.
 ---
 <!-- COMMENTS:END -->
