@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-08-16 10:38'
-updated_date: '2026-08-16 14:21'
+updated_date: '2026-08-16 14:37'
 labels:
   - release
   - operator-ux
@@ -62,5 +62,11 @@ KING'S VERIFICATION RUN (2026-08-16, live output in his console) — the inspect
 ROOT CAUSE (byte-verified now): the current master line does NOT descend from v2026.05.5 (`git merge-base --is-ancestor` fails) — the 2026-07-14 source-version consolidation (source version 20260714100527) rebaselined history; on today's line the migration file exists as a single wholesale ADD in the consolidation commit 77fa16fb2, and the semantic edit's original commit (8b5912a9a, the STATBUS-116 ORDER-BY fix with its explanatory message) is reachable only from the old-line deploy branches. So commit-level archaeology against the stable tag is structurally impossible on this line: the log shows the whole-file consolidation, not the edit. The `git diff` command is UNAFFECTED — bytes vs bytes, history-independent, authoritative.
 
 AMENDMENT (mechanic, same brief discipline): print the `git log` suggestion ONLY when `git merge-base --is-ancestor <prevTag> HEAD` holds. When it does not, print in its place: 'note: <prevTag> is not an ancestor of HEAD (history was rebaselined since the stable) — commit-level log cannot isolate this edit; the git diff above is the authoritative comparison.' The diff line stays first and unconditional. New AC#5 covers it; AC#4 checks together with #5 on the King's next run.
+---
+
+author: foreman
+created: 2026-08-16 14:37
+---
+AC#5 AMENDMENT COMMITTED 24ce39d83 (foreman, 2026-08-16). Mechanic delivered it as a patch against HEAD (tmp/202-amendment.patch, amendment hunks only) because release.go concurrently carries his in-flight 199 work; foreman staged it with git apply --cached — the working tree was never touched — then EXPORTED THE STAGED INDEX (git checkout-index into a scratch dir) and verified build/vet/gofmt GREEN on exactly HEAD+amendment, independent of the shared tree's in-flight state (the engineer's mid-200 service.go WIP currently breaks a working-tree go build, sanctioned one-breaker). Line-reviewed: the ancestry check runs ONCE per call (prevTag fixed across files), the git diff line stays first and unconditional, the replacement note names the rebaseline and points at the diff as authoritative; the mechanic independently re-verified the live premise (merge-base --is-ancestor v2026.05.5 HEAD → exit 1). THE CUT IS UNBLOCKED: the King's next `./sb release prerelease` (fresh binary: make -C cli build) shows the corrected message — that run proves AC#4+AC#5 and, with his bless declared, cuts the tag. Architect notified to stage the run.
 ---
 <!-- COMMENTS:END -->
