@@ -3,9 +3,11 @@ id: STATBUS-211
 title: >-
   crollback-fixed-seed-build: the fixed-fixture branch's seed image build dies
   on the deliberately-failing migration it was supposed to fix
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - mechanic
 created_date: '2026-08-16 22:30'
+updated_date: '2026-08-16 22:34'
 labels:
   - install-recovery
   - release

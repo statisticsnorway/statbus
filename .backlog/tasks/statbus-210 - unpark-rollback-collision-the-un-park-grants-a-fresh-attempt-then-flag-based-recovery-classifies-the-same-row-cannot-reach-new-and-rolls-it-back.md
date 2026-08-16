@@ -4,9 +4,10 @@ title: >-
   unpark-rollback-collision: the un-park grants a fresh attempt, then flag-based
   recovery classifies the same row cannot-reach-new and rolls it back
 status: To Do
-assignee: []
+assignee:
+  - engineer
 created_date: '2026-08-16 22:29'
-updated_date: '2026-08-16 22:33'
+updated_date: '2026-08-16 22:34'
 labels:
   - upgrade-recovery
   - release

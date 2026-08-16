@@ -3,10 +3,11 @@ id: STATBUS-209
 title: >-
   restore-readonly-completion: after rollback DB restore, the next install pass
   completes but its completion INSERT hits a read-only database
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - engineer
 created_date: '2026-08-16 22:29'
-updated_date: '2026-08-16 22:33'
+updated_date: '2026-08-16 22:34'
 labels:
   - upgrade-recovery
   - release
