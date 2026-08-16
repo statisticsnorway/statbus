@@ -496,20 +496,28 @@ func preflightChecks(projDir string) bool {
 		allPassed = false
 	}
 
-	// 13-17. Commit-scope workflow oracles (STATBUS-199 D1 — the King:
+	// 13-15. Commit-scope workflow oracles (STATBUS-199 D1 — the King:
 	// "I would rather have the gating for obvious things as early as
-	// possible"). These five workflows need only the COMMIT to exist, not
-	// a cut RC tag, so they gate here at the cut — a red master workflow
-	// now blocks at the earliest possible signal instead of surfacing only
-	// at stable promotion. Each has its own loud SKIP_*=1 bypass, same
-	// shape as the images check above. releaseStableCmd no longer re-owns
-	// any of these; it prints one line noting it rides this gating instead
-	// (see checkPrereleaseWorkflowGate + the stable command below).
+	// possible"). These three workflows fire on the COMMIT (master push /
+	// PR), so a green run can exist before any tag — they gate here at
+	// the cut, blocking a red master workflow at the earliest possible
+	// signal instead of at stable promotion. Each has its own loud
+	// SKIP_*=1 bypass, same shape as the images check above.
+	// releaseStableCmd no longer re-owns these; it prints one line noting
+	// it rides this gating instead (see checkPrereleaseWorkflowGate + the
+	// stable command below).
+	//
+	// test-hardening.yaml and test-install.yaml are NOT gated here
+	// (STATBUS-205): both trigger ONLY on v*-rc.* tag push (+ manual
+	// dispatch). Gating them pre-tag is a deadlock — the preflight would
+	// demand runs that only the tag it refuses to cut can start. They are
+	// the King's exception clause ("...except where we need the
+	// pre-release to actually test the gate") and gate at stable
+	// promotion instead, where the RC tag exists and has fired them
+	// (checkStableWorkflowGate).
 	allPassed = checkPrereleaseWorkflowGate(projDir, release.WorkflowGoTest, "go-test", "SKIP_GO_TEST") && allPassed
 	allPassed = checkPrereleaseWorkflowGate(projDir, release.WorkflowAppBuildLint, "app-build-lint", "SKIP_APP_BUILD_LINT") && allPassed
-	allPassed = checkPrereleaseWorkflowGate(projDir, release.WorkflowTestHardening, "test-hardening", "SKIP_TEST_HARDENING") && allPassed
 	allPassed = checkPrereleaseWorkflowGate(projDir, release.WorkflowFastTests, "fast-tests", "SKIP_FAST_TESTS") && allPassed
-	allPassed = checkPrereleaseWorkflowGate(projDir, release.WorkflowTestInstall, "test-install", "SKIP_TEST_INSTALL") && allPassed
 
 	// Persist outcome for shell scripts that need to inspect the result
 	// after the fact (cobra's RunE error → non-zero exit is the human-
@@ -712,10 +720,10 @@ func noSameKindTagAtHEAD(projDir string, isPrerelease bool) error {
 // already-released migration MUST be rewritten in place. Listed versions
 // are skipped from the modified[] set with an explicit log line; non-listed
 // modifications still fail the gate normally. If prevTag is a STABLE tag
-// (no `-rc.` suffix), every intentionally-fixed version is by definition shipped
-// in stable — emit an extra warning so the operator knows what they're
-// agreeing to (the env var itself is the acknowledgment; the warning is
-// the receipt).
+// (no `-rc.` suffix), every modified version is by definition shipped in
+// stable — the REFUSAL text carries a coordination line so the operator
+// reads it BEFORE declaring the bless (STATBUS-205 Fix 2); a declared
+// pass prints only the neutral ⟳ receipt.
 func checkMigrationImmutability(projDir, prevTag, label string) error {
 	// STATBUS-102: fix-broken set = the versions named in
 	// STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION at the cut. This is the
@@ -793,14 +801,12 @@ func checkMigrationImmutability(projDir, prevTag, label string) error {
 	}
 
 	// Log fix-broken activity before the gate decision so the operator
-	// sees what they bypassed even on a passing run.
+	// sees what they bypassed even on a passing run. Neutral receipt only
+	// (STATBUS-205 Fix 2): the stable-shipped coordination warning belongs
+	// in the REFUSAL below, where the operator reads BEFORE declaring —
+	// printing it after the declaration hedged a decision already made.
 	for _, v := range dedupeInt64Sorted(fixedBroken) {
 		fmt.Printf("    ⟳ Intentionally fixing broken (immutable) migration %d (declared in %s)\n", v, release.IntentionallyFixBrokenImmutableMigrationEnvVar)
-		if prevIsStable {
-			fmt.Printf("      ⚠ %s is a STABLE tag — this version shipped in production.\n", prevTag)
-			fmt.Println("        Operators bypassing stable-shipped migrations: confirm the change is")
-			fmt.Println("        coordinated with downstream rollouts (see doc/upgrade-timeline.md).")
-		}
 	}
 
 	if len(modified) == 0 {
@@ -863,6 +869,11 @@ func checkMigrationImmutability(projDir, prevTag, label string) error {
 	fmt.Println("  it silently overrides a safety invariant on every box that already ran the migration.")
 	fmt.Printf("  Otherwise, revert to the bytes at %s (see the git diff commands above).\n", prevTag)
 	fmt.Println()
+	if prevIsStable {
+		fmt.Printf("  %s is a STABLE tag — this migration shipped in production; a bless must be\n", prevTag)
+		fmt.Println("  coordinated with downstream rollouts (see doc/upgrade-timeline.md).")
+		fmt.Println()
+	}
 	fmt.Println("  ONLY if you have inspected the diff above and are certain this is a deliberate,")
 	fmt.Println("  sanctioned fix: declare it. Each cut re-declares intent — there is no stored")
 	fmt.Println("  second record; setting this is itself the bless, made fresh at this cut:")
@@ -903,8 +914,12 @@ tag, so they belong here rather than at stable promotion):
   - images (Docker artifacts build)
   - go-test (go vet + go test ./...)
   - app-build-lint (app/ build + lint)
-  - test-hardening
-  - test-install
+  - fast-tests
+
+test-hardening and test-install are NOT gated here (STATBUS-205): both
+fire only on the RC tag push itself, so demanding them pre-tag would be
+a deadlock. They gate at stable promotion — the King's exception clause
+("...except where we need the pre-release to actually test the gate").
 
 ...plus migration immutability, working tree / branch / signing checks,
 and the app/types/db-docs stamp chain. See the per-check output for each
@@ -914,9 +929,7 @@ Operator bypasses (use sparingly — each one is an admission that a gate's
 invariant has NOT been verified for the SHA):
   SKIP_GO_TEST=1
   SKIP_APP_BUILD_LINT=1
-  SKIP_TEST_HARDENING=1
   SKIP_FAST_TESTS=1
-  SKIP_TEST_INSTALL=1
 (No SKIP for pg_regress or images by design — see their own checks' comments.)
 
 release stable then RIDES this gating rather than re-checking it — see
@@ -1041,15 +1054,17 @@ unstamped tests, missing seed/types/db-docs stamps, even being on a
 feature branch — none of it matters. The RC was validated; stable just
 promotes it.
 
-Commit-scope oracles (images, fast-tests, go-test, app-build-lint,
-test-hardening, test-install) are gated EARLIER, at the RC cut
-(prerelease preflight) — a red master workflow blocks at the cut, the
-earliest possible signal, not here. Stable RIDES that gating rather than
-re-checking it (STATBUS-199 D1).
+Commit-scope oracles (images, fast-tests, go-test, app-build-lint) are
+gated EARLIER, at the RC cut (prerelease preflight) — a red master
+workflow blocks at the cut, the earliest possible signal, not here.
+Stable RIDES that gating rather than re-checking it (STATBUS-199 D1).
 
-Pre-flight (~5 checks) — only what genuinely needs the RC TAG to exist:
+Pre-flight — only what genuinely needs the RC TAG to exist:
   - Latest RC exists for v<YEAR>.<MONTH>.<NEXT_PATCH>
   - That patch is next-in-sequence for vYYYY.MM
+  - test-hardening green at the RC's commit (fires on the RC tag push —
+    cannot exist before the tag, so it gates here; STATBUS-205)
+  - test-install green at the RC's commit (same tag-fired trigger)
   - upgrade-arc-harness FULL SUITE green at (or since) the RC's commit —
     path-sensitivity walk rides a prior green when nothing upgrade-
     sensitive changed (STATBUS-199 D2)
@@ -1059,13 +1074,15 @@ Pre-flight (~5 checks) — only what genuinely needs the RC TAG to exist:
 
 Operator bypasses (use sparingly — each one is an admission that a
 gate's invariant has NOT been verified for the SHA):
+  SKIP_TEST_HARDENING=1    (install-path hardening not exercised)
+  SKIP_TEST_INSTALL=1      (Hetzner VM end-to-end install not exercised)
   SKIP_UPGRADE_ARCS=1      (no upgrade-arc regression net was exercised)
   SKIP_INSTALL_RECOVERY=1  (no recovery regression net was exercised)
   STATBUS_SKIP_CANARY=<label>[,<label>...]  (per-slot canary bypass)
 
 Commit-scope bypasses (SKIP_IMAGES, SKIP_FAST_TESTS, SKIP_GO_TEST,
-SKIP_APP_BUILD_LINT, SKIP_TEST_HARDENING, SKIP_TEST_INSTALL) now apply at
-the prerelease cut — see ` + "`./sb release prerelease --help`" + `.
+SKIP_APP_BUILD_LINT) apply at the prerelease cut — see
+` + "`./sb release prerelease --help`" + `.
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projDir := config.ProjectDir()
@@ -1140,14 +1157,22 @@ the prerelease cut — see ` + "`./sb release prerelease --help`" + `.
 		fmt.Printf("  ✓ Stable patch %d is next-in-sequence for %s\n", nextPatch, prefix)
 
 		// 3. Commit-scope oracles (images, fast-tests, go-test, app-build-
-		//    lint, test-hardening, test-install) are gated EARLIER, at the
-		//    RC cut (prerelease preflight) — STATBUS-199 D1. Stable no
-		//    longer re-checks them; it rides that gating. Only checks that
-		//    genuinely need the RC TAG to exist stay here: the two VM
-		//    harnesses (need a pushed tag to dispatch against) and canary
+		//    lint) are gated EARLIER, at the RC cut (prerelease preflight)
+		//    — STATBUS-199 D1. Stable no longer re-checks them; it rides
+		//    that gating. Only checks that genuinely need the RC TAG to
+		//    exist stay here: the tag-fired workflows (test-hardening,
+		//    test-install — their only automatic trigger IS the RC tag
+		//    push, STATBUS-205), the two VM harnesses, and canary
 		//    convergence (below).
-		fmt.Println("  ✓ Commit-scope oracles (images/fast-tests/go-test/app-build-lint/test-hardening/test-install) were gated at the RC cut (prerelease preflight) — stable rides the RC's gating.")
+		fmt.Println("  ✓ Commit-scope oracles (images/fast-tests/go-test/app-build-lint) were gated at the RC cut (prerelease preflight) — stable rides the RC's gating.")
 		allPassed := true
+		// test-hardening + test-install (STATBUS-205): both fire only on
+		// the v*-rc.* tag push (+ manual dispatch), so no run can exist
+		// before the RC tag — gating them at prerelease preflight was a
+		// deadlock. They gate here, keyed on the RC's commit, with the RC
+		// tag as the dispatch ref for the Missing remedy.
+		allPassed = checkStableWorkflowGate(release.WorkflowTestHardening, "test-hardening", "SKIP_TEST_HARDENING", latestRC, rcCommit, rcShort) && allPassed
+		allPassed = checkStableWorkflowGate(release.WorkflowTestInstall, "test-install", "SKIP_TEST_INSTALL", latestRC, rcCommit, rcShort) && allPassed
 		// Install-recovery harness: every C-class with a paired scenario in
 		// test/install-recovery/scenarios/ gets exercised on a dedicated
 		// Hetzner cx23. The workflow at .github/workflows/install-recovery-
@@ -1359,6 +1384,61 @@ func installRecoveryScenarioNamesAtCommit(projDir, commit string) ([]string, err
 		names = append(names, strings.TrimSuffix(filepath.Base(path), ".sh"))
 	}
 	return names, nil
+}
+
+// checkStableWorkflowGate runs one of the RC-commit-keyed stable gates for
+// the TAG-FIRED workflows (STATBUS-205): test-hardening.yaml and
+// test-install.yaml trigger only on v*-rc.* tag push (+ manual dispatch),
+// so no run can exist before the RC tag — they cannot gate at prerelease
+// preflight (that was a deadlock: the preflight demanded runs only the tag
+// it refused to cut could start). Same Green/Pending/Failed/Missing/
+// Unknown switch + loud SKIP_*=1 bypass shape as
+// checkPrereleaseWorkflowGate, but keyed on the RC's commit, with the RC
+// tag as the workflow_dispatch ref in the Missing remedy.
+//
+// No jobs-completeness verification (unlike the two harness gates): these
+// workflows have a fixed job set — no selector input can produce a
+// green-but-subset run.
+func checkStableWorkflowGate(workflow, label, skipEnv, rcTag, rcCommit, rcShort string) bool {
+	if os.Getenv(skipEnv) == "1" {
+		fmt.Printf("  ⚠ %s SKIPPED (%s=1)\n", label, skipEnv)
+		fmt.Printf("    Operator bypass — ensure %s ran via CI or by hand on this commit.\n", label)
+		return true
+	}
+	result := release.CheckWorkflowAtCommit(workflow, rcCommit)
+	switch result.Status {
+	case release.WorkflowCheckGreen:
+		fmt.Printf("  ✓ %s green at %s\n", label, rcShort)
+		fmt.Printf("    Run: %s\n", result.RunURL)
+		return true
+	case release.WorkflowCheckPending:
+		fmt.Printf("  ✗ %s is still pending at %s\n", label, rcShort)
+		fmt.Printf("    Watch: gh run watch %d\n", result.RunID)
+		fmt.Printf("    URL:   %s\n", result.RunURL)
+		fmt.Println("    Fix: wait for the run to complete, then re-run stable")
+		return false
+	case release.WorkflowCheckFailed:
+		fmt.Printf("  ✗ %s failed at %s (conclusion: %s)\n", label, rcShort, result.Detail)
+		fmt.Printf("    See: gh run view %d --log-failed\n", result.RunID)
+		fmt.Printf("    URL: %s\n", result.RunURL)
+		fmt.Println("    Fix:")
+		fmt.Printf("      Retry the failed jobs (if transient): gh run rerun --failed %d\n", result.RunID)
+		fmt.Println("      Or push a fix to master, cut a new RC, then re-run stable")
+		return false
+	case release.WorkflowCheckMissing:
+		fmt.Printf("  ✗ %s has not run for %s\n", label, rcShort)
+		fmt.Printf("    Trigger: %s\n", release.WorkflowTriggerCommand(workflow, rcTag))
+		fmt.Printf("    Watch:   %s\n", release.WorkflowURL(workflow))
+		fmt.Println("    Fix: run the trigger command above, wait for green, re-run stable")
+		return false
+	case release.WorkflowCheckUnknown:
+		fmt.Printf("  ✗ %s status check failed (GitHub API error)\n", label)
+		fmt.Printf("    Detail: %s\n", result.Detail)
+		fmt.Println("    Fix: check network connectivity / GITHUB_TOKEN; or re-run later")
+		return false
+	}
+	fmt.Printf("  ✗ %s returned unexpected status %q\n", label, result.Status)
+	return false
 }
 
 // checkInstallRecoveryHarnessGate is the STATBUS-199 §5-rider stable gate

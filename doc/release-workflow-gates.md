@@ -1,6 +1,8 @@
 # Release workflow gates
 
-This document explains how `./sb release stable` and `.githooks/pre-push` consult GitHub Actions workflow status as pre-flight gates, and how to add a new gate.
+This document explains how `./sb release prerelease`, `./sb release stable`, and `.githooks/pre-push` consult GitHub Actions workflow status as pre-flight gates, and how to add a new gate.
+
+The layer a gate fires at follows one rule (STATBUS-199 D1, STATBUS-205): a workflow that fires on the COMMIT (master push / PR) gates the RC cut (`release prerelease` pre-flight) — the earliest possible signal; a workflow whose only automatic trigger is the RC TAG push itself cannot exist before the tag and gates `release stable` instead. Gating a tag-fired workflow at the cut is a deadlock: the pre-flight would demand runs that only the tag it refuses to cut can start.
 
 ## The pattern
 
@@ -25,24 +27,26 @@ The check has **any-green semantics**: one completed/success run for the SHA is 
 
 Every gate uses the same chain of names — workflow filename, Go constant, env-var bypass — derived from one canonical concept. **One concept, one name, consistently everywhere.** There is no "ci-" prefix on anything — the workflow directory already conveys CI, and per-workflow names should not duplicate that scope.
 
-| Workflow file (`.github/workflows/*.yaml`) | Go constant (`release.*`) | Bypass env var (`./sb release stable`) | CLI verifier (`./sb release verify-*`) |
+| Workflow file (`.github/workflows/*.yaml`) | Go constant (`release.*`) | Bypass env var | Gate layer |
 |---|---|---|---|
-| `images.yaml`            | `WorkflowImages`           | (no bypass — checked indirectly via `release.CheckAssets` / `release.CheckManifests` in `ValidateStableTag`) | `verify-images` |
-| `fast-tests.yaml`        | `WorkflowFastTests`        | `SKIP_FAST_TESTS=1`     | (none — fires automatically in `release stable` pre-flight) |
-| `go-test.yaml`           | `WorkflowGoTest`           | `SKIP_GO_TEST=1`        | (none — fires automatically in `release stable` pre-flight) |
-| `test-hardening.yaml`    | `WorkflowTestHardening`    | `SKIP_TEST_HARDENING=1` | (none — fires automatically in `release stable` pre-flight) |
-| `test-install.yaml`      | `WorkflowTestInstall`      | `SKIP_TEST_INSTALL=1`   | (none — fires automatically in `release stable` pre-flight) |
-| `install-recovery-harness.yaml` | `WorkflowInstallRecoveryHarness` | `SKIP_INSTALL_RECOVERY=1` | (none — fires automatically in `release stable` pre-flight) |
+| `images.yaml`            | `WorkflowImages`           | (no bypass — checked indirectly via `release.CheckAssets` / `release.CheckManifests` in `ValidateStableTag`) | `release prerelease` pre-flight + `verify-images` |
+| `fast-tests.yaml`        | `WorkflowFastTests`        | `SKIP_FAST_TESTS=1`     | `release prerelease` pre-flight |
+| `go-test.yaml`           | `WorkflowGoTest`           | `SKIP_GO_TEST=1`        | `release prerelease` pre-flight |
+| `app_build_and_lint-workflow.yaml` | `WorkflowAppBuildLint` | `SKIP_APP_BUILD_LINT=1` | `release prerelease` pre-flight |
+| `test-hardening.yaml`    | `WorkflowTestHardening`    | `SKIP_TEST_HARDENING=1` | `release stable` pre-flight (tag-fired, STATBUS-205) |
+| `test-install.yaml`      | `WorkflowTestInstall`      | `SKIP_TEST_INSTALL=1`   | `release stable` pre-flight (tag-fired, STATBUS-205) |
+| `install-recovery-harness.yaml` | `WorkflowInstallRecoveryHarness` | `SKIP_INSTALL_RECOVERY=1` | `release stable` pre-flight (tag-fired) |
+| `upgrade-arc-harness.yaml` | `WorkflowUpgradeArcHarness` | `SKIP_UPGRADE_ARCS=1` | `release stable` pre-flight (tag-fired; path-sensitive ride, STATBUS-199 D2) |
 
 The Go constant name is `Workflow` + CamelCase of the workflow filename. The env var is `SKIP_` + uppercase-with-underscores of the workflow filename. Both derive mechanically from the workflow's own name; neither encodes a separate concept.
 
 ## Where each gate fires
 
 - **`images.yaml`** — pre-push hook (`./sb release verify-images <sha>`) gates the prerelease tag push. Also indirectly gates `./sb release stable` via `CheckAssets` / `CheckManifests` against ghcr.io.
-- **`fast-tests.yaml`** — gates `./sb release stable` (runs in pre-flight). Triggers on every `master` push plus `pull_request` plus `workflow_dispatch`. Because it runs on master push (not RC-tag push), a run always exists at the RC's commit — the same shape as `images.yaml`. Self-contained on the GHA runner: builds `sb`, brings up the full Docker stack, and runs `./dev.sh migrate-and-test fast` (the pg_regress fast suite, excluding the large 4xx/5xx import tests). Closes the gap where derivation/baseline drift could land silently red on master: `images.yaml` builds artifacts but does not run pg_regress, and `pg_regress.yaml`'s remote SSH suite is complementary (deeper coverage, external-server-dependent).
-- **`go-test.yaml`** — gates `./sb release stable` (runs in pre-flight). Triggers on every `master` push plus `pull_request` plus `workflow_dispatch`. Because it runs on master push (not RC-tag push), a run always exists at the RC's commit — the same shape as `images.yaml` and `fast-tests.yaml`. Pure Go, no Docker: runs `go vet ./...` then `go test ./...` in `cli/` (the CLI's ~44 unit-test files across `cli/cmd` + `cli/internal`, including the upgrade/recovery self-heal suite). Closes the gap where a Go-layer regression could land silently red on master: neither `images.yaml` nor `fast-tests.yaml` runs `go test` (`fast-tests` is the pg_regress suite only).
-- **`test-hardening.yaml`** — gates `./sb release stable` (runs in pre-flight). Triggers on prerelease tag push (`v*-rc.*`) plus `workflow_dispatch`.
-- **`test-install.yaml`** — gates `./sb release stable` (runs in pre-flight). Triggers on prerelease tag push plus `workflow_dispatch`. Provisions a Hetzner cx23 VM and runs the 0-happy-install scenario of the install-recovery harness on it.
+- **`fast-tests.yaml`** — gates `./sb release prerelease` (runs in pre-flight; STATBUS-199 D1). Triggers on every `master` push plus `pull_request` plus `workflow_dispatch`. Because it runs on master push, a run exists for the commit before any tag — the same shape as `images.yaml`. Self-contained on the GHA runner: builds `sb`, brings up the full Docker stack, and runs `./dev.sh migrate-and-test fast` (the pg_regress fast suite, excluding the large 4xx/5xx import tests). Closes the gap where derivation/baseline drift could land silently red on master: `images.yaml` builds artifacts but does not run pg_regress, and `pg_regress.yaml`'s remote SSH suite is complementary (deeper coverage, external-server-dependent).
+- **`go-test.yaml`** — gates `./sb release prerelease` (runs in pre-flight; STATBUS-199 D1). Triggers on every `master` push plus `pull_request` plus `workflow_dispatch`. Pure Go, no Docker: runs `go vet ./...` then `go test ./...` in `cli/` (the CLI's ~44 unit-test files across `cli/cmd` + `cli/internal`, including the upgrade/recovery self-heal suite). Closes the gap where a Go-layer regression could land silently red on master: neither `images.yaml` nor `fast-tests.yaml` runs `go test` (`fast-tests` is the pg_regress suite only).
+- **`test-hardening.yaml`** — gates `./sb release stable` (runs in pre-flight). Triggers ONLY on prerelease tag push (`v*-rc.*`) plus `workflow_dispatch` — no run can exist before the RC tag, so it cannot gate the cut (STATBUS-205).
+- **`test-install.yaml`** — gates `./sb release stable` (runs in pre-flight). Same tag-fired trigger and layer rationale as `test-hardening.yaml` (STATBUS-205). Provisions a Hetzner cx23 VM and runs the 0-happy-install scenario of the install-recovery harness on it.
 - **`install-recovery-harness.yaml`** — gates `./sb release stable` (runs in pre-flight). Triggers on prerelease tag push plus `workflow_dispatch`. Provisions a Hetzner cx23 VM per scenario and runs the FULL install-recovery suite (every C-class with a paired scenario). Sister to `test-install.yaml`: where `test-install` covers only the happy path (0-happy-install), this workflow covers the recovery surface (every failure-injection class). Much slower (~5-7h sequential vs ~15 min) but ~€0.13/run total. Operator dispatch supports a `scenarios` input for narrowing the suite when debugging a single failure.
 
 The pre-flight in `cli/cmd/release.go` runs each gate independently — each can be SKIP-bypassed individually for surgical operator control.
