@@ -877,7 +877,26 @@ func checkMigrationImmutability(projDir, prevTag, label string) error {
 	fmt.Println("  ONLY if you have inspected the diff above and are certain this is a deliberate,")
 	fmt.Println("  sanctioned fix: declare it. Each cut re-declares intent — there is no stored")
 	fmt.Println("  second record; setting this is itself the bless, made fresh at this cut:")
-	fmt.Printf("    %s=<version>[,...] ./sb release prerelease\n", release.IntentionallyFixBrokenImmutableMigrationEnvVar)
+	// STATBUS-206 (202 directive 2): the gate just enumerated the modified
+	// versions — print the paste-ready command with them filled in, never a
+	// template the operator must assemble at the console. The template form
+	// survives only for the no-parsed-version case (unparseable filenames),
+	// where there is nothing concrete to fill in.
+	var modifiedVersions []int64
+	for _, m := range modified {
+		if m.version != 0 {
+			modifiedVersions = append(modifiedVersions, m.version)
+		}
+	}
+	if versions := dedupeInt64Sorted(modifiedVersions); len(versions) > 0 {
+		parts := make([]string, len(versions))
+		for i, v := range versions {
+			parts[i] = strconv.FormatInt(v, 10)
+		}
+		fmt.Printf("    %s=%s ./sb release prerelease\n", release.IntentionallyFixBrokenImmutableMigrationEnvVar, strings.Join(parts, ","))
+	} else {
+		fmt.Printf("    %s=<version>[,...] ./sb release prerelease\n", release.IntentionallyFixBrokenImmutableMigrationEnvVar)
+	}
 
 	return fmt.Errorf("migrations modified since %s — deployed migrations are immutable (see per-file explanation above)", prevTag)
 }

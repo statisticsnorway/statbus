@@ -127,6 +127,20 @@ func captureStdout(t *testing.T, fn func()) string {
 	return <-done
 }
 
+func gitAddCommit(t *testing.T, dir, msg string) {
+	t.Helper()
+	for _, args := range [][]string{
+		{"add", "migrations"},
+		{"commit", "-q", "-m", msg},
+	} {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+}
+
 // immutabilityFixture builds a repo with one released migration, tags it
 // with prevTag, then modifies the migration on top — the exact state the
 // immutability gate exists to catch.
@@ -138,16 +152,7 @@ func immutabilityFixture(t *testing.T, prevTag string) string {
 	if err := os.WriteFile(migPath, []byte("-- init\n-- edited after release\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	for _, args := range [][]string{
-		{"add", "migrations"},
-		{"commit", "-q", "-m", "edit released migration"},
-	} {
-		cmd := exec.Command("git", args...)
-		cmd.Dir = dir
-		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("git %v: %v\n%s", args, err, out)
-		}
-	}
+	gitAddCommit(t, dir, "edit released migration")
 	return dir
 }
 
@@ -195,6 +200,81 @@ func TestMigrationImmutability_StableCoordination_AbsentForRCPredecessor(t *test
 	if strings.Contains(out, stableCoordinationPhrase) {
 		t.Fatalf("an RC predecessor is not stable-shipped — the coordination line must not "+
 			"print for it; output:\n%s", out)
+	}
+}
+
+// STATBUS-206 (202 directive 2): the refusal's closing declaration line
+// prints the CONCRETE paste-ready command with the detected versions
+// filled in — the gate just enumerated them; making the operator assemble
+// the command from a template at the console is the exact disease 202's
+// directive 2 killed. The template form survives only when no version
+// parsed (unparseable filenames — nothing concrete to fill in).
+func TestMigrationImmutability_DeclarationLine_SingleVersionVerbatim(t *testing.T) {
+	dir := immutabilityFixture(t, "v2026.01.0")
+	t.Setenv(release.IntentionallyFixBrokenImmutableMigrationEnvVar, "")
+
+	out := captureStdout(t, func() {
+		_ = checkMigrationImmutability(dir, "v2026.01.0", "test")
+	})
+	want := release.IntentionallyFixBrokenImmutableMigrationEnvVar + "=20260101000000 ./sb release prerelease"
+	if !strings.Contains(out, want) {
+		t.Fatalf("refusal must print the paste-ready declaration %q verbatim "+
+			"(STATBUS-206: no command assembly at the console); output:\n%s", want, out)
+	}
+	if strings.Contains(out, "<version>") {
+		t.Fatalf("refusal still prints the template form although the version was "+
+			"detected; output:\n%s", out)
+	}
+}
+
+func TestMigrationImmutability_DeclarationLine_TwoVersionsCommaJoined(t *testing.T) {
+	dir := makeRepo(t)
+	second := filepath.Join(dir, "migrations", "20260102000000_second.up.sql")
+	if err := os.WriteFile(second, []byte("-- second\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	gitAddCommit(t, dir, "second migration")
+	tagAnnotated(t, dir, "v2026.01.0", "release v2026.01.0")
+	for _, name := range []string{"20260101000000_init.up.sql", "20260102000000_second.up.sql"} {
+		path := filepath.Join(dir, "migrations", name)
+		if err := os.WriteFile(path, []byte("-- edited after release\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	gitAddCommit(t, dir, "edit both released migrations")
+	t.Setenv(release.IntentionallyFixBrokenImmutableMigrationEnvVar, "")
+
+	out := captureStdout(t, func() {
+		_ = checkMigrationImmutability(dir, "v2026.01.0", "test")
+	})
+	want := release.IntentionallyFixBrokenImmutableMigrationEnvVar + "=20260101000000,20260102000000 ./sb release prerelease"
+	if !strings.Contains(out, want) {
+		t.Fatalf("refusal must comma-join ALL detected versions into one paste-ready "+
+			"declaration %q; output:\n%s", want, out)
+	}
+}
+
+func TestMigrationImmutability_DeclarationLine_TemplateFallbackWhenUnparseable(t *testing.T) {
+	dir := makeRepo(t)
+	odd := filepath.Join(dir, "migrations", "notaversion_odd.up.sql")
+	if err := os.WriteFile(odd, []byte("-- odd\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	gitAddCommit(t, dir, "unparseable-named migration")
+	tagAnnotated(t, dir, "v2026.01.0", "release v2026.01.0")
+	if err := os.WriteFile(odd, []byte("-- odd edited after release\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	gitAddCommit(t, dir, "edit unparseable-named migration")
+	t.Setenv(release.IntentionallyFixBrokenImmutableMigrationEnvVar, "")
+
+	out := captureStdout(t, func() {
+		_ = checkMigrationImmutability(dir, "v2026.01.0", "test")
+	})
+	want := release.IntentionallyFixBrokenImmutableMigrationEnvVar + "=<version>[,...] ./sb release prerelease"
+	if !strings.Contains(out, want) {
+		t.Fatalf("with no parseable version there is nothing concrete to fill in — the "+
+			"template form %q must survive as the fallback; output:\n%s", want, out)
 	}
 }
 
