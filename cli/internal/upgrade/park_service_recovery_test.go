@@ -178,3 +178,37 @@ func TestParkServiceRecovery_SelfCoveringWatchdog_STATBUS204(t *testing.T) {
 		t.Error("STATBUS-204: the watchdog ticker must be cancelled + joined (defer) so it cannot outlive the helper")
 	}
 }
+
+// TestParkServiceRecovery_TruthRestoresFlag_STATBUS210 (RED-first): on the era-permitted SUCCESS
+// arm, parkServiceRecovery rewrites the held flag's Phase to PhaseOldSbUpgrading (BackupPath KEPT)
+// so the marker describes the box again — a later crash recovery classifies truthfully instead of
+// rolling back a just-un-parked row. The refusal and failure arms leave the flag byte-untouched
+// (their early returns precede the rewrite). RED before 210 (200's restoration left the marker
+// lying post-swap).
+func TestParkServiceRecovery_TruthRestoresFlag_STATBUS210(t *testing.T) {
+	src := string(packageGoSources(t)["service.go"])
+	psr := extractFuncBody(t, src, "func (d *Service) parkServiceRecovery(")
+
+	// The flag rewrite exists and sets Phase to PhaseOldSbUpgrading.
+	rewriteIdx := strings.Index(psr, "f.Phase = PhaseOldSbUpgrading")
+	if rewriteIdx < 0 || !strings.Contains(psr, "d.mutateHeldFlag(func(f *UpgradeFlag)") {
+		t.Fatal("STATBUS-210: parkServiceRecovery must rewrite the held flag Phase → PhaseOldSbUpgrading via mutateHeldFlag on successful restoration")
+	}
+	// BackupPath must be KEPT — the rewrite must NOT touch f.BackupPath (197's identity key holds).
+	if strings.Contains(psr, "f.BackupPath =") {
+		t.Error("STATBUS-210: the truth-restoration rewrite must KEEP BackupPath (same attempt's snapshot identity) — it must not assign f.BackupPath")
+	}
+
+	// ORDER — the rewrite is on the SUCCESS arm only: it must come AFTER the era-refuse return
+	// (appendParkNarrative(id, refusal)) and AFTER the restoration-failure return, so both those
+	// arms leave the flag untouched. Proxy: the rewrite must follow the restoreSourceServices call
+	// (whose err-branch returns before it).
+	restoreIdx := strings.Index(psr, "d.restoreSourceServices(")
+	verdictReturnIdx := strings.Index(psr, "d.appendParkNarrative(id, refusal)")
+	if restoreIdx < 0 || rewriteIdx < restoreIdx {
+		t.Errorf("STATBUS-210: the flag rewrite must be on the restoration-SUCCESS path (after restoreSourceServices@%d), so refusal/failure arms leave the flag untouched — rewrite@%d", restoreIdx, rewriteIdx)
+	}
+	if verdictReturnIdx < 0 || rewriteIdx < verdictReturnIdx {
+		t.Error("STATBUS-210: the era-refuse arm (appendParkNarrative(id, refusal) → return) must precede the flag rewrite so a refused park leaves the marker truthful/untouched")
+	}
+}

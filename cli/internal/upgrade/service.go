@@ -5867,6 +5867,21 @@ func (d *Service) parkServiceRecovery(ctx context.Context, id int, restoreTarget
 		d.appendParkNarrative(id, fmt.Sprintf("source-version service restore did not complete (%v) — the box stays behind the maintenance page until the cause is fixed and the upgrade re-triggered", err))
 		return
 	}
+	// STATBUS-210 — TRUTH-RESTORATION AT THE WRITER. The successful restoration returned the box
+	// to its PRE-SWAP reality (source git + source binary + source config, via restoreSourceServices),
+	// so the held flag's post-swap phase marker now LIES about the box: a later crash-recovery
+	// classifier would read binary(source) != row-target → cannot-reach-new and roll back the very
+	// row an operator just un-parked (the un-park→rollback collision, STATBUS-159/111 contract
+	// violation). Rewrite the marker to PhaseOldSbUpgrading (died-before-swap semantics) with
+	// BackupPath KEPT (same attempt's snapshot identity — STATBUS-197's key still holds), so every
+	// existing reader works unchanged: the un-park's fresh attempt re-runs from the swap forward
+	// and recovery classifies truthfully — the marker describes the box again. ONLY on this
+	// era-permitted SUCCESS arm: a refusal (no restoration → marker already truthful) and a
+	// restoration failure (box state unproven → must not claim a pre-swap reality not achieved)
+	// both leave the flag byte-untouched via the early returns above.
+	if err := d.mutateHeldFlag(func(f *UpgradeFlag) { f.Phase = PhaseOldSbUpgrading }); err != nil {
+		progress.Write("Warning: source services restored but could not rewrite the flag phase to old-sb-upgrading (%v) — a crash-recovery classifier may misread the stale marker; the next re-trigger reconciles.", err)
+	}
 	progress.Write("Parked-box service recovery: the source version is restored and serving; the web UI is up while the row remains parked awaiting the deliberate un-park.")
 }
 
