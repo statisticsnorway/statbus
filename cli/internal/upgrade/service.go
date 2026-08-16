@@ -6135,6 +6135,17 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 		err := func() error {
 			progress.setDeferGating(true)
 			defer progress.setDeferGating(false)
+			// STATBUS-201 — DELTA-scoped migrate stall (KindStall). Fires ONLY here, in
+			// the daemon's applyNewSbUpgrading DELTA migrate — NEVER in boot-migrate. The
+			// generic runPsqlFile marker (migration-slower-than-systemd-unit-timeout,
+			// migrate.go:537) cannot be armed via unit-env for the timeout arc: since
+			// STATBUS-116 post_restore fixups run through runPsqlFile on EVERY migrate-up,
+			// so the daemon's OWN boot stalls there before listenLoop and never claims the
+			// scheduled row. This marker lives in the daemon parent inside the migrate
+			// step's deferGating span, so the WATCHDOG=1 gated ticker (the STATBUS-012
+			// cover) is exercised while the row is genuinely in_progress — identical cover,
+			// delta-only by construction. No-op in production (env unset).
+			inject.StallHere("upgrade-delta-migration-slower-than-systemd-unit-timeout")
 			return runCommandToLog(projDir, MigrateUpTimeout, progress.File(), "migrate", progress.bump, filepath.Join(projDir, "sb"), "migrate", "up", "--verbose")
 		}()
 

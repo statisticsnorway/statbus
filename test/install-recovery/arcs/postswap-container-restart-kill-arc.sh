@@ -7,12 +7,16 @@
 # Phase=Resuming, DB UP); only the SCHEDULING swapped (fabricate → real
 # register+schedule, 086) + the baseline (v2026.05.2 → base_sha). Contract preserved.
 #
-# A→B killed during the post-swap container restart → RED: flag (Phase=Resuming) +
+# A→B killed during the post-swap container restart → RED: flag (Phase=NewSbUpgrading) +
 # row in_progress (DB up; migrations applied; containers indeterminate). Recovery
-# (./sb install) → Resuming one-shot LATCH (service.go:755) → recoveryRollback →
-# rollback → exit 75; the death-during-resume becomes ONE rollback, NEVER a
-# re-resume-to-completion. Terminal rolled_back with UPGRADE_DIED_DURING_RESUME;
-# data restored from the snapshot.
+# (./sb install) → recoverFromFlag reads observed-state already-at-new (binary + migrations
+# at B, containers healthy) → resumeNewSb SELF-HEALS the row to 'completed' without re-running
+# the pipeline — the serve-proven convergence contract (STATBUS-039/160/192/193). Terminal
+# 'completed' via [completed-self-heal]; the forward-converged box keeps B's data (no rollback).
+# STATBUS-201: this replaced the RETIRED pre-039 "Resuming one-shot latch → rollback" assert,
+# which cited the long-gone service.go:755 and demanded a rollback the product no longer does.
+# The adjacent postswap-converged-selfheal arc deliberately proves the same class in the
+# ~ms-later converged-but-unlanded window.
 #
 # Inputs (env): BASE_SHA, B_FULL (40-hex), B_BRANCH, V_VERSION, SB_ARC_TRUSTED_SIGNER. VM name = $1.
 
@@ -84,40 +88,44 @@ wait_for_upgrade_candidate_ready "$VM_NAME" "$B_FULL" "$TICK_WAIT_S"
 arc_schedule_daemon_down "$B_FULL"
 arc_install_dispatch_with_inject "$INJECT_CLASS"
 
-# ── RED: flag Phase=Resuming + row in_progress (POSTSWAP — DB is UP) ──
+# ── RED: flag present + row in_progress (POSTSWAP — DB is UP) ──
 echo ""
-echo "── verifying C8 RED state (flag Resuming; row in_progress; DB up) ──"
+echo "── verifying C8 RED state (flag present; row in_progress; DB up) ──"
 VM_EXEC bash -c "ls -la ~/statbus/tmp/upgrade-in-progress.json" >/dev/null || { echo "✗ expected flag file present after the kill" >&2; exit 1; }
 assert_upgrade_row_state "$VM_NAME" "in_progress"
-echo "  ✓ RED confirmed: flag (Phase=Resuming) + row in_progress (migrations applied; containers indeterminate)"
+echo "  ✓ RED confirmed: flag present + row in_progress (migrations applied; containers indeterminate)"
 
-# ── recovery: ./sb install → Resuming one-shot latch → rollback (NEVER re-resume) ──
+# ── recovery: ./sb install → recoverFromFlag → resumeNewSb serve-proven self-heal → completed ──
 echo ""
-echo "── recovery: ./sb install (Resuming latch → rollback) ──"
+echo "── recovery: ./sb install (recoverFromFlag observed already-at-new → resumeNewSb self-heal → completed) ──"
 REC_RC=0
-VM_EXEC bash -c "cd ~/statbus && STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf" || REC_RC=$?
-echo "  recovery ./sb install exit: $REC_RC (0 or 75=rolled-back both OK)"
+REC_OUT=$(VM_EXEC bash -c "cd ~/statbus && STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf 2>&1") || REC_RC=$?
+echo "$REC_OUT" | tail -40
+echo "  recovery ./sb install exit: $REC_RC (0 or 75 both admissible)"
 
-# ── convergence: ROLLBACK, never completion (the Resuming latch) ──
+# ── convergence: serve-proven SELF-HEAL to completed (never the retired rollback) ──
 echo ""
-echo "── latch-outcome convergence checks (ROLLBACK, not completion) ──"
+echo "── serve-proven convergence checks (self-heal to completed, not the retired rollback) ──"
 FINAL_STATE=$(upgrade_state)
 echo "  final upgrade row state: $FINAL_STATE"
-if [ "$FINAL_STATE" = "completed" ]; then
-    echo "✗ state='completed' — a death-during-resume must NOT re-resume to step 11+12; the Resuming one-shot latch (service.go:755) must roll back (latch regressed?)" >&2
+[ "$FINAL_STATE" = "completed" ] || { echo "✗ state='$FINAL_STATE' — the container-restart kill must converge FORWARD via resumeNewSb's containers-at-target self-heal to 'completed' (STATBUS-039/192/193); a non-completed terminal means the serve-proven self-heal regressed" >&2; exit 1; }
+# The PRODUCT's own self-heal label in the recovery output — proves resumeNewSb's containers-at-target
+# branch (not applyNewSbUpgrading re-run, not the flagless belt) converged THIS row.
+echo "$REC_OUT" | grep -qF "upgrade row [completed-self-heal]" || { echo "✗ recovery output lacks resumeNewSb's [completed-self-heal] label — the row did not converge via the containers-at-target self-heal" >&2; exit 1; }
+# The RETIRED Resuming one-shot latch must NOT have fired — a death BEFORE resume (this arc's kill)
+# converges forward; UPGRADE_DIED_DURING_RESUME is the latch's marker and must be ABSENT.
+if echo "$REC_OUT" | grep -qF "UPGRADE_DIED_DURING_RESUME"; then
+    echo "✗ UPGRADE_DIED_DURING_RESUME in the recovery output — the RETIRED Resuming one-shot latch fired instead of the serve-proven self-heal (STATBUS-201 regression)" >&2
     exit 1
 fi
-# Principled terminal: rolled_back (the snapshot restore succeeds → healthy at A).
-assert_upgrade_row_state "$VM_NAME" "rolled_back"
-# The error names the latch code (ErrResumeDied) — the unattended operator's diagnostic surface.
-assert_upgrade_row_error_matches "$VM_NAME" "UPGRADE_DIED_DURING_RESUME"
-# Data restored intact from the snapshot — the resume's migrate was undone by rollback's restoreDatabase.
+assert_upgrade_row_state "$VM_NAME" "completed"
+# Data intact at B — no rollback; the self-heal keeps the forward-converged box (V is schema-only,
+# counts match the pre-trigger snapshot, mirroring the converged-selfheal arc).
 assert_demo_data_present "$VM_NAME"
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 assert_flag_file_absent "$VM_NAME"
-assert_no_orphan_backup "$VM_NAME"
 assert_health_passes "$VM_NAME"
 assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 2
 
 echo ""
-echo "PASS: postswap-container-restart-kill (death-during-resume → ONE rollback via the Resuming latch; row rolled_back with UPGRADE_DIED_DURING_RESUME, data intact)"
+echo "PASS: postswap-container-restart-kill (death during post-swap container restart → recoverFromFlag observed already-at-new → resumeNewSb serve-proven self-heal to 'completed' [completed-self-heal]; the retired Resuming-latch rollback is gone; flag absent, data intact, NRestarts bounded)"

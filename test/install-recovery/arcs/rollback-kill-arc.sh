@@ -118,9 +118,14 @@ echo "[OBSERVE] final row state: $FINAL_STATE"
 [ "$FINAL_STATE" != "completed" ] || { echo "✗ state='completed' — a PreSwap/C9 rollback must NOT self-heal to completed (:822 guard / never-self-heal)" >&2; exit 1; }
 [ "$FINAL_STATE" = "rolled_back" ] || { echo "✗ expected terminal 'rolled_back' (the completed C9 rollback), got '$FINAL_STATE'" >&2; exit 1; }
 echo "  ✓ rolled_back (C9 rollback completed by the 3rd dispatch)"
-# The error names the PreSwap rollback reason (recoverFromFlag :955) — proves this
-# was the binary-swap PreSwap path (interrupted before the binary-swap commit boundary).
-assert_upgrade_row_error_matches "$VM_NAME" "pre-swap, before binary-swap commit boundary"
+# The error anchors on the ROUTE + TERMINAL semantics, not reword-prone prose: the
+# INSTALL_PRECONDITION_FAILED token (the PreSwap/PhaseOldSbUpgrading recoveryRollback
+# terminal, service.go ErrInstallPreconditionFailed) plus a stable fragment of the
+# ratified plain-vocabulary wording, "before booting the new binary" (the King's
+# 2026-07-07 reword, 6c90e2964, service.go:1284 — replaced the June-19 "pre-swap,
+# before binary-swap commit boundary" the old assert pinned).
+assert_upgrade_row_error_matches "$VM_NAME" "INSTALL_PRECONDITION_FAILED"
+assert_upgrade_row_error_matches "$VM_NAME" "before booting the new binary"
 assert_flag_file_absent "$VM_NAME"
 assert_demo_data_present "$VM_NAME"
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"

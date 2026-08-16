@@ -8,9 +8,19 @@
 #
 # What it proves (STATBUS-012): a migration that runs longer than WatchdogSec=120s
 # would, without a heartbeat, trip systemd's watchdog → SIGABRT → restart loop (the
-# rune-wedge shape). The WATCHDOG=1 ticker around the boot-migrate subprocess keeps
-# the unit alive across the >120s stalled migration → it COMPLETES; NRestarts stays
-# bounded (delta ≤ 1).
+# rune-wedge shape). The WATCHDOG=1 gated ticker around the delta migrate step keeps
+# the unit alive across the >120s stall → it COMPLETES; NRestarts stays bounded (delta ≤ 1).
+#
+# STATBUS-201: this arc now arms a DELTA-scoped stall marker
+# (upgrade-delta-migration-slower-than-systemd-unit-timeout), NOT the generic
+# runPsqlFile marker (migration-slower-than-systemd-unit-timeout). Since STATBUS-116
+# the post_restore fixups run through runPsqlFile on EVERY migrate-up, so arming the
+# generic marker via unit-env stalled the daemon's OWN BOOT (boot-migrate fixups)
+# before listenLoop — the scheduled row was never claimed (300s timeout, row stuck
+# 'scheduled'). The delta-scoped marker sits in the daemon parent at
+# applyNewSbUpgrading's migrate step (inside the deferGating span), so the daemon boots
+# cleanly, reaches its main loop, claims the row, THEN stalls at the delta migrate —
+# exercising the identical STATBUS-012 gated-ticker cover, delta-only.
 #
 # Must-adds (proven in C15): (c) arc_install_stall_dropin RESTARTS the unit so the
 # daemon process carries STATBUS_INJECT_AT; (e) after the hold, assert the row is
@@ -26,7 +36,7 @@ TICK_WAIT_S="${TICK_WAIT_S:-120}"
 STALL_HOLD_S="${STALL_HOLD_S:-180}"            # > WatchdogSec=120s — load-bearing
 UPGRADE_BUDGET_S="${UPGRADE_BUDGET_S:-900}"
 INPROGRESS_BUDGET_S="${INPROGRESS_BUDGET_S:-300}"
-INJECT_CLASS="migration-slower-than-systemd-unit-timeout"
+INJECT_CLASS="upgrade-delta-migration-slower-than-systemd-unit-timeout"
 RELEASE_FILE="/tmp/arc-stall-release"
 
 : "${BASE_SHA:?BASE_SHA required}"

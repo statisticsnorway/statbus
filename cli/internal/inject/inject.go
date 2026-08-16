@@ -241,6 +241,19 @@ var classes = map[string]Kind{
 	"service-startup-slower-than-systemd-unit-timeout": KindStall,
 	"migration-slower-than-systemd-unit-timeout":       KindStall,
 
+	//   upgrade-delta-migration-slower-than-systemd-unit-timeout
+	//     STATBUS-201 — the DELTA-scoped sibling of the generic marker above.
+	//     Sits in the daemon parent at applyNewSbUpgrading's migrate step
+	//     (service.go), inside the deferGating span, so it fires ONLY during the
+	//     upgrade's own DELTA migrate — NEVER during boot-migrate. The generic
+	//     runPsqlFile marker (:537) cannot serve the postswap-migration-timeout arc:
+	//     since STATBUS-116 the post_restore fixups run through runPsqlFile on EVERY
+	//     migrate-up, so arming it via unit-env stalls the daemon's OWN boot before
+	//     listenLoop and the scheduled row is never claimed. This addition scopes the
+	//     stall to the delta; the generic marker stays for its other users (thinning
+	//     forbidden, additions only — King ruling on the inject vocabulary).
+	"upgrade-delta-migration-slower-than-systemd-unit-timeout": KindStall,
+
 	// STATBUS-031 — rollback()'s restoreDatabase rsync is heartbeat-SILENT
 	// (onAdvance=nil, output to progress.File()). On the STARTUP recovery path
 	// (recoverFromFlag → recoveryRollback → rollback → restoreDatabase) NO watchdog

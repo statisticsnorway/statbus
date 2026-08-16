@@ -341,6 +341,8 @@ func TestRegistry_AllClassesSeeded(t *testing.T) {
 		// Layer 1 systemd-timeout cases (call sites land with scenarios).
 		"service-startup-slower-than-systemd-unit-timeout": KindStall,
 		"migration-slower-than-systemd-unit-timeout":       KindStall,
+		// STATBUS-201 — the delta-scoped migrate stall (daemon parent, upgrade delta only).
+		"upgrade-delta-migration-slower-than-systemd-unit-timeout": KindStall,
 		// Concurrent-install detection.
 		"concurrent-install-attempted-during-migrate-up": KindStall,
 		// Forensics-surfaced classes (call sites + scenarios land later).
