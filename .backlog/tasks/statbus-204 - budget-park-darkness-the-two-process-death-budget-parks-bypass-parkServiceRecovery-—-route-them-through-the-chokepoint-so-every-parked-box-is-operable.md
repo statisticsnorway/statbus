@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-16 14:43'
-updated_date: '2026-08-16 18:17'
+updated_date: '2026-08-16 18:18'
 labels:
   - upgrade
   - recovery
@@ -49,5 +49,17 @@ author: foreman
 created: 2026-08-16 18:17
 ---
 BUILD HELD — WATCHDOG-COVER FINDING (engineer pre-build byte-walk, 2026-08-16; ruling pending with the architect): the filing's 'context-threading is the only work' premise understates it. Both budget-park sites (process-death in RecoveryBudgetGuard ~:6831, same-step-twice in resumeNewSb ~:7286 on current HEAD) run in systemd's ACTIVE phase (READY=1 at :1999) with NO gated watchdog ticker in their span — and parkServiceRecovery's slow work (StartDBForRecovery ≤60s + compose up + healthCheck ≤25s + restores) can exceed WatchdogSec=120 on a cold box → SIGABRT → crash loop at the very park the fix makes operable (the 195 doctrine applied). The deterministic sites are covered by their CALLERS' outer tickers (:6107, :3115); the budget sites have none. Site 1 also lacks a ProgressLog (log.Printf only) — threading via loadLogRelPath + AppendProgressLog. SHAPES AWAITING RULING: (A) per-site runGatedWatchdogTicker wraps — localized, leaves committed 200 code untouched; (B, engineer-recommended, foreman-concurred) parkServiceRecovery becomes SELF-covering — the gated ticker wraps restoreSourceServices internally, covering deterministic sites (harmless nested ticker), budget sites, and every future caller at the one chokepoint (the same close-the-invariant shape ruled on 200 Q4 and 197 C3). Either shape ships with the RED-first unit pinning both sites call the helper AFTER their park write, plus the site-1 log threading.
+---
+
+author: architect
+created: 2026-08-16 18:18
+---
+WATCHDOG-COVER RULING (architect, 2026-08-16; the engineer's find is real and the hold was right again — the budget sites run post-READY in the active phase with no outer gated ticker, and the helper's slow span can exceed WatchdogSec=120 on a cold box; shipping 204 without cover would convert the fix into a SIGABRT crash loop at the very park it makes operable, violating the 195 doctrine it sits under).
+
+RULED: (B) — parkServiceRecovery becomes SELF-COVERING, with one widening: the internal gated ticker must span the helper's WHOLE slow span, not only restoreSourceServices — parkEraVerdict's StartDBForRecovery (up to ~60s) is inside the span and precedes the restore. Put the ticker at the top of parkServiceRecovery, covering verdict + restoration together. Rationale, same shape as 200 Q4 and 197 C3: the chokepoint owns its invariant — a helper that does slow work owns its own liveness cover; every-caller-remembers-a-wrapper is precisely the drift class the 196 gate exists to hunt, and (A) would re-create it for every future caller. The nested ticker at the deterministic sites is harmless (two layers both emit WATCHDOG=1 — extra pings, no interference).
+
+DOCTRINE NOTE so the always-ping-vs-per-unit question does not reopen: 195's rule is 'kill hung daemons, never slow-but-live ones', enforced by feeding per unit of genuine progress. An ALWAYS-PING ticker is legitimate here because every sub-step in the covered span is itself TIME-BOUNDED (StartDBForRecovery's bound, compose-up's command timeout, healthCheck's bounded attempts) — a genuine hang cannot hide behind the ticker beyond the bounds' sum, exactly the boot-migrate precedent (its own always-ping ticker bounded by MigrateUpTimeout). Cover-with-bounds is hang-detection by construction.
+
+ALSO APPROVED: the site-1 ProgressLog threading via loadLogRelPath + AppendProgressLog (a park narrative belongs in the row's own progress log, not the journal). Editing the committed 200 helper is a normal forward change under review, not a reversal — the helper's contract gains cover, existing behavior otherwise unchanged. ORACLES: the RED-first unit pinning both budget sites calling the helper AFTER their park write (as planned) + a cover pin in the source-parsing family: the ticker wrap is present inside parkServiceRecovery and precedes the verdict call (so a future refactor cannot silently drop the cover). Build proceeds on this comment.
 ---
 <!-- COMMENTS:END -->
