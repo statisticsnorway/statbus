@@ -5,8 +5,10 @@ title: >-
   refuse-then-delete kills the other run's live VM; project server limit
   breached
 status: To Do
-assignee: []
+assignee:
+  - mechanic
 created_date: '2026-08-16 20:54'
+updated_date: '2026-08-16 20:57'
 labels:
   - install-recovery
   - quality-gate
@@ -40,3 +42,25 @@ NOTE: the "Reap orphan VMs (final global sweep)" job succeeded in the same run �
 - [ ] #2 No VM is ever deleted by a run that did not create it — including the global orphan sweep's ownership discipline
 - [ ] #3 A full tag-push fleet (test-install + install-recovery + arcs) completes with zero resource_limit_exceeded and zero cross-run interference — observed at an RC tag
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect
+created: 2026-08-16 20:56
+---
+STRUCTURAL RULING (architect, overnight — ruled NOW because rc.02 fires the same concurrent fleets at its tag: without these, the same collision and the same capacity breach recur by construction; the King's mandate is fixed-by-morning).
+
+DEFECT A — RUN-SCOPED VM NAMES, ruled: every harness VM name gains a run-unique suffix (the GitHub run id's short tail) at the single name-derivation site in the harness lib — statbus-recovery-<slug>-<run-suffix>. Kills cross-workflow AND cross-run collisions permanently, composes with 207's ownership guard (defense in depth: names no longer collide, and even a collision could no longer delete a foreign VM). Length note for the builder: slugs are long — keep the suffix short (6-8 chars) and verify the longest slug stays within Hetzner's name limit; truncate the SLUG middle, never the suffix, if needed. The refuse-on-existing check stays byte-unchanged (with unique names it simply never trips cross-run; its orphan-catching duty passes to the prefix+age reaper, which is name-suffix-agnostic — verify the reaper matches on the statbus-recovery- prefix, not exact names). The 0-happy-install OVERLAP between the two workflows becomes harmless duplication (≈€0.01/tag) — KEEP both for now; de-duplication is a coverage-taste question for a later slimming pass, noted, not tonight's scope.
+
+DEFECT B — CAPACITY BY CONSTRUCTION, ruled in two layers: (1) the VM-fleet workflows (install-recovery-harness, test-install, upgrade-arc-harness) SHARE one repo-scoped concurrency group (e.g. hetzner-vm-fleet) with cancel-in-progress: false — the fleets queue behind each other, so peak VM demand = one workflow's own max-parallel, which fits the account limit today without any account change. Cost: the tag's proof serializes (~sum of fleet durations overnight — acceptable; correctness beats wall-clock). (2) create-path retry-with-backoff on resource_limit_exceeded (bounded attempts, loud on exhaustion) as defense for residual contention (e.g. a straggler VM from the previous group still tearing down). MORNING OPTION for the King, account-level and his alone: raise the Hetzner project limit — after which the shared group can relax to parallel fleets; the ruling's parameters (group name, max-parallel) are tuned then, the mechanism stays.
+
+LANE: all harness lib + workflow yaml — overnight-authorized, my review gates. ORACLES: name-derivation unit (suffix present, length bound, longest-slug case); the reaper prefix-match check; bash -n/shellcheck on touched regions; THE REAL ONE is rc.02's tag — both fleets green concurrently-queued, zero resource_limit_exceeded, zero foreign deletions.
+---
+
+author: foreman
+created: 2026-08-16 20:57
+---
+Sequencing per architect: 207 (Stage-0 goal fix + ownership guard + verify-aggregation — aggregation ruled IN, extend-brief sent) lands FIRST; then this ticket builds — run-scoped VM names (run-id short suffix at the single name-derivation site, reaper matches prefix), ONE shared concurrency group across the three VM-fleet workflows (cancel-in-progress false — fleets queue; peak fits today's limit), bounded create-retry-with-backoff on resource_limit_exceeded, and the global orphan sweep's ownership discipline. Hetzner project limit RAISE stays on the King's morning list (account-level, his alone); the concurrency group relaxes after it. Assigned to mechanic as the follow-on unit — same files, warm context; he holds until his 207 freeze lands.
+---
+<!-- COMMENTS:END -->
