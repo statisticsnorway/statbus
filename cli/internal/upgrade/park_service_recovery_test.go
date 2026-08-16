@@ -1,0 +1,124 @@
+package upgrade
+
+import (
+	"strings"
+	"testing"
+)
+
+// TestParkEraDecision_SourceIdentity is the STATBUS-200 era-guard oracle (RED-first): the
+// verdict is a SOURCE-IDENTITY comparison, permit iff db_max == source_max. It fails on the
+// withdrawn "permit iff !HasPending" design — which would PERMIT the post-delta case (the
+// mixed-era corruption this guard exists to prevent) and REFUSE the pre-delta case.
+func TestParkEraDecision_SourceIdentity(t *testing.T) {
+	cases := []struct {
+		name    string
+		dbMax   int64
+		srcMax  int64
+		permit  bool
+		wantSub string // required substring of the refusal narrative (only when !permit)
+	}{
+		{"codeonly-permit (no migrations either side)", 0, 0, true, ""},
+		{"pre-delta-permit (DB at source; delta pending but UNAPPLIED)", 20260712000000, 20260712000000, true, ""},
+		{"post-delta-refuse (delta APPLIED; DB past source — mixed-era)", 20260713000000, 20260712000000, false, "migration delta applied"},
+		{"behind-refuse (DB below source — anomaly, fail safe)", 20260711000000, 20260712000000, false, "behind the source version"},
+	}
+	for _, c := range cases {
+		permit, narrative := parkEraDecision(c.dbMax, c.srcMax)
+		if permit != c.permit {
+			t.Errorf("%s: permit=%v, want %v (db_max=%d src_max=%d)", c.name, permit, c.permit, c.dbMax, c.srcMax)
+		}
+		if c.permit {
+			if narrative != "" {
+				t.Errorf("%s: a permit must carry an EMPTY narrative, got %q", c.name, narrative)
+			}
+			continue
+		}
+		if !strings.Contains(narrative, c.wantSub) {
+			t.Errorf("%s: refusal narrative %q must contain %q (the operator-visible reason)", c.name, narrative, c.wantSub)
+		}
+		if !strings.Contains(narrative, "services held down") {
+			t.Errorf("%s: every refusal must name 'services held down' so the park narrative reads honestly, got %q", c.name, narrative)
+		}
+	}
+}
+
+// TestParkMigrationMaxInGitTree_ParsesVersions pins the source-max reader's filename parse:
+// only *.up.sql/*.up.psql count, and the 14-digit prefix is the version. (Reads the LIVE repo
+// tree at HEAD via a real git ls-tree — a non-negative max proves the parse path works.)
+func TestParkMigrationMaxInGitTree_ParsesVersions(t *testing.T) {
+	// HEAD is guaranteed resolvable in the repo; the migrations/ dir has many *.up.sql files.
+	max, err := migrationMaxInGitTree(thisRepoFile(t, "."), "HEAD")
+	if err != nil {
+		t.Fatalf("migrationMaxInGitTree(HEAD): %v", err)
+	}
+	if max <= 0 {
+		t.Fatalf("expected a positive migration max in the HEAD tree, got %d — the ls-tree parse found no *.up.sql versions", max)
+	}
+}
+
+// TestParkServiceRecovery_StructuralContracts pins the STATBUS-200 build invariants by source
+// inspection (no DB needed): the ordering pin, the helper-never-stops hard rule, serve-proven
+// window ordering, restoreDatabase-skip, the appendParkNarrative single-caller pin, and its
+// narrative-only (never a park write) shape.
+func TestParkServiceRecovery_StructuralContracts(t *testing.T) {
+	src := string(packageGoSources(t)["service.go"])
+
+	// ORDERING PIN (park write FIRST): parkServiceRecovery is invoked AFTER the parkUpgrade
+	// call inside parkForDeterministicFailure — a crash mid-restoration leaves a parked row.
+	pf := extractFuncBody(t, src, "func (d *Service) parkForDeterministicFailure(")
+	parkIdx := strings.Index(pf, "d.parkUpgrade(")
+	recIdx := strings.Index(pf, "d.parkServiceRecovery(")
+	if parkIdx < 0 || recIdx < 0 || recIdx < parkIdx {
+		t.Errorf("ordering pin: parkServiceRecovery must be called AFTER parkUpgrade in parkForDeterministicFailure (park write FIRST) — parkUpgrade@%d, parkServiceRecovery@%d", parkIdx, recIdx)
+	}
+
+	// HELPER NEVER STOPS ANYTHING (ruling Q4 hard rule): neither the helper nor the restore
+	// tail may stop/down services or re-engage maintenance / read-only — they only ever START.
+	for _, fn := range []string{"func (d *Service) parkServiceRecovery(", "func (d *Service) restoreSourceServices("} {
+		body := extractFuncBody(t, src, fn)
+		for _, forbidden := range []string{`"stop"`, `"down"`, "QuiesceClients", "setMaintenance(true)", "setDatabaseReadOnly(ctx, true)"} {
+			if strings.Contains(body, forbidden) {
+				t.Errorf("helper-never-stops: %s must not contain %q — the park-recovery helper may only START services, never stop anything", fn, forbidden)
+			}
+		}
+	}
+
+	// SERVE-PROVEN: in restoreSourceServices the read-only window lift comes AFTER the health
+	// gate — maintenance/window drop only on a proven-serving box.
+	rs := extractFuncBody(t, src, "func (d *Service) restoreSourceServices(")
+	hcIdx := strings.Index(rs, "d.healthCheck(")
+	winIdx := strings.Index(rs, "terminalExec(windowOffSQL)")
+	if hcIdx < 0 || winIdx < 0 || winIdx < hcIdx {
+		t.Errorf("serve-proven: the read-only window lift must come AFTER the health gate in restoreSourceServices — healthCheck@%d, windowLift@%d", hcIdx, winIdx)
+	}
+	// restoreDatabase is DELIBERATELY skipped (ruling Q2 — the era guard makes it unnecessary).
+	if strings.Contains(rs, "restoreDatabase(") {
+		t.Error("restoreSourceServices must NOT call restoreDatabase — the era guard proves the DB is at source, so a DB restore is unnecessary and its absence is the mixed-era safeguard (ruling Q2)")
+	}
+	// LOCAL images only: the compose up must be --no-build (no pull; the disk is full).
+	if !strings.Contains(rs, "--no-build") {
+		t.Error("restoreSourceServices must start services with --no-build (LOCAL source images, no pull — the disk is full)")
+	}
+
+	// appendParkNarrative SINGLE-CALLER PIN: every call site is inside parkServiceRecovery.
+	psr := extractFuncBody(t, src, "func (d *Service) parkServiceRecovery(")
+	inHelper := strings.Count(psr, "d.appendParkNarrative(")
+	inFile := strings.Count(src, "d.appendParkNarrative(")
+	if inFile == 0 || inFile != inHelper {
+		t.Errorf("appendParkNarrative single-caller pin: all call sites must be inside parkServiceRecovery — found %d in-file, %d in-helper", inFile, inHelper)
+	}
+
+	// appendParkNarrative is NARRATIVE-ONLY: it appends to reason/error, guards on an
+	// already-parked row, and NEVER assigns recovery_parked_at (the STATBUS-196 single-park-
+	// writer discipline — parkUpgrade stays the only park-timestamp writer).
+	an := extractFuncBody(t, src, "func (d *Service) appendParkNarrative(")
+	if strings.Contains(an, "recovery_parked_at =") {
+		t.Error("appendParkNarrative must never ASSIGN recovery_parked_at — it is narrative-only (SingleParkWriter discipline, STATBUS-196)")
+	}
+	if !strings.Contains(an, "recovery_parked_at IS NOT NULL") {
+		t.Error("appendParkNarrative must guard on `recovery_parked_at IS NOT NULL` — it may only extend an ALREADY-parked row's narrative")
+	}
+	if !strings.Contains(an, "recovery_parked_reason") || !strings.Contains(an, "error =") {
+		t.Error("appendParkNarrative must append to BOTH recovery_parked_reason and error (the operator surfaces both)")
+	}
+}

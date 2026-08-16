@@ -5772,7 +5772,192 @@ func (d *Service) parkForDeterministicFailure(ctx context.Context, id int, displ
 	if freshlyParked {
 		d.runCallback(displayName, map[string]string{"STATBUS_EVENT": "parked", "STATBUS_PARKED": "1", "STATBUS_PARK_REASON": reason})
 	}
+	// STATBUS-200: the park write has landed (the ordering pin — park FIRST, restoration
+	// SECOND: a crash inside parkServiceRecovery leaves an already-parked row, so the
+	// parked-skip invariant holds on the next boot and no attempt is consumed). Now bring the
+	// SOURCE version's services back so the parked box stays OPERABLE — the North Star: a park
+	// is alive-idle AND the operator's remedy lever (the web UI) is up, never a silent dark
+	// outage. Era-guarded + narrative-only on refuse/failure; it only ever STARTS services on
+	// permit and never stops anything. Run unconditionally (not gated on freshlyParked) so a
+	// next-boot re-entry safely completes a restoration interrupted by a mid-restore crash —
+	// both restores are idempotent no-ops when nothing moved.
+	d.parkServiceRecovery(ctx, id, restoreTargetSHA, progress)
 	return fmt.Errorf("parked on deterministic forward failure: %s", reason)
+}
+
+// parkServiceRecovery — STATBUS-200. The shared park-service-recovery helper, invoked after
+// EVERY park write via the single chokepoint parkForDeterministicFailure (parkAtTarget
+// delegates here too, so all park sites are covered by this one call). It brings the SOURCE
+// version's services back so a parked box stays OPERABLE — the North Star: a park is alive-idle
+// AND the operator's remedy lever (the web UI) is up, never a silent dark outage. ERA-GUARDED
+// (the safety core): it starts source services ONLY when the DB is provably at the source
+// version's schema. HARD RULE (ruling Q4): it only ever STARTS services on permit; on refuse or
+// failure it stops NOTHING and changes nothing but the park narrative (appendParkNarrative).
+func (d *Service) parkServiceRecovery(ctx context.Context, id int, restoreTargetSHA string, progress *ProgressLog) {
+	permit, refusal := d.parkEraVerdict(ctx, id)
+	if !permit {
+		d.appendParkNarrative(id, refusal)
+		return
+	}
+	if err := d.restoreSourceServices(ctx, restoreTargetSHA, progress); err != nil {
+		d.appendParkNarrative(id, fmt.Sprintf("source-version service restore did not complete (%v) — the box stays behind the maintenance page until the cause is fixed and the upgrade re-triggered", err))
+		return
+	}
+	progress.Write("Parked-box service recovery: the source version is restored and serving; the web UI is up while the row remains parked awaiting the deliberate un-park.")
+}
+
+// parkEraVerdict is the STATBUS-200 ERA GUARD — the safety core. It permits source-service
+// restoration ONLY when the DB is provably at the SOURCE version's schema, via a SOURCE-IDENTITY
+// comparison (architect ruling Q1), NOT a pending-count: migrate.HasPending is inverted for this
+// — a pre-delta park has pending=true on a pure-source DB (must permit), a post-delta park has
+// pending=false on a migrated DB (must refuse). Permit iff db.migration's applied max EQUALS the
+// source version's expected max — the source resolved from the row's recorded from_commit_version
+// (git rev-parse → git ls-tree, no checkout, so it works while the tree sits at the target).
+// EVERY anomaly REFUSES with a named narrative: the fail-safe direction is ALWAYS
+// dark-behind-the-maintenance-page, never a guess toward serving mixed-era.
+func (d *Service) parkEraVerdict(ctx context.Context, id int) (permit bool, refusalNarrative string) {
+	const held = "services held down"
+	// The DB may be stopped at a pre-start park (StepImagePull is before StepDBUp). Bring the
+	// EXISTING db+proxy up (start, never recreate — StartDBForRecovery) so the applied-max read
+	// can run; a running DB under the still-engaged read-only window is harmless (ruling Q1).
+	if err := d.StartDBForRecovery(ctx); err != nil {
+		return false, fmt.Sprintf("%s: the database could not be started to verify source-version identity (%v)", held, err)
+	}
+	// Reads ride the teardown-immune fresh-conn primitive (terminalUpdate), so they do not
+	// depend on d.queryConn's state (nil at the pre-reconnect StepImagePull park).
+	dbMaxStr, err := d.terminalUpdate("SELECT COALESCE(MAX(version), 0)::text FROM db.migration")
+	if err != nil {
+		return false, fmt.Sprintf("%s: the applied migration version could not be read (%v)", held, err)
+	}
+	dbMax, perr := strconv.ParseInt(strings.TrimSpace(dbMaxStr), 10, 64)
+	if perr != nil {
+		return false, fmt.Sprintf("%s: the applied migration version %q was unparseable (%v)", held, dbMaxStr, perr)
+	}
+	fromCommit, err := d.terminalUpdate("SELECT COALESCE(from_commit_version, '') FROM public.upgrade WHERE id = $1", id)
+	if err != nil {
+		return false, fmt.Sprintf("%s: the source version could not be read from the row (%v)", held, err)
+	}
+	fromCommit = strings.TrimSpace(fromCommit)
+	if fromCommit == "" {
+		return false, held + ": the source version was not recorded on this row — cannot verify source-version identity"
+	}
+	srcSHA, rerr := d.RevParse(ctx, fromCommit)
+	if rerr != nil {
+		return false, fmt.Sprintf("%s: the source version %q could not be resolved to a commit (%v)", held, fromCommit, rerr)
+	}
+	srcMax, serr := migrationMaxInGitTree(d.projDir, string(srcSHA))
+	if serr != nil {
+		return false, fmt.Sprintf("%s: the source version's migration set could not be read (%v)", held, serr)
+	}
+	return parkEraDecision(dbMax, srcMax)
+}
+
+// parkEraDecision is the pure SOURCE-IDENTITY comparison at the heart of the era guard
+// (extracted for direct testing). Permit iff the DB's applied migration max EQUALS the source
+// version's expected max — covering BOTH the codeonly (no-delta; both 0 or equal) and pre-delta
+// (delta pending but unapplied; DB still at source) cases. db_max > source_max REFUSES (the delta
+// partially or fully applied — the mixed-era class). db_max < source_max REFUSES as an anomaly.
+// This is deliberately NOT a pending-count: migrate.HasPending is inverted here (pending=true on a
+// pure-source pre-delta DB that must permit; pending=false on a migrated post-delta DB that must
+// refuse). The fail-safe direction is always refuse.
+func parkEraDecision(dbMax, srcMax int64) (permit bool, refusalNarrative string) {
+	const held = "services held down"
+	switch {
+	case dbMax == srcMax:
+		return true, "" // DB provably at source — the codeonly (no-delta) and pre-delta cases
+	case dbMax > srcMax:
+		return false, held + ": migration delta applied, source version incompatible — the database is past the source schema; starting source containers against a migrated DB is the mixed-era class"
+	default: // dbMax < srcMax — an unexpected state; fail safe
+		return false, fmt.Sprintf("%s: the database (applied max %d) is behind the source version (max %d), an unexpected state", held, dbMax, srcMax)
+	}
+}
+
+// migrationMaxInGitTree returns the highest migration version present in a git tree's
+// migrations/ directory WITHOUT checking it out — `git ls-tree <sha> -- migrations/`,
+// filename-parsing the 14-digit version prefix of each *.up.sql / *.up.psql. Used by the
+// STATBUS-200 era guard to read the SOURCE version's migration set while the working tree sits
+// at the target. Returns 0 with no error when the tree has no migrations (a codeonly source is a
+// legitimate empty set); a git failure is a real error (the guard then fails safe → refuse).
+func migrationMaxInGitTree(projDir, sha string) (int64, error) {
+	out, err := runCommandOutput(projDir, "git", "ls-tree", "--name-only", sha, "--", "migrations/")
+	if err != nil {
+		return 0, fmt.Errorf("git ls-tree %s -- migrations/: %w (%s)", sha, err, strings.TrimSpace(out))
+	}
+	var max int64
+	for _, line := range strings.Split(out, "\n") {
+		base := filepath.Base(strings.TrimSpace(line))
+		if !strings.HasSuffix(base, ".up.sql") && !strings.HasSuffix(base, ".up.psql") {
+			continue
+		}
+		if len(base) < 14 {
+			continue
+		}
+		v, perr := strconv.ParseInt(base[:14], 10, 64)
+		if perr != nil {
+			continue // non-conforming name — the applier (migrate.MaxDiskVersion) ignores it too
+		}
+		if v > max {
+			max = v
+		}
+	}
+	return max, nil
+}
+
+// restoreSourceServices brings the SOURCE version's application services back on a parked box
+// (STATBUS-200, ruling Q2): the rollback restore tail MINUS restoreDatabase — restore the git
+// tree + binary + config to the source, then start app/worker/rest/proxy from the LOCAL source
+// images (--no-build, NO pull; the disk is full — that is the whole point), a bounded health
+// gate, and maintenance OFF + the read-only window LIFT ONLY on a passing health check
+// (serve-proven — never claim serving without proving it). restoreDatabase is DELIBERATELY
+// skipped: the era guard already proved the DB is at the source version, so there is nothing to
+// restore and the mixed-era hazard cannot arise. Both restores are idempotent no-ops when
+// nothing moved (git checkout -f onto the current HEAD; restoreBinary is silent without sb.old),
+// so a pre-checkout park needs no special case (ruling Q2 rider i). The 197 boundary (rider ii):
+// this runs only in attempts that got past backup — their pin and sb.old are their own, so
+// identity holds; the never-ran class (empty backupPath) is 197's guard and the two never collide.
+func (d *Service) restoreSourceServices(ctx context.Context, restoreTargetSHA string, progress *ProgressLog) error {
+	progress.Write("Restoring the source version's services so the parked box stays operable (web UI up)...")
+	if err := d.restoreGitState(restoreTargetSHA, progress); err != nil {
+		return fmt.Errorf("restore git tree to source: %w", err)
+	}
+	d.restoreBinary(progress)
+	if err := runCommandToLog(d.projDir, 2*time.Minute, progress.File(), "park-config-generate", progress.bump, filepath.Join(d.projDir, "sb"), "config", "generate"); err != nil {
+		return fmt.Errorf("config generate at source: %w", err)
+	}
+	// LOCAL source images only (--no-build, no pull): the whole point is that the disk is full.
+	composeArgs := append([]string{"compose", "up", "-d", "--no-build"}, step11RestartServices...)
+	if out, err := runCommandOutput(d.projDir, "docker", composeArgs...); err != nil {
+		return fmt.Errorf("start source services (compose up --no-build): %w (%s)", err, strings.TrimSpace(out))
+	}
+	if err := d.healthCheck(progress, 5, 5*time.Second); err != nil {
+		return fmt.Errorf("source services did not pass the health gate: %w", err)
+	}
+	// Serve-proven: health passed, so lift the operator-facing gates. maintenance OFF first
+	// (mirrors the completion sites), then the read-only window via the teardown-immune flip.
+	d.setMaintenance(false)
+	if err := d.terminalExec(windowOffSQL); err != nil {
+		return fmt.Errorf("source services are up and healthy but the read-only window did not lift (%v) — reads serve, writes are refused until `./sb install` or the next boot clears it", err)
+	}
+	return nil
+}
+
+// appendParkNarrative (STATBUS-200, ruling Q3) APPENDS a note to an ALREADY-parked row's reason
+// + error via the teardown-immune terminal write — a narrative-ONLY operation. It is guarded
+// `recovery_parked_at IS NOT NULL AND state='in_progress'` and NEVER sets recovery_parked_at,
+// never consumes an attempt, never flips state — so the single-park-writer discipline is
+// preserved: parkUpgrade remains the ONLY site setting recovery_parked_at (the STATBUS-196
+// SingleParkWriter drift gate counts the park-timestamp write — the assignment of now() to
+// recovery_parked_at — which this narrative-only append never performs).
+// Best-effort — the park itself (the senior parkUpgrade write) already landed; a failed append
+// only loses the row-level note, never crashes, never a second park write. Single caller:
+// parkServiceRecovery.
+func (d *Service) appendParkNarrative(id int, note string) {
+	suffix := " — " + note
+	if _, err := d.terminalUpdate(
+		"UPDATE public.upgrade SET recovery_parked_reason = COALESCE(recovery_parked_reason, '') || $2, error = COALESCE(error, '') || $2 WHERE id = $1 AND state = 'in_progress' AND recovery_parked_at IS NOT NULL"+upgradeRowReturning,
+		id, suffix); err != nil {
+		fmt.Printf("appendParkNarrative: could not extend the parked narrative on row %d: %v\n", id, err)
+	}
 }
 
 // dockerStepMinFreeGB is the free-space floor a docker pull/up needs (doc-021
