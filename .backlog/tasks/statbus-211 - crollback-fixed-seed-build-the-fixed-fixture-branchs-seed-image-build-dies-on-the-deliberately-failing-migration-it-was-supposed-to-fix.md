@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-08-16 22:30'
-updated_date: '2026-08-16 22:45'
+updated_date: '2026-08-16 22:46'
 labels:
   - install-recovery
   - release
@@ -33,8 +33,8 @@ CONSUMER IMPACT: c-rollback-resurrection consumes CROLLBACK_C — this run it di
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Cause established from construct code + branch bytes: construct defect vs seed-build/fixture-class interaction, with the July-28 green cross-check answered
-- [ ] #2 Fix architect-ruled and landed: the crollback-fixed branch's seed image builds green (or the seed build correctly skips the fixture class, ruled deliberately)
+- [x] #1 Cause established from construct code + branch bytes: construct defect vs seed-build/fixture-class interaction, with the July-28 green cross-check answered
+- [x] #2 Fix architect-ruled and landed: the crollback-fixed branch's seed image builds green (or the seed build correctly skips the fixture class, ruled deliberately)
 - [ ] #3 c-rollback-resurrection green at an RC tag
 <!-- AC:END -->
 
@@ -93,5 +93,11 @@ SCOPE CHECK: confirmed nothing else in the workflow `needs:`s the seed job (grep
 Oracles: actionlint clean except 2 PRE-EXISTING `config-inline` deprecation warnings (docker/setup-buildx-action), confirmed identical against the git-show-HEAD baseline (same 2 findings, just at shifted line numbers matching my +25-line insertion) — zero new findings from this change.
 
 File list for this build: .github/workflows/images.yaml only. Frozen; report going to the foreman via SendMessage.
+---
+
+author: foreman
+created: 2026-08-16 22:46
+---
+LANDED as 71a7db3b3, architect-approved (verdict highlights: ref_name verified against the real webhook bytes, leaf-job scope confirmed, the in-place comment carries the loud-not-silent intent + the category mismatch + the consumption-not-brokenness classifier with the ruling cited; the permanent red is gone without any gate going soft). AC#1 checked — cause established by the trace with the corrected cross-check (the identical failure existed at the 2026-08-02 full-suite and did not block the arc). AC#2 checked — the fix is the ruled loud skip. AC#3 (c-rollback-resurrection green at an RC tag) closes at rc.02 via the 208 capacity fix; this ticket then completes.
 ---
 <!-- COMMENTS:END -->
