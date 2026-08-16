@@ -3,10 +3,11 @@ id: STATBUS-199
 title: >-
   arc-harness-stable-gate: the upgrade-arc harness is NOT a codified
   release-stable gate — runs only by board discipline
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@mechanic'
 created_date: '2026-08-02 14:55'
-updated_date: '2026-08-16 14:18'
+updated_date: '2026-08-16 14:33'
 labels:
   - release
   - ci
@@ -100,5 +101,11 @@ RULED: NEITHER (a) NOR (b). (a) rejected — it hangs on a run-rename capability
 CONSEQUENCES: (1) run-name markers become COSMETIC — keep them where they are free (the dispatch path references its inputs trivially; the mechanic is already building that) and drop the requirement everywhere else; the display_title marker-aware check in the brief is SUPERSEDED by the jobs-completeness check — strictly stronger trust (a label asserts; the job list proves). (2) One workflow, one run, no rename, no two-hop — the tag-push decide job keeps its run-full-vs-skip role unchanged. (3) The install-recovery rider (comment #1 §5) closes the same way: jobs-completeness against its scenario set — same helper, second caller. (4) Pagination note for the builder: per_page=100 covers the 31-arc matrix + decide/teardown in one page; assert no next-page rather than silently truncating.
 
 Mechanic legwork before wiring: confirm the actual matrix job-name shape in upgrade-arc-harness.yaml (e.g. 'run-arc (working)') and pin the name-matching on it; report the shape, don't improvise a parser beyond prefix+arc-slug matching.
+---
+
+author: foreman
+created: 2026-08-16 14:33
+---
+DURABLE STATUS for the mechanic (foreman, 2026-08-16 — message deliveries to his sessions have been lost twice; THIS TICKET is the authoritative channel): (1) 199 IS YOURS, In Progress, your frozen uncommitted diff (release.go, workflow_check.go, immutability.go, ops/release/upgrade-sensitive-paths.txt, .gitignore, install-recovery-harness.yaml) is intact and wanted — nothing landed on those files since your freeze. (2) ORDER: the STATBUS-202 AMENDMENT COMES FIRST — it blocks the King's cut. See 202 comment #2 (the AC#5 spec: git log line only under merge-base --is-ancestor, else the rebaselined-history note) and deliver as tmp/202-amendment.patch (amendment hunks ONLY vs HEAD, verified apply --check; no commit, no apply — staging is the foreman's). (3) THEN the D2 rework per comment #4 (jobs-completeness; your marker-aware display_title check is superseded — align it out, keep the free dispatch-side run-name cosmetic). (4) Your JOB-NAME LEGWORK is accepted: bare `${{ matrix.scenario }}` in both workflows, exact set-equality, no parser. (5) Your DOMAIN-DERIVATION WRINKLE (install-recovery's full-suite domain applies the HARNESS_SKIP_DEFAULT exclusion via --print-selected, today coinciding 15=15 with the naive glob by luck, not guarantee — so the completeness helper's domain step must be pluggable per caller) is ROUTED TO THE ARCHITECT — build the arcs side (pure git ls-tree glob, ruled) and PARK the scenarios-side domain derivation until his answer lands as the next comment here.
 ---
 <!-- COMMENTS:END -->
