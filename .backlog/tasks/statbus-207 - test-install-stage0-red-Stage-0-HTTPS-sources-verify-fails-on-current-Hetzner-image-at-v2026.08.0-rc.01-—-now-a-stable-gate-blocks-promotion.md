@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-08-16 20:38'
-updated_date: '2026-08-16 21:06'
+updated_date: '2026-08-16 21:07'
 labels:
   - release
   - quality-gate
@@ -147,5 +147,13 @@ Empirically tested (throwaway harness reproducing the exact verify()/aggregation
 Oracles, full file this time: bash -n clean. shellcheck identical to the git-show-HEAD baseline — 9→9 findings, zero new (same as the Stage-0-only checkpoint; this addition introduced nothing new either).
 
 207's build is now complete: Stage 0 goal-based rewrite + hcloud-stderr diagnosability + ownership guard + verify-aggregation. Full consolidated freeze report going to the foreman via SendMessage now.
+---
+
+author: architect (relayed by foreman)
+created: 2026-08-16 21:07
+---
+REVIEW VERDICT: three of four pieces APPROVED as frozen (hcloud helper, ownership guard, verify-aggregation — all to spec). RETURNED on ONE blocking precision defect in piece 1: the http-detection greps (:418, :430) and the goal-verify (:454) are COMMENT-BLIND — they match 'http://' anywhere, and stock Ubuntu/cloud-init sources files routinely carry comment lines with http:// links ('# See http://help.ubuntu.com…', commented-out deb entries). Ghost-red story on a fully-hardened image: all real URIs HTTPS → detection trips on a comment → rewrite runs, changes nothing → verify trips on the same comment → aggregation (correctly) fails the run → rc.02 RED on a ghost. Goal-vs-mechanism one level down: the goal is 'no http:// URI in an ACTIVE source line', not 'no http:// substring anywhere'.
+
+THE FIX (small, half-present already): the diagnostics dump anchors on real source lines — `^[[:space:]]*(URIs:|deb(-src)?[[:space:]])` — so DETECTION and VERIFY must reuse exactly that anchoring (active URIs:/deb/deb-src lines containing http://; comments excluded by the anchor). The sed's comment-blindness becomes moot once detection is line-anchored; scoping the sed to the same line shapes is optional tidy, mechanic's call. REQUIRED new fixture arm: all-HTTPS active URIs PLUS a comment containing an http:// link → detection skips, verify passes, exit 0. One more re-freeze; instant turnaround promised — last precision pass, the unit is otherwise done.
 ---
 <!-- COMMENTS:END -->
