@@ -1,0 +1,36 @@
+---
+id: STATBUS-203
+title: >-
+  stale-sb-refresh-guidance: the staleness banner leads with ./sb install on a
+  dev box — detect the toolchain and order the suggestions for the machine
+status: To Do
+assignee: []
+created_date: '2026-08-16 14:21'
+labels:
+  - operator-ux
+  - cli
+dependencies: []
+references:
+  - cli/
+  - AGENTS.md
+priority: low
+ordinal: 203000
+---
+
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+> NORTH STAR: every operator-facing remedy leads with the right action for THIS machine — the reader pastes the first line and it is correct.
+> FOUND: 2026-08-16, the King on his dev box (darwin/arm64, Go toolchain present): the stale-binary banner led with `./sb install` (image-procure + re-exec) and relegated `./dev.sh build-sb` to a parenthetical — backwards for a dev box, and running a local install as the first-line suggestion there is inappropriate. His `./dev.sh build-sb` worked immediately.
+
+THE FIX: the staleness banner detects the environment and orders the remedies accordingly. Detection: a Go toolchain on PATH (exec.LookPath("go")) and/or dev.sh present in the project root → DEV BOX: lead with `./dev.sh build-sb`, mention `./sb install` (image-procure, no toolchain needed) second. Neither present → OPERATOR BOX: lead with `./sb install` exactly as today. The banner's body text otherwise unchanged (built-from/HEAD shas, then re-run guidance).
+
+GROUNDING: the banner is the stale-binary self-recovery surface (the WARN the AGENTS.md dump-discipline note references; emitter near RebuildAndReexec / the staleness check in cli). Mechanic-size: one detection + two orderings; a Go unit pinning both orderings via the detection seam. Same operator-frame lineage as STATBUS-202.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 On a machine with a Go toolchain (or dev.sh present), the staleness banner leads with ./dev.sh build-sb and offers ./sb install second; without one it leads with ./sb install as today
+- [ ] #2 A Go unit pins both orderings through the detection seam
+- [ ] #3 Proven by observation: one real stale-binary trip on a dev box shows the dev-first ordering
+<!-- AC:END -->

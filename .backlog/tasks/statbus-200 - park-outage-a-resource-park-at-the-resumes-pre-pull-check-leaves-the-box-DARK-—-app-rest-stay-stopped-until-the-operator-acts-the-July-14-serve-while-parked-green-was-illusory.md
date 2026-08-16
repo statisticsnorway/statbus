@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-02 19:10'
-updated_date: '2026-08-16 14:18'
+updated_date: '2026-08-16 14:23'
 labels:
   - upgrade
   - recovery
@@ -76,5 +76,21 @@ author: foreman
 created: 2026-08-16 14:18
 ---
 BUILD HELD — BRIEF DEFECT FOUND IN THE SAFETY CORE (engineer byte-walk, 2026-08-16; four rulings pending with the architect): comment #1's named era-guard reuse point (resumeNewSb's HasPending) produces the WRONG verdict in two of three cases — a PRE-delta park (e.g. disk-full at StepImagePull :5946, before migrate at :6135) has HasPending=TRUE with the DB still pure source (must permit; bare check wrongly refuses), and a POST-delta park (StepStartServices :6230, after migrate) has HasPending=FALSE with the delta applied (must refuse; bare check wrongly PERMITS — the mixed-era corruption the guard exists to stop). Open rulings: Q1 how 'no applied delta' is computed (baseline-max-at-claim vs source-expected-max comparison); Q2 restoration mechanic = rollback restore tail MINUS restoreDatabase (git+binary+config to source first — target images were never pulled, so compose-up-local from the target tree cannot work); Q3 restoration-failure narrative needs a SANCTIONED second write to the already-parked row (guard recovery_parked_at IS NOT NULL) vs journal-only; Q4 whether completeInProgressUpgrade's AT-TARGET parkAtTarget sites (:3123/:3137) are in scope — 'restore source' doesn't apply at target. Engineer's three RED-first Go units stand ready; build resumes on the rulings.
+---
+
+author: architect
+created: 2026-08-16 14:23
+---
+FOUR RULINGS on the engineer's hold (architect, 2026-08-16). First: the hold was exactly right and the brief's comment-#1 point 2 was WRONG — 'permit iff !HasPending' fails two of his three cases (pre-delta park: pending=true but DB pure source → must permit; post-delta park: pending=false with delta applied → must refuse). The reuse point is withdrawn; credit to the engineer for refusing to build a corrupting guard.
+
+Q1 — THE VERDICT IS A SOURCE-IDENTITY COMPARISON, NOT A PENDING CHECK. Permit iff the DB's applied migration max EQUALS the SOURCE version's expected max, computed from already-recorded identity: resolve the row's from_commit (recorded at claim; short sha → git rev-parse) and read the source tree's migration set locally via git ls-tree <source-sha> -- migrations/ (filename-parse the versions; no checkout — works while the tree sits at target). db_max == source_max → PERMIT (DB is provably at source: covers codeonly AND pre-delta). db_max > source_max → REFUSE (delta partially or fully applied — the mixed-era class). db_max < source_max, source sha unresolvable, ls-tree failure, or DB unreadable after the recovery-start attempt → REFUSE with the anomaly named (fail-safe direction is ALWAYS refuse: a dark box behind the maintenance page is safe; serving mixed-era is not). REJECTED: HasPending (proven wrong); pre-migrate baseline capture (new persisted state + capture-timing risk across resume attempts, where the identity comparison uses facts already recorded and directly encodes the invariant 'the DB is at the source version's state'). DB may be down at park time: bring it up via the existing recovery machinery (EnsureDBReachable/StartDBForRecovery) BEFORE the read — a running DB under the still-engaged read-only window is harmless.
+
+Q2 — RESTORATION MECHANICS CONFIRMED as proposed: the rollback restore tail MINUS restoreDatabase — restoreGitState(pin) + restoreBinary(sb.old) + config-generate (source tag → source images are local) + compose up --no-build + bounded health; maintenance OFF + window LIFT only on health pass. Two riders: (i) run it unconditionally on permit — both restores are idempotent no-ops when nothing moved (checkout -f onto current HEAD; restoreBinary silently no-ops without sb.old), so pre-checkout parks need no special case; (ii) the 197 boundary stated plainly: this path runs only in attempts that got past backup (their pin and sb.old are their OWN — identity holds); the never-ran class (empty backupPath) is 197's guard and the two never collide.
+
+Q3 — (a) SANCTIONED, as a NARRATIVE-ONLY operation: appendParkNarrative — a teardown-immune UPDATE that APPENDS to the parked reason/error, guarded `recovery_parked_at IS NOT NULL AND state='in_progress'`, and by construction never touches recovery_parked_at, never consumes attempts, never flips state. Single caller, pinned by unit. The 154/193 single-park-writer discipline is preserved — parkUpgrade remains the only site setting recovery_parked_at (the 196 drift gate's SingleParkWriter pin keys on `recovery_parked_at = now()` and is untouched).
+
+Q4 — IN SCOPE BY UNIFICATION, no site map judgment: ONE shared helper (parkServiceRecovery) called after the park write at ALL THREE sites; the Q1 guard computes the verdict, so at-target parks (completeInProgressUpgrade's parkAtTarget, and post-delta StepStartServices) refuse NATURALLY with the named narrative — no site-local special cases. Hard rule for the helper: it only ever STARTS services on permit; on refuse it stops NOTHING and changes nothing but the narrative (the health-park arcs' at-target parks keep their running-but-unhealthy services exactly as today).
+
+ORACLES, RED-first, per the engineer's set plus: pre-delta permit, post-delta refuse, codeonly permit, identity-unresolvable refuse, narrative-append single-caller pin, helper-never-stops pin. The un-park arc unchanged remains the VM proof.
 ---
 <!-- COMMENTS:END -->
