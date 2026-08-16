@@ -81,4 +81,26 @@ All of the above verified with a stub harness (real vm-bootstrap.sh sourced, fak
 
 Oracles: bash -n clean. shellcheck identical to the git-show-HEAD baseline (current master, post-207) — 21→21, zero new findings.
 ---
+
+author: mechanic
+created: 2026-08-16 21:25
+---
+BUILT, piece 2 (shared concurrency group) and the ownership-discipline fold-in the ruling asked for.
+
+PIECE 2: all three workflows now share `group: hetzner-vm-fleet`, `cancel-in-progress: false` — was install-recovery-harness/test-install/upgrade-arc-harness each on their OWN group before. Verified actionlint clean on all three after the change. Each workflow's concurrency-block comment updated to explain the shared-group rationale and cross-reference the other two.
+
+OWNERSHIP DISCIPLINE — this went further than the two itemized pieces, and I want to flag exactly why rather than present it smooth. The run-suffix fix (piece 1) changes the ACTUAL VM name every workflow's reap/sweep steps target — three OTHER places in the owned YAMLs independently reconstruct that name (not by reading it back from vm-bootstrap.sh's state, which is gone by the time they run, but by re-deriving it from scratch), and all three needed updating or they'd silently reap nothing:
+
+1. install-recovery-harness.yaml's 'Reap THIS scenario's VM' per-job step (~line 456) — was `vm="statbus-recovery-${SCENARIO}"`, now appends `-${run_suffix}` (GITHUB_RUN_ID's last 8 chars, computed identically to vm-bootstrap.sh's _run_suffix — the two formulas can only stay in sync by being textually identical, documented in-place on both sides).
+2. upgrade-arc-harness.yaml's 'Reap THIS arc's VM' per-job step (~line 763) — same fix, `statbus-arc-${SCENARIO}-${run_suffix}`.
+3. test-install.yaml's single reap step (~line 213) — redesigned entirely rather than patched: since this workflow provisions exactly ONE VM per run with a name now deterministically computable, I replaced its broad `grep '^statbus-recovery-'` prefix sweep with an EXACT-name reap (hcloud server describe/delete on the one specific name). A prefix sweep here had the SAME cross-run blast radius defect A itself exploited — it could delete install-recovery-harness's own live scenario VMs purely because they share the prefix, with no ownership signal at all. Since this workflow only ever needs to reap its own single VM, exact-name is strictly better than prefix+age here — no judgment call needed, no residual risk window.
+
+SEPARATE FROM THE ABOVE — the two TRUE GLOBAL sweeps (install-recovery-harness.yaml's 'cleanup' job ~line 480, upgrade-arc-harness.yaml's equivalent ~line 818) can't target one exact name (they're deliberately catching orphans from ANY job in their own matrix that died before its per-job reap). Their existing comments claimed 'the ONLY place the cross-job sweep is safe — no sibling VM is live once all matrix jobs have finished' — TRUE only while each workflow was the sole user of its prefix. Post-208 that's no longer the full picture: hetzner-vm-fleet serializes the three WORKFLOWS but doesn't guarantee an instantaneous handoff — a straggler from the run just ahead in the queue could still be mid-teardown. Age-gated both sweeps instead of leaving them prefix-only: MIN_ORPHAN_AGE_MIN=150 (comfortably above both workflows' own 120-minute per-job timeout), using `hcloud server list -o json | jq` (not fragile column parsing) to get each candidate's `created` timestamp, `date -u -d ... +%s` for the age arithmetic. A VM that fails to parse is SKIPPED, never guessed-at. Updated both jobs' stale 'ONLY safe place' comments to explain why age-gating is now needed and what threshold protects against.
+
+Verified the age-gating logic itself (not just read-through) against synthetic `hcloud server list -o json` output, using GNU date (gdate, matches the ubuntu-24.04 runner's coreutils — confirmed available locally, so I tested the EXACT bash+jq+date syntax, not an approximation): a 5-minute-old matching VM is correctly SKIPPED (below threshold), a 200-minute-old one is correctly REAPED, non-matching-prefix VMs (statbus-arc-*, a production VM) are correctly excluded by the jq filter entirely, and a malformed timestamp is correctly skipped with an explicit 'refuses to guess' message rather than silently mis-parsed.
+
+Oracles: actionlint clean on all three workflows (re-verified after every edit, not just at the end). bash -n + shellcheck (21→21 vs git-show-HEAD baseline) unaffected by these YAML-only changes, re-confirmed anyway. Full diff stat: vm-bootstrap.sh +93/-8, install-recovery-harness.yaml +96/-16 (net, includes comment expansion), test-install.yaml +47/-16, upgrade-arc-harness.yaml +81/-9.
+
+All four owned files, nothing else touched, no git commands run. This is the complete build for AC#1's ruled remedy (naming + capacity) and AC#2 (ownership discipline, including the global sweep). AC#3 (a real tag-push fleet, zero resource_limit_exceeded, zero foreign deletions) needs rc.02 — cannot be produced by me. Frozen; consolidated report going to the foreman via SendMessage.
+---
 <!-- COMMENTS:END -->
