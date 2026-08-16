@@ -66,7 +66,52 @@ func CommittedDrift(projDir, commitSHA string) (bool, error) {
 	return drift, nil
 }
 
-// IsStale returns "" when the binary's build commit matches HEAD's
+// IsStale is isStale's production entry point, using the real PATH
+// (exec.LookPath) for STATBUS-203's dev-vs-operator-box detection. See
+// isStale for the full contract.
+func IsStale(projDir, commitSHA string) string {
+	return isStale(projDir, commitSHA, exec.LookPath)
+}
+
+// devToolchain reports whether projDir looks like a StatBus development
+// checkout rather than an operator/production install (STATBUS-203):
+// either a Go toolchain is on PATH, or dev.sh is present in the project
+// root. Either signal alone qualifies — the point is "this machine can
+// plausibly run ./dev.sh build-sb", not "definitely will succeed"; IsStale
+// only orders the suggestion, it doesn't gate on it.
+//
+// lookPath is injected (production callers pass exec.LookPath) so tests
+// can pin the operator-box ordering deterministically — the real PATH
+// almost always has `go` on it inside a Go test binary, which would
+// otherwise make the dev-box branch the only one ever exercised.
+func devToolchain(projDir string, lookPath func(string) (string, error)) bool {
+	if _, err := lookPath("go"); err == nil {
+		return true
+	}
+	if _, err := os.Stat(filepath.Join(projDir, "dev.sh")); err == nil {
+		return true
+	}
+	return false
+}
+
+// staleRemedy builds the "how to refresh ./sb" block, ordered for the
+// machine devToolchain detected (STATBUS-203): a dev box leads with the
+// fast local rebuild; an operator/production box leads with the
+// toolchain-free image-procure refresh, exactly as before this ticket.
+func staleRemedy(devBox bool) string {
+	if devBox {
+		return "  Refresh ./sb:\n" +
+			"    ./dev.sh build-sb\n" +
+			"  (dev box: ./dev.sh cross-build-sb builds all platforms; ./sb install also works — no\n" +
+			"  toolchain needed, procures the HEAD-matching binary from the commit-tagged image)"
+	}
+	return "  Refresh ./sb — no host toolchain needed (procures the HEAD-matching binary\n" +
+		"  from the commit-tagged image, then re-execs):\n" +
+		"    ./sb install\n" +
+		"  (dev box with a Go toolchain: ./dev.sh build-sb, or ./dev.sh cross-build-sb for all platforms)"
+}
+
+// isStale returns "" when the binary's build commit matches HEAD's
 // cli/ tree (no committed drift), and a human-readable diagnostic
 // otherwise — committed drift, plus broken-freshness-check states the
 // operator should know about. Uncommitted (WIP) cli/ edits are NOT
@@ -78,6 +123,8 @@ func CommittedDrift(projDir, commitSHA string) (bool, error) {
 // constructs at init (see cli/cmd/root.go resolveCommitSHA). The
 // parameter is still typed `string` to keep this leaf package free of
 // internal cross-deps; validation happens at the caller's boundary.
+// lookPath is the devToolchain detection seam — see IsStale (the real
+// caller) and the tests (which inject a fake to pin both orderings).
 //
 // Silent skips (return ""):
 //   - commitSHA empty or "unknown" — defensive coverage for a caller
@@ -104,11 +151,14 @@ func CommittedDrift(projDir, commitSHA string) (bool, error) {
 //     (see CommittedDrift's rationale).
 //   - committed drift → "built from X, HEAD is now Y" message.
 //
-// Rebuild remediation always lists BOTH build paths:
-//   - `./dev.sh build-sb` — host-platform only, fast (~3s).
-//     Daily-driver / dev iteration.
-//   - `./dev.sh cross-build-sb` — all four target platforms.
-//     Release artifact production.
+// Rebuild remediation (staleRemedy) always mentions BOTH build paths, but
+// STATBUS-203 orders them by devToolchain's verdict: a dev box (Go on
+// PATH, or dev.sh present) leads with `./dev.sh build-sb` (host-platform
+// only, fast, ~3s — the daily-driver rebuild) and mentions `./sb install`
+// second; an operator/production box leads with `./sb install`
+// (toolchain-free image-procure) exactly as before this ticket, and
+// mentions the dev rebuild paths as a secondary, clearly dev-qualified
+// note.
 //
 // Diagnostic returns for environment failures (non-empty):
 //   - exec failure (git not installed, fork failed, permission
@@ -124,7 +174,7 @@ func CommittedDrift(projDir, commitSHA string) (bool, error) {
 // freshness check. PersistentPreRun routes any non-empty return
 // through the same hard-fail-on-mutating / warn-on-read-only path,
 // so the operator sees and acts on these.
-func IsStale(projDir, commitSHA string) string {
+func isStale(projDir, commitSHA string, lookPath func(string) (string, error)) string {
 	if commitSHA == "" || commitSHA == "unknown" {
 		return ""
 	}
@@ -190,12 +240,8 @@ func IsStale(projDir, commitSHA string) string {
 		return ""
 	}
 	return fmt.Sprintf(
-		"./sb is stale: built from %s, HEAD is now %s with cli/ changes.\n"+
-			"  Refresh ./sb — no host toolchain needed (procures the HEAD-matching binary\n"+
-			"  from the commit-tagged image, then re-execs):\n"+
-			"    ./sb install\n"+
-			"  (dev box with a Go toolchain: ./dev.sh build-sb, or ./dev.sh cross-build-sb for all platforms)",
-		short, headShort)
+		"./sb is stale: built from %s, HEAD is now %s with cli/ changes.\n%s",
+		short, headShort, staleRemedy(devToolchain(projDir, lookPath)))
 }
 
 // probeCommittedDrift runs `git diff --quiet <commitSHA> HEAD -- cli/`
