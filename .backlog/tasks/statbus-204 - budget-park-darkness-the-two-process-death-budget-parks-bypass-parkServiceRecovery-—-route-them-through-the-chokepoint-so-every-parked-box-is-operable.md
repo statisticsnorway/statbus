@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-16 14:43'
-updated_date: '2026-08-16 18:18'
+updated_date: '2026-08-16 18:24'
 labels:
   - upgrade
   - recovery
@@ -37,9 +37,9 @@ ORACLE: extend the STATBUS-200 unit set with a budget-park case (park via the es
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Both budget-park sites invoke parkServiceRecovery after their park write, with the era guard deciding; no park site in cli/internal/upgrade bypasses the helper (grep-pinned by unit)
-- [ ] #2 A budget-park unit proves the helper is invoked and the era guard's refuse arm narrates on a post-delta state
-- [ ] #3 The helper's hard rules hold unchanged: starts-only, narrative-only on refuse/failure, park write first
+- [x] #1 Both budget-park sites invoke parkServiceRecovery after their park write, with the era guard deciding; no park site in cli/internal/upgrade bypasses the helper (grep-pinned by unit)
+- [x] #2 A budget-park unit proves the helper is invoked and the era guard's refuse arm narrates on a post-delta state
+- [x] #3 The helper's hard rules hold unchanged: starts-only, narrative-only on refuse/failure, park write first
 <!-- AC:END -->
 
 ## Comments
@@ -61,5 +61,11 @@ RULED: (B) — parkServiceRecovery becomes SELF-COVERING, with one widening: the
 DOCTRINE NOTE so the always-ping-vs-per-unit question does not reopen: 195's rule is 'kill hung daemons, never slow-but-live ones', enforced by feeding per unit of genuine progress. An ALWAYS-PING ticker is legitimate here because every sub-step in the covered span is itself TIME-BOUNDED (StartDBForRecovery's bound, compose-up's command timeout, healthCheck's bounded attempts) — a genuine hang cannot hide behind the ticker beyond the bounds' sum, exactly the boot-migrate precedent (its own always-ping ticker bounded by MigrateUpTimeout). Cover-with-bounds is hang-detection by construction.
 
 ALSO APPROVED: the site-1 ProgressLog threading via loadLogRelPath + AppendProgressLog (a park narrative belongs in the row's own progress log, not the journal). Editing the committed 200 helper is a normal forward change under review, not a reversal — the helper's contract gains cover, existing behavior otherwise unchanged. ORACLES: the RED-first unit pinning both budget sites calling the helper AFTER their park write (as planned) + a cover pin in the source-parsing family: the ticker wrap is present inside parkServiceRecovery and precedes the verdict call (so a future refactor cannot silently drop the cover). Build proceeds on this comment.
+---
+
+author: foreman
+created: 2026-08-16 18:24
+---
+BUILT + ARCHITECT-APPROVED + COMMITTED ccf86fe3c (foreman, 2026-08-16). Ruling (B)-widened realized to the letter: the always-ping gated ticker sits at the TOP of parkServiceRecovery spanning the era verdict's DB wait AND the restoration, defer cancel+join so it never outlives the helper, with the bounded-sub-steps justification written into the comment; both budget sites route through the chokepoint AFTER their park write (site 1 threads a progress log via loadLogRelPath+AppendProgressLog with DB-up/flock justifications in place; site 2 rides its existing log); restoreTargetSHA="" correctly rides the post-197 identity. All three criteria CHECKED: the every-parkUpgrade-caller-must-route drift pin (a future bypassing park site fails the unit until routed — the 196 philosophy applied to park topology), the era-refuse narrative covered by the existing source-identity unit, the helper's hard rules intact. Foreman verification pre-commit: build/vet/gofmt clean, both 204 oracles green under my execution, full upgrade package green. ONE NIT recorded for the next touch, non-blocking (architect): site 1's missing/unopenable progress log currently SKIPS the restoration attempt (safe pre-204 degradation, row narrative still lands) — next touch degrades to a discard-writer log instead of skipping; rare edge, every dispatched row records a log path at claim. VM-level neighbor (postswap-health-park alive-idle asserts) rides the next suite dispatch. WITH THIS COMMIT THE KING-AUTHORIZED RIDE-ALONG QUEUE IS CODE-COMPLETE: 202+amendment, 201, 200, 199, 197, 203, 204 — seven tickets, every diff reviewed, every ruling on its ticket; the board's remaining opens are observation criteria only the King's cut and the arc suite at its tag can check.
 ---
 <!-- COMMENTS:END -->
