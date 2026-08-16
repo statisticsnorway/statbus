@@ -5806,6 +5806,30 @@ func (d *Service) parkForDeterministicFailure(ctx context.Context, id int, displ
 // version's schema. HARD RULE (ruling Q4): it only ever STARTS services on permit; on refuse or
 // failure it stops NOTHING and changes nothing but the park narrative (appendParkNarrative).
 func (d *Service) parkServiceRecovery(ctx context.Context, id int, restoreTargetSHA string, progress *ProgressLog) {
+	// STATBUS-204: this helper OWNS its own watchdog cover. Its slow span — parkEraVerdict's
+	// StartDBForRecovery (waits up to ~60s for DB health) plus restoreSourceServices (compose up
+	// + bounded health + the restores) — can exceed WatchdogSec=120s on a cold box. The
+	// deterministic park callers run under an outer gated ticker, but the budget-park callers
+	// (RecoveryBudgetGuard, resumeNewSb) run post-READY in the ACTIVE phase with NONE, so without
+	// this a SIGABRT would crash-loop the very park the fix makes operable. The ticker sits at
+	// the TOP, spanning verdict + restoration together (the DB-health wait is inside the danger
+	// window and precedes the restore). ALWAYS-PING is correct here (nil gate): every covered
+	// sub-step is itself time-bounded (StartDBForRecovery's health wait, compose-up's command
+	// timeout, healthCheck's bounded attempts), so a genuine hang cannot outlive the bounds' sum
+	// — cover-with-bounds is hang-detection by construction (the boot-migrate always-ping
+	// precedent). Owning the cover at this chokepoint covers every caller — deterministic,
+	// budget, and future — at ONE point (the 200 Q4 / 197 C3 shape); the nested ticker at the
+	// deterministic sites is harmless (both layers just emit WATCHDOG=1).
+	tickerCtx, tickerCancel := context.WithCancel(ctx)
+	tickerDone := make(chan struct{})
+	go runGatedWatchdogTicker(tickerCtx, nil,
+		applyNewSbUpgradingStallThreshold, applyNewSbUpgradingWatchdogCadence,
+		func() { sdNotify("WATCHDOG=1") }, tickerDone)
+	defer func() {
+		tickerCancel()
+		<-tickerDone
+	}()
+
 	permit, refusal := d.parkEraVerdict(ctx, id)
 	if !permit {
 		d.appendParkNarrative(id, refusal)
@@ -6841,6 +6865,19 @@ func (d *Service) RecoveryBudgetGuard(ctx context.Context) (skipBootMigrate bool
 		if freshlyParked {
 			d.runCallback(flag.Label(), map[string]string{"STATBUS_EVENT": "parked", "STATBUS_PARKED": "1", "STATBUS_PARK_REASON": reason})
 		}
+		// STATBUS-204: route this budget park through the operable-box chokepoint. This guard
+		// logs to the journal only (log.Printf), so open the upgrade's OWN progress log for the
+		// park narrative (a park story belongs on the row's log, not the journal). The DB is up
+		// here (EnsureDBUp ran pre-READY, before this guard), so loadLogRelPath resolves. The
+		// flock was released above; parkServiceRecovery needs none. The helper owns its watchdog
+		// cover, era-guards the state (post-delta budget parks refuse naturally), and starts
+		// services only on permit.
+		if relPath := d.loadLogRelPath(ctx, int64(flag.ID)); relPath != "" {
+			if plog := AppendProgressLog(d.projDir, relPath); plog != nil {
+				d.parkServiceRecovery(ctx, flag.ID, "", plog)
+				plog.Close()
+			}
+		}
 		return true
 	}
 
@@ -7292,6 +7329,12 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 			}
 			log.Printf("resumeNewSb: PARKED upgrade %d after %d attempt(s) — %s", flag.ID, attempts, reason)
 			progress.Write("PARKED after %d crash-resume attempt(s): %s. The unit stays running and idle (no crash loop); re-trigger the upgrade or run ./sb install to make a fresh attempt — each deliberate trigger is exactly one attempt.", attempts, reason)
+			// STATBUS-204: route this budget park through the operable-box chokepoint too — bring
+			// the source version's services back (era-guarded, starts-only, narrative-only on
+			// refuse/failure) so a same-step-twice park is alive-idle AND operable, not dark. The
+			// helper owns its watchdog cover. restoreTargetSHA="" falls back to this attempt's
+			// pre-upgrade pin (identity holds post-197).
+			d.parkServiceRecovery(ctx, flag.ID, "", progress)
 			progress.Close()
 			// Degraded siren — fires EXACTLY ONCE per park EVENT: only when THIS call
 			// is the one that flipped the row into parked (freshlyParked, from the

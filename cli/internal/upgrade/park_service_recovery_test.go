@@ -122,3 +122,59 @@ func TestParkServiceRecovery_StructuralContracts(t *testing.T) {
 		t.Error("appendParkNarrative must append to BOTH recovery_parked_reason and error (the operator surfaces both)")
 	}
 }
+
+// TestBudgetParks_RouteThroughHelper_STATBUS204 (AC#1/AC#3): the two budget-park sites route
+// through parkServiceRecovery AFTER their park write, and NO park site anywhere bypasses the
+// helper. RED before 204 (the budget sites called parkUpgrade directly and returned dark).
+func TestBudgetParks_RouteThroughHelper_STATBUS204(t *testing.T) {
+	src := string(packageGoSources(t)["service.go"])
+
+	// Both budget-park functions call parkServiceRecovery AFTER their parkUpgrade write (park
+	// write first — the helper's hard rule).
+	for _, fn := range []string{"func (d *Service) RecoveryBudgetGuard(", "func (d *Service) resumeNewSb("} {
+		body := extractFuncBody(t, src, fn)
+		parkIdx := strings.Index(body, "d.parkUpgrade(")
+		recIdx := strings.Index(body, "d.parkServiceRecovery(")
+		if parkIdx < 0 || recIdx < 0 || recIdx < parkIdx {
+			t.Errorf("STATBUS-204: %s must call parkServiceRecovery AFTER its parkUpgrade write (park-first) — parkUpgrade@%d, parkServiceRecovery@%d", fn, parkIdx, recIdx)
+		}
+	}
+
+	// AC#1 grep-pin (drift-proof, catches future sites too): EVERY function that writes a park
+	// (calls d.parkUpgrade) must also route through parkServiceRecovery. A new bypassing park
+	// site fails here until it goes through the chokepoint.
+	for _, chunk := range strings.Split(src, "\nfunc ") {
+		if !strings.Contains(chunk, "d.parkUpgrade(") {
+			continue
+		}
+		if !strings.Contains(chunk, "d.parkServiceRecovery(") {
+			name := chunk
+			if nl := strings.IndexByte(chunk, '\n'); nl >= 0 {
+				name = chunk[:nl]
+			}
+			t.Errorf("STATBUS-204 AC#1: a park site (func %s) writes a park via parkUpgrade but BYPASSES parkServiceRecovery — every park must route through the chokepoint so every parked box is operable", strings.TrimSpace(name))
+		}
+	}
+}
+
+// TestParkServiceRecovery_SelfCoveringWatchdog_STATBUS204 (cover pin, source-parsing family):
+// parkServiceRecovery owns its watchdog cover — a gated ticker wraps its slow span and PRECEDES
+// the parkEraVerdict call (so StartDBForRecovery's DB-health wait is inside the cover). A
+// refactor that drops or mis-places the ticker fails here.
+func TestParkServiceRecovery_SelfCoveringWatchdog_STATBUS204(t *testing.T) {
+	src := string(packageGoSources(t)["service.go"])
+	psr := extractFuncBody(t, src, "func (d *Service) parkServiceRecovery(")
+
+	tickIdx := strings.Index(psr, "runGatedWatchdogTicker(")
+	if tickIdx < 0 {
+		t.Fatal("STATBUS-204: parkServiceRecovery must own its watchdog cover — a runGatedWatchdogTicker must wrap its slow span (budget-park callers have no outer ticker)")
+	}
+	verdictIdx := strings.Index(psr, "d.parkEraVerdict(")
+	if verdictIdx < 0 || tickIdx > verdictIdx {
+		t.Errorf("STATBUS-204: the watchdog ticker must PRECEDE parkEraVerdict — StartDBForRecovery's ~60s DB-health wait is inside the danger window (ticker@%d must be before verdict@%d)", tickIdx, verdictIdx)
+	}
+	// The cover must be released (cancel + join) so it never outlives the helper.
+	if !strings.Contains(psr, "tickerCancel()") || !strings.Contains(psr, "<-tickerDone") {
+		t.Error("STATBUS-204: the watchdog ticker must be cancelled + joined (defer) so it cannot outlive the helper")
+	}
+}
