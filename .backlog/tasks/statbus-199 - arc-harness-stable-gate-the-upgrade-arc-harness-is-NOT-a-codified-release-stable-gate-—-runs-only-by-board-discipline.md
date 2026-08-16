@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-08-02 14:55'
-updated_date: '2026-08-16 14:42'
+updated_date: '2026-08-16 17:57'
 labels:
   - release
   - ci
@@ -125,5 +125,11 @@ author: foreman
 created: 2026-08-16 14:42
 ---
 TIME-SENSITIVE, mechanic (durable copy of the message request): CUT WINDOW PENDING — the King is ready to run the release cut, which requires a clean tracked tree. PAUSE editing tracked files at a safe point and ACK the foreman via SendMessage (include your modified-file list + rework status). Your tracked WIP rides one combined patch (export → restore-to-HEAD → King's ~5-minute cut → byte-verified re-apply; HEAD cannot move — a tag is not a commit — so restoration is deterministic). Untracked files (your sensitivity list) are invisible to the preflight and stay put. The engineer has already acked; the window opens on YOUR ack.
+---
+
+author: foreman
+created: 2026-08-16 17:57
+---
+REVIEW RETURNED FOR COMPLETION (architect, 2026-08-16; durable copy — mechanic works from THIS comment): LOGIC APPROVED across the whole freeze — D1 re-map, jobs-completeness gate, commit-accurate scenario domain, decide job, sensitivity file with matched-files printing, first-ever-RC-treated-as-sensitive fail-safe, the .gitignore un-ignore, and the pre-approved run-name omission all read to the letter or better. RETURNED on exactly TWO MISSING UNIT ORACLES from the comment-#3 set (test-writing only, zero open design questions): (1) the completeness-check unit — workflowJobsCompleteAtCommit already has its testable apiBase seam; add the httptest-family test covering the three arms: complete, missing-jobs, and pagination-overflow (total_count > returned jobs must FAIL loudly, never truncate); (2) the walk-classification unit — diffTouchesSensitivePath: prefix matching semantics + matched-files reporting. PRIORITY: this return comes AHEAD of 203 (immediate architect turnaround promised; he line-reads the walk on the re-freeze). Add the two units, re-freeze, report to the foreman with test names + RED-first evidence where the arms allow it.
 ---
 <!-- COMMENTS:END -->
