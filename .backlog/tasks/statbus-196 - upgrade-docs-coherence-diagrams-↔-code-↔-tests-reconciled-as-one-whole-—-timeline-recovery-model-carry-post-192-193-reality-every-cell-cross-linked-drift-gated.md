@@ -4,11 +4,11 @@ title: >-
   upgrade-docs-coherence: diagrams ↔ code ↔ tests reconciled as one whole —
   timeline + recovery-model carry post-192/193 reality, every cell cross-linked,
   drift gated
-status: In Progress
+status: Done
 assignee:
   - architect
 created_date: '2026-07-25 19:21'
-updated_date: '2026-08-16 13:56'
+updated_date: '2026-08-16 13:58'
 labels:
   - upgrade
   - install-recovery
@@ -145,3 +145,13 @@ created: 2026-08-16 13:56
 UNIT 5 (drift gate) COMMITTED 79c4772a0 (foreman, 2026-08-16; reviewed+approved 2026-08-02, commit held through the cut freeze, freeze released by the King today). Re-ran before commit: all five checks green (0.45s), gofmt clean. AC#5 checked — the gate exists and its firing is proven on every run by the standing probe (a synthetic element pushed through the same checker every real check uses; the 2026-08-02 live RED demo additionally proved it against a real bogus state literal). All five acceptance criteria are now checked — architect finalizes summary + Done.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+All five steps delivered, each foreman-line-reviewed and committed; the King's north star — diagrams, code, and tests as one coherent whole, with nothing left free to drift — stands.
+
+UNIT 1 (8cc4cca1c): doc/upgrade-timeline.md carries the park lifecycle, the serve-proven completed contract, and the read-only window; three eras of prose drift fixed en route (pre-145 boot-migrate inversion, pre-164 names, pre-046 retry-forever). UNIT 2 (4ea57df17): doc/upgrade-recovery-model.md carries the parked-skip invariant (all three enforcement sites), the watchdog-cover principle, serve-proven at every writer, and the named Rune two-layer statement with its three fix SHAs (61e79e265 / e76505eec / cb7344dd6). UNIT 3 (c95e7de4a): cross-links both ways — the three diagram sources' TEST notes refreshed to the current arc/scenario truth (stale U5-era slugs replaced; two in-diagram era-contradictions corrected against proving runs 28976918080 et al.), the missing ninth install state added to the ladder table, and the new Coverage join table in test/install-recovery/README.md maps all 31 arcs + 15 scenarios to their diagram elements with every uncovered element named. UNIT 5 (79c4772a0): the drift gate — cli/internal/upgrade/diagram_drift_test.go, five checks (state literals, phase dispatch arms, recovery causes, single-park-writer pin, and the standing GateFires probe that re-proves the gate's own firing on every run); green in 0.4s in the CI Go gates; RED-demonstrated live on a synthetic drifting state before commit.
+
+Deltas found and dispositioned during the work, recorded on their own tickets: the STATBUS-197 claim-window gap cited honestly in the diagrams; the 071 map's ghost arc (archivebackup) noted durably on 071; the future code↔arc-assert drift-gate thought noted on STATBUS-201.
+<!-- SECTION:FINAL_SUMMARY:END -->
