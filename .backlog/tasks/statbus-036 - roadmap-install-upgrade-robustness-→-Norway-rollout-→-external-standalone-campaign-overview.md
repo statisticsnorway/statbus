@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@foreman'
 created_date: '2026-06-12 07:59'
-updated_date: '2026-08-02 14:49'
+updated_date: '2026-08-02 19:02'
 labels:
   - roadmap
   - install-recovery
@@ -172,5 +172,11 @@ author: foreman
 created: 2026-08-02 14:49
 ---
 RC-CUT READINESS CHECK (foreman, 2026-08-02, on the King's 'is it time to cut?'): premises re-verified instead of trusting the 07-28 'gate satisfied' state. FOUND AND FIXED: the Go Test workflow sat RED on master since 2026-07-29 — NOT a product failure (cli go test ./... green throughout) but the golangci-lint INSTALLER: the lane curled install.sh from upstream MASTER while pinning the binary to v2.12.2; upstream rotated its checksum table and the download failed hash verification. Fix: both script and binary pinned to one tag (go-test.yaml, commit in flight; strict-gating doctrine — fix the lane, never bypass). SECOND PREREQUISITE, named: since the gate ruling, three PRODUCT-SURFACE changes landed that no VM run has exercised — 195 (watchdog heartbeat in the upgrade service), 189 (caddy templates), 188 (postgres log floor, ships in the db image). Per the-run-is-the-only-oracle and the per-scenario stamp design (stamps compose against the RC TAG's commit), the cut commit needs one bundled install-recovery harness dispatch green at that commit. PATH TO CUT: lint lane green (poll in flight) → harness dispatch at the cut commit → stamps green → cut on the King's word. Nothing else pushes back; the board gates nothing (198 is post-cut work; 196 drift gate + 197 non-gating).
+---
+
+author: foreman
+created: 2026-08-02 19:02
+---
+CUT HELD — FOUR ARCS RED AT THE CUT COMMIT (foreman, 2026-08-02 evening). The re-dispatched arc suite at 2ab6126a1 (run 30755799405; the first dispatch 30753065083 died on a Docker Hub registry outage — registry-1.docker.io context-deadline at 14:53, zero arcs ran, environmental) returned 32 green / 4 RED: postswap-container-restart-kill (box COMPLETED where the arc demands the death-during-resume rollback), postswap-migration-timeout (row never claimed — stuck 'scheduled' 300s), rollback-kill (row reason wording/window mismatch vs the arc's /pre-swap, before binary-swap commit boundary/ assert), un-park-to-completion (failure line pending extraction). These four are the FIRST VM exercise of the three post-gate product changes (195 watchdog heartbeat in discovery, 189 caddy :80→404, 188 postgres log floor) — candidate regressions until named otherwise; Docker-Hub-slowness timing shifts are the live alternative for two of them. Architect triage dispatched (no-flaky-tests: every red gets a NAMED cause with evidence). SEQUENCE NOW: architect verdicts → fixes if product → re-run → arc suite green at the cut commit → the King's bless of 20260218215337 → cut. Install-recovery harness remains GREEN at the commit; all preflight stamps remain green; the bless remains the King's pending decision but no longer the only gate.
 ---
 <!-- COMMENTS:END -->

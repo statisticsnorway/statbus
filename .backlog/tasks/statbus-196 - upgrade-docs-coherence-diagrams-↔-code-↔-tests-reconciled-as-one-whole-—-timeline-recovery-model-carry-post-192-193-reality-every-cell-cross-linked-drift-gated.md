@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-07-25 19:21'
-updated_date: '2026-07-29 16:01'
+updated_date: '2026-08-16 13:56'
 labels:
   - upgrade
   - install-recovery
@@ -46,7 +46,7 @@ THE WORK, five steps:
 - [x] #2 The recovery model carries the parked-skip invariant and the watchdog-cover principle
 - [x] #3 Cross-links stand in both directions; "uncovered" is stated, never implied
 - [x] #4 The Rune two-layer statement stands in the recovery model with its fix citations
-- [ ] #5 The drift gate exists and a probe proves it fires
+- [x] #5 The drift gate exists and a probe proves it fires
 <!-- AC:END -->
 
 ## Comments
@@ -137,5 +137,11 @@ author: foreman
 created: 2026-07-29 16:01
 ---
 UNIT 3 (cross-links both ways) REVIEWED + COMMITTED c95e7de4a (foreman, 2026-07-29; 8 files — the five sources plus the three hook-regenerated SVGs). Independent verification before commit: plantuml -checkonly green on all three sources (re-run myself); the 9-state ladder matches cli/internal/install/state.go exactly (StateRestoreReattemptable present at :51, ladder position 8, populated fields at :95-96); all six newly cited arc slugs exist on disk (postswap-stopped/severed-proxy, claim-without-notify, restore-broke-reattempt, preswap-backup-kill, flagless-selfheal-at-target); retired scenario slugs grep-zero in the diagram sources; the join table's 31-arc count matches the arcs/ directory exactly. Acceptance criterion 3 checked — both directions stand and every gap is stated plainly (the state-2 takeover arm, states 4/5/6, the state-7 inline path). Remaining on this ticket: step 5 only (the drift gate, criterion 5). The architect's 071-ledger finding (map cites postswap-archivebackup-watchdog-arc [PROVEN] but the arc died with STATBUS-112's archiveBackup removal — verified: zero matching files in arcs/) is recorded on STATBUS-071 same-turn so it survives as a durable note.
+---
+
+author: foreman
+created: 2026-08-16 13:56
+---
+UNIT 5 (drift gate) COMMITTED 79c4772a0 (foreman, 2026-08-16; reviewed+approved 2026-08-02, commit held through the cut freeze, freeze released by the King today). Re-ran before commit: all five checks green (0.45s), gofmt clean. AC#5 checked — the gate exists and its firing is proven on every run by the standing probe (a synthetic element pushed through the same checker every real check uses; the 2026-08-02 live RED demo additionally proved it against a real bogus state literal). All five acceptance criteria are now checked — architect finalizes summary + Done.
 ---
 <!-- COMMENTS:END -->
