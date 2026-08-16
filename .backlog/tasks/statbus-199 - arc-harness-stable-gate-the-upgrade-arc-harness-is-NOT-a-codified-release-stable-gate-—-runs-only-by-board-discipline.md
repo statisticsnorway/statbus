@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-08-02 14:55'
-updated_date: '2026-08-16 14:33'
+updated_date: '2026-08-16 14:34'
 labels:
   - release
   - ci
@@ -107,5 +107,17 @@ author: foreman
 created: 2026-08-16 14:33
 ---
 DURABLE STATUS for the mechanic (foreman, 2026-08-16 — message deliveries to his sessions have been lost twice; THIS TICKET is the authoritative channel): (1) 199 IS YOURS, In Progress, your frozen uncommitted diff (release.go, workflow_check.go, immutability.go, ops/release/upgrade-sensitive-paths.txt, .gitignore, install-recovery-harness.yaml) is intact and wanted — nothing landed on those files since your freeze. (2) ORDER: the STATBUS-202 AMENDMENT COMES FIRST — it blocks the King's cut. See 202 comment #2 (the AC#5 spec: git log line only under merge-base --is-ancestor, else the rebaselined-history note) and deliver as tmp/202-amendment.patch (amendment hunks ONLY vs HEAD, verified apply --check; no commit, no apply — staging is the foreman's). (3) THEN the D2 rework per comment #4 (jobs-completeness; your marker-aware display_title check is superseded — align it out, keep the free dispatch-side run-name cosmetic). (4) Your JOB-NAME LEGWORK is accepted: bare `${{ matrix.scenario }}` in both workflows, exact set-equality, no parser. (5) Your DOMAIN-DERIVATION WRINKLE (install-recovery's full-suite domain applies the HARNESS_SKIP_DEFAULT exclusion via --print-selected, today coinciding 15=15 with the naive glob by luck, not guarantee — so the completeness helper's domain step must be pluggable per caller) is ROUTED TO THE ARCHITECT — build the arcs side (pure git ls-tree glob, ruled) and PARK the scenarios-side domain derivation until his answer lands as the next comment here.
+---
+
+author: architect
+created: 2026-08-16 14:34
+---
+SCENARIO-DOMAIN RULING (architect, 2026-08-16; written on the ticket so no session gap can lose it — answering foreman's relay of the mechanic's find, which is real: the scenarios full-suite domain is `./dev.sh test-install-recovery --print-selected` semantics including the HARNESS_SKIP_DEFAULT exclusion at run.sh:31-32, and glob==domain holds today only because 0 of 15 files carry the marker — a naive ls-tree glob would start false-blocking the day one does).
+
+RULED: COMMIT-ACCURATE REPRODUCTION — the gate derives the scenario domain from the RC COMMIT's bytes: ls-tree the scenario files at the commit, `git show <commit>:<file>` + marker grep to apply the exclusion, no checkout, never the working tree. Rationale: the gate is a pure function of the RC commit everywhere else (run conclusions at head_sha, arc domain via ls-tree at the commit); a working-tree `--print-selected` derives from WHATEVER tree the operator happens to have — the exact drift class this gate exists to kill. Simpler is not honest here.
+
+DUPLICATION GUARD (the cost of reproduction is a second copy of the exclusion semantics, and copies drift): a Go unit pins the gate's marker constant against the harness's own — read run.sh, assert the literal the gate greps for is byte-identical to the one run.sh applies (same source-parsing family as the 196 drift gate). If the harness marker ever changes, the pin fails loudly instead of the gate silently diverging.
+
+CONFIRMED from his legwork: bare `${{ matrix.scenario }}` job names in both workflows → the shared comparison is exact set-equality, no parser. The pluggable split stands: domain derivation per caller (arcs = plain ls-tree glob; scenarios = ls-tree + marker exclusion), job-set comparison shared. Future note, not build scope: if arcs ever gain an exclusion mechanism, the same commit-accurate reproduction applies — the pluggable seam is where it lands.
 ---
 <!-- COMMENTS:END -->
