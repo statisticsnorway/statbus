@@ -4,9 +4,11 @@ title: >-
   park-outage: a resource park at the resume's pre-pull check leaves the box
   DARK — app/rest stay stopped until the operator acts; the July-14
   serve-while-parked green was illusory
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@engineer'
 created_date: '2026-08-02 19:10'
+updated_date: '2026-08-16 14:05'
 labels:
   - upgrade
   - recovery
@@ -42,4 +44,31 @@ ORACLE: the un-park-to-completion arc, unchanged — its honest probe now demand
 - [ ] #1 A resource park at any pre-start step leaves the SOURCE version serving (web UI + rest up, data intact) while the row is parked; the read-only window and maintenance mode reflect the ruled contract
 - [ ] #2 The un-park-to-completion arc is green on a real VM with the honest Host-carrying probe — no arc changes
 - [ ] #3 If the service restoration itself fails, the box still parks alive-idle with the failure folded into the park narrative — never a crash loop, never a silent success claim
+- [ ] #4 The restoration is ERA-GUARDED: source services start only when the DB carries no applied delta from this attempt (pending set unchanged — the no-delta and pre-delta cases); a park with the delta applied never starts source containers against a migrated DB; the guard's refusal is named in the park narrative
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect
+created: 2026-08-16 14:05
+---
+KING'S NOD RECEIVED (2026-08-16, his console, verbatim: 'Don't delay, do the park fix.') — build authorized, jumps to the front of the engineer's queue. BUILD SPEC PRECISION (architect, appended so the brief is whispers-proof):
+
+1. WHERE: the pre-start park sites — diskPrecheckReason(StepImagePull) at service.go:5946 and the StepStartServices sites (:3123, :6218) — plus the disk-full in-flight parks (:3137, :5953). Before the alive-idle settle (after the park write lands — the park itself must never be blocked by the restoration), the daemon attempts to bring the SOURCE version's services back: docker compose up with the LOCAL source images (no pull — that is the whole point; the disk is full), bounded health wait, then maintenance OFF + read-only window LIFT only on a passing health gate (serve-proven discipline applied to the restoration — never claim serving without proving it).
+
+2. THE ERA GUARD (the safety core of this fix): restore ONLY when the DB carries no applied delta from this attempt — the no-delta (codeonly) case and any pre-delta park. If the delta (or part of it) has applied, source containers against a migrated DB are the mixed-era class — do NOT start them; keep the maintenance page, fold 'services held down: migration delta applied, source version incompatible' into the park narrative. The existing pending-migrations read the self-heal already uses (resumeNewSb's no-pending check) is the reuse point for this verdict.
+
+3. FAILURE OF THE RESTORATION ITSELF: park anyway, alive-idle, with the restoration failure appended to the park narrative (the one atomic parkUpgrade write already carries error narrative — extend the reason text, never a second write channel). Never a crash loop, never a silent success claim, and the maintenance page (proxy) remains the honest face.
+
+4. ORDERING PIN: park write FIRST, restoration attempt SECOND — a crash mid-restoration must leave a parked row (the parked-skip invariant then holds on the next boot; a restoration crash must not consume attempts or strip the flag).
+
+ORACLES: (i) the un-park-to-completion arc UNCHANGED — its honest Host-carrying probe demands exactly the restored-and-serving contract; green on a real VM is the proof (AC#2); (ii) Go unit: pre-start park with no delta → restoration invoked after the park write, window lifted only on health pass; (iii) Go unit: delta-applied park → restoration refused with the named narrative (the era guard, AC#4); (iv) Go unit: restoration failure → row parked, narrative extended, no crash (AC#3). Sequencing: service.go collides with 197 — strictly sequential on the engineer's lane, 200 FIRST per the King's word; 197 follows.
+---
+
+author: foreman
+created: 2026-08-16 14:05
+---
+KING AUTHORIZED (2026-08-16, via the architect's console): 'Don't delay, do the park fix.' Moves to In Progress ahead of 197 on the engineer's lane — both touch service.go, strictly sequential, 200 first (197 dispatches after 200 lands). Build brief is comment #1 (whispers-proof, four spec points: pre-start-site restoration with LOCAL source images; the ERA GUARD as the safety core — restore only when no migration delta applied, AC#4; restoration-failure folds into the one atomic park narrative; ordering pin — park write FIRST so a mid-restoration crash still leaves a parked row). Oracle: the unchanged un-park arc on a real VM. Engineer proceeds to this directly after freezing 201; architect frozen-diff review (safety core), foreman commits.
+---
+<!-- COMMENTS:END -->
