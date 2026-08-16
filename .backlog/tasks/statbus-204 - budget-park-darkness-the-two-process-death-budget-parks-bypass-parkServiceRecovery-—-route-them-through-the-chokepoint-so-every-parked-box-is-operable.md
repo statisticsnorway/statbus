@@ -4,9 +4,11 @@ title: >-
   budget-park-darkness: the two process-death budget parks bypass
   parkServiceRecovery — route them through the chokepoint so every parked box is
   operable
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@engineer'
 created_date: '2026-08-16 14:43'
+updated_date: '2026-08-16 18:17'
 labels:
   - upgrade
   - recovery
@@ -39,3 +41,13 @@ ORACLE: extend the STATBUS-200 unit set with a budget-park case (park via the es
 - [ ] #2 A budget-park unit proves the helper is invoked and the era guard's refuse arm narrates on a post-delta state
 - [ ] #3 The helper's hard rules hold unchanged: starts-only, narrative-only on refuse/failure, park write first
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-08-16 18:17
+---
+BUILD HELD — WATCHDOG-COVER FINDING (engineer pre-build byte-walk, 2026-08-16; ruling pending with the architect): the filing's 'context-threading is the only work' premise understates it. Both budget-park sites (process-death in RecoveryBudgetGuard ~:6831, same-step-twice in resumeNewSb ~:7286 on current HEAD) run in systemd's ACTIVE phase (READY=1 at :1999) with NO gated watchdog ticker in their span — and parkServiceRecovery's slow work (StartDBForRecovery ≤60s + compose up + healthCheck ≤25s + restores) can exceed WatchdogSec=120 on a cold box → SIGABRT → crash loop at the very park the fix makes operable (the 195 doctrine applied). The deterministic sites are covered by their CALLERS' outer tickers (:6107, :3115); the budget sites have none. Site 1 also lacks a ProgressLog (log.Printf only) — threading via loadLogRelPath + AppendProgressLog. SHAPES AWAITING RULING: (A) per-site runGatedWatchdogTicker wraps — localized, leaves committed 200 code untouched; (B, engineer-recommended, foreman-concurred) parkServiceRecovery becomes SELF-covering — the gated ticker wraps restoreSourceServices internally, covering deterministic sites (harmless nested ticker), budget sites, and every future caller at the one chokepoint (the same close-the-invariant shape ruled on 200 Q4 and 197 C3). Either shape ships with the RED-first unit pinning both sites call the helper AFTER their park write, plus the site-1 log threading.
+---
+<!-- COMMENTS:END -->
