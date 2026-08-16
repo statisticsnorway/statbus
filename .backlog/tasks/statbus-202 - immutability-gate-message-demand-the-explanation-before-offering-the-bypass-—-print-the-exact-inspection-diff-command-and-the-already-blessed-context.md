@@ -3,9 +3,11 @@ id: STATBUS-202
 title: >-
   immutability-gate-message: demand the explanation before offering the bypass —
   print the exact inspection diff command and the already-blessed context
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@mechanic'
 created_date: '2026-08-16 10:38'
+updated_date: '2026-08-16 14:08'
 labels:
   - release
   - operator-ux
@@ -36,8 +38,18 @@ GROUNDING: gate shipped 14b88c412 (2026-04-17), lives in the RC + stable preflig
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The tripped gate prints, per file, the exact git diff + git log inspection commands against the named previous-stable tag
-- [ ] #2 The message leads with inspect-and-explain; the bless env is the last line, framed as a per-cut declaration of intent
-- [ ] #3 When the edited bytes are already carried by cut releases, the message names those tags as derived context; a never-blessed edit gets no such line
+- [x] #1 The tripped gate prints, per file, the exact git diff + git log inspection commands against the named previous-stable tag
+- [x] #2 The message leads with inspect-and-explain; the bless env is the last line, framed as a per-cut declaration of intent
+- [x] #3 When the edited bytes are already carried by cut releases, the message names those tags as derived context; a never-blessed edit gets no such line
 - [ ] #4 Proven by observation: one real tripped preflight shows the new message
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-08-16 14:08
+---
+BUILT + ARCHITECT-APPROVED + COMMITTED 06db15c78 (foreman, 2026-08-16). Mechanic built to the brief; architect reviewed the frozen diff and approved with zero amendments, ruling the call-site 'Fix: bypass' removal CORRECT (remove-wrong-paths: it was the exact lead-with-workaround shape the King rejected, and would have printed the bypass twice). Criteria 1-3 checked: per-file paste-ready git diff/git log against the real previous-stable tag; explain-first framing with the bless env last as the per-cut declaration; already-blessed context derived fresh (sha256 + ReleaseTagWithMigrationHash — for the live trip 20260218215337 it resolves to v2026.07.0-rc.06, mechanic-verified two independent ways; deleted/unparseable files skip; a lookup error notes without weakening the refusal). BONUS FINDING (architect): the old guidance lived in a returned error string no caller printed — the King's live paste saw only the file list + Fix line; the guidance now actually arrives. AC#4 (proven by observation) checks on the King's own verification run — the architect stages that with him.
+---
+<!-- COMMENTS:END -->
