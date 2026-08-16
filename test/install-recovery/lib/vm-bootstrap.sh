@@ -119,6 +119,48 @@ _check_name_safety() {
     esac
 }
 
+# _run_suffix prints a short (<=8 char) string that's unique per concurrent
+# invocation — STATBUS-208 defect A: run-scoped VM names. CI: the last 8
+# characters of GITHUB_RUN_ID, exported by GitHub Actions to every job step
+# and distinct per workflow RUN (two runs of the SAME workflow, or two
+# DIFFERENT workflows firing off the same tag push, never share one — this
+# is what makes statbus-recovery-0-happy-install collide today between
+# test-install.yaml and install-recovery-harness.yaml). Local (no
+# GITHUB_RUN_ID): this process's PID — unique per concurrently-running
+# dev.sh invocation on one machine, which is the only local collision that
+# matters (a single developer isn't racing a concurrent CI fleet).
+_run_suffix() {
+    if [ -n "${GITHUB_RUN_ID:-}" ]; then
+        printf '%s' "${GITHUB_RUN_ID: -8}"
+    else
+        printf '%s' "$$"
+    fi
+}
+
+# _suffixed_vm_name prints "<base_name>-<suffix>", truncating the MIDDLE of
+# base_name (never its statbus-recovery-/statbus-arc- prefix, never the
+# suffix) if the combined length would exceed Hetzner's 63-char server-name
+# limit. Today's longest real slugs (34 chars, arcs/; 33 chars,
+# scenarios/) plus an 8-char suffix never actually trip this (max 55/59
+# chars observed) — the guard exists so a FUTURE longer scenario/arc name
+# fails safely (a valid, if less descriptive, truncated name) instead of
+# hcloud silently rejecting or mangling an over-length name in a way this
+# harness's own bookkeeping (VM_NAME, the refuse-on-existing check,
+# cleanup) would then disagree with.
+_suffixed_vm_name() {
+    local base_name="$1" suffix="$2"
+    local full="${base_name}-${suffix}"
+    local limit=63
+    if [ "${#full}" -le "$limit" ]; then
+        printf '%s' "$full"
+        return 0
+    fi
+    local budget=$(( limit - ${#suffix} - 1 ))
+    local head_len=$(( (budget + 1) / 2 ))
+    local tail_len=$(( budget - head_len ))
+    printf '%s%s-%s' "${base_name:0:head_len}" "${base_name: -tail_len}" "$suffix"
+}
+
 # _hcloud_server_ip prints vm_name's public IPv4 on success. On failure it
 # prints an explicit diagnostic naming hcloud's OWN error text and returns
 # non-zero — STATBUS-207: hcloud's stderr already reaches the raw CI log
@@ -541,6 +583,15 @@ bootstrap_install_test_vm() {
     local vm_name="$1"
     local install_version="${2:-}"
     _check_name_safety "$vm_name" || return 1
+
+    # STATBUS-208 defect A: finalize the run-unique name HERE, before the
+    # refuse-on-existing check and before VM_NAME is published — every
+    # caller downstream (the refuse check below, hcloud server create,
+    # VM_NAME's readers in the scenario/arc script: install_statbus_in_vm,
+    # cleanup_vm's EXIT trap) sees only the already-suffixed name from this
+    # point on. The refuse-on-existing check's OWN code is intentionally
+    # unchanged — with unique names it simply stops tripping cross-run.
+    vm_name="$(_suffixed_vm_name "$vm_name" "$(_run_suffix)")"
     VM_NAME="$vm_name"
 
     if ! command -v hcloud >/dev/null 2>&1; then
@@ -576,13 +627,41 @@ bootstrap_install_test_vm() {
     fi
 
     echo "Provisioning Hetzner $HCLOUD_SERVER_TYPE in $HCLOUD_LOCATION: $vm_name"
-    hcloud server create \
-        --name "$vm_name" \
-        --type "$HCLOUD_SERVER_TYPE" \
-        --image "$HCLOUD_IMAGE" \
-        --location "$HCLOUD_LOCATION" \
-        --ssh-key "$HCLOUD_SSH_KEY" \
-        > /dev/null
+    # STATBUS-208 defect B: bounded retry-with-backoff on resource_limit_
+    # exceeded ONLY — the shared hetzner-vm-fleet concurrency group (the
+    # workflow-side fix) already keeps peak demand within the account
+    # limit, but a straggler VM from the PREVIOUS group can still be
+    # mid-teardown when the next group's first create fires; this is
+    # defense for exactly that residual window, not a substitute for the
+    # concurrency group. Any OTHER create failure (bad image name, quota
+    # for a different resource, auth) fails immediately — retrying those
+    # would just burn 5 minutes before reporting the same permanent error.
+    local create_attempt max_create_attempts=5 create_backoff_s=60 create_stderr create_err
+    for ((create_attempt = 1; create_attempt <= max_create_attempts; create_attempt++)); do
+        create_stderr=$(mktemp)
+        if hcloud server create \
+            --name "$vm_name" \
+            --type "$HCLOUD_SERVER_TYPE" \
+            --image "$HCLOUD_IMAGE" \
+            --location "$HCLOUD_LOCATION" \
+            --ssh-key "$HCLOUD_SSH_KEY" \
+            >/dev/null 2>"$create_stderr"; then
+            rm -f "$create_stderr"
+            break
+        fi
+        create_err=$(cat "$create_stderr")
+        rm -f "$create_stderr"
+        if ! printf '%s' "$create_err" | grep -q "resource_limit_exceeded"; then
+            echo "ERROR: hcloud server create failed for '$vm_name': $create_err" >&2
+            return 1
+        fi
+        if [ "$create_attempt" -eq "$max_create_attempts" ]; then
+            echo "ERROR: hcloud server create exhausted $max_create_attempts attempts (resource_limit_exceeded every time) for '$vm_name': $create_err" >&2
+            return 1
+        fi
+        echo "  hcloud server create hit resource_limit_exceeded (attempt $create_attempt/$max_create_attempts) — retrying in ${create_backoff_s}s..." >&2
+        sleep "$create_backoff_s"
+    done
     # STATBUS-207 ownership guard: only set once `hcloud server create`
     # itself has actually succeeded (set -e would have exited above on
     # failure, e.g. DEFECT B's resource_limit_exceeded — the flag never

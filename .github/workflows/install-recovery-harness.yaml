@@ -77,11 +77,24 @@ on:
 # Don't cancel a run that's already provisioned VMs — cancellation would
 # skip every scenario's cleanup trap and orphan ~17 Hetzner instances at
 # once (billing the next hour for each). Queue subsequent triggers behind
-# the live one. Scenario-level `bootstrap_install_test_vm` refuse-on-
-# existing check in vm-bootstrap.sh is the second line of defence against
-# name collisions.
+# the live one.
+#
+# STATBUS-208: the group is SHARED (hetzner-vm-fleet) across all three
+# VM-fleet workflows (this one, test-install.yaml, upgrade-arc-harness.yaml)
+# — was install-recovery-harness-only before. A single tag push fires all
+# three concurrently; each is internally throttled (max-parallel) but that
+# throttle is PER-WORKFLOW, so combined demand breached the Hetzner project
+# server limit (defect B). Sharing one group makes the fleets queue behind
+# each other instead: peak demand = one workflow's own max-parallel, which
+# fits the account limit without any account change. Cost: the tag's proof
+# serializes (~sum of fleet durations) — correctness beats wall-clock.
+# vm-bootstrap.sh's run-scoped VM naming (defect A) is now the ONLY line of
+# defence against name collisions — the refuse-on-existing check in
+# bootstrap_install_test_vm essentially never trips cross-run anymore since
+# names are run-unique by construction, not because of this concurrency
+# group (which is a capacity fix, not a naming fix).
 concurrency:
-  group: install-recovery-harness
+  group: hetzner-vm-fleet
   cancel-in-progress: false
 
 permissions:
@@ -435,12 +448,22 @@ jobs:
         # can't fire (GHA cancellation, runner SIGKILL, early script bug). The
         # cross-job global sweep lives only in the final `cleanup` job.
         # Best-effort: never fails the job (pass/fail was decided by the run).
+        #
+        # STATBUS-208: the run-suffix MUST match vm-bootstrap.sh's
+        # _run_suffix() exactly (last 8 chars of GITHUB_RUN_ID) — this step
+        # reconstructs the name independently rather than reading it back
+        # from vm-bootstrap.sh's state (that state lives in the scenario's
+        # own now-finished process), so the two formulas can never drift
+        # apart only by staying textually identical. Without the suffix here
+        # this step would reap nothing (defect A's fix means the real VM
+        # name no longer matches this reconstruction).
         if: always()
         env:
           HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
           SCENARIO: ${{ matrix.scenario }}
         run: |
-          vm="statbus-recovery-${SCENARIO}"
+          run_suffix="${GITHUB_RUN_ID: -8}"
+          vm="statbus-recovery-${SCENARIO}-${run_suffix}"
           if ! command -v hcloud >/dev/null 2>&1; then
             echo "hcloud CLI not installed — skipping reap of $vm"
             exit 0
@@ -457,15 +480,29 @@ jobs:
     name: Reap orphan VMs (final global sweep)
     needs: [discover, run-scenario]
     # Runs after every matrix job regardless of their outcome (or if the matrix
-    # was skipped). This is the ONLY place the cross-job global
-    # statbus-recovery-* sweep is safe — no sibling VM is live once all matrix
-    # jobs have finished. Catches orphans from any job that died before its
-    # own per-job reap.
+    # was skipped). Catches orphans from any job that died before its own
+    # per-job reap.
+    #
+    # STATBUS-208: this is NO LONGER "the only safe place for a global
+    # statbus-recovery-* sweep" — that reasoning held only while this
+    # workflow was the sole user of the prefix. test-install.yaml shares it
+    # too, and the hetzner-vm-fleet concurrency group serializes the three
+    # VM-fleet WORKFLOWS but doesn't guarantee an instantaneous handoff at
+    # the boundary (a straggler from the run just ahead in the queue could
+    # still be tearing down). A prefix-only sweep here could delete a
+    # sibling run's live VM purely because it shares the prefix — the exact
+    # defect A blast radius. So this sweep is now AGE-GATED, not just
+    # prefix-matched: only servers matching the prefix AND older than
+    # MIN_ORPHAN_AGE_MIN are reaped. The threshold is comfortably above the
+    # run-scenario job's own 120-minute timeout (line ~338) plus VM
+    # boot/SSH-wait margin, so a genuinely-still-running scenario's VM is
+    # never mistaken for an orphan — only VMs that unambiguously outlived
+    # any possible legitimate run get reaped.
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - name: Install hcloud + reap any leftover statbus-recovery-* VMs
+      - name: Install hcloud + reap aged-out statbus-recovery-* orphans
         # ONE fully best-effort step that ALWAYS exits 0 — this housekeeping job
         # must never fail the workflow conclusion (the gate reads that
         # conclusion; a flaky hcloud download here must not red an all-green
@@ -475,7 +512,9 @@ jobs:
         # Scope: only servers whose names start with the harness prefix
         # `statbus-recovery-`. Other VMs in the same Hetzner project (production
         # hosts, niue, etc.) are NOT prefixed that way, so this filter is safe
-        # by construction.
+        # by construction. AND (STATBUS-208) older than MIN_ORPHAN_AGE_MIN —
+        # see the job-level comment above for why age-gating is now required,
+        # not just the prefix.
         env:
           HCLOUD_CLI_VERSION: "1.64.1"
           HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
@@ -489,13 +528,34 @@ jobs:
             echo "hcloud CLI unavailable — skipping global reap (best-effort)."
             exit 0
           fi
-          orphans=$(hcloud server list --output noheader --output columns=name 2>/dev/null \
-            | grep '^statbus-recovery-' || true)
-          if [ -z "$orphans" ]; then
-            echo "No orphan VMs to reap."
+          if ! command -v jq >/dev/null 2>&1; then
+            echo "jq unavailable — skipping global reap (best-effort, avoids fragile column parsing)."
             exit 0
           fi
-          echo "Orphan VMs found — reaping:"
-          echo "$orphans"
-          echo "$orphans" | xargs -r -n1 hcloud server delete
+          MIN_ORPHAN_AGE_MIN=150
+          now_epoch=$(date -u +%s)
+          candidates=$(hcloud server list -o json 2>/dev/null | jq -r --arg prefix "statbus-recovery-" \
+            '.[] | select(.name | startswith($prefix)) | "\(.name)\t\(.created)"')
+          if [ -z "$candidates" ]; then
+            echo "No statbus-recovery-* servers found."
+            exit 0
+          fi
+          reaped=0
+          while IFS=$'\t' read -r name created; do
+            [ -z "$name" ] && continue
+            created_epoch=$(date -u -d "$created" +%s 2>/dev/null)
+            if [ -z "$created_epoch" ]; then
+              echo "  Skipping $name — could not parse created timestamp '$created' (age-gate refuses to guess)"
+              continue
+            fi
+            age_min=$(( (now_epoch - created_epoch) / 60 ))
+            if [ "$age_min" -lt "$MIN_ORPHAN_AGE_MIN" ]; then
+              echo "  Skipping $name (age ${age_min}min < ${MIN_ORPHAN_AGE_MIN}min — could be a live sibling run)"
+              continue
+            fi
+            echo "  Reaping $name (age ${age_min}min >= ${MIN_ORPHAN_AGE_MIN}min)"
+            hcloud server delete "$name"
+            reaped=$((reaped + 1))
+          done <<< "$candidates"
+          echo "Reaped $reaped orphan VM(s)."
           exit 0

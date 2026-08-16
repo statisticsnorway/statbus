@@ -58,8 +58,18 @@ on:
         required: false
         default: ''
 
+# STATBUS-208: the group is SHARED (hetzner-vm-fleet) across all three
+# VM-fleet workflows (this one, install-recovery-harness.yaml,
+# test-install.yaml) — was upgrade-arc-harness-only before. Same tag push
+# fires all three concurrently; combined VM demand (this workflow's own
+# max-parallel matrix + the other two's) breached the Hetzner project server
+# limit (defect B) even though each workflow's own throttle looked safe in
+# isolation. Sharing one group serializes the fleets instead of racing them
+# — see install-recovery-harness.yaml's concurrency comment for the full
+# rationale. cancel-in-progress stays false for the same reason it already
+# was: cancelling mid-run would skip cleanup traps and orphan live VMs.
 concurrency:
-  group: upgrade-arc-harness
+  group: hetzner-vm-fleet
   cancel-in-progress: false
 
 permissions:
@@ -742,12 +752,21 @@ jobs:
         # normal exit; this is the net for when the trap can't fire (cancellation,
         # runner SIGKILL). The cross-job global sweep lives only in `cleanup`.
         # Best-effort, always exit 0 — pass/fail was decided by the arc run.
+        #
+        # STATBUS-208: the run-suffix MUST match vm-bootstrap.sh's
+        # _run_suffix() exactly (last 8 chars of GITHUB_RUN_ID) — this step
+        # reconstructs the name independently (the arc script's own process
+        # is already gone by the time this runs), so the two formulas can
+        # only stay in sync by staying textually identical. Without the
+        # suffix here this step would reap nothing (defect A's fix means
+        # the real VM name no longer matches this reconstruction).
         if: always()
         env:
           HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
           SCENARIO: ${{ matrix.scenario }}
         run: |
-          vm="statbus-arc-${SCENARIO}"
+          run_suffix="${GITHUB_RUN_ID: -8}"
+          vm="statbus-arc-${SCENARIO}-${run_suffix}"
           if command -v hcloud >/dev/null 2>&1 && hcloud server describe "$vm" >/dev/null 2>&1; then
             echo "Reaping own VM: $vm"
             hcloud server delete "$vm" || true
@@ -799,19 +818,34 @@ jobs:
     name: Reap orphan arc VMs (final global sweep)
     needs: [discover, run-arc]
     # Runs after every matrix job regardless of outcome (or if the matrix was
-    # skipped). The ONLY place the cross-job global statbus-arc-* sweep is safe —
-    # no sibling VM is live once all matrix jobs have finished. Catches orphans
-    # from any job that died before its own per-job reap.
+    # skipped). Catches orphans from any job that died before its own per-job
+    # reap.
+    #
+    # STATBUS-208: statbus-arc-* is disjoint from install-recovery/
+    # test-install's statbus-recovery-* prefix, so this sweep can never
+    # touch THEIR VMs. But the hetzner-vm-fleet concurrency group (shared
+    # across all three VM-fleet workflows, including repeat/re-dispatched
+    # runs of THIS one) only serializes — it doesn't guarantee an
+    # instantaneous handoff, so a straggler from the run just ahead in the
+    # queue (another upgrade-arc-harness run) could still be tearing down.
+    # Age-gated, not just prefix-matched, for the same reason
+    # install-recovery-harness.yaml's equivalent sweep is: only servers
+    # older than MIN_ORPHAN_AGE_MIN (comfortably above run-arc's own
+    # 120-minute timeout, line ~529, plus VM boot/SSH-wait margin) are ever
+    # reaped, so a genuinely-still-running arc's VM is never mistaken for
+    # an orphan.
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - name: Install hcloud + reap any leftover statbus-arc-* VMs
+      - name: Install hcloud + reap aged-out statbus-arc-* orphans
         # ONE fully best-effort step that ALWAYS exits 0 — housekeeping must never
         # fail the workflow conclusion (a failed arc already reds its own run-arc
         # matrix job, which the conclusion ANDs in; this can't MASK that). Scope:
         # only statbus-arc-* — production hosts + install-recovery's
         # statbus-recovery-* are not prefixed that way, so the filter is safe.
+        # AND (STATBUS-208) older than MIN_ORPHAN_AGE_MIN — see the job-level
+        # comment above.
         env:
           HCLOUD_CLI_VERSION: "1.64.1"
           HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
@@ -825,13 +859,34 @@ jobs:
             echo "hcloud CLI unavailable — skipping global reap (best-effort)."
             exit 0
           fi
-          orphans=$(hcloud server list --output noheader --output columns=name 2>/dev/null \
-            | grep '^statbus-arc-' || true)
-          if [ -z "$orphans" ]; then
-            echo "No orphan arc VMs to reap."
+          if ! command -v jq >/dev/null 2>&1; then
+            echo "jq unavailable — skipping global reap (best-effort, avoids fragile column parsing)."
             exit 0
           fi
-          echo "Orphan arc VMs found — reaping:"
-          echo "$orphans"
-          echo "$orphans" | xargs -r -n1 hcloud server delete
+          MIN_ORPHAN_AGE_MIN=150
+          now_epoch=$(date -u +%s)
+          candidates=$(hcloud server list -o json 2>/dev/null | jq -r --arg prefix "statbus-arc-" \
+            '.[] | select(.name | startswith($prefix)) | "\(.name)\t\(.created)"')
+          if [ -z "$candidates" ]; then
+            echo "No statbus-arc-* servers found."
+            exit 0
+          fi
+          reaped=0
+          while IFS=$'\t' read -r name created; do
+            [ -z "$name" ] && continue
+            created_epoch=$(date -u -d "$created" +%s 2>/dev/null)
+            if [ -z "$created_epoch" ]; then
+              echo "  Skipping $name — could not parse created timestamp '$created' (age-gate refuses to guess)"
+              continue
+            fi
+            age_min=$(( (now_epoch - created_epoch) / 60 ))
+            if [ "$age_min" -lt "$MIN_ORPHAN_AGE_MIN" ]; then
+              echo "  Skipping $name (age ${age_min}min < ${MIN_ORPHAN_AGE_MIN}min — could be a live sibling run)"
+              continue
+            fi
+            echo "  Reaping $name (age ${age_min}min >= ${MIN_ORPHAN_AGE_MIN}min)"
+            hcloud server delete "$name"
+            reaped=$((reaped + 1))
+          done <<< "$candidates"
+          echo "Reaped $reaped orphan arc VM(s)."
           exit 0
