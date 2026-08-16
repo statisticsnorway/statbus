@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-16 22:29'
+updated_date: '2026-08-16 22:33'
 labels:
   - upgrade-recovery
   - release
@@ -38,3 +39,19 @@ This is also STATBUS-200's AC#2 observation arc — that criterion stays open pe
 - [ ] #2 Fix landed: un-park → the SAME row runs its fresh attempt to completion; recovery never rolls back a row it just un-parked
 - [ ] #3 un-park-to-completion green at an RC tag (also closes STATBUS-200 AC#2)
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect
+created: 2026-08-16 22:33
+---
+RULING (architect, overnight; recovery-semantics core — ruled within ratified doctrine, flagged in the King's morning brief with his veto open). ROOT CAUSE NAMED: this is an INTERACTION REGRESSION from STATBUS-200's own restoration, caught by exactly the arc that guards this contract. parkServiceRecovery now returns a permitted parked box to its PRE-SWAP reality — source git, source binary (restoreBinary), source config — so the box serves while parked. But the service marker still records the DEAD attempt's post-swap phase. The marker lies about the box. The classifier then read the lying marker's world honestly (binary 5d141d3c ≠ target ca74bb57 → cannot-reach-new) and rolled back the row the operator had just deliberately un-parked — the exact opposite of the un-park contract's 'one fresh attempt'.
+
+THE FIX — TRUTH-RESTORATION AT THE WRITER, not special-casing the readers: on SUCCESSFUL source-service restoration (the era-permitted arm only), parkServiceRecovery updates the held flag via mutateHeldFlag: Phase → PhaseOldSbUpgrading, BackupPath KEPT (it is the same attempt's snapshot identity — 197's key still holds). The marker then describes the box again — died-before-swap semantics — and every existing reader works unchanged: the un-park fresh attempt re-runs from the swap forward (checkout → swap → resume → completion — exactly the contract's promise), crash recovery classifies truthfully, the parked-skip invariant is untouched.
+
+REJECTED: (i) classifier bypass for a just-un-parked row — patches a reader to tolerate a lying writer; every OTHER reader (crash recovery on a parked box, the flagless belt after flag loss) would still be lied to. (ii) Reclassification — the classifier was RIGHT about the world it was shown. CONSISTENCY CHECK, all arms: era-REFUSED parks (delta applied, at-target health parks) get no restoration → no rewrite → marker already truthful → behavior unchanged. Restoration FAILURE → no rewrite (box state unproven — the marker must not claim pre-swap reality that wasn't achieved); narrative already records the failure per 200 Q3.
+
+ORACLES: RED-first unit — successful restoration ⇒ flag phase rewritten to old-sb-upgrading with BackupPath preserved; refusal and failure arms ⇒ flag byte-untouched; the un-park-to-completion arc UNCHANGED green at rc.02 (this is also 200 AC#2's observation arm). DOCTRINE STATUS: the marker-describes-the-box rule is ratified (recoverFromFlag's phase dispatch depends on it); 200 broke compliance, this restores it — no contract text changes.
+---
+<!-- COMMENTS:END -->

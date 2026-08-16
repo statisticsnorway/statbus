@@ -4,10 +4,10 @@ title: >-
   claim-window-stale-pin: a kill between claim and flag-write routes the
   flagless heal to a rollback whose git target is the PREVIOUS upgrade's
   pre-upgrade pin
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-07-29 11:09'
-updated_date: '2026-08-16 18:11'
+updated_date: '2026-08-16 22:34'
 labels:
   - upgrade
   - recovery
@@ -41,10 +41,8 @@ TO RULE: (a) read restoreGitState + the recovery-boot checkout gate (STATBUS-061
 - [x] #2 If real: the never-started heal marks the row terminal without touching git/binary/volume; oracle named and green
 - [x] #3 Restore identity is recorded ONLY at snapshot commit: the pre-commit row backup_path write is gone; row AND flag BackupPath are both stamped right after backupDatabase returns (phase unchanged); source-order pinned by a Go unit
 - [x] #4 ./sb.old is deleted at serve-proven completion, so sb.old-exists ⇔ an unresolved swap; pinned by a Go unit
-- [ ] #5 The three preswap arcs stay green on the changed geometry: preswap-backup-kill (empty-path refusal arm), preswap-checkout-kill (full-restore arm, data intact), preswap-binary-swap-kill (binary restored from THIS attempt's sb.old)
+- [x] #5 The three preswap arcs stay green on the changed geometry: preswap-backup-kill (empty-path refusal arm), preswap-checkout-kill (full-restore arm, data intact), preswap-binary-swap-kill (binary restored from THIS attempt's sb.old)
 <!-- AC:END -->
-
-
 
 ## Comments
 
@@ -102,4 +100,16 @@ created: 2026-08-16 18:11
 ---
 BUILT + ARCHITECT-APPROVED + COMMITTED 21ec09911 (foreman, 2026-08-16). All four changes landed per comment #2: C1 — the early intent write is DELETED and both carriers (row via teardown-immune terminalExec, flag via mutateHeldFlag with Phase untouched) stamp at the snapshot-commit moment; every destructive step sits after it, so backup_path=='' ⇔ nothing-moved is exact in every carrier. C2 — the no-touch guard covers the git AND binary legs on the same identity key the DB leg always obeyed, keeps the full service tail, and precedes the git-restore ABORT branch — the first-upgrade no-pin catastrophic abort dissolves. C3 — deleteRollbackBinaryOnCompletion at ALL THREE serve-proven completion writers: the engineer's flagged extension beyond the brief's singular site was RULED IN HIS FAVOR (architect: 'close the invariant, don't sample it' — sb.old surviving any completion arms the F3 stale-restore class one attempt later). C4 — no new states, no flag-format change. Foreman verification pre-commit: build/vet/gofmt clean, all three STATBUS197 oracles green under my own execution, full upgrade package green, byte-check confirmed exactly two remaining backup_path writes (commit-moment :5543 + the pre-existing post-reconnect rename :6233). TICKET STAYS OPEN on O4: the three preswap arcs (backup-kill empty-path refusal, checkout-kill full-restore, binary-swap-kill own-sb.old restore) re-proven on real VMs — rides the next arc-suite dispatch, which in one run also proves 200's un-park arc and 201's three repairs. O5 (claim-window inject class) skipped per the architect's optional marking. 204 dispatches next on the clean baseline.
 ---
+
+author: foreman
+created: 2026-08-16 22:34
+---
+AC#5 / O4 CLOSED by the v2026.08.0-rc.01 arc run (31970534502, architect-ruled closure): all three preswap arcs GREEN with real 12-17min post-stampede executions on the changed geometry — preswap-backup-kill (empty-path refusal arm), preswap-checkout-kill (full-restore arm), preswap-binary-swap-kill (THIS attempt's sb.old). rc.02 re-proves as bonus. All five criteria checked — ticket DONE.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The claim-window stale-pin gap (a kill between claim and flag-write routing recovery to the PREDECESSOR's pre-upgrade pin) was ruled real and wider than filed, then fixed as a small foundation: restore identity is recorded ONLY at the snapshot-commit moment in both carriers (row + flag), the rollback's git and binary legs obey the same backup_path identity key the DB leg always obeyed (empty path ⇔ nothing moved ⇔ restore nothing, services still return), and ./sb.old is deleted at every serve-proven completion so its existence always means an unresolved swap. Landed as 21ec09911; Go oracles O1-O3 green at commit; O4 (the three preswap arcs on real VMs) proven green at the v2026.08.0-rc.01 tag's arc run.
+<!-- SECTION:FINAL_SUMMARY:END -->
