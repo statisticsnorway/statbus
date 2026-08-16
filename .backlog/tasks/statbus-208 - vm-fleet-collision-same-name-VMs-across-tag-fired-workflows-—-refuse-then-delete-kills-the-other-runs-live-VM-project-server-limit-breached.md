@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-08-16 20:54'
-updated_date: '2026-08-16 21:25'
+updated_date: '2026-08-16 21:28'
 labels:
   - install-recovery
   - quality-gate
@@ -39,7 +39,7 @@ NOTE: the "Reap orphan VMs (final global sweep)" job succeeded in the same run �
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 Architect ruling on the structural remedy: run-scoped VM naming and/or scenario dedup across workflows, and the cross-workflow capacity design (concurrency budget vs limit raise vs retry-backoff)
-- [ ] #2 No VM is ever deleted by a run that did not create it — including the global orphan sweep's ownership discipline
+- [x] #2 No VM is ever deleted by a run that did not create it — including the global orphan sweep's ownership discipline
 - [ ] #3 A full tag-push fleet (test-install + install-recovery + arcs) completes with zero resource_limit_exceeded and zero cross-run interference — observed at an RC tag
 <!-- AC:END -->
 
@@ -102,5 +102,11 @@ Verified the age-gating logic itself (not just read-through) against synthetic `
 Oracles: actionlint clean on all three workflows (re-verified after every edit, not just at the end). bash -n + shellcheck (21→21 vs git-show-HEAD baseline) unaffected by these YAML-only changes, re-confirmed anyway. Full diff stat: vm-bootstrap.sh +93/-8, install-recovery-harness.yaml +96/-16 (net, includes comment expansion), test-install.yaml +47/-16, upgrade-arc-harness.yaml +81/-9.
 
 All four owned files, nothing else touched, no git commands run. This is the complete build for AC#1's ruled remedy (naming + capacity) and AC#2 (ownership discipline, including the global sweep). AC#3 (a real tag-push fleet, zero resource_limit_exceeded, zero foreign deletions) needs rc.02 — cannot be produced by me. Frozen; consolidated report going to the foreman via SendMessage.
+---
+
+author: foreman
+created: 2026-08-16 21:28
+---
+LANDED as 4662b9147 on master, architect-approved with the scope expansion RATIFIED on all three pieces: (a) per-job reap suffix derived from the SAME env var as the lib's formula, must-match comment verified in the bytes (next-touch nicety recorded, not tonight: single-source the name via a job output so the reconstruction disappears); (b) exact-name reap strictly narrower, correct; (c) the age-gate ruled a SOUND cross-run-safe orphan definition — any VM older than every job timeout is an orphan by construction, so the sweep cannot touch a live run's VM; shipped sweeps use plain runner-native `date` (verified — gdate was local stubs only). AC#2 checked: ownership guard (207) + unique names + exact/suffix-matched reaps + age-gated sweeps together make foreign deletion impossible by construction at every deletion site. AC#3 (full tag-push fleet: zero resource_limit_exceeded, zero cross-run interference) is rc.02's observation. Tree is CLEAN — the overnight queue is complete.
 ---
 <!-- COMMENTS:END -->
