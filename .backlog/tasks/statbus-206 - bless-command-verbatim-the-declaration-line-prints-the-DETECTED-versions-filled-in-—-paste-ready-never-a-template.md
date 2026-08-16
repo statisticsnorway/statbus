@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-08-16 20:14'
-updated_date: '2026-08-16 20:22'
+updated_date: '2026-08-16 20:36'
 labels:
   - release
   - operator-ux
@@ -33,8 +33,8 @@ ORACLE: extend the 205 immutability-output tests — single modified version →
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The refusal's declaration line is the concrete paste-ready command with the detected version(s) comma-joined; template only when no version parsed
-- [ ] #2 The three output arms are unit-pinned alongside the 205 immutability tests
+- [x] #1 The refusal's declaration line is the concrete paste-ready command with the detected version(s) comma-joined; template only when no version parsed
+- [x] #2 The three output arms are unit-pinned alongside the 205 immutability tests
 - [ ] #3 Observed verbatim on a real tripped preflight
 <!-- AC:END -->
 
@@ -66,5 +66,11 @@ author: foreman
 created: 2026-08-16 20:22
 ---
 SEQUENCING CORRECTION (architect's call, executed immediately): the frozen diff sat in the SHARED tree — which is the King's cut tree — and his preflight clean-tree check refused on it. Mini-window executed: diff exported to tmp/206-wip.patch (157 lines, md5 d6a6a67e797b52b85dd1becf7b4abedd), both files reverted via git checkout, tree verified clean at 5d141d3ca (only the untracked backlog file remains — invisible to the tracked-only clean-tree check), git apply --check green. Restore armed on the tag watcher: on the new RC tag → apply patch, verify md5-identical, re-run tests, commit + push behind the tag. The approved-as-frozen verdict maps byte-for-byte onto the patch.
+---
+
+author: foreman
+created: 2026-08-16 20:36
+---
+LANDED as 821aaf066, pushed; tree clean. Sequencing postmortem: the King DID cut before retiring — the tag is v2026.08.0-rc.01 at 5d141d3ca (the month rolled to August, so the version prefix changed). My tag watcher was pattern-pinned to v2026.07.0-rc.* and never fired — foreman prediction error, caught on the overnight-orders state check. Restore was byte-verified: re-applied patch diff md5 d6a6a67e797b52b85dd1becf7b4abedd identical to the architect-approved freeze; gofmt/vet/build/tests green before commit. AC#1+#2 checked; AC#3 (observed verbatim on a real tripped preflight) stays open for the next live refusal.
 ---
 <!-- COMMENTS:END -->
