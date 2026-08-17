@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-08-16 22:29'
-updated_date: '2026-08-16 22:56'
+updated_date: '2026-08-17 03:57'
 labels:
   - upgrade-recovery
   - release
@@ -118,5 +118,11 @@ created: 2026-08-16 22:56
 LANDED as 8b58e533c, architect-approved (verdict: Arm B fail-closed — right; Arm A's exclusion lives at the chokepoint so BOTH invokers inherit the ABORT-hold preservation; the exported entrypoint delegates; the unresolved reattempt mechanism recorded as unresolved is exactly the discipline). AC#1 checked — mechanism established from code for pair-terminal, the reattempt residual honestly bounded with rc.02 as decider. AC#2 checked — both arms landed. AC#3 (both arcs green at an RC tag) is rc.02's observation.
 
 NEXT-TOUCH NOTE, architect's non-blocking placement observation (record and move on): on a residue box, app sessions opened mid-ladder inherit read-only until they recycle, because the clear runs post-completion rather than at earliest-established-ownership (DB-up + state known). Rare (kill-window residue only), self-healing on reconnect, arcs' oracle unaffected — but moving the invoker earlier in the ladder is the strictly-better placement when someone next touches this path.
+---
+
+author: foreman
+created: 2026-08-17 03:57
+---
+RIDER: golangci-lint's errcheck flagged Arm B's close-on-failure path at the tip (cmd/install.go:2364, conn.Close error unchecked) — the CI go-lint job went red though go-test itself was green, which would have muddied the King's morning cut readout. Fixed as d998e8b0c (architect-approved, emergency lane): `_ = conn.Close(ctx)`, the standard deliberate-discard idiom on an already-failing path; verified with the exact CI linter locally (0 issues). Root gap — builders' local verify chain omits golangci-lint while CI enforces it — filed separately as the freeze-checklist ticket per the architect's note.
 ---
 <!-- COMMENTS:END -->
