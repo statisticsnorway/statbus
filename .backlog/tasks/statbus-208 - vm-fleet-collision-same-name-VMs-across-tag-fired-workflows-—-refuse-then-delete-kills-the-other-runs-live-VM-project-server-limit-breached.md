@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-08-16 20:54'
-updated_date: '2026-08-16 22:30'
+updated_date: '2026-08-17 07:16'
 labels:
   - install-recovery
   - quality-gate
@@ -114,5 +114,11 @@ author: foreman
 created: 2026-08-16 22:30
 ---
 ARC RUN COMPLETE (31970534502, overall failure): 21 arcs green, 10 red. SEVEN of the ten reds are THIS ticket's defect B verbatim — all died in ~60-70s at `hcloud: server limit reached (resource_limit_exceeded)` during the 20:29-20:34 stampede window (claim-without-notify, boot-migrate-churn-alive-idle, deploy-status-proof, failing, postswap-after-commit-kill, c-rollback-resurrection, cross-version-rename-handoff; two spot-verified in the logs, timing+duration signature identical across all seven). Everything started after ~20:44 — once install-recovery's fleet stopped competing — ran real scenarios. Superseded-by-construction claim: the landed fixes (shared fleet group + create retry) remove this class; rc.02 is the proof (AC#3). The remaining THREE reds ran post-stampede for 12-17 min and are genuine, now filed: STATBUS-209 (read-only completion INSERT after rollback restore — rollback-pair-terminal + restore-broke-reattempt, same invariant), STATBUS-210 (un-park destroyed by the flag-recovery classifier — un-park-to-completion), STATBUS-211 (crollback-fixed fixture seed image build failure — masked this run by capacity, deterministic at rc.02). Also noted: the three 197-observation preswap arcs (preswap-backup-kill, preswap-binary-swap-kill, preswap-checkout-kill) all GREEN at this tag, post-stampede.
+---
+
+author: foreman
+created: 2026-08-17 07:16
+---
+rc.02 FLEET EVIDENCE, mixed verdict on this ticket's capacity design: v2026.08.0-rc.02 cut at 698228b09 (clean one-command run, no bless needed — the previous-RC comparison carries the blessed bytes). The shared hetzner-vm-fleet group WORKED for two workflows (test-install running, install-recovery correctly pending behind it) but FAILED at three: GitHub's group semantics hold one running + ONE pending — the third arrival CANCELLED the pending arc harness (run 32004847670, zero jobs). Defect B's zero-resource_limit_exceeded goal is so far holding; the serialization mechanism is superseded by STATBUS-214 (orchestrator workflow chaining the fleets explicitly — architect-ruled, dispatched to mechanic). INTERIM at rc.02: foreman's drain-then-dispatch monitor armed — hand-dispatches the arc harness at the tag once both fleet runs complete and the group is empty. AC#3's observation now spans the hand-dispatched arc run at rc.02 + the orchestrated fleet at the NEXT tag.
 ---
 <!-- COMMENTS:END -->
