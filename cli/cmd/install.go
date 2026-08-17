@@ -2361,7 +2361,7 @@ func connectInstallDB(dir string) (*pgx.Conn, error) {
 	// mid-pass re-engagement, or a wrong-path dispatch can 25006 install's OWN completion INSERT
 	// (install.go POST_COMPLETION_UPGRADE_ROW_INSERT_SUCCEEDS) — the rc.01 restore-broke arcs.
 	if _, err := conn.Exec(ctx, "SET default_transaction_read_only = off"); err != nil {
-		conn.Close(ctx)
+		_ = conn.Close(ctx)
 		return nil, fmt.Errorf("exempt install DB session from the read-only window: %w", err)
 	}
 	return conn, nil
