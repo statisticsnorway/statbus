@@ -3,11 +3,11 @@ id: STATBUS-207
 title: >-
   test-install-stage0-red: Stage 0 HTTPS-sources verify fails on current Hetzner
   image at v2026.08.0-rc.01 — now a stable gate, blocks promotion
-status: In Progress
+status: Done
 assignee:
   - mechanic
 created_date: '2026-08-16 20:38'
-updated_date: '2026-08-16 21:11'
+updated_date: '2026-08-17 08:22'
 labels:
   - release
   - quality-gate
@@ -38,7 +38,7 @@ NOTE the prior-generation reds: rc.05 (29260999692) and rc.06 (29347383207) also
 <!-- AC:BEGIN -->
 - [x] #1 Actual apt source URIs of the current Hetzner Ubuntu 24.04 image captured as evidence; Stage 0 fix (or deliberate verify redefinition) designed against them, architect-reviewed
 - [x] #2 vm-bootstrap.sh failure path no longer trips the hcloud server-ip harness failure after VM deletion — the real error reaches the log tail clean
-- [ ] #3 test-install green at an RC tag observed (the stable gate passes without SKIP_TEST_INSTALL)
+- [x] #3 test-install green at an RC tag observed (the stable gate passes without SKIP_TEST_INSTALL)
 <!-- AC:END -->
 
 ## Comments
@@ -184,4 +184,16 @@ created: 2026-08-16 21:11
 ---
 LANDED as 2462acc74 on master, architect-approved (final verdict: anchor fix exactly right and slightly better than prescribed — the shared uri_line_re extension to the shipped-mirror log lines noted approvingly; quoting at the verify site verified). AC#1 checked — the fix is designed against the evidence-established image shape and architect-reviewed (the URI dump on any future failure closes the capture loop permanently). AC#2 checked — the :618-class failure is triple-covered: ownership guard prevents the foreign deletion, _hcloud_server_ip surfaces stderr+rc, and verify-aggregation makes any genuine hardening failure fail the run at the right place. AC#3 (test-install green at an RC tag without SKIP) is the rc.02 observation — stays open; note it also depends on STATBUS-208 landing (the capacity + naming half of the fleet collision). 208 dispatching now.
 ---
+
+author: foreman
+created: 2026-08-17 08:22
+---
+AC#3 CLOSED at v2026.08.0-rc.02: test-install run 32004847708 COMPLETED SUCCESS at the tag — the FIRST green at an RC tag in this lane's recorded history (rc.01, rc.05, rc.06 all red), with no SKIP_TEST_INSTALL. The Stage-0 goal-verify passed on the real Hetzner image, verify-aggregation held (any hardening failure would now have failed the run), and no foreign deletion occurred (208's fixes + the serialized group). Install-recovery's 15/15 green in the same window is the same fixes proven at fleet scale. All three criteria checked — ticket DONE.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+test-install's never-green-at-tag streak traced to three stacked causes and fixed: Stage 0 of the hardening script verified a mechanism (kernel.org mirror presence) instead of its goal (no http:// URI on active source lines) and false-failed on Hetzner's already-HTTPS images; verify() failures aggregated nowhere across all 8 stages so no hardening check could ever fail a run; and a concurrent same-named run's cleanup deleted the live VM (the actual rc.01 killer, split to STATBUS-208). Landed: goal-based comment-safe Stage 0 with URI dumps on failure, verify-aggregation failing the run loudly, hcloud stderr surfaced at all call sites, and the VM ownership guard. Proven at v2026.08.0-rc.02: first-ever green at an RC tag, no bypass.
+<!-- SECTION:FINAL_SUMMARY:END -->
