@@ -415,7 +415,7 @@ fi
 # ── Agent tool ────────────────────────────────────────────────────────
 
 if [[ "$tool" == "Agent" ]]; then
-  run_in_bg=$(jq -r '.tool_input.run_in_background // false' <<<"$payload")
+  run_in_bg=$(jq -r 'if (.tool_input | has("run_in_background")) then (.tool_input.run_in_background | tostring) else "absent" end' <<<"$payload")  # absent = new harness (always-background) — passes; explicit false still denied (2026-08-17, King-blessed)
   new_agent_name=$(jq -r '.tool_input.name // ""' <<<"$payload")
   new_model=$(jq -r '.tool_input.model // "(default)"' <<<"$payload")
   spawn_mode=$(jq -r '.tool_input.mode // "default"' <<<"$payload")
@@ -446,7 +446,7 @@ Hook source: .claude/hooks/restrict-agent-spawn.sh"
 
   # Shared check: background + bypassPermissions requirement.
   check_bg_and_bypass() {
-    if [[ "$run_in_bg" != "true" ]]; then
+    if [[ "$run_in_bg" == "false" ]]; then
       emit_deny "BLOCKED: Agent spawn must use run_in_background: true.
 
 WHY: requiring background (long-running, reused-via-SendMessage) agents is a cost-AND-control rule, three ways — all lose-lose if ignored:
