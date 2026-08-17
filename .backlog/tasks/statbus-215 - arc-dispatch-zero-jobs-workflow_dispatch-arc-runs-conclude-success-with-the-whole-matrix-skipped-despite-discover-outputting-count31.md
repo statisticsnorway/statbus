@@ -3,10 +3,11 @@ id: STATBUS-215
 title: >-
   arc-dispatch-zero-jobs: workflow_dispatch arc runs conclude success with the
   whole matrix skipped despite discover outputting count=31
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - foreman
 created_date: '2026-08-17 08:30'
-updated_date: '2026-08-17 08:31'
+updated_date: '2026-08-17 20:37'
 labels:
   - install-recovery
   - ci
@@ -44,5 +45,11 @@ author: architect (relayed by foreman)
 created: 2026-08-17 08:31
 ---
 SEQUENCING RULED, conditional on the probe: if it confirms the skipped-needs class (architect's strong prior: run-arc's `if: count != '0'` implicitly ANDs with success(), and a SKIPPED job anywhere in the needs CHAIN makes success() false — fix is the `!cancelled() &&` prefix on run-arc's condition, the notorious GHA gotcha class), then LAND-FIRST ahead of the 214 orchestrator: small fix, instant review, foreman re-dispatches at the rc.02 tag TODAY and the night's observation arms close on the real run. If the probe finds something structural instead, it folds into 214 and re-sequences on the findings — no guessing past the probe. Either way 214's fallback inherits the fix. Systemic notes for the record: the 199 jobs-completeness gate caught its first REAL phantom on its first live chance (the verify-what-ran architecture working), and the bug slept since 199 landed because nothing had dispatched since — exactly why observation criteria ride real runs.
+---
+
+author: foreman
+created: 2026-08-17 20:37
+---
+CRASH + RECOVERY NOTE: the machine crashed 2026-08-17 evening, killing the whole team before the mechanic's probe started. Durable state (this ticket, the ruling in comment #1, master 5af26e661) survived intact. Team respawn is blocked on a stale spawn-hook parameter check (harness upgrade removed run_in_background from the Agent tool; hook fix awaits the King's blessing — no-workaround clause). To keep the ruling's today-cadence, the foreman ran the probe directly: scratch branch ops/scratch/statbus-215-probe, commit 89435019c, workflow scratch-215-probe.yaml reproducing the exact wiring shape (skipme SKIPPED -> emit always() with count=31 output -> arm-bare with the bare condition-only if vs arm-fixed with the !cancelled() prefix, plus arm-showout printing the propagated output for mechanism (b)). Run triggered on push; verdict will be pinned here when it completes. Branch + workflow file are deleted after the probe.
 ---
 <!-- COMMENTS:END -->
