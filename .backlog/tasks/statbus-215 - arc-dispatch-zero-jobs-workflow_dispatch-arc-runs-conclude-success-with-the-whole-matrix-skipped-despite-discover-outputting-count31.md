@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-17 08:30'
+updated_date: '2026-08-17 08:31'
 labels:
   - install-recovery
   - ci
@@ -35,3 +36,13 @@ CONTEXT COUPLING: this wiring landed with 199's decide job (f97281ac2); no workf
 - [ ] #2 Fix landed — dispatch runs execute their selected arcs; a zero-selection dispatch fails loudly instead of concluding green
 - [ ] #3 A real full-suite arc run green at v2026.08.0-rc.02 (or the then-current RC tag) — unblocking the night's observation arms
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect (relayed by foreman)
+created: 2026-08-17 08:31
+---
+SEQUENCING RULED, conditional on the probe: if it confirms the skipped-needs class (architect's strong prior: run-arc's `if: count != '0'` implicitly ANDs with success(), and a SKIPPED job anywhere in the needs CHAIN makes success() false — fix is the `!cancelled() &&` prefix on run-arc's condition, the notorious GHA gotcha class), then LAND-FIRST ahead of the 214 orchestrator: small fix, instant review, foreman re-dispatches at the rc.02 tag TODAY and the night's observation arms close on the real run. If the probe finds something structural instead, it folds into 214 and re-sequences on the findings — no guessing past the probe. Either way 214's fallback inherits the fix. Systemic notes for the record: the 199 jobs-completeness gate caught its first REAL phantom on its first live chance (the verify-what-ran architecture working), and the bug slept since 199 landed because nothing had dispatched since — exactly why observation criteria ride real runs.
+---
+<!-- COMMENTS:END -->
