@@ -507,10 +507,48 @@ jobs:
           echo "Discovered $count arc(s) for the matrix:"
           printf '%s\n' "$selected"
 
+  # STATBUS-215: a zero-selection run must fail LOUD, never conclude green
+  # with no scenario jobs (the any-green softness the 199 jobs-completeness
+  # gate exists to refuse). The ONE legitimate count=0 case is the RIDE
+  # short-circuit (tag-push, decide found no upgrade-sensitive changes —
+  # ratified 199 D2 green-skip); the exemption expression is independently
+  # re-derived here, deliberately NOT read from a discover output — same
+  # reason the release gate re-derives the RIDE decision instead of trusting
+  # the workflow's short-circuit. On workflow_dispatch decide is skipped, so
+  # needs.decide.outputs.sensitive is empty and the exemption never applies.
+  no-arcs-guard:
+    name: Refuse zero-arc run (non-RIDE)
+    needs: [decide, discover]
+    if: >-
+      ${{ !cancelled() &&
+          needs.discover.result == 'success' &&
+          needs.discover.outputs.count == '0' &&
+          !(github.event_name == 'push' && needs.decide.outputs.sensitive == 'false') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - run: |
+          echo "::error title=Zero arcs selected::discover produced count=0 outside the RIDE short-circuit — this run would execute nothing and prove nothing (STATBUS-215). A dispatched arc run must select at least one arc."
+          exit 1
+
   run-arc:
     name: ${{ matrix.scenario }}
     needs: [construct, image-wait, discover]
-    if: ${{ needs.discover.outputs.count != '0' }}
+    # STATBUS-215: a bare `if:` implicitly ANDs success(), and the transitively
+    # skipped `decide` job (skipped by design on workflow_dispatch) made
+    # success() false — run-arc silently skipped on EVERY dispatch despite
+    # count=31 (probe scratch-215-probe run 32066777357: the bare-if arm
+    # skipped, the !cancelled() arm ran, outputs propagated fine). The
+    # explicit per-need result checks restore what the implicit success()
+    # legitimately guarded: a FAILED or skipped direct need must still skip
+    # run-arc (!cancelled() alone would run over a failed construct). Only
+    # the transitive decide skip is exempt — by not being checked.
+    if: >-
+      ${{ !cancelled() &&
+          needs.construct.result == 'success' &&
+          needs['image-wait'].result == 'success' &&
+          needs.discover.result == 'success' &&
+          needs.discover.outputs.count != '0' }}
     strategy:
       # fail-fast: false is LOAD-BEARING (STATBUS-025) — a sibling arc failing
       # must NOT cancel the others (lose verdicts + skip cleanup traps → orphan VMs).
