@@ -3,9 +3,11 @@ id: STATBUS-237
 title: >-
   go-test-count-pin: nothing stops a future workflow from caching test verdicts
   again
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@mechanic'
 created_date: '2026-08-18 15:53'
+updated_date: '2026-08-18 19:02'
 labels:
   - ci
   - quality-gate
