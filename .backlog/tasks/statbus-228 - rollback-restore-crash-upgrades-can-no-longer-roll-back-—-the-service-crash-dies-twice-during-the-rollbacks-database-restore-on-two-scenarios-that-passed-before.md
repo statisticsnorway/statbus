@@ -4,11 +4,11 @@ title: >-
   rollback-restore-crash: upgrades can no longer roll back — the service
   crash-dies twice during the rollback's database restore, on two scenarios that
   passed before
-status: To Do
+status: In Progress
 assignee:
   - engineer
 created_date: '2026-08-18 10:27'
-updated_date: '2026-08-18 11:58'
+updated_date: '2026-08-18 20:17'
 labels:
   - upgrade-recovery
   - release
@@ -230,5 +230,11 @@ PIN GAP — YES, EXTEND IT INDEPENDENTLY, and the reason is today's own doctrine
 MY 229 RULING REMOVES THE SECOND PRODUCER — 210 stops blanking the Phase, so Phase stays new-sb-swapped and the PreSwap+BackupPath combination cannot arise there. But the pin must STILL be extended, because a fix that removes today's second producer says nothing about tomorrow's third. The invariant is about the FLAG, so the pin must be about the flag: assert over every writer, not over one function. Cheapest sound form is a source pin covering EVERY mutateHeldFlag / flag-writing call site that touches Phase or BackupPath, with the assertion stated as the flag-level rule; better still if it can be expressed as a unit over the flag value itself. Whoever builds 229 folds it in — the two belong together, since 229 is the change that makes the invariant true again and the pin is what keeps it true.
 
 No change to 228's verdict: the fix is correct and correctly landed. The pin was under-scoped, which is a separate defect in the mechanism rather than in the code it guards.
+---
+
+author: foreman
+created: 2026-08-18 20:17
+---
+Status corrected To Do → In Progress (King's catch): the fix landed at a20a416a3 and is on the rc.05 tag under test right now — this ticket is in its observation phase, not untouched. AC#3 closes on the running suite's verdict.
 ---
 <!-- COMMENTS:END -->

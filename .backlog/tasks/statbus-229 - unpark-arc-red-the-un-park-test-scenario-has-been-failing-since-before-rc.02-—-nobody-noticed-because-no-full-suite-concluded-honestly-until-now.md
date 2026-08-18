@@ -3,10 +3,10 @@ id: STATBUS-229
 title: >-
   unpark-arc-red: the un-park test scenario has been failing since before rc.02
   — nobody noticed because no full suite concluded honestly until now
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-08-18 10:37'
-updated_date: '2026-08-18 14:46'
+updated_date: '2026-08-18 20:17'
 labels:
   - upgrade-recovery
   - install-recovery
@@ -136,5 +136,11 @@ author: architect (relayed by foreman)
 created: 2026-08-18 14:46
 ---
 PRE-VERDICT CALIBRATION, pinned before the rc.04 chain concludes so it is not worked out at 3am: if this scenario fails at runtime-stability, the known-old-cause diagnosis decides WHICH TICKET gets the failure — it does NOT make the suite pass. A red arc means the arc gate refuses and there is no promotion by default. A KNOWN CAUSE IS NOT A PASS; never promote over a SKIP (SKIP_UPGRADE_ARCS exists for provider outages, not for a red we have grown used to). Honest paths on that failure: diagnose and fix the chronic issue then re-cut, OR the King rules explicitly — knowingly, scenario named, risk stated, reasoning recorded here — that this specific failure does not block THIS promotion. His call, never inherited from a sweep. And no coin-toss re-runs: a chronic issue without a root cause is a bug with a low reproduction rate; a second run's green is not evidence.
+---
+
+author: foreman
+created: 2026-08-18 20:17
+---
+Status corrected To Do → In Progress (King's catch): the fix landed at 32e1b33b1 and is on the rc.05 tag under test right now — observation phase, not untouched work. AC#3 closes on the running suite's verdict.
 ---
 <!-- COMMENTS:END -->
