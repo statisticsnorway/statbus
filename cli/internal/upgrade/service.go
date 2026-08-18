@@ -359,6 +359,33 @@ type UpgradeFlag struct {
 	// two consecutive deaths at the SAME step (deterministic hang → park early).
 	Step           string `json:"step,omitempty"`
 	PriorDeathStep string `json:"prior_death_step,omitempty"`
+	// RetreatedToSourceAt (STATBUS-229) records a FACT that the Phase vocabulary
+	// cannot express: this attempt's park restoration SUCCEEDED, so the box was
+	// brought all the way back to the source version and nothing is in flight any
+	// more. Set only on parkServiceRecovery's era-permitted success arm.
+	//
+	// It exists because every Phase value is a POSITION INSIDE an in-flight
+	// upgrade — died-before-swap, binary-swapped, resume-began — and after a
+	// completed retreat all of them are lies. STATBUS-210 expressed this state by
+	// blanking Phase to PhaseOldSbUpgrading, a value that ALREADY means "died
+	// before the swap"; two distinct states then shared one wire value, and
+	// recoverFromFlag's unconditional PreSwap rollback (:1341) arrived on
+	// schedule to roll back the very attempt an operator had just un-parked.
+	// A new state gets its OWN name rather than borrowing one.
+	//
+	// ABSENCE IS MEANINGFUL AND LOAD-BEARING: a park whose restoration was
+	// REFUSED (era guard said the box is not provably at source) leaves this
+	// unset, and that flag still truthfully describes a mid-upgrade box that
+	// RecoverFromFlag must handle. The two park outcomes must stay
+	// distinguishable — collapsing them was 210's defect.
+	RetreatedToSourceAt *time.Time `json:"retreated_to_source_at,omitempty"`
+}
+
+// HasRetreatedToSource reports whether this attempt's park restoration completed
+// — the box is back at the source version with nothing in flight (STATBUS-229).
+// Nil-safe so call sites can ask without a prior nil check.
+func (f *UpgradeFlag) HasRetreatedToSource() bool {
+	return f != nil && f.RetreatedToSourceAt != nil
 }
 
 // UnmarshalJSON is the ONE decode chokepoint for the on-disk flag: every read
@@ -769,6 +796,51 @@ func (d *Service) ClearFlagStepHistory() error {
 		return lerr
 	}
 	lock.Close() // release immediately; downstream recovery re-acquires
+	return nil
+}
+
+// RemoveFlagAfterRetreat deletes the upgrade marker for an attempt that already
+// RETREATED TO SOURCE (STATBUS-229) — the park restoration completed, so the box
+// is back at the source version with nothing in flight and the whole flag is
+// stale, not one field of it. The scheduled row is then claimed FRESH through
+// the normal path rather than "recovered".
+//
+// It REFUSES on a flag that does not carry the retreat marker, so the decision
+// cannot be made accidentally by a caller that skipped the check: an
+// era-REFUSED park leaves the marker unset and its flag truthfully describes a
+// mid-upgrade box that RecoverFromFlag must still handle. Sibling of
+// ClearFlagStepHistory and it shares that caller contract exactly — invoked ONLY
+// where no flock is held (the ./sb install crash-recovery path, unit quiesced,
+// flock free). It acquires the flock itself so the removal cannot race a live
+// holder, and never touches the row.
+func (d *Service) RemoveFlagAfterRetreat() error {
+	flag, err := ReadFlagFile(d.projDir)
+	if err != nil {
+		return err
+	}
+	if flag == nil {
+		return nil // already gone — the outcome the caller wanted
+	}
+	if flag.Holder != HolderService {
+		return fmt.Errorf("refusing to remove a %q-held upgrade flag: only a service-held flag can carry a completed retreat", flag.Holder)
+	}
+	if !flag.HasRetreatedToSource() {
+		return fmt.Errorf("refusing to remove the upgrade flag for id=%d: it carries no completed-retreat marker, so it still describes an in-flight upgrade that crash recovery must reconcile (an era-REFUSED park looks exactly like this)", flag.ID)
+	}
+	// Take the flock before unlinking: the caller's contract says the unit is
+	// quiesced, and acquiring proves it rather than assuming it. A live holder
+	// fails here instead of having its marker deleted underneath it.
+	lock, lerr := acquireFlock(d.projDir, *flag)
+	if lerr != nil {
+		return lerr
+	}
+	defer lock.Close()
+	const consequence = "the un-parked attempt will be treated as a crash recovery instead of a fresh attempt, and may be rolled back rather than resumed forward"
+	rerr := os.Remove(d.flagPath())
+	warnOnStaleFlagRemoveFailure(d.flagPath(), rerr, consequence)
+	if rerr != nil && !os.IsNotExist(rerr) {
+		return rerr
+	}
 	return nil
 }
 
@@ -5993,20 +6065,35 @@ func (d *Service) parkServiceRecovery(ctx context.Context, id int, restoreTarget
 		d.appendParkNarrative(id, fmt.Sprintf("source-version service restore did not complete (%v) — the box stays behind the maintenance page until the cause is fixed and the upgrade re-triggered", err))
 		return
 	}
-	// STATBUS-210 — TRUTH-RESTORATION AT THE WRITER. The successful restoration returned the box
-	// to its PRE-SWAP reality (source git + source binary + source config, via restoreSourceServices),
-	// so the held flag's post-swap phase marker now LIES about the box: a later crash-recovery
-	// classifier would read binary(source) != row-target → cannot-reach-new and roll back the very
-	// row an operator just un-parked (the un-park→rollback collision, STATBUS-159/111 contract
-	// violation). Rewrite the marker to PhaseOldSbUpgrading (died-before-swap semantics) with
-	// BackupPath KEPT (same attempt's snapshot identity — STATBUS-197's key still holds), so every
-	// existing reader works unchanged: the un-park's fresh attempt re-runs from the swap forward
-	// and recovery classifies truthfully — the marker describes the box again. ONLY on this
-	// era-permitted SUCCESS arm: a refusal (no restoration → marker already truthful) and a
-	// restoration failure (box state unproven → must not claim a pre-swap reality not achieved)
-	// both leave the flag byte-untouched via the early returns above.
-	if err := d.mutateHeldFlag(func(f *UpgradeFlag) { f.Phase = PhaseOldSbUpgrading }); err != nil {
-		progress.Write("Warning: source services restored but could not rewrite the flag phase to old-sb-upgrading (%v) — a crash-recovery classifier may misread the stale marker; the next re-trigger reconciles.", err)
+	// STATBUS-210, AS AMENDED BY STATBUS-229 — RECORD THE RETREAT AS ITS OWN FACT.
+	//
+	// The successful restoration returned the box to its PRE-SWAP reality (source git + source
+	// binary + source config, via restoreSourceServices), so the held flag's post-swap phase
+	// marker no longer describes the box. 210 was right about that and right that a stale
+	// marker gets the un-parked row rolled back; its REMEDY was the defect.
+	//
+	// 210 expressed "this box retreated to source" by blanking Phase to PhaseOldSbUpgrading —
+	// a value that ALREADY means "died before the swap" (it is the empty string, :259). Two
+	// distinct states then shared one wire value, and recoverFromFlag's PreSwap branch (:1341)
+	// rolls back UNCONDITIONALLY — so the un-park granted a fresh attempt and the next step
+	// rolled it back, which is precisely the collision 210 set out to prevent (STATBUS-229;
+	// observed at rc.03 in un-park-to-completion, plus a DB restore on an at-target lineage).
+	//
+	// The phase vocabulary describes POSITIONS INSIDE AN IN-FLIGHT UPGRADE. After a completed
+	// retreat every one of its values is a lie, so there is no honest phase to write. Record
+	// the FACT instead, in a field named for it, and leave Phase alone: readers that ask
+	// "where was this upgrade?" still get a truthful answer, and the new question ("is it
+	// over?") gets its own field rather than a borrowed one. The un-park then removes the flag
+	// outright (cli/cmd/install_upgrade.go, beside ClearFlagStepHistory) — after a completed
+	// retreat the WHOLE flag is stale, not one more field of it.
+	//
+	// ONLY on this era-permitted SUCCESS arm: a refusal (no restoration ran → the flag still
+	// truthfully describes a mid-upgrade box) and a restoration failure (box state unproven)
+	// both leave the flag byte-untouched via the early returns above. That distinction is
+	// load-bearing — see the un-park's conditional.
+	retreatAt := time.Now()
+	if err := d.mutateHeldFlag(func(f *UpgradeFlag) { f.RetreatedToSourceAt = &retreatAt }); err != nil {
+		progress.Write("Warning: source services restored but could not record the retreat on the flag (%v) — a later ./sb install will treat this as an in-flight upgrade and reconcile it rather than granting a clean fresh attempt; re-trigger the upgrade if that happens.", err)
 	}
 	progress.Write("Parked-box service recovery: the source version is restored and serving; the web UI is up while the row remains parked awaiting the deliberate un-park.")
 }

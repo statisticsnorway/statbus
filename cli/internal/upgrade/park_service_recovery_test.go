@@ -179,20 +179,33 @@ func TestParkServiceRecovery_SelfCoveringWatchdog_STATBUS204(t *testing.T) {
 	}
 }
 
-// TestParkServiceRecovery_TruthRestoresFlag_STATBUS210 (RED-first): on the era-permitted SUCCESS
-// arm, parkServiceRecovery rewrites the held flag's Phase to PhaseOldSbUpgrading (BackupPath KEPT)
-// so the marker describes the box again — a later crash recovery classifies truthfully instead of
-// rolling back a just-un-parked row. The refusal and failure arms leave the flag byte-untouched
-// (their early returns precede the rewrite). RED before 210 (200's restoration left the marker
-// lying post-swap).
+// TestParkServiceRecovery_TruthRestoresFlag_STATBUS210, AMENDED BY STATBUS-229
+// (architect-ruled, 2026-08-18).
+//
+// 210's SURVIVING invariants, all still pinned below: on the era-permitted SUCCESS arm — and ONLY
+// there — parkServiceRecovery records the completed retreat on the held flag, keeping BackupPath;
+// the refusal and failure arms leave the flag byte-untouched via their early returns. Those are the
+// properties 210 was right about, and they are unchanged.
+//
+// What 229 changed: 210 recorded the retreat by BLANKING Phase to PhaseOldSbUpgrading — a value
+// that already means "died before the swap" (it is the empty string, service.go:259). Two distinct
+// states shared one wire value, and recoverFromFlag's PreSwap branch rolls back UNCONDITIONALLY, so
+// an un-parked attempt was rolled back instead of resumed — the collision 210 existed to prevent.
+// The retreat is now recorded in its own field (RetreatedToSourceAt) and Phase is left alone,
+// because every phase value describes a position INSIDE an in-flight upgrade and none of them is
+// true after a completed retreat. The un-park then removes the whole flag (cmd/install_upgrade.go).
 func TestParkServiceRecovery_TruthRestoresFlag_STATBUS210(t *testing.T) {
 	src := string(packageGoSources(t)["service.go"])
 	psr := extractFuncBody(t, src, "func (d *Service) parkServiceRecovery(")
 
-	// The flag rewrite exists and sets Phase to PhaseOldSbUpgrading.
-	rewriteIdx := strings.Index(psr, "f.Phase = PhaseOldSbUpgrading")
+	// The retreat is recorded in its OWN field, via the held-flag rewrite.
+	rewriteIdx := strings.Index(psr, "f.RetreatedToSourceAt =")
 	if rewriteIdx < 0 || !strings.Contains(psr, "d.mutateHeldFlag(func(f *UpgradeFlag)") {
-		t.Fatal("STATBUS-210: parkServiceRecovery must rewrite the held flag Phase → PhaseOldSbUpgrading via mutateHeldFlag on successful restoration")
+		t.Fatal("STATBUS-210/229: parkServiceRecovery must record the completed retreat on the held flag (f.RetreatedToSourceAt) via mutateHeldFlag on successful restoration")
+	}
+	// And it must NOT go back to expressing the retreat as a phase: that is the 229 defect.
+	if strings.Contains(psr, "f.Phase =") {
+		t.Error("STATBUS-229: parkServiceRecovery must NOT write f.Phase. Every phase value describes a position inside an IN-FLIGHT upgrade, so after a completed retreat all of them are lies — and PhaseOldSbUpgrading in particular already means \"died before the swap\", which routes the un-parked attempt into recoverFromFlag's UNCONDITIONAL rollback (service.go:1341). Record the fact in its own field instead")
 	}
 	// BackupPath must be KEPT — the rewrite must NOT touch f.BackupPath (197's identity key holds).
 	if strings.Contains(psr, "f.BackupPath =") {

@@ -66,7 +66,7 @@ func readTestFlag(t *testing.T, projDir string) UpgradeFlag {
 	return *flag
 }
 
-// TestFlagHold_UnheldBudgetPark_RewritesPhaseOnDisk_STATBUS212 is the site-2 arm and
+// TestFlagHold_UnheldBudgetPark_RecordsRetreatOnDisk_STATBUS212 is the site-2 arm and
 // the one that proves the ruling did more than reorder site 1: resumeNewSb's
 // same-step-twice branch never acquired the flock AT ALL (its only acquireFlock sits
 // after the branch has returned), so there was nothing to reorder. Entering with NO
@@ -75,7 +75,7 @@ func readTestFlag(t *testing.T, projDir string) UpgradeFlag {
 // RED before STATBUS-212: mutateHeldFlag returns "no flag file held" and the on-disk
 // Phase stays new-sb-swapped — the lying marker that gets a just-un-parked row rolled
 // back.
-func TestFlagHold_UnheldBudgetPark_RewritesPhaseOnDisk_STATBUS212(t *testing.T) {
+func TestFlagHold_UnheldBudgetPark_RecordsRetreatOnDisk_STATBUS212(t *testing.T) {
 	dir := t.TempDir()
 	original := writeTestFlag(t, dir)
 	d := &Service{projDir: dir}
@@ -93,29 +93,36 @@ func TestFlagHold_UnheldBudgetPark_RewritesPhaseOnDisk_STATBUS212(t *testing.T) 
 			mid.Phase, mid.ID, mid.BackupPath, original.Phase, original.ID, original.BackupPath)
 	}
 
-	if err := d.mutateHeldFlag(func(f *UpgradeFlag) { f.Phase = PhaseOldSbUpgrading }); err != nil {
+	retreatAt := time.Now()
+	if err := d.mutateHeldFlag(func(f *UpgradeFlag) { f.RetreatedToSourceAt = &retreatAt }); err != nil {
 		t.Fatalf("the truth-restoration rewrite must succeed once the hold is adopted-or-acquired: %v", err)
 	}
 	release()
 
 	got := readTestFlag(t, dir)
-	if got.Phase != PhaseOldSbUpgrading {
-		t.Errorf("on-disk Phase = %q, want %q — a budget-parked, source-restored box must carry a PRE-SWAP marker, or the un-park's fresh attempt is rolled back by an honest reader (STATBUS-210/212)", got.Phase, PhaseOldSbUpgrading)
+	if !got.HasRetreatedToSource() {
+		t.Errorf("on-disk flag carries no completed-retreat marker — a budget-parked, source-restored box must record the retreat, or the un-park cannot tell a finished retreat from a mid-upgrade box (STATBUS-210/212/229)")
+	}
+	// STATBUS-229: the retreat gets its OWN field; Phase is left ALONE. Blanking it to
+	// PhaseOldSbUpgrading is what routed un-parked attempts into the unconditional
+	// PreSwap rollback.
+	if got.Phase != original.Phase {
+		t.Errorf("on-disk Phase = %q, want %q UNCHANGED — the retreat is recorded in its own field, never by borrowing a phase value that already means \"died before the swap\"", got.Phase, original.Phase)
 	}
 	// BackupPath is the attempt's snapshot identity (STATBUS-197) — the rewrite keeps it.
 	if got.BackupPath != original.BackupPath {
-		t.Errorf("BackupPath = %q, want %q kept — the rewrite changes the phase only", got.BackupPath, original.BackupPath)
+		t.Errorf("BackupPath = %q, want %q kept — the rewrite records the retreat only", got.BackupPath, original.BackupPath)
 	}
 	if got.ID != original.ID || got.CommitSHA != original.CommitSHA {
 		t.Errorf("identity fields changed: id=%d sha=%q, want id=%d sha=%q", got.ID, got.CommitSHA, original.ID, original.CommitSHA)
 	}
 }
 
-// TestFlagHold_ReleasedThenAdopted_RewritesPhaseOnDisk_STATBUS212 is the site-1 arm:
+// TestFlagHold_ReleasedThenAdopted_RecordsRetreatOnDisk_STATBUS212 is the site-1 arm:
 // RecoveryBudgetGuard acquires the flock, parks, RELEASES, and only then calls the
 // helper. The released state must be re-acquirable and the rewrite must still land —
 // and the guard's own release must not have damaged the marker on the way out.
-func TestFlagHold_ReleasedThenAdopted_RewritesPhaseOnDisk_STATBUS212(t *testing.T) {
+func TestFlagHold_ReleasedThenAdopted_RecordsRetreatOnDisk_STATBUS212(t *testing.T) {
 	dir := t.TempDir()
 	original := writeTestFlag(t, dir)
 	d := &Service{projDir: dir}
@@ -134,13 +141,14 @@ func TestFlagHold_ReleasedThenAdopted_RewritesPhaseOnDisk_STATBUS212(t *testing.
 	if err != nil {
 		t.Fatalf("adopt-or-acquire after the guard's release must succeed: %v", err)
 	}
-	if err := d.mutateHeldFlag(func(f *UpgradeFlag) { f.Phase = PhaseOldSbUpgrading }); err != nil {
+	retreatAt := time.Now()
+	if err := d.mutateHeldFlag(func(f *UpgradeFlag) { f.RetreatedToSourceAt = &retreatAt }); err != nil {
 		t.Fatalf("rewrite after re-acquire: %v", err)
 	}
 	release()
 
-	if got := readTestFlag(t, dir); got.Phase != PhaseOldSbUpgrading {
-		t.Errorf("on-disk Phase = %q, want %q at the RecoveryBudgetGuard site", got.Phase, PhaseOldSbUpgrading)
+	if got := readTestFlag(t, dir); !got.HasRetreatedToSource() {
+		t.Error("on-disk flag carries no completed-retreat marker at the RecoveryBudgetGuard site")
 	}
 }
 
@@ -172,7 +180,8 @@ func TestFlagHold_AlreadyHeldIsAdoptedNotReacquired_STATBUS212(t *testing.T) {
 		t.Fatal("release must be a NO-OP for an adopted lock: the helper may only release what IT acquired, never its caller's hold")
 	}
 	// Still usable by the owner after the helper returned.
-	if err := d.mutateHeldFlag(func(f *UpgradeFlag) { f.Phase = PhaseOldSbUpgrading }); err != nil {
+	retreatAt := time.Now()
+	if err := d.mutateHeldFlag(func(f *UpgradeFlag) { f.RetreatedToSourceAt = &retreatAt }); err != nil {
 		t.Fatalf("the caller's hold must survive the helper: %v", err)
 	}
 	lock.Close()

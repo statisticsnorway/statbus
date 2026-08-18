@@ -323,12 +323,51 @@ func runCrashRecovery(projDir string, restartIfRecovered *func()) error {
 				reason = "(no reason recorded)"
 			}
 			fmt.Printf("crash recovery: UN-PARKED upgrade id=%d (was parked: %s) — ./sb install grants ONE fresh attempt with a reset budget.\n", flag.ID, reason)
-			// STATBUS-044 comment #6 (architect F2): UnparkByID reset the ROW's
-			// recovery_attempts, but the flag's frozen Step + PriorDeathStep survive on
-			// disk — a same-step-twice park would otherwise INSTA-RE-PARK the fresh
-			// attempt at attempts==1, breaking the "one fresh attempt" contract. Clear
-			// the flag's death history too (the unit is quiesced here → flock free).
-			if cerr := svc.ClearFlagStepHistory(); cerr != nil {
+
+			// STATBUS-229: if this attempt's park restoration COMPLETED, the box is back
+			// at the source version and nothing is in flight — the whole flag is stale,
+			// not one more field of it. Remove it, and the scheduled row is then claimed
+			// FRESH through the normal path instead of being "recovered": a genuinely
+			// fresh attempt, which is what the un-park promises one line above.
+			//
+			// This is the third stale-field episode on one artifact, and the reason the
+			// answer is removal rather than another repair. STATBUS-044 cleared Step,
+			// then PriorDeathStep, because stale fields sabotaged the granted attempt;
+			// 210 added a third (a blanked Phase) with the same effect — RecoverFromFlag
+			// below read it as "died before the swap" and rolled the fresh attempt back.
+			// Patching the phase would pick the fourth field to wait for.
+			//
+			// CONDITIONAL, AND THE CONDITION IS LOAD-BEARING — DO NOT SIMPLIFY THIS TO AN
+			// UNCONDITIONAL REMOVE. A park whose restoration was REFUSED (the era guard
+			// could not prove the box is at source; it stays dark at the target) leaves
+			// the marker UNSET, and that flag truthfully describes a genuinely mid-upgrade
+			// box. Removing it there would strand exactly the state RecoverFromFlag exists
+			// to handle. The two park outcomes are different states and must stay
+			// distinguishable; making them indistinguishable was 210's defect.
+			//
+			// ORDERING IS THE FIX: after the successful un-park, before RecoverFromFlag
+			// below. Not earlier — the flag must SURVIVE the park window itself, since a
+			// present flag plus a free flock is how `./sb install` discovers the parked
+			// box and reaches this code at all.
+			if flag.HasRetreatedToSource() {
+				if rerr := svc.RemoveFlagAfterRetreat(); rerr != nil {
+					fmt.Printf("crash recovery: warning — could not remove the completed-retreat flag for upgrade id=%d after un-park: %v (the fresh attempt will be treated as a recovery instead; re-run ./sb install)\n", flag.ID, rerr)
+				} else {
+					// No local bookkeeping to update: `flag` is scoped to this if-statement,
+					// and every downstream consumer (RecoveryBudgetGuard, the boot-migrate
+					// deferral check, RecoverFromFlag) re-reads the flag FROM DISK. Removing
+					// the file is therefore the whole handoff — they will each find nothing
+					// in flight and let the scheduled row be claimed fresh.
+					fmt.Printf("crash recovery: the parked attempt had already retreated to the source version — cleared its upgrade marker so this grant is a FRESH attempt, not a resumed one.\n")
+				}
+			} else if cerr := svc.ClearFlagStepHistory(); cerr != nil {
+				// STATBUS-044 comment #6 (architect F2): UnparkByID reset the ROW's
+				// recovery_attempts, but the flag's frozen Step + PriorDeathStep survive on
+				// disk — a same-step-twice park would otherwise INSTA-RE-PARK the fresh
+				// attempt at attempts==1, breaking the "one fresh attempt" contract. Clear
+				// the flag's death history too (the unit is quiesced here → flock free).
+				// Unchanged for the era-REFUSED park, which still has a real in-flight
+				// upgrade to recover.
 				fmt.Printf("crash recovery: warning — could not clear the flag's death history for upgrade id=%d after un-park: %v (a fresh attempt may re-park via same-step-twice; re-run ./sb install)\n", flag.ID, cerr)
 			}
 		}

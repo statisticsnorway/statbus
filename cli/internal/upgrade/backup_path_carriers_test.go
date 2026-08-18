@@ -159,6 +159,110 @@ func TestPreSwapFlagCarriesNoBackupPath_STATBUS228(t *testing.T) {
 	}
 }
 
+// TestEveryBackupPathWriterIsAccountedFor_STATBUS229 is the RULED EXTENSION of
+// the pin above (STATBUS-229): its scope was executeUpgrade, but its CLAIM is
+// about every flag that reaches recovery. That gap was not theoretical — 210's
+// park rewrite produced a PreSwap-phase flag carrying a BackupPath from a
+// different function entirely, and the executeUpgrade-scoped pin could not see
+// it. A pin whose scope is narrower than its claim proves less than it appears
+// to.
+//
+// This enumerates EVERY writer of flag.BackupPath in the package's production
+// sources and requires each to be a known one. A new writer fails here until
+// someone states why it is safe — which is the property "no third producer
+// exists" needs in order to keep being true.
+func TestEveryBackupPathWriterIsAccountedFor_STATBUS229(t *testing.T) {
+	// Known writers, each with the reason it may carry the identity.
+	known := map[string]string{
+		"flag.BackupPath = backupPath":     "updateFlagNewSbSwapped — THE swap stamp; it sets Phase=PhaseNewSbSwapped in the same write, which is what makes 'a PreSwap flag carries no BackupPath' structural",
+		"BackupPath:     flag.BackupPath":  "resumeNewSb's reacquire — carries the identity forward across NewSbSwapped→NewSbUpgrading; both are post-swap phases",
+		"BackupPath: rowBackupPath.String": "completeInProgressUpgrade's FLAGLESS recovery — an IN-MEMORY record passed straight to recoveryRollback, never persisted for recoverFromFlag to classify (see the assertion below)",
+	}
+
+	var offenders []string
+	for name, srcBytes := range packageGoSources(t) {
+		if strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		for i, line := range strings.Split(string(srcBytes), "\n") {
+			trimmed := strings.TrimSpace(line)
+			if strings.HasPrefix(trimmed, "//") || !strings.Contains(trimmed, "BackupPath") {
+				continue
+			}
+			// Only assignments/initialisations, not reads or comparisons.
+			if !strings.Contains(trimmed, "BackupPath =") && !strings.Contains(trimmed, "BackupPath:") {
+				continue
+			}
+			accounted := false
+			for k := range known {
+				if strings.Contains(trimmed, k) {
+					accounted = true
+					break
+				}
+			}
+			if !accounted {
+				offenders = append(offenders, fmt.Sprintf("%s:%d: %s", name, i+1, trimmed))
+			}
+		}
+	}
+	if len(offenders) > 0 {
+		t.Errorf("STATBUS-229: %d unaccounted writer(s) of flag.BackupPath. Every writer must be known, because the PreSwap branch's no-touch guarantee (service.go:1348-1349) holds only while NO path can hand recovery a PreSwap-phase flag carrying a snapshot identity — 197 broke it from executeUpgrade, 210 broke it again from parkServiceRecovery. If this new writer is safe, add it to `known` with the reason; if it pairs a PreSwap phase with a BackupPath on a PERSISTED flag, it is the same defect a third time:\n  %s",
+			len(offenders), strings.Join(offenders, "\n  "))
+	}
+
+	// THE ACTUAL INVARIANT, checked per construction site: a flag literal may pair
+	// a BackupPath with a POST-SWAP phase freely (that is the normal, correct
+	// shape). What must never reach recoverFromFlag's classifier is a PERSISTED
+	// flag pairing a PRE-SWAP phase with a BackupPath — the state 197 produced from
+	// executeUpgrade and 210 produced from parkServiceRecovery.
+	//
+	// Both synthesized-flag sites are checked here and both are legal today, for
+	// DIFFERENT reasons — which is exactly why the check has to read the phase
+	// rather than the shape:
+	//   - completeInProgressUpgrade's flagless rollback: Phase=PhaseOldSbUpgrading
+	//     (PreSwap) WITH a BackupPath — safe ONLY because the record is handed
+	//     straight to recoveryRollback and never written to disk.
+	//   - parkAtTarget: Phase=PhaseNewSbSwapped WITH a BackupPath, and it IS
+	//     persisted — legal, because a post-swap phase carrying the identity is the
+	//     shape the invariant exists to preserve.
+	src := string(packageGoSources(t)["service.go"])
+	for _, idx := range indexAll(src, "BackupPath: rowBackupPath.String") {
+		literalStart := strings.LastIndex(src[:idx], "UpgradeFlag{")
+		if literalStart < 0 {
+			t.Errorf("STATBUS-229: could not find the flag literal enclosing the BackupPath assignment at offset %d — re-anchor this pin", idx)
+			continue
+		}
+		literal := src[literalStart:idx]
+		if !strings.Contains(literal, "Phase:      PhaseOldSbUpgrading") {
+			continue // a post-swap phase carrying the identity is the legal shape
+		}
+		// PreSwap + BackupPath: legal only while it stays in memory.
+		window := src[max0(literalStart-1200) : idx+200]
+		if !strings.Contains(window, "d.recoveryRollback(ctx, UpgradeFlag{") {
+			t.Errorf("STATBUS-229: a flag literal at offset %d pairs a PRE-SWAP phase with a BackupPath and is NOT handed straight to recoveryRollback — if it is persisted, recoverFromFlag will classify it as \"died before the swap\" and roll back destructively over a volume the phase says was never touched. That is 197 and 210 for a third time", literalStart)
+		}
+	}
+}
+
+func indexAll(s, sub string) []int {
+	var out []int
+	for i := 0; ; {
+		j := strings.Index(s[i:], sub)
+		if j < 0 {
+			return out
+		}
+		out = append(out, i+j)
+		i += j + len(sub)
+	}
+}
+
+func max0(i int) int {
+	if i < 0 {
+		return 0
+	}
+	return i
+}
+
 // TestPreSwapRecoveryDoesNotRestore_STATBUS228 pins the OBSERVABLE that exposed
 // Defect 2: the PreSwap branch tells the operator "the database was not
 // modified, so nothing needs restoring" — and must not then restore. The
