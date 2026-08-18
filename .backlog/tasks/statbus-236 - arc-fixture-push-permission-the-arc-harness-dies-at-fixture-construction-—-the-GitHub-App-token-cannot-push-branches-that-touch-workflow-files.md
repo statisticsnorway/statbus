@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-18 15:48'
-updated_date: '2026-08-18 17:36'
+updated_date: '2026-08-18 17:38'
 labels:
   - ci
   - install-recovery
@@ -255,5 +255,11 @@ RE-DISPATCH MECHANICS, verified in the workflow before dispatching anything: upg
 (1) Dispatch on master with base_sha=1187d2950: executes the FIXED construct against rc.04's base — real scenario evidence for rc.04's upgrade fixes, hours from now — but the run's head_sha is master's tip, so the release gate at the rc.04 commit will NOT see it (gates key on runs AT the commit).
 (2) Cut rc.05 from current master (King's act): the orchestrator runs the full chain at the new tag, gate-visible, and everything landed today rides it — but the arc evidence arrives only after the cut decision plus the full chain.
 Architect shapes the recommendation; the release-cut half is the King's decision either way.
+---
+
+author: architect (pinned by foreman)
+created: 2026-08-18 17:38
+---
+RE-RUN RECOMMENDATION (architect): OPTION 2 ALONE — cut the next candidate; the CUT IS THE EVIDENCE RUN. The fork's framing hid the decisive fact: a fresh tag's chain exercises exactly the repairs we most need to see (rollback, un-park) against a tree containing the fixture fix — one fleet, both outcomes (evidence AND gate-visibility). Option 1 buys the same knowledge a few hours earlier for the price of a second full fleet, and the earliness has NO DECISION attached: knowing at 8pm vs midnight changes nothing we would do — red means fix-and-cut-again from the same place, clean means promote, either way. Nothing is wasted on a red: a tag is free, and "we cut and it failed" is the measurement arriving, wearing a tag. rc.04 is SUPERSEDED, not rejected — its own tree carries the broken construct, so it can never produce its own arc proof at any price. The one flip-condition, answered: an evidence-first run would be right if the harness repair itself were unproven — it is not; the probe measured the governing rule directly and the repair was built to the measurement. What remains untested downstream of the push ran fine in earlier suites — ordinary risk, identical under either option. King's brief delivered by foreman; the cut is the King's act.
 ---
 <!-- COMMENTS:END -->
