@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-18 15:48'
-updated_date: '2026-08-18 17:24'
+updated_date: '2026-08-18 17:36'
 labels:
   - ci
   - install-recovery
@@ -38,10 +38,10 @@ WHAT IS ACHIEVED WHEN DONE: the arc fleet can construct its fixtures again, the 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The trace answers: which credential pushes fixtures, why it lacked workflows permission, and whether this path ever worked before (named prior run or commit)
-- [ ] #2 A remedy recommendation is pinned on the ticket and adversarially verified by the architect before implementation; King-gated actions (App permission grants) are named as such, never self-authorized
+- [x] #1 The trace answers: which credential pushes fixtures, why it lacked workflows permission, and whether this path ever worked before (named prior run or commit)
+- [x] #2 A remedy recommendation is pinned on the ticket and adversarially verified by the architect before implementation; King-gated actions (App permission grants) are named as such, never self-authorized
 - [ ] #3 The fix lands and a re-run of the arc fleet constructs fixtures and executes a non-zero number of scenarios
-- [ ] #4 The zero-scope guard is confirmed intact: a fixture-construction failure still fails the run loudly
+- [x] #4 The zero-scope guard is confirmed intact: a fixture-construction failure still fails the run loudly
 <!-- AC:END -->
 
 ## Comments
@@ -238,5 +238,22 @@ created: 2026-08-18 17:24
 RULING: SWITCH TO SHAPE A (architect). The trade is not one build-review cycle vs a proven-legal shape — it is one cycle vs a PERMANENT cost plus two standing verification obligations: shipping B keeps (i) a full seed rebuild across eleven fixture branches on every arc run forever (master-era prior seeds mismatch), (ii) the git-describe/VERSION change requiring live-arc verification before any fleet rides, (iii) the parent..commit consumer enumeration. Under Shape A all three DO NOT EXIST — the switch deletes work, it does not add it. Deeper: declining the answer would waste the measurement — the probe's stated value was "is there a simpler correct shape to switch to", and it answered yes; shipping B would choose the legal over the right, having just paid to learn the difference. Shape A's legality is EMPIRICAL: arm (b) IS Shape A and it pushed. (Honest note: (b) lacks the migration that (c) was required to carry — material before the rule was known, immaterial now: under rule (T) only the workflow tree is examined and a migration is a product path.)
 
 REVIEW CHECKLIST for the revised diff: (1) both self-checks survive the parent change — workflows equal origin/master exactly, product tree equals base + exactly the fixture migration; Guard 2's PURPOSE survives even as its shape simplifies. (2) ONLY the parent changes — same read-tree -u --reset at the base, same workflow overlay, same failure-loud arms; construction drift = a third shape, not a switch. (3) --detach origin/master fully removed, not left unused — a half-applied switch is how a shape becomes a hybrid nobody intended. No new exposure vs B: the hybrid hazard (STATBUS-238) is unchanged in kind and severity. Probe file removal rides the remedy's landing series.
+---
+
+author: architect (pinned by foreman)
+created: 2026-08-18 17:35
+---
+SHAPE A APPROVED (architect; all three checklist points verified at source). Highlights: read-tree kept and honestly relabelled as a checkout-verifying no-op — better judgement than removing it for tidiness, since the assertions follow the identical primitive Shape B was reviewed under. Residual Shape B mentions all correct to keep: A COMMENT DESCRIBING A REJECTED ALTERNATIVE IS NOT A STALE PREMISE; a comment describing current behaviour incorrectly is — he kept the right ones and fixed the wrong ones, the harder half of the rule. The wording fixes were REQUIRED, not scope creep — the nothing-to-commit fallback naming the default ref would have been factually FALSE about which commit the fixture base is under Shape A: a correctness fix in the message layer, on an operator-facing line. The fallback is not a bypass (checked): when the base's workflows already equal the default branch, the fixture base IS the base SHA — legal precisely because they match; both self-checks run on that path and pass trivially — the no-op route is validated by the same guards as the mutation route. Habit named: verifying the workflow-touching diff IS present (11 files) rather than asserting absence — measuring the thing that would have been assumed. LANDING THE SERIES with the probe removal; the fleet re-run is the first suite in this campaign that can actually tell us whether rollback, un-park and the rest hold.
+---
+
+author: foreman
+created: 2026-08-18 17:36
+---
+LANDED: Shape A as 65fa3fd09; probe removed as b2c3e7c61 (answer pinned, no standing machinery). AC#1/#2/#4 closed; AC#3 awaits a re-run that constructs fixtures and executes scenarios.
+
+RE-DISPATCH MECHANICS, verified in the workflow before dispatching anything: upgrade-arc-harness.yaml takes a workflow_dispatch `base_sha` input that wins over GITHUB_SHA (:195-205, "ad-hoc base_sha" is a designed path). This matters because a dispatch at --ref v2026.08.0-rc.04 would execute the TAG's tree — which lacks the fix. The fixed code only runs from master's tree. Two candidate shapes for the re-run, each with a different value:
+(1) Dispatch on master with base_sha=1187d2950: executes the FIXED construct against rc.04's base — real scenario evidence for rc.04's upgrade fixes, hours from now — but the run's head_sha is master's tip, so the release gate at the rc.04 commit will NOT see it (gates key on runs AT the commit).
+(2) Cut rc.05 from current master (King's act): the orchestrator runs the full chain at the new tag, gate-visible, and everything landed today rides it — but the arc evidence arrives only after the cut decision plus the full chain.
+Architect shapes the recommendation; the release-cut half is the King's decision either way.
 ---
 <!-- COMMENTS:END -->
