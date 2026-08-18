@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-18 15:48'
-updated_date: '2026-08-18 17:38'
+updated_date: '2026-08-18 17:44'
 labels:
   - ci
   - install-recovery
@@ -261,5 +261,11 @@ author: architect (pinned by foreman)
 created: 2026-08-18 17:38
 ---
 RE-RUN RECOMMENDATION (architect): OPTION 2 ALONE — cut the next candidate; the CUT IS THE EVIDENCE RUN. The fork's framing hid the decisive fact: a fresh tag's chain exercises exactly the repairs we most need to see (rollback, un-park) against a tree containing the fixture fix — one fleet, both outcomes (evidence AND gate-visibility). Option 1 buys the same knowledge a few hours earlier for the price of a second full fleet, and the earliness has NO DECISION attached: knowing at 8pm vs midnight changes nothing we would do — red means fix-and-cut-again from the same place, clean means promote, either way. Nothing is wasted on a red: a tag is free, and "we cut and it failed" is the measurement arriving, wearing a tag. rc.04 is SUPERSEDED, not rejected — its own tree carries the broken construct, so it can never produce its own arc proof at any price. The one flip-condition, answered: an evidence-first run would be right if the harness repair itself were unproven — it is not; the probe measured the governing rule directly and the repair was built to the measurement. What remains untested downstream of the push ran fine in earlier suites — ordinary risk, identical under either option. King's brief delivered by foreman; the cut is the King's act.
+---
+
+author: foreman
+created: 2026-08-18 17:44
+---
+FILTER ANSWER (foreman, verified at source — taking the engineer's owed item off his stuck session): checkMigrationImmutability filters non-migration housekeeping exactly as the stamp logic does. release.go:888-891 — only files ending .up.sql/.down.sql/.up.psql/.down.psql carry the immutability constraint; everything else under migrations/ is skipped with the comment "directory placeholders (.gitkeep) and other housekeeping files ... aren't deployed migrations". post_restore.sql matches none of the four suffixes → skipped. CONSEQUENCE for the next cut (per 239 ruling 2): the previous-stable comparison v2026.05.5..HEAD will surface exactly ONE file for adjudication — migrations/20260218215337_add_legal_relationship_import.up.sql — not two; the gate itself already handles the other. The engineer's queue is now empty.
 ---
 <!-- COMMENTS:END -->
