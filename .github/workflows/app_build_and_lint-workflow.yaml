@@ -1,9 +1,25 @@
 name: app build & lint
+
+# STATBUS-219 Stage 2 (doc-030, architect comment #11): this workflow is an
+# INDEPENDENT trigger — nothing chains off it — so a board-only push that
+# matches push.paths-ignore below produces NO run at all, with no
+# conclusion for anything downstream to misread. The resulting Missing at
+# the tip is exactly what STATBUS-219 Stage 1's ancestor-ride in the
+# release preflight was built and RED-verified to cover.
+#
+# paths-ignore IS A THIRD COPY of ops/release/ci-exempt-paths.txt's content
+# — GitHub evaluates path filters server-side, before any job or checkout
+# runs, so there is no way to read the checked-in list at trigger-filter
+# time. KEPT IN SYNC BY HAND: this list, go-test.yaml's matching
+# push.paths-ignore, and ci-exempt-paths.txt must all change together;
+# ci-exempt-paths.txt's own header points back at both.
 on:
   workflow_dispatch:
   push:
     branches-ignore:
       - 'ops/**'  # Ignore any branch prefixed with ops/
+    paths-ignore:
+      - '.backlog/**'
   pull_request:
     branches-ignore:
       - 'ops/**'  # Ignore any branch prefixed with ops/

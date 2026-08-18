@@ -23,6 +23,25 @@ on:
   # manual safety valve for commits not reached via master push.
   workflow_dispatch:
 
+# STATBUS-219 Stage 2 (doc-030, architect comment #11 — build only the two
+# safe parts, drop the chained-workflow half). Images is a PUBLISH gate, not
+# a verdict gate (doc-030 Finding 1) — it can never RIDE a prior green the
+# way pg_regress/go-test/app-build-lint can, because "content identical to a
+# tested ancestor" does not make an artifact exist at THIS SHA. Every master
+# commit must still have real, pullable images, unconditionally — deployment
+# would fail on a stale manifest otherwise. But when a push's ENTIRE diff
+# since its parent touches only ops/release/ci-exempt-paths.txt's exempt
+# paths (today: .backlog/ — board activity), rebuilding from source proves
+# nothing a byte-for-byte copy of the parent's already-published images
+# wouldn't also prove. `decide-exempt-only` below makes that call; on a
+# match, `retag` copies each service's existing multi-arch manifest to the
+# new SHA in seconds (`docker buildx imagetools create --tag <new> <parent>`)
+# instead of `build` running the full multi-platform matrix. The invariant —
+# every commit has images at its SHA — holds unconditionally either way;
+# only the COST of holding it changes. FAILS TOWARD FULL BUILD on any doubt:
+# an unreachable/all-zero parent commit, a missing or empty exempt-paths
+# list, any non-exempt file in the diff, or the parent's own images not
+# actually being complete in the registry all route to the full build path.
 permissions:
   packages: write
 
@@ -50,8 +69,157 @@ jobs:
           echo "Computed commit_short: $COMMIT_SHORT"
           echo "commit_short=$COMMIT_SHORT" >> "$GITHUB_OUTPUT"
 
+  decide-exempt-only:
+    name: "Decide: is this push exempt-only? (retag vs full build)"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      exempt: ${{ steps.check.outputs.exempt }}
+      parent_short: ${{ steps.check.outputs.parent_short }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history — need to reach github.event.before, which can be
+          # arbitrarily far back on a rebase/force-push (rare on master, but
+          # the check below fails toward full build if it isn't reachable).
+          fetch-depth: 0
+
+      - id: check
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          TIP_SHA: ${{ github.sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        # Mirrors cli/cmd/release.go's fileIsCIExempt / changedFilesAllExempt
+        # EXACTLY (same anchored-prefix rule, same -z diff discipline) — NOT
+        # unified into one implementation because the Go logic is unexported
+        # and this is a workflow-side decision made before any Go binary is
+        # even built here. Flagged as a duplication risk in STATBUS-219's
+        # report: a future drift between this bash copy and the Go original
+        # would need to be caught by eye, same as any other two-copy rule
+        # would. A `./sb` subcommand exposing the check would remove the
+        # risk structurally; out of scope for this pass.
+        #
+        # THE MATCHING RULE, verbatim from fileIsCIExempt's own comment: an
+        # entry ending in `/` matches any path with that literal prefix; an
+        # entry with no trailing `/` matches that exact file or that
+        # directory's contents (never a sibling sharing its name as a
+        # prefix — `doc` must not exempt `docker-compose.yml`). Pure literal
+        # substring comparison (bash parameter-expansion slicing), never
+        # shell glob matching, so a future exempt-list entry containing
+        # glob-special characters can't silently change behaviour.
+        #
+        # -z IS LOAD-BEARING, NOT HYGIENE (verbatim rationale from
+        # release.go): `git diff --name-only` QUOTES any path with
+        # non-ASCII or special characters, and this repo's board filenames
+        # carry em-dashes — under the default newline-separated form, most
+        # real board commits would come back with quoted paths that match
+        # no anchored prefix and would therefore (correctly, safely, but
+        # uselessly) be treated as non-exempt. `-z` emits raw NUL-separated
+        # bytes with no quoting at all.
+        run: |
+          set -euo pipefail
+
+          if [ -z "$BEFORE_SHA" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            echo "No usable parent commit (new branch / force-push edge case) — full build (fail toward full build)."
+            echo "exempt=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! git cat-file -e "$BEFORE_SHA" 2>/dev/null; then
+            echo "Parent commit $BEFORE_SHA not reachable from this checkout — full build (fail toward full build)."
+            echo "exempt=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ ! -s ops/release/ci-exempt-paths.txt ]; then
+            echo "::error title=Missing/empty exempt-paths list::ops/release/ci-exempt-paths.txt is missing or empty — full build (fail toward full build)."
+            echo "exempt=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          PATTERNS="$(grep -v '^#' ops/release/ci-exempt-paths.txt | grep -v '^[[:space:]]*$')"
+          if [ -z "$PATTERNS" ]; then
+            echo "Exempt-paths list has no active entries (all comments/blank) — full build (fail toward full build)."
+            echo "exempt=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          file_is_exempt() {
+            local file="$1" entry entry_slash
+            while IFS= read -r entry; do
+              [ -z "$entry" ] && continue
+              case "$entry" in
+                */)
+                  if [ "${file:0:${#entry}}" = "$entry" ]; then
+                    return 0
+                  fi
+                  ;;
+                *)
+                  if [ "$file" = "$entry" ]; then
+                    return 0
+                  fi
+                  entry_slash="${entry}/"
+                  if [ "${file:0:${#entry_slash}}" = "$entry_slash" ]; then
+                    return 0
+                  fi
+                  ;;
+              esac
+            done <<< "$PATTERNS"
+            return 1
+          }
+
+          all_exempt=true
+          offender=""
+          while IFS= read -r -d '' path; do
+            [ -z "$path" ] && continue
+            if ! file_is_exempt "$path"; then
+              all_exempt=false
+              offender="$path"
+              break
+            fi
+          done < <(git diff --name-only -z "$BEFORE_SHA".."$TIP_SHA")
+
+          if [ "$all_exempt" != "true" ]; then
+            echo "Non-exempt file in the diff since $BEFORE_SHA ($offender) — full build."
+            echo "exempt=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          PARENT_SHORT="$(git rev-parse --short=8 "$BEFORE_SHA")"
+          echo "All changed files since $BEFORE_SHA ($PARENT_SHORT) are exempt paths."
+
+          # Fail toward full build on doubt about the THING being copied,
+          # not just about the diff: verify the parent's images are
+          # actually complete before ever routing to retag.
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          missing=""
+          for svc in app worker db proxy sb; do
+            ref="ghcr.io/statisticsnorway/statbus-${svc}:${PARENT_SHORT}"
+            if ! docker manifest inspect "$ref" >/dev/null 2>&1; then
+              missing="${missing} statbus-${svc}:${PARENT_SHORT}"
+            fi
+          done
+          if [ -n "$missing" ]; then
+            echo "Parent commit's images are incomplete in the registry (${missing}) — full build (fail toward full build)."
+            echo "exempt=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Parent images verified complete — retag path."
+          echo "exempt=true" >> "$GITHUB_OUTPUT"
+          echo "parent_short=$PARENT_SHORT" >> "$GITHUB_OUTPUT"
+
   build:
-    needs: describe
+    needs: [describe, decide-exempt-only]
+    # STATBUS-219: skip the full build ONLY on a verified exempt-only push
+    # (see decide-exempt-only above; retag covers this case instead).
+    # Explicit result checks, not a bare if: — decide-exempt-only is a
+    # direct need now, so a bare if: here would implicitly AND success()
+    # over it and this job would need auditing the same way every other
+    # if: in this repo's fleet workflows has been since STATBUS-215.
+    if: >-
+      ${{ !cancelled() &&
+          needs.describe.result == 'success' &&
+          needs['decide-exempt-only'].result == 'success' &&
+          needs['decide-exempt-only'].outputs.exempt != 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -112,6 +280,17 @@ jobs:
 
   manifest:
     needs: [describe, build]
+    # Only meaningful after a real build — a skipped/failed build has
+    # nothing to merge. Explicit result check (215-class audit): build now
+    # sits behind an exempt-decision need of its own, so its result can be
+    # 'skipped' as well as 'success'/'failure'; a bare if: would implicitly
+    # AND success() over it and silently skip this job on every exempt push
+    # too, which is correct here by coincidence but for the wrong reason —
+    # say it directly instead.
+    if: >-
+      ${{ !cancelled() &&
+          needs.describe.result == 'success' &&
+          needs.build.result == 'success' }}
     runs-on: ubuntu-24.04
     strategy:
       matrix:
@@ -133,6 +312,42 @@ jobs:
             --tag ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service }}:${TAG} \
             ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service }}:${TAG}-amd64 \
             ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service }}:${TAG}-arm64
+
+  retag:
+    name: Retag parent's images (exempt-only push)
+    needs: [describe, decide-exempt-only]
+    # The mirror image of build's if: — runs ONLY on a verified exempt-only
+    # push. Same explicit-result-check reasoning as build/manifest above.
+    if: >-
+      ${{ !cancelled() &&
+          needs.describe.result == 'success' &&
+          needs['decide-exempt-only'].result == 'success' &&
+          needs['decide-exempt-only'].outputs.exempt == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        service: [app, worker, db, proxy, sb]
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Retag ${{ matrix.service }} from the parent commit
+        # docker buildx imagetools create copies an EXISTING manifest (here,
+        # the parent's already-published multi-arch manifest list) to a new
+        # tag — no rebuild, no per-arch dance, seconds not minutes. Safe
+        # regardless of whether the parent's own tag was itself a real
+        # build or an earlier retag: a registry tag is a real reference
+        # either way, and decide-exempt-only already verified it resolves.
+        run: |
+          set -euo pipefail
+          SRC="${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service }}:${{ needs['decide-exempt-only'].outputs.parent_short }}"
+          DST="${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service }}:${{ needs.describe.outputs.commit_short }}"
+          echo "Retagging (exempt-only push): ${SRC} -> ${DST}"
+          docker buildx imagetools create --tag "$DST" "$SRC"
 
   seed:
     # statbus-seed: the pre-upgrade seed dump, shipped as a commit-tagged image
@@ -169,8 +384,26 @@ jobs:
     # #3) — the working lineage's seed is equally unconsumed despite
     # building cleanly, so the skip is unconditional for the whole
     # test/upgrade-arc-* prefix, not just the branches currently red.
-    if: ${{ !startsWith(github.ref_name, 'test/upgrade-arc-') }}
-    needs: [describe, manifest]
+    #
+    # STATBUS-219: needs BOTH manifest and retag now — exactly one of the
+    # two actually runs on any given push (build->manifest on a normal
+    # push, retag on a verified exempt-only push; decide-exempt-only's own
+    # BEFORE_SHA check already fails toward full build — i.e. toward
+    # manifest, not retag — for a workflow_dispatch run, since
+    # github.event.before does not exist for that event type; this
+    # includes the upgrade-arc-harness fixture-branch dispatches, which
+    # keep running the full build path unchanged). seed proceeds once
+    # EITHER succeeded, refuses if either genuinely FAILED, and refuses if
+    # somehow BOTH were skipped (a bug state — neither build path ran, so
+    # there is nothing for seed to pull sb from).
+    if: >-
+      ${{ !startsWith(github.ref_name, 'test/upgrade-arc-') &&
+          !cancelled() &&
+          needs.describe.result == 'success' &&
+          (needs.manifest.result == 'success' || needs.manifest.result == 'skipped') &&
+          (needs.retag.result == 'success' || needs.retag.result == 'skipped') &&
+          !(needs.manifest.result == 'skipped' && needs.retag.result == 'skipped') }}
+    needs: [describe, manifest, retag]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4

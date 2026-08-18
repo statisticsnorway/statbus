@@ -16,11 +16,32 @@
 # matches `.backlog/tasks/x.md` and never `app/src/.backlog-widget.ts`.
 # One entry per line; blank lines and lines starting with # are ignored.
 #
-# THE IMAGES GATE NEVER RIDES, whatever this file says. The other four gates
-# ask "did this content pass?", and content identical to a tested ancestor has
-# demonstrably passed. images asks "do the Docker artifacts EXIST at this
-# SHA?" — no argument about markdown makes an image materialise at a SHA
-# nothing published to. The exclusion is enforced in code, not by this list.
+# THE IMAGES GATE NEVER RIDES, whatever this file says — that stays true.
+# The other four gates ask "did this content pass?", and content identical
+# to a tested ancestor has demonstrably passed. images asks "do the Docker
+# artifacts EXIST at this SHA?" — no argument about markdown makes an image
+# materialise at a SHA nothing published to. The Go-side ride exclusion is
+# enforced in code, not by this list.
+#
+# STATBUS-219 STAGE 2: images.yaml ALSO reads this file now, for a DIFFERENT
+# question than "ride" — not "can I skip proving this content", but "is a
+# byte-for-byte copy of the parent's already-published images enough,
+# instead of rebuilding from source". The artifact still gets published at
+# every commit unconditionally, so this is not the images gate riding; it is
+# the images WORKFLOW choosing how cheaply to satisfy the same unconditional
+# publish invariant. images.yaml's own `decide-exempt-only` job carries a
+# bash reimplementation of the exact matching rule below (fileIsCIExempt in
+# cli/cmd/release.go), since GitHub evaluates a workflow's own trigger-time
+# logic before any Go binary is built — kept in sync BY HAND with the Go
+# original; flag any drift you spot.
+#
+# ALSO A THIRD, STATIC COPY: go-test.yaml and app_build_and_lint-workflow.yaml
+# each carry a `push.paths-ignore` list (GitHub's own server-side trigger
+# filter — it cannot read this file at trigger-evaluation time either) that
+# must list the SAME exempt paths as this file, or a board-only push either
+# needlessly runs those two workflows or — worse — silently stops running
+# them for a path that was never actually exempted here. Adding an entry
+# below means updating THREE places, not one.
 #
 # `migrations/` AND `test/` MUST NEVER BE ADDED. Beyond the obvious (they are
 # test inputs), the ride's pg_regress arm depends on it: on a ride the preflight
