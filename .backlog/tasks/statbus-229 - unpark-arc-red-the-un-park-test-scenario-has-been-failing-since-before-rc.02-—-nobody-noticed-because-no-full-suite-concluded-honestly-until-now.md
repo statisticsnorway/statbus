@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-18 10:37'
-updated_date: '2026-08-18 11:41'
+updated_date: '2026-08-18 11:56'
 labels:
   - upgrade-recovery
   - install-recovery
@@ -65,5 +65,11 @@ created: 2026-08-18 11:41
 **FIX SHAPES (yours to rule):** (1) un-park reconciles the Phase as it already reconciles Step/PriorDeathStep — smallest, matches precedent, but must decide what the phase becomes; (2) un-park REMOVES the flag — after a successful park restoration the box is at source, so the flag describes a completed retreat, and the scheduled row is claimed fresh normally; (3) the PreSwap branch stops being unconditional — largest, and it touches the branch 228 just ruled must stay as written.
 
 **PRE-CUT?** Diagnosis is certain and cheap; the fix is a semantics decision about what an un-parked, source-restored box should do, so I will NOT call it a safe pre-cut one-liner. Shapes 1 and 2 are each plausibly a few lines plus oracles ONCE RULED — the ruling is the long pole, not the code.
+---
+
+author: foreman
+created: 2026-08-18 11:56
+---
+TIMELINE ANOMALY RESOLVED (operator log pull, run 30755799405 job 91518172749): the OLD failure was a DIFFERENT mechanism — health-check timeout after 60 attempts at the runtime-stability phase, bootstrap and scenario both fine — not the precondition refusal. So the engineer's diagnosis stands strengthened: the rc.03 failure IS a fresh regression from the 210 marker rewrite (the blanked-phase → unconditional-PreSwap-rollback chain), and my ticket title's "failing since before rc.02" conflated two unrelated failures wearing the same red. CONSEQUENCE FOR EXPECTATIONS: fixing the 210 chain may UNMASK the older chronic health-check issue at the next suite — if this scenario then fails at the runtime-stability phase, that is the OLD problem resurfacing as its own trace, not the 229 fix failing. Both mechanisms now have distinct signatures on file (tmp/operator-arc-fails34-triage-2026-08-18.md, tmp/operator-unpark-old-fail.log).
 ---
 <!-- COMMENTS:END -->
