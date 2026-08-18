@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-08-17 07:14'
-updated_date: '2026-08-18 11:55'
+updated_date: '2026-08-18 15:48'
 labels:
   - install-recovery
   - release
@@ -137,5 +137,11 @@ author: foreman
 created: 2026-08-18 11:55
 ---
 LANDED at 816bd6ba4 on the architect's gate call (observed-step-proves-itself, narrow precedent recorded in his message): the orchestrator owns v*-rc.*, dispatches the three fleets sequentially with snapshot-difference run correlation and explicit conclusion branching; inner tag triggers removed; 221's explicit if included; the gate-layer pin repointed to the orchestrator's file (foreman's edit at landing, with the 224 caveat noted in place). AC#2 (attribution, probe + fallback) and AC#3 (layer pin + comments) closed. AC#1 — one tag push yields all three fleets' verdicts with zero cancellations — is the observation arm riding the King's next cut.
+---
+
+author: foreman
+created: 2026-08-18 15:48
+---
+Observation from the rc.04 chain (orchestrator run 32149260642, 2026-08-18): the chain itself WORKED — all three fleets dispatched sequentially, one at a time, no single-pending-slot cancellation; fleets 1 and 2 green end-to-end, and fleet 3's DISPATCH succeeded (downstream run 32156302719 exists). Fleet 3's failure is inside the arc harness's fixture construction — filed separately as STATBUS-236, not a chain defect. This ticket's observation arm is satisfied on the chaining mechanism; holding it open only until the full-green sweep per the standing protocol.
 ---
 <!-- COMMENTS:END -->
