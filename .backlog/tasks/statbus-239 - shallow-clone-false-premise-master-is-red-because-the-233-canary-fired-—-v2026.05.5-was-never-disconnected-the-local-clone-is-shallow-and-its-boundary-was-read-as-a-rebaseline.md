@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-18 16:08'
-updated_date: '2026-08-18 16:24'
+updated_date: '2026-08-18 16:46'
 labels:
   - release
   - quality-gate
@@ -45,7 +45,7 @@ WHAT IS ACHIEVED WHEN DONE: master's gate is green again on a test that asserts 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Master's go-test gate is green again, with the canary asserting the true graph fact (v2026.05.5 IS an ancestor) or removed in favor of the fixture arms, per the architect's ruling
+- [x] #1 Master's go-test gate is green again, with the canary asserting the true graph fact (v2026.05.5 IS an ancestor) or removed in favor of the fixture arms, per the architect's ruling
 - [ ] #2 The refusal wording and 233's records are corrected where they state the disconnection as fact
 - [x] #3 The local clone is unshallowed and a local run of the cmd tests agrees with CI
 - [ ] #4 The architect rules on and records the doctrinal fold: the rebaseline narrative was a shallow-clone artifact
@@ -72,5 +72,11 @@ author: foreman
 created: 2026-08-18 16:24
 ---
 UNBREAK LANDED as 8147551e2 (architect APPROVED; verdict highlights: the guard fails on any value that is not exactly "false", so an answer it does not understand is a loud failure not a silent pass — "a guard against zero-scope measurement must not itself report a pass over an answer it does not understand"; the failure message teaches — mechanism, affected checks, incident, one-line remedy; fetch-depth: 0 re-verified at go-test.yaml:73 so CI is green on arrival by a pre-existing property. Two-person property preserved under the engineer's 529 outage: foreman built-nothing/verified, architect reviewed — the unacceptable form would have been landing on self-verification without a verdict). Landed WITHOUT the post_restore.sql filter answer per the ruling — informational for the next cut, the engineer records it here when back. AC#1 closes when the go-test run at 8147551e2 concludes green; AC#2/#4 close with the architect's doc-033 fold.
+---
+
+author: foreman
+created: 2026-08-18 16:46
+---
+AC#1 CLOSED: the go-test run at 8147551e2 concluded SUCCESS — master's gate is green again, with the shallow guard live in it. Remaining: AC#2/#4 close with the architect's doc-033 fold (now unblocked); the post_restore.sql filter answer lands when the engineer's API access recovers.
 ---
 <!-- COMMENTS:END -->
