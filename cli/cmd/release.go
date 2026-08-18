@@ -719,6 +719,55 @@ func checkImmutabilityGate(projDir string) bool {
 		return true
 	}
 
+	return checkImmutabilityGateAgainst(projDir, prevTag)
+}
+
+// checkImmutabilityGateAgainst is checkImmutabilityGate's verdict half, split out
+// from the predecessor DISCOVERY above so the comparison can be exercised against
+// an explicit tag (STATBUS-233). Discovery picks WHICH tag; this decides whether
+// comparing against it means anything, and only then compares.
+func checkImmutabilityGateAgainst(projDir, prevTag string) bool {
+	// STATBUS-233: REFUSE rather than compare across disconnected histories.
+	//
+	// The immutability comparison only means something when the two releases
+	// share ancestry. This repository was rebaselined on 2026-07-14 —
+	// 77fa16fb25bfefe is the ROOT commit of the current history — so every
+	// stable tag from before it sits on a graph HEAD never descended from.
+	// `pickPrereleasePredecessor` can legitimately land on one: with no prior RC
+	// for this patch it falls through to findLatestStableTagBeforePrefix
+	// (release_verify.go), whose cross-year-month rule is correct and, since the
+	// rebaseline, can only reach backwards across that boundary.
+	//
+	// Git will diff two unrelated trees without complaint; the answer is simply
+	// noise. Every migration re-committed in the new root reads as "modified",
+	// and a genuine post-release edit would be indistinguishable from that
+	// flood. Both directions of the resulting verdict are harmful: a false-
+	// positive flood trains an operator to bless past the gate, and a single
+	// blanket bless baselines a whole corpus nobody read.
+	//
+	// So the gate does not answer. It says WHY it cannot, which is the honest
+	// state and one an operator can act on. Self-closing: promoting the first
+	// stable in THIS history gives the next patch's first RC a connected
+	// baseline, and the gate becomes meaningful again.
+	connected, ancErr := tagIsAncestorOfHEAD(projDir, prevTag)
+	if ancErr != nil {
+		fmt.Printf("  ✗ Migration immutability (could not determine whether %s is an ancestor of HEAD: %v)\n", prevTag, ancErr)
+		fmt.Println("    Fix: ensure the tag is fetched locally (git fetch --tags), then re-run")
+		return false
+	}
+	if !connected {
+		fmt.Printf("  ✗ Migration immutability CANNOT BE CHECKED against %s — that tag is NOT an ancestor of HEAD\n", prevTag)
+		fmt.Println("    The two histories are disconnected, so a migration diff between them is noise, not a verdict:")
+		fmt.Println("      every migration re-committed under the current root reads as \"modified\",")
+		fmt.Println("      and a genuine post-release edit would be indistinguishable from that flood.")
+		fmt.Printf("    Verify: git merge-base --is-ancestor %s HEAD   (exits non-zero — no shared ancestry)\n", prevTag)
+		fmt.Println("    Why: this repository was rebaselined; the pre-rebaseline stable tags sit on the discarded graph.")
+		fmt.Println("    Fix: promote the first stable in THIS history. Its RCs compare against each other (connected,")
+		fmt.Println("         and meaningful), and once that stable exists the next patch's first RC has a connected")
+		fmt.Println("         baseline — this refusal then disappears on its own.")
+		return false
+	}
+
 	label := "previous RC"
 	if !strings.Contains(prevTag, "-rc.") {
 		label = "previous stable"

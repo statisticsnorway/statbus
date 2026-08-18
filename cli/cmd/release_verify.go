@@ -635,3 +635,36 @@ func init() {
 	releaseCmd.AddCommand(releaseVerifyTagCmd)
 	releaseCmd.AddCommand(releaseVerifyImagesCmd)
 }
+
+// tagIsAncestorOfHEAD reports whether refs/tags/<tagName> is an ancestor of
+// HEAD — i.e. whether the two share the ancestry that makes a tree comparison
+// between them mean anything (STATBUS-233).
+//
+// It exists because git will diff ANY two commits, related or not, and return a
+// confident-looking answer. After this repository's 2026-07-14 rebaseline the
+// pre-rebaseline stable tags are on a graph HEAD never descended from, so a diff
+// against one reports every re-committed file as "modified". A gate that reads
+// such a diff as a verdict is asserting something it has no basis for.
+//
+// `git merge-base --is-ancestor A B` exits 0 when A is an ancestor of B and 1
+// when it is not; any OTHER failure (bad ref, unreadable repo) is returned as an
+// error so the caller can refuse on the uncertainty rather than silently reading
+// "not an ancestor" as a fact.
+func tagIsAncestorOfHEAD(projDir, tagName string) (bool, error) {
+	if !tagExistsLocally(projDir, tagName) {
+		return false, fmt.Errorf("tag %s does not exist locally", tagName)
+	}
+	if _, err := upgrade.RunCommandOutput(projDir, "git", "merge-base", "--is-ancestor", tagName, "HEAD"); err != nil {
+		// Distinguish "not an ancestor" (exit 1, the answer) from a real failure.
+		// rev-parse of both ends succeeding means the refs are readable, so a
+		// non-zero exit here is the honest negative rather than a broken repo.
+		if _, rerr := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "--verify", "--quiet", tagName+"^{commit}"); rerr != nil {
+			return false, fmt.Errorf("resolve %s: %w", tagName, rerr)
+		}
+		if _, rerr := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "--verify", "--quiet", "HEAD^{commit}"); rerr != nil {
+			return false, fmt.Errorf("resolve HEAD: %w", rerr)
+		}
+		return false, nil
+	}
+	return true, nil
+}
