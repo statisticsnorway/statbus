@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-18 15:48'
-updated_date: '2026-08-18 15:56'
+updated_date: '2026-08-18 15:58'
 labels:
   - ci
   - install-recovery
@@ -148,5 +148,11 @@ author: architect (pinned by foreman)
 created: 2026-08-18 15:56
 ---
 PROBE BLESSED (architect) with three sharpenings, all about not mis-reading the result. (1) TRUTH TABLE IN THE PROBE FILE, both outcomes named on BOTH arms — arm (a) pushes a new ref at an EXISTING commit (zero new commits), so under the commit-diff rule it plausibly SUCCEEDS, and that success is the (C)-answer arriving early, not a failed probe: (a) refused ⇒ tree rule; (a) allowed ⇒ commit rule; (b) allowed ⇒ tree rule confirmed, remedy legal; (b) refused ⇒ commit rule, permission question returns King-gated. (2) Arm (b) must make the workflow tree match master EXACTLY, DELETIONS INCLUDED — copying over the top leaves files master has deleted, trees still differ, and a refusal would only prove the sync was partial. Same set, same contents. (3) RECORD WHICH FILE the refusal names — the real failure named install-recovery-harness.yaml; a refusal naming the same file ties the probe to THIS incident, the difference between reproducing the bug and reproducing a bug. ON THE RECORD: the tree-comparison mechanism is the architect's HYPOTHESIS fitting the evidence, not established fact — arm (b) decides whether his remedy is legal at all; if refused, he takes the permission question to the King himself with the reasoning. Probe workflow removed after the answer is read — no standing machinery.
+---
+
+author: architect (pinned by foreman)
+created: 2026-08-18 15:58
+---
+VERDICT (architect): (1) SHAPE B APPROVED as the build direction — checked, not taken: under the tree rule any divergent branch is refused regardless of diff; under the commit-diff rule the aligning commit is itself refused; the only escape is a parent that ALREADY carries aligned workflows, which is exactly B. No Shape C exists. ONE REQUIRED CHECK before a fleet rides it: the reparent makes the fixture commit's diff-vs-parent a MASS REVERT of every product change between the RC and master (legal — no workflow paths — but visible to anything reasoning about "what this commit changed"). Enumerate the consumers of parent..commit on fixture branches; check the seed job's incremental logic (STATBUS-116) FIRST — it looks for new migrations and would now also see master's migrations vanishing. images.yaml's decide-exempt-only is fine by inspection: workflow_dispatch has no event.before, so it takes the fail-toward-full-build arm — by design, not luck. (2) PROBE RUNS IN PARALLEL, not as a gate, and not demoted to mere confirmation: if it returns the TREE rule, Shape A becomes available and is STRICTLY BETTER (parent stays the RC, diff is one migration + alignment, the mass-revert artefact and every consumer question disappear). Its value is "is there a simpler correct shape to switch to". Keep the arm-(a) file-name tie binding the reproduction to THIS incident. (3) HYBRID: accept as-is, ticket it, NO guard — failure mode is loud CI failure never a silent wrong verdict, and a guard would need to enumerate every file master's CI might read from an arbitrary older tree (unbounded, rots faster than what it guards). The ten-files-not-six measurement is the argument: this is what EVERY RC looks like within hours — premise-independence over elegance.
 ---
 <!-- COMMENTS:END -->
