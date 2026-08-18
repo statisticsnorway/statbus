@@ -15,6 +15,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"testing"
@@ -214,4 +215,167 @@ func equalStringSlicesLocal(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+// STATBUS-237 — the two halves of the Go-test-cache safety story (STATBUS-234's
+// `-count=1` and STATBUS-235's live CI cache) were held together by PROSE:
+// test workflows carry a comment explaining `-count=1` must stay, and
+// build-only workflows carry a comment stating they never run tests. Both are
+// true today; neither is enforced. A future editor adding a `go test` step to
+// a build-only workflow, or trimming `-count=1` from a test one, re-opens the
+// staleness with nothing to notice — same class as STATBUS-197 and STATBUS-224:
+// a comment stating a condition-dependent fact that a later change quietly
+// falsifies.
+//
+// goTestInvocationRe / countEqualsOneRe operate on ONE LINE of a `run:` block
+// at a time (a block can be multi-line — STATBUS-118-style scripts with
+// `set -euo pipefail` followed by several commands), so `-count=1` is required
+// on the SAME line that invokes `go test`, not merely anywhere in the step —
+// a step that runs `go test ./foo` on one line and `go test ./bar -count=1`
+// on another must fail on the first line specifically.
+var (
+	goTestInvocationRe = regexp.MustCompile(`(?:^|[\s;&|(])go\s+test(?:[\s;&|)]|$)`)
+	countEqualsOneRe   = regexp.MustCompile(`(?:^|\s)-count=1(?:\s|$)`)
+)
+
+// allWorkflowYAMLFiles enumerates every file under .github/workflows/ (AC#3 —
+// no maintained list of which workflows run tests; the check reads what each
+// one actually does, so a NEW workflow is covered automatically).
+func allWorkflowYAMLFiles(t *testing.T) []string {
+	t.Helper()
+	dir := thisRepoFile(t, ".github/workflows")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("cannot list .github/workflows: %v", err)
+	}
+	out := make([]string, 0, len(entries))
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if strings.HasSuffix(name, ".yaml") || strings.HasSuffix(name, ".yml") {
+			out = append(out, ".github/workflows/"+name)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// TestGoTestStepsCarryCountEqualsOne_STATBUS237 pins the STATBUS-234/235
+// invariant as a mechanism instead of prose: any workflow step whose `run`
+// command invokes `go test` must also carry `-count=1` on that same command
+// line. STATBUS-234 established why — several of our most important tests are
+// PINS that read files outside the Go module, and Go's test cache does not
+// track them, so a cached "ok" can vouch for outside-module content that has
+// since changed. STATBUS-235 then turned the CI build cache on, which is the
+// state that makes a missed `-count=1` bite instead of merely being slow.
+//
+// AC#3: walks EVERY file in .github/workflows/ (allWorkflowYAMLFiles) — no
+// maintained list of which ones run tests.
+// AC#4: inspects the PARSED `run:` string from the YAML document, never the
+// raw file text. YAML-level comments (anything above a `run:` key) never
+// reach the decoded value at all — that is STATBUS-224's whole point, and it
+// falls out of using yaml.v3 rather than text search. A shell `#` comment
+// LINE *inside* a run: block's own script text is additionally skipped
+// explicitly below (it IS part of the parsed string, since YAML does not
+// understand shell syntax), so prose like `# remember: go test needs
+// -count=1` cannot satisfy or trip the check either way.
+//
+// BOUNDARY (architect, STATBUS-237 review): a check must report what it
+// examined, including in its own documentation — "is our test cache safe?"
+// must never be answered by someone who did not check what this pin actually
+// looks at. This pin walks .github/workflows/*.y{a,}ml and matches literal
+// `go test` in each step's PARSED `run:` text. It does NOT see: a `go test`
+// invocation hidden inside a script a workflow merely CALLS (`./dev.sh test`
+// is the live example — dev.sh's own internals are unexamined here); a
+// composite action under .github/actions/ (none currently run `go test`,
+// verified by inspection at STATBUS-237 review time); or a `go test`
+// embedded inside a quoted `sh -c '...'` string (the regexes match the
+// OUTER line's tokens, not a nested shell parse).
+// None of these exist in this repo today. This sentence exists so that fact
+// is stated, not assumed.
+//
+// STRICT BY DESIGN — line continuations are a KNOWN, ACCEPTED false
+// positive, not a bug to fix: `run: go test ./... \` with `-count=1` on the
+// following line FAILS this pin, because the two lines are checked
+// independently and neither one alone carries both the invocation and the
+// flag. The "obvious" fix — join `\`-continued lines before matching — must
+// NOT be made: it would trade one harmless false alarm (an operator adds a
+// parenthesis and reruns) for a REAL false negative (a `-count=1` sitting on
+// a physically different, unrelated command line could then satisfy a `go
+// test` invocation on another line entirely, which is exactly the
+// same-command-line requirement this pin exists to enforce). A false RED
+// that is loud and cheap to fix beats a false GREEN that vouches for the
+// wrong command. Strict, per-line matching is the safe direction; keep it.
+func TestGoTestStepsCarryCountEqualsOne_STATBUS237(t *testing.T) {
+	for _, wfPath := range allWorkflowYAMLFiles(t) {
+		wfPath := wfPath
+		t.Run(wfPath, func(t *testing.T) {
+			data, err := os.ReadFile(thisRepoFile(t, wfPath))
+			if err != nil {
+				t.Fatalf("cannot read %s: %v", wfPath, err)
+			}
+			var doc map[string]any
+			if err := yaml.Unmarshal(data, &doc); err != nil {
+				t.Fatalf("%s is not parseable YAML (%v) — a workflow that does not parse cannot be reasoned about at all", wfPath, err)
+			}
+
+			jobsRaw, ok := doc["jobs"]
+			if !ok {
+				return // no jobs at all — nothing to walk (e.g. a workflow that only reads inputs)
+			}
+			jobs := asStringMap(t, wfPath, "jobs", jobsRaw)
+
+			jobNames := make([]string, 0, len(jobs))
+			for name := range jobs {
+				jobNames = append(jobNames, name)
+			}
+			sort.Strings(jobNames) // deterministic order — stable failure output across runs
+
+			for _, jobName := range jobNames {
+				job := asStringMap(t, wfPath, "jobs."+jobName, jobs[jobName])
+				stepsRaw, ok := job["steps"]
+				if !ok {
+					continue // e.g. a job that only calls a reusable workflow via `uses:` at job level
+				}
+				steps, ok := stepsRaw.([]any)
+				if !ok {
+					t.Fatalf("%s: jobs.%s.steps is %T, not a list", wfPath, jobName, stepsRaw)
+				}
+
+				for i, stepRaw := range steps {
+					step := asStringMap(t, wfPath, fmt.Sprintf("jobs.%s.steps[%d]", jobName, i), stepRaw)
+					runRaw, ok := step["run"]
+					if !ok {
+						continue // a `uses:` step (composite action / marketplace action) — nothing to inspect
+					}
+					runText, ok := runRaw.(string)
+					if !ok {
+						t.Fatalf("%s: jobs.%s.steps[%d].run is %T, not a string", wfPath, jobName, i, runRaw)
+					}
+
+					stepLabel, _ := step["name"].(string)
+					if stepLabel == "" {
+						stepLabel = fmt.Sprintf("steps[%d]", i)
+					}
+
+					for lineNo, line := range strings.Split(runText, "\n") {
+						trimmed := strings.TrimSpace(line)
+						if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+							continue // blank, or a shell comment LINE — prose, not a command (AC#4)
+						}
+						if !goTestInvocationRe.MatchString(line) {
+							continue
+						}
+						if !countEqualsOneRe.MatchString(line) {
+							t.Errorf("%s job %q step %q line %d invokes `go test` without `-count=1` on the same command line: %q\n\n"+
+								"STATBUS-234: `-count=1` disables Go's test cache, which does not track the outside-module files our pin tests assert facts about (workflow YAML, checked-in lists, shell scripts). STATBUS-235 turned the CI build/test cache ON, which is the state that makes a missing `-count=1` silently replay a stale verdict instead of merely being slow. Add `-count=1` to this exact command line.",
+								wfPath, jobName, stepLabel, lineNo+1, trimmed)
+						}
+					}
+				}
+			}
+		})
+	}
 }
