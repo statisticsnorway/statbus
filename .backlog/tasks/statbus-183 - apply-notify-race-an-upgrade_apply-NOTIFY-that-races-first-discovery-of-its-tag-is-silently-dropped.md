@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-14 16:12'
-updated_date: '2026-08-18 09:54'
+updated_date: '2026-08-18 09:58'
 labels:
   - upgrade
   - deploy
@@ -126,5 +126,23 @@ VALID: run 29742695414 (2026-07-20 12:33 UTC, head b15eb24d2, fix IS an ancestor
 RED SIBLING EXPLAINED (no-flaky discipline): run 29741374499 (same day, 12:13, failure) died in images-ready — 15-minute timeout waiting for CI Images at its commit — BEFORE any poke; the retry 20 minutes later at a newer commit went through. Irrelevant to convergence.
 
 WHAT STILL CLOSES AC#3: (a) the architect's adversarial verification of the refutation (in flight), and (b) one post-fix poke in the race shape — the natural candidate is the STABLE-PROMOTION deploy of this campaign: when the King promotes and pushes the deploy branches, apply-latest pokes minutes after fresh state with the fixed producer. AC#3 holds open until both land; the ticket closes on evidence, not inference.
+---
+
+author: architect
+created: 2026-08-18 09:58
+---
+ADVERSARIAL VERIFICATION — REFUTATION CONFIRMED. I attacked it on the three named axes plus producer completeness, trying to break it rather than confirm it. It held on all four, and on two of them the code is stronger than the engineer's own account.
+
+(a) LISTEN-BUFFERS-DURING-STARTUP — TRUE, and for a better reason than "LISTEN runs first". The ordering claim is right (LISTEN upgrade_check/upgrade_apply at service.go:2046/:2049, sdNotify("READY=1") at :2066), but ordering alone would NOT settle it: Postgres delivers only to sessions whose LISTEN is already committed, and the classic way this breaks is a pooled connection — LISTEN on a connection that goes back to the pool, listen loop reads a DIFFERENT one, subscription silently gone. That cannot happen here: the daemon holds a DEDICATED connection whose declaration says so, `listenConn *pgx.Conn // dedicated to LISTEN/NOTIFY — never use for queries` (service.go:147). Same connection LISTENs and later reads, so notifications sent in the startup gap sit in the backend queue and drain when startListenLoop (:2307) begins reading. The code's own comment at :2043 already states the distinction between delivery and processing. Attack fails; claim survives on a stronger footing than the one offered.
+
+(b) TRIGGER FIRES ON INSERT? — NO, AND IT DOES NOT MATTER. The binding is `upgrade_notify_daemon_trigger AFTER UPDATE ON upgrade FOR EACH ROW` (doc/db/table/public_upgrade.md:82) — UPDATE only, and the body's guard reads OLD (`NEW.scheduled_at IS NOT NULL AND (OLD.scheduled_at IS NULL OR OLD.scheduled_at != NEW.scheduled_at)`), so it could not be INSERT-bound as written. I then attacked the gap that leaves: a row INSERTed already-scheduled would emit no NOTIFY. Covered — executeScheduled claims scheduled rows at startup and on every tick (≤30s), so such a row converges without any notification. And the ordering the question asks about is structurally guaranteed the other way round: the NOTIFY is emitted BY an update to the row, so a row necessarily exists before any product NOTIFY, with NEW.commit_sha as payload. The original defect's precondition — an apply NOTIFY naming a target with no row — is unreachable by construction, not merely unlikely.
+
+(c) NOTIFY FROM A PRIOR DAEMON GENERATION — EXPLICITLY COVERED, IN CODE THE ENGINEER DID NOT CITE. This was the most promising attack: during an upgrade the LISTEN connection closes and the old binary dies, so anything sent in that window is genuinely lost. The main loop handles it by name. After an upgrade completes, both the tick and notify arms re-run `d.discover(ctx)` and `d.executeScheduled(ctx)` under the comment "Catch up on work missed during any upgrade that just completed (LISTEN connection was closed, NOTIFYs were lost)" (service.go:2394-2398 and :2417-2421), with `d.completeInProgressUpgrade(ctx)` as a further belt for a lost final UPDATE. The lost-notification window is a designed-for state with an explicit reconciler, not an uncovered one.
+
+(d) PRODUCER COMPLETENESS — CONFIRMED, whole repo. The only pg_notify('upgrade_apply', …) in the product is the trigger function. Every other hit is a comment, a test, or the handler side. apply-latest is synchronous register-then-schedule (cli/cmd/upgrade.go, `svc.RunRegister` then `svc.RunSchedule`, each error-returned), and the deploy gates on its exit code. The bare-NOTIFY producer the incident came from is gone; a test comment (recreate_durable_test.go:12) records a second historical out-of-band producer in RunSchedule, also removed.
+
+VERDICT: the defect class is closed in code and no RED reproducer of the original bug can be written, because its drop site no longer exists. The engineer was right not to synthesize scaffolding to recreate an unreachable state — test-first as discovery cuts both ways. AC#3 correctly stays open on run evidence.
+
+ONE ADJACENT FINDING the pass turned up, ticketed as STATBUS-226 (Low), NOT part of this refutation: apply-latest's "already at latest" short-circuit compares the RUNNING BINARY's commit to the target and returns success on a match. A box parked after a post-swap failure whose era guard refused restoration is running the target binary with a parked row and a dark box — indistinguishable to that check, so a human running the command there is told "nothing to apply". Not a deploy defect: the deployed_commit line is emitted before the skip and STATBUS-170 phase-2 polls that commit to `completed`, so CI goes red. The exposure is the hand-run case, and it is the same claim-describes-one-thing-reader-infers-another class as 210/212 one layer up.
 ---
 <!-- COMMENTS:END -->
