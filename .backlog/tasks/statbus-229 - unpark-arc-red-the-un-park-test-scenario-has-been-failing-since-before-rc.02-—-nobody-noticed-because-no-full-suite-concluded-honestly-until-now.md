@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-18 10:37'
-updated_date: '2026-08-18 11:58'
+updated_date: '2026-08-18 12:10'
 labels:
   - upgrade-recovery
   - install-recovery
@@ -35,8 +35,8 @@ WHAT IS ACHIEVED: every scenario in the suite is either green or has a named own
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Trace AFTER the 228 fix lands: reproduce at the fixed code, then root-cause with file:line — product refusal wrong vs scenario assertion stale
-- [ ] #2 Fix or ruled scenario correction landed via the standard review gates
+- [x] #1 Trace AFTER the 228 fix lands: reproduce at the fixed code, then root-cause with file:line — product refusal wrong vs scenario assertion stale
+- [x] #2 Fix or ruled scenario correction landed via the standard review gates
 - [ ] #3 Scenario green at a full suite
 <!-- AC:END -->
 
@@ -93,5 +93,42 @@ SHAPE 3 REJECTED: 228 ruled the PreSwap branch stands as written; making it cond
 ORACLES: a successful park restoration leaves Phase UNCHANGED and the explicit marker SET (RED against 210's blanking); an un-park over a marked flag REMOVES it; an un-park over an UNMARKED flag preserves today's behaviour including ClearFlagStepHistory — that arm is what stops (c) being simplified away; and the end-to-end shape at VM level: un-park after a resource park grants an attempt that goes FORWARD, with the row not ending rolled_back.
 
 TIMELINE ANOMALY: right to flag rather than smooth. Until the 2026-08-02 job log is pulled, this diagnosis is CONSISTENT WITH that failure, not confirmatory of it. Do not hold the ruling — the mechanism is proven at source and in today's log — but do NOT close 229 until it resolves: if the older failure has a different cause, we have a second bug wearing the same message, and closing on the resemblance would bury it.
+---
+
+author: engineer
+created: 2026-08-18 12:06
+---
+**BUILT to the ruling, FROZEN for review (no commit).** Files: `cli/internal/upgrade/service.go`, `cli/cmd/install_upgrade.go`, new `cli/cmd/unpark_retreat_test.go`, plus three amended test files (all listed below). AC#2's code is here; AC#3 rides the next suite.
+
+**(1) 210 STOPS BLANKING THE PHASE.** New field `UpgradeFlag.RetreatedToSourceAt *time.Time` (service.go, struct + `HasRetreatedToSource()` helper). `parkServiceRecovery`'s success arm now records the retreat there and leaves Phase alone. Its comment carries the ruling's reasoning verbatim: the phase vocabulary describes POSITIONS INSIDE an in-flight upgrade, so after a completed retreat every value is a lie, and 210 borrowed one that already meant "died before the swap" — two states on one wire value, with the unconditional rollback at :1341 arriving on schedule.
+
+**(2) THE UN-PARK REMOVES THE FLAG when the marker is set** — `cmd/install_upgrade.go`, beside `ClearFlagStepHistory`, AFTER the successful un-park and BEFORE `RecoverFromFlag`. New `(*Service).RemoveFlagAfterRetreat()` acquires the flock before unlinking (the caller's quiesced-unit contract is proven, not assumed) and **REFUSES a flag without the marker**, so the decision cannot be made accidentally by a caller that skipped the check.
+
+**(3) FIELD-ABSENT BEHAVIOUR UNCHANGED**, including `ClearFlagStepHistory`. The comment says why in the imperative — "CONDITIONAL, AND THE CONDITION IS LOAD-BEARING — DO NOT SIMPLIFY THIS TO AN UNCONDITIONAL REMOVE" — with the era-refused park spelled out.
+
+**(4) THE 228 PIN EXTENSION — AND IT FOUND SOMETHING.** New `TestEveryBackupPathWriterIsAccountedFor_STATBUS229` enumerates EVERY writer of `flag.BackupPath` in production sources and requires each to be a known one with a stated reason, so a new writer fails until justified. Running it surfaced a **third** PreSwap+BackupPath pairing I had not seen: `completeInProgressUpgrade`'s flagless-recovery synthesis (:3183). It is legal — the record goes straight to `recoveryRollback` and is never persisted, so `recoverFromFlag`'s classifier never sees it — and the pin now asserts exactly that property, so persisting it later fires the alarm. A fourth site (`parkAtTarget`, :3235) pairs BackupPath with `PhaseNewSbSwapped` and IS persisted: legal, because the invariant only forbids the PRE-SWAP pairing.
+
+**I had to correct my own pin mid-build, which is worth recording:** its first version asserted the SHAPE ("every synthesized flag must be handed to recoveryRollback") and wrongly flagged `parkAtTarget`. The invariant is about the PHASE, so the pin now reads each literal's Phase field and only demands in-memory-only treatment for the PreSwap ones. A pin that fires on a legal shape would have been argued away within a week.
+
+**ORACLE ARMS — status per arm:**
+- `TestUnparkRemovesFlagOnlyWhenRetreated_STATBUS229` (call site: conditional, ordering, ClearFlagStepHistory preserved): **RED-verified** — reverting the un-park block fails it.
+- `TestParkServiceRecovery_TruthRestoresFlag_STATBUS210` (amended): **RED-verified** — restoring 210's `f.Phase = PhaseOldSbUpgrading` fails it, and it now also asserts `f.Phase` is NOT written at all.
+- `TestRemoveFlagAfterRetreat_RemovesOnlyAMarkedFlag_STATBUS229` (behavioural, both outcomes on a real on-disk flag): RED-by-nonexistence against pre-229 code — the method does not exist, so the package would not compile. Strongest possible RED, but it cannot be demonstrated as a test failure; stating that rather than claiming a clean red.
+- The extended BackupPath pin: not RED against today's tree by construction — it is the "no further producer" proof, and its value is the next writer, not this one.
+
+**AMENDED PINS/COMMENTS, listed explicitly as required:**
+- `park_service_recovery_test.go` — `TestParkServiceRecovery_TruthRestoresFlag_STATBUS210` re-pointed at the marker; header states 210's SURVIVING invariants (success-arm only, BackupPath kept, refusal/failure arms untouched) and what 229 changed.
+- `park_flag_hold_test.go` — **two of MY OWN 212 arms were still passing while asserting a rewrite production no longer performs.** Re-pointed at `RetreatedToSourceAt`, renamed `..._RewritesPhaseOnDisk_...` → `..._RecordsRetreatOnDisk_...`, and they now additionally assert Phase is UNCHANGED. That is the same stale-claim class this whole day has been about, in my own tests.
+- `service.go:6023+` — 210's rewrite comment fully replaced with the truthful account.
+
+**Verification:** `go test ./...` in cli/ — 12 packages ok, 0 failures. `golangci-lint` 2.12.2 — 0 issues. `gofmt -l` — clean (it flagged my new pin once; fixed before freezing, the third time this week gofmt caught what lint did not).
+
+**Nothing in the ruling was ambiguous enough to need a judgment call I did not report above.**
+---
+
+author: foreman
+created: 2026-08-18 12:10
+---
+LANDED at 32e1b33b1, architect-approved with no amendment (his verdict message; both design additions judged improvements — including a THIRD guard nobody flagged: RemoveFlagAfterRetreat refuses a flag whose Holder != HolderService, so a mis-sequenced call can never delete install's own mutex). AC#1 (trace) and AC#2 (fix landed via the gates) closed. AC#3 (scenario green at a full suite) rides the King's cut — with the standing expectation that a runtime-stability health-check failure there is the OLD chronic issue surfacing as its own ticket, not this fix failing. The pin's one remaining door (Phase-writer coverage) is STATBUS-232, Low, architect-filed.
 ---
 <!-- COMMENTS:END -->
