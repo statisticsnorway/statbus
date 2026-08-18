@@ -24,7 +24,7 @@ Commands you may run when appropriate, but delegate when output is long or the j
 - `./dev.sh generate-doc-db`
 - `./dev.sh build-sb`
 
-Freeze verification for any Go-touching unit (STATBUS-213: local verify must mirror every CI gate — an errcheck red once slipped through a freeze whose build/vet/tests were green): `go test ./...` in cli/ AND `golangci-lint run ./...` in cli/ at the CI-pinned version (v2.12.2, matching go-test.yaml's lint job via cli/.golangci.yml; install: `curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/v2.12.2/install.sh | sh -s -- -b "$(go env GOPATH)/bin" v2.12.2`). Name both results in the freeze report.
+Freeze verification for any Go-touching unit (STATBUS-213: local verify must mirror every CI gate — an errcheck red once slipped through a freeze whose build/vet/tests were green): `go test ./...` in cli/ AND `gofmt -l` on the changed files (its own named step — it has caught what the linter missed) AND `golangci-lint run ./...` in cli/ at the CI-pinned version (v2.12.2, matching go-test.yaml's lint job via cli/.golangci.yml; install: `curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/v2.12.2/install.sh | sh -s -- -b "$(go env GOPATH)/bin" v2.12.2`). Name both results in the freeze report.
 
 When you finish, report to foreman via SendMessage: what changed, what you tested, any adjacent issue you noticed. Not just "done."
 

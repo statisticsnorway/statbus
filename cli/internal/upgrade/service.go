@@ -494,6 +494,73 @@ func acquireFlock(projDir string, flag UpgradeFlag) (*FlagLock, error) {
 	return &FlagLock{file: f}, nil
 }
 
+// acquireFlockVerbatim acquires the upgrade flag's flock WITHOUT changing what the
+// flag says (STATBUS-212). acquireFlock TRUNCATES the file and writes whatever flag
+// value it is handed (see the "We hold the lock" block above), so an acquisition
+// whose only purpose is to GAIN THE HOLD must read the current content first and
+// hand that exact value back — a naive acquire clobbers the very marker it meant to
+// protect. That read-then-acquire-verbatim idiom already lives inline at
+// RecoveryBudgetGuard (`base := *flag`); this is its named form, so an acquisition
+// that must not change the flag's meaning says so at the call site and the failure
+// arm lives in ONE place.
+//
+// Returns (nil, nil) when NO flag file exists. There is then no marker to hold and
+// none to protect — and acquireFlock's O_CREATE would otherwise CONJURE an
+// upgrade-in-progress marker out of nothing, which is strictly worse than not
+// holding. Callers must treat a nil lock as "nothing to adopt", never as an error.
+//
+// A contended flock returns acquireFlock's error carrying the live holder's
+// metadata; what a live holder MEANS is the caller's decision (STATBUS-111: the
+// flock failing IS the liveness signal that another actor owns box mutations).
+func acquireFlockVerbatim(projDir string) (*FlagLock, error) {
+	existing, err := ReadFlagFile(projDir)
+	if err != nil {
+		return nil, fmt.Errorf("read flag before verbatim acquire: %w", err)
+	}
+	if existing == nil {
+		return nil, nil
+	}
+	return acquireFlock(projDir, *existing)
+}
+
+// adoptOrAcquireFlagHold gives its caller a HELD flag lock for the duration of its
+// work — whether or not the caller's own caller happened to hold one — and returns
+// the release for EXACTLY what it acquired (STATBUS-212). A helper that must write
+// through the held flock can then own that requirement instead of depending on
+// ambient caller state it neither owns nor checks.
+//
+// Three outcomes, all releasable by calling the returned func:
+//   - ALREADY HELD (the same `d.flagLock != nil && d.flagLock.file != nil` predicate
+//     mutateHeldFlag itself uses, deliberately not a new one): adopt it — do not
+//     acquire, and release NOTHING. Closing a lock this call did not open would pull
+//     it out from under its owner mid-flow; the adopting path must stay byte-for-byte
+//     as it was.
+//   - NOT HELD, flag file present: acquire VERBATIM (acquireFlock rewrites the file
+//     with whatever it is handed) and hand back the release for that lock.
+//   - NOT HELD, NO flag file: nothing to hold and no marker that could be lying —
+//     succeed with a no-op release rather than conjuring a marker into existence.
+//
+// A CONTENDED flock is returned as an error, never swallowed: the live holder is the
+// signal that another actor owns box mutations (STATBUS-111), and only the caller can
+// say what that means for its own work.
+func (d *Service) adoptOrAcquireFlagHold() (release func(), err error) {
+	if d.flagLock != nil && d.flagLock.file != nil {
+		return func() {}, nil
+	}
+	lock, lerr := acquireFlockVerbatim(d.projDir)
+	if lerr != nil {
+		return nil, lerr
+	}
+	if lock == nil {
+		return func() {}, nil
+	}
+	d.flagLock = lock
+	return func() {
+		d.flagLock = nil
+		lock.Close()
+	}, nil
+}
+
 // FlagLock holds the fd whose flock protects the upgrade-in-progress
 // marker. Close releases the lock; fd death via crash also releases the
 // lock automatically via kernel fd teardown.
@@ -5858,6 +5925,41 @@ func (d *Service) parkServiceRecovery(ctx context.Context, id int, restoreTarget
 		<-tickerDone
 	}()
 
+	// STATBUS-212 — ADOPT-OR-ACQUIRE THE FLAG HOLD. The truth-restoration below
+	// (mutateHeldFlag) can only write through a HELD flock, and until now this helper
+	// depended on its caller happening to hold one: the deterministic path does, but
+	// BOTH budget-park sites do not (RecoveryBudgetGuard releases before calling here;
+	// resumeNewSb's same-step-twice branch never acquired at all), so there the rewrite
+	// silently warned and the marker kept lying — exactly the un-park→rollback collision
+	// STATBUS-210 exists to kill. A contract that depends on ambient caller state it
+	// neither owns nor checks is the drift class the STATBUS-196 gate hunts, and the
+	// same one STATBUS-204 already ruled on for this very function: THE CHOKEPOINT OWNS
+	// ITS INVARIANT. So the hold is owned here, once, for every caller present and
+	// future — no call site changes.
+	//
+	// Already held (the SAME predicate mutateHeldFlag uses, deliberately not a new one):
+	// use it, do not acquire, do not release — the deterministic path stays
+	// byte-for-byte unchanged, so STATBUS-210's arc-proven coverage is untouched.
+	// Not held: acquire VERBATIM (acquireFlock rewrites the file with whatever it is
+	// handed) and release exactly what was acquired. No deadlock risk: neither
+	// parkEraVerdict nor restoreSourceServices touches the flock anywhere in its body.
+	releaseFlagHold, lerr := d.adoptOrAcquireFlagHold()
+	if lerr != nil {
+		// CONTENDED — REFUSE THE WHOLE HELPER, before any service is started. A live
+		// holder is this codebase's liveness signal that ANOTHER actor owns box
+		// mutations (STATBUS-111), and that actor may be mid-upgrade: starting the
+		// SOURCE version's services underneath it is precisely the mixed-era guess
+		// parkEraVerdict refuses on every other anomaly ("the fail-safe direction is
+		// ALWAYS dark-behind-the-maintenance-page, never a guess toward serving
+		// mixed-era"). Not "restore anyway and skip the rewrite" — that would trade a
+		// lying marker for a possibly-mixed-era box. Near-unreachable in practice (the
+		// only realistic contender, ./sb install crash recovery, quiesces this unit
+		// SIGKILL-class before it could hold the lock), but the arm must be correct.
+		d.appendParkNarrative(id, fmt.Sprintf("services held down: the upgrade flag's lock is held by another live actor (%v) — another process owns box mutations right now, so the source version's services are NOT started (starting them underneath a possibly mid-upgrade actor would serve a mixed era). The box stays behind the maintenance page; re-trigger the upgrade or run ./sb install once that actor is done", lerr))
+		return
+	}
+	defer releaseFlagHold()
+
 	permit, refusal := d.parkEraVerdict(ctx, id)
 	if !permit {
 		d.appendParkNarrative(id, refusal)
@@ -6912,15 +7014,20 @@ func (d *Service) RecoveryBudgetGuard(ctx context.Context) (skipBootMigrate bool
 		// logs to the journal only (log.Printf), so open the upgrade's OWN progress log for the
 		// park narrative (a park story belongs on the row's log, not the journal). The DB is up
 		// here (EnsureDBUp ran pre-READY, before this guard), so loadLogRelPath resolves. The
-		// flock was released above; parkServiceRecovery needs none. The helper owns its watchdog
-		// cover, era-guards the state (post-delta budget parks refuse naturally), and starts
-		// services only on permit.
-		if relPath := d.loadLogRelPath(ctx, int64(flag.ID)); relPath != "" {
-			if plog := AppendProgressLog(d.projDir, relPath); plog != nil {
-				d.parkServiceRecovery(ctx, flag.ID, "", plog)
-				plog.Close()
-			}
-		}
+		// flock was released above; parkServiceRecovery adopts-or-acquires its own (STATBUS-212).
+		// The helper owns its watchdog cover, era-guards the state (post-delta budget parks
+		// refuse naturally), and starts services only on permit.
+		//
+		// STATBUS-212 (closing 204's recorded nit): the restoration runs whether or not that log
+		// opens. A nil *ProgressLog IS this codebase's discard writer — Write still narrates to
+		// stdout/journal and skips the file, File() yields io.Discard, bump() is nil-safe — so a
+		// missing or unopenable log now costs the NARRATIVE only. Gating the call on the log (the
+		// pre-212 shape) left the box DARK for a bookkeeping failure, which inverts the North Star:
+		// lose the story, never the box. Liveness does not depend on the log either — the helper's
+		// own always-ping watchdog ticker covers the span (204), not progress.Write's heartbeat.
+		plog := AppendProgressLog(d.projDir, d.loadLogRelPath(ctx, int64(flag.ID)))
+		d.parkServiceRecovery(ctx, flag.ID, "", plog)
+		plog.Close()
 		return true
 	}
 
