@@ -8,7 +8,7 @@ status: To Do
 assignee:
   - engineer
 created_date: '2026-08-18 10:27'
-updated_date: '2026-08-18 10:47'
+updated_date: '2026-08-18 10:51'
 labels:
   - upgrade-recovery
   - release
@@ -36,8 +36,8 @@ WHAT IS ACHIEVED BY FIXING: the promotion path reopens on a release whose rollba
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Root cause traced with file:line — what in the suspect window makes the service crash-die during the rollback DB restore
-- [ ] #2 Fix designed (architect-reviewed) and landed with a RED-first oracle at the unit level where the mechanism allows
+- [x] #1 Root cause traced with file:line — what in the suspect window makes the service crash-die during the rollback DB restore
+- [x] #2 Fix designed (architect-reviewed) and landed with a RED-first oracle at the unit level where the mechanism allows
 - [ ] #3 Both scenarios green at a suite run carrying the fix — the promotion candidate moves to that release
 <!-- AC:END -->
 
@@ -176,5 +176,49 @@ author: foreman
 created: 2026-08-18 10:47
 ---
 SUSPECT CONFIRMED AGAINST THE LAST GREEN SUITE. Operator evidence: run 30755799405 (the last green full suite) ran at head 2ab6126a1c3b, 2026-08-02; merge-base confirms 21ec09911 is ABSENT from that commit — and it IS an ancestor of rc.03 (bafcb396b, established earlier). CORRECTED INTERPRETATION for the record (the operator's report read this backwards): absent-from-green + present-in-failing is the CONFIRMATION — the scenarios passed without the suspect commit and fail with it. "Single suspect" is upgraded to "confirmed against the last green", as the architect's ask intended. Build proceeding on both defects per comments #3/#4.
+---
+
+author: architect
+created: 2026-08-18 10:50
+---
+FIX REVIEW — APPROVED, no amendment. Both rulings realized, and the result is structurally stronger than what I ruled. Verified at source rather than accepted from the freeze report.
+
+THE INVARIANT BECAME STRUCTURAL, WHICH IS BETTER THAN THE RULING ASKED FOR. I ruled "move the stamp back past the swap boundary" and expected a documented convention. updateFlagNewSbSwapped sets `flag.Phase = PhaseNewSbSwapped` AND `flag.BackupPath = backupPath` in the SAME write (:633-634). So "PreSwap ⇒ empty BackupPath" is no longer something anyone must remember — it is enforced by there being exactly ONE writer of BackupPath, and that writer also flips the phase away from PreSwap in the same breath. The premise cannot be falsified again without deliberately splitting those two assignments. NAME THAT COUPLING IN A COMMENT AT :633-634 so a future refactor does not separate them for tidiness — it is now load-bearing, and nothing there says so.
+
+SINGLE-RECORDER CLAIM VERIFIED LITERALLY: `SET backup_path` appears exactly ONCE in service.go, at :6431. Not "the intended single recorder" — the only one.
+
+THE RESIDUAL I WENT LOOKING FOR IS NOT THERE. I checked whether the [swap → reconnect] window can strand a 'failed'-with-retained-backup row (flag has the identity, row still NULL) and so miss STATBUS-111 anyway. It cannot: the post-reconnect write precedes migrations and the health check, so any post-swap failure that routes to rollback occurs AFTER the row is recorded; and a failure BEFORE it means the database never came back, in which case no design could write the row at all. The row is NULL exactly when the database is down — which is precisely why the flag is authoritative across the gap. The fix is complete rather than partial, and that is worth stating because "the flag covers the gap" reads like a concession until you check that the gap is unwritable by anyone.
+
+(1) THE AMENDED TEST — APPROVED, and it STRENGTHENS the pin rather than relaxing it. The test for a legitimate test amendment: does it preserve the INVARIANT the original protected, or relax the ASSERTION to match new behaviour? This one generalises. The original pinned "backup_path is written at the commit moment"; the amendment pins "executeUpgrade contains NO backup_path row write at all", which refuses BOTH 197's bug (early intent) and 228's bug (a write into the server-stopped window) with one rule. 197's surviving ordering invariant is kept explicitly (:82-84, flag stamp must not precede backupDatabase), and a new assertion pins my ruling's mechanism (:78-80, the flag gains its identity at the swap). The header states what changed and why the original form was unimplementable. This is how a landed pin should be amended.
+
+(2) THE TWO PREMISE PINS — ACCEPTABLE HERE, and I want the reason narrow so it does not become a licence. A premise pin is legitimate when it asserts a FACT THE DESIGN DEPENDS ON and would fail if that fact changed — the stopped-server terminalExec arm qualifies exactly: if someone later makes terminalExec retry until a server returns, that arm goes red and tells us the removal's justification has evaporated. It is NOT a substitute for a regression pin, and it is only acceptable because the regression proof is carried elsewhere and RED-verified: the source pin and the empty-BackupPath pin. Had those two been premise pins too, I would have refused the unit. Saying so plainly instead of presenting four equal arms is the right instinct.
+
+(3) recovery_attempts==3 — VM-LEVEL ASSERTION SATISFIES "assert, don't expect". My concern was that the thread would be carried as an unexplained expectation; it is now explained (the volume rewind) and asserted where it is observable, with the re-impose pinned at unit level. A unit arm would have to simulate a restore's volume rewind — synthetic, and it would pin the simulation rather than the behaviour. ONE CONDITION: the commit message must say the confirmation RIDES AC#3's run, so nobody reads the landing as the proof.
+
+ANCESTRY CONFIRMATION (foreman comment #6) closes the evidence gap — suspect absent from the last green's head, present at rc.03. "Single suspect" is now single suspect, confirmed.
+---
+
+author: architect
+created: 2026-08-18 10:51
+---
+RE-FREEZE ADDENDUM — VERDICT UNCHANGED, STILL APPROVED. My comment #7 was written against the frozen state and none of the three additions disturbs it; the footprint correction changes nothing either — I read the amended pin in claim_window_stale_pin_test.go directly, which is where I found it.
+
+(1) LOCAL BIDIRECTIONAL ANCESTRY: good, and better than the ask. I requested one direction (suspect absent from the last green). Verifying BOTH ends locally establishes 21ec09911 as the one commit distinguishing green from red without depending on an API the sandbox cannot reach — the conclusion no longer rests on a tool that was unavailable when it mattered.
+
+(2) THE GUARD APPLIED TO ITSELF: correct, and his reasoning is the sharper statement of my own ruling. I said prose is not a mechanism; he noticed that my ruling was ALSO prose until it was written at the point where the deletion would happen. A test whose whole job is to assert what some comments claim looks exactly like a redundant test to a future tidier — so the header saying THIS TEST IS THE MECHANISM is what keeps the mechanism alive. That is the principle eating its own dogfood, and it is right.
+
+(3) THE LINT FALSE-GREEN — THE MOST IMPORTANT LINE IN THE RE-FREEZE, AND IT IS NOT ABOUT THIS UNIT. golangci-lint run from the repo root errored on module resolution AND STILL PRINTED "0 issues". He caught it and re-ran from cli/, so this unit's chain is genuinely green. But the tool that gated EVERY unit in this campaign can report a clean result while having analysed nothing, and the only thing standing between that and a false pass was one builder noticing an error line above the summary.
+
+THAT IS THE FIFTH INSTANCE OF ONE CLASS TODAY, and naming the class is worth more than the five tickets: a run concluding SUCCESS with zero scenario jobs (215); a gate printing "✓ FULL SUITE green (0/0 arc jobs present)" against an empty domain (216); a trigger pin satisfied by a COMMENT containing the string it grepped for (224); an exempt-ride that would have refused every real board commit while every test passed, because the fixtures used ASCII filenames and real ticket names do not (219); and now a linter reporting zero issues over zero analysed packages.
+
+They are one shape: A GREEN SIGNAL PRODUCED BY A CHECK THAT NEVER EXAMINED THE THING IT CLAIMS TO HAVE EXAMINED. And one rule catches all five: A CHECK MUST REPORT WHAT IT EXAMINED, AND A ZERO-SCOPE EXAMINATION MUST BE A FAILURE RATHER THAN A PASS. Zero jobs, zero required arcs, zero code lines behind a matched string, zero realistic fixtures, zero analysed packages — every one of today's five is that rule violated in a different costume. I am taking the doctrine write-up and the lint case as my own next items rather than adding them to this unit.
+
+NOTHING FURTHER ON 228. Commit with the coupling comment at :633-634 folded in and the rides-AC#3 line in the message, both from comment #7.
+---
+
+author: foreman
+created: 2026-08-18 10:51
+---
+LANDED at a20a416a3, architect-approved with no amendment (verdict comment #7): both defects fixed, the landed shape structurally STRONGER than the ruling (one writer sets BackupPath and flips the phase in the same write — the coupling now commented as load-bearing at his comment-only fold), the single-recorder claim verified literally (SET backup_path appears exactly once), the swap-to-reconnect residual hunted and proven unwritable-by-anyone, and the amended 197 pin judged a strengthening (generalizes to "no row write in executeUpgrade at all"). AC#1 and AC#2 closed. AC#3 (both scenarios green at a suite carrying the fix) rides the King's next cut — the promotion candidate moves to that release. Commit message carries the fail-open sharpening, the ancestry confirmation, and the AC#3-rides note as conditioned.
 ---
 <!-- COMMENTS:END -->
