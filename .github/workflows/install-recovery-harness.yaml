@@ -328,6 +328,50 @@ jobs:
           fi
           echo "All baseline release images present — scenarios will pull (not build)."
 
+  # STATBUS-222 (the arc harness's no-arcs-guard, twinned here): a run
+  # whose discover succeeds with count==0 must fail RED and name why —
+  # never conclude green having executed nothing. Without this, run-scenario's
+  # own count!=0 guard (STATBUS-221) makes the matrix quietly expand to
+  # zero jobs and the workflow shows a bare, misleading green in the
+  # Actions list; only a reader of the release GATE (which checks the job
+  # LIST, not the color) would ever notice nothing ran.
+  #
+  # NO EXEMPTION TODAY: unlike upgrade-arc-harness.yaml, this workflow has
+  # no RIDE-style path-sensitivity optimizer and no other mechanism that
+  # can legitimately produce count==0 — every zero-selection here is a
+  # defect (a bad selector already fails discover loudly before reaching
+  # count; an empty scenario CATALOGUE is a repo-structure problem this
+  # guard would be the first thing to catch). So the condition below is
+  # unconditional, matching upgrade-arc-harness.yaml's own post-STATBUS-223
+  # form (its RIDE exemption was deleted there for the identical reason: no
+  # mechanism left to exempt). If a legitimate green-skip path is ever
+  # added to THIS workflow, its exemption clause must be independently
+  # re-derived here — never read from a discover output — same doctrine
+  # the arc harness's guard was built on (STATBUS-215 review): the
+  # short-circuit that produced count==0 is not trusted to also vouch for
+  # its own legitimacy.
+  #
+  # POISON CHECK (STATBUS-215 audit applied at birth, not retrofitted):
+  # this job has exactly one need (discover) and nothing needs IT in
+  # return — run-scenario's own if: already independently guards on
+  # count!=0 (STATBUS-221), and cleanup is if:always() and does not depend
+  # on this job either. So a red no-scenarios-guard cannot cascade an
+  # implicit skip into anything downstream; it only ever changes this
+  # workflow's own conclusion.
+  no-scenarios-guard:
+    name: Refuse zero-scenario run
+    needs: [discover]
+    if: >-
+      ${{ !cancelled() &&
+          needs.discover.result == 'success' &&
+          needs.discover.outputs.count == '0' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - run: |
+          echo "::error title=Zero scenarios selected::discover produced count=0 — this run would execute nothing and prove nothing (STATBUS-222, the arc harness's STATBUS-215 guard twinned here). A dispatched install-recovery run must select at least one scenario."
+          exit 1
+
   run-scenario:
     name: ${{ matrix.scenario }}
     needs: discover
