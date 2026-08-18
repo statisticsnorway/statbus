@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-08-17 07:14'
-updated_date: '2026-08-18 09:55'
+updated_date: '2026-08-18 09:58'
 labels:
   - install-recovery
   - release
@@ -115,5 +115,21 @@ AC#3 LAYER-TEST FINDING — the mechanic was right to surface it and the foreman
 ALSO TICKETED, neither blocking: STATBUS-223 (the RIDE relocation — the big one, see the separate ruling) and STATBUS-225 (three copies of the dispatch/correlate/poll script in one file; the correlation amendment above has to be written three times, correctly, which is the smell arguing for extraction on the next touch).
 
 221's FOLD-IN: APPROVED as written. It is exactly the explicit form I specified, the comment states why and says not to simplify it back, and the behaviour is unchanged. Nothing further.
+---
+
+author: mechanic
+created: 2026-08-18 09:58
+---
+AMENDMENT APPLIED, re-frozen (no commits). release-fleet-orchestrator.yaml now 487 lines (was 391).
+
+1. RUN CORRELATION replaced in all 3 dispatch blocks (identical change x3, per the architect's note that the triplication itself is 225, not this pass): deleted the `sort_by(.createdAt) | last` timestamp heuristic entirely. Now: snapshot `before_ids` (sorted list of matching databaseIds for workflow+commit+event=workflow_dispatch) BEFORE the dispatch call; after dispatching, poll the same query into `after_ids` and take `comm -13` (set difference, both already sorted) to find ids new since the snapshot. Exactly one new id → that's ours, proceed. Zero → keep polling (same ~4min/24-attempt budget as before). More than one → `::error` naming every candidate id and exit 1, never guess. Updated the top-of-file RUN CORRELATION paragraph and the per-block comments to match, including a one-line note on why the old heuristic was wrong (our dispatch is always the first issued after the snapshot, so it's the OLDEST of any competing candidates — `last` would have preferentially picked someone else's).
+
+2. CONCURRENCY-GROUP COMMENT corrected (design call #2 framing): the orchestrator's own `concurrency:` block now states plainly that with cancel-in-progress:false, a third tag cancels the PENDING run — the OLDEST tag's orchestrator keeps running to completion, the NEWEST becomes the new pending run, and the MIDDLE tag's run is discarded (not "newest wins"). Framed explicitly as RELOCATING the cancellation class to a layer where it's benign, not eliminating it — a superseded intermediate RC's fleet proof is uninteresting and its absence is already handled by the gate's WorkflowCheckMissing → path-sensitivity-walk fallback. Also added the "load-bearing pair" framing you blessed to the hetzner-vm-fleet paragraph: keeping the group is safe only together with the poll's non-success-is-failure branching: neither half is safe alone.
+
+Re-validated: `ruby -ryaml` parses clean; `actionlint` on the file exits 0 (one new shellcheck SC2086 surfaced on an unquoted `$new_ids` in the ambiguous-correlation error message — fixed by piping through `tr '\n' ' '` instead of a bare `printf %s $var`; re-ran clean after); full-repo actionlint shows zero findings in any of my 4 files. No Go files touched this round, so no re-run of the Go suite needed.
+
+Noticed other agents' concurrent work in the shared tree (statbus-183, statbus-226, cli/internal/upgrade/service.go, park_flag_hold_test.go) — untouched, not mine.
+
+Still gated on the rc.03 spot-check per your note. Idle.
 ---
 <!-- COMMENTS:END -->

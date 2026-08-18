@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - foreman
 created_date: '2026-08-17 08:30'
-updated_date: '2026-08-18 08:13'
+updated_date: '2026-08-18 10:02'
 labels:
   - install-recovery
   - ci
@@ -128,5 +128,11 @@ author: foreman
 created: 2026-08-18 08:13
 ---
 CUT HAPPENED: the King tagged v2026.08.0-rc.03 at bafcb396b (which carries the fix, a998f7dcc). The tag push fired the arc harness with the FIXED workflow: decide chose FULL SUITE (the workflow file is on the sensitivity list), discover succeeded, no-arcs-guard correctly SKIPPED (full selection), construct in progress. Run 32115158961. AC#3 closes when this run finishes green with all 31 arc jobs. Per the architect's comment #7 ruling, the one-arc dispatch spot-check (scenarios: working) follows AFTER this suite finishes and the fleet drains — that closes the dispatch-path arm empirically.
+---
+
+author: foreman
+created: 2026-08-18 10:02
+---
+SUITE FIRST-FAILURE TRIAGED (operator, foreman-verified classification): preswap-binary-swap-kill (job 95644094969) died ~4.5 min in — VM created, SSH up, hardening stage complete, then the VM went quiet mid-package-install (SSH READ timeout ~21s after the last install line, a 226MB editor install on the CX23 tier) and the harness failed at vm-bootstrap.sh:675. Classification: OUTSIDE our code — resource exhaustion/hang on the smallest VM tier under install load; the scenario itself PASSED at run 30755799405. NOT dismissed as flaky: the mechanism candidate (heavy installs vs CX23 sizing) is recorded, and if this signature recurs it becomes a sizing/lean-bootstrap ticket, not a shrug. Own-VM cleanup ran correctly (reaped, no orphans). REMEDY, per the gate's own pre-ruled path: after the suite completes and install-recovery frees the fleet, `gh run rerun --failed 32115158961` re-executes just this job; under the 217-landed completeness reading any success for the job name counts, and the run's conclusion updates on the rerun. Sequencing after drain: rerun-failed → single-arc dispatch spot-check → test-install re-dispatch — three small fleet entries, in that order. Operator's full log dig: tmp/operator-arc-preswap-triage-2026-08-18.md.
 ---
 <!-- COMMENTS:END -->

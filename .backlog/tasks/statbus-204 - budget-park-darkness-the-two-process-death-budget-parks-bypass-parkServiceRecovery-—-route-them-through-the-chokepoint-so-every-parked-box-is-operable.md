@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-16 14:43'
-updated_date: '2026-08-16 18:24'
+updated_date: '2026-08-18 09:59'
 labels:
   - upgrade
   - recovery
@@ -67,5 +67,29 @@ author: foreman
 created: 2026-08-16 18:24
 ---
 BUILT + ARCHITECT-APPROVED + COMMITTED ccf86fe3c (foreman, 2026-08-16). Ruling (B)-widened realized to the letter: the always-ping gated ticker sits at the TOP of parkServiceRecovery spanning the era verdict's DB wait AND the restoration, defer cancel+join so it never outlives the helper, with the bounded-sub-steps justification written into the comment; both budget sites route through the chokepoint AFTER their park write (site 1 threads a progress log via loadLogRelPath+AppendProgressLog with DB-up/flock justifications in place; site 2 rides its existing log); restoreTargetSHA="" correctly rides the post-197 identity. All three criteria CHECKED: the every-parkUpgrade-caller-must-route drift pin (a future bypassing park site fails the unit until routed — the 196 philosophy applied to park topology), the era-refuse narrative covered by the existing source-identity unit, the helper's hard rules intact. Foreman verification pre-commit: build/vet/gofmt clean, both 204 oracles green under my execution, full upgrade package green. ONE NIT recorded for the next touch, non-blocking (architect): site 1's missing/unopenable progress log currently SKIPS the restoration attempt (safe pre-204 degradation, row narrative still lands) — next touch degrades to a discard-writer log instead of skipping; rare edge, every dispatched row records a log path at claim. VM-level neighbor (postswap-health-park alive-idle asserts) rides the next suite dispatch. WITH THIS COMMIT THE KING-AUTHORIZED RIDE-ALONG QUEUE IS CODE-COMPLETE: 202+amendment, 201, 200, 199, 197, 203, 204 — seven tickets, every diff reviewed, every ruling on its ticket; the board's remaining opens are observation criteria only the King's cut and the arc suite at its tag can check.
+---
+
+author: engineer
+created: 2026-08-18 09:59
+---
+**OPEN NIT CLOSED (comment #3's "next touch"), shipped inside the STATBUS-212 unit — frozen for review, no commit.**
+
+What the nit was: site 1 attempted the restoration only if the row's progress log opened — `if relPath := d.loadLogRelPath(...); relPath != "" { if plog := AppendProgressLog(...); plog != nil { d.parkServiceRecovery(...) } }`. A missing or unopenable log therefore skipped the restoration ENTIRELY and left the box DARK for a bookkeeping failure, inverting the North Star at the very site 204 made operable.
+
+Now (service.go:7028): the log is still opened and still preferred, but the helper call is unconditional —
+```go
+plog := AppendProgressLog(d.projDir, d.loadLogRelPath(ctx, int64(flag.ID)))
+d.parkServiceRecovery(ctx, flag.ID, "", plog)
+plog.Close()
+```
+Lose the narrative, never the box.
+
+**Why a nil `*ProgressLog` is the right discard writer here, verified rather than assumed** — I walked every consumer in the helper's span before relying on it: `Write` is nil-safe and still narrates to stdout/journal (progress.go:235-258), `File()` returns `io.Discard` (:220-225), `bump()` and `Close()` are nil-guarded (:264-269, :319-323), `healthCheck` and `waitForRestReady` both nil-check before writing (exec.go:1425+), and `AppendProgressLog("")` returns nil (:176-179). So a nil log costs the file narrative only.
+
+**The liveness question this raises, answered:** `Write` also carries the heartbeat, so a nil log emits none. That is safe here precisely because of YOUR ruling in comment #2 — the helper owns its own always-ping watchdog ticker spanning verdict + restoration, so the span's liveness never depended on the log's heartbeats. Had the cover still lived at the callers, this degradation would have been unsafe.
+
+**Oracles.** `TestBudgetParkSite1_RestorationNotGatedOnItsLog_STATBUS204Nit` fails if the call is ever re-nested inside an `if plog := AppendProgressLog(...)` guard (RED against the pre-fix shape, verified by reverting), and `TestNilProgressLogIsADiscardWriter_STATBUS204Nit` pins the discard-writer behaviour itself so a future change to `ProgressLog` that makes nil unsafe fails loudly here rather than panicking on a rare park path. Both in `cli/internal/upgrade/park_flag_hold_test.go`.
+
+All three 204 criteria remain green and unmodified: the every-park-site-routes drift pin, the era-refuse narrative, and the helper's hard rules (starts-only, narrative-only, park-write-first). Full chain: `go test ./...` 12 packages ok, `golangci-lint` 2.12.2 clean, gofmt clean.
 ---
 <!-- COMMENTS:END -->
