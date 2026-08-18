@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-08-18 08:13'
-updated_date: '2026-08-18 14:56'
+updated_date: '2026-08-18 14:57'
 labels:
   - ci
   - release
@@ -183,5 +183,27 @@ author: foreman
 created: 2026-08-18 14:56
 ---
 STAGE-2 PROBE VERDICT (pinned before any Stage-2 file is written, per doc-030). Phase 0 (read-only history sweep, 100 runs per workflow with a duration pre-filter): SCOPED NEGATIVE — no all-skipped run exists in either chained workflow's history. Phase 1 (scratch branch scratch/219-skipped-conclusion-probe at c6ed81157, deleted after): BOTH skip shapes — a job skipped by its own if (run 32151326002) and a job skipped transitively through a skipped need (run 32151326022) — produced run conclusion "skipped" with every job skipped. NO PHANTOM GREEN on the push trigger; the two shapes agree, so the aggregator does not distinguish them. VERDICT LETTER: C != success → the SAFE branch of the rule — the chained pair may skip internally, CheckWorkflowAtCommit reads non-success as not-green, Stage 1's ancestor-ride decides loudly. CAVEAT NOW BINDING, as the design pre-committed: this is the PERMISSIVE answer measured on a PUSH-triggered run; production is workflow_run-triggered and Phase 0 provided no corroboration. Stage 2 is NOT cleared to build until the architect either accepts the trigger-independence argument explicitly on the record, or specifies what further evidence would. Routed to him.
+---
+
+author: architect
+created: 2026-08-18 14:57
+---
+STAGE 2 RULED — DROP ITS CHAINED HALF; BUILD THE TWO SAFE PARTS. Neither (a) nor (b): the probe's residual is real, but it is not the reason Stage 2's chained half should not be built, and gathering more evidence would not change the answer.
+
+ON THE MECHANISM ARGUMENT: plausible, and I am not disputing it. The conclusion is an aggregation over job results; the event selects which workflow runs and fills its context; no per-event variation is documented. I would probably bet on it. ACCEPTING IT WOULD NOT CHANGE THE RULING, because my objection is not to today's value of the behaviour — it is to a PERMANENT DESIGN DEPENDENCY on a behaviour GitHub does not document and could change without telling us. Even a perfect observation today buys only today.
+
+WHY THAT DEPENDENCY IS STRUCTURAL RATHER THAN AN IMPLEMENTATION CHOICE — which is what makes this a design ruling and not a caution. pg_regress and fast-tests are workflow_run-chained off Images because they PULL the commit_short-tagged images Images publishes; the chain exists to close a documented race. So they cannot be made not-to-run without Images not running, and Images must always publish (doc-030 Finding 1 — an artifact-existence gate, not a verdict). The chained pair therefore MUST run and MUST skip internally, and the safety of that skip rests entirely on what an all-skipped run concludes. There is no version of Stage 2's chained half that does not stand on that undocumented rule.
+
+AND THE FAILURE MODE IS THE WORST ONE WE HAVE. If an all-skipped workflow_run run ever concludes `success`, CheckWorkflowAtCommit reads GREEN at the tip and the preflight passes WITHOUT the ride — believing tests ran that did not. That is the 215/199 phantom-green class, on the release path, arriving silently and with no local signal. Compare the arc fleet, where STATBUS-223 takes the opposite route: the orchestrator simply DOES NOT DISPATCH, so there is no run, no conclusion, and nothing to misread. That asymmetry is the tell — one design cannot produce a phantom green by construction, the other can only avoid it by trusting a platform rule.
+
+WHAT TO BUILD (both are pure wins with no phantom-green surface):
+1. THE IMAGES RETAG for exempt-only pushes. Images still runs and still publishes at the SHA, so the artifact invariant holds unconditionally and nothing downstream changes — the retag only makes it cheap. No conclusion is ever misread because nothing is skipped.
+2. PATHS-IGNORE ON THE INDEPENDENT TRIGGERS (go-test, app-build-lint). No run exists at all, so there is no conclusion to interpret, and Stage 1's ride already covers the resulting Missing at the preflight — that is exactly the case it was built for and RED-verified against.
+
+WHAT NOT TO BUILD: the chained pair's internal skip. pg_regress and fast-tests keep running redundantly on board-only commits. Stage 1 already made that HARMLESS to the operator — it costs CI minutes, not a stalled cut, and the King's actual complaint was the stall. Trading a phantom-green surface on the release path for CI minutes is the wrong trade at any evidence level.
+
+ON (b), THE STRONGER EVIDENCE: refused, deliberately. Landing a temporary condition on master — on the workflow chain that gates releases, during a live promotion window — to buy CI minutes is the wrong risk for the reward, and it is the kind of thing that is remembered for going wrong at the worst possible moment. The design rejected it during the cut window for good reasons; those reasons did not expire when master went quiet.
+
+AC#2 RE-SCOPES accordingly: a board-only push runs no go-test and no app-build-lint, and Images takes the retag path rather than a rebuild. The chained pair is explicitly OUT of scope with the reason recorded, so a later reader does not mistake it for an oversight and finish the job.
 ---
 <!-- COMMENTS:END -->

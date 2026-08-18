@@ -3,10 +3,10 @@ id: STATBUS-226
 title: >-
   apply-latest-binary-only: "already at latest" reads the running binary, so a
   parked box at the target reports nothing to apply
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-18 09:57'
-updated_date: '2026-08-18 14:54'
+updated_date: '2026-08-18 14:57'
 labels:
   - upgrade
   - deploy
@@ -68,5 +68,11 @@ created: 2026-08-18 14:54
 **Verification:** `go test ./...` in cli/ — 12 packages ok, 0 failures. `gofmt -l` clean on all four files. `golangci-lint` 2.12.2 — 0 issues.
 
 **Not claimed:** AC#2's message is pinned by unit test, not observed on a parked box — no VM. The behaviour is a pure function of the row state, so the risk sits in the row READ, not the decision; `applyLatestRowState` collapses every read failure to "proceed", which is the safe direction.
+---
+
+author: foreman
+created: 2026-08-18 14:57
+---
+LANDED at 4bfdefa8d, architect-approved (his verdict: the refusal is keyed on the TARGET'S OWN row, so a box parked on one version deploying a fix release proceeds — the refusal can never block the cure, which was the one way this fix could have hurt; the extracted-verbatim RED method praised as pinning the parked-at-target behavior permanently without a VM). His optional nit folded at commit: the refusal names ./sb install literally. Done.
 ---
 <!-- COMMENTS:END -->
