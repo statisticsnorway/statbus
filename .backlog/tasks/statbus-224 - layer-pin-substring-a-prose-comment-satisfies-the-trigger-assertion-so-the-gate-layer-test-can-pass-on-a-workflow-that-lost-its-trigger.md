@@ -3,10 +3,10 @@ id: STATBUS-224
 title: >-
   layer-pin-substring: a prose comment satisfies the trigger assertion, so the
   gate-layer test can pass on a workflow that lost its trigger
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-18 09:54'
-updated_date: '2026-08-18 15:37'
+updated_date: '2026-08-18 15:40'
 labels:
   - ci
   - release
@@ -67,5 +67,11 @@ That is precisely the 2026-08-18 observation this ticket was filed on, reproduce
 **DEPENDENCY NOTE:** `gopkg.in/yaml.v3 v3.0.1` becomes a direct import (it was already in `go.sum` and in the local module cache, so no new download). I deliberately did NOT run `go mod tidy` — it pulled two extra test-only checksums (`kr/text`, `rogpeppe/go-internal`) for zero benefit here. The line therefore still reads `// indirect`, which is cosmetically stale; no CI step verifies tidiness (checked), so it is harmless. Say the word and I will tidy properly instead.
 
 **Verification:** `go test -count=1 ./...` in cli/ — 12 packages ok, 0 failures. `gofmt -l` clean. `golangci-lint` 2.12.2 — 0 issues.
+---
+
+author: foreman
+created: 2026-08-18 15:40
+---
+LANDED at 3f737b9db, architect-approved (his verdict: the YAML-1.1 bare-on-is-boolean trap — which caught HIM earlier today — handled by loud failure on an empty parse; RED-verified on the exact remove-trigger-keep-comment scenario the ticket was filed for; the three-copies exempt-list equality pin included and RED-verified both directions). go.mod deliberately untidied per his ruling — fold at the next deliberate go.mod touch. Done.
 ---
 <!-- COMMENTS:END -->

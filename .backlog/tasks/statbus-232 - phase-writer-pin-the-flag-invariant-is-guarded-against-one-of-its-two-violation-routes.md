@@ -3,10 +3,10 @@ id: STATBUS-232
 title: >-
   phase-writer-pin: the flag invariant is guarded against one of its two
   violation routes
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-18 12:09'
-updated_date: '2026-08-18 15:32'
+updated_date: '2026-08-18 15:40'
 labels:
   - upgrade-recovery
   - quality-gate
@@ -68,5 +68,11 @@ The old pin was named for a field (`...BackupPathWriter...`) and so could only e
 **Nothing is wrong in the tree today** — 229 removed the only phase-blanking writer, and this pin exists for the NEXT one.
 
 **Verification:** `go test ./...` in cli/ — 12 packages ok, 0 failures. `gofmt -l` clean. `golangci-lint` 2.12.2 — 0 issues. Also grepped for stale references to the superseded test name: none.
+---
+
+author: foreman
+created: 2026-08-18 15:40
+---
+LANDED at 3f737b9db, architect-approved (his verdict: both doors covered with eight writers allowlisted by reason; the two same-text literals in completeInProgressUpgrade now distinguished by assertion instead of his hand-verification; AC#2 measured not claimed — the new pin catches 210's write, the old pin's simulated scan misses it — the day's standard applied to a ticket he wrote). Done.
 ---
 <!-- COMMENTS:END -->
