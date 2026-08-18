@@ -36,11 +36,23 @@ func TestRollback_NoTouchGuard_STATBUS197(t *testing.T) {
 	}
 }
 
-// TestExecuteUpgrade_BackupPathRecordedAtCommit_STATBUS197 is oracle O2 (AC#3): inside
-// executeUpgrade, the restore identity (backup_path) is recorded ONLY at the snapshot commit —
-// no `SET backup_path` write may precede the backupDatabase call. RED before C1 (the early
-// intent-write at the old :5428 preceded the backup). Source-order pin.
-func TestExecuteUpgrade_BackupPathRecordedAtCommit_STATBUS197(t *testing.T) {
+// TestExecuteUpgrade_BackupPathNeverRecordedAsEarlyIntent_STATBUS197 is oracle O2 (AC#3),
+// AMENDED BY STATBUS-228 (architect-ruled, 2026-08-18).
+//
+// 197's SURVIVING invariant, still pinned below: the restore identity is NEVER recorded as
+// early intent — no `SET backup_path` write may precede backupDatabase. A flag-lost heal in
+// the [record → snapshot] span would otherwise restore a PRIOR attempt's snapshot.
+//
+// What 228 changed, and why this test could not keep its original form: 197 also required
+// BOTH carriers to be written at the snapshot-commit moment, in the same breath. That moment
+// sits INSIDE the window where Step 4 has stopped the postgres SERVER, so the row write could
+// never land (terminalExec survives our CONNECTION dying, not a stopped server) and the flag
+// stamp gave a PreSwap flag a BackupPath, falsifying the PreSwap branch's no-touch premise.
+// The identity is now recorded where each carrier can hold it truthfully — the FLAG at the
+// swap, the ROW at the first reconnect after it. Those two moments have their own pins in
+// backup_path_carriers_test.go; this test keeps 197's never-as-intent ordering rule, which
+// 228 does not weaken (both new write points are still AFTER backupDatabase).
+func TestExecuteUpgrade_BackupPathNeverRecordedAsEarlyIntent_STATBUS197(t *testing.T) {
 	src := string(packageGoSources(t)["service.go"])
 	body := extractFuncBody(t, src, "func (d *Service) executeUpgrade(")
 
@@ -48,20 +60,27 @@ func TestExecuteUpgrade_BackupPathRecordedAtCommit_STATBUS197(t *testing.T) {
 	if backupIdx < 0 {
 		t.Fatal("could not locate the backupDatabase call in executeUpgrade")
 	}
-	writeIdx := strings.Index(body, "SET backup_path = $")
-	if writeIdx < 0 {
-		t.Fatal("STATBUS-197 C1: executeUpgrade must record backup_path at the commit moment — no `SET backup_path` write found at all")
+	// executeUpgrade must contain NO backup_path row write at all any more: the only
+	// recorder is applyNewSbUpgrading's post-reconnect write (STATBUS-228). A write
+	// appearing here again is either early intent (197's bug) or a write into the
+	// server-stopped window (228's bug) — both are refused by this pin.
+	for _, line := range strings.Split(body, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "//") {
+			continue
+		}
+		if strings.Contains(trimmed, "SET backup_path = $") {
+			t.Errorf("STATBUS-197 C1 / STATBUS-228: executeUpgrade must contain NO backup_path row write. Before backupDatabase it would be early intent (a flag-lost heal would restore a PRIOR attempt's snapshot); after it, the postgres SERVER is stopped and the write cannot land. The single recorder is the post-reconnect write in applyNewSbUpgrading.\n  offending line: %s", trimmed)
+		}
 	}
-	if writeIdx < backupIdx {
-		t.Errorf("STATBUS-197 C1/O2: a `SET backup_path` write @%d PRECEDES backupDatabase @%d — identity must be recorded only AT the snapshot commit, never as early intent (a flag-lost heal in the [record→snapshot] span would restore a PRIOR attempt's snapshot)", writeIdx, backupIdx)
+	// The FLAG's identity is stamped at the swap boundary — after the snapshot commit, so
+	// 197's never-as-intent rule still holds for the carrier that survives the DB-down gap.
+	stampIdx := strings.Index(body, "d.updateFlagNewSbSwapped(backupPath)")
+	if stampIdx < 0 {
+		t.Fatal("STATBUS-228: the flag must gain its BackupPath at the swap (updateFlagNewSbSwapped(backupPath)) — that is the carrier that works while the server is stopped")
 	}
-	// The commit-moment write rides the teardown-immune primitive (queryConn is closed + the
-	// read-only window is engaged there), and the flag is stamped in the same breath.
-	if !strings.Contains(body[backupIdx:], "d.terminalExec(\"UPDATE public.upgrade SET backup_path") {
-		t.Error("STATBUS-197 C1: the commit-moment row write must use the teardown-immune terminalExec (queryConn is closed for the consistent backup)")
-	}
-	if !strings.Contains(body[backupIdx:], "d.mutateHeldFlag(") {
-		t.Error("STATBUS-197 C1: the flag's BackupPath must be stamped at commit too (mutateHeldFlag), so \"\"⇔nothing-moved holds in the flag carrier")
+	if stampIdx < backupIdx {
+		t.Errorf("STATBUS-197 C1: the flag stamp @%d PRECEDES backupDatabase @%d — the identity must never be recorded before the snapshot commits", stampIdx, backupIdx)
 	}
 }
 

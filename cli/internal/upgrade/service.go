@@ -630,6 +630,14 @@ func (d *Service) updateFlagNewSbSwapped(backupPath string) error {
 	if err := json.Unmarshal(data, &flag); err != nil {
 		return fmt.Errorf("unmarshal flag: %w", err)
 	}
+	// LOAD-BEARING COUPLING (STATBUS-228): these two assignments must stay in
+	// the SAME write. This function is the ONLY writer of flag.BackupPath, and
+	// it flips the phase away from PreSwap in the same breath — that is what
+	// enforces "a PreSwap flag carries an empty BackupPath by construction"
+	// (:1300-1353's safety argument) structurally rather than by convention.
+	// Splitting these for tidiness reopens STATBUS-197's defect: a PreSwap
+	// flag carrying a snapshot identity turns the PreSwap rollback no-op into
+	// a destructive restore that rewinds recovery_attempts.
 	flag.Phase = PhaseNewSbSwapped
 	flag.BackupPath = backupPath
 	newData, err := json.MarshalIndent(flag, "", "  ")
@@ -5522,10 +5530,25 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// STATBUS-197 C1: backup_path is NO LONGER recorded here as early intent. Recording it
 	// BEFORE the snapshot commits violated the identity contract — a flag-lost heal in the
 	// [record → snapshot] span would restore the PREVIOUS attempt's snapshot (weeks-of-data
-	// regression). The row AND flag backup_path are now stamped together RIGHT AFTER
-	// backupDatabase returns (the commit moment, below), so "backup_path == '' ⇔ nothing moved"
-	// holds in EVERY carrier (row, flag, synthesized flag) — the invariant the rollback
+	// regression). "backup_path == '' ⇔ nothing moved" is the invariant the rollback
 	// no-touch guard (C2) keys on. reconcileBackupDir keeps its on-disk-stamp fallback.
+	//
+	// STATBUS-228: the two carriers become honest at DIFFERENT MOMENTS, BY DESIGN — this
+	// is not a weaker version of the C1 contract, it is the only implementable one.
+	//   - THE FLAG is stamped at the SWAP (updateFlagNewSbSwapped, below). That is the
+	//     point of no return: before it the database volume is untouched, so an EMPTY
+	//     BackupPath is not a gap — it is the CORRECT value, and it is what makes the
+	//     PreSwap recovery branch's no-touch guarantee true (:1315-1318, :1348-1349).
+	//   - THE ROW is recorded at the first RECONNECT after the backup (applyNewSbUpgrading,
+	//     the write right after "Database reconnected."). It cannot be recorded any
+	//     earlier: Step 4 STOPS the postgres SERVER for the consistent backup, and no
+	//     write of any kind can land while it is down. 197 recorded it here anyway and
+	//     the UPDATE failed on every upgrade — silently on successful ones, which the
+	//     later reconnect write repaired, and permanently on crashed ones, which are the
+	//     population that needs it (STATBUS-228).
+	// Across the DB-down gap the FLAG is the authoritative carrier. That is not a
+	// degradation: the flag is the only carrier that CAN be written with the server
+	// stopped, which is exactly why recovery has always been flag-driven.
 
 	// STATBUS-110: engage the read-only upgrade window NOW — before we tear down
 	// connections and stop the DB — while queryConn is still live. The ALTER
@@ -5624,23 +5647,24 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		return err
 	}
 
-	// STATBUS-197 C1: the snapshot has COMMITTED (backupDatabase returned a real path). Record
-	// the restore identity NOW, on both carriers, and NOWHERE earlier. After this point
-	// backup_path is non-empty; before it, it is "" — and every destructive step (the target
-	// checkout at recovery boot, the binary swap below, migrations) sits AFTER here, so
-	// "backup_path == '' ⇔ nothing moved" is exact. The row write rides the teardown-immune
-	// terminalExec (queryConn was closed for the consistent backup and the read-only window is
-	// engaged — the same fresh-conn path the completion 'completed' write uses under the
-	// window); the flag write rides mutateHeldFlag with the Phase UNCHANGED (still
-	// old-sb-upgrading — the swap stamp flips it to NewSbSwapped later). Both best-effort with a
-	// loud warning: the OTHER carrier still holds the identity, and neither failure can turn
-	// into a wrong restore (it can only degrade to the no-touch skip, which is the safe side).
-	if err := d.terminalExec("UPDATE public.upgrade SET backup_path = $1 WHERE id = $2", backupPath, id); err != nil {
-		progress.Write("Warning: could not record backup_path on the upgrade row at commit (%v) — flag.BackupPath still carries the restore identity; reconcile correlation degraded.", err)
-	}
-	if err := d.mutateHeldFlag(func(f *UpgradeFlag) { f.BackupPath = backupPath }); err != nil {
-		progress.Write("Warning: could not stamp backup_path on the flag at commit (%v) — the row still carries the restore identity; flag-driven recovery correlation degraded.", err)
-	}
+	// STATBUS-228: NOTHING RECORDS backup_path HERE. The postgres SERVER is stopped at
+	// this point (Step 4, above) for the consistent backup, so no row write can land —
+	// and the flag must NOT be stamped either, because the swap has not happened yet.
+	//
+	// 197 recorded on both carriers here, and both were wrong in different ways:
+	//   - The row UPDATE rode terminalExec, justified as "teardown-immune". terminalExec
+	//     survives OUR CONNECTION dying (STATBUS-154/163) — it opens a fresh one. It
+	//     cannot reach a server that is not running. The write failed on EVERY upgrade;
+	//     on crashed ones the column stayed NULL forever, killing STATBUS-111's
+	//     human-gated replay AND failing the :3761 abort-hold guard OPEN.
+	//   - The flag stamp gave a PreSwap flag a BackupPath, which silently falsified the
+	//     PreSwap recovery branch's stated premise ("empty by construction at PreSwap",
+	//     :1348-1349). restoreDatabase then stopped refusing, and a database no-op became
+	//     a full volume rewind — which also reverted recovery_attempts to the snapshot's
+	//     value, the hazard writeRollbackTerminal documents at its own contract.
+	//
+	// The identity is recorded where each carrier can hold it truthfully: the FLAG at the
+	// swap (updateFlagNewSbSwapped, below), the ROW at the first reconnect after it.
 
 	// Step 6: Fetch the target's git objects — but do NOT check out the working
 	// tree here (STATBUS-060). A pre-swap checkout materializes the target's
@@ -6395,12 +6419,25 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	}
 	progress.Write("Database reconnected.")
 
-	// Update backup_path to the final (renamed) path now that we have a connection.
-	// Log on failure: the DB still holds the .tmp path; reconcileBackupDir will
-	// emit BACKUP_MISSING on the next tick for the missing .tmp, surfacing the issue.
+	// STATBUS-228: THE SINGLE ROW RECORDER of backup_path, and deliberately the FIRST
+	// write after the reconnect — before anything else in this phase can fail and skip
+	// it. The server was STOPPED from Step 4 through the swap, so this is the earliest
+	// instant the row CAN be told the truth; recording it any earlier is not a stricter
+	// contract, it is a write that silently never lands (that was the 197 defect).
+	//
+	// Until this line the FLAG is the authoritative carrier (stamped at the swap), and
+	// it stays authoritative for crash recovery either way — the row's copy exists for
+	// the readers that cannot see the flag: STATBUS-111's human-gated restore replay
+	// (state='failed' AND backup_path IS NOT NULL) and the :3761 abort-hold guard, which
+	// FAILS OPEN when the column is NULL and would strip the read-only hold protecting a
+	// broken volume. Both were dead fleet-wide while this was the second recorder rather
+	// than the only one.
+	//
+	// Log on failure: the DB still holds no path; reconcileBackupDir will emit
+	// BACKUP_MISSING on the next tick, surfacing the issue.
 	if _, err := d.queryConn.Exec(ctx,
 		"UPDATE public.upgrade SET backup_path = $1 WHERE id = $2", backupPath, id); err != nil {
-		progress.Write("Warning: could not update backup_path to final path for upgrade id=%d: %v", id, err)
+		progress.Write("Warning: could not record backup_path on the upgrade row for id=%d: %v — the flag still carries the restore identity, but STATBUS-111's replay and the abort-hold guard read the ROW; investigate before relying on either.", id, err)
 	}
 
 	// R1 quiesce: stop worker / app / rest if any are still running
