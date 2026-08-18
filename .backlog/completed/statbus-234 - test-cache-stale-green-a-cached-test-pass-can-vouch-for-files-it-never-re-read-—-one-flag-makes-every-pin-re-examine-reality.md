@@ -3,11 +3,11 @@ id: STATBUS-234
 title: >-
   test-cache-stale-green: a cached test pass can vouch for files it never
   re-read — one flag makes every pin re-examine reality
-status: In Progress
+status: Done
 assignee:
   - mechanic
 created_date: '2026-08-18 15:38'
-updated_date: '2026-08-18 15:42'
+updated_date: '2026-08-18 15:45'
 labels:
   - ci
   - quality-gate
@@ -36,9 +36,9 @@ WHAT IS ACHIEVED: a pin's green goes back to meaning "I read the file today" —
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 CI's go test runs with -count=1 (and dev.sh's chain where applicable); the change is commented with the outside-module cache gap
-- [ ] #2 The CI-exposure question answered empirically and recorded: could a cached pass have crossed CI runs before this fix
-- [ ] #3 Role docs' chain wording names -count=1 uniformly
+- [x] #1 CI's go test runs with -count=1 (and dev.sh's chain where applicable); the change is commented with the outside-module cache gap
+- [x] #2 The CI-exposure question answered empirically and recorded: could a cached pass have crossed CI runs before this fix
+- [x] #3 Role docs' chain wording names -count=1 uniformly
 <!-- AC:END -->
 
 ## Comments
@@ -65,4 +65,22 @@ The LOCAL exposure (the one the engineer actually demonstrated) is real regardle
 
 Validated: `ruby -ryaml` + `actionlint` clean on go-test.yaml (zero findings). Ran `go test ./... -count=1` in cli/ for real — all packages report real timings, exit 0, confirming the flag doesn't break anything and behaves as expected.
 ---
+
+author: architect (pinned by foreman)
+created: 2026-08-18 15:45
+---
+APPROVED (architect verdict, pinned in substance): the alarm-reversal SURVIVES adversarial checking — verified independently from a second direction: there is NO go.sum at the repo root, only cli/go.sum, so setup-go's default search finds nothing and the restore no-ops; consistent with the run-log evidence. But the no-op is ACCIDENTAL, and that is the whole point: adding cache-dependency-path to speed up CI looks like pure benefit and would silently re-open the exposure. -count=1 is not belt-and-braces against a non-problem; it is what makes the pin family robust against a well-intentioned caching fix nobody would think to question. Safety that holds by accident is not safety. Record correction for doc-033 instance seven: the exposure was LOCAL only, and only accidentally so — CI never replayed a stale green. One softening applied at landing per the architect: the comment's cache-mechanism sentence is now marked as the likely explanation, not a stated internals fact (cmd/go does attempt runtime file tracking via testlog); the demonstration remains the authority. LANDED as 93804427e.
+---
+
+author: architect (pinned by foreman)
+created: 2026-08-18 15:45
+---
+King's ruling 2026-08-18: fix the issues we find — the cold-CI-cache fix (STATBUS-235) proceeds now that this ticket's -count=1 guard is on master.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+CI's go test now runs with -count=1, so a pin test's green always means it read its outside-module files (workflow YAML, the exempt list, shell scripts) on this run — the property the whole pin strategy stands on, demonstrated broken beforehand by priming the cache and editing ops/release/ci-exempt-paths.txt into a stale "ok (cached)". The role docs' freeze-chain wording names the flag uniformly, with the reason inline. The CI-exposure question was answered empirically from run logs, and the answer reversed the alarm with a stronger finding: setup-go's cache restore has silently failed on every run (go.sum lives in cli/, the action searches the repo root), so CI's cache was permanently cold and the stale green was only ever reachable locally — accidentally, which is exactly why the guard matters: a future cache fix would have silently re-opened the hole. That fix is filed as STATBUS-235, dependent on this ticket. Built by mechanic, adversarially reviewed and approved by architect, landed as 93804427e.
+<!-- SECTION:FINAL_SUMMARY:END -->

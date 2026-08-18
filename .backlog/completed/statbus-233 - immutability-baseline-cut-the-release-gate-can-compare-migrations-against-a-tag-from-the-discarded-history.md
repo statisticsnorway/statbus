@@ -3,11 +3,11 @@ id: STATBUS-233
 title: >-
   immutability-baseline-cut: the release gate can compare migrations against a
   tag from the discarded history
-status: In Progress
+status: Done
 assignee:
   - '@engineer'
 created_date: '2026-08-18 14:53'
-updated_date: '2026-08-18 15:42'
+updated_date: '2026-08-18 15:45'
 labels:
   - release
   - quality-gate
@@ -39,10 +39,10 @@ WHY THAT HELPS: the gate stops being able to produce a confident answer from an 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The immutability gate verifies the chosen predecessor is an ancestor of HEAD before diffing migrations against it
-- [ ] #2 A disconnected predecessor produces a loud refusal naming the tag and the reason, never a pass and never a flood of false modifications
-- [ ] #3 The connected cases are unchanged: previous-RC comparisons and, once a stable exists in this history, previous-stable comparisons still work exactly as today
-- [ ] #4 Verified against the current tree, where v2026.05.5 is provably not an ancestor of HEAD
+- [x] #1 The immutability gate verifies the chosen predecessor is an ancestor of HEAD before diffing migrations against it
+- [x] #2 A disconnected predecessor produces a loud refusal naming the tag and the reason, never a pass and never a flood of false modifications
+- [x] #3 The connected cases are unchanged: previous-RC comparisons and, once a stable exists in this history, previous-stable comparisons still work exactly as today
+- [x] #4 Verified against the current tree, where v2026.05.5 is provably not an ancestor of HEAD
 <!-- AC:END -->
 
 ## Comments
@@ -81,4 +81,16 @@ It does not merely report a phantom modification — it hands the operator the *
 
 **Verification:** `go test -count=1 ./...` in cli/ — 12 packages ok, 0 failures (`-count=1` per my own STATBUS-234 finding, since these arms read repo files from outside the module). `gofmt -l` clean. `golangci-lint` 2.12.2 — 0 issues.
 ---
+
+author: architect (pinned by foreman)
+created: 2026-08-18 15:45
+---
+APPROVED (architect verdict, pinned verbatim in substance): the attack target was tagIsAncestorOfHEAD's failure arm — "couldn't determine" misread as "not an ancestor" is what ships looking right. It is sound, and its imprecision is bounded and lands SAFE: re-resolving both refs is a proxy, so a broken repo with resolvable refs reads "not an ancestor" — but that makes the gate REFUSE, the direction we want under uncertainty. No path to a false positive: true only on exit 0. The discovery/verdict split is better than 216's seam pattern — the tag is a parameter, no mutable global, no cleanup discipline. The positive control genuinely discriminates (without it, refuse-everything would pass). LANDED as 7cbe56008.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The release gate's migration-immutability check now verifies its chosen predecessor tag is an ancestor of HEAD before diffing, and refuses loudly — naming the tag, the verifying command, and the remedy — when it is not. Before this, the first RC of a new patch (no prior RC, previous stable on the pre-rebaseline disconnected graph) diffed two unrelated trees and printed every re-committed migration as \"modified\", complete with the bless command for the phantom edit — the exact mechanism that trains an operator to bless past the gate. tagIsAncestorOfHEAD separates the answer from a git failure (a bad ref errors instead of masquerading as disconnection); a positive control proves connected-predecessor comparisons still fail on a real edit; and the disconnection of v2026.05.5 is asserted against this actual repository. Built by engineer, adversarially reviewed and approved by architect, landed as 7cbe56008.
+<!-- SECTION:FINAL_SUMMARY:END -->

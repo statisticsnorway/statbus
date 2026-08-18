@@ -3,9 +3,11 @@ id: STATBUS-235
 title: >-
   ci-go-cache-cold: setup-go's cache restore silently no-ops every run — go.sum
   lives in cli/, the action looks at the repo root
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@mechanic'
 created_date: '2026-08-18 15:42'
+updated_date: '2026-08-18 15:45'
 labels:
   - ci
   - tooling
@@ -40,3 +42,13 @@ WHAT IS ACHIEVED: CI stops rebuilding the Go toolchain output from scratch on ev
 - [ ] #2 A run after the fix shows the cache restore actually succeeding in the Set up Go step log, and a subsequent unchanged-cli run shows the speed benefit
 - [ ] #3 Verified that go test still runs with -count=1 on the same invocation (the STATBUS-234 guard) before the cache goes live
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-08-18 15:45
+---
+King's ruling 2026-08-18 (verbatim intent): fix issues we find, including this Go caching issue. Proceeding now — the ordering constraint is satisfied: STATBUS-234's -count=1 landed as 93804427e and is on master. Assigned @mechanic.
+---
+<!-- COMMENTS:END -->
