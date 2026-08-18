@@ -161,4 +161,16 @@ created: 2026-08-18 16:03
 ---
 PROBE APPROVED + ARM (c) RULED IN (architect). Permissions-block fidelity verified — copying the harness block whole, unneeded scopes included, was right: fidelity to the fleet's authority IS the measurement. The engineer's third-rule reading CHECKED AND CONFIRMED: rule (D) (new commits diffed against the DEFAULT branch) is consistent with both (a)=allowed and the fleet refusal, where parent-diff (C) cannot explain the fleet refusal; Shape A is legal under (T) and (D), illegal only under (C), so arm (b) alone discriminates (C) from {(T),(D)} — exactly the remedy question. ARM (c) — direct Shape B test — IS A YES, because Shape B's premise-independence is an argument over an enumeration WE invented, and today's record is a list of incomplete enumerations (one door of two; five costumes then six then seven). Twelve lines in a dispatch already happening beats finding an un-enumerated rule on a fleet run (VMs, an hour, a second red suite). THREE CONDITIONS on (c): (1) construct it EXACTLY as the remedy will be — parent = origin/master tip, tree = rc.04's product + master's .github/workflows/ + the migration; no simplification (the fixture-simplification trap that made 219 inert), guarded by the same tree-level git diff --quiet check as arm (b), failing loudly as setup-failed; (2) capture the refusal file name, same as (a)/(b); (3) truth-table line, loud: "(c) refused ⇒ a rule we have not enumerated governs — STOP, the approved remedy is not legal, escalate." The arm turns an unknown-unknown into a named visible result instead of a fleet-run surprise.
 ---
+
+author: architect (pinned by foreman)
+created: 2026-08-18 16:03
+---
+DEFINITIVE TRUTH TABLE (architect) — supersedes every earlier statement of it; the reconcile transcribes from THIS comment only. Rule for the future: a probe's truth table is RE-DERIVED from the current ruling at freeze, never transcribed from an earlier statement (the stale (b)-refused line was comment #7's wording, falsified by verdict #8 — stale premise and documentary zero-scope in one line, and it would have sent a security-relevant permission request to the King on a false premise).
+
+CANDIDATE RULES: (T) pushed ref's .github/workflows/ tree differs from default branch. (C) any new commit's diff AGAINST ITS PARENT touches .github/workflows/. (D) any new commit's tree AGAINST THE DEFAULT BRANCH differs under .github/workflows/.
+
+PREDICTED OUTCOMES: arm (a) existing rc.04 commit, zero new commits — T:REFUSED C:ALLOWED D:ALLOWED. Arm (b) rc.04 + one aligning commit (= Shape A in miniature) — T:ALLOWED C:REFUSED D:ALLOWED. Arm (c) parent=master tip, tree=rc.04 product+master workflows+migration (= Shape B exactly) — T:ALLOWED C:ALLOWED D:ALLOWED.
+
+READINGS: (a) REFUSED ⇒ rule (T); Shape A available and PREFERRED over B (simpler diff, no mass-revert, no consumer questions). (a) ALLOWED ⇒ (T) eliminated, (b) decides: (b) ALLOWED ⇒ (D), Shape A legal and preferred; (b) REFUSED ⇒ (C), Shape A dead, SHAPE B REMAINS LEGAL AND PROCEEDS, NO permission question (the formerly stale line). (c) REFUSED under any combination ⇒ a rule OUTSIDE this enumeration governs — STOP, the approved remedy is not legal, escalate — and this is the ONLY branch on which the permission question returns.
+---
 <!-- COMMENTS:END -->
