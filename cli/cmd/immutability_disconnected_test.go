@@ -4,17 +4,31 @@ package cmd
 // predecessor tag that is not an ancestor of HEAD.
 //
 // Git diffs any two commits, related or not, and returns a confident-looking
-// answer. This repository was rebaselined on 2026-07-14 (77fa16fb25bfefe is the
-// root of the current history), so every earlier stable tag sits on a graph HEAD
-// never descended from. Diffing against one reports every re-committed migration
-// as "modified" — a flood in which a genuine post-release edit is invisible.
+// answer. Against a predecessor HEAD never descended from, that answer lists
+// every re-committed migration as "modified" — a flood in which a genuine
+// post-release edit is invisible.
 //
 // Both directions of that verdict are harmful, which is why the gate must answer
 // neither: the flood trains an operator to bless past the gate, and a single
 // blanket bless baselines a corpus nobody read.
+//
+// STATBUS-239 — CORRECTION TO THIS FILE'S ORIGINAL PREMISE. It used to state as
+// fact that the repository was rebaselined on 2026-07-14 with 77fa16fb2 as the
+// root, leaving pre-rebaseline tags disconnected. That never happened. The
+// clone we measured in was SHALLOW, and every "disconnected" reading was the
+// shallow boundary answering instead of the history: in a full clone
+// 77fa16fb2 has a parent (bab043771), the true root is 898d04734, and
+// v2026.05.5 IS an ancestor of HEAD (GitHub compare: ahead 2154, behind 0).
+//
+// The HAZARD the fixtures below exercise is unaffected — a predecessor tag off
+// this line of history is still a thing git will happily diff, and the gate
+// must still refuse it. Only the claim that THIS repo was in that state was
+// false. The real-repo arm that asserted it has been replaced by the guard
+// against the condition that produced the false reading: a shallow clone.
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -140,22 +154,42 @@ func TestImmutabilityGate_ConnectedPredecessorStillCompares_STATBUS233(t *testin
 	}
 }
 
-// TestRealRepo_PreRebaselineTagIsDisconnected_STATBUS233 is AC#4, asserted
-// against THIS repository rather than a fixture: v2026.05.5 really is not an
-// ancestor of HEAD, and the current root really is the rebaseline commit. If a
-// future re-graft changes that, this test says so instead of the gate quietly
-// starting to compare across a boundary nobody re-examined.
-func TestRealRepo_PreRebaselineTagIsDisconnected_STATBUS233(t *testing.T) {
+// TestRealRepo_NotShallow_STATBUS239 replaces the AC#4 canary that asserted the
+// rebaseline. It guards the PRECONDITION every history-dependent check we own
+// rests on: that this clone actually contains the history it is about to reason
+// over.
+//
+// A shallow clone does not error when asked about commits beyond its boundary —
+// it answers as though they do not exist. `merge-base --is-ancestor` exits 1,
+// `rev-list --max-parents=0` names the graft point as the root, and both
+// readings look exactly like a genuine disconnection. That is precisely how
+// STATBUS-233's premise came to be false: the instrument was believed, the
+// history was never examined.
+//
+// So the assertion is deliberately about the CLONE, not about any tag: a check
+// that cannot examine history must not report a pass about history. Flipping the
+// old arm to assert "v2026.05.5 IS an ancestor" would have pinned the same
+// confusion the other way up — in a shallow clone that assertion fails while
+// nothing about the repository is wrong.
+//
+// CI is green on arrival by construction: go-test.yaml's go-test job checks out
+// with fetch-depth: 0.
+func TestRealRepo_NotShallow_STATBUS239(t *testing.T) {
 	repo := thisRepoFile(t, ".")
 
-	if !tagExistsLocally(repo, "v2026.05.5") {
-		t.Skip("v2026.05.5 not fetched locally — nothing to assert about it here")
-	}
-	connected, err := tagIsAncestorOfHEAD(repo, "v2026.05.5")
+	out, err := exec.Command("git", "-C", repo, "rev-parse", "--is-shallow-repository").CombinedOutput()
 	if err != nil {
-		t.Fatalf("tagIsAncestorOfHEAD on the real repo: %v", err)
+		t.Fatalf("git rev-parse --is-shallow-repository in %s: %v\n%s", repo, err, out)
 	}
-	if connected {
-		t.Error("v2026.05.5 is NOW an ancestor of HEAD — the history was re-grafted. That is not a failure of the gate, but STATBUS-233's premise has changed and the refusal's wording (which tells operators the histories are disconnected) must be re-read")
+	shallow := strings.TrimSpace(string(out))
+
+	if shallow != "false" {
+		t.Fatalf("this clone is SHALLOW (git rev-parse --is-shallow-repository = %q).\n"+
+			"Every history-dependent check in this package — the immutability gate's\n"+
+			"ancestry refusal, migration diffs against a predecessor tag, seed ancestor\n"+
+			"selection — will read the shallow boundary as a fact about the repository\n"+
+			"and answer confidently with it. That is STATBUS-239: a tag that IS an\n"+
+			"ancestor was reported as disconnected, and the wrong fact was written down.\n"+
+			"Fix: git fetch --unshallow", shallow)
 	}
 }
