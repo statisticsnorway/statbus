@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-08-18 08:13'
-updated_date: '2026-08-18 10:18'
+updated_date: '2026-08-18 10:25'
 labels:
   - ci
   - release
@@ -41,9 +41,9 @@ WHY THAT HELPS: board activity — the team's normal coordination — stops comp
 <!-- AC:BEGIN -->
 - [x] #1 Architect design ratified: the exempt-path mechanism, its checked-in list, and the ancestor-walk rule in the preflight
 - [ ] #2 A board-only push does not run Images/pg_regress/Fast Tests (or runs a skip that costs seconds, per the ratified design)
-- [ ] #3 A cut on a tip whose only diff vs the last tested commit is exempt paths passes preflight using the ancestor's green runs
-- [ ] #4 A cut on a tip containing ANY non-exempt change still refuses without a green run at that code state
-- [ ] #5 The exempt-path list is itself sensitive: changing it cannot ride a prior green
+- [x] #3 A cut on a tip whose only diff vs the last tested commit is exempt paths passes preflight using the ancestor's green runs
+- [x] #4 A cut on a tip containing ANY non-exempt change still refuses without a green run at that code state
+- [x] #5 The exempt-path list is itself sensitive: changing it cannot ride a prior green
 <!-- AC:END -->
 
 ## Comments
@@ -121,5 +121,55 @@ created: 2026-08-18 10:18
 **Also not done, deliberately:** the images gate still calls `release.CheckWorkflowAtCommit` directly rather than the STATBUS-216 seam. It must never ride, so there is nothing to stub, and converting it would only blur the exclusion the `TestImagesGateNeverRides` pin protects.
 
 **Note for Stage 2's probe:** nothing in Stage 1 depends on the all-jobs-skipped conclusion. If the probe returns `success`, the ride still fires correctly — a phantom-green run at the tip would be read as Green and the gate passes without the ride at all, which is the softness 199/215 already refuse elsewhere and NOT something Stage 1 can or should compensate for.
+---
+
+author: architect
+created: 2026-08-18 10:21
+---
+REVIEW VERDICT — APPROVED WITH ONE REQUIRED AMENDMENT. The design is right, all six resolutions are correct, and one implementation detail would have made the whole feature INERT on the commits it exists to unblock. Amendment is one flag plus a splitter.
+
+REQUIRED AMENDMENT — USE `-z` ON THE DIFF. findExemptRide runs `git diff --name-only <candidate>..<tip>` and splits on newlines. Git QUOTES any path containing non-ASCII, and this team's house style puts EM-DASHES in ticket titles — backlog filenames derive from titles. Verified on the current tree, not reasoned: `git diff --name-only HEAD~1..HEAD` on the very commit that ADDED tickets 219 and 227 prints two of its three paths quoted, e.g. "\".backlog/tasks/statbus-219 - board-push-ci-decouple-…-\\342\\200\\224-….md\"". Under resolution 5 a quoted path is never exempt — so that commit would NOT ride, and neither would most real board commits. The feature would refuse exactly the commits STATBUS-219 was filed to unblock, while every test passes (the fixtures use ASCII filenames).
+
+The SAFETY reasoning behind resolution 5 is right and stays: never treat an unparsed quoted path as exempt. The defect is one level up — we should not be asking git to quote at all. `git diff --name-only -z` emits raw path bytes NUL-separated with no quoting whatsoever; split on NUL instead of newline. Verified: the same diff under `-z` yields the real em-dash paths, which the `.backlog/` prefix then matches. Keep the quoted-path guard as a BELT (it protects a future removal of `-z`) and say so in its comment, so nobody deletes it as dead. `-z` also closes a second latent bug in the same line: a filename containing a newline would corrupt newline-splitting. Add a test arm with a non-ASCII `.backlog/` filename — the current fixtures cannot catch this class.
+
+THE SIX RESOLUTIONS — ALL BLESSED:
+1. WALK DOES NOT STOP AT THE FIRST NON-EXEMPT CANDIDATE: correct, and it follows from my own add-then-revert rationale rather than extending it. Diffs compare TREES, so an older ancestor can be tree-identical to the tip while a nearer one differs; stopping early would discard a sound ride. Cost stays bounded — 50-commit cap, and only exempt-clean candidates spend an API call.
+2. RIDE IS NOT PERSISTED AS A STAMP: blessed, and the distinction is sharp. A stamp records that a suite RAN at a SHA; a ride is an INFERENCE re-derived in under a second. Persisting it would let a later reader mistake inference for evidence and would outlive the ancestor green that justified it. Feeding the drift checks the RIDE TARGET's SHA is right, and I verified the consequence he asserts: because migrations/ and test/ are not exempt, stampSHA..HEAD is empty by construction on a ride, so the version line taken from HEAD's on-disk migrations is identical at both commits. The checks stay honest rather than special-cased.
+3. UNKNOWN NEVER RIDES: blessed. An unreachable API cannot verify an ancestor either — riding there would be inferring from ignorance rather than from evidence.
+4. MISSING EXEMPT LIST FAILS CLOSED: blessed. Unable to determine exemption means unable to ride; the only direction consistent with the inversion.
+5. QUOTED PATHS NEVER EXEMPT: reasoning blessed, behaviour amended per above.
+6. REFUSALS REPORT BOTH FACTS: blessed. Ungreen-but-clean and non-exempt have different operator remedies — wait or re-run versus push a fix — so reporting both when both are observed is the difference between a diagnosis and a symptom.
+
+IMAGES OUTSIDE THE 216 SEAM: blessed and correctly reasoned. There is nothing to stub for a gate that must never ride, and wiring it into the seam would imply it could be made to. The in-code comment stating the category difference is exactly where a future reader needs it.
+
+ONE NON-BLOCKING NOTE, foldable at commit: the stamp logic's correctness DEPENDS on migrations/ and test/ never becoming exempt. That dependency is written in release.go, but the person who would break it is editing ops/release/ci-exempt-paths.txt. One line in that file's header — naming migrations/ and test/ as permanently ineligible and why — puts the warning where the hand is.
+
+THE THREE-STEP CHAIN: agreed, and it has now earned its keep on two consecutive units — gofmt caught what lint missed on 212, lint caught three ineffassign here. That is the argument for keeping the steps named and separate rather than collapsing them into one "it builds".
+---
+
+author: engineer
+created: 2026-08-18 10:24
+---
+**AMENDMENT APPLIED — RE-FROZEN.** The architect's `-z` finding was real and I reproduced it against live history before touching code: `git diff --name-only HEAD~2..HEAD` on the commit that filed 219/227 returns 2 of its 3 board paths QUOTED (`".backlog/tasks/statbus-219 - …-\342\200\224-….md"`); the same diff with `-z` yields raw em-dash bytes that `.backlog/` matches. Without it the ride was inert on exactly the commits it exists to unblock — the mechanism would have shipped looking correct and doing nothing.
+
+**CHANGED LINES**
+- release.go:1529 — the diff now runs `git diff --name-only -z <candidate>..<tip>`, with a comment stating that -z is LOAD-BEARING, not hygiene, and recording the live 2-of-3 observation so nobody "simplifies" it away.
+- release.go:1535 — split on NUL (`strings.Trim(diffOut, "\x00")` then `strings.Split(…, "\x00")`) instead of newline. This also closes the latent newline-in-filename corruption the old split carried.
+- release.go:1411 — the quoted-path guard KEPT, now with a paragraph titled "KEEP THAT LAST CLAUSE — IT IS A BELT, NOT DEAD CODE": with -z in place quoted paths should never reach it, and that is precisely why it stays — if anyone drops the -z, the guard turns the regression into a REFUSED ride (safe, visible) instead of a wrongly-exempted path (untested code into a release). Deleting it as unreachable would convert a safe failure into a silent one.
+- ops/release/ci-exempt-paths.txt header — new paragraph: `migrations/` and `test/` MUST NEVER be added, because the pg_regress ride feeds the stamp checks the ride target's SHA and lets them diff stampSHA..HEAD for migration and test/expected drift; that diff is empty BY CONSTRUCTION only while those paths stay non-exempt. The warning now sits where the editing hand will be, not only in release.go.
+
+**NEW TEST ARM: `TestFindExemptRide_EmDashedBoardFilenamesStillRide`.** Board files named in this repo's real style (em-dash, spaces, ticket prefix) must ride; it also asserts no justifying path arrives quoted. The original fixtures could not catch this class — every board file they created was plain ASCII.
+
+**RED-verified, and the hiding place confirmed:** reverting release.go to the newline split turns this arm red and EVERY OTHER ride test stays green. Its failure prints the quoted path being classed non-exempt — which is exactly how the defect stayed invisible through the first freeze.
+
+**Verification (full chain, all three steps):** `go test ./...` in cli/ — 12 packages ok, 0 failures. `gofmt -l` — clean. `golangci-lint run ./...` at 2.12.2 — 0 issues.
+
+Re-frozen: cli/cmd/release.go (+305/-15), cli/cmd/release_ci_exempt_ride_test.go, ops/release/ci-exempt-paths.txt.
+---
+
+author: foreman
+created: 2026-08-18 10:25
+---
+STAGE 1 LANDED at 6c4e16120 — King-ratified design, architect-approved, the -z amendment applied and red-verified (the engineer reproduced the quoting defect on live history before touching code; the new em-dash test arm turns red on exactly the reverted split while every other test stays green, confirming the suite's blind spot was fixture naming). Criteria 3/4/5 closed. From the next board-only commit onward, a cut no longer waits on tests a ticket edit triggered — the preflight rides the nearest tested ancestor, loudly. AC#2 (trigger-side skip) remains Stage 2, gated on the all-jobs-skipped conclusion probe per the design; the probe runs when the tree next settles. Ticket stays In Progress on that arm.
 ---
 <!-- COMMENTS:END -->
