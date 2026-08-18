@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-17 21:46'
-updated_date: '2026-08-18 07:41'
+updated_date: '2026-08-18 07:43'
 labels:
   - ci
   - release
@@ -23,15 +23,15 @@ ordinal: 217000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-> NORTH STAR: the gate verifies what actually ran, not what the run claims (STATBUS-199). Checking that a job merely EXISTS is a weaker test than that doctrine intends.
+WHAT THIS PART DOES: the stable-promotion gate does not merely check that a CI run was green — it checks the run actually contains one job per required test scenario. That is the STATBUS-199 doctrine: verify what ran, not what the run claims.
 
-FOUND: 2026-08-17 by the architect during the STATBUS-215 review. Not exploitable today — filed to strengthen the doctrine before it becomes a live defect.
+WHAT GOES WRONG: the check only looks for each required job's NAME in the run. It never asks how the job ended. A required job that was present but SKIPPED would count as proof — and because skipped jobs do not turn a run red, the run stays green and the gate passes while a scenario never executed. Found 2026-08-17 by the architect during the STATBUS-215 review; not exploitable today, filed to strengthen the doctrine before it becomes a live defect.
 
-THE HOLE: the completeness check (cli/internal/release/workflow_check.go:218-225) marks a required arc job as satisfied when a job WITH THAT NAME appears in the run. It never looks at how the job ended. A required job that appeared but was SKIPPED would still count — and because skipped jobs do not turn a run red, the run stays green and the gate passes.
+THE DETAIL: WorkflowJobsCompleteAtCommit (cli/internal/release/workflow_check.go:218-225) builds a set of the run's job names and checks each required name for membership. No conclusion field is read. Today this cannot fire: the arc matrix either expands into all its jobs or skips as one placeholder entry whose name matches no required arc — and that name mismatch is exactly how the STATBUS-215 phantom run was caught. The hole opens the moment individual matrix jobs become skippable: a per-scenario condition, a future selector mechanism, or the STATBUS-214 orchestrator rework.
 
-WHY IT CANNOT FIRE TODAY: the arc matrix either expands into all of its jobs or skips as one placeholder entry whose name matches no required arc — and that name mismatch is precisely how the STATBUS-215 phantom run was caught. The hole opens the moment individual matrix jobs become skippable: a per-scenario condition, a future selector mechanism, or the STATBUS-214 orchestrator rework.
+THE FIX: require each required job to be present AND to have concluded success. Failures already redden the whole run, so this only closes the skipped and cancelled cases. The refusal message should distinguish "missing entirely" from "present but did not run." Cost: one extra field in the decode struct. The same helper serves the install-recovery gate's scenario jobs, so both gates strengthen in one change.
 
-THE FIX: require each required job to be present AND to have concluded success. Failures already turn the whole run red, so this only closes the skipped and cancelled cases. The cost is one extra field in the decode struct and a clearer refusal message naming which arcs did not actually run. The same helper serves the install-recovery gate's scenario jobs, so both gates get the fix in one change.
+WHY THAT HELPS: it closes the last reading under which a test could count without running. The gate then measures execution, not appearance — and stays correct through the planned matrix rework instead of quietly weakening the day jobs become individually skippable.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
