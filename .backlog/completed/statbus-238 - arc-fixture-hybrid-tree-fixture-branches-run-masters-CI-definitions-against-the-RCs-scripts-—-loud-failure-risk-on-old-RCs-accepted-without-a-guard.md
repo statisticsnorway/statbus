@@ -3,9 +3,10 @@ id: STATBUS-238
 title: >-
   arc-fixture-hybrid-tree: fixture branches run master's CI definitions against
   the RC's scripts — loud-failure risk on old RCs, accepted without a guard
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-18 15:59'
+updated_date: '2026-08-18 20:20'
 labels:
   - ci
   - install-recovery
@@ -32,5 +33,11 @@ WHAT TO DO IF IT FIRES: a fixture image build failing with a missing-file error 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Closes when either the hybrid design is replaced (making this moot) or the documented failure fires once and this record proves sufficient to triage it quickly
+- [x] #1 Closes when either the hybrid design is replaced (making this moot) or the documented failure fires once and this record proves sufficient to triage it quickly
 <!-- AC:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Converted to a permanent record rather than held open: the hybrid-fixture-tree risk is a standing design property of the test fleet (every RC cycle briefly has the window; it does not depend on old installs), so its documentation now lives as doc-034 — "The hybrid fixture tree — an accepted test-fleet risk and how to recognize it" — where triage guides belong, and the task closes. Closed at the King's direction 2026-08-18; the signpost survives in the doc, including the what-to-do-when-it-fires playbook and the architect's no-guard ruling.
+<!-- SECTION:FINAL_SUMMARY:END -->
