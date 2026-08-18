@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-08-18 09:57'
-updated_date: '2026-08-18 14:57'
+updated_date: '2026-08-18 14:58'
 labels:
   - upgrade
   - deploy
@@ -40,10 +40,10 @@ WHY THAT HELPS: it closes the same class STATBUS-210 and STATBUS-212 close one l
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The already-at-latest skip consults the target's upgrade row and short-circuits only when that row is completed
-- [ ] #2 A parked row at the target version produces an actionable message naming the un-park remedy, not "nothing to apply"
-- [ ] #3 The documented fall-throughs still never produce a false skip: unknown build commit or unresolvable target still proceeds to register+schedule
-- [ ] #4 A genuinely converged box still skips without running a no-op upgrade pipeline
+- [x] #1 The already-at-latest skip consults the target's upgrade row and short-circuits only when that row is completed
+- [x] #2 A parked row at the target version produces an actionable message naming the un-park remedy, not "nothing to apply"
+- [x] #3 The documented fall-throughs still never produce a false skip: unknown build commit or unresolvable target still proceeds to register+schedule
+- [x] #4 A genuinely converged box still skips without running a no-op upgrade pipeline
 <!-- AC:END -->
 
 ## Comments
