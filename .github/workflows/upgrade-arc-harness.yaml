@@ -80,6 +80,25 @@ permissions:
 jobs:
   construct:
     name: Construct branch fixtures + dispatch image builds
+    needs: [decide]
+    # STATBUS-218 (ride-not-free): a RIDE run (tag push, decide found no
+    # upgrade-sensitive changes since the previous RC) skips the fixture
+    # builds and image dispatch entirely — the 20-30 minute cold spend a
+    # riding run has no use for. Explicit if: (never bare) is REQUIRED:
+    # construct now needs decide, and decide is SKIPPED (not failed) on
+    # workflow_dispatch (decide's own `if: github.event_name == 'push'`);
+    # a bare if here would implicitly AND success() over needs and
+    # silently skip construct on every dispatch — STATBUS-215's exact
+    # trap. !cancelled() suppresses that implicit wrap. The RIDE clause
+    # itself is dispatch-safe without any extra guard: on dispatch
+    # github.event_name != 'push', so the clause is false and construct
+    # runs; on a push where decide legitimately failed (not skipped),
+    # needs.decide.outputs.sensitive is unset (never 'false'), so the
+    # clause is false there too and construct runs full — RIDE is a cost
+    # optimizer only, never a reason to silently skip proving the release.
+    if: >-
+      ${{ !cancelled() &&
+          !(github.event_name == 'push' && needs.decide.outputs.sensitive == 'false') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     outputs:
@@ -332,6 +351,14 @@ jobs:
   image-wait:
     name: Wait for per-commit images (A + B + C)
     needs: construct
+    # STATBUS-218: construct is skippable now (RIDE). A bare if: here
+    # already cascades the skip via the implicit success()-wrap (this job
+    # uses no status-check function, so GitHub still auto-ANDs success()
+    # over needs) — made explicit anyway per the STATBUS-215 audit
+    # discipline, so a future edit that adds !cancelled()/always() here
+    # (e.g. for a retry) can't silently reopen the poisoning class.
+    if: >-
+      ${{ !cancelled() && needs.construct.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 50
     steps:
@@ -484,7 +511,20 @@ jobs:
             echo "Path-sensitivity RIDE (STATBUS-199 D2): no upgrade-sensitive changes since the previous RC — skipping the arc matrix (0 VMs). The stable release gate independently verifies this before promoting."
             exit 0
           fi
-          all="$(for f in test/install-recovery/arcs/*-arc.sh; do b="$(basename "$f")"; echo "${b%-arc.sh}"; done | sort)"
+          # STATBUS-216: a plain glob that matches nothing hands the loop the
+          # literal '*' (renamed/typo'd arcs/ folder), which then fails as a
+          # bogus scenario named '*' instead of the clean, named failure the
+          # rest of this job gives for a bad selector. nullglob + an explicit
+          # count check turn an empty arc domain into the same loud error
+          # shape as "Unknown arc scenario" below, rather than a mystery '*'.
+          shopt -s nullglob
+          arc_files=(test/install-recovery/arcs/*-arc.sh)
+          shopt -u nullglob
+          if [ "${#arc_files[@]}" -eq 0 ]; then
+            echo "::error title=Empty arc domain::no test/install-recovery/arcs/*-arc.sh files found — the arcs/ folder is empty, renamed, or the glob path has a typo. Refusing to build a matrix from an empty domain." >&2
+            exit 1
+          fi
+          all="$(for f in "${arc_files[@]}"; do b="$(basename "$f")"; echo "${b%-arc.sh}"; done | sort)"
           sel="$(printf '%s' "${SCENARIOS_INPUT:-}" | tr -s ' ' ' ' | sed 's/^ *//; s/ *$//')"
           if [ -z "$sel" ] || [ "$sel" = "all" ]; then
             selected="$all"

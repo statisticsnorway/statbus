@@ -163,6 +163,43 @@ func checkWorkflowAt(apiBase, workflow, commitSHA string) WorkflowCheckResult {
 	return WorkflowCheckResult{Status: WorkflowCheckFailed, RunURL: latest.HTMLURL, RunID: latest.ID, Detail: latest.Conclusion}
 }
 
+// UnsuccessfulJob is a required job that WAS present in the run but did
+// not conclude success — the STATBUS-217 case. Conclusion is the raw
+// GitHub conclusion string ("skipped", "cancelled", "failure", …), empty
+// when the job carried no conclusion at all (null: queued/in-progress).
+type UnsuccessfulJob struct {
+	Name       string
+	Conclusion string
+}
+
+// String renders one operator-facing line: the job name plus why it does
+// not count as proof.
+func (u UnsuccessfulJob) String() string {
+	conclusion := u.Conclusion
+	if conclusion == "" {
+		conclusion = "none — the job never ran to completion"
+	}
+	return fmt.Sprintf("%s (conclusion: %s)", u.Name, conclusion)
+}
+
+// JobsCompleteness is the verdict of WorkflowJobsCompleteAtCommit. The two
+// refusal buckets are kept apart on purpose (STATBUS-217 AC#2): they have
+// different operator remedies. Missing means the run never contained the
+// job — a subset dispatch, or a matrix that did not expand; Unsuccessful
+// means the job existed and did NOT execute to a green end — a skipped or
+// cancelled job, which does NOT redden its run and would otherwise pass
+// unnoticed.
+type JobsCompleteness struct {
+	// Complete is the gate-facing verdict: every required job was present
+	// AND concluded success. True only when both buckets are empty.
+	Complete bool
+	// Missing lists required job names absent from the run entirely.
+	Missing []string
+	// Unsuccessful lists required jobs present in the run that did not
+	// conclude success.
+	Unsuccessful []UnsuccessfulJob
+}
+
 // WorkflowJobsCompleteAtCommit is the STATBUS-199 comment #4 completeness
 // check: "the gate verifies what ran, not what the run claims." A run's
 // job list is ground truth the GitHub API already exposes — unlike a
@@ -172,20 +209,38 @@ func checkWorkflowAt(apiBase, workflow, commitSHA string) WorkflowCheckResult {
 // install-recovery-harness's `run-scenario` matrix jobs declare
 // `name: ${{ matrix.scenario }}` — the bare scenario string, no prefix).
 //
+// Presence is NOT proof (STATBUS-217): each required job must also have
+// concluded success. Failures already redden the whole run, so the cases
+// this actually closes are `skipped` and `cancelled` — neither turns a run
+// red, so a green run could otherwise satisfy the gate while a required
+// scenario never executed. The moment individual matrix jobs become
+// skippable (a per-scenario condition, a selector mechanism, the
+// STATBUS-214 orchestrator rework) that is a live hole, not a theoretical
+// one.
+//
+// An EMPTY requiredJobNames is an error, never a pass (STATBUS-216): "is
+// every required job present?" asked of an empty domain is trivially yes,
+// which is how a renamed scenario directory would silently disarm the
+// gate. The callers derive their domain from the tree at the commit; an
+// empty derivation means the derivation itself broke.
+//
 // Pagination: per_page=100 covers every known matrix (31 arcs, ~15
 // scenarios) plus the harness's own non-matrix jobs in one page. This
 // asserts total_count <= len(returned jobs) rather than silently trusting
 // a truncated first page — a growing matrix must fail loud, not pass on
 // an incomplete read.
-func WorkflowJobsCompleteAtCommit(runID int64, requiredJobNames []string) (complete bool, missingJobs []string, err error) {
+func WorkflowJobsCompleteAtCommit(runID int64, requiredJobNames []string) (JobsCompleteness, error) {
 	return workflowJobsCompleteAtCommit("https://api.github.com", runID, requiredJobNames)
 }
 
-func workflowJobsCompleteAtCommit(apiBase string, runID int64, requiredJobNames []string) (complete bool, missingJobs []string, err error) {
+func workflowJobsCompleteAtCommit(apiBase string, runID int64, requiredJobNames []string) (JobsCompleteness, error) {
+	if len(requiredJobNames) == 0 {
+		return JobsCompleteness{}, fmt.Errorf("required-job list is empty — refusing to report completeness of run %d against an empty domain: every job is trivially present in an empty set, so a 0/0 pass proves nothing (STATBUS-216). The caller's scenario domain derivation is broken (moved/renamed directory, or a path typo)", runID)
+	}
 	url := fmt.Sprintf("%s/repos/%s/%s/actions/runs/%d/jobs?per_page=100", apiBase, githubOrg, githubRepo, runID)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return false, nil, fmt.Errorf("build request: %w", err)
+		return JobsCompleteness{}, fmt.Errorf("build request: %w", err)
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("User-Agent", "statbus-release-check")
@@ -195,36 +250,56 @@ func workflowJobsCompleteAtCommit(apiBase string, runID int64, requiredJobNames 
 
 	resp, err := httpClient().Do(req)
 	if err != nil {
-		return false, nil, fmt.Errorf("request failed: %w", err)
+		return JobsCompleteness{}, fmt.Errorf("request failed: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
-		return false, nil, fmt.Errorf("GitHub API returned HTTP %d", resp.StatusCode)
+		return JobsCompleteness{}, fmt.Errorf("GitHub API returned HTTP %d", resp.StatusCode)
 	}
 
 	var body struct {
 		TotalCount int `json:"total_count"`
 		Jobs       []struct {
-			Name string `json:"name"`
+			Name       string `json:"name"`
+			Conclusion string `json:"conclusion"`
 		} `json:"jobs"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return false, nil, fmt.Errorf("decode response: %w", err)
+		return JobsCompleteness{}, fmt.Errorf("decode response: %w", err)
 	}
 	if body.TotalCount > len(body.Jobs) {
-		return false, nil, fmt.Errorf("run %d has %d jobs but only %d returned on one page (per_page=100) — refusing to silently truncate the completeness check", runID, body.TotalCount, len(body.Jobs))
+		return JobsCompleteness{}, fmt.Errorf("run %d has %d jobs but only %d returned on one page (per_page=100) — refusing to silently truncate the completeness check", runID, body.TotalCount, len(body.Jobs))
 	}
 
-	present := make(map[string]bool, len(body.Jobs))
+	// A name can appear more than once (a re-run attempt returned by the
+	// API, or a matrix that legitimately repeats a name). Any success for
+	// the name counts — same any-green reading as CheckWorkflowAtCommit;
+	// the first conclusion is what gets reported when none succeeded.
+	conclusionsByName := make(map[string][]string, len(body.Jobs))
 	for _, j := range body.Jobs {
-		present[j.Name] = true
+		conclusionsByName[j.Name] = append(conclusionsByName[j.Name], j.Conclusion)
 	}
+
+	var verdict JobsCompleteness
 	for _, name := range requiredJobNames {
-		if !present[name] {
-			missingJobs = append(missingJobs, name)
+		conclusions, present := conclusionsByName[name]
+		if !present {
+			verdict.Missing = append(verdict.Missing, name)
+			continue
+		}
+		succeeded := false
+		for _, c := range conclusions {
+			if c == "success" {
+				succeeded = true
+				break
+			}
+		}
+		if !succeeded {
+			verdict.Unsuccessful = append(verdict.Unsuccessful, UnsuccessfulJob{Name: name, Conclusion: conclusions[0]})
 		}
 	}
-	return len(missingJobs) == 0, missingJobs, nil
+	verdict.Complete = len(verdict.Missing) == 0 && len(verdict.Unsuccessful) == 0
+	return verdict, nil
 }
 
 // WorkflowTriggerCommand returns the gh CLI invocation an operator runs to

@@ -1339,6 +1339,19 @@ func diffTouchesSensitivePath(projDir, fromRef, toRef string, sensitivePaths []s
 	return len(matchedFiles) > 0, matchedFiles, nil
 }
 
+// upgradeArcDir and upgradeArcSuffix are the arc scenario domain's
+// coordinates. The SAME two strings appear in
+// .github/workflows/upgrade-arc-harness.yaml's discover job, which builds
+// the test matrix from them — two readers of one folder, and the gate's
+// promise ("promotion means every arc ran") is only true while they agree.
+// TestUpgradeArcDomainPathMatchesWorkflow pins them to the workflow file so
+// a move fails LOUDLY here instead of silently emptying one side
+// (STATBUS-216 AC#4, the STATBUS-199 comment #6 duplication-guard pattern).
+const (
+	upgradeArcDir    = "test/install-recovery/arcs/"
+	upgradeArcSuffix = "-arc.sh"
+)
+
 // upgradeArcNamesAtCommit lists the arc scenario domain AT commit —
 // STATBUS-199 comment #4's completeness check needs the arc set as it
 // existed when the workflow ran, not rcCommit's set (they can differ:
@@ -1346,18 +1359,31 @@ func diffTouchesSensitivePath(projDir, fromRef, toRef string, sensitivePaths []s
 // workflow's own discover job exactly: every
 // test/install-recovery/arcs/<scenario>-arc.sh IS a scenario, no
 // exclusions.
+//
+// An EMPTY domain is an error, never an empty list (STATBUS-216): the
+// completeness check answers "is every required arc present?" with a
+// trivial yes for an empty required set, so a renamed directory or a path
+// typo here would disarm the gate while it printed a 0/0 pass. There is no
+// legitimate state of this repository with zero arcs.
 func upgradeArcNamesAtCommit(projDir, commit string) ([]string, error) {
 	out, err := upgrade.RunCommandOutput(projDir, "git", "ls-tree", "-r", "--name-only",
-		commit, "--", "test/install-recovery/arcs/")
+		commit, "--", upgradeArcDir)
 	if err != nil {
-		return nil, fmt.Errorf("git ls-tree %s -- test/install-recovery/arcs/: %w", commit, err)
+		return nil, fmt.Errorf("git ls-tree %s -- %s: %w", commit, upgradeArcDir, err)
 	}
 	var names []string
 	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
 		base := filepath.Base(strings.TrimSpace(line))
-		if strings.HasSuffix(base, "-arc.sh") {
-			names = append(names, strings.TrimSuffix(base, "-arc.sh"))
+		if strings.HasSuffix(base, upgradeArcSuffix) {
+			names = append(names, strings.TrimSuffix(base, upgradeArcSuffix))
 		}
+	}
+	if len(names) == 0 {
+		return nil, fmt.Errorf("no arc scenarios found at %s: `git ls-tree %s -- %s` matched no *%s file. "+
+			"The arc domain cannot legitimately be empty — the directory was moved/renamed, or this path is a typo. "+
+			"Refusing to check completeness against an empty domain (it would pass trivially and prove nothing). "+
+			"Fix: point %s at the arcs directory as it exists at that commit, keeping it identical to the discover job's path in .github/workflows/upgrade-arc-harness.yaml",
+			commit, commit, upgradeArcDir, upgradeArcSuffix, upgradeArcDir)
 	}
 	return names, nil
 }
@@ -1381,11 +1407,18 @@ const installRecoveryHarnessSkipDefaultMarker = "HARNESS_SKIP_DEFAULT"
 // a scenario UNLESS its bytes at commit contain
 // installRecoveryHarnessSkipDefaultMarker — read via `git show
 // <commit>:<path>`, no checkout.
+//
+// An EMPTY domain is an error, never an empty list (STATBUS-216) — same
+// reasoning as upgradeArcNamesAtCommit: a 0/0 completeness check passes
+// trivially. Here emptiness has a second cause worth naming in the
+// refusal: every scenario carrying the skip-default marker would also
+// leave the default suite with nothing to run.
 func installRecoveryScenarioNamesAtCommit(projDir, commit string) ([]string, error) {
+	const scenarioDir = "test/install-recovery/scenarios/"
 	out, err := upgrade.RunCommandOutput(projDir, "git", "ls-tree", "-r", "--name-only",
-		commit, "--", "test/install-recovery/scenarios/")
+		commit, "--", scenarioDir)
 	if err != nil {
-		return nil, fmt.Errorf("git ls-tree %s -- test/install-recovery/scenarios/: %w", commit, err)
+		return nil, fmt.Errorf("git ls-tree %s -- %s: %w", commit, scenarioDir, err)
 	}
 	var names []string
 	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
@@ -1401,6 +1434,13 @@ func installRecoveryScenarioNamesAtCommit(projDir, commit string) ([]string, err
 			continue // excluded from the default full suite
 		}
 		names = append(names, strings.TrimSuffix(filepath.Base(path), ".sh"))
+	}
+	if len(names) == 0 {
+		return nil, fmt.Errorf("no default-suite scenarios found at %s: `git ls-tree %s -- %s` matched no .sh file that lacks the %s marker. "+
+			"The scenario domain cannot legitimately be empty — the directory was moved/renamed, this path is a typo, or every scenario is now marked skip-default. "+
+			"Refusing to check completeness against an empty domain (it would pass trivially and prove nothing). "+
+			"Fix: point %s at the scenarios directory as it exists at that commit, or un-mark at least one scenario in test/install-recovery/run.sh's default suite",
+			commit, commit, scenarioDir, installRecoveryHarnessSkipDefaultMarker, scenarioDir)
 	}
 	return names, nil
 }
@@ -1460,6 +1500,38 @@ func checkStableWorkflowGate(workflow, label, skipEnv, rcTag, rcCommit, rcShort 
 	return false
 }
 
+// checkWorkflowAtCommit and workflowJobsComplete are the two GitHub-API
+// reads the harness completeness gates depend on, held as package vars so
+// a test can supply the API's answer directly. Without this seam a gate's
+// VERDICT (its returned bool) can only be exercised against the live API:
+// with no network every call returns Unknown and every gate returns false,
+// which would make a refusal test pass for the wrong reason and pin
+// nothing (STATBUS-216 AC#2 requires the assertion to be on the gate's
+// boolean). Production code must never assign these; tests restore them
+// via t.Cleanup. Scope: the seam covers the COMPLETENESS gates only, not
+// every GitHub read in package cmd — verify-images and its kin have no
+// completeness verdict and deliberately call release.* directly.
+var (
+	checkWorkflowAtCommit = release.CheckWorkflowAtCommit
+	workflowJobsComplete  = release.WorkflowJobsCompleteAtCommit
+)
+
+// printJobsCompletenessRefusal prints the per-job detail of a failed
+// completeness check for both harness gates. The two buckets print under
+// distinct labels (STATBUS-217 AC#2) because their remedies differ: a
+// MISSING job means the run never contained it (subset dispatch, matrix
+// did not expand) — re-run the full suite; a job that DID NOT RUN was
+// present and skipped/cancelled — the run stayed green while the scenario
+// never executed, so the condition that skipped it is the thing to fix.
+func printJobsCompletenessRefusal(jobs release.JobsCompleteness) {
+	for _, m := range jobs.Missing {
+		fmt.Printf("      MISSING (never in the run): %s\n", m)
+	}
+	for _, u := range jobs.Unsuccessful {
+		fmt.Printf("      DID NOT RUN (present, no green): %s\n", u)
+	}
+}
+
 // checkInstallRecoveryHarnessGate is the STATBUS-199 §5-rider stable gate
 // for install-recovery-harness.yaml. Unlike the arc-harness gate, there is
 // no path-sensitivity walk-back: the workflow's own tag-push trigger
@@ -1475,7 +1547,7 @@ func checkInstallRecoveryHarnessGate(projDir, rcTag, rcCommit, rcShort string) b
 		return true
 	}
 
-	result := release.CheckWorkflowAtCommit(release.WorkflowInstallRecoveryHarness, rcCommit)
+	result := checkWorkflowAtCommit(release.WorkflowInstallRecoveryHarness, rcCommit)
 	switch result.Status {
 	case release.WorkflowCheckGreen:
 		requiredScenarios, err := installRecoveryScenarioNamesAtCommit(projDir, rcCommit)
@@ -1484,21 +1556,20 @@ func checkInstallRecoveryHarnessGate(projDir, rcTag, rcCommit, rcShort string) b
 			fmt.Printf("    Error: %v\n", err)
 			return false
 		}
-		complete, missing, jerr := release.WorkflowJobsCompleteAtCommit(result.RunID, requiredScenarios)
+		jobs, jerr := workflowJobsComplete(result.RunID, requiredScenarios)
 		if jerr != nil {
 			fmt.Printf("  ✗ install-recovery is green at %s, but its job list could not be verified\n", rcShort)
 			fmt.Printf("    Error: %v\n", jerr)
 			return false
 		}
-		if complete {
-			fmt.Printf("  ✓ install-recovery FULL SUITE green at %s (%d/%d scenario jobs present)\n", rcShort, len(requiredScenarios), len(requiredScenarios))
+		if jobs.Complete {
+			fmt.Printf("  ✓ install-recovery FULL SUITE green at %s (%d/%d scenario jobs ran and succeeded)\n", rcShort, len(requiredScenarios), len(requiredScenarios))
 			fmt.Printf("    Run: %s\n", result.RunURL)
 			return true
 		}
-		fmt.Printf("  ✗ install-recovery is green at %s, but its job set is INCOMPLETE (missing %d/%d scenario jobs) — a subset run cannot satisfy this gate:\n", rcShort, len(missing), len(requiredScenarios))
-		for _, m := range missing {
-			fmt.Printf("      %s\n", m)
-		}
+		fmt.Printf("  ✗ install-recovery is green at %s, but %d/%d required scenario jobs are not proof — a subset or skipped run cannot satisfy this gate:\n",
+			rcShort, len(jobs.Missing)+len(jobs.Unsuccessful), len(requiredScenarios))
+		printJobsCompletenessRefusal(jobs)
 		fmt.Printf("    Trigger: %s\n", release.WorkflowTriggerCommand(release.WorkflowInstallRecoveryHarness, rcTag))
 		fmt.Printf("    Watch:   %s\n", release.WorkflowURL(release.WorkflowInstallRecoveryHarness))
 		fmt.Println("    Fix: run the trigger command above (blank selector = full suite), wait for green, re-run stable")
@@ -1559,7 +1630,7 @@ func checkUpgradeArcHarnessGate(projDir, rcTag, rcCommit, rcShort string) bool {
 		return true
 	}
 
-	result := release.CheckWorkflowAtCommit(release.WorkflowUpgradeArcHarness, rcCommit)
+	result := checkWorkflowAtCommit(release.WorkflowUpgradeArcHarness, rcCommit)
 	switch result.Status {
 	case release.WorkflowCheckGreen:
 		requiredArcs, err := upgradeArcNamesAtCommit(projDir, rcCommit)
@@ -1568,21 +1639,20 @@ func checkUpgradeArcHarnessGate(projDir, rcTag, rcCommit, rcShort string) bool {
 			fmt.Printf("    Error: %v\n", err)
 			return false
 		}
-		complete, missing, jerr := release.WorkflowJobsCompleteAtCommit(result.RunID, requiredArcs)
+		jobs, jerr := workflowJobsComplete(result.RunID, requiredArcs)
 		if jerr != nil {
 			fmt.Printf("  ✗ upgrade-arc-harness is green at %s, but its job list could not be verified\n", rcShort)
 			fmt.Printf("    Error: %v\n", jerr)
 			return false
 		}
-		if complete {
-			fmt.Printf("  ✓ upgrade-arc-harness FULL SUITE green at %s (%d/%d arc jobs present)\n", rcShort, len(requiredArcs), len(requiredArcs))
+		if jobs.Complete {
+			fmt.Printf("  ✓ upgrade-arc-harness FULL SUITE green at %s (%d/%d arc jobs ran and succeeded)\n", rcShort, len(requiredArcs), len(requiredArcs))
 			fmt.Printf("    Run: %s\n", result.RunURL)
 			return true
 		}
-		fmt.Printf("  … upgrade-arc-harness is green at %s, but its job set is INCOMPLETE (missing %d/%d arc jobs) — not a full-suite proof, falling through to the path-sensitivity walk:\n", rcShort, len(missing), len(requiredArcs))
-		for _, m := range missing {
-			fmt.Printf("      %s\n", m)
-		}
+		fmt.Printf("  … upgrade-arc-harness is green at %s, but %d/%d required arc jobs are not proof — not a full-suite proof, falling through to the path-sensitivity walk:\n",
+			rcShort, len(jobs.Missing)+len(jobs.Unsuccessful), len(requiredArcs))
+		printJobsCompletenessRefusal(jobs)
 		// Fall through to the walk below — same as Missing.
 	case release.WorkflowCheckPending:
 		fmt.Printf("  ✗ upgrade-arc-harness is still pending at %s\n", rcShort)
@@ -1668,7 +1738,7 @@ func checkUpgradeArcHarnessGate(projDir, rcTag, rcCommit, rcShort string) bool {
 			fmt.Printf("    (could not resolve %s's target commit: %v — skipping)\n", candidate, cerr)
 			continue
 		}
-		candResult := release.CheckWorkflowAtCommit(release.WorkflowUpgradeArcHarness, candCommit)
+		candResult := checkWorkflowAtCommit(release.WorkflowUpgradeArcHarness, candCommit)
 		if candResult.Status != release.WorkflowCheckGreen {
 			continue
 		}
@@ -1677,12 +1747,12 @@ func checkUpgradeArcHarnessGate(projDir, rcTag, rcCommit, rcShort string) bool {
 			fmt.Printf("    (could not list %s's arc domain: %v — skipping)\n", candidate, aerr)
 			continue
 		}
-		complete, _, jerr := release.WorkflowJobsCompleteAtCommit(candResult.RunID, candArcs)
+		candJobs, jerr := workflowJobsComplete(candResult.RunID, candArcs)
 		if jerr != nil {
 			fmt.Printf("    (could not verify %s's job completeness: %v — skipping)\n", candidate, jerr)
 			continue
 		}
-		if !complete {
+		if !candJobs.Complete {
 			// Green but not a full suite (subset dispatch, or a
 			// decide-only ride/skip run at that tag) — not a valid
 			// full-suite anchor. Keep walking further back.

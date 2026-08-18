@@ -237,32 +237,47 @@ func TestWorkflowURL(t *testing.T) {
 
 // TestWorkflowJobsCompleteAtCommit pins STATBUS-199 comment #4's
 // completeness primitive: "the gate verifies what ran, not what the run
-// claims." Three arms match the architect's ruling directly:
-//   - complete: every required job name is present → complete=true,
-//     no missing jobs.
+// claims", plus STATBUS-217's strengthening (a required job counts only
+// if it CONCLUDED SUCCESS) and STATBUS-216's empty-domain refusal:
+//   - complete: every required job is present and successful →
+//     Complete=true, both refusal buckets empty.
 //   - missing-jobs: a subset dispatch (or a decide-only ride/skip run)
-//     has fewer jobs than required → complete=false, missingJobs names
+//     has fewer jobs than required → Complete=false, Missing names
 //     exactly what's absent — this is the case that makes a self-reported
 //     "FULL SUITE" label untrustworthy and the whole reason this
 //     function exists instead of trusting run-name.
+//   - skipped-required-job (STATBUS-217): the required job IS present but
+//     concluded `skipped`. A skipped job does NOT redden its run, so the
+//     run is green and, under name-only matching, the gate would have
+//     accepted a scenario that never executed. It must land in
+//     Unsuccessful — reported apart from Missing, since the remedy differs.
+//   - cancelled-required-job: same class, the second non-red conclusion.
+//   - null-conclusion: a job that never ran to completion is not proof.
+//   - rerun-any-success: one name with a failure AND a success counts as
+//     proof — the any-green reading CheckWorkflowAtCommit already applies
+//     at run level.
+//   - empty-required (STATBUS-216): an empty required list is an ERROR,
+//     never a trivially-complete pass. Backstop under the domain-derivation
+//     fix in cli/cmd/release.go.
 //   - pagination-overflow: total_count exceeds the single page returned
 //     (per_page=100) → the check must refuse to silently truncate and
 //     return an error, never a false "complete".
 func TestWorkflowJobsCompleteAtCommit(t *testing.T) {
 	cases := []struct {
-		name         string
-		totalCount   int
-		jobNames     []string
-		required     []string
-		wantComplete bool
-		wantMissing  []string
-		wantErr      bool
-		wantErrSub   string
+		name             string
+		totalCount       int
+		jobs             []testJob
+		required         []string
+		wantComplete     bool
+		wantMissing      []string
+		wantUnsuccessful []UnsuccessfulJob
+		wantErr          bool
+		wantErrSub       string
 	}{
 		{
 			name:         "complete",
 			totalCount:   3,
-			jobNames:     []string{"working", "failing", "postswap-migration-oom"},
+			jobs:         successfulJobs("working", "failing", "postswap-migration-oom"),
 			required:     []string{"working", "failing", "postswap-migration-oom"},
 			wantComplete: true,
 			wantMissing:  nil,
@@ -270,17 +285,69 @@ func TestWorkflowJobsCompleteAtCommit(t *testing.T) {
 		{
 			name:         "missing-jobs: subset dispatch has fewer jobs than required",
 			totalCount:   2,
-			jobNames:     []string{"working", "failing"},
+			jobs:         successfulJobs("working", "failing"),
 			required:     []string{"working", "failing", "postswap-migration-oom", "c-rollback-resurrection"},
 			wantComplete: false,
 			wantMissing:  []string{"postswap-migration-oom", "c-rollback-resurrection"},
+		},
+		{
+			name:       "skipped-required-job: present but never executed (run stays green)",
+			totalCount: 2,
+			jobs: []testJob{
+				{name: "working", conclusion: "success"},
+				{name: "postswap-migration-oom", conclusion: "skipped"},
+			},
+			required:         []string{"working", "postswap-migration-oom"},
+			wantComplete:     false,
+			wantMissing:      nil,
+			wantUnsuccessful: []UnsuccessfulJob{{Name: "postswap-migration-oom", Conclusion: "skipped"}},
+		},
+		{
+			name:       "cancelled-required-job",
+			totalCount: 2,
+			jobs: []testJob{
+				{name: "working", conclusion: "success"},
+				{name: "failing", conclusion: "cancelled"},
+			},
+			required:         []string{"working", "failing"},
+			wantComplete:     false,
+			wantUnsuccessful: []UnsuccessfulJob{{Name: "failing", Conclusion: "cancelled"}},
+		},
+		{
+			name:       "null-conclusion: the job never ran to completion",
+			totalCount: 1,
+			jobs: []testJob{
+				{name: "working", conclusion: ""},
+			},
+			required:         []string{"working"},
+			wantComplete:     false,
+			wantUnsuccessful: []UnsuccessfulJob{{Name: "working", Conclusion: ""}},
+		},
+		{
+			name:       "rerun-any-success: a successful attempt of the same job name counts",
+			totalCount: 2,
+			jobs: []testJob{
+				{name: "working", conclusion: "failure"},
+				{name: "working", conclusion: "success"},
+			},
+			required:     []string{"working"},
+			wantComplete: true,
+		},
+		{
+			name:         "empty-required: refuse, never a trivial 0/0 pass",
+			totalCount:   1,
+			jobs:         successfulJobs("working"),
+			required:     nil,
+			wantComplete: false,
+			wantErr:      true,
+			wantErrSub:   "required-job list is empty",
 		},
 		{
 			name:       "pagination-overflow: total_count exceeds the returned page",
 			totalCount: 150,
 			// Only 100 returned even though total_count says 150 — a
 			// truncated first page (per_page=100 caps the response).
-			jobNames:     namesN(100),
+			jobs:         successfulJobs(namesN(100)...),
 			required:     []string{"working"},
 			wantComplete: false,
 			wantErr:      true,
@@ -296,9 +363,18 @@ func TestWorkflowJobsCompleteAtCommit(t *testing.T) {
 					http.Error(w, "unexpected path "+r.URL.Path, http.StatusNotFound)
 					return
 				}
-				jobs := make([]map[string]any, len(tc.jobNames))
-				for i, n := range tc.jobNames {
-					jobs[i] = map[string]any{"name": n}
+				jobs := make([]map[string]any, len(tc.jobs))
+				for i, j := range tc.jobs {
+					entry := map[string]any{"name": j.name}
+					if j.conclusion == "" {
+						// GitHub sends conclusion: null for a job that
+						// never reached one — exercise the real decode
+						// path, not a pre-emptied string.
+						entry["conclusion"] = nil
+					} else {
+						entry["conclusion"] = j.conclusion
+					}
+					jobs[i] = entry
 				}
 				_ = json.NewEncoder(w).Encode(map[string]any{
 					"total_count": tc.totalCount,
@@ -307,7 +383,7 @@ func TestWorkflowJobsCompleteAtCommit(t *testing.T) {
 			}))
 			defer server.Close()
 
-			complete, missing, err := workflowJobsCompleteAtCommit(server.URL, 42, tc.required)
+			verdict, err := workflowJobsCompleteAtCommit(server.URL, 42, tc.required)
 			if tc.wantErr {
 				if err == nil {
 					t.Fatal("want error, got nil")
@@ -315,19 +391,65 @@ func TestWorkflowJobsCompleteAtCommit(t *testing.T) {
 				if !strings.Contains(err.Error(), tc.wantErrSub) {
 					t.Errorf("error %q does not contain %q", err.Error(), tc.wantErrSub)
 				}
+				if verdict.Complete {
+					t.Error("Complete must be false whenever an error is returned — an errored check must never read as proof")
+				}
 				return
 			}
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if complete != tc.wantComplete {
-				t.Errorf("complete: got %v, want %v", complete, tc.wantComplete)
+			if verdict.Complete != tc.wantComplete {
+				t.Errorf("Complete: got %v, want %v", verdict.Complete, tc.wantComplete)
 			}
-			if !equalStringSlices(missing, tc.wantMissing) {
-				t.Errorf("missingJobs: got %v, want %v", missing, tc.wantMissing)
+			if !equalStringSlices(verdict.Missing, tc.wantMissing) {
+				t.Errorf("Missing: got %v, want %v", verdict.Missing, tc.wantMissing)
+			}
+			if !equalUnsuccessfulJobs(verdict.Unsuccessful, tc.wantUnsuccessful) {
+				t.Errorf("Unsuccessful: got %v, want %v", verdict.Unsuccessful, tc.wantUnsuccessful)
 			}
 		})
 	}
+}
+
+// TestUnsuccessfulJobString pins the operator-facing rendering: the raw
+// conclusion is named (so "skipped" vs "cancelled" is visible), and a null
+// conclusion is explained rather than printing an empty parenthesis.
+func TestUnsuccessfulJobString(t *testing.T) {
+	if got := (UnsuccessfulJob{Name: "working", Conclusion: "skipped"}).String(); got != "working (conclusion: skipped)" {
+		t.Errorf("got %q", got)
+	}
+	if got := (UnsuccessfulJob{Name: "working"}).String(); !strings.Contains(got, "never ran to completion") {
+		t.Errorf("a null conclusion must be explained, got %q", got)
+	}
+}
+
+// testJob is one entry of the API's jobs array: the job's name and how it
+// ended. Both fields matter — STATBUS-217: presence alone is not proof.
+type testJob struct {
+	name       string
+	conclusion string
+}
+
+// successfulJobs builds the ordinary case — every named job ran green.
+func successfulJobs(names ...string) []testJob {
+	jobs := make([]testJob, len(names))
+	for i, n := range names {
+		jobs[i] = testJob{name: n, conclusion: "success"}
+	}
+	return jobs
+}
+
+func equalUnsuccessfulJobs(a, b []UnsuccessfulJob) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func namesN(n int) []string {
