@@ -8,7 +8,7 @@ status: To Do
 assignee:
   - engineer
 created_date: '2026-08-18 10:27'
-updated_date: '2026-08-18 10:39'
+updated_date: '2026-08-18 10:47'
 labels:
   - upgrade-recovery
   - release
@@ -135,5 +135,46 @@ THE UNTRACED THREAD IS NOW TRACED — close it rather than carrying it. recovery
 EVIDENCE GAP WORTH CLOSING CHEAPLY: the single-suspect conclusion rests on ancestry established locally via merge-base, because the sandbox could not reach the GitHub API. Have the operator pull the previous green suite's run head_sha and confirm 21ec09911 is absent from it — seconds of work, and it converts "single suspect" into "single suspect, confirmed against the last green".
 
 HIS PROCESS FINDING — ACCEPTED, AND IT IS MINE TOO. 197 invalidated a premise another function's safety argument stands on, and no review caught it, including mine. His proposed guard is right and I would state it as a rule: WHEN A CHANGE ALTERS WHEN A FIELD IS POPULATED, GREP THE FIELD NAME IN COMMENTS, NOT ONLY IN CODE — every statement about a field's lifecycle is a premise some other branch may be standing on. Worth carrying into the role docs beside the gofmt step; both came from the same week of near-misses.
+---
+
+author: engineer
+created: 2026-08-18 10:47
+---
+**BUILT to the ruling, FROZEN for review (no commit).** Files: `cli/internal/upgrade/service.go`, new `cli/internal/upgrade/backup_path_carriers_test.go`, and an AMENDED 197 test (flagged below — do not miss it). AC#1 closed; AC#2's code is here; AC#3 rides the next suite.
+
+**DEFECT 1** — the `:5638` row write is GONE. The post-reconnect write in `applyNewSbUpgrading` is now the SINGLE row recorder and is already the first write after "Database reconnected.", as ruled; its comment says why that is the earliest honest instant (the server is stopped from Step 4 through the swap) and names both readers it exists for — STATBUS-111's replay AND the `:3761` abort-hold guard that FAILS OPEN on a NULL column, stripping the read-only hold protecting a broken volume. That goes in the commit message as sharpened.
+
+**DEFECT 2** — the `mutateHeldFlag` stamp at `:5641` is GONE. The flag gains its identity only at `updateFlagNewSbSwapped(backupPath)`, so "empty by construction at PreSwap" is TRUE again and `:1300-1353` stands unchanged. I did not rewrite the data-safety argument.
+
+The carrier comment now says the two become honest at DIFFERENT moments BY DESIGN — flag at the swap, row at reconnect — rather than claiming one commit point.
+
+**MANDATORY VERIFICATION — PHASE-TRANSITION SWEEP. The premise HOLDS, positively.** Every operation between `backupDatabase` and the moved stamp: `git branch -f pre-upgrade` (a ref); `fetchWithStallDetection` (objects only — checkout deferred by STATBUS-060); manifest verification (read-only); `replaceBinaryOnDisk`. **No DB-mutating step and no working-tree checkout precede the stamp.** At every crash point before it the volume is byte-unchanged — so an EMPTY BackupPath is the CORRECT value and `restoreDatabase`'s refusal is right, not a gap.
+
+One window named honestly: between `replaceBinaryOnDisk` and the stamp the binary is swapped while the flag still reads PreSwap. PRE-EXISTING (pre-197), and exactly what the C5 `killed-by-system-during-binary-swap` inject exercises — the rollback-pair-terminal arc's own 1st dispatch. The DB is untouched there too, so empty stays correct.
+
+Forward transitions:
+- `IsServiceNewSbRecovery` (`:415-420`) requires Phase ∈ {NewSbSwapped, NewSbUpgrading} — PreSwap excluded IN THE PREDICATE, used by both checkout gates (`:1974`, runCrashRecovery). **Your premise verified at source, not inherited.**
+- NewSbSwapped → NewSbUpgrading carries `BackupPath: flag.BackupPath` (`:7567`).
+- The ROW's write point (first reconnect) precedes the first DB-mutating step (migrate up) — each carrier is written before the first mutation its readers care about; the two rules compose.
+- Flags synthesized from the row (`:3103`, `:3155`) get an empty BackupPath in the pre-reconnect crash population — correct, nothing has moved yet.
+
+**ORACLES — honest status per arm:**
+- **Source pin** (no `public.upgrade` write between the Step-4 stop and the swap handoff): **RED-verified** — restoring 197's write fails it, naming the offending line.
+- **PreSwap flag carries an EMPTY BackupPath**: **RED-verified** — restoring 197's stamp fails it.
+- **`terminalExec` against a STOPPED SERVER** (a real listener bound then closed, so the port is genuinely dead — not a closed connection): passes in BOTH states **by design**. It is a PREMISE pin, not a defect detector — it proves the fact that justifies removing the write. Calling it RED-first would be false.
+- **PreSwap does not restore**: premise/observable pin — the branch's message and its "empty by construction" claim must both still exist, and `restoreDatabase`'s empty-path refusal must be its FIRST act. Also not RED-first.
+- **recovery_attempts == 3**: nothing added — already asserted loudly at VM level (rollback-pair-terminal:277, `after 3 attempt(s)`), and the `recovery_attempts = $2` re-impose is already pinned (rollback_terminal_write_test.go:60). It closes at AC#3's run; if it does not come back, the arc says so.
+
+**FLAGGED — I AMENDED A TEST ANOTHER TICKET LANDED.** `TestExecuteUpgrade_BackupPathRecordedAtCommit_STATBUS197` pinned the exact behaviour this ruling removes, and failed — correctly. I did not delete it: renamed to `..._BackupPathNeverRecordedAsEarlyIntent_STATBUS197`, keeping 197's SURVIVING invariant (identity never recorded before the snapshot commits — both new write points still satisfy it), with the 228 amendment written into its header. Please review that edit specifically.
+
+**Verification:** `go test ./...` in cli/ — 12 packages ok, 0 failures. `gofmt -l` clean. `golangci-lint run ./...` 2.12.2 — 0 issues.
+
+**Still open (your cheap evidence gap):** the operator pulls the previous green suite's run head_sha to confirm 21ec09911 is absent — my sandbox cannot reach the GitHub API.
+---
+
+author: foreman
+created: 2026-08-18 10:47
+---
+SUSPECT CONFIRMED AGAINST THE LAST GREEN SUITE. Operator evidence: run 30755799405 (the last green full suite) ran at head 2ab6126a1c3b, 2026-08-02; merge-base confirms 21ec09911 is ABSENT from that commit — and it IS an ancestor of rc.03 (bafcb396b, established earlier). CORRECTED INTERPRETATION for the record (the operator's report read this backwards): absent-from-green + present-in-failing is the CONFIRMATION — the scenarios passed without the suspect commit and fail with it. "Single suspect" is upgraded to "confirmed against the last green", as the architect's ask intended. Build proceeding on both defects per comments #3/#4.
 ---
 <!-- COMMENTS:END -->
