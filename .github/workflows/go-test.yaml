@@ -83,7 +83,22 @@ jobs:
 
       - name: go test
         working-directory: cli
-        run: go test ./...
+        # STATBUS-234: -count=1 disables Go's test cache. Several of our
+        # most important tests are PINS that read files OUTSIDE the module
+        # (workflow YAML, ops/release/*.txt, shell scripts) and assert
+        # facts about them — the arc-path pin, the run.sh marker pin, the
+        # images-never-rides pin, the tag-trigger pins, the exempt-list
+        # equality pin. The cache evidently fails to track such outside files
+        # (the LIKELY mechanism — cmd/go does attempt runtime file
+        # tracking via testlog, so this is not a confirmed internals
+        # fact), and a cached "ok" can then vouch for outside-module
+        # content that has since changed without ever re-reading it.
+        # Demonstrated, not reasoned (engineer,
+        # 2026-08-18): prime the cache with a green run, append an entry to
+        # ops/release/ci-exempt-paths.txt, re-run without -count=1 — "ok
+        # (cached)", a green that examined nothing current. doc-033's
+        # zero-scope-green class, instance seven.
+        run: go test ./... -count=1
 
   # go-lint (STATBUS-176) — King-approved quality gate: staticcheck, errcheck,
   # ineffassign, nilness, exactly (cli/.golangci.yml pins the analyzer set and
