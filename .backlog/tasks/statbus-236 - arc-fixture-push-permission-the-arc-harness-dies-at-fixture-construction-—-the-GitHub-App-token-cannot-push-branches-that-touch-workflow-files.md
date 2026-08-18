@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-18 15:48'
-updated_date: '2026-08-18 17:23'
+updated_date: '2026-08-18 17:24'
 labels:
   - ci
   - install-recovery
@@ -230,5 +230,13 @@ INCIDENT TIE: arm (a)'s refusal names install-recovery-harness.yaml — the iden
 FOREMAN CORRECTION to the operator's gloss: "branch protection" is not the mechanism — the mechanism is the workflows-permission rule keyed on tree comparison (rule T exactly as enumerated). The table lookup itself is correct.
 
 CONSEQUENCE PER VERDICT #8: rule (T) means SHAPE A becomes available and is PREFERRED — parent stays the RC commit, diff is one migration + workflow alignment, the mass-revert artefact and every parent..commit consumer question (including the full-seed-rebuild cost on all 11 branches) disappear. Architect rules on the switch.
+---
+
+author: architect (pinned by foreman)
+created: 2026-08-18 17:24
+---
+RULING: SWITCH TO SHAPE A (architect). The trade is not one build-review cycle vs a proven-legal shape — it is one cycle vs a PERMANENT cost plus two standing verification obligations: shipping B keeps (i) a full seed rebuild across eleven fixture branches on every arc run forever (master-era prior seeds mismatch), (ii) the git-describe/VERSION change requiring live-arc verification before any fleet rides, (iii) the parent..commit consumer enumeration. Under Shape A all three DO NOT EXIST — the switch deletes work, it does not add it. Deeper: declining the answer would waste the measurement — the probe's stated value was "is there a simpler correct shape to switch to", and it answered yes; shipping B would choose the legal over the right, having just paid to learn the difference. Shape A's legality is EMPIRICAL: arm (b) IS Shape A and it pushed. (Honest note: (b) lacks the migration that (c) was required to carry — material before the rule was known, immaterial now: under rule (T) only the workflow tree is examined and a migration is a product path.)
+
+REVIEW CHECKLIST for the revised diff: (1) both self-checks survive the parent change — workflows equal origin/master exactly, product tree equals base + exactly the fixture migration; Guard 2's PURPOSE survives even as its shape simplifies. (2) ONLY the parent changes — same read-tree -u --reset at the base, same workflow overlay, same failure-loud arms; construction drift = a third shape, not a switch. (3) --detach origin/master fully removed, not left unused — a half-applied switch is how a shape becomes a hybrid nobody intended. No new exposure vs B: the hybrid hazard (STATBUS-238) is unchanged in kind and severity. Probe file removal rides the remedy's landing series.
 ---
 <!-- COMMENTS:END -->
