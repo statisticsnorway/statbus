@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-08-17 07:14'
-updated_date: '2026-08-18 09:58'
+updated_date: '2026-08-18 11:55'
 labels:
   - install-recovery
   - release
@@ -41,8 +41,8 @@ ORACLES: actionlint; the 199 layer-pin test updated to the orchestrator's trigge
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 One tag push yields verdicts from ALL three fleets — zero cancelled runs, zero limit breaches — observed at a real RC tag
-- [ ] #2 The gates' run-at-commit attribution verified under the chosen mechanism (workflow_call sha attribution, or sequential gh-dispatch fallback) before wiring
-- [ ] #3 The 199 layer-pin and the workflow comments reflect the orchestrator geometry; manual workflow_dispatch paths preserved on all three fleets
+- [x] #2 The gates' run-at-commit attribution verified under the chosen mechanism (workflow_call sha attribution, or sequential gh-dispatch fallback) before wiring
+- [x] #3 The 199 layer-pin and the workflow comments reflect the orchestrator geometry; manual workflow_dispatch paths preserved on all three fleets
 <!-- AC:END -->
 
 ## Comments
@@ -131,5 +131,11 @@ Re-validated: `ruby -ryaml` parses clean; `actionlint` on the file exits 0 (one 
 Noticed other agents' concurrent work in the shared tree (statbus-183, statbus-226, cli/internal/upgrade/service.go, park_flag_hold_test.go) — untouched, not mine.
 
 Still gated on the rc.03 spot-check per your note. Idle.
+---
+
+author: foreman
+created: 2026-08-18 11:55
+---
+LANDED at 816bd6ba4 on the architect's gate call (observed-step-proves-itself, narrow precedent recorded in his message): the orchestrator owns v*-rc.*, dispatches the three fleets sequentially with snapshot-difference run correlation and explicit conclusion branching; inner tag triggers removed; 221's explicit if included; the gate-layer pin repointed to the orchestrator's file (foreman's edit at landing, with the 224 caveat noted in place). AC#2 (attribution, probe + fallback) and AC#3 (layer pin + comments) closed. AC#1 — one tag push yields all three fleets' verdicts with zero cancellations — is the observation arm riding the King's next cut.
 ---
 <!-- COMMENTS:END -->

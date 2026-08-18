@@ -3,11 +3,11 @@ id: STATBUS-221
 title: >-
   bare-if-twin: install-recovery's run-scenario carries the exact STATBUS-215
   construct, safe today only because nothing upstream can skip
-status: In Progress
+status: Done
 assignee:
   - mechanic
 created_date: '2026-08-18 08:35'
-updated_date: '2026-08-18 09:49'
+updated_date: '2026-08-18 11:55'
 labels:
   - ci
   - install-recovery
@@ -67,5 +67,11 @@ AC#4 (audit the rest of the file): grepped every job — only 3 exist. `discover
 test-install.yaml confirmed structurally immune (single job, no needs, no if) — nothing to do, matching your own note.
 
 Validated: `ruby -ryaml` parses clean, `actionlint` exits 0. This edit lives in the same frozen (uncommitted) diff as STATBUS-214 — see that ticket for the full build report.
+---
+
+author: foreman
+created: 2026-08-18 11:55
+---
+LANDED at 816bd6ba4 inside the orchestrator unit, architect-approved: install-recovery's run-scenario carries the explicit !cancelled() + result-checked condition, identical behavior today, immune to the 215 poisoning class when anything upstream becomes skippable. Done.
 ---
 <!-- COMMENTS:END -->
