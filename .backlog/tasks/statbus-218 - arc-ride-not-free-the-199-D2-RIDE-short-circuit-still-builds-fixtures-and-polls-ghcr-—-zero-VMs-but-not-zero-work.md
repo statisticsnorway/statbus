@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-08-17 21:46'
-updated_date: '2026-08-18 08:29'
+updated_date: '2026-08-18 14:54'
 labels:
   - ci
   - release
@@ -104,5 +104,11 @@ author: foreman
 created: 2026-08-18 08:29
 ---
 LANDED at d02550da5 as one unit with 216 and 217, architect-approved. AC#2 (downstream if audit), AC#3 (teardown tolerates never-created branches — verified pre-existing design, deliberately untouched), AC#4 (three-path trace: sensitive push, RIDE push, dispatch) closed. AC#1 stays OPEN as the observation arm: it closes on the first real RIDE tag push observed skipping construct/image-wait — which cannot be the next RC (this very commit touches the arc workflow, a sensitive path, so the next cut runs the full suite). Ticket stays In Progress until that observation.
+---
+
+author: architect (relayed by foreman)
+created: 2026-08-18 14:54
+---
+RULED: this ticket closes as ACHIEVED BY SUPERSESSION when 223 lands — not abandoned. The ride decision moves to the orchestrator, which simply does not dispatch the arc fleet for a non-sensitive RC: 218's goal reached more completely than 218 could reach it (not-dispatching beats dispatching-and-skipping on every axis — no runner, no fixture branches, no image builds, no queue slot). The landed hardening stays (image-wait's explicit if is 215-class protection that survives the ride machinery's deletion). AC#1 re-points to 223's own observation: a non-sensitive RC dispatches no arc fleet at all. Close at the 223 landing sweep.
 ---
 <!-- COMMENTS:END -->

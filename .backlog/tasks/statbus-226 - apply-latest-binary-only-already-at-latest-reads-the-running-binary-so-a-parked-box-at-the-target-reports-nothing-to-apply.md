@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-18 09:57'
+updated_date: '2026-08-18 14:54'
 labels:
   - upgrade
   - deploy
@@ -44,3 +45,28 @@ WHY THAT HELPS: it closes the same class STATBUS-210 and STATBUS-212 close one l
 - [ ] #3 The documented fall-throughs still never produce a false skip: unknown build commit or unresolvable target still proceeds to register+schedule
 - [ ] #4 A genuinely converged box still skips without running a no-op upgrade pipeline
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: engineer
+created: 2026-08-18 14:54
+---
+**REPRODUCER WENT RED — the bug is real, and the fix is BUILT and FROZEN for review (no commit).** Files: new `cli/cmd/upgrade_apply_latest_decision.go`, new `cli/cmd/upgrade_apply_latest_decision_test.go`, `cli/cmd/upgrade.go` (the skip block), `cli/internal/upgrade/service.go` (one new reader).
+
+**TEST-FIRST, AND THE RED IS GENUINE — not red-by-nonexistence.** The decision lived inside apply-latest's cobra `RunE` closure, so I extracted it to a pure function FIRST, carrying the pre-226 binary-only logic verbatim, and ran the oracles against that. Result: the parked-at-target row earned a **SKIP**, and so did every other non-completed row — eight shapes in one property test, including `{Found:true State:in_progress Parked:true ParkedReason:"post-swap health park"}`. That is the ticket's defect reproduced exactly: the box is dark and the operator is told "nothing to apply". Then the row consult went in and all arms went green.
+
+**THE FIX (AC#1-#4).** `decideApplyLatest(latestVersion, resolvedCommit, buildCommit, row)` returns Skip / Refuse / Proceed:
+- **Skip** ONLY when the row is found, unparked, and `completed` (AC#1, AC#4 — the converged box still short-circuits, no no-op pipeline).
+- **Refuse** when the row is PARKED: names the park reason and the remedy (un-park for one fresh attempt, or schedule a fix release to supersede), and returns a non-zero exit rather than a reassuring zero (AC#2).
+- **Proceed** for every uncertainty — unknown build commit, unresolvable target, no row, unreadable row, or a row in any other state (AC#3). The one-directional discipline the pre-226 fall-throughs had is preserved and now stated as its own property test: *no row shape may earn a Skip except found+unparked+completed*, with a positive control so it cannot be satisfied by never skipping at all.
+
+**On the deploy path:** this turns a parked box from "exit 0, then red at the STATBUS-170 convergence poll" into "red at the poke, with the reason". Same redness, earlier and legible — no deploy that passes today starts failing.
+
+**One implementation detail I corrected mid-build rather than leaving:** my first `RowStateForCommit` called `connect()` by hand, which opens BOTH a query and a listen connection and leaves them open for the life of the process — wrong for a one-shot CLI verb. It now goes through the house `runOneShot` wrapper, which is what `RunSchedule`/`RunRegister` use and which closes both on the way out. I checked `connect()` for an advisory-lock side effect before wiring it (there is none, so no daemon conflict).
+
+**Verification:** `go test ./...` in cli/ — 12 packages ok, 0 failures. `gofmt -l` clean on all four files. `golangci-lint` 2.12.2 — 0 issues.
+
+**Not claimed:** AC#2's message is pinned by unit test, not observed on a parked box — no VM. The behaviour is a pure function of the row state, so the risk sits in the row READ, not the decision; `applyLatestRowState` collapses every read failure to "proceed", which is the safe direction.
+---
+<!-- COMMENTS:END -->

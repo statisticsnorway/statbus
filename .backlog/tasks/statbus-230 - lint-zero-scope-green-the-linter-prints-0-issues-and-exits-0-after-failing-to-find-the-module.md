@@ -4,8 +4,10 @@ title: >-
   lint-zero-scope-green: the linter prints "0 issues" and exits 0 after failing
   to find the module
 status: To Do
-assignee: []
+assignee:
+  - mechanic
 created_date: '2026-08-18 10:52'
+updated_date: '2026-08-18 14:54'
 labels:
   - ci
   - quality-gate
@@ -50,3 +52,13 @@ WHY THAT HELPS: a clean lint result goes back to meaning the code was read. Cert
 - [ ] #3 Verified by reproduction: running the guarded command from the repository root fails, and from cli/ still passes
 - [ ] #4 The chain reports what was examined (package or file count), so a zero-scope run is visible even where it is not fatal
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-08-18 14:54
+---
+DESIGN RULED (architect, relayed): the root is that the local chain's lint step is an ad-hoc command whose failure mode is directory-dependent; CI is safe (go-test.yaml pins working-directory: cli). THE FIX: a named `./dev.sh lint` target that pins the working directory to cli/, runs the pinned golangci-lint, and FAILS on any `level=error` line in the output (covers module-resolution failure and genuine analysis errors, both fatal, neither currently is). CI then calls the SAME target — one definition instead of two conventions. RED verification: run it from the repo root; it must fail where today's bare command prints '0 issues' and exits 0. The architect deliberately designed rather than built — a unit he builds has no reviewer of equal standing, and this changes the chain that certifies every other unit. QUEUED to the mechanic after 222 (shell-lane: dev.sh + one CI yaml line); role docs' chain wording updates to name the target at landing.
+---
+<!-- COMMENTS:END -->
