@@ -7,7 +7,7 @@ status: Done
 assignee:
   - mechanic
 created_date: '2026-08-17 21:46'
-updated_date: '2026-08-18 14:55'
+updated_date: '2026-08-18 15:03'
 labels:
   - ci
   - release
@@ -35,7 +35,7 @@ WHY THAT HELPS: a riding run then costs nearly nothing and releases the fleet qu
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A RIDE run skips construct and image-wait (no fixture branches pushed, no images.yaml dispatch, no ghcr poll) while still concluding green
+- [x] #1 A RIDE run skips construct and image-wait (no fixture branches pushed, no images.yaml dispatch, no ghcr poll) while still concluding green
 - [x] #2 Every downstream job's `if:` is re-audited against the STATBUS-215 implicit-success() poisoning class once construct becomes skippable
 - [x] #3 teardown still runs and succeeds when no fixture branches were ever created
 - [x] #4 A non-RIDE tag push and a workflow_dispatch both still run the full construct → image-wait → run-arc chain unchanged
@@ -118,5 +118,11 @@ created: 2026-08-18 14:55
 Closing as SUBSUMED by STATBUS-223 (its AC#6 explicitly calls for this). AC#1, the sole remaining open item, was an observation criterion: "closes on the first real RIDE tag push observed skipping construct/image-wait." That mechanism — construct's RIDE `if:` clause and everything it gated — is DELETED as part of 223: RIDE moved out of this workflow entirely into release-fleet-orchestrator.yaml, which now skips DISPATCHING the whole fleet on a non-sensitive RC rather than dispatching it and having it skip its own first two stages. There is no longer a construct-level RIDE skip left in this file for anyone to ever observe — not because AC#1 was satisfied, but because the code path it was waiting to see run no longer exists. Leaving it open forever would be exactly the "permanently unmeetable" state 223 AC#6 was written to avoid.
 
 Not a quiet drop: 218's actual saving (a riding run costs nearly nothing) is preserved and IMPROVED by 223 — not starting the fleet at all beats starting it and having it skip its first two stages, which was 218's whole point. AC#2/#3/#4 stay closed as already landed and verified. Flagging this closure for review — veto if you want it re-scoped instead of closed, but the mechanism genuinely doesn't exist anymore for AC#1 to observe.
+---
+
+author: foreman
+created: 2026-08-18 15:03
+---
+CLOSED AS ACHIEVED BY SUPERSESSION at the 223 landing (a880ad26f), per the architect's ruling: the goal — a trivial release paying nothing for the arc fleet — is reached more completely by the orchestrator never dispatching it than this ticket's construct-level skip could reach (no runner, no branches, no builds, no queue slot). The landed hardening stays. AC#1's unmeetable observation re-pointed and subsumed: a real non-sensitive RC dispatching no arc fleet, riding any future minimal cut, recorded on 223. Done — achieved, not abandoned.
 ---
 <!-- COMMENTS:END -->

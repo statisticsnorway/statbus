@@ -3,11 +3,11 @@ id: STATBUS-223
 title: >-
   ride-relocation: the orchestrator swallowed the path-sensitivity shortcut —
   move the decision up to it and delete the fleet's now-dead copy
-status: In Progress
+status: Done
 assignee:
   - mechanic
 created_date: '2026-08-18 09:54'
-updated_date: '2026-08-18 14:55'
+updated_date: '2026-08-18 15:03'
 labels:
   - ci
   - release
@@ -109,5 +109,31 @@ LAYER-TEST INTERACTION: none. `TestReleaseGateLayer_TagFiredWorkflows` re-run (`
 AC#6 (218): closed as subsumed — separate comment on STATBUS-218 itself, and I found the architect had already ruled the same closure independently (218 comment #4, landed just before mine) — no conflict.
 
 Validated: `ruby -ryaml` + `actionlint` clean on both files (zero findings, confirmed against a full-repo actionlint sweep showing zero attributions to either file). Frozen, no commits.
+---
+
+author: architect
+created: 2026-08-18 15:01
+---
+REVIEW VERDICT — APPROVED WITH ONE REQUIRED FIX, comment-only. The relocation is correct, the deletion set is clean, and the correlation logic survived extraction intact. One stale premise was left behind, and it is the same class this whole campaign has been about.
+
+REQUIRED FIX (comment-only, no re-review): image-wait's comment still reads "STATBUS-218: construct is skippable now (RIDE)". Post-223 construct has NO needs and NO if — it is unconditional, as :115-116 correctly states one job above. So that comment asserts a premise 223 just falsified. The explicit `if` on image-wait is fine and should STAY (harmless belt, and the 215 audit discipline says keep it), but its stated REASON must be rewritten: construct is no longer skippable, and the guard is now defence against a FUTURE upstream conditional rather than against a present one.
+
+Why I am not waving this through as cosmetic: STATBUS-197 falsified a premise stated in a comment twelve lines from the code that broke it, nobody caught it, and it cost us STATBUS-228 and STATBUS-229. The engineer's own process finding from that pair was that lifecycle claims in comments are premises other code stands on. Here the same thing happened inside the change that is fixing the last one — caught in review rather than on a VM, which is the system working, but only if we actually fix it.
+
+CONFIRMED — THE ARC-FLEET CONDITION IS RIGHT, and I checked the arm the summary did not mention. The full condition is `!cancelled() && install-recovery-harness.result == 'success' && !(decide.result == 'success' && decide.outputs.sensitive == 'false')`. The install-recovery result check is the one that matters and it is present: without it, `!cancelled()` alone would run the most expensive fleet AFTER a failed cheaper one, destroying the cheapest-first chain semantics 214 exists for. Fail-toward-proof verified on every arm: decide failed, cancelled, or output absent all fall through to RUNNING; only an explicitly confirmed non-sensitive verdict skips. And the skip is scoped to the arc fleet alone — test-install and install-recovery have no dependency on the verdict at all, which is the boundary the ruling drew.
+
+CONFIRMED — THE DELETION SET LEAVES NO GHOSTS AND NO NEW EXPOSURE. decide gone; construct back to no-needs/no-if; discover back to no-needs/no-if with its RIDE early-exit removed; no-arcs-guard's exemption removed. Since discover now always enumerates and STATBUS-216 already makes an empty arc domain fail loud inside discover, count==0 is unreachable — so the guard is a genuine backstop rather than a live path, which is the right shape for it. Keeping run-arc's per-need checks is correct: they are now belt-and-braces rather than load-bearing, and after 215 that is worth paying for.
+
+CONFIRMED — 225's EXTRACTION IS FAITHFUL WHERE IT MATTERS. I checked the correlation block specifically because it carries my amendment: both id lists still `| sort` (comm needs sorted input or it silently produces a wrong difference), the empty-line stripping is intact, and the one/many/zero branching is unchanged. The amendment survived the move.
+
+220: the structural single source is what AC#2 asked for — sourcing the helper that construct itself builds names from means adding a lineage cannot leave branches behind, which a widened hardcoded list would not have guaranteed. His 14-per-run correction over my "roughly 11" is the more precise number and follows from 7 specs × (B+C).
+
+After the comment fix: land all three, and close 218 as achieved-by-supersession.
+---
+
+author: foreman
+created: 2026-08-18 15:03
+---
+LANDED at a880ad26f, architect-approved with one comment-only fix folded at landing (image-wait's comment asserted construct was still skippable — the premise this very change falsified; rewritten to name the guard as defence against a FUTURE upstream conditional; caught in review, the 197-class working as intended). The cheapest-first arm confirmed load-bearing in review: the arc fleet also requires install-recovery's success, so a failed cheaper fleet stops the chain. One observation arm noted for the record rather than an AC: a real non-sensitive RC observed dispatching no arc fleet — rides any future minimal cut, subsumes 218's arm. Done.
 ---
 <!-- COMMENTS:END -->

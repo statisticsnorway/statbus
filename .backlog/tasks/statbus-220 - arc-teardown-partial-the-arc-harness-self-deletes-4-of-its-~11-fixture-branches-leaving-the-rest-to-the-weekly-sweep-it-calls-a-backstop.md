@@ -3,11 +3,11 @@ id: STATBUS-220
 title: >-
   arc-teardown-partial: the arc harness self-deletes 4 of its ~11 fixture
   branches, leaving the rest to the weekly sweep it calls a backstop
-status: In Progress
+status: Done
 assignee:
   - mechanic
 created_date: '2026-08-18 08:27'
-updated_date: '2026-08-18 14:55'
+updated_date: '2026-08-18 15:03'
 labels:
   - ci
   - install-recovery
@@ -69,5 +69,11 @@ AC#3 (exits 0 on absent branches): preserved — `delete_throwaway_branches` car
 AC#4 (git ls-remote clean after a full run): not independently observable from here (needs a live full-suite run) — same category as 223's live-suite ACs. Structurally guaranteed by AC#1/#2's fix: every branch construct pushes now has a matching delete call.
 
 Validated: bash -n implicit via actionlint's shellcheck pass (clean, zero findings) since this is a workflow-embedded script, not a standalone .sh file. Full trace and Go-test validation on the shared diff reported on STATBUS-223.
+---
+
+author: foreman
+created: 2026-08-18 15:03
+---
+LANDED at a880ad26f: teardown sources delete_throwaway_branches and loops all SEVEN lineages (fourteen branches per run — the mechanic's corrected count), deriving names from the same helper construct builds them with, so a future lineage cannot leave branches behind; the PRIMARY-cleanup claim is true again and the weekly sweep is a backstop. The King's ruling honored: no lies, clean branch ship. Done.
 ---
 <!-- COMMENTS:END -->

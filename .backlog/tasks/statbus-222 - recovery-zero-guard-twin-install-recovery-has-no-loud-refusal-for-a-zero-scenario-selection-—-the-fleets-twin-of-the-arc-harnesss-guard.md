@@ -3,9 +3,11 @@ id: STATBUS-222
 title: >-
   recovery-zero-guard-twin: install-recovery has no loud refusal for a
   zero-scenario selection — the fleet's twin of the arc harness's guard
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - mechanic
 created_date: '2026-08-18 09:50'
+updated_date: '2026-08-18 15:01'
 labels:
   - ci
   - install-recovery
@@ -39,3 +41,43 @@ WHY THAT HELPS: both fleets then share one behavior — an empty run is a loud f
 - [ ] #2 Any legitimate zero-selection path is exempted explicitly and independently re-derived, never read from a discover output
 - [ ] #3 The guard job cannot poison downstream ifs (the 215 audit applied at birth)
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: mechanic
+created: 2026-08-18 15:01
+---
+Built, frozen for review (no commits) — SEPARATE unit/diff from 223+220+225 (different file, install-recovery-harness.yaml, not touched by that unit at all).
+
+Added `no-scenarios-guard` right after `discover`, before `run-scenario`, mirroring upgrade-arc-harness.yaml's `no-arcs-guard` in its POST-STATBUS-223 form (unconditional, no RIDE exemption) since this file has no RIDE-style mechanism to exempt — written for the post-223 world exactly as instructed, not the older RIDE-exempted shape:
+```
+no-scenarios-guard:
+  name: Refuse zero-scenario run
+  needs: [discover]
+  if: >-
+    ${{ !cancelled() &&
+        needs.discover.result == 'success' &&
+        needs.discover.outputs.count == '0' }}
+  runs-on: ubuntu-24.04
+  timeout-minutes: 5
+  steps:
+    - run: |
+        echo "::error title=Zero scenarios selected::..."
+        exit 1
+```
+
+AC#1 (red on count==0): satisfied — fires `::error` + exit 1 whenever discover succeeds with count==0.
+
+AC#2 (exemption independently re-derived, never trusted from discover output): no exemption exists today, by design — the comment explains why (no RIDE/path-sensitivity mechanism in this file, matching the arc harness's own post-223 reasoning) and states the doctrine explicitly for whoever adds one later: it must be independently re-derived, never read from a discover output, mirroring the STATBUS-215 review's doctrine.
+
+AC#3 (cannot poison downstream ifs, 215 audit at birth): verified structurally, not retrofitted — this job has exactly one need (discover) and NOTHING needs it back. `run-scenario`'s own `if:` (STATBUS-221) already independently guards on `needs.discover.outputs.count != '0'`, so it doesn't need or reference the guard job at all. `cleanup` is `if: always()` with `needs: [discover, run-scenario]` — doesn't reference the guard either, matching the arc harness's `no-arcs-guard` which nothing downstream needs there too (grepped to confirm). A red no-scenarios-guard therefore only ever changes THIS workflow's own conclusion, never cascades a skip anywhere.
+
+THREE-PATH TRACE:
+1. Full orchestrator dispatch (blank scenarios): discover succeeds, count~28 → guard's count=='0' false → SKIPPED. run-scenario runs the full matrix, cleanup sweeps. Normal green.
+2. Manual dispatch, valid non-empty subset: discover succeeds, count=N>0 → guard skipped, run-scenario runs the subset. Normal green.
+3. Manual dispatch, a selector that's syntactically valid but resolves to nothing (e.g. only HARNESS_SKIP_DEFAULT-excluded scenario names) — the case AC#1 exists for: discover's `--print-selected` succeeds (the name IS a real scenario, no bad-selector error) but the exclusion logic filters it out → count==0, discover.result=='success' → guard's if evaluates true → guard RUNS, fails red, names the error. run-scenario's own independent count!=0 check skips it (matrix never expands). cleanup still runs (always()). Overall workflow conclusion: FAILURE — AC#1 satisfied. (Distinguished from a genuinely BAD selector, which already fails discover itself — non-zero exit — before any count is ever produced; the guard correctly does not fire redundantly in that case since discover.result != 'success'.)
+
+Validated: `ruby -ryaml` clean, `actionlint` exits 0 on this file (zero findings), confirmed against a full-repo actionlint sweep showing zero attributions to it.
+---
+<!-- COMMENTS:END -->
