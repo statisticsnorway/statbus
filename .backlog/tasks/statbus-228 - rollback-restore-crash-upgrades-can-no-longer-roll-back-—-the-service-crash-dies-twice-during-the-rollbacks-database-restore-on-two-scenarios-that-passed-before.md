@@ -8,7 +8,7 @@ status: To Do
 assignee:
   - engineer
 created_date: '2026-08-18 10:27'
-updated_date: '2026-08-18 10:37'
+updated_date: '2026-08-18 10:39'
 labels:
   - upgrade-recovery
   - release
@@ -93,5 +93,47 @@ So Defect 2 splits, and only the second half is mine:
 2. **Genuinely unruled design question → architect:** what SHOULD a PreSwap rollback do now that a PreSwap flag legitimately carries this attempt's snapshot identity — restore it (current behaviour; the message must then change) or refuse as before (the stamp moves back past the swap boundary)? And in his framing: what should a rollback scenario OBSERVE when it does? I am not forcing this into "fix" or "test edit".
 
 **PROCESS FINDING, recorded as asked — not used as a free pass.** 197 invalidated a premise another function's safety argument rests on, and no review caught it. The miss is mechanically detectable: the invalidated claim states itself IN WORDS ("empty by construction at PreSwap") a dozen lines from the code that made it false, and had sat untouched since July. Cheap guard for the class: when a change alters WHEN a field is populated, grep the field name in COMMENTS, not only in code — every statement about a field's lifecycle is a premise some other branch may be standing on.
+---
+
+author: architect
+created: 2026-08-18 10:39
+---
+DIAGNOSIS REVIEW, PART 1 — CONFIRMED AND SHARPENED. Product bug, not scenario drift, not the third fork. Verified at source, not accepted from the trace. Both defects are real; ONE IS WORSE THAN STATED, and the OTHER's severity claim is REFUTED by evidence already inside this trace.
+
+DEFECT 1 — CONFIRMED, AND WORSE. The code says it out loud: the comment at :5629-5633 justifies terminalExec because "queryConn was closed for the consistent backup" — which CONFLATES the daemon's own connection being closed with the POSTGRES SERVER being stopped. Step 4 (:5588) runs `docker compose stop db`. terminalExec (:7959) delegates to terminalConnDo and runs `conn.Exec` on a FRESH connection: teardown-immune against our own connection dying, useless against a server that is not running. The :5638 write therefore fails on EVERY upgrade, deterministically, masked on successful ones by the post-reconnect write at :6402.
+
+THE UNDERSTATEMENT: the consequence is not only that STATBUS-111's human-gated replay is dead and the :3761 probe counts zero. That probe IS STATBUS-209 ARM A's abort-hold guard — `SELECT COUNT(*) ... state='failed' AND backup_path IS NOT NULL` — whose own comment says the git-restore-fail ABORT "deliberately holds read-only on a broken volume until that replay — this backstop must NOT strip that protection early". With backup_path NULL fleet-wide, that guard reads zero and FAILS OPEN: the read-only hold protecting a broken volume is stripped early, on exactly the population it exists for. Defect 1 does not merely disable the replay path — it disables the safety hold the replay path depends on. That belongs in the fix's commit message.
+
+DEFECT 2 — CONFIRMED, AND THE "DATA-NEUTRAL IN CONTENT" READING IS REFUTED. The premise 197 falsified is stated twice (:1315-1318, :1348-1349): "flag.BackupPath is empty by construction at PreSwap". A PreSwap flag can now carry one, so restoreDatabase no longer refuses and a database no-op became a full restore cycle. He flagged this as alarming-but-content-neutral and asked me to attack it. It does not survive.
+
+HIS OWN FLAGGED-NOT-TRACED OBSERVATION IS THE REFUTATION. recovery_attempts read 1 where 3 was expected. That is neither second-order nor unexplained: writeRollbackTerminal's contract documents this exact hazard at :7979-7985 — "a volume-rewind restore (restoreDatabase) REVERTS THE COLUMN to whatever the pre-upgrade snapshot had (typically 0), and this UPDATE is what runs AFTER that rewind, so every updateSQL string MUST include recovery_attempts = $2 or the re-impose is a silent no-op." A restore that now runs where it never ran before rewinds the counter. The observed 1-vs-3 IS that volume rewind, predicted by the codebase's own comment. So the restore is demonstrably NOT content-neutral: it rewinds at least one column the recovery budget depends on — and recovery_attempts is what decides park-versus-continue.
+
+SECOND, INDEPENDENT REASON the neutrality claim fails: even where content happened to match, the PreSwap path's SAFETY no longer comes from its invariant. The STATBUS-039/-031 argument is that an unrecorded snapshot makes restoreDatabase REFUSE, and that refusal is what prevents restoring another upgrade's months-old backup over an untouched volume. It is now bypassed. Today the stamped path happens to be this attempt's own snapshot, so the outcome is right — but right by luck about which path got stamped, not by the invariant the code relies on. A safety property that holds by coincidence is not a safety property.
+---
+
+author: architect
+created: 2026-08-18 10:39
+---
+DIAGNOSIS REVIEW, PART 2 — THE RULINGS.
+
+FIRST, ON HIS RE-ROUTING (comment #2): re-testing his own verdict against the standard and MOVING Defect 2 out of his boxes into the third fork was the right call, and the `git log -L` evidence — the invalidated premise last touched 2026-07-14, a month before 197 made it false — is exactly the kind of mechanical proof that turns "nobody thought about it" from an assumption into a finding. But the split he proposes does not survive my part-1 refutation. He kept half of Defect 2 as an unruled design question on the grounds that the restore is data-neutral. It is not. The recovery_attempts rewind makes the current behaviour WRONG, not merely undocumented — so this is not an open question about what we would prefer. There is only one admissible answer.
+
+RULING ON THE SEMANTICS QUESTION HE ROUTED TO ME — RESTORE THE PREMISE. The flag stamp moves back past the swap boundary; a PreSwap flag carries an empty BackupPath again; the branch's message and its safety argument stand unchanged because they become true again. Do NOT rewrite :1300-1353 for a world where PreSwap carries a snapshot identity. Four reasons:
+1. The current behaviour is wrong, not just undocumented — it rewinds recovery_attempts, and that column decides park-versus-continue.
+2. Rewriting the argument means re-proving a WEAKER safety property across every PreSwap path, and part 1 shows the weaker property is already false.
+3. Stamping at PreSwap contradicts 197's OWN goal. Its invariant is "backup_path == '' ⇔ nothing moved". At PreSwap, nothing HAS moved — that is the definition of the phase. So the stamp there asserts the opposite of what 197 set out to guarantee.
+4. 197's stated worry was that destructive steps might precede the stamp. For a PreSwap flag none do: the recovery-boot target checkout is gated on IsServiceNewSbRecovery() (forward phases only), which excludes PreSwap. THE BUILDER MUST VERIFY THAT PREMISE HOLDS FOR EVERY PHASE TRANSITION — it is what this ruling rests on, and I want it checked rather than inherited from me.
+
+FIX SHAPE (1) — POST-RECONNECT ROW WRITE: APPROVED, and it is not a retreat from 197's doctrine but the only implementable form of it. No row write can land while the server is stopped, so "record on the row at commit" was never achievable in that window on that carrier; the first instant the server is reachable IS the earliest honest record. Two conditions: it must be the FIRST write after reconnect, before anything else can fail; and the FLAG stays the authoritative carrier across the DB-down gap, which it already is. With the stamp moved back per the ruling above, the two carriers become honest at different moments by design — flag at the swap, row at reconnect — and the comment must say so instead of claiming both record at one commit point.
+
+ORACLES — his RED-first pair is right and sufficient to land without a VM. The source pin that no upgrade-row write sits between stop-db and DB restart; and the behavioural arm running terminalExec against a STOPPED SERVER, not a closed connection — that distinction IS the defect, and a test that only closes a connection would pass against the broken code. ADD TWO:
+• a PreSwap flag carries an EMPTY BackupPath — the invariant being restored, and the one a future edit would silently break again;
+• an arm proving the restore no longer runs on the PreSwap path, since "prints nothing needs restoring, then restores" is the observable that exposed this.
+
+THE UNTRACED THREAD IS NOW TRACED — close it rather than carrying it. recovery_attempts 1-vs-3 is not second-order and needs no further pass: it is the volume rewind documented at :7979-7985, caused by Defect 2's newly-occurring restore. It should disappear when the premise is restored, and that disappearance is a free confirmation of the fix. If it does NOT disappear, something else is also wrong and we want to know loudly — so assert it, do not merely expect it.
+
+EVIDENCE GAP WORTH CLOSING CHEAPLY: the single-suspect conclusion rests on ancestry established locally via merge-base, because the sandbox could not reach the GitHub API. Have the operator pull the previous green suite's run head_sha and confirm 21ec09911 is absent from it — seconds of work, and it converts "single suspect" into "single suspect, confirmed against the last green".
+
+HIS PROCESS FINDING — ACCEPTED, AND IT IS MINE TOO. 197 invalidated a premise another function's safety argument stands on, and no review caught it, including mine. His proposed guard is right and I would state it as a rule: WHEN A CHANGE ALTERS WHEN A FIELD IS POPULATED, GREP THE FIELD NAME IN COMMENTS, NOT ONLY IN CODE — every statement about a field's lifecycle is a premise some other branch may be standing on. Worth carrying into the role docs beside the gofmt step; both came from the same week of near-misses.
 ---
 <!-- COMMENTS:END -->
