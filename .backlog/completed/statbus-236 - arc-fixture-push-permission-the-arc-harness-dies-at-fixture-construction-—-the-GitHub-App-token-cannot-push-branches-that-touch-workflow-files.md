@@ -3,11 +3,11 @@ id: STATBUS-236
 title: >-
   arc-fixture-push-permission: the arc harness dies at fixture construction —
   the GitHub App token cannot push branches that touch workflow files
-status: In Progress
+status: Done
 assignee:
   - '@engineer'
 created_date: '2026-08-18 15:48'
-updated_date: '2026-08-18 20:11'
+updated_date: '2026-08-18 23:55'
 labels:
   - ci
   - install-recovery
@@ -40,7 +40,7 @@ WHAT IS ACHIEVED WHEN DONE: the arc fleet can construct its fixtures again, the 
 <!-- AC:BEGIN -->
 - [x] #1 The trace answers: which credential pushes fixtures, why it lacked workflows permission, and whether this path ever worked before (named prior run or commit)
 - [x] #2 A remedy recommendation is pinned on the ticket and adversarially verified by the architect before implementation; King-gated actions (App permission grants) are named as such, never self-authorized
-- [ ] #3 The fix lands and a re-run of the arc fleet constructs fixtures and executes a non-zero number of scenarios
+- [x] #3 The fix lands and a re-run of the arc fleet constructs fixtures and executes a non-zero number of scenarios
 - [x] #4 The zero-scope guard is confirmed intact: a fixture-construction failure still fails the run loudly
 <!-- AC:END -->
 
@@ -274,4 +274,16 @@ created: 2026-08-18 20:11
 ---
 THE RE-RUN IS LIVE: v2026.08.0-rc.05 cut at b4fd437fe (King's act, 2026-08-18 ~19:55 UTC), orchestrator run 32180844587 in progress — the first chain whose arc fleet executes the FIXED fixture construction (Shape A, 65fa3fd09) from its own tag's tree (tag == recent master, divergence near zero AND the fix handles the general case). AC#3 closes when this run's arc fleet constructs fixtures and executes scenarios. Riding the same run: 228 AC#3 (rollback scenarios), 229 AC#3 (un-park scenario), and the full observation sweep (214/215/227/200/201/208/209/210/211) on FULL GREEN; promotion then closes 199/205/213 per protocol. Standing calibrations remain in force: a known cause is not a pass; a runtime-stability health-check failure on the un-park scenario is the OLD chronic issue as its own new ticket, never a reopen of 229; no coin-toss re-runs.
 ---
+
+author: foreman
+created: 2026-08-18 23:55
+---
+AC#3 CLOSED at the rc.05 chain (downstream arc run 32187511838): "Construct branch fixtures + dispatch image builds" SUCCEEDED — the Shape A fix's first live execution — fixtures pushed legally, image-wait green, and the matrix executed 29 scenario jobs (26 pass / 2 fail / 1 guard-skip). The two failures are STATBUS-228's rollback observation arms, tracked there — not this ticket's mechanism. FOREMAN CORRECTION to the operator's gloss on the record: NO GitHub permission was granted — the App's permissions are unchanged; the fix made the fixture push legal under rule (T) by aligning the workflow tree. Ticket complete: mechanism measured, remedy landed, live-proven.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The arc harness died at fixture construction because fixture branches cut from an RC tag carried workflow files older than master's, and GitHub refuses a push whose workflow tree differs from the default branch when the token lacks workflows permission — a consequence of STATBUS-214 moving the fleet off tag-push triggers, recurring for any RC more than a few workflow commits old. The governing platform rule was MEASURED, not guessed: a three-arm probe (removed after reading) reproduced the refusal on the identical file, proved an aligned tree pushes legally, and proved the built remedy pushes legally. The landed fix (Shape A, 65fa3fd09): fixture construction aligns .github/workflows/ with the default branch via git read-tree + overlay, parented on the RC commit, with two self-checks that verify the resulting trees rather than exit codes — a wrong tree that still pushes green is the failure mode the guards exist for. Proven live at the rc.05 chain: construct green, 29 scenario jobs executed. The permission grant was refused throughout as privilege expansion; the accepted hybrid-tree residual risk is documented at the failure sites themselves (fdff2e6ff). Traced by engineer, mechanism and rulings by architect, built by engineer and mechanic, landed by foreman.
+<!-- SECTION:FINAL_SUMMARY:END -->
