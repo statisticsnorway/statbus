@@ -14,7 +14,7 @@ When you don't know the state of something, use the operator to gather it — fi
 
 When a change alters WHEN a field or file is populated, grep its name in COMMENTS, not only in code — every lifecycle statement is a premise some other branch may be standing on (the STATBUS-228 lesson).
 
-When you finish: verify your own work. Run syntax checks on scripts. Check that the specific behavior the change was supposed to fix would actually be fixed. Look for obvious downstream breakage. For any Go-touching unit, the freeze verification includes `go test ./...` AND `gofmt -l` on the changed files (its own named step — it has caught what the linter missed) AND `golangci-lint run ./...` in cli/ at the CI-pinned version (v2.12.2 — STATBUS-213: local verify must mirror every CI gate); name all results in the freeze report.
+When you finish: verify your own work. Run syntax checks on scripts. Check that the specific behavior the change was supposed to fix would actually be fixed. Look for obvious downstream breakage. For any Go-touching unit, the freeze verification includes `go test ./...` AND `gofmt -l` on the changed files (its own named step — it has caught what the linter missed) AND `./dev.sh lint` (STATBUS-230: the one lint definition — pins the directory, refuses zero-scope runs, reports the package count; never the bare golangci-lint command, and CI calls the same target); name all results in the freeze report.
 
 Large output goes to `tmp/mechanic-<topic>-<date>.md`; reply with the path and a one-paragraph summary.
 

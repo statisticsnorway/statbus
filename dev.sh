@@ -2456,6 +2456,73 @@ EOS
         echo "Signing configured. All commits and tags will be signed with $KEY_PATH"
         echo "Remember to enable 'Require signed commits' on master in GitHub branch protection"
       ;;
+    'lint' )
+        # STATBUS-230: the ONE definition of "lint cli/" — go-test.yaml's
+        # go-lint job calls this exact target too (not a second, hand-kept
+        # copy of the same command), so there is no second convention for
+        # the two to drift apart from.
+        #
+        # PINS THE WORKING DIRECTORY, unconditionally. Reproduced on this
+        # tree before writing this fix: golangci-lint invoked from the repo
+        # root cannot resolve the Go module (it lives in cli/), prints
+        # exactly one line naming the failure, and then reports "0 issues"
+        # and exits 0 anyway —
+        #   $ golangci-lint run ./...
+        #   level=error msg="[linters_context] typechecking error: pattern ./...: directory prefix . does not contain main module or its selected dependencies"
+        #   0 issues.
+        #   $ echo $?
+        #   0
+        # A script or a person reading only the summary line, or trusting
+        # the exit code, sees "clean" and moves on. Explicitly `cd`-ing
+        # here makes that specific failure mode structurally unreachable
+        # through this command (there is no longer a "wrong directory" to
+        # invoke it from) rather than merely detected — belt #1 below
+        # exists for the OTHER ways golangci-lint can print an error and
+        # still exit 0, not as the primary defence against this one.
+        #
+        # `|| LINT_RC=$?` is required under this script's `set -e`: a bare
+        # `VAR="$(cmd)"` assignment whose command exits non-zero would abort
+        # the whole script right here, before genuine lint findings (a
+        # LEGITIMATE non-zero exit, unlike the module-resolution lie) ever
+        # got the chance to print or to hit the check below.
+        LINT_RC=0
+        LINT_OUTPUT="$(cd cli && golangci-lint run ./... 2>&1)" || LINT_RC=$?
+        printf '%s\n' "$LINT_OUTPUT"
+
+        # BELT #1: catch golangci-lint's own "printed an error, exited 0"
+        # lie directly, by inspecting the TEXT — not the exit code, because
+        # the exit code is the thing that lies here. Covers module-
+        # resolution failure and any other class of genuine analysis error
+        # golangci-lint reports this way rather than via its exit status.
+        if printf '%s\n' "$LINT_OUTPUT" | grep -q 'level=error'; then
+            echo "" >&2
+            echo "::error::golangci-lint printed a 'level=error' line above — a genuine analysis error occurred, but golangci-lint's own exit code does not reflect it (the exact STATBUS-230 defect). Refusing to certify this as clean." >&2
+            exit 1
+        fi
+
+        # BELT #2 (AC#4 — report what was actually examined, so a narrowed
+        # scope is VISIBLE even when it is not zero; also defense in depth
+        # against a future golangci-lint wording change defeating belt #1):
+        # count packages directly via `go list`, independent of
+        # golangci-lint's own output entirely.
+        PKG_COUNT="$(cd cli && go list ./... 2>/dev/null | grep -c . || true)"
+        echo "Examined ${PKG_COUNT} package(s) under cli/."
+        if [ "$PKG_COUNT" -eq 0 ]; then
+            echo "::error::go list ./... resolved to 0 packages under cli/ — lint examined nothing. Refusing to certify a zero-scope run as clean." >&2
+            exit 1
+        fi
+
+        # Genuine findings: golangci-lint's exit code is trustworthy once
+        # both belts above are clear (module resolution didn't fail, and
+        # something was actually examined) — a non-zero exit here means
+        # real issues were reported, exactly as its own text already showed.
+        if [ "$LINT_RC" -ne 0 ]; then
+            echo "::error::golangci-lint run exited non-zero (${LINT_RC}) — real findings above." >&2
+            exit 1
+        fi
+
+        echo "golangci-lint: 0 issues across ${PKG_COUNT} package(s) in cli/."
+      ;;
     'build-sb' )
         # Lego primitive: build ONE sb binary.
         #   No args     → host platform → write to ./sb (daily-driver path).
@@ -2976,6 +3043,9 @@ EOS
       echo "  test-assert-db-at-head [db]        Smoke-test the ./sb assert-db-at-head Cobra subcommand"
       echo "  build-sb [target]                  Build sb. No args: host → ./sb. <os>/<arch>: cross → sb-<os>-<arch>."
       echo "  cross-build-sb                     Build all 4 platforms + refresh ./sb to host variant."
+      echo ""
+      echo "Go quality gate (cli/):"
+      echo "  lint                                golangci-lint run ./... in cli/ — refuses a zero-scope run (STATBUS-230)"
       echo ""
       echo "Git:"
       echo "  setup-signing                      Configure SSH commit signing for this repo"

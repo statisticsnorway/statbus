@@ -22,9 +22,27 @@ name: Go Test
 # `go test ./...`. Both exit non-zero on any failure and fail the job — no
 # continue-on-error, no `|| true`. A red Go test blocks the merge.
 
+# STATBUS-219 Stage 2 (doc-030, architect comment #11): this workflow is an
+# INDEPENDENT trigger — nothing chains off it — so a board-only push that
+# matches paths-ignore below produces NO run at all, with no conclusion for
+# anything downstream to misread (unlike pg_regress/fast-tests, which are
+# workflow_run-chained off Images and therefore MUST keep running
+# unconditionally; see pg_regress.yaml's own comment for why that half was
+# ruled explicitly OUT of scope here). The resulting Missing at the tip is
+# exactly what STATBUS-219 Stage 1's ancestor-ride in the release preflight
+# was built and RED-verified to cover.
+#
+# paths-ignore IS A THIRD COPY of ops/release/ci-exempt-paths.txt's content
+# — GitHub evaluates path filters server-side, before any job or checkout
+# runs, so there is no way to read the checked-in list at trigger-filter
+# time. KEPT IN SYNC BY HAND: this list, app_build_and_lint-workflow.yaml's
+# matching push.paths-ignore, and ci-exempt-paths.txt must all change
+# together — ci-exempt-paths.txt's own header now points back at both.
 on:
   push:
     branches: [master]
+    paths-ignore:
+      - '.backlog/**'
   pull_request:
     branches-ignore:
       - 'ops/**'
@@ -109,5 +127,11 @@ jobs:
 
       - name: golangci-lint run
         if: ${{ vars.SKIP_GO_LINT != '1' }}
-        working-directory: cli
-        run: golangci-lint run ./...
+        # STATBUS-230: `./dev.sh lint` is the ONE definition of this check —
+        # it pins cli/ itself (no `working-directory:` needed here) and
+        # refuses a zero-scope run instead of letting golangci-lint print
+        # "0 issues" after failing to resolve the module and exit 0 anyway.
+        # CI and the local three-step chain (test, gofmt, lint) now call
+        # the SAME target instead of CI keeping its own hand-pinned copy of
+        # this one command.
+        run: ./dev.sh lint

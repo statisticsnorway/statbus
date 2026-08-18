@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-08-18 08:13'
-updated_date: '2026-08-18 14:57'
+updated_date: '2026-08-18 15:17'
 labels:
   - ci
   - release
@@ -205,5 +205,41 @@ WHAT NOT TO BUILD: the chained pair's internal skip. pg_regress and fast-tests k
 ON (b), THE STRONGER EVIDENCE: refused, deliberately. Landing a temporary condition on master — on the workflow chain that gates releases, during a live promotion window — to buy CI minutes is the wrong risk for the reward, and it is the kind of thing that is remembered for going wrong at the worst possible moment. The design rejected it during the cut window for good reasons; those reasons did not expire when master went quiet.
 
 AC#2 RE-SCOPES accordingly: a board-only push runs no go-test and no app-build-lint, and Images takes the retag path rather than a rebuild. The chained pair is explicitly OUT of scope with the reason recorded, so a later reader does not mistake it for an oversight and finish the job.
+---
+
+author: mechanic
+created: 2026-08-18 15:16
+---
+STAGE 2 (re-scoped per comment #11) built, frozen for review (no commits) — separate unit/diff. Files: .github/workflows/images.yaml, .github/workflows/go-test.yaml, .github/workflows/app_build_and_lint-workflow.yaml, ops/release/ci-exempt-paths.txt (comments only, no entries added/removed). Part 1/2: the images retag.
+
+NEW `decide-exempt-only` job in images.yaml (no needs, runs from the start): diffs `github.event.before..github.sha` with `-z` (same load-bearing reason as the Go side — this repo's em-dashed board filenames come back quoted without it), checks every changed path against ops/release/ci-exempt-paths.txt via a bash reimplementation of `fileIsCIExempt`'s EXACT semantics (anchored prefix, literal substring comparison via `${file:0:N}` slicing — deliberately NOT shell glob matching, so a future exempt-list entry with glob-special characters can't silently change behavior). On an all-exempt diff, ALSO verifies the parent commit's 5 service images (app/worker/db/proxy/sb) are actually complete in ghcr via `docker manifest inspect` before ever saying exempt=true — doubt about the diff and doubt about the artifact being copied are both covered by "fail toward full build."
+
+`build`'s if now requires `exempt != 'true'`; a new `retag` job (needs [describe, decide-exempt-only], if `exempt == 'true'`) runs `docker buildx imagetools create --tag <new_sha> <parent_sha>` once per service — seconds, not the full multi-platform matrix, and copies the ENTIRE existing multi-arch manifest list in one command (no per-arch dance needed). `manifest`'s if now explicitly checks `build.result == 'success'` (215-class audit: build sits behind a real need now, a bare if would implicitly AND success() over it). `seed`'s needs became `[describe, manifest, retag]` with an explicit if accepting either succeeding while the other was skipped, refusing only on genuine failure or the bug state of both skipped — seed pulls `statbus-sb:<commit_short>` as a build context, which exists after EITHER path completes.
+
+SCOPE DECISION, flagged: `seed` itself was NOT given a retag path — left on the full-build branch unconditionally (needs [describe, manifest, retag] but its own incremental-seed logic is untouched). Reasoning: (a) the ruling's own wording names "the images retag" without mentioning seed; (b) seed's existing incremental-build logic (STATBUS-116) already finds zero new migrations to apply on an exempt-only diff since migrations/ is explicitly NEVER-exempt, making its own cost near-zero on exactly this case without any new mechanism. Didn't expand scope to retag it too since the marginal saving looked small against the added risk of a second retag path. Your call if that's wrong.
+
+DUPLICATION RISK, flagged not silently absorbed: this is now a THIRD independent copy of "what's exempt" (Go's fileIsCIExempt, this new bash copy, and the paths-ignore lists in part 2) — GitHub evaluates workflow trigger-time logic before any Go binary exists, so there's no way to call into `cmd`'s unexported functions from a workflow. Noted directly in the new job's own comment and in ci-exempt-paths.txt's header (updated to cross-reference all three copies explicitly, so an editor adding a new entry sees they need to touch three places). A `./sb` subcommand exposing the check would remove this structurally; out of scope here, your call whether it's worth its own ticket.
+---
+
+author: mechanic
+created: 2026-08-18 15:17
+---
+Part 2/2 — the independent-trigger paths-ignore + three-path traces + validation.
+
+go-test.yaml and app_build_and_lint-workflow.yaml each gained `push.paths-ignore: ['.backlog/**']`. GitHub evaluates this SERVER-SIDE before any job starts — a push whose ENTIRE diff matches only ignored paths produces literally zero runs, not a skip. pg_regress.yaml and fast-tests.yaml deliberately untouched — comment in both edited files cites 219 comment #11 by number and states why the chained pair stays running redundantly (it's harmless per Stage 1, and any internal-skip approach would depend on an undocumented GitHub aggregation-conclusion rule on the production workflow_run trigger, which is exactly what the probe left unresolved and what the architect ruled out building on).
+
+THIRD COPY, same flag as part 1: paths-ignore is a STATIC list GitHub reads at trigger-time, before checkout — it cannot reference ci-exempt-paths.txt. Both files' `on:` blocks and ci-exempt-paths.txt's own header now cross-reference each other explicitly ("adding an entry means updating THREE places, not one") so a future `doc/` addition doesn't silently desync.
+
+THREE-PATH TRACE, mentally executed against the final YAML in all four files:
+
+1. CODE PUSH (non-exempt files changed): images.yaml — decide-exempt-only finds a non-exempt file → exempt=false → build runs the full matrix → manifest runs → retag skipped → seed runs off manifest's success. go-test.yaml/app_build_and_lint — paths-ignore doesn't match (not all files are .backlog/**) → both trigger normally. Unchanged behavior end to end.
+
+2. BOARD-ONLY PUSH (.backlog/** only): images.yaml — decide-exempt-only's diff is all-exempt, verifies parent's 5 images are complete → exempt=true → build/manifest SKIPPED, retag RUNS (5 retag calls, seconds each) → seed runs off retag's success (sb image present via the retag). go-test.yaml/app_build_and_lint — paths-ignore matches the WHOLE push → zero runs at that commit for either. pg_regress/fast-tests still fire (workflow_run off Images, which DID run — via retag — and concluded success) and run their normal (redundant but harmless) full suite. Release preflight later finds Missing for go-test/app-build-lint at the tip and rides the nearest exempt-clean green ancestor (Stage 1, already landed and RED-verified) — exactly the scenario this whole ticket exists for.
+
+3. MIXED PUSH (some exempt + some non-exempt files in the same push): images.yaml — decide-exempt-only finds the first non-exempt offender in the diff → exempt=false → same as path 1, full build. go-test.yaml/app_build_and_lint — paths-ignore requires ALL changed files to match to skip; a mixed push has non-ignored files → both trigger normally, running against the full code state (harmless — the exempt files don't affect the outcome by definition). No special-casing needed; paths-ignore's all-or-nothing semantics handle this correctly on their own.
+
+VALIDATION: `ruby -ryaml` clean on all 3 workflow files. `actionlint` — zero NEW findings (diffed by exact finding text/line-shift against `git show HEAD:...` baselines for each file: images.yaml's 2 pre-existing config-inline deprecation warnings unchanged, app_build_and_lint-workflow.yaml's 1 pre-existing actions/checkout@v3-too-old warning unchanged, both just shifted line numbers from my comment insertions). Full `go test ./...` in cli/ — all 13 packages ok including `TestFileIsCIExempt_AnchoredPrefixNotSubstring`, `TestCIExemptPathsFile_IsNotItselfExempt`, and every `TestFindExemptRide_*` arm (unaffected by my comment-only edits to ci-exempt-paths.txt — no entries added/removed). `go build ./...` OK.
+
+Frozen, no commits. AC#2 (re-scoped) closes with this unit; AC#1/#3/#4/#5 already closed by Stage 1.
 ---
 <!-- COMMENTS:END -->
