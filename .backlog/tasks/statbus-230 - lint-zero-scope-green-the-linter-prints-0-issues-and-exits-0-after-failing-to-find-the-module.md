@@ -3,11 +3,11 @@ id: STATBUS-230
 title: >-
   lint-zero-scope-green: the linter prints "0 issues" and exits 0 after failing
   to find the module
-status: In Progress
+status: Done
 assignee:
   - mechanic
 created_date: '2026-08-18 10:52'
-updated_date: '2026-08-18 15:10'
+updated_date: '2026-08-18 15:26'
 labels:
   - ci
   - quality-gate
@@ -47,10 +47,10 @@ WHY THAT HELPS: a clean lint result goes back to meaning the code was read. Cert
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A lint invocation that cannot resolve the module FAILS loudly instead of printing "0 issues" and exiting 0
-- [ ] #2 The guard holds for both the local three-step chain and the CI job, since the local chain gates freezes before review
-- [ ] #3 Verified by reproduction: running the guarded command from the repository root fails, and from cli/ still passes
-- [ ] #4 The chain reports what was examined (package or file count), so a zero-scope run is visible even where it is not fatal
+- [x] #1 A lint invocation that cannot resolve the module FAILS loudly instead of printing "0 issues" and exiting 0
+- [x] #2 The guard holds for both the local three-step chain and the CI job, since the local chain gates freezes before review
+- [x] #3 Verified by reproduction: running the guarded command from the repository root fails, and from cli/ still passes
+- [x] #4 The chain reports what was examined (package or file count), so a zero-scope run is visible even where it is not fatal
 <!-- AC:END -->
 
 ## Comments
@@ -103,5 +103,11 @@ WHAT IT DOES NOT CHANGE: the fix, or its priority. Pinning the cwd inside the ta
 The description's reproduction block should be amended at landing to show exit 7 and to state the mechanism as the misleading summary. doc-033 is already corrected, with the mis-measurement kept in it as the sixth instance of its own class rather than edited away — it is the most honest demonstration available that the class does not spare whoever names it.
 
 AND THE METHOD POINT WORTH KEEPING: the mechanic found this by REPRODUCING the bug rather than inheriting my description of it. Building from a stated premise without re-deriving it is how a wrong premise propagates into a fix; he did the opposite, and it corrected the architect. That is the review direction working upward, which is the one direction it usually does not.
+---
+
+author: foreman
+created: 2026-08-18 15:26
+---
+LANDED at c8bbbb46c: ./dev.sh lint is the one definition (directory pinned inside, error-line belt, zero-package refusal, count always printed), CI calls the same target, role docs name it and forbid the bare command. All four ACs closed — including the foreman's own independent run of the target from the repo root (15 packages examined, printed). The architect's original exit-0 claim corrected ON HIS OWN RE-MEASUREMENT (exit is 7; his reproduction read a compound command's echo status — kept in doc-033 as the class's sixth instance rather than edited away). The mechanic's reproduce-don't-inherit method credited on the record: it corrected the architect. Done.
 ---
 <!-- COMMENTS:END -->
