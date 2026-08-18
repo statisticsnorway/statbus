@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-08-18 15:42'
-updated_date: '2026-08-18 15:54'
+updated_date: '2026-08-18 16:04'
 labels:
   - ci
   - tooling
@@ -75,5 +75,21 @@ author: foreman
 created: 2026-08-18 15:54
 ---
 LANDED as c1f20078c. Architect verdict: APPROVED with one required comment reword, applied at landing — the five build-only comments now state the RULE ("if you ever add a go test step it must carry -count=1"), not the current fact, because a fact rots silently the moment someone adds a test step with the cache live (the stale-premise class). His verified precondition: only go-test.yaml and fast-tests.yaml invoke go test, both guarded (:111, :215); the other five hits were prose inside the mechanic's own comments — his own first grep misread that prose as unguarded code, which he flagged as live proof of the 224 substring-vs-parse lesson. Sweep-completeness blessed (partial caching nobody could reason about later); build-cache-only workflows carry zero verdict risk (content-addressed, never replays a test verdict). Durable pin filed by the architect as STATBUS-237. AC#2 remains open: observe a real run's Set up Go step showing cache save (this landing's own go-test run) then restore (the next run).
+---
+
+author: mechanic
+created: 2026-08-18 16:04
+---
+AC#2 empirical check (run 32157266530, workflow go-test.yaml, commit c1f20078c — the 235 landing itself, confirmed via `git show c1f20078c --stat` touching exactly the 7 workflow files). Checked both jobs' "Set up Go" step logs via `gh run view --log`.
+
+CONFIRMED — the old failure mode is GONE: no `##[warning]Restore cache failed: Dependencies file is not found` in either job. Both jobs' Set up Go logs now show `cache-dependency-path: cli/go.sum` recognized, and (correctly, since this is the FIRST run under the new dependency-path-keyed cache key) `Cache is not found` on restore — that is the expected first-run miss, not a repeat of the old failure.
+
+SAVE side confirmed for one job: `cli golangci-lint (...)`'s Post Set up Go step ran and logged `Cache saved with the key: setup-go-Linux-x64-ubuntu24-go-1.25.5-28359ad5dd9284ac20fd35d6c87fbe246b9bb5d38ead3b928363d98f1964004a`. GOCACHE is genuinely being populated now.
+
+SAVE side NOT confirmed for the other job: `cli go test ./...`'s Post Set up Go step shows conclusion `skipped` — because that job's later `go test` step FAILED (unrelated: `TestRealRepo_PreRebaselineTagIsDisconnected_STATBUS233`, a self-diagnosing test whose own failure message says its premise changed — v2026.05.5 is now an ancestor of HEAD via history regraft — not a caching issue, flagging separately below). actions/setup-go's post-step (cache save) does not run when an earlier required step in the job fails, so this job's cache never got populated on this run.
+
+RESTORE-side proof (a genuinely warm cache being pulled, with the timing benefit) is still pending — needs a NEXT workflow-touching push, as you flagged. Noting pending, not closing AC#2.
+
+SEPARATE FINDING, out of scope for 235, flagged not fixed: `cli/cmd` package's `TestRealRepo_PreRebaselineTagIsDisconnected_STATBUS233` is currently FAILING on master (this same run, unrelated to the cache work) — real failure, not flaky: v2026.05.5 has become an ancestor of HEAD (history was re-grafted) and the test's own message says its premise changed and the gate's refusal wording needs re-reading. No open STATBUS-233 ticket found in .backlog/tasks/ to attach this to — surfacing it here so it isn't silently dropped.
 ---
 <!-- COMMENTS:END -->

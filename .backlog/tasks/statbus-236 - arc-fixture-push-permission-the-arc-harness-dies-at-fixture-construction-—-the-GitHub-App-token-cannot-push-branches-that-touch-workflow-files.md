@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-18 15:48'
-updated_date: '2026-08-18 16:03'
+updated_date: '2026-08-18 16:05'
 labels:
   - ci
   - install-recovery
@@ -172,5 +172,36 @@ CANDIDATE RULES: (T) pushed ref's .github/workflows/ tree differs from default b
 PREDICTED OUTCOMES: arm (a) existing rc.04 commit, zero new commits — T:REFUSED C:ALLOWED D:ALLOWED. Arm (b) rc.04 + one aligning commit (= Shape A in miniature) — T:ALLOWED C:REFUSED D:ALLOWED. Arm (c) parent=master tip, tree=rc.04 product+master workflows+migration (= Shape B exactly) — T:ALLOWED C:ALLOWED D:ALLOWED.
 
 READINGS: (a) REFUSED ⇒ rule (T); Shape A available and PREFERRED over B (simpler diff, no mass-revert, no consumer questions). (a) ALLOWED ⇒ (T) eliminated, (b) decides: (b) ALLOWED ⇒ (D), Shape A legal and preferred; (b) REFUSED ⇒ (C), Shape A dead, SHAPE B REMAINS LEGAL AND PROCEEDS, NO permission question (the formerly stale line). (c) REFUSED under any combination ⇒ a rule OUTSIDE this enumeration governs — STOP, the approved remedy is not legal, escalate — and this is the ONLY branch on which the permission question returns.
+---
+
+author: engineer
+created: 2026-08-18 16:05
+---
+**SHAPE B BUILT + THE REQUIRED CONSUMER CHECK. FROZEN for review (no commit). One file: `test/install-recovery/lib/upgrade-target.sh`.** The dry run caught a real bug in my first implementation — details below, because it is the most important thing here.
+
+**REQUIRED CONSUMER ENUMERATION — every consumer of `parent..commit` on a fixture branch, each ruled:**
+
+1. **Seed incremental gate (STATBUS-116) — SAFE, for a better reason than expected.** `SeedBuildDecision` (cmd/seed.go:622-640) reads **no git diff at all**: it compares the prior seed's recorded fingerprint against one recomputed over the CURRENT ON-DISK migrations ≤ the prior version. A TREE-content check — and Shape B changes only the PARENT POINTER; the tree is byte-identical to today's outside `.github/workflows/`. The concern that it "would see master's migrations vanishing" does not arise: it never looks at a diff.
+2. **Prior-seed SELECTION — AFFECTED, safe, costs build time.** `SelectPriorSeed` (cmd/seed_ancestor.go:53) DOES walk ancestry — `git rev-list --first-parent` (:73) — and images.yaml:433 runs it on the fixture branch. With the default branch as parent it now reaches **master-era** seeds instead of RC-era ones; the fixture tree deliberately lacks master's newer migrations, so the fingerprint typically MISMATCHES and the build falls back to a **FULL seed rebuild**. Never incorrect (the gate fails toward full, and a missing migration changes the fingerprint), but slower on all 11 fixture branches. **Recorded as an accepted cost, not fixed here:** avoiding it means a merge-commit shape (another unmeasured guess about GitHub's rule) or teaching images.yaml to start the walk at BASE_SHA (mechanic's file, more machinery). If the probe proves the tree rule, Shape A avoids it entirely — another reason to keep the switch cheap.
+3. **images.yaml `decide-exempt-only` (`github.event.before`) — SAFE**, as ruled: dispatched via `workflow_dispatch`, which has no `event.before`; images.yaml:393 says so and takes the fail-toward-full-build arm.
+4. **Release gates** (release.go:852/954/1664, release_verify.go:96) — the only other `A..B` consumers. They compare against TAGS, run on master at release time, never on a fixture branch. **Not consumers.**
+
+Complete set; the grep behind it covered `HEAD~`/`HEAD^`/`event.before`/`git diff A..B`/`git log A..B` across `.github/`, `test/install-recovery/`, `cli/`.
+
+**IMPLEMENTATION:** one helper (`_ut_fixture_base`) plus one changed line at the B-branch cut. It returns a commit whose PARENT is the default-branch tip and whose TREE is BASE_SHA's, with `.github/workflows/` from the default branch. Its header records why reparenting beats overwriting in place: it satisfies BOTH candidate GitHub rules, so it is correct whichever the probe proves.
+
+**THE DRY RUN CAUGHT A BUG THAT WOULD HAVE SHIPPED A GREEN, MEANINGLESS FLEET.** My first version used `git rm -r . && git checkout <base> -- .`. The `rm` refuses on locally-modified files, **its failure was swallowed by a `>/dev/null`**, and the fixture tree came out as MASTER's tree with the base's files layered on top — it pushed fine, it would have gone green, and every arc would have tested an upgrade to master's product code instead of the RC's. `git read-tree -u --reset` is the correct primitive (it also REMOVES paths the base lacks). **I found it only because I verified the resulting tree instead of trusting `EXIT=0`.**
+
+The helper now carries TWO self-checks, each catching what the other cannot: **(1) pushability** — nothing differs under `.github/workflows/`; **(2) correctness** — outside it, the tree equals the base's byte for byte. (2) is the one that matters: a wrong tree still pushes and still goes green.
+
+**VERIFICATION — offline dry run in a throwaway clone (never the shared tree), against the real rc.04 commit:**
+- `.github/workflows/` byte-identical to master ✓
+- product tree vs rc.04 = ONLY the four fixture migration files ✓
+- commits touching a workflow path, branch vs master: **0** ✓ (legal under the commit-diff rule too)
+- first-parent chain: fixture commit → fixture base → **master tip** (58c33668 == 58c33668) ✓
+- `bash -n` clean; shellcheck warnings unchanged at 7 (all pre-existing, none mine)
+- **assertion (2) RED-verified:** reinstating the old primitive exits 1 with "the arc would upgrade the box to the wrong code".
+
+**VERSION-STRING OBSERVATION, still owed post-land:** the fixture no longer descends from the RC, so `git describe --tags` resolves through the default branch's ancestry, and that string feeds VERSION at `./sb config generate` on the box. Nothing in the harness asserts ancestry (verified: no merge-base/is-ancestor in `lib/` or `arcs/`) and the box resolves its target by SHA, so I expect no behavioural change — but it is unverified until observed. **Verification path: the first post-land arc run's box log shows the VERSION/commit_version it generated; one arc suffices, and it must be read before a full fleet rides on it.**
 ---
 <!-- COMMENTS:END -->
