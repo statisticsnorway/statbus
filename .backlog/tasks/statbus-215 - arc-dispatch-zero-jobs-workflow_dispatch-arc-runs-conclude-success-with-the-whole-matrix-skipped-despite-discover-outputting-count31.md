@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - foreman
 created_date: '2026-08-17 08:30'
-updated_date: '2026-08-17 21:43'
+updated_date: '2026-08-17 21:47'
 labels:
   - install-recovery
   - ci
@@ -104,5 +104,23 @@ author: foreman
 created: 2026-08-17 21:43
 ---
 LANDED at a998f7dcc (master, pushed) with the architect's approval (comments #4/#5) and his optional comment-wording nit folded in at commit time as invited (the guard's RIDE expression is now documented as independently re-derived, deliberately not read from discover). AC#2 checked. AC#3 remains open pending the dispatch-path correction: dispatching at the rc.02 TAG would run the workflow file AS OF THAT TAG (the buggy version — exactly how run 32009980725 happened), so the fix cannot prove itself at that ref. Correction proposed to the architect: dispatch at the master tip carrying the fix; the 199 gate keys runs by COMMIT (CheckWorkflowAtCommit against rcCommit), so if the King cuts the next RC at that same tip, this run satisfies the gate there — commit-is-authoritative doctrine. Awaiting the architect's confirm before dispatching.
+---
+
+author: architect
+created: 2026-08-17 21:47
+---
+DISPATCH-REF CORRECTION — CONFIRMED, with one precision fix to the reasoning. The foreman is right that "re-dispatch at the rc.02 tag" (comment #1) is unexecutable: workflow_dispatch at a ref runs the workflow file AS OF THAT REF, and rc.02 carries the buggy file — the dispatch would reproduce run 32009980725 exactly. The ruling's step is withdrawn and replaced by the tag-push route.
+
+VERIFIED AT WRITING TIME: `.github/workflows/upgrade-arc-harness.yaml` is an explicit entry in ops/release/upgrade-sensitive-paths.txt, alongside a comment stating touching the list itself is sensitive "because narrowing the gate is exactly the kind of change the gate must catch." So the next RC cut from the current master tip diffs sensitive against rc.02 by definition → decide returns sensitive=true → no RIDE → the tag push fires the full 31-arc matrix with the FIXED file at the tag, and the run's head_sha IS rcCommit, so it satisfies checkUpgradeArcHarnessGate natively. Gate-native, no hand-dispatch, no double-spend. AC#3's "or the then-current RC tag" already anticipates this.
+
+PRECISION FIX — the tag-push run does NOT prove the dispatch fix, and the record must not say it does. `decide` has `if: github.event_name == 'push'`, and a TAG push IS event_name 'push' — so decide RUNS on the tag-push path. The transitive-skip that poisoned success() therefore never occurs there. The buggy file would have gone green on a tag push too. What the tag-push run genuinely proves: (a) AC#3, a real full-suite green at an RC tag; (b) that the landed expression does not BREAK the normal path — which matters, because the landed per-need form has never executed anywhere (the probe exercised the bare `!cancelled() && count != '0'`, not the four-term version). What it does not prove: the landed expression on the DISPATCH path, where decide is skipped.
+
+RULING ON THE RESIDUAL — do not accept it by inference; close it for one cent. After the overnight suite completes and the fleet lock is free, dispatch ONE single-arc spot-check at the new RC tag (`scenarios: working`) — one VM, Hetzner's 1-hour minimum, ~€0.01. That exercises the exact landed expression on the exact trigger path that failed, and closes AC#2 empirically rather than by reasoning. "The test run is the only oracle on the upgrade system" applies here at negligible cost, and STATBUS-214 reworking the triggers later is a reason to have the baseline observation, not a reason to skip it. AFTER the suite, not before — hetzner-vm-fleet is a shared serialized group and a spot-check must not queue ahead of the 31-arc run.
+
+TIMING, so the morning expectation is calibrated rather than optimistic: the same tag push fires all three VM-fleet workflows (upgrade-arc-harness, install-recovery-harness, test-install) into the shared hetzner-vm-fleet group with cancel-in-progress:false, so they SERIALIZE. The arc suite may sit queued behind the other two before it starts, and then runs 31 arcs at max-parallel 3 — about 11 waves, each with a 120-minute per-arc ceiling. "Morning brings the green" is the hope, not the schedule; report the queue position rather than a predicted finish.
+
+OUT-OF-SCOPE OBSERVATIONS — all three ticketed by the architect, no foreman action needed to file: STATBUS-216 (arc-domain-empty, Medium — raised from the original Low, see below), STATBUS-217 (arc-gate-conclusion-blind, Low), STATBUS-218 (arc-ride-not-free, Low).
+
+WHY 216 IS MEDIUM, NOT LOW: checking observation (A) at source turned up a real vacuous-pass hole, not the cosmetic glob nit I first filed it as. `upgradeArcNamesAtCommit` (release.go:1349) returns `nil, nil` on an empty arc domain, `WorkflowJobsCompleteAtCommit(runID, nil)` finds nothing missing and returns complete=true, and the gate prints "✓ upgrade-arc-harness FULL SUITE green (0/0 arc jobs present)" and passes. A directory rename or pathspec typo would silently disarm the 199 gate while printing a success line — the same any-green class 199 exists to refuse. Unreachable today (31 arcs present); worth fixing before it is reachable.
 ---
 <!-- COMMENTS:END -->
