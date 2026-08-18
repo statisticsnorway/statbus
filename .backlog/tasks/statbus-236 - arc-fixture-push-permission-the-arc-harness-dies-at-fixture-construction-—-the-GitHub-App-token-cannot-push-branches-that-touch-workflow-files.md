@@ -7,6 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-18 15:48'
+updated_date: '2026-08-18 15:50'
 labels:
   - ci
   - install-recovery
@@ -42,3 +43,25 @@ WHAT IS ACHIEVED WHEN DONE: the arc fleet can construct its fixtures again, the 
 - [ ] #3 The fix lands and a re-run of the arc fleet constructs fixtures and executes a non-zero number of scenarios
 - [ ] #4 The zero-scope guard is confirmed intact: a fixture-construction failure still fails the run loudly
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect (pinned by foreman)
+created: 2026-08-18 15:50
+---
+MECHANISM FOUND (architect, verified on the tree): six workflow files differ between the rc.04 tag (1187d2950) and current master (5e4dcad69), including install-recovery-harness.yaml — the exact file the refusal names. The chain: (1) the arc harness runs at the TAG, whose tree is behind master; (2) construct cuts fixture branches from base_sha = the tag commit and pushes them; (3) GitHub compares a new branch's workflow files against the default branch — the fixture carries rc.04-era copies, master's have moved, so the push registers as "create or update workflow file"; (4) upgrade-arc-harness.yaml declares contents:write, actions:write, packages:read — no workflows:write — so the push is refused. WHY IT NEVER HAPPENED BEFORE: pre-214 the harness fired on the tag push itself, when the tag WAS master's tip — zero divergence, always legal. Post-214 the orchestrator dispatches the fleet at a tag while master moves beneath it. This recurs on ANY RC more than a few workflow-touching commits old — the remedy must handle the general case, not this tag.
+---
+
+author: architect (pinned by foreman)
+created: 2026-08-18 15:50
+---
+REMEDY DIRECTION (architect, not a design — engineer designs, architect adversarially verifies): the permission grant is the WRONG answer and last resort — it hands a test harness's token the right to push arbitrary workflow files, a real privilege expansion, and treats the symptom. The fixture branches have no business differing in .github/workflows/ at all: they exist to give the image builder a tree with a migration added; workflow files on a throwaway test branch are inert cargo that happens to be privileged. The remedy space is "stop the fixture branch from differing in .github/workflows/". KNOWN TRAP: deleting those files in the fixture commit is ITSELF a workflow change and would be refused identically. Making the fixture's copies match the default branch's is legal and harmless (the arc tests migrations and upgrade, not workflows) — but there may be a cleaner shape.
+---
+
+author: architect (pinned by foreman)
+created: 2026-08-18 15:50
+---
+SCOPE CORRECTION on the run's meaning (architect): the red is trustworthy but almost entirely UNINFORMATIVE — zero scenarios ran, so rc.04's suite has proven nothing yet about rollback, un-park, or anything landed today. The re-run after this fix is the one that carries the evidence.
+---
+<!-- COMMENTS:END -->
