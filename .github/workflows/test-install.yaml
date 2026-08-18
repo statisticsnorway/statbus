@@ -3,8 +3,10 @@ name: Test Install
 
 # Test Install — RC-time end-to-end install gate via Hetzner Cloud VM.
 #
-# Triggers on prerelease tag push (`v*-rc.*`) and manual dispatch.
-# Provisions a fresh Hetzner CX23 in hel1, runs scenario 0-happy-install of the
+# Triggered by release-fleet-orchestrator.yaml at prerelease tag push
+# (`v*-rc.*`, STATBUS-214 — this workflow no longer carries that trigger
+# itself, see the STATBUS-214 comment on the `on:` block below) or by
+# manual dispatch. Provisions a fresh Hetzner CX23 in hel1, runs scenario 0-happy-install of the
 # install-recovery harness (bootstrap → ./sb install → assert health +
 # step 9 + step 15 + systemd active), then deletes the VM. The harness
 # scenario lives at test/install-recovery/scenarios/0-happy-install.sh.
@@ -32,25 +34,34 @@ name: Test Install
 # See doc/release-workflow-gates.md for the full gate-pattern reference,
 # the any-green semantics, and the `SKIP_TEST_INSTALL=1` operator bypass.
 
+# STATBUS-214: the v*-rc.* tag-push trigger moved OFF this workflow onto
+# .github/workflows/release-fleet-orchestrator.yaml, which now owns the tag
+# and dispatches this workflow (cheapest-first of the three) via
+# `gh workflow run --ref <tag>` once a needs: chain, not a shared
+# concurrency group, is what makes the three fleets run in a deterministic
+# order with zero cancellation surface — a concurrency group only keeps one
+# running + one pending run, so the third of three tag-fired fleets was
+# getting silently cancelled (see the orchestrator's own header comment for
+# the full history). workflow_dispatch stays for manual/subset runs; a
+# dispatch from the orchestrator is indistinguishable from a human's here
+# except by actor.
 on:
-  push:
-    tags:
-      - 'v*-rc.*'
   workflow_dispatch:
 
 # Don't cancel a run that's already provisioned a VM — cancellation skips
 # the scenario's cleanup trap and would orphan a Hetzner instance (and bill
 # the next hour). Queue subsequent triggers behind the live one instead.
 #
-# STATBUS-208: the group is SHARED (hetzner-vm-fleet) across all three
-# VM-fleet workflows (this one, install-recovery-harness.yaml,
-# upgrade-arc-harness.yaml) — was test-install-only before. Same tag push
-# fires all three concurrently; combined VM demand breached the Hetzner
-# project server limit (defect B) even though each workflow's own
-# max-parallel throttle looked safe in isolation. Sharing one group serializes
-# the fleets instead of racing them — see install-recovery-harness.yaml's
-# concurrency comment for the full rationale. vm-bootstrap.sh's run-scoped VM
-# naming (defect A) is what actually stops this workflow's VM name
+# STATBUS-208 (kept as defense in depth after STATBUS-214): the group is
+# SHARED (hetzner-vm-fleet) across all three VM-fleet workflows (this one,
+# install-recovery-harness.yaml, upgrade-arc-harness.yaml). It no longer
+# does the tag-push serialization job — the release-fleet-orchestrator's
+# needs: chain does that now, dispatching the three fleets strictly one at
+# a time — but it still stops a stray manual workflow_dispatch of one fleet
+# from running concurrently with the orchestrator's own sequential
+# dispatch of another, which would recreate the same VM-capacity collision
+# (defect B) this group was built to prevent. vm-bootstrap.sh's run-scoped
+# VM naming (defect A) is what actually stops this workflow's VM name
 # (statbus-recovery-0-happy-install) from colliding with
 # install-recovery-harness.yaml's own 0-happy-install scenario — this
 # concurrency group is a capacity fix, not a naming fix.

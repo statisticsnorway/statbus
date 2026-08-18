@@ -36,17 +36,34 @@ name: Upgrade Arc Harness
 # NEXT (doc-012 §9 d): the 3-dim clean-slate fingerprint + the hanging→hanging-
 # fixed fail→rollback→fix arc; then §9 (5) reshapes the kill scenarios.
 
-# STATBUS-199 D2: tag-push (v*-rc.*) is the CODIFIED trigger — the stable
-# release gate (checkUpgradeArcHarnessGate, cli/cmd/release.go) needs a
-# genuine full-suite run to exist at (or ride from) every RC cut without
-# depending on someone remembering to dispatch it by hand. workflow_dispatch
-# stays the iteration tool (single-arc re-runs, ad-hoc base_sha); its
-# subset runs can never satisfy the gate (see the `decide` job below and
-# the gate's own job-list completeness check).
+# STATBUS-199 D2: a genuine full-suite run must exist at (or ride from)
+# every RC cut without depending on someone remembering to dispatch it by
+# hand — workflow_dispatch stays the iteration tool (single-arc re-runs,
+# ad-hoc base_sha); its subset runs can never satisfy the gate (see the
+# `decide` job below and the gate's own job-list completeness check).
+#
+# STATBUS-214: the v*-rc.* tag-push trigger that used to sit directly on
+# this workflow moved OFF it onto
+# .github/workflows/release-fleet-orchestrator.yaml, which now owns the tag
+# and dispatches this workflow (3rd of the three, most expensive last) via
+# `gh workflow run --ref <tag>` once a needs: chain, not a shared
+# concurrency group, is what makes the three fleets run in a deterministic
+# order with zero cancellation surface (see the orchestrator's own header
+# comment for the full history — a concurrency group only keeps one
+# running + one pending run, so the third of three tag-fired fleets was
+# getting silently cancelled).
+#
+# KNOWN CONSEQUENCE, flagged not fixed by 214 (see the `decide` job comment
+# below): the `decide` job's RIDE path-sensitivity optimizer (STATBUS-199
+# D2) keys on `github.event_name == 'push'`. An orchestrator dispatch is a
+# `workflow_dispatch` event, so decide now SKIPS for the orchestrator's
+# canonical tag-driven run exactly as it already did for a human's ad-hoc
+# dispatch — RIDE never fires post-214, every orchestrator-driven run pays
+# the full construct+image-wait+run-arc cost. Safe (never silently skips
+# proof, only loses a cost optimization), not addressed here — flagged on
+# STATBUS-214 for a deliberate follow-up decision rather than folded in
+# silently.
 on:
-  push:
-    tags:
-      - 'v*-rc.*'
   workflow_dispatch:
     inputs:
       base_sha:
@@ -58,16 +75,17 @@ on:
         required: false
         default: ''
 
-# STATBUS-208: the group is SHARED (hetzner-vm-fleet) across all three
-# VM-fleet workflows (this one, install-recovery-harness.yaml,
-# test-install.yaml) — was upgrade-arc-harness-only before. Same tag push
-# fires all three concurrently; combined VM demand (this workflow's own
-# max-parallel matrix + the other two's) breached the Hetzner project server
-# limit (defect B) even though each workflow's own throttle looked safe in
-# isolation. Sharing one group serializes the fleets instead of racing them
-# — see install-recovery-harness.yaml's concurrency comment for the full
-# rationale. cancel-in-progress stays false for the same reason it already
-# was: cancelling mid-run would skip cleanup traps and orphan live VMs.
+# STATBUS-208 (kept as defense in depth after STATBUS-214): the group is
+# SHARED (hetzner-vm-fleet) across all three VM-fleet workflows (this one,
+# install-recovery-harness.yaml, test-install.yaml). It no longer does the
+# tag-push serialization job — the release-fleet-orchestrator's needs:
+# chain does that now, dispatching the three fleets strictly one at a time
+# — but it still stops a stray manual workflow_dispatch of one fleet from
+# running concurrently with the orchestrator's own sequential dispatch of
+# another, which would recreate the same VM-capacity collision (defect B)
+# this group was built to prevent. cancel-in-progress stays false for the
+# same reason it already was: cancelling mid-run would skip cleanup traps
+# and orphan live VMs.
 concurrency:
   group: hetzner-vm-fleet
   cancel-in-progress: false
@@ -425,6 +443,14 @@ jobs:
     # here only costs an avoidable/skipped run, never a bad promotion.
     # workflow_dispatch runs skip this entirely — the subset selector is
     # the iteration tool, path-sensitivity doesn't apply to it.
+    #
+    # STATBUS-214: since the v*-rc.* tag trigger moved to
+    # release-fleet-orchestrator.yaml, the orchestrator's own dispatch of
+    # this workflow arrives as a workflow_dispatch event too — this job
+    # SKIPS for it exactly as it always did for a human's ad-hoc dispatch,
+    # so RIDE no longer fires on the canonical tag-driven run either
+    # (flagged, not fixed, on the top-of-file comment and on STATBUS-214 —
+    # safe default, just a lost cost optimization).
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     if: github.event_name == 'push'

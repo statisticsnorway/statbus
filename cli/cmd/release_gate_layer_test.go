@@ -38,7 +38,14 @@ var tagFiredWorkflows = []struct {
 	workflow string // the release.Workflow* constant value
 }{
 	{".github/workflows/test-hardening.yaml", release.WorkflowTestHardening},
-	{".github/workflows/test-install.yaml", release.WorkflowTestInstall},
+	// STATBUS-214: test-install's v*-rc.* trigger moved to the fleet
+	// orchestrator, which dispatches it at the tag — the trigger FACT the
+	// layering rests on now lives in the orchestrator's file, so the pin
+	// points there. (test-install.yaml itself keeps only workflow_dispatch;
+	// its own STATBUS-214 comment contains the literal trigger string as
+	// prose, which this substring pin would wrongly accept — STATBUS-224
+	// upgrades the pin to parse YAML instead of matching text.)
+	{".github/workflows/release-fleet-orchestrator.yaml", release.WorkflowTestInstall},
 }
 
 func TestReleaseGateLayer_TagFiredWorkflows(t *testing.T) {

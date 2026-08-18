@@ -18,8 +18,11 @@ run-name: >-
 # THIS workflow validates "install converges to a coherent terminal state
 # from every named failure-injection class."
 #
-# Triggers on prerelease tag push (`v*-rc.*`) and manual dispatch. The full
-# scenario catalogue lives in `test/install-recovery/scenarios/` — see
+# Triggered by release-fleet-orchestrator.yaml at prerelease tag push
+# (`v*-rc.*`, STATBUS-214 — this workflow no longer carries that trigger
+# itself, see the STATBUS-214 comment on the `on:` block below) or by
+# manual dispatch. The full scenario catalogue lives in
+# `test/install-recovery/scenarios/` — see
 # `test/install-recovery/README.md` for the per-class breakdown and the
 # pairing with `cli/internal/inject/` injection sites.
 #
@@ -63,10 +66,18 @@ run-name: >-
 # the any-green semantics, and the `SKIP_INSTALL_RECOVERY=1` operator
 # bypass.
 
+# STATBUS-214: the v*-rc.* tag-push trigger moved OFF this workflow onto
+# .github/workflows/release-fleet-orchestrator.yaml, which now owns the tag
+# and dispatches this workflow (2nd of the three, after test-install) via
+# `gh workflow run --ref <tag>` once a needs: chain, not a shared
+# concurrency group, is what makes the three fleets run in a deterministic
+# order with zero cancellation surface — a concurrency group only keeps one
+# running + one pending run, so the third of three tag-fired fleets was
+# getting silently cancelled (see the orchestrator's own header comment for
+# the full history). workflow_dispatch stays for manual/subset runs; a
+# dispatch from the orchestrator is indistinguishable from a human's here
+# except by actor.
 on:
-  push:
-    tags:
-      - 'v*-rc.*'
   workflow_dispatch:
     inputs:
       scenarios:
@@ -79,20 +90,20 @@ on:
 # once (billing the next hour for each). Queue subsequent triggers behind
 # the live one.
 #
-# STATBUS-208: the group is SHARED (hetzner-vm-fleet) across all three
-# VM-fleet workflows (this one, test-install.yaml, upgrade-arc-harness.yaml)
-# — was install-recovery-harness-only before. A single tag push fires all
-# three concurrently; each is internally throttled (max-parallel) but that
-# throttle is PER-WORKFLOW, so combined demand breached the Hetzner project
-# server limit (defect B). Sharing one group makes the fleets queue behind
-# each other instead: peak demand = one workflow's own max-parallel, which
-# fits the account limit without any account change. Cost: the tag's proof
-# serializes (~sum of fleet durations) — correctness beats wall-clock.
-# vm-bootstrap.sh's run-scoped VM naming (defect A) is now the ONLY line of
-# defence against name collisions — the refuse-on-existing check in
-# bootstrap_install_test_vm essentially never trips cross-run anymore since
-# names are run-unique by construction, not because of this concurrency
-# group (which is a capacity fix, not a naming fix).
+# STATBUS-208 (kept as defense in depth after STATBUS-214): the group is
+# SHARED (hetzner-vm-fleet) across all three VM-fleet workflows (this one,
+# test-install.yaml, upgrade-arc-harness.yaml). It no longer does the
+# tag-push serialization job — the release-fleet-orchestrator's needs:
+# chain does that now, dispatching the three fleets strictly one at a time
+# — but it still stops a stray manual workflow_dispatch of one fleet from
+# running concurrently with the orchestrator's own sequential dispatch of
+# another, which would recreate the same VM-capacity collision (defect B)
+# this group was built to prevent. vm-bootstrap.sh's run-scoped VM naming
+# (defect A) is now the ONLY line of defence against name collisions — the
+# refuse-on-existing check in bootstrap_install_test_vm essentially never
+# trips cross-run anymore since names are run-unique by construction, not
+# because of this concurrency group (which is a capacity fix, not a naming
+# fix).
 concurrency:
   group: hetzner-vm-fleet
   cancel-in-progress: false
@@ -320,7 +331,24 @@ jobs:
   run-scenario:
     name: ${{ matrix.scenario }}
     needs: discover
-    if: ${{ needs.discover.outputs.count != '0' }}
+    # STATBUS-221 (the STATBUS-215 bare-if class, caught before it bit):
+    # a bare `if:` on a job with `needs:` implicitly ANDs success(), which
+    # is false when a needed job is SKIPPED (not just failed) — exactly how
+    # upgrade-arc-harness.yaml's run-arc silently ran zero arcs on every
+    # workflow_dispatch for months before STATBUS-215 caught it. Harmless
+    # here today only because `discover` above has no needs/if of its own
+    # and so can never skip — but STATBUS-214 put an orchestrator actively
+    # reshaping the trigger surface of this exact area, so the explicit
+    # form is applied now rather than waiting for the next upstream
+    # conditional to reopen the class silently. Behavior is UNCHANGED: a
+    # skipped or failed discover already meant "don't run scenarios";
+    # !cancelled() plus the explicit result check just say so directly
+    # instead of relying on the implicit wrap. Do not simplify this back to
+    # a bare `if:`.
+    if: >-
+      ${{ !cancelled() &&
+          needs.discover.result == 'success' &&
+          needs.discover.outputs.count != '0' }}
     runs-on: ubuntu-24.04
     # Per-scenario ceiling. Most scenarios finish in 12-20 min; the
     # populated-DB / worker-contention / systemd-supervised ones can stretch

@@ -1,0 +1,487 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Release Fleet Orchestrator
+
+# Release Fleet Orchestrator (STATBUS-214).
+#
+# THE DEFECT THIS REPLACES: test-install.yaml, install-recovery-harness.yaml
+# and upgrade-arc-harness.yaml used to share ONE concurrency group
+# (hetzner-vm-fleet, STATBUS-208) so their combined VM demand stayed under
+# the Hetzner project server limit when a single v*-rc.* tag push fired all
+# three at once. That serialized 2 fleets safely but not 3: a concurrency
+# group keeps at most ONE running + ONE pending run — a THIRD run queuing
+# behind them CANCELS the previously-pending one (cancel-in-progress:false
+# protects only the RUNNING run, never the pending one). Live twice: at
+# v2026.08.0-rc.02 (Upgrade Arc Harness cancelled, zero jobs) and again at
+# rc.03 (Test Install cancelled, zero jobs, run 32115159028) — the third
+# fleet to arrive lost its proof both times.
+#
+# THE FIX: this workflow is now the ONLY thing the v*-rc.* tag fires. It
+# dispatches the three fleets ONE AT A TIME, cheapest-first
+# (test-install -> install-recovery-harness -> upgrade-arc-harness) via an
+# explicit needs: chain, each fleet run started with `gh workflow run --ref
+# <tag>` and then polled to its conclusion — never `gh run watch
+# --exit-status` (it has returned 0 for a FAILED run in this org's own
+# deploy history; see CLAUDE.md). Deterministic order, zero cancellation
+# surface: nothing is ever queued behind anything, because each fleet is
+# only dispatched after the previous one's conclusion is already known.
+#
+# WHY gh-dispatch, NOT workflow_call (the ruling's other option — STATBUS-214
+# AC#2): probed empirically before any wiring, the same one-shot method as
+# STATBUS-215's probe. A throwaway caller+callee pair pushed to a scratch
+# branch showed a `workflow_call` invocation executes the callee's jobs
+# INSIDE the caller's own run — GitHub never creates a separate run object
+# for the callee (caller run 32116960098, callee job surfaced only as the
+# nested job "call-callee / noop"). The callee's OWN
+# `actions/workflows/<file>/runs` listing — the exact query the release
+# gates already run, `GET .../actions/workflows/<file>/runs?head_sha=<sha>`
+# (release.CheckWorkflowAtCommit, cli/internal/release/workflow_check.go:115)
+# — came back HTTP 404, no run identity at all. workflow_call would have
+# silently broken every existing gate call site the moment this workflow
+# landed. `gh workflow run --ref <tag>` keeps each fleet's own run identity
+# intact instead: proven already outside this probe too — the rc.02
+# hand-dispatch of upgrade-arc-harness (run 32009980725) was found by the
+# gate at its rcCommit under this exact mechanism.
+#
+# Each inner fleet keeps its own workflow_dispatch (manual/subset runs) and
+# its own max-parallel (peak per-fleet VM demand is unchanged — this
+# workflow never runs two fleets at once, so total demand across the whole
+# chain never exceeds one fleet's own peak, which already fits the Hetzner
+# limit). The shared hetzner-vm-fleet concurrency group STAYS on all three
+# inner fleets (see each one's own concurrency: comment) as defense in
+# depth against a stray manual workflow_dispatch racing this orchestrator's
+# own sequential dispatch — it no longer does the tag-push serialization
+# job (this workflow's needs: chain does that now), but it still stops two
+# independently-triggered runs of the SAME fleet from ever running
+# concurrently. Keeping that group is safe ONLY together with the other
+# half of this same decision: the poll below treats ANY non-success
+# conclusion as a failure, so if the group's one-pending-slot rule ever
+# cancels an orchestrator-dispatched fleet run, the chain reddens loudly
+# with the run URL instead of hanging or silently passing. Neither half is
+# safe alone.
+#
+# RUN CORRELATION (GitHub gives `gh workflow run` no run id back): each
+# dispatch step below snapshots the matching (workflow, commit,
+# event=workflow_dispatch) run ids BEFORE dispatching, then takes the SET
+# DIFFERENCE against the same query after dispatching. Exactly one new id
+# is ours; zero means keep polling; more than one is genuinely ambiguous
+# and fails loud naming every candidate, rather than guessing. (An earlier
+# draft used a `sort_by(.createdAt) | last` timestamp heuristic — wrong in
+# exactly the case it could go wrong, since our own dispatch is always the
+# FIRST one issued after the snapshot, making it the OLDEST of any
+# competing candidates, not the newest. Caught in review before landing.)
+#
+# THIS WORKFLOW'S OWN CONCURRENCY GROUP relocates, rather than eliminates,
+# the cancellation class described above — see the concurrency: block
+# below for the honest account of what happens with 3+ RC tags in flight.
+#
+# See doc/release-workflow-gates.md and STATBUS-208 for the fuller history.
+
+on:
+  push:
+    tags:
+      - 'v*-rc.*'
+  workflow_dispatch: {}
+
+concurrency:
+  # Prevents two orchestrator runs (e.g. two RC tags pushed in quick
+  # succession) from dispatching the same three fleets concurrently and
+  # recreating the exact VM-capacity collision (STATBUS-208 defect B) this
+  # workflow exists to remove. Cancelling a mid-chain orchestrator run would
+  # abandon a fleet run it already dispatched with nothing left to observe
+  # its conclusion — cancel-in-progress stays false for the same reason
+  # every VM-fleet workflow's own concurrency block does.
+  #
+  # HONEST DESCRIPTION of what this group does on 3+ RC tags in flight
+  # (STATBUS-214 review): it does NOT eliminate the cancellation class this
+  # workflow exists to remove — it RELOCATES it here, to a layer where it
+  # is benign. With cancel-in-progress:false the group holds at most one
+  # RUNNING + one PENDING orchestrator run; a THIRD tag pushed while two are
+  # already queued cancels the PENDING one. So the OLDEST tag's orchestrator
+  # keeps running to completion, the NEWEST becomes the new pending run, and
+  # the MIDDLE tag's orchestrator run is discarded — "newest wins" is wrong,
+  # the middle one loses. That is fine here in a way it was not for the
+  # fleets themselves: a superseded intermediate RC's fleet proof is
+  # genuinely uninteresting, and its absence is already handled — the
+  # stable-promotion gate reads WorkflowCheckMissing at that commit and
+  # falls through to its own path-sensitivity walk, exactly as it does for
+  # any other incomplete/missing green.
+  group: release-fleet-orchestrator
+  cancel-in-progress: false
+
+permissions:
+  actions: write   # gh workflow run <fleet> --ref <tag>; gh run list / gh run view
+
+jobs:
+  test-install:
+    name: "1/3 (cheapest): dispatch Test Install"
+    runs-on: ubuntu-24.04
+    # test-install.yaml's own job timeout is 35min; this job's ceiling
+    # leaves headroom for dispatch-propagation retries, run-correlation
+    # polling, and the conclusion poll's own interval slack.
+    timeout-minutes: 60
+    outputs:
+      run_url: ${{ steps.dispatch.outputs.run_url }}
+    steps:
+      - name: Dispatch test-install.yaml at the tag and wait for its conclusion
+        id: dispatch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          WORKFLOW_FILE: test-install.yaml
+          REF: ${{ github.ref_name }}
+          COMMIT_SHA: ${{ github.sha }}
+          POLL_BUDGET_S: "2700"   # 45min — test-install's own ceiling is 35min
+        # Inline, not a standalone action/script (matches deploy-to-*.yaml's
+        # established convention for these dispatch/poll loops — a SEMANTIC
+        # change lands here at each call site deliberately; this job needs
+        # no checkout, so an external script would cost one for nothing).
+        run: |
+          set -euo pipefail
+
+          # SNAPSHOT (STATBUS-214 architect amendment): capture the ids of
+          # every existing workflow_dispatch run of this workflow at this
+          # commit BEFORE dispatching, so the run we start can be found by
+          # set difference rather than by timestamp. A timestamp heuristic
+          # (sort_by(.createdAt) | last) picks the WRONG run in exactly the
+          # case it can go wrong: OUR dispatch is the FIRST one issued after
+          # a snapshot timestamp, so among competing candidates ours is the
+          # OLDEST, not the newest — `last` would preferentially select a
+          # competing dispatch instead of ours.
+          before_ids="$(gh run list --workflow="$WORKFLOW_FILE" --commit="$COMMIT_SHA" \
+            --event=workflow_dispatch --json databaseId --jq '.[].databaseId' | sort)"
+
+          echo "Dispatching ${WORKFLOW_FILE} at ${REF} (commit ${COMMIT_SHA})..."
+
+          # RETRY: mirrors upgrade-arc-harness.yaml's dispatch_images — ref
+          # propagation after a tag push is eventually consistent; a dispatch
+          # fired immediately can transiently 404/422 "no ref found". Retry,
+          # don't red the whole chain on a timing hiccup.
+          dispatched=0
+          for attempt in 1 2 3 4 5 6; do
+            if gh workflow run "$WORKFLOW_FILE" --ref "$REF"; then
+              dispatched=1
+              echo "Dispatched ${WORKFLOW_FILE} (attempt ${attempt})."
+              break
+            fi
+            echo "  dispatch failed (attempt ${attempt}/6) — ref not propagated yet? retrying in 10s..."
+            sleep 10
+          done
+          if [ "$dispatched" -ne 1 ]; then
+            echo "::error title=Fleet dispatch failed::could not dispatch ${WORKFLOW_FILE} at ${REF} after 6 attempts"
+            exit 1
+          fi
+
+          # CORRELATE: `gh workflow run` reports no id for the run it just
+          # created (a documented GitHub API gap). Set difference against the
+          # before_ids snapshot above, NOT a timestamp heuristic (see the
+          # comment on that snapshot). Exactly one new id is ours. Zero new
+          # ids: keep polling. MORE than one: genuinely ambiguous (a stray
+          # manual dispatch racing us at the exact same commit) — fail loud
+          # naming every candidate rather than guess. A silently
+          # mis-correlated poll would watch a stranger's run, report GREEN on
+          # ITS verdict, and move the chain on while our own run is still in
+          # flight or failing — the one property this orchestrator exists to
+          # provide.
+          echo "Locating the dispatched run (set difference against the pre-dispatch snapshot)..."
+          run_id=""
+          for attempt in $(seq 1 24); do   # up to ~4min at 10s
+            after_ids="$(gh run list --workflow="$WORKFLOW_FILE" --commit="$COMMIT_SHA" \
+              --event=workflow_dispatch --json databaseId --jq '.[].databaseId' | sort)"
+            new_ids="$(comm -13 <(printf '%s\n' "$before_ids" | grep -v '^$') <(printf '%s\n' "$after_ids" | grep -v '^$'))"
+            new_count=0
+            [ -n "$new_ids" ] && new_count="$(printf '%s\n' "$new_ids" | grep -c .)"
+            if [ "$new_count" -eq 1 ]; then
+              run_id="$new_ids"
+              break
+            elif [ "$new_count" -gt 1 ]; then
+              echo "::error title=Ambiguous fleet dispatch correlation::more than one new ${WORKFLOW_FILE} run appeared at commit ${COMMIT_SHA} after dispatch — cannot tell which is ours. New run ids: $(tr '\n' ' ' <<< "$new_ids")"
+              exit 1
+            fi
+            echo "  run not visible yet (attempt ${attempt}/24, 0 new runs so far) — retrying in 10s..."
+            sleep 10
+          done
+          if [ -z "$run_id" ]; then
+            echo "::error title=Fleet run not found::dispatched ${WORKFLOW_FILE} at ${REF} but no new run appeared within 4 minutes (commit=${COMMIT_SHA})"
+            exit 1
+          fi
+          run_url="$(gh run view "$run_id" --json url --jq .url)"
+          echo "run_url=${run_url}" >> "$GITHUB_OUTPUT"
+          echo "Found run: ${run_url} (id ${run_id})"
+
+          # POLL TO CONCLUSION: never `gh run watch --exit-status` — it has
+          # returned 0 for a FAILED run in this org's own deploy history
+          # (CLAUDE.md). Poll status and branch on conclusion explicitly,
+          # same pattern as deploy-to-dev.yaml's images-ready gate.
+          start=$SECONDS
+          while :; do
+            read -r run_status run_conclusion < <(gh run view "$run_id" --json status,conclusion --jq '"\(.status) \(.conclusion // "pending")"')
+            if [ "$run_status" = "completed" ]; then
+              if [ "$run_conclusion" = "success" ]; then
+                echo "GREEN — ${WORKFLOW_FILE} concluded success: ${run_url}"
+                exit 0
+              else
+                echo "::error title=Fleet run did not succeed::${WORKFLOW_FILE} concluded '${run_conclusion}': ${run_url}"
+                echo "Stopping the chain here — a failed fleet must not silently let a later, cheaper-looking green stand in for it."
+                exit 1
+              fi
+            fi
+            elapsed=$((SECONDS - start))
+            if [ "$elapsed" -ge "$POLL_BUDGET_S" ]; then
+              echo "::error title=Fleet run timed out::${WORKFLOW_FILE} still '${run_status}' after $((POLL_BUDGET_S/60))m: ${run_url}"
+              exit 1
+            fi
+            echo "  ${WORKFLOW_FILE} status=${run_status} (elapsed ${elapsed}s / ${POLL_BUDGET_S}s) — re-checking in 30s..."
+            sleep 30
+          done
+
+  install-recovery-harness:
+    name: "2/3: dispatch Install Recovery Harness"
+    needs: [test-install]
+    runs-on: ubuntu-24.04
+    # install-recovery-harness.yaml's own stages: discover(50) +
+    # run-scenario(120/job, max-parallel 3, ~28 scenarios -> comfortably
+    # under GitHub's hard 360min job ceiling per its own header comment,
+    # typical wall-clock ~60-80min) + cleanup(10). Budget generously above
+    # the typical case without approaching the 360min per-job ceiling
+    # (this is a SEPARATE job from upgrade-arc-harness's below, so it gets
+    # its own fresh 360min allowance).
+    timeout-minutes: 180
+    outputs:
+      run_url: ${{ steps.dispatch.outputs.run_url }}
+    steps:
+      - name: Dispatch install-recovery-harness.yaml at the tag and wait for its conclusion
+        id: dispatch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          WORKFLOW_FILE: install-recovery-harness.yaml
+          REF: ${{ github.ref_name }}
+          COMMIT_SHA: ${{ github.sha }}
+          POLL_BUDGET_S: "9600"   # ~160min
+        # Inline, not a standalone action/script (matches deploy-to-*.yaml's
+        # established convention for these dispatch/poll loops — a SEMANTIC
+        # change lands here at each call site deliberately; this job needs
+        # no checkout, so an external script would cost one for nothing).
+        run: |
+          set -euo pipefail
+
+          # SNAPSHOT (STATBUS-214 architect amendment): capture the ids of
+          # every existing workflow_dispatch run of this workflow at this
+          # commit BEFORE dispatching, so the run we start can be found by
+          # set difference rather than by timestamp. A timestamp heuristic
+          # (sort_by(.createdAt) | last) picks the WRONG run in exactly the
+          # case it can go wrong: OUR dispatch is the FIRST one issued after
+          # a snapshot timestamp, so among competing candidates ours is the
+          # OLDEST, not the newest — `last` would preferentially select a
+          # competing dispatch instead of ours.
+          before_ids="$(gh run list --workflow="$WORKFLOW_FILE" --commit="$COMMIT_SHA" \
+            --event=workflow_dispatch --json databaseId --jq '.[].databaseId' | sort)"
+
+          echo "Dispatching ${WORKFLOW_FILE} at ${REF} (commit ${COMMIT_SHA})..."
+
+          # RETRY: mirrors upgrade-arc-harness.yaml's dispatch_images — ref
+          # propagation after a tag push is eventually consistent; a dispatch
+          # fired immediately can transiently 404/422 "no ref found". Retry,
+          # don't red the whole chain on a timing hiccup.
+          dispatched=0
+          for attempt in 1 2 3 4 5 6; do
+            if gh workflow run "$WORKFLOW_FILE" --ref "$REF"; then
+              dispatched=1
+              echo "Dispatched ${WORKFLOW_FILE} (attempt ${attempt})."
+              break
+            fi
+            echo "  dispatch failed (attempt ${attempt}/6) — ref not propagated yet? retrying in 10s..."
+            sleep 10
+          done
+          if [ "$dispatched" -ne 1 ]; then
+            echo "::error title=Fleet dispatch failed::could not dispatch ${WORKFLOW_FILE} at ${REF} after 6 attempts"
+            exit 1
+          fi
+
+          # CORRELATE: `gh workflow run` reports no id for the run it just
+          # created (a documented GitHub API gap). Set difference against the
+          # before_ids snapshot above, NOT a timestamp heuristic (see the
+          # comment on that snapshot). Exactly one new id is ours. Zero new
+          # ids: keep polling. MORE than one: genuinely ambiguous (a stray
+          # manual dispatch racing us at the exact same commit) — fail loud
+          # naming every candidate rather than guess. A silently
+          # mis-correlated poll would watch a stranger's run, report GREEN on
+          # ITS verdict, and move the chain on while our own run is still in
+          # flight or failing — the one property this orchestrator exists to
+          # provide.
+          echo "Locating the dispatched run (set difference against the pre-dispatch snapshot)..."
+          run_id=""
+          for attempt in $(seq 1 24); do   # up to ~4min at 10s
+            after_ids="$(gh run list --workflow="$WORKFLOW_FILE" --commit="$COMMIT_SHA" \
+              --event=workflow_dispatch --json databaseId --jq '.[].databaseId' | sort)"
+            new_ids="$(comm -13 <(printf '%s\n' "$before_ids" | grep -v '^$') <(printf '%s\n' "$after_ids" | grep -v '^$'))"
+            new_count=0
+            [ -n "$new_ids" ] && new_count="$(printf '%s\n' "$new_ids" | grep -c .)"
+            if [ "$new_count" -eq 1 ]; then
+              run_id="$new_ids"
+              break
+            elif [ "$new_count" -gt 1 ]; then
+              echo "::error title=Ambiguous fleet dispatch correlation::more than one new ${WORKFLOW_FILE} run appeared at commit ${COMMIT_SHA} after dispatch — cannot tell which is ours. New run ids: $(tr '\n' ' ' <<< "$new_ids")"
+              exit 1
+            fi
+            echo "  run not visible yet (attempt ${attempt}/24, 0 new runs so far) — retrying in 10s..."
+            sleep 10
+          done
+          if [ -z "$run_id" ]; then
+            echo "::error title=Fleet run not found::dispatched ${WORKFLOW_FILE} at ${REF} but no new run appeared within 4 minutes (commit=${COMMIT_SHA})"
+            exit 1
+          fi
+          run_url="$(gh run view "$run_id" --json url --jq .url)"
+          echo "run_url=${run_url}" >> "$GITHUB_OUTPUT"
+          echo "Found run: ${run_url} (id ${run_id})"
+
+          # POLL TO CONCLUSION: never `gh run watch --exit-status` — it has
+          # returned 0 for a FAILED run in this org's own deploy history
+          # (CLAUDE.md). Poll status and branch on conclusion explicitly,
+          # same pattern as deploy-to-dev.yaml's images-ready gate.
+          start=$SECONDS
+          while :; do
+            read -r run_status run_conclusion < <(gh run view "$run_id" --json status,conclusion --jq '"\(.status) \(.conclusion // "pending")"')
+            if [ "$run_status" = "completed" ]; then
+              if [ "$run_conclusion" = "success" ]; then
+                echo "GREEN — ${WORKFLOW_FILE} concluded success: ${run_url}"
+                exit 0
+              else
+                echo "::error title=Fleet run did not succeed::${WORKFLOW_FILE} concluded '${run_conclusion}': ${run_url}"
+                echo "Stopping the chain here — a failed fleet must not silently let a later, cheaper-looking green stand in for it."
+                exit 1
+              fi
+            fi
+            elapsed=$((SECONDS - start))
+            if [ "$elapsed" -ge "$POLL_BUDGET_S" ]; then
+              echo "::error title=Fleet run timed out::${WORKFLOW_FILE} still '${run_status}' after $((POLL_BUDGET_S/60))m: ${run_url}"
+              exit 1
+            fi
+            echo "  ${WORKFLOW_FILE} status=${run_status} (elapsed ${elapsed}s / ${POLL_BUDGET_S}s) — re-checking in 30s..."
+            sleep 30
+          done
+
+  upgrade-arc-harness:
+    name: "3/3 (most expensive): dispatch Upgrade Arc Harness"
+    needs: [install-recovery-harness]
+    runs-on: ubuntu-24.04
+    # upgrade-arc-harness.yaml's own stages: construct(15) + image-wait(50)
+    # + run-arc(120/job, max-parallel 3, 31 arcs -> up to 11 waves) +
+    # teardown(10) + cleanup(10) -> worst case comfortably under the 360min
+    # per-job ceiling but the longest of the three fleets; budgeted with
+    # the most headroom accordingly.
+    timeout-minutes: 330
+    outputs:
+      run_url: ${{ steps.dispatch.outputs.run_url }}
+    steps:
+      - name: Dispatch upgrade-arc-harness.yaml at the tag and wait for its conclusion
+        id: dispatch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          WORKFLOW_FILE: upgrade-arc-harness.yaml
+          REF: ${{ github.ref_name }}
+          COMMIT_SHA: ${{ github.sha }}
+          POLL_BUDGET_S: "19200"   # ~320min, under the 330min job ceiling above
+        # Inline, not a standalone action/script (matches deploy-to-*.yaml's
+        # established convention for these dispatch/poll loops — a SEMANTIC
+        # change lands here at each call site deliberately; this job needs
+        # no checkout, so an external script would cost one for nothing).
+        run: |
+          set -euo pipefail
+
+          # SNAPSHOT (STATBUS-214 architect amendment): capture the ids of
+          # every existing workflow_dispatch run of this workflow at this
+          # commit BEFORE dispatching, so the run we start can be found by
+          # set difference rather than by timestamp. A timestamp heuristic
+          # (sort_by(.createdAt) | last) picks the WRONG run in exactly the
+          # case it can go wrong: OUR dispatch is the FIRST one issued after
+          # a snapshot timestamp, so among competing candidates ours is the
+          # OLDEST, not the newest — `last` would preferentially select a
+          # competing dispatch instead of ours.
+          before_ids="$(gh run list --workflow="$WORKFLOW_FILE" --commit="$COMMIT_SHA" \
+            --event=workflow_dispatch --json databaseId --jq '.[].databaseId' | sort)"
+
+          echo "Dispatching ${WORKFLOW_FILE} at ${REF} (commit ${COMMIT_SHA})..."
+
+          # RETRY: mirrors upgrade-arc-harness.yaml's dispatch_images — ref
+          # propagation after a tag push is eventually consistent; a dispatch
+          # fired immediately can transiently 404/422 "no ref found". Retry,
+          # don't red the whole chain on a timing hiccup.
+          dispatched=0
+          for attempt in 1 2 3 4 5 6; do
+            if gh workflow run "$WORKFLOW_FILE" --ref "$REF"; then
+              dispatched=1
+              echo "Dispatched ${WORKFLOW_FILE} (attempt ${attempt})."
+              break
+            fi
+            echo "  dispatch failed (attempt ${attempt}/6) — ref not propagated yet? retrying in 10s..."
+            sleep 10
+          done
+          if [ "$dispatched" -ne 1 ]; then
+            echo "::error title=Fleet dispatch failed::could not dispatch ${WORKFLOW_FILE} at ${REF} after 6 attempts"
+            exit 1
+          fi
+
+          # CORRELATE: `gh workflow run` reports no id for the run it just
+          # created (a documented GitHub API gap). Set difference against the
+          # before_ids snapshot above, NOT a timestamp heuristic (see the
+          # comment on that snapshot). Exactly one new id is ours. Zero new
+          # ids: keep polling. MORE than one: genuinely ambiguous (a stray
+          # manual dispatch racing us at the exact same commit) — fail loud
+          # naming every candidate rather than guess. A silently
+          # mis-correlated poll would watch a stranger's run, report GREEN on
+          # ITS verdict, and move the chain on while our own run is still in
+          # flight or failing — the one property this orchestrator exists to
+          # provide.
+          echo "Locating the dispatched run (set difference against the pre-dispatch snapshot)..."
+          run_id=""
+          for attempt in $(seq 1 24); do   # up to ~4min at 10s
+            after_ids="$(gh run list --workflow="$WORKFLOW_FILE" --commit="$COMMIT_SHA" \
+              --event=workflow_dispatch --json databaseId --jq '.[].databaseId' | sort)"
+            new_ids="$(comm -13 <(printf '%s\n' "$before_ids" | grep -v '^$') <(printf '%s\n' "$after_ids" | grep -v '^$'))"
+            new_count=0
+            [ -n "$new_ids" ] && new_count="$(printf '%s\n' "$new_ids" | grep -c .)"
+            if [ "$new_count" -eq 1 ]; then
+              run_id="$new_ids"
+              break
+            elif [ "$new_count" -gt 1 ]; then
+              echo "::error title=Ambiguous fleet dispatch correlation::more than one new ${WORKFLOW_FILE} run appeared at commit ${COMMIT_SHA} after dispatch — cannot tell which is ours. New run ids: $(tr '\n' ' ' <<< "$new_ids")"
+              exit 1
+            fi
+            echo "  run not visible yet (attempt ${attempt}/24, 0 new runs so far) — retrying in 10s..."
+            sleep 10
+          done
+          if [ -z "$run_id" ]; then
+            echo "::error title=Fleet run not found::dispatched ${WORKFLOW_FILE} at ${REF} but no new run appeared within 4 minutes (commit=${COMMIT_SHA})"
+            exit 1
+          fi
+          run_url="$(gh run view "$run_id" --json url --jq .url)"
+          echo "run_url=${run_url}" >> "$GITHUB_OUTPUT"
+          echo "Found run: ${run_url} (id ${run_id})"
+
+          # POLL TO CONCLUSION: never `gh run watch --exit-status` — it has
+          # returned 0 for a FAILED run in this org's own deploy history
+          # (CLAUDE.md). Poll status and branch on conclusion explicitly,
+          # same pattern as deploy-to-dev.yaml's images-ready gate.
+          start=$SECONDS
+          while :; do
+            read -r run_status run_conclusion < <(gh run view "$run_id" --json status,conclusion --jq '"\(.status) \(.conclusion // "pending")"')
+            if [ "$run_status" = "completed" ]; then
+              if [ "$run_conclusion" = "success" ]; then
+                echo "GREEN — ${WORKFLOW_FILE} concluded success: ${run_url}"
+                exit 0
+              else
+                echo "::error title=Fleet run did not succeed::${WORKFLOW_FILE} concluded '${run_conclusion}': ${run_url}"
+                echo "Stopping the chain here — a failed fleet must not silently let a later, cheaper-looking green stand in for it."
+                exit 1
+              fi
+            fi
+            elapsed=$((SECONDS - start))
+            if [ "$elapsed" -ge "$POLL_BUDGET_S" ]; then
+              echo "::error title=Fleet run timed out::${WORKFLOW_FILE} still '${run_status}' after $((POLL_BUDGET_S/60))m: ${run_url}"
+              exit 1
+            fi
+            echo "  ${WORKFLOW_FILE} status=${run_status} (elapsed ${elapsed}s / ${POLL_BUDGET_S}s) — re-checking in 30s..."
+            sleep 30
+          done
