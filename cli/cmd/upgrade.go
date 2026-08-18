@@ -266,23 +266,26 @@ file changes needed.`,
 			fmt.Fprintf(os.Stderr, "warn: could not resolve %s to a commit — deployed_commit line omitted (poll degrades to poke-only): %v\n", latestVersion, rerr)
 		}
 
-		// Skip when the running binary is already at the latest. Without this,
+		// Skip when this box is already CONVERGED at the latest. Without a skip,
 		// apply-latest unconditionally flips state='scheduled', the
 		// upgrade_notify_daemon_trigger fires NOTIFY upgrade_apply, and the service
 		// runs a full no-op upgrade pipeline (stop containers, backup, exit-42,
-		// restart, applyNewSbUpgrading) for nothing. Compare the resolved target to
-		// the running binary's compiled-in `commit` (cli/cmd/root.go:17, ldflags-set).
-		// Fall-throughs to existing behavior (never a false skip):
-		//   - commit=="unknown" (local go run): can't compare reliably.
-		//   - resolvedCommit=="" (resolve error): let apply-latest register+schedule
-		//     it normally — an error NEVER causes a false skip.
-		//   - resolved commit != running binary: genuinely behind; proceed.
-		if commit != "" && commit != "unknown" && resolvedCommit != "" {
-			if len(resolvedCommit) >= 8 && len(commit) >= 8 && resolvedCommit[:8] == commit[:8] {
-				fmt.Printf("Already at %s (commit %s) — nothing to apply.\n", latestVersion, commit[:8])
-				return nil
-			}
+		// restart, applyNewSbUpgrading) for nothing.
+		//
+		// The decision is decideApplyLatest's (below) — it is a pure function so the
+		// parked-at-target case can be pinned without a box. Convergence is a
+		// property of the ROW, not of the running binary: see that function's
+		// comment for why reading the binary alone told a human "nothing to apply"
+		// while the box sat parked and dark (STATBUS-226).
+		rowState := applyLatestRowState(context.Background(), svc, resolvedCommit)
+		switch verdict := decideApplyLatest(latestVersion, resolvedCommit, commit, rowState); verdict.Action {
+		case applyLatestSkip:
+			fmt.Println(verdict.Message)
+			return nil
+		case applyLatestRefuse:
+			return fmt.Errorf("%s", verdict.Message)
 		}
+		// applyLatestProceed falls through to register + schedule below.
 
 		// Route through the REAL mechanism (STATBUS-086): register the latest
 		// as a candidate, then schedule it. This is RACE-PROOF — register

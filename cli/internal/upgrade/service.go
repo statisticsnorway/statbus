@@ -9264,3 +9264,33 @@ func init() {
 		TranscriptFormat: "INVARIANT NORMAL_COMPLETED_TRANSITION_PERSISTED violated: terminal state transition to completed errored for id=<id>: <err> after <n> attempts (service.go:<line>, pid=<pid>)",
 	})
 }
+
+// RowStateForCommit reads the upgrade row for a commit: its state, whether it is
+// parked, and the park reason. Used by apply-latest's already-at-latest decision
+// (STATBUS-226), which must distinguish a converged box from a box merely
+// RUNNING the target's binary — a post-swap park whose era guard refused the
+// source restoration has the target binary and a parked row at the same time.
+//
+// A missing row returns pgx.ErrNoRows; every error is the caller's cue that
+// convergence is unproven. Read-only, single fresh query on the pass connection.
+func (d *Service) RowStateForCommit(ctx context.Context, commitSHA string) (state string, parked bool, parkedReason string, err error) {
+	// runOneShot is the house pattern for a one-shot verb: it connects, and it
+	// CLOSES both connections on the way out. Doing this by hand would leave a
+	// CLI invocation holding a listen connection open for the life of the
+	// process, which is what the wrapper exists to prevent.
+	err = d.runOneShot(ctx, func(ctx context.Context) error {
+		var reason sql.NullString
+		if qerr := d.queryConn.QueryRow(ctx,
+			`SELECT state::text, recovery_parked_at IS NOT NULL, COALESCE(recovery_parked_reason, '')
+			   FROM public.upgrade WHERE commit_sha = $1 ORDER BY id DESC LIMIT 1`,
+			commitSHA).Scan(&state, &parked, &reason); qerr != nil {
+			return qerr
+		}
+		parkedReason = reason.String
+		return nil
+	})
+	if err != nil {
+		return "", false, "", err
+	}
+	return state, parked, parkedReason, nil
+}
