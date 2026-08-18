@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-14 16:12'
-updated_date: '2026-07-15 08:39'
+updated_date: '2026-08-18 09:49'
 labels:
   - upgrade
   - deploy
@@ -88,5 +88,29 @@ author: foreman
 created: 2026-07-14 17:13
 ---
 FIX SHIPPED (foreman commit 5ae1147fe, 2026-07-14) after the full review chain: engineer build → foreman line review → architect pass (comment #3: one real defect caught — the vacuous tag fetch, scratch-repo-proven) → A1-A3 amendments → foreman independent test run → commit. Shipped shape: register-then-promote through the SINGLE guarded path (registerTarget; RunRegister rewired through it — the invariant is now structural: no candidate row exists except via the guarded register); tag fetches use the refs/tags refspec with a real-git behavioral test; notify-path fetch bounded at 30s (the handler shares the main goroutine carrying the WatchdogSec=120s heartbeat — engineer-verified at service.go:2258; a 2m block risks systemd SIGKILL); durable upgrade_apply_refused system_info signal on every refuse path, cleared on promoted OR already-scheduled (deviation architect-accepted). 8 oracle tests + 2 real-git behavioral tests green. AC#3 (live oracle) rides the NEXT release cut: poke within seconds of the cut must converge row-completed — checked at rc.07/stable time.
+---
+
+author: engineer
+created: 2026-08-18 09:49
+---
+**RE-VERIFICATION (engineer, 2026-08-18, read-only — no diff, nothing to freeze). Verdict: the defect class is CLOSED IN CODE on three independent layers; no RED reproducer of the original bug can be written, because its drop site no longer exists. What remains is AC#3's run evidence — a fleet question, not a code question.**
+
+I was briefed to produce a failing reproducer before designing a fix. Test-first as discovery says the opposite result is also a result: the hypothesis is refuted by the current tree, so I stopped rather than synthesizing scaffolding to recreate a state the product cannot reach. Everything below is at HEAD (fix commit 5ae1147fe confirmed an ancestor).
+
+**Layer 0 — the poke is no longer a bare NOTIFY at all.** `./sb upgrade apply-latest` now calls `RunRegister` then `RunSchedule` synchronously (cli/cmd/upgrade.go:295-300), each returning an error the deploy workflow gates on (`rc=$?` … `[ "$rc" -eq 0 ] || exit "$rc"`, .github/workflows/deploy-to-demo.yaml:67-70). The intent becomes a DURABLE ROW before any notification exists. The rc.06 incident's poke came from the OLD apply-latest, which sent a bare tag-name NOTIFY — that producer is gone.
+
+**The producer side confirms it structurally.** The only `NOTIFY upgrade_apply` producer in the product is the trigger `public.upgrade_notify_daemon()` (doc/db/function/public_upgrade_notify_daemon().md:9-12), which fires on a row UPDATE and carries `NEW.commit_sha`. So every product-originated apply NOTIFY now has a registered row behind it and a commit SHA as payload — the ticket's precondition ("the NOTIFY arrived while the tag was not yet a registered candidate") is no longer producible except by a human typing raw SQL, which the no-manual-DB-writes rule forbids anyway.
+
+**Layer 1 — the handler converges instead of dropping.** `onScheduledNotify` (service.go:4407): one bounded `ensureCommitLocal` fetch before resolve (:4419, `applyNotifyFetchTimeout`), tag-class fetch using the `refs/tags/<ref>:refs/tags/<ref>` refspec (:4694 — the architect's A1 defect, fixed), and on `scheduleResultUnregistered` it registers through the guarded path and re-runs the promote (:4459-4495). Every refuse path writes the durable `upgrade_apply_refused` key (:4428, :4470, :4478, :4494), cleared on promote or already-scheduled (:4458, :4489, :4506).
+
+**Layer 2 — a wholly lost NOTIFY still converges (STATBUS-098).** Even if the notification is dropped (daemon down, DB-restart reconnect window), the scheduled row is claimed at startup (service.go:2277) and again on every heartbeat tick, ≤30s (:2309-2314). Pinned by `TestRunClaimsScheduledOnStartupAndTick`.
+
+**On the brief's specific question — LISTEN vs first discovery.** The ordering is already correct and deliberate: `LISTEN upgrade_check` / `LISTEN upgrade_apply` at service.go:1979-1984 run BEFORE `sdNotify("READY=1")` (:1999) and before boot-migrate/recoverFromFlag; initial `discover` is at :2268, AFTER. So a NOTIFY arriving during startup BUFFERS on the listen session and is processed when `startListenLoop` runs (:2279) — it is not lost. The comment at :1970-1978 states exactly this. There is no LISTEN-starts-too-late race.
+
+**Oracles re-run today, all green:** the 8 apply-race tests + 2 real-git behavioral tests (`TestApplyRace_*` in apply_notify_race_test.go, `TestEnsureCommitLocal_FetchesTagViaRefspec_STATBUS183`), plus `TestRunClaimsScheduledOnStartupAndTick`. Full `go test ./...` in cli/ — 12 packages ok, 0 failures; `golangci-lint run ./...` at 2.12.2 — 0 issues.
+
+**AC#3 — how to close it without a code change.** Since STATBUS-170 phase 2, every deploy is itself this oracle: a green deploy means the row reached `completed`, so a poke that lost the race and left an available-forever row turns the deploy RED (deploy-to-demo.yaml:75-81). The evidence needed is one deploy run after 5ae1147fe whose poke landed within seconds of a fresh cut and converged green — operator legwork (`gh run list` for the deploy-to-* workflows since 2026-07-14, correlated against the tag cut times; the rc.03 cut in this campaign is the natural candidate). I did not gather it: fleet state is the operator's lane, and it needs no engineering.
+
+**No residual silent-drop path found.** The one theoretically remaining window — a bare `NOTIFY upgrade_apply` for an unregistered target delivered while the daemon is down, leaving nothing durable — is unreachable from the product (no such producer exists) and would require a manual DB write. Recommend closing AC#3 on run evidence rather than re-opening the code.
 ---
 <!-- COMMENTS:END -->
