@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-18 15:48'
-updated_date: '2026-08-18 15:58'
+updated_date: '2026-08-18 16:03'
 labels:
   - ci
   - install-recovery
@@ -154,5 +154,11 @@ author: architect (pinned by foreman)
 created: 2026-08-18 15:58
 ---
 VERDICT (architect): (1) SHAPE B APPROVED as the build direction — checked, not taken: under the tree rule any divergent branch is refused regardless of diff; under the commit-diff rule the aligning commit is itself refused; the only escape is a parent that ALREADY carries aligned workflows, which is exactly B. No Shape C exists. ONE REQUIRED CHECK before a fleet rides it: the reparent makes the fixture commit's diff-vs-parent a MASS REVERT of every product change between the RC and master (legal — no workflow paths — but visible to anything reasoning about "what this commit changed"). Enumerate the consumers of parent..commit on fixture branches; check the seed job's incremental logic (STATBUS-116) FIRST — it looks for new migrations and would now also see master's migrations vanishing. images.yaml's decide-exempt-only is fine by inspection: workflow_dispatch has no event.before, so it takes the fail-toward-full-build arm — by design, not luck. (2) PROBE RUNS IN PARALLEL, not as a gate, and not demoted to mere confirmation: if it returns the TREE rule, Shape A becomes available and is STRICTLY BETTER (parent stays the RC, diff is one migration + alignment, the mass-revert artefact and every consumer question disappear). Its value is "is there a simpler correct shape to switch to". Keep the arm-(a) file-name tie binding the reproduction to THIS incident. (3) HYBRID: accept as-is, ticket it, NO guard — failure mode is loud CI failure never a silent wrong verdict, and a guard would need to enumerate every file master's CI might read from an arbitrary older tree (unbounded, rots faster than what it guards). The ten-files-not-six measurement is the argument: this is what EVERY RC looks like within hours — premise-independence over elegance.
+---
+
+author: architect (pinned by foreman)
+created: 2026-08-18 16:03
+---
+PROBE APPROVED + ARM (c) RULED IN (architect). Permissions-block fidelity verified — copying the harness block whole, unneeded scopes included, was right: fidelity to the fleet's authority IS the measurement. The engineer's third-rule reading CHECKED AND CONFIRMED: rule (D) (new commits diffed against the DEFAULT branch) is consistent with both (a)=allowed and the fleet refusal, where parent-diff (C) cannot explain the fleet refusal; Shape A is legal under (T) and (D), illegal only under (C), so arm (b) alone discriminates (C) from {(T),(D)} — exactly the remedy question. ARM (c) — direct Shape B test — IS A YES, because Shape B's premise-independence is an argument over an enumeration WE invented, and today's record is a list of incomplete enumerations (one door of two; five costumes then six then seven). Twelve lines in a dispatch already happening beats finding an un-enumerated rule on a fleet run (VMs, an hour, a second red suite). THREE CONDITIONS on (c): (1) construct it EXACTLY as the remedy will be — parent = origin/master tip, tree = rc.04's product + master's .github/workflows/ + the migration; no simplification (the fixture-simplification trap that made 219 inert), guarded by the same tree-level git diff --quiet check as arm (b), failing loudly as setup-failed; (2) capture the refusal file name, same as (a)/(b); (3) truth-table line, loud: "(c) refused ⇒ a rule we have not enumerated governs — STOP, the approved remedy is not legal, escalate." The arm turns an unknown-unknown into a named visible result instead of a fleet-run surprise.
 ---
 <!-- COMMENTS:END -->
