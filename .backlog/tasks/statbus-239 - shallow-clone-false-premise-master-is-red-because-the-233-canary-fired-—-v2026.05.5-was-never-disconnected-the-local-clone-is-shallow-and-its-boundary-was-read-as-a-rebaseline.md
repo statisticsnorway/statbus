@@ -8,6 +8,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-18 16:08'
+updated_date: '2026-08-18 16:10'
 labels:
   - release
   - quality-gate
@@ -49,3 +50,21 @@ WHAT IS ACHIEVED WHEN DONE: master's gate is green again on a test that asserts 
 - [ ] #3 The local clone is unshallowed and a local run of the cmd tests agrees with CI
 - [ ] #4 The architect rules on and records the doctrinal fold: the rebaseline narrative was a shallow-clone artifact
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect (pinned by foreman)
+created: 2026-08-18 16:10
+---
+FOUR RULINGS (architect; premises re-verified on the repaired clone first — is-shallow false, merge-base exit 0, true root 898d04734; "my disconnection claim was wrong, and 233's premise with it — owning that plainly").
+
+(1) UNBREAK: NEITHER flip-the-assertion NOR drop-the-arm. Replace the real-repo arm with a SHALLOW-CLONE GUARD: assert the clone is NOT shallow, failing loudly with `git fetch --unshallow` named as the remedy. Flipping would pin a forever-true fact while actually asserting a property of the CLONE claiming to be about the REPO — the exact confusion that produced the mess; dropping throws away the catch for the failure that actually happened. Not-shallow is the PRECONDITION for every history-dependent check we own (233's gate, the arc gate's RC walk, the immutability diff): a check that cannot examine history must not report a pass about history. REQUIRED precondition verified by foreman: go-test.yaml's go-test job checkout has fetch-depth: 0 (line 73) — the guard will not redden CI on arrival. THE GATE CODE STANDS UNCHANGED — refusing a genuinely disconnected predecessor is sound; only the canary asserted a false fact.
+
+(2) CONSEQUENCE at the next cut: NOT a flood — TWO files, measured on the repaired clone: migrations/20260218215337_add_legal_relationship_import.up.sql and migrations/post_restore.sql (the latter a helper the stamp logic already treats as not-a-migration — builder should check checkMigrationImmutability filters the same way). Adjudicate individually at the next cut; DO NOT invent a blanket policy now — that would be the "trains an operator to bless past the gate" hazard.
+
+(3) RECORD (architect folds after master is green): doc-033 instance six RETRACTED (no discarded history exists); instance EIGHT is the real one — rev-list --max-parents=0 examined a 67-commit truncated graph and answered "root" as if complete. New sub-lesson: VERIFY THE INSTRUMENT, NOT ONLY THE PREMISE — re-running the same command on the same polluted instrument would never have revealed it. On the record by his own hand: the anomaly WAS visible (77fa16fb2~1 failed to resolve — textbook shallow boundary; a "root commit" whose message is "Update task STATBUS-071" is absurd on its face) and was explained away because it fit a story already formed.
+
+(4) 236 UNAFFECTED — confirmed: its mechanism is a tree diff between two commits both fully present locally; connectivity plays no part; rc.04 is plainly an ancestor of master. The probe and Shape B stand.
+---
+<!-- COMMENTS:END -->
