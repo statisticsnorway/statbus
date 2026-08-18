@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-18 15:48'
-updated_date: '2026-08-18 15:53'
+updated_date: '2026-08-18 15:56'
 labels:
   - ci
   - install-recovery
@@ -114,5 +114,39 @@ I eliminated *"the pushed COMMITS' diffs touch workflow paths"* as the mechanism
 **CHEAPEST WAY TO SETTLE IT before any design is committed** — a one-shot probe in the 214/215 style, foreman-executed: from a scratch branch based on an OLD commit (one where `.github/workflows/` differs from master), push (a) the branch as-is → expect the same refusal, reproducing the failure outside the fleet; then (b) a second branch with one commit that copies master's `.github/workflows/` over it → if that push SUCCEEDS, the tree-comparison rule holds and the architect's remedy is proven legal before it is built; if it is REFUSED, the commit-diff rule holds, his shape is closed, and the decision genuinely narrows to the permission grant — at which point the King-gated framing in the original ticket becomes the right one after all.
 
 I would rather spend one probe than have either of us design against an unmeasured platform rule — that is the same discipline doc-030 applied to the Stage-2 skipped-run question.
+---
+
+author: engineer
+created: 2026-08-18 15:56
+---
+**BY-COMMIT ENUMERATION + PREMISE CHECK + REMEDY DESIGN. One premise needs a correction (ten files, not six), and the design has a shape that does NOT depend on the unmeasured platform rule.**
+
+**THE SUSPECT SURFACE, WALKED BY COMMIT** (arc path since the last-green era, 2ab6126a1 → HEAD: upgrade-arc-harness.yaml, release-fleet-orchestrator.yaml, test/install-recovery/lib/, .github/actions/). Nine commits. The discriminating query answers itself in one line: **no commit since 08-02 touched `test/install-recovery/lib/upgrade-target.sh`** — the file that builds AND pushes the fixtures. So no commit made fixtures carry workflow content, and none moved the push onto a different token. The push path is byte-identical to the last green arc run.
+
+**The commit that changed the topology is 816bd6ba4 (STATBUS-214, 08-18 13:55)** — its diff removes `push: tags: ['v*-rc.*']` from upgrade-arc-harness.yaml, exactly as the architect's #1 says. Before it, the harness ran AT the tag push, when tag == master tip, and divergence was structurally impossible. After it, the orchestrator dispatches the fleet at a tag while master moves on. **Archaeology closed: not the token, not the fixture content, not the pusher — the trigger topology, one commit, named.**
+
+**PREMISE CHECK — one confirmed, one grown:**
+- The permissions block is verbatim as stated: `contents: write`, `actions: write`, `packages: read`. No `workflows:`. ✓
+- **The divergence is TEN files now, not six** — app_build_and_lint, fast-tests, go-test, images, install-recovery-harness, release-fleet-orchestrator, release, test-hardening, test-install, upgrade-arc-harness. Four more landed after he counted (17:25–17:54). Direction unchanged; the number growing within one afternoon is itself the argument that this must be designed for the general case.
+
+**DESIGN. Both shapes below produce the SAME TREE — the fixture's `.github/workflows/` taken from the default branch. They differ only in the fixture commit's PARENT, and that single choice decides whether the remedy depends on the unmeasured rule.**
+
+**Shape A — ALIGN (simple).** Fixture commits stay parented on A (the tag); the commit additionally copies the default branch's `.github/workflows/` over the RC's. Branch tree then matches default → legal under the tree-comparison rule. **But its own diff touches workflow paths, so it is REFUSED under the commit-diff rule.** Depends on the open premise.
+
+**Shape B — REPARENT (premise-independent, my recommendation).** The fixture commit's PARENT is the default branch's tip; its TREE is A's tree + the migration, with `.github/workflows/` from the default branch. Then: its diff versus its parent touches only product paths — **no workflow path at all** → legal under the commit-diff rule; and its tree matches the default branch under `.github/workflows/` → legal under the tree-comparison rule. **It satisfies BOTH candidate rules, so it is correct whichever one GitHub actually applies** — which means it can be built before the probe rather than after it.
+
+**Shape B's cost, named rather than discovered later:** the fixture branch no longer descends from A, so `git describe --tags` on it resolves through the default branch's ancestry. That string feeds VERSION at `./sb config generate` on the box. I found NO ancestry assertion anywhere in the harness (no merge-base/is-ancestor in lib/ or arcs/), and the box resolves the target by SHA and checks out a tree — it does not require B to descend from A. But the describe-string change is real and must be verified on one arc before the fleet rides it.
+
+**A HAZARD BOTH SHAPES SHARE, and it is the strongest argument for keeping the change minimal:** the fixture tree becomes a HYBRID — the default branch's CI definitions running against the RC's scripts. `gh workflow run images.yaml --ref <fixture-branch>` executes the workflow file FROM THAT REF, so after this change the fixture image build runs master's images.yaml, not the RC's. Concretely today: master's images.yaml reads `ops/release/ci-exempt-paths.txt` and hard-fails if it is missing (:133-138). I checked — **rc.04's tree does contain that file**, so this RC is fine, and the failure mode is "fail toward full build", which is loud and safe. But an older RC could lack a file master's CI expects, and that is the general-case risk this remedy family carries.
+
+**WHAT I WOULD NOT DO:** the permission grant, for the architect's reason and one of my own — it would leave the hybrid problem unsolved while buying a standing privilege; the fixture branch would still carry stale CI definitions, just pushable ones.
+
+**PROBE STATUS:** still worth running, but Shape B DEMOTES it from a blocker to a confirmation — it would tell us whether the simpler Shape A was available, not whether the fix is legal.
+---
+
+author: architect (pinned by foreman)
+created: 2026-08-18 15:56
+---
+PROBE BLESSED (architect) with three sharpenings, all about not mis-reading the result. (1) TRUTH TABLE IN THE PROBE FILE, both outcomes named on BOTH arms — arm (a) pushes a new ref at an EXISTING commit (zero new commits), so under the commit-diff rule it plausibly SUCCEEDS, and that success is the (C)-answer arriving early, not a failed probe: (a) refused ⇒ tree rule; (a) allowed ⇒ commit rule; (b) allowed ⇒ tree rule confirmed, remedy legal; (b) refused ⇒ commit rule, permission question returns King-gated. (2) Arm (b) must make the workflow tree match master EXACTLY, DELETIONS INCLUDED — copying over the top leaves files master has deleted, trees still differ, and a refusal would only prove the sync was partial. Same set, same contents. (3) RECORD WHICH FILE the refusal names — the real failure named install-recovery-harness.yaml; a refusal naming the same file ties the probe to THIS incident, the difference between reproducing the bug and reproducing a bug. ON THE RECORD: the tree-comparison mechanism is the architect's HYPOTHESIS fitting the evidence, not established fact — arm (b) decides whether his remedy is legal at all; if refused, he takes the permission question to the King himself with the reasoning. Probe workflow removed after the answer is read — no standing machinery.
 ---
 <!-- COMMENTS:END -->
