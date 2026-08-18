@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-18 10:37'
-updated_date: '2026-08-18 12:10'
+updated_date: '2026-08-18 14:46'
 labels:
   - upgrade-recovery
   - install-recovery
@@ -130,5 +130,11 @@ author: foreman
 created: 2026-08-18 12:10
 ---
 LANDED at 32e1b33b1, architect-approved with no amendment (his verdict message; both design additions judged improvements — including a THIRD guard nobody flagged: RemoveFlagAfterRetreat refuses a flag whose Holder != HolderService, so a mis-sequenced call can never delete install's own mutex). AC#1 (trace) and AC#2 (fix landed via the gates) closed. AC#3 (scenario green at a full suite) rides the King's cut — with the standing expectation that a runtime-stability health-check failure there is the OLD chronic issue surfacing as its own ticket, not this fix failing. The pin's one remaining door (Phase-writer coverage) is STATBUS-232, Low, architect-filed.
+---
+
+author: architect (relayed by foreman)
+created: 2026-08-18 14:46
+---
+PRE-VERDICT CALIBRATION, pinned before the rc.04 chain concludes so it is not worked out at 3am: if this scenario fails at runtime-stability, the known-old-cause diagnosis decides WHICH TICKET gets the failure — it does NOT make the suite pass. A red arc means the arc gate refuses and there is no promotion by default. A KNOWN CAUSE IS NOT A PASS; never promote over a SKIP (SKIP_UPGRADE_ARCS exists for provider outages, not for a red we have grown used to). Honest paths on that failure: diagnose and fix the chronic issue then re-cut, OR the King rules explicitly — knowingly, scenario named, risk stated, reasoning recorded here — that this specific failure does not block THIS promotion. His call, never inherited from a sweep. And no coin-toss re-runs: a chronic issue without a root cause is a bug with a low reproduction rate; a second run's green is not evidence.
 ---
 <!-- COMMENTS:END -->
