@@ -69,6 +69,20 @@ jobs:
           echo "Computed commit_short: $COMMIT_SHORT"
           echo "commit_short=$COMMIT_SHORT" >> "$GITHUB_OUTPUT"
 
+      - name: STATBUS-236 hybrid-tree breadcrumb (fixture branches only)
+        # Fires on the upgrade-arc-harness's fixture branches ONLY — same
+        # prefix check the seed job already uses below (test/install-
+        # recovery/lib/upgrade-target.sh is the sole pusher of this prefix;
+        # every B/C branch across every spec is named test/upgrade-arc-*).
+        # Zero output on every other trigger. Placed FIRST so someone
+        # landing directly on a failed images run from the Actions list
+        # sees it above whatever error follows — the arc harness's own
+        # image-wait failure diagnosis is the other half of this note, but
+        # that log is invisible from here.
+        if: startsWith(github.ref_name, 'test/upgrade-arc-')
+        run: |
+          echo "NOTE: this run executes MASTER's workflow definitions against an RC-era product tree (fixture branch, STATBUS-236). A missing-file error below usually means master's CI grew a file dependency after the RC was cut — remedy: cut a newer RC."
+
   decide-exempt-only:
     name: "Decide: is this push exempt-only? (retag vs full build)"
     runs-on: ubuntu-24.04

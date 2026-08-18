@@ -435,6 +435,15 @@ jobs:
                 echo "construct pushed the test/* branches and dispatched images.yaml per branch,"
                 echo "but the per-commit service images are not all in ghcr yet."
                 echo "Check the Images runs: gh run list --workflow=images.yaml"
+                echo ""
+                echo "NOTE if a run FAILED on a MISSING FILE rather than merely still building:"
+                echo "fixture branches carry the RC's product tree with MASTER's .github/workflows/"
+                echo "— required, because the harness token cannot push a workflow tree that differs"
+                echo "from master (STATBUS-236). A file master's CI started requiring AFTER this RC"
+                echo "was cut is absent from this tree BY CONSTRUCTION — this is the hybrid-tree gap"
+                echo "(STATBUS-236/238), not an infrastructure fault. Check what file master's CI now"
+                echo "expects and when that expectation landed relative to this RC's cut. Remedy: cut"
+                echo "a newer RC from current master — never teach master's CI about old trees."
               } >&2
               exit 1
             fi
