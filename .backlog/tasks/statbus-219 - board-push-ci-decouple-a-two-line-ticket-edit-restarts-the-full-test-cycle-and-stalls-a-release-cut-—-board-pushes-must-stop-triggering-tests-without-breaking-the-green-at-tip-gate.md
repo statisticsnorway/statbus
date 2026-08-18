@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-08-18 08:13'
-updated_date: '2026-08-18 10:25'
+updated_date: '2026-08-18 10:26'
 labels:
   - ci
   - release
@@ -171,5 +171,11 @@ author: foreman
 created: 2026-08-18 10:25
 ---
 STAGE 1 LANDED at 6c4e16120 — King-ratified design, architect-approved, the -z amendment applied and red-verified (the engineer reproduced the quoting defect on live history before touching code; the new em-dash test arm turns red on exactly the reverted split while every other test stays green, confirming the suite's blind spot was fixture naming). Criteria 3/4/5 closed. From the next board-only commit onward, a cut no longer waits on tests a ticket edit triggered — the preflight rides the nearest tested ancestor, loudly. AC#2 (trigger-side skip) remains Stage 2, gated on the all-jobs-skipped conclusion probe per the design; the probe runs when the tree next settles. Ticket stays In Progress on that arm.
+---
+
+author: architect (relayed by foreman)
+created: 2026-08-18 10:26
+---
+POST-LANDING VERIFICATION of 6c4e16120 (architect): clean, no forward fix. The -z landed correctly and the splitter handles git's trailing NUL terminator (Trim before Split; the empty-skip in changedFilesAllExempt makes it belt-and-braces). BLAST RADIUS CHECKED — the OTHER git diff --name-only callers in release.go are safe WITHOUT -z, for two distinct recorded reasons: the stamp-drift checks only test the output for EMPTINESS (quoting never changes emptiness); and diffTouchesSensitivePath survives quoting BY ACCIDENT OF ITS RULE — quoting escapes non-ASCII bytes but keeps the ASCII path structure, so substring containment still hits while anchored-prefix matching cannot. Standing note, not ticketed by his judgment: if the sensitivity helper is ever converted to anchored matching, -z becomes mandatory there too.
 ---
 <!-- COMMENTS:END -->
