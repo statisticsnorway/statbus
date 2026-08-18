@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-17 21:46'
-updated_date: '2026-08-18 07:43'
+updated_date: '2026-08-18 07:44'
 labels:
   - ci
   - release
@@ -29,7 +29,7 @@ WHAT THIS PART DOES: before a release is promoted to stable, a gate checks that 
 
 WHAT GOES WRONG: if that folder ever comes back empty — renamed, or a path typo in either reader — neither side notices. The gate passes having checked nothing, and the workflow invents a fake test. Not reachable today (the folder holds 31 arcs, found 2026-08-17 by the architect during the STATBUS-215 review), but one rename away.
 
-THE DETAIL, gate side (the serious one): upgradeArcNamesAtCommit (cli/cmd/release.go:1349) returns an empty list AND no error when the folder listing prints nothing. The completeness check (cli/internal/release/workflow_check.go:222-225) then asks "is every required arc present in the run?" of an empty list — automatically yes. The gate prints "✓ upgrade-arc-harness FULL SUITE green (0/0 arc jobs present)" and passes. Any green run now satisfies the gate while proving nothing, and the success line reads like a real pass.
+THE DETAIL, gate side (the serious one): upgradeArcNamesAtCommit (cli/cmd/release.go:1349) returns an empty list AND no error when the folder listing prints nothing — `strings.Split(strings.TrimSpace(""), "\n")` yields `[""]`, whose basename has no `-arc.sh` suffix, so the names slice stays nil while err stays nil. The completeness check (cli/internal/release/workflow_check.go:222-225) then asks "is every required arc present in the run?" of an empty list — automatically yes. The gate prints "✓ upgrade-arc-harness FULL SUITE green (0/0 arc jobs present)" and passes. Any green run now satisfies the gate while proving nothing, and the success line reads like a real pass.
 
 THE DETAIL, workflow side (cosmetic by comparison): the discover job enumerates arcs with a shell glob (`for f in test/install-recovery/arcs/*-arc.sh`). A glob that matches nothing hands the loop the literal `*`, so the matrix becomes one bogus scenario named `*`, which fails on a missing script — noisy, but not the clean, named failure the rest of that job gives.
 
