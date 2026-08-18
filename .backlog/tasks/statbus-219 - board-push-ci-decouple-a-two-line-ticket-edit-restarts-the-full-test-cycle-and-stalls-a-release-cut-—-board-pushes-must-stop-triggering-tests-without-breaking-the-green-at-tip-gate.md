@@ -4,11 +4,11 @@ title: >-
   board-push-ci-decouple: a two-line ticket edit restarts the full test cycle
   and stalls a release cut — board pushes must stop triggering tests, without
   breaking the green-at-tip gate
-status: In Progress
+status: Done
 assignee:
   - engineer
 created_date: '2026-08-18 08:13'
-updated_date: '2026-08-18 15:17'
+updated_date: '2026-08-18 15:29'
 labels:
   - ci
   - release
@@ -40,7 +40,7 @@ WHY THAT HELPS: board activity — the team's normal coordination — stops comp
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 Architect design ratified: the exempt-path mechanism, its checked-in list, and the ancestor-walk rule in the preflight
-- [ ] #2 A board-only push does not run Images/pg_regress/Fast Tests (or runs a skip that costs seconds, per the ratified design)
+- [x] #2 A board-only push does not run Images/pg_regress/Fast Tests (or runs a skip that costs seconds, per the ratified design)
 - [x] #3 A cut on a tip whose only diff vs the last tested commit is exempt paths passes preflight using the ancestor's green runs
 - [x] #4 A cut on a tip containing ANY non-exempt change still refuses without a green run at that code state
 - [x] #5 The exempt-path list is itself sensitive: changing it cannot ride a prior green
@@ -241,5 +241,31 @@ THREE-PATH TRACE, mentally executed against the final YAML in all four files:
 VALIDATION: `ruby -ryaml` clean on all 3 workflow files. `actionlint` — zero NEW findings (diffed by exact finding text/line-shift against `git show HEAD:...` baselines for each file: images.yaml's 2 pre-existing config-inline deprecation warnings unchanged, app_build_and_lint-workflow.yaml's 1 pre-existing actions/checkout@v3-too-old warning unchanged, both just shifted line numbers from my comment insertions). Full `go test ./...` in cli/ — all 13 packages ok including `TestFileIsCIExempt_AnchoredPrefixNotSubstring`, `TestCIExemptPathsFile_IsNotItselfExempt`, and every `TestFindExemptRide_*` arm (unaffected by my comment-only edits to ci-exempt-paths.txt — no entries added/removed). `go build ./...` OK.
 
 Frozen, no commits. AC#2 (re-scoped) closes with this unit; AC#1/#3/#4/#5 already closed by Stage 1.
+---
+
+author: architect
+created: 2026-08-18 15:28
+---
+STAGE 2 REVIEW — APPROVED, no amendment. The highest-risk piece is correct, the design-time invariant holds, and the premature go-test.yaml landing is approved retroactively on content.
+
+THE BASH PORT IS FAITHFUL — checked line against line, because this is the third copy of a rule whose INVERSION I have been protecting all day. Go: empty entry skipped; trailing-slash entry ⇒ HasPrefix; otherwise exact match OR HasPrefix(entry+"/"). Bash: identical, in the same order, with the same three outcomes. AND THE DETAIL THAT MATTERS MOST: it compares with `${file:0:${#entry}}` string slicing, NOT `case "$file" in "$entry"*)`. A case-glob would treat `*`, `?` or `[` in a future exempt entry as WILDCARDS — drift in the OVER-inclusive direction, which is the one that waves untested code into a release. The comment shows he saw that and chose the literal form deliberately. That was the piece most likely to be subtly wrong, and it is right.
+
+EVERY DOUBT FAILS TOWARD FULL BUILD, verified across all arms: unreachable or all-zero parent, missing/empty exempt list, any non-exempt file, and — the one I most wanted — the parent's five ghcr images not all present. That last check is what keeps doc-030's Finding 1 true: retagging from an incomplete parent would publish an incomplete set, so proving the source before claiming exempt is exactly right. `-z` on the diff carries the em-dash lesson across.
+
+THE SUBSET INVARIANT FROM THE ORIGINAL DESIGN HOLDS. doc-030's dangerous direction is TriggerIgnore ⊇ PreflightExempt: a trigger that ignores MORE than the preflight exempts yields no run at the tip AND no ride — a hard refusal at the cut, trading a 15-minute wait for a stop. Verified: both workflows carry exactly `paths-ignore: ['.backlog/**']`, ci-exempt-paths.txt carries exactly `.backlog/`. Equal, so no deadlock window.
+
+FLAG 3 — SEED STAYS UNCONDITIONAL: BLESSED, and for the same reason I dropped the chained pair. Making seed conditional would add a SKIP SURFACE to buy a rebuild that produces an identical artifact (migrations/ cannot be exempt, so an exempt-only push has identical seed inputs). We do not add skip surfaces for cost alone. Retag is different in kind and that is why it is fine: it REPLACES work with equivalent work and still publishes — no skip, no conclusion for anyone to misread.
+
+FLAG 4 — THE THIRD COPY: PIN IT, DO NOT COLLAPSE IT. Ruling against his own suggestion, with the reasoning. A `./sb` subcommand would collapse Go+bash into one implementation — normally I prefer prevention over detection — but it requires building sb inside images.yaml's decide job before the decision, adding a Go toolchain and build to a job that today runs in seconds on every master push. AND IT WOULD STILL LEAVE TWO COPIES, because the trigger filters can never be collapsed: GitHub evaluates path filters server-side before any code exists. Since a pin is needed regardless and covers ALL copies while the collapse removes only one of three, the pin is the higher-value move and the collapse is optional at best.
+
+WHERE THE PIN BELONGS: fold it into STATBUS-224, which is already parsing workflow YAML structurally for trigger facts — same file, same technique, same owner. It asserts that every workflow's `paths-ignore` matches ci-exempt-paths.txt exactly. The failure it prevents is specific and known-painful: adding an entry to the triggers but not the list produces exactly the deadlock doc-030 named.
+
+GO-TEST.YAML, LANDED EARLY — APPROVED RETROACTIVELY, no forward fix. The hunk is precisely what I ruled: paths-ignore on an independent trigger, no run at the tip, Stage 1's ride covering the Missing. The foreman's process lesson is right and worth sharpening: a filename-level staging check verifies WHICH FILES changed, never WHICH HUNKS — so when one file carries two frozen units, the guard must be patch-level. And the honest framing: this was harmless ONLY because the content happened to be already-ruled. Had that hunk been something I would have rejected, it would now be on master unreviewed. The lesson stands on the near-miss, not on the outcome.
+---
+
+author: foreman
+created: 2026-08-18 15:29
+---
+STAGE 2 LANDED at 88d529b5e (go-test.yaml's half landed early at c8bbbb46c inside the 230 commit — foreman staging error, disclosed, retroactively approved as exactly-what-was-ruled, with the lesson standing on the near-miss). AC#2 closed and with it the WHOLE ticket: board-only pushes now cost seconds of image retag and zero test runs; the preflight rides the ancestor when needed; the chained pair keeps running by explicit ruling rather than oversight. The bash port of the exempt matcher was line-checked faithful (literal prefix slicing chosen deliberately over case-globs — the wildcard-drift trap seen and avoided); every doubt fails toward full build including the parent-images-present check; the three necessary exempt-list copies get their equality pin folded into 224. From the King's morning complaint — a cut stalled by a two-line ticket edit — to closed, in one day. Done.
 ---
 <!-- COMMENTS:END -->
