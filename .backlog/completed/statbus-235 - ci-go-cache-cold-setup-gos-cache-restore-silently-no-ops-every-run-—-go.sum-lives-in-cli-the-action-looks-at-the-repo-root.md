@@ -3,11 +3,11 @@ id: STATBUS-235
 title: >-
   ci-go-cache-cold: setup-go's cache restore silently no-ops every run — go.sum
   lives in cli/, the action looks at the repo root
-status: In Progress
+status: Done
 assignee:
   - '@mechanic'
 created_date: '2026-08-18 15:42'
-updated_date: '2026-08-18 16:04'
+updated_date: '2026-08-18 16:48'
 labels:
   - ci
   - tooling
@@ -39,7 +39,7 @@ WHAT IS ACHIEVED: CI stops rebuilding the Go toolchain output from scratch on ev
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 setup-go steps that build Go code carry cache-dependency-path: cli/go.sum — go-test.yaml and any sibling workflow using setup-go
-- [ ] #2 A run after the fix shows the cache restore actually succeeding in the Set up Go step log, and a subsequent unchanged-cli run shows the speed benefit
+- [x] #2 A run after the fix shows the cache restore actually succeeding in the Set up Go step log, and a subsequent unchanged-cli run shows the speed benefit
 - [x] #3 Verified that go test still runs with -count=1 on the same invocation (the STATBUS-234 guard) before the cache goes live
 <!-- AC:END -->
 
@@ -92,4 +92,26 @@ RESTORE-side proof (a genuinely warm cache being pulled, with the timing benefit
 
 SEPARATE FINDING, out of scope for 235, flagged not fixed: `cli/cmd` package's `TestRealRepo_PreRebaselineTagIsDisconnected_STATBUS233` is currently FAILING on master (this same run, unrelated to the cache work) — real failure, not flaky: v2026.05.5 has become an ancestor of HEAD (history was re-grafted) and the test's own message says its premise changed and the gate's refusal wording needs re-reading. No open STATBUS-233 ticket found in .backlog/tasks/ to attach this to — surfacing it here so it isn't silently dropped.
 ---
+
+author: mechanic
+created: 2026-08-18 16:47
+---
+AC#2 RESTORE-side proof (run 32160081622, go-test.yaml @ 8147551e2 — the 239 unbreak, cli/-touching). Both jobs now completed SUCCESS end to end (the STATBUS-233 canary test that failed the prior run is fixed by 8147551e2, unrelated to caching). Checked both jobs' Set up Go logs via `gh run view --log` and job timing via `gh run view --json jobs`.
+
+(1) RESTORE CONFIRMED, both jobs: `Cache hit for: setup-go-Linux-x64-ubuntu24-go-1.25.5-28359ad5dd9284ac20fd35d6c87fbe246b9bb5d38ead3b928363d98f1964004a` → `Cache restored successfully` → `Cache restored from key: ...`. Same primary key the golangci-lint job SAVED at the c1f20078c run — this is a genuine warm-cache hit, not a coincidental re-save.
+
+(2) TIMING BENEFIT CONFIRMED. Comparing this warm run against the cold run (32157266530 @ c1f20078c, same workflow, same jobs):
+- golangci-lint job wall time: cold 49s (15:54:23–15:55:12) → warm 23s (16:24:03–16:24:26) — ~2.1x faster.
+- go-test job wall time: cold 62s (15:54:23–15:55:25) → warm 55s (16:24:04–16:24:59) — smaller win, expected: `-count=1` (STATBUS-234's guard) forces the actual test binaries to re-run regardless of cache, so only the BUILD/module-resolution phase benefits. That phase's win is clean and large: the cold run's `go vet` step logged eleven `go: downloading ...` lines and took ~19.7s (15:54:48.795→15:55:08.490); the warm run's `go vet` step logged ZERO download lines and took ~2.9s (16:24:39.021→16:24:41.941) — GOMODCACHE was warm too, not just GOCACHE.
+
+(3) SAVE SIDE, go-test job: NOT a new save this run — setup-go logged `Cache hit occurred on the primary key ..., not saving cache` for BOTH jobs. Correct/expected behavior: an exact primary-key hit means there is nothing new to save; a re-save would only happen if the key's inputs (go.sum) changed while build outputs differ, which didn't happen here. The go-test job's cache is still only ever populated by whichever run first gets an exact-key MISS (the golangci-lint job at c1f20078c, since go-test's own job failed that run before its Post step could run) — not itself a problem, since both jobs share the identical cache key and either one populating it benefits both.
+
+AC#2 checked. All three of STATBUS-235's acceptance criteria are now satisfied: #1 (fix applied, swept), #2 (restore + timing benefit empirically observed), #3 (-count=1 guard confirmed present before the cache went live). Ticket now only awaits final close.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+CI's Go cache now actually works: every setup-go step across seven workflows names cli/go.sum, ending years of the restore silently no-oping because the action searched the repo root while go.sum lives in cli/. Empirically proven end-to-end on real runs: the c1f20078c run saved the first cache; the 8147551e2 run hit and restored it in both jobs — the golangci-lint job's wall time halved (49s cold → 23s warm), and go vet went from 11 module downloads / 19.7s cold to zero downloads / 2.9s warm, showing GOMODCACHE warm alongside GOCACHE. The go-test job's smaller win is by design: STATBUS-234's -count=1 guard forces tests to physically re-run regardless of cache — the exact property that makes a warm cache safe for the pin-test family, and the reason this fix was sequenced strictly after that guard. The five build-only workflows carry the architect's rule-stating comment (any future go test step must carry -count=1), with the parse-based enforcement pin filed as STATBUS-237. Built by mechanic, approved by architect with one comment reword applied at landing, landed as c1f20078c.
+<!-- SECTION:FINAL_SUMMARY:END -->
