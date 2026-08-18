@@ -4,11 +4,11 @@ title: >-
   shallow-clone-false-premise: master is red because the 233 canary fired —
   v2026.05.5 was never disconnected; the local clone is shallow and its boundary
   was read as a rebaseline
-status: In Progress
+status: Done
 assignee:
   - '@engineer'
 created_date: '2026-08-18 16:08'
-updated_date: '2026-08-18 16:46'
+updated_date: '2026-08-18 17:26'
 labels:
   - release
   - quality-gate
@@ -46,9 +46,9 @@ WHAT IS ACHIEVED WHEN DONE: master's gate is green again on a test that asserts 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 Master's go-test gate is green again, with the canary asserting the true graph fact (v2026.05.5 IS an ancestor) or removed in favor of the fixture arms, per the architect's ruling
-- [ ] #2 The refusal wording and 233's records are corrected where they state the disconnection as fact
+- [x] #2 The refusal wording and 233's records are corrected where they state the disconnection as fact
 - [x] #3 The local clone is unshallowed and a local run of the cmd tests agrees with CI
-- [ ] #4 The architect rules on and records the doctrinal fold: the rebaseline narrative was a shallow-clone artifact
+- [x] #4 The architect rules on and records the doctrinal fold: the rebaseline narrative was a shallow-clone artifact
 <!-- AC:END -->
 
 ## Comments
@@ -79,4 +79,16 @@ created: 2026-08-18 16:46
 ---
 AC#1 CLOSED: the go-test run at 8147551e2 concluded SUCCESS — master's gate is green again, with the shallow guard live in it. Remaining: AC#2/#4 close with the architect's doc-033 fold (now unblocked); the post_restore.sql filter answer lands when the engineer's API access recovers.
 ---
+
+author: foreman
+created: 2026-08-18 17:26
+---
+doc-033 FOLDED (architect) — AC#2/#4 close. Structural change: 233 RETRACTED from the instance list (never an instance — a CONSEQUENCE of instance seven: a false finding manufactured by a polluted instrument); 239 takes its place. Instance seven written as the one worth studying: the only one where re-running the check could never have revealed the error — the clone saw 67 commits, git answered honestly about the graph in front of it, falsely about the repository. Sub-lesson sharpened: verify the instrument, not only the premise — "I did verify; what I never asked was whether the thing answering could see." The unflattering account kept: two visible anomalies (77fa16fb2~1 failing to resolve; a root commit reading 'Update task STATBUS-071') noted in passing and declined — "the surprise was delivered and declined." Also recorded: what caught it — CI's full clone and 233's own canary, a gate designed on the false premise that then disproved it (a guard built for the wrong reason still guards); and the day's three builder self-corrections (exit code, cache exposure, rebaseline) in one section — review direction working upward. Doc's closing question re-cut: what did this actually examine, this time, and could it see? Outstanding non-AC item: the post_restore.sql filter answer lands on STATBUS-236's next-cut adjudication note when the engineer records it.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Master went red because a canary test asserted the repository had been rebaselined with pre-rebaseline tags disconnected — and in CI's full clone that was provably false. The investigation found the entire "rebaseline of 2026-07-14" narrative was an artifact of the shared working clone being SHALLOW: git answered honestly about the 67-commit graph it could see and falsely about the repository, and re-running the same checks on the same instrument could never have revealed it. GitHub's authoritative graph settled it (v2026.05.5 ahead_by 2154/behind 0 — a genuine ancestor; the supposed root has a parent; true root 898d04734). The unbreak replaced the false-premise canary with a shallow-clone guard — a clone that cannot see history may not testify about it, failing loudly with git fetch --unshallow named — landed as 8147551e2, CI green on arrival. The local clone was unshallowed; the gate code stands untouched (refusing a genuinely disconnected predecessor remains sound). The record correction is folded into doc-033: instance 233 retracted, instance eight added, sub-lesson "verify the instrument, not only the premise." At the next release cut, the now-meaningful previous-stable comparison surfaces exactly two changed files for individual adjudication — no blanket policy. Evidence by foreman, rulings and record by architect, unbreak built by engineer through an API outage with the two-person property preserved.
+<!-- SECTION:FINAL_SUMMARY:END -->
