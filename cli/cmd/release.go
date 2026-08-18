@@ -188,9 +188,34 @@ func preflightChecks(projDir string) bool {
 		if len(headShort) > 12 {
 			headShort = headShort[:12]
 		}
-		pgRegressResult := release.CheckWorkflowAtCommit(release.WorkflowPgRegress, headFull)
-		switch pgRegressResult.Status {
-		case release.WorkflowCheckGreen:
+		pgRegressResult := checkWorkflowAtCommit(release.WorkflowPgRegress, headFull)
+
+		// STATBUS-219: pg_regress is a verdict about content, so it may ride an
+		// exempt-only ancestor's green (same reasoning as
+		// checkPrereleaseWorkflowGate; Unknown excluded there and here).
+		var pgRide *exemptRide
+		pgRideNote := ""
+		if pgRegressResult.Status != release.WorkflowCheckGreen && pgRegressResult.Status != release.WorkflowCheckUnknown {
+			pgRide, pgRideNote = findExemptRide(projDir, release.WorkflowPgRegress, headFull)
+		}
+		switch {
+		case pgRide != nil:
+			printExemptRide("pg_regress", pgRide)
+			// Feed the stamp-driven checks below with the RIDE TARGET's SHA, not
+			// HEAD's: the truthful claim is "the suite passed at that commit", and
+			// the migration/test-expected drift checks then verify ACROSS the ride
+			// span on their own (they diff stampSHA..HEAD). Since migrations/ and
+			// test/ are not exempt, that diff is empty by construction here — the
+			// checks stay honest rather than being special-cased.
+			//
+			// NOT PERSISTED, unlike the CI-green branch below. The on-disk stamp is
+			// a record that a suite RAN at a SHA; a ride is an inference, re-derived
+			// in under a second on every invocation. Writing it to disk would let a
+			// later reader — or a later code path — mistake the inference for
+			// evidence, and would outlive the ancestor's green that justified it.
+			latestMig, _ := migrate.LatestOnDiskMigrationVersion(projDir)
+			stampBytes = []byte(pgRide.Commit + "\n" + latestMig + "\n")
+		case pgRegressResult.Status == release.WorkflowCheckGreen:
 			// CI ran against a freshly-built environment, so source DB is
 			// by-construction at HEAD's max migration version. Write a
 			// fresh H1 two-line stamp so subsequent invocations
@@ -202,14 +227,14 @@ func preflightChecks(projDir string) bool {
 			stampContent := headFull + "\n" + latestMig + "\n"
 			_ = os.WriteFile(stampPath, []byte(stampContent), 0644) // best-effort local stamp; a write failure just means the fast path re-checks next time
 			stampBytes = []byte(stampContent)
-		case release.WorkflowCheckPending:
+		case pgRegressResult.Status == release.WorkflowCheckPending:
 			fmt.Printf("  ✗ pg_regress is still pending at %s (no local stamp)\n", headShort)
 			fmt.Printf("    Watch: gh run watch %d\n", pgRegressResult.RunID)
 			fmt.Printf("    URL:   %s\n", pgRegressResult.RunURL)
 			fmt.Println("    Fix: wait for the run to complete, then re-run prerelease")
 			fmt.Println("    Or:  ./dev.sh migrate-and-test fast   (write local stamp from your machine)")
 			allPassed = false
-		case release.WorkflowCheckFailed:
+		case pgRegressResult.Status == release.WorkflowCheckFailed:
 			fmt.Printf("  ✗ pg_regress failed at %s (conclusion: %s; no local stamp)\n", headShort, pgRegressResult.Detail)
 			fmt.Printf("    See: gh run view %d --log-failed\n", pgRegressResult.RunID)
 			fmt.Printf("    URL: %s\n", pgRegressResult.RunURL)
@@ -218,19 +243,22 @@ func preflightChecks(projDir string) bool {
 			fmt.Println("      Or push a fix to master, then re-run prerelease")
 			fmt.Println("      Or run locally: ./dev.sh migrate-and-test fast   (write local stamp)")
 			allPassed = false
-		case release.WorkflowCheckMissing:
+		case pgRegressResult.Status == release.WorkflowCheckMissing:
 			fmt.Printf("  ✗ pg_regress has not run for %s (no local stamp)\n", headShort)
 			fmt.Printf("    Trigger: %s\n", release.WorkflowTriggerCommand(release.WorkflowPgRegress, headFull))
 			fmt.Printf("    Watch:   %s\n", release.WorkflowURL(release.WorkflowPgRegress))
 			fmt.Println("    Fix: run the trigger command above, wait for green, re-run prerelease")
 			fmt.Println("    Or:  ./dev.sh migrate-and-test fast   (write local stamp from your machine)")
 			allPassed = false
-		case release.WorkflowCheckUnknown:
+		case pgRegressResult.Status == release.WorkflowCheckUnknown:
 			fmt.Printf("  ✗ pg_regress status check failed (GitHub API error; no local stamp)\n")
 			fmt.Printf("    Detail: %s\n", pgRegressResult.Detail)
 			fmt.Println("    Fix: check network connectivity / GITHUB_TOKEN; or re-run later")
 			fmt.Println("    Or:  ./dev.sh migrate-and-test fast   (write local stamp from your machine)")
 			allPassed = false
+		}
+		if pgRide == nil && pgRideNote != "" {
+			fmt.Printf("    No exempt-only ancestor ride available: %s\n", pgRideNote)
 		}
 	}
 	if stampBytes != nil {
@@ -444,6 +472,20 @@ func preflightChecks(projDir string) bool {
 	//     Actions IS that build. We don't replay it locally (the old pre-push
 	//     docker-build replay was slow and duplicated CI's work). We query
 	//     the workflow's verdict for HEAD instead.
+	//
+	//     IMAGES NEVER RIDES AN EXEMPT-ONLY ANCESTOR — PERMANENTLY EXCLUDED from
+	//     the STATBUS-219 mechanism, and this is a category difference, not a
+	//     policy preference. Every other preflight gate asks "did this CONTENT
+	//     pass?", and content byte-identical to a tested ancestor has provably
+	//     passed. This one asks "do the Docker artifacts EXIST at this SHA?" —
+	//     a question about the world, not about the code. No argument about
+	//     markdown makes an image materialise at a SHA nothing ever published
+	//     to, and the consequence is already written down one file over: the
+	//     SKIP_IMAGES bypass text warns "Deployments may FAIL on stale ghcr.io
+	//     manifest" (workflow_check.go:104-107). fast-tests proves the coupling
+	//     empirically — on the chained path it PULLS the commit_short-tagged
+	//     images rather than building them. Riding here would cut a release
+	//     whose deployment has no images. Do NOT call findExemptRide below.
 	imagesHeadOut, _ := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
 	imagesHeadFull := strings.TrimSpace(imagesHeadOut)
 	imagesHeadShort := imagesHeadFull
@@ -558,18 +600,37 @@ func checkPrereleaseWorkflowGate(projDir, workflow, label, skipEnv string) bool 
 	if len(headShort) > 12 {
 		headShort = headShort[:12]
 	}
-	result := release.CheckWorkflowAtCommit(workflow, headFull)
-	switch result.Status {
-	case release.WorkflowCheckGreen:
+	result := checkWorkflowAtCommit(workflow, headFull)
+	if result.Status == release.WorkflowCheckGreen {
 		fmt.Printf("  ✓ %s green at %s\n", label, headShort)
 		fmt.Printf("    Run: %s\n", result.RunURL)
 		return true
+	}
+
+	// STATBUS-219: this gate is a VERDICT ABOUT CONTENT — "did this code pass?"
+	// — so a green run at an ancestor whose entire difference from the tip is
+	// test-irrelevant (board markdown) proves exactly the same thing about the
+	// tip's code. Try that ride before refusing, on Missing, Pending AND Failed
+	// alike: what a board commit does to this gate is make a REDUNDANT run
+	// necessary, and which of the three states that shows up as is an accident
+	// of timing. Unknown is excluded — an unreachable API cannot verify an
+	// ancestor either, and the refusal there is about the check, not the code.
+	rideNote := ""
+	if result.Status != release.WorkflowCheckUnknown {
+		if ride, whyNot := findExemptRide(projDir, workflow, headFull); ride != nil {
+			printExemptRide(label, ride)
+			return true
+		} else {
+			rideNote = whyNot
+		}
+	}
+
+	switch result.Status {
 	case release.WorkflowCheckPending:
 		fmt.Printf("  ✗ %s is still pending at %s\n", label, headShort)
 		fmt.Printf("    Watch: gh run watch %d\n", result.RunID)
 		fmt.Printf("    URL:   %s\n", result.RunURL)
 		fmt.Println("    Fix: wait for the run to complete, then re-run prerelease")
-		return false
 	case release.WorkflowCheckFailed:
 		fmt.Printf("  ✗ %s failed at %s (conclusion: %s)\n", label, headShort, result.Detail)
 		fmt.Printf("    See: gh run view %d --log-failed\n", result.RunID)
@@ -577,7 +638,6 @@ func checkPrereleaseWorkflowGate(projDir, workflow, label, skipEnv string) bool 
 		fmt.Println("    Fix:")
 		fmt.Printf("      Retry the failed jobs (if transient): gh run rerun --failed %d\n", result.RunID)
 		fmt.Println("      Or push a fix to master, then re-run prerelease")
-		return false
 	case release.WorkflowCheckMissing:
 		fmt.Printf("  ✗ %s has not run for %s\n", label, headShort)
 		if ref, ok := dispatchRefForMasterTip(projDir, headFull); ok {
@@ -588,14 +648,16 @@ func checkPrereleaseWorkflowGate(projDir, workflow, label, skipEnv string) bool 
 			fmt.Printf("    %s is not origin/master's tip — workflow_dispatch builds a branch/tag tip, not a bare SHA.\n", headShort)
 			fmt.Println("    Fix: push this commit to master, then re-run prerelease")
 		}
-		return false
 	case release.WorkflowCheckUnknown:
 		fmt.Printf("  ✗ %s status check failed (GitHub API error)\n", label)
 		fmt.Printf("    Detail: %s\n", result.Detail)
 		fmt.Println("    Fix: check network connectivity / GITHUB_TOKEN; or re-run later")
-		return false
+	default:
+		fmt.Printf("  ✗ %s returned unexpected status %q\n", label, result.Status)
 	}
-	fmt.Printf("  ✗ %s returned unexpected status %q\n", label, result.Status)
+	if rideNote != "" {
+		fmt.Printf("    No exempt-only ancestor ride available: %s\n", rideNote)
+	}
 	return false
 }
 
@@ -1295,6 +1357,234 @@ SKIP_APP_BUILD_LINT) apply at the prerelease cut — see
 // quotes verbatim in its output — see the file's own header for the
 // matching rule (substring containment, deliberately over-inclusive).
 const upgradeSensitivePathsFile = "ops/release/upgrade-sensitive-paths.txt"
+
+// ciExemptPathsFile is the checked-in list of paths whose changes cannot
+// affect any test outcome, build artifact, or runtime behaviour (STATBUS-219,
+// doc-030). See the file's own header for the matching rule — an ANCHORED
+// PREFIX, deliberately under-inclusive.
+const ciExemptPathsFile = "ops/release/ci-exempt-paths.txt"
+
+// ciExemptRideWalkBound caps the first-parent ancestor walk. Bounded for the
+// same reason the arc gate's RC walk is: an unbounded walk on a long history
+// would issue an API call per exempt-clean candidate. 50 commits is far past
+// any plausible run of board-only commits.
+const ciExemptRideWalkBound = 50
+
+// loadCIExemptPaths reads ciExemptPathsFile: one path prefix per line, blank
+// lines and #-comments ignored. Mirrors loadUpgradeSensitivePaths' shape; the
+// MATCHING rule is the inverse (see fileIsCIExempt).
+func loadCIExemptPaths(projDir string) ([]string, error) {
+	data, err := os.ReadFile(filepath.Join(projDir, ciExemptPathsFile))
+	if err != nil {
+		return nil, fmt.Errorf("reading %s: %w", ciExemptPathsFile, err)
+	}
+	var paths []string
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		paths = append(paths, line)
+	}
+	return paths, nil
+}
+
+// fileIsCIExempt reports whether one changed file is covered by the exempt
+// list, matching an ANCHORED PATH PREFIX.
+//
+// THE MATCHING RULE IS THE DELIBERATE INVERSE OF diffTouchesSensitivePath, AND
+// THE INVERSION IS LOAD-BEARING — do not "unify" the two helpers. That one uses
+// substring containment because for a SENSITIVITY list over-inclusive is the
+// safe direction: a coincidental hit costs one extra full-suite run. Here the
+// failure directions mirror. Over-inclusive matching would treat MORE commits
+// as needing no tests, so a sloppy match waves UNTESTED CODE into a release.
+// Every ambiguity therefore resolves toward NOT exempt:
+//   - `.backlog/` matches `.backlog/tasks/x.md`, never `app/src/.backlog-x.ts`
+//     (which substring containment would have wrongly exempted).
+//   - an entry without a trailing slash matches that exact file, or that
+//     directory's contents — never a sibling sharing its name as a prefix
+//     (`doc` must not exempt `docker-compose.yml`).
+//   - a path git printed QUOTED (non-ASCII or special characters yield
+//     "\303\251...") begins with a quote and matches nothing — it is treated as
+//     non-exempt, which is the safe direction.
+//
+// KEEP THAT LAST CLAUSE — IT IS A BELT, NOT DEAD CODE. findExemptRide reads the
+// diff with `-z`, so git emits raw bytes and quoted paths should never reach
+// here. That is exactly why the guard must stay: if anyone ever drops the -z,
+// this repo's em-dashed board filenames start arriving quoted again, and the
+// failure this guard produces is a REFUSED ride (safe, visible) instead of a
+// wrongly-exempted path (untested code into a release). Deleting it as
+// unreachable would convert a safe failure into a silent one.
+func fileIsCIExempt(file string, exempt []string) bool {
+	file = strings.TrimSpace(file)
+	if file == "" {
+		return false
+	}
+	for _, entry := range exempt {
+		if entry == "" {
+			continue
+		}
+		if strings.HasSuffix(entry, "/") {
+			if strings.HasPrefix(file, entry) {
+				return true
+			}
+			continue
+		}
+		if file == entry || strings.HasPrefix(file, entry+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+// changedFilesAllExempt splits a changed-file list into the files that justify
+// a ride (all exempt) and the offenders that forbid it. allExempt is true only
+// when EVERY changed file is exempt — including the empty case, where the two
+// trees are identical and riding is sound by definition (the add-then-revert
+// pair doc-030 calls out; a direct diff, not per-hop induction, is what makes
+// that visible).
+func changedFilesAllExempt(changed, exempt []string) (allExempt bool, justifying, offenders []string) {
+	for _, file := range changed {
+		file = strings.TrimSpace(file)
+		if file == "" {
+			continue
+		}
+		if fileIsCIExempt(file, exempt) {
+			justifying = append(justifying, file)
+			continue
+		}
+		offenders = append(offenders, file)
+	}
+	return len(offenders) == 0, justifying, offenders
+}
+
+// exemptRide is a found ride: a green run for the gate at an ancestor whose
+// direct diff to the tip changes only exempt paths.
+type exemptRide struct {
+	// Commit is the ride target's full SHA — the commit the run actually ran at.
+	Commit string
+	// Result is that commit's green WorkflowCheckResult (carries the run URL).
+	Result release.WorkflowCheckResult
+	// CommitsRidden counts the commits between the target and the tip.
+	CommitsRidden int
+	// Justifying lists every file in the direct diff — all exempt, by
+	// construction. Empty means the trees are identical.
+	Justifying []string
+}
+
+// findExemptRide answers "is there a green run for this VERDICT gate at an
+// ancestor whose entire difference from the tip is test-irrelevant?"
+// (STATBUS-219 Stage 1). It walks first-parent ancestors NEAREST FIRST, bounded
+// at ciExemptRideWalkBound, computing the DIRECT `git diff --name-only
+// <candidate>..<tip>` for each — never per-hop induction, the same
+// correct-by-construction reasoning checkUpgradeArcHarnessGate documents.
+//
+// It does NOT stop at the first non-exempt candidate, and that is deliberate:
+// a direct diff compares TREES, so a commit that adds code and a later one that
+// reverts it leave an OLDER ancestor tree-identical to the tip even though a
+// nearer one differs. Stopping early would discard a sound ride. The walk is
+// bounded, and only exempt-clean candidates cost an API call.
+//
+// Returns (nil, reason) when no ride applies; the reason is operator-facing and
+// printed under the gate's normal refusal. NEVER call this for the images gate
+// — see checkImagesNeverRides' comment at the images check.
+func findExemptRide(projDir, workflow, tipFull string) (*exemptRide, string) {
+	exempt, err := loadCIExemptPaths(projDir)
+	if err != nil {
+		return nil, fmt.Sprintf("the exempt-path list could not be read (%v)", err)
+	}
+	if len(exempt) == 0 {
+		return nil, fmt.Sprintf("%s lists no exempt paths — nothing can ride", ciExemptPathsFile)
+	}
+
+	out, rerr := upgrade.RunCommandOutput(projDir, "git", "rev-list", "--first-parent",
+		fmt.Sprintf("-n%d", ciExemptRideWalkBound+1), tipFull)
+	if rerr != nil {
+		return nil, fmt.Sprintf("the first-parent ancestor walk could not run (%v)", rerr)
+	}
+	var ancestors []string
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		commit := strings.TrimSpace(line)
+		if commit == "" || commit == tipFull {
+			continue
+		}
+		ancestors = append(ancestors, commit)
+	}
+	if len(ancestors) == 0 {
+		return nil, "the tip has no ancestors to ride"
+	}
+
+	firstOffender := ""
+	sawExemptCleanCandidate := false
+	for i, candidate := range ancestors {
+		// -z IS LOAD-BEARING, NOT HYGIENE. Without it `git diff --name-only`
+		// QUOTES any path with non-ASCII or special characters
+		// (".backlog/…-\342\200\224-….md"), and this repo's board filenames carry
+		// em-dashes — so on precisely the board commits this ride exists to
+		// unblock, every quoted path would fail the anchored-prefix match, be
+		// classed non-exempt, and the ride would be inert. Verified on a real
+		// board commit: 2 of 3 paths came back quoted. -z emits raw bytes
+		// NUL-separated, which also removes the (latent) newline-in-filename
+		// corruption of a newline split.
+		diffOut, derr := upgrade.RunCommandOutput(projDir, "git", "diff", "--name-only", "-z", candidate+".."+tipFull)
+		if derr != nil {
+			// Cannot prove this candidate's diff is exempt-only → it is not a
+			// ride target. Keep walking; an older one may still be provable.
+			continue
+		}
+		allExempt, justifying, offenders := changedFilesAllExempt(strings.Split(strings.Trim(diffOut, "\x00"), "\x00"), exempt)
+		if !allExempt {
+			if firstOffender == "" {
+				firstOffender = offenders[0]
+			}
+			continue
+		}
+		sawExemptCleanCandidate = true
+		result := checkWorkflowAtCommit(workflow, candidate)
+		if result.Status != release.WorkflowCheckGreen {
+			continue
+		}
+		return &exemptRide{
+			Commit:        candidate,
+			Result:        result,
+			CommitsRidden: i + 1,
+			Justifying:    justifying,
+		}, ""
+	}
+
+	// Both facts matter to the operator and they are different problems, so
+	// report whichever were actually observed. "Exempt-clean but not green"
+	// means waiting or re-running will fix it; "non-exempt file" means this code
+	// state genuinely has not been tested and no waiting will change that.
+	switch {
+	case sawExemptCleanCandidate && firstOffender != "":
+		return nil, fmt.Sprintf("the ancestors whose diff to the tip is exempt-only have no green run for this workflow, and older ones differ in non-exempt files (e.g. %s) — this code state has not been tested", firstOffender)
+	case sawExemptCleanCandidate:
+		return nil, fmt.Sprintf("ancestors within %d commits differ from the tip only in exempt paths, but none has a green run for this workflow either", ciExemptRideWalkBound)
+	case firstOffender != "":
+		return nil, fmt.Sprintf("every ancestor within %d commits differs from the tip in non-exempt files (e.g. %s) — this code state has not been tested", ciExemptRideWalkBound, firstOffender)
+	}
+	return nil, fmt.Sprintf("no rideable ancestor within %d commits", ciExemptRideWalkBound)
+}
+
+// printExemptRide prints the ride LOUDLY — never a silent pass. The operator
+// sees which commit was actually tested, how far the tip has moved since, and
+// every file that justified it, so the claim is auditable at the console
+// (the same standard the arc gate's RIDE printing holds).
+func printExemptRide(label string, ride *exemptRide) {
+	fmt.Printf("  ✓ %s green at %s — RIDDEN: the %d commit(s) since change only test-irrelevant paths\n",
+		label, shortCommit(ride.Commit), ride.CommitsRidden)
+	fmt.Printf("    Tested commit: %s\n", ride.Commit)
+	fmt.Printf("    Run: %s\n", ride.Result.RunURL)
+	if len(ride.Justifying) == 0 {
+		fmt.Printf("    Files changed since (all exempt per %s): none — the trees are identical\n", ciExemptPathsFile)
+		return
+	}
+	fmt.Printf("    Files changed since (all exempt per %s):\n", ciExemptPathsFile)
+	for _, f := range ride.Justifying {
+		fmt.Printf("      %s\n", f)
+	}
+}
 
 // loadUpgradeSensitivePaths reads upgradeSensitivePathsFile: one
 // prefix/substring per line, blank lines and #-comments ignored.

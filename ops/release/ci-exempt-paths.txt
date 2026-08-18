@@ -1,0 +1,39 @@
+# STATBUS-219: paths whose changes CANNOT affect any test outcome, build
+# artifact, or runtime behaviour. When a prerelease VERDICT gate (pg_regress,
+# go-test, app-build-lint, fast-tests) is not green at the tip, the preflight
+# (cli/cmd/release.go) may accept a green run at the nearest first-parent
+# ancestor whose DIRECT diff to the tip changes only paths listed here — the
+# ride is printed loudly, naming the ride target and every justifying file.
+#
+# MATCHING IS AN ANCHORED PATH PREFIX, AND THAT IS THE INVERSE OF THE
+# SENSITIVITY LIST NEXT DOOR. upgrade-sensitive-paths.txt uses substring
+# containment because for a SENSITIVITY list over-inclusive is the safe
+# direction — a coincidental hit costs one extra test run. Here the failure
+# directions mirror: over-inclusive matching would treat MORE commits as
+# needing no tests, i.e. wave untested code into a release. So an entry
+# matches a changed file only when the file's repo-root-relative path (as
+# `git diff --name-only` prints it) BEGINS with that entry: `.backlog/`
+# matches `.backlog/tasks/x.md` and never `app/src/.backlog-widget.ts`.
+# One entry per line; blank lines and lines starting with # are ignored.
+#
+# THE IMAGES GATE NEVER RIDES, whatever this file says. The other four gates
+# ask "did this content pass?", and content identical to a tested ancestor has
+# demonstrably passed. images asks "do the Docker artifacts EXIST at this
+# SHA?" — no argument about markdown makes an image materialise at a SHA
+# nothing published to. The exclusion is enforced in code, not by this list.
+#
+# `migrations/` AND `test/` MUST NEVER BE ADDED. Beyond the obvious (they are
+# test inputs), the ride's pg_regress arm depends on it: on a ride the preflight
+# feeds the stamp checks the RIDE TARGET's SHA and lets them diff
+# stampSHA..HEAD for migration and test/expected drift. That diff is empty BY
+# CONSTRUCTION only because those paths are not exempt. Exempt either one and
+# the drift checks would silently stop being able to see the very drift they
+# exist to catch.
+#
+# ADDING AN ENTRY IS A GATED ACT. Changing what counts as test-irrelevant can
+# never itself ride a prior green: this file is deliberately NOT exempt (it is
+# under ops/, which is absent here on purpose), and a test asserts that it
+# matches no entry in its own list. Each new entry ships as its own argued,
+# ratified addition — `doc/` is the obvious next candidate and is deliberately
+# NOT included here.
+.backlog/
