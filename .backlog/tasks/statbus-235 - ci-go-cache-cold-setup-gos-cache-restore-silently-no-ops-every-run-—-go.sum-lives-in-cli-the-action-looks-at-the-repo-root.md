@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-08-18 15:42'
-updated_date: '2026-08-18 15:45'
+updated_date: '2026-08-18 15:54'
 labels:
   - ci
   - tooling
@@ -38,9 +38,9 @@ WHAT IS ACHIEVED: CI stops rebuilding the Go toolchain output from scratch on ev
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 setup-go steps that build Go code carry cache-dependency-path: cli/go.sum — go-test.yaml and any sibling workflow using setup-go
+- [x] #1 setup-go steps that build Go code carry cache-dependency-path: cli/go.sum — go-test.yaml and any sibling workflow using setup-go
 - [ ] #2 A run after the fix shows the cache restore actually succeeding in the Set up Go step log, and a subsequent unchanged-cli run shows the speed benefit
-- [ ] #3 Verified that go test still runs with -count=1 on the same invocation (the STATBUS-234 guard) before the cache goes live
+- [x] #3 Verified that go test still runs with -count=1 on the same invocation (the STATBUS-234 guard) before the cache goes live
 <!-- AC:END -->
 
 ## Comments
@@ -50,5 +50,30 @@ author: foreman
 created: 2026-08-18 15:45
 ---
 King's ruling 2026-08-18 (verbatim intent): fix issues we find, including this Go caching issue. Proceeding now — the ordering constraint is satisfied: STATBUS-234's -count=1 landed as 93804427e and is on master. Assigned @mechanic.
+---
+
+author: mechanic
+created: 2026-08-18 15:51
+---
+Sweep + fix complete, frozen (no commits). Grepped every workflow in .github/workflows/ for `actions/setup-go` — 8 occurrences across 7 files, ALL now carry `cache-dependency-path: cli/go.sum`. None were left out; the sweep found no additional files beyond what the ticket named as likely (fast-tests.yaml, release workflows) plus go-test.yaml's second occurrence.
+
+Files changed (7, +68/-0 total per `git diff --stat`):
+- `.github/workflows/go-test.yaml` — 2 occurrences (go-test job, go-lint job). go-test job's comment cites the AC#3 dependency (go test ./... -count=1 at line 111, confirmed present). go-lint job's comment explicitly states it does NOT depend on -count=1 — it runs golangci-lint via `./dev.sh lint`, not `go test`, so caching carries none of STATBUS-234's staleness risk.
+- `.github/workflows/fast-tests.yaml` — 1 occurrence, comment cites its own `go test ./internal/migrate/ -run TestDaemonFloorSchemaSufficient -count=1 -v` (line 215, confirmed present).
+- `.github/workflows/upgrade-arc-harness.yaml`, `install-recovery-harness.yaml`, `test-hardening.yaml`, `test-install.yaml`, `release.yaml` — 1 occurrence each, short comment: build-only (go build / dev.sh build-sb), no go test invocation, so no STATBUS-234 dependency.
+
+AC#3 confirmed on current tree: `go-test.yaml:111` → `go test ./... -count=1`; `fast-tests.yaml:215` → `...go test ./internal/migrate/ -run TestDaemonFloorSchemaSufficient -count=1 -v`. Both guards intact before the cache goes live.
+
+Validation: `ruby -ryaml -e YAML.load_file` clean on all 7 files. `actionlint` on all 7: one finding, SC2129 style nit in release.yaml:23 — confirmed PRE-EXISTING via `git show HEAD:.github/workflows/release.yaml` (identical finding at the same line in the unmodified baseline), not introduced by this change. Zero new findings.
+
+AC#2 (observing a real run's cache restore succeed) is pending — requires foreman to land + push before a live run can be observed.
+
+All changes frozen in the working tree, uncommitted, per house git-mutation ownership rule.
+---
+
+author: foreman
+created: 2026-08-18 15:54
+---
+LANDED as c1f20078c. Architect verdict: APPROVED with one required comment reword, applied at landing — the five build-only comments now state the RULE ("if you ever add a go test step it must carry -count=1"), not the current fact, because a fact rots silently the moment someone adds a test step with the cache live (the stale-premise class). His verified precondition: only go-test.yaml and fast-tests.yaml invoke go test, both guarded (:111, :215); the other five hits were prose inside the mechanic's own comments — his own first grep misread that prose as unguarded code, which he flagged as live proof of the 224 substring-vs-parse lesson. Sweep-completeness blessed (partial caching nobody could reason about later); build-cache-only workflows carry zero verdict risk (content-addressed, never replays a test verdict). Durable pin filed by the architect as STATBUS-237. AC#2 remains open: observe a real run's Set up Go step showing cache save (this landing's own go-test run) then restore (the next run).
 ---
 <!-- COMMENTS:END -->
