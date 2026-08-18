@@ -330,6 +330,70 @@ _run_long_via_tmux() {
     return "$exit_code"
 }
 
+# _dump_bootstrap_failure_diagnostics IP VM_NAME
+# STATBUS-227 AC#4 / doc-032 "stop guessing": called from _apply_hardening's
+# two failure paths (HARDENING TIMEOUT and HARDENING FAILED), BEFORE the
+# caller's EXIT trap reaps the VM. The rc.03 triage found a real gap: "one
+# SSH read returned nothing" is equally consistent with "the machine died"
+# and "the machine was too busy to answer inside our read timeout" — two
+# different remedies, and nobody had probed which. This closes that gap by
+# capturing, while the VM still (might) exist:
+#   - a reachability probe: ping + a FRESH ssh connection (not reusing the
+#     one that just failed) + Hetzner's own power-state view — a box that
+#     answers a NEW connection was never dead;
+#   - dmesg / journalctl -k (the OOM killer names its victim) + free -m +
+#     df -h, gated on that fresh SSH having worked;
+#   - the provider console, AS FAR AS HETZNER'S API ALLOWS: unlike AWS/
+#     DigitalOcean, Hetzner Cloud has no text console-log endpoint — only
+#     an interactive VNC WebSocket (`hcloud server request-console`). We
+#     request one and log the (short-lived) URL for manual post-mortem
+#     when KEEP_VM_ON_FAILURE=1 keeps the box alive; an automated TEXT
+#     capture of console output is not something this provider's API
+#     supports. Flagged here rather than silently doing less than doc-032
+#     asked for.
+# Every capture is individually timeout-bounded and failure-tolerant
+# (`|| ...`) — a genuinely dead box must not hang the forensics, and one
+# failed capture must not skip the rest. All output goes to stderr so it
+# lands in the same job log the "HARDENING FAILED"/"TIMEOUT" line does.
+_dump_bootstrap_failure_diagnostics() {
+    local ip="$1" vm_name="$2"
+    echo "  ══ bootstrap-failure forensics (STATBUS-227/doc-032, before teardown) ══" >&2
+
+    echo "  -- reachability: ping --" >&2
+    timeout 15 ping -c 3 -W 3 "$ip" >&2 || echo "    ping: unreachable/failed" >&2
+
+    echo "  -- reachability: FRESH ssh connection (not reusing the one that failed) --" >&2
+    # shellcheck disable=SC2016  # single-quoted on purpose: $(...) must expand
+    # remotely on the VM, not locally on the runner.
+    if timeout 15 ssh "${SSH_OPTS[@]}" -o ConnectTimeout=10 root@"$ip" \
+        'echo "fresh SSH OK; uptime: $(uptime -p 2>/dev/null || true)"' >&2
+    then
+        echo "    → answered a NEW connection: NOT dead — only unresponsive to the prior read (or recovered since)." >&2
+    else
+        echo "    → did not answer a fresh SSH connection either." >&2
+    fi
+
+    echo "  -- provider power state (hcloud server describe) --" >&2
+    timeout 15 hcloud server describe "$vm_name" -o format='{{.Status}}' >&2 || echo "    hcloud describe: failed" >&2
+
+    echo "  -- dmesg / journalctl -k / free -m / df -h (needs the fresh SSH above to have worked) --" >&2
+    timeout 30 ssh "${SSH_OPTS[@]}" -o ConnectTimeout=10 root@"$ip" '
+        echo "---dmesg (tail -100)---"; dmesg 2>/dev/null | tail -100
+        echo "---journalctl -k (tail -100)---"; journalctl -k --no-pager 2>/dev/null | tail -100
+        echo "---free -m---"; free -m
+        echo "---df -h---"; df -h
+    ' >&2 || echo "    in-VM diagnostics unreachable — consistent with a genuinely dead/wedged box." >&2
+
+    echo "  -- provider console --" >&2
+    echo "    Hetzner Cloud has NO text console-log API (unlike AWS/DigitalOcean) — only an" >&2
+    echo "    interactive VNC WebSocket session. Requesting one for manual post-mortem (the" >&2
+    echo "    URL/token below is short-lived, and only reachable at all if KEEP_VM_ON_FAILURE=1" >&2
+    echo "    kept the box alive past this run)." >&2
+    timeout 15 hcloud server request-console "$vm_name" >&2 || echo "    request-console: failed" >&2
+
+    echo "  ══ end bootstrap-failure forensics ══" >&2
+}
+
 # Run the project hardening + statbus user setup on a freshly-booted VM.
 # Idempotent — safe to call again after a rebuild.
 _apply_hardening() {
@@ -410,12 +474,14 @@ EOF'
     done
     if ! ssh "${SSH_OPTS[@]}" root@"$ip" 'test -f /tmp/harden.exit' 2>/dev/null; then
         echo "  HARDENING TIMEOUT after ${LONG_CMD_MAX_MIN:-45}min" >&2
+        _dump_bootstrap_failure_diagnostics "$ip" "$VM_NAME"
         return 1
     fi
     local harden_exit
     harden_exit=$(ssh "${SSH_OPTS[@]}" root@"$ip" 'cat /tmp/harden.exit' 2>/dev/null | tr -d ' \n') || true
     if [ "$harden_exit" != "0" ]; then
         echo "  HARDENING FAILED with exit code: '$harden_exit' (empty = SSH read failure)" >&2
+        _dump_bootstrap_failure_diagnostics "$ip" "$VM_NAME"
         return 1
     fi
 
@@ -627,15 +693,24 @@ bootstrap_install_test_vm() {
     fi
 
     echo "Provisioning Hetzner $HCLOUD_SERVER_TYPE in $HCLOUD_LOCATION: $vm_name"
-    # STATBUS-208 defect B: bounded retry-with-backoff on resource_limit_
-    # exceeded ONLY — the shared hetzner-vm-fleet concurrency group (the
-    # workflow-side fix) already keeps peak demand within the account
-    # limit, but a straggler VM from the PREVIOUS group can still be
-    # mid-teardown when the next group's first create fires; this is
-    # defense for exactly that residual window, not a substitute for the
-    # concurrency group. Any OTHER create failure (bad image name, quota
-    # for a different resource, auth) fails immediately — retrying those
-    # would just burn 5 minutes before reporting the same permanent error.
+    # STATBUS-208 defect B + STATBUS-231: bounded retry-with-backoff on
+    # TRANSIENT hcloud capacity errors only — two known classes so far:
+    #   - resource_limit_exceeded: the account-quota error. The shared
+    #     hetzner-vm-fleet concurrency group (the workflow-side fix)
+    #     already keeps peak demand within the account limit, but a
+    #     straggler VM from the PREVIOUS group can still be mid-teardown
+    #     when the next group's first create fires; this is defense for
+    #     exactly that residual window, not a substitute for the group.
+    #   - resource_unavailable ("error during placement"): Hetzner
+    #     momentarily has no capacity to PLACE the VM in this location —
+    #     nothing to do with our account limit, a minutes-long provider-side
+    #     blip that clears on its own. Observed 3x in one day at rc.03
+    #     (both 0-happy install-recovery baselines, then the rc.03
+    #     spot-check's own working arc, run 32131797267) before this
+    #     retry's trigger was widened to cover it.
+    # Any OTHER create failure (bad image name, quota for a different
+    # resource, auth) fails immediately — retrying those would just burn
+    # 5 minutes before reporting the same permanent error.
     local create_attempt max_create_attempts=5 create_backoff_s=60 create_stderr create_err
     for ((create_attempt = 1; create_attempt <= max_create_attempts; create_attempt++)); do
         create_stderr=$(mktemp)
@@ -651,21 +726,23 @@ bootstrap_install_test_vm() {
         fi
         create_err=$(cat "$create_stderr")
         rm -f "$create_stderr"
-        if ! printf '%s' "$create_err" | grep -q "resource_limit_exceeded"; then
+        if ! printf '%s' "$create_err" | grep -qE "resource_limit_exceeded|resource_unavailable"; then
             echo "ERROR: hcloud server create failed for '$vm_name': $create_err" >&2
             return 1
         fi
         if [ "$create_attempt" -eq "$max_create_attempts" ]; then
-            echo "ERROR: hcloud server create exhausted $max_create_attempts attempts (resource_limit_exceeded every time) for '$vm_name': $create_err" >&2
+            echo "ERROR: hcloud server create exhausted $max_create_attempts attempts (transient capacity error every time) for '$vm_name': $create_err" >&2
             return 1
         fi
-        echo "  hcloud server create hit resource_limit_exceeded (attempt $create_attempt/$max_create_attempts) — retrying in ${create_backoff_s}s..." >&2
+        echo "  hcloud server create hit a transient capacity error (attempt $create_attempt/$max_create_attempts) — retrying in ${create_backoff_s}s..." >&2
+        echo "    $create_err" >&2
         sleep "$create_backoff_s"
     done
     # STATBUS-207 ownership guard: only set once `hcloud server create`
     # itself has actually succeeded (set -e would have exited above on
-    # failure, e.g. DEFECT B's resource_limit_exceeded — the flag never
-    # gets set on that path either, correctly).
+    # failure, e.g. DEFECT B's resource_limit_exceeded or STATBUS-231's
+    # resource_unavailable exhausting their retries — the flag never gets
+    # set on those paths either, correctly).
     VM_OWNED_BY_THIS_RUN=1
 
     VM_IP=$(_hcloud_server_ip "$vm_name") || return 1
@@ -845,8 +922,10 @@ SCRIPT
     fi
 
     # Wait for SSH to be responsive before uploading — bootstrap activity
-    # (Homebrew installs, service starts) can leave sshd's accept queue
-    # saturated for a few seconds, causing immediate "Operation timed out"
+    # (package installs, service starts — the Homebrew comfort layer this
+    # comment used to name is gone as of STATBUS-227/doc-032, but ordinary
+    # apt work can still do this) can leave sshd's accept queue saturated
+    # for a few seconds, causing immediate "Operation timed out"
     # on the very next connection.
     _wait_for_ssh "$ip" 30
     scp -O "${SSH_OPTS[@]}" -o LogLevel=VERBOSE "$install_script" root@"$ip":/tmp/install.sh

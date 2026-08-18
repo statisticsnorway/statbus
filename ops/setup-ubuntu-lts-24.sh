@@ -821,7 +821,7 @@ stage_core_tools() {
     fi
 
     echo "This stage will:"
-    echo "  - Install tools: neovim, htop, net-tools, jnettop, git, acl, ripgrep, aptitude"
+    echo "  - Install tools: neovim, htop, net-tools, jnettop, git, acl, ripgrep, aptitude, tmux"
     echo "  - Set neovim as default editor"
     echo "  - Configure memory/swap settings for server workloads"
     echo "  - Install Docker CE with compose plugin"
@@ -833,7 +833,13 @@ stage_core_tools() {
     fi
     
     log "Installing core tools..."
-    apt-get install -y neovim htop net-tools jnettop git acl ripgrep aptitude
+    # tmux (STATBUS-227 follow-up): replaces zellij's session-survival role
+    # now that the Homebrew comfort layer (Stage 6) is gone — apt-managed,
+    # patched by unattended-upgrades, same principle as the rest of this
+    # list. Plain install: no auto-attach profile.d hook. An operator opts
+    # in with `tmux` / `tmux attach` like any other server; this is a
+    # deliberate default, reversible later, not an oversight.
+    apt-get install -y neovim htop net-tools jnettop git acl ripgrep aptitude tmux
     
     log "Configuring neovim..."
     if [[ -f /etc/vim/vimrc ]] && ! grep -q "colorscheme elflord" /etc/vim/vimrc; then
@@ -890,6 +896,7 @@ EOF
     verify "htop installed" "which htop"
     verify "ripgrep installed" "which rg"
     verify "git installed" "which git"
+    verify "tmux installed" "which tmux"
     verify "System tuning applied" "test -f /etc/sysctl.d/20-server-tuning.conf"
     verify "Docker installed" "which docker"
     verify "Docker running" "systemctl is-active docker"
@@ -899,11 +906,11 @@ EOF
 }
 
 # =============================================================================
-# Stage 6: User Setup & Developer Tools
+# Stage 6: User Setup (devops)
 # =============================================================================
 
 stage_user_setup() {
-    log_header "Stage 6: User Setup & Developer Tools"
+    log_header "Stage 6: User Setup (devops)"
 
     if stage_skipped 6; then
         log_warn "Stage 6 skipped via SKIP_STAGES"
@@ -916,9 +923,6 @@ stage_user_setup() {
     echo "      Users:       ${GITHUB_USERS:-<not configured>}"
     echo "      Deploy keys: ${GITHUB_DEPLOY_KEYS:-<not configured>}"
     echo "  - Generate ed25519 SSH keypair for devops"
-    echo "  - Install Homebrew (owned by devops)"
-    echo "  - Install: helix, bottom, zellij"
-    echo "  - Configure zellij auto-attach on SSH login"
     echo ""
     
     if [[ -z "$GITHUB_USERS" ]]; then
@@ -968,74 +972,26 @@ DEVOPS_KEYPAIR
         log_warn "docker group missing (Stage 5 may have been skipped) — not adding devops to it"
     fi
 
-    log "Installing Homebrew dependencies..."
-    apt-get install -y build-essential curl file git procps
-    
-    log "Installing Homebrew..."
-    if [[ ! -d /home/linuxbrew/.linuxbrew ]]; then
-        mkdir -p /home/linuxbrew/.linuxbrew
-        chown -R devops:devops /home/linuxbrew/.linuxbrew
-        
-        # Install Homebrew as devops user
-        sudo -u devops bash -c 'NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
-    else
-        log "Homebrew already installed"
-    fi
-    
-    # Set ownership and permissions
-    chown -R devops:devops /home/linuxbrew/.linuxbrew
-    chmod -R g+rwx /home/linuxbrew/.linuxbrew
-    
-    # Set up ACLs for devops
-    setfacl -R -m u:devops:rwx /home/linuxbrew/.linuxbrew 2>/dev/null || true
-    setfacl -R -d -m u:devops:rwx /home/linuxbrew/.linuxbrew 2>/dev/null || true
-    
-    log "Adding Homebrew to global PATH..."
-    cat > /etc/profile.d/linuxbrew.sh <<'EOF'
-# Add Homebrew to the PATH for all users
-if [ -d "/home/linuxbrew/.linuxbrew/bin" ]; then
-    export PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
-fi
+    # STATBUS-227 / doc-032: the Homebrew comfort layer that used to live
+    # here (Homebrew itself, build-essential, helix, bottom, zellij + its
+    # auto-attach profile.d file) is DELETED, not slimmed for tests — this
+    # is the real operator script, so there is no test-only profile to
+    # diverge into. It contradicted the hardening this same script
+    # performs (a brew-installed openssl gets no updates from the
+    # unattended-upgrades this script just configured, and it left a full
+    # compiler toolchain — build-essential — on a hardened host), it
+    # duplicated apt (helix/bottom are a second editor and monitor on top
+    # of the neovim/htop Stage 5 already installs), and it was killing
+    # rented test machines during the heaviest part of setup (STATBUS-227:
+    # two arc-suite VMs went unresponsive mid-Homebrew-pour at rc.03). The
+    # apt toolkit (neovim, htop, ripgrep, git, net-tools, jnettop, acl,
+    # aptitude — Stage 5) remains: an operator diagnosing a box needs an
+    # editor, a monitor and a grep, and those are small, apt-managed, and
+    # patched by the mechanism this script already installs. Full ruling:
+    # .backlog/docs/doc-032. tmux joined that same apt toolkit in Stage 5
+    # (King-directed follow-up) to replace zellij's session-survival role —
+    # plain install, no auto-attach hook; an operator opts in manually.
 
-if [ -d "/home/linuxbrew/.linuxbrew/sbin" ]; then
-    export PATH="/home/linuxbrew/.linuxbrew/sbin:$PATH"
-fi
-
-# Load Homebrew environment (bash only — brew shellenv uses bash-specific syntax)
-if [ -n "$BASH_VERSION" ] && [ -x "/home/linuxbrew/.linuxbrew/bin/brew" ]; then
-    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-fi
-
-# Enable bash completion for Homebrew packages (bash only)
-if [ -n "$BASH_VERSION" ] && [ -d /home/linuxbrew/.linuxbrew/etc/bash_completion.d ]; then
-    for bcfile in /home/linuxbrew/.linuxbrew/etc/bash_completion.d/*; do
-        [ -r "$bcfile" ] && . "$bcfile"
-    done
-fi
-EOF
-    chmod +x /etc/profile.d/linuxbrew.sh
-    
-    # Mark linuxbrew as safe for git
-    git config --system --add safe.directory /home/linuxbrew/.linuxbrew/Homebrew 2>/dev/null || true
-    
-    log "Installing developer tools via Homebrew..."
-    sudo -u devops bash -c 'cd /tmp && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" && brew install helix bottom zellij' || {
-        log "Optional developer tools (helix/bottom/zellij) not available for this architecture — skipping"
-    }
-    
-    log "Configuring zellij auto-attach..."
-    cat > /etc/profile.d/zellij.sh <<'EOF'
-# Automatically reattach to an existing Zellij session or create a new one.
-if command -v zellij &> /dev/null && [ -z "$ZELLIJ_SESSION_NAME" ] && [ -n "$PS1" ]; then
-    if zellij list-sessions 2>/dev/null | grep -q "active"; then
-        exec zellij attach
-    else
-        exec zellij
-    fi
-fi
-EOF
-    chmod +x /etc/profile.d/zellij.sh
-    
     # Verification
     echo ""
     log "Verifying Stage 6..."
@@ -1045,12 +1001,7 @@ EOF
     if getent group docker >/dev/null; then
         verify "devops is in docker group" "id -nG devops | tr ' ' '\n' | grep -qx docker"
     fi
-    verify "Homebrew installed" "test -x /home/linuxbrew/.linuxbrew/bin/brew"
-    verify "helix installed" "test -x /home/linuxbrew/.linuxbrew/bin/hx"
-    verify "bottom installed" "test -x /home/linuxbrew/.linuxbrew/bin/btm"
-    verify "zellij installed" "test -x /home/linuxbrew/.linuxbrew/bin/zellij"
-    verify "zellij auto-attach configured" "test -f /etc/profile.d/zellij.sh"
-    
+
     if [[ -n "$GITHUB_USERS" || -n "$GITHUB_DEPLOY_KEYS" ]]; then
         verify "SSH authorized_keys populated" "test -s /home/devops/.ssh/authorized_keys"
     fi
@@ -1228,7 +1179,7 @@ main() {
                 echo "  3  Automatic Updates"
                 echo "  4  Security Tools (CrowdSec + UFW, optional)"
                 echo "  5  Core Tools (docker, neovim, htop, ...)"
-                echo "  6  User Setup (devops user + Homebrew developer tools)"
+                echo "  6  User Setup (devops user, SSH keys)"
                 echo "  7  StatBus Service Account (statbus user)"
                 echo ""
                 exit 0
@@ -1276,7 +1227,6 @@ main() {
     echo "  - UFW firewall enabled"
     echo "  - Docker installed"
     echo "  - devops user created (ops/admin)"
-    echo "  - Homebrew + developer tools installed"
     echo "  - ${SERVICE_USER:-statbus} service account created (for StatBus install)"
     echo ""
     echo "Recommended next steps:"
