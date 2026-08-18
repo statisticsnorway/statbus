@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-18 12:09'
+updated_date: '2026-08-18 15:32'
 labels:
   - upgrade-recovery
   - quality-gate
@@ -41,3 +42,31 @@ WHY THAT HELPS: the guard then matches the claim it is making. A pin that watche
 - [ ] #3 The invariant is stated once, at flag level, rather than once per field
 - [ ] #4 In-memory-only flag literals stay legal and are asserted as such, as the current pin already does for the flagless rollback site
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: engineer
+created: 2026-08-18 15:32
+---
+**BUILT, FROZEN for review (no commit).** Pure test unit: `cli/internal/upgrade/backup_path_carriers_test.go` only. All four ACs met; AC#2's proof is the interesting one.
+
+**AC#3 first, because it drove the shape.** The invariant is now stated ONCE, at flag level, as the test's own headline:
+
+> NO PERSISTED FLAG MAY PAIR A PRE-SWAP PHASE WITH A SNAPSHOT IDENTITY.
+
+The old pin was named for a field (`...BackupPathWriter...`) and so could only ever watch that field. The replacement is named and reasoned for the FLAG: `TestFlagInvariant_EveryPhaseAndBackupPathWriterIsAccountedFor_STATBUS232`, with both routes into the illegal pair spelled out in its header — 197 wrote the snapshot onto a pre-swap flag; 210 wrote the phase onto a flag that already legitimately had one, touching BackupPath not at all.
+
+**AC#1 — both doors.** The accounted-for allowlist now carries all EIGHT writers, grouped by door, each with the reason it cannot form the pair. The Phase half (the missing one) is: `normalizePhaseBytes` at the decode chokepoint (re-labels a legacy wire spelling, never changes which state is meant); `writeUpgradeFlag`'s initial pre-swap flag (no snapshot exists yet); `updateFlagNewSbSwapped`'s swap stamp (post-swap by definition — the write that LEGITIMISES carrying the identity); `parkAtTarget`'s persisted post-swap flag; and `resumeNewSb`'s reacquire.
+
+**AC#2 — verified RED against the actual STATBUS-210 change, and I measured the contrast rather than asserting it.** Re-introducing `f.Phase = PhaseOldSbUpgrading` in `parkServiceRecovery`:
+- the extended pin FAILS: "1 unaccounted writer(s) of flag.Phase or flag.BackupPath";
+- and I simulated the OLD pin's scan over the same tree: it sees 4 BackupPath writers, and **210's re-introduced write is not among them**. The previous guard would have watched that change go by, which is exactly this ticket's claim — now demonstrated, not argued.
+
+**AC#4 — in-memory literals stay legal and are still asserted as such.** The per-literal pairing check is unchanged: `completeInProgressUpgrade`'s flagless rollback record (pre-swap phase WITH a snapshot) remains legal ONLY because it is handed straight to `recoveryRollback` and never persisted, and the pin still asserts that reason. `parkAtTarget` (post-swap phase, persisted, with a snapshot) stays legal on the other ground. Both are checked by reading each literal's Phase field — the check has to read the phase rather than the shape, which is the correction I had to make to my own pin during 229.
+
+**Nothing is wrong in the tree today** — 229 removed the only phase-blanking writer, and this pin exists for the NEXT one.
+
+**Verification:** `go test ./...` in cli/ — 12 packages ok, 0 failures. `gofmt -l` clean. `golangci-lint` 2.12.2 — 0 issues. Also grepped for stale references to the superseded test name: none.
+---
+<!-- COMMENTS:END -->
