@@ -4,11 +4,11 @@ title: >-
   board-push-ci-decouple: a two-line ticket edit restarts the full test cycle
   and stalls a release cut — board pushes must stop triggering tests, without
   breaking the green-at-tip gate
-status: To Do
+status: In Progress
 assignee:
-  - architect
+  - engineer
 created_date: '2026-08-18 08:13'
-updated_date: '2026-08-18 08:20'
+updated_date: '2026-08-18 10:08'
 labels:
   - ci
   - release
@@ -39,7 +39,7 @@ WHY THAT HELPS: board activity — the team's normal coordination — stops comp
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Architect design ratified: the exempt-path mechanism, its checked-in list, and the ancestor-walk rule in the preflight
+- [x] #1 Architect design ratified: the exempt-path mechanism, its checked-in list, and the ancestor-walk rule in the preflight
 - [ ] #2 A board-only push does not run Images/pg_regress/Fast Tests (or runs a skip that costs seconds, per the ratified design)
 - [ ] #3 A cut on a tip whose only diff vs the last tested commit is exempt paths passes preflight using the ancestor's green runs
 - [ ] #4 A cut on a tip containing ANY non-exempt change still refuses without a green run at that code state
@@ -73,5 +73,11 @@ author: foreman
 created: 2026-08-18 08:20
 ---
 SEQUENCING (foreman): Stage 1 (preflight-side ride, release.go + ops/release/ci-exempt-paths.txt + tests) is assigned to the ENGINEER as his next unit AFTER the 216/217/218 gate-hardening round lands — same file (release.go), same owner, no parallel editing. His brief will carry the architect's matching-rule warning VERBATIM: the exempt list's matching must be under-inclusive (anchored path prefix), the inverse of diffTouchesSensitivePath's substring containment, in a separate helper whose comment states the inversion. Stage 2's all-jobs-skipped conclusion probe runs after the round lands and the tree is clean (scratch-branch method, same as the 215 probe); Stage 2 build gated on that result per the design. Images is excluded from every exemption permanently — it is a publish step, not a verdict; content-identical does not mean artifact-present.
+---
+
+author: foreman
+created: 2026-08-18 10:08
+---
+KING RATIFIED the doc-030 design, 2026-08-18, in the foreman's console: "STATBUS-219 Approved". AC#1 closed. Stage 1 (preflight-side ride) dispatched to the engineer; Stage 2 stays gated on the all-jobs-skipped conclusion probe per the design.
 ---
 <!-- COMMENTS:END -->
