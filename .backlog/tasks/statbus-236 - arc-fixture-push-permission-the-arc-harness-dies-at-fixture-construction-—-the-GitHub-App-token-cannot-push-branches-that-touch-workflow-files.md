@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-18 15:48'
-updated_date: '2026-08-18 17:44'
+updated_date: '2026-08-18 20:11'
 labels:
   - ci
   - install-recovery
@@ -267,5 +267,11 @@ author: foreman
 created: 2026-08-18 17:44
 ---
 FILTER ANSWER (foreman, verified at source — taking the engineer's owed item off his stuck session): checkMigrationImmutability filters non-migration housekeeping exactly as the stamp logic does. release.go:888-891 — only files ending .up.sql/.down.sql/.up.psql/.down.psql carry the immutability constraint; everything else under migrations/ is skipped with the comment "directory placeholders (.gitkeep) and other housekeeping files ... aren't deployed migrations". post_restore.sql matches none of the four suffixes → skipped. CONSEQUENCE for the next cut (per 239 ruling 2): the previous-stable comparison v2026.05.5..HEAD will surface exactly ONE file for adjudication — migrations/20260218215337_add_legal_relationship_import.up.sql — not two; the gate itself already handles the other. The engineer's queue is now empty.
+---
+
+author: foreman
+created: 2026-08-18 20:11
+---
+THE RE-RUN IS LIVE: v2026.08.0-rc.05 cut at b4fd437fe (King's act, 2026-08-18 ~19:55 UTC), orchestrator run 32180844587 in progress — the first chain whose arc fleet executes the FIXED fixture construction (Shape A, 65fa3fd09) from its own tag's tree (tag == recent master, divergence near zero AND the fix handles the general case). AC#3 closes when this run's arc fleet constructs fixtures and executes scenarios. Riding the same run: 228 AC#3 (rollback scenarios), 229 AC#3 (un-park scenario), and the full observation sweep (214/215/227/200/201/208/209/210/211) on FULL GREEN; promotion then closes 199/205/213 per protocol. Standing calibrations remain in force: a known cause is not a pass; a runtime-stability health-check failure on the un-park scenario is the OLD chronic issue as its own new ticket, never a reopen of 229; no coin-toss re-runs.
 ---
 <!-- COMMENTS:END -->
