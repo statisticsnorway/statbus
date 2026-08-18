@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-18 09:54'
+updated_date: '2026-08-18 10:13'
 labels:
   - ci
   - release
@@ -24,17 +25,19 @@ ordinal: 223000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-WHAT THIS PART DOES: STATBUS-199 D2 ratified a cost shortcut. When an RC's diff against the previous RC touches nothing in ops/release/upgrade-sensitive-paths.txt, re-proving the upgrade is waste, so the arc suite short-circuits: the `decide` job computes sensitivity, `discover` returns an empty matrix, and 31 VM boot-and-test cycles are not spent. The stable release gate re-derives that same decision independently and never trusts the workflow's verdict, so the shortcut is a pure economy measure that can never affect what gets promoted.
+Releasing a new version should not cost hours of testing nobody needs. Right now every release candidate runs the full three-hour, 31-machine upgrade test fleet — even one that changed nothing but a web page — because a recent change accidentally switched off the shortcut that used to skip it.
 
-WHAT GOES WRONG: STATBUS-214 moved the `v*-rc.*` tag onto the orchestrator, which now dispatches each fleet with `gh workflow run`. That arrives as a `workflow_dispatch` event, and `decide` is gated on `github.event_name == 'push'` — so it never runs again at an RC tag. Every RC, however trivial its diff, now pays the full 31-VM suite and the hours of wall-clock that go with it. Nobody wrote that change; it fell out of the trigger move.
+WHY THE SHORTCUT EXISTS: upgrade tests prove that an existing installation can move to the new version without losing data. If a release changes nothing that an upgrade touches, running them again proves nothing new, so STATBUS-199 D2 ratified skipping them and inheriting the previous release's proof. The decision is checked twice, independently: the workflow decides whether to spend the machines, and the release gate re-derives the same judgement itself before allowing a promotion, so the shortcut can never affect what actually ships.
 
-THE DETAIL: with `decide` skipped, `needs.decide.outputs.sensitive` is empty, so every RIDE clause that reads it evaluates false and the full path runs. Three pieces of just-landed machinery become unreachable at RC tags as a result: `discover`'s RIDE early-exit, `no-arcs-guard`'s RIDE exemption, and STATBUS-218's `construct` RIDE clause — 218's entire saving, landed hours earlier, along with its open observation criterion, which can now never be met. The `decide` job itself is dead code: its only trigger was the tag push that no longer reaches this workflow.
+WHAT GOES WRONG: STATBUS-214 moved the release tag onto the new orchestrator, which now starts each fleet by dispatching it. That arrives as a different event type than a tag push, and the job that computes "is this release upgrade-sensitive" only runs on a tag push — so it never runs again. Nobody decided this; it fell out of the trigger move.
 
-THE FIX: the decision moves up to the layer that now owns release-scope economy. The orchestrator computes sensitivity against the previous RC tag — the same derivation `decide` performs today, moved rather than rewritten — and simply does not dispatch the arc fleet when the RC is not upgrade-sensitive. Then delete the fleet's dead copy: `decide`, `discover`'s RIDE early-exit and its RIDE env, `no-arcs-guard`'s RIDE exemption (which becomes an unconditional zero-arc guard), and 218's `construct` clause. Dead paths get removed, not kept as defensive cover.
+THE DETAIL: with `decide` skipped, `needs.decide.outputs.sensitive` is empty, so every clause reading it evaluates false and the full path runs. Three pieces of just-landed machinery become unreachable as a result: `discover`'s early-exit, `no-arcs-guard`'s exemption, and STATBUS-218's `construct` clause — 218's entire saving, landed hours earlier, along with its open observation criterion, which can now never be met. The `decide` job itself is dead code: its only trigger was the tag push that no longer reaches this workflow.
 
-Two boundaries the builder must not guess at. **Scope: only the arc fleet is skipped.** upgrade-sensitive-paths.txt is about upgrades; test-install and install-recovery prove installation and recovery, which a frontend-only change can still break. They are always dispatched. **Authority is unchanged:** the gate keeps re-deriving sensitivity itself (checkUpgradeArcHarnessGate's walk), so the orchestrator's decision stays a cost optimizer and never a correctness source. A skipped dispatch leaves no run at the RC commit, which the gate already handles — `WorkflowCheckMissing` falls through to the same path-sensitivity walk that an incomplete green does, and rides a prior full-suite green loudly or refuses.
+THE FIX: the decision moves up to the orchestrator, which is now the thing that knows what a release costs. It works out whether the release is upgrade-sensitive and simply does not start the upgrade fleet when it is not. The fleet's own copy of that logic then gets deleted rather than left lying around: `decide`, `discover`'s early-exit and its RIDE env, `no-arcs-guard`'s exemption (which becomes an unconditional zero-arc guard), and 218's `construct` clause.
 
-WHY THAT HELPS: a minimal RC stops costing a full fleet and hours of release latency, which is what 199 D2 was ratified to prevent; STATBUS-218's saving becomes reachable again in its stronger form, since not dispatching a fleet beats dispatching one that skips its own jobs — no runner, no fixture branches, no image builds, no queue slot; and the decision ends up in the one place that knows what a release cut costs, instead of inside a tool that can no longer see how it was invoked.
+Two boundaries the builder must not guess at. **Only the upgrade fleet is skipped.** The sensitivity list is about upgrades; the install and recovery fleets prove things a web-page change can still break, so they always run. **Authority is unchanged:** the release gate keeps working out sensitivity for itself, so the orchestrator's decision only ever saves money and can never let something ship unproven. A skipped fleet leaves no run at that commit, which the gate already handles — it treats "no run" exactly as it treats an incomplete one, and either inherits an older proof loudly or refuses.
+
+WHY THAT HELPS: a trivial release stops costing a full fleet and hours of waiting, which is what the shortcut was ratified to prevent. STATBUS-218's saving comes back in a stronger form, because not starting a fleet beats starting one that skips its own work — no machines, no throwaway branches, no image builds, no queue slot. And the decision ends up in the one place that can see the whole release, instead of inside a tool that can no longer tell how it was invoked.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
@@ -46,3 +49,13 @@ WHY THAT HELPS: a minimal RC stops costing a full fleet and hours of release lat
 - [ ] #5 The stable gate is untouched and still re-derives sensitivity itself; a skipped dispatch leaves no run at the RC commit and the gate's existing Missing→walk path handles it
 - [ ] #6 STATBUS-218 is re-scoped or closed as subsumed, with its observation criterion resolved rather than left permanently unmeetable
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect
+created: 2026-08-18 10:13
+---
+Description rewritten to the Purpose Sandwich — the point now lands in the first two sentences in words that need no code knowledge ("releasing a new version should not cost hours of testing nobody needs"), the mechanism and file-level detail are unchanged below it, and the close states what is regained. No change to scope, acceptance criteria, or the ruling: only the opening's altitude. Filed before the King's calibration on STATBUS-220; corrected because this is the one of my recent tickets carrying a real decision he may need to weigh.
+---
+<!-- COMMENTS:END -->
