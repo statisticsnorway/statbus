@@ -40,7 +40,7 @@ name: Upgrade Arc Harness
 # every RC cut without depending on someone remembering to dispatch it by
 # hand — workflow_dispatch stays the iteration tool (single-arc re-runs,
 # ad-hoc base_sha); its subset runs can never satisfy the gate (see the
-# `decide` job below and the gate's own job-list completeness check).
+# gate's own job-list completeness check, cli/cmd/release.go).
 #
 # STATBUS-214: the v*-rc.* tag-push trigger that used to sit directly on
 # this workflow moved OFF it onto
@@ -53,16 +53,30 @@ name: Upgrade Arc Harness
 # running + one pending run, so the third of three tag-fired fleets was
 # getting silently cancelled).
 #
-# KNOWN CONSEQUENCE, flagged not fixed by 214 (see the `decide` job comment
-# below): the `decide` job's RIDE path-sensitivity optimizer (STATBUS-199
-# D2) keys on `github.event_name == 'push'`. An orchestrator dispatch is a
-# `workflow_dispatch` event, so decide now SKIPS for the orchestrator's
-# canonical tag-driven run exactly as it already did for a human's ad-hoc
-# dispatch — RIDE never fires post-214, every orchestrator-driven run pays
-# the full construct+image-wait+run-arc cost. Safe (never silently skips
-# proof, only loses a cost optimization), not addressed here — flagged on
-# STATBUS-214 for a deliberate follow-up decision rather than folded in
-# silently.
+# STATBUS-223 (RIDE RELOCATED, not just fixed): 214 broke the D2 RIDE
+# path-sensitivity optimizer that used to live in THIS file — its `decide`
+# job only ran `if: github.event_name == 'push'`, and the orchestrator's
+# dispatch arrives as workflow_dispatch, so decide silently stopped firing
+# the moment 214 moved the tag trigger up a layer. Rather than re-plumbing
+# an event-type workaround here, the decision moved to where the tag push
+# actually lands now: release-fleet-orchestrator.yaml derives upgrade-
+# sensitivity itself (same diff-against-previous-RC-tag-vs-
+# ops/release/upgrade-sensitive-paths.txt walk this file's `decide` job
+# used to run) and simply does not DISPATCH this workflow at all when the
+# RC isn't upgrade-sensitive — cheaper than what 218 built (not starting a
+# fleet beats starting one that skips its own work: no VMs, no throwaway
+# branches, no image builds, no queue slot). This workflow therefore has
+# NO RIDE machinery of its own any more: no `decide` job, no early-exit in
+# `discover`, no RIDE exemption in `no-arcs-guard`, no RIDE clause on
+# `construct`. If this workflow runs at all — orchestrator-dispatched or a
+# human's manual workflow_dispatch — it always runs its full/selected
+# scenario set; whatever decided THAT already happened one layer up (or
+# was never in question, for a human's deliberate dispatch). The stable
+# release gate (cli/cmd/release.go) is untouched by any of this — it
+# re-derives sensitivity independently and never trusted this workflow's
+# shortcut in the first place; a skipped dispatch just leaves no run at
+# that commit, which the gate's existing Missing→path-sensitivity-walk
+# already handles.
 on:
   workflow_dispatch:
     inputs:
@@ -98,25 +112,15 @@ permissions:
 jobs:
   construct:
     name: Construct branch fixtures + dispatch image builds
-    needs: [decide]
-    # STATBUS-218 (ride-not-free): a RIDE run (tag push, decide found no
-    # upgrade-sensitive changes since the previous RC) skips the fixture
-    # builds and image dispatch entirely — the 20-30 minute cold spend a
-    # riding run has no use for. Explicit if: (never bare) is REQUIRED:
-    # construct now needs decide, and decide is SKIPPED (not failed) on
-    # workflow_dispatch (decide's own `if: github.event_name == 'push'`);
-    # a bare if here would implicitly AND success() over needs and
-    # silently skip construct on every dispatch — STATBUS-215's exact
-    # trap. !cancelled() suppresses that implicit wrap. The RIDE clause
-    # itself is dispatch-safe without any extra guard: on dispatch
-    # github.event_name != 'push', so the clause is false and construct
-    # runs; on a push where decide legitimately failed (not skipped),
-    # needs.decide.outputs.sensitive is unset (never 'false'), so the
-    # clause is false there too and construct runs full — RIDE is a cost
-    # optimizer only, never a reason to silently skip proving the release.
-    if: >-
-      ${{ !cancelled() &&
-          !(github.event_name == 'push' && needs.decide.outputs.sensitive == 'false') }}
+    # STATBUS-223: no needs, no if: — this workflow's own RIDE machinery
+    # (the `decide` job that used to sit upstream of this one, and the
+    # explicit skip clause STATBUS-218 put here) is DELETED. The skip
+    # decision now happens one layer up, in release-fleet-orchestrator.yaml,
+    # which simply never DISPATCHES this workflow when the RC isn't
+    # upgrade-sensitive. If construct runs at all, it always runs in full —
+    # whether that's an orchestrator dispatch (already sensitivity-gated)
+    # or a human's manual workflow_dispatch (never gated on sensitivity by
+    # design, see the top-of-file comment).
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     outputs:
@@ -369,12 +373,15 @@ jobs:
   image-wait:
     name: Wait for per-commit images (A + B + C)
     needs: construct
-    # STATBUS-218: construct is skippable now (RIDE). A bare if: here
-    # already cascades the skip via the implicit success()-wrap (this job
-    # uses no status-check function, so GitHub still auto-ANDs success()
-    # over needs) — made explicit anyway per the STATBUS-215 audit
-    # discipline, so a future edit that adds !cancelled()/always() here
-    # (e.g. for a retry) can't silently reopen the poisoning class.
+    # STATBUS-223: construct is UNCONDITIONAL again (the RIDE machinery
+    # moved to the orchestrator, which simply does not dispatch this
+    # workflow for a non-sensitive RC) — so nothing upstream of this job
+    # can be skipped TODAY. The explicit if stays as defence against a
+    # FUTURE upstream conditional: a bare if would silently reopen the
+    # STATBUS-215 implicit-success() poisoning the moment anyone makes
+    # construct skippable again, and a future edit adding
+    # !cancelled()/always() here (e.g. for a retry) must not drop the
+    # construct-result check.
     if: >-
       ${{ !cancelled() && needs.construct.result == 'success' }}
     runs-on: ubuntu-24.04
@@ -435,70 +442,19 @@ jobs:
             sleep "$IMAGES_WAIT_INTERVAL_S"
           done
 
-  decide:
-    name: Decide FULL SUITE vs RIDE (path-sensitivity, tag-push only)
-    # STATBUS-199 D2 cost optimizer. NOT a correctness source — the stable
-    # release gate (checkUpgradeArcHarnessGate) computes its own diff
-    # independently and never trusts this job's verdict; a wrong answer
-    # here only costs an avoidable/skipped run, never a bad promotion.
-    # workflow_dispatch runs skip this entirely — the subset selector is
-    # the iteration tool, path-sensitivity doesn't apply to it.
-    #
-    # STATBUS-214: since the v*-rc.* tag trigger moved to
-    # release-fleet-orchestrator.yaml, the orchestrator's own dispatch of
-    # this workflow arrives as a workflow_dispatch event too — this job
-    # SKIPS for it exactly as it always did for a human's ad-hoc dispatch,
-    # so RIDE no longer fires on the canonical tag-driven run either
-    # (flagged, not fixed, on the top-of-file comment and on STATBUS-214 —
-    # safe default, just a lost cost optimization).
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    if: github.event_name == 'push'
-    outputs:
-      sensitive: ${{ steps.check.outputs.sensitive }}
-    steps:
-      - name: Checkout (full history + tags — need the previous RC tag)
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Diff against the previous RC tag vs the sensitivity list
-        id: check
-        # PREV_TAG derivation mirrors release.yaml's existing
-        # migration-detection step (git tag --sort=-version:refname |
-        # sed -n '2p' — line 1 is the tag that triggered this run), narrowed
-        # to RC tags. Matching is substring containment, same rule
-        # ops/release/upgrade-sensitive-paths.txt documents for the Go-side
-        # gate (deliberately over-inclusive).
-        run: |
-          set -euo pipefail
-          PREV_RC="$(git tag --sort=-version:refname | grep -- '-rc\.' | sed -n '2p')"
-          if [ -z "$PREV_RC" ]; then
-            echo "No previous RC tag found (first-ever RC, or not yet visible via this checkout) — treating as sensitive."
-            echo "sensitive=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          echo "Previous RC tag: $PREV_RC"
-          echo "Sensitive paths (ops/release/upgrade-sensitive-paths.txt):"
-          grep -v '^#' ops/release/upgrade-sensitive-paths.txt | grep -v '^[[:space:]]*$' | sed 's/^/  /'
-          CHANGED="$(git diff --name-only "$PREV_RC"..HEAD)"
-          echo "Changed files since $PREV_RC:"
-          printf '%s\n' "$CHANGED" | sed 's/^/  /'
-          PATTERNS="$(grep -v '^#' ops/release/upgrade-sensitive-paths.txt | grep -v '^[[:space:]]*$')"
-          if printf '%s\n' "$CHANGED" | grep -F -f <(printf '%s\n' "$PATTERNS") -q; then
-            echo "Sensitive change detected since $PREV_RC — full suite required."
-            echo "sensitive=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "No upgrade-sensitive changes since $PREV_RC — this run may RIDE it. The stable release gate independently re-verifies this before ever promoting."
-            echo "sensitive=false" >> "$GITHUB_OUTPUT"
-          fi
+  # STATBUS-223: the `decide` job (path-sensitivity RIDE, STATBUS-199 D2)
+  # that used to live here is DELETED — it was dead code after STATBUS-214
+  # anyway (its `if: github.event_name == 'push'` could never fire once
+  # the tag trigger moved off this workflow). The decision it made is now
+  # made by release-fleet-orchestrator.yaml BEFORE this workflow is even
+  # dispatched; see this file's top-of-file comment for the full story.
 
   discover:
     name: Discover arc scenarios
-    needs: [decide]
-    # decide is skipped (not failed) on workflow_dispatch — always() so
-    # discover still runs for the iteration-tool path.
-    if: always()
+    # STATBUS-223: no needs, no if: — `decide` (this job's only former
+    # need) is deleted, and with it goes the one thing that could ever
+    # have made this job's upstream skip. Bare is honest now: discover
+    # always runs whenever this workflow does.
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
@@ -521,22 +477,16 @@ jobs:
         # selector narrows it (single-arc re-runs). An unknown selector fails
         # LOUD rather than silently producing an empty matrix.
         #
-        # RIDE (STATBUS-199 D2): a tag-push run whose decide job found no
-        # upgrade-sensitive changes short-circuits to an empty matrix —
-        # zero VMs, workflow conclusion success. This is the cost
-        # optimizer only; the release gate re-derives the RIDE decision
-        # itself and never trusts this shortcut.
+        # STATBUS-223: the RIDE early-exit that used to sit here (a tag-push
+        # run whose now-deleted `decide` job found no upgrade-sensitive
+        # changes short-circuited to an empty matrix) is gone — that
+        # decision is made by release-fleet-orchestrator.yaml BEFORE this
+        # workflow is ever dispatched, so if discover runs at all it always
+        # enumerates a real (full or selected) scenario set.
         env:
           SCENARIOS_INPUT: ${{ github.event.inputs.scenarios }}
-          RIDE: ${{ github.event_name == 'push' && needs.decide.outputs.sensitive == 'false' }}
         run: |
           set -euo pipefail
-          if [ "$RIDE" = "true" ]; then
-            echo "matrix=[]" >> "$GITHUB_OUTPUT"
-            echo "count=0" >> "$GITHUB_OUTPUT"
-            echo "Path-sensitivity RIDE (STATBUS-199 D2): no upgrade-sensitive changes since the previous RC — skipping the arc matrix (0 VMs). The stable release gate independently verifies this before promoting."
-            exit 0
-          fi
           # STATBUS-216: a plain glob that matches nothing hands the loop the
           # literal '*' (renamed/typo'd arcs/ folder), which then fails as a
           # bogus scenario named '*' instead of the clean, named failure the
@@ -575,40 +525,50 @@ jobs:
 
   # STATBUS-215: a zero-selection run must fail LOUD, never conclude green
   # with no scenario jobs (the any-green softness the 199 jobs-completeness
-  # gate exists to refuse). The ONE legitimate count=0 case is the RIDE
-  # short-circuit (tag-push, decide found no upgrade-sensitive changes —
-  # ratified 199 D2 green-skip); the exemption expression is independently
-  # re-derived here, deliberately NOT read from a discover output — same
-  # reason the release gate re-derives the RIDE decision instead of trusting
-  # the workflow's short-circuit. On workflow_dispatch decide is skipped, so
-  # needs.decide.outputs.sensitive is empty and the exemption never applies.
+  # gate exists to refuse). STATBUS-223: this used to carry a RIDE
+  # exemption (a tag-push run whose decide job found no upgrade-sensitive
+  # changes legitimately produced count=0) — deleted along with `decide`,
+  # since that decision now happens one layer up and this workflow is
+  # simply never dispatched in that case. There is no longer any
+  # legitimate reason for a DISPATCHED run of this workflow to select zero
+  # arcs, so the guard below is now unconditional: any count=0 here is
+  # refused. (discover's own STATBUS-216 empty-arc-domain check already
+  # catches the "arcs/ folder is empty" case earlier and louder; this guard
+  # is the backstop for anything else that could still produce count=0.)
   no-arcs-guard:
-    name: Refuse zero-arc run (non-RIDE)
-    needs: [decide, discover]
+    name: Refuse zero-arc run
+    needs: [discover]
     if: >-
       ${{ !cancelled() &&
           needs.discover.result == 'success' &&
-          needs.discover.outputs.count == '0' &&
-          !(github.event_name == 'push' && needs.decide.outputs.sensitive == 'false') }}
+          needs.discover.outputs.count == '0' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - run: |
-          echo "::error title=Zero arcs selected::discover produced count=0 outside the RIDE short-circuit — this run would execute nothing and prove nothing (STATBUS-215). A dispatched arc run must select at least one arc."
+          echo "::error title=Zero arcs selected::discover produced count=0 — this run would execute nothing and prove nothing (STATBUS-215). A dispatched arc run must select at least one arc."
           exit 1
 
   run-arc:
     name: ${{ matrix.scenario }}
     needs: [construct, image-wait, discover]
-    # STATBUS-215: a bare `if:` implicitly ANDs success(), and the transitively
-    # skipped `decide` job (skipped by design on workflow_dispatch) made
-    # success() false — run-arc silently skipped on EVERY dispatch despite
-    # count=31 (probe scratch-215-probe run 32066777357: the bare-if arm
-    # skipped, the !cancelled() arm ran, outputs propagated fine). The
-    # explicit per-need result checks restore what the implicit success()
-    # legitimately guarded: a FAILED or skipped direct need must still skip
-    # run-arc (!cancelled() alone would run over a failed construct). Only
-    # the transitive decide skip is exempt — by not being checked.
+    # STATBUS-215: a bare `if:` implicitly ANDs success(), and a transitively
+    # skipped upstream job makes success() false — run-arc was once silently
+    # skipped on EVERY dispatch this way, via the `decide` job (skipped by
+    # design on workflow_dispatch) three hops upstream (probe
+    # scratch-215-probe run 32066777357: the bare-if arm skipped, the
+    # !cancelled() arm ran, outputs propagated fine). The explicit per-need
+    # result checks below restore what the implicit success() legitimately
+    # guarded: a FAILED direct need must still skip run-arc (!cancelled()
+    # alone would run over a failed construct).
+    #
+    # STATBUS-223 UPDATE: `decide` is now DELETED — construct/image-wait/
+    # discover have no needs of their own any more, so nothing upstream of
+    # THIS job can be skipped, and the specific 215 trap this comment
+    # describes can no longer recur in this file. The explicit form below
+    # is kept anyway: it still guards genuine FAILURE (not skip) of the
+    # three direct needs, and self-documents the rule rather than relying
+    # on an implicit AND a future edit could silently defeat again.
     if: >-
       ${{ !cancelled() &&
           needs.construct.result == 'success' &&
@@ -892,29 +852,45 @@ jobs:
           fetch-depth: 1
 
       - name: Delete the throwaway test/* branches (idempotent, best-effort)
-        # Recompute the branch names from the inputs + run_id so teardown deletes
-        # them even if construct partially failed (its outputs may be empty). The
-        # IMAGES are left to the weekly image-cleanup.yaml GC (Q2): they are
-        # commit_short-tagged, content-unique, never release-tagged → harmless
-        # short-lived orphans the digest-aware GC reclaims. ALWAYS exits 0 — a
-        # missing branch (already deleted / never pushed) must not red the run.
+        # STATBUS-220: this job's own name calls it the PRIMARY cleanup, but
+        # the previous inline loop only covered 2 of construct's ~7
+        # lineages (working+failing — 4 of the ~14 branches construct
+        # actually pushes: construct_upgrade_target pushes a B AND a C for
+        # EVERY spec, including the single-phase ones, since oom/ceiling/
+        # codeonly's C is unused for dispatch but still pushed for
+        # uniformity — test/install-recovery/lib/upgrade-target.sh:561).
+        # oom/ceiling/healthpark/codeonly/crollback's branches were quietly
+        # left to the weekly image-cleanup.yaml sweep, making the
+        # "backstop" the majority path.
+        #
+        # FIX, a SINGLE SOURCE OF TRUTH rather than a wider hardcoded list:
+        # delete_throwaway_branches() already exists in
+        # test/install-recovery/lib/upgrade-target.sh (STATBUS-165 AC#4)
+        # and recomputes BOTH branch names for any spec from the EXACT
+        # SAME pattern construct_upgrade_target uses to build them
+        # (`test/upgrade-arc-<spec>-migration-<run_id>` /
+        # `...-fixed-migration-<run_id>`) — the identical
+        # ls-remote-guard / best-effort-delete / always-return-0 shape
+        # this job used to duplicate inline. Sourcing that one function and
+        # calling it once per spec means an 8th lineage added to construct
+        # later cannot silently leave its branches behind here — the
+        # coupling is structural (same function, same file construct
+        # itself sources), not a comment promising two lists stay in sync.
+        # Recomputed from run_id (not construct's outputs) so teardown
+        # still works even if construct partially failed. IMAGES are left
+        # to the weekly image-cleanup.yaml GC (Q2): they are
+        # commit_short-tagged, content-unique, never release-tagged →
+        # harmless short-lived orphans the digest-aware GC reclaims.
+        # ALWAYS exits 0 — a missing branch (already deleted / never
+        # pushed / RIDE run that never dispatched construct at all) must
+        # not red the run.
         env:
           RUN_ID: ${{ github.run_id }}
         run: |
           set -uo pipefail
-          # §7 shared-fixture: 4 branches (working + failing) × (migration +
-          # fixed-migration), recomputed from run_id so teardown works even if
-          # construct partially failed (its outputs may be empty).
-          for lineage in working failing; do
-            for suffix in migration fixed-migration; do
-              br="test/upgrade-arc-${lineage}-${suffix}-${RUN_ID}"
-              if git ls-remote --exit-code --heads origin "$br" >/dev/null 2>&1; then
-                echo "Deleting $br"
-                git push origin --delete "$br" || echo "  (delete failed — best-effort; weekly sweep is the backstop)"
-              else
-                echo "$br not present (already gone / never pushed) — nothing to delete."
-              fi
-            done
+          . test/install-recovery/lib/upgrade-target.sh
+          for spec in working failing oom ceiling healthpark codeonly crollback; do
+            delete_throwaway_branches "$spec" "$RUN_ID"
           done
           exit 0
 
