@@ -72,25 +72,18 @@ func TestReleaseGateLayer_TagFiredWorkflows(t *testing.T) {
 				"an unverified release oracle. See STATBUS-205.", wf.workflow)
 		}
 
-		// Side 2: the trigger fact the layering rests on. If someone later
-		// adds a commit-scope trigger (push: branches) to these workflows,
-		// the deadlock argument dissolves and the layer choice must be
-		// re-decided — fail here to force that.
-		wfData, err := os.ReadFile(thisRepoFile(t, wf.yaml))
-		if err != nil {
-			t.Fatalf("cannot read %s: %v", wf.yaml, err)
-		}
-		wfText := string(wfData)
-		if !strings.Contains(wfText, "v*-rc.*") {
-			t.Errorf("%s no longer declares the v*-rc.* tag-push trigger — the STATBUS-205 "+
-				"stable-layer gating of %s rests on that trigger fact; re-decide the gate "+
-				"layer together with this trigger change.", wf.yaml, wf.workflow)
-		}
-		if strings.Contains(wfText, "branches:") {
-			t.Errorf("%s now has a branch-push trigger — it is no longer purely tag-fired, "+
-				"so the STATBUS-205 deadlock argument for gating it at stable (not prerelease "+
-				"preflight) no longer holds. Re-decide the gate layer deliberately.", wf.yaml)
-		}
+		// Side 2 MOVED (STATBUS-224): the trigger fact the layering rests on is
+		// now asserted by PARSING the workflow YAML —
+		// TestTagFiredWorkflows_TriggersParsedNotGrepped_STATBUS224 in
+		// workflow_triggers_test.go, over this same tagFiredWorkflows table.
+		//
+		// It used to live here as `strings.Contains(wfText, "v*-rc.*")` and
+		// `strings.Contains(wfText, "branches:")`, which a COMMENT could satisfy:
+		// after test-install.yaml's tag trigger was removed, the explanatory
+		// comment left behind still contained the literal pattern, and the pin
+		// kept passing on a workflow that had lost the trigger. A test that
+		// passes for the wrong reason is worse than no test — it reports a
+		// guarantee nobody is checking. Comments do not survive parsing.
 	}
 }
 

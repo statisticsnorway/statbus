@@ -159,24 +159,45 @@ func TestPreSwapFlagCarriesNoBackupPath_STATBUS228(t *testing.T) {
 	}
 }
 
-// TestEveryBackupPathWriterIsAccountedFor_STATBUS229 is the RULED EXTENSION of
-// the pin above (STATBUS-229): its scope was executeUpgrade, but its CLAIM is
-// about every flag that reaches recovery. That gap was not theoretical — 210's
-// park rewrite produced a PreSwap-phase flag carrying a BackupPath from a
-// different function entirely, and the executeUpgrade-scoped pin could not see
-// it. A pin whose scope is narrower than its claim proves less than it appears
-// to.
+// THE FLAG INVARIANT, STATED ONCE, AT FLAG LEVEL (STATBUS-232):
 //
-// This enumerates EVERY writer of flag.BackupPath in the package's production
-// sources and requires each to be a known one. A new writer fails here until
-// someone states why it is safe — which is the property "no third producer
-// exists" needs in order to keep being true.
-func TestEveryBackupPathWriterIsAccountedFor_STATBUS229(t *testing.T) {
-	// Known writers, each with the reason it may carry the identity.
+//	NO PERSISTED FLAG MAY PAIR A PRE-SWAP PHASE WITH A SNAPSHOT IDENTITY.
+//
+// A flag saying "nothing has changed yet" while naming a database snapshot is
+// read by recovery as permission to restore a volume that was never touched.
+// That has now happened TWICE, from two different functions, by two different
+// routes into the same illegal pair:
+//
+//   - STATBUS-197 wrote the BACKUP PATH onto a flag whose phase was pre-swap.
+//   - STATBUS-210 wrote the PHASE onto a flag that already, legitimately, named
+//     a snapshot — touching BackupPath not at all.
+//
+// The first guard enumerated BackupPath writers only, so it would not have
+// caught 210 — a pin watching one door of two reports a safety it cannot see.
+// This one covers BOTH doors: every write of EITHER field must be accounted for
+// with the reason it is allowed. The invariant is expressed once here rather
+// than once per field, because it is a property of the FLAG, not of a column.
+//
+// Nothing is wrong today (229 removed the only phase-blanking writer). The
+// exposure this guards is the NEXT writer, in a codebase where this exact
+// invariant has already been broken twice by people who had not read the
+// comment explaining it.
+func TestFlagInvariant_EveryPhaseAndBackupPathWriterIsAccountedFor_STATBUS232(t *testing.T) {
+	// Every write of EITHER field, each with the reason it is legal. A new
+	// writer fails here until someone states its reason — which is the only
+	// form in which "no further producer exists" stays true over time.
 	known := map[string]string{
-		"flag.BackupPath = backupPath":     "updateFlagNewSbSwapped — THE swap stamp; it sets Phase=PhaseNewSbSwapped in the same write, which is what makes 'a PreSwap flag carries no BackupPath' structural",
+		// ── BackupPath writers (the STATBUS-197 door) ──
+		"flag.BackupPath = backupPath":     "updateFlagNewSbSwapped — THE swap stamp; it sets Phase=PhaseNewSbSwapped in the SAME write, which is what makes 'a pre-swap flag carries no snapshot' structural rather than conventional",
 		"BackupPath:     flag.BackupPath":  "resumeNewSb's reacquire — carries the identity forward across NewSbSwapped→NewSbUpgrading; both are post-swap phases",
-		"BackupPath: rowBackupPath.String": "completeInProgressUpgrade's FLAGLESS recovery — an IN-MEMORY record passed straight to recoveryRollback, never persisted for recoverFromFlag to classify (see the assertion below)",
+		"BackupPath: rowBackupPath.String": "completeInProgressUpgrade — TWO literals share this text; each is checked for the pairing below (one is in-memory-only with a pre-swap phase, one is persisted with a post-swap phase)",
+
+		// ── Phase writers (the STATBUS-210 door, the half that was missing) ──
+		"f.Phase = normalizePhaseBytes(f.Phase)": "UnmarshalJSON's decode chokepoint — re-labels a legacy wire spelling to its canonical slug; it never changes WHICH state is meant, so it cannot create the illegal pair",
+		"Phase:      PhaseOldSbUpgrading":        "writeUpgradeFlag's initial flag (no snapshot exists yet — nothing has been backed up) and completeInProgressUpgrade's in-memory rollback record; both checked for the pairing below",
+		"flag.Phase = PhaseNewSbSwapped":         "updateFlagNewSbSwapped — the swap stamp again, POST-swap by definition; this is the write that legitimises carrying the identity",
+		"Phase:      PhaseNewSbSwapped":          "parkAtTarget's persisted flag — a post-swap phase, the at-target truth; carrying the identity there is the legal shape",
+		"Phase:          PhaseNewSbUpgrading":    "resumeNewSb's reacquire — post-swap, resume-began",
 	}
 
 	var offenders []string
@@ -186,11 +207,14 @@ func TestEveryBackupPathWriterIsAccountedFor_STATBUS229(t *testing.T) {
 		}
 		for i, line := range strings.Split(string(srcBytes), "\n") {
 			trimmed := strings.TrimSpace(line)
-			if strings.HasPrefix(trimmed, "//") || !strings.Contains(trimmed, "BackupPath") {
+			if strings.HasPrefix(trimmed, "//") {
 				continue
 			}
-			// Only assignments/initialisations, not reads or comparisons.
-			if !strings.Contains(trimmed, "BackupPath =") && !strings.Contains(trimmed, "BackupPath:") {
+			// Only assignments/initialisations of the two fields the invariant
+			// couples — not reads, not comparisons.
+			writesField := strings.Contains(trimmed, "BackupPath =") || strings.Contains(trimmed, "BackupPath:") ||
+				strings.Contains(trimmed, ".Phase = ") || strings.Contains(trimmed, "Phase:")
+			if !writesField {
 				continue
 			}
 			accounted := false
@@ -206,7 +230,7 @@ func TestEveryBackupPathWriterIsAccountedFor_STATBUS229(t *testing.T) {
 		}
 	}
 	if len(offenders) > 0 {
-		t.Errorf("STATBUS-229: %d unaccounted writer(s) of flag.BackupPath. Every writer must be known, because the PreSwap branch's no-touch guarantee (service.go:1348-1349) holds only while NO path can hand recovery a PreSwap-phase flag carrying a snapshot identity — 197 broke it from executeUpgrade, 210 broke it again from parkServiceRecovery. If this new writer is safe, add it to `known` with the reason; if it pairs a PreSwap phase with a BackupPath on a PERSISTED flag, it is the same defect a third time:\n  %s",
+		t.Errorf("STATBUS-232: %d unaccounted writer(s) of flag.Phase or flag.BackupPath. Both fields are listed because the invariant couples them: a PERSISTED flag pairing a pre-swap phase with a snapshot identity tells recovery to restore a volume nothing touched. It has been reached from BOTH sides — 197 wrote the snapshot onto a pre-swap flag, 210 wrote the phase onto a flag that already had one. If this new writer is safe, add it to `known` with the reason it cannot form that pair:\n  %s",
 			len(offenders), strings.Join(offenders, "\n  "))
 	}
 
