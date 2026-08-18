@@ -258,7 +258,7 @@ func preflightChecks(projDir string) bool {
 			allPassed = false
 		}
 		if pgRide == nil && pgRideNote != "" {
-			fmt.Printf("    No exempt-only ancestor ride available: %s\n", pgRideNote)
+			fmt.Printf("    No earlier green run also covers this commit: %s\n", pgRideNote)
 		}
 	}
 	if stampBytes != nil {
@@ -656,7 +656,7 @@ func checkPrereleaseWorkflowGate(projDir, workflow, label, skipEnv string) bool 
 		fmt.Printf("  ✗ %s returned unexpected status %q\n", label, result.Status)
 	}
 	if rideNote != "" {
-		fmt.Printf("    No exempt-only ancestor ride available: %s\n", rideNote)
+		fmt.Printf("    No earlier green run also covers this commit: %s\n", rideNote)
 	}
 	return false
 }
@@ -1621,7 +1621,7 @@ func findExemptRide(projDir, workflow, tipFull string) (*exemptRide, string) {
 // every file that justified it, so the claim is auditable at the console
 // (the same standard the arc gate's RIDE printing holds).
 func printExemptRide(label string, ride *exemptRide) {
-	fmt.Printf("  ✓ %s green at %s — RIDDEN: the %d commit(s) since change only test-irrelevant paths\n",
+	fmt.Printf("  ✓ %s green at %s — also covers this commit: the %d commit(s) since change only test-irrelevant paths\n",
 		label, shortCommit(ride.Commit), ride.CommitsRidden)
 	fmt.Printf("    Tested commit: %s\n", ride.Commit)
 	fmt.Printf("    Run: %s\n", ride.Result.RunURL)

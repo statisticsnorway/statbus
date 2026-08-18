@@ -388,7 +388,7 @@ func TestPrereleaseGate_RidesAndRefusesLoudly(t *testing.T) {
 		if !passed {
 			t.Fatalf("the gate refused a tip whose only diff is board text, with the ancestor green; output:\n%s", out)
 		}
-		if !strings.Contains(out, "RIDDEN") || !strings.Contains(out, code) {
+		if !strings.Contains(out, "also covers this commit") || !strings.Contains(out, code) {
 			t.Errorf("the ride must be LOUD — naming the tested commit; output:\n%s", out)
 		}
 		if !strings.Contains(out, ".backlog/") {
@@ -408,7 +408,7 @@ func TestPrereleaseGate_RidesAndRefusesLoudly(t *testing.T) {
 		if passed {
 			t.Fatalf("the gate PASSED a tip carrying an untested code change; output:\n%s", out)
 		}
-		if !strings.Contains(out, "No exempt-only ancestor ride available") {
+		if !strings.Contains(out, "No earlier green run also covers this commit") {
 			t.Errorf("the refusal must say the ride was considered and why it did not apply; output:\n%s", out)
 		}
 		if !strings.Contains(out, "service.go") {
@@ -435,7 +435,7 @@ func TestPrereleaseGate_RidesAndRefusesLoudly(t *testing.T) {
 		if probed != 1 {
 			t.Errorf("probed %d times — on Unknown the walk must not run at all (the same API is what would verify the ancestor)", probed)
 		}
-		if strings.Contains(out, "No exempt-only ancestor ride available") {
+		if strings.Contains(out, "No earlier green run also covers this commit") {
 			t.Errorf("on Unknown the ride is not attempted, so it must not be reported as unavailable; output:\n%s", out)
 		}
 	})
