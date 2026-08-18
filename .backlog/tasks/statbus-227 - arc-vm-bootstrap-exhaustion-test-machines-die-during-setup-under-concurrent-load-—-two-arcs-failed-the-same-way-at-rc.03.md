@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-08-18 10:14'
-updated_date: '2026-08-18 11:57'
+updated_date: '2026-08-18 12:02'
 labels:
   - install-recovery
   - ci
@@ -36,10 +36,10 @@ WHAT IS ACHIEVED: test failures mean product defects again, not rented-machine r
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Architect ruling on the remedy (lean setup vs tier vs stagger vs other), with the operator-parity principle explicitly weighed
+- [x] #1 Architect ruling on the remedy (lean setup vs tier vs stagger vs other), with the operator-parity principle explicitly weighed
 - [ ] #2 The chosen remedy implemented and the two failed scenarios pass on rerun
 - [ ] #3 No recurrence of the signature across one full subsequent suite
-- [ ] #4 Bootstrap-failure forensics captured BEFORE the VM is destroyed: post-failure reachability probe (fresh SSH/ping/provider power state), dmesg or journalctl -k (the OOM killer names its victim), free -m, df -h, and provider console output for the window — so a recurrence is a measurement, not an absence of news
+- [x] #4 Bootstrap-failure forensics captured BEFORE the VM is destroyed: post-failure reachability probe (fresh SSH/ping/provider power state), dmesg or journalctl -k (the OOM killer names its victim), free -m, df -h, and provider console output for the window — so a recurrence is a measurement, not an absence of news
 <!-- AC:END -->
 
 ## Comments
@@ -130,5 +130,37 @@ Also fixed one stale comment while in the area: `_apply_hardening`'s "Wait for S
 Validated: `bash -n test/install-recovery/lib/vm-bootstrap.sh` clean. `shellcheck` diffed against the pre-edit baseline — one new info-level SC2016 surfaced on the intentionally-single-quoted remote command string (the `$(...)` must expand on the VM, not locally); silenced with a `# shellcheck disable=SC2016` comment naming exactly why (matches how the file already handles this for its other remote command strings). Re-diffed after: byte-identical to baseline, zero new findings.
 
 Both files' diffs frozen together (no commits), share no files with the STATBUS-214 unit. Ready for review; landing still gated on whatever verification you want beyond the two failed scenarios' solo rerun (AC#2/#3 need a live suite, which I can't produce from here).
+---
+
+author: mechanic
+created: 2026-08-18 12:00
+---
+ADDITION (King-directed, via foreman): tmux added to the KEPT apt toolkit in ops/setup-ubuntu-lts-24.sh Stage 5 — `apt-get install -y neovim htop net-tools jnettop git acl ripgrep aptitude tmux`, plus `verify "tmux installed" "which tmux"`, plus the stage-description echo line updated to list it. Installed exactly like every other apt tool in that list — no auto-attach profile.d hook, no session-restore behavior recreated. An operator opts in manually (`tmux` / `tmux attach`) like any other server. Noted in the Homebrew-deletion comment too, so a reader lands on the full story (deleted zellij's role, tmux now covers session-survival) in one place. Re-validated: bash -n + shellcheck-vs-baseline still clean (zero new findings).
+---
+
+author: architect
+created: 2026-08-18 12:02
+---
+REVIEW VERDICT — APPROVED, no amendment. Built to doc-032, and the forensics is better than I specified.
+
+THE ONE THING THAT COULD HAVE SILENTLY DEFEATED THE WHOLE UNIT, CHECKED: the "FRESH ssh connection" is the entire discriminator between a dead box and a slow one — and if SSH_OPTS multiplexed, that connection would have reused the dead one and the probe would have lied while looking correct. It does not: SSH_OPTS already carries `ControlMaster=no` and `ControlPath=none` (vm-bootstrap.sh:106-107). Fresh means fresh. That is the harness's own no-host-config-leakage hygiene paying off, and it is worth recording that the property was verified rather than assumed — it is the same distinction 228 turned on (a stopped server is not a closed connection).
+
+THE FORENSICS IMPROVES ON THE SPEC. I asked for a reachability probe; he made it STATE ITS CONCLUSION — "answered a NEW connection: NOT dead — only unresponsive to the prior read". That is the difference between capturing evidence and answering the question, and it means the next triage reads a verdict instead of re-deriving one from raw output at midnight. Every capture is timeout-bounded and tolerant, all output goes to the same stderr stream the failure line does, and both failure branches call it before returning — so it runs before the EXIT trap reaps the VM, which was the ordering that mattered.
+
+DELETION SCOPE MATCHES THE RULING EXACTLY: brew bootstrap, build-essential, helix/bottom/zellij, the linuxbrew PATH profile and its ACLs, the zellij auto-attach hook, and the five verifies — gone. The apt toolkit is kept and extended with tmux (King-directed), plain install, no auto-attach, with its own verify. devops/SSH/docker untouched. Zero harness dependencies on anything deleted, grepped rather than assumed.
+
+JUDGMENT 1 — THE PLATFORM GAP: ACCEPT AS THE CEILING. NO FOLLOW-UP TICKET, deliberately. doc-032 asked for console output because it survives a wedged kernel; Hetzner Cloud offers no text console-log endpoint, only an interactive VNC session. The question doc-032 actually posed — dead or merely slow — is still ANSWERED without it: fresh SSH answers ⇒ never dead; fresh SSH fails while hcloud reports running ⇒ wedged or isolated; hcloud reports off ⇒ genuinely dead; dmesg names an OOM victim outright. The console would only add value in the wedged-and-SSH-dead corner, where it is also the least likely to be reachable. A ticket saying "find a way to get console text out of Hetzner" would be a backlog entry with no known solution and no present demand — speculative work, which is the kind of entry that rots. The DISCLOSURE at the point of use is the durable record, and it is written exactly where someone will wonder why there is no console output. If a wedged box does recur and these captures cannot explain it, THAT is the moment a ticket gets filed — with evidence, which is the only form worth having.
+
+JUDGMENT 2 — 231 AC#2 UNPINNED: BLESSED, and this is not an exception to today's assert-don't-expect discipline. The distinction: pins exist for INVARIANTS OTHER CODE STANDS ON. A retry predicate over a provider's transient error strings is not one — it is a heuristic about a vocabulary WE DO NOT CONTROL AND THAT CHANGES WITHOUT NOTICE. A unit test over today's strings would pin a snapshot of Hetzner's phrasing and hand us confidence in exactly the thing most likely to drift; the honest oracle for "do we retry the right provider errors" is a live run. Getting it wrong costs a rerun, not correctness. NO bash-test-harness ticket: that is real infrastructure and should be justified by demand across many tests, not by one grep.
+
+WHAT CARRIES THE WEIGHT INSTEAD, and it should be understood as the mechanism: the raw provider error is echoed PER ATTEMPT. That is what makes the live oracle work — when a new transient class appears, the log names it in the operator's face instead of the run failing anonymously. Keep that echo; it is not logging noise, it is the pin.
+
+JUDGMENT 3 — the replacement comment and the stale-Homebrew drive-by: routine, correct to list, nothing to rule.
+---
+
+author: foreman
+created: 2026-08-18 12:02
+---
+LANDED at 07138b2c4, architect-approved with no amendment (verdict comment #7): comfort layer deleted, tmux in the apt toolkit, forensics wired at both failure branches and judged BETTER than specified (the fresh-SSH probe states its conclusion; ControlMaster=no verified so fresh means fresh — the one silent-defeat vector checked). Platform-gap ruling: the VNC-URL capture is accepted as the ceiling, deliberately NO follow-up ticket (a no-known-solution entry would rot; the dead-or-slow question is answered without console text; re-open with evidence if a wedged box defies these captures). AC#1 (ruling) and AC#4 (forensics) closed. AC#2 (the two failed scenarios pass) and AC#3 (no recurrence across one full suite) are the observation arms riding the King's next cut.
 ---
 <!-- COMMENTS:END -->
