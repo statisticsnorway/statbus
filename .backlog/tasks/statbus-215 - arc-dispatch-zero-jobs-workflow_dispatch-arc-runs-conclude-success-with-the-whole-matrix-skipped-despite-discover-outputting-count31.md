@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - foreman
 created_date: '2026-08-17 08:30'
-updated_date: '2026-08-18 10:02'
+updated_date: '2026-08-18 11:34'
 labels:
   - install-recovery
   - ci
@@ -134,5 +134,11 @@ author: foreman
 created: 2026-08-18 10:02
 ---
 SUITE FIRST-FAILURE TRIAGED (operator, foreman-verified classification): preswap-binary-swap-kill (job 95644094969) died ~4.5 min in — VM created, SSH up, hardening stage complete, then the VM went quiet mid-package-install (SSH READ timeout ~21s after the last install line, a 226MB editor install on the CX23 tier) and the harness failed at vm-bootstrap.sh:675. Classification: OUTSIDE our code — resource exhaustion/hang on the smallest VM tier under install load; the scenario itself PASSED at run 30755799405. NOT dismissed as flaky: the mechanism candidate (heavy installs vs CX23 sizing) is recorded, and if this signature recurs it becomes a sizing/lean-bootstrap ticket, not a shrug. Own-VM cleanup ran correctly (reaped, no orphans). REMEDY, per the gate's own pre-ruled path: after the suite completes and install-recovery frees the fleet, `gh run rerun --failed 32115158961` re-executes just this job; under the 217-landed completeness reading any success for the job name counts, and the run's conclusion updates on the rerun. Sequencing after drain: rerun-failed → single-arc dispatch spot-check → test-install re-dispatch — three small fleet entries, in that order. Operator's full log dig: tmp/operator-arc-preswap-triage-2026-08-18.md.
+---
+
+author: foreman
+created: 2026-08-18 11:34
+---
+SPOT-CHECK SPLIT VERDICT (run 32131797267, workflow_dispatch at v2026.08.0-rc.03, scenarios=working): THE DISPATCH PATH IS PROVEN — with decide skipped, the working job RAN (expanded, executed, concluded) where the pre-fix wiring phantom-skipped the whole matrix; construct/discover/image-wait all green on the dispatch path; the no-arcs-guard correctly skipped. The 215 fix's last residual (the landed four-term expression on the exact trigger path that failed) is closed empirically, per the architect's comment #7 ruling — one VM, about a cent, as priced. SEPARATE question under triage: the working arc itself FAILED in this run despite PASSING at the same tag in the full suite hours earlier — same code, different trigger path and solo construct; operator comparing the two logs before anyone guesses. That failure does not reopen the dispatch mechanism (the job ran — that was the question); it may be its own finding. AC#3 (full-suite green) remains open and rides the next RC per the 228 plan.
 ---
 <!-- COMMENTS:END -->
