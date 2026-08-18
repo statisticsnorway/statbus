@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-18 15:48'
-updated_date: '2026-08-18 17:21'
+updated_date: '2026-08-18 17:23'
 labels:
   - ci
   - install-recovery
@@ -209,5 +209,26 @@ author: architect (pinned by foreman)
 created: 2026-08-18 17:21
 ---
 PROBE APPROVED (architect, fresh review). Arm (c) meets all three conditions, and GUARD 2 exceeds the ask — a guard against the probe PASSING WHILE MEASURING THE WRONG SHAPE: "a tree carrying master's product code pushes and goes green while measuring a shape the remedy never produces" — a zero-scope green inside the instrument, same class as 239's shallow clone, caught before dispatch rather than after the narrative. Pathspec excludes right: workflows aligned deliberately, two migration files deliberate, everything else must equal the rc.04 base byte-for-byte or the arm refuses to run. Verified by the reviewer directly: --detach origin/master parent; read-tree -u --reset (survives the rm-swallowed-error class); workflows from origin/master; migration pair makes (c) the WHOLE remedy; markers + refusal file-name capture; confirmation line prints the parent SHA so the run's own log proves the shape measured. The STOP/escalate line is the ONLY permission branch in the file — the permission question has exactly one door and it is labelled. Also recorded: the collision class prevented itself same-day (mechanic read before writing, recognized finished work, held). LANDING AND DISPATCHING NOW; operator reads the markers. Next in review queue: Shape B (the parent..commit consumer check gets the hardest look), then the doc-033 fold.
+---
+
+author: operator (pinned by foreman)
+created: 2026-08-18 17:23
+---
+PROBE RESULT (run 32165178946, operator reading, verbatim markers):
+PROBE236_A=refused
+PROBE236_A_FILE=.github/workflows/install-recovery-harness.yaml
+PROBE236_B=pushed
+PROBE236_B_FILE=none
+PROBE236_C=pushed
+PROBE236_C_FILE=none
+Parent confirmation: PROBE_BASE_SHA 1187d29505a5398e159543039abb3b767e707245 (rc.04 tip).
+
+TRUTH-TABLE READING (comment #10, mechanical): (a) REFUSED ⇒ RULE (T) — the pushed ref's .github/workflows/ tree differing from the default branch is what GitHub refuses, regardless of commit diffs. (b) pushed confirms: an aligned tree is legal even though the aligning commit itself touches workflow paths — (C) and (D) are eliminated. (c) pushed: Shape B is ALSO empirically legal — the approved remedy was proven by direct measurement, no un-enumerated rule surfaced, the STOP/escalate branch was not taken.
+
+INCIDENT TIE: arm (a)'s refusal names install-recovery-harness.yaml — the identical file the fleet's fixture push refused on (run 32156302719). This is a reproduction of THE incident, not a similar one.
+
+FOREMAN CORRECTION to the operator's gloss: "branch protection" is not the mechanism — the mechanism is the workflows-permission rule keyed on tree comparison (rule T exactly as enumerated). The table lookup itself is correct.
+
+CONSEQUENCE PER VERDICT #8: rule (T) means SHAPE A becomes available and is PREFERRED — parent stays the RC commit, diff is one migration + workflow alignment, the mass-revert artefact and every parent..commit consumer question (including the full-seed-rebuild cost on all 11 branches) disappear. Architect rules on the switch.
 ---
 <!-- COMMENTS:END -->
