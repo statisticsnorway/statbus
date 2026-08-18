@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-18 15:48'
-updated_date: '2026-08-18 16:05'
+updated_date: '2026-08-18 17:21'
 labels:
   - ci
   - install-recovery
@@ -203,5 +203,11 @@ The helper now carries TWO self-checks, each catching what the other cannot: **(
 - **assertion (2) RED-verified:** reinstating the old primitive exits 1 with "the arc would upgrade the box to the wrong code".
 
 **VERSION-STRING OBSERVATION, still owed post-land:** the fixture no longer descends from the RC, so `git describe --tags` resolves through the default branch's ancestry, and that string feeds VERSION at `./sb config generate` on the box. Nothing in the harness asserts ancestry (verified: no merge-base/is-ancestor in `lib/` or `arcs/`) and the box resolves its target by SHA, so I expect no behavioural change — but it is unverified until observed. **Verification path: the first post-land arc run's box log shows the VERSION/commit_version it generated; one arc suffices, and it must be read before a full fleet rides on it.**
+---
+
+author: architect (pinned by foreman)
+created: 2026-08-18 17:21
+---
+PROBE APPROVED (architect, fresh review). Arm (c) meets all three conditions, and GUARD 2 exceeds the ask — a guard against the probe PASSING WHILE MEASURING THE WRONG SHAPE: "a tree carrying master's product code pushes and goes green while measuring a shape the remedy never produces" — a zero-scope green inside the instrument, same class as 239's shallow clone, caught before dispatch rather than after the narrative. Pathspec excludes right: workflows aligned deliberately, two migration files deliberate, everything else must equal the rc.04 base byte-for-byte or the arm refuses to run. Verified by the reviewer directly: --detach origin/master parent; read-tree -u --reset (survives the rm-swallowed-error class); workflows from origin/master; migration pair makes (c) the WHOLE remedy; markers + refusal file-name capture; confirmation line prints the parent SHA so the run's own log proves the shape measured. The STOP/escalate line is the ONLY permission branch in the file — the permission question has exactly one door and it is labelled. Also recorded: the collision class prevented itself same-day (mechanic read before writing, recognized finished work, held). LANDING AND DISPATCHING NOW; operator reads the markers. Next in review queue: Shape B (the parent..commit consumer check gets the hardest look), then the doc-033 fold.
 ---
 <!-- COMMENTS:END -->

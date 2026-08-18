@@ -1,0 +1,280 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Probe 236 — Arc Fixture Push Permission
+
+# THROWAWAY diagnostic workflow for STATBUS-236 — delete it once the answer is
+# read. Do not build on this file, do not add scenarios to it, do not wire it
+# into any needs: chain. It answers ONE question and then goes away.
+#
+# THE QUESTION. The arc fleet died at fixture construction (run 32156302719)
+# with: "refusing to allow a GitHub App to create or update workflow
+# .github/workflows/install-recovery-harness.yaml without 'workflows'
+# permission". No fixture commit touches .github/workflows/ — the fixture is cut
+# from the rc.04 commit and adds migrations only. What differs is that rc.04's
+# workflow files are simply OLDER than master's: ten of them have moved since
+# the tag was cut. So the refusal keyed on something other than the commits'
+# own diffs, and WHAT GitHub compares decides which remedy is legal. This probe
+# measures that rule directly instead of designing against a guess.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# PROCESS RULE (architect, STATBUS-236 comment #10): a probe's truth table is
+# RE-DERIVED from the current ruling at freeze, NEVER transcribed from an
+# earlier statement of it. An earlier draft of this file still carried comment
+# #7's "(b) refused ⇒ the permission question returns to the King" line, which
+# verdict #8 had already falsified — a stale premise that would have sent a
+# security-relevant permission request to the King on a false basis. The table
+# below is transcribed from comment #10 only, which supersedes all earlier
+# statements including #7.
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# CANDIDATE RULES
+#   (T) the pushed REF's .github/workflows/ tree differs from the default branch
+#   (C) any new commit's diff AGAINST ITS PARENT touches .github/workflows/
+#   (D) any new commit's tree AGAINST THE DEFAULT BRANCH differs under
+#       .github/workflows/
+#
+# PREDICTED OUTCOMES
+#   arm (a)  existing rc.04 commit, zero new commits ....... T:REFUSED  C:ALLOWED  D:ALLOWED
+#   arm (b)  rc.04 + one aligning commit
+#            (= Shape A in miniature) ..................... T:ALLOWED  C:REFUSED  D:ALLOWED
+#   arm (c)  parent = master tip, tree = rc.04 product
+#            + master workflows + migration
+#            (= Shape B exactly) .......................... T:ALLOWED  C:ALLOWED  D:ALLOWED
+#
+# READINGS
+#   (a) REFUSED ⇒ rule (T). Shape A is available and PREFERRED over Shape B
+#                 (simpler diff, no mass-revert, no consumer questions).
+#   (a) ALLOWED ⇒ (T) eliminated; arm (b) decides:
+#         (b) ALLOWED ⇒ rule (D). Shape A legal and preferred.
+#         (b) REFUSED ⇒ rule (C). Shape A is dead — and SHAPE B REMAINS LEGAL
+#                       AND PROCEEDS. There is NO permission question on this
+#                       branch. (This is the reading that was stale before.)
+#   (c) REFUSED under ANY combination ⇒ A RULE OUTSIDE THIS ENUMERATION GOVERNS.
+#                 STOP: the approved remedy is NOT legal — escalate. This is the
+#                 ONLY branch on which the permission question returns.
+#
+# Arm (c) exists because Shape B's premise-independence is an argument over an
+# enumeration WE invented, and this ticket's record is a list of enumerations
+# that turned out incomplete. Twelve lines here beat discovering an
+# un-enumerated rule on a fleet run (VMs, an hour, a second red suite).
+#
+# Every arm records WHICH FILE a refusal names (PROBE236_*_FILE). The fleet's
+# refusal named .github/workflows/install-recovery-harness.yaml; a probe refusal
+# naming the same file is what ties this to THAT incident rather than to some
+# other bug wearing the same message.
+#
+# THE JOB'S PASS/FAIL COLOUR IS NOT THE ANSWER — the answer is in the PROBE236_*
+# marker lines. A refusal is a MEASUREMENT. The job fails only when the probe's
+# own construction malfunctions (setup-failed), which is a different thing and
+# says so.
+#
+# Pushing test/* branches fires workflows that trigger on any non-ops branch
+# (app_build_and_lint). Pre-existing behaviour — the arc harness pushes test/*
+# routinely — expect those runs and ignore them.
+
+on:
+  workflow_dispatch:
+
+# EXACT mirror of upgrade-arc-harness.yaml's permissions block — deliberately,
+# unneeded scopes included. The token scope under test IS the measurement
+# instrument: this probe must run under precisely the authority the real arc
+# fixture push runs under, not a superset and not a subset. No `workflows:`
+# entry — that is the permission the real push lacks, and the whole question is
+# whether any arm needs it.
+permissions:
+  contents: write   # push the throwaway test/probe-236-* branches
+  actions: write    # mirrors upgrade-arc-harness.yaml's block; unused here
+  packages: read    # mirrors upgrade-arc-harness.yaml's block; unused here
+
+env:
+  # rc.04's tag commit — the exact base_sha the RED arc run (32156302719) built
+  # fixtures from. Full SHA, not abbreviated: `git fetch origin <sha>` requires
+  # the complete object name. Its .github/workflows/ differs from current master
+  # in ten files, including install-recovery-harness.yaml — the file the real
+  # refusal named.
+  PROBE_BASE_SHA: 1187d29505a5398e159543039abb3b767e707245
+
+jobs:
+  probe:
+    name: "STATBUS-236 probe: which rule governs — (T), (C) or (D)"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout (full history — the base commit and master must both be reachable)
+        uses: actions/checkout@v4
+        with:
+          # Default token is persisted by checkout, so the pushes below
+          # authenticate under exactly this job's declared permissions.
+          fetch-depth: 0
+
+      - name: Fetch the rc.04 base commit and master, and show the divergence
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$PROBE_BASE_SHA"
+          git fetch --no-tags origin master
+          echo "base   = $(git rev-parse --short=9 "$PROBE_BASE_SHA")"
+          echo "master = $(git rev-parse --short=9 origin/master)"
+          echo "--- workflow files differing between base and master (the divergence under test) ---"
+          git diff --name-only "$PROBE_BASE_SHA" origin/master -- .github/workflows/
+
+      - name: "Arm (a): push the base commit as a NEW branch ref — zero new commits"
+        run: |
+          set +e
+          # Deliberately not `set -e` around the push: a refusal here is a
+          # measurement, not a script failure. Pushing <sha>:refs/heads/... creates
+          # the ref with no new commit at all, so a refusal can only be about the
+          # resulting TREE, and an allow eliminates (T) outright.
+          git push origin "${PROBE_BASE_SHA}:refs/heads/test/probe-236-a" \
+            >/tmp/probe_a_out.log 2>/tmp/probe_a_err.log
+          rc=$?
+          cat /tmp/probe_a_out.log
+          cat /tmp/probe_a_err.log >&2
+          if [ "$rc" -eq 0 ]; then
+            echo "PROBE236_A=pushed"
+            echo "PROBE236_A_FILE=none"
+          else
+            echo "PROBE236_A=refused"
+            # The refusal reads "...create or update workflow
+            # .github/workflows/<file> without 'workflows' permission". Extract
+            # <file> so the record shows whether this reproduces THIS incident.
+            named_file="$(grep -oE '\.github/workflows/[A-Za-z0-9_.-]+\.ya?ml' /tmp/probe_a_err.log | head -1)"
+            echo "PROBE236_A_FILE=${named_file:-none}"
+          fi
+
+      - name: "Arm (b): rc.04 + one commit aligning .github/workflows/ with master, deletions included"
+        run: |
+          set -euo pipefail
+          git config user.name  "statbus-probe-236[bot]"
+          git config user.email "statbus-probe-236@users.noreply.github.com"
+          git checkout -q -B test/probe-236-b "$PROBE_BASE_SHA"
+
+          # Remove the directory FIRST, then restore master's copies. Checking out
+          # over the top would leave any file master has since DELETED, the trees
+          # would still differ, and a refusal would prove only that the sync was
+          # partial. Same file set, same contents, or the arm measures nothing.
+          git rm -r --quiet .github/workflows/
+          git checkout origin/master -- .github/workflows/
+          git add .github/workflows/
+          git commit -q -m "test(STATBUS-236 probe): align .github/workflows/ with master (arm b)"
+
+          # VERIFY THE CONSTRUCTED TREE, NOT THE EXIT CODES. Every command above
+          # can succeed while leaving the wrong tree behind; only this comparison
+          # says the arm is measuring the shape it claims to measure.
+          diff_stat="$(git diff --stat origin/master -- .github/workflows/)"
+          if [ -n "$diff_stat" ]; then
+            echo "PROBE236_B=setup-failed"
+            echo "::error title=Probe 236 arm (b) setup::alignment INCOMPLETE — .github/workflows/ still differs from origin/master:"
+            echo "$diff_stat"
+            exit 1
+          fi
+          echo "arm (b) tree verified: .github/workflows/ matches origin/master exactly"
+
+          set +e
+          git push origin test/probe-236-b \
+            >/tmp/probe_b_out.log 2>/tmp/probe_b_err.log
+          rc=$?
+          cat /tmp/probe_b_out.log
+          cat /tmp/probe_b_err.log >&2
+          if [ "$rc" -eq 0 ]; then
+            echo "PROBE236_B=pushed"
+            echo "PROBE236_B_FILE=none"
+          else
+            echo "PROBE236_B=refused"
+            named_file="$(grep -oE '\.github/workflows/[A-Za-z0-9_.-]+\.ya?ml' /tmp/probe_b_err.log | head -1)"
+            echo "PROBE236_B_FILE=${named_file:-none}"
+          fi
+
+      - name: "Arm (c): the approved remedy EXACTLY — parent = master tip, tree = rc.04 product + master workflows + migration"
+        run: |
+          set -euo pipefail
+          # Built with the SAME primitives as the real remedy (_ut_fixture_base in
+          # test/install-recovery/lib/upgrade-target.sh). NO simplification: an
+          # approximating arm can pass while the actual remedy fails, which is the
+          # fixture-simplification trap that made an earlier pin inert.
+          git checkout -q --detach origin/master
+
+          # read-tree -u --reset sets index AND worktree to exactly the base's
+          # tree, REMOVING paths the base lacks. `git rm -r . && git checkout
+          # <base> -- .` does NOT: the rm refuses on modified files, and the result
+          # is master's tree with the base layered on top — a tree that pushes
+          # fine, goes green, and tests the wrong code. That bug was caught in the
+          # Shape B dry run by checking the resulting tree, not the exit status.
+          git read-tree -u --reset "$PROBE_BASE_SHA"
+          git rm -rqf --ignore-unmatch .github/workflows >/dev/null || true
+          git checkout -q origin/master -- .github/workflows
+          # ...plus the migration a real fixture adds, so (c) is the WHOLE remedy.
+          mkdir -p migrations
+          printf -- '-- STATBUS-236 probe arm (c) fixture migration\n' > migrations/29990101000000_probe_236.up.sql
+          printf -- '-- STATBUS-236 probe arm (c) fixture migration (down)\n' > migrations/29990101000000_probe_236.down.sql
+          git add -A
+          git commit -q -m "test(STATBUS-236 probe): rc.04 tree + master workflows + migration, parented on master (arm c)"
+          git branch -f test/probe-236-c HEAD
+
+          # GUARD 1 — pushability: the same tree-level check arm (b) makes.
+          diff_stat="$(git diff --stat origin/master -- .github/workflows/)"
+          if [ -n "$diff_stat" ]; then
+            echo "PROBE236_C=setup-failed"
+            echo "::error title=Probe 236 arm (c) setup::.github/workflows/ differs from origin/master — the arm would measure the wrong shape:"
+            echo "$diff_stat"
+            exit 1
+          fi
+
+          # GUARD 2 — correctness: outside .github/workflows/ and the two files it
+          # adds, the tree must equal the BASE's byte for byte. Guard 1 cannot see
+          # this failure: a tree carrying master's product code pushes and goes
+          # green while measuring a shape the remedy never produces.
+          product_diff="$(git diff --name-only "$PROBE_BASE_SHA" -- . \
+            ':(exclude).github/workflows' \
+            ':(exclude)migrations/29990101000000_probe_236.up.sql' \
+            ':(exclude)migrations/29990101000000_probe_236.down.sql')"
+          if [ -n "$product_diff" ]; then
+            echo "PROBE236_C=setup-failed"
+            echo "::error title=Probe 236 arm (c) setup::product tree does NOT match the rc.04 base — this is not the remedy's shape:"
+            echo "$product_diff"
+            exit 1
+          fi
+          echo "arm (c) tree verified: workflows == master, product == rc.04 base, parent = $(git rev-parse --short=9 HEAD^)"
+
+          set +e
+          git push origin test/probe-236-c \
+            >/tmp/probe_c_out.log 2>/tmp/probe_c_err.log
+          rc=$?
+          cat /tmp/probe_c_out.log
+          cat /tmp/probe_c_err.log >&2
+          if [ "$rc" -eq 0 ]; then
+            echo "PROBE236_C=pushed"
+            echo "PROBE236_C_FILE=none"
+          else
+            echo "PROBE236_C=refused"
+            named_file="$(grep -oE '\.github/workflows/[A-Za-z0-9_.-]+\.ya?ml' /tmp/probe_c_err.log | head -1)"
+            echo "PROBE236_C_FILE=${named_file:-none}"
+          fi
+
+      - name: How to read this run
+        if: always()
+        run: |
+          set +e
+          echo "════════ PROBE 236 — READ THE MARKERS, NOT THE JOB COLOUR ════════"
+          echo "(a) REFUSED → rule (T). Shape A available and PREFERRED over Shape B."
+          echo "(a) ALLOWED → (T) eliminated; arm (b) decides:"
+          echo "      (b) ALLOWED → rule (D). Shape A legal and preferred."
+          echo "      (b) REFUSED → rule (C). Shape A dead; SHAPE B REMAINS LEGAL AND PROCEEDS."
+          echo "                    No permission question on this branch."
+          echo "(c) REFUSED → a rule OUTSIDE our enumeration governs. STOP: the approved"
+          echo "              remedy is not legal — escalate. This is the ONLY branch on"
+          echo "              which the permission question returns."
+          echo "PROBE236_*=setup-failed → the arm never measured anything; fix the construction."
+          echo "Compare each PROBE236_*_FILE against the fleet's refusal, which named"
+          echo "  .github/workflows/install-recovery-harness.yaml."
+          exit 0
+
+      - name: Cleanup — delete all three throwaway branches
+        if: always()
+        run: |
+          set +e
+          # A refused branch never reached origin; deleting it is a no-op failure
+          # tolerated deliberately, so cleanup can never mask or alter a result.
+          git push origin --delete test/probe-236-a
+          git push origin --delete test/probe-236-b
+          git push origin --delete test/probe-236-c
+          echo "Cleanup attempted for all three arms (no-op tolerated for any refused push)."
+          exit 0
