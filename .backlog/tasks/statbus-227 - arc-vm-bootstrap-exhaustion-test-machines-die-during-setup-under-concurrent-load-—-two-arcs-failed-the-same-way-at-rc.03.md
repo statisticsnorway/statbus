@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - mechanic
 created_date: '2026-08-18 10:14'
-updated_date: '2026-08-18 10:19'
+updated_date: '2026-08-18 11:33'
 labels:
   - install-recovery
   - ci
@@ -77,5 +77,11 @@ author: foreman
 created: 2026-08-18 10:19
 ---
 SEQUENCING (foreman): assigned to the mechanic, queued as his unit AFTER the orchestrator lands and the 223+220 arc-file pass (223 and 220 share upgrade-arc-harness.yaml, so they go as one unit; 227 is its own unit in ops/setup-ubuntu-lts-24.sh + test/install-recovery/lib/vm-bootstrap.sh). The architect's forensics deliverable is now AC#4 so it cannot drop out of the unit. FLAG TO THE KING, standing in my console: the ruling DELETES the Homebrew comfort layer (brew itself, build-essential, helix, bottom, zellij) from the REAL operator setup script — the apt toolkit (neovim, htop, ripgrep…) stays. If anyone relies on those tools on production boxes, object before the unit ships; the security case for deletion (unpatched parallel package tree + compiler toolchain on a hardened host) is on doc-032.
+---
+
+author: foreman
+created: 2026-08-18 11:33
+---
+KING RATIFIED the comfort-layer deletion, 2026-08-18, foreman's console: "Approved, it slims the install." RE-SEQUENCED: the mechanic builds this NOW (ops/setup-ubuntu-lts-24.sh + test/install-recovery/lib/vm-bootstrap.sh are disjoint from his frozen orchestrator files), so the next RC cut carries the starvation remedy; 223+220 follow after the orchestrator lands as before.
 ---
 <!-- COMMENTS:END -->
