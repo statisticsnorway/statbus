@@ -395,6 +395,125 @@ _ut_write_codeonly_change() {
     } > "$_marker"
 }
 
+# _ut_fixture_base BASE_SHA
+# STATBUS-236 — produce the commit the fixture branches are built ON: BASE_SHA's
+# own commit as PARENT, with .github/workflows/ taken from the default branch
+# instead of BASE_SHA's (now-stale) copies. Echoes its SHA.
+#
+# WHY THIS EXISTS. Fixture branches used to be cut straight from BASE_SHA (the
+# RC tag's commit). Since STATBUS-214 the fleet is DISPATCHED at a tag while
+# master moves on, so those branches carried STALE copies of .github/workflows/,
+# and GitHub refuses a push that "creates or updates" a workflow file unless the
+# token holds `workflows` permission — which upgrade-arc-harness.yaml's token
+# deliberately does not (contents/actions/packages only). The rc.04 fleet died
+# there (run 32156302719) before a single arc ran.
+#
+# The fix is to stop the fixture branch differing from the default branch under
+# .github/workflows/ at all — NOT to widen the token, which would buy a standing
+# right to push CI definitions in order to carry cargo the arc never reads.
+#
+# SHAPE A (this implementation) — the parent stays BASE_SHA; only the
+# .github/workflows/ overlay changes. Chosen over the earlier reparent-onto-
+# master design (Shape B) because the STATBUS-236 probe MEASURED the governing
+# rule directly instead of leaving it an open premise: arm (a) (rc.04 as-is,
+# zero new commits) was REFUSED, and arm (b) (Shape A in miniature — rc.04
+# parented, one workflow-aligning commit) PUSHED (236 comments #13-14). That
+# proves the rule is "the pushed ref's .github/workflows/ TREE differs from the
+# default branch" — a commit whose own diff touches workflow paths is legal as
+# long as the resulting tree matches it. Shape B's both-candidate-rules hedge is
+# no longer needed: only one rule governs, and Shape A satisfies it with the
+# simplest possible diff (one migration + one workflow-alignment commit, parent
+# unchanged).
+#
+# WHAT THE BOX SEES IS UNCHANGED: the arcs install A from the REAL base SHA (on
+# master, always fetchable) and upgrade to B_FULL on the fixture branch. This
+# commit is an intermediate that is never installed; the TREE the box checks out
+# is BASE_SHA's tree plus the fixture migration, exactly as before.
+#
+# COSTS SHAPE B WOULD HAVE CARRIED, AVOIDED BY THIS SWITCH (STATBUS-236 comment
+# #14 — the switch DELETES work, it does not add it): a full seed rebuild on
+# every arc run across all 11 fixture branches (reparenting onto master would
+# have made the incremental-seed gate's first-parent ancestry walk,
+# cli/cmd/seed_ancestor.go:53, reach master-era prior seeds whose fingerprint
+# mismatches BASE_SHA-era migrations); a git-describe/VERSION string change
+# requiring live-arc verification before any fleet could ride it; and an
+# open-ended parent..commit consumer enumeration. Under Shape A none of these
+# arise — the fixture's ANCESTRY is unchanged, only its .github/workflows/
+# content is overlaid.
+_ut_fixture_base() {
+    local _base_sha="$1"
+    # One base per harness invocation: both lineages (working + failing) share it,
+    # the same way ARC_SIGNING_KEY is generated once and inherited.
+    if [ -n "${ARC_FIXTURE_BASE:-}" ] && git cat-file -e "${ARC_FIXTURE_BASE}^{commit}" 2>/dev/null; then
+        printf '%s' "$ARC_FIXTURE_BASE"
+        return 0
+    fi
+
+    local _default_ref="${ARC_DEFAULT_BRANCH:-origin/master}"
+    git fetch -q origin "${_default_ref#origin/}" 2>/dev/null || true
+    if ! git rev-parse -q --verify "${_default_ref}^{commit}" >/dev/null; then
+        echo "_ut_fixture_base: cannot resolve the default branch ref '${_default_ref}' — the fixture's .github/workflows/ must exactly match it, or the push is refused (STATBUS-236). Set ARC_DEFAULT_BRANCH if this repo's default branch is named differently." >&2
+        return 1
+    fi
+
+    echo "── fixture base: parent=tree=$(git rev-parse --short=8 "$_base_sha") (Shape A — BASE_SHA itself) + ${_default_ref}'s .github/workflows/ ──" >&2
+
+    git checkout -q --detach "$_base_sha" || return 1
+    # Set index AND worktree to EXACTLY the base's tree. `read-tree -u --reset` is
+    # the right primitive: it also REMOVES paths the base does not have, which a
+    # `git checkout <base> -- .` would silently leave behind (it only writes the
+    # paths it knows about). An earlier draft used `git rm -r . && git checkout
+    # <base> -- .`; the rm refused on locally-modified files, its failure was
+    # swallowed by a redirect, and the fixture tree came out as MASTER's tree with
+    # the base's files layered on top — the arc would have upgraded the box to
+    # master's product code. The dry run caught it; the assertions below now make
+    # that class impossible to ship silently. (Under Shape A the checkout above
+    # already puts us at BASE_SHA's tree, so this read-tree is a no-op verifying
+    # that fact — kept rather than removed, so the two self-checks below still
+    # follow the identical primitive Shape B used and reviewed.)
+    git read-tree -u --reset "$_base_sha" || {
+        echo "_ut_fixture_base: could not reset the worktree to ${_base_sha:0:8}'s tree" >&2
+        return 1
+    }
+    # ...except .github/workflows/, which must MATCH the default branch exactly,
+    # deletions included. Removing the directory first (with -f: the base's copies
+    # differ from HEAD by construction) is what makes a file master DELETED stay
+    # deleted rather than surviving from the base's copy.
+    git rm -rqf --ignore-unmatch .github/workflows >/dev/null || true
+    git checkout -q "$_default_ref" -- .github/workflows || {
+        echo "_ut_fixture_base: could not take ${_default_ref}'s .github/workflows/" >&2
+        return 1
+    }
+    git add -A
+
+    git commit -S -q -m "test(upgrade-arc): fixture base — ${_base_sha:0:8} + ${_default_ref}'s .github/workflows/ (STATBUS-236, Shape A)" \
+        || { echo "_ut_fixture_base: nothing to commit — ${_base_sha:0:8}'s .github/workflows/ already equals ${_default_ref}'s; using ${_base_sha:0:8} directly." >&2; }
+
+    # ── SELF-CHECKS. Both must hold, and each catches a failure the other cannot.
+    #
+    # (1) PUSHABILITY: nothing may differ under .github/workflows/, or the push is
+    #     refused exactly as the rc.04 fleet's was.
+    if ! git diff --quiet HEAD "$_default_ref" -- .github/workflows/; then
+        echo "_ut_fixture_base: FAILED — .github/workflows/ still differs from ${_default_ref}; the push would be refused (STATBUS-236). Diff:" >&2
+        git diff --stat HEAD "$_default_ref" -- .github/workflows/ >&2
+        return 1
+    fi
+    # (2) CORRECTNESS: outside .github/workflows/ the tree must be the BASE's,
+    #     byte for byte. This is the assertion that matters most — the arc's whole
+    #     meaning is that the box upgrades to the RC's code plus a migration. A
+    #     tree carrying the default branch's product changes would still push
+    #     cleanly and still go green, while testing an upgrade nobody asked for.
+    if ! git diff --quiet HEAD "$_base_sha" -- . ':(exclude).github/workflows'; then
+        echo "_ut_fixture_base: FAILED — the fixture base's tree differs from ${_base_sha:0:8} OUTSIDE .github/workflows/. The arc would upgrade the box to the wrong code. Diff:" >&2
+        git diff --stat HEAD "$_base_sha" -- . ':(exclude).github/workflows' >&2
+        return 1
+    fi
+
+    ARC_FIXTURE_BASE="$(git rev-parse HEAD)"
+    export ARC_FIXTURE_BASE
+    printf '%s' "$ARC_FIXTURE_BASE"
+}
+
 # construct_upgrade_target BASE_SHA SPEC
 # See module header above for full documentation.
 construct_upgrade_target() {
@@ -452,7 +571,14 @@ construct_upgrade_target() {
     echo "── building ${_spec} pair: B=${_b_branch} C=${_c_branch} ──"
 
     # ── build B ──────────────────────────────────────────────────────────────
-    git checkout -B "$_b_branch" "$_base_sha"
+    # STATBUS-236: B is cut from the fixture base (Shape A — same parent as
+    # _base_sha, but with .github/workflows/ overlaid from the default branch)
+    # rather than from _base_sha directly, so the push cannot read as a
+    # workflow-file change. The tree the box upgrades to is unchanged; see
+    # _ut_fixture_base's header.
+    local _fixture_base
+    _fixture_base="$(_ut_fixture_base "$_base_sha")" || return 1
+    git checkout -B "$_b_branch" "$_fixture_base"
     case "$_spec" in
         working)    _ut_write_working_v "$_v_up" "$_v_down" "$_v2_up" "$_v2_down" ;;
         failing)    _ut_write_failing_v "$_v_up" "$_v_down" ;;
