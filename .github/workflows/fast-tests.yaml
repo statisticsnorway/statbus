@@ -87,6 +87,13 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: cli/go.mod
+          # STATBUS-235: go.mod/go.sum live in cli/, not the repo root —
+          # without this, setup-go's cache lookup silently never found
+          # go.sum, so GOCACHE was never actually restored (STATBUS-234
+          # comment #1). SAFE ONLY because this workflow's own `go test`
+          # invocation (below) already carries `-count=1` (STATBUS-234) —
+          # never remove it.
+          cache-dependency-path: cli/go.sum
 
       - name: Build sb binary
         working-directory: cli

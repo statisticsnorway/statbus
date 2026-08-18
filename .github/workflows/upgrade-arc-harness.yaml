@@ -600,6 +600,17 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: cli/go.mod
+          # STATBUS-235: go.mod/go.sum live in cli/, not the repo root —
+          # without this, setup-go's cache lookup silently never found
+          # go.sum, so GOCACHE was never restored (STATBUS-234 comment #1).
+          # This job never runs `go test`, only `go build` (via
+          # dev.sh build-sb) — Go's build cache is correctly keyed on
+          # source content with no outside-module blind spot, so caching
+          # it here carries none of STATBUS-234's staleness risk.
+          # If you ever ADD a `go test` step to this job, it must carry
+          # -count=1 (STATBUS-234) — that rule, not this job's current
+          # contents, is what keeps the cache safe.
+          cache-dependency-path: cli/go.sum
 
       - name: Build sb binary (linux/amd64)
         # bootstrap_install_test_vm's no-version path needs an sb binary for

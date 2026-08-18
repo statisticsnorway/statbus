@@ -76,6 +76,16 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: cli/go.mod
+          # STATBUS-235: go.mod/go.sum live in cli/, not the repo root —
+          # without this, setup-go's cache lookup silently never found
+          # go.sum ("Restore cache failed: Dependencies file is not
+          # found..."), so GOCACHE was never actually restored and every
+          # run rebuilt/retested from scratch (STATBUS-234 comment #1).
+          # SAFE ONLY because STATBUS-234's `-count=1` is on the go test
+          # invocation below/in this same job — that flag is what forces
+          # every test to re-examine reality regardless of cache state;
+          # never remove -count=1 from a Go test invocation in this repo.
+          cache-dependency-path: cli/go.sum
 
       - name: go vet
         working-directory: cli
@@ -123,6 +133,17 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: cli/go.mod
+          # STATBUS-235: go.mod/go.sum live in cli/, not the repo root —
+          # without this, setup-go's cache lookup silently never found
+          # go.sum, so GOCACHE was never actually restored and every run
+          # rebuilt from scratch (STATBUS-234 comment #1). This job never
+          # runs `go test` (it runs golangci-lint via `./dev.sh lint`,
+          # which typechecks the actual source it's given — no
+          # outside-module blind spot the way a pin TEST has), so caching
+          # it carries none of the STATBUS-234 staleness risk; unlike the
+          # go-test job above, this one doesn't depend on -count=1 for
+          # safety.
+          cache-dependency-path: cli/go.sum
 
       - name: SKIP_GO_LINT bypass notice
         if: ${{ vars.SKIP_GO_LINT == '1' }}
