@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-14 16:12'
-updated_date: '2026-08-18 09:49'
+updated_date: '2026-08-18 09:54'
 labels:
   - upgrade
   - deploy
@@ -112,5 +112,19 @@ I was briefed to produce a failing reproducer before designing a fix. Test-first
 **AC#3 — how to close it without a code change.** Since STATBUS-170 phase 2, every deploy is itself this oracle: a green deploy means the row reached `completed`, so a poke that lost the race and left an available-forever row turns the deploy RED (deploy-to-demo.yaml:75-81). The evidence needed is one deploy run after 5ae1147fe whose poke landed within seconds of a fresh cut and converged green — operator legwork (`gh run list` for the deploy-to-* workflows since 2026-07-14, correlated against the tag cut times; the rc.03 cut in this campaign is the natural candidate). I did not gather it: fleet state is the operator's lane, and it needs no engineering.
 
 **No residual silent-drop path found.** The one theoretically remaining window — a bare `NOTIFY upgrade_apply` for an unregistered target delivered while the daemon is down, leaving nothing durable — is unreachable from the product (no such producer exists) and would require a manual DB write. Recommend closing AC#3 on run evidence rather than re-opening the code.
+---
+
+author: foreman
+created: 2026-08-18 09:54
+---
+AC#3 EVIDENCE STATUS — operator's gathering foreman-verified, one candidate REFUTED, one valid, one arm still open.
+
+REFUTED: the operator's headline candidate (run 29347806127, 2026-07-14 16:00 UTC, the ~6-min race window after v2026.07.0-rc.06) predates the fix — 5ae1147fe landed 17:13 UTC that day, over an hour AFTER the run, and merge-base confirms the fix is an ancestor of neither the rc.06 tag nor that run's head commit (77fa16fb2). Whatever converged there converged on the OLD code; it proves nothing about the fix.
+
+VALID: run 29742695414 (2026-07-20 12:33 UTC, head b15eb24d2, fix IS an ancestor, conclusion green with explicit reached-'completed' polling in the log). This is real post-fix convergence evidence — but of a NORMAL poke, not a race: no tag was cut around 2026-07-20, so the poke did not race a fresh cut.
+
+RED SIBLING EXPLAINED (no-flaky discipline): run 29741374499 (same day, 12:13, failure) died in images-ready — 15-minute timeout waiting for CI Images at its commit — BEFORE any poke; the retry 20 minutes later at a newer commit went through. Irrelevant to convergence.
+
+WHAT STILL CLOSES AC#3: (a) the architect's adversarial verification of the refutation (in flight), and (b) one post-fix poke in the race shape — the natural candidate is the STABLE-PROMOTION deploy of this campaign: when the King promotes and pushes the deploy branches, apply-latest pokes minutes after fresh state with the fixed producer. AC#3 holds open until both land; the ticket closes on evidence, not inference.
 ---
 <!-- COMMENTS:END -->
