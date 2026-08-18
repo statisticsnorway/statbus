@@ -3,11 +3,11 @@ id: STATBUS-203
 title: >-
   stale-sb-refresh-guidance: the staleness banner leads with ./sb install on a
   dev box — detect the toolchain and order the suggestions for the machine
-status: In Progress
+status: Done
 assignee:
   - '@mechanic'
 created_date: '2026-08-16 14:21'
-updated_date: '2026-08-16 18:01'
+updated_date: '2026-08-18 09:55'
 labels:
   - operator-ux
   - cli
@@ -32,9 +32,9 @@ GROUNDING: the banner is the stale-binary self-recovery surface (the WARN the AG
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 On a machine with a Go toolchain (or dev.sh present), the staleness banner leads with ./dev.sh build-sb and offers ./sb install second; without one it leads with ./sb install as today
-- [ ] #2 A Go unit pins both orderings through the detection seam
-- [ ] #3 Proven by observation: one real stale-binary trip on a dev box shows the dev-first ordering
+- [x] #1 On a machine with a Go toolchain (or dev.sh present), the staleness banner leads with ./dev.sh build-sb and offers ./sb install second; without one it leads with ./sb install as today
+- [x] #2 A Go unit pins both orderings through the detection seam
+- [x] #3 Proven by observation: one real stale-binary trip on a dev box shows the dev-first ordering
 <!-- AC:END -->
 
 ## Comments
@@ -44,5 +44,11 @@ author: foreman
 created: 2026-08-16 18:01
 ---
 BUILT + FOREMAN-REVIEWED + COMMITTED e2d5f8952 (2026-08-16; foreman review lane — operator-UX message code, not safety-core or release-gate). The fix lives entirely in cli/internal/freshness/check.go's IsStale (root.go's stalenessGuard just prints its return, so both the hard-fail and WARN paths inherit it): devToolchain detects a development checkout (Go on PATH OR dev.sh present — either signal alone), staleRemedy orders the suggestions for that machine — dev box leads with dev.sh build-sb, operator boxes keep the prior wording byte-unchanged. The detection seam is injected (same pattern as 199's apiBase) so tests pin BOTH orderings deterministically — inside a go-test binary the real PATH always has go, which would otherwise leave the operator branch unexercisable; the mechanic caught that himself and pinned three cases (Go-on-PATH, operator with an asserted-absent dev.sh, dev.sh-alone). Foreman-executed test run: full freshness package GREEN including the pre-existing toolchain-free source-text guard the mechanic hand-traced compatibility against (he replayed the test's line-scan logic with a script, found his first draft would trip it, reworded). SCOPE NOTE accepted as correct: the separate no-reliable-commit-identity banner in root.go is a different failure mode, deliberately untouched. AC#3 (a real dev-box trip showing the new ordering) stays open honestly — the King's next stale-binary encounter proves it for free; ticket stays In Progress on that observation.
+---
+
+author: foreman
+created: 2026-08-18 09:55
+---
+AC#3 PROVEN BY REAL OBSERVATION, 2026-08-18: the gate-hardening landing (d02550da5) left ./sb stale on the King's dev box (built from 698228b0, HEAD a2b7d991 with cli/ changes); running ./sb ps tripped the banner organically and it printed the dev-first ordering exactly as designed — leads with ./dev.sh build-sb, offers ./sb install second inside the parenthetical with the no-toolchain framing. AC#1/#2 were verified at build (e2d5f8952: seam-injected detection, three pinned test cases) and are checked now with it. Binary rebuilt after the observation. Done.
 ---
 <!-- COMMENTS:END -->

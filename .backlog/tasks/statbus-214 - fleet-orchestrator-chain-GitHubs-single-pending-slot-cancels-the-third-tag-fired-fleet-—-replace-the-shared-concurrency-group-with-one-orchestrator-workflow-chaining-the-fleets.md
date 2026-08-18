@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-08-17 07:14'
-updated_date: '2026-08-18 09:48'
+updated_date: '2026-08-18 09:55'
 labels:
   - install-recovery
   - release
@@ -95,5 +95,25 @@ EXACT FIX (foreman's, per your instruction — not applied by me): in `tagFiredW
 AWARENESS (not mine to fix): STATBUS-221 appeared in the shared tree while I worked (unassigned, references install-recovery-harness.yaml's `run-scenario` bare-if as the same STATBUS-215 class, explicitly notes "STATBUS-214's orchestrator is active in this area now"). I did not touch `run-scenario`'s `if:` — out of scope for 214, left for 221's assignee.
 
 VALIDATION: `ruby -ryaml` parses all 4 files clean; `actionlint` on all 4 exits 0 (shellcheck installed, ran clean on every embedded script); full-repo `actionlint` shows only pre-existing findings in unrelated files (deploy-to-*.yaml, images.yaml, master-to-*.yaml, release.yaml — none touched by me, confirmed by diffing the finding list against my changed-files list). `go build ./...` OK. `go test ./cmd/... ./internal/release/... -run 'Release|Workflow|Gate|Arc|Harness' -count=1 -v` all green (18 tests incl. the just-landed 216/218 empty-arc-domain + duplication-guard tests, confirming the base I'm building on). Diff frozen, no commits.
+---
+
+author: architect
+created: 2026-08-18 09:55
+---
+REVIEW VERDICT — APPROVED WITH ONE AMENDMENT (the run correlation). Land as frozen once that amendment is in and the rc.03 spot-check is green. The orchestrator's design is right, the probe-before-wiring discipline is exactly what this area needed, and the header comment is the best account of the 208 defect anyone has written.
+
+AMENDMENT REQUIRED — RUN CORRELATION PICKS THE WRONG RUN IN THE ONE CASE IT CAN GO WRONG. The query filters (workflow, commit, event, created>=before_iso) then takes `sort_by(.createdAt) | last`. But OUR dispatch is the FIRST one issued after before_iso is stamped, so among competing candidates ours is the OLDEST, not the newest — `last` preferentially selects a competing dispatch rather than ours. Even keeping the heuristic, `first` would be strictly safer here, since --created already excludes everything before our own dispatch and the only run that could beat it was created inside the sub-second gap between the timestamp and the gh call.
+
+Better, and what I am asking for: DELETE THE HEURISTIC. Snapshot the matching run ids BEFORE dispatching, then after dispatch take the set difference. Exactly one new id is ours. ZERO new ids means keep polling as now. MORE THAN ONE means genuinely ambiguous — fail loud, naming both runs, rather than guessing. About five lines, and it converts a silent mis-correlation into a detected condition. This matters more than the low probability suggests: a mis-correlated poll would watch someone else's subset run, conclude GREEN on its verdict, and move the chain on while our own full-suite run is still in flight or failing — the release gate would catch the resulting incomplete job set at promotion, but the orchestrator exists precisely so that proof is observed HERE, and a chain that reports green on a run it did not start has lost the property it was built for.
+
+DESIGN CALL (1) — KEEPING hetzner-vm-fleet ON THE INNER FLEETS: BLESSED, and it is load-bearing for a reason worth stating. A stray manual dispatch racing the chain is real, and the group is what keeps combined VM demand under the project limit when it happens. Crucially the failure mode is SAFE because of a separate choice made correctly in this same diff: the poll treats ANY non-success conclusion as failure, so if the shared group's one-pending-slot rule cancels the orchestrator's own queued fleet run, the chain reddens loudly with the run URL instead of hanging or passing. Keeping the group and branching explicitly on conclusion are two halves of one decision; neither is safe alone.
+
+DESIGN CALL (2) — THE ORCHESTRATOR'S OWN CONCURRENCY GROUP: BLESSED, BUT THE FRAMING NEEDS CORRECTING IN THE COMMENT. It is not "newest tag wins". With cancel-in-progress:false the group holds one RUNNING plus one PENDING; a third tag cancels the PENDING one. So the OLDEST keeps running to completion, the NEWEST becomes pending, and the MIDDLE tag is discarded. Say that explicitly, because the honest description of this workflow is that it does not eliminate the cancellation class — it RELOCATES it from the fleet layer to the release layer, where it is benign: a superseded intermediate RC's fleet proof is genuinely uninteresting, and its absence is handled, since the gate reads WorkflowCheckMissing at that commit and falls through to the path-sensitivity walk exactly as it does for an incomplete green. A reader who believes 214 killed cancellation outright will be surprised the first time an intermediate RC has no runs; a reader told it moved the cancellation somewhere harmless will not.
+
+AC#3 LAYER-TEST FINDING — the mechanic was right to surface it and the foreman's repoint is the correct immediate fix, but it is not sufficient as a METHOD. A prose comment satisfying a code assertion is the identical class we hardened the 216 arc-path pin against a few hours earlier. Ticketed as STATBUS-224: parse the YAML and assert on on.push.tags / on.push.branches instead of matching raw text, so comments cannot satisfy claims about triggers. Low, not a blocker.
+
+ALSO TICKETED, neither blocking: STATBUS-223 (the RIDE relocation — the big one, see the separate ruling) and STATBUS-225 (three copies of the dispatch/correlate/poll script in one file; the correlation amendment above has to be written three times, correctly, which is the smell arguing for extraction on the next touch).
+
+221's FOLD-IN: APPROVED as written. It is exactly the explicit form I specified, the comment states why and says not to simplify it back, and the behaviour is unchanged. Nothing further.
 ---
 <!-- COMMENTS:END -->
