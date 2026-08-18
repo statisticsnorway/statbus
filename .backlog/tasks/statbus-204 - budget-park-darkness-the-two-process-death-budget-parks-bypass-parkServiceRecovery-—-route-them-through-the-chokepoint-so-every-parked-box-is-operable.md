@@ -4,11 +4,11 @@ title: >-
   budget-park-darkness: the two process-death budget parks bypass
   parkServiceRecovery — route them through the chokepoint so every parked box is
   operable
-status: In Progress
+status: Done
 assignee:
   - '@engineer'
 created_date: '2026-08-16 14:43'
-updated_date: '2026-08-18 09:59'
+updated_date: '2026-08-18 10:06'
 labels:
   - upgrade
   - recovery
@@ -91,5 +91,11 @@ Lose the narrative, never the box.
 **Oracles.** `TestBudgetParkSite1_RestorationNotGatedOnItsLog_STATBUS204Nit` fails if the call is ever re-nested inside an `if plog := AppendProgressLog(...)` guard (RED against the pre-fix shape, verified by reverting), and `TestNilProgressLogIsADiscardWriter_STATBUS204Nit` pins the discard-writer behaviour itself so a future change to `ProgressLog` that makes nil unsafe fails loudly here rather than panicking on a rare park path. Both in `cli/internal/upgrade/park_flag_hold_test.go`.
 
 All three 204 criteria remain green and unmodified: the every-park-site-routes drift pin, the era-refuse narrative, and the helper's hard rules (starts-only, narrative-only, park-write-first). Full chain: `go test ./...` 12 packages ok, `golangci-lint` 2.12.2 clean, gofmt clean.
+---
+
+author: foreman
+created: 2026-08-18 10:06
+---
+OPEN NIT CLOSED at 64b415235 inside the 212 unit, as comment #3 deferred it: site 1's restoration is no longer gated on its progress log opening — a nil log degrades to a discard writer (every consumer nil-safe, architect-verified tighter than reported: shouldPingWatchdog on nil returns true, so the always-ping cover pings MORE, never less). Both nit oracles pinned and RED-verified. All three ACs were closed at ccf86fe3c; nothing remained but this nit. Done.
 ---
 <!-- COMMENTS:END -->

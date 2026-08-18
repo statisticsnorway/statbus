@@ -4,10 +4,10 @@ title: >-
   budget-park-marker-truth: the budget-park sites release the flock before
   parkServiceRecovery, so the 210 marker rewrite cannot land there — design the
   unheld-flag rewrite
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-16 23:00'
-updated_date: '2026-08-18 10:01'
+updated_date: '2026-08-18 10:06'
 labels:
   - upgrade-recovery
   - park
@@ -34,9 +34,9 @@ ORACLE: extend the 210 unit set — budget-park + restoration success ⇒ marker
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Architect ruling on the unheld-flag rewrite mechanism (re-acquire vs reorder vs other), with the failure arm named
-- [ ] #2 The budget-park sites' successful restorations leave a truthful pre-swap marker; unit-pinned
-- [ ] #3 No regression to the park-write-first pin, the parked-skip invariant, or the flock contract
+- [x] #1 Architect ruling on the unheld-flag rewrite mechanism (re-acquire vs reorder vs other), with the failure arm named
+- [x] #2 The budget-park sites' successful restorations leave a truthful pre-swap marker; unit-pinned
+- [x] #3 No regression to the park-write-first pin, the parked-skip invariant, or the flock contract
 <!-- AC:END -->
 
 ## Comments
@@ -106,5 +106,11 @@ ALSO CHECKED, unflagged and correct: the contended arm narrates and returns BEFO
 ONE CONSIDERED-AND-ACCEPTED NOTE, no action: acquireFlockVerbatim has a read-then-acquire TOCTOU window — another writer could change the flag between ReadFlagFile and acquireFlock, and we would rewrite the stale content. It is closed by the codebase's own discipline rather than by code: every legitimate flag writer holds the flock, and a holder makes our acquire FAIL as contended rather than silently clobber. Same window the existing inline idiom at RecoveryBudgetGuard has always had. Recorded so a future reader does not mistake it for an oversight.
 
 PROCESS POINT — GOFMT AS ITS OWN NAMED STEP: AGREED, fold it into the role docs. golangci-lint at the CI version passed while gofmt did not; a check that catches what the linter misses has earned its own line in the codified chain rather than living in a builder's habit.
+---
+
+author: foreman
+created: 2026-08-18 10:06
+---
+LANDED at 64b415235, architect-approved with no amendment (verdict comment #3, all three flagged judgments blessed). All ACs closed: the ruling (comment #1, doc-031), both sites' truthful markers unit-pinned on disk with RED proofs, and every prior pin (park-write-first, parked-skip, flock contract, 210's arc-proven coverage) passing unmodified. The VM-level neighbor (a suite that exercises budget parks) remains a standing observation noted in the oracle prose, not an AC. Done.
 ---
 <!-- COMMENTS:END -->
