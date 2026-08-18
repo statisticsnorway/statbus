@@ -8,7 +8,7 @@ status: To Do
 assignee:
   - engineer
 created_date: '2026-08-18 10:27'
-updated_date: '2026-08-18 10:51'
+updated_date: '2026-08-18 11:58'
 labels:
   - upgrade-recovery
   - release
@@ -220,5 +220,15 @@ author: foreman
 created: 2026-08-18 10:51
 ---
 LANDED at a20a416a3, architect-approved with no amendment (verdict comment #7): both defects fixed, the landed shape structurally STRONGER than the ruling (one writer sets BackupPath and flips the phase in the same write — the coupling now commented as load-bearing at his comment-only fold), the single-recorder claim verified literally (SET backup_path appears exactly once), the swap-to-reconnect residual hunted and proven unwritable-by-anyone, and the amended 197 pin judged a strengthening (generalizes to "no row write in executeUpgrade at all"). AC#1 and AC#2 closed. AC#3 (both scenarios green at a suite carrying the fix) rides the King's next cut — the promotion candidate moves to that release. Commit message carries the fail-open sharpening, the ancestry confirmation, and the AC#3-rides note as conditioned.
+---
+
+author: architect
+created: 2026-08-18 11:58
+---
+PIN GAP — YES, EXTEND IT INDEPENDENTLY, and the reason is today's own doctrine turned on my own ruling. I designated TestPreSwapFlagCarriesNoBackupPath_STATBUS228 as THE MECHANISM for the invariant "a PreSwap flag carries no BackupPath". It is a SOURCE PIN OVER executeUpgrade. So it examines ONE FUNCTION and claims a property of THE FLAG — scope narrower than the claim, which is exactly the zero-scope shape doc-033 names, in its sixth costume. STATBUS-210's rewrite is a second runtime producer of the forbidden state (:6002-6008, "BackupPath KEPT"), and the 229 log is the proof that it bites: the restore the invariant exists to prevent actually ran at 10:32:58. The engineer found this in his own fix, which is the right instinct and the finding I should have made when I designated the pin.
+
+MY 229 RULING REMOVES THE SECOND PRODUCER — 210 stops blanking the Phase, so Phase stays new-sb-swapped and the PreSwap+BackupPath combination cannot arise there. But the pin must STILL be extended, because a fix that removes today's second producer says nothing about tomorrow's third. The invariant is about the FLAG, so the pin must be about the flag: assert over every writer, not over one function. Cheapest sound form is a source pin covering EVERY mutateHeldFlag / flag-writing call site that touches Phase or BackupPath, with the assertion stated as the flag-level rule; better still if it can be expressed as a unit over the flag value itself. Whoever builds 229 folds it in — the two belong together, since 229 is the change that makes the invariant true again and the pin is what keeps it true.
+
+No change to 228's verdict: the fix is correct and correctly landed. The pin was under-scoped, which is a separate defect in the mechanism rather than in the code it guards.
 ---
 <!-- COMMENTS:END -->

@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-18 10:37'
-updated_date: '2026-08-18 11:56'
+updated_date: '2026-08-18 11:58'
 labels:
   - upgrade-recovery
   - install-recovery
@@ -71,5 +71,27 @@ author: foreman
 created: 2026-08-18 11:56
 ---
 TIMELINE ANOMALY RESOLVED (operator log pull, run 30755799405 job 91518172749): the OLD failure was a DIFFERENT mechanism — health-check timeout after 60 attempts at the runtime-stability phase, bootstrap and scenario both fine — not the precondition refusal. So the engineer's diagnosis stands strengthened: the rc.03 failure IS a fresh regression from the 210 marker rewrite (the blanked-phase → unconditional-PreSwap-rollback chain), and my ticket title's "failing since before rc.02" conflated two unrelated failures wearing the same red. CONSEQUENCE FOR EXPECTATIONS: fixing the 210 chain may UNMASK the older chronic health-check issue at the next suite — if this scenario then fails at the runtime-stability phase, that is the OLD problem resurfacing as its own trace, not the 229 fix failing. Both mechanisms now have distinct signatures on file (tmp/operator-arc-fails34-triage-2026-08-18.md, tmp/operator-unpark-old-fail.log).
+---
+
+author: architect
+created: 2026-08-18 11:58
+---
+RULED. Diagnosis CONFIRMED at source (PhaseOldSbUpgrading really is the empty string, :259 — "absence is the value"; 210's rewrite really does keep BackupPath, :6002-6008; the un-park really does already reconcile Step/PriorDeathStep, install_upgrade.go:326-334). The answer is NONE of the three shapes as stated — it is shape 2 MADE CONDITIONAL BY AN EXPLICIT MARKER, and the reason matters more than the diff.
+
+WHY SHAPE 1 CANNOT WORK: it asks what the phase should become, and THERE IS NO HONEST ANSWER. After a successful park restoration the box is at SOURCE with nothing in flight. The phase vocabulary describes POSITIONS INSIDE AN IN-FLIGHT UPGRADE — died-before-swap, binary-swapped, resume-began. Every available value is a claim about an upgrade that has already finished retreating. Shape 1 asks us to choose which lie to tell, and 210 already chose one: it expressed "the box retreated to source" by borrowing a value that ALREADY MEANS "died before the swap". Two different states collapsed onto one wire value — and the unconditional rollback at :1341 is the second meaning arriving on schedule. Patching the phase again picks a different lie.
+
+WHY THIS IS THE THIRD PATCH TO ONE ARTIFACT, WHICH IS THE REAL FINDING: STATBUS-044 cleared Step, then PriorDeathStep, because stale fields sabotaged the granted attempt. 210 added a third. Shape 1 patches the third and waits for the fourth. The pattern is not "another field went stale" — it is that AFTER A COMPLETED RETREAT THE WHOLE FLAG IS STALE, because it describes an upgrade that is over.
+
+RULED SHAPE: (a) 210 STOPS BLANKING THE PHASE. Replace `f.Phase = PhaseOldSbUpgrading` with an EXPLICIT field recording what actually happened — name it for the fact, e.g. RetreatedToSourceAt — and leave Phase alone. The new state gets its own name instead of borrowing one, which is what 210 should have done. (b) THE UN-PARK REMOVES THE FLAG when that field is set: the retreat is complete, there is nothing to recover, and the row is claimed fresh through the normal path — a genuinely fresh attempt rather than a resumed one. (c) When the field is ABSENT the un-park behaves exactly as today, ClearFlagStepHistory included.
+
+(c) IS LOAD-BEARING, NOT DEFENSIVE — do not simplify it to an unconditional removal. An ERA-REFUSED park (restoration refused, box dark, still at target) has a TRUTHFUL flag describing a genuinely mid-upgrade box. Removing it there would strand exactly the state RecoverFromFlag exists to handle. The two park outcomes are different states and must stay distinguishable; 210's whole defect was making them indistinguishable.
+
+ORDERING: the removal happens AFTER the successful un-park and BEFORE RecoverFromFlag — that ordering is the fix. Note the flag must SURVIVE the park window: it is how ./sb install discovers the parked box at all (flag present + flock free → crash-recovery → un-park). So removal belongs at the un-park, beside ClearFlagStepHistory, and nowhere earlier.
+
+SHAPE 3 REJECTED: 228 ruled the PreSwap branch stands as written; making it conditional re-opens the weaker-property problem refuted there.
+
+ORACLES: a successful park restoration leaves Phase UNCHANGED and the explicit marker SET (RED against 210's blanking); an un-park over a marked flag REMOVES it; an un-park over an UNMARKED flag preserves today's behaviour including ClearFlagStepHistory — that arm is what stops (c) being simplified away; and the end-to-end shape at VM level: un-park after a resource park grants an attempt that goes FORWARD, with the row not ending rolled_back.
+
+TIMELINE ANOMALY: right to flag rather than smooth. Until the 2026-08-02 job log is pulled, this diagnosis is CONSISTENT WITH that failure, not confirmatory of it. Do not hold the ruling — the mechanism is proven at source and in today's log — but do NOT close 229 until it resolves: if the older failure has a different cause, we have a second bug wearing the same message, and closing on the resemblance would bury it.
 ---
 <!-- COMMENTS:END -->
