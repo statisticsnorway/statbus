@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - foreman
 created_date: '2026-08-17 08:30'
-updated_date: '2026-08-17 21:47'
+updated_date: '2026-08-18 08:13'
 labels:
   - install-recovery
   - ci
@@ -122,5 +122,11 @@ TIMING, so the morning expectation is calibrated rather than optimistic: the sam
 OUT-OF-SCOPE OBSERVATIONS — all three ticketed by the architect, no foreman action needed to file: STATBUS-216 (arc-domain-empty, Medium — raised from the original Low, see below), STATBUS-217 (arc-gate-conclusion-blind, Low), STATBUS-218 (arc-ride-not-free, Low).
 
 WHY 216 IS MEDIUM, NOT LOW: checking observation (A) at source turned up a real vacuous-pass hole, not the cosmetic glob nit I first filed it as. `upgradeArcNamesAtCommit` (release.go:1349) returns `nil, nil` on an empty arc domain, `WorkflowJobsCompleteAtCommit(runID, nil)` finds nothing missing and returns complete=true, and the gate prints "✓ upgrade-arc-harness FULL SUITE green (0/0 arc jobs present)" and passes. A directory rename or pathspec typo would silently disarm the 199 gate while printing a success line — the same any-green class 199 exists to refuse. Unreachable today (31 arcs present); worth fixing before it is reachable.
+---
+
+author: foreman
+created: 2026-08-18 08:13
+---
+CUT HAPPENED: the King tagged v2026.08.0-rc.03 at bafcb396b (which carries the fix, a998f7dcc). The tag push fired the arc harness with the FIXED workflow: decide chose FULL SUITE (the workflow file is on the sensitivity list), discover succeeded, no-arcs-guard correctly SKIPPED (full selection), construct in progress. Run 32115158961. AC#3 closes when this run finishes green with all 31 arc jobs. Per the architect's comment #7 ruling, the one-arc dispatch spot-check (scenarios: working) follows AFTER this suite finishes and the fleet drains — that closes the dispatch-path arm empirically.
 ---
 <!-- COMMENTS:END -->

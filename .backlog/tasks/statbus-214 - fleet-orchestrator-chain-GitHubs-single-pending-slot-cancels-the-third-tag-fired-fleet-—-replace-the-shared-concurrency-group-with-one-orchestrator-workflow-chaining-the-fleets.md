@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-08-17 07:14'
-updated_date: '2026-08-17 07:16'
+updated_date: '2026-08-18 08:13'
 labels:
   - install-recovery
   - release
@@ -44,3 +44,13 @@ ORACLES: actionlint; the 199 layer-pin test updated to the orchestrator's trigge
 - [ ] #2 The gates' run-at-commit attribution verified under the chosen mechanism (workflow_call sha attribution, or sequential gh-dispatch fallback) before wiring
 - [ ] #3 The 199 layer-pin and the workflow comments reflect the orchestrator geometry; manual workflow_dispatch paths preserved on all three fleets
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-08-18 08:13
+---
+THIRD LIVE DEMONSTRATION of the shared-group cancellation at v2026.08.0-rc.03 (2026-08-18): the tag fired all three fleet workflows; the group held Upgrade Arc Harness (running) + Install Recovery Harness (pending); Test Install run 32115159028 was CANCELLED with zero jobs. Consequence for the rc.03 gates: test-install has no green at the tag yet — foreman will re-dispatch it at v2026.08.0-rc.03 once the fleet drains (after the arc suite and install-recovery complete, and after the ruled one-arc 215 spot-check). This cancellation is the exact failure the orchestrator exists to remove; it stays the mechanic's next assignment after the 216/217/218 gate-hardening round.
+---
+<!-- COMMENTS:END -->
