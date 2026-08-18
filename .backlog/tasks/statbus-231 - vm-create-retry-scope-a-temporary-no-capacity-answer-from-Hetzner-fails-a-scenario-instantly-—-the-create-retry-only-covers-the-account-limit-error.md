@@ -4,8 +4,10 @@ title: >-
   vm-create-retry-scope: a temporary "no capacity" answer from Hetzner fails a
   scenario instantly — the create retry only covers the account-limit error
 status: To Do
-assignee: []
+assignee:
+  - mechanic
 created_date: '2026-08-18 10:54'
+updated_date: '2026-08-18 11:36'
 labels:
   - install-recovery
   - ci
@@ -14,7 +16,7 @@ dependencies: []
 references:
   - test/install-recovery/lib/vm-bootstrap.sh
   - tmp/operator-ir-triage-2026-08-18.md
-priority: low
+priority: medium
 type: enhancement
 ordinal: 231000
 ---
@@ -36,3 +38,13 @@ WHAT IS ACHIEVED: a minutes-long capacity blip at the provider costs a scenario 
 - [ ] #1 The create retry fires on placement resource_unavailable as well as resource_limit_exceeded; permanent error classes still fail fast
 - [ ] #2 A scenario surviving a transient placement shortage is observed (or the retry path is test-pinned if observation is impractical)
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-08-18 11:36
+---
+RAISED TO MEDIUM AND FOLDED INTO THE MECHANIC'S IN-FLIGHT 227 UNIT (same file, vm-bootstrap.sh): THIRD placement resource_unavailable in one day — the two 0-happy install-recovery baselines this morning, and now the rc.03 spot-check's working arc (run 32131797267, job failed at hcloud server create with the identical error class; everything on our side of the create worked). The gap now has a demonstrated cost: it burned a spot-check VM slot and a verdict. Fix as filed: widen the bounded create-retry trigger to placement resource_unavailable alongside resource_limit_exceeded; permanent classes still fail fast.
+---
+<!-- COMMENTS:END -->
