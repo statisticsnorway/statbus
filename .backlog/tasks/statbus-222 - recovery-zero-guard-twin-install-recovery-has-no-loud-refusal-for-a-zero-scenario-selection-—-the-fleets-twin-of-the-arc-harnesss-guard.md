@@ -3,11 +3,11 @@ id: STATBUS-222
 title: >-
   recovery-zero-guard-twin: install-recovery has no loud refusal for a
   zero-scenario selection — the fleet's twin of the arc harness's guard
-status: In Progress
+status: Done
 assignee:
   - mechanic
 created_date: '2026-08-18 09:50'
-updated_date: '2026-08-18 15:01'
+updated_date: '2026-08-18 15:04'
 labels:
   - ci
   - install-recovery
@@ -37,9 +37,9 @@ WHY THAT HELPS: both fleets then share one behavior — an empty run is a loud f
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A run whose discover succeeds with count==0 concludes red with a named error
-- [ ] #2 Any legitimate zero-selection path is exempted explicitly and independently re-derived, never read from a discover output
-- [ ] #3 The guard job cannot poison downstream ifs (the 215 audit applied at birth)
+- [x] #1 A run whose discover succeeds with count==0 concludes red with a named error
+- [x] #2 Any legitimate zero-selection path is exempted explicitly and independently re-derived, never read from a discover output
+- [x] #3 The guard job cannot poison downstream ifs (the 215 audit applied at birth)
 <!-- AC:END -->
 
 ## Comments
@@ -79,5 +79,25 @@ THREE-PATH TRACE:
 3. Manual dispatch, a selector that's syntactically valid but resolves to nothing (e.g. only HARNESS_SKIP_DEFAULT-excluded scenario names) — the case AC#1 exists for: discover's `--print-selected` succeeds (the name IS a real scenario, no bad-selector error) but the exclusion logic filters it out → count==0, discover.result=='success' → guard's if evaluates true → guard RUNS, fails red, names the error. run-scenario's own independent count!=0 check skips it (matrix never expands). cleanup still runs (always()). Overall workflow conclusion: FAILURE — AC#1 satisfied. (Distinguished from a genuinely BAD selector, which already fails discover itself — non-zero exit — before any count is ever produced; the guard correctly does not fire redundantly in that case since discover.result != 'success'.)
 
 Validated: `ruby -ryaml` clean, `actionlint` exits 0 on this file (zero findings), confirmed against a full-repo actionlint sweep showing zero attributions to it.
+---
+
+author: architect
+created: 2026-08-18 15:03
+---
+REVIEW VERDICT — APPROVED, no amendment. Clean unit; the structural claim is literally true rather than merely argued, and the comment does something better than the code.
+
+AC#3 VERIFIED LITERALLY, not accepted: `no-scenarios-guard` appears exactly TWICE in the file — once inside its own comment, once as the job definition. NOTHING needs it back. So a red guard cannot cascade an implicit skip anywhere; it only flips the run's own conclusion, which is precisely what it is for. run-scenario's count check (221) and cleanup's always() are independent, as claimed.
+
+CONDITION matches the arc harness's post-223 unconditional form exactly — `!cancelled() && discover.result == 'success' && count == '0'` — with discover-success required, so a failed discover reddens on its own rather than through this guard.
+
+THE COMMENT IS THE BEST PART, and I want it protected. It carries the doctrine forward to whoever adds a green-skip path here later: an exemption must be INDEPENDENTLY RE-DERIVED, never read from a discover output, because the short-circuit that produced count==0 is not trusted to also vouch for its own legitimacy. That is my STATBUS-215 review ruling written at the exact point where the next person would otherwise violate it — prose placed where the hand will be, which is the only form of doctrine that survives. And framing the poison check as "applied at birth, not retrofitted" is the 215 audit discipline generalising proactively instead of after an incident.
+
+ONE ADJACENT QUESTION I CHECKED SO NOBODY OPENS IT LATER: whether STATBUS-216's OTHER workflow-side twin — the unguarded shell glob that could enumerate the literal `*` as a scenario — also applies to this file. IT DOES NOT. This discover delegates selection to `run.sh --print-selected` as the single source of truth rather than globbing in YAML, and that script already fails loudly instead of producing an empty matrix. So there is no nullglob twin to add here, and the delegation is the better design regardless. Recorded so a future tidier does not helpfully port a fix into a file that has no need of it.
+---
+
+author: foreman
+created: 2026-08-18 15:04
+---
+LANDED at e03dee48f, architect-approved with no amendment. His verdict highlights on the record: AC#3 verified literally (the guard appears twice in the file — its comment and its definition — and nothing needs it back, so a red can only flip the run's own conclusion); the doctrine-carrying comment called the best part of the unit and explicitly protected; and the adjacent 216-glob question checked and closed — this discover delegates selection to run.sh --print-selected (single source, already loud on empty), so there is no nullglob twin to port. Both fleets now share one rule: an empty run is a loud failure. Done.
 ---
 <!-- COMMENTS:END -->
