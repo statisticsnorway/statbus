@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-08-18 08:13'
-updated_date: '2026-08-18 10:08'
+updated_date: '2026-08-18 10:18'
 labels:
   - ci
   - release
@@ -79,5 +79,47 @@ author: foreman
 created: 2026-08-18 10:08
 ---
 KING RATIFIED the doc-030 design, 2026-08-18, in the foreman's console: "STATBUS-219 Approved". AC#1 closed. Stage 1 (preflight-side ride) dispatched to the engineer; Stage 2 stays gated on the all-jobs-skipped conclusion probe per the design.
+---
+
+author: engineer
+created: 2026-08-18 10:18
+---
+**STAGE 1 BUILT to doc-030, frozen for review (no commit).** Preflight-side only — zero workflow/trigger changes, so AC#2 remains Stage 2's, gated on the all-jobs-skipped probe. This unit closes AC#3, AC#4, AC#5.
+
+**Files:** new `ops/release/ci-exempt-paths.txt` (one entry: `.backlog/`), `cli/cmd/release.go` (+288/-15), new `cli/cmd/release_ci_exempt_ride_test.go`.
+
+**The mechanism** — `ciExemptPathsFile` :1365, `ciExemptRideWalkBound = 50` :1371, `loadCIExemptPaths` :1376, `fileIsCIExempt` :1410, `changedFilesAllExempt` :1438, `exemptRide` :1455, `findExemptRide` :1483, `printExemptRide` :1557. Wired at the two verdict-gate sites only: pg_regress :199 and `checkPrereleaseWorkflowGate` :624 (which serves go-test, app-build-lint, fast-tests). The walk reuses the STATBUS-216 seam vars, so every arm is pinned offline against real git fixtures.
+
+**THE INVERSION, as warned.** `fileIsCIExempt` is a separate helper whose comment states the inversion in full and names `diffTouchesSensitivePath` as the thing NOT to copy. Anchored prefix: `.backlog/` matches `.backlog/tasks/x.md`, never `vendor/.backlog/thing.md`; an entry without a trailing slash matches that exact file or that directory's contents, so a future `doc` entry can never exempt `docker-compose.yml`. **RED-verified**: swapping the helper to `strings.Contains` turns four cases red immediately.
+
+**IMAGES NEVER RIDES** — reason recorded in code at release.go:476 (a question about the world, not the code), citing workflow_check.go:104-107 and the fast-tests pull coupling. `TestImagesGateNeverRides` fails if `findExemptRide` ever appears in the images gate's span or if the reason text is deleted.
+
+**Refusal arms, each test-pinned:** non-exempt file in the diff (names the offender); exempt-clean ancestors but none green; missing/unreadable exempt list (fails CLOSED, names the file); walk bound (never probes more than 50); Unknown never attempts the ride. Plus gate-level `TestPrereleaseGate_RidesAndRefusesLoudly` — rides loudly naming the tested commit and every justifying file; refuses loudly with "No exempt-only ancestor ride available: …".
+
+**Verification:** `go test ./...` in cli/ — 12 packages ok, 0 failures. `gofmt -l` clean. `golangci-lint run ./...` at 2.12.2 — 0 issues (it first found 3 `ineffassign` in my new test file — the 213 class — fixed before freezing; the gofmt step and the lint step each caught something the other did not).
+
+Six points doc-030 left open, which I resolved, are in the next comment — flagged separately so the architect can rule on each.
+---
+
+author: engineer
+created: 2026-08-18 10:18
+---
+**SIX POINTS doc-030 LEFT OPEN THAT I RESOLVED — flagged, not buried. Each is cheap to reverse; the architect should rule.**
+
+**1. The walk does NOT stop at the first non-exempt candidate.** My brief's phrasing ("non-exempt diff … refuses") reads as stop-on-first, but doc-030's own add-then-revert rationale requires the opposite: a direct diff compares TREES, so an older ancestor can be tree-identical to the tip even when a nearer one differs. Stopping early would discard exactly the ride the direct-diff design exists to find. I continue to the bound; only exempt-clean candidates cost an API call, so a non-exempt candidate costs one local `git diff`. Pinned by `TestFindExemptRide_AddThenRevertRidesTheOlderAncestor`.
+
+**2. pg_regress rides too, and its stamp is NOT persisted.** doc-030's table lists pg_regress as a verdict gate, but its call site has a shape the other three do not: on green it writes `tmp/fast-test-passed-sha`, and later checks diff `stampSHA..HEAD` for migration and `test/expected/` drift. On a ride I feed those checks the RIDE TARGET's SHA — the truthful claim — so they verify ACROSS the ride span on their own (empty by construction, since `migrations/` and `test/` are not exempt; no special-casing). I deliberately do NOT write the stamp to disk: a stamp records that a suite RAN at a SHA; a ride is an inference re-derived in under a second every invocation. Persisting it would let a later reader — or a later code path — mistake inference for evidence, and would outlive the ancestor green that justified it.
+
+**3. Unknown never rides.** doc-030 names Missing/Pending/Failed; Unknown is unlisted. Excluded deliberately: an unreachable API cannot verify an ancestor either, and that refusal is about the check, not the code. Pinned by asserting the walk is not even entered (exactly one probe).
+
+**4. A missing or unreadable exempt list fails CLOSED.** Not specified. No list ⇒ no ride, and the refusal names the file.
+
+**5. Git-quoted paths are never exempt.** `git diff --name-only` quotes paths containing non-ASCII or special characters (`"\303\251…"`). Such a path begins with a quote and matches no anchored prefix, so it lands on the safe side — the under-inclusive direction. Documented in both the helper and the list header, pinned by a case.
+
+**6. The refusal reports BOTH facts when both were observed** — "the exempt-only ancestors have no green run, AND older ones differ in non-exempt files (e.g. X)". I found this because a test of mine initially asserted the wrong message: they are different operator problems. "Exempt-clean but ungreen" means waiting or re-running fixes it; "non-exempt file" means this code state is genuinely untested and no waiting will change that.
+
+**Also not done, deliberately:** the images gate still calls `release.CheckWorkflowAtCommit` directly rather than the STATBUS-216 seam. It must never ride, so there is nothing to stub, and converting it would only blur the exclusion the `TestImagesGateNeverRides` pin protects.
+
+**Note for Stage 2's probe:** nothing in Stage 1 depends on the all-jobs-skipped conclusion. If the probe returns `success`, the ride still fires correctly — a phantom-green run at the tip would be read as Green and the gate passes without the ride at all, which is the softness 199/215 already refuse elsewhere and NOT something Stage 1 can or should compensate for.
 ---
 <!-- COMMENTS:END -->
