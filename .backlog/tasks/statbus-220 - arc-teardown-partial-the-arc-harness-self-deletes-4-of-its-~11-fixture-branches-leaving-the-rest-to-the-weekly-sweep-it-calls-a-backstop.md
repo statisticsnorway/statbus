@@ -3,9 +3,11 @@ id: STATBUS-220
 title: >-
   arc-teardown-partial: the arc harness self-deletes 4 of its ~11 fixture
   branches, leaving the rest to the weekly sweep it calls a backstop
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - mechanic
 created_date: '2026-08-18 08:27'
+updated_date: '2026-08-18 14:55'
 labels:
   - ci
   - install-recovery
@@ -41,3 +43,31 @@ WHY THAT HELPS: the run cleans up after itself, the weekly sweep goes back to be
 - [ ] #3 teardown still exits 0 when a branch is absent (RIDE run, crashed construct, already swept) — the existing ls-remote guard and unconditional exit 0 are preserved
 - [ ] #4 After one full-suite run, `git ls-remote --heads origin 'refs/heads/test/*'` shows no branches from that run_id
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: mechanic
+created: 2026-08-18 14:55
+---
+Built, frozen for review (no commits), same file/diff as STATBUS-223 (both touch upgrade-arc-harness.yaml's teardown-adjacent area, landing as one unit per the foreman's instruction).
+
+AC#2 (single source of truth, not a wider hardcoded list): found `delete_throwaway_branches SPEC [RUN_ID]` already exists in test/install-recovery/lib/upgrade-target.sh (STATBUS-165 AC#4) — it recomputes BOTH branch names for any spec from the EXACT SAME pattern `construct_upgrade_target` uses to build them (`test/upgrade-arc-<spec>-migration-<run_id>` / `...-fixed-migration-<run_id>`), with the identical ls-remote-guard / best-effort-delete / always-return-0 shape teardown's old inline loop duplicated by hand for only 2 lineages. Teardown now sources that library (same file `construct` already sources) and calls the function once per spec:
+```
+. test/install-recovery/lib/upgrade-target.sh
+for spec in working failing oom ceiling healthpark codeonly crollback; do
+  delete_throwaway_branches "$spec" "$RUN_ID"
+done
+exit 0
+```
+This is structural coupling, not comment discipline — an 8th lineage added to construct later cannot silently leave its branches behind here, because deletion now derives from the SAME function construct's own branch-naming derives from, not a second hardcoded list that has to be remembered.
+
+AC#1 (all lineages, not just working/failing): confirmed via test/install-recovery/lib/upgrade-target.sh:561 that `construct_upgrade_target` pushes BOTH a B and C branch for EVERY spec unconditionally (`git push -f origin "$_b_branch" "$_c_branch"`), including the single-phase lineages (oom/ceiling/codeonly) whose C is unused for image dispatch but still pushed "for uniformity" per the library's own comment — so all 7 lineages × 2 = 14 branches get pushed on a full run, not 11 (the 11-branch count I'd cited on 223 was the image-dispatch count, not the push count — corrected here). The new teardown loop covers all 7 specs → all 14 branches.
+
+AC#3 (exits 0 on absent branches): preserved — `delete_throwaway_branches` carries the identical `git ls-remote --exit-code --heads origin` guard and unconditional `return 0` the old inline loop had (it's the SAME shape, STATBUS-165 built it by generalizing the CI teardown's own pattern), so RIDE runs / partial-construct-failure runs / already-swept branches all still no-op cleanly. teardown's own `exit 0` at the end is unchanged.
+
+AC#4 (git ls-remote clean after a full run): not independently observable from here (needs a live full-suite run) — same category as 223's live-suite ACs. Structurally guaranteed by AC#1/#2's fix: every branch construct pushes now has a matching delete call.
+
+Validated: bash -n implicit via actionlint's shellcheck pass (clean, zero findings) since this is a workflow-embedded script, not a standalone .sh file. Full trace and Go-test validation on the shared diff reported on STATBUS-223.
+---
+<!-- COMMENTS:END -->

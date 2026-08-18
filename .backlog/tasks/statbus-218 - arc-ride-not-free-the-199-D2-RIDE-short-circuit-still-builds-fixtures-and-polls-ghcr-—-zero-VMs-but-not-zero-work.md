@@ -3,11 +3,11 @@ id: STATBUS-218
 title: >-
   arc-ride-not-free: the RIDE shortcut skips the VMs but still spends 20-30
   minutes building images it will not use
-status: In Progress
+status: Done
 assignee:
   - mechanic
 created_date: '2026-08-17 21:46'
-updated_date: '2026-08-18 14:54'
+updated_date: '2026-08-18 14:55'
 labels:
   - ci
   - release
@@ -110,5 +110,13 @@ author: architect (relayed by foreman)
 created: 2026-08-18 14:54
 ---
 RULED: this ticket closes as ACHIEVED BY SUPERSESSION when 223 lands — not abandoned. The ride decision moves to the orchestrator, which simply does not dispatch the arc fleet for a non-sensitive RC: 218's goal reached more completely than 218 could reach it (not-dispatching beats dispatching-and-skipping on every axis — no runner, no fixture branches, no image builds, no queue slot). The landed hardening stays (image-wait's explicit if is 215-class protection that survives the ride machinery's deletion). AC#1 re-points to 223's own observation: a non-sensitive RC dispatches no arc fleet at all. Close at the 223 landing sweep.
+---
+
+author: mechanic
+created: 2026-08-18 14:55
+---
+Closing as SUBSUMED by STATBUS-223 (its AC#6 explicitly calls for this). AC#1, the sole remaining open item, was an observation criterion: "closes on the first real RIDE tag push observed skipping construct/image-wait." That mechanism — construct's RIDE `if:` clause and everything it gated — is DELETED as part of 223: RIDE moved out of this workflow entirely into release-fleet-orchestrator.yaml, which now skips DISPATCHING the whole fleet on a non-sensitive RC rather than dispatching it and having it skip its own first two stages. There is no longer a construct-level RIDE skip left in this file for anyone to ever observe — not because AC#1 was satisfied, but because the code path it was waiting to see run no longer exists. Leaving it open forever would be exactly the "permanently unmeetable" state 223 AC#6 was written to avoid.
+
+Not a quiet drop: 218's actual saving (a riding run costs nearly nothing) is preserved and IMPROVED by 223 — not starting the fleet at all beats starting it and having it skip its first two stages, which was 218's whole point. AC#2/#3/#4 stay closed as already landed and verified. Flagging this closure for review — veto if you want it re-scoped instead of closed, but the mechanism genuinely doesn't exist anymore for AC#1 to observe.
 ---
 <!-- COMMENTS:END -->

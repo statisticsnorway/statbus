@@ -3,10 +3,11 @@ id: STATBUS-223
 title: >-
   ride-relocation: the orchestrator swallowed the path-sensitivity shortcut —
   move the decision up to it and delete the fleet's now-dead copy
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - mechanic
 created_date: '2026-08-18 09:54'
-updated_date: '2026-08-18 10:13'
+updated_date: '2026-08-18 14:55'
 labels:
   - ci
   - release
@@ -57,5 +58,56 @@ author: architect
 created: 2026-08-18 10:13
 ---
 Description rewritten to the Purpose Sandwich — the point now lands in the first two sentences in words that need no code knowledge ("releasing a new version should not cost hours of testing nobody needs"), the mechanism and file-level detail are unchanged below it, and the close states what is regained. No change to scope, acceptance criteria, or the ruling: only the opening's altitude. Filed before the King's calibration on STATBUS-220; corrected because this is the one of my recent tickets carrying a real decision he may need to weigh.
+---
+
+author: mechanic
+created: 2026-08-18 14:55
+---
+Built to spec, frozen for review (no commits), part 1/2. release-fleet-orchestrator.yaml gained a new `decide-upgrade-sensitivity` job (no needs — runs from the start in parallel with test-install, since it's pure git/grep with no VM cost); `upgrade-arc-harness` now needs it too.
+
+DECISION LOGIC (AC#1): the new job's script is the SAME derivation the deleted `decide` job used to run, relocated verbatim — PREV_RC via `git tag --sort=-version:refname | grep -- '-rc\.' | sed -n '2p'`, substring-match the diff against `ops/release/upgrade-sensitive-paths.txt`. `upgrade-arc-harness`'s `if:` skips ONLY when explicitly confirmed non-sensitive:
+```
+if: >-
+  ${{ !cancelled() &&
+      needs['install-recovery-harness'].result == 'success' &&
+      !(needs['decide-upgrade-sensitivity'].result == 'success' && needs['decide-upgrade-sensitivity'].outputs.sensitive == 'false') }}
+```
+Any other state (job failed, cancelled, or output merely absent) falls through to RUNNING the fleet — safe default. test-install and install-recovery-harness have no dependency on this job at all, so they always run regardless (AC#1's other half).
+
+LOUD PRINTING (AC#2): the decide job's script prints PREV_RC, the full sensitive-paths list, every changed file since PREV_RC, and the verdict — unconditionally, every run, whether sensitive or not (same logging the deleted `decide` job already did, just relocated).
+
+AC#5 (gate untouched): zero changes to cli/cmd/release.go or any Go file. The gate's own CheckUpgradeArcHarnessGate/sensitivity walk is completely independent of this workflow-side decision, as it always was — a skipped dispatch leaves WorkflowCheckMissing at that commit, which the gate's existing Missing→path-sensitivity-walk fallback already handles.
+
+Part 2/2 (deletions + upgrade-arc-harness.yaml changes + 3-path trace) follows.
+---
+
+author: mechanic
+created: 2026-08-18 14:55
+---
+Part 2/2 — the deletions (AC#3) and the three-path trace.
+
+DELETED from upgrade-arc-harness.yaml:
+- the entire `decide` job (checkout + the sensitivity-diff script), replaced with a one-line comment naming STATBUS-223 and pointing at the orchestrator.
+- `construct`'s `needs: [decide]` and its whole STATBUS-218 RIDE `if:` clause — back to a fully bare job (no needs, no if), since nothing decides skip-eligibility inside this file anymore.
+- `discover`'s `needs: [decide]` and `if: always()` (the guard existed ONLY to survive decide's skip — with decide gone there's nothing to survive, so bare is honest, not a ghost guard) — and inside its script, the `RIDE` env var and the whole `if [ "$RIDE" = "true" ]; then ... exit 0; fi` early-exit block.
+- `no-arcs-guard`'s `decide` need and its RIDE-exemption clause — it's now unconditional: `!cancelled() && needs.discover.result == 'success' && needs.discover.outputs.count == '0'`, a pure backstop (STATBUS-216's nullglob check already catches the "arcs/ folder empty" case earlier and louder).
+
+KEPT, per your instruction, on `run-arc`: the explicit per-need result checks (`needs.construct.result == 'success' && needs['image-wait'].result == 'success' && needs.discover.result == 'success' && needs.discover.outputs.count != '0'`) — they guard genuine FAILURE, not skip, and stay valid/valuable even though the specific 215 trap they were written against can no longer occur in this file (construct/discover have no needs of their own now, so nothing upstream of them can be skipped either). Updated its comment to say so explicitly rather than leaving stale 215-vs-decide narrative.
+
+Top-of-file header comment rewritten: the STATBUS-214 "KNOWN CONSEQUENCE, flagged not fixed" paragraph (which this ticket exists to resolve) is replaced with a STATBUS-223 paragraph explaining RIDE relocated, not just fixed, and that this file carries NO RIDE machinery of its own anymore.
+
+THREE-PATH TRACE (mentally executed against the final YAML):
+
+1. SENSITIVE TAG PUSH via orchestrator: decide-upgrade-sensitivity computes sensitive=true (prints PREV_RC/paths/changed-files/verdict). upgrade-arc-harness's if: `!(success && false)` → `!(false)` → true → dispatches. Inside upgrade-arc-harness.yaml: construct/discover run unconditionally (bare), full 31-arc matrix, no-arcs-guard skipped (count!=0), run-arc runs the full matrix, teardown deletes all pushed branches, cleanup sweeps. Full suite, as before 214 broke it.
+
+2. NON-SENSITIVE TAG PUSH via orchestrator: decide-upgrade-sensitivity computes sensitive=false (prints the same loud reasoning, verdict says fleet will be SKIPPED). upgrade-arc-harness's if: `!(success && true)` → `!(true)` → false → job SKIPPED — `gh workflow run upgrade-arc-harness.yaml` is NEVER CALLED. Zero VMs, zero fixture branches, zero image builds, zero queue slot (strictly better than 218's construct-level skip, which still spent 20-30min). Orchestrator concludes green (skipped jobs don't fail a run) as long as test-install + install-recovery-harness succeeded, which don't depend on this decision at all. At promotion time the gate sees WorkflowCheckMissing at this commit and falls through to its own independent sensitivity walk (untouched) — AC#5 holds.
+
+3. MANUAL workflow_dispatch OF THE ARC HARNESS DIRECTLY (bypassing the orchestrator): construct/discover/run-arc run unconditionally regardless of sensitivity — this file has no sensitivity logic left at all to gate on. Verified construct ALWAYS builds/pushes all 7 lineages' fixture pairs regardless of which `scenarios` subset is selected (its fixture-build step isn't conditioned on SCENARIOS_INPUT), so a subset dispatch still gets the full teardown cleanup — consistent with the 220 fix in the same file. AC#4 holds.
+
+LAYER-TEST INTERACTION: none. `TestReleaseGateLayer_TagFiredWorkflows` re-run (`-count=1`, fresh) still passes — the orchestrator file's `on: push: tags:` trigger and absence of `branches:` are both untouched by this change; only jobs/logic inside it changed. Also ran the full release/workflow-gate Go suite (`go test ./cmd/... ./internal/release/... -run 'Release|Workflow|Gate|Arc|Harness' -count=1 -v`) — all green, plus `go build ./...` OK.
+
+AC#6 (218): closed as subsumed — separate comment on STATBUS-218 itself, and I found the architect had already ruled the same closure independently (218 comment #4, landed just before mine) — no conflict.
+
+Validated: `ruby -ryaml` + `actionlint` clean on both files (zero findings, confirmed against a full-repo actionlint sweep showing zero attributions to either file). Frozen, no commits.
 ---
 <!-- COMMENTS:END -->

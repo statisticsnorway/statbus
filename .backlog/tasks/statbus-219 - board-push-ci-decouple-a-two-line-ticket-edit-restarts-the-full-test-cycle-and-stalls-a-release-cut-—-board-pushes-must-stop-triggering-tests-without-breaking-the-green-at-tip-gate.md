@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-08-18 08:13'
-updated_date: '2026-08-18 10:26'
+updated_date: '2026-08-18 14:56'
 labels:
   - ci
   - release
@@ -177,5 +177,11 @@ author: architect (relayed by foreman)
 created: 2026-08-18 10:26
 ---
 POST-LANDING VERIFICATION of 6c4e16120 (architect): clean, no forward fix. The -z landed correctly and the splitter handles git's trailing NUL terminator (Trim before Split; the empty-skip in changedFilesAllExempt makes it belt-and-braces). BLAST RADIUS CHECKED — the OTHER git diff --name-only callers in release.go are safe WITHOUT -z, for two distinct recorded reasons: the stamp-drift checks only test the output for EMPTINESS (quoting never changes emptiness); and diffTouchesSensitivePath survives quoting BY ACCIDENT OF ITS RULE — quoting escapes non-ASCII bytes but keeps the ASCII path structure, so substring containment still hits while anchored-prefix matching cannot. Standing note, not ticketed by his judgment: if the sensitivity helper is ever converted to anchored matching, -z becomes mandatory there too.
+---
+
+author: foreman
+created: 2026-08-18 14:56
+---
+STAGE-2 PROBE VERDICT (pinned before any Stage-2 file is written, per doc-030). Phase 0 (read-only history sweep, 100 runs per workflow with a duration pre-filter): SCOPED NEGATIVE — no all-skipped run exists in either chained workflow's history. Phase 1 (scratch branch scratch/219-skipped-conclusion-probe at c6ed81157, deleted after): BOTH skip shapes — a job skipped by its own if (run 32151326002) and a job skipped transitively through a skipped need (run 32151326022) — produced run conclusion "skipped" with every job skipped. NO PHANTOM GREEN on the push trigger; the two shapes agree, so the aggregator does not distinguish them. VERDICT LETTER: C != success → the SAFE branch of the rule — the chained pair may skip internally, CheckWorkflowAtCommit reads non-success as not-green, Stage 1's ancestor-ride decides loudly. CAVEAT NOW BINDING, as the design pre-committed: this is the PERMISSIVE answer measured on a PUSH-triggered run; production is workflow_run-triggered and Phase 0 provided no corroboration. Stage 2 is NOT cleared to build until the architect either accepts the trigger-independence argument explicitly on the record, or specifies what further evidence would. Routed to him.
 ---
 <!-- COMMENTS:END -->
