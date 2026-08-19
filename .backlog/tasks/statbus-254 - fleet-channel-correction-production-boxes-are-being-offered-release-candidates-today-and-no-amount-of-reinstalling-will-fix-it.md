@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 10:27'
-updated_date: '2026-08-19 12:23'
+updated_date: '2026-08-19 12:34'
 labels:
   - ops
   - release
@@ -212,5 +212,62 @@ author: foreman
 created: 2026-08-19 12:23
 ---
 KING RULED 2026-08-19: EDGE IS RETIRED — 'Yes, retire it.' Presented with the architect's reasoning (nothing uses the always-track-master channel; no box is on it since dev moved to prerelease; running a specific commit keeps working via register+schedule; a fourth role would exist only to keep unreachable machinery alive). The retirement diff is queued as post-tag unit #4, carrying the architect's non-negotiable instruction: migrate.go's channelEdge class governs migration-fix behaviour, so removing the edge branch MUST be verified not to shift another channel's classification through a fall-through — deleting a branch from a classifier is exactly where a neighbouring case silently changes meaning.
+---
+
+author: engineer
+created: 2026-08-19 12:34
+---
+**EDGE RETIREMENT BUILT AND FROZEN** (King ruled 2026-08-19: "Yes, retire it") — post-tag unit #4, landing after the deletion diff. Part 1 of 2. Chain: build OK, `go test ./...` green, `golangci-lint run ./...` 0 issues, gofmt clean, `bash -n` + `shellcheck -S error` clean on `install.sh` and `cloud.sh`.
+
+**The purpose:** no box follows master unattended any more. Running one SPECIFIC commit is untouched and still works exactly as before — `./sb upgrade register <commit>` then `schedule`. What retires is the autopilot.
+
+## THE NON-NEGOTIABLE FIRST — the classifier, proven rather than argued
+
+`migrationChannelClass` decides how a content_hash MISMATCH is handled: re-stamp trusting the cut gate (release), full rebuild (seed-build), or refuse and hand it to a human (localDev). The architect's warning was exact — deleting a branch from a classifier is where a neighbour silently changes meaning.
+
+Two mechanisms were checked, not one. The obvious one: Go has no implicit fall-through and the arms test exact strings, so `stable`/`prerelease`/`seed-build` cannot be touched. **The non-obvious one, which is where the real hazard lived: the constants are `iota`, so removing `channelEdge` RENUMBERS every constant after it.** That is harmless ONLY because no value is ever persisted, serialized or compared numerically — established by enumerating every use before cutting, not assumed.
+
+Outcome: a box with a stale `UPGRADE_CHANNEL=edge` now classifies `channelLocalDev` — human guidance, never an auto-redo and never an auto-bless. That is the safe direction, and it is why the classifier's default is localDev rather than release.
+
+**RED-verified three ways, mutation site asserted each time:** making `seed-build` join release fires it; re-admitting `edge` as release (the dangerous direction — auto-bless on a box nobody chose) fires it; re-adding any edge branch fires the clean-break guard.
+
+**Nothing is lost with the arm.** The STATBUS-166 content-recognition it held existed to heal dev's gate blocking every deploy while dev tracked master. Dev now follows prerelease, so it classifies `channelRelease` and the bless above covers the same mismatch — by trusting the cut gate directly, which is the stronger form of the same trust. Removing it also deleted a `MAX(version)` psql round-trip that ran on every migrate-up for a branch nothing reads any more.
+
+## Two test expectations changed DELIBERATELY, not to make anything pass
+
+`TestEdgeAndUnknownChannelsUnchanged` asserted edge resolves to `("", nil)`. That was CORRECT while edge existed — a box tracking master genuinely had no tag to resolve. Now the value can only arrive from a stale config, so silence is the wrong answer and it must error; the test says so and says why. Likewise `FilterTagsByChannel("edge")` now admits NOTHING rather than everything — the exclusive-allowlist shape means a stale value is offered no tag rather than every tag.
+
+One guard was retargeted rather than weakened: `TestInstallShBranchNamesNamespaceFree` required three checkouts, one per install path, and the `origin/master` one was edge's. It now asserts the `--commit` path in its place, so the count still matches the number of real paths instead of silently shrinking.
+---
+
+author: engineer
+created: 2026-08-19 12:34
+---
+**Edge retirement, part 2 of 2 — what else came out, and two live traps it exposed.**
+
+## The rest of the removal
+
+Resolution (edge no longer returns an empty tag — it ERRORS, because an empty tag reads downstream as "nothing to upgrade to" and would freeze a stale box silently); the tag allowlist; `discoverEdge` and its commit discovery; `apply-latest`'s build-from-source branch; `install.sh`'s edge branch and its `stable|prerelease|edge` validation; `release check --channel edge`; `cloud.sh`'s install strategy; and every doc mention — each rewritten to name `register` + `schedule` where edge's capability was described, so nobody reads a removal as a lost capability.
+
+## TWO LIVE TRAPS the retirement exposed, both fixed
+
+1. **`release check --channel edge` returned SUCCESS without checking anything.** A pass-without-examining is only ever correct while the thing it declines to examine truly does not exist — the zero-scope shape, sitting in a release-readiness gate. Now the channel refuses by name instead of quietly returning green.
+2. **`install.sh`'s procurement refusal advised operators to "use --channel edge".** That text prints at a failure moment, and after the retirement it would have sent an operator to a channel that no longer exists. The advice now points at a released version. The build-fallback branch it belonged to went too: edge was its only caller (an UNPUSHED local master commit legitimately had no image), and a named commit always has one or is not ready to install — so the yes/no argument that selected it is gone and the deterministic path is the only path.
+
+## The two retired cloud.sh commands
+
+`cloud.sh migrate-up` / `migrate-down` are reduced to explicit refusals with their BODIES DELETED, not left behind a guard. Dead code under a refusal reads as "this could still be right", and this particular code would be reached for at exactly the wrong moment — on a production box, under pressure, by someone looking for a way to undo a migration. The refusals name the correct action instead: released migrations are immutable, so the fix is a FORWARD repair migration (AGENTS.md, STATBUS-172).
+
+They were edge-only for a real reason, now written down where the refusal is: rolling a migration BACKWARDS is safe only where migrations are not immutable, and edge was the one channel applying ungated master commits.
+
+## The interaction with the frozen derive-mechanism, handled as instructed
+
+The translation's `edge`→development arm is KEPT, and is now the last mention of edge in the tree — deliberately. A box whose `.env.config` still carries `UPGRADE_CHANNEL=edge` is precisely what that one-time translation exists for: it must be read once and converted, or that box refuses on its next config generate holding a key it cannot legally have. Development is the right landing place, because what edge meant — follow whatever is newest, automatically — is the one thing no box does any more. It is annotated at the line so it is not tidied away by someone grepping for the word, and it still dies with the rest of the translation once the fleet has run it.
+
+One further note for the record: `apiRuleOracle` in the STATBUS-255 deletion diff also still names edge, and should stay that way. It is a FIXED historical transcription of what the GitHub releases API path meant; editing it to match today's world would falsify the record it exists to preserve.
+
+## Landing
+
+Order unchanged: RunCheck switch → derive-mechanism → deletion diff → this retirement. This unit touches `migrate.go`, `github.go`, `service.go`, `cmd/upgrade.go`, `cmd/release.go`, three test files, `install.sh`, `cloud.sh`, and five docs.
 ---
 <!-- COMMENTS:END -->
