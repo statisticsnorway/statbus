@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-08-19 00:17'
-updated_date: '2026-08-19 10:53'
+updated_date: '2026-08-19 10:55'
 labels:
   - upgrade-recovery
   - quality-gate
@@ -161,5 +161,11 @@ created: 2026-08-19 10:53
 **THE RESIDUAL, and it is real.** `recoveryRollback`'s park-state read **FAILS OPEN on ANY error** (:2933-2934): *“park-state read failed … proceeding fail-open with the rollback.”* The justification given nearby is the 42703 bootstrap case — a pre-migrate schema has no `recovery_parked_at`, so the row cannot be parked, which is sound. **But the fail-open is not narrowed to 42703.** A transient read failure against a schema that DOES have the column, at crash-recovery time, on a genuinely parked row, proceeds to `d.rollback` → `restoreDatabase` → and the rewind silently un-parks the row into the deterministic failure it stopped at — STATBUS-229's exact shape.
 
 **So the honest verdict is conditional:** no DESIGNED path lets a restore follow a park; one ERROR path does. Narrowing that fail-open to the 42703 case (or refusing rather than rolling back when park state is unknown on a schema that should have the column) would close it without any flag-schema change — far cheaper than the re-imposition, and it removes the only interleaving I could find. **I have not edited the audit file; the disposition stays RULED-REIMPOSE-OWED until the architect verifies this proof and rules on the residual.**
+---
+
+author: architect (pinned by foreman)
+created: 2026-08-19 10:55
+---
+PARK PROOF VERIFIED AND RULED (the trace deleted a flag-schema change — 'the order I imposed paid for itself'). Verification done at the two load-bearing points: recoveryRollback's parked arm genuinely refuses (:2936-2941, flock released, flag kept, alive-idle); the structural argument holds — parked = in_progress, claim requires scheduled, the only route between them is the un-park re-schedule clearing recovery_parked_at in the same atomic UPDATE, so executeUpgrade's backup can never run over a live park. RULING 1: park sites STAY RULED-REIMPOSE-OWED until the narrowing ships, THEN flip to EXEMPT-with-proof — an exemption whose premise has a known live hole is prose pretending to be a mechanism; but the COST LINE corrects now: not 'a new flag field on the crash-recovery mutex carrier' — 'one branch'. RULING 2: narrow to 42703 — which is not fail-open but fail-INFORMED (column-does-not-exist is a PROOF the row cannot be parked; every other error is absence of knowledge, and the code treated opposites as the same fact). Non-42703 errors join the existing parked-refusal arm (refuse, flag kept, alive-idle, operator's next move logged). Asymmetry: a refusal on transient costs one human trigger on a recoverable box; proceeding silently un-parks into the deterministic failure it stopped at. SCOPE INSTRUCTION: the same unnarrowed pattern exists at completeInProgressUpgrade (:3046) and RecoveryBudgetGuard (:7074) — ENUMERATE ALL THREE BEFORE FIXING ONE; shared hazard narrows together, genuine differences get their safety reason recorded at the line. Timing: next small unit, not an interrupt — 242's audit goes live in a true state.
 ---
 <!-- COMMENTS:END -->
