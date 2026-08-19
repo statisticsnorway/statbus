@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 10:00'
+updated_date: '2026-08-19 10:50'
 labels:
   - release
   - quality-gate
@@ -53,3 +54,13 @@ WHAT IS ACHIEVED: the gate becomes as precise as the evidence it reads, and it g
 - [ ] #6 The independence argument is recorded with the switch: it holds because scenarios share no state, and must be re-examined for any suite where they do
 - [ ] #7 The switch is a deliberate, separately reviewed change — never folded into a wave doing other work
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-08-19 10:50
+---
+SHADOW PHASE LANDED as 3bb852eb6 (architect APPROVED through the memoize amendment cycle). Live advisory-only from the next gate run: both promotion gates print the per-scenario answer beside the whole-suite authority at all six outcomes; the shadow structurally CANNOT vote (runShadowCoverage returns nothing — consulting it requires a signature change, RED-verified both directions); domain from the target commit with refusal-to-report on an empty/underivable domain; undecidable mapped onto neither verdict; both disagreement directions (too-lenient / too-strict) reported separately; shared causes reported once with 'no comparison is possible, so none is claimed'. Resource starvation closed by an (apiBase, workflow, commit) process-lifetime memo — 50→1 calls RED-verified, errors NOT cached, answers provably unchanged, lock released before the network call. HOW TO READ THE FIRST LIVE RUN (architect's note, do not misread): an ALL-UNDECIDABLE shadow is a TOKEN/BUDGET SIGNAL, never a coverage signal, and under this entry it is explicitly NOT a disagreement — the switch decision needs runs where the two paths actually compared. The switch itself (authority transfer) remains this entry's second half, King/architect-gated on accumulated agreement across real candidates.
+---
+<!-- COMMENTS:END -->
