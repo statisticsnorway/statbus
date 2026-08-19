@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 07:10'
-updated_date: '2026-08-19 07:36'
+updated_date: '2026-08-19 07:39'
 labels:
   - release
   - ops
@@ -31,12 +31,13 @@ THE DETAIL: the nine master-to-X workflows predate both the cloud tooling and th
 
 THE FIX: remove the nine master-to-X workflows and the documented procedure that tells people to use them. Afterwards no master-addressed path to an installation exists anywhere — and if a deliberate ad-hoc deployment is ever needed, it must be candidate-addressed, either by scheduling a specific version on the box or by cutting one.
 
-WHAT HAPPENS TO THE DEPLOY BRANCHES DEPENDS ON THE BOX'S ROLE, and this is the one part not to get wrong. Under STATBUS-247 the three boxes have two different jobs:
+WHAT HAPPENS TO EACH DEPLOY BRANCH DEPENDS ON THE BOX'S ROLE, and this is the one part not to get wrong:
 
-- **dev keeps its branch.** It is the automatic canary, and the branch is the transport 247's tag-driven deployment rides on — written by automation, addressed at a tagged commit, never touched by a person. Removing it would delete the mechanism that replaces the button.
-- **demo and no do not.** They are the human-fidelity canaries: the candidate is offered and a PERSON installs it, because the operator surface is the thing under test. Nothing legitimately writes their deploy branches any more. Leaving those branches and their deploy-to-X workflows live would keep a working push-to-install path aimed at exactly the two boxes whose entire value depends on a human doing the install — a standing bypass of the gate.
+- **dev keeps its branch.** It is the automatic canary, and the branch is the transport STATBUS-247's tag-driven deployment rides on — written by automation, addressed at a tagged commit, never touched by a person. Removing it would delete the mechanism that replaces the button.
+- **Norway does not.** It is the human canary: the candidate is offered and a PERSON installs it against an observation card, because the operator surface is the thing under test. A live deploy branch there is a standing bypass of exactly that gate, and the first time someone is in a hurry it will be used.
+- **Demo does not either, for a different reason.** It is an ordinary installation that follows releases on its own (STATBUS-248). A push would override the box's own source of truth about what it should be running.
 
-So the rule is not "buttons go, branches stay". It is: **a push-to-install path survives only where an automated install is the intended behaviour.** That is dev, and only dev.
+So the rule is not "buttons go, branches stay". It is: **a push-to-install path survives only where an automated push is the intended way that box gets its software.** That is dev, and only dev.
 
 TWO THINGS IN THE SWEEP THAT ARE NOT LIKE THE OTHERS: master-to-production and production-to-all. Retiring them is correct for the same reason, but it leaves an open question this entry deliberately does not answer — **how a promoted stable release reaches the production slots at all**. That is a policy decision, not a mechanism gap, and it is filed separately as STATBUS-248 rather than folded in here, because the answer changes what an operator experiences on promotion day and is the King's to make.
 
@@ -48,7 +49,7 @@ WHY THAT HELPS: after this, the only way a version reaches an installation is by
 - [ ] #1 All nine master-to-X workflows are removed, and no remaining path can deploy an untagged commit to any installation
 - [ ] #2 The documented deployment procedure (AGENTS.md and doc/) no longer instructs anyone to push master to a deploy branch
 - [ ] #3 dev's deploy branch and deploy-to-dev workflow are UNCHANGED and keep working as STATBUS-247's transport — written by automation, addressed at a tagged commit, never touched by a person
-- [ ] #4 No automated push-to-install path survives for the human-fidelity slots (demo, no): after STATBUS-247 nothing writes their deploy branches, and a dormant one would be a standing bypass of the human gate those boxes exist to exercise
+- [ ] #4 No automated push-to-install path survives for demo or no. Norway is the human canary (STATBUS-247) and demo follows releases on its own (STATBUS-248); in both cases a push would override the box's own source of truth, and on Norway it would bypass the human gate outright
 - [ ] #5 Any remaining deliberate version-to-box action is candidate-addressed: scheduling a named version on the box, or cutting one
 - [ ] #6 master-to-production and production-to-all are removed as part of the sweep, with STATBUS-248 answering how stable reaches production before or alongside their removal
 <!-- AC:END -->
@@ -76,5 +77,15 @@ WHY IT FAILS THERE: under the new topology demo and no are installed BY A PERSON
 The corrected rule, now in the description and as AC#4: a push-to-install path survives only where an automated install is the INTENDED behaviour. That is dev, and only dev.
 
 MARKED AS MINE, NOT HIS. The King ruled that the master-to-X buttons retire and that demo and no become human-gated. He did not say anything about their deploy branches. This consequence follows from his own rule plus the topology, but I derived it, so it is flagged rather than presented as ratified — he can strike AC#4 in one line without disturbing anything else in the entry.
+---
+
+author: architect
+created: 2026-08-19 07:39
+---
+UPDATED to the King's final topology. Comment #2 above says demo and no are both human-fidelity canaries; that is superseded. **Demo is out of the canary role entirely** — dev already answers the does-it-install question, so demo becomes an ordinary installation following releases on its own (STATBUS-248). **Norway is the single human canary.**
+
+THE RULE THIS ENTRY CARRIES IS UNCHANGED BY THAT, which is the useful part: no automated push-to-install path survives for either demo or no. Only the REASON differs per box — on Norway a push bypasses the human gate; on demo it overrides the box's own channel. I sharpened the wording from "where an automated install is the intended behaviour" to "where an automated PUSH is the intended way that box gets its software", because the first phrasing would read as covering demo too: demo does install automatically, it just does it by following a channel rather than by being pushed at.
+
+STILL MARKED AS MINE. The King ruled on the buttons and on the canary roles; the fate of the demo and Norway deploy branches follows from those rulings but he did not state it. AC#4 can be struck in one line without disturbing the rest of the entry.
 ---
 <!-- COMMENTS:END -->
