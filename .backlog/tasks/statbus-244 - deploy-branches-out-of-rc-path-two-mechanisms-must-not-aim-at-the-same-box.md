@@ -3,10 +3,10 @@ id: STATBUS-244
 title: >-
   retire-master-to-x: no path should be able to deploy an untagged commit to a
   real installation
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-08-19 07:10'
-updated_date: '2026-08-19 07:50'
+updated_date: '2026-08-19 09:57'
 labels:
   - release
   - ops
@@ -47,7 +47,7 @@ WHY THAT HELPS: after this, the only way a version reaches an installation is by
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 All nine master-to-X workflows are removed, and no remaining path can deploy an untagged commit to any installation
-- [ ] #2 The documented deployment procedure (AGENTS.md and doc/) no longer instructs anyone to push master to a deploy branch
+- [x] #2 The documented deployment procedure (AGENTS.md and doc/) no longer instructs anyone to push master to a deploy branch
 - [ ] #3 dev's deploy branch and deploy-to-dev workflow are UNCHANGED and keep working as STATBUS-247's transport — written by automation, addressed at a tagged commit, never touched by a person
 - [ ] #4 No automated push-to-install path survives for demo or no. Norway is the human canary (STATBUS-247) and demo follows releases on its own (STATBUS-248); in both cases a push would override the box's own source of truth, and on Norway it would bypass the human gate outright
 - [ ] #5 Any remaining deliberate version-to-box action is candidate-addressed: scheduling a named version on the box, or cutting one
@@ -93,5 +93,11 @@ author: foreman
 created: 2026-08-19 07:50
 ---
 KING APPROVED 2026-08-19 (presented in dialogue, one by one): the entry as written INCLUDING AC#4 (the architect-derived branch retirements for Norway and demo — not struck). Explicit reservation: "barring 248" — this approval does not pre-ratify STATBUS-248; AC#6's production-sweep leg executes only after 248 is judged on its own terms. Build may start on everything except the master-to-production/production-to-all removals, which wait for 248's verdict.
+---
+
+author: foreman
+created: 2026-08-19 09:57
+---
+244a LANDED as 0265c8f8b (architect approved with one required doc amendment, folded and re-frozen before landing): 11 workflow files deleted (8 non-dev master-to-X, production-to-all, deploy-to-demo, deploy-to-rune-no — 543 lines removed), AGENTS.md + doc/CLOUD.md rewritten to the per-role model WITH the transitional-truth paragraph (the five country deploy-to-X remain until Wave D1's channel confirmation; the doc says so plainly, with the stranding rationale). Origin deploy branches DELETED: ops/cloud/deploy/demo, ops/standalone/deploy/rune-no. AC#2 (docs) closed; AC#1/#4/#6 close with 244b (master-to-dev, Wave C) and the Wave-D country-path deletions; AC#3 holds by construction (dev untouched, verified). master-to-dev remains the only button, by sequencing design, until 247's tag-to-dev replaces it.
 ---
 <!-- COMMENTS:END -->
