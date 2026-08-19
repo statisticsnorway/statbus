@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 07:14'
+updated_date: '2026-08-19 07:16'
 labels:
   - release
   - ci
@@ -52,3 +53,13 @@ WHY THAT HELPS: the cost of cutting frequently stops scaling with how often we c
 - [ ] #4 Verified on a real supersession: no machine belonging to the cancelled chain survives it, checked against the provider rather than inferred from logs
 - [ ] #5 Cancelling the previous chain never disturbs the new candidate's own chain
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-08-19 07:16
+---
+REAL-WORLD DATA POINT for this design (operator provider check, 2026-08-19 morning, after the manual rc.06 cancellation): NO orphans — but only by timing luck. Fleet 1 (test-install) had completed with normal teardown; fleet 2 (install-recovery, run 32226271716) was cancelled while still QUEUED, so it never provisioned a machine. The dangerous window — cancellation landing MID-FLIGHT with young VMs the age-gated sweep cannot touch — did not occur this time. That is precisely the window the run-scoped immediate reap (step 4, the heart of this entry) exists to close: the next manual or automatic supersede will not be guaranteed the same timing. Provider state at check: one production server (niue, unrelated) + one 2-minute-old recovery VM legitimately owned by rc.07's live run 32226442525.
+---
+<!-- COMMENTS:END -->
