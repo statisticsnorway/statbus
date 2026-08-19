@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-08-19 11:42'
-updated_date: '2026-08-19 19:21'
+updated_date: '2026-08-19 19:23'
 labels:
   - upgrade
   - ops
@@ -152,5 +152,11 @@ author: foreman
 created: 2026-08-19 19:21
 ---
 CORRECTION TO THE LANDED COMMIT MESSAGES, recorded here because the commits are pushed and immutable. c4ba87464's message says the Release type 'stays one more commit: the edge machinery holds its last uses', and 1dff9c18f's trailing paragraph repeats the attribution. Both are WRONG about the reason: the type's actual surviving consumers at the unit-3 boundary were FilterByChannel and ReleaseSummary — API-path functions the split's classifier had misfiled into the edge-retirement diff (pure-deletion hunks carry no added lines, so it filed them by enclosing region). The CODE at every commit is correct and was build+vet verified per commit in isolation; what is impure is that 1dff9c18f (edge retirement) also carries ~100 lines of API-path corpse deletion (FilterByChannel, ReleaseSummary, Release/Commit... wait — Commit/CommitDetail died in c4ba87464 with FetchCommits, correctly). The engineer's post-hoc analysis (their re-split, produced in parallel and not landed) confirms both boundaries compile; theirs was thematically cleaner (everything API-dead in unit 3). Landed history stands; this comment is the truth a future reader needs when the message and the diff disagree.
+---
+
+author: foreman
+created: 2026-08-19 19:23
+---
+CORRECTION TO COMMENT #7, engineer-verified at source and foreman-re-verified by grep — this supersedes #7's mechanism story. At c4ba87464 (landed unit 3) FilterByChannel and ReleaseSummary are ALREADY DELETED — they died with the functions, in unit 3, correctly. The Release type therefore spent one commit as a FULLY ORPHANED declaration: nothing referenced it at c4ba87464, and 1dff9c18f removed exactly the declaration plus doc comment, zero consumers. So both landed commit messages are wrong the same way: they invoke the last-consumer rule while the landed boundary orphans the type for one commit — the honest sentence would have been 'the Release type is carried one more commit and removed alongside the edge retirement, keeping this commit a pure removal of the API functions'. The wording had been written for the OTHER boundary (consumers travelling with the type), where it was true; it inverted when applied to this one. Lesson, engineer's phrasing kept: A MESSAGE TRAVELS WITH A BOUNDARY — moving one without re-reading the other is how a commit documents a different change than it makes. Code verified correct at every commit by two independent methods (per-commit worktree build+vet at landing; engineer's pristine-archive build+vet of all five afterwards). Record closed.
 ---
 <!-- COMMENTS:END -->
