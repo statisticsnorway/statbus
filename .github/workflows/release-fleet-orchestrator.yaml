@@ -79,10 +79,6 @@ name: Release Fleet Orchestrator
 # OLDEST of any competing candidates, not the newest. Caught in review
 # before landing — see the action's own file for the full mechanism.)
 #
-# THIS WORKFLOW'S OWN CONCURRENCY GROUP relocates, rather than eliminates,
-# the cancellation class described above — see the concurrency: block
-# below for the honest account of what happens with 3+ RC tags in flight.
-#
 # UPGRADE-SENSITIVITY GATE (STATBUS-223): the `decide-upgrade-sensitivity`
 # job below decides whether the upgrade-arc-harness fleet is worth
 # dispatching at all — a ratified STATBUS-199 D2 cost shortcut (an RC that
