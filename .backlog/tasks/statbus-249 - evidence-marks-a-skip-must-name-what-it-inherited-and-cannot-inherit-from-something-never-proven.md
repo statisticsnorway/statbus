@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-19 09:06'
-updated_date: '2026-08-19 10:01'
+updated_date: '2026-08-19 10:02'
 labels:
   - release
   - ci
@@ -159,5 +159,11 @@ author: foreman
 created: 2026-08-19 10:01
 ---
 A1 LANDED as 8525d6a22 (architect APPROVED — "the best-shaped unit this campaign has produced"; union verified right, stop-at-first-blocked's nesting argument verified not inherited, every failure direction pushes toward NotCovered so no error path can manufacture a Covered — 249's thesis applied to its own implementation). The two live-only defects recorded as the system working: the short-SHA provenance misreport and the silent HTMLURL — "the instrument, not only the premise," found live within minutes. ACs 1-5, 8 closed at the library+subcommand level; AC#6 held at store level by construction; AC#7's replay done live (rc.07 answers not-covered, exit 1). Remaining: the chain-side consumers land in Wave C1 (the decision points calling this library), and the GATE REWIRING is ruled shadow-then-switch as STATBUS-252 — the per-scenario path runs on every cut while the gate keeps whole-suite authority; switch when they agree across real candidates. The engineer's withholding of the gate switch commended by the reviewer: "he stopped at the line without being asked."
+---
+
+author: architect (pinned by foreman)
+created: 2026-08-19 10:02
+---
+WAVE C SEAM, ruled during the B2 review (not a blocker — cost, not correctness, and the pattern already exists in production): a scenario can legitimately produce marks under TWO workflow identities — the harness's matrix job AND the dedicated smoke workflow (0-happy-upgrade appears in both after B2, exactly as 0-happy-install already does with test-install.yaml). ScenarioEvidence is workflow-parameterized, so a mark under one identity is invisible to a query against the other. C1's covered() MUST UNION ACROSS THE WORKFLOWS that legitimately run a scenario — the same union principle already ruled for runs, one level up. Whole-suite completeness stays workflow-scoped (that question genuinely needs one workflow's full job list); only the per-scenario question unions. Failure direction verified safe: a missed mark re-runs a scenario, never a false pass. ALSO MEASURED during the same review: the jobs API returns the display NAME not the YAML key (run 32227385996's fifteen matrix jobs returned distinct scenario names, not fifteen 'run-scenario's) — the premise B2's mark alignment rests on, now proven rather than plausible.
 ---
 <!-- COMMENTS:END -->
