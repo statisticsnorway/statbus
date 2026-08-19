@@ -1,0 +1,128 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Demo auto-apply
+
+# STATBUS-248 — demo is a channel-following installation (stable), not a
+# canary and not a push target: nothing outside the box names a version,
+# a commit, or a branch for it (STATBUS-244's rule). This workflow supplies
+# TIMING ONLY — it runs the box's own `./sb upgrade apply-latest`, which
+# resolves the latest release ON THE BOX'S OWN CHANNEL, locally. The box
+# still chooses the target. Delete this file and demo is still correct,
+# just slower — that is the test for whether a trigger is legitimate: if
+# deleting it would leave the box WRONG rather than merely LATE, it would
+# be a push, and it would not belong here.
+#
+# NOT A CANARY — say so wherever this is described. Demo gates nothing: no
+# promotion waits on it, and a failed run here is a signal about the
+# RELEASE, never a reason to block one. It is the only automatic
+# full install-and-converge we get on the stable channel, so a failure
+# must be LOUD and must NOT retry silently — the one place this signal
+# would otherwise be lost.
+#
+# ORDERING DEPENDENCY, load-bearing: this trigger is correct only because
+# demo's channel was corrected to `stable` first (STATBUS-254, verified
+# from the RUNNING service, not the config file). Before that correction
+# this exact trigger would have auto-installed release CANDIDATES on demo
+# — precisely the exposure STATBUS-248 exists to prevent, delivered on a
+# schedule. Never point this workflow (or a copy of it) at a box whose
+# channel has not been verified from the running service.
+#
+# ACCESS: statbus_demo's apply-latest access on niue is allowlisted by
+# ops/niue/sshdoers for the exact byte-string `cd ~/statbus && ./sb upgrade
+# apply-latest` — sshdo rejects anything else, so this command must stay
+# verbatim. No new privilege, no new credential: this rides the same door
+# STATBUS-253 confirmed is still live for exactly this purpose.
+#
+# SSH mechanics copied from notify-all-clouds.yaml's `notify` job
+# (self-hosted niue runner, secrets.SSH_KEY, same known_hosts handling,
+# same verbatim-command discipline) rather than re-derived.
+#
+# RUNNER-ONLINE CANARY — required, not optional (architect verdict): a
+# self-hosted runner that is offline does not FAIL a scheduled job, it
+# QUEUES it — up to 24h, per GitHub's own behaviour for a runner with no
+# matching online label. Without a canary this job would sit through cron
+# after cron while demo silently stopped tracking releases, and nothing
+# would ever go red to say so. No signal at all is strictly worse than the
+# loud failure this whole design guards for (see the NOT A CANARY block
+# above) — a queue is not a failure, so it would never be seen. Copied
+# verbatim in shape from notify-all-clouds.yaml's own `runner-online` job;
+# see that job's comments for the SHA-pin and host-key-verification
+# rationale, not repeated here.
+
+on:
+  # Daily (architect design, STATBUS-248 comment #5): demo exists to show
+  # what a customer would install; a day's latency after a promotion is
+  # invisible to that purpose, and keeps the log quiet enough that a
+  # failure stands out. Off-the-hour to avoid piling onto :00 traffic —
+  # no other significance to the exact minute.
+  schedule:
+    - cron: '23 4 * * *'
+  # Manual runs on demand, without waiting for the schedule.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Copied from notify-all-clouds.yaml's `runner-online` job. SSHes to niue
+  # as the dedicated probe user and runs the root-provisioned health probe.
+  # Reds (skipping apply-latest) when the runner is offline, so an offline
+  # runner is a loud red on the next scheduled run, not a silent 24h queue
+  # — the queueing-is-silence reasoning above is why this job exists at all.
+  runner-online:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out (for the repo-pinned known_hosts)
+        # SHA-pinned (doc-026 delta 4): this job handles a secret
+        # (RUNNER_HEALTH_SSH_KEY) on a hosted runner, so a mutable-tag
+        # supply-chain edit is a key-exfiltration vector.
+        # actions/checkout v4.3.1.
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - name: Probe that the niue self-hosted runner is healthy
+        env:
+          RUNNER_HEALTH_SSH_KEY: ${{ secrets.RUNNER_HEALTH_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          keyfile="$(mktemp)"; chmod 600 "$keyfile"
+          printf '%s\n' "$RUNNER_HEALTH_SSH_KEY" > "$keyfile"
+          trap 'rm -f "$keyfile"' EXIT
+          # HOST KEY: the repo-pinned ops/niue/known_hosts + StrictHostKeyChecking=yes
+          # — NOT accept-new — same rationale as notify-all-clouds.yaml's canary: a
+          # hosted runner is a fresh VM every run, so accept-new would be
+          # trust-on-first-use EVERY run, and a MITM faking a HEALTHY verdict is the
+          # exact false-green this canary exists to kill.
+          ssh -i "$keyfile" \
+            -o UserKnownHostsFile=ops/niue/known_hosts \
+            -o StrictHostKeyChecking=yes \
+            -o BatchMode=yes \
+            -o ConnectTimeout=15 \
+            github-runner@niue.statbus.org \
+            /usr/local/sbin/statbus-runner-health
+
+  apply-latest:
+    name: Apply latest stable to demo
+    needs: runner-online
+    runs-on: [self-hosted, niue]
+    steps:
+      - name: statbus_demo — apply-latest
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+        run: |
+          set -euo pipefail
+          keyfile="$(mktemp)"; chmod 600 "$keyfile"
+          printf '%s\n' "$SSH_KEY" > "$keyfile"
+          trap 'rm -f "$keyfile"' EXIT
+          known="$HOME/_work/.known_hosts"   # persists in the runner-work volume
+          # The command is the exact sshdo-allowlisted byte-string
+          # (ops/niue/sshdoers) — must stay verbatim, same discipline as
+          # notify-all-clouds.yaml's ci-notify.sh invocation. `./sb upgrade
+          # apply-latest` resolves and installs the latest release on
+          # demo's OWN channel (stable) — this workflow names no version.
+          timeout 40s ssh -i "$keyfile" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=15 \
+            -o StrictHostKeyChecking=accept-new \
+            -o "UserKnownHostsFile=$known" \
+            statbus_demo@niue.statbus.org \
+            "cd ~/statbus && ./sb upgrade apply-latest"
