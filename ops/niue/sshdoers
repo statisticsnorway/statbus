@@ -13,9 +13,13 @@ syslog auth
 # Deploy users — invoked by .github/workflows/deploy-to-<slot>.yaml via raw ssh.
 # Command shape: `cd ~/statbus && ./sb upgrade apply-latest`
 #
+# statbus_demo's apply-latest access was REMOVED (STATBUS-253) with STATBUS-244a's
+# retirement of deploy-to-demo.yaml/master-to-demo.yaml — demo has no push-to-install
+# path any more (channel-following, STATBUS-248). Do not re-add it for symmetry with
+# the other slots below; it has no calling workflow.
+#
 statbus_tcc: cd ~/statbus && ./sb upgrade apply-latest
 statbus_dev: cd ~/statbus && ./sb upgrade apply-latest
-statbus_demo: cd ~/statbus && ./sb upgrade apply-latest
 statbus_ma: cd ~/statbus && ./sb upgrade apply-latest
 statbus_ug: cd ~/statbus && ./sb upgrade apply-latest
 statbus_et: cd ~/statbus && ./sb upgrade apply-latest
