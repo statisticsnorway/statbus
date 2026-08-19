@@ -3,10 +3,10 @@ id: STATBUS-242
 title: >-
   terminal-rewind-column-audit: every column the rollback restore rewinds that
   the terminal write must preserve — enumerated once, as a mechanism
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-19 00:17'
-updated_date: '2026-08-19 10:32'
+updated_date: '2026-08-19 10:44'
 labels:
   - upgrade-recovery
   - quality-gate
@@ -32,9 +32,9 @@ WHAT IS ACHIEVED: the terminal-write path stops being a place where the restore 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Every post-snapshot column write in the upgrade path is enumerated with its terminal-write disposition: re-imposed (flag-sourced) or exempt-with-reason
-- [ ] #2 The enumeration is a failing-test mechanism, not prose — a new unaccounted column write goes red until dispositioned
-- [ ] #3 recovery_attempts and backup_path appear as the two founding entries, citing STATBUS-181 and STATBUS-241
+- [x] #1 Every post-snapshot column write in the upgrade path is enumerated with its terminal-write disposition: re-imposed (flag-sourced) or exempt-with-reason
+- [x] #2 The enumeration is a failing-test mechanism, not prose — a new unaccounted column write goes red until dispositioned
+- [x] #3 recovery_attempts and backup_path appear as the two founding entries, citing STATBUS-181 and STATBUS-241
 <!-- AC:END -->
 
 ## Comments
@@ -121,5 +121,11 @@ created: 2026-08-19 10:32
 **RED-VERIFIED, four arms:** a new undispositioned site → red naming it; a COPY of a dispositioned statement → red on the count; a stale entry → red; the app tree absent → red stating it cannot cover those paths. Well-formedness is pinned too: RE-IMPOSED without a terminal + flag field fails, PENDING-RULING without a question + owner fails, and both founding entries must stay RE-IMPOSED citing STATBUS-181 and STATBUS-241 (AC#3).
 
 **VERIFY CHAIN:** `go test -count=1 ./...` 12 packages green; `gofmt -l` clean; `golangci-lint run ./...` 0 issues.
+---
+
+author: foreman
+created: 2026-08-19 10:44
+---
+LANDED as b80733ac0 (architect APPROVED through the disposition cycle; final two re-dispositions verified in the file before staging). The audit is a standing gate: every post-snapshot write SITE (not column) in the upgrade path — Go service AND the app's PostgREST paths — carries a disposition, and a new unaccounted site goes red until someone answers for it. Founding entries recovery_attempts (181) and backup_path (241) cited. Dispositions as ruled: park columns RULED-REIMPOSE-OWED (the owed unit queued TRACE-FIRST — whether a restore can follow a park — before any flag-schema change); superseded_at SELF-HEALING with the residual window and the expires-if-the-sweep-leaves-the-tick condition recorded; dismissed_at/skipped_at category C outside-the-window; the state+_at pair ruling folded (chk_upgrade_state_attributes makes a half-re-imposition a FAILED WRITE, not a silent wrong row). All three ACs closed. Scanner honesty properties: zero-site scan fails citing doc-033; missing app tree fails rather than narrowing; unresolvable SQL fragment fails loudly.
 ---
 <!-- COMMENTS:END -->
