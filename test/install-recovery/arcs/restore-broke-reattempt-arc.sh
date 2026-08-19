@@ -290,7 +290,15 @@ echo "[OBSERVE] 4th dispatch exit: $REC_RC"
 # assertion runs the row has already moved on to the re-attempt's own
 # terminal write (same dispatch) — the log line is the stable thing to grep
 # for regardless of dump formatting; the FINAL row state is asserted below.
-[ "$(arc_dispatch_log_has "RESTORE-BROKE upgrade")" = "yes" ] || { echo "✗ dispatch output does not show the pair-terminal's own log line — did rollbackResumeIsTerminal actually fire?" >&2; exit 1; }
+# STATBUS-240: this terminal's log label and error class now BRANCH ON ROUTE.
+# These arcs construct the PRESWAP route (every kill lands before the point of no
+# return; the product narrates "interrupted before it changed anything"), so the
+# terminal here is the STOPPED-UNCHANGED arm — nothing was restored, because
+# nothing had moved. The post-swap arm keeps RESTORE-BROKE and
+# ROLLBACK_FAILED_DB_RESTORE, where a restore genuinely ran and did not complete.
+# Asserting the route's OWN label is what keeps this arc honest: a single shared
+# label could not tell the two apart, which is the defect STATBUS-240 removed.
+[ "$(arc_dispatch_log_has "STOPPED-UNCHANGED upgrade")" = "yes" ] || { echo "✗ dispatch output does not show the pair-terminal's own log line for the PRESWAP route (expected 'STOPPED-UNCHANGED upgrade', STATBUS-240) — either rollbackResumeIsTerminal did not fire, or it fired on the POST-SWAP arm (RESTORE-BROKE), which would mean this arc is no longer constructing the route it claims to" >&2; exit 1; }
 
 # ─────────────────────────────────────────────────────────────────────────
 # STATBUS-228 (rc.05 trace + architect ruling, 228 comment #14): INVERTED,

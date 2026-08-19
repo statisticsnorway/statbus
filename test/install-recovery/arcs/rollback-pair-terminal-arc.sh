@@ -283,7 +283,15 @@ echo "── convergence checks (2 rollback deaths -> pair-terminal -> STOP at '
 # service.go recoveryRollback/rollbackResumeIsTerminal), NOT a DB re-read
 # after the fact — by the time this dispatch returns, the row's error column
 # has already been overwritten by the re-attempt's own success message.
-[ "$(arc_dispatch_log_has "RESTORE-BROKE upgrade")" = "yes" ] || { echo "✗ dispatch output does not show the pair-terminal's own log line — did rollbackResumeIsTerminal actually fire?" >&2; exit 1; }
+# STATBUS-240: this terminal's log label and error class now BRANCH ON ROUTE.
+# These arcs construct the PRESWAP route (every kill lands before the point of no
+# return; the product narrates "interrupted before it changed anything"), so the
+# terminal here is the STOPPED-UNCHANGED arm — nothing was restored, because
+# nothing had moved. The post-swap arm keeps RESTORE-BROKE and
+# ROLLBACK_FAILED_DB_RESTORE, where a restore genuinely ran and did not complete.
+# Asserting the route's OWN label is what keeps this arc honest: a single shared
+# label could not tell the two apart, which is the defect STATBUS-240 removed.
+[ "$(arc_dispatch_log_has "STOPPED-UNCHANGED upgrade")" = "yes" ] || { echo "✗ dispatch output does not show the pair-terminal's own log line for the PRESWAP route (expected 'STOPPED-UNCHANGED upgrade', STATBUS-240) — either rollbackResumeIsTerminal did not fire, or it fired on the POST-SWAP arm (RESTORE-BROKE), which would mean this arc is no longer constructing the route it claims to" >&2; exit 1; }
 [ "$(arc_dispatch_log_has "after 3 attempt(s)")" = "yes" ] || { echo "✗ dispatch output does not confirm recovery_attempts=3 at the pair-terminal moment (2 killed rollback passes + the terminal pass, no third restore attempt)" >&2; exit 1; }
 echo "  ✓ pair-terminal fired with recovery_attempts=3 (2 rollback deaths + the terminal pass, no third restore attempt) — the STATBUS-134 oracle itself, unchanged"
 

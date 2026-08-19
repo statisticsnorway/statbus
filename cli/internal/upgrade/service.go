@@ -1959,14 +1959,29 @@ func logUpgradeRow(label string, row string) {
 //	ErrInstallFixupFailed    — post-upgrade ./sb install fixup step failed (non-fatal)
 //	ErrResumeDied            — post-swap resume began (flag Phase=resuming) then the process died → roll back, no retry
 const (
-	ErrMigrationFailed            = "MIGRATION_FAILED"
-	ErrBackupFailed               = "BACKUP_FAILED"
-	ErrDockerUpFailed             = "DOCKER_UP_FAILED"
-	ErrHealthcheckRESTDown        = "HEALTHCHECK_REST_DOWN"
-	ErrHealthcheckAppDown         = "HEALTHCHECK_APP_DOWN"
-	ErrHealthcheckDBDown          = "HEALTHCHECK_DB_DOWN"
-	ErrRollbackGitCorrupt         = "ROLLBACK_FAILED_GIT_CORRUPT"
-	ErrRollbackDBRestore          = "ROLLBACK_FAILED_DB_RESTORE"
+	ErrMigrationFailed     = "MIGRATION_FAILED"
+	ErrBackupFailed        = "BACKUP_FAILED"
+	ErrDockerUpFailed      = "DOCKER_UP_FAILED"
+	ErrHealthcheckRESTDown = "HEALTHCHECK_REST_DOWN"
+	ErrHealthcheckAppDown  = "HEALTHCHECK_APP_DOWN"
+	ErrHealthcheckDBDown   = "HEALTHCHECK_DB_DOWN"
+	ErrRollbackGitCorrupt  = "ROLLBACK_FAILED_GIT_CORRUPT"
+	ErrRollbackDBRestore   = "ROLLBACK_FAILED_DB_RESTORE"
+	// ErrUpgradeStoppedUnchanged (STATBUS-240, King-approved name and text) —
+	// the upgrade declined to proceed and left the system exactly as it found
+	// it. It BREAKS THE NAMING PATTERN ON PURPOSE: every other class here names
+	// a failure of something that was attempted, and this one must not, because
+	// nothing failed in that sense. If it read UPGRADE_FAILED_PRESWAP it would
+	// sit in this list looking like its neighbours and an operator scanning for
+	// damage would assume there is some. The name reads differently because the
+	// operator's next action is different, and the name is the one surface
+	// nobody can skip.
+	//
+	// "NOTHING_CHANGED" rather than "PRESWAP": PreSwap is our word for our
+	// machinery. It names the internal phase boundary correctly and tells the
+	// operator nothing they can act on; this class is read by people who have
+	// never heard of a swap.
+	ErrUpgradeStoppedUnchanged    = "UPGRADE_STOPPED_NOTHING_CHANGED"
 	ErrRollbackServicesUp         = "ROLLBACK_FAILED_SERVICES_UP"
 	ErrRollbackServicesNotStopped = "ROLLBACK_FAILED_SERVICES_NOT_STOPPED"
 	ErrRollbackBinaryCorrupt      = "ROLLBACK_FAILED_BINARY_CORRUPT"
@@ -2972,9 +2987,29 @@ func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displa
 		log.Printf("recoveryRollback: could not increment recovery_attempts for %d (%v) — continuing", id, aerr)
 	}
 	if rollbackResumeIsTerminal(flag.Step, flag.PriorDeathStep) {
-		msg := fmt.Sprintf("%s: rollback could not complete — two consecutive crash-deaths during rollback (recovery attempt %d). The system is in a degraded state; manual CLI recovery is required (./sb install); contact SSB support and involve your IT staff.",
-			ErrRollbackDBRestore, attempts)
-		log.Printf("recoveryRollback: RESTORE-BROKE upgrade %d after %d attempt(s) — two consecutive rollback deaths", id, attempts)
+		// STATBUS-240: ONE terminal, TWO routes, and until now one label for
+		// both. On the POST-SWAP route the label is TRUE — a restore genuinely
+		// ran and did not complete. On the PRESWAP route it lied three times:
+		// no restore was ever attempted (the volume was never touched), the
+		// system is not degraded (the same log shows the install ladder
+		// completing and the box healthy), and the operator was sent to support
+		// for something they can self-serve. For an unattended box in a
+		// statistical office that converts a self-serviceable state into a
+		// support ticket measured in days.
+		//
+		// THE DISCRIMINATOR IS THE FLAG, not a remembered variable (the
+		// STATBUS-241 rule): IsServiceNewSbRecovery is the single predicate
+		// every other site already uses to tell "the binary was swapped" from
+		// "nothing moved", and the flag is the authoritative carrier across
+		// exactly this gap.
+		msg := preSwapStoppedMessage(attempts)
+		label := "STOPPED-UNCHANGED"
+		if flag.IsServiceNewSbRecovery() {
+			msg = fmt.Sprintf("%s: rollback could not complete — two consecutive crash-deaths during rollback (recovery attempt %d). The system is in a degraded state; manual CLI recovery is required (%s); contact SSB support and involve your IT staff.",
+				ErrRollbackDBRestore, attempts, INSTALL_CMD)
+			label = "RESTORE-BROKE"
+		}
+		log.Printf("recoveryRollback: %s upgrade %d after %d attempt(s) — two consecutive rollback deaths", label, id, attempts)
 		if d.writeRollbackTerminal(id,
 			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+" WHERE id = $3"+upgradeRowReturning,
 			msg, LabelFailedRollbackIncomplete, attempts) {
@@ -6974,6 +7009,35 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 // recovery_parked_at IS NOT NULL. A parked row is SKIPPED by every automatic
 // resume (the unit stays alive-idle) until a deliberate operator trigger
 // un-parks it (RunSchedule / install re-claim resets the marker).
+// INSTALL_CMD is the operator's one tool, named once so every message that
+// tells them what to run says the same thing.
+const INSTALL_CMD = "./sb install"
+
+// preSwapStoppedMessage renders STATBUS-240's operator-facing text, approved
+// VERBATIM by the King. Do not reword any part of it without going back to him:
+// the ordering is the design, not prose style.
+//
+// THE FIRST LINE IS THE REASSURANCE, NOT THE FAULT. An operator meeting this
+// text is frightened before they are curious — something went wrong with an
+// upgrade to their statistical register. The most valuable fact we hold is that
+// their data is untouched, so it goes first, in the shortest sentence
+// available.
+//
+// DELIBERATELY ABSENT: any guess at what went wrong. We do not know from this
+// terminal alone, and a speculative cause would send the operator to
+// investigate the wrong thing — the same defect as the old text, in a
+// friendlier tone.
+func preSwapStoppedMessage(attempts int) string {
+	_ = attempts // the count is in the row; the operator-facing text stays plain
+	return ErrUpgradeStoppedUnchanged + ": The upgrade stopped before it changed anything.\n\n" +
+		"Your data was not modified and your installed version was not replaced. " +
+		"This system is still running the version it was running before, and it is serving normally.\n\n" +
+		"The upgrade was attempted twice and stopped at the same point both times, so it will not be tried again on its own.\n\n" +
+		"To try again: run " + INSTALL_CMD + "\n\n" +
+		"If it stops here again, the upgrade itself needs a fix. " +
+		"Report this message together with the version you were upgrading to."
+}
+
 // parkStateUnknown answers the question every park-state consumer must ask
 // before acting: does this error mean the row CANNOT be parked, or that we do
 // not KNOW whether it is? (STATBUS-242 narrowing.)
