@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-08-18 10:27'
-updated_date: '2026-08-18 20:17'
+updated_date: '2026-08-19 00:01'
 labels:
   - upgrade-recovery
   - release
@@ -236,5 +236,46 @@ author: foreman
 created: 2026-08-18 20:17
 ---
 Status corrected To Do → In Progress (King's catch): the fix landed at a20a416a3 and is on the rc.05 tag under test right now — this ticket is in its observation phase, not untouched. AC#3 closes on the running suite's verdict.
+---
+
+author: engineer
+created: 2026-08-19 00:01
+---
+**TRACE of rc.05's two arc failures (run 32187511838), part 1 of 2. Purpose: say whether the product is broken or the arcs are. ANSWER: the arcs are — both fail on ONE shared assertion whose premise the product deliberately abandoned at STATBUS-197, two days before 228. No fix proposals; the architect rules.**
+
+**1 — WHAT ACTUALLY FAILED. One assertion, identical in both arcs, and nothing else.**
+- `restore-broke-reattempt-arc.sh:271` — log line 3939: `✗ dispatch output does not show the STATBUS-111 re-attempt legend`
+- `rollback-pair-terminal-arc.sh:280` — log line 4075: the same string, same check.
+
+Everything before it passed in both. In particular `rollback-pair-terminal` log line 4074 passed its OWN terminal oracle: `✓ pair-terminal fired with recovery_attempts=3 (2 rollback deaths + the terminal pass, no third restore attempt) — the STATBUS-134 oracle itself, unchanged`. This is NOT rc.03's signature (attempts stuck at 1): the counter repair is visibly working, the volume-rewind is gone, and the arcs now die one assertion LATER than they used to.
+
+**2 — IS `failed-rollback-incomplete` + attempts=3 THE EXPECTED TERMINAL? YES, by design and by the arcs' own oracle.** `service.go:2966` — `rollbackResumeIsTerminal(flag.Step, flag.PriorDeathStep)` is the same-step-twice rollback terminal, documented at :2950-2953 as "Terminal → restore-broke HUMAN stop (state='failed'; ./sb install), NOT park, NOT another rollback". The third attempt is DESIGNED not to complete the rollback. Nothing here should have restored.
+
+**3 — WAS `backup_path` RECORDED? NO — and on THIS route that is now the CORRECT value, not a miss.** Both rows: `"backup_path": null` (log 3897 / 4030). Both arcs construct a **PreSwap** failure — the product narrates it in both logs: *"was interrupted before it changed anything; rolling back to the previous version. The database was not modified, so nothing needs restoring"*, `has_migrations: false`. `service.go:5610-5613` (228's own text) states the contract: the flag is stamped at the SWAP, *"before it the database volume is untouched, so an EMPTY BackupPath is not a gap — it is the CORRECT value, and it is what makes the PreSwap recovery branch's no-touch guarantee true"*. The row's single recorder sits after the swap+reconnect (`service.go:6509-6528`) and a PreSwap death never reaches it.
+
+The legend is therefore unreachable, deterministically: it prints only from `install_upgrade.go:110-112`, reached only via `StateRestoreReattemptable`, which `state.go:170-178` grants only when `QueryReattemptableRestore` finds `state='failed' AND backup_path IS NOT NULL`. Null column → state resolves to `nothing-scheduled` → no legend. The log shows exactly that: `State after recovery: nothing-scheduled (target=42c2f6e4)`.
+
+**5 — un-park CONFIRMED, closing STATBUS-229 AC#3.** `un-park-to-completion` PASSED with a real park and a real un-park, not a green-skip: `✓ B parked (t+50s): 2|in_progress|t|disk nearly full: 4 GB free (< 5 GB needed)`, `✓ RESOURCE park landed (in_progress, parked, disk reason), row id=2`, `✓ zero rollbacks in the state-log — at-target park, not a Behind rollback`, `✓ exactly one STATBUS_EVENT=parked siren fired`, `✓ daemon alive-idle, healthy + data intact under the park`, then `✓ same row completed, park cleared, ZERO restores, siren still once, data intact, healthy` and `PASS: un-park-to-completion`. First live execution of the 229 fix, green.
+---
+
+author: engineer
+created: 2026-08-19 00:01
+---
+**TRACE part 2 of 2 — the verdict and two findings.**
+
+**4 — VERDICT: arc assertions encoding a contract the product legitimately changed. Dated, not inferred.**
+- The arcs were written **2026-07-14** (`d3a5bcfec`, `dc5c07339`) and `restore-broke-reattempt-arc.sh:244-246` records that phase (i) passed empirically then (arc run 29325230294).
+- `rollback-pair-terminal-arc.sh:247-248` states the premise in prose: *"true here: the DB COLUMN backup_path is set during the very first dispatch's backup step"*. That early write is precisely what **STATBUS-197 (21ec09911, 2026-08-16)** removed — `service.go:5602-5606`: recording before the snapshot commits could restore the PREVIOUS attempt's snapshot, a weeks-of-data regression.
+- **228 (a20a416a3) did not remove a working recorder.** 197 had left a replacement write that executed against the database it had just stopped for the cold backup — it failed on every upgrade, so the column was already NULL for the whole crash/rollback population before 228 existed. 228 deleted that broken write and put the single recorder at the earliest instant it can succeed. Net effect on these two arcs: the NULL they trip over became PRINCIPLED where it had been ACCIDENTAL. It did not become newly NULL.
+
+So: not a new product defect, not a residual one, and not something new. The arcs assert a pre-197 world.
+
+**TWO THINGS I FOUND WHILE IN THERE, both worth a ruling, neither a fix proposal:**
+
+**(a) The terminal's error CLASS is wrong for this route, and it is operator-facing.** `service.go:2966-2968` hard-codes `ErrRollbackDBRestore` regardless of whether a database restore was ever needed. On the PreSwap pair the operator is told `ROLLBACK_FAILED_DB_RESTORE: rollback could not complete ... The system is in a degraded state; manual CLI recovery is required (./sb install); contact SSB support and involve your IT staff` — about a database the product's own narration two lines earlier says was never modified. The named remedy then does NOT re-attempt a restore (there is none to re-attempt); the same log shows `./sb install` completing the step-table and the box healthy. An NSO operator reading this is told their data is degraded when it is not.
+
+**(b) 228's own observable is currently UNVERIFIED in the fleet, and these failures are hiding the hole.** The only arc assertion that checks `backup_path IS NOT NULL` on a route that reaches the recorder is `restore-broke-reattempt-arc.sh:480` (phase ii, the git-corrupt ABORT class). Phase (ii) never runs, because phase (i) exits 1 at line 271. I checked the other two arcs that mention the column: `c-rollback-resurrection-arc.sh:143` only PRINTS it, `rollback-pair-terminal-arc.sh` only mentions it in prose. So no green arc currently proves the 228 recorder writes a non-null path — the postswap arcs that exercise the code path do not observe the column.
+
+**WHAT IS ACHIEVED:** the rc.05 red is explained without guesswork — one stale premise, shared by two arcs, dated to a specific commit — and two genuine questions (a misleading operator-facing terminal class, and a coverage hole hiding 228's own observable) are on the record for the architect rather than discovered on a later fleet run. Logs kept at `tmp/engineer-228-rc05/*.log`.
 ---
 <!-- COMMENTS:END -->

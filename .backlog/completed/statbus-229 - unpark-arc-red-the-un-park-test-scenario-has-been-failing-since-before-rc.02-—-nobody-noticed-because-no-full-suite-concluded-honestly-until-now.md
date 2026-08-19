@@ -3,10 +3,10 @@ id: STATBUS-229
 title: >-
   unpark-arc-red: the un-park test scenario has been failing since before rc.02
   — nobody noticed because no full suite concluded honestly until now
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-08-18 10:37'
-updated_date: '2026-08-18 20:17'
+updated_date: '2026-08-19 00:02'
 labels:
   - upgrade-recovery
   - install-recovery
@@ -37,7 +37,7 @@ WHAT IS ACHIEVED: every scenario in the suite is either green or has a named own
 <!-- AC:BEGIN -->
 - [x] #1 Trace AFTER the 228 fix lands: reproduce at the fixed code, then root-cause with file:line — product refusal wrong vs scenario assertion stale
 - [x] #2 Fix or ruled scenario correction landed via the standard review gates
-- [ ] #3 Scenario green at a full suite
+- [x] #3 Scenario green at a full suite
 <!-- AC:END -->
 
 ## Comments
@@ -143,4 +143,16 @@ created: 2026-08-18 20:17
 ---
 Status corrected To Do → In Progress (King's catch): the fix landed at 32e1b33b1 and is on the rc.05 tag under test right now — observation phase, not untouched work. AC#3 closes on the running suite's verdict.
 ---
+
+author: foreman
+created: 2026-08-19 00:02
+---
+AC#3 CLOSED at rc.05 (arc run 32187511838, engineer-verified in the logs): un-park-to-completion GREEN on the first live execution of the fix — real disk-shortfall park (row id=2, exactly one parked siren, zero rollbacks, daemon alive-idle), real un-park, the SAME row ran forward to completed, ZERO restores, data intact. The 210 blanked-phase → unconditional-rollback chain is dead; the granted fresh attempt is genuinely consumed going FORWARD. The timeline-anomaly condition from the ruling (comment #3) is also satisfied: the old 2026-08-02 failure was resolved as a DIFFERENT mechanism (health-check timeout, foreman comment #2, operator log on file) — no second bug wearing this message is being buried by this closure. The pre-verdict calibration (comment #6) was not needed: the scenario did not fail at runtime-stability; it passed outright.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The un-park path — an operator deliberately releasing a parked upgrade for one fresh attempt — was being sabotaged by the product itself: STATBUS-210's park restoration expressed "retreated to source" by blanking the flag's Phase to a value that already meant "died before the swap", so recovery routed the granted attempt into an unconditional rollback and a DB restore that rewound the recovery budget. The ruled fix gave the state its own name (RetreatedToSourceAt) instead of a borrowed one, made the un-park remove the flag only when that marker is set (the era-refused park keeps its truthful flag — load-bearing conditionality), and extended the BackupPath-writer pin to every producer. Proven live at rc.05: a real resource park, a real un-park, the same row run forward to completed with zero restores and data intact. The old 2026-08-02 failure was separately resolved as a different mechanism (health-check timeout), so no second bug is buried by this closure. Diagnosed and built by engineer, ruled and reviewed by architect, landed as 32e1b33b1.
+<!-- SECTION:FINAL_SUMMARY:END -->
