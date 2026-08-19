@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-08-19 19:14'
-updated_date: '2026-08-19 20:35'
+updated_date: '2026-08-19 20:44'
 labels:
   - release
   - upgrade
@@ -240,5 +240,35 @@ author: foreman
 created: 2026-08-19 20:35
 ---
 KING RATIFIED 2026-08-19 evening: the round-3 Lego design (comment #6) is APPROVED — his words: 'we go back to a Lego-based approach, and that is approved... the ratification of your new plan after my pushback, where you took my pushback into consideration, and the architect agreed.' TWO FURTHER RULINGS the same sitting: (1) NO WORKAROUNDS — the offered options of manually dispatching deploy-to-dev to rescue tonight's run, or waiting out the timeout as observation, were both rejected as workarounds; the principled path chosen: let tonight's run fail honestly, fix everything in code, and prove the fixed chain on the NEXT candidate with zero hands. (2) NO NEW CANDIDATE until everything is fixed in a principled manner — 'when I wake up and things are fixed in a principled manner, then I will cut a release candidate... or a release.' Overnight execution: engineer builds the verb + requested-vs-deployed guard + explicit candidate-addressed dispatch (STATBUS-260's fix); architect designs 259's ships-as-code mechanism (the prerequisite) and reviews every diff; tonight's orchestrator timeout (~21:33 UTC, BUDGET=4800 at release-fleet-orchestrator.yaml:474) stands as the true first-run record.
+---
+
+author: engineer
+created: 2026-08-19 20:40
+---
+**UNIT 1 BUILT AND FROZEN — `./sb upgrade apply <target>`.** Chain: build OK, `go test ./...` green, `golangci-lint run ./...` 0 issues, gofmt clean. Files: `cli/internal/upgrade/apply.go` (new), `apply_test.go` (new), `cli/internal/upgrade/service.go`, `cli/cmd/upgrade.go`, `cli/internal/upgrade/schedule_require_register_test.go`.
+
+**The purpose in two sentences.** The product could already install a named version — but only as two commands an operator had to know to pair, in an order that fails if you get it wrong. So callers reached for `apply-latest` instead, which installs whatever is NEWEST rather than what was asked for, and that is how a chain waiting on one specific commit gets handed a different one.
+
+**IT COMPOSES, IT DOES NOT REIMPLEMENT — and that is the load-bearing part.** `registerStep` carries the STATBUS-169 tag↔commit write-guard and the `ensureCommitLocal` fetch; `scheduleStep` carries the parked-row carve-out and the atomic recovery-budget reset. A hand-rolled INSERT/UPDATE in `apply` would silently lack all of it and would look entirely correct in review, so a test forbids any direct write to `public.upgrade` in this function.
+
+To compose them I split each existing command into a `…Step` (the body) and a thin `Run…` wrapper (the one-shot connection). Apply then runs BOTH steps inside a SINGLE connection — pinned, because two would leave a registered-but-unscheduled window: a state visible in `upgrade list` that no other product path produces and that an operator would reasonably act on.
+
+**Registration is UNCONDITIONAL**, not guarded by "is it already registered?". `registerStep` is idempotent, so the guard would buy nothing and would cost the property an operator relies on when repeating a command after a failure: that `apply` behaves identically whether or not the box has seen this candidate.
+
+**It stays GENERAL — the architect's test, pinned as a test.** A check fails if the function ever references a role, a channel, `ResolveChannelToLatestTag`, or one of our box names. The moment it learns any of those it stops being the general verb and becomes our deployment script wearing a product command's name.
+
+**Refusals name each distinct cause and its own action** — wrong vocabulary, commit not on the box yet, and assets not published. That last one is emphasised as a WAIT rather than an error, with "nothing is lost by waiting", because an operator who reads the existing visible-wait path as a failure goes hunting for a problem that does not exist. On success the command says what it set in motion (backup → migrate → restart → health-check → rollback on failure) and how to follow it, since "scheduled" is not "installed".
+
+**Six REDs, mutation site asserted on each:** reimplementing instead of composing; leaking a channel into the general verb; opening a second connection; making registration conditional; plus the two below.
+
+**ONE EXISTING GUARD RETARGETED, DELIBERATELY.** Moving the scheduling UPDATE into `scheduleStep` left `TestRunSchedule_CommitAuthoritative_FailLoud_STATBUS169` reading a three-line wrapper — it would have examined nothing and PASSED, the zero-scope shape. It now reads `scheduleStep`, with every assertion unchanged and only the subject moved, plus a new assertion that `RunSchedule` still delegates there — so the guard cannot end up reading a function nothing calls. RED-verified both ways: re-introducing a tag-as-selector still fires it, and breaking the delegation fires the new one.
+
+Starting unit 2 (STATBUS-260, the transport fix).
+---
+
+author: foreman
+created: 2026-08-19 20:44
+---
+UNIT 1 LANDED as 35e572010 (architect verdict LAND, nothing to fold — their standout: the generality principle made mechanical, TestApplyIsGeneral_STATBUS258 reddening on any future channel/role/box-name reference with a failure message that teaches). Composed in one connection via the Step/Run split; direct-table-write forbidden by test; deployed_commit= emitted at the CLI layer (CI-facing contract kept out of the general internals); omission announced with its cost. Commit build+vet verified in an isolated worktree. Remaining for this ticket: unit 2 (explicit candidate-addressed dispatch + requested-vs-deployed guard, building now) and the allowlist line via 259's mechanism.
 ---
 <!-- COMMENTS:END -->
