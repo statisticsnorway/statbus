@@ -379,3 +379,79 @@ func TestGoTestStepsCarryCountEqualsOne_STATBUS237(t *testing.T) {
 		})
 	}
 }
+
+// TestSupersededVerdictRunsLastAndAsksForItself_STATBUS246 pins the fix for a
+// real defect in the orchestrator's first version, and it was the COMMON path
+// rather than an edge case.
+//
+// THE DEFECT: the `superseded` verdict job keyed on the UPFRONT decide-obsolete
+// answer alone. A chain runs for hours; a newer candidate is cut mid-chain;
+// every later joint's own inline check correctly declines to start anything —
+// and each of those jobs then SUCCEEDS having done nothing, while the verdict
+// never fires because the upfront answer was 'false'. The run concludes SUCCESS
+// with no fleet having run and nothing saying why: the rc.07 defect reborn
+// inside the mechanism built to prevent it.
+//
+// The two properties that fix it are structural, so they are pinned structurally:
+// the verdict must run LAST (needs every joint) and must ask the obsolete
+// question ITSELF rather than trusting five predecessors to have reported.
+func TestSupersededVerdictRunsLastAndAsksForItself_STATBUS246(t *testing.T) {
+	rel := ".github/workflows/release-fleet-orchestrator.yaml"
+	data, err := os.ReadFile(thisRepoFile(t, rel))
+	if err != nil {
+		t.Fatalf("read %s: %v", rel, err)
+	}
+	var doc struct {
+		Jobs map[string]struct {
+			Needs []string `yaml:"needs"`
+			If    string   `yaml:"if"`
+			Steps []struct {
+				Name string `yaml:"name"`
+				Run  string `yaml:"run"`
+			} `yaml:"steps"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		t.Fatalf("parse %s: %v", rel, err)
+	}
+
+	verdict, ok := doc.Jobs["superseded"]
+	if !ok {
+		t.Fatal("the orchestrator must carry a `superseded` job — the third verdict is named, not approximated (STATBUS-246 AC#4)")
+	}
+
+	// 1. RUNS LAST: every other job that can precede it must be in needs, or a
+	//    supersession detected after that job would conclude before the verdict.
+	needed := map[string]bool{}
+	for _, n := range verdict.Needs {
+		needed[n] = true
+	}
+	for name := range doc.Jobs {
+		if name == "superseded" || name == "decide-upgrade-sensitivity" {
+			continue
+		}
+		if !needed[name] {
+			t.Errorf("the superseded verdict must need %q so it runs LAST — otherwise a supersession detected at that joint concludes the run before the verdict speaks, and the chain reports a bare success over work that never ran", name)
+		}
+	}
+
+	// 2. ASKS FOR ITSELF: it must not gate on another job's obsolete output.
+	if strings.Contains(verdict.If, "decide-obsolete") && strings.Contains(verdict.If, "obsolete") {
+		t.Errorf("the verdict must not key on the UPFRONT obsolete answer — that answer is hours stale by the time the chain ends, and a mid-chain supersession would never fire it. Got if: %q", verdict.If)
+	}
+	var checks int
+	for _, st := range verdict.Steps {
+		if strings.Contains(st.Run, "git tag --sort=-version:refname") {
+			checks++
+		}
+	}
+	if checks == 0 {
+		t.Error("the superseded verdict must perform the obsolete check as its OWN first act — the arriving job checks for itself rather than trusting predecessors to have reported (STATBUS-246 AC#1 applied to the job that states the verdict)")
+	}
+
+	// 3. It must still be able to speak when every upstream was SKIPPED, which
+	//    is exactly what a superseded chain looks like.
+	if !strings.Contains(verdict.If, "!cancelled()") {
+		t.Errorf("the verdict's if: must use !cancelled() — on a superseded chain every upstream is skipped, and an implicit success() gate would silence the one job whose whole purpose is to speak then. Got: %q", verdict.If)
+	}
+}

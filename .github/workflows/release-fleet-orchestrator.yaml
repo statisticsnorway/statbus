@@ -121,29 +121,17 @@ on:
   workflow_dispatch: {}
 
 concurrency:
-  # Prevents two orchestrator runs (e.g. two RC tags pushed in quick
-  # succession) from dispatching the same three fleets concurrently and
-  # recreating the exact VM-capacity collision (STATBUS-208 defect B) this
-  # workflow exists to remove. Cancelling a mid-chain orchestrator run would
-  # abandon a fleet run it already dispatched with nothing left to observe
-  # its conclusion — cancel-in-progress stays false for the same reason
-  # every VM-fleet workflow's own concurrency block does.
+  # PER-TAG (STATBUS-246 AC#9, architect's ruling). The trade that looked hard
+  # dissolves once you notice WHAT this workflow is: it rents no machines. It
+  # occupied a shared capacity slot for HOURS purely to coordinate, which is why
+  # a newer candidate's chain used to queue behind an old one — the supersession
+  # disturbing the very chain that superseded it, which AC#9 forbids.
   #
-  # HONEST DESCRIPTION of what this group does on 3+ RC tags in flight
-  # (STATBUS-214 review): it does NOT eliminate the cancellation class this
-  # workflow exists to remove — it RELOCATES it here, to a layer where it
-  # is benign. With cancel-in-progress:false the group holds at most one
-  # RUNNING + one PENDING orchestrator run; a THIRD tag pushed while two are
-  # already queued cancels the PENDING one. So the OLDEST tag's orchestrator
-  # keeps running to completion, the NEWEST becomes the new pending run, and
-  # the MIDDLE tag's orchestrator run is discarded — "newest wins" is wrong,
-  # the middle one loses. That is fine here in a way it was not for the
-  # fleets themselves: a superseded intermediate RC's fleet proof is
-  # genuinely uninteresting, and its absence is already handled — the
-  # stable-promotion gate reads WorkflowCheckMissing at that commit and
-  # falls through to its own path-sensitivity walk, exactly as it does for
-  # any other incomplete/missing green.
-  group: release-fleet-orchestrator
+  # Each candidate now gets its own group, so a new chain starts AT ONCE. The
+  # STATBUS-208 protection is untouched: the four fleet workflows keep the
+  # shared hetzner-vm-fleet group and serialize among themselves at the layer
+  # that actually rents machines. Coordination is not a scarce resource; VMs are.
+  group: release-fleet-orchestrator-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
@@ -154,38 +142,382 @@ permissions:
   actions: write   # gh workflow run <fleet> --ref <tag>; gh run list / gh run view
 
 jobs:
-  test-install:
-    name: "1/3 (cheapest): dispatch Test Install"
+  # ═══════════════════════════════════════════════════════════════════════
+  # DECISION POINT (STATBUS-246). Every joint below runs this as the
+  # ARRIVING job's first act — never as a dying job's last duty. A job that
+  # is being cancelled or has crashed does nothing at all, so a stopping
+  # mechanism that depends on the departing job has no authority over the
+  # only case that matters. A check that runs only when things are going
+  # well is not a check.
+  #
+  # It answers ONE question here (OBSOLETE?) and each scenario joint answers
+  # the second (COVERED?) for itself, because coverage is per-scenario while
+  # obsolescence is a property of the whole chain.
+  #
+  # GRACEFUL, NOT IMMEDIATE: an obsolete chain starts nothing further, and
+  # whatever is already running finishes and tears down its own machines by
+  # its own path. Killing in-flight work would strand exactly the young VMs
+  # the age-gated sweep is built not to touch — the failure mode this design
+  # dissolves rather than handles. The finish-out cost is RATIFIED: we had
+  # already committed that money when the work started, and what it buys is
+  # complete evidence plus guaranteed self-teardown.
+  # ═══════════════════════════════════════════════════════════════════════
+  decide-obsolete:
+    name: "Decision point: is this candidate still the newest?"
+    # No needs — pure git work, no VM cost, so its verdict is known long
+    # before the first joint that consults it.
     runs-on: ubuntu-24.04
-    # test-install.yaml's own job timeout is 35min; this job's ceiling
-    # leaves headroom for dispatch-propagation retries, run-correlation
-    # polling, and the conclusion poll's own interval slack.
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      obsolete: ${{ steps.check.outputs.obsolete }}
+      newer: ${{ steps.check.outputs.newer }}
+    steps:
+      - name: Checkout (full history + tags — need every RC tag to compare)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Is a newer candidate already cut?
+        id: check
+        run: |
+          set -euo pipefail
+          THIS_TAG="${{ github.ref_name }}"
+          # Newest-first. If THIS tag is not line 1, something newer exists.
+          NEWEST="$(git tag --sort=-version:refname | grep -- '-rc\.' | sed -n '1p' || true)"
+          echo "This candidate: $THIS_TAG"
+          echo "Newest candidate visible: ${NEWEST:-<none>}"
+          if [ -n "$NEWEST" ] && [ "$NEWEST" != "$THIS_TAG" ]; then
+            echo "OBSOLETE: $NEWEST supersedes $THIS_TAG."
+            echo "Nothing further will START. Work already running finishes and tears down its own machines."
+            echo "obsolete=true" >> "$GITHUB_OUTPUT"
+            echo "newer=$NEWEST" >> "$GITHUB_OUTPUT"
+          else
+            echo "$THIS_TAG is still the newest candidate — the chain proceeds."
+            echo "obsolete=false" >> "$GITHUB_OUTPUT"
+            echo "newer=" >> "$GITHUB_OUTPUT"
+          fi
+
+  smoke-install:
+    name: "1/5 smoke: fresh install (0-happy-install)"
+    needs: [decide-obsolete]
+    # The decision point gates the joint. !cancelled() for the STATBUS-215
+    # reason applied throughout this file: an explicit if: that never calls a
+    # status function is implicitly ANDed with success(), which would skip
+    # this job on any non-success upstream result — the exact silent-skip
+    # this condition exists to prevent.
+    if: >-
+      ${{ !cancelled() &&
+          needs['decide-obsolete'].result == 'success' &&
+          needs['decide-obsolete'].outputs.obsolete == 'false' }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     outputs:
       run_url: ${{ steps.dispatch.outputs.run-url }}
+      covered: ${{ steps.covered.outputs.covered }}
     steps:
-      # STATBUS-225: checkout is the one cost of extracting the dispatch/
-      # correlate/poll logic to a local composite action — GitHub resolves
-      # `uses: ./.github/actions/...` from the job's own checked-out
-      # workspace, so it must exist before the action can be referenced.
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
+
+      # The covered() decision runs the SAME library as the promotion gate,
+      # so the chain and the gate cannot drift into two answers (STATBUS-249,
+      # the King's "same by design, not by chance"). That means this job needs
+      # the binary, built from THIS commit's source.
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+          # STATBUS-235: go.mod/go.sum live in cli/, not the repo root.
+          cache-dependency-path: cli/go.sum
+
+      - name: Build sb (the coverage decision runs the gate's own library)
+        # No args = host platform, written to ./sb — the daily-driver path.
+        # (NOT `build-sb linux/amd64`, which writes sb-linux-amd64 for upload
+        # to a VM; this binary runs here on the runner.)
+        run: ./dev.sh build-sb
+
+      - name: "Decision point: is 0-happy-install already covered at this commit?"
+        id: covered
+        env:
+          # BOTH names, deliberately. `./sb release covered` reads the
+          # GITHUB_TOKEN env var DIRECTLY (githubAuthHeader,
+          # cli/internal/release/check.go:335-340) — it does NOT use the gh
+          # CLI's stored credential. Setting only GH_TOKEN leaves the library
+          # unauthenticated, every API call 403s, and the decision degrades to
+          # exit 2 "undecidable" — which runs the scenario, so the chain still
+          # goes green while the skip silently never works. Observed as real
+          # 403s during the library's own live testing.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          # ONE algorithm, two call sites (STATBUS-249): this is the same
+          # library the promotion gate uses, invoked as a subcommand so the
+          # chain and the gate can never drift into two answers.
+          #   0 = covered (skip)   1 = must run   2 = could not decide
+          # UNDECIDABLE IS NOT AN ANSWER. It renders as must-run — the safe
+          # direction, since over-running costs money and under-running costs
+          # a proof — but it says so, because a chain that silently treats
+          # "could not tell" as "must run" hides an API outage as diligence.
+          set +e
+          OUT="$(./sb release covered 0-happy-install "${{ github.sha }}" 2>&1)"
+          RC=$?
+          set -e
+          printf '%s\n' "$OUT"
+          case "$RC" in
+            0) echo "covered=true"  >> "$GITHUB_OUTPUT"
+               # AC#5/#6: a skip NAMES its source, durably, on the run itself —
+               # never a bare skip. The subcommand's own sentence is the record.
+               { echo "- **0-happy-install**: SKIPPED — already covered."; printf '  > %s\n' "$OUT"; } >> "$GITHUB_STEP_SUMMARY" ;;
+            1) echo "covered=false" >> "$GITHUB_OUTPUT"
+               echo "- **0-happy-install**: RUNNING — not covered at this code-state." >> "$GITHUB_STEP_SUMMARY" ;;
+            *) echo "::warning title=Coverage undecidable::could not decide whether 0-happy-install is covered (exit $RC) — running it. This is a failure to decide, not a decision."
+               echo "covered=false" >> "$GITHUB_OUTPUT"
+               echo "- **0-happy-install**: RUNNING — coverage was UNDECIDABLE (exit $RC), which is a failure to decide, not a decision." >> "$GITHUB_STEP_SUMMARY" ;;
+          esac
 
       - name: Dispatch test-install.yaml at the tag and wait for its conclusion
         id: dispatch
+        if: steps.covered.outputs.covered != 'true'
         uses: ./.github/actions/dispatch-fleet-and-wait
         with:
           workflow-file: test-install.yaml
           ref: ${{ github.ref_name }}
           commit-sha: ${{ github.sha }}
-          poll-budget-s: "2700"   # 45min — test-install's own ceiling is 35min
+          poll-budget-s: "2700"
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+  smoke-upgrade:
+    name: "2/5 smoke: install-then-upgrade (0-happy-upgrade)"
+    needs: [decide-obsolete]
+    # Runs in PARALLEL with smoke-install: both are cheap, ephemeral and
+    # independent, and dev must not be touched until BOTH have passed.
+    #
+    # TWO PATHS, NOT ONE, and this is the one that would be trimmed for time:
+    # dev is UPGRADED rather than installed, so a candidate that installs
+    # cleanly but cannot be upgraded onto would sail through a single-path
+    # smoke and fail at the first stage that costs us something we care about.
+    if: >-
+      ${{ !cancelled() &&
+          needs['decide-obsolete'].result == 'success' &&
+          needs['decide-obsolete'].outputs.obsolete == 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    outputs:
+      run_url: ${{ steps.dispatch.outputs.run-url }}
+      covered: ${{ steps.covered.outputs.covered }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # The covered() decision runs the SAME library as the promotion gate,
+      # so the chain and the gate cannot drift into two answers (STATBUS-249,
+      # the King's "same by design, not by chance"). That means this job needs
+      # the binary, built from THIS commit's source.
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+          # STATBUS-235: go.mod/go.sum live in cli/, not the repo root.
+          cache-dependency-path: cli/go.sum
+
+      - name: Build sb (the coverage decision runs the gate's own library)
+        # No args = host platform, written to ./sb — the daily-driver path.
+        # (NOT `build-sb linux/amd64`, which writes sb-linux-amd64 for upload
+        # to a VM; this binary runs here on the runner.)
+        run: ./dev.sh build-sb
+
+      - name: "Decision point: is 0-happy-upgrade already covered at this commit?"
+        id: covered
+        env:
+          # BOTH names, deliberately. `./sb release covered` reads the
+          # GITHUB_TOKEN env var DIRECTLY (githubAuthHeader,
+          # cli/internal/release/check.go:335-340) — it does NOT use the gh
+          # CLI's stored credential. Setting only GH_TOKEN leaves the library
+          # unauthenticated, every API call 403s, and the decision degrades to
+          # exit 2 "undecidable" — which runs the scenario, so the chain still
+          # goes green while the skip silently never works. Observed as real
+          # 403s during the library's own live testing.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          set +e
+          OUT="$(./sb release covered 0-happy-upgrade "${{ github.sha }}" 2>&1)"
+          RC=$?
+          set -e
+          printf '%s\n' "$OUT"
+          case "$RC" in
+            0) echo "covered=true"  >> "$GITHUB_OUTPUT"
+               # AC#5/#6: a skip NAMES its source, durably, on the run itself —
+               # never a bare skip. The subcommand's own sentence is the record.
+               { echo "- **0-happy-upgrade**: SKIPPED — already covered."; printf '  > %s\n' "$OUT"; } >> "$GITHUB_STEP_SUMMARY" ;;
+            1) echo "covered=false" >> "$GITHUB_OUTPUT"
+               echo "- **0-happy-upgrade**: RUNNING — not covered at this code-state." >> "$GITHUB_STEP_SUMMARY" ;;
+            *) echo "::warning title=Coverage undecidable::could not decide whether 0-happy-upgrade is covered (exit $RC) — running it. This is a failure to decide, not a decision."
+               echo "covered=false" >> "$GITHUB_OUTPUT"
+               echo "- **0-happy-upgrade**: RUNNING — coverage was UNDECIDABLE (exit $RC), which is a failure to decide, not a decision." >> "$GITHUB_STEP_SUMMARY" ;;
+          esac
+
+      - name: Dispatch test-upgrade.yaml at the tag and wait for its conclusion
+        id: dispatch
+        if: steps.covered.outputs.covered != 'true'
+        uses: ./.github/actions/dispatch-fleet-and-wait
+        with:
+          workflow-file: test-upgrade.yaml
+          ref: ${{ github.ref_name }}
+          commit-sha: ${{ github.sha }}
+          poll-budget-s: "2700"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  dev-canary:
+    name: "3/5: dev takes the candidate (the automatic canary)"
+    needs: [decide-obsolete, smoke-install, smoke-upgrade]
+    # BOTH smoke paths must have passed. dev is the first thing in this chain
+    # that is NOT disposable — everything before it runs on rented machines we
+    # throw away, and everything after it is expensive. That single asymmetry
+    # sets the whole order: disposable things filter for the irreplaceable
+    # one, and the irreplaceable one filters for the expensive ones.
+    #
+    # A COVERED smoke job is a PASS for this purpose: its result is 'success'
+    # either way, because being already proven at this code-state and having
+    # just been proven are the same fact about the candidate.
+    if: >-
+      ${{ !cancelled() &&
+          needs['decide-obsolete'].result == 'success' &&
+          needs['decide-obsolete'].outputs.obsolete == 'false' &&
+          needs['smoke-install'].result == 'success' &&
+          needs['smoke-upgrade'].result == 'success' }}
+    runs-on: ubuntu-24.04
+    # deploy-to-dev's own convergence poll is the long pole; budget above it.
+    timeout-minutes: 90
+    permissions:
+      contents: write   # write the deploy branch AT THE TAGGED COMMIT
+      actions: write    # observe the deploy workflow's run
+    outputs:
+      deployed: ${{ steps.deploy.outputs.deployed }}
+    steps:
+      - name: Checkout (full history — the deploy branch is written at this tag's commit)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # DECISION POINT, re-asked by THIS job as its own first act
+      # (STATBUS-246 AC#1). Not a re-read of an earlier verdict: a newer
+      # candidate may have been cut while the previous stage was running, and
+      # the whole principle is that the ARRIVING job decides. A single upfront
+      # check would answer a question that was asked before this joint existed.
+      - name: "Decision point: still the newest candidate?"
+        id: obsolete
+        run: |
+          set -euo pipefail
+          git fetch --tags --quiet origin || true
+          THIS_TAG="${{ github.ref_name }}"
+          NEWEST="$(git tag --sort=-version:refname | grep -- '-rc\.' | sed -n '1p' || true)"
+          if [ -n "$NEWEST" ] && [ "$NEWEST" != "$THIS_TAG" ]; then
+            echo "::notice title=Superseded::$NEWEST supersedes $THIS_TAG — this joint starts nothing further. Work already running finishes and tears down its own machines."
+            echo "obsolete=true" >> "$GITHUB_OUTPUT"
+            echo "- **${{ github.job }}**: STOPPED — superseded by \`$NEWEST\`; nothing further started here." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "$THIS_TAG is still the newest candidate — proceeding."
+            echo "obsolete=false" >> "$GITHUB_OUTPUT"
+            echo "- **${{ github.job }}**: proceeding — \`$THIS_TAG\` is still the newest candidate." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Point dev's deploy branch at THIS CANDIDATE's commit
+        id: deploy
+        if: steps.obsolete.outputs.obsolete != 'true'
+        run: |
+          set -euo pipefail
+          # STATBUS-247: the transport is unchanged — a push to the deploy
+          # branch pokes the box's upgrade service, which converges and is
+          # addressed BY COMMIT. What changes is WHAT the branch points at:
+          # the tagged candidate, never master's tip. That is the whole of
+          # "tagging a candidate installs it on dev with no human action".
+          #
+          # AUTOMATION WRITES THIS BRANCH, NEVER A PERSON. The human-facing
+          # buttons that used to write deploy branches with master's tip are
+          # gone (STATBUS-244a); this is the one remaining writer, and it is
+          # addressed at a tag.
+          #
+          # WHY DEV IS TAG-DRIVEN AND NORWAY IS NOT: the chain needs a
+          # SYNCHRONOUS verdict — it must know NOW whether a real box took
+          # the candidate. Discovery ticks on a long interval and only OFFERS,
+          # so there would be nothing to wait on. Norway is deliberately the
+          # opposite: offered and human-installed, with an open-ended wait.
+          echo "Pointing ops/cloud/deploy/dev at ${{ github.sha }} (tag ${{ github.ref_name }})"
+          git push --force origin "${{ github.sha }}:refs/heads/ops/cloud/deploy/dev"
+          echo "deployed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for dev to converge on the candidate
+        if: steps.obsolete.outputs.obsolete != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # The branch push above IS the trigger — deploy-to-dev.yaml fires on a
+        # push to its branch — so this step OBSERVES that run rather than
+        # starting one.
+        #
+        # It deliberately does NOT use ./.github/actions/dispatch-fleet-and-wait:
+        # that action dispatches a workflow_dispatch run and correlates by
+        # `--event=workflow_dispatch`. Used here it would start a SECOND deploy
+        # alongside the push-triggered one and then watch the wrong run. Caught
+        # by checking the action's correlation filter against this workflow's
+        # actual trigger rather than assuming they matched.
+        #
+        # Polls `gh run list` and branches on the conclusion explicitly — never
+        # `gh run watch --exit-status`, which has returned 0 for a FAILED run in
+        # this org's own deploy history (CLAUDE.md).
+        run: |
+          set -euo pipefail
+          BUDGET=4800   # 80min, under this job's 90min ceiling
+          WAITED=0
+          INTERVAL=20
+          while [ "$WAITED" -lt "$BUDGET" ]; do
+            LINE="$(gh run list --workflow=deploy-to-dev.yaml \
+                      --commit="${{ github.sha }}" --limit 1 \
+                      --json status,conclusion,url \
+                      --jq '.[0] | "\(.status)|\(.conclusion)|\(.url)"' 2>/dev/null || true)"
+            STATUS="${LINE%%|*}"; REST="${LINE#*|}"; CONCL="${REST%%|*}"; URL="${REST#*|}"
+            if [ -z "$LINE" ] || [ "$LINE" = "null|null|null" ]; then
+              echo "  waiting for deploy-to-dev to appear at ${{ github.sha }} (${WAITED}s/${BUDGET}s)"
+            elif [ "$STATUS" != "completed" ]; then
+              echo "  deploy-to-dev $STATUS (${WAITED}s/${BUDGET}s) — $URL"
+            elif [ "$CONCL" = "success" ]; then
+              echo "✓ dev converged on ${{ github.ref_name }} — $URL"
+              exit 0
+            else
+              echo "✗ dev did NOT take this candidate (conclusion: $CONCL)"
+              echo "   Run: $URL"
+              echo "   The chain stops here BY DESIGN: dev's failure must stop it"
+              echo "   before any expensive fleet is dispatched. Read that run, and"
+              echo "   the box's own upgrade log, before re-cutting."
+              exit 1
+            fi
+            sleep "$INTERVAL"
+            WAITED=$((WAITED + INTERVAL))
+          done
+          echo "✗ dev did not converge within ${BUDGET}s — treating as a failure, not as a pass."
+          echo "   A convergence wait that times out into success would defeat the"
+          echo "   entire point of gating the fleets on a real box."
+          exit 1
+
   install-recovery-harness:
-    name: "2/3: dispatch Install Recovery Harness"
-    needs: [test-install]
+    name: "4/5: dispatch Install Recovery Harness"
+    needs: [decide-obsolete, dev-canary]
+    # dev's failure stops the chain BEFORE any expensive fleet is dispatched
+    # (STATBUS-247 AC#4), and the decision point is re-asked here because a
+    # newer candidate may have been cut while dev was converging — the
+    # arriving job asks for itself — see the decision-point step below.
+    if: >-
+      ${{ !cancelled() &&
+          needs['decide-obsolete'].result == 'success' &&
+          needs['decide-obsolete'].outputs.obsolete == 'false' &&
+          needs['dev-canary'].result == 'success' }}
     runs-on: ubuntu-24.04
     # install-recovery-harness.yaml's own stages: discover(50) +
     # run-scenario(120/job, max-parallel 3, ~28 scenarios -> comfortably
@@ -203,8 +535,31 @@ jobs:
         with:
           fetch-depth: 1
 
+      # DECISION POINT, re-asked by THIS job as its own first act
+      # (STATBUS-246 AC#1). Not a re-read of an earlier verdict: a newer
+      # candidate may have been cut while the previous stage was running, and
+      # the whole principle is that the ARRIVING job decides. A single upfront
+      # check would answer a question that was asked before this joint existed.
+      - name: "Decision point: still the newest candidate?"
+        id: obsolete
+        run: |
+          set -euo pipefail
+          git fetch --tags --quiet origin || true
+          THIS_TAG="${{ github.ref_name }}"
+          NEWEST="$(git tag --sort=-version:refname | grep -- '-rc\.' | sed -n '1p' || true)"
+          if [ -n "$NEWEST" ] && [ "$NEWEST" != "$THIS_TAG" ]; then
+            echo "::notice title=Superseded::$NEWEST supersedes $THIS_TAG — this joint starts nothing further. Work already running finishes and tears down its own machines."
+            echo "obsolete=true" >> "$GITHUB_OUTPUT"
+            echo "- **${{ github.job }}**: STOPPED — superseded by \`$NEWEST\`; nothing further started here." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "$THIS_TAG is still the newest candidate — proceeding."
+            echo "obsolete=false" >> "$GITHUB_OUTPUT"
+            echo "- **${{ github.job }}**: proceeding — \`$THIS_TAG\` is still the newest candidate." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Dispatch install-recovery-harness.yaml at the tag and wait for its conclusion
         id: dispatch
+        if: steps.obsolete.outputs.obsolete != 'true'
         uses: ./.github/actions/dispatch-fleet-and-wait
         with:
           workflow-file: install-recovery-harness.yaml
@@ -269,11 +624,25 @@ jobs:
           else
             echo "No upgrade-sensitive changes since $PREV_RC — the upgrade arc fleet will be SKIPPED (STATBUS-223). test-install and install-recovery-harness still run regardless. The stable release gate independently re-verifies this before ever promoting."
             echo "sensitive=false" >> "$GITHUB_OUTPUT"
+            # HONESTY LINE (architect's ruling on STATBUS-246 C1). Every other
+            # skip in this chain is backed by EVIDENCE — a mark proving the work
+            # ran at this code-state. This one is not: it compares against the
+            # previous TAG and assumes that predecessor was proven. A tag is a
+            # name, and a name says nothing about whether anything ran; that
+            # assumption is exactly the rc.07 defect STATBUS-249 was filed
+            # against. It survives here as a cost optimizer only, and the chain
+            # must not have one silent exception to its own honesty.
+            {
+              echo "- **upgrade-arc fleet**: SKIPPED on a TAG-DIFF ASSUMPTION, *not* on evidence."
+              echo "  > Assumed predecessor: \`$PREV_RC\` — assumed proven because it is the previous RC tag, NOT because a mark says so."
+              echo "  > Successor mechanism: STATBUS-252 replaces this with the per-scenario evidence path (\`./sb release covered\`), which cannot inherit from something never proven."
+              echo "  > The stable release gate re-derives this independently and never trusts this line."
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
 
   upgrade-arc-harness:
-    name: "3/3 (most expensive): dispatch Upgrade Arc Harness"
-    needs: [install-recovery-harness, decide-upgrade-sensitivity]
+    name: "5/5 (most expensive): dispatch Upgrade Arc Harness"
+    needs: [decide-obsolete, install-recovery-harness, decide-upgrade-sensitivity]
     # STATBUS-223: only the arc fleet is skip-eligible — test-install and
     # install-recovery-harness (above) always run unconditionally. Skip
     # ONLY when decide-upgrade-sensitivity explicitly CONFIRMED
@@ -292,6 +661,8 @@ jobs:
     # exactly the failure mode this if: exists to prevent.
     if: >-
       ${{ !cancelled() &&
+          needs['decide-obsolete'].result == 'success' &&
+          needs['decide-obsolete'].outputs.obsolete == 'false' &&
           needs['install-recovery-harness'].result == 'success' &&
           !(needs['decide-upgrade-sensitivity'].result == 'success' && needs['decide-upgrade-sensitivity'].outputs.sensitive == 'false') }}
     runs-on: ubuntu-24.04
@@ -309,8 +680,31 @@ jobs:
         with:
           fetch-depth: 1
 
+      # DECISION POINT, re-asked by THIS job as its own first act
+      # (STATBUS-246 AC#1). Not a re-read of an earlier verdict: a newer
+      # candidate may have been cut while the previous stage was running, and
+      # the whole principle is that the ARRIVING job decides. A single upfront
+      # check would answer a question that was asked before this joint existed.
+      - name: "Decision point: still the newest candidate?"
+        id: obsolete
+        run: |
+          set -euo pipefail
+          git fetch --tags --quiet origin || true
+          THIS_TAG="${{ github.ref_name }}"
+          NEWEST="$(git tag --sort=-version:refname | grep -- '-rc\.' | sed -n '1p' || true)"
+          if [ -n "$NEWEST" ] && [ "$NEWEST" != "$THIS_TAG" ]; then
+            echo "::notice title=Superseded::$NEWEST supersedes $THIS_TAG — this joint starts nothing further. Work already running finishes and tears down its own machines."
+            echo "obsolete=true" >> "$GITHUB_OUTPUT"
+            echo "- **${{ github.job }}**: STOPPED — superseded by \`$NEWEST\`; nothing further started here." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "$THIS_TAG is still the newest candidate — proceeding."
+            echo "obsolete=false" >> "$GITHUB_OUTPUT"
+            echo "- **${{ github.job }}**: proceeding — \`$THIS_TAG\` is still the newest candidate." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Dispatch upgrade-arc-harness.yaml at the tag and wait for its conclusion
         id: dispatch
+        if: steps.obsolete.outputs.obsolete != 'true'
         uses: ./.github/actions/dispatch-fleet-and-wait
         with:
           workflow-file: upgrade-arc-harness.yaml
@@ -318,3 +712,91 @@ jobs:
           commit-sha: ${{ github.sha }}
           poll-budget-s: "19200"   # ~320min, under the 330min job ceiling above
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # THE THIRD VERDICT (STATBUS-246 AC#4). A chain stopped by supersession is
+  # neither red nor green, and both approximations do real harm: a RED
+  # superseded chain trains people to ignore red, and a GREEN one is a
+  # promotable signal for a candidate that was never fully tested.
+  #
+  # It is a NAMED outcome, not an approximation via success()/failure().
+  # This job runs only when the chain was superseded, and it SUCCEEDS —
+  # because nothing failed — while stating in its own name and output that
+  # nothing may be promoted on it. Read the name, not the colour.
+  # ═══════════════════════════════════════════════════════════════════════
+  superseded:
+    name: "SUPERSEDED — stopped for a newer candidate; nothing failed, nothing may be promoted"
+    # RUNS LAST, and ASKS FOR ITSELF. Both properties are the fix for a real
+    # defect in the first version of this file, and it was the COMMON path:
+    #
+    # this job used to key on decide-obsolete's UPFRONT answer alone. A chain
+    # runs for hours; a newer candidate gets cut mid-chain; each later joint's
+    # own inline check correctly declines to start anything — and every one of
+    # those jobs then SUCCEEDS having done nothing, while this verdict never
+    # fires because the upfront answer was 'false'. The run concludes SUCCESS
+    # with no fleet having run and nothing saying why: the rc.07 defect reborn
+    # inside the mechanism built to prevent it.
+    #
+    # So it needs: every joint (to run last) and performs the obsolete check as
+    # its OWN first act — the arriving job checks for itself rather than
+    # trusting five predecessors to have reported, which is this file's whole
+    # principle applied to the job that states the verdict.
+    needs:
+      - decide-obsolete
+      - smoke-install
+      - smoke-upgrade
+      - dev-canary
+      - install-recovery-harness
+      - upgrade-arc-harness
+    # !cancelled() rather than success(): every upstream may legitimately be
+    # SKIPPED on a superseded chain, and this job must still speak.
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout (full history + tags — the check is this job's own)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "Decision point: was this candidate superseded at any time during the chain?"
+        id: obsolete
+        run: |
+          set -euo pipefail
+          git fetch --tags --quiet origin || true
+          THIS_TAG="${{ github.ref_name }}"
+          NEWEST="$(git tag --sort=-version:refname | grep -- '-rc\.' | sed -n '1p' || true)"
+          if [ -n "$NEWEST" ] && [ "$NEWEST" != "$THIS_TAG" ]; then
+            echo "obsolete=true" >> "$GITHUB_OUTPUT"
+            echo "newer=$NEWEST" >> "$GITHUB_OUTPUT"
+          else
+            echo "obsolete=false" >> "$GITHUB_OUTPUT"
+            echo "newer=" >> "$GITHUB_OUTPUT"
+            echo "$THIS_TAG was never superseded — no verdict to state."
+          fi
+
+      - name: State the verdict
+        if: steps.obsolete.outputs.obsolete == 'true'
+        env:
+          NEWER: ${{ steps.obsolete.outputs.newer }}
+        run: |
+          set -euo pipefail
+          NEWER="${NEWER:-}"
+          echo "════════════════════════════════════════════════════════════"
+          echo "VERDICT: SUPERSEDED"
+          echo "  This candidate: ${{ github.ref_name }}"
+          echo "  Superseded by:  ${NEWER:-a newer candidate}"
+          echo
+          echo "NOTHING FAILED. No one should triage this run."
+          echo "NOTHING MAY BE PROMOTED ON IT: this candidate's chain stopped"
+          echo "before completing, so it carries no proof."
+          echo
+          echo "Work that was ALREADY RUNNING when this was decided finishes"
+          echo "normally and tears down its own machines by its own path —"
+          echo "that is deliberate. Killing it mid-flight would strand exactly"
+          echo "the young machines the age-gated sweep is built not to touch."
+          echo
+          echo "Your next move: follow ${NEWER:-the newer candidate}'s own chain."
+          echo "════════════════════════════════════════════════════════════"
+          echo "### SUPERSEDED — stopped for ${NEWER:-a newer candidate}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Nothing failed; nothing may be promoted on this run." >> "$GITHUB_STEP_SUMMARY"
