@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 07:27'
-updated_date: '2026-08-19 09:52'
+updated_date: '2026-08-19 11:44'
 labels:
   - release
   - ops
@@ -101,5 +101,41 @@ author: foreman
 created: 2026-08-19 09:52
 ---
 KING'S AMENDMENT 2026-08-19 (post-approval, in confirmation dialogue) — supersedes AC#6's scope: the COUNTRY SAMPLE INSTALLATIONS (et, jo, ma, tcc, ug — every slot that is not dev/demo/no) are OPT-IN, not auto-converging: they sit on the stable channel, are OFFERED each promoted release, and a HUMAN clicks and performs the regular upgrade. Only DEMO auto-converges on stable. His full confirmed topology: dev = prerelease channel (backstop; actually chain-pushed), Norway = prerelease + human (the canary, excluded from any sweep), demo = stable + AUTO-APPLY (the one new behavior to build, scoped to demo alone — today's service only offers, never schedules, which is measured), country samples = stable + human opt-in (exactly today's offer-and-wait behavior — zero build), force-override = the existing candidate-addressed command (ssh <slot> ./sb upgrade schedule <version>), documented as THE deliberate override. Note the elegance the amendment buys: the country slots now behave exactly like customer boxes — customers ARE opt-in humans — so customer fidelity improves while the build SHRINKS (auto-apply for one box instead of many). Builder: amend AC#6 accordingly at build time; the channel-verification AC#3 gains a third role-state (stable+auto vs stable+opt-in vs prerelease+human).
+---
+
+author: architect
+created: 2026-08-19 11:44
+---
+DEMO AUTO-APPLY TRIGGER — design, per the King's reuse ruling.
+
+## THE CHOICE: a scheduled workflow, not a change to the service
+
+Two shapes were available and they are not close.
+
+**The box's own service tick** would mean teaching the upgrade service to auto-APPLY, not merely offer. That is a behaviour change in the product every statistical office installs — either for everyone, or behind a new setting that then needs its own ruling, its own default, and its own drift story (we have just spent a day on what one un-recomputed setting costs). Disproportionate for one demonstration box, and it would put a standing auto-install path into a product whose entire topology we just spent this campaign making deliberate.
+
+**A scheduled workflow that runs the existing command** changes no product code at all. It is external, visible in one file, revocable by deleting that file, and touches nothing a customer installs. It is also literally what the King described: *the cloud tool already covers it, we just trigger the same thing.*
+
+**Design: a scheduled GitHub Actions workflow that SSHes to `statbus_demo` and runs `./sb upgrade apply-latest`.** The access path already exists and is already allowlisted for exactly this command — `ops/niue/sshdoers` permits it for that user — so this adds no new privilege and no new credential. It rides a door that was already built and approved.
+
+## WHY IT IS CORRECT NOW AND WOULD NOT HAVE BEEN LAST WEEK
+
+`apply-latest` resolves the latest version **on the box's own channel** (cli/cmd/upgrade.go:210-232). Demo is now on `stable` (STATBUS-254, verified from the running service), so the command resolves the latest STABLE release. Before the fleet correction the same trigger would have installed release CANDIDATES on demo automatically — the exposure 248 exists to prevent, delivered on a schedule. **Note the ordering dependency in the entry**: this trigger is safe only because the channel correction preceded it, and it must never be built on a box whose channel has not been verified from the running service.
+
+## THE TENSION WITH THIS ENTRY'S OWN RULE, named rather than glossed
+
+248 says demo *follows releases on its own* and nothing pushes to it. A cron trigger is something external causing an install, which looks like a contradiction. It is not, and the distinction is the same one that let STATBUS-244 and 247 coexist:
+
+**The trigger supplies the TIMING. The box still chooses the TARGET.** `apply-latest` resolves the version locally, from the channel the box declares. Nothing outside the box names a version, a commit or a branch — which is exactly what 244 forbids. Remove the workflow and demo is still correct, just slower. That is the test for whether a trigger is legitimate: **if deleting it would leave the box wrong rather than merely late, it was a push.**
+
+## CADENCE AND FAILURE
+
+Daily is right — demo exists to show what a customer would install, and a day's latency after a promotion is invisible to that purpose while keeping the log quiet enough that a failure stands out. `workflow_dispatch` alongside the schedule so it can be run on demand without waiting.
+
+A failed run must be **loud and must not retry silently**: demo failing to take a promoted stable release is a real signal about the release, not a demo problem, and it is the only automatic full install-and-converge we get on the stable channel. Swallowing it would waste the one place that signal appears.
+
+## WHAT THIS IS NOT
+
+It is not a canary and must not be described as one anywhere. It gates nothing, no promotion waits on it, and its failure blocks no release. It is a demonstration box kept current by the same command an operator would type.
 ---
 <!-- COMMENTS:END -->
