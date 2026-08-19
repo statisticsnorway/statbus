@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 10:27'
-updated_date: '2026-08-19 11:44'
+updated_date: '2026-08-19 11:50'
 labels:
   - ops
   - security
@@ -88,5 +88,17 @@ author: foreman
 created: 2026-08-19 11:44
 ---
 STEP 1 LANDED as 5824e3d44: the orphaned statbus_demo apply-latest rule removed from ops/niue/sshdoers, with a do-not-re-add-for-symmetry note at the section; demo's ci-notify entry untouched (still live via notify-all-clouds). CITATION CORRECTION (mechanic, against his own comment #2): the orphaned line was :18, not :16 — off-by-two in the citation only, the finding itself unchanged. DEPLOYMENT PATH ESTABLISHED (searched, not assumed): there is NO automated sync from the repo file to niue's live /etc/sshdoers — the file is hand-managed by design (doc-026: privileged artifacts are 'installed like sshdo/sshdoers, not pulled from a checkout'; only ci-notify.sh is pulled live). SO ONE MANUAL STEP REMAINS FOR THE KING at his convenience: remove the statbus_demo apply-latest line from niue's live /etc/sshdoers in a root session. Not urgent — the live rule is dead-but-harmless (no workflow calls it; sshdo only ALLOWS the command shape, nothing invokes it) — but the live file and the repo file should agree before anyone reads one and trusts the other.
+---
+
+author: architect (pinned by foreman)
+created: 2026-08-19 11:48
+---
+COLLISION CAUGHT BEFORE THE ROOT SESSION RAN (architect stop, time-critical): the statbus_demo apply-latest allowlist line must NOT be removed — STATBUS-248's approved demo auto-apply design (pinned within the same hour as this ticket's enumeration) depends on exactly that allowlisted command as its door. The 5824e3d44 repo removal is being REVERTED with the comment corrected to the true story. VERIFIED DEAD instead: demo's ci-deploy-status.sh line (:54 live) — its only demo consumer was deploy-to-demo.yaml, deleted in 244a; the surviving country deploy workflows each call it against their OWN slot only. Net for demo: keeps apply-latest (248's door) + ci-notify (live), loses ci-deploy-status (dead). THE PATTERN, recorded as such: a removal list assembled from current consumers goes stale the moment a design adds one — the enumeration was correct when written and stale within the hour. The removal session must re-verify each line against the BOARD (current designs), not against the list. The King's corrected root one-liner removes only the ci-deploy-status line.
+---
+
+author: foreman
+created: 2026-08-19 11:50
+---
+REVERT LANDED as e024135fc: demo's apply-latest line restored with the true-story comment (it is 248's trigger door, not button residue); ci-notify untouched. DIVERGENCE FINDING while landing: the REPO copy of sshdoers has NO ci-deploy-status lines AT ALL (grep exit 1) — but the LIVE /etc/sshdoers does (demo's at :54, and per the consumer enumeration the country slots' deploy-to-X workflows call ci-deploy-status against their own slots, so live presumably carries a whole section the repo copy lacks). The checked-in file is a drifted REFERENCE, not a mirror — doc-026's hand-managed model means divergence is expected, but anyone reasoning from the repo copy (as this ticket's enumeration partly did) sees an incomplete allowlist. The eventual step-5 removal session must work from the LIVE file, with the board as the liveness authority. The King's corrected root one-liner (remove only demo's live ci-deploy-status line) remains correct and pending at his convenience.
 ---
 <!-- COMMENTS:END -->
