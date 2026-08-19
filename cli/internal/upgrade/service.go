@@ -5169,44 +5169,63 @@ func (d *Service) ResolveToCommit(ctx context.Context, input string) (CommitSHA,
 // running version as a candidate (via the shared upsertCandidate path), then
 // pokes the service to prepare. `./sb upgrade check`.
 func (d *Service) RunCheck(ctx context.Context) error {
-	releases, err := FetchReleases()
+	// STATBUS-255: discovery reads GIT TAGS, not the GitHub releases API.
+	//
+	// THIS is the command that exhausted the quota. The unauthenticated API
+	// allows 60 requests/hour PER IP; all seven niue slots share one and dev
+	// polls every five minutes, so on 2026-08-19 every notify job 403'd (run
+	// 32247740861). Resolving the CHANNEL over git (the first half of this
+	// entry) did not fix it, because this command never went through the
+	// resolver — it called FetchReleases directly.
+	//
+	// EVERY FIELD IT NEEDS, git already has: the tag name; the commit (git IS
+	// the authority, and the old path already fell back to RevParse when the
+	// payload omitted it); the timestamp; and the release status, which was
+	// ALREADY derived from the tag name via ClassifyReleaseShape rather than
+	// from GitHub's prerelease flag. Nothing here ever needed the API.
+	//
+	// THE ONE REAL DIFFERENCE, and why it is safe — verified, not assumed. The
+	// API returned PUBLISHED RELEASES; git returns every tag, including one
+	// pushed without a release. Such a tag can now become a candidate, and it
+	// CANNOT be installed: verifyArtifacts marks release_builds_status when the
+	// manifest is absent (:4111-4144), and the scheduled path then UNSCHEDULES
+	// it with "Release assets not ready … Will be available when CI finishes"
+	// (:5604-5634) instead of attempting an install. The failure mode is a
+	// visible wait, not a broken box — loud, and self-correcting when CI lands.
+	tags, err := DiscoverTagsViaGit(d.projDir)
 	if err != nil {
-		return err
+		return fmt.Errorf("discover tags via git: %w", err)
 	}
-	if len(releases) == 0 {
-		fmt.Println("No releases found")
+	if len(tags) == 0 {
+		fmt.Println("No release tags found")
 		return nil
 	}
 	return d.runOneShot(ctx, func(ctx context.Context) error {
-		// Best-effort: make sure tags resolve locally so RevParse can find the
-		// commit when the GitHub payload omits it.
-		_, _ = runCommandOutput(d.projDir, "git", "fetch", "--tags", "--quiet")
-
-		fmt.Printf("Found %d release(s):\n", len(releases))
+		fmt.Printf("Found %d release tag(s):\n", len(tags))
 		registered := 0
-		for _, r := range releases {
-			fmt.Printf("  %s\n", ReleaseSummary(r))
-			// Register only releases strictly newer than the running version —
-			// the same guard discovery uses; avoids re-recording ancient tags.
-			if CompareVersions(r.TagName, d.version) <= 0 {
+		for _, t := range tags {
+			fmt.Printf("  %s (%s)\n", t.TagName, t.PublishedAt.Format("2006-01-02"))
+			// Register only tags strictly newer than the running version — the
+			// same guard discovery uses; avoids re-recording ancient tags.
+			if CompareVersions(t.TagName, d.version) <= 0 {
 				continue
 			}
-			sha := r.TargetSHA
+			sha := t.CommitSHA
 			if !IsCommitSHA(sha) {
-				resolved, rerr := d.RevParse(ctx, r.TagName)
+				resolved, rerr := d.RevParse(ctx, t.TagName)
 				if rerr != nil {
-					fmt.Printf("    (could not resolve commit for %s: %v — not registered)\n", r.TagName, rerr)
+					fmt.Printf("    (could not resolve commit for %s: %v — not registered)\n", t.TagName, rerr)
 					continue
 				}
 				sha = string(resolved)
 			}
 			if _, uerr := d.upsertCandidate(ctx, CommitSHA(sha), candidateMeta{
-				committedAt:   r.Published,
-				tags:          []string{r.TagName},
-				releaseStatus: ClassifyReleaseShape(r.TagName).ReleaseStatus(),
-				summary:       r.TagName,
+				committedAt:   t.PublishedAt,
+				tags:          []string{t.TagName},
+				releaseStatus: ClassifyReleaseShape(t.TagName).ReleaseStatus(),
+				summary:       t.TagName,
 			}); uerr != nil {
-				fmt.Printf("    (failed to register %s: %v)\n", r.TagName, uerr)
+				fmt.Printf("    (failed to register %s: %v)\n", t.TagName, uerr)
 				continue
 			}
 			registered++
