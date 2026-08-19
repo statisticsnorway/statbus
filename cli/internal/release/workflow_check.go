@@ -31,6 +31,12 @@ const (
 	// WorkflowJobsCompleteAtCommit) — STATBUS-199 comment #4: the gate
 	// verifies what ran, not what the run claims via a self-reported label.
 	WorkflowUpgradeArcHarness = "upgrade-arc-harness.yaml"
+	// WorkflowTestUpgrade (STATBUS-247 smoke pair, second half): the
+	// install-then-upgrade happy path on an ephemeral box. Its own workflow
+	// identity ON PURPOSE — a smoke run and a full harness run at the same
+	// commit must never be conflated by a first-green-run query (doc-034
+	// finding B).
+	WorkflowTestUpgrade = "test-upgrade.yaml"
 )
 
 // WorkflowCheckStatus describes the state of a workflow at a commit.

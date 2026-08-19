@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -200,4 +203,130 @@ func TestScenarioEvidence_UnreadableRunsAreReported_STATBUS249(t *testing.T) {
 	if err == nil {
 		t.Fatal("a run whose jobs could not be read must ERROR — answering 'not proven' would claim an examination that did not happen")
 	}
+}
+
+// TestWorkflowsRunningScenario_UnionsAcrossIdentities_STATBUS249C1 is the Wave C
+// seam (249 comment #6). A scenario that legitimately runs under two workflow
+// identities must be looked for under both — a mark left by the smoke workflow
+// is invisible to a query against the harness, and vice versa.
+func TestWorkflowsRunningScenario_UnionsAcrossIdentities_STATBUS249C1(t *testing.T) {
+	has := func(list []string, want string) bool {
+		for _, w := range list {
+			if w == want {
+				return true
+			}
+		}
+		return false
+	}
+
+	up := WorkflowsRunningScenario(WorkflowInstallRecoveryHarness, "0-happy-upgrade")
+	if !has(up, WorkflowTestUpgrade) || !has(up, WorkflowInstallRecoveryHarness) {
+		t.Errorf("0-happy-upgrade runs in BOTH the smoke workflow and the harness matrix; got %v", up)
+	}
+	in := WorkflowsRunningScenario(WorkflowInstallRecoveryHarness, "0-happy-install")
+	if !has(in, WorkflowTestInstall) || !has(in, WorkflowInstallRecoveryHarness) {
+		t.Errorf("0-happy-install runs in BOTH test-install and the harness matrix; got %v", in)
+	}
+
+	// No duplicates: the home workflow must not appear twice when it is also a
+	// listed identity, or the lookup pays for the same query twice.
+	seen := map[string]int{}
+	for _, w := range up {
+		seen[w]++
+	}
+	for w, n := range seen {
+		if n > 1 {
+			t.Errorf("workflow %s listed %d times — the union must not repeat an identity", w, n)
+		}
+	}
+
+	// An ordinary arc scenario has exactly one home and must NOT gain
+	// identities it never runs under.
+	arc := WorkflowsRunningScenario(WorkflowUpgradeArcHarness, "rollback-pair-terminal")
+	if len(arc) != 1 || arc[0] != WorkflowUpgradeArcHarness {
+		t.Errorf("a scenario with one home must union to just that home; got %v", arc)
+	}
+}
+
+// TestScenarioEvidence_FindsAMarkUnderTheOtherIdentity_STATBUS249C1: the seam
+// end to end. The mark exists ONLY under the smoke identity; a harness-scoped
+// lookup must still find it, or the chain re-runs work already proven.
+func TestScenarioEvidence_FindsAMarkUnderTheOtherIdentity_STATBUS249C1(t *testing.T) {
+	var askedFor []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.Contains(r.URL.Path, "/actions/workflows/"):
+			// Record which identity was queried, and answer only for the smoke one.
+			seg := strings.Split(r.URL.Path, "/")
+			wf := seg[len(seg)-2]
+			askedFor = append(askedFor, wf)
+			if wf == WorkflowTestUpgrade {
+				_ = json.NewEncoder(w).Encode(map[string]any{"workflow_runs": []map[string]any{
+					{"id": 77, "status": "completed", "conclusion": "success", "html_url": "http://smoke"},
+				}})
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"workflow_runs": []map[string]any{}})
+		case strings.Contains(r.URL.Path, "/actions/runs/"):
+			_ = json.NewEncoder(w).Encode(map[string]any{"total_count": 1, "jobs": []map[string]any{
+				{"name": "0-happy-upgrade", "conclusion": "success"},
+			}})
+		default:
+			http.Error(w, "unexpected "+r.URL.Path, http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	// Exercise the union directly against the test server.
+	var found bool
+	var detail string
+	for _, wf := range WorkflowsRunningScenario(WorkflowInstallRecoveryHarness, "0-happy-upgrade") {
+		f, d, err := scenarioProvenInCIAt(srv.URL, wf, "0-happy-upgrade", "c09")
+		if err != nil {
+			t.Fatalf("%s: %v", wf, err)
+		}
+		if f {
+			found, detail = true, d
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("the mark exists under %s only; a harness-scoped union must still find it (identities asked: %v)", WorkflowTestUpgrade, askedFor)
+	}
+	if !strings.Contains(detail, "77") {
+		t.Errorf("the detail must name the run holding the mark; got %q", detail)
+	}
+}
+
+// TestSmokeJobNamesMatchTheirScenarios_STATBUS249C1: the job NAME is the mark.
+// A smoke workflow whose job is called anything other than its scenario leaves a
+// mark nothing can find, so the scenario is re-run on every candidate while
+// appearing — to a reader of the workflow — to be covered.
+//
+// This caught a live misalignment: test-install.yaml's job was named
+// "Provision Hetzner VM + run scenario 0-happy-install", so `covered
+// 0-happy-install <commit>` could never see the smoke proof.
+func TestSmokeJobNamesMatchTheirScenarios_STATBUS249C1(t *testing.T) {
+	for _, tc := range []struct{ file, scenario string }{
+		{"test-install.yaml", "0-happy-install"},
+		{"test-upgrade.yaml", "0-happy-upgrade"},
+	} {
+		b, err := os.ReadFile(filepath.Join(repoRootForRelease(t), ".github", "workflows", tc.file))
+		if err != nil {
+			t.Fatalf("%s: %v", tc.file, err)
+		}
+		if !strings.Contains(string(b), "name: "+tc.scenario+"\n") {
+			t.Errorf("%s must declare `name: %s` — the job name IS the evidence mark, and a mismatch makes the smoke run's proof unfindable", tc.file, tc.scenario)
+		}
+	}
+}
+
+func repoRootForRelease(t *testing.T) string {
+	t.Helper()
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller failed")
+	}
+	// cli/internal/release/evidence_test.go → up three = repo root.
+	return filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(thisFile))))
 }

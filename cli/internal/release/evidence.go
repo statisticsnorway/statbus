@@ -200,13 +200,51 @@ func scenarioProvenInCIAt(apiBase, workflow, scenario, commitSHA string) (bool, 
 	return false, "", nil
 }
 
-// ScenarioEvidence composes the two halves into the ONE lookup DecideCoverage
-// consumes: the local stamp first (cheap, offline, and the machine's own
-// knowledge), then CI's job records.
+// WorkflowsRunningScenario lists EVERY workflow identity that legitimately runs
+// a scenario (STATBUS-249 comment #6, the Wave C seam).
 //
-// Order matters only for cost, not for truth — a mark from either half is a
-// mark, which is what "composable from a local run or from CI" (AC#8) means.
+// A scenario can leave marks under more than one identity: the smoke pair runs
+// 0-happy-install and 0-happy-upgrade in their OWN dedicated workflows, and the
+// install-recovery harness runs the same two scenarios in its matrix. A query
+// against one identity cannot see a mark left under the other, so the
+// per-scenario question must union across identities — the same union principle
+// already ruled one level down for runs.
+//
+// WHOLE-SUITE COMPLETENESS DELIBERATELY DOES NOT UNION: "did every required job
+// run?" genuinely needs one workflow's full job list, and unioning there would
+// let jobs from two different runs add up to a completeness nobody achieved.
+// Only the per-scenario question unions.
+//
+// Failure direction is safe by construction: a MISSED identity re-runs a
+// scenario (costly, correct), while a wrongly-included one could only find a
+// successful job of that exact name — which is a real mark.
+func WorkflowsRunningScenario(homeWorkflow, scenario string) []string {
+	workflows := []string{homeWorkflow}
+	add := func(w string) {
+		if w != homeWorkflow {
+			workflows = append(workflows, w)
+		}
+	}
+	switch scenario {
+	case "0-happy-install":
+		add(WorkflowTestInstall)
+		add(WorkflowInstallRecoveryHarness)
+	case "0-happy-upgrade":
+		add(WorkflowTestUpgrade)
+		add(WorkflowInstallRecoveryHarness)
+	}
+	return workflows
+}
+
+// ScenarioEvidence composes the halves into the ONE lookup DecideCoverage
+// consumes: the local stamp first (cheap, offline, and the machine's own
+// knowledge), then CI's job records across every identity that legitimately
+// runs this scenario.
+//
+// Order matters only for cost, not for truth — a mark from any half is a mark,
+// which is what "composable from a local run or from CI" (AC#8) means.
 func ScenarioEvidence(projDir, workflow, scenario string) EvidenceAt {
+	identities := WorkflowsRunningScenario(workflow, scenario)
 	return func(commit string) (bool, string, error) {
 		local, err := LocalMarkExists(projDir, scenario, commit)
 		if err != nil {
@@ -215,6 +253,27 @@ func ScenarioEvidence(projDir, workflow, scenario string) EvidenceAt {
 		if local {
 			return true, fmt.Sprintf("local mark (%s)", LocalMarkPath(projDir, scenario)), nil
 		}
-		return ScenarioProvenInCI(workflow, scenario, commit)
+		// Union across identities. An error from one identity is REMEMBERED but
+		// does not end the search: another identity may hold a real mark, and
+		// giving up on the first API hiccup would re-run work that is provably
+		// covered. Only if NOTHING is found does the error surface, so the
+		// caller can tell "not found" from "could not look".
+		var firstErr error
+		for _, wf := range identities {
+			found, detail, cerr := ScenarioProvenInCI(wf, scenario, commit)
+			if cerr != nil {
+				if firstErr == nil {
+					firstErr = fmt.Errorf("%s: %w", wf, cerr)
+				}
+				continue
+			}
+			if found {
+				return true, fmt.Sprintf("%s [%s]", detail, wf), nil
+			}
+		}
+		if firstErr != nil {
+			return false, "", firstErr
+		}
+		return false, "", nil
 	}
 }

@@ -75,7 +75,14 @@ permissions:
 
 jobs:
   hetzner-vm-install:
-    name: Provision Hetzner VM + run scenario 0-happy-install
+    # The job name IS the evidence mark (STATBUS-249): a mark for scenario X at
+    # code-state Y is a job named exactly X, concluding success, in a run at
+    # head_sha Y. This job used to be called "Provision Hetzner VM + run scenario
+    # 0-happy-install", which meant the smoke run's proof could never be found by
+    # a lookup for `0-happy-install` — the scenario would be re-run on every
+    # candidate despite being provably covered. Renamed to match the scenario
+    # exactly, as test-upgrade.yaml already does for its half of the pair.
+    name: 0-happy-install
     runs-on: ubuntu-24.04
     timeout-minutes: 35
 
