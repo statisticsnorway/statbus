@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 07:27'
-updated_date: '2026-08-19 07:40'
+updated_date: '2026-08-19 07:41'
 labels:
   - release
   - ops
@@ -39,9 +39,11 @@ THE DETAIL — there are two shapes, and they are not equally good.
 
 **RECOMMENDATION: let the boxes follow.** These are not special infrastructure — they are NSO-shaped installations, and they should behave exactly as a customer's box does, because that is the path we most need to be exercising continuously. It also separates two decisions that should not be welded together: blessing a release, and moving a particular installation onto it. And it needs no new mechanism at all, only the channel each box already reads.
 
+**DEMO'S CHANNEL, ruled here so it is not left to whoever implements this: stable, like the production slots.** Demo has no gating role — the King's point is that dev already answers the does-it-install question — so there is no reason to put candidates on it. And demo is the instance outsiders actually look at, so it should show what a customer would install, not what we are still deciding about. Conveniently this is also the default: any non-development box defaults to `UPGRADE_CHANNEL=stable` (cli/internal/config/config.go:403-407, and the same rule on the second write path at :784-788). So demo's whole disposition costs one thing only — stop pushing at it.
+
 Note this is deliberately a different choice from dev, and the asymmetry is principled rather than inconsistent. Dev is tag-driven because the release chain needs a SYNCHRONOUS verdict — it must know now whether a real box took the candidate. These boxes have no such need: nobody is gating on them, so an autonomous tick is not a delay, it is just how software reaches a machine. Each box still has exactly one source of truth about what it should be running, which is what STATBUS-244 requires.
 
-WHAT MUST BE VERIFIED, not assumed: that each box is on the channel its ROLE requires, and that a promoted release appears in the shape the stable channel filter selects. The verification cannot be "everything is on stable" — Norway must stay on prerelease to remain the human canary, so a sweep that tidied it onto stable would pass a naive check while deleting a release gate. A box on a wrong or default channel looks identical to a box with nothing to do, in either direction.
+WHAT MUST BE VERIFIED, not assumed: that each box is on the channel its ROLE requires, and that a promoted release appears in the shape the stable channel filter selects. The verification cannot be "everything is on stable" — Norway must stay on prerelease to remain the human canary, so a sweep that tidied it onto stable would pass a naive check while deleting a release gate. A box on a wrong or default channel looks identical to a box with nothing to do, in either direction. Note also that this entry rules demo's INTENDED channel; what demo is actually set to today is a fact to confirm on the box, not to infer from the default.
 
 WHY THAT HELPS: promotion becomes what it claims to be — a statement that a release is fit — and the installations act on it themselves, continuously proving the same path every customer depends on. Nobody has to remember to push anything, and no box's version depends on whether they did.
 <!-- SECTION:DESCRIPTION:END -->
@@ -49,12 +51,13 @@ WHY THAT HELPS: promotion becomes what it claims to be — a statement that a re
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 A decision is recorded: channel-following installations follow the stable channel (recommended) or promotion pushes to them, with the reasoning on this ticket
-- [ ] #2 Every box is verified to be on the channel its ROLE requires — not universally stable. A box on the wrong channel fails this check in either direction, including one quietly moved to stable when its role needs prerelease
-- [ ] #3 Norway is explicitly excluded from any stable-channel sweep: it is both a production installation and the human canary (STATBUS-247), and stays on prerelease
-- [ ] #4 A promoted release is verified to appear in the shape the stable channel filter actually selects
-- [ ] #5 Promoting a stable release results in the channel-following installations — demo and the production slots — converging on it with no human push
-- [ ] #6 Each box has exactly one source of truth for what it should run — no path both pushes to it and lets it follow
-- [ ] #7 master-to-production and production-to-all can then be removed without leaving a gap
+- [ ] #2 Demo follows the stable channel — confirmed on the box rather than inferred from the default — and requires no push from anything
+- [ ] #3 Every box is verified to be on the channel its ROLE requires — not universally stable. A box on the wrong channel fails this check in either direction, including one quietly moved to stable when its role needs prerelease
+- [ ] #4 Norway is explicitly excluded from any stable-channel sweep: it is both a production installation and the human canary (STATBUS-247), and stays on prerelease
+- [ ] #5 A promoted release is verified to appear in the shape the stable channel filter actually selects
+- [ ] #6 Promoting a stable release results in the channel-following installations — demo and the production slots — converging on it with no human push
+- [ ] #7 Each box has exactly one source of truth for what it should run — no path both pushes to it and lets it follow
+- [ ] #8 master-to-production and production-to-all can then be removed without leaving a gap
 <!-- AC:END -->
 
 ## Comments
