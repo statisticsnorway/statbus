@@ -3,10 +3,10 @@ id: STATBUS-250
 title: >-
   dev-reset-script: when a candidate wrecks dev beyond recovery, one script
   wipes and reinstalls known-good — and never re-offers the poison
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-19 09:09'
-updated_date: '2026-08-19 11:44'
+updated_date: '2026-08-19 11:58'
 labels:
   - ops
   - release
@@ -35,10 +35,10 @@ WHAT IS ACHIEVED: the worst case on the automatic canary has a bounded, scripted
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 One script wipes and reinstalls dev at the configured known-good target, using the existing installation tooling
-- [ ] #2 The wrecking candidate is marked dismissed on dev and is never auto-installed again; dev holds until a NEWER candidate exists
-- [ ] #3 The script is documented where the dev canary's role is documented, as the named answer to a wrecked canary
-- [ ] #4 The reinstall target is the previous STABLE release (King ruled 2026-08-19: "that is what people have — the previous release, and then they run the upgrade" — the reset recreates the customer's exact starting state, and dev's next auto-upgrade then walks the customer's exact path); INTERIM EDGE until the first stable exists in the current line: the previous release candidate is the fallback target
+- [x] #1 One script wipes and reinstalls dev at the configured known-good target, using the existing installation tooling
+- [x] #2 The wrecking candidate is marked dismissed on dev and is never auto-installed again; dev holds until a NEWER candidate exists
+- [x] #3 The script is documented where the dev canary's role is documented, as the named answer to a wrecked canary
+- [x] #4 The reinstall target is the previous STABLE release (King ruled 2026-08-19: "that is what people have — the previous release, and then they run the upgrade" — the reset recreates the customer's exact starting state, and dev's next auto-upgrade then walks the customer's exact path); INTERIM EDGE until the first stable exists in the current line: the previous release candidate is the fallback target
 <!-- AC:END -->
 
 ## Comments
@@ -103,5 +103,11 @@ STATBUS-242's ruling applies directly: a restore rewinds to the snapshot of THAT
 ## DOC PLACEMENT
 
 Where the dev canary's role is documented — AGENTS.md's deployment section (the per-role model A2 rewrote), as the named answer to a wrecked canary, one line pointing at the script. Not a new document.
+---
+
+author: foreman
+created: 2026-08-19 11:58
+---
+BOTH HALVES LANDED as 7e4c04124 (architect APPROVED as the pair). The reset script (ops/reset-statbus-slot.sh): explicit slot + wrecking-version required, optional [reset-target] escape hatch, GLOBAL previous-stable resolution (cross-line ruled correct — 'what people HAVE'; RC fallback only when no stable exists anywhere, noted as currently unreachable and untested), stop-service-first ordering, ./sb install as the reinstall path, dismissal via the new product command, verification from the RUNNING service. The companion `./sb upgrade dismiss`: pair write (state+dismissed_at), never-offered guaranteed by the existing state predicates and pinned against widening, three refusals that each say why, and the list rendering fixed under the generalized rule DECISION-STATES ABOVE HISTORY-STATES (both dismissed and skipped — the sibling latent bug fixed in the same pass per never-defer-known-bugs), with the cross-mechanism tripwire noted at the CASE naming both re-arm NULLing sites. All four ACs closed. The script's first real exercise awaits an actual wrecked canary — may it be a long wait.
 ---
 <!-- COMMENTS:END -->
