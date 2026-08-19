@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 07:11'
-updated_date: '2026-08-19 07:16'
+updated_date: '2026-08-19 07:33'
 labels:
   - release
   - quality-gate
@@ -21,25 +21,36 @@ ordinal: 238000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-A release cannot be promoted until both canary boxes have installed it and survived. When the promotion gate says "not yet", the person reading it cannot tell whether the box has not started, is installing right now, or has failed and never will. All three look identical: no completed row.
+A release cannot be promoted until the canary boxes have installed it and survived. When the promotion gate says "not yet", the person reading it cannot tell whether the box has not been offered the release, has been offered it and is waiting for an operator to act, is installing right now, or has tried and failed. All four look identical: no completed row.
 
 WHAT GOES WRONG: the gate probes each canary for a completed upgrade at the candidate's commit and reports absence — nothing more. The natural response to an unexplained "not yet" is to re-run it a few times and then start looking for something broken, usually in the wrong place. That is how a five-minute wait becomes a lost morning.
 
-THE DETAIL: the box knows the answer. It has a row for the candidate in some state, or none at all; it has a service with a check interval and a last-check time; and if it tried and failed, it has a parked or failed row saying so. The gate reads only the last of those and reports the absence rather than the situation.
+THIS BECAME LOAD-BEARING, not merely helpful, under the three-role canary topology (STATBUS-247). Two of the three canaries are now installed BY A PERSON on purpose, to exercise the real operator surface. So "waiting" is no longer a few minutes of machinery — it is a legitimate, expected, possibly day-long state in which the correct action is to go and ask someone. A gate that cannot separate "waiting for a person" from "the person tried and it failed" reports the most important distinction in the whole release process as a single undifferentiated silence.
 
-Note this matters even once the release tag deploys the canary automatically (STATBUS-247). That change makes the deployment deterministic and gives the release chain its own convergence verdict — so most waiting resolves inside the chain — but the promotion gate can still run long after the chain finished, against a box that has since been redeployed, drifted, or parked. The gate is a separate observer of a separate moment, and it should explain what it sees rather than only report what it did not find.
+THE DETAIL: the box knows the answer. It has a row for the candidate in some state, or none at all; it has a service with a check interval and a last-check time; and if it tried and failed, it has a parked or failed row saying so. The gate reads only the last of those — its query filters to state='completed', so every other state collapses into "no row" (cli/cmd/release_canary.go:100-105, 129-148).
 
-THE FIX: when the completed row is absent, say which of the three it is. Is there a row for this commit at all, and in what state? When did the box last check, and how often does it? Then the refusal reads as "has not checked since 06:40, checks every 30 minutes", or "installing now, started 06:52", or "tried and is parked" — each pointing somewhere different. The information is one query further than the gate already goes.
+THE FIX: query the row by commit and report its actual state. Named outcomes, each pointing somewhere different:
 
-WHY THAT HELPS: the operator learns whether to wait, watch, or investigate — from the gate itself, at the moment of refusal, instead of by opening an SSH session and reconstructing it.
+- **NOT OFFERED** — no candidate row for this commit. The box has not discovered the release. Points at discovery: when did it last check, how often does it check.
+- **OFFERED, AWAITING OPERATOR** — row present, state 'available'. Nothing is wrong. A person needs to act, and the gate should print how long it has been waiting and the exact command that person runs on that box. This is the state the human-fidelity canaries sit in by design.
+- **OPERATOR STARTED** — scheduled or in_progress, with the start time. Wait.
+- **OPERATOR ATTEMPT FAILED** — failed, rolled_back, or parked. This is a hard red and must never read like waiting. Investigate.
+- **COMPLETED** — pass.
+
+THE WAIT IS OPEN-ENDED BY DESIGN and the gate must never resolve it by timing out into a green. It stays refused-but-explained until a person acts. A gate that ages into a pass would silently delete the very step the human-fidelity canaries exist to perform.
+
+WHY THAT HELPS: the operator learns whether to wait, watch, ask a colleague, or investigate — from the gate itself, at the moment of refusal, instead of by opening an SSH session and reconstructing it.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 When a canary has no completed row, the gate distinguishes not-yet-discovered, in-progress, and failed/parked, naming which
-- [ ] #2 The refusal reports the box's check interval and last check time so 'wait' has a duration attached
-- [ ] #3 A parked or failed candidate row is called out as needing action rather than time
-- [ ] #4 The gate still refuses in every case where it refuses today — this adds explanation, never permission
+- [ ] #1 The gate queries the candidate row by commit and reports its actual state, rather than filtering to completed and reporting absence
+- [ ] #2 Five outcomes are distinguished by name: not offered, offered-awaiting-operator, operator-started, operator-attempt-failed, completed
+- [ ] #3 'Offered, awaiting operator' prints how long it has been waiting and the exact command the operator runs on that box — it reads as a pending human action, not as a malfunction
+- [ ] #4 A failed, rolled-back, or parked candidate is called out as needing action rather than time, and is never rendered in the same shape as waiting
+- [ ] #5 The refusal reports the box's check interval and last check time so 'not offered' has a duration attached
+- [ ] #6 The wait never times out into a pass — the gate stays refused until a completed row exists
+- [ ] #7 The gate still refuses in every case where it refuses today — this adds explanation, never permission
 <!-- AC:END -->
 
 ## Comments

@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 07:27'
+updated_date: '2026-08-19 07:37'
 labels:
   - release
   - ops
@@ -51,3 +52,21 @@ WHY THAT HELPS: promotion becomes what it claims to be — a statement that a re
 - [ ] #4 Each production box has exactly one source of truth for what it should run — no path both pushes to it and lets it follow
 - [ ] #5 master-to-production and production-to-all can then be removed without leaving a gap
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect
+created: 2026-08-19 07:37
+---
+SCOPE CARVE-OUT after the King's ruling 4 (three-role canary topology, STATBUS-247). This entry says "production slots follow the stable channel". That phrase now needs a boundary drawn on it, because one box is in both categories.
+
+NORWAY (rune-no) IS BOTH. It is a real production deployment for a statistical office, and under ruling 4 it is also one of the two human-fidelity canaries — offered each candidate, installed by a person. So it must NOT be moved to the stable channel by this entry. It stays on the prerelease channel with a human performing the install, and STATBUS-247 governs it.
+
+THIS IS NOT A NEW EXPOSURE, which I checked rather than assumed: doc/CLOUD.md:769 already authors standalone boxes with UPGRADE_CHANNEL=prerelease, so Norway runs release candidates today. Ruling 4 changes who presses the button there, not what channel it drinks from.
+
+WHY IT MATTERS THAT THIS IS WRITTEN DOWN: an implementer reading "set the production slots to stable" and working from the deployment table would sweep Norway in, and the change would look tidy and correct. It would silently delete half the human-fidelity canary coverage, and nothing would fail — the gate would simply stop having a candidate to find, and the release process would get quieter rather than louder. That is the zero-scope-green shape (doc-033) arriving through a configuration change instead of a check.
+
+SO THE SCOPE OF THIS ENTRY IS: production slots that are NOT canaries. Concretely, dev, demo and no are governed by STATBUS-247 and are out of scope here; everything else that is a live installation is in. AC#2's verification should therefore assert the channel each box is SUPPOSED to be on per its role, not that every box is on stable — a box on the wrong channel for its role is the failure this entry is meant to prevent, in either direction.
+---
+<!-- COMMENTS:END -->
