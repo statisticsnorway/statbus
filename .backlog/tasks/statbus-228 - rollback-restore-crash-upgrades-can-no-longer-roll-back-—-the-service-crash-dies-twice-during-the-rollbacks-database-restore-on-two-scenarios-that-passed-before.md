@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-08-18 10:27'
-updated_date: '2026-08-19 00:04'
+updated_date: '2026-08-19 00:14'
 labels:
   - upgrade-recovery
   - release
@@ -289,5 +289,28 @@ ADVERSARIAL VERDICT on the rc.05 trace (architect): (1) THE REVERSAL SURVIVES th
 (3b) THE COVERAGE HOLE BLOCKS PROMOTION: 228's observable has never executed; promoting on unexecuted evidence is the unproven promotion this gate architecture exists to refuse. Likely free via (2): the :480 assertion exists and only dies behind phase i's exit — VERIFY (not assume) that :480 genuinely checks a non-null backup_path written by the post-reconnect recorder AND that phase ii's route reaches the recorder; else add the assertion. Must be in rc.06.
 
 (3a) ERROR CLASS: fix tonight ONLY if a correct class already exists for "rollback incomplete, database never touched" — then it is a label swap on this route. If it needs a NEW class, it is a High ticket and a King decision, never a 2am invention: the behaviour is right, only the label lies, and one more cycle of a wrong-but-loud message beats an unreviewed operator surface. Builder reports which; does not choose silently.
+---
+
+author: engineer
+created: 2026-08-19 00:14
+---
+**BUILT to ruling #14. FROZEN, no commit. Two files: `restore-broke-reattempt-arc.sh`, `rollback-pair-terminal-arc.sh`.** Item (1) done. Item (2) VERIFIED — and it does NOT close for free; a third fact outside the ruling's enumeration decides it. Item (3): NO existing class fits, so nothing was swapped.
+
+**(1) INVERTED, never deleted — both arcs.** On the PreSwap route each arc now asserts the CURRENT contract positively, in the order that explains a failure: the dispatch must NOT offer the replay (legend asserted ABSENT), `backup_path IS NULL`, terminal is `failed` not `rolled_back`. Every failure message names the STATBUS-197 early-intent regression as what a red would mean. Three additions beyond the literal ask:
+- **`rollback-pair-terminal` now READS the column for the first time.** It asserted a retained `backup_path` only in PROSE (:247-248) and never queried it — exactly how the stale premise survived a month. Added `row_has_backup_path()` and asserted it.
+- **`recovery_attempts=3` KEPT in both**, re-justified: it used to prove the count survived the replay's volume rewind (STATBUS-181); with no replay it proves `countRecoveryAttemptOnce` counted each pass once — and it is the column that regressed at rc.03, so it stays the counter's live oracle.
+- **Second-callback assertion added**: exactly one `STATBUS_ROLLBACK_FAILED=1` siren. The COUNT stays 2 but the second producer changed (was the replay's success callback; now the install ladder's completion — both observed in the rc.05 log), so the comment names the producers and the assertion forbids a second siren or a claimed `rolled_back` success.
+
+All stale PROSE corrected too — headers, banner `echo`s and the PASS lines all described the replay as current behaviour. History kept as explicitly historical (arc run 29325230294 was a REAL observation, under the code of 2026-07-14).
+
+**(2) VERIFIED, BOTH TRUE — AND STILL NOT FREE.** (a) `:480` is a genuine assertion of a non-null column, not a print. ✓ (b) phase (ii) DOES reach the recorder: the kill lands at `flag.step="migrate-up"` (arc :418-419), and `markStep(StepReconnect)` :6501 → recorder :6525 → `markStep(StepMigrateUp)` :6553, so reaching that step PROVES the recorder ran; it is also the only production `SET backup_path` in the tree. ✓
+
+**THE THIRD FACT (outside the enumeration — flagging, not fixing).** The ABORT branch calls `restoreDatabase` (`service.go:8609`) BEFORE its terminal write, rewinding the volume — and therefore `public.upgrade` — to a snapshot taken BEFORE the recorder ran, where the column is NULL. **None of the four `writeRollbackTerminal` call sites re-impose `backup_path`** (:2971, :8302, :8332, :8704 impose only state/error/recovery_attempts). That rewind is not theory: it is why `recovery_attempts` needs explicit re-imposition (STATBUS-181), proven live at rc.03 where the count stuck at 1. **Prediction: `:480` FAILS in rc.06 — and that failure is a PRODUCT FINDING, not a stale assertion.** Consequence: the abort-hold guard (`service.go:3841`) reads zero and FAILS OPEN, stripping the read-only hold on a broken volume — Defect 1's fail-open reached by a different route.
+
+I did NOT touch `:480`. It still asserts the correct contract; I added a note above it and a richer failure message so a red reads as escalation, not “fix the line”. Re-imposing the column is product code and a ruling.
+
+**(3) ERROR CLASS — NO EXISTING CLASS FITS.** Walked all fifteen (`service.go:1946-1980`). `ErrRollbackDBRestore` names a volume restore that FAILED — none was attempted. `ErrResumeDied` is post-swap by definition and names a cause of entering rollback, not a terminal. GitCorrupt / ServicesUp / ServicesNotStopped / BinaryCorrupt each name a sub-step that did not run. `ErrInstallPreconditionFailed` is the recovery-time precondition already used for the per-attempt reason lines. A correct label would be a NEW class → High ticket, King's call. **Sharper framing for it:** ONE terminal at :2966 serves BOTH routes, and on a POST-SWAP pair the label is CORRECT — it lies only on the PreSwap arm, where the body lies twice more (“degraded state”, “contact SSB support”) while the same dispatch leaves the box healthy.
+
+**VERIFY CHAIN:** `bash -n` clean on both. shellcheck unchanged at **2 SC2154 each**, compared against `git show HEAD:` baselines — none mine. `go test -count=1 ./cmd/ ./internal/upgrade/` green (`release.go:1690` enumerates the arc dir, so those pins were re-run though no Go file changed). Caught in my own edit before freezing: a `grep -q ... && { exit 1; }` negative check — under `set -e` an AND-list whose left side fails returns non-zero and would have killed the arc silently ON THE HEALTHY PATH. Rewritten as a `case`, reason recorded at both sites.
 ---
 <!-- COMMENTS:END -->
