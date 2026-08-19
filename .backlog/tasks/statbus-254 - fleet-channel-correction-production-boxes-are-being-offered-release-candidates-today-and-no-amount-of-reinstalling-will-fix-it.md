@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 10:27'
-updated_date: '2026-08-19 11:25'
+updated_date: '2026-08-19 11:26'
 labels:
   - ops
   - release
@@ -51,8 +51,8 @@ Order within the work: correct the five NSO boxes and demo to `stable` first, si
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The live exposure is confirmed per box before and after: each box's channel is read from the box, never inferred from the default or from this ticket
-- [ ] #2 Five NSO installations and demo are on the stable channel; dev is on the channel its canary role requires
+- [x] #1 The live exposure is confirmed per box before and after: each box's channel is read from the box, never inferred from the default or from this ticket
+- [x] #2 Five NSO installations and demo are on the stable channel; dev is on the channel its canary role requires
 - [ ] #3 The correction reaches every box through code plus the box's own install — no per-box SSH mutation, unless the alternative is explicitly chosen and recorded here
 - [ ] #4 The channel is derived from the box's role on every config generate, so a stale value cannot survive a reinstall and a future default change reaches the whole fleet
 - [ ] #5 A box whose declared role and channel disagree reports it loudly rather than silently choosing either
@@ -73,5 +73,11 @@ author: architect (pinned by foreman)
 created: 2026-08-19 11:25
 ---
 EXECUTION COMMAND LIST (verified at source before dispatch): the six-step per-box sequence — read-before (grep + explicit exit), ./sb dotenv -f .env.config set UPGRADE_CHANNEL <target>, ./sb config generate, systemctl --user restart statbus-upgrade@$USER, verify the RUNNING service's channel= line via journalctl, verify the offer set via ./sb upgrade list. THE LOAD-BEARING FINDING: A RESTART IS REQUIRED — loadConfig() is called only from startup paths (LoadConfigAndConnect :1789, Run :1992), so the channel is cached in the daemon for its process lifetime; without the restart the file says stable while the running service keeps offering prereleases, and a grep of the file falsely confirms 'fixed' — the zero-scope shape arriving in an ops procedure, which is why verification reads the running service, never the file. Premises verified: config generate genuinely propagates .env.config → .env (config.go:771-778, not the first-writer trap one layer down); the unit is USER-level (no sudo needed — devops has none). Stop-conditions: unreadable file → stop that box; restart error → report, do not sudo; step-5 shows old channel → stop. One box at a time; et/jo/ma/tcc/ug/demo→stable first, dev→prerelease last; step-1/step-5 outputs recorded verbatim as AC#1's before/after evidence. Dispatched to the operator.
+---
+
+author: operator (pinned by foreman)
+created: 2026-08-19 11:26
+---
+FLEET CORRECTION EXECUTED AND VERIFIED, all seven boxes, no stop-condition hit. Before/after evidence recorded verbatim (full log in tmp/agents/operator.md): et/jo/ma/tcc/ug/demo each read UPGRADE_CHANNEL=prerelease before → running service now logs 'Upgrade service started (channel=stable, interval=6h0m0s)'; dev read edge before → now 'channel=prerelease, interval=5m0s' (the 5-minute interval consistent with its canary role). Every verification read the RUNNING service's startup line, not the file, per the procedure's load-bearing finding. AC#1 and AC#2 closed. AC#3's exception clause is satisfied as written — the alternative was explicitly chosen by the King and recorded in comment #1. REMAINING: AC#4/#5 (derive-from-role mechanism — the durable fix), AC#6 (sequencing guard for the deploy-workflow deletions, now trivially satisfied since the channels are correct), AC#7 (record first-writer-wins where the next person would trust config generate). The exposure this entry was filed for is CLOSED: no NSO production box is offered release candidates any more, and dev now follows the candidate channel its role requires.
 ---
 <!-- COMMENTS:END -->
