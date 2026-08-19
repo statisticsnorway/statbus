@@ -180,7 +180,7 @@ func TestFindExemptRide_BoardOnlyCommitsRideTheAncestor(t *testing.T) {
 	dir, tip, code := rideFixture(t, 3)
 	stubWorkflowSeams(t, greenAt(code), trivialComplete)
 
-	ride, whyNot := findExemptRide(dir, release.WorkflowFastTests, tip)
+	ride, whyNot, _ := findExemptRide(dir, release.WorkflowFastTests, tip)
 	if ride == nil {
 		t.Fatalf("expected a ride onto the last code commit; refused with: %s", whyNot)
 	}
@@ -224,7 +224,7 @@ func TestFindExemptRide_EmDashedBoardFilenamesStillRide(t *testing.T) {
 
 	stubWorkflowSeams(t, greenAt(code), trivialComplete)
 
-	ride, whyNot := findExemptRide(dir, release.WorkflowFastTests, tip)
+	ride, whyNot, _ := findExemptRide(dir, release.WorkflowFastTests, tip)
 	if ride == nil {
 		t.Fatalf("board commits with em-dashed filenames must ride — they are the whole point of the mechanism. Refused with: %s\n"+
 			"(if this is the only failing ride test, the diff is being read WITHOUT -z and git is quoting the paths)", whyNot)
@@ -257,7 +257,7 @@ func TestFindExemptRide_NonExemptChangeRefuses(t *testing.T) {
 
 	stubWorkflowSeams(t, greenAt(code), trivialComplete)
 
-	ride, whyNot := findExemptRide(dir, release.WorkflowFastTests, tip)
+	ride, whyNot, _ := findExemptRide(dir, release.WorkflowFastTests, tip)
 	if ride != nil {
 		t.Fatalf("RODE a tip containing a non-exempt change (target %s) — untested code would enter a release", ride.Commit)
 	}
@@ -297,7 +297,7 @@ func TestFindExemptRide_AddThenRevertRidesTheOlderAncestor(t *testing.T) {
 
 	stubWorkflowSeams(t, greenAt(code), trivialComplete)
 
-	ride, whyNot := findExemptRide(dir, release.WorkflowFastTests, tip)
+	ride, whyNot, _ := findExemptRide(dir, release.WorkflowFastTests, tip)
 	if ride == nil {
 		t.Fatalf("an add-then-revert pair leaves the trees identical apart from board text — that ride is sound and must be found; refused with: %s", whyNot)
 	}
@@ -315,7 +315,7 @@ func TestFindExemptRide_NoGreenAncestorRefuses(t *testing.T) {
 			return release.WorkflowCheckResult{Status: release.WorkflowCheckPending, RunID: 9}
 		}, trivialComplete)
 
-	ride, whyNot := findExemptRide(dir, release.WorkflowFastTests, tip)
+	ride, whyNot, _ := findExemptRide(dir, release.WorkflowFastTests, tip)
 	if ride != nil {
 		t.Fatalf("rode %s though no ancestor was green", ride.Commit)
 	}
@@ -337,7 +337,7 @@ func TestFindExemptRide_MissingExemptListRefuses(t *testing.T) {
 
 	stubWorkflowSeams(t, greenAt(code), trivialComplete)
 
-	ride, whyNot := findExemptRide(dir, release.WorkflowFastTests, tip)
+	ride, whyNot, _ := findExemptRide(dir, release.WorkflowFastTests, tip)
 	if ride != nil {
 		t.Fatal("a missing exempt list must refuse the ride (fail closed), not ride everything")
 	}
@@ -363,7 +363,7 @@ func TestFindExemptRide_WalkIsBounded(t *testing.T) {
 			return release.WorkflowCheckResult{Status: release.WorkflowCheckMissing}
 		}, trivialComplete)
 
-	ride, _ := findExemptRide(dir, release.WorkflowFastTests, tip)
+	ride, _, _ := findExemptRide(dir, release.WorkflowFastTests, tip)
 	if ride != nil {
 		t.Fatal("no ancestor was green — expected no ride")
 	}
@@ -467,5 +467,206 @@ func TestImagesGateNeverRides(t *testing.T) {
 	}
 	if !strings.Contains(text, "IMAGES NEVER RIDES") {
 		t.Error("the images gate must carry the never-rides reason in code, so the exclusion survives someone unifying the gates later")
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STATBUS-256 — the gate must NAME the state it found.
+//
+// The walk used to discard why an exempt-clean ancestor was not green, so the
+// caller could only say what was true about the TIP: "has not run — trigger it".
+// Both faces of that were found live from the operator's chair in one sitting: a
+// go-test RED reported as absent, and an images run IN PROGRESS reported as
+// absent with a prescription to start it by hand.
+//
+// These tests pin the fix at the seam that lost the information.
+
+// verdictAt returns a seam stub that gives one commit a specific non-green
+// state, so a test can stage "the ancestor carrying this code went red" and
+// "…is still running" without a network.
+func verdictAt(commit string, status release.WorkflowCheckStatus, detail string) func(string, string) release.WorkflowCheckResult {
+	return func(workflow, sha string) release.WorkflowCheckResult {
+		if sha == commit {
+			return release.WorkflowCheckResult{
+				Status: status,
+				Detail: detail,
+				RunID:  4242,
+				RunURL: "https://github.com/statisticsnorway/statbus/actions/runs/4242",
+			}
+		}
+		// Everything else — the board tip included — has no run at all. That is
+		// the real shape: board commits often carry no run of their own.
+		return release.WorkflowCheckResult{Status: release.WorkflowCheckMissing}
+	}
+}
+
+// TestFindExemptRide_ReportsRedAncestorRatherThanSilence is the go-test face.
+// The ancestor's code IS the tip's code, so its RED is a red verdict on what is
+// being released — the walk must hand that back instead of leaving the caller to
+// say "nothing has run".
+func TestFindExemptRide_ReportsRedAncestorRatherThanSilence(t *testing.T) {
+	dir, tip, code := rideFixture(t, 2)
+	stubWorkflowSeams(t, verdictAt(code, release.WorkflowCheckFailed, "failure"), trivialComplete)
+
+	ride, whyNot, blocker := findExemptRide(dir, release.WorkflowFastTests, tip)
+	if ride != nil {
+		t.Fatal("a RED ancestor must not produce a ride — that would pass the gate on a failing verdict")
+	}
+	if blocker == nil {
+		t.Fatalf(`the walk found a FAILED run on this exact code and reported nothing about it (whyNot: %s).
+
+The caller can then only describe the tip, which has no run — so the operator is
+told "has not run, trigger it" about code that has already FAILED. That is the
+re-run-until-green anti-pattern coming out of the gate's own mouth.`, whyNot)
+	}
+	if blocker.Commit != code {
+		t.Errorf("blocker commit = %s, want the exempt-clean ancestor %s", blocker.Commit, code)
+	}
+	if blocker.Result.Status != release.WorkflowCheckFailed {
+		t.Errorf("blocker status = %q, want failed — the state must survive the walk verbatim", blocker.Result.Status)
+	}
+	if blocker.Result.RunURL == "" || blocker.Result.RunID == 0 {
+		t.Error("the failing run's URL and id must survive — an operator told to investigate needs the run to investigate")
+	}
+	if blocker.CommitsSince != 2 {
+		t.Errorf("CommitsSince = %d, want 2 — the message states how far the tip has moved, so it must be carried not guessed", blocker.CommitsSince)
+	}
+}
+
+// TestFindExemptRide_ReportsRunningAncestorRatherThanSilence is the images face:
+// a run created automatically on push, still going, while the gate told the
+// operator to start one by hand.
+func TestFindExemptRide_ReportsRunningAncestorRatherThanSilence(t *testing.T) {
+	dir, tip, code := rideFixture(t, 1)
+	stubWorkflowSeams(t, verdictAt(code, release.WorkflowCheckPending, ""), trivialComplete)
+
+	ride, whyNot, blocker := findExemptRide(dir, release.WorkflowFastTests, tip)
+	if ride != nil {
+		t.Fatal("a run still in progress is not a green — it must not produce a ride")
+	}
+	if blocker == nil {
+		t.Fatalf(`the walk found a run IN PROGRESS on this exact code and reported nothing about it (whyNot: %s).
+
+The operator is then told to dispatch a run that is already running: a wasted
+runner, and a gate that visibly does not know what it is looking at.`, whyNot)
+	}
+	if blocker.Result.Status != release.WorkflowCheckPending {
+		t.Errorf("blocker status = %q, want pending", blocker.Result.Status)
+	}
+}
+
+// TestFindExemptRide_NoAncestorVerdictWhenNothingRan keeps the fix honest in the
+// other direction. When no run exists anywhere relevant, "has not run — trigger
+// it" is the TRUE and correct advice, and this must not start reporting a
+// verdict that does not exist.
+func TestFindExemptRide_NoAncestorVerdictWhenNothingRan(t *testing.T) {
+	dir, tip, _ := rideFixture(t, 1)
+	stubWorkflowSeams(t, func(workflow, sha string) release.WorkflowCheckResult {
+		return release.WorkflowCheckResult{Status: release.WorkflowCheckMissing}
+	}, trivialComplete)
+
+	ride, _, blocker := findExemptRide(dir, release.WorkflowFastTests, tip)
+	if ride != nil {
+		t.Fatal("nothing is green, so nothing may ride")
+	}
+	if blocker != nil {
+		t.Errorf(`a verdict was reported when NO run exists (status %q).
+
+Absent really is absent here, and the trigger prescription is correct. Inventing
+a verdict would replace one wrong message with another.`, blocker.Result.Status)
+	}
+}
+
+// TestFindExemptRide_GreenStillWinsOverAnEarlierRed: the walk runs newest-first,
+// and a green must still be found when a red sits further back. Otherwise the
+// fix would trade a bad message for a bad verdict.
+func TestFindExemptRide_GreenStillWinsOverAnEarlierRed(t *testing.T) {
+	dir, tip, code := rideFixture(t, 2)
+	stubWorkflowSeams(t, greenAt(code), trivialComplete)
+
+	ride, whyNot, _ := findExemptRide(dir, release.WorkflowFastTests, tip)
+	if ride == nil {
+		t.Fatalf("a green exempt-clean ancestor must still ride; refused with: %s", whyNot)
+	}
+	if ride.Commit != code {
+		t.Errorf("ride target = %s, want %s", ride.Commit, code)
+	}
+}
+
+// TestAncestorVerdictNeverPrescribesARerunOrTrigger is the operator-facing half
+// of STATBUS-256, and the half that decides whether the fix was worth making.
+//
+// The states demand OPPOSITE actions. Telling someone to trigger a run that is
+// already going wastes a runner and shows the gate does not know what it sees.
+// Telling someone to re-run a red without diagnosing it is the re-run-until-green
+// anti-pattern — and it green-washes a real bug exactly as readily as a flaky
+// one. So neither arm may carry a dispatch or a bare rerun command.
+func TestAncestorVerdictNeverPrescribesARerunOrTrigger(t *testing.T) {
+	cases := []struct {
+		name       string
+		status     release.WorkflowCheckStatus
+		mustSay    []string
+		mustNotSay []string
+	}{
+		{
+			name:   "red says investigate",
+			status: release.WorkflowCheckFailed,
+			mustSay: []string{
+				"FAILED",
+				"INVESTIGATE THE FAILURE",
+				"Do not simply re-run",
+				"Every failure has a real cause",
+				"gh run view",
+				"https://github.com/statisticsnorway/statbus/actions/runs/4242",
+			},
+			mustNotSay: []string{"gh workflow run", "Trigger:", "gh run rerun", "has not run"},
+		},
+		{
+			name:   "running says wait",
+			status: release.WorkflowCheckPending,
+			mustSay: []string{
+				"IN PROGRESS",
+				"wait for it to finish",
+				"Do NOT trigger another run",
+				"https://github.com/statisticsnorway/statbus/actions/runs/4242",
+			},
+			mustNotSay: []string{"gh workflow run", "Trigger:", "gh run rerun", "has not run"},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			v := &ancestorVerdict{
+				Commit:       "d59f5e06d1234567890abcdef1234567890abcde",
+				CommitsSince: 2,
+				Result: release.WorkflowCheckResult{
+					Status: c.status, Detail: "failure", RunID: 4242,
+					RunURL: "https://github.com/statisticsnorway/statbus/actions/runs/4242",
+				},
+			}
+			out := captureStdout(t, func() { printAncestorVerdict("go-test", "0d83061c6", v) })
+
+			for _, want := range c.mustSay {
+				if !strings.Contains(out, want) {
+					t.Errorf("the %s arm never says %q. What an operator reads IS the fix here:\n%s", c.name, want, out)
+				}
+			}
+			for _, never := range c.mustNotSay {
+				if strings.Contains(out, never) {
+					t.Errorf(`the %s arm prescribes %q.
+
+That is the defect this ticket exists to remove: a red needs a diagnosis and a
+running job needs patience, and neither needs a dispatch. Both were prescribed
+live, from the operator's chair, on the same afternoon.
+
+Full output:
+%s`, c.name, never, out)
+				}
+			}
+			// The tip's own absence must still be visible — the operator has to
+			// know the run being pointed at is not at the commit they asked about.
+			if !strings.Contains(out, "0d83061c6") {
+				t.Errorf("the tip is never named, so the operator cannot tell the verdict is from an ancestor:\n%s", out)
+			}
+		})
 	}
 }

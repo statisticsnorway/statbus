@@ -194,9 +194,10 @@ func preflightChecks(projDir string) bool {
 		// exempt-only ancestor's green (same reasoning as
 		// checkPrereleaseWorkflowGate; Unknown excluded there and here).
 		var pgRide *exemptRide
+		var pgBlocker *ancestorVerdict
 		pgRideNote := ""
 		if pgRegressResult.Status != release.WorkflowCheckGreen && pgRegressResult.Status != release.WorkflowCheckUnknown {
-			pgRide, pgRideNote = findExemptRide(projDir, release.WorkflowPgRegress, headFull)
+			pgRide, pgRideNote, pgBlocker = findExemptRide(projDir, release.WorkflowPgRegress, headFull)
 		}
 		switch {
 		case pgRide != nil:
@@ -242,6 +243,17 @@ func preflightChecks(projDir string) bool {
 			fmt.Printf("      Retry the failed jobs (if transient): gh run rerun --failed %d\n", pgRegressResult.RunID)
 			fmt.Println("      Or push a fix to master, then re-run prerelease")
 			fmt.Println("      Or run locally: ./dev.sh migrate-and-test fast   (write local stamp)")
+			allPassed = false
+		case pgRegressResult.Status == release.WorkflowCheckMissing && pgBlocker != nil:
+			// STATBUS-256: an ancestor carrying this exact code has already
+			// returned a verdict — red, or still running. Reporting the tip's
+			// absence instead sends the operator to dispatch a run that either
+			// already failed or is already going.
+			printAncestorVerdict("pg_regress", headShort, pgBlocker)
+			if pgRideNote != "" {
+				fmt.Printf("    Why no ride: %s\n", pgRideNote)
+			}
+			fmt.Println("    Or:  ./dev.sh migrate-and-test fast   (write local stamp from your machine)")
 			allPassed = false
 		case pgRegressResult.Status == release.WorkflowCheckMissing:
 			fmt.Printf("  ✗ pg_regress has not run for %s (no local stamp)\n", headShort)
@@ -616,13 +628,34 @@ func checkPrereleaseWorkflowGate(projDir, workflow, label, skipEnv string) bool 
 	// of timing. Unknown is excluded — an unreachable API cannot verify an
 	// ancestor either, and the refusal there is about the check, not the code.
 	rideNote := ""
+	var blocker *ancestorVerdict
 	if result.Status != release.WorkflowCheckUnknown {
-		if ride, whyNot := findExemptRide(projDir, workflow, headFull); ride != nil {
+		ride, whyNot, blocked := findExemptRide(projDir, workflow, headFull)
+		if ride != nil {
 			printExemptRide(label, ride)
 			return true
-		} else {
-			rideNote = whyNot
 		}
+		rideNote = whyNot
+		blocker = blocked
+	}
+
+	// STATBUS-256: REPORT THE VERDICT THAT ACTUALLY EXISTS ABOUT THIS CODE.
+	//
+	// `result` describes the TIP. When the tip is a board commit it commonly has
+	// no run of its own, and saying "has not run — trigger it" is then true about
+	// the tip and wrong about the operator's situation: an ancestor carrying this
+	// exact code may have gone RED, or may still be RUNNING. Those demand
+	// opposite actions — investigate, or wait — and neither is "dispatch a run".
+	//
+	// So when the walk found such a verdict, it outranks the tip's absence. The
+	// tip's own state is still printed underneath, because the operator needs to
+	// know the run they are being pointed at is not at the tip.
+	if blocker != nil && result.Status == release.WorkflowCheckMissing {
+		printAncestorVerdict(label, headShort, blocker)
+		if rideNote != "" {
+			fmt.Printf("    Why no ride: %s\n", rideNote)
+		}
+		return false
 	}
 
 	switch result.Status {
@@ -1537,19 +1570,19 @@ type exemptRide struct {
 // Returns (nil, reason) when no ride applies; the reason is operator-facing and
 // printed under the gate's normal refusal. NEVER call this for the images gate
 // — see checkImagesNeverRides' comment at the images check.
-func findExemptRide(projDir, workflow, tipFull string) (*exemptRide, string) {
+func findExemptRide(projDir, workflow, tipFull string) (*exemptRide, string, *ancestorVerdict) {
 	exempt, err := loadCIExemptPaths(projDir)
 	if err != nil {
-		return nil, fmt.Sprintf("the exempt-path list could not be read (%v)", err)
+		return nil, fmt.Sprintf("the exempt-path list could not be read (%v)", err), nil
 	}
 	if len(exempt) == 0 {
-		return nil, fmt.Sprintf("%s lists no exempt paths — nothing can ride", ciExemptPathsFile)
+		return nil, fmt.Sprintf("%s lists no exempt paths — nothing can ride", ciExemptPathsFile), nil
 	}
 
 	out, rerr := upgrade.RunCommandOutput(projDir, "git", "rev-list", "--first-parent",
 		fmt.Sprintf("-n%d", ciExemptRideWalkBound+1), tipFull)
 	if rerr != nil {
-		return nil, fmt.Sprintf("the first-parent ancestor walk could not run (%v)", rerr)
+		return nil, fmt.Sprintf("the first-parent ancestor walk could not run (%v)", rerr), nil
 	}
 	var ancestors []string
 	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
@@ -1560,11 +1593,12 @@ func findExemptRide(projDir, workflow, tipFull string) (*exemptRide, string) {
 		ancestors = append(ancestors, commit)
 	}
 	if len(ancestors) == 0 {
-		return nil, "the tip has no ancestors to ride"
+		return nil, "the tip has no ancestors to ride", nil
 	}
 
 	firstOffender := ""
 	sawExemptCleanCandidate := false
+	var blocker *ancestorVerdict
 	for i, candidate := range ancestors {
 		// -z IS LOAD-BEARING, NOT HYGIENE. Without it `git diff --name-only`
 		// QUOTES any path with non-ASCII or special characters
@@ -1591,6 +1625,29 @@ func findExemptRide(projDir, workflow, tipFull string) (*exemptRide, string) {
 		sawExemptCleanCandidate = true
 		result := checkWorkflowAtCommit(workflow, candidate)
 		if result.Status != release.WorkflowCheckGreen {
+			// STATBUS-256: REMEMBER WHY, do not just walk past it.
+			//
+			// This ancestor's code IS the tip's code — that is what exempt-clean
+			// means. So a RED here is a red verdict on the very code being
+			// released, and a RUNNING here is a verdict still being computed. If
+			// the walk discards that and the tip merely has no run of its own,
+			// the operator is told "has not run — trigger it": true about the tip
+			// and useless about their situation. Both faces of this were found
+			// live from the operator's chair in one sitting.
+			//
+			// The FIRST such ancestor is kept, because the walk runs
+			// newest-first, so it is the most recent verdict on this code.
+			// ONLY A REAL VERDICT COUNTS. Failed means this code was judged and
+			// lost; Pending means the judgment is running. Missing and Unknown
+			// are NOT verdicts about the code — an ancestor with no run of its
+			// own says nothing, and Unknown is a statement about the API. If
+			// those were recorded here, the caller would replace an honest
+			// "has not run — trigger it" with a report of a verdict that does
+			// not exist: one wrong message swapped for another.
+			if blocker == nil && (result.Status == release.WorkflowCheckFailed ||
+				result.Status == release.WorkflowCheckPending) {
+				blocker = &ancestorVerdict{Commit: candidate, CommitsSince: i + 1, Result: result}
+			}
 			continue
 		}
 		return &exemptRide{
@@ -1598,7 +1655,7 @@ func findExemptRide(projDir, workflow, tipFull string) (*exemptRide, string) {
 			Result:        result,
 			CommitsRidden: i + 1,
 			Justifying:    justifying,
-		}, ""
+		}, "", nil
 	}
 
 	// Both facts matter to the operator and they are different problems, so
@@ -1607,13 +1664,13 @@ func findExemptRide(projDir, workflow, tipFull string) (*exemptRide, string) {
 	// state genuinely has not been tested and no waiting will change that.
 	switch {
 	case sawExemptCleanCandidate && firstOffender != "":
-		return nil, fmt.Sprintf("the ancestors whose diff to the tip is exempt-only have no green run for this workflow, and older ones differ in non-exempt files (e.g. %s) — this code state has not been tested", firstOffender)
+		return nil, fmt.Sprintf("the ancestors whose diff to the tip is exempt-only have no green run for this workflow, and older ones differ in non-exempt files (e.g. %s) — this code state has not been tested", firstOffender), blocker
 	case sawExemptCleanCandidate:
-		return nil, fmt.Sprintf("ancestors within %d commits differ from the tip only in exempt paths, but none has a green run for this workflow either", ciExemptRideWalkBound)
+		return nil, fmt.Sprintf("ancestors within %d commits differ from the tip only in exempt paths, but none has a green run for this workflow either", ciExemptRideWalkBound), blocker
 	case firstOffender != "":
-		return nil, fmt.Sprintf("every ancestor within %d commits differs from the tip in non-exempt files (e.g. %s) — this code state has not been tested", ciExemptRideWalkBound, firstOffender)
+		return nil, fmt.Sprintf("every ancestor within %d commits differs from the tip in non-exempt files (e.g. %s) — this code state has not been tested", ciExemptRideWalkBound, firstOffender), blocker
 	}
-	return nil, fmt.Sprintf("no rideable ancestor within %d commits", ciExemptRideWalkBound)
+	return nil, fmt.Sprintf("no rideable ancestor within %d commits", ciExemptRideWalkBound), blocker
 }
 
 // printExemptRide prints the ride LOUDLY — never a silent pass. The operator
