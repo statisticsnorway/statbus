@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 10:27'
-updated_date: '2026-08-19 10:40'
+updated_date: '2026-08-19 11:42'
 labels:
   - ops
   - security
@@ -76,5 +76,11 @@ author: operator (pinned by foreman)
 created: 2026-08-19 10:40
 ---
 DUPLICATE READ COMPLETE, ALL SEVEN BOXES — NO BYPASS. Identical result on et/jo/ma/tcc/ug/demo/dev: authorized_keys readable (wc first, per the instrument rule), the deploy key present EXACTLY ONCE (line 4 of 4), ALWAYS carrying command="/usr/local/bin/sshdo" plus no-agent-forwarding/no-port-forwarding/no-pty/no-X11-forwarding/no-user-rc; grep_exit=0 everywhere. The feared unrestricted second copy from the GITHUB_DEPLOY_KEYS fetch path DOES NOT EXIST on any box — the sshdoers-managed install is the only install, correctly restricted. SEVERITY QUESTION CLOSED: the access model works as designed on every slot. REMAINING IN THIS ENTRY: (a) the consumer/removal question for country slots — tied to Wave D (the key IS consumed today by the surviving deploy-to-X workflows; when those delete, the country slots' key entries lose their last consumer and should go in the same motion); (b) the creation-script fetch path that WOULD install an unrestricted copy on a future box — a script fix, no live box affected today; (c) the orphaned statbus_demo apply-latest sshdoers rule (half-dead since 244a). ForceCommand escalation: MOOT per the architect's sequencing — nothing unrestricted exists for a global gate to catch.
+---
+
+author: foreman
+created: 2026-08-19 11:42
+---
+KING RULED 2026-08-19: the cleanup is sensible ("we used to need that flow") and it must be COMPLETE — the key was generated on the server and then added to GitHub, so the correct removal takes it out of GITHUB TOO: the deploy-key registration AND the SSH_KEY secret in the repo's secret storage, not merely the authorized_keys entries on the boxes. SCOPE CONSEQUENCE, so the removal is planned honestly: secrets.SSH_KEY still has live non-deploy consumers (notify-all-clouds, docker-maintenance, seq-logserver, pg_regress, master-to-dev until 244b) — each needs its own dedicated key (the RUNNER_HEALTH_SSH_KEY pattern: per-purpose, revocable server-side) before SSH_KEY can be deleted from GitHub. Execution order: (1) now — remove the orphaned statbus_demo apply-latest sshdoers rule; (2) after this cut proves tag-to-dev — 244b retires master-to-dev's use; (3) Wave D deletes deploy-to-{et,jo,ma,tcc,ug}; (4) re-key the surviving maintenance/test consumers with dedicated keys; (5) remove the deploy-key registration + SSH_KEY secret from GitHub and the fetch-installed copies from the boxes, in one motion. The creation-script fetch path fix (which would install an unrestricted copy on a future box) rides with (5) or earlier.
 ---
 <!-- COMMENTS:END -->
