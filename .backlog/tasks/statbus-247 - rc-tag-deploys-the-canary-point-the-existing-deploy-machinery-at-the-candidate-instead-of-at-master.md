@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 07:14'
-updated_date: '2026-08-19 09:07'
+updated_date: '2026-08-19 09:30'
 labels:
   - release
   - ops
@@ -146,5 +146,11 @@ THE QA INSTANCE IS RECORDED AS REJECTED, WITH ITS REASONING, ON PURPOSE. It is a
 ORDERING RATIONALE, stated once: everything at smoke and everything in the fleets is disposable; dev is not. That single asymmetry determines the whole order — disposable things go first and filter for the irreplaceable one, and the irreplaceable one filters for the expensive ones. It is the same cheapest-first logic the chain already used, with 'cheapest' correctly understood as including what a failure costs to clean up rather than only what a run costs to rent.
 
 NORWAY'S DEFAULT IS TO WAIT, and I made proceeding-early deliberate rather than merely allowed. If proceeding early is as easy as waiting, it becomes the norm under time pressure and the fleet stops gating anything in practice — the gate would still exist and would still be satisfied, just always after the fact.
+---
+
+author: foreman
+created: 2026-08-19 09:30
+---
+KING APPROVED 2026-08-19 (dialogue presentation, fifth of the sitting), with his reason for Norway's open-ended wait recorded as design intent, near verbatim: "Norway's wait is open-ended by design because it's a HUGE installation — so we can catch those exact crazy things that take too long, or some migration logical error. That's the only way." The human canary's value is SCALE: real production-sized data surfaces what fixtures and small boxes structurally cannot — fold that sentence into the observation card's purpose statement at build time.
 ---
 <!-- COMMENTS:END -->

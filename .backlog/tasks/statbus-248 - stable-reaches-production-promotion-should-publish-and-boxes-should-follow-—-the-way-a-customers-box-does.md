@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 07:27'
-updated_date: '2026-08-19 07:41'
+updated_date: '2026-08-19 09:43'
 labels:
   - release
   - ops
@@ -89,5 +89,11 @@ OUT OF SCOPE: **dev**, driven by the release chain; and **Norway**, the single h
 THE NORWAY WARNING FROM COMMENT #1 STANDS AND IS NOW THE ONLY ONE. Norway is both a real production installation and the human canary, so an implementer reading "set the production slots to stable" and working from the deployment table would sweep it in. That change would look tidy and correct, and nothing would fail — the gate would simply stop finding a candidate to wait on, and the release process would get QUIETER rather than louder. It would delete the entire human-canary role in one config edit. This is the zero-scope-green shape (doc-033) arriving through configuration instead of through a check, which is why it is written down twice.
 
 AC#2 SHOULD THEREFORE ASSERT ROLE-CORRECT CHANNELS, not universal stable: each box on the channel its role requires, with a wrong channel failing in EITHER direction. A box quietly on stable when its role needs prerelease is exactly as broken as the reverse, and considerably harder to notice.
+---
+
+author: foreman
+created: 2026-08-19 09:43
+---
+KING APPROVED 2026-08-19 (dialogue presentation, sixth and final of the sitting) — THE FULL PACKET IS NOW APPROVED: 244 (with the barring-248 reservation hereby lifted — AC#8's master-to-production/production-to-all removals unblocked), 245, 246, 247, 248, plus 249 and 250 approved earlier in the sitting. One consideration the King voiced and left with the foreman's input standing: demo's channel — stable (as ruled here) vs prerelease (the historical judge-before-release posture). Foreman's input, delivered: the judge-early need is now served by dev (every candidate, automatically — the historical reason for prerelease cloud slots predates that); demo's audience is outsiders who should see the released product; and the "choice to upgrade" instinct is honored natively — a deliberate one-off evaluation of a candidate on demo remains available via ./sb upgrade schedule <tag>, an explicit act rather than a standing posture. Demo stays on stable per this entry unless the King flips it — a one-line change inside this build if so.
 ---
 <!-- COMMENTS:END -->
