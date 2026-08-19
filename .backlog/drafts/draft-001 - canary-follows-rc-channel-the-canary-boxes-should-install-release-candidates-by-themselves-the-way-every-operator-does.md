@@ -1,11 +1,12 @@
 ---
-id: STATBUS-243
+id: DRAFT-001
 title: >-
   canary-follows-rc-channel: the canary boxes should install release candidates
   by themselves, the way every operator does
-status: To Do
+status: Draft
 assignee: []
 created_date: '2026-08-19 07:10'
+updated_date: '2026-08-19 07:15'
 labels:
   - release
   - upgrade
@@ -47,3 +48,21 @@ WHY THAT HELPS: a cut becomes one act with an automatic consequence — tag, bui
 - [ ] #3 The promotion gate finds a completed upgrade row at the candidate's exact commit on both slots, with no deploy-branch push involved
 - [ ] #4 Proven end to end on a real cut (rc.07): tag → build → canary installs itself → gate clears
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect
+created: 2026-08-19 07:15
+---
+SUPERSEDED BY STATBUS-247 — RETRACTED BY ME, before anyone builds it. I proposed reaching the same outcome by pointing the canaries at the prerelease CHANNEL, so each box discovers the candidate on its own tick. The King ruled for the ops machinery instead: the release tag points the existing deploy branch at the tag's commit, and the existing deploy + convergence layers do the rest.
+
+His is the better answer, and I would rule the same way now that the inventory is in front of me. The channel path makes the box discover on a poll, so the cut waits on a tick and the gate has nothing synchronous to observe. The tag-pointer path is immediate, and it ends in a convergence poll that answers by COMMIT — so the cut gets a verdict rather than a wait, which is what "it's installed, and it clears the gate" actually requires.
+
+I am retracting rather than leaving both on the board, because STATBUS-244 — my own entry — says two mechanisms must not aim at the same box. Leaving a channel-based proposal alongside a tag-based one would be exactly the second source of truth that entry forbids, and it would be worse for being mine. The consistency has to run in both directions or it is not a principle.
+
+What survives from this entry, folded into 247: the operator-parity argument (the canary should prove the path a statistical office walks, not an internal one), the two premises worth verifying rather than assuming (the artifacts must exist when the tag lands), and the acceptance to be made KNOWINGLY — the canaries will take every candidate automatically, including a bad one, which is what a canary is for and what the rollback and un-park machinery exists to catch.
+
+STATBUS-244 (deploy branches out of the RC path) still stands unchanged and is now MORE necessary, not less: under 247 the release path uses those branches deliberately, so the ad-hoc manual buttons must be the thing that leaves the release path, with the boundary documented.
+---
+<!-- COMMENTS:END -->
