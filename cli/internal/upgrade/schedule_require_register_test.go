@@ -77,18 +77,29 @@ func TestOnScheduledNotify_NoRawInsert(t *testing.T) {
 //   - AC#3: a 0-row promote fails LOUDLY (RowsAffected()==0 → errNotRegistered /
 //     the in-progress refusal), never a silent exit-0 success.
 func TestRunSchedule_CommitAuthoritative_FailLoud_STATBUS169(t *testing.T) {
-	body := funcBody(t, "service.go", "func (d *Service) RunSchedule(")
+	// RETARGETED, NOT WEAKENED (STATBUS-258). The scheduling UPDATE moved out of
+	// RunSchedule into scheduleStep when `upgrade apply` was added, so that apply
+	// could compose register+schedule inside ONE connection. RunSchedule is now a
+	// three-line wrapper, and a guard reading it would examine nothing and pass —
+	// the zero-scope shape.
+	//
+	// So this reads scheduleStep, which is where the UPDATE lives now. Every
+	// assertion below is unchanged; only the subject moved.
+	body := funcBody(t, "service.go", "func (d *Service) scheduleStep(")
+	if !strings.Contains(funcBody(t, "service.go", "func (d *Service) RunSchedule("), "scheduleStep(") {
+		t.Fatal("RunSchedule must delegate to scheduleStep — if that link is gone this guard is reading a function nothing calls")
+	}
 	if !strings.Contains(body, "WHERE commit_sha = $1") {
-		t.Error("RunSchedule's scheduling UPDATE must select by `WHERE commit_sha = $1` (commit-authoritative, single row) — STATBUS-169 AC#2")
+		t.Error("the scheduling UPDATE must select by `WHERE commit_sha = $1` (commit-authoritative, single row) — STATBUS-169 AC#2")
 	}
 	if strings.Contains(body, "ANY(commit_tags)") {
-		t.Error("RunSchedule must NOT select rows by commit_tags — a tag is never the row selector (STATBUS-169 AC#2)")
+		t.Error("the scheduling UPDATE must NOT select rows by commit_tags — a tag is never the row selector (STATBUS-169 AC#2)")
 	}
 	if !strings.Contains(body, "RowsAffected() == 0") {
-		t.Error("RunSchedule must check RowsAffected()==0 — a 0-row promote must fail loudly, never report success (STATBUS-169 AC#3)")
+		t.Error("the scheduling path must check RowsAffected()==0 — a 0-row promote must fail loudly, never report success (STATBUS-169 AC#3)")
 	}
 	if !strings.Contains(body, "errNotRegistered") {
-		t.Error("RunSchedule's 0-row path must return the actionable errNotRegistered (STATBUS-169 AC#3)")
+		t.Error("the scheduling path's 0-row path must return the actionable errNotRegistered (STATBUS-169 AC#3)")
 	}
 }
 

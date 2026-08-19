@@ -4985,6 +4985,17 @@ func labelOrCommit(version, sha string) string {
 
 func (d *Service) RunRegister(ctx context.Context, input string) error {
 	return d.runOneShot(ctx, func(ctx context.Context) error {
+		return d.registerStep(ctx, input)
+	})
+}
+
+// registerStep is RunRegister's body WITHOUT the one-shot wrapper, so `apply`
+// can compose register and schedule inside a SINGLE connection (STATBUS-258).
+// Two runOneShots would open two connections and leave a window between them in
+// which the row exists but is unscheduled — visible to an operator watching
+// `upgrade list`, and a state nothing else in the product ever produces.
+func (d *Service) registerStep(ctx context.Context, input string) error {
+	{
 		// Register-by-commit owns "make the target commit local" (STATBUS-169
 		// deploy-by-commit doctrine) — BEFORE resolveUpgradeTarget, so its
 		// TagsAtCommit probe and the later commitMeta both read a present commit.
@@ -5012,7 +5023,7 @@ func (d *Service) RunRegister(ctx context.Context, input string) error {
 			fmt.Println("Poked the service to prepare it (NOTIFY upgrade_check).")
 		}
 		return nil
-	})
+	}
 }
 
 // RunSchedule promotes an ALREADY-REGISTERED candidate to 'scheduled' (the DB
@@ -5021,6 +5032,14 @@ func (d *Service) RunRegister(ctx context.Context, input string) error {
 // `./sb upgrade schedule <target> [--recreate]`.
 func (d *Service) RunSchedule(ctx context.Context, input string, recreate bool) error {
 	return d.runOneShot(ctx, func(ctx context.Context) error {
+		return d.scheduleStep(ctx, input, recreate)
+	})
+}
+
+// scheduleStep is RunSchedule's body without the one-shot wrapper. See
+// registerStep for why the split exists.
+func (d *Service) scheduleStep(ctx context.Context, input string, recreate bool) error {
+	{
 		target, err := resolveUpgradeTarget(ctx, d, input)
 		if err != nil {
 			return fmt.Errorf("resolve %q: %w", input, err)
@@ -5095,7 +5114,7 @@ func (d *Service) RunSchedule(ctx context.Context, input string, recreate bool) 
 		// ':recreate' NOTIFY was dequeued. The scheduling UPDATE's trigger
 		// (upgrade_notify_daemon) already NOTIFYs the daemon to wake up.
 		return nil
-	})
+	}
 }
 
 // ResolveToCommit resolves any upgrade-target reference (release tag, commit

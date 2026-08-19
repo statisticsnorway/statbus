@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"os"
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -40,4 +42,43 @@ func TestDeployedCommitLine_WorkflowGrepContract(t *testing.T) {
 	if re.MatchString(deployedCommitLine("0123abcd")) {
 		t.Error("an 8-char commit-short passed the 40-hex grep — the emit must carry the resolved 40-hex")
 	}
+}
+
+// TestApplyEmitsDeployedCommit_STATBUS258 pins that `upgrade apply` emits the
+// same greppable line apply-latest does.
+//
+// For apply-latest the emit TELLS the caller what the box resolved, because only
+// the box knew. For apply the caller already named the target — so the emit
+// exists to be CHECKED against that name. deploy-to-dev asserts requested ==
+// deployed and fails loudly on a mismatch (STATBUS-260), and without this emit
+// that guard has nothing to compare and silently degrades to trust.
+func TestApplyEmitsDeployedCommit_STATBUS258(t *testing.T) {
+	src := readCLIUpgradeSourceForApply(t)
+	body := src[strings.Index(src, "var upgradeApplyCmd = &cobra.Command{"):]
+	body = body[:strings.Index(body, "\nvar ")]
+
+	if !strings.Contains(body, "deployedCommitLine(") {
+		t.Error(`upgrade apply never emits deployed_commit=.
+
+The caller's requested-vs-deployed guard then has nothing to compare, and a
+mismatch — the exact defect STATBUS-258 exists to remove — becomes invisible
+again. Use the SHARED deployedCommitLine so both verbs stay in one format.`)
+	}
+	if !strings.Contains(body, "ResolveToCommit(") {
+		t.Error("the emitted commit must come from the canonical resolver, not from the operator's raw argument — a tag is not a 40-hex commit and the workflow greps for 40 hex")
+	}
+	// A failure to resolve must not be silent: the guard downstream would then
+	// read agreement into an absent line.
+	if !strings.Contains(body, "deployed_commit line omitted") {
+		t.Error("a resolution failure must SAY the emit was omitted — a caller checking requested-vs-deployed must never infer agreement from silence")
+	}
+}
+
+func readCLIUpgradeSourceForApply(t *testing.T) string {
+	t.Helper()
+	b, err := os.ReadFile("upgrade.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
 }

@@ -48,9 +48,14 @@ Look:
   check       Fetch GitHub releases and register what it finds
   list        Show registered candidates and their status
 
-Request (you ask; the service performs the work):
+Install (you ask; the service performs the work):
+  apply       Install EXACTLY this version — register + schedule in one command
+  apply-latest Install whichever version is newest on this box's channel
+
+Compose it yourself, when you want the steps apart:
   register    Record a release tag or commit as a candidate (state=available)
   schedule    Queue an ALREADY-REGISTERED candidate to run (fails if not registered)
+  dismiss     Mark a candidate as never to be offered or installed automatically
 
 Run:
   service     Run the upgrade service (long-running, typically via systemd)`,
@@ -87,6 +92,62 @@ Examples:
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return newUpgradeService(config.ProjectDir()).RunRegister(context.Background(), args[0])
+	},
+}
+
+var upgradeApplyCmd = &cobra.Command{
+	Use:   "apply <target>",
+	Short: "Install exactly this version on this box",
+	Long: `Install EXACTLY the named version — the whole operation in one command.
+
+This is the general verb for "put this version on this box". It registers the
+target if the box does not already know it, then schedules it; the upgrade
+service does the rest, inside its usual backup / migrate / health-check /
+rollback-on-failure envelope.
+
+The target is a release tag, an 8-character commit_short, or a full 40-character
+commit SHA — the same vocabulary register, schedule and dismiss accept.
+
+It installs WHAT YOU NAMED, and nothing else. Use it whenever the version
+matters — a rollback to a known-good release, reproducing a report against one
+specific build, or driving a box to the exact candidate under test. If instead
+you want whichever version is newest on this box's channel, that is the
+apply-latest subcommand.
+
+Examples:
+  sb upgrade apply v2026.08.1
+  sb upgrade apply abc1234f
+  sb upgrade apply --recreate v2026.08.1`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		recreate, _ := cmd.Flags().GetBool("recreate")
+		ctx := context.Background()
+		svc := newUpgradeService(config.ProjectDir())
+		if err := svc.RunApply(ctx, args[0], recreate); err != nil {
+			return err
+		}
+		// STATBUS-170/-260: emit the 40-hex commit this command actually acted
+		// on, in the same greppable one-liner apply-latest uses.
+		//
+		// For apply-latest the emit TELLS the caller what it resolved, because
+		// only the box knew. Here the caller already named the target, so the
+		// emit exists to be CHECKED against that name — deploy-to-dev asserts
+		// requested == deployed and fails loudly if they differ. Under
+		// candidate-addressing they can only differ if something resolved a
+		// target other than the one asked for, which is exactly the defect this
+		// work removes, so it must be an error rather than a quiet preference
+		// for whichever value is at hand.
+		sha, rerr := svc.ResolveToCommit(ctx, args[0])
+		if rerr != nil {
+			// Non-fatal: the install IS scheduled, and failing here would report
+			// a failure for an operation that succeeded. But say it plainly —
+			// the caller's equality guard has nothing to compare and must know
+			// that rather than infer agreement from silence.
+			fmt.Fprintf(os.Stderr, "warn: could not resolve %s to a commit — deployed_commit line omitted; any caller checking requested-vs-deployed cannot verify this run: %v\n", args[0], rerr)
+			return nil
+		}
+		fmt.Println(deployedCommitLine(string(sha)))
+		return nil
 	},
 }
 
@@ -941,6 +1002,8 @@ func init() {
 	upgradeCmd.AddCommand(upgradeListCmd)
 	upgradeCmd.AddCommand(upgradeScheduleCmd)
 	upgradeCmd.AddCommand(upgradeApplyLatestCmd)
+	upgradeApplyCmd.Flags().Bool("recreate", false, "recreate the database from migrations instead of migrating it (DESTRUCTIVE)")
+	upgradeCmd.AddCommand(upgradeApplyCmd)
 	upgradeCmd.AddCommand(upgradeRoleCmd)
 	upgradeCmd.AddCommand(upgradeServiceCmd)
 	upgradeSelfVerifyCmd.Flags().StringVar(&selfVerifyExpectCommit, "expect-commit", "",
