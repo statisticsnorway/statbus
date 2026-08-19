@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 00:17'
-updated_date: '2026-08-19 10:14'
+updated_date: '2026-08-19 10:32'
 labels:
   - upgrade-recovery
   - quality-gate
@@ -94,5 +94,32 @@ AUTHORITATIVE ENUMERATION (AC#1), part 2 of 2 — dispositions and the mechanism
 - **EXEMPT** — naming which of B–E applies, and why.
 
 A new or moved site with no entry goes red, in the same shape as `TestEveryBackupPathWriterIsAccountedFor_STATBUS229`. Per Finding 2, the scan's scope must include the app's write paths or say plainly that it does not.
+---
+
+author: engineer
+created: 2026-08-19 10:32
+---
+**BUILT AND FROZEN. One new file: `cli/internal/upgrade/terminal_rewind_audit_test.go`.** Three tests, all green, four RED-verified arms. AC#1/#2/#3 met. **Six sites are dispositioned PENDING-RULING with the question and owner recorded — they are accounted for, not answered, and two of them are findings I did not expect.**
+
+**THE MECHANISM.** A scan of every `public.upgrade` write site, each requiring exactly one disposition: RE-IMPOSED (naming the terminal AND the flag field), or an exemption naming its class and WHY, or PENDING-RULING with a question and an owner. An unaccounted site goes red with instructions. It also fails on **stale entries** — an audit line describing a site that no longer exists is exactly the authoritative-looking prose this campaign keeps tripping over.
+
+**ONE DELIBERATE DEVIATION from the ruling, with reasoning.** Keying by `file:line` would churn on every edit above a site, making this a permanent source of unrelated red and training people to re-bless without reading. Sites are keyed by **(file, kind, COLUMN SET)** — stable under movement, unique per distinct write — and duplicate statements are COUNTED, so a copy of an existing site still goes red. Line numbers appear in the failure message, where they help, not in the key, where they rot. Reject this and I will switch it.
+
+**THREE SCANNER DEFECTS I FOUND BY RUNNING IT** — each would have made the audit lie:
+1. **A prose string was read as a write site.** `install.go` documents a violation shape containing the text `INSERT INTO public.upgrade (...)`. Fixed by scanning inside string literals only and validating that column names are real identifiers.
+2. **A WHERE-less statement let the match run into the NEXT statement's WHERE**, inventing an eleven-column site that does not exist. Fixed by bounding every match to one string literal.
+3. **The five terminals scanned as NOT writing `backup_path`** — their clause lives in the concatenated constant `terminalBackupPathSQL`, invisible to a literal-only scan. An audit that cannot see the re-imposition it exists to track would have been the zero-scope shape all over again. Fixed by resolving the fragment constants (both quoting styles) before scanning, and the loader FAILS LOUDLY if a fragment goes missing — because a silently-unresolved fragment shrinks a column set and drops a tracked column out of the audit.
+
+**FINDING 2 IS COVERED, NOT DECLARED OUT OF SCOPE.** The app writes `public.upgrade` through PostgREST at `app/src/app/admin/upgrades/page.tsx` — verified: `PATCH /rest/upgrade` with `skipped_at`/`dismissed_at`. The test walks `app/src` and fails if the tree is absent rather than passing quietly. **Blind spot named in the code**: a write whose value is an opaque variable would not match the write idioms — stated so that if it ever happens, the reason the audit missed it is already written down.
+
+**TWO THINGS THE SCAN TAUGHT ME THAT THE ENUMERATION DID NOT SAY:**
+- **The app writes `state` DIRECTLY** (`state: "skipped"` / `"dismissed"` / `"scheduled"`) alongside the timestamps. **Finding 1 is wider than one column per act**: the operator's decision is carried by state AND the `_at` column, so a re-imposition restoring only the timestamp would leave the row self-contradictory. The ruling should be on the PAIR.
+- **`promoteExistingCandidate` and its install-triggered sibling deliberately NULL `dismissed_at`, `skipped_at` and `superseded_at`** when re-arming a candidate. Dispositioned OUTSIDE-WINDOW (scheduling precedes execution), with a note that this is a re-arm rather than a loss — relevant to whoever rules on STATBUS-250's dismissal robustness.
+
+**THE SIX OPEN ENTRIES, resolved by construction as intended** — all now enumerated and each carrying its question: the two park writes, `state,superseded_at` (×2), and the three app writes (`dismissed_at`, `skipped_at`, `state`). I did not self-assign any of them; 250 comment #2's lean toward re-imposing dismissals is cited on that entry.
+
+**RED-VERIFIED, four arms:** a new undispositioned site → red naming it; a COPY of a dispositioned statement → red on the count; a stale entry → red; the app tree absent → red stating it cannot cover those paths. Well-formedness is pinned too: RE-IMPOSED without a terminal + flag field fails, PENDING-RULING without a question + owner fails, and both founding entries must stay RE-IMPOSED citing STATBUS-181 and STATBUS-241 (AC#3).
+
+**VERIFY CHAIN:** `go test -count=1 ./...` 12 packages green; `gofmt -l` clean; `golangci-lint run ./...` 0 issues.
 ---
 <!-- COMMENTS:END -->
