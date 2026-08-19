@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 10:27'
+updated_date: '2026-08-19 11:23'
 labels:
   - ops
   - release
@@ -58,3 +59,13 @@ Order within the work: correct the five NSO boxes and demo to `stable` first, si
 - [ ] #6 This lands before the per-slot deploy workflows for et/jo/ma/tcc/ug are deleted — no box loses its only receive path while still misconfigured
 - [ ] #7 The first-writer-wins behaviour is recorded where the next person would otherwise trust config generate to fix a setting
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-08-19 11:23
+---
+KING RULED 2026-08-19 (third decision of the sitting): the fleet correction executes NOW as the config-change-and-regenerate path — 'it's just a configuration change and a regenerate; nothing big, nothing drastic, nothing we're removing.' That is the alternative this entry honestly named, chosen by him with the cost known. The derive-the-channel-from-role mechanism (this entry's main design) STILL FOLLOWS as the durable fix — the ruling changes the sequencing (correct the live fleet immediately, fix the mechanism after), not the destination. Execution: architect specifies the exact per-box command sequence (product tooling only); operator runs it verbatim; et/jo/ma/tcc/ug + demo → stable first, dev → prerelease last, read-back verification per box. His flow context: the next candidate cut follows the 240 landing, so the corrected channels meet the rebuilt chain on its first live run.
+---
+<!-- COMMENTS:END -->

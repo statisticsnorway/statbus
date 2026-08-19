@@ -3,10 +3,10 @@ id: STATBUS-240
 title: >-
   preswap-terminal-error-class: the PreSwap double-crash terminal tells a
   healthy box it is degraded — a new error class needs the King's approval
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-08-19 00:15'
-updated_date: '2026-08-19 10:08'
+updated_date: '2026-08-19 11:23'
 labels:
   - upgrade-recovery
   - operator-ux
@@ -34,7 +34,7 @@ WHAT IS ACHIEVED: the African-NSO operator frame holds — the error text an una
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The King approves the new error class name and its operator-facing message text before implementation
+- [x] #1 The King approves the new error class name and its operator-facing message text before implementation
 - [ ] #2 The :2966 terminal distinguishes the PreSwap route (nothing moved) from the post-swap route (restore failed); the post-swap label is unchanged
 - [ ] #3 The corrected arcs' assertions observe the new class on the PreSwap route at a suite run
 <!-- AC:END -->
@@ -70,5 +70,11 @@ ARCHITECT'S RECOMMENDATION for the King's approval (AC#1). Name and message text
 **ONE THING I DELIBERATELY DID NOT PUT IN.** No estimate of what went wrong and no diagnostic guess. The honest position is that we do not know from this terminal alone, and a speculative cause would send the operator to investigate the wrong thing — which is the same defect as the current text, in a friendlier tone.
 
 **INTERACTION WITH THE OBSERVATION CARD (doc-035, STATBUS-247).** The card's Step 5 asks the operator explicitly whether a failure message told them the system's state, whether data was affected, what to do next, and whether it sent them to support for something self-serviceable. This class is the first thing that question was written to catch. If the King approves both in the same sitting, the card gives us a standing check that the wording keeps working on someone who is not us.
+---
+
+author: foreman
+created: 2026-08-19 11:23
+---
+KING APPROVED 2026-08-19 (first decision of the sitting): the name UPGRADE_STOPPED_NOTHING_CHANGED and the operator-facing message text, both VERBATIM as recommended in comment #1. AC#1 closed. Build dispatched to the engineer immediately — this unit gates the next candidate cut (the King cuts as soon as it lands). AC#2 is the :2966 route branch (PreSwap gets the new class; post-swap keeps ROLLBACK_FAILED_DB_RESTORE, where it is true); AC#3's live observation completes at the next fleet run — which is the cut itself.
 ---
 <!-- COMMENTS:END -->
