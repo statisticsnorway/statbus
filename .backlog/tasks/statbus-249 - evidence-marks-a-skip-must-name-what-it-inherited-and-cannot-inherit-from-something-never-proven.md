@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-19 09:06'
-updated_date: '2026-08-19 10:02'
+updated_date: '2026-08-19 10:13'
 labels:
   - release
   - ci
@@ -165,5 +165,11 @@ author: architect (pinned by foreman)
 created: 2026-08-19 10:02
 ---
 WAVE C SEAM, ruled during the B2 review (not a blocker — cost, not correctness, and the pattern already exists in production): a scenario can legitimately produce marks under TWO workflow identities — the harness's matrix job AND the dedicated smoke workflow (0-happy-upgrade appears in both after B2, exactly as 0-happy-install already does with test-install.yaml). ScenarioEvidence is workflow-parameterized, so a mark under one identity is invisible to a query against the other. C1's covered() MUST UNION ACROSS THE WORKFLOWS that legitimately run a scenario — the same union principle already ruled for runs, one level up. Whole-suite completeness stays workflow-scoped (that question genuinely needs one workflow's full job list); only the per-scenario question unions. Failure direction verified safe: a missed mark re-runs a scenario, never a false pass. ALSO MEASURED during the same review: the jobs API returns the display NAME not the YAML key (run 32227385996's fifteen matrix jobs returned distinct scenario names, not fifteen 'run-scenario's) — the premise B2's mark alignment rests on, now proven rather than plausible.
+---
+
+author: foreman
+created: 2026-08-19 10:13
+---
+PREMISE CORRECTION to comment #6, found by the engineer during C1 and foreman-verified in the tree: the seam ruling's example — 0-happy-install 'already' appearing under two identities via test-install.yaml — was FALSE. test-install.yaml's job was named 'Provision Hetzner VM + run scenario 0-happy-install', a descriptive label, so a mark lookup for `0-happy-install` could never see the smoke run's proof: the scenario would re-run on every candidate while appearing covered to a human reading the workflow. The jobs-API display-name measurement was taken on the harness MATRIX (where names do align); the smoke half was never measured — the enumeration handed along was a premise, not a fact. FIXED in C1 increment 1 (frozen, under review): job renamed to `0-happy-install` with the reason written at the line, and BOTH smoke halves pinned by a test that fails if either job name stops matching its scenario (RED-verified). Failure direction of the original defect: safe — re-run, never false pass — exactly as the seam ruling predicted for missed marks.
 ---
 <!-- COMMENTS:END -->
