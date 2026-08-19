@@ -20,15 +20,30 @@
 #        29325230294): `runInstall` re-runs `install.Detect()` after
 #        crash-recovery settles, so the 4th (clean) dispatch's ONE `./sb
 #        install` call first fires the pair-terminal write via
-#        rollbackResumeIsTerminal, THEN immediately re-detects
-#        StateRestoreReattemptable on the row it just wrote and replays the
-#        idempotent restore tail to completion — watchdog armed, git-state
-#        guard first (no-op — already correct), db stop, shared
-#        restoreAndFinalize — landing at the honest 'rolled_back' terminal,
-#        byte-identical to the pre-upgrade state. (This is STATBUS-111's own
-#        behavior, shipped after rollback-pair-terminal-arc.sh was written —
-#        there is no dispatch-boundary left between "constructed" and
-#        "re-attempted" to assert on separately.)
+#        rollbackResumeIsTerminal, THEN re-detects — and WHAT IT DETECTS is
+#        what STATBUS-228 corrected. This phase is a PRESWAP route, so the row
+#        carries NO backup_path, Detect resolves to nothing-scheduled, and NO
+#        restore replay is offered. The terminal is the pair-terminal's own
+#        'failed' — the human stop — not a replayed 'rolled_back'.
+#
+#        WHAT THIS PHASE THEREFORE PROVES (rewritten 2026-08-19, STATBUS-228
+#        comment #14 — INVERTED, not deleted): on a route where the database
+#        was never modified, the system records NO snapshot identity and
+#        OFFERS NO replay. "Nothing moved ⇒ no identity ⇒ no replay" is the
+#        contract STATBUS-197 established (an identity recorded before the
+#        snapshot commits can replay the PREVIOUS attempt's backup — weeks of
+#        data) and STATBUS-228 made structural (service.go:6509-6528 is the
+#        single recorder, after the swap+reconnect; :5610-5613 states that an
+#        empty value before the swap is CORRECT, not missing).
+#
+#        Until 2026-08-19 this phase asserted the OPPOSITE — that the same
+#        dispatch replayed the restore to 'rolled_back' — which was true when
+#        the arc was written (2026-07-14, backup_path was recorded early as
+#        intent) and became false at STATBUS-197 (2026-08-16). It is kept as a
+#        POSITIVE assertion of the current contract rather than removed,
+#        because that turns the stale check into the strongest guard on the
+#        route: if anything ever stamps an identity on a PreSwap row again,
+#        this phase fails loudly instead of silently permitting it.
 #
 #   (ii) ABORT class with STILL-CORRUPT git — a restore-broke row reached via
 #        rollback()'s git-restore ABORT branch (STATBUS-136), constructed for
@@ -233,25 +248,33 @@ echo "[OBSERVE] DEATH 2: exit 137, marker #2 consumed, flag.step=\"$STEP_AFTER_D
 echo "  ✓ the (rollback, rollback) pair is on disk — the NEXT dispatch must fire restore-broke BEFORE any restore attempt"
 
 # ─────────────────────────────────────────────────────────────────────────
-# 4th dispatch — STATBUS-111 (shipped AFTER rollback-pair-terminal-arc.sh was
-# written) changed what a clean `./sb install` does here. `runInstall`
-# re-runs `install.Detect()` after crash-recovery settles (dispatchInstallState
-# fires on BOTH the initial Detect and the post-recovery re-Detect, same
-# process, same invocation) — so THIS ONE dispatch now does both halves in
-# sequence: recoverFromFlag's rollbackResumeIsTerminal fires the pair-terminal
-# write (state='failed', backup_path retained), and the SAME `./sb install`
-# immediately re-detects StateRestoreReattemptable on that just-written row
-# and replays the restore to 'rolled_back' — confirmed empirically (arc run
-# 29325230294): the row is observed 'failed' then 'rolled_back' ~23s apart,
-# both inside the one VM_EXEC call. There is no longer a dispatch-boundary
-# between "pair-terminal constructed" and "re-attempted" to assert on
-# separately; phase (i)'s whole proof (construction AND re-attempt) lives in
-# this single dispatch. (rollback-pair-terminal-arc.sh's own final assertion
-# — state='failed' after ITS 4th, also-clean dispatch — is now LATENT-BROKEN
-# by this same 111 behavior; flagged separately, not fixed here.)
+# 4th dispatch — one clean `./sb install`, and what it does here is the whole
+# of phase (i). `runInstall` re-runs `install.Detect()` after crash-recovery
+# settles (dispatchInstallState fires on BOTH the initial Detect and the
+# post-recovery re-Detect, same process, same invocation), so this ONE dispatch
+# does two things in sequence:
+#   1. recoverFromFlag's rollbackResumeIsTerminal fires the pair-terminal write
+#      — state='failed', recovery_attempts=3, the human stop.
+#   2. the SAME `./sb install` re-Detects — and on this PRESWAP row finds NO
+#      backup_path, so StateRestoreReattemptable cannot match, NO replay is
+#      offered, and Detect resolves to nothing-scheduled (the ladder then runs
+#      as an idempotent config refresh and the box comes back healthy).
+# The terminal is 'failed'. Nothing replays it, and nothing should: the volume
+# was never touched, so there is no snapshot to replay.
+#
+# HISTORY, kept because it explains the assertions rather than describing the
+# product: until 2026-08-19 this block said step 2 replayed the restore to
+# 'rolled_back', and cited arc run 29325230294 observing 'failed' then
+# 'rolled_back' ~23s apart. That observation was REAL — under the code of
+# 2026-07-14, where backup_path was recorded early as intent. STATBUS-197
+# removed that early write (2026-08-16) and STATBUS-228 made the post-reconnect
+# write the single recorder, which this route never reaches. The old note also
+# warned that rollback-pair-terminal-arc.sh's `state='failed'` assertion was
+# "LATENT-BROKEN" by STATBUS-111; that warning is now obsolete in the other
+# direction — 'failed' is correct there again, and that arc asserts it.
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
-echo "── 4th dispatch: ./sb install (no inject) → pair-terminal fires, THEN the SAME dispatch re-attempts it to 'rolled_back' ──"
+echo "── 4th dispatch: ./sb install (no inject) → pair-terminal fires and STOPS at 'failed' (PreSwap: no snapshot identity, no replay offered) ──"
 REC_RC=0
 VM_EXEC bash -c "cd ~/statbus && STATBUS_MIN_DISK_GB=5 timeout ${INSTALL_BUDGET_S} ./sb install --non-interactive --trust-github-user jhf > ${ARC_DISPATCH_LOG} 2>&1" || REC_RC=$?
 VM_EXEC bash -c "cat ${ARC_DISPATCH_LOG} 2>/dev/null" || true
@@ -268,41 +291,92 @@ echo "[OBSERVE] 4th dispatch exit: $REC_RC"
 # terminal write (same dispatch) — the log line is the stable thing to grep
 # for regardless of dump formatting; the FINAL row state is asserted below.
 [ "$(arc_dispatch_log_has "RESTORE-BROKE upgrade")" = "yes" ] || { echo "✗ dispatch output does not show the pair-terminal's own log line — did rollbackResumeIsTerminal actually fire?" >&2; exit 1; }
-[ "$(arc_dispatch_log_has "Re-attempting the restore from the retained snapshot")" = "yes" ] || { echo "✗ dispatch output does not show the STATBUS-111 re-attempt legend — did it really re-detect StateRestoreReattemptable in the same pass?" >&2; exit 1; }
-echo "  ✓ dispatch log shows BOTH halves: the pair-terminal's own RESTORE-BROKE log line, then the STATBUS-111 re-attempt legend — the same clean pass did both"
+
+# ─────────────────────────────────────────────────────────────────────────
+# STATBUS-228 (rc.05 trace + architect ruling, 228 comment #14): INVERTED,
+# never deleted. This block used to assert that the SAME dispatch re-detected
+# StateRestoreReattemptable and replayed the restore to 'rolled_back'. That
+# was TRUE when this arc was written (2026-07-14) and it is FALSE now, for a
+# ruled reason rather than a regression:
+#
+#   phase (i) is a PRESWAP route (C never reaches a migration — the kills land
+#   before the point of no return, and the product narrates it: "interrupted
+#   before it changed anything ... the database was not modified, so nothing
+#   needs restoring"). STATBUS-197 removed the early-intent backup_path write
+#   because recording an identity BEFORE the snapshot commits can replay the
+#   PREVIOUS attempt's snapshot — weeks of data. STATBUS-228 then made the
+#   post-reconnect write the SINGLE row recorder (service.go:6509-6528), which
+#   a PreSwap death never reaches. So on this route an ABSENT backup_path is
+#   the CORRECT value, not a gap — service.go:5610-5613 states exactly that,
+#   and it is what makes the PreSwap branch's no-touch guarantee true.
+#
+# So the assertion is turned around to pin the CURRENT contract POSITIVELY —
+# nothing moved ⇒ no snapshot identity ⇒ no replay offered — which makes this
+# the STRONGEST guard on the route rather than a deleted one. If a future
+# change ever stamps an identity on a PreSwap row again (the 197 regression
+# wearing new clothes), these three assertions fail LOUDLY and in the order
+# that explains it: the column, the offer, the terminal.
+# ─────────────────────────────────────────────────────────────────────────
+[ "$(arc_dispatch_log_has "Re-attempting the restore from the retained snapshot")" = "no" ] || { echo "✗ the dispatch OFFERED a STATBUS-111 restore replay on a PRESWAP row — the database was never modified, so there is no snapshot to replay; something stamped a backup identity on a row that moved nothing (the STATBUS-197 regression, restored)" >&2; exit 1; }
+echo "  ✓ no restore replay offered: PreSwap row, nothing moved, so STATBUS-111 correctly does not match"
 
 FINAL_STATE_C=$(row_state_for "$C_FULL")
 FINAL_ATTEMPTS_C=$(row_attempts_for "$C_FULL")
 echo "[OBSERVE] C's row after the 4th dispatch: state=$FINAL_STATE_C attempts=$FINAL_ATTEMPTS_C"
-[ "$FINAL_STATE_C" = "rolled_back" ] || { echo "✗ expected C's row 'rolled_back' (pair-terminal immediately re-attempted, STATBUS-111) after the 4th dispatch, got '$FINAL_STATE_C'" >&2; exit 1; }
-echo "  ✓ the row reached its honest 'rolled_back' terminal — the pair-terminal construction AND its re-attempt both completed in this one dispatch"
-# STATBUS-181: recovery_attempts=3 (2 rollback deaths + the terminal pass) must
-# SURVIVE the re-attempt's volume-rewind restore — ReattemptRestore now reads
-# the value before any destructive step and writeRollbackTerminal re-imposes
-# it alongside state/error, so the final row keeps the true count instead of
-# reverting to whatever the pre-upgrade snapshot had (0).
-[ "$FINAL_ATTEMPTS_C" = "3" ] || { echo "✗ recovery_attempts=$FINAL_ATTEMPTS_C on the final row — expected 3 to survive the re-attempt's volume rewind (STATBUS-181)" >&2; exit 1; }
-echo "  ✓ recovery_attempts=3 survived the re-attempt's volume-rewind restore (STATBUS-181)"
+[ "$FINAL_STATE_C" = "failed" ] || { echo "✗ expected C's row 'failed' (the pair-terminal IS the terminal on a PreSwap route — no replay follows it, STATBUS-228) after the 4th dispatch, got '$FINAL_STATE_C'" >&2; exit 1; }
+echo "  ✓ the row stopped at the pair-terminal's own 'failed' — the human stop, not a replayed 'rolled_back'"
+# recovery_attempts=3 = 2 rollback deaths + the terminal pass. Under the OLD
+# expectation this assertion proved the count SURVIVED the replay's volume
+# rewind (STATBUS-181). No replay runs now, so it proves something narrower and
+# still worth pinning: countRecoveryAttemptOnce counted every pass exactly once.
+# It is also the column that regressed at rc.03 (stuck at 1, the rewind), so it
+# stays asserted as the counter's own live oracle.
+[ "$FINAL_ATTEMPTS_C" = "3" ] || { echo "✗ recovery_attempts=$FINAL_ATTEMPTS_C on the final row — expected 3 (2 rollback crash-deaths + the terminal pass, counted once each)" >&2; exit 1; }
+echo "  ✓ recovery_attempts=3 — every pass counted exactly once, no volume rewind touched the column"
 
-[ "$(row_has_backup_path_for "$C_FULL")" = "t" ] || { echo "✗ C's row has NO retained backup_path — the STATBUS-111 probe (state=failed AND backup_path IS NOT NULL) would not have matched it at the intermediate 'failed' moment" >&2; exit 1; }
+# THE INVERTED CORE ASSERTION. "backup_path IS NULL" is not the absence of a
+# check here — it IS the contract: nothing moved, so no identity may exist.
+[ "$(row_has_backup_path_for "$C_FULL")" = "f" ] || { echo "✗ C's row HAS a backup_path after a PreSwap failure — nothing was ever restored from, so no snapshot identity may be recorded; this is the STATBUS-197 early-intent regression (a stamped identity that can replay the WRONG snapshot)" >&2; exit 1; }
+echo "  ✓ backup_path IS NULL on the PreSwap row — no snapshot identity recorded where nothing moved (STATBUS-197/-228 contract, asserted positively)"
 assert_flag_file_absent "$VM_NAME"
 assert_health_passes "$VM_NAME"
 MROWS_C=$(migration_row_count)
-[ "$MROWS_C" = "0" ] || { echo "✗ C left a ledger row (count=$MROWS_C, want 0) — the restore did not unrecord it" >&2; exit 1; }
-assert_fingerprint_matches "phase (i): post-re-attempt-restore == post-A" "$BASELINE_FP" baseline
+[ "$MROWS_C" = "0" ] || { echo "✗ C left a ledger row (count=$MROWS_C, want 0) — the PreSwap route must never have recorded one" >&2; exit 1; }
+# Still byte-identical to post-A, now for a STRONGER reason than before: the
+# old expectation was that a replayed restore rewound the volume back to
+# baseline; the current contract is that the volume was NEVER TOUCHED, so it
+# cannot have drifted. Same assertion, and it now also guards the no-touch
+# guarantee itself.
+assert_fingerprint_matches "phase (i): PreSwap volume never touched == post-A" "$BASELINE_FP" baseline
 assert_demo_data_present "$VM_NAME"
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 assert_no_orphan_backup "$VM_NAME"
 
-# Exactly 2 callback lines: the pair-terminal's own STATBUS_ROLLBACK_FAILED=1
-# (rollbackResumeIsTerminal's write), then the re-attempt's own success
-# callback (STATBUS_EVENT=rolled_back, no STATBUS_ROLLBACK_FAILED key — see
-# restoreAndFinalize's success branch) — both fire in this one dispatch now.
+# Exactly 2 callback lines, and STATBUS-228 changes WHICH second producer —
+# the count is unchanged, so state the producers or a future reader will think
+# the old pair still fires. Line 1 is the pair-terminal's own
+# STATBUS_ROLLBACK_FAILED=1 (rollbackResumeIsTerminal's write). Line 2 USED to
+# be the re-attempt's success callback; no re-attempt runs on a PreSwap row
+# now, and line 2 is instead the install ladder's own completion callback after
+# Detect resolves to nothing-scheduled. Both observed in the rc.05 run's 4th
+# dispatch (32187511838, "Running upgrade callback" twice, the second after
+# "Installed version ... already recorded"). Dispatches 1-3 are killed before
+# reaching any callback site and contribute none.
 CALLBACK_COUNT_1=$(VM_EXEC bash -c "wc -l < $CALLBACK_LOG 2>/dev/null" | tr -d ' \r\n' || echo "0")
-[ "$CALLBACK_COUNT_1" = "2" ] || { echo "✗ expected exactly 2 callback lines (pair-terminal + re-attempt success) after the merged dispatch, got $CALLBACK_COUNT_1" >&2; VM_EXEC bash -c "cat $CALLBACK_LOG 2>/dev/null" >&2 || true; exit 1; }
+[ "$CALLBACK_COUNT_1" = "2" ] || { echo "✗ expected exactly 2 callback lines (pair-terminal + the install ladder's completion) after the 4th dispatch, got $CALLBACK_COUNT_1" >&2; VM_EXEC bash -c "cat $CALLBACK_LOG 2>/dev/null" >&2 || true; exit 1; }
 VM_EXEC bash -c "head -1 $CALLBACK_LOG" | grep -q "^1 " || { echo "✗ first callback line does not carry STATBUS_ROLLBACK_FAILED=1 (the pair-terminal's own callback)" >&2; exit 1; }
-echo "  ✓ exactly 2 callback lines: the pair-terminal's STATBUS_ROLLBACK_FAILED=1, then the re-attempt's own success callback"
-echo "  ✓ phase (i) COMPLETE: pair-terminal construction + its immediate STATBUS-111 re-attempt, one dispatch, byte-identical clean-slate 'rolled_back', healthy, data intact"
+# The SECOND line must NOT carry STATBUS_ROLLBACK_FAILED=1: exactly one rollback
+# failure happened, and nothing after it may claim a second failure OR a
+# rolled_back success (there was no restore to succeed at).
+# (Written as a case, NOT `grep -q ... && { exit 1; }`: under `set -e` an
+# AND-list whose left side FAILS returns non-zero and kills the script — the
+# healthy path would abort the arc with no message.)
+SECOND_CALLBACK_LINE=$(VM_EXEC bash -c "tail -1 $CALLBACK_LOG" 2>/dev/null || echo "")
+case "$SECOND_CALLBACK_LINE" in
+    1\ *) echo "✗ the second callback ALSO carries STATBUS_ROLLBACK_FAILED=1 — only one rollback failure occurred; a second siren would page on-call twice for one event" >&2; exit 1 ;;
+esac
+echo "  ✓ exactly 2 callback lines: one STATBUS_ROLLBACK_FAILED=1 siren for the pair-terminal, then the install ladder's completion — no second siren, no claimed rolled_back success"
+echo "  ✓ phase (i) COMPLETE: pair-terminal constructed and STOPPED there (the human stop), PreSwap row carries no snapshot identity, no replay offered, box healthy, data intact"
 
 # ═══════════════════════════════════════════════════════════════════════
 # PHASE (ii) — ABORT class with STILL-CORRUPT git: construction (C), architect-
@@ -477,7 +551,26 @@ echo "$FINAL_ERROR_B" | grep -E "ROLLBACK_FAILED_GIT_CORRUPT" >/dev/null || { ec
 [ "$FINAL_ATTEMPTS_B" = "1" ] || { echo "✗ recovery_attempts=$FINAL_ATTEMPTS_B on the ABORT row — expected 1 to survive the ABORT branch's own restore (STATBUS-181)" >&2; exit 1; }
 echo "  ✓ recovery_attempts=1 survived the ABORT branch's own restoreDatabase call (STATBUS-181, second consumer path)"
 assert_flag_file_absent "$VM_NAME"
-[ "$(row_has_backup_path_for "$B_FULL")" = "t" ] || { echo "✗ B's row has NO retained backup_path after the ABORT — the STATBUS-111 probe would not match it" >&2; exit 1; }
+# STATBUS-228: this assertion is DELIBERATELY LEFT AS-IS (unlike phase (i)'s,
+# which was inverted). Phase (ii) is a POST-SWAP route — it reaches the single
+# backup_path recorder (service.go:6509-6528 runs after the reconnect, before
+# markStep(StepMigrateUp), and the C9 kill lands at step="migrate-up", so the
+# recorder provably ran). A retained identity here is CORRECT and load-bearing:
+# it is what STATBUS-111's replay and the abort-hold guard (service.go:3841)
+# both key on, and this is the only assertion in the fleet that reads the
+# recorder's output.
+#
+# IF THIS FAILS IN rc.06, IT IS NOT A STALE ASSERTION — READ IT AS A PRODUCT
+# FINDING. Predicted mechanism (engineer, 2026-08-19, code-level; unproven
+# because this line has not executed since STATBUS-197): the ABORT branch calls
+# restoreDatabase (service.go:8609) BEFORE its terminal write, rewinding the
+# volume — and therefore public.upgrade — to a snapshot taken BEFORE the
+# recorder ran, where backup_path is NULL. None of the four writeRollbackTerminal
+# call sites re-impose backup_path (:8302, :8332, :8704, :2971 impose only
+# state/error/recovery_attempts). The same rewind is why recovery_attempts needs
+# explicit re-imposition (STATBUS-181) — a mechanism already proven live at
+# rc.03, where the count stuck at 1. Escalate; do not "fix" this line.
+[ "$(row_has_backup_path_for "$B_FULL")" = "t" ] || { echo "✗ B's row has NO retained backup_path after the ABORT — the STATBUS-111 probe would not match it, and the abort-hold guard (service.go:3841) reads zero and FAILS OPEN, stripping the read-only hold on a broken volume. See the STATBUS-228 note above this line before changing anything: the likely cause is the ABORT branch's own restoreDatabase rewinding the row, with no terminal write re-imposing the column" >&2; exit 1; }
 [ "$(pre_upgrade_branch_present)" = "no" ] || { echo "✗ 'pre-upgrade' branch reappeared after the ABORT — the tree should still be corrupt (nothing restores it)" >&2; exit 1; }
 echo "  ✓ ABORT terminal landed in ONE pass (STATBUS-136): state='failed' + ROLLBACK_FAILED_GIT_CORRUPT together, flag removed, backup_path retained, tree still corrupt"
 
@@ -559,4 +652,4 @@ VM_EXEC bash -c "journalctl --user -u statbus-upgrade@statbus.service --no-pager
 echo "  ✓ daemon journal shows no boot-migrate failure line (STATBUS-180 race window closed)"
 
 echo ""
-echo "PASS: restore-broke-reattempt (dual-class STATBUS-111 proof — (i) a pair-terminal restore-broke row's re-attempt replays the restore to a byte-identical 'rolled_back'; (ii) a git-corrupt ABORT row (recovery_attempts=1 surviving its own restore, STATBUS-181) whose re-attempt refuses actionably, ErrRollbackGitCorrupt, before any destructive step, never mixed-era; both rows constructed via real dispatch + real kills + a real on-disk git-branch deletion, not fabrication)"
+echo "PASS: restore-broke-reattempt (dual-class STATBUS-111 proof — (i) a PreSwap pair-terminal row records NO snapshot identity and is OFFERED NO replay, stopping at the human 'failed' terminal with the volume provably untouched (STATBUS-197/-228 contract, asserted positively); (ii) a git-corrupt ABORT row (recovery_attempts=1 surviving its own restore, STATBUS-181) whose re-attempt refuses actionably, ErrRollbackGitCorrupt, before any destructive step, never mixed-era; both rows constructed via real dispatch + real kills + a real on-disk git-branch deletion, not fabrication)"
