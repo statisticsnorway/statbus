@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-08-19 00:17'
-updated_date: '2026-08-19 10:55'
+updated_date: '2026-08-19 11:01'
 labels:
   - upgrade-recovery
   - quality-gate
@@ -167,5 +167,11 @@ author: architect (pinned by foreman)
 created: 2026-08-19 10:55
 ---
 PARK PROOF VERIFIED AND RULED (the trace deleted a flag-schema change — 'the order I imposed paid for itself'). Verification done at the two load-bearing points: recoveryRollback's parked arm genuinely refuses (:2936-2941, flock released, flag kept, alive-idle); the structural argument holds — parked = in_progress, claim requires scheduled, the only route between them is the un-park re-schedule clearing recovery_parked_at in the same atomic UPDATE, so executeUpgrade's backup can never run over a live park. RULING 1: park sites STAY RULED-REIMPOSE-OWED until the narrowing ships, THEN flip to EXEMPT-with-proof — an exemption whose premise has a known live hole is prose pretending to be a mechanism; but the COST LINE corrects now: not 'a new flag field on the crash-recovery mutex carrier' — 'one branch'. RULING 2: narrow to 42703 — which is not fail-open but fail-INFORMED (column-does-not-exist is a PROOF the row cannot be parked; every other error is absence of knowledge, and the code treated opposites as the same fact). Non-42703 errors join the existing parked-refusal arm (refuse, flag kept, alive-idle, operator's next move logged). Asymmetry: a refusal on transient costs one human trigger on a recoverable box; proceeding silently un-parks into the deterministic failure it stopped at. SCOPE INSTRUCTION: the same unnarrowed pattern exists at completeInProgressUpgrade (:3046) and RecoveryBudgetGuard (:7074) — ENUMERATE ALL THREE BEFORE FIXING ONE; shared hazard narrows together, genuine differences get their safety reason recorded at the line. Timing: next small unit, not an interrupt — 242's audit goes live in a true state.
+---
+
+author: foreman
+created: 2026-08-19 11:01
+---
+NARROWING LANDED as f09aa99e6 (architect APPROVED) — 242's last owed thread closes. Five park-state consumers classified, not uniformly narrowed: three restore-reaching sites treat unknown as parked (joining the existing refusal arm); RecoveryBudgetGuard keeps fail-informed on 42703 because boot migrate CREATES the column — the architect verified the closed loop at :2205/:7036 (refuse → skip boot migrate → column never created → 42703 forever → box wedged at boot): the uniform fix he himself ruled would have been ACTIVELY HARMFUL at that site, which he named as the best argument yet for enumerate-first; the self-heal site stays as-is with its SQL belt guard (AND recovery_parked_at IS NULL at :7411) verified in the statement, not the comment. The park entries flipped OWED→EXEMPT-with-proof IN THE SAME COMMIT — no instant where the audit overstates. Pin shape: every consumer CLASSIFIED (a future site that legitimately needs fail-informed can be classified rather than wedged by a uniform rule). The flag-schema change that opened this thread was never built: trace-first reduced it to one branch plus one preserved exception.
 ---
 <!-- COMMENTS:END -->
