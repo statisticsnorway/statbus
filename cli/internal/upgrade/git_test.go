@@ -1,6 +1,7 @@
 package upgrade
 
 import (
+	"github.com/statisticsnorway/statbus/cli/internal/testgit"
 	"io"
 	"os"
 	"os/exec"
@@ -26,16 +27,12 @@ func newGitRepoFixture(t *testing.T) *gitRepoFixture {
 	dir := t.TempDir()
 	run := func(args ...string) string {
 		t.Helper()
-		cmd := exec.Command("git", args...)
+		cmd := exec.Command("git", testgit.Args(args...)...)
 		cmd.Dir = dir
+		cmd.Env = testgit.Env()
 		// Disable signing for the test repo regardless of the operator's
 		// global config — we don't want to fail on missing signing keys.
-		cmd.Env = append(os.Environ(),
-			"GIT_AUTHOR_NAME=test",
-			"GIT_AUTHOR_EMAIL=test@example.com",
-			"GIT_COMMITTER_NAME=test",
-			"GIT_COMMITTER_EMAIL=test@example.com",
-		)
+		cmd.Env = testgit.Env()
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)

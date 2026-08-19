@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"github.com/statisticsnorway/statbus/cli/internal/testgit"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,14 +17,14 @@ func TestPrereleaseTagRE(t *testing.T) {
 		{"v2026.04.0-rc.1", true},
 		{"v2026.04.0-rc.10", true},
 		{"v2026.12.5-rc.42", true},
-		{"v2026.04.0", false},              // stable, not rc
-		{"v26.04.0-rc.1", false},           // 2-digit year
-		{"v2026.4.0-rc.1", false},          // 1-digit month
-		{"v2026.04.0-rc", false},           // missing rc number
-		{"v2026.04.0-rc.", false},          // missing rc number
-		{"2026.04.0-rc.1", false},          // missing v prefix
-		{"v2026.04.0-rc.1-extra", false},   // trailing garbage
-		{"prefix-v2026.04.0-rc.1", false},  // leading garbage
+		{"v2026.04.0", false},             // stable, not rc
+		{"v26.04.0-rc.1", false},          // 2-digit year
+		{"v2026.4.0-rc.1", false},         // 1-digit month
+		{"v2026.04.0-rc", false},          // missing rc number
+		{"v2026.04.0-rc.", false},         // missing rc number
+		{"2026.04.0-rc.1", false},         // missing v prefix
+		{"v2026.04.0-rc.1-extra", false},  // trailing garbage
+		{"prefix-v2026.04.0-rc.1", false}, // leading garbage
 	}
 	for _, c := range cases {
 		got := prereleaseTagRE.MatchString(c.tag)
@@ -63,8 +64,9 @@ func makeRepo(t *testing.T) string {
 
 	run := func(args ...string) {
 		t.Helper()
-		cmd := exec.Command("git", args...)
+		cmd := exec.Command("git", testgit.Args(args...)...)
 		cmd.Dir = dir
+		cmd.Env = testgit.Env()
 		// Prevent the test from picking up the developer's signing config —
 		// we want signature verification to FAIL on unsigned test commits
 		// so ValidatePrereleaseTag's signature check is exercised.
@@ -138,7 +140,7 @@ func commitAt(t *testing.T, dir, msg string) string {
 		{"add", "migrations"},
 		{"commit", "-q", "-m", msg},
 	} {
-		cmd := exec.Command("git", args...)
+		cmd := exec.Command("git", testgit.Args(args...)...)
 		cmd.Dir = dir
 		cmd.Env = append(os.Environ(),
 			"GIT_AUTHOR_NAME=Test",

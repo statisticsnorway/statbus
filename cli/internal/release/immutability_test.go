@@ -1,6 +1,7 @@
 package release
 
 import (
+	"github.com/statisticsnorway/statbus/cli/internal/testgit"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,8 +17,9 @@ func initGitRepo(t *testing.T) (dir, relPath string) {
 	dir = t.TempDir()
 	run := func(args ...string) {
 		t.Helper()
-		cmd := exec.Command("git", args...)
+		cmd := exec.Command("git", testgit.Args(args...)...)
 		cmd.Dir = dir
+		cmd.Env = testgit.Env()
 		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("git %v: %v\n%s", args, err, out)
 		}

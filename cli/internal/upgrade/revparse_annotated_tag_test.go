@@ -2,7 +2,7 @@ package upgrade
 
 import (
 	"context"
-	"os"
+	"github.com/statisticsnorway/statbus/cli/internal/testgit"
 	"os/exec"
 	"strings"
 	"testing"
@@ -24,14 +24,12 @@ func TestRevParse_PeelsAnnotatedTag_STATBUS169(t *testing.T) {
 	dir := t.TempDir()
 	run := func(args ...string) string {
 		t.Helper()
-		cmd := exec.Command("git", args...)
+		cmd := exec.Command("git", testgit.Args(args...)...)
 		cmd.Dir = dir
+		cmd.Env = testgit.Env()
 		// Isolate from the operator's global/system git config (signing keys,
 		// hooks) so the test is hermetic across dev machines.
-		cmd.Env = append(os.Environ(),
-			"GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@example.com",
-			"GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@example.com",
-		)
+		cmd.Env = testgit.Env()
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)

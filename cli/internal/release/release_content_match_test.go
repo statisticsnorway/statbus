@@ -3,6 +3,7 @@ package release
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"github.com/statisticsnorway/statbus/cli/internal/testgit"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -21,8 +22,9 @@ func sha256Hex(b []byte) string {
 // gitIn runs a git command in dir, failing the test on error.
 func gitIn(t *testing.T, dir string, args ...string) {
 	t.Helper()
-	cmd := exec.Command("git", args...)
+	cmd := exec.Command("git", testgit.Args(args...)...)
 	cmd.Dir = dir
+	cmd.Env = testgit.Env()
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git %v (in %s): %v\n%s", args, dir, err, out)
 	}

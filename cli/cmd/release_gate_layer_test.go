@@ -28,6 +28,7 @@ import (
 	"testing"
 
 	"github.com/statisticsnorway/statbus/cli/internal/release"
+	"github.com/statisticsnorway/statbus/cli/internal/testgit"
 )
 
 // tagFiredWorkflows are the workflows whose ONLY automatic trigger is the
@@ -133,8 +134,9 @@ func gitAddCommit(t *testing.T, dir, msg string) {
 		{"add", "migrations"},
 		{"commit", "-q", "-m", msg},
 	} {
-		cmd := exec.Command("git", args...)
+		cmd := exec.Command("git", testgit.Args(args...)...)
 		cmd.Dir = dir
+		cmd.Env = testgit.Env()
 		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("git %v: %v\n%s", args, err, out)
 		}

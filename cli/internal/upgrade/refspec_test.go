@@ -1,6 +1,7 @@
 package upgrade
 
 import (
+	"github.com/statisticsnorway/statbus/cli/internal/testgit"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -44,8 +45,9 @@ func TestCleanStaleRefspecs(t *testing.T) {
 	dir := t.TempDir()
 	run := func(args ...string) {
 		t.Helper()
-		cmd := exec.Command("git", args...)
+		cmd := exec.Command("git", testgit.Args(args...)...)
 		cmd.Dir = dir
+		cmd.Env = testgit.Env()
 		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)
 		}
