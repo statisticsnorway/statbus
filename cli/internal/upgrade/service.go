@@ -4030,12 +4030,12 @@ func (d *Service) discover(ctx context.Context) {
 		return
 	}
 
-	// Edge channel: discover commits AND release tags.
-	// Commits for Docker container updates, tags for binary self-updates.
-	if d.channel == "edge" {
-		d.discoverEdge(ctx)
-		// Fall through to also discover release tags below.
-	}
+	// (The edge-channel commit discovery that ran here is retired with the
+	// channel itself — King, 2026-08-19. It fetched recent master commits and
+	// offered them as candidates, which is what "track every master commit"
+	// meant. Running a SPECIFIC commit is unaffected and still works exactly as
+	// before: `./sb upgrade register <commit>` then `schedule`. What retires is
+	// continuously following master, which no box should do unattended.)
 
 	// Use git fetch for discovery — no API rate limit, no GITHUB_TOKEN needed.
 	tags, err := DiscoverTagsViaGit(d.projDir)
@@ -4287,59 +4287,6 @@ func (d *Service) pruneDeletedTags(ctx context.Context, currentTags []GitTag) {
 			`UPDATE public.upgrade SET commit_tags = $1, release_status = $2::public.release_status_type WHERE id = $3`,
 			kept, newStatus, p.id)
 	}
-}
-
-// discoverEdge fetches recent master commits and makes them available.
-// Uses git fetch — no API rate limit.
-func (d *Service) discoverEdge(ctx context.Context) {
-	commits, err := DiscoverCommitsViaGit(d.projDir, 5)
-	if err != nil {
-		fmt.Printf("Edge discovery error: %v\n", err)
-		return
-	}
-	if len(commits) == 0 {
-		return
-	}
-
-	fmt.Printf("Edge discovery: %d recent commit(s) from master\n", len(commits))
-
-	for _, c := range commits {
-		// Verify commit signature before recording
-		if err := d.verifyCommitSignature(c.SHA); err != nil {
-			fmt.Printf("Skipping edge commit %s: %v\n", ShortForDisplay(c.SHA), err)
-			continue
-		}
-
-		summary := c.Summary
-		if len(summary) > 120 {
-			summary = summary[:120]
-		}
-
-		// release_builds_status='ready' for commits because edge channel
-		// never needs release.yaml output (no self-update, no manifest).
-		// docker_images_status defaults to 'building' and is set to 'ready'
-		// by verifyArtifacts() once docker manifest inspect confirms the four
-		// images, or to 'failed' if CI workflow failed.
-
-		// Capture git describe output now so verifyArtifacts can look up
-		// Docker images by a stable tag — the describe output changes as
-		// new tags are pushed past this commit after discovery.
-		versionTag, _ := runCommandOutput(d.projDir, "git", "describe", "--tags", "--always", c.SHA)
-		versionTag = strings.TrimSpace(versionTag)
-
-		_, err := d.upsertCandidate(ctx, CommitSHA(c.SHA), candidateMeta{
-			committedAt:   c.PublishedAt,
-			summary:       summary,
-			commitVersion: versionTag,
-		})
-		if err != nil {
-			fmt.Printf("  Failed to record commit %s: %v\n", ShortForDisplay(c.SHA), err)
-		}
-	}
-
-	// No pre-download here. discoverEdge is only ever called from discover(),
-	// which runs the single, newest-candidate pre-download once — after it has
-	// recorded the "last checked" timestamp. A second call here was redundant.
 }
 
 // downloadCandidate is one image set the background pre-download could fetch.

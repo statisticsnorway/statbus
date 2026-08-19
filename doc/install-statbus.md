@@ -150,7 +150,7 @@ channel has a well-defined, independent resolver path.
 |--------------|-------------------------------------------------------|-------------------------|
 | `stable`     | GitHub `/releases/latest` (excludes prereleases)      | Release artifact        |
 | `prerelease` | Newest `v*-rc.*` via `/releases?per_page=50`          | Release artifact        |
-| `edge`       | `master` HEAD; version string becomes bare `<commit_short>` (8-char)  | Built from source (`./dev.sh build-sb`, requires `go`) |
+
 
 Explicit override:
 
@@ -197,6 +197,6 @@ systemctl --user stop 'statbus-upgrade@*.service'
 curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease
 ```
 
-`./cloud.sh install <server>` does this automatically for both edge and release channels. Fresh installs on a brand-new server have no running service to conflict with.
+`./cloud.sh install <server>` does this automatically. Fresh installs on a brand-new server have no running service to conflict with.
 
 See `doc/upgrade-timeline.md` for the full upgrade architecture.

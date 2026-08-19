@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 10:27'
-updated_date: '2026-08-19 12:34'
+updated_date: '2026-08-19 12:48'
 labels:
   - ops
   - release
@@ -269,5 +269,19 @@ One further note for the record: `apiRuleOracle` in the STATBUS-255 deletion dif
 ## Landing
 
 Order unchanged: RunCheck switch → derive-mechanism → deletion diff → this retirement. This unit touches `migrate.go`, `github.go`, `service.go`, `cmd/upgrade.go`, `cmd/release.go`, three test files, `install.sh`, `cloud.sh`, and five docs.
+---
+
+author: engineer
+created: 2026-08-19 12:48
+---
+**Zero-value pin FOLDED into the edge-retirement unit and re-frozen.** Chain: build OK, `go test ./...` green, `golangci-lint run ./internal/migrate/` 0 issues, gofmt clean.
+
+The architect's generalisation is right and it is the half I stopped one step short of. I verified that renumbering the `iota` constants was SAFE; I did not notice that the retirement made a second property load-bearing — `channelLocalDev` is now the ZERO value, so anything reaching a classification without being assigned one gets the conservative branch.
+
+**Why that matters and is not cosmetic:** the two branches are not symmetric. `channelLocalDev` REFUSES a changed migration and asks a human; `channelRelease` RE-STAMPS it, trusting the cut gate. A var declared and not assigned, a struct field never set, a future map lookup that misses — all land on whichever constant sits first. If a later tidy-up sorts the block alphabetically or promotes the "most common" case, an uninitialised classification silently starts meaning TRUST THE BLESS: an unvetted migration edit blessed on a production box, with nothing printed to say so, from a diff that reads as housekeeping.
+
+**Encoded as the lesson, not the answer**, per the same move as the park-consumer classification: the assertion is that the ZERO VALUE MUST REMAIN THE CONSERVATIVE CLASSIFICATION, stated at the constant block and pinned by `TestZeroValueIsTheConservativeClassification`. Its failure text says what breaks and how to fix it, and it explicitly allows a reorder — provided the conservative case is still first. It also asserts the two classifications remain DISTINCT, since "conservative" means nothing if they collapse.
+
+**RED-verified, mutation site asserted:** moving `channelRelease` to position zero fails the pin by name. (Note the failure prints "it is now 0" — correct and worth reading carefully: the zero VALUE is still 0, it is the MEANING that changed. The test compares against the named constant, not the number, which is why it catches a change that any numeric assertion would sail past.)
 ---
 <!-- COMMENTS:END -->

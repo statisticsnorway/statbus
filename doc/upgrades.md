@@ -53,36 +53,30 @@ Edit `.env.config` and run `./sb config generate` to apply changes.
 
 The `GITHUB_TOKEN` environment variable is optional but recommended. Without it, the GitHub API allows 60 requests/hour; with it, 5000 requests/hour. Set it in the systemd unit override or in the shell environment.
 
-## Edge Upgrade Channel
+## Running a specific commit (the edge channel is retired)
 
-The `edge` channel tracks every commit pushed to the `master` branch, not just tagged releases. It is intended for development and testing servers where you want to stay on the latest code at all times.
+The `edge` channel tracked every commit pushed to `master` and auto-scheduled
+each one for immediate upgrade. It is **retired** (King, 2026-08-19): no box
+follows master unattended, and no role derives it, so it cannot be configured.
 
-**How it works:**
-
-- CI builds and pushes Docker images for every master commit, tagged with the 8-char commit_short (rc.63: `ghcr.io/statisticsnorway/statbus-app:abc1234f`).
-- The service discovers new commits by polling the GitHub API for the latest master HEAD.
-- When a new commit is found, the service auto-schedules it for immediate upgrade -- no operator action required.
-- Upgrades use the same lifecycle as tagged releases (backup, checkout, migrate, restart, health check, rollback on failure).
-
-**Enable the edge channel:**
+What that removed is *continuous* tracking. Running one specific commit is
+unchanged and still works exactly as before:
 
 ```bash
-./sb dotenv -f .env.config set UPGRADE_CHANNEL edge
-./sb config generate
+./sb upgrade register <commit_short>
+./sb upgrade schedule <commit_short>
 ```
 
-Then restart the service (or start it if not running):
+The commit is verified, backed up, migrated, health-checked and rolled back on
+failure by the same lifecycle a tagged release uses — the difference is that a
+human names the target, once, instead of the box taking whatever master happened
+to have.
 
-```bash
-sudo systemctl restart statbus-upgrade@statbus_no
-```
-
-**Important considerations:**
-
-- **Development/testing only.** Edge upgrades are not suitable for production. Every master commit is deployed without manual review.
-- **High churn.** The service will upgrade on every push to master. Set `UPGRADE_CHECK_INTERVAL` to control how frequently it polls (default `6h`; for active development, `15m` or `30m` may be appropriate).
-- **Migrations may be untested.** Edge commits may include migrations that have not been validated in a full release cycle.
-- **Version format.** Edge versions use the bare 8-char `commit_short` (e.g., `abc1234f`) instead of `vYYYY.MM.PATCH`. Rc.63 canonical naming — no `sha-` prefix.
+Why it went: every property that made edge useful for testing also made it
+unsafe to leave running. Commits were deployed with no review, migrations
+arrived without a release cycle to validate them, and a box could move under you
+between two glances at it. A named commit keeps the capability and removes the
+autopilot.
 
 ## Operating the Service
 

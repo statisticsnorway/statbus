@@ -148,9 +148,13 @@ The upgrade service monitors available disk space and reports it in the admin UI
 
 The installation process requires at least 100 GB of free space.
 
-## Edge Channel
+## Untagged commits
 
-The edge channel tracks every commit on master, not just tagged releases. Commit signatures are verified the same way as tagged releases — there is no security exception. Edge is intended for development servers that need to test the latest code.
+The `edge` channel, which tracked every commit on master, is **retired** (King,
+2026-08-19): no box follows master unattended. A specific commit can still be
+installed deliberately with `./sb upgrade register <commit>` + `schedule`, and
+its signature is verified exactly as a tagged release's is — there is no
+security exception for an untagged target, and there never was.
 
 ## Prerequisites
 

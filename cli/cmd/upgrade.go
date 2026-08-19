@@ -225,7 +225,7 @@ var upgradeApplyLatestCmd = &cobra.Command{
 	Use:   "apply-latest",
 	Short: "Discover and apply the latest available version",
 	Long: `Fetches tags via git, finds the latest version matching the
-configured channel (prerelease/stable/edge), and tells the upgrade service
+configured channel (stable/prerelease), and tells the upgrade service
 to upgrade to it immediately.
 
 Used by deploy workflows — all logic is server-side, no workflow
@@ -257,49 +257,34 @@ file changes needed.`,
 
 		var latestVersion string
 
-		if channel == "edge" {
-			// Edge: use latest master commit short. Bare 8-char hex (no
-			// "sha-" prefix) — the rc.63 canonical-naming cleanup
-			// retired that prefix, and ValidateVersion's regex was
-			// tightened to release-tag shape only. The bare commit-
-			// short form is what the SQL match below expects via
-			// `commit_sha LIKE :'target_version' || '%'`.
-			if fetchOut, err := upgrade.RunCommandOutput(projDir, "git", "fetch", "origin", "master", "--quiet"); err != nil {
-				return fmt.Errorf("git fetch origin master: %w\n  output: %s", err, strings.TrimSpace(fetchOut))
-			}
-			sha, err := upgrade.RunCommandOutput(projDir, "git", "log", "origin/master", "-1", "--format=%H")
-			if err != nil {
-				return fmt.Errorf("git log origin/master: %w\n  output: %s", err, strings.TrimSpace(sha))
-			}
-			sha = strings.TrimSpace(sha)
-			if len(sha) < 8 {
-				return fmt.Errorf("unexpected git log output: %q", sha)
-			}
-			latestVersion = sha[:8]
-		} else {
-			// Stable or prerelease: find latest tag
-			if fetchOut, err := upgrade.RunCommandOutput(projDir, "git", "fetch", "--tags", "--quiet"); err != nil {
-				return fmt.Errorf("git fetch --tags: %w\n  output: %s", err, strings.TrimSpace(fetchOut))
-			}
-			tagsOutput, err := upgrade.RunCommandOutput(projDir, "git", "tag", "-l", "v*", "--sort=-version:refname")
-			if err != nil {
-				return fmt.Errorf("git tag -l: %w", err)
-			}
-			tags := strings.Split(strings.TrimSpace(tagsOutput), "\n")
-			for _, tag := range tags {
-				tag = strings.TrimSpace(tag)
-				if tag == "" {
-					continue
-				}
-				if channel == "stable" && strings.Contains(tag, "-") {
-					// Stable: skip pre-release tags (contain "-")
-					continue
-				}
-				latestVersion = tag
-				break
-			}
+		// (The edge branch that stood here is retired with the channel — King,
+		// 2026-08-19. It resolved origin/master's HEAD commit-short and applied
+		// it, which is what "track every master commit" meant in practice.
+		// Applying a SPECIFIC commit is unaffected: `./sb upgrade register
+		// <commit_short>` then `schedule` takes exactly that target, deliberately,
+		// which is the part worth keeping. Continuously following master
+		// unattended is the part that retires.)
+		// Stable or prerelease: the latest tag the channel admits.
+		if fetchOut, err := upgrade.RunCommandOutput(projDir, "git", "fetch", "--tags", "--quiet"); err != nil {
+			return fmt.Errorf("git fetch --tags: %w\n  output: %s", err, strings.TrimSpace(fetchOut))
 		}
-
+		tagsOutput, err := upgrade.RunCommandOutput(projDir, "git", "tag", "-l", "v*", "--sort=-version:refname")
+		if err != nil {
+			return fmt.Errorf("git tag -l: %w", err)
+		}
+		tags := strings.Split(strings.TrimSpace(tagsOutput), "\n")
+		for _, tag := range tags {
+			tag = strings.TrimSpace(tag)
+			if tag == "" {
+				continue
+			}
+			if channel == "stable" && strings.Contains(tag, "-") {
+				// Stable: skip pre-release tags (contain "-")
+				continue
+			}
+			latestVersion = tag
+			break
+		}
 		if latestVersion == "" {
 			return fmt.Errorf("no matching version found for channel %q", channel)
 		}

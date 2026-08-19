@@ -182,13 +182,19 @@ ssh statbus@rune.statbus.org      "cd statbus && ./sb version"
 
 ### Upgrade channels
 
-The upgrade service's behavior depends on the `UPGRADE_CHANNEL` setting in `.env`:
+The upgrade service's behavior depends on the `UPGRADE_CHANNEL` value in `.env` —
+which is DERIVED from `UPGRADE_ROLE` in `.env.config` and is not settable
+directly (STATBUS-254):
 
-| Channel | Behavior |
-|---------|----------|
-| `stable` (default) | Only discovers non-prerelease releases |
-| `prerelease` | Discovers all releases including rc/beta/alpha |
-| `edge` | Discovers every commit pushed to `master` |
+| Role | Channel | Behavior |
+|------|---------|----------|
+| `production` (default) | `stable` | Only discovers non-prerelease releases |
+| `canary` | `prerelease` | Discovers release candidates first, deliberately |
+| `development` | `local` | Discovers nothing automatically |
+
+The `edge` channel, which discovered every commit pushed to `master`, is
+**retired** (King, 2026-08-19). No box follows master unattended any more. To run
+one specific commit, register and schedule it — see below.
 
 To target a specific version for a one-off upgrade (e.g. pin or downgrade), use `./sb upgrade schedule <version>` or an explicit `NOTIFY upgrade_apply` — both bypass channel filtering.
 

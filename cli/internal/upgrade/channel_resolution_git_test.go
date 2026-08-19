@@ -136,17 +136,27 @@ channel.`, fn, forbidden)
 	}
 }
 
-// TestEdgeAndUnknownChannelsUnchanged_STATBUS255: edge resolves to the empty
-// tag as before, and an unknown channel is still an error rather than an empty
-// success — an empty tag treated as "no upgrade available" would silently
-// freeze a box on a typo.
-func TestEdgeAndUnknownChannelsUnchanged_STATBUS255(t *testing.T) {
-	got, err := ResolveChannelToLatestTagAt(t.TempDir(), "edge")
-	if err != nil || got != "" {
-		t.Errorf("edge must resolve to the empty tag with no error and no git call; got %q, %v", got, err)
-	}
-	if _, err := ResolveChannelToLatestTagAt(t.TempDir(), "nonsense"); err == nil {
-		t.Error("an unknown channel must ERROR — resolving it to an empty tag would read as 'nothing to upgrade to' and freeze the box on a typo")
+// TestRetiredAndUnknownChannelsError: an unknown channel must ERROR rather than
+// resolve to an empty tag. An empty tag reads downstream as "nothing to upgrade
+// to", so a typo — or a stale value — would freeze a box silently instead of
+// telling anyone.
+//
+// EDGE IS NOW ONE OF THOSE UNKNOWN VALUES, and this test changed deliberately
+// rather than to match the code. It previously asserted that edge resolves to
+// ("", nil): that was correct while edge existed, because a box tracking master
+// genuinely had no tag to resolve. The King retired edge on 2026-08-19, so no
+// role derives it and no box can be put on it on purpose — the value can now
+// only arrive from a stale config, and silence is the wrong answer to it.
+func TestRetiredAndUnknownChannelsError(t *testing.T) {
+	for _, channel := range []string{"edge", "nonsense", ""} {
+		got, err := ResolveChannelToLatestTagAt(t.TempDir(), channel)
+		if err == nil {
+			t.Errorf(`channel %q resolved to %q with NO error.
+
+An unrecognised channel must be loud. Resolving it to an empty tag reads as
+"nothing to upgrade to" downstream, which freezes the box on a stale or
+mistyped value with nothing in the logs to explain it.`, channel, got)
+		}
 	}
 }
 

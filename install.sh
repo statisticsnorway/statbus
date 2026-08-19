@@ -4,7 +4,7 @@
 # This is the ONE command for both fresh installs and rescue/upgrade:
 #   curl -fsSL https://statbus.org/install.sh | bash                         # stable channel (default)
 #   curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease
-#   curl -fsSL https://statbus.org/install.sh | bash -s -- --channel edge
+#   curl -fsSL https://statbus.org/install.sh | bash -s -- --commit <40-hex-sha>
 #   curl -fsSL https://statbus.org/install.sh | bash -s -- --version vX.Y.Z
 #
 # It always runs from the user's home directory (via curl | bash).
@@ -56,8 +56,7 @@ trap 'rc=$?; echo "" >&2; echo "install.sh FAILED at line $LINENO: $BASH_COMMAND
 # --channel <name>   resolve version from channel. Valid names:
 #                      stable     — latest non-prerelease via /releases/latest (default)
 #                      prerelease — latest v*-rc.* via /releases API
-#                      edge       — master HEAD, version string "sha-<short>"
-# --commit <sha>     STATBUS-082: edge-with-a-pin. Check out the EXACT 40-hex commit
+# --commit <sha>     STATBUS-082: check out the EXACT 40-hex commit
 #                    and procure its PUBLISHED statbus-sb image (NO build fallback —
 #                    determinism). Mutually exclusive with --version/--channel.
 #                    Harness + developer audience; operators use stable/prerelease.
@@ -83,7 +82,7 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-# STATBUS-082: --commit <full-40-hex-sha> is edge-with-a-pin — mutually exclusive
+# STATBUS-082: --commit <full-40-hex-sha> names one exact commit — mutually exclusive
 # with --version and --channel (any combination refuses), full lowercase hex only
 # (commit-is-authoritative doctrine: artifacts are named by full SHA). Its audience
 # is the harness + developers; NSO operators stay on stable/prerelease.
@@ -113,9 +112,11 @@ fi
 # network work.
 if [ -n "$CHANNEL" ]; then
     case "$CHANNEL" in
-        stable|prerelease|edge) ;;
+        stable|prerelease) ;;
         *)
-            echo "Error: Unknown channel '$CHANNEL'. Valid: stable, prerelease, edge." >&2
+            echo "Error: Unknown channel '$CHANNEL'. Valid: stable, prerelease." >&2
+            echo "  (The 'edge' channel is retired. To install one specific commit," >&2
+            echo "   use --commit <40-hex-sha> instead.)" >&2
             exit 1
             ;;
     esac
@@ -142,42 +143,34 @@ case "$ARCH" in
     *)       echo "Unsupported architecture: $ARCH"; exit 1 ;;
 esac
 
-# procure_sb_from_commit_image <version_short8> <allow_build_fallback: yes|no>
+# procure_sb_from_commit_image <version_short8>
 #
-# STATBUS-082: the shared binary-procurement step for the two commit-tagged
-# channels (edge and --commit). Both check out a git commit, then procure ~/statbus/sb
-# from the commit-tagged image ghcr.io/statisticsnorway/statbus-sb:<short8> via
-# docker pull → create → cp — NO host Go/make toolchain (mirrors `./sb db seed
-# fetch` and the in-binary procureSbFromImage). The ONLY difference between the two
-# channels is this function's second argument:
-#   - edge (yes): if the image is unpublished (an UNPUSHED local edge commit), build
-#     it locally via cli/Dockerfile.sb (golang runs IN-container; still no host Go) —
-#     the toolchain-free dev/rescue case.
-#   - --commit (no): REFUSE if the image is unpublished. Determinism is the flag's
-#     whole point — the harness must test the commit's PUBLISHED image (the artifact
-#     CI ships and the arc's upgrade legs pull); a silent in-VM build would mask a
-#     CI-images gap and test a DIFFERENT artifact. The refusal names the image ref
-#     and both remedies.
+# STATBUS-082: the binary-procurement step for the --commit path. It checks out a
+# git commit, then procures ~/statbus/sb from the commit-tagged image
+# ghcr.io/statisticsnorway/statbus-sb:<short8> via docker pull → create → cp — NO
+# host Go/make toolchain (mirrors `./sb db seed fetch` and the in-binary
+# procureSbFromImage).
+#
+# An unpublished image is a REFUSAL, never a local build. Determinism is the
+# flag's whole point: the harness must test the commit's PUBLISHED image — the
+# artifact CI ships and the arc's upgrade legs pull — and a silent in-VM build
+# would mask a CI-images gap while testing a DIFFERENT binary.
+#
+# (The build-fallback branch, and the yes/no argument that selected it, went with
+# the edge channel — King, 2026-08-19. Edge was the only caller that passed "yes",
+# because an UNPUSHED local master commit legitimately had no image. A named
+# commit always has one, or is not ready to be installed.)
 procure_sb_from_commit_image() {
     version="$1"
-    allow_build_fallback="$2"
     SB_IMAGE="ghcr.io/statisticsnorway/statbus-sb:${version}"
     echo "Procuring sb from image ${SB_IMAGE} (no toolchain)..."
     if ! docker pull "$SB_IMAGE" >/dev/null 2>&1; then
-        if [ "$allow_build_fallback" = "yes" ]; then
-            echo "  no published image for ${version} — building locally via cli/Dockerfile.sb (golang runs in-container; no host Go)..."
-            docker build -f cli/Dockerfile.sb \
-                --build-arg VERSION="$version" \
-                --build-arg COMMIT="$(git rev-parse HEAD)" \
-                -t "$SB_IMAGE" ./cli
-        else
-            echo "Error: no published statbus-sb image for commit ${version}: ${SB_IMAGE}" >&2
-            echo "  --commit tests the commit's PUBLISHED image (the artifact CI ships and the upgrade legs pull); it will NOT build a different binary locally." >&2
-            echo "  Remedies:" >&2
-            echo "    - wait for the images.yaml workflow to publish the image for this commit, then retry; or" >&2
-            echo "    - use --channel edge if you genuinely want master HEAD with an in-container build fallback." >&2
-            exit 1
-        fi
+        echo "Error: no published statbus-sb image for commit ${version}: ${SB_IMAGE}" >&2
+        echo "  --commit tests the commit's PUBLISHED image (the artifact CI ships and the upgrade legs pull); it will NOT build a different binary locally." >&2
+        echo "  Remedies:" >&2
+        echo "    - wait for the images.yaml workflow to publish the image for this commit, then retry; or" >&2
+        echo "    - install a released version instead: --version <tag>, or --channel stable|prerelease." >&2
+        exit 1
     fi
     if ! sb_cid=$(docker create "$SB_IMAGE"); then
         echo "Error: docker create $SB_IMAGE failed — no sb binary to extract." >&2
@@ -227,53 +220,12 @@ elif [ "$CHANNEL" = "prerelease" ]; then
         exit 1
     fi
     echo "Latest pre-release: $VERSION"
-elif [ "$CHANNEL" = "edge" ]; then
-    # Edge channel: clone master (no release tag to pin); VERSION becomes the
-    # bare commit_short. STATBUS-061: the sb binary is PROCURED FROM THE
-    # commit-tagged statbus-sb image (ghcr.io/statisticsnorway/statbus-sb:<short>,
-    # built by images.yaml on every master push) via docker create + docker cp —
-    # NO host Go/make toolchain (mirrors `./sb db seed fetch` and the in-binary
-    # procureSbFromImage). If the commit has no published image (an UNPUSHED
-    # local edge commit), build it locally via cli/Dockerfile.sb — golang runs
-    # INSIDE the container, so still no host Go. This makes edge recovery
-    # toolchain-free, closing the last gap in the legacy-recovery lever. Edge is
-    # the dev-oriented path; production operators use stable or prerelease.
-    if [ -d "$STATBUS_DIR/.git" ]; then
-        echo "Updating existing installation (edge: master HEAD)..."
-        cd "$STATBUS_DIR"
-        # Fetch master into a real remote-tracking ref. A prior install via
-        # stable/prerelease/--version cloned `--depth 1 --branch <tag>`
-        # (single-branch, install.sh:256), so refs/remotes/origin/master does
-        # NOT exist; a bare `git fetch origin master` updates only FETCH_HEAD and
-        # the checkout below then dies "fatal: 'origin/master' is not a commit".
-        # The explicit +src:dst refspec creates/updates the tracking ref directly,
-        # mirroring git's default +refs/heads/*:refs/remotes/origin/* clone refspec.
-        # Same single-branch-clone class as the db-seed fix at :237/:263.
-        git fetch origin +master:refs/remotes/origin/master
-        git checkout -B current origin/master
-        # Item M (plan-rc.66): drop the legacy statbus/ namespace from
-        # local-only state branches. Idempotent — swallows the "branch
-        # not found" error on hosts that never had the legacy names.
-        git branch -D statbus/current 2>/dev/null || true
-        git branch -D statbus/pre-upgrade 2>/dev/null || true
-    else
-        echo "Cloning StatBus repository (edge: master)..."
-        git clone --branch master \
-            https://github.com/statisticsnorway/statbus.git "$STATBUS_DIR"
-        cd "$STATBUS_DIR"
-    fi
-    # Rc.63: VERSION for edge is the bare commit_short (8-char). No
-    # "sha-" prefix anywhere. The `./sb config generate` step below
-    # re-computes COMMIT_SHORT from git, so .env is coherent even when
-    # VERSION is set here and .env.config is generated later.
-    VERSION="$(git rev-parse --short=8 HEAD)"
-    echo "Edge version: $VERSION"
-    # STATBUS-082: procurement factored into the shared function; edge allows the
-    # in-container build fallback for an unpushed local commit.
-    procure_sb_from_commit_image "$VERSION" "yes"
-    # Edge path is fully resolved — skip the download-and-checkout
-    # block below by jumping straight to the post-install steps.
-    SKIP_BINARY_DOWNLOAD=1
+# (The edge branch stood here and is RETIRED with the channel — King,
+# 2026-08-19. It cloned master HEAD, took the bare commit_short as VERSION, and
+# procured `sb` from the commit-tagged statbus-sb image. Installing a SPECIFIC
+# commit is unaffected and handled by the --commit branch immediately below:
+# same toolchain-free image procurement, same recovery lever, but a human names
+# the commit instead of the box taking whatever master happened to have.)
 elif [ -n "$COMMIT_SHA" ]; then
     # STATBUS-082: --commit is edge-with-a-pin — check out the EXACT sha (not the
     # moving master tip), procure sb from its PUBLISHED image with NO build fallback
@@ -302,7 +254,7 @@ elif [ -n "$COMMIT_SHA" ]; then
     # VERSION = bare commit_short (8-char), the rc.63 convention shared with edge.
     VERSION="$(git rev-parse --short=8 HEAD)"
     echo "Commit version: $VERSION"
-    procure_sb_from_commit_image "$VERSION" "no"
+    procure_sb_from_commit_image "$VERSION"
     # Fully resolved — skip the release download-and-checkout block below.
     SKIP_BINARY_DOWNLOAD=1
 fi

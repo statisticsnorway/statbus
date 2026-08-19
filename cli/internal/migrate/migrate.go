@@ -1714,8 +1714,9 @@ const ExitStaleRestoredMigration = 21
 
 // restampVettedMigration updates db.migration.content_hash for `version` to the
 // live file hash and prints the single loud re-stamp line. It is the shared
-// action of the two branches that trust the SAME bless — the channelRelease case
-// (a cut release the box is applying) and the channelEdge content-recognition
+// action of the branch that trusts the bless — the channelRelease case
+// (a cut release the box is applying); the channelEdge content-recognition arm
+// that once shared it retired with the edge channel itself
 // branch (STATBUS-166: on-disk bytes that exactly match a cut release's bytes) —
 // so both re-stamp AND announce identically. One definition, no drift.
 func restampVettedMigration(projDir string, version int64, storedHash, liveHash string) error {
@@ -1769,13 +1770,12 @@ func eagerContentHashCheck(projDir string) error {
 	// Read it before changing ANY branch below. In particular: never add a
 	// declaration file or sanctioned list (retired side channel), and trust is
 	// content-level — gate-vetted bytes may be re-stamped wherever a box got
-	// them (STATBUS-166, King-approved: edge gains recognition of vetted bytes).
+	// them (STATBUS-166, King-approved).
 	channel := migrationChannelClass(projDir)
-	maxVerOut, err := runPsql(projDir, "SELECT COALESCE(MAX(version), 0) FROM db.migration", "-t", "-A")
-	if err != nil {
-		return fmt.Errorf("query max applied migration version: %w", err)
-	}
-	maxVersion, _ := strconv.ParseInt(strings.TrimSpace(maxVerOut), 10, 64)
+	// (The MAX(version) query that stood here went with the edge arm: it existed
+	// solely to answer "is this mismatch the LATEST applied migration?", which
+	// only the edge auto-redo asked. No branch reads it now, so the round-trip
+	// is removed rather than left running for nobody.)
 
 	rowsOut, err := runPsql(projDir,
 		"SELECT version || '|' || COALESCE(content_hash, '<NULL>') FROM db.migration ORDER BY version",
@@ -1843,49 +1843,25 @@ func eagerContentHashCheck(projDir string) error {
 				return err
 			}
 			continue
-		case channelEdge:
-			// STATBUS-166 (King-approved): CONTENT-LEVEL recognition of gate-vetted
-			// bytes. An edge box applies ungated master commits, so a mismatch here
-			// may be either (a) bytes some cut release already blessed, reaching this
-			// box via master ahead of its ledger, or (b) a genuinely ungated edit.
-			// Distinguish by CONTENT: if some cut release carries version V with
-			// EXACTLY these on-disk bytes, the release gate blessed them → re-stamp
-			// trusting the gate, the SAME one loud line channelRelease prints. Only
-			// bytes no release carries fall through to today's edge behavior (latest
-			// → redo; deeper → refuse). Shallow-clone safe (ls-remote + tag fetch,
-			// never a local tag-tree probe). This is the branch that heals the
-			// STATBUS-123 dev gate blocking every deploy.
-			vettedTag, matchErr := release.ReleaseTagWithMigrationHash(projDir, version, liveHash)
-			if matchErr != nil {
-				return fmt.Errorf("edge release-content recognition for migration %d: %w", version, matchErr)
-			}
-			if vettedTag != "" {
-				if err := restampVettedMigration(projDir, version, storedHash, liveHash); err != nil {
-					return err
-				}
-				continue
-			}
-			// No cut release carries these bytes → exactly today's edge behavior.
-			// REDO: a deployed always-latest dev/edge box; data loss acceptable.
-			// Re-run the latest-applied migration (down+up) to absorb the change.
-			// A deeper-than-latest mismatch is a depth-asymmetry we do not
-			// auto-recreate yet (Redo is latest-only) → fall through to the
-			// localDev guidance + a King-flag (STATBUS-102 follow-up).
-			if version == maxVersion {
-				// targetExplicit=false: this is an internal edge-channel
-				// auto-redo, not an operator CLI --target, so it keeps 146's
-				// strict refuse-on-divergence (and the env was already set to
-				// the target by the enclosing runMigrateUp override, so there
-				// is no divergence in practice).
-				if redoErr := Redo(projDir, version, "dev", true, false, false); redoErr != nil {
-					return fmt.Errorf("edge auto-redo of migration %d: %w", version, redoErr)
-				}
-				fmt.Printf("[migrate]   ⟳ edge channel: re-ran (down+up) migration %d to absorb its content change\n", version)
-				continue
-			}
-			fmt.Printf("[migrate]   ⚑ edge channel: migration %d content changed but is NOT the latest applied (%d) — deep-edge auto-recreate not yet implemented (STATBUS-102 follow-up; King's call). Falling back to manual guidance.\n",
-				version, maxVersion)
-			fallthrough
+		// EDGE IS RETIRED (King ruled 2026-08-19). The channelEdge arm stood here
+		// and is deleted with the channel itself. What it did: STATBUS-166
+		// content-level recognition — an edge box applied ungated master commits, so
+		// a content_hash mismatch might be bytes a cut release had already blessed
+		// arriving via master ahead of this box's ledger; if some release carried
+		// exactly those bytes it re-stamped, otherwise it auto-redid the latest
+		// migration (data loss accepted on an always-latest box).
+		//
+		// NOTHING IS LOST BY REMOVING IT, and that is worth stating rather than
+		// assuming. The case it healed was dev's gate blocking every deploy while dev
+		// tracked master; dev now follows the prerelease channel, so it classifies
+		// channelRelease and the bless above covers the same mismatch — by trusting
+		// the cut gate directly, which is the stronger form of the same trust.
+		//
+		// A box that still carries UPGRADE_CHANNEL=edge in a stale .env now
+		// classifies channelLocalDev and lands in the default arm below: no
+		// auto-redo, no auto-bless, human guidance. That is the SAFE direction for
+		// an unrecognised channel, and it is the whole reason the classifier's
+		// default is localDev rather than release.
 		default:
 			// localDev (UPGRADE_CHANNEL=local) or an uncertain channel:
 			// a human is present — never auto-mutate. Released → immutability
@@ -1971,8 +1947,18 @@ func currentMigrationTarget(projDir string) (target, dbName string) {
 type migrationChannel int
 
 const (
+	// THE ZERO VALUE MUST REMAIN THE CONSERVATIVE CLASSIFICATION.
+	//
+	// channelLocalDev is first, so it is what an uninitialised migrationChannel
+	// means. That is not cosmetic: localDev REFUSES and asks a human, while
+	// channelRelease RE-STAMPS a changed migration on the strength of the cut
+	// gate. Any path that ends up with a zero value — a var declared and not
+	// assigned, a struct field never set, a map miss — therefore fails safe.
+	//
+	// Reorder this block so channelRelease sits first and an uninitialised value
+	// silently means TRUST THE BLESS, on a real box, arrived at by a change that
+	// looks like tidying. TestZeroValueIsTheConservativeClassification pins it.
 	channelLocalDev migrationChannel = iota
-	channelEdge
 	channelRelease
 	// channelSeedBuild — the hermetic seed-builder stage (UPGRADE_CHANNEL=seed-build).
 	// It has NO .git, so it must NEVER reach the released-tag git probe. A
@@ -1993,10 +1979,8 @@ const (
 // here. This makes test == production for the upgrade logic: an arc can exercise
 // the release-bless by setting UPGRADE_CHANNEL=stable on a development-mode box.
 //
-//  1. UPGRADE_CHANNEL == "edge" → edge. A DEPLOYED always-latest box
-//     (e.g. dev.statbus.org).
-//  2. UPGRADE_CHANNEL ∈ {"stable","prerelease"} → release.
-//  3. else (UPGRADE_CHANNEL == "local", unset, unrecognized, or unreadable .env)
+//  1. UPGRADE_CHANNEL ∈ {"stable","prerelease"} → release.
+//  2. else (UPGRADE_CHANNEL == "local", unset, unrecognized, or unreadable .env)
 //     → localDev. The SAFE default: never auto-bless or auto-redo when the
 //     channel is uncertain — stop for a human. On a properly-configured box this
 //     fires only for the local-dev channel (config.go always writes a value).
@@ -2007,8 +1991,6 @@ func migrationChannelClass(projDir string) migrationChannel {
 	}
 	if ch, ok := f.Get("UPGRADE_CHANNEL"); ok {
 		switch ch {
-		case "edge":
-			return channelEdge
 		case "stable", "prerelease":
 			return channelRelease
 		case "seed-build":

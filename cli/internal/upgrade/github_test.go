@@ -214,8 +214,13 @@ func TestFilterTagsByChannel(t *testing.T) {
 		{"stable", []string{"v2026.03.0", "v2026.04.0"}},
 		// prerelease accepts only -rc. tags; rejects release + beta.
 		{"prerelease", []string{"v2026.04.1-rc.1", "v2026.04.2-rc.5"}},
-		// edge accepts release + rc (binary self-update tracks both); rejects beta.
-		{"edge", []string{"v2026.03.0", "v2026.04.0", "v2026.04.1-rc.1", "v2026.04.2-rc.5"}},
+		// RETIRED edge admits NOTHING (King, 2026-08-19). It used to admit release
+		// + rc together, because the edge binary self-update tracked both. Now it
+		// is just an unrecognised name, and the exclusive-allowlist shape means an
+		// unrecognised name matches no tag at all — so a box carrying a stale
+		// edge value is offered nothing rather than offered everything, which is
+		// the safe direction for a value nobody chose.
+		{"edge", nil},
 		// an unrecognized channel name admits nothing.
 		{"nightly", nil},
 	}

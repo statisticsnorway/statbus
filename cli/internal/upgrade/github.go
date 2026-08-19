@@ -18,19 +18,6 @@ const (
 	repo  = "statbus"
 )
 
-// Release represents a GitHub Release.
-type Release struct {
-	TagName    string    `json:"tag_name"`
-	Name       string    `json:"name"`
-	Body       string    `json:"body"`
-	Prerelease bool      `json:"prerelease"`
-	Draft      bool      `json:"draft"`
-	HTMLURL    string    `json:"html_url"`
-	Published  time.Time `json:"published_at"`
-	Assets     []Asset   `json:"assets"`
-	TargetSHA  string    `json:"target_commitish"`
-}
-
 // Asset is a release asset (binary, manifest, etc.).
 type Asset struct {
 	Name               string `json:"name"`
@@ -238,13 +225,18 @@ func ResolveChannelToLatestTag(channel string) (string, error) {
 // ResolveChannelToLatestTagAt is the testable inner variant — projDir is the
 // repository the tags are read from.
 func ResolveChannelToLatestTagAt(projDir, channel string) (string, error) {
+	// EDGE IS RETIRED (King ruled 2026-08-19). It used to return ("", nil) here —
+	// "resolve to no tag" — which was how a box that tracked master said "there
+	// is nothing to resolve". No role derives edge any more, so the value can
+	// only arrive from a stale config, and an unknown channel must ERROR rather
+	// than return an empty tag: an empty tag reads downstream as "nothing to
+	// upgrade to", which would freeze such a box silently instead of telling
+	// anyone.
 	switch channel {
-	case "edge":
-		return "", nil
 	case "stable", "prerelease":
 		// fall through
 	default:
-		return "", fmt.Errorf("unknown channel %q (valid: stable, prerelease, edge)", channel)
+		return "", fmt.Errorf("unknown channel %q (valid: stable, prerelease)", channel)
 	}
 
 	tags, err := DiscoverTagsViaGit(projDir)
@@ -463,7 +455,11 @@ func DiscoverTagsViaGit(projDir string) ([]GitTag, error) {
 // only if its shape is explicitly admitted, never by default:
 //   - stable     → clean CalVer release tags only (no suffix)
 //   - prerelease → release-candidate tags only (-rc.N)
-//   - edge       → release + RC tags (the edge binary self-update tracks both)
+//
+// The edge channel, which admitted both shapes for its binary self-update, is
+// retired (King, 2026-08-19) and admits nothing: an unrecognised channel name
+// matches NO tag, so a box carrying a stale value is offered nothing rather
+// than being offered everything.
 //
 // Any other shape — a non-rc hyphenated tag (-beta/-foo/typo), a commit ref,
 // or anything under an unrecognized channel name — matches NO channel and is
@@ -481,54 +477,10 @@ func FilterTagsByChannel(tags []GitTag, channel string) []GitTag {
 			admit = shape == ShapeRelease
 		case "prerelease":
 			admit = shape == ShapePrerelease
-		case "edge":
-			admit = shape == ShapeRelease || shape == ShapePrerelease
 		}
 		if admit {
 			out = append(out, t)
 		}
 	}
 	return out
-}
-
-// GitCommit represents a commit discovered via git fetch for the edge channel.
-type GitCommit struct {
-	SHA         string
-	PublishedAt time.Time
-	Summary     string
-}
-
-// DiscoverCommitsViaGit fetches master and returns recent commits.
-// Uses git protocol — no API rate limit.
-func DiscoverCommitsViaGit(projDir string, count int) ([]GitCommit, error) {
-	// Fetch latest master from remote
-	if err := runCommand(projDir, "git", "fetch", "origin", "master", "--quiet"); err != nil {
-		return nil, fmt.Errorf("git fetch origin master: %w", err)
-	}
-
-	// Get recent commits: SHA, author date (ISO), and subject line
-	out, err := runCommandOutput(projDir, "git", "log", "origin/master",
-		fmt.Sprintf("--format=%%H\t%%aI\t%%s"),
-		fmt.Sprintf("-n%d", count))
-	if err != nil {
-		return nil, fmt.Errorf("git log: %w", err)
-	}
-
-	var commits []GitCommit
-	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
-		if line == "" {
-			continue
-		}
-		parts := strings.SplitN(line, "\t", 3)
-		if len(parts) < 3 {
-			continue
-		}
-		publishedAt, _ := time.Parse(time.RFC3339, parts[1])
-		commits = append(commits, GitCommit{
-			SHA:         parts[0],
-			PublishedAt: publishedAt,
-			Summary:     parts[2],
-		})
-	}
-	return commits, nil
 }

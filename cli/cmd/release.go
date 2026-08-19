@@ -2305,20 +2305,20 @@ Input forms:
   --tag vX                  check a specific tag
   --channel stable          check the latest stable release
   --channel prerelease      check the latest pre-release (default for bare invocation)
-  --channel edge            skip — edge builds from source; no release artifacts
 
-Exit 0 when all checks pass (or when --channel edge short-circuits);
-exit 1 with retry advice when any check fails.`,
+Exit 0 when all checks pass; exit 1 with retry advice when any check fails.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if releaseCheckTag != "" && releaseCheckChannel != "" {
 			return fmt.Errorf("--tag and --channel are mutually exclusive")
 		}
 
-		// Edge channel short-circuits: nothing to verify.
-		if releaseCheckChannel == "edge" {
-			fmt.Println("edge channel builds from source; no release artifacts to verify.")
-			return nil
-		}
+		// (The edge short-circuit stood here and is retired with the channel —
+		// King, 2026-08-19. It returned success WITHOUT checking anything,
+		// because an edge box built from source and had no release artifacts to
+		// verify. That is a pass-without-examining, and it is only ever correct
+		// while the thing it declines to examine genuinely does not exist. Edge
+		// no longer resolves at all, so the channel resolution below now refuses
+		// it by name instead of quietly returning green.)
 
 		tag := releaseCheckTag
 		if tag == "" {

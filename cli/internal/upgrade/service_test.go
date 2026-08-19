@@ -100,10 +100,14 @@ func TestInstallShBranchNamesNamespaceFree(t *testing.T) {
 	}
 	body := string(src)
 
-	// Three new-style checkouts, one per code path (edge update,
-	// rescue update, fresh clone).
+	// One new-style checkout per code path. The list changed with the EDGE
+	// RETIREMENT (King, 2026-08-19), and deliberately rather than to make the
+	// test pass: the `origin/master` checkout was the edge-update path, and edge
+	// no longer exists, so there is no code path left to assert it for. The
+	// commit path that replaced it is asserted here in its place, so the count
+	// still matches the number of real paths rather than silently shrinking.
 	wantCheckouts := []string{
-		`git checkout -B current origin/master`,
+		`git checkout -B current "$COMMIT_SHA"`,
 		`git checkout -B current "$VERSION"`,
 		`git -C "$STATBUS_DIR" checkout -B current "$VERSION"`,
 	}

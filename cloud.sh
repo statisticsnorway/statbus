@@ -69,8 +69,8 @@ usage() {
     echo "  inspect                    Show credentials for all installations"
     echo "  wipe <server>              DESTRUCTIVE: delete DB and recreate"
     echo ""
-    echo "  migrate-down <server> <migration>  Roll back to before this migration (edge only)"
-    echo "  migrate-up <server>               Apply pending migrations (edge only)"
+    echo "  migrate-down <server> <migration>  RETIRED with the edge channel"
+    echo "  migrate-up <server>               RETIRED with the edge channel"
     echo ""
     echo "Servers: $SERVERS"
     exit 1
@@ -255,7 +255,7 @@ trust_flag() {
 # corrected migration. Removed 2026-05-22 after the loop bit a dev recovery.
 # Release-cut gate remains authoritative; install just applies forward.
 
-# cmd_migrate_down rolls back a specific migration on an edge server.
+# cmd_migrate_down is RETIRED — see the refusal below for why.
 # Takes a migration number — rolls back until that migration is gone.
 # This is a manual, explicit, operator-invoked command — the upgrade
 # service NEVER runs down migrations.
@@ -263,56 +263,47 @@ cmd_migrate_down() {
     local server="$1"
     local migration="$2"
 
-    if [ -z "$server" ] || [ -z "$migration" ]; then
-        echo "Usage: ./cloud.sh migrate-down <server> <migration>"
-        echo "Example: ./cloud.sh migrate-down statbus_dev 20260417130648"
-        exit 1
-    fi
-
-    validate_server "$server"
-
-    local channel
-    channel=$(ssh_server "$server" "cd statbus && ./sb dotenv -f .env.config get UPGRADE_CHANNEL 2>/dev/null" 2>/dev/null || echo "prerelease")
-    if [ "$channel" != "edge" ]; then
-        echo "Error: migrate-down is only supported on edge channel servers."
-        echo "  $server is on channel: $channel"
-        echo "  Release/prerelease servers use immutable migrations enforced by RC preflight."
-        exit 1
-    fi
-
-    echo "Rolling back migration $migration on $server..."
-    local current
-    while true; do
-        current=$(ssh_server "$server" \
-            "cd statbus && echo 'SELECT MAX(version) FROM public.schema_migrations;' | ./sb psql -t -A" \
-            2>/dev/null || true)
-        if [ -z "$current" ] || [ "$current" -lt "$migration" ]; then
-            echo "Migration $migration is no longer applied."
-            break
-        fi
-        echo "  Rolling back migration $current..."
-        ssh_server "$server" "cd statbus && ./sb migrate down" 2>&1
-    done
-    echo "Done. Re-run: ./cloud.sh install $server"
+    # EDGE IS RETIRED (King, 2026-08-19), and this command went with it.
+    #
+    # It was only ever permitted on an edge box, and that was not an arbitrary
+    # restriction: rolling a migration BACKWARDS is safe only where migrations
+    # are not immutable, and edge was the one channel that applied ungated master
+    # commits. Every remaining box follows released tags, where migrations ARE
+    # immutable — a released migration that wrote wrong data is corrected by a
+    # FORWARD repair migration, never by rolling the released one back.
+    #
+    # The rollback body is deleted rather than left behind a guard: dead code
+    # under a refusal reads as "this could still be right", and this one would be
+    # reached for at exactly the wrong moment, on a production box, under
+    # pressure.
+    echo "Error: cloud.sh migrate-down is retired together with the edge channel."
+    echo "  Requested: rollback of migration ${migration:-<none>} on ${server:-<none>}."
+    echo "  Released migrations are IMMUTABLE. To correct one, ship a forward repair"
+    echo "  migration and release it: ./sb migrate new --description \"fix_...\""
+    echo "  See AGENTS.md (STATBUS-172) for how to test a repair against data written"
+    echo "  under the corruption, not just against seed state."
+    exit 1
 }
 
-# cmd_migrate_up applies pending migrations on an edge server.
+# cmd_migrate_up is RETIRED — see the refusal below for why.
 # Symmetric counterpart to migrate-down. Edge-only.
 cmd_migrate_up() {
     local server="$1"
-    validate_server "$server"
 
-    local channel
-    channel=$(ssh_server "$server" "cd statbus && ./sb dotenv -f .env.config get UPGRADE_CHANNEL 2>/dev/null" 2>/dev/null || echo "prerelease")
-    if [ "$channel" != "edge" ]; then
-        echo "Error: migrate-up is only supported on edge channel servers."
-        echo "  $server is on channel: $channel"
-        exit 1
-    fi
-
-    echo "Applying pending migrations on $server..."
-    ssh_server "$server" "cd statbus && ./sb migrate up" 2>&1
-    echo "Done."
+    # Retired with the edge channel (King, 2026-08-19) — the symmetric
+    # counterpart to migrate-down above, and edge-only for the same reason.
+    #
+    # Applying pending migrations is not a thing an operator does to a release
+    # box by hand: the upgrade pipeline runs migrations as part of the upgrade it
+    # is performing, inside the backup/health-check/rollback envelope. Running
+    # them outside that envelope is how a box ends up half-migrated with no
+    # snapshot to go back to.
+    echo "Error: cloud.sh migrate-up is retired together with the edge channel."
+    echo "  Requested on: ${server:-<none>}."
+    echo "  Migrations are applied by the upgrade itself, inside its backup and"
+    echo "  rollback envelope. To move a box forward, schedule a candidate:"
+    echo "    ./sb upgrade register <version> && ./sb upgrade schedule <version>"
+    exit 1
 }
 
 # cmd_tail_one tails the upgrade service journal for one server and
@@ -452,105 +443,46 @@ cmd_install_one() {
         fi
     fi
 
-    # Check the server's upgrade channel to decide install strategy.
-    # Edge channel tracks master (build from source). Others use tagged releases.
-    local channel
-    channel=$(ssh_server "$server" "cd statbus && ./sb dotenv -f .env.config get UPGRADE_CHANNEL 2>/dev/null" 2>/dev/null || echo "prerelease")
-
-    if [ "$channel" = "edge" ]; then
-        if [ -n "$version" ]; then
-            echo "Installing $server (edge — pinned to $version)..."
-            # Pinned edge: checkout the specified tag and download its release binary.
-            # No --force, no --quiet: install-verified moving tag was deleted
-            # in rc.62, so there's nothing to force past. Silent failures
-            # previously hid rune's rc.59/rc.60 root causes — let git print.
-            ssh_server "$server" "cd statbus && git fetch origin --tags && git checkout $version" 2>&1 \
-                || { echo "--- $server FAILED: git fetch/checkout $version (exit $?) ---"; \
-                     ensure_service_started "$server"; return 1; }
-            echo "Downloading release binary for $version..."
-            ssh_server "$server" \
-                "cd statbus && curl -fsSL https://github.com/statisticsnorway/statbus/releases/download/${version}/sb-linux-amd64 -o sb-linux-amd64 && chmod +x sb-linux-amd64" 2>&1 \
-                || { echo "--- $server FAILED: download binary for $version (exit $?) ---"; \
-                     ensure_service_started "$server"; return 1; }
-        else
-            echo "Installing $server (edge channel — building from master)..."
-            # Edge: pull latest master. If HEAD is a tagged release with a
-            # published binary, download it (faster, no Go toolchain needed).
-            # Otherwise fall back to building from source.
-            # No --force, no --quiet (see rc.62 rationale above).
-            ssh_server "$server" "cd statbus && git fetch origin master --tags && git checkout origin/master" 2>&1 \
-                || { echo "--- $server FAILED: git fetch/checkout master (exit $?) ---"; \
-                     ensure_service_started "$server"; return 1; }
-            # Check if HEAD is a tagged release with a downloadable binary.
-            local head_tag
-            head_tag=$(ssh_server "$server" "cd statbus && git describe --exact-match HEAD 2>/dev/null" 2>/dev/null || true)
-            if [ -n "$head_tag" ]; then
-                echo "HEAD is tagged ($head_tag) — checking for release binary..."
-                if "$SCRIPT_DIR/sb" release check --tag "$head_tag" 2>/dev/null; then
-                    echo "Release binary available — downloading instead of building."
-                    ssh_server "$server" \
-                        "cd statbus && curl -fsSL https://github.com/statisticsnorway/statbus/releases/download/${head_tag}/sb-linux-amd64 -o sb-linux-amd64 && chmod +x sb-linux-amd64" 2>&1 \
-                        || { echo "--- $server FAILED: download binary for $head_tag (exit $?) ---"; \
-                             ensure_service_started "$server"; return 1; }
-                else
-                    echo "Release binary not ready — building from source..."
-                    ssh_server "$server" "cd statbus && export PATH=/home/linuxbrew/.linuxbrew/bin:\$PATH && ./dev.sh build-sb" 2>&1 \
-                        || { echo "--- $server FAILED: build from source (exit $?) ---"; \
-                             ensure_service_started "$server"; return 1; }
-                fi
-            else
-                echo "HEAD is untagged — building from source..."
-                ssh_server "$server" "cd statbus && export PATH=/home/linuxbrew/.linuxbrew/bin:\$PATH && ./dev.sh build-sb" 2>&1 \
-                    || { echo "--- $server FAILED: build from source (exit $?) ---"; \
-                         ensure_service_started "$server"; return 1; }
-            fi
+    # (The edge install strategy stood here and is retired with the channel —
+    # King, 2026-08-19. It checked out origin/master and built `sb` from source
+    # when HEAD carried no published binary, which is what an always-latest box
+    # required. Every box now installs a NAMED candidate's published binary, so
+    # there is one procurement path instead of two, and no box builds from
+    # source during a deploy. The per-server channel READ that chose between the
+    # two strategies went with it — there is one strategy now, so there is
+    # nothing left to choose.)
+    if [ -n "$version" ]; then
+        # Pinned: verify artifacts for the specific version before touching the server.
+        echo "Checking release artifacts for $version are ready..."
+        if ! "$SCRIPT_DIR/sb" release check --tag "$version"; then
+            echo "--- Release artifacts for $version not ready. Retry later. ---"
+            return 1
         fi
-        # No service stop before the swap: `mv sb-linux-amd64 sb` is an
-        # atomic rename — the running process keeps its old inode, so
-        # "text file busy" cannot occur (ETXTBSY is write-in-place only).
-        # Stopping would be the deploy-stop footgun (STATBUS-041): SIGTERM
-        # makes an in-flight upgrade roll back.
-        ssh_server "$server" "cd statbus && mv sb-linux-amd64 sb" 2>&1 \
-            || { echo "--- $server FAILED: replace binary (exit $?) ---"; \
-                 ensure_service_started "$server"; return 1; }
-        # ./sb install detects the service is stopped and restarts it (user-level, no root needed).
-        # --trust-github-user validates/repairs the signing key in one pass.
-        ssh_server "$server" "cd statbus && ./sb install $(trust_flag "$resolved_trust_user")" 2>&1 \
+        echo "Installing $server at $version via $INSTALL_URL ..."
+        ssh_server "$server" \
+            "curl -fsSL ${INSTALL_URL} | bash -s -- --version $version $(trust_flag "$resolved_trust_user")" 2>&1 \
             || exit_code=$?
     else
-        if [ -n "$version" ]; then
-            # Pinned: verify artifacts for the specific version before touching the server.
-            echo "Checking release artifacts for $version are ready..."
-            if ! "$SCRIPT_DIR/sb" release check --tag "$version"; then
-                echo "--- Release artifacts for $version not ready. Retry later. ---"
-                return 1
-            fi
-            echo "Installing $server at $version via $INSTALL_URL ..."
-            ssh_server "$server" \
-                "curl -fsSL ${INSTALL_URL} | bash -s -- --version $version $(trust_flag "$resolved_trust_user")" 2>&1 \
-                || exit_code=$?
-        else
-            # Gate: verify release artifacts are fully published before touching
-            # the server. If CI is still uploading assets or pushing
-            # images, abort early — the server stays up and the operator retries.
-            # Rc.63: use --channel so the check resolves to the
-            # current latest RC instead of treating "prerelease" as a
-            # literal tag.
-            echo "Checking release artifacts for channel prerelease are ready..."
-            if ! "$SCRIPT_DIR/sb" release check --channel prerelease; then
-                echo "--- Release artifacts not ready. Retry in ~5 minutes. ---"
-                return 1
-            fi
-            echo "Installing $server via $INSTALL_URL ..."
-            # Step 1: Run install.sh as the app user. No pre-stop: install.sh
-            # swaps ./sb via atomic rename (sb.tmp + mv, never ETXTBSY), and
-            # `./sb install` refuses-or-takes-over a running upgrade itself
-            # (STATBUS-039/-041).
-            # Exit code 42 = service needs root (not a failure).
-            ssh_server "$server" \
-                "curl -fsSL ${INSTALL_URL} | bash -s -- --channel prerelease $(trust_flag "$resolved_trust_user")" 2>&1 \
-                || exit_code=$?
+        # Gate: verify release artifacts are fully published before touching
+        # the server. If CI is still uploading assets or pushing
+        # images, abort early — the server stays up and the operator retries.
+        # Rc.63: use --channel so the check resolves to the
+        # current latest RC instead of treating "prerelease" as a
+        # literal tag.
+        echo "Checking release artifacts for channel prerelease are ready..."
+        if ! "$SCRIPT_DIR/sb" release check --channel prerelease; then
+            echo "--- Release artifacts not ready. Retry in ~5 minutes. ---"
+            return 1
         fi
+        echo "Installing $server via $INSTALL_URL ..."
+        # Step 1: Run install.sh as the app user. No pre-stop: install.sh
+        # swaps ./sb via atomic rename (sb.tmp + mv, never ETXTBSY), and
+        # `./sb install` refuses-or-takes-over a running upgrade itself
+        # (STATBUS-039/-041).
+        # Exit code 42 = service needs root (not a failure).
+        ssh_server "$server" \
+            "curl -fsSL ${INSTALL_URL} | bash -s -- --channel prerelease $(trust_flag "$resolved_trust_user")" 2>&1 \
+            || exit_code=$?
     fi
 
     if [ "$exit_code" -ne 0 ]; then
