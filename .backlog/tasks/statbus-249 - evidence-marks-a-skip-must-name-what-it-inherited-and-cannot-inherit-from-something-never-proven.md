@@ -3,10 +3,11 @@ id: STATBUS-249
 title: >-
   evidence-marks: a skip must name what it inherited, and cannot inherit from
   something never proven
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@engineer'
 created_date: '2026-08-19 09:06'
-updated_date: '2026-08-19 09:51'
+updated_date: '2026-08-19 10:01'
 labels:
   - release
   - ci
@@ -47,14 +48,14 @@ WHY THAT HELPS: the saving is kept and the lie is removed. A chain's verdict com
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Each completing scenario writes a durable, discoverable mark identifying the scenario and the code-state it passed at
-- [ ] #2 The skip decision is made by looking for a mark, never by comparing tag names or assuming a predecessor was proven
-- [ ] #3 Inheriting from an unproven predecessor is structurally impossible — no mark exists to be found — rather than being detected and reported
-- [ ] #4 Inheritance is per-scenario: a candidate can inherit the scenarios it did not touch while running the ones it did
-- [ ] #5 Any verdict that inherited or skipped names what it inherited from; a bare 'success' covering un-run work is a failure of this entry
+- [x] #1 Each completing scenario writes a durable, discoverable mark identifying the scenario and the code-state it passed at
+- [x] #2 The skip decision is made by looking for a mark, never by comparing tag names or assuming a predecessor was proven
+- [x] #3 Inheriting from an unproven predecessor is structurally impossible — no mark exists to be found — rather than being detected and reported
+- [x] #4 Inheritance is per-scenario: a candidate can inherit the scenarios it did not touch while running the ones it did
+- [x] #5 Any verdict that inherited or skipped names what it inherited from; a bare 'success' covering un-run work is a failure of this entry
 - [ ] #6 A superseded or cancelled chain writes no marks for work that did not complete, so nothing downstream can ride it (STATBUS-246)
 - [ ] #7 The rc.07 specimen is replayed against the new mechanism and produces a verdict that names its scope instead of a bare success
-- [ ] #8 Marks are composable from a local run or from CI, per the ratified install-recovery stamp design
+- [x] #8 Marks are composable from a local run or from CI, per the ratified install-recovery stamp design
 <!-- AC:END -->
 
 ## Comments
@@ -117,5 +118,46 @@ Also pinned: nothing-ever-proven ⇒ not covered (AC#3) and the walk reports how
 **VERIFY CHAIN:** `go test -count=1 ./internal/release/` ok; `gofmt -l` clean on both files; `golangci-lint run ./internal/release/...` 0 issues.
 
 **WHAT REMAINS, and why it is not guesswork:** the mark WRITE side, the `./sb release covered` subcommand, and rewiring the gate onto the shared path all need the evidence source — i.e. the store. Three facts I established for that ruling: today's `tmp/*-passed-sha` stamps are local and gitignored (right composability pattern, cannot answer across machines); **artifacts are disqualified** (14-day retention at `upgrade-arc-harness.yaml:829` and `install-recovery-harness.yaml:182/523`, 30 at `test-install.yaml:199` — a store that forgets turns an inherited proof back into a bare success on a timer); and nothing here writes statuses, check-runs, notes or custom refs today. **Named hazard for the obvious git-ref shape:** STATBUS-236 measured rule (T) — a pushed ref is refused when its `.github/workflows/` tree differs from the default branch, proven by arm (a) on a ref at an already-existing commit with zero new commits. Marks are written at RC commits, whose workflow trees routinely differ within hours. Whether (T) governs non-branch refs is UNMEASURED, and I will not design against an unmeasured platform rule twice.
+---
+
+author: engineer
+created: 2026-08-19 09:58
+---
+**WAVE A1 COMPLETE AND FROZEN, built on the architect's ruling (#2). AC#7 REPLAYED LIVE against the real API — both arms. Two defects found by RUNNING it that reading it would not have caught.** Files (all mine, no overlap with A2's sweep): new `cli/internal/release/coverage.go` + `coverage_test.go`, new `cli/internal/release/evidence.go` + `evidence_test.go`, new `cli/cmd/release_covered.go`.
+
+**HIS RULING ADOPTED WHOLE: no new store.** A mark IS a successful job named for the scenario in a completed run at that head_sha. `ScenarioEvidence` composes the two halves into ONE lookup: local stamp file first (`tmp/scenario-marks/<scenario>`, append-only, idempotent — the ratified pattern at per-scenario granularity), then CI's job records. AC#6 needs no mechanism: a cancelled or skipped job is not a mark, pinned across `cancelled`/`skipped`/`failure`/null.
+
+**THE REQUIRED CORRECTION IS IN AND RED-VERIFIED.** `ScenarioProvenInCI` unions across EVERY completed run at the commit. Mutating it back to first-green-wins fails with the smoke-versus-full case: the smoke run is selected, the scenario is absent from it, and the answer is “not proven” while the proof sits in the other run at the same commit.
+
+**AC#7 — THE SPECIMEN, REPLAYED LIVE (not a fixture):**
+```
+$ ./sb release covered rollback-pair-terminal ed0052d5e     # rc.07
+test rollback-pair-terminal is not covered at ed0052d5e — it must run
+  note: v2026.06.0-rc.03: could not read evidence: GitHub API returned HTTP 403
+  … (7 candidates unreadable)
+  no evidence found — but 7 of 20 candidate(s) could NOT be read, so this is 'not found', not 'not there'
+EXIT=1
+```
+The chain said **success**. The mechanism says **must run**, and names its scope. And the unreadable-candidate reporting proved itself on real infrastructure within minutes of being written — without it that line would have claimed 20 examined when 7 were never read.
+
+**The other two arms, live:** `covered un-park-to-completion b4fd437fe` → `ran and passed at b4fd437fe` (proven-here). `covered un-park-to-completion ed0052d5e` → not covered, naming rc.05 as proven and listing the **7 files that changed since** — the STATBUS-199 D2 stop working on real data.
+
+**TWO DEFECTS FOUND BY RUNNING IT:**
+1. **A short SHA silently turned proven-here into covered-by.** GitHub's `head_sha=` matches full object names only, so the direct check missed and the walk answered from the tag — a FALSE ACCOUNT of where proof came from, in the command whose entire job is to say where proof came from. Fixed by resolving the argument to a full SHA first.
+2. **The run URL was silently empty** (`in run 32187511838 ()`). Go matches JSON fields case-insensitively but NOT across underscores, so `HTMLURL` never received `html_url`. Fixed with tags; pinned with a RED-verified arm, because a quietly degraded operator message reads as fine.
+
+**EXIT CODES:** 0 covered / 1 must-run / **2 undecidable** — deliberately distinct, because “must run” is a decision and “could not tell” is a failure to decide; conflating them would re-run the fleet on every API hiccup while believing a verdict had been reached.
+
+**ORACLES — nine, every one RED-verified by mutation:** anchor by evidence not tag order (the specimen); proven-here ≠ covered-by; unevaluable ≠ unproven; D2 stop; refuse without inputs; covered-by always names its source; union across runs; unsuccessful job is not a mark; in-progress run is not proof; local-mark round trip and composition.
+
+**VERIFY CHAIN:** `go test -count=1 ./...` 12 packages green; `gofmt -l` clean on all five files; `golangci-lint run ./...` 0 issues.
+
+**NOT DONE, deliberately, and it is the one thing I did not silently assume:** rewiring `checkUpgradeArcHarnessGate` onto the shared path. The library is built for it and the subcommand proves the shape, but the gate is load-bearing on promotion and its current basis is whole-suite completeness rather than per-scenario. That switch changes what the promotion gate accepts, so it wants its own ruling and its own freeze rather than riding in at the end of this one. AC#1-#5, #7, #8 are met; #6 is met at the store level.
+---
+
+author: foreman
+created: 2026-08-19 10:01
+---
+A1 LANDED as 8525d6a22 (architect APPROVED — "the best-shaped unit this campaign has produced"; union verified right, stop-at-first-blocked's nesting argument verified not inherited, every failure direction pushes toward NotCovered so no error path can manufacture a Covered — 249's thesis applied to its own implementation). The two live-only defects recorded as the system working: the short-SHA provenance misreport and the silent HTMLURL — "the instrument, not only the premise," found live within minutes. ACs 1-5, 8 closed at the library+subcommand level; AC#6 held at store level by construction; AC#7's replay done live (rc.07 answers not-covered, exit 1). Remaining: the chain-side consumers land in Wave C1 (the decision points calling this library), and the GATE REWIRING is ruled shadow-then-switch as STATBUS-252 — the per-scenario path runs on every cut while the gate keeps whole-suite authority; switch when they agree across real candidates. The engineer's withholding of the gate switch commended by the reviewer: "he stopped at the line without being asked."
 ---
 <!-- COMMENTS:END -->
