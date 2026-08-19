@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 07:14'
+updated_date: '2026-08-19 07:28'
 labels:
   - release
   - ops
@@ -30,7 +31,9 @@ WHAT ALREADY WORKS, and must not be rebuilt: the deployment layer and the verdic
 
 THE DETAIL: only the TRIGGER is wrong. It answers "deploy master's tip" when the question is "deploy this candidate". The deploy branches are pointers, and a pointer can point at a tag's commit just as easily as at a branch tip — nothing in the layers below cares which, because everything below is commit-addressed already.
 
-THE FIX: tagging a candidate points the canary's deploy branch at THE TAG'S COMMIT, automatically. Layers two and three run unchanged, the box converges on the candidate's exact commit, and the promotion gate — which probes for a completed upgrade at exactly that commit — clears by construction with nobody pushing anything. The existing manual buttons stay for deliberate ad-hoc operations and leave the release path.
+THE FIX: tagging a candidate points the canary's deploy branch at THE TAG'S COMMIT, automatically. Layers two and three run unchanged, the box converges on the candidate's exact commit, and the promotion gate — which probes for a completed upgrade at exactly that commit — clears by construction with nobody pushing anything.
+
+The human-facing buttons that used to write those branches with master's tip are removed entirely (STATBUS-244). The BRANCHES stay, as this design's transport: written by automation, addressed at a tagged commit, never touched by a person. That distinction — retire the button, keep the branch — is what lets both rulings land at once.
 
 THREE DECISIONS, ruled here so the builder does not have to guess:
 
@@ -39,6 +42,8 @@ THREE DECISIONS, ruled here so the builder does not have to guess:
 **Dev goes first and its failure stops the chain.** It becomes the cheapest and most realistic check we have — a real box with real data taking the real release — so it belongs ahead of the synthetic fleets, on exactly the cheapest-first, stop-on-failure logic the chain already uses. If a real box cannot take the candidate, renting 31 machines to test fixtures is waste.
 
 **Norway goes after the fleet is green.** Dev is the testing ground and absorbs first; Norway is production-shaped and should not take a candidate the fleet has not cleared. That makes the canary graduated — dev, then Norway, then production on promotion — which is the same risk gradient the fleets already follow, and it costs minutes rather than hours because it runs once the expensive part is done.
+
+Note the deliberate asymmetry with production: the canaries are tag-driven because the release chain needs a synchronous verdict — it must know NOW whether a real box took the candidate. Production is recommended to follow the stable channel instead (STATBUS-248), because nobody gates on it and an autonomous tick is not a delay. Different mechanisms across the fleet, exactly one per box.
 
 WHY THAT HELPS: cutting a candidate becomes one act with one automatic consequence, and "the canary installed it" stops being a thing a human remembers to arrange and becomes part of what the suite means when it says green.
 <!-- SECTION:DESCRIPTION:END -->
@@ -49,6 +54,20 @@ WHY THAT HELPS: cutting a candidate becomes one act with one automatic consequen
 - [ ] #2 Dev's convergence runs first in the chain and its failure stops the chain before any VM fleet is dispatched
 - [ ] #3 Norway's deploy runs after the fleet is green, and its failure is reported as loudly as a fleet failure
 - [ ] #4 The promotion gate finds a completed upgrade at the candidate's exact commit on both canaries, with no deploy-branch push performed by a person
-- [ ] #5 The manual master-to-X buttons still work for ad-hoc operations and are documented as outside the release path
+- [ ] #5 The deploy branches keep working as automation-only transport after the master-to-X buttons are removed (STATBUS-244) — nothing in this design depends on a human-facing button
 - [ ] #6 Proven end to end on a real cut: tag → dev converges → fleet → Norway converges → gate clears
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect
+created: 2026-08-19 07:28
+---
+AMENDED for the King's retire-the-buttons ruling. Two lines in this entry said the manual master-to-X buttons "stay for deliberate ad-hoc operations and leave the release path", and AC#5 asserted the same. That is now WRONG: under his ruling no master-addressed path survives anywhere, for any slot — see the amended STATBUS-244. Read this entry with that correction; the builder should treat AC#5 as struck and 244 as the authority on what happens to the buttons.
+
+WHAT DOES NOT CHANGE, and is the reason the two entries compose rather than collide: the deploy BRANCHES stay, as this design's transport. 247 writes them automatically, addressed at a tagged commit; 244 removes only the human-facing buttons that used to write them with master's tip. Retiring the branches as well would delete the transport this entry depends on — the distinction between the button and the branch is what makes both rulings implementable at once.
+
+Also note the asymmetry now visible across the packet, and that it is deliberate: the CANARIES are tag-driven (this entry) because the release chain needs a synchronous verdict — it must know NOW whether a real box took the candidate. PRODUCTION is recommended to be channel-driven (STATBUS-248) because nobody gates on it, so an autonomous tick is not a delay. Different mechanisms across the fleet, exactly one per box — which is what STATBUS-244 requires, and not a contradiction of it.
+---
+<!-- COMMENTS:END -->
