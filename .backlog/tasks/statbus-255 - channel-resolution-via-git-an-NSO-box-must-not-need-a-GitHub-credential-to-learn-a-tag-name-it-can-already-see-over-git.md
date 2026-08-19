@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-08-19 11:42'
-updated_date: '2026-08-19 19:17'
+updated_date: '2026-08-19 19:21'
 labels:
   - upgrade
   - ops
@@ -146,5 +146,11 @@ author: foreman
 created: 2026-08-19 19:17
 ---
 LANDED, ticket complete. Three commits: 567487c47 (resolution via git, landed pre-freeze), f709d5eb6 (RunCheck discovers over git — the caller that actually 403'd the fleet), c4ba87464 (API path deleted: FetchReleases, selectLatestTag, FetchCommits, FilterByChannel, ReleaseSummary; equivalence preserved via the fixed apiRuleOracle verified 30-comparisons against the live original before deletion). One boundary correction during landing, architect-ruled: the Release/Commit/CommitDetail types stayed one commit longer — their last consumers were the edge machinery, and a type dies in the commit that removes its last user (1dff9c18f). Also folded during landing: the fmt+sort imports of channel_resolution_git_test.go belonged to the first commit (its code used them; caught by per-commit go vet in a throwaway worktree). Each intermediate commit build+vet verified independently. Dev incident of 2026-08-19 (separate thread) confirmed the motivating symptom live: dev's service discovering 186 prereleases via git every 5 minutes, zero API calls.
+---
+
+author: foreman
+created: 2026-08-19 19:21
+---
+CORRECTION TO THE LANDED COMMIT MESSAGES, recorded here because the commits are pushed and immutable. c4ba87464's message says the Release type 'stays one more commit: the edge machinery holds its last uses', and 1dff9c18f's trailing paragraph repeats the attribution. Both are WRONG about the reason: the type's actual surviving consumers at the unit-3 boundary were FilterByChannel and ReleaseSummary — API-path functions the split's classifier had misfiled into the edge-retirement diff (pure-deletion hunks carry no added lines, so it filed them by enclosing region). The CODE at every commit is correct and was build+vet verified per commit in isolation; what is impure is that 1dff9c18f (edge retirement) also carries ~100 lines of API-path corpse deletion (FilterByChannel, ReleaseSummary, Release/Commit... wait — Commit/CommitDetail died in c4ba87464 with FetchCommits, correctly). The engineer's post-hoc analysis (their re-split, produced in parallel and not landed) confirms both boundaries compile; theirs was thematically cleaner (everything API-dead in unit 3). Landed history stands; this comment is the truth a future reader needs when the message and the diff disagree.
 ---
 <!-- COMMENTS:END -->
