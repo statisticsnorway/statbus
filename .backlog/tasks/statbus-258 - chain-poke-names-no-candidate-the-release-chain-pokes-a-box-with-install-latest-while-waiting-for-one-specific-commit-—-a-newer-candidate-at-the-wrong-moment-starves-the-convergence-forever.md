@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-08-19 19:14'
-updated_date: '2026-08-19 20:19'
+updated_date: '2026-08-19 20:35'
 labels:
   - release
   - upgrade
@@ -234,5 +234,11 @@ It is safe on this cut for the reason already on record: rc.08 IS the newest can
 ## NOT SPECIFIED
 
 Whether `deploy-to-dev` keeps its branch checkout, and the callback-based no-door end state — both real, both deserving their own entries rather than riding this one.
+---
+
+author: foreman
+created: 2026-08-19 20:35
+---
+KING RATIFIED 2026-08-19 evening: the round-3 Lego design (comment #6) is APPROVED — his words: 'we go back to a Lego-based approach, and that is approved... the ratification of your new plan after my pushback, where you took my pushback into consideration, and the architect agreed.' TWO FURTHER RULINGS the same sitting: (1) NO WORKAROUNDS — the offered options of manually dispatching deploy-to-dev to rescue tonight's run, or waiting out the timeout as observation, were both rejected as workarounds; the principled path chosen: let tonight's run fail honestly, fix everything in code, and prove the fixed chain on the NEXT candidate with zero hands. (2) NO NEW CANDIDATE until everything is fixed in a principled manner — 'when I wake up and things are fixed in a principled manner, then I will cut a release candidate... or a release.' Overnight execution: engineer builds the verb + requested-vs-deployed guard + explicit candidate-addressed dispatch (STATBUS-260's fix); architect designs 259's ships-as-code mechanism (the prerequisite) and reviews every diff; tonight's orchestrator timeout (~21:33 UTC, BUDGET=4800 at release-fleet-orchestrator.yaml:474) stands as the true first-run record.
 ---
 <!-- COMMENTS:END -->
