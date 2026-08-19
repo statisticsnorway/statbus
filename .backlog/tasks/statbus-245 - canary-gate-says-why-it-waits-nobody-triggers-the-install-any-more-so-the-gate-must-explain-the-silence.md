@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 07:11'
-updated_date: '2026-08-19 07:58'
+updated_date: '2026-08-19 10:11'
 labels:
   - release
   - quality-gate
@@ -72,5 +72,49 @@ author: foreman
 created: 2026-08-19 07:58
 ---
 KING APPROVED 2026-08-19 (dialogue presentation, second of five), with a sharpening now added as AC#9, his reasoning near verbatim: the change is "critical and inconsequential" — it changes nothing, only exposes what we already know — and precisely because of that, THE ACTIONABLE PART AND THE MESSAGE ARE WHAT MATTER: the human operator must know what they are waiting for, WHO to speak to, or WHAT to look at (such as the link to the GitHub run) — "not just a black hole, or 'you're waiting for something, I know, but I can't do anything about it.'" Every outcome must hand the reader their next move. Builder note: this is the same doctrine as the failure messages that teach (239's shallow guard, the hybrid-tree diagnosis) applied to the gate's every line.
+---
+
+author: engineer
+created: 2026-08-19 10:07
+---
+**WAVE B1 BUILT AND FROZEN. `cli/cmd/release_canary.go` only, plus its new test file. All nine ACs met; five oracles RED-verified.**
+
+**AC#1 — THE STRUCTURAL CHANGE.** The probe no longer carries `AND state = 'completed'`. That filter WAS the defect: the box knew whether it had been offered, started, or failed, and the query threw it away before anyone could read it. One SSH round trip now returns two labelled lines — the candidate's row (state, completed/started/discovered timestamps, `recovery_parked_at`, error) and a context line (check interval, newest discovery). A missing ROW line IS the NOT-OFFERED answer, so absence is read as a fact rather than as an ambiguous empty string.
+
+**AC#2/#5 — five named outcomes, with two classifications that are easy to get wrong and are pinned:**
+- **A PARKED row is FAILED, not started.** It is `in_progress` with `recovery_parked_at` set — stopped, and it will not resume on its own. Calling it “in progress” would tell the reader to wait for something that never moves.
+- **An UNKNOWN state is FAILED, not waiting.** Something we do not understand about a box we are about to promote past is closer to a fault than to patience.
+
+**AC#4 — role-aware reading, the heart of it.** `canarySlot` gained a role. The same `available` row now renders in opposite directions:
+- Norway: *“NOTHING IS WRONG — this slot is installed BY A PERSON, on purpose… The box has been holding the offer for 1 day(s) 1h.”*
+- dev: *“THIS IS A FAULT ON THIS SLOT: dev is installed by the release chain, so it should never sit waiting for a person… which means the chain's deploy step did not run or did not reach this box.”*
+
+**AC#9 — every line hands over the next move**, checked as a property across BOTH roles × every refusing outcome: each must contain “Your next move” plus a concrete handle (a command, a person, or a place). Norway's awaiting line names the person AND the exact command they run (`cd statbus && ./sb upgrade apply-latest`); the failed line is a numbered three-step — read the log, see the row, recover — and ends *“Do NOT promote past this: a canary that failed to install is the signal this gate exists to catch.”*
+
+**AC#6 — duration, honestly.** The refusal reports the configured interval and when the box last DISCOVERED a release, and says in the same breath that this is *“not the last check”* — because a check that finds nothing new leaves no record. Claiming the stronger reading would be the same overstatement this gate exists to stop, one level down. Pinned.
+
+**AC#7/#8 — explanation, never permission.** Exactly one outcome passes. The probe-failure path says explicitly that it is *not a verdict about the release* — the box may be healthy and merely unreachable — so an SSH problem is not read as a canary failure. A source pin forbids any timeout-into-pass construct, because the hazard is a future edit (“it has waited three days, let it through”) that would delete the human step the operator slot exists to perform.
+
+**DEPLOY-BRANCH HINTS REMOVED, and pinned out.** The old refusal told the reader to `git push -f origin master:ops/cloud/deploy/dev`. Those refs are gone from origin as of this morning (STATBUS-244a), so that hint would now send someone to a branch that does not exist — worse than no hint, because it looks authoritative. A test fails on `ops/cloud/deploy`, `ops/standalone/deploy`, `master-to-`, or `push -f origin` reappearing anywhere in the file.
+
+**TOPOLOGY** unchanged and now asserted: exactly dev (automatic) + no (operator). Demo is excluded with the reason recorded — it tracks stable, so it can only confirm a release after promotion, which is too late to gate on.
+
+**ORACLES — RED-VERIFIED by mutation:** (1) parked reclassified as started → fails; (2) role-blind rendering → fails on dev's FAULT line; (3) a deploy-branch hint reintroduced → fails; (4) `AND state = 'completed'` reinstated → fails naming AC#1; (5) the wire format, including an error string containing the `|` separator.
+
+**I RENDERED THE REAL OUTPUT AND READ IT** rather than trusting the assertions — the product of this unit IS the message. That caught a wording wart the tests happily passed (“Your next move: ask the Norway operator (SSB) — ask them to run…”), now fixed.
+
+**VERIFY CHAIN:** `go build ./...` OK; `go test -count=1 ./...` 12 packages green; `gofmt -l` clean on both files; `golangci-lint run ./...` 0 issues.
+---
+
+author: architect (pinned by foreman)
+created: 2026-08-19 10:11
+---
+B1 REVIEW VERDICT: AMENDMENTS REQUIRED — two must-fix, both in messages not decisions; the engineer's three flagged judgment calls RATIFIED as-is (parked→FAILED; unknown→FAILED as standing policy; the AC#6 honesty call — 'last discovered, not last checked' — ratified WITHOUT the stronger mechanism, which would write to a production box on every poll for a diagnostic nicety). Wire format verified genuinely delimiter-safe (error text is field 6, SplitN(...,6) keeps the remainder; newlines flattened in SQL at :328; unlabelled lines ignored → immune to CombinedOutput stderr merges). system_info + upgrade_check_interval premise verified (seeded '6h' by migration 20260311174120:82).
+
+MUST-FIX 1: upgrade_state also carries superseded / skipped / dismissed (service.go:1494; :1707 sets superseded). The switch at release_canary.go:104-121 sends all three to default → canaryAttemptFailed → ':242 THE INSTALL WAS TRIED AND DID NOT SUCCEED' + failure archaeology — but none of them was tried. superseded = a newer candidate displaced this one (real next move: promote the newer). skipped/dismissed = deliberately set aside (STATBUS-250 will produce dismissed ON PURPOSE at every dev reset — a healthy reset would make the gate shout that an install failed). Verdict (refuse) is right in all three; only the message lies — the exact defect class this unit removes. Three explicit cases with true reasons; default stays FAILED for genuinely unknown states.
+
+MUST-FIX 2: release_canary.go:190 tells the operator to run './sb upgrade apply-latest' — which resolves the LATEST on the channel (upgrade.go:210-232), not the specific rcCommit the gate waits on. The moment a newer RC exists (routine), the instruction installs a DIFFERENT version and the gate still refuses. Must name the candidate: './sb upgrade register <target> && ./sb upgrade schedule <target>' (register accepts tag or 40-char SHA, upgrade.go:77-79). Also aligns the gate with 247's ruled operator action and doc-035's card — as written they would contradict each other in front of the operator.
+
+Re-freeze on those two for immediate turnaround.
 ---
 <!-- COMMENTS:END -->
