@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-08-19 11:42'
-updated_date: '2026-08-19 11:53'
+updated_date: '2026-08-19 12:22'
 labels:
   - upgrade
   - ops
@@ -66,5 +66,79 @@ author: foreman
 created: 2026-08-19 11:53
 ---
 RESOLUTION HALF LANDED as 567487c47 (architect ruled 'land as-is'): ResolveChannelToLatestTag now derives from DiscoverTagsViaGit + ClassifyReleaseShape — no API, no credential, unlimited — with equivalence PROVEN old-vs-new on both channels including the stable+newer-RC coexistence day, one resolution site preserved via the ...At(projDir, channel) variant, and a pin against a second '-rc.' literal ever appearing. TICKET STAYS OPEN — the architect's ruling states it plainly: this landing does NOT fix the reported 403 symptom. RunCheck (service.go:5047-5049) calls FetchReleases DIRECTLY and is where the fleet's quota actually burns; its switch to git is the ticket's remaining body, ruled a SEPARATE unit (a semantic change must not ride an equivalence-proven refactor — the same ruling for the third time). Its first step is EVIDENCE, not reasoning: read the failure-marking guard to learn whether a git-derived candidate in the tag-pushed-but-release-unpublished window lands in 'building' (self-resolving, fine) or 'failed' (transient red on every box on every release — unacceptable, needs handling first); the imminent cut offers a free live observation of the real timing.
+---
+
+author: engineer
+created: 2026-08-19 12:04
+---
+**Second half built and FROZEN — deliberately NOT landed** (post-cut unit; it rides the next candidate after the tag).
+
+**The purpose:** the first half made channel RESOLUTION credential-free, but the fleet would still have 403'd, because the command that actually exhausted the quota never went through the resolver. This closes the real source, so that no automatic path a box takes to learn what versions exist reaches api.github.com at all.
+
+**What was wrong.** `RunCheck` — `sb upgrade check`, the polling command — called `FetchReleases()` directly (service.go:5171). 60 requests/hour per IP; seven niue slots share one; dev polls every five minutes. Fixing only the resolver would have closed the wrong caller and left the fleet failing exactly as before.
+
+**What it now does.** `RunCheck` discovers over `DiscoverTagsViaGit(d.projDir)`. Every field it needs was already in git, and one of them was never GitHub's to begin with:
+- tag name — git;
+- commit — git IS the authority, and the old path already fell back to `RevParse` when the API payload omitted it, so that fallback is kept unchanged;
+- timestamp — git;
+- release status — already derived from the TAG NAME via `ClassifyReleaseShape`, never from GitHub's prerelease flag. The API call was buying nothing here.
+
+**The one real behavioural difference, verified rather than assumed** (this was the evidence step, done before writing the change). The API returned PUBLISHED RELEASES; git returns every tag, including one pushed before its release exists. Such a tag can now become a candidate — and it cannot be installed: `verifyArtifacts` marks `release_builds_status` when the manifest is absent (service.go:4111-4144), and the scheduled path then UNSCHEDULES it with "Release assets not ready for %s — unscheduled. Will be available when CI finishes." (service.go:5604-5634). The failure mode is a visible wait that self-corrects when CI lands, not a broken box. That guard is the premise this change rests on, so the test asserts it too: if it ever disappears, git-derived discovery becomes able to attempt an install against a tag with no binary, and the pin fails loudly rather than silently inheriting the risk.
+
+**Test** — `TestDiscoveryMakesNoAPICall_STATBUS255` in `channel_resolution_git_test.go`, RED-verified by mutation both ways: adding a compiling `FetchReleases()` call back into `RunCheck` fails it; renaming the readiness message fails it.
+
+One process note worth recording, because it nearly produced a fake green. My first RED attempt appeared to pass. The mutation had matched the FIRST occurrence of the target line in the file (:4029, a different function) rather than the one inside `RunCheck` (:5195) — so the mutation was real, compiled, and tested nothing. A RED that does not fire is not evidence the code is right; it is evidence the experiment missed. Re-run against the correct line, both mutations fail as intended.
+
+Chain: build OK, `go test ./...` green, `golangci-lint run ./internal/upgrade/` 0 issues, `gofmt` clean on both touched files (the repo's pre-existing `gofmt -l` drift is in untouched files and was left alone).
+
+**A fork is reported separately to the foreman rather than absorbed:** with this switch, `FetchReleases` has zero production callers, as does `selectLatestTag` (test-only now) and `FetchCommits` (already dead before this change). Deleting them is the clean-break instinct, but `selectLatestTag` is the ORACLE for the equivalence test that proves this entry did not change behaviour — so the deletion has a consequence worth a ruling, not a silent call.
+---
+
+author: engineer
+created: 2026-08-19 12:05
+---
+**Correction/sharpening of #3 — the architect's binary question is answered decisively, and the answer is the GOOD branch.** Comment #2 asked whether a git-derived candidate in the tag-pushed-but-release-unpublished window lands in `building` (self-resolving, fine) or `failed` (transient red on every box on every release, unacceptable). I stated the mitigation in #3 but not which branch it takes. Reading the code rather than inferring it:
+
+`release_builds_status` is `NOT NULL DEFAULT 'building'` (doc/db/table/public_upgrade.md:30), and discovery writes it in exactly two places (service.go:4110-4149):
+- manifest fetch SUCCEEDS → `'ready'`;
+- manifest fetch FAILS **and** the release workflow has a COMPLETED run whose conclusion is `failure` with no `success` → `'failed'`.
+
+There is no third write. In the window the architect asked about — tag pushed, release not published yet, CI still running — the manifest is absent but there is no completed failing run, so **nothing is written and the row stays at its default `building`**. That is the self-resolving branch, and it flips to `ready` on the next discovery cycle once CI publishes. The unacceptable `failed` state is reserved for a genuinely failed release workflow, which is a true red worth showing.
+
+The same holds on a box with no GitHub credential: the CI check shells out to `gh api` (:4119), so on an NSO box it simply errors, nothing is written, and the row again stays `building`. The credential-free frame is preserved on this path too — the absence of a token degrades to "keep waiting", never to a false red.
+
+So the semantic change this unit introduces is bounded to: *a tag may appear as a candidate slightly earlier than before, in `building`, and resolve itself.* No box can install it (the scheduled path unschedules with the visible "Release assets not ready … Will be available when CI finishes" wait), and no box shows a false failure.
+---
+
+author: engineer
+created: 2026-08-19 12:22
+---
+**DELETION DIFF BUILT AND FROZEN** — the third and last unit of this ticket, its own diff, executed in the ruled order. Chain: build OK, `go test ./...` green, `golangci-lint run ./...` 0 issues, gofmt clean. 123 lines out of `github.go`.
+
+**The purpose:** remove the GitHub-API discovery path from the tree entirely, so that nobody can reach for it again and silently reintroduce the 403 this ticket exists to kill — without losing the proof that the git path answers identically.
+
+## The order was the ruling, and here is what each step actually produced
+
+**(1) The fixed oracle.** `apiRuleOracle` states the rule the API path applied, as intent rather than as a reference to an implementation: edge resolves to no tag; stable takes the highest-CalVer release GitHub did NOT flag prerelease; prerelease takes the highest-CalVer one it DID (deliberately not "all releases" — the operator-facing meaning is LATEST RC, so a stable tag at HEAD must not win it on a release-cutting day); drafts are never eligible; anything else errors rather than returning an empty tag, which would read as "nothing to upgrade to" and freeze a box on a typo.
+
+**(2) Verified against the original, while both existed.** `TestFixedOracleTranscribesTheLiveRule` drove the oracle and the live `selectLatestTag` over the same inputs — six sets × five channels, 30 comparisons — covering the release-cutting day, drafts, a channel with nothing published, an empty set, edge, and an unknown channel. Identical on every one.
+
+I also RED-verified the CHECK ITSELF before trusting it, asserting the mutation site per the rule from the last unit: breaking the oracle's draft exclusion fires it, and widening its prerelease filter to "all releases" fires it. A transcription check that cannot fail would have proven nothing, and it would have looked exactly like a passing one.
+
+**(3) Only then, the deletion.** `FetchReleases`, `selectLatestTag`, `FetchCommits` — plus the `Commit`/`CommitDetail` types, which existed solely to carry `FetchCommits`' response, and an import left orphaned by the cut.
+
+The equivalence proof now compares the git resolver against the fixed oracle instead of a function that no longer exists. The transcription check is gone with its subject, and a note stands in its place recording that it ran, what it covered, that it agreed, and why it can never be run again — so a later reader does not mistake its absence for an omission.
+
+**Why the order is not a preference, stated at the line:** a fixed oracle carries exactly one risk — a wrong transcription — and that risk is checkable during exactly one instant, while the original is still in the tree. Verifying after the deletion is not slower; it is impossible.
+
+## Coverage accounting for the test that died with its subject
+
+`TestSelectLatestTag` tested the deleted implementation. Rather than delete it silently, its cases are accounted for in a note where it stood: "stable picks latest CalVer" and "prerelease picks latest RC" are covered against the LIVE resolver (including the coexistence day); "edge returns empty" and "unknown channel errors" likewise; and **"only-draft does not satisfy stable" is now true BY CONSTRUCTION rather than by a filter** — a GitHub draft publishes no git tag, and resolution reads git tags, so there is nothing left to filter and nothing left to test.
+
+## ONE FURTHER FINDING, reported not absorbed — the dead island is bigger than three
+
+With `FetchReleases` gone, **nothing in production can construct a `Release` any more.** `FetchReleases` was its only producer. That leaves `FilterByChannel` and `ReleaseSummary` with zero production callers (`ReleaseSummary` lost its last one when `RunCheck` switched to git), and the `Release` type itself reachable only from tests — a closed, provably unreachable island rather than merely two more orphans.
+
+I did NOT delete them: the ruling named three functions and fixed the order for this diff, and a fourth deletion changes the diff under review. The evidence is unambiguous if it should follow. One design point belongs with that decision: `apiRuleOracle` currently takes `[]Release`, and if the type goes it should carry its own local shape — which is arguably better anyway, since a FIXED oracle should not depend on a production type that may drift.
 ---
 <!-- COMMENTS:END -->

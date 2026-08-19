@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 10:27'
-updated_date: '2026-08-19 11:30'
+updated_date: '2026-08-19 12:23'
 labels:
   - ops
   - release
@@ -147,5 +147,70 @@ Prose rots, and this hazard has already cost us once. Two parts:
 ## What I am NOT specifying, deliberately
 
 The role value set is closed but not final — whether an external customer eventually needs something between `production` and `canary` (an eager adopter tracking candidates deliberately) is a real question, and it should be answered when someone actually wants it rather than invented now. `canary` covers it today.
+---
+
+author: engineer
+created: 2026-08-19 12:17
+---
+**DURABLE FIX BUILT AND FROZEN — deliberately NOT landed** (post-cut unit; it rides the next candidate after the tag). Built to the architect's pinned design in #4/#5. Chain: build OK, `go test ./...` green, `golangci-lint run ./...` 0 issues, `gofmt` clean on every touched file, `bash -n` clean on all four shell files. Part 1 of 2 — the mechanism; part 2 lists the consumers and the one fork.
+
+**The purpose in two sentences.** Five statistical offices' production installations followed release candidates for two months because the channel was written once at box creation and nothing recomputed it. After this, a box declares what it IS and the channel is a computed consequence — so a policy change reaches the whole fleet on the next `./sb config generate`, and a stale value cannot survive a reinstall.
+
+## The mechanism
+
+`cli/internal/config/upgrade_role.go` (new) holds it as pure functions over a loaded `.env.config`, so every branch is unit-tested without touching a disk or a fleet. `ResolveUpgradeRole` runs four steps in a load-bearing order:
+
+1. **TRANSLATE** — channel present, no role: infer the role, write it, REMOVE `UPGRADE_CHANNEL`, announce it. The operator's hand-correction of 2026-08-19 is not fought; it is read once and promoted into the durable form.
+2. **SEED** — neither key: declare the default explicitly in `.env.config`, where an operator can read and change it.
+3. **REFUSE a hand-added channel** — after step 1, a channel beside a role can only be hand-added. A refusal, not a warning: a warning is honoured-or-ignored ambiguously and the operator never learns which.
+4. **VALIDATE** — an unknown role refuses. Unknown-means-default is the same defect as absent-means-default, and harder to see.
+
+The translation carries its own removal note at the line: a ONE-TIME correction, not a compatibility shim. Leaving it in permanently re-admits the key this ticket removes.
+
+**AC#7 as a mechanism, both halves.** A pin fails if `UPGRADE_CHANNEL` is ever written through the set-if-absent tier again or read back out of `.env.config`, with the five-installations reason in the failure text. And `dotenv.Generate` now carries the warning at the one place every future author passes through: this preserves a value forever; a value that must follow policy has to be derived; `UPGRADE_CHANNEL` is how we know.
+
+## ONE DEVIATION FROM THE DESIGN, and it is an equivalence fix
+
+The design names `production` as THE default. Applied flatly, that derives `stable` on every developer's machine, whose old default was `local` — silently switching their migration-fix behaviour from stop-for-a-human to auto-bless. Fixing a value that changed under boxes unnoticed, by changing a value under boxes unnoticed, would be a second instance of this exact defect.
+
+So the SEEDED role is mode-aware: development mode → `development`, everything else → `production`. That reproduces the old channel exactly on both modes, and a test asserts the equivalence per mode. The mode is consulted ONCE, to seed — the role is never re-derived afterwards, so a later mode change cannot silently move a box, and a separate test pins that too.
+
+## Tests, RED-verified by mutation
+
+Four load-bearing pins, each confirmed to FAIL when its property is broken: reintroducing `gen("UPGRADE_CHANNEL", …)`; stripping the `dotenv.Generate` warning; making the hand-added-channel guard silently ignore; and flattening the seeded default to `production` (which reddens the equivalence test with the dev-machine regression named). Also covered: translation for all four legacy channel values, idempotence across two runs — a non-idempotent translation would fail every box on its SECOND config generate — and refusal texts asserted to be ACTIONABLE rather than merely present.
+---
+
+author: engineer
+created: 2026-08-19 12:17
+---
+**Part 2 of 2 — the consumers, and the one fork reported rather than absorbed.**
+
+## Consumers found and corrected — the design named the mechanism, not its dependents
+
+- **`./sb upgrade channel` becomes `./sb upgrade role`** — a clean break, not a rename: the old command wrote a key that its own next step (config generate) would now refuse. While rewriting it I found and fixed a live bug in it: the restart used `systemctl` WITHOUT `--user`, so on a devops account with no sudo the "not fatal" branch was the NORMAL path — the command reported success having never restarted the daemon, leaving the running service on the old channel. It now uses `--user` per the architect's verified finding, and when the restart does fail it says plainly that THE RUNNING SERVICE IS STILL ON THE OLD CHANNEL.
+- **`ops/create-new-statbus-installation.sh`** declares `UPGRADE_ROLE=production`. Its old write was `sed -i "s/UPGRADE_CHANNEL=.*/…/"`, which only works when the key ALREADY exists — on a box without it, it printed "Set …" while writing nothing. The role write handles both cases. The interim "no stable release exists yet → prerelease" branch is removed: what an ordinary installation follows is one fleet-wide policy decision now, not a per-box setting. It is already dead in practice (stable tags exist), and the condition is still ANNOUNCED, so an operator learns the box may have nothing to install yet — and is told plainly that this is the correct state, not something to work around by moving the box to prerelease.
+- **`cloud.sh` (3 sites)** read the channel from `.env.config` with a `|| echo "prerelease"` fallback. After this change that read always misses, so every box — including the five NSO installations — would be REPORTED as prerelease. They now read the generated `.env`, and the fallback is `unknown`: a wrong-but-believable answer here is precisely the failure this ticket exists to remove.
+- **`test/install-recovery/lib/vm-bootstrap.sh`** declares the role, so the harness does not depend on a translation that is scheduled for deletion. While there I corrected a stale premise in the park arc's comment: it justified the VMs' channel from `CADDY_DEPLOYMENT_MODE=standalone`, but the harness authors `development` — the channel was stable only because the key was written explicitly. Now stated as the real mechanism.
+- **`doc/CLOUD.md`, `doc/DEPLOYMENT.md`, `doc/upgrades.md`** instructed operators to set a key that now refuses. Rewritten to the role vocabulary. CLOUD.md's verification step now says to read the RUNNING service rather than the file, since the daemon loads config only at startup — the same load-bearing finding that governed the fleet correction.
+- **the upgrade service's `loadConfig`**: a missing `UPGRADE_CHANNEL` in `.env` silently became `stable`. It still starts — a dead upgrade service is worse than a conservative one — but now WARNS, naming `./sb config generate`. That was the same invisible-wrong-channel failure, one layer down.
+- **`release_canary.go`** pointed operators at `./sb upgrade channel` with no argument, which could only ever have errored (it required one). It now shows how to read the running service.
+
+## THE FORK — the `edge` capability, reported rather than absorbed
+
+The three-role set cannot express `edge`, and edge is live machinery today: `cloud.sh migrate-up` / `migrate-down` gate on it, `cmd/upgrade.go` branches on it to build from source rather than download a release, and `migrate.go` carries a dedicated `channelEdge` class for an always-latest box. With the channel no longer settable, no box can be put on edge, so those paths become unreachable. The ruled mapping (`edge`→development) also converts any box on edge to `local`, which is a real semantic change — unexposed today only because dev was moved to prerelease during the fleet correction.
+
+I implemented the mapping exactly as ruled and did NOT delete the edge machinery. The docs now state plainly that no role derives edge, and point at `./sb upgrade register <commit>` + `schedule`, which reaches the same result for a single target. Whether edge deserves a fourth role or should be retired deliberately is a policy decision, not mine — and the table it lives in is one line, so either answer is cheap once ruled.
+
+## Before landing
+
+`cli/internal/upgrade/service.go` carries BOTH this unit's `loadConfig` warning and STATBUS-255's RunCheck switch. They sit in different functions, so splitting them is mechanical if the two units land separately.
+
+AC#4, #5 and #7 are met by this build; AC#3 is met for every FUTURE correction (this one reached the fleet by the King's chosen alternative, recorded in #1). AC#6's sequencing still applies: this lands before the per-slot deploy workflows for et/jo/ma/tcc/ug are deleted.
+---
+
+author: foreman
+created: 2026-08-19 12:23
+---
+KING RULED 2026-08-19: EDGE IS RETIRED — 'Yes, retire it.' Presented with the architect's reasoning (nothing uses the always-track-master channel; no box is on it since dev moved to prerelease; running a specific commit keeps working via register+schedule; a fourth role would exist only to keep unreachable machinery alive). The retirement diff is queued as post-tag unit #4, carrying the architect's non-negotiable instruction: migrate.go's channelEdge class governs migration-fix behaviour, so removing the edge branch MUST be verified not to shift another channel's classification through a fall-through — deleting a branch from a classifier is exactly where a neighbouring case silently changes meaning.
 ---
 <!-- COMMENTS:END -->
