@@ -3,10 +3,10 @@ id: STATBUS-255
 title: >-
   channel-resolution-via-git: an NSO box must not need a GitHub credential to
   learn a tag name it can already see over git
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-08-19 11:42'
-updated_date: '2026-08-19 11:46'
+updated_date: '2026-08-19 11:53'
 labels:
   - upgrade
   - ops
@@ -60,5 +60,11 @@ created: 2026-08-19 11:46
 **One thing the API had that git cannot see, stated rather than discovered later:** GitHub's DRAFT flag. A draft publishes no git tag, so drafts are invisible here — the behaviour we want, now reached by construction instead of by a filter.
 
 **Zero-API pinned structurally** on both resolution functions (no `FetchReleases`, no `apiBase`, no `http.NewRequest`), with the failure message carrying the 60/hour-shared-IP reason so the next person understands why the pin exists.
+---
+
+author: foreman
+created: 2026-08-19 11:53
+---
+RESOLUTION HALF LANDED as 567487c47 (architect ruled 'land as-is'): ResolveChannelToLatestTag now derives from DiscoverTagsViaGit + ClassifyReleaseShape — no API, no credential, unlimited — with equivalence PROVEN old-vs-new on both channels including the stable+newer-RC coexistence day, one resolution site preserved via the ...At(projDir, channel) variant, and a pin against a second '-rc.' literal ever appearing. TICKET STAYS OPEN — the architect's ruling states it plainly: this landing does NOT fix the reported 403 symptom. RunCheck (service.go:5047-5049) calls FetchReleases DIRECTLY and is where the fleet's quota actually burns; its switch to git is the ticket's remaining body, ruled a SEPARATE unit (a semantic change must not ride an equivalence-proven refactor — the same ruling for the third time). Its first step is EVIDENCE, not reasoning: read the failure-marking guard to learn whether a git-derived candidate in the tag-pushed-but-release-unpublished window lands in 'building' (self-resolving, fine) or 'failed' (transient red on every box on every release — unacceptable, needs handling first); the imminent cut offers a free live observation of the real timing.
 ---
 <!-- COMMENTS:END -->
