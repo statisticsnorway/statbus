@@ -4,10 +4,10 @@ title: >-
   new-instance-script-drift: the country-instance installer still generates the
   retired push-to-install workflows — and the new-box channel default needs a
   ruling
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-19 09:54'
-updated_date: '2026-08-19 10:25'
+updated_date: '2026-08-19 10:27'
 labels:
   - ops
   - release
@@ -36,9 +36,9 @@ WHAT IS ACHIEVED: creating a new instance produces a box that matches the approv
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 create-new-statbus-installation.sh no longer generates master-to-X or deploy-to-X files for new instances and instead configures the role-correct channel
-- [ ] #2 The new-box channel default is ruled and encoded: stable unless explicitly designated a canary
-- [ ] #3 The doc/CLOUD.md runbook steps match the script's actual behavior
+- [x] #1 create-new-statbus-installation.sh no longer generates master-to-X or deploy-to-X files for new instances and instead configures the role-correct channel
+- [x] #2 The new-box channel default is ruled and encoded: stable unless explicitly designated a canary
+- [x] #3 The doc/CLOUD.md runbook steps match the script's actual behavior
 <!-- AC:END -->
 
 ## Comments
@@ -151,5 +151,11 @@ author: mechanic (pinned by foreman)
 created: 2026-08-19 10:25
 ---
 BUILD FROZEN, executed exactly per comments #2-3 (design followed to the letter; zero design decisions taken). Files: ops/create-new-statbus-installation.sh (28+/29-), doc/CLOUD.md (1 line, step 2 replaced + STALE flag removed). ONE MECHANICAL DISCREPANCY reported rather than filled: EDIT 2's stated range (115-126) ended one line short of the balanced if/else/fi — the closing fi is :127; deleting to :126 would have left a dangling fi (bash -n confirmed). The full balanced block was deleted; boundary unambiguous from code structure. TARGET_CHANNEL computed once at the top (the -qv character re-read and confirmed); channel overwrite inside UPDATE_SETTINGS with sibling-matched escaping; echo prints 'Set UPGRADE_CHANNEL=<target> (was: <old>)', silent when already correct; interim NOTE verbatim. Validation: bash -n clean; shellcheck findings identical to HEAD baseline (zero new). Post-edit grep of CLOUD.md: no other step references generated workflows/deploy branches for a new instance. Awaiting architect review.
+---
+
+author: foreman
+created: 2026-08-19 10:27
+---
+LANDED as 10e5ab2c4 (architect APPROVED; his one amendment — the stale GITHUB_DEPLOY_KEYS comment — folded and re-frozen first). The two already-broken generation blocks are gone; TARGET_CHANNEL computed once with the stable-unless-no-stable-exists interim; the channel write OVERWRITES with a '(was: <old>)' echo; doc/CLOUD.md step 2 matches the script. All three ACs closed — AC#2's ruling was comment #1, now encoded. FOLLOW-UPS CARRIED ELSEWHERE: the fleet's live channel correction (six boxes prerelease→stable, dev edge→prerelease) is its own entry being drafted by the architect for the King; the deploy-key consumer question is STATBUS-253. The design's off-by-one and the wrong-question orphan check are both on the record in comments #5 and the review — the reporting-not-absorbing behavior this board keeps rewarding.
 ---
 <!-- COMMENTS:END -->
