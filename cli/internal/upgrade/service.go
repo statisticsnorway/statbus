@@ -2968,7 +2968,7 @@ func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displa
 			ErrRollbackDBRestore, attempts)
 		log.Printf("recoveryRollback: RESTORE-BROKE upgrade %d after %d attempt(s) — two consecutive rollback deaths", id, attempts)
 		if d.writeRollbackTerminal(id,
-			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2 WHERE id = $3"+upgradeRowReturning,
+			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+" WHERE id = $3"+upgradeRowReturning,
 			msg, LabelFailedRollbackIncomplete, attempts) {
 			d.removeUpgradeFlag()
 		}
@@ -8095,6 +8095,62 @@ func (d *Service) terminalExec(execSQL string, args ...any) error {
 // now on the teardown-immune transport.
 const windowOffSQL = `DO $do$ BEGIN EXECUTE format('ALTER DATABASE %I SET default_transaction_read_only = off', current_database()); END $do$`
 
+// flagSourcedBackupPath resolves THE FLAG's backup identity for the terminal
+// write (STATBUS-241). It returns a *string carrying the three-state answer
+// terminalBackupPathSQL consumes, plus a short source label for the log:
+//
+//	(&"<path>", "held flag")  — this attempt stamped an identity at the swap
+//	(&"",       "held flag")  — PreSwap: nothing moved, so there is no identity
+//	(nil,       "...")        — UNKNOWN: no flag we can read. NOT the same as
+//	                            empty, and the caller must leave the column be.
+//
+// Reads the HELD descriptor first (authoritative while the flock is ours, and
+// it sees writes this process made without re-opening), then falls back to the
+// on-disk file. The descriptor's offset is restored so a later mutateHeldFlag
+// rewrite is unaffected.
+func (d *Service) flagSourcedBackupPath() (*string, string) {
+	if d.flagLock != nil && d.flagLock.file != nil {
+		f := d.flagLock.file
+		if _, err := f.Seek(0, 0); err == nil {
+			data, readErr := io.ReadAll(f)
+			// Restore the offset regardless — mutateHeldFlag seeks before every
+			// use, but leaving a shared descriptor at EOF is a trap for the next
+			// reader that does not.
+			_, _ = f.Seek(0, 0)
+			if readErr == nil {
+				var flag UpgradeFlag
+				if json.Unmarshal(data, &flag) == nil {
+					p := flag.BackupPath
+					return &p, "held flag"
+				}
+			}
+		}
+	}
+	if flag, err := ReadFlagFile(d.projDir); err == nil && flag != nil {
+		p := flag.BackupPath
+		return &p, "flag file on disk"
+	}
+	return nil, "no readable flag"
+}
+
+// terminalBackupPathSQL is the backup_path re-imposition every rollback/abort
+// terminal UPDATE must carry (STATBUS-241). It reads $4 — a *string supplied by
+// writeRollbackTerminal from the FLAG, never from a caller's variable — and
+// distinguishes the three states the column can legitimately be in after a
+// volume rewind:
+//
+//	$4 IS NULL   → the identity is UNKNOWN (no readable flag): keep whatever the
+//	               row holds. Never guess NULL; the flagless STATBUS-111 replay
+//	               path lands here with a live identity that must survive.
+//	$4 = ''      → the flag says NOTHING MOVED (PreSwap): impose SQL NULL, so a
+//	               rewind cannot resurrect a stale identity onto a route whose
+//	               whole contract is that it has none.
+//	$4 = '<path>' → impose that identity.
+//
+// Kept as one named constant so the four call sites cannot drift apart, and so
+// the source pin has a single string to require.
+const terminalBackupPathSQL = `, backup_path = CASE WHEN $4::text IS NULL THEN backup_path ELSE NULLIF($4::text, '') END`
+
 // writeRollbackTerminal persists a rollback/abort terminal row via the
 // teardown-immune terminalUpdate (STATBUS-154 — it no longer takes the pass
 // ctx; the write must outlive the pass). Returns true iff the row landed; on
@@ -8107,8 +8163,48 @@ const windowOffSQL = `DO $do$ BEGIN EXECUTE format('ALTER DATABASE %I SET defaul
 // that rewind, so every updateSQL string passed in here MUST include
 // `recovery_attempts = $2` (with id shifted to $3) or the re-impose is a
 // silent no-op. See callers for the exact SQL shape.
+//
+// STATBUS-241 — backup_path is re-imposed by the SAME mechanism, one column
+// over, and it is SOURCED FROM THE FLAG rather than from a parameter. The
+// rewind that erases recovery_attempts erases this column too: the ABORT branch
+// restores the volume (:8609) BEFORE its terminal write, rewinding
+// public.upgrade to a snapshot taken before the post-reconnect recorder ran,
+// where backup_path is NULL. The consequence is not cosmetic — the abort-hold
+// guard (:3841, `state='failed' AND backup_path IS NOT NULL`) then reads zero
+// and FAILS OPEN, stripping the read-only hold protecting a broken volume on
+// exactly the population it exists for.
+//
+// WHY THE FLAG AND NOT A PARAMETER: the flag is the authoritative carrier
+// across this gap (STATBUS-228), and STATBUS-229 made its value correct on BOTH
+// routes BY CONSTRUCTION — empty at PreSwap (nothing moved, so no identity may
+// exist) and the identity once the swap stamps it. Reading it here therefore
+// writes the right value on either arm, where a remembered variable could
+// resurrect an identity onto a route that must not carry one.
+//
+// THREE STATES, DELIBERATELY DISTINCT — silence and empty are NOT the same
+// thing (see flagSourcedBackupPath):
+//   - flag readable, path set    → impose that identity
+//   - flag readable, path empty  → impose SQL NULL explicitly (PreSwap: the
+//     absence is a fact about the world, and imposing it defends the arcs'
+//     "nothing moved ⇒ no identity" contract against a rewind resurrecting one)
+//   - flag NOT readable          → LEAVE THE COLUMN ALONE. This is not
+//     hypothetical: STATBUS-111's human-gated replay reaches restoreAndFinalize
+//     with NO flag (the restore-broke terminal removed it), and imposing NULL
+//     there would erase a live identity that reconcileBackupDir still needs.
+//
+// Every updateSQL passed here MUST therefore carry the backup_path CASE on $4
+// exactly as the four call sites do, or the re-impose is a silent no-op in the
+// same way a missing `recovery_attempts = $2` is.
 func (d *Service) writeRollbackTerminal(id int, updateSQL, errMsg, label string, attempts int) bool {
-	rowJSON, err := d.terminalUpdate(updateSQL, errMsg, attempts, id)
+	flagBackupPath, flagSource := d.flagSourcedBackupPath()
+	if flagBackupPath == nil {
+		// Loud, because it means the terminal row keeps whatever the rewind left
+		// there — correct on the flagless replay path, worth seeing anywhere else.
+		fmt.Fprintf(os.Stderr,
+			"writeRollbackTerminal: no flag-sourced backup identity available (%s) for id=%d label=%s — leaving public.upgrade.backup_path AS-IS (STATBUS-241: imposing NULL here would erase a live identity on the flagless STATBUS-111 replay path)\n",
+			flagSource, id, label)
+	}
+	rowJSON, err := d.terminalUpdate(updateSQL, errMsg, attempts, id, flagBackupPath)
 	if err == nil {
 		logUpgradeRow(label, rowJSON)
 		return true
@@ -8299,7 +8395,7 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reaso
 		// (writeRollbackTerminal has already failed loud). The degraded siren below
 		// fires regardless — the box IS degraded whether or not the row write landed.
 		if d.writeRollbackTerminal(id,
-			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2 WHERE id = $3"+upgradeRowReturning,
+			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+" WHERE id = $3"+upgradeRowReturning,
 			errMsg, LabelFailedRollbackIncomplete, attemptsAtCall) {
 			d.removeUpgradeFlag()
 		}
@@ -8329,7 +8425,7 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reaso
 		errMsg = errMsg + " — rolled back to the previous version; the system is running normally on the old version. " +
 			"The failure is recorded (log retained); report it to support. This version will fail the same way — do NOT re-schedule it; run `./sb upgrade check` and try a LATER release when one is available. No manual intervention needed."
 		if d.writeRollbackTerminal(id,
-			"UPDATE public.upgrade SET state = 'rolled_back', error = $1, recovery_attempts = $2, rolled_back_at = now() WHERE id = $3"+upgradeRowReturning,
+			"UPDATE public.upgrade SET state = 'rolled_back', error = $1, recovery_attempts = $2, rolled_back_at = now()"+terminalBackupPathSQL+" WHERE id = $3"+upgradeRowReturning,
 			errMsg, LabelRolledBackNormal, attemptsAtCall) {
 			// Terminal write landed → the row is rolled_back. Clear the in-progress
 			// flag so the mutex that blocks `./sb install` is released; without this
@@ -8566,7 +8662,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 		progress.Write("CATASTROPHIC FAILURE [%s]. Services stopped. Contact your administrator%s.",
 			ErrRollbackServicesNotStopped, contactSuffix(readAdministratorContact(d.projDir)))
 		if d.writeRollbackTerminal(id,
-			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2 WHERE id = $3"+upgradeRowReturning,
+			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+" WHERE id = $3"+upgradeRowReturning,
 			rollbackFailedMsg, LabelFailedAbortServicesLive, attemptsAtCall) {
 			d.removeUpgradeFlag()
 		}
@@ -8701,7 +8797,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 		// row instead of leaving it stuck. writeRollbackTerminal already failed loud
 		// (INVARIANT ROLLBACK_TERMINAL_WRITE_FAILED + markTerminal).
 		if d.writeRollbackTerminal(id,
-			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2 WHERE id = $3"+upgradeRowReturning,
+			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+" WHERE id = $3"+upgradeRowReturning,
 			rollbackFailedMsg, LabelFailedAbort, attemptsAtCall) {
 			d.removeUpgradeFlag()
 		}

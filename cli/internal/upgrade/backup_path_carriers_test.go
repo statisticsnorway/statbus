@@ -212,8 +212,27 @@ func TestFlagInvariant_EveryPhaseAndBackupPathWriterIsAccountedFor_STATBUS232(t 
 			}
 			// Only assignments/initialisations of the two fields the invariant
 			// couples — not reads, not comparisons.
-			writesField := strings.Contains(trimmed, "BackupPath =") || strings.Contains(trimmed, "BackupPath:") ||
-				strings.Contains(trimmed, ".Phase = ") || strings.Contains(trimmed, "Phase:")
+			//
+			// STATBUS-241 amendment: `X =` also matches `X ==`, so the original
+			// matcher flagged COMPARISONS as writes — contradicting the sentence
+			// directly above it. It surfaced when a new READER
+			// (`if flagBackupPath == nil`) was reported as an unaccounted writer.
+			// Adding that reader to `known` would have been the wrong repair: it
+			// would have left the matcher mis-classifying every future comparison
+			// and taught the next person to silence the pin rather than answer it.
+			// Assignment now excludes `==`/`!=` so the check means what it says.
+			assigns := func(field string) bool {
+				i := strings.Index(trimmed, field+" =")
+				if i < 0 {
+					return false
+				}
+				rest := trimmed[i+len(field)+2:]
+				return !strings.HasPrefix(rest, "=") // `X ==` is a comparison
+			}
+			comparesOnly := strings.Contains(trimmed, "BackupPath !=") || strings.Contains(trimmed, "Phase !=")
+			writesField := !comparesOnly &&
+				(assigns("BackupPath") || strings.Contains(trimmed, "BackupPath:") ||
+					assigns(".Phase") || strings.Contains(trimmed, "Phase:"))
 			if !writesField {
 				continue
 			}
