@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 07:14'
-updated_date: '2026-08-19 10:05'
+updated_date: '2026-08-19 10:19'
 labels:
   - release
   - ci
@@ -92,5 +92,11 @@ author: foreman
 created: 2026-08-19 10:05
 ---
 B2 LANDED as 305491903 (architect APPROVED): .github/workflows/test-upgrade.yaml — the smoke pair's second half. Mirrors test-install.yaml; runs test/install-recovery/scenarios/0-happy-upgrade.sh on an ephemeral Hetzner box with STATBUS_SB_BINARY; its own workflow identity so no first-green-run query can conflate a smoke run with a full harness run; job carries `name: 0-happy-upgrade` so the mark it writes aligns with the harness's matrix job name — alignment premise MEASURED (jobs API returns display name, proven on run 32227385996). The smoke gate (install + install-then-upgrade happy paths before dev) now has both halves as workflows; C1 wires them in as the chain's first decision point. Wave C seam recorded on STATBUS-249 comment #6: covered() unions across workflow identities.
+---
+
+author: mechanic (pinned by foreman)
+created: 2026-08-19 10:19
+---
+SMOKE UPGRADE WORKFLOW PROVEN BY A RUN (run 32241037870 at 7e01d3fb2, dispatched fresh for this purpose): conclusion SUCCESS in 10m57s wall-clock (11m01s dispatch-to-completion) — well inside the 60-minute budget, real headroom for the chain-latency planning. Job display name confirmed via the jobs API as exactly `0-happy-upgrade`. VM cleanup confirmed two ways: the scenario's own EXIT trap deleted the box before the reap step looked (log: 'already gone — nothing to reap') and hcloud server list shows zero matching servers — no orphan, no ongoing charge. THE LOOP CLOSED END-TO-END: `./sb release covered 0-happy-upgrade 7e01d3fb2…` → 'test 0-happy-upgrade ran and passed at 7e01d3fb2', exit 0 — the workflow writes the mark, the library reads it, nothing in between. ONE INTEGRATION FACT FOR C1: `./sb release covered` reads the GITHUB_TOKEN env var directly (githubAuthHeader() in cli/internal/release/check.go), NOT the gh CLI's stored credential — the orchestrator's decision-point steps must export GITHUB_TOKEN (in GHA: the workflow token) or every covered() call 403s into exit 2 undecidable.
 ---
 <!-- COMMENTS:END -->
