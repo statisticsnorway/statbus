@@ -4,9 +4,11 @@ title: >-
   chain-poke-names-no-candidate: the release chain pokes a box with "install
   latest" while waiting for one specific commit — a newer candidate at the wrong
   moment starves the convergence forever
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@architect'
 created_date: '2026-08-19 19:14'
+updated_date: '2026-08-19 19:52'
 labels:
   - release
   - upgrade
@@ -27,3 +29,13 @@ THE FIX SHAPE (to be designed, not assumed): the poke should carry the candidate
 
 WHAT IS ACHIEVED: the chain's convergence poll can never be starved by a concurrent newer candidate, and a box never installs something other than what the chain believes it is testing.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-08-19 19:52
+---
+Assigned to the architect for design (dispatched 2026-08-19 post-cut). The approval unit is the architect's concrete design comment; the King reviews that, not a general direction. Context for the design: v2026.08.0-rc.08 was just cut — the chain's first live run is in progress, and this cut is the safe case (the pushed candidate IS the newest). The fix must land before two candidates can overlap.
+---
+<!-- COMMENTS:END -->
