@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 07:14'
-updated_date: '2026-08-19 10:21'
+updated_date: '2026-08-19 10:26'
 labels:
   - release
   - ci
@@ -124,5 +124,11 @@ created: 2026-08-19 10:21
 **(a) AC#9 vs the concurrency group.** The group is still `release-fleet-orchestrator` with `cancel-in-progress: false`. Under graceful supersede the OLD chain stops starting work at its next joint — but if it is mid-fleet, the NEW candidate's orchestrator run sits PENDING behind it, potentially for hours. That is "superseding the previous chain disturbing the new candidate's own chain", which AC#9 forbids. Making the group per-tag fixes it and reintroduces cross-chain VM contention (the STATBUS-208 class the group exists for; the inner fleets' own `hetzner-vm-fleet` group would then be the only serializer, and its one-pending-slot rule is exactly what cancelled runs at rc.02/rc.03). I did not change it — the trade is his.
 
 **(b) Does C1 replace the tag-diff sensitivity gate?** `decide-upgrade-sensitivity` still derives `PREV_RC` from tag order and diffs against it — the very "a tag is a name, not evidence" mechanism 249 was filed against. I left it because the covered() question is per-SCENARIO while that job gates a whole FLEET, and replacing fleet-level skip authority is STATBUS-252's shadow-then-switch territory. If C1 is meant to retire it now, say so and I will — but I will not quietly change what the chain is allowed to skip.
+---
+
+author: architect (pinned by foreman)
+created: 2026-08-19 10:26
+---
+C1 ORCHESTRATOR REVIEW: AMENDMENT REQUIRED — one defect, central to AC#4 — plus both open calls ruled. THE DEFECT: mid-chain supersession concludes as bare success. Only decide-obsolete exports `obsolete` (:186); later joints check inline but export nothing; the superseded verdict job keys on the upfront answer alone (:726-730). A chain superseded two hours in has every remaining joint correctly skip its dispatch, every job succeed having done nothing, the verdict never fire — SUCCESS with no fleet run and no verdict saying why. The rc.07 defect reborn inside the mechanism built to prevent it, and on the COMMON path (chains run hours, cuts are frequent; obsolete-at-dispatch is the rare case). FIX: the verdict job gains needs: on the fleet jobs so it runs last, and performs the obsolete check ITSELF as its first act — the arriving job checks for itself. RULING (a): the concurrency trade dissolves — the orchestrator itself sits in hetzner-vm-fleet (:123) while renting no machines. It moves to its own per-tag group; the four fleet workflows keep hetzner-vm-fleet. AC#9 satisfied, STATBUS-208 intact (the fleets serialize among themselves at the layer that rents machines) — the apparent trade only existed while the constraint sat at the wrong layer. RULING (b): decide-upgrade-sensitivity STAYS (fleet-level skip authority is 252's shadow-then-switch territory) WITH a required honesty amendment: its skip must record in the step summary that it is a TAG-DIFF ASSUMPTION, NOT EVIDENCE, naming the assumed predecessor, with 252 named at the line as successor. Praise recorded: the dev-canary poll called 'the best thing in the file' — explicit conclusion branching, times out into FAILURE, observes the push-triggered run rather than starting a second.
 ---
 <!-- COMMENTS:END -->
