@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-08-19 07:10'
-updated_date: '2026-08-19 09:57'
+updated_date: '2026-08-19 10:40'
 labels:
   - release
   - ops
@@ -99,5 +99,11 @@ author: foreman
 created: 2026-08-19 09:57
 ---
 244a LANDED as 0265c8f8b (architect approved with one required doc amendment, folded and re-frozen before landing): 11 workflow files deleted (8 non-dev master-to-X, production-to-all, deploy-to-demo, deploy-to-rune-no — 543 lines removed), AGENTS.md + doc/CLOUD.md rewritten to the per-role model WITH the transitional-truth paragraph (the five country deploy-to-X remain until Wave D1's channel confirmation; the doc says so plainly, with the stranding rationale). Origin deploy branches DELETED: ops/cloud/deploy/demo, ops/standalone/deploy/rune-no. AC#2 (docs) closed; AC#1/#4/#6 close with 244b (master-to-dev, Wave C) and the Wave-D country-path deletions; AC#3 holds by construction (dev untouched, verified). master-to-dev remains the only button, by sequencing design, until 247's tag-to-dev replaces it.
+---
+
+author: foreman
+created: 2026-08-19 10:40
+---
+244b SEQUENCING (foreman, on C1's landing): tag-to-dev now EXISTS in the landed orchestrator (4324f1d3a) but has never RUN — the next RC cut is its first live proof. master-to-dev is dev's only PROVEN deploy path until then, so its deletion holds until one cut has driven dev through the new mechanism — the same do-not-delete-the-only-receive-path-before-its-replacement-is-proven logic already ruled for the country slots (comment on 251). 244b executes immediately after the first green tag-to-dev arrival on dev.
 ---
 <!-- COMMENTS:END -->
