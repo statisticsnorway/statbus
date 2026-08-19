@@ -219,20 +219,40 @@ var rewindAudit = map[siteKey]rewindDisposition{
 
 	{"cli/internal/upgrade/service.go", "UPDATE", "error,recovery_parked_reason"}: {
 		Class: classRuledReimposeOwed, Count: 1, Owner: "architect (ruled) / next builder (implements)",
-		Why:      "RULED RE-IMPOSE on the burden principle: an exemption requires proof, safety does not. A missed re-imposition here is a PARKED box silently un-parking into the deterministic failure it stopped at — STATBUS-229 exactly. If someone later proves no restore can follow a park, re-disposition EXEMPT with that proof recorded.",
-		Question: "IMPLEMENTATION COST, measured not assumed: park state lives ONLY in the row today — upgradeParkedReason reads it from the DB, which is precisely what the rewind eats. The flag carries NO park field, so a flag-sourced re-imposition (the STATBUS-241 rule: never a remembered variable) needs a NEW FLAG FIELD, which is a change to the flag schema and is itself guarded by the STATBUS-232 writer-accountability pin. That is a unit, not a line — sized here so the obligation is not mistaken for done.",
+		Why: "RULED RE-IMPOSE on the burden principle: an exemption requires proof, safety does not. A missed re-imposition here is a PARKED box silently un-parking into the deterministic failure it stopped at — STATBUS-229 exactly. If someone later proves no restore can follow a park, re-disposition EXEMPT with that proof recorded.",
+		Question: "IMPLEMENTATION COST — RE-MEASURED, and the first measurement was wrong by a wide margin. " +
+			"It was sized as a NEW FLAG FIELD (park state lives only in the row, so a flag-sourced re-imposition " +
+			"needed one) — a flag-schema change, itself guarded by the STATBUS-232 writer pin. THE TRACE DELETED " +
+			"THAT UNIT: no DESIGNED path lets a restore follow a live park (every route is parked-guarded — " +
+			"recoveryRollback refuses at the point of use; applyNewSbUpgrading's rollbacks sit behind resumeNewSb's " +
+			"parked-skip and it is the sole caller; claimScheduledUpgrade displaces any standing park and NULLs both " +
+			"columns BEFORE the window opens; park and rollback are mutually exclusive branches in " +
+			"parkForDeterministicFailure). The only interleaving was an ERROR path: the park-state read failed OPEN " +
+			"on any error, so a transient failure at crash-recovery time would restore over a live park. THE COST IS " +
+			"THEREFORE ONE BRANCH, not a flag field — narrowing the fail-open to SQLSTATE 42703 (where the column's " +
+			"absence PROVES the row cannot be parked) and refusing on every other error. " +
+			"THIS ENTRY STAYS RULED-REIMPOSE-OWED UNTIL THAT NARROWING SHIPS: the audit must state the TRUE CURRENT " +
+			"STATE, not the intended one, and the flip to EXEMPT-with-proof belongs to the commit that lands it.",
 	},
 
 	// ── F. PENDING RULING — enumerated and known, disposition NOT self-assigned ──
 	{"cli/internal/upgrade/service.go", "UPDATE", "error,recovery_parked_at,recovery_parked_reason,state,superseded_at"}: {
 		Class: classRuledReimposeOwed, Count: 1, Owner: "architect (ruled) / next builder (implements)",
-		Why:      "RULED RE-IMPOSE on the burden principle: an exemption requires proof, safety does not. A missed re-imposition here is a PARKED box silently un-parking into the deterministic failure it stopped at — STATBUS-229 exactly. If someone later proves no restore can follow a park, re-disposition EXEMPT with that proof recorded.",
-		Question: "IMPLEMENTATION COST, measured not assumed: park state lives ONLY in the row today — upgradeParkedReason reads it from the DB, which is precisely what the rewind eats. The flag carries NO park field, so a flag-sourced re-imposition (the STATBUS-241 rule: never a remembered variable) needs a NEW FLAG FIELD, which is a change to the flag schema and is itself guarded by the STATBUS-232 writer-accountability pin. That is a unit, not a line — sized here so the obligation is not mistaken for done.",
+		Why: "RULED RE-IMPOSE on the burden principle: an exemption requires proof, safety does not. A missed re-imposition here is a PARKED box silently un-parking into the deterministic failure it stopped at — STATBUS-229 exactly. If someone later proves no restore can follow a park, re-disposition EXEMPT with that proof recorded.",
+		Question: "IMPLEMENTATION COST — see the recoveryRollback-route entry above: the trace deleted the " +
+			"flag-field unit. No DESIGNED path lets a restore follow a live park; the only interleaving was the " +
+			"park-state read FAILING OPEN on any error. The cost is ONE BRANCH — narrow that fail-open to SQLSTATE " +
+			"42703 and refuse on every other error. STAYS RULED-REIMPOSE-OWED until the narrowing ships: the audit " +
+			"states the true current state, not the intended one.",
 	},
 	{"cli/internal/upgrade/service.go", "UPDATE", "error,recovery_parked_at,recovery_parked_reason"}: {
 		Class: classRuledReimposeOwed, Count: 1, Owner: "architect (ruled) / next builder (implements)",
-		Why:      "RULED RE-IMPOSE on the burden principle: an exemption requires proof, safety does not. A missed re-imposition here is a PARKED box silently un-parking into the deterministic failure it stopped at — STATBUS-229 exactly. If someone later proves no restore can follow a park, re-disposition EXEMPT with that proof recorded.",
-		Question: "IMPLEMENTATION COST, measured not assumed: park state lives ONLY in the row today — upgradeParkedReason reads it from the DB, which is precisely what the rewind eats. The flag carries NO park field, so a flag-sourced re-imposition (the STATBUS-241 rule: never a remembered variable) needs a NEW FLAG FIELD, which is a change to the flag schema and is itself guarded by the STATBUS-232 writer-accountability pin. That is a unit, not a line — sized here so the obligation is not mistaken for done.",
+		Why: "RULED RE-IMPOSE on the burden principle: an exemption requires proof, safety does not. A missed re-imposition here is a PARKED box silently un-parking into the deterministic failure it stopped at — STATBUS-229 exactly. If someone later proves no restore can follow a park, re-disposition EXEMPT with that proof recorded.",
+		Question: "IMPLEMENTATION COST — see the recoveryRollback-route entry above: the trace deleted the " +
+			"flag-field unit. No DESIGNED path lets a restore follow a live park; the only interleaving was the " +
+			"park-state read FAILING OPEN on any error. The cost is ONE BRANCH — narrow that fail-open to SQLSTATE " +
+			"42703 and refuse on every other error. STAYS RULED-REIMPOSE-OWED until the narrowing ships: the audit " +
+			"states the true current state, not the intended one.",
 	},
 	{"cli/internal/upgrade/service.go", "UPDATE", "state,superseded_at"}: {
 		Class: classSelfHealing, Count: 2,

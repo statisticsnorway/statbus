@@ -2930,9 +2930,17 @@ func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displa
 	// KEEP the flag on disk (parked rows keep their flag) → alive-idle. FAIL-OPEN on a
 	// read error (42703 bootstrap: a pre-migrate schema has no recovery_parked_at, so
 	// the row cannot be parked — proceed with the rollback).
-	if parked, parkReason, perr := d.upgradeParkedReason(ctx, id); perr != nil {
-		log.Printf("recoveryRollback: park-state read failed for upgrade %d: %v — proceeding fail-open with the rollback", id, perr)
-	} else if parked {
+	parked, parkReason, perr := d.upgradeParkedReason(ctx, id)
+	if parkStateUnknown(perr) {
+		// UNKNOWN => treat as parked. This path RESTORES; proceeding without
+		// knowing would rewind a live park's columns and silently un-park the
+		// row into the failure it stopped at (STATBUS-229's shape).
+		parked = true
+		parkReason = fmt.Sprintf("park state UNKNOWN — the read failed (%v); refusing to restore on an unverified row", perr)
+	} else if perr != nil {
+		log.Printf("recoveryRollback: recovery_parked_at does not exist for upgrade %d (%v) — the row CANNOT be parked on this schema, so the rollback proceeds on knowledge, not on a guess", id, perr)
+	}
+	if parked {
 		log.Printf("recoveryRollback: upgrade %d is PARKED (%s) — refusing the automatic rollback; the row stays parked and the unit alive-idle. Re-trigger the upgrade or run ./sb install to make a fresh deliberate attempt.", id, parkReason)
 		d.flagLock = nil
 		lock.Close() // release the flock; leave the flag file on disk (parked rows keep it)
@@ -3042,9 +3050,16 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 	// read error (42703 bootstrap, service.go:5792-5804 rationale verbatim): a
 	// pre-migrate schema has no recovery_parked_at, so the row cannot be parked —
 	// proceed with the normal reconciliation.
-	if parked, parkReason, perr := d.upgradeParkedReason(ctx, id); perr != nil {
-		log.Printf("completeInProgressUpgrade: park-state read failed for upgrade %d: %v — proceeding fail-open with the flagless-row reconciliation", id, perr)
-	} else if parked {
+	parked, parkReason, perr := d.upgradeParkedReason(ctx, id)
+	if parkStateUnknown(perr) {
+		// Same hazard as recoveryRollback: this routine can reach d.rollback,
+		// so an unverified row must not be reconciled.
+		parked = true
+		parkReason = fmt.Sprintf("park state UNKNOWN — the read failed (%v); refusing to reconcile an unverified row", perr)
+	} else if perr != nil {
+		log.Printf("completeInProgressUpgrade: recovery_parked_at does not exist for upgrade %d (%v) — the row CANNOT be parked on this schema, so reconciliation proceeds on knowledge, not on a guess", id, perr)
+	}
+	if parked {
 		log.Printf("completeInProgressUpgrade: upgrade %d is PARKED (%s) — skipping reconciliation; the flag stays on disk and the row stays parked/in_progress. Re-trigger the upgrade or run ./sb install to make a fresh deliberate attempt.", id, parkReason)
 		return
 	}
@@ -6959,6 +6974,32 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 // recovery_parked_at IS NOT NULL. A parked row is SKIPPED by every automatic
 // resume (the unit stays alive-idle) until a deliberate operator trigger
 // un-parks it (RunSchedule / install re-claim resets the marker).
+// parkStateUnknown answers the question every park-state consumer must ask
+// before acting: does this error mean the row CANNOT be parked, or that we do
+// not KNOW whether it is? (STATBUS-242 narrowing.)
+//
+// SQLSTATE 42703 (undefined_column) is not a fail-open at all — it is
+// fail-INFORMED. A schema with no recovery_parked_at cannot hold a parked row,
+// so proceeding is knowledge-based: we know the answer, and the answer is "not
+// parked". EVERY OTHER ERROR is the ABSENCE of knowledge, and the code used to
+// treat those opposites as the same fact.
+//
+// The asymmetry that settles what to do with the unknown case: refusing on a
+// transient costs a human trigger on a box that is alive-idle and recoverable
+// through the operator's normal remedy; PROCEEDING silently un-parks a row into
+// the deterministic failure it stopped at — and, on the restore-bearing paths,
+// restores over it.
+func parkStateUnknown(err error) bool {
+	if err == nil {
+		return false
+	}
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "42703" {
+		return false // the column does not exist => the row cannot be parked
+	}
+	return true
+}
+
 func (d *Service) upgradeParkedReason(ctx context.Context, id int) (parked bool, reason string, err error) {
 	var parkedAt sql.NullTime
 	var r sql.NullString
@@ -7070,6 +7111,22 @@ func (d *Service) RecoveryBudgetGuard(ctx context.Context) (skipBootMigrate bool
 
 	// Parked rows skip the boot migrate → alive-idle for this failure class.
 	parked, _, perr := d.upgradeParkedReason(ctx, flag.ID)
+	if parkStateUnknown(perr) {
+		// UNKNOWN => skip boot migrate, exactly as if parked. Boot-migrating a
+		// row that may be parked defeats what the park is for: a park means
+		// STOP and wait for a human, and this is the guard that honours it.
+		//
+		// WHY THIS SITE'S 42703 ARM IS LOAD-BEARING IN A WAY THE OTHERS' ARE
+		// NOT, and why it must keep proceeding: boot migrate is what CREATES
+		// recovery_parked_at on a schema that lacks it. Treating 42703 as
+		// unknown-and-therefore-skip would skip the migration that creates the
+		// column, leaving the column absent, the state unknowable, and the skip
+		// permanent — a bootstrap deadlock. Fail-INFORMED is not a nicety here;
+		// it is the only non-wedging answer.
+		log.Printf("RecoveryBudgetGuard: park state UNKNOWN (id=%d): %v — skipping boot migrate and leaving the unit alive-idle rather than acting on an unverified row", flag.ID, perr)
+		release()
+		return true
+	}
 	if perr != nil {
 		log.Printf("RecoveryBudgetGuard: park-state read failed (id=%d): %v — proceeding fail-open (boot migrate bootstraps the recovery_* columns if absent)", flag.ID, perr)
 		release()
@@ -7369,6 +7426,15 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 		// parked, skip self-heal and fall through to the continuation, whose STATBUS-046
 		// budget-section parked-skip returns the unit to alive-idle with the flag kept. A parked
 		// row resolves ONLY by a fix-release re-trigger (STATBUS-159 displacement) or ./sb install.
+		// STATBUS-242 NARROWING — THIS SITE IS DELIBERATELY LEFT FAIL-OPEN, and
+		// the reason is checked rather than assumed. Unlike the four other
+		// park-state consumers, nothing downstream of here restores: the only
+		// write this branch guards is the self-heal UPDATE below, which carries
+		// its own SQL belt guard `AND recovery_parked_at IS NULL` — verified
+		// present, not inferred from this comment. So a parked row cannot be
+		// self-healed even when this read fails, and refusing here would cost a
+		// legitimate self-heal for no safety gain. If that WHERE clause ever
+		// loses its guard, this site joins the other four.
 		parked, parkReason, pkErr := d.upgradeParkedReason(ctx, flag.ID)
 		if pkErr != nil {
 			log.Printf("resumeNewSb: park-state read failed for upgrade %d: %v — proceeding fail-open; the belt guard (AND recovery_parked_at IS NULL) on the self-heal UPDATE still protects a parked row", flag.ID, pkErr)
@@ -7572,9 +7638,17 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 	// actually succeeded (comment #6's verified subtlety).
 	guardCounted := d.recoveryPassCounted
 	parked, parkReason, perr := d.upgradeParkedReason(ctx, flag.ID)
-	if perr != nil {
-		log.Printf("resumeNewSb: park-state read failed for upgrade %d: %v — proceeding; the escalation budget still bounds this attempt", flag.ID, perr)
-	} else if parked {
+	if parkStateUnknown(perr) {
+		// This guard is the ONLY thing standing between a parked row and
+		// applyNewSbUpgrading (its sole caller, below), whose failure paths roll
+		// back and restore. The escalation budget bounds how MANY attempts
+		// happen; it does not stop the first one restoring over a park.
+		parked = true
+		parkReason = fmt.Sprintf("park state UNKNOWN — the read failed (%v); refusing the automatic resume on an unverified row", perr)
+	} else if perr != nil {
+		log.Printf("resumeNewSb: recovery_parked_at does not exist for upgrade %d (%v) — the row CANNOT be parked on this schema, so the resume proceeds on knowledge, not on a guess", flag.ID, perr)
+	}
+	if parked {
 		log.Printf("resumeNewSb: upgrade %d is PARKED (%s) — skipping automatic resume; re-trigger the upgrade or run ./sb install to make a fresh attempt", flag.ID, parkReason)
 		progress.Write("Upgrade %d is parked: %s. Skipping automatic resume — re-trigger the upgrade (NOTIFY/apply) or run ./sb install for a fresh attempt.", flag.ID, parkReason)
 		progress.Close()
