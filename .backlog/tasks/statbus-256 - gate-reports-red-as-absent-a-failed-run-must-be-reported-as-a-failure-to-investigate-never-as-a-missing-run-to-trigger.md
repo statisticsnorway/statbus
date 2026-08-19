@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 12:35'
+updated_date: '2026-08-19 12:36'
 labels:
   - release
   - quality-gate
@@ -26,3 +27,13 @@ THE FIX: when the walk finds candidate runs that are RED at commits whose diff-t
 
 Same message-truth family as STATBUS-240/245: the verdict was right, the words lied about the world. Post-tag build queue.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-08-19 12:36
+---
+SECOND FACE OBSERVED LIVE, same sitting (King's second refusal paste): the images gate said 'has not run for 0d83061c612c — Trigger: gh workflow run images.yaml' while the images run at that exact commit was IN PROGRESS (created 12:26:30, automatic on push, green minutes later) — the operator was instructed to manually start a job that was already running. So the defect is fully general: the refusal vocabulary has two words (green/absent) for a four-state world — GREEN (pass or ride), RED (investigate, link, never bare re-run), RUNNING (wait, link, re-run preflight after), ABSENT (trigger, command). THE FIX covers all arms: checkWorkflowAtCommit and its callers must distinguish and name all four, each with its own next move. The King found both faces himself from the operator's chair within one sitting — the strongest possible evidence this is operator-surface load-bearing, not polish.
+---
+<!-- COMMENTS:END -->
