@@ -1,6 +1,7 @@
 package upgrade
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
@@ -147,4 +148,76 @@ func TestApplySaysWhatHappensNext_STATBUS258(t *testing.T) {
 func readUpgradeApplySource(t *testing.T) string {
 	t.Helper()
 	return string(packageGoSources(t)["apply.go"])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// THE PINNED REMOTE SHAPE (STATBUS-259/-260).
+//
+// The allowlist entry that will let this verb through the door is byte-pinned to
+// a 40-hex full SHA (sshdo's `match hexdigits`), and the chain's guard compares
+// the commit the box emits against the commit the chain requested. Both rest on
+// one property nobody has stated: A 40-HEX INPUT MUST RESOLVE TO ITSELF,
+// UNCHANGED. If resolution ever normalised, rewrote, or re-pointed it, the guard
+// would fail on a box that did exactly what it was told.
+
+// TestFullSHAResolvesToItself_STATBUS260 is the identity the guard depends on.
+func TestFullSHAResolvesToItself_STATBUS260(t *testing.T) {
+	const sha = "1aa56cdd7e4b9f0123456789abcdef0123456789"
+
+	// Reuses the package's existing fakeLookup rather than adding a second one —
+	// two fakes of the same interface drift, and the newer one silently stops
+	// modelling what the older one learned.
+	for name, lookup := range map[string]*fakeLookup{
+		"untagged commit": {tagsAtCommit: map[CommitSHA][]string{}},
+		// A commit that ALSO carries a tag must still resolve to the same SHA.
+		// It becomes a TaggedTarget, and if that ever changed which commit came
+		// back, the chain would request one commit and be told another.
+		"commit carrying a release tag": {tagsAtCommit: map[CommitSHA][]string{sha: {"v2026.08.0-rc.08"}}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			target, err := resolveUpgradeTarget(context.Background(), lookup, sha)
+			if err != nil {
+				t.Fatalf("a 40-hex commit must resolve: %v", err)
+			}
+			var got CommitSHA
+			switch tt := target.(type) {
+			case TaggedTarget:
+				got = tt.SHA
+			case UntaggedTarget:
+				got = tt.SHA
+			default:
+				t.Fatalf("unexpected target type %T", target)
+			}
+			if string(got) != sha {
+				t.Errorf(`a 40-hex input resolved to a DIFFERENT commit: gave %s, got %s.
+
+The chain's guard compares what the box installed against what it requested, and
+the allowlist entry pins a 40-hex argument. If resolution rewrites the commit,
+that guard fails on a box that did exactly what it was told — and the failure
+would read as a box fault.`, sha, got)
+			}
+		})
+	}
+}
+
+// TestUppercaseSHAIsRefusedNotMisresolved_STATBUS260: the shape regexes are
+// lowercase-only, so an uppercase 40-hex matches NO shape.
+//
+// That is the right outcome and worth pinning, because the alternative is
+// nastier than it looks: if uppercase were accepted and passed through, the
+// emitted commit would differ from the lowercase one the chain requested by CASE
+// ALONE, and the guard would report "box installed a different candidate" for
+// two spellings of the same commit.
+func TestUppercaseSHAIsRefusedNotMisresolved_STATBUS260(t *testing.T) {
+	const upper = "1AA56CDD7E4B9F0123456789ABCDEF0123456789"
+
+	_, err := resolveUpgradeTarget(context.Background(), &fakeLookup{}, upper)
+	if err == nil {
+		t.Fatal("an uppercase 40-hex must be refused — accepting it would make the requested-vs-installed guard fail on nothing but a difference in spelling")
+	}
+	// And the refusal must teach the accepted shapes, since the operator's input
+	// LOOKS like a commit and they will not guess that case is the problem.
+	if !strings.Contains(err.Error(), "40-hex") {
+		t.Errorf("the refusal must name the accepted shapes; got: %v", err)
+	}
 }
