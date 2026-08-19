@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-08-19 00:15'
-updated_date: '2026-08-19 11:23'
+updated_date: '2026-08-19 11:28'
 labels:
   - upgrade-recovery
   - operator-ux
@@ -35,7 +35,7 @@ WHAT IS ACHIEVED: the African-NSO operator frame holds — the error text an una
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 The King approves the new error class name and its operator-facing message text before implementation
-- [ ] #2 The :2966 terminal distinguishes the PreSwap route (nothing moved) from the post-swap route (restore failed); the post-swap label is unchanged
+- [x] #2 The :2966 terminal distinguishes the PreSwap route (nothing moved) from the post-swap route (restore failed); the post-swap label is unchanged
 - [ ] #3 The corrected arcs' assertions observe the new class on the PreSwap route at a suite run
 <!-- AC:END -->
 
@@ -76,5 +76,11 @@ author: foreman
 created: 2026-08-19 11:23
 ---
 KING APPROVED 2026-08-19 (first decision of the sitting): the name UPGRADE_STOPPED_NOTHING_CHANGED and the operator-facing message text, both VERBATIM as recommended in comment #1. AC#1 closed. Build dispatched to the engineer immediately — this unit gates the next candidate cut (the King cuts as soon as it lands). AC#2 is the :2966 route branch (PreSwap gets the new class; post-swap keeps ROLLBACK_FAILED_DB_RESTORE, where it is true); AC#3's live observation completes at the next fleet run — which is the cut itself.
+---
+
+author: foreman
+created: 2026-08-19 11:28
+---
+LANDED as cd62301af (architect APPROVED, all three verification points at source). The :2966 terminal now branches on the flag (IsServiceNewSbRecovery, per the 241 rule): the pre-swap arm renders the King's approved text VERBATIM under UPGRADE_STOPPED_NOTHING_CHANGED; the post-swap arm keeps ROLLBACK_FAILED_DB_RESTORE with rendered bytes identical to before (source de-duplicated via the INSTALL_CMD constant — the architect verified rendered-identical precisely rather than repeating 'byte-unchanged'). The wording is pinned to exactly ONE arm — the engineer's self-caught gap: an existence-only pin would have passed the reassuring text on the post-swap arm, 'the single most harmful sentence this system could emit', now structurally impossible (default + override, not parallel branches). Distinct journal labels per route (STOPPED-UNCHANGED vs RESTORE-BROKE). Both arcs' assertions updated with route-naming refusal text. AC#2 closed. AC#3 completes at the cut's fleet run — THE KING CUTS NOW.
 ---
 <!-- COMMENTS:END -->
