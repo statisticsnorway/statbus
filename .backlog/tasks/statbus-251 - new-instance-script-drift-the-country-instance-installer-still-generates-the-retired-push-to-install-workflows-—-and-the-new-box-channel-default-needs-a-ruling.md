@@ -7,7 +7,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 09:54'
-updated_date: '2026-08-19 10:22'
+updated_date: '2026-08-19 10:25'
 labels:
   - ops
   - release
@@ -145,5 +145,11 @@ author: foreman
 created: 2026-08-19 10:22
 ---
 CHANNEL READS COMPLETE (operator, read-only, all seven boxes): et/jo/ma/tcc/ug/demo ALL read UPGRADE_CHANNEL=prerelease; dev reads edge. The architect's local-channel hypothesis is NOT confirmed by the live reads — but the fleet is NOT healthy either, and the operator's 'configuration is correct' conclusion is wrong against the ruled topology: under the King's 248 rulings the five country boxes and demo belong on STABLE (candidates must never be offered to NSO production boxes; demo auto-applies stable), and dev belongs on prerelease, not edge. So EVERY box deviates from the ruled topology — the deviation is just a different one than predicted. TWO QUESTIONS routed to the architect: (1) reconcile the code-derivation (which says the creation path yields local) with the observed prerelease — both cannot be true of the same mechanism; something else set these channels, and what that something is determines whether the script fix as designed suffices; (2) whether the fleet's channel correction (all-country + demo → stable, dev → prerelease) folds into Wave D1 as already planned or needs its own unit — no manual writes; the correction ships via the ruled mechanism. Note the silver lining: prerelease boxes CAN receive releases (stable releases appear on the prerelease channel too, once one exists), so the 'boxes can never upgrade' severity does not hold — the real exposure is NSO boxes being OFFERED release candidates.
+---
+
+author: mechanic (pinned by foreman)
+created: 2026-08-19 10:25
+---
+BUILD FROZEN, executed exactly per comments #2-3 (design followed to the letter; zero design decisions taken). Files: ops/create-new-statbus-installation.sh (28+/29-), doc/CLOUD.md (1 line, step 2 replaced + STALE flag removed). ONE MECHANICAL DISCREPANCY reported rather than filled: EDIT 2's stated range (115-126) ended one line short of the balanced if/else/fi — the closing fi is :127; deleting to :126 would have left a dangling fi (bash -n confirmed). The full balanced block was deleted; boundary unambiguous from code structure. TARGET_CHANNEL computed once at the top (the -qv character re-read and confirmed); channel overwrite inside UPDATE_SETTINGS with sibling-matched escaping; echo prints 'Set UPGRADE_CHANNEL=<target> (was: <old>)', silent when already correct; interim NOTE verbatim. Validation: bash -n clean; shellcheck findings identical to HEAD baseline (zero new). Post-edit grep of CLOUD.md: no other step references generated workflows/deploy branches for a new instance. Awaiting architect review.
 ---
 <!-- COMMENTS:END -->
