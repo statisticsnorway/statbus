@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 07:14'
-updated_date: '2026-08-19 10:19'
+updated_date: '2026-08-19 10:21'
 labels:
   - release
   - ci
@@ -98,5 +98,31 @@ author: mechanic (pinned by foreman)
 created: 2026-08-19 10:19
 ---
 SMOKE UPGRADE WORKFLOW PROVEN BY A RUN (run 32241037870 at 7e01d3fb2, dispatched fresh for this purpose): conclusion SUCCESS in 10m57s wall-clock (11m01s dispatch-to-completion) — well inside the 60-minute budget, real headroom for the chain-latency planning. Job display name confirmed via the jobs API as exactly `0-happy-upgrade`. VM cleanup confirmed two ways: the scenario's own EXIT trap deleted the box before the reap step looked (log: 'already gone — nothing to reap') and hcloud server list shows zero matching servers — no orphan, no ongoing charge. THE LOOP CLOSED END-TO-END: `./sb release covered 0-happy-upgrade 7e01d3fb2…` → 'test 0-happy-upgrade ran and passed at 7e01d3fb2', exit 0 — the workflow writes the mark, the library reads it, nothing in between. ONE INTEGRATION FACT FOR C1: `./sb release covered` reads the GITHUB_TOKEN env var directly (githubAuthHeader() in cli/internal/release/check.go), NOT the gh CLI's stored credential — the orchestrator's decision-point steps must export GITHUB_TOKEN (in GHA: the workflow token) or every covered() call 403s into exit 2 undecidable.
+---
+
+author: engineer
+created: 2026-08-19 10:21
+---
+**C1 BUILT AND FROZEN (246 + 247 merged, one unit). One file: `.github/workflows/release-fleet-orchestrator.yaml`.** YAML parses, `actionlint` clean, Go chain still green. TWO DESIGN QUESTIONS I did NOT decide are at the end — please route both to the architect before this lands.
+
+**THE CHAIN IS NOW (247 AC#1):** `decide-obsolete` → **smoke-install ∥ smoke-upgrade** → **dev-canary** → install-recovery-harness → upgrade-arc-harness, plus the `superseded` verdict job. The smoke pair runs in parallel (both cheap, both ephemeral, both must pass); dev is the first non-disposable thing in the chain and gates every expensive fleet behind it.
+
+**DECISION POINTS ARE THE ARRIVING JOB'S OWN FIRST ACT (246 AC#1)** — and I had this WRONG in my first pass. I initially wrote one upfront `decide-obsolete` job and a comment claiming each joint "re-asks". It did not: a single upfront check answers a question asked before the later joints existed, and a candidate cut mid-chain would never be seen. Every joint (dev-canary, install-recovery-harness, upgrade-arc-harness) now runs its OWN inline check as its first step, re-fetching tags. The upfront job remains only as the early gate for the smoke pair and the trigger for the superseded verdict. I caught this because the comment I had just written was false — the same reason I removed a lying comment from B1.
+
+**COVERED? (246 AC#2, 249 AC#2)** — each smoke joint asks `./sb release covered <scenario> <commit>`, the SAME library the promotion gate uses. Exit codes drive it: 0 skip, 1 run, **2 undecidable → runs, and SAYS SO** as a warning annotation reading "a failure to decide, not a decision". Both jobs build `./sb` from this commit's source first (`./dev.sh build-sb`, no args = host platform → `./sb`; NOT the `linux/amd64` cross-build, which writes a differently-named binary for VM upload).
+
+**EVIDENCE ON THE RUN (AC#5/#6)** — every decision writes to `$GITHUB_STEP_SUMMARY`: a skip records the subcommand's own "covered by" sentence verbatim, a run records why, an undecidable records that it could not tell, and each obsolete check records whether it proceeded or stopped. The chain can be read afterwards without opening logs.
+
+**THE THIRD VERDICT (AC#4)** — a `superseded` job that fires only on supersession and SUCCEEDS, because nothing failed, while stating in its NAME that nothing may be promoted on it: *"SUPERSEDED — stopped for a newer candidate; nothing failed, nothing may be promoted"*. Not an approximation via `failure()`/`success()`. It also states the finish-out contract on the run, so the in-flight spend is not later mistaken for a bug.
+
+**TAG-TO-DEV (247 AC#3)** — dev-canary force-pushes the deploy branch **at the tagged commit** (`${{ github.sha }}:refs/heads/ops/cloud/deploy/dev`), automation only, never a person. **A defect I caught by checking rather than assuming:** my first version then called `dispatch-fleet-and-wait` on `deploy-to-dev.yaml` — which would have started a SECOND, workflow_dispatch-triggered deploy alongside the push-triggered one and then watched the wrong run (the action correlates on `--event=workflow_dispatch`). Replaced with an inline poll of `gh run list --commit=<sha>` that branches on the conclusion explicitly, never `gh run watch --exit-status`. A timeout is a FAILURE, with the reason written out: a convergence wait that timed out into success would defeat the point of gating the fleets on a real box.
+
+**Smoke workflows stay dispatch-only** per the ruling — no tag triggers added, one controlled path to those runs.
+
+**TWO THINGS I DID NOT DECIDE — both need the architect:**
+
+**(a) AC#9 vs the concurrency group.** The group is still `release-fleet-orchestrator` with `cancel-in-progress: false`. Under graceful supersede the OLD chain stops starting work at its next joint — but if it is mid-fleet, the NEW candidate's orchestrator run sits PENDING behind it, potentially for hours. That is "superseding the previous chain disturbing the new candidate's own chain", which AC#9 forbids. Making the group per-tag fixes it and reintroduces cross-chain VM contention (the STATBUS-208 class the group exists for; the inner fleets' own `hetzner-vm-fleet` group would then be the only serializer, and its one-pending-slot rule is exactly what cancelled runs at rc.02/rc.03). I did not change it — the trade is his.
+
+**(b) Does C1 replace the tag-diff sensitivity gate?** `decide-upgrade-sensitivity` still derives `PREV_RC` from tag order and diffs against it — the very "a tag is a name, not evidence" mechanism 249 was filed against. I left it because the covered() question is per-SCENARIO while that job gates a whole FLEET, and replacing fleet-level skip authority is STATBUS-252's shadow-then-switch territory. If C1 is meant to retire it now, say so and I will — but I will not quietly change what the chain is allowed to skip.
 ---
 <!-- COMMENTS:END -->

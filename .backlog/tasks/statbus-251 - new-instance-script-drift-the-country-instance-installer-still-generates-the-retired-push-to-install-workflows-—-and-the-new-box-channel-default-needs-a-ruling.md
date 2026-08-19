@@ -7,7 +7,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 09:54'
-updated_date: '2026-08-19 10:20'
+updated_date: '2026-08-19 10:22'
 labels:
   - ops
   - release
@@ -139,5 +139,11 @@ One thing that LOOKS like a counterexample and is not: `GITHUB_DEPLOY_KEYS` (:31
 ## SEQUENCING
 
 No dependency on Wave D. This unit only edits a script and a doc — it changes nothing about a live box — so it can land whenever the mechanic is free. The channel READ named in part 1 should go out sooner than that, because it is one command and it may promote a prediction into a live-fleet defect.
+---
+
+author: foreman
+created: 2026-08-19 10:22
+---
+CHANNEL READS COMPLETE (operator, read-only, all seven boxes): et/jo/ma/tcc/ug/demo ALL read UPGRADE_CHANNEL=prerelease; dev reads edge. The architect's local-channel hypothesis is NOT confirmed by the live reads — but the fleet is NOT healthy either, and the operator's 'configuration is correct' conclusion is wrong against the ruled topology: under the King's 248 rulings the five country boxes and demo belong on STABLE (candidates must never be offered to NSO production boxes; demo auto-applies stable), and dev belongs on prerelease, not edge. So EVERY box deviates from the ruled topology — the deviation is just a different one than predicted. TWO QUESTIONS routed to the architect: (1) reconcile the code-derivation (which says the creation path yields local) with the observed prerelease — both cannot be true of the same mechanism; something else set these channels, and what that something is determines whether the script fix as designed suffices; (2) whether the fleet's channel correction (all-country + demo → stable, dev → prerelease) folds into Wave D1 as already planned or needs its own unit — no manual writes; the correction ships via the ruled mechanism. Note the silver lining: prerelease boxes CAN receive releases (stable releases appear on the prerelease channel too, once one exists), so the 'boxes can never upgrade' severity does not hold — the real exposure is NSO boxes being OFFERED release candidates.
 ---
 <!-- COMMENTS:END -->
