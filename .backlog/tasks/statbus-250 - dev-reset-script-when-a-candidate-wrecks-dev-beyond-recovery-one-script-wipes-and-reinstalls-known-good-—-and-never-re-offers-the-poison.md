@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 09:09'
-updated_date: '2026-08-19 09:28'
+updated_date: '2026-08-19 10:15'
 labels:
   - ops
   - release
@@ -48,5 +48,11 @@ author: foreman
 created: 2026-08-19 09:28
 ---
 OPEN DECISION CLOSED by the King 2026-08-19: reinstall target = previous STABLE release. His reasoning, near verbatim: "we should restore the previous release because that is what people have — they have the previous release and then they run the upgrade; that is the sensible baseline." Foreman offered no pushback — the ruling is the fidelity argument itself: the reset recreates the customer's starting state, and the subsequent auto-upgrade to the next candidate exercises exactly the stable→next path customers will take. Edge added to AC: until the first stable exists in this line (true today), previous RC is the interim fallback.
+---
+
+author: foreman
+created: 2026-08-19 10:15
+---
+HAZARD INHERITED FROM THE 242 ENUMERATION (architect, Finding 1): the rollback's database restore rewinds ALL of public.upgrade, not just the upgrading row — and dismissed_at is one of the columns nothing re-derives. Concretely for this entry: the reset marks the wrecking candidate `dismissed` so it is never re-offered; if a LATER upgrade on the same box rolls back, the restore can rewind that dismissal and the wrecking candidate comes back as `available` — the operator's deliberate act silently undone, and this ticket's core guarantee broken by machinery it never sees. The builder must either verify 242's mechanism (which forces disposition of dismissed_at/skipped_at/superseded_at at the terminal write) lands first, or make the reset's dismissal robust against the rewind by its own means — not assume the column survives.
 ---
 <!-- COMMENTS:END -->
