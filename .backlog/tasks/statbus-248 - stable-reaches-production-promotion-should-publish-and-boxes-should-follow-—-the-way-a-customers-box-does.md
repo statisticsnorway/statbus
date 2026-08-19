@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 07:27'
-updated_date: '2026-08-19 09:43'
+updated_date: '2026-08-19 09:52'
 labels:
   - release
   - ops
@@ -95,5 +95,11 @@ author: foreman
 created: 2026-08-19 09:43
 ---
 KING APPROVED 2026-08-19 (dialogue presentation, sixth and final of the sitting) — THE FULL PACKET IS NOW APPROVED: 244 (with the barring-248 reservation hereby lifted — AC#8's master-to-production/production-to-all removals unblocked), 245, 246, 247, 248, plus 249 and 250 approved earlier in the sitting. One consideration the King voiced and left with the foreman's input standing: demo's channel — stable (as ruled here) vs prerelease (the historical judge-before-release posture). Foreman's input, delivered: the judge-early need is now served by dev (every candidate, automatically — the historical reason for prerelease cloud slots predates that); demo's audience is outsiders who should see the released product; and the "choice to upgrade" instinct is honored natively — a deliberate one-off evaluation of a candidate on demo remains available via ./sb upgrade schedule <tag>, an explicit act rather than a standing posture. Demo stays on stable per this entry unless the King flips it — a one-line change inside this build if so.
+---
+
+author: foreman
+created: 2026-08-19 09:52
+---
+KING'S AMENDMENT 2026-08-19 (post-approval, in confirmation dialogue) — supersedes AC#6's scope: the COUNTRY SAMPLE INSTALLATIONS (et, jo, ma, tcc, ug — every slot that is not dev/demo/no) are OPT-IN, not auto-converging: they sit on the stable channel, are OFFERED each promoted release, and a HUMAN clicks and performs the regular upgrade. Only DEMO auto-converges on stable. His full confirmed topology: dev = prerelease channel (backstop; actually chain-pushed), Norway = prerelease + human (the canary, excluded from any sweep), demo = stable + AUTO-APPLY (the one new behavior to build, scoped to demo alone — today's service only offers, never schedules, which is measured), country samples = stable + human opt-in (exactly today's offer-and-wait behavior — zero build), force-override = the existing candidate-addressed command (ssh <slot> ./sb upgrade schedule <version>), documented as THE deliberate override. Note the elegance the amendment buys: the country slots now behave exactly like customer boxes — customers ARE opt-in humans — so customer fidelity improves while the build SHRINKS (auto-apply for one box instead of many). Builder: amend AC#6 accordingly at build time; the channel-verification AC#3 gains a third role-state (stable+auto vs stable+opt-in vs prerelease+human).
 ---
 <!-- COMMENTS:END -->

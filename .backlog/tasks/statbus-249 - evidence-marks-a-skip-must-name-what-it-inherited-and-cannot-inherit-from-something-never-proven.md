@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 09:06'
-updated_date: '2026-08-19 09:49'
+updated_date: '2026-08-19 09:51'
 labels:
   - release
   - ci
@@ -88,5 +88,34 @@ THE LOCAL HALF (AC#8) keeps the ratified stamp pattern, which the engineer alrea
 ONE CORRECTION THE LOOKUP MUST MAKE, and it is not optional. `checkWorkflowAt` returns the FIRST GREEN run at a head_sha (cli/internal/release/workflow_check.go:152-157), not all of them. For a per-scenario question that is wrong: `covered(scenario, commit)` must ask whether ANY completed run at that commit contains a successful job of that name — union across runs, not first-run-wins. This also fixes at the library level the smoke-run-versus-full-run collision that doc-034 finding B otherwise handles only by giving smoke its own workflow identity. Do both: separate identity, and union semantics.
 
 CONSEQUENCE FOR THE WORK IN FLIGHT: the engineer's current extraction of the gate's decision logic from its presentation is not preliminary to 249 — it IS 249's implementation. One algorithm, two call sites, over a store that already exists.
+---
+
+author: engineer
+created: 2026-08-19 09:51
+---
+**WAVE A1 PART 1 FROZEN: the shared algorithm exists and is RED-verified. Part 2 (the mark store + the subcommand) is BLOCKED on the architect's location ruling — question sent with evidence, not waiting idle.** Two new files, both mine, no collision with A2's sweep: `cli/internal/release/coverage.go` (230 lines), `cli/internal/release/coverage_test.go` (215).
+
+**ARCHITECT'S VERIFICATION ITEM 2 — ANSWERED: the gate factors cleanly, with one named exception.** Checked, not assumed:
+- `loadUpgradeSensitivePaths` (release.go:1640), `diffTouchesSensitivePath` (:1661) and `upgradeArcNamesAtCommit` (:1707) are already **pure — zero `fmt.Print` between them**. They move or inject as-is.
+- `workflowJobsCompleteAtCommit` + `JobsCompleteness` already live in the library (`internal/release/workflow_check.go:236`).
+- **The exception: the walk itself does NOT factor as it stands.** It is inline in `checkUpgradeArcHarnessGate` (release.go:2074-2130) with the decision interleaved with operator-facing printing at every branch. A second caller could only have re-implemented it — and a re-implementation that drifts is how one question gets two answers. Extracting decision from presentation IS the work of "one algorithm, two call sites", so that is what I built.
+
+**WHAT IS BUILT — `DecideCoverage`, pure (no printing, no I/O), inputs injected as functions.** It returns a VERDICT the caller renders, so gate and subcommand cannot drift in either the decision or the sentence.
+- **THREE-WAY answer, deliberately not a boolean:** `proven-here` / `covered-by` / `not-covered`. Collapsing the two “yes” answers is precisely the specimen's defect — a verdict that cannot tell them apart cannot name what it inherited (AC#5).
+- **Wording per the King's ruling:** `Summary()` renders `test <X> is already covered by <Y>`, and a covered-by verdict that somehow names nothing prints an **accusation containing “BUG”** rather than a plausible blank sentence. Pinned as a property.
+- **Evidence, never tag order** (AC#2/#3): the anchor is the newest prior candidate with EVIDENCE. Injecting `EvidenceAt` is what lets the same walk serve today's run-completeness basis and tomorrow's marks.
+- **STATBUS-199 D2 preserved**: the walk STOPS at the newest anchor with evidence when a sensitive path changed — riding an older anchor whose larger diff range contains the same change would be worse, not better.
+- **Unevaluable ≠ unproven**: a candidate we could not resolve or read is RECORDED in `EvidenceErrors`, never silently counted as “no evidence”. Silently dropping it would be a walk claiming an examination it did not perform — the same zero-scope shape in a new costume.
+- **Missing inputs REFUSE** rather than answering “not covered”.
+
+**ORACLES — RED-VERIFIED by mutation, three arms:**
+1. **The rc.07 specimen replayed as a unit (AC#7):** rc.06 has no evidence (cancelled), rc.05 does. Mutating the walk to select by tag ORDER instead of evidence FAILS with “THE SPECIMEN: inherited from rc.06, which was cancelled and never proved anything”. The green path asserts the verdict NAMES rc.05 in the ruled wording.
+2. **Collapsing proven-here into covered-by** FAILS.
+3. **Silently dropping an unevaluable candidate** FAILS.
+Also pinned: nothing-ever-proven ⇒ not covered (AC#3) and the walk reports how many candidates it examined.
+
+**VERIFY CHAIN:** `go test -count=1 ./internal/release/` ok; `gofmt -l` clean on both files; `golangci-lint run ./internal/release/...` 0 issues.
+
+**WHAT REMAINS, and why it is not guesswork:** the mark WRITE side, the `./sb release covered` subcommand, and rewiring the gate onto the shared path all need the evidence source — i.e. the store. Three facts I established for that ruling: today's `tmp/*-passed-sha` stamps are local and gitignored (right composability pattern, cannot answer across machines); **artifacts are disqualified** (14-day retention at `upgrade-arc-harness.yaml:829` and `install-recovery-harness.yaml:182/523`, 30 at `test-install.yaml:199` — a store that forgets turns an inherited proof back into a bare success on a timer); and nothing here writes statuses, check-runs, notes or custom refs today. **Named hazard for the obvious git-ref shape:** STATBUS-236 measured rule (T) — a pushed ref is refused when its `.github/workflows/` tree differs from the default branch, proven by arm (a) on a ref at an already-existing commit with zero new commits. Marks are written at RC commits, whose workflow trees routinely differ within hours. Whether (T) governs non-branch refs is UNMEASURED, and I will not design against an unmeasured platform rule twice.
 ---
 <!-- COMMENTS:END -->
