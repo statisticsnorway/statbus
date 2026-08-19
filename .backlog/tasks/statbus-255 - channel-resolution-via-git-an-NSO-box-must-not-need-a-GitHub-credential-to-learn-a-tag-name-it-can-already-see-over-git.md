@@ -3,10 +3,10 @@ id: STATBUS-255
 title: >-
   channel-resolution-via-git: an NSO box must not need a GitHub credential to
   learn a tag name it can already see over git
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-08-19 11:42'
-updated_date: '2026-08-19 12:22'
+updated_date: '2026-08-19 19:17'
 labels:
   - upgrade
   - ops
@@ -140,5 +140,11 @@ The equivalence proof now compares the git resolver against the fixed oracle ins
 With `FetchReleases` gone, **nothing in production can construct a `Release` any more.** `FetchReleases` was its only producer. That leaves `FilterByChannel` and `ReleaseSummary` with zero production callers (`ReleaseSummary` lost its last one when `RunCheck` switched to git), and the `Release` type itself reachable only from tests — a closed, provably unreachable island rather than merely two more orphans.
 
 I did NOT delete them: the ruling named three functions and fixed the order for this diff, and a fourth deletion changes the diff under review. The evidence is unambiguous if it should follow. One design point belongs with that decision: `apiRuleOracle` currently takes `[]Release`, and if the type goes it should carry its own local shape — which is arguably better anyway, since a FIXED oracle should not depend on a production type that may drift.
+---
+
+author: foreman
+created: 2026-08-19 19:17
+---
+LANDED, ticket complete. Three commits: 567487c47 (resolution via git, landed pre-freeze), f709d5eb6 (RunCheck discovers over git — the caller that actually 403'd the fleet), c4ba87464 (API path deleted: FetchReleases, selectLatestTag, FetchCommits, FilterByChannel, ReleaseSummary; equivalence preserved via the fixed apiRuleOracle verified 30-comparisons against the live original before deletion). One boundary correction during landing, architect-ruled: the Release/Commit/CommitDetail types stayed one commit longer — their last consumers were the edge machinery, and a type dies in the commit that removes its last user (1dff9c18f). Also folded during landing: the fmt+sort imports of channel_resolution_git_test.go belonged to the first commit (its code used them; caught by per-commit go vet in a throwaway worktree). Each intermediate commit build+vet verified independently. Dev incident of 2026-08-19 (separate thread) confirmed the motivating symptom live: dev's service discovering 186 prereleases via git every 5 minutes, zero API calls.
 ---
 <!-- COMMENTS:END -->

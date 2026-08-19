@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 10:27'
-updated_date: '2026-08-19 12:48'
+updated_date: '2026-08-19 19:18'
 labels:
   - ops
   - release
@@ -53,11 +53,11 @@ Order within the work: correct the five NSO boxes and demo to `stable` first, si
 <!-- AC:BEGIN -->
 - [x] #1 The live exposure is confirmed per box before and after: each box's channel is read from the box, never inferred from the default or from this ticket
 - [x] #2 Five NSO installations and demo are on the stable channel; dev is on the channel its canary role requires
-- [ ] #3 The correction reaches every box through code plus the box's own install — no per-box SSH mutation, unless the alternative is explicitly chosen and recorded here
-- [ ] #4 The channel is derived from the box's role on every config generate, so a stale value cannot survive a reinstall and a future default change reaches the whole fleet
-- [ ] #5 A box whose declared role and channel disagree reports it loudly rather than silently choosing either
+- [x] #3 The correction reaches every box through code plus the box's own install — no per-box SSH mutation, unless the alternative is explicitly chosen and recorded here
+- [x] #4 The channel is derived from the box's role on every config generate, so a stale value cannot survive a reinstall and a future default change reaches the whole fleet
+- [x] #5 A box whose declared role and channel disagree reports it loudly rather than silently choosing either
 - [ ] #6 This lands before the per-slot deploy workflows for et/jo/ma/tcc/ug are deleted — no box loses its only receive path while still misconfigured
-- [ ] #7 The first-writer-wins behaviour is recorded where the next person would otherwise trust config generate to fix a setting
+- [x] #7 The first-writer-wins behaviour is recorded where the next person would otherwise trust config generate to fix a setting
 <!-- AC:END -->
 
 ## Comments
@@ -283,5 +283,17 @@ The architect's generalisation is right and it is the half I stopped one step sh
 **Encoded as the lesson, not the answer**, per the same move as the park-consumer classification: the assertion is that the ZERO VALUE MUST REMAIN THE CONSERVATIVE CLASSIFICATION, stated at the constant block and pinned by `TestZeroValueIsTheConservativeClassification`. Its failure text says what breaks and how to fix it, and it explicitly allows a reorder — provided the conservative case is still first. It also asserts the two classifications remain DISTINCT, since "conservative" means nothing if they collapse.
 
 **RED-verified, mutation site asserted:** moving `channelRelease` to position zero fails the pin by name. (Note the failure prints "it is now 0" — correct and worth reading carefully: the zero VALUE is still 0, it is the MEANING that changed. The test compares against the named constant, not the number, which is why it catches a change that any numeric assertion would sail past.)
+---
+
+author: foreman
+created: 2026-08-19 19:18
+---
+MECHANISM LANDED: 733b0df4d (derive channel from declared UPGRADE_ROLE; one-time translation seeds from the operator's corrected channels; hand-added channel and unknown role both REFUSE; AC#7's pin + dotenv.Generate warning in). Edge retirement landed as 1dff9c18f, carrying the zero-value pin (iota zero must remain the conservative classification, RED-verified) and the Release/Commit/CommitDetail type deletions per the architect's boundary rule. AC#6 satisfied by sequencing — the per-slot deploy workflows are still undeleted. TICKET STAYS OPEN for two observables: (1) the one-time translation actually running on the fleet (verifiable on each box's next upgrade: seven boxes must come out six production + one canary), then its removal per the no-standing-self-heal rule; (2) that removal itself.
+---
+
+author: foreman
+created: 2026-08-19 19:18
+---
+DEV INCIDENT 2026-08-19, recorded here because it grew from this ticket's fleet correction: at 11:53:33 UTC dev's compose project was torn down (systemctl --user stop of the upgrade unit + compose down, volumes kept) by an agent session on the King's own machine — IP-verified — doing a stop-everything/change-config/start-everything cycle whose start half never ran; the transcript died with /clear so the exact session is unattributable. Our operator answered plainly: not them, reads only. REPAIRED 19:12 UTC via ./sb install (architect-ruled; a bare start-all would have left the upgrade unit stopped — a canary that looks alive and cannot take the release): all containers up, unit active, running service logs channel=prerelease interval=5m, front door 307. PROCESS RULE from the King, now in durable memory: any agent using box access must pre-declare its exact command list; this correction's six-step verified procedure is the model, the unrecorded stop-half is the anti-pattern.
 ---
 <!-- COMMENTS:END -->

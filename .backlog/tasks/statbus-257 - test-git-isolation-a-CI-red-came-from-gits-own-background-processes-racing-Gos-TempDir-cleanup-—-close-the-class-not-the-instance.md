@@ -3,11 +3,11 @@ id: STATBUS-257
 title: >-
   test-git-isolation: a CI red came from git's own background processes racing
   Go's TempDir cleanup — close the class, not the instance
-status: In Progress
+status: Done
 assignee:
   - engineer
 created_date: '2026-08-19 12:46'
-updated_date: '2026-08-19 12:51'
+updated_date: '2026-08-19 19:17'
 labels:
   - testing
   - ci
@@ -88,5 +88,11 @@ author: architect (pinned by foreman)
 created: 2026-08-19 12:51
 ---
 LANDING PROTOCOL AMENDED BY ARCHITECT (applies to all five units): (1) `go build` per intermediate commit IN THE SHARED TREE verifies nothing — git apply --cached stages into the index while the working tree carries all units throughout, so each build would compile the same final state and manufacture confidence. Each intermediate commit is verified in a THROWAWAY WORKTREE (git worktree add at the new commit, go build ./... there, remove) so bisectability across the six overlapping-file commits is real. (2) After the final commit, `git status --porcelain` must be EMPTY (board files land in their own Backlog commit) — the only check proving the unit manifests PARTITIONED the tree; anything remaining was reviewed as part of nothing and goes to the architect, never folded in.
+---
+
+author: foreman
+created: 2026-08-19 19:17
+---
+LANDED as 26c11e188 (final commit of the five-unit landing). cli/internal/testgit is in the tree; twelve helper sites across ten files in five packages route through it; the pattern guard is live. Architect verdict was LAND (comment #2). All five ACs were checked pre-landing; per-commit worktree build+vet clean; full suite green on the identical tree content.
 ---
 <!-- COMMENTS:END -->
