@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 09:06'
+updated_date: '2026-08-19 09:28'
 labels:
   - release
   - ci
@@ -55,3 +56,16 @@ WHY THAT HELPS: the saving is kept and the lie is removed. A chain's verdict com
 - [ ] #7 The rc.07 specimen is replayed against the new mechanism and produces a verdict that names its scope instead of a bare success
 - [ ] #8 Marks are composable from a local run or from CI, per the ratified install-recovery stamp design
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-08-19 09:28
+---
+KING APPROVED 2026-08-19 (dialogue presentation, fourth of the sitting), with two rulings and one question answered:
+(1) WORDING RULED: the message form is "covered by" — "test <X> is already covered by <Y>" — consistent with the preflight's existing "also covers" vocabulary; fold into every skip/inherit message.
+(2) CODE REUSE — his question "can the same Go logic run in the gate AND in the job, a small binary from the same library, same by design not by chance?" — foreman's answer, delivered: YES — chain jobs already build/fetch the sb binary (several workflows do; RCs publish it as a release asset), so the covered-by decision becomes a subcommand (shape: ./sb release covered <scenario> <commit>) built from the SAME library code as the promotion gate's anchor-and-walk-back logic. One algorithm, two call sites. ARCHITECT TO VERIFY in the fold: the mark-store location/design (the ratified per-scenario stamp design is the starting point) and that the gate's existing functions factor cleanly into a shared library path.
+(3) The severity correction was acknowledged ("nice finding").
+---
+<!-- COMMENTS:END -->

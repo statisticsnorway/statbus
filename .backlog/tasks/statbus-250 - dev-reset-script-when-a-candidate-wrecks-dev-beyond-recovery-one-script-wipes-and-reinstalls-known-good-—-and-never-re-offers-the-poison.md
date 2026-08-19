@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 09:09'
+updated_date: '2026-08-19 09:28'
 labels:
   - ops
   - release
@@ -36,6 +37,16 @@ WHAT IS ACHIEVED: the worst case on the automatic canary has a bounded, scripted
 <!-- AC:BEGIN -->
 - [ ] #1 One script wipes and reinstalls dev at the configured known-good target, using the existing installation tooling
 - [ ] #2 The wrecking candidate is marked dismissed on dev and is never auto-installed again; dev holds until a NEWER candidate exists
-- [ ] #3 King decides the reinstall target (previous RC vs previous stable) before implementation
-- [ ] #4 The script is documented where the dev canary's role is documented, as the named answer to a wrecked canary
+- [ ] #3 The script is documented where the dev canary's role is documented, as the named answer to a wrecked canary
+- [ ] #4 The reinstall target is the previous STABLE release (King ruled 2026-08-19: "that is what people have — the previous release, and then they run the upgrade" — the reset recreates the customer's exact starting state, and dev's next auto-upgrade then walks the customer's exact path); INTERIM EDGE until the first stable exists in the current line: the previous release candidate is the fallback target
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-08-19 09:28
+---
+OPEN DECISION CLOSED by the King 2026-08-19: reinstall target = previous STABLE release. His reasoning, near verbatim: "we should restore the previous release because that is what people have — they have the previous release and then they run the upgrade; that is the sensible baseline." Foreman offered no pushback — the ruling is the fidelity argument itself: the reset recreates the customer's starting state, and the subsequent auto-upgrade to the next candidate exercises exactly the stable→next path customers will take. Edge added to AC: until the first stable exists in this line (true today), previous RC is the interim fallback.
+---
+<!-- COMMENTS:END -->
