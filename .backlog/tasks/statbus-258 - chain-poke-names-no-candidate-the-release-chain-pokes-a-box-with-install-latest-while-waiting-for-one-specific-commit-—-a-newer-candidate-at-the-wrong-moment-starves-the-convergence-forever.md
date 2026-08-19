@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-08-19 19:14'
-updated_date: '2026-08-19 19:53'
+updated_date: '2026-08-19 20:06'
 labels:
   - release
   - upgrade
@@ -115,5 +115,78 @@ One new line permitting `~/statbus/... upgrade apply <40hex>`, pinned in the sam
 ## WHAT IS ACHIEVED
 
 The chain stops asking a box whether it did what it chose, and starts asking whether it did what the chain requested. After this, a `deploy-to-dev` green means the candidate under test is installed on dev — which is what everyone already reads it as meaning.
+---
+
+author: architect
+created: 2026-08-19 20:05
+---
+REVISED DESIGN, part 1 of 2 — the King is right, but not for the reason offered, and one hazard in the pull shape would destroy a production box if missed.
+
+## FIRST, TWO CORRECTIONS TO THE FRAME (verified, not inherited)
+
+**(b) is half wrong.** My push design does not grow a dependent on apparatus scheduled to die: STATBUS-244 explicitly KEEPS dev's deploy branch and `deploy-to-dev` as STATBUS-247's transport — my own ruling, and the reason I insisted 244b hold `master-to-dev` until 247 landed. What IS dying is the push path for demo, Norway and the country slots. So the objection is not "you are building on a corpse"; it is narrower and it still stands: **the deploy KEY that `deploy-to-dev` rides is what STATBUS-253 is removing**, and a new allowlist verb makes dev a second reason that key must survive.
+
+**"Allowlists are unprincipled" is not quite the right diagnosis either.** A byte-limited allowlist is the *correct* shape for an inbound CI credential — it is the least-privilege form of a door that must exist. What is genuinely unprincipled is the pair the foreman found: **`/etc/sshdoers` is hand-managed root state with no sync to its repo copy** (its own header says *Managed by hand*), so the fleet's access policy is the one thing in this system that does NOT ship as code. That is a real violation and it is worth its own ticket regardless of which shape 258 takes.
+
+## THE RULING: PULL, and the strongest argument is not about doors
+
+Every other box in the fleet now acts on its own and is observed. Norway pulls and a human acts. Demo pulls on a channel. Country slots pull and a human opts in. **Dev pushing is the last remaining exception, and it exists only because I ruled in 247 that the chain needs a SYNCHRONOUS verdict** — an argument that was correct *given discover-only*, where the box would never act and the chain would have nothing to wait on.
+
+The role gate changes that premise. If a canary-role box's own service schedules what it discovers, the chain has something to wait on **without acting on the box at all** — and dev becomes the same shape as every other installation, which is the campaign's north star rather than a concession to it.
+
+**And the door argument should be stated precisely, because pull does NOT remove the door.** The chain still has to read dev's fate. What changes is the size of the grant: from **"install what I name"** to **"tell me what happened."** A read-only status query is a categorically smaller privilege than a remote install trigger, and it is the honest form of the King's objection — not *remove the allowlist*, but *stop granting mutation through it*.
+
+## THE FULLY-PRINCIPLED END STATE ALREADY EXISTS IN THE PRODUCT
+
+`UPGRADE_CALLBACK` (STATBUS-131, config.go:428-435) already fires **outbound** on every upgrade event — `completed`, `parked`, `rollback_failed`, `backup_failed` (service.go:6128, 7930, 8646, 7987). Those are precisely the fates the chain needs.
+
+A box that reports its own outcome outward needs **no inbound door at all**. I am not specifying that as this ticket's build — it needs a landing place for the reports and that is new surface — but it should be recorded as the direction, so the read-only door is understood as a way-station rather than a destination.
+---
+
+author: architect
+created: 2026-08-19 20:06
+---
+REVISED DESIGN, part 2 of 2 — the concrete pull design, the hazard that must not be missed, and the two things pull costs us.
+
+## ⚠ THE HAZARD: "canary" IS TWO OPPOSITE ROLES, AND CONFLATING THEM SILENTLY AUTO-INSTALLS ON A PRODUCTION NSO BOX
+
+STATBUS-254's role set is `production | canary | development`. Under pull, `canary` would gate auto-scheduling — and **Norway is a canary too.** Norway is a real production installation for a statistical office whose entire value is that **a person** performs each install against an observation card (STATBUS-247).
+
+If Norway carries `UPGRADE_ROLE=canary` and canary means auto-schedule, **Norway silently begins auto-installing release candidates** — destroying the human gate, and doing it to the one box where the operator surface is the thing under test. Nothing would fail; the release would simply get quieter, which is this campaign's signature failure mode.
+
+**So the role vocabulary must distinguish them before any auto-schedule ships.** Dev and Norway are not the same role and never were; calling both "canary" was loose from the start. Two values, named for what the box DOES rather than what we call it:
+
+- **`canary-auto`** — the box installs each candidate on its channel itself. Dev, and only dev.
+- **`canary-human`** — the box is offered candidates and a person installs them. Norway.
+
+This is a change to a design the King has already seen, and it is the cost of the pull shape. I judge it worth paying because it makes an existing distinction explicit rather than inventing one — but it must land BEFORE the auto-schedule, not with it.
+
+## THE DISCOVER-ONLY INVARIANT — ruled explicitly, since I defended it this morning
+
+This morning I ruled that prerelease-on-dev is harmless **because discovery can never install**. Pull breaks that literally, so the invariant must be restated rather than quietly dropped:
+
+> **A box never installs anything it was not configured to install automatically.** For every role except `canary-auto`, discovery offers and never schedules — unchanged, and that is what keeps production boxes, Norway and the country slots safe.
+
+The guarantee was never "the code cannot schedule"; it was "no box installs without a deliberate act." Declaring `canary-auto` **is** that deliberate act, made once in config instead of repeatedly by a human. STATBUS-254's derive-mechanism is what makes this safe to rely on: role is explicit, recomputed, and **refuses on absent or unknown** — so a box cannot drift into auto-installing.
+
+## THE CONCRETE DESIGN
+
+1. **Role split** (STATBUS-254): `canary` → `canary-auto` | `canary-human`. Ships first, alone.
+2. **Role-gated auto-schedule** in the service's discovery path: after `upsertCandidate`, if role is `canary-auto` AND the candidate is newer than installed AND nothing is in progress, schedule it. Guarded by the existing single-scheduled and single-in-progress uniqueness constraints, so concurrency is already handled by the database rather than by new logic.
+3. **The chain stops poking.** `deploy-to-dev`'s apply-latest call goes. The chain OBSERVES: for candidate X, what is its fate on dev?
+4. **The read stays over the existing status door**, unchanged in shape — `ci-deploy-status.sh <40hex>` — but now it is the ONLY grant dev's CI key carries. That is the principled improvement: the door shrinks from mutation to observation.
+5. **Fates are the upgrade table's own vocabulary**: `completed` → green; `failed`/`rolled_back`/parked → red with the box's reason; **`superseded` → the chain is superseded** (STATBUS-246's named third verdict). **The starvation defect dissolves into a true named outcome instead of a lie** — which is the deepest argument for pull and the one I would put to the King first.
+
+## WHAT PULL COSTS, stated honestly rather than discovered later
+
+**We lose fail-fast on a dead box, and today proved that is not theoretical.** Under push, an SSH to a stopped dev fails in seconds and loudly. Under pull, a dev whose upgrade service is stopped produces **no fate at all**, and the chain waits. This morning's incident is the live evidence.
+
+Mitigation is required, not optional: a **bounded wait that fails with a diagnosis**, naming the likely cause — *"dev has not acted on this candidate in N minutes; is its upgrade service running?"* Never a timeout that ages into a pass, and never a bare timeout either.
+
+**And latency**: the box acts on its own tick (5 min on dev) rather than instantly. Acceptable against an install that takes minutes anyway, and it is the same latency every real customer has — which is the point.
+
+## WHAT I AM DELIBERATELY NOT SPECIFYING
+
+The callback-based outbound reporting. It is the better end state and it removes the last door, but it needs a landing place the chain can read, and that is a new externally-reachable surface which deserves its own design and its own King ruling rather than riding in here.
 ---
 <!-- COMMENTS:END -->
