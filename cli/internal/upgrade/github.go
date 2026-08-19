@@ -309,22 +309,102 @@ func selectLatestTag(releases []Release, channel string) (string, error) {
 	return filtered[0].TagName, nil
 }
 
-// ResolveChannelToLatestTag resolves a channel name to the current
-// latest release tag. Wraps selectLatestTag with the live GitHub API.
-// See selectLatestTag for the resolution semantics per channel.
+// ResolveChannelToLatestTag resolves a channel name to the current latest
+// release tag — FROM GIT TAGS, with no GitHub API call and no credential
+// (STATBUS-255).
 //
-// This is the sole resolution site used by both install.sh (via
-// `./sb install`) and `./sb release check --channel`, so the two
-// stay aligned.
+// This is the sole resolution site used by install.sh (via `./sb install`),
+// `./sb install` itself, and `./sb release check --channel`. Keeping it sole is
+// what keeps those three aligned; a second resolver would let them disagree
+// about what "the stable channel" points at.
+//
+// WHY IT NO LONGER ASKS THE API. It used to call FetchReleases purely to read
+// GitHub's prerelease FLAG — a fact fully derivable from the tag name. The
+// unauthenticated API allows 60 requests/hour PER IP, and all seven niue slots
+// share one: on 2026-08-19 the window exhausted and every notify job 403'd (run
+// 32247740861). With dev polling every five minutes that is structural, not bad
+// luck. Any statistical office behind a shared IP or a corporate NAT inherits
+// exactly the same failure.
+//
+// THE CUSTOMER FRAME DECIDES THE SHAPE: an NSO box must never need a GitHub
+// token to follow a release channel. `git fetch --tags` is unlimited,
+// credential-free, and already how the service discovers tags everywhere else.
+//
+// CLASSIFICATION REUSES ClassifyReleaseShape — the same rule
+// ops/create-new-statbus-installation.sh applies over plain git, and the same
+// one the rest of this package already trusts. Deliberately not a second
+// `strings.Contains(tag, "-rc.")`: two copies of one rule drift, and this one
+// decides which version a box installs.
 func ResolveChannelToLatestTag(channel string) (string, error) {
-	if channel == "edge" {
+	return ResolveChannelToLatestTagAt(".", channel)
+}
+
+// ResolveChannelToLatestTagAt is the testable inner variant — projDir is the
+// repository the tags are read from.
+func ResolveChannelToLatestTagAt(projDir, channel string) (string, error) {
+	switch channel {
+	case "edge":
 		return "", nil
+	case "stable", "prerelease":
+		// fall through
+	default:
+		return "", fmt.Errorf("unknown channel %q (valid: stable, prerelease, edge)", channel)
 	}
-	releases, err := FetchReleases()
+
+	tags, err := DiscoverTagsViaGit(projDir)
 	if err != nil {
-		return "", fmt.Errorf("fetch releases: %w", err)
+		return "", fmt.Errorf("discover tags via git: %w", err)
 	}
-	return selectLatestTag(releases, channel)
+	return selectLatestTagFromNames(tagNames(tags), channel)
+}
+
+// tagNames projects the discovered tags to their names. Resolution needs only
+// the name — every other field DiscoverTagsViaGit returns describes the commit,
+// not the channel.
+func tagNames(tags []GitTag) []string {
+	out := make([]string, 0, len(tags))
+	for _, t := range tags {
+		out = append(out, t.TagName)
+	}
+	return out
+}
+
+// selectLatestTagFromNames is selectLatestTag's semantics over tag NAMES, with
+// the channel decided by shape rather than by GitHub's flag.
+//
+// SEMANTICS PRESERVED EXACTLY, including the one that looks like a bug and is
+// not: the prerelease channel means "latest RC", so it selects ONLY
+// prerelease-shaped tags. A stable tag at HEAD must not beat the newest RC on a
+// release-cutting day — that asymmetry is deliberate and is why the original
+// filtered explicitly instead of using FilterByChannel.
+//
+// WHAT IS LOST WITH THE API, stated rather than discovered later: GitHub's
+// DRAFT flag. A draft release publishes NO git tag, so a draft is invisible
+// here — which is the behaviour we want (an unpublished draft must never be
+// resolvable), reached by construction instead of by a filter.
+func selectLatestTagFromNames(names []string, channel string) (string, error) {
+	var filtered []string
+	for _, name := range names {
+		switch ClassifyReleaseShape(name) {
+		case ShapeRelease:
+			if channel == "stable" {
+				filtered = append(filtered, name)
+			}
+		case ShapePrerelease:
+			if channel == "prerelease" {
+				filtered = append(filtered, name)
+			}
+		}
+		// ShapeCommit / ShapeUnknown match no channel — same as the API path,
+		// where a non-CalVer or odd-suffix tag was never a release either.
+	}
+	if len(filtered) == 0 {
+		return "", fmt.Errorf("no %s release published", channel)
+	}
+	sort.Slice(filtered, func(i, j int) bool {
+		return CompareVersions(filtered[i], filtered[j]) > 0
+	})
+	return filtered[0], nil
 }
 
 // ReleaseSummary returns a human-readable summary of a release.
