@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-19 09:06'
-updated_date: '2026-08-19 10:13'
+updated_date: '2026-08-19 10:17'
 labels:
   - release
   - ci
@@ -171,5 +171,27 @@ author: foreman
 created: 2026-08-19 10:13
 ---
 PREMISE CORRECTION to comment #6, found by the engineer during C1 and foreman-verified in the tree: the seam ruling's example — 0-happy-install 'already' appearing under two identities via test-install.yaml — was FALSE. test-install.yaml's job was named 'Provision Hetzner VM + run scenario 0-happy-install', a descriptive label, so a mark lookup for `0-happy-install` could never see the smoke run's proof: the scenario would re-run on every candidate while appearing covered to a human reading the workflow. The jobs-API display-name measurement was taken on the harness MATRIX (where names do align); the smoke half was never measured — the enumeration handed along was a premise, not a fact. FIXED in C1 increment 1 (frozen, under review): job renamed to `0-happy-install` with the reason written at the line, and BOTH smoke halves pinned by a test that fails if either job name stops matching its scenario (RED-verified). Failure direction of the original defect: safe — re-run, never false pass — exactly as the seam ruling predicted for missed marks.
+---
+
+author: architect
+created: 2026-08-19 10:16
+---
+CORRECTION TO MY OWN COMMENT #6 — it contains a false statement, caught by the engineer during C1 increment 1. Recording it here because a reader would otherwise act on the wrong version.
+
+**WHAT I WROTE:** that `0-happy-upgrade` would appear under two identities "exactly as `0-happy-install` already does with test-install.yaml", and therefore that the seam already existed in production and B2 merely extended it.
+
+**WHAT IS TRUE:** test-install.yaml's job was named `Provision Hetzner VM + run scenario 0-happy-install` — a descriptive label, verified at `git show HEAD:.github/workflows/test-install.yaml` line 78. A mark lookup for `0-happy-install` could never have matched it. So there was no benign duplication: there was an **invisible smoke mark**. The scenario would have re-run on every candidate while a human reading the workflow file would reasonably believe it was covered — a worse shape than the one I described, and the same zero-scope family, since the workflow *looked* like it was leaving evidence and was not.
+
+**HOW I GOT IT WRONG, because the mechanism matters more than the fact.** My jobs-API measurement was sound and I did run it — on install-recovery-harness run 32227385996, whose matrix jobs declare `name: ${{ matrix.scenario }}`, so names align there. I then generalized from that measurement to test-install.yaml, **which I never measured.** The reading was honest about what it examined; I extended it past its scope. That is the shallow-clone lesson exactly: verify the instrument, and then do not carry its result beyond the thing it was pointed at.
+
+It is also the very error I had flagged twice this week in other people's enumerations, arriving in my own — which is worth leaving on the record rather than quietly fixing.
+
+**WHAT SURVIVES:** the seam ruling itself, and the requirement that the per-scenario lookup union across identities while whole-suite completeness does not. The correction makes the ruling MORE necessary, not less — without the rename plus the union, the smoke workflows would produce evidence nothing could ever read. The engineer's fix (rename both smoke jobs to their bare scenario slug, plus a test that reddens if either job name stops matching its scenario) closes the real defect my comment mis-described.
+---
+
+author: foreman
+created: 2026-08-19 10:17
+---
+C1 INCREMENT 1 LANDED as 59d790393 (architect APPROVED — 'correct on every point I checked'). The workflow-identity union is in the library: WorkflowTestUpgrade constant, WorkflowsRunningScenario(home, scenario) with home-identity dedup both directions, ScenarioEvidence unioning per-scenario across identities while whole-suite completeness deliberately does NOT union (evidence.go:213-216 — jobs from two runs must not add up to a completeness nobody achieved); a one-identity error is remembered, the search continues, and it surfaces only if nothing is found anywhere — the reviewer verified the awkward case (A errors, B cleanly empty → the error surfaces, because 'not covered' cannot be claimed having failed to look). Provenance now names WHICH workflow proved a mark. test-install.yaml's job renamed to 0-happy-install — the invisible-smoke-mark defect (comment #7) closed, both smoke halves pinned by test. The architect's own verification of the correction is comment #8's story: the jobs-API measurement was sound ON THE MATRIX and was carried past its scope — 'verify the instrument, then don't carry its result beyond what it was pointed at.' Remaining in C1: the orchestrator rewrite (decision points, SUPERSEDED verdict, chain reorder, tag-to-dev), in progress.
 ---
 <!-- COMMENTS:END -->
