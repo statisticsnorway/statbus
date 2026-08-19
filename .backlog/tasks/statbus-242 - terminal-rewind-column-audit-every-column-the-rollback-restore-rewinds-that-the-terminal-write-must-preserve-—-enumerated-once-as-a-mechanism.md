@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-08-19 00:17'
-updated_date: '2026-08-19 10:44'
+updated_date: '2026-08-19 10:53'
 labels:
   - upgrade-recovery
   - quality-gate
@@ -127,5 +127,39 @@ author: foreman
 created: 2026-08-19 10:44
 ---
 LANDED as b80733ac0 (architect APPROVED through the disposition cycle; final two re-dispositions verified in the file before staging). The audit is a standing gate: every post-snapshot write SITE (not column) in the upgrade path — Go service AND the app's PostgREST paths — carries a disposition, and a new unaccounted site goes red until someone answers for it. Founding entries recovery_attempts (181) and backup_path (241) cited. Dispositions as ruled: park columns RULED-REIMPOSE-OWED (the owed unit queued TRACE-FIRST — whether a restore can follow a park — before any flag-schema change); superseded_at SELF-HEALING with the residual window and the expires-if-the-sweep-leaves-the-tick condition recorded; dismissed_at/skipped_at category C outside-the-window; the state+_at pair ruling folded (chk_upgrade_state_attributes makes a half-re-imposition a FAILED WRITE, not a silent wrong row). All three ACs closed. Scanner honesty properties: zero-site scan fails citing doc-033; missing app tree fails rather than narrowing; unresolvable SQL fragment fails loudly.
+---
+
+author: engineer
+created: 2026-08-19 10:53
+---
+**PARK TRACE (read-only, no code changed). VERDICT: NO restore can follow a live park on ANY traced path — with ONE named residual that is a genuine fail-open, not a gap in the design. The park sites' disposition can upgrade to EXEMPT-WITH-PROOF, and the flag-schema change never happens, IF the architect accepts the residual as acceptable or rules it fixed separately.**
+
+**THE WINDOW.** Opens at `backupDatabase` (service.go:5713, inside `executeUpgrade` which opens :5323). Closes at a `restoreDatabase`. The park columns are written by exactly two statements: `parkUpgrade` (:7201, writing :7210) and `appendParkNarrative` (:6246, writing :6249 — which only APPENDS and requires `recovery_parked_at IS NOT NULL`, so it never creates a park).
+
+**FOUR PARK ENTRY POINTS, each returning immediately after the write:**
+1. `parkForDeterministicFailure` :5958 — park at :5970, then `parkServiceRecovery`, then returns.
+2. `parkServiceRecovery` :5999 — narrative only; **it never restores anything** (no rollback/restoreDatabase/restoreGitState/restoreBinary call in its body).
+3. `RecoveryBudgetGuard` :7043 — park at :7124, returns immediately.
+4. `resumeNewSb` :7293 — park at :7597, returns `nil` immediately.
+
+**EVERY ROUTE TO A RESTORE IS PARKED-GUARDED. All eight `d.rollback(ctx` sites, walked:**
+
+**(a) `recoveryRollback` :2895 → rollback at :3009.** Carries an EXPLICIT parked refusal before it (:2933-2937): *“upgrade %d is PARKED (%s) — refusing the automatic rollback; the row stays parked and the unit alive-idle.”* It closes the flock, keeps the flag, and returns. **This is the crash-recovery route, and it is guarded at the point of use.**
+
+**(b) `applyNewSbUpgrading`'s rollbacks — unreachable while parked, structurally.** `applyNewSbUpgrading` (:6321) has **exactly ONE caller in the tree**: `resumeNewSb` :7675. And `resumeNewSb`'s parked-skip at :7574 (`else if parked { … return nil }`) sits BEFORE it — so a parked row returns alive-idle and never reaches the function that can roll back. Verified there is **no** `d.rollback(`/`restoreAndFinalize(` anywhere in :7293-7700, so nothing restores between the guard and the return either.
+
+**(c) The earlier self-heal parked check** (:7372) does not create an exposure: parked ⇒ skip self-heal and **fall through to the continuation**, whose budget-section parked-skip is (b)'s guard. The code says so itself at :7369-7371. No restore sits between :7405 and :7574.
+
+**(d) `RecoveryBudgetGuard` :7072** — `if parked { … return true }` before anything else.
+
+**(e) `executeUpgrade`'s five rollbacks** (:5718, :5759, :5792, :5838, :5858) — all PRE-SWAP, and reachable only on a freshly claimed row. **`claimScheduledUpgrade` (:5149) atomically displaces any standing park BEFORE the window opens**: it sets the parked row to `superseded` and NULLs BOTH park columns (:5176-5185, STATBUS-159). So when `backupDatabase` runs at :5713 there is no live park anywhere in the `in_progress` population — the snapshot cannot contain one to lose.
+
+**(f) `parkForDeterministicFailure` :5962 vs :5970** — rollback and park are MUTUALLY EXCLUSIVE branches of one decision: on `ObservedCannotReachNew` it rolls back and **returns** (:5962-5964); the park is the else. A rollback on this path means no park was ever written.
+
+**(g) `parkAtTarget`** (the closure in `completeInProgressUpgrade`, :3226) — all three call sites (:3271, :3284, :3292) are immediately followed by `return`.
+
+**THE RESIDUAL, and it is real.** `recoveryRollback`'s park-state read **FAILS OPEN on ANY error** (:2933-2934): *“park-state read failed … proceeding fail-open with the rollback.”* The justification given nearby is the 42703 bootstrap case — a pre-migrate schema has no `recovery_parked_at`, so the row cannot be parked, which is sound. **But the fail-open is not narrowed to 42703.** A transient read failure against a schema that DOES have the column, at crash-recovery time, on a genuinely parked row, proceeds to `d.rollback` → `restoreDatabase` → and the rewind silently un-parks the row into the deterministic failure it stopped at — STATBUS-229's exact shape.
+
+**So the honest verdict is conditional:** no DESIGNED path lets a restore follow a park; one ERROR path does. Narrowing that fail-open to the 42703 case (or refusing rather than rolling back when park state is unknown on a schema that should have the column) would close it without any flag-schema change — far cheaper than the re-imposition, and it removes the only interleaving I could find. **I have not edited the audit file; the disposition stays RULED-REIMPOSE-OWED until the architect verifies this proof and rules on the residual.**
 ---
 <!-- COMMENTS:END -->
