@@ -90,6 +90,34 @@ Examples:
 	},
 }
 
+var upgradeDismissCmd = &cobra.Command{
+	Use:   "dismiss <target>",
+	Short: "Mark a candidate as dismissed so it is never offered or installed automatically",
+	Long: `Mark an upgrade candidate DISMISSED — the deliberate "not this one".
+
+A dismissed candidate is never offered and never installed automatically: every
+automatic path selects rows in state 'available' or 'scheduled', and a dismissed
+row is in neither. The decision is recorded on the row itself, so it survives
+restarts and is visible in 'sb upgrade list' and in the admin UI.
+
+The target is a release tag, an 8-char commit_short, or a full 40-char commit
+SHA — the same vocabulary 'register' and 'schedule' accept.
+
+Dismissing a version this box has already COMPLETED is refused: it would not
+uninstall anything. Dismissing a version with no candidate row is refused too —
+a dismissal of nothing is a typo, not a no-op — and the existing rows are shown.
+
+To take a dismissed candidate after all, schedule it explicitly.
+
+Examples:
+  sb upgrade dismiss v2026.08.1-rc.3
+  sb upgrade dismiss abc1234f`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return newUpgradeService(config.ProjectDir()).RunDismiss(context.Background(), args[0])
+	},
+}
+
 var upgradeListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List discovered upgrades from the database",
@@ -97,11 +125,52 @@ var upgradeListCmd = &cobra.Command{
 		sql := `SELECT commit_version AS version, summary,
 			CASE
 				WHEN completed_at IS NOT NULL THEN 'completed'
+				-- ORDERING RULE (STATBUS-250): DECISION-STATES ABOVE
+				-- HISTORY-STATES. A dismissal or a skip is a deliberate,
+				-- terminal operator decision; scheduled/in-progress/failed are
+				-- marks left by what the row DID earlier. A decision must
+				-- outrank its own history, because the row keeps that history:
+				-- a candidate that was scheduled, or that failed, and is THEN
+				-- dismissed or skipped still carries scheduled_at or error. A
+				-- decision branch placed below those renders the row as
+				-- 'scheduled' or 'failed' and hides the operator's decision
+				-- entirely — which is the same defect as having no branch at
+				-- all, on exactly the rows an operator is most likely to act on.
+				--
+				-- Only 'completed' outranks a decision: a version the box
+				-- actually HAS is a fact about the box, not a decision about a
+				-- candidate.
+				--
+				-- WHY THE ORDER IS SOUND AND NOT MERELY LUCKY — two mechanisms
+				-- holding each other up, so they say so. The case that would
+				-- break this rendering is a row DISMISSED (or skipped) and then
+				-- RE-SCHEDULED: it would still carry dismissed_at while being
+				-- genuinely scheduled again, and this CASE would report the
+				-- stale decision over the live intent. It cannot arise, because
+				-- the re-arm NULLs those columns as part of promoting the
+				-- candidate — promoteExistingCandidate (service.go:4724-4725)
+				-- and RunSchedule (:5103-5104) both clear skipped_at and
+				-- dismissed_at. A decision column is therefore only ever set
+				-- while the decision still stands.
+				--
+				-- TRIPWIRE: if that NULLing is ever removed as tidy-up, this
+				-- ordering silently starts lying about live rows — a
+				-- re-scheduled candidate would display as dismissed. Whoever
+				-- removes it must fix this CASE in the same change.
+				--
+				-- Two instances of one defect, fixed together rather than one
+				-- at a time: 'dismissed' had NO branch and fell through to
+				-- 'available' (a correct dismiss reading as a failed one in the
+				-- very output the dev-reset script checks); 'skipped' HAD a
+				-- branch but sat below scheduled/error and so hid a skip on any
+				-- row with a history. Both are operator decisions and both
+				-- belong here.
+				WHEN dismissed_at IS NOT NULL THEN 'dismissed'
+				WHEN skipped_at IS NOT NULL THEN 'skipped'
 				WHEN error IS NOT NULL AND rolled_back_at IS NOT NULL THEN 'rolled back'
 				WHEN error IS NOT NULL THEN 'failed'
 				WHEN started_at IS NOT NULL THEN 'in progress'
 				WHEN scheduled_at IS NOT NULL THEN 'scheduled'
-				WHEN skipped_at IS NOT NULL THEN 'skipped'
 				ELSE 'available'
 			END AS status,
 			discovered_at::date AS discovered
@@ -843,6 +912,7 @@ func init() {
 
 	upgradeCmd.AddCommand(upgradeCheckCmd)
 	upgradeCmd.AddCommand(upgradeRegisterCmd)
+	upgradeCmd.AddCommand(upgradeDismissCmd)
 	upgradeCmd.AddCommand(upgradeListCmd)
 	upgradeCmd.AddCommand(upgradeScheduleCmd)
 	upgradeCmd.AddCommand(upgradeApplyLatestCmd)

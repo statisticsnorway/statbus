@@ -235,6 +235,21 @@ var rewindAudit = map[siteKey]rewindDisposition{
 			"STATE, not the intended one, and the flip to EXEMPT-with-proof belongs to the commit that lands it.",
 	},
 
+	{"cli/internal/upgrade/service.go", "UPDATE", "dismissed_at,state"}: {
+		Class: classOutsideWindow, Count: 1,
+		Why: "The `sb upgrade dismiss` write (STATBUS-250's first deliverable). Category C for the reason the " +
+			"architect established on the app's dismissal: a restore rewinds to the snapshot of THAT upgrade, and " +
+			"a dismissal is made OUTSIDE any upgrade window — it is a deliberate operator act, and in the " +
+			"dev-reset case an act taken after a wreck, before the next upgrade starts. It is therefore inside " +
+			"the snapshot of every subsequent upgrade and survives their rollbacks. Nothing rewind-robust is " +
+			"owed here. THE IN-WINDOW RESIDUAL is the same one recorded on the app's write: a dismissal made " +
+			"while an upgrade is in flight is reverted by that upgrade's rollback — human-visible (the row " +
+			"reappears) and one command to redo. " +
+			"NOTE the columns: state AND dismissed_at are written TOGETHER in one statement, because " +
+			"chk_upgrade_state_attributes rejects a row whose state and timestamps disagree — a half-write is a " +
+			"failed statement, not a silently contradictory row.",
+	},
+
 	// ── F. PENDING RULING — enumerated and known, disposition NOT self-assigned ──
 	{"cli/internal/upgrade/service.go", "UPDATE", "error,recovery_parked_at,recovery_parked_reason,state,superseded_at"}: {
 		Class: classRuledReimposeOwed, Count: 1, Owner: "architect (ruled) / next builder (implements)",

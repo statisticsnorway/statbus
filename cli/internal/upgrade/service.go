@@ -3972,9 +3972,9 @@ func (d *Service) upsertCandidate(ctx context.Context, sha CommitSHA, meta candi
 		// MOVES after a valid write is a separate concern the pruner reconciles;
 		// this guard stops a bad write at the source.)
 		if resolved, rerr := d.RevParse(ctx, tag); rerr != nil {
-			return 0, fmt.Errorf("refusing to register tag %s on commit %s: cannot verify the tag points here (git rev-parse %s: %w)", tag, commitShort(sha), tag, rerr)
+			return 0, fmt.Errorf("refusing to register tag %s on commit %s: cannot verify the tag points here (git rev-parse %s: %w)", tag, commitShort(CommitSHA(sha)), tag, rerr)
 		} else if resolved != sha {
-			return 0, fmt.Errorf("refusing to register: tag %s points at commit %s in git, not %s — a tag may only be recorded on the commit it points at (STATBUS-169 AC#1)", tag, commitShort(resolved), commitShort(sha))
+			return 0, fmt.Errorf("refusing to register: tag %s points at commit %s in git, not %s — a tag may only be recorded on the commit it points at (STATBUS-169 AC#1)", tag, commitShort(resolved), commitShort(CommitSHA(sha)))
 		}
 		// Tagged: ON CONFLICT appends the tag and promotes release_status
 		// (a newer release shape re-flags release_builds_status='building').
@@ -4838,12 +4838,12 @@ func (d *Service) runOneShot(ctx context.Context, fn func(context.Context) error
 func (d *Service) commitMeta(sha CommitSHA) (committedAt time.Time, describe, subject string, err error) {
 	out, e := runCommandOutput(d.projDir, "git", "show", "-s", "--format=%cI%n%s", string(sha))
 	if e != nil {
-		return time.Time{}, "", "", fmt.Errorf("git show %s: %w (%s)", commitShort(sha), e, strings.TrimSpace(out))
+		return time.Time{}, "", "", fmt.Errorf("git show %s: %w (%s)", commitShort(CommitSHA(sha)), e, strings.TrimSpace(out))
 	}
 	parts := strings.SplitN(strings.TrimSpace(out), "\n", 2)
 	committedAt, err = time.Parse(time.RFC3339, strings.TrimSpace(parts[0]))
 	if err != nil {
-		return time.Time{}, "", "", fmt.Errorf("parse committed-at %q for %s: %w", parts[0], commitShort(sha), err)
+		return time.Time{}, "", "", fmt.Errorf("parse committed-at %q for %s: %w", parts[0], commitShort(CommitSHA(sha)), err)
 	}
 	if len(parts) > 1 {
 		subject = strings.TrimSpace(parts[1])
@@ -4900,6 +4900,130 @@ func (d *Service) ensureCommitLocal(ref string, fetchTimeout time.Duration) erro
 // RunRegister records a release tag or commit as an upgrade candidate
 // (state='available') and pokes the service to prepare it (NOTIFY upgrade_check).
 // Shares the same upsertCandidate path as discovery. `./sb upgrade register`.
+// RunDismiss marks a candidate DISMISSED — the operator's deliberate "not this
+// one" (STATBUS-250's first deliverable). Until now dismissal existed only as an
+// app action (a PATCH from the admin UI), so an operator who decided against a
+// candidate had no CLI way to say so, and a script could not do it at all
+// without writing the row directly.
+//
+// THE WRITE IS THE PAIR, NOT THE TIMESTAMP. state='dismissed' AND dismissed_at
+// go together, matching the app's own PATCH: chk_upgrade_state_attributes
+// REJECTS a row whose state and timestamp columns disagree, so a half-write is a
+// failed statement rather than a silently contradictory row (STATBUS-242's
+// state+_at pair ruling). One UPDATE, both columns.
+//
+// A DISMISSAL OF NOTHING IS A TYPO, NOT A NO-OP. If no row matches, this refuses
+// and prints what rows DO exist — an operator who mistypes a version must not be
+// told "done" while the candidate they meant to stop stays offered.
+//
+// WHY DISMISSED ROWS STOP BEING OFFERED, by construction rather than by a new
+// filter: every offer path selects state IN ('available', 'scheduled') —
+// supersedeBelowInstalled (:4455), the pending-candidate sweeps (:4511, :4541),
+// and the supersede-on-claim guard (:1709). 'dismissed' is in none of them, so
+// no automatic path can pick the row up again.
+func (d *Service) RunDismiss(ctx context.Context, input string) error {
+	return d.runOneShot(ctx, func(ctx context.Context) error {
+		// Same resolution as register (tag, commit_short, or full SHA), so an
+		// operator uses one vocabulary across the subcommand set.
+		target, err := resolveUpgradeTarget(ctx, d, input)
+		if err != nil {
+			return fmt.Errorf("resolve %q: %w", input, err)
+		}
+		// Same type-switch every other target consumer uses (:4631, :4758).
+		var commitSHA CommitSHA
+		var targetLabel string
+		switch t := target.(type) {
+		case TaggedTarget:
+			commitSHA = t.SHA
+			targetLabel = string(t.Tag)
+		case UntaggedTarget:
+			commitSHA = t.SHA
+			targetLabel = string(commitShort(t.SHA))
+		default:
+			return fmt.Errorf("unhandled upgrade target type %T for %q", target, input)
+		}
+		sha := string(commitSHA)
+		_ = targetLabel
+
+		var id int
+		var state string
+		var displayVersion string
+		err = d.queryConn.QueryRow(ctx,
+			`SELECT id, state, COALESCE(commit_version, '')
+			   FROM public.upgrade
+			  WHERE commit_sha = $1
+			  ORDER BY id DESC LIMIT 1`, sha).Scan(&id, &state, &displayVersion)
+		if err != nil {
+			return d.dismissNoSuchRow(ctx, input, sha, err)
+		}
+
+		switch state {
+		case "dismissed":
+			fmt.Printf("%s (commit %s) is already dismissed — nothing to do.\n", labelOrCommit(displayVersion, sha), commitShort(CommitSHA(sha)))
+			return nil
+		case "completed":
+			// Refusing here is the honest answer: dismissing an installed
+			// version does not uninstall it, and pretending otherwise would be
+			// the most expensive kind of wrong.
+			return fmt.Errorf("%s is the version this box has COMPLETED — dismissing it would not uninstall anything.\n  To move to a different version, register and schedule that version instead", labelOrCommit(displayVersion, sha))
+		}
+
+		ct, err := d.queryConn.Exec(ctx,
+			`UPDATE public.upgrade
+			    SET state = 'dismissed', dismissed_at = now()
+			  WHERE id = $1 AND state <> 'dismissed'`, id)
+		if err != nil {
+			return fmt.Errorf("dismiss %s: %w", labelOrCommit(displayVersion, sha), err)
+		}
+		if ct.RowsAffected() == 0 {
+			return fmt.Errorf("dismiss %s: the row changed underneath this command (state was %q) — re-run to see its current state", labelOrCommit(displayVersion, sha), state)
+		}
+
+		fmt.Printf("Dismissed %s (commit %s), previously %s.\n", labelOrCommit(displayVersion, sha), commitShort(CommitSHA(sha)), state)
+		fmt.Println("It will not be offered or installed automatically again.")
+		fmt.Printf("To take it after all: %s %s\n", "./sb upgrade schedule", labelOrCommit(displayVersion, sha))
+		return nil
+	})
+}
+
+// dismissNoSuchRow renders the refusal for a version with no candidate row, and
+// SHOWS WHAT EXISTS. A bare "not found" leaves the operator guessing whether
+// they mistyped the version or the box never saw it.
+func (d *Service) dismissNoSuchRow(ctx context.Context, input, sha string, cause error) error {
+	var lines []string
+	rows, qerr := d.queryConn.Query(ctx,
+		`SELECT COALESCE(commit_version, commit_sha), state
+		   FROM public.upgrade ORDER BY id DESC LIMIT 10`)
+	if qerr == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var v, st string
+			if rows.Scan(&v, &st) == nil {
+				lines = append(lines, fmt.Sprintf("    %-28s %s", v, st))
+			}
+		}
+	}
+	msg := fmt.Sprintf("no candidate row for %q (commit %s) — nothing was dismissed", input, commitShort(CommitSHA(sha)))
+	if len(lines) > 0 {
+		msg += ".\n  Rows this box knows about (newest first):\n" + strings.Join(lines, "\n")
+	} else if qerr != nil {
+		msg += fmt.Sprintf(".\n  (could not list the existing rows: %v)", qerr)
+	} else {
+		msg += ".\n  This box has no upgrade rows at all."
+	}
+	_ = cause
+	return errors.New(msg)
+}
+
+// labelOrCommit prefers the human version string and falls back to the short
+// commit, so no message ever prints an empty name.
+func labelOrCommit(version, sha string) string {
+	if strings.TrimSpace(version) != "" {
+		return version
+	}
+	return string(commitShort(CommitSHA(sha)))
+}
+
 func (d *Service) RunRegister(ctx context.Context, input string) error {
 	return d.runOneShot(ctx, func(ctx context.Context) error {
 		// Register-by-commit owns "make the target commit local" (STATBUS-169
@@ -4922,7 +5046,7 @@ func (d *Service) RunRegister(ctx context.Context, input string) error {
 		if err != nil {
 			return fmt.Errorf("register %s: %w", displayName, err)
 		}
-		fmt.Printf("Registered candidate %s (commit %s)\n", displayName, commitShort(sha))
+		fmt.Printf("Registered candidate %s (commit %s)\n", displayName, commitShort(CommitSHA(sha)))
 		if _, err := d.queryConn.Exec(ctx, "NOTIFY upgrade_check"); err != nil {
 			fmt.Printf("(could not poke the service to prepare — NOTIFY upgrade_check: %v)\n", err)
 		} else {
