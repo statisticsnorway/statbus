@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 07:10'
-updated_date: '2026-08-19 07:39'
+updated_date: '2026-08-19 07:50'
 labels:
   - release
   - ops
@@ -87,5 +87,11 @@ UPDATED to the King's final topology. Comment #2 above says demo and no are both
 THE RULE THIS ENTRY CARRIES IS UNCHANGED BY THAT, which is the useful part: no automated push-to-install path survives for either demo or no. Only the REASON differs per box — on Norway a push bypasses the human gate; on demo it overrides the box's own channel. I sharpened the wording from "where an automated install is the intended behaviour" to "where an automated PUSH is the intended way that box gets its software", because the first phrasing would read as covering demo too: demo does install automatically, it just does it by following a channel rather than by being pushed at.
 
 STILL MARKED AS MINE. The King ruled on the buttons and on the canary roles; the fate of the demo and Norway deploy branches follows from those rulings but he did not state it. AC#4 can be struck in one line without disturbing the rest of the entry.
+---
+
+author: foreman
+created: 2026-08-19 07:50
+---
+KING APPROVED 2026-08-19 (presented in dialogue, one by one): the entry as written INCLUDING AC#4 (the architect-derived branch retirements for Norway and demo — not struck). Explicit reservation: "barring 248" — this approval does not pre-ratify STATBUS-248; AC#6's production-sweep leg executes only after 248 is judged on its own terms. Build may start on everything except the master-to-production/production-to-all removals, which wait for 248's verdict.
 ---
 <!-- COMMENTS:END -->

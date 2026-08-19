@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 07:14'
-updated_date: '2026-08-19 07:39'
+updated_date: '2026-08-19 09:07'
 labels:
   - release
   - ops
@@ -25,13 +25,29 @@ ordinal: 240000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-A release candidate cannot currently be deployed as such, and nothing in our release ever rehearses what a customer actually does. The buttons that deploy to our boxes push whatever master's tip happens to be, so the box meant to prove the candidate proves something else; and every install we perform is a machine pushing a branch, which is not how any statistical office installs StatBus. This entry gives two boxes two different jobs, and the second one is new.
+A release candidate cannot currently be deployed as such, and nothing in our release ever rehearses what a customer actually does. The buttons that deploy to our boxes push whatever master's tip happens to be, so the box meant to prove the candidate proves something else; and every install we perform is a machine pushing a branch, which is not how any statistical office installs StatBus. This entry sets the order the chain runs in, and gives the two real boxes two different jobs.
 
-**dev — the automatic canary.** Every candidate installs itself, no human involved. It answers one question early and cheaply: can a real box, with real data, take this candidate at all? It gates the release chain — if dev cannot take the candidate, renting 31 machines to test fixtures is waste.
+THE CHAIN, cheapest and most disposable first, each stage gating the next:
 
-**Norway — the human canary.** The candidate is OFFERED and a PERSON installs it, following a written observation card. Not because automation is unavailable, but because the operator surface is the thing under test: the suggestion appearing, the decision prompt, the progress messages, where the operator lands afterwards. That is the entire experience a statistical office has of this software, and until now no release exercised it even once.
+**1. SMOKE — the two happy paths, on ephemeral machines.** A fresh install must work, and an install-then-upgrade must work. Both, not either: dev is upgraded rather than installed, so a candidate that installs cleanly but cannot be upgraded onto would fail at the very next stage after we had already paid for it. This is the preliminary gate — minutes on throwaway machines, before anything we care about is touched.
 
-**Demo is not part of this.** It is an ordinary installation that follows releases on its own, like any other box — dev already answers the does-it-install question, and a second automatic slot would only repeat it. Demo is governed by STATBUS-248 along with the other channel-following installations.
+**2. dev — the automatic canary.** Every candidate installs itself, no human involved. It answers one question on a real box with real data: can this candidate actually be taken? Its failure stops the chain.
+
+**3. The full fleets.** The expensive suites, run only against a candidate that has already survived both smoke paths and a real box.
+
+**4. Norway — the human canary.** The candidate is OFFERED and a PERSON installs it, following a written observation card. Not because automation is unavailable, but because the operator surface is the thing under test: the suggestion appearing, the decision prompt, the progress messages, where the operator lands afterwards. That is the entire experience a statistical office has of this software, and until now no release exercised it even once.
+
+**5. Promotion.** Requirements unchanged.
+
+**Demo is not part of this.** It is an ordinary installation that follows releases on its own — dev already answers the does-it-install question. Demo is governed by STATBUS-248.
+
+WHY SMOKE GOES FIRST, and why it is two paths rather than one: it protects the one irreplaceable thing in the chain. Everything at stage 1 and stage 3 is disposable; dev is not. Filtering candidates through both happy paths on rented machines means dev is only ever asked to take a candidate that has already been shown to install and to upgrade.
+
+**A SEPARATE QA INSTANCE WAS CONSIDERED AND DELIBERATELY REJECTED — do not re-propose it.** The idea was to spare dev by putting a sacrificial box in front of it. It dissolves on inspection: **dev IS the QA instance.** A second one would answer the same question at the same cost, and the redundancy is the argument against it, not an oversight. The residual worry — that dev is awkward to restore if a candidate hurts it — is accepted as adequately mitigated, on three grounds worth recording so this does not get re-litigated:
+
+- smoke-filtering means dev rarely meets a candidate that can hurt it;
+- the recovery machinery is precisely the thing that repairs a hurt box, and exercising it on dev is a benefit rather than a cost — that machinery existing untested would be the real risk;
+- a scripted slot reinstall is the worst case, and it is bounded and known.
 
 WHAT ALREADY WORKS, and must not be rebuilt — the human role is reached by REMOVING machinery, not adding it:
 
@@ -40,35 +56,41 @@ WHAT ALREADY WORKS, and must not be rebuilt — the human role is reached by REM
 - **The channel already means what we need.** `UPGRADE_CHANNEL=prerelease` selects release-candidate tags only (cli/internal/upgrade/github.go:295-297, 556-557), and standalone boxes are already authored that way (doc/CLOUD.md:769) — so Norway already sees candidates today. What changes is who acts on them.
 - **`canarySlots` is already exactly right.** It lists dev and no (cli/cmd/release_canary.go:43-46). No slot is added or removed by this entry.
 
-FIVE DECISIONS, ruled here so the builder does not have to guess:
+DECISIONS, ruled here so the builder does not have to guess:
 
-**1. dev is driven by the chain, not by the channel.** "Auto-install the latest candidate" sounds channel-shaped, and the channel mechanism genuinely exists — so this was re-argued with it in hand. It still loses, for one reason: the chain needs a SYNCHRONOUS verdict. Discovery ticks on a long interval and only offers; the chain would have nothing to wait on. Pointing dev's deploy branch at the tag's commit gives an immediate, deterministic install and a verdict the chain can gate on. Setting `UPGRADE_CHANNEL=prerelease` on dev as well is a harmless backstop — discovery can only offer, so it cannot become a second installing path.
+**dev is driven by the chain, not by the channel.** "Auto-install the latest candidate" sounds channel-shaped, and the channel mechanism genuinely exists — so this was re-argued with it in hand. It still loses, for one reason: the chain needs a SYNCHRONOUS verdict. Discovery ticks on a long interval and only offers; the chain would have nothing to wait on. Pointing dev's deploy branch at the tag's commit gives an immediate, deterministic install and a verdict the chain can gate on.
 
-**2. Norway needs no new mechanism — only the removal of the push.** It is already on the prerelease channel, so the existing discovery already offers it every candidate. Stop writing its deploy branch (STATBUS-244) and the offer simply sits there until a person acts. The operator's action is the real one: `./sb upgrade schedule <tag>`, or `./sb install`. **Nothing automated may call schedule, apply-latest, or install on Norway.** That is the whole boundary, and it is the one thing an implementer could plausibly get wrong.
+**Norway needs no new mechanism — only the removal of the push.** It is already on the prerelease channel, so existing discovery already offers it every candidate. Stop writing its deploy branch (STATBUS-244) and the offer sits until a person acts. The operator's action is the real one: `./sb upgrade schedule <tag>`, or `./sb install`. **Nothing automated may call schedule, apply-latest, or install on Norway.**
 
-**3. Cadence: promotion-bound candidates only, not every cut.** A person is not asked to install every RC. The gate enforces this naturally and needs no extra rule — only a promotion requires a completed row on Norway, so candidates nobody intends to promote are simply never acted on. Their offers sit unclaimed, which is the correct resting state and not a fault. The chain therefore does nothing at all to Norway; if an operator wants the offer sooner than the next poll, `./sb upgrade check` is theirs to run.
+**Norway's preconditions.** The target must be a release candidate — never an arbitrary commit. The operator is shown the smoke and fleet results as the safety signal before deciding, in the actionable form STATBUS-245 specifies. The default is to WAIT for the fleets; proceeding early is permitted but must be a deliberate act rather than the path of least resistance.
 
-**4. The observation card is the deliverable that makes this more than a manual deploy.** A written card the operator follows, naming what they SHOULD see at each step: the suggestion text, the decision prompt, the progress messages, and where they land after the upgrade. The operator records what they actually saw. **Any deviation files a ticket before promotion** — that is what converts a person clicking through into an observation with a verdict. The card's CONTENT is operator-surface work and goes to the King for approval at build time, in the same lane as the error-wording work; this entry fixes only that the card exists, is followed, and gates.
+**Cadence: promotion-bound candidates only.** A person is not asked to install every RC. The gate enforces this naturally — only a promotion requires a completed row on Norway, so candidates nobody intends to promote are never acted on, and their offers sit unclaimed. That is the correct resting state, not a fault.
 
-**5. The gate's per-slot advice must match each box's role.** `checkOneCanary`'s failure hints print `git push -f origin master:ops/...` per slot (cli/cmd/release_canary.go:136-143). Those commands stop existing under STATBUS-244, and on Norway the hint would be actively harmful — an operator following it would bypass the operator surface the slot exists to prove. dev's hint points at the chain; Norway's prints the operator command to run on that box. Waiting on a person is an expected, open-ended, named state, never an unexplained silence — STATBUS-245 specifies it.
+**The observation card** names what the operator SHOULD see at each step — suggestion text, decision prompt, progress messages, post-upgrade landing — and they record what they actually saw. **Any deviation files a ticket before promotion.** Without the card this is merely a person doing by hand what a machine did before; with it, the release gains a verdict about the operator surface no automated check can produce. The card's CONTENT goes to the King at build time, in the same lane as the error-wording work.
+
+**The gate's per-slot advice must match each box's role.** `checkOneCanary`'s failure hints print `git push -f origin master:ops/...` per slot (cli/cmd/release_canary.go:136-143). Those commands stop existing under STATBUS-244, and on Norway the hint would be actively harmful — an operator following it would bypass the operator surface the slot exists to prove.
 
 WHY THAT HELPS: promotion stops being a check we run on the software and becomes a rehearsal of the customer's experience. If the offer never appears, or the message is confusing, or the documented command fails, a ticket is filed and the release stops — which is exactly the surface our operator-facing error work and the deployments in African statistical offices exist for. Every promoted release now proves a person can install it, because a person just did, and wrote down what they saw.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Tagging a candidate installs it on dev with no human action, through the existing deploy and convergence layers unchanged
-- [ ] #2 dev's convergence runs first in the chain and its failure stops the chain before any VM fleet is dispatched
-- [ ] #3 Norway is OFFERED each candidate — a candidate row in state 'available' appears — and is installed by no automated path whatsoever
-- [ ] #4 Nothing automated calls schedule, apply-latest, or install on Norway; a test pins this boundary so a future change cannot quietly automate the human canary
-- [ ] #5 A person installs the promotion-bound candidate on Norway following the observation card, and that act is what satisfies the promotion gate
-- [ ] #6 The observation card exists as a written artifact naming what the operator should see at each step — suggestion, decision prompt, progress messages, post-upgrade landing — and its content is approved by the King before first use
-- [ ] #7 Any deviation between the card and what the operator actually saw files a ticket, and promotion does not proceed until those tickets are triaged
-- [ ] #8 Candidates nobody intends to promote leave an unclaimed offer on Norway, and that is treated as the correct resting state rather than a failure
-- [ ] #9 Demo is not in the promotion gate and is not pushed to by anything — it follows releases on its own under STATBUS-248
-- [ ] #10 canarySlots still lists exactly dev and no, and each slot's failure hint names the action appropriate to its role — no hint tells an operator to push a deploy branch
-- [ ] #11 The stable promotion gate refuses until Norway carries a completed upgrade at the candidate's exact commit, with the wait explained per STATBUS-245
-- [ ] #12 Proven end to end on a real cut: tag → dev converges → fleet → offer sits on Norway → a person installs it against the card → gate clears
+- [ ] #1 The chain runs in order: smoke → dev → fleets → Norway → promotion, each stage gating the next
+- [ ] #2 Smoke covers BOTH happy paths on ephemeral machines — fresh install, and install-then-upgrade — and its failure stops the chain before dev is touched
+- [ ] #3 Tagging a candidate installs it on dev with no human action, through the existing deploy and convergence layers unchanged
+- [ ] #4 dev's failure stops the chain before any expensive fleet is dispatched
+- [ ] #5 Norway is OFFERED each candidate — a candidate row in state 'available' appears — and is installed by no automated path whatsoever
+- [ ] #6 Nothing automated calls schedule, apply-latest, or install on Norway; a test pins this boundary so a future change cannot quietly automate the human canary
+- [ ] #7 Norway's target must be a release candidate, never an arbitrary commit
+- [ ] #8 The operator sees the smoke and fleet results before deciding, in the actionable form STATBUS-245 specifies; waiting is the default and proceeding early is a deliberate act
+- [ ] #9 A person installs the promotion-bound candidate on Norway following the observation card, and that act is what satisfies the promotion gate
+- [ ] #10 The observation card exists as a written artifact naming what the operator should see at each step, and its content is approved by the King before first use
+- [ ] #11 Any deviation between the card and what the operator actually saw files a ticket, and promotion does not proceed until those tickets are triaged
+- [ ] #12 Candidates nobody intends to promote leave an unclaimed offer on Norway, treated as the correct resting state rather than a failure
+- [ ] #13 Demo is not in the promotion gate and is not pushed to by anything — it follows releases on its own under STATBUS-248
+- [ ] #14 canarySlots still lists exactly dev and no, and each slot's failure hint names the action appropriate to its role — no hint tells an operator to push a deploy branch
+- [ ] #15 Promotion requirements are unchanged by this entry
+- [ ] #16 Proven end to end on a real cut: smoke → dev converges → fleets → offer sits on Norway → a person installs it against the card → gate clears
 <!-- AC:END -->
 
 ## Comments
@@ -110,5 +132,19 @@ WHAT THIS COSTS IN CODE: nothing. I had written that canarySlots must GROW to in
 THE OBSERVATION CARD is what makes this more than a manual deploy, and it is the part with no existing mechanism behind it. A written card naming what the operator SHOULD see — suggestion text, decision prompt, progress messages, post-upgrade landing — against which they record what they actually saw, with any deviation filing a ticket before promotion. Without the card this is just a person doing by hand what a machine did before, which would be strictly worse than automation. With it, the release acquires a verdict about the operator surface that no automated check can produce. The card's CONTENT is operator-surface work and goes to the King at build time, same lane as the error-wording work; this entry fixes only that it exists, is followed, and gates.
 
 CADENCE, per the foreman's sharpening and ratified in the King's read-back: promotion-bound candidates only, not every cut. Worth stating why this needs no enforcement mechanism — only a promotion requires a completed row on Norway, so a candidate nobody promotes is simply never acted on. I made the resting state explicit in AC#8 because an unclaimed offer sitting on a production box for weeks looks like neglect to anyone who has not read this entry, and someone will eventually try to tidy it away.
+---
+
+author: architect
+created: 2026-08-19 09:07
+---
+CHAIN ORDER FINALIZED by the King. Comments #1 and #2 above are superseded on the topology; read the current description. What this comment adds is the reasoning behind the two new parts, so neither gets optimized away later.
+
+SMOKE IS TWO PATHS, NOT ONE, and the second is the one that would have been dropped. A fresh install passing does not mean an install-then-upgrade passes, and dev is UPGRADED rather than installed — so a candidate that installs cleanly but cannot be upgraded onto would sail through a single-path smoke and fail at the first stage that costs us something we care about. Anyone trimming the chain for time will see two happy paths and assume one covers the other. It does not, and the one they would cut is the one that matches what dev actually does.
+
+THE QA INSTANCE IS RECORDED AS REJECTED, WITH ITS REASONING, ON PURPOSE. It is an attractive idea — put something sacrificial in front of the canary — and it will be proposed again by anyone who watches a bad candidate hurt dev. The King's own conclusion dissolves it: dev IS the QA instance, so a second one answers the same question twice. I wrote the three mitigations into the entry rather than just the verdict, because a bare 'rejected' invites re-litigation while the reasoning ends it. The middle mitigation is the one worth internalizing: exercising the recovery machinery on a hurt dev is a BENEFIT. Recovery machinery that never runs is the actual risk, and this arrangement runs it on the box where running it is cheapest.
+
+ORDERING RATIONALE, stated once: everything at smoke and everything in the fleets is disposable; dev is not. That single asymmetry determines the whole order — disposable things go first and filter for the irreplaceable one, and the irreplaceable one filters for the expensive ones. It is the same cheapest-first logic the chain already used, with 'cheapest' correctly understood as including what a failure costs to clean up rather than only what a run costs to rent.
+
+NORWAY'S DEFAULT IS TO WAIT, and I made proceeding-early deliberate rather than merely allowed. If proceeding early is as easy as waiting, it becomes the norm under time pressure and the fleet stops gating anything in practice — the gate would still exist and would still be satisfied, just always after the fact.
 ---
 <!-- COMMENTS:END -->

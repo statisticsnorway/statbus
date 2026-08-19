@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 07:11'
-updated_date: '2026-08-19 07:39'
+updated_date: '2026-08-19 07:58'
 labels:
   - release
   - quality-gate
@@ -52,6 +52,7 @@ WHY THAT HELPS: the operator learns whether to wait, watch, ask a colleague, or 
 - [ ] #6 The refusal reports the box's check interval and last check time so 'not offered' has a duration attached
 - [ ] #7 The wait never times out into a pass — the gate stays refused until a completed row exists
 - [ ] #8 The gate still refuses in every case where it refuses today — this adds explanation, never permission
+- [ ] #9 Every outcome line carries its actionable handle — the exact command to run, the person/place to ask, or the direct link to look at (e.g. the GitHub run, the box's upgrade log) — never a bare state name; the King's test: the reader must end knowing their next move, not merely the system's state
 <!-- AC:END -->
 
 ## Comments
@@ -65,5 +66,11 @@ FRAMING CORRECTED BEFORE THE KING READS IT — and the correction is the stale-p
 The substance survives on its own merits, which is why this is a reframe and not a retraction: the promotion gate runs at a DIFFERENT MOMENT from the chain, potentially long after it, against a box that may since have been redeployed, drifted, or parked. It is a separate observer, and a separate observer that reports only absence teaches people to re-run and hope.
 
 Recorded rather than silently rewritten because a motivating sentence that a later ruling falsifies is exactly what cost us STATBUS-197 → 210 → 228 → 229, and the fix each time is the same: correct it where a reader would otherwise act on it.
+---
+
+author: foreman
+created: 2026-08-19 07:58
+---
+KING APPROVED 2026-08-19 (dialogue presentation, second of five), with a sharpening now added as AC#9, his reasoning near verbatim: the change is "critical and inconsequential" — it changes nothing, only exposes what we already know — and precisely because of that, THE ACTIONABLE PART AND THE MESSAGE ARE WHAT MATTER: the human operator must know what they are waiting for, WHO to speak to, or WHAT to look at (such as the link to the GitHub run) — "not just a black hole, or 'you're waiting for something, I know, but I can't do anything about it.'" Every outcome must hand the reader their next move. Builder note: this is the same doctrine as the failure messages that teach (239's shallow guard, the hybrid-tree diagnosis) applied to the gate's every line.
 ---
 <!-- COMMENTS:END -->
