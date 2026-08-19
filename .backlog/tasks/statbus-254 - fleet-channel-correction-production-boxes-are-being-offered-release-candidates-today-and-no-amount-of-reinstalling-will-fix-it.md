@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 10:27'
-updated_date: '2026-08-19 11:26'
+updated_date: '2026-08-19 11:30'
 labels:
   - ops
   - release
@@ -79,5 +79,73 @@ author: operator (pinned by foreman)
 created: 2026-08-19 11:26
 ---
 FLEET CORRECTION EXECUTED AND VERIFIED, all seven boxes, no stop-condition hit. Before/after evidence recorded verbatim (full log in tmp/agents/operator.md): et/jo/ma/tcc/ug/demo each read UPGRADE_CHANNEL=prerelease before → running service now logs 'Upgrade service started (channel=stable, interval=6h0m0s)'; dev read edge before → now 'channel=prerelease, interval=5m0s' (the 5-minute interval consistent with its canary role). Every verification read the RUNNING service's startup line, not the file, per the procedure's load-bearing finding. AC#1 and AC#2 closed. AC#3's exception clause is satisfied as written — the alternative was explicitly chosen by the King and recorded in comment #1. REMAINING: AC#4/#5 (derive-from-role mechanism — the durable fix), AC#6 (sequencing guard for the deploy-workflow deletions, now trivially satisfied since the channels are correct), AC#7 (record first-writer-wins where the next person would trust config generate). The exposure this entry was filed for is CLOSED: no NSO production box is offered release candidates any more, and dev now follows the candidate channel its role requires.
+---
+
+author: architect
+created: 2026-08-19 11:30
+---
+DURABLE-FIX DESIGN, part 1 of 2 — the shape, and the two objections it has to survive.
+
+## Where the role is declared: a NEW key, and the alternatives are worse
+
+A box already declares `DEPLOYMENT_SLOT_CODE` (:328) and `CADDY_DEPLOYMENT_MODE` (:347). Neither can carry this:
+
+- **Mode is the wrong axis.** STATBUS-106 deliberately DECOUPLED the upgrade axis from the front-door mode. Re-coupling them here would undo a ruling, and it cannot express the case we actually have: Norway and an ordinary standalone share a mode and need different channels.
+- **Slot code is a NAME, and deriving from it is disqualifying.** It would bake OUR fleet's names into a product that statistical offices install — a customer whose slot happened to be called `dev` would be treated as our canary. The product must not know about our boxes.
+
+So: **`UPGRADE_ROLE` in `.env.config`**, on the upgrade axis, closed value set: `production` (default) | `canary` | `development`. `UPGRADE_CHANNEL` **leaves `.env.config` entirely** and becomes a generated output in `.env` only.
+
+## OBJECTION 1, and it is the strongest one against my own recommendation: if role→channel is one-to-one, this is a rename
+
+It is one-to-one today — `production`→stable, `canary`→prerelease, `development`→local — and a renamed key would drift exactly as the old one did. The answer is not that the mapping is complicated; it is **which of the two is a statement and which is a consequence**:
+
+- The ROLE is a statement of intent. It should never change unless a human changes what the box is FOR. Remembering it is correct.
+- The CHANNEL is a consequence of policy. When we change what production boxes follow — stable today, an LTS line tomorrow — **every box must pick that up**, and today none of them can.
+
+So the win is not the mapping's shape, it is that the mapping becomes OURS TO CHANGE and the change reaches the fleet. That is precisely what failed here: the default moved on 2026-06-21 and not one box noticed. State this plainly in the code, because a reader who sees a 1:1 table will otherwise conclude the indirection is pointless.
+
+## OBJECTION 2: is recomputing a value a standing self-heal, which is forbidden?
+
+No, and the distinction is worth writing at the line. **A self-heal silently repairs someone's input. This makes the value stop being an input.** `.env` is a generated file already; nobody calls regenerating it self-healing. The channel simply moves into the generated tier where it always belonged, and there is nothing left to repair because there is nothing left to corrupt.
+
+The test that keeps this honest: if an operator hand-sets `UPGRADE_CHANNEL` in `.env.config` — an input that no longer exists — config generate must **FAIL LOUDLY naming it**, neither silently honouring it nor silently ignoring it. That is AC#5's guard, and it is the loud-guard half the no-self-heal rule requires. The rule forbids quiet repair; it demands exactly this.
+---
+
+author: architect
+created: 2026-08-19 11:30
+---
+DURABLE-FIX DESIGN, part 2 of 2 — how it meets the fleet we just corrected, the guard, and AC#7.
+
+## THE CORRECTION BECOMES THE SEED — this is the part that must not be got wrong
+
+All seven boxes now hold an **explicit** `UPGRADE_CHANNEL` in `.env.config` (comment #3). Under part 1's design that key is an input that no longer exists, so a naive rollout would make config generate **fail loudly on every box we just fixed** — the durable fix breaking the fleet the moment it lands.
+
+The resolution turns that around: **a ONE-TIME translation, where the operator's correction is the input.** On a box with `UPGRADE_CHANNEL` present and no `UPGRADE_ROLE`, config generate:
+
+1. infers the role from the channel (`stable`→production, `prerelease`→canary, `local`/`edge`→development), 
+2. writes `UPGRADE_ROLE`,
+3. REMOVES `UPGRADE_CHANNEL` from `.env.config`,
+4. prints exactly what it did and why.
+
+So the work the operator just performed is not fought — it is **read once and promoted into the durable form.** Every box lands on the role its corrected channel already implies, with no second per-box pass. And its first fleet-wide application is self-verifying: if the seven boxes come out as six `production` + one `canary`, the mechanism reproduced a state we independently established by hand, which is a stronger proof than any test.
+
+**This translation is a ONE-TIME CORRECTION and must be removed once the fleet has run it** — the no-standing-self-heal rule applies to it exactly. It executes once per box, it is loud, and it carries its own removal note. What must NOT happen is it quietly surviving as a permanent compatibility shim; that would re-admit the very key we are removing, and internal code here ships as clean breaks.
+
+## THE LOUD GUARD (AC#5), precisely
+
+After the translation window, `UPGRADE_CHANNEL` in `.env.config` can only mean someone re-added it by hand. config generate must then **REFUSE**, naming: the key, the role currently declared, the channel that role derives, and the one action that resolves it (state the role you want, remove the key). Not a warning — a warning would be honoured-or-ignored ambiguously, and the operator would never learn which.
+
+The symmetric case matters as much: an **unknown or absent** `UPGRADE_ROLE` must refuse too, rather than defaulting quietly. A box that silently defaults is exactly how five NSO installations sat on the wrong channel for two months without anyone being able to see it. **Absent-means-default is the mechanism that produced this ticket.**
+
+## AC#7 — recorded as a MECHANISM, not a comment
+
+Prose rots, and this hazard has already cost us once. Two parts:
+
+1. **A pin** asserting `UPGRADE_CHANNEL` is never written through `Generate`/`gen()` — i.e. that this key is DERIVED, not defaulted. If someone reintroduces it into the set-if-absent tier, the mechanism this ticket exists to remove comes back and the test reddens naming why.
+2. **A comment at `dotenv.Generate` itself** (dotenv.go:222) — the single place every future author meets this behaviour — saying plainly: *this preserves an existing value forever; a value that must follow policy has to be derived instead, and `UPGRADE_CHANNEL` is why we know that.* One sentence at the call site everyone passes through beats a paragraph in a doc nobody opens.
+
+## What I am NOT specifying, deliberately
+
+The role value set is closed but not final — whether an external customer eventually needs something between `production` and `canary` (an eager adopter tracking candidates deliberately) is a real question, and it should be answered when someone actually wants it rather than invented now. `canary` covers it today.
 ---
 <!-- COMMENTS:END -->
