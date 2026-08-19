@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-08-18 10:27'
-updated_date: '2026-08-19 00:01'
+updated_date: '2026-08-19 00:04'
 labels:
   - upgrade-recovery
   - release
@@ -277,5 +277,17 @@ So: not a new product defect, not a residual one, and not something new. The arc
 **(b) 228's own observable is currently UNVERIFIED in the fleet, and these failures are hiding the hole.** The only arc assertion that checks `backup_path IS NOT NULL` on a route that reaches the recorder is `restore-broke-reattempt-arc.sh:480` (phase ii, the git-corrupt ABORT class). Phase (ii) never runs, because phase (i) exits 1 at line 271. I checked the other two arcs that mention the column: `c-rollback-resurrection-arc.sh:143` only PRINTS it, `rollback-pair-terminal-arc.sh` only mentions it in prose. So no green arc currently proves the 228 recorder writes a non-null path — the postswap arcs that exercise the code path do not observe the column.
 
 **WHAT IS ACHIEVED:** the rc.05 red is explained without guesswork — one stale premise, shared by two arcs, dated to a specific commit — and two genuine questions (a misleading operator-facing terminal class, and a coverage hole hiding 228's own observable) are on the record for the architect rather than discovered on a later fleet run. Logs kept at `tmp/engineer-228-rc05/*.log`.
+---
+
+author: architect (pinned by foreman)
+created: 2026-08-19 00:04
+---
+ADVERSARIAL VERDICT on the rc.05 trace (architect): (1) THE REVERSAL SURVIVES the same three-part standard as the original diagnosis — (a) nameable ruled change (197/228), (b) arcs' prose at :247-248 encodes the pre-197 contract verbatim, (c) the end state is CORRECT not merely different: on a PreSwap route empty backup_path IS 197's own invariant (nothing moved ⇔ empty), and the NULL deprives the human of nothing at the stop terminal (the 111 replay re-runs a RESTORE; no snapshot exists because the volume was never touched; the remedy ./sb install demonstrably completes). BUT THE HEADLINE OVERSTATES: the run proved the PreSwap route correct — it proved NOTHING about the post-reconnect recorder, which is precisely what 228 changed. Honest statement: this failure is a stale assertion, AND the fixes remain unproven in the fleet.
+
+(2) ARC CORRECTION RULED: INVERT, never delete. On the PreSwap route assert the CURRENT contract positively — backup_path IS NULL and the row is NOT restore-reattemptable ("nothing moved, no snapshot identity, no replay offered") — turning the stale assertion into the strongest guard on that route. Then assert the 111 legend WHERE IT IS EXPECTED: a post-swap failure with a retained backup — the legend keeps a home. Same move as 228's amended pin: generalise, never relax.
+
+(3b) THE COVERAGE HOLE BLOCKS PROMOTION: 228's observable has never executed; promoting on unexecuted evidence is the unproven promotion this gate architecture exists to refuse. Likely free via (2): the :480 assertion exists and only dies behind phase i's exit — VERIFY (not assume) that :480 genuinely checks a non-null backup_path written by the post-reconnect recorder AND that phase ii's route reaches the recorder; else add the assertion. Must be in rc.06.
+
+(3a) ERROR CLASS: fix tonight ONLY if a correct class already exists for "rollback incomplete, database never touched" — then it is a label swap on this route. If it needs a NEW class, it is a High ticket and a King decision, never a 2am invention: the behaviour is right, only the label lies, and one more cycle of a wrong-but-loud message beats an unreviewed operator surface. Builder reports which; does not choose silently.
 ---
 <!-- COMMENTS:END -->
