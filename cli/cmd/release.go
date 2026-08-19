@@ -1904,6 +1904,8 @@ func checkInstallRecoveryHarnessGate(projDir, rcTag, rcCommit, rcShort string) b
 		if jobs.Complete {
 			fmt.Printf("  ✓ install-recovery FULL SUITE green at %s (%d/%d scenario jobs ran and succeeded)\n", rcShort, len(requiredScenarios), len(requiredScenarios))
 			fmt.Printf("    Run: %s\n", result.RunURL)
+			fmt.Println(shadowLabel(true))
+			runShadowCoverage(projDir, release.WorkflowInstallRecoveryHarness, rcShort, rcCommit, requiredScenarios, true)
 			return true
 		}
 		fmt.Printf("  ✗ install-recovery is green at %s, but %d/%d required scenario jobs are not proof — a subset or skipped run cannot satisfy this gate:\n",
@@ -1912,6 +1914,8 @@ func checkInstallRecoveryHarnessGate(projDir, rcTag, rcCommit, rcShort string) b
 		fmt.Printf("    Trigger: %s\n", release.WorkflowTriggerCommand(release.WorkflowInstallRecoveryHarness, rcTag))
 		fmt.Printf("    Watch:   %s\n", release.WorkflowURL(release.WorkflowInstallRecoveryHarness))
 		fmt.Println("    Fix: run the trigger command above (blank selector = full suite), wait for green, re-run stable")
+		fmt.Println(shadowLabel(false))
+		runShadowCoverage(projDir, release.WorkflowInstallRecoveryHarness, rcShort, rcCommit, requiredScenarios, false)
 		return false
 	case release.WorkflowCheckPending:
 		fmt.Printf("  ✗ install-recovery is still pending at %s\n", rcShort)
@@ -1932,6 +1936,11 @@ func checkInstallRecoveryHarnessGate(projDir, rcTag, rcCommit, rcShort string) b
 		fmt.Printf("    Trigger: %s\n", release.WorkflowTriggerCommand(release.WorkflowInstallRecoveryHarness, rcTag))
 		fmt.Printf("    Watch:   %s\n", release.WorkflowURL(release.WorkflowInstallRecoveryHarness))
 		fmt.Println("    Fix: run the trigger command above, wait for green, re-run stable")
+		// The interesting case for the switch: nothing ran here, so the
+		// per-scenario path is the only one that can find inherited evidence.
+		fmt.Println(shadowLabel(false))
+		runShadowCoverage(projDir, release.WorkflowInstallRecoveryHarness, rcShort, rcCommit,
+			shadowDomainAt(projDir, rcCommit, installRecoveryScenarioNamesAtCommit), false)
 		return false
 	case release.WorkflowCheckUnknown:
 		fmt.Println("  ✗ install-recovery status check failed (GitHub API error)")
@@ -1987,6 +1996,8 @@ func checkUpgradeArcHarnessGate(projDir, rcTag, rcCommit, rcShort string) bool {
 		if jobs.Complete {
 			fmt.Printf("  ✓ upgrade-arc-harness FULL SUITE green at %s (%d/%d arc jobs ran and succeeded)\n", rcShort, len(requiredArcs), len(requiredArcs))
 			fmt.Printf("    Run: %s\n", result.RunURL)
+			fmt.Println(shadowLabel(true))
+			runShadowCoverage(projDir, release.WorkflowUpgradeArcHarness, rcShort, rcCommit, requiredArcs, true)
 			return true
 		}
 		fmt.Printf("  … upgrade-arc-harness is green at %s, but %d/%d required arc jobs are not proof — not a full-suite proof, falling through to the path-sensitivity walk:\n",
@@ -2106,6 +2117,8 @@ func checkUpgradeArcHarnessGate(projDir, rcTag, rcCommit, rcShort string) bool {
 		if !touched {
 			fmt.Printf("  ✓ upgrade-arc-harness: no upgrade-sensitive changes since %s (FULL SUITE green there) — riding it\n", candidate)
 			fmt.Printf("    %s run: %s\n", candidate, candResult.RunURL)
+			fmt.Println(shadowLabel(true))
+			runShadowCoverage(projDir, release.WorkflowUpgradeArcHarness, rcShort, rcCommit, shadowDomainAt(projDir, rcCommit, upgradeArcNamesAtCommit), true)
 			return true
 		}
 		// The NEWEST prior FULL-SUITE green is the only one that matters
@@ -2127,6 +2140,8 @@ func checkUpgradeArcHarnessGate(projDir, rcTag, rcCommit, rcShort string) bool {
 	}
 	missingRemedy()
 	fmt.Println("    Fix: run the trigger command above, wait for green, re-run stable")
+	fmt.Println(shadowLabel(false))
+	runShadowCoverage(projDir, release.WorkflowUpgradeArcHarness, rcShort, rcCommit, shadowDomainAt(projDir, rcCommit, upgradeArcNamesAtCommit), false)
 	return false
 }
 

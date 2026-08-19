@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 // Evidence marks (STATBUS-249). THERE IS NO NEW STORE — the architect's ruling,
@@ -171,7 +172,7 @@ func scenarioProvenInCIAt(apiBase, workflow, scenario, commitSHA string) (bool, 
 	if scenario == "" || commitSHA == "" {
 		return false, "", fmt.Errorf("evidence lookup needs both a scenario and a commit")
 	}
-	runs, err := listRunsAtCommit(apiBase, workflow, commitSHA)
+	runs, err := runsAtCommitMemoized(apiBase, workflow, commitSHA)
 	if err != nil {
 		return false, "", err
 	}
@@ -180,16 +181,18 @@ func scenarioProvenInCIAt(apiBase, workflow, scenario, commitSHA string) (bool, 
 		if run.Status != "completed" {
 			continue
 		}
-		// One required name: Complete is then exactly "this job was present AND
-		// concluded success" — the per-scenario question, answered by the same
-		// tested code the gate uses for whole suites.
-		jobs, jerr := workflowJobsCompleteAtCommit(apiBase, run.ID, []string{scenario})
+		jobs, jerr := jobsForRunMemoized(apiBase, run.ID)
 		if jerr != nil {
 			readErrs = append(readErrs, fmt.Sprintf("run %d: %v", run.ID, jerr))
 			continue
 		}
-		if jobs.Complete {
-			return true, fmt.Sprintf("job %q succeeded in run %d (%s)", scenario, run.ID, run.HTMLURL), nil
+		// A mark is a job of this name that CONCLUDED SUCCESS. A name can repeat
+		// (a re-run attempt, or a matrix that legitimately reuses it) — any
+		// success counts, the same any-green reading the whole-suite check uses.
+		for _, j := range jobs {
+			if j.Name == scenario && j.Conclusion == "success" {
+				return true, fmt.Sprintf("job %q succeeded in run %d (%s)", scenario, run.ID, run.HTMLURL), nil
+			}
 		}
 	}
 	if len(readErrs) > 0 {
@@ -276,4 +279,145 @@ func ScenarioEvidence(projDir, workflow, scenario string) EvidenceAt {
 		}
 		return false, "", nil
 	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// PROCESS-LIFETIME MEMO (STATBUS-252 precondition).
+//
+// THE DEFECT THIS CLOSES is a resource channel, not a logic one, which is why
+// the shadow's "returns nothing" guarantee does not cover it. Per gate run the
+// per-scenario path asks about ~31 scenarios × up to 20 candidate commits × up
+// to 3 workflow identities — hundreds of API calls against the SAME small set
+// of (workflow, commit) pairs, where the authority makes tens. `./sb release
+// stable` runs its gates in sequence in ONE process, so a shadow at the first
+// gate can exhaust the API budget and make a LATER gate's AUTHORITY calls fail.
+// An advisory computation must never be able to starve the binding one.
+//
+// Not theoretical: a live run of this library already saw 7 of 20 candidates
+// come back unreadable (HTTP 403) on an unauthenticated budget.
+//
+// The memo keys on (workflow, commit) for run listings and on run id for job
+// listings — the two things asked repeatedly with identical arguments — which
+// collapses the repeat work to roughly the authority's own call count.
+//
+// LIFETIME IS THE PROCESS, DELIBERATELY. A gate run is a single decision about
+// a single moment; caching across it is what makes the numbers add up. A
+// long-lived daemon would need invalidation, and this is not one.
+// ─────────────────────────────────────────────────────────────────────────
+
+type evidenceMemo struct {
+	mu   sync.Mutex
+	runs map[string][]runAtCommit
+	jobs map[string][]jobRecord
+}
+
+// jobRecord is one job's name and conclusion — the raw material both the
+// per-scenario question and the whole-suite question are computed from.
+type jobRecord struct {
+	Name       string `json:"name"`
+	Conclusion string `json:"conclusion"`
+}
+
+var memo = &evidenceMemo{
+	runs: map[string][]runAtCommit{},
+	jobs: map[string][]jobRecord{},
+}
+
+// ResetEvidenceMemo clears the memo. Tests use it to prove the memo is doing
+// the work; production never calls it, because the process IS the lifetime.
+func ResetEvidenceMemo() {
+	memo.mu.Lock()
+	defer memo.mu.Unlock()
+	memo.runs = map[string][]runAtCommit{}
+	memo.jobs = map[string][]jobRecord{}
+}
+
+// runsAtCommitMemoized returns every run of a workflow at a commit, asking the
+// API at most once per (workflow, commit) per process.
+//
+// Errors are NOT cached: a transient failure must not become a permanent
+// "no runs" answer for the rest of the process, which would turn one API
+// hiccup into a fleet re-run and — worse — into a fabricated disagreement in
+// the shadow's own output.
+func runsAtCommitMemoized(apiBase, workflow, commitSHA string) ([]runAtCommit, error) {
+	// apiBase is PART OF THE KEY. Without it two different API roots collide —
+	// benign in production, where there is one, but wrong in principle and it
+	// silently crossed answers between two test servers the moment the memo
+	// landed. A cache keyed on less than its inputs is a cache that can return
+	// another question's answer.
+	key := apiBase + "\x00" + workflow + "\x00" + commitSHA
+	memo.mu.Lock()
+	if cached, ok := memo.runs[key]; ok {
+		memo.mu.Unlock()
+		return cached, nil
+	}
+	memo.mu.Unlock()
+
+	runs, err := listRunsAtCommit(apiBase, workflow, commitSHA)
+	if err != nil {
+		return nil, err
+	}
+	memo.mu.Lock()
+	memo.runs[key] = runs
+	memo.mu.Unlock()
+	return runs, nil
+}
+
+// jobsForRunMemoized returns a run's job records, asking the API at most once
+// per run id per process. Same no-caching-of-errors rule as above.
+func jobsForRunMemoized(apiBase string, runID int64) ([]jobRecord, error) {
+	key := fmt.Sprintf("%s\x00%d", apiBase, runID)
+	memo.mu.Lock()
+	if cached, ok := memo.jobs[key]; ok {
+		memo.mu.Unlock()
+		return cached, nil
+	}
+	memo.mu.Unlock()
+
+	jobs, err := fetchRunJobs(apiBase, runID)
+	if err != nil {
+		return nil, err
+	}
+	memo.mu.Lock()
+	memo.jobs[key] = jobs
+	memo.mu.Unlock()
+	return jobs, nil
+}
+
+// fetchRunJobs reads one run's job list. Kept separate from
+// WorkflowJobsCompleteAtCommit's verdict logic so the raw records can be cached
+// and reused for BOTH questions — the per-scenario one asked here and the
+// whole-suite one asked by the authority.
+func fetchRunJobs(apiBase string, runID int64) ([]jobRecord, error) {
+	url := fmt.Sprintf("%s/repos/%s/%s/actions/runs/%d/jobs?per_page=100", apiBase, githubOrg, githubRepo, runID)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("build request: %w", err)
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("User-Agent", "statbus-release-check")
+	if auth := githubAuthHeader(); auth != "" {
+		req.Header.Set("Authorization", auth)
+	}
+	resp, err := httpClient().Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("GitHub API returned HTTP %d", resp.StatusCode)
+	}
+	var body struct {
+		TotalCount int         `json:"total_count"`
+		Jobs       []jobRecord `json:"jobs"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	if body.TotalCount > len(body.Jobs) {
+		// Same refusal as the whole-suite reader: a truncated page would make a
+		// present job look missing, and here that reads as "not covered".
+		return nil, fmt.Errorf("run %d has %d jobs but only %d returned on one page (per_page=100) — refusing to answer from a truncated read", runID, body.TotalCount, len(body.Jobs))
+	}
+	return body.Jobs, nil
 }

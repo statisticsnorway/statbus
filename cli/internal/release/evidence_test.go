@@ -330,3 +330,109 @@ func repoRootForRelease(t *testing.T) string {
 	// cli/internal/release/evidence_test.go → up three = repo root.
 	return filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(thisFile))))
 }
+
+// TestEvidenceMemo_RepeatQueryMakesNoSecondCall_STATBUS252 pins the fix for a
+// RESOURCE defect the shadow's "returns nothing" guarantee does not cover.
+//
+// The per-scenario path asks about ~31 scenarios × up to 20 candidates × up to
+// 3 identities per gate run — hundreds of calls against the SAME small set of
+// (workflow, commit) pairs, where the authority makes tens. `./sb release
+// stable` runs its gates in sequence in ONE process, so an un-memoized shadow
+// at the first gate can exhaust the API budget and make a LATER gate's
+// AUTHORITY calls fail. An advisory computation must never be able to starve
+// the binding one — and this is not theoretical: a live run already saw 7 of 20
+// candidates come back HTTP 403.
+func TestEvidenceMemo_RepeatQueryMakesNoSecondCall_STATBUS252(t *testing.T) {
+	ResetEvidenceMemo()
+	t.Cleanup(ResetEvidenceMemo)
+
+	var runsCalls, jobsCalls int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.Contains(r.URL.Path, "/actions/workflows/"):
+			runsCalls++
+			_ = json.NewEncoder(w).Encode(map[string]any{"workflow_runs": []map[string]any{
+				{"id": 42, "status": "completed", "conclusion": "success", "html_url": "http://run"},
+			}})
+		case strings.Contains(r.URL.Path, "/actions/runs/"):
+			jobsCalls++
+			_ = json.NewEncoder(w).Encode(map[string]any{"total_count": 2, "jobs": []map[string]any{
+				{"name": "scenario-a", "conclusion": "success"},
+				{"name": "scenario-b", "conclusion": "failure"},
+			}})
+		default:
+			http.Error(w, "unexpected "+r.URL.Path, http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	// Ask about MANY scenarios at the SAME (workflow, commit) — the real shape
+	// of a gate run, where the domain is dozens of scenarios and the commit set
+	// is tiny.
+	for i := 0; i < 25; i++ {
+		if _, _, err := scenarioProvenInCIAt(srv.URL, WorkflowUpgradeArcHarness, "scenario-a", "c42"); err != nil {
+			t.Fatalf("iteration %d: %v", i, err)
+		}
+		if _, _, err := scenarioProvenInCIAt(srv.URL, WorkflowUpgradeArcHarness, "scenario-b", "c42"); err != nil {
+			t.Fatalf("iteration %d: %v", i, err)
+		}
+	}
+
+	if runsCalls != 1 {
+		t.Errorf("the run listing for one (workflow, commit) must be fetched ONCE per process; got %d calls across 50 scenario queries. Un-memoized, a gate run's shadow makes hundreds of these and can exhaust the API budget the AUTHORITY needs at a later gate", runsCalls)
+	}
+	if jobsCalls != 1 {
+		t.Errorf("a run's job list must be fetched ONCE per process; got %d calls. The job list is the same bytes for every scenario asked about that run", jobsCalls)
+	}
+
+	// The memo must not change the ANSWERS — a cache that alters a verdict is
+	// worse than no cache.
+	found, _, err := scenarioProvenInCIAt(srv.URL, WorkflowUpgradeArcHarness, "scenario-a", "c42")
+	if err != nil || !found {
+		t.Errorf("memoized lookup lost a real mark (found=%v err=%v)", found, err)
+	}
+	found, _, err = scenarioProvenInCIAt(srv.URL, WorkflowUpgradeArcHarness, "scenario-b", "c42")
+	if err != nil || found {
+		t.Errorf("memoized lookup invented a mark for a FAILED job (found=%v err=%v)", found, err)
+	}
+}
+
+// TestEvidenceMemo_DoesNotCacheErrors_STATBUS252: a transient failure must not
+// become a permanent "no runs" answer for the rest of the process. Caching an
+// error would turn one API hiccup into a fleet re-run — and, in the shadow,
+// into a FABRICATED disagreement, which is the output the switch decision is
+// read from.
+func TestEvidenceMemo_DoesNotCacheErrors_STATBUS252(t *testing.T) {
+	ResetEvidenceMemo()
+	t.Cleanup(ResetEvidenceMemo)
+
+	var attempts int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/actions/workflows/") {
+			attempts++
+			if attempts == 1 {
+				http.Error(w, "rate limited", http.StatusForbidden)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"workflow_runs": []map[string]any{
+				{"id": 7, "status": "completed", "conclusion": "success", "html_url": "http://run"},
+			}})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"total_count": 1, "jobs": []map[string]any{
+			{"name": "scenario-a", "conclusion": "success"},
+		}})
+	}))
+	defer srv.Close()
+
+	if _, _, err := scenarioProvenInCIAt(srv.URL, WorkflowUpgradeArcHarness, "scenario-a", "c7"); err == nil {
+		t.Fatal("the first call must surface the API failure")
+	}
+	found, _, err := scenarioProvenInCIAt(srv.URL, WorkflowUpgradeArcHarness, "scenario-a", "c7")
+	if err != nil {
+		t.Fatalf("the retry must reach the API again, not a cached error: %v", err)
+	}
+	if !found {
+		t.Error("the retry found nothing — a cached failure would have made this scenario permanently 'unproven' for the rest of the process")
+	}
+}
