@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 07:14'
-updated_date: '2026-08-19 09:06'
+updated_date: '2026-08-19 09:09'
 labels:
   - release
   - ci
@@ -80,5 +80,11 @@ THAT IS THE BETTER SHAPE and worth naming as a general preference, not just a lo
 THE FINISH-OUT COST IS RATIFIED, NOT CONCEDED. He accepted it in terms I want preserved for whoever implements this, because it will look wasteful in a log: we would have paid for that work anyway had the candidate not been superseded. The money is already committed at the moment the work starts; what the finish-out buys is complete evidence and guaranteed self-teardown. Someone will eventually propose killing in-flight work to save the tail — that proposal re-creates the young-orphan problem this design exists to dissolve.
 
 THE CHECK MUST BE THE ARRIVING JOB'S, NOT THE DEPARTING ONE'S. I want this stated as a principle because it is the part most likely to be implemented backwards: a stopping mechanism that depends on the dying job doing one last thing has no authority over the case that matters, since a cancelled or crashed job does nothing at all. A check that only runs when things are going well is not a check.
+---
+
+author: foreman
+created: 2026-08-19 09:09
+---
+KING APPROVED 2026-08-19 (dialogue presentation, third of the sitting): graceful supersede as refolded — decision points owned by the arriving job, third verdict "superseded" neither red nor green, finish-out cost accepted, forced reap demoted to crash backstop. Companion requirement stated in the same breath and filed separately: a programmatic dev reset for the candidate-wrecked-dev case (wipe + reinstall to a known-good version + never re-offer the wrecking candidate), with the reinstall target — previous RC vs previous stable — an OPEN King decision, deliberately not forced.
 ---
 <!-- COMMENTS:END -->
