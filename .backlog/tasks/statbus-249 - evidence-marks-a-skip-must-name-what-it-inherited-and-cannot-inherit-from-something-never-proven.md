@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 09:06'
-updated_date: '2026-08-19 09:28'
+updated_date: '2026-08-19 09:49'
 labels:
   - release
   - ci
@@ -67,5 +67,26 @@ KING APPROVED 2026-08-19 (dialogue presentation, fourth of the sitting), with tw
 (1) WORDING RULED: the message form is "covered by" — "test <X> is already covered by <Y>" — consistent with the preflight's existing "also covers" vocabulary; fold into every skip/inherit message.
 (2) CODE REUSE — his question "can the same Go logic run in the gate AND in the job, a small binary from the same library, same by design not by chance?" — foreman's answer, delivered: YES — chain jobs already build/fetch the sb binary (several workflows do; RCs publish it as a release asset), so the covered-by decision becomes a subcommand (shape: ./sb release covered <scenario> <commit>) built from the SAME library code as the promotion gate's anchor-and-walk-back logic. One algorithm, two call sites. ARCHITECT TO VERIFY in the fold: the mark-store location/design (the ratified per-scenario stamp design is the starting point) and that the gate's existing functions factor cleanly into a shared library path.
 (3) The severity correction was acknowledged ("nice finding").
+---
+
+author: architect
+created: 2026-08-19 09:49
+---
+STORE LOCATION RULED: **there is no new store.** The marks already exist — they are the workflow run's per-job records, keyed by head_sha, and the release gate already queries them. Option (d), the shape not enumerated.
+
+A mark for scenario X at code-state Y IS: a job named X, with conclusion success, in a run at head_sha Y. That is not an analogy; it is what `WorkflowJobsCompleteAtCommit` already reads.
+
+MEASURED, because the engineer is right to refuse unmeasured platform rules and the durability claim is the whole ruling:
+- The OLDEST install-recovery run still visible is run 26464982033 at 9226395ae, created 2026-05-26 — twelve weeks old. Querying `actions/workflows/install-recovery-harness.yaml/runs?head_sha=9226395ae…` still returns total_count=1, and `runs/26464982033/jobs` still returns job names with conclusions. Run and job metadata therefore survive far beyond the 14-day ARTIFACT retention that correctly disqualified artifacts. The artifact cliff is real; it simply does not apply to the records we would actually read.
+- Granularity is already per-scenario: a current run (32227385996) reports 18 jobs, one per scenario, named exactly by scenario — `1-boot-concurrent-install | success`, `5-install-stage-b-pool-exhaustion | success`, and so on.
+- Never-exists-for-incomplete-work (AC#6) is already satisfied: a cancelled or skipped job carries a non-success conclusion and lands in the existing Unsuccessful bucket. rc.06's cancelled arcs could not be mistaken for proof by this store, which is precisely why the Go gate was immune to the rc.07 defect while the chain was not.
+
+WHY THIS BEATS ALL THREE ENUMERATED OPTIONS: it sidesteps rule (T) entirely, because nothing is pushed — no probe needed, and the measured hazard becomes irrelevant rather than managed. It needs no statuses:write, no token story, no new permission. And it introduces NO NEW PLATFORM DEPENDENCY: the release gate already bets on exactly this API and this retention, in checkWorkflowAtCommit and in the path-sensitivity walk. We are not accepting a new risk; we are declining to build a second store for a question the first one already answers.
+
+THE LOCAL HALF (AC#8) keeps the ratified stamp pattern, which the engineer already identified as the right composability shape: a local stamp file records locally-run scenarios, the CI job record covers CI-run ones, and ONE lookup consults both. That is today's tmp-stamp-plus-CI-query pattern, generalized per-scenario — unchanged in shape, only in granularity.
+
+ONE CORRECTION THE LOOKUP MUST MAKE, and it is not optional. `checkWorkflowAt` returns the FIRST GREEN run at a head_sha (cli/internal/release/workflow_check.go:152-157), not all of them. For a per-scenario question that is wrong: `covered(scenario, commit)` must ask whether ANY completed run at that commit contains a successful job of that name — union across runs, not first-run-wins. This also fixes at the library level the smoke-run-versus-full-run collision that doc-034 finding B otherwise handles only by giving smoke its own workflow identity. Do both: separate identity, and union semantics.
+
+CONSEQUENCE FOR THE WORK IN FLIGHT: the engineer's current extraction of the gate's decision logic from its presentation is not preliminary to 249 — it IS 249's implementation. One algorithm, two call sites, over a store that already exists.
 ---
 <!-- COMMENTS:END -->
