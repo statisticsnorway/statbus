@@ -16,7 +16,7 @@ The StatBus cloud infrastructure hosts multiple country instances on a single se
 - **Isolated databases**: Each country has separate PostgreSQL database and Docker network
 - **Resource sharing**: Efficient use of server CPU, memory, and disk
 - **Independent management**: Each instance can be updated/restarted independently
-- **Automated deployment**: GitHub Actions push to deployment branches trigger updates
+- **Automated deployment**: each instance's own upgrade service polls its channel and installs new releases on its own (STATBUS-244/248) — dev is the one exception, driven as the automatic canary
 
 ## Current Deployments
 
@@ -217,7 +217,7 @@ Use the automated installation script from your local machine:
 
 This script will:
 1. Verify DNS setup (pk.statbus.org, api.pk.statbus.org, www.pk.statbus.org)
-2. Generate GitHub workflow files (master-to-pk.yaml, deploy-to-pk.yaml)
+2. Generate GitHub workflow files (master-to-pk.yaml, deploy-to-pk.yaml) — **STALE per STATBUS-244: skip these files.** A new country instance is an ordinary production slot, not a canary — it belongs on the `stable` channel and follows releases on its own (STATBUS-248), the same as `demo`. It gets no push-triggered workflow at all. The script itself still generates this pair; updating it to match is a separate, out-of-scope follow-up, filed as STATBUS-251.
 3. Create Linux user `statbus_pk` on niue.statbus.org
 4. Add user to docker group
 5. Configure SSH access for SSB GitHub users (jhf, hhz)
@@ -242,32 +242,9 @@ api.pk.statbus.org    A/CNAME → niue.statbus.org
 www.pk.statbus.org    A/CNAME → niue.statbus.org
 ```
 
-#### Step 2: Add GitHub Deployment Key
+#### Step 2 (retired, STATBUS-244): no GitHub deployment key, no workflow files, no deploy branch
 
-The script will print the SSH public key. Add it to:
-https://github.com/statisticsnorway/statbus/settings/keys
-
-Title: `Deploy key for pk.statbus.org`  
-Allow write access: ✓
-
-#### Step 3: Create GitHub Workflow
-
-The script generates workflow files. Commit and push them:
-
-```bash
-git add .github/workflows/master-to-pk.yaml
-git add .github/workflows/deploy-to-pk.yaml
-git commit -m "Add deployment workflows for Pakistan"
-git push origin master
-```
-
-#### Step 4: Create Deployment Branch
-
-```bash
-# Create deployment branch from master
-git checkout -b ops/cloud/deploy/pk
-git push origin ops/cloud/deploy/pk
-```
+The old Steps 2-4 (add a GitHub deployment key, commit `master-to-pk.yaml` + `deploy-to-pk.yaml`, push a deployment branch) are **retired** — only a named release candidate may reach an installation, so a new slot gets no push-triggered path at all. `UPGRADE_CHANNEL=stable` is already the default for any non-development box (`cli/internal/config/config.go:403-407`), so no explicit setting is needed; its upgrade service then discovers, registers, schedules, and installs releases on its own, without anyone pushing anything (STATBUS-248). Confirm the channel on the box rather than assuming the default — see STATBUS-248's own verification rule.
 
 #### Step 5: Configure Users
 
@@ -304,16 +281,14 @@ sudo caddy validate --config /etc/caddy/Caddyfile
 
 #### Step 7: Test Deployment
 
-Push a commit to the deployment branch to trigger deployment:
+Confirm the box's own upgrade service reaches the current stable release on its own — no push involved:
 
 ```bash
-git checkout ops/cloud/deploy/pk
-# Make a change
-git commit -m "test: Initial deployment"
-git push origin ops/cloud/deploy/pk
+ssh statbus_pk@niue.statbus.org "cd statbus && ./sb upgrade check"
+ssh statbus_pk@niue.statbus.org "cd statbus && ./sb upgrade list"
 ```
 
-The `deploy-to-pk` workflow SSHes to the server and runs `./sb upgrade apply-latest`.
+`./sb upgrade check` fetches releases and registers candidates on the box's channel; the service schedules and applies the latest stable release without further action. To force it now rather than wait for the service's next tick, register + schedule the version explicitly (see "Operator workflow" above), or run `./sb install` on the box.
 
 #### Step 8: Verify Access
 
@@ -403,16 +378,20 @@ cd ~/statbus
 
 **Operator workflow:** `./sb upgrade register <version>` records the candidate, then `./sb upgrade schedule <version>` writes the scheduled `public.upgrade` row. After that, either let the service run it (scheduling fires a NOTIFY; production norm), or run `./sb install` to dispatch inline — useful when you want the upgrade to run now without waiting, or when the service is stopped.
 
-### Automated Deployment
+### Deployment model (STATBUS-244)
+
+**The `master-to-X` "push master to a deploy branch" buttons are retired.** Only a named release candidate may ever reach an installation — master's tip has no tag, no gate, no artifact anyone reviewed, and it changes on every commit. Which mechanism a box gets depends on its role, never on pushing master anywhere:
+
+- **Dev** — the automatic canary (STATBUS-247): every candidate reaches it without a human. *Transitional note:* until STATBUS-247's tag-driven deploy lands, `master-to-dev` and `ops/cloud/deploy/dev` remain the one deliberate exception — STATBUS-244b removes that button once 247 supplies its replacement.
+- **Norway (`no`)** — the human canary: a person installs each candidate deliberately, against an observation card, on the `prerelease` channel. No push path.
+- **Demo and the ordinary country slots** (`ma`, `et`, `jo`, `tcc`, `ug`, …) — channel-following (STATBUS-248, below): the box's own upgrade service polls its channel and installs on its own; promotion is what moves them, not a push. *True of intent, not yet fully true of mechanism:* `deploy-to-{et,jo,ma,tcc,ug}.yaml` still exist — only the buttons that wrote to their deploy branches (the retired `master-to-X`) are gone, so nothing writes those branches any more, but the listening workflows remain on disk. They are removed once STATBUS-248's Wave D1 channel confirmation proves each box actually follows its channel — deleting a live NSO box's only receive path before that is confirmed could strand it.
 
 <img src="diagrams/git-workflow.svg" alt="Git Deployment Workflow" style="max-width:100%;">
 
-Deployments are automated via GitHub Actions:
+**On the server, once a version is targeted (any mechanism below):**
 
-1. **`master-to-X` workflow** (manual trigger in GitHub) → force-pushes `master` to `ops/cloud/deploy/X`
-2. **Push to `ops/cloud/deploy/X`** triggers `deploy-to-X` workflow → SSHes to server, runs `./sb upgrade apply-latest`
-3. **CLI** writes upgrade request to database and sends PostgreSQL NOTIFY
-4. **Upgrade service** handles the rest:
+1. **CLI** writes upgrade request to database and sends PostgreSQL NOTIFY
+2. **Upgrade service** handles the rest:
    - Backs up the database
    - Checks out the target version
    - Runs pending migrations
@@ -422,16 +401,14 @@ Deployments are automated via GitHub Actions:
 
 View deployment status in GitHub Actions or Slack channel `statbus-utvikling`.
 
-### Service-Based Deployment (Preferred)
+### Service-Based Deployment (the standard path for demo and the ordinary country slots)
 
-Each instance runs an upgrade service that handles releases automatically. To trigger manually:
+Each instance runs an upgrade service that polls its channel and handles releases on its own — no push required. To trigger a specific version manually (a deliberate one-off, candidate-addressed rather than master-addressed):
 
 ```bash
 ssh statbus_ma@niue.statbus.org "cd statbus && ./sb upgrade register v2026.03.1 && ./sb upgrade schedule v2026.03.1"
 ssh statbus_ma@niue.statbus.org "cd statbus && ./sb upgrade check"
 ```
-
-Or use the **"Deploy via upgrade service"** workflow in GitHub Actions UI -- select the target server and version.
 
 The upgrade service handles: image pull, backup, migrations, restart, health check, and classify-then-act recovery (automatic data-safe rollback behind target; a park awaiting a fix release at target — `doc/upgrade-recovery-model.md`). Progress is visible in the admin UI and via `journalctl -u statbus-upgrade@<user>`.
 
@@ -750,14 +727,7 @@ cd ~/statbus
 
 For host-level administration (journalctl, apt, systemctl system units, etc.) log in as `devops` instead.
 
-The deploy automation is structurally the same as the multi-tenant one (force-push master → branch → Actions workflow → SSH + `./sb upgrade apply-latest`), just on a different branch namespace:
-
-| Multi-tenant (niue) | Standalone (rune et al.) |
-|---|---|
-| Branch: `ops/cloud/deploy/<slot>` | Branch: `ops/standalone/deploy/<host>-<slot>` |
-| Workflow: `master-to-<slot>.yaml` + `deploy-to-<slot>.yaml` | Workflow: `master-to-<host>-<slot>.yaml` + `deploy-to-<host>-<slot>.yaml` |
-| SSH target: `statbus_<slot>@niue.statbus.org` | SSH target: `statbus@<host>.statbus.org` |
-| Same shared `SSH_KEY` repo secret in both. |
+**STATBUS-244: the force-push-master deploy path is retired everywhere**, multi-tenant and standalone alike. Rune-no (Norway) no longer has any push path at all — it is the human canary, and a person installs each candidate deliberately, on the `prerelease` channel, against an observation card (STATBUS-247). There is no `master-to-rune-no.yaml`, `deploy-to-rune-no.yaml`, or `ops/standalone/deploy/rune-no` branch any more. A future standalone box that is NOT a canary follows its channel on its own, the same as an ordinary cloud country slot (STATBUS-248) — see "Adding a new SSB standalone instance" below.
 
 ## Adding a new SSB standalone instance
 
@@ -767,7 +737,9 @@ The high-level shape (concrete walkthrough belongs in the per-host bootstrap pla
 2. Run `ops/setup-ubuntu-lts-24.sh` as root/sudo — creates `devops` + `statbus` accounts, hardens OS. `SKIP_STAGES="0"` if the network allows HTTP.
 3. Bootstrap StatBus as the service account: `ssh statbus@<host>` then `curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease`.
 4. Author `.env.config` with `CADDY_DEPLOYMENT_MODE=standalone`, `SITE_DOMAIN=<the public domain>`, `UPGRADE_CHANNEL=prerelease`, plus `SEQ_API_KEY` / `SLACK_TOKEN` copied from an existing instance for observability continuity.
-5. Add a `.github/workflows/deploy-to-<host>-<slot>.yaml` and `master-to-<host>-<slot>.yaml` pair, modeled on `deploy-to-rune-no.yaml` and `master-to-rune-no.yaml`. Branch name: `ops/standalone/deploy/<host>-<slot>`. SSH target `statbus@<host>.<domain>`.
+
+   **Flagged, not settled (STATBUS-244a sweep):** steps 3-4's `prerelease` default predates the topology where Norway is named as THE single human canary (STATBUS-247). A NEW standalone box that is not itself a designated canary would, by that same logic, be an ordinary installation and belong on `stable` (STATBUS-248) — but nobody has ruled on that for a hypothetical future box, so the instruction is left as `prerelease` here rather than changed unilaterally. Confirm the intended role before provisioning the next one.
+5. Retired (STATBUS-244): no `deploy-to-<host>-<slot>.yaml` / `master-to-<host>-<slot>.yaml` pair, no `ops/standalone/deploy/<host>-<slot>` branch. Only a named release candidate may reach an installation; the box's own upgrade service (channel set in step 4) discovers, registers, schedules, and installs on its own.
 6. The existing repo `SSH_KEY` pubkey is already populated in `statbus`'s `authorized_keys` by `setup.sh` Stage 7 from the `GITHUB_USERS` list — no extra step needed if those users own the deploy key too.
 
 For migrating an existing slot off niue (as `no` was migrated to rune): also dump the niue slot, restore on the new host, then stop the niue slot's containers and let DNS (CNAME on the public domain pointing at the new host) drive the cutover.

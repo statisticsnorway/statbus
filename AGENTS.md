@@ -267,43 +267,25 @@ psql
 
 ### SSB-Operated Deployments (cloud + standalone)
 
-SSB runs production StatBus on two host shapes — multi-tenant cloud (`niue.statbus.org`) and dedicated standalone boxes (e.g. `rune.statbus.org`). Both use **branches as pointers** for CI/CD. See `doc/CLOUD.md` for full details on each.
+SSB runs production StatBus on two host shapes — multi-tenant cloud (`niue.statbus.org`) and dedicated standalone boxes (e.g. `rune.statbus.org`). See `doc/CLOUD.md` for full details on each.
 
-1. **Trigger deployment** (GitHub Actions -> "Run workflow"):
-   - `master-to-X` workflow force-pushes `master` -> the deployment branch for X.
-   - Cloud (multi-tenant on niue): branch is `ops/cloud/deploy/<slot>`.
-   - Standalone (dedicated host): branch is `ops/standalone/deploy/<host>-<slot>`.
-   - Example: "Push master -> ops/standalone/deploy/rune-no" deploys Norway on the dedicated rune box; "Push master -> ops/cloud/deploy/dev" deploys Development on niue.
+**STATBUS-244: the `master-to-X` "push master to a deploy branch" buttons are retired.** Only a named release candidate may ever reach an installation — master's tip has no tag, no gate, no artifact anyone reviewed, and it changes on every commit. What replaces the buttons differs by the box's role, never by pushing master anywhere:
 
-2. **Automatic execution**: Push to the deployment branch triggers the matching `deploy-to-X` workflow, which SSHs to the server and triggers the upgrade service.
+- **Dev** — the automatic canary (STATBUS-247): every candidate reaches it without a human. *Transitional note:* until STATBUS-247's tag-driven deploy lands, `master-to-dev` and its deploy branch (`ops/cloud/deploy/dev`) are the one deliberate exception still in place — STATBUS-244b removes that button once 247 supplies its replacement. See `deploy-to-dev.yaml`.
+- **Norway (`no`)** — the human canary: a person installs each candidate deliberately, against an observation card, on the `prerelease` channel. No automated push path exists or should exist — that would bypass the exact gate this box is for.
+- **Demo and the ordinary production slots** (`et`, `jo`, `ma`, `tcc`, `ug`, …) — channel-following (STATBUS-248): each box's own upgrade service polls its channel (`stable`) and installs on its own; promotion is what moves them, not a push. *True of intent, not yet fully true of mechanism:* `deploy-to-{et,jo,ma,tcc,ug}.yaml` still exist — only the buttons that wrote to their deploy branches are gone, so nothing writes those branches any more, but the listening workflows remain on disk. They are removed once STATBUS-248's Wave D1 channel confirmation proves each box actually follows its channel — deleting a live NSO box's only receive path before that is confirmed could strand it.
 
-3. **On the server** (upgrade service):
-   - CLI writes upgrade request to database and sends NOTIFY
-   - The upgrade service backs up the database
-   - Checks out the target version
-   - Runs pending migrations (or recreates if --recreate)
-   - Restarts services with health checks
-   - Rolls back automatically on failure
-   - Sends callback notification (Slack)
+**A deliberate one-off deployment to any box** is candidate-addressed, never master-addressed — `./sb upgrade register <version>` then `./sb upgrade schedule <version>` on the box (see "Canonical operator upgrade workflow" above), or cut a fresh candidate.
 
-#### Deployment Targets
+#### On the server (upgrade service, all boxes)
 
-| Workflow | Branch | Server | Notes |
-|----------|--------|--------|-------|
-| master-to-rune-no | ops/standalone/deploy/rune-no | statbus@rune.statbus.org | **Norway** (standalone, dedicated Hetzner box) |
-| master-to-demo | ops/cloud/deploy/demo | statbus_demo@niue | Demo (multi-tenant) |
-| master-to-dev | ops/cloud/deploy/dev | statbus_dev@niue | Development (multi-tenant) |
-| master-to-production | ops/cloud/deploy/production | — | Pointer only |
-| production-to-all | — | all servers | Cascades to all |
-
-#### Triggering Deployment
-
-```bash
-git push origin master:ops/standalone/deploy/rune-no  # Deploy master to Norway (standalone on rune)
-git push origin master:ops/cloud/deploy/dev           # Deploy master to Development (multi-tenant on niue)
-```
-
-This directly updates the branch pointer, which triggers `deploy-to-X.yaml`. The `master-to-X` workflows in GitHub UI do the same thing but add an extra hop.
+- CLI writes upgrade request to database and sends NOTIFY
+- The upgrade service backs up the database
+- Checks out the target version
+- Runs pending migrations (or recreates if --recreate)
+- Restarts services with health checks
+- Rolls back automatically on failure
+- Sends callback notification (Slack)
 
 #### Manual Server Access
 
