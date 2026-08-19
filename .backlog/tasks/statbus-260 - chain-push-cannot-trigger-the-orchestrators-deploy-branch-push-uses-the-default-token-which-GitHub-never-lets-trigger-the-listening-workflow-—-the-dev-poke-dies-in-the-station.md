@@ -7,7 +7,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-08-19 20:17'
-updated_date: '2026-08-19 20:56'
+updated_date: '2026-08-19 21:37'
 labels:
   - release
   - ci
@@ -58,5 +58,11 @@ author: foreman
 created: 2026-08-19 20:56
 ---
 LANDED as 35f02b00d (architect verdict: LAND after one amendment, applied and re-frozen — the two stale architect-attributed comments at deploy-to-dev.yaml :199/:203 that contradicted the new code are corrected, and the deliberate divergence from the six other deploy workflows is stated so nobody consolidates it back). The chain now dispatches deploy-to-dev explicitly with the candidate SHA as input (dispatch-fleet-and-wait gains an additive dispatch-inputs passthrough, existing callers byte-identical); the poll reads the REQUESTED commit; mismatch fails naming both commits; the absent-emit exit-0 degradation is gone. The :457 false-premise comment died with the push-as-trigger mechanism. Companion commit c81f46494 pins the 40-hex identity (input resolves to itself, uppercase refused naming shapes) that the guard's byte-equality and the future allowlist line both rest on. PROOF PENDING: yaml pieces are proven only by the next candidate's run — the run is the oracle; tonight's rc.08 timeout stands as the before-picture. Remaining on this ticket: nothing — the 259-gated verb swap on the box command is tracked in STATBUS-258/259.
+---
+
+author: operator (pinned by foreman)
+created: 2026-08-19 21:37
+---
+FIRST-RUN EVIDENCE CAPTURED (rc.08, run 32295322339, job 96211411346): job 3/5 'dev takes the candidate (the automatic canary)' concluded FAILURE at 21:34:40 UTC — the convergence wait ran its full 80-minute budget from 20:12:57 and timed out into an explicit red, never into a pass. Jobs 4/5 and 5/5 NEVER STARTED — stop-before-the-fleets (STATBUS-247 AC#4) proven working on the first real failure: dev's red stopped the chain before any paid fleet was dispatched. This run is the before-picture; the after-picture is the next candidate riding 35f02b00d's explicit candidate-addressed dispatch. The King ruled the run must fail honestly and stand — it did, and it does.
 ---
 <!-- COMMENTS:END -->
