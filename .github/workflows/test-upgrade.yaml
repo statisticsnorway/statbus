@@ -1,0 +1,213 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Test Upgrade
+
+# Test Upgrade — the install-then-upgrade half of the smoke pair (doc-034
+# Wave B2). test-install.yaml already proves fresh-install works (scenario
+# 0-happy-install); THIS workflow proves the supervised, unattended UPGRADE
+# path — install at an older release, populate data, schedule an upgrade to
+# HEAD, and let the upgrade-service unit pick it up and run it to completion
+# — via scenario 0-happy-upgrade of the install-recovery harness. The
+# scenario lives at test/install-recovery/scenarios/0-happy-upgrade.sh; see
+# its own header for the full trigger logic and what it asserts.
+#
+# SEPARATE WORKFLOW IDENTITY, not a subset dispatch of the recovery harness —
+# this is a ruling, not a preference (doc-034, architect). checkWorkflowAt
+# (cli/internal/release/workflow_check.go) queries runs by head_sha and
+# returns the FIRST GREEN run it finds, not the most complete one. If a
+# one-scenario smoke run and the full ~15-scenario install-recovery-harness
+# run both existed at the same commit under ONE workflow identity, the gate
+# could select the smoke run, find the other required jobs missing, and fall
+# through to the path-sensitivity walk — riding a PRIOR tag while a full
+# green sits at the very commit. A separate workflow file keeps the
+# head_sha query unambiguous. This is exactly why fresh-install smoke has
+# never had this problem: test-install.yaml is already its own workflow.
+#
+# JOB NAMING — STATBUS-249's evidence-mark reuse (cli/internal/release/
+# evidence.go): there is no new mark store. A mark for scenario X at commit Y
+# already exists as "a job named X, with conclusion success, in a run at
+# head_sha Y" — exactly what WorkflowJobsCompleteAtCommit reads elsewhere,
+# and exactly why install-recovery-harness.yaml's and upgrade-arc-harness.yaml's
+# matrix jobs declare `name: ${{ matrix.scenario }}` (the bare scenario
+# string, no prefix). This workflow has only one job, so the same rule is
+# applied directly: the job below is named exactly `0-happy-upgrade`, not a
+# descriptive label, so it reads as that scenario's mark without any new
+# machinery once something starts asking "did 0-happy-upgrade pass at this
+# commit?" (STATBUS-249/246/247, Wave C — not wired here).
+#
+# Why a real VM and not the GHA runner: same reason as test-install.yaml —
+# the upgrade path exercises the real systemd-supervised upgrade-service
+# unit (WatchdogSec/TimeoutStopSec budgets, the notify protocol), which
+# does not exist on a GitHub-hosted runner at all.
+#
+# Cost: one CX23 in hel1 + primary IPv4 = €0.0072/hr, billed at the 1-hour
+# Hetzner minimum, so ~€0.0072 per run. Wall-clock is materially longer than
+# test-install.yaml's (install + populate demo data + register/ready poll +
+# the scenario's own 900s upgrade-completion budget), hence the wider
+# timeout below.
+#
+# Trigger: workflow_dispatch only for now — wiring this into the release
+# chain (release-fleet-orchestrator.yaml) is Wave C, not this unit.
+on:
+  workflow_dispatch:
+
+# Same shared group as the other two Hetzner-VM-fleet workflows (STATBUS-208):
+# don't cancel a run that's already provisioned a VM (cancellation skips the
+# scenario's cleanup trap and orphans a paid instance); queue behind a live
+# run instead. vm-bootstrap.sh's run-scoped VM naming is what actually
+# prevents a name collision between fleets sharing this group; this group is
+# a capacity fix, not a naming fix — see test-install.yaml's own comment on
+# this same group for the full history.
+concurrency:
+  group: hetzner-vm-fleet
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  # Job ID (this YAML key) must start with a letter (GitHub's id-syntax rule)
+  # so it cannot be the bare scenario slug itself — the explicit `name:`
+  # below is what the evidence-mark reuse actually reads (see the job-naming
+  # comment above); the key here is otherwise unused by anything.
+  happy-upgrade:
+    name: 0-happy-upgrade
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        # fetch-depth: 1 — the scenario stages HEAD onto the VM by fetching
+        # the exact HEAD SHA there (test/install-recovery/scenarios/
+        # 0-happy-upgrade.sh's own git fetch --depth 1), not by reading
+        # local history on the runner; mirrors test-install.yaml.
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Go
+        # go-version-file pins to cli/go.mod's `go` directive — mirrors
+        # test-install.yaml and test-hardening.yaml.
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+          # STATBUS-235: go.mod/go.sum live in cli/, not the repo root —
+          # without this, setup-go's cache lookup silently never found
+          # go.sum, so GOCACHE was never restored (STATBUS-234 comment #1).
+          # This job never runs `go test`, only `go build` (via
+          # dev.sh build-sb) — Go's build cache is correctly keyed on
+          # source content with no outside-module blind spot, so caching
+          # it here carries none of STATBUS-234's staleness risk.
+          # If you ever ADD a `go test` step to this job, it must carry
+          # -count=1 (STATBUS-234) — that rule, not this job's current
+          # contents, is what keeps the cache safe.
+          cache-dependency-path: cli/go.sum
+
+      - name: Build sb binary (linux/amd64)
+        # Same primitive as test-install.yaml: `./dev.sh build-sb` writes
+        # sb-linux-amd64 to the repo root, stamped with the LDFLAGS version
+        # + 40-char commit, so any future change to the build recipe
+        # propagates here automatically.
+        run: ./dev.sh build-sb linux/amd64
+
+      - name: Install hcloud CLI
+        # Pinned binary from GitHub releases, identical to test-install.yaml
+        # — see that workflow's comment for why the GitHub tarball is the
+        # canonical install rather than an apt repo.
+        env:
+          HCLOUD_CLI_VERSION: "1.64.1"
+        run: |
+          set -euo pipefail
+          curl -fsSL \
+            "https://github.com/hetznercloud/cli/releases/download/v${HCLOUD_CLI_VERSION}/hcloud-linux-amd64.tar.gz" \
+            -o /tmp/hcloud.tar.gz
+          sudo tar -C /usr/local/bin -xzf /tmp/hcloud.tar.gz hcloud
+          rm /tmp/hcloud.tar.gz
+          hcloud version
+
+      - name: Install CI SSH private key
+        # Matching public key is the Hetzner project's "statbus-ci" SSH key
+        # (HCLOUD_SSH_KEY below) — identical pattern to test-install.yaml.
+        env:
+          STATBUS_CI_SSH_PRIVATE_KEY: ${{ secrets.STATBUS_CI_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$STATBUS_CI_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          # Confirm the key parses without echoing any material to the log.
+          ssh-keygen -lf ~/.ssh/id_ed25519 \
+            | awk '{ print "SSH key fingerprint:", $2 }'
+
+      - name: Run scenario 0-happy-upgrade on Hetzner VM
+        # Invoked directly (no dev.sh wrapper exists for this scenario yet —
+        # dev.sh only wraps 0-happy-install today, via `test-install`; adding
+        # a `test-upgrade` dev.sh case is out of scope for this unit).
+        # STATBUS_SB_BINARY tells vm-bootstrap.sh's upload_sb_to_vm to use
+        # the CI-built binary (above) both for the initial install AND for
+        # staging HEAD later in the scenario, instead of rebuilding inside
+        # the harness — same pin-to-the-exact-artifact rationale as
+        # test-install.yaml. HCLOUD_SSH_KEY=statbus-ci selects the key the
+        # VM is provisioned with, pairing with the private key written above.
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+          HCLOUD_SSH_KEY: statbus-ci
+          STATBUS_SB_BINARY: ${{ github.workspace }}/sb-linux-amd64
+        run: ./test/install-recovery/scenarios/0-happy-upgrade.sh
+
+      - name: Cat install log on failure
+        # Same rationale as test-install.yaml: the workflow log alone says
+        # "step X status unclear"; the real install/upgrade log on the
+        # runner has the actual failure. Echoed to stdout so it's visible
+        # without fetching the artifact. Belt-and-suspenders with the
+        # upload-artifact step below. Glob is generic across VM names, so it
+        # covers this scenario's log (statbus-recovery-0-happy-upgrade-*)
+        # without needing its own pattern.
+        if: failure()
+        run: |
+          for log in tmp/install-recovery-*-install.log; do
+            [ -e "$log" ] || continue
+            echo "::group::$log"
+            cat "$log"
+            echo "::endgroup::"
+          done
+
+      - name: Upload install log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: install-recovery-log-${{ github.run_id }}
+          path: tmp/install-recovery-*-install.log
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Reap orphan VMs (defense in depth)
+        # Scenario 0-happy-upgrade's own `trap cleanup_vm "$VM_NAME" EXIT`
+        # normally deletes the VM on every exit path. This step is the
+        # safety net for the cases where the trap doesn't fire: GHA-side
+        # cancellation, SIGKILL of the harness process by the runner host,
+        # or a bug that exits before the trap is installed. Without this, a
+        # leftover statbus-recovery-0-happy-upgrade-* VM accrues €0.0072/hr
+        # until someone notices. Targets the EXACT run-scoped name (same
+        # STATBUS-208 defect-A fix test-install.yaml relies on) rather than
+        # a broad prefix sweep, which could reap another run's live VM.
+        # The suffix formula MUST match vm-bootstrap.sh's _run_suffix()
+        # exactly — last 8 chars of GITHUB_RUN_ID.
+        if: always()
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+        run: |
+          if ! command -v hcloud >/dev/null 2>&1; then
+            echo "hcloud CLI not installed (earlier step likely failed) — skipping reap"
+            exit 0
+          fi
+          run_suffix="${GITHUB_RUN_ID: -8}"
+          vm="statbus-recovery-0-happy-upgrade-${run_suffix}"
+          if hcloud server describe "$vm" >/dev/null 2>&1; then
+            echo "Reaping own VM: $vm"
+            hcloud server delete "$vm" || true
+          else
+            echo "Own VM $vm already gone (scenario trap cleaned up) — nothing to reap."
+          fi
+          exit 0
