@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 10:27'
-updated_date: '2026-08-19 11:50'
+updated_date: '2026-08-19 11:55'
 labels:
   - ops
   - security
@@ -100,5 +100,11 @@ author: foreman
 created: 2026-08-19 11:50
 ---
 REVERT LANDED as e024135fc: demo's apply-latest line restored with the true-story comment (it is 248's trigger door, not button residue); ci-notify untouched. DIVERGENCE FINDING while landing: the REPO copy of sshdoers has NO ci-deploy-status lines AT ALL (grep exit 1) — but the LIVE /etc/sshdoers does (demo's at :54, and per the consumer enumeration the country slots' deploy-to-X workflows call ci-deploy-status against their own slots, so live presumably carries a whole section the repo copy lacks). The checked-in file is a drifted REFERENCE, not a mirror — doc-026's hand-managed model means divergence is expected, but anyone reasoning from the repo copy (as this ticket's enumeration partly did) sees an incomplete allowlist. The eventual step-5 removal session must work from the LIVE file, with the board as the liveness authority. The King's corrected root one-liner (remove only demo's live ci-deploy-status line) remains correct and pending at his convenience.
+---
+
+author: foreman
+created: 2026-08-19 11:55
+---
+LIVE FIX EXECUTED (King granted root for this, 2026-08-19; his own key reaches root@niue directly — verified with a read-only id first). Backup taken (/etc/sshdoers.bak-20260819), then ONLY the dead line removed: statbus_demo's ci-deploy-status.sh entry — which turned out to carry a trailing run of '#' characters (someone had visually marked it; the first end-anchored sed correctly refused to match, and the prefix-matched second pass removed exactly it). VERIFIED AFTER: exactly two statbus_demo lines remain — :18 apply-latest (248's trigger door, KEPT per the architect's stop) and :32 ci-notify (live consumer). The live box and the repo copy now agree on demo's allowlist. No other lines touched; backup retained on the box.
 ---
 <!-- COMMENTS:END -->
