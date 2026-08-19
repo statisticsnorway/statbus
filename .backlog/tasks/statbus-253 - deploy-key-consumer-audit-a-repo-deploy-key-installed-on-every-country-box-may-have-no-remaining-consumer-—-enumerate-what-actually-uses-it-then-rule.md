@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 10:27'
-updated_date: '2026-08-19 10:34'
+updated_date: '2026-08-19 10:40'
 labels:
   - ops
   - security
@@ -70,5 +70,11 @@ OUT OF SCOPE, CONFIRMED SEPARATE (searched and ruled out, not just skipped):
 - Norway/rune-no: `ops/niue/sshdoers` is niue-specific; rune is a separate standalone host with no equivalent checked-in sshdoers file found (searched: `find . -iname sshdoers* -o -iname '*rune*sshdo*'`, no hits) — rune-no's own SSH consumer question is NOT answered by this enumeration and would need a separate pass if wanted.
 
 ONE OPEN QUESTION I CANNOT RESOLVE FROM THE REPO ALONE (flagging, not guessing): sshdo supports two deployment modes — a per-key `command="sshdo"` prefix in authorized_keys, OR a global `ForceCommand /usr/bin/sshdo` in `sshd_config`'s `Match User` block (ops/niue/sshdo:61-66, its own usage doc). Since the GITHUB_DEPLOY_KEYS-fetched copy of the repo deploy key is installed WITHOUT any `command=` prefix (confirmed in part 1), if niue uses the per-key mode rather than sshd_config ForceCommand, that unrestricted copy could bypass sshdo's allowlist entirely for statbus_et/jo/ma/tcc/ug/dev/demo/test — same key, same account, just a different matching authorized_keys line. I have no way to check sshd_config from the repo; this would need one read-only operator command (e.g. `ssh devops@niue 'sudo sshd -T | grep -i forcecommand'`) to settle, same evidentiary bar as STATBUS-251's own channel-read ask. Not established either way — flagging for the architect's ruling, not asserting a hole.
+---
+
+author: operator (pinned by foreman)
+created: 2026-08-19 10:40
+---
+DUPLICATE READ COMPLETE, ALL SEVEN BOXES — NO BYPASS. Identical result on et/jo/ma/tcc/ug/demo/dev: authorized_keys readable (wc first, per the instrument rule), the deploy key present EXACTLY ONCE (line 4 of 4), ALWAYS carrying command="/usr/local/bin/sshdo" plus no-agent-forwarding/no-port-forwarding/no-pty/no-X11-forwarding/no-user-rc; grep_exit=0 everywhere. The feared unrestricted second copy from the GITHUB_DEPLOY_KEYS fetch path DOES NOT EXIST on any box — the sshdoers-managed install is the only install, correctly restricted. SEVERITY QUESTION CLOSED: the access model works as designed on every slot. REMAINING IN THIS ENTRY: (a) the consumer/removal question for country slots — tied to Wave D (the key IS consumed today by the surviving deploy-to-X workflows; when those delete, the country slots' key entries lose their last consumer and should go in the same motion); (b) the creation-script fetch path that WOULD install an unrestricted copy on a future box — a script fix, no live box affected today; (c) the orphaned statbus_demo apply-latest sshdoers rule (half-dead since 244a). ForceCommand escalation: MOOT per the architect's sequencing — nothing unrestricted exists for a global gate to catch.
 ---
 <!-- COMMENTS:END -->
