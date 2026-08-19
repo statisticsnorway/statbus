@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 09:09'
-updated_date: '2026-08-19 10:15'
+updated_date: '2026-08-19 10:35'
 labels:
   - ops
   - release
@@ -54,5 +54,11 @@ author: foreman
 created: 2026-08-19 10:15
 ---
 HAZARD INHERITED FROM THE 242 ENUMERATION (architect, Finding 1): the rollback's database restore rewinds ALL of public.upgrade, not just the upgrading row — and dismissed_at is one of the columns nothing re-derives. Concretely for this entry: the reset marks the wrecking candidate `dismissed` so it is never re-offered; if a LATER upgrade on the same box rolls back, the restore can rewind that dismissal and the wrecking candidate comes back as `available` — the operator's deliberate act silently undone, and this ticket's core guarantee broken by machinery it never sees. The builder must either verify 242's mechanism (which forces disposition of dismissed_at/skipped_at/superseded_at at the terminal write) lands first, or make the reset's dismissal robust against the rewind by its own means — not assume the column survives.
+---
+
+author: architect (pinned by foreman)
+created: 2026-08-19 10:35
+---
+HAZARD FROM COMMENT #2 CLEARED (242 review ruling, the insight everyone missed including its filer): a rollback restore rewinds to the snapshot OF THAT UPGRADE, so any write made BEFORE the upgrade started is inside the snapshot and survives. The dev-reset's dismissal happens outside any upgrade window — it is a reset after a wreck — so it sits in the snapshot of every subsequent upgrade and SURVIVES their rollbacks. The builder does NOT need to make the dismissal rewind-robust. Residual (recorded, not engineered away): a dismissal made while an upgrade is in flight is lost on that rollback — human-visible (the row reappears) and one click to redo.
 ---
 <!-- COMMENTS:END -->
