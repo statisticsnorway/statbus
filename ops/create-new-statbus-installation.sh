@@ -22,15 +22,33 @@ DOMAIN="${DEPLOYMENT_SLOT_CODE}.statbus.org"
 DEPLOYMENT_USER="statbus_${DEPLOYMENT_SLOT_CODE}"
 HOST="niue.statbus.org"
 
+# TARGET_CHANNEL (STATBUS-251): a new country instance is an ordinary
+# production slot — it belongs on the stable channel and follows releases on
+# its own (STATBUS-248), never on a push. INTERIM EDGE: until a stable
+# release exists in this line, prerelease remains the fallback (same as the
+# King's STATBUS-250 ruling) — announced once below, never silently
+# self-corrected; STATBUS-248's recurring role-correct-channel check is what
+# catches it if nobody moves the box once a stable ships.
+git fetch --tags --quiet
+if git tag -l 'v*' --sort=-version:refname | grep -qv -- '-rc\.'; then
+    TARGET_CHANNEL=stable
+else
+    TARGET_CHANNEL=prerelease
+    echo "NOTE: no stable release exists yet in this line, so this instance starts on the"
+    echo "      prerelease channel. It must move to stable once the first stable ships."
+    echo "      STATBUS-248's role-correct-channel check is what will catch it if nobody does."
+fi
+
 # =============================================================================
 # Operator config: which GitHub keys to authorize on this slot
 # =============================================================================
 #
 # Two sources, both fetched via https://github.com/<source>.keys:
 #   GITHUB_USERS       — personal keys for human SSH access (e.g. "jhf hhz")
-#   GITHUB_DEPLOY_KEYS — repo deploy keys for CI access (e.g.
-#                         "statisticsnorway/statbus" gives the deploy-to-*
-#                         workflow ssh ability)
+#   GITHUB_DEPLOY_KEYS — repo public-key sources for CI access (e.g.
+#                         "statisticsnorway/statbus" fetches that repo's
+#                         registered deploy-key pubkeys into the box's
+#                         authorized_keys)
 #
 # Persisted to ~/.create-new-statbus-installation.env so re-runs don't
 # re-prompt. Either var can be overridden inline:
@@ -84,6 +102,7 @@ fi
 echo "Authorizing on $DEPLOYMENT_USER@$HOST:"
 echo "  GITHUB_USERS:       ${GITHUB_USERS:-<empty>}"
 echo "  GITHUB_DEPLOY_KEYS: ${GITHUB_DEPLOY_KEYS:-<empty>}"
+echo "  UPGRADE_CHANNEL:    $TARGET_CHANNEL"
 
 # Verify DNS setup
 echo "Verifying DNS setup..."
@@ -97,34 +116,6 @@ for subdomain in "" "api." "www."; do
         exit 1
     fi
 done
-
-# Generate GitHub workflow file for deployment if it doesn't exist
-if [ ! -f ".github/workflows/master-to-${DEPLOYMENT_SLOT_CODE}.yaml" ]; then
-    echo "Generating GitHub workflow file..."
-    if [ -f ".github/workflows/master-to-demo.yaml" ]; then
-        mkdir -p .github/workflows
-        sed "s/demo/${DEPLOYMENT_SLOT_CODE}/g" .github/workflows/master-to-demo.yaml > ".github/workflows/master-to-${DEPLOYMENT_SLOT_CODE}.yaml"
-        echo "Created GitHub workflow file for ${DEPLOYMENT_SLOT_CODE}"
-    else
-        echo "Warning: Could not find template workflow file .github/workflows/master-to-demo.yaml"
-    fi
-else
-    echo "GitHub workflow file for ${DEPLOYMENT_SLOT_CODE} already exists"
-fi
-
-# Generate deploy-to workflow file if it doesn't exist
-if [ ! -f ".github/workflows/deploy-to-${DEPLOYMENT_SLOT_CODE}.yaml" ]; then
-    echo "Generating deploy-to workflow file..."
-    if [ -f ".github/workflows/deploy-to-demo.yaml" ]; then
-        mkdir -p .github/workflows
-        sed "s/demo/${DEPLOYMENT_SLOT_CODE}/g" .github/workflows/deploy-to-demo.yaml > ".github/workflows/deploy-to-${DEPLOYMENT_SLOT_CODE}.yaml"
-        echo "Created deploy-to workflow file for ${DEPLOYMENT_SLOT_CODE}"
-    else
-        echo "Warning: Could not find template workflow file .github/workflows/deploy-to-demo.yaml"
-    fi
-else
-    echo "Deploy-to workflow file for ${DEPLOYMENT_SLOT_CODE} already exists"
-fi
 
 echo "Configuring server..."
 
@@ -365,6 +356,15 @@ ssh $DEPLOYMENT_USER@$HOST bash << UPDATE_SETTINGS
         echo "Updated slot code to $DEPLOYMENT_SLOT_CODE"
     else
         echo "Slot code is already $DEPLOYMENT_SLOT_CODE"
+    fi
+
+    # Set upgrade channel (STATBUS-251) — OVERWRITE, not set-if-missing: a
+    # wrong value (e.g. the mode-aware default written by an earlier
+    # config generate) may already be present.
+    current_channel=\$(grep '^UPGRADE_CHANNEL=' .env.config | cut -d'=' -f2)
+    if [ "\$current_channel" != "$TARGET_CHANNEL" ]; then
+        sed -i "s/UPGRADE_CHANNEL=.*/UPGRADE_CHANNEL=$TARGET_CHANNEL/" .env.config
+        echo "Set UPGRADE_CHANNEL=$TARGET_CHANNEL (was: \${current_channel:-unset})"
     fi
 
     # Only update URLs if different

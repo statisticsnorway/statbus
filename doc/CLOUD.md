@@ -217,7 +217,7 @@ Use the automated installation script from your local machine:
 
 This script will:
 1. Verify DNS setup (pk.statbus.org, api.pk.statbus.org, www.pk.statbus.org)
-2. Generate GitHub workflow files (master-to-pk.yaml, deploy-to-pk.yaml) — **STALE per STATBUS-244: skip these files.** A new country instance is an ordinary production slot, not a canary — it belongs on the `stable` channel and follows releases on its own (STATBUS-248), the same as `demo`. It gets no push-triggered workflow at all. The script itself still generates this pair; updating it to match is a separate, out-of-scope follow-up, filed as STATBUS-251.
+2. Set the instance's upgrade channel (`stable`; `prerelease` only until the first stable release exists). A new country instance is an ordinary production slot — it follows releases on its own and gets no push-triggered workflow and no deploy branch.
 3. Create Linux user `statbus_pk` on niue.statbus.org
 4. Add user to docker group
 5. Configure SSH access for SSB GitHub users (jhf, hhz)
