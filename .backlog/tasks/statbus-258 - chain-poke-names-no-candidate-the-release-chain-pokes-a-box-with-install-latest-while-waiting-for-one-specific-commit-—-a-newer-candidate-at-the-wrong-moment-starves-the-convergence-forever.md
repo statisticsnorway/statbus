@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-08-19 19:14'
-updated_date: '2026-08-19 20:06'
+updated_date: '2026-08-19 20:19'
 labels:
   - release
   - upgrade
@@ -188,5 +188,51 @@ Mitigation is required, not optional: a **bounded wait that fails with a diagnos
 ## WHAT I AM DELIBERATELY NOT SPECIFYING
 
 The callback-based outbound reporting. It is the better end state and it removes the last door, but it needs a landing place the chain can read, and that is a new externally-reachable surface which deserves its own design and its own King ruling rather than riding in here.
+---
+
+author: architect
+created: 2026-08-19 20:19
+---
+RULING (round 3, supersedes the pull design in #4-#5). The King is right and my round-two reasoning was wrong in a way worth naming precisely.
+
+## MY ERROR: I MOVED POLICY INTO THE PRODUCT TO AVOID A DOOR
+
+Pull put auto-install code into **every StatBus installation in the world**, gated on a config value, so that ONE box of ours could be driven without an inbound grant. That trades a bounded local risk for an unbounded global one: an NSO that copies a config, or fat-fingers a role, gets a production statistical register auto-installing release candidates.
+
+And the Norway hazard I flagged in #5 was not an independent problem — it was **the symptom**. The role vocabulary only strained because I was pushing our fleet's topology into the product's config. It evaporates with the pull design, and that is the tell: a hazard that disappears when you withdraw a design was created by that design.
+
+**The test I should have applied, and will from now on:** *would an operator who has never heard of our fleet want this part?* `apply <commit>` passes — every operator wants to install exactly one named version. `auto-install-because-your-role-says-so` fails — nobody outside our arrangement wants it, and everybody carries its risk.
+
+**So round one's shape stands: one general verb, zero product policy, no role semantics, no auto-install in any binary.** Its real sin was never the door — it was that the door's policy was hand-managed root state. **STATBUS-259 fixes exactly that and becomes a PREREQUISITE**, not a parallel nicety. A governed door whose policy ships as code is a principled mechanism; the same door managed by hand is not. That distinction, not push-versus-pull, was the thing to fix.
+
+And his root point on 253 is correct: **re-examine the removal plan rather than invent around it.** Demo's trigger already proves the fleet needs an inbound door today. The answer is one well-governed door, not new mechanisms grown to avoid touching a plan made on a premise that turned out false.
+
+## STATBUS-260 CHANGES THE TRANSPORT, FOR THE BETTER
+
+The relay is broken by construction: a `GITHUB_TOKEN` push cannot trigger `on: push` workflows, so `deploy-to-dev` never fired and the orchestrator's comment at :457 asserts a false premise. That is not a reason to patch the token — **it is a reason to stop depending on an implicit trigger at all.**
+
+**The chain should DISPATCH `deploy-to-dev` with the candidate's SHA as an input**, the same mechanism it already uses for the fleets. That is strictly better than repairing the relay: it needs no new credential, it removes a subtle platform behaviour from the critical path, and it makes the transport **explicitly candidate-addressed** — the chain names the commit rather than hoping a branch push implies it.
+
+The composition is then clean, and every part is one that already exists or is genuinely general:
+
+> chain dispatches `deploy-to-dev(sha)` → `deploy-to-dev` runs `./sb upgrade apply <sha>` through the governed door → poll uses the REQUESTED sha → guard asserts emit == request.
+
+Note the consequence: with the SHA carried by the dispatch, **dev's deploy branch is no longer the trigger**. I am not ruling it removed — `deploy-to-dev` may still check it out, and 244 leaned on it — but it stops being load-bearing as transport, and that should be stated rather than left as a second half-live mechanism.
+
+## WHAT SURVIVES FROM THE PULL DESIGN
+
+**The requested-vs-deployed guard survives unchanged and is transport-independent** — poll for what was requested, assert the emit matches, fail loudly if not. It is what turns a self-referential check into a real one, and it was always the core of this ticket.
+
+**Supersede-as-a-named-outcome survives too, in the chain's REPORTING rather than in product behaviour.** The chain can read the box's row state and report `superseded` truthfully (STATBUS-246's third verdict) without any binary anywhere auto-installing anything. Observation is general; auto-install was not.
+
+## INTERIM: YES, DISPATCH `deploy-to-dev` MANUALLY TONIGHT — AFTER the failure mode is captured
+
+The capture comes first: 260's evidence is worth more than an hour of dev's time, and it is STATBUS-247's first real lesson. Once captured, dispatch by hand through the existing `workflow_dispatch` door.
+
+It is safe on this cut for the reason already on record: rc.08 IS the newest candidate, so `apply-latest` resolves it correctly. **That safety is a property of tonight, not of the mechanism** — which is precisely why this ticket exists. Confirm dev's upgrade service is running first (this morning's repair), or the dispatch lands on nothing.
+
+## NOT SPECIFIED
+
+Whether `deploy-to-dev` keeps its branch checkout, and the callback-based no-door end state — both real, both deserving their own entries rather than riding this one.
 ---
 <!-- COMMENTS:END -->
