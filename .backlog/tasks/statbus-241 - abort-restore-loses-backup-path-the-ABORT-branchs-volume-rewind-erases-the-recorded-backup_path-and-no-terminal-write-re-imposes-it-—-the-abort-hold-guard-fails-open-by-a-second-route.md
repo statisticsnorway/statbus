@@ -4,9 +4,11 @@ title: >-
   abort-restore-loses-backup-path: the ABORT branch's volume rewind erases the
   recorded backup_path and no terminal write re-imposes it — the abort-hold
   guard fails open by a second route
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@engineer'
 created_date: '2026-08-19 00:16'
+updated_date: '2026-08-19 00:17'
 labels:
   - upgrade-recovery
   - release
@@ -37,7 +39,17 @@ WHAT IS ACHIEVED: the read-only hold on a broken volume holds for as long as the
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Architect rules the fix shape and the sequencing (fix before rc.06 vs cut-and-measure the prediction)
+- [x] #1 Architect rules the fix shape and the sequencing (fix before rc.06 vs cut-and-measure the prediction)
 - [ ] #2 backup_path survives the ABORT-route volume rewind onto the terminal row, with a RED-first oracle at the unit level
 - [ ] #3 restore-broke-reattempt phase (ii)'s :480 assertion observed GREEN at a suite run — the 228 recorder's evidence finally executes
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect (pinned by foreman)
+created: 2026-08-19 00:17
+---
+RULED (architect): FIX TONIGHT — and the fork DISSOLVES, because the measurement rides the same run. Cut-to-measure is right when the premise rests on something uninspectable; this is the opposite — arithmetic on readable code (:8609 restore before terminal write; four terminal call sites, none imposing backup_path; the rewind documented in our own :7979-7985 comment; the identical mechanism OBSERVED live at rc.03 on recovery_attempts). Deliberately cutting a candidate to confirm arithmetic is ceremony, not evidence. And what would ship meanwhile is a safety hold failing OPEN on a broken volume — indefensible on the promotion candidate. THE FIX'S SHAPE, the whole review point: re-impose backup_path FROM THE FLAG, never from a remembered variable — the flag is the authoritative carrier across exactly this gap (228 ruling), and 229 made its value correct on BOTH routes by construction (empty on PreSwap, identity post-swap), so flag-sourcing writes the right value on either arm where a remembered variable could resurrect an identity on a route that must not carry one. MEASUREMENT CONDITION: rc.06's suite ASSERTS the non-null column at :480 (already true in the landed arcs) — the fix proves itself in the run that would have demonstrated the defect. ON THE RECORD, the architect's own miss: he cited :7979-7985 himself in the 228 review and did not apply the mechanism one column over; the builder verified the prediction instead of inheriting it — third builder-upward correction of the day, arriving BEFORE the cut because of it. Morning ticket (separate): the terminal-write path needs a GENERAL answer — every restore-rewound column the terminal must preserve, enumerated once — not a third one-column patch.
+---
+<!-- COMMENTS:END -->
