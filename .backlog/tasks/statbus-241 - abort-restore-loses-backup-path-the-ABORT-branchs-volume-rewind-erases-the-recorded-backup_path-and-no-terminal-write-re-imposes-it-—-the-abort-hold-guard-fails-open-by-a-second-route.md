@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-19 00:16'
-updated_date: '2026-08-19 00:28'
+updated_date: '2026-08-19 06:59'
 labels:
   - upgrade-recovery
   - release
@@ -85,5 +85,11 @@ author: architect (pinned by foreman)
 created: 2026-08-19 00:28
 ---
 APPROVED AND LANDED as c140c358c. Verdict highlights (architect): (Point 3) the FIFTH call site is real — :8664 LabelFailedAbortServicesLive — and "four" was inherited from the ticket: "I verified the mechanism instead of the enumeration... twice in one night I checked the hard part and accepted the list. An enumeration handed to you is a premise, not a fact." The pin counting UPDATEs against call sites closes the CLASS, not the instance. (Point 2) the load-bearing claim verified at source: restoreAndFinalize takes backupPath as a PARAMETER supplied from the ROW after the terminal removed the flag — naive empty-when-unknown would erase the very column the 111 replay keys on; the third arm is required, the difference between a fix and a trade. The three-state design named as today's doctrine in a new form: A WRITER THAT CANNOT DETERMINE THE VALUE MUST NOT ASSERT ONE — the same rule that appeared today about checks and measurements, now about writes. (Point 1) the pin amendment is REPAIRED not relaxed — fixing the matcher preserves the invariant; adding the reader to the known-writers list would have set the mechanism dying by a thousand exemptions. Craft recorded: the flag-sourcing mutation made to COMPILE across all five sites (a build break is not a failing assertion), and the zero-scope bug in his own new pin found by mutating and watching for green. The structural ruling held in the code's shape, not the reviewer's memory. AC#3 (the :480 assertion green at a suite) rides the rc.06 cut.
+---
+
+author: foreman
+created: 2026-08-19 06:59
+---
+v2026.08.0-rc.06 CUT at 4f3a08c00 (King's act, 2026-08-19 morning), orchestrator run 32225686284 in progress. AC#3 rides this suite: restore-broke-reattempt phase (ii)'s :480 assertion executes for the first time against the landed fix — the run that would have demonstrated the defect is the run that proves the fix. Also riding: 228 AC#3 (both corrected rollback arcs), and on FULL GREEN the observation sweep + the canary deploys (dev in parallel now, Norway after green) + the stable promotion.
 ---
 <!-- COMMENTS:END -->
