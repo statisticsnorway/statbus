@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 07:14'
-updated_date: '2026-08-19 09:09'
+updated_date: '2026-08-19 10:05'
 labels:
   - release
   - ci
@@ -86,5 +86,11 @@ author: foreman
 created: 2026-08-19 09:09
 ---
 KING APPROVED 2026-08-19 (dialogue presentation, third of the sitting): graceful supersede as refolded — decision points owned by the arriving job, third verdict "superseded" neither red nor green, finish-out cost accepted, forced reap demoted to crash backstop. Companion requirement stated in the same breath and filed separately: a programmatic dev reset for the candidate-wrecked-dev case (wipe + reinstall to a known-good version + never re-offer the wrecking candidate), with the reinstall target — previous RC vs previous stable — an OPEN King decision, deliberately not forced.
+---
+
+author: foreman
+created: 2026-08-19 10:05
+---
+B2 LANDED as 305491903 (architect APPROVED): .github/workflows/test-upgrade.yaml — the smoke pair's second half. Mirrors test-install.yaml; runs test/install-recovery/scenarios/0-happy-upgrade.sh on an ephemeral Hetzner box with STATBUS_SB_BINARY; its own workflow identity so no first-green-run query can conflate a smoke run with a full harness run; job carries `name: 0-happy-upgrade` so the mark it writes aligns with the harness's matrix job name — alignment premise MEASURED (jobs API returns display name, proven on run 32227385996). The smoke gate (install + install-then-upgrade happy paths before dev) now has both halves as workflows; C1 wires them in as the chain's first decision point. Wave C seam recorded on STATBUS-249 comment #6: covered() unions across workflow identities.
 ---
 <!-- COMMENTS:END -->
