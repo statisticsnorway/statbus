@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 00:15'
+updated_date: '2026-08-19 10:08'
 labels:
   - upgrade-recovery
   - operator-ux
@@ -37,3 +38,37 @@ WHAT IS ACHIEVED: the African-NSO operator frame holds — the error text an una
 - [ ] #2 The :2966 terminal distinguishes the PreSwap route (nothing moved) from the post-swap route (restore failed); the post-swap label is unchanged
 - [ ] #3 The corrected arcs' assertions observe the new class on the PreSwap route at a suite run
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect
+created: 2026-08-19 10:08
+---
+ARCHITECT'S RECOMMENDATION for the King's approval (AC#1). Name and message text below; reasoning after, so he can rule on the words alone if he prefers.
+
+**NAME:** `ErrUpgradeStoppedUnchanged = "UPGRADE_STOPPED_NOTHING_CHANGED"`
+
+**OPERATOR-FACING MESSAGE:**
+
+> The upgrade stopped before it changed anything.
+>
+> Your data was not modified and your installed version was not replaced. This system is still running the version it was running before, and it is serving normally.
+>
+> The upgrade was attempted twice and stopped at the same point both times, so it will not be tried again on its own.
+>
+> To try again: run ./sb install
+>
+> If it stops here again, the upgrade itself needs a fix. Report this message together with the version you were upgrading to.
+
+**WHY THE NAME BREAKS THE PATTERN ON PURPOSE.** Every one of the fifteen existing classes names a failure of a thing that was attempted: MIGRATION_FAILED, BACKUP_FAILED, ROLLBACK_FAILED_DB_RESTORE (service.go:1961-1980). This one must not, because nothing failed in that sense — the upgrade declined to proceed and left the system exactly as it found it. If it were called UPGRADE_FAILED_PRESWAP it would sit in the list looking like its neighbours, and an operator scanning for damage would assume there is some. **The name should read differently because the operator's next action is different**, and the name is the one surface nobody can skip.
+
+**WHY THE FIRST LINE IS THE REASSURANCE, NOT THE FAULT.** An operator meeting this text is frightened before they are curious — something went wrong with an upgrade to their statistical register. The single most valuable fact we hold is that their data is untouched, so it goes first, in the shortest sentence available. Everything the current text says at that moment ("degraded", "contact support and involve your IT staff") is not merely wrong, it is wrong in the most expensive direction.
+
+**WHY "NOTHING CHANGED" RATHER THAN "PRE-SWAP".** PreSwap is our word for our machinery. It names the internal phase boundary correctly and tells the operator nothing they can act on. The class is read by people who have never heard of a swap.
+
+**ONE THING I DELIBERATELY DID NOT PUT IN.** No estimate of what went wrong and no diagnostic guess. The honest position is that we do not know from this terminal alone, and a speculative cause would send the operator to investigate the wrong thing — which is the same defect as the current text, in a friendlier tone.
+
+**INTERACTION WITH THE OBSERVATION CARD (doc-035, STATBUS-247).** The card's Step 5 asks the operator explicitly whether a failure message told them the system's state, whether data was affected, what to do next, and whether it sent them to support for something self-serviceable. This class is the first thing that question was written to catch. If the King approves both in the same sitting, the card gives us a standing check that the wording keeps working on someone who is not us.
+---
+<!-- COMMENTS:END -->
