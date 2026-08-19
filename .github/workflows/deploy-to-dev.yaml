@@ -1,7 +1,32 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: "dev.statbus.org<-ops/cloud/deploy/dev"
 on:
+  # STATBUS-260: the chain DISPATCHES this workflow and names the candidate,
+  # rather than pushing a branch and hoping the push implies a trigger.
+  #
+  # That premise was false and cost a whole first run: a push made with the
+  # default GITHUB_TOKEN does NOT trigger `on: push` workflows (GitHub's
+  # recursion guard), so the branch moved, this workflow never fired, and the
+  # orchestrator waited out its budget for a run that could not exist.
+  #
+  # Naming the commit is better than repairing the trigger, and not only because
+  # it needs no new credential: the transport becomes explicitly
+  # candidate-addressed. The chain says WHICH commit it is testing instead of
+  # leaving a branch position to say it by implication.
   workflow_dispatch:
+    inputs:
+      sha:
+        description: >-
+          The candidate commit to deploy and to verify convergence on. Optional:
+          a manual dispatch with no sha behaves exactly as before, deploying
+          whatever this workflow was dispatched at.
+        required: false
+        type: string
+  # KEPT, deliberately. STATBUS-244's transitional master-to-dev button still
+  # writes this branch, and removing the trigger would break it before 244b
+  # rules on its replacement. It is no longer the chain's transport — the
+  # dispatch above is — so this path stops being load-bearing without being
+  # switched off underneath a caller that still uses it.
   push:
     branches:
       - "ops/cloud/deploy/dev"
@@ -9,6 +34,15 @@ on:
 concurrency:
   group: ${{ github.ref_name }}
   cancel-in-progress: false
+
+env:
+  # THE ONE COMMIT THIS RUN IS ABOUT (STATBUS-260).
+  #
+  # Dispatched by the chain → the candidate it named. Dispatched by hand or
+  # triggered by a branch push → the commit this run checked out. Every consumer
+  # below reads this and nothing else, so there is exactly one answer to "which
+  # commit is being deployed" instead of one per step.
+  REQUESTED_SHA: ${{ inputs.sha || github.sha }}
 
 jobs:
   # STATBUS-069 phase 3: the wait-for-images gate uses `gh` + `jq` — preinstalled
@@ -25,7 +59,7 @@ jobs:
     steps:
       - name: Wait for CI Images to succeed on this commit
         run: |
-          SHA="${{ github.sha }}"
+          SHA="$REQUESTED_SHA"
           TIMEOUT=900
           ELAPSED=0
           while [ $ELAPSED -lt $TIMEOUT ]; do
@@ -82,6 +116,31 @@ jobs:
               statbus_dev@niue.statbus.org "$@" 2>&1
           }
 
+          # ═══ THE ONE THING STILL NOT CANDIDATE-ADDRESSED (STATBUS-259) ═══
+          #
+          # This installs whichever candidate is NEWEST on the box's channel, not
+          # the one the chain named. The general verb that installs exactly a
+          # named target now exists in the product (STATBUS-258) — what is
+          # missing is permission to run it through this door: the sshdo
+          # allowlist is hand-managed root state, and STATBUS-259 is the
+          # mechanism that makes it ship as code. Host state is not edited by
+          # hand, so this line waits for that rather than racing ahead of it.
+          #
+          # UNTIL THEN THE GAP IS LOUD, NOT SILENT. The step below compares what
+          # the box installed against what the chain requested and fails the
+          # deploy if they differ. On a normal cut they agree — the candidate
+          # just tagged IS the newest — so this is quiet in the common case and
+          # stops the chain exactly when it would otherwise have tested a
+          # different commit than it reported.
+          #
+          # WHEN 259 LANDS: change the command below to the named-target verb
+          # with "$REQUESTED_SHA", and delete this comment. Nothing else here
+          # changes — the guard simply stops having anything to catch.
+          #
+          # The allowlist side is one line and needs NO new sshdo grammar:
+          # ops/niue/sshdoers already declares `match hexdigits` (one `#` per hex
+          # digit), which the pg_regress 40-char SHA entry uses today. So the
+          # whole remaining change is this command plus one allowlist entry.
           echo "::group::Run apply-latest on statbus_dev"
           # STATBUS-170: capture apply-latest stdout so the poll step learns the EXACT
           # deployed commit (it emits `deployed_commit=<40hex>` after resolving the target).
@@ -89,19 +148,82 @@ jobs:
           printf '%s\n' "$out"
           echo "::endgroup::"
           [ "$rc" -eq 0 ] || { echo "::error::apply-latest failed on remote"; exit 1; }
-          # Stash the resolved deployed commit for the poll step (empty if the box
-          # predates the emit -> the poll degrades to poke-only green).
+          # STATBUS-260: the emit is now a GUARD, not the poll's source.
+          #
+          # It used to be both: the poll asked "did the box converge on whatever
+          # the box decided to install?" — very nearly self-referential. It
+          # cannot hang, and it cannot fail for the reason we care about: if the
+          # box installs a NEWER candidate, the poll confirms THAT one converged
+          # and this workflow reports SUCCESS while the chain believes dev took
+          # the candidate under test.
+          #
+          # So the poll uses REQUESTED_SHA, and this value now exists only to be
+          # compared against it.
           echo "DEPLOYED_COMMIT=$(printf '%s\n' "$out" | grep -oE '^deployed_commit=[a-f0-9]{40}$' | head -1 | cut -d= -f2)" >> "$GITHUB_ENV"
+
+      - name: Assert the box installed the candidate that was requested
+        # THE GUARD (STATBUS-260). Today the box still runs apply-latest, which
+        # resolves the NEWEST candidate on its channel rather than the one named
+        # — the allowlist line for the named-target verb waits on STATBUS-259's
+        # ships-as-code mechanism, and host state is not edited by hand.
+        #
+        # So the gap is real RIGHT NOW, and the point of this step is that it is
+        # LOUD rather than silent while it lasts. Before, a mismatch was
+        # invisible and the chain green-lit a box running something else. When
+        # the named-target verb reaches the door, this step does not change — it
+        # simply stops firing.
+        run: |
+          set -euo pipefail
+          if [ -z "${DEPLOYED_COMMIT:-}" ]; then
+            echo "::warning title=Convergence check unverified::the box emitted no deployed_commit= line, so this run cannot prove it installed ${REQUESTED_SHA}. The poll below still verifies convergence ON THE REQUESTED COMMIT, so a green here is not a claim about a commit nobody checked — but the requested-vs-deployed comparison did not run."
+            exit 0
+          fi
+          if [ "$DEPLOYED_COMMIT" != "$REQUESTED_SHA" ]; then
+            echo "::error title=Box installed a different candidate::requested ${REQUESTED_SHA}, box resolved ${DEPLOYED_COMMIT}"
+            echo "The chain asked dev for one specific candidate and the box acted on another."
+            echo "  requested: ${REQUESTED_SHA}"
+            echo "  installed: ${DEPLOYED_COMMIT}"
+            echo ""
+            echo "Expected cause while STATBUS-259 is outstanding: the box still runs"
+            echo "the latest-resolving verb, which installs the NEWEST candidate on its"
+            echo "channel. A newer candidate appearing between the cut and this step is"
+            echo "enough to produce exactly this. That is not a box fault — it is the gap"
+            echo "this guard exists to make visible until the named-target verb is"
+            echo "permitted through the door."
+            echo ""
+            echo "Do NOT relax this check to accept a descendant. Accepting 'something"
+            echo "newer' as success is a decision to call testing-a-different-thing a pass."
+            exit 1
+          fi
+          echo "Box installed the requested candidate ${REQUESTED_SHA}."
 
       - name: Poll until the upgrade converges
         # STATBUS-170 phase 2 (green-means-converged): a green deploy must mean the box
         # CONVERGED (row `completed`), not merely that the poke was delivered — the daemon
-        # runs the upgrade asynchronously and can roll back after the poke returns. Poll
-        # the EXACT deployed commit (from apply-latest's deployed_commit= emit, Option A)
-        # so the read is correct on every channel. Cloud budget 20m@30s (architect ruling
-        # comment #4). The poll command is byte-pinned in the slot's sshdo allowlist
-        # (ops/niue/sshdoers): `~/statbus/ops/ci-deploy-status.sh <40hex>`. Absent emit
-        # (old box) → poke-only green + one notice (the two-phase 127 genre, self-expiring).
+        # runs the upgrade asynchronously and can roll back after the poke returns.
+        #
+        # POLL THE COMMIT THE CHAIN REQUESTED (STATBUS-260). This used to poll the
+        # commit the BOX emitted, which made the check very nearly self-referential:
+        # "did the box converge on whatever the box decided to install?" — a question
+        # that cannot fail for the reason we care about. The requested commit is known
+        # independently of the box, so the read is correct on every channel and stays
+        # correct when the box resolves something else.
+        #
+        # Cloud budget 20m@30s (architect ruling comment #4). The poll command is
+        # byte-pinned in the slot's sshdo allowlist (ops/niue/sshdoers):
+        # `~/statbus/ops/ci-deploy-status.sh <40hex>`.
+        #
+        # ABSENT EMIT no longer degrades this poll. It once meant "nothing to poll" and
+        # exited 0 having verified nothing — a green reporting on no examination at all.
+        # Now the step above WARNS that the requested-vs-installed comparison could not
+        # run, and convergence is still fully verified here against the requested commit.
+        #
+        # DELIBERATE DIVERGENCE FROM THE OTHER SIX deploy-to-*.yaml: they still poll the
+        # box's own emit. That is intentional and must not be "consolidated" away — those
+        # workflows are queued for deletion behind STATBUS-248's Wave D channel
+        # confirmation, and their boxes are opt-in human rather than chain-driven, so the
+        # self-referential read costs them nothing. Dev is the only chain-driven box, and
+        # the only one where the chain's belief about what it tested has to be true.
         #
         # RIDER (STATBUS-170 comment #5, architect — accept-inline ruling): the poll
         # SEMANTICS live in ops/ci-deploy-status.sh's exit contract (0/10/20/30/64) — the
@@ -113,11 +235,15 @@ jobs:
         # ever consolidated, the poll blocks consolidate WITH them (not independently).
         run: |
           set -uo pipefail
-          if [ -z "${DEPLOYED_COMMIT:-}" ]; then
-            echo "::notice::apply-latest did not emit deployed_commit= (box predates the STATBUS-170 emit, or resolution failed) — deploy stays poke-only for this run; convergence unverified. Self-expiring as the fleet upgrades."
-            exit 0
-          fi
-          SHA="$DEPLOYED_COMMIT"
+          # STATBUS-260: poll what the chain REQUESTED, not what the box chose.
+          #
+          # This also removes the old poke-only degradation. That branch existed
+          # because the deployed commit was the only commit this step knew, so a
+          # missing emit left it with nothing to poll and it exited 0 having
+          # verified nothing — a green that reported on no examination at all.
+          # The requested commit is known independently of the box, so the poll
+          # now always has a subject and convergence is always verified.
+          SHA="$REQUESTED_SHA"
           BUDGET=1200          # 20 minutes (cloud budget)
           INTERVAL=30
           DEADLINE=$(( $(date +%s) + BUDGET ))

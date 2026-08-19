@@ -393,12 +393,22 @@ jobs:
     # deploy-to-dev's own convergence poll is the long pole; budget above it.
     timeout-minutes: 90
     permissions:
-      contents: write   # write the deploy branch AT THE TAGGED COMMIT
-      actions: write    # observe the deploy workflow's run
-    outputs:
-      deployed: ${{ steps.deploy.outputs.deployed }}
+      # DROPPED FROM WRITE (STATBUS-260). This job used to push the candidate's
+      # commit to dev's deploy branch, which needed contents:write. It no longer
+      # writes anything in the repository — it dispatches a workflow and waits —
+      # so the grant shrinks to what checkout and the tag walk actually need.
+      contents: read
+      actions: write    # dispatch deploy-to-dev and poll its run
+    # The `deployed` output that stood here is gone with the push step that set
+    # it. Nothing consumed it — verified across this file — so it is removed
+    # rather than re-sourced from the action, which would have kept a value
+    # alive purely to keep a line compiling.
     steps:
-      - name: Checkout (full history — the deploy branch is written at this tag's commit)
+      # Full history: the decision-point step below walks every rc tag to ask
+      # whether this candidate is still the newest, and a shallow clone has no
+      # tags to walk. (It is no longer about writing a branch — nothing here
+      # writes one any more.)
+      - name: Checkout (full history — the decision point walks every candidate tag)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -425,82 +435,51 @@ jobs:
             echo "- **${{ github.job }}**: proceeding — \`$THIS_TAG\` is still the newest candidate." >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      - name: Point dev's deploy branch at THIS CANDIDATE's commit
+      # STATBUS-260: DISPATCH deploy-to-dev AND NAME THE CANDIDATE.
+      #
+      # What stood here pushed the candidate's commit to dev's deploy branch and
+      # relied on that push to trigger deploy-to-dev. THE PREMISE WAS FALSE. A
+      # push made with the default GITHUB_TOKEN does not trigger `on: push`
+      # workflows — GitHub's recursion guard — so the branch moved, deploy-to-dev
+      # never fired, and this job waited out its full budget for a run that could
+      # not exist. That is what the first live run of this chain proved.
+      #
+      # The fix is not to repair the relay with a credential that can trigger.
+      # It is to stop depending on an implicit trigger at all: dispatching is
+      # explicit, needs no new secret, takes a subtle platform behaviour off the
+      # critical path, and makes the transport CANDIDATE-ADDRESSED — the chain
+      # names the commit rather than hoping a branch position implies it.
+      #
+      # WHY THE SHARED ACTION IS CORRECT HERE NOW, AND WAS GENUINELY WRONG BEFORE.
+      # The comment this replaces warned that dispatch-fleet-and-wait correlates
+      # by `--event=workflow_dispatch`, so using it against a PUSH-triggered
+      # deploy would have started a SECOND run and then watched the wrong one.
+      # That was right about the old shape, and it dissolves in this one: there
+      # is no push-triggered run to compete with, because the dispatch IS the
+      # trigger. Checked against the action's own correlation filter rather than
+      # assumed — it snapshots the matching workflow_dispatch run ids BEFORE
+      # dispatching and takes the set difference, so the run it waits on is
+      # provably the one it started, and an ambiguous match fails loudly.
+      #
+      # The deploy branch is no longer written here. STATBUS-244's transitional
+      # master-to-dev button still writes it and deploy-to-dev still accepts a
+      # push, so nothing is switched off underneath a live caller — but the
+      # branch has stopped being this chain's transport.
+      - name: Deploy THIS CANDIDATE to dev and wait for its verdict
         id: deploy
         if: steps.obsolete.outputs.obsolete != 'true'
-        run: |
-          set -euo pipefail
-          # STATBUS-247: the transport is unchanged — a push to the deploy
-          # branch pokes the box's upgrade service, which converges and is
-          # addressed BY COMMIT. What changes is WHAT the branch points at:
-          # the tagged candidate, never master's tip. That is the whole of
-          # "tagging a candidate installs it on dev with no human action".
-          #
-          # AUTOMATION WRITES THIS BRANCH, NEVER A PERSON. The human-facing
-          # buttons that used to write deploy branches with master's tip are
-          # gone (STATBUS-244a); this is the one remaining writer, and it is
-          # addressed at a tag.
-          #
-          # WHY DEV IS TAG-DRIVEN AND NORWAY IS NOT: the chain needs a
-          # SYNCHRONOUS verdict — it must know NOW whether a real box took
-          # the candidate. Discovery ticks on a long interval and only OFFERS,
-          # so there would be nothing to wait on. Norway is deliberately the
-          # opposite: offered and human-installed, with an open-ended wait.
-          echo "Pointing ops/cloud/deploy/dev at ${{ github.sha }} (tag ${{ github.ref_name }})"
-          git push --force origin "${{ github.sha }}:refs/heads/ops/cloud/deploy/dev"
-          echo "deployed=true" >> "$GITHUB_OUTPUT"
-
-      - name: Wait for dev to converge on the candidate
-        if: steps.obsolete.outputs.obsolete != 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # The branch push above IS the trigger — deploy-to-dev.yaml fires on a
-        # push to its branch — so this step OBSERVES that run rather than
-        # starting one.
-        #
-        # It deliberately does NOT use ./.github/actions/dispatch-fleet-and-wait:
-        # that action dispatches a workflow_dispatch run and correlates by
-        # `--event=workflow_dispatch`. Used here it would start a SECOND deploy
-        # alongside the push-triggered one and then watch the wrong run. Caught
-        # by checking the action's correlation filter against this workflow's
-        # actual trigger rather than assuming they matched.
-        #
-        # Polls `gh run list` and branches on the conclusion explicitly — never
-        # `gh run watch --exit-status`, which has returned 0 for a FAILED run in
-        # this org's own deploy history (CLAUDE.md).
-        run: |
-          set -euo pipefail
-          BUDGET=4800   # 80min, under this job's 90min ceiling
-          WAITED=0
-          INTERVAL=20
-          while [ "$WAITED" -lt "$BUDGET" ]; do
-            LINE="$(gh run list --workflow=deploy-to-dev.yaml \
-                      --commit="${{ github.sha }}" --limit 1 \
-                      --json status,conclusion,url \
-                      --jq '.[0] | "\(.status)|\(.conclusion)|\(.url)"' 2>/dev/null || true)"
-            STATUS="${LINE%%|*}"; REST="${LINE#*|}"; CONCL="${REST%%|*}"; URL="${REST#*|}"
-            if [ -z "$LINE" ] || [ "$LINE" = "null|null|null" ]; then
-              echo "  waiting for deploy-to-dev to appear at ${{ github.sha }} (${WAITED}s/${BUDGET}s)"
-            elif [ "$STATUS" != "completed" ]; then
-              echo "  deploy-to-dev $STATUS (${WAITED}s/${BUDGET}s) — $URL"
-            elif [ "$CONCL" = "success" ]; then
-              echo "✓ dev converged on ${{ github.ref_name }} — $URL"
-              exit 0
-            else
-              echo "✗ dev did NOT take this candidate (conclusion: $CONCL)"
-              echo "   Run: $URL"
-              echo "   The chain stops here BY DESIGN: dev's failure must stop it"
-              echo "   before any expensive fleet is dispatched. Read that run, and"
-              echo "   the box's own upgrade log, before re-cutting."
-              exit 1
-            fi
-            sleep "$INTERVAL"
-            WAITED=$((WAITED + INTERVAL))
-          done
-          echo "✗ dev did not converge within ${BUDGET}s — treating as a failure, not as a pass."
-          echo "   A convergence wait that times out into success would defeat the"
-          echo "   entire point of gating the fleets on a real box."
-          exit 1
+        uses: ./.github/actions/dispatch-fleet-and-wait
+        with:
+          workflow-file: deploy-to-dev.yaml
+          ref: ${{ github.ref_name }}
+          commit-sha: ${{ github.sha }}
+          # The candidate, named. deploy-to-dev polls THIS commit for
+          # convergence and refuses if the box installed a different one.
+          dispatch-inputs: sha=${{ github.sha }}
+          # 80 min, matching the budget the removed inline poll carried and
+          # staying under this job's 90-minute ceiling.
+          poll-budget-s: "4800"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
   install-recovery-harness:
     name: "4/5: dispatch Install Recovery Harness"
