@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 09:09'
-updated_date: '2026-08-19 10:35'
+updated_date: '2026-08-19 11:44'
 labels:
   - ops
   - release
@@ -60,5 +60,48 @@ author: architect (pinned by foreman)
 created: 2026-08-19 10:35
 ---
 HAZARD FROM COMMENT #2 CLEARED (242 review ruling, the insight everyone missed including its filer): a rollback restore rewinds to the snapshot OF THAT UPGRADE, so any write made BEFORE the upgrade started is inside the snapshot and survives. The dev-reset's dismissal happens outside any upgrade window — it is a reset after a wreck — so it sits in the snapshot of every subsequent upgrade and SURVIVES their rollbacks. The builder does NOT need to make the dismissal rewind-robust. Residual (recorded, not engineered away): a dismissal made while an upgrade is in flight is lost on that rollback — human-visible (the row reappears) and one click to redo.
+---
+
+author: architect
+created: 2026-08-19 11:44
+---
+BUILD DESIGN — execution-precise. One finding kills the obvious approach, and one gap must be filled before the script can work at all.
+
+## THE OBVIOUS REUSE PATH DOES NOT WORK — verified, not assumed
+
+The tempting design is to reuse the upgrade pipeline: register the previous stable, schedule it with `recreate=true`, and let the existing machinery back up, check out, recreate and restart. It reuses everything and touches no new code.
+
+It cannot work. **`supersedeBelowInstalled` (service.go:4491) retires every `available` OR `scheduled` row whose newest tag is not newer than the installed version, and it runs on the discovery tick.** A reset is a DOWNGRADE by definition — its target is older than what is installed — so the scheduled row would be superseded out from under the reset on the next tick. Worse, it is a race: it would sometimes work, which is the most expensive kind of broken.
+
+So the reset is a DIRECT script path. Do not route it through the upgrade ledger.
+
+## THE GAP THAT MUST BE FILLED FIRST: there is no dismiss command
+
+AC#2 requires the wrecking candidate be marked dismissed so it is never auto-installed again. **There is no `./sb upgrade dismiss`.** The subcommand set is check / register / list / schedule / apply-latest / channel / service / self-verify / self-rollback / trust-key. Today dismissal is an APP action — a PATCH from the admin UI (the write site the STATBUS-242 audit enumerates at `app/src/app/admin/upgrades/page.tsx`).
+
+A script cannot dismiss through product tooling, and it must not write the row directly. **So this unit's first deliverable is `./sb upgrade dismiss <version>`** — small, obviously useful beyond this ticket (an operator who decides against a candidate has no CLI way to say so today), and it is what makes the rest of the script legitimate rather than surgery.
+
+## THE SCRIPT — `ops/reset-statbus-slot.sh`
+
+A NEW script, not a mode of `create-new-statbus-installation.sh`: that one verifies DNS, creates a Linux user, configures SSH access and picks a port offset — none of which a reset needs, and all of which would be dangerous to re-run against a live slot. Reuse the PRIMITIVES, not the entrypoint.
+
+Steps, in order, each already existing:
+
+1. **Refuse unless the slot is named explicitly** — no default target. This wipes a database; it must be impossible to run by accident on the wrong box.
+2. **Determine the target**: previous STABLE via `git fetch --tags` then the newest `v*` tag without `-rc.`; if none exists in this line, the previous RC — the King's interim edge (AC#4). Same derivation as STATBUS-251's `TARGET_CHANNEL`; copy that pattern rather than inventing a second one. **Print the resolved target and refuse if it is empty.**
+3. **Stop the upgrade service** (`systemctl --user stop statbus-upgrade@$USER`) BEFORE anything else — otherwise the daemon can discover, offer or act mid-reset.
+4. **Stop services**: `./sb stop all`.
+5. **Check out the target**: `git checkout <tag>` in the slot's checkout.
+6. **Recreate the database and bring the box up at that version**: `./sb install`, which is the step-table — the same path an operator has for everything else.
+7. **Dismiss the wrecking candidate**: `./sb upgrade dismiss <wrecking-version>` (the new command). The version is a required argument to the script — the human knows which candidate wrecked it; the script must not guess.
+8. **Restart the upgrade service** and **verify from the RUNNING service**, not the file — the same lesson as the fleet correction: `journalctl --user -u 'statbus-upgrade@*'` must show the expected channel, and `./sb upgrade list` must show the wrecking candidate as dismissed and NOT offered.
+
+## REWIND-SAFETY — already settled, and the answer is that nothing is owed
+
+STATBUS-242's ruling applies directly: a restore rewinds to the snapshot of THAT upgrade, so any write made **before** an upgrade begins is inside the snapshot and survives. **The reset's dismissal happens outside any upgrade window** — it is a reset after a wreck — so it is in the snapshot of every subsequent upgrade and cannot be rewound by one. No special handling, no flag carriage. The hazard this ticket inherited is closed by that ruling rather than by code here.
+
+## DOC PLACEMENT
+
+Where the dev canary's role is documented — AGENTS.md's deployment section (the per-role model A2 rewrote), as the named answer to a wrecked canary, one line pointing at the script. Not a new document.
 ---
 <!-- COMMENTS:END -->

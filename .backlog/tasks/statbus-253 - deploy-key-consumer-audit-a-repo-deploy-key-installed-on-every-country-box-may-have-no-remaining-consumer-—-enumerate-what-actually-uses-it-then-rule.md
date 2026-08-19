@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 10:27'
-updated_date: '2026-08-19 11:42'
+updated_date: '2026-08-19 11:44'
 labels:
   - ops
   - security
@@ -82,5 +82,11 @@ author: foreman
 created: 2026-08-19 11:42
 ---
 KING RULED 2026-08-19: the cleanup is sensible ("we used to need that flow") and it must be COMPLETE — the key was generated on the server and then added to GitHub, so the correct removal takes it out of GITHUB TOO: the deploy-key registration AND the SSH_KEY secret in the repo's secret storage, not merely the authorized_keys entries on the boxes. SCOPE CONSEQUENCE, so the removal is planned honestly: secrets.SSH_KEY still has live non-deploy consumers (notify-all-clouds, docker-maintenance, seq-logserver, pg_regress, master-to-dev until 244b) — each needs its own dedicated key (the RUNNER_HEALTH_SSH_KEY pattern: per-purpose, revocable server-side) before SSH_KEY can be deleted from GitHub. Execution order: (1) now — remove the orphaned statbus_demo apply-latest sshdoers rule; (2) after this cut proves tag-to-dev — 244b retires master-to-dev's use; (3) Wave D deletes deploy-to-{et,jo,ma,tcc,ug}; (4) re-key the surviving maintenance/test consumers with dedicated keys; (5) remove the deploy-key registration + SSH_KEY secret from GitHub and the fetch-installed copies from the boxes, in one motion. The creation-script fetch path fix (which would install an unrestricted copy on a future box) rides with (5) or earlier.
+---
+
+author: foreman
+created: 2026-08-19 11:44
+---
+STEP 1 LANDED as 5824e3d44: the orphaned statbus_demo apply-latest rule removed from ops/niue/sshdoers, with a do-not-re-add-for-symmetry note at the section; demo's ci-notify entry untouched (still live via notify-all-clouds). CITATION CORRECTION (mechanic, against his own comment #2): the orphaned line was :18, not :16 — off-by-two in the citation only, the finding itself unchanged. DEPLOYMENT PATH ESTABLISHED (searched, not assumed): there is NO automated sync from the repo file to niue's live /etc/sshdoers — the file is hand-managed by design (doc-026: privileged artifacts are 'installed like sshdo/sshdoers, not pulled from a checkout'; only ci-notify.sh is pulled live). SO ONE MANUAL STEP REMAINS FOR THE KING at his convenience: remove the statbus_demo apply-latest line from niue's live /etc/sshdoers in a root session. Not urgent — the live rule is dead-but-harmless (no workflow calls it; sshdo only ALLOWS the command shape, nothing invokes it) — but the live file and the repo file should agree before anyone reads one and trusts the other.
 ---
 <!-- COMMENTS:END -->
