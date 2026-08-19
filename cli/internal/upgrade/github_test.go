@@ -2,7 +2,6 @@ package upgrade
 
 import (
 	"testing"
-	"time"
 )
 
 func TestValidateVersion(t *testing.T) {
@@ -45,87 +44,30 @@ func TestValidateVersion(t *testing.T) {
 	}
 }
 
-// TestSelectLatestTag covers the pure channel→tag selection logic
-// used by `./sb release check --channel` and install.sh. Hermetic —
-// no network I/O.
-func TestSelectLatestTag(t *testing.T) {
-	releases := []Release{
-		{TagName: "v2026.03.0", Prerelease: false, Draft: false},
-		{TagName: "v2026.03.1-rc.1", Prerelease: true, Draft: false},
-		{TagName: "v2026.04.0", Prerelease: false, Draft: false},
-		{TagName: "v2026.04.1-beta.1", Prerelease: true, Draft: false},
-		{TagName: "v2026.04.2-rc.5", Prerelease: true, Draft: false},
-		{TagName: "v2026.99.0-draft", Prerelease: true, Draft: true}, // ignored
-	}
+// TestSelectLatestTag was deleted here together with selectLatestTag itself
+// (STATBUS-255). Its cases are not lost, and the accounting is written down
+// rather than assumed:
+//
+//   - "stable picks latest CalVer" and "prerelease picks latest RC" — covered
+//     against the LIVE resolver by TestPrereleaseChannelMeansLatestRC_STATBUS255,
+//     including the release-cutting day where a stable tag and a newer RC coexist.
+//   - "edge returns empty" and "unknown channel errors" — covered by
+//     TestEdgeAndUnknownChannelsUnchanged_STATBUS255, which also pins that an
+//     unknown channel ERRORS rather than resolving to an empty tag.
+//   - "empty set errors" — covered by the same file's classification test.
+//   - "only-draft does not satisfy stable" — now true BY CONSTRUCTION rather than
+//     by a filter: a GitHub draft publishes no git tag, and resolution reads git
+//     tags. There is nothing left to filter, so there is nothing left to test.
+//
+// The rule this test asserted also survives as apiRuleOracle in
+// channel_resolution_git_test.go, verified against this implementation before
+// the deletion.
 
-	cases := []struct {
-		name      string
-		channel   string
-		want      string
-		wantError bool
-	}{
-		{"stable picks latest CalVer", "stable", "v2026.04.0", false},
-		{"prerelease picks latest RC", "prerelease", "v2026.04.2-rc.5", false},
-		{"edge returns empty", "edge", "", false},
-		{"unknown channel errors", "nightly", "", true},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			got, err := selectLatestTag(releases, c.channel)
-			if (err != nil) != c.wantError {
-				t.Fatalf("err=%v, wantError=%v", err, c.wantError)
-			}
-			if got != c.want {
-				t.Errorf("got %q, want %q", got, c.want)
-			}
-		})
-	}
-
-	// Degraded cases: empty release list.
-	t.Run("empty stable errors", func(t *testing.T) {
-		_, err := selectLatestTag([]Release{}, "stable")
-		if err == nil {
-			t.Errorf("expected error on empty stable set")
-		}
-	})
-	t.Run("empty prerelease errors", func(t *testing.T) {
-		_, err := selectLatestTag([]Release{}, "prerelease")
-		if err == nil {
-			t.Errorf("expected error on empty prerelease set")
-		}
-	})
-	t.Run("only-draft does not satisfy stable", func(t *testing.T) {
-		_, err := selectLatestTag([]Release{
-			{TagName: "v2026.04.0", Prerelease: false, Draft: true},
-		}, "stable")
-		if err == nil {
-			t.Errorf("expected error when only release is a draft")
-		}
-	})
-}
-
-func TestFilterByChannel(t *testing.T) {
-	releases := []Release{
-		{TagName: "v2026.03.0", Prerelease: false},
-		{TagName: "v2026.03.1-rc.1", Prerelease: true},
-		{TagName: "v2026.04.0", Prerelease: false},
-		{TagName: "v2026.04.1-beta.1", Prerelease: true},
-	}
-
-	stable := FilterByChannel(releases, "stable")
-	if len(stable) != 2 {
-		t.Fatalf("stable: got %d, want 2", len(stable))
-	}
-	if stable[0].TagName != "v2026.03.0" || stable[1].TagName != "v2026.04.0" {
-		t.Errorf("stable: wrong releases: %v", stable)
-	}
-
-	all := FilterByChannel(releases, "prerelease")
-	if len(all) != 4 {
-		t.Fatalf("prerelease: got %d, want 4", len(all))
-	}
-
-}
+// TestFilterByChannel went with FilterByChannel itself (STATBUS-255). It
+// filtered API Releases by GitHub's prerelease FLAG; the surviving equivalent is
+// FilterTagsByChannel, which filters git tags by their SHAPE and is tested at
+// the bottom of this file — including the exclusivity property that a stray
+// hyphenated tag matches no channel.
 
 func TestHasMigrationsFromChanges(t *testing.T) {
 	cases := []struct {
@@ -186,32 +128,10 @@ func TestCompareVersions(t *testing.T) {
 	}
 }
 
-func TestReleaseSummary(t *testing.T) {
-	r := Release{
-		TagName:    "v2026.03.0",
-		Name:       "March Release",
-		Prerelease: false,
-		Published:  time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
-	}
-	got := ReleaseSummary(r)
-	if got != "March Release - 2026-03-01" {
-		t.Errorf("got %q", got)
-	}
-
-	// Falls back to TagName when Name is empty
-	r.Name = ""
-	got = ReleaseSummary(r)
-	if got != "v2026.03.0 - 2026-03-01" {
-		t.Errorf("got %q", got)
-	}
-
-	// Pre-release suffix
-	r.Prerelease = true
-	got = ReleaseSummary(r)
-	if got != "v2026.03.0 (pre-release) - 2026-03-01" {
-		t.Errorf("got %q", got)
-	}
-}
+// TestReleaseSummary went with ReleaseSummary itself (STATBUS-255). It rendered
+// a human line for a GitHub API Release — "v2026.04.0 (pre-release)" and such —
+// and its last production caller was RunCheck, which now prints from a GitTag.
+// There is no Release left to summarise.
 
 // TestClassifyReleaseShape pins the single shared shape classifier. The
 // critical guard: a non-rc hyphenated CalVer tag (-beta/-alpha/-foo) is

@@ -21,10 +21,15 @@ import (
 // TestChannelResolutionMatchesTheAPIAnswer_STATBUS255 is the equivalence proof.
 // The same tag set, resolved both ways, must give the SAME answer — otherwise
 // this is not a rate-limit fix, it is a behaviour change wearing one.
+//
+// It compares against apiRuleOracle — the fixed statement of what the GitHub
+// releases API path meant — rather than against that path's implementation,
+// which no longer exists. The oracle was verified against the real
+// implementation while both were in the tree; see the note above apiRuleOracle.
 func TestChannelResolutionMatchesTheAPIAnswer_STATBUS255(t *testing.T) {
 	// A realistic set: stables, RCs, a release-cutting day where a stable and a
 	// newer RC coexist, and tags that match no channel.
-	releases := []Release{
+	releases := []apiRelease{
 		{TagName: "v2026.08.0", Prerelease: false},
 		{TagName: "v2026.08.1-rc.1", Prerelease: true},
 		{TagName: "v2026.08.1-rc.2", Prerelease: true},
@@ -37,7 +42,7 @@ func TestChannelResolutionMatchesTheAPIAnswer_STATBUS255(t *testing.T) {
 	}
 
 	for _, channel := range []string{"stable", "prerelease"} {
-		viaAPI, apiErr := selectLatestTag(releases, channel)
+		viaAPI, apiErr := apiRuleOracle(releases, channel)
 		viaGit, gitErr := selectLatestTagFromNames(names, channel)
 
 		if (apiErr == nil) != (gitErr == nil) {

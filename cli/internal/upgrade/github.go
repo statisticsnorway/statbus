@@ -4,7 +4,6 @@ package upgrade
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"regexp"
@@ -180,40 +179,6 @@ func githubDo(req *http.Request) (*http.Response, error) {
 	return resp, nil
 }
 
-// FetchReleases queries the GitHub Releases API.
-func FetchReleases() ([]Release, error) {
-	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases?per_page=30", owner, repo)
-	req, err := githubRequest("GET", url)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := githubDo(req)
-	if err != nil {
-		return nil, fmt.Errorf("fetch releases: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("GitHub API returned %d: %s", resp.StatusCode, string(body))
-	}
-
-	var releases []Release
-	if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
-		return nil, fmt.Errorf("decode releases: %w", err)
-	}
-
-	// Filter out drafts
-	var filtered []Release
-	for _, r := range releases {
-		if !r.Draft {
-			filtered = append(filtered, r)
-		}
-	}
-	return filtered, nil
-}
-
 // FetchManifest downloads the release-manifest.json for a given version.
 // Uses githubRequest/githubDo for auth, timeout, and rate-limit handling.
 func FetchManifest(version string) (*Manifest, error) {
@@ -238,75 +203,6 @@ func FetchManifest(version string) (*Manifest, error) {
 		return nil, fmt.Errorf("decode manifest: %w", err)
 	}
 	return &m, nil
-}
-
-// FilterByChannel returns releases matching the given channel.
-func FilterByChannel(releases []Release, channel string) []Release {
-	switch channel {
-	case "stable":
-		var stable []Release
-		for _, r := range releases {
-			if !r.Prerelease {
-				stable = append(stable, r)
-			}
-		}
-		return stable
-	case "prerelease":
-		return releases // all releases
-	// "pinned" channel removed — use skip in the UI instead
-	default:
-		return releases
-	}
-}
-
-// selectLatestTag is the pure (no-network) logic that picks the latest
-// release tag from an already-fetched set of releases. Returns:
-//   - channel=edge       → ("", nil); caller handles "no artifact to check".
-//   - channel=stable     → highest-CalVer non-prerelease release tag, or error if none.
-//   - channel=prerelease → highest-CalVer prerelease tag, or error if none.
-//   - unrecognised       → error listing accepted channels.
-//
-// Hermetic: the test suite drives selectLatestTag with canned
-// []Release inputs; ResolveChannelToLatestTag wraps it with the
-// network call.
-func selectLatestTag(releases []Release, channel string) (string, error) {
-	switch channel {
-	case "edge":
-		return "", nil
-	case "stable", "prerelease":
-		// fall through
-	default:
-		return "", fmt.Errorf("unknown channel %q (valid: stable, prerelease, edge)", channel)
-	}
-
-	// Filter. Note: FilterByChannel("prerelease") returns ALL releases
-	// (both stable and prerelease). The operator-facing semantic of the
-	// prerelease channel is "latest RC", so filter explicitly here —
-	// otherwise a stable tag at HEAD would beat the newest RC on a
-	// release-cutting day.
-	var filtered []Release
-	switch channel {
-	case "stable":
-		for _, r := range releases {
-			if !r.Prerelease && !r.Draft {
-				filtered = append(filtered, r)
-			}
-		}
-	case "prerelease":
-		for _, r := range releases {
-			if r.Prerelease && !r.Draft {
-				filtered = append(filtered, r)
-			}
-		}
-	}
-	if len(filtered) == 0 {
-		return "", fmt.Errorf("no %s release published", channel)
-	}
-	// Sort newest-first via CompareVersions (CalVer+RC ordering).
-	sort.Slice(filtered, func(i, j int) bool {
-		return CompareVersions(filtered[i].TagName, filtered[j].TagName) > 0
-	})
-	return filtered[0].TagName, nil
 }
 
 // ResolveChannelToLatestTag resolves a channel name to the current latest
@@ -375,8 +271,9 @@ func tagNames(tags []GitTag) []string {
 // SEMANTICS PRESERVED EXACTLY, including the one that looks like a bug and is
 // not: the prerelease channel means "latest RC", so it selects ONLY
 // prerelease-shaped tags. A stable tag at HEAD must not beat the newest RC on a
-// release-cutting day — that asymmetry is deliberate and is why the original
-// filtered explicitly instead of using FilterByChannel.
+// release-cutting day — that asymmetry is deliberate, and it is why the API
+// path filtered explicitly rather than reusing its own channel filter, whose
+// prerelease arm returned ALL releases.
 //
 // WHAT IS LOST WITH THE API, stated rather than discovered later: GitHub's
 // DRAFT flag. A draft release publishes NO git tag, so a draft is invisible
@@ -405,57 +302,6 @@ func selectLatestTagFromNames(names []string, channel string) (string, error) {
 		return CompareVersions(filtered[i], filtered[j]) > 0
 	})
 	return filtered[0], nil
-}
-
-// ReleaseSummary returns a human-readable summary of a release.
-func ReleaseSummary(r Release) string {
-	name := r.Name
-	if name == "" {
-		name = r.TagName
-	}
-	pre := ""
-	if r.Prerelease {
-		pre = " (pre-release)"
-	}
-	return fmt.Sprintf("%s%s - %s", name, pre, r.Published.Format("2006-01-02"))
-}
-
-// Commit represents a GitHub commit (for edge channel discovery).
-type Commit struct {
-	SHA     string       `json:"sha"`
-	HTMLURL string       `json:"html_url"`
-	Commit  CommitDetail `json:"commit"`
-}
-
-// CommitDetail is the nested commit info from the GitHub API.
-type CommitDetail struct {
-	Message string `json:"message"`
-}
-
-// FetchCommits queries the GitHub Commits API for recent master commits.
-func FetchCommits(count int) ([]Commit, error) {
-	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/commits?sha=master&per_page=%d", owner, repo, count)
-	req, err := githubRequest("GET", url)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := githubDo(req)
-	if err != nil {
-		return nil, fmt.Errorf("fetch commits: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("GitHub API returned %d: %s", resp.StatusCode, string(body))
-	}
-
-	var commits []Commit
-	if err := json.NewDecoder(resp.Body).Decode(&commits); err != nil {
-		return nil, fmt.Errorf("decode commits: %w", err)
-	}
-	return commits, nil
 }
 
 // CompareVersions returns -1 if a < b, 0 if equal, 1 if a > b.
