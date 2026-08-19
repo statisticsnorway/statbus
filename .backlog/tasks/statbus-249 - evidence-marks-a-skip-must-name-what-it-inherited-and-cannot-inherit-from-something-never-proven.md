@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-19 09:06'
-updated_date: '2026-08-19 10:17'
+updated_date: '2026-08-19 10:29'
 labels:
   - release
   - ci
@@ -193,5 +193,11 @@ author: foreman
 created: 2026-08-19 10:17
 ---
 C1 INCREMENT 1 LANDED as 59d790393 (architect APPROVED — 'correct on every point I checked'). The workflow-identity union is in the library: WorkflowTestUpgrade constant, WorkflowsRunningScenario(home, scenario) with home-identity dedup both directions, ScenarioEvidence unioning per-scenario across identities while whole-suite completeness deliberately does NOT union (evidence.go:213-216 — jobs from two runs must not add up to a completeness nobody achieved); a one-identity error is remembered, the search continues, and it surfaces only if nothing is found anywhere — the reviewer verified the awkward case (A errors, B cleanly empty → the error surfaces, because 'not covered' cannot be claimed having failed to look). Provenance now names WHICH workflow proved a mark. test-install.yaml's job renamed to 0-happy-install — the invisible-smoke-mark defect (comment #7) closed, both smoke halves pinned by test. The architect's own verification of the correction is comment #8's story: the jobs-API measurement was sound ON THE MATRIX and was carried past its scope — 'verify the instrument, then don't carry its result beyond what it was pointed at.' Remaining in C1: the orchestrator rewrite (decision points, SUPERSEDED verdict, chain reorder, tag-to-dev), in progress.
+---
+
+author: mechanic (pinned by foreman)
+created: 2026-08-19 10:29
+---
+INSTALL SMOKE PROVEN POST-RENAME (run 32242166301 at 4e4f124c2, dispatched for this purpose): SUCCESS in 6m47s — notably faster than the upgrade half's 10m57s, as expected (no populate/upgrade phases). Job display name via the jobs API: exactly `0-happy-install` — the rename from C1 increment 1 produces a readable mark, closing comment #7's invisible-smoke-mark defect with a live observation. VM self-cleaned (trap ran before the reap step; hcloud shows zero matching servers). Loop closed: `./sb release covered 0-happy-install 4e4f124c2…` → 'ran and passed at 4e4f124c2', exit 0. BOTH SMOKE HALVES ARE NOW PROVEN BY RUNS — install ~7min, upgrade ~11min — the chain's first joint rests on measured, mark-producing workflows.
 ---
 <!-- COMMENTS:END -->
