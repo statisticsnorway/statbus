@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 20:06'
+updated_date: '2026-08-19 20:37'
 labels:
   - ops
   - security
@@ -26,3 +27,59 @@ Surfaced during the King's 2026-08-19 pushback on STATBUS-258 ("an allowlist see
 
 WHAT IS ACHIEVED: the live inbound-command policy is provably the reviewed one — drift either fails loudly or is impossible, and the last hand-managed security surface joins the ships-as-code doctrine.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect
+created: 2026-08-19 20:37
+---
+DESIGN — the mechanism already exists; what is missing is that sshdoers never joined it.
+
+## THE LEGO DECOMPOSITION
+
+**General part, already built and already sanctioned:** `ops/setup-ubuntu-lts-24.sh` — a repo-tracked, staged, root-run host provisioning script with a non-interactive mode, fetched over https and run with sudo. That is *how root state on these hosts is established*, by design and by documented usage.
+
+**Our composition:** the specific commands our CI is permitted to run on each slot.
+
+**What is missing is not a mechanism. It is that sshdoers was never made a stage of the one we have.** `grep sshdo ops/setup-ubuntu-lts-24.sh` returns nothing — the allowlist was established by hand, outside the path built for exactly this, and its own header records the consequence: *"Managed by hand."*
+
+So the fix is not to invent a delivery mechanism. **It is to add a stage that renders `/etc/sshdoers` from `ops/<host>/sshdoers`**, which is already the repo layout (`ops/niue/sshdoers`, with standalone hosts free to carry their own).
+
+## WHY NOT PUT IT IN `./sb`
+
+Because that is the STATBUS-258 error again. A statistical office installing StatBus has no CI door and never will; a `./sb` subcommand for rendering a CI allowlist would put our fleet's arrangement into every installation in the world. **The allowlist is ops territory, not product territory**, and `ops/` is where our fleet's compositions belong. I am stating this explicitly because it is the exact trap I fell into yesterday and the King will be reading for it.
+
+## BOOTSTRAP — there is no new hand-touch
+
+The honest question is whether the mechanism's own installation reintroduces the problem. It does not: **`curl … | sudo ./harden.sh` is already the accepted, documented, one-hand-touch for standing up a host.** Adding a stage to it introduces no new class of manual action — it moves the allowlist *into* the action we already accept, and out of the ad-hoc root session we do not.
+
+The stage must be independently runnable (the script is already staged and non-interactive-capable), so an allowlist change does not require re-running host hardening in full on a live box.
+
+## DRIFT DETECTION — publish a checksum, not the file
+
+The live file must be checkable, but `/etc/sshdoers` is root-owned and its contents are a security policy no slot user should read. Both constraints are satisfied by publishing a hash rather than the content:
+
+- The stage writes `/etc/sshdoers` (root, restrictive) **and** a world-readable `/etc/sshdoers.sha256` beside it.
+- Anyone — including an unprivileged slot user over the existing read door — can compare that hash to the hash of the repo copy.
+
+**Where it must fail loudly: the release preflight.** That is the moment the door's correctness actually matters, it is a surface somebody reads every single release, and it already refuses on gate failures. A drifted allowlist means the fleet's access policy is not what was reviewed — which is precisely a thing that should stop a release rather than be discovered afterwards.
+
+The check reports what it examined: which host, which hash, and — when they differ — that the LIVE file is authoritative for behaviour while the REPO copy is authoritative for intent, so the operator knows which way to reconcile.
+
+## SEQUENCING WITH 253 / WAVE D
+
+This is the payoff and it should be said plainly: once the stage exists, **the file shrinking as deploy entries die becomes a reviewed commit plus a stage re-run, instead of a root session.** The 253 removals and the Wave D deletions stop needing privileged hands at all — they become diffs, which is what "ships as code" means.
+
+259 lands first; 253's removals then ride it.
+
+## TWO FACTS FOUND WHILE VERIFYING
+
+1. **The header is stale about its own location** — it says *"see tmp/niue-sshdoers in the statbus repo for a copy"* while the file lives at `ops/niue/sshdoers`. Fix it in this unit; a pointer to a path that no longer exists is how the repo copy came to be treated as a souvenir rather than a source.
+2. **STATBUS-258's entry is already expressible.** The file declares `match hexdigits`, where `#` matches any hex digit at runtime — used today for pg_regress's 40-char SHA. So `upgrade apply <40hex>` needs **no new grammar and no new sshdo capability**, only a line. That de-risks 258 materially and is worth knowing before it is built.
+
+## NOT SPECIFIED
+
+Whether other hand-managed root state on these hosts (unit files, ACLs) should join the same stage. Probably yes, and by the same argument — but each deserves its own evidence rather than being swept in on this one's reasoning.
+---
+<!-- COMMENTS:END -->
