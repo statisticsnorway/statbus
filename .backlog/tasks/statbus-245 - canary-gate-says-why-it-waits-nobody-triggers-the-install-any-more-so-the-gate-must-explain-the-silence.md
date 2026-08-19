@@ -3,10 +3,10 @@ id: STATBUS-245
 title: >-
   canary-gate-says-why-it-waits: "not yet" should say whether to wait, watch, or
   investigate
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-19 07:11'
-updated_date: '2026-08-19 10:11'
+updated_date: '2026-08-19 10:18'
 labels:
   - release
   - quality-gate
@@ -44,15 +44,15 @@ WHY THAT HELPS: the operator learns whether to wait, watch, ask a colleague, or 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The gate queries the candidate row by commit and reports its actual state, rather than filtering to completed and reporting absence
-- [ ] #2 Five outcomes are distinguished by name: not offered, offered-awaiting-operator, operator-started, operator-attempt-failed, completed
-- [ ] #3 'Offered, awaiting operator' prints how long it has been waiting and the exact command the operator runs on that box — it reads as a pending human action, not as a malfunction
-- [ ] #4 The same state is read against the slot's role: awaiting-operator is the expected resting state on Norway and a fault on dev, where the chain should already have installed it
-- [ ] #5 A failed, rolled-back, or parked candidate is called out as needing action rather than time, and is never rendered in the same shape as waiting
-- [ ] #6 The refusal reports the box's check interval and last check time so 'not offered' has a duration attached
-- [ ] #7 The wait never times out into a pass — the gate stays refused until a completed row exists
-- [ ] #8 The gate still refuses in every case where it refuses today — this adds explanation, never permission
-- [ ] #9 Every outcome line carries its actionable handle — the exact command to run, the person/place to ask, or the direct link to look at (e.g. the GitHub run, the box's upgrade log) — never a bare state name; the King's test: the reader must end knowing their next move, not merely the system's state
+- [x] #1 The gate queries the candidate row by commit and reports its actual state, rather than filtering to completed and reporting absence
+- [x] #2 Five outcomes are distinguished by name: not offered, offered-awaiting-operator, operator-started, operator-attempt-failed, completed
+- [x] #3 'Offered, awaiting operator' prints how long it has been waiting and the exact command the operator runs on that box — it reads as a pending human action, not as a malfunction
+- [x] #4 The same state is read against the slot's role: awaiting-operator is the expected resting state on Norway and a fault on dev, where the chain should already have installed it
+- [x] #5 A failed, rolled-back, or parked candidate is called out as needing action rather than time, and is never rendered in the same shape as waiting
+- [x] #6 The refusal reports the box's check interval and last check time so 'not offered' has a duration attached
+- [x] #7 The wait never times out into a pass — the gate stays refused until a completed row exists
+- [x] #8 The gate still refuses in every case where it refuses today — this adds explanation, never permission
+- [x] #9 Every outcome line carries its actionable handle — the exact command to run, the person/place to ask, or the direct link to look at (e.g. the GitHub run, the box's upgrade log) — never a bare state name; the King's test: the reader must end knowing their next move, not merely the system's state
 <!-- AC:END -->
 
 ## Comments
@@ -116,5 +116,38 @@ MUST-FIX 1: upgrade_state also carries superseded / skipped / dismissed (service
 MUST-FIX 2: release_canary.go:190 tells the operator to run './sb upgrade apply-latest' — which resolves the LATEST on the channel (upgrade.go:210-232), not the specific rcCommit the gate waits on. The moment a newer RC exists (routine), the instruction installs a DIFFERENT version and the gate still refuses. Must name the candidate: './sb upgrade register <target> && ./sb upgrade schedule <target>' (register accepts tag or 40-char SHA, upgrade.go:77-79). Also aligns the gate with 247's ruled operator action and doc-035's card — as written they would contradict each other in front of the operator.
 
 Re-freeze on those two for immediate turnaround.
+---
+
+author: engineer
+created: 2026-08-19 10:15
+---
+**B1 RE-FROZEN. Both must-fix amendments applied exactly as ruled, each RED-verified. Nothing else changed — the ratified decisions are untouched.** Files: `cli/cmd/release_canary.go`, `cli/cmd/release_canary_test.go`, plus a one-line call-site update in `cli/cmd/release.go` to thread the tag.
+
+**MUST-FIX 1 — three states that were never tried.** Verified at source before editing: `superseded`, `skipped` and `dismissed` are real `upgrade_state` values (service.go:1494's exclusion list; :1707 writes superseded onto an `available` row). All three fell to `default` → `canaryAttemptFailed` → the failure text and its three-step failure archaeology. Now three explicit cases with two new outcomes, each refusing with the TRUE reason:
+- **SUPERSEDED ON THE BOX** — *“The box has MOVED PAST this candidate — a newer one displaced the offer. Nothing was attempted and nothing failed.”* Next move is deciding which candidate you are actually promoting, not reading an upgrade log. The failure-archaeology block is asserted ABSENT here.
+- **SET ASIDE ON THE BOX** (skipped/dismissed) — *“DELIBERATELY SET ASIDE… It is not a failure.”* and it names the reset case explicitly: *“A dev reset dismisses the candidate it reset away from ON PURPOSE, so this can be the healthy end of a recovery rather than a fault.”* That is STATBUS-250's normal operation, which would otherwise make this gate shout that an install failed at every reset.
+- **default stays FAILED** for genuinely unknown states, and a test asserts it still does — the ratified policy is unchanged.
+
+**MUST-FIX 2 — the gate named the wrong version.** Verified: the one-shot command resolves the newest tag on the box's channel (upgrade.go:210-232), not the candidate the gate waits on — so once a newer RC exists, an operator following the instruction installs a different version and the gate keeps refusing for reasons invisible to them. The candidate tag is now threaded from the caller (`latestRC`, already in scope at release.go:1365) and every install instruction NAMES it:
+
+    ssh statbus@rune.statbus.org 'cd statbus && ./sb upgrade register v2026.08.0-rc.09 && ./sb upgrade schedule v2026.08.0-rc.09'
+
+register-then-schedule because schedule requires the candidate row to exist, and register accepts a tag or a full SHA (upgrade.go:77-79). This also puts the gate and the observation card in agreement in front of the same operator. An empty tag renders `<the candidate tag>` rather than a command that would silently mean “latest”.
+
+**ORACLES — both RED-verified as required:**
+1. Disabling the `superseded` case fails with *“renders as a FAILED INSTALL — nothing was tried; the reader is sent to hunt a failure that never happened.”* The same test pins skipped/dismissed, that unknown states still fail, and that neither new outcome can pass the gate.
+2. Reverting the command to latest-on-channel fails across BOTH slots and all three outcomes that print an install instruction: *“the gate must not tell the operator to install the LATEST.”* The test also requires the tag to appear and the register+schedule pair to be present.
+
+**I rendered both new messages and read them** rather than trusting the assertions — same discipline as the first freeze, since the message is the product.
+
+**VERIFY CHAIN:** `go test -count=1 ./...` 12 packages green; `gofmt -l` clean on all three files; `golangci-lint run ./...` 0 issues.
+
+**Unchanged and re-confirmed:** the three ratified calls (parked → FAILED, unknown → FAILED, and the AC#6 honesty wording), the wire format, the topology, and the deploy-branch prohibition — all still pinned and passing.
+---
+
+author: foreman
+created: 2026-08-19 10:18
+---
+B1 LANDED as fa53b1013 (architect APPROVED after the two-amendment cycle; both amendments verified at source). Wave B closes with this. Final shape: seven named outcomes — not-offered, awaiting-operator, started, failed, SUPERSEDED ON THE BOX (:126-131, no failure archaeology, names the real next question: which candidate are you actually promoting), SET ASIDE ON THE BOX (:132-136, names the dev-reset case in the operator message so STATBUS-250's normal operation cannot read as a broken box), completed; default stays FAILED for unknown states. Every instruction names the exact candidate (register <tag> && schedule <tag>, threaded from release.go:1365); an empty tag renders a visible placeholder rather than a command that silently means latest — 'an obviously incomplete instruction beats a plausible wrong one.' Vocabulary RATIFIED with the principle recorded for 246: box-side and chain-side superseded are the same event observed from two subjects; whichever surface can display both must qualify both. All nine ACs closed. The gate's next real exercise is the first post-C1 candidate cut.
 ---
 <!-- COMMENTS:END -->
