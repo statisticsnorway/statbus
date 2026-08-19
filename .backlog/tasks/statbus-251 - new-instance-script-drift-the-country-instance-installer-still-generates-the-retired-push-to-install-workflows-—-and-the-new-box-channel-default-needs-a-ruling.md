@@ -7,6 +7,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 09:54'
+updated_date: '2026-08-19 09:56'
 labels:
   - ops
   - release
@@ -39,3 +40,15 @@ WHAT IS ACHIEVED: creating a new instance produces a box that matches the approv
 - [ ] #2 The new-box channel default is ruled and encoded: stable unless explicitly designated a canary
 - [ ] #3 The doc/CLOUD.md runbook steps match the script's actual behavior
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect (pinned by foreman)
+created: 2026-08-19 09:56
+---
+CHANNEL-DEFAULT RULED (architect, during the A2 review — folds into this entry's item 2, no King time needed as it directly applies his approved 248/250 rulings): the standalone default becomes STABLE. Under 248 only a role-assigned canary runs candidates — Norway is an exception to be CONFIGURED, never defaulted into. This matters more than it looks: standalone is the shape external customers install, and a prerelease default means a statistical office runs release candidates by default — the opposite of the channel's purpose. INTERIM EDGE (same as the King's 250 ruling): until a stable exists in the current line, prerelease remains the fallback — which is almost certainly why the default reads as it does today.
+
+ALSO FROM THE A2 REVIEW, the finding that reshapes 244's tail: deploy-to-{et,jo,ma,tcc,ug} still exist as live push paths to real NSO installations — the architect's own AC#4 enumerated only demo/no ("an enumeration is a premise, not a fact — including my own", third instance this week). Their deletion is CORRECT but MUST FOLLOW Wave D1's channel confirmation — deleting a live NSO box's only receive-path before proving its channel works could strand it, and a box on a wrong channel looks identical to a box with nothing to do. Filed as a Wave D unit dependent on D1; the A2 landing carries a transitional doc paragraph naming this explicitly.
+---
+<!-- COMMENTS:END -->
