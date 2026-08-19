@@ -423,7 +423,11 @@ BROWSER_REST_URL=https://statbus-test.local
 SERVER_REST_URL=http://proxy:80
 DEBUG=false
 PUBLIC_DEBUG=false
-UPGRADE_CHANNEL=stable
+# STATBUS-254: declare what the box IS; the channel is derived from it.
+# production -> stable, which is what this harness wants even though the box
+# runs in development MODE (the upgrade axis is deliberately decoupled from the
+# front-door mode — STATBUS-106), so migrationChannelClass stays channelRelease.
+UPGRADE_ROLE=production
 ENVCONFIG
     scp -O "${SSH_OPTS[@]}" "$env_config_file" root@"$ip":/tmp/env-config
     ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0644 /tmp/env-config'

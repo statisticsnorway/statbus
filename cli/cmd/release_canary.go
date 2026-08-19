@@ -226,7 +226,14 @@ func printCanaryExplanation(slot canarySlot, outcome canaryOutcome, probe canary
 		if slot.role == roleOperator {
 			fmt.Printf("      Your next move: wait for the next discovery tick, or make it check now:\n")
 			fmt.Printf("        ssh %s 'cd statbus && ./sb upgrade check && ./sb upgrade list'\n", slot.sshTarget)
-			fmt.Printf("      If it still does not appear, the release may not be published on this box's channel — check with `ssh %s 'cd statbus && ./sb upgrade channel'`.\n", slot.sshTarget)
+			// Read the RUNNING service, not .env: loadConfig() runs only at
+			// daemon startup, so the file can say one thing while the live
+			// service still follows the old channel — and a grep of the file
+			// then falsely confirms the box is fine. (The old hint here named
+			// `./sb upgrade channel` with no argument, which could only ever
+			// have errored; it required one.)
+			fmt.Printf("      If it still does not appear, the release may not be published on this box's channel — check what the RUNNING service follows with\n"+
+				"      `ssh %s \"journalctl --user -u statbus-upgrade@\\$USER | grep 'Upgrade service started' | tail -1\"`.\n", slot.sshTarget)
 		} else {
 			fmt.Printf("      This slot is installed by the release chain, so 'not offered' points at the CHAIN, not at the box.\n")
 			fmt.Printf("      Your next move: look at %s\n", slot.askWho)

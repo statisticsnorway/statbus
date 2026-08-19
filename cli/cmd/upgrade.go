@@ -516,38 +516,63 @@ var upgradeSelfRollbackCmd = &cobra.Command{
 	},
 }
 
-var upgradeChannelCmd = &cobra.Command{
-	Use:   "channel <stable|prerelease|edge>",
-	Short: "Set the upgrade channel and apply the change",
-	Long: `Changes the upgrade channel in .env.config, regenerates .env,
-and restarts the upgrade service to pick up the new channel.
+// upgradeRoleCmd replaces the former `upgrade channel` command (STATBUS-254).
+//
+// It is a clean break, not a rename: the old command set the CHANNEL, and the
+// channel is no longer settable. Setting it is how five statistical offices'
+// production installations ended up following release candidates — a value
+// written once, remembered forever, recomputed by nothing. What an operator
+// states now is what the box IS; what it follows is derived from that on every
+// config generate, so a policy change reaches the whole fleet.
+var upgradeRoleCmd = &cobra.Command{
+	Use:   "role <production|canary|development>",
+	Short: "Declare what this box is, and apply the resulting channel",
+	Long: `Declares this box's upgrade role in .env.config, regenerates .env
+(which derives UPGRADE_CHANNEL from the role), and restarts the upgrade service
+so the running daemon picks the change up.
 
-Channels:
-  stable      Only stable releases (default for production)
-  prerelease  All releases including release candidates
-  edge        Every master commit (development servers only)`,
+Roles:
+  production   An ordinary installation. Follows blessed releases. Every
+               statistical office's box is this.
+  canary       Takes release candidates FIRST, deliberately, so a bad candidate
+               is found on a box we own rather than in a statistical office.
+  development  A developer's own machine. Follows nothing automatically.
+
+The channel is NOT set here, and cannot be set in .env.config at all — it is a
+consequence of the role, recomputed every time. That is the point: the previous
+design stored a channel that outlived the policy which chose it.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		channel := args[0]
-		switch channel {
-		case "stable", "prerelease", "edge":
-		default:
-			return fmt.Errorf("invalid channel %q (must be stable, prerelease, or edge)", channel)
+		role := config.UpgradeRole(args[0])
+		channel, err := config.ChannelForRole(role)
+		if err != nil {
+			return err
 		}
 
 		projDir := config.ProjectDir()
 
-		// 1. Update .env.config
+		// 1. Update .env.config — the role is the declaration, so it IS stored.
 		configPath := filepath.Join(projDir, ".env.config")
 		f, err := dotenv.Load(configPath)
 		if err != nil {
 			return fmt.Errorf("load .env.config: %w", err)
 		}
-		f.Set("UPGRADE_CHANNEL", channel)
+		f.Set(config.UpgradeRoleKey, string(role))
+		// A stale UPGRADE_CHANNEL alongside it would make the very next config
+		// generate refuse (correctly — it cannot tell a leftover from a hand-set
+		// override). Removing it here is not self-healing an operator's input:
+		// this command IS the operator stating their intent, and the key is not
+		// an input any more.
+		if _, had := f.Get(config.UpgradeChannelKey); had {
+			f.Delete(config.UpgradeChannelKey)
+			fmt.Printf("Removed %s from .env.config — it is derived from %s now.\n",
+				config.UpgradeChannelKey, config.UpgradeRoleKey)
+		}
 		if err := f.Save(); err != nil {
 			return fmt.Errorf("save .env.config: %w", err)
 		}
-		fmt.Printf("Set UPGRADE_CHANNEL=%s in .env.config\n", channel)
+		fmt.Printf("Set %s=%s in .env.config (this box will follow the %q channel)\n",
+			config.UpgradeRoleKey, role, channel)
 
 		// 2. Regenerate .env
 		sb := filepath.Join(projDir, "sb")
@@ -559,18 +584,33 @@ Channels:
 			return fmt.Errorf("config generate: %w", err)
 		}
 
-		// 3. Restart service via NOTIFY (service re-reads config on reconnect)
-		// Send a signal to make the service reload — simplest is to kill it
-		// and let systemd restart it with the new config.
+		// 3. Restart the service. THE RESTART IS REQUIRED, not a nicety:
+		// loadConfig() runs only from the daemon's startup paths, so the channel
+		// is cached for the process lifetime. Without this, .env says one thing
+		// while the running service keeps offering the old channel — and a grep
+		// of the file falsely confirms "fixed". (Verified during the STATBUS-254
+		// fleet correction, where reading the file rather than the running
+		// service would have reported success on all seven boxes.)
+		//
+		// --user, not system: the unit is statbus-upgrade@<user> at USER level.
+		// The old invocation omitted it and would have needed a sudo the devops
+		// account does not have — so this "not fatal" branch was the normal path
+		// rather than the exception.
 		fmt.Println("Restarting upgrade service...")
-		restartCmd := exec.Command("systemctl", "restart",
+		restartCmd := exec.Command("systemctl", "--user", "restart",
 			fmt.Sprintf("statbus-upgrade@%s.service", os.Getenv("USER")))
 		if err := restartCmd.Run(); err != nil {
-			// Not fatal — user may not have systemctl access
-			fmt.Printf("Could not restart service (try: sudo systemctl restart statbus-upgrade@%s): %v\n",
-				os.Getenv("USER"), err)
+			// Not fatal — a developer machine has no such unit at all. But say
+			// plainly that the change has NOT taken effect yet, because a
+			// half-applied change that reads as done is the failure this whole
+			// ticket is about.
+			fmt.Printf("Could not restart the upgrade service: %v\n", err)
+			fmt.Printf("THE RUNNING SERVICE IS STILL ON THE OLD CHANNEL until it restarts.\n"+
+				"On a deployed box: systemctl --user restart statbus-upgrade@%s\n"+
+				"On a developer machine there is no such service, and nothing more is needed.\n",
+				os.Getenv("USER"))
 		} else {
-			fmt.Println("Service restarted with new channel")
+			fmt.Printf("Service restarted — now following the %q channel\n", channel)
 		}
 
 		return nil
@@ -916,7 +956,7 @@ func init() {
 	upgradeCmd.AddCommand(upgradeListCmd)
 	upgradeCmd.AddCommand(upgradeScheduleCmd)
 	upgradeCmd.AddCommand(upgradeApplyLatestCmd)
-	upgradeCmd.AddCommand(upgradeChannelCmd)
+	upgradeCmd.AddCommand(upgradeRoleCmd)
 	upgradeCmd.AddCommand(upgradeServiceCmd)
 	upgradeSelfVerifyCmd.Flags().StringVar(&selfVerifyExpectCommit, "expect-commit", "",
 		"assert this binary embeds the given target commit (used by the upgrade self-update; STATBUS-171)")

@@ -90,6 +90,11 @@ type ConfigEnv struct {
 	TlsKeyFile           string
 	AptUseHttpsOnly      string
 	AdministratorContact string
+	// UpgradeRole is what the box IS (declared in .env.config); UpgradeChannel
+	// is what that role currently follows (DERIVED on every config generate,
+	// never stored as an input). STATBUS-254.
+	UpgradeRole    UpgradeRole
+	UpgradeChannel string
 }
 
 // DbMemory holds derived PostgreSQL memory tuning values.
@@ -395,16 +400,30 @@ func loadOrGenerateConfig(projDir string, verbose bool) (*ConfigEnv, error) {
 		AdministratorContact:     gen("ADMINISTRATOR_CONTACT", ""),
 	}
 
-	// UPGRADE_CHANNEL defaults by deployment mode (the upgrade axis, decoupled
-	// from the front-door deployment mode — STATBUS-106): development → "local"
-	// (the box's migration-fix logic never auto-mutates; it stops for a human),
-	// non-development → "stable" (blesses sanctioned migration-fixes). Always
-	// written so migrationChannelClass classifies on UPGRADE_CHANNEL alone.
-	upgradeChannelDefault := "stable"
-	if mode == "development" {
-		upgradeChannelDefault = "local"
+	// UPGRADE_ROLE — what this box IS — is declared here; UPGRADE_CHANNEL is
+	// DERIVED from it and written to the generated .env only (STATBUS-254).
+	//
+	// Note this is deliberately NOT a gen() call. gen preserves an existing
+	// value forever, which is correct for a declaration but was catastrophic for
+	// the channel: five production installations followed release candidates for
+	// two months because the value was written once and never recomputed. The
+	// full reasoning is in upgrade_role.go.
+	upgradeRole, roleNotice, err := ResolveUpgradeRole(f, mode)
+	if err != nil {
+		// A refusal, not a warning. The whole failure this ticket exists for was
+		// a channel that nobody could see was wrong; continuing past a
+		// contradictory declaration would reproduce exactly that.
+		return nil, err
 	}
-	gen("UPGRADE_CHANNEL", upgradeChannelDefault)
+	if roleNotice != "" {
+		fmt.Fprint(os.Stderr, roleNotice)
+	}
+	upgradeChannel, err := ChannelForRole(upgradeRole)
+	if err != nil {
+		return nil, err
+	}
+	cfg.UpgradeRole = upgradeRole
+	cfg.UpgradeChannel = upgradeChannel
 
 	// UPGRADE_CALLBACK (STATBUS-131): shell command invoked on install
 	// completion and on every upgrade start/success/failure/park event
@@ -777,15 +796,17 @@ PUBLIC_STATBUS_COMMIT_SHORT=%[23]s
 			return fallback
 		}
 		fmt.Fprintf(&b, "\n# Upgrade service configuration\n")
-		// UPGRADE_CHANNEL fallback is mode-aware, matching the .env.config default
-		// in loadOrGenerateConfig (STATBUS-106): development → "local", non-
-		// development → "stable". One consistent rule across both write paths, so a
-		// box never silently defaults to "stable" when its declared channel is local.
-		upgradeChannelFallback := "stable"
-		if cfg.CaddyDeploymentMode == "development" {
-			upgradeChannelFallback = "local"
-		}
-		fmt.Fprintf(&b, "UPGRADE_CHANNEL=%s\n", getOrDefault("UPGRADE_CHANNEL", upgradeChannelFallback))
+		// UPGRADE_CHANNEL is DERIVED from UPGRADE_ROLE (STATBUS-254) and written
+		// ONLY here, into the generated .env. It is deliberately not read back
+		// from .env.config: that read is what let a stale value outlive the
+		// policy that set it, on five production installations, for two months.
+		//
+		// The role is resolved once in loadOrGenerateConfig, which refuses on a
+		// contradictory or unknown declaration — so by the time this runs, the
+		// channel is a computed consequence with nowhere to drift.
+		fmt.Fprintf(&b, "# Derived from %s=%s — set the role in .env.config, not this key.\n",
+			UpgradeRoleKey, cfg.UpgradeRole)
+		fmt.Fprintf(&b, "UPGRADE_CHANNEL=%s\n", cfg.UpgradeChannel)
 		fmt.Fprintf(&b, "UPGRADE_CHECK_INTERVAL=%s\n", getOrDefault("UPGRADE_CHECK_INTERVAL", "6h"))
 		fmt.Fprintf(&b, "UPGRADE_AUTO_DOWNLOAD=%s\n", getOrDefault("UPGRADE_AUTO_DOWNLOAD", "true"))
 		// UPGRADE_CALLBACK (STATBUS-131): shell command invoked on install

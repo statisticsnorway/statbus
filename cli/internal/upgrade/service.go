@@ -3495,7 +3495,19 @@ func (d *Service) loadConfig() error {
 	if v, ok := f.Get("UPGRADE_CHANNEL"); ok {
 		d.channel = v
 	} else {
+		// STATBUS-254: config generate writes this key unconditionally, deriving
+		// it from UPGRADE_ROLE. So its absence means .env was hand-edited or is
+		// stale — and a daemon that quietly assumes "stable" here is the same
+		// invisible-wrong-channel failure this ticket exists to remove, just
+		// moved one layer down.
+		//
+		// It still starts: a box with no upgrade service is worse than one on a
+		// conservative channel. But it says so, loudly, naming the fix.
 		d.channel = "stable"
+		fmt.Fprintf(os.Stderr, "WARN: UPGRADE_CHANNEL is missing from .env — assuming %q.\n"+
+			".env is a GENERATED file; run `./sb config generate` to derive the channel from\n"+
+			"UPGRADE_ROLE in .env.config. Until then this service may be following a channel\n"+
+			"this box was never meant to follow.\n", d.channel)
 	}
 
 	intervalStr := "6h"

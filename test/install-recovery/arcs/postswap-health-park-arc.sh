@@ -28,8 +28,8 @@
 # sketched "C = B with the app change reverted" as an in-place edit to V2 (mirror
 # the "working" spec's own C-construction: same version, new bytes). That is
 # ILLEGAL here — V2 SUCCEEDED, so it is an already-applied, immutable migration;
-# on a release-channel box (these harness VMs: CADDY_DEPLOYMENT_MODE=standalone →
-# UPGRADE_CHANNEL defaults "stable" → migrationChannelClass=channelRelease),
+# on a release-channel box (these harness VMs declare UPGRADE_ROLE=production →
+# derived UPGRADE_CHANNEL="stable" → migrationChannelClass=channelRelease),
 # migrate.go's content_hash mismatch handler for channelRelease BLESSES (re-stamps,
 # never re-runs — migrate.go:1662-1685) an in-place edit, so auth_status would stay
 # broken forever and step 5 below would wedge for an unrelated-looking reason. The

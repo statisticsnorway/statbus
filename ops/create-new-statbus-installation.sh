@@ -22,21 +22,30 @@ DOMAIN="${DEPLOYMENT_SLOT_CODE}.statbus.org"
 DEPLOYMENT_USER="statbus_${DEPLOYMENT_SLOT_CODE}"
 HOST="niue.statbus.org"
 
-# TARGET_CHANNEL (STATBUS-251): a new country instance is an ordinary
-# production slot — it belongs on the stable channel and follows releases on
-# its own (STATBUS-248), never on a push. INTERIM EDGE: until a stable
-# release exists in this line, prerelease remains the fallback (same as the
-# King's STATBUS-250 ruling) — announced once below, never silently
-# self-corrected; STATBUS-248's recurring role-correct-channel check is what
-# catches it if nobody moves the box once a stable ships.
+# TARGET_ROLE (STATBUS-251, reshaped by STATBUS-254): a new country instance is
+# an ordinary production slot — it follows releases on its own (STATBUS-248),
+# never on a push.
+#
+# What this sets is now the box's ROLE, not its channel. The channel is DERIVED
+# from the role on every `./sb config generate` (cli/internal/config/
+# upgrade_role.go), so a value written here can no longer outlive the policy
+# that set it — which is exactly what happened to five statistical offices'
+# installations, which sat on the prerelease channel for two months because the
+# channel was written once at creation and nothing recomputed it.
+TARGET_ROLE=production
+
+# The old interim branch here set the channel to prerelease when no stable
+# release existed yet in the line. That is no longer a per-box setting to make:
+# "what an ordinary installation follows" is one policy decision, answered in
+# one table, for the whole fleet. A stable line exists today, so the branch was
+# already dead — but the condition is still worth ANNOUNCING, because it tells
+# the operator there may be nothing for this box to install yet.
 git fetch --tags --quiet
-if git tag -l 'v*' --sort=-version:refname | grep -qv -- '-rc\.'; then
-    TARGET_CHANNEL=stable
-else
-    TARGET_CHANNEL=prerelease
-    echo "NOTE: no stable release exists yet in this line, so this instance starts on the"
-    echo "      prerelease channel. It must move to stable once the first stable ships."
-    echo "      STATBUS-248's role-correct-channel check is what will catch it if nobody does."
+if ! git tag -l 'v*' --sort=-version:refname | grep -qv -- '-rc\.'; then
+    echo "NOTE: no stable release exists yet in this line. This instance is a production"
+    echo "      installation and will follow the stable channel, so it will have nothing"
+    echo "      to install until the first stable ships. That is the correct state, not a"
+    echo "      misconfiguration — do not move the box to prerelease to work around it."
 fi
 
 # =============================================================================
@@ -102,7 +111,7 @@ fi
 echo "Authorizing on $DEPLOYMENT_USER@$HOST:"
 echo "  GITHUB_USERS:       ${GITHUB_USERS:-<empty>}"
 echo "  GITHUB_DEPLOY_KEYS: ${GITHUB_DEPLOY_KEYS:-<empty>}"
-echo "  UPGRADE_CHANNEL:    $TARGET_CHANNEL"
+echo "  UPGRADE_ROLE:       $TARGET_ROLE"
 
 # Verify DNS setup
 echo "Verifying DNS setup..."
@@ -358,13 +367,21 @@ ssh $DEPLOYMENT_USER@$HOST bash << UPDATE_SETTINGS
         echo "Slot code is already $DEPLOYMENT_SLOT_CODE"
     fi
 
-    # Set upgrade channel (STATBUS-251) — OVERWRITE, not set-if-missing: a
-    # wrong value (e.g. the mode-aware default written by an earlier
-    # config generate) may already be present.
-    current_channel=\$(grep '^UPGRADE_CHANNEL=' .env.config | cut -d'=' -f2)
-    if [ "\$current_channel" != "$TARGET_CHANNEL" ]; then
-        sed -i "s/UPGRADE_CHANNEL=.*/UPGRADE_CHANNEL=$TARGET_CHANNEL/" .env.config
-        echo "Set UPGRADE_CHANNEL=$TARGET_CHANNEL (was: \${current_channel:-unset})"
+    # Declare the box's upgrade ROLE (STATBUS-251, reshaped by STATBUS-254) —
+    # OVERWRITE, not set-if-missing: a wrong value may already be present, and
+    # set-if-missing is the exact behaviour that let stale values survive.
+    #
+    # UPGRADE_CHANNEL is NOT written here. It is derived from this role into the
+    # generated .env by `./sb config generate`; writing it into .env.config
+    # would now be refused by that command, on purpose.
+    current_role=\$(grep '^UPGRADE_ROLE=' .env.config | cut -d'=' -f2)
+    if [ "\$current_role" != "$TARGET_ROLE" ]; then
+        if [ -n "\$current_role" ]; then
+            sed -i "s/UPGRADE_ROLE=.*/UPGRADE_ROLE=$TARGET_ROLE/" .env.config
+        else
+            echo "UPGRADE_ROLE=$TARGET_ROLE" >> .env.config
+        fi
+        echo "Set UPGRADE_ROLE=$TARGET_ROLE (was: \${current_role:-unset})"
     fi
 
     # Only update URLs if different

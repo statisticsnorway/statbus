@@ -219,6 +219,24 @@ func (f *File) Export() {
 
 // Generate sets key to the result of fn() only if the key doesn't already exist.
 // Returns the value (existing or newly generated).
+//
+// SO IT PRESERVES AN EXISTING VALUE FOREVER. That is right for a DECLARATION —
+// a password, a slot code, a statement of what this box is — which should
+// survive every regenerate untouched.
+//
+// It is wrong, and expensive, for a value that must follow POLICY. Such a value
+// has to be DERIVED on every run instead, or a box keeps whatever it was born
+// with: no reinstall, no regenerate, and no later change to the correct default
+// will ever reach it.
+//
+// We know this because UPGRADE_CHANNEL was written through here. Five
+// statistical offices' production installations followed release CANDIDATES for
+// two months — the default had changed and not one box noticed, because this
+// function had already answered. It is now derived from UPGRADE_ROLE; see
+// internal/config/upgrade_role.go (STATBUS-254).
+//
+// Before adding a key here, ask which of the two it is. If we might ever want
+// to change its value fleet-wide, it does not belong in this tier.
 func (f *File) Generate(key string, fn func() (string, error)) (string, error) {
 	if l, ok := f.mapping[key]; ok {
 		return l.value, nil

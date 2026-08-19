@@ -217,7 +217,7 @@ Use the automated installation script from your local machine:
 
 This script will:
 1. Verify DNS setup (pk.statbus.org, api.pk.statbus.org, www.pk.statbus.org)
-2. Set the instance's upgrade channel (`stable`; `prerelease` only until the first stable release exists). A new country instance is an ordinary production slot — it follows releases on its own and gets no push-triggered workflow and no deploy branch.
+2. Declare the instance's upgrade ROLE (`UPGRADE_ROLE=production`). A new country instance is an ordinary production slot — it follows releases on its own and gets no push-triggered workflow and no deploy branch. The channel it follows (`stable`) is derived from the role on every `./sb config generate`, so it cannot drift out of date the way a stored channel could (STATBUS-254).
 3. Create Linux user `statbus_pk` on niue.statbus.org
 4. Add user to docker group
 5. Configure SSH access for SSB GitHub users (jhf, hhz)
@@ -244,7 +244,7 @@ www.pk.statbus.org    A/CNAME → niue.statbus.org
 
 #### Step 2 (retired, STATBUS-244): no GitHub deployment key, no workflow files, no deploy branch
 
-The old Steps 2-4 (add a GitHub deployment key, commit `master-to-pk.yaml` + `deploy-to-pk.yaml`, push a deployment branch) are **retired** — only a named release candidate may reach an installation, so a new slot gets no push-triggered path at all. `UPGRADE_CHANNEL=stable` is already the default for any non-development box (`cli/internal/config/config.go:403-407`), so no explicit setting is needed; its upgrade service then discovers, registers, schedules, and installs releases on its own, without anyone pushing anything (STATBUS-248). Confirm the channel on the box rather than assuming the default — see STATBUS-248's own verification rule.
+The old Steps 2-4 (add a GitHub deployment key, commit `master-to-pk.yaml` + `deploy-to-pk.yaml`, push a deployment branch) are **retired** — only a named release candidate may reach an installation, so a new slot gets no push-triggered path at all. `UPGRADE_ROLE=production` derives the `stable` channel on every config generate (`cli/internal/config/upgrade_role.go`), so no channel setting is needed or possible; its upgrade service then discovers, registers, schedules, and installs releases on its own, without anyone pushing anything (STATBUS-248). Confirm the channel on the box rather than assuming it — and confirm it by reading the RUNNING service (`journalctl --user -u statbus-upgrade@$USER | grep 'Upgrade service started'`), not the file: the daemon loads its config only at startup, so a file that says `stable` proves nothing until the service has restarted.
 
 #### Step 5: Configure Users
 
@@ -736,7 +736,7 @@ The high-level shape (concrete walkthrough belongs in the per-host bootstrap pla
 1. Provision the box. Install Ubuntu 24.04 LTS with the desired filesystem (mdadm RAID where applicable; XFS recommended for `/`).
 2. Run `ops/setup-ubuntu-lts-24.sh` as root/sudo — creates `devops` + `statbus` accounts, hardens OS. `SKIP_STAGES="0"` if the network allows HTTP.
 3. Bootstrap StatBus as the service account: `ssh statbus@<host>` then `curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease`.
-4. Author `.env.config` with `CADDY_DEPLOYMENT_MODE=standalone`, `SITE_DOMAIN=<the public domain>`, `UPGRADE_CHANNEL=prerelease`, plus `SEQ_API_KEY` / `SLACK_TOKEN` copied from an existing instance for observability continuity.
+4. Author `.env.config` with `CADDY_DEPLOYMENT_MODE=standalone`, `SITE_DOMAIN=<the public domain>`, `UPGRADE_ROLE=<production|canary>`, plus `SEQ_API_KEY` / `SLACK_TOKEN` copied from an existing instance for observability continuity. Use `canary` ONLY for a box we deliberately expose to release candidates first (Norway); an ordinary customer standalone is `production`.
 
    **Flagged, not settled (STATBUS-244a sweep):** steps 3-4's `prerelease` default predates the topology where Norway is named as THE single human canary (STATBUS-247). A NEW standalone box that is not itself a designated canary would, by that same logic, be an ordinary installation and belong on `stable` (STATBUS-248) — but nobody has ruled on that for a hypothetical future box, so the instruction is left as `prerelease` here rather than changed unilaterally. Confirm the intended role before provisioning the next one.
 5. Retired (STATBUS-244): no `deploy-to-<host>-<slot>.yaml` / `master-to-<host>-<slot>.yaml` pair, no `ops/standalone/deploy/<host>-<slot>` branch. Only a named release candidate may reach an installation; the box's own upgrade service (channel set in step 4) discovers, registers, schedules, and installs on its own.
