@@ -4,10 +4,10 @@ title: >-
   poll-errexit: the poll step dies of the wrapper's bash -e — `set -uo pipefail`
   does not clear it, so the first "pending" tick kills the loop with its own
   code 20
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-08-20 06:35'
-updated_date: '2026-08-20 06:46'
+updated_date: '2026-08-20 06:50'
 labels:
   - ci
   - release-chain
@@ -95,4 +95,18 @@ RULINGS FOR LATER, pinned so they are not lost:
 
 VERIFICATION NEXT (architect-ruled partial oracle): dispatch deploy-to-dev with the SAME sha (bba72a4a57d0…). Dev already converged, so a green proves the step no longer dies and the COMPLETED arm reads correctly; the PENDING loop — the code that died — stays UNPROVEN until the next cut's live run and is recorded as such.
 ---
+
+author: foreman
+created: 2026-08-20 06:50
+---
+VERIFICATION RUN GREEN — run 32341044889, dispatched with the same rc.09 candidate sha at master tip 9fc8bf33b (carrying the fix). Evidence from the log: apply-latest ran idempotently and emitted deployed_commit=bba72a4a5… == REQUESTED_SHA (guard equal); the poll's first tick read `completed|false|`, ENTERED THE CASE STATEMENT — the code errexit made unreachable — took the 0-arm, printed "deploy converged: completed|false|" and "GREEN — bba72a4a5… reached 'completed' on dev.", exited 0.
+
+ARM ACCOUNTING, as the architect required: this proves the step survives a non-fatal capture and reads the COMPLETED arm correctly. The PENDING loop (repeated 20-ticks under budget) and the 10-arm remain UNPROVEN until the next cut's live chain run — recorded here so this green is never read as "the poll leg is proven". That proof rides the rc.10 chain.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The rc.09 chain's red was one shell line: GitHub wraps every workflow step in bash -e, `set -uo pipefail` does not clear it, and `out="$(poll)"; rc=$?` died on the first pending tick with the poll's own code 20. Fixed at 8e0a24c69 with `rc=0; out="$(…)" || rc=$?` at both capture sites in deploy-to-dev.yaml (poll + poke, whose loud-error branch was dead the same way), the exit-code-as-data reasoning at the line, and both deliberate divergences from the six condemned copies recorded at the rider. Proved under a real bash -e wrapper before landing, then by dispatch run 32341044889: the poll entered its case statement and read dev's converged state correctly. Pending/10-arm proof deliberately recorded as riding the next cut. Audit: orchestrator sites guarded (safe), arc-harness :910 fragile-but-safe (idiom lands in its own unit, note at the helper), five of six condemned copies carry the same bug unguarded — an argument for Wave D landing sooner.
+<!-- SECTION:FINAL_SUMMARY:END -->
