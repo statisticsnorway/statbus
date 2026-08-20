@@ -3,10 +3,11 @@ id: STATBUS-259
 title: >-
   sshdoers-ships-as-code: the fleet's inbound-command policy is hand-managed
   root state on niue — the one security surface that does not ship as code
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - engineer
 created_date: '2026-08-19 20:06'
-updated_date: '2026-08-19 20:37'
+updated_date: '2026-08-20 06:06'
 labels:
   - ops
   - security
@@ -81,5 +82,18 @@ This is the payoff and it should be said plainly: once the stage exists, **the f
 ## NOT SPECIFIED
 
 Whether other hand-managed root state on these hosts (unit files, ACLs) should join the same stage. Probably yes, and by the same argument — but each deserves its own evidence rather than being swept in on this one's reasoning.
+---
+
+author: foreman
+created: 2026-08-20 06:06
+---
+KING APPROVAL (2026-08-20 morning) — the design in comment #1 is approved as ratified, exactly as written: /etc/sshdoers becomes a stage of ops/setup-ubuntu-lts-24.sh (the existing repo-tracked root provisioning path), independently runnable; a world-readable /etc/sshdoers.sha256 is published beside the root-owned file; drift FAILS THE RELEASE PREFLIGHT; explicitly NOT a ./sb subcommand (the product must not know CI doors). The existing `match hexdigits` grammar means 258's future `upgrade apply <40hex>` entry is one line.
+
+Execution order pinned by the King:
+1. Engineer builds the stage + the preflight drift check (this ticket).
+2. The FIRST stage run on niue requires the King's root session — the exact command list must be pre-declared per the standing box-access rule.
+3. Only after the stage is live does deploy-to-dev's marked block swap apply-latest → upgrade apply "$SHA".
+
+Architect verdict required on the diff before landing, as always.
 ---
 <!-- COMMENTS:END -->
