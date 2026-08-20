@@ -7,6 +7,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-20 06:35'
+updated_date: '2026-08-20 06:38'
 labels:
   - ci
   - release-chain
@@ -37,3 +38,15 @@ VERIFICATION: the run is the only oracle on chain yaml. After the fix lands on m
 
 WHAT IS ACHIEVED: the chain's convergence verdict on dev actually comes from the poll loop's contract, not from whichever tick happens to return first.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-08-20 06:38
+---
+DEV CONVERGED on rc.09 at ~06:39Z — the byte-pinned status read (same command CI runs) returned exit 0, `completed|false|`. So the box side of the whole 260 transport is PROVEN end to end: explicit dispatch → poke → named candidate resolved (DEPLOYED_COMMIT == REQUESTED_SHA) → installed → converged. The only broken link was the chain's poll, dead of the wrapper errexit one second in.
+
+This also makes post-fix verification cheap: once the fix lands on master, dispatching deploy-to-dev with the SAME sha (bba72a4a57d08b43f6bf983be2606f45c7fe3cf3) should poke (idempotent — candidate already completed), poll a converged state, and go green in one tick — proving the loop's 0-arm against real state. The 10/20-arm behaviour is then proven by the next cut's live run.
+---
+<!-- COMMENTS:END -->
