@@ -144,10 +144,19 @@ jobs:
           echo "::group::Run apply-latest on statbus_dev"
           # STATBUS-170: capture apply-latest stdout so the poll step learns the EXACT
           # deployed commit (it emits `deployed_commit=<40hex>` after resolving the target).
-          out="$(ssh_dev "cd ~/statbus && ./sb upgrade apply-latest")"; rc=$?
+          # ERREXIT (STATBUS-261): capture with `|| rc=$?`, never a bare
+          # assignment. GitHub runs every step under `bash -e {0}`, so
+          # `out="$(cmd)"; rc=$?` DIES on the assignment the moment cmd fails —
+          # the step exits with cmd's code and the next line never runs. That
+          # made the loud error below DEAD CODE: a remote failure exited the step
+          # silently with the ssh status, and the diagnostic written for exactly
+          # that case could never print. A dead diagnostic is worse than none,
+          # because its presence reads as evidence the case is handled.
+          rc=0
+          out="$(ssh_dev "cd ~/statbus && ./sb upgrade apply-latest")" || rc=$?
           printf '%s\n' "$out"
           echo "::endgroup::"
-          [ "$rc" -eq 0 ] || { echo "::error::apply-latest failed on remote"; exit 1; }
+          [ "$rc" -eq 0 ] || { echo "::error::apply-latest failed on remote (exit $rc)"; exit 1; }
           # STATBUS-260: the emit is now a GUARD, not the poll's source.
           #
           # It used to be both: the poll asked "did the box converge on whatever
@@ -218,12 +227,27 @@ jobs:
         # Now the step above WARNS that the requested-vs-installed comparison could not
         # run, and convergence is still fully verified here against the requested commit.
         #
-        # DELIBERATE DIVERGENCE FROM THE OTHER SIX deploy-to-*.yaml: they still poll the
-        # box's own emit. That is intentional and must not be "consolidated" away — those
-        # workflows are queued for deletion behind STATBUS-248's Wave D channel
-        # confirmation, and their boxes are opt-in human rather than chain-driven, so the
-        # self-referential read costs them nothing. Dev is the only chain-driven box, and
-        # the only one where the chain's belief about what it tested has to be true.
+        # ═══ TWO DELIBERATE DIVERGENCES FROM THE OTHER SIX deploy-to-*.yaml ═══
+        #
+        # The rider below says a loop-shape change lands 7× knowingly. This file
+        # has now broken that symmetry TWICE, on purpose, and both are recorded
+        # here so nobody later "restores consistency" by reverting a fix.
+        #
+        # 1. THE POLL SUBJECT (STATBUS-260). The other six still poll the box's
+        #    own emit — a nearly self-referential check. Dev polls the commit the
+        #    chain REQUESTED.
+        #
+        # 2. THE ERREXIT CAPTURE (STATBUS-261). The other six still carry
+        #    `out="$(...)"; rc=$?`, which dies under the runner's `bash -e` on
+        #    the first non-zero tick. Dev captures with `|| rc=$?`.
+        #
+        # WHY ONLY HERE, and it is the same reason both times: those six are
+        # queued for deletion behind STATBUS-248's Wave D channel confirmation,
+        # nothing writes their deploy branches any more, and their boxes are
+        # opt-in human rather than chain-driven. Fixing six condemned copies
+        # would spend review on machinery we intend to remove — their real fix is
+        # Wave D landing sooner. Dev is the only chain-driven box, and the only
+        # one where the chain's belief about what it tested has to be true.
         #
         # RIDER (STATBUS-170 comment #5, architect — accept-inline ruling): the poll
         # SEMANTICS live in ops/ci-deploy-status.sh's exit contract (0/10/20/30/64) — the
@@ -266,7 +290,29 @@ jobs:
 
           last="(no reading yet)"
           while :; do
-            out="$(poll)"; rc=$?
+            # ERREXIT (STATBUS-261) — the bug that killed rc.09's chain run.
+            #
+            # This step opens `set -uo pipefail`, which does NOT clear the
+            # wrapper's `-e`. So `out="$(poll)"; rc=$?` was fatal the instant
+            # poll returned non-zero: the assignment failed, bash exited with
+            # poll's code, and `rc=$?` and the case below never ran. The very
+            # first tick returned 20 — the contract's "pending, keep polling" —
+            # and the step died one second in, reporting "exit code 20". None of
+            # the loop's logic executed even once.
+            #
+            # `|| rc=$?` rather than `set +e`: this poll's non-zero exits are a
+            # VOCABULARY (the 0/10/20/30/64 contract in ops/ci-deploy-status.sh),
+            # so a command whose exit code is DATA must be captured deliberately.
+            # `set +e` would instead declare that nothing in this step is checked
+            # — un-protecting the ssh key install and the trap above it, which
+            # genuinely should abort on failure.
+            rc=0
+            out="$(poll)" || rc=$?
+            # The line below is SAFE under errexit and deliberately left alone. I
+            # first "fixed" it as a second landmine, then tested it: bash exempts
+            # a failing command in an && list unless it follows the final && , so
+            # an empty $out skips the assignment and execution continues. Tested,
+            # not reasoned — the reasoning said otherwise and was wrong.
             [ -n "$out" ] && last="$out"
             case "$rc" in
               0)   # CONVERGED — state=completed
