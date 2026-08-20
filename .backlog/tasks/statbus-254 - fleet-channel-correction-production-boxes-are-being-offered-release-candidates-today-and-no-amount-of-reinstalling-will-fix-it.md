@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 10:27'
-updated_date: '2026-08-19 19:18'
+updated_date: '2026-08-20 06:40'
 labels:
   - ops
   - release
@@ -295,5 +295,18 @@ author: foreman
 created: 2026-08-19 19:18
 ---
 DEV INCIDENT 2026-08-19, recorded here because it grew from this ticket's fleet correction: at 11:53:33 UTC dev's compose project was torn down (systemctl --user stop of the upgrade unit + compose down, volumes kept) by an agent session on the King's own machine — IP-verified — doing a stop-everything/change-config/start-everything cycle whose start half never ran; the transcript died with /clear so the exact session is unattributable. Our operator answered plainly: not them, reads only. REPAIRED 19:12 UTC via ./sb install (architect-ruled; a bare start-all would have left the upgrade unit stopped — a canary that looks alive and cannot take the release): all containers up, unit active, running service logs channel=prerelease interval=5m, front door 307. PROCESS RULE from the King, now in durable memory: any agent using box access must pre-declare its exact command list; this correction's six-step verified procedure is the model, the unrecorded stop-half is the anti-pattern.
+---
+
+author: foreman
+created: 2026-08-20 06:40
+---
+DEV'S TRANSLATION CONFIRMED BY STATE (2026-08-20, after rc.09 converged on dev). Pure reads over the CI door:
+
+.env.config: `UPGRADE_ROLE=canary` — and NO UPGRADE_CHANNEL line (the one-time translation removed it)
+.env: `UPGRADE_CHANNEL=prerelease` — derived from the canary role on every generate
+
+NOTE ON EVIDENCE FORM: the plan was to pin the translation NOTICE verbatim from rc.09's install logs, but the notice is one-time stdout at the run that converts, and on dev that run has already passed (journalctl 500-line history + tmp logs both empty of it — likely consumed during yesterday's repair install or the rc.09 install, unlogged). The durable evidence is the CONFIG STATE above, which is stronger anyway: it shows the translation's RESULT is in force, not merely that it was announced. For the remaining fleet boxes, the same two reads (role key present + channel key absent in .env.config) are the per-box evidence form; the notice is a bonus if a box's install log happens to be caught in time.
+
+Dev leg: DONE. Remaining: the other fleet boxes translate as their own installs run; 254 closes (and the translation case in cli/internal/config/upgrade_role.go is DELETED, per its own >>> marker) once every box shows the role form.
 ---
 <!-- COMMENTS:END -->
