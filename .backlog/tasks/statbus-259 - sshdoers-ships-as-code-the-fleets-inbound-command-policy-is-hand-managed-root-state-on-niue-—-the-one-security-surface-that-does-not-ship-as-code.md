@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-08-19 20:06'
-updated_date: '2026-08-20 06:15'
+updated_date: '2026-08-20 06:29'
 labels:
   - ops
   - security
@@ -111,5 +111,91 @@ VERDICT on the engineer's plan (2026-08-20): (a) faithful implementation — APP
 COMMAND LIST ADDITION: step 7 also proves demo's entry (ssh statbus_demo@niue "cd ~/statbus && ./sb upgrade apply-latest" must be ALLOWED) — the newest entry, the named casualty of a wrong reconcile, and its loss would be silent (the 04:23 UTC scheduled trigger just starts failing). Test the entry most likely to be missing.
 
 Build go approved on the architect's side; command list relayed to the King with these three changes.
+---
+
+author: engineer
+created: 2026-08-20 06:19
+---
+**BUILT AND FROZEN — ready for the architect's verdict.** Chain: build OK, `go test ./...` green, `golangci-lint run ./...` 0 issues, gofmt clean, `bash -n` clean, **shellcheck warnings IDENTICAL to HEAD** (3×SC2034 + 3×SC2164, all pre-existing — compared count-by-code against a HEAD extraction, not eyeballed). Files: `ops/setup-ubuntu-lts-24.sh`, `ops/niue/sshdoers`, `cli/cmd/release.go`, plus `cli/cmd/release_sshdoers_drift.go` and its test (new).
+
+## ⚠ SEQUENCING — DECIDE THIS BEFORE LANDING
+
+**The preflight check will FAIL the next cut until the King's root session has run.** `/etc/sshdoers.sha256` does not exist on niue yet, so the read fails — and an unreadable host is a FAILURE by design. Correct behaviour, not a bug, but it means landing this blocks releases until Stage 8 has run once.
+
+The refusal names that exact cause ("has Stage 8 ever run there?") and `SKIP_SSHDOERS=1` exists precisely for this gap, so nobody is stuck. The architect should still choose deliberately: land both now and hold the next cut for the session, or land the stage + header fix now and the preflight check after. **I have not decided this** — it changes when releases are possible.
+
+## Stage 8 — "CI Command Allowlist (sshdo)"
+
+Follows the existing stage shape exactly. Fetches `ops/<host>/sshdoers` from the SAME public raw.githubusercontent origin the script itself comes from — no embedded copy, one source of truth — and installs it **byte for byte**: no envsubst, no comment stripping, no normalisation, because the preflight hashes the repo file and any transformation would make two identical policies look like drift and fail every release.
+
+**Three refusals, each because the failure is otherwise invisible:** sshdo absent (an allowlist without its enforcer looks configured and enforces nothing — worse than an absent file, since its presence reads as evidence the door is closed); an empty fetch; and a fetch missing `match hexdigits`/`syslog` (a truncated file fails CLOSED so it would not open the door, but it would break every CI path while looking like a successful run).
+
+Before installing it SHOWS THE DIFF against the live file and backs that file up — the operator is changing the fleet's access policy, and a line that disappears is a workflow that stops working. `verify` covers both files' modes, that the published hash describes the file actually installed (a stale hash would let real drift pass the preflight — the one failure this exists to prevent), and byte-identity with what was fetched.
+
+**"Independently runnable" needed no new flag** — `--skip-stages` is already honoured in both modes, so `--non-interactive --skip-stages "0 1 2 3 4 5 6 7"` runs this stage alone. That is what the King's command list uses.
+
+## Preflight check 16
+
+Hosts are DISCOVERED from `ops/*/sshdoers`, never hard-coded — a hard-coded list is the same defect one level up: a standalone host growing its own allowlist would be silently unchecked, and nobody would learn they had not added it.
+
+Three named outcomes: MATCH passes; MISMATCH fails printing host, both hashes and the reconciliation direction; **UNREACHABLE FAILS**, with the loud `SKIP_SSHDOERS=1` bypass in the established `SKIP_IMAGES` shape. Unreachable is not a skip — the check examined nothing, and a pass would report a guarantee nobody verified, which is worse than no gate because the release summary would say the policy was confirmed. **Zero hosts also fails**, same reason.
+
+The drift message spends its words on what the operator does next: LIVE authoritative for BEHAVIOUR, REPO for INTENT, and *do not simply re-run the stage to make the red go away* — that erases whatever live has and repo lacks.
+
+## Tests — the failure paths, RED-verified in isolation
+
+Three REDs, mutation site asserted, each against a clean file with a verified backup: zero-hosts passing fires; an unreachable host being skipped fires; losing the reconciliation direction fires.
+
+One deserves naming: the hash comparison is checked against the **actual `sha256sum`/`shasum` binary** — not a constant I typed, and not Go hashing twice and agreeing with itself. The stage publishes the host tool's output while the preflight computes its own; if those ever disagreed, every release would fail on a genuinely identical policy. My first draft of that test carried a fabricated expected hash it then discarded unused — decoration, replaced.
+
+Plan and the King's pre-declared root command list: `tmp/259-command-list.md`.
+---
+
+author: engineer
+created: 2026-08-20 06:21
+---
+**All three verdict changes applied and re-frozen** — comment #3 arrived while I was building, and (c2) reversed something I had already written. Chain re-run: build OK, `go test ./...` green, lint 0 issues, `bash -n` clean, shellcheck still IDENTICAL to HEAD.
+
+**(c2) THE MODE — the architect is right and my 0600 was a fleet-wide outage waiting to happen.** I verified the mechanism at source rather than taking it on the ruling: `sshdo` is a Python script invoked through `command="/usr/local/bin/sshdo"` in the SLOT USER's `authorized_keys`, and it plain-`open()`s `/etc/sshdoers` at ops/niue/sshdo:299 — as that user, with no setuid anywhere. A `0600 root:root` file would have been unreadable to every slot user and denied EVERY CI command on the fleet, from a stage that printed success and passed its own verifications.
+
+The stage now PRESERVES the live file's mode and ownership, reports them, and changes nothing. Only a first-ever install picks a mode, and it picks a readable one for the same reason. The mode verification changed with it — instead of asserting a chosen `600`, it asserts the file kept the mode it was installed with AND that it is readable by someone other than root, which is the property that must hold whatever the mode turns out to be.
+
+I also removed the premise that justified the tightening. The design said the policy is "a security policy no slot user should read"; that is false — the slot user MUST read it. The hash file survives on the better justification the architect gave: drift detection without anyone parsing the policy, plus a record of exactly which bytes were installed.
+
+**(c3) SSHDOERS_REF is now REQUIRED**, no default, with a refusal that says why: a security artifact installed from a moving ref cannot be named afterwards, so nobody could answer "what policy is live?". The `--help` text says the same.
+
+**(c1)** matches what was already built — `devops@<host>`, env-overridable, unreachable is a FAILURE with the loud `SKIP_SSHDOERS=1` bypass.
+
+**The command list is updated** (tmp/259-command-list.md): demo's entry added to step 7 with the architect's reasoning at the line — newest entry, named casualty of a wrong reconcile, and its loss would be SILENT because the 04:23 UTC scheduled trigger would simply start failing with nobody watching. The compare-first protocol is written up as the session's opening move, `SSHDOERS_REF` is marked required, and step 3 is now explicitly the reading that settles what the real mode has always been.
+
+One note for the verdict: this is the second time this week that a premise stated in a design turned out to be checkable and false (the other was "the original still exists in your frozen state"). Both were a minute's work to verify. I checked this one only because the architect flagged it — I had implemented the design's premise without testing it, which is exactly the habit I am supposed to have.
+---
+
+author: engineer
+created: 2026-08-20 06:26
+---
+**Ruling 2's "read sshdo's source, don't infer" carried out properly — and it found more than the ruling assumed.** Three additions since #5; chain green throughout (build, `go test ./...`, lint 0 issues, `bash -n`, shellcheck still identical to HEAD).
+
+**1. The mode hazard is worse than "denies CI commands".** Reading `load_config` rather than reasoning about it: on an IOError — exactly what a `0600 root:root` file gives a slot user — sshdo does NOT fail loudly. It logs `configerror` to syslog and **returns an EMPTY config** (ops/niue/sshdo:477-481). `check_auth` then finds nothing allowed, so every command is refused with the generic *"command not in allowlist"* message. So the tightening would have caused a fleet-wide outage AND disguised its cause, sending whoever debugged it hunting for a missing ENTRY rather than an unreadable FILE.
+
+Also settled by the same read: **sshdo imposes no mode requirement of its own** — no stat, no permission check, no refusal on a group- or world-readable config anywhere in the file. The only requirement is readability by the invoking user. That is what makes 0644 the right choice for a first-ever install: the least that guarantees what sshdo actually needs, with no stricter rule to satisfy. All of this is now written at the line, with citations, replacing my inference.
+
+**2. The stage now validates with sshdo's OWN parser** (`--check`) before installing, and again after. That catches what a grep cannot: invalid directives, clashing allow/disallow rules, entries naming users that do not exist. The grep stays — the two answer different questions ("is this the file we think it is?" versus "will sshdo accept it?"), and a truncation can be perfectly valid syntax.
+
+**THE EXIT CODE IS NOT THE VERDICT, and testing found that rather than reading.** `sshdo --check` counts "No such user" into its error total and exits non-zero for it — verified: exit 9 against this repo's own allowlist on a machine without the slot accounts. Had I gated on the exit code, a freshly-provisioned host where Stage 8 runs before every slot user exists would have REJECTED a perfectly valid allowlist and stopped provisioning — for a condition of the host, not a fault in the file. The gate now splits on what the parser calls it: `error:` refuses, `warning:` surfaces loudly and continues. Proven on real input both ways — an invalid line produces an `error:` and refuses; the repo's own file with unknown users produces zero `error:` lines and passes.
+
+**3. A wiring pin, in the gate-layer source-scanning shape.** Every other test here exercises `checkSshdoersDrift` directly, so all of them would still pass if the call were deleted from `preflightChecks` — the gate perfectly correct and never running, with the release summary simply no longer mentioning it. A gate nothing calls is indistinguishable from no gate. Pinned both ways: the call must exist AND its result must fold into `allPassed`, since calling it and dropping the answer looks wired up in review and prints a ✗ nobody acts on. Both RED-verified.
+
+**One numbering correction:** the brief called it check 13, but release.go's checks run 1–12 and then "13-15. Commit-scope workflow oracles" (three of them), so this lands as **check 16**. Same position — last, after the network gates — just a different number than the brief anticipated.
+
+The sequencing question from #4 is still open and still not mine: the preflight will fail the next cut until the root session has run.
+---
+
+author: foreman
+created: 2026-08-20 06:29
+---
+LANDED at 202ff3511 (master, pushed). Throwaway-worktree build + vet + STATBUS259 tests green from the staged state; bash -n clean. Foreman landing review made two verifications beyond the architect's: sshdo --check is real (ops/niue/sshdo:43) and its error:/warning: prefixes are printed verbatim by errormsg (ops/niue/sshdo:293) so the stage's split greps anchor correctly; FAILED_VERIFICATIONS non-empty exits 1 (setup script:1531-1538) so every refuse-path fails the run loudly. One landing catch fixed before commit: the retracted "no slot user should read it" premise survived in the drift check's header comment — rewritten on the ratified justification; the engineer swept the tree and confirmed it was the last live instance.
+
+REMAINING ON THIS TICKET: (1) the King's pre-declared root session on niue (command list at tmp/259-command-list.md, <COMMIT>=202ff3511, awaiting the King's nod — compare-first, stops on hash difference); (2) after the session: deploy-to-dev's marked block swaps apply-latest → upgrade apply "$SHA" (STATBUS-258's one-line allowlist entry rides the now-landed mechanism). NOTE FOR EVERY CUT UNTIL THE SESSION RUNS: preflight check 16 will fail because /etc/sshdoers.sha256 does not exist on niue yet; the refusal names this cause; SKIP_SSHDOERS=1 is the loud bypass — architect ruled strict-from-day-one (a) deliberately.
 ---
 <!-- COMMENTS:END -->
