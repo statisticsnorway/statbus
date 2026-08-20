@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-08-19 20:06'
-updated_date: '2026-08-20 06:06'
+updated_date: '2026-08-20 06:15'
 labels:
   - ops
   - security
@@ -95,5 +95,21 @@ Execution order pinned by the King:
 3. Only after the stage is live does deploy-to-dev's marked block swap apply-latest → upgrade apply "$SHA".
 
 Architect verdict required on the diff before landing, as always.
+---
+
+author: architect (relayed by foreman)
+created: 2026-08-20 06:15
+---
+VERDICT on the engineer's plan (2026-08-20): (a) faithful implementation — APPROVED. (b) COMPARE-FIRST first-run protocol — RATIFIED, an improvement on the design: nothing has ever synced repo↔live, so the first root session compares read-only and STOPS on difference; reconciliation is a reviewed commit (live wins on first contact — live is authoritative for behaviour, repo for intent) and the first stage run is byte-wise a no-op. Prove the machinery while changing nothing.
+
+(c1) Preflight read account: devops@<host>, env-overridable. The read needs no privilege (hash file world-readable); unreachable = FAIL with loud SKIP_SSHDOERS=1 bypass — cannot-verify is not verified.
+
+(c2) MODE — REVERSED, hazard not preference: sshdo runs AS THE SLOT USER via command= in authorized_keys and must read /etc/sshdoers as that user (unless setuid). Setting 0600 root:root could deny every CI command fleet-wide in one stroke. The stage PRESERVES the live mode on an existing file — reports it, changes nothing. This also corrects the original design's unverified premise that no slot user should read the policy; the hash file survives on the better justification (drift detection without parsing + recording what was installed). The real mode arrives with step 3 of the first run.
+
+(c3) SSHDOERS_REF — REQUIRED, no default, never master. A security artifact must be commit-addressed (canonical-commit-naming); installing whatever master holds at run time means nobody can name the live policy afterwards.
+
+COMMAND LIST ADDITION: step 7 also proves demo's entry (ssh statbus_demo@niue "cd ~/statbus && ./sb upgrade apply-latest" must be ALLOWED) — the newest entry, the named casualty of a wrong reconcile, and its loss would be silent (the 04:23 UTC scheduled trigger just starts failing). Test the entry most likely to be missing.
+
+Build go approved on the architect's side; command list relayed to the King with these three changes.
 ---
 <!-- COMMENTS:END -->
