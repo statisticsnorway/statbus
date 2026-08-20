@@ -1,6 +1,21 @@
 # /etc/sshdoers — statbus niue CI allowlist
-# Managed by hand; see tmp/niue-sshdoers in the statbus repo for a copy.
-# Generated 2026-04-15.
+#
+# THIS FILE IS THE SOURCE. It is installed to /etc/sshdoers by Stage 8 of
+# ops/setup-ubuntu-lts-24.sh, byte for byte, and the stage publishes a
+# world-readable /etc/sshdoers.sha256 beside it. The release preflight compares
+# that hash against this file and REFUSES TO CUT A RELEASE if they differ, so
+# the live inbound-command policy is provably the reviewed one (STATBUS-259).
+#
+# So: change the fleet's CI access by editing THIS file in a reviewed commit and
+# re-running the stage. Do not edit /etc/sshdoers on the host — the next
+# preflight would catch it, and until then the fleet's access policy would be
+# something nobody reviewed.
+#
+# It previously said "Managed by hand; see tmp/niue-sshdoers in the statbus repo
+# for a copy" — pointing at a path that no longer exists, which is how this copy
+# came to be treated as a souvenir rather than a source.
+#
+# Originally generated 2026-04-15.
 
 # Abstract hex-digit runs (needed for the 40-char SHA in pg_regress).
 # A '#' in a stored command matches any hex digit at runtime.

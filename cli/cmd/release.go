@@ -573,6 +573,15 @@ func preflightChecks(projDir string) bool {
 	allPassed = checkPrereleaseWorkflowGate(projDir, release.WorkflowAppBuildLint, "app-build-lint", "SKIP_APP_BUILD_LINT") && allPassed
 	allPassed = checkPrereleaseWorkflowGate(projDir, release.WorkflowFastTests, "fast-tests", "SKIP_FAST_TESTS") && allPassed
 
+	// 16. The fleet's inbound-command policy is the reviewed one (STATBUS-259).
+	//
+	// Placed last among the gates because it is a network check, and after the
+	// workflow oracles because those fail far more often — an operator should
+	// meet the common failures first. It is not optional: a drifted allowlist
+	// means the access policy the fleet enforces was never reviewed, which is a
+	// reason to stop a release rather than something to find out after one.
+	allPassed = checkSshdoersDrift(projDir) && allPassed
+
 	// Persist outcome for shell scripts that need to inspect the result
 	// after the fact (cobra's RunE error → non-zero exit is the human-
 	// facing signal; this file is the programmatic one). No echo banner —

@@ -1097,6 +1097,274 @@ stage_service_account() {
 }
 
 # =============================================================================
+# Stage 8: CI Command Allowlist (sshdo)
+# =============================================================================
+
+stage_ci_allowlist() {
+    log_header "Stage 8: CI Command Allowlist (sshdo)"
+
+    if stage_skipped 8; then
+        log_warn "Stage 8 skipped via SKIP_STAGES"
+        return 0
+    fi
+
+    # STATBUS-259. /etc/sshdoers is the byte-pinned allowlist every inbound CI
+    # ssh command is checked against — the fleet's access policy. It was
+    # established by hand in a root session and never joined the path built for
+    # exactly this, so the live policy could drift from the reviewed copy
+    # silently, in either direction. Its own header recorded the consequence:
+    # "Managed by hand."
+    #
+    # The allowlist SHAPE was never the problem — least privilege on an inbound
+    # credential door is the right shape. What violated doctrine is that every
+    # other fix reaches a box through code, while the access policy alone
+    # reached it through a person editing a root file over SSH.
+    #
+    # This stage does not invent a delivery mechanism. It makes the allowlist a
+    # stage of the one that already exists, so an allowlist change becomes a
+    # reviewed commit plus a stage re-run instead of a privileged session.
+    #
+    # RUN THIS STAGE ALONE with the existing skip mechanism — no new flag:
+    #   sudo ./harden.sh --non-interactive --skip-stages "0 1 2 3 4 5 6 7"
+
+    local host="${SSHDOERS_HOST:-}"
+    if [[ -z "$host" ]]; then
+        # Default to the first label of the FQDN: niue.statbus.org -> niue,
+        # which is already the repo's layout (ops/<host>/sshdoers).
+        host="$(hostname --fqdn 2>/dev/null | cut -d. -f1)"
+    fi
+    # COMMIT-ADDRESSED, NEVER master (architect ruling c3). A security artifact
+    # installed from a moving ref cannot be named afterwards: "what policy is
+    # live?" would have no answer, because master moved. Required, no default.
+    local ref="${SSHDOERS_REF:-}"
+    local url="https://raw.githubusercontent.com/statisticsnorway/statbus/${ref}/ops/${host}/sshdoers"
+
+    echo "This stage will:"
+    echo "  - Fetch the reviewed allowlist for host '$host' at ref '$ref':"
+    echo "      $url"
+    echo "  - Install it BYTE FOR BYTE as /etc/sshdoers, PRESERVING the live"
+    echo "    file's mode and ownership (sshdo reads it as the slot user —"
+    echo "    tightening it would deny every CI command on the fleet)"
+    echo "  - Publish /etc/sshdoers.sha256 world-readable beside it, so anyone —"
+    echo "    including the release preflight over an unprivileged door — can"
+    echo "    check that the live policy is the reviewed one"
+    echo ""
+    echo "  The allowlist is what every inbound CI ssh command is checked"
+    echo "  against. Installing a copy that differs from the live file CHANGES"
+    echo "  the fleet's access policy; an entry that disappears is a workflow"
+    echo "  that stops working."
+    echo ""
+
+    if [[ -z "$ref" ]]; then
+        log_error "SSHDOERS_REF is required — set it to the COMMIT the reviewed allowlist lives at."
+        log_error "It is deliberately not defaulted to master: a security policy installed from a"
+        log_error "moving ref cannot be named afterwards, so nobody could say what is live."
+        log_error "  SSHDOERS_REF=<40-hex commit> $0 --non-interactive --skip-stages \"0 1 2 3 4 5 6 7\""
+        FAILED_VERIFICATIONS+=("Stage 8: SSHDOERS_REF not set")
+        return 0
+    fi
+
+    if [[ -z "$host" ]]; then
+        log_error "Cannot determine the host name for the allowlist (hostname --fqdn gave nothing)."
+        log_error "Set SSHDOERS_HOST=<host> explicitly and re-run this stage."
+        FAILED_VERIFICATIONS+=("Stage 8: host name for the allowlist could not be determined")
+        return 0
+    fi
+
+    # THE ENFORCER MUST EXIST. An allowlist without sshdo in front of it looks
+    # configured and enforces nothing — worse than an absent file, because the
+    # file's presence reads as evidence the door is closed.
+    if [[ ! -x /usr/local/bin/sshdo ]]; then
+        log_error "/usr/local/bin/sshdo is missing or not executable — refusing to install an allowlist nothing enforces."
+        log_error "An allowlist without its enforcer looks configured while permitting everything the forced command allows."
+        log_error "Install sshdo first (ops/${host}/sshdo holds the canonical copy), then re-run this stage."
+        FAILED_VERIFICATIONS+=("Stage 8: sshdo enforcer absent")
+        return 0
+    fi
+
+    if ! ask_yes_no "Run this stage?"; then
+        log "Skipping Stage 8"
+        return 0
+    fi
+
+    local staged="/tmp/sshdoers.stage.$$"
+    trap 'rm -f "/tmp/sshdoers.stage.$$"' RETURN
+
+    log "Fetching the reviewed allowlist for '$host'..."
+    if ! curl -fsSL "$url" -o "$staged"; then
+        log_error "Could not fetch $url"
+        log_error "Nothing was changed. Check the host name, the ref, and network reachability."
+        FAILED_VERIFICATIONS+=("Stage 8: allowlist fetch failed for $host@$ref")
+        return 0
+    fi
+
+    # VALIDATE BEFORE INSTALLING. A truncated fetch fails CLOSED (fewer
+    # permitted commands), so it would not open the door — but it would break
+    # every CI path on the box while looking like a successful run. Both grammar
+    # lines are load-bearing: `match hexdigits` is what lets a 40-char SHA be
+    # matched at all, and its absence would silently refuse the pg_regress
+    # runner and any commit-addressed entry.
+    if [[ ! -s "$staged" ]]; then
+        log_error "The fetched allowlist is EMPTY — refusing to install it."
+        FAILED_VERIFICATIONS+=("Stage 8: fetched allowlist was empty")
+        return 0
+    fi
+    local missing=""
+    grep -q '^match hexdigits' "$staged" || missing="match hexdigits"
+    grep -q '^syslog ' "$staged" || missing="${missing:+$missing, }syslog"
+    if [[ -n "$missing" ]]; then
+        log_error "The fetched allowlist is missing required grammar: $missing"
+        log_error "That is what a truncated or wrong-file fetch looks like. Refusing to install it."
+        FAILED_VERIFICATIONS+=("Stage 8: fetched allowlist missing grammar ($missing)")
+        return 0
+    fi
+
+    # ASK THE ENFORCER ITSELF whether the file is valid, before installing it.
+    # `sshdo --check` runs the very parser that will read this file in anger, so
+    # it catches what a grep cannot: invalid directives, clashing allow/disallow
+    # rules, and entries naming users that do not exist on this host.
+    #
+    # The two checks are not redundant — they answer different questions. The
+    # grep above asks "is this the file we think it is?" (a truncation can be
+    # perfectly valid syntax); this asks "will sshdo accept it?".
+    log "Validating the fetched allowlist with sshdo's own parser..."
+    local check_out
+    check_out="$(/usr/local/bin/sshdo --check "$staged" 2>&1 || true)"
+    [[ -n "$check_out" ]] && printf '%s\n' "$check_out" | sed 's/^/    /'
+
+    # THE EXIT CODE IS NOT THE VERDICT HERE, and that was worth testing rather
+    # than assuming. `sshdo --check` counts "No such user" into its error total
+    # and exits non-zero for it (verified: exit 9 against this repo's own
+    # allowlist on a machine without the slot accounts). On a freshly-provisioned
+    # host, where Stage 8 may run before every slot user exists, a perfectly
+    # valid allowlist would then be REJECTED and provisioning would stop for a
+    # condition of the HOST rather than a fault in the FILE.
+    #
+    # So the two classes are separated by what the parser calls them:
+    #   error:   the config is invalid — sshdo would refuse to work. REFUSE.
+    #   warning: something about this host (a user not created yet, a clash
+    #            worth seeing). SURFACE IT, loudly, and continue.
+    if printf '%s\n' "$check_out" | grep -q '^error:'; then
+        log_error "sshdo --check found INVALID CONFIG in the fetched allowlist — refusing to install it."
+        log_error "Installing a config sshdo cannot parse denies every CI command on this host, and"
+        log_error "the refusal an operator sees blames a missing entry rather than the file."
+        FAILED_VERIFICATIONS+=("Stage 8: sshdo --check reported invalid config")
+        return 0
+    fi
+    if printf '%s\n' "$check_out" | grep -q '^warning: No such user'; then
+        log_warn "The allowlist names users that do not exist on this host (listed above)."
+        log_warn "Those entries are inert until the accounts are created — expected on a fresh"
+        log_warn "host, but on a live one it means a CI path is silently dead."
+    fi
+
+    # SHOW THE CHANGE. The operator is about to alter the fleet's access policy;
+    # they should see whether anything actually differs before it happens.
+    if [[ -f /etc/sshdoers ]]; then
+        if cmp -s "$staged" /etc/sshdoers; then
+            log "Live /etc/sshdoers already matches the reviewed copy — this run is a no-op for the file itself."
+        else
+            log_warn "The live /etc/sshdoers DIFFERS from the reviewed copy. Lines that change:"
+            diff -u /etc/sshdoers "$staged" | sed 's/^/    /' || true
+            log_warn "A line that disappears is a CI path that stops working. Backup below."
+            cp -a /etc/sshdoers "/root/sshdoers.pre-259.$(date -u +%Y%m%dT%H%M%SZ)"
+            log "Backed up the previous allowlist under /root/sshdoers.pre-259.*"
+        fi
+    else
+        log_warn "No /etc/sshdoers exists yet — this stage is establishing it for the first time."
+    fi
+
+    # INSTALL BYTE FOR BYTE. No envsubst, no comment stripping, no
+    # normalisation: the release preflight hashes the REPO file and compares it
+    # to the hash published here, so any transformation would make two identical
+    # policies look like drift and fail every release.
+    #
+    # ⚠ THE MODE IS PRESERVED, NEVER CHOSEN (architect ruling c2 — a hazard, not
+    # a preference). Read out of sshdo's source rather than inferred, because the
+    # ruling required exactly that:
+    #
+    #   · sshdo is invoked through `command="/usr/local/bin/sshdo"` in the SLOT
+    #     USER's authorized_keys, so it runs AS THAT USER, and load_config()
+    #     plain-open()s /etc/sshdoers as that user (ops/niue/sshdo:299). There is
+    #     no setuid anywhere in it.
+    #
+    #   · sshdo imposes NO mode requirement of its own — there is no stat, no
+    #     permission check, no refusal on a group- or world-readable config
+    #     anywhere in the file. The ONLY requirement is that the invoking user
+    #     can read it.
+    #
+    #   · AND AN UNREADABLE CONFIG DOES NOT FAIL LOUDLY. On IOError, load_config
+    #     logs `configerror` to syslog and RETURNS AN EMPTY CONFIG
+    #     (ops/niue/sshdo:477-481). check_auth then finds nothing allowed, so
+    #     every command is refused with the generic "command not in allowlist"
+    #     message — which sends whoever is debugging it hunting for a missing
+    #     ENTRY rather than an unreadable FILE.
+    #
+    # So tightening to 0600 root:root would deny every CI command on the fleet
+    # AND disguise the cause, from a stage that printed success. On an existing
+    # file the current mode and ownership are carried over untouched and
+    # reported. A first-ever install picks 0644 — the least that guarantees the
+    # readability sshdo actually needs, with no stricter requirement to satisfy.
+    local mode owner
+    if [[ -f /etc/sshdoers ]]; then
+        mode="$(stat -c '%a' /etc/sshdoers)"
+        owner="$(stat -c '%U:%G' /etc/sshdoers)"
+        log "Preserving the live mode and ownership: $owner $mode"
+    else
+        mode="0644"
+        owner="root:root"
+        log_warn "No existing /etc/sshdoers — establishing it as $owner $mode."
+        log_warn "It must stay readable by the slot users: sshdo reads it AS the invoking user."
+    fi
+    log "Installing /etc/sshdoers ($owner $mode)..."
+    install -o "${owner%%:*}" -g "${owner##*:}" -m "$mode" "$staged" /etc/sshdoers
+
+    # PUBLISH THE HASH, NOT THE FILE. Not because the policy is secret — the slot
+    # users must be able to read it, as above — but because a hash is the right
+    # shape for this job: it detects drift without anyone parsing the policy, and
+    # it records exactly which bytes were installed.
+    log "Publishing /etc/sshdoers.sha256 (world-readable)..."
+    sha256sum /etc/sshdoers | awk '{print $1}' > /etc/sshdoers.sha256
+    chown root:root /etc/sshdoers.sha256
+    chmod 0644 /etc/sshdoers.sha256
+
+    # Verification
+    echo ""
+    log "Verifying Stage 8..."
+    verify "/etc/sshdoers exists" "test -s /etc/sshdoers"
+    verify "/etc/sshdoers kept the mode this stage installed it with" \
+        "test \"\$(stat -c '%a' /etc/sshdoers)\" = \"${mode#0}\" -o \"\$(stat -c '%a' /etc/sshdoers)\" = \"$mode\""
+    # The one property that must hold whatever the mode is: sshdo runs as the
+    # slot user, so the file it reads has to be readable by someone other than
+    # root. A stage that left it root-only would have denied the whole fleet.
+    verify "/etc/sshdoers is readable by non-root (sshdo runs as the slot user)" \
+        "test \"\$(stat -c '%a' /etc/sshdoers | tail -c 3)\" != '00'"
+    verify "/etc/sshdoers.sha256 exists and is world-readable" \
+        "test -s /etc/sshdoers.sha256 && test \"\$(stat -c '%a' /etc/sshdoers.sha256)\" = '644'"
+    # The published hash must describe the file that is actually installed —
+    # a stale hash would let real drift pass the preflight unnoticed, which is
+    # the one failure this whole mechanism exists to prevent.
+    verify "published hash matches the installed file" \
+        "test \"\$(sha256sum /etc/sshdoers | awk '{print \$1}')\" = \"\$(cat /etc/sshdoers.sha256)\""
+    verify "installed allowlist matches the reviewed copy byte for byte" "cmp -s '$staged' /etc/sshdoers"
+    verify "sshdo enforcer present" "test -x /usr/local/bin/sshdo"
+    # Same distinction as above: assert the parser reports no `error:` line, not
+    # that its exit code is zero — a "No such user" warning must not fail the run.
+    verify "sshdo parses the installed allowlist without errors" \
+        "! /usr/local/bin/sshdo --check /etc/sshdoers 2>&1 | grep -q '^error:'"
+
+    echo ""
+    log "Live allowlist hash: $(cat /etc/sshdoers.sha256)"
+    echo ""
+    echo "  PROVE THE GATE STILL ENFORCES from a machine holding the CI key —"
+    echo "  not from this root session, since root does not pass through the door:"
+    echo "      ssh <ci-user>@$(hostname --fqdn) \"<an allowlisted command>\"   # allowed"
+    echo "      ssh <ci-user>@$(hostname --fqdn) \"ls /\"                        # must be REFUSED"
+    echo ""
+
+    pause
+}
+
+# =============================================================================
 # Main
 # =============================================================================
 
@@ -1181,6 +1449,14 @@ main() {
                 echo "  5  Core Tools (docker, neovim, htop, ...)"
                 echo "  6  User Setup (devops user, SSH keys)"
                 echo "  7  StatBus Service Account (statbus user)"
+                echo "  8  CI Command Allowlist (sshdo /etc/sshdoers + published hash)"
+                echo ""
+                echo "Stage 8 environment:"
+                echo "  SSHDOERS_HOST=<host>  Which ops/<host>/sshdoers to install"
+                echo "                        (default: first label of hostname --fqdn)"
+                echo "  SSHDOERS_REF=<commit>  REQUIRED. The commit the reviewed allowlist"
+                echo "                         lives at. Deliberately not defaulted: a policy"
+                echo "                         installed from a moving ref cannot be named later."
                 echo ""
                 exit 0
                 ;;
@@ -1217,6 +1493,7 @@ main() {
     stage_core_tools
     stage_user_setup
     stage_service_account
+    stage_ci_allowlist
 
     log_header "Setup Complete!"
 
@@ -1228,6 +1505,7 @@ main() {
     echo "  - Docker installed"
     echo "  - devops user created (ops/admin)"
     echo "  - ${SERVICE_USER:-statbus} service account created (for StatBus install)"
+    echo "  - CI command allowlist installed from the repo, with a published hash"
     echo ""
     echo "Recommended next steps:"
     echo "  1. Log in as '${SERVICE_USER:-statbus}' and verify SSH key access"
