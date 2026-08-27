@@ -470,17 +470,31 @@ func DiscoverTagsViaGit(projDir string) ([]GitTag, error) {
 func FilterTagsByChannel(tags []GitTag, channel string) []GitTag {
 	var out []GitTag
 	for _, t := range tags {
-		shape := ClassifyReleaseShape(t.TagName)
-		var admit bool
-		switch channel {
-		case "stable":
-			admit = shape == ShapeRelease
-		case "prerelease":
-			admit = shape == ShapePrerelease
-		}
-		if admit {
+		if TagMatchesChannel(t.TagName, channel) {
 			out = append(out, t)
 		}
 	}
 	return out
+}
+
+// TagMatchesChannel is the per-tag rule the filter above is built from, and it
+// is exported because a second caller needs the SAME answer for ONE tag:
+// scheduleStep announces when a deliberately named target is off the box's
+// channel (STATBUS-291).
+//
+// It exists so there is exactly one definition of "on channel". Re-deriving
+// that judgement at the announce site would let the two drift, and the failure
+// would be silent in the worse direction — a deviation that stopped being
+// announced because someone changed only the filter.
+func TagMatchesChannel(tagName, channel string) bool {
+	shape := ClassifyReleaseShape(tagName)
+	switch channel {
+	case "stable":
+		return shape == ShapeRelease
+	case "prerelease":
+		return shape == ShapePrerelease
+	}
+	// Unrecognised channel (including the retired "edge") admits nothing —
+	// a box carrying a stale value is offered nothing rather than everything.
+	return false
 }

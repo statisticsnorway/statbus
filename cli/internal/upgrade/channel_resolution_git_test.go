@@ -2,6 +2,7 @@ package upgrade
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 	"testing"
@@ -310,3 +311,109 @@ func apiRuleOracle(releases []apiRelease, channel string) (string, error) {
 // transcribes the rule wrongly, and that risk is checkable during exactly one
 // instant — while the original is still in the tree. Verifying after the
 // deletion is not slower; it is impossible.
+
+// TestEveryDiscoveryPathFiltersByChannel_STATBUS291 pins the property that a
+// box is never OFFERED a version outside its channel — at EVERY path that
+// discovers versions, including ones that do not exist yet.
+//
+// The defect: `./sb upgrade check` on ua (born rc.10, channel stable) listed
+// v2026.08.0-rc.11 as available. The service's own discovery filtered; RunCheck,
+// reached by the CLI, did not — it registered every tag merely NEWER than the
+// running version. Two discovery paths, one rule, and only one applied it.
+//
+// THE ENUMERATION IS DERIVED FROM THE SOURCE, NOT LISTED HERE, and that is the
+// point of the test rather than a detail of it. A hardcoded list of the two
+// known paths could not fail for a THIRD path — it would never examine one — so
+// a test claiming "any new discoverer is caught" while iterating a literal
+// would be making a promise its own code does not keep. Instead: find every
+// function whose body calls DiscoverTagsViaGit, and require each to filter.
+// A path that does not exist today is covered the day someone writes it.
+func TestEveryDiscoveryPathFiltersByChannel_STATBUS291(t *testing.T) {
+	src := readUpgradeServiceSource(t)
+
+	discoverers := functionsCalling(t, src, "DiscoverTagsViaGit(")
+	if len(discoverers) < 2 {
+		// Zero-scope guard: a scan that finds nothing must fail rather than
+		// pass. Both known discoverers (discover, RunCheck) must be found, or
+		// the scan itself has stopped working and is silently asserting nothing.
+		t.Fatalf("found %d function(s) calling DiscoverTagsViaGit (%v) — expected at least the 2 known discovery paths; the scan is broken, so this test is asserting nothing", len(discoverers), discoverers)
+	}
+
+	for _, fn := range discoverers {
+		body := extractFuncBody(t, src, fn)
+		if !strings.Contains(body, "FilterTagsByChannel(") {
+			t.Errorf(`%s discovers release tags without filtering by channel.
+
+A discovery path that does not filter OFFERS a box versions it must never take:
+this is how a stable production box came to list a release candidate as
+available (STATBUS-291, observed on ua). Every path that learns what versions
+exist must apply the SAME channel rule.
+
+The filter belongs in the discovery path itself — NOT in the shared
+upsertCandidate helper, which registerStep also reaches. That helper carries the
+named-target path behind `+"`./sb upgrade register/apply`"+`, and filtering there would
+block deliberate off-channel installs fleet-wide (STATBUS-258).`, fn)
+		}
+	}
+}
+
+// functionsCalling returns the declaration line of every top-level function in
+// src whose body contains needle — the material the derived enumeration above
+// needs, in the form extractFuncBody already consumes.
+func functionsCalling(t *testing.T, src, needle string) []string {
+	t.Helper()
+	decl := regexp.MustCompile(`(?m)^func (?:\([^)]*\) )?[A-Za-z0-9_]+\(`)
+	locs := decl.FindAllStringIndex(src, -1)
+
+	var out []string
+	for i, loc := range locs {
+		bodyEnd := len(src)
+		if i+1 < len(locs) {
+			bodyEnd = locs[i+1][0]
+		}
+		if strings.Contains(src[loc[0]:bodyEnd], needle) {
+			out = append(out, src[loc[0]:loc[1]])
+		}
+	}
+	return out
+}
+
+// TestDeliberateOffChannelTargetIsAnnounced_STATBUS291 pins the OTHER half, and
+// the asymmetry is the design: automatic discovery FILTERS, a deliberately named
+// target is ANNOUNCED and proceeds.
+//
+// A human who types a version is giving an instruction, not receiving an offer,
+// and refusing it would break the candidate-addressed deployment that replaced
+// the retired master-to-X buttons (STATBUS-258). But putting a prerelease on a
+// production installation is a real deviation, and an unannounced deviation is
+// how a box quietly stops being what the fleet believes it is.
+//
+// Pinned because silence is the failure mode that leaves no trace: if this
+// print is ever dropped, nothing at runtime complains — the deviation simply
+// stops being visible, which is precisely the class of defect this whole
+// evening has been about.
+func TestDeliberateOffChannelTargetIsAnnounced_STATBUS291(t *testing.T) {
+	src := readUpgradeServiceSource(t)
+	body := extractFuncBody(t, src, "func (d *Service) scheduleStep(")
+
+	if !strings.Contains(body, "TagMatchesChannel(") {
+		t.Error(`scheduleStep no longer checks whether a named target is on the box's channel.
+
+Scheduling a prerelease onto a stable production box is a deliberate deviation.
+It is allowed — a named target is an instruction (STATBUS-258) — but it must be
+ANNOUNCED. Without this check the deviation happens in silence.`)
+	}
+	if !strings.Contains(body, "not on this box's") {
+		t.Error(`scheduleStep no longer PRINTS the off-channel notice.
+
+Detecting the deviation and saying nothing is the same as not detecting it. The
+operator must see, at the moment it happens, that this box is being given a
+version its channel would never have offered.`)
+	}
+	// It must ANNOUNCE, not refuse: a returned error here would break the
+	// deliberate-deployment path the announcement exists to accompany.
+	if strings.Contains(body, "not on this box's") &&
+		strings.Contains(body, `return fmt.Errorf("channel`) {
+		t.Error("scheduleStep REFUSES an off-channel named target — it must announce and proceed (STATBUS-258 deliberate deployment must not be blocked)")
+	}
+}

@@ -5057,6 +5057,44 @@ func (d *Service) scheduleStep(ctx context.Context, input string, recreate bool)
 			return fmt.Errorf("unhandled target type %T", target)
 		}
 
+		// STATBUS-291: A DELIBERATE TARGET OFF THIS BOX'S CHANNEL IS ANNOUNCED,
+		// NOT REFUSED — and the asymmetry with RunCheck is the whole design.
+		//
+		// Automatic discovery FILTERS: a box is never OFFERED something outside
+		// its channel. But a named target arriving here is an INSTRUCTION from a
+		// human who typed the version, and that is the King's candidate-addressed
+		// deliberate deployment (STATBUS-258). Refusing it would break the one
+		// mechanism that replaced the retired master-to-X buttons.
+		//
+		// Silence would be just as wrong in the other direction: putting a
+		// prerelease onto a production installation is a real deviation, and a
+		// deviation nobody is told about is how a box quietly stops being what
+		// the fleet believes it is. So it is stated plainly, once, at the moment
+		// it happens — then it proceeds.
+		//
+		// ONLY A TAGGED TARGET IS CHECKED, DELIBERATELY. A bare commit SHA has no
+		// channel to be off: channels are defined over TAG SHAPE
+		// (TagMatchesChannel / ClassifyReleaseShape), and an untagged commit has
+		// no shape to classify. Announcing "off-channel" for it would be inventing
+		// a judgement the model cannot make.
+		//
+		// The visible consequence, stated so the next reader does not file it as a
+		// bug: CI's own dev door schedules untagged commits silently, and that is
+		// correct — deploy-by-commit is a distinct, deliberate mechanism
+		// (STATBUS-169), not an off-channel accident.
+		//
+		// The alternative — resolve the SHA to a tag just to announce — was
+		// considered and rejected: a commit may carry several tags or none, so the
+		// resolution would sometimes have to GUESS which tag "means" the target,
+		// and a guess is a poor basis for a deviation notice whose entire value is
+		// that it states a fact.
+		if tagged, ok := target.(TaggedTarget); ok {
+			if !TagMatchesChannel(string(tagged.Tag), d.channel) {
+				fmt.Printf("NOTE: %s is not on this box's %q channel — scheduling it anyway because you named it explicitly.\n", displayName, d.channel)
+				fmt.Printf("      Automatic discovery would not have offered this version here; a deliberate install is not blocked, only announced.\n")
+			}
+		}
+
 		// Promote ONLY an existing candidate — NO insert. Resetting the
 		// lifecycle lets a completed/failed/rolled_back row re-run.
 		// STATBUS-046 (doc-021): re-schedule is un-park trigger 1. The guard
@@ -5178,10 +5216,60 @@ func (d *Service) RunCheck(ctx context.Context) error {
 		fmt.Println("No release tags found")
 		return nil
 	}
+
+	// STATBUS-291: THIS COMMAND DISCOVERS WHAT THE BOX MAY TAKE, SO IT FILTERS
+	// BY CHANNEL — exactly as the service's own discovery does at :4047.
+	//
+	// Without this, `./sb upgrade check` on a production box registered every
+	// tag merely NEWER than the running version, and `upgrade list` then showed
+	// a release candidate as "available" on a stable box. Observed on ua (born
+	// rc.10, channel stable) listing v2026.08.0-rc.11. The topology's promise —
+	// production boxes are never OFFERED candidates — was broken at the one
+	// surface a human actually reads, and nothing downstream would have stopped
+	// them scheduling it.
+	//
+	// The gap predates the git-discovery switch (the API-based version had the
+	// same single version guard), but git discovery WIDENS it: git returns every
+	// tag, including ones with no published release, where the old API path
+	// returned published releases only.
+	//
+	// PLACEMENT IS DELIBERATE AND MUST NOT MOVE. The filter belongs HERE, not in
+	// the shared upsertCandidate, because that helper is also reached by
+	// registerStep — the named-target path behind `./sb upgrade register/apply`.
+	// That is how a human deliberately installs a specific candidate on a
+	// specific box, and filtering there would block every off-channel deliberate
+	// deployment fleet-wide. AUTOMATIC DISCOVERY FILTERS; A NAMED TARGET IS AN
+	// INSTRUCTION, NOT AN OFFER, and is announced rather than refused (see
+	// scheduleStep).
+	filtered := FilterTagsByChannel(tags, d.channel)
+	if len(filtered) == 0 {
+		// Distinct from "no tags at all": tags exist, none are for this box.
+		// Saying "none found" here would read as a discovery failure and send
+		// an operator hunting for a problem that is correct behaviour.
+		//
+		// THIS RETURNS BEFORE runOneShot, AND THAT COSTS NOTHING — checked, not
+		// assumed, because on a stable box where every current tag is an rc this
+		// is the DEFAULT path of every `upgrade check`, not an edge case.
+		//
+		// runOneShot (:4779) is only a database connection lifecycle: connect,
+		// defer close, call the closure. It carries no poke of its own. The one
+		// signal this command sends is `NOTIFY upgrade_check` at the end of the
+		// closure, and that is ALREADY conditional on `registered > 0`. With no
+		// tag matching the channel nothing can be registered, so the notify would
+		// not fire even if we did enter the closure. Skipping it therefore loses
+		// exactly one thing: a connect/close pair and a line reading
+		// "Registered 0 new candidate(s)."
+		//
+		// The poke means "a new candidate exists, go prepare it". Sending it when
+		// the box was offered nothing would be a lie in the direction that wastes
+		// the service's time, not one that loses work.
+		fmt.Printf("Found %d release tag(s), none matching channel %q — nothing to register\n", len(tags), d.channel)
+		return nil
+	}
 	return d.runOneShot(ctx, func(ctx context.Context) error {
-		fmt.Printf("Found %d release tag(s):\n", len(tags))
+		fmt.Printf("Found %d release tag(s), %d matching channel %q:\n", len(tags), len(filtered), d.channel)
 		registered := 0
-		for _, t := range tags {
+		for _, t := range filtered {
 			fmt.Printf("  %s (%s)\n", t.TagName, t.PublishedAt.Format("2006-01-02"))
 			// Register only tags strictly newer than the running version — the
 			// same guard discovery uses; avoids re-recording ancient tags.
