@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 17:46'
+updated_date: '2026-08-27 19:45'
 labels:
   - ops
   - cloud
@@ -29,3 +30,13 @@ Tonight's red is NOT release-gating (post-push fan-out only) and self-clears whe
 
 WHAT IS ACHIEVED: upgrade discovery works at any fleet density on any topology, and a busy CI evening can no longer starve the fleet's own notification path.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: mechanic (pinned by foreman)
+created: 2026-08-27 19:45
+---
+ROOT CAUSE VERIFIED EMPIRICALLY (2026-08-27, ./sb --version on all seven slots) — AND IT DISSOLVES THIS TICKET'S ASSUMED FIX: no token is needed, because CURRENT code makes zero GitHub API calls. The six failing slots (tcc, demo, jo, ma, et, ug) all run the IDENTICAL month-old binary — v2026.07.0-rc.03, commit 111546ee, built 2026-07-13 — which predates STATBUS-255's deletion of the GitHub API discovery path (c4ba87464, 2026-08-19). Their RunCheck still calls the deleted FetchReleases() against api.github.com — subject to the 60/hr per-IP unauthenticated limit. Dev succeeds because its binary (rc.09, post-255) uses DiscoverTagsViaGit — pure git fetch --tags, zero HTTP, works without any token by design. Error-format fingerprint confirms it: the failing jobs' 'GitHub API returned 403: {json}' matches the DELETED function's format exactly; current code's format differs. RE-SCOPE: no code change to RunCheck, no token plumbing — the remedy is current code reaching the six boxes, which is precisely STATBUS-248's delivery path (they take the stable promoted from rc.11, whose binary carries 255). Until then, notify fan-out reds on these six slots are EXPECTED and attributed — not new bugs, not gate-relevant. CLOSES when the fleet's binaries are post-255 and a notify run comes back green without token changes.
+---
+<!-- COMMENTS:END -->

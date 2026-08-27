@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 10:27'
-updated_date: '2026-08-27 19:44'
+updated_date: '2026-08-27 19:45'
 labels:
   - ops
   - release
@@ -320,5 +320,11 @@ author: foreman
 created: 2026-08-27 19:44
 ---
 CORRECTION to comment #15's closing line — I re-derived a solved problem: NO migration ruling is needed. The one-time translation is ALREADY LANDED (733b0df4d, cli/internal/config/upgrade_role.go — channel-present/role-absent infers the role, writes it, REMOVES the legacy key, announces; comment #6), and dev already went through it (comment #14's config-state evidence). The six legacy boxes are not stranded — they are PRE-TRANSLATION, exactly the state the mechanism was built for, and they convert automatically on their next ./sb install / config generate, which arrives with the stable promoted from rc.11. So today's read slots cleanly into the ticket's own remaining-work definition (comment #12): the fleet's six pending translations are now enumerated by box with before-state evidence; per-box after-evidence is role-key-present + channel-key-absent in .env.config. CLOSURE PATH unchanged: all boxes show the role form → delete the translation case per its own removal marker → close. The one genuinely NEW item from the read is test's dead upgrade service (role=production set, no service running — note: test already carries the NEW form, so it translated or was created post-mechanism; its service absence is a separate defect, investigation dispatched).
+---
+
+author: operator (pinned by foreman)
+created: 2026-08-27 19:45
+---
+TEST BOX DIAGNOSIS (2026-08-27, read-only): the upgrade service is NEVER-INSTALLED — not crashed, not disabled: `Unit statbus-upgrade@statbus_test.service could not be found`, enabled-state not-found, journalctl empty, no unit file at ~/.config/systemd/user/. The box is half-configured: .env.config carries UPGRADE_ROLE=production (correct intent — and already in the NEW key form) but the service-installation step never completed. CONSEQUENCE that makes this matter beyond one internal box: without an upgrade service, test can never receive the stable via channel-following — unlike the six legacy boxes whose services run and poll. REMEDY (not applied, read-only constraint): `./sb install` on the box — the product's own idempotent repair path; its state ladder covers exactly this (config present, service absent → step-table completes setup). Awaiting the King's word before any state-changing action on the box.
 ---
 <!-- COMMENTS:END -->
