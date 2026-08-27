@@ -3,11 +3,11 @@ id: STATBUS-263
 title: >-
   task-cleanup-fk: worker task_cleanup has been failing since 2026-05-13 on an
   FK violation — completed tasks cannot be deleted, and nobody was told
-status: In Progress
+status: Done
 assignee:
   - '@engineer'
 created_date: '2026-08-27 12:41'
-updated_date: '2026-08-27 17:32'
+updated_date: '2026-08-27 17:38'
 labels:
   - worker
   - norway
@@ -246,4 +246,73 @@ created: 2026-08-27 17:32
 ---
 LANDING VERDICT (2026-08-27): AMEND, then LAND — rides rc.11. BLOCKER: both new down migrations are missing the statement terminator after the closing dollar-quote (162703 down :24, 163000 down :32) — the \sf-dump trap AGENTS.md names: the dump ends `$procedure$` with no `;`, the ups got one added, the downs did not, so the up-vs-down diff read clean while both downs are unexecutable SQL. WHY EVERY GREEN LEG MISSED IT, recorded deliberately: the suite, the RED-verifications and generate-doc-db all run migrations UP — nothing in the unit's evidence ever executed a down; the greens are real and simply do not cover the rollback path. Architect swept the last 40 down migrations: the defect is confined to these two (older flagged matches carry the `;` on the next line — checked, not counted). LATENT (six lines in 096): ensure_recurring_task's idempotence rests on a per-command partial unique index but nothing ties membership to it — both current members have theirs (idx_tasks_task_cleanup_dedup, idx_tasks_import_job_cleanup_dedup); a future third member without one would accumulate duplicate pending rows and make seed_recurring_tasks report a repair every boot (the wedge alarm crying wolf). Extend 096 Property 1 to assert index existence per recurring command. VERIFIED SOUND at the line: current_timestamp captured before the batch (worker.cr:1350→:1413 — the ordering that would silently drop occurrences if reversed); the untargeted ON CONFLICT is effectively targeted for both current members; consistent_command_in_payload survives both callers; the concurrent-child FK race is non-fatal by construction (runner schedules the next occurrence on failure — the design pays for itself on exactly its target hazard); 096 Property 5's comment-stripping praised. Foreman added to the amendment: EXECUTE both downs on the dev DB and migrate back up — close the zero-scope rollback gap empirically, not syntactically.
 ---
+
+author: engineer
+created: 2026-08-27 17:36
+---
+**AMENDED AND RE-FROZEN.** All three items done; file list unchanged at 18.
+
+## (1) BLOCKER — the two missing terminators, fixed
+
+```
+migrations/20260827162703_..._child_guard.down.sql:24   $procedure$  ->  $procedure$;
+migrations/20260827163000_runner_owns_..._scheduling.down.sql:32   $procedure$  ->  $procedure$;
+```
+
+The architect's read of the cause is exactly right, and it is worth stating plainly because it is the trap AGENTS.md names: **the `\sf` dump ends WITHOUT a terminator.** I wrote the up migrations by hand and added `;` there (:147 and :175 both carry `$procedure$;`); the down migrations I built by concatenating the dump straight in, so neither got one. And because the SAME unterminated dump seeded both sides, the up-vs-down diff looked clean — the defect was invisible to exactly the review that would normally catch it. Nothing but running the down would have found it.
+
+## (3) THE ZERO-SCOPE GAP, CLOSED EMPIRICALLY — not "it parses now"
+
+Ran the rollback for real on the dev database, with a probe on each side. Log: `tmp/263-step-f.log` (first attempt `tmp/263-roundtrip.log`).
+
+| probe | scheduler_exists | seeder_exists | schedule_interval col |
+|---|---|---|---|
+| **A** — at head | t | t | 1 |
+| **B** — after `./sb migrate down` ×2 | **f** | **f** | **0** |
+| **C** — after `./sb migrate up` | t | t | 1 |
+
+Version moved head → `20260714100527` → head. **Probe B is the point:** the rollback did not merely parse, it observably REMOVED the functions and the column. Under the unterminated files the down would have died on a syntax error and B would have read `t | t | 1`.
+
+**A self-caught error inside this leg, reported rather than buried:** my first probe was written inline in a double-quoted shell string, so `$$` expanded to the shell PID and it failed with `trailing junk after numeric literal at or near "17364worker"` — a check that examined nothing, the exact failure mode this ticket keeps circling. The round trip itself was valid; only my probe was junk. I re-ran the whole thing with the probe in a FILE piped to psql, per CLAUDE.md's rule about SQL and shell quoting. The table above is from the corrected run.
+
+## (2) THE LATENT GAP — 096 Property 1b, and it is load-bearing
+
+New arm asserts, per recurring command, that its per-command partial unique index exists. Expected now pins:
+
+```
+      command       | has_dedup_index
+--------------------+-----------------
+ import_job_cleanup | t
+ task_cleanup       | t
+```
+
+Regenerated through the guarded path (no BLOCKED) and green: `ok 1 - 096_worker_recurring_maintenance_survives_failure`.
+
+**RED-verified, which the amendment did not ask for but a new assertion has to earn:** mutating the index predicate so it cannot match flips both rows and fails the diff —
+
+```
+- import_job_cleanup | t        + import_job_cleanup | f
+- task_cleanup       | t        + task_cleanup       | f
+```
+
+So the arm reads real catalogue state rather than being vacuously true. File restored byte-identical afterwards (`diff -q` verified), and re-confirmed green on the restored bytes.
+
+The reasoning is written at the line: a third member declared without its index would not fail loudly — `seed_recurring_tasks` would insert a duplicate pending row every boot and the startup warning, which exists to announce a wedged box, would cry wolf on every healthy start until nobody read it. **That is this ticket's own failure arriving by the opposite door: silence by noise instead of silence by absence.**
+
+## File list — UNCHANGED, still 18
+
+The amendment edited three existing files in place (two down migrations, one test) and regenerated one expected output. No file added, none removed. Dirty tree remains 18 unit + 3 discard (`explain/303_*` ×2, `performance/109_*`) + 1 ticket.
+---
+
+author: foreman
+created: 2026-08-27 17:38
+---
+LANDED at b319ae4be (18 files, 1268 insertions) after the architect's LAND confirmation — he verified the amended bytes on disk rather than the report: terminators fixed on both downs (re-swept, no bare terminator remains), 096 Property 1b present with the why-silence-not-loudness reasoning at the line, and the empirical down/up round-trip praised as the correct remedy for a zero-scope green ('the remedy for a zero-scope green is to give the check scope'). Probe B (f/f/0 after the downs) is a direct empirical refutation of the defect's presence, not an inference from the fix. The engineer's self-caught $$-expands-to-shell-PID probe error — reported, corrected from a file per the quoting rule — is on the record as the recurring hazard it is. ONE NON-BLOCKING NOTE, deferred to STATBUS-267's neighbourhood: Property 1b matches indexdef LIKE '%'||command||'%', so a future command whose name is a SUBSTRING of an already-indexed one (e.g. job_cleanup vs idx_tasks_import_job_cleanup_dedup) would match the wrong index and report t — a one-line tightening when someone next opens the file; the realistic no-index-at-all case is caught correctly. Rides rc.11.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Norway's frozen-box root cause is fixed at the foundation: task_cleanup died permanently on 2026-05-13 because its reschedule lived as the last statement of the procedure that threw — one FK collision (retention cutoff bisecting a parent/child tree) rolled back the next occurrence along with the failed run, and 605k completed rows accumulated in silence. The ruling's principle — what must survive a failure cannot live inside the thing that fails — is now structure: recurrence is data (command_registry.schedule_interval), the worker's runner schedules the next occurrence regardless of outcome, startup seeds absent rows loudly (a healthy box says nothing; a wedged box names its own repair), retention follows completed_at with a NOT EXISTS child guard, batched fixpoint deletes measured against a rune-shaped 600k backlog, and command_import_job_cleanup's identical landmine is defused in the same commit. Proven by: 095 (FK statement-semantics reproducer, RED-verified x4), 096 (five properties incl. failure-survives-scheduling and per-member dedup-index existence, RED-verified), transactional fix-revert red on all arms, full fast suite 85/89 with all reds attributed, and an executed migrate-down/up round trip that empirically refuted the down-migration defect the architect's review caught (the \sf-dump missing-terminator trap — invisible to diff review because both sides seeded from the same dump). Landed at b319ae4be; rides v2026.08.0-rc.11.
+<!-- SECTION:FINAL_SUMMARY:END -->

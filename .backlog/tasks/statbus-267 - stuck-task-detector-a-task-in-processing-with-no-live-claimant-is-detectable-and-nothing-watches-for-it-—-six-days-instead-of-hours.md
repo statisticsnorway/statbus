@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 12:49'
-updated_date: '2026-08-27 16:12'
+updated_date: '2026-08-27 17:38'
 labels:
   - worker
 dependencies: []
@@ -40,5 +40,11 @@ WHERE: the worker's MAINTENANCE queue — during the rune wedge the maintenance 
 HOW IT REPORTS: loudly, and deliberately NOT through container health — health-check wiring would auto-restart the worker, re-run the reset, and quietly fix it: the standing self-heal the King forbids. A condition that should never occur surfaces to a HUMAN: loudest log level, visible where an operator reads status, restart left to a person. Composes with 264: if they restart and the reset still fails, retry-then-FATAL makes it a visible crash-loop.
 
 The reproduction arc is deliberately NOT here — filed as STATBUS-279, the named path to 264's proof. Builder: engineer (Crystal worker territory), queued behind STATBUS-263.
+---
+
+author: foreman
+created: 2026-08-27 17:38
+---
+NEIGHBOURHOOD REFINEMENT deferred here from 263's landing review (architect, non-blocking): 096 Property 1b's index-pairing assertion matches indexdef LIKE '%'||command||'%', so a future recurring command whose name is a SUBSTRING of an already-indexed one (e.g. a hypothetical job_cleanup vs idx_tasks_import_job_cleanup_dedup) would match the wrong index and report t with no index of its own. One-line tightening (anchor the match, e.g. on the WHERE command='<name>' predicate text) when this file is next opened for 267's build.
 ---
 <!-- COMMENTS:END -->
