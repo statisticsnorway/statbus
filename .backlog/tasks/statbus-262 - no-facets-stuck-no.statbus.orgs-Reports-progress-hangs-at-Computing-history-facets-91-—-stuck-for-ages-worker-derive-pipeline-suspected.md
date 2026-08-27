@@ -3,10 +3,10 @@ id: STATBUS-262
 title: >-
   no-facets-stuck: no.statbus.org's Reports progress hangs at "Computing history
   facets 91%" — stuck for ages, worker derive pipeline suspected
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-08-27 12:35'
-updated_date: '2026-08-27 12:59'
+updated_date: '2026-08-27 13:09'
 labels:
   - worker
   - production
@@ -108,4 +108,16 @@ REMEDY EXECUTED AND SUCCESSFUL (2026-08-27 ~12:56Z, operator, King-authorized wi
 
 Remaining before this ticket closes: (1) the merge chain drains fully (646218 → 646212 → 646207 complete, Reports progress reaches done — the King, who found this in the progress bar, confirms it visually); (2) the structural fixes land (STATBUS-264/265/266/267 — 266 in review, 264 in build). The manual restart was authorized precisely because those fixes are real and the reproduction (abandon rows mid-derive, restart worker inside the next window) is testable in the next round — recorded here so the remedy is never mistaken for the fix.
 ---
+
+author: foreman
+created: 2026-08-27 13:09
+---
+QUIESCENT CONFIRMED (2026-08-27 ~13:09Z, operator): all eight chain tasks completed (646207/646212/646217/646218 + 647003-647006), nothing processing, distribution clean (1 routine pending, 1 old task_cleanup failure = STATBUS-263). The box is healthy, at rest, and ready for the human-canary step — the architect's quiescence condition for unambiguous observation is met. Closing: the incident is resolved; the structural fixes live in their own tickets (264/265 frozen as the rc.10 blocking pair, 266 landed, 267 queued first behind stable, 263 riding, 270 the test-suite gap) and the proving sequence in STATBUS-271.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Norway's Reports froze at "Computing history facets 91%" for a week. Root cause, adversarially verified through two full reversals: the upgrade restarts the worker BEFORE clearing its own read-only accident-guard window (designed order, not a race); rc.08 stopped the worker mid-derive leaving four tasks in 'processing'; rc.09's worker start landed its once-per-startup crash recovery inside the 2.4-second window, was refused, logged ERROR, and never ran again — the box looked green for six days while one pipeline stayed wedged behind four rows. Remedy (King-authorized once the principled fixes were real): docker compose restart worker on rune — the recovery ran clean, the chain drained, the box is quiescent. Fixes shipped/queued: 264 retry-not-abandon + 265 window exemption (rc.10 blocking pair), 266 symmetric window logging (landed), 267 stuck-task detector (first behind stable), 263 task_cleanup FK (riding), 270 Crystal test suite (the component that cost six days has no runnable tests). Lessons pinned on the tickets: status claims go stale faster than design claims; a state change announced in one direction and silent in the other is a defect; the human canary needs a quiescent box for unambiguous verdicts.
+<!-- SECTION:FINAL_SUMMARY:END -->
