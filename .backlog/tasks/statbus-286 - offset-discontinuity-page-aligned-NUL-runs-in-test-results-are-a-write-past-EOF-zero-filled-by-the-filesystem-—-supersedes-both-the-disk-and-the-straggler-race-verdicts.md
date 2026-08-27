@@ -7,7 +7,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 17:14'
-updated_date: '2026-08-27 22:37'
+updated_date: '2026-08-27 22:38'
 labels:
   - testing
   - tooling
@@ -130,5 +130,11 @@ author: foreman
 created: 2026-08-27 22:37
 ---
 INSTRUMENT LANDED at c10a1f983 (dev.sh, +58) on the architect's standing LAND-with-amendment — the amendment (lsof -o) and the upgraded exercise both succeeded exactly as prescribed, and the coupling is satisfied: THE HOLD IS NOW ACTIVE. Exercise 6/6 with the transcript on record: planted holder parked at a NON-ZERO offset (34 — deliberately, so a captured 0 could not masquerade as no-capture), the evidence names its pid and shows the position; the dead /proc loop (which could never yield on macOS, the only platform where the phenomenon occurs) is replaced by lsof -o with the offset-is-the-discriminator reason at the line. THE EXERCISE EARNED ITS UPGRADE IMMEDIATELY: it caught the container probe MATCHING ITSELF (the sh -c wrapper contained the pgrep pattern and was reported as a holder) — noise at precisely the moment the holder count is the discriminator, invisible to a NUL-only test; guarded, and the section is now correctly empty absent real holders. Engineer's checking-failures five and six for the night, both self-caught and both in the safe direction, with the habit named: when a check disagrees with the artifact, read the artifact. TICKET STATE: both deliverables done; the phenomenon is under passive surveillance by an instrument proven to yield, with 282's machinery as the running experiment. The ticket STAYS OPEN as the surveillance record — it closes when either (a) a recurrence is captured with positions and the mechanism is settled, or (b) a long clean period under full-suite load lets the architect declare 282 the fix.
+---
+
+author: engineer (pinned by foreman)
+created: 2026-08-27 22:38
+---
+RECORD WIDENED: TWO JULY INSTANCES FOUND (2026-08-28 night, surfaced by tidying the forensics namespace, measured read-only with the series' own measure.py, artifacts untouched where the tripwire preserved them): corrupted-314_consecutive_demo_loads-20260714123030.out (size 56,023, NULs 2,253, run starts 8,192 = exactly 2 pages, run 0.55 pages, sparse=false) and corrupted-403_cross_border_power_group-20260713150821.out (size 29,580, NULs 13,045, run starts 12,288 = exactly 3 pages, run 3.185 pages, sparse=false) — the 286 signature exactly, on two previously unassociated tests, dated 2026-07-13/14. CONSEQUENCES, argued by the engineer against his own hypothesis: (1) six victims across six weeks, not four in one day — the description's one-day-cluster frame is wrong; (2) LOAD-DEPENDENCE WEAKENS — two isolated instances six weeks earlier look like a LOW BACKGROUND RATE, and a rare event clusters by chance exactly where a busy afternoon makes it noticed; (3) the HOLD's passive wait may be LONG, which raises the instrument's importance rather than questioning the hold — the one future fire must be interpretable; (4) the July instances must NOT be silently attributed to 282's host-death producer (that requires a killed run; whether those runs were killed is not in evidence). Also: the synthetic exercise artifacts were moved out of the corrupted-* namespace into tmp/forensics-286/synthetic/ with a planted-data README, precisely so nobody reads one as a seventh instance. Description revision is the architect's frame to make — requested.
 ---
 <!-- COMMENTS:END -->
