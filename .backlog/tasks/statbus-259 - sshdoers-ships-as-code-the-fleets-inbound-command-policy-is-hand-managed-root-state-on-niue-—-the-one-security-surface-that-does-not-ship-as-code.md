@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-08-19 20:06'
-updated_date: '2026-08-27 12:33'
+updated_date: '2026-08-27 12:40'
 labels:
   - ops
   - security
@@ -203,5 +203,15 @@ author: foreman
 created: 2026-08-27 12:33
 ---
 KING APPROVED THE ROOT SESSION (2026-08-27, first act back from the break): the pre-declared command list at tmp/259-command-list.md is the declared session, verbatim, with <COMMIT> = 202ff3511. Verified before relay: no commits landed during the break (origin tip still 99371ab9b), the last change to ops/setup-ubuntu-lts-24.sh and ops/niue/sshdoers is 202ff3511 itself, so the pin is exact. Compare-first stands: steps 1-3 read-only, STOP on hash difference, reconcile as a reviewed commit with live winning on first contact. The King runs steps 1-6 as root on niue; step 7's dev entry is provable through the real CI door via a deploy-to-dev dispatch, demo's at its next scheduled trigger or from a CI-key holder.
+---
+
+author: foreman
+created: 2026-08-27 12:40
+---
+FIRST ROOT SESSION RAN AND STOPPED AT THE STOP CONDITION (2026-08-27, operator, root@niue as granted by the King). Step 2: repo@202ff351 = 48a91bc9…, live /etc/sshdoers = f8b66940… — DIFFER; steps 4-6 not executed, zero bytes changed on the box. Step 3's reading settles the mode question: live is 644 root:root, dated Aug 19 11:55 — the architect's preserve-the-mode reversal was correct (0600 would have broken every slot).
+
+HONEST NOTE: the mismatch was GUARANTEED and nobody said so beforehand — the 259 unit rewrote the repo copy's header comment, and byte-for-byte hashing includes comments. The stop still proves the machinery; the substantive question is whether the diff holds anything BEYOND the header (live dated Aug 19 11:55 — hand-edits that day, demo's STATBUS-248 trigger entry the standing suspect).
+
+RECONCILE IN MOTION per the ratified protocol (live wins on first contact): operator fetches the live file content (root read → tmp/259-niue-live-sshdoers); architect diffs against the repo copy and rules which lines belong; the reconcile ships as a reviewed commit to ops/niue/sshdoers; the session re-runs pinned at the NEW commit.
 ---
 <!-- COMMENTS:END -->
