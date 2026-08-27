@@ -7,7 +7,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 17:14'
-updated_date: '2026-08-27 17:28'
+updated_date: '2026-08-27 18:42'
 labels:
   - testing
   - tooling
@@ -61,5 +61,11 @@ author: foreman
 created: 2026-08-27 17:28
 ---
 DESIGN CONSTRAINT on deliverable #1, learned from tonight's attempts (2026-08-27): the reproducer is INTERMITTENT — 301 corrupted twice (suite run, then single-test run) and then passed clean on the next single-test attempt. Therefore the discriminating experiment cannot be a one-off: a single clean container-local run discriminates nothing (the bind-mount arm also produces clean runs). The experiment must be a SERIES — several runs per arm (container-local --outputdir vs bind mount), and a clean container-local result is only meaningful against a bind-mount arm that corrupts within the same window. Foreman's ruling tonight: NOT run during the 263 endgame (the conditional pre-authorization lapsed when 301 passed on its first retry); it executes as part of this ticket's implementation, designed as the paired series above. Tonight's tally for the record: 301 corrupted 2 of 3 runs — the highest observed local incidence of this class in one day.
+---
+
+author: foreman
+created: 2026-08-27 18:42
+---
+FIFTH VICTIM / THIRD 301-ADJACENT INSTANCE tonight (2026-08-27 ~18:30Z): 307_test_lu_enterprise_link corrupted during the stamp-minting suite attempt — size 151,448, NULs 67,233, run starts at 36,864 = exactly 9 pages. 307 was CLEAN in the earlier step-b suite, making four distinct victim files today (105, 110, 301, 307) — further undercutting any content- or test-specific selection story. Incidence tonight: corruption in 3 of the last 4 full-suite runs. Forensics preserved to tmp/forensics-263/ when the run ends. Consequence already absorbed: the release gate no longer depends on local suite runs (STATBUS-288's fast-tests escape landed at 85b692a3c), so this ticket's experiment + instrument can proceed without cut pressure — but the incidence rate argues for scheduling it soon; the local suite is currently unusable for stamp-minting.
 ---
 <!-- COMMENTS:END -->

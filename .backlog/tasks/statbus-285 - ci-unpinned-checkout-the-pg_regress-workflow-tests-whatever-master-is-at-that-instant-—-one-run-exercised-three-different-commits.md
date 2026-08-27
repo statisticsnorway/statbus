@@ -6,11 +6,12 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 17:11'
+updated_date: '2026-08-27 18:42'
 labels:
   - ci
   - testing
 dependencies: []
-priority: medium
+priority: high
 type: bug
 ordinal: 278000
 ---
@@ -26,3 +27,13 @@ Fix shape: both checkout sites in the pg_regress workflow (and any sibling workf
 
 WHAT IS ACHIEVED: every CI verdict names exactly one commit, and the stamps and release gates built on those verdicts inherit that precision instead of a silent at-or-after.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect (pinned by foreman)
+created: 2026-08-27 18:42
+---
+ESCALATED from drift-oddity to GATE INTEGRITY (architect, 2026-08-27 evening, during the 288 landing): every branch of the release preflight's CI-escape family consumes head_sha-keyed evidence via checkWorkflowAt — and NONE of them can be sounder than that key. Second observed instance the same evening: minting run 33099747588's nominal headSha was a47aa3c0b while its own checkout log shows 'HEAD is now at b319ae4be' — a green ATTRIBUTED to one commit that EXECUTED at another. That is the zero-scope-green class at its most dangerous: evidence about HEAD produced somewhere that is not HEAD. It applies to BOTH escape oracles equally (fast-tests and pg_regress), so it does not disturb the 288 split — but it qualifies every claim of 'green at HEAD' with a known attribution hazard until fixed. Tonight's cut was safe because the substance was verified at the EXERCISED commit (89/89 incl 095/096, source version 20260827163000). Priority raised accordingly: this ticket is now the foundation the whole escape family rests on, first in queue after the release-candidate work settles.
+---
+<!-- COMMENTS:END -->
