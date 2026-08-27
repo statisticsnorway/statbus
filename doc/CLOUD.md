@@ -32,6 +32,7 @@ Active multi-tenant instances on niue.statbus.org:
 | test | Test | statbus_test | test.statbus.org | 7 |
 | et | Ethiopia | statbus_et | et.statbus.org | 8 |
 | jo | Jordan | statbus_jo | jo.statbus.org | 9 |
+| ua | Ukraine | statbus_ua | ua.statbus.org | 10 |
 
 **Moved off niue:**
 - `no` (Norway) — migrated to a dedicated standalone box `rune.statbus.org` to dog-food the standalone deployment mode that external clients use. See [SSB-Operated Standalone Instances](#ssb-operated-standalone-instances). Port offset 2 stays reserved on niue for future use. The `statbus_no` Linux user and home were cleaned up from niue on 2026-04-21 after the rune install was verified live; final pre-decomm DB dumps are preserved on rune at `/home/statbus/statbus/tmp/` alongside the niue import source CSVs.
@@ -326,6 +327,7 @@ Current allocations on niue.statbus.org:
 | test | Test | 7       | 3070  | 3071  | 3074       | 3071 |
 | et   | Ethiopia | 8    | 3080  | 3081  | 3084       | 3081 |
 | jo   | Jordan | 9      | 3090  | 3091  | 3094       | 3091 |
+| ua   | Ukraine | 10    | 3100  | 3101  | 3104       | 3101 |
 
 Offset 2 is reserved (kept for rollback if `no` ever needs to come back to niue).
 
@@ -334,7 +336,7 @@ Offset 2 is reserved (kept for rollback if `no` ever needs to come back to niue)
 - **443** (HTTPS) → Host Caddy → routes by domain to instance Caddy
 - **5432** (PostgreSQL) → Host Caddy → routes by SNI to instance Caddy
 
-**Note**: Next available offset is 10 for new deployments.
+**Note**: Next available offset is 11 for new deployments.
 
 ---
 
