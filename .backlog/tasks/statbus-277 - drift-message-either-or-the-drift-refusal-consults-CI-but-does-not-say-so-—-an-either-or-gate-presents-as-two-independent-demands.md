@@ -3,9 +3,10 @@ id: STATBUS-277
 title: >-
   drift-message-either-or: the drift refusal consults CI but does not say so —
   an either/or gate presents as two independent demands
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-27 15:02'
+updated_date: '2026-08-27 16:21'
 labels:
   - release
 dependencies: []
@@ -23,3 +24,9 @@ Fix, in the refusal branch only (the pass paths already announce themselves): wh
 
 WHAT IS ACHIEVED: the operator standing at a refusal knows exactly which of the two acceptable proofs is missing and where the pending one is — no more apparent double-requirement.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Landed at a174ac80a (architect: LAND — every retargeted test ADDS the tuple assertion beside the original property rather than replacing it, the 266 wrapping-lesson applied unwatched; the zero-Status honesty pinned so the message cannot claim an examination that never happened; the no-stamp-on-refusal sentence kept because a stamp written on a refusal would manufacture evidence for the next invocation's fast path). The drift refusal now names both sides of the either/or with CI's actual status and run URL, or honestly says CI could not be consulted.
+<!-- SECTION:FINAL_SUMMARY:END -->
