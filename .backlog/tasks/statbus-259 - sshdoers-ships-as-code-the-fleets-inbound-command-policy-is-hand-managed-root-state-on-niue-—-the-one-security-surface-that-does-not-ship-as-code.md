@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-08-19 20:06'
-updated_date: '2026-08-27 12:47'
+updated_date: '2026-08-27 12:50'
 labels:
   - ops
   - security
@@ -237,5 +237,13 @@ RECONCILE LANDED at eff9b42efbbcc1091449598f70defd059912d686 (architect verdict:
 ARCHITECT'S GUARANTEE NOTE, recorded so nobody mistakes the parser for it: sshdo --check CANNOT catch a misspelled username (unknown user = warning, validates cleanly, silently grants nothing). The protection is the SET-EQUALITY CHECK — comment-stripped, sorted, byte-identical to the live capture — which is the strongest evidence in this unit and the guarantee the parser structurally cannot give.
 
 SECOND SESSION NEXT (operator, root@niue): provenance protocol as ratified in comment #10 — step 2 compares live against the RECORDED baseline f8b669402e9c01295de29e30aa676fa65f6ec2f65cd3b62abe314f75aa9ea364 (proceed only if unchanged); SSHDOERS_REF=eff9b42efbbcc1091449598f70defd059912d686; step 6 success = live hash equals the reconciled repo copy's hash; post-install entry-line diff of backup vs new live MUST be empty.
+---
+
+author: foreman
+created: 2026-08-27 12:50
+---
+SECOND SESSION STOPPED CLEANLY AT STEP 4 (2026-08-27): provenance check PASSED (live still at the recorded baseline f8b66940… — the new step 2 worked as ratified), backup taken (/root/sshdoers.pre-259.20260827T124818Z), then the stage run REFUSED: ops/setup-ubuntu-lts-24.sh --non-interactive demands /root/.setup-ubuntu.env (ADMIN_EMAIL, GITHUB_USERS, …) — values Stage 8 never consumes. Nothing was installed; zero bytes changed on the box.
+
+THE FINDING: "independently runnable" was verified by READING (--skip-stages exists, comment #4) and never RUN — the run was the only oracle, again. The env requirement lives in the script preamble, not in the stages that consume it, so running ONLY Stage 8 still demands a config it never reads. Hand-writing a dummy env on niue is out (NO WORKAROUNDS, King's standing ruling). Architect is ruling the fix shape: per-stage config requirement (general, honest — the requirement belongs to the stages) vs a narrow only-Stage-8 exemption (surgical, special-case smell). Fix lands as a reviewed commit; THIRD session runs pinned at that commit — same provenance protocol, baseline unchanged (the box did not move).
 ---
 <!-- COMMENTS:END -->
