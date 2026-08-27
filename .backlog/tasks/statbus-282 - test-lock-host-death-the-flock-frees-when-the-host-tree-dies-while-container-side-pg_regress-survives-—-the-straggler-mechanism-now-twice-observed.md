@@ -4,11 +4,11 @@ title: >-
   test-lock-host-death: the flock frees when the host tree dies while
   container-side pg_regress survives — the straggler mechanism, now
   twice-observed
-status: In Progress
+status: Done
 assignee:
   - '@engineer'
 created_date: '2026-08-27 16:44'
-updated_date: '2026-08-27 21:34'
+updated_date: '2026-08-27 22:24'
 labels:
   - testing
 dependencies: []
@@ -166,4 +166,16 @@ created: 2026-08-27 21:34
 ---
 INCIDENT + FIX on the must-fix itself (2026-08-27 ~20:34-21:35Z): the landed guard KILLED CI. Under dev.sh's set -euo pipefail (line 9), the capture `_out=$(...); _rc=$?` dies on the assignment when pgrep exits 1 — the NORMAL clean-container case — so every fast-tests run at 4fdea9a2b aborted silently (exit 1, zero output, 0.3s after seed-fetch: the exact CI signature that triggered the investigation). Two lessons, both already in our book and both bitten anyway: (1) STATBUS-261's errexit-safe capture idiom (`_rc=0; _out=$(cmd) || _rc=$?`) applies to EVERY capture in an errexit script — the architect's prescribed snippet carried the landmine and neither his review nor the mechanic's build caught it; (2) A PROOF HARNESS MUST REPLICATE THE CALLER'S SHELL MODE — the three-arm proof ran the extracted function outside set -e, so arm 2 passed in the harness and killed the caller. FIX LANDED at 443a65629 (foreman, urgent: master fast-tests red also blocks the next cut's 288 oracle): errexit-safe idiom + the incident recorded at the line; ALL THREE ARMS RE-PROVEN UNDER set -e against the real container (clean → continues; planted pg_sleep straggler → BLOCKED by pid, exit 1; shim-failed exec → REFUSING verbatim, exit 1); planted process waited out, never signalled; container verified clean after. Assignee moved to engineer for the remaining postmaster-lock build.
 ---
+
+author: foreman
+created: 2026-08-27 22:24
+---
+STRUCTURAL HALF LANDED at 51f268b0b (dev.sh, +223) after the architect's LAND on the re-frozen unit — verified in the bytes, and STRONGER than his prescription twice: the guard strips whitespace before the emptiness test (his own one-liner would have false-BUSYed on psql's trailing newline — his words), and the real-entry arm additionally proves the refusal PRECEDES the work (no test runs), pinned at dev.sh:885-889 rather than on the function in isolation. TWO LESSONS RECORDED AS COMPLEMENTARY, per his explicit instruction — neither may displace the other: (1) WHY THE BAD LINE EXISTED — two concurrent shell RED harnesses, the second restoring a snapshot taken while the first held the mutation: two writers, one artifact, no error from either side — the ticket's own subject reproduced in the tooling built to prove the ticket, which is evidence FOR the premise; (2) WHY TEN ARMS PASSED OVER IT — the original proof contained NO refusal arm; the unit's central property was unpinned, and a correct-looking table can never catch what it does not test. Lesson (2) is the one that generalises to every future guard. HARDENING CONVERGENCE noted by the architect: the harness fix (exclusive flock + descend-marker distinguishing beside from under) is the same shape as the ticket's own fix — a mutex plus a liveness-and-provenance distinction — and tooling and subject converging on one answer is usually the sign it is right. WITH THIS THE TICKET'S GOAL IS MET: the authority lives where the writer lives (a dead host cannot leave a live writer behind a free lock — the lock IS the writer's presence), orphan clones are swept by the postmaster's own teardown, and long suites have a sanctioned session-surviving invocation. Rides the next candidate.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The host-death gap is closed on the side that survives host death. The authority for starting a test run is no longer a host-side flock (which the kernel frees when the process tree dies) but the postmaster itself — backends attached to test_shared_* databases, queried where the writer lives, so lock-freedom and writer-absence stop being different facts and a run that cannot observe cannot start. Orphaned clone databases are swept by plain DROP, protected two-layered (the sweep never asks about a live database, and PostgreSQL refuses even when asked — FORCE being the switch that disables that floor is why its ban is structural). Ownership never derives from the recycled pid-based name. Long suites gain a sanctioned detached runner that owns its tmux socket explicitly. The unit survived its own drama: its fail-open first version was produced by two concurrent RED harnesses corrupting the shared file (the ticket's own two-writer subject, reproduced in its tooling) and passed a seven-arm proof that lacked the refusal arm — both lessons recorded as complementary, the missing-central-pin one being the generalisable half. The guard's fail-open observation fix (earlier commit) plus this landing close the whole arc. Landed at 51f268b0b.
+<!-- SECTION:FINAL_SUMMARY:END -->
