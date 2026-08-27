@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-08-27 12:56'
-updated_date: '2026-08-27 16:56'
+updated_date: '2026-08-27 16:59'
 labels:
   - ops
   - cloud
@@ -150,6 +150,12 @@ created: 2026-08-27 16:56
 INSTALLATION COMPLETE AND PUBLICLY VERIFIED (2026-08-27 ~16:56Z): https://ua.statbus.org serves HTTP/2 307 → /login via Caddy with a fresh ACME certificate; five containers healthy through the reload; born at v2026.08.0-rc.10 (3d398d588) via the version-pinned script + install.sh's image-procured binary; UPGRADE_ROLE=production deriving channel=stable (running-service line verified); ZERO inbound sshdoers entries; initial admin entered by the foreman on the King's authority (details only on the box). The final mile was a pre-declared root action: validate-then-reload of niue's host Caddy — the creation script wires ACLs but never reloads the host router (gap added to STATBUS-283's consolidation scope).
 
 The maiden run surfaced and permanently fixed four latent gaps in one evening: the version pin (born-at-tag), the dead api/www split (including the BROWSER_REST_URL that would have broken this very install), the quoted-tilde keygen, and the missing binary procurement + host reload (→ 283). The next country inherits none of them.
+---
+
+author: foreman
+created: 2026-08-27 16:59
+---
+Doc record complete at bcba63bf6: doc/CLOUD.md's deployment + port-allocation tables carry the ua/offset-10 row and the next-available offset advances to 11 (mechanic's unit, matched the dispatched spec exactly). Ticket closure evidence is now fully committed: board at dcf53356d, doc at bcba63bf6.
 ---
 <!-- COMMENTS:END -->
 
