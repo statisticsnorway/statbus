@@ -242,3 +242,138 @@ func TestPrintDriftEitherOrRefusal(t *testing.T) {
 		}
 	})
 }
+
+// stubWorkflowCheckPerWorkflow answers differently per workflow, which is the
+// only way to pin STATBUS-288's actual requirement: that the stale-template
+// escape reads fast-tests and is NOT satisfied by pg_regress alone.
+func stubWorkflowCheckPerWorkflow(t *testing.T, answers map[string]release.WorkflowCheckStatus) {
+	t.Helper()
+	old := checkWorkflowAtCommit
+	checkWorkflowAtCommit = func(workflow, commit string) release.WorkflowCheckResult {
+		status, ok := answers[workflow]
+		if !ok {
+			t.Errorf("escape consulted an unexpected workflow: %q", workflow)
+			status = release.WorkflowCheckUnknown
+		}
+		return release.WorkflowCheckResult{Status: status, RunURL: "https://example.invalid/run/1", RunID: 1}
+	}
+	t.Cleanup(func() { checkWorkflowAtCommit = old })
+}
+
+// TestStaleTemplateBranchConsultsFastTests covers STATBUS-288.
+//
+// The stale-template refusal fires because the LOCAL suite ran against a
+// template built from older migrations. Closing that gap needs evidence a suite
+// actually EXECUTED against a database built from HEAD's migrations — and a
+// green workflow run does not always mean that, because a run can ride an
+// ancestor's stamp and still conclude "success".
+//
+// Observed on 2026-08-27 at a3988e163: fast-tests.yaml really ran (89/89), while
+// pg_regress.yaml at the SAME commit was a stamp-ride from b319ae4be with zero
+// tests executed. Both were green; only one was evidence. Gating a staleness
+// check on the ride would defeat the check, since a ride proves a suite passed
+// somewhere EARLIER — precisely the claim staleness disputes.
+//
+// The branch itself lives inside preflightChecks and is not unit-testable; this
+// pins the verdict it switches on, for its exact call shape. Call-site polarity
+// stays review-carried, as for every gate in that function.
+func TestStaleTemplateBranchConsultsFastTests(t *testing.T) {
+	const what = "latest migrations"
+	drifted := "stamp's source-DB version 20260714100527 is behind HEAD's on-disk max 20260827163000"
+
+	t.Run("fast-tests green covers the stale template", func(t *testing.T) {
+		dir := newDriftRepo(t)
+		stubWorkflowCheckPerWorkflow(t, map[string]release.WorkflowCheckStatus{
+			release.WorkflowFastTests: release.WorkflowCheckGreen,
+		})
+
+		covered, ciResult := staleTemplateCoveredByFastTestsGreen(dir, what, drifted, false)
+		if !covered {
+			t.Fatal("a green fast-tests run at HEAD must cover a stale local template")
+		}
+		if ciResult.Status != release.WorkflowCheckGreen {
+			t.Fatalf("returned status = %q, want green", ciResult.Status)
+		}
+		if _, err := os.Stat(fastTestStampPath(dir)); err != nil {
+			t.Fatalf("escape path did not refresh the stamp: %v", err)
+		}
+	})
+
+	// THE LOAD-BEARING ARM: pg_regress green, fast-tests NOT green. The escape
+	// must refuse. If it consulted pg_regress it would pass here, and tonight's
+	// evidence says that green can be an inherited ride.
+	t.Run("pg_regress green alone does NOT satisfy it", func(t *testing.T) {
+		dir := newDriftRepo(t)
+		stubWorkflowCheckPerWorkflow(t, map[string]release.WorkflowCheckStatus{
+			release.WorkflowFastTests: release.WorkflowCheckMissing,
+			release.WorkflowPgRegress: release.WorkflowCheckGreen,
+		})
+
+		covered, _ := staleTemplateCoveredByFastTestsGreen(dir, what, drifted, false)
+		if covered {
+			t.Fatal("a pg_regress green must NOT satisfy the stale-template check — it can be a stamp-ride")
+		}
+		if _, err := os.Stat(fastTestStampPath(dir)); err == nil {
+			t.Fatal("refusal wrote a local stamp")
+		}
+	})
+
+	// Anything not green leaves the refusal standing — the genuinely
+	// unverified case this gate exists for.
+	for _, status := range []release.WorkflowCheckStatus{
+		release.WorkflowCheckFailed,
+		release.WorkflowCheckPending,
+		release.WorkflowCheckMissing,
+		release.WorkflowCheckUnknown,
+	} {
+		t.Run("fast-tests "+string(status)+" leaves the refusal standing", func(t *testing.T) {
+			dir := newDriftRepo(t)
+			stubWorkflowCheckPerWorkflow(t, map[string]release.WorkflowCheckStatus{
+				release.WorkflowFastTests: status,
+			})
+
+			covered, ciResult := staleTemplateCoveredByFastTestsGreen(dir, what, drifted, false)
+			if covered {
+				t.Fatalf("fast-tests %s must NOT cover a stale local template", status)
+			}
+			// The caller prints ciResult, so a refusal must carry the status it
+			// actually saw — otherwise the either/or message would read as
+			// "CI was never consulted" when it plainly was.
+			if ciResult.Status != status {
+				t.Fatalf("returned status = %q, want %q", ciResult.Status, status)
+			}
+			if _, err := os.Stat(fastTestStampPath(dir)); err == nil {
+				t.Fatal("refusal wrote a local stamp")
+			}
+		})
+	}
+
+	// The siblings must still ask pg_regress — the split is deliberate, not a
+	// migration of every call site to fast-tests.
+	t.Run("the file-drift siblings still ask pg_regress", func(t *testing.T) {
+		dir := newDriftRepo(t)
+		stubWorkflowCheckPerWorkflow(t, map[string]release.WorkflowCheckStatus{
+			release.WorkflowPgRegress: release.WorkflowCheckGreen,
+		})
+
+		covered, _ := driftCoveredByCIGreen(dir, "test expected file drift", "test/expected/a.out", false)
+		if !covered {
+			t.Fatal("the file-drift escape must still be satisfied by a pg_regress green")
+		}
+	})
+
+	t.Run("ride path still never persists", func(t *testing.T) {
+		dir := newDriftRepo(t)
+		stubWorkflowCheckPerWorkflow(t, map[string]release.WorkflowCheckStatus{
+			release.WorkflowFastTests: release.WorkflowCheckGreen,
+		})
+
+		covered, _ := staleTemplateCoveredByFastTestsGreen(dir, what, drifted, true)
+		if !covered {
+			t.Fatal("green must still cover when the stamp came from a ride")
+		}
+		if _, err := os.Stat(fastTestStampPath(dir)); err == nil {
+			t.Fatal("ride path wrote a local stamp — an inference must never become evidence")
+		}
+	})
+}

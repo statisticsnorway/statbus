@@ -101,6 +101,27 @@ func TestWaitForRestReady_TimeoutSchemaCacheStuck(t *testing.T) {
 	progress := newTestProgress(t)
 	d := &Service{cachedReadyURL: srv.URL}
 
+	// A CLOCK THE TEST OWNS, because this test asserts a TIME-DRIVEN behaviour.
+	//
+	// The loop checks its deadline BEFORE emitting a progress line, so with a
+	// real clock and a millisecond budget the whole thing is a race: if one HTTP
+	// round trip happens to exceed the budget — routine on a loaded CI runner —
+	// the deadline fires on the first pass and the loop returns having logged
+	// nothing. That is exactly how this test failed, twice, with greens in
+	// between: zero "Still waiting" lines, for reasons having nothing to do with
+	// the behaviour under test.
+	//
+	// Widening the budget would only lower the probability. Instead the clock
+	// advances ONLY when the loop sleeps, so real elapsed time is irrelevant and
+	// the sequence is fixed: 40ms budget / 2ms poll = the loop makes ~20 passes,
+	// each advancing 2ms, and every pass after the first is >= the 1ms progress
+	// interval. The lines are then guaranteed, under any load.
+	fakeNow := time.Unix(0, 0)
+	oldNow, oldSleep := waitForRestReadyNow, waitForRestReadySleep
+	waitForRestReadyNow = func() time.Time { return fakeNow }
+	waitForRestReadySleep = func(d time.Duration) { fakeNow = fakeNow.Add(d) }
+	t.Cleanup(func() { waitForRestReadyNow, waitForRestReadySleep = oldNow, oldSleep })
+
 	err := d.waitForRestReady(progress, 2*time.Millisecond, time.Millisecond, 40*time.Millisecond)
 	if err == nil {
 		t.Fatal("expected timeout error when /ready never returns 200")

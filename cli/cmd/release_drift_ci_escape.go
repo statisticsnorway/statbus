@@ -66,7 +66,7 @@ func fastTestStampPath(projDir string) string {
 // only acceptable proof. Its Status is the zero value ("") in the one case
 // where CI was never even asked — no resolvable HEAD — so the caller can
 // tell "declined" from "not consulted" apart.
-func driftCoveredByCIGreen(projDir, what, drifted string, stampFromRide bool) (bool, release.WorkflowCheckResult) {
+func driftCoveredByWorkflowGreen(projDir, workflow, what, drifted string, stampFromRide bool) (bool, release.WorkflowCheckResult) {
 	headOut, headErr := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
 	headFull := strings.TrimSpace(headOut)
 	// A check that examines nothing must refuse, not pass. With no HEAD there
@@ -90,7 +90,7 @@ func driftCoveredByCIGreen(projDir, what, drifted string, stampFromRide bool) (b
 		headShort = headShort[:12]
 	}
 
-	result := checkWorkflowAtCommit(release.WorkflowPgRegress, headFull)
+	result := checkWorkflowAtCommit(workflow, headFull)
 	if result.Status != release.WorkflowCheckGreen {
 		return false, result
 	}
@@ -150,4 +150,45 @@ func printDriftEitherOrRefusal(ciResult release.WorkflowCheckResult) {
 	}
 	fmt.Printf("    Local stamp is stale AND pg_regress is not green at HEAD (status: %s);\n", detail)
 	fmt.Println("    either a green CI run at this commit or the local run below satisfies this check.")
+}
+
+// driftCoveredByCIGreen is the entry point for the two file-drift refusals:
+// new-migrations and test-expected drift. Their question is "was this tree's
+// suite exercised", and pg_regress is the workflow that answers it.
+func driftCoveredByCIGreen(projDir, what, drifted string, stampFromRide bool) (bool, release.WorkflowCheckResult) {
+	return driftCoveredByWorkflowGreen(projDir, release.WorkflowPgRegress, what, drifted, stampFromRide)
+}
+
+// staleTemplateCoveredByFastTestsGreen is the entry point for the STALE-TEMPLATE
+// refusal, and it deliberately asks a DIFFERENT workflow.
+//
+// WHY THE WORKFLOW CHOICE IS THE WHOLE POINT HERE. That branch fires because the
+// local suite ran against a template built from OLDER migrations. Closing it
+// requires evidence that a suite actually EXECUTED against a database built from
+// HEAD's migrations — and a workflow run can be green without having executed
+// anything, because a run may ride an ancestor's stamp and still conclude
+// "success".
+//
+// The two workflows can be green at one commit and mean different things.
+// Observed on 2026-08-27 at a3988e163: fast-tests.yaml had really run (89/89,
+// and its log recorded the very stamp content this check wants), while
+// pg_regress.yaml at that same SHA concluded "success" as a stamp-ride
+// inherited from b319ae4be, with zero tests executed in the run itself.
+//
+// That observation is not offered as proof the ride was WRONG — it may well
+// have been legitimate, since a ride is exactly the right answer when the
+// content it covers has not changed, and nothing here establishes that
+// migrations differed between those two commits. What it establishes is the
+// weaker and sufficient point: a green tells you a run concluded successfully,
+// not that this commit's suite executed.
+//
+// The argument therefore rests on what a ride IS, not on that incident. Gating
+// a STALENESS check on inherited evidence defeats the check by construction: a
+// ride's green attests that a suite passed SOMEWHERE EARLIER, which is exactly
+// the claim staleness disputes.
+//
+// So this asks fast-tests.yaml, whose green at HEAD is direct execution evidence
+// of the property the branch guards.
+func staleTemplateCoveredByFastTestsGreen(projDir, what, drifted string, stampFromRide bool) (bool, release.WorkflowCheckResult) {
+	return driftCoveredByWorkflowGreen(projDir, release.WorkflowFastTests, what, drifted, stampFromRide)
 }

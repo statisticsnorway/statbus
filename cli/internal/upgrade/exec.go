@@ -1527,6 +1527,28 @@ const restReadyProgressInterval = 15 * time.Second
 // /ready=200 the cold-cache race cannot occur, and a silent fallback would mask
 // a future loss of the readiness signal (e.g. a compose refactor that drops the
 // admin mapping) — exactly the vacuous-green class we must fail loudly on.
+// waitForRestReadyNow and waitForRestReadySleep are the wait loop's only
+// contact with the passage of time, held as package vars so a test can supply
+// a clock it controls. Production code must never assign them; tests restore
+// them via t.Cleanup.
+//
+// WHY THE SEAM EXISTS. The loop's progress line is emitted on an elapsed-time
+// comparison, and the deadline check runs FIRST — so whether any "Still
+// waiting" line appears at all depends on how much REAL time passed before the
+// first deadline evaluation. Against a millisecond-scale test budget that is a
+// race with the scheduler: on a loaded machine one HTTP round trip can consume
+// the entire budget, the deadline fires on the first pass, and the loop returns
+// having logged nothing. The test asserting those lines then fails for a reason
+// that has nothing to do with the behaviour under test.
+//
+// Widening the budget would only make that rarer. With the clock injected the
+// question stops being "did enough wall-clock elapse" and becomes "did the loop
+// advance its own clock", which is deterministic under any load.
+var (
+	waitForRestReadyNow   = time.Now
+	waitForRestReadySleep = time.Sleep
+)
+
 func (d *Service) waitForRestReady(progress *ProgressLog, pollInterval, progressInterval, timeout time.Duration) error {
 	readyURL, err := d.readyURL()
 	if err != nil {
@@ -1546,7 +1568,7 @@ func (d *Service) waitForRestReady(progress *ProgressLog, pollInterval, progress
 	// hung GET must not consume the whole budget in one attempt.
 	client := &http.Client{Timeout: 10 * time.Second}
 
-	start := time.Now()
+	start := waitForRestReadyNow()
 	deadline := start.Add(timeout)
 	lastProgressAt := start
 
@@ -1565,7 +1587,7 @@ func (d *Service) waitForRestReady(progress *ProgressLog, pollInterval, progress
 		case getErr == nil && resp.StatusCode == http.StatusOK:
 			_ = resp.Body.Close()
 			logf("PostgREST is ready (admin /ready=200 after %s, %d poll(s))",
-				time.Since(start).Round(time.Millisecond), polls)
+				waitForRestReadyNow().Sub(start).Round(time.Millisecond), polls)
 			return nil
 		case getErr != nil:
 			lastDetail = fmt.Sprintf("connection error: %v", getErr)
@@ -1576,7 +1598,7 @@ func (d *Service) waitForRestReady(progress *ProgressLog, pollInterval, progress
 			lastDetail = fmt.Sprintf("status=%d (schema cache still loading)", resp.StatusCode)
 		}
 
-		if now := time.Now(); now.After(deadline) {
+		if now := waitForRestReadyNow(); now.After(deadline) {
 			if sawConnection {
 				return fmt.Errorf(
 					"PostgREST schema cache never loaded — admin /ready did not return 200 within %s "+
@@ -1591,11 +1613,11 @@ func (d *Service) waitForRestReady(progress *ProgressLog, pollInterval, progress
 				readyURL, timeout, lastDetail)
 		} else if now.Sub(lastProgressAt) >= progressInterval {
 			logf("Still waiting for PostgREST /ready (elapsed %s, last: %s)",
-				time.Since(start).Round(time.Second), lastDetail)
+				now.Sub(start).Round(time.Second), lastDetail)
 			lastProgressAt = now
 		}
 
-		time.Sleep(pollInterval)
+		waitForRestReadySleep(pollInterval)
 	}
 }
 
