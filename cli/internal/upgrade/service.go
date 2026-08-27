@@ -3386,7 +3386,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 	// senior truth and the flip simply follows it. This flagless belt has no backstop
 	// after :2312, so the escalation is the signal. terminalExec is the teardown-immune
 	// fresh-conn writer.
-	if werr := d.terminalExec(windowOffSQL); werr != nil {
+	if werr := d.liftReadOnlyWindow("flagless-recovery completion"); werr != nil {
 		fmt.Fprintf(os.Stderr,
 			"INVARIANT COMPLETION_READ_ONLY_WINDOW_LIFTED violated: the read-only window did not lift at flagless-recovery completion after %d attempts (err=%v) — the database default is still read-only, so every fresh non-exempt session fails with 25006 (read_only_sql_transaction). Remedy: run `./sb install` to clear it (or the daemon's boot backstop clears it on the next start). (service.go:%d, pid=%d)\n",
 			terminalWriteMaxAttempts, werr, thisLine(), os.Getpid())
@@ -3922,7 +3922,7 @@ func (d *Service) clearStaleReadOnlyWindow(ctx context.Context) {
 	}
 	fmt.Fprintln(os.Stderr,
 		"STATBUS-163 BACKSTOP: the read-only upgrade window is STILL ON with NO upgrade in flight (no flag, no in_progress row) — a prior terminal OFF flip broke its invariant. This is near-unreachable post-fix; its firing INDICTS the flip and is an investigation trigger. Clearing it now so the box stops rejecting writes.")
-	if err := d.terminalExec(windowOffSQL); err != nil {
+	if err := d.liftReadOnlyWindow("the STATBUS-163 boot backstop"); err != nil {
 		fmt.Fprintf(os.Stderr,
 			"STATBUS-163 BACKSTOP: FAILED to clear the stale read-only window (%v) — the box still rejects writes; `./sb install` clears it.\n", err)
 		return
@@ -6398,7 +6398,7 @@ func (d *Service) restoreSourceServices(ctx context.Context, restoreTargetSHA st
 	// Serve-proven: health passed, so lift the operator-facing gates. maintenance OFF first
 	// (mirrors the completion sites), then the read-only window via the teardown-immune flip.
 	d.setMaintenance(false)
-	if err := d.terminalExec(windowOffSQL); err != nil {
+	if err := d.liftReadOnlyWindow("serve-proven health check"); err != nil {
 		return fmt.Errorf("source services are up and healthy but the read-only window did not lift (%v) — reads serve, writes are refused until `./sb install` or the next boot clears it", err)
 	}
 	return nil
@@ -7036,7 +7036,7 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	// box masquerading as healthy — so it ESCALATES LOUDLY (STATBUS-154 exit-
 	// invariant class), never the quiet Warning. The boot backstop clears the
 	// residue on the next start; its firing indicts this flip.
-	if err := d.terminalExec(windowOffSQL); err != nil {
+	if err := d.liftReadOnlyWindow("upgrade completion"); err != nil {
 		fmt.Fprintf(os.Stderr,
 			"INVARIANT COMPLETION_READ_ONLY_WINDOW_LIFTED violated: the read-only window did not lift at completion after %d attempts (err=%v) — the database default is still read-only, so every fresh non-exempt session fails with 25006 (read_only_sql_transaction). Remedy: run `./sb install` to clear it (or the daemon's boot backstop clears it on the next start). (service.go:%d, pid=%d)\n",
 			terminalWriteMaxAttempts, err, thisLine(), os.Getpid())
@@ -7683,7 +7683,7 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 				// path; the err != nil fall-through below re-enters applyNewSbUpgrading,
 				// whose own completion site lifts the window there. The boot backstop
 				// clears the residue on the next start; its firing indicts this flip.
-				if werr := d.terminalExec(windowOffSQL); werr != nil {
+				if werr := d.liftReadOnlyWindow("post-swap resume completion"); werr != nil {
 					fmt.Fprintf(os.Stderr,
 						"INVARIANT COMPLETION_READ_ONLY_WINDOW_LIFTED violated: the read-only window did not lift at post-swap self-heal completion after %d attempts (err=%v) — the database default is still read-only, so every fresh non-exempt session fails with 25006 (read_only_sql_transaction). Remedy: run `./sb install` to clear it (or the daemon's boot backstop clears it on the next start). (service.go:%d, pid=%d)\n",
 						terminalWriteMaxAttempts, werr, thisLine(), os.Getpid())
@@ -8352,6 +8352,36 @@ func (d *Service) terminalExec(execSQL string, args ...any) error {
 // (recoveryDSN targets POSTGRES_APP_DB) and format('%I') quotes it. ALTER DATABASE
 // ... SET is catalog-durable — the same write setDatabaseReadOnly(false) performs,
 // now on the teardown-immune transport.
+// liftReadOnlyWindow runs windowOffSQL and ANNOUNCES SUCCESS, then returns the
+// error unchanged so every caller's own failure handling is untouched.
+//
+// STATBUS-266. The window announced itself in ONE direction: setDatabaseReadOnly
+// prints for both ON and OFF, but only the FAILURE paths call it — every success
+// path clears the window through terminalExec(windowOffSQL), which says nothing
+// when it works. So a healthy upgrade left `read-only window ON` in the journal
+// with no matching OFF, and the only way to learn the window had lifted was to
+// query the catalog.
+//
+// That asymmetry is not cosmetic: it actively misleads. Grepping the journal of a
+// perfectly healthy box shows ON-and-never-OFF, which reads as a stuck window —
+// and during STATBUS-262 it did exactly that, sending three ranked hypotheses
+// after a window that had lifted a week earlier. The next responder meets the
+// same trap at 2am.
+//
+// A state change announced in one direction and silent in the other is a defect
+// in its own right. After this, ON always pairs with either an OFF or a loud
+// failure, and window state is answerable by grep.
+//
+// `where` names the terminal that lifted it, because five sites clear this
+// window and "which one ran" is the next question a responder asks.
+func (d *Service) liftReadOnlyWindow(where string) error {
+	err := d.terminalExec(windowOffSQL)
+	if err == nil {
+		fmt.Printf("read-only window OFF — cleared at %s (ALTER DATABASE ... SET default_transaction_read_only = off)\n", where)
+	}
+	return err
+}
+
 const windowOffSQL = `DO $do$ BEGIN EXECUTE format('ALTER DATABASE %I SET default_transaction_read_only = off', current_database()); END $do$`
 
 // flagSourcedBackupPath resolves THE FLAG's backup identity for the terminal
@@ -8607,7 +8637,7 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reaso
 	// so a failed flip ESCALATES LOUDLY, never a Warning. (The git-restore-fail
 	// ABORT terminal exits BEFORE this point and deliberately holds read-only ON;
 	// that hold is untouched.)
-	if err := d.terminalExec(windowOffSQL); err != nil {
+	if err := d.liftReadOnlyWindow("rollback completion"); err != nil {
 		fmt.Fprintf(os.Stderr,
 			"INVARIANT ROLLBACK_READ_ONLY_WINDOW_LIFTED violated: the read-only window did not lift after rollback after %d attempts (err=%v) — the restored box's database default is still read-only, so every fresh non-exempt session fails with 25006. Remedy: run `./sb install` to clear it (or the daemon's boot backstop on the next start). (service.go:%d, pid=%d)\n",
 			terminalWriteMaxAttempts, err, thisLine(), os.Getpid())

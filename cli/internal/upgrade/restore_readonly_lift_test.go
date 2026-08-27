@@ -18,7 +18,11 @@ func TestClearStaleReadOnlyWindow_ReattemptExclusion_STATBUS209(t *testing.T) {
 
 	// The exclusion query + its early-return must PRECEDE the windowOff clear.
 	exclIdx := strings.Index(body, "state = 'failed' AND backup_path IS NOT NULL")
-	clearIdx := strings.Index(body, "terminalExec(windowOffSQL)")
+	// RETARGETED, NOT WEAKENED (STATBUS-266): the terminal OFF now flips through
+	// d.liftReadOnlyWindow(), a one-line wrapper that runs the SAME
+	// terminalExec(windowOffSQL) and additionally announces success. The property
+	// below is unchanged; only the call's spelling moved.
+	clearIdx := strings.Index(body, "liftReadOnlyWindow(")
 	if exclIdx < 0 {
 		t.Error("ARM A: clearStaleReadOnlyWindow must exclude a restore-reattemptable row (state='failed' AND backup_path IS NOT NULL) — the ABORT hold's protection is preserved until the replay's own lift")
 	}

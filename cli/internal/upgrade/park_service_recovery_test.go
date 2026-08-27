@@ -87,7 +87,11 @@ func TestParkServiceRecovery_StructuralContracts(t *testing.T) {
 	// gate — maintenance/window drop only on a proven-serving box.
 	rs := extractFuncBody(t, src, "func (d *Service) restoreSourceServices(")
 	hcIdx := strings.Index(rs, "d.healthCheck(")
-	winIdx := strings.Index(rs, "terminalExec(windowOffSQL)")
+	// RETARGETED, NOT WEAKENED (STATBUS-266): the terminal OFF now flips through
+	// d.liftReadOnlyWindow(), a one-line wrapper that runs the SAME
+	// terminalExec(windowOffSQL) and additionally announces success. The property
+	// below is unchanged; only the call's spelling moved.
+	winIdx := strings.Index(rs, "liftReadOnlyWindow(")
 	if hcIdx < 0 || winIdx < 0 || winIdx < hcIdx {
 		t.Errorf("serve-proven: the read-only window lift must come AFTER the health gate in restoreSourceServices — healthCheck@%d, windowLift@%d", hcIdx, winIdx)
 	}

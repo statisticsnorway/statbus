@@ -36,8 +36,12 @@ func TestReadOnlyWindowFlip_TeardownImmune_STATBUS163(t *testing.T) {
 	//     (completeInProgressUpgrade). The complete-with-warning lines are GONE; a failed
 	//     flip escalates via a named invariant (markTerminal-class), not a Warning. The
 	//     floor stays ≥2 (the 163 completion+rollback pair); the 192 site is additive.
-	if n := strings.Count(source, "d.terminalExec(windowOffSQL)"); n < 2 {
-		t.Errorf("the terminal OFF sites (completion + rollback, + STATBUS-192 flagless completion) must flip via terminalExec(windowOffSQL); found %d", n)
+	// RETARGETED, NOT WEAKENED (STATBUS-266): the terminal OFF now flips through
+	// d.liftReadOnlyWindow(), a one-line wrapper that runs the SAME
+	// terminalExec(windowOffSQL) and additionally announces success. The property
+	// below is unchanged; only the call's spelling moved.
+	if n := strings.Count(source, "d.liftReadOnlyWindow("); n < 2 {
+		t.Errorf("the terminal OFF sites (completion + rollback, + STATBUS-192 flagless completion) must flip via liftReadOnlyWindow → terminalExec(windowOffSQL); found %d", n)
 	}
 	for _, gone := range []string{
 		"Warning: could not clear read-only window at completion",
@@ -78,7 +82,7 @@ func TestReadOnlyWindowFlip_TeardownImmune_STATBUS163(t *testing.T) {
 	// (4) The boot backstop rides terminalExec, gated on no-flag + no-in_progress +
 	//     the DATABASE-level read-only default, and is wired into boot.
 	bs := extractFuncBody(t, source, "func (d *Service) clearStaleReadOnlyWindow(")
-	for _, want := range []string{"ReadFlagFile(", "state = 'in_progress'", "pg_db_role_setting", "d.terminalExec(windowOffSQL)"} {
+	for _, want := range []string{"ReadFlagFile(", "state = 'in_progress'", "pg_db_role_setting", "d.liftReadOnlyWindow("} {
 		if !strings.Contains(bs, want) {
 			t.Errorf("clearStaleReadOnlyWindow must contain %q (no-flag + no-in_progress + DB-level-RO gate, immune clear); not found", want)
 		}
@@ -109,5 +113,40 @@ func TestTerminalExec_TeardownImmuneBehavioral_STATBUS163(t *testing.T) {
 	// nil-panic on the absent d.queryConn, proving it uses a FRESH connection.
 	if elapsed < 500*time.Millisecond {
 		t.Errorf("terminalExec returned too fast (%v) — it must run its bounded retry on its OWN context.Background, independent of the pass conn", elapsed)
+	}
+}
+
+// TestLiftReadOnlyWindowStillFlipsImmune_STATBUS266 is what makes the retargeting
+// above safe.
+//
+// Those pins used to name terminalExec(windowOffSQL) directly, so they asserted
+// the teardown-immune transport as a side effect of naming it. Now they name the
+// wrapper — and a wrapper that stopped using terminalExec would satisfy every one
+// of them while silently returning the flip to a connection the teardown can kill.
+// So the property they used to get for free is asserted here explicitly.
+func TestLiftReadOnlyWindowStillFlipsImmune_STATBUS266(t *testing.T) {
+	body := extractFuncBody(t, readUpgradeServiceSource(t), "func (d *Service) liftReadOnlyWindow(")
+
+	if !strings.Contains(body, "d.terminalExec(windowOffSQL)") {
+		t.Error(`liftReadOnlyWindow no longer flips via terminalExec(windowOffSQL).
+
+terminalExec is the TEARDOWN-IMMUNE writer — a fresh connection that survives the
+upgrade tearing its pool down. A plain queryConn.Exec here would look identical in
+review and would lose the flip exactly when the upgrade is stopping containers,
+which is the one moment it has to land.`)
+	}
+	// And it must still announce success — the whole point of the wrapper.
+	if !strings.Contains(body, "read-only window OFF") {
+		t.Error(`liftReadOnlyWindow does not log the successful OFF.
+
+That silence is the defect STATBUS-266 exists to remove: the journal showed ON
+with no matching OFF on a healthy box, and a responder reading it concluded the
+window was stuck. It sent three ranked hypotheses after a window that had lifted a
+week earlier.`)
+	}
+	// The error must reach the caller unchanged — every call site has its own
+	// invariant escalation, and swallowing the error would disarm all of them.
+	if !strings.Contains(body, "return err") {
+		t.Error("liftReadOnlyWindow must return the error unchanged — each caller's own invariant escalation depends on seeing it")
 	}
 }
