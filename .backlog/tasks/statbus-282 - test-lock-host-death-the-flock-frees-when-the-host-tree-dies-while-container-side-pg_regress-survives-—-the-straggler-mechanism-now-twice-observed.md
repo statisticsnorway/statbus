@@ -148,4 +148,10 @@ created: 2026-08-27 19:53
 ---
 THIRD INSTANCE of the operational half, tonight on a LIVE BOX (2026-08-27 ~19:52Z): the test slot's repair `./sb install` was run through a single held ssh session from the operator's harness; output truncated mid-[DDL]-quiesce (containers stopped, 'resume after Migrations succeeds' printed, then nothing) and the upgrade unit still absent afterwards — consistent with the harness session ending and killing the remote install mid-flight, exactly the host-death class this ticket's operational half names, now with a production-adjacent blast radius (a box left quiesced mid-install rather than a test artifact). Diagnosis dispatched before any re-run (is the process alive? flag holder? container states) and the re-run instruction is nohup-detached with short poll reads — never a held session for a long remote operation. Design consequence for the ruling already pinned here: the sanctioned-detached-invocation mechanism should cover REMOTE operator actions (ssh'd installs/upgrades), not only local suites — same failure, different host.
 ---
+
+author: foreman
+created: 2026-08-27 19:53
+---
+RETRACTION of comment #5's inference (verify-premises discipline): the test-slot install was NOT killed — the operator's corrected report shows it completed all 16 steps, the upgrade unit is installed and running, and the RUNNING service logs 'Upgrade service started (channel=stable, interval=6h0m0s)'. Only the operator's OUTPUT CAPTURE truncated at step 10; the remote process survived its ssh session ending. So tonight's count of session-death instances stays at TWO (the local suite kills), not three — and, worth noting for the design's threat model: a remote `./sb install` evidently survives its invoking session's death on its own (likely because install's own long-running children detach from the ssh tty), which is WEAK evidence, not a guarantee — the nohup-detached instruction for remote long operations stands as the safe default, but the claimed live-box instance of this failure class is withdrawn.
+---
 <!-- COMMENTS:END -->

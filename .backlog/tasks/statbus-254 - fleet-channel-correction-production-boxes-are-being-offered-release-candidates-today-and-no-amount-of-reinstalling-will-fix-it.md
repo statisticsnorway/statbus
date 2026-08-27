@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 10:27'
-updated_date: '2026-08-27 19:45'
+updated_date: '2026-08-27 19:53'
 labels:
   - ops
   - release
@@ -326,5 +326,11 @@ author: operator (pinned by foreman)
 created: 2026-08-27 19:45
 ---
 TEST BOX DIAGNOSIS (2026-08-27, read-only): the upgrade service is NEVER-INSTALLED — not crashed, not disabled: `Unit statbus-upgrade@statbus_test.service could not be found`, enabled-state not-found, journalctl empty, no unit file at ~/.config/systemd/user/. The box is half-configured: .env.config carries UPGRADE_ROLE=production (correct intent — and already in the NEW key form) but the service-installation step never completed. CONSEQUENCE that makes this matter beyond one internal box: without an upgrade service, test can never receive the stable via channel-following — unlike the six legacy boxes whose services run and poll. REMEDY (not applied, read-only constraint): `./sb install` on the box — the product's own idempotent repair path; its state ladder covers exactly this (config present, service absent → step-table completes setup). Awaiting the King's word before any state-changing action on the box.
+---
+
+author: foreman
+created: 2026-08-27 19:53
+---
+TEST LEG RESOLVED (2026-08-27 ~19:52Z, King-cleared, operator-executed): `./sb install` on the test slot completed all 16 steps — the never-installed upgrade unit now exists, is enabled and RUNNING, verified from the running service per this ticket's own acceptance rule: 'Upgrade service started (channel=stable, interval=6h0m0s)' (role=production deriving stable, correct). Upgrade list shows v2026.08.0-rc.10 installed via ./sb install. An earlier 'install truncated/incomplete' report was a capture artifact — corrected by the operator; the install itself never failed. Every box in the fleet now has a live, correctly-channeled upgrade service. Remaining for closure unchanged: the six legacy boxes' one-time translations (arrive with the stable), then the translation code's deletion.
 ---
 <!-- COMMENTS:END -->
