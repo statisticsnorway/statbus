@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 12:35'
-updated_date: '2026-08-27 12:41'
+updated_date: '2026-08-27 12:46'
 labels:
   - worker
   - production
@@ -61,5 +61,21 @@ DISCRIMINATING READS (engineer running): (1) SELECT id, state, recovery_parked_a
 REMEDY (if H1/H3): ./sb install on rune — no new code needed; the install ladder is ARM A's second invoker of the same backstop. NAMED CONSEQUENCE before anyone runs it: under H1, ./sb install is the deliberate un-park trigger — it grants the parked candidate one fresh attempt, a bigger action than "unstick the worker". If the reads show neither row nor invariant log, the shipped code cannot explain it and the architect designs the addition.
 
 TWO LOUD GUARDS RULED: (1) the worker must FAIL ITS HEALTH CHECK when its writes are refused — alive-but-cannot-write is the zero-scope shape in a health-check costume; repeated 25006 went into a log nobody reads for a week. (2) completion must not be REPORTABLE while the window is on — today the invariant is asserted in a log line while the row says completed; the invariant should bind the state, not narrate it. task_cleanup split out as STATBUS-263.
+---
+
+author: architect (pinned by foreman)
+created: 2026-08-27 12:46
+---
+RULING ON THE REVERSAL (2026-08-27): the engineer is right and my ranked hypotheses were wrong in every part — I built them on the brief's unverified premise (window still on) while the authoritative read was in flight to me. The window has been OFF the whole time; the backstop is correct at rc.09 and had nothing to fire on.
+
+CONFIRMED AT SOURCE, AND WORSE THAN STATED: the worker starting inside the read-only window is NOT a race — it is the DESIGNED ORDER. service.go success path: :6931 healthCheck (services must be UP) → :6944 setMaintenance(false) → :7039 terminalExec(windowOffSQL). Same shape at :6395→:6401. Every upgrade starts the worker inside the window by construction; the exposure only does damage when abandoned 'processing' rows exist to reset.
+
+THIS ANSWERS THE DOUBLE-UPGRADE QUESTION: rc.08 stopped the worker mid-derive and CREATED the four abandoned rows; rc.09's restart-inside-window then silently refused their startup-only recovery. One upgrade alone has no victims — the first manufactures the casualties, the second destroys the rescue mechanism. That is why rune wedged and dev (rc.09 alone) did not.
+
+REMEDY RATIFIED, awaiting the King: `docker compose restart worker` on rune — the product's own recovery re-run outside the window; reset flips the four rows to 'interrupted', claimed at priority 0 ahead of pending; parent completes, merge runs. Explicitly NOT `./sb restart worker` (takes a profile — would bounce the whole box including the app).
+
+STRUCTURAL FIX, RANKED: PRIMARY — the missing retry: a once-per-startup crash recovery that can fail and never run again converts ANY transient condition into a permanent wedge; fixing it closes the whole class. SECONDARY — the ordering, with a REAL TENSION that must be ruled, not assumed: clearing the window before the health check would clear it before the upgrade is known good, trading a wedge for a hole in the rollback guarantee. THIRD OPTION to argue when built: exempt the worker's startup recovery the way the upgrade's own writers self-exempt (system maintenance, reverted by rollback anyway) — but an exemption on an accident-guard must be argued, never slipped in.
+
+THE GUARD: worker-health was the wrong place — the worker WAS healthy, every other queue ran for six days. The wedge's signature is A TASK IN 'processing' WITH NO LIVE CLAIMANT for longer than any plausible runtime — detectable, cheap, would have surfaced this in hours. And a failed startup crash-recovery must never be merely logged: it retries until success, or the worker refuses to report healthy. The King found this in a progress bar; that is the finding.
 ---
 <!-- COMMENTS:END -->
