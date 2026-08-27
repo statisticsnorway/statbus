@@ -66,6 +66,13 @@ require "./config"
 # - Detailed error messages are available for debugging
 module Statbus
   class Worker
+    # STATBUS-264. Generous enough to outlast an upgrade's read-only window by a
+    # wide margin (the Norway case needed 2.4 seconds), short enough that a
+    # genuinely broken database becomes a visible crash-loop within minutes
+    # rather than a worker that sits forever pretending to start.
+    RESET_ABANDONED_BUDGET    = 5.minutes
+    RESET_ABANDONED_MAX_DELAY = 15.seconds
+
     @log : ::Log
     @log_backend : Log::IOBackend = Log::IOBackend.new
     @config : Config
@@ -375,16 +382,130 @@ module Statbus
 
             @log.info { "Acquired global worker lock (#{lock_id})" }
 
-            # Reset any tasks that were left in 'processing' state by a previous worker instance
-            begin
-              reset_count = db.query_one "SELECT worker.reset_abandoned_processing_tasks()", as: Int32
-              if reset_count > 0
-                @log.info { "Reset #{reset_count} abandoned processing tasks to interrupted state" }
-              else
-                @log.debug { "No abandoned processing tasks found" }
+            # Reset any tasks that were left in 'processing' state by a previous
+            # worker instance.
+            #
+            # THIS RETRIES, AND IT REFUSES TO START WITHOUT IT (STATBUS-264).
+            #
+            # It used to run once and, on failure, log an ERROR and carry on into
+            # queue discovery. That converts ANY transient condition into a
+            # PERMANENT wedge: this recovery is the only thing that reclaims rows
+            # left in 'processing' by a killed worker, it runs only at startup, and
+            # a worker that skipped it looks completely healthy afterwards.
+            #
+            # It happened on Norway (STATBUS-262). The worker came up 2.4 seconds
+            # before an upgrade lifted its read-only window, this call's
+            # `SELECT ... FOR UPDATE` was refused, the error was logged, and four
+            # derive children stayed 'processing' for a week behind a worker that
+            # processed its other queues every day. Nothing surfaced it; a person
+            # eventually noticed a progress bar stuck at 91%.
+            #
+            # So the transient case is survived by retrying, and the persistent
+            # case is made LOUD by exiting: `restart: unless-stopped` turns that
+            # into a visible crash-loop instead of a silent worker with its crash
+            # recovery quietly skipped. A worker that cannot recover must not
+            # claim to be working.
+            reset_done = false
+            reset_last_error = "(none)"
+            reset_deadline = Statbus.monotonic_time + RESET_ABANDONED_BUDGET
+            reset_delay = 1.second
+            attempt = 0
+
+            until reset_done || @shutdown
+              attempt += 1
+              begin
+                # ── THE EXEMPTION, ARGUED AT THE LINE (STATBUS-265) ──
+                #
+                # This lifts the upgrade's read-only accident-guard FOR THIS ONE
+                # CALL. An exemption carved into a safety guard has to justify
+                # itself where it lives, so:
+                #
+                # WHAT THE GUARD IS FOR. During an upgrade the database default is
+                # flipped read-only (ALTER DATABASE ... SET
+                # default_transaction_read_only = on) so external writes FAIL
+                # rather than land in a window that a rollback would discard. Its
+                # purpose is that a USER must never lose work they believed done.
+                #
+                # WHY THIS CALL IS NOT THAT. reset_abandoned_processing_tasks()
+                # writes no user data. It reclaims rows a killed worker left in
+                # 'processing' and marks them 'interrupted' so they can run again.
+                # It is bookkeeping about the worker's own crash, not work anyone
+                # is waiting to have preserved.
+                #
+                # AND IT COSTS THE ROLLBACK GUARANTEE NOTHING. A rollback restores
+                # the volume WHOLESALE, so these rows revert with everything else
+                # whether or not this ran. There is no state here that a rollback
+                # could fail to undo — which is the whole reason the exemption is
+                # safe rather than merely convenient.
+                #
+                # WHY IT IS SCOPED, AND WHY THAT IS THE LOAD-BEARING PART. The
+                # exemption is set immediately before the call and RESET
+                # immediately after, in an ensure. It must NOT leak into the queue
+                # processing that follows: processing tasks IS user work, exactly
+                # what the guard exists to block, and a worker running tasks inside
+                # the window would defeat the guard entirely while looking fine.
+                # `db` here is a single DB.connect connection shared with
+                # everything after this block, so an unscoped SET would do
+                # precisely that.
+                #
+                # VERIFIED, not reasoned, against the real guard shape (an
+                # inherited ALTER DATABASE setting on a throwaway database): the
+                # SET exempts and the write succeeds; RESET restores the inherited
+                # `on`; and the very next write is refused again. The guard still
+                # bites in the direction it keeps.
+                db.exec "SET default_transaction_read_only = off"
+                begin
+                  reset_count = db.query_one "SELECT worker.reset_abandoned_processing_tasks()", as: Int32
+                ensure
+                  # RESET, never `SET ... = on`: this restores whatever the session
+                  # INHERITED. Outside an upgrade that is off and this is a no-op;
+                  # inside one it is on and the guard is back. Writing `on`
+                  # literally would leave a worker read-only forever on a box that
+                  # was never in a window.
+                  db.exec "RESET default_transaction_read_only"
+                end
+                reset_done = true
+                if reset_count > 0
+                  @log.info { "Reset #{reset_count} abandoned processing tasks to interrupted state" }
+                else
+                  @log.debug { "No abandoned processing tasks found" }
+                end
+              rescue ex
+                reset_last_error = ex.message || ex.class.name
+                if Statbus.monotonic_time >= reset_deadline
+                  break
+                end
+                @log.warn do
+                  "Crash recovery (reset abandoned processing tasks) failed on attempt #{attempt}: " \
+                  "#{reset_last_error} — retrying in #{reset_delay.total_seconds.to_i}s. " \
+                  "This is expected briefly during an upgrade, whose read-only window refuses the " \
+                  "SELECT ... FOR UPDATE this recovery needs."
+                end
+                wait_with_shutdown_check(reset_delay)
+                reset_delay = {reset_delay * 2, RESET_ABANDONED_MAX_DELAY}.min
               end
-            rescue ex
-              @log.error { "Failed to reset abandoned processing tasks: #{ex.message}" }
+            end
+
+            unless reset_done || @shutdown
+              @log.error do
+                "FATAL: crash recovery (reset abandoned processing tasks) did not succeed within " \
+                "#{RESET_ABANDONED_BUDGET.total_seconds.to_i}s over #{attempt} attempts. Last error: " \
+                "#{reset_last_error}. REFUSING TO START: any task left in 'processing' by the previous " \
+                "worker would stay there forever, and a parent waiting on it would never complete — " \
+                "silently, behind a worker that otherwise looks healthy. Exiting so the restart policy " \
+                "makes this visible.\n" \
+                "FIRST CHECK WHETHER THE DATABASE IS READ-ONLY ON PURPOSE — if it is, this is not a " \
+                "worker fault and there is nothing here to debug:\n" \
+                "  SHOW default_transaction_read_only;\n" \
+                "It is deliberately read-only during an upgrade's accident-guard window (clears itself " \
+                "when the upgrade finishes); while an upgrade is held in its post-failure ABORT state " \
+                "awaiting an operator decision (`./sb install` resolves it); and whenever an " \
+                "administrator has set it by hand for maintenance. In every one of those cases the " \
+                "worker is correctly refusing to run, and it will start on its own once the database " \
+                "is writable again.\n" \
+                "Only if the database is NOT read-only is the error above a real fault worth chasing."
+              end
+              exit(1)
             end
 
             # Now that we have the lock, start the queue discovery and timer checking
