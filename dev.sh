@@ -760,6 +760,64 @@ check_results_for_nul_corruption() {
         if [ "$_full" != "$_stripped" ]; then
             mkdir -p "$WORKSPACE/tmp"
             _preserved="$WORKSPACE/tmp/corrupted-$_test-$(date '+%Y%m%d%H%M%S' 2>/dev/null || echo unknown).out"
+
+            # ── STATBUS-286 deliverable #2: CAPTURE THE STATE AT FIRE TIME ──
+            #
+            # Everything that would identify the mechanism is gone within
+            # seconds of this point: which processes held the file, what offset
+            # each was writing at, and whether the zero region was a hole or
+            # materialised blocks. Tonight all three had to be reconstructed
+            # after the fact, and one of them (sparseness) could only be
+            # measured on a COPY — which is a different question, because
+            # copying can materialise a hole.
+            #
+            # So the evidence is taken HERE, before the preserving copy and
+            # before any rerun, and written beside the artifact:
+            #
+            #   fdinfo pos:  the WRITE OFFSET of every process holding the file.
+            #                An offset past EOF is the offset discontinuity
+            #                itself, caught in the act rather than inferred
+            #                from the geometry it leaves behind.
+            #   lsof:        who holds it, host side — the container-side pgrep
+            #                cannot see host holders of a bind-mounted file.
+            #   SEEK_HOLE:   sparse or materialised, asked of the ORIGINAL.
+            _evidence="${_preserved%.out}.evidence.txt"
+            {
+                echo "=== STATBUS-286 fire-time capture: $_file ==="
+                date '+%Y-%m-%d %H:%M:%S %z' 2>/dev/null || true
+                echo
+                echo "--- stat + SEEK_HOLE (the ORIGINAL, before any copy) ---"
+                python3 "$WORKSPACE/tmp/forensics-286/measure.py" "$_file" 2>&1 || echo "(measure.py unavailable)"
+                echo
+                echo "--- host holders WITH THEIR FILE OFFSETS (lsof -o) ---"
+                # -o IS THE POINT, not a formatting nicety. macOS has no /proc,
+                # so a host-side fdinfo loop yields identities and never
+                # OFFSETS — and macOS is the only platform where this
+                # corruption has occurred. The offset is the entire
+                # discriminator: two holders at different positions settles
+                # discontinuity instantly; one holder with a gap behind it
+                # points at range loss. lsof -o prints it and works here.
+                lsof -o -- "$_file" 2>&1 | head -20 || echo "(lsof unavailable)"
+                echo
+                echo "--- container-side holders and their write offsets ---"
+                # SELF-MATCH GUARD, found by the synthetic exercise: this
+                # wrapper is invoked as `sh -c '<script>'`, so its own argv
+                # CONTAINS the pattern "pg_regress|HIDE_TABLEAM" and pgrep -f
+                # matches the wrapper itself. Left unguarded the capture reports
+                # its own probe as a holder — noise at exactly the moment
+                # someone is trying to count holders, which is the whole
+                # discriminator. pgrep excludes itself but not its parent shell.
+                docker compose exec -T db sh -c '
+                    _self=$$
+                    for p in $(pgrep -f "pg_regress|HIDE_TABLEAM" 2>/dev/null); do
+                        [ "$p" = "$_self" ] && continue
+                        echo "  pid $p: $(tr "\0" " " < /proc/$p/cmdline 2>/dev/null | cut -c1-100)"
+                        for fd in /proc/$p/fd/*; do
+                            tgt=$(readlink "$fd" 2>/dev/null) || continue
+                            case "$tgt" in *results*) echo "    $tgt -> $(grep ^pos: /proc/$p/fdinfo/$(basename "$fd") 2>/dev/null)";; esac
+                        done
+                    done' 2>&1 | head -30 || echo "(container view unavailable)"
+            } > "$_evidence" 2>&1 || true
             if ! cp "$_file" "$_preserved" 2>/dev/null; then
                 _preserved="(preservation FAILED — original left at $_file)"
             fi
