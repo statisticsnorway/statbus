@@ -515,6 +515,154 @@ release_test_run_lock() {
 # NO AUTO-KILL (no-standing-self-heal rule): refuse loudly, name the exact
 # pids + kill command, and let the operator decide — recurrence must fail
 # loudly with the fix named, never be quietly repaired out from under them.
+# ── STATBUS-282: THE POSTMASTER IS THE AUTHORITY ────────────────────────────
+#
+# WHAT MUST SURVIVE A FAILURE CANNOT LIVE INSIDE THE THING THAT FAILS. The
+# failure here IS the death of the host process tree, so no host-side fact can
+# be the remedy — which is why the flock cannot be the authority. It frees
+# because the KERNEL closes the fd, not because our code ran, and the
+# container-side writer never held that fd at all.
+#
+# The writer is a Postgres client, and the postmaster already knows exactly and
+# continuously which clients are alive. That fact:
+#   - lives in the WRITER's failure domain, so host death cannot make it lie;
+#   - is released automatically on client death — no cleanup code to skip;
+#   - needs no signalling, so STATBUS-188 is satisfied by construction;
+#   - observes a CONNECTION, not a process, so a dead pg_regress whose psql
+#     child still holds the database is still visible.
+#
+# THE PROPERTY THAT MAKES THIS STRICTLY BETTER THAN THE CONTAINER-SIDE pgrep:
+# the observation channel IS the work channel. If we cannot reach the database
+# to ask, we cannot reach it to run the tests either — so "blind but proceeding"
+# stops being a reachable state, rather than being a state we must remember to
+# guard against.
+#
+# The flock stays as a cheap host-side mutex. It may only ever produce a false
+# BUSY (harmless: someone waits), never a false FREE.
+check_no_live_test_backends() {
+    # Errexit-safe capture (STATBUS-261). Under this script's `set -e` a bare
+    # `_out=$(cmd); _rc=$?` DIES on the assignment for ANY non-zero exit — the
+    # landmine that killed CI at 4fdea9a2b when it sat in this very file.
+    local _out _rc=0
+    _out=$(./sb psql -d postgres -t -A -c \
+        "SELECT datname || ' pid=' || pid || ' app=' || coalesce(application_name,'?') \
+         FROM pg_stat_activity \
+         WHERE datname IS NOT NULL AND starts_with(datname, 'test_shared_') \
+         ORDER BY datname, pid" 2>&1) || _rc=$?
+
+    # A FAILURE TO OBSERVE IS NOT EVIDENCE OF ABSENCE — the same defect the
+    # straggler guard carried. But here it is self-limiting rather than merely
+    # guarded against: this query runs over the very connection the tests need,
+    # so if it cannot run, neither can they. We still refuse explicitly, because
+    # a clear message beats a confusing failure three steps later.
+    if [ "$_rc" -ne 0 ]; then
+        echo "REFUSING: could not ask the postmaster which test databases are in use (exit $_rc)." >&2
+        echo "  $_out" >&2
+        echo "  This is the authority for 'may I start a run' — without an answer there is no run." >&2
+        exit 1
+    fi
+
+    # starts_with(), not LIKE 'test\_shared\_%': in LIKE an unescaped
+    # underscore is a single-character WILDCARD, so the obvious pattern also
+    # matches names this prefix never produced. starts_with has no metacharacters
+    # to get wrong.
+    [ -n "$(printf '%s' "$_out" | tr -d '[:space:]')" ] || return 0
+
+    cat >&2 <<EOF
+
+═══════════════════════════════════════════════════════════════════════
+BLOCKED: a test database still has live backends.
+
+The postmaster reports these connections to test_shared_* databases:
+
+$_out
+
+That is a test run still in flight — possibly one whose HOST process is
+already gone (a killed harness, a closed ssh session, an expired timeout),
+which is exactly the case a host-side lock cannot see: the flock frees when
+the kernel closes the fd, while the container-side client keeps writing.
+
+WHAT TO DO — and NOT to kill it (STATBUS-188): a pg_regress reparented to
+the postmaster dies badly if signalled. Wait for it; it finishes on its own.
+
+  Watch it drain:
+      ./dev.sh psql -d postgres -c "SELECT datname, pid, state, query \
+        FROM pg_stat_activity WHERE starts_with(datname, 'test_shared_')"
+
+  Then re-run this command. Orphaned databases with NO backends are dropped
+  automatically — they need no action from you.
+═══════════════════════════════════════════════════════════════════════
+EOF
+    exit 1
+}
+
+# ── STATBUS-282: orphan cleanup that survives host death ────────────────────
+#
+# The same fact answers the leak. Cleanup used to live in the host-side wrapper,
+# so a killed host left clones behind — six of them on 2026-08-27, each a full
+# copy of the migrated template.
+#
+# A test_shared_* database with ZERO backends is an orphan by the same authority
+# that governs the lock, and DROP DATABASE is the postmaster's own teardown, not
+# a signal. One WITH backends is a live run and is never touched.
+#
+# DROP ... (FORCE) IS BANNED HERE, and the ban is STRUCTURAL rather than
+# stylistic. It terminates backends — signalling by another name, forbidden by
+# STATBUS-188 — but that is only the first reason. The second is stronger:
+#
+# THE PROTECTION HERE IS TWO-LAYERED, AND THE LOWER LAYER IS NOT OURS.
+#   1. the NOT EXISTS clause below never ASKS to drop a database in use;
+#   2. PostgreSQL itself REFUSES even when asked:
+#        ERROR: database "..." is being accessed by other users
+#        DETAIL: There is 1 other session using the database.
+#      (measured 2026-08-28 against the real cluster, not assumed.)
+#
+# FORCE is precisely the switch that DISABLES layer 2. Plain DROP inherits the
+# postmaster's own guarantee; FORCE opts out of it and kills the sessions
+# instead. So the ban is what keeps the guarantee in the postmaster's hands
+# rather than in our discipline — which is this whole ticket's thesis.
+#
+# COROLLARY FOR ANYONE TEMPTED TO SIMPLIFY: the NOT EXISTS clause is defence in
+# depth, not the floor. Removing it would not immediately break anything (layer
+# 2 still holds) — which is exactly what makes removing it attractive and
+# wrong: it would leave the sweep ASKING to drop live databases and relying
+# entirely on the refusal, turning a clean no-op into a stream of errors, and
+# leaving nothing at all if a future FORCE ever crept in.
+#
+# NEVER DERIVE OWNERSHIP FROM THE NAME. The clone is named test_shared_<host pid>
+# for humans, but host pids are RECYCLED: after host death that name identifies
+# nobody, and a later run can compute a name already held by a straggler. The
+# prefix is used only as set membership — which databases are candidates — never
+# to decide whose a database is. That question has exactly one answer, and it
+# comes from pg_stat_activity.
+drop_orphan_test_databases() {
+    local _out _rc=0
+    _out=$(./sb psql -d postgres -t -A -c \
+        "SELECT d.datname FROM pg_database AS d \
+         WHERE starts_with(d.datname, 'test_shared_') \
+           AND NOT EXISTS (SELECT 1 FROM pg_stat_activity AS a WHERE a.datname = d.datname) \
+         ORDER BY d.datname" 2>&1) || _rc=$?
+    if [ "$_rc" -ne 0 ]; then
+        # Non-fatal: failing to reclaim disk must not block a run. The authority
+        # above already refused if the database was unreachable.
+        echo "note: could not list orphaned test databases (exit $_rc) — skipping cleanup" >&2
+        return 0
+    fi
+
+    local _db
+    for _db in $_out; do
+        [ -n "$_db" ] || continue
+        # Plain DROP. If a backend attached between the query and here, the drop
+        # FAILS — and that failure is correct: it means the database stopped
+        # being an orphan, and losing the race in this direction is harmless.
+        if ./sb psql -d postgres -v ON_ERROR_STOP=1 -c "DROP DATABASE \"$_db\";" >/dev/null 2>&1; then
+            echo "Dropped orphaned test database: $_db"
+        else
+            echo "note: left $_db in place (it acquired a backend, or the drop was refused)" >&2
+        fi
+    done
+}
+
 check_no_straggler_pg_regress() {
     # If the db service isn't even running there is nothing to race with.
     docker compose ps --status running --format '{{.Service}}' | grep -qx db || return 0
@@ -685,6 +833,13 @@ acquire_test_run_lock() {
         # takes the lock — every caller that acquires the lock gets the check
         # for free; there is no separate call site to forget it at.
         check_no_straggler_pg_regress
+        # STATBUS-282: the flock above is a convenience mutex; THIS is the
+        # authority. It runs after it because a false BUSY from the flock is
+        # harmless, while proceeding past a live backend is not.
+        check_no_live_test_backends
+        # Only once nothing is running may orphans be reclaimed — the check
+        # above guarantees every remaining test_shared_* database is dead.
+        drop_orphan_test_databases
         return 0
     fi
     exec 9>&- || true   # we did NOT acquire — drop our fd (no `2>…`: see release)
@@ -1561,6 +1716,73 @@ EOF
             echo "Current database migration version: ${LATEST_DB_VERSION:-not available}"
         fi
       ;;
+    'detached' )
+        # ── STATBUS-282: THE SANCTIONED DETACHED RUN ────────────────────────
+        #
+        # Long suites must outlive the session that starts them. Twice on
+        # 2026-08-27 a harness timeout killed a running suite mid-flight,
+        # leaving a container-side writer walking the shared outputdir behind a
+        # freed lock — the exact host-death gap this ticket exists for.
+        #
+        # dev.sh already PRESCRIBED detaching, in prose, at the straggler-guard
+        # comment. Prose is what produced that outcome: a pattern one engineer
+        # used and the next could not reproduce. So it is a command now.
+        #
+        # IT OWNS ITS SOCKET EXPLICITLY (-L). Inheriting the ambient tmux socket
+        # is the harness-must-not-leak-host-config rule, and it is not
+        # hypothetical: on this machine tonight a `tmux ls` on the DEFAULT socket
+        # reported no server while the run was alive and healthy on a
+        # differently-named socket — a watcher concluded the run had died. A
+        # named socket makes "is it still running?" answerable by anyone.
+        #
+        # HONEST CONSEQUENCE, stated because it argues for the guard above
+        # rather than against detaching: sanctioning this makes host-tree death
+        # NORMAL rather than exceptional. A detached mechanism shipped on top of
+        # a host-side-only guard would be shipping the failure mode as a
+        # feature. It ships here WITH the postmaster authority, never before it.
+        shift
+        if [ $# -eq 0 ]; then
+            echo "Usage: ./dev.sh detached <dev.sh args...>" >&2
+            echo "  e.g. ./dev.sh detached test fast" >&2
+            exit 1
+        fi
+        if ! command -v tmux >/dev/null 2>&1; then
+            echo "REFUSING: tmux is not installed — a detached run has no way to outlive this session." >&2
+            echo "  Install tmux, or run the command directly and keep the session open." >&2
+            exit 1
+        fi
+
+        _DETACHED_SOCKET="statbus-dev"
+        _DETACHED_SESSION="statbus-$(date '+%Y%m%d-%H%M%S' 2>/dev/null || echo run)"
+        _DETACHED_LOG="$WORKSPACE/tmp/detached-$_DETACHED_SESSION.log"
+        mkdir -p "$WORKSPACE/tmp"
+
+        # The log is the interface. A detached run's output must be readable by
+        # someone who did not start it — including after the starter is gone.
+        #
+        # HONEST LIMIT: "$*" re-splits the arguments on whitespace, so an
+        # argument containing spaces does not survive. Correct for every use
+        # this command exists for (`detached test fast`, `detached
+        # migrate-and-test fast`) and stated rather than hidden, because the
+        # failure would otherwise be a silently different command. If a caller
+        # ever needs to pass a quoted argument, this must become printf %q —
+        # not be discovered by someone debugging a mangled invocation.
+        tmux -L "$_DETACHED_SOCKET" new-session -d -s "$_DETACHED_SESSION" \
+            "cd '$WORKSPACE' && ./dev.sh $* 2>&1 | tee '$_DETACHED_LOG'"
+
+        echo "Detached run started."
+        echo "  session : $_DETACHED_SESSION   (socket: $_DETACHED_SOCKET)"
+        echo "  command : ./dev.sh $*"
+        echo "  log     : $_DETACHED_LOG"
+        echo ""
+        echo "  Follow:   tail -f $_DETACHED_LOG"
+        echo "  Sessions: tmux -L $_DETACHED_SOCKET ls"
+        echo "  Attach:   tmux -L $_DETACHED_SOCKET attach -t $_DETACHED_SESSION"
+        echo ""
+        echo "  The -L socket is NOT optional: a plain 'tmux ls' asks the default"
+        echo "  socket and will report no server even while this run is healthy."
+        ;;
+
     'clean-test-databases' )
         eval $(./dev.sh postgres-variables)
 
@@ -3045,6 +3267,7 @@ EOS
       echo "  make-all-failed-test-results-expected  Accept all test failures"
       echo "  create-test-template               Clone POSTGRES_SEED_DB → POSTGRES_TEST_DB"
       echo "  clean-test-databases [--force]     Drop all test_* databases"
+      echo "  detached <args...>                 Run a dev.sh command detached (survives your session)"
       echo ""
       echo "Seed lifecycle (build-time canonical schema):"
       echo "  create-seed                        Create empty \${POSTGRES_SEED_DB} from template_statbus"
