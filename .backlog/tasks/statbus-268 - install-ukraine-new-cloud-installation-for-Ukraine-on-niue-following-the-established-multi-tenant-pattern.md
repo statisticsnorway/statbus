@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 12:56'
-updated_date: '2026-08-27 13:39'
+updated_date: '2026-08-27 16:13'
 labels:
   - ops
   - cloud
@@ -118,5 +118,15 @@ created: 2026-08-27 13:39
 OFFSET 10 COMMITTED for Ukraine — and the clearance is recorded as a PERMANENT PROPERTY, not a one-time check: OFFSET WIDTH IS UNCONSTRAINED (audited eleven consumers, 2026-08-27). The structural reason — only two arithmetic sites, plain ints, no fixed-width formatting, all other consumers take pre-formatted output — clears ANY width, 100+ included. The next country's spec must NOT repeat this audit; cite this comment instead.
 
 The finding the architect singles out: the next-offset picker's NUMERIC sort (create-new-statbus-installation.sh:317-318). A lexical sort would put "10" before "9", report 9 as the max, hand 10 to a SECOND slot, and collide with Ukraine — both boxes looking correctly configured until the ports clashed. Verified numeric, not assumed.
+---
+
+author: architect (pinned by foreman)
+created: 2026-08-27 16:13
+---
+KING'S AMENDMENT (2026-08-27, before leaving for the evening): install NOW from v2026.08.0-rc.10 rather than waiting for stable — approved explicitly, operator executing with the users-step pause reserved for the King's return.
+
+ARCHITECT'S VERIFICATION of the amendment's one silent hazard: does an rc-installed box declaring stable end up STRANDED (supersedeBelowInstalled retiring everything its channel offers)? NO — CalVer ordering treats a release as newer than a prerelease of the same version (service.go:4499), so the eventually-promoted stable always outranks the rc; discovery offers it and a human opts in. Channel-following from an rc install is verified, not assumed — the failure mode would have been a silently-never-upgraded statistical office.
+
+ACCEPTED RISK, recorded as a decision: until a stable exists, Ukraine runs code not yet promoted — and if the rc.10 chain goes red, Ukraine is live on a candidate we declined to bless. The King's call, defensible (a working install now beats a delayed one); remedy is the ordinary path — the box is offered the eventual stable and a human takes it.
 ---
 <!-- COMMENTS:END -->
