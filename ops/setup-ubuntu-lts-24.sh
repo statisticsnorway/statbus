@@ -1210,16 +1210,39 @@ stage_ci_allowlist() {
     # RUN THIS STAGE ALONE with the existing skip mechanism — no new flag:
     #   sudo ./harden.sh --non-interactive --skip-stages "0 1 2 3 4 5 6 7"
 
+    # STATBUS-280. Stage 8 is OPT-IN. rc.10's smoke legs failed the default
+    # sequence deterministically: almost no installation has a CI door, so an
+    # unset SSHDOERS_REF here means the stage was NEVER REQUESTED — the
+    # majority and correct case — categorically different from a stage whose
+    # absence is always a gap. Every acceptance before the smoke legs ran a
+    # MODIFIED invocation (stage-8-only, or stage-3-only); none ran the
+    # unmodified default every real external operator actually runs, and
+    # that default hit a REQUIRED refusal demanding a fleet-only variable — a
+    # product-must-not-know-doors violation reaching an external box through
+    # ops/. Absence of the ref is silent success here, nothing more; once a
+    # ref IS provided, every refusal below (bad ref, missing host directory,
+    # sshdo absent) is unchanged — this only affects the never-requested case.
+    #
+    # COMMIT-ADDRESSED, NEVER master (architect ruling c3), when a door IS
+    # requested. A security artifact installed from a moving ref cannot be
+    # named afterwards: "what policy is live?" would have no answer, because
+    # master moved.
+    #
+    # Rejected discriminator, recorded: keying opt-in on ops/<host>/ existing
+    # instead of on SSHDOERS_REF — cannot check the repo for a host directory
+    # without a ref to check it at.
+    local ref="${SSHDOERS_REF:-}"
+    if [[ -z "$ref" ]]; then
+        log_warn "Stage 8 not run: no CI command door declared for this host. To install one, set SSHDOERS_REF."
+        return 0
+    fi
+
     local host="${SSHDOERS_HOST:-}"
     if [[ -z "$host" ]]; then
         # Default to the first label of the FQDN: niue.statbus.org -> niue,
         # which is already the repo's layout (ops/<host>/sshdoers).
         host="$(hostname --fqdn 2>/dev/null | cut -d. -f1)"
     fi
-    # COMMIT-ADDRESSED, NEVER master (architect ruling c3). A security artifact
-    # installed from a moving ref cannot be named afterwards: "what policy is
-    # live?" would have no answer, because master moved. Required, no default.
-    local ref="${SSHDOERS_REF:-}"
     local url="https://raw.githubusercontent.com/statisticsnorway/statbus/${ref}/ops/${host}/sshdoers"
 
     echo "This stage will:"
@@ -1238,19 +1261,29 @@ stage_ci_allowlist() {
     echo "  that stops working."
     echo ""
 
-    if [[ -z "$ref" ]]; then
-        log_error "SSHDOERS_REF is required — set it to the COMMIT the reviewed allowlist lives at."
-        log_error "It is deliberately not defaulted to master: a security policy installed from a"
-        log_error "moving ref cannot be named afterwards, so nobody could say what is live."
-        log_error "  SSHDOERS_REF=<40-hex commit> $0 --non-interactive --skip-stages \"0 1 2 3 4 5 6 7\""
-        FAILED_VERIFICATIONS+=("Stage 8: SSHDOERS_REF not set")
-        return 0
-    fi
-
     if [[ -z "$host" ]]; then
         log_error "Cannot determine the host name for the allowlist (hostname --fqdn gave nothing)."
         log_error "Set SSHDOERS_HOST=<host> explicitly and re-run this stage."
         FAILED_VERIFICATIONS+=("Stage 8: host name for the allowlist could not be determined")
+        return 0
+    fi
+
+    # STATBUS-269. A mistyped SSHDOERS_HOST, or a container whose short
+    # hostname just doesn't match any reviewed directory, previously surfaced
+    # three checks later as "sshdo enforcer absent" or "allowlist fetch
+    # failed" — both name ops/${host}/... as though the canonical file were
+    # simply missing, sending the operator chasing a file instead of the
+    # typo. One check, up front, covers both causes: validate the DIRECTORY
+    # itself exists at the exact ref this run installs from, before $host is
+    # used in any other message or fetch.
+    local host_dir_check_url="https://api.github.com/repos/statisticsnorway/statbus/contents/ops/${host}?ref=${ref}"
+    local host_dir_status
+    host_dir_status="$(curl -fsS -o /dev/null -w '%{http_code}' "$host_dir_check_url" 2>/dev/null || echo "000")"
+    if [[ "$host_dir_status" != "200" ]]; then
+        log_error "No reviewed policy directory for host '$host' — is SSHDOERS_HOST correct?"
+        log_error "Checked: $host_dir_check_url (HTTP $host_dir_status)"
+        log_error "Set SSHDOERS_HOST=<the correct directory name under ops/> and re-run this stage."
+        FAILED_VERIFICATIONS+=("Stage 8: no ops/${host}/ directory at ref ${ref}")
         return 0
     fi
 
