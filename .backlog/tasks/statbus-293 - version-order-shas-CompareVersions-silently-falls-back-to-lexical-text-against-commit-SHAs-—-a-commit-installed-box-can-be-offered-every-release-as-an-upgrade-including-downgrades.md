@@ -4,9 +4,11 @@ title: >-
   version-order-shas: CompareVersions silently falls back to lexical text
   against commit SHAs — a commit-installed box can be offered every release as
   an upgrade, including downgrades
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@engineer'
 created_date: '2026-08-27 23:41'
+updated_date: '2026-08-27 23:42'
 labels:
   - upgrade
   - release
@@ -32,3 +34,13 @@ FIX SHAPE: architect ruling in flight — enforce the precondition rather than d
 
 WHAT IS ACHIEVED: no installation is ever offered software older than what it runs because of a string comparison, and the arc fleet's verdicts stop depending on random hex digits.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect (pinned by foreman)
+created: 2026-08-27 23:42
+---
+RULING (2026-08-28 night): OPTION (b) — REGISTER NOTHING, LOUDLY — and it is not new policy: it ENFORCES the contract github.go:300-304 already wrote ('callers that hold untagged commit references should not reach here — they're not ordered by release version'). (a) would contradict that sentence by inventing an ordering for inputs the contract declares unordered; commit-date is an ancestry APPROXIMATION (rebases, cherry-picks, clock skew) and one wrong approximation reproduces the downgrade defect — fail-closed is the only defensible default when the failure is installing older code onto a national statistical office. It is also the rule we already have: 291's automatic-paths-filter-deliberate-paths-announce — a bare-commit install is a deliberate state; automatic discovery must not guess. Dev cost acceptable and CORRECT: its chain installs by TAG (untouched); a box after upgrade apply <sha> pauses auto-discovery until a tag install — rightly, the operator placed it outside release ordering — and the message must name BOTH ways forward (explicit apply <version>, or install a release tag to restore discovery); a refusal without both is a dead end, not a guard. supersedeBelowInstalled takes the same rule: cannot compare → supersedes nothing. THE FIX BELONGS AT CompareVersions, not only the call sites — 'undefined but non-panicking' IS the defect (a confident int for undefined input is a wrong answer dressed as an answer, the evening's recurring class, survived precisely because the contract was advisory); make incomparability impossible to ignore at the function, and PIN with the 291-built machinery: functionsCalling over 'CompareVersions(' — every caller must guard, so a fourth caller fails the day it is written. Harness probe fix CONFIRMED as the third reports-without-examining instance tonight — mirror the diagnostic (WHERE commit_sha) in all 11 arcs. The panic (294) stays SEPARATE and off tonight's path but holds HIGH — it is the fleet-goes-quiet family, not cleanup.
+---
+<!-- COMMENTS:END -->
