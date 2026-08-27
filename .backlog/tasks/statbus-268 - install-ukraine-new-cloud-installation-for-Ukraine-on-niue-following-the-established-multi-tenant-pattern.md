@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 12:56'
-updated_date: '2026-08-27 13:05'
+updated_date: '2026-08-27 13:38'
 labels:
   - ops
   - cloud
@@ -100,5 +100,15 @@ Three decisions generalise to every country behind Ukraine:
 3. **Production role, opt-in human upgrades** — an ordinary installation, never a canary.
 
 The only per-country variables are the **slot code, the port offset, and the domain**. If a future country needs anything else, that is a signal the template is wrong rather than that the country is special — and it should come back here rather than being handled locally.
+---
+
+author: mechanic (pinned by foreman)
+created: 2026-08-27 13:38
+---
+OFFSET-10 AUDIT COMPLETE — the spec's precondition is DISCHARGED: eleven consumer sites, every one SAFE, zero UNSURE. The load-bearing findings: only TWO arithmetic sites exist repo-wide (config.go:358,514 — plain Go int `basePort + offset*10`, no fixed-width formatting downstream); every other consumer (caddy templates, compose files, app naming) takes config.go's OUTPUT as an opaque string — the shape immune to digit-count bugs. ops/create-new-statbus-installation.sh:317-318 picks the next offset with an any-length sed capture and explicit `sort -n` (numeric — correctly orders 10 after 9). Container/DB/cookie naming keyed on slot CODE, zero offset dependency. Hardcoded offsets in dev.sh (9, local sandbox) and test fixtures (1) are N/A to provisioning.
+
+One flagged doc gap, not a bug: doc/CLOUD.md's Current Deployments table gains the ua/offset-10 row when the slot exists — belongs to the install execution, not this audit.
+
+UKRAINE'S REMAINING GATE: a stable release to install (the rc.10 → canary → stable sequence, STATBUS-271). Everything else — DNS (done), spec (ruled), offset (audited) — is ready.
 ---
 <!-- COMMENTS:END -->
