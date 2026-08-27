@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 12:35'
-updated_date: '2026-08-27 12:36'
+updated_date: '2026-08-27 12:41'
 labels:
   - worker
   - production
@@ -44,5 +44,22 @@ KING'S ADMIN-UI EVIDENCE (screenshots, no.statbus.org/admin/worker-tasks, 2026-0
 READING: nothing is running and nothing is slow — every child is done and the parent never transitioned. A LOST WAKEUP: under structured concurrency a waiting parent with all children complete must complete and release the next serial task (the merge, still pending). The stuck "91%" is the pipeline fully done except the parent's own bookkeeping and the un-started merge.
 
 HYPOTHESIS (labelled as such): 7 days ago ≈ 2026-08-20; if a candidate was deliberately installed on the human canary that day, the worker restarted mid-derive — children completed around the restart window, the parent's wake signal died with the old process, and resume-on-startup does not re-examine waiting parents whose children are ALL already complete. To confirm: operator's DB reads (exact states/timestamps of 646212/646217/646218 and last-child completion vs worker restart time in logs), then root-cause in the worker's resume path.
+---
+
+author: architect (pinned by foreman)
+created: 2026-08-27 12:41
+---
+ROOT-CAUSE VERDICT (ranked; discriminating reads dispatched to the engineer). THE MACHINERY: STATBUS-163's backstop clearStaleReadOnlyWindow (service.go:3880) detects and clears a stale window — but it is called from Run() (:2388), BOOT ONLY, and returns early on three guards: flag present/unreadable; ANY in_progress row; any failed row with retained backup_path (STATBUS-209 ARM A abort hold).
+
+H1 (favoured): a PARKED row — state='in_progress' forever by design — permanently disarms guard 2 on every boot. Fits all facts: both upgrade rows completed, box looks green, dev (no parked row) healthy on the same binary. Cross-mechanism coupling: park's forward-only state silently disarms a guard written for a different meaning of the same column.
+H2 (NOT a defect — must be excluded before acting): a failed row with retained backup_path means the window is a DELIBERATE abort-hold protecting a possibly-broken volume until human-gated ./sb install replay; the only defect is that nobody was told for a week.
+H3: the terminal OFF genuinely failed — the invariant log COMPLETION_READ_ONLY_WINDOW_LIFTED violated (:3391) would be in the journal.
+The rc.08→rc.09 double-run is likely irrelevant — the differentiator is rune's ROW STATE, not sequencing.
+
+DISCRIMINATING READS (engineer running): (1) SELECT id, state, recovery_parked_at, backup_path, error FROM public.upgrade WHERE state IN ('in_progress','failed'); (2) journal grep COMPLETION_READ_ONLY_WINDOW_LIFTED; (3) journal grep 'STATBUS-163 BACKSTOP' — absence across a week of boots is itself evidence.
+
+REMEDY (if H1/H3): ./sb install on rune — no new code needed; the install ladder is ARM A's second invoker of the same backstop. NAMED CONSEQUENCE before anyone runs it: under H1, ./sb install is the deliberate un-park trigger — it grants the parked candidate one fresh attempt, a bigger action than "unstick the worker". If the reads show neither row nor invariant log, the shipped code cannot explain it and the architect designs the addition.
+
+TWO LOUD GUARDS RULED: (1) the worker must FAIL ITS HEALTH CHECK when its writes are refused — alive-but-cannot-write is the zero-scope shape in a health-check costume; repeated 25006 went into a log nobody reads for a week. (2) completion must not be REPORTABLE while the window is on — today the invariant is asserted in a log line while the row says completed; the invariant should bind the state, not narrate it. task_cleanup split out as STATBUS-263.
 ---
 <!-- COMMENTS:END -->
