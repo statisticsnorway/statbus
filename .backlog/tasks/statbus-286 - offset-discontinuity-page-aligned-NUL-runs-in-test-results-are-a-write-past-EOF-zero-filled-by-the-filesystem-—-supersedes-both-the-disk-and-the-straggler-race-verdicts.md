@@ -7,7 +7,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 17:14'
-updated_date: '2026-08-27 17:18'
+updated_date: '2026-08-27 17:26'
 labels:
   - testing
   - tooling
@@ -49,5 +49,11 @@ author: foreman
 created: 2026-08-27 17:18
 ---
 REVISION APPLIED (2026-08-27 evening): the description above replaces the original confirmed-mechanism wording after the architect's closure. The revision's drivers, each verified rather than asserted: (a) the SEEK_HOLE probe (foreman-run, all four artifacts) found NO holes — but the architect's own discriminator was ruled uninformative because VirtioFS's past-EOF gap handling is untested; (b) the victim-profile/exposure-window datum was refuted by the engineer against this run's own data and is struck; (c) the blocks=4104 reading was a bad measurement (engineer re-measured, owned it, recorded in tmp/forensics-263/notes.md); the architect's cp-destroys-sparseness self-correction was itself premised on that bad number — the PRINCIPLE (record SEEK_HOLE geometry before copying) is kept, the instance was fictional. Verdict now: two live hypotheses (offset discontinuity, mildly favoured by geometry; range loss), one discriminating experiment (container-local outputdir + copy-out compare), instrument revised to fdinfo write-POSITIONS + host lsof identity. Both deliverables queue behind STATBUS-263 — not tonight's work.
+---
+
+author: foreman
+created: 2026-08-27 17:26
+---
+STRONGEST EVIDENCE YET (2026-08-27 ~17:25Z, engineer): 301_test_custom_happy_path corrupted AGAIN in a SINGLE-TEST run — the only test running, fresh clone DB (test_shared_53331), nothing else on the machine's test path. That removes suite concurrency, test ordering, and long-run duration from the candidate causes in one shot. Geometry across the two instances is the tell: identical deterministic total size (68,397 bytes both times) but DIFFERENT zeroed regions — instance 1: 1,864 NULs starting at 4096 (1 page); instance 2: 2,705 NULs starting at 49,152 (exactly 12 pages); both starts page-aligned, neither run length a page multiple. The damage location moves between runs of identical content — consistent with a nondeterministic mid-write event, not with anything content-derived. Also: 110 re-ran GREEN individually (69,594 ms), closing its attribution as corruption-victim-not-failure. Forensic copies of both 301 instances preserved in tmp/forensics-263/. With a same-day reproducer in hand, the discriminating experiment (container-local --outputdir) is now runnable as a cheap one-off diagnostic instead of waiting for the next accidental occurrence.
 ---
 <!-- COMMENTS:END -->
