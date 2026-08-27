@@ -3,10 +3,10 @@ id: STATBUS-268
 title: >-
   install-ukraine: new cloud installation for Ukraine on niue, following the
   established multi-tenant pattern
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-08-27 12:56'
-updated_date: '2026-08-27 16:13'
+updated_date: '2026-08-27 16:29'
 labels:
   - ops
   - cloud
@@ -128,5 +128,19 @@ KING'S AMENDMENT (2026-08-27, before leaving for the evening): install NOW from 
 ARCHITECT'S VERIFICATION of the amendment's one silent hazard: does an rc-installed box declaring stable end up STRANDED (supersedeBelowInstalled retiring everything its channel offers)? NO — CalVer ordering treats a release as newer than a prerelease of the same version (service.go:4499), so the eventually-promoted stable always outranks the rc; discovery offers it and a human opts in. Channel-following from an rc install is verified, not assumed — the failure mode would have been a silently-never-upgraded statistical office.
 
 ACCEPTED RISK, recorded as a decision: until a stable exists, Ukraine runs code not yet promoted — and if the rc.10 chain goes red, Ukraine is live on a candidate we declined to bless. The King's call, defensible (a working install now beats a delayed one); remedy is the ordinary path — the box is offered the eventual stable and a human takes it.
+---
+
+author: foreman
+created: 2026-08-27 16:27
+---
+KING'S RULING (2026-08-27 evening, presented the trade explicitly): UKRAINE INSTALLS NOW on v2026.08.0-rc.10 — chosen knowing the install smoke leg never ran (it died in VM provisioning before touching the product; the Stage-8 defect it exposed is provably off the cloud-slot path, and CalVer ordering guarantees the eventual stable outranks the rc). Recorded as his decision with the evidence state named. Execution: version-pin script edit lands first (mechanic freezing), operator runs the adjusted list, the FOREMAN performs the users-gate edit personally on the King's explicit authority (no user details in any brief or persisted artifact), operator resumes and verifies from the running service. The King also rules: all fixes land tonight and rc.11 cuts tonight carrying them.
+---
+
+author: foreman
+created: 2026-08-27 16:29
+---
+VERSION PIN LANDED at 7cae75d90 (architect: LAND — anchor discharged strictly: zero changed lines on the role/channel path, the version flows only into tag validation + checkout; refs/tags validation makes the un-named case unrepresentable; the install log prints resolved commit beside the tag). The King blessed the exact invocation: ./ops/create-new-statbus-installation.sh ua "Ukraine" v2026.08.0-rc.10, and added: cloud.sh (the daily driver) stays current with the change — mechanic queued.
+
+INSTALL STATE: fired early once and was stopped harmlessly by the script's own FIRST gate — DNS. ua.statbus.org resolves; api.ua and www.ua do not exist yet; the King is adding both CNAMEs (→ niue.statbus.org); a watcher fires the GO on propagation. Then: script → users gate → foreman's personal edit (King's authority, no details persisted) → resume → verify from the running service.
 ---
 <!-- COMMENTS:END -->
