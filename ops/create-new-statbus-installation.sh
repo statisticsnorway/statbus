@@ -257,8 +257,18 @@ ssh $DEPLOYMENT_USER@$HOST bash <<GITHUB_DEPLOYMENT_ACCESS
         set -x
     fi
     # Generate SSH key for the user, to be added to github as a deployment key.
+    #
+    # BUG (first slot ever created through this path, dates to the ops/
+    # restructure commit 191226fb1): -f "~/.ssh/id_ed25519" quotes the tilde,
+    # which disables bash's tilde expansion entirely — ssh-keygen received a
+    # literal filename starting with the character '~' and failed "No such
+    # file or directory". \$HOME (escaped, so the OUTER heredoc leaves it
+    # alone and the REMOTE shell expands it) is the fix; a bare unquoted "$"
+    # here would instead bake in the OPERATOR's local $HOME — the exact trap
+    # this heredoc's unquoted delimiter sets for every local/remote variable.
     if [ ! -f "\$HOME/.ssh/id_ed25519" ]; then
-        ssh-keygen -t ed25519 -f "~/.ssh/id_ed25519" -N "" -C "$DEPLOYMENT_USER@\$(hostname --fqdn)"
+        mkdir -p "\$HOME/.ssh" && chmod 700 "\$HOME/.ssh"
+        ssh-keygen -t ed25519 -f "\$HOME/.ssh/id_ed25519" -N "" -C "$DEPLOYMENT_USER@\$(hostname --fqdn)"
     else
         echo "SSH deployment key already exists and will be preserved"
     fi
