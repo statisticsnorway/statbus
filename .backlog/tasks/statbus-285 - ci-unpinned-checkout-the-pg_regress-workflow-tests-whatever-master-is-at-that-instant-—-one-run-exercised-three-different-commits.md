@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-27 17:11'
-updated_date: '2026-08-27 19:48'
+updated_date: '2026-08-27 19:50'
 labels:
   - ci
   - testing
@@ -87,5 +87,52 @@ author: foreman
 created: 2026-08-27 19:48
 ---
 THE THIRD MECHANISM, CONFIRMED FROM THE RUN'S OWN LOG (foreman, 2026-08-27): run 33096555771 does NOT predate the pinning — 47dbdbca0 landed 2026-07-12, six weeks earlier — and its 'Determine ref and sha' step was PRESENT and CORRECT: it took the workflow_run branch, output sha=061b63d01f, and the inner checkout landed exactly there ('HEAD is now at 061b63d01'). Yet the run's API metadata head_sha is 620cc7f0b — master's tip at trigger time (061b63d01 is its ancestor). MECHANISM: for workflow_run-triggered workflows, GitHub stamps the triggered run's head_sha with the default branch's CURRENT TIP, not workflow_run.head_sha. The execution side is already sound (resolve + pinned checkout work as designed since 47dbdbca0); the ATTRIBUTION side is structurally wrong at the API, and no yaml can change what head_sha a run is filed under. THE FIX DOMAIN IS THE CONSUMER: checkWorkflowAtCommit keys evidence on a field that means 'master tip at trigger' for workflow_run workflows. Engineer designing consumer-side options (resolve through the triggering-run chain; publish the exercised SHA; restrict gates to push-triggered oracles) against 288's oracle rule. The yaml half of the original scope (notify-all-clouds resolve, PR-leg uniformity) survives as the minor half.
+---
+
+author: engineer
+created: 2026-08-27 19:49
+---
+**CONSUMER-SIDE DESIGN — for ruling before I build. The key insight: this bug has TWO directions, and the dangerous one is not the one the ticket describes.**
+
+## What the consumer actually does
+
+`checkWorkflowAt` (workflow_check.go:120) queries `.../actions/workflows/<wf>/runs?head_sha=<commitSHA>` and trusts whatever comes back. With the attribution drift confirmed, that produces two distinct failures:
+
+1. **FALSE MISSING** — ask about the commit that WAS tested (061b63d01) and get zero runs, because the run is filed under 620cc7f0b. The gate refuses although the evidence exists. Annoying; **safe**.
+2. **FALSE GREEN** — ask about 620cc7f0b, the tip at trigger, and get the green run — but that run tested 061b63d01, its **ancestor**. The gate passes on evidence about a DIFFERENT, OLDER commit.
+
+**(2) is the gate-integrity hole**, and note it is worse than the ticket's framing: the ticket says an unpinned checkout weakens the claim to "some commit at-or-AFTER the trigger". The real drift is the opposite direction — the run is filed under a DESCENDANT of what it tested, so a green at HEAD can be evidence about an **ancestor** of HEAD. Untested commits between them are covered by nothing while appearing green.
+
+This matters for the choice of fix: **a fix that only recovers the missing evidence closes (1) and leaves (2) wide open.** That is the trap I want the ruling to be aware of.
+
+## The options, weighed against 288's oracle rule
+
+**(a) Resolve through the triggering chain.** Sound in principle — the parent workflow_run's head_sha IS the tested commit. But it cannot start from the current query: we cannot FIND the run by the tested SHA (that is the bug), so we would have to list recent runs and walk each one's parent. The runs-list payload does not carry the triggering run's id, so this needs an extra API call per candidate run. Expensive, rate-limit-hungry (STATBUS-287's very subject), and it still leaves (2) unless we also stop trusting head_sha.
+
+**(b) The workflow PUBLISHES its exercised SHA; the consumer keys on that.** This is the one that satisfies 288's rule directly — evidence that examines the guarded property rather than a proxy for it. The workflow already computes the exercised SHA (`steps.ref.outputs.sha`); it needs only to state it where the API exposes it. `run-name:` supports expressions and appears in the runs-list payload, so a run can announce `Fast Tests @ <exercised-sha>` at no extra API cost, and humans reading the Actions page get the same benefit.
+
+**(c) Consult only push-triggered workflows.** Not viable: fast-tests and pg_regress are `workflow_run`-triggered BY DESIGN, so they must run after Images. Restricting the gate to push-triggered workflows leaves it with no evidence at all for exactly the two oracles the escape family depends on.
+
+## Recommendation — (b), and used as the KEY, not as a fallback
+
+The tempting shape is "query head_sha; if Missing, fall back to searching run names". **That is the trap above**: it fixes false-Missing and preserves false-Green, because a head_sha hit would still be believed.
+
+So: **for `workflow_run`-triggered workflows the exercised SHA becomes the key, and head_sha is not trusted at all.** A run counts as evidence about commit X only if it SAYS it exercised X. For push/dispatch-triggered workflows head_sha remains trustworthy and the current path is unchanged.
+
+That also gives the gate a fail-closed default with no new bypass: a run that publishes no exercised SHA (an old run, or a workflow not yet updated) is simply not evidence — it reads as Missing, the operator sees a refusal, and the remedy is a fresh run. Nothing silently upgrades to green.
+
+## The one premise I will verify before writing code
+
+My design rests on the runs-list payload exposing the custom `run-name`. I am fairly confident the workflow-run object carries `name`, but **I have not confirmed it against the live API**, and the whole approach collapses to option (a) if it does not. One `gh api` read of any recent run settles it. I would rather name that dependency now than discover it mid-build — and it is exactly the class of premise I was bitten by earlier today.
+
+## Scope note
+
+The yaml half from my audit (notify-all-clouds head_sha resolution, PR-leg uniformity) still stands and is unchanged by this — it is now the minor half, and independent of the ruling.
+---
+
+author: foreman
+created: 2026-08-27 19:50
+---
+RECONCILIATION of the two dating verdicts (mechanic's 'no third mechanism' vs foreman's 'third mechanism confirmed') — both are right about different LAYERS, recorded so neither misleads: on the EXECUTION layer the mechanic is correct — the pin chain is intact end to end (resolve step fired the workflow_run branch, its output 061b63d01 embedded verbatim in the remote checkout, HEAD landed there; the 7cc250b outer-checkout SHA is expected noise from an unrelated supporting-files step). Nothing about WHICH COMMIT GETS TESTED is broken. On the ATTRIBUTION layer the hazard stands — the run is FILED under API head_sha 620cc7f0b (master tip at trigger), while it exercised 061b63d01; checkWorkflowAtCommit keys on that API field, so for workflow_run-triggered workflows the gate can find a green stamped X that exercised an older commit, or miss a green that exercised X but is stamped newer. The architect's gate-integrity escalation is about exactly this layer, and it is unfixable in yaml. SCOPE THEREFORE: (1) consumer-side attribution fix in checkWorkflowAtCommit (engineer designing — the major half); (2) notify-all-clouds resolve + PR-leg uniformity (yaml, the minor half); (3) the execution-side pinning needs NO work — it is done and verified working since 47dbdbca0.
 ---
 <!-- COMMENTS:END -->

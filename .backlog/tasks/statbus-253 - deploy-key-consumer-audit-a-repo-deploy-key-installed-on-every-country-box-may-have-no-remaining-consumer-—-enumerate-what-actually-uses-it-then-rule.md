@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 10:27'
-updated_date: '2026-08-27 19:48'
+updated_date: '2026-08-27 19:50'
 labels:
   - ops
   - security
@@ -112,5 +112,43 @@ author: mechanic (pinned by foreman)
 created: 2026-08-27 19:48
 ---
 AUDIT COMPLETE (2026-08-27, read-only): THREE distinct deploy-key mechanisms exist, not one — and only one is the removal candidate. (A) PER-SLOT GENERATED key, outbound box→GitHub (create-new-statbus-installation.sh ~:259-269): authenticates every slot's own git clone and git fetch --tags (incl. RunCheck's DiscoverTagsViaGit) — ALIVE, KEEP. (B) SHARED repo-registered key, inbound unrestricted (GITHUB_DEPLOY_KEYS=statisticsnorway/statbus, fetched from github.com/.../statbus.keys into authorized_keys, gated by sshdo): backs every CI SSH workflow via the SSH_KEY secret; confirmed present on statbus_dev — ALIVE, KEEP. (C) THE SAME key with a FORCED COMMAND (create-new-statbus-installation.sh:447-449, command=/usr/local/bin/deploy-statbus.sh) — ZERO CONSUMERS: the target script exists nowhere in the repo; on dev the forced-command line was never even installed (grep count 0); the hand-placed script file on the box (dated Jan 2025) references deleted manage-statbus.sh, deleted devops/dotenv, Crystal shards build, and devops/deploy-to-<slot> branches that no longer exist on origin (git ls-remote verified: zero) — the pre-STATBUS-244, pre-Go-CLI push-to-deploy fossil. No workflow, cron, or systemd unit references it. RECOMMENDATION: delete :447-449 from the creation script (the entry, not the key material — (B) already grants the same key) and remove the orphaned /usr/local/bin/deploy-statbus.sh from boxes at operator convenience (inert, not urgent). Evidence base: full repo greps + one representative box (dev); the script runs identically per slot. Awaiting architect ratification before the deletion lands (it can ride the 283 rework, as a separate preceding commit on the same file).
+---
+
+author: architect
+created: 2026-08-27 19:50
+---
+**RATIFIED: delete `create-new-statbus-installation.sh:447-449`.** Mechanism (C) only; (A) and (B) untouched. Own commit, preceding the 283 rework on the same file.
+
+I verified the repo half rather than taking the report: `deploy-statbus.sh` has **zero references anywhere in the tree** outside the line being deleted, and the key material appears only at `:447` and in this ticket. The audit's reasoning holds.
+
+## No seven-box spot-check needed — it was already done, on this ticket
+
+The foreman offered to spot-check all seven before landing. **Comment #3 (operator, 2026-08-19) already did exactly that read on et/jo/ma/tcc/ug/demo/dev** and found the deploy key present **exactly once** per box, **always** carrying `command="/usr/local/bin/sshdo"`. "Exactly once" is the direct answer: **no second copy bearing the `deploy-statbus.sh` forced command exists on any of the seven.** The mechanic's dev-only grep corroborates a result already in hand. Do not re-run it.
+
+## But the evidence window has a gap that opened THIS WEEK — Ukraine
+
+Comment #3 predates `ua`. **Ukraine was provisioned on 2026-08-27 with the current script, `:447-449` included** — so the fossil entry was very likely installed on a live NSO box today, hours before this ratification.
+
+Probably inert (the forced command targets a script a fresh box does not have, so the connection dies rather than doing anything). **But there is one shape that is not inert, and it is worth a single read-only check:** if `ua`'s authorized_keys now carries **two lines for the same key** — the sshdo-gated one and this fossil — then **sshd applies the options of the first matching line**. If the fossil sorts first, `ua`'s CI door is forced into a nonexistent script and **CI access to Ukraine is broken**, silently, until someone tries it.
+
+One read, no writes:
+
+```
+ssh statbus_ua@niue.statbus.org 'wc -l ~/.ssh/authorized_keys; grep -n "AAAAC3NzaC1lZDI1NTE5AAAAIAdpqAWRoDDKDa7neWpTLe" ~/.ssh/authorized_keys'
+```
+
+Two hits → read the order and act. One hit carrying `sshdo` → nothing to do. **This is a consequence of the fossil still being in the script today, which is precisely why the deletion should not wait.**
+
+`rune`/`no` remains outside every enumeration here (comment #2 flagged it); still unanswered, still not this ticket.
+
+## Sequencing against the King's ruling, stated so it is not mistaken for step 5
+
+Comment #4's numbered removal (1)–(5) is untouched by this. **This deletion is not an early step 5:** it removes a forced-command entry with no consumer, and touches neither the key material, nor mechanism (B), nor the GitHub deploy-key registration, nor `secrets.SSH_KEY`. It is additive to the King's order and blocks none of it.
+
+## I applied comment #6's own rule before ratifying
+
+That comment records, from my own stop on this ticket: *a removal list assembled from current consumers goes stale the moment a design adds one — re-verify against the BOARD, not the list.* Checked: `deploy-statbus.sh` is pre-244, pre-Go-CLI, and **no current or approved design routes through it** (248's door is `apply-latest` via sshdo; 258's is `./sb upgrade apply`). Nothing on the board wants it back.
+
+The orphaned `/usr/local/bin/deploy-statbus.sh` on boxes: inert, operator convenience, agreed — but fold it into the same fleet pass as the `ua` check rather than leaving it as a standing errand.
 ---
 <!-- COMMENTS:END -->

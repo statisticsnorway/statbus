@@ -3,11 +3,11 @@ id: STATBUS-284
 title: >-
   cloud-doc-port-accuracy: CLOUD.md's port formula and REST column contradict
   the table, config.go, and AGENTS.md's canonical scheme
-status: In Progress
+status: Done
 assignee:
   - '@mechanic'
 created_date: '2026-08-27 17:02'
-updated_date: '2026-08-27 19:46'
+updated_date: '2026-08-27 19:50'
 labels:
   - doc
   - cloud
@@ -78,4 +78,16 @@ The doc currently documents four of the seven. Adding APP, DB_TLS and REST_ADMIN
 
 One caveat to carry: `config.go` overrides http/https/db in `standalone` mode. This table documents niue, which is `private`, so the formula applies as written — but it must not be copied into a standalone-box doc unqualified.
 ---
+
+author: foreman
+created: 2026-08-27 19:50
+---
+LANDED at e241b6a47 and closed. Verified against the architect's ruling before staging: formula block replaced verbatim from computeDerived (config.go:514-525) with the authoritative citation in the doc; all seven ports per slot (foreman's scope ruling — a collision table missing three of seven ports cannot do its one job); every DB value untouched (they were right; the FORMULA was the fossil); REST corrected to the internal +3 across all ten rows (dev 3013 matching AGENTS.md's canonical example); rest-admin's loopback-only nature noted in the block. One ruled element the frozen unit missed was added at staging by the foreman (single sentence beneath the table): external REST is a PATH over the main HTTPS port, not a port — required so the reheaded column cannot be misread as removing external access. No other stale REST references remain in the file (mechanic's grep).
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+doc/CLOUD.md's Port Allocation section now agrees with the code that allocates ports: the formula block is copied verbatim from computeDerived (config.go:514-525) with its source cited, all seven per-slot ports are tabled for all ten rows (HTTP/HTTPS/App/REST/PostgreSQL/DB-TLS/REST-Admin), the +14 fossil is gone without disturbing the DB values that were always right, the REST column now means the internal PostgREST port at +3 per the architect's ruling, and one sentence states what external REST actually is — a path over the main HTTPS port. The near-miss worth remembering: the original brief said "re-derive rows from the formula", and the formula was wrong where the table was right — deriving before correcting would have corrupted every DB value. Landed at e241b6a47.
+<!-- SECTION:FINAL_SUMMARY:END -->
