@@ -7,20 +7,36 @@ if [ -n "${VERBOSE}" ]; then
 fi
 
 # This script creates a new StatBus installation on niue.statbus.org
-# Usage: ./create-new-statbus-installation.sh <deployment_code> <deployment_name>
-# Example: ./create-new-statbus-installation.sh jo "Jordan StatBus"
+# Usage: ./create-new-statbus-installation.sh <deployment_code> <deployment_name> <version>
+# Example: ./create-new-statbus-installation.sh ua "Ukraine StatBus" v2026.08.0-rc.10
 
-if [ "$#" -ne 2 ]; then
-    echo "Usage: $0 <deployment_code> <deployment_name>"
-    echo "Example: $0 jo \"Jordan StatBus\""
+if [ "$#" -ne 3 ]; then
+    echo "Usage: $0 <deployment_code> <deployment_name> <version>"
+    echo "Example: $0 ua \"Ukraine StatBus\" v2026.08.0-rc.10"
     exit 1
 fi
 
 DEPLOYMENT_SLOT_CODE="$1"
 DEPLOYMENT_SLOT_NAME="$2"
+VERSION="$3"
 DOMAIN="${DEPLOYMENT_SLOT_CODE}.statbus.org"
 DEPLOYMENT_USER="statbus_${DEPLOYMENT_SLOT_CODE}"
 HOST="niue.statbus.org"
+
+# VERSION (STATBUS-268 #2 / Ukraine): a new installation lands on a NAMED
+# release, the same reasoning ops/setup-ubuntu-lts-24.sh's SSHDOERS_REF uses
+# for the CI allowlist (architect ruling c3) — an install artifact procured
+# from a moving ref cannot be named afterward, and a master-born box would
+# refuse the very next scheduled upgrade as not-newer-than-installed. Checked
+# locally, against this script's own clone, before anything on the remote box
+# is touched — identity before content, same order the install timeline uses
+# everywhere else.
+git fetch --tags --quiet
+if ! git rev-parse --verify --quiet "refs/tags/$VERSION" >/dev/null; then
+    echo "Error: '$VERSION' is not a known tag in this repository."
+    echo "List candidates with: ./sb upgrade check   (or: git tag -l 'v*' --sort=-version:refname)"
+    exit 1
+fi
 
 # TARGET_ROLE (STATBUS-251, reshaped by STATBUS-254): a new country instance is
 # an ordinary production slot — it follows releases on its own (STATBUS-248),
@@ -282,6 +298,22 @@ ssh $DEPLOYMENT_USER@$HOST bash <<CLONE_STATBUS
         fi
     fi
 CLONE_STATBUS
+
+echo "Checkout version $VERSION..."
+ssh $DEPLOYMENT_USER@$HOST bash <<CHECKOUT_VERSION
+    # Print commands if VERBOSE is defined
+    if [ -n "${VERBOSE}" ]; then
+        set -x
+    fi
+    cd ~/statbus
+    # The clone may predate this tag, so fetch before checking it out.
+    git fetch --tags --quiet
+    if ! git checkout "$VERSION"; then
+        echo "Error: Failed to checkout version $VERSION."
+        exit 1
+    fi
+    echo "Checked out \$(git rev-parse --short HEAD) ($VERSION)"
+CHECKOUT_VERSION
 
 echo "Configure StatBus..."
 ssh $DEPLOYMENT_USER@$HOST bash <<CONFIGURE_STATBUS
