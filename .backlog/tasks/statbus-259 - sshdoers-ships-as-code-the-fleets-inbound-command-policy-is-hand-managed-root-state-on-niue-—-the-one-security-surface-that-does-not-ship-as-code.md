@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-08-19 20:06'
-updated_date: '2026-08-20 06:29'
+updated_date: '2026-08-27 12:33'
 labels:
   - ops
   - security
@@ -197,5 +197,11 @@ created: 2026-08-20 06:29
 LANDED at 202ff3511 (master, pushed). Throwaway-worktree build + vet + STATBUS259 tests green from the staged state; bash -n clean. Foreman landing review made two verifications beyond the architect's: sshdo --check is real (ops/niue/sshdo:43) and its error:/warning: prefixes are printed verbatim by errormsg (ops/niue/sshdo:293) so the stage's split greps anchor correctly; FAILED_VERIFICATIONS non-empty exits 1 (setup script:1531-1538) so every refuse-path fails the run loudly. One landing catch fixed before commit: the retracted "no slot user should read it" premise survived in the drift check's header comment — rewritten on the ratified justification; the engineer swept the tree and confirmed it was the last live instance.
 
 REMAINING ON THIS TICKET: (1) the King's pre-declared root session on niue (command list at tmp/259-command-list.md, <COMMIT>=202ff3511, awaiting the King's nod — compare-first, stops on hash difference); (2) after the session: deploy-to-dev's marked block swaps apply-latest → upgrade apply "$SHA" (STATBUS-258's one-line allowlist entry rides the now-landed mechanism). NOTE FOR EVERY CUT UNTIL THE SESSION RUNS: preflight check 16 will fail because /etc/sshdoers.sha256 does not exist on niue yet; the refusal names this cause; SKIP_SSHDOERS=1 is the loud bypass — architect ruled strict-from-day-one (a) deliberately.
+---
+
+author: foreman
+created: 2026-08-27 12:33
+---
+KING APPROVED THE ROOT SESSION (2026-08-27, first act back from the break): the pre-declared command list at tmp/259-command-list.md is the declared session, verbatim, with <COMMIT> = 202ff3511. Verified before relay: no commits landed during the break (origin tip still 99371ab9b), the last change to ops/setup-ubuntu-lts-24.sh and ops/niue/sshdoers is 202ff3511 itself, so the pin is exact. Compare-first stands: steps 1-3 read-only, STOP on hash difference, reconcile as a reviewed commit with live winning on first contact. The King runs steps 1-6 as root on niue; step 7's dev entry is provable through the real CI door via a deploy-to-dev dispatch, demo's at its next scheduled trigger or from a CI-key holder.
 ---
 <!-- COMMENTS:END -->
