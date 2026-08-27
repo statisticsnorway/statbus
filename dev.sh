@@ -528,8 +528,14 @@ check_no_straggler_pg_regress() {
     # them apart. On macOS Docker Desktop's documented unresponsiveness
     # (CLAUDE.md has its own restart procedure for it) that reads as "no
     # straggler" when the true answer is "could not check."
-    local _out _rc
-    _out=$(docker compose exec -T db pgrep -af 'pg_regress|HIDE_TABLEAM' 2>&1); _rc=$?
+    # Capture must be errexit-safe (STATBUS-261's idiom): under this
+    # script's `set -e`, a bare `_out=$(cmd); _rc=$?` DIES on the
+    # assignment when cmd exits non-zero — pgrep's exit 1 (the NORMAL
+    # clean-container case) would silently abort the whole run before
+    # _rc is ever read. Proven in CI at 4fdea9a2b: fast tests exited 1
+    # with no output the moment this guard first ran on a clean runner.
+    local _out _rc=0
+    _out=$(docker compose exec -T db pgrep -af 'pg_regress|HIDE_TABLEAM' 2>&1) || _rc=$?
     case $_rc in
         0) ;;              # straggler found -> BLOCK below
         1) return 0 ;;     # pgrep looked, found nothing -> genuinely clear
