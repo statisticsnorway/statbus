@@ -3,11 +3,11 @@ id: STATBUS-283
 title: >-
   creation-script-binary-gap: the slot-creation script clones and checks out but
   never procures the sb binary — its tail should delegate to install.sh
-status: In Progress
+status: Done
 assignee:
   - '@mechanic'
 created_date: '2026-08-27 16:47'
-updated_date: '2026-08-27 19:46'
+updated_date: '2026-08-27 20:05'
 labels:
   - ops
   - cloud
@@ -130,4 +130,16 @@ created: 2026-08-27 19:42
 ---
 PRIORITY RAISED to HIGH on the architect's design finding: ops/create-new-statbus-installation.sh:514 runs `./dev.sh create-db` UNCONDITIONALLY — destructive, ungated, a dev-only script in production provisioning. Re-running the creation script against an existing slot DESTROYS that country's data, and the script's meticulous idempotence everywhere else reads as a promise that re-running is safe. The delegation to ./sb install fixes this BY CONSTRUCTION (the probe ladder decides; a re-run becomes a no-op instead of data loss) — that is now the ticket's lead argument, with the binary gap and host-Caddy reload as the riders. Mechanic executes against the architect's pinned step-split; ordering trap honored (ACLs before validate — caddy reads as the caddy user); validate-then-reload fatal-not-warning; BROWSER_REST_URL first-writer-wins deliberately out of scope as pinned.
 ---
+
+author: foreman
+created: 2026-08-27 20:05
+---
+LANDED at e9d4dad50 (113 insertions / 171 deletions) after the architect BLESSED both mechanic design calls. Call 1 (remove per-slot SSH deploy-keygen + SSH clone): blessed on the corrected fact that THE REPO IS PUBLIC (gh repo view: visibility PUBLIC) — the architect's own 253 ratification had inherited the description's 'private repo' premise from Aug 19 without re-checking; new boxes clone HTTPS and DiscoverTagsViaGit is tokenless by design (github.go:395); existing boxes' keys stay, alive only by their SSH remote-URL choice. Call 2 (clone-first → write .env.config → single install pass via the Rescue path): blessed as matching the ownership split. CRITICAL COUPLING RECORDED, both sites: THIS BOOTSTRAP DEPENDS ON dotenv.Generate's FIRST-WRITER-WINS — the allocation values win because generate will not overwrite existing keys. If anyone ever flips Generate to last-writer-wins (the shape once contemplated for correcting stale BROWSER_REST_URL values), install's generate would overwrite offset/slot/role/urls with defaults and a new slot comes up on the wrong ports, silently. Any future correction path must be an explicit overwrite call, never a semantics flip — also pinned on STATBUS-281 where the correction idea lives. Empirical confirmation dispatched: ua's shallow HTTPS clone must list upgrade candidates (./sb upgrade list) — the one axis (shallow-clone tag semantics) verified on the existing box rather than reasoned about. The 253 fossil deletion landed on top as its own commit (73e12b0fd).
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The slot-creation script's tail now delegates to the product's install entrypoint at the named version: the unconditionally-destructive dev-only create-db is gone (a re-run against a live slot becomes a probe-ladder no-op instead of data loss), binary procurement/config/containers/DB/users are owned by the one mechanism every installation uses, the host Caddy gains the missing validate-then-reload as a fatal last root-side step ordered after ACLs, and the per-slot SSH deploy-keygen and SSH clone are removed on the corrected fact that the repo is public (HTTPS clone + tokenless git-tag discovery). The bootstrap writes allocation facts into .env.config before install runs and deliberately depends on dotenv.Generate's first-writer-wins — recorded here and on 281 so no future semantics flip silently breaks slot creation. Both design calls were mechanic-flagged rather than silently absorbed, architect-blessed after his own stale-premise self-correction. Landed at e9d4dad50; found on Ukraine's maiden run, fixed before the next country.
+<!-- SECTION:FINAL_SUMMARY:END -->

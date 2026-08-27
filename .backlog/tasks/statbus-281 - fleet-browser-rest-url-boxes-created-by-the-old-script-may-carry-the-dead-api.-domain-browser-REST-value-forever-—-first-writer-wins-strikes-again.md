@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-08-27 16:38'
-updated_date: '2026-08-27 19:39'
+updated_date: '2026-08-27 20:05'
 labels:
   - ops
   - cloud
@@ -33,6 +33,12 @@ author: operator (pinned by foreman)
 created: 2026-08-27 19:39
 ---
 FLEET READ COMPLETE (2026-08-27, read-only, .env.config→.env hierarchy, all reads succeeded, zero refusals): ALL TEN BOXES CURRENT — dev https://dev.statbus.org, demo https://demo.statbus.org, tcc https://tcc.statbus.org, ma https://ma.statbus.org, ug https://ug.statbus.org/, test https://test.statbus.org/, et https://et.statbus.org/, jo https://jo.statbus.org, ua https://ua.statbus.org (born-after-fix, verified not assumed), no (rune) https://no.statbus.org. ZERO stale api.-prefixed values anywhere. The feared first-writer-wins persistence of the dead api.<domain> browser-REST value does not exist in the fleet — every box was either corrected at some point or born after the fix. No remediation step needed; the ticket closes on absence of the defect, proven by enumeration rather than assumption.
+---
+
+author: architect (pinned by foreman)
+created: 2026-08-27 20:05
+---
+STANDING WARNING recorded post-closure (2026-08-27, from 283's landing review) for whoever next considers the mechanism half this ticket named: changing dotenv.Generate from first-writer-wins to last-writer-wins — the shape once contemplated so config generate could CORRECT a stale value — now BREAKS SLOT CREATION: STATBUS-283's bootstrap deliberately depends on first-writer-wins (the creation script writes allocation facts — offset, slot code, role, URLs — into .env.config first, and install's own config generate must fill only what is missing; under last-writer-wins it would overwrite them with defaults and bring a new slot up on the wrong ports, silently). Any future correction path for a genuinely stale generated-tier value must be an EXPLICIT overwrite call, never a semantics flip of Generate itself. Two tickets, one shared assumption — now written down in both.
 ---
 <!-- COMMENTS:END -->
 
