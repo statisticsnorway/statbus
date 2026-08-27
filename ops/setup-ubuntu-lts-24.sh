@@ -1273,17 +1273,59 @@ stage_ci_allowlist() {
     # three checks later as "sshdo enforcer absent" or "allowlist fetch
     # failed" — both name ops/${host}/... as though the canonical file were
     # simply missing, sending the operator chasing a file instead of the
-    # typo. One check, up front, covers both causes: validate the DIRECTORY
-    # itself exists at the exact ref this run installs from, before $host is
-    # used in any other message or fetch.
-    local host_dir_check_url="https://api.github.com/repos/statisticsnorway/statbus/contents/ops/${host}?ref=${ref}"
+    # typo. One check, up front, covers both causes: probe $url — the EXACT
+    # file this stage is about to fetch, same host/ref/path — before $host is
+    # used in any other message.
+    #
+    # Checks the FILE on raw.githubusercontent.com, not the directory via
+    # api.github.com: identical failure modes to the real fetch this
+    # precedes, no second network dependency (a separately rate-limited API),
+    # and it verifies the thing that actually matters.
+    #
+    # STATUS IS BRANCHED, NOT JUST COMPARED TO 200 (architect amendment). A
+    # 404 is a fact about ops/${host}/sshdoers at ref ${ref} — nothing lives
+    # there — but that fact has TWO indistinguishable causes: SSHDOERS_HOST
+    # names the wrong directory, or SSHDOERS_REF names a commit where that
+    # directory doesn't exist (empirically confirmed: raw.githubusercontent
+    # returns 404 for a bad path AND for a bad ref alike, with no way to
+    # tell them apart from the response). The message below names both, not
+    # just the host — an operator with a typo'd REF and a correct HOST must
+    # not be sent checking the one variable that was already right. Any
+    # OTHER non-200 — a 403 rate limit (hit in practice), a 5xx, a network
+    # failure reported as "000" — is NOT a statement about the host or the
+    # ref at all; it means the check itself could not look. Both branches
+    # still refuse (fail closed) — only the stated reason changes.
+    #
+    # NO -f, NO "|| echo 000": curl's own -w already prints "000" when no
+    # HTTP response was received at all (its documented behaviour for a
+    # failed transfer), so both are redundant — and -f makes them actively
+    # wrong. -f raises curl's exit status to nonzero on a 4xx/5xx response,
+    # but -w had ALREADY written the real code to stdout before that exit;
+    # the "||" then fires on that nonzero exit and appends "000" onto the
+    # code curl already printed, so a 404 was captured as literal "404000"
+    # (caught empirically: a real Docker run of the typo-host case reported
+    # "HTTP 404000" instead of 404, silently routing a real 404 into the
+    # could-not-verify branch instead of the host-is-wrong branch). Dropping
+    # both leaves curl's own single, correctly-formed code as the only thing
+    # ever written here, confirmed against all three real cases: 200, 404,
+    # and 000 (network-unreachable, tested with an invalid host so no live
+    # rate limit was needed).
     local host_dir_status
-    host_dir_status="$(curl -fsS -o /dev/null -w '%{http_code}' "$host_dir_check_url" 2>/dev/null || echo "000")"
-    if [[ "$host_dir_status" != "200" ]]; then
-        log_error "No reviewed policy directory for host '$host' — is SSHDOERS_HOST correct?"
-        log_error "Checked: $host_dir_check_url (HTTP $host_dir_status)"
-        log_error "Set SSHDOERS_HOST=<the correct directory name under ops/> and re-run this stage."
-        FAILED_VERIFICATIONS+=("Stage 8: no ops/${host}/ directory at ref ${ref}")
+    host_dir_status="$(curl -sS -o /dev/null -w '%{http_code}' "$url" 2>/dev/null)"
+    if [[ "$host_dir_status" == "404" ]]; then
+        log_error "Nothing found at ops/${host}/sshdoers for ref ${ref} (HTTP 404)."
+        log_error "Either SSHDOERS_HOST names the wrong directory, or SSHDOERS_REF names a commit"
+        log_error "where that file does not exist — raw.githubusercontent returns 404 for both."
+        log_error "Checked: $url"
+        log_error "Set SSHDOERS_HOST=<the correct directory under ops/> and/or SSHDOERS_REF=<a commit"
+        log_error "where it exists>, then re-run this stage."
+        FAILED_VERIFICATIONS+=("Stage 8: nothing at ops/${host}/sshdoers for ref ${ref} (HTTP 404)")
+        return 0
+    elif [[ "$host_dir_status" != "200" ]]; then
+        log_error "Could not verify whether ops/${host}/ exists (HTTP $host_dir_status) — this is not a statement about the host."
+        log_error "Checked: $url"
+        log_error "Retry, or check network connectivity / GitHub rate limits, then re-run this stage."
+        FAILED_VERIFICATIONS+=("Stage 8: could not verify ops/${host}/ (HTTP ${host_dir_status})")
         return 0
     fi
 
