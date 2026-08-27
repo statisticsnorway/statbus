@@ -62,3 +62,28 @@ statbus_jo: ~/statbus/ops/ci-notify.sh
 # 40 '#' characters match a 40-char hex SHA at runtime (via `match hexdigits`).
 #
 statbus_test: cd statbus && git fetch origin && git checkout -- . && git checkout ######################################## && ./dev.sh continous-integration-test
+
+#
+# CI deploy-status poll — invoked by deploy-to-<slot>.yaml after the poke
+# (STATBUS-170: green means CONVERGED, not merely scheduled). Same pattern as
+# ci-notify above: only the PATH is pinned, the behavior lives in
+# ~/statbus/ops/ci-deploy-status.sh (evolves via git). The 40 '#' characters
+# match the deployed commit's 40-hex SHA at runtime (via `match hexdigits`).
+# One entry per user (sshdo requires it); identical command for all SIX —
+# demo has none: deploy-to-demo.yaml was deleted (STATBUS-244a), so demo has
+# no poll consumer. Adding one back would be a grant ADDITION, a separate
+# reviewed decision, not implied by this reconcile.
+#
+# FIVE OF THESE SIX ARE CONDEMNED (tcc, ma, ug, et, jo): they serve
+# deploy-to-<slot>.yaml workflows Wave D queues for deletion once channel-
+# following is confirmed (STATBUS-244a's transitional note, STATBUS-248
+# Wave D1). Captured here as still-live and still enforced — removal happens
+# in its own reviewed step, never silently inside a reconcile.
+#
+statbus_tcc: ~/statbus/ops/ci-deploy-status.sh ########################################
+statbus_dev: ~/statbus/ops/ci-deploy-status.sh ########################################
+statbus_ma: ~/statbus/ops/ci-deploy-status.sh ########################################
+statbus_ug: ~/statbus/ops/ci-deploy-status.sh ########################################
+statbus_et: ~/statbus/ops/ci-deploy-status.sh ########################################
+statbus_jo: ~/statbus/ops/ci-deploy-status.sh ########################################
+github-runner: /usr/local/sbin/statbus-runner-health
