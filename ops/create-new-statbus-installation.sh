@@ -250,198 +250,121 @@ ssh root@$HOST bash <<CONFIGURE_SSH_ACCESS
     echo "Wrote \$(wc -l < "\$auth_keys") authorized key(s) for \$target_user"
 CONFIGURE_SSH_ACCESS
 
-echo "Configuring github deployment with ssh"
-ssh $DEPLOYMENT_USER@$HOST bash <<GITHUB_DEPLOYMENT_ACCESS
-    # Print commands if VERBOSE is defined
-    if [ -n "${VERBOSE}" ]; then
-        set -x
-    fi
-    # Generate SSH key for the user, to be added to github as a deployment key.
-    #
-    # BUG (first slot ever created through this path, dates to the ops/
-    # restructure commit 191226fb1): -f "~/.ssh/id_ed25519" quotes the tilde,
-    # which disables bash's tilde expansion entirely — ssh-keygen received a
-    # literal filename starting with the character '~' and failed "No such
-    # file or directory". \$HOME (escaped, so the OUTER heredoc leaves it
-    # alone and the REMOTE shell expands it) is the fix; a bare unquoted "$"
-    # here would instead bake in the OPERATOR's local $HOME — the exact trap
-    # this heredoc's unquoted delimiter sets for every local/remote variable.
-    if [ ! -f "\$HOME/.ssh/id_ed25519" ]; then
-        mkdir -p "\$HOME/.ssh" && chmod 700 "\$HOME/.ssh"
-        ssh-keygen -t ed25519 -f "\$HOME/.ssh/id_ed25519" -N "" -C "$DEPLOYMENT_USER@\$(hostname --fqdn)"
-    else
-        echo "SSH deployment key already exists and will be preserved"
-    fi
-
-    # Print the public key for GitHub deployment
-    echo "Public key for GitHub deployment (add to https://github.com/statisticsnorway/statbus/settings/keys):"
-    cat ~/.ssh/id_ed25519.pub
-GITHUB_DEPLOYMENT_ACCESS
-
 echo "Clone StatBus repository..."
 ssh $DEPLOYMENT_USER@$HOST bash <<CLONE_STATBUS
     # Print commands if VERBOSE is defined
     if [ -n "${VERBOSE}" ]; then
         set -x
     fi
-    # Ensure GitHub's host key is known
-    if ! grep -q "github.com" ~/.ssh/known_hosts; then
-        ssh-keyscan github.com >> ~/.ssh/known_hosts
-    else
-        echo "GitHub's host key is already known"
-    fi
-
+    # HTTPS, matching install.sh's own fresh-mode clone exactly (install.sh
+    # :307-308) — statisticsnorway/statbus is public, so no deploy key is
+    # needed. STATBUS-283: binary procurement, config generation, docker,
+    # DB, and users all now delegate to install.sh below (one procurement
+    # mechanism, one owner) — nothing on this box does SSH-authenticated git
+    # any more, so the per-slot deploy-keygen step this used to require
+    # (and the SSH clone it served) is gone, not just moved.
     if [ ! -d ~/statbus ]; then
-        echo "Cloning StatBus repository..."
-        if ! git clone git@github.com:statisticsnorway/statbus.git ~/statbus; then
-            echo "Error: Failed to clone StatBus repository. Please ensure deployment key is set up correctly."
-            exit 1
-        fi
+        echo "Cloning StatBus repository at $VERSION..."
+        git clone --depth 1 --branch "$VERSION" https://github.com/statisticsnorway/statbus.git ~/statbus
+        git -C ~/statbus checkout -B current "$VERSION"
         echo "Repository cloned successfully"
     else
         echo "StatBus repository already exists"
-        # Verify git remote
-        if ! cd ~/statbus && git remote -v | grep -q 'statisticsnorway/statbus'; then
+        cd ~/statbus
+        if ! git remote -v | grep -q 'statisticsnorway/statbus'; then
             echo "Error: Existing repository has incorrect remote"
             exit 1
         fi
+        git fetch --tags --quiet
+        git checkout -B current "$VERSION"
+        echo "Checked out \$(git rev-parse --short HEAD) ($VERSION)"
     fi
 CLONE_STATBUS
 
-echo "Checkout version $VERSION..."
-ssh $DEPLOYMENT_USER@$HOST bash <<CHECKOUT_VERSION
+echo "Prepare users configuration..."
+ssh $DEPLOYMENT_USER@$HOST bash <<CONFIGURE_USERS
     # Print commands if VERBOSE is defined
     if [ -n "${VERBOSE}" ]; then
         set -x
     fi
     cd ~/statbus
-    # The clone may predate this tag, so fetch before checking it out.
-    git fetch --tags --quiet
-    if ! git checkout "$VERSION"; then
-        echo "Error: Failed to checkout version $VERSION."
-        exit 1
-    fi
-    echo "Checked out \$(git rev-parse --short HEAD) ($VERSION)"
-CHECKOUT_VERSION
-
-echo "Configure StatBus..."
-ssh $DEPLOYMENT_USER@$HOST bash <<CONFIGURE_STATBUS
-    # Print commands if VERBOSE is defined
-    if [ -n "${VERBOSE}" ]; then
-        set -x
-    fi
-    echo "Generating configuration files..."
-    if [ ! -f ~/statbus/.env ]; then
-        cd ~/statbus && ./sb config generate
-        echo "Generated .env configuration"
-    else
-        echo "Configuration .env already exists"
-    fi
-
-    if [ ! -f ~/statbus/.users.yml ]; then
-        cd ~/statbus && cp .users.example .users.yml
+    if [ ! -f .users.yml ]; then
+        cp .users.example .users.yml
         echo "Created .users.yml from example"
     else
         echo "Users configuration already exists"
     fi
 
-    # Check if .users.yml is identical to the example
-    if cmp -s ~/statbus/.users.yml ~/statbus/.users.example; then
+    # Check if .users.yml is identical to the example. This MUST run before
+    # install.sh below: ./sb install's own step-table calls "sb users create"
+    # internally, which hard-fails on a missing .users.yml but does not know
+    # a copy-of-the-example is really a still-unedited placeholder.
+    if cmp -s .users.yml .users.example; then
         echo "Error: .users.yml is identical to the example file."
         echo "Please edit ~/statbus/.users.yml to configure users before continuing."
         exit 1
     fi
-CONFIGURE_STATBUS
-
+CONFIGURE_USERS
 
 echo "Find next available port offset"
 PREV_MAX_OFFSET=$(ssh root@$HOST grep '^DEPLOYMENT_SLOT_PORT_OFFSET' /home/*/statbus/.env.config 2>/dev/null | grep -v "$DEPLOYMENT_USER" | sed 's/.*=\([0-9]*\)/\1/' | sort -n | tail -1)
 OFFSET=$((PREV_MAX_OFFSET + 1))
 
-echo "Update deployment-specific settings..."
+echo "Write deployment-specific settings..."
+# STATBUS-283: these are host-owned allocation decisions (offset, slot
+# identity, role, URLs) — the product cannot know them (the offset is a fact
+# about the other nine slots), so they are written here, not by install. They
+# must land BEFORE install.sh runs: config generation (cli/internal/config/
+# config.go:328-354, dotenv.Generate) is first-writer-wins from the FILE only
+# — it never reads the process environment — so on a fresh clone .env.config
+# does not exist yet and there is no other way to hand these values in. Using
+# set_or_update (append if absent, update if wrong, no-op if already right)
+# instead of the old sed-only form because sed can't create a missing line,
+# and .env.config is genuinely missing on a first-ever run.
 ssh $DEPLOYMENT_USER@$HOST bash << UPDATE_SETTINGS
     # Print commands if VERBOSE is defined
     if [ -n "${VERBOSE}" ]; then
         set -x
     fi
-    echo "Updating deployment-specific configuration..."
+    echo "Writing deployment-specific configuration..."
     cd ~/statbus
+    touch .env.config
 
-    # Only update port offset if different
-    current_offset=\$(grep '^DEPLOYMENT_SLOT_PORT_OFFSET=' .env.config | cut -d'=' -f2)
-    if [ "\$current_offset" != "$OFFSET" ]; then
-        sed -i "s/DEPLOYMENT_SLOT_PORT_OFFSET=.*/DEPLOYMENT_SLOT_PORT_OFFSET=$OFFSET/" .env.config
-        echo "Updated port offset to $OFFSET"
-    else
-        echo "Port offset is already $OFFSET"
-    fi
+    set_or_update() {
+        key="\$1"; value="\$2"
+        if grep -q "^\${key}=" .env.config; then
+            current=\$(grep "^\${key}=" .env.config | head -1 | cut -d'=' -f2-)
+            if [ "\$current" != "\$value" ]; then
+                sed -i "s#^\${key}=.*#\${key}=\${value}#" .env.config
+                echo "Updated \$key to \$value"
+            else
+                echo "\$key is already \$value"
+            fi
+        else
+            echo "\${key}=\${value}" >> .env.config
+            echo "Set \$key to \$value"
+        fi
+    }
 
-    # Only update slot name if different
-    current_name=\$(grep '^DEPLOYMENT_SLOT_NAME=' .env.config | cut -d'=' -f2)
-    if [ "\$current_name" != "$DEPLOYMENT_SLOT_NAME" ]; then
-        sed -i "s/DEPLOYMENT_SLOT_NAME=.*/DEPLOYMENT_SLOT_NAME=$DEPLOYMENT_SLOT_NAME/" .env.config
-        echo "Updated slot name to $DEPLOYMENT_SLOT_NAME"
-    else
-        echo "Slot name is already $DEPLOYMENT_SLOT_NAME"
-    fi
-
-    # Update CADDY_DEPLOYMENT_MODE
-    current_caddy_mode=\$(grep '^CADDY_DEPLOYMENT_MODE=' .env.config | cut -d'=' -f2)
-    if [ "\$current_caddy_mode" = "development" ]; then
-        sed -i "s/CADDY_DEPLOYMENT_MODE=development/CADDY_DEPLOYMENT_MODE=private/" .env.config
-        echo "Updated CADDY_DEPLOYMENT_MODE to private"
-    elif [ "\$current_caddy_mode" != "private" ]; then
-        # If it's neither development nor private, it might be an unexpected value.
-        # For now, we'll assume if it's not development, it's either already private or set to something else intentionally.
-        # If you want to force it to private regardless of current value (unless already private), adjust logic here.
-        echo "CADDY_DEPLOYMENT_MODE is '\$current_caddy_mode', not changing."
-    else
-        echo "CADDY_DEPLOYMENT_MODE is already private"
-    fi
-    
-    # Only update slot code if different
-    current_code=\$(grep '^DEPLOYMENT_SLOT_CODE=' .env.config | cut -d'=' -f2)
-    if [ "\$current_code" != "$DEPLOYMENT_SLOT_CODE" ]; then
-        sed -i "s/DEPLOYMENT_SLOT_CODE=.*/DEPLOYMENT_SLOT_CODE=$DEPLOYMENT_SLOT_CODE/" .env.config
-        echo "Updated slot code to $DEPLOYMENT_SLOT_CODE"
-    else
-        echo "Slot code is already $DEPLOYMENT_SLOT_CODE"
-    fi
+    set_or_update DEPLOYMENT_SLOT_PORT_OFFSET "$OFFSET"
+    set_or_update DEPLOYMENT_SLOT_NAME "$DEPLOYMENT_SLOT_NAME"
+    set_or_update DEPLOYMENT_SLOT_CODE "$DEPLOYMENT_SLOT_CODE"
+    set_or_update CADDY_DEPLOYMENT_MODE private
 
     # Declare the box's upgrade ROLE (STATBUS-251, reshaped by STATBUS-254) —
-    # OVERWRITE, not set-if-missing: a wrong value may already be present, and
-    # set-if-missing is the exact behaviour that let stale values survive.
+    # OVERWRITE, not set-if-missing: a wrong value may already be present on a
+    # retried run, and set-if-missing is the exact behaviour that let stale
+    # values survive on five statistical offices' installations.
     #
-    # UPGRADE_CHANNEL is NOT written here. It is derived from this role into the
-    # generated .env by `./sb config generate`; writing it into .env.config
-    # would now be refused by that command, on purpose.
-    current_role=\$(grep '^UPGRADE_ROLE=' .env.config | cut -d'=' -f2)
-    if [ "\$current_role" != "$TARGET_ROLE" ]; then
-        if [ -n "\$current_role" ]; then
-            sed -i "s/UPGRADE_ROLE=.*/UPGRADE_ROLE=$TARGET_ROLE/" .env.config
-        else
-            echo "UPGRADE_ROLE=$TARGET_ROLE" >> .env.config
-        fi
-        echo "Set UPGRADE_ROLE=$TARGET_ROLE (was: \${current_role:-unset})"
-    fi
+    # UPGRADE_CHANNEL is NOT written here. It is derived from this role by
+    # ./sb config generate (inside install.sh below); writing it into
+    # .env.config directly would now be refused by that command, on purpose.
+    set_or_update UPGRADE_ROLE "$TARGET_ROLE"
 
-    # Only update URLs if different — apex domain only (the api./www. split is
-    # dead; see the DNS-verification comment above for the evidence).
-    current_statbus_url=\$(grep '^STATBUS_URL=' .env.config | cut -d'=' -f2)
-    if [ "\$current_statbus_url" != "https://$DOMAIN" ]; then
-        sed -i "s#STATBUS_URL=.*#STATBUS_URL=https://$DOMAIN#" .env.config
-        echo "Updated StatBus URL"
-    else
-        echo "StatBus URL is already https://$DOMAIN"
-    fi
-
-    current_supabase_url=\$(grep '^BROWSER_REST_URL=' .env.config | cut -d'=' -f2)
-    if [ "\$current_supabase_url" != "https://$DOMAIN" ]; then
-        sed -i "s#BROWSER_REST_URL=.*#BROWSER_REST_URL=https://$DOMAIN#" .env.config
-        echo "Updated Supabase URL"
-    else
-        echo "Supabase URL is already https://$DOMAIN"
-    fi
+    # Apex domain only — the api./www. subdomain split is dead (see the
+    # DNS-verification comment above for the evidence).
+    set_or_update STATBUS_URL "https://$DOMAIN"
+    set_or_update BROWSER_REST_URL "https://$DOMAIN"
 
     # Add GitHub deployment key if not already present
     DEPLOY_KEY='command="/usr/local/bin/deploy-statbus.sh" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAdpqAWRoDDKDa7neWpTLe+coEYYSkhzw2znSJ3E6XjD https://github.com/statisticsnorway/statbus'
@@ -454,36 +377,47 @@ ssh $DEPLOYMENT_USER@$HOST bash << UPDATE_SETTINGS
 
     # Check and update API keys from statbus_dev if defaults are present
     current_seq_key=\$(grep '^SEQ_API_KEY=' .env.config | cut -d'=' -f2)
-    if [ "\$current_seq_key" = "secret_seq_api_key" ]; then
+    if [ -z "\$current_seq_key" ] || [ "\$current_seq_key" = "secret_seq_api_key" ]; then
         dev_seq_key=\$(grep '^SEQ_API_KEY=' /home/statbus_dev/statbus/.env.config | cut -d'=' -f2)
-        sed -i "s#SEQ_API_KEY=.*#SEQ_API_KEY=\$dev_seq_key#" .env.config
+        set_or_update SEQ_API_KEY "\$dev_seq_key"
         echo "Updated SEQ_API_KEY from statbus_dev"
     else
         echo "SEQ_API_KEY already configured with non-default value"
     fi
 
     current_slack_token=\$(grep '^SLACK_TOKEN=' .env.config | cut -d'=' -f2)
-    if [ "\$current_slack_token" = "secret_slack_api_token" ]; then
+    if [ -z "\$current_slack_token" ] || [ "\$current_slack_token" = "secret_slack_api_token" ]; then
         dev_slack_token=\$(grep '^SLACK_TOKEN=' /home/statbus_dev/statbus/.env.config | cut -d'=' -f2)
-        sed -i "s#SLACK_TOKEN=.*#SLACK_TOKEN=\$dev_slack_token#" .env.config
+        set_or_update SLACK_TOKEN "\$dev_slack_token"
         echo "Updated SLACK_TOKEN from statbus_dev"
     else
         echo "SLACK_TOKEN already configured with non-default value"
     fi
 UPDATE_SETTINGS
 
-
-# Regenerate configuration with updated settings
-ssh $DEPLOYMENT_USER@$HOST bash <<USE_ADAPTED_CONFIG
+# STATBUS-283: binary procurement, ./sb config generate, docker, DB creation,
+# and ./sb users create all delegate to install.sh at the pinned version —
+# one procurement mechanism, one owner, and its 9-state probe ladder makes a
+# re-run an idempotent no-op instead of ./dev.sh create-db's old unconditional
+# (and DESTRUCTIVE — AGENTS.md marks it local-dev-only) data wipe. .git
+# already exists (cloned above), so install.sh takes its Rescue path: it
+# re-fetches and re-checks-out the same version (harmless), places the
+# binary, then runs ./sb install, which reads the .env.config we just wrote
+# and fills in everything else around it.
+echo "Installing StatBus (version $VERSION) via install.sh..."
+ssh $DEPLOYMENT_USER@$HOST bash <<INSTALL_STATBUS
     # Print commands if VERBOSE is defined
     if [ -n "${VERBOSE}" ]; then
         set -x
     fi
-    cd ~/statbus && ./sb config generate
-    echo "Generated .env configuration with updated settings"
-USE_ADAPTED_CONFIG
+    curl -fsSL https://statbus.org/install.sh | bash -s -- --version $VERSION
+INSTALL_STATBUS
 
-# Configure Caddy access permissions
+# Configure Caddy access permissions — BEFORE validate (architect ruling,
+# STATBUS-283 part 2): Caddy reads the generated caddyfile as the caddy user,
+# and a validate run before setfacl can fail on PERMISSIONS and be misread as
+# a syntax error in a perfectly good config.
+echo "Configure Caddy access permissions..."
 ssh root@$HOST bash <<CONFIGURE_CADDY_ACCESS
     # Print commands if VERBOSE is defined
     if [ -n "${VERBOSE}" ]; then
@@ -501,18 +435,26 @@ ssh root@$HOST bash <<CONFIGURE_CADDY_ACCESS
     echo "Configured Caddy access permissions"
 CONFIGURE_CADDY_ACCESS
 
-echo "Starting StatBus services..."
-ssh $DEPLOYMENT_USER@$HOST bash <<START_STATBUS
-    # Print commands if VERBOSE is defined
-    if [ -n "${VERBOSE}" ]; then
-        set -x
-    fi
-    cd ~/statbus
-    ./sb start all
-    # Include the paths for building crystal installed with homebrew.
-    source /etc/profile.d/homebrew.sh
-    ./dev.sh create-db
-    ./sb users create
-START_STATBUS
+# Validate THEN reload the host Caddy — the LAST root-side step, FATAL on
+# failure, never a warning (architect ruling, STATBUS-283 part 2, comment
+# #1's evidence: Ukraine came up correct and unreachable — the slot caddyfile
+# was wired and readable but the running host Caddy process had never been
+# told to load it). Validate is blast-radius containment on a multi-tenant
+# box: one malformed new-slot caddyfile, reloaded unvalidated, takes the
+# proxy down for every country; validate-then-reload bounds the worst case to
+# "the new slot stays unreachable" — exactly today's state — so this step
+# cannot make things worse and can prevent a fleet outage. The failure must
+# be fatal: an unreachable new slot that exits 0 is discovered by the
+# country, not by us — precisely how Ukraine's gap surfaced.
+echo "Validating and reloading host Caddy..."
+ssh root@$HOST bash <<'RELOAD_CADDY'
+    caddy validate --config /etc/caddy/Caddyfile || {
+        echo "REFUSING TO RELOAD: host Caddy config is invalid with the new slot." >&2
+        echo "The other slots are still served by the running process. Fix the" >&2
+        echo "slot caddyfile, then re-run this script." >&2
+        exit 1
+    }
+    systemctl reload caddy
+RELOAD_CADDY
 
 echo "Setup of ${DEPLOYMENT_SLOT_NAME}(${DEPLOYMENT_SLOT_CODE}) completed successfully!"
