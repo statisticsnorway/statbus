@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 13:08'
+updated_date: '2026-08-27 19:39'
 labels:
   - release
 dependencies: []
@@ -27,3 +28,13 @@ PROVING SEQUENCE TO STABLE: rune verified un-wedged (remedy RAN 2026-08-27 ~12:5
 
 RECORDED UNPROVEN, deliberately: 264's retry loop — once 265 lands the reset is exempt and never refused, so NO normal upgrade exercises the retry; its proof waits on STATBUS-270's spec suite or deliberate fault injection. Written down so rc.10's green is never read as covering it.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-08-27 19:39
+---
+v2026.08.0-rc.11 CUT (2026-08-27 evening, tag at 5399acd8b) — this candidate supersedes rc.10 as the one riding the proving sequence, carrying everything the manifest demanded plus the evening's landings: 263 (task_cleanup foundation — the named rider, no longer drifting), 264/265/266 (the wedge class, blocking items — landed pre-rc.10), 269 amendment, 280 (Stage 8 opt-in), 288 (staleness gate consults the executing workflow — proven live in this very cut's preflight: both migration-coverage refusals covered-by-construction with CI runs cited), and the go-test determinism fix. Preflight passed end to end with zero local test runs demanded. Chain running under watch. The proving sequence continues unchanged from here: chain green on dev → human canary on Norway against the observation card → promotion gate (which refuses until Norway carries a completed upgrade at the candidate's commit) → stable → fleet follows → Ukraine (already live on rc.10, channel=stable) is OFFERED the stable and a human opts in. RECORDED UNPROVEN carries forward: 264's retry loop still awaits STATBUS-279's fault-injection arc.
+---
+<!-- COMMENTS:END -->
