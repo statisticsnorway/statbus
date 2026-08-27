@@ -72,12 +72,12 @@ import (
 // invocation above so any change there needs matching test edits.
 
 const (
-	pfxFixturePassword       = "swordfish"
-	pfxFixtureCN             = "test.statbus.local"
-	pfxFixtureEncrypted      = "testdata/test-encrypted.pfx"
-	pfxFixtureUnencrypted    = "testdata/test-unencrypted.pfx"
-	pfxFixtureCertPEM        = "testdata/test-cert.pem"
-	pfxFixtureKeyPEM         = "testdata/test-key.pem"
+	pfxFixturePassword    = "swordfish"
+	pfxFixtureCN          = "test.statbus.local"
+	pfxFixtureEncrypted   = "testdata/test-encrypted.pfx"
+	pfxFixtureUnencrypted = "testdata/test-unencrypted.pfx"
+	pfxFixtureCertPEM     = "testdata/test-cert.pem"
+	pfxFixtureKeyPEM      = "testdata/test-key.pem"
 )
 
 // readFixture reads a fixture file, failing the test if the fixture

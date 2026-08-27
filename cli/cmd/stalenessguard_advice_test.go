@@ -15,6 +15,7 @@ import (
 //     bootstrap (it cannot self-heal — no identity to procure against).
 //   - Stale-but-identified non-self-heal: `./sb install` (toolchain-free procure),
 //     via the freshness.IsStale message.
+//
 // A Go-toolchain fallback may appear, but only clearly marked for dev boxes.
 func TestStalenessGuardAdviceIsToolchainFree(t *testing.T) {
 	src, err := os.ReadFile(thisRepoFile(t, "cli/cmd/root.go"))

@@ -72,10 +72,10 @@ func applyUsersYML(projDir string) error {
 // usersYAMLToSQL parses simple YAML user entries and generates SQL.
 // Handles the basic format:
 //
-//	- email: user@example.com
-//	  display_name: User Name
-//	  password: secret
-//	  role: admin_user
+//   - email: user@example.com
+//     display_name: User Name
+//     password: secret
+//     role: admin_user
 func usersYAMLToSQL(yaml string) (string, error) {
 	type userEntry struct {
 		email       string

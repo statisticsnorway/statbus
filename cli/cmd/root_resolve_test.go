@@ -25,10 +25,10 @@ import (
 // reliable sources, never from a "best-guess fallback".
 func TestResolveCommitSHA_Tiers(t *testing.T) {
 	const (
-		validSHA       = "8292dd0c74df175665c99174de85566d530c3cf3"
-		anotherSHA     = "137bd57d2487724014f9c10d3f73758f7e9f3932"
-		shortNotValid  = "8292dd0c"
-		bogusNotValid  = "not-a-sha"
+		validSHA      = "8292dd0c74df175665c99174de85566d530c3cf3"
+		anotherSHA    = "137bd57d2487724014f9c10d3f73758f7e9f3932"
+		shortNotValid = "8292dd0c"
+		bogusNotValid = "not-a-sha"
 	)
 
 	tests := []struct {

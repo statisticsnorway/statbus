@@ -1200,4 +1200,3 @@ func readPassword(prompt string) (string, error) {
 	}
 	return string(bytes), nil
 }
-

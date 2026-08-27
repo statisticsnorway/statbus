@@ -162,7 +162,7 @@ func TestSettleLoopMayKillAgain(t *testing.T) {
 		attemptsSoFar int
 		want          bool
 	}{
-		{0, true},        // first kill ever attempted — always allowed
+		{0, true}, // first kill ever attempted — always allowed
 		{1, true},
 		{max - 1, true},  // the Nth attempt (still under the bound)
 		{max, false},     // the (N+1)th attempt — bound trips here
