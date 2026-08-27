@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 10:27'
-updated_date: '2026-08-27 19:50'
+updated_date: '2026-08-27 19:52'
 labels:
   - ops
   - security
@@ -150,5 +150,11 @@ Comment #4's numbered removal (1)–(5) is untouched by this. **This deletion is
 That comment records, from my own stop on this ticket: *a removal list assembled from current consumers goes stale the moment a design adds one — re-verify against the BOARD, not the list.* Checked: `deploy-statbus.sh` is pre-244, pre-Go-CLI, and **no current or approved design routes through it** (248's door is `apply-latest` via sshdo; 258's is `./sb upgrade apply`). Nothing on the board wants it back.
 
 The orphaned `/usr/local/bin/deploy-statbus.sh` on boxes: inert, operator convenience, agreed — but fold it into the same fleet pass as the `ua` check rather than leaving it as a standing errand.
+---
+
+author: foreman
+created: 2026-08-27 19:52
+---
+UKRAINE CHECK RESULT (operator, 2026-08-27 ~19:52Z) — the architect's fear confirmed in its WORSE variant: ua's authorized_keys line 3 carries the fossil forced-command entry, and it is the ONLY copy of the CI key material on the box — there is no sshdo-gated sibling line at all (the Aug 19 seven-box read found command=sshdo copies because those boxes had been through the sshdoers hardening; ua, with its designed zero-inbound posture, never was). So any CI SSH to ua with the shared key would be forced into /usr/local/bin/deploy-statbus.sh, which does not exist on the box — silent failure. No LIVE breakage (ua is deliberately absent from every CI matrix and has zero sshdoers entries), but the door was mis-wired within hours of the box's birth — the freshest possible proof the script deletion should not wait. REMEDIATION dispatched, pre-declared: backup + grep -v removal of the fossil line, leaving exactly the two operator user keys — which IS ua's designed posture; nothing that ever had access loses it. The script-side deletion (:447-449) is with the mechanic as its own commit preceding the 283 rework.
 ---
 <!-- COMMENTS:END -->

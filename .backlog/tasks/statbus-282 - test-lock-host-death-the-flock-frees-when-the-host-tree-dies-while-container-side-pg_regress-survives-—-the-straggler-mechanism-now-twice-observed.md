@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-08-27 16:44'
-updated_date: '2026-08-27 19:46'
+updated_date: '2026-08-27 19:53'
 labels:
   - testing
 dependencies: []
@@ -141,5 +141,11 @@ If this fix structurally prevents a second **pg_regress**, then a recurrence of 
 ## And correct the comment at `dev.sh:496-499` when you are in the file
 
 It asserts the two-writer mechanism yields *"a sparse NUL hole"*. **Tonight's `SEEK_HOLE` probe found NO holes in either corrupted artifact** — the zeros are materialised. That text is the anchor of the old 158-class verdict and it will keep re-teaching a mechanism the measurement does not support. Soften it to what is observed: a zero-filled gap, page-aligned start, arbitrary end, sparseness unproven.
+---
+
+author: foreman
+created: 2026-08-27 19:53
+---
+THIRD INSTANCE of the operational half, tonight on a LIVE BOX (2026-08-27 ~19:52Z): the test slot's repair `./sb install` was run through a single held ssh session from the operator's harness; output truncated mid-[DDL]-quiesce (containers stopped, 'resume after Migrations succeeds' printed, then nothing) and the upgrade unit still absent afterwards — consistent with the harness session ending and killing the remote install mid-flight, exactly the host-death class this ticket's operational half names, now with a production-adjacent blast radius (a box left quiesced mid-install rather than a test artifact). Diagnosis dispatched before any re-run (is the process alive? flag holder? container states) and the re-run instruction is nohup-detached with short poll reads — never a held session for a long remote operation. Design consequence for the ruling already pinned here: the sanctioned-detached-invocation mechanism should cover REMOTE operator actions (ssh'd installs/upgrades), not only local suites — same failure, different host.
 ---
 <!-- COMMENTS:END -->
