@@ -179,7 +179,11 @@ func preflightChecks(projDir string) bool {
 	// release-stable with neither local stamp nor CI green — structurally
 	// more dangerous than the other SKIP_* env vars which lack a
 	// local-escape.
-	stampPath := filepath.Join(projDir, "tmp", "fast-test-passed-sha")
+	stampPath := fastTestStampPath(projDir)
+	// Set only by the ride case below, read only by the CI escape at the
+	// drift-refusal sites: it carries the ride's do-not-persist property
+	// across to the one place that would otherwise write a stamp.
+	stampFromRide := false
 	stampBytes, err := os.ReadFile(stampPath)
 	if err != nil {
 		headOut, _ := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
@@ -216,6 +220,7 @@ func preflightChecks(projDir string) bool {
 			// evidence, and would outlive the ancestor's green that justified it.
 			latestMig, _ := migrate.LatestOnDiskMigrationVersion(projDir)
 			stampBytes = []byte(pgRide.Commit + "\n" + latestMig + "\n")
+			stampFromRide = true
 		case pgRegressResult.Status == release.WorkflowCheckGreen:
 			// CI ran against a freshly-built environment, so source DB is
 			// by-construction at HEAD's max migration version. Write a
@@ -330,7 +335,10 @@ func preflightChecks(projDir string) bool {
 						shortMig = shortMig[:12]
 					}
 					fmt.Printf("  ✓ Fast tests cover latest migrations (stamp: %s, source version: %s, last migration: %s)\n", shortStamp, stampVersion, shortMig)
-				} else {
+				} else if !driftCoveredByCIGreen(projDir, "test expected file drift", testExpectedDrift, stampFromRide) {
+					// Not covered by a green pg_regress at HEAD — see
+					// driftCoveredByCIGreen for the argument it makes when it
+					// IS green. Refusal below is unchanged.
 					// Test expected files have drifted (explain plans, performance baselines)
 					expectedFiles := strings.Split(testExpectedDrift, "\n")
 					fmt.Println("  ✗ Fast tests do not cover test expected file drift")
@@ -343,7 +351,10 @@ func preflightChecks(projDir string) bool {
 					fmt.Println("    Fix: ./dev.sh migrate-and-test fast")
 					allPassed = false
 				}
-			} else {
+			} else if !driftCoveredByCIGreen(projDir, "latest migrations", newMigrations, stampFromRide) {
+				// Not covered by a green pg_regress at HEAD — see
+				// driftCoveredByCIGreen for the argument it makes when it IS
+				// green. Refusal below is unchanged.
 				// New migrations exist that weren't tested
 				migrationFiles := strings.Split(newMigrations, "\n")
 				fmt.Println("  ✗ Fast tests do not cover latest migrations")
