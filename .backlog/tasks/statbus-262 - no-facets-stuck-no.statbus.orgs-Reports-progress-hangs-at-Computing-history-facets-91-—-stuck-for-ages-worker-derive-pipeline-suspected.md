@@ -78,4 +78,16 @@ STRUCTURAL FIX, RANKED: PRIMARY — the missing retry: a once-per-startup crash 
 
 THE GUARD: worker-health was the wrong place — the worker WAS healthy, every other queue ran for six days. The wedge's signature is A TASK IN 'processing' WITH NO LIVE CLAIMANT for longer than any plausible runtime — detectable, cheap, would have surfaced this in hours. And a failed startup crash-recovery must never be merely logged: it retries until success, or the worker refuses to report healthy. The King found this in a progress bar; that is the finding.
 ---
+
+author: engineer (pinned by foreman)
+created: 2026-08-27 12:46
+---
+DISCRIMINATING READS COMPLETE — all three original hypotheses REFUTED by direct evidence, closing the chain on the ratified root cause. H1: zero rows in state in_progress/failed (19 superseded, 13 completed — no parked row exists). H2: zero failed rows, no retained backup_path — no hold to be silent about. H3 inverted: COMPLETION_READ_ONLY_WINDOW_LIFTED prints ONLY inside if werr != nil (service.go:3389-3396), so its journal absence proves the flip SUCCEEDED; catalog agrees (off).
+
+Journal detail defused before anyone re-raises it: 'read-only window ON' appears twice with no OFF line — expected, the Printf lives in setDatabaseReadOnly which only failure paths call; the success path is terminalExec(windowOffSQL), silent when it works. Two silences that both mean healthy.
+
+Timing exact: worker StartedAt 2026-08-21T18:23:15.955Z, RestartCount=0; first refusal 18:23:16.263 (+0.3s, the startup crash-recovery call); window lifted +2.4s. The reset has run EXACTLY ONCE, inside the window, never again — no later restart, and connection inheritance is dead as a cause (daily maintenance tasks completed 22nd-26th prove the worker's sessions write fine; only the four rows were never reset).
+
+Root cause final: upgrade restarts the worker BEFORE clearing its own window (designed order); the once-per-startup recovery lands in the 2.4s gap, is refused, logged at ERROR, abandoned; neither side retries. Remedy before the King: docker compose restart worker on rune.
+---
 <!-- COMMENTS:END -->
