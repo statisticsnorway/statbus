@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-08-19 20:06'
-updated_date: '2026-08-27 12:58'
+updated_date: '2026-08-27 13:00'
 labels:
   - ops
   - security
@@ -265,5 +265,17 @@ PREAMBLE FIX LANDED at cb94ba35830db8d87a717ae123665e7ec527afaf (architect: LAND
 DEFERRED REFINEMENT FILED as STATBUS-269: validate ops/<host>/ exists before using the derived name — covers container identities and mistyped SSHDOERS_HOST with one check; converts a message asserting a file exists into one saying what is missing. Not held against this unit.
 
 THIRD SESSION NEXT (operator, root@niue): SSHDOERS_REF=cb94ba35830db8d87a717ae123665e7ec527afaf; provenance protocol unchanged — step 2 baseline f8b669402e9c01295de29e30aa676fa65f6ec2f65cd3b62abe314f75aa9ea364, post-install entry-line diff must be empty, step 6 success = live hash equals repo copy's hash at the pin commit.
+---
+
+author: foreman
+created: 2026-08-27 13:00
+---
+THIRD SESSION SUCCEEDED END TO END (2026-08-27 ~13:00Z, operator, root@niue): provenance check passed (live still at baseline f8b66940…), stage ran clean past the fixed preamble, sshdo's parser validated syntax OK, the displayed diff was comment-only (the ruled delta, entries untouched), mode preserved root:root 644, all EIGHT stage verifications green, /etc/sshdoers.sha256 published world-readable. ENTRIES-IDENTICAL proof: empty comment-stripped diff of backup vs new live.
+
+CONVERGENCE VERIFIED INDEPENDENTLY BY THE FOREMAN: live hash = published hash = repo copy's hash at cb94ba358 = 547ada75c16fd941c4859bf08122fb9ec4a4987d3492edcd8c513b9b9b0dca3e. Preflight check 16 is now satisfiable — the next cut's drift gate compares these same values. The "requires reboot to finalize" line is the script's generic full-provisioning closer; Stage 8 alone needs none (sshdo opens the file per-invocation, no daemon caches it).
+
+STEP 7 (door proof): dev's entry proven through the REAL CI door by dispatching deploy-to-dev (the poke traverses sshdo against the NEW live file); demo's entry proves itself at its next 04:23Z scheduled trigger. HONESTY NOTE: the REFUSED direction (ls / must be denied) is not re-proven post-install from here — no CI key outside GitHub secrets; mitigated by the ENTRIES-IDENTICAL proof (the enforcing lines are byte-identical to the file that was refusing correctly all along) and recorded rather than waved green.
+
+THE TICKET'S CORE IS ACHIEVED: the live inbound-command policy is provably the reviewed one — /etc/sshdoers ships as code, drift fails the release cut, and allowlist changes are now a reviewed commit + stage re-run. REMAINING: the deploy-to-dev marked-block swap (apply-latest → upgrade apply "$SHA") + STATBUS-258's one-line allowlist entry — unblocked NOW per the King's execution order; architect to spec, then build.
 ---
 <!-- COMMENTS:END -->
