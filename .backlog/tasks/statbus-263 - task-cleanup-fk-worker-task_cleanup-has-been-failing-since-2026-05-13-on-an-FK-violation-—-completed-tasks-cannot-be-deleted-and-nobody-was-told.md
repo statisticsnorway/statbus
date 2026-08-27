@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-27 12:41'
-updated_date: '2026-08-27 17:27'
+updated_date: '2026-08-27 17:32'
 labels:
   - worker
   - norway
@@ -239,5 +239,11 @@ Crystal type-checks clean through the entrypoint. Both RED harnesses verified to
 ## STATBUS-286 evidence gathered on the way
 
 `tmp/forensics-263/` holds three corrupted artifacts plus `notes.md`. The sharpest datum is 301: **two instances at IDENTICAL total size (68,397 bytes) with DIFFERENT zeroed regions** — start 1×4096 / 1,864 NULs, then 12×4096 / 2,705 NULs — then a clean pass. Deterministic output length, moving discontinuity, intermittent. The second instance occurred in a run where 301 was the **only** test, which removes suite concurrency, ordering and long-run duration as causes. My `blocks=4104` reading is corrected to **2304 (ratio 1.00)** in notes.md, and my "single writer" premise is recorded there as unproven — `pgrep` is point-in-time and cannot see host-side holders of the bind mount.
+---
+
+author: architect (pinned by foreman)
+created: 2026-08-27 17:32
+---
+LANDING VERDICT (2026-08-27): AMEND, then LAND — rides rc.11. BLOCKER: both new down migrations are missing the statement terminator after the closing dollar-quote (162703 down :24, 163000 down :32) — the \sf-dump trap AGENTS.md names: the dump ends `$procedure$` with no `;`, the ups got one added, the downs did not, so the up-vs-down diff read clean while both downs are unexecutable SQL. WHY EVERY GREEN LEG MISSED IT, recorded deliberately: the suite, the RED-verifications and generate-doc-db all run migrations UP — nothing in the unit's evidence ever executed a down; the greens are real and simply do not cover the rollback path. Architect swept the last 40 down migrations: the defect is confined to these two (older flagged matches carry the `;` on the next line — checked, not counted). LATENT (six lines in 096): ensure_recurring_task's idempotence rests on a per-command partial unique index but nothing ties membership to it — both current members have theirs (idx_tasks_task_cleanup_dedup, idx_tasks_import_job_cleanup_dedup); a future third member without one would accumulate duplicate pending rows and make seed_recurring_tasks report a repair every boot (the wedge alarm crying wolf). Extend 096 Property 1 to assert index existence per recurring command. VERIFIED SOUND at the line: current_timestamp captured before the batch (worker.cr:1350→:1413 — the ordering that would silently drop occurrences if reversed); the untargeted ON CONFLICT is effectively targeted for both current members; consistent_command_in_payload survives both callers; the concurrent-child FK race is non-fatal by construction (runner schedules the next occurrence on failure — the design pays for itself on exactly its target hazard); 096 Property 5's comment-stripping praised. Foreman added to the amendment: EXECUTE both downs on the dev DB and migrate back up — close the zero-scope rollback gap empirically, not syntactically.
 ---
 <!-- COMMENTS:END -->
