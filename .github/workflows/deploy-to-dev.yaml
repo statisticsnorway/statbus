@@ -87,9 +87,12 @@ jobs:
     steps:
       - name: Deploy via upgrade service
         # SSH to statbus_dev@niue and trigger the upgrade service through
-        # `./sb upgrade apply-latest`. The server-side sshdo allowlist
-        # constrains what can run over this channel; `./sb upgrade
-        # apply-latest` is explicitly permitted.
+        # `./sb upgrade apply <sha>` (STATBUS-259, the named-target verb —
+        # see the block below for why). The server-side sshdo allowlist
+        # constrains what can run over this channel; `./sb upgrade apply
+        # <40-hex-sha>` is explicitly permitted (ops/niue/sshdoers), alongside
+        # apply-latest, which stays allowlisted through the transition and is
+        # not what this step sends.
         #
         # Refspec self-heal (`CleanStaleRefspecs`) is still covered by unit
         # tests in `cli/internal/upgrade/refspec_test.go`; the earlier
@@ -116,33 +119,28 @@ jobs:
               statbus_dev@niue.statbus.org "$@" 2>&1
           }
 
-          # ═══ THE ONE THING STILL NOT CANDIDATE-ADDRESSED (STATBUS-259) ═══
+          # ═══ NOW CANDIDATE-ADDRESSED (STATBUS-259) ═══
           #
-          # This installs whichever candidate is NEWEST on the box's channel, not
-          # the one the chain named. The general verb that installs exactly a
-          # named target now exists in the product (STATBUS-258) — what is
-          # missing is permission to run it through this door: the sshdo
-          # allowlist is hand-managed root state, and STATBUS-259 is the
-          # mechanism that makes it ship as code. Host state is not edited by
-          # hand, so this line waits for that rather than racing ahead of it.
+          # This used to install whichever candidate was NEWEST on the box's
+          # channel, not the one the chain named — the general named-target
+          # verb existed in the product (STATBUS-258) but the door only
+          # permitted apply-latest. STATBUS-259 shipped the sshdo allowlist as
+          # code (ops/niue/sshdoers, installed by Stage 8 with a hash the
+          # release preflight verifies), and that allowlist now has a second
+          # statbus_dev entry permitting `./sb upgrade apply <sha>` — the
+          # named-target verb, with a 40-hex argument matched via `match
+          # hexdigits`. So this door now installs exactly the commit the
+          # chain named, not whatever the channel resolves as newest.
           #
-          # UNTIL THEN THE GAP IS LOUD, NOT SILENT. The step below compares what
-          # the box installed against what the chain requested and fails the
-          # deploy if they differ. On a normal cut they agree — the candidate
-          # just tagged IS the newest — so this is quiet in the common case and
-          # stops the chain exactly when it would otherwise have tested a
-          # different commit than it reported.
+          # The apply-latest entry stays on the allowlist for now (coexists
+          # deliberately, see ops/niue/sshdoers) so a workflow-file revert
+          # during the transition cannot strand dev without any apply door.
+          # Removing it is a separate, later reviewed commit.
           #
-          # WHEN 259 LANDS: change the command below to the named-target verb
-          # with "$REQUESTED_SHA", and delete this comment. Nothing else here
-          # changes — the guard simply stops having anything to catch.
-          #
-          # The allowlist side is one line and needs NO new sshdo grammar:
-          # ops/niue/sshdoers already declares `match hexdigits` (one `#` per hex
-          # digit), which the pg_regress 40-char SHA entry uses today. So the
-          # whole remaining change is this command plus one allowlist entry.
-          echo "::group::Run apply-latest on statbus_dev"
-          # STATBUS-170: capture apply-latest stdout so the poll step learns the EXACT
+          # THE GUARD BELOW STAYS — see its own header comment for why a
+          # mismatch now means something different than it used to.
+          echo "::group::Run apply on statbus_dev"
+          # STATBUS-170: capture apply stdout so the poll step learns the EXACT
           # deployed commit (it emits `deployed_commit=<40hex>` after resolving the target).
           # ERREXIT (STATBUS-261): capture with `|| rc=$?`, never a bare
           # assignment. GitHub runs every step under `bash -e {0}`, so
@@ -153,10 +151,10 @@ jobs:
           # that case could never print. A dead diagnostic is worse than none,
           # because its presence reads as evidence the case is handled.
           rc=0
-          out="$(ssh_dev "cd ~/statbus && ./sb upgrade apply-latest")" || rc=$?
+          out="$(ssh_dev "cd ~/statbus && ./sb upgrade apply $REQUESTED_SHA")" || rc=$?
           printf '%s\n' "$out"
           echo "::endgroup::"
-          [ "$rc" -eq 0 ] || { echo "::error::apply-latest failed on remote (exit $rc)"; exit 1; }
+          [ "$rc" -eq 0 ] || { echo "::error::apply failed on remote (exit $rc)"; exit 1; }
           # STATBUS-260: the emit is now a GUARD, not the poll's source.
           #
           # It used to be both: the poll asked "did the box converge on whatever
@@ -171,16 +169,16 @@ jobs:
           echo "DEPLOYED_COMMIT=$(printf '%s\n' "$out" | grep -oE '^deployed_commit=[a-f0-9]{40}$' | head -1 | cut -d= -f2)" >> "$GITHUB_ENV"
 
       - name: Assert the box installed the candidate that was requested
-        # THE GUARD (STATBUS-260). Today the box still runs apply-latest, which
-        # resolves the NEWEST candidate on its channel rather than the one named
-        # — the allowlist line for the named-target verb waits on STATBUS-259's
-        # ships-as-code mechanism, and host state is not edited by hand.
-        #
-        # So the gap is real RIGHT NOW, and the point of this step is that it is
-        # LOUD rather than silent while it lasts. Before, a mismatch was
-        # invisible and the chain green-lit a box running something else. When
-        # the named-target verb reaches the door, this step does not change — it
-        # simply stops firing.
+        # THE GUARD (STATBUS-260) STAYS, its meaning changed by STATBUS-259.
+        # The box now runs the named-target verb (`./sb upgrade apply
+        # $REQUESTED_SHA`), not apply-latest — so a mismatch here can no
+        # longer mean "the box resolved a different candidate than the one
+        # named" (that reading described the old apply-latest gap and is
+        # obsolete: the box cannot choose once it is told exactly what to
+        # install). A mismatch now means the apply verb installed something
+        # OTHER THAN ITS OWN ARGUMENT — a broken mechanism, not divergent
+        # resolution. This step keeps that failure LOUD rather than silent
+        # either way.
         run: |
           set -euo pipefail
           if [ -z "${DEPLOYED_COMMIT:-}" ]; then
@@ -188,17 +186,18 @@ jobs:
             exit 0
           fi
           if [ "$DEPLOYED_COMMIT" != "$REQUESTED_SHA" ]; then
-            echo "::error title=Box installed a different candidate::requested ${REQUESTED_SHA}, box resolved ${DEPLOYED_COMMIT}"
-            echo "The chain asked dev for one specific candidate and the box acted on another."
+            echo "::error title=Apply installed something other than its argument::requested ${REQUESTED_SHA}, box resolved ${DEPLOYED_COMMIT}"
+            echo "The chain named an exact candidate and the box installed a different one."
             echo "  requested: ${REQUESTED_SHA}"
             echo "  installed: ${DEPLOYED_COMMIT}"
             echo ""
-            echo "Expected cause while STATBUS-259 is outstanding: the box still runs"
-            echo "the latest-resolving verb, which installs the NEWEST candidate on its"
-            echo "channel. A newer candidate appearing between the cut and this step is"
-            echo "enough to produce exactly this. That is not a box fault — it is the gap"
-            echo "this guard exists to make visible until the named-target verb is"
-            echo "permitted through the door."
+            echo "This is NOT the old apply-latest gap (STATBUS-259 closed that): the box"
+            echo "is running the named-target verb, './sb upgrade apply <sha>', which takes"
+            echo "the commit as an explicit argument and has no channel to resolve against."
+            echo "A mismatch here means the apply verb installed something OTHER THAN ITS"
+            echo "OWN ARGUMENT — a broken mechanism on the box or in this workflow, not a"
+            echo "divergent resolution. Investigate ./sb upgrade apply itself before anything"
+            echo "else."
             echo ""
             echo "Do NOT relax this check to accept a descendant. Accepting 'something"
             echo "newer' as success is a decision to call testing-a-different-thing a pass."
