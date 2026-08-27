@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 10:27'
-updated_date: '2026-08-27 19:52'
+updated_date: '2026-08-27 19:54'
 labels:
   - ops
   - security
@@ -156,5 +156,11 @@ author: foreman
 created: 2026-08-27 19:52
 ---
 UKRAINE CHECK RESULT (operator, 2026-08-27 ~19:52Z) — the architect's fear confirmed in its WORSE variant: ua's authorized_keys line 3 carries the fossil forced-command entry, and it is the ONLY copy of the CI key material on the box — there is no sshdo-gated sibling line at all (the Aug 19 seven-box read found command=sshdo copies because those boxes had been through the sshdoers hardening; ua, with its designed zero-inbound posture, never was). So any CI SSH to ua with the shared key would be forced into /usr/local/bin/deploy-statbus.sh, which does not exist on the box — silent failure. No LIVE breakage (ua is deliberately absent from every CI matrix and has zero sshdoers entries), but the door was mis-wired within hours of the box's birth — the freshest possible proof the script deletion should not wait. REMEDIATION dispatched, pre-declared: backup + grep -v removal of the fossil line, leaving exactly the two operator user keys — which IS ua's designed posture; nothing that ever had access loses it. The script-side deletion (:447-449) is with the mechanic as its own commit preceding the 283 rework.
+---
+
+author: operator (pinned by foreman)
+created: 2026-08-27 19:54
+---
+UKRAINE FOSSIL REMOVED (2026-08-27 ~19:53Z, pre-declared, backup retained at ~/.ssh/authorized_keys.bak-20260827): the forced-command line deleted; post-state verified verbatim — exactly 2 lines, the two operator personal keys (jhf, hhz), zero CI-key entries. That IS ua's designed zero-inbound posture (STATBUS-268's template rule); nothing that ever had working access lost it — the fossil pointed at a nonexistent script. Remaining in this ticket: the script-side deletion (:447-449, with the mechanic, preceding the 283 rework), the orphaned /usr/local/bin/deploy-statbus.sh box-file cleanup folded into a future fleet pass per the architect, and the King's numbered steps (2)-(5) on their own schedule.
 ---
 <!-- COMMENTS:END -->
