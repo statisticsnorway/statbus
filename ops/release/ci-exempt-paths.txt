@@ -3,7 +3,11 @@
 # go-test, app-build-lint, fast-tests) is not green at the tip, the preflight
 # (cli/cmd/release.go) may accept a green run at the nearest first-parent
 # ancestor whose DIRECT diff to the tip changes only paths listed here — the
-# ride is printed loudly, naming the ride target and every justifying file.
+# ride is printed loudly, naming the ride target and the run it verified,
+# with a count of how many files changed since (all exempt per this file).
+# STATBUS-275 (King's ruling): the per-file enumeration was softened to a
+# count — the ride is still loud and still auditable, an operator who wants
+# the file list runs the same diff this check ran.
 #
 # MATCHING IS AN ANCHORED PATH PREFIX, AND THAT IS THE INVERSE OF THE
 # SENSITIVITY LIST NEXT DOOR. upgrade-sensitive-paths.txt uses substring

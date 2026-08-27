@@ -391,8 +391,11 @@ func TestPrereleaseGate_RidesAndRefusesLoudly(t *testing.T) {
 		if !strings.Contains(out, "also covers this commit") || !strings.Contains(out, code) {
 			t.Errorf("the ride must be LOUD — naming the tested commit; output:\n%s", out)
 		}
-		if !strings.Contains(out, ".backlog/") {
-			t.Errorf("the ride must print every file that justified it; output:\n%s", out)
+		// STATBUS-275: the per-file enumeration is compressed to a count —
+		// assert the count and the exemption-source citation, not individual
+		// justifying paths. rideFixture(t, 2) commits exactly 2 board files.
+		if !strings.Contains(out, "2 file(s) changed since") || !strings.Contains(out, ciExemptPathsFile) {
+			t.Errorf("the ride must print a file-change count citing the exempt-paths file; output:\n%s", out)
 		}
 	})
 

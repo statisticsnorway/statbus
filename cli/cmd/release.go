@@ -1684,21 +1684,20 @@ func findExemptRide(projDir, workflow, tipFull string) (*exemptRide, string, *an
 
 // printExemptRide prints the ride LOUDLY — never a silent pass. The operator
 // sees which commit was actually tested, how far the tip has moved since, and
-// every file that justified it, so the claim is auditable at the console
-// (the same standard the arc gate's RIDE printing holds).
+// the riding explanation, so the claim is auditable at the console (the same
+// standard the arc gate's RIDE printing holds).
+//
+// STATBUS-275 (King's ruling at preflight): the per-file enumeration is
+// compressed to a count. The exemption is still cited (ops/release/
+// ci-exempt-paths.txt names the list an operator can inspect), and
+// ride.Justifying is still fully populated and asserted elsewhere
+// (findExemptRide's own tests) — only the console listing is shorter.
 func printExemptRide(label string, ride *exemptRide) {
 	fmt.Printf("  ✓ %s green at %s — also covers this commit: the %d commit(s) since change only test-irrelevant paths\n",
 		label, shortCommit(ride.Commit), ride.CommitsRidden)
 	fmt.Printf("    Tested commit: %s\n", ride.Commit)
 	fmt.Printf("    Run: %s\n", ride.Result.RunURL)
-	if len(ride.Justifying) == 0 {
-		fmt.Printf("    Files changed since (all exempt per %s): none — the trees are identical\n", ciExemptPathsFile)
-		return
-	}
-	fmt.Printf("    Files changed since (all exempt per %s):\n", ciExemptPathsFile)
-	for _, f := range ride.Justifying {
-		fmt.Printf("      %s\n", f)
-	}
+	fmt.Printf("    %d file(s) changed since, all exempt per %s\n", len(ride.Justifying), ciExemptPathsFile)
 }
 
 // loadUpgradeSensitivePaths reads upgradeSensitivePathsFile: one
