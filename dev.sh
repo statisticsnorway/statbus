@@ -812,6 +812,16 @@ check_results_for_nul_corruption() {
                     for p in $(pgrep -f "pg_regress|HIDE_TABLEAM" 2>/dev/null); do
                         [ "$p" = "$_self" ] && continue
                         echo "  pid $p: $(tr "\0" " " < /proc/$p/cmdline 2>/dev/null | cut -c1-100)"
+                        # BREADTH IS DELIBERATE: this matches any fd whose
+                        # target contains "results", not only the one file that
+                        # tripped the tripwire. A holder parked on a DIFFERENT
+                        # results file in the same directory is exactly the kind
+                        # of thing worth seeing at fire time — it would mean the
+                        # writer moved on while something still held the old
+                        # file, which is the discontinuity story in miniature.
+                        # Narrowing to the exact path would discard that for a
+                        # small gain in tidiness. (STATBUS-286; if the reviewer
+                        # prefers exact-path, it is this one line.)
                         for fd in /proc/$p/fd/*; do
                             tgt=$(readlink "$fd" 2>/dev/null) || continue
                             case "$tgt" in *results*) echo "    $tgt -> $(grep ^pos: /proc/$p/fdinfo/$(basename "$fd") 2>/dev/null)";; esac
