@@ -1,0 +1,170 @@
+-- STATBUS-265: the worker's crash recovery is exempt from the upgrade's
+-- read-only accident-guard — and the guard still bites everything else.
+--
+-- WHY THIS TEST EXISTS. During an upgrade the database default is flipped
+-- read-only (ALTER DATABASE ... SET default_transaction_read_only = on) so
+-- external writes FAIL rather than land in a window a rollback would discard.
+-- Norway (STATBUS-262) showed the cost of that guard catching the wrong thing:
+-- the worker's startup crash recovery was refused inside the window, was never
+-- retried, and four derive children stayed 'processing' for a week behind a
+-- worker that looked perfectly healthy.
+--
+-- The worker now exempts that ONE call and restores the guard immediately after.
+-- This pins the DATABASE semantics that exemption depends on. Four arms, and the
+-- fourth is the one most easily skipped:
+--
+--   1. under the guard, an ordinary write is REFUSED
+--   2. under the exemption, the REAL recovery function succeeds and does its job
+--   3. RESET restores the inherited guard
+--   4. the very next ordinary write is REFUSED again  ← the no-leak arm
+--
+-- Arm 4 is what stops the exemption from becoming a hole. The worker shares one
+-- connection between this recovery and the queue processing that follows, and
+-- processing tasks IS user work — precisely what the guard exists to block. An
+-- exemption that leaked would defeat the guard entirely while looking fine.
+--
+-- BOUNDARY, stated so nobody reads more into a green than it carries: this pins
+-- the DATABASE-side semantics only. That the Crystal worker places its SET and
+-- RESET correctly around the call is covered by type-check and review until
+-- STATBUS-270 revives the worker's own test suite.
+--
+-- WHY THE RECONNECT. The guard's real shape is an INHERITED setting, and a
+-- session only inherits at connect time — verified while building this: a
+-- mid-session ALTER DATABASE does not change the current session, and RESET
+-- restores the value the session STARTED with. Simulating the guard with a
+-- session-level SET therefore proves nothing about arm 3, which is exactly the
+-- artefact that misled the first attempt at this proof. So the test sets the
+-- database default and reconnects to inherit it for real.
+--
+-- The reconnect is quiet because the test database's name carries the runner's
+-- pid (test_shared_$$), and psql's connection banner would put that varying name
+-- into the expected output — a test that fails on a different day for no reason.
+-- pg_regress already runs psql with -q, so this is belt-and-braces rather than
+-- strictly required; it is set explicitly so the file does not silently depend
+-- on a harness flag, and it is never set back off, because turning it off makes
+-- psql echo command tags that no other expected file in this suite carries.
+-- Nothing here is asserted through a command tag: every arm is proved by a
+-- SELECT of the actual setting or row state.
+\set QUIET on
+-- ON_ERROR_STOP STAYS OFF FOR THE WHOLE FILE, DELIBERATELY, AND THIS IS NOT THE
+-- USUAL off/on SANDWICH THE OTHER TESTS USE.
+--
+-- This test runs against the SHARED cloned database, and between ARM 0 and
+-- CLEANUP that database is read-only for every session that connects to it.
+-- psql has no `finally`. With ON_ERROR_STOP on, ONE unexpected error anywhere in
+-- the guarded region aborts the file before cleanup, the ALTER DATABASE survives,
+-- and every test that runs after this one in the same run fails on writes it has
+-- every right to make — one real failure reported as a dozen fake ones, with the
+-- true cause several tests upstream.
+--
+-- Off costs nothing in rigour: pg_regress judges a test by DIFFING this output
+-- against the expected file, not by psql's exit status. An unexpected error still
+-- prints, still diverges, still fails the test — and cleanup still runs. It is set
+-- explicitly rather than left to the default so the property is stated where it is
+-- relied upon.
+--
+-- THE ONE COST, AND IT FALLS ON A HUMAN, NOT ON THE MECHANISM: if this file's
+-- expected output ever changes, READ THE DIFF — an unexpected error appears here
+-- as ordinary output, so regenerating the expected file without reading it would
+-- baseline a real failure as the new truth.
+\set ON_ERROR_STOP off
+\echo '=== ARM 0: establish the guard the way an upgrade does, then inherit it ==='
+=== ARM 0: establish the guard the way an upgrade does, then inherit it ===
+-- ALTER DATABASE needs a literal identifier, and the test database's name is
+-- generated per run, so it is resolved through format().
+DO $do$
+BEGIN
+    EXECUTE format('ALTER DATABASE %I SET default_transaction_read_only = on', current_database());
+END
+$do$;
+\c
+SELECT current_setting('default_transaction_read_only') AS guard_inherited_by_new_session;
+ guard_inherited_by_new_session 
+--------------------------------
+ on
+(1 row)
+
+\echo '=== ARM 1: under the guard, an ordinary write is REFUSED ==='
+=== ARM 1: under the guard, an ordinary write is REFUSED ===
+-- Transparent refusal: the real error text lands in the expected output, so a
+-- change in WHICH error fires is visible rather than swallowed. No DO-block
+-- exception handling — that would hide the very thing being asserted.
+-- expected to fail with read_only_sql_transaction (25006) — that refusal IS the
+-- assertion; a green here without this error means the guard stopped working.
+CREATE TEMP TABLE guard_probe (x int);
+ERROR:  cannot execute CREATE TABLE in a read-only transaction
+\echo '=== ARM 2: under the exemption, the REAL recovery function runs and works ==='
+=== ARM 2: under the exemption, the REAL recovery function runs and works ===
+SET default_transaction_read_only = off;
+SELECT current_setting('default_transaction_read_only') AS exempted;
+ exempted 
+----------
+ off
+(1 row)
+
+BEGIN;
+-- A task abandoned in 'processing' by a killed worker — the exact state Norway
+-- was wedged in. Everything in this transaction is rolled back, so the function's
+-- own side effects cannot leak into later tests.
+INSERT INTO worker.tasks (id, command, state, worker_pid, process_start_at)
+VALUES (999265001, 'derive_statistical_history_facet_period', 'processing', 424242, now());
+SELECT state AS seeded_state FROM worker.tasks WHERE id = 999265001;
+ seeded_state 
+--------------
+ processing
+(1 row)
+
+-- The real function the worker calls at startup. Its SELECT ... FOR UPDATE is
+-- what the read-only window refused on Norway.
+--
+-- `>= 1`, not `= 1`: the shared database may carry 'processing' rows left by
+-- tests that ran earlier, so the exact count is not ours to predict. What this
+-- test owns is the row it seeded, and the assertion that matters is the next
+-- one — that THAT row is now 'interrupted'.
+SELECT worker.reset_abandoned_processing_tasks() >= 1 AS reset_reported_at_least_one;
+ reset_reported_at_least_one 
+-----------------------------
+ t
+(1 row)
+
+-- And it did the job: the abandoned row is reclaimable again.
+SELECT state AS state_after_reset FROM worker.tasks WHERE id = 999265001;
+ state_after_reset 
+-------------------
+ interrupted
+(1 row)
+
+ROLLBACK;
+\echo '=== ARM 3: RESET restores the inherited guard ==='
+=== ARM 3: RESET restores the inherited guard ===
+RESET default_transaction_read_only;
+SELECT current_setting('default_transaction_read_only') AS guard_restored;
+ guard_restored 
+----------------
+ on
+(1 row)
+
+\echo '=== ARM 4: the very next ordinary write is REFUSED again (no leak) ==='
+=== ARM 4: the very next ordinary write is REFUSED again (no leak) ===
+-- expected to fail with read_only_sql_transaction (25006), exactly as in ARM 1.
+-- If this one SUCCEEDS, the exemption leaked past the call it was carved for and
+-- the worker would go on to process user tasks inside the upgrade window.
+CREATE TEMP TABLE guard_probe_2 (x int);
+ERROR:  cannot execute CREATE TABLE in a read-only transaction
+\echo '=== CLEANUP: drop the guard and return the session to normal ==='
+=== CLEANUP: drop the guard and return the session to normal ===
+-- The exemption is needed once more to run the reverting DDL, then the database
+-- default is cleared and a fresh session picks that up.
+SET default_transaction_read_only = off;
+DO $do$
+BEGIN
+    EXECUTE format('ALTER DATABASE %I RESET default_transaction_read_only', current_database());
+END
+$do$;
+\c
+SELECT current_setting('default_transaction_read_only') AS guard_cleared;
+ guard_cleared 
+---------------
+ off
+(1 row)
+
