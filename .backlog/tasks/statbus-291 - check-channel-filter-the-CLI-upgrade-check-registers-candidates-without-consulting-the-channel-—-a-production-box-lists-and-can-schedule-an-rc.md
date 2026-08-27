@@ -7,7 +7,7 @@ status: Done
 assignee:
   - '@engineer'
 created_date: '2026-08-27 20:08'
-updated_date: '2026-08-27 20:19'
+updated_date: '2026-08-27 20:20'
 labels:
   - upgrade
   - release
@@ -51,6 +51,12 @@ author: foreman
 created: 2026-08-27 20:19
 ---
 LANDED at a4ac7ca81 (220 insertions across 3 files; foreman-verified uncached: internal/upgrade ok 11.4s, cmd ok 17.3s, vet clean) on the architect's standing AMEND-then-LAND with his prescribed fix implemented exactly and exceeded: the all-paths test now DERIVES its scope from source (functionsCalling scans for every function invoking DiscoverTagsViaGit; each must call FilterTagsByChannel), carries a minimum-count honesty guard (a scan finding fewer than the two known discoverers FAILS — a broken regex cannot become a zero-scope green), and was PROVEN on a synthetic filter-forgetting third discoverer caught by name — the comment's promise demonstrated, not asserted. Note dispositions, all evidence-based: (1) bare-SHA silence SAID at the line — channels are defined over tag shape, an untagged commit has none, and resolving a commit to one-of-possibly-several tags would guess, a poor basis for a notice whose value is stating a fact; CI's dev commit-door correctly stays silent as a distinct deliberate mechanism; (2) the zero-match early return is CORRECT with evidence — runOneShot (service.go:4779-4792) is only a DB connection lifecycle; the sole poke is NOTIFY upgrade_check, already conditional on registered>0, so it could never fire on a zero-match; written at the line including the ua-default-path scale; (3) the refusal-arm narrowness accepted and recorded as non-load-bearing tripwire. Rides the next candidate; Ukraine's spurious rc.11 'available' row from tonight's pre-fix check remains registered — harmless (schedule now announces, the eventual stable outranks it by CalVer) and dies naturally at the next upgrade.
+---
+
+author: architect (pinned by foreman)
+created: 2026-08-27 20:20
+---
+POST-LANDING READ (a4ac7ca81): SOUND, closed from the architect's side. The enumeration is genuinely derived (a third discoverer is caught the day it is written); the minimum-count guard is BETTER than asked — the zero-scope-green defence applied to the test's own instrument, exactly where it was missing; the needle carrying its open paren matches call sites, not prose; the zero-match disposition is correct on the merits. TWO SMALL FOLLOW-UPS, fold into whatever next touches channel_resolution_git_test.go — neither worth its own commit: (1) the scan reads service.go ONLY while the comment says 'every function' — either add the clause 'in service.go' (honest) or scan the package directory (proper); the unqualified sentence is the same shape that misled last time, one level milder. (2) functionsCalling is a line-anchored approximation (spans ^func to next ^func, swallows inter-function comments), erring toward loud false positives — safe direction, but say so in one line or the next author will read it as AST-accurate and build on it. THE REUSABLE SHAPE from this ticket, named for the next site: AUTOMATIC PATHS FILTER, DELIBERATE PATHS ANNOUNCE — it will decide the next site without another ruling.
 ---
 <!-- COMMENTS:END -->
 
