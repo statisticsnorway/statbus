@@ -7,7 +7,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 17:14'
-updated_date: '2026-08-27 18:42'
+updated_date: '2026-08-27 22:31'
 labels:
   - testing
   - tooling
@@ -67,5 +67,11 @@ author: foreman
 created: 2026-08-27 18:42
 ---
 FIFTH VICTIM / THIRD 301-ADJACENT INSTANCE tonight (2026-08-27 ~18:30Z): 307_test_lu_enterprise_link corrupted during the stamp-minting suite attempt — size 151,448, NULs 67,233, run starts at 36,864 = exactly 9 pages. 307 was CLEAN in the earlier step-b suite, making four distinct victim files today (105, 110, 301, 307) — further undercutting any content- or test-specific selection story. Incidence tonight: corruption in 3 of the last 4 full-suite runs. Forensics preserved to tmp/forensics-263/ when the run ends. Consequence already absorbed: the release gate no longer depends on local suite runs (STATBUS-288's fast-tests escape landed at 85b692a3c), so this ticket's experiment + instrument can proceed without cut pressure — but the incidence rate argues for scheduling it soon; the local suite is currently unusable for stamp-minting.
+---
+
+author: engineer (pinned by foreman)
+created: 2026-08-27 22:31
+---
+DELIVERABLE #1 EXECUTED (2026-08-28 night): the paired series ran 20 runs — 10 container-local --outputdir, 10 bind-mount, alternating, strictly serial, single-writer enforced by the new 282 machinery — and produced ZERO corruption in either arm (every artifact the known-good 68,397 bytes, 0 NULs, sparse=False). Protocol and discrimination rule written to tmp/forensics-286/README.md BEFORE the runs. RESULT: NO DISCRIMINATION — neither branch fires, and the bind mount is NOT exonerated (a test that never reproduces the phenomenon cannot attribute it). THE FINDING THE NULL DOES CARRY: 20 quiet single-test runs = zero corruption where the same host corrupted 2 of 3 FULL SUITES the same day — the shape of a LOAD-DEPENDENT mechanism, partially reviving the exposure-window family (the earlier victim-profile refutation was sound about which file gets hit WITHIN a run, not about WHETHER corruption occurs as a function of load — the engineer states this against his own earlier conclusion). Confounds named: suite runs carry seed rebuilds/worker traffic/89 tests; and the host has since gained 282's single-writer machinery, so some quiet may be that fix working. NEXT EXPERIMENT if wanted is at SUITE scale — architect deciding. DELIVERABLE #2 BUILT (dev.sh, frozen separately, review pending): the tripwire captures at fire time before any copy — SEEK_HOLE/stat on the ORIGINAL, host lsof holders, container fdinfo pos: (the write offset, catching a discontinuity in the act) — honestly flagged UNEXERCISED; synthetic-firing verification suggested for its review.
 ---
 <!-- COMMENTS:END -->
