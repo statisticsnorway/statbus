@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 16:47'
+updated_date: '2026-08-27 17:00'
 labels:
   - ops
   - cloud
@@ -26,3 +27,13 @@ Durable fix (Lego principle — reuse, don't duplicate): the creation script's t
 
 WHAT IS ACHIEVED: a new slot is provisioned by the same mechanism every installation uses, and the binary can never be missing on a maiden run again.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-08-27 17:00
+---
+EVIDENCE from the Ukraine maiden run (2026-08-27), in scope for this consolidation: after ops/create-new-statbus-installation.sh completed, https://ua.statbus.org did NOT serve — niue's HOST Caddy had the new slot's ACL/route wired on disk but the running process had never loaded it. The fix was a pre-declared root action: caddy validate, then reload, and only then did the front door answer. The script wires the config but never reloads the host router; the next country hits the same dark front door unless this lands. Consolidation shape stays as ticketed (creation tail delegates to install.sh); the host-reload step belongs in the root-side portion with validate-before-reload preserved.
+---
+<!-- COMMENTS:END -->
