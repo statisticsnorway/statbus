@@ -305,31 +305,46 @@ PGHOST=pk.statbus.org PGPORT=5432 PGDATABASE=statbus PGUSER=admin@statbus.pk PGS
 
 ## Port Allocation
 
-Each instance gets unique ports based on `DEPLOYMENT_SLOT_PORT_OFFSET`. The formula is:
+Each instance gets unique ports based on `DEPLOYMENT_SLOT_PORT_OFFSET`. The
+formula (authoritative source: `cli/internal/config/config.go:514-525`,
+`computeDerived`) is:
 
 ```
-HTTP_PORT = 3000 + (OFFSET * 10)
-HTTPS_PORT = 3000 + (OFFSET * 10) + 1  
-DB_PORT = 3000 + (OFFSET * 10) + 14
-REST_PORT = 3000 + (OFFSET * 10) + 1
+BASE       = 3000 + (OFFSET * 10)
+HTTP_PORT       = BASE + 0
+HTTPS_PORT      = BASE + 1
+APP_PORT        = BASE + 2
+REST_PORT       = BASE + 3
+DB_PORT         = BASE + 4
+DB_TLS_PORT     = BASE + 5
+REST_ADMIN_PORT = BASE + 6   # loopback-only (127.0.0.1) — PostgREST's admin
+                             # /ready signal, per AGENTS.md; never public, no
+                             # Caddy route, nobody firewall-plans around it.
 ```
+
+All seven ports are listed below — a table that only prevents collisions on
+six of the seven ports assigned per slot cannot do its one job.
 
 Current allocations on niue.statbus.org:
 
-| Code | Name | Offset | HTTP  | HTTPS | PostgreSQL | REST |
-|------|------|--------|-------|-------|------------|------|
-| dev  | Development | 1 | 3010  | 3011  | 3014       | 3011 |
-| _no_ | _Norway (moved to rune.statbus.org)_ | _2_ | _3020_ | _3021_ | _3024_ | _3021_ |
-| demo | Demo | 3      | 3030  | 3031  | 3034       | 3031 |
-| tcc  | Turkish Cypriotic Community | 4 | 3040 | 3041 | 3044 | 3041 |
-| ma   | Morocco | 5     | 3050  | 3051  | 3054       | 3051 |
-| ug   | Uganda | 6      | 3060  | 3061  | 3064       | 3061 |
-| test | Test | 7       | 3070  | 3071  | 3074       | 3071 |
-| et   | Ethiopia | 8    | 3080  | 3081  | 3084       | 3081 |
-| jo   | Jordan | 9      | 3090  | 3091  | 3094       | 3091 |
-| ua   | Ukraine | 10    | 3100  | 3101  | 3104       | 3101 |
+| Code | Name | Offset | HTTP  | HTTPS | App   | REST  | PostgreSQL | DB-TLS | REST-Admin |
+|------|------|--------|-------|-------|-------|-------|------------|--------|------------|
+| dev  | Development | 1 | 3010  | 3011  | 3012  | 3013  | 3014       | 3015   | 3016       |
+| _no_ | _Norway (moved to rune.statbus.org)_ | _2_ | _3020_ | _3021_ | _3022_ | _3023_ | _3024_ | _3025_ | _3026_ |
+| demo | Demo | 3      | 3030  | 3031  | 3032  | 3033  | 3034       | 3035   | 3036       |
+| tcc  | Turkish Cypriotic Community | 4 | 3040 | 3041 | 3042 | 3043 | 3044 | 3045 | 3046 |
+| ma   | Morocco | 5     | 3050  | 3051  | 3052  | 3053  | 3054       | 3055   | 3056       |
+| ug   | Uganda | 6      | 3060  | 3061  | 3062  | 3063  | 3064       | 3065   | 3066       |
+| test | Test | 7       | 3070  | 3071  | 3072  | 3073  | 3074       | 3075   | 3076       |
+| et   | Ethiopia | 8    | 3080  | 3081  | 3082  | 3083  | 3084       | 3085   | 3086       |
+| jo   | Jordan | 9      | 3090  | 3091  | 3092  | 3093  | 3094       | 3095   | 3096       |
+| ua   | Ukraine | 10    | 3100  | 3101  | 3102  | 3103  | 3104       | 3105   | 3106       |
 
 Offset 2 is reserved (kept for rollback if `no` ever needs to come back to niue).
+
+The REST column is the slot's *internal* PostgREST port. External REST access is
+not a port at all — it is a path, `https://<slot>.statbus.org/rest`, served over
+the main HTTPS port.
 
 **Public Ports** (shared by all instances):
 - **80** (HTTP) → Host Caddy → redirects to HTTPS
