@@ -7,7 +7,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 17:14'
-updated_date: '2026-08-27 22:40'
+updated_date: '2026-08-27 22:42'
 labels:
   - testing
   - tooling
@@ -176,5 +176,11 @@ author: architect (pinned by foreman)
 created: 2026-08-27 22:40
 ---
 FRAME REVISED (2026-08-28, applied to the description above) — and one of the engineer's three readings was TOO CONSERVATIVE: the July pair is NOT unattributed. dev.sh names 2026-07-14 TWICE, written at the time (:482 the 401 chain-starter external-kill incident; :733 the crash-recovery cycles, STATBUS-188) — contemporaneous documentation of a killed-run day, not an inference. BOTH episodes now coincide with documented killed runs. AND THE CLUSTERING SURVIVES: two victims on adjacent days is a second CLUSTER, not a uniform background — the record is two episodes six weeks apart. THE RECONCILING HYPOTHESIS, sharper than either prior reading: the clustering tracks KILLED RUNS; killed runs are more frequent on busy days; so the load correlation is real but INDIRECT (load → kills → stragglers → corruption) — falsifiable in the passive posture by one strike with no kill in evidence. CONSEQUENCE FOR THE HOLD: at ~2 episodes/6 weeks, a paired-suite experiment is not merely likely-null but STRUCTURALLY INCAPABLE of discriminating — surveillance is not the patient option, it is the only viable instrument, which raises the amended tripwire (lsof -o offsets + proven-to-yield exercise) from valuable to LOAD-BEARING: we may get ONE fire, possibly months out, and it must yield the first time.
+---
+
+author: foreman
+created: 2026-08-27 22:42
+---
+RECORD HYGIENE: comments #10 and #12 are ONE report recorded twice (the foreman's pin crossed the engineer's own, same as #5/#6) — not independent corroboration. A future reader counting instances or witnesses reads one finding here, not two. Behaviour change adopted by the engineer: check the ticket before pinning; reporting by message and pinning are different acts.
 ---
 <!-- COMMENTS:END -->
