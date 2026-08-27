@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-08-19 20:06'
-updated_date: '2026-08-27 12:50'
+updated_date: '2026-08-27 12:51'
 labels:
   - ops
   - security
@@ -245,5 +245,15 @@ created: 2026-08-27 12:50
 SECOND SESSION STOPPED CLEANLY AT STEP 4 (2026-08-27): provenance check PASSED (live still at the recorded baseline f8b66940… — the new step 2 worked as ratified), backup taken (/root/sshdoers.pre-259.20260827T124818Z), then the stage run REFUSED: ops/setup-ubuntu-lts-24.sh --non-interactive demands /root/.setup-ubuntu.env (ADMIN_EMAIL, GITHUB_USERS, …) — values Stage 8 never consumes. Nothing was installed; zero bytes changed on the box.
 
 THE FINDING: "independently runnable" was verified by READING (--skip-stages exists, comment #4) and never RUN — the run was the only oracle, again. The env requirement lives in the script preamble, not in the stages that consume it, so running ONLY Stage 8 still demands a config it never reads. Hand-writing a dummy env on niue is out (NO WORKAROUNDS, King's standing ruling). Architect is ruling the fix shape: per-stage config requirement (general, honest — the requirement belongs to the stages) vs a narrow only-Stage-8 exemption (surgical, special-case smell). Fix lands as a reviewed commit; THIRD session runs pinned at that commit — same provenance protocol, baseline unchanged (the box did not move).
+---
+
+author: architect (pinned by foreman)
+created: 2026-08-27 12:51
+---
+FIX RULING for the step-4 refusal (2026-08-27), with the error owned first: "independently-runnable is satisfied by SKIP_STAGES" was ruled from reading that the flag EXISTS — the presence of a mechanism is not the mechanism working; the run was the only oracle again and it cost the King a session.
+
+THE RULING: shape (a), done a specific way. (b) — encoding "Stage 8 is special" in the preamble — is disqualified: right exactly once, wrong from the next env-free stage onward. Instead: EACH STAGE DECLARES ITS REQUIRED INPUTS; the preamble requires the UNION over the non-skipped set — never inferring from shared logic (inference is how a stage runs without env it needs and fails later, more confusingly, on a production host). Stage 8 declares SSHDOERS_REF/SSHDOERS_HOST and no .env keys. CONSERVATIVE DEFAULT, load-bearing: a stage with NO declaration requires EVERYTHING — forgetting to declare fails too-strict, never too-permissive. Rejected escape hatch, named: moving Stage 8 to its own script would reintroduce "another root thing to run" — the proliferation the King rejected on 258.
+
+BUILDER: the mechanic (contained; engineer stays on the higher-value 262 units). ACCEPTANCE, first condition non-negotiable: (1) RUN IT — a real stage-only invocation past the preamble with no .env (throwaway ubuntu container; reaching Stage 8's own internal sshdo-absent refusal IS the pass), never an inspection of the flag; (2) prove the guard still bites — a non-skipped env-consuming stage without .env must still refuse. Then the THIRD session runs pinned at the fix commit, same provenance protocol, baseline unchanged.
 ---
 <!-- COMMENTS:END -->
