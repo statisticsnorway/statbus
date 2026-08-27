@@ -7,7 +7,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 17:14'
-updated_date: '2026-08-27 22:38'
+updated_date: '2026-08-27 22:39'
 labels:
   - testing
   - tooling
@@ -136,5 +136,11 @@ author: engineer (pinned by foreman)
 created: 2026-08-27 22:38
 ---
 RECORD WIDENED: TWO JULY INSTANCES FOUND (2026-08-28 night, surfaced by tidying the forensics namespace, measured read-only with the series' own measure.py, artifacts untouched where the tripwire preserved them): corrupted-314_consecutive_demo_loads-20260714123030.out (size 56,023, NULs 2,253, run starts 8,192 = exactly 2 pages, run 0.55 pages, sparse=false) and corrupted-403_cross_border_power_group-20260713150821.out (size 29,580, NULs 13,045, run starts 12,288 = exactly 3 pages, run 3.185 pages, sparse=false) — the 286 signature exactly, on two previously unassociated tests, dated 2026-07-13/14. CONSEQUENCES, argued by the engineer against his own hypothesis: (1) six victims across six weeks, not four in one day — the description's one-day-cluster frame is wrong; (2) LOAD-DEPENDENCE WEAKENS — two isolated instances six weeks earlier look like a LOW BACKGROUND RATE, and a rare event clusters by chance exactly where a busy afternoon makes it noticed; (3) the HOLD's passive wait may be LONG, which raises the instrument's importance rather than questioning the hold — the one future fire must be interpretable; (4) the July instances must NOT be silently attributed to 282's host-death producer (that requires a killed run; whether those runs were killed is not in evidence). Also: the synthetic exercise artifacts were moved out of the corrupted-* namespace into tmp/forensics-286/synthetic/ with a planted-data README, precisely so nobody reads one as a seventh instance. Description revision is the architect's frame to make — requested.
+---
+
+author: foreman
+created: 2026-08-27 22:39
+---
+Addendum landed at 119e83fc8: the fdinfo match-breadth reasoning is now AT THE LINE (a holder on a sibling results file is the discontinuity story in miniature — the writer moved on while something still held the old file; exact-path narrowing would discard that for tidiness). Comment-only; the exercise re-ran 6/6 after the edit rather than assuming a comment cannot break anything. Forensics-namespace hygiene on the record: 7 real artifacts in tmp/ root, 5 synthetic quarantined under tmp/forensics-286/synthetic/ with a planted-data README — the genuine-instance count stays honest by construction.
 ---
 <!-- COMMENTS:END -->
