@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-08-27 12:56'
-updated_date: '2026-08-27 16:59'
+updated_date: '2026-08-27 20:07'
 labels:
   - ops
   - cloud
@@ -156,6 +156,12 @@ author: foreman
 created: 2026-08-27 16:59
 ---
 Doc record complete at bcba63bf6: doc/CLOUD.md's deployment + port-allocation tables carry the ua/offset-10 row and the next-available offset advances to 11 (mechanic's unit, matched the dispatched spec exactly). Ticket closure evidence is now fully committed: board at dcf53356d, doc at bcba63bf6.
+---
+
+author: foreman (post-closure)
+created: 2026-08-27 20:07
+---
+POST-CLOSURE BIRTH-DEFECT #3 FOUND AND FIXED (2026-08-27 evening): Ukraine's upgrade DISCOVERY was dead from birth — the old creation script's SSH clone step had run before the binary gap aborted it, leaving origin=git@github.com with a per-slot deploy key that was never registered on GitHub; the service logged 'Discovery error: git fetch --tags: exit status 128' from its first tick, and the box would never have been offered the stable. REMEDY (operator, pre-declared, verified): origin switched to https://github.com/statisticsnorway/statbus.git — the exact form the 283-reworked script now produces — and `./sb upgrade check` then discovered 197 tags tokenlessly, ALSO settling the architect's shallow-clone question empirically (--depth 1 --single-branch is no obstacle to tag discovery). Full birth-defect tally for the maiden run, all fixed same-day: (1) missing binary procurement, (2) fossil forced-command key entry, (3) dead SSH-origin discovery. Every one is structurally impossible for the next country under the landed 283 rework. One follow-up under verification: the post-fix list shows rc.11 'available' on this stable-channel box — whether the channel filter gates at offer/schedule rather than at register, or is genuinely missing on the CLI check path, is with the engineer.
 ---
 <!-- COMMENTS:END -->
 
