@@ -3,11 +3,11 @@ id: STATBUS-036
 title: >-
   roadmap: install/upgrade robustness → Norway rollout → external standalone
   (campaign overview)
-status: In Progress
+status: Done
 assignee:
   - '@foreman'
 created_date: '2026-06-12 07:59'
-updated_date: '2026-08-02 19:02'
+updated_date: '2026-08-27 13:50'
 labels:
   - roadmap
   - install-recovery
@@ -180,3 +180,9 @@ created: 2026-08-02 19:02
 CUT HELD — FOUR ARCS RED AT THE CUT COMMIT (foreman, 2026-08-02 evening). The re-dispatched arc suite at 2ab6126a1 (run 30755799405; the first dispatch 30753065083 died on a Docker Hub registry outage — registry-1.docker.io context-deadline at 14:53, zero arcs ran, environmental) returned 32 green / 4 RED: postswap-container-restart-kill (box COMPLETED where the arc demands the death-during-resume rollback), postswap-migration-timeout (row never claimed — stuck 'scheduled' 300s), rollback-kill (row reason wording/window mismatch vs the arc's /pre-swap, before binary-swap commit boundary/ assert), un-park-to-completion (failure line pending extraction). These four are the FIRST VM exercise of the three post-gate product changes (195 watchdog heartbeat in discovery, 189 caddy :80→404, 188 postgres log floor) — candidate regressions until named otherwise; Docker-Hub-slowness timing shifts are the live alternative for two of them. Architect triage dispatched (no-flaky-tests: every red gets a NAMED cause with evidence). SEQUENCE NOW: architect verdicts → fixes if product → re-run → arc suite green at the cut commit → the King's bless of 20260218215337 → cut. Install-recovery harness remains GREEN at the commit; all preflight stamps remain green; the bless remains the King's pending decision but no longer the only gate.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Roadmap campaign: gate-capable RC cut, canary deploys at rc.06, stable promotion path proven. RC.08 cut at 4f3a08c00 (241 comment #4). Code gates closed; observation rides the rc.10+ fleet runs for final stability proof.
+<!-- SECTION:FINAL_SUMMARY:END -->

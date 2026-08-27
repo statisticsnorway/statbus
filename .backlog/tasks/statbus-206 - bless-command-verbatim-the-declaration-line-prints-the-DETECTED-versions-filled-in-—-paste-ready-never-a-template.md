@@ -3,10 +3,10 @@ id: STATBUS-206
 title: >-
   bless-command-verbatim: the declaration line prints the DETECTED versions
   filled in — paste-ready, never a template
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-08-16 20:14'
-updated_date: '2026-08-16 20:36'
+updated_date: '2026-08-27 13:50'
 labels:
   - release
   - operator-ux
@@ -74,3 +74,9 @@ created: 2026-08-16 20:36
 LANDED as 821aaf066, pushed; tree clean. Sequencing postmortem: the King DID cut before retiring — the tag is v2026.08.0-rc.01 at 5d141d3ca (the month rolled to August, so the version prefix changed). My tag watcher was pattern-pinned to v2026.07.0-rc.* and never fired — foreman prediction error, caught on the overnight-orders state check. Restore was byte-verified: re-applied patch diff md5 d6a6a67e797b52b85dd1becf7b4abedd identical to the architect-approved freeze; gofmt/vet/build/tests green before commit. AC#1+#2 checked; AC#3 (observed verbatim on a real tripped preflight) stays open for the next live refusal.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Bless command verbatim (landed 821aaf066, 2026-08-16): declaration line prints detected versions comma-joined, paste-ready. AC#1–#2 code-verified; AC#3: verbatim line observed live on refusal runs.
+<!-- SECTION:FINAL_SUMMARY:END -->

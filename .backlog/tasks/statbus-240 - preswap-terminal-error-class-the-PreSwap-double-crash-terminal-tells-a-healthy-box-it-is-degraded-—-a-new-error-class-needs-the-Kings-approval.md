@@ -3,10 +3,10 @@ id: STATBUS-240
 title: >-
   preswap-terminal-error-class: the PreSwap double-crash terminal tells a
   healthy box it is degraded — a new error class needs the King's approval
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-08-19 00:15'
-updated_date: '2026-08-19 11:28'
+updated_date: '2026-08-27 13:50'
 labels:
   - upgrade-recovery
   - operator-ux
@@ -84,3 +84,9 @@ created: 2026-08-19 11:28
 LANDED as cd62301af (architect APPROVED, all three verification points at source). The :2966 terminal now branches on the flag (IsServiceNewSbRecovery, per the 241 rule): the pre-swap arm renders the King's approved text VERBATIM under UPGRADE_STOPPED_NOTHING_CHANGED; the post-swap arm keeps ROLLBACK_FAILED_DB_RESTORE with rendered bytes identical to before (source de-duplicated via the INSTALL_CMD constant — the architect verified rendered-identical precisely rather than repeating 'byte-unchanged'). The wording is pinned to exactly ONE arm — the engineer's self-caught gap: an existence-only pin would have passed the reassuring text on the post-swap arm, 'the single most harmful sentence this system could emit', now structurally impossible (default + override, not parallel branches). Distinct journal labels per route (STOPPED-UNCHANGED vs RESTORE-BROKE). Both arcs' assertions updated with route-naming refusal text. AC#2 closed. AC#3 completes at the cut's fleet run — THE KING CUTS NOW.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+PreSwap terminal error class (landed cd62301af, 2026-08-19): UPGRADE_STOPPED_NOTHING_CHANGED error class for PreSwap double-crash terminal, operator-facing text approved verbatim by King. AC#1 King-approved; AC#2 landed; AC#3: observation rides rc.06+ fleet runs.
+<!-- SECTION:FINAL_SUMMARY:END -->

@@ -4,11 +4,11 @@ title: >-
   vm-fleet-collision: same-name VMs across tag-fired workflows —
   refuse-then-delete kills the other run's live VM; project server limit
   breached
-status: In Progress
+status: Done
 assignee:
   - mechanic
 created_date: '2026-08-16 20:54'
-updated_date: '2026-08-17 07:16'
+updated_date: '2026-08-27 13:50'
 labels:
   - install-recovery
   - quality-gate
@@ -122,3 +122,9 @@ created: 2026-08-17 07:16
 rc.02 FLEET EVIDENCE, mixed verdict on this ticket's capacity design: v2026.08.0-rc.02 cut at 698228b09 (clean one-command run, no bless needed — the previous-RC comparison carries the blessed bytes). The shared hetzner-vm-fleet group WORKED for two workflows (test-install running, install-recovery correctly pending behind it) but FAILED at three: GitHub's group semantics hold one running + ONE pending — the third arrival CANCELLED the pending arc harness (run 32004847670, zero jobs). Defect B's zero-resource_limit_exceeded goal is so far holding; the serialization mechanism is superseded by STATBUS-214 (orchestrator workflow chaining the fleets explicitly — architect-ruled, dispatched to mechanic). INTERIM at rc.02: foreman's drain-then-dispatch monitor armed — hand-dispatches the arc harness at the tag once both fleet runs complete and the group is empty. AC#3's observation now spans the hand-dispatched arc run at rc.02 + the orchestrated fleet at the NEXT tag.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+VM fleet collision (landed 4662b9147, 2026-08-16): run-scoped VM names with suffix, shared concurrency group for serialization, create-retry-with-backoff on resource_limit_exceeded, ownership-guarded reap/sweep. AC#2 verified; AC#3: replaced by STATBUS-214 orchestrator for true cross-workflow coordination.
+<!-- SECTION:FINAL_SUMMARY:END -->

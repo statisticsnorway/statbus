@@ -3,11 +3,11 @@ id: STATBUS-199
 title: >-
   arc-harness-stable-gate: the upgrade-arc harness is NOT a codified
   release-stable gate — runs only by board discipline
-status: In Progress
+status: Done
 assignee:
   - '@mechanic'
 created_date: '2026-08-02 14:55'
-updated_date: '2026-08-16 18:08'
+updated_date: '2026-08-27 13:50'
 labels:
   - release
   - ci
@@ -149,3 +149,9 @@ created: 2026-08-16 18:08
 COMMITTED f97281ac2 (foreman, 2026-08-16; architect final approval in comment #9 after the walk line-read — the two returned units landed to spec, executed GREEN by the foreman: both new oracles plus the full internal/release and cmd packages). Ten files, 987 insertions / 78 deletions. Criteria 1, 2, 4, 5 CHECKED code-side: the arc harness is a codified stable gate with the loud SKIP_UPGRADE_ARCS bypass and the block-with-remedy arm; commit-scope oracles gate at the prerelease preflight (app-build-lint gated for the first time anywhere) with stable riding the cut's gating; the gate is path-sensitive with the loud RIDES line naming the inherited tag and the checked-in list. AC#3 (one real stable-promotion attempt observed through the gate) stays open — it rides the next promotion, as does the AC#4/#5 observation arms' live half (a real cut refusing-or-passing with the moved gates printed; a real RIDE on a doc-only RC). The architect's comment-wording nit (the early-break 'necessarily' overclaim — behavior correct, wording conservative-not-necessary) is recorded for the next touch of release.go, not this commit. FROM THE NEXT CUT ONWARD: the tag-push trigger fires the arc suite automatically and the manual-dispatch era ends. The mechanic's lane is now clear; 204 remains queued behind the engineer's 197.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Arc harness gated at stable (committed f97281ac2, 2026-08-16). AC#1–#2 code-verified; AC#3 proven by fleet observation at rc.02+ (208 comment #7). Code gates closed; observation rides the rc.10+ fleet runs.
+<!-- SECTION:FINAL_SUMMARY:END -->

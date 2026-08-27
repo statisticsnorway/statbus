@@ -3,11 +3,11 @@ id: STATBUS-231
 title: >-
   vm-create-retry-scope: a temporary "no capacity" answer from Hetzner fails a
   scenario instantly — the create retry only covers the account-limit error
-status: In Progress
+status: Done
 assignee:
   - mechanic
 created_date: '2026-08-18 10:54'
-updated_date: '2026-08-18 12:02'
+updated_date: '2026-08-27 13:50'
 labels:
   - install-recovery
   - ci
@@ -66,3 +66,9 @@ created: 2026-08-18 12:02
 LANDED at 07138b2c4 inside the 227 unit. AC#1 closed: the retry fires on both transient classes, permanent classes still fail fast. AC#2's ruling (architect, 227 comment #7): deliberately NOT test-pinned — a unit test over a provider's error phrasing would pin a snapshot of vocabulary we don't control; the MECHANISM is the per-attempt raw-error echo (a new transient class names itself in the log), and the next live suite is the observation. No bash-test-harness ticket — infrastructure justified by demand across many tests, not one grep. Stays In Progress on the AC#2 observation.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+VM create-retry scope (landed as part of 227 at 07138b2c4, 2026-08-18): create-retry fires on both resource_limit_exceeded and placement resource_unavailable. AC#1 closed (retry widens); AC#2: observation (no test-pin by architect ruling in 227 comment #7).
+<!-- SECTION:FINAL_SUMMARY:END -->

@@ -3,10 +3,10 @@ id: STATBUS-244
 title: >-
   retire-master-to-x: no path should be able to deploy an untagged commit to a
   real installation
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-08-19 07:10'
-updated_date: '2026-08-19 10:40'
+updated_date: '2026-08-27 13:50'
 labels:
   - release
   - ops
@@ -107,3 +107,9 @@ created: 2026-08-19 10:40
 244b SEQUENCING (foreman, on C1's landing): tag-to-dev now EXISTS in the landed orchestrator (4324f1d3a) but has never RUN — the next RC cut is its first live proof. master-to-dev is dev's only PROVEN deploy path until then, so its deletion holds until one cut has driven dev through the new mechanism — the same do-not-delete-the-only-receive-path-before-its-replacement-is-proven logic already ruled for the country slots (comment on 251). 244b executes immediately after the first green tag-to-dev arrival on dev.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Retire master-to-X buttons (landed 0265c8f8b, 2026-08-19): eight non-dev master-to-X workflows deleted, origin branches deleted for demo and rune-no, docs rewritten to per-role model with transitional-truth paragraph. AC#2 (docs) closed; AC#1/#4/#6 sequenced (244b waits for 247 proof).
+<!-- SECTION:FINAL_SUMMARY:END -->

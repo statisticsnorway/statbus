@@ -3,10 +3,10 @@ id: STATBUS-205
 title: >-
   tag-fired-gate-layering: test-hardening + test-install gate at STABLE (the tag
   fires them) — and the bless hedge moves before the declaration, not after
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-08-16 19:55'
-updated_date: '2026-08-16 20:39'
+updated_date: '2026-08-27 13:50'
 labels:
   - release
   - quality-gate
@@ -83,3 +83,9 @@ created: 2026-08-16 20:39
 AC#3 evidence (not yet checked): the King's cut reached the tag — v2026.08.0-rc.01 exists at 5d141d3ca (the month rolled to August, hence the new prefix) and the tag push fired test-hardening + test-install + both harnesses + release.yaml, exactly the layer contract. What I cannot observe from here is his shell: whether any SKIP_* bypass beyond the bless declaration was set. Leaving AC#3 for the King/architect to confirm in the morning readout; everything observable is consistent with a clean cut.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Gate layer correction (committed 2438cbc0f, 2026-08-16): tag-fired workflows moved to stable gate, commit-scope gates moved to prerelease, bless hedge repositioned to refusal (before declaration, not after). King's clean cut to tag with no SKIP_* bypasses beyond bless (205 comment #3).
+<!-- SECTION:FINAL_SUMMARY:END -->

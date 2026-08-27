@@ -3,11 +3,11 @@ id: STATBUS-210
 title: >-
   unpark-rollback-collision: the un-park grants a fresh attempt, then flag-based
   recovery classifies the same row cannot-reach-new and rolls it back
-status: In Progress
+status: Done
 assignee:
   - engineer
 created_date: '2026-08-16 22:29'
-updated_date: '2026-08-16 23:01'
+updated_date: '2026-08-27 13:50'
 labels:
   - upgrade-recovery
   - release
@@ -78,3 +78,9 @@ created: 2026-08-16 23:01
 LANDED as dd9e094ae, architect-approved (verdict: the unit is the ruling verbatim — success-arm-only rewrite, Phase-only assignment, best-effort, refuse/failure arms byte-untouched, no reader patched, structural pins green). AC#1 checked — the ruling is comment #1, King's veto flagged in the morning brief. AC#2 checked — fix landed. AC#3 (un-park-to-completion green at an RC tag, also closing STATBUS-200 AC#2) is rc.02's observation. The engineer's flock-gap flag is STATBUS-212 (filed by the architect): the budget-park sites' unheld-flag rewrite is a flock-lifecycle design question ruled at normal pace — correctly raised, correctly not built tonight.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Un-park rollback collision (landed dd9e094ae, 2026-08-16): parkServiceRecovery rewrites flag Phase to old-sb-upgrading on era-permitted restore, preserving marker truth across un-park. AC#2 code-verified; AC#3 + STATBUS-200 AC#2: un-park-to-completion green at rc.05 (228 comment #12). Also closes STATBUS-200 AC#2.
+<!-- SECTION:FINAL_SUMMARY:END -->

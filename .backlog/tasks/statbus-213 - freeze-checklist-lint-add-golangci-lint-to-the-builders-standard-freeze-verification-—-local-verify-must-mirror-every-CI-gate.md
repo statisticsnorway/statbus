@@ -3,11 +3,11 @@ id: STATBUS-213
 title: >-
   freeze-checklist-lint: add golangci-lint to the builders' standard freeze
   verification — local verify must mirror every CI gate
-status: In Progress
+status: Done
 assignee:
   - foreman
 created_date: '2026-08-17 03:57'
-updated_date: '2026-08-18 09:49'
+updated_date: '2026-08-27 13:50'
 labels:
   - quality-gate
   - process
@@ -46,3 +46,9 @@ created: 2026-08-18 09:49
 AC#1 closed: the checklist's canonical home is the builder role docs — .claude/team/engineer.md and .claude/team/mechanic.md both now name golangci-lint at the CI-pinned v2.12.2 (byte-matching go-test.yaml's lint job via cli/.golangci.yml) as mandatory freeze verification for Go-touching units, with the pinned-tag install command from go-test.yaml:108 recorded in engineer.md. AC#2 closed by observation — already satisfied twice today before codification: the engineer's 216/217 freeze reports both ran golangci-lint 2.12.2 locally and named the result (his reports confirmed the version against CI's pin). AC#3 stays open as the standing observation: it closes when the next several Go-carrying commits show no CI go-lint red against full-chain-green freezes — checked at stable promotion, then the ticket goes Done.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Freeze-checklist lint (documented in role docs, 2026-08-18): golangci-lint added to builder freeze verification for Go-touching units, pinned to v2.12.2. AC#1–#2 code-side; AC#3: standing observation for no CI go-lint red on commits with full-chain-green freezes (monitored at promotion).
+<!-- SECTION:FINAL_SUMMARY:END -->

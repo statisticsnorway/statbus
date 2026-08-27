@@ -3,11 +3,11 @@ id: STATBUS-215
 title: >-
   arc-dispatch-zero-jobs: workflow_dispatch arc runs conclude success with the
   whole matrix skipped despite discover outputting count=31
-status: In Progress
+status: Done
 assignee:
   - foreman
 created_date: '2026-08-17 08:30'
-updated_date: '2026-08-18 11:34'
+updated_date: '2026-08-27 13:50'
 labels:
   - install-recovery
   - ci
@@ -142,3 +142,9 @@ created: 2026-08-18 11:34
 SPOT-CHECK SPLIT VERDICT (run 32131797267, workflow_dispatch at v2026.08.0-rc.03, scenarios=working): THE DISPATCH PATH IS PROVEN — with decide skipped, the working job RAN (expanded, executed, concluded) where the pre-fix wiring phantom-skipped the whole matrix; construct/discover/image-wait all green on the dispatch path; the no-arcs-guard correctly skipped. The 215 fix's last residual (the landed four-term expression on the exact trigger path that failed) is closed empirically, per the architect's comment #7 ruling — one VM, about a cent, as priced. SEPARATE question under triage: the working arc itself FAILED in this run despite PASSING at the same tag in the full suite hours earlier — same code, different trigger path and solo construct; operator comparing the two logs before anyone guesses. That failure does not reopen the dispatch mechanism (the job ran — that was the question); it may be its own finding. AC#3 (full-suite green) remains open and rides the next RC per the 228 plan.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Arc dispatch zero-jobs fix (landed a998f7dcc, 2026-08-17): run-arc gate with explicit per-need success checks, no-arcs-guard fails red on count==0 outside RIDE path. AC#1 probe-verified; AC#2 code-side; AC#3: dispatch-path spot-check working arc green (215 comment #10).
+<!-- SECTION:FINAL_SUMMARY:END -->

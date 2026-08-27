@@ -4,11 +4,11 @@ title: >-
   chain-poke-names-no-candidate: the release chain pokes a box with "install
   latest" while waiting for one specific commit — a newer candidate at the wrong
   moment starves the convergence forever
-status: In Progress
+status: Done
 assignee:
   - '@architect'
 created_date: '2026-08-19 19:14'
-updated_date: '2026-08-19 20:44'
+updated_date: '2026-08-27 13:50'
 labels:
   - release
   - upgrade
@@ -272,3 +272,9 @@ created: 2026-08-19 20:44
 UNIT 1 LANDED as 35e572010 (architect verdict LAND, nothing to fold — their standout: the generality principle made mechanical, TestApplyIsGeneral_STATBUS258 reddening on any future channel/role/box-name reference with a failure message that teaches). Composed in one connection via the Step/Run split; direct-table-write forbidden by test; deployed_commit= emitted at the CLI layer (CI-facing contract kept out of the general internals); omission announced with its cost. Commit build+vet verified in an isolated worktree. Remaining for this ticket: unit 2 (explicit candidate-addressed dispatch + requested-vs-deployed guard, building now) and the allowlist line via 259's mechanism.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Chain poke names no candidate (dispatch layer landed ce1b48442, allowlist entered bdc546386, 2026-08-19): ./sb upgrade apply <sha> replaces apply-latest on dev, door permits named-target install, convergence poll asserts requested==deployed. Acceptance run 33075841334 green. King's principal fix ruling satisfied.
+<!-- SECTION:FINAL_SUMMARY:END -->

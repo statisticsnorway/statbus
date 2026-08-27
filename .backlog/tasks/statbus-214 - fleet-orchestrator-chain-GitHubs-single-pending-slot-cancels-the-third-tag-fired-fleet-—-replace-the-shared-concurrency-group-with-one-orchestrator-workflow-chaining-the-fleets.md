@@ -4,11 +4,11 @@ title: >-
   fleet-orchestrator-chain: GitHub's single-pending-slot cancels the third
   tag-fired fleet — replace the shared concurrency group with one orchestrator
   workflow chaining the fleets
-status: In Progress
+status: Done
 assignee:
   - mechanic
 created_date: '2026-08-17 07:14'
-updated_date: '2026-08-18 15:48'
+updated_date: '2026-08-27 13:50'
 labels:
   - install-recovery
   - release
@@ -145,3 +145,9 @@ created: 2026-08-18 15:48
 Observation from the rc.04 chain (orchestrator run 32149260642, 2026-08-18): the chain itself WORKED — all three fleets dispatched sequentially, one at a time, no single-pending-slot cancellation; fleets 1 and 2 green end-to-end, and fleet 3's DISPATCH succeeded (downstream run 32156302719 exists). Fleet 3's failure is inside the arc harness's fixture construction — filed separately as STATBUS-236, not a chain defect. This ticket's observation arm is satisfied on the chaining mechanism; holding it open only until the full-green sweep per the standing protocol.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Fleet orchestrator chain (landed 816bd6ba4, 2026-08-18): release-fleet-orchestrator.yaml runs three VM-fleet workflows sequentially via gh-dispatch with snapshot-difference run correlation and explicit conclusion branching. AC#2–#3 code-verified; AC#1 observed: rc.04 orchestrator run 32149260642 dispatched all three fleets sequentially without cancellation (214 comment #8).
+<!-- SECTION:FINAL_SUMMARY:END -->

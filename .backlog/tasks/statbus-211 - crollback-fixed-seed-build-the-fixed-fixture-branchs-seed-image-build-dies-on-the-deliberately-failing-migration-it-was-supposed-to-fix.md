@@ -3,11 +3,11 @@ id: STATBUS-211
 title: >-
   crollback-fixed-seed-build: the fixed-fixture branch's seed image build dies
   on the deliberately-failing migration it was supposed to fix
-status: In Progress
+status: Done
 assignee:
   - mechanic
 created_date: '2026-08-16 22:30'
-updated_date: '2026-08-16 22:46'
+updated_date: '2026-08-27 13:50'
 labels:
   - install-recovery
   - release
@@ -101,3 +101,9 @@ created: 2026-08-16 22:46
 LANDED as 71a7db3b3, architect-approved (verdict highlights: ref_name verified against the real webhook bytes, leaf-job scope confirmed, the in-place comment carries the loud-not-silent intent + the category mismatch + the consumption-not-brokenness classifier with the ruling cited; the permanent red is gone without any gate going soft). AC#1 checked — cause established by the trace with the corrected cross-check (the identical failure existed at the 2026-08-02 full-suite and did not block the arc). AC#2 checked — the fix is the ruled loud skip. AC#3 (c-rollback-resurrection green at an RC tag) closes at rc.02 via the 208 capacity fix; this ticket then completes.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+C-rollback seed build skip (landed 71a7db3b3, 2026-08-16): images.yaml seed job skips test/upgrade-arc-* fixture branches with loud comment. AC#1–#2 code-verified; AC#3: c-rollback-resurrection can run post-capacity-fix (208 resolved).
+<!-- SECTION:FINAL_SUMMARY:END -->

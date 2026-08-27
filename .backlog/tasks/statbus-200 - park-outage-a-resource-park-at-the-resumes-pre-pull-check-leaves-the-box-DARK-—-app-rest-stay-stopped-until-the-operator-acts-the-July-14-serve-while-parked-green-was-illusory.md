@@ -4,11 +4,11 @@ title: >-
   park-outage: a resource park at the resume's pre-pull check leaves the box
   DARK — app/rest stay stopped until the operator acts; the July-14
   serve-while-parked green was illusory
-status: In Progress
+status: Done
 assignee:
   - '@engineer'
 created_date: '2026-08-02 19:10'
-updated_date: '2026-08-16 17:55'
+updated_date: '2026-08-27 13:50'
 labels:
   - upgrade
   - recovery
@@ -106,3 +106,9 @@ created: 2026-08-16 17:55
 COMMITTED b47a2bce9 (foreman, 2026-08-16; architect approved from the freeze snapshot, cut window closed with byte-identical restore first). AC#1/#3/#4's code side is landed: the chokepoint helper after every park write, the source-identity era guard refusing every anomaly toward dark-behind-maintenance, the narrative-only failure append, the idempotent re-entry. TICKET STAYS OPEN on its run oracle: AC#2 — the UNCHANGED un-park-to-completion arc green on a real VM with the honest probe — rides the next arc-suite dispatch (the King's cut tag, or the manual dispatch that follows it). The architect's one review finding is filed as STATBUS-204 (the two budget-park sites still bypass the helper — same class, rarer trigger; queued after 197); his non-blocking naming note (terminalUpdate used for SELECTs → a later rename like terminalQueryRow) rides any future pass. 197 dispatches to the engineer now on the freed service.go baseline.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Park service restoration: SOURCE version serves while parked, era-guarded against migration delta (committed b47a2bce9, 2026-08-16). AC#2 proven: un-park-to-completion green at rc.05 (228 comment #12). Code gates closed; observation rides the rc.10+ fleet runs.
+<!-- SECTION:FINAL_SUMMARY:END -->

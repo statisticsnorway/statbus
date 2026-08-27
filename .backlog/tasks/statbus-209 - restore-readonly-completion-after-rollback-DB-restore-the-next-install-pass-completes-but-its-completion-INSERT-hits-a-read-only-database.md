@@ -3,11 +3,11 @@ id: STATBUS-209
 title: >-
   restore-readonly-completion: after rollback DB restore, the next install pass
   completes but its completion INSERT hits a read-only database
-status: In Progress
+status: Done
 assignee:
   - engineer
 created_date: '2026-08-16 22:29'
-updated_date: '2026-08-17 03:57'
+updated_date: '2026-08-27 13:50'
 labels:
   - upgrade-recovery
   - release
@@ -126,3 +126,9 @@ created: 2026-08-17 03:57
 RIDER: golangci-lint's errcheck flagged Arm B's close-on-failure path at the tip (cmd/install.go:2364, conn.Close error unchecked) — the CI go-lint job went red though go-test itself was green, which would have muddied the King's morning cut readout. Fixed as d998e8b0c (architect-approved, emergency lane): `_ = conn.Close(ctx)`, the standard deliberate-discard idiom on an already-failing path; verified with the exact CI linter locally (0 issues). Root gap — builders' local verify chain omits golangci-lint while CI enforces it — filed separately as the freeze-checklist ticket per the architect's note.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Restore read-only completion (landed 8b58e533c, 2026-08-16): ARM A box-wide stale residue clear on install completion, ARM B session self-exempt on connect. Both arcs (restore-broke-reattempt, rollback-pair-terminal) green at rc.05 (228 comment #12). Code gates closed.
+<!-- SECTION:FINAL_SUMMARY:END -->
