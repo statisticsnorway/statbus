@@ -1,7 +1,7 @@
 ```sql
-                                                   Table "worker.command_registry"
-      Column       |           Type           | Collation | Nullable | Default | Storage  | Compression | Stats target | Description 
--------------------+--------------------------+-----------+----------+---------+----------+-------------+--------------+-------------
+                                                                                                                                                                                                                                          Table "worker.command_registry"
+      Column       |           Type           | Collation | Nullable | Default | Storage  | Compression | Stats target |                                                                                                                                                                                        Description                                                                                                                                                                                         
+-------------------+--------------------------+-----------+----------+---------+----------+-------------+--------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
  command           | text                     |           | not null |         | extended |             |              | 
  handler_procedure | text                     |           | not null |         | extended |             |              | 
  before_procedure  | text                     |           |          |         | extended |             |              | 
@@ -9,6 +9,7 @@
  description       | text                     |           |          |         | extended |             |              | 
  queue             | text                     |           | not null |         | extended |             |              | 
  created_at        | timestamp with time zone |           | not null | now()   | plain    |             |              | 
+ schedule_interval | interval                 |           |          |         | plain    |             |              | How often this command should recur. NULL = not recurring (event-driven). Non-NULL makes it a member of the maintenance family: the worker's runner schedules the next occurrence after each run REGARDLESS OF OUTCOME, and seeds a missing one at startup. A handler must never schedule itself — its enqueue would live inside the transaction its own failure rolls back (STATBUS-263).
 Indexes:
     "command_registry_pkey" PRIMARY KEY, btree (command)
     "idx_command_registry_queue" btree (queue)

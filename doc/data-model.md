@@ -237,7 +237,7 @@ Handles background processing. A long-running worker process calls `worker.proce
 - `tasks(id, command, parent_id, created_at, process_start_at, completed_at, scheduled_at, process_stop_at, priority, state, process_duration_ms, error, worker_pid, payload, child_mode, depth, completion_duration_ms, info)` — **infrastructure**
   - Key FKs: command, command, parent_id.
   - Enums: `child_mode` (`worker.child_mode`), `state` (`worker.task_state`).
-- `command_registry(command, created_at, handler_procedure, before_procedure, after_procedure, description, queue)` — **infrastructure**
+- `command_registry(command, created_at, handler_procedure, before_procedure, after_procedure, description, queue, schedule_interval)` — **infrastructure**
   - Key FKs: queue.
 - `queue_registry(queue, description, default_concurrency)` — **infrastructure**
 - `base_change_log(valid_ranges, establishment_ids, legal_unit_ids, enterprise_ids, power_group_ids)` — **infrastructure**

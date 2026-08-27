@@ -1,0 +1,104 @@
+-- STATBUS-263: what worker.tasks' self-referential FK actually does to a bulk
+-- DELETE — established by running it, not by reading the manual.
+--
+-- WHY THIS TEST EXISTS. task_cleanup deletes terminal tasks in bulk:
+--
+--   DELETE FROM worker.tasks WHERE state = 'completed' AND <retention cutoff>;
+--
+-- and worker.tasks references ITSELF:
+--
+--   tasks_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES worker.tasks(id)
+--
+-- with no ON DELETE clause, so the default NO ACTION applies. On 2026-05-13
+-- that DELETE raised an FK violation on rune; cleanup has not run since, and
+-- the box now holds 605k undeleted completed rows.
+--
+-- Every candidate fix rests on ONE property of that constraint, and the whole
+-- diagnosis is wrong if the property does not hold: PostgreSQL implements NO
+-- ACTION as an AFTER-STATEMENT check, so a single statement may delete a parent
+-- and its children TOGETHER — the rows need not disappear in dependency order,
+-- they need only all be gone by the time the statement ends. (RESTRICT, by
+-- contrast, is checked per row and would refuse.) It follows that the bulk
+-- DELETE does NOT fail merely because it removes parents; it fails only when a
+-- child SURVIVES the statement — left behind by a state or a retention cutoff
+-- that the same statement does not cover.
+--
+-- That distinction decides the fix. If NO ACTION were per-row, the remedy would
+-- have to be ordering — delete leaves first, walk up the tree. Because it is
+-- per-statement, the remedy is instead to make the statement's SELECTION
+-- coherent: never leave a child behind. Those are different repairs, and the
+-- difference is exactly what this test pins.
+--
+-- I had asserted this from documented semantics. Documentation is not a run,
+-- and a fix built on an unrun premise is a guess with citations — so it is
+-- pinned here, against the real table and the real constraint, before any fix
+-- is written. It is deliberately shape-independent: it constrains the FIX, not
+-- the fix's design, and it stays true whichever shape the repair takes.
+--
+-- Everything runs inside one transaction and is rolled back, so no seeded row
+-- and no deletion survives into another test.
+
+BEGIN;
+
+\echo '=== FIXTURE: a completed parent and its completed child ==='
+-- Real commands: worker.tasks has an FK to worker.command_registry, so an
+-- invented command name would fail on the WRONG constraint and prove nothing
+-- about the one under test.
+INSERT INTO worker.tasks (id, command, state, parent_id, depth, process_start_at, completed_at)
+VALUES (999263001, 'task_cleanup', 'completed', NULL,      0, now() - interval '9 days', now() - interval '9 days');
+
+INSERT INTO worker.tasks (id, command, state, parent_id, depth, process_start_at, completed_at)
+VALUES (999263002, 'task_cleanup', 'completed', 999263001, 1, now() - interval '8 days', now() - interval '8 days');
+
+SELECT id, parent_id, state FROM worker.tasks WHERE id IN (999263001, 999263002) ORDER BY id;
+
+\echo '=== ARM 1: ONE statement deleting parent AND child together SUCCEEDS ==='
+-- The parent is removed while a row still references it — mid-statement. Under
+-- a per-row check this could not survive; under the after-statement check it is
+-- fine, because the referencing row is gone by the end of the same statement.
+DELETE FROM worker.tasks WHERE id IN (999263001, 999263002);
+
+SELECT count(*) AS rows_remaining_after_joint_delete
+FROM worker.tasks WHERE id IN (999263001, 999263002);
+
+\echo '=== FIXTURE: restore the pair for the second arm ==='
+INSERT INTO worker.tasks (id, command, state, parent_id, depth, process_start_at, completed_at)
+VALUES (999263001, 'task_cleanup', 'completed', NULL,      0, now() - interval '9 days', now() - interval '9 days');
+
+INSERT INTO worker.tasks (id, command, state, parent_id, depth, process_start_at, completed_at)
+VALUES (999263002, 'task_cleanup', 'completed', 999263001, 1, now() - interval '8 days', now() - interval '8 days');
+
+\echo '=== ARM 2: deleting ONLY the parent, leaving the child, RAISES ==='
+-- This is the production failure in miniature: the bulk DELETE's predicate
+-- selected the parent but not the child, so the child outlives the statement
+-- and the after-statement check fires. The error text is asserted rather than
+-- swallowed, so the constraint NAME is visible — a future change that makes
+-- this fail on a DIFFERENT constraint is a different bug and must not read as
+-- this one still passing.
+SAVEPOINT sp_orphan_parent;
+-- expected to fail with foreign_key_violation (23503) on tasks_parent_id_fkey
+\set ON_ERROR_STOP off
+DELETE FROM worker.tasks WHERE id = 999263001;
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT sp_orphan_parent;
+
+-- Both rows survive: the refusal rolled the deletion back, it did not partially
+-- apply. Without this the arm would pass on an error that deleted the parent
+-- anyway.
+SELECT count(*) AS rows_surviving_the_refusal
+FROM worker.tasks WHERE id IN (999263001, 999263002);
+
+\echo '=== ARM 3: deleting the CHILD alone succeeds — the FK is directional ==='
+-- Stated so the fix is not over-built: nothing prevents removing a leaf. The
+-- constraint only ever objects to a referenced row disappearing while its
+-- referrer remains, which is why a bottom-up selection is safe.
+DELETE FROM worker.tasks WHERE id = 999263002;
+
+SELECT count(*) AS rows_remaining_after_child_delete
+FROM worker.tasks WHERE id IN (999263001, 999263002);
+
+ROLLBACK;
+
+\echo '=== CLEANUP: the transaction rolled back; nothing seeded survives ==='
+SELECT count(*) AS seeded_rows_left_behind
+FROM worker.tasks WHERE id IN (999263001, 999263002);

@@ -508,6 +508,45 @@ module Statbus
               exit(1)
             end
 
+            # ── SEED THE RECURRING MAINTENANCE TASKS (STATBUS-263) ──
+            #
+            # A recurring command exists only while it has a pending row. Under
+            # the old design each handler scheduled its own next occurrence as
+            # its last statement — inside the very transaction its failure
+            # rolled back — so ONE bad run erased the command's future. It
+            # happened to task_cleanup on 2026-05-13: it did not fail
+            # repeatedly, it failed once and was never seen again, and rune
+            # accumulated 605k undeleted rows over the three silent months that
+            # followed.
+            #
+            # Recurrence now belongs to this runner, and this is the half that
+            # repairs a box already in that state: nothing pending means nothing
+            # to trigger recovery, so a machine cannot climb out on its own
+            # unless something seeds the row. Startup is the right place because
+            # it is the one moment guaranteed to come around again.
+            #
+            # LOUD, NOT SILENT: only genuinely absent rows are reported, so this
+            # says nothing on a healthy box and names the repair on a wedged
+            # one. A silent seed would hide exactly the fault it fixes.
+            begin
+              seeded = db.query_all "SELECT command FROM worker.seed_recurring_tasks() WHERE task_id IS NOT NULL", as: String
+              unless seeded.empty?
+                @log.warn do
+                  "Seeded missing recurring maintenance task(s): #{seeded.join(", ")}. " \
+                  "A recurring command with no pending row cannot run again on its own, so it had " \
+                  "stopped recurring entirely — most likely a handler that failed before it could " \
+                  "reschedule itself (the pre-STATBUS-263 design). Cleanup resumes from now; a long " \
+                  "gap means a correspondingly large first batch."
+                end
+              end
+            rescue ex
+              # Not fatal: the worker can process tasks without maintenance
+              # recurrence, and refusing to start would trade a degraded box for
+              # a dead one. But it must not pass unremarked — the whole point of
+              # this ticket is that silent maintenance failure is the actual bug.
+              @log.error { "Failed to seed recurring maintenance tasks: #{ex.message}. Maintenance may not recur until the next worker start." }
+            end
+
             # Now that we have the lock, start the queue discovery and timer checking
             start_queue_discovery
 
@@ -1346,6 +1385,41 @@ module Statbus
             as: {String, String}
 
           tasks_processed = results.size
+
+          # ── SCHEDULE THE NEXT MAINTENANCE OCCURRENCE (STATBUS-263) ──
+          #
+          # WHAT MUST SURVIVE A FAILURE CANNOT LIVE INSIDE THE THING THAT FAILS.
+          #
+          # This runs in its OWN statement, outside the transaction that
+          # worker.process_tasks manages internally, and that separation is the
+          # entire fix. A handler that schedules itself puts the enqueue inside
+          # the transaction its own exception rolls back, so the failing run
+          # deletes its own future — and in-procedure there is no way out of it,
+          # because catching without re-raising throws the failure away instead
+          # and PostgreSQL has no autonomous transaction.
+          #
+          # DECOUPLED FROM OUTCOME, DELIBERATELY: completed and failed schedule
+          # the next occurrence alike. A RESULT DECIDES WHETHER WE ALARM, NEVER
+          # WHETHER WE RUN AGAIN. A daily task that keeps failing must keep
+          # coming back to keep saying so; one that goes quiet is the more
+          # dangerous failure, and the one that actually happened.
+          #
+          # Alarming on a persistently failing recurring task is deliberately
+          # NOT here — that belongs to the stuck/failing-task detector family
+          # (STATBUS-267), built knowing about this. This half restores
+          # recurrence; that half restores the voice.
+          begin
+            rescheduled = db.query_all "SELECT command FROM worker.schedule_recurring_after($1) WHERE task_id IS NOT NULL",
+              current_timestamp, as: String
+            rescheduled.each do |cmd|
+              @log.debug { "Scheduled next occurrence of recurring command: #{cmd}" }
+            end
+          rescue ex
+            # Never fatal to a processing batch — the tasks themselves ran and
+            # their results stand. Startup seeding is the backstop that puts
+            # recurrence back if this keeps failing.
+            @log.error { "Failed to schedule next maintenance occurrence: #{ex.message}. Recurrence will be restored at the next worker start." }
+          end
 
           if results.empty?
             @log.debug { "No tasks to process for queue: #{queue}" }

@@ -1,4 +1,6 @@
-```sql
+BEGIN;
+
+-- Restores the pre-STATBUS-263 handler, self-reschedule included.
 CREATE OR REPLACE PROCEDURE worker.command_import_job_cleanup(IN payload jsonb, INOUT p_info jsonb DEFAULT NULL::jsonb)
  LANGUAGE plpgsql
  SET search_path TO 'public', 'worker', 'pg_temp'
@@ -25,10 +27,13 @@ BEGIN
 
     RAISE DEBUG 'Finished worker.command_import_job_cleanup. Deleted % expired jobs.', v_deleted_count;
 
-    -- No self-reschedule: the runner owns recurrence (STATBUS-263). See the
-    -- schedule_interval column comment for why a handler must never schedule
-    -- itself.
-    p_info := COALESCE(p_info, '{}'::jsonb) || jsonb_build_object('expired_jobs_deleted', v_deleted_count);
+    PERFORM worker.enqueue_import_job_cleanup();
 END;
-$procedure$
-```
+$procedure$;
+
+DROP FUNCTION IF EXISTS worker.seed_recurring_tasks();
+DROP FUNCTION IF EXISTS worker.schedule_recurring_after(timestamptz);
+DROP FUNCTION IF EXISTS worker.ensure_recurring_task(text, jsonb);
+ALTER TABLE worker.command_registry DROP COLUMN schedule_interval;
+
+END;

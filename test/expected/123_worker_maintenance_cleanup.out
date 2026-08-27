@@ -10,9 +10,9 @@ DELETE FROM worker.tasks WHERE command IN ('task_cleanup', 'import_job_cleanup')
 \echo "--- command_task_cleanup: executes DELETE on process_start_at column ---"
 "--- command_task_cleanup: executes DELETE on process_start_at column ---"
 CALL worker.command_task_cleanup('{}'::jsonb);
- p_info 
---------
- 
+                          p_info                           
+-----------------------------------------------------------
+ {"failed_tasks_deleted": 0, "completed_tasks_deleted": 0}
 (1 row)
 
 \echo "--- enqueue_task_cleanup: references process_start_at in ON CONFLICT ---"

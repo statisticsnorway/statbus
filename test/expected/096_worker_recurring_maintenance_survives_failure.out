@@ -1,0 +1,209 @@
+-- STATBUS-263: a recurring maintenance task keeps recurring after a run that
+-- FAILED, and a box that already lost its recurrence repairs itself.
+--
+-- WHY THIS TEST EXISTS. On 2026-05-13 task_cleanup raised an FK violation and
+-- was never seen again. It did not fail repeatedly — it failed ONCE. Each
+-- handler used to schedule its own next occurrence as its last statement, so
+-- the enqueue sat inside the transaction the failure rolled back: the failing
+-- run erased its own future. A recurring command exists only while it has a
+-- pending row, so with that row gone and nothing else to create one, cleanup
+-- was dead rather than degraded. Three silent months and 605k undeleted rows
+-- on rune followed.
+--
+-- The repair is structural: WHAT MUST SURVIVE A FAILURE CANNOT LIVE INSIDE THE
+-- THING THAT FAILS. Recurrence is declared as data on worker.command_registry
+-- and executed by the worker's runner in its own transaction, decoupled from
+-- the outcome — a result decides whether we ALARM, never whether we RUN AGAIN.
+--
+-- Four properties, and the second is the one the outage turned on:
+--
+--   1. recurrence is declared as data, not hidden in a handler
+--   2. a FAILED run still schedules the next occurrence   <-- the outage
+--   3. a box with nothing pending re-seeds itself at startup — the rune case
+--   4. scheduling a non-recurring command is REFUSED, loudly, not ignored
+--
+-- BOUNDARY: this pins the DATABASE side — the primitives and their semantics.
+-- That the Crystal runner CALLS them, at startup and after each batch, is
+-- covered by type-check and review until the worker's own suite returns
+-- (STATBUS-270). Alarming on a persistently failing task is deliberately absent:
+-- that is STATBUS-267's, built knowing about this one.
+--
+-- Everything runs in one transaction and is rolled back.
+BEGIN;
+\echo '=== PROPERTY 1: recurrence is declared as data ==='
+=== PROPERTY 1: recurrence is declared as data ===
+SELECT command, schedule_interval
+FROM worker.command_registry
+WHERE schedule_interval IS NOT NULL
+ORDER BY command;
+      command       | schedule_interval 
+--------------------+-------------------
+ import_job_cleanup | @ 24 hours
+ task_cleanup       | @ 24 hours
+(2 rows)
+
+\echo '=== PROPERTY 1b: every recurring command has its dedup index ==='
+=== PROPERTY 1b: every recurring command has its dedup index ===
+-- Declaring schedule_interval is only half of what makes a command recurring.
+-- The other half is a per-command partial unique index over (command) WHERE
+-- state='pending', because that index is what makes ensure_recurring_task
+-- IDEMPOTENT — it is the whole reason "schedule the next run" and "seed one if
+-- absent" can be the same statement.
+--
+-- A future third member declared WITHOUT its index would not fail loudly. It
+-- would let seed_recurring_tasks insert a duplicate pending row on every boot,
+-- and the startup warning — which exists to announce a genuinely wedged box —
+-- would cry wolf on every healthy start until nobody read it. That is the same
+-- silence-by-noise failure this ticket is about, arriving by the opposite door.
+--
+-- So the pairing is asserted here: the moment a command joins the family
+-- without its index, this arm goes red instead of the fleet going noisy.
+SELECT cr.command,
+       EXISTS (
+           SELECT 1 FROM pg_indexes AS i
+           WHERE i.schemaname = 'worker'
+             AND i.tablename = 'tasks'
+             AND i.indexdef LIKE '%UNIQUE%'
+             AND i.indexdef LIKE '%(command)%'
+             AND i.indexdef LIKE '%' || cr.command || '%'
+             AND i.indexdef LIKE '%pending%'
+       ) AS has_dedup_index
+FROM worker.command_registry AS cr
+WHERE cr.schedule_interval IS NOT NULL
+ORDER BY cr.command;
+      command       | has_dedup_index 
+--------------------+-----------------
+ import_job_cleanup | t
+ task_cleanup       | t
+(2 rows)
+
+\echo '=== PROPERTY 2: a FAILED run still schedules the next occurrence ==='
+=== PROPERTY 2: a FAILED run still schedules the next occurrence ===
+-- Clear any pending occurrence first: the per-command dedup index permits only
+-- one, so leaving it in place would let this arm pass without scheduling
+-- anything at all.
+DELETE FROM worker.tasks WHERE command = 'task_cleanup' AND state = 'pending';
+-- The 2026-05-13 shape, reproduced: a task_cleanup that FAILED, with the real
+-- error text it failed with.
+INSERT INTO worker.tasks (id, command, state, error, process_start_at, completed_at)
+VALUES (999263901, 'task_cleanup', 'failed',
+        'update or delete on table "tasks" violates foreign key constraint "tasks_parent_id_fkey"',
+        now() - interval '1 minute', now() - interval '1 minute');
+SELECT count(*) AS pending_after_failure_before_runner
+FROM worker.tasks WHERE command = 'task_cleanup' AND state = 'pending';
+ pending_after_failure_before_runner 
+-------------------------------------
+                                   0
+(1 row)
+
+-- What the runner calls after every batch, in its own transaction.
+SELECT command, task_id IS NOT NULL AS scheduled_next
+FROM worker.schedule_recurring_after(now() - interval '5 minutes')
+ORDER BY command;
+   command    | scheduled_next 
+--------------+----------------
+ task_cleanup | t
+(1 row)
+
+SELECT count(*) AS pending_after_runner_scheduled
+FROM worker.tasks WHERE command = 'task_cleanup' AND state = 'pending';
+ pending_after_runner_scheduled 
+--------------------------------
+                              1
+(1 row)
+
+\echo '=== PROPERTY 3: a box with nothing pending re-seeds itself — the rune case ==='
+=== PROPERTY 3: a box with nothing pending re-seeds itself — the rune case ===
+DELETE FROM worker.tasks
+WHERE command IN ('task_cleanup', 'import_job_cleanup') AND state = 'pending';
+SELECT count(*) AS pending_before_seed FROM worker.tasks
+WHERE command IN ('task_cleanup', 'import_job_cleanup') AND state = 'pending';
+ pending_before_seed 
+---------------------
+                   0
+(1 row)
+
+SELECT command, task_id IS NOT NULL AS was_seeded
+FROM worker.seed_recurring_tasks() ORDER BY command;
+      command       | was_seeded 
+--------------------+------------
+ import_job_cleanup | t
+ task_cleanup       | t
+(2 rows)
+
+SELECT count(*) AS pending_after_seed FROM worker.tasks
+WHERE command IN ('task_cleanup', 'import_job_cleanup') AND state = 'pending';
+ pending_after_seed 
+--------------------
+                  2
+(1 row)
+
+\echo '=== PROPERTY 3b: seeding again repairs nothing and SAYS so ==='
+=== PROPERTY 3b: seeding again repairs nothing and SAYS so ===
+-- Idempotence is not enough on its own: the seed must also report honestly. A
+-- version that claimed a repair on every start would make the startup warning
+-- meaningless noise, and the warning is how a wedged box announces itself.
+SELECT command, task_id IS NOT NULL AS was_seeded
+FROM worker.seed_recurring_tasks() ORDER BY command;
+      command       | was_seeded 
+--------------------+------------
+ import_job_cleanup | f
+ task_cleanup       | f
+(2 rows)
+
+SELECT count(*) AS pending_unchanged FROM worker.tasks
+WHERE command IN ('task_cleanup', 'import_job_cleanup') AND state = 'pending';
+ pending_unchanged 
+-------------------
+                 2
+(1 row)
+
+\echo '=== PROPERTY 4: a non-recurring command is REFUSED, not silently ignored ==='
+=== PROPERTY 4: a non-recurring command is REFUSED, not silently ignored ===
+-- Being asked to schedule a command that does not recur means the caller's
+-- model is wrong. A quiet no-op would surface later as a maintenance task that
+-- simply never runs — the precise failure mode this whole ticket is about.
+SAVEPOINT sp_not_recurring;
+-- expected to fail: derive_statistical_history_facet_period is event-driven,
+-- so it has no schedule_interval and must not be schedulable as recurring
+\set ON_ERROR_STOP off
+SELECT worker.ensure_recurring_task('derive_statistical_history_facet_period');
+ERROR:  worker.ensure_recurring_task: command derive_statistical_history_facet_period has no schedule_interval (not a recurring command)
+CONTEXT:  PL/pgSQL function worker.ensure_recurring_task(text,jsonb) line 14 at RAISE
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT sp_not_recurring;
+\echo '=== PROPERTY 5: the handlers no longer schedule themselves ==='
+=== PROPERTY 5: the handlers no longer schedule themselves ===
+-- The structural half, asserted against the live definitions rather than
+-- trusted: if a future edit reintroduces a self-reschedule, the enqueue is back
+-- inside the transaction a failure rolls back and the 2026-05-13 outage is
+-- available again.
+-- COMMENTS ARE STRIPPED BEFORE MATCHING, and that is not fussiness:
+-- pg_get_functiondef returns the body INCLUDING comments, and the comment that
+-- explains this very change quotes `PERFORM worker.enqueue_task_cleanup(...)`
+-- verbatim to say why it is gone. Matching the raw text would find the
+-- explanation and report the bug it explains — a check that fails precisely
+-- because the code is well documented.
+SELECT p.proname,
+       regexp_replace(pg_get_functiondef(p.oid), '--[^\n]*', '', 'g') LIKE '%enqueue_task_cleanup%'
+    OR regexp_replace(pg_get_functiondef(p.oid), '--[^\n]*', '', 'g') LIKE '%enqueue_import_job_cleanup%' AS still_schedules_itself
+FROM pg_proc AS p
+JOIN pg_namespace AS n ON n.oid = p.pronamespace
+WHERE n.nspname = 'worker'
+  AND p.proname IN ('command_task_cleanup', 'command_import_job_cleanup')
+ORDER BY p.proname;
+          proname           | still_schedules_itself 
+----------------------------+------------------------
+ command_import_job_cleanup | f
+ command_task_cleanup       | f
+(2 rows)
+
+ROLLBACK;
+\echo '=== CLEANUP: rolled back; nothing seeded survives ==='
+=== CLEANUP: rolled back; nothing seeded survives ===
+SELECT count(*) AS seeded_rows_left_behind FROM worker.tasks WHERE id = 999263901;
+ seeded_rows_left_behind 
+-------------------------
+                       0
+(1 row)
+

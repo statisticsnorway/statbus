@@ -1532,6 +1532,7 @@ erDiagram
 		text description
 		text queue
 		timestamp_with_time_zone created_at
+		interval schedule_interval
 	}
 	worker_pipeline_step_weight["worker.pipeline_step_weight"] {
 		text step

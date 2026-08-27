@@ -1,4 +1,20 @@
-```sql
+BEGIN;
+
+-- STATBUS-263: task_cleanup deletes coherently, in bounded batches, and no
+-- longer schedules itself.
+--
+-- WHAT WENT WRONG. On 2026-05-13 the bulk DELETE raised
+--   update or delete on table "tasks" violates foreign key constraint
+--   "tasks_parent_id_fkey"
+-- and cleanup has not run since. rune now holds 605k undeleted completed rows.
+-- It did not fail repeatedly: it failed ONCE and was never rescheduled, because
+-- the re-enqueue was the last statement in the procedure that threw, so the
+-- rollback took the reschedule with it. With no pending row (the partial unique
+-- index idx_tasks_task_cleanup_dedup means cleanup exists only while one does)
+-- and no other periodic caller, cleanup was dead, not degraded.
+--
+-- Three changes, each argued below.
+
 CREATE OR REPLACE PROCEDURE worker.command_task_cleanup(IN payload jsonb, INOUT p_info jsonb DEFAULT NULL::jsonb)
  LANGUAGE plpgsql
  SET search_path TO 'public', 'worker', 'pg_temp'
@@ -128,5 +144,6 @@ BEGIN
         'failed_tasks_deleted', v_total_failed
     );
 END;
-$procedure$
-```
+$procedure$;
+
+END;
