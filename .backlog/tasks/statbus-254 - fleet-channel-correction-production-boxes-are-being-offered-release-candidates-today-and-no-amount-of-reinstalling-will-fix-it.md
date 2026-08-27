@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 10:27'
-updated_date: '2026-08-20 06:40'
+updated_date: '2026-08-27 19:44'
 labels:
   - ops
   - release
@@ -308,5 +308,17 @@ DEV'S TRANSLATION CONFIRMED BY STATE (2026-08-20, after rc.09 converged on dev).
 NOTE ON EVIDENCE FORM: the plan was to pin the translation NOTICE verbatim from rc.09's install logs, but the notice is one-time stdout at the run that converts, and on dev that run has already passed (journalctl 500-line history + tmp logs both empty of it — likely consumed during yesterday's repair install or the rc.09 install, unlogged). The durable evidence is the CONFIG STATE above, which is stronger anyway: it shows the translation's RESULT is in force, not merely that it was announced. For the remaining fleet boxes, the same two reads (role key present + channel key absent in .env.config) are the per-box evidence form; the notice is a bonus if a box's install log happens to be caught in time.
 
 Dev leg: DONE. Remaining: the other fleet boxes translate as their own installs run; 254 closes (and the translation case in cli/internal/config/upgrade_role.go is DELETED, per its own >>> marker) once every box shows the role form.
+---
+
+author: operator (pinned by foreman)
+created: 2026-08-27 19:44
+---
+FLEET READ 2026-08-27 (running service vs config intent, all ten boxes, read-only) — AND IT CORRECTS THIS TICKET'S PREMISE: no production box is being offered release candidates today. All six legacy production slots (demo, tcc, ma, ug, et, jo) run channel=stable in the LIVE service (evidence: 'Upgrade service started (channel=stable)' lines, all timestamped Aug 19 11:25-11:26 — the fleet correction event, still holding), via the OLD mechanism: UPGRADE_CHANNEL=stable set, UPGRADE_ROLE unset. Three boxes carry the durable mechanism correctly: dev (role=canary → prerelease), ua (role=production → stable, born-after-fix), no/rune (role=canary → prerelease). ONE NEW FINDING: test has UPGRADE_ROLE=production set but NO RUNNING UPGRADE SERVICE — config ready, service absent; cause unknown, investigation dispatched. REMAINING SCOPE therefore narrows to: (1) migrate six boxes from the legacy key to the role key — functional today but not durable (remove UPGRADE_CHANNEL without adding UPGRADE_ROLE and the box loses derivation); migration mechanism needs an architect ruling (hand config edits vs a loud one-time translation in config generate/install vs natural rewrite at next upgrade — mind the no-standing-self-heal rule); (2) test's dead service.
+---
+
+author: foreman
+created: 2026-08-27 19:44
+---
+CORRECTION to comment #15's closing line — I re-derived a solved problem: NO migration ruling is needed. The one-time translation is ALREADY LANDED (733b0df4d, cli/internal/config/upgrade_role.go — channel-present/role-absent infers the role, writes it, REMOVES the legacy key, announces; comment #6), and dev already went through it (comment #14's config-state evidence). The six legacy boxes are not stranded — they are PRE-TRANSLATION, exactly the state the mechanism was built for, and they convert automatically on their next ./sb install / config generate, which arrives with the stable promoted from rc.11. So today's read slots cleanly into the ticket's own remaining-work definition (comment #12): the fleet's six pending translations are now enumerated by box with before-state evidence; per-box after-evidence is role-key-present + channel-key-absent in .env.config. CLOSURE PATH unchanged: all boxes show the role form → delete the translation case per its own removal marker → close. The one genuinely NEW item from the read is test's dead upgrade service (role=production set, no service running — note: test already carries the NEW form, so it translated or was created post-mechanism; its service absence is a separate defect, investigation dispatched).
 ---
 <!-- COMMENTS:END -->
