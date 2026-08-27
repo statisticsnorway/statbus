@@ -6,9 +6,9 @@ title: >-
   twice-observed
 status: In Progress
 assignee:
-  - '@architect'
+  - '@engineer'
 created_date: '2026-08-27 16:44'
-updated_date: '2026-08-27 20:29'
+updated_date: '2026-08-27 21:34'
 labels:
   - testing
 dependencies: []
@@ -159,5 +159,11 @@ author: foreman
 created: 2026-08-27 20:29
 ---
 MUST-FIX LANDED at 4fdea9a2b (dev.sh only, 30/7, mechanic executing the architect's exact snippet; shellcheck delta identical, bash -n clean). The guard now distinguishes looked-and-clear from could-not-look: running-container pre-gate → clear; pgrep exit 1 → clear; any other exit → REFUSING loudly with the observation failure named, exit 1. PROVEN LIVE on all three arms, none from reading: (1) a real pg_sleep psql planted in the real db container → BLOCKED banner naming its pid, exit 1; (2) same container clean → return 0; (3) a PATH docker shim (real daemon untouched) passing the pre-gate but failing exec with exit 2 → the REFUSING line verbatim — demonstrating that the OLD form silently returned clear in exactly that scenario. The :496-499 comment no longer asserts a sparse hole the SEEK_HOLE probe disproved — softened to the observed geometry per 286. REMAINING in this ticket: the postmaster-becomes-the-lock build (pg_stat_activity authority + zero-backend orphan DROP + sanctioned detached-run mechanism with its own tmux socket, landing with-or-after the guard — the guard half is now in), engineer's queue after 267.
+---
+
+author: foreman
+created: 2026-08-27 21:34
+---
+INCIDENT + FIX on the must-fix itself (2026-08-27 ~20:34-21:35Z): the landed guard KILLED CI. Under dev.sh's set -euo pipefail (line 9), the capture `_out=$(...); _rc=$?` dies on the assignment when pgrep exits 1 — the NORMAL clean-container case — so every fast-tests run at 4fdea9a2b aborted silently (exit 1, zero output, 0.3s after seed-fetch: the exact CI signature that triggered the investigation). Two lessons, both already in our book and both bitten anyway: (1) STATBUS-261's errexit-safe capture idiom (`_rc=0; _out=$(cmd) || _rc=$?`) applies to EVERY capture in an errexit script — the architect's prescribed snippet carried the landmine and neither his review nor the mechanic's build caught it; (2) A PROOF HARNESS MUST REPLICATE THE CALLER'S SHELL MODE — the three-arm proof ran the extracted function outside set -e, so arm 2 passed in the harness and killed the caller. FIX LANDED at 443a65629 (foreman, urgent: master fast-tests red also blocks the next cut's 288 oracle): errexit-safe idiom + the incident recorded at the line; ALL THREE ARMS RE-PROVEN UNDER set -e against the real container (clean → continues; planted pg_sleep straggler → BLOCKED by pid, exit 1; shim-failed exec → REFUSING verbatim, exit 1); planted process waited out, never signalled; container verified clean after. Assignee moved to engineer for the remaining postmaster-lock build.
 ---
 <!-- COMMENTS:END -->
