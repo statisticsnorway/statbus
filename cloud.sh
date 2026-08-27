@@ -65,7 +65,7 @@ usage() {
     echo "  install all [version]      Install ALL servers in sequence"
     echo "  tail <server|all>          Follow upgrade log; auto-disconnects on completion"
     echo "  rescue <server>            Alias for install"
-    echo "  create <code> <name>       Create new cloud installation"
+    echo "  create <code> <name> <version>  Create new cloud installation at a named release"
     echo "  inspect                    Show credentials for all installations"
     echo "  wipe <server>              DESTRUCTIVE: delete DB and recreate"
     echo ""
@@ -545,7 +545,8 @@ cmd_wipe() {
 cmd_create() {
     local code="$1"
     local name="$2"
-    exec "$SCRIPT_DIR/ops/create-new-statbus-installation.sh" "$code" "$name"
+    local version="$3"
+    exec "$SCRIPT_DIR/ops/create-new-statbus-installation.sh" "$code" "$name" "$version"
 }
 
 cmd_inspect() {
@@ -575,8 +576,8 @@ case "$1" in
         cmd_install "$2" "${3:-}"
         ;;
     create)
-        [ $# -lt 3 ] && { echo "Error: create requires <code> and <name>"; echo "Example: $0 create pk \"Pakistan StatBus\""; exit 1; }
-        cmd_create "$2" "$3"
+        [ $# -lt 4 ] && { echo "Error: create requires <code>, <name>, and <version>"; echo "Example: $0 create pk \"Pakistan StatBus\" v2026.08.0-rc.10"; exit 1; }
+        cmd_create "$2" "$3" "$4"
         ;;
     inspect)
         cmd_inspect

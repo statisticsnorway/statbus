@@ -129,18 +129,17 @@ echo "  GITHUB_USERS:       ${GITHUB_USERS:-<empty>}"
 echo "  GITHUB_DEPLOY_KEYS: ${GITHUB_DEPLOY_KEYS:-<empty>}"
 echo "  UPGRADE_ROLE:       $TARGET_ROLE"
 
-# Verify DNS setup
+# Verify DNS setup — apex record only. The api./www. subdomain split is dead:
+# every real slot (dev/ug/ma) runs a single apex A/AAAA record, caddy/templates
+# route by PATH (/rest) not by subdomain, and carry zero api./www. references.
 echo "Verifying DNS setup..."
-for subdomain in "" "api." "www."; do
-    RECORD="${subdomain}${DOMAIN}"
-    DNS_CHECK=$(dig +short "$RECORD")
-    if ! echo "$DNS_CHECK" | grep -q "$HOST"; then
-        echo "Error: DNS record for $RECORD does not point to $HOST"
-        echo "Expected to find $HOST in:"
-        echo "$DNS_CHECK"
-        exit 1
-    fi
-done
+DNS_CHECK=$(dig +short "$DOMAIN")
+if ! echo "$DNS_CHECK" | grep -q "$HOST"; then
+    echo "Error: DNS record for $DOMAIN does not point to $HOST"
+    echo "Expected to find $HOST in:"
+    echo "$DNS_CHECK"
+    exit 1
+fi
 
 echo "Configuring server..."
 
@@ -153,7 +152,7 @@ ssh root@$HOST bash <<CREATE_USER
     # Create user if doesn't exist
     if ! id "$DEPLOYMENT_USER" &>/dev/null; then
         echo "Creating user $DEPLOYMENT_USER..."
-        adduser --gecos "Hosting for www.$DOMAIN and api.$DOMAIN" --disabled-password "$DEPLOYMENT_USER"
+        adduser --gecos "Hosting for $DOMAIN" --disabled-password "$DEPLOYMENT_USER"
         adduser "$DEPLOYMENT_USER" docker
         echo "User created and added to docker group"
     else
@@ -416,21 +415,22 @@ ssh $DEPLOYMENT_USER@$HOST bash << UPDATE_SETTINGS
         echo "Set UPGRADE_ROLE=$TARGET_ROLE (was: \${current_role:-unset})"
     fi
 
-    # Only update URLs if different
+    # Only update URLs if different — apex domain only (the api./www. split is
+    # dead; see the DNS-verification comment above for the evidence).
     current_statbus_url=\$(grep '^STATBUS_URL=' .env.config | cut -d'=' -f2)
-    if [ "\$current_statbus_url" != "https://www.$DOMAIN" ]; then
-        sed -i "s#STATBUS_URL=.*#STATBUS_URL=https://www.$DOMAIN#" .env.config
+    if [ "\$current_statbus_url" != "https://$DOMAIN" ]; then
+        sed -i "s#STATBUS_URL=.*#STATBUS_URL=https://$DOMAIN#" .env.config
         echo "Updated StatBus URL"
     else
-        echo "StatBus URL is already https://www.$DOMAIN"
+        echo "StatBus URL is already https://$DOMAIN"
     fi
 
     current_supabase_url=\$(grep '^BROWSER_REST_URL=' .env.config | cut -d'=' -f2)
-    if [ "\$current_supabase_url" != "https://api.$DOMAIN" ]; then
-        sed -i "s#BROWSER_REST_URL=.*#BROWSER_REST_URL=https://api.$DOMAIN#" .env.config
+    if [ "\$current_supabase_url" != "https://$DOMAIN" ]; then
+        sed -i "s#BROWSER_REST_URL=.*#BROWSER_REST_URL=https://$DOMAIN#" .env.config
         echo "Updated Supabase URL"
     else
-        echo "Supabase URL is already https://api.$DOMAIN"
+        echo "Supabase URL is already https://$DOMAIN"
     fi
 
     # Add GitHub deployment key if not already present

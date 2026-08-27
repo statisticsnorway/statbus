@@ -209,14 +209,14 @@ Use the automated installation script from your local machine:
 
 ```bash
 # From your local statbus repository
-./ops/create-new-statbus-installation.sh <code> "<Name>"
+./ops/create-new-statbus-installation.sh <code> "<Name>" <version>
 
 # Example:
-./ops/create-new-statbus-installation.sh pk "Pakistan"
+./ops/create-new-statbus-installation.sh pk "Pakistan" v2026.08.0-rc.10
 ```
 
 This script will:
-1. Verify DNS setup (pk.statbus.org, api.pk.statbus.org, www.pk.statbus.org)
+1. Verify DNS setup (pk.statbus.org)
 2. Declare the instance's upgrade ROLE (`UPGRADE_ROLE=production`). A new country instance is an ordinary production slot — it follows releases on its own and gets no push-triggered workflow and no deploy branch. The channel it follows (`stable`) is derived from the role on every `./sb config generate`, so it cannot drift out of date the way a stored channel could (STATBUS-254).
 3. Create Linux user `statbus_pk` on niue.statbus.org
 4. Add user to docker group
@@ -234,12 +234,12 @@ This script will:
 
 #### Step 1: Configure DNS
 
-Ensure DNS records point to niue.statbus.org:
+Ensure the apex DNS record points to niue.statbus.org (the api./www. subdomain
+split is dead — every real slot runs a single apex record; caddy/templates
+route by path, not by subdomain):
 
 ```bash
 pk.statbus.org        A/CNAME → niue.statbus.org
-api.pk.statbus.org    A/CNAME → niue.statbus.org
-www.pk.statbus.org    A/CNAME → niue.statbus.org
 ```
 
 #### Step 2 (retired, STATBUS-244): no GitHub deployment key, no workflow files, no deploy branch
@@ -641,7 +641,7 @@ Set up monitoring for:
 Use the automated script:
 
 ```bash
-./ops/create-new-statbus-installation.sh <code> "<Name>"
+./ops/create-new-statbus-installation.sh <code> "<Name>" <version>
 ```
 
 The script handles:
