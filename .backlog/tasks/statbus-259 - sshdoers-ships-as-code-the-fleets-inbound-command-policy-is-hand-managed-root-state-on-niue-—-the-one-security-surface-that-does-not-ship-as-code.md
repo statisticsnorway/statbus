@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-08-19 20:06'
-updated_date: '2026-08-27 12:44'
+updated_date: '2026-08-27 12:47'
 labels:
   - ops
   - security
@@ -227,5 +227,15 @@ LOAD-BEARING BASELINE HASH, recorded verbatim per the architect's addition #1 �
 Addition #2: after the install, prove entries-unchanged rather than assert it — diff the non-comment, non-blank lines of the step-4 backup against the new live file; MUST be empty. Pairs with step 7 (door test is behavioural but covers two users; the line diff is exhaustive but cannot prove sshdo parses the result) — both run.
 
 RECONCILE DIFF (architect's ruling, summary): live carries SEVEN grants the reviewed copy never had — ci-deploy-status.sh for statbus_tcc/dev/ma/ug/et/jo and github-runner's statbus-runner-health — a naive install would have revoked all seven. Repo wins on comments; live wins on entries, captured verbatim; the live block's "all seven" comment is corrected to SIX with demo's absence explained (deploy-to-demo.yaml deleted, 244a — adding a poll entry for demo would be a grant ADDITION, separate reviewed decision); the five Wave-D-condemned entries are captured AND marked, never deleted in a reconcile. Mechanic building; architect reviews the diff before landing.
+---
+
+author: foreman
+created: 2026-08-27 12:47
+---
+RECONCILE LANDED at eff9b42efbbcc1091449598f70defd059912d686 (architect verdict: LAND — both anchors verified independently: 25 insertions 0 deletions one hunk, comments untouched proven by absence of deletion lines; sshdo emits No-such-user as warning: at :332/:393 so the stage tolerates github-runner on hosts without that user). STATBUS259 preflight tests green in the throwaway worktree.
+
+ARCHITECT'S GUARANTEE NOTE, recorded so nobody mistakes the parser for it: sshdo --check CANNOT catch a misspelled username (unknown user = warning, validates cleanly, silently grants nothing). The protection is the SET-EQUALITY CHECK — comment-stripped, sorted, byte-identical to the live capture — which is the strongest evidence in this unit and the guarantee the parser structurally cannot give.
+
+SECOND SESSION NEXT (operator, root@niue): provenance protocol as ratified in comment #10 — step 2 compares live against the RECORDED baseline f8b669402e9c01295de29e30aa676fa65f6ec2f65cd3b62abe314f75aa9ea364 (proceed only if unchanged); SSHDOERS_REF=eff9b42efbbcc1091449598f70defd059912d686; step 6 success = live hash equals the reconciled repo copy's hash; post-install entry-line diff of backup vs new live MUST be empty.
 ---
 <!-- COMMENTS:END -->
