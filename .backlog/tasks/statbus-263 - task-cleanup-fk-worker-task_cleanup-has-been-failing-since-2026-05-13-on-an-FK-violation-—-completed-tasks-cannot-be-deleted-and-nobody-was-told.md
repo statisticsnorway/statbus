@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-27 12:41'
-updated_date: '2026-08-27 16:18'
+updated_date: '2026-08-27 16:22'
 labels:
   - worker
   - norway
@@ -92,5 +92,46 @@ GENERAL PRINCIPLE, named for faster recognition next time: WHAT MUST SURVIVE A F
 (c) IS NOT COMPLETE ALONE: re-enqueueing restores recurrence; a persistently failing daily task is still the six-day silence — that half belongs to 267's family, built knowing about each other.
 
 BUILD HAZARD: first post-fix run faces 3.5 months of backlog (rune 605k rows) no steady-state run ever faced — measure before shipping, batch if warranted (STATBUS-172's rule: correct against data written under the corruption). Migration discipline: \sf dump first, forward migration.
+---
+
+author: engineer
+created: 2026-08-27 16:22
+---
+**THE PREMISE IS NOW PROVEN BY A RUN, NOT BY DOCUMENTATION.** Shape-independent groundwork, built on the foreman's go while the (c) ruling is pending. One new test, frozen:
+
+- `test/sql/095_worker_task_parent_fk_delete_semantics.sql`
+- `test/expected/095_worker_task_parent_fk_delete_semantics.out`
+
+Fast tier, GREEN. Two untracked files are the whole diff; no git operations.
+
+## What it establishes, against the real table and the real constraint
+
+My diagnosis rested on one property I had asserted from the manual: NO ACTION is an AFTER-STATEMENT check. Everything downstream turns on it — if it were per-row, the remedy would have to be ORDERING (delete leaves first, walk up); because it is per-statement, the remedy is instead to make the statement's SELECTION coherent (never leave a child behind). Those are different repairs, so the premise had to come from a run before any fix is written.
+
+It does. Three arms:
+
+1. **ONE statement deleting parent AND child together SUCCEEDS** — 0 rows remain. The parent is unreferenced only by the end of the statement, and that is enough.
+2. **Deleting ONLY the parent RAISES**, with the constraint named in the asserted output:
+   `ERROR: update or delete on table "tasks" violates foreign key constraint "tasks_parent_id_fkey"` / `DETAIL: Key (id)=(999263001) is still referenced from table "tasks".` Both rows then survive — the refusal rolled back rather than partially applying.
+3. **Deleting the CHILD alone succeeds** — the constraint is directional; it only ever objects to a referenced row leaving while its referrer stays. Stated so the fix is not over-built.
+
+**This is the production failure reproduced in miniature**: the bulk DELETE's predicate selected a parent but not its child. It confirms the mechanism in comment #1 and rules out the ordering-based repair.
+
+## RED-verified — four mutations, each site asserted
+
+`tmp/red_verify_095.sh`, log `tmp/red_verify_095.log`. Verdict AND divergence captured per mutation:
+
+- ARM 1 made parent-only → the FK error **appears** where none belongs → red (arm 1's success is the assertion)
+- ARM 2 made a joint delete → the FK error **disappears** → red (the refusal is asserted, not assumed)
+- child seeded with `parent_id NULL` → the FK error disappears → red (the LINK is what raises it)
+- `ROLLBACK TO SAVEPOINT` removed → everything after arm 2 dies on an aborted transaction → red (the savepoint recovery is real, not decorative)
+
+Restored byte-identical; re-run green.
+
+**One mutation was deliberately NOT made:** turning the closing `ROLLBACK` into `COMMIT`. It would leak seeded rows into the SHARED test database and poison later tests. The isolation property is asserted instead by the final arm — after the rollback, 0 seeded rows remain — and the reason is written at the line in the harness so nobody adds that mutation later thinking it was an oversight.
+
+## Boundary
+
+This constrains the fix; it does not choose it. It stays true under (a), (b), or whatever shape the (c) ruling produces, and it should land with the fix rather than before it. **Still blocked on (c)** — whether a recurring maintenance task's reschedule belongs in the procedure or in the worker's task runner.
 ---
 <!-- COMMENTS:END -->
