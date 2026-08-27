@@ -494,9 +494,12 @@ release_test_run_lock() {
 # The next invocation then acquires the lock legitimately and starts a
 # SECOND pg_regress into the same --outputdir — two writers on one .out
 # file corrupt it silently: writer B's fopen truncates and writes its head,
-# writer A's next flush lands at its own saved offset, and the kernel
-# zero-fills the gap — a sparse NUL hole with correct content on both
-# sides, no error from either writer.
+# writer A's next flush lands at its own saved offset, and the kernel fills
+# the gap between — observed (STATBUS-286, SEEK_HOLE probe on two corrupted
+# artifacts) as a ZERO-FILLED gap, page-aligned start, arbitrary end;
+# NEITHER probe found an actual sparse hole, so "sparse" is unproven — do
+# not re-assert it, only that the gap reads as zeros with correct content
+# on both sides and no error from either writer.
 #
 # MATCH: 'pg_regress' catches the parent binary while it's still alive;
 # 'HIDE_TABLEAM' catches its regress-runner psql children even after
@@ -513,10 +516,30 @@ release_test_run_lock() {
 # pids + kill command, and let the operator decide — recurrence must fail
 # loudly with the fix named, never be quietly repaired out from under them.
 check_no_straggler_pg_regress() {
-    # If the db service isn't even running there is nothing to race with —
-    # docker compose exec fails fast in that case; skip silently.
-    local _straggler
-    _straggler=$(docker compose exec -T db pgrep -af 'pg_regress|HIDE_TABLEAM' 2>/dev/null) || return 0
+    # If the db service isn't even running there is nothing to race with.
+    docker compose ps --status running --format '{{.Service}}' | grep -qx db || return 0
+
+    # STATBUS-282 MUST-FIX: a failure to OBSERVE is not evidence of absence.
+    # pgrep exit 1 means "looked, found nothing" — genuinely clear. Any OTHER
+    # non-zero exit (docker compose exec rejected, daemon busy, container
+    # restarting) means the guard never looked at all. The old form —
+    # `2>/dev/null) || return 0` — collapsed both into the same silent
+    # return-clear, discarding stderr, the one thing that would have told
+    # them apart. On macOS Docker Desktop's documented unresponsiveness
+    # (CLAUDE.md has its own restart procedure for it) that reads as "no
+    # straggler" when the true answer is "could not check."
+    local _out _rc
+    _out=$(docker compose exec -T db pgrep -af 'pg_regress|HIDE_TABLEAM' 2>&1); _rc=$?
+    case $_rc in
+        0) ;;              # straggler found -> BLOCK below
+        1) return 0 ;;     # pgrep looked, found nothing -> genuinely clear
+        *)
+            echo "REFUSING: could not observe the db container (exit $_rc): $_out" >&2
+            exit 1
+            ;;
+    esac
+
+    local _straggler="$_out"
     [ -n "$_straggler" ] || return 0
 
     local _pids
