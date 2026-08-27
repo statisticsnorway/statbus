@@ -3,10 +3,11 @@ id: STATBUS-284
 title: >-
   cloud-doc-port-accuracy: CLOUD.md's port formula and REST column contradict
   the table, config.go, and AGENTS.md's canonical scheme
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@mechanic'
 created_date: '2026-08-27 17:02'
-updated_date: '2026-08-27 19:40'
+updated_date: '2026-08-27 19:46'
 labels:
   - doc
   - cloud

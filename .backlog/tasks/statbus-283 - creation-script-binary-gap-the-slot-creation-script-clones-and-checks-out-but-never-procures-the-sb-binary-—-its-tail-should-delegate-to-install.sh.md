@@ -3,10 +3,11 @@ id: STATBUS-283
 title: >-
   creation-script-binary-gap: the slot-creation script clones and checks out but
   never procures the sb binary — its tail should delegate to install.sh
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@mechanic'
 created_date: '2026-08-27 16:47'
-updated_date: '2026-08-27 19:42'
+updated_date: '2026-08-27 19:46'
 labels:
   - ops
   - cloud
