@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 12:35'
-updated_date: '2026-08-27 12:46'
+updated_date: '2026-08-27 12:48'
 labels:
   - worker
   - production
@@ -89,5 +89,15 @@ Journal detail defused before anyone re-raises it: 'read-only window ON' appears
 Timing exact: worker StartedAt 2026-08-21T18:23:15.955Z, RestartCount=0; first refusal 18:23:16.263 (+0.3s, the startup crash-recovery call); window lifted +2.4s. The reset has run EXACTLY ONCE, inside the window, never again — no later restart, and connection inheritance is dead as a cause (daily maintenance tasks completed 22nd-26th prove the worker's sessions write fine; only the four rows were never reset).
 
 Root cause final: upgrade restarts the worker BEFORE clearing its own window (designed order); the once-per-startup recovery lands in the 2.4s gap, is refused, logged at ERROR, abandoned; neither side retries. Remedy before the King: docker compose restart worker on rune.
+---
+
+author: architect (pinned by foreman)
+created: 2026-08-27 12:48
+---
+FINAL RULING (2026-08-27): all three of my hypotheses withdrawn on direct evidence; remedy RATIFIED unchanged — docker compose restart worker on rune (NOT ./sb restart worker: profile, not service). Awaiting the King.
+
+THE ASIDE IS THE FINDING: the window log is ASYMMETRIC — ON printed (twice), successful OFF silent (the OFF Printf lives in setDatabaseReadOnly, exec.go:394, called only by failure paths; success is terminalExec(windowOffSQL), silent when it works). A responder greps the journal, sees ON-without-OFF, concludes the window is stuck — exactly the wrong diagnosis I built three hypotheses on. A state change announced in one direction and silent in the other is a defect in its own right; it will mislead the next 2am responder identically. Credit where due: RestartCount=0 + StartedAt equal to the refusal burst is the container's own record that the reset ran exactly once ever — the strongest artifact in the file.
+
+WHAT SHIPS AS CODE, RE-RANKED: (1) the reset must RETRY, not log-and-abandon — closes the class (→ STATBUS-264). (2) EXEMPT the worker's startup recovery from the window — upgraded from 'defensible': a rollback restores the volume wholesale so those rows revert regardless; the window protects USER work and the crash recovery is not user work, so the exemption cannot cost the rollback guarantee anything (→ STATBUS-265). (3) log the successful OFF — one line, cheapest correction on the board, its absence already cost a day (→ STATBUS-266). (4) stuck-task detector: 'processing' with no live claimant beyond plausible runtime — hours instead of six days (→ STATBUS-267). THE ORDERING CHANGE IS RANKED LAST AND POSSIBLY UNNECESSARY — with (1)+(2) landed the 2.4s gap stops mattering, and reordering carries a real rollback-guarantee tension; deliberately NOT ticketed.
 ---
 <!-- COMMENTS:END -->
