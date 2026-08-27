@@ -3,11 +3,11 @@ id: STATBUS-259
 title: >-
   sshdoers-ships-as-code: the fleet's inbound-command policy is hand-managed
   root state on niue — the one security surface that does not ship as code
-status: In Progress
+status: Done
 assignee:
   - engineer
 created_date: '2026-08-19 20:06'
-updated_date: '2026-08-27 13:12'
+updated_date: '2026-08-27 13:23'
 labels:
   - ops
   - security
@@ -292,4 +292,16 @@ ENDGAME VERDICT: LAND both diffs (architect, verified at source — byte-identic
 
 DIFF 1 LANDED at bdc546386933b19cb94c87f4689b17e642c5459f (the named-target line, cloned hash run). FOURTH stage session dispatched to the operator: pin bdc546386, provenance baseline = the third session's install 547ada75…, step-5 proof = comment-stripped line diff shows EXACTLY one added line, zero removed. Then diff 2 lands (amended), then the real-dispatch acceptance — the architect holds the run-it standard on the door change.
 ---
+
+author: foreman
+created: 2026-08-27 13:23
+---
+ACCEPTANCE GREEN — run 33075841334: the chain dispatched deploy-to-dev, the workflow sent `cd ~/statbus && ./sb upgrade apply bba72a4a57d08b43f6bf983be2606f45c7fe3cf3` (the named-target verb, full 40-hex), the DOOR PERMITTED IT through the entry the fourth session installed, the box emitted deployed_commit equal to the argument, the guard compared equal, the poll read converged, run success. The run-it standard held: the door change is proven by a dispatch, not a reading. The deferred removal of dev's apply-latest grant is filed as STATBUS-273. CLOSING.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The fleet's inbound-command policy ships as code. Stage 8 of ops/setup-ubuntu-lts-24.sh installs /etc/sshdoers byte-for-byte from the reviewed ops/niue/sshdoers at a required explicit commit, publishes a world-readable hash, and release preflight check 16 fails any cut on drift, unreachability, or an empty domain. Getting there took four root sessions, each teaching something the reviews could not: compare-first fired on real drift (seven live grants the reviewed copy never had — a naive install would have revoked the fleet's convergence polls); the provenance protocol replaced identity with the right question; "independently runnable" proved false at run time and produced the per-stage input declarations; and the final session put the named-target apply entry live. The endgame swapped deploy-to-dev to `upgrade apply $REQUESTED_SHA` with the requested-vs-installed guard kept and its meaning inverted (a mismatch now means the apply verb broke, not that the box chose), and acceptance run 33075841334 proved the whole path — dispatch → door → named install → guard → convergence — through the real CI door. Allowlist changes are henceforth a reviewed commit plus a stage re-run; the last hand-managed security surface joined the doctrine. Deferred: STATBUS-269 (host-name validation), STATBUS-273 (retire dev's apply-latest grant after the transition proves stable).
+<!-- SECTION:FINAL_SUMMARY:END -->
