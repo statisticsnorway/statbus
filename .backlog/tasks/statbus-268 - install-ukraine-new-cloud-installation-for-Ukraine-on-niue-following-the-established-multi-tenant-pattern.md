@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 12:56'
-updated_date: '2026-08-27 13:38'
+updated_date: '2026-08-27 13:39'
 labels:
   - ops
   - cloud
@@ -110,5 +110,13 @@ OFFSET-10 AUDIT COMPLETE — the spec's precondition is DISCHARGED: eleven consu
 One flagged doc gap, not a bug: doc/CLOUD.md's Current Deployments table gains the ua/offset-10 row when the slot exists — belongs to the install execution, not this audit.
 
 UKRAINE'S REMAINING GATE: a stable release to install (the rc.10 → canary → stable sequence, STATBUS-271). Everything else — DNS (done), spec (ruled), offset (audited) — is ready.
+---
+
+author: architect (pinned by foreman)
+created: 2026-08-27 13:39
+---
+OFFSET 10 COMMITTED for Ukraine — and the clearance is recorded as a PERMANENT PROPERTY, not a one-time check: OFFSET WIDTH IS UNCONSTRAINED (audited eleven consumers, 2026-08-27). The structural reason — only two arithmetic sites, plain ints, no fixed-width formatting, all other consumers take pre-formatted output — clears ANY width, 100+ included. The next country's spec must NOT repeat this audit; cite this comment instead.
+
+The finding the architect singles out: the next-offset picker's NUMERIC sort (create-new-statbus-installation.sh:317-318). A lexical sort would put "10" before "9", report 9 as the max, hand 10 to a SECOND slot, and collide with Ukraine — both boxes looking correctly configured until the ports clashed. Verified numeric, not assumed.
 ---
 <!-- COMMENTS:END -->
