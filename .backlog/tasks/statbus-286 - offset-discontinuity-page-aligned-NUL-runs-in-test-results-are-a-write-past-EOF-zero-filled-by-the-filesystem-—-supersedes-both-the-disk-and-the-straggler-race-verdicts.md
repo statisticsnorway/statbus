@@ -7,7 +7,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 17:14'
-updated_date: '2026-08-27 22:39'
+updated_date: '2026-08-27 22:40'
 labels:
   - testing
   - tooling
@@ -20,26 +20,23 @@ ordinal: 279000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Architect's ruling (2026-08-27, adversarial verification of the day's second corruption instance, REVISED same evening after the SEEK_HOLE probe and cross-checks), superseding both prior verdicts on the NUL-corrupted test/results class (May's 105/straggler case and tonight's 110/301 case). Status: a gap of KNOWN GEOMETRY, TWO live mechanisms, and the experiment that separates them — NOT a confirmed mechanism.
+Architect's governing frame (revised 2026-08-28 after the July discoveries; supersedes the earlier one-day-cluster framing and both pre-286 verdicts — May's straggler certainty and the disk/Docker theories).
 
-WHAT IS ESTABLISHED (read off the bytes, no storage reasoning): data for [16384, 593114) in 110's result (and [4096, 5960) in 301's) NEVER ARRIVED, while correct data before and after did. The zero runs START page-aligned (stdio 4096-byte flush boundaries) but END at arbitrary offsets. Files fully allocated (110: size 1,175,693 / blocks 2304, ratio 1.00; 301: 68,397 / 136) — verified on the ORIGINALS by foreman and engineer independently.
+SIX PRESERVED VICTIMS ACROSS SIX WEEKS, IN TWO EPISODES — 2026-07-13 (403_cross_border_power_group), 2026-07-14 (314_consecutive_demo_loads), and four on 2026-08-27 (105, 110, 301 twice, 307). All six carry one signature: zero run starting on an exact page boundary, ending at an arbitrary offset, file fully allocated, no holes. Data for the gap never arrived while data after it did.
 
-RULED OUT: storage/disk corruption and VirtioFS whole-page substitution (both produce runs page-aligned at BOTH ends; ours end mid-page); sparse holes (SEEK_HOLE/SEEK_DATA on the originals: contiguous DATA, no holes).
+BOTH EPISODES COINCIDE WITH DOCUMENTED KILLED RUNS — 2026-07-14 is recorded contemporaneously in dev.sh:482 (the 401 chain-starter external kill) and dev.sh:733 (crash-recovery cycles); 2026-08-27 is the killed suite that stranded six clone databases (STATBUS-282 comment #1). This supports, without yet proving, the host-death → straggler → second-writer producer that 282 closes. The load correlation is real but INDIRECT: load produces kills, kills produce stragglers, stragglers produce this — a sharper hypothesis than load-causes-corruption, and falsifiable in the passive posture (a future strike with no killed run in evidence breaks it).
 
-THE TWO LIVE HYPOTHESES, no longer separable on current evidence:
-1. OFFSET DISCONTINUITY — a writer's position was at the gap's end while the gap was never written (two processes racing OR one process with a stale second handle: identical signatures; the process count is a detail beneath the property).
-2. RANGE LOSS — everything was written sequentially and the storage path dropped the range, leaving allocated zeros.
-The geometry MILDLY favours discontinuity: an arbitrary end offset is natural there (a position in an output stream), while range loss needs a partially-lost page (zeros in a page's head, content in its tail) — possible, but a coincidence the other story does not need. Mild, not decisive.
+TWO MECHANISMS REMAIN LIVE and the geometry alone does not separate them: an OFFSET DISCONTINUITY (a writer positioned past the gap — two processes racing or one process with a stale second handle give identical signatures) or a storage-path RANGE LOSS. The geometry mildly favours the first — under it the arbitrary end is simply a stream position, while range loss requires a partially-lost page.
 
-EVIDENCE STATUS NOTES (kept so nobody re-litigates): the SEEK_HOLE no-hole result is UNINFORMATIVE, not refuting — these writes cross VirtioFS, whose past-EOF gap handling (hole vs daemon-materialized zeros) is Docker Desktop's implementation choice, so the probe cannot answer what it was posed for. The exposure-window/victim-profile hypothesis (big slow files get hit) is REFUTED by this run's own data: 107 larger and clean, 305/307 slower and clean, victim 301 middling, prior victim 105 clean today — selection looks arbitrary; do not rebuild a time-dependent shape on it. "Single writer" claims are unprovable by pgrep (point-in-time sampling; container-side pgrep is blind to host-side holders of the bind mount). pg_regress writes DIRECTLY to the bind mount (--outputdir=/statbus/test, /Users/jhf/ssb/statbus -> /statbus) — no copy step exists between writer and artifact. Forensic captures of suspected-sparse files must record SEEK_HOLE geometry BEFORE copying (cp materializes holes). May's straggler remains an INSTANCE consistent with hypothesis 1, not a separate mechanism; the afternoon verdict's error was certainty.
+BASE RATE ~2 EPISODES / 6 WEEKS MAKES ON-DEMAND REPRODUCTION INFEASIBLE. No multi-hour experiment can be expected to reproduce it; the container-local vs bind-mount discrimination returned a clean 20/20 null and could not attribute. SURVEILLANCE IS THEREFORE THE INSTRUMENT, not the patient option: the tripwire captures SEEK_HOLE/stat on the ORIGINAL, host holders WITH their offsets (lsof -o — macOS has no /proc and the offset is the entire discriminator), and container-side fdinfo pos:, all BEFORE any preserving copy. The next single fire is expected to be decisive — and may be the only one we get.
 
-THE DISCRIMINATING EXPERIMENT (deliverable #1 — settles the two hypotheses in ONE run, no need to catch the event in the act): run pg_regress with --outputdir on a CONTAINER-LOCAL path (not the bind mount), copy results out at the end, compare. Container-local clean + bind-mounted corrupt = the storage path is the mechanism. Both corrupt = the writer is the mechanism and VirtioFS is exonerated.
+EVIDENCE-STATUS NOTES kept so nobody re-litigates: the SEEK_HOLE no-hole result is uninformative (VirtioFS's past-EOF gap handling is Docker Desktop's choice); the victim-profile refutation (which file gets hit WITHIN a run — larger/slower files clean, victims middling) STANDS, and is a different claim from whether corruption occurs under load at all; single-writer claims are unprovable by pgrep; pg_regress writes directly to the bind mount (no copy step between writer and artifact); forensic captures record SEEK_HOLE geometry BEFORE copying (cp materializes holes); synthetic exercise artifacts are quarantined under tmp/forensics-286/synthetic/ with a planted-data README so the genuine-instance count stays honest.
 
-THE INSTRUMENT (deliverable #2, revised — POSITIONS, not identities, are the discriminator): extend dev.sh check_results_for_nul_corruption so that at fire time, before anything else runs, it records (1) inside the container, /proc/*/fdinfo/* for every fd resolving to the results file — the pos: field gives each holder's exact offset; two positions settles discontinuity instantly, one position with a gap behind it points at loss; (2) host-side lsof on the file for holder IDENTITY (fdinfo unavailable on macOS); (3) the file's stat and SEEK_HOLE map at capture time.
+Standing discipline unchanged: victims restore via git checkout when surroundings match HEAD; never update baselines from corrupted output; report-and-wait on stragglers (STATBUS-188); CI remains the reference oracle. Cross-references: STATBUS-282 (the producer this frame implicates, now closed — its machinery is the running experiment), STATBUS-158 (the tripwire this extended).
 
-Standing discipline unchanged: victims restore via git checkout when surroundings match HEAD; never update baselines from corrupted output; report-and-wait on stragglers (STATBUS-188); CI remains the reference oracle. Why CI never shows it stays OPEN with two candidates (bind-mount path; template reuse/retry behaviour) that CI-absence cannot discriminate — and CI's executed sample is smaller than its green count (stamp-rides). Cross-references: STATBUS-282 (host-death gap — one producer of stale writers), STATBUS-158 (the tripwire this extends).
+CLOSURE CONDITIONS: (a) a recurrence is captured with holders and positions and the mechanism is settled; or (b) a long clean period under real full-suite load lets the architect declare 282's producer-closure the fix.
 
-WHAT IS ACHIEVED: the damage has an exact known shape, one changed setting on a future run proves which of two causes it is, and the next occurrence records every holder's write position — no future session re-litigates disk-vs-Docker-vs-straggler on signature alone.
+WHAT IS ACHIEVED: the damage has an exact known shape and a named indirect producer hypothesis, the one future fire will carry holders and write offsets, and no future session re-litigates disk-vs-Docker-vs-straggler on signature alone.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Comments
@@ -142,5 +139,42 @@ author: foreman
 created: 2026-08-27 22:39
 ---
 Addendum landed at 119e83fc8: the fdinfo match-breadth reasoning is now AT THE LINE (a holder on a sibling results file is the discontinuity story in miniature — the writer moved on while something still held the old file; exact-path narrowing would discard that for tidiness). Comment-only; the exercise re-ran 6/6 after the edit rather than assuming a comment cannot break anything. Forensics-namespace hygiene on the record: 7 real artifacts in tmp/ root, 5 synthetic quarantined under tmp/forensics-286/synthetic/ with a planted-data README — the genuine-instance count stays honest by construction.
+---
+
+author: engineer
+created: 2026-08-27 22:39
+---
+**TWO EARLIER INSTANCES FOUND — 2026-07-13 and 2026-07-14. The record is six victims across six weeks, not four in one day.**
+
+Found while quarantining my synthetic exercise artifacts out of `tmp/`'s `corrupted-*` namespace, not by looking for them. Measured read-only with the same `measure.py` as the series; **neither file was moved or touched** — both sit where the tripwire preserved them.
+
+```
+corrupted-314_consecutive_demo_loads-20260714123030.out
+  size=56,023   NULs=2,253    start 8,192  = 2.000 x 4096 (ALIGNED)   run 0.55 pages (NOT a multiple)   sparse=false
+corrupted-403_cross_border_power_group-20260713150821.out
+  size=29,580   NULs=13,045   start 12,288 = 3.000 x 4096 (ALIGNED)   run 3.185 pages (NOT a multiple)  sparse=false
+```
+
+**Page-aligned start, arbitrary end, fully allocated, no holes — the 286 signature exactly**, on two tests never previously associated with it.
+
+## Three consequences, and the first is against my own hypothesis
+
+**1. It WEAKENS the load-dependence hypothesis I raised in #6.** I offered it because a quiet machine gave 0/20 where 2026-08-27 gave 2-of-3 suites. Two isolated instances six weeks earlier look more like a **low background rate** than a load threshold — a rare event clusters by chance, and a busy afternoon is exactly where one would notice it. Load-dependence should stay a live hypothesis, but this datum pulls against it, and it would be easy to omit because it is mine.
+
+**2. It bears on the HOLD, in favour of the instrument.** If the true rate is a couple of instances per six weeks, the passive wait may be LONG. That is not an argument against the hold — it is an argument that the fire-time capture is the whole value of waiting, because when it finally fires it is the only thing that will make the occurrence interpretable.
+
+**3. It should not be silently attributed to STATBUS-282's host-death gap.** That producer requires a killed run leaving a straggler. Whether those July runs were killed is not checkable from anything I hold — I am not claiming they were not, only that the assumption must not be inherited by default.
+
+## Note on the artifact namespace
+
+My synthetic exercise writes `corrupted-286_synthetic_holder-*` files. They are quarantined in `tmp/forensics-286/synthetic/` with a README stating plainly that the NUL was planted — a file named `corrupted-<test>-<timestamp>.out` sitting beside real ones is exactly what a future investigator would pick up as an instance. Current count: **7 genuine artifacts in `tmp/` root, 5 synthetic quarantined.**
+
+I have NOT edited the description's incidence history — that frame is the architect's to revise.
+---
+
+author: architect (pinned by foreman)
+created: 2026-08-27 22:40
+---
+FRAME REVISED (2026-08-28, applied to the description above) — and one of the engineer's three readings was TOO CONSERVATIVE: the July pair is NOT unattributed. dev.sh names 2026-07-14 TWICE, written at the time (:482 the 401 chain-starter external-kill incident; :733 the crash-recovery cycles, STATBUS-188) — contemporaneous documentation of a killed-run day, not an inference. BOTH episodes now coincide with documented killed runs. AND THE CLUSTERING SURVIVES: two victims on adjacent days is a second CLUSTER, not a uniform background — the record is two episodes six weeks apart. THE RECONCILING HYPOTHESIS, sharper than either prior reading: the clustering tracks KILLED RUNS; killed runs are more frequent on busy days; so the load correlation is real but INDIRECT (load → kills → stragglers → corruption) — falsifiable in the passive posture by one strike with no kill in evidence. CONSEQUENCE FOR THE HOLD: at ~2 episodes/6 weeks, a paired-suite experiment is not merely likely-null but STRUCTURALLY INCAPABLE of discriminating — surveillance is not the patient option, it is the only viable instrument, which raises the amended tripwire (lsof -o offsets + proven-to-yield exercise) from valuable to LOAD-BEARING: we may get ONE fire, possibly months out, and it must yield the first time.
 ---
 <!-- COMMENTS:END -->
