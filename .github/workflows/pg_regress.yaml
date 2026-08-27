@@ -1,4 +1,35 @@
 name: pg_regress
+
+# run-name — MACHINE-READ (STATBUS-285). NOT cosmetic, unlike the label on
+# install-recovery-harness.yaml.
+#
+# WHY IT EXISTS. For workflow_run-triggered workflows GitHub files the run's API
+# head_sha under the DEFAULT BRANCH'S TIP AT TRIGGER TIME, not under the commit
+# the run actually tested. Execution is pinned correctly (the ref step below
+# resolves workflow_run.head_sha and the checkout uses it), but ATTRIBUTION is
+# structurally wrong at the API — and no yaml can change what head_sha a run is
+# filed under. Run 33096555771 was filed under 620cc7f0b while having tested
+# 061b63d01, its ancestor. The release gate keys evidence on head_sha, so it can
+# read a green about one commit as a green about another.
+#
+# So the run PUBLISHES the commit it exercised, in the one field computable at
+# run-creation time and visible in the API runs list (display_title).
+#
+# WHY THIS IS NOT THE SELF-REPORT STATBUS-199 §5 REJECTED. That label described
+# WHAT RAN (full suite vs subset) — a claim a dispatch input could falsify, which
+# is why the gate moved to the job list instead. This one restates a TRIGGER
+# CONTEXT VALUE that also drives the checkout: the same
+# github.event.workflow_run.head_sha expression appears here and in the ref the
+# code is checked out at, and a declarative test asserts they stay identical
+# (TestWorkflowRunMarkerMatchesCheckoutRef_STATBUS285). The label cannot lie
+# without the checkout lying in the same breath.
+#
+# Evaluated at run creation, BEFORE any job — so it cannot use a step output, and
+# it exists even on runs that FAIL. That preserves red-vs-missing at the consumer:
+# a marker carried only by a step output would make every red run unattributable
+# and therefore Missing, re-opening STATBUS-256's do-not-just-re-run defect.
+run-name: >-
+  pg_regress @ exercised-sha=${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 on:
   workflow_dispatch:
   workflow_run:
@@ -44,8 +75,18 @@ jobs:
       uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
     - name: Determine ref and sha
       id: ref
+      # Identical to the trusted leg's resolution below, deliberately. This leg
+      # only fires on pull_request today, where github.sha is already the tested
+      # (merge) commit — so the conditional is inert here. It is written anyway
+      # so the two legs READ the same: a future workflow_run trigger on this leg
+      # would otherwise silently exercise the wrong commit, and the difference
+      # between the legs would be the last place anyone looked (STATBUS-285).
       run: |
-        echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+        if [ "${{ github.event_name }}" = "workflow_run" ]; then
+          echo "sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+        else
+          echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+        fi
     - name: Run tests on remote server
       id: pg_regress
       # PR leg stays on the appleboy ssh-action (the raw-ssh conversion is only on the
