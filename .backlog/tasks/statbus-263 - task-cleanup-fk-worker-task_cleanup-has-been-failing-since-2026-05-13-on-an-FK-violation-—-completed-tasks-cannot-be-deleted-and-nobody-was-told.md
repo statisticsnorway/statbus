@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-27 12:41'
-updated_date: '2026-08-27 16:22'
+updated_date: '2026-08-27 16:34'
 labels:
   - worker
   - norway
@@ -133,5 +133,59 @@ Restored byte-identical; re-run green.
 ## Boundary
 
 This constrains the fix; it does not choose it. It stays true under (a), (b), or whatever shape the (c) ruling produces, and it should land with the fix rather than before it. **Still blocked on (c)** — whether a recurring maintenance task's reschedule belongs in the procedure or in the worker's task runner.
+---
+
+author: engineer
+created: 2026-08-27 16:34
+---
+**BUILT TO THE RULING — one step short of frozen: 096's expected output needs a seed/template rebuild, which is a shared-resource call, not mine to make.** (Correcting my #3: it closed "still blocked on (c)" — that crossed the ruling in #2 and was stale on arrival.)
+
+## Files
+
+- `migrations/20260827162703_task_cleanup_retention_on_completed_at_with_child_guard.{up,down}.sql`
+- `migrations/20260827163000_runner_owns_recurring_maintenance_scheduling.{up,down}.sql`
+- `cli/src/worker.cr` — startup seed + post-batch scheduling
+- `test/sql/095_...` (+ expected) — GREEN, RED-verified, from the earlier step
+- `test/sql/096_worker_recurring_maintenance_survives_failure.sql` — written, behaviour proven by prototype, expected output pending
+
+Both down migrations were seeded from `\sf` dumps taken with stderr kept OFF the dump, per migration discipline.
+
+## The build hazard, measured rather than guessed
+
+Synthetic 600k backlog shaped like rune's (200k parents × 2 children), on a rolled-back transaction:
+
+| pass | rows after | time |
+|---|---|---|
+| 1 (leaves) | 600k → 201k | **12.7 s** |
+| 2 (parents freed by pass 1) | 201k → 1.5k | **7.6 s** |
+
+Residue 1,500 = 1,000 stuck children + the 500 ancestors they pin — **the ruling's recorded consequence, reproduced as a number**, and written at the line.
+
+Two design consequences fell out of the measurement, neither guessable:
+
+1. **BATCHING IS WARRANTED** — not because 20 s is impossible but because it is an unbounded DELETE holding row locks on the worker's hottest table, and rune is slower than this machine. Batched at 10k with a runaway ceiling.
+2. **THE LOOP MUST RUN TO A FIXPOINT INSIDE ONE RUN.** The guard deletes bottom-up, so a tree of depth D needs D+1 passes. Single-pass-per-day would drain **one tree level per day** — a 3.5-month backlog would take as many days as the trees are deep. That answers the sub-question I had left open.
+
+## A second family member with the identical landmine
+
+`worker.command_import_job_cleanup` also ends with `PERFORM worker.enqueue_import_job_cleanup()`. Same shape, same permanent-death exposure; it has survived only because its per-job DELETEs are individually wrapped — so its failures are swallowed into WARNINGs instead of raising. It is fixed here too, which is exactly why the ruling said the family, not the command.
+
+## Shape of the (c) fix
+
+Recurrence is now **data**: `worker.command_registry.schedule_interval` (NULL = event-driven), declared beside `handler_procedure`/`before_procedure`/`after_procedure`, which already establish that the registry describes behaviour rather than a client hard-coding it. Three functions: `ensure_recurring_task` (idempotent via the existing per-command dedup indexes — that one property makes "schedule next" and "seed if absent" the same request), `schedule_recurring_after(since)` for the runner's post-batch call, `seed_recurring_tasks()` for startup.
+
+**Seed-if-absent lives at worker startup, beside the crash-recovery reset** as suggested — it is the one moment guaranteed to come round again, and a box with nothing pending has nothing else to trigger recovery. **Loud:** only genuinely absent rows are reported, so a healthy box says nothing and a wedged one names its own repair.
+
+Verified empirically (`tmp/verify_263_behaviour.sql`, rolled back): recurrence declared as data ✓; **a FAILED task_cleanup still schedules the next occurrence, pending 0 → 1** ✓; seed repairs the rune case ✓; second seed reports `f`/`f`, claiming nothing ✓; non-recurring command refused loudly ✓.
+
+Crystal type-checks clean **through the entrypoint** (`crystal build --no-codegen src/statbus.cr`) — the only build that bites.
+
+## One trap caught before it bit
+
+096's structural arm asserts the handlers no longer self-schedule via `pg_get_functiondef`, which returns the body **including comments** — and my migration comment quotes `PERFORM worker.enqueue_task_cleanup(...)` verbatim to explain its removal. Raw matching would have found the explanation and reported the bug it explains. Comments are stripped before matching, with the reason written at the line.
+
+## The blocker
+
+`./dev.sh test` now refuses correctly: `source DB "statbus_seed" is BEHIND HEAD by 2 migration(s)`, fix `./dev.sh migrate-and-test fast` — which rebuilds seed + template and runs the full fast suite under the shared test lock. **That is a shared-resource decision while others are running tests, so I have not fired it.** It blocks 096's expected output and re-running 095. I deleted the 0-byte placeholder the refused run left, so no bogus expected file is frozen into the unit.
 ---
 <!-- COMMENTS:END -->
