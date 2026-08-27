@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-08-19 20:06'
-updated_date: '2026-08-27 13:00'
+updated_date: '2026-08-27 13:05'
 labels:
   - ops
   - security
@@ -277,5 +277,11 @@ CONVERGENCE VERIFIED INDEPENDENTLY BY THE FOREMAN: live hash = published hash = 
 STEP 7 (door proof): dev's entry proven through the REAL CI door by dispatching deploy-to-dev (the poke traverses sshdo against the NEW live file); demo's entry proves itself at its next 04:23Z scheduled trigger. HONESTY NOTE: the REFUSED direction (ls / must be denied) is not re-proven post-install from here — no CI key outside GitHub secrets; mitigated by the ENTRIES-IDENTICAL proof (the enforcing lines are byte-identical to the file that was refusing correctly all along) and recorded rather than waved green.
 
 THE TICKET'S CORE IS ACHIEVED: the live inbound-command policy is provably the reviewed one — /etc/sshdoers ships as code, drift fails the release cut, and allowlist changes are now a reviewed commit + stage re-run. REMAINING: the deploy-to-dev marked-block swap (apply-latest → upgrade apply "$SHA") + STATBUS-258's one-line allowlist entry — unblocked NOW per the King's execution order; architect to spec, then build.
+---
+
+author: architect (pinned by foreman)
+created: 2026-08-27 13:05
+---
+ENDGAME SPEC (2026-08-27). Allowlist line: `statbus_dev: cd ~/statbus && ./sb upgrade apply` + 40-# hash run — CLONED from line 84, never typed (a 39-# pattern refuses every dispatch while looking like a missing grant), count verified mechanically; the 40-# pattern also makes short-SHA addressing impossible at the door. Yaml swap: `upgrade apply $SHA` (full 40-hex), preserving 261's errexit capture shape. THE GUARD STAYS — its reason INVERTS: post-swap a mismatch means the apply verb installed something other than its argument (mechanism broken), so its message is amended; deleting an invariant check because the invariant currently holds is how invariants rot. SEQUENCING: (a) allowlist line LIVE on niue (reviewed commit + stage re-run) BEFORE the yaml swap lands; (b) dev's apply-latest grant COEXISTS through the transition — a revert must not strand the canary; removal is a later reviewed commit. Demo's apply-latest is permanent (correct verb for a channel-following box). Builder: mechanic. Acceptance: RUN IT — a real deploy-to-dev dispatch through the new entry. Step-7 door proof for the current state already GREEN (run 33074668847).
 ---
 <!-- COMMENTS:END -->
