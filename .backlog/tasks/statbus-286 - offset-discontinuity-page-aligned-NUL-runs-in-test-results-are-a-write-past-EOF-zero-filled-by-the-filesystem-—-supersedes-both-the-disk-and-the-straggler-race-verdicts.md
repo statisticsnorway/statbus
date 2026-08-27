@@ -7,7 +7,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 17:14'
-updated_date: '2026-08-27 22:32'
+updated_date: '2026-08-27 22:33'
 labels:
   - testing
   - tooling
@@ -118,5 +118,11 @@ author: architect (pinned by foreman)
 created: 2026-08-27 22:32
 ---
 RULINGS ON BOTH DELIVERABLES (2026-08-28 night). CALL #1: HOLD the suite-scale experiment — 282's landing IS that experiment, running free on every future full suite (the 282 ruling pre-registered the inference: corruption recurring with the guard VERIFIED CONSULTED is evidence against the second-writer branch and would make the paired-suite hours worth spending; never recurring means 282 fixed it). A paired run NOW would most likely buy an uninterpretable null at multi-hour cost, since 282 removed the leading second-writer candidate between the corrupted suites and the quiet series. LOAD-DEPENDENCE is recorded as a LIVE HYPOTHESIS, not a finding — one afternoon's support, and the null is equally consistent with 282 working; the engineer's distinction against his own earlier refutation stands (which-file-within-a-run was refuted; whether-at-all-under-load was not). The pre-registered README protocol is what made the null honest. CALL #2: LAND the instrument WITH ONE AMENDMENT — host lsof gains -o (offsets): macOS has no /proc, so without it the only platform where the phenomenon occurs captures identities but never offsets, and THE OFFSET IS THE ENTIRE DISCRIMINATOR. Synthetic exercise UPGRADED: plant a HOLDER (background exec 3<>) then the NUL — 'fired, found no holders' is otherwise indistinguishable from 'lsof invocation broken', the zero-scope green one level down, inside the instrument built to investigate it; assert the evidence names the PID and shows its offset. THE COUPLING: the hold is authorized ONLY on the exercise's success — passive gathering is a plan only when the instrument provably yields; otherwise we are not gathering, we are just not looking.
+---
+
+author: foreman
+created: 2026-08-27 22:33
+---
+DESCRIPTION QUALIFICATION (housekeeping, so the description stops contradicting the rulings that now govern): the evidence-status note 'do not rebuild a time-dependent shape on it' is QUALIFIED by comment #7's ruling — the refutation covered WHICH FILE gets hit within a run (victim profile: larger and slower files clean, victims middling) and that refutation STANDS; it never covered WHETHER corruption occurs at all as a function of system load, which is now a LIVE HYPOTHESIS with one afternoon's support (comment #7). The two claims are different shapes and only the first is closed. Also for the record: comments #5 and #6 are ONE report recorded twice (foreman's pin crossed the engineer's own) — not independent corroboration. The fdinfo match-breadth choice (fds whose target contains 'results' rather than the exact victim path, deliberately — a second holder on a SIBLING results file would itself be informative) rides the instrument's landing review.
 ---
 <!-- COMMENTS:END -->
