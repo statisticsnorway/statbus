@@ -3,10 +3,10 @@ id: STATBUS-262
 title: >-
   no-facets-stuck: no.statbus.org's Reports progress hangs at "Computing history
   facets 91%" — stuck for ages, worker derive pipeline suspected
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-08-27 12:35'
-updated_date: '2026-08-27 12:48'
+updated_date: '2026-08-27 12:59'
 labels:
   - worker
   - production
@@ -99,5 +99,13 @@ FINAL RULING (2026-08-27): all three of my hypotheses withdrawn on direct eviden
 THE ASIDE IS THE FINDING: the window log is ASYMMETRIC — ON printed (twice), successful OFF silent (the OFF Printf lives in setDatabaseReadOnly, exec.go:394, called only by failure paths; success is terminalExec(windowOffSQL), silent when it works). A responder greps the journal, sees ON-without-OFF, concludes the window is stuck — exactly the wrong diagnosis I built three hypotheses on. A state change announced in one direction and silent in the other is a defect in its own right; it will mislead the next 2am responder identically. Credit where due: RestartCount=0 + StartedAt equal to the refusal burst is the container's own record that the reset ran exactly once ever — the strongest artifact in the file.
 
 WHAT SHIPS AS CODE, RE-RANKED: (1) the reset must RETRY, not log-and-abandon — closes the class (→ STATBUS-264). (2) EXEMPT the worker's startup recovery from the window — upgraded from 'defensible': a rollback restores the volume wholesale so those rows revert regardless; the window protects USER work and the crash recovery is not user work, so the exemption cannot cost the rollback guarantee anything (→ STATBUS-265). (3) log the successful OFF — one line, cheapest correction on the board, its absence already cost a day (→ STATBUS-266). (4) stuck-task detector: 'processing' with no live claimant beyond plausible runtime — hours instead of six days (→ STATBUS-267). THE ORDERING CHANGE IS RANKED LAST AND POSSIBLY UNNECESSARY — with (1)+(2) landed the 2.4s gap stops mattering, and reordering carries a real rollback-guarantee tension; deliberately NOT ticketed.
+---
+
+author: foreman
+created: 2026-08-27 12:59
+---
+REMEDY EXECUTED AND SUCCESSFUL (2026-08-27 ~12:56Z, operator, King-authorized with the principled-fix condition met). docker compose restart worker on rune. The log line the whole diagnosis predicted: "Reset 4 abandoned processing tasks to interrupted state" — the startup recovery that was refused inside the window on 08-21 ran clean outside it. Chain resumed exactly as the model said: 647003-647006 processing→completed, parent 646217 completed, merge 646218 NOW PROCESSING; task distribution +5 completed; zero read-only errors in the fresh log; all queues processing.
+
+Remaining before this ticket closes: (1) the merge chain drains fully (646218 → 646212 → 646207 complete, Reports progress reaches done — the King, who found this in the progress bar, confirms it visually); (2) the structural fixes land (STATBUS-264/265/266/267 — 266 in review, 264 in build). The manual restart was authorized precisely because those fixes are real and the reproduction (abandon rows mid-derive, restart worker inside the next window) is testable in the next round — recorded here so the remedy is never mistaken for the fix.
 ---
 <!-- COMMENTS:END -->
