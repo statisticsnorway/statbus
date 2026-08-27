@@ -44,6 +44,21 @@ statbus_et: cd ~/statbus && ./sb upgrade apply-latest
 statbus_jo: cd ~/statbus && ./sb upgrade apply-latest
 
 #
+# Named-target apply — invoked by deploy-to-dev.yaml (STATBUS-259/260): the
+# release chain now dispatches deploy-to-dev naming an exact candidate SHA,
+# so the door must permit installing THAT commit rather than whatever the
+# box's channel resolves as newest. `./sb upgrade apply <sha>` (STATBUS-258)
+# is the general named-target verb; this is the one door permitted to
+# invoke it with an argument. 40 '#' characters match the 40-hex commit SHA
+# at runtime (via `match hexdigits`), same pattern as the ci-deploy-status.sh
+# and pg_regress entries below. COEXISTS with statbus_dev's apply-latest
+# entry above, deliberately: a workflow-file revert during the transition
+# must not strand dev without any apply door. Removing apply-latest is a
+# separate, later reviewed commit — not implied by adding this one.
+#
+statbus_dev: cd ~/statbus && ./sb upgrade apply ########################################
+
+#
 # Notify-all-clouds — invoked by notify-all-clouds.yaml via appleboy ssh-action.
 # Command is the single byte-stable entrypoint line (STATBUS-123): the behavior
 # lives in ~/statbus/ops/ci-notify.sh (evolves via git); only the PATH is pinned.
