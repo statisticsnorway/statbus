@@ -3,9 +3,11 @@ id: STATBUS-291
 title: >-
   check-channel-filter: the CLI upgrade check registers candidates without
   consulting the channel — a production box lists and can schedule an rc
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@engineer'
 created_date: '2026-08-27 20:08'
+updated_date: '2026-08-27 20:10'
 labels:
   - upgrade
   - release
@@ -29,3 +31,13 @@ Interim exposure assessment: requires a human running check+schedule on a produc
 
 WHAT IS ACHIEVED: a production box's operator can neither see nor schedule software the topology never offered it, and the two discovery paths can never silently disagree about the channel again.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect (pinned by foreman)
+created: 2026-08-27 20:10
+---
+RULING (2026-08-27): OPTION (a) — filter in RunCheck, mirroring :4047. Option (b) is not 'moving the gate': the meaning of a registered row ALREADY EXISTS and discover() set it (every service-written row is channel-appropriate because :4047 filters before the upsert loop) — RunCheck is the outlier, not the definition; (b) would leave rows meaning two different things depending on which path wrote them. AND THE LIST IS THE OFFER: a stable-channel operator who sees rc.11 as 'available' reasonably concludes it is installable; a schedule-time refusal arrives after intent has formed and reads as the tool contradicting itself — do not offer what you will not install; the harm is the offer, not only the install. PLACEMENT CONSTRAINT THAT DECIDES WHETHER 258 SURVIVES: the filter goes in RunCheck (:5149) after DiscoverTagsViaGit and must NOT go in the shared upsertCandidate (:3977) — registerStep (:4997) calls it and that is the King's candidate-addressed deliberate path; verified distinct (discovery vs explicit verb), so the verbs stay distinct under (a). THE SCHEDULE HALF gets the opposite treatment — the general rule, named for future sites: AUTOMATIC PATHS FILTER; DELIBERATE PATHS ANNOUNCE. scheduleStep announces plainly when a target is off the box's channel (a production box deliberately given a prerelease is a real deviation that must not be silent) and then proceeds — no gate, 258 stays open. TEST: extend the existing precedent (channel_resolution_git_test.go:178 already extracts RunCheck's body) to assert BOTH discover and RunCheck contain FilterTagsByChannel — one declarative test, both paths pinned, a third discovery site fails the moment it forgets. Engineer building.
+---
+<!-- COMMENTS:END -->
