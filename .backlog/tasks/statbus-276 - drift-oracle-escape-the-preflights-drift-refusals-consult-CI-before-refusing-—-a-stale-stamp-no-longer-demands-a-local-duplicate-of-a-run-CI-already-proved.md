@@ -7,7 +7,7 @@ status: Done
 assignee:
   - engineer
 created_date: '2026-08-27 14:41'
-updated_date: '2026-08-27 14:55'
+updated_date: '2026-08-27 15:02'
 labels:
   - release
 dependencies: []
@@ -88,6 +88,26 @@ author: foreman
 created: 2026-08-27 14:55
 ---
 LANDED at 1541189e6 (throwaway-worktree build+vet+tests green). The mechanic's independent point-by-point verification (crossed dispatch, converted to a second full-chain review) is part of the landing record — tmp/agents/mechanic.md. EMPIRICAL GROUNDING arrived the same hour and is pinned here deliberately: the King's local fast-suite run at the same commit produced PAGE-ALIGNED NUL corruption in two bind-mount-written artifacts (one contiguous 4096-aligned hole per file, every differing byte NUL, surroundings byte-identical to HEAD — byte-level proof in the 105 investigation) while CI passed the same tree. On this development machine the local runner is demonstrably the weaker oracle for container-crossing artifacts — the design's stated decision, proven by the incident that motivated it. The corrupted tracked file was restored losslessly; the failing run correctly wrote NO stamp (the gate held even while its artifact was being corrupted).
+---
+
+author: engineer
+created: 2026-08-27 15:02
+---
+**AMENDMENT to the empirical-grounding paragraph in #3: my MECHANISM was wrong. The artifact evidence stands; the design is untouched.**
+
+I called the corruption page-aligned block loss on the Docker bind mount. It is a **pg_regress straggler write race** — the STATBUS-158/188 class the harness already documents and guards. The system's own `check_no_straggler_pg_regress` / NUL tripwire fired at the end of the King's run and named it; preserved copy at `tmp/corrupted-105_legal_units_with_statistics-20260827165305.out`.
+
+**The fact that killed my inference, and how I got it wrong.** My reasoning leaned on "two DIFFERENT write paths were hit, so the fault is below both." That premise was false. I traced `database.types.ts` through `cli/cmd/types.go` → `migrate.PsqlCommand` and stopped there, concluding the only writer was `./sb types generate`. I never grepped `test/sql/`. **`test/sql/016_generate_typescript_types_from_db.sql:2` does `\i /statbus/cli/sql/generate_database_types.sql`, and that script carries `\o app/src/lib/database.types.ts` at line 1094.** So BOTH corrupted files are pg_regress test outputs — 016's and 105's — written by one straggler walking the shared test list. One writer, one path, no storage fault. A second grep would have cost nothing and would have prevented the whole wrong inference.
+
+**The page-alignment I treated as proof of block loss is explained better by the race**, exactly as the reversal argued: a stale writer seeking beyond a freshly truncated file gets filesystem zero-fill, which is page-aligned by construction. I wrote that "no program writes that pattern" — no SINGLE program does; two racing on one file do.
+
+**What does NOT change:** every measured byte. Contiguous 4096-aligned hole per file, every differing byte NUL (0 non-NUL out of 507,904 in the types file), surroundings byte-identical to HEAD, `cmp` span exactly equal to the differing-byte count. The tracked file was restorable losslessly because it was never regenerated — that finding was and remains correct.
+
+**What this does to the design: nothing, and that is the point.** The architect's precision #1 kept the local-corruption story out of the code comments entirely, so the by-construction argument never rested on a mechanism that has now been corrected twice. Comment #3's conclusion also survives the correction — arguably strengthened: a straggler race is a hazard of the LOCAL harness's shared `--outputdir`, which CI (fresh checkout, one runner, no inherited straggler) structurally does not have. The local runner is the weaker oracle for a better-understood reason than the one I gave.
+
+**A separate hazard this exposed, worth its own ticket:** a pg_regress test writes a TRACKED source file as a side effect (016 → `app/src/lib/database.types.ts`). Any interrupted or raced test run can therefore leave a tracked file corrupted in the working tree — which is precisely what happened here, and it came within one `git add` of shipping half a megabyte of NULs. The results-file tripwire caught the run artifact; nothing guards the tracked file.
+
+Status of the box right now: `docker compose exec db pgrep -af 'pg_regress|HIDE_TABLEAM'` returns **no match (exit 1)** — no straggler alive. Nothing signalled, per STATBUS-188.
 ---
 <!-- COMMENTS:END -->
 
