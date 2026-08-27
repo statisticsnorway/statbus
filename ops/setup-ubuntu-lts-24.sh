@@ -261,6 +261,71 @@ populate_authorized_keys() {
 }
 
 # =============================================================================
+# Per-Stage Input Declarations (STATBUS-259)
+# =============================================================================
+#
+# Each stage declares which .env keys it actually reads, so the preamble can
+# require only the UNION over the NON-SKIPPED stages — never inferred from
+# shared logic, never assumed from what some OTHER stage needs. This is what
+# lets a stage-8-only run (--skip-stages "0 1 2 3 4 5 6 7") proceed without
+# /root/.setup-ubuntu.env: Stage 8 needs SSHDOERS_REF/SSHDOERS_HOST (declared
+# below, validated inside the stage itself) and no .env variable at all, so
+# the union over {8} is empty.
+#
+# CONSERVATIVE DEFAULT, load-bearing: a stage NUMBER ABSENT from this map
+# requires EVERYTHING (ALL_ENV_VARS below). A newly added stage that forgets
+# to declare itself therefore fails TOO STRICT — it demands the full legacy
+# set, exactly today's behavior — never too permissive: it can never silently
+# skip a variable it actually needed. Relaxing a stage's requirement (to a
+# narrower list, or to none) is opt-in and explicit: add its number as a key.
+#
+# Presence, not truthiness, is what selects the conservative default: an
+# empty value for a PRESENT key ("declared, needs nothing") must read
+# differently from an ABSENT key ("undeclared, needs everything"). Tested
+# with `${STAGE_ENV_REQUIREMENTS[$n]+_}`, never with `-z`/`-n` on the value.
+declare -A STAGE_ENV_REQUIREMENTS=(
+    [0]=""                                                # HTTPS APT Sources
+    [1]="EXTRA_LOCALES"                                   # Base System
+    [2]=""                                                # SSH Hardening
+    [3]="ADMIN_EMAIL"                                     # Automatic Updates
+    [4]=""                                                # Security Tools
+    [5]=""                                                # Core Tools
+    [6]="GITHUB_USERS GITHUB_DEPLOY_KEYS"                 # User Setup
+    [7]="GITHUB_USERS GITHUB_DEPLOY_KEYS SERVICE_USER"    # StatBus Service Account
+    [8]=""                                                # CI Command Allowlist —
+                                                           # SSHDOERS_REF/SSHDOERS_HOST
+                                                           # only; validated inside the
+                                                           # stage, not .env variables.
+)
+
+# ALL_ENV_VARS — the full legacy set, applied as the conservative default for
+# any stage number absent from STAGE_ENV_REQUIREMENTS above.
+ALL_ENV_VARS="ADMIN_EMAIL GITHUB_USERS GITHUB_DEPLOY_KEYS EXTRA_LOCALES SERVICE_USER"
+
+# required_env_vars — prints the UNION of declared requirements over the
+# stages that are NOT skipped (SKIP_STAGES / stage_skipped), one per line,
+# sorted and de-duplicated. A stage contributes NOTHING once skipped,
+# regardless of what it would otherwise require.
+required_env_vars() {
+    local -A seen=()
+    local n var
+    for n in 0 1 2 3 4 5 6 7 8; do
+        stage_skipped "$n" && continue
+        if [[ "${STAGE_ENV_REQUIREMENTS[$n]+_}" != "_" ]]; then
+            # Undeclared stage number: conservative default, require everything.
+            for var in $ALL_ENV_VARS; do seen["$var"]=1; done
+            continue
+        fi
+        for var in ${STAGE_ENV_REQUIREMENTS[$n]}; do
+            [[ -n "$var" ]] && seen["$var"]=1
+        done
+    done
+    if [[ ${#seen[@]} -gt 0 ]]; then
+        printf '%s\n' "${!seen[@]}" | sort
+    fi
+}
+
+# =============================================================================
 # Environment File Handling
 # =============================================================================
 
@@ -326,7 +391,15 @@ prompt_env_value() {
 
 setup_env() {
     log_header "Configuration Setup"
-    
+
+    # STATBUS-259: only require $ENV_FILE at all if some NON-SKIPPED stage in
+    # THIS run actually declares a need for it (required_env_vars above) —
+    # never inferred from what a full run would need. A stage-8-only run
+    # (--skip-stages "0 1 2 3 4 5 6 7") declares nothing, so $required is
+    # empty and this function does not demand the file.
+    local required
+    required="$(required_env_vars)"
+
     local env_exists=false
     if load_env; then
         env_exists=true
@@ -348,15 +421,25 @@ setup_env() {
             return 0
         fi
     else
+        if [[ -z "$required" ]]; then
+            # STATBUS-259: no non-skipped stage in this run needs $ENV_FILE —
+            # e.g. a stage-8-only run. Proceed without it.
+            log "No non-skipped stage in this run requires $ENV_FILE — skipping configuration setup"
+            return 0
+        fi
         if [[ "$NON_INTERACTIVE" == "true" ]]; then
             log_error "No configuration file found at $ENV_FILE"
-            log_error "Non-interactive mode requires an existing .env file"
-            log "Create one with the following variables:"
-            echo "  ADMIN_EMAIL=\"your@email.com\""
-            echo "  GITHUB_USERS=\"username1 username2\""
-            echo "  GITHUB_DEPLOY_KEYS=\"statisticsnorway/statbus\"   # optional; CI deploy keys"
-            echo "  EXTRA_LOCALES=\"sq_AL nb_NO\""
-            echo "  SERVICE_USER=\"statbus\"   # optional; default is 'statbus'"
+            log_error "Non-interactive mode requires it for this run's stages, which need:"
+            local var
+            for var in $required; do
+                case "$var" in
+                    ADMIN_EMAIL)        echo "  ADMIN_EMAIL=\"your@email.com\"" ;;
+                    GITHUB_USERS)       echo "  GITHUB_USERS=\"username1 username2\"" ;;
+                    GITHUB_DEPLOY_KEYS) echo "  GITHUB_DEPLOY_KEYS=\"statisticsnorway/statbus\"   # optional; CI deploy keys" ;;
+                    EXTRA_LOCALES)      echo "  EXTRA_LOCALES=\"sq_AL nb_NO\"" ;;
+                    SERVICE_USER)       echo "  SERVICE_USER=\"statbus\"   # optional; default is 'statbus'" ;;
+                esac
+            done
             exit 1
         fi
         log "No configuration found. Let's set up your preferences."
