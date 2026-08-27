@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-08-19 20:06'
-updated_date: '2026-08-27 12:40'
+updated_date: '2026-08-27 12:44'
 labels:
   - ops
   - security
@@ -213,5 +213,19 @@ FIRST ROOT SESSION RAN AND STOPPED AT THE STOP CONDITION (2026-08-27, operator, 
 HONEST NOTE: the mismatch was GUARANTEED and nobody said so beforehand — the 259 unit rewrote the repo copy's header comment, and byte-for-byte hashing includes comments. The stop still proves the machinery; the substantive question is whether the diff holds anything BEYOND the header (live dated Aug 19 11:55 — hand-edits that day, demo's STATBUS-248 trigger entry the standing suspect).
 
 RECONCILE IN MOTION per the ratified protocol (live wins on first contact): operator fetches the live file content (root read → tmp/259-niue-live-sshdoers); architect diffs against the repo copy and rules which lines belong; the reconcile ships as a reviewed commit to ops/niue/sshdoers; the session re-runs pinned at the NEW commit.
+---
+
+author: foreman
+created: 2026-08-27 12:44
+---
+SECOND-SESSION PROTOCOL RATIFIED (architect, 2026-08-27) — the foreman's step-2 reformulation REPLACES the original: after a deliberate reconcile, identity is the wrong question and PROVENANCE is the right one. The second session's step 2 compares live's hash against the CAPTURED BASELINE, not the repo copy: live still at baseline → PROCEED (the only delta is the ruled one); live anything else → STOP, the box moved since the ruling, re-adjudicate. Success criterion moves to step 6: live's post-install hash equals the reconciled repo copy's hash.
+
+LOAD-BEARING BASELINE HASH, recorded verbatim per the architect's addition #1 — the second session's stop condition compares against THIS RECORDED VALUE:
+
+  f8b669402e9c01295de29e30aa676fa65f6ec2f65cd3b62abe314f75aa9ea364  /etc/sshdoers (niue, captured 2026-08-27, mode 644 root:root, dated Aug 19 11:55)
+
+Addition #2: after the install, prove entries-unchanged rather than assert it — diff the non-comment, non-blank lines of the step-4 backup against the new live file; MUST be empty. Pairs with step 7 (door test is behavioural but covers two users; the line diff is exhaustive but cannot prove sshdo parses the result) — both run.
+
+RECONCILE DIFF (architect's ruling, summary): live carries SEVEN grants the reviewed copy never had — ci-deploy-status.sh for statbus_tcc/dev/ma/ug/et/jo and github-runner's statbus-runner-health — a naive install would have revoked all seven. Repo wins on comments; live wins on entries, captured verbatim; the live block's "all seven" comment is corrected to SIX with demo's absence explained (deploy-to-demo.yaml deleted, 244a — adding a poll entry for demo would be a grant ADDITION, separate reviewed decision); the five Wave-D-condemned entries are captured AND marked, never deleted in a reconcile. Mechanic building; architect reviews the diff before landing.
 ---
 <!-- COMMENTS:END -->
