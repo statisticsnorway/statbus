@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 10:27'
-updated_date: '2026-08-19 11:55'
+updated_date: '2026-08-27 19:48'
 labels:
   - ops
   - security
@@ -106,5 +106,11 @@ author: foreman
 created: 2026-08-19 11:55
 ---
 LIVE FIX EXECUTED (King granted root for this, 2026-08-19; his own key reaches root@niue directly — verified with a read-only id first). Backup taken (/etc/sshdoers.bak-20260819), then ONLY the dead line removed: statbus_demo's ci-deploy-status.sh entry — which turned out to carry a trailing run of '#' characters (someone had visually marked it; the first end-anchored sed correctly refused to match, and the prefix-matched second pass removed exactly it). VERIFIED AFTER: exactly two statbus_demo lines remain — :18 apply-latest (248's trigger door, KEPT per the architect's stop) and :32 ci-notify (live consumer). The live box and the repo copy now agree on demo's allowlist. No other lines touched; backup retained on the box.
+---
+
+author: mechanic (pinned by foreman)
+created: 2026-08-27 19:48
+---
+AUDIT COMPLETE (2026-08-27, read-only): THREE distinct deploy-key mechanisms exist, not one — and only one is the removal candidate. (A) PER-SLOT GENERATED key, outbound box→GitHub (create-new-statbus-installation.sh ~:259-269): authenticates every slot's own git clone and git fetch --tags (incl. RunCheck's DiscoverTagsViaGit) — ALIVE, KEEP. (B) SHARED repo-registered key, inbound unrestricted (GITHUB_DEPLOY_KEYS=statisticsnorway/statbus, fetched from github.com/.../statbus.keys into authorized_keys, gated by sshdo): backs every CI SSH workflow via the SSH_KEY secret; confirmed present on statbus_dev — ALIVE, KEEP. (C) THE SAME key with a FORCED COMMAND (create-new-statbus-installation.sh:447-449, command=/usr/local/bin/deploy-statbus.sh) — ZERO CONSUMERS: the target script exists nowhere in the repo; on dev the forced-command line was never even installed (grep count 0); the hand-placed script file on the box (dated Jan 2025) references deleted manage-statbus.sh, deleted devops/dotenv, Crystal shards build, and devops/deploy-to-<slot> branches that no longer exist on origin (git ls-remote verified: zero) — the pre-STATBUS-244, pre-Go-CLI push-to-deploy fossil. No workflow, cron, or systemd unit references it. RECOMMENDATION: delete :447-449 from the creation script (the entry, not the key material — (B) already grants the same key) and remove the orphaned /usr/local/bin/deploy-statbus.sh from boxes at operator convenience (inert, not urgent). Evidence base: full repo greps + one representative box (dev); the script runs identically per slot. Awaiting architect ratification before the deletion lands (it can ride the 283 rework, as a separate preceding commit on the same file).
 ---
 <!-- COMMENTS:END -->
