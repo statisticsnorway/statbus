@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-08-19 20:06'
-updated_date: '2026-08-27 12:51'
+updated_date: '2026-08-27 12:58'
 labels:
   - ops
   - security
@@ -255,5 +255,15 @@ FIX RULING for the step-4 refusal (2026-08-27), with the error owned first: "ind
 THE RULING: shape (a), done a specific way. (b) — encoding "Stage 8 is special" in the preamble — is disqualified: right exactly once, wrong from the next env-free stage onward. Instead: EACH STAGE DECLARES ITS REQUIRED INPUTS; the preamble requires the UNION over the non-skipped set — never inferring from shared logic (inference is how a stage runs without env it needs and fails later, more confusingly, on a production host). Stage 8 declares SSHDOERS_REF/SSHDOERS_HOST and no .env keys. CONSERVATIVE DEFAULT, load-bearing: a stage with NO declaration requires EVERYTHING — forgetting to declare fails too-strict, never too-permissive. Rejected escape hatch, named: moving Stage 8 to its own script would reintroduce "another root thing to run" — the proliferation the King rejected on 258.
 
 BUILDER: the mechanic (contained; engineer stays on the higher-value 262 units). ACCEPTANCE, first condition non-negotiable: (1) RUN IT — a real stage-only invocation past the preamble with no .env (throwaway ubuntu container; reaching Stage 8's own internal sshdo-absent refusal IS the pass), never an inspection of the flag; (2) prove the guard still bites — a non-skipped env-consuming stage without .env must still refuse. Then the THIRD session runs pinned at the fix commit, same provenance protocol, baseline unchanged.
+---
+
+author: foreman
+created: 2026-08-27 12:58
+---
+PREAMBLE FIX LANDED at cb94ba35830db8d87a717ae123665e7ec527afaf (architect: LAND — host default verified correct at :1217 short-name derivation, presence-vs-truthiness implemented AND documented at the line where a future 'simplification' would reintroduce the bug; run-proven both directions per the non-negotiable condition). bash -n green in throwaway worktree.
+
+DEFERRED REFINEMENT FILED as STATBUS-269: validate ops/<host>/ exists before using the derived name — covers container identities and mistyped SSHDOERS_HOST with one check; converts a message asserting a file exists into one saying what is missing. Not held against this unit.
+
+THIRD SESSION NEXT (operator, root@niue): SSHDOERS_REF=cb94ba35830db8d87a717ae123665e7ec527afaf; provenance protocol unchanged — step 2 baseline f8b669402e9c01295de29e30aa676fa65f6ec2f65cd3b62abe314f75aa9ea364, post-install entry-line diff must be empty, step 6 success = live hash equals repo copy's hash at the pin commit.
 ---
 <!-- COMMENTS:END -->
