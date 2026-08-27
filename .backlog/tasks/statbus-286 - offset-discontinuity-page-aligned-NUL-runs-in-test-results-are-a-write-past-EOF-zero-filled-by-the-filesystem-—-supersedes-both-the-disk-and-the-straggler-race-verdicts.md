@@ -7,7 +7,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 17:14'
-updated_date: '2026-08-27 22:33'
+updated_date: '2026-08-27 22:37'
 labels:
   - testing
   - tooling
@@ -124,5 +124,11 @@ author: foreman
 created: 2026-08-27 22:33
 ---
 DESCRIPTION QUALIFICATION (housekeeping, so the description stops contradicting the rulings that now govern): the evidence-status note 'do not rebuild a time-dependent shape on it' is QUALIFIED by comment #7's ruling — the refutation covered WHICH FILE gets hit within a run (victim profile: larger and slower files clean, victims middling) and that refutation STANDS; it never covered WHETHER corruption occurs at all as a function of system load, which is now a LIVE HYPOTHESIS with one afternoon's support (comment #7). The two claims are different shapes and only the first is closed. Also for the record: comments #5 and #6 are ONE report recorded twice (foreman's pin crossed the engineer's own) — not independent corroboration. The fdinfo match-breadth choice (fds whose target contains 'results' rather than the exact victim path, deliberately — a second holder on a SIBLING results file would itself be informative) rides the instrument's landing review.
+---
+
+author: foreman
+created: 2026-08-27 22:37
+---
+INSTRUMENT LANDED at c10a1f983 (dev.sh, +58) on the architect's standing LAND-with-amendment — the amendment (lsof -o) and the upgraded exercise both succeeded exactly as prescribed, and the coupling is satisfied: THE HOLD IS NOW ACTIVE. Exercise 6/6 with the transcript on record: planted holder parked at a NON-ZERO offset (34 — deliberately, so a captured 0 could not masquerade as no-capture), the evidence names its pid and shows the position; the dead /proc loop (which could never yield on macOS, the only platform where the phenomenon occurs) is replaced by lsof -o with the offset-is-the-discriminator reason at the line. THE EXERCISE EARNED ITS UPGRADE IMMEDIATELY: it caught the container probe MATCHING ITSELF (the sh -c wrapper contained the pgrep pattern and was reported as a holder) — noise at precisely the moment the holder count is the discriminator, invisible to a NUL-only test; guarded, and the section is now correctly empty absent real holders. Engineer's checking-failures five and six for the night, both self-caught and both in the safe direction, with the habit named: when a check disagrees with the artifact, read the artifact. TICKET STATE: both deliverables done; the phenomenon is under passive surveillance by an instrument proven to yield, with 282's machinery as the running experiment. The ticket STAYS OPEN as the surveillance record — it closes when either (a) a recurrence is captured with positions and the mechanism is settled, or (b) a long clean period under full-suite load lets the architect declare 282 the fix.
 ---
 <!-- COMMENTS:END -->
