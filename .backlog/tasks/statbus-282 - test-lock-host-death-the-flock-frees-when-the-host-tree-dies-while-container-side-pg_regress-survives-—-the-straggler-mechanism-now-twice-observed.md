@@ -7,7 +7,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 16:44'
-updated_date: '2026-08-27 17:02'
+updated_date: '2026-08-27 17:14'
 labels:
   - testing
 dependencies: []
@@ -33,5 +33,11 @@ author: foreman
 created: 2026-08-27 17:02
 ---
 SECOND CONSEQUENCE of the same host-death gap, observed on the 2026-08-27 straggler (pid 92456): the wrapper died with the host session, so its cleanup never ran and SIX test_shared_* clone databases were left stranded (test_shared_27336/41027/45227/72674/83196/86286) — each a full clone of the migrated template. The engineer cleared them with the sanctioned ./dev.sh clean-test-databases before the 263 re-run. So the gap costs: (1) a stale pg_regress writer racing later runs' result files (the NUL-corruption class), AND (2) leaked clone databases accumulating disk. Both consequences trace to cleanup living in the host-side wrapper while the work lives in the container — whatever fix this ticket lands should move or mirror cleanup to where it survives host death.
+---
+
+author: foreman
+created: 2026-08-27 17:14
+---
+CROSS-REFERENCE: the corruption MECHANISM verdict now lives in STATBUS-286 (offset-discontinuity, architect's superseding ruling 2026-08-27). This ticket's scope is unchanged — the host-death gap is one PRODUCER of stale writers/handles — but attribution of any NUL-corrupted result file goes through 286's frame (offset discontinuity; process count is a detail beneath the property), and the tripwire instrumentation (lsof + host-and-container process table + stat at fire time) is 286's deliverable.
 ---
 <!-- COMMENTS:END -->
