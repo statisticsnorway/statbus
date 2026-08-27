@@ -366,15 +366,6 @@ ssh $DEPLOYMENT_USER@$HOST bash << UPDATE_SETTINGS
     set_or_update STATBUS_URL "https://$DOMAIN"
     set_or_update BROWSER_REST_URL "https://$DOMAIN"
 
-    # Add GitHub deployment key if not already present
-    DEPLOY_KEY='command="/usr/local/bin/deploy-statbus.sh" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAdpqAWRoDDKDa7neWpTLe+coEYYSkhzw2znSJ3E6XjD https://github.com/statisticsnorway/statbus'
-    if ! grep -q "deploy-statbus.sh.*statisticsnorway/statbus" ~/.ssh/authorized_keys; then
-        echo "\$DEPLOY_KEY" >> ~/.ssh/authorized_keys
-        echo "Added GitHub deployment key"
-    else
-        echo "GitHub deployment key already exists"
-    fi
-
     # Check and update API keys from statbus_dev if defaults are present
     current_seq_key=\$(grep '^SEQ_API_KEY=' .env.config | cut -d'=' -f2)
     if [ -z "\$current_seq_key" ] || [ "\$current_seq_key" = "secret_seq_api_key" ]; then
