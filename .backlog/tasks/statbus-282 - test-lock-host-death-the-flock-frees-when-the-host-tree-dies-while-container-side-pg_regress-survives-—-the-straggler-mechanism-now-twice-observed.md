@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-08-27 16:44'
-updated_date: '2026-08-27 19:53'
+updated_date: '2026-08-27 20:29'
 labels:
   - testing
 dependencies: []
@@ -153,5 +153,11 @@ author: foreman
 created: 2026-08-27 19:53
 ---
 RETRACTION of comment #5's inference (verify-premises discipline): the test-slot install was NOT killed — the operator's corrected report shows it completed all 16 steps, the upgrade unit is installed and running, and the RUNNING service logs 'Upgrade service started (channel=stable, interval=6h0m0s)'. Only the operator's OUTPUT CAPTURE truncated at step 10; the remote process survived its ssh session ending. So tonight's count of session-death instances stays at TWO (the local suite kills), not three — and, worth noting for the design's threat model: a remote `./sb install` evidently survives its invoking session's death on its own (likely because install's own long-running children detach from the ssh tty), which is WEAK evidence, not a guarantee — the nohup-detached instruction for remote long operations stands as the safe default, but the claimed live-box instance of this failure class is withdrawn.
+---
+
+author: foreman
+created: 2026-08-27 20:29
+---
+MUST-FIX LANDED at 4fdea9a2b (dev.sh only, 30/7, mechanic executing the architect's exact snippet; shellcheck delta identical, bash -n clean). The guard now distinguishes looked-and-clear from could-not-look: running-container pre-gate → clear; pgrep exit 1 → clear; any other exit → REFUSING loudly with the observation failure named, exit 1. PROVEN LIVE on all three arms, none from reading: (1) a real pg_sleep psql planted in the real db container → BLOCKED banner naming its pid, exit 1; (2) same container clean → return 0; (3) a PATH docker shim (real daemon untouched) passing the pre-gate but failing exec with exit 2 → the REFUSING line verbatim — demonstrating that the OLD form silently returned clear in exactly that scenario. The :496-499 comment no longer asserts a sparse hole the SEEK_HOLE probe disproved — softened to the observed geometry per 286. REMAINING in this ticket: the postmaster-becomes-the-lock build (pg_stat_activity authority + zero-backend orphan DROP + sanctioned detached-run mechanism with its own tmux socket, landing with-or-after the guard — the guard half is now in), engineer's queue after 267.
 ---
 <!-- COMMENTS:END -->
