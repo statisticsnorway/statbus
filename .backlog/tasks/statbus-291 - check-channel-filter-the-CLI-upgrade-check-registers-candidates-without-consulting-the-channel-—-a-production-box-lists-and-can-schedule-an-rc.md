@@ -3,11 +3,11 @@ id: STATBUS-291
 title: >-
   check-channel-filter: the CLI upgrade check registers candidates without
   consulting the channel — a production box lists and can schedule an rc
-status: In Progress
+status: Done
 assignee:
   - '@engineer'
 created_date: '2026-08-27 20:08'
-updated_date: '2026-08-27 20:15'
+updated_date: '2026-08-27 20:19'
 labels:
   - upgrade
   - release
@@ -46,4 +46,16 @@ created: 2026-08-27 20:15
 ---
 LANDING VERDICT: AMEND then LAND. MUST-FIX: the all-paths test iterates a HARDCODED two-name list while its own comment promises 'a third path fails the moment it forgets' — it would not; the literal never examines an unlisted path. The exact defect class this evening has orbited (a check reporting on what it never examined), aggravated because the comment actively teaches the next author the property is enforced. Fix: DERIVE the enumeration — functions whose bodies call DiscoverTagsViaGit must also call FilterTagsByChannel; a third discoverer is then automatically in scope. Acceptable fallback only if derivation is genuinely awkward: an honest two-paths comment; the literal-under-totality-promise pairing must not survive. THREE NON-BLOCKING NOTES: (1) the announce cannot fire for a bare-SHA target — CI's dev door (upgrade apply <40hex>) schedules off-channel commits silently; defensible (a commit has no channel) but must be SAID at the line, or resolved to its tag for the announce; (2) the zero-match early return skips runOneShot's service poke — and on ua (all tags rc, channel stable) this is now the DEFAULT path on every check, not an edge case: decide with evidence whether the poke matters for registered rows; (3) the must-not-refuse arm matches only one error phrasing — kept but not counted as protection. PRAISED: TagMatchesChannel extraction semantics verified identical incl. unknown-channel and retired-edge cases; the placement comment earns its keep at the tempting line; the none-matching message is the difference between correct behavior and a phantom-failure hunt.
 ---
+
+author: foreman
+created: 2026-08-27 20:19
+---
+LANDED at a4ac7ca81 (220 insertions across 3 files; foreman-verified uncached: internal/upgrade ok 11.4s, cmd ok 17.3s, vet clean) on the architect's standing AMEND-then-LAND with his prescribed fix implemented exactly and exceeded: the all-paths test now DERIVES its scope from source (functionsCalling scans for every function invoking DiscoverTagsViaGit; each must call FilterTagsByChannel), carries a minimum-count honesty guard (a scan finding fewer than the two known discoverers FAILS — a broken regex cannot become a zero-scope green), and was PROVEN on a synthetic filter-forgetting third discoverer caught by name — the comment's promise demonstrated, not asserted. Note dispositions, all evidence-based: (1) bare-SHA silence SAID at the line — channels are defined over tag shape, an untagged commit has none, and resolving a commit to one-of-possibly-several tags would guess, a poor basis for a notice whose value is stating a fact; CI's dev commit-door correctly stays silent as a distinct deliberate mechanism; (2) the zero-match early return is CORRECT with evidence — runOneShot (service.go:4779-4792) is only a DB connection lifecycle; the sole poke is NOTIFY upgrade_check, already conditional on registered>0, so it could never fire on a zero-match; written at the line including the ua-default-path scale; (3) the refusal-arm narrowness accepted and recorded as non-load-bearing tripwire. Rides the next candidate; Ukraine's spurious rc.11 'available' row from tonight's pre-fix check remains registered — harmless (schedule now announces, the eventual stable outranks it by CalVer) and dies naturally at the next upgrade.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The release topology's central promise — production boxes are never offered software the channel didn't bless — now holds at every surface. The CLI's upgrade check filters discovery through the same FilterTagsByChannel as the service path (placed in RunCheck, deliberately NOT the shared upsertCandidate, so the King's named-target deliberate-deployment verb stays open); a deliberately scheduled off-channel tag is announced plainly and proceeds (the ruling's named rule: automatic paths filter, deliberate paths announce); one extracted definition of on-channel serves filter and announce so they cannot drift; and the guarding test derives its scope from source with a minimum-count honesty guard, proven against a synthetic third discoverer. Found live on Ukraine hours after its discovery came alive; the gap predated STATBUS-255 (ported faithfully, input widened) and had been masked fleet-wide only because nobody ran the CLI check on a production box. Landed at a4ac7ca81.
+<!-- SECTION:FINAL_SUMMARY:END -->
