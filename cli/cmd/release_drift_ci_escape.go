@@ -58,7 +58,15 @@ func fastTestStampPath(projDir string) string {
 // second must never become on-disk evidence that outlives the green
 // justifying it). The escape honours that: it refreshes the stamp on the
 // escape path only, never on the ride path.
-func driftCoveredByCIGreen(projDir, what, drifted string, stampFromRide bool) bool {
+//
+// The second return value is the WorkflowCheckResult this call actually
+// consulted (STATBUS-277). On a refusal the caller prints it verbatim so the
+// operator sees BOTH halves of the either/or and which one is missing,
+// instead of the old refusal alone, which read as if the local run were the
+// only acceptable proof. Its Status is the zero value ("") in the one case
+// where CI was never even asked — no resolvable HEAD — so the caller can
+// tell "declined" from "not consulted" apart.
+func driftCoveredByCIGreen(projDir, what, drifted string, stampFromRide bool) (bool, release.WorkflowCheckResult) {
 	headOut, headErr := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
 	headFull := strings.TrimSpace(headOut)
 	// A check that examines nothing must refuse, not pass. With no HEAD there
@@ -75,7 +83,7 @@ func driftCoveredByCIGreen(projDir, what, drifted string, stampFromRide bool) bo
 	// TestDriftEscapeRefusesWithoutAHead, which failed exactly this way before
 	// the error check was added.)
 	if headErr != nil || headFull == "" {
-		return false
+		return false, release.WorkflowCheckResult{}
 	}
 	headShort := headFull
 	if len(headShort) > 12 {
@@ -84,7 +92,7 @@ func driftCoveredByCIGreen(projDir, what, drifted string, stampFromRide bool) bo
 
 	result := checkWorkflowAtCommit(release.WorkflowPgRegress, headFull)
 	if result.Status != release.WorkflowCheckGreen {
-		return false
+		return false, result
 	}
 
 	fmt.Printf("  ✓ Fast tests cover %s (pg_regress green in CI at %s)\n", what, headShort)
@@ -100,7 +108,7 @@ func driftCoveredByCIGreen(projDir, what, drifted string, stampFromRide bool) bo
 	if stampFromRide {
 		fmt.Println("    Local stamp not refreshed: this run's stamp was inferred from an")
 		fmt.Println("    exempt-ancestor ride, and an inference must not be written to disk.")
-		return true
+		return true, result
 	}
 
 	// Refresh the local stamp so the next invocation short-circuits through
@@ -112,5 +120,34 @@ func driftCoveredByCIGreen(projDir, what, drifted string, stampFromRide bool) bo
 	_ = os.MkdirAll(filepath.Dir(stampPath), 0755)
 	_ = os.WriteFile(stampPath, []byte(headFull+"\n"+latestMig+"\n"), 0644)
 	fmt.Printf("    Local stamp refreshed to %s (source version %s)\n", headShort, latestMig)
-	return true
+	return true, result
+}
+
+// printDriftEitherOrRefusal is called at each drift-refusal site immediately
+// before the site's own unchanged refusal, when driftCoveredByCIGreen has
+// just declined (STATBUS-277). Without it, the refusal below reads as if the
+// local stamp were the ONLY acceptable proof, when the gate is actually
+// either/or: a green pg_regress run at HEAD satisfies it exactly as well as
+// a fresh local run. This says which half is missing and, when CI was
+// actually consulted, exactly what it saw there — status, and a run URL or
+// API-error detail — so the operator does not have to guess whether waiting
+// on a pending run is even worthwhile.
+func printDriftEitherOrRefusal(ciResult release.WorkflowCheckResult) {
+	if ciResult.Status == "" {
+		// CI was never consulted — driftCoveredByCIGreen could not resolve a
+		// HEAD to ask about (see its own doc comment). Say so plainly rather
+		// than implying an answer that was never sought.
+		fmt.Println("    Local stamp is stale, and pg_regress could not be consulted (no resolvable HEAD).")
+		fmt.Println("    Either a green CI run at this commit or the local run below satisfies this check.")
+		return
+	}
+	detail := string(ciResult.Status)
+	switch {
+	case ciResult.RunURL != "":
+		detail += ", run: " + ciResult.RunURL
+	case ciResult.Detail != "":
+		detail += ", detail: " + ciResult.Detail
+	}
+	fmt.Printf("    Local stamp is stale AND pg_regress is not green at HEAD (status: %s);\n", detail)
+	fmt.Println("    either a green CI run at this commit or the local run below satisfies this check.")
 }

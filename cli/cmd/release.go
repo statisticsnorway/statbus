@@ -335,13 +335,15 @@ func preflightChecks(projDir string) bool {
 						shortMig = shortMig[:12]
 					}
 					fmt.Printf("  ✓ Fast tests cover latest migrations (stamp: %s, source version: %s, last migration: %s)\n", shortStamp, stampVersion, shortMig)
-				} else if !driftCoveredByCIGreen(projDir, "test expected file drift", testExpectedDrift, stampFromRide) {
+				} else if covered, ciResult := driftCoveredByCIGreen(projDir, "test expected file drift", testExpectedDrift, stampFromRide); !covered {
 					// Not covered by a green pg_regress at HEAD — see
 					// driftCoveredByCIGreen for the argument it makes when it
-					// IS green. Refusal below is unchanged.
+					// IS green. Refusal below is unchanged except for the
+					// STATBUS-277 either/or line printed first.
 					// Test expected files have drifted (explain plans, performance baselines)
 					expectedFiles := strings.Split(testExpectedDrift, "\n")
 					fmt.Println("  ✗ Fast tests do not cover test expected file drift")
+					printDriftEitherOrRefusal(ciResult)
 					fmt.Printf("    %d changed expected file(s):\n", len(expectedFiles))
 					for _, f := range expectedFiles {
 						if f != "" {
@@ -351,13 +353,15 @@ func preflightChecks(projDir string) bool {
 					fmt.Println("    Fix: ./dev.sh migrate-and-test fast")
 					allPassed = false
 				}
-			} else if !driftCoveredByCIGreen(projDir, "latest migrations", newMigrations, stampFromRide) {
+			} else if covered, ciResult := driftCoveredByCIGreen(projDir, "latest migrations", newMigrations, stampFromRide); !covered {
 				// Not covered by a green pg_regress at HEAD — see
 				// driftCoveredByCIGreen for the argument it makes when it IS
-				// green. Refusal below is unchanged.
+				// green. Refusal below is unchanged except for the STATBUS-277
+				// either/or line printed first.
 				// New migrations exist that weren't tested
 				migrationFiles := strings.Split(newMigrations, "\n")
 				fmt.Println("  ✗ Fast tests do not cover latest migrations")
+				printDriftEitherOrRefusal(ciResult)
 				fmt.Printf("    %d untested migration(s):\n", len(migrationFiles))
 				for _, f := range migrationFiles {
 					if f != "" {

@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/statisticsnorway/statbus/cli/internal/release"
@@ -95,9 +96,16 @@ func TestDriftEscapeFiresOnlyOnGreen(t *testing.T) {
 			dir := newDriftRepo(t)
 			stubWorkflowCheck(t, tc.status)
 
-			got := driftCoveredByCIGreen(dir, "test expected file drift", "test/expected/a.out", false)
+			got, ciResult := driftCoveredByCIGreen(dir, "test expected file drift", "test/expected/a.out", false)
 			if got != tc.want {
 				t.Fatalf("pg_regress %s: escape returned %v, want %v", tc.status, got, tc.want)
+			}
+			// STATBUS-277: the caller prints ciResult on refusal, so the
+			// escape must hand back the actual status it saw rather than a
+			// zero value — a refusal with an empty Status would read as
+			// "CI was never consulted" when it plainly was.
+			if ciResult.Status != tc.status {
+				t.Fatalf("pg_regress %s: returned result status = %q, want %q", tc.status, ciResult.Status, tc.status)
 			}
 
 			// A refusal must also leave no stamp behind: writing one would
@@ -119,7 +127,8 @@ func TestDriftEscapeRefreshesStampOnEscapePath(t *testing.T) {
 	dir := newDriftRepo(t)
 	stubWorkflowCheck(t, release.WorkflowCheckGreen)
 
-	if !driftCoveredByCIGreen(dir, "latest migrations", "migrations/20260101000000_seed.up.sql", false) {
+	covered, _ := driftCoveredByCIGreen(dir, "latest migrations", "migrations/20260101000000_seed.up.sql", false)
+	if !covered {
 		t.Fatal("escape did not fire on green")
 	}
 
@@ -145,7 +154,8 @@ func TestDriftEscapeNeverWritesStampOnRidePath(t *testing.T) {
 	dir := newDriftRepo(t)
 	stubWorkflowCheck(t, release.WorkflowCheckGreen)
 
-	if !driftCoveredByCIGreen(dir, "latest migrations", "migrations/20260101000000_seed.up.sql", true) {
+	covered, _ := driftCoveredByCIGreen(dir, "latest migrations", "migrations/20260101000000_seed.up.sql", true)
+	if !covered {
 		t.Fatal("escape must still pass on green when the stamp came from a ride")
 	}
 
@@ -168,7 +178,67 @@ func TestDriftEscapeRefusesWithoutAHead(t *testing.T) {
 	}
 	t.Cleanup(func() { checkWorkflowAtCommit = old })
 
-	if driftCoveredByCIGreen(dir, "latest migrations", "migrations/x.up.sql", false) {
+	covered, ciResult := driftCoveredByCIGreen(dir, "latest migrations", "migrations/x.up.sql", false)
+	if covered {
 		t.Fatal("escape passed with no HEAD — a check that examines nothing must refuse")
 	}
+	// STATBUS-277: printDriftEitherOrRefusal tells "declined" from "never
+	// consulted" apart by Status being the zero value — pin that here too,
+	// not just the boolean, or a regression that fills in a fake status
+	// would slip through as a message-text nuance nobody in this test caught.
+	if ciResult.Status != "" {
+		t.Fatalf("no-HEAD case returned non-empty status %q — CI was never consulted", ciResult.Status)
+	}
+}
+
+// TestPrintDriftEitherOrRefusal pins the STATBUS-277 message: a refusal must
+// name BOTH halves of the gate — the local stamp being stale AND what CI
+// actually showed — and state the disjunction, so an operator staring at
+// "not covered" does not read the local run as the only accepted proof.
+func TestPrintDriftEitherOrRefusal(t *testing.T) {
+	t.Run("pending, with run URL", func(t *testing.T) {
+		out := captureStdout(t, func() {
+			printDriftEitherOrRefusal(release.WorkflowCheckResult{
+				Status: release.WorkflowCheckPending,
+				RunURL: "https://example.invalid/run/9",
+			})
+		})
+		for _, want := range []string{
+			"pg_regress is not green at HEAD",
+			"status: pending",
+			"run: https://example.invalid/run/9",
+			"either a green CI run at this commit or the local run below satisfies this check",
+		} {
+			if !strings.Contains(out, want) {
+				t.Fatalf("refusal message missing %q; got:\n%s", want, out)
+			}
+		}
+	})
+
+	t.Run("unknown, with API-error detail and no run URL", func(t *testing.T) {
+		out := captureStdout(t, func() {
+			printDriftEitherOrRefusal(release.WorkflowCheckResult{
+				Status: release.WorkflowCheckUnknown,
+				Detail: "GitHub API returned HTTP 403",
+			})
+		})
+		if !strings.Contains(out, "status: unknown") || !strings.Contains(out, "detail: GitHub API returned HTTP 403") {
+			t.Fatalf("refusal message missing status/detail; got:\n%s", out)
+		}
+		if strings.Contains(out, "run:") {
+			t.Fatalf("refusal message printed a run: fragment with no RunURL; got:\n%s", out)
+		}
+	})
+
+	t.Run("no HEAD — CI never consulted, must not fabricate a status", func(t *testing.T) {
+		out := captureStdout(t, func() {
+			printDriftEitherOrRefusal(release.WorkflowCheckResult{})
+		})
+		if !strings.Contains(out, "could not be consulted") {
+			t.Fatalf("refusal message did not distinguish the never-consulted case; got:\n%s", out)
+		}
+		if strings.Contains(out, "status:") {
+			t.Fatalf("refusal message fabricated a CI status with no HEAD resolved; got:\n%s", out)
+		}
+	})
 }
