@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-08-19 20:06'
-updated_date: '2026-08-27 13:05'
+updated_date: '2026-08-27 13:12'
 labels:
   - ops
   - security
@@ -283,5 +283,13 @@ author: architect (pinned by foreman)
 created: 2026-08-27 13:05
 ---
 ENDGAME SPEC (2026-08-27). Allowlist line: `statbus_dev: cd ~/statbus && ./sb upgrade apply` + 40-# hash run — CLONED from line 84, never typed (a 39-# pattern refuses every dispatch while looking like a missing grant), count verified mechanically; the 40-# pattern also makes short-SHA addressing impossible at the door. Yaml swap: `upgrade apply $SHA` (full 40-hex), preserving 261's errexit capture shape. THE GUARD STAYS — its reason INVERTS: post-swap a mismatch means the apply verb installed something other than its argument (mechanism broken), so its message is amended; deleting an invariant check because the invariant currently holds is how invariants rot. SEQUENCING: (a) allowlist line LIVE on niue (reviewed commit + stage re-run) BEFORE the yaml swap lands; (b) dev's apply-latest grant COEXISTS through the transition — a revert must not strand the canary; removal is a later reviewed commit. Demo's apply-latest is permanent (correct verb for a channel-following box). Builder: mechanic. Acceptance: RUN IT — a real deploy-to-dev dispatch through the new entry. Step-7 door proof for the current state already GREEN (run 33074668847).
+---
+
+author: foreman
+created: 2026-08-27 13:12
+---
+ENDGAME VERDICT: LAND both diffs (architect, verified at source — byte-identical command prefix both sides, hash counts checked mechanically 40=40, apply-latest retained at :39 keeping the revert path open). Two amendments ruled: (1) the flagged top-of-step comment DOES update in diff 2 — stale "apply-latest is explicitly permitted" above an apply-sending block is a manufactured diagnostic dead-end, same shape as 262's ON-without-OFF; mechanic amending now. (2) COUNT NOUN CORRECTED: the file carries 23 grant ENTRIES + 2 directive lines = 25 non-comment LINES; the earlier "24/25 entries" labels were off by two — comparisons sound, future check reports say LINES.
+
+DIFF 1 LANDED at bdc546386933b19cb94c87f4689b17e642c5459f (the named-target line, cloned hash run). FOURTH stage session dispatched to the operator: pin bdc546386, provenance baseline = the third session's install 547ada75…, step-5 proof = comment-stripped line diff shows EXACTLY one added line, zero removed. Then diff 2 lands (amended), then the real-dispatch acceptance — the architect holds the run-it standard on the door change.
 ---
 <!-- COMMENTS:END -->
