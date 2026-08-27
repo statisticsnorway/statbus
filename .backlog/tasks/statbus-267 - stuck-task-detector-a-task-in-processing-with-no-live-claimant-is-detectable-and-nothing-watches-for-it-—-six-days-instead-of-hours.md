@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 12:49'
+updated_date: '2026-08-27 16:12'
 labels:
   - worker
 dependencies: []
@@ -25,3 +26,19 @@ Design questions for the architect at build time: where it runs (worker maintena
 
 WHAT IS ACHIEVED: an orphaned processing task is a loud finding within hours, not a silent wedge found by a human staring at a frozen progress bar.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect (pinned by foreman)
+created: 2026-08-27 16:12
+---
+DESIGN (2026-08-27). TWO SIGNALS, ship the first alone: (1) EXACT, no tuning — a task in 'processing' whose start PREDATES the current worker instance's start is abandoned by definition; it is reset_abandoned_processing_tasks()'s own condition evaluated periodically instead of only at startup, so its presence means precisely "the startup reset did not run or failed" — the rune signature. Zero false positives, no per-command table. (2) HEURISTIC, separate judgement, do not let it delay (1): a live-worker task far beyond its command's observed norm — thresholds derived from worker.tasks' own completed-duration history per command (hand-maintained tables rot silently); no-history commands use a generous ceiling AND say so.
+
+WHERE: the worker's MAINTENANCE queue — during the rune wedge the maintenance queue ran every day, and its continued health is exactly what made the wedge invisible; put the detector in the thing that stayed healthy and the mechanism that hid the problem becomes the one that reports it.
+
+HOW IT REPORTS: loudly, and deliberately NOT through container health — health-check wiring would auto-restart the worker, re-run the reset, and quietly fix it: the standing self-heal the King forbids. A condition that should never occur surfaces to a HUMAN: loudest log level, visible where an operator reads status, restart left to a person. Composes with 264: if they restart and the reset still fails, retry-then-FATAL makes it a visible crash-loop.
+
+The reproduction arc is deliberately NOT here — filed as STATBUS-279, the named path to 264's proof. Builder: engineer (Crystal worker territory), queued behind STATBUS-263.
+---
+<!-- COMMENTS:END -->
