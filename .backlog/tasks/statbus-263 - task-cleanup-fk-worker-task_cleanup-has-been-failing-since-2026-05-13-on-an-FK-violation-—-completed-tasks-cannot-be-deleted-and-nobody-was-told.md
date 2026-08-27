@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-27 12:41'
-updated_date: '2026-08-27 16:34'
+updated_date: '2026-08-27 17:27'
 labels:
   - worker
   - norway
@@ -187,5 +187,57 @@ Crystal type-checks clean **through the entrypoint** (`crystal build --no-codege
 ## The blocker
 
 `./dev.sh test` now refuses correctly: `source DB "statbus_seed" is BEHIND HEAD by 2 migration(s)`, fix `./dev.sh migrate-and-test fast` — which rebuilds seed + template and runs the full fast suite under the shared test lock. **That is a shared-resource decision while others are running tests, so I have not fired it.** It blocks 096's expected output and re-running 095. I deleted the 0-byte placeholder the refused run left, so no bogus expected file is frozen into the unit.
+---
+
+author: engineer
+created: 2026-08-27 17:27
+---
+**FROZEN — every leg green, all four suite failures resolved and attributed.** No git operations; the unit sits on disk for staging.
+
+## Per-leg results
+
+| leg | verdict | log |
+|---|---|---|
+| 096 expected via guarded `safe_update_expected` | copied, no BLOCKED | `tmp/263-step-a.log` |
+| 096 verify | **ok 1 — 48 ms** | `tmp/263-step-a.log` |
+| RED: fix-revert (transactional) | **RED on all arms**, restored | `tmp/red_verify_096_fix_revert.log` |
+| RED: 096 test-file ×3 | **all RED**, byte-identical restore | `tmp/263-step-b.log` |
+| RED: 095 test-file ×4 | **all RED**, byte-identical restore | `tmp/red_verify_095.log` |
+| `generate-doc-db` | **verified whole** — 378 fn / 83 table dumps | `tmp/263-step-b.log` |
+| full `migrate-and-test fast` | **85 / 89**, only the attributed four | `tmp/263-step-b.log` |
+| 110 individually | **ok 1 — 69,594 ms** | `tmp/263-step-c.log` |
+| 301 individually | **ok 1 — 20,257 ms** (after 2 corrupted attempts) | `tmp/263-step-c.log`, `tmp/263-step-d.log` |
+| 002 + 123 baselines updated + confirmed | **ok 1, ok 2** | `tmp/263-step-e.log` |
+
+Crystal type-checks clean through the entrypoint. Both RED harnesses verified to have restored their test files byte-identically.
+
+## The four suite failures, all resolved
+
+- **002** and **123** — MINE and intended. 002 gains `interval schedule_interval` in the ER diagram; 123's `p_info` now reports `{"failed_tasks_deleted": 0, "completed_tasks_deleted": 0}` per the Info Principle. Baselines updated through the guarded path (no new ERROR lines, so the errors-into-expected guard passed them on merit) and both confirmed green.
+- **110** and **301** — NOT failures: corrupted artifacts (STATBUS-286). 110 also green in CI at `4a3609ede` pre-263. Their baselines were never touched.
+
+## Unit file list (18 files)
+
+**Migrations (4)** — both down files seeded from `\sf` dumps with stderr kept OFF the dump:
+`migrations/20260827162703_task_cleanup_retention_on_completed_at_with_child_guard.{up,down}.sql`
+`migrations/20260827163000_runner_owns_recurring_maintenance_scheduling.{up,down}.sql`
+
+**Code (1):** `cli/src/worker.cr`
+
+**Tests (4):** `test/sql/095_...sql` + `test/expected/095_...out`, `test/sql/096_...sql` + `test/expected/096_...out`
+
+**Baselines (2):** `test/expected/002_generate_mermaid_er_diagram.out`, `test/expected/123_worker_maintenance_cleanup.out`
+
+**doc/db (6):** 3 new — `worker_ensure_recurring_task(text, jsonb).md`, `worker_schedule_recurring_after(timestamptz).md`, `worker_seed_recurring_tasks().md`; 3 modified — both cleanup handlers + `worker_command_registry.md`
+
+**Doc (1):** `doc/data-model.md` — one line, `command_registry(…, schedule_interval)`
+
+## NOT part of this unit — recommend discard
+
+`test/expected/explain/303_*` (2 files) and `test/expected/performance/109_*`. Checked rather than assumed, per the testing rules: plan shapes unchanged (25 `Seq Scan` lines added, 25 removed — same plans re-emitted), no order-of-magnitude shift (timings ~2× but entirely sub-millisecond, 0.117 → 0.251 ms), remainder is run timestamp and cost-estimate jitter. Trivial drift from the suite having run.
+
+## STATBUS-286 evidence gathered on the way
+
+`tmp/forensics-263/` holds three corrupted artifacts plus `notes.md`. The sharpest datum is 301: **two instances at IDENTICAL total size (68,397 bytes) with DIFFERENT zeroed regions** — start 1×4096 / 1,864 NULs, then 12×4096 / 2,705 NULs — then a clean pass. Deterministic output length, moving discontinuity, intermittent. The second instance occurred in a run where 301 was the **only** test, which removes suite concurrency, ordering and long-run duration as causes. My `blocks=4104` reading is corrected to **2304 (ratio 1.00)** in notes.md, and my "single writer" premise is recorded there as unproven — `pgrep` is point-in-time and cannot see host-side holders of the bind mount.
 ---
 <!-- COMMENTS:END -->
