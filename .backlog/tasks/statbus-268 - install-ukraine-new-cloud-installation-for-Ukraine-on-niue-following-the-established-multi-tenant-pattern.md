@@ -3,10 +3,10 @@ id: STATBUS-268
 title: >-
   install-ukraine: new cloud installation for Ukraine on niue, following the
   established multi-tenant pattern
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-08-27 12:56'
-updated_date: '2026-08-27 16:29'
+updated_date: '2026-08-27 16:56'
 labels:
   - ops
   - cloud
@@ -143,4 +143,18 @@ VERSION PIN LANDED at 7cae75d90 (architect: LAND — anchor discharged strictly:
 
 INSTALL STATE: fired early once and was stopped harmlessly by the script's own FIRST gate — DNS. ua.statbus.org resolves; api.ua and www.ua do not exist yet; the King is adding both CNAMEs (→ niue.statbus.org); a watcher fires the GO on propagation. Then: script → users gate → foreman's personal edit (King's authority, no details persisted) → resume → verify from the running service.
 ---
+
+author: foreman
+created: 2026-08-27 16:56
+---
+INSTALLATION COMPLETE AND PUBLICLY VERIFIED (2026-08-27 ~16:56Z): https://ua.statbus.org serves HTTP/2 307 → /login via Caddy with a fresh ACME certificate; five containers healthy through the reload; born at v2026.08.0-rc.10 (3d398d588) via the version-pinned script + install.sh's image-procured binary; UPGRADE_ROLE=production deriving channel=stable (running-service line verified); ZERO inbound sshdoers entries; initial admin entered by the foreman on the King's authority (details only on the box). The final mile was a pre-declared root action: validate-then-reload of niue's host Caddy — the creation script wires ACLs but never reloads the host router (gap added to STATBUS-283's consolidation scope).
+
+The maiden run surfaced and permanently fixed four latent gaps in one evening: the version pin (born-at-tag), the dead api/www split (including the BROWSER_REST_URL that would have broken this very install), the quoted-tilde keygen, and the missing binary procurement + host reload (→ 283). The next country inherits none of them.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Ukraine (ua.statbus.org) is live on niue: slot ua, port offset 10 (the fleet's first two-digit offset, audited unconstrained), born at v2026.08.0-rc.10 by the version-pinned creation script with install.sh procuring the binary from the commit-tagged image, production role deriving the stable channel, zero inbound CI access, initial admin entered privately on the King's authority, public HTTPS serving through niue's reloaded host Caddy. Installed on the King's explicit ruling with the evidence state named (rc.10's install smoke never ran; the Stage-8 defect it exposed was provably off the cloud path; CalVer guarantees the eventual stable outranks the rc). The maiden run of this script found four latent defects — version pin, dead api/www split (incl. BROWSER_REST_URL), quoted-tilde keygen, missing binary procurement/host reload — all fixed as reviewed commits the same evening; the remaining consolidation (creation tail delegates to install.sh + host reload step) is STATBUS-283. Template proven for every country behind it.
+<!-- SECTION:FINAL_SUMMARY:END -->
