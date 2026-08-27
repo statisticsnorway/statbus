@@ -4,10 +4,11 @@ title: >-
   stage8-optin: the CI-allowlist stage in the default provisioning sequence
   demands a fleet variable — every external hardening run refuses; Stage 8
   becomes opt-in
-status: To Do
+status: Done
 assignee:
   - mechanic
 created_date: '2026-08-27 16:26'
+updated_date: '2026-08-27 16:43'
 labels:
   - ops
   - release-chain
@@ -28,3 +29,9 @@ STANDING LESSON: when a change adds a stage to a sequence, acceptance MUST inclu
 
 Fix rides the next candidate (rc.11); acceptance = container run of the DEFAULT full sequence with no env reaching the opt-in message and exit 0 path, plus the stage-8-requested path still refusing/working as before.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Landed at 339fd3120. Stage 8 is opt-in: the default provisioning sequence without SSHDOERS_REF prints "Stage 8 not run: no CI command door declared for this host. To install one, set SSHDOERS_REF." and continues clean (proven by running the unmodified default invocation in a real container — Stage 8 absent from FAILED_VERIFICATIONS; the four remaining fails are container-environment artifacts, named); the requested path is regression-free against the fourth niue session's proven behavior. The architect's category distinction recorded: a stage never requested has not defaulted to anything — absence of a CI door is the normal state of the world, unlike the channel where absence is always a gap. The harness deliberately keeps running the operator path. Standing lesson pinned: acceptance must include the unmodified default invocation — the only invocation with users.
+<!-- SECTION:FINAL_SUMMARY:END -->
