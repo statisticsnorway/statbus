@@ -7,7 +7,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 17:14'
-updated_date: '2026-08-27 17:26'
+updated_date: '2026-08-27 17:28'
 labels:
   - testing
   - tooling
@@ -55,5 +55,11 @@ author: foreman
 created: 2026-08-27 17:26
 ---
 STRONGEST EVIDENCE YET (2026-08-27 ~17:25Z, engineer): 301_test_custom_happy_path corrupted AGAIN in a SINGLE-TEST run — the only test running, fresh clone DB (test_shared_53331), nothing else on the machine's test path. That removes suite concurrency, test ordering, and long-run duration from the candidate causes in one shot. Geometry across the two instances is the tell: identical deterministic total size (68,397 bytes both times) but DIFFERENT zeroed regions — instance 1: 1,864 NULs starting at 4096 (1 page); instance 2: 2,705 NULs starting at 49,152 (exactly 12 pages); both starts page-aligned, neither run length a page multiple. The damage location moves between runs of identical content — consistent with a nondeterministic mid-write event, not with anything content-derived. Also: 110 re-ran GREEN individually (69,594 ms), closing its attribution as corruption-victim-not-failure. Forensic copies of both 301 instances preserved in tmp/forensics-263/. With a same-day reproducer in hand, the discriminating experiment (container-local --outputdir) is now runnable as a cheap one-off diagnostic instead of waiting for the next accidental occurrence.
+---
+
+author: foreman
+created: 2026-08-27 17:28
+---
+DESIGN CONSTRAINT on deliverable #1, learned from tonight's attempts (2026-08-27): the reproducer is INTERMITTENT — 301 corrupted twice (suite run, then single-test run) and then passed clean on the next single-test attempt. Therefore the discriminating experiment cannot be a one-off: a single clean container-local run discriminates nothing (the bind-mount arm also produces clean runs). The experiment must be a SERIES — several runs per arm (container-local --outputdir vs bind mount), and a clean container-local result is only meaningful against a bind-mount arm that corrupts within the same window. Foreman's ruling tonight: NOT run during the 263 endgame (the conditional pre-authorization lapsed when 301 passed on its first retry); it executes as part of this ticket's implementation, designed as the paired series above. Tonight's tally for the record: 301 corrupted 2 of 3 runs — the highest observed local incidence of this class in one day.
 ---
 <!-- COMMENTS:END -->
