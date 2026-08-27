@@ -120,7 +120,11 @@ echo "  Arc: postswap-rollback-restore-watchdog  (ASSERTING — cover HOLDS → 
 echo "  A=${BASE_SHA:0:8}  B=${B_FULL:0:8}  trigger=V_fail  inject=${INJECT_CLASS}"
 echo "════════════════════════════════════════════════════════════════"
 
-row_state()   { VM_EXEC bash -c "cd ~/statbus && echo 'SELECT state FROM public.upgrade ORDER BY id DESC LIMIT 1;' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
+# STATBUS-293: filtered to B. An UNFILTERED probe reads whatever row has
+# the highest id, and upgrade discovery registers candidate rows at any
+# moment — so the assert silently starts reporting on a row the scenario
+# never touched. Mirrors this arc's own diagnostic query.
+row_state()   { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
 db_up()       { VM_EXEC bash -c "cd ~/statbus && echo 'SELECT 1;' | ./sb psql -t -A 2>/dev/null" 2>/dev/null | tr -d ' \r\n' || echo ""; }
 progress_has(){ VM_EXEC bash -c "grep -qF \"$1\" ~/statbus/tmp/upgrade-progress.log 2>/dev/null && echo yes || echo no" 2>/dev/null | tr -d ' \r\n' || echo "no"; }
 # journal_watchdog_kills — count systemd WATCHDOG-TIMEOUT kills of the upgrade unit

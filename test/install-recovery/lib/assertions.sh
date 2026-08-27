@@ -53,12 +53,32 @@ assert_health_passes() {
     return 1
 }
 
-# Verify the latest public.upgrade row is in the expected state.
+# Verify a public.upgrade row is in the expected state.
 # Useful states: 'completed', 'rolled_back', 'failed', 'in_progress'.
+#
+# THIRD ARG IS THE ROW IDENTITY, AND IT IS REQUIRED IN PRACTICE (STATBUS-293).
+# This used to read "the latest row" — ORDER BY id DESC LIMIT 1, unfiltered —
+# which silently means "whatever row has the highest id right now". Upgrade
+# discovery registers candidate rows whenever the service runs a check, so an
+# unfiltered probe can report on a row the scenario never touched: an arc
+# asserted 'available' while the row it actually drove sat at 'completed', and
+# its own diagnostic dump (filtered by commit_sha) printed the contradiction
+# two lines later.
+#
+# The argument is optional ONLY so this stays callable from a context that
+# genuinely has no commit in hand; passing one is the correct use, and every
+# in-tree caller does.
 assert_upgrade_row_state() {
     local vm_name="$1"
     local expected_state="$2"
+    local commit_sha="${3:-}"
     local actual
+    local where=""
+    local scope="latest upgrade row"
+    if [ -n "$commit_sha" ]; then
+        where="WHERE commit_sha = '$commit_sha'"
+        scope="upgrade row ${commit_sha:0:8}"
+    fi
 
     # Separate transport RC from assertion data (gzip-t pattern). Without
     # || _rc=$?, any SSH/psql failure sets actual="" and the comparison
@@ -70,16 +90,16 @@ assert_upgrade_row_state() {
     local _rc=0
     actual=$(ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
         "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A'" \
-        2>/dev/null <<< "SELECT state FROM public.upgrade ORDER BY id DESC LIMIT 1;" | tr -d ' ') || _rc=$?
+        2>/dev/null <<< "SELECT state FROM public.upgrade $where ORDER BY id DESC LIMIT 1;" | tr -d ' ') || _rc=$?
     if [ "$_rc" -ne 0 ]; then
         echo "  ⚠ could not query public.upgrade on VM (rc=$_rc) — INFRA error; skipping" >&2
         return 0
     fi
     if [ "$actual" = "$expected_state" ]; then
-        echo "  ✓ latest upgrade row state = '$expected_state'"
+        echo "  ✓ $scope state = '$expected_state'"
         return 0
     fi
-    echo "  ✗ upgrade row state mismatch: expected='$expected_state' actual='$actual'"
+    echo "  ✗ $scope state mismatch: expected='$expected_state' actual='$actual'"
     return 1
 }
 

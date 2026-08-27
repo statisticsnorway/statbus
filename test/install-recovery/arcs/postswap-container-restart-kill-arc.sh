@@ -72,7 +72,11 @@ echo "  Arc: postswap-container-restart-kill  (C8 — kill during post-swap rest
 echo "  A=${BASE_SHA:0:8}  B=${B_FULL:0:8}  inject=${INJECT_CLASS}"
 echo "════════════════════════════════════════════════════════════════"
 
-upgrade_state() { VM_EXEC bash -c "cd ~/statbus && echo 'SELECT state FROM public.upgrade ORDER BY id DESC LIMIT 1;' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
+# STATBUS-293: filtered to B. An UNFILTERED probe reads whatever row has
+# the highest id, and upgrade discovery registers candidate rows at any
+# moment — so the assert silently starts reporting on a row the scenario
+# never touched. Mirrors this arc's own diagnostic query.
+upgrade_state() { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
 
 # ── A: install + prepare; register; schedule daemon-down; dispatch with the kill ──
 arc_prepare_box
@@ -92,7 +96,7 @@ arc_install_dispatch_with_inject "$INJECT_CLASS"
 echo ""
 echo "── verifying C8 RED state (flag present; row in_progress; DB up) ──"
 VM_EXEC bash -c "ls -la ~/statbus/tmp/upgrade-in-progress.json" >/dev/null || { echo "✗ expected flag file present after the kill" >&2; exit 1; }
-assert_upgrade_row_state "$VM_NAME" "in_progress"
+assert_upgrade_row_state "$VM_NAME" "in_progress" "$B_FULL"
 echo "  ✓ RED confirmed: flag present + row in_progress (migrations applied; containers indeterminate)"
 
 # ── recovery: ./sb install → recoverFromFlag → resumeNewSb serve-proven self-heal → completed ──
@@ -118,7 +122,7 @@ if echo "$REC_OUT" | grep -qF "UPGRADE_DIED_DURING_RESUME"; then
     echo "✗ UPGRADE_DIED_DURING_RESUME in the recovery output — the RETIRED Resuming one-shot latch fired instead of the serve-proven self-heal (STATBUS-201 regression)" >&2
     exit 1
 fi
-assert_upgrade_row_state "$VM_NAME" "completed"
+assert_upgrade_row_state "$VM_NAME" "completed" "$B_FULL"
 # Data intact at B — no rollback; the self-heal keeps the forward-converged box (V is schema-only,
 # counts match the pre-trigger snapshot, mirroring the converged-selfheal arc).
 assert_demo_data_present "$VM_NAME"

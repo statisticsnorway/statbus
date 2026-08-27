@@ -4050,10 +4050,50 @@ func (d *Service) discover(ctx context.Context) {
 	// The service's compiled-in version — used to skip older releases.
 	currentVersion := d.version
 
+	// ── THE COMPARABILITY GATE (STATBUS-293) ─────────────────────────────────
+	// Automatic discovery decides what to offer by RANKING each release against
+	// the running version. On a box installed from an untagged commit there is
+	// no release ordering to rank against, so this path registers NOTHING and
+	// says so — rather than guessing.
+	//
+	// It used to guess, silently. CompareVersions fell back to comparing raw
+	// text, so an installed commit whose SHA began 0 or 1 sorted below the
+	// literal "2026" and EVERY release in the channel — back to v2026.03.0 —
+	// was registered as an available upgrade for a box running much newer code.
+	// The operator was offered a three-month-old downgrade labelled an upgrade,
+	// and nothing anywhere said anything was wrong.
+	//
+	// Self-comparison is the orderability probe: it consults the same gate
+	// CompareVersions applies, so this can never drift from that definition.
+	//
+	// THE REFUSAL NAMES BOTH WAYS FORWARD, because a guard that only says "no"
+	// replaces a wrong answer with a dead end — no better for the operator
+	// standing in front of it, and this box may be an NSO's production install
+	// whose only lever is this command.
+	_, versionOrderable := CompareVersions(currentVersion, currentVersion)
+	if !versionOrderable {
+		fmt.Printf(`Automatic upgrade discovery is INACTIVE on this box.
+
+  Installed version: %s — this is a commit, not a release tag, so no release
+  can be ranked against it. Nothing has been registered as available, because
+  the only alternative is to guess, and a wrong guess offers a DOWNGRADE as an
+  upgrade (STATBUS-293).
+
+  Two ways forward:
+    - Install a specific version now:        ./sb upgrade apply <version>
+    - Restore automatic discovery: install a release tag (./sb upgrade apply
+      <release-tag>). Once the box is ON a tag, it follows its channel again
+      with no further action.
+`, currentVersion)
+	}
+
 	for _, t := range filtered {
-		// Skip releases older than or equal to what we're currently running.
-		if CompareVersions(t.TagName, currentVersion) <= 0 {
-			if d.verbose {
+		// Skip releases older than or equal to what we're currently running,
+		// and every release when the installed version is unorderable (the
+		// refusal above is printed once, not once per tag).
+		ord, ordered := CompareVersions(t.TagName, currentVersion)
+		if !ordered || ord <= 0 {
+			if d.verbose && ordered {
 				fmt.Printf("  Skipping %s (not newer than %s)\n", t.TagName, currentVersion)
 			}
 			continue
@@ -4321,10 +4361,12 @@ func selectNewestDownloadCandidate(installed string, candidates []downloadCandid
 		if !ValidateVersion(c.Version) {
 			continue // not a CalVer tag — no defined ordering
 		}
-		if CompareVersions(c.Version, installed) <= 0 {
-			continue // older than or equal to installed — never go backward
+		ord, ordered := CompareVersions(c.Version, installed)
+		if !ordered || ord <= 0 {
+			continue // unorderable, older, or equal — never go backward
 		}
-		if !found || CompareVersions(c.Version, best.Version) > 0 {
+		bestOrd, bestOrdered := CompareVersions(c.Version, best.Version)
+		if !found || (bestOrdered && bestOrd > 0) {
 			best = c
 			found = true
 		}
@@ -4351,7 +4393,8 @@ func selectNewestTag(tags []string) string {
 		if !ValidateVersion(tag) {
 			continue // not a CalVer tag — no defined ordering
 		}
-		if newest == "" || CompareVersions(tag, newest) > 0 {
+		ord, ordered := CompareVersions(tag, newest)
+		if newest == "" || (ordered && ord > 0) {
 			newest = tag
 		}
 	}
@@ -4386,7 +4429,16 @@ func selectStaleBelowInstalled(installed string, candidates []staleCandidate) []
 		if newest == "" {
 			continue // no CalVer tag on this row — no defined ordering
 		}
-		if CompareVersions(newest, installed) <= 0 {
+		ord, ordered := CompareVersions(newest, installed)
+		if !ordered {
+			// Cannot order this row against the installed version, so we
+			// cannot know it is stale. LEAVE IT ALONE (STATBUS-293 ruling):
+			// wrongly retiring a legitimate candidate silently removes an
+			// upgrade the operator needs, which is strictly worse than
+			// leaving a stale row visible for a human to dismiss.
+			continue
+		}
+		if ord <= 0 {
 			retire = append(retire, c.ID)
 		}
 	}
@@ -5266,6 +5318,31 @@ func (d *Service) RunCheck(ctx context.Context) error {
 		fmt.Printf("Found %d release tag(s), none matching channel %q — nothing to register\n", len(tags), d.channel)
 		return nil
 	}
+	// ── THE COMPARABILITY GATE (STATBUS-293) ─────────────────────────────────
+	// The same rule discovery applies, at the OTHER path that registers
+	// candidates. Both must apply it or the defect simply moves: this is the
+	// CLI-reached twin (`./sb upgrade check`), and it is the path an operator
+	// runs by hand when something already looks wrong — the worst possible
+	// moment to hand back a list of downgrades presented as upgrades.
+	//
+	// Refused BEFORE runOneShot: with nothing registrable there is no candidate
+	// to prepare, so opening the connection and sending the poke would only
+	// cost a connect/close pair and tell the service to go prepare nothing.
+	if _, versionOrderable := CompareVersions(d.version, d.version); !versionOrderable {
+		fmt.Printf(`Found %d release tag(s), %d matching channel %q — registering NONE.
+
+  Installed version: %s — this is a commit, not a release tag, so no release
+  can be ranked against it. Registering anyway would mean guessing, and a wrong
+  guess offers a DOWNGRADE as an upgrade (STATBUS-293).
+
+  Two ways forward:
+    - Install a specific version now:        ./sb upgrade apply <version>
+    - Restore automatic discovery: install a release tag (./sb upgrade apply
+      <release-tag>). Once the box is ON a tag, discovery resumes by itself.
+`, len(tags), len(filtered), d.channel, d.version)
+		return nil
+	}
+
 	return d.runOneShot(ctx, func(ctx context.Context) error {
 		fmt.Printf("Found %d release tag(s), %d matching channel %q:\n", len(tags), len(filtered), d.channel)
 		registered := 0
@@ -5273,7 +5350,8 @@ func (d *Service) RunCheck(ctx context.Context) error {
 			fmt.Printf("  %s (%s)\n", t.TagName, t.PublishedAt.Format("2006-01-02"))
 			// Register only tags strictly newer than the running version — the
 			// same guard discovery uses; avoids re-recording ancient tags.
-			if CompareVersions(t.TagName, d.version) <= 0 {
+			// Orderability is settled above, before this closure runs.
+			if ord, ordered := CompareVersions(t.TagName, d.version); !ordered || ord <= 0 {
 				continue
 			}
 			sha := t.CommitSHA
@@ -5671,7 +5749,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// placeholder are not release-ordered, so ValidateVersion() rejects
 	// them and the guard short-circuits. No shape detection needed.
 	if ValidateVersion(displayName) && ValidateVersion(d.version) {
-		if CompareVersions(displayName, d.version) < 0 {
+		if ord, ordered := CompareVersions(displayName, d.version); ordered && ord < 0 {
 			// TODO: pick code — downgrade precondition; consider adding ErrInstallPreconditionFailed
 			msg := fmt.Sprintf("Version %s is older than current version %s. Downgrades are not supported. To restore a previous state, use: ./sb db backup restore <name>", displayName, d.version)
 			d.failUpgrade(ctx, id, msg, progress)

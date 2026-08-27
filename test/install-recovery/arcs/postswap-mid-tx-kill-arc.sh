@@ -137,7 +137,11 @@ echo "  Arc: postswap-mid-tx-kill  (cell b: MidTxPauseSQL → SIGKILL → clean 
 echo "  A=${BASE_SHA:0:8}  B=${B_FULL:0:8}  inject=${MIDTX_CLASS}  V=${V_VERSION}/${V_VERSION_2}"
 echo "════════════════════════════════════════════════════════════════"
 
-upgrade_state() { VM_EXEC bash -c "cd ~/statbus && echo 'SELECT state FROM public.upgrade ORDER BY id DESC LIMIT 1;' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
+# STATBUS-293: filtered to B. An UNFILTERED probe reads whatever row has
+# the highest id, and upgrade discovery registers candidate rows at any
+# moment — so the assert silently starts reporting on a row the scenario
+# never touched. Mirrors this arc's own diagnostic query.
+upgrade_state() { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
 
 # _ensure_daemon_stopped — STATBUS-145 wave-2 construction fix: the daemon
 # unit was found RUNNING pre-dispatch in the disqualified run, racing this
@@ -246,7 +250,7 @@ remove_release_file_in_vm "$VM_NAME" "$RELEASE_FILE"
 echo ""
 echo "── verifying clean mid-tx RED shape ──"
 VM_EXEC bash -c "ls -la ~/statbus/tmp/upgrade-in-progress.json" >/dev/null || { echo "✗ expected flag file present after kill" >&2; exit 1; }
-assert_upgrade_row_state "$VM_NAME" "in_progress"
+assert_upgrade_row_state "$VM_NAME" "in_progress" "$B_FULL"
 # STATBUS-027 remedy (transport-aware probe): this read runs immediately after the
 # SIGKILL + pg_terminate_backend, with the DB mid-recovery — a transient psql/SSH
 # failure returns "ERR" and must be RETRIED, then INFRA-skipped, NEVER read as a

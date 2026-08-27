@@ -68,7 +68,11 @@ echo "  Arc: preswap-binary-swap-kill  (C5 — kill at binary-swap boundary, rea
 echo "  A=${BASE_SHA:0:8}  B=${B_FULL:0:8}  inject=${INJECT_CLASS}"
 echo "════════════════════════════════════════════════════════════════"
 
-upgrade_state() { VM_EXEC bash -c "cd ~/statbus && echo 'SELECT state FROM public.upgrade ORDER BY id DESC LIMIT 1;' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
+# STATBUS-293: filtered to B. An UNFILTERED probe reads whatever row has
+# the highest id, and upgrade discovery registers candidate rows at any
+# moment — so the assert silently starts reporting on a row the scenario
+# never touched. Mirrors this arc's own diagnostic query.
+upgrade_state() { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
 
 # ── A: install + prepare; capture baseline migration max; register; schedule; dispatch+kill ──
 arc_prepare_box

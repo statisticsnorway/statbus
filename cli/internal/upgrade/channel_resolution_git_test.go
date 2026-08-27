@@ -275,7 +275,8 @@ func apiRuleOracle(releases []apiRelease, channel string) (string, error) {
 		return "", fmt.Errorf("no %s release published", channel)
 	}
 	sort.Slice(eligible, func(i, j int) bool {
-		return CompareVersions(eligible[i].TagName, eligible[j].TagName) > 0
+		ord, ordered := CompareVersions(eligible[i].TagName, eligible[j].TagName)
+		return ordered && ord > 0
 	})
 	return eligible[0].TagName, nil
 }

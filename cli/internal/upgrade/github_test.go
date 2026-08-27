@@ -90,40 +90,88 @@ func TestHasMigrationsFromChanges(t *testing.T) {
 
 func TestCompareVersions(t *testing.T) {
 	cases := []struct {
-		a, b string
-		want int
+		a, b        string
+		want        int
+		wantOrdered bool
 	}{
 		// Same version
-		{"v2026.03.0", "v2026.03.0", 0},
+		{"v2026.03.0", "v2026.03.0", 0, true},
 		// Patch ordering
-		{"v2026.03.0", "v2026.03.1", -1},
-		{"v2026.03.1", "v2026.03.0", 1},
+		{"v2026.03.0", "v2026.03.1", -1, true},
+		{"v2026.03.1", "v2026.03.0", 1, true},
 		// RC ordering — the key case: rc.9 < rc.17
-		{"v2026.03.0-rc.9", "v2026.03.0-rc.17", -1},
-		{"v2026.03.0-rc.17", "v2026.03.0-rc.9", 1},
-		{"v2026.03.0-rc.1", "v2026.03.0-rc.2", -1},
+		{"v2026.03.0-rc.9", "v2026.03.0-rc.17", -1, true},
+		{"v2026.03.0-rc.17", "v2026.03.0-rc.9", 1, true},
+		{"v2026.03.0-rc.1", "v2026.03.0-rc.2", -1, true},
 		// Stable > prerelease (fewer parts = stable = newer)
-		{"v2026.03.0", "v2026.03.0-rc.17", 1},
-		{"v2026.03.0-rc.17", "v2026.03.0", -1},
+		{"v2026.03.0", "v2026.03.0-rc.17", 1, true},
+		{"v2026.03.0-rc.17", "v2026.03.0", -1, true},
 		// Year/month ordering
-		{"v2026.03.0", "v2026.04.0", -1},
-		{"v2025.12.0", "v2026.01.0", -1},
-		// Regression: double-v prefix from dev.sh + service.go must not break comparison
-		{"v2026.03.1-rc.2", "vv2026.03.0-10-g74a3353e5", 1},
+		{"v2026.03.0", "v2026.04.0", -1, true},
+		{"v2025.12.0", "v2026.01.0", -1, true},
 		// Mixed prefix: with/without v should compare equal
-		{"v2026.03.0", "2026.03.0", 0},
-		{"2026.03.1-rc.2", "2026.03.0", 1},
-		// git-describe format (non-tagged commit) vs tagged version
-		{"v2026.03.1-rc.2", "v2026.03.0-10-g74a3353e5", 1},
-		// Rc.63: sha- prefix is no longer a valid input to CompareVersions
-		// (callers must ValidateVersion upstream). Tests for sha- inputs
-		// moved out — behaviour is now undefined (but non-panicking) for
-		// non-CalVer strings.
+		{"v2026.03.0", "2026.03.0", 0, true},
+		{"2026.03.1-rc.2", "2026.03.0", 1, true},
+		// Double-v (dev.sh + service.go bug) still ORDERS — the leading-v
+		// tolerance CompareVersions has always had is preserved deliberately,
+		// so STATBUS-293 fixes one behaviour without quietly changing another.
+		{"vv2026.03.0", "v2026.03.1", -1, true},
+
+		// ── STATBUS-293: NOT RELEASE-ORDERABLE ───────────────────────────────
+		// Each of these previously returned a confident int from the lexical
+		// fallback. The int is now meaningless and ordered is false.
+		//
+		// The two SHAs are the real ones from arc run 33115731212, and they are
+		// the whole defect in two lines: identical in kind, opposite in result,
+		// separated only by their FIRST HEX CHARACTER. "2026" sorts above
+		// "063d860a" and below "5399acd8", so the same box installed at two
+		// different commits either was or was not offered every stable release
+		// back to v2026.03.0 as an upgrade.
+		{"v2026.05.5", "063d860a", 0, false}, // used to say "newer" → offered downgrades
+		{"v2026.05.5", "5399acd8", 0, false}, // used to say "older" → correct, by luck
+		// git-describe with distance past a tag: a commit reference, not a
+		// release. Previously ordered (and asserted so); now explicitly not.
+		{"v2026.03.1-rc.2", "v2026.03.0-10-g74a3353e5", 0, false},
+		{"v2026.03.1-rc.2", "vv2026.03.0-10-g74a3353e5", 0, false},
+		{"v2026.08.0-rc.11", "v2026.08.0-rc.11-2-g063d860a", 0, false},
+		// The literal dev placeholder, and the empty string.
+		{"v2026.05.5", "dev", 0, false},
+		{"v2026.05.5", "", 0, false},
+		// Two identical commit refs are the SAME COMMIT but that is not a
+		// statement about release ordering — the a==b fast path must not
+		// smuggle them past the gate as "equal versions".
+		{"063d860a", "063d860a", 0, false},
 	}
 	for _, c := range cases {
-		got := CompareVersions(c.a, c.b)
-		if got != c.want {
+		got, gotOrdered := CompareVersions(c.a, c.b)
+		if gotOrdered != c.wantOrdered {
+			t.Errorf("CompareVersions(%q, %q) ordered = %v, want %v", c.a, c.b, gotOrdered, c.wantOrdered)
+			continue
+		}
+		if gotOrdered && got != c.want {
 			t.Errorf("CompareVersions(%q, %q) = %d, want %d", c.a, c.b, got, c.want)
+		}
+	}
+}
+
+// TestCompareVersionsIsSymmetricallyUnordered_STATBUS293 pins that
+// unorderability does not depend on argument position. The defect was
+// asymmetric in its CONSEQUENCE — only the installed-side operand was ever a
+// commit in the failing path — so a fix that gated on one side would look
+// correct against every test written from that path's point of view while
+// leaving the mirror image live for the next caller.
+func TestCompareVersionsIsSymmetricallyUnordered_STATBUS293(t *testing.T) {
+	for _, pair := range [][2]string{
+		{"v2026.05.5", "063d860a"},
+		{"v2026.05.5", "5399acd8"},
+		{"v2026.08.0-rc.11", "v2026.08.0-rc.11-2-g063d860a"},
+		{"v2026.05.5", "dev"},
+	} {
+		if _, ok := CompareVersions(pair[0], pair[1]); ok {
+			t.Errorf("CompareVersions(%q, %q) reported an ordering; expected none", pair[0], pair[1])
+		}
+		if _, ok := CompareVersions(pair[1], pair[0]); ok {
+			t.Errorf("CompareVersions(%q, %q) reported an ordering; expected none (reversed operands)", pair[1], pair[0])
 		}
 	}
 }

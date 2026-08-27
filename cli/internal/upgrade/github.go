@@ -290,26 +290,89 @@ func selectLatestTagFromNames(names []string, channel string) (string, error) {
 	if len(filtered) == 0 {
 		return "", fmt.Errorf("no %s release published", channel)
 	}
+	// Every surviving name is ShapeRelease or ShapePrerelease, both CalVer by
+	// construction, so all of them are orderable. VERIFIED rather than assumed
+	// (STATBUS-293): sorting is where an unorderable element does its damage
+	// silently — sort.Slice's comparator cannot report a problem, so a pair
+	// with no defined ordering would simply produce an arbitrary "latest"
+	// release and no one would ever see why. Self-comparison is the cheapest
+	// orderability probe: it consults the same gate CompareVersions applies.
+	for _, name := range filtered {
+		if _, ordered := CompareVersions(name, name); !ordered {
+			return "", fmt.Errorf(
+				"tag %q matches channel %s but has no CalVer ordering — refusing to choose a latest release from an unorderable set",
+				name, channel)
+		}
+	}
 	sort.Slice(filtered, func(i, j int) bool {
-		return CompareVersions(filtered[i], filtered[j]) > 0
+		ord, ordered := CompareVersions(filtered[i], filtered[j])
+		return ordered && ord > 0
 	})
 	return filtered[0], nil
 }
 
-// CompareVersions returns -1 if a < b, 0 if equal, 1 if a > b.
-// Both inputs MUST be CalVer release tags — callers that hold untagged
-// commit references should not reach here (they're not ordered by
-// release version). Callers guard via ValidateVersion upstream;
-// passing a non-CalVer string produces an undefined (but non-panicking)
-// ordering derived from lexical segment comparison.
-func CompareVersions(a, b string) int {
+// calVerOrderableRegex matches exactly what CompareVersions can meaningfully
+// order, AFTER that function's own leading-"v" normalization. It is
+// deliberately NOT versionRegex: ValidateVersion answers "is this a
+// well-formed release tag" (single leading v, required), while this answers
+// the different question "can this participate in a CalVer ordering". The
+// looser leading-v handling is inherited on purpose — CompareVersions has
+// always TrimLeft'd, so a "vv2026..." string produced by the dev.sh /
+// service.go double-v bug still orders exactly as it did before. Narrowing
+// that here would fix nothing and would silently change a second behaviour
+// while fixing the first.
+var calVerOrderableRegex = regexp.MustCompile(`^\d{4}\.\d{2}\.\d+(-[\w.]+)?$`)
+
+// CompareVersions reports the CalVer ordering of a and b: -1 if a < b, 0 if
+// equal, 1 if a > b. The SECOND RETURN IS THE POINT: it is false when no such
+// ordering exists, and the int is then meaningless and must not be read.
+//
+// WHY THE CONTRACT IS ENFORCED HERE AND NOT MERELY DOCUMENTED (STATBUS-293).
+// This function used to state exactly the same precondition in prose — "both
+// inputs MUST be CalVer release tags… passing a non-CalVer string produces an
+// undefined (but non-panicking) ordering" — and then answer anyway, with a
+// confident int, by falling through to LEXICAL comparison of the raw strings.
+//
+// That is how a box installed at commit 063d860a came to be offered every
+// stable release back to v2026.03.0 as an "available upgrade": the segment
+// compare reached Atoi("063d860a"), failed, fell back to comparing the TEXT
+// "2026" against "063d860a", and concluded that a May release was newer than
+// the code actually running. The answer inverted on the FIRST HEX CHARACTER of
+// the installed commit — SHAs starting 0 or 1 sort below "2026" and offered
+// downgrades; 3-9 and a-f sorted above and behaved correctly. A defect whose
+// trigger is one random character produces months of green followed by an
+// inexplicable red, which is precisely what it did.
+//
+// An undefined answer that is INDISTINGUISHABLE from a defined one is not a
+// documented limitation; it is a wrong answer wearing the same clothes as a
+// right one. A caller cannot guard against a hazard it cannot see, so the
+// prose precondition put the burden on exactly the people least able to carry
+// it — and four of the eight call sites did in fact get it wrong. The
+// comparability flag moves that burden to the compiler: there is no longer a
+// way to spell the unguarded call.
+//
+// Incomparability is NOT an error condition — a box installed from a commit is
+// a perfectly normal, supported state — so this returns a bool rather than an
+// error. The caller's job is not to report a failure; it is to choose the
+// right behaviour for "these two things have no release ordering", which
+// differs per site and is spelled out at each one.
+func CompareVersions(a, b string) (ordering int, ordered bool) {
 	// Normalize: strip leading "v" so "v2026.03.0" and "2026.03.0" compare equally.
 	// Uses TrimLeft to also handle double-v ("vv2026...") from dev.sh + service.go bug.
 	a = strings.TrimLeft(a, "v")
 	b = strings.TrimLeft(b, "v")
 
+	// THE GATE. Checked after normalization and before ANY comparison —
+	// including the a == b fast path below, which would otherwise report two
+	// identical commit SHAs as "equal versions". They are the same commit, but
+	// that is not a statement about release ordering, and callers asking this
+	// function are asking about release ordering.
+	if !calVerOrderableRegex.MatchString(a) || !calVerOrderableRegex.MatchString(b) {
+		return 0, false
+	}
+
 	if a == b {
-		return 0
+		return 0, true
 	}
 
 	partsA := versionParts(a)
@@ -325,30 +388,35 @@ func CompareVersions(a, b string) int {
 		numB, errB := strconv.Atoi(partsB[i])
 		if errA == nil && errB == nil {
 			if numA < numB {
-				return -1
+				return -1, true
 			}
 			if numA > numB {
-				return 1
+				return 1, true
 			}
 			continue
 		}
+		// Lexical fallback, now REACHABLE ONLY for the suffix segments of two
+		// gate-approved CalVer strings (e.g. "rc" vs "beta") — never for a
+		// commit SHA, which the gate rejected before we got here. That is the
+		// whole difference between this being a tie-break and it being the
+		// STATBUS-293 defect.
 		if partsA[i] < partsB[i] {
-			return -1
+			return -1, true
 		}
 		if partsA[i] > partsB[i] {
-			return 1
+			return 1, true
 		}
 	}
 
 	// A version WITHOUT a prerelease suffix is NEWER than one with it.
 	// v2026.03.0 > v2026.03.0-rc.17 (stable release supersedes all its RCs)
 	if len(partsA) < len(partsB) {
-		return 1
+		return 1, true
 	}
 	if len(partsA) > len(partsB) {
-		return -1
+		return -1, true
 	}
-	return 0
+	return 0, true
 }
 
 // versionParts splits a version string into comparable segments.
