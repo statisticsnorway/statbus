@@ -60,7 +60,14 @@ SELECT cr.command,
              AND i.tablename = 'tasks'
              AND i.indexdef LIKE '%UNIQUE%'
              AND i.indexdef LIKE '%(command)%'
-             AND i.indexdef LIKE '%' || cr.command || '%'
+             -- Anchored on the index's WHERE PREDICATE, not on the name
+             -- appearing anywhere in the definition. A loose match would let a
+             -- future command whose name is a SUBSTRING of an existing one
+             -- (job_cleanup against idx_tasks_import_job_cleanup_dedup) match
+             -- the WRONG index and report t while having none of its own —
+             -- the pairing would silently stop being checked for exactly the
+             -- command that needed it. (STATBUS-263 review, deferred to 267.)
+             AND i.indexdef LIKE '%(command = ''' || cr.command || '''::text)%'
              AND i.indexdef LIKE '%pending%'
        ) AS has_dedup_index
 FROM worker.command_registry AS cr

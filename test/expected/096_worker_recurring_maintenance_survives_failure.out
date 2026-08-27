@@ -38,9 +38,10 @@ WHERE schedule_interval IS NOT NULL
 ORDER BY command;
       command       | schedule_interval 
 --------------------+-------------------
+ detect_stuck_tasks | @ 24 hours
  import_job_cleanup | @ 24 hours
  task_cleanup       | @ 24 hours
-(2 rows)
+(3 rows)
 
 \echo '=== PROPERTY 1b: every recurring command has its dedup index ==='
 === PROPERTY 1b: every recurring command has its dedup index ===
@@ -65,7 +66,14 @@ SELECT cr.command,
              AND i.tablename = 'tasks'
              AND i.indexdef LIKE '%UNIQUE%'
              AND i.indexdef LIKE '%(command)%'
-             AND i.indexdef LIKE '%' || cr.command || '%'
+             -- Anchored on the index's WHERE PREDICATE, not on the name
+             -- appearing anywhere in the definition. A loose match would let a
+             -- future command whose name is a SUBSTRING of an existing one
+             -- (job_cleanup against idx_tasks_import_job_cleanup_dedup) match
+             -- the WRONG index and report t while having none of its own —
+             -- the pairing would silently stop being checked for exactly the
+             -- command that needed it. (STATBUS-263 review, deferred to 267.)
+             AND i.indexdef LIKE '%(command = ''' || cr.command || '''::text)%'
              AND i.indexdef LIKE '%pending%'
        ) AS has_dedup_index
 FROM worker.command_registry AS cr
@@ -73,9 +81,10 @@ WHERE cr.schedule_interval IS NOT NULL
 ORDER BY cr.command;
       command       | has_dedup_index 
 --------------------+-----------------
+ detect_stuck_tasks | t
  import_job_cleanup | t
  task_cleanup       | t
-(2 rows)
+(3 rows)
 
 \echo '=== PROPERTY 2: a FAILED run still schedules the next occurrence ==='
 === PROPERTY 2: a FAILED run still schedules the next occurrence ===
@@ -127,9 +136,10 @@ SELECT command, task_id IS NOT NULL AS was_seeded
 FROM worker.seed_recurring_tasks() ORDER BY command;
       command       | was_seeded 
 --------------------+------------
+ detect_stuck_tasks | f
  import_job_cleanup | t
  task_cleanup       | t
-(2 rows)
+(3 rows)
 
 SELECT count(*) AS pending_after_seed FROM worker.tasks
 WHERE command IN ('task_cleanup', 'import_job_cleanup') AND state = 'pending';
@@ -147,9 +157,10 @@ SELECT command, task_id IS NOT NULL AS was_seeded
 FROM worker.seed_recurring_tasks() ORDER BY command;
       command       | was_seeded 
 --------------------+------------
+ detect_stuck_tasks | f
  import_job_cleanup | f
  task_cleanup       | f
-(2 rows)
+(3 rows)
 
 SELECT count(*) AS pending_unchanged FROM worker.tasks
 WHERE command IN ('task_cleanup', 'import_job_cleanup') AND state = 'pending';
