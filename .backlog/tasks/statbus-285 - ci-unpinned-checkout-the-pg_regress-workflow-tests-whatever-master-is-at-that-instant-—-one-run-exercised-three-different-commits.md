@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-27 17:11'
-updated_date: '2026-08-27 19:50'
+updated_date: '2026-08-27 20:02'
 labels:
   - ci
   - testing
@@ -134,5 +134,11 @@ author: foreman
 created: 2026-08-27 19:50
 ---
 RECONCILIATION of the two dating verdicts (mechanic's 'no third mechanism' vs foreman's 'third mechanism confirmed') — both are right about different LAYERS, recorded so neither misleads: on the EXECUTION layer the mechanic is correct — the pin chain is intact end to end (resolve step fired the workflow_run branch, its output 061b63d01 embedded verbatim in the remote checkout, HEAD landed there; the 7cc250b outer-checkout SHA is expected noise from an unrelated supporting-files step). Nothing about WHICH COMMIT GETS TESTED is broken. On the ATTRIBUTION layer the hazard stands — the run is FILED under API head_sha 620cc7f0b (master tip at trigger), while it exercised 061b63d01; checkWorkflowAtCommit keys on that API field, so for workflow_run-triggered workflows the gate can find a green stamped X that exercised an older commit, or miss a green that exercised X but is stamped newer. The architect's gate-integrity escalation is about exactly this layer, and it is unfixable in yaml. SCOPE THEREFORE: (1) consumer-side attribution fix in checkWorkflowAtCommit (engineer designing — the major half); (2) notify-all-clouds resolve + PR-leg uniformity (yaml, the minor half); (3) the execution-side pinning needs NO work — it is done and verified working since 47dbdbca0.
+---
+
+author: foreman
+created: 2026-08-27 20:02
+---
+PUBLISHER HALF LANDED at 879ceea0e (foreman-verified: full uncached cmd suite ok 15.2s, vet clean, marker test green). All four amendments honoured: run-name publishes github.event.workflow_run.head_sha directly (computable at run creation — present on FAILED runs, preserving red-vs-missing); the declarative test (TestWorkflowRunMarkerMatchesCheckoutRef_STATBUS285) pins the marker and checkout-ref to the SAME expression — 199's answer: a restatement of context, not a self-report — and rejects any steps./needs. reference; MACHINE-READ rationale in both yamls; PR leg aligned to the trusted leg's conditional; notify-all-clouds deliberately NOT pinned (its checkout fetches known_hosts — a historical SHA would be actively worse; the architect's own pre-condition resolved to leave-it). Engineer's self-catch on the record: the first RED pass was fooled by Go's test cache (missing -count=1 — the exact trap TestGoTestStepsCarryCountEqualsOne_STATBUS237 documents); re-run uncached, all four mutations RED. REMAINING: the CONSUMER half — built-and-held frozen with a NOT-BEFORE condition: lands only after marker-carrying runs accumulate (landing now would read every historical run as Missing and refuse every gate at the next cut); keys on display_title, strict sentinel + exactly 40 hex, anything else Missing. Ticket stays In Progress for that second landing.
 ---
 <!-- COMMENTS:END -->
