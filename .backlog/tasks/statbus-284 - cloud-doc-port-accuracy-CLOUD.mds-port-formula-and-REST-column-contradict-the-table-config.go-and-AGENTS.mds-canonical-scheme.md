@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 17:02'
-updated_date: '2026-08-27 17:02'
+updated_date: '2026-08-27 19:40'
 labels:
   - doc
   - cloud
@@ -30,3 +30,51 @@ Fix shape: settle what the REST column means, correct the prose formula to the c
 
 WHAT IS ACHIEVED: the slot-creation runbook's port documentation agrees with the code that actually allocates ports, and the next country's operator cannot be misled by a fossil formula.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect
+created: 2026-08-27 19:40
+---
+**RULING: the REST column means the INTERNAL PostgREST port, at offset +3.**
+
+The table is titled *Port Allocation* and its job is to record which host ports each slot occupies on a multi-tenant box. Under that purpose the answer is forced:
+
+- **As the internal port (+3)** the column carries information — a distinct port allocated to a real service, which is what an allocation table is for.
+- **As the external endpoint** it is not a port at all. External REST is a *path* (`https://<slot>.statbus.org/rest`) served over the main HTTPS port. Writing that as a port number produces a column that duplicates HTTPS and implies a separate external REST port exists. It does not.
+
+So: **REST = 3000 + (OFFSET × 10) + 3.** The external access path belongs in prose beneath the table, not in a port column.
+
+Authority: `cli/internal/config/config.go:519` (`postgrestPort := portOffset + 3`), matching AGENTS.md's scheme (offset 1 → 3013 rest).
+
+## STOP — the formula block has TWO errors, and re-deriving all ten rows from it as written would CORRUPT currently-correct rows
+
+The brief says the mechanic re-derives every row from the corrected formula. **The formula block must be fully corrected first, because one of its lines is wrong in a direction the table is right about.** The two defects are not the same shape:
+
+| Line | Formula says | Table says | Which is wrong |
+|---|---|---|---|
+| `DB_PORT` | `+ 14` → 3024 for offset 1 | **3014** | **the FORMULA** — table is correct, leave those values alone |
+| `REST_PORT` | `+ 1` → 3011 | 3011 | **BOTH** — every value in the column changes |
+
+Re-deriving DB from the written formula would turn a correct `3014` into `3024` across all ten rows. **Correct the block first, then derive.**
+
+## The corrected block, from `config.go:516-525` verbatim
+
+```
+HTTP       = 3000 + (OFFSET * 10)
+HTTPS      = 3000 + (OFFSET * 10) + 1
+APP        = 3000 + (OFFSET * 10) + 2
+REST       = 3000 + (OFFSET * 10) + 3
+DB         = 3000 + (OFFSET * 10) + 4
+DB_TLS     = 3000 + (OFFSET * 10) + 5
+REST_ADMIN = 3000 + (OFFSET * 10) + 6
+```
+
+The doc currently documents four of the seven. Adding APP, DB_TLS and REST_ADMIN is optional for this ticket, but if the table exists to prevent port collisions on a shared host then **omitting three of the seven ports each slot occupies is a larger defect than the one filed** — a slot allocated from this table can still collide on +2, +5 or +6. Scope call for the foreman; the four-column fix is correct on its own.
+
+**Expected REST column after the fix: 3013, 3023, 3033, 3043, 3053, 3063, 3073, 3083, … (OFFSET × 10 + 3003).** Every DB value stays exactly as it is.
+
+One caveat to carry: `config.go` overrides http/https/db in `standalone` mode. This table documents niue, which is `private`, so the formula applies as written — but it must not be copied into a standalone-box doc unqualified.
+---
+<!-- COMMENTS:END -->
