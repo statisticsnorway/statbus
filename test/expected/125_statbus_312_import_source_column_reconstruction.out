@@ -1,0 +1,316 @@
+\i test/setup.sql
+\echo -- test/setup.sql output suppressed for cleaner test output
+-- test/setup.sql output suppressed for cleaner test output
+\set ECHO none
+\echo -- test/setup.sql done, test output follows
+-- test/setup.sql done, test output follows
+-- STATBUS-312: migration 20260828231905 reconstructs import_source_column /
+-- import_mapping rows that a construction-order-dependent bug in
+-- import.cleanup_orphaned_synced_mappings (migration 20260422011930) can
+-- wrongly delete during a full-from-migrations seed replay. This test
+-- constructs the exact defect shape (a wrongly-deleted source column on an
+-- otherwise-correct, enabled, non-custom default definition), re-applies
+-- the migration's own SQL file (the shipped bytes, not a copy — cannot
+-- drift from what actually runs in production), and asserts BOTH
+-- directions the ruling requires: the missing mapping comes back, AND
+-- nothing outside the affected row is created or altered.
+--
+-- Target: legal_unit_job_provided's 'tax_ident' source column (external_idents
+-- step, maps to the tax_ident_raw data column) — an ordinary default-definition
+-- column, chosen because it is stable and well-known, not because anything is
+-- special about it.
+-- Global baselines BEFORE any modification — captured via \gset (test/007,
+-- test/109 etc. already establish this as the house pattern for asserting
+-- "the total is unchanged" without hardcoding a number that could drift
+-- with the seed) rather than a hardcoded literal, so this test does not
+-- silently start lying if the seed's default-definition set ever grows.
+SELECT count(*) AS n FROM public.import_source_column \gset before_isc_
+SELECT count(*) AS n FROM public.import_mapping \gset before_map_
+\echo -- Baseline: the target column exists and is correctly mapped before we break anything.
+-- Baseline: the target column exists and is correctly mapped before we break anything.
+SELECT isc.column_name, im.target_data_column_id, im.is_ignored, idc.column_name AS target_column_name
+  FROM public.import_source_column isc
+  JOIN public.import_definition d ON d.id = isc.definition_id
+  JOIN public.import_mapping im ON im.source_column_id = isc.id
+  JOIN public.import_data_column idc ON idc.id = im.target_data_column_id
+ WHERE d.slug = 'legal_unit_job_provided' AND isc.column_name = 'tax_ident';
+ column_name | target_data_column_id | is_ignored | target_column_name 
+-------------+-----------------------+------------+--------------------
+ tax_ident   |                   116 | f          | tax_ident_raw
+(1 row)
+
+-- SCENARIO 1 — CONSTRUCT THE WRONG STATE: delete the source_column exactly
+-- as the construction-order bug would (cascades to its import_mapping via
+-- the FK ON DELETE CASCADE — confirmed in doc/db/table/public_import_source_column.md).
+DELETE FROM public.import_source_column isc
+ USING public.import_definition d
+ WHERE isc.definition_id = d.id
+   AND d.slug = 'legal_unit_job_provided'
+   AND isc.column_name = 'tax_ident';
+\echo -- Confirmed gone (0 rows) before the repair runs.
+-- Confirmed gone (0 rows) before the repair runs.
+SELECT count(*) AS should_be_zero
+  FROM public.import_source_column isc
+  JOIN public.import_definition d ON d.id = isc.definition_id
+ WHERE d.slug = 'legal_unit_job_provided' AND isc.column_name = 'tax_ident';
+ should_be_zero 
+----------------
+              0
+(1 row)
+
+-- Re-apply the repair migration's own file — the shipped bytes.
+\i migrations/20260828231905_reconstruct_import_source_columns_lost_to_seed_path_divergence.up.sql
+-- Migration 20260828231905: reconstruct import source columns lost to seed path divergence
+--
+-- STATBUS-312. import.cleanup_orphaned_synced_mappings (migration
+-- 20260422011930) deletes an import_source_column whenever its sibling
+-- `{name}_raw` import_data_column is absent under the definition's steps.
+-- That check is only SAFE once every data-column generator for the
+-- GENERATE phase has settled — the migration's own header documents this:
+-- cleanup must run LAST, after the columns it is checking against exist.
+--
+-- A full-from-migrations seed rebuild can apply that generate-phase
+-- ordering differently than an incrementally-maintained database: if
+-- cleanup's orphan check ever observes a data_column set that has not yet
+-- fully settled (a construction-order artifact, not a real orphan),
+-- import_source_column rows for definitions that are otherwise entirely
+-- correct get wrongly deleted (cascading to their import_mapping rows).
+-- The fleet's real boxes are incrementally maintained and never take this
+-- path, so they hold the correct state; a database built by replaying
+-- every migration from scratch can end up missing rows the fleet has.
+--
+-- THE REPAIR IS PURELY RECONSTRUCTIVE, NEVER A DELETE. It calls
+-- import.synchronize_definition_step_mappings(definition_id, step_code)
+-- directly — the SAME procedure that creates these pairs correctly in the
+-- first place (doc/db/function/import_synchronize_definition_step_mappings(integer, text).md)
+-- — for every enabled, non-custom definition's relevant steps, rather than
+-- hand-writing a second copy of its INSERT logic that could drift out of
+-- sync with the real one. That procedure is already idempotent by
+-- construction: `IF NOT FOUND` before creating a source_column, and
+-- `ON CONFLICT (definition_id, source_column_id, target_data_column_id) DO
+-- NOTHING` for the mapping — it only fills gaps, never touches a row that
+-- is already correct. Deliberately NOT calling
+-- import.cleanup_orphaned_synced_mappings() here: that is the delete side
+-- of the pair, and a repair migration's job is to move a replay TOWARD the
+-- fleet's state, never to risk moving it further away.
+--
+-- DERIVATION VERIFIED, not assumed (STATBUS-312 ruling's required order):
+-- synchronize_definition_step_mappings computes column_name via
+-- regexp_replace(dc.column_name, '_raw$', ''), priority via sequential
+-- max+1 in dc.priority order, and the mapping's four fields entirely from
+-- the import_definition_step ⨝ import_data_column join — nothing else.
+-- Checked both target tables' full schemas (doc/db/table/public_import_source_column.md,
+-- public_import_mapping.md): neither carries any field beyond what this
+-- derivation already accounts for, for the custom=FALSE population this
+-- bug affects. So running it again can only ever reconstruct exactly what
+-- should already be there — it cannot invent a mapping that was not the
+-- system's own correct one.
+--
+-- IDEMPOTENT BY CONSTRUCTION: a settled database (every real box; an
+-- incrementally-built seed) has nothing missing, so every call below is a
+-- no-op. A database missing rows to this specific defect gets them back.
+-- Safe to re-run.
+--
+-- WHY THIS IS REAL, NOT TEST-ONLY: install.sh's seed-restore path
+-- documents a silent full-replay fallback when the cached seed artifact is
+-- stale or absent — a fresh box taking that fallback builds exactly the
+-- database this migration exists to correct, silently, with no test
+-- suite to catch it. The durable rule this migration is also an instance
+-- of: a migration's data operations must be expressed so the result does
+-- not depend on its position in the replay sequence — this one is written
+-- to hold regardless of what ran before it, by re-deriving from source
+-- rather than trusting an intermediate state.
+BEGIN;
+DO $do$
+DECLARE
+    v_def RECORD;
+BEGIN
+    FOR v_def IN
+        SELECT id FROM public.import_definition WHERE enabled = TRUE AND custom = FALSE
+    LOOP
+        IF EXISTS (
+            SELECT 1 FROM public.import_definition_step ids
+            JOIN public.import_step s ON ids.step_id = s.id
+            WHERE ids.definition_id = v_def.id AND s.code = 'external_idents'
+        ) THEN
+            CALL import.synchronize_definition_step_mappings(v_def.id, 'external_idents');
+        END IF;
+        IF EXISTS (
+            SELECT 1 FROM public.import_definition_step ids
+            JOIN public.import_step s ON ids.step_id = s.id
+            WHERE ids.definition_id = v_def.id AND s.code = 'link_establishment_to_legal_unit'
+        ) THEN
+            CALL import.synchronize_definition_step_mappings(v_def.id, 'link_establishment_to_legal_unit');
+        END IF;
+        IF EXISTS (
+            SELECT 1 FROM public.import_definition_step ids
+            JOIN public.import_step s ON ids.step_id = s.id
+            WHERE ids.definition_id = v_def.id AND s.code = 'statistical_variables'
+        ) THEN
+            CALL import.synchronize_definition_step_mappings(v_def.id, 'statistical_variables');
+        END IF;
+    END LOOP;
+END;
+$do$;
+COMMIT;
+\echo -- SCENARIO 1 assertion (the positive): the mapping is restored, correctly.
+-- SCENARIO 1 assertion (the positive): the mapping is restored, correctly.
+SELECT isc.column_name, im.target_data_column_id, im.is_ignored, idc.column_name AS target_column_name
+  FROM public.import_source_column isc
+  JOIN public.import_definition d ON d.id = isc.definition_id
+  JOIN public.import_mapping im ON im.source_column_id = isc.id
+  JOIN public.import_data_column idc ON idc.id = im.target_data_column_id
+ WHERE d.slug = 'legal_unit_job_provided' AND isc.column_name = 'tax_ident';
+ column_name | target_data_column_id | is_ignored | target_column_name 
+-------------+-----------------------+------------+--------------------
+ tax_ident   |                   116 | f          | tax_ident_raw
+(1 row)
+
+-- NOTE ON PRIORITY, deliberately not asserted above: the reconstructed row
+-- gets a FRESH priority (current max + 1 for the definition), not its
+-- original position — this is the real procedure's own behavior for any
+-- newly-created source column (synchronize_definition_step_mappings has no
+-- memory of a deleted row's old priority), not a defect of the repair.
+-- What matters, and is asserted, is that the column exists again and maps
+-- to the correct target — not that it occupies the same numeric slot.
+\echo -- SCENARIO 2 assertion (negative #1, the point of the ruling's two negatives): global totals return to EXACTLY the pre-break baseline — nothing outside the one deleted row was created.
+-- SCENARIO 2 assertion (negative #1, the point of theunterminated quoted string
+
+SELECT (SELECT count(*) FROM public.import_source_column) - :before_isc_n AS source_column_delta;
+ source_column_delta 
+---------------------
+                   0
+(1 row)
+
+SELECT (SELECT count(*) FROM public.import_mapping) - :before_map_n AS mapping_delta;
+ mapping_delta 
+---------------
+             0
+(1 row)
+
+-- SCENARIO 3 (negative #2) — SETTLED DATABASE IS UNTOUCHED: re-run the
+-- migration again on a now-fully-correct database (idempotency AND the
+-- "does not invent mappings on a settled database" property together —
+-- without this, a migration that recreated EVERY definition's columns from
+-- scratch on every run would also pass scenario 2 by accident).
+\i migrations/20260828231905_reconstruct_import_source_columns_lost_to_seed_path_divergence.up.sql
+-- Migration 20260828231905: reconstruct import source columns lost to seed path divergence
+--
+-- STATBUS-312. import.cleanup_orphaned_synced_mappings (migration
+-- 20260422011930) deletes an import_source_column whenever its sibling
+-- `{name}_raw` import_data_column is absent under the definition's steps.
+-- That check is only SAFE once every data-column generator for the
+-- GENERATE phase has settled — the migration's own header documents this:
+-- cleanup must run LAST, after the columns it is checking against exist.
+--
+-- A full-from-migrations seed rebuild can apply that generate-phase
+-- ordering differently than an incrementally-maintained database: if
+-- cleanup's orphan check ever observes a data_column set that has not yet
+-- fully settled (a construction-order artifact, not a real orphan),
+-- import_source_column rows for definitions that are otherwise entirely
+-- correct get wrongly deleted (cascading to their import_mapping rows).
+-- The fleet's real boxes are incrementally maintained and never take this
+-- path, so they hold the correct state; a database built by replaying
+-- every migration from scratch can end up missing rows the fleet has.
+--
+-- THE REPAIR IS PURELY RECONSTRUCTIVE, NEVER A DELETE. It calls
+-- import.synchronize_definition_step_mappings(definition_id, step_code)
+-- directly — the SAME procedure that creates these pairs correctly in the
+-- first place (doc/db/function/import_synchronize_definition_step_mappings(integer, text).md)
+-- — for every enabled, non-custom definition's relevant steps, rather than
+-- hand-writing a second copy of its INSERT logic that could drift out of
+-- sync with the real one. That procedure is already idempotent by
+-- construction: `IF NOT FOUND` before creating a source_column, and
+-- `ON CONFLICT (definition_id, source_column_id, target_data_column_id) DO
+-- NOTHING` for the mapping — it only fills gaps, never touches a row that
+-- is already correct. Deliberately NOT calling
+-- import.cleanup_orphaned_synced_mappings() here: that is the delete side
+-- of the pair, and a repair migration's job is to move a replay TOWARD the
+-- fleet's state, never to risk moving it further away.
+--
+-- DERIVATION VERIFIED, not assumed (STATBUS-312 ruling's required order):
+-- synchronize_definition_step_mappings computes column_name via
+-- regexp_replace(dc.column_name, '_raw$', ''), priority via sequential
+-- max+1 in dc.priority order, and the mapping's four fields entirely from
+-- the import_definition_step ⨝ import_data_column join — nothing else.
+-- Checked both target tables' full schemas (doc/db/table/public_import_source_column.md,
+-- public_import_mapping.md): neither carries any field beyond what this
+-- derivation already accounts for, for the custom=FALSE population this
+-- bug affects. So running it again can only ever reconstruct exactly what
+-- should already be there — it cannot invent a mapping that was not the
+-- system's own correct one.
+--
+-- IDEMPOTENT BY CONSTRUCTION: a settled database (every real box; an
+-- incrementally-built seed) has nothing missing, so every call below is a
+-- no-op. A database missing rows to this specific defect gets them back.
+-- Safe to re-run.
+--
+-- WHY THIS IS REAL, NOT TEST-ONLY: install.sh's seed-restore path
+-- documents a silent full-replay fallback when the cached seed artifact is
+-- stale or absent — a fresh box taking that fallback builds exactly the
+-- database this migration exists to correct, silently, with no test
+-- suite to catch it. The durable rule this migration is also an instance
+-- of: a migration's data operations must be expressed so the result does
+-- not depend on its position in the replay sequence — this one is written
+-- to hold regardless of what ran before it, by re-deriving from source
+-- rather than trusting an intermediate state.
+BEGIN;
+DO $do$
+DECLARE
+    v_def RECORD;
+BEGIN
+    FOR v_def IN
+        SELECT id FROM public.import_definition WHERE enabled = TRUE AND custom = FALSE
+    LOOP
+        IF EXISTS (
+            SELECT 1 FROM public.import_definition_step ids
+            JOIN public.import_step s ON ids.step_id = s.id
+            WHERE ids.definition_id = v_def.id AND s.code = 'external_idents'
+        ) THEN
+            CALL import.synchronize_definition_step_mappings(v_def.id, 'external_idents');
+        END IF;
+        IF EXISTS (
+            SELECT 1 FROM public.import_definition_step ids
+            JOIN public.import_step s ON ids.step_id = s.id
+            WHERE ids.definition_id = v_def.id AND s.code = 'link_establishment_to_legal_unit'
+        ) THEN
+            CALL import.synchronize_definition_step_mappings(v_def.id, 'link_establishment_to_legal_unit');
+        END IF;
+        IF EXISTS (
+            SELECT 1 FROM public.import_definition_step ids
+            JOIN public.import_step s ON ids.step_id = s.id
+            WHERE ids.definition_id = v_def.id AND s.code = 'statistical_variables'
+        ) THEN
+            CALL import.synchronize_definition_step_mappings(v_def.id, 'statistical_variables');
+        END IF;
+    END LOOP;
+END;
+$do$;
+COMMIT;
+\echo -- SCENARIO 3 assertion: still exactly at baseline after a second (no-op) run.
+-- SCENARIO 3 assertion: still exactly at baseline after a second (no-op) run.
+SELECT (SELECT count(*) FROM public.import_source_column) - :before_isc_n AS source_column_delta_after_rerun;
+ source_column_delta_after_rerun 
+---------------------------------
+                               0
+(1 row)
+
+SELECT (SELECT count(*) FROM public.import_mapping) - :before_map_n AS mapping_delta_after_rerun;
+ mapping_delta_after_rerun 
+---------------------------
+                         0
+(1 row)
+
+\echo -- SCENARIO 3 assertion, continued: the reconstructed row itself is unchanged by the no-op re-run (same id, not deleted-and-recreated again).
+-- SCENARIO 3 assertion, continued: the reconstructed row itself is unchanged by the no-op re-run (same id, not deleted-and-recreated again).
+SELECT isc.column_name, im.is_ignored, idc.column_name AS target_column_name
+  FROM public.import_source_column isc
+  JOIN public.import_definition d ON d.id = isc.definition_id
+  JOIN public.import_mapping im ON im.source_column_id = isc.id
+  JOIN public.import_data_column idc ON idc.id = im.target_data_column_id
+ WHERE d.slug = 'legal_unit_job_provided' AND isc.column_name = 'tax_ident';
+ column_name | is_ignored | target_column_name 
+-------------+------------+--------------------
+ tax_ident   | f          | tax_ident_raw
+(1 row)
+
