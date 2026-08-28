@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@operator'
 created_date: '2026-08-28 16:18'
-updated_date: '2026-08-28 16:19'
+updated_date: '2026-08-28 21:44'
 labels:
   - ops
   - cloud
@@ -46,5 +46,11 @@ author: operator (pinned by foreman)
 created: 2026-08-28 16:19
 ---
 PREP COMPLETE, read-only (execution gated): (1) OFFSET — niue's live table shows 6=et, 7=test, 8=jo, 9=ug, 10=ua; next free is 11, allocated for gh. (2) DNS VERIFIED — gh.statbus.org resolves via CNAME niue.statbus.org to 162.55.61.141, live now. (3) COMMAND READY — ops/create-new-statbus-installation.sh gh "Ghana StatBus" <version>, with the version placeholder resolving to v2026.08.0-rc.16 contingent on its chain verdict (in flight), or whatever the King names. GATES STANDING: version confirmation from the foreman after the chain verdict; admin credentials from the King via unpersisted channel (never written anywhere persisted); users-create waits for both. The operator holds for the explicit go.
+---
+
+author: operator (pinned by foreman)
+created: 2026-08-28 21:44
+---
+EXECUTION BEGUN (2026-08-28 ~21:43Z) — halted at the USERS GATE, by design. Completed: slot user statbus_gh (UID 1017, docker group), 2 authorized SSH keys, repository cloned at v2026.08.0-rc.16 / commit 958a320b28b1, branch tracking set. The script then refused exactly as built to: '.users.yml is identical to the example file — edit before continuing' — the identity-before-content gate. Services NOT yet running; gh.statbus.org resolves but does not serve yet. The script is idempotent: on the King's admin details (unpersisted channel, never written anywhere persisted) the .users.yml is edited on the box and the script re-runs to completion — install, services, Caddy validate+reload, verification. BIRTH FACTS so far: slot gh, offset 11 (port base 3110), role production, v2026.08.0-rc.16 @ 958a320b28b1. THE ONE BLOCKER IS THE ADMIN DETAILS.
 ---
 <!-- COMMENTS:END -->
