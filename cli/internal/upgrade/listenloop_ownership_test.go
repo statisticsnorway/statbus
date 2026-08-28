@@ -198,3 +198,108 @@ func TestListenLoopNeverReadsSharedListenConn(t *testing.T) {
 		t.Error("startListenLoop must pass the captured local, not d.listenConn, to listenLoop")
 	}
 }
+
+// ─── STATBUS-306: a nil-conn start must not wedge the restart guard ─────────
+//
+// The 294 fix made a nil-conn start SAFE and LOUD. It did not make it
+// RECOVERABLE: startListenLoop set d.listenCancel before the goroutine ran, and
+// the nil path never cleared it, so the guard looked like a live listener
+// forever. The four `if d.listenCancel == nil { startListenLoop }` sites in the
+// idle loop were then permanently false and the daemon could never hear NOTIFY
+// again — a box that parked during an outage stayed deaf for the life of the
+// process, degraded from on-poke to the 6-hour tick while reporting healthy.
+//
+// DB-free like the rest of this file: the property is entirely about guard
+// bookkeeping, which needs no connection to observe.
+
+// TestNilConnStartLeavesGuardNeverStarted_STATBUS306 asserts the STATE
+// directly — the exact fields every consumer branches on.
+func TestNilConnStartLeavesGuardNeverStarted_STATBUS306(t *testing.T) {
+	d := &Service{} // listenConn nil: the parked-box shape
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	d.startListenLoop(ctx, make(chan *pgconn.Notification), make(chan error))
+
+	if d.listenCancel != nil {
+		t.Error("listenCancel is set after a nil-conn start — the restart guard is wedged.\n" +
+			"Every `if d.listenCancel == nil { startListenLoop }` in the idle loop is now\n" +
+			"permanently false, so this daemon can never start listening again.")
+	}
+	if d.listenDone != nil {
+		t.Error("listenDone is set after a nil-conn start — the bookkeeping is half-initialised.\n" +
+			"The state after a refused start must be INDISTINGUISHABLE from never-started;\n" +
+			"a done channel nobody will ever close is not that.")
+	}
+}
+
+// TestNilConnStartPermitsASubsequentStart_STATBUS306 is the BEHAVIOURAL half.
+//
+// Asserting the fields alone would pass against a fix that cleared them while
+// leaving some other state stuck. This drives the actual entry point twice and
+// asks whether the second call still REACHES its work — observed through the
+// announce, which only prints on the path that got past the already-running
+// guard.
+//
+// Pre-fix, the second call returns silently at `if d.listenCancel != nil` and
+// the line appears once. That difference is the whole bug, expressed in the
+// only output a DB-free test can see.
+func TestNilConnStartPermitsASubsequentStart_STATBUS306(t *testing.T) {
+	d := &Service{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	out := captureStdout(t, func() {
+		d.startListenLoop(ctx, make(chan *pgconn.Notification), make(chan error))
+		d.startListenLoop(ctx, make(chan *pgconn.Notification), make(chan error))
+	})
+
+	got := strings.Count(out, "listenLoop NOT started")
+	if got != 2 {
+		t.Errorf("the nil-conn announce appeared %d time(s) across two starts; want 2.\n"+
+			"A second start that says nothing was refused by the already-running guard —\n"+
+			"meaning the first start left the guard set and the listener can never be retried.\n"+
+			"captured output:\n%s", got, out)
+	}
+}
+
+// captureStdout runs fn with os.Stdout redirected and returns what it wrote.
+// The announce is the only externally observable effect of the refused start,
+// so reading it is how a DB-free test asks "did this call reach its work?".
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+	orig := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	os.Stdout = w
+
+	var wg sync.WaitGroup
+	var buf strings.Builder
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		b := make([]byte, 4096)
+		for {
+			n, err := r.Read(b)
+			if n > 0 {
+				buf.Write(b[:n])
+			}
+			if err != nil {
+				return
+			}
+		}
+	}()
+
+	fn()
+
+	// Restore BEFORE waiting on the reader: closing the writer is what ends the
+	// read loop, and leaving os.Stdout pointing at a closed pipe would break
+	// every later test in the package.
+	_ = w.Close()
+	os.Stdout = orig
+	wg.Wait()
+	_ = r.Close()
+	return buf.String()
+}

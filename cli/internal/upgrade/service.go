@@ -2581,6 +2581,37 @@ func (d *Service) startListenLoop(ctx context.Context, notifyCh chan<- *pgconn.N
 		return // already running
 	}
 	conn := d.listenConn
+
+	// ── NO CONNECTION: ANNOUNCE AND LEAVE THE GUARD UNTOUCHED (STATBUS-306) ──
+	//
+	// Checked HERE, before any guard state exists, and that placement IS the
+	// fix. The previous shape set d.listenCancel and d.listenDone first and let
+	// the goroutine discover the nil conn — so a start that listened to nothing
+	// still left the guard looking like a live listener. Nothing but
+	// stopListenLoop clears that, and nothing calls stopListenLoop on an idle
+	// box, so every later `if d.listenCancel == nil { startListenLoop }` in the
+	// main loop was permanently false. The daemon went deaf for the rest of the
+	// process's life: `./sb upgrade register` reported its poke sent, and it was
+	// sent, into a service that could never hear it again. Reactivity silently
+	// degraded from on-poke to the 6-hour tick.
+	//
+	// This happens on a real path, not a hypothetical one: recoveryRollback's
+	// park closes both connections before returning, and Run() then reaches its
+	// one and only startListenLoop for that boot with d.listenConn already nil.
+	//
+	// RETURNING BEFORE ASSIGNMENT rather than assigning and unwinding is
+	// deliberate. The requirement is that the resulting state be
+	// INDISTINGUISHABLE FROM NEVER-STARTED for every consumer — startListenLoop's
+	// own guard, stopListenLoop's early return, and the four restart guards in
+	// the idle loop. Never writing it satisfies that by construction; writing
+	// then clearing would have to keep listenCancel and listenDone consistent
+	// with each other at every exit, which is a thing to get wrong later.
+	if conn == nil {
+		fmt.Println("listenLoop NOT started: no database connection — the service will act " +
+			"only on its own tick, and will start listening when a connection returns (STATBUS-294, STATBUS-306)")
+		return
+	}
+
 	listenCtx, cancel := context.WithCancel(ctx)
 	d.listenCancel = cancel
 	done := make(chan struct{})
@@ -2669,6 +2700,12 @@ func (d *Service) listenLoop(ctx context.Context, conn *pgx.Conn, notifyCh chan<
 		// Loud by design (architect, STATBUS-294 review): a silent return here
 		// would make the listener quietly not listen — the box keeps working on
 		// its tick, degraded and looking healthy, which is the 263 failure shape.
+		//
+		// SECOND LINE OF DEFENCE since STATBUS-306. The production caller
+		// (startListenLoop) now refuses a nil conn before it creates any guard
+		// state, so this branch is not reached from there. It stays because
+		// listenLoop's contract is its own: any future caller that hands it a
+		// nil conn must still get a loud, safe return rather than the 294 panic.
 		fmt.Println("listenLoop: no connection — NOT listening for notifications; " +
 			"the service will act only on its own tick (STATBUS-294)")
 		return
