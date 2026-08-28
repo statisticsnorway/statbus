@@ -7,6 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-28 03:58'
+updated_date: '2026-08-28 04:00'
 labels:
   - install-recovery
   - ci
@@ -31,3 +32,13 @@ FIX SHAPE: decide-then-act — probe emptiness with `git diff --cached --quiet` 
 
 RELAUNCH PATH, no rc.14 needed: the arc-harness fixture job's checkout has no ref: override, so it checks out the RUN's github.sha — the dispatched ref's tip (master), not the RC tag. Land the fix on master, then re-run the orchestrator's failed leg 5 (gh run rerun 33136561614 --failed); the re-dispatched harness picks up the fixed lib.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-08-28 04:00
+---
+FIX LANDED at 84c99c7ed (single file, +37/−7): decide-then-act — git diff --cached --quiet separates the benign empty-index case (stderr line, base SHA used) from a real commit failure (now loud and fatal; previously a signing/hook/disk failure was reported as 'nothing to commit' and execution CONTINUED on an uncommitted tree — the more dangerous of the two defects). Engineer's sweep, with the honest discriminator being 'does the caller capture the function with $( )' (17 such functions in the libs): 7 unredirected stdout writers found — 2 by design (VM_EXEC and snapshot_demo_data_counts, where the ssh output IS the value) and 5 side-effecting git calls in _ut_fixture_base (fetch/checkout --detach/read-tree/checkout -- path/add -A), all now structurally redirected — 'probably quiet given -q' is exactly the assumption that cost the chain. Demo reproduced the exact arm: old form captures a 3-line polluted value and dies fatal at checkout -b; new form captures a clean 40-hex SHA. bash -n clean, shellcheck delta zero. RELAUNCHED: orchestrator 33136561614's failed leg 5 rerun dispatched — the fixture job checks out master's tip, which now carries the fix. Engineer's closing observation, worth keeping: same disease, third organ tonight — a check whose pipe corrupted its verdict (227), a function whose chatter corrupted its value (295), a comparison whose undefined answer corrupted a decision (293); all three shipped for months because each LOOKED like it was reporting.
+---
+<!-- COMMENTS:END -->
