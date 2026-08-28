@@ -3,10 +3,10 @@ id: STATBUS-253
 title: >-
   deploy-key-consumer-audit: a repo deploy key installed on every country box
   may have no remaining consumer — enumerate what actually uses it, then rule
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-19 10:27'
-updated_date: '2026-08-27 19:54'
+updated_date: '2026-08-28 22:45'
 labels:
   - ops
   - security
@@ -29,6 +29,12 @@ DISTINCT AND UNAFFECTED: runbook step 6's "Generate SSH deployment key for GitHu
 
 THE WORK: enumerate every consumer of the GITHUB_DEPLOY_KEYS-installed authorized_keys entries — CI workflows that ssh to slots, ops scripts, the upgrade service's own paths, anything in .github/ and ops/ that authenticates to a box. Deliverable: the enumeration pinned here with each consumer named (or "none found, searched X/Y/Z"), then the architect rules keep-or-remove. Any removal ships via the ruled mechanism, never a manual write.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+CLOSED BY THE KING'S RULING (2026-08-28 night, verbatim intent): the removal proposal was an over-eager cleanup — the artifact it proposed removing IS USED; leave it in place. The ticket's remaining steps are retracted rather than deferred: this is a deliberate leave-it-alone, recorded so nobody re-proposes the removal without new evidence that usage has actually ceased. (The fossil-deletion portion that WAS genuinely dead already landed separately during the 283 work.)
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 
