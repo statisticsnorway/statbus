@@ -3,11 +3,11 @@ id: STATBUS-249
 title: >-
   evidence-marks: a skip must name what it inherited, and cannot inherit from
   something never proven
-status: In Progress
+status: Done
 assignee:
   - '@engineer'
 created_date: '2026-08-19 09:06'
-updated_date: '2026-08-19 10:29'
+updated_date: '2026-08-28 21:37'
 labels:
   - release
   - ci
@@ -57,6 +57,12 @@ WHY THAT HELPS: the saving is kept and the lie is removed. A chain's verdict com
 - [ ] #7 The rc.07 specimen is replayed against the new mechanism and produces a verdict that names its scope instead of a bare success
 - [x] #8 Marks are composable from a local run or from CI, per the ratified install-recovery stamp design
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+CLOSED on the tester's evidence sweep (2026-08-28): DecideCoverage landed 8525d6a22, the orchestrator integration landed 4324f1d3a, and the machinery demonstrably RAN in today's stable-promotion preflight — the skip-eligibility decision and the SUPERSEDED verdict printed in rc.12/13/15/16's orchestrator runs, and the install-recovery gate's AUTHORITY/SHADOW block (quoted in the King's stable attempt) is this ticket's evidence-marks rendering live.
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 

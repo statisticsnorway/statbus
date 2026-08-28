@@ -3,11 +3,11 @@ id: STATBUS-295
 title: >-
   arc-fixture-stdout-pollution: fixture-base helper corrupts its own return
   value on the nothing-to-commit arm
-status: In Progress
+status: Done
 assignee:
   - '@engineer'
 created_date: '2026-08-28 03:58'
-updated_date: '2026-08-28 04:04'
+updated_date: '2026-08-28 21:37'
 labels:
   - install-recovery
   - ci
@@ -32,6 +32,12 @@ FIX SHAPE: decide-then-act — probe emptiness with `git diff --cached --quiet` 
 
 RELAUNCH PATH, no rc.14 needed: the arc-harness fixture job's checkout has no ref: override, so it checks out the RUN's github.sha — the dispatched ref's tip (master), not the RC tag. Land the fix on master, then re-run the orchestrator's failed leg 5 (gh run rerun 33136561614 --failed); the re-dispatched harness picks up the fixed lib.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+CLOSED on the tester's evidence sweep (2026-08-28): the decide-then-act fix landed 84c99c7ed and fixture construction has succeeded in EVERY harness run since — rc.14/15/16's fleets plus six targeted dispatches, including multiple runs on the exact tag-at-master-tip state that triggered the original failure.
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 

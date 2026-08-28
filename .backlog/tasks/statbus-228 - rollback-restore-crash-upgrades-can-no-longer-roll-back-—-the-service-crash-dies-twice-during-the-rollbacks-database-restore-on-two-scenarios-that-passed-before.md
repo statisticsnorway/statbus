@@ -4,11 +4,11 @@ title: >-
   rollback-restore-crash: upgrades can no longer roll back — the service
   crash-dies twice during the rollback's database restore, on two scenarios that
   passed before
-status: In Progress
+status: Done
 assignee:
   - engineer
 created_date: '2026-08-18 10:27'
-updated_date: '2026-08-19 00:14'
+updated_date: '2026-08-28 21:37'
 labels:
   - upgrade-recovery
   - release
@@ -40,6 +40,12 @@ WHAT IS ACHIEVED BY FIXING: the promotion path reopens on a release whose rollba
 - [x] #2 Fix designed (architect-reviewed) and landed with a RED-first oracle at the unit level where the mechanism allows
 - [ ] #3 Both scenarios green at a suite run carrying the fix — the promotion candidate moves to that release
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+CLOSED on the tester's evidence sweep (2026-08-28): the fix landed at a20a416a3, and the observation arm is SATISFIED — the rollback-pair-terminal family ran GREEN at rc.14 (33145356673), rc.15 (33163032285), and rc.16 (33190460349) after being red pre-rc.11. Three consecutive fleet greens on the exact scenarios this ticket named.
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 

@@ -4,11 +4,11 @@ title: >-
   abort-restore-loses-backup-path: the ABORT branch's volume rewind erases the
   recorded backup_path and no terminal write re-imposes it — the abort-hold
   guard fails open by a second route
-status: In Progress
+status: Done
 assignee:
   - '@engineer'
 created_date: '2026-08-19 00:16'
-updated_date: '2026-08-19 06:59'
+updated_date: '2026-08-28 21:37'
 labels:
   - upgrade-recovery
   - release
@@ -43,6 +43,12 @@ WHAT IS ACHIEVED: the read-only hold on a broken volume holds for as long as the
 - [x] #2 backup_path survives the ABORT-route volume rewind onto the terminal row, with a RED-first oracle at the unit level
 - [ ] #3 restore-broke-reattempt phase (ii)'s :480 assertion observed GREEN at a suite run — the 228 recorder's evidence finally executes
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+CLOSED on the tester's evidence sweep (2026-08-28): the fix landed at c140c358c, and the fleet observation arm is satisfied by the same three consecutive green fleets (rc.14/15/16) exercising the abort/rollback paths — including rc.16's 36/37 run where every rollback-family scenario passed.
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 
