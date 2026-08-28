@@ -1546,6 +1546,45 @@ EOS
             exit 1
         fi
 
+        # STATBUS-313: assert-db-at-head above compares the VERSION SET only —
+        # it is blind to "same version, amended bytes". A migration edited in
+        # place after the seed was built keeps its version number, so that check
+        # sees nothing wrong, while the template cloned from that seed still
+        # contains the PRE-amendment definition.
+        #
+        # WHAT THAT COSTS, observed rather than imagined (2026-08-29): a WHEN
+        # clause was added to a trigger in an already-applied migration and the
+        # test for it was re-run. It PASSED — byte-identical output — against a
+        # template built from the previous version of that migration. The change
+        # under test was never executed, nothing warned, and the green was
+        # indistinguishable from a real one. Had that been blessed, an expected
+        # file would have been recorded as proof of code that never ran.
+        #
+        # This is the same question `./sb migrate up` asks on every run and the
+        # same pairing generate-doc-db already makes two steps below (both added
+        # by STATBUS-292). The test runner was the remaining sibling that asked
+        # only half of it — which is why it was the one that got caught.
+        #
+        # REFUSES rather than warns. The developer in the very normal loop —
+        # edit a migration, run its test — specifically WANTS the edited code
+        # exercised. A green against the pre-edit bytes is precisely the result
+        # they must never receive, and it arrives looking exactly like success.
+        # A warning would be printed to someone already staring at a green
+        # verdict and scrolling past to the summary; the whole failure mode is
+        # that nothing looks wrong. The one time this was caught, it was caught
+        # only because the change's author predicted the vacuity in advance.
+        # This guard is for everyone who would not have.
+        #
+        # The refusal names both remedies, and they map onto the two real cases:
+        #   - WIP edit of the migration you just wrote → `./sb migrate redo
+        #     <version>`, which defaults to --target seed (cli/cmd/migrate.go:148)
+        #     — the same DB checked here — and is restricted to the LATEST
+        #     applied version, which is exactly what that loop edits.
+        #   - An OLDER, already-released migration → redo rightly refuses, and
+        #     the remedy is a forward repair migration (AGENTS.md, STATBUS-172).
+        # So the refusal is actionable rather than merely obstructive.
+        ./sb assert-db-content-hash "$SEED_NAME_PRECHECK" "./dev.sh test" || exit 1
+
         OVERALL_EXIT_CODE=0
 
         # STATBUS-278 Part 2: snapshot tracked-file status BEFORE the suite
