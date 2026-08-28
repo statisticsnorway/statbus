@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-27 16:12'
-updated_date: '2026-08-28 13:52'
+updated_date: '2026-08-28 14:22'
 labels:
   - testing
   - upgrade
@@ -65,5 +65,11 @@ author: foreman
 created: 2026-08-28 13:52
 ---
 FAULT #2 DIAGNOSED WITH CERTAINTY AND FIXED (landed d66423815): the holder's own captured log settled it in three lines — LOCK granted, then COMMIT milliseconds later — because the fix for fault ONE had silently dropped the touch of the release file during the VM_SCRIPT_INLINE restructure: the holder's while-file-exists loop was false on its first evaluation and released immediately while the arc polled pg_locks for 3.5 minutes. The fix is shape, not restoration: the holder CREATES the release file itself before backgrounding, self-checked with propagating failure — the step that needs the file creates it, so no refactor can separate them again. THE CHEAPER LOOP built and proven: the holder's control flow extracted with a psql stand-in iterates locally in ~10 seconds (old shape commits immediately; new shape holds until file removal) — the engineer's own words: this should have run before the second paid dispatch, and now precedes any future one; plain-shell arc logic iterates locally, VMs are for the genuinely-remote parts. DISPATCH HYGIENE INCIDENT, mine: the first run-3 dispatch went out while the commit was BLOCKED by the commit-msg hook ('fault #1/#2' pattern-matched bare ticket references) — the run would have executed the old, unfixed arc; caught within a minute, run cancelled, message reworded, landed, re-dispatched. RED RUN 3 (the real one): 33177387634 at head d66423815, chained watcher validating the WEDGE-FORMED line before auto-dispatching GREEN. The refuses-to-pass assertion is now 2-for-2 on preventing false evidence.
+---
+
+author: foreman
+created: 2026-08-28 14:22
+---
+THIRD RED RUN (33177387634, holder fix aboard): construction fault #3 — the last-mile kind. The bytes: lock HELD (fault 2's fix works), UPDATE fired, then 'no derive child reached processing blocked on the lock within 300s' — while the arc's OWN failure dump shows task 2742 statistical_unit_refresh_batch in 'processing': a task WAS processing and blocked; the wait predicate simply doesn't match its NAME. Written against the current era's derive% naming, running against rc.09's July-era worker. Fix direction given: match on MECHANISM, not name — a processing task whose backend waits on a Lock against public.statistical_unit is the wedge regardless of what any era calls it; a name-list would need updating for every era the arc points at, the lock-wait is the invariant. The dump-on-failure the arc carries is why this diagnosis took one read — keep it. Engineer to validate the predicate LOCALLY (SQL against dev db) and cross-check rc.09's worker.cr that the mechanism-match would have caught statistical_unit_refresh_batch, so run 4 is the last. Score so far: three construction faults, zero false evidence — the refuses-to-pass assertion and the fixed interpretation rule have caught every one.
 ---
 <!-- COMMENTS:END -->
