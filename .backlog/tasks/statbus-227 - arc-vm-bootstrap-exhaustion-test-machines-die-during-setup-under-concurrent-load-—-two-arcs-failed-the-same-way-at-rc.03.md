@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-08-18 10:14'
-updated_date: '2026-08-28 02:11'
+updated_date: '2026-08-28 02:18'
 labels:
   - install-recovery
   - ci
@@ -168,5 +168,11 @@ author: foreman
 created: 2026-08-28 02:11
 ---
 ROOT CAUSE FOUND for this ticket's signature (2026-08-28 ~02:15Z, during rc.12's chain diagnosis) — and it is a CHECK BUG, not VM exhaustion: ops/setup-ubuntu-lts-24.sh runs under set -o pipefail (:17) and Stage 3's verify at :811 is `dpkg -l | grep -q unattended-upgrades` — the canonical grep -q SIGPIPE race (grep exits on match, closes the pipe, dpkg dies of SIGPIPE with bytes unwritten, pipefail fails the pipeline despite the match). PROOF from rc.12's failing VM: apt printed 'unattended-upgrades is already the newest version' immediately before the ✗ — the install succeeded, the check raced. Nondeterministic by dpkg listing size (failing VM: 173 pending updates; green VMs: 44), which is why the failure ROVES scenarios: restore-broke-reattempt at Aug-19 and rc.11, 5-install-drifted-unit-reconciled at rc.12 — same fingerprint ('✗ unattended-upgrades installed' → vm-bootstrap.sh:756) every time. It has cost at least three chain runs. Fix in flight (pipe-free dpkg -s probe + a sweep of every early-exit-consumer pipeline under pipefail in the hardening script and harness libs); rides rc.13.
+---
+
+author: foreman
+created: 2026-08-28 02:18
+---
+FIX LANDED at f4b7a9507 (4 files, 26 sites): every early-exit consumer under pipefail converted — pipe-free probes (pkg_installed via dpkg-query db:Status-Status, deliberately TIGHTENED to installed-only, which is what the checks always meant — the old form also matched purged-but-config rc packages) or full-consumption grep; head -1 → awk NR==1. MECHANISM CORRECTION on the record, better than the original story: the controlling variable is PRODUCER SPEED, not output size — 'is the producer still writing when the consumer exits' — demonstrated with a realistically-paced producer + late match (SIGPIPE 15/15 old form, 0/15 fixed; a fast producer NEVER trips, which is why the engineer's first measurement wrongly refuted the site and he corrected himself — plus a second self-caught artifact: a uniform 20/20 with no dose-response turned out to be seq's exit 1 miscounted, caught precisely because no-dose-response is a tell). Field evidence matches exactly (job 98724254210: 'already the newest version' at :2108, ✗ at :2114). FOUR SITES DELIBERATELY UNTOUCHED pending ruling: wedge-helpers.sh:35,323 (kill-path pgrep|head — kill-path behaviour does not change on cut morning) and assertions.sh:46-47 (diagnostics, ||-guarded) — negligible windows, named so the scope is a decision, not an oversight. AC#2/#3 (the failed scenarios pass; no recurrence across a full suite) ride rc.13's chain — which is also the first chain where BOTH this fix and 293's lottery fix are in the harness. rc.13 cuts next.
 ---
 <!-- COMMENTS:END -->
