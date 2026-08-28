@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: "demo.statbus.org: apply latest stable"
+
+# STATBUS-248: Demo auto-apply trigger for the stable channel
+#
+# Demo is a demonstration box showing what a customer would install. This
+# workflow keeps it current by scheduling the same command an operator would
+# type: `./sb upgrade apply-latest` on the stable channel.
+#
+# PHILOSOPHY: The workflow supplies the TIMING (daily schedule + manual dispatch).
+# Demo's own channel-following chooses the TARGET. Nothing outside the box names
+# a version or branch — which is exactly what STATBUS-244 requires.
+#
+# DESIGN (comment #5): External GitHub Actions scheduled workflow that SSHes to
+# `statbus_demo` and runs `./sb upgrade apply-latest`. The access path already
+# exists and is allowlisted in ops/niue/sshdoers. No product code change. The
+# workflow is revocable by deletion and touches nothing a customer installs.
+#
+# FAILURE: Demo failing to take a promoted stable release is a real signal about
+# the release, not a demo problem. Failures are loud and do not retry silently.
+#
+# See: ops/niue/sshdoers (lines 31-40) for the allowlist entry.
+
+on:
+  schedule:
+    # Daily at 02:00 UTC (quiet hours for global fleet, visible signal if it fails)
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: demo-auto-apply
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    name: Apply latest stable to demo
+    runs-on: [self-hosted, niue]
+    steps:
+      - name: SSH to demo and apply latest stable
+        run: |
+          install -m 600 /dev/stdin /tmp/key <<< "${{ secrets.SSH_KEY }}"
+          known="$HOME/_work/.known_hosts"   # pinned in the runner-work volume (doc-026 delta 8)
+          # The '~' in the ssh command is load-bearing (expands on the slot, not the
+          # runner) — do NOT change it to $HOME. The command is byte-pinned in
+          # ops/niue/sshdoers: cd ~/statbus && ./sb upgrade apply-latest
+          out="$(ssh -i /tmp/key \
+            -o StrictHostKeyChecking=accept-new \
+            -o "UserKnownHostsFile=$known" \
+            statbus_demo@niue.statbus.org \
+            "cd ~/statbus && ./sb upgrade apply-latest")"
+          rc=$?
+          rm -f /tmp/key
+          printf '%s\n' "$out"
+          [ "$rc" -eq 0 ] || exit "$rc"
