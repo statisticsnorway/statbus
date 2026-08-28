@@ -6,6 +6,23 @@
 -- 3. [DONE] Generate Tables (Insert, Update)
 -- 4. [DONE] Generate Relationships
 
+-- STATBUS-278: the output target is a psql variable, not a hardcoded path —
+-- ONE definition serves both callers (the 230/290 precedent: never fork a
+-- second copy of this generator):
+--   - `./sb types generate` (cli/cmd/types.go) sets
+--     output_path=app/src/lib/database.types.ts — the tracked file, and the
+--     ONLY writer of it.
+--   - test/sql/016_generate_typescript_types_from_db.sql sets output_path to
+--     a results-side (gitignored) artifact and COMPARES it against the
+--     committed file itself; the test never writes the tracked file (a test
+--     observes and asserts, it must not mutate the repository).
+-- Default below preserves pre-278 behaviour for anyone who \i's this file
+-- directly without setting output_path first.
+\if :{?output_path}
+\else
+\set output_path app/src/lib/database.types.ts
+\endif
+
 CREATE OR REPLACE FUNCTION public.generate_typescript_types()
 RETURNS text LANGUAGE plpgsql AS $generate_typescript_types$
 DECLARE
@@ -1091,7 +1108,7 @@ $generate_typescript_types$;
 
 -- Generate the file
 \t\a
-\o app/src/lib/database.types.ts
+\o :output_path
 SELECT public.generate_typescript_types();
 \o
 

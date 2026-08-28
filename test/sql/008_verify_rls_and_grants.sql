@@ -727,10 +727,27 @@ $generate_doc_db_security_report$;
 -- Generate the documentation and capture the output
 SELECT * FROM public.generate_doc_db_security_report() \gset
 
--- Write the doc file
-\o doc/db-security-report.md
+-- STATBUS-278: write to a results-side artifact (gitignored), never the
+-- tracked doc/db-security-report.md directly — a test observes and
+-- asserts, it must not mutate the repository. Same category correction,
+-- same shape as test/sql/016_generate_typescript_types_from_db.sql.
+\o test/results/008_db-security-report.md
 SELECT :'doc';
 \o
+
+-- Compare against the committed file; fail loudly on any disagreement.
+-- Remedy on a genuine mismatch: review test/results/008_db-security-report.md,
+-- and if it's correct, `cp` it over doc/db-security-report.md and commit.
+DO $$
+DECLARE
+    v_generated text := pg_read_file('/statbus/test/results/008_db-security-report.md');
+    v_committed text := pg_read_file('/statbus/doc/db-security-report.md');
+BEGIN
+    IF v_generated IS DISTINCT FROM v_committed THEN
+        RAISE EXCEPTION E'STALE GENERATED FILE: doc/db-security-report.md\n  Live-schema generation disagrees with the committed file (generated % bytes, committed % bytes).\n  Fix: review test/results/008_db-security-report.md and, if correct, cp it over doc/db-security-report.md and commit.',
+            length(v_generated), length(v_committed);
+    END IF;
+END $$;
 
 -- Clean up the function
 DROP FUNCTION public.generate_doc_db_security_report();

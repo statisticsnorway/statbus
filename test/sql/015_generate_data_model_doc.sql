@@ -1,6 +1,13 @@
 -- This test script generates a markdown summary of the database schema.
 -- It is inspired by tests that generate other documentation files.
--- The output is directed to doc/data-model.md.
+--
+-- STATBUS-278: the output goes to a results-side artifact (gitignored),
+-- never directly to the tracked doc/data-model.md — a test observes and
+-- asserts, it must not mutate the repository. See 016's header comment
+-- (test/sql/016_generate_typescript_types_from_db.sql) for the full
+-- category-correction rationale; same shape here. The generated content is
+-- compared against the committed doc/data-model.md below, failing loudly
+-- on any disagreement.
 
 -- Turn off all decorative output for clean markdown
 \t
@@ -8,9 +15,6 @@
 
 -- Create the docs directory if it doesn't exist
 \! mkdir -p doc
-
--- Redirect output to the data model file
-\o doc/data-model.md
 
 CREATE OR REPLACE FUNCTION public.generate_data_model_summary(OUT markdown TEXT, OUT undocumented TEXT)
 LANGUAGE plpgsql AS $generate_data_model_summary$
@@ -399,10 +403,24 @@ $generate_data_model_summary$;
 -- Generate the documentation and capture the output
 SELECT * FROM public.generate_data_model_summary() \gset
 
--- Write the main doc file to doc/data-model.md
-\o doc/data-model.md
+-- Write to a results-side artifact (gitignored), never the tracked file.
+\o test/results/015_data-model.md
 SELECT :'markdown';
 \o
+
+-- Compare against the committed file; fail loudly on any disagreement.
+-- Remedy on a genuine mismatch: review test/results/015_data-model.md, and
+-- if it's correct, `cp` it over doc/data-model.md and commit.
+DO $$
+DECLARE
+    v_generated text := pg_read_file('/statbus/test/results/015_data-model.md');
+    v_committed text := pg_read_file('/statbus/doc/data-model.md');
+BEGIN
+    IF v_generated IS DISTINCT FROM v_committed THEN
+        RAISE EXCEPTION E'STALE GENERATED FILE: doc/data-model.md\n  Live-schema generation disagrees with the committed file (generated % bytes, committed % bytes).\n  Fix: review test/results/015_data-model.md and, if correct, cp it over doc/data-model.md and commit.',
+            length(v_generated), length(v_committed);
+    END IF;
+END $$;
 
 -- Clean up the function
 DROP FUNCTION public.generate_data_model_summary();

@@ -796,6 +796,81 @@ EOF
     exit 1
 }
 
+# tracked_files_status_snapshot — STATBUS-278 Part 2. Prints `git status
+# --porcelain` restricted to TRACKED files (--untracked-files=no): a
+# developer's own new, untracked scratch files are out of scope by design —
+# only files git already knows about can "gain a modification".
+#
+# EXEMPTION (STATBUS-278 amendment), named narrowly: test/expected/performance/
+# and test/expected/explain/ — those two subdirectories BY NAME, never
+# test/expected/ itself. test/expected/ otherwise holds the strict-test
+# oracles this guard MUST keep policing: under a plain `./dev.sh test` they
+# must never change; only an explicit `--update-expected` legitimately
+# touches them. The two exempted subdirectories are different in kind —
+# baseline snapshots the suite REWRITES BY DESIGN on every run (test/sql/109,
+# 303, 400, 401 write `\o :perf_file` / `\o test/expected/explain/*.txt`;
+# see .claude/rules/testing.md: "Performance and explain baselines are not
+# strict tests... review the diff... discard trivial drift"). A guard that
+# fires on the expected, by-design case is not a guard. The gap this opens
+# (a baseline could still be NUL-corrupted, same as database.types.ts was)
+# is closed instead by extending check_results_for_nul_corruption's surface
+# to these same two subdirectories, below — that check polices WHAT got
+# written; this one polices WHETHER a write should exist at all. Each
+# mechanism does what it is good at.
+tracked_files_status_snapshot() {
+    git -C "$WORKSPACE" status --porcelain --untracked-files=no -- \
+        ':!test/expected/performance/' ':!test/expected/explain/'
+}
+
+# check_no_new_tracked_file_modifications <before-snapshot-file> <label> —
+# STATBUS-278 Part 2: the mechanism-INDEPENDENT guard the architect ruled
+# for (comment #1 on the ticket) instead of a widened NUL tripwire or a
+# `\o`-only grep. A grep for `\o` would catch one write mechanism while
+# `\copy ... TO`, `COPY ... TO`, and `\!` remain fully able to write a
+# tracked file — a partial check that would read as total. Observing
+# `git status --porcelain` before and after the suite catches ANY of them,
+# and anything nobody has thought of yet, without enumerating write syntaxes.
+#
+# Compares the BEFORE/AFTER porcelain snapshots as sets of lines (a status
+# line encodes both the file path and its exact status) — a line present
+# AFTER but not BEFORE means that file's tracked status changed during this
+# run: it went from clean to dirty, or its dirty status itself changed
+# (rename, deletion, or a new kind of modification). A file that was
+# ALREADY dirty before the run and stays dirty with the SAME status line
+# does not trip this — this is a before/after DELTA, not a demand for a
+# clean tree, so a developer's own uncommitted work is never the trigger.
+# Untracked files never appear in either snapshot (see
+# tracked_files_status_snapshot above), so they are out of scope entirely.
+check_no_new_tracked_file_modifications() {
+    local _before_file="$1" _label="$2"
+    local _after _new
+    _after=$(tracked_files_status_snapshot)
+    _new=$(comm -13 <(sort "$_before_file") <(printf '%s\n' "$_after" | sort))
+    [ -n "$_new" ] || return 0
+
+    cat >&2 <<EOF
+
+═══════════════════════════════════════════════════════════════════════
+TRACKED FILE MODIFIED DURING TEST RUN: $_label
+
+A tracked file's \`git status --porcelain\` line changed during this run —
+present AFTER the suite, absent BEFORE it started:
+$_new
+
+A test observes and asserts; it must never write a tracked file (STATBUS-278
+— the category correction applied to test/sql/016, 008, and 015, each of
+which used to overwrite a tracked doc/type file directly). Whatever
+mechanism wrote the file above (\\o, \\copy ... TO, COPY ... TO, \\! or
+anything else), find it and remove the write — redirect to a results-side
+artifact (test/results/, gitignored) and compare against the tracked file
+with a loud failure on mismatch, the same shape 016/008/015 now use.
+
+Hook source: dev.sh check_no_new_tracked_file_modifications
+═══════════════════════════════════════════════════════════════════════
+EOF
+    return 1
+}
+
 # check_results_for_nul_corruption — the tripwire half of STATBUS-158. An
 # embedded NUL in a pg_regress .out file is never legitimate output — psql
 # and postgres never emit one; it is the fingerprint of two writers racing
@@ -805,17 +880,34 @@ EOF
 # schedule to exactly that overwrite), then fail with a verdict distinct
 # from an ordinary test diff, naming the straggler check as the first thing
 # to run. Args: <PG_REGRESS_DIR> <test_basename>...
+#
+# SURFACE EXTENSION (STATBUS-278 amendment): also scans each test's baseline
+# artifacts under test/expected/performance/ and test/expected/explain/ —
+# the exact two subdirectories the tree-diff guard (tracked_files_status_
+# snapshot, above) exempts because the suite rewrites them BY DESIGN. That
+# exemption means the guard no longer sees a write there at all — so a
+# baseline can still be NUL-corrupted (the same 507,904-page-aligned-NUL
+# 286 signature database.types.ts hit) with nothing else positioned to
+# notice. This check polices WHAT got written; the guard polices WHETHER a
+# write should exist. Neither mechanism alone covers both questions.
 check_results_for_nul_corruption() {
     local _dir="$1"; shift
-    local _test _file _full _stripped _preserved _corrupted=""
+    local _test _file _label _full _stripped _preserved _corrupted="" _candidates _glob
     for _test in "$@"; do
-        _file="$_dir/results/$_test.out"
+      _candidates="$_dir/results/$_test.out"
+      for _glob in "$_dir/expected/performance/$_test"*.perf "$_dir/expected/explain/$_test"*.txt; do
+          [ -f "$_glob" ] && _candidates="$_candidates
+$_glob"
+      done
+      while IFS= read -r _file; do
+        [ -n "$_file" ] || continue
         [ -f "$_file" ] || continue
+        _label=$(printf '%s' "${_file#"$_dir"/}" | tr '/' '_')
         _full=$(wc -c < "$_file" | tr -d ' ')
         _stripped=$(LC_ALL=C tr -d '\000' < "$_file" | wc -c | tr -d ' ')
         if [ "$_full" != "$_stripped" ]; then
             mkdir -p "$WORKSPACE/tmp"
-            _preserved="$WORKSPACE/tmp/corrupted-$_test-$(date '+%Y%m%d%H%M%S' 2>/dev/null || echo unknown).out"
+            _preserved="$WORKSPACE/tmp/corrupted-$_label-$(date '+%Y%m%d%H%M%S' 2>/dev/null || echo unknown).out"
 
             # ── STATBUS-286 deliverable #2: CAPTURE THE STATE AT FIRE TIME ──
             #
@@ -887,9 +979,10 @@ check_results_for_nul_corruption() {
             if ! cp "$_file" "$_preserved" 2>/dev/null; then
                 _preserved="(preservation FAILED — original left at $_file)"
             fi
-            _corrupted="$_corrupted  $_test -> $_preserved
+            _corrupted="$_corrupted  $_label -> $_preserved
 "
         fi
+      done <<< "$_candidates"
     done
     [ -n "$_corrupted" ] || return 0
 
@@ -1386,6 +1479,15 @@ EOS
 
         OVERALL_EXIT_CODE=0
 
+        # STATBUS-278 Part 2: snapshot tracked-file status BEFORE the suite
+        # runs (shared + isolated). Compared after both blocks complete,
+        # BEFORE the --update-expected step below — that step intentionally
+        # overwrites tracked test/expected/*.out files on operator request
+        # and must not trip this guard; only the suite's OWN incidental
+        # writes are in scope.
+        TRACKED_STATUS_BEFORE_TEST=$(mktemp)
+        tracked_files_status_snapshot > "$TRACKED_STATUS_BEFORE_TEST"
+
         if [ -n "$SHARED_TESTS" ]; then
             TEMPLATE_NAME="${POSTGRES_TEST_DB:-statbus_test_template}"
             SHARED_TEST_DB="test_shared_$$"
@@ -1457,6 +1559,12 @@ EOF
                 ./dev.sh test-isolated "$test_basename" $update_arg || OVERALL_EXIT_CODE=$?
             done
         fi
+
+        # STATBUS-278 Part 2: the suite (shared + isolated) is done — did any
+        # TRACKED file gain a modification along the way? check regardless of
+        # pass/fail above, same as the NUL-corruption tripwire.
+        check_no_new_tracked_file_modifications "$TRACKED_STATUS_BEFORE_TEST" "./dev.sh test" || OVERALL_EXIT_CODE=1
+        rm -f "$TRACKED_STATUS_BEFORE_TEST"
 
         if [ "$update_expected" = "true" ] && [ -n "$SHARED_TESTS" ]; then
             echo "Updating expected output for shared tests: $(echo $SHARED_TESTS)"
@@ -2525,6 +2633,13 @@ EOF
             touch "$expected_file"
         fi
 
+        # STATBUS-278 Part 2: same before/after tracked-file guard as
+        # `./dev.sh test`'s shared-tests block, scoped to this one isolated
+        # test — also covers a standalone `./dev.sh test-isolated <name>`
+        # invocation that never goes through that outer block at all.
+        TRACKED_STATUS_BEFORE_TEST=$(mktemp)
+        tracked_files_status_snapshot > "$TRACKED_STATUS_BEFORE_TEST"
+
         TEST_EXIT_CODE=0
         docker compose exec --workdir "/statbus" db \
             $PG_REGRESS $debug_arg \
@@ -2542,6 +2657,13 @@ EOF
         # runs each test through this same test-isolated action as a child
         # process.
         check_results_for_nul_corruption "$PG_REGRESS_DIR" "$TEST_NAME" || TEST_EXIT_CODE=1
+
+        # STATBUS-278 Part 2: did this test write to a TRACKED file? Checked
+        # BEFORE --update-expected (below) intentionally rewrites the tracked
+        # expected/*.out for this test — that operator-requested write must
+        # not trip the guard.
+        check_no_new_tracked_file_modifications "$TRACKED_STATUS_BEFORE_TEST" "./dev.sh test-isolated $TEST_NAME" || TEST_EXIT_CODE=1
+        rm -f "$TRACKED_STATUS_BEFORE_TEST"
 
         if [ -n "$LOG_CAPTURE_PID" ]; then
             kill "$LOG_CAPTURE_PID" 2>/dev/null || true

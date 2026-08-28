@@ -88,7 +88,14 @@ Requires the database to be running.`,
 			os.Exit(1)
 		}
 
-		c := exec.Command(psqlPath, prefix...)
+		// STATBUS-278: generate_database_types.sql's `\o` target is now the
+		// psql variable `output_path` (one generator definition shared with
+		// test 016, which sets it to a results-side artifact instead of the
+		// tracked file). This IS the one real writer of the tracked file, so
+		// set it explicitly rather than relying on the generator's own
+		// default (which exists only as a safety net for a bare `\i`).
+		psqlArgs := append(append([]string(nil), prefix...), "-v", "output_path=app/src/lib/database.types.ts")
+		c := exec.Command(psqlPath, psqlArgs...)
 		c.Dir = projDir
 		c.Env = env
 		c.Stdin = sqlFile
