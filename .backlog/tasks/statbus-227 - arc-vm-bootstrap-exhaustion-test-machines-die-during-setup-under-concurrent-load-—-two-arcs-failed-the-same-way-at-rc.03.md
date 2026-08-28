@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-08-18 10:14'
-updated_date: '2026-08-18 12:02'
+updated_date: '2026-08-28 02:11'
 labels:
   - install-recovery
   - ci
@@ -162,5 +162,11 @@ author: foreman
 created: 2026-08-18 12:02
 ---
 LANDED at 07138b2c4, architect-approved with no amendment (verdict comment #7): comfort layer deleted, tmux in the apt toolkit, forensics wired at both failure branches and judged BETTER than specified (the fresh-SSH probe states its conclusion; ControlMaster=no verified so fresh means fresh — the one silent-defeat vector checked). Platform-gap ruling: the VNC-URL capture is accepted as the ceiling, deliberately NO follow-up ticket (a no-known-solution entry would rot; the dead-or-slow question is answered without console text; re-open with evidence if a wedged box defies these captures). AC#1 (ruling) and AC#4 (forensics) closed. AC#2 (the two failed scenarios pass) and AC#3 (no recurrence across one full suite) are the observation arms riding the King's next cut.
+---
+
+author: foreman
+created: 2026-08-28 02:11
+---
+ROOT CAUSE FOUND for this ticket's signature (2026-08-28 ~02:15Z, during rc.12's chain diagnosis) — and it is a CHECK BUG, not VM exhaustion: ops/setup-ubuntu-lts-24.sh runs under set -o pipefail (:17) and Stage 3's verify at :811 is `dpkg -l | grep -q unattended-upgrades` — the canonical grep -q SIGPIPE race (grep exits on match, closes the pipe, dpkg dies of SIGPIPE with bytes unwritten, pipefail fails the pipeline despite the match). PROOF from rc.12's failing VM: apt printed 'unattended-upgrades is already the newest version' immediately before the ✗ — the install succeeded, the check raced. Nondeterministic by dpkg listing size (failing VM: 173 pending updates; green VMs: 44), which is why the failure ROVES scenarios: restore-broke-reattempt at Aug-19 and rc.11, 5-install-drifted-unit-reconciled at rc.12 — same fingerprint ('✗ unattended-upgrades installed' → vm-bootstrap.sh:756) every time. It has cost at least three chain runs. Fix in flight (pipe-free dpkg -s probe + a sweep of every early-exit-consumer pipeline under pipefail in the hardening script and harness libs); rides rc.13.
 ---
 <!-- COMMENTS:END -->
