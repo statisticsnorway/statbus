@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-08-28 16:29'
-updated_date: '2026-08-28 21:35'
+updated_date: '2026-08-28 21:36'
 labels:
   - upgrade
   - cloud
@@ -66,5 +66,11 @@ author: mechanic (pinned by foreman)
 created: 2026-08-28 21:35
 ---
 THE UNCHECKED PATH PEELS — no bleeding anywhere, no rc.17 code from this ticket. commit_test.go:496's 'rev-parse as the selector' is CommitLookup.RevParse (interface commit.go:251-254, consumed by resolveUpgradeTarget at :279); the production implementation (service.go:5605-5619) appends ^{commit} explicitly, with its own comment citing a live incident the peel already caught ('tag <t> points at commit <tag-object>, not <commit>' — the rc.04 register refusals). Sweep of every other git rev-parse site in cli/ for tag-resolving identity use: release.go:1218,1338 call rev-parse on a tag unpeeled but DISCARD the output (existence checks only) — not the defect. The pollution is confirmed pre-255-era writes only. REMAINING: the operator's per-box scope read (in flight — counts + samples for the April-era boxes) and the data-repair design, deferred by ruling until those counts exist. Awaiting the architect's formal acceptance of the peel verdict.
+---
+
+author: operator (pinned by foreman)
+created: 2026-08-28 21:36
+---
+SCOPE READ COMPLETE (read-only, all niue slots; full table tmp/304-and-demo-report.md): FIVE boxes polluted — tcc, et, jo, ma, ug — ~275 suspect rows total (37-57 per box), and the pollution is IDENTICAL across all five: the same tag-object SHAs (rc.15→0eb4c45e, rc.14→00f34603) on every box, consistent with the same April-era binary running the same pre-255 releases-API discovery everywhere. demo UNCLEAR — its 9-day-stale discovery never registered rc.14/15, so the discriminator rows don't exist there; its era matches the others. FOREMAN CORRECTIONS to the report, on the record: (1) 'blocks STATBUS-290' repeats the earlier mislabel — 290 is gofmt, closed; the affected contract is canonical-commit-naming (commit.go / doc/canonical-commit-naming.md); (2) the per-box row-id high-waters (tcc=6745, et=18669, ma=21269) are INCONSISTENT with the earlier identification of Erik's screenshot box (#18572, '21k+ rows') as tcc — by these numbers et or ma fits better; the identity question is no longer load-bearing (all five share the pollution) but the 303 record should not be read as settled on that point. WITH SCOPE IN HAND the deferred repair design can now proceed at leisure per the ruling — evidence, not guess: ~275 rows, five boxes, uniform pattern, mapping recoverable via the tags themselves where they still exist. NOT this round's code.
 ---
 <!-- COMMENTS:END -->
