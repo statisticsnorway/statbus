@@ -3,10 +3,10 @@ id: STATBUS-246
 title: >-
   graceful-supersede: a newer candidate should stop the old one at the next
   joint, not kill it mid-sentence
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-19 07:14'
-updated_date: '2026-08-19 10:38'
+updated_date: '2026-08-28 22:46'
 labels:
   - release
   - ci
@@ -58,6 +58,12 @@ WHY THAT HELPS: the cost of cutting frequently stops scaling with how often we c
 - [ ] #8 The by-name immediate reap remains available as a crash backstop, and the age-gated global sweep is unchanged
 - [ ] #9 Superseding the previous chain never disturbs the new candidate's own chain
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+CLOSED on the mechanic's verification sweep (2026-08-28 night): the ticket's substance is ALREADY BUILT AND PINNED — TestSupersededVerdictRunsLastAndAsksForItself_STATBUS246 (workflow_triggers_test.go:398) walks every orchestrator job and asserts the superseded-verdict pattern (verdict job needs all, asks the obsolete question itself, !cancelled()), green; decide-upgrade-sensitivity's exemption is designed-in (free VM-less job feeding a harness that checks obsolete itself, exempted BY NAME in the test at :430). The one imaginable remainder — obsolete-awareness in ./sb release stable — is VACUOUS BY CONSTRUCTION: the promotion preflight only ever targets the LATEST RC ('Latest RC exists' is its first check), so promoting an obsolete RC is structurally impossible; recorded here so the idea is a documented non-gap, not an oversight. The tester's needs-code sizing cited no sites and is superseded by this direct verification. The mechanic asked rather than building against a guess — correct.
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 
