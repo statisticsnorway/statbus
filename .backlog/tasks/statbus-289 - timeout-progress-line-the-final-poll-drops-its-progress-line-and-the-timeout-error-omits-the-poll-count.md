@@ -3,11 +3,11 @@ id: STATBUS-289
 title: >-
   timeout-progress-line: the final poll drops its progress line and the timeout
   error omits the poll count
-status: In Progress
+status: Done
 assignee:
   - '@mechanic'
 created_date: '2026-08-27 18:42'
-updated_date: '2026-08-28 09:04'
+updated_date: '2026-08-28 09:11'
 labels:
   - cli
   - upgrade
@@ -32,3 +32,13 @@ SMALLEST FORM (architect's original, extended by the count): move the progress e
 
 WHAT IS ACHIEVED: every timeout tells the operator how hard the poller tried and what it last saw — in the error itself, not by archaeology.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-08-28 09:11
+---
+LANDED at 51a7bbeef and CLOSED (exec.go + ready_warmup_test.go, +90/−10). Both changes as designed: progress emission reordered before the deadline check (throttle semantics preserved — verified by exact count, not assumed) and ', %d poll(s)' added to both timeout errors, everything else byte-identical. THE CRAFT POINT worth keeping: the mechanic rejected the ticket's own suggested pin ('timeout output contains at least one progress line') because it ALREADY PASSED with the bug — earlier passes log plenty — and would have pinned nothing; he built an EXACT assertion instead (polls-1 lines, derived from the error's own poll count so it cannot drift if intervals change) and proved it in a three-step red: unfixed code fails on the missing count; count-added-but-unreordered isolates property 1 precisely (22 polls, 20 lines — the final pass's line demonstrably dropped); full fix passes 22-polls-21-lines with all success-path tests unchanged. Verbatim new error texts on the freeze report. Validated: build, vet, uncached package suite, and the new gofmt gate. Line citations from the morning's rewrite matched master exactly — no drift despite 294 landing in the same file hours earlier.
+---
+<!-- COMMENTS:END -->
