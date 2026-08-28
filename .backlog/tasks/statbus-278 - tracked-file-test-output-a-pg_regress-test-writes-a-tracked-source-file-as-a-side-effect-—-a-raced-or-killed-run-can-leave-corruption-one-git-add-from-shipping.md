@@ -4,11 +4,11 @@ title: >-
   tracked-file-test-output: a pg_regress test writes a tracked source file as a
   side effect — a raced or killed run can leave corruption one git add from
   shipping
-status: In Progress
+status: Done
 assignee:
   - '@mechanic'
 created_date: '2026-08-27 15:03'
-updated_date: '2026-08-28 10:42'
+updated_date: '2026-08-28 10:50'
 labels:
   - testing
 dependencies: []
@@ -89,5 +89,11 @@ THE CONSTRAINT THAT DECIDES WHETHER THE GUARD STILL WORKS: exempt the two subdir
 WHERE THE EXEMPTION BELONGS: in the guard, permanently — and deliberately NO move-them-out-someday ticket: testing.md's own workflow (review the diff, discard trivial drift via git checkout) REQUIRES the baselines tracked and rewritten in place; results-side would destroy the review mechanism that gives them value. (ii) is correctly out of our hands and probably also wrong — the mechanic's restraint in not converting them unilaterally was RIGHT.
 
 REMEDY TEXTS: keep content file-specific (016 has a canonical generator command; 008/015 are produced by the test itself, so review-and-copy is the true remedy — a refusal must name the actual next step, and a generic message is a worse message), but unify headline and layout so an operator recognises the class at a glance. Same shape, true content.
+---
+
+author: foreman
+created: 2026-08-28 10:50
+---
+LANDED at add4ec683 and CLOSED (9 files, +284/−28). The full arc: enumeration-first found the premise wrong (THREE writers — 016/008/015 — plus 015's truncation window, removed); all three converted to results-side generation + loud STALE assertion (unified headline, file-specific remedies); generator kept as one definition with both callers verified byte-identical; the mechanism-independent tree-diff guard wired at both suite paths with the two baseline subdirectories exempted BY NAME and the NUL tripwire extended over exactly that exempted surface. Amendment pair proven on the same file: plain plant passes the guard, NUL plant trips the tripwire (evidence preserved with path-derived naming so candidates never collide). All three tests red/green'd against deliberately-staled committed files with restoration verified each time; guard's developer's-own-dirty-files case proven with the unit's own frozen files. Craft notes for the record: the mechanic re-ran his standalone shell verification under real bash after catching that his first pass ran under ambient zsh with a glob-nomatch semantic that differs (the 261 shell-mode lesson, applied unprompted), and his baseline restraint was explicitly endorsed by the ruling. WHAT NOW HOLDS: the only writer of generated source is the generator; a raced, killed, or malicious write to any tracked file during a test run fails the suite by observation, not enumeration; and the baseline surface the guard ignores is exactly the surface the tripwire watches.
 ---
 <!-- COMMENTS:END -->
