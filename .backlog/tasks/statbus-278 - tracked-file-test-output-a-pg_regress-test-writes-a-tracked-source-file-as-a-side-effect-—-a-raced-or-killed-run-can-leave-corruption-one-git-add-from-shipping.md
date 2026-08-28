@@ -4,10 +4,11 @@ title: >-
   tracked-file-test-output: a pg_regress test writes a tracked source file as a
   side effect — a raced or killed run can leave corruption one git add from
   shipping
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@architect'
 created_date: '2026-08-27 15:03'
-updated_date: '2026-08-28 09:56'
+updated_date: '2026-08-28 10:16'
 labels:
   - testing
 dependencies: []

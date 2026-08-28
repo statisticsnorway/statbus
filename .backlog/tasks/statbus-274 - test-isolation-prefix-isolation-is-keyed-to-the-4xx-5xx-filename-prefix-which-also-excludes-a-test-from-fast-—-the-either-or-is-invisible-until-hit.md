@@ -3,9 +3,11 @@ id: STATBUS-274
 title: >-
   test-isolation-prefix: isolation is keyed to the 4xx/5xx filename prefix,
   which also excludes a test from fast — the either/or is invisible until hit
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@architect'
 created_date: '2026-08-27 13:51'
+updated_date: '2026-08-28 10:16'
 labels:
   - testing
 dependencies: []
