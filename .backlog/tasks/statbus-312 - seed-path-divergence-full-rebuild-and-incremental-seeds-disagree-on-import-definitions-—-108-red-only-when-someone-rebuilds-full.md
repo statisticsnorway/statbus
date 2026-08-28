@@ -7,6 +7,7 @@ status: In Progress
 assignee:
   - '@tester'
 created_date: '2026-08-28 22:58'
+updated_date: '2026-08-28 23:09'
 labels:
   - testing
   - tooling
@@ -29,3 +30,9 @@ INVESTIGATION SCOPE (read-only first): reproduce the attribution — diff the fu
 
 WHAT IS ACHIEVED: seeds are reproducible regardless of construction path, and a full rebuild can never again masquerade as the current unit's failure.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+**Additional evidence (engineer, 2026-08-29, during 309 verification on the freshly full-rebuilt seed):** the divergence is not confined to 108's mapping ordinals. Two baseline drifts surfaced on the same rebuilt database: (a) test/expected/performance/109_hierarchy_functions.perf cost estimates 5.03→15.72 with identical actual times — trivial statistics drift, discarded per testing rule; (b) the three test/expected/explain/303_* files show a PLAN-SHAPE change (Index Scan using idx_timeline_legal_unit_valid_period → Bitmap Heap Scan on timeline_legal_unit) — flagged, NOT discarded. Hypothesis: same root cause — a full-rebuild seed and an incrementally-built one are not the same database. Disposition: the 303_* changes stay uncommitted in the tree; after the forward repair migration lands and the seed rebuilds again, check whether the plans revert. If they do, that is the repair's second confirmation; if not, the 303 drift has a separate cause and gets its own investigation.
+<!-- SECTION:NOTES:END -->

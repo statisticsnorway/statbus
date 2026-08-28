@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-28 22:33'
-updated_date: '2026-08-28 22:34'
+updated_date: '2026-08-28 23:07'
 labels:
   - app
   - cli
@@ -36,3 +36,9 @@ THE CONCRETE FIRST CUSTOMER: Ghana's neutralized bootstrap placeholder (Regular 
 
 WHAT IS ACHIEVED: user removal is one guarded product action; the rules live in ONE place (the triggers, where they already are); and the surprising gap between built guards and missing door is closed.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+**Architect verdict (2026-08-29): APPROVED conditionally.** Reviewed on frozen bytes; approval highlights the prosecdef=f baseline assertion (the one edit that would reopen the RLS-bypass hole now fails a test), correct NULL-caller handling in prevent_self_soft_delete, clean down migration whose refusal to clear deleted_at is deliberate (clearing would silently reactivate deliberately-removed accounts). Conditions before landing: (1) 098 must RUN green — nothing has been observed yet; (2) scenario G is non-optional: the zero-row RETURNING…INTO semantics were reasoned, not observed — G is the observation; (3) scenario D can refuse two ways (RLS zero-row no-op vs permission denied on base UPDATE) — the actually-printed shape must be read before blessing the expected file. Optional non-blocking: WHEN (OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL) on the trigger to skip unrelated updates. Engineer holds verification, queued behind the straggler drain.
+<!-- SECTION:NOTES:END -->

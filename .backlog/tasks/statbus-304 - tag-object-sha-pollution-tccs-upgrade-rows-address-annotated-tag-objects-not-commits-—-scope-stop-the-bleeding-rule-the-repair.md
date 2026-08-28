@@ -3,11 +3,11 @@ id: STATBUS-304
 title: >-
   tag-object-sha-pollution: tcc's upgrade rows address annotated tag objects,
   not commits — scope, stop the bleeding, rule the repair
-status: In Progress
+status: Done
 assignee:
   - '@architect'
 created_date: '2026-08-28 16:29'
-updated_date: '2026-08-28 21:36'
+updated_date: '2026-08-28 23:12'
 labels:
   - upgrade
   - cloud
@@ -74,3 +74,9 @@ created: 2026-08-28 21:36
 SCOPE READ COMPLETE (read-only, all niue slots; full table tmp/304-and-demo-report.md): FIVE boxes polluted — tcc, et, jo, ma, ug — ~275 suspect rows total (37-57 per box), and the pollution is IDENTICAL across all five: the same tag-object SHAs (rc.15→0eb4c45e, rc.14→00f34603) on every box, consistent with the same April-era binary running the same pre-255 releases-API discovery everywhere. demo UNCLEAR — its 9-day-stale discovery never registered rc.14/15, so the discriminator rows don't exist there; its era matches the others. FOREMAN CORRECTIONS to the report, on the record: (1) 'blocks STATBUS-290' repeats the earlier mislabel — 290 is gofmt, closed; the affected contract is canonical-commit-naming (commit.go / doc/canonical-commit-naming.md); (2) the per-box row-id high-waters (tcc=6745, et=18669, ma=21269) are INCONSISTENT with the earlier identification of Erik's screenshot box (#18572, '21k+ rows') as tcc — by these numbers et or ma fits better; the identity question is no longer load-bearing (all five share the pollution) but the 303 record should not be read as settled on that point. WITH SCOPE IN HAND the deferred repair design can now proceed at leisure per the ruling — evidence, not guess: ~275 rows, five boxes, uniform pattern, mapping recoverable via the tags themselves where they still exist. NOT this round's code.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The repair is landed at f74dad9d6: migrations/20260828225222_repair_tag_object_sha_pollution_rc14_rc15 rewrites public.upgrade.commit_sha for v2026.08.0-rc.14/rc.15 rows only where BOTH version AND the known-wrong tag-object SHA match (mechanic independently re-derived both SHAs from the repo before trusting the reported values). A NOT EXISTS guard per UPDATE steps aside with a row-naming RAISE NOTICE if post-255 discovery already holds the correct commit under the UNIQUE commit_sha key; down is a documented no-op (reversal would reintroduce the defect). Test 099 re-sources the shipped migration bytes via \i and proves corrected/untouched/untouched, the guard NOTICE, and idempotency — green. Fleet rows are actually rewritten when boxes apply the migration via the next candidate (rc.17); nothing further is owed by hand, per the no-manual-DB-writes rule.
+<!-- SECTION:FINAL_SUMMARY:END -->
