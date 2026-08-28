@@ -5848,6 +5848,43 @@ func (d *Service) TagsAtCommit(ctx context.Context, sha CommitSHA) ([]string, er
 // Returns pgx.ErrNoRows verbatim when the claim matched 0 rows (row no longer
 // 'scheduled' — another actor claimed it first); callers map it to their own message.
 func (d *Service) claimScheduledUpgrade(ctx context.Context, id int) (commitTags []string, recreate bool, err error) {
+	// STATBUS-307 (architect ruling: block-by-absence is not an acceptable
+	// contract) — the arriving job's own first act, before anything else in
+	// this function: refuse if the last config generate parked on an
+	// unresolved policy ambiguity (which release CHANNEL this box follows).
+	// This is the ONE function both dispatch paths share (ExecuteUpgradeInline
+	// for ./sb install's inline dispatch, executeScheduled for the daemon's own
+	// periodic pickup — see this function's header comment), so checking here
+	// covers both with no duplication, matching the same "the arriving job
+	// checks for itself" principle STATBUS-246 already applies to the release
+	// chain's decision points.
+	//
+	// WHY THIS IS LOAD-BEARING, not belt-and-suspenders: today a parked box
+	// only fails to execute because the upgrade path happens to need a fresh
+	// config, which it cannot get — a property held BY ACCIDENT. A future
+	// refactor that tolerates a stale-but-valid config (exactly what
+	// STATBUS-307's own boot-time fix just taught the daemon to do) would
+	// silently unpark every parked box with nothing going red, because
+	// nothing here was ever checking. Executing a scheduled candidate while
+	// the channel is genuinely ambiguous risks installing it for the WRONG
+	// channel on a production box (the STATBUS-291 harm) — this is a
+	// different "park" than the recovery_parked_at row-level one displaced
+	// below: that one is about a SPECIFIC upgrade's own recovery outcome;
+	// this one is a FILE-level marker about whether the box's release
+	// policy is even resolved at all, and it must gate every dispatch
+	// regardless of which specific row is being claimed.
+	//
+	// FAILS CLOSED ON A READ ERROR TOO (STATBUS-039/111/159's standing
+	// doctrine: unverified is not permission) — if the marker cannot be
+	// read, that is not evidence the box is fine; refuse rather than guess.
+	if marker, merr := ReadConfigRefusalMarker(d.projDir); merr != nil {
+		return nil, false, fmt.Errorf("refusing to execute upgrade id=%d: could not confirm the box's config-policy state (%v) — resolve the marker read before dispatching", id, merr)
+	} else if marker != nil {
+		return nil, false, fmt.Errorf(
+			"refusing to execute upgrade id=%d: the last config generate refused with an unresolved policy ambiguity (refused at %s) — the box does not know which release channel it follows, so dispatching a candidate now could install it for the wrong one. %s",
+			id, marker.RefusedAt.Format(time.RFC3339), marker.Message)
+	}
+
 	// Read the standing park once (if any): its id feeds step A's flag match and
 	// its reason names the displacement in the loud line after commit.
 	var parkedID int
