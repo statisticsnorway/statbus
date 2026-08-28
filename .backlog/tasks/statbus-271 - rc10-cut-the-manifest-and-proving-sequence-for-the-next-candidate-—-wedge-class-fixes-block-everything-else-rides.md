@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 13:08'
-updated_date: '2026-08-28 07:59'
+updated_date: '2026-08-28 08:12'
 labels:
   - release
 dependencies: []
@@ -78,5 +78,11 @@ author: foreman
 created: 2026-08-28 07:59
 ---
 rc.14 FLEET, NEAR-FINAL (run 33145356673, 30 green / 3 flying / 1 red at this pin): the previously-standing rollback-pair-terminal family PASSED — the 'expected honest residue' turned out better than promised; this is already the cleanest arc run on record. THE ONE RED, triaged by the mechanic (evidence-first): cross-version-rename-handoff, IDENTICAL fingerprint to its rc.11 red ('no terminal state within 1800s' at arc.sh:66, 30:03 of total silence after 'Scheduled upgrade to v2026.08.0-rc.14', then 'service db is not running' in the diagnostics step). NOT 293's lottery — zero refusal/incomparable text in the log, scheduling succeeded cleanly, so the rc.11 exoneration was INCOMPLETE for this one scenario. THE LEAD, checked not assumed: the shape fits STATBUS-294's listener SIGSEGV exactly (schedule → executeUpgrade's teardown nils the shared conn → abandoned-listener race fires → the whole service dies → nothing left to progress the row = the 30-min silence), and 294's fix (efd07d036, landed this morning) is NOT in rc.14 — verified via git merge-base --is-ancestor: the tag predates the fix by 3 hours. EVIDENCE GAP stated honestly: the daemon journal for the stuck window was never captured — in EITHER run — because the harness's own diagnostics step aborts fail-fast on its first command when the db is down, destroying exactly the evidence it exists to collect; filed as STATBUS-296. DISPOSITION: rc.14 may not be promoted (one leg-5 red). The suspected cause is already fixed on master; the clean test is the next candidate, which carries 294 — its fleet either greens this scenario (confirming 294 as the cause) or reds it again with 296's fixed diagnostics capturing the journal that settles it either way.
+---
+
+author: foreman
+created: 2026-08-28 08:12
+---
+rc.14 CHAIN FINAL VERDICT (orchestrator 33141502893 completed; arc fleet 33145356673: 34 GREEN / 2 red): the cleanest chain on record — legs 1-4 green, 295's fixture fix proven live on its exact arm, the rollback-pair-terminal family PASSED — and both reds are ONE bug, now CONFIRMED from the journal: transient-db-backoff's daemon log captured the panic live this run — 'panic: runtime error: invalid memory address or nil pointer dereference [signal SIGSEGV ... addr=0x90 pc=0x8ae1bc]' — byte-identical to rc.11's stack, i.e. STATBUS-294's abandoned-listener crash, whose fix (efd07d036) landed on master three hours AFTER rc.14's tag. cross-version-rename-handoff shares the signature (mechanic's triage; its journal was destroyed by the 296 gap, but the sibling scenario's live capture settles the family). NOTE the confirmation upgrades the mechanic's 'plausible, evidence-gapped' triage to CONFIRMED — the last fleet job delivered the journal his triage said was missing. DISPOSITION: rc.14 may not be promoted; rc.15 cuts next carrying 294 (the fix for both reds) + 296's diagnostics hardening (in flight, 12 arc scripts, mechanic building now) — the cut waits only for that freeze so the tree is clean. Expected: the first fully green chain.
 ---
 <!-- COMMENTS:END -->
