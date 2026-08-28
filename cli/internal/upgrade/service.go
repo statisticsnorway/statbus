@@ -2231,18 +2231,52 @@ func (d *Service) Run(ctx context.Context) error {
 		if configGenerateIsPrincipledRefusal(err) {
 			refusalText := strings.TrimSpace(out)
 			writeConfigRefusalMarker(d.projDir, refusalText)
-			fmt.Printf("Recovery boot: config generate refused (principled, not retriable — STATBUS-298): %s\n", refusalText)
-			os.Exit(exitPrincipledConfigRefusal)
+			// STATBUS-307: a policy refusal (which release CHANNEL to follow)
+			// must not decide whether the DATABASE comes back — those are two
+			// different criticalities that this single all-or-nothing call used
+			// to conflate. The fork: does a PREVIOUSLY GENERATED .env already
+			// exist? That is the box's proof it has served successfully before
+			// under a config that worked; a refusal now is about NEW input
+			// (e.g. an operator hand-added a second key), not about whether the
+			// box can serve at all.
+			//
+			//   - NO prior .env (a fresh box, first-ever config generate): there
+			//     is nothing to fall back to — serving was never established —
+			//     so this stays a hard refusal exactly as STATBUS-298 built it.
+			//   - A prior .env EXISTS: do not exit. PARK instead — the marker
+			//     just written above IS the park (STATBUS-298's file-level hook;
+			//     there is no db connection yet to park a public.upgrade ROW,
+			//     so the marker is the only mechanism available at this point
+			//     in boot) — and fall through to EnsureDBUp below so the
+			//     database returns. The box serves on the .env it already has;
+			//     only the policy this run tried to resolve stays unresolved,
+			//     loud in the journal and in the marker, until an operator fixes
+			//     .env.config and a later successful config generate clears it.
+			envPath := filepath.Join(d.projDir, ".env")
+			if _, statErr := os.Stat(envPath); statErr != nil {
+				fmt.Printf("Recovery boot: config generate refused (principled, not retriable — STATBUS-298), and no prior generated config exists at %s — nothing to serve on, hard refusing: %s\n", envPath, refusalText)
+				os.Exit(exitPrincipledConfigRefusal)
+			}
+			fmt.Printf("Recovery boot: config generate refused (principled, not retriable — STATBUS-298), but a prior generated config exists at %s (STATBUS-307) — PARKING the upgrade (marker written, %s) and continuing so the database returns; the box serves on its existing config, only the upgrade is blocked: %s\n",
+				envPath, configRefusalMarkerPath(d.projDir), refusalText)
+			// Deliberately no exit, no return: fall through to EnsureDBUp below.
+		} else {
+			return fmt.Errorf("pre-flight: regenerate config before db up: %w (%s)", err, strings.TrimSpace(out))
 		}
-		return fmt.Errorf("pre-flight: regenerate config before db up: %w (%s)", err, strings.TrimSpace(out))
+	} else {
+		// STATBUS-298: no explicit clear-on-success needed here — `./sb config
+		// generate` (configGenerateCmd.RunE, cli/cmd/config.go) clears the
+		// marker itself on ITS OWN success, and that subprocess just exited 0
+		// two lines above. Clearing again here would be redundant policy
+		// duplication of the exact same operation on the exact same path; see
+		// the comment there for why the CLI command is the one right place for
+		// every caller (this one included) to share.
+		//
+		// STATBUS-307: if we instead reached this point via the has-config
+		// PARK fall-through above, the marker was just WRITTEN, not cleared —
+		// correctly so; it stays present until a later config generate
+		// actually succeeds.
 	}
-	// STATBUS-298: no explicit clear-on-success needed here — `./sb config
-	// generate` (configGenerateCmd.RunE, cli/cmd/config.go) clears the
-	// marker itself on ITS OWN success, and that subprocess just exited 0
-	// two lines above. Clearing again here would be redundant policy
-	// duplication of the exact same operation on the exact same path; see
-	// the comment there for why the CLI command is the one right place for
-	// every caller (this one included) to share.
 
 	// Pre-flight B — ensure DB is up. Idempotent (no-op when already up).
 	// Covers the post-swap recovery path where the prior process image exited
