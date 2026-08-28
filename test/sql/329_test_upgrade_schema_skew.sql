@@ -133,8 +133,31 @@ SELECT column_name
 \echo '=== Part B: rc.63 service queries succeed ==='
 
 -- The same SELECT that fired Demo Error 1 — no error this time.
-SELECT count(*) AS rows_with_from_commit_version_visible
-  FROM public.upgrade WHERE id = 1 OR from_commit_version IS NOT NULL;
+--
+-- ADDRESSED BY THE TEST'S OWN commit_sha, NOT BY id = 1. The earlier form was
+-- `WHERE id = 1 OR from_commit_version IS NOT NULL`, blessed at a count of 1.
+--
+-- Where that 1 actually came from, checked against the seed rather than assumed:
+-- public.upgrade is EMPTY in the seed (0 rows, no id 1) and upgrade_id_seq sits
+-- at last_value 1. So the old predicate was not matching some seeded fixture row
+-- at all — it was matching THIS TEST'S OWN insert from Part A, which received id
+-- 1 only because the sequence happened to be untouched. Any replay in which
+-- anything had already written public.upgrade gives that row a different id, the
+-- OR-arm matches nothing (from_commit_version is NULL here), and the count falls
+-- to 0. The replay was right and the fixture was wrong.
+--
+-- A test must construct the row it asserts on AND address it by something it
+-- chose itself, so this counts the Part A row by its own sha. Same value, honest
+-- provenance: it can no longer be satisfied by an accident of id allocation.
+--
+-- from_commit_version stays in the predicate on purpose: that is the column
+-- whose absence raised 42703 before the rename, so exercising it here is what
+-- proves the rc.63 name now resolves. Its value for this row is NULL, which is
+-- itself the deterministic fact being asserted.
+SELECT count(*) AS own_row_readable_via_from_commit_version
+  FROM public.upgrade
+ WHERE commit_sha = lpad(to_hex(999), 40, '0')
+   AND from_commit_version IS NULL;
 
 -- The same INSERT that fired Demo Error 2 — succeeds.
 INSERT INTO public.upgrade (commit_sha, committed_at, commit_tags,

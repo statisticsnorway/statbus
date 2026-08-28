@@ -47,7 +47,16 @@ SELECT p.proname, p.prosecdef AS security_definer
 \echo === SCENARIO A: an admin deletes a regular user, and login then refuses ===
 SAVEPOINT a;
 CALL test.set_user_from_email('test.admin@statbus.org');
-SELECT id, email FROM public.user_delete(
+-- NEVER project a raw id. auth."user" ids depend on how many users the seed
+-- happened to create, so an absolute id is a property of the replay rather than
+-- of the behaviour under test: this file first blessed id 2 and a later full
+-- replay produced 32, failing a test whose subject had not changed. What the
+-- scenario actually claims is "the door returned THE row I asked it to delete",
+-- so assert that identity against the lookup and print a boolean.
+SELECT (id = (SELECT u.id FROM auth."user" AS u
+               WHERE u.email = 'test.regular@statbus.org')) AS returned_target_row,
+       email
+  FROM public.user_delete(
     (SELECT id FROM auth."user" WHERE email = 'test.regular@statbus.org'));
 SELECT email, (deleted_at IS NOT NULL) AS deleted
   FROM auth."user" WHERE email = 'test.regular@statbus.org';
@@ -95,7 +104,9 @@ CALL test.set_user_from_email('test.regular@statbus.org');
 SELECT count(*) AS rows_a_regular_user_can_modify
   FROM auth."user"
  WHERE email = 'test.admin@statbus.org';
-SELECT id AS deleted_id FROM public.user_delete(
+-- count(*), not id: the claim is that the call transitioned NOTHING. A count
+-- states that directly and cannot drift with the seed's id allocation.
+SELECT count(*) AS rows_the_call_deleted FROM public.user_delete(
     (SELECT id FROM auth."user" WHERE email = 'test.admin@statbus.org'));
 SET LOCAL ROLE postgres;
 SELECT email, (deleted_at IS NULL) AS still_active
@@ -119,11 +130,17 @@ ROLLBACK TO SAVEPOINT e;
 \echo === SCENARIO F: restore round-trip ===
 SAVEPOINT f;
 CALL test.set_user_from_email('test.admin@statbus.org');
-SELECT id FROM public.user_delete(
+-- Same identity assertion as scenario A, for the same reason: the round trip is
+-- about the door acting on the row we named, not about which id that row got.
+SELECT (id = (SELECT u.id FROM auth."user" AS u
+               WHERE u.email = 'test.regular@statbus.org')) AS deleted_target_row
+  FROM public.user_delete(
     (SELECT id FROM auth."user" WHERE email = 'test.regular@statbus.org'));
 SELECT email, (deleted_at IS NOT NULL) AS deleted
   FROM auth."user" WHERE email = 'test.regular@statbus.org';
-SELECT id FROM public.user_restore(
+SELECT (id = (SELECT u.id FROM auth."user" AS u
+               WHERE u.email = 'test.regular@statbus.org')) AS restored_target_row
+  FROM public.user_restore(
     (SELECT id FROM auth."user" WHERE email = 'test.regular@statbus.org'));
 SELECT email, (deleted_at IS NULL) AS active_again
   FROM auth."user" WHERE email = 'test.regular@statbus.org';
