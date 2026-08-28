@@ -3,10 +3,10 @@ id: STATBUS-309
 title: >-
   user-deletion-missing: the backend knows USER_DELETED but no UI or CLI can
   cause it — deletion is a concept with no door
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-28 22:33'
-updated_date: '2026-08-28 23:07'
+updated_date: '2026-08-28 23:17'
 labels:
   - app
   - cli
@@ -42,3 +42,9 @@ WHAT IS ACHIEVED: user removal is one guarded product action; the rules live in 
 <!-- SECTION:NOTES:BEGIN -->
 **Architect verdict (2026-08-29): APPROVED conditionally.** Reviewed on frozen bytes; approval highlights the prosecdef=f baseline assertion (the one edit that would reopen the RLS-bypass hole now fails a test), correct NULL-caller handling in prevent_self_soft_delete, clean down migration whose refusal to clear deleted_at is deliberate (clearing would silently reactivate deliberately-removed accounts). Conditions before landing: (1) 098 must RUN green — nothing has been observed yet; (2) scenario G is non-optional: the zero-row RETURNING…INTO semantics were reasoned, not observed — G is the observation; (3) scenario D can refuse two ways (RLS zero-row no-op vs permission denied on base UPDATE) — the actually-printed shape must be read before blessing the expected file. Optional non-blocking: WHEN (OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL) on the trigger to skip unrelated updates. Engineer holds verification, queued behind the straggler drain.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+LANDED at f19b25910. The door is installed: public.user_delete/user_restore as SECURITY INVOKER with zero guard logic (triggers + RLS remain the single source — the DEFINER shape was refuted by catalog check: owner bypasses RLS, so DEFINER would have opened delete-any-regular-user to anyone with EXECUTE while admin-path tests stayed green; 098 pins prosecdef=f structurally). One genuinely-missing rule added: auth.prevent_self_soft_delete, the universal self-delete refusal, sibling of prevent_removal_of_last_admin. 098 red-then-green with all 249 lines read before blessing; architect approved with all three conditions observed (G's zero-row RETURNING-INTO, D's RLS zero-row refusal shape, 098 run green). Down migration deliberately preserves deleted_at. UI: Delete/Restore row actions on admin Users via /rest RPC, trigger errors verbatim. Recorded follow-ups: (1) the WHEN clause on the trigger rides the next seed rebuild — KEEP the early-return in the body when it goes in (architect: the clause is optimisation, the body is the correctness guard; also preserves 098's line-19 CONTEXT pin); (2) first live customer: Ghana's neutralized bootstrap placeholder gets deleted through this door once rc.17 lands there; (3) STATBUS-313 (the runner's vacuous-green gap) was discovered during this unit's verification.
+<!-- SECTION:FINAL_SUMMARY:END -->

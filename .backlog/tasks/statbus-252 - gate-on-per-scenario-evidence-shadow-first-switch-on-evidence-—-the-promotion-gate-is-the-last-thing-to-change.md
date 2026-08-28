@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 10:00'
-updated_date: '2026-08-19 10:50'
+updated_date: '2026-08-28 23:15'
 labels:
   - release
   - quality-gate
@@ -54,6 +54,12 @@ WHAT IS ACHIEVED: the gate becomes as precise as the evidence it reads, and it g
 - [ ] #6 The independence argument is recorded with the switch: it holds because scenarios share no state, and must be re-examined for any suite where they do
 - [ ] #7 The switch is a deliberate, separately reviewed change — never folded into a wave doing other work
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+**Decided-run count RESOLVED as unproducible-retroactively (2026-08-29):** the shadow block prints only in the terminal of whoever runs ./sb release prerelease/stable — the mechanic traced every workflow and confirmed neither command is ever CI-invoked, and the foreman searched both session task-output stores and tmp/ for any persisted 'SHADOW (STATBUS-252' output: zero hits. Historical shadow verdicts existed only in scrollback and are gone. Consequence, assigned to the mechanic: runShadowCoverage now PERSISTS one JSONL line per gate invocation (timestamp, rc tag, gate, shadow verdict, authority verdict, agreement, decided-vs-undecidable) to tmp/shadow-coverage-log.jsonl on the cutting machine, so the authority-switch evidence accumulates from tonight's rc.17 cut onward and never again depends on scrollback. The switch criterion is unchanged: runs where the shadow actually DECIDED — all-undecidable agreement stays vacuous.
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 
