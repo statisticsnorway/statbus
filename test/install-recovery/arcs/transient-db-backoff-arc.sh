@@ -8,8 +8,19 @@
 # pair the standard arcs never exercise:
 #   • RESOLVES arm: the DB returns within the budget → the backoff clears → the
 #     re-read sees ObservedAlreadyAtNew → the resume runs FORWARD to state=completed.
-#   • EXHAUST arm: the DB never returns → the budget exhausts → data-safe rollback
-#     (STATBUS-110's read-only window), the row error naming the un-cleared cause.
+#   • EXHAUST arm: the DB NEVER returns — STATBUS-305: despite this file's own
+#     name, this arm tests PERMANENT loss, not a transient one; say so plainly so
+#     the next reader is not misled by "transient-db-backoff" into expecting the
+#     db to come back here too. The budget exhausts, and the daemon PARKS rather
+#     than rolling back — it refuses to restore a backup over a database it
+#     cannot verify is actually gone (vs. merely paused, or a severed proxy, or
+#     a slow start: from outside the db these are indistinguishable, and a
+#     forced restore that guessed wrong would write a backup OVER LIVE DATA,
+#     the corruption pathway wearing a recovery costume). This arm originally
+#     asserted "rolled_back" — written before the STATBUS-039/111/159 family
+#     settled that PARKING is the data-safe terminal for an unverifiable
+#     database; the assertion below is doctrine catching up with the arc, not
+#     carelessness (STATBUS-305).
 # Both arms: NRestarts BOUNDED (the in-process backoff never burns an exit-restart
 # cycle), data intact.
 #
@@ -30,10 +41,17 @@
 #     (`killed-by-system-after-migrations-before-completion`) → the crashed flag is
 #     Phase=NewSbUpgrading, ledger at on-disk max ⇒ the post-backoff re-read is
 #     AlreadyAtNew ⇒ FORWARD completion.
-#   • EXHAUST base = the container-restart crash (Behind) — the exhaust arm rolls
-#     back regardless of the natural state (the backoff never clears).
-# EXHAUST is run FIRST (rolls back to A), then RESOLVES (completes to B) — each on
-# its own fresh crashed base; the box ends at B.
+#   • EXHAUST base = the container-restart crash (Behind) — the exhaust arm PARKS
+#     regardless of the natural state (the backoff never clears, and the db stays
+#     unreachable for the rest of the run — see STATBUS-305 above).
+# EXHAUST is run FIRST (STATBUS-305: leaves the box PARKED, alive-idle, db still
+# paused — no longer "rolls back to A"), then RESOLVES (completes to B) — each on
+# its own fresh crashed base (crash_at registers+schedules a NEW upgrade row
+# regardless of the prior row's terminal state); the box ends at B. NOTE: this
+# is the first run where ARM 1 leaves a PARKED (not rolled_back) predecessor row
+# behind ARM 2's own crash_at — ARM 1 has never completed successfully in this
+# campaign, so ARM 2 starting from a parked (rather than rolled-back) box is
+# untested; worth watching on the first live re-run this fix earns.
 #
 # Inputs (env): BASE_SHA, B_FULL (40-hex), B_BRANCH (working lineage — no construct
 # spec; reuses the shared working B). VM name = $1.
@@ -87,6 +105,32 @@ row_error_for() { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT COALESCE(error,
 # boot failure). <since> is each arm's VM-local start clock, so every wait is
 # deterministic per arm regardless of history (and stays correct if a 3rd arm is added).
 journal_has() { VM_EXEC bash -c "journalctl --user -u $UPGRADE_UNIT --since \"$2\" --no-pager 2>/dev/null | grep -qF \"$1\" && echo yes || echo no" 2>/dev/null | tr -d ' \r\n' || echo "no"; }
+# journal_count_since <plain-substr> <since> — how many times has the daemon
+# journal SINCE <since> contained <substr>? STATBUS-305: used to prove the
+# 299 connect-retry loop is genuinely ADVANCING (multiple distinct sub-attempt
+# lines), not merely present once — a single match could be a stale fluke;
+# a count ≥ 2 is the loop actually cycling. Same ARM-SCOPING as journal_has.
+journal_count_since() { VM_EXEC bash -c "journalctl --user -u $UPGRADE_UNIT --since \"$2\" --no-pager 2>/dev/null | grep -cF \"$1\" || true" 2>/dev/null | tr -d ' \r\n' || echo "0"; }
+# wait_for_journal_count <substr> <min_count> <budget_s> <since> — poll
+# (arm-scoped) until <substr> has appeared at least <min_count> times.
+wait_for_journal_count() {
+    local marker="$1" min_count="$2" budget="$3" since="$4" start elapsed n
+    start=$(date +%s)
+    while true; do
+        n=$(journal_count_since "$marker" "$since")
+        [[ "$n" =~ ^[0-9]+$ ]] || n=0
+        if [ "$n" -ge "$min_count" ]; then
+            echo "  ✓ journal shows '${marker}' ${n} time(s) (≥ ${min_count}, t+$(( $(date +%s) - start ))s) — the loop is advancing, not stalled on one attempt"
+            return 0
+        fi
+        elapsed=$(( $(date +%s) - start ))
+        if [ "$elapsed" -ge "$budget" ]; then
+            echo "✗ journal showed '${marker}' only ${n} time(s) within ${budget}s (wanted ≥ ${min_count}) — the connect-retry loop does not look like it is advancing" >&2
+            return 1
+        fi
+        sleep 5
+    done
+}
 db_pause()   { VM_EXEC bash -c "cd ~/statbus && docker compose pause db"   >/dev/null 2>&1 && echo "  ✓ db container PAUSED (unreachable)"   || { echo "✗ docker compose pause db failed" >&2; exit 1; }; }
 db_unpause() {
     local out
@@ -163,9 +207,9 @@ arc_prepare_box
 DATA_SNAPSHOT=$(snapshot_demo_data_counts "$VM_NAME")
 echo "  pre-arc data snapshot: $DATA_SNAPSHOT"
 
-# ═══════════════════ ARM 1 — EXHAUST (Behind base → data-safe rollback) ═══════════════════
+# ═══════════════════ ARM 1 — EXHAUST (Behind base → PARKED, never rolled back) ═══════════════════
 echo ""
-echo "════════ ARM 1: EXHAUST — DB never returns → budget exhausts → data-safe rollback ════════"
+echo "════════ ARM 1: EXHAUST — DB PERMANENTLY unreachable → budget exhausts → PARKED (STATBUS-305: never rolled_back, restoring over unverifiable state is forbidden) ════════"
 crash_at "killed-by-system-during-container-restart"
 NR_BEFORE_EXHAUST=$(arc_nrestarts)
 ARM_SINCE=$(arm_since)   # anchor this arm's journal waits at the VM clock BEFORE the recovery boot
@@ -177,22 +221,40 @@ remove_stall
 wait_for_journal "recovery backoff-retry [db-unreachable]" 120 "$ARM_SINCE"
 echo "── leaving the DB paused past the ${BACKOFF_BUDGET} budget → the backoff must EXHAUST ──"
 wait_for_journal "did not clear within the retry budget" 180 "$ARM_SINCE"
-# Do NOT touch the db container after the exhaust marker (run-3-proven, 29391895536):
-# the exhaust rollback stops the PAUSED container ITSELF — `docker compose stop`
-# unfreezes + stops a paused container cleanly (journal "…-db Stopped"), the
-# STATBUS-187 verify-stopped guard passes, then it recreates the db fresh and
-# restores the volume. A db_unpause here RACES that: by the time it ran, the rollback
-# had already stopped + recreated the container, so `docker compose unpause` failed
-# on a not-paused/recreated container — the run-3 red. Arm 1 goes straight from the
-# exhaust marker to the rolled_back terminal; the product needs no help.
-echo "── assert EXHAUST terminal: rolled_back, error names the un-cleared cause, data restored, NRestarts bounded ──"
-arc_wait_row_state "$B_FULL" "rolled_back" "$ROW_WAIT_BUDGET_S"
-EXHAUST_ERR=$(row_error_for "$B_FULL")
-echo "$EXHAUST_ERR" | grep -qiE "did not clear within the retry budget" || { echo "✗ rolled_back row error does not name the un-cleared db-unreachable cause: $EXHAUST_ERR" >&2; exit 1; }
-NR_AFTER_EXHAUST=$(arc_nrestarts)
+# STATBUS-305: do NOT touch the db container after the exhaust marker, and do
+# not expect the daemon to either. Do NOT re-read demo data via a live query
+# here (assert_demo_data_counts_match_snapshot, row_error_for, and
+# arc_wait_row_state all go through ./sb psql — every one of them would sit
+# querying the exact database this arm keeps unreachable for the rest of the
+# run; that IS the run-3 red's mechanism (29391895536) one layer up, and it is
+# why the original 'rolled_back within 600s' assertion timed out reading '?'
+# for the full budget rather than failing fast). The database this arm never
+# releases is not a resource the arm — or the daemon — may touch again once
+# parked: STATBUS-111 already ruled restore-reattempt human-gated via
+# ./sb install, never the auto service. Every observable below comes from the
+# journal or systemd, neither of which needs the db.
+echo "── assert EXHAUST terminal (STATBUS-305 — the doctrine, not the stale 'rolled_back' expectation): PARKED, connect loop still trying, restarts bounded, and the property that actually matters — NO restore attempted over unverifiable state ──"
+wait_for_journal "is PARKED (park state UNKNOWN" 60 "$ARM_SINCE"
+[ "$(journal_has "refusing to restore on an unverified row" "$ARM_SINCE")" = "yes" ] || { echo "✗ the PARKED line did not carry the unverified-row refusal reasoning — see the full journal above" >&2; exit 1; }
+echo "  ✓ row PARKED, refusing to restore on an unverified row (STATBUS-039/111/159: never destroy state under uncertainty)"
+# 299's own heartbeat: the connect loop must be genuinely CYCLING, not stalled
+# after one attempt — a count, not a single yes/no, so a stuck loop that only
+# ever logged attempt 1 cannot pass by accident.
+wait_for_journal_count "Database connect attempt" 2 150 "$ARM_SINCE"
+# THE NEGATIVE ASSERTION (the ruling's sharpening, load-bearing): checked LAST,
+# after the longest possible elapsed journal window above, so it has the most
+# opportunity to catch a real regression. Every positive check above (parked,
+# alive-idle, bounded restarts, still trying) would ALSO pass for a future
+# build that restored blindly and then parked anyway — assert the invariant
+# itself, not its side effects. The restore-start log line is unambiguous
+# (exec.go's progress.Write("Restoring database from backup at %s...")) —
+# its absence across this whole arm is the actual proof nothing was destroyed.
+[ "$(journal_has "Restoring database from backup at" "$ARM_SINCE")" = "no" ] || { echo "✗ 'Restoring database from backup at' appeared in the journal — a restore was attempted over a database this arm never made reachable. That is the data-corruption pathway STATBUS-039 forbids, regardless of what state the row ends up in." >&2; exit 1; }
+echo "  ✓ NO restore was ever attempted over the unverifiable database — the invariant holds, not just its side effects"
+assert_systemd_active "$VM_NAME" "$UPGRADE_UNIT" "active"
 assert_systemd_restart_counter_bounded "$VM_NAME" "$UPGRADE_UNIT" 2
-assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
-echo "  ✓ EXHAUST arm: in-process backoff exhausted → data-safe rollback (rolled_back, cause named), NRestarts ${NR_BEFORE_EXHAUST}→${NR_AFTER_EXHAUST} bounded, data intact"
+NR_AFTER_EXHAUST=$(arc_nrestarts)
+echo "  ✓ EXHAUST arm: budget exhausted → PARKED (never rolled_back — that write needs the db this arm keeps down; doctrine, not a stale expectation), unit alive-idle, NRestarts ${NR_BEFORE_EXHAUST}→${NR_AFTER_EXHAUST} bounded (STATBUS-298: one arc now guards both the retry-loop and the restart-loop pathology), connect loop demonstrably still trying, NO blind restore — data is safe because nothing ever touched it"
 
 # ═══════════════════ ARM 2 — RESOLVES (at-target base → forward completion) ═══════════════════
 echo ""
@@ -220,4 +282,4 @@ assert_health_passes "$VM_NAME"
 echo "  ✓ RESOLVES arm: transient blip retried in-process → cleared → FORWARD completion (state=completed), NRestarts ${NR_BEFORE_RESOLVE}→${NR_AFTER_RESOLVE} bounded, flag gone, data intact, healthy"
 
 echo ""
-echo "PASS: transient-db-backoff — the recovery classify-then-act's in-process db-unreachable backoff proven on BOTH arms end to end: EXHAUST (DB never returns → budget exhausts → data-safe rollback, cause named) and RESOLVES (DB returns within budget → backoff clears → at-target re-read → forward completion). NRestarts bounded on both (no exit-restart noise — the in-process backoff sits in front of the systemd backstop, STATBUS-109 AC#4), data intact throughout."
+echo "PASS: transient-db-backoff — the recovery classify-then-act's in-process db-unreachable backoff proven on BOTH arms end to end: EXHAUST (DB PERMANENTLY unreachable → budget exhausts → PARKED, refusing to restore over unverifiable state, connect loop still trying — STATBUS-305) and RESOLVES (DB returns within budget → backoff clears → at-target re-read → forward completion). NRestarts bounded on both (no exit-restart noise — the in-process backoff sits in front of the systemd backstop, STATBUS-109 AC#4; STATBUS-298: EXHAUST now guards both the retry-loop and the restart-loop pathology), data intact throughout (EXHAUST proves this by NEVER TOUCHING the data, not by re-reading it — the db it would need to read stays down by design)."
