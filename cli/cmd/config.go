@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/statisticsnorway/statbus/cli/internal/config"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
+	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
 var (
@@ -20,6 +22,34 @@ var configCmd = &cobra.Command{
 	Short: "Manage StatBus configuration",
 }
 
+// exitPrincipledConfigRefusal (78 = EX_CONFIG, sysexits.h) is the exit code
+// `./sb config generate` uses for a DETERMINISTIC configuration refusal —
+// ambiguous or invalid declared state (config.ErrPrincipledRefusal) that
+// editing .env.config is the only fix for, never a retry. STATBUS-298: the
+// upgrade service's recovery boot (service.go, ~:2103) shells out to this
+// exact command and inspects ITS exit code to make the same distinction —
+// the sentinel error cannot cross the process boundary itself, so the exit
+// code IS the contract, mirroring this codebase's existing convention for
+// exit 42 (the post-swap handoff: bare literal, no shared Go constant,
+// documented on both sides — service.go and ops/statbus-upgrade.service's
+// SuccessExitStatus=42/RestartForceExitStatus=42). 78 is reserved for
+// principled refusals ONLY: any failure a retry could plausibly fix must
+// use a different code, or the unit's RestartPreventExitStatus=78 stops the
+// box recovering on its own from a genuinely transient failure.
+const exitPrincipledConfigRefusal = 78
+
+// exitCodeForConfigGenerateErr is the exit-code SELECTION, split out as a
+// pure function so it is unit-testable without forking a subprocess (RunE's
+// os.Exit call cannot be exercised directly by `go test` in-process).
+// shouldExit is false for nil or any non-refusal error — RunE returns err
+// to cobra/main.go's normal path in that case (exit 1, unchanged).
+func exitCodeForConfigGenerateErr(err error) (code int, shouldExit bool) {
+	if errors.Is(err, config.ErrPrincipledRefusal) {
+		return exitPrincipledConfigRefusal, true
+	}
+	return 0, false
+}
+
 var configGenerateCmd = &cobra.Command{
 	Use:   "generate",
 	Short: "Generate .env and Caddyfiles from .env.config and .env.credentials",
@@ -28,7 +58,33 @@ derives all computed values (ports, memory tuning, URLs), writes .env,
 and renders Caddyfile templates from caddy/templates/*.caddyfile.tmpl
 into caddy/config/.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return config.Generate(verbose)
+		err := config.Generate(verbose)
+		// STATBUS-298: a principled refusal exits 78 directly — bypassing
+		// cobra's normal RunE-error path (which main.go maps uniformly to
+		// exit 1, indistinguishable from any other failure and, in the
+		// upgrade service's recovery-boot caller, retried by systemd every
+		// ~30s into the identical, unchanging refusal). Printed here to
+		// match cobra's own "Error: <msg>" convention (root.go leaves
+		// SilenceErrors=false) since os.Exit skips cobra's own print step.
+		if code, shouldExit := exitCodeForConfigGenerateErr(err); shouldExit {
+			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+			os.Exit(code)
+		}
+		if err == nil {
+			// Cleared HERE, not by each caller individually: every path that
+			// can hit the refusal above (the daemon's recovery-boot
+			// pre-flight, ./sb install's step-table, an operator running
+			// this command by hand) invokes this SAME command as its config-
+			// generate step, so clearing at the one place they all cross is
+			// what makes "cleared on any successful start" actually true for
+			// all of them — not just whichever caller remembered to. A
+			// failure to clear (e.g. a permissions issue on tmp/) is
+			// best-effort and logged inside ClearConfigRefusalMarker itself;
+			// it must never turn a successful generate into a command
+			// failure.
+			upgrade.ClearConfigRefusalMarker(config.ProjectDir())
+		}
+		return err
 	},
 }
 

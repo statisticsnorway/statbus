@@ -277,6 +277,30 @@ func runInstall() (installErr error) {
 	}
 	installDir := filepath.Join(home, "statbus")
 
+	// STATBUS-298: surface a config-refusal marker if the last daemon start
+	// (or a prior ./sb install) refused with a deterministic, non-retriable
+	// configuration ambiguity. On a real installation this command is the
+	// operator's only lever, so a refusal they cannot reach through it is a
+	// refusal they cannot act on. Read-only here — the marker is CLEARED by
+	// whichever start next succeeds (the daemon's Run() pre-flight, or the
+	// step-table's own config generate later in this command), never here;
+	// printing it is not the same as concluding anything about it.
+	if marker, err := upgrade.ReadConfigRefusalMarker(installDir); err != nil {
+		// Log-only breadcrumb (TestNoSilentNotesInInstall, cli/cmd/install_test.go):
+		// a marker the operator cannot even read is not a condition this
+		// command can act on or should refuse over — install proceeds exactly
+		// as it would with no marker at all.
+		log.Printf("could not read the config-refusal marker (%v) — continuing", err)
+	} else if marker != nil {
+		fmt.Println("⚠ The last start of the upgrade service refused its configuration:")
+		fmt.Println()
+		fmt.Printf("  (refused at %s)\n", marker.RefusedAt.Format("2006-01-02 15:04:05 MST"))
+		fmt.Println(marker.Message)
+		fmt.Println()
+		fmt.Println("If this run below fixes the config, the marker clears automatically.")
+		fmt.Println()
+	}
+
 	// Register the panic-capturing defer FIRST so it runs LAST during unwind
 	// and catches panics from every later defer, including the post-completion
 	// block. Any `INVARIANT X violated: ...` panic (class=panic-regression,

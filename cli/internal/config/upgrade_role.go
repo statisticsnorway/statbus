@@ -1,12 +1,49 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
 
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 )
+
+// ErrPrincipledRefusal marks an error as a DETERMINISTIC configuration
+// refusal — ambiguous or invalid declared state that cannot be resolved by
+// retrying, as opposed to a transient failure (disk full, permissions,
+// a momentarily-locked file). STATBUS-298: every refusal this file returns
+// wraps this sentinel so a caller can ask `errors.Is(err,
+// config.ErrPrincipledRefusal)` structurally, rather than matching the
+// refusal TEXT — a text match creates a second copy of the message the
+// existing STATBUS-254 pin does not cover; an edit to the message that
+// forgets to update a scattered text-match discriminator silently stops
+// matching, and refusals go back to being retried five times into a
+// db-down box (architect ruling, STATBUS-298 ticket comment #1). The
+// compiler carries the meaning instead (the same move as STATBUS-293's
+// typed CommitSHA/CommitShort/CommitVersion).
+//
+// Every refusal in THIS file is a member: an unknown role, an untranslatable
+// legacy channel, and a hand-added channel alongside a declared role are all
+// the SAME class (a human declared something ambiguous or invalid; the fix
+// is to edit .env.config, never to wait) — so all three wrap it identically.
+var ErrPrincipledRefusal = errors.New("principled configuration refusal")
+
+// refusalError wraps an already-composed, human-readable refusal message
+// with ErrPrincipledRefusal via Unwrap — WITHOUT altering the displayed
+// text (Error() returns msg verbatim; the sentinel never appears in the
+// operator-facing string). errors.Is(err, ErrPrincipledRefusal) works
+// structurally through Unwrap regardless.
+type refusalError struct{ msg string }
+
+func (e *refusalError) Error() string { return e.msg }
+func (e *refusalError) Unwrap() error { return ErrPrincipledRefusal }
+
+// newRefusal is the sole constructor for a principled-refusal error in this
+// file — every one of the three refusal sites below uses it, so none can
+// drift into a plain fmt.Errorf that the sentinel-based discriminator would
+// silently miss.
+func newRefusal(msg string) error { return &refusalError{msg: msg} }
 
 // STATBUS-254: THE CHANNEL IS DERIVED FROM THE BOX'S ROLE, NOT REMEMBERED.
 //
@@ -93,7 +130,7 @@ var roleChannels = map[UpgradeRole]string{
 func ChannelForRole(role UpgradeRole) (string, error) {
 	ch, ok := roleChannels[role]
 	if !ok {
-		return "", fmt.Errorf("%s", unknownRoleRefusal(string(role)))
+		return "", newRefusal(unknownRoleRefusal(string(role)))
 	}
 	return ch, nil
 }
@@ -203,7 +240,7 @@ func ResolveUpgradeRole(f *dotenv.File, deploymentMode string) (UpgradeRole, str
 		// >>> is the correct end state).
 		role, ok := roleFromLegacyChannel(rawChannel)
 		if !ok {
-			return "", "", fmt.Errorf("%s", untranslatableChannelRefusal(rawChannel))
+			return "", "", newRefusal(untranslatableChannelRefusal(rawChannel))
 		}
 		f.Set(UpgradeRoleKey, string(role))
 		f.Delete(UpgradeChannelKey)
@@ -230,7 +267,7 @@ func ResolveUpgradeRole(f *dotenv.File, deploymentMode string) (UpgradeRole, str
 	// ended up here in the first place.
 	if hasChannel {
 		derived, _ := ChannelForRole(UpgradeRole(rawRole))
-		return "", "", fmt.Errorf("%s", handAddedChannelRefusal(rawChannel, rawRole, derived))
+		return "", "", newRefusal(handAddedChannelRefusal(rawChannel, rawRole, derived))
 	}
 
 	// STEP 4 — VALIDATE. An unknown role refuses rather than falling back.

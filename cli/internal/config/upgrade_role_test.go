@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -76,6 +77,13 @@ func TestUnknownRoleRefuses_STATBUS254(t *testing.T) {
 			t.Errorf("the refusal must name the bad value and the valid set; %q missing from:\n%s", want, msg)
 		}
 	}
+	// STATBUS-298: the refusal must be discoverable STRUCTURALLY, not just by
+	// its text — a caller (config generate's exit-code selection) needs to
+	// tell this apart from a transient failure without depending on wording
+	// that could drift out of sync with a text-match discriminator.
+	if !errors.Is(err, ErrPrincipledRefusal) {
+		t.Error("an unknown-role refusal must satisfy errors.Is(err, config.ErrPrincipledRefusal)")
+	}
 }
 
 // TestHandAddedChannelRefuses_STATBUS254 is AC#5's main half. After the
@@ -96,6 +104,43 @@ func TestHandAddedChannelRefuses_STATBUS254(t *testing.T) {
 		if !strings.Contains(msg, want) {
 			t.Errorf("the refusal is not actionable — %q missing from:\n%s", want, msg)
 		}
+	}
+	if !errors.Is(err, ErrPrincipledRefusal) {
+		t.Error("a hand-added-channel refusal must satisfy errors.Is(err, config.ErrPrincipledRefusal)")
+	}
+}
+
+// TestUntranslatableChannelRefuses_STATBUS298 is the third and last member of
+// ResolveUpgradeRole's refusal set (STATBUS-254's translation step): a legacy
+// UPGRADE_CHANNEL value that isn't one of the recognized shapes
+// (stable/prerelease/local/edge) cannot be promoted into a role. STATBUS-298
+// requires all three refusal paths to carry the same structural sentinel —
+// this pins the one with no prior coverage.
+func TestUntranslatableChannelRefuses_STATBUS298(t *testing.T) {
+	f := loadEnv(t, "UPGRADE_CHANNEL=nightly\n") // not a recognized legacy value
+	_, _, err := ResolveUpgradeRole(f, "standalone")
+	if err == nil {
+		t.Fatal("an untranslatable legacy channel must REFUSE, not silently pick a role")
+	}
+	if !errors.Is(err, ErrPrincipledRefusal) {
+		t.Error("an untranslatable-channel refusal must satisfy errors.Is(err, config.ErrPrincipledRefusal)")
+	}
+}
+
+// TestPrincipledRefusalSentinel_TextUnaffected pins the design property the
+// architect's ruling turns on: errors.Is discoverability must NOT alter the
+// operator-facing message. A refusal wrapped in the sentinel prints EXACTLY
+// the same text a plain fmt.Errorf(msg) would — the sentinel is invisible to
+// a human reading the journal, and exists only for the compiler-checked
+// discriminator.
+func TestPrincipledRefusalSentinel_TextUnaffected(t *testing.T) {
+	const msg = "some refusal text naming the bad key and the fix"
+	err := newRefusal(msg)
+	if err.Error() != msg {
+		t.Errorf("wrapping must not alter the displayed text: got %q, want %q", err.Error(), msg)
+	}
+	if !errors.Is(err, ErrPrincipledRefusal) {
+		t.Error("newRefusal's result must satisfy errors.Is(err, ErrPrincipledRefusal)")
 	}
 }
 

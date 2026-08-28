@@ -47,6 +47,28 @@ Restart=always
 RestartSec=30
 RestartForceExitStatus=42
 SuccessExitStatus=42
+
+# STATBUS-298: exit 78 (EX_CONFIG, sysexits.h) marks a PRINCIPLED, non-
+# retriable configuration refusal (e.g. UPGRADE_ROLE + UPGRADE_CHANNEL both
+# declared) hit during the recovery-boot pre-flight, BEFORE the db is ever
+# touched (cli/internal/upgrade/service.go, Run()'s config-generate
+# pre-flight; the refusal itself is selected in cli/cmd/config.go). Before
+# this directive, systemd retried the identical refusal every RestartSec
+# (30s) — five times into StartLimitBurst, burning the restart budget that
+# exists for TRANSIENT failures on a failure that cannot change between
+# attempts (the config does not edit itself), and leaving the box
+# rate-limited. RestartPreventExitStatus stops ONLY this exit code from
+# restarting; every other failure keeps its existing Restart=always policy
+# unchanged. 78 is reserved for principled refusals ONLY — see the comment
+# beside exitPrincipledConfigRefusal in cli/internal/upgrade/service.go and
+# cli/cmd/config.go: any failure a retry could plausibly fix must use a
+# different exit code, or this directive stops the box recovering on its
+# own from a genuine transient. The refusal reaches the operator via the
+# journal (STATBUS-297's output-append) and the tmp/config-refused.json
+# marker, which `./sb install` reads (STATBUS-298) — this box stays
+# `failed` (not restarting) until a human fixes .env.config and re-triggers.
+RestartPreventExitStatus=78
+
 Environment=PATH=/home/linuxbrew/.linuxbrew/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 # Watchdog: service must ping every 60s (half of WatchdogSec). Tightened

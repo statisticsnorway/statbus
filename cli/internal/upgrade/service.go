@@ -60,6 +60,20 @@ func bootMigrateIsDeterministic(err error) bool {
 	return errors.As(err, &exitErr) && exitErr.ExitCode() == migrate.ExitDeterministic
 }
 
+// configGenerateIsPrincipledRefusal classifies a `./sb config generate`
+// subprocess failure on its EXIT CODE ONLY (doc-022, same discipline as
+// bootMigrateIsDeterministic above), never stderr text: exit 78/EX_CONFIG
+// is exitPrincipledConfigRefusal, selected by configGenerateCmd.RunE
+// (cli/cmd/config.go) exactly when config.ErrPrincipledRefusal is the
+// cause. Every other failure (a timeout — ErrCommandTimeout, not an
+// *exec.ExitError — permissions, disk full, an unclassified exit 1) is
+// NOT this class and keeps the existing exit-and-let-systemd-retry
+// behavior, because a retry might actually help there (STATBUS-298).
+func configGenerateIsPrincipledRefusal(err error) bool {
+	var exitErr *exec.ExitError
+	return errors.As(err, &exitErr) && exitErr.ExitCode() == exitPrincipledConfigRefusal
+}
+
 // thisLine returns the caller's source line number. Guard-site transcripts
 // embed it so the stderr message always points at the real code location
 // even as the file is edited.
@@ -455,6 +469,75 @@ func flagFilePath(projDir string) string {
 
 func (d *Service) flagPath() string {
 	return flagFilePath(d.projDir)
+}
+
+// configRefusalMarkerPath returns the canonical location for the STATBUS-298
+// config-refusal marker, alongside the flag file it mirrors the pattern of.
+// Package-level like flagFilePath, so ./sb install (no Service instance)
+// reads the exact path the daemon writes.
+func configRefusalMarkerPath(projDir string) string {
+	return filepath.Join(projDir, "tmp", "config-refused.json")
+}
+
+// ConfigRefusalMarker is a REPORT of what the last daemon (or ./sb install)
+// start concluded — NOT a second record of intent. The decision lives in
+// .env.config; this only says what the last attempt to apply it found.
+// Cleared on any successful start (ClearConfigRefusalMarker), which is what
+// keeps that reading true (architect ruling, STATBUS-298 ticket comment #1).
+type ConfigRefusalMarker struct {
+	RefusedAt time.Time `json:"refused_at"`
+	Message   string    `json:"message"`
+}
+
+// writeConfigRefusalMarker records a principled config-generate refusal.
+// Best-effort: a write failure here must never mask the refusal itself —
+// the caller exits 78 and the journal carries the full message regardless;
+// this is a convenience surface for ./sb install, not the record of truth.
+func writeConfigRefusalMarker(projDir, message string) {
+	marker := ConfigRefusalMarker{RefusedAt: time.Now().UTC(), Message: message}
+	data, err := json.MarshalIndent(marker, "", "  ")
+	if err != nil {
+		log.Printf("writeConfigRefusalMarker: marshal failed (refusal still reported via exit code + journal): %v", err)
+		return
+	}
+	path := configRefusalMarkerPath(projDir)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		log.Printf("writeConfigRefusalMarker: mkdir failed: %v", err)
+		return
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		log.Printf("writeConfigRefusalMarker: write failed: %v", err)
+	}
+}
+
+// ClearConfigRefusalMarker removes the marker on a successful start.
+// Cleared-on-success is the whole trustworthiness property: the marker's
+// PRESENCE then always means "the last start refused," and it can never
+// mislead once the config is fixed. Exported: ./sb install's own
+// successful config generate must clear it too, not just the daemon's.
+func ClearConfigRefusalMarker(projDir string) {
+	if err := os.Remove(configRefusalMarkerPath(projDir)); err != nil && !os.IsNotExist(err) {
+		log.Printf("ClearConfigRefusalMarker: remove failed: %v", err)
+	}
+}
+
+// ReadConfigRefusalMarker reads the marker if present. (nil, nil) means
+// absent — no start has ever refused, or a later successful start cleared
+// it. Exported for ./sb install to surface the marker to the operator.
+func ReadConfigRefusalMarker(projDir string) (*ConfigRefusalMarker, error) {
+	path := configRefusalMarkerPath(projDir)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var marker ConfigRefusalMarker
+	if err := json.Unmarshal(data, &marker); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	return &marker, nil
 }
 
 // acquireFlock opens the flag file with O_CREAT|O_RDWR, takes an
@@ -2012,6 +2095,19 @@ const (
 	ErrResumeDied = "UPGRADE_DIED_DURING_RESUME"
 )
 
+// exitPrincipledConfigRefusal (78 = EX_CONFIG, sysexits.h) mirrors
+// cli/cmd/config.go's constant of the same name and value — a bare literal
+// per side, not a shared Go constant, matching this codebase's existing
+// convention for cross-process exit-code contracts (exit 42, the post-swap
+// handoff: documented independently here and in
+// ops/statbus-upgrade.service's SuccessExitStatus=42/RestartForceExitStatus=42).
+// `./sb config generate` selects this exit code for a principled,
+// non-retriable configuration refusal (config.ErrPrincipledRefusal); Run's
+// pre-flight config-generate call below inspects the SUBPROCESS'S exit code
+// for exactly this value, since the Go sentinel error cannot cross the exec
+// boundary itself (STATBUS-298).
+const exitPrincipledConfigRefusal = 78
+
 // Run starts the upgrade service main loop.
 func (d *Service) Run(ctx context.Context) error {
 	d.runningAsService = true
@@ -2110,8 +2206,43 @@ func (d *Service) Run(ctx context.Context) error {
 	// discarded HERE. config generate refuses with a precise, actionable
 	// message; this is the line that decided nobody would read it.
 	if out, err := runCommandOutput(d.projDir, sbBin, "config", "generate"); err != nil {
+		// STATBUS-298: a principled refusal (config.ErrPrincipledRefusal,
+		// selected as exit 78/EX_CONFIG by configGenerateCmd.RunE in
+		// cli/cmd/config.go — the sentinel cannot cross this subprocess
+		// boundary itself, so the exit code IS the contract) is NOT a
+		// transient failure. Before this fix, EVERY exit here (refusal or
+		// otherwise) returned the same generic error, systemd restarted the
+		// unit into the IDENTICAL refusal every ~30s (the config does not
+		// edit itself), and five restarts later the rate limiter killed the
+		// unit — with the db left down, because every attempt failed HERE,
+		// before ever reaching EnsureDBUp below. The refusal never destroyed
+		// anything; it permanently prevented restoration (architect ruling,
+		// STATBUS-298 ticket comment #1, superseding the ticket's original
+		// "leaves the box serving" framing — decoupling this refusal from
+		// whatever else the box was already doing is STATBUS-307, filed,
+		// deliberately not this round).
+		//
+		// On a confirmed refusal: write the marker (./sb install's lever,
+		// cleared on any successful start below), print the refusal's own
+		// actionable text (already preserved in `out` since STATBUS-297),
+		// and exit 78 directly — RestartPreventExitStatus=78 on the unit
+		// (ops/statbus-upgrade.service) stops systemd retrying THIS exit
+		// code while leaving every other exit's restart policy untouched.
+		if configGenerateIsPrincipledRefusal(err) {
+			refusalText := strings.TrimSpace(out)
+			writeConfigRefusalMarker(d.projDir, refusalText)
+			fmt.Printf("Recovery boot: config generate refused (principled, not retriable — STATBUS-298): %s\n", refusalText)
+			os.Exit(exitPrincipledConfigRefusal)
+		}
 		return fmt.Errorf("pre-flight: regenerate config before db up: %w (%s)", err, strings.TrimSpace(out))
 	}
+	// STATBUS-298: no explicit clear-on-success needed here — `./sb config
+	// generate` (configGenerateCmd.RunE, cli/cmd/config.go) clears the
+	// marker itself on ITS OWN success, and that subprocess just exited 0
+	// two lines above. Clearing again here would be redundant policy
+	// duplication of the exact same operation on the exact same path; see
+	// the comment there for why the CLI command is the one right place for
+	// every caller (this one included) to share.
 
 	// Pre-flight B — ensure DB is up. Idempotent (no-op when already up).
 	// Covers the post-swap recovery path where the prior process image exited
