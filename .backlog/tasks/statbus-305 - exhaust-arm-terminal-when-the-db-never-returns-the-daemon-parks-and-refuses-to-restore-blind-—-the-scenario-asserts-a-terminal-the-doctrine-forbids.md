@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-08-28 18:54'
-updated_date: '2026-08-28 18:56'
+updated_date: '2026-08-28 19:11'
 labels:
   - upgrade
   - install-recovery
@@ -45,5 +45,11 @@ RULING: (a) — the scenario is stale, and (b) is not a missing path but a path 
 THE SHARPENING that decides whether the fixed arm proves anything: the four symptom assertions (parked, alive-idle, bounded restarts, still-trying) do not pin the PROPERTY — add the NEGATIVE assertion explicitly: NO restore was attempted over the unverifiable database (the journal's refusal line is its direct positive observation). Without it, a future change that restored blindly AND THEN parked would pass all four. Assert the invariant, not its side effects. Also: bounded-restarts cross-references STATBUS-298 (one arc now guards both); and the arm tests PERMANENT loss under a name that says 'transient' — a comment line in the file, not a rename.
 
 PROMOTION: rc.16's CODE is promotable on evidence in hand — the red is a harness assertion, the code path behaved correctly, every other fix proven live. No product blocker; taking the cheap harness fix + a re-run first (the campaign's first fully green attributable chain) is worth having once — timing is the King's call. IMPLEMENTER: mechanic.
+---
+
+author: foreman
+created: 2026-08-28 19:11
+---
+ARM FIX LANDED at 56b6760da (one file, +86/−24). The build's decisive insight, mechanic's own: a target-string swap (rolled_back→parked) in the old helpers would have moved the SAME bug one layer down — all three old assertions were ./sb-psql-based against the db this arm keeps permanently paused. The terminal block is now journal/systemd-only: PARKED marker, refusal reasoning, connect loop demonstrably CYCLING (count ≥ 2, not one stale line — two new arm-scoped journal-count helpers), alive-idle + restarts bounded (STATBUS-298 cross-referenced at the site), and the ruling's NEGATIVE checked LAST across the longest window — exec.go:885's restore-START marker ABSENT, the one assertion a blind-restore-then-park regression cannot pass. VALIDATED against the rc.16 red's own captured journal (all four assertions pass against the real evidence — red-turned-green by construction; connect-attempt count in the capture: 18). ARM 2 untouched and correct as-is (its db comes back, live-query helpers safe) but now inherits a PARKED predecessor from ARM 1 for the first time — flagged, and the LIVE PROOF RUN answers it: targeted dispatch 33202712033 at head 56b6760da, watcher armed. On its green: the campaign's last red becomes a proven assertion of the doctrine, and every scenario in the fleet is attributable.
 ---
 <!-- COMMENTS:END -->
