@@ -4,9 +4,10 @@ title: >-
   worker-fatal-refinement: after 265, a read-only refusal at the reset means the
   exemption did not take — the FATAL should say so first; and the
   sequential-startup coupling needs its note at the line
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-27 13:15'
+updated_date: '2026-08-28 22:41'
 labels:
   - worker
 dependencies: []
@@ -26,3 +27,9 @@ Two ruled refinements from the 264+265 landing review (architect, 2026-08-27), d
 
 WHAT IS ACHIEVED: the crash-loop's first line names the actual failure, and the invariant that keeps the exemption safe is written where it will be seen before it is broken.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+CLOSED at the worker FATAL-reorder commit: message leads with the exemption-failure diagnosis (secondary-check labeling for the deliberate cases, strengthened closing line covering all three SET sources), latent-coupling note at the SET/RESET site. No test pinned the text (grepped first); verified via entrypoint build + mutation-proof-of-reach (undefined-var planted in the new text failed the build at the exact line, reverted byte-identical); pre-existing crystal-format drift left untouched as out of scope.
+<!-- SECTION:NOTES:END -->
