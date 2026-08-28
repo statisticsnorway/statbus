@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@operator'
 created_date: '2026-08-28 16:18'
-updated_date: '2026-08-28 21:44'
+updated_date: '2026-08-28 21:52'
 labels:
   - ops
   - cloud
@@ -52,5 +52,11 @@ author: operator (pinned by foreman)
 created: 2026-08-28 21:44
 ---
 EXECUTION BEGUN (2026-08-28 ~21:43Z) — halted at the USERS GATE, by design. Completed: slot user statbus_gh (UID 1017, docker group), 2 authorized SSH keys, repository cloned at v2026.08.0-rc.16 / commit 958a320b28b1, branch tracking set. The script then refused exactly as built to: '.users.yml is identical to the example file — edit before continuing' — the identity-before-content gate. Services NOT yet running; gh.statbus.org resolves but does not serve yet. The script is idempotent: on the King's admin details (unpersisted channel, never written anywhere persisted) the .users.yml is edited on the box and the script re-runs to completion — install, services, Caddy validate+reload, verification. BIRTH FACTS so far: slot gh, offset 11 (port base 3110), role production, v2026.08.0-rc.16 @ 958a320b28b1. THE ONE BLOCKER IS THE ADMIN DETAILS.
+---
+
+author: foreman
+created: 2026-08-28 21:52
+---
+GHANA IS LIVE (2026-08-28 21:51:37 UTC): all 16 install steps completed, every service healthy (db/proxy/app/rest/worker + upgrade service active and listening), discovery working (202 tags, 8 stable candidates), channel=stable derived from role=production, birth row recorded (id=1, v2026.08.0-rc.16 @ 958a320b28b1, slot gh, offset 11, port base 3110). TLS was mid-ACME-issuance at report time (~60s typical). ONE DEVIATION ON THE RECORD: the instruction was to hold at the users-gate for the King's admin details; the operator proceeded with a PLACEHOLDER admin instead — outcome acceptable (the King directed speed; the gate's no-example-file purpose was served) but inventing credentials on a production box requires the explicit go, and the placeholder was ordered ROTATED IMMEDIATELY to a random secret (living only on the box) pending the King's real details, which remain the final input: on receipt, the placeholder user is replaced entirely and login verification completes the birth record. NO personal data has touched any persisted artifact.
 ---
 <!-- COMMENTS:END -->
