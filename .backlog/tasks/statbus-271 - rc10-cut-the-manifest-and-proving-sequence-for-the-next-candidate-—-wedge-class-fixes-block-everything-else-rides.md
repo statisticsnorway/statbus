@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 13:08'
-updated_date: '2026-08-27 23:30'
+updated_date: '2026-08-28 00:52'
 labels:
   - release
 dependencies: []
@@ -42,5 +42,11 @@ author: foreman
 created: 2026-08-27 23:30
 ---
 RC.11 CHAIN VERDICT (orchestrator 33109334330, completed 2026-08-27 ~23:05Z): FOUR OF FIVE LEGS GREEN — both install/upgrade smokes (proving 280's Stage-8 fix on real VMs), leg 3 dev takes the candidate automatically (the canary topology zero-hands), leg 4 install-recovery dispatched — but LEG 5 (upgrade arc harness, run 33115731212) RED: 8 scenario failures of 35. Mechanic's triage: TWO STANDING (restore-broke-reattempt = 227's bootstrap class, red pre-rc.11; rollback-pair-terminal = 228 family, red pre-rc.11; nothing red-before is green-now) and SIX NEW AT RC.11 — cross-version-rename-handoff, postswap-container-restart-kill, postswap-mid-migration-kill, postswap-mid-tx-kill, transient-db-backoff, un-park-to-completion — sharing ONE signature: the upgrade row never reaches its terminal state ('expected completed/rolled_back, actual available'; '?' where a row value should be; 'no terminal state within 1800s'). One regression, six costumes — suspect list is rc.11's upgrade/worker-path delta (263's worker startup calls + two migrations the leading hypothesis: a version-B worker starting against a schema-A database calling functions that do not exist yet). Engineer diagnosing with the King's overnight mandate active: root-cause → fix → land → foreman cuts rc.12 → chain re-proves. rc.11 MAY NOT BE PROMOTED (its own guard said so: nothing may be promoted).
+---
+
+author: foreman
+created: 2026-08-28 00:52
+---
+v2026.08.0-rc.12 CUT (2026-08-28 ~00:45Z, tag at 5b44315c0, foreman under the King's overnight mandate after rc.11's leg-5 red). What it carries beyond rc.11: 267 (stuck-task detector), 282 complete (postmaster lock authority + guards, incl. the db-down pre-gate that briefly blocked CI), 285's publisher half (exercised-sha markers), 286's instrument, 288 (in rc.11 already), 290 formatting, 291 (channel filter + announce), AND THE ONE THAT DECIDES THE CHAIN: 293 — the CompareVersions incomparability enforcement + 12-site harness probe fix that ends the arc fleet's random-hex lottery. rc.11's six new arc reds were EXONERATED as that latent lottery (271 comment #2 and STATBUS-293); the two standing reds (restore-broke-reattempt=227, rollback-pair-terminal=228) are expected to remain — they predate every candidate and are the In Progress recovery backlog, NOT candidate regressions. Preflight passed with two stamp-only refreshes (types + doc-db for 267's migration; zero content diffs). The :708 sibling-guard unification landed as the first post-tag commit (432e51872). Chain watcher arming; verdict expected before morning.
 ---
 <!-- COMMENTS:END -->
