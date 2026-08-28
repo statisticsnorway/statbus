@@ -1,3 +1,17 @@
+-- test-isolation: database-per-test
+--
+-- ↑ STATBUS-274. This test flips the WHOLE database read-only to prove the
+-- guard, so sharing a database with anything else means wrecking it. Before
+-- this marker existed, isolation could only be had by taking a 4xx/5xx
+-- filename — which would also have dropped the test out of the fast tier,
+-- where a 19-millisecond gate belongs. So it ran shared, and the cleanup below
+-- was the only thing standing between a failure here and every later test in
+-- the run failing too.
+--
+-- THE CLEANUP STAYS. A test should leave the world as it found it whether or
+-- not anyone else is watching. What changed is the STAKES, not the hygiene: a
+-- cleanup failure can now only affect this test's own database.
+--
 -- STATBUS-265: the worker's crash recovery is exempt from the upgrade's
 -- read-only accident-guard — and the guard still bites everything else.
 --
@@ -37,7 +51,8 @@
 -- database default and reconnects to inherit it for real.
 --
 -- The reconnect is quiet because the test database's name carries the runner's
--- pid (test_shared_$$), and psql's connection banner would put that varying name
+-- pid (test_094_…_$$ under the isolation this file now asks for; test_shared_$$
+-- before it did), and psql's connection banner would put that varying name
 -- into the expected output — a test that fails on a different day for no reason.
 -- pg_regress already runs psql with -q, so this is belt-and-braces rather than
 -- strictly required; it is set explicitly so the file does not silently depend

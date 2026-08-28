@@ -1421,19 +1421,88 @@ EOS
 
         SHARED_TESTS=""
         ISOLATED_TESTS=""
+        ISOLATION_REASONS=""
 
+        # ── ISOLATION IS NOW ITS OWN QUESTION (STATBUS-274) ─────────────────
+        #
+        # A test gets its own database if its number is 4xx/5xx OR the file
+        # declares `-- test-isolation: database-per-test`. The fast/slow rule is
+        # untouched.
+        #
+        # WHY. The filename carried two unrelated facts welded together: 4xx/5xx
+        # meant BOTH "large import, skip in fast" AND "give this its own
+        # database". They coincide for large imports; they are not the same
+        # question. A test that is CHEAP but must not share a database had
+        # nowhere to live — and nothing said so, so you found out by having
+        # corrupted your neighbours. Test 094 is exactly that shape: it flips
+        # the whole database read-only to prove the upgrade guard, which would
+        # wreck everything sharing that database with it, yet runs in
+        # milliseconds and belongs in the fast tier. It shipped as an ordinary
+        # shared test whose hand-written cleanup was, until now, load-bearing
+        # for the entire suite.
+        #
+        # THE MARKER LIVES IN THE FILE, not in a list here. A list is a second
+        # place that must agree with the first: rename or move a test and it
+        # silently loses its privacy, and the punishment is quiet corruption of
+        # its neighbours on the next run. A file cannot fall out of step with
+        # itself, and the declaration sits next to the code that needs it.
         for test_basename in $TEST_BASENAMES; do
             expected_file="$PG_REGRESS_DIR/expected/$test_basename.out"
             if [ ! -f "$expected_file" ] && [ -f "$PG_REGRESS_DIR/sql/$test_basename.sql" ]; then
                 echo "Warning: Expected output file $expected_file not found. Creating an empty placeholder."
                 touch "$expected_file"
             fi
+
+            # A MISTYPED MARKER REFUSES — it is never silently ignored. A typo
+            # that quietly meant "no isolation" would reproduce the exact
+            # failure this mechanism exists to prevent, and would do it to an
+            # author who believed they had opted in.
+            _sql_file="$PG_REGRESS_DIR/sql/$test_basename.sql"
+            _marker_value=""
+            if [ -f "$_sql_file" ]; then
+                _marker_value=$(sed -n 's/^--[[:space:]]*test-isolation:[[:space:]]*\(.*[^[:space:]]\)[[:space:]]*$/\1/p' "$_sql_file" | head -1)
+            fi
+            _isolate_by_marker="no"
+            if [ -n "$_marker_value" ]; then
+                case "$_marker_value" in
+                    "database-per-test")
+                        _isolate_by_marker="yes"
+                        ;;
+                    *)
+                        echo "" >&2
+                        echo "REFUSING: $test_basename declares an unrecognised test-isolation value." >&2
+                        echo "  file:  $_sql_file" >&2
+                        echo "  found: '-- test-isolation: $_marker_value'" >&2
+                        echo "  known: database-per-test" >&2
+                        echo "" >&2
+                        echo "  A marker the runner does not understand would silently mean NO isolation," >&2
+                        echo "  which is the failure this marker exists to prevent — and the test's author" >&2
+                        echo "  would believe the opposite. Fix the value or remove the line." >&2
+                        exit 1
+                        ;;
+                esac
+            fi
+
             if [[ "$test_basename" == 4* ]] || [[ "$test_basename" == 5* ]]; then
                 ISOLATED_TESTS="$ISOLATED_TESTS $test_basename"
+                ISOLATION_REASONS="$ISOLATION_REASONS|$test_basename (prefix)"
+            elif [ "$_isolate_by_marker" = "yes" ]; then
+                ISOLATED_TESTS="$ISOLATED_TESTS $test_basename"
+                ISOLATION_REASONS="$ISOLATION_REASONS|$test_basename (marker)"
             else
                 SHARED_TESTS="$SHARED_TESTS $test_basename"
             fi
         done
+
+        # SAY WHAT WAS DECIDED. The decision used to be invisible, which is
+        # really the complaint this ticket opened with: a test that meant to opt
+        # in but is missing from this line is visible immediately, instead of
+        # being discovered by the damage it does.
+        if [ -n "$ISOLATION_REASONS" ]; then
+            echo "isolated: $(printf '%s' "${ISOLATION_REASONS#|}" | tr '|' '\n' | paste -sd, - | sed 's/,/, /g')"
+        else
+            echo "isolated: (none — every selected test shares one database)"
+        fi
 
         debug_arg=""
         if [ "${DEBUG:-}" = "true" ] || [ "${DEBUG:-}" = "1" ]; then
