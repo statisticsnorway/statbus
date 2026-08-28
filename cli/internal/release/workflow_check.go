@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 )
 
 // Workflow filename constants. The filename in .github/workflows/ is the
@@ -112,7 +113,168 @@ func CheckWorkflowAtCommit(workflow, commitSHA string) WorkflowCheckResult {
 			BypassReason: "SKIP_IMAGES=1 operator bypass — Docker artifacts NOT verified for this SHA. Deployments may FAIL on stale ghcr.io manifest. Use only when GitHub Actions or ghcr.io is unavailable.",
 		}
 	}
-	return checkWorkflowAt("https://api.github.com", workflow, commitSHA)
+	return checkWorkflowRoutedAt("https://api.github.com", workflow, commitSHA)
+}
+
+// checkWorkflowRoutedAt is THE ROUTING DECISION, extracted so it can be tested.
+//
+// It exists because of a hole this ticket's own RED verification exposed: with
+// the routing inlined above, deleting it — the single change that reverts the
+// gate to the head_sha lie — left every test in this file green. The tests
+// called the marker lookup directly, so they proved the lookup worked and
+// nothing proved it was ever REACHED. A fix nothing routes to is not a fix.
+func checkWorkflowRoutedAt(apiBase, workflow, commitSHA string) WorkflowCheckResult {
+	if workflowCarriesExercisedMarker(workflow) {
+		return checkWorkflowByMarkerAt(apiBase, workflow, commitSHA)
+	}
+	return checkWorkflowAt(apiBase, workflow, commitSHA)
+}
+
+// ─── STATBUS-285: which commit a run actually EXERCISED ─────────────────────
+//
+// THE LIE THIS REPLACES. `?head_sha=` asks GitHub which commit a run is filed
+// under, and for a workflow_run-triggered run that is NOT the commit the run
+// tested: GitHub files it under the default branch's tip AT TRIGGER TIME. So a
+// green run could be credited to a commit it never touched, and the commit it
+// did test could look like it had no run at all. Both directions are wrong, and
+// the false-green direction is the dangerous one — it is a release gate.
+//
+// THE FIX IS TO ASK THE RUN ITSELF. The publisher half stamps the exercised
+// commit into each run's name, which the API returns as display_title. That
+// string is written by the workflow at run-creation from its own event context,
+// so it says what was tested rather than what the run is filed under.
+//
+// SCOPED DELIBERATELY. Only the workflows that actually carry the marker are
+// read this way. Applying it everywhere would turn every unmarked workflow —
+// images.yaml above all — instantly Missing, which at a release gate means
+// refusing a cut for a marker its workflow was never taught to emit. A gate
+// that fails closed on its own rollout is still a broken gate.
+const exercisedSHAMarker = "exercised-sha="
+
+func workflowCarriesExercisedMarker(workflow string) bool {
+	switch workflow {
+	case WorkflowFastTests, WorkflowPgRegress:
+		return true
+	}
+	return false
+}
+
+// exercisedSHAOf extracts the commit a run reports having exercised.
+//
+// STRICT, AND THE STRICTNESS IS THE POINT: the marker must be followed by
+// EXACTLY 40 lowercase hex characters. A short sha, a truncated title, a
+// trailing word, or a marker someone wrote by hand into a run name all return
+// false rather than a partial match — because the only thing worse than no
+// evidence at a release gate is evidence that is nearly right. Callers treat
+// "no usable marker" as no match, never as a reason to fall back to head_sha.
+func exercisedSHAOf(displayTitle string) (string, bool) {
+	i := strings.Index(displayTitle, exercisedSHAMarker)
+	if i < 0 {
+		return "", false
+	}
+	rest := displayTitle[i+len(exercisedSHAMarker):]
+	if len(rest) < 40 {
+		return "", false
+	}
+	sha := rest[:40]
+	// Anything directly after the 40 characters must be a boundary, not more
+	// hex — otherwise a 41-character string would match on its first 40.
+	if len(rest) > 40 && isHexDigit(rest[40]) {
+		return "", false
+	}
+	for i := 0; i < 40; i++ {
+		if !isHexDigit(sha[i]) {
+			return "", false
+		}
+	}
+	return sha, true
+}
+
+func isHexDigit(c byte) bool {
+	return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')
+}
+
+// checkWorkflowByMarkerAt finds the run that EXERCISED commitSHA by reading
+// each run's self-reported marker, rather than trusting the head_sha the run is
+// filed under. Same green/pending/failed precedence as checkWorkflowAt — only
+// the selection of which runs count differs.
+//
+// NO head_sha FILTER ON THE QUERY, deliberately. Filtering server-side would
+// hand back exactly the set that is wrong for workflow_run runs: the run that
+// tested this commit is filed under a different sha and would be excluded,
+// while runs that never touched it would be included. So the lookback is over
+// recent runs of the workflow and the marker does the selecting.
+//
+// A LEGACY RUN WITH NO MARKER SIMPLY DOES NOT MATCH. It is not an error and not
+// a fallback — it is a run that cannot say what it tested, so it cannot be
+// evidence about this commit. With no marked run in the window the result is
+// Missing, which every existing consumer already handles as "no evidence".
+func checkWorkflowByMarkerAt(apiBase, workflow, commitSHA string) WorkflowCheckResult {
+	url := fmt.Sprintf("%s/repos/%s/%s/actions/workflows/%s/runs?per_page=100",
+		apiBase, githubOrg, githubRepo, workflow)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return WorkflowCheckResult{Status: WorkflowCheckUnknown, Detail: fmt.Sprintf("build request: %v", err)}
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("User-Agent", "statbus-release-check")
+	if auth := githubAuthHeader(); auth != "" {
+		req.Header.Set("Authorization", auth)
+	}
+
+	resp, err := httpClient().Do(req)
+	if err != nil {
+		return WorkflowCheckResult{Status: WorkflowCheckUnknown, Detail: fmt.Sprintf("request failed: %v", err)}
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return WorkflowCheckResult{Status: WorkflowCheckUnknown, Detail: fmt.Sprintf("GitHub API returned HTTP %d", resp.StatusCode)}
+	}
+
+	var body struct {
+		WorkflowRuns []struct {
+			ID           int64  `json:"id"`
+			HTMLURL      string `json:"html_url"`
+			Status       string `json:"status"`
+			Conclusion   string `json:"conclusion"`
+			CreatedAt    string `json:"created_at"`
+			DisplayTitle string `json:"display_title"`
+		} `json:"workflow_runs"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return WorkflowCheckResult{Status: WorkflowCheckUnknown, Detail: fmt.Sprintf("decode response: %v", err)}
+	}
+
+	type run struct {
+		ID         int64
+		HTMLURL    string
+		Status     string
+		Conclusion string
+	}
+	var matched []run
+	for _, r := range body.WorkflowRuns {
+		sha, ok := exercisedSHAOf(r.DisplayTitle)
+		if !ok || sha != commitSHA {
+			continue
+		}
+		matched = append(matched, run{ID: r.ID, HTMLURL: r.HTMLURL, Status: r.Status, Conclusion: r.Conclusion})
+	}
+	if len(matched) == 0 {
+		return WorkflowCheckResult{Status: WorkflowCheckMissing}
+	}
+
+	for _, r := range matched {
+		if r.Status == "completed" && r.Conclusion == "success" {
+			return WorkflowCheckResult{Status: WorkflowCheckGreen, RunURL: r.HTMLURL, RunID: r.ID}
+		}
+	}
+	for _, r := range matched {
+		if r.Status != "completed" {
+			return WorkflowCheckResult{Status: WorkflowCheckPending, RunURL: r.HTMLURL, RunID: r.ID}
+		}
+	}
+	latest := matched[0]
+	return WorkflowCheckResult{Status: WorkflowCheckFailed, RunURL: latest.HTMLURL, RunID: latest.ID, Detail: latest.Conclusion}
 }
 
 // checkWorkflowAt is the testable inner variant — apiBase is the GitHub

@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -470,4 +473,254 @@ func equalStringSlices(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+// ─── STATBUS-285: the consumer half — key on what a run EXERCISED ───────────
+//
+// The publisher stamps `exercised-sha=<40hex>` into each marked run's name;
+// the API returns it as display_title. These pin that the gate reads THAT and
+// never the head_sha a workflow_run run is filed under.
+
+func TestExercisedSHAOf_StrictParsing_STATBUS285(t *testing.T) {
+	const good = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	cases := []struct {
+		name  string
+		title string
+		want  string
+		ok    bool
+	}{
+		{"plain", "Fast Tests @ exercised-sha=" + good, good, true},
+		{"trailing space is a boundary", "pg_regress @ exercised-sha=" + good + " ", good, true},
+		{"trailing non-hex word", "x @ exercised-sha=" + good + " (rerun)", good, true},
+
+		// Every one of these must be REFUSED. At a release gate an
+		// almost-right identifier is worse than none: it silently credits
+		// evidence to the wrong commit.
+		{"no marker at all (legacy run)", "Fast Tests", "", false},
+		{"short sha", "x @ exercised-sha=abc123", "", false},
+		{"39 hex", "x @ exercised-sha=" + good[:39], "", false},
+		{"41 hex — must not match the first 40", "x @ exercised-sha=" + good + "a", "", false},
+		{"uppercase hex", "x @ exercised-sha=" + strings.ToUpper(good), "", false},
+		{"non-hex in range", "x @ exercised-sha=zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz", "", false},
+		{"marker with empty value", "x @ exercised-sha=", "", false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got, ok := exercisedSHAOf(c.title)
+			if ok != c.ok || got != c.want {
+				t.Errorf("exercisedSHAOf(%q) = (%q, %v), want (%q, %v)", c.title, got, ok, c.want, c.ok)
+			}
+		})
+	}
+}
+
+func TestCheckWorkflowByMarker_STATBUS285(t *testing.T) {
+	const target = "1111111111111111111111111111111111111111"
+	const other = "2222222222222222222222222222222222222222"
+
+	cases := []struct {
+		name string
+		runs string
+		want WorkflowCheckStatus
+	}{
+		{
+			// THE BUG THIS TICKET IS ABOUT. The run that tested `target` is
+			// filed under `other` (workflow_run files runs under the default
+			// branch tip at trigger). head_sha would miss it entirely; the
+			// marker finds it.
+			name: "green run filed under a DIFFERENT head_sha is still found",
+			runs: `{"id":1,"html_url":"u1","status":"completed","conclusion":"success",
+			         "head_sha":"` + other + `","display_title":"pg_regress @ exercised-sha=` + target + `"}`,
+			want: WorkflowCheckGreen,
+		},
+		{
+			// The other direction, and the dangerous one: a run FILED under
+			// target that exercised something else must NOT count for target.
+			name: "green run filed under target but exercising another commit does NOT count",
+			runs: `{"id":2,"html_url":"u2","status":"completed","conclusion":"success",
+			         "head_sha":"` + target + `","display_title":"pg_regress @ exercised-sha=` + other + `"}`,
+			want: WorkflowCheckMissing,
+		},
+		{
+			// Legacy runs still inside the lookback window. Graceful: they
+			// cannot say what they tested, so they are not evidence — Missing,
+			// which every consumer already handles. Never a crash, never green.
+			name: "unmarked legacy runs yield Missing, not a crash or a false green",
+			runs: `{"id":3,"html_url":"u3","status":"completed","conclusion":"success",
+			         "head_sha":"` + target + `","display_title":"pg_regress"}`,
+			want: WorkflowCheckMissing,
+		},
+		{
+			name: "pending marked run reports Pending",
+			runs: `{"id":4,"html_url":"u4","status":"in_progress","conclusion":null,
+			         "head_sha":"` + other + `","display_title":"pg_regress @ exercised-sha=` + target + `"}`,
+			want: WorkflowCheckPending,
+		},
+		{
+			name: "failed marked run reports Failed",
+			runs: `{"id":5,"html_url":"u5","status":"completed","conclusion":"failure",
+			         "head_sha":"` + other + `","display_title":"pg_regress @ exercised-sha=` + target + `"}`,
+			want: WorkflowCheckFailed,
+		},
+		{
+			name: "no runs at all",
+			runs: ``,
+			want: WorkflowCheckMissing,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// The query must NOT filter on head_sha: doing so would hand
+				// back exactly the wrong set for workflow_run runs.
+				if r.URL.Query().Get("head_sha") != "" {
+					t.Errorf("marker lookup must not filter on head_sha; query was %q", r.URL.RawQuery)
+				}
+				_, _ = w.Write([]byte(`{"workflow_runs":[` + c.runs + `]}`))
+			}))
+			defer server.Close()
+
+			got := checkWorkflowByMarkerAt(server.URL, WorkflowPgRegress, target)
+			if got.Status != c.want {
+				t.Errorf("status = %q, want %q (detail=%q)", got.Status, c.want, got.Detail)
+			}
+		})
+	}
+}
+
+// TestOnlyMarkerCarryingWorkflowsUseMarkerLookup_STATBUS285 pins the SCOPE.
+//
+// images.yaml carries no marker. If it were routed through the marker lookup it
+// would go instantly Missing and the release gate would refuse every cut — a
+// gate broken by its own rollout. This is the guard on that.
+func TestOnlyMarkerCarryingWorkflowsUseMarkerLookup_STATBUS285(t *testing.T) {
+	marked := []string{WorkflowFastTests, WorkflowPgRegress}
+	unmarked := []string{WorkflowImages, WorkflowGoTest, WorkflowTestHardening,
+		WorkflowTestInstall, WorkflowInstallRecoveryHarness, WorkflowAppBuildLint,
+		WorkflowUpgradeArcHarness, WorkflowTestUpgrade}
+
+	for _, w := range marked {
+		if !workflowCarriesExercisedMarker(w) {
+			t.Errorf("%s emits an exercised-sha marker but is not read via the marker lookup", w)
+		}
+	}
+	for _, w := range unmarked {
+		if workflowCarriesExercisedMarker(w) {
+			t.Errorf("%s does NOT emit an exercised-sha marker, so reading it via the marker "+
+				"lookup would make it permanently Missing and refuse every release", w)
+		}
+	}
+}
+
+// TestMarkerScopeMatchesTheWorkflowFiles_STATBUS285 derives the truth from the
+// WORKFLOW FILES rather than trusting the Go list beside it.
+//
+// workflowCarriesExercisedMarker is a hand-kept set, and a hand-kept set rots:
+// the day someone adds `exercised-sha=` to another workflow's run-name, or
+// removes it from one of these two, the Go side would keep answering from
+// memory. Both directions of that drift are silent and bad — a workflow that
+// gained the marker keeps being read by the head_sha lie, and one that lost it
+// goes permanently Missing and refuses every cut.
+//
+// So this reads .github/workflows/*.yaml and requires the two sets to agree.
+func TestMarkerScopeMatchesTheWorkflowFiles_STATBUS285(t *testing.T) {
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller failed")
+	}
+	wfDir := filepath.Join(filepath.Dir(thisFile), "..", "..", "..", ".github", "workflows")
+	entries, err := os.ReadDir(wfDir)
+	if err != nil {
+		t.Fatalf("read %s: %v", wfDir, err)
+	}
+
+	emitsMarker := map[string]bool{}
+	scanned := 0
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".yaml") {
+			continue
+		}
+		b, err := os.ReadFile(filepath.Join(wfDir, e.Name()))
+		if err != nil {
+			t.Fatalf("read %s: %v", e.Name(), err)
+		}
+		scanned++
+		// The marker counts only where it is EMITTED — in a run-name — not
+		// where a comment happens to mention it.
+		for _, line := range strings.Split(string(b), "\n") {
+			trimmed := strings.TrimSpace(line)
+			if strings.HasPrefix(trimmed, "#") {
+				continue
+			}
+			if strings.Contains(trimmed, exercisedSHAMarker) {
+				emitsMarker[e.Name()] = true
+				break
+			}
+		}
+	}
+
+	// Zero-scope guard: a scan that read nothing must fail, not pass.
+	if scanned == 0 {
+		t.Fatalf("scanned 0 workflow files under %s — the scan is broken, so this test asserts nothing", wfDir)
+	}
+
+	for name := range emitsMarker {
+		if !workflowCarriesExercisedMarker(name) {
+			t.Errorf("%s EMITS an exercised-sha marker but workflowCarriesExercisedMarker says otherwise — "+
+				"the release gate is still reading it via the head_sha it is filed under, which is the "+
+				"STATBUS-285 lie this ticket removes", name)
+		}
+	}
+	for _, name := range []string{WorkflowFastTests, WorkflowPgRegress} {
+		if workflowCarriesExercisedMarker(name) && !emitsMarker[name] {
+			t.Errorf("%s is read via the marker lookup but its workflow file no longer emits "+
+				"exercised-sha — every commit will now read Missing and the release gate will refuse "+
+				"every cut", name)
+		}
+	}
+}
+
+// TestRoutingReachesTheMarkerLookup_STATBUS285 pins that the marker lookup is
+// actually REACHED for marker-carrying workflows.
+//
+// ADDED BECAUSE THIS TICKET'S OWN RED VERIFICATION FOUND IT MISSING: deleting
+// the routing — the exact edit that reverts the gate to the head_sha lie — left
+// every other test here green, because they called the lookup directly. They
+// proved the lookup works; none proved anything reached it.
+//
+// The discriminator is the QUERY the server receives. The marker path asks
+// without a head_sha filter; the legacy path asks with one. Reading which
+// arrives tells us which path ran, without needing either to succeed.
+func TestRoutingReachesTheMarkerLookup_STATBUS285(t *testing.T) {
+	const sha = "3333333333333333333333333333333333333333"
+
+	for _, c := range []struct {
+		workflow       string
+		wantHeadSHAArg bool
+	}{
+		{WorkflowPgRegress, false}, // marked → marker lookup → no head_sha filter
+		{WorkflowFastTests, false},
+		{WorkflowImages, true}, // unmarked → legacy path → head_sha filter
+		{WorkflowGoTest, true},
+	} {
+		t.Run(c.workflow, func(t *testing.T) {
+			var sawHeadSHA bool
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				sawHeadSHA = r.URL.Query().Get("head_sha") != ""
+				_, _ = w.Write([]byte(`{"workflow_runs":[]}`))
+			}))
+			defer server.Close()
+
+			_ = checkWorkflowRoutedAt(server.URL, c.workflow, sha)
+
+			if sawHeadSHA != c.wantHeadSHAArg {
+				which := map[bool]string{true: "the legacy head_sha path", false: "the marker path"}
+				t.Errorf("%s was routed through %s; want %s.\n"+
+					"For a marker-carrying workflow the head_sha path is the STATBUS-285 lie: it credits a run "+
+					"to the commit it is FILED under rather than the one it EXERCISED.",
+					c.workflow, which[sawHeadSHA], which[c.wantHeadSHAArg])
+			}
+		})
+	}
 }
