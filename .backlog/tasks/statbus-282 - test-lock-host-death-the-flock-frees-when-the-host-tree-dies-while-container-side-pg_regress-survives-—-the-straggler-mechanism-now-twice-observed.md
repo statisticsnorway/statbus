@@ -8,7 +8,7 @@ status: Done
 assignee:
   - '@engineer'
 created_date: '2026-08-27 16:44'
-updated_date: '2026-08-27 22:24'
+updated_date: '2026-08-28 00:13'
 labels:
   - testing
 dependencies: []
@@ -171,6 +171,12 @@ author: foreman
 created: 2026-08-27 22:24
 ---
 STRUCTURAL HALF LANDED at 51f268b0b (dev.sh, +223) after the architect's LAND on the re-frozen unit — verified in the bytes, and STRONGER than his prescription twice: the guard strips whitespace before the emptiness test (his own one-liner would have false-BUSYed on psql's trailing newline — his words), and the real-entry arm additionally proves the refusal PRECEDES the work (no test runs), pinned at dev.sh:885-889 rather than on the function in isolation. TWO LESSONS RECORDED AS COMPLEMENTARY, per his explicit instruction — neither may displace the other: (1) WHY THE BAD LINE EXISTED — two concurrent shell RED harnesses, the second restoring a snapshot taken while the first held the mutation: two writers, one artifact, no error from either side — the ticket's own subject reproduced in the tooling built to prove the ticket, which is evidence FOR the premise; (2) WHY TEN ARMS PASSED OVER IT — the original proof contained NO refusal arm; the unit's central property was unpinned, and a correct-looking table can never catch what it does not test. Lesson (2) is the one that generalises to every future guard. HARDENING CONVERGENCE noted by the architect: the harness fix (exclusive flock + descend-marker distinguishing beside from under) is the same shape as the ticket's own fix — a mutex plus a liveness-and-provenance distinction — and tooling and subject converging on one answer is usually the sign it is right. WITH THIS THE TICKET'S GOAL IS MET: the authority lives where the writer lives (a dead host cannot leave a live writer behind a free lock — the lock IS the writer's presence), orphan clones are swept by the postmaster's own teardown, and long suites have a sanctioned session-surviving invocation. Rides the next candidate.
+---
+
+author: foreman
+created: 2026-08-28 00:13
+---
+POST-CLOSURE FIX at c41a8fc1e (+40, dev.sh): the landed authority blocked CI itself — pg_regress on the runner died on 'REFUSING: could not ask the postmaster... service db is not running', because the ONE state no proof arm had pinned was db-not-running, which is a CLEAR BY CONSTRUCTION (a nonexistent postmaster has no backends), not an observation failure. Pre-gate added to both the authority and the orphan sweep (the sweep's reachability premise died with the authority's early return). DEVIATION RULED KEPT by the foreman on the ticket's own standing principle: the sibling guard's one-liner pre-gate shape reads a docker-command failure as clearance — the exact failure-to-observe-as-absence defect this ticket exists to prevent; the authority's pre-gate instead distinguishes docker-answered-no-db (clear) from docker-could-not-answer (fall through to the probe's loud refusal). Proven 14/14 with the discriminating pair: 6a clears via pre-gate WITH a live backend planted (short-circuit proven, not idleness), 6b shim-with-db-present still BLOCKS (an always-clear pre-gate would silently disable the authority — the zero-scope failure one level down, pinned this time). The harness surrendered its own defect en route: cleanup waited only the last planted pid, orphaning an earlier arm's backend into the next run's least-tolerant arm — every pid now tracked. THE PATTERN, third instance tonight and now unmistakable: the case that fires is the case no arm pinned — db-down for this guard, the refusal arm for the first version, set -e for the capture. Fourth-time rule for future guards: enumerate the WORLD-STATES the guard can meet (running/stopped/unreachable/absent), not just the answers it can receive.
 ---
 <!-- COMMENTS:END -->
 
