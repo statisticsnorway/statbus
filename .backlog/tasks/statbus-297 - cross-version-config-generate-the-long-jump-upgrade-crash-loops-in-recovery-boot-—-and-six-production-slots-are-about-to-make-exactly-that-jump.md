@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-08-28 11:48'
-updated_date: '2026-08-28 11:57'
+updated_date: '2026-08-28 12:05'
 labels:
   - upgrade
   - cli
@@ -55,5 +55,11 @@ author: architect (pinned by foreman)
 created: 2026-08-28 11:57
 ---
 RULING: (c), with the guard assertion in the CHEAP lane, not the VM lane. (1) THE FIXTURE PRINCIPLE, stated as a RULE for the whole harness: a harness must construct states history could have produced — writing an Aug-19 key onto a July-era install builds a box that never existed and COULD NOT have (the key did not exist yet); a failure against an impossible state teaches nothing and here cost three reds and two wrong attributions. vm-bootstrap.sh:430 writes UPGRADE_ROLE unconditionally onto EVERY arc box — this scenario is where it collided first, not necessarily last. When an arc installs at an era, the box must be era-accurate. The arc goes back to testing the rename handoff; (b)-alone is disqualified — it would silently trade purpose-built coverage for an accident and the loss would look like a pass. (2) THE COLLISION IS REACHABLE, not fantasy, via our own tooling: ops/create-new-statbus-installation.sh:362 does set_or_update UPGRADE_ROLE unconditionally and the script is re-runnable by design — run against a pre-254 box it adds the role while the old binary still seeds the channel; and 283 is currently making that script MORE re-runnable, so the path gets MORE likely as 283 lands (line added on both tickets). So the guard deserves a DELIBERATE test — but a multi-hour VM arc to assert config-parse behaviour is disproportionate: the assertion goes in the cheap lane (both keys → refuses, with that message), seconds not hours. (3) THE CRASH-LOOP IS THE REAL FINDING and the only part that can reach a real NSO — filed as STATBUS-298 (HIGH): retrying a deterministic refusal cannot help, five restarts buy nothing and leave the box db-down and rate-limited, strictly worse than the misconfiguration; the rule is refusals park, transients retry; do NOT fix it by weakening the guard (the refusal is correct — the RETRY and the COLLATERAL are the defects); adjacent to 111/159 (row-parking) but a different object (service boot). (4) PROMOTION NOT GATED — zero live collisions on the nine-box read, sub-fix landed; high priority, not an emergency. IMPLEMENTATION: mechanic — era-accurate bootstrap first (restores the arc), cheap-lane guard assertion second.
+---
+
+author: foreman
+created: 2026-08-28 12:05
+---
+REMEDY LANDED at 27be9a72b (one file, +23): the role write in vm-bootstrap is now era-gated on BASE_SHA's ancestry against 254's commit — verified four ways (pinned pre-rename base correctly excluded; HEAD, rc.15's tag, and the unset-fallback correctly included), with the executing CI job's fetch-depth:0 checked so the ancestry test resolves in CI, and all ten sibling heredoc keys era-checked (all predate the pinned base by ~4 months — none share the problem). Part 2 needed NO new code: TestHandAddedChannelRefuses_STATBUS254 (upgrade_role_test.go:86-100) already pins the refusal's full content, ResolveUpgradeRole's error confirmed to propagate unwrapped through config generation, and a mutation run ('remove'→'delete') proved the pin LOAD-BEARING, reverted byte-identical. Note for 279's proof runs: rc.09 (bba72a4a5, Aug-20) is POST-254, so its RED run writes the role normally — no interference with this gate. TICKET REMAINS OPEN on one observational arm: it closes when cross-version-rename-handoff GREENS on the next fleet run that includes this fix (the next candidate's chain, or a targeted dispatch) — the arc back to testing the rename handoff it was built for. The crash-loop finding lives on as STATBUS-298; the promotion remains not gated.
 ---
 <!-- COMMENTS:END -->
