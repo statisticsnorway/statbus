@@ -3,11 +3,11 @@ id: STATBUS-285
 title: >-
   ci-unpinned-checkout: the pg_regress workflow tests whatever master is at that
   instant — one run exercised three different commits
-status: In Progress
+status: Done
 assignee:
   - '@engineer'
 created_date: '2026-08-27 17:11'
-updated_date: '2026-08-27 20:02'
+updated_date: '2026-08-28 21:39'
 labels:
   - ci
   - testing
@@ -28,6 +28,12 @@ Fix shape: both checkout sites in the pg_regress workflow (and any sibling workf
 
 WHAT IS ACHIEVED: every CI verdict names exactly one commit, and the stamps and release gates built on those verdicts inherit that precision instead of a silent at-or-after.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+CLOSED at af9d8c84c — both halves delivered and proven. PUBLISHER (landed last night): every fast-tests/pg_regress run stamps exercised-sha=<40hex> into its run name; visibly live in every run today. CONSUMER (this landing): CheckWorkflowAtCommit routes marker-carrying workflows through a no-head_sha-filter lookup selecting on the display_title marker — strict 40-lowercase-hex with boundary check; unmarked runs yield Missing (existing no-evidence handling); SCOPED to marker-emitting workflows with a derived pin against the workflow files (routing everything would have made images.yaml instantly Missing — a gate broken by its own rollout, caught before build). Fixed at the shared implementation so all four consumers (drift escape, prerelease preflight, both stable-path checks) get it at once — the cmd/-level fix would have covered one and left three on the head_sha lie. THE CRAFT RECORD: the engineer's own mutation arm (M1: routing deleted) stayed green against his first test suite — the tests proved the lookup worked, nothing proved it was reached; he extracted the routing to make it testable and added a pin that discriminates on WHICH QUERY THE SERVER RECEIVES. RED 3/3 final. rc.17's own preflight exercises this code live against a mixed marked/legacy window.
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 
