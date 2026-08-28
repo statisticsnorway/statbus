@@ -4,9 +4,10 @@ title: >-
   offset-discontinuity surveillance: one future fire must settle the mechanism —
   tripwire armed, 282 is the running experiment
 status: In Progress
-assignee: []
+assignee:
+  - '@engineer'
 created_date: '2026-08-27 17:14'
-updated_date: '2026-08-28 09:40'
+updated_date: '2026-08-28 09:44'
 labels:
   - testing
   - tooling
@@ -183,5 +184,11 @@ author: foreman
 created: 2026-08-27 22:42
 ---
 RECORD HYGIENE: comments #10 and #12 are ONE report recorded twice (the foreman's pin crossed the engineer's own, same as #5/#6) — not independent corroboration. A future reader counting instances or witnesses reads one finding here, not two. Behaviour change adopted by the engineer: check the ticket before pinning; reporting by message and pinning are different acts.
+---
+
+author: foreman
+created: 2026-08-28 09:44
+---
+SCHEDULED (King-directed): @engineer owns the surveillance — he built and exercised the instrument, and on the next tripwire fire he reads the evidence (holders, offsets, fdinfo positions) and reports the mechanism verdict to the foreman. Status In Progress: the surveillance IS the active work — 282's machinery runs as the standing experiment on every full suite, and the tripwire is armed on every run. No dispatch needed until a fire or until the architect judges a clean period long enough to declare 282 the fix (closure condition b); the foreman raises that question to the architect if the record stays clean through the next several full-suite weeks.
 ---
 <!-- COMMENTS:END -->

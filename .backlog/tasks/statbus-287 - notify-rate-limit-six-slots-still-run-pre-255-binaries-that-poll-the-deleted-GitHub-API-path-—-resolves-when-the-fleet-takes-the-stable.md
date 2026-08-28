@@ -3,11 +3,11 @@ id: STATBUS-287
 title: >-
   notify-rate-limit: six slots still run pre-255 binaries that poll the deleted
   GitHub API path — resolves when the fleet takes the stable
-status: To Do
+status: In Progress
 assignee:
   - '@operator'
 created_date: '2026-08-27 17:46'
-updated_date: '2026-08-28 09:40'
+updated_date: '2026-08-28 09:44'
 labels:
   - ops
   - cloud
