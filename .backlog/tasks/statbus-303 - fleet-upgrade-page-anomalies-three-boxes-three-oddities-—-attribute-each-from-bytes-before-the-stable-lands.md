@@ -7,6 +7,7 @@ status: In Progress
 assignee:
   - '@operator'
 created_date: '2026-08-28 16:24'
+updated_date: '2026-08-28 16:29'
 labels:
   - ops
   - cloud
@@ -33,3 +34,13 @@ EXPECTED RESOLUTION SHAPE: most anomalies likely resolve to 'old binaries, fixed
 
 WHAT IS ACHIEVED: every anomaly on the fleet's upgrade pages is attributed to a known fixed bug, a new ticket, or a benign explanation — before the stable promotion sends new binaries everywhere.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: operator (pinned by foreman)
+created: 2026-08-28 16:29
+---
+COLLECTION COMPLETE, all three attributed from bytes (full detail tmp/STATBUS-303-anomalies-findings.md). (1) UKRAINE: CONVERGING — the SSH→HTTPS origin switch (from its birth-defect repairs) restored tag discovery; rc.12-15 are being discovered/registered; the stuck page was mid-convergence, no action needed, next check cycles resolve it. (2) DEMO: two defects — its discovery still fails over the old transport AND its check scheduler unit is MISSING entirely (systemctl status: not-found), which explains nine days of staleness and means demo could NEVER take the stable automatically — the silent-wedge class on the box whose whole job is to auto-follow. Operator proposes a repair (re-run install + HTTPS remote switch, mirroring Ukraine's); EXECUTION HELD — production-box mutation, King's nod required, and the exact command needs verification (the proposed --trust-github-user flag is unverified against the current CLI). (3) TCC IDENTIFIED as the third box (born 2026-04-28, v2026.04.0-rc.69) and the SHA hypothesis CONFIRMED: its upgrade rows store ANNOTATED TAG OBJECT SHAs (rc.15 row: 0eb4c45e = tag object; canonical commit: 2b3862bc) — 21k+ rows tag-object-addressed. FOREMAN CORRECTION to the report: this does not 'block STATBUS-290' (closed, unrelated — gofmt); the relevant frame is the canonical-commit-naming contract (cli/internal/upgrade/commit.go + doc/canonical-commit-naming.md). Filed separately for the architect as its own ticket. NOTE also: the report's fix-proposals are proposals — 303 was read-only by design and stays a diagnosis ticket.
+---
+<!-- COMMENTS:END -->
