@@ -4,11 +4,11 @@ title: >-
   version-order-shas: CompareVersions silently falls back to lexical text
   against commit SHAs — a commit-installed box can be offered every release as
   an upgrade, including downgrades
-status: In Progress
+status: Done
 assignee:
   - '@engineer'
 created_date: '2026-08-27 23:41'
-updated_date: '2026-08-27 23:56'
+updated_date: '2026-08-28 00:00'
 labels:
   - upgrade
   - release
@@ -98,4 +98,16 @@ Two existing `TestCompareVersions` cases asserted an ordering for git-describe s
 
 NOT verified by me: that the arc fleet goes green. That needs the run.
 ---
+
+author: foreman
+created: 2026-08-28 00:00
+---
+LANDED at df9f0854e (18 files, +558/−70) after the architect's LAND — verified in the bytes: all call sites fail-closed in their correct directions ('!ordered ||' where the check must skip, 'ordered &&' where it must permit); both refusals verbatim to the ruling with the loop closed ('once the box is ON a tag, discovery resumes by itself'); the gate-before-a==b ruled LOAD-BEARING, not philosophical — self-comparison is the orderability probe three guards interrogate, recorded so no one 'optimises' the fast path forward and silently disables them; selectLatestTagFromNames' refuse-the-set-before-sorting called a genuinely good catch (an unorderable element in a sort comparator reports nothing). The pin's 'must be used is not must be consulted' correction accepted as a keeper, with the honest boundary noted at the line: the COMPILER is the primary enforcement and cannot be spelled past; the textual pin is second-line defence against laundering. THE PRE-CUT CONFIRMATION discharged by the foreman in the bytes: the 12th probe site (lib/assertions.sh:71-81) carries the optional commit argument with the WHERE commit_sha branch and all in-tree callers pass $B_FULL. Both self-corrections on the record (damage narrowed to the two d.version consumers; the pin refuted by its own mutation). rc.12 cuts on CI green at this tip; the fleet's verdict — the only oracle — arrives with its chain.
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+A version comparator that returned a confident answer for input its own contract declared undefined is now structurally incapable of it: CompareVersions returns (ordering, ordered), the signature change forcing every caller through the compiler's enumeration, each fail-closed in its correct direction. A box installed at a bare commit — whose SHA's first hex digit previously decided whether it was offered every release in its channel as an 'upgrade', downgrades included — now registers nothing and says so loudly with both ways forward named; superseding skips what it cannot order; the deliberate register/apply path is untouched. The self-comparison orderability probe makes the unordered gate load-bearing ahead of the a==b fast path. The caller-guard pin is derived from source and survived refutation by its own mutation ('must be used is not must be consulted'), with the compiler as the floor and the pin as laundering defence. The harness's twelve probe sites read the row their diagnostics read. Found because rc.11's arc fleet became a lottery on random fixture SHAs; the fix makes fleet verdicts deterministic and removes a live downgrade-offer hazard from commit-installed production boxes. Landed at df9f0854e; rides rc.12.
+<!-- SECTION:FINAL_SUMMARY:END -->
