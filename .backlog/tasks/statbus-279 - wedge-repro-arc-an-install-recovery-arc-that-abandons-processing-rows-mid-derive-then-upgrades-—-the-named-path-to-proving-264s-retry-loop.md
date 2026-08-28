@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-27 16:12'
-updated_date: '2026-08-28 10:06'
+updated_date: '2026-08-28 13:25'
 labels:
   - testing
   - upgrade
@@ -47,5 +47,11 @@ author: engineer
 created: 2026-08-28 10:06
 ---
 POST-LANDING VERIFICATION + THE DEADLINE THAT GOVERNS DISPATCH: landing verified byte-identical (309 lines, one file), tree clean. rc.15 CONFIRMED out of reach — b600e5797 is not an ancestor of tag 2b3862bcc and the tag's tree contains no wedge arc; leg 5 (and any rerun) dispatches at the tag ref. THE CONSTRAINT THAT REPLACES the pre-landing concern, strictly narrower: the matrix globs arcs/*-arc.sh from the ref it runs at, so the NEXT candidate cut from master includes this arc in its gating fleet — a never-executed arc riding a release gate until the RED has run. ORDERING REQUIREMENT: both proof runs before the next RC cut. INSURANCE OPTION if a cut becomes imminent before the fleet group frees: run the GREEN first — it catches a construction bug (which first-run arcs historically have) without needing rc.09; the RED makes the arc EVIDENCE, but the GREEN is what tells us it RUNS, and only the second is on the critical path for someone else's candidate. INTERPRETATION RULE for the red, fixed in advance so the reading cannot drift: the red must show 'THE WEDGE FORMED: N row(s) are still processing' from the load-bearing assertion — any OTHER red is a construction fault, and will be reported as which it is, never claimed as the guard proven.
+---
+
+author: foreman
+created: 2026-08-28 13:25
+---
+FIRST RED RUN (33174142449, base_sha=rc.09): FAILED — and per the interpretation rule fixed in advance, this is a CONSTRUCTION FAULT, not the guard proven: no 'THE WEDGE FORMED' line anywhere; the arc died at its own :167 on the harness's VM_EXEC style hook refusing a complex inline command body (the hook's remedy text — use VM_SCRIPT/VM_SCRIPT_INLINE — printed in full). The wedge never got to form; the interpretation rule did exactly what it was fixed in advance to do — prevented this red from being misread as evidence. 296's diagnostics pattern held (the rows-still-processing section ran after the failure). Engineer fixing the arc (convert the offending call per the hook's own instruction + sweep for other refusable bodies; also to report how it slipped past dry validation — the hook fires only at runtime, invisible to bash -n). The failed VM run was the pre-declared price of construction iterations. RED re-dispatches after the fix lands; GREEN after that.
 ---
 <!-- COMMENTS:END -->
