@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 13:08'
-updated_date: '2026-08-28 00:52'
+updated_date: '2026-08-28 02:39'
 labels:
   - release
 dependencies: []
@@ -48,5 +48,17 @@ author: foreman
 created: 2026-08-28 00:52
 ---
 v2026.08.0-rc.12 CUT (2026-08-28 ~00:45Z, tag at 5b44315c0, foreman under the King's overnight mandate after rc.11's leg-5 red). What it carries beyond rc.11: 267 (stuck-task detector), 282 complete (postmaster lock authority + guards, incl. the db-down pre-gate that briefly blocked CI), 285's publisher half (exercised-sha markers), 286's instrument, 288 (in rc.11 already), 290 formatting, 291 (channel filter + announce), AND THE ONE THAT DECIDES THE CHAIN: 293 — the CompareVersions incomparability enforcement + 12-site harness probe fix that ends the arc fleet's random-hex lottery. rc.11's six new arc reds were EXONERATED as that latent lottery (271 comment #2 and STATBUS-293); the two standing reds (restore-broke-reattempt=227, rollback-pair-terminal=228) are expected to remain — they predate every candidate and are the In Progress recovery backlog, NOT candidate regressions. Preflight passed with two stamp-only refreshes (types + doc-db for 267's migration; zero content diffs). The :708 sibling-guard unification landed as the first post-tag commit (432e51872). Chain watcher arming; verdict expected before morning.
+---
+
+author: foreman
+created: 2026-08-28 02:39
+---
+rc.13 CUT (v2026.08.0-rc.13, tag at d663b2010, 2026-08-28 ~02:45Z) — third candidate of the night, under the King's overnight mandate. Carries exactly two changes over rc.12: 293's CompareVersions orderability fix (kills the leg-5 arc lottery) and 227's SIGPIPE sweep (kills the roving leg-4 hardening-verify red — 26 sites, f4b7a9507). Preflight green on the FIRST attempt, rides working as designed (go-test/app-build-lint rode from f4b7a950 over the board-only tip; fast-tests exercised the tip itself — and the 285 marker is visibly live in run names: 'Fast Tests @ exercised-sha=f4b7a95077e3…'). Orchestrator run 33136561614 in flight, watcher armed on the RUN ID. This is the first chain where both fixes are in the harness: legs 1-3 have passed twice tonight already; leg 4's only red cause is now fixed; leg 5 finally gets to run lottery-free. Expected honest residue if all else greens: the 228-family rollback-pair-terminal arcs — pre-existing backlog, not candidate regressions.
+---
+
+author: foreman
+created: 2026-08-28 02:39
+---
+CORRECTION to #4: rc.13's delta over rc.12 is NOT '293 + 227' — 293 was already IN rc.12 (comment #3 says so; rc.12's leg 5 was SKIPPED because leg 4 failed, so 293 simply never got exercised). rc.13's actual delta: 227's SIGPIPE sweep (f4b7a9507) + the :708 sibling-guard unification (432e51872) + board commits. The substantive claim stands: rc.13's chain is the first where leg 4 runs with the SIGPIPE fix AND leg 5 runs at all with 293 in the fleet.
 ---
 <!-- COMMENTS:END -->
