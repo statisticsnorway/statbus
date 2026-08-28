@@ -61,20 +61,30 @@ source "$LIB_DIR/arc-helpers.sh"
 # red run is self-sufficient. Best-effort throughout (|| true).
 _dump_cross_version_failure_diagnostics() {
     echo "" >&2
-    echo "══════════ failure diagnostics (target progress log + daemon journal + flag + row) ══════════" >&2
+    echo "══════════ failure diagnostics (daemon journal + flag + target progress log + row) ══════════" >&2
+    # STATBUS-296: SSH-only captures first — they depend on nothing but the VM
+    # being reachable. The db-dependent captures (log_rel query, row state)
+    # come last and are individually guarded, so a down/unreachable db reports
+    # itself as a datum ("could not query...") instead of aborting the rest
+    # under this file's set -e (the exact gap that lost the journal on both
+    # rc.11 run 33115731212 and rc.14 run 33145356673: the FIRST command here
+    # used to be the unguarded log_rel query, and its failure — via pipefail
+    # propagating VM_EXEC's non-zero exit through the `| tr` — killed this
+    # whole function before the journal fetch below ever ran).
+    echo "── daemon journal (statbus-upgrade@statbus.service, last 400 lines) ──" >&2
+    VM_EXEC bash -c "journalctl --user -u statbus-upgrade@statbus.service --no-pager -n 400 2>/dev/null" >&2 || echo "  (could not read the journal)" >&2
+    echo "── flag file at exit ──" >&2
+    VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null || echo '(flag absent)'" >&2 || true
     local log_rel
-    log_rel=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT COALESCE(log_relative_file_path,'') FROM public.upgrade WHERE commit_sha = '${TARGET_SHA:-}' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n')
+    log_rel=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT COALESCE(log_relative_file_path,'') FROM public.upgrade WHERE commit_sha = '${TARGET_SHA:-}' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n') || { echo "  (could not query the target row's log path — VM/DB unreachable)" >&2; log_rel=""; }
     if [ -n "$log_rel" ]; then
         echo "── target upgrade progress log (tmp/upgrade-logs/$log_rel) ──" >&2
         VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-logs/'$log_rel' 2>/dev/null" >&2 || echo "  (could not read the progress log)" >&2
     else
         echo "  (no log_relative_file_path found for the target row — row absent or DB unreachable)" >&2
     fi
-    echo "── daemon journal (statbus-upgrade@statbus.service, last 400 lines) ──" >&2
-    VM_EXEC bash -c "journalctl --user -u statbus-upgrade@statbus.service --no-pager -n 400 2>/dev/null" >&2 || echo "  (could not read the journal)" >&2
-    echo "── flag file + row state at exit (target commit_sha = ${TARGET_SHA:-?}) ──" >&2
-    VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null || echo '(flag absent)'" >&2 || true
-    VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, recovery_attempts, rolled_back_at IS NOT NULL AS rolled_back, error FROM public.upgrade WHERE commit_sha = '${TARGET_SHA:-}' ORDER BY id DESC LIMIT 1;\" | ./sb psql" >&2 || true
+    echo "── row state at exit (target commit_sha = ${TARGET_SHA:-?}) ──" >&2
+    VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, recovery_attempts, rolled_back_at IS NOT NULL AS rolled_back, error FROM public.upgrade WHERE commit_sha = '${TARGET_SHA:-}' ORDER BY id DESC LIMIT 1;\" | ./sb psql" >&2 || echo "  (could not query row state — VM/DB unreachable)" >&2
     echo "══════════ end failure diagnostics ══════════" >&2
 }
 

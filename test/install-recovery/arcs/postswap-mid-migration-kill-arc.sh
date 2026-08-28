@@ -94,20 +94,25 @@ source "$LIB_DIR/arc-helpers.sh"
 # assertion error that triggered this trap.
 _dump_mid_migration_failure_diagnostics() {
     echo "" >&2
-    echo "══════════ failure diagnostics (B's progress log + daemon journal) ══════════" >&2
+    echo "══════════ failure diagnostics (daemon journal + flag + B's progress log + row state) ══════════" >&2
+    # STATBUS-296: SSH-only captures first — db-dependent captures (log_rel
+    # query, row state) last and individually guarded, so a down/unreachable
+    # db reports itself as a datum instead of aborting the rest under this
+    # file's set -e.
+    echo "── daemon journal ($UPGRADE_UNIT, last 400 lines) ──" >&2
+    VM_EXEC bash -c "journalctl --user -u $UPGRADE_UNIT --no-pager -n 400 2>/dev/null" >&2 || echo "  (could not read the journal)" >&2
+    echo "── flag file at exit ──" >&2
+    VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null || echo '(flag absent)'" >&2 || true
     local log_rel
-    log_rel=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT COALESCE(log_relative_file_path,'') FROM public.upgrade WHERE commit_sha = '${B_FULL:-}' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n')
+    log_rel=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT COALESCE(log_relative_file_path,'') FROM public.upgrade WHERE commit_sha = '${B_FULL:-}' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n') || { echo "  (could not query B's row log path — VM/DB unreachable)" >&2; log_rel=""; }
     if [ -n "$log_rel" ]; then
         echo "── B's upgrade progress log (tmp/upgrade-logs/$log_rel) ──" >&2
         VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-logs/'$log_rel' 2>/dev/null" >&2 || echo "  (could not read the progress log)" >&2
     else
         echo "  (no log_relative_file_path found for B's row — row absent or DB unreachable)" >&2
     fi
-    echo "── daemon journal ($UPGRADE_UNIT, last 400 lines) ──" >&2
-    VM_EXEC bash -c "journalctl --user -u $UPGRADE_UNIT --no-pager -n 400 2>/dev/null" >&2 || echo "  (could not read the journal)" >&2
-    echo "── flag file + row state at exit ──" >&2
-    VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null || echo '(flag absent)'" >&2 || true
-    VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, recovery_attempts, error FROM public.upgrade WHERE commit_sha = '${B_FULL:-}' ORDER BY id DESC LIMIT 1;\" | ./sb psql" >&2 || true
+    echo "── row state at exit ──" >&2
+    VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, recovery_attempts, error FROM public.upgrade WHERE commit_sha = '${B_FULL:-}' ORDER BY id DESC LIMIT 1;\" | ./sb psql" >&2 || echo "  (could not query row state — VM/DB unreachable)" >&2
     echo "══════════ end failure diagnostics ══════════" >&2
 }
 

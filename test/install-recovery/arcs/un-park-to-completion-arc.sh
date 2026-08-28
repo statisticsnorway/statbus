@@ -157,19 +157,27 @@ parked_siren_count() {
 # state + the state-log to STDERR before cleanup_vm reaps the VM. Best-effort.
 _dump_unpark_failure_diagnostics() {
     echo "" >&2
-    echo "══════════ failure diagnostics (B's progress log + journal + row + state-log + df) ══════════" >&2
+    echo "══════════ failure diagnostics (journal + df + B's progress log + row state + state-log) ══════════" >&2
+    # STATBUS-296: SSH-only captures first (journal, df) — db-dependent
+    # captures (log_rel query, row state, upgrade_state_log) last and
+    # individually guarded, so a down/unreachable db reports itself as a
+    # datum instead of aborting the rest under this file's set -e.
+    echo "── daemon journal ($UPGRADE_UNIT, last 400 lines) ──" >&2
+    VM_EXEC bash -c "journalctl --user -u $UPGRADE_UNIT --no-pager -n 400 2>/dev/null" >&2 || echo "  (could not read the journal)" >&2
+    echo "── disk free ──" >&2
+    VM_EXEC bash -c "df -h ~/statbus 2>/dev/null" >&2 || echo "  (could not read disk free)" >&2
     local log_rel
-    log_rel=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT COALESCE(log_relative_file_path,'') FROM public.upgrade WHERE commit_sha = '${B_FULL:-}' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n')
+    log_rel=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT COALESCE(log_relative_file_path,'') FROM public.upgrade WHERE commit_sha = '${B_FULL:-}' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n') || { echo "  (could not query B's row log path — VM/DB unreachable)" >&2; log_rel=""; }
     if [ -n "$log_rel" ]; then
         echo "── B's upgrade progress log (tmp/upgrade-logs/$log_rel) ──" >&2
         VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-logs/'$log_rel' 2>/dev/null" >&2 || echo "  (could not read the progress log)" >&2
+    else
+        echo "  (no log_relative_file_path found for B's row — row absent or DB unreachable)" >&2
     fi
-    echo "── daemon journal ($UPGRADE_UNIT, last 400 lines) ──" >&2
-    VM_EXEC bash -c "journalctl --user -u $UPGRADE_UNIT --no-pager -n 400 2>/dev/null" >&2 || echo "  (could not read the journal)" >&2
-    echo "── B's row + disk free ──" >&2
-    VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, recovery_attempts, recovery_parked_at IS NOT NULL AS parked, COALESCE(recovery_parked_reason,''), error FROM public.upgrade WHERE commit_sha = '${B_FULL:-}' ORDER BY id DESC LIMIT 1;\" | ./sb psql" >&2 || true
-    VM_EXEC bash -c "df -h ~/statbus 2>/dev/null" >&2 || true
-    VM_EXEC bash -c "cd ~/statbus && echo \"SELECT logged_at, old_state, new_state, (new_parked_at IS NOT NULL) AS now_parked, COALESCE(application_name,'') AS app, backend_pid FROM public.upgrade_state_log WHERE upgrade_id = (SELECT id FROM public.upgrade WHERE commit_sha = '${B_FULL:-}' ORDER BY id DESC LIMIT 1) ORDER BY id;\" | ./sb psql -x" >&2 || true
+    echo "── row state at exit (B's row, commit_sha = ${B_FULL:-?}) ──" >&2
+    VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, recovery_attempts, recovery_parked_at IS NOT NULL AS parked, COALESCE(recovery_parked_reason,''), error FROM public.upgrade WHERE commit_sha = '${B_FULL:-}' ORDER BY id DESC LIMIT 1;\" | ./sb psql" >&2 || echo "  (could not query row state — VM/DB unreachable)" >&2
+    echo "── upgrade_state_log (B's row) ──" >&2
+    VM_EXEC bash -c "cd ~/statbus && echo \"SELECT logged_at, old_state, new_state, (new_parked_at IS NOT NULL) AS now_parked, COALESCE(application_name,'') AS app, backend_pid FROM public.upgrade_state_log WHERE upgrade_id = (SELECT id FROM public.upgrade WHERE commit_sha = '${B_FULL:-}' ORDER BY id DESC LIMIT 1) ORDER BY id;\" | ./sb psql -x" >&2 || echo "  (could not query upgrade_state_log — VM/DB unreachable)" >&2
     echo "══════════ end failure diagnostics ══════════" >&2
 }
 
