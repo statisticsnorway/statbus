@@ -7,6 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-28 11:48'
+updated_date: '2026-08-28 11:54'
 labels:
   - upgrade
   - cli
@@ -34,3 +35,13 @@ FIRST STEPS: (1) reproduce locally — current `./sb config generate` against a 
 
 WHAT IS ACHIEVED: the long-jump upgrade path works for the boxes that actually need it, and the error that was discarded is discarded nowhere.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: engineer (pinned by foreman)
+created: 2026-08-28 11:54
+---
+DIAGNOSED AND REPRODUCED LOCALLY, no VM — and the headline de-escalates the ticket on the reachable evidence: THIS IS A HARNESS FIXTURE BUG, not the production long-jump bug. THE REPRODUCED ERROR (the byte service.go discarded, verbatim on the report): config generate REFUSES because .env.config carries BOTH keys — 'UPGRADE_CHANNEL is set in .env.config, but it is no longer a setting — it is derived from UPGRADE_ROLE ... this command refuses rather than pick one' — 254's own loud hand-set-channel guard, firing precisely and actionably the whole time. THE BREAKING COMMIT: 733b0df4d (config: derive the upgrade channel from a declared box role, STATBUS-254, 2026-08-19 21:03) — the ONLY config change in the bounded window, date consistent with green-at-Aug-18 and red-at-rc.11/14/15, and DETERMINISTIC, which fits a scenario that redded every time (unlike 293's lottery or 294's race). WHY ONLY THIS ARC: vm-bootstrap.sh:430 writes UPGRADE_ROLE=production onto every arc box, and THIS box then installs at July's 730b5001c whose config generate still seeds UPGRADE_CHANNEL — both keys end up present, the exact collision. Every other arc installs at the current SHA (no channel seeding), so the conflict cannot arise — a property of the HARNESS, not of long jumps. THE DE-ESCALATION, verified: the REAL July-production shape (channel only, no role — nobody wrote roles on those boxes) translates CLEANLY, exit 0, one-time conversion message — 254's translation working as designed. THE ONE UNCHECKED PREMISE that decides the promotion gate: whether the six production slots carry BOTH keys (only if something wrote a role onto a pre-254 box). One read-only grep per slot — dispatched to the operator. Remedy deliberately NOT designed — architect's, and it differs completely between the two answers. SUB-FIX LANDED at 9970c983e (output no longer discarded).
+---
+<!-- COMMENTS:END -->
