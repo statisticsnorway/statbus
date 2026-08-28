@@ -3,10 +3,11 @@ id: STATBUS-279
 title: >-
   wedge-repro-arc: an install-recovery arc that abandons processing rows
   mid-derive then upgrades — the named path to proving 264's retry loop
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@engineer'
 created_date: '2026-08-27 16:12'
-updated_date: '2026-08-28 09:44'
+updated_date: '2026-08-28 09:56'
 labels:
   - testing
   - upgrade
