@@ -3,10 +3,11 @@ id: STATBUS-310
 title: >-
   fleet-refspec-pollution: five slots still fetch deleted deploy branches — the
   landmine detonates exactly when each box takes the stable
-status: To Do
+status: Done
 assignee:
   - '@operator'
 created_date: '2026-08-28 22:43'
+updated_date: '2026-08-28 22:47'
 labels:
   - ops
   - cloud
@@ -36,3 +37,9 @@ RELATED, dated evidence, separate defect: the rc.03-era binary's MANUAL `upgrade
 
 WHAT IS ACHIEVED: no box discovers its way into darkness at the moment it upgrades; the fleet is git-discovery-ready before the stable arrives.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+CLOSED 2026-08-28 ~22:46 UTC, King-approved (Q2, with his premise verified first: the pollution is an artifact of OUR retired deploy-branch machinery on niue slots only — no NSO install path can produce it). All five boxes (et, jo, ma, tcc, ug) repaired with the demo-proven two-command fix; per-box before/after refspecs captured verbatim in the operator's report; git fetch --tags verified succeeding on each; refspec-only — no service restarts, no upgrades, no remote-URL changes (the HTTPS switch was deliberately NOT approved for these five tonight). The fleet is now git-discovery-ready: when each box takes the stable and its post-255 binary switches to git discovery, the landmine that would have detonated at that exact moment is gone. The retirement-checklist lesson stays recorded on this ticket for the next branch retirement: server-side deletion must be paired with a fleet-side client sweep.
+<!-- SECTION:NOTES:END -->
