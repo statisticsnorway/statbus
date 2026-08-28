@@ -3,11 +3,11 @@ id: STATBUS-294
 title: >-
   listener-conn-ownership: abandoned listener reads the emptied shared
   connection and crashes the upgrade service
-status: In Progress
+status: Done
 assignee:
   - '@mechanic'
 created_date: '2026-08-27 23:41'
-updated_date: '2026-08-28 07:09'
+updated_date: '2026-08-28 07:25'
 labels:
   - upgrade
   - cli
@@ -45,5 +45,11 @@ author: foreman
 created: 2026-08-28 07:15
 ---
 HISTORY. This ticket was filed 2026-08-27 23:41 from mid-diagnosis notes and rewritten 2026-08-28 after the engineer re-verified every claim against the code and the captured stack trace (arc run 33115731212). The description above IS the grounded version. Three original claims did not survive the grounding and are corrected there: (1) "service unrestartable" — refuted; systemd restarted it normally, and the failure to come back was the scenario's deliberately-paused database container, an unrelated cause; (2) "calls WaitForNotification on the CLOSED connection" — corrected to EMPTIED (d.listenConn = nil at service.go:5984); a closed connection returns an error, only the nil write crashes; (3) the original recover-and-relisten fix proposal — rejected for the reasons in the description.
+---
+
+author: foreman
+created: 2026-08-28 07:25
+---
+LANDED at efd07d036, architect-APPROVED with two amendments, both applied at landing: (1) the nil-conn guard is now LOUD — a silent return would have made the listener quietly not listen while the box kept working on its tick, degraded and looking healthy (the 263 failure shape); the announce line names the degradation and the ticket. (2) installedIDStr had been inserted INTO runRetentionPurge's doc comment, corrupting two godocs in a way gofmt cannot see — moved below runRetentionPurge, both comments whole again. Also recorded per review: the drop-on-cancel's correctness DEPENDS on the service's tick (a dropped notification is recovered by the next poll; remove the tick and this becomes a lost wakeup — the dependency is now written at the site), and the two structural tests are marked SECOND-LINE with the executable -race test as the floor (text can be right while behaviour is wrong — 293's first pin proved it). Mechanic's evidence was the strong kind: pre-fix crash reproduced LIVE (temporary revert → DATA RACE + SIGSEGV at conn.go:419 byte-matching the field stack → restore verified by git diff). Validated post-amendment: go build, go vet, full go test -count=1, -race -count=1, gofmt — all clean. CLOSED: the crash is impossible by construction, the listener's lifecycle has one owner, and the retention logs print numbers instead of addresses.
 ---
 <!-- COMMENTS:END -->
