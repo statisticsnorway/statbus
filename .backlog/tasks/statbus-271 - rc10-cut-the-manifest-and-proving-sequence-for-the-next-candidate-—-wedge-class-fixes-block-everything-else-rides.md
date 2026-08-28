@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 13:08'
-updated_date: '2026-08-28 15:23'
+updated_date: '2026-08-28 18:52'
 labels:
   - release
 dependencies: []
@@ -102,5 +102,11 @@ author: foreman
 created: 2026-08-28 15:23
 ---
 rc.16 CUT (v2026.08.0-rc.16, tag at 958a320b2, 2026-08-28 ~15:20Z) — sixth candidate, and the first with an EMPTY LEDGER: every red across five chains is root-caused with its fix aboard — 293's lottery, 227's SIGPIPE, 295's fixture pollution, 294's listener crash, 297's era collision (era-accurate bootstrap), 299's watchdog hole (bounded sub-attempts), 300's impatient assert — plus the wedge arc (279) riding its first gating fleet already RED-PROVEN (seen red against rc.09, seen green against master, closed). The architect's pre-declared-red condition dissolved when 299 froze before the cut assembled. Cut mechanics: the preflight demanded pg_regress at the exact tip (satisfied by its own named run 33183600615) and the pre-push images gate hit the unauthenticated-API rate limit — resolved by supplying GITHUB_TOKEN per the check's own designed path (the gate ran and verified, authenticated; 'OK: images green at 958a320b28b1'). Orchestrator 33184839982 in flight, watcher armed on the run id. THE CLAIM: 36/36 arcs, the first fully green chain — and if anything reds, it is a bug nobody has seen yet, arriving with its journal.
+---
+
+author: foreman
+created: 2026-08-28 18:52
+---
+rc.16 CHAIN FINAL VERDICT (orchestrator 33184839982; fleet 33190460349: 36 GREEN / 1 red): the closest yet, and the day's fixes all PROVED LIVE — legs 1-4 green (leg 4's fourth consecutive), cross-version-rename-handoff GREEN (297's era-accurate fix proven; its observational arm closes), un-park-to-completion GREEN (300 proven), the wedge arc GREEN in its first gating fleet (279's regression guard live). THE ONE RED: transient-db-backoff — again — WITH 299's bounded-sub-attempt fix aboard. This scenario stresses db-outage-at-daemon-start harder than anything else in the fleet and has now revealed a bug per layer: 294's SIGSEGV (rc.11-14), then 299's watchdog kill (rc.15), now whatever stands behind those. Mechanic triaging from the journal: is the SIGABRT gone (299 worked, next layer visible), did the fix fail live, or is it a 300-class harness impatience in this scenario's own file (the 300 sweep covered un-park's file only). rc.16 MAY NOT BE PROMOTED until the red is attributed — but the trajectory is 26→34→33→36 green with every red root-caused same-day, and this is the only unattributed failure left in the entire campaign.
 ---
 <!-- COMMENTS:END -->
