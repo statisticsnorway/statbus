@@ -7,6 +7,7 @@ status: To Do
 assignee:
   - tester
 created_date: '2026-08-28 23:42'
+updated_date: '2026-08-28 23:44'
 labels:
   - testing
   - migrations
@@ -29,3 +30,9 @@ Blocks nothing; rc.17 does not wait on it.
 
 WHAT IS ACHIEVED: the signal survives its own symptom fix, and either a mechanism is named or a rule is recorded.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+**Context: the ~23:00 UTC suite-kill attribution is CLOSED as non-human** (all three team members accounted for with clean timelines: engineer was the run's owner/victim; mechanic's concurrent attempts were blocked by the test-run lock and he killed only his own wrapper pids; tester was read-only throughout). Cause class: external/environment kill (macOS/docker resource kill, STATBUS-158 family). Consequence for this investigation: the killed-then-rerun leftover state is the leading candidate for what differed between the two replays' sequence positions — the first (killed) rebuild's partial state may have advanced auth.user id allocation differently than the second clean one.
+<!-- SECTION:NOTES:END -->
