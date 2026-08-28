@@ -3,11 +3,11 @@ id: STATBUS-302
 title: >-
   upgrade-probe-gh-dependency: status probes exec the gh CLI production boxes do
   not have — probe failure masquerades as build failure
-status: In Progress
+status: Done
 assignee:
   - '@architect'
 created_date: '2026-08-28 16:24'
-updated_date: '2026-08-28 21:28'
+updated_date: '2026-08-28 21:46'
 labels:
   - upgrade
   - cli
@@ -31,6 +31,12 @@ FIX SHAPE (architect to rule): the probes must use what the product already has 
 
 WHAT IS ACHIEVED: a candidate's status on an NSO box reflects the candidate, not the probe's toolchain; and no operator is told a build failed when nobody could check.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+CLOSED at 3ee552d21 — Half A delivered per the ruling; Half B (the third state in row status + UI) DELIBERATELY DEFERRED per the same ruling (a half-built status model is worse than none) and may never be needed now that message text is honest; file anew if the status model is wanted. WHAT LANDED: ghcr.go's anonymous two-step probe (no-credential token GET, bearer manifest HEAD) with three outcomes — present/absent/INDETERMINATE, the load-bearing test pinning that a transient 500 can never fold into absent. SITE FINDINGS from reading before writing: site 1 (verifyArtifacts) behavior-preserving and honestly sourced (404 corroborates the existing docker-manifest-inspect result before the existing timeout threshold fires; the old path ASSERTED failure from a probe that never ran — the King's screenshot error, verbatim); site 2 (discoverTaggedReleases) was NOT an existence question — it tracks a GitHub Release asset, ghcr is the wrong registry entirely, and the gh call was ALREADY a silent no-op on every production box (no else on the error; release_builds_status stuck at 'building' forever, today) — dead call removed, honest could-not-determine line in its place, timeout-promotion policy deliberately NOT invented (flagged as the behavior change it would be, candidate for a follow-up if wanted). Rewind-audit write-site count adjusted for exactly the removed UPDATE, reasoned inline. 11 new tests; build/vet/gofmt/full package/-race all green. The mechanic's read-first discipline is what kept a wrong-registry force-fit out of the tree.
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 
