@@ -450,7 +450,7 @@ _ut_fixture_base() {
     fi
 
     local _default_ref="${ARC_DEFAULT_BRANCH:-origin/master}"
-    git fetch -q origin "${_default_ref#origin/}" 2>/dev/null || true
+    git fetch -q origin "${_default_ref#origin/}" >/dev/null 2>/dev/null || true
     if ! git rev-parse -q --verify "${_default_ref}^{commit}" >/dev/null; then
         echo "_ut_fixture_base: cannot resolve the default branch ref '${_default_ref}' — the fixture's .github/workflows/ must exactly match it, or the push is refused (STATBUS-236). Set ARC_DEFAULT_BRANCH if this repo's default branch is named differently." >&2
         return 1
@@ -458,7 +458,7 @@ _ut_fixture_base() {
 
     echo "── fixture base: parent=tree=$(git rev-parse --short=8 "$_base_sha") (Shape A — BASE_SHA itself) + ${_default_ref}'s .github/workflows/ ──" >&2
 
-    git checkout -q --detach "$_base_sha" || return 1
+    git checkout -q --detach "$_base_sha" >/dev/null || return 1
     # Set index AND worktree to EXACTLY the base's tree. `read-tree -u --reset` is
     # the right primitive: it also REMOVES paths the base does not have, which a
     # `git checkout <base> -- .` would silently leave behind (it only writes the
@@ -471,7 +471,7 @@ _ut_fixture_base() {
     # already puts us at BASE_SHA's tree, so this read-tree is a no-op verifying
     # that fact — kept rather than removed, so the two self-checks below still
     # follow the identical primitive Shape B used and reviewed.)
-    git read-tree -u --reset "$_base_sha" || {
+    git read-tree -u --reset "$_base_sha" >/dev/null || {
         echo "_ut_fixture_base: could not reset the worktree to ${_base_sha:0:8}'s tree" >&2
         return 1
     }
@@ -480,14 +480,44 @@ _ut_fixture_base() {
     # differ from HEAD by construction) is what makes a file master DELETED stay
     # deleted rather than surviving from the base's copy.
     git rm -rqf --ignore-unmatch .github/workflows >/dev/null || true
-    git checkout -q "$_default_ref" -- .github/workflows || {
+    git checkout -q "$_default_ref" -- .github/workflows >/dev/null || {
         echo "_ut_fixture_base: could not take ${_default_ref}'s .github/workflows/" >&2
         return 1
     }
-    git add -A
+    git add -A >/dev/null
 
-    git commit -S -q -m "test(upgrade-arc): fixture base — ${_base_sha:0:8} + ${_default_ref}'s .github/workflows/ (STATBUS-236, Shape A)" \
-        || { echo "_ut_fixture_base: nothing to commit — ${_base_sha:0:8}'s .github/workflows/ already equals ${_default_ref}'s; using ${_base_sha:0:8} directly." >&2; }
+    # ── DECIDE, THEN ACT (STATBUS-295) ──────────────────────────────────────
+    # THIS FUNCTION RETURNS ITS VALUE ON STDOUT, so anything else printed there
+    # becomes part of the SHA the caller captures.
+    #
+    # The previous form acted first and inferred the reason from the exit code:
+    #   git commit -S -q ... || { echo "nothing to commit ..." >&2; }
+    # `-q` silences git's summary only on SUCCESS. On nothing-to-commit, git
+    # writes "HEAD detached at <tag> / nothing to commit, working tree clean" to
+    # STDOUT and exits 1. The `||` swallowed the exit code, but the chatter was
+    # already inside the captured return value, and the caller's
+    # `git checkout -b "$B_BRANCH" "$polluted_sha"` died fatal — rc.13 leg 5,
+    # exit 128, before a single VM launched.
+    #
+    # The arm had never executed in any prior run: it fires only when the base's
+    # .github/workflows/ ALREADY equals the default branch's, which first became
+    # true at rc.13 because the tag sat on master's tip.
+    #
+    # AND IT CONFLATED TWO OUTCOMES. A real commit failure — signing key gone,
+    # a hook refusing, a full disk — took the same branch and was reported as the
+    # benign "nothing to commit", then execution continued on a base that had
+    # never been committed. Asking `git diff --cached` FIRST separates them: an
+    # empty index is the benign case, and a commit that fails with staged changes
+    # is now loud and fatal.
+    if git diff --cached --quiet; then
+        echo "_ut_fixture_base: nothing to commit — ${_base_sha:0:8}'s .github/workflows/ already equals ${_default_ref}'s; using ${_base_sha:0:8} directly." >&2
+    else
+        git commit -S -q -m "test(upgrade-arc): fixture base — ${_base_sha:0:8} + ${_default_ref}'s .github/workflows/ (STATBUS-236, Shape A)" >/dev/null \
+            || {
+                echo "_ut_fixture_base: FAILED — commit refused with changes staged (signing key? hook? disk?). The fixture base was NOT created; refusing to continue on an uncommitted tree." >&2
+                return 1
+            }
+    fi
 
     # ── SELF-CHECKS. Both must hold, and each catches a failure the other cannot.
     #
