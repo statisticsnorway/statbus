@@ -3,10 +3,11 @@ id: STATBUS-289
 title: >-
   timeout-progress-line: the final poll drops its progress line and the timeout
   error omits the poll count
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@mechanic'
 created_date: '2026-08-27 18:42'
-updated_date: '2026-08-28 08:25'
+updated_date: '2026-08-28 09:04'
 labels:
   - cli
   - upgrade
