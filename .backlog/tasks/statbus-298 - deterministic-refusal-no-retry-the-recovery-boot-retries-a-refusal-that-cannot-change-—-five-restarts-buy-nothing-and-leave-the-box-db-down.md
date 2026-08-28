@@ -3,10 +3,10 @@ id: STATBUS-298
 title: >-
   deterministic-refusal-no-retry: the recovery boot retries a refusal that
   cannot change — five restarts buy nothing and leave the box db-down
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-28 11:57'
-updated_date: '2026-08-28 21:28'
+updated_date: '2026-08-28 22:05'
 labels:
   - upgrade
   - cli
@@ -35,6 +35,12 @@ DESIGN OPEN (architect at build time): what "stop cleanly" means concretely in t
 
 WHAT IS ACHIEVED: a fixable configuration mistake can no longer brick a box; the refusal arrives as instructions instead of as a dead service.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+CLOSED at c18e75200 (9 files, +550/−4). Built exactly to the architect's amended ruling with the checkpoint discipline holding end to end: site = the failure branch at the recovery boot's config-generate call (the mechanic's reframe — the refusal never destroyed, it prevented restoration — accepted into the ticket's model); discriminator = SENTINEL, structural not textual: one newRefusal constructor at all three refusal sites, Unwrap()-based errors.Is with the operator text verbatim, exit 78 as the process-boundary contract documented independently on both sides per the exit-42 precedent; RestartPreventExitStatus=78 reserved for principled refusals only. THE FREEZE'S BEST JUDGMENT: clear-on-success moved from the daemon pre-flight (his first draft) to config generate's own command — the ONE convergence point every caller crosses — after he caught that install's step-table invokes config generate through a separate path his first clear would never touch. install surfaces the marker as an informational banner, deliberately NO new state-ladder state. TestNoSilentNotesInInstall earned its keep (flagged a fmt.Printf diagnostic; corrected to the guard's required shape). Tests across three packages incl. a new no-prior-coverage refusal site pinned, structural ordering test on the boot branch, exit-classification against every shape; full suites + -race green in all three. North star amended honestly at the site; the serving-policy coupling remains STATBUS-307. No hard-stop needed — the threading was exactly as cheap as ruled.
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 
