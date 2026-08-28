@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-27 16:12'
-updated_date: '2026-08-28 10:04'
+updated_date: '2026-08-28 10:06'
 labels:
   - testing
   - upgrade
@@ -41,5 +41,11 @@ author: foreman
 created: 2026-08-28 10:04
 ---
 ARC LANDED at b600e5797 (one file, +309; zero workflow edits — the matrix glob makes every arcs/*-arc.sh a scenario automatically, verified not assumed). TICKET STAYS OPEN AND UNPROVEN by its own rule: the arc has not yet been seen red. Design highlights on the record: determinism via a held ACCESS EXCLUSIVE lock (the derive task is made UNABLE to finish; the arc advances only on observing processing+Lock-wait, never on elapsed time); production's real trigger path (data edit → worker.log_base_change → collect_changes → derive children — verified from the live schema); the mid-build correction that decides whether the arc means anything — compose stop -t 0 instead of SIGKILL, because unless-stopped would restart the worker OUTSIDE the read-only window and silently destroy the wedge before the upgrade met it; refuses-to-pass-having-constructed-nothing (positive wedge assertion pre-upgrade); RED pre-verified against rc.09's actual bytes (bba72a4a5: no 264/265, reset failure logged and stepped past) with BASE_SHA pointing both fixture sides pre-265 so the red is honest. DISPATCH SEQUENCING, the constraint that gates the proof runs: the harness shares concurrency group hetzner-vm-fleet with the other two VM fleets (one running + one pending, a THIRD gets cancelled — the documented defect-B). rc.15's chain occupies that group now (leg 4 running, leg 5 queuing) — dispatching the RED/GREEN now could cancel the candidate's own fleet. Both runs therefore dispatch AFTER the chain completes: RED first (gh workflow run upgrade-arc-harness.yaml -f scenarios=worker-wedge-mid-derive -f base_sha=bba72a4a57d08b43f6bf983be2606f45c7fe3cf3, expected FAIL), then GREEN (same minus base_sha, expected PASS). Landing now is safe for rc.15: its leg 5 dispatches at the TAG's ref, where this arc does not exist (the 295 lesson, working in our favour this time).
+---
+
+author: engineer
+created: 2026-08-28 10:06
+---
+POST-LANDING VERIFICATION + THE DEADLINE THAT GOVERNS DISPATCH: landing verified byte-identical (309 lines, one file), tree clean. rc.15 CONFIRMED out of reach — b600e5797 is not an ancestor of tag 2b3862bcc and the tag's tree contains no wedge arc; leg 5 (and any rerun) dispatches at the tag ref. THE CONSTRAINT THAT REPLACES the pre-landing concern, strictly narrower: the matrix globs arcs/*-arc.sh from the ref it runs at, so the NEXT candidate cut from master includes this arc in its gating fleet — a never-executed arc riding a release gate until the RED has run. ORDERING REQUIREMENT: both proof runs before the next RC cut. INSURANCE OPTION if a cut becomes imminent before the fleet group frees: run the GREEN first — it catches a construction bug (which first-run arcs historically have) without needing rc.09; the RED makes the arc EVIDENCE, but the GREEN is what tells us it RUNS, and only the second is on the critical path for someone else's candidate. INTERPRETATION RULE for the red, fixed in advance so the reading cannot drift: the red must show 'THE WEDGE FORMED: N row(s) are still processing' from the load-bearing assertion — any OTHER red is a construction fault, and will be reported as which it is, never claimed as the guard proven.
 ---
 <!-- COMMENTS:END -->
