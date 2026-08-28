@@ -2092,8 +2092,16 @@ func (d *Service) Run(ctx context.Context) error {
 		}
 	}
 	sbBin := filepath.Join(d.projDir, "sb")
-	if _, err := runCommandOutput(d.projDir, sbBin, "config", "generate"); err != nil {
-		return fmt.Errorf("pre-flight: regenerate config before db up: %w", err)
+	// KEEP THE OUTPUT (STATBUS-297). This captured CombinedOutput and threw it
+	// away, so a failing config generate reached the journal as bare "exit
+	// status 1" — while the git-checkout call four lines above appends its
+	// output and says what went wrong. Three fleet runs were attributed to two
+	// unrelated tickets (293's version lottery, then 294's listener crash) on a
+	// fingerprint that carried no cause, because the one byte that named it was
+	// discarded HERE. config generate refuses with a precise, actionable
+	// message; this is the line that decided nobody would read it.
+	if out, err := runCommandOutput(d.projDir, sbBin, "config", "generate"); err != nil {
+		return fmt.Errorf("pre-flight: regenerate config before db up: %w (%s)", err, strings.TrimSpace(out))
 	}
 
 	// Pre-flight B — ensure DB is up. Idempotent (no-op when already up).
