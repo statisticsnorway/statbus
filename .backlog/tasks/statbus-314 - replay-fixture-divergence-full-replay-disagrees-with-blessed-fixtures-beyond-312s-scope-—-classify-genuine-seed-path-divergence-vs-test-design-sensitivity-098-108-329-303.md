@@ -8,7 +8,7 @@ status: To Do
 assignee:
   - architect
 created_date: '2026-08-28 23:39'
-updated_date: '2026-08-28 23:43'
+updated_date: '2026-08-28 23:47'
 labels:
   - testing
   - migrations
@@ -41,4 +41,6 @@ WHAT IS ACHIEVED: the invariant is restored across the whole suite, not per-tabl
 
 <!-- SECTION:NOTES:BEGIN -->
 **Architect ruling (2026-08-29), all four classified — two defect families and one non-defect:** (1) 108 = CONFIRMED second instance of 312's disease, verified at the line (import_generate_external_ident_data_columns line 27: `SELECT COALESCE(MAX(idc.priority), 0) INTO v_base_priority` — MAX over whatever exists at run time). FORWARD REPAIR per 172; re-bless rejected — it would record the replay's state as truth and permanently diverge from the fleet. Assigned: mechanic, after the 252 shadow persistence, derivation-check-first with stop-and-escalate. (2+3) 098 and 329 = the same test-design defect (a test inheriting state it did not create): 098 asserts absolute user ids (house-rule violation), 329 assumes a seeded upgrade row a fresh replay legitimately lacks — the replay is right, the fixtures are wrong. Both fixed ABOARD rc.17, assigned: engineer. The 2-vs-32 nondeterminism signal 098's fix erases is preserved as STATBUS-315 (tester) per the ruling's explicit requirement. (4) 303 = not a defect: explain plans are the baseline surface with a ratified convention (review, discard trivial drift) — foreman reviewed the diffs (join-order reshuffles among small lookup tables, no new large-table seq scans, no timing regressions) and discarded. rc.17 disposition: 098/329 aboard; 108 aboard if the repair lands, else EXPECTED-AND-ATTRIBUTED with the pre-declaration written BEFORE the chain runs; 303 not a red. The earned rule is now in AGENTS.md beside the 172 discipline: a migration's data operations must not derive values from aggregate reads of current state.
+
+**098 + 329 LANDED at d70d93d94** (engineer, both green, all 119 diff lines read before blessing). 098: four raw-id projections → same-replay email-lookup comparisons, strictly stronger than the absolute ids they replace. 329: the briefed premise was corrected against the seed — public.upgrade is EMPTY in the seed; the old predicate matched the test's OWN Part A insert, which got id 1 only by sequence accident. Now addressed by the test's self-chosen sha, with from_commit_version kept in the predicate deliberately (exercising the 42703 column is the test's purpose). REMAINING on 314: the 108 forward repair (mechanic, after shadow persistence, derivation-check-first) — aboard rc.17 if it lands, else pre-declared. 303: reviewed and discarded per convention. Rule landed in AGENTS.md at 08df247c6.
 <!-- SECTION:NOTES:END -->
