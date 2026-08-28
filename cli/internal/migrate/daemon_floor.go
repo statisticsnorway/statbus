@@ -18,18 +18,27 @@ package migrate
 // the floor impossible: any migration NEWER than the floor that touches a daemon
 // relation fails the test until the floor is bumped in the same commit.
 //
-// VALUE: today 20260712024457 (the STATBUS-160 upgrade_block_terminal_resurrection
+// VALUE: today 20260828225222 (STATBUS-304's forward repair for tag-object-SHA
+// pollution on the rc.14/rc.15 rows), bumped from 20260712024457 in the same
+// commit that landed it. The repair migration touches public.upgrade — two
+// guarded UPDATEs correcting commit_sha on rows matching the exact documented
+// defect shape, plus a NOTICE — so the bump guard forced this floor
+// re-decision. It is a pure DATA correction: no column added, removed,
+// renamed, or retyped, and no trigger/function change, so every daemon query
+// against public.upgrade resolves identically at the raised floor. Nothing is
+// above the floor again, so the boot-to-floor form (slice 2) is once more a
+// no-op vs boot-to-HEAD.
+//
+// Prior value: 20260712024457 (the STATBUS-160 upgrade_block_terminal_resurrection
 // BEFORE-UPDATE trigger on public.upgrade), bumped from 20260711201432 in the same
 // commit that added it. The trigger migration touches public.upgrade, so the bump
-// guard forced this floor re-decision — same reasoning and approved precedent as the
-// STATBUS-154 bump before it. It only ADDS a guard (a BEFORE UPDATE trigger + its
-// function) that raises on the terminal→completed transition; no daemon query loses
+// guard forced that floor re-decision — same reasoning and approved precedent as the
+// STATBUS-154 bump before it. It only ADDED a guard (a BEFORE UPDATE trigger + its
+// function) that raises on the terminal→completed transition; no daemon query lost
 // a column, and no legitimate daemon write performs that transition (pipeline
-// completions are in_progress→completed), so the daemon operates cleanly at the
-// raised floor and the new floor-era guard fires on the floor-era table. Nothing is
-// above the floor again, so the boot-to-floor form (slice 2) is once more a no-op vs
-// boot-to-HEAD.
-const DaemonSchemaFloor int64 = 20260712024457
+// completions are in_progress→completed), so the daemon operated cleanly at that
+// floor too.
+const DaemonSchemaFloor int64 = 20260828225222
 
 // DaemonRelationNames is the schema surface the daemon's OWN SQL touches — the
 // set whose shape the floor must satisfy. The bump guard flags any migration
