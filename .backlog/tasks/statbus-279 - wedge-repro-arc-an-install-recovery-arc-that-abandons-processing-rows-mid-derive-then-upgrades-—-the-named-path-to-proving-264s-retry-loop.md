@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-27 16:12'
-updated_date: '2026-08-28 14:22'
+updated_date: '2026-08-28 14:25'
 labels:
   - testing
   - upgrade
@@ -71,5 +71,11 @@ author: foreman
 created: 2026-08-28 14:22
 ---
 THIRD RED RUN (33177387634, holder fix aboard): construction fault #3 — the last-mile kind. The bytes: lock HELD (fault 2's fix works), UPDATE fired, then 'no derive child reached processing blocked on the lock within 300s' — while the arc's OWN failure dump shows task 2742 statistical_unit_refresh_batch in 'processing': a task WAS processing and blocked; the wait predicate simply doesn't match its NAME. Written against the current era's derive% naming, running against rc.09's July-era worker. Fix direction given: match on MECHANISM, not name — a processing task whose backend waits on a Lock against public.statistical_unit is the wedge regardless of what any era calls it; a name-list would need updating for every era the arc points at, the lock-wait is the invariant. The dump-on-failure the arc carries is why this diagnosis took one read — keep it. Engineer to validate the predicate LOCALLY (SQL against dev db) and cross-check rc.09's worker.cr that the mechanism-match would have caught statistical_unit_refresh_batch, so run 4 is the last. Score so far: three construction faults, zero false evidence — the refuses-to-pass assertion and the fixed interpretation rule have caught every one.
+---
+
+author: foreman
+created: 2026-08-28 14:25
+---
+FAULT #3 FIXED (landed 08a011893) with a correction to my own diagnosis that matters: the name mismatch was only HALF the failure — the derive% rows WERE in the dump, sitting in 'waiting' as structured-concurrency PARENTS while the leaf (statistical_unit_refresh_batch) worked, so any name-list predicate fails twice over and needs an entry per era. The predicate now matches MECHANISM: a processing task whose backend holds an ungranted Lock against public.statistical_unit specifically — an unrelated block cannot satisfy it. Validated locally BOTH directions on a scratch table (blocked: 1; released: 0 — the negative control is the half that matters, per the engineer), and the era cross-check closes the loop from rc.09's own bytes: its refresh-batch leaf INSERTs into and ANALYZEs statistical_unit, both conflicting with ACCESS EXCLUSIVE — it blocks BY CONSTRUCTION. The failure dump also improved: wait states + the ungranted-lock graph now print, so the next failure of this class states itself outright. RED RUN 4: 33180035716 at head 08a011893, chained watcher validating WEDGE-FORMED before auto-GREEN. Three faults, all the same shape (a step that looked complete and quietly observed nothing), zero false greens — the assertion is 3-for-3.
 ---
 <!-- COMMENTS:END -->
