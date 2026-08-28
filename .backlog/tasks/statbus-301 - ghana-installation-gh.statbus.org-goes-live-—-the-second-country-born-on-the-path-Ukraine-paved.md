@@ -7,6 +7,7 @@ status: In Progress
 assignee:
   - '@operator'
 created_date: '2026-08-28 16:18'
+updated_date: '2026-08-28 16:19'
 labels:
   - ops
   - cloud
@@ -37,3 +38,13 @@ VERIFICATION AT COMPLETION (pin results here, no personal data): https://gh.stat
 
 BIRTH RECORD to pin on completion: version + commit installed, slot code, offset, date — the concrete named artifacts, nothing else.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: operator (pinned by foreman)
+created: 2026-08-28 16:19
+---
+PREP COMPLETE, read-only (execution gated): (1) OFFSET — niue's live table shows 6=et, 7=test, 8=jo, 9=ug, 10=ua; next free is 11, allocated for gh. (2) DNS VERIFIED — gh.statbus.org resolves via CNAME niue.statbus.org to 162.55.61.141, live now. (3) COMMAND READY — ops/create-new-statbus-installation.sh gh "Ghana StatBus" <version>, with the version placeholder resolving to v2026.08.0-rc.16 contingent on its chain verdict (in flight), or whatever the King names. GATES STANDING: version confirmation from the foreman after the chain verdict; admin credentials from the King via unpersisted channel (never written anywhere persisted); users-create waits for both. The operator holds for the explicit go.
+---
+<!-- COMMENTS:END -->
