@@ -344,3 +344,126 @@ func TestCanaryExplanation_CommandNamesTheCandidate_STATBUS245B(t *testing.T) {
 		}
 	}
 }
+
+// STATBUS-247: the human canary's install COMPLETING is not the point — the
+// OBSERVATION is. These pin missingObservationCardReason (the pure,
+// SSH-free check checkOneCanary applies only to the operator slot, only on
+// the 'completed' outcome) plus the structural wiring that actually calls it.
+
+// TestMissingObservationCardReason_CardWithTagPasses is the positive case: a
+// card exists at the right path and names the candidate somewhere in its body.
+func TestMissingObservationCardReason_CardWithTagPasses(t *testing.T) {
+	dir := t.TempDir()
+	tag := "v2026.08.0-rc.17"
+	obsDir := dir + "/doc/observations"
+	if err := os.MkdirAll(obsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(obsDir+"/"+tag+".md", []byte("# Norway Observation Card — "+tag+"\n\nNothing to report.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if reason := missingObservationCardReason(dir, tag); reason != "" {
+		t.Errorf("a card naming the candidate must pass; got reason: %q", reason)
+	}
+}
+
+// TestMissingObservationCardReason_MissingCardRefuses is the first negative:
+// no file at all at the expected path.
+func TestMissingObservationCardReason_MissingCardRefuses(t *testing.T) {
+	dir := t.TempDir()
+	tag := "v2026.08.0-rc.17"
+	reason := missingObservationCardReason(dir, tag)
+	if reason == "" {
+		t.Fatal("a missing card must refuse, got no reason (pass)")
+	}
+	if !strings.Contains(reason, "no file at") {
+		t.Errorf("the reason should say there is no file; got: %q", reason)
+	}
+}
+
+// TestMissingObservationCardReason_CardWithoutTagRefuses is the STALE-COPY
+// case, the sharper of the two negatives: a card exists at the right path
+// but never mentions the candidate — exactly what a card copied from the
+// PREVIOUS candidate and never updated would look like. This is the
+// realistic mistake the check exists to catch, not fraud.
+func TestMissingObservationCardReason_CardWithoutTagRefuses(t *testing.T) {
+	dir := t.TempDir()
+	tag := "v2026.08.0-rc.17"
+	obsDir := dir + "/doc/observations"
+	if err := os.MkdirAll(obsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// A card that exists, is well-formed, and is even ABOUT this general
+	// exercise — it just never says WHICH candidate, exactly the stale-copy
+	// shape (e.g. still reading "v2026.08.0-rc.16" throughout, or genuinely
+	// scrubbed of any tag).
+	if err := os.WriteFile(obsDir+"/"+tag+".md", []byte("# Norway Observation Card — v2026.08.0-rc.16\n\nNothing to report.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	reason := missingObservationCardReason(dir, tag)
+	if reason == "" {
+		t.Fatal("a card that never names the candidate must refuse, got no reason (pass)")
+	}
+	if !strings.Contains(reason, "never names") {
+		t.Errorf("the reason should say the card never names the candidate; got: %q", reason)
+	}
+}
+
+// TestCheckOneCanary_ObservationGate_STATBUS247 pins the structural wiring:
+// checkOneCanary must call missingObservationCardReason INSIDE the
+// canaryCompleted branch, gated on slot.role == roleOperator — never for
+// the automatic (dev) slot, which has no human watching and so nothing to
+// have observed. Uses the same source-reading technique as
+// TestCanaryGate_OnlyCompletedPasses_STATBUS245 above, since checkOneCanary
+// itself calls out to SSH (runCanaryProbe) and cannot be unit-tested
+// end-to-end without a live or mocked box.
+func TestCheckOneCanary_ObservationGate_STATBUS247(t *testing.T) {
+	src := readCanarySource(t)
+	completedIdx := strings.Index(src, "if outcome == canaryCompleted {")
+	if completedIdx < 0 {
+		t.Fatal("checkOneCanary must branch on outcome == canaryCompleted — test is stale or the gate regressed")
+	}
+	// The next case in the outer switch/if-chain bounds the completed
+	// branch's body; everything below is the WHOLE rest of the file, so
+	// scanning for the role-gated call within a generous window after
+	// completedIdx is sufficient without needing full brace-matching.
+	window := src[completedIdx:]
+	if idx := strings.Index(window, "\n\tcase "); idx > 0 {
+		window = window[:idx]
+	}
+	if !strings.Contains(window, "slot.role == roleOperator") {
+		t.Error("the observation-card check must be gated on slot.role == roleOperator — the automatic (dev) slot has no human observation to require")
+	}
+	if !strings.Contains(window, "missingObservationCardReason(") {
+		t.Error("the completed branch must call missingObservationCardReason — the install finishing is not proof an observation was recorded")
+	}
+	if !strings.Contains(window, "The human canary's value is the observation, not the install.") {
+		t.Error("the refusal must use the exact ruled message — 'The human canary's value is the observation, not the install.'")
+	}
+}
+
+// TestCanaryExplanation_AwaitingOperatorUnaffectedByObservationGate_STATBUS247
+// confirms the STATBUS-247 addition did not touch the awaiting-operator
+// branch's own verdict shape — it still reads as Norway's legitimate resting
+// state, unrelated to whether any observation card exists yet (the card is
+// only checked once the outcome is 'completed'). The print DID gain a new
+// line pointing at the card path (kept from the earlier design) — this test
+// confirms that addition, not a regression.
+func TestCanaryExplanation_AwaitingOperatorUnaffectedByObservationGate_STATBUS247(t *testing.T) {
+	norway := canarySlots[0]
+	for _, s := range canarySlots {
+		if s.role == roleOperator {
+			norway = s
+			break
+		}
+	}
+	out := captureStdout(t, func() {
+		printCanaryExplanation(norway, canaryAwaitingOperator, canaryProbe{found: true, state: "available", discoveredAt: "2026-08-18 09:00:00+00"}, "v2026.08.0-rc.17")
+	})
+	if !strings.Contains(out, "NOTHING IS WRONG") {
+		t.Error("awaiting-operator on the operator slot must still read as the legitimate resting state, unrelated to the observation-card gate")
+	}
+	if !strings.Contains(out, "doc/observations/v2026.08.0-rc.17.md") {
+		t.Error("the offer explanation should print the observation card's path for this candidate (kept from the earlier design)")
+	}
+}

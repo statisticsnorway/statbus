@@ -1438,7 +1438,7 @@ SKIP_APP_BUILD_LINT) apply at the prerelease cut — see
 		//    upstream signals they depend on.
 		//
 		//    Bypass per slot: STATBUS_SKIP_CANARY=<label>[,<label>...].
-		allPassed = checkCanaryGates(latestRC, rcCommit) && allPassed
+		allPassed = checkCanaryGates(projDir, latestRC, rcCommit) && allPassed
 
 		if !allPassed {
 			return fmt.Errorf("pre-flight checks failed")
