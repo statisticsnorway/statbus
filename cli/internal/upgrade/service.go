@@ -2554,10 +2554,25 @@ func (d *Service) Run(ctx context.Context) error {
 // startListenLoop launches a new listenLoop goroutine with a cancellable context.
 // Idempotent: if the goroutine is already running (listenCancel != nil), returns immediately.
 // Invariant: stopListenLoop() clears listenCancel; only startListenLoop sets it.
+//
+// STATBUS-294: reads d.listenConn into a local ONCE, here, and hands that
+// value to listenLoop as a parameter — the goroutine never touches the
+// shared field again. stopListenLoop's 10s cleanup budget can still time
+// out and leave this goroutine running (that is by design, see its own
+// comment); when it does, executeUpgrade goes on to close AND NIL the
+// shared d.listenConn (:5981-5984) while the abandoned goroutine is still
+// looping. Before this fix that nil write raced the loop's own read of the
+// field (write :5984 vs read :2625) and, if the loop read after the write,
+// crashed with SIGSEGV inside pgx (WaitForNotification on a nil *pgx.Conn).
+// With the connection captured locally instead, the abandoned loop keeps
+// its own copy: the shared field going to nil cannot reach it, and the
+// Close() that precedes the nil write turns its next WaitForNotification
+// into an ordinary error the existing branch below already handles.
 func (d *Service) startListenLoop(ctx context.Context, notifyCh chan<- *pgconn.Notification, errCh chan<- error) {
 	if d.listenCancel != nil {
 		return // already running
 	}
+	conn := d.listenConn
 	listenCtx, cancel := context.WithCancel(ctx)
 	d.listenCancel = cancel
 	done := make(chan struct{})
@@ -2565,7 +2580,7 @@ func (d *Service) startListenLoop(ctx context.Context, notifyCh chan<- *pgconn.N
 	fmt.Println("listenLoop started (channels: upgrade_check, upgrade_apply)")
 	go func() {
 		defer close(done)
-		d.listenLoop(listenCtx, notifyCh, errCh)
+		d.listenLoop(listenCtx, conn, notifyCh, errCh)
 	}()
 }
 
@@ -2619,18 +2634,54 @@ func (d *Service) stopListenLoop() {
 }
 
 // listenLoop runs WaitForNotification in a goroutine, sending results on channels.
-func (d *Service) listenLoop(ctx context.Context, notifyCh chan<- *pgconn.Notification, errCh chan<- error) {
+//
+// STATBUS-294: conn is passed BY VALUE from startListenLoop's one-time read
+// of d.listenConn, never read from the shared field here — see that
+// function's comment for why. nil is handled explicitly (defensive: today's
+// only caller never hands a nil conn, but "never crash on a value this
+// function did not choose" is the whole point of taking conn as a
+// parameter instead of reaching for shared state).
+//
+// The sends to notifyCh/errCh are select'd against ctx.Done() so an
+// abandoned loop (stopListenLoop timed out and moved on) cannot block
+// forever offering a result to a reader that may no longer exist — the
+// same ownership gap this ticket closes, one channel-op earlier.
+//
+// DROPPING on ctx.Done is correct here, but the reason is a DEPENDENCY:
+// a dropped upgrade_check/upgrade_apply notification is recovered by the
+// service's own periodic tick polling the pending row. If the tick were
+// ever removed and the service became purely notification-driven, this
+// drop would become a lost wakeup — a box that silently never acts on a
+// scheduled upgrade. (Dropped errCh values are noise about our own
+// teardown: the error is almost always the conn close that accompanied
+// the very cancellation being selected on.)
+func (d *Service) listenLoop(ctx context.Context, conn *pgx.Conn, notifyCh chan<- *pgconn.Notification, errCh chan<- error) {
 	defer fmt.Printf("listenLoop exiting (ctx.Err=%v)\n", ctx.Err())
+	if conn == nil {
+		// Loud by design (architect, STATBUS-294 review): a silent return here
+		// would make the listener quietly not listen — the box keeps working on
+		// its tick, degraded and looking healthy, which is the 263 failure shape.
+		fmt.Println("listenLoop: no connection — NOT listening for notifications; " +
+			"the service will act only on its own tick (STATBUS-294)")
+		return
+	}
 	for {
-		notification, err := d.listenConn.WaitForNotification(ctx)
+		notification, err := conn.WaitForNotification(ctx)
 		if err != nil {
 			if ctx.Err() != nil {
 				return // context canceled, clean exit
 			}
-			errCh <- err
+			select {
+			case errCh <- err:
+			case <-ctx.Done():
+			}
 			return
 		}
-		notifyCh <- notification
+		select {
+		case notifyCh <- notification:
+		case <-ctx.Done():
+			return
+		}
 	}
 }
 

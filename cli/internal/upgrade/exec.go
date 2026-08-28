@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -1016,7 +1017,7 @@ func (d *Service) runRetentionPurge(ctx context.Context, scope string, installed
 		"SELECT id, log_relative_file_path FROM public.upgrade_retention_plan($1, $2)",
 		scope, installedID)
 	if err != nil {
-		fmt.Printf("retention: plan query failed (scope=%s, installed=%v): %v\n", scope, installedID, err)
+		fmt.Printf("retention: plan query failed (scope=%s, installed=%s): %v\n", scope, installedIDStr(installedID), err)
 		return
 	}
 	var plannedLogs []string
@@ -1054,10 +1055,22 @@ func (d *Service) runRetentionPurge(ctx context.Context, scope string, installed
 	// and discard the result — plannedCount above already serves as our log.
 	if _, err := d.queryConn.Exec(ctx,
 		"CALL public.upgrade_retention_apply($1, $2, 0)", scope, installedID); err != nil {
-		fmt.Printf("retention: apply failed (scope=%s, installed=%v): %v\n", scope, installedID, err)
+		fmt.Printf("retention: apply failed (scope=%s, installed=%s): %v\n", scope, installedIDStr(installedID), err)
 		return
 	}
-	fmt.Printf("retention: purged %d upgrade row(s) (scope=%s, installed=%v)\n", plannedCount, scope, installedID)
+	fmt.Printf("retention: purged %d upgrade row(s) (scope=%s, installed=%s)\n", plannedCount, scope, installedIDStr(installedID))
+}
+
+// installedIDStr renders installedID for logging: the DB integer when
+// present, "<nil>" when this purge covers every upgrade rather than one
+// (the retention plan's own NULL-means-unscoped convention). %v on the
+// pointer itself prints its ADDRESS (installed=0xc000013240) — a fact about
+// this process's memory layout, not the value an operator needs (STATBUS-294).
+func installedIDStr(installedID *int) string {
+	if installedID == nil {
+		return "<nil>"
+	}
+	return strconv.Itoa(*installedID)
 }
 
 // pruneUpgradeLogs trims tmp/upgrade-logs/ to the `keep` newest log+bundle
