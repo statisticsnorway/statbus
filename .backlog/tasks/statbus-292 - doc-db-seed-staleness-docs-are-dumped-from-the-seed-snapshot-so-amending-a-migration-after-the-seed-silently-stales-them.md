@@ -3,11 +3,11 @@ id: STATBUS-292
 title: >-
   doc-db-seed-staleness: docs are dumped from the seed snapshot, so amending a
   migration after the seed silently stales them
-status: In Progress
+status: Done
 assignee:
   - '@mechanic'
 created_date: '2026-08-27 21:51'
-updated_date: '2026-08-28 08:07'
+updated_date: '2026-08-28 08:31'
 labels:
   - testing
   - doc
@@ -97,5 +97,13 @@ The always-paid cost is one query. The expensive path is never taken automatical
 **Mechanic, after 296.** The design above is complete and the work is mechanical — one read-only comparison plus a refusal message, reusing machinery that exists. The engineer is over-qualified and better spent on candidate work; this is Low and not release-blocking, so it waits for the mechanic rather than consuming him.
 
 **One implementation constraint:** do the comparison read-only. Do **not** reach for `./sb migrate up` to surface the mismatch — it would apply pending migrations as a side effect of generating documentation.
+---
+
+author: foreman
+created: 2026-08-28 08:31
+---
+LANDED at dec0b4baf and CLOSED (the dev.sh hook had already landed — wrongly early — in 462c84fe6; this commit supplies the subcommand and makes HEAD whole). Built exactly to the architect's ruling: shape (a) DETECT over EXISTING machinery — ./sb assert-db-content-hash reuses migrate.LedgerContentHashMismatches (STATBUS-116's seed-publish gate, migrate.go:1632), read-only, no migration ever applied as a documentation side effect. The refusal names BOTH branches verbatim (WIP → migrate redo + re-run; RELEASED → redo is the WRONG move, forward repair per STATBUS-172). Item 3 (versions newer than seed) needed NO code — the pre-existing assert-db-at-head already refuses that; this unit closes exactly the same-version-different-bytes gap that check cannot see. Demo was real: isolated binary, live dev DB, scratch COPIES of real migrations — clean copies pass silently (hashes match the stored ledger, confirmed by direct query); one appended comment line refuses with version + both hashes + both remedies; and the old path's silent-proceed was verified by READING git show HEAD:dev.sh, not assumed.
+
+INCIDENT, coordinator's own error, on the record: 462c84fe6 (the 290 landing) swept the mechanic's in-flight dev.sh hunk into the gofmt-gate commit, leaving HEAD calling a subcommand that existed only as an untracked file in the working tree — ./dev.sh generate-doc-db was broken at HEAD for ~15 minutes (no victim: the shared ./sb predates it; the next build-sb would have bitten). ROOT CAUSE: I assigned two concurrent units overlapping ownership of dev.sh — the exact 'never two agents editing the same file' rule — and the exact-file staging guard is FILE-level, so it passed while the file carried two owners' hunks. The mechanic did everything right: never committed, flagged loudly with git-show evidence that his hunk landed byte-identical (sweep-in, not conflict), touched nothing further. Lesson pinned: disjoint file ownership is the load-bearing guard; staging checks cannot compensate for assigning one file to two hands.
 ---
 <!-- COMMENTS:END -->
