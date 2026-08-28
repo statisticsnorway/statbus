@@ -423,12 +423,35 @@ BROWSER_REST_URL=https://statbus-test.local
 SERVER_REST_URL=http://proxy:80
 DEBUG=false
 PUBLIC_DEBUG=false
+ENVCONFIG
+
+    # STATBUS-297 (fixture-era-accuracy ruling): a harness must construct
+    # states history could have produced. UPGRADE_ROLE is a STATBUS-254
+    # (733b0df4d) concept — writing it onto a box about to install a
+    # PRE-254 era (BASE_SHA not a descendant of 733b0df4d, e.g.
+    # cross-version-rename-handoff's pinned 730b5001c) builds a box that
+    # never existed: that era's own `./sb config generate` still SEEDS
+    # UPGRADE_CHANNEL, so the box ends up with BOTH keys and 254's own
+    # loud hand-set-channel guard refuses — a harness artifact, not a real
+    # bug (the collision behind three reds and two wrong attributions at
+    # rc.11/14/15, STATBUS-297). Gate on BASE_SHA (the global every arc
+    # sets before calling bootstrap_install_test_vm/arc_prepare_box, per
+    # arc-helpers.sh's own contract) being a descendant of 733b0df4d: a
+    # pre-254 box gets no role key at all, and its own era's binary seeds
+    # the channel exactly as history did; every other arc's BASE_SHA is the
+    # run's own current commit (always post-254), so this is a no-op there.
+    # BASE_SHA unset falls back to the pre-297 unconditional write — the
+    # only callers of this function are arc_prepare_box/reset_vm_state,
+    # both downstream of an arc script that has already required BASE_SHA.
+    if [ -z "${BASE_SHA:-}" ] || git -C "$HARNESS_ROOT" merge-base --is-ancestor 733b0df4d "$BASE_SHA" 2>/dev/null; then
+        cat >> "$env_config_file" << 'ENVCONFIG'
 # STATBUS-254: declare what the box IS; the channel is derived from it.
 # production -> stable, which is what this harness wants even though the box
 # runs in development MODE (the upgrade axis is deliberately decoupled from the
 # front-door mode — STATBUS-106), so migrationChannelClass stays channelRelease.
 UPGRADE_ROLE=production
 ENVCONFIG
+    fi
     scp -O "${SSH_OPTS[@]}" "$env_config_file" root@"$ip":/tmp/env-config
     ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0644 /tmp/env-config'
     rm -f "$env_config_file"
