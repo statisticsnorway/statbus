@@ -3,11 +3,11 @@ id: STATBUS-305
 title: >-
   exhaust-arm-terminal: when the db never returns, the daemon parks and refuses
   to restore blind — the scenario asserts a terminal the doctrine forbids
-status: In Progress
+status: Done
 assignee:
   - '@mechanic'
 created_date: '2026-08-28 18:54'
-updated_date: '2026-08-28 19:41'
+updated_date: '2026-08-28 20:21'
 labels:
   - upgrade
   - install-recovery
@@ -57,5 +57,11 @@ author: foreman
 created: 2026-08-28 19:41
 ---
 LIVE PROOF RUN (33202712033): the EXHAUST arm went SIX-FOR-SIX — every new assertion passed live including the negative ('NO restore was ever attempted over the unverifiable database — the invariant holds, not just its side effects', verbatim from the run) — the doctrine assertion is PROVEN. The run then failed at exactly the point the mechanic flagged in his freeze report: ARM 2's opening. Mechanism from the bytes: the same images-ready wait passed at 19:26 (ARM 1, db up) and failed opening ARM 2 at 19:36 with the '?' row-read sentinel — ARM 2's first read ran against the STILL-PAUSED db, because the pre-doctrine rollback used to RESTART the db and ARM 2 always inherited a live one; the parked terminal leaves it paused. One fix remains: ARM 2 opens with db_unpause + a positive wait on the daemon's reconnect (verified against service.go's actual output string, not guessed) before any row read, with the inheritance documented at the arm's header. Mechanic building; on the re-run's green, 305 closes and every scenario in the fleet is attributable.
+---
+
+author: foreman
+created: 2026-08-28 20:21
+---
+RE-PROOF GREEN (run 33206368051, head 3f7a03e24) — TICKET CLOSED. The full scenario now passes live: the EXHAUST arm asserts the park doctrine (six assertions including the negative, proven both against the captured red journal AND on a live VM), and ARM 2 completes its forward path against the fresh-daemon world the arc now constructs explicitly. THE CAMPAIGN'S LAST RED IS RESOLVED: transient-db-backoff — the scenario that found a bug per layer (294's crash → 299's watchdog kill → the stale rolled_back assertion → 306's deaf listener) — is green asserting what the product actually promises. Every scenario in the fleet is now attributable: rc.16's chain stands at legs 1-4 green + 36/37 fleet green with the 37th proven green post-fix on this targeted run. Residue filed as product tickets: STATBUS-298 (refusals park, transients retry — the recovery-boot crash-loop), STATBUS-306 (the parked daemon's dead listener). rc.16's code is promotable per the architect's ruling; the Norway canary is the next human step.
 ---
 <!-- COMMENTS:END -->
