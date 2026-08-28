@@ -88,6 +88,30 @@ verify() {
     fi
 }
 
+# pkg_installed <name> — is this package installed, asked WITHOUT a pipe.
+#
+# STATBUS-227, root-caused at last. This script runs under `set -o pipefail`
+# (see the top of the file), and `verify` evaluates its command in THIS shell,
+# so a verify written as `dpkg -l | grep -q <pkg>` is subject to the canonical
+# grep -q race: grep exits the instant it matches, closes the pipe, dpkg is
+# killed by SIGPIPE with bytes still unwritten, and pipefail fails the pipeline
+# DESPITE THE MATCH. The check reports ✗ for software that is installed.
+#
+# It is size-dependent, which is why it ROVED between scenarios and looked like
+# VM flakiness for months: measured locally, a producer whose output is a few KB
+# always succeeds, ~19KB fails 19 runs in 20, and ~39KB and up fails every time.
+# The flip sits BELOW the 64KiB pipe buffer — this is a scheduling race about
+# whether the producer has finished writing, not a buffer-capacity limit — so a
+# longer package list simply widens the window.
+#
+# `${db:Status-Status}` is exactly the `^ii` the old crowdsec check spelled by
+# hand, and it is STRICTER than the bare-name grep the unattended-upgrades check
+# used: a purged-but-config-remaining package (`rc`) matched that grep and will
+# now correctly read as not installed, which is what these verifies mean.
+pkg_installed() {
+    [ "$(dpkg-query -W -f='${db:Status-Status}' "$1" 2>/dev/null)" = "installed" ]
+}
+
 ask_yes_no() {
     local prompt="$1"
     local default="${2:-n}"
@@ -517,7 +541,7 @@ stage_https_sources() {
             log "Switching http:// URIs to HTTPS mirror..."
             sed -i 's|http://[^/]*/ubuntu|https://mirrors.edge.kernel.org/ubuntu|g' "$sources_file"
         else
-            log "HTTPS sources already configured — shipped mirror: $(grep -E "$uri_line_re" "$sources_file" | grep -oE 'https://[^[:space:]]+' | head -1)"
+            log "HTTPS sources already configured — shipped mirror: $(grep -E "$uri_line_re" "$sources_file" | grep -oE 'https://[^[:space:]]+' | awk 'NR==1')"
         fi
     elif [[ -f "$old_sources" ]]; then
         log "Detected legacy sources.list format"
@@ -529,7 +553,7 @@ stage_https_sources() {
             log "Switching http:// URIs to HTTPS mirror..."
             sed -i 's|http://[^/]*/ubuntu|https://mirrors.edge.kernel.org/ubuntu|g' "$old_sources"
         else
-            log "HTTPS sources already configured — shipped mirror: $(grep -E "$uri_line_re" "$old_sources" | grep -oE 'https://[^[:space:]]+' | head -1)"
+            log "HTTPS sources already configured — shipped mirror: $(grep -E "$uri_line_re" "$old_sources" | grep -oE 'https://[^[:space:]]+' | awk 'NR==1')"
         fi
     else
         log_warn "No standard sources file found"
@@ -656,8 +680,8 @@ EOF
     # C.UTF-8 is a built-in locale on Ubuntu 24.04 and does NOT appear in
     # `locale -a` output (which only lists generated locales). Test usability
     # instead: try to use it and catch the "Cannot set" failure mode.
-    verify "C.UTF-8 locale available" "LC_ALL=C.UTF-8 locale 2>&1 | grep -qv 'Cannot set'"
-    verify "en_US.UTF-8 locale available" "locale -a | grep -q 'en_US.utf8'"
+    verify "C.UTF-8 locale available" "LC_ALL=C.UTF-8 locale 2>&1 | grep -v 'Cannot set'"
+    verify "en_US.UTF-8 locale available" "locale -a | grep 'en_US.utf8'"
     
     pause
 }
@@ -808,7 +832,7 @@ EOF
     # Verification
     echo ""
     log "Verifying Stage 3..."
-    verify "unattended-upgrades installed" "dpkg -l | grep -q unattended-upgrades"
+    verify "unattended-upgrades installed" "pkg_installed unattended-upgrades"
     verify "Auto-upgrades config exists" "test -f /etc/apt/apt.conf.d/20auto-upgrades"
     verify "Unattended-upgrades config exists" "test -f /etc/apt/apt.conf.d/50unattended-upgrades"
     verify "apt-daily timer override exists" "test -f /etc/systemd/system/apt-daily.timer.d/override.conf"
@@ -880,13 +904,13 @@ stage_security_tools() {
     # The nftables bouncer installs as `crowdsec-firewall-bouncer-nftables`. Anchor
     # to the `ii` install state prefix so we don't false-positive on config-kept
     # entries (`rc`), and include either the plain or -nftables variant.
-    verify "Firewall bouncer installed" "dpkg -l | grep -qE '^ii\s+crowdsec-firewall-bouncer(-nftables)?\s'"
-    verify "SSHD collection installed" "cscli collections list | grep -q sshd"
-    verify "UFW active" "ufw status | grep -q 'Status: active'"
-    verify "SSH allowed in UFW" "ufw status | grep -q 'OpenSSH'"
-    verify "HTTP allowed in UFW" "ufw status | grep -q '80/tcp'"
-    verify "HTTPS allowed in UFW" "ufw status | grep -q '443/tcp'"
-    verify "PostgreSQL allowed in UFW" "ufw status | grep -q '5432/tcp'"
+    verify "Firewall bouncer installed" "pkg_installed crowdsec-firewall-bouncer || pkg_installed crowdsec-firewall-bouncer-nftables"
+    verify "SSHD collection installed" "cscli collections list | grep sshd"
+    verify "UFW active" "ufw status | grep 'Status: active'"
+    verify "SSH allowed in UFW" "ufw status | grep 'OpenSSH'"
+    verify "HTTP allowed in UFW" "ufw status | grep '80/tcp'"
+    verify "HTTPS allowed in UFW" "ufw status | grep '443/tcp'"
+    verify "PostgreSQL allowed in UFW" "ufw status | grep '5432/tcp'"
     
     pause
 }
@@ -1082,7 +1106,7 @@ DEVOPS_KEYPAIR
     verify "devops has passwordless sudo" "test -f /etc/sudoers.d/devops"
     verify "devops SSH directory exists" "test -d /home/devops/.ssh"
     if getent group docker >/dev/null; then
-        verify "devops is in docker group" "id -nG devops | tr ' ' '\n' | grep -qx docker"
+        verify "devops is in docker group" "id -nG devops | tr ' ' '\n' | grep -x docker"
     fi
 
     if [[ -n "$GITHUB_USERS" || -n "$GITHUB_DEPLOY_KEYS" ]]; then
@@ -1168,13 +1192,13 @@ stage_service_account() {
     log "Verifying Stage 7..."
     verify "$user user exists" "id $user"
     if getent group docker >/dev/null; then
-        verify "$user is in docker group" "id -nG $user | tr ' ' '\n' | grep -qx docker"
+        verify "$user is in docker group" "id -nG $user | tr ' ' '\n' | grep -x docker"
     fi
     verify "$user .ssh dir exists with correct mode" "test -d /home/$user/.ssh"
     if [[ -n "$GITHUB_USERS" || -n "$GITHUB_DEPLOY_KEYS" ]]; then
         verify "$user authorized_keys populated" "test -s /home/$user/.ssh/authorized_keys"
     fi
-    verify "$user linger enabled" "loginctl show-user $user -p Linger 2>/dev/null | grep -q 'Linger=yes'"
+    verify "$user linger enabled" "loginctl show-user $user -p Linger 2>/dev/null | grep 'Linger=yes'"
 
     pause
 }
@@ -1402,14 +1426,14 @@ stage_ci_allowlist() {
     #   error:   the config is invalid — sshdo would refuse to work. REFUSE.
     #   warning: something about this host (a user not created yet, a clash
     #            worth seeing). SURFACE IT, loudly, and continue.
-    if printf '%s\n' "$check_out" | grep -q '^error:'; then
+    if printf '%s\n' "$check_out" | grep '^error:' >/dev/null; then
         log_error "sshdo --check found INVALID CONFIG in the fetched allowlist — refusing to install it."
         log_error "Installing a config sshdo cannot parse denies every CI command on this host, and"
         log_error "the refusal an operator sees blames a missing entry rather than the file."
         FAILED_VERIFICATIONS+=("Stage 8: sshdo --check reported invalid config")
         return 0
     fi
-    if printf '%s\n' "$check_out" | grep -q '^warning: No such user'; then
+    if printf '%s\n' "$check_out" | grep '^warning: No such user' >/dev/null; then
         log_warn "The allowlist names users that do not exist on this host (listed above)."
         log_warn "Those entries are inert until the accounts are created — expected on a fresh"
         log_warn "host, but on a live one it means a CI path is silently dead."
@@ -1508,7 +1532,7 @@ stage_ci_allowlist() {
     # Same distinction as above: assert the parser reports no `error:` line, not
     # that its exit code is zero — a "No such user" warning must not fail the run.
     verify "sshdo parses the installed allowlist without errors" \
-        "! /usr/local/bin/sshdo --check /etc/sshdoers 2>&1 | grep -q '^error:'"
+        "! /usr/local/bin/sshdo --check /etc/sshdoers 2>&1 | grep '^error:'"
 
     echo ""
     log "Live allowlist hash: $(cat /etc/sshdoers.sha256)"

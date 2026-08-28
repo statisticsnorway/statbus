@@ -296,7 +296,7 @@ set -euo pipefail
 cd ~/statbus
 # Discover the PGDATA volume by suffix (dbVolumeName() == COMPOSE_INSTANCE_NAME
 # + "-db-data", exec.go:227-231) rather than re-deriving COMPOSE_INSTANCE_NAME.
-vol=$(docker volume ls --format '{{.Name}}' | grep -- '-db-data$' | head -1)
+vol=$(docker volume ls --format '{{.Name}}' | grep -- '-db-data$' | awk 'NR==1')
 if [ -z "$vol" ]; then
     echo "  ✗ seed_pre_upgrade_snapshot: no *-db-data docker volume found" >&2
     exit 1

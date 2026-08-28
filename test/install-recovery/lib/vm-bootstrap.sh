@@ -69,7 +69,7 @@ HARNESS_ROOT="$(cd "$HARNESS_LIB_DIR/../../.." && pwd)"
 if [ -z "${HCLOUD_TOKEN:-}" ]; then
     if [ -f "$HARNESS_ROOT/.env.credentials" ]; then
         # shellcheck disable=SC2046
-        export $(grep '^HCLOUD_TOKEN=' "$HARNESS_ROOT/.env.credentials" | head -1)
+        export $(grep '^HCLOUD_TOKEN=' "$HARNESS_ROOT/.env.credentials" | awk 'NR==1')
     fi
 fi
 if [ -z "${HCLOUD_TOKEN:-}" ]; then
@@ -216,12 +216,12 @@ _assert_head_still_on_origin() {
         echo "WARN: could not resolve HEAD (git rev-parse) — skipping the origin re-check" >&2
         return 0
     }
-    if git -C "$HARNESS_ROOT" branch -r --contains "$sha" 2>/dev/null | grep -q '^ *origin/'; then
+    if git -C "$HARNESS_ROOT" branch -r --contains "$sha" 2>/dev/null | grep '^ *origin/' >/dev/null; then
         return 0
     fi
     local remote_refs
     if remote_refs="$(GIT_TERMINAL_PROMPT=0 git -C "$HARNESS_ROOT" ls-remote origin 2>/dev/null)"; then
-        if printf '%s\n' "$remote_refs" | grep -q "^${sha}[[:space:]]"; then
+        if printf '%s\n' "$remote_refs" | grep "^${sha}[[:space:]]" >/dev/null; then
             return 0
         fi
     else
@@ -244,7 +244,7 @@ _wait_for_ssh() {
     local ip="$1" max="${2:-90}"
     local i
     for i in $(seq 1 "$max"); do
-        if ssh "${SSH_OPTS[@]}" -o BatchMode=yes -o ConnectTimeout=2 root@"$ip" echo ok 2>/dev/null | grep -q "^ok$"; then
+        if ssh "${SSH_OPTS[@]}" -o BatchMode=yes -o ConnectTimeout=2 root@"$ip" echo ok 2>/dev/null | grep "^ok$" >/dev/null; then
             echo "  SSH up after ${i}s"
             return 0
         fi
@@ -540,7 +540,7 @@ EOF'
     STATBUS_UID=$(ssh "${SSH_OPTS[@]}" root@"$ip" id -u statbus 2>/dev/null) || true
     local i
     for i in $(seq 1 20); do
-        if ssh "${SSH_OPTS[@]}" root@"$ip" "sudo -u statbus XDG_RUNTIME_DIR=/run/user/$STATBUS_UID systemctl --user is-system-running" 2>/dev/null | grep -qE "running|degraded"; then
+        if ssh "${SSH_OPTS[@]}" root@"$ip" "sudo -u statbus XDG_RUNTIME_DIR=/run/user/$STATBUS_UID systemctl --user is-system-running" 2>/dev/null | grep -E "running|degraded" >/dev/null; then
             break
         fi
         sleep 0.5
@@ -730,7 +730,7 @@ bootstrap_install_test_vm() {
         fi
         create_err=$(cat "$create_stderr")
         rm -f "$create_stderr"
-        if ! printf '%s' "$create_err" | grep -qE "resource_limit_exceeded|resource_unavailable"; then
+        if ! printf '%s' "$create_err" | grep -E "resource_limit_exceeded|resource_unavailable" >/dev/null; then
             echo "ERROR: hcloud server create failed for '$vm_name': $create_err" >&2
             return 1
         fi

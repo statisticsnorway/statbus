@@ -35,7 +35,7 @@ assert_health_passes() {
 
     for i in $(seq 1 60); do
         http_code=$(VM_EXEC bash -c "curl -s -m 3 -H 'Host: ${domain}' http://127.0.0.1:${port}/rest/ -o /dev/null -w '%{http_code}'" 2>/dev/null || echo "000")
-        if echo "$http_code" | grep -q "^[23]"; then
+        if echo "$http_code" | grep "^[23]" >/dev/null; then
             echo "  ✓ health check passed (attempt $i, code=$http_code, ${i}×5s)"
             return 0
         fi
