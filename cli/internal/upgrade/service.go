@@ -3702,6 +3702,48 @@ func (d *Service) verifyCommitSignature(sha string) error {
 // assertion without a 5-min wait.
 var connectTimeout = 5 * time.Minute
 
+// connectAttemptTimeout bounds ONE dial inside connect()'s sub-attempt loop
+// (STATBUS-299). connectTimeout above remains the TOTAL budget; this is the
+// step size within it.
+//
+// THE VALUE IS CHOSEN AGAINST WatchdogSec=120s, not picked for roundness. It
+// must be comfortably below it so a wedged attempt's silence reaches systemd
+// as a missing heartbeat well before the watchdog's own deadline — that is what
+// keeps real-hang detection alive INSIDE the covered phase. It must also be
+// long enough that a legitimately slow dial (cold container, loaded host) is
+// not chopped up into pointless retries.
+//
+// Package vars, not consts, so tests drive the loop deterministically instead
+// of waiting real minutes — the same seam discipline as waitForRestReadyNow.
+var (
+	connectAttemptTimeout = 30 * time.Second
+	connectRetryDelay     = 2 * time.Second
+	// connectRetryAfter is the loop's only contact with the passage of time.
+	// Held as a var so a test can supply a channel it controls; production code
+	// must never assign it, and tests restore it via t.Cleanup.
+	connectRetryAfter = time.After
+)
+
+// connectOnce performs exactly ONE dial of both connections, bounded by the
+// caller's ctx. Extracted from connect() so the sub-attempt loop has a unit to
+// repeat; it holds no retry policy of its own on purpose — the budget, the
+// pacing and the heartbeat all live in one place above, where they can be read
+// together.
+func (d *Service) connectOnce(ctx context.Context, config *pgx.ConnConfig) error {
+	var err error
+	d.listenConn, err = pgx.ConnectConfig(ctx, config)
+	if err != nil {
+		return fmt.Errorf("listen connection: %w", err)
+	}
+	d.queryConn, err = pgx.ConnectConfig(ctx, config)
+	if err != nil {
+		_ = d.listenConn.Close(context.Background())
+		d.listenConn = nil
+		return fmt.Errorf("query connection: %w", err)
+	}
+	return nil
+}
+
 // recoveryDSN is the SINGLE SOURCE OF TRUTH for how this box reaches its
 // database: the TCP-via-Caddy-layer4 route (CADDY_DB_BIND_ADDRESS:CADDY_DB_PORT),
 // the production-real path the whole service connects on. STATBUS-143: both
@@ -3809,14 +3851,64 @@ func (d *Service) connect(ctx context.Context) error {
 	connectCtx, cancel := context.WithTimeout(ctx, connectTimeout)
 	defer cancel()
 
-	d.listenConn, err = pgx.ConnectConfig(connectCtx, config)
-	if err != nil {
-		return fmt.Errorf("listen connection: %w", err)
-	}
-	d.queryConn, err = pgx.ConnectConfig(connectCtx, config)
-	if err != nil {
-		_ = d.listenConn.Close(context.Background())
-		return fmt.Errorf("query connection: %w", err)
+	// ── BOUNDED SUB-ATTEMPTS (STATBUS-299) ──────────────────────────────────
+	// connectTimeout above is now the TOTAL budget; each individual dial gets
+	// connectAttemptTimeout. Patience overall is unchanged — what changes is
+	// that the phase is made of steps instead of one opaque wait.
+	//
+	// WHY THIS EXISTS. A daemon starting while the database is briefly down sat
+	// in ONE five-minute dial on the main goroutine. That goroutine carries the
+	// steady-state heartbeat deliberately — a separate ticker would keep pinging
+	// systemd through a real deadlock and make a hang invisible — so nothing
+	// pinged, and systemd's WatchdogSec=120 SIGABRTed a service that was riding
+	// out the outage exactly as designed. Two correct designs met at one site
+	// and left a ~118-second hole.
+	//
+	// A HEARTBEAT MUST ATTEST TO PROGRESS, NOT TO THE PASSAGE OF TIME. That is
+	// why the ping sits at the ATTEMPT BOUNDARY and nowhere else: a completed
+	// attempt is evidence the loop advanced. A timer would ping while wedged,
+	// which is the property that makes a watchdog worthless.
+	//
+	// REAL-HANG DETECTION IS PRESERVED INSIDE THE COVERED PHASE, and that is the
+	// point of the per-attempt bound being well under WatchdogSec: an attempt
+	// that genuinely wedges below the context layer (a syscall that ignores
+	// cancellation) produces no boundary, so no ping, and systemd still kills at
+	// 120s. The cover cannot mask the thing it sits next to.
+	//
+	// IT IS ALSO A BETTER CONNECTION DESIGN ON ITS OWN. A single five-minute
+	// attempt takes five minutes to report ANY failure — a wrong password was
+	// indistinguishable from a down database for five minutes. Bounded retries
+	// surface the first error in seconds while waiting just as long overall.
+	var lastErr error
+	for attempt := 1; ; attempt++ {
+		attemptCtx, attemptCancel := context.WithTimeout(connectCtx, connectAttemptTimeout)
+		lastErr = d.connectOnce(attemptCtx, config)
+		attemptCancel()
+		if lastErr == nil {
+			break
+		}
+
+		// The attempt finished — that is the progress this heartbeat attests to.
+		// Emitted BEFORE the budget check so the final attempt of a failing phase
+		// still reports liveness on its way out.
+		sdNotify("WATCHDOG=1")
+
+		if connectCtx.Err() != nil {
+			return fmt.Errorf("connect: %d attempt(s) within %s budget, last error: %w",
+				attempt, connectTimeout, lastErr)
+		}
+		fmt.Printf("Database connect attempt %d failed (%v) — retrying within the %s budget\n",
+			attempt, lastErr, connectTimeout)
+
+		// Brief pause between attempts, bounded by the total budget so a
+		// cancelled ctx never waits out the delay. Deliberately short: the
+		// per-attempt timeout already supplies the pacing.
+		select {
+		case <-connectCtx.Done():
+			return fmt.Errorf("connect: %d attempt(s) within %s budget, last error: %w",
+				attempt, connectTimeout, lastErr)
+		case <-connectRetryAfter(connectRetryDelay):
+		}
 	}
 
 	// STATBUS-110 read-only upgrade window — per-session self-exempt. The window
