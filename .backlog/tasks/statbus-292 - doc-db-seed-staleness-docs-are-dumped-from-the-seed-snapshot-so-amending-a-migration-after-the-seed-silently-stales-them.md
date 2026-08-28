@@ -3,10 +3,11 @@ id: STATBUS-292
 title: >-
   doc-db-seed-staleness: docs are dumped from the seed snapshot, so amending a
   migration after the seed silently stales them
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@architect'
 created_date: '2026-08-27 21:51'
-updated_date: '2026-08-28 07:10'
+updated_date: '2026-08-28 08:05'
 labels:
   - testing
   - doc
