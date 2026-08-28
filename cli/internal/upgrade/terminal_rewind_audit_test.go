@@ -179,8 +179,8 @@ var rewindAudit = map[siteKey]rewindDisposition{
 		Why: "Re-derived by discovery's next tick from the registry. Exemption expires if that stops being true.",
 	},
 	{"cli/internal/upgrade/service.go", "UPDATE", "release_builds_status"}: {
-		Class: classSelfHealing, Count: 2,
-		Why: "Re-derived from the release's build artifacts on the next tick.",
+		Class: classSelfHealing, Count: 1,
+		Why: "Re-derived from the release's build artifacts on the next tick. STATBUS-302: was 2 sites (the 'ready' UPDATE plus a 'failed' UPDATE reached via a `gh api` workflow-conclusion check); the 'failed' site is removed — gh is not installed on production boxes so that UPDATE never ran there, and no non-gh equivalent exists for this GitHub-Release-asset resource (ghcr.io is the wrong registry). The remaining 'ready' UPDATE is unaffected.",
 	},
 	{"cli/internal/upgrade/service.go", "UPDATE", "docker_images_downloaded"}: {
 		Class: classSelfHealing, Count: 1,

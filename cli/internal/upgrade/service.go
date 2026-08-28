@@ -1716,42 +1716,51 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 					}
 				}
 			} else {
-				// Images not in registry — try gh first, fall back to a time-
-				// bounded manifest check so CI_FAILURE_DETECTED_TRANSITIONS_ROW
-				// holds on hosts where `gh` is absent (production norm).
-				ciOutput, ciErr := runCommandOutput(d.projDir, "gh", "api",
-					fmt.Sprintf("repos/statisticsnorway/statbus/actions/workflows/images.yaml/runs?head_sha=%s&status=completed&per_page=5", r.sha),
-					"--jq", ".workflow_runs[] | .conclusion")
-				if ciErr == nil && ciOutput != "" {
-					conclusions := strings.Fields(strings.TrimSpace(ciOutput))
-					hasSuccess := false
-					hasFailure := false
-					for _, c := range conclusions {
-						switch c {
-						case "success":
-							hasSuccess = true
-						case "failure":
-							hasFailure = true
-						}
-					}
-					if hasFailure && !hasSuccess {
-						d.markImagesFailed(ctx, r.id, r.sha, fmt.Sprintf(
-							"CI images workflow reported failure for commit %s", ShortForDisplay(r.sha)))
-					}
-				} else if ciErr != nil {
-					// gh unavailable / errored. Fall back to manifest-timeout:
+				// Images not in registry per the docker-manifest-inspect loop
+				// above. STATBUS-302: this used to ask `gh api` for the
+				// images.yaml workflow's conclusion — gh is not installed on
+				// production boxes (ops/setup-ubuntu-lts-24.sh never installs
+				// it), so this call ALWAYS failed there, and the "gh
+				// unavailable" branch below then ASSERTED build failure from a
+				// probe that never actually observed one: "CI images absent
+				// ...; gh probe err=exec: \"gh\": executable file not found in
+				// $PATH" — the King's screenshots (demo.statbus.org and a
+				// second slot). A failure to observe is not evidence about the
+				// observed (architect ruling, ticket comment #1).
+				//
+				// Replaced with the anonymous ghcr.io manifest-HEAD probe
+				// (verified tokenless-for-public-images, ruling comment #1's
+				// curl transcript): a clean 404 CONFIRMS what
+				// docker-manifest-inspect already found moments ago (still
+				// absent) and lets the existing elapsed-time threshold below
+				// decide when "still building" has run long enough to call it
+				// failed — the "not built" half of the ruling's three states.
+				// Any OTHER probe outcome (anonymous-token fetch failure,
+				// network error, an unexpected HTTP status, or a stray 200
+				// meaning the images landed since the loop above ran) is a
+				// PROBE failure, not a build verdict: fails closed (no
+				// failure is ever recorded from a check that could not
+				// complete) and reports honest (logged as "could not
+				// determine", never folded into "images failed").
+				ghcrStatus, ghcrErr := probeAllImagesGhcr(ghcrRegistryBase, owner, services, tag)
+				switch ghcrStatus {
+				case ghcrAbsent:
 					// if the row has been waiting in 'building' longer than
-					// manifestTimeout and the registry still has no manifests,
-					// CI must have failed (or been skipped) — mark failed.
+					// manifestTimeout and ghcr.io confirms no manifests, CI
+					// must have failed (or been skipped) — mark failed.
 					age := time.Since(r.discoveredAt)
-					log.Printf(
-						"verifyArtifacts: gh unavailable (%v); falling back to manifest-timeout check (sha=%s, age=%s, timeout=%s)",
-						ciErr, ShortForDisplay(r.sha), age.Truncate(time.Second), manifestTimeout)
 					if age > manifestTimeout {
 						d.markImagesFailed(ctx, r.id, r.sha, fmt.Sprintf(
-							"CI images absent after %s timeout; gh probe err=%v", manifestTimeout, ciErr))
+							"no CI images published for commit %s after %s (ghcr.io confirms absent)", ShortForDisplay(r.sha), manifestTimeout))
 					}
+				case ghcrIndeterminate:
+					log.Printf(
+						"verifyArtifacts: could not determine build status for %s (ghcr probe: %v) — leaving docker_images_status unchanged",
+						ShortForDisplay(r.sha), ghcrErr)
 				}
+				// ghcrPresent: a race against the docker-manifest-inspect loop
+				// above — do nothing here; the next discovery cycle's
+				// docker-manifest-inspect marks it ready normally.
 			}
 		}
 
@@ -4355,37 +4364,39 @@ func (d *Service) discover(ctx context.Context) {
 				"UPDATE public.upgrade SET release_builds_status = 'ready' WHERE commit_sha = $1 AND release_builds_status != 'ready'",
 				t.CommitSHA)
 		} else {
-			// Manifest not available — check if the release workflow failed.
-			ciOutput, ciErr := runCommandOutput(d.projDir, "gh", "api",
-				fmt.Sprintf("repos/statisticsnorway/statbus/actions/workflows/release.yaml/runs?head_sha=%s&status=completed&per_page=5", t.CommitSHA),
-				"--jq", ".workflow_runs[] | .conclusion")
-			if ciErr == nil && ciOutput != "" {
-				conclusions := strings.Fields(strings.TrimSpace(ciOutput))
-				hasSuccess := false
-				hasFailure := false
-				for _, c := range conclusions {
-					switch c {
-					case "success":
-						hasSuccess = true
-					case "failure":
-						hasFailure = true
-					}
-				}
-				if hasFailure && !hasSuccess {
-					// STATBUS-187 #12 (architect ruling, ticket comment #9):
-					// ACCEPT-DOCUMENTED — self-correcting by construction: a
-					// failed UPDATE here leaves release_builds_status stuck
-					// at 'building' even though this poll already observed
-					// the CI failure, but the next poll re-observes the same
-					// CI result and retries the same UPDATE; no decision
-					// reads the outcome in between, only an extra poll-
-					// interval lag.
-					_, _ = d.queryConn.Exec(ctx,
-						"UPDATE public.upgrade SET release_builds_status = 'failed' WHERE commit_sha = $1 AND release_builds_status = 'building'",
-						t.CommitSHA)
-					fmt.Printf("Release build failed for %s\n", t.TagName)
-				}
-			}
+			// Manifest not available. STATBUS-302: this used to ask `gh api`
+			// for the release.yaml workflow's conclusion to decide whether
+			// release_builds_status should flip to 'failed' — gh is not
+			// installed on production boxes, so on every real installation
+			// ciErr was always non-nil and this whole block was ALREADY a
+			// no-op there (there was no `else` branch on ciErr != nil,
+			// unlike the images.yaml site above, which had one — and that
+			// missing branch's timeout-based promotion is exactly what
+			// LOOKED like the fix to reach for here too). It doesn't apply:
+			// this resource is a GitHub RELEASE asset (release-manifest.json,
+			// fetched via FetchManifest above, already tried and already
+			// failed to reach this branch) — not a container image, so
+			// ghcr.io is the wrong registry entirely; there is no anonymous
+			// HTTP probe for "did this GitHub Actions workflow conclude with
+			// failure" that doesn't go through the Actions API `gh` was
+			// wrapping. Per the ruling's explicit carve-out ("if a site
+			// genuinely needs workflow-conclusion semantics the manifest
+			// can't provide, say so per-site rather than force-fitting"):
+			// removed the always-dead-on-production gh exec outright rather
+			// than force a ghcr check onto a resource it cannot answer for.
+			// Behavior on production is UNCHANGED (release_builds_status
+			// already stayed 'building' forever here when gh was absent —
+			// this is the pre-existing default, not a new one); the only
+			// change is an honest log line instead of silent nothing, and
+			// gh is never invoked (removing the shared-IP rate-limit
+			// exposure named in the ticket). A real failure signal for this
+			// resource — e.g. a manifestTimeout-style promotion, mirroring
+			// the images.yaml site's fallback — is a genuine behavior change
+			// this ticket did not ask for and is left to Half B / a
+			// follow-up, not invented here.
+			log.Printf(
+				"discoverTaggedReleases: could not determine release build status for %s (no gh CLI; release manifest not yet published) — release_builds_status remains 'building'",
+				t.TagName)
 		}
 	}
 
