@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-27 16:12'
-updated_date: '2026-08-28 13:25'
+updated_date: '2026-08-28 13:49'
 labels:
   - testing
   - upgrade
@@ -53,5 +53,11 @@ author: foreman
 created: 2026-08-28 13:25
 ---
 FIRST RED RUN (33174142449, base_sha=rc.09): FAILED — and per the interpretation rule fixed in advance, this is a CONSTRUCTION FAULT, not the guard proven: no 'THE WEDGE FORMED' line anywhere; the arc died at its own :167 on the harness's VM_EXEC style hook refusing a complex inline command body (the hook's remedy text — use VM_SCRIPT/VM_SCRIPT_INLINE — printed in full). The wedge never got to form; the interpretation rule did exactly what it was fixed in advance to do — prevented this red from being misread as evidence. 296's diagnostics pattern held (the rows-still-processing section ran after the failure). Engineer fixing the arc (convert the offending call per the hook's own instruction + sweep for other refusable bodies; also to report how it slipped past dry validation — the hook fires only at runtime, invisible to bash -n). The failed VM run was the pre-declared price of construction iterations. RED re-dispatches after the fix lands; GREEN after that.
+---
+
+author: foreman
+created: 2026-08-28 13:49
+---
+SECOND RED RUN (33175628012, arc fix aboard): construction fault #2, one step further — demo data populated, queue drained, 'holder-started' printed, then '✗ the ACCESS EXCLUSIVE lock was never granted — ingredient 1 cannot be constructed' after ~3.5 min of grant-polling. The refuses-to-pass-having-constructed-nothing assertion did its job again; GREEN correctly not dispatched (the chained watcher checked for the WEDGE-FORMED line and stopped). Engineer diagnosing from the job log (tmp/red279-run2.log): prime suspect is the VM_SCRIPT_INLINE conversion changing the holder's runtime shape — dead detached session, args not reaching the body, grant-detection query mismatched to the new process shape, or an era factor in the rc.09 box's user/socket config. Also flagged: if the holder's own log ($HOLD_LOG) is not dumped on the grant-wait failure path, that capture is the first fix — the holder's log IS the diagnosis. Standing rule invoked: three construction iterations is where pre-declared patience ends — if diagnosis needs more attempts, a cheaper local iteration loop (compose-based holder+grant-poll dry-run) is owed before another paid run.
 ---
 <!-- COMMENTS:END -->
