@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-08-28 18:54'
-updated_date: '2026-08-28 19:11'
+updated_date: '2026-08-28 19:41'
 labels:
   - upgrade
   - install-recovery
@@ -51,5 +51,11 @@ author: foreman
 created: 2026-08-28 19:11
 ---
 ARM FIX LANDED at 56b6760da (one file, +86/−24). The build's decisive insight, mechanic's own: a target-string swap (rolled_back→parked) in the old helpers would have moved the SAME bug one layer down — all three old assertions were ./sb-psql-based against the db this arm keeps permanently paused. The terminal block is now journal/systemd-only: PARKED marker, refusal reasoning, connect loop demonstrably CYCLING (count ≥ 2, not one stale line — two new arm-scoped journal-count helpers), alive-idle + restarts bounded (STATBUS-298 cross-referenced at the site), and the ruling's NEGATIVE checked LAST across the longest window — exec.go:885's restore-START marker ABSENT, the one assertion a blind-restore-then-park regression cannot pass. VALIDATED against the rc.16 red's own captured journal (all four assertions pass against the real evidence — red-turned-green by construction; connect-attempt count in the capture: 18). ARM 2 untouched and correct as-is (its db comes back, live-query helpers safe) but now inherits a PARKED predecessor from ARM 1 for the first time — flagged, and the LIVE PROOF RUN answers it: targeted dispatch 33202712033 at head 56b6760da, watcher armed. On its green: the campaign's last red becomes a proven assertion of the doctrine, and every scenario in the fleet is attributable.
+---
+
+author: foreman
+created: 2026-08-28 19:41
+---
+LIVE PROOF RUN (33202712033): the EXHAUST arm went SIX-FOR-SIX — every new assertion passed live including the negative ('NO restore was ever attempted over the unverifiable database — the invariant holds, not just its side effects', verbatim from the run) — the doctrine assertion is PROVEN. The run then failed at exactly the point the mechanic flagged in his freeze report: ARM 2's opening. Mechanism from the bytes: the same images-ready wait passed at 19:26 (ARM 1, db up) and failed opening ARM 2 at 19:36 with the '?' row-read sentinel — ARM 2's first read ran against the STILL-PAUSED db, because the pre-doctrine rollback used to RESTART the db and ARM 2 always inherited a live one; the parked terminal leaves it paused. One fix remains: ARM 2 opens with db_unpause + a positive wait on the daemon's reconnect (verified against service.go's actual output string, not guessed) before any row read, with the inheritance documented at the arm's header. Mechanic building; on the re-run's green, 305 closes and every scenario in the fleet is attributable.
 ---
 <!-- COMMENTS:END -->
