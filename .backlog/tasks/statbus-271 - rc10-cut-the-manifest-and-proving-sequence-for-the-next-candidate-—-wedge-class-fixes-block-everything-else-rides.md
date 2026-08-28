@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 13:08'
-updated_date: '2026-08-28 08:59'
+updated_date: '2026-08-28 13:10'
 labels:
   - release
 dependencies: []
@@ -90,5 +90,11 @@ author: foreman
 created: 2026-08-28 08:59
 ---
 rc.15 CUT (v2026.08.0-rc.15, tag at 2b3862bcc, 2026-08-28 ~09:00Z) — fifth candidate. Delta over rc.14, all landed this morning: 294 (the listener-ownership fix — the CONFIRMED cause of both rc.14 arc reds), 296 (25 arc diagnostics functions now survive the failures they document), 290's gofmt gate (passed its first live CI run in this very cut's go-test evidence), 292's content-hash refusal (plus the HEAD repair for my dev.sh sweep-in). Preflight green: images + fast-tests + pg_regress at the tip, go-test/app-build-lint riding from dec0b4baf over the board-only commit. Orchestrator 33157526472 queued, watcher armed on the run id. THE CLAIM THIS CHAIN TESTS: every red from four candidates is root-caused and its fix is aboard — 293's lottery, 227's SIGPIPE, 295's fixture pollution, 294's listener crash. Expected: the first FULLY GREEN chain, 36/36 arcs — and if anything new reds, 296's journals mean the triage reads a stack trace instead of arguing from silence. On green: rc.15 is the candidate for Norway's human canary against doc-035's observation card, then the promotion gate.
+---
+
+author: foreman
+created: 2026-08-28 13:10
+---
+rc.15 CHAIN FINAL VERDICT (orchestrator 33157526472; fleet 33163032285: 33 GREEN / 3 red): legs 1-4 green again (leg 4's third consecutive green since the SIGPIPE fix; dev took its fifth candidate). The fleet's three reds: (1) cross-version-rename-handoff — FULLY DIAGNOSED during this very run (STATBUS-297: 254's guard firing on a both-keys collision only the harness constructs; remedy landed 27be9a72b, promotion NOT gated by it, zero real boxes carry the collision); (2) transient-db-backoff — RED DESPITE 294's fix being aboard, which reopens its attribution: either the fix failed (the journal will show the same SIGSEGV) or a second failure mode was hiding behind the crash — mechanic triaging from the journal now; (3) un-park-to-completion — a GREEN→RED flip from rc.14, delta is small and known (294's listener change the lead hypothesis for a semantics dependency) — mechanic triaging. rc.15 MAY NOT BE PROMOTED. The 279 RED proof run (33174142449) is dispatched into the freed fleet group. The honest scorecard across five candidates: every leg-1-4 failure mode eliminated and proven; the fleet went 26→34→33 green with every red root-caused within hours of firing; what remains is two fresh journals to read — and 296's diagnostics mean they were captured.
 ---
 <!-- COMMENTS:END -->
