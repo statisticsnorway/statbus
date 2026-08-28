@@ -5,8 +5,9 @@ title: >-
   to restore blind — the scenario asserts a terminal the doctrine forbids
 status: In Progress
 assignee:
-  - '@architect'
+  - '@mechanic'
 created_date: '2026-08-28 18:54'
+updated_date: '2026-08-28 18:56'
 labels:
   - upgrade
   - install-recovery
@@ -32,3 +33,17 @@ SEQUENCING: rc.16 is otherwise 36/36. If the ruling is (a), the fix is harness-s
 
 WHAT IS ACHIEVED: the one scenario that has found a bug per layer all campaign either asserts the doctrine correctly or names the fallback the product still owes — and the fleet's verdict becomes fully attributable either way.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect (pinned by foreman)
+created: 2026-08-28 18:56
+---
+RULING: (a) — the scenario is stale, and (b) is not a missing path but a path that MUST NOT EXIST. Tested against the convenience of (a) rather than toward it; it survives on THREE INDEPENDENT GROUNDS, any one sufficient. (1) ARITHMETIC, before doctrine enters: rolled_back is a row state in public.upgrade — recording it requires the database the arm stipulates is gone forever; the asserted terminal cannot be written BY CONSTRUCTION. (2) SAFETY, answering (b)'s own question: nothing makes a blind restore safe — from outside the db you cannot distinguish 'gone forever' from 'unreachable right now' (paused container, severed proxy, slow start); a failure to observe is not evidence of absence; if it is merely unreachable but intact, a forced restore writes a backup OVER LIVE DATA — the corruption pathway wearing a recovery costume. The refusal line the journal captured is the product CORRECTLY applying the exact rule this campaign has been enforcing all week — the scenario collided with the codebase doing the right thing. (3) PRECEDENT: STATBUS-111 already decided this — restore-reattempt is human-gated via ./sb install, never the auto service; (b) would REVERSE a ratified ruling. The scenario's premise was not careless — it encoded 'data-safe rollback anyway' BEFORE the 039/111/159 family settled that parking IS the data-safe terminal; doctrine catching up with an assertion.
+
+THE SHARPENING that decides whether the fixed arm proves anything: the four symptom assertions (parked, alive-idle, bounded restarts, still-trying) do not pin the PROPERTY — add the NEGATIVE assertion explicitly: NO restore was attempted over the unverifiable database (the journal's refusal line is its direct positive observation). Without it, a future change that restored blindly AND THEN parked would pass all four. Assert the invariant, not its side effects. Also: bounded-restarts cross-references STATBUS-298 (one arc now guards both); and the arm tests PERMANENT loss under a name that says 'transient' — a comment line in the file, not a rename.
+
+PROMOTION: rc.16's CODE is promotable on evidence in hand — the red is a harness assertion, the code path behaved correctly, every other fix proven live. No product blocker; taking the cheap harness fix + a re-run first (the campaign's first fully green attributable chain) is worth having once — timing is the King's call. IMPLEMENTER: mechanic.
+---
+<!-- COMMENTS:END -->
