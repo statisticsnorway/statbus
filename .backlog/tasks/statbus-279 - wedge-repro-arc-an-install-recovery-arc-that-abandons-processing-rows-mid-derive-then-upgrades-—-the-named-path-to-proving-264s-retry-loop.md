@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-27 16:12'
-updated_date: '2026-08-28 14:25'
+updated_date: '2026-08-28 14:43'
 labels:
   - testing
   - upgrade
@@ -77,5 +77,11 @@ author: foreman
 created: 2026-08-28 14:25
 ---
 FAULT #3 FIXED (landed 08a011893) with a correction to my own diagnosis that matters: the name mismatch was only HALF the failure — the derive% rows WERE in the dump, sitting in 'waiting' as structured-concurrency PARENTS while the leaf (statistical_unit_refresh_batch) worked, so any name-list predicate fails twice over and needs an entry per era. The predicate now matches MECHANISM: a processing task whose backend holds an ungranted Lock against public.statistical_unit specifically — an unrelated block cannot satisfy it. Validated locally BOTH directions on a scratch table (blocked: 1; released: 0 — the negative control is the half that matters, per the engineer), and the era cross-check closes the loop from rc.09's own bytes: its refresh-batch leaf INSERTs into and ANALYZEs statistical_unit, both conflicting with ACCESS EXCLUSIVE — it blocks BY CONSTRUCTION. The failure dump also improved: wait states + the ungranted-lock graph now print, so the next failure of this class states itself outright. RED RUN 4: 33180035716 at head 08a011893, chained watcher validating WEDGE-FORMED before auto-GREEN. Three faults, all the same shape (a step that looked complete and quietly observed nothing), zero false greens — the assertion is 3-for-3.
+---
+
+author: foreman
+created: 2026-08-28 14:43
+---
+FOURTH RED RUN (33180035716): ✗ THE WEDGE FORMED: 1 row(s) are still 'processing' with no live claimant after the upgrade — THE LOAD-BEARING ASSERTION, verbatim, exactly per the interpretation rule. THE RED RULE IS SATISFIED: against rc.09's pre-265 binary the arc reproduced the Norway wedge on a real VM — derive leaf blocked on the held lock, worker stopped, upgrade ran, worker restarted inside the read-only window, reset refused (logged and stepped past by that era's code), row abandoned. The arc is now EVIDENCE, not decoration. GREEN auto-dispatched by the chained watcher (33181492827, current master) — on its expected pass, 264+265's fix is proven by the same arc that proved the disease, and the ticket's acceptance bar is fully met. rc.16 cuts automatically after the GREEN + CI gates (chained watcher b6efm3ckf, clean-tree guarded). Four paid runs total: three construction iterations (each caught by the arc's own refusal to pass having constructed nothing) and one valid red — zero false evidence across the whole sequence.
 ---
 <!-- COMMENTS:END -->
