@@ -3,9 +3,11 @@ id: STATBUS-296
 title: >-
   arc-diagnostics-fail-fast: the failure-diagnostics step destroys the evidence
   it exists to capture when the db is down
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@mechanic'
 created_date: '2026-08-28 07:59'
+updated_date: '2026-08-28 08:00'
 labels:
   - install-recovery
   - ci
