@@ -90,10 +90,10 @@ func TestClearTerminal_RemovesFile(t *testing.T) {
 func TestDump_IncludesAllFields(t *testing.T) {
 	inv := Invariant{
 		Name: "TEST_DUMP_INV", Class: FailFast,
-		SourceLocation: "dump.go:42",
-		ExpectedToHold: "the thing holds",
-		WhyExpected:    "because of the thing",
-		ViolationShape: "the thing broke",
+		SourceLocation:   "dump.go:42",
+		ExpectedToHold:   "the thing holds",
+		WhyExpected:      "because of the thing",
+		ViolationShape:   "the thing broke",
 		TranscriptFormat: `INVARIANT TEST_DUMP_INV violated: %v`,
 	}
 	Register(inv)

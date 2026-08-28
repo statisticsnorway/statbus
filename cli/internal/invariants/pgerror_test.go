@@ -14,10 +14,10 @@ import (
 // would be written in the guarded state.
 func TestMapPgConstraint_UniqueViolations(t *testing.T) {
 	cases := []struct {
-		name         string
-		constraint   string
-		wantInv      string
-		wantSubstr   string
+		name       string
+		constraint string
+		wantInv    string
+		wantSubstr string
 	}{
 		{
 			name:       "in_progress singleton",

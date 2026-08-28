@@ -49,19 +49,19 @@ const DaemonSchemaFloor int64 = 20260712024457
 // separately).
 //
 //   - public.upgrade            — the upgrade ledger: claim, state writes, and the
-//                                 read/write sites; the floor migration adds its
-//                                 recovery-park columns.
+//     read/write sites; the floor migration adds its
+//     recovery-park columns.
 //   - db.migration              — the observed-state read (MAX(version), the
-//                                 Behind/AtNew verdict, service.go:2463).
+//     Behind/AtNew verdict, service.go:2463).
 //   - public.system_info        — config sync + self_update_error (service.go:2987/
-//                                 3005/3617/7361, progress.go).
+//     3005/3617/7361, progress.go).
 //   - public.release_status_type       — enum cast in upgrade INSERT/UPDATE
-//                                        (service.go:3428/3540/3677, github.go).
+//     (service.go:3428/3540/3677, github.go).
 //   - public.release_builds_status_type — the sibling release-build status enum.
 //   - public.upgrade_supersede_older             — CALLed in discover (service.go:3019).
 //   - public.upgrade_supersede_completed_prereleases — CALLed in discover (:3036).
 //   - public.upgrade_retention_plan   — set-returning fn, SELECTed in retention
-//                                        (exec.go:980).
+//     (exec.go:980).
 //   - public.upgrade_retention_apply  — CALLed in retention (exec.go:1020).
 //
 // EXCLUSIONS (why NOT in the set — the architect's self-consistency principle):

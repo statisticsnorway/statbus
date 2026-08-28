@@ -2638,6 +2638,20 @@ EOF
         SEED_NAME_DOC="${POSTGRES_SEED_DB:-statbus_seed}"
         SOURCE_VERSION=$(./sb assert-db-at-head "$SEED_NAME_DOC" "./dev.sh generate-doc-db") || exit 1
 
+        # STATBUS-292: assert-db-at-head above only compares the VERSION SET
+        # (behind/ahead) — it is blind to "same version, amended bytes": a
+        # migration file edited in place AFTER the seed was built still has
+        # the same version number, so assert-db-at-head sees nothing wrong,
+        # yet the seed (and thus doc/db) reflects the PRE-amendment
+        # definition. Ask the same content_hash question `./sb migrate up`
+        # already asks on every run, read-only, before dumping — a stored
+        # hash that no longer matches the on-disk file means either a
+        # deliberate WIP edit (`./sb migrate redo <version>`) or an
+        # immutability violation on an already-released migration (forward
+        # repair migration, STATBUS-172); only a human can tell which, so
+        # this refuses and names both rather than silently dumping stale docs.
+        ./sb assert-db-content-hash "$SEED_NAME_DOC" "./dev.sh generate-doc-db" || exit 1
+
         echo "Creating temporary documentation database: $DOC_DB from $TEMPLATE_NAME"
         ./sb psql -d postgres -v ON_ERROR_STOP=1 <<EOF
             SELECT pg_advisory_lock(59328);
@@ -2897,6 +2911,70 @@ EOS
         fi
 
         echo "golangci-lint: 0 issues across ${PKG_COUNT} package(s) in cli/."
+      ;;
+    'gofmt' )
+        # STATBUS-290: the ONE definition of "is cli/ gofmt-clean", called by
+        # go-test.yaml's go-lint job as well — the same shape as 'lint' above
+        # and for the same STATBUS-230 reason: a second, hand-kept copy of the
+        # command in the workflow is a second convention for the two to drift
+        # apart from.
+        #
+        # STRICT, never advisory. An advisory warning is precisely how the debt
+        # this closes accumulated: gofmt was a documented manual freeze step
+        # that every agent was asked to remember, and six files in cmd/ plus
+        # five in internal/ slipped through anyway. A check nobody's build
+        # depends on is a check that eventually reports to nobody.
+        #
+        # SCOPE IS BOTH TREES. cmd/ AND internal/ — the formatting half
+        # (caae6ab31) cleared cmd/ only, and internal/ still carried five
+        # unformatted files at that point, so a cmd/-only gate would have
+        # certified a tree that was not clean.
+        #
+        # THE FAILURE OUTPUT IS THE FILE LIST PLUS THE REMEDY. `gofmt -l` names
+        # the files and says nothing else; on its own that is a list with no
+        # instruction attached, and the reader has to know what to do with it.
+        cd cli || { echo "::error::dev.sh gofmt: cannot cd to cli/" >&2; exit 1; }
+
+        # Errexit-safe capture (STATBUS-261): under this script's `set -e` a
+        # bare `VAR="$(cmd)"` aborts the script on any non-zero exit, before
+        # the check below could report anything.
+        FMT_RC=0
+        FMT_OUTPUT="$(gofmt -l ./cmd ./internal 2>&1)" || FMT_RC=$?
+
+        # ZERO-SCOPE GUARD, same role as 'lint''s belt #2: `gofmt -l` prints
+        # nothing and exits 0 both when every file is formatted AND when it was
+        # handed no files at all (a moved directory, a typo'd path). Those two
+        # are indistinguishable from the output alone, and only one of them is
+        # good news. Count the files independently.
+        GO_FILE_COUNT="$(find ./cmd ./internal -name '*.go' -type f 2>/dev/null | grep -c . || true)"
+        if [ "$GO_FILE_COUNT" -eq 0 ]; then
+            echo "::error::dev.sh gofmt: found 0 .go files under cli/cmd and cli/internal — gofmt examined nothing. Refusing to certify a zero-scope run as clean." >&2
+            exit 1
+        fi
+
+        if [ "$FMT_RC" -ne 0 ]; then
+            echo "::error::dev.sh gofmt: gofmt itself failed (exit ${FMT_RC}): ${FMT_OUTPUT}" >&2
+            exit 1
+        fi
+
+        if [ -n "$(printf '%s' "$FMT_OUTPUT" | tr -d '[:space:]')" ]; then
+            echo "" >&2
+            echo "::error::gofmt: the following file(s) are not formatted:" >&2
+            printf '%s\n' "$FMT_OUTPUT" | sed 's|^|  cli/|' >&2
+            echo "" >&2
+            echo "  Fix with:  gofmt -w ./cmd ./internal   (run from cli/)" >&2
+            echo "  or:        ./dev.sh gofmt-fix" >&2
+            exit 1
+        fi
+
+        echo "gofmt: clean across ${GO_FILE_COUNT} .go file(s) in cli/cmd and cli/internal."
+      ;;
+    'gofmt-fix' )
+        # The remedy the gate names, as a target so the message can point at a
+        # command rather than at a directory the reader must first cd into.
+        cd cli || { echo "::error::dev.sh gofmt-fix: cannot cd to cli/" >&2; exit 1; }
+        gofmt -l -w ./cmd ./internal
+        echo "gofmt -w applied to cli/cmd and cli/internal (files listed above, if any)."
       ;;
     'build-sb' )
         # Lego primitive: build ONE sb binary.

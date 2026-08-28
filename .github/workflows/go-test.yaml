@@ -161,6 +161,32 @@ jobs:
         # sides to one tag removes the version skew by construction.
         run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/v2.12.2/install.sh | sh -s -- -b "$(go env GOPATH)/bin" v2.12.2
 
+      - name: gofmt (strict)
+        # STATBUS-290. Its own named step, BEFORE golangci-lint: gofmt has
+        # repeatedly caught what the linter did not (three times in one week,
+        # per the freeze reports on 229/233/237), so it must have its own
+        # red/green verdict rather than being folded into another step whose
+        # failure would name the wrong thing.
+        #
+        # STRICT, no continue-on-error, no `|| true` — the ratified strict-
+        # gating doctrine, same shape as `go vet` / `go test` / this job's
+        # golangci-lint. gofmt was previously a MANUAL freeze-report step that
+        # every agent was asked to remember; six files in cmd/ and five in
+        # internal/ accumulated anyway. An advisory check is how that happens.
+        #
+        # NOT under SKIP_GO_LINT. That bypass exists for golangci-lint, whose
+        # third-party install step has failed for reasons unrelated to our code
+        # (an upstream checksum rotation left this lane red for weeks). gofmt
+        # ships with the Go toolchain that is already set up above — it has no
+        # such failure mode, so it needs no escape hatch, and giving it one
+        # would only widen what a single variable silently switches off.
+        #
+        # `./dev.sh gofmt` is the ONE definition (STATBUS-230's rule, the same
+        # reason the next step calls `./dev.sh lint`): it pins the working
+        # directory, refuses a zero-scope run, and prints the file list with
+        # the remedy. CI and a developer run the identical check.
+        run: ./dev.sh gofmt
+
       - name: golangci-lint run
         if: ${{ vars.SKIP_GO_LINT != '1' }}
         # STATBUS-230: `./dev.sh lint` is the ONE definition of this check —

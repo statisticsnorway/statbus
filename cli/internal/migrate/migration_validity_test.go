@@ -139,7 +139,7 @@ func TestMaxDiskVersionMissingDir(t *testing.T) {
 func TestListMigrationFilesIgnoresNonVersionAndDown(t *testing.T) {
 	proj := t.TempDir()
 	writeMigrationFile(t, proj, "20240101000000_valid.up.sql", "SELECT 1;")
-	writeMigrationFile(t, proj, "misc.up.sql", "SELECT 2;")            // no version prefix → skip+warn
+	writeMigrationFile(t, proj, "misc.up.sql", "SELECT 2;")               // no version prefix → skip+warn
 	writeMigrationFile(t, proj, "20240102000000_x.down.sql", "SELECT 3;") // down → never globbed
 
 	var migs []*MigrationFile

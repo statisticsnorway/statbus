@@ -6,54 +6,54 @@
 //
 // Activation:
 //
-//   STATBUS_INJECT_AT=<class-name>
-//       Selects the active injection class. The class name is matched
-//       verbatim against the call-site name passed to the primitive.
-//       Class names are registered in this file (see classes); unknown
-//       names are rejected at startup by Validate.
+//	STATBUS_INJECT_AT=<class-name>
+//	    Selects the active injection class. The class name is matched
+//	    verbatim against the call-site name passed to the primitive.
+//	    Class names are registered in this file (see classes); unknown
+//	    names are rejected at startup by Validate.
 //
-//   STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE=<path>
-//       Only meaningful for stall classes. Names the release file whose
-//       deletion ends the stall. The harness creates the file before
-//       invoking ./sb, then deletes it to release the stall once it has
-//       observed the desired state (e.g. a concurrent install attempt).
+//	STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE=<path>
+//	    Only meaningful for stall classes. Names the release file whose
+//	    deletion ends the stall. The harness creates the file before
+//	    invoking ./sb, then deletes it to release the stall once it has
+//	    observed the desired state (e.g. a concurrent install attempt).
 //
 // Class registry (see classes below):
 //
-//   Eight Layer 2 kill classes seed the canonical injection points for
-//   "killed by the OS / orchestrator" simulation across the upgrade's
-//   destructive phases. The canonical case — "killed-by-system-after-
-//   migration-commit-before-recorded" — covers the ~ms window between a
-//   migration's outer transaction commit and the corresponding INSERT
-//   into db.migration, which is the deterministic source of forward-
-//   recovery breakage on master (re-attempts fail on "relation already
-//   exists"; only restore can complete the recovery coherently).
+//	Eight Layer 2 kill classes seed the canonical injection points for
+//	"killed by the OS / orchestrator" simulation across the upgrade's
+//	destructive phases. The canonical case — "killed-by-system-after-
+//	migration-commit-before-recorded" — covers the ~ms window between a
+//	migration's outer transaction commit and the corresponding INSERT
+//	into db.migration, which is the deterministic source of forward-
+//	recovery breakage on master (re-attempts fail on "relation already
+//	exists"; only restore can complete the recovery coherently).
 //
-//   One concurrent-install stall class lets a scenario hold the upgrade
-//   pipeline at a known site while a second ./sb install attempts to
-//   start, exercising probe 2 (live-upgrade) detection.
+//	One concurrent-install stall class lets a scenario hold the upgrade
+//	pipeline at a known site while a second ./sb install attempts to
+//	start, exercising probe 2 (live-upgrade) detection.
 //
 // Naming discipline:
 //
-//   Each class name describes the real-world failure being simulated,
-//   not the call-site identifier. Format:
+//	Each class name describes the real-world failure being simulated,
+//	not the call-site identifier. Format:
 //
-//       <real-world-cause>-<phase>-<detail>
+//	    <real-world-cause>-<phase>-<detail>
 //
-//   A scenario author reads the name and instantly knows what is being
-//   simulated, without reading the code where the primitive fires.
+//	A scenario author reads the name and instantly knows what is being
+//	simulated, without reading the code where the primitive fires.
 //
 // Validation:
 //
-//   Validate enforces a strict truth table at process startup. Any
-//   inconsistent combination (unknown class, stall file without class,
-//   release file set for a non-stall class, stall class missing release
-//   file) fails loudly so a misconfigured harness scenario cannot
-//   silently produce a vacuous "pass".
+//	Validate enforces a strict truth table at process startup. Any
+//	inconsistent combination (unknown class, stall file without class,
+//	release file set for a non-stall class, stall class missing release
+//	file) fails loudly so a misconfigured harness scenario cannot
+//	silently produce a vacuous "pass".
 //
-//   Operators must NOT set these env vars in production. Treat them with
-//   the same care as --post-upgrade-fixup: if you see them in a
-//   production environment, something has gone wrong.
+//	Operators must NOT set these env vars in production. Treat them with
+//	the same care as --post-upgrade-fixup: if you see them in a
+//	production environment, something has gone wrong.
 package inject
 
 import (
@@ -337,11 +337,11 @@ var classes = map[string]Kind{
 	//     seed step to intervene before destructive completion; the
 	//     scenario's "external precondition" half is having a populated
 	//     DB at install time.
-	"migration-deadlocks-with-running-worker-holding-table-lock":          KindStall,
-	"install-flag-released-without-clean-handoff-detected-as-stale":       KindExternal,
+	"migration-deadlocks-with-running-worker-holding-table-lock":           KindStall,
+	"install-flag-released-without-clean-handoff-detected-as-stale":        KindExternal,
 	"service-watchdog-timeout-during-db-reconnect-after-container-restart": KindStall,
-	"advisory-lock-attempted-before-db-ready-after-container-restart":     KindExternal,
-	"seed-restore-runs-on-populated-database-destroying-data":             KindStall,
+	"advisory-lock-attempted-before-db-ready-after-container-restart":      KindExternal,
+	"seed-restore-runs-on-populated-database-destroying-data":              KindStall,
 }
 
 // KindOf returns the Kind for a registered class, or (0, false) if the
@@ -371,24 +371,24 @@ func classNames() []string {
 // kill classes. Every cross-combination is rejected so a misconfigured
 // scenario fails loudly instead of producing a vacuous "pass".
 //
-//   ACTIVE_AT     STALL_FILE  KILL_FILE  Verdict
-//   ------------- ----------- ---------- -------------------------------------
-//   unset         unset       unset      Valid (production run)
-//   unset         set         any        REJECT — stall file without class
-//   unset         unset       set        REJECT — kill arming file without class
-//   set, unknown  any         any        REJECT — unknown class name (typo guard)
-//   set, kill     unset       unset      Valid (persistent kill)
-//   set, kill     unset       set        Valid (one-shot file-armed kill)
-//   set, kill     set         any        REJECT — release file is stall-only
-//   set, error    unset       unset      Valid
-//   set, error    set         any        REJECT — release file is stall-only
-//   set, error    unset       set        REJECT — arming file is kill-only
-//   set, stall    set         unset      Valid
-//   set, stall    unset       any        REJECT — stall requires release file
-//   set, stall    set         set        REJECT — arming file is kill-only
-//   set, external unset       unset      Valid (no in-code site; orchestration external)
-//   set, external set         any        REJECT — release file is stall-only
-//   set, external unset       set        REJECT — arming file is kill-only
+//	ACTIVE_AT     STALL_FILE  KILL_FILE  Verdict
+//	------------- ----------- ---------- -------------------------------------
+//	unset         unset       unset      Valid (production run)
+//	unset         set         any        REJECT — stall file without class
+//	unset         unset       set        REJECT — kill arming file without class
+//	set, unknown  any         any        REJECT — unknown class name (typo guard)
+//	set, kill     unset       unset      Valid (persistent kill)
+//	set, kill     unset       set        Valid (one-shot file-armed kill)
+//	set, kill     set         any        REJECT — release file is stall-only
+//	set, error    unset       unset      Valid
+//	set, error    set         any        REJECT — release file is stall-only
+//	set, error    unset       set        REJECT — arming file is kill-only
+//	set, stall    set         unset      Valid
+//	set, stall    unset       any        REJECT — stall requires release file
+//	set, stall    set         set        REJECT — arming file is kill-only
+//	set, external unset       unset      Valid (no in-code site; orchestration external)
+//	set, external set         any        REJECT — release file is stall-only
+//	set, external unset       set        REJECT — arming file is kill-only
 func Validate() error {
 	active := os.Getenv(EnvActiveAt)
 	stallFile := os.Getenv(EnvStallReleaseFile)
