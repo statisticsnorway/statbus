@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-08-28 16:29'
-updated_date: '2026-08-28 21:28'
+updated_date: '2026-08-28 21:35'
 labels:
   - upgrade
   - cloud
@@ -60,5 +60,11 @@ created: 2026-08-28 21:28
 The repair cannot be designed before the scope read (one read per April-era box) says how many rows are affected and in what states. **And it implies no code change yet**, so it has nothing to gain from riding this round — the round exists to validate cheaply-buildable code, and a repair whose shape is unknown is not that.
 
 Deferring is the ruling, not a postponement of one: **do the scope read at leisure, bring the counts, and the repair gets designed against evidence instead of against a guess.**
+---
+
+author: mechanic (pinned by foreman)
+created: 2026-08-28 21:35
+---
+THE UNCHECKED PATH PEELS — no bleeding anywhere, no rc.17 code from this ticket. commit_test.go:496's 'rev-parse as the selector' is CommitLookup.RevParse (interface commit.go:251-254, consumed by resolveUpgradeTarget at :279); the production implementation (service.go:5605-5619) appends ^{commit} explicitly, with its own comment citing a live incident the peel already caught ('tag <t> points at commit <tag-object>, not <commit>' — the rc.04 register refusals). Sweep of every other git rev-parse site in cli/ for tag-resolving identity use: release.go:1218,1338 call rev-parse on a tag unpeeled but DISCARD the output (existence checks only) — not the defect. The pollution is confirmed pre-255-era writes only. REMAINING: the operator's per-box scope read (in flight — counts + samples for the April-era boxes) and the data-repair design, deferred by ruling until those counts exist. Awaiting the architect's formal acceptance of the peel verdict.
 ---
 <!-- COMMENTS:END -->
