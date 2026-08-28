@@ -3,10 +3,11 @@ id: STATBUS-290
 title: >-
   gofmt-gate: formatting drift must trip a gate — the six files are fixed, the
   gate half remains
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@engineer'
 created_date: '2026-08-27 18:42'
-updated_date: '2026-08-28 08:06'
+updated_date: '2026-08-28 08:23'
 labels:
   - cli
   - ci
