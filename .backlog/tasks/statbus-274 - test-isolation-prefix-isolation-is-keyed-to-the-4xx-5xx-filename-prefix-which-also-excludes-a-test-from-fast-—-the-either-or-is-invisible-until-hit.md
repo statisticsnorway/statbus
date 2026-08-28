@@ -3,11 +3,11 @@ id: STATBUS-274
 title: >-
   test-isolation-prefix: isolation is keyed to the 4xx/5xx filename prefix,
   which also excludes a test from fast — the either/or is invisible until hit
-status: In Progress
+status: Done
 assignee:
   - '@architect'
 created_date: '2026-08-27 13:51'
-updated_date: '2026-08-28 10:18'
+updated_date: '2026-08-28 22:35'
 labels:
   - testing
 dependencies: []
@@ -25,6 +25,12 @@ Fix: decouple isolation from the numeric prefix (e.g. an explicit marker the run
 
 WHAT IS ACHIEVED: a test chooses speed tier and isolation independently, and the constraint that forced 094's hand-mitigation is gone.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+CLOSED at 6fc04ccc1 (dev.sh +69, 094's sql+out +17/−2 each). Built exactly to the architect's proposal, King-ratified via the finish-directive: isolation = 4xx/5xx prefix OR in-file marker; tier rule untouched; runner prints its decisions with reasons (or an explicit none); unrecognised marker value REFUSES loudly naming file/found/known — the typo-means-no-isolation failure the marker exists to prevent cannot happen silently. 094 opted in at the top of its file, keeps its cleanup (stakes changed, not hygiene), stays in fast, and is PROVEN live running from its own per-run database. Craft on the record: pg_regress echoes input, so both comment edits were mirrored into the .out BY HAND hunk-for-hunk (never --update-expected) and verified byte-identical; one line of 094's own prose corrected where the change made it untrue. Demo transcript shows all three arms against the shipped decision block extracted verbatim. bash -n clean, shellcheck delta zero. Also on the record: the engineer's 'starting 274 now' was followed by an idle hour of nothing — owned plainly in his report; the foreman's status check caught it.
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 
