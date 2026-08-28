@@ -130,6 +130,18 @@ apply the repair migration W → assert the state is now correct for BOTH the mi
 seed rows and the app-written rows. (A restamp/bless repairs the file hash, never the
 fleet's applied state — see `IntentionallyFixBrokenImmutableMigrationEnvVar`.)
 
+**A migration's data operations must not derive values from aggregate reads of
+current state (STATBUS-312, STATBUS-314):** `MAX(priority)`, `COUNT(*)`, "the
+highest so far" make the result a function of WHEN the migration runs in the
+sequence — and released history keeps that shape forever. A full-from-scratch
+replay then builds a different database than the fleet's incrementally-migrated
+boxes hold, silently (install.sh's seed-restore has a full-replay fallback, so
+this reaches real installations, not just test fixtures). Two released
+migrations were caught doing this in one day, found only because someone did a
+genuine full replay. Express data operations so the result is independent of
+position in the replay sequence: derive from the source definitions, use fixed
+values, or compute deterministically from inputs the migration itself creates.
+
 **Migration Best Practice for Modifying Existing Functions/Procedures:**
 
 When modifying an existing database function or procedure, **always dump the current definition first** rather than rewriting from scratch:
