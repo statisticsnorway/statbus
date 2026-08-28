@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 13:08'
-updated_date: '2026-08-28 08:12'
+updated_date: '2026-08-28 08:59'
 labels:
   - release
 dependencies: []
@@ -84,5 +84,11 @@ author: foreman
 created: 2026-08-28 08:12
 ---
 rc.14 CHAIN FINAL VERDICT (orchestrator 33141502893 completed; arc fleet 33145356673: 34 GREEN / 2 red): the cleanest chain on record — legs 1-4 green, 295's fixture fix proven live on its exact arm, the rollback-pair-terminal family PASSED — and both reds are ONE bug, now CONFIRMED from the journal: transient-db-backoff's daemon log captured the panic live this run — 'panic: runtime error: invalid memory address or nil pointer dereference [signal SIGSEGV ... addr=0x90 pc=0x8ae1bc]' — byte-identical to rc.11's stack, i.e. STATBUS-294's abandoned-listener crash, whose fix (efd07d036) landed on master three hours AFTER rc.14's tag. cross-version-rename-handoff shares the signature (mechanic's triage; its journal was destroyed by the 296 gap, but the sibling scenario's live capture settles the family). NOTE the confirmation upgrades the mechanic's 'plausible, evidence-gapped' triage to CONFIRMED — the last fleet job delivered the journal his triage said was missing. DISPOSITION: rc.14 may not be promoted; rc.15 cuts next carrying 294 (the fix for both reds) + 296's diagnostics hardening (in flight, 12 arc scripts, mechanic building now) — the cut waits only for that freeze so the tree is clean. Expected: the first fully green chain.
+---
+
+author: foreman
+created: 2026-08-28 08:59
+---
+rc.15 CUT (v2026.08.0-rc.15, tag at 2b3862bcc, 2026-08-28 ~09:00Z) — fifth candidate. Delta over rc.14, all landed this morning: 294 (the listener-ownership fix — the CONFIRMED cause of both rc.14 arc reds), 296 (25 arc diagnostics functions now survive the failures they document), 290's gofmt gate (passed its first live CI run in this very cut's go-test evidence), 292's content-hash refusal (plus the HEAD repair for my dev.sh sweep-in). Preflight green: images + fast-tests + pg_regress at the tip, go-test/app-build-lint riding from dec0b4baf over the board-only commit. Orchestrator 33157526472 queued, watcher armed on the run id. THE CLAIM THIS CHAIN TESTS: every red from four candidates is root-caused and its fix is aboard — 293's lottery, 227's SIGPIPE, 295's fixture pollution, 294's listener crash. Expected: the first FULLY GREEN chain, 36/36 arcs — and if anything new reds, 296's journals mean the triage reads a stack trace instead of arguing from silence. On green: rc.15 is the candidate for Norway's human canary against doc-035's observation card, then the promotion gate.
 ---
 <!-- COMMENTS:END -->
