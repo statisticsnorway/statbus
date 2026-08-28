@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-27 16:12'
-updated_date: '2026-08-28 09:56'
+updated_date: '2026-08-28 10:04'
 labels:
   - testing
   - upgrade
@@ -33,3 +33,13 @@ SEQUENCING: not release-blocking — 264+265 are aboard every candidate since rc
 
 WHAT IS ACHIEVED: the wedge class has a permanent regression arc that has been seen red, and 264's retry-then-FATAL has real-run proof instead of a recorded gap.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-08-28 10:04
+---
+ARC LANDED at b600e5797 (one file, +309; zero workflow edits — the matrix glob makes every arcs/*-arc.sh a scenario automatically, verified not assumed). TICKET STAYS OPEN AND UNPROVEN by its own rule: the arc has not yet been seen red. Design highlights on the record: determinism via a held ACCESS EXCLUSIVE lock (the derive task is made UNABLE to finish; the arc advances only on observing processing+Lock-wait, never on elapsed time); production's real trigger path (data edit → worker.log_base_change → collect_changes → derive children — verified from the live schema); the mid-build correction that decides whether the arc means anything — compose stop -t 0 instead of SIGKILL, because unless-stopped would restart the worker OUTSIDE the read-only window and silently destroy the wedge before the upgrade met it; refuses-to-pass-having-constructed-nothing (positive wedge assertion pre-upgrade); RED pre-verified against rc.09's actual bytes (bba72a4a5: no 264/265, reset failure logged and stepped past) with BASE_SHA pointing both fixture sides pre-265 so the red is honest. DISPATCH SEQUENCING, the constraint that gates the proof runs: the harness shares concurrency group hetzner-vm-fleet with the other two VM fleets (one running + one pending, a THIRD gets cancelled — the documented defect-B). rc.15's chain occupies that group now (leg 4 running, leg 5 queuing) — dispatching the RED/GREEN now could cancel the candidate's own fleet. Both runs therefore dispatch AFTER the chain completes: RED first (gh workflow run upgrade-arc-harness.yaml -f scenarios=worker-wedge-mid-derive -f base_sha=bba72a4a57d08b43f6bf983be2606f45c7fe3cf3, expected FAIL), then GREEN (same minus base_sha, expected PASS). Landing now is safe for rc.15: its leg 5 dispatches at the TAG's ref, where this arc does not exist (the 295 lesson, working in our favour this time).
+---
+<!-- COMMENTS:END -->
