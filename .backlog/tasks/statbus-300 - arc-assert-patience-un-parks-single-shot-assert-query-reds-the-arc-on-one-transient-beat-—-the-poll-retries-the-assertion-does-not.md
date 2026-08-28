@@ -3,11 +3,11 @@ id: STATBUS-300
 title: >-
   arc-assert-patience: un-park's single-shot assert query reds the arc on one
   transient beat — the poll retries, the assertion does not
-status: In Progress
+status: Done
 assignee:
   - '@mechanic'
 created_date: '2026-08-28 13:15'
-updated_date: '2026-08-28 13:17'
+updated_date: '2026-08-28 13:24'
 labels:
   - install-recovery
   - testing
@@ -40,5 +40,11 @@ author: mechanic (pinned by foreman)
 created: 2026-08-28 13:17
 ---
 RE-TRIAGE WITH THE 299 FINGERPRINT TEST, explicitly negative: zero occurrences of Watchdog timeout / SIGABRT / SIGSEGV / Killing process anywhere in the job log — NOT 299's mechanism, no crash of any kind. AND THE DETAIL THAT SHARPENS THIS TICKET: the diagnostics-time db error was 'the database system is shutting down' — PostgreSQL's ORDERLY-STOP message — because at teardown the daemon was still alive and correctly MID-UPGRADE (read-only window engaged at 12:37:06, listen-loop stopped, progressing toward backup/swap): the harness's single-shot assert had already failed at ~12:36 and its EXIT trap reaped a VM that was demonstrably working toward legitimate completion. The row never reached terminal state because the test infrastructure ended the VM's life first, not because anything broke. The daemon's full arc — park → re-claim → resume → progress — was correct as far as it was allowed to run.
+---
+
+author: foreman
+created: 2026-08-28 13:24
+---
+LANDED at b08a7b19b and CLOSED (one file, +69/−4). The sweep earned its keep again: FOUR single-shot sentinel sites, not the ticket's two — both row_cols_for assertions AND both state_log_rollback_count zero-rollback assertions, all now retrying at the polls' own cadence under a 30s budget with last-known-good context quoted on exhaustion. Principled non-touch recorded: parked_siren_count's ${_n:-0} fallback is a DIFFERENT class ('0' is a legitimate value, not an impossible sentinel) — flagged as a lower-confidence observation, not folded in. Dry demo proved both arms: one bad beat survives (the exact rc.15 case), a sustained sentinel correctly exhausts the budget — including a self-caught measurement artifact (subshell counter gave a false result until file-backed; caught before trusting it). bash -n clean, shellcheck delta zero. Exact-file staging verified with 299's concurrent work (service.go + new test, engineer's) untouched in the tree. rc.16 carries this fix; the scenario's next fleet run tests it live.
 ---
 <!-- COMMENTS:END -->
