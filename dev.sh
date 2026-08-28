@@ -540,6 +540,33 @@ release_test_run_lock() {
 # The flock stays as a cheap host-side mutex. It may only ever produce a false
 # BUSY (harmless: someone waits), never a false FREE.
 check_no_live_test_backends() {
+    # ── DB-NOT-RUNNING IS A CLEAR, NOT AN OBSERVATION FAILURE (STATBUS-282) ──
+    # A postmaster that does not exist has no backends. That is not a case we
+    # failed to observe, it is a case that cannot occur: there is nothing for a
+    # test database to have a live connection TO. The fail-closed refusal below
+    # is for "a RUNNING db we cannot ask" — a genuinely unknown state — and
+    # applying it to "no db at all" refuses a run that is provably safe.
+    #
+    # This gap was found by CI, not by review: the runner brings the db up AFTER
+    # this check, so the authority refused every pg_regress run on the runner
+    # with "service db is not running". The sibling straggler guard has carried
+    # this pre-gate since it was written; this function was missing it.
+    #
+    # WHY THE DOCKER EXIT STATUS IS CHECKED SEPARATELY rather than the shorter
+    # `... | grep -qx db || return 0`: that one-liner returns CLEAR when the
+    # docker command ITSELF fails, which is the same failure-to-observe-treated-
+    # as-absence defect this authority exists to prevent — a transiently
+    # unavailable docker CLI (Docker Desktop's documented unresponsiveness on
+    # macOS) would silently authorise a run beside a live one. Here, only
+    # "docker answered, and db is not among the running services" is a clear;
+    # if docker could not answer we fall through to the psql probe, which
+    # refuses loudly on a db it cannot reach.
+    local _psvc _psrc=0
+    _psvc=$(docker compose ps --status running --format '{{.Service}}' 2>&1) || _psrc=$?
+    if [ "$_psrc" -eq 0 ] && ! printf '%s\n' "$_psvc" | grep -qx db; then
+        return 0
+    fi
+
     # Errexit-safe capture (STATBUS-261). Under this script's `set -e` a bare
     # `_out=$(cmd); _rc=$?` DIES on the assignment for ANY non-zero exit — the
     # landmine that killed CI at 4fdea9a2b when it sat in this very file.
@@ -636,6 +663,19 @@ EOF
 # to decide whose a database is. That question has exactly one answer, and it
 # comes from pg_stat_activity.
 drop_orphan_test_databases() {
+    # Same pre-gate as the authority, and now REQUIRED rather than merely tidy.
+    # This used to lean on the authority above having "established reachability"
+    # before it ran — but with that function returning early on a stopped db,
+    # that premise no longer holds and this would be the first thing to touch a
+    # db that isn't there. Nothing to sweep when there is no postmaster: skip
+    # silently, since a stopped db is a normal state here, not a problem to
+    # report.
+    local _psvc _psrc=0
+    _psvc=$(docker compose ps --status running --format '{{.Service}}' 2>&1) || _psrc=$?
+    if [ "$_psrc" -eq 0 ] && ! printf '%s\n' "$_psvc" | grep -qx db; then
+        return 0
+    fi
+
     local _out _rc=0
     _out=$(./sb psql -d postgres -t -A -c \
         "SELECT d.datname FROM pg_database AS d \
