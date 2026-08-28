@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 13:08'
-updated_date: '2026-08-28 04:20'
+updated_date: '2026-08-28 07:59'
 labels:
   - release
 dependencies: []
@@ -72,5 +72,11 @@ author: foreman
 created: 2026-08-28 04:20
 ---
 rc.14 CUT (v2026.08.0-rc.14, tag at 50b13d70d, 2026-08-28 ~04:20Z) — fourth candidate of the night. Delta over rc.13: exactly the 295 fixture fix (84c99c7ed) + board commits. The cut waited on pg_regress at HEAD (run 33140883077) for the stale-template branch — the CI-oracle escape, satisfied by CI, zero local runs — then tagged. Orchestrator 33141502893 in flight, watcher armed on the run id. THE PROOF STRUCTURE OF THIS CHAIN: the tag again sits at master's tip, so leg 5's fixture construction walks the exact nothing-to-commit arm that killed rc.13 — the 295 fix's first live proof is the very candidate that carries it. If fixture construction survives, the fleet flies for the first time with 293 aboard, and the expected honest residue is the 228-family rollback-pair-terminal arcs only.
+---
+
+author: foreman
+created: 2026-08-28 07:59
+---
+rc.14 FLEET, NEAR-FINAL (run 33145356673, 30 green / 3 flying / 1 red at this pin): the previously-standing rollback-pair-terminal family PASSED — the 'expected honest residue' turned out better than promised; this is already the cleanest arc run on record. THE ONE RED, triaged by the mechanic (evidence-first): cross-version-rename-handoff, IDENTICAL fingerprint to its rc.11 red ('no terminal state within 1800s' at arc.sh:66, 30:03 of total silence after 'Scheduled upgrade to v2026.08.0-rc.14', then 'service db is not running' in the diagnostics step). NOT 293's lottery — zero refusal/incomparable text in the log, scheduling succeeded cleanly, so the rc.11 exoneration was INCOMPLETE for this one scenario. THE LEAD, checked not assumed: the shape fits STATBUS-294's listener SIGSEGV exactly (schedule → executeUpgrade's teardown nils the shared conn → abandoned-listener race fires → the whole service dies → nothing left to progress the row = the 30-min silence), and 294's fix (efd07d036, landed this morning) is NOT in rc.14 — verified via git merge-base --is-ancestor: the tag predates the fix by 3 hours. EVIDENCE GAP stated honestly: the daemon journal for the stuck window was never captured — in EITHER run — because the harness's own diagnostics step aborts fail-fast on its first command when the db is down, destroying exactly the evidence it exists to collect; filed as STATBUS-296. DISPOSITION: rc.14 may not be promoted (one leg-5 red). The suspected cause is already fixed on master; the clean test is the next candidate, which carries 294 — its fleet either greens this scenario (confirming 294 as the cause) or reds it again with 296's fixed diagnostics capturing the journal that settles it either way.
 ---
 <!-- COMMENTS:END -->
