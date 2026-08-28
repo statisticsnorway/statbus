@@ -55,7 +55,6 @@ INSTALL_BUDGET_S="${INSTALL_BUDGET_S:-900}"
 TICK_WAIT_S="${TICK_WAIT_S:-120}"
 DERIVE_WAIT_S="${DERIVE_WAIT_S:-300}"
 HOLD_RELEASE_FILE="/tmp/arc-279-hold-lock"
-HOLD_SCRIPT="/tmp/arc-279-hold-lock.sh"
 HOLD_LOG="/tmp/arc-279-hold-lock.log"
 
 : "${BASE_SHA:?BASE_SHA required}"
@@ -164,19 +163,40 @@ echo "── ingredient 1: hold a lock the derive must take ──"
 # the lock — stays open exactly as long as the file exists. Same release-file
 # idiom the stall arcs use, and the release is a file removal (deterministic),
 # never an expiry.
-VM_EXEC bash -c "cat > $HOLD_SCRIPT <<'HOLDER'
-cd ~/statbus
+#
+# SHIPPED AS A SCRIPT, NOT AS A VM_EXEC ARGUMENT (STATBUS-021's guard). VM_EXEC
+# REFUSES a multi-line argument, because the sudo -i transport mangles multi-line
+# bodies and silently expands a literal `$` — and this body needs BOTH: several
+# lines, and `$HOLD_RELEASE_FILE` evaluated on the VM at loop time rather than
+# interpolated here. The guard caught the first version of this arc at runtime.
+#
+# The heredoc delimiter is QUOTED ('HOLDER') so bash does not touch the body
+# locally; the two values the body needs are passed as ARGUMENTS and read as
+# $1/$2 on the VM, which is the only interpolation-free way to parameterise it.
+VM_SCRIPT_INLINE arc279-hold-lock "$HOLD_RELEASE_FILE" "$HOLD_LOG" <<'HOLDER'
+#!/bin/bash
+# arc-279 lock holder. $1 = release file, $2 = log. Backgrounds itself so the
+# calling VM_SCRIPT returns immediately while the transaction stays open.
+release_file="$1"
+log_file="$2"
+cd ~/statbus || exit 1
+cat > /tmp/arc-279-hold-lock-inner.sh <<'INNER'
+release_file="$1"
+cd ~/statbus || exit 1
 {
-  echo \"BEGIN;\"
-  echo \"LOCK TABLE public.statistical_unit IN ACCESS EXCLUSIVE MODE;\"
-  echo \"SELECT 'arc-279 lock held' AS held;\"
-  while [ -f $HOLD_RELEASE_FILE ]; do sleep 1; done
-  echo \"COMMIT;\"
+  echo "BEGIN;"
+  echo "LOCK TABLE public.statistical_unit IN ACCESS EXCLUSIVE MODE;"
+  echo "SELECT 'arc-279 lock held' AS held;"
+  # psql consumes stdin as it arrives, so withholding COMMIT holds the
+  # transaction — and the lock — open for exactly as long as the file exists.
+  while [ -f "$release_file" ]; do sleep 1; done
+  echo "COMMIT;"
 } | ./sb psql
+INNER
+chmod 0755 /tmp/arc-279-hold-lock-inner.sh
+setsid nohup bash /tmp/arc-279-hold-lock-inner.sh "$release_file" > "$log_file" 2>&1 < /dev/null &
+echo holder-started
 HOLDER
-chmod 0755 $HOLD_SCRIPT"
-VM_EXEC bash -c "touch $HOLD_RELEASE_FILE"
-VM_EXEC bash -c "setsid nohup bash $HOLD_SCRIPT > $HOLD_LOG 2>&1 < /dev/null & echo holder-started"
 
 # Confirm the lock is actually HELD before triggering work — otherwise the
 # trigger could race ahead of the holder and the derive would simply complete.
