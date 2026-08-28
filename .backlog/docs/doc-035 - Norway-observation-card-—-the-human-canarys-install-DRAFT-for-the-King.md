@@ -11,6 +11,8 @@ tags:
 ---
 DRAFT for the King's approval (STATBUS-247 AC#6). Every expected observation below is grounded in the code or docs that produce it, cited inline. Where our surface is thin, this card says so plainly rather than inventing a nicer one.
 
+**PROMOTED (STATBUS-247):** this draft is now the live template at `doc/observations/TEMPLATE.md`, with `<CANDIDATE_TAG>` placeholders added so each candidate's own card can be copied from it and the stable-release gate can confirm a card names the candidate it is actually for. This file is retained as the historical draft record; edit the template, not this file, for future changes to the card's content.
+
 ## What this card is for
 
 You are installing a release candidate on Norway by hand. **The software is not the thing being tested — the experience is.** Automated checks already proved the candidate installs; only a person can notice that a message is confusing, that a step took twenty minutes with no sign of life, or that what the screen said did not match what happened.

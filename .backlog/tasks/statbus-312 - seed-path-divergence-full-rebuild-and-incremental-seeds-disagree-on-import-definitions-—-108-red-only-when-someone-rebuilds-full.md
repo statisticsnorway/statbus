@@ -1,0 +1,31 @@
+---
+id: STATBUS-312
+title: >-
+  seed-path-divergence: full-rebuild and incremental seeds disagree on import
+  definitions — 108 red only when someone rebuilds full
+status: In Progress
+assignee:
+  - '@tester'
+created_date: '2026-08-28 22:58'
+labels:
+  - testing
+  - tooling
+dependencies: []
+priority: high
+type: bug
+ordinal: 305000
+---
+
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+NORTH STAR: a seed built full-from-migrations and a seed built incrementally must be the same database. Tonight's full rebuild says they may not be — and the disagreement hid because full rebuilds are rare.
+
+THE EVIDENCE (engineer's interim report during the 309 seed rebuild, 2026-08-28 ~23:00): 108_test_code_gen fails with a diff containing ZERO references to the night's new functions — pure import-definition drift: column ordinals shifted by exactly +3 (8,9,10 → 11,12,13) and a 673-line block present in expected, absent in actual. Nothing in any of tonight's units touches import definitions. Context that makes the lead credible: THIS rebuild went full-from-migrations (the cached seed artifact was stale on a February migration and was discarded), whereas the committed expected output was produced against an incrementally-built seed; 108's expected file was last touched by 40cfad0f5 ('clean up orphan import_source_columns after RENAME/DELETE...') — precisely the area where a differently-constructed seed would shift ordinals and drop rows.
+
+THE HYPOTHESIS, stated as a lead not a conclusion (the engineer's framing, kept): full-rebuild and incremental seed paths disagree on import-definition state — a REPRODUCIBILITY gap that only 108 notices and only when someone rebuilds full, which is rare, which is why it lived. If real, anything that rebuilds a seed full (a fresh dev machine, CI seed loss, the fleet's preflight under artifact staleness) inherits a suite red that looks like the current unit's fault — tonight it nearly did.
+
+INVESTIGATION SCOPE (read-only first): reproduce the attribution — diff the full-rebuilt seed's import-definition tables against a known incremental seed (or against what 40cfad0f5's migration SHOULD leave); identify whether the orphan-cleanup migration behaves differently on full replay (e.g., cleanup ran before data existed, or ordinal assignment depends on insertion order the two paths do differently); name the mechanism with bytes. THEN the fix design goes to the architect: make the paths converge, or make 108 order-independent, or both — whichever preserves what 108 exists to prove.
+
+WHAT IS ACHIEVED: seeds are reproducible regardless of construction path, and a full rebuild can never again masquerade as the current unit's failure.
+<!-- SECTION:DESCRIPTION:END -->
