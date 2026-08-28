@@ -194,6 +194,25 @@ cd ~/statbus || exit 1
 } | ./sb psql
 INNER
 chmod 0755 /tmp/arc-279-hold-lock-inner.sh
+
+# THE RELEASE FILE IS CREATED BY THE HOLDER ITSELF, BEFORE THE INNER SCRIPT
+# STARTS — deliberately, and this is the fix for construction fault #2.
+#
+# It used to be a separate `VM_EXEC touch` step in the arc body. The
+# VM_SCRIPT_INLINE conversion replaced the block that contained it and the touch
+# was silently lost, so the file never existed: the inner loop's very first
+# `[ -f ]` was false, psql received COMMIT immediately, and the lock it had just
+# taken was released within milliseconds. The holder's own log proved it —
+# BEGIN / LOCK TABLE / held / COMMIT with nothing in between — while the arc
+# polled pg_locks for three and a half minutes for a lock that no longer existed.
+#
+# Creating it HERE makes "the file exists" an invariant of starting the holder
+# rather than a separate step a future edit can drop again. Creation strictly
+# BEFORE the background start closes the window where the inner script could
+# look before the file appeared.
+: > "$release_file"
+[ -f "$release_file" ] || { echo "arc279-hold-lock: could not create the release file $release_file" >&2; exit 1; }
+
 setsid nohup bash /tmp/arc-279-hold-lock-inner.sh "$release_file" > "$log_file" 2>&1 < /dev/null &
 echo holder-started
 HOLDER
