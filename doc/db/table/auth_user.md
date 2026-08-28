@@ -68,6 +68,7 @@ Triggers:
     check_role_permission_trigger BEFORE INSERT OR UPDATE ON auth."user" FOR EACH ROW EXECUTE FUNCTION auth.check_role_permission()
     drop_user_role_trigger AFTER DELETE ON auth."user" FOR EACH ROW EXECUTE FUNCTION auth.drop_user_role()
     prevent_removal_of_last_admin_trigger BEFORE DELETE OR UPDATE ON auth."user" FOR EACH ROW EXECUTE FUNCTION auth.prevent_removal_of_last_admin()
+    prevent_self_soft_delete_trigger BEFORE UPDATE ON auth."user" FOR EACH ROW EXECUTE FUNCTION auth.prevent_self_soft_delete()
     sync_user_credentials_and_roles_trigger BEFORE INSERT OR UPDATE ON auth."user" FOR EACH ROW EXECUTE FUNCTION auth.sync_user_credentials_and_roles()
 Access method: heap
 

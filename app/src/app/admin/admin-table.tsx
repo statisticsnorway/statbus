@@ -24,6 +24,11 @@ interface AdminTableProps<T extends { id: string | number | null }> {
   readonly columns: ColumnDefinition<T>[];
   readonly onEdit: (item: T) => void;
   readonly isLoading?: boolean;
+  /**
+   * Extra per-row controls rendered beside Edit. Optional and additive: every
+   * existing caller keeps exactly the Edit button it has today.
+   */
+  readonly rowActions?: (item: T) => React.ReactNode;
 }
 
 export default function AdminTable<T extends { id: string | number | null }>({
@@ -31,6 +36,7 @@ export default function AdminTable<T extends { id: string | number | null }>({
   columns,
   onEdit,
   isLoading = false,
+  rowActions,
 }: AdminTableProps<T>) {
   return (
     <>
@@ -57,7 +63,7 @@ export default function AdminTable<T extends { id: string | number | null }>({
                     {col.render ? col.render(record) : String(record[col.key])}
                   </TableCell>
                 ))}
-                <TableCell className="text-right">
+                <TableCell className="text-right whitespace-nowrap">
                   <Button
                     variant="ghost"
                     className="inline-block"
@@ -65,6 +71,7 @@ export default function AdminTable<T extends { id: string | number | null }>({
                   >
                     <Pencil className="w-4 h-4" />
                   </Button>
+                  {rowActions?.(record)}
                 </TableCell>
               </TableRow>
             ))}

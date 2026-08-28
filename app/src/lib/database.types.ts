@@ -15682,6 +15682,18 @@ export type Database = {
         }
         Returns: Record<string, unknown>[]
       },
+      user_delete: {
+        Args: {
+          p_user_id?: number
+        }
+        Returns: Record<string, unknown>[]
+      },
+      user_restore: {
+        Args: {
+          p_user_id?: number
+        }
+        Returns: Record<string, unknown>[]
+      },
       validate_image_on_insert: {
         Args: Record<string, never>
         Returns: unknown

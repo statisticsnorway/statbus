@@ -18,6 +18,7 @@ import AdminTable, { ColumnDefinition } from "../admin-table";
 import { Tables } from "@/lib/database.types";
 import { format, formatDistanceToNow } from "date-fns";
 import { useAdminForm } from "../use-admin-form";
+import { UserDeleteAction } from "./user-delete-action";
 
 function formatDateOrTimeAgo(dateString?: string | null) {
   if (!dateString) return "";
@@ -131,6 +132,9 @@ export default function UsersPage() {
           columns={columns}
           onEdit={handleEdit}
           isLoading={loading}
+          rowActions={(user) => (
+            <UserDeleteAction user={user} onChanged={refreshBaseData} />
+          )}
         />
       </div>
     </AdminPageLayout>
