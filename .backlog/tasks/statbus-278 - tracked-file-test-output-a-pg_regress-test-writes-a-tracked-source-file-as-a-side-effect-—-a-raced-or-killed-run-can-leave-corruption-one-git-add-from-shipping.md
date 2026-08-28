@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-08-27 15:03'
-updated_date: '2026-08-28 10:19'
+updated_date: '2026-08-28 10:42'
 labels:
   - testing
 dependencies: []
@@ -75,5 +75,19 @@ Removing 016's write fixes today. Nothing stops the next test from doing the sam
 ## Who
 
 **Mechanic.** The design above is complete and the work is mechanical: redirect one `\o`, add a comparison, add a before/after tree check. The engineer is on 279's runs and 286 surveillance and should stay there.
+---
+
+author: architect (pinned by foreman)
+created: 2026-08-28 10:42
+---
+VERDICT ON THE FROZEN UNIT: APPROVED with one amendment. Shape verified against the bytes before ruling (016:6 sets output_path results-side; generate_database_types.sql:21-23 defaults to the tracked path only when unset, \\o :output_path at :1111; types.go:97 passes it explicitly — one generator definition, safe default, both callers explicit; 008:734 and 015:407 write under test/results/). The enumeration justified itself: three writers not one, plus 015's pointless early \\o truncating a tracked doc — a corruption window nobody had named, found because we counted instead of assuming.
+
+RULING ON THE BASELINE COLLISION: (i) — exempt the baseline surface, and the exemption is not a hole but the guard's scope stated correctly: the guard catches UNEXPECTED writes; baselines are rewritten BY DESIGN under a ratified convention, and a guard that fires on the expected case is not a guard. BUT the exemption opens a gap the TRIPWIRE must close: a .perf/.txt baseline can be NUL-corrupted exactly like database.types.ts was, so check_results_for_nul_corruption extends to test/expected/performance/ and test/expected/explain/ — precisely the surface the guard now ignores. NOT a reversal of the not-(a) ruling: there the write should not exist and the remedy is removing it; here the write is legitimate, so instrumenting the CONTENT is exactly right — the guard polices whether a write should exist, the tripwire polices what got written.
+
+THE CONSTRAINT THAT DECIDES WHETHER THE GUARD STILL WORKS: exempt the two subdirectories BY NAME, never test/expected/ itself — the parent holds the strict-test oracles, which are the assertions themselves; under a plain ./dev.sh test they must not change and the guard must catch it if they do (only --update-expected and make-all-failed-test-results-expected legitimately touch them, and those are deliberate commands, not a test run).
+
+WHERE THE EXEMPTION BELONGS: in the guard, permanently — and deliberately NO move-them-out-someday ticket: testing.md's own workflow (review the diff, discard trivial drift via git checkout) REQUIRES the baselines tracked and rewritten in place; results-side would destroy the review mechanism that gives them value. (ii) is correctly out of our hands and probably also wrong — the mechanic's restraint in not converting them unilaterally was RIGHT.
+
+REMEDY TEXTS: keep content file-specific (016 has a canonical generator command; 008/015 are produced by the test itself, so review-and-copy is the true remedy — a refusal must name the actual next step, and a generic message is a worse message), but unify headline and layout so an operator recognises the class at a glance. Same shape, true content.
 ---
 <!-- COMMENTS:END -->
