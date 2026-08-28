@@ -3,11 +3,11 @@ id: STATBUS-297
 title: >-
   cross-version-config-generate: the long-jump upgrade crash-loops in recovery
   boot — and six production slots are about to make exactly that jump
-status: In Progress
+status: Done
 assignee:
   - '@mechanic'
 created_date: '2026-08-28 11:48'
-updated_date: '2026-08-28 12:05'
+updated_date: '2026-08-28 18:52'
 labels:
   - upgrade
   - cli
@@ -61,5 +61,11 @@ author: foreman
 created: 2026-08-28 12:05
 ---
 REMEDY LANDED at 27be9a72b (one file, +23): the role write in vm-bootstrap is now era-gated on BASE_SHA's ancestry against 254's commit — verified four ways (pinned pre-rename base correctly excluded; HEAD, rc.15's tag, and the unset-fallback correctly included), with the executing CI job's fetch-depth:0 checked so the ancestry test resolves in CI, and all ten sibling heredoc keys era-checked (all predate the pinned base by ~4 months — none share the problem). Part 2 needed NO new code: TestHandAddedChannelRefuses_STATBUS254 (upgrade_role_test.go:86-100) already pins the refusal's full content, ResolveUpgradeRole's error confirmed to propagate unwrapped through config generation, and a mutation run ('remove'→'delete') proved the pin LOAD-BEARING, reverted byte-identical. Note for 279's proof runs: rc.09 (bba72a4a5, Aug-20) is POST-254, so its RED run writes the role normally — no interference with this gate. TICKET REMAINS OPEN on one observational arm: it closes when cross-version-rename-handoff GREENS on the next fleet run that includes this fix (the next candidate's chain, or a targeted dispatch) — the arc back to testing the rename handoff it was built for. The crash-loop finding lives on as STATBUS-298; the promotion remains not gated.
+---
+
+author: foreman
+created: 2026-08-28 18:52
+---
+OBSERVATIONAL ARM CLOSED — TICKET DONE: cross-version-rename-handoff ran GREEN in rc.16's gating fleet (run 33190460349), the first fleet carrying the era-accurate bootstrap fix (27be9a72b). The arc is back to testing the rename handoff it was built for, the collision only the harness could construct is gone, and the scenario that redded three chains under two wrong attributions is quiet. The crash-loop finding lives on as STATBUS-298 (open, unstaffed, architect design pass wanted); the gh-probe finding as STATBUS-302; the promotion remains ungated by anything this ticket touched.
 ---
 <!-- COMMENTS:END -->
