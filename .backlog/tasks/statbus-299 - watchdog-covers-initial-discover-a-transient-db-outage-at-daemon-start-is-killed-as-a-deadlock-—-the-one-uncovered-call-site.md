@@ -3,11 +3,11 @@ id: STATBUS-299
 title: >-
   watchdog-covers-initial-discover: a transient db outage at daemon start is
   killed as a deadlock — the one uncovered call site
-status: In Progress
+status: Done
 assignee:
   - '@engineer'
 created_date: '2026-08-28 13:12'
-updated_date: '2026-08-28 13:18'
+updated_date: '2026-08-28 13:29'
 labels:
   - upgrade
   - cli
@@ -48,5 +48,11 @@ THE RULING: the mechanic's INSIGHT is right — a heartbeat must attest to PROGR
 rc.16: CUT WITHOUT 299, with 297+300 aboard — the run's purpose is validating those two, not promoting. 299's production impact is bounded (transient window; systemd's restart is the correct response; noisy, not dangerous — unlike 297's crash-loop where retrying could never help). ONE CONDITION, not ceremony: PRE-DECLARE IN WRITING before the run that transient-db-backoff is expected to red, with cause and ticket — a predicted red recorded in advance stays a prediction confirmed; the same red explained afterwards is how a team learns to accept reds, and this project has no flaky tests. Pre-declaration is what keeps that rule intact while knowingly running a red.
 
 STAFFING: engineer (holds the file from 294; connection-path restructure with watchdog interaction, not mechanical). Mechanic keeps 300.
+---
+
+author: foreman
+created: 2026-08-28 13:29
+---
+LANDED at d43871b22 and CLOSED (service.go +100/−8 with ~40 functional lines, new connect_subattempt_watchdog_test.go +218). Built exactly to the ruling with the scope call the ruling left open decided well: the sub-attempt loop lives in connect() itself — fixing the too-coarse design at its root and closing the SAME hole at the second reconnect inside discover, which a call-site wrapper would have left open. connectTimeout stays the 5-minute TOTAL; connectAttemptTimeout=30s is the step; WATCHDOG=1 pings at attempt BOUNDARIES; all six ticker sites and the deliberate main-goroutine heartbeat untouched; the watchdog-reconnect arc's assumptions verified against the bytes (its 180s stall fires at service.go:6983, outside connect() entirely — also corrected: the brief's '3-postswap-watchdog-reconnect' is the retired name, now postswap-watchdog-reconnect-arc.sh). EVIDENCE STANDARD: tests observe the REAL sd_notify path via a temp unixgram socket, mutation-proven both ways — M1 (no ping, the pre-fix state) reddens all three arms; M2 (ping at attempt START, the timer-flavoured cover that would heartbeat through a real hang) reddens exactly the silence arm built to catch it. AND THE -RACE RUN EARNED ITS PLACE IN THE STANDARD BRIEF: it caught a leaked-dialer defect in the NEW TESTS themselves (goroutines reading package bounds while t.Cleanup rewrote them — invisible to the non-race suite, would have reddened a neighbouring test at random). Also on the record, engineer's own process flag: he started the full suite while a mutation harness owned service.go, caught it, discarded the result, and re-ran serially — the concurrent-mutation class from 282, self-caught this time. Full uncached suite green (13 packages), -race green, gofmt clean. transient-db-backoff's next fleet run tests this live — and rc.16 now carries the fix, so the architect's pre-declared-red condition DISSOLVES: the cut goes out with 297+299+300 all aboard.
 ---
 <!-- COMMENTS:END -->
