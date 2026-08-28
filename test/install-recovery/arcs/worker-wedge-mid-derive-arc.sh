@@ -136,11 +136,35 @@ abandoned_processing_count() {
     VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM worker.tasks t WHERE t.state = 'processing'::worker.task_state AND t.worker_pid IS NOT NULL AND NOT EXISTS (SELECT 1 FROM pg_stat_activity a WHERE a.pid = t.worker_pid AND a.datname = current_database());\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"
 }
 
-# blocked_derive_count — derive children that are 'processing' AND whose backend
-# is parked on a lock. This is the OBSERVATION the arc advances on; it is what
-# makes the mid-derive stop deterministic rather than timed.
-blocked_derive_count() {
-    VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM worker.tasks t JOIN pg_stat_activity a ON a.pid = t.worker_pid WHERE t.state = 'processing'::worker.task_state AND t.command LIKE 'derive%' AND a.wait_event_type = 'Lock';\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "0"
+# blocked_on_target_count — a worker task in 'processing' whose backend is
+# parked on an UNGRANTED lock against the very table this arc holds. This is the
+# OBSERVATION the arc advances on, and what makes the mid-derive stop
+# deterministic rather than timed.
+#
+# MATCHES ON MECHANISM, NEVER ON TASK NAME — the fix for construction fault #3.
+# The first version asked for `command LIKE 'derive%'`, written against the
+# CURRENT era's task naming, and ran against rc.09's July-era worker. It found
+# nothing while the wedge was sitting right there, because of two things a name
+# filter cannot survive:
+#
+#   1. THE NAME DIFFERS BY ERA. The leaf doing the work at rc.09 is
+#      `statistical_unit_refresh_batch` — no `derive` prefix at all.
+#   2. THE PARENTS ARE NOT THE WORKERS. Under structured concurrency the derive
+#      parents (`derive_units_phase`, `derive_statistical_unit`) sit in state
+#      'waiting' while their child runs. So even a name filter that DID match
+#      them would match rows that are not holding anything.
+#
+# A name list would need extending for every era this arc is ever pointed at,
+# and would be wrong again the first time one is missed. The lock-wait is the
+# invariant: whatever an era calls the task, a processing task whose backend is
+# blocked on public.statistical_unit IS the ingredient.
+#
+# VERIFIED AT rc.09 FROM ITS OWN BYTES: worker.statistical_unit_refresh_batch
+# CALLs public.statistical_unit_refresh, which does `INSERT INTO
+# public.statistical_unit` + `ANALYZE public.statistical_unit` — both conflict
+# with the ACCESS EXCLUSIVE this arc holds, so it blocks by construction.
+blocked_on_target_count() {
+    VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM worker.tasks t JOIN pg_stat_activity a ON a.pid = t.worker_pid JOIN pg_locks l ON l.pid = a.pid WHERE t.state = 'processing'::worker.task_state AND a.wait_event_type = 'Lock' AND NOT l.granted AND l.relation = 'public.statistical_unit'::regclass;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "0"
 }
 
 # ── A: install + demo data (arc_prepare_box gives installed-A, health, daemon, data) ──
@@ -237,16 +261,22 @@ echo "── trigger the REAL derive pipeline (a data edit, exactly as productio
 VM_EXEC bash -c "cd ~/statbus && echo \"UPDATE public.legal_unit SET edit_comment = 'statbus-279 wedge arc' WHERE id = (SELECT MIN(id) FROM public.legal_unit);\" | ./sb psql"
 
 echo ""
-echo "── wait for a derive child to be PROCESSING AND BLOCKED on that lock ──"
+echo "── wait for a worker task to be PROCESSING AND BLOCKED on that lock ──"
 _blocked=0
 for _i in $(seq 1 "$DERIVE_WAIT_S"); do
-    _n=$(blocked_derive_count)
-    [ "${_n:-0}" -ge 1 ] && { _blocked=1; echo "  ✓ observed $_n derive child(ren) processing and parked on the lock (t+${_i}s)"; break; }
+    _n=$(blocked_on_target_count)
+    [ "${_n:-0}" -ge 1 ] && { _blocked=1; echo "  ✓ observed $_n worker task(s) processing and parked on the lock (t+${_i}s)"; break; }
     sleep 1
 done
 if [ "$_blocked" != "1" ]; then
-    echo "✗ no derive child reached 'processing' blocked on the lock within ${DERIVE_WAIT_S}s — ingredient 1 was NOT constructed, so a pass here would prove nothing" >&2
+    echo "✗ no worker task reached 'processing' blocked on public.statistical_unit within ${DERIVE_WAIT_S}s — ingredient 1 was NOT constructed, so a pass here would prove nothing" >&2
     VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, command, state FROM worker.tasks ORDER BY id DESC LIMIT 20;\" | ./sb psql" >&2 || true
+    # WHY the task list alone was not enough last time: it showed a task in
+    # 'processing' and left open whether it was blocked on OUR lock or merely
+    # slow. Dump the wait state and the lock graph too, so the next failure of
+    # this class is one read rather than an inference.
+    VM_EXEC bash -c "cd ~/statbus && echo \"SELECT a.pid, a.state, a.wait_event_type, a.wait_event, left(a.query, 60) AS query FROM pg_stat_activity a WHERE a.datname = current_database() AND a.pid <> pg_backend_pid();\" | ./sb psql" >&2 || true
+    VM_EXEC bash -c "cd ~/statbus && echo \"SELECT l.pid, l.granted, l.mode, COALESCE(c.relname, '(non-relation)') AS rel FROM pg_locks l LEFT JOIN pg_class c ON c.oid = l.relation WHERE l.relation IS NOT NULL ORDER BY l.granted, l.pid;\" | ./sb psql" >&2 || true
     exit 1
 fi
 
