@@ -3,10 +3,11 @@ id: STATBUS-294
 title: >-
   listener-conn-ownership: abandoned listener reads the emptied shared
   connection and crashes the upgrade service
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@mechanic'
 created_date: '2026-08-27 23:41'
-updated_date: '2026-08-28 07:04'
+updated_date: '2026-08-28 07:09'
 labels:
   - upgrade
   - cli
