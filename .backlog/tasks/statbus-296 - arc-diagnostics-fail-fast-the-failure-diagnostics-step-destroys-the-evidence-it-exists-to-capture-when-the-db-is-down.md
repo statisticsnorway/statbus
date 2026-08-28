@@ -3,11 +3,11 @@ id: STATBUS-296
 title: >-
   arc-diagnostics-fail-fast: the failure-diagnostics step destroys the evidence
   it exists to capture when the db is down
-status: In Progress
+status: Done
 assignee:
   - '@mechanic'
 created_date: '2026-08-28 07:59'
-updated_date: '2026-08-28 08:00'
+updated_date: '2026-08-28 08:20'
 labels:
   - install-recovery
   - ci
@@ -30,3 +30,13 @@ FIX SHAPE: every capture in the diagnostics step becomes individually failure-to
 
 WHAT IS ACHIEVED: a scenario failure always yields its journal, and no triage has to argue from silence again.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-08-28 08:20
+---
+LANDED at 7904a033e and CLOSED (25 files, +324/−189). Mechanic's sweep: 31 arc diagnostics functions, 25 vulnerable to the exact shape (unguarded db-dependent first command under set -euo pipefail aborting the function before the journal fetch), all fixed — journal + flag (SSH-only) first, db-dependent queries last and individually guarded, every failed capture a reported datum. 6 verified safe, including c-rollback-resurrection's subtle case: its unguarded assignment lives inside an ||-guarded function call where bash suspends errexit for the entire body — verified EMPIRICALLY with an isolated repro, not assumed, and explicitly distinguished from the vulnerable shape (bare statement in an if-body gets no such exemption). Red-before/green-after: stubbed failing VM_EXEC invoked exactly as the real trap invokes the function — old shape exits 1 after the banner with the journal line never reached; fixed shape runs every capture gracefully and returns control to cleanup. bash -n clean; shellcheck delta zero by per-file SC-code multiset. Validated twice over by history: had this been in place at rc.11, the 294 crash would have been named by its journal on the first red instead of the fourth candidate. Rides rc.15.
+---
+<!-- COMMENTS:END -->
