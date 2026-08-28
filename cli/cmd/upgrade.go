@@ -465,6 +465,30 @@ func newUpgradeService(projDir string) *upgrade.Service {
 	// finding 2) — derivable only here in cmd; internal/upgrade must not
 	// guess it.
 	d.SetUnitInstance(serviceInstance(projDir))
+
+	// LOAD THE CONFIG (STATBUS-311). Without this every CLI verb ran with
+	// d.channel == "", because loadConfig had only ever been called from Run()
+	// and LoadConfigAndConnect() — both daemon-side. `./sb upgrade check` then
+	// filtered every release tag against the empty string and reported
+	// "none matching channel """, registering nothing; `upgrade schedule`
+	// announced perfectly on-channel targets as off-channel.
+	//
+	// Here rather than inside each verb: the channel is a property of the box,
+	// so a Service built for this box should have it. Doing it per-verb is how
+	// the next verb gets forgotten.
+	//
+	// A FAILURE IS LOUD, NEVER SILENT. The whole defect was an empty channel
+	// nobody was told about; falling back quietly would reproduce it. Note that
+	// a .env MISSING the key is already handled inside loadConfig, which warns
+	// and assumes "stable" — this branch is for a .env that cannot be read at
+	// all, which on a developer machine simply means there is no box here.
+	if err := d.LoadConfigForCLI(); err != nil {
+		fmt.Fprintf(os.Stderr,
+			"WARN: could not read .env in %s (%v).\n"+
+				"Commands that depend on this box's upgrade channel (check, schedule) will\n"+
+				"behave as if no channel is set and may match nothing. Run `./sb config generate`.\n",
+			projDir, err)
+	}
 	return d
 }
 
