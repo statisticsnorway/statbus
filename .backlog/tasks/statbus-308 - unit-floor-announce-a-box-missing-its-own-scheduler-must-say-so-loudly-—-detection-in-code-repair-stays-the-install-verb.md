@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-28 21:43'
+updated_date: '2026-08-28 22:45'
 labels:
   - upgrade
   - cli
@@ -31,3 +32,9 @@ CROSS-REFERENCES: STATBUS-303 (the incident), STATBUS-267 (the stuck-task detect
 
 WHAT IS ACHIEVED: no box sits silently below its own floor; the next demo announces itself within one tick instead of nine days.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PREMISE CORRECTION (2026-08-28 night): the demo incident that motivated this ticket involved a PHANTOM unit — no statbus-upgrade-check unit has ever existed in the product; check scheduling is the upgrade service's internal ticker + NOTIFY. The north star STANDS (a box structurally unable to follow its channel must say so loudly) but the mechanism reframes: the detection floor must be DERIVED from what install actually lays down (the step table's own unit set) rather than any assumed list — and the real demo failure modes to detect are discovery failing repeatedly/silently (stale refspec, rate limits, dead remotes) and the service being inactive, not missing timers. Design accordingly when built.
+<!-- SECTION:NOTES:END -->

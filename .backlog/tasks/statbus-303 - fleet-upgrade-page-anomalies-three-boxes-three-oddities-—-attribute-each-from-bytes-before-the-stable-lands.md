@@ -3,11 +3,11 @@ id: STATBUS-303
 title: >-
   fleet-upgrade-page-anomalies: three boxes, three oddities — attribute each
   from bytes before the stable lands
-status: In Progress
+status: Done
 assignee:
   - '@operator'
 created_date: '2026-08-28 16:24'
-updated_date: '2026-08-28 16:29'
+updated_date: '2026-08-28 22:45'
 labels:
   - ops
   - cloud
@@ -34,6 +34,12 @@ EXPECTED RESOLUTION SHAPE: most anomalies likely resolve to 'old binaries, fixed
 
 WHAT IS ACHIEVED: every anomaly on the fleet's upgrade pages is attributed to a known fixed bug, a new ticket, or a benign explanation — before the stable promotion sends new binaries everywhere.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+CLOSED with a final correction on the record: the 'missing check scheduler unit' finding was a PHANTOM — the repo contains zero references to any statbus-upgrade-check unit; the product has never shipped one, and check scheduling is the upgrade service's own internal ticker + NOTIFY. Demo's nine-day staleness was the discovery failures (stale deploy-branch refspec + pre-255 API rate limiting), both since repaired. FINAL DISPOSITIONS: (1) UA — converged on its own post-HTTPS-switch, as predicted. (2) DEMO — repaired end-to-end tonight via the canonical NSO path (refspec fix → dump → checkout rc.16 → install.sh → 16/16 steps, 4 migrations, 254's channel converter announced); one residual (.env channel plumbing) being verified now, tracked to completion in this thread. (3) TCC/fleet — the tag-object SHA finding became STATBUS-304 (repair migration building tonight); the refspec landmine on five boxes became STATBUS-310. The phantom-unit lesson feeds STATBUS-308: the unit-floor detection must derive its floor from what install ACTUALLY owns, never from an assumed unit list.
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 
