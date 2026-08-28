@@ -705,7 +705,23 @@ drop_orphan_test_databases() {
 
 check_no_straggler_pg_regress() {
     # If the db service isn't even running there is nothing to race with.
-    docker compose ps --status running --format '{{.Service}}' | grep -qx db || return 0
+    #
+    # SAME FORM AS THE AUTHORITY (STATBUS-282). This was
+    # `... | grep -qx db || return 0`, which returns CLEAR when the docker
+    # command ITSELF fails — the exact failure-to-observe-treated-as-absence
+    # defect the case statement below was written to remove, sitting three lines
+    # above it in the same function. A transiently unresponsive Docker Desktop
+    # would silently authorise a run beside a live straggler, and the careful
+    # 0/1/* branching underneath would never be reached to say otherwise.
+    #
+    # Only "docker answered, and db is not among the running services" is a
+    # clear. If docker could not answer we fall through to the pgrep probe,
+    # which refuses loudly on a container it cannot observe.
+    local _psvc _psrc=0
+    _psvc=$(docker compose ps --status running --format '{{.Service}}' 2>&1) || _psrc=$?
+    if [ "$_psrc" -eq 0 ] && ! printf '%s\n' "$_psvc" | grep -qx db; then
+        return 0
+    fi
 
     # STATBUS-282 MUST-FIX: a failure to OBSERVE is not evidence of absence.
     # pgrep exit 1 means "looked, found nothing" — genuinely clear. Any OTHER
