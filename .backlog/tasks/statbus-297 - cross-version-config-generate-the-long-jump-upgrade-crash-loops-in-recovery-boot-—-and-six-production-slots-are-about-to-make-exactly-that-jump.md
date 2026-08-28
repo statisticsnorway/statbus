@@ -5,9 +5,9 @@ title: >-
   boot — and six production slots are about to make exactly that jump
 status: In Progress
 assignee:
-  - '@engineer'
+  - '@mechanic'
 created_date: '2026-08-28 11:48'
-updated_date: '2026-08-28 11:55'
+updated_date: '2026-08-28 11:57'
 labels:
   - upgrade
   - cli
@@ -49,5 +49,11 @@ author: operator (pinned by foreman)
 created: 2026-08-28 11:55
 ---
 FLEET READ COMPLETE (read-only grep, all nine boxes, verbatim on the report): ZERO boxes carry both keys. The six production slots (tcc, demo, et, jo, ma, ug) are CHANNEL-only (July-era config — the shape the engineer verified translates cleanly, exit 0); dev/no/ua are ROLE-only (dev+no canary, ua production — matching their install records); none carry neither. CONSEQUENCE: the promotion is NOT gated by this ticket — no production box can hit the crash-loop refusal on taking the stable. What remains of 297 is the HARNESS fixture fix (the collision only the harness constructs: vm-bootstrap writes a role onto a box whose July-era binary then seeds a channel) — remedy ruling with the architect.
+---
+
+author: architect (pinned by foreman)
+created: 2026-08-28 11:57
+---
+RULING: (c), with the guard assertion in the CHEAP lane, not the VM lane. (1) THE FIXTURE PRINCIPLE, stated as a RULE for the whole harness: a harness must construct states history could have produced — writing an Aug-19 key onto a July-era install builds a box that never existed and COULD NOT have (the key did not exist yet); a failure against an impossible state teaches nothing and here cost three reds and two wrong attributions. vm-bootstrap.sh:430 writes UPGRADE_ROLE unconditionally onto EVERY arc box — this scenario is where it collided first, not necessarily last. When an arc installs at an era, the box must be era-accurate. The arc goes back to testing the rename handoff; (b)-alone is disqualified — it would silently trade purpose-built coverage for an accident and the loss would look like a pass. (2) THE COLLISION IS REACHABLE, not fantasy, via our own tooling: ops/create-new-statbus-installation.sh:362 does set_or_update UPGRADE_ROLE unconditionally and the script is re-runnable by design — run against a pre-254 box it adds the role while the old binary still seeds the channel; and 283 is currently making that script MORE re-runnable, so the path gets MORE likely as 283 lands (line added on both tickets). So the guard deserves a DELIBERATE test — but a multi-hour VM arc to assert config-parse behaviour is disproportionate: the assertion goes in the cheap lane (both keys → refuses, with that message), seconds not hours. (3) THE CRASH-LOOP IS THE REAL FINDING and the only part that can reach a real NSO — filed as STATBUS-298 (HIGH): retrying a deterministic refusal cannot help, five restarts buy nothing and leave the box db-down and rate-limited, strictly worse than the misconfiguration; the rule is refusals park, transients retry; do NOT fix it by weakening the guard (the refusal is correct — the RETRY and the COLLATERAL are the defects); adjacent to 111/159 (row-parking) but a different object (service boot). (4) PROMOTION NOT GATED — zero live collisions on the nine-box read, sub-fix landed; high priority, not an emergency. IMPLEMENTATION: mechanic — era-accurate bootstrap first (restores the arc), cheap-lane guard assertion second.
 ---
 <!-- COMMENTS:END -->

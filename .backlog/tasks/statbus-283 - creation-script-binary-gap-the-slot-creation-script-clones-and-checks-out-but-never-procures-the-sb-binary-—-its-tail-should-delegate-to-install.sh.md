@@ -7,7 +7,7 @@ status: Done
 assignee:
   - '@mechanic'
 created_date: '2026-08-27 16:47'
-updated_date: '2026-08-27 20:05'
+updated_date: '2026-08-28 11:57'
 labels:
   - ops
   - cloud
@@ -135,6 +135,12 @@ author: foreman
 created: 2026-08-27 20:05
 ---
 LANDED at e9d4dad50 (113 insertions / 171 deletions) after the architect BLESSED both mechanic design calls. Call 1 (remove per-slot SSH deploy-keygen + SSH clone): blessed on the corrected fact that THE REPO IS PUBLIC (gh repo view: visibility PUBLIC) — the architect's own 253 ratification had inherited the description's 'private repo' premise from Aug 19 without re-checking; new boxes clone HTTPS and DiscoverTagsViaGit is tokenless by design (github.go:395); existing boxes' keys stay, alive only by their SSH remote-URL choice. Call 2 (clone-first → write .env.config → single install pass via the Rescue path): blessed as matching the ownership split. CRITICAL COUPLING RECORDED, both sites: THIS BOOTSTRAP DEPENDS ON dotenv.Generate's FIRST-WRITER-WINS — the allocation values win because generate will not overwrite existing keys. If anyone ever flips Generate to last-writer-wins (the shape once contemplated for correcting stale BROWSER_REST_URL values), install's generate would overwrite offset/slot/role/urls with defaults and a new slot comes up on the wrong ports, silently. Any future correction path must be an explicit overwrite call, never a semantics flip — also pinned on STATBUS-281 where the correction idea lives. Empirical confirmation dispatched: ua's shallow HTTPS clone must list upgrade candidates (./sb upgrade list) — the one axis (shallow-clone tag semantics) verified on the existing box rather than reasoned about. The 253 fossil deletion landed on top as its own commit (73e12b0fd).
+---
+
+author: foreman
+created: 2026-08-28 11:57
+---
+CROSS-REFERENCE from STATBUS-297's ruling (architect, 2026-08-28): ops/create-new-statbus-installation.sh:362 does set_or_update UPGRADE_ROLE unconditionally, and the script is re-runnable by design — run against a PRE-254 box it adds the role while that box's old binary still seeds UPGRADE_CHANNEL, producing the exact both-keys collision that config generate (correctly) refuses and that crash-looped three fleet runs (297) — and THIS ticket's work makes the script MORE re-runnable, so that path grows MORE likely as it lands. Not a reason to change course here; a reason the collision's deliberate cheap-lane guard test (297's remedy, mechanic building) and the no-retry-on-refusal fix (STATBUS-298) exist. Anyone extending this script's re-run surface should read 297 comment #3 first.
 ---
 <!-- COMMENTS:END -->
 
