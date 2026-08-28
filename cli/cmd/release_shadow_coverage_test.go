@@ -1,10 +1,12 @@
 package cmd
 
 import (
+	"encoding/json"
 	"go/ast"
 	"go/parser"
 	"go/token"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -152,5 +154,92 @@ func TestBothVerdictsAreLabelled_STATBUS252(t *testing.T) {
 	if !strings.Contains(src, "REFUSED what the authority ALLOWED") ||
 		!strings.Contains(src, "ALLOWED what the authority REFUSED") {
 		t.Error("BOTH disagreement directions must be reported: 'gate too lenient' and 'gate too strict' are different findings and the switch needs both")
+	}
+}
+
+// STATBUS-252 PERSISTENCE HALF (durable log, not just the stdout report).
+//
+// readShadowLogLines reads back tmp/shadow-coverage-log.jsonl as parsed
+// entries — a test helper, not part of the shipped CLI.
+func readShadowLogLines(t *testing.T, projDir string) []shadowCoverageLogEntry {
+	t.Helper()
+	b, err := os.ReadFile(shadowCoverageLogPath(projDir))
+	if err != nil {
+		t.Fatalf("reading shadow coverage log: %v", err)
+	}
+	var out []shadowCoverageLogEntry
+	for _, line := range strings.Split(strings.TrimRight(string(b), "\n"), "\n") {
+		if line == "" {
+			continue
+		}
+		var e shadowCoverageLogEntry
+		if err := json.Unmarshal([]byte(line), &e); err != nil {
+			t.Fatalf("unmarshal log line %q: %v", line, err)
+		}
+		out = append(out, e)
+	}
+	return out
+}
+
+// TestShadowCoverageLogPersistsEmptyDomainRefusal_STATBUS252 pins the empty-
+// domain exit path (rule 3's own refusal) still gets a durable log line, not
+// just a stdout print that vanishes when nobody was watching.
+func TestShadowCoverageLogPersistsEmptyDomainRefusal_STATBUS252(t *testing.T) {
+	projDir := t.TempDir()
+	runShadowCoverage(projDir, "test-gate", "rc.test-empty", "deadbeef", nil, true)
+
+	entries := readShadowLogLines(t, projDir)
+	if len(entries) != 1 {
+		t.Fatalf("expected exactly 1 log line, got %d", len(entries))
+	}
+	e := entries[0]
+	if e.RC != "rc.test-empty" || e.Gate != "test-gate" {
+		t.Errorf("rc/gate not recorded correctly: %+v", e)
+	}
+	if e.RefusalReason != "empty_domain" {
+		t.Errorf("expected refusal_reason=empty_domain, got %q", e.RefusalReason)
+	}
+	// Rule 4, applied to the log: a refused invocation must not manufacture a
+	// verdict or an agreement — both must be absent (JSON null), not false.
+	if e.ShadowPassed != nil || e.Agree != nil {
+		t.Errorf("a refused invocation must log shadow_passed/agree as null, not a manufactured value: %+v", e)
+	}
+}
+
+// TestShadowCoverageLogPersistsUndecidableRefusal_STATBUS252 exercises the
+// other early-exit (sensitive-paths list unreadable — UNDECIDABLE for every
+// scenario in the domain) via a projDir that genuinely lacks the file, so
+// this is a real call through runShadowCoverage, not a source-text pin.
+func TestShadowCoverageLogPersistsUndecidableRefusal_STATBUS252(t *testing.T) {
+	projDir := t.TempDir() // no ops/release/upgrade-sensitive-paths.txt present
+	runShadowCoverage(projDir, "test-gate", "rc.test-undecidable", "deadbeef", []string{"scenario-a", "scenario-b"}, false)
+
+	entries := readShadowLogLines(t, projDir)
+	if len(entries) != 1 {
+		t.Fatalf("expected exactly 1 log line, got %d", len(entries))
+	}
+	e := entries[0]
+	if e.DomainSize != 2 || e.Undecidable != 2 {
+		t.Errorf("expected domain_size=2, undecidable=2 (every scenario undecidable), got %+v", e)
+	}
+	if !strings.Contains(e.RefusalReason, "sensitive_paths_load_error") {
+		t.Errorf("expected refusal_reason to name the cause, got %q", e.RefusalReason)
+	}
+	if e.ShadowPassed != nil || e.Agree != nil {
+		t.Errorf("undecidable-for-all must log shadow_passed/agree as null, not a manufactured value: %+v", e)
+	}
+	if e.AuthorityPassed != false {
+		t.Errorf("authority_passed must record what was actually passed in, got %v", e.AuthorityPassed)
+	}
+}
+
+// TestShadowCoverageLogPathIsUnderProjDirTmp_STATBUS252 pins the location
+// (tmp/, gitignored working state, same convention as every other tmp/
+// artifact this CLI writes) so a future edit can't quietly relocate it.
+func TestShadowCoverageLogPathIsUnderProjDirTmp_STATBUS252(t *testing.T) {
+	got := shadowCoverageLogPath("/proj")
+	want := filepath.Join("/proj", "tmp", "shadow-coverage-log.jsonl")
+	if got != want {
+		t.Errorf("shadowCoverageLogPath(%q) = %q, want %q", "/proj", got, want)
 	}
 }

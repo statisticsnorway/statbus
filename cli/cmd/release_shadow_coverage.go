@@ -1,9 +1,13 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/statisticsnorway/statbus/cli/internal/release"
 )
@@ -31,6 +35,66 @@ import (
 // something the gate refuses (the gate is too strict, and the switch saves a
 // fleet). Both are decision-grade; neither is actionable until the switch is
 // ruled.
+
+// shadowCoverageLogEntry is one line of tmp/shadow-coverage-log.jsonl —
+// STATBUS-252's durable half. The stdout report above is legible for a human
+// watching one run; this is the same facts, one JSON object per gate
+// invocation, so the switch decision (per-scenario vs whole-suite) can be
+// evaluated later against a HISTORY of real candidates rather than whatever
+// happened to be on someone's screen when it printed.
+//
+// ShadowPassed and Agree are pointers so a refused/undecidable-for-all
+// invocation encodes as JSON null, distinct from a real "false" verdict —
+// the same rule 4 the stdout report follows (undecidable is its own outcome,
+// never folded into either verdict).
+type shadowCoverageLogEntry struct {
+	Timestamp       string `json:"timestamp"`
+	RC              string `json:"rc"`
+	Gate            string `json:"gate"`
+	AuthorityPassed bool   `json:"authority_passed"`
+	ShadowPassed    *bool  `json:"shadow_passed"`
+	Agree           *bool  `json:"agree"`
+	DomainSize      int    `json:"domain_size"`
+	Covered         int    `json:"covered"`
+	NotCovered      int    `json:"not_covered"`
+	Undecidable     int    `json:"undecidable"`
+	RefusalReason   string `json:"refusal_reason,omitempty"`
+}
+
+// shadowCoverageLogPath is tmp/shadow-coverage-log.jsonl, gitignored working
+// state like every other tmp/ artifact in this codebase (fast-test-passed-sha,
+// upgrade-progress.log, ...).
+func shadowCoverageLogPath(projDir string) string {
+	return filepath.Join(projDir, "tmp", "shadow-coverage-log.jsonl")
+}
+
+// appendShadowCoverageLog persists one line per gate invocation. Best-effort,
+// deliberately: a write failure here must never reach the gate's own
+// pass/fail — this is advisory persistence of an advisory computation, one
+// layer removed from anything the gate can act on (see the file header,
+// "PRINTS, AND RETURNS NOTHING THE GATE CAN ACT ON"). A failure still prints,
+// so a broken log path is visible rather than silently dropping history.
+func appendShadowCoverageLog(projDir string, entry shadowCoverageLogEntry) {
+	path := shadowCoverageLogPath(projDir)
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		fmt.Printf("    (shadow: could not create %s: %v — log line dropped)\n", filepath.Dir(path), err)
+		return
+	}
+	line, err := json.Marshal(entry)
+	if err != nil {
+		fmt.Printf("    (shadow: could not encode log entry: %v — log line dropped)\n", err)
+		return
+	}
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Printf("    (shadow: could not open %s: %v — log line dropped)\n", path, err)
+		return
+	}
+	defer f.Close()
+	if _, err := f.Write(append(line, '\n')); err != nil {
+		fmt.Printf("    (shadow: could not write to %s: %v — log line dropped)\n", path, err)
+	}
+}
 
 // shadowScenarioVerdict is one scenario's per-scenario answer, kept separate
 // from the gate's own vocabulary so the two can never be confused in a log.
@@ -69,6 +133,13 @@ func runShadowCoverage(projDir, workflow, rcShort, rcCommit string, requiredScen
 		fmt.Printf("    │ A shadow over zero scenarios would agree with anything. The\n")
 		fmt.Printf("    │ domain derivation is broken, not the coverage.\n")
 		fmt.Printf("    └────────────────────────────────────────────────────────────────\n")
+		appendShadowCoverageLog(projDir, shadowCoverageLogEntry{
+			Timestamp:       time.Now().UTC().Format(time.RFC3339),
+			RC:              rcShort,
+			Gate:            workflow,
+			AuthorityPassed: authorityPassed,
+			RefusalReason:   "empty_domain",
+		})
 		return
 	}
 
@@ -80,6 +151,15 @@ func runShadowCoverage(projDir, workflow, rcShort, rcCommit string, requiredScen
 		fmt.Printf("    │   %v\n", sErr)
 		fmt.Printf("    │ No comparison is possible, so none is claimed — this is not agreement.\n")
 		fmt.Printf("    └────────────────────────────────────────────────────────────────\n")
+		appendShadowCoverageLog(projDir, shadowCoverageLogEntry{
+			Timestamp:       time.Now().UTC().Format(time.RFC3339),
+			RC:              rcShort,
+			Gate:            workflow,
+			AuthorityPassed: authorityPassed,
+			DomainSize:      len(requiredScenarios),
+			Undecidable:     len(requiredScenarios),
+			RefusalReason:   fmt.Sprintf("sensitive_paths_load_error: %v", sErr),
+		})
 		return
 	}
 
@@ -101,6 +181,19 @@ func runShadowCoverage(projDir, workflow, rcShort, rcCommit string, requiredScen
 	// domain is covered and none was undecidable. An undecidable scenario is
 	// not a pass — the same direction the chain's decision points take.
 	shadowPassed := len(notCovered) == 0 && len(undecidable) == 0
+	agree := shadowPassed == authorityPassed
+	appendShadowCoverageLog(projDir, shadowCoverageLogEntry{
+		Timestamp:       time.Now().UTC().Format(time.RFC3339),
+		RC:              rcShort,
+		Gate:            workflow,
+		AuthorityPassed: authorityPassed,
+		ShadowPassed:    &shadowPassed,
+		Agree:           &agree,
+		DomainSize:      len(requiredScenarios),
+		Covered:         len(covered),
+		NotCovered:      len(notCovered),
+		Undecidable:     len(undecidable),
+	})
 
 	fmt.Printf("    │ domain: %d scenario(s) from the tree at %s\n", len(requiredScenarios), rcShort)
 	fmt.Printf("    │ covered: %d   not covered: %d   undecidable: %d\n",
