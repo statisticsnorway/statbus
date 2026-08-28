@@ -47,11 +47,12 @@
 # EXHAUST is run FIRST (STATBUS-305: leaves the box PARKED, alive-idle, db still
 # paused — no longer "rolls back to A"), then RESOLVES (completes to B) — each on
 # its own fresh crashed base (crash_at registers+schedules a NEW upgrade row
-# regardless of the prior row's terminal state); the box ends at B. NOTE: this
-# is the first run where ARM 1 leaves a PARKED (not rolled_back) predecessor row
-# behind ARM 2's own crash_at — ARM 1 has never completed successfully in this
-# campaign, so ARM 2 starting from a parked (rather than rolled-back) box is
-# untested; worth watching on the first live re-run this fix earns.
+# regardless of the prior row's terminal state); the box ends at B. ARM 1 leaves
+# a PARKED (not rolled_back) predecessor row AND a still-paused db behind ARM 2's
+# own crash_at — the first live proof run of the EXHAUST fix (job run 33202712033,
+# tmp/305-live.log) hit exactly that inheritance: ARM 2's opening now restores it
+# explicitly (db_unpause + a fresh daemon boot) before crash_at runs — see the
+# comment at ARM 2's opening below for the mechanism and the evidence.
 #
 # Inputs (env): BASE_SHA, B_FULL (40-hex), B_BRANCH (working lineage — no construct
 # spec; reuses the shared working B). VM name = $1.
@@ -140,6 +141,23 @@ db_unpause() {
     echo "✗ docker compose unpause db failed: ${out}" >&2; exit 1
 }
 remove_stall() { VM_EXEC bash -c "rm -f ${STALL_RELEASE_FILE}"; echo "  ✓ stall release file removed — recovery proceeds to the verify"; }
+# wait_for_db_ready <budget_s> — poll postgres DIRECTLY (a fresh ./sb psql per
+# attempt, independent of the daemon's own connection/reconnect state) until it
+# accepts a trivial query. STATBUS-305: used right after db_unpause, before
+# trusting the daemon (or anything else) to do real work against the db again —
+# `docker compose unpause` is instant, but this confirms postgres itself, not
+# just the container, is back to answering.
+wait_for_db_ready() {
+    local budget="${1:-60}" start elapsed out
+    start=$(date +%s)
+    while true; do
+        out=$(VM_EXEC bash -c "cd ~/statbus && ./sb psql -t -A -c 'SELECT 1' 2>/dev/null" 2>/dev/null | tr -d ' \r\n')
+        [ "$out" = "1" ] && { echo "  ✓ postgres accepts connections again (t+$(( $(date +%s) - start ))s)"; return 0; }
+        elapsed=$(( $(date +%s) - start ))
+        [ "$elapsed" -lt "$budget" ] || { echo "✗ postgres did not accept connections within ${budget}s of unpause" >&2; exit 1; }
+        sleep 2
+    done
+}
 
 # wait_for_stall — poll the daemon journal for the stall marker (StallHere prints it
 # the instant it blocks at the hook, AFTER EnsureDBUp+connect+schema-skew — so the
@@ -259,6 +277,50 @@ echo "  ✓ EXHAUST arm: budget exhausted → PARKED (never rolled_back — that
 # ═══════════════════ ARM 2 — RESOLVES (at-target base → forward completion) ═══════════════════
 echo ""
 echo "════════ ARM 2: RESOLVES — DB returns within budget → backoff clears → FORWARD completion ════════"
+# STATBUS-305: ARM 2 opens by restoring the world it historically inherited.
+# Before 305, EXHAUST's terminal was rolled_back, and that rollback recreated the
+# db container — which incidentally handed ARM 2 both a live database AND (since
+# a container recreate tears down every existing connection) a daemon forced
+# through a clean reconnect. PARK changes both halves of that inheritance: the db
+# stays PAUSED (STATBUS-111: no automatic touch of an unverified database) and
+# the SAME daemon PROCESS survives, alive-idle, instead of restarting.
+#
+# The first live proof run of the EXHAUST fix (job run 33202712033,
+# tmp/305-live.log:4126-4135) hit exactly that gap: ARM 2's crash_at
+# (wait_for_upgrade_candidate_ready, called at this file's line ~189) timed out
+# at docker_images_status='?' for its full 120s budget. Traced to the root cause
+# in cli/internal/upgrade/service.go: `./sb upgrade register`'s own
+# `NOTIFY upgrade_check` (service.go:5223-5226, "Poked the service to prepare
+# it") was sent into a daemon whose LISTEN loop had died at PARK and never came
+# back. tmp/305-live.log:4270-4273 shows startListenLoop's ONE-AND-ONLY call for
+# that boot landing AFTER the backoff-exhaust had already closed the connections
+# (recoveryRollback's "conn closed" park path, service.go:3007-3013) —
+# "listenLoop started" is immediately followed by "no connection — NOT listening
+# for notifications; the service will act only on its own tick (STATBUS-294)".
+# Nothing in the idle main loop (heartbeat/ticker/executeScheduled,
+# service.go:2448/2481/2494/2518) ever re-arms it: those all guard on
+# `d.listenCancel == nil`, and only stopListenLoop/shutdown/executeUpgrade clear
+# it (service.go:2618-2629, none of which fire on a PARKed, otherwise-idle box).
+# So the OLD daemon's queryConn side keeps retrying on its own (the "Database
+# connect attempt N failed" cycle proven live in the EXHAUST arm above), but its
+# NOTIFY reactivity is gone for the rest of that process's life — no amount of
+# waiting on the SAME process restores it.
+#
+# The fix: restart the unit. A fresh boot runs LoadConfigAndConnect from scratch
+# (service.go:2113-2168) and gets a live listener the normal way, matching what
+# the pre-305 rollback provided implicitly via container recreate. This mirrors
+# the precedent in postswap-health-park-arc.sh's "extra restarts after park"
+# section — restarting a parked unit to observe/restore fresh behavior is an
+# established pattern in this suite, not a new construction technique.
+echo "── restoring ARM 2's inherited world: unpause the db, confirm it, then give ARM 2 a FRESH daemon (STATBUS-305 — the parked daemon's own NOTIFY listener does not self-heal) ──"
+db_unpause
+echo "── waiting for postgres itself to accept connections (independent of the daemon's own reconnect state) ──"
+wait_for_db_ready 60
+ARM2_RESTART_SINCE=$(arm_since)
+VM_EXEC systemctl --user restart "$UPGRADE_UNIT" 2>/dev/null || true
+wait_for_journal "Upgrade service started (channel=" 60 "$ARM2_RESTART_SINCE"
+echo "  ✓ fresh daemon boot connected (LoadConfigAndConnect succeeded — service.go:2168's unconditional post-connect banner); the stale PARKed process (with its dead NOTIFY listener) is gone"
+
 crash_at "killed-by-system-after-migrations-before-completion"
 NR_BEFORE_RESOLVE=$(arc_nrestarts)
 ARM_SINCE=$(arm_since)   # fresh anchor for arm 2 — never matches arm 1's persisted markers
