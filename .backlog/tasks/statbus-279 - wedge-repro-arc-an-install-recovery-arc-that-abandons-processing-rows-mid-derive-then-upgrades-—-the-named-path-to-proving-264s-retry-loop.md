@@ -3,11 +3,11 @@ id: STATBUS-279
 title: >-
   wedge-repro-arc: an install-recovery arc that abandons processing rows
   mid-derive then upgrades — the named path to proving 264's retry loop
-status: In Progress
+status: Done
 assignee:
   - '@engineer'
 created_date: '2026-08-27 16:12'
-updated_date: '2026-08-28 14:43'
+updated_date: '2026-08-28 15:04'
 labels:
   - testing
   - upgrade
@@ -83,5 +83,11 @@ author: foreman
 created: 2026-08-28 14:43
 ---
 FOURTH RED RUN (33180035716): ✗ THE WEDGE FORMED: 1 row(s) are still 'processing' with no live claimant after the upgrade — THE LOAD-BEARING ASSERTION, verbatim, exactly per the interpretation rule. THE RED RULE IS SATISFIED: against rc.09's pre-265 binary the arc reproduced the Norway wedge on a real VM — derive leaf blocked on the held lock, worker stopped, upgrade ran, worker restarted inside the read-only window, reset refused (logged and stepped past by that era's code), row abandoned. The arc is now EVIDENCE, not decoration. GREEN auto-dispatched by the chained watcher (33181492827, current master) — on its expected pass, 264+265's fix is proven by the same arc that proved the disease, and the ticket's acceptance bar is fully met. rc.16 cuts automatically after the GREEN + CI gates (chained watcher b6efm3ckf, clean-tree guarded). Four paid runs total: three construction iterations (each caught by the arc's own refusal to pass having constructed nothing) and one valid red — zero false evidence across the whole sequence.
+---
+
+author: foreman
+created: 2026-08-28 15:04
+---
+GREEN RUN PASSED (33181492827, current master) — TICKET CLOSED, acceptance bar fully met: the arc has been seen RED against rc.09 (the wedge formed, load-bearing assertion verbatim) and GREEN against current code (264+265's fix kills the wedge — the reset is exempt inside the read-only window, no row is abandoned, the upgrade completes). 264's retry-then-FATAL guard, recorded UNPROVEN on STATBUS-271 since the manifest was written, now has real-run proof in both directions from the same arc. The wedge class has its permanent regression arc in the fleet matrix, and 271's 'RECORDED UNPROVEN' caveat is discharged. rc.16 cuts automatically behind this (chained watcher), carrying the proven arc in its gating fleet.
 ---
 <!-- COMMENTS:END -->
