@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-27 16:12'
-updated_date: '2026-08-28 13:49'
+updated_date: '2026-08-28 13:52'
 labels:
   - testing
   - upgrade
@@ -59,5 +59,11 @@ author: foreman
 created: 2026-08-28 13:49
 ---
 SECOND RED RUN (33175628012, arc fix aboard): construction fault #2, one step further — demo data populated, queue drained, 'holder-started' printed, then '✗ the ACCESS EXCLUSIVE lock was never granted — ingredient 1 cannot be constructed' after ~3.5 min of grant-polling. The refuses-to-pass-having-constructed-nothing assertion did its job again; GREEN correctly not dispatched (the chained watcher checked for the WEDGE-FORMED line and stopped). Engineer diagnosing from the job log (tmp/red279-run2.log): prime suspect is the VM_SCRIPT_INLINE conversion changing the holder's runtime shape — dead detached session, args not reaching the body, grant-detection query mismatched to the new process shape, or an era factor in the rc.09 box's user/socket config. Also flagged: if the holder's own log ($HOLD_LOG) is not dumped on the grant-wait failure path, that capture is the first fix — the holder's log IS the diagnosis. Standing rule invoked: three construction iterations is where pre-declared patience ends — if diagnosis needs more attempts, a cheaper local iteration loop (compose-based holder+grant-poll dry-run) is owed before another paid run.
+---
+
+author: foreman
+created: 2026-08-28 13:52
+---
+FAULT #2 DIAGNOSED WITH CERTAINTY AND FIXED (landed d66423815): the holder's own captured log settled it in three lines — LOCK granted, then COMMIT milliseconds later — because the fix for fault ONE had silently dropped the touch of the release file during the VM_SCRIPT_INLINE restructure: the holder's while-file-exists loop was false on its first evaluation and released immediately while the arc polled pg_locks for 3.5 minutes. The fix is shape, not restoration: the holder CREATES the release file itself before backgrounding, self-checked with propagating failure — the step that needs the file creates it, so no refactor can separate them again. THE CHEAPER LOOP built and proven: the holder's control flow extracted with a psql stand-in iterates locally in ~10 seconds (old shape commits immediately; new shape holds until file removal) — the engineer's own words: this should have run before the second paid dispatch, and now precedes any future one; plain-shell arc logic iterates locally, VMs are for the genuinely-remote parts. DISPATCH HYGIENE INCIDENT, mine: the first run-3 dispatch went out while the commit was BLOCKED by the commit-msg hook ('fault #1/#2' pattern-matched bare ticket references) — the run would have executed the old, unfixed arc; caught within a minute, run cancelled, message reworded, landed, re-dispatched. RED RUN 3 (the real one): 33177387634 at head d66423815, chained watcher validating the WEDGE-FORMED line before auto-dispatching GREEN. The refuses-to-pass assertion is now 2-for-2 on preventing false evidence.
 ---
 <!-- COMMENTS:END -->
