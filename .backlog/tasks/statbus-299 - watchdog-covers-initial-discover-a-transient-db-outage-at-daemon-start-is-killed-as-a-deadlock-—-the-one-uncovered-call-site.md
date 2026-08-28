@@ -3,9 +3,11 @@ id: STATBUS-299
 title: >-
   watchdog-covers-initial-discover: a transient db outage at daemon start is
   killed as a deadlock — the one uncovered call site
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@engineer'
 created_date: '2026-08-28 13:12'
+updated_date: '2026-08-28 13:18'
 labels:
   - upgrade
   - cli
@@ -32,3 +34,19 @@ EVIDENCE STATUS: 294's fix is CONFIRMED WORKING by this same journal (announce l
 
 WHAT IS ACHIEVED: a db blip at daemon start is ridden out inside the existing 5-minute budget, the watchdog still catches real deadlocks, and the scenario built to prove this passes because it is true.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect (pinned by foreman)
+created: 2026-08-28 13:18
+---
+RULING, with a verification that reshaped the options: reconnect (:3866) calls connect EXACTLY ONCE — no loop — and connectTimeout bounds that single call. So the initial discover contains ONE attempt, which refutes three candidates outright: attempt-progress cover AS ASSUMED (would ping once then go silent five minutes — indistinguishable from the hang it detects); moving discovery into the select loop (the heartbeat lives on the main goroutine — a 5-minute blocking call on that goroutine stops it wherever it sits; the problem is not ordering but that a call outlasting WatchdogSec lives on the heartbeat's goroutine at all); shrinking the bound below WatchdogSec (the ride-out must survive 180s and the watchdog fires at 120s — no single-attempt design satisfies both, which is exactly why this intersection was uncovered).
+
+THE RULING: the mechanic's INSIGHT is right — a heartbeat must attest to PROGRESS, not the passage of time — so give it the retry loop it presumes. Restructure the initial connect into bounded sub-attempts: per-attempt timeout ≈30s (well under WatchdogSec, so a genuinely wedged attempt stops pinging and real-hang detection is PRESERVED inside the covered phase); total budget unchanged at 5 minutes (the 180s ride-out and 3-postswap-watchdog-reconnect survive untouched); WATCHDOG=1 pinged on each attempt boundary, never on a timer. This is better engineering independent of the watchdog: a single 5-minute attempt takes 5 minutes to report ANY failure; bounded retries report the first failure in seconds with the same patience overall — we are not bending the connection design to the watchdog, we are fixing a connection design that was already too coarse, and the cover falls out of it. Raising WatchdogSec stays rejected (weakens real-deadlock detection everywhere).
+
+rc.16: CUT WITHOUT 299, with 297+300 aboard — the run's purpose is validating those two, not promoting. 299's production impact is bounded (transient window; systemd's restart is the correct response; noisy, not dangerous — unlike 297's crash-loop where retrying could never help). ONE CONDITION, not ceremony: PRE-DECLARE IN WRITING before the run that transient-db-backoff is expected to red, with cause and ticket — a predicted red recorded in advance stays a prediction confirmed; the same red explained afterwards is how a team learns to accept reds, and this project has no flaky tests. Pre-declaration is what keeps that rule intact while knowingly running a red.
+
+STAFFING: engineer (holds the file from 294; connection-path restructure with watchdog interaction, not mechanical). Mechanic keeps 300.
+---
+<!-- COMMENTS:END -->
