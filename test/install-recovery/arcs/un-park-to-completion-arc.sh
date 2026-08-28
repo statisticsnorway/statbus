@@ -105,6 +105,11 @@ TICK_WAIT_S="${TICK_WAIT_S:-120}"
 SWAP_WAIT_BUDGET_S="${SWAP_WAIT_BUDGET_S:-600}"
 PARK_WAIT_BUDGET_S="${PARK_WAIT_BUDGET_S:-600}"
 INSTALL_BUDGET_S="${INSTALL_BUDGET_S:-1200}"
+# STATBUS-300: the assert-park/assert-completion reads confirm a state a
+# polling loop (or a just-exited-0 ./sb install) already observed — they are
+# not discovering a NEW state, so this budget is deliberately short next to
+# the *_WAIT_BUDGET_S above, which wait for a state to ARISE.
+ASSERT_RETRY_BUDGET_S="${ASSERT_RETRY_BUDGET_S:-30}"
 # Leave this much free after the fill — comfortably BELOW dockerStepMinFreeGB=5 so
 # the pre-pull check parks deterministically, with enough headroom for the alive-idle
 # box (DB keeps serving) across the brief park window before we free the disk.
@@ -137,6 +142,31 @@ UNIT_ACTIVE_WAIT_BUDGET_S="${UNIT_ACTIVE_WAIT_BUDGET_S:-90}"
 # rollback path). Returns "?" on a transport/DB failure (never a false zero).
 state_log_rollback_count() {
     VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM public.upgrade_state_log WHERE upgrade_id = (SELECT id FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1) AND new_state = 'rolled_back';\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"
+}
+# wait_for_real_rollback_count <budget_s> — STATBUS-300: the same
+# assert-patience retry as wait_for_real_row, for state_log_rollback_count's
+# own "?" transport-failure sentinel (never a false zero — see its comment
+# above). Both of this file's zero-rollback assertions read this value
+# immediately after a state we already hold a real, freshly-confirmed row
+# for (the park, and the just-exited-0 completion), so one transient beat
+# here must not be read the same as an actual rollback.
+wait_for_real_rollback_count() {
+    local budget="$1"
+    local start elapsed n
+    start=$(date +%s)
+    while true; do
+        n=$(state_log_rollback_count)
+        if [ "$n" != "?" ]; then
+            echo "$n"
+            return 0
+        fi
+        elapsed=$(( $(date +%s) - start ))
+        if [ "$elapsed" -ge "$budget" ]; then
+            echo "$n"
+            return 1
+        fi
+        sleep 5
+    done
 }
 
 # parked_siren_count — how many STATBUS_EVENT=parked callbacks fired. UPGRADE_CALLBACK
@@ -192,6 +222,41 @@ echo "════════════════════════�
 row_cols_for() {
     local sha="$1"
     VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, recovery_parked_at IS NOT NULL, COALESCE(recovery_parked_reason,'') FROM public.upgrade WHERE commit_sha = '$sha' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A -F'|'" 2>/dev/null | tr -d '\r' || echo "?|?|?|(db-down)"
+}
+# wait_for_real_row <sha> <budget_s> [<last_known_good_row>] — STATBUS-300:
+# an ASSERT-PATIENCE retry, not a state-discovery poll (contrast the
+# SWAP_WAIT_BUDGET_S / PARK_WAIT_BUDGET_S loops above, which wait for a state
+# to ARISE). This confirms a state already observed, so a transport-sentinel
+# read (row_cols_for's own "?|?|?|(db-down)" fallback — a psql failure, never
+# a state verdict) is retried at the same 5s cadence those loops use, against
+# a deliberately SHORT budget. Returns the first real (non-sentinel) read
+# immediately. On budget exhaustion still sentinel, prints the sentinel PLUS
+# the caller's last-known-good read (when given) so the failure names a real,
+# once-true state instead of reading as if the assertion itself was ever in
+# doubt — the state existed; this only failed to re-read it. Returns 1 on
+# exhaustion so the caller decides how to fail loudly (matching every other
+# assertion in this file, which name their own diagnostic on failure).
+wait_for_real_row() {
+    local sha="$1" budget="$2" last_known_good="${3:-}"
+    local start elapsed row
+    start=$(date +%s)
+    while true; do
+        row=$(row_cols_for "$sha")
+        if [[ "$row" != '?|?|?|'* ]]; then
+            echo "$row"
+            return 0
+        fi
+        elapsed=$(( $(date +%s) - start ))
+        if [ "$elapsed" -ge "$budget" ]; then
+            if [ -n "$last_known_good" ]; then
+                echo "$row (last known-good read: $last_known_good)"
+            else
+                echo "$row"
+            fi
+            return 1
+        fi
+        sleep 5
+    done
 }
 # df available bytes on ~/statbus's filesystem — the exact statfs DiskFree reads.
 avail_bytes() {
@@ -351,7 +416,7 @@ done
 #    recovery_parked_reason is CLEARED on un-park, so it must be read while parked. ──
 echo ""
 echo "── assert park: state=in_progress, parked, reason names the disk floor; capture the row id ──"
-ROW=$(row_cols_for "$B_FULL")
+ROW=$(wait_for_real_row "$B_FULL" "$ASSERT_RETRY_BUDGET_S" "$ROW") || { echo "✗ could not get a real (non-transport-failure) read of the parked row within ${ASSERT_RETRY_BUDGET_S}s (last: $ROW)" >&2; exit 1; }
 PARKED_ID=$(echo "$ROW" | cut -d'|' -f1)
 PARK_STATE=$(echo "$ROW" | cut -d'|' -f2)
 PARK_REASON=$(echo "$ROW" | cut -d'|' -f4)
@@ -365,7 +430,7 @@ echo "  ✓ RESOURCE park landed (in_progress, parked, disk reason), row id=$PAR
 # at-target at the pre-pull check, so it PARKS. If this row EVER entered
 # 'rolled_back', the lineage was not actually at-target (a stray migration slipped
 # in) — the whole arm-(ii) premise is void. Assert zero rollbacks in the state-log.
-ROLLBACKS=$(state_log_rollback_count)
+ROLLBACKS=$(wait_for_real_rollback_count "$ASSERT_RETRY_BUDGET_S") || { echo "✗ could not get a real (non-transport-failure) rollback count within ${ASSERT_RETRY_BUDGET_S}s (last: $ROLLBACKS)" >&2; exit 1; }
 [ "$ROLLBACKS" = "0" ] || { echo "✗ B's state-log shows $ROLLBACKS rollback(s) — arm (ii) must be at-target and PARK, never roll back (a rollback means B carried a delta / was Behind)" >&2; exit 1; }
 echo "  ✓ zero rollbacks in the state-log — at-target park, not a Behind rollback"
 
@@ -432,7 +497,7 @@ echo "  ✓ install logged UN-PARKED exactly once (one fresh attempt) and exited
 #    lineage carries no migration by design (that absence is the whole point). ──
 echo ""
 echo "── assert completion: SAME row id=$PARKED_ID reached 'completed', un-parked, ZERO restores, data intact ──"
-ROW=$(row_cols_for "$B_FULL")
+ROW=$(wait_for_real_row "$B_FULL" "$ASSERT_RETRY_BUDGET_S" "no row read yet this phase — but install exited 0 with UN-PARKED logged") || { echo "✗ could not get a real (non-transport-failure) read of the completed row within ${ASSERT_RETRY_BUDGET_S}s (last: $ROW)" >&2; exit 1; }
 DONE_ID=$(echo "$ROW" | cut -d'|' -f1)
 DONE_STATE=$(echo "$ROW" | cut -d'|' -f2)
 DONE_PARKED=$(echo "$ROW" | cut -d'|' -f3)
@@ -443,7 +508,7 @@ echo "  final row: $ROW"
 # ZERO restores anywhere (arm ii's signature): the row must never have rolled back —
 # not at the park, not during the un-park attempt. At-target all along means there
 # was nothing to restore; a restore would be a correctness violation of the ruling.
-ROLLBACKS_FINAL=$(state_log_rollback_count)
+ROLLBACKS_FINAL=$(wait_for_real_rollback_count "$ASSERT_RETRY_BUDGET_S") || { echo "✗ could not get a real (non-transport-failure) rollback count within ${ASSERT_RETRY_BUDGET_S}s (last: $ROLLBACKS_FINAL)" >&2; exit 1; }
 [ "$ROLLBACKS_FINAL" = "0" ] || { echo "✗ B's state-log shows $ROLLBACKS_FINAL rollback(s) across the whole arc — arm (ii) must complete with ZERO restores (nothing to restore: at-target throughout)" >&2; exit 1; }
 # The PARK event fired once and NOT again through the un-park→complete leg (completion
 # is not a park event). Count '^parked ' ONLY — the log legitimately grew other
