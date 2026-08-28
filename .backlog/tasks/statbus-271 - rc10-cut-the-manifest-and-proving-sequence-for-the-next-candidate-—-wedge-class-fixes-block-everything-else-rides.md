@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 13:08'
-updated_date: '2026-08-28 02:39'
+updated_date: '2026-08-28 03:58'
 labels:
   - release
 dependencies: []
@@ -60,5 +60,11 @@ author: foreman
 created: 2026-08-28 02:39
 ---
 CORRECTION to #4: rc.13's delta over rc.12 is NOT '293 + 227' — 293 was already IN rc.12 (comment #3 says so; rc.12's leg 5 was SKIPPED because leg 4 failed, so 293 simply never got exercised). rc.13's actual delta: 227's SIGPIPE sweep (f4b7a9507) + the :708 sibling-guard unification (432e51872) + board commits. The substantive claim stands: rc.13's chain is the first where leg 4 runs with the SIGPIPE fix AND leg 5 runs at all with 293 in the fleet.
+---
+
+author: foreman
+created: 2026-08-28 03:58
+---
+rc.13 CHAIN VERDICT (orchestrator 33136561614, completed 2026-08-28 ~04:20Z): LEGS 1-4 ALL GREEN — and leg 4 green is the night's proof: install-recovery passed for the FIRST TIME IN THREE CHAINS, confirming 227's SIGPIPE root cause and fix (the roving hardening-verify red is dead). Leg 5 red — but NOT an arc failure and NOT 293's lottery: the fleet NEVER LAUNCHED. Fixture construction died at exit 128 on a brand-new class bug: _ut_fixture_base's never-before-exercised nothing-to-commit arm leaks git commit's status chatter into its own stdout-returned SHA (STATBUS-295, filed with full mechanism; fired first at rc.13 precisely BECAUSE the tag sat at master's tip with workflows identical — the healthiest tag state we've cut all night is the one state the fixture code had never seen). Engineer on the fix. RELAUNCH IS CHEAP: the harness fixture job checks out the run's github.sha (master tip), not the tag — fix lands on master, then rerun the orchestrator's failed leg 5; rc.13 itself remains the candidate, no rc.14 required. 293 remains unexercised (the fleet must actually run to prove it); the 228-family standing reds remain the expected honest residue once the fleet flies.
 ---
 <!-- COMMENTS:END -->
