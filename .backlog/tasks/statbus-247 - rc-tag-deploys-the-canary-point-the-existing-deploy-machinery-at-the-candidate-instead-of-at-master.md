@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 07:14'
-updated_date: '2026-08-19 09:30'
+updated_date: '2026-08-28 23:13'
 labels:
   - release
   - ops
@@ -92,6 +92,12 @@ WHY THAT HELPS: promotion stops being a check we run on the software and becomes
 - [ ] #15 Promotion requirements are unchanged by this entry
 - [ ] #16 Proven end to end on a real cut: smoke → dev converges → fleets → offer sits on Norway → a person installs it against the card → gate clears
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+**Observation-card gate LANDED at 9b823cc82** (mechanic's close-out unit, foreman-reviewed diff + independently re-ran the 245/247/card tests green): doc/observations/TEMPLATE.md promotes the King-approved doc-035 draft with <CANDIDATE_TAG> placeholders; checkOneCanary refuses a 'completed' operator-slot canary without a card at doc/observations/<tag>.md that NAMES the tag in its body (stale-copy guard); missingObservationCardReason is a pure unit-tested function; awaiting-operator resting state untouched and now prints the card path at offer time; red-verified structurally. REMAINING on this ticket: the live proof — Norway installs a candidate (rc.17, overnight-approved), the King records the first real card in the morning, and the gate is observed refusing-then-passing on real state. STATBUS-273 unblocks on that proof.
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 
