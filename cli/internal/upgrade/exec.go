@@ -1611,23 +1611,36 @@ func (d *Service) waitForRestReady(progress *ProgressLog, pollInterval, progress
 			lastDetail = fmt.Sprintf("status=%d (schema cache still loading)", resp.StatusCode)
 		}
 
-		if now := waitForRestReadyNow(); now.After(deadline) {
-			if sawConnection {
-				return fmt.Errorf(
-					"PostgREST schema cache never loaded — admin /ready did not return 200 within %s "+
-						"(last: %s). Check `docker compose logs rest`; the cache load may be failing, or the "+
-						"schema may be too large for the %s budget",
-					timeout, lastDetail, timeout)
-			}
-			return fmt.Errorf(
-				"PostgREST admin server unreachable — /ready at %s never accepted a connection within %s "+
-					"(last: %s). The admin mapping is likely missing from your config — run "+
-					"`./sb config generate` to regenerate .env and recreate the rest container",
-				readyURL, timeout, lastDetail)
-		} else if now.Sub(lastProgressAt) >= progressInterval {
+		// STATBUS-289: the progress emission runs BEFORE the deadline check
+		// (reversed from the original order) so the pass that actually hits
+		// the deadline still gets a chance to log its own "Still waiting"
+		// line first — under the old order, the final pass returned via the
+		// deadline branch before the progress branch (previously an
+		// else-if) could ever run, silently dropping the last line (and, in
+		// the degenerate case of a timeout shorter than one poll round
+		// trip, every line). The progressInterval throttle itself is
+		// unchanged: this still fires only once per progressInterval
+		// elapsed, never on every pass.
+		now := waitForRestReadyNow()
+		if now.Sub(lastProgressAt) >= progressInterval {
 			logf("Still waiting for PostgREST /ready (elapsed %s, last: %s)",
 				now.Sub(start).Round(time.Second), lastDetail)
 			lastProgressAt = now
+		}
+
+		if now.After(deadline) {
+			if sawConnection {
+				return fmt.Errorf(
+					"PostgREST schema cache never loaded — admin /ready did not return 200 within %s "+
+						"(last: %s, %d poll(s)). Check `docker compose logs rest`; the cache load may be failing, or the "+
+						"schema may be too large for the %s budget",
+					timeout, lastDetail, polls, timeout)
+			}
+			return fmt.Errorf(
+				"PostgREST admin server unreachable — /ready at %s never accepted a connection within %s "+
+					"(last: %s, %d poll(s)). The admin mapping is likely missing from your config — run "+
+					"`./sb config generate` to regenerate .env and recreate the rest container",
+				readyURL, timeout, lastDetail, polls)
 		}
 
 		waitForRestReadySleep(pollInterval)

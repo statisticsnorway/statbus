@@ -5,12 +5,39 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 )
+
+// pollCountRe extracts the "N poll(s)" count STATBUS-289 adds to both
+// waitForRestReady timeout errors (mirroring the success line's own
+// "%d poll(s)" phrasing, :1602). Used instead of a hardcoded expected count
+// so the test derives its cross-check from the error itself, not from
+// hand-computed pass arithmetic that would silently drift if the loop's
+// timing constants ever change.
+var pollCountRe = regexp.MustCompile(`(\d+) poll\(s\)`)
+
+// pollCountFromError extracts the poll count STATBUS-289 requires in both
+// timeout error messages. Fails the test loudly if the pattern is absent —
+// never treated as "0 polls", which would silently mask the very omission
+// this ticket closes.
+func pollCountFromError(t *testing.T, err error) int {
+	t.Helper()
+	m := pollCountRe.FindStringSubmatch(err.Error())
+	if m == nil {
+		t.Fatalf("expected error to name the poll count as \"N poll(s)\", got: %v", err)
+	}
+	n, convErr := strconv.Atoi(m[1])
+	if convErr != nil {
+		t.Fatalf("poll count %q did not parse as an integer: %v", m[1], convErr)
+	}
+	return n
+}
 
 // newTestProgress builds a ProgressLog backed by a temp dir so tests can read
 // back the narrated lines (mirrors the rc.42 health-check test setup).
@@ -137,8 +164,39 @@ func TestWaitForRestReady_TimeoutSchemaCacheStuck(t *testing.T) {
 		t.Errorf("schema-cache-stuck error must not point at config generate, got: %v", err)
 	}
 	// The ~progressInterval cadence path ran (load-bearing: it feeds the watchdog).
-	if logStr := readProgress(t, progress); !strings.Contains(logStr, "Still waiting for PostgREST /ready") {
+	logStr := readProgress(t, progress)
+	if !strings.Contains(logStr, "Still waiting for PostgREST /ready") {
 		t.Errorf("expected periodic 'Still waiting' progress lines; got:\n%s", logStr)
+	}
+
+	// STATBUS-289 property 2: the timeout error names how many polls were
+	// made — the success line already does ("%d poll(s)", :1602); a timeout
+	// after 1 attempt must not read the same as one after 40.
+	polls := pollCountFromError(t, err)
+	if polls <= 0 {
+		t.Errorf("expected a positive poll count in the timeout error, got %d (err: %v)", polls, err)
+	}
+
+	// STATBUS-289 property 1: the FINAL pass — the one whose deadline check
+	// actually fires the timeout — must still have emitted its own "Still
+	// waiting" line first, not just some earlier pass. This test's fixed
+	// clock makes this an exact, non-magic-number check rather than an
+	// approximation: pollInterval (2ms) is a whole multiple of
+	// progressInterval (1ms) and the very first pass never has anything
+	// elapsed to report, so — PROVIDED the progress emission fires before
+	// the deadline check — every pass from the 2nd through the LAST
+	// (inclusive) logs progress, and no others: exactly (polls - 1) lines,
+	// deterministically, regardless of the exact pass count. Before
+	// STATBUS-289 (deadline check first), the final pass's line is dropped
+	// by the early return — exactly (polls - 2) lines — so this assertion is
+	// the red-before/green-after discriminator, not the older "log contains
+	// at least one line" check above (which passes even with the bug, since
+	// earlier passes already logged plenty).
+	gotLines := strings.Count(logStr, "Still waiting for PostgREST /ready")
+	if wantLines := polls - 1; gotLines != wantLines {
+		t.Errorf("expected exactly %d 'Still waiting' line(s) (polls-1, i.e. every pass but the first) since the "+
+			"progress emission must fire before the deadline check on the FINAL pass too; got %d. polls=%d, log:\n%s",
+			wantLines, gotLines, polls, logStr)
 	}
 }
 
@@ -167,6 +225,15 @@ func TestWaitForRestReady_TimeoutAdminUnreachable(t *testing.T) {
 	// Never-connected must NOT mis-blame the schema cache.
 	if strings.Contains(err.Error(), "schema cache never loaded") {
 		t.Errorf("unreachable error must not blame the schema cache, got: %v", err)
+	}
+
+	// STATBUS-289 property 2, admin-unreachable branch: this test runs on the
+	// REAL clock (no owned-clock seam here), so the exact poll count is
+	// machine-speed-dependent — only its presence and positivity are
+	// asserted, mirroring the loose bound the schema-cache-stuck test's
+	// owned clock lets it tighten to an exact count.
+	if polls := pollCountFromError(t, err); polls <= 0 {
+		t.Errorf("expected a positive poll count in the timeout error, got %d (err: %v)", polls, err)
 	}
 }
 
