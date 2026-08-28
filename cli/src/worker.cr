@@ -448,6 +448,16 @@ module Statbus
                 # everything after this block, so an unscoped SET would do
                 # precisely that.
                 #
+                # LATENT COUPLING (STATBUS-272): this scoping is safe ONLY BECAUSE
+                # worker startup is sequential — nothing else runs on `db` between
+                # the SET above and the RESET in the `ensure` below. If startup ever
+                # gains CONCURRENT work on this same connection (a second fiber, a
+                # parallel init step), that work would run exempted too, and the
+                # guard would stop guarding while every line here still reads as if
+                # it did. Two mechanisms — this exemption's safety and startup's
+                # sequencing — hold each other up; if you are about to make startup
+                # concurrent, this is the block that breaks first.
+                #
                 # VERIFIED, not reasoned, against the real guard shape (an
                 # inherited ALTER DATABASE setting on a throwaway database): the
                 # SET exempts and the write succeeds; RESET restores the inherited
@@ -494,16 +504,23 @@ module Statbus
                 "worker would stay there forever, and a parent waiting on it would never complete — " \
                 "silently, behind a worker that otherwise looks healthy. Exiting so the restart policy " \
                 "makes this visible.\n" \
-                "FIRST CHECK WHETHER THE DATABASE IS READ-ONLY ON PURPOSE — if it is, this is not a " \
-                "worker fault and there is nothing here to debug:\n" \
+                "MOST LIKELY CAUSE (STATBUS-272): this call is supposed to be EXEMPT from the " \
+                "upgrade's read-only guard (SET default_transaction_read_only = off around this " \
+                "call, STATBUS-265). If the error above is a read-only-transaction refusal, THE " \
+                "EXEMPTION DID NOT TAKE — the SET failed, ran on the wrong connection, or was reset " \
+                "early. Since the exemption is meant to override the guard regardless of WHY it is " \
+                "set, a read-only refusal reaching here is a worker-side fault to chase first, not a " \
+                "sign the box is legitimately read-only.\n" \
+                "SECONDARY CHECK — only if the exemption looks intact and the refusal persists, " \
+                "confirm whether the database is read-only for an unrelated reason:\n" \
                 "  SHOW default_transaction_read_only;\n" \
                 "It is deliberately read-only during an upgrade's accident-guard window (clears itself " \
                 "when the upgrade finishes); while an upgrade is held in its post-failure ABORT state " \
                 "awaiting an operator decision (`./sb install` resolves it); and whenever an " \
                 "administrator has set it by hand for maintenance. In every one of those cases the " \
                 "worker is correctly refusing to run, and it will start on its own once the database " \
-                "is writable again.\n" \
-                "Only if the database is NOT read-only is the error above a real fault worth chasing."
+                "is writable again — but note that a working exemption should already reach through " \
+                "all three, so landing here still points first at the exemption itself."
               end
               exit(1)
             end
