@@ -1,13 +1,12 @@
 ---
 id: STATBUS-286
 title: >-
-  offset-discontinuity: page-aligned NUL runs in test results are a write past
-  EOF zero-filled by the filesystem — supersedes both the disk and the
-  straggler-race verdicts
-status: To Do
+  offset-discontinuity surveillance: one future fire must settle the mechanism —
+  tripwire armed, 282 is the running experiment
+status: In Progress
 assignee: []
 created_date: '2026-08-27 17:14'
-updated_date: '2026-08-27 22:42'
+updated_date: '2026-08-28 09:40'
 labels:
   - testing
   - tooling
@@ -20,23 +19,25 @@ ordinal: 279000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Architect's governing frame (revised 2026-08-28 after the July discoveries; supersedes the earlier one-day-cluster framing and both pre-286 verdicts — May's straggler certainty and the disk/Docker theories).
+NORTH STAR: when this corruption fires again, the capture must settle the mechanism on the FIRST fire. At the observed rate (~2 episodes in 6 weeks) we may get one chance, possibly months out — so the instrument must provably yield, and it now does. This ticket is the surveillance record: the phenomenon's exact shape, the governing hypothesis, the armed tripwire, and what closes it.
 
-SIX PRESERVED VICTIMS ACROSS SIX WEEKS, IN TWO EPISODES — 2026-07-13 (403_cross_border_power_group), 2026-07-14 (314_consecutive_demo_loads), and four on 2026-08-27 (105, 110, 301 twice, 307). All six carry one signature: zero run starting on an exact page boundary, ending at an arbitrary offset, file fully allocated, no holes. Data for the gap never arrived while data after it did.
+THE SIGNATURE, six preserved victims in two episodes: 2026-07-13 (403_cross_border_power_group), 2026-07-14 (314_consecutive_demo_loads), and four on 2026-08-27 (105, 110, 301 twice, 307). All six identical in shape: a run of NUL bytes starting on an exact page boundary, ending at an arbitrary offset, file fully allocated, no holes. Data for the gap never arrived while data after it did.
 
-BOTH EPISODES COINCIDE WITH DOCUMENTED KILLED RUNS — 2026-07-14 is recorded contemporaneously in dev.sh:482 (the 401 chain-starter external kill) and dev.sh:733 (crash-recovery cycles); 2026-08-27 is the killed suite that stranded six clone databases (STATBUS-282 comment #1). This supports, without yet proving, the host-death → straggler → second-writer producer that 282 closes. The load correlation is real but INDIRECT: load produces kills, kills produce stragglers, stragglers produce this — a sharper hypothesis than load-causes-corruption, and falsifiable in the passive posture (a future strike with no killed run in evidence breaks it).
+GOVERNING HYPOTHESIS (architect, revised after the July instances surfaced): both episodes coincide with DOCUMENTED killed runs (2026-07-14 is recorded contemporaneously in dev.sh:482 and :733; 2026-08-27 is the killed suite that stranded six clone databases, STATBUS-282). The load correlation is real but INDIRECT — load produces kills, kills produce stragglers, stragglers produce a second writer. Falsifiable in the passive posture: one strike with no killed run in evidence breaks it.
 
-TWO MECHANISMS REMAIN LIVE and the geometry alone does not separate them: an OFFSET DISCONTINUITY (a writer positioned past the gap — two processes racing or one process with a stale second handle give identical signatures) or a storage-path RANGE LOSS. The geometry mildly favours the first — under it the arbitrary end is simply a stream position, while range loss requires a partially-lost page.
+TWO MECHANISMS REMAIN LIVE, and geometry alone cannot separate them: an OFFSET DISCONTINUITY (a writer positioned past the gap — two racing processes or one stale second handle look identical) or a storage-path RANGE LOSS. Geometry mildly favours the first.
 
-BASE RATE ~2 EPISODES / 6 WEEKS MAKES ON-DEMAND REPRODUCTION INFEASIBLE. No multi-hour experiment can be expected to reproduce it; the container-local vs bind-mount discrimination returned a clean 20/20 null and could not attribute. SURVEILLANCE IS THEREFORE THE INSTRUMENT, not the patient option: the tripwire captures SEEK_HOLE/stat on the ORIGINAL, host holders WITH their offsets (lsof -o — macOS has no /proc and the offset is the entire discriminator), and container-side fdinfo pos:, all BEFORE any preserving copy. The next single fire is expected to be decisive — and may be the only one we get.
+WHY SURVEILLANCE IS THE ONLY INSTRUMENT, not the patient option: at this base rate a paired-suite experiment is structurally incapable of discriminating (the 20/20 quiet-machine series returned a clean, honest null — protocol pre-registered before the runs so it could not be reinterpreted). STATBUS-282's single-writer machinery, now landed, IS the running experiment: recurrence with the guard verified-consulted is evidence against the second-writer branch; a long clean period is evidence 282 was the fix.
 
-EVIDENCE-STATUS NOTES kept so nobody re-litigates: the SEEK_HOLE no-hole result is uninformative (VirtioFS's past-EOF gap handling is Docker Desktop's choice); the victim-profile refutation (which file gets hit WITHIN a run — larger/slower files clean, victims middling) STANDS, and is a different claim from whether corruption occurs under load at all; single-writer claims are unprovable by pgrep; pg_regress writes directly to the bind mount (no copy step between writer and artifact); forensic captures record SEEK_HOLE geometry BEFORE copying (cp materializes holes); synthetic exercise artifacts are quarantined under tmp/forensics-286/synthetic/ with a planted-data README so the genuine-instance count stays honest.
+THE INSTRUMENT (landed c10a1f983 + 119e83fc8, exercised 6/6 with a planted holder at a non-zero offset): at fire time, BEFORE any preserving copy, the tripwire captures SEEK_HOLE/stat on the ORIGINAL, host lsof holders WITH offsets (-o — macOS has no /proc, and the offset is the entire discriminator), and container-side fdinfo write positions (deliberately matched on sibling results files too — a holder on a sibling is the discontinuity story in miniature).
 
-Standing discipline unchanged: victims restore via git checkout when surroundings match HEAD; never update baselines from corrupted output; report-and-wait on stragglers (STATBUS-188); CI remains the reference oracle. Cross-references: STATBUS-282 (the producer this frame implicates, now closed — its machinery is the running experiment), STATBUS-158 (the tripwire this extended).
+STANDING DISCIPLINE: victims restore via git checkout when surroundings match HEAD; never update baselines from corrupted output; report-and-wait on stragglers (STATBUS-188); CI remains the reference oracle; synthetic exercise artifacts live quarantined under tmp/forensics-286/synthetic/ with a planted-data README so the genuine count (7 artifacts) stays honest.
 
-CLOSURE CONDITIONS: (a) a recurrence is captured with holders and positions and the mechanism is settled; or (b) a long clean period under real full-suite load lets the architect declare 282's producer-closure the fix.
+EVIDENCE-STATUS, kept so nobody re-litigates: the SEEK_HOLE no-hole result is uninformative (VirtioFS's past-EOF handling is Docker Desktop's choice); the victim-profile refutation (WHICH file gets hit within a run) stands and is distinct from load-dependence (WHETHER it fires at all), which stays a live hypothesis pulled at from both sides; single-writer claims are unprovable by pgrep; comments #5/#6 and #10/#12 are each ONE report recorded twice, not corroboration.
 
-WHAT IS ACHIEVED: the damage has an exact known shape and a named indirect producer hypothesis, the one future fire will carry holders and write offsets, and no future session re-litigates disk-vs-Docker-vs-straggler on signature alone.
+CLOSES WHEN: (a) a recurrence is captured with holders and positions and the mechanism is settled; or (b) a long clean period under real full-suite load lets the architect declare 282's producer-closure the fix.
+
+WHAT IS ACHIEVED: the one future fire will carry holders and write offsets; no future session re-litigates disk-vs-Docker-vs-straggler on signature alone.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Comments
