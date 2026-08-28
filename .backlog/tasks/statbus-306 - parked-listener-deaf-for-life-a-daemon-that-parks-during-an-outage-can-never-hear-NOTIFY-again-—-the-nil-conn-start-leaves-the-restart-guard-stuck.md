@@ -3,10 +3,11 @@ id: STATBUS-306
 title: >-
   parked-listener-deaf-for-life: a daemon that parks during an outage can never
   hear NOTIFY again — the nil-conn start leaves the restart guard stuck
-status: To Do
+status: Done
 assignee:
   - '@engineer'
 created_date: '2026-08-28 20:01'
+updated_date: '2026-08-28 21:30'
 labels:
   - upgrade
   - cli
@@ -31,3 +32,13 @@ DISCOVERED-BY chain, for the record: 294 (crash) → 299 (watchdog kill) → 305
 
 WHAT IS ACHIEVED: a parked box hears the next poke; alive-idle means reachable.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-08-28 21:30
+---
+LANDED at fbb8a14e7 and CLOSED (service.go +37 of which 5 code, listenloop_ownership_test.go +105). The fix improved on the ticket's own shape: startListenLoop refuses a nil conn BEFORE creating any guard state — indistinguishable-from-never-started holds for every consumer BY CONSTRUCTION (nothing was ever set), where the ticket's clear-the-guard shape would have owed two-field consistency at every exit forever. 294's ownership design untouched; listenLoop's own nil guard kept as second-line defence (noted no longer production-reachable); the announce now truthfully promises listening resumes when a connection returns. Tests pin STATE (both guard fields nil) and BEHAVIOUR (a second start reaches its work — the announce appears twice; pre-fix once, silently swallowed at the stuck guard); RED 2/2 by restoring the pre-fix shape; full uncached suite + -race green, with the stdout-capture helper designed against the shared-global race class up front. Also on the record, engineer's own near-miss: a wrong-cwd grep almost reported 'zero functional lines' — caught because --stat contradicted it and the when-a-check-disagrees-read-the-artifact rule applies to reporting commands too. Rides rc.17: a parked box now hears the next poke.
+---
+<!-- COMMENTS:END -->

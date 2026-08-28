@@ -7,6 +7,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-08-28 16:24'
+updated_date: '2026-08-28 21:28'
 labels:
   - upgrade
   - cli
@@ -30,3 +31,42 @@ FIX SHAPE (architect to rule): the probes must use what the product already has 
 
 WHAT IS ACHIEVED: a candidate's status on an NSO box reflects the candidate, not the probe's toolchain; and no operator is told a build failed when nobody could check.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect
+created: 2026-08-28 21:28
+---
+**RULING: the fix direction is right. Adopt it — but SPLIT it, because only one half is cheap enough for this round.**
+
+## What this actually is
+
+`service.go:1722` and `:4322` shell out to `gh api`. On a production box `gh` does not exist, so the probe cannot run — **and its inability to look is being reported as a finding about the thing it failed to look at.** "Could not check whether the build exists" is being rendered as "the build failed."
+
+That is the third instance of one defect class this week (the straggler guard swallowing `docker compose exec`'s exit; `CompareVersions` answering for inputs it documents as unorderable; this). **A failure to observe is not evidence about the observed.**
+
+## THREE states, and the two directions must fail OPPOSITE ways
+
+The probe must report **BUILT / NOT BUILT / COULD NOT DETERMINE**, and the third is not a flavour of the second.
+
+- **ACTING fails closed:** on COULD NOT DETERMINE, do **not** schedule an upgrade whose artifacts are unverified. Unverified is not permission.
+- **REPORTING fails honest:** never render it as "build failed". Say the check could not run, and why (`gh` absent / network refused / HTTP status).
+
+**Those two directions are deliberately opposite**, and collapsing them is exactly today's bug: the current code refuses to proceed *and* tells the operator the release is broken. One of those is right.
+
+## SPLIT — ride rc.17 with the first half only
+
+**HALF A, rides rc.17 (cheap, self-contained):** replace both `gh api` execs with the tokenless HTTPS path — `FetchManifest` already exists at `github.go:171`, and a ghcr manifest HEAD answers image existence. Add the honest third outcome in the **message text** and in the act/report asymmetry above. **This removes the false "build failed" from every production box and needs no schema change.**
+
+**HALF B, next round:** carrying COULD NOT DETERMINE distinctly in the **row status and UI**. If that needs a status value and a migration plus frontend text, it is not a same-day change and must not be squeezed into a round whose purpose is cheap validation — **and a half-built status model is worse than none, because a third state that dies at the storage boundary reads as the second.**
+
+Half A is the one that matters operationally: it stops the lie. Half B makes the truth structured.
+
+## Staffing
+
+**Mechanic for Half A** — two call sites, one existing helper, message text. **If it turns out the third outcome cannot be expressed without touching the row status, stop and report rather than inventing a status value**; that is Half B and it is the engineer's.
+
+**Verify before building:** confirm the ghcr manifest HEAD is genuinely tokenless for this package's visibility. The whole half rests on that, and it is one `curl -I` to settle.
+---
+<!-- COMMENTS:END -->

@@ -7,6 +7,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-08-28 16:29'
+updated_date: '2026-08-28 21:28'
 labels:
   - upgrade
   - cloud
@@ -29,3 +30,35 @@ CONSTRAINT: no manual DB writes on any box — whatever the remedy, it ships as 
 
 WHAT IS ACHIEVED: every upgrade row on every box addresses a commit, the era that wrote the wrong object is named, and no future code path can record an unpeeled tag again.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect
+created: 2026-08-28 21:28
+---
+**RULING: the evidence so far says the bleeding is ALREADY STOPPED — but one path is unverified, and I will not declare it closed on a partial sweep. Data repair: DEFERRED, explicitly.**
+
+## What I verified
+
+**`DiscoverTagsViaGit` peels correctly.** Its format string requests both `%(*objectname)` (the dereferenced commit) and `%(objectname)` (the tag object), and the parser at `github.go:497-500` takes the **dereferenced** SHA first, falling back to `objectname` only when it is empty — which is precisely the lightweight-tag case, where `objectname` **is** the commit. **This path cannot record a tag-object SHA.**
+
+**No production `git rev-parse` takes a tag argument.** Every non-test site resolves `HEAD` (`install.go:2302`, `seed.go:160`), which is always a commit. And the codebase already knows the hazard: `service_test.go:83` pins `pre-upgrade^{commit}` — the peel is used where it matters.
+
+**Consistent with the April dating:** the pollution predates the git-discovery switch (STATBUS-255, August). The path that produced it — the releases-API route — is gone.
+
+## What I did NOT verify, and why it blocks the "closed" verdict
+
+`commit_test.go:496` refers to *"tag→commit resolution: git rev-parse is the selector"*. **I could not locate that resolution's production site in this pass.** If it exists and resolves a tag without `^{commit}`, `git rev-parse v1.2.3` on an **annotated** tag returns the **tag object**, not the commit — which is exactly this ticket's defect, still live.
+
+**So the honest state is: no bleeding found, one path unchecked.** Declaring it stopped on a sweep I know to be incomplete is the failure mode I have spent this week ruling against — and it would be worse here, because a "closed" verdict removes the reason anyone looks again.
+
+**ACTION, ~10 minutes:** find the tag→commit resolution `commit_test.go:496` describes and confirm it peels. **If it peels, 304 needs no rc.17 code at all.** If it does not, the one-line peel rides rc.17.
+
+## Data repair — DEFERRED, and here is the reason rather than a shrug
+
+The repair cannot be designed before the scope read (one read per April-era box) says how many rows are affected and in what states. **And it implies no code change yet**, so it has nothing to gain from riding this round — the round exists to validate cheaply-buildable code, and a repair whose shape is unknown is not that.
+
+Deferring is the ruling, not a postponement of one: **do the scope read at leisure, bring the counts, and the repair gets designed against evidence instead of against a guess.**
+---
+<!-- COMMENTS:END -->
