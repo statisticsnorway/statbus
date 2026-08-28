@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 13:08'
-updated_date: '2026-08-28 03:58'
+updated_date: '2026-08-28 04:20'
 labels:
   - release
 dependencies: []
@@ -66,5 +66,11 @@ author: foreman
 created: 2026-08-28 03:58
 ---
 rc.13 CHAIN VERDICT (orchestrator 33136561614, completed 2026-08-28 ~04:20Z): LEGS 1-4 ALL GREEN — and leg 4 green is the night's proof: install-recovery passed for the FIRST TIME IN THREE CHAINS, confirming 227's SIGPIPE root cause and fix (the roving hardening-verify red is dead). Leg 5 red — but NOT an arc failure and NOT 293's lottery: the fleet NEVER LAUNCHED. Fixture construction died at exit 128 on a brand-new class bug: _ut_fixture_base's never-before-exercised nothing-to-commit arm leaks git commit's status chatter into its own stdout-returned SHA (STATBUS-295, filed with full mechanism; fired first at rc.13 precisely BECAUSE the tag sat at master's tip with workflows identical — the healthiest tag state we've cut all night is the one state the fixture code had never seen). Engineer on the fix. RELAUNCH IS CHEAP: the harness fixture job checks out the run's github.sha (master tip), not the tag — fix lands on master, then rerun the orchestrator's failed leg 5; rc.13 itself remains the candidate, no rc.14 required. 293 remains unexercised (the fleet must actually run to prove it); the 228-family standing reds remain the expected honest residue once the fleet flies.
+---
+
+author: foreman
+created: 2026-08-28 04:20
+---
+rc.14 CUT (v2026.08.0-rc.14, tag at 50b13d70d, 2026-08-28 ~04:20Z) — fourth candidate of the night. Delta over rc.13: exactly the 295 fixture fix (84c99c7ed) + board commits. The cut waited on pg_regress at HEAD (run 33140883077) for the stale-template branch — the CI-oracle escape, satisfied by CI, zero local runs — then tagged. Orchestrator 33141502893 in flight, watcher armed on the run id. THE PROOF STRUCTURE OF THIS CHAIN: the tag again sits at master's tip, so leg 5's fixture construction walks the exact nothing-to-commit arm that killed rc.13 — the 295 fix's first live proof is the very candidate that carries it. If fixture construction survives, the fleet flies for the first time with 293 aboard, and the expected honest residue is the 228-family rollback-pair-terminal arcs only.
 ---
 <!-- COMMENTS:END -->
