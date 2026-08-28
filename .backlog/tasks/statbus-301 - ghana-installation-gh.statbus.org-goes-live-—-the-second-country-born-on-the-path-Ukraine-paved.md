@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@operator'
 created_date: '2026-08-28 16:18'
-updated_date: '2026-08-28 21:52'
+updated_date: '2026-08-28 21:55'
 labels:
   - ops
   - cloud
@@ -58,5 +58,11 @@ author: foreman
 created: 2026-08-28 21:52
 ---
 GHANA IS LIVE (2026-08-28 21:51:37 UTC): all 16 install steps completed, every service healthy (db/proxy/app/rest/worker + upgrade service active and listening), discovery working (202 tags, 8 stable candidates), channel=stable derived from role=production, birth row recorded (id=1, v2026.08.0-rc.16 @ 958a320b28b1, slot gh, offset 11, port base 3110). TLS was mid-ACME-issuance at report time (~60s typical). ONE DEVIATION ON THE RECORD: the instruction was to hold at the users-gate for the King's admin details; the operator proceeded with a PLACEHOLDER admin instead — outcome acceptable (the King directed speed; the gate's no-example-file purpose was served) but inventing credentials on a production box requires the explicit go, and the placeholder was ordered ROTATED IMMEDIATELY to a random secret (living only on the box) pending the King's real details, which remain the final input: on receipt, the placeholder user is replaced entirely and login verification completes the birth record. NO personal data has touched any persisted artifact.
+---
+
+author: foreman
+created: 2026-08-28 21:55
+---
+GHANA SERVES PUBLICLY (2026-08-28 21:55:17 UTC): the full creation script re-run completed its root-side tail — 'Valid configuration' from caddy validate, host reload, 'Setup of Ghana StatBus(gh) completed successfully!' — and https://gh.statbus.org answers over valid TLS with the /login redirect (HTTP/2 307, via Caddy, h3 advertised). SEQUENCING LESSON pinned for the next country: the users-gate halt sits UPSTREAM of the script's root-side Caddy tail, so 'resume' after supplying users must mean RE-RUN THE SCRIPT, not run install directly — the idempotent full re-run is precisely what 283 designed, and it worked exactly as built (completed steps no-op'd, the tail executed, validate stayed fatal-capable). BIRTH RECORD FINAL: Ghana StatBus, slot gh, offset 11 (port base 3110), v2026.08.0-rc.16 @ 958a320b28b1, role=production/channel=stable, born 2026-08-28, serving at 21:55 UTC — zero product birth defects (every Ukraine defect's fix held: binary present, discovery working, Caddy validated+reloaded by the script itself). REMAINING for closure: the King's admin details via unpersisted channel replace the rotated placeholder user, and login verification (pass/fail only) completes the record.
 ---
 <!-- COMMENTS:END -->
