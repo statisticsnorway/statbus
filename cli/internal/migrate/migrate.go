@@ -1639,6 +1639,37 @@ func LedgerContentHashMismatches(projDir, dbName string) ([]LedgerHashMismatch, 
 	return ledgerHashMismatchRows(projDir, rowsOut)
 }
 
+// FormatContentHashRefusal renders the actionable REFUSING diagnostic for one
+// or more content_hash mismatches (STATBUS-292). A stored-vs-live hash
+// mismatch has TWO possible causes and only a human can tell them apart:
+//   - a deliberate WIP edit to a migration not yet released — recoverable via
+//     `./sb migrate redo <version>`.
+//   - an immutability violation on an ALREADY-RELEASED migration — redo is
+//     the WRONG move (boxes have applied the original bytes); the only
+//     correct remedy is a forward repair migration (AGENTS.md, STATBUS-172).
+//
+// The tool cannot distinguish the two automatically (that judgement needs a
+// human to check whether the version is in a tagged release), so this names
+// BOTH branches and how to act on each, rather than guessing or leaving a
+// bare "stale" dead end. caller is the human-readable command name printed
+// in the diagnostic and used to build the "re-run" hint (e.g.
+// "./dev.sh generate-doc-db").
+func FormatContentHashRefusal(caller string, mismatches []LedgerHashMismatch) string {
+	var msg strings.Builder
+	fmt.Fprintf(&msg, "REFUSING (%s): %d migration(s) no longer match the content_hash recorded when applied:\n", caller, len(mismatches))
+	for _, m := range mismatches {
+		fmt.Fprintf(&msg, "  - migration %d (%s): ledger %s != file %s\n", m.Version, m.File, shortHash(m.StoredHash), shortHash(m.LiveHash))
+	}
+	fmt.Fprintf(&msg, "\n")
+	fmt.Fprintf(&msg, "  If this is a WIP migration you edited deliberately:\n")
+	fmt.Fprintf(&msg, "      ./sb migrate redo <version>     then re-run %s\n", caller)
+	fmt.Fprintf(&msg, "\n")
+	fmt.Fprintf(&msg, "  If a version above is already RELEASED, this is an immutability violation and\n")
+	fmt.Fprintf(&msg, "  redo is the WRONG move — boxes have applied the original. The remedy is a\n")
+	fmt.Fprintf(&msg, "  forward repair migration (AGENTS.md, STATBUS-172).\n")
+	return strings.TrimRight(msg.String(), "\n")
+}
+
 // restampBackfilledHashes (STATBUS-116 Part A) corrects db.migration rows on the
 // CURRENT connection (the DB being migrated) whose recorded content_hash
 // disagrees with the current on-disk file. Called at the content_hash column

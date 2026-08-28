@@ -195,3 +195,43 @@ func TestShortHash(t *testing.T) {
 		t.Errorf("shortHash empty = %q, want empty", got)
 	}
 }
+
+// TestFormatContentHashRefusal (STATBUS-292): the refusal must name the
+// caller, every mismatched version with both hashes, AND both possible
+// remedies (WIP redo vs. forward repair migration) — the tool cannot tell
+// a deliberate edit from an immutability violation, so it must never print
+// only one branch.
+func TestFormatContentHashRefusal(t *testing.T) {
+	mismatches := []LedgerHashMismatch{
+		{Version: 20260101000000, File: "20260101000000_a.up.sql", StoredHash: "aaaaaaaa11111111aaaaaaaa11111111aaaaaaaa11111111aaaaaaaa11111111", LiveHash: "bbbbbbbb22222222bbbbbbbb22222222bbbbbbbb22222222bbbbbbbb22222222"},
+		{Version: 20260202000000, File: "20260202000000_b.up.sql", StoredHash: "<NULL>", LiveHash: "cccccccc33333333cccccccc33333333cccccccc33333333cccccccc33333333"},
+	}
+	msg := FormatContentHashRefusal("./dev.sh generate-doc-db", mismatches)
+
+	for _, want := range []string{
+		"REFUSING",
+		"./dev.sh generate-doc-db",
+		"2 migration(s)",
+		"20260101000000", "20260101000000_a.up.sql", "aaaaaaaa", "bbbbbbbb",
+		"20260202000000", "20260202000000_b.up.sql", "cccccccc",
+		"./sb migrate redo <version>",
+		"already RELEASED",
+		"redo is the WRONG move",
+		"forward repair migration",
+		"STATBUS-172",
+	} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("FormatContentHashRefusal message missing %q; got:\n%s", want, msg)
+		}
+	}
+}
+
+// TestFormatContentHashRefusal_Empty: a nil/empty mismatch slice still
+// produces a well-formed (if vacuous) message — callers gate on len(mismatches)
+// before printing, but the formatter itself must not panic on empty input.
+func TestFormatContentHashRefusal_Empty(t *testing.T) {
+	msg := FormatContentHashRefusal("./dev.sh generate-doc-db", nil)
+	if !strings.Contains(msg, "0 migration(s)") {
+		t.Errorf("expected '0 migration(s)' in empty-input message, got:\n%s", msg)
+	}
+}
