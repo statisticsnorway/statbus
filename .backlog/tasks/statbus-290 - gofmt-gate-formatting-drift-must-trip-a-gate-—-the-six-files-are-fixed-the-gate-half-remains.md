@@ -3,11 +3,11 @@ id: STATBUS-290
 title: >-
   gofmt-gate: formatting drift must trip a gate — the six files are fixed, the
   gate half remains
-status: In Progress
+status: Done
 assignee:
   - '@engineer'
 created_date: '2026-08-27 18:42'
-updated_date: '2026-08-28 08:23'
+updated_date: '2026-08-28 08:29'
 labels:
   - cli
   - ci
@@ -39,5 +39,11 @@ author: foreman
 created: 2026-08-27 22:27
 ---
 FORMATTING HALF LANDED at caae6ab31: gofmt -l cmd/ six findings → zero; build + vet + uncached cmd suite green. Verification note worth keeping: the brief's `git diff -w`-empty criterion was IMPERFECT — -w hides intra-line whitespace but not added/removed lines, and gofmt did both (a trimmed trailing blank, an inserted doc-comment paragraph break); the mechanic flagged the criterion's failure rather than claiming a false clean, and certified formatting-only the stronger way: every hunk read (alignment, padding, doc-comment reflow — zero identifiers/logic/values touched). REMAINING for closure: the gate half — whether the lint job gains a gofmt check so the class cannot regrow (small design call, strict-gate vs advisory, consistent with the strict-gating preference).
+---
+
+author: foreman
+created: 2026-08-28 08:29
+---
+GATE HALF LANDED at 462c84fe6 — ticket CLOSED (formatting half was caae6ab31). What landed: a strict 'gofmt (strict)' step in go-test.yaml's go-lint job calling ./dev.sh gofmt — ONE definition, per the STATBUS-230 single-source precedent already cited in that file; failure output IS the file list + remedies (gofmt -w … / ./dev.sh gofmt-fix); zero-scope runs refused. Two flagged judgement calls, both accepted: NOT under SKIP_GO_LINT (that hatch exists for golangci-lint's third-party install failures; gofmt ships with the toolchain — no failure mode, no hatch, and a hatch would widen what one variable silently switches off), and scope cmd/+internal/ — which immediately EARNED ITS KEEP: internal/ held FIVE more unformatted files, so a cmd/-scoped gate would have certified a dirty tree. The engineer checked the STATBUS-104 version trap rather than assuming (five files identical under CI's go 1.25.5 AND local 1.26.4 — fetched CI's toolchain to prove it), certified formatting-only by byte-comparison ignoring whitespace, and audited paths-ignore (only .backlog/**, no Go file can skip the workflow). Exemplary tree discipline: his freeze report led with ANOTHER AGENT'S WORK IS IN THE TREE and his exact seven files — staged exactly those, 292's three files untouched, verified in the cached diff. Honest limit recorded: the step's YAML wiring proves on the next push (the exact command it runs was proven red/green locally); the very next push to master exercises it.
 ---
 <!-- COMMENTS:END -->
