@@ -3,11 +3,11 @@ id: STATBUS-301
 title: >-
   ghana-installation: gh.statbus.org goes live — the second country, born on the
   path Ukraine paved
-status: In Progress
+status: Done
 assignee:
   - '@operator'
 created_date: '2026-08-28 16:18'
-updated_date: '2026-08-28 21:55'
+updated_date: '2026-08-28 22:33'
 labels:
   - ops
   - cloud
@@ -38,6 +38,12 @@ VERIFICATION AT COMPLETION (pin results here, no personal data): https://gh.stat
 
 BIRTH RECORD to pin on completion: version + commit installed, slot code, offset, date — the concrete named artifacts, nothing else.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+CLOSED 2026-08-28 ~22:35 UTC: the King's login VERIFIED (his user shows last-signed-in on the admin page — pass). BIRTH RECORD FINAL: Ghana StatBus, slot gh, offset 11 (port base 3110), v2026.08.0-rc.16 @ 958a320b28b1, role=production / channel=stable, serving publicly over valid TLS since 21:55 UTC, born with ZERO product birth defects — every fix from Ukraine's maiden run held on first pass. Real admin users loaded by the King himself via .users.yml (no personal data persisted anywhere in our artifacts, per the standing constraint; the on-page identities are the box's own business). ONE KNOWN RESIDUE, deliberately documented rather than hand-fixed: the bootstrap placeholder user lingers as a Regular-role row with a rotated random secret — users create upserts and never prunes, and NO product path exists today to delete a user (the backend has deleted_at + USER_DELETED semantics, no UI/CLI door) — filed as STATBUS-309; the placeholder dies through the front door when that ships. No manual DB writes were made, honoring the rule even at the cost of a lingering neutralized row.
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 
