@@ -6,9 +6,9 @@ title: >-
   shipping
 status: In Progress
 assignee:
-  - '@architect'
+  - '@mechanic'
 created_date: '2026-08-27 15:03'
-updated_date: '2026-08-28 10:18'
+updated_date: '2026-08-28 10:19'
 labels:
   - testing
 dependencies: []
