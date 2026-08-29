@@ -85,6 +85,58 @@ $sudo_exec$;
 -- Grant execute to public since this is for testing
 GRANT EXECUTE ON FUNCTION test.sudo_exec(text) TO PUBLIC;
 
+-- Normalize the user id sequence BY DERIVATION FROM THE DATA — never RESTART.
+--
+-- WHY THE IDS DRIFT. Rollback restores ROWS. It does not restore SEQUENCES —
+-- nextval() is non-transactional, so a value consumed by an INSERT that later
+-- rolls back is burned, not returned.
+--
+-- Most test files open BEGIN; BEFORE `\i test/setup.sql`, so the three users
+-- created below are rolled back when the file ends. The rows vanish; the burned
+-- ids do not come back. Shared tests run sequentially on one database, so the
+-- next file's setup inserts its users at higher ids, and so on down the file
+-- list. The ids a test sees therefore depend on WHICH tests ran before it —
+-- which is why a targeted run and a full replay disagree.
+--
+-- Measured with a probe test that prints the fixture ids (STATBUS-315):
+--     without this line, run alone                    -> 1, 2, 3
+--     without this line, after 009 + 013 + 018        -> 19, 20, 21
+--     with this line, either order                    -> 1, 2, 3
+--
+-- NOTE WHAT IS *NOT* THE FIX: more transaction discipline. The tests already
+-- run in a transaction and already roll back — that is the very thing that
+-- burns the ids. Wrapping them more tightly cannot help, because the sequence
+-- is deliberately outside transactional control.
+--
+-- WHY DERIVATION RATHER THAN RESTART. Deriving from max(id) discards the burn
+-- history entirely: two databases holding the same USERS converge on the same
+-- ids no matter which path they took to get there. RESTART WITH 1 is only
+-- correct when the table is empty and would collide with live rows when it is
+-- not. (The unit sequences above can use RESTART precisely because their tables
+-- ARE empty at this point.)
+--
+-- THE BOUND, STATED HONESTLY. With this line the fixture users are dependably
+-- 1, 2, 3 — a test may rely on that. What it does NOT promise is that those
+-- numbers are permanent: they are derived from the seed's user set, so a
+-- migration that seeds or removes users moves every one of them. That is the
+-- residual risk .claude/rules/testing.md addresses by preferring natural-key
+-- assertions; this line removes the run-order dependence, the rule covers what
+-- is left.
+--
+-- REMOVE THIS WHEN normalize-every-sequence-after-restore LANDS. That follow-up
+-- makes this line redundant, and a redundant guard is worse than none: it
+-- becomes a second, narrower mechanism that a reader must reconcile with the
+-- general one. Delete it then — do not leave it as belt-and-braces.
+--
+-- is_called is set from EXISTS so an empty table yields next = 1 rather than
+-- skipping id 1; with rows present the sequence lands on max(id) and the next
+-- insert takes max(id) + 1.
+SELECT setval(
+    pg_get_serial_sequence('auth."user"', 'id'),
+    GREATEST(COALESCE((SELECT max(id) FROM auth."user"), 0), 1),
+    EXISTS (SELECT 1 FROM auth."user")
+);
+
 -- Add users for testing purposes
 SELECT * FROM public.user_create(p_display_name => 'Test Admin', p_email => 'test.admin@statbus.org', p_statbus_role => 'admin_user'::statbus_role, p_password => 'Admin#123!');
 SELECT * FROM public.user_create(p_display_name => 'Test Regular', p_email => 'test.regular@statbus.org', p_statbus_role => 'regular_user'::statbus_role, p_password => 'Regular#123!');
