@@ -2263,20 +2263,20 @@ func (d *Service) Run(ctx context.Context) error {
 		} else {
 			return fmt.Errorf("pre-flight: regenerate config before db up: %w (%s)", err, strings.TrimSpace(out))
 		}
-	} else {
-		// STATBUS-298: no explicit clear-on-success needed here — `./sb config
-		// generate` (configGenerateCmd.RunE, cli/cmd/config.go) clears the
-		// marker itself on ITS OWN success, and that subprocess just exited 0
-		// two lines above. Clearing again here would be redundant policy
-		// duplication of the exact same operation on the exact same path; see
-		// the comment there for why the CLI command is the one right place for
-		// every caller (this one included) to share.
-		//
-		// STATBUS-307: if we instead reached this point via the has-config
-		// PARK fall-through above, the marker was just WRITTEN, not cleared —
-		// correctly so; it stays present until a later config generate
-		// actually succeeds.
 	}
+	// else (err == nil, config generate succeeded): falls through to
+	// Pre-flight B below with no explicit clear-on-success needed here —
+	// STATBUS-298: `./sb config generate` (configGenerateCmd.RunE,
+	// cli/cmd/config.go) clears the marker itself on ITS OWN success, and
+	// that subprocess just exited 0 two lines above. Clearing again here
+	// would be redundant policy duplication of the exact same operation on
+	// the exact same path; see the comment there for why the CLI command is
+	// the one right place for every caller (this one included) to share.
+	//
+	// STATBUS-307: if we instead reached this point via the has-config PARK
+	// fall-through above, the marker was just WRITTEN, not cleared —
+	// correctly so; it stays present until a later config generate actually
+	// succeeds.
 
 	// Pre-flight B — ensure DB is up. Idempotent (no-op when already up).
 	// Covers the post-swap recovery path where the prior process image exited

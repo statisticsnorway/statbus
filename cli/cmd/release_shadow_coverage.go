@@ -90,7 +90,11 @@ func appendShadowCoverageLog(projDir string, entry shadowCoverageLogEntry) {
 		fmt.Printf("    (shadow: could not open %s: %v — log line dropped)\n", path, err)
 		return
 	}
-	defer f.Close()
+	defer func() {
+		if cerr := f.Close(); cerr != nil {
+			fmt.Printf("    (shadow: could not close %s: %v — log line may not be flushed)\n", path, cerr)
+		}
+	}()
 	if _, err := f.Write(append(line, '\n')); err != nil {
 		fmt.Printf("    (shadow: could not write to %s: %v — log line dropped)\n", path, err)
 	}
