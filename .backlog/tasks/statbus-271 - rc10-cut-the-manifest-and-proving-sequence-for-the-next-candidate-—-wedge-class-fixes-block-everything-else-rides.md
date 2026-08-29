@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 13:08'
-updated_date: '2026-08-29 12:08'
+updated_date: '2026-08-29 15:01'
 labels:
   - release
 dependencies: []
@@ -120,5 +120,11 @@ author: foreman
 created: 2026-08-28 18:52
 ---
 rc.16 CHAIN FINAL VERDICT (orchestrator 33184839982; fleet 33190460349: 36 GREEN / 1 red): the closest yet, and the day's fixes all PROVED LIVE — legs 1-4 green (leg 4's fourth consecutive), cross-version-rename-handoff GREEN (297's era-accurate fix proven; its observational arm closes), un-park-to-completion GREEN (300 proven), the wedge arc GREEN in its first gating fleet (279's regression guard live). THE ONE RED: transient-db-backoff — again — WITH 299's bounded-sub-attempt fix aboard. This scenario stresses db-outage-at-daemon-start harder than anything else in the fleet and has now revealed a bug per layer: 294's SIGSEGV (rc.11-14), then 299's watchdog kill (rc.15), now whatever stands behind those. Mechanic triaging from the journal: is the SIGABRT gone (299 worked, next layer visible), did the fix fail live, or is it a 300-class harness impatience in this scenario's own file (the 300 sweep covered un-park's file only). rc.16 MAY NOT BE PROMOTED until the red is attributed — but the trajectory is 26→34→33→36 green with every red root-caused same-day, and this is the only unattributed failure left in the entire campaign.
+---
+
+author: foreman
+created: 2026-08-29 15:01
+---
+rc.17 CHAIN FINAL VERDICT (orchestrator 33250073215, completed 2026-08-29 ~14:4xZ): **THE FIRST FULLY GREEN CHAIN OF THE CAMPAIGN.** All five legs success — both smokes, dev auto-canary (dev runs rc.17), install-recovery fleet (fifth consecutive green), and the arc fleet (run 33253129805): **37 success / 0 failures / 1 skipped-with-inheritance.** transient-db-backoff — the campaign's last unattributed red, which revealed a bug per layer across rc.11–rc.16 — PASSED with the full fix stack aboard. The superseded-verdict job ran its own newest-check and found rc.17 still the candidate; nothing was superseded. The trajectory closes 26→34→33→36→37-of-37. NEXT: the human canary — the King installs rc.17 on Norway himself (his explicit choice: the operator experience is the thing under test), records the first observation card at doc/observations/v2026.08.0-rc.17.md, and the promotion gate's remaining requirements are exactly that card plus his decision.
 ---
 <!-- COMMENTS:END -->
