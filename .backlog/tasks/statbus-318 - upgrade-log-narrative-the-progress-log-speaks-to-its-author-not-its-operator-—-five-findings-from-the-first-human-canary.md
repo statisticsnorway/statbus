@@ -3,10 +3,10 @@ id: STATBUS-318
 title: >-
   upgrade-log-narrative: the progress log speaks to its author, not its operator
   — five findings from the first human canary
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-08-29 20:06'
-updated_date: '2026-08-29 20:13'
+updated_date: '2026-08-29 20:14'
 labels:
   - upgrade
   - ops
@@ -78,3 +78,9 @@ I extracted the wording into a pure `recoveryOpeningLine(flag, holder)` (new `re
 **COMMIT-ORDER NOTE for the foreman:** `service.go` now carries BOTH this unit and the still-uncommitted STATBUS-308 work (import, one state field, start/tick announce). The two cannot be separated by file path — they are separate hunks in one file. Commit 308 and 318 together, or split by hunk; either is fine, but it needs a deliberate choice rather than a `git add <file>`.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+LANDED at 6c89bffe5, the night it was found. All five findings fixed: the read-only line says its message directly; the notification listener is described by role, not source vocabulary; the disconnect sequence follows the zoom principle (one plain headline, indented precise details); the backup announces completion at the atomic syncing→active rename — the code's own definition of complete — using the same statfs delta as its heartbeats; and the recovery opening branches on the EXACT discriminator (flag.Phase, service.go:278-289): only PhaseNewSbSwapped says "Continuing the upgrade under the new binary (planned handoff)", while genuine crash phases keep recovery language so the word stays meaningful when something has actually crashed. The wording lives in a pure recoveryOpeningLine function with structural tests (planned may never say interrupted/recovering; crashes must; a phase table pins that only the swapped phase is planned, so a future enum value cannot inherit 'planned' by fall-through) — red-verified on the branch. The King's standing principle is recorded at ProgressLog.Write itself with all five failure shapes listed, so the next line-writer sees the whole pattern. None of the five strings were pinned anywhere (grepped before editing); zero expected files moved. Rides rc.18 for the King's morning install — the log he reads tomorrow is the one his findings rewrote.
+<!-- SECTION:FINAL_SUMMARY:END -->
