@@ -5338,7 +5338,8 @@ func (d *Service) ensureCommitLocal(ref string, fetchTimeout time.Duration) erro
 // supersedeBelowInstalled (:4455), the pending-candidate sweeps (:4511, :4541),
 // and the supersede-on-claim guard (:1709). 'dismissed' is in none of them, so
 // no automatic path can pick the row up again.
-func (d *Service) RunDismiss(ctx context.Context, input string) error {
+// operator (STATBUS-317): see RunSchedule's doc comment — same contract.
+func (d *Service) RunDismiss(ctx context.Context, input string, operator string) error {
 	return d.runOneShot(ctx, func(ctx context.Context) error {
 		// Same resolution as register (tag, commit_short, or full SHA), so an
 		// operator uses one vocabulary across the subcommand set.
@@ -5385,10 +5386,17 @@ func (d *Service) RunDismiss(ctx context.Context, input string) error {
 			return fmt.Errorf("%s is the version this box has COMPLETED — dismissing it would not uninstall anything.\n  To move to a different version, register and schedule that version instead", labelOrCommit(displayVersion, sha))
 		}
 
-		ct, err := d.queryConn.Exec(ctx,
-			`UPDATE public.upgrade
-			    SET state = 'dismissed', dismissed_at = now()
-			  WHERE id = $1 AND state <> 'dismissed'`, id)
+		// STATBUS-317: see the matching comment in scheduleStep — actor GUC
+		// and this UPDATE must share one transaction.
+		var ct pgconn.CommandTag
+		err = d.withActorTx(ctx, operator, func(ctx context.Context, tx pgx.Tx) error {
+			var execErr error
+			ct, execErr = tx.Exec(ctx,
+				`UPDATE public.upgrade
+				    SET state = 'dismissed', dismissed_at = now()
+				  WHERE id = $1 AND state <> 'dismissed'`, id)
+			return execErr
+		})
 		if err != nil {
 			return fmt.Errorf("dismiss %s: %w", labelOrCommit(displayVersion, sha), err)
 		}
@@ -5488,15 +5496,20 @@ func (d *Service) registerStep(ctx context.Context, input string) error {
 // trigger then fires NOTIFY upgrade_apply and the service runs it). FAILS FAST
 // if the target has no candidate row — schedule REQUIRES register (STATBUS-086).
 // `./sb upgrade schedule <target> [--recreate]`.
-func (d *Service) RunSchedule(ctx context.Context, input string, recreate bool) error {
+// operator (STATBUS-317) is the human identity to record for this
+// transition — empty means none was given (CLI resolves --operator / an
+// interactive prompt / absent BEFORE calling this; see cli/cmd/upgrade.go's
+// resolveOperator). Threaded through, never resolved here: this package has
+// no TTY concerns, only the write.
+func (d *Service) RunSchedule(ctx context.Context, input string, recreate bool, operator string) error {
 	return d.runOneShot(ctx, func(ctx context.Context) error {
-		return d.scheduleStep(ctx, input, recreate)
+		return d.scheduleStep(ctx, input, recreate, operator)
 	})
 }
 
 // scheduleStep is RunSchedule's body without the one-shot wrapper. See
 // registerStep for why the split exists.
-func (d *Service) scheduleStep(ctx context.Context, input string, recreate bool) error {
+func (d *Service) scheduleStep(ctx context.Context, input string, recreate bool, operator string) error {
 	{
 		target, err := resolveUpgradeTarget(ctx, d, input)
 		if err != nil {
@@ -5565,22 +5578,31 @@ func (d *Service) scheduleStep(ctx context.Context, input string, recreate bool)
 		// not transactional; a separate reset would leave a scheduled-but-still-
 		// parked window the daemon could claim+crash into). Shares the exact
 		// column-set + guard consts with the ./sb install trigger — no drift.
-		ct, err := d.queryConn.Exec(ctx,
-			`UPDATE public.upgrade SET
-			   state = 'scheduled',
-			   recreate = $2,
-			   scheduled_at = now(),
-			   started_at = NULL,
-			   completed_at = NULL,
-			   error = NULL,
-			   rolled_back_at = NULL,
-			   skipped_at = NULL,
-			   dismissed_at = NULL,
-			   superseded_at = NULL,
-			   log_relative_file_path = NULL,
-			   `+recoveryBudgetResetCols+`
-			 WHERE commit_sha = $1 AND `+recoveryBudgetResetGuard,
-			string(sha), recreate)
+		// STATBUS-317: the actor GUC (if operator is non-empty) and this
+		// UPDATE must share ONE transaction — see withActorTx's own comment
+		// for why a separate autocommit Exec would silently record every
+		// row as 'absent'.
+		var ct pgconn.CommandTag
+		err = d.withActorTx(ctx, operator, func(ctx context.Context, tx pgx.Tx) error {
+			var execErr error
+			ct, execErr = tx.Exec(ctx,
+				`UPDATE public.upgrade SET
+				   state = 'scheduled',
+				   recreate = $2,
+				   scheduled_at = now(),
+				   started_at = NULL,
+				   completed_at = NULL,
+				   error = NULL,
+				   rolled_back_at = NULL,
+				   skipped_at = NULL,
+				   dismissed_at = NULL,
+				   superseded_at = NULL,
+				   log_relative_file_path = NULL,
+				   `+recoveryBudgetResetCols+`
+				 WHERE commit_sha = $1 AND `+recoveryBudgetResetGuard,
+				string(sha), recreate)
+			return execErr
+		})
 		if err != nil {
 			return fmt.Errorf("schedule %s: %w", displayName, err)
 		}

@@ -21,6 +21,33 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
+// resolveOperator returns the operator name STATBUS-317 records for a
+// state-transition verb (schedule, dismiss, apply, apply-latest): the
+// --operator flag if given, otherwise an interactive prompt IF AND ONLY IF
+// a terminal is present, otherwise empty (the trigger then records
+// actor_source='absent' — the honest answer, not a failure).
+//
+// TRAP (architect, verbatim): "a naive prompt would wedge the deploy path.
+// The CI door is ./sb upgrade apply <sha> over sshdo, entirely
+// non-interactive. A prompt that blocks there hangs the automatic canary
+// forever. The TTY test is not politeness; it is what keeps this from
+// breaking the chain." isTerminal() (cli/cmd/psql.go) is the ONLY thing
+// standing between this prompt and that hang — every call site MUST go
+// through this function rather than prompting directly, so the check can
+// never be forgotten at one of them.
+func resolveOperator(flagValue string) string {
+	if flagValue != "" {
+		return flagValue
+	}
+	if !isTerminal() {
+		return ""
+	}
+	fmt.Print("Operator name, for the audit log (Enter to skip): ")
+	reader := bufio.NewReader(os.Stdin)
+	line, _ := reader.ReadString('\n')
+	return strings.TrimSpace(line)
+}
+
 // runUpgradePsql runs a SQL string using psql with connection args from .env.
 func runUpgradePsql(sql string, extraArgs ...string) ([]byte, error) {
 	projDir := migrate.PsqlProjectDir()
@@ -128,7 +155,11 @@ Examples:
 		recreate, _ := cmd.Flags().GetBool("recreate")
 		ctx := context.Background()
 		svc := newUpgradeService(config.ProjectDir())
-		if err := svc.RunApply(ctx, args[0], recreate); err != nil {
+		// STATBUS-317: apply has no --operator flag of its own (it is the CI
+		// door — see resolveOperator's own TRAP comment) — an interactive
+		// human still gets prompted; CI's non-interactive invocation gets
+		// 'absent', correctly, because there is no TTY to prompt.
+		if err := svc.RunApply(ctx, args[0], recreate, resolveOperator("")); err != nil {
 			return err
 		}
 		// STATBUS-170/-260: emit the 40-hex commit this command actually acted
@@ -180,7 +211,8 @@ Examples:
   sb upgrade dismiss abc1234f`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return newUpgradeService(config.ProjectDir()).RunDismiss(context.Background(), args[0])
+		operatorFlag, _ := cmd.Flags().GetString("operator")
+		return newUpgradeService(config.ProjectDir()).RunDismiss(context.Background(), args[0], resolveOperator(operatorFlag))
 	},
 }
 
@@ -243,8 +275,32 @@ var upgradeListCmd = &cobra.Command{
 				WHEN scheduled_at IS NOT NULL THEN 'scheduled'
 				ELSE 'available'
 			END AS status,
-			discovered_at::date AS discovered
-		FROM public.upgrade
+			discovered_at::date AS discovered,
+			-- STATBUS-317: who made the transition that produced the status
+			-- above. The log trigger fires only on an actual state (or
+			-- park/unpark) change, and every write above that sets a
+			-- decision/history column ALSO changes state in the same
+			-- statement (dismiss sets state='dismissed' AND dismissed_at
+			-- together; schedule sets state='scheduled' AND scheduled_at
+			-- together) — so the log's newest row for this upgrade_id is
+			-- guaranteed to be the one that produced the CASE result above,
+			-- never a stale, unrelated entry. '(self-reported)' is spelled
+			-- out rather than silently shown as a bare name: an operator
+			-- reading this list needs to know a name came from --operator/
+			-- a prompt, not from an authenticated session, before treating
+			-- it as verified identity.
+			COALESCE(
+				latest_log.actor || CASE WHEN latest_log.actor_source = 'self-reported' THEN ' (self-reported)' ELSE '' END,
+				'-'
+			) AS who
+		FROM public.upgrade u
+		LEFT JOIN LATERAL (
+			SELECT actor, actor_source
+			FROM public.upgrade_state_log l
+			WHERE l.upgrade_id = u.id
+			ORDER BY l.id DESC
+			LIMIT 1
+		) latest_log ON true
 		ORDER BY discovered_at DESC
 		LIMIT 20;`
 
@@ -280,7 +336,8 @@ Examples:
 		// not refuse: the row is still legitimate, and it runs the moment the
 		// operator repairs the box with ./sb install.
 		announceUnitFloor()
-		return newUpgradeService(config.ProjectDir()).RunSchedule(context.Background(), args[0], recreateFlag)
+		operatorFlag, _ := cmd.Flags().GetString("operator")
+		return newUpgradeService(config.ProjectDir()).RunSchedule(context.Background(), args[0], recreateFlag, resolveOperator(operatorFlag))
 	},
 }
 
@@ -428,7 +485,12 @@ file changes needed.`,
 		if err := svc.RunRegister(context.Background(), latestVersion); err != nil {
 			return fmt.Errorf("apply-latest register %s: %w", latestVersion, err)
 		}
-		if err := svc.RunSchedule(context.Background(), latestVersion, recreateFlag); err != nil {
+		// STATBUS-317: apply-latest is the deploy-workflow target (its own
+		// docstring: "Used by deploy workflows... no workflow file changes
+		// needed") — the archetypal CI door. resolveOperator("") is TTY-gated
+		// (see its own TRAP comment), so an automated invocation here
+		// correctly records 'absent' and never blocks.
+		if err := svc.RunSchedule(context.Background(), latestVersion, recreateFlag, resolveOperator("")); err != nil {
 			return fmt.Errorf("apply-latest schedule %s: %w", latestVersion, err)
 		}
 
@@ -1028,6 +1090,11 @@ var trustKeyVerifyCmd = &cobra.Command{
 func init() {
 	upgradeScheduleCmd.Flags().BoolVar(&recreateFlag, "recreate", false, "delete and recreate database from scratch (destructive — dev/demo only)")
 	upgradeApplyLatestCmd.Flags().BoolVar(&recreateFlag, "recreate", false, "delete and recreate database from scratch (destructive — dev/demo only)")
+	// STATBUS-317: who made this transition. Absent + a TTY present ->
+	// resolveOperator prompts; absent + no TTY (CI, e.g. apply over sshdo)
+	// -> proceeds and records 'absent', never blocks.
+	upgradeScheduleCmd.Flags().String("operator", "", "your name, for the audit log (prompted interactively if omitted and a terminal is present)")
+	upgradeDismissCmd.Flags().String("operator", "", "your name, for the audit log (prompted interactively if omitted and a terminal is present)")
 
 	trustKeyAddCmd.Flags().BoolVarP(&trustKeyAddYes, "yes", "y", false, "skip confirmation prompt (for scripted / AI-driven installs)")
 	trustKeyCmd.AddCommand(trustKeyListCmd)

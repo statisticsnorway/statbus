@@ -1,0 +1,94 @@
+\i test/setup.sql
+
+-- STATBUS-317: public.upgrade_state_log now records WHO made each state
+-- transition, and HOW that identity is known (migration 20260829201426).
+-- Precedence: auth.uid() -> 'verified'; else the session GUC statbus.actor
+-- -> 'self-reported'; else NULL/'absent'.
+--
+-- THIS TEST PROVES ALL THREE CASES LAND, the POLICY-LAYER safety of
+-- dropping SECURITY DEFINER (a real writer at the actual floor privilege,
+-- PLUS the negative that a lesser role is genuinely refused — not merely
+-- enumerated from grants, which was the wrong layer the first time this
+-- was checked: RLS POLICIES govern INSERT here, not grants alone), plus the
+-- architect's TRAP #2 —
+-- verbatim: "set_config(..., true) is transaction-local... If the CLI
+-- writes in autocommit, the setting evaporates and every row silently
+-- records absent — a feature that appears built and records nothing." The
+-- only way to prove that empirically is to cross a REAL transaction
+-- boundary (an actual COMMIT, not a SAVEPOINT — a savepoint does not end
+-- the enclosing transaction, so a transaction-local setting survives it and
+-- would NOT demonstrate the trap). That is why this file does not wrap
+-- everything in one outer BEGIN/ROLLBACK the way most scenario tests do:
+-- test/setup.sql runs bare above (its 3 fixture users are the idempotent
+-- shared convention every test file relies on, matching 098/099/125/126),
+-- and each scenario below opens exactly the transaction shape it needs to
+-- prove — ending in an explicit DELETE cleanup rather than a ROLLBACK,
+-- because real COMMITs happened along the way.
+
+BEGIN;
+INSERT INTO public.upgrade (commit_sha, commit_version, state, discovered_at, committed_at, summary)
+VALUES ('eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', 'v0.0.0-statbus317', 'available', now(), now(),
+        'STATBUS-317 test row — deleted at the end of this file')
+RETURNING id \gset test_
+COMMIT;
+
+\echo -- CASE (absent): a plain UPDATE, no GUC set, no authenticated role — the honest default.
+UPDATE public.upgrade SET state = 'scheduled', scheduled_at = now() WHERE id = :test_id;
+SELECT actor, actor_source FROM public.upgrade_state_log WHERE upgrade_id = :test_id ORDER BY id DESC LIMIT 1;
+
+\echo -- CASE (self-reported): the GUC set INSIDE the same transaction as the write -- this is the CLI own contract (withActorTx, cli/internal/upgrade/actor.go).
+BEGIN;
+SELECT set_config('statbus.actor', 'test-operator', true);
+UPDATE public.upgrade SET state = 'skipped', skipped_at = now() WHERE id = :test_id;
+COMMIT;
+SELECT actor, actor_source FROM public.upgrade_state_log WHERE upgrade_id = :test_id ORDER BY id DESC LIMIT 1;
+
+\echo -- CASE (verified): the LEAST-PRIVILEGED REAL WRITER, not a superuser stand-in.
+-- Architect's policy-layer safety check, proven rather than enumerated: this
+-- trigger dropped SECURITY DEFINER (STATBUS-317), so its own INSERT into
+-- upgrade_state_log is now policy-subject like any other caller's. The ONLY
+-- non-superuser role with ANY write access to public.upgrade at all is
+-- admin_user (upgrade_admin_manage, the sole INSERT/UPDATE-permitting
+-- policy on that table) — every real write path today (the daemon and every
+-- CLI command) actually connects as the postgres superuser and bypasses RLS
+-- entirely regardless of DEFINER/INVOKER, so admin_user is not "the role
+-- something uses" but "the floor of what the schema would ever require."
+-- test.admin@statbus.org carries exactly that role. Proving this scenario
+-- succeeds (no permission-denied, actor_source lands as 'verified') is the
+-- policy-layer proof the DEFINER-drop is safe: upgrade_state_log_admin_manage
+-- grants that SAME role INSERT on the log table too — symmetric, not a gap.
+BEGIN;
+CALL test.set_user_from_email('test.admin@statbus.org');
+SELECT auth.uid() IS NOT NULL AS auth_uid_resolves;
+UPDATE public.upgrade SET state = 'scheduled', scheduled_at = now(), skipped_at = NULL WHERE id = :test_id;
+COMMIT;
+SELECT actor, actor_source FROM public.upgrade_state_log WHERE upgrade_id = :test_id ORDER BY id DESC LIMIT 1;
+
+\echo -- NEGATIVE, proving the boundary is real (not vacuous): a role with NO write access to public.upgrade at all (regular_user — SELECT only, no admin_user membership) must be REFUSED before ever reaching the trigger.
+BEGIN;
+SAVEPOINT before_regular_user_attempt;
+\set ON_ERROR_STOP off
+CALL test.set_user_from_email('test.regular@statbus.org');
+UPDATE public.upgrade SET state = 'dismissed', dismissed_at = now() WHERE id = :test_id;
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT before_regular_user_attempt;
+COMMIT;
+\echo -- Confirmed refused: the row is untouched by the attempt above (still whatever CASE (verified) left it at).
+SELECT actor, actor_source FROM public.upgrade_state_log WHERE upgrade_id = :test_id ORDER BY id DESC LIMIT 1;
+
+\echo -- TRAP #2, PROVEN: set_config(..., true) OUTSIDE any explicit transaction runs in its OWN autocommit transaction and is gone by the time the NEXT statement (its own separate autocommit transaction) runs. The value must NOT land.
+SELECT set_config('statbus.actor', 'should-not-land', true);
+UPDATE public.upgrade SET state = 'skipped', skipped_at = now() WHERE id = :test_id;
+SELECT actor, actor_source FROM public.upgrade_state_log WHERE upgrade_id = :test_id ORDER BY id DESC LIMIT 1;
+
+\echo -- Full history for this row, oldest first — every case in one glance.
+SELECT new_state, actor, actor_source FROM public.upgrade_state_log WHERE upgrade_id = :test_id ORDER BY id;
+
+-- Cleanup: explicit DELETE, not ROLLBACK — real COMMITs happened above, so
+-- there is nothing left to roll back to. The 3 setup.sql fixture users are
+-- NOT touched here: they are the shared, idempotent convention every test
+-- file relies on (098/099/125/126 all leave them in place too).
+BEGIN;
+DELETE FROM public.upgrade_state_log WHERE upgrade_id = :test_id;
+DELETE FROM public.upgrade WHERE id = :test_id;
+COMMIT;

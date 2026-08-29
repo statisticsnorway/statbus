@@ -12,6 +12,8 @@
  query            | text                     |           |          |                              | extended |             |              | 
  backend_pid      | integer                  |           |          |                              | plain    |             |              | 
  logged_at        | timestamp with time zone |           | not null | clock_timestamp()            | plain    |             |              | 
+ actor            | text                     |           |          |                              | extended |             |              | 
+ actor_source     | upgrade_actor_source     |           |          |                              | plain    |             |              | 
 Indexes:
     "upgrade_state_log_pkey" PRIMARY KEY, btree (id)
 Policies:

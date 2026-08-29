@@ -6117,6 +6117,8 @@ export type Database = {
       },
       upgrade_state_log: {
         Row: {
+          actor: string | null
+          actor_source: Database["public"]["Enums"]["upgrade_actor_source"] | null
           application_name: string | null
           backend_pid: number | null
           id: number
@@ -6129,6 +6131,8 @@ export type Database = {
           upgrade_id: number
         },
         Insert: {
+          actor?: string | null
+          actor_source?: Database["public"]["Enums"]["upgrade_actor_source"] | null
           application_name?: string | null
           backend_pid?: number | null
           id?: never
@@ -6141,6 +6145,8 @@ export type Database = {
           upgrade_id: number
         },
         Update: {
+          actor?: string | null
+          actor_source?: Database["public"]["Enums"]["upgrade_actor_source"] | null
           application_name?: string | null
           backend_pid?: number | null
           id?: never
@@ -15856,6 +15862,7 @@ export type Database = {
           | "completed"
           | "failed",
       time_context_type: "relative_period" | "tag" | "year",
+      upgrade_actor_source: "verified" | "self-reported" | "absent",
       upgrade_state: 
           | "available"
           | "scheduled"
@@ -16184,6 +16191,7 @@ export const Constants = {
         "failed"
       ],
       time_context_type: ["relative_period", "tag", "year"],
+      upgrade_actor_source: ["verified", "self-reported", "absent"],
       upgrade_state: [
         "available",
         "scheduled",

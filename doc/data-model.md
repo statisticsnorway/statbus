@@ -157,6 +157,7 @@ Enumerated types used across the schema, with their possible values.
 - **`public.statbus_role`**: `admin_user`, `regular_user`, `restricted_user`, `external_user`
 - **`public.statistical_unit_type`**: `establishment`, `legal_unit`, `enterprise`, `power_group`
 - **`public.time_context_type`**: `relative_period`, `tag`, `year`
+- **`public.upgrade_actor_source`**: `verified`, `self-reported`, `absent`
 - **`public.upgrade_state`**: `available`, `scheduled`, `in_progress`, `completed`, `failed`, `rolled_back`, `dismissed`, `skipped`, `superseded`
 - **`worker.child_mode`**: `concurrent`, `serial`
 - **`worker.process_mode`**: `serial`, `concurrent`
@@ -266,8 +267,8 @@ Handles background processing. A long-running worker process calls `worker.proce
 - `system_info(value, updated_at, key)` — **infrastructure**
 - `upgrade(id, backup_path, log_relative_file_path, committed_at, discovered_at, scheduled_at, started_at, completed_at, rolled_back_at, skipped_at, superseded_at, dismissed_at, recovery_parked_at, commit_sha, commit_tags, release_status, summary, changes, release_url, has_migrations, error, from_commit_version, docker_images_downloaded, state, commit_version, docker_images_status, release_builds_status, recreate, recovery_attempts, recovery_parked_reason)` — **infrastructure**
   - Enums: `docker_images_status` (`public.docker_images_status_type`), `release_builds_status` (`public.release_builds_status_type`), `release_status` (`public.release_status_type`), `state` (`public.upgrade_state`).
-- `upgrade_state_log(id, application_name, upgrade_id, old_parked_at, new_parked_at, logged_at, old_state, new_state, query, backend_pid)` — **infrastructure**
-  - Enums: `new_state` (`public.upgrade_state`), `old_state` (`public.upgrade_state`).
+- `upgrade_state_log(id, application_name, upgrade_id, old_parked_at, new_parked_at, logged_at, old_state, new_state, query, backend_pid, actor, actor_source)` — **infrastructure**
+  - Enums: `actor_source` (`public.upgrade_actor_source`), `new_state` (`public.upgrade_state`), `old_state` (`public.upgrade_state`).
 - `upgrade_retention_caps(release_status, state, time_cap, count_cap, install_purge)` — **infrastructure**
   - Enums: `release_status` (`public.release_status_type`), `state` (`public.upgrade_state`).
 - `migration(id, filename, applied_at, version, description, duration_ms, content_hash)` — **infrastructure**

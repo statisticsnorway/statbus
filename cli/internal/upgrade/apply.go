@@ -26,7 +26,10 @@ import (
 // caller uses, then the same promotion. What it adds is that they happen in one
 // connection, under one command, with refusals phrased for someone who asked for
 // a specific version and needs to know why they are not getting it.
-func (d *Service) RunApply(ctx context.Context, input string, recreate bool) error {
+// operator (STATBUS-317): see RunSchedule's doc comment in service.go —
+// same contract. Threaded through to scheduleStep so `apply` shares the
+// same actor-recording behavior as `schedule`, without a second mechanism.
+func (d *Service) RunApply(ctx context.Context, input string, recreate bool, operator string) error {
 	return d.runOneShot(ctx, func(ctx context.Context) error {
 		// REGISTER FIRST, ALWAYS — including when a row already exists.
 		//
@@ -40,7 +43,7 @@ func (d *Service) RunApply(ctx context.Context, input string, recreate bool) err
 			return fmt.Errorf("%w\n\n%s", err, applyRegisterAdvice(input))
 		}
 
-		if err := d.scheduleStep(ctx, input, recreate); err != nil {
+		if err := d.scheduleStep(ctx, input, recreate, operator); err != nil {
 			return err
 		}
 

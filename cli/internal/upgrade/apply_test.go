@@ -27,7 +27,7 @@ import (
 func TestApplyComposesRegisterAndSchedule_STATBUS258(t *testing.T) {
 	body := extractFuncBody(t, readUpgradeApplySource(t), "func (d *Service) RunApply(")
 
-	for _, want := range []string{"d.registerStep(ctx, input)", "d.scheduleStep(ctx, input, recreate)"} {
+	for _, want := range []string{"d.registerStep(ctx, input)", "d.scheduleStep(ctx, input, recreate, operator)"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("RunApply must call %s — composing the existing guarded paths is the whole design", want)
 		}

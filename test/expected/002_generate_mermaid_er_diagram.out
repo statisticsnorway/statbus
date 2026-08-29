@@ -1417,6 +1417,8 @@ erDiagram
 		text query
 		integer backend_pid
 		timestamp_with_time_zone logged_at
+		text actor
+		upgrade_actor_source actor_source
 	}
 	sql_saga_era["sql_saga.era"] {
 		name table_schema
