@@ -3,10 +3,11 @@ id: STATBUS-317
 title: >-
   upgrade-actor-attribution: record WHO instigated schedule/dismiss/skip — the
   row knows every when and no who
-status: To Do
+status: In Progress
 assignee:
-  - architect
+  - mechanic
 created_date: '2026-08-29 19:53'
+updated_date: '2026-08-29 20:11'
 labels:
   - upgrade
   - ops
@@ -30,3 +31,9 @@ FRAME: African statistical offices run this in production; audit attribution of 
 
 WHAT IS ACHIEVED: the upgrade page can show "scheduled by X", and the question the King could not answer on 2026-08-29 becomes answerable forever.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+**Architect design (2026-08-29 night), REPLACING the ticket's proposed column shape:** attribution belongs on the EXISTING public.upgrade_state_log — it already records every transition with application_name/query/backend_pid; only human identity is missing. Three scheduled_by-style columns on public.upgrade would duplicate the log and need a fourth column for a fourth action. MECHANISM: the trigger that populates the log resolves `actor` + `actor_source` in precedence order — auth.uid() ('verified') → session GUC statbus.actor set by the CLI via transactional set_config ('self-reported') → NULL ('absent'). Record how you know, not just who: a verified UI user and a typed string must never be indistinguishable. Automatic paths need NO work (application_name already distinguishes the service; no 'upgrade-service' magic value). The API/UI path comes FREE via auth.uid(). CLI: --operator flag primary; prompt ONLY on TTY-present + flag-absent. TWO NAMED TRAPS: a naive prompt wedges the non-interactive CI deploy door (hangs the automatic canary); set_config(...,true) outside a transaction is a silent no-op — the CLI must wrap set-then-write in one transaction and the test must prove the value LANDS. rc.18 slice: migration + trigger + CLI flag/prompt + upgrade-list display; NO backfill ever (absent is the true historical value). Implementer: mechanic, tonight.
+<!-- SECTION:NOTES:END -->
