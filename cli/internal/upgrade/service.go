@@ -1277,12 +1277,32 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 		}
 	}
 
-	// Neutral wording — "interrupted" was misleading for the planned
-	// post-swap continuation case (binary swap → exit 42 → fresh process
-	// finds its own flag). The downstream branch (install / post-swap /
-	// reconcile) emits the action-specific message.
-	logRecover("Recovering an interrupted upgrade — found a %s marker for %s. (detail: id=%d, invoked_by=%s)",
-		holder, flag.Label(), flag.ID, flag.InvokedBy)
+	// STATBUS-318: the string now follows the comment that has stood here since
+	// the neutral-wording change — "interrupted" was misleading for the planned
+	// post-swap continuation, and the fix is to stop saying it in that case
+	// rather than to keep apologising for it.
+	//
+	// THE DISCRIMINATOR IS THE PHASE, and it is exact rather than a guess:
+	//   PhaseNewSbSwapped   — stamped after the binary swap, immediately before
+	//                         the deliberate exit-42 handoff. A fresh process
+	//                         finding this flag is the DESIGN working: it is
+	//                         meeting a marker its own predecessor left for it
+	//                         one moment earlier. Nothing was interrupted.
+	//   PhaseNewSbUpgrading — the post-swap resume had begun and that process
+	//                         DIED before completing (watchdog, OOM, reboot).
+	//   PhaseOldSbUpgrading — a crash before the swap, on the old binary.
+	// The latter two are genuine recovery and keep recovery language.
+	//
+	// WHY THIS IS WORTH THE BRANCH: an operator watching the planned handoff
+	// read "Recovering an interrupted upgrade" at the exact moment the upgrade
+	// was proceeding perfectly, and reasonably concluded the system had lost
+	// track of itself. A log that accuses itself of crashing during normal
+	// operation teaches its reader to distrust it — and then the message means
+	// nothing on the day something HAS actually crashed.
+	//
+	// Both branches keep the same detail suffix: high level first, in the
+	// operator's words, then the precise identifiers for diagnosis.
+	logRecover("%s", recoveryOpeningLine(flag, holder))
 
 	// Guard removed: DetectState's flock-try is now authoritative for
 	// distinguishing ghost flags from live upgrades. If we reach here, the
@@ -6390,7 +6410,13 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// session reconnects before the ALTER lands and gets read-write (F3). The
 	// upgrade's own writers stay read-write via the connect() + migrate.psqlEnv
 	// exemptions. Best-effort accident-guard: log, do not abort the upgrade.
-	progress.Write("Engaging read-only upgrade window (external writes blocked until completion/rollback)...")
+	// THE RULE FOR EVERY LINE BELOW (STATBUS-318, the King's principle): this
+	// progress log IS the product for the person watching an upgrade. High level
+	// first, clearly — what is happening, in the words an operator thinks in —
+	// then the exact detail for precision. Never only one of the two. A line
+	// that gives only the detail (goroutines, contexts, connection objects)
+	// tells the reader what the author was doing, not what the system is doing.
+	progress.Write("External writes blocked until completion/rollback.")
 	if err := d.setDatabaseReadOnly(ctx, true); err != nil {
 		progress.Write("Warning: could not engage read-only window: %v (continuing; guard is best-effort)", err)
 	}
@@ -6398,20 +6424,26 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// Step 2: Enter maintenance mode and restart proxy first
 	// Guards let one-shot callers (./sb install inline upgrade) reach
 	// executeUpgrade without a listenConn.
-	progress.Write("Stopping listen-loop goroutine (canceling listener context)...")
+	//
+	// ONE HEADLINE, THEN ITS DETAILS. The old sequence emitted "Listen-loop
+	// goroutine stopped." immediately followed by "Closing listen connection to
+	// the database..." — two adjacent lines an operator cannot tell apart, where
+	// neither is the plain statement and neither earns its precision. What is
+	// actually happening is one thing: the service is letting go of the database
+	// so the database can be stopped. That is the headline; the individual
+	// connections are the detail underneath it.
+	progress.Write("Disconnecting from the database so it can be stopped.")
+	progress.Write("  Stopping the notification listener — the part that hears new-release announcements.")
 	d.stopListenLoop()
-	progress.Write("Listen-loop goroutine stopped.")
 	if d.listenConn != nil {
-		progress.Write("Closing listen connection to the database...")
 		_ = d.listenConn.Close(context.Background())
 		d.listenConn = nil
-		progress.Write("Listen connection closed.")
+		progress.Write("  Listener connection closed.")
 	}
 	if d.queryConn != nil {
-		progress.Write("Closing query connection to the database...")
 		_ = d.queryConn.Close(context.Background())
 		d.queryConn = nil
-		progress.Write("Query connection closed.")
+		progress.Write("  Query connection closed.")
 	}
 	progress.Write("Entering maintenance mode...")
 	d.setMaintenance(true)

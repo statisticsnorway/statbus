@@ -224,6 +224,33 @@ func (p *ProgressLog) File() io.Writer {
 	return io.Discard
 }
 
+// HOW TO WRITE A LINE HERE (STATBUS-318 — the standing rule for this log).
+//
+// THIS LOG IS THE PRODUCT for the person watching an upgrade. It is the only
+// thing they can see while their statistical register is offline, and they will
+// judge whether the system is healthy by whether its story makes sense. Every
+// line obeys one principle:
+//
+//	HIGH LEVEL FIRST, CLEARLY — what is happening, in the words an operator
+//	thinks in — THEN THE EXACT DETAIL for precision. Never only one of the two.
+//
+// The failures this rule exists to prevent, all found by the first human canary
+// reading a real upgrade (Norway, rc.17):
+//   - The parenthetical carries the meaning: "Engaging read-only upgrade window
+//     (external writes blocked...)". If the aside is the message, promote it.
+//   - The author's vocabulary leaks: goroutines, contexts, connection objects.
+//     Describe what the machinery DOES ("the part that hears new-release
+//     announcements"), not what it is called in the source.
+//   - Two adjacent lines neither of which is the headline, so the reader cannot
+//     tell what distinguishes them or why both exist. Write one plain statement
+//     and indent its details beneath it.
+//   - A phase that starts and never visibly ends, so completion is
+//     indistinguishable from abandonment. If you announce a beginning, announce
+//     the end.
+//   - A message whose story is wrong on the path it usually runs. A log that
+//     accuses itself of crashing during normal operation teaches its reader to
+//     distrust it, and then it says nothing on the day something really breaks.
+//
 // Write appends a timestamped line in `M HH:MM:SS content` format AND
 // emits the unified heartbeat (sd_notify WATCHDOG=1 + mtime touch on
 // tmp/upgrade-service-heartbeat). See watchdog.go for the rationale.

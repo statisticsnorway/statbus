@@ -757,6 +757,31 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (string, e
 		return "", fmt.Errorf("commit backup (rename %s -> %s): %w", backupSyncingName, backupActiveName, err)
 	}
 
+	// STATBUS-318: SAY THAT IT FINISHED. The log used to run "Backing up
+	// database..." → "Still backing up (Ns elapsed, X copied)..." → "Installing
+	// ...", with nothing marking the end. An operator reading that cannot
+	// distinguish a backup that COMPLETED from one that was abandoned and
+	// skipped past — and on the one artifact whose whole purpose is to be there
+	// when a rollback needs it, that ambiguity is the worst possible place to
+	// leave a reader guessing.
+	//
+	// Emitted here, immediately after the atomic rename, because that rename IS
+	// the completion: per the comment above, the snapshot is complete iff it is
+	// named active. Reporting earlier would announce a finish that had not
+	// happened yet.
+	//
+	// Same statfs delta and the same clock the "Still backing up" heartbeats
+	// use, so the closing number is continuous with the ones before it rather
+	// than a second, differently-derived figure the reader has to reconcile.
+	var copiedTotal int64
+	if freeAtEnd, err := DiskFree(root); err == nil && freeAtStart > freeAtEnd {
+		copiedTotal = int64(freeAtStart - freeAtEnd)
+	}
+	progress.Write("Database backed up (%s in %s, at %s).",
+		humanBytes(copiedTotal),
+		time.Since(rsyncStart).Truncate(time.Second),
+		activeDir)
+
 	// Cascade tmp/upgrade-logs/ into <root>/upgrade-logs-<stamp>/ (sibling
 	// of the backup dir) so the historical log+bundle pairs are accessible
 	// to the deploying user without touching the rsync-root-owned backup dir.
