@@ -4,11 +4,11 @@ title: >-
   replay-fixture-divergence: full-replay disagrees with blessed fixtures beyond
   312's scope — classify genuine seed-path divergence vs test-design sensitivity
   (098/108/329/303)
-status: To Do
+status: Done
 assignee:
   - architect
 created_date: '2026-08-28 23:39'
-updated_date: '2026-08-29 10:38'
+updated_date: '2026-08-29 10:59'
 labels:
   - testing
   - migrations
@@ -48,3 +48,9 @@ WHAT IS ACHIEVED: the invariant is restored across the whole suite, not per-tabl
 
 **Architect amendment to his own 314 rule (2026-08-29, adopted):** 'the fleet is authoritative' has an unstated precondition — a COHERENT fleet state. The non-idempotent generator gave each box private drift: there is no fleet state, only scatter, so 8/9/10 was one box's snapshot. Amended rule: THE FLEET IS AUTHORITATIVE WHEN THE FLEET IS COHERENT; WHERE A DEFECT MADE IT INCOHERENT, THE DEFINITION IS AUTHORITATIVE AND EVERY BOX CONVERGES TO IT. Build amendments for the 108 repair: stat_vars shape (idempotent by construction — pure function of the driving row's static priority; no MAX over anything the generator writes, filtered or otherwise); the invariant is specified rather than the arithmetic (output identical regardless of run count and current table contents); THREE test cases — twice-in-a-row identical, already-correct untouched, DRIFTED-CONVERGES (the one proving the single CALL repairs real boxes, which also discharges the 312-interplay question); down migration dumps-first, restores the old non-idempotent procedure deliberately (with a comment), and must NOT revert converged priorities (correct data stays, per the 309-deleted_at principle). Updating 108's expected alongside the source fix is a fixture following a corrected generator, not a re-bless.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+All four items resolved, and the whole family rides rc.17 — the pre-declaration RETIRES unused. (1) 108: the drift died at source in 4488ef6ba — import.generate_link_lu_data_columns rebuilt on the stat_vars pure-function shape (targeted lookup of the never-written primary_for_legal_unit row + the ident type's own static priority; no MAX anywhere), one CALL converging every database from wherever it drifted; test 126 pins the three ruled cases (idempotent, untouched, drifted-converges); 108 genuinely passes with its own determinism sections finally empty. (2+3) 098/329 landed at d70d93d94 as deterministic-fixture fixes. (4) 303/109 drift reviewed and discarded per convention, twice. Durable outcomes beyond the fixes: the AGENTS.md rule (no aggregate-derived data operations in migrations, 08df247c6), the amended authority rule on the record (fleet authoritative when coherent; the definition where a defect scattered it), STATBUS-315 preserving the id-nondeterminism signal, STATBUS-316 filing the general sequence normalization. Found because one full replay was actually read instead of re-blessed.
+<!-- SECTION:FINAL_SUMMARY:END -->
