@@ -3,11 +3,11 @@ id: STATBUS-317
 title: >-
   upgrade-actor-attribution: record WHO instigated schedule/dismiss/skip — the
   row knows every when and no who
-status: In Progress
+status: Done
 assignee:
   - mechanic
 created_date: '2026-08-29 19:53'
-updated_date: '2026-08-29 20:11'
+updated_date: '2026-08-29 21:11'
 labels:
   - upgrade
   - ops
@@ -37,3 +37,9 @@ WHAT IS ACHIEVED: the upgrade page can show "scheduled by X", and the question t
 <!-- SECTION:NOTES:BEGIN -->
 **Architect design (2026-08-29 night), REPLACING the ticket's proposed column shape:** attribution belongs on the EXISTING public.upgrade_state_log — it already records every transition with application_name/query/backend_pid; only human identity is missing. Three scheduled_by-style columns on public.upgrade would duplicate the log and need a fourth column for a fourth action. MECHANISM: the trigger that populates the log resolves `actor` + `actor_source` in precedence order — auth.uid() ('verified') → session GUC statbus.actor set by the CLI via transactional set_config ('self-reported') → NULL ('absent'). Record how you know, not just who: a verified UI user and a typed string must never be indistinguishable. Automatic paths need NO work (application_name already distinguishes the service; no 'upgrade-service' magic value). The API/UI path comes FREE via auth.uid(). CLI: --operator flag primary; prompt ONLY on TTY-present + flag-absent. TWO NAMED TRAPS: a naive prompt wedges the non-interactive CI deploy door (hangs the automatic canary); set_config(...,true) outside a transaction is a silent no-op — the CLI must wrap set-then-write in one transaction and the test must prove the value LANDS. rc.18 slice: migration + trigger + CLI flag/prompt + upgrade-list display; NO backfill ever (absent is the true historical value). Implementer: mechanic, tonight.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+LANDED at cb581db30, the night the gap was found. Attribution lives on public.upgrade_state_log (the mechanism that already sees every transition): actor + actor_source resolved in precedence — auth.uid() 'verified' → transactional statbus.actor GUC 'self-reported' → NULL 'absent' — with historical rows keeping NULL actor_source, deliberately distinct from 'absent' (trigger-didn't-exist vs checked-and-found-nothing; no backfill ever). CLI: --operator flag on schedule/dismiss, one TTY-gated resolveOperator chokepoint (structural test pins that no verb prompts directly — the naive prompt would have hung CI's non-interactive apply, the automatic canary), withActorTx wrapping set-then-write in one transaction (test 128 proves the GUC value LANDS across a real COMMIT boundary and that a split transaction records absent). upgrade list shows who via the log's latest row. One real bug caught during build and confirmed by the architect: SECURITY DEFINER rebound current_user to the trigger owner, so auth.uid() returned NULL — every 'verified' row would have silently logged 'absent'; DEFINER dropped as the only mechanism, cleared after the policy-layer read (pg_policy symmetric TO admin_user on both tables, all real writers superuser via recoveryDSN) plus a negative test proving the boundary (regular_user refused). Follow-up STATBUS-319 asserts the policy symmetry as a catalog test (non-blocking — that failure is loud). Full fast suite to completion detached; doc/db + data-model + types regenerated; 002/016 baselines re-blessed diff-reviewed. Rides rc.18: the next Norway install answers "who did this?" forever.
+<!-- SECTION:FINAL_SUMMARY:END -->
