@@ -3,9 +3,11 @@ id: STATBUS-316
 title: >-
   seq-normalize-after-restore: seed restoration normalizes EVERY sequence to its
   table's max — the general form of 315's fix, explicitly never a restart
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - mechanic
 created_date: '2026-08-28 23:48'
+updated_date: '2026-08-29 11:34'
 labels:
   - tooling
   - testing
@@ -28,3 +30,9 @@ REDUNDANCY CONTRACT (architect's explicit requirement): when this lands, the tac
 
 WHAT IS ACHIEVED: sequence state stops being an artifact of construction path anywhere, and the 315 class cannot recur on a sequence nobody wrote a test about.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+**Architect design (2026-08-29), complete — build may proceed after one checkpoint.** (1) SITE: the Go side — dev.sh already delegates (dev.sh:1935 → ./sb db seed restore). Go has several restore entries (runPgRestoreAtomic db.go:50, restoreSeedDump seed_build.go:194, runSeedRestore install.go:2020, restoreLocal db.go:531, restoreVerifyDB seed_verify.go:473); BUILDER CHECKPOINT before any edit: confirm every restore path reaches one primitive and REPORT — if they converge, normalize there; if not, MAKE them converge, never add the call at five sites. (2) ENUMERATION: pg_depend with deptype IN ('a','i') — 'a' alone silently skips every GENERATED…AS IDENTITY sequence; not pg_get_serial_sequence (wrong direction). (3) UNOWNED sequences: skip with reason AND pin the expected unowned set in a test (expect worker_task_priority_seq); a new unowned sequence must fail the test, not join the exceptions silently. (4) SETVAL FORM: setval(seq, COALESCE(max(col),1), max(col) IS NOT NULL) — bare max errors on empty tables, the COMMON case in a fresh seed. (5) PROOF, three properties: correctness (every owned seq = table max, or positioned to yield 1); DETERMINISM (restore the same artifact twice from different burn states → identical final positions — the actual 315 goal, proven directly); BIDIRECTIONALITY (ahead→pulled back = the defect; behind→pushed forward = duplicate-key safety; a naive only-lower implementation leaves the collision hazard). (6) Retire 315's tactical setup.sql setval IN THIS TICKET, not a follow-up.
+<!-- SECTION:NOTES:END -->
