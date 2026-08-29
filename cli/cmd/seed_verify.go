@@ -482,7 +482,16 @@ func restoreVerifyDB(projDir, dbName, dumpPath string) error {
 		"--single-transaction", "-d", dbName)
 	cmd.Dir = projDir
 	cmd.Stdin = f
-	return runPgRestoreAtomic(cmd, "seed-verify restore")
+	if err := runPgRestoreAtomic(cmd, "seed-verify restore"); err != nil {
+		return err
+	}
+	// STATBUS-316: added for consistency with every other restore path, not
+	// because the AC#4 proof needs it — checked first: computeSeedDigest's
+	// three inputs (pg_dump --schema-only with no --sequence-data flag,
+	// per-table ROW content digests, and the migration ledger) never
+	// observe sequence current-value state at all, so normalizing here
+	// cannot mask the physical-state drift this proof exists to catch.
+	return normalizeAllSequences(projDir, dbName)
 }
 
 // keepVerifyDBs (set by --keep-dbs) preserves the verify databases on exit so a

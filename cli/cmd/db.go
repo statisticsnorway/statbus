@@ -804,6 +804,15 @@ END $$;
 		}
 	}
 
+	// STATBUS-316: the restore, as a whole, is done here — every data-
+	// mutating phase (1, 2.5, 3, 4, .users.yml) has run. Normalize now, once,
+	// not after any individual phase above (a sequence's owning table isn't
+	// necessarily fully loaded until Phase 3 completes).
+	fmt.Println("Normalizing sequences to match restored data ...")
+	if err := normalizeAllSequences(projDir, dbName); err != nil {
+		return fmt.Errorf("normalize sequences: %w", err)
+	}
+
 	// Restart worker and rest
 	fmt.Println("Restarting worker and rest ...")
 	startServices := exec.Command("docker", "compose", "start", "worker", "rest")

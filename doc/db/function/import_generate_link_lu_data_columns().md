@@ -13,20 +13,24 @@ BEGIN
         RETURN;
     END IF;
 
-    -- STATBUS-314: base excludes only this procedure's OWN dynamic purpose
-    -- ('source_input') so repeated calls are idempotent -- any other
-    -- purpose (e.g. the static 'internal' primary_for_legal_unit column)
-    -- stays part of a base that never moves on its own.
-    SELECT COALESCE(MAX(idc.priority), 0) INTO v_static_base
+    -- STATBUS-314: a TARGETED lookup of the one known-static row this
+    -- procedure has never written and never will -- NOT a MAX/aggregate
+    -- over the step's contents, filtered or otherwise (that shape is only
+    -- idempotent-by-filter, one purpose-value away from re-basing on its
+    -- own output again). primary_for_legal_unit's priority is fixed
+    -- forever by 20250505120000_import_populate_steps.up.sql's
+    -- PARTITION BY step_code row-numbering over an immutable, already-
+    -- released VALUES list, so this lookup can never drift and can never
+    -- match a row this procedure itself inserts.
+    SELECT idc.priority INTO STRICT v_static_base
     FROM public.import_data_column idc
     WHERE idc.step_id = v_step_id
-      AND idc.purpose <> 'source_input';
+      AND idc.column_name = 'primary_for_legal_unit';
 
     -- Priority is now a pure function of the static base and the ident
     -- type's own priority -- never of what this procedure has previously
-    -- written -- matching the already-idempotent siblings
-    -- (import.generate_external_ident_data_columns,
-    -- import.generate_stat_var_data_columns).
+    -- written -- matching the already-idempotent sibling
+    -- (import.generate_stat_var_data_columns).
     FOR v_ident_type IN SELECT code, priority FROM public.external_ident_type_enabled ORDER BY priority
     LOOP
         INSERT INTO public.import_data_column (step_id, column_name, column_type, purpose, is_nullable, is_uniquely_identifying, priority, target_pg_type)

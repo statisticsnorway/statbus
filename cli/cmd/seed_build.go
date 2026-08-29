@@ -208,7 +208,11 @@ func restoreSeedDump(projDir, dbName, dumpPath string) error {
 	cmd.Dir = projDir
 	cmd.Env = env
 	cmd.Stdin = f
-	return runPgRestoreAtomic(cmd, "seed build restore prior")
+	if err := runPgRestoreAtomic(cmd, "seed build restore prior"); err != nil {
+		return err
+	}
+	// STATBUS-316: this restore's own completion point.
+	return normalizeAllSequences(projDir, dbName)
 }
 
 // loadSeedMetaFrom reads and parses a seed.json at an arbitrary path (the

@@ -245,88 +245,102 @@ func lastContainerID(out string) (string, bool) {
 var seedRestoreCmd = &cobra.Command{
 	Use:   "restore",
 	Short: "Restore seed into a database via pg_restore",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		projDir := config.ProjectDir()
+	// Named (not an inline closure) so the STATBUS-316 restore-path guard
+	// (sequence_normalize_test.go, funcBodiesContaining) can see it: that
+	// guard scans top-level `func name(...)` declarations for callers of
+	// the atomic pg_restore wrapper below — an anonymous RunE closure is
+	// invisible to it.
+	RunE: runSeedRestoreCmd,
+}
 
-		// Check that the seed file exists locally.
-		dumpPath := filepath.Join(projDir, ".db-seed", "seed.pg_dump")
-		if _, err := os.Stat(dumpPath); os.IsNotExist(err) {
-			return fmt.Errorf("seed not found at %s\nRun: ./sb db seed fetch", dumpPath)
-		}
+func runSeedRestoreCmd(cmd *cobra.Command, args []string) error {
+	projDir := config.ProjectDir()
 
-		// Determine target database: --database flag overrides .env default.
-		// The flag is needed for test template databases that differ from the
-		// main application database.
-		dbName := seedDatabase
-		if dbName == "" {
-			var err error
-			dbName, err = loadDbName(projDir)
-			if err != nil {
-				return err
-			}
-		}
+	// Check that the seed file exists locally.
+	dumpPath := filepath.Join(projDir, ".db-seed", "seed.pg_dump")
+	if _, err := os.Stat(dumpPath); os.IsNotExist(err) {
+		return fmt.Errorf("seed not found at %s\nRun: ./sb db seed fetch", dumpPath)
+	}
 
-		if err := validateIdentifier(dbName, "database name"); err != nil {
-			return err
-		}
-
-		// Read metadata to report the migration version.
-		meta, err := loadSeedMeta(projDir)
+	// Determine target database: --database flag overrides .env default.
+	// The flag is needed for test template databases that differ from the
+	// main application database.
+	dbName := seedDatabase
+	if dbName == "" {
+		var err error
+		dbName, err = loadDbName(projDir)
 		if err != nil {
 			return err
 		}
+	}
 
-		// Pipe the dump file into pg_restore via docker compose.
-		// We use --clean --if-exists to drop existing objects first (safe for
-		// freshly created databases — the DROP errors are harmless).
-		// --single-transaction ensures atomicity: either the whole restore
-		// succeeds or nothing changes.
-		fmt.Printf("Restoring seed to %s ...\n", dbName)
+	if err := validateIdentifier(dbName, "database name"); err != nil {
+		return err
+	}
 
-		dumpFile, err := os.Open(dumpPath)
-		if err != nil {
-			return fmt.Errorf("open seed file: %w", err)
-		}
-		defer func() { _ = dumpFile.Close() }()
+	// Read metadata to report the migration version.
+	meta, err := loadSeedMeta(projDir)
+	if err != nil {
+		return err
+	}
 
-		restoreCmd := exec.Command("docker", "compose", "exec", "-T", "db",
-			"pg_restore", "-U", "postgres",
-			"--clean", "--if-exists",
-			"--no-owner", "--disable-triggers",
-			"--single-transaction",
-			"-d", dbName)
-		restoreCmd.Dir = projDir
-		restoreCmd.Stdin = dumpFile
+	// Pipe the dump file into pg_restore via docker compose.
+	// We use --clean --if-exists to drop existing objects first (safe for
+	// freshly created databases — the DROP errors are harmless).
+	// --single-transaction ensures atomicity: either the whole restore
+	// succeeds or nothing changes.
+	fmt.Printf("Restoring seed to %s ...\n", dbName)
 
-		// Atomic-restore failure contract. With --single-transaction set
-		// above, pg_restore wraps every emitted command in BEGIN/COMMIT
-		// and (per pg_restore(1)) implies --exit-on-error: any error in
-		// any restore step aborts the whole transaction and exits non-
-		// zero. There is no "warnings, but data restored correctly"
-		// outcome with --single-transaction — either the COMMIT lands
-		// (exit 0) or the ROLLBACK fires (exit ≥ 1). runPgRestoreAtomic
-		// (cli/cmd/db.go) also scans the streamed stderr for the
-		// pg_restore: error: prefix as defense-in-depth, so a future
-		// regression that drops --single-transaction (and lets
-		// pg_restore exit 0 with errors in its TOC) still fails loudly
-		// here rather than silently returning "Seed restored".
-		//
-		// Earlier versions of this wrapper carried an exit-code-1
-		// tolerance ("warnings only, not an error"). That was correct
-		// for pg_restore WITHOUT --single-transaction; once the flag
-		// landed, the tolerance silently turned ROLLBACK ("data NOT
-		// restored") into a passing invocation. tcc's near-miss
-		// (forensics: tmp/install-state-machine-forensics.md) surfaced
-		// the danger: a destructive restore could fail half-way,
-		// leaving the DB in a wedged-or-empty state, while ./sb db
-		// seed restore reported success.
-		if err := runPgRestoreAtomic(restoreCmd, "seed restore"); err != nil {
-			return err
-		}
+	dumpFile, err := os.Open(dumpPath)
+	if err != nil {
+		return fmt.Errorf("open seed file: %w", err)
+	}
+	defer func() { _ = dumpFile.Close() }()
 
-		fmt.Printf("Seed restored to %s (migration %s)\n", dbName, meta.MigrationVersion)
-		return nil
-	},
+	restoreCmd := exec.Command("docker", "compose", "exec", "-T", "db",
+		"pg_restore", "-U", "postgres",
+		"--clean", "--if-exists",
+		"--no-owner", "--disable-triggers",
+		"--single-transaction",
+		"-d", dbName)
+	restoreCmd.Dir = projDir
+	restoreCmd.Stdin = dumpFile
+
+	// Atomic-restore failure contract. With --single-transaction set
+	// above, pg_restore wraps every emitted command in BEGIN/COMMIT
+	// and (per pg_restore(1)) implies --exit-on-error: any error in
+	// any restore step aborts the whole transaction and exits non-
+	// zero. There is no "warnings, but data restored correctly"
+	// outcome with --single-transaction — either the COMMIT lands
+	// (exit 0) or the ROLLBACK fires (exit ≥ 1). runPgRestoreAtomic
+	// (cli/cmd/db.go) also scans the streamed stderr for the
+	// pg_restore: error: prefix as defense-in-depth, so a future
+	// regression that drops --single-transaction (and lets
+	// pg_restore exit 0 with errors in its TOC) still fails loudly
+	// here rather than silently returning "Seed restored".
+	//
+	// Earlier versions of this wrapper carried an exit-code-1
+	// tolerance ("warnings only, not an error"). That was correct
+	// for pg_restore WITHOUT --single-transaction; once the flag
+	// landed, the tolerance silently turned ROLLBACK ("data NOT
+	// restored") into a passing invocation. tcc's near-miss
+	// (forensics: tmp/install-state-machine-forensics.md) surfaced
+	// the danger: a destructive restore could fail half-way,
+	// leaving the DB in a wedged-or-empty state, while ./sb db
+	// seed restore reported success.
+	if err := runPgRestoreAtomic(restoreCmd, "seed restore"); err != nil {
+		return err
+	}
+
+	// STATBUS-316: this restore's own completion point — covers
+	// runSeedRestore's (install.go) subprocess path too, one process
+	// boundary removed.
+	if err := normalizeAllSequences(projDir, dbName); err != nil {
+		return fmt.Errorf("normalize sequences: %w", err)
+	}
+
+	fmt.Printf("Seed restored to %s (migration %s)\n", dbName, meta.MigrationVersion)
+	return nil
 }
 
 // ── seed dump ───────────────────────────────────────────────────────────────
