@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 10:27'
-updated_date: '2026-08-29 11:52'
+updated_date: '2026-08-29 11:56'
 labels:
   - ops
   - release
@@ -51,6 +51,12 @@ WHAT IS ACHIEVED: the exposure is named and bounded, the resolution rides the re
 - [ ] #6 This lands before the per-slot deploy workflows for et/jo/ma/tcc/ug are deleted — no box loses its only receive path while still misconfigured
 - [x] #7 The first-writer-wins behaviour is recorded where the next person would otherwise trust config generate to fix a setting
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+**Era read complete (tester, 2026-08-29): the filterless mechanism is PRE-CHANNEL-CONCEPT on all six boxes** — et, jo, ma, tcc, ug AND demo all run v2026.07.0-rc.03 (commit 111546ee), a July binary predating both 291's filter (a4ac7ca81) and the durable role mechanism (733b0df4d). Not the 291-defect era — no selection logic exists at all in what they run; UPGRADE_CHANNEL=stable is correct intent with nothing to apply it. At the first stable: the new binary carries the filter AND the one-time channel→role translation, so each box converts to UPGRADE_ROLE=production and the RC offers clear — the two closure observables (comment #12) then complete, and the translation code deletes per its own marker.
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 
