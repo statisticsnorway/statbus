@@ -69,6 +69,11 @@ newer than the running version as an upgrade candidate (state='available')
 through the same path discovery uses. Subsumes the old 'discover' verb — the
 service still auto-discovers on its own poll using the same register path.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		// STATBUS-308: an operator running `check` by hand is often doing so
+		// BECAUSE automatic checking appears to have stopped. If the box cannot
+		// follow its channel at all, say so before showing results that would
+		// otherwise look reassuring.
+		announceUnitFloor()
 		return newUpgradeService(config.ProjectDir()).RunCheck(context.Background())
 	},
 }
@@ -183,6 +188,10 @@ var upgradeListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List discovered upgrades from the database",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		// STATBUS-308: a stale-looking list is the symptom operators actually
+		// notice. Without this, the list looks merely uneventful — the demo box
+		// showed exactly that for nine days.
+		announceUnitFloor()
 		sql := `SELECT commit_version AS version, summary,
 			CASE
 				WHEN completed_at IS NOT NULL THEN 'completed'
@@ -265,6 +274,12 @@ Examples:
   sb upgrade schedule v2026.03.1 --recreate`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		// STATBUS-308: scheduling depends on the service to execute it. Queueing
+		// work for a service that is missing or stopped would sit "scheduled"
+		// forever with nothing saying why — the silent wedge again. Warn, but do
+		// not refuse: the row is still legitimate, and it runs the moment the
+		// operator repairs the box with ./sb install.
+		announceUnitFloor()
 		return newUpgradeService(config.ProjectDir()).RunSchedule(context.Background(), args[0], recreateFlag)
 	},
 }

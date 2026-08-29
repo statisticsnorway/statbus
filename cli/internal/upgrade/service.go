@@ -31,6 +31,7 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/migrate"
 	"github.com/statisticsnorway/statbus/cli/internal/sbimage"
 	"github.com/statisticsnorway/statbus/cli/internal/selfupdate"
+	"github.com/statisticsnorway/statbus/cli/internal/unitfloor"
 )
 
 // markTerminal pins invariants.MarkTerminal to this service's projDir.
@@ -164,6 +165,11 @@ type Service struct {
 	channel    string
 	interval   time.Duration
 	autoDL     bool
+	// STATBUS-308: last observed unit-floor state, so a tick journals only on a
+	// TRANSITION. Zero value is unitfloor.OK, which is why the start-up announce
+	// runs unconditionally — otherwise a box that boots already-breached would
+	// compare equal to its zero value and never say anything.
+	lastUnitFloorState unitfloor.State
 	// Scheduled logical-backup settings (STATBUS-113), read from .env by loadConfig.
 	backupEnabled   bool          // BACKUP_ENABLED — false opts the box out entirely
 	backupInterval  time.Duration // BACKUP_INTERVAL — cadence of the pg_dump (default 24h)
@@ -2147,6 +2153,17 @@ func (d *Service) Run(ctx context.Context) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
+	// STATBUS-308: announce a floor breach into the journal at start.
+	//
+	// The service can only ever report the breaches it SURVIVES — a drifted unit
+	// (running an old definition) or a unit that was started manually while
+	// something else is wrong. It cannot report its own absence, which is why
+	// the operator verbs carry the same announce. Both call the same inspector,
+	// so they cannot disagree about what "correct" means.
+	//
+	// Detection only: this logs. It never rewrites the unit or restarts itself.
+	d.announceUnitFloor()
+
 	// Load trusted commit signers for signature verification
 	if err := d.loadTrustedSigners(); err != nil {
 		return err
@@ -2658,6 +2675,11 @@ func (d *Service) Run(ctx context.Context) error {
 			}
 		case <-ticker.C:
 			fmt.Printf("Poll tick (next in %s)\n", d.interval)
+			// STATBUS-308: cheap re-check on the poll tick, journaling only on a
+			// transition. Catches a unit that drifts under a long-running service
+			// (an install writes a new template while this process keeps running
+			// the old definition) without turning the journal into noise.
+			d.announceUnitFloorIfChanged()
 			if !d.upgrading {
 				// Belt: reconcile any in_progress row whose final UPDATE was
 				// lost (e.g. stale DB connection during executeUpgrade). Low-

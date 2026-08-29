@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -23,6 +22,7 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/install"
 	"github.com/statisticsnorway/statbus/cli/internal/invariants"
 	"github.com/statisticsnorway/statbus/cli/internal/migrate"
+	"github.com/statisticsnorway/statbus/cli/internal/unitfloor"
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
@@ -949,7 +949,7 @@ func checkUsersDone(dir string) bool {
 // byte copy; the %h/%i/%u specifiers resolve at systemd runtime, not at copy
 // time), so the on-disk file should be byte-identical to the repo template.
 func userUnitPath() string {
-	return filepath.Join(os.Getenv("HOME"), ".config", "systemd", "user", "statbus-upgrade@.service")
+	return unitfloor.UserUnitPath()
 }
 
 // unitFileMatchesRepo reports whether the on-disk user unit is byte-identical
@@ -957,42 +957,42 @@ func userUnitPath() string {
 // is installed verbatim, a byte-compare is the exact drift check: a drifted
 // unit (e.g. rune's stale WatchdogUSec=infinity / TimeoutStartSec=90 vs the
 // repo's 120/120) mismatches and must be reconciled. A missing on-disk unit
-// (fresh box) also reports false so install writes it. No systemd needed —
-// this is the pure, unit-testable half of checkServiceDone.
+// (fresh box) also reports false so install writes it.
+//
+// STATBUS-308: the comparison itself now lives in internal/unitfloor, because
+// the detection surfaces (upgrade verbs, the service's own tick) must ask the
+// SAME question this install gate asks. Two implementations of "is this box's
+// unit correct" would drift, and the one that drifts silently is the one that
+// stops announcing — which is the exact failure this ticket exists to close.
+//
+// Delegates to FileMatchesRepo, NOT to Inspect: this must stay OS-independent.
+// Inspect short-circuits to NotApplicable off Linux (so laptops are not alarmed),
+// which would make this gate answer "matches" on macOS and silently disable the
+// drift reconcile. unit_reconcile_test.go caught exactly that.
 func unitFileMatchesRepo(dir string) bool {
-	repo, err := os.ReadFile(filepath.Join(dir, "ops", "statbus-upgrade.service"))
-	if err != nil {
-		// No repo template to compare against — can't assert drift; treat as
-		// "matches" so a missing source doesn't wedge the install ladder.
-		return true
-	}
-	onDisk, err := os.ReadFile(userUnitPath())
-	if err != nil {
-		return false // missing / unreadable on-disk unit ⇒ reconcile (write it)
-	}
-	return bytes.Equal(repo, onDisk)
+	return unitfloor.FileMatchesRepo(dir)
 }
 
 func checkServiceDone(dir string) bool {
-	if runtime.GOOS != "linux" {
-		return true // Skip on non-Linux
-	}
-	instance := serviceInstance(dir)
-	if instance == "" {
-		return false
-	}
 	// #4 unit-reconcile: a healthy (active) unit is NOT "done" if its on-disk
 	// file has drifted from the repo template — otherwise a box that booted an
 	// old unit keeps stale WatchdogSec/TimeoutStartSec forever (the rune
 	// 90/infinity drift). Drift ⇒ not-done ⇒ runInstallService rewrites +
 	// daemon-reload + restarts so the new timers actually arm.
-	if !unitFileMatchesRepo(dir) {
+	//
+	// Delegated to unitfloor (STATBUS-308) so the install ladder and the
+	// announce agree by construction. Semantics preserved exactly: non-Linux is
+	// done, an underivable instance is NOT done (install should still try), and
+	// anything short of file-correct-and-active is not done.
+	r := unitfloor.Inspect(dir)
+	switch r.State {
+	case unitfloor.NotApplicable:
+		return true // Skip on non-Linux
+	case unitfloor.OK:
+		return true
+	default:
 		return false
 	}
-	// User-level systemd service — no root needed to manage.
-	// Check is-active (running), not just is-enabled (starts on boot).
-	cmd := exec.Command("systemctl", "--user", "is-active", instance)
-	return cmd.Run() == nil
 }
 
 // serviceInstance returns the systemd instance name, e.g. "statbus-upgrade@statbus_dev.service"
