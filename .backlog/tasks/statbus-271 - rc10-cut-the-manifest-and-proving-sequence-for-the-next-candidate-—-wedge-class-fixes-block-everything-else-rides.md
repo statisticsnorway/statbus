@@ -1,12 +1,12 @@
 ---
 id: STATBUS-271
 title: >-
-  rc10-cut: the manifest and proving sequence for the next candidate —
-  wedge-class fixes block, everything else rides
+  stable-campaign: drive the current candidate through the chain, Norway's card,
+  and promotion to the first stable
 status: To Do
 assignee: []
 created_date: '2026-08-27 13:08'
-updated_date: '2026-08-29 11:49'
+updated_date: '2026-08-29 12:08'
 labels:
   - release
 dependencies: []
@@ -18,15 +18,21 @@ ordinal: 264000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-King's directive (2026-08-27): cut the next candidate as soon as ready; a stable release follows (Ukraine + the fleet wait on it). Architect's ruled manifest, criterion = "does it close the wedge class":
+NORTH STAR: the first stable release of the new upgrade system reaches the fleet — proven by the chain, rehearsed by a person on Norway, promoted by the King. This ticket tracks that campaign; it closes at promotion.
 
-BLOCKING: STATBUS-264 + 265, landed TOGETHER or 265 FIRST — 264 alone would crash-loop a worker on a box legitimately holding the deliberate abort-hold read-only state (STATBUS-209 ARM A); 265's exemption dissolves that. Also blocking by sequencing: the 259 ENDGAME lands BEFORE THE CUT (not merely before the chain run — the cut triggers the chain immediately, and without the endgame rc.10 proves the obsolete transport and wastes a cut).
+CURRENT CANDIDATE: v2026.08.0-rc.17, tagged 2026-08-29 at commit 2b4b4ef6c — the no-deferrals candidate, carrying every known open item of the 8-day campaign (the wedge class, the listener crash, the era collision, the seed-path repairs 312/314, the user-delete door 309, the channel fixes 291/311, the observation-card gate 247, and the rest of the rc.11…rc.16 series' root-caused fixes). All thirteen preflight gates were green at the tag.
 
-RIDES: 263 (task_cleanup FK — real bug, not the class; named as riding so it stops drifting as it has since May). 267 (stuck-task detector — detects wedges, doesn't prevent them; FIRST in the queue behind stable, the fleet is about to double). Nothing else on the board is release-blocking.
+THE SEQUENCE FROM HERE:
+1. The orchestrator chain proves the candidate (run 33250073215): smoke pair → dev auto-canary → install-recovery fleet → upgrade-arc fleet. As of 2026-08-29 ~12:05Z: legs 1–3 GREEN (dev runs rc.17), leg 4 executing, leg 5 queued.
+2. On chain green: Norway is installed (King-approved) — `./sb upgrade register` + `schedule` on rune — and the King records the FIRST observation card at doc/observations/v2026.08.0-rc.17.md (copy doc/observations/TEMPLATE.md). The promotion gate refuses without a card naming this tag.
+3. Promotion is the King's decision alone: `./sb release stable`. Its preflight enforces the chain evidence and the Norway card.
+4. The promotion is also the FLEET'S REPAIR (STATBUS-254): the six legacy boxes on the July pre-channel binary discover the stable, upgrade, run the one-time channel→role translation, and stop being offered RCs — the two 254 closure observables complete on this event.
 
-PROVING SEQUENCE TO STABLE: rune verified un-wedged (remedy RAN 2026-08-27 ~12:56Z — four tasks re-ran, parent completed, merge started; final drain confirmation pending) → rc.10 cut → chain run proves the NEW transport zero-hands on dev (closes 246/247/249/252 legs + 261's pending-arm) → human canary on no AGAINST doc-035's observation card, deviations become tickets before promotion (247 AC#7) → promote to stable — and the promotion gate ENFORCES this: it refuses until Norway carries a completed upgrade at the candidate's commit (247 AC#11), so the human step cannot be skipped under pressure → fleet follows NON-UNIFORMLY: demo auto-applies if 248's trigger is built; country boxes are OFFERED and a human opts in → Ukraine installs the stable (STATBUS-268).
+WHY EVERY RED SO FAR WAS PAID FORWARD: the campaign's discipline — every red root-caused same-day, fixes riding the next cut, pre-declared reds written before runs — produced a candidate whose fleet trajectory ran 26→34→33→36 green across rc.13…rc.16, with rc.17 carrying the fix for the last unattributed red (transient-db-backoff's layer stack) and everything since.
 
-RECORDED UNPROVEN, deliberately: 264's retry loop — once 265 lands the reset is exempt and never refused, so NO normal upgrade exercises the retry; its proof waits on STATBUS-270's spec suite or deliberate fault injection. Written down so rc.10's green is never read as covering it.
+WHAT IS ACHIEVED AT CLOSE: a stable exists; Ukraine, Ghana, and the six legacy production slots converge to it through their own upgrade services; the release machinery has proven the full path it was built for.
+
+(History: this ticket was born as "rc10-cut" — the rc.10-era manifest and proving sequence. The comments preserve that record verbatim, including the rc.11–rc.16 chain verdicts; the manifest's discipline is what produced the current candidate.)
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Implementation Notes
