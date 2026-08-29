@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 13:08'
-updated_date: '2026-08-28 18:52'
+updated_date: '2026-08-29 11:49'
 labels:
   - release
 dependencies: []
@@ -28,6 +28,12 @@ PROVING SEQUENCE TO STABLE: rune verified un-wedged (remedy RAN 2026-08-27 ~12:5
 
 RECORDED UNPROVEN, deliberately: 264's retry loop — once 265 lands the reset is exempt and never refused, so NO normal upgrade exercises the retry; its proof waits on STATBUS-270's spec suite or deliberate fault injection. Written down so rc.10's green is never read as covering it.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+**Current state (2026-08-29):** this ticket tracks the campaign to the next promotable candidate; the manifest discipline it defined has been applied through rc.11…rc.17. v2026.08.0-rc.17 is CUT at 2b4b4ef6c with every known open item aboard (the no-deferrals round: 298/302/304+floor/306/307-acute/309/311/312/313/314-family/315, plus 247's observation-card gate, 252's shadow persistence, 274, 285, and the wedge-class arc work). The fleet orchestrator chain is running on the tag (run 33250073215): smoke pair → dev auto-canary → both harnesses. On chain green: Norway is installed (King-approved) and observed against the committed card template; promotion to stable is the King's decision. This ticket closes at that promotion.
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 

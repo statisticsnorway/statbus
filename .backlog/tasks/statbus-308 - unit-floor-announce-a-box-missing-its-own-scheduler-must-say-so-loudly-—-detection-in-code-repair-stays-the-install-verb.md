@@ -3,10 +3,11 @@ id: STATBUS-308
 title: >-
   unit-floor-announce: a box missing its own scheduler must say so loudly —
   detection in code, repair stays the install verb
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - engineer
 created_date: '2026-08-28 21:43'
-updated_date: '2026-08-28 22:45'
+updated_date: '2026-08-29 11:49'
 labels:
   - upgrade
   - cli
