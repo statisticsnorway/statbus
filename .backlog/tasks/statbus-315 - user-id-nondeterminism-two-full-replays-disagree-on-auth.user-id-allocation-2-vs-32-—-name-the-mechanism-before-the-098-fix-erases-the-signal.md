@@ -3,11 +3,11 @@ id: STATBUS-315
 title: >-
   user-id-nondeterminism: two full replays disagree on auth.user id allocation
   (2 vs 32) — name the mechanism before the 098 fix erases the signal
-status: In Progress
+status: Done
 assignee:
   - tester
 created_date: '2026-08-28 23:42'
-updated_date: '2026-08-29 10:58'
+updated_date: '2026-08-29 10:59'
 labels:
   - testing
   - migrations
@@ -82,3 +82,9 @@ That is the red and the green of this unit. The RED half required temporarily di
 Not mine and dirty in the tree from another agent's work — do not stage with this unit: `test/expected/108_test_code_gen.out`, `test/expected/303_*` and its three explain baselines, `test/expected/performance/109_hierarchy_functions.perf`, plus the untracked 20260829103700 migration pair and test 126.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+CLOSED with the mechanism measured, the remedy landed (ba14100f3), and the signal preserved through its own fix. Mechanism, two composing contributors: (a) tester's — the seed-restore path never resets auth.user_id_seq, so the sequence starts wherever the restored artifact captured it; (b) engineer's, measured with a temporary probe — nextval is non-transactional, so every rolled-back test setup burns ids and the fixture ids depended on which tests ran before (1,2,3 alone; 19,20,21 after three prior tests; his own first-draft mechanism was measured false and retracted). Remedy per the architect's ruling: setval BY DERIVATION from the table's own contents in test/setup.sql (never a restart — the naive form both collides and fails to fix), which neutralizes BOTH contributors by discarding the sequence position wherever it came from; plus the testing-rules preference order (natural key → same-replay comparison → count, 098/329 as worked examples). Blast radius sized before blessing: zero — two verification waves across the id-printing tests all green, nothing re-blessed. The remove-when-316-lands redundancy note is at the line; STATBUS-316 (normalize every sequence after restore) is the general successor.
+<!-- SECTION:FINAL_SUMMARY:END -->
