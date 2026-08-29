@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 10:27'
-updated_date: '2026-08-27 19:53'
+updated_date: '2026-08-29 11:52'
 labels:
   - ops
   - release
@@ -24,29 +24,21 @@ ordinal: 247000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Five statistical offices' production installations, plus demo, are currently set to receive release CANDIDATES rather than releases. That is the precise thing the release topology was designed to prevent, and it is live right now. Worse, it cannot be fixed by any normal operation: the setting is remembered forever and nothing recomputes it.
+NORTH STAR: a production box on the stable channel is never shown a release candidate as if it were installable. Today five are — and nothing done ON the boxes can fix it; the first stable cut is the resolution.
 
-**THE EXPOSURE, plainly.** Ethiopia, Jordan, Morocco, Turkish Cypriotic Community and Uganda — real installations serving real statistical offices — are on the prerelease channel, as is demo. Their upgrade services will discover and offer release candidates, and the only reason they have not been installing them is that nobody has been pressing the button. Dev, which should be the box that takes candidates first, is on a third setting again (edge, tracking every master commit).
+THE PREMISE, RE-VERIFIED AGAINST LIVE EVIDENCE (tester's read-only audit 2026-08-29, architect-ruled): all five production slots (et, jo, ma, tcc, ug) carry UPGRADE_CHANNEL=stable, yet their candidate lists contain ONLY release candidates — v2026.08.0-rc.17 registered as "available, discovered 2026-08-29", the day of the audit. A working stable filter applied to a release set containing zero stables (GitHub holds 30 releases, all pre-release) registers NOTHING; rc.17 being discovered onto these boxes proves NO channel filter ran. The boxes run binaries older than 291's channel filter and 311's CLI channel fix, so their discovery has nothing to filter with.
 
-**WHY IT CANNOT SELF-CORRECT, and this is the part that matters most.** The channel is written once, at box creation, and preserved forever afterwards. `./sb config generate` fills in a value only when the key is ABSENT (cli/internal/dotenv/dotenv.go:223-225 — `Generate` returns the existing value and writes only on a miss). So every subsequent config generate, every reinstall, and every future change to what the correct default IS, all leave the original value untouched. **These boxes were configured before the current defaults existed** — the mode-aware default landed 2026-06-21 (commit 2393c028a) and the cloud slots predate it — and they have carried the old convention ever since.
+THE LIVE EXPOSURE is the human path, not the automatic one: RCs have sat "available" without ever becoming "scheduled" (evidence, not proof, that these binary eras offer rather than install) — but `./sb upgrade schedule <rc>` remains executable by an operator looking at a list that appears to sanction it. This is field confirmation of 291's "the list IS the offer" ruling, now observed on five live NSO installations.
 
-This is the same defect family the release work has been closing all along: a value that persists because nobody re-derives it, with no check that it still means what it should. The channel is **remembered, not decided.**
+WHY NO ACTION ON THE BOXES CAN CLEAR IT (the finding this ticket must carry): the fix can only reach those boxes through an upgrade, and the only upgrades on offer are the very RCs they should not take. 291's filter and 311's fix are newer than anything the fleet runs — nothing on the boxes can be repaired by acting on the boxes. THE RESOLUTION PATH IS THE FIRST STABLE CUT: it simultaneously clears the offers (a stable-channel box finally has a legitimate target) and delivers the filter that prevents recurrence. That is the actual resolution, not a workaround.
 
-**THE CORRECTION — the design question this entry exists to settle.** Our rule is that fixes ship as code and reach a box through its own install, never as hand-surgery over SSH. That rule and "change the setting on six live boxes" appear to conflict, and the way out is not to bend the rule but to stop storing a value nobody recomputes:
+INTERIM MITIGATION — operational only, stated plainly because no mechanical guard exists: changing the boxes requires an upgrade (circular), and dismissing the rows would be a manual DB write (forbidden on any environment). The operators of those five slots should not act on an RC offer before the first stable lands.
 
-**RECOMMENDED: derive the channel instead of remembering it.** A box's channel should be a consequence of what the box IS, recomputed on every config generate, rather than a value inherited from the day it was created. Ordinary installations derive `stable`. A canary is an explicit, declared exception — which is what the topology already says a canary is: something configured deliberately, never arrived at by default.
+EXPLICITLY REJECTED — do not re-propose: marking an RC as a stable release on GitHub. It would make an unpromoted candidate indistinguishable from a promoted one for the ENTIRE fleet — every box with a WORKING filter would then correctly install an unvalidated candidate, converting a display problem into a fleet-wide installation event.
 
-Then the correction needs no special mechanism at all. It ships as code, and every box picks it up through the one operator action the product already has — `./sb install`. No SSH writes, no per-box surgery, nothing to remember to undo. It also permanently removes the failure mode rather than this instance of it: no future box can drift, and no future default change can fail to reach the fleet.
+REMAINING WORK: (1) one read per box distinguishing the filterless mechanism for the record (pre-channel-concept binary vs 291-defect-era binary — binary version against 254's and 291's commits; changes neither remedy nor risk); (2) at the first stable: verify each box's discovery clears the RC offers and converges to the stable, then close.
 
-Note what this deliberately is NOT: a standing self-heal that quietly rewrites operator intent. Deriving a value is not repairing it — there is nothing to repair, because the value stops being independently settable. A box whose declared role and channel disagree should say so loudly rather than silently choosing.
-
-**THE ALTERNATIVE, named so the choice is informed:** correct the six boxes now by running the product's own configuration command on each, and fix the mechanism afterwards. It is faster, and it is exactly the per-box manual mutation our rule exists to prevent — six boxes touched by hand, no record in code, and the same drift free to recur. Recommended only if the exposure is judged too urgent to wait for the mechanism, and it should then be followed by the derived-channel work regardless.
-
-**SEQUENCING, which is not optional.** This correction must land BEFORE the deletion of the remaining per-slot deploy workflows for those five boxes. Those workflows are currently the only push path into those installations; removing them while the boxes are still on the wrong channel could leave a statistical office with no working route to receive anything at all.
-
-Order within the work: correct the five NSO boxes and demo to `stable` first, since that is the live exposure. Dev moves to `prerelease` last — it is the mildest deviation, since edge at least tracks master, and it becomes moot once the release chain drives dev directly.
-
-**WHAT IS ACHIEVED:** production installations stop being offered software that was never blessed, the fleet's settings become something the system computes rather than something it inherited, and the next time we change what a box should follow, the fleet actually follows.
+WHAT IS ACHIEVED: the exposure is named and bounded, the resolution rides the release that was coming anyway, and the recurrence is prevented by the filter that release carries.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
