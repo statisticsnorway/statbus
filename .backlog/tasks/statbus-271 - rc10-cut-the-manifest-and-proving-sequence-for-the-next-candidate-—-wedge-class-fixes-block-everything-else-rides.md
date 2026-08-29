@@ -3,10 +3,10 @@ id: STATBUS-271
 title: >-
   stable-campaign: drive the current candidate through the chain, Norway's card,
   and promotion to the first stable
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-27 13:08'
-updated_date: '2026-08-29 15:01'
+updated_date: '2026-08-29 20:10'
 labels:
   - release
 dependencies: []
@@ -128,3 +128,9 @@ created: 2026-08-29 15:01
 rc.17 CHAIN FINAL VERDICT (orchestrator 33250073215, completed 2026-08-29 ~14:4xZ): **THE FIRST FULLY GREEN CHAIN OF THE CAMPAIGN.** All five legs success — both smokes, dev auto-canary (dev runs rc.17), install-recovery fleet (fifth consecutive green), and the arc fleet (run 33253129805): **37 success / 0 failures / 1 skipped-with-inheritance.** transient-db-backoff — the campaign's last unattributed red, which revealed a bug per layer across rc.11–rc.16 — PASSED with the full fix stack aboard. The superseded-verdict job ran its own newest-check and found rc.17 still the candidate; nothing was superseded. The trajectory closes 26→34→33→36→37-of-37. NEXT: the human canary — the King installs rc.17 on Norway himself (his explicit choice: the operator experience is the thing under test), records the first observation card at doc/observations/v2026.08.0-rc.17.md, and the promotion gate's remaining requirements are exactly that card plus his decision.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+**v2026.08.0 TAGGED at 2b4b4ef6c (promoted from rc.17), 2026-08-29 evening — the first stable release of the new upgrade system. The campaign closes.** The promotion gate read its own evidence and passed everything: commit-scope oracles gated at the RC cut, test-hardening/test-install green, install-recovery FULL SUITE 15/15, upgrade-arc FULL SUITE 32/32, artifacts present (6 assets, 5 manifests), canary dev COMPLETED, canary Norway COMPLETED with the first observation card (doc/observations/v2026.08.0-rc.17.md, recorded by interview — the operator was the King's boss, reported happy; deviations ticketed as STATBUS-317/318, ruled non-blocking). The 252 shadow produced its first two DECIDED runs, agreeing with authority both times. Authorized by the King before retiring ("I approve it if you don't have pushback") with the foreman's no-pushback reasoning on the record; the named consequence — the six legacy boxes and Ukraine take the stable unattended on their own ticks — is the system doing what it was built for, proven by the fully green chain. The campaign's arc: rc.10's manifest → seven candidates → 26→34→33→36→37-of-37 → every red root-caused → one fully green chain → a person installed it → promoted. Post-promotion verification (fleet convergence, RC offers clearing, channel→role translations — the 254/248/287 closure observables) proceeds on the boxes' own ticks and is read in the morning.
+<!-- SECTION:FINAL_SUMMARY:END -->
