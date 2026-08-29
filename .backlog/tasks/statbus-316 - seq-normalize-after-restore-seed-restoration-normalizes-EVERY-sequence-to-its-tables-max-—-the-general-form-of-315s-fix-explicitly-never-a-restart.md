@@ -7,7 +7,7 @@ status: Done
 assignee:
   - mechanic
 created_date: '2026-08-28 23:48'
-updated_date: '2026-08-29 12:58'
+updated_date: '2026-08-29 21:49'
 labels:
   - tooling
   - testing
@@ -35,6 +35,8 @@ WHAT IS ACHIEVED: sequence state stops being an artifact of construction path an
 
 <!-- SECTION:NOTES:BEGIN -->
 **Architect design (2026-08-29), complete — build may proceed after one checkpoint.** (1) SITE: the Go side — dev.sh already delegates (dev.sh:1935 → ./sb db seed restore). Go has several restore entries (runPgRestoreAtomic db.go:50, restoreSeedDump seed_build.go:194, runSeedRestore install.go:2020, restoreLocal db.go:531, restoreVerifyDB seed_verify.go:473); BUILDER CHECKPOINT before any edit: confirm every restore path reaches one primitive and REPORT — if they converge, normalize there; if not, MAKE them converge, never add the call at five sites. (2) ENUMERATION: pg_depend with deptype IN ('a','i') — 'a' alone silently skips every GENERATED…AS IDENTITY sequence; not pg_get_serial_sequence (wrong direction). (3) UNOWNED sequences: skip with reason AND pin the expected unowned set in a test (expect worker_task_priority_seq); a new unowned sequence must fail the test, not join the exceptions silently. (4) SETVAL FORM: setval(seq, COALESCE(max(col),1), max(col) IS NOT NULL) — bare max errors on empty tables, the COMMON case in a fresh seed. (5) PROOF, three properties: correctness (every owned seq = table max, or positioned to yield 1); DETERMINISM (restore the same artifact twice from different burn states → identical final positions — the actual 315 goal, proven directly); BIDIRECTIONALITY (ahead→pulled back = the defect; behind→pushed forward = duplicate-key safety; a naive only-lower implementation leaves the collision hazard). (6) Retire 315's tactical setup.sql setval IN THIS TICKET, not a follow-up.
+
+**Post-close hotfix at 09d323c5c** (CI-caught, pg_regress run 33275592180): a restored artifact predating migration 20260829114700 has no normalize_all_sequences procedure, and the completion-point CALL failed the whole restore — the exact path install.sh's seed-restore fallback would hit on real boxes with pre-316 artifacts. Fix: existence check first via to_regprocedure (NULL-not-raise, so it cannot be confused with a real in-procedure failure), loud skip + proceed on absence — pre-316 behavior exactly until artifacts carry the procedure. Not a reorder, not a blanket swallow. Structural test pins check-before-CALL and skip-loudly-return-nil, red-verified.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
