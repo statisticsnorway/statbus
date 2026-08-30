@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-30 02:13'
+updated_date: '2026-08-30 05:29'
 labels:
   - ops
   - release
@@ -34,3 +35,9 @@ DECISIONS FOR THE KING (morning, interview-style): (1) extend the canonical rein
 
 WHAT IS ACHIEVED: the fleet actually converges, each box by its honest path, and 248/254/287 close on observed state instead of assumed mechanism.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+**First convergence observed (2026-08-30 ~05:30 read):** demo runs v2026.08.0 COMPLETED — taken unaided overnight by its daily auto-apply-stable workflow (STATBUS-248's cron mechanism, abe93ed49), exactly as designed. The first channel-following convergence in the fleet's history, and the live proof that the 248 shape works where a current-era binary and an apply trigger both exist. The remaining boxes stand as mapped: five legacy (structurally cannot verify artifacts), Ukraine + Ghana (clean offer, need one schedule act), dev/Norway on the candidate line.
+<!-- SECTION:NOTES:END -->
