@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-08-28 21:37'
-updated_date: '2026-08-31 14:53'
+updated_date: '2026-08-31 14:59'
 labels:
   - upgrade
   - cli
@@ -324,5 +324,11 @@ ARCHITECT'S SUPERSEDING RULING (2026-08-31, replaces comment #8 — appended ver
 2. THE PREMISE GOT WRONG: comment #5's table described cmd/upgrade.go:718-747 as 'a CLI verb that SETS the role' — written from a grep hit on f.Set(...) at :732 without reading :699-760. It is not a setter — it is a three-step operator workflow, and step three is a service restart. The daemon loads its config only at startup, so a hand edit changes nothing observable until the operator also regenerates and restarts. Removing the verb would have relocated that work into the operator's memory; the failure mode is a box whose file and behaviour disagree — this ticket's own failure class. Caught by the engineer reading the function.
 
 3. TWO FURTHER CLAIMS CORRECTED, BOTH ACCEPTED: (a) comment #6's 'one site' claim for the superset fix — the FilterTagsByChannel→TagMatchesChannel delegation is real, but selectLatestTagFromNames carries its own PRIVATE COPY of the membership rule and would have survived the fix untouched; the 'surface is small' sentence is precisely what would have made a builder stop looking. (b) comment #5's instruction to re-key the RoleDevelopment behaviour on mode == development — the engineer found the real decision site and it keys on the CHANNEL deliberately, so the instruction would break a stated property. Accepted pending one review condition: the property and where it is stated must be named, so it is verified rather than accepted as a summary.
+---
+
+author: foreman
+created: 2026-08-31 14:59
+---
+ARCHITECT'S REVIEW VERDICT (2026-08-31): APPROVE with one required one-line amendment, one HIGH record-correction, and the two requested verifications done. (1) AMENDMENT: vm-bootstrap.sh:479 — empty BASE_SHA routes to the 254-era branch, writing the retired role key; right-by-accident today via the legacy translator, silently disarms the arcs' release-bless when the translator is deleted (upgrade_channel.go:264-269 schedules exactly that). Fix: empty BASE_SHA → current-era branch. (2) RECORD-CORRECTION (HIGH, no code defect): the niue slots do NOT get prerelease from the discriminator — their role=production EQUALS private mode's legacy default → seeded → deleted → derive stable; only rune's canary differs and is preserved. The discriminator is correct as designed; the freeze report's coverage claim was half wrong. THE EXPLICIT PRERELEASE WRITES ON THE NIUE SLOTS ARE A DELIBERATE POST-LANDING FLEET ACTION (comment #5's transition list), King-gated — and ORDERED: the key may only be written to a box ALREADY RUNNING the new code, because the old binary's 254 guard refuses a present UPGRADE_CHANNEL and would park the box. Consistent with AC8: the transition itself changes no box's effective channel; the slots leading is a separate act. (3) VERIFIED: migrate.go:2018's channel-axis property confirmed at the site (the comment-#5 re-key instruction was wrong; engineer's refusal correct); the era-probe design ruled sound (file-existence probe = era detection by the thing defining the era; the third branch is the era-accuracy rule applied). Also noted: seed-build exclusion anticipated at upgrade_channel.go:102-103; the translator's one-time-deletion note is the no-standing-self-heal rule applied unprompted.
 ---
 <!-- COMMENTS:END -->
