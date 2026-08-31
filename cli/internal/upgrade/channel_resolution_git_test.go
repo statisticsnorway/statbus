@@ -90,8 +90,26 @@ func TestClassificationIsNotASecondCopyOfTheRule_STATBUS255(t *testing.T) {
 	src := readUpgradeGithubSource(t)
 	body := extractFuncBody(t, src, "func selectLatestTagFromNames(")
 
-	if !strings.Contains(body, "ClassifyReleaseShape(") {
-		t.Error("channel classification must reuse ClassifyReleaseShape — the same rule the rest of the package and the instance script already apply")
+	// STATBUS-307 widened what counts as satisfying this rule, and strengthened
+	// it in the process. Reusing ClassifyReleaseShape still qualifies, but
+	// delegating to TagMatchesChannel qualifies MORE: that function is the single
+	// definition of channel membership, and it calls ClassifyReleaseShape itself.
+	//
+	// This test caught a real defect during that change. selectLatestTagFromNames
+	// carried its own release↔stable / prerelease↔prerelease mapping — a second
+	// copy not of "what counts as a prerelease" but of "what counts as ON
+	// CHANNEL". The superset fix corrected TagMatchesChannel and would have left
+	// this copy untouched, so a prerelease box resolving its latest tag would
+	// still have skipped every stable release while discovery admitted them. The
+	// fix was to delegate, which is why the direct call is gone.
+	if !strings.Contains(body, "ClassifyReleaseShape(") && !strings.Contains(body, "TagMatchesChannel(") {
+		t.Error("channel classification must reuse the shared rule — ClassifyReleaseShape, or TagMatchesChannel which is built on it — never a private copy")
+	}
+	// The membership mapping must not be re-derived here either. A local
+	// `channel == "stable"` test alongside a shape switch is exactly the second
+	// copy that survived the superset fix and had to be removed.
+	if strings.Contains(body, `channel == "stable"`) || strings.Contains(body, `channel == "prerelease"`) {
+		t.Error(`a local channel-name comparison is a second copy of the membership rule; delegate to TagMatchesChannel so one definition decides what is on channel`)
 	}
 	if strings.Contains(body, `"-rc."`) {
 		t.Error(`a second literal "-rc." test is a second copy of the rule; it will drift from ClassifyReleaseShape, and this copy decides which version a box installs`)

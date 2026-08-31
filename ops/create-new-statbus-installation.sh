@@ -47,17 +47,22 @@ if ! git rev-parse --verify --quiet "refs/tags/$VERSION" >/dev/null; then
     exit 1
 fi
 
-# TARGET_ROLE (STATBUS-251, reshaped by STATBUS-254): a new country instance is
-# an ordinary production slot — it follows releases on its own (STATBUS-248),
-# never on a push.
+# STATBUS-307: THIS SCRIPT NO LONGER WRITES ANY UPGRADE-POLICY KEY.
 #
-# What this sets is now the box's ROLE, not its channel. The channel is DERIVED
-# from the role on every `./sb config generate` (cli/internal/config/
-# upgrade_role.go), so a value written here can no longer outlive the policy
-# that set it — which is exactly what happened to five statistical offices'
-# installations, which sat on the prerelease channel for two months because the
-# channel was written once at creation and nothing recomputed it.
-TARGET_ROLE=production
+# A new country instance is an ordinary production slot — it follows releases on
+# its own (STATBUS-248), never on a push. That is now the DERIVED answer rather
+# than a written one: the slot is created in `private` mode, and private derives
+# `stable`. Writing anything here would say the same thing twice, and the second
+# copy is the one that goes stale.
+#
+# The key is reserved for EXCEPTIONS — a box deliberately leading, like the niue
+# slots that follow `prerelease` so they see a candidate before a statistical
+# office does. An unremarkable installation stores nothing about upgrade policy,
+# which is what makes the setting mean something where it does appear.
+#
+# (What stood here before declared the box a production ROLE, from which the
+# channel was derived. That mechanism is gone; the derived value is identical —
+# private → stable — so removing it changes no box's behaviour.)
 
 # The old interim branch here set the channel to prerelease when no stable
 # release existed yet in the line. That is no longer a per-box setting to make:
@@ -136,7 +141,7 @@ fi
 echo "Authorizing on $DEPLOYMENT_USER@$HOST:"
 echo "  GITHUB_USERS:       ${GITHUB_USERS:-<empty>}"
 echo "  GITHUB_DEPLOY_KEYS: ${GITHUB_DEPLOY_KEYS:-<empty>}"
-echo "  UPGRADE_ROLE:       $TARGET_ROLE"
+echo "  UPGRADE_CHANNEL:    (derived from deployment mode — none written)"
 
 # Verify DNS setup — apex record only. The api./www. subdomain split is dead:
 # every real slot (dev/ug/ma) runs a single apex A/AAAA record, caddy/templates
@@ -364,11 +369,10 @@ ssh $DEPLOYMENT_USER@$HOST bash << UPDATE_SETTINGS
     # OVERWRITE, not set-if-missing: a wrong value may already be present on a
     # retried run, and set-if-missing is the exact behaviour that let stale
     # values survive on five statistical offices' installations.
-    #
-    # UPGRADE_CHANNEL is NOT written here. It is derived from this role by
-    # ./sb config generate (inside install.sh below); writing it into
-    # .env.config directly would now be refused by that command, on purpose.
-    set_or_update UPGRADE_ROLE "$TARGET_ROLE"
+    # STATBUS-307: nothing is written about upgrade policy. `./sb config
+    # generate` derives the channel from CADDY_DEPLOYMENT_MODE (private →
+    # stable), which is exactly what this slot wants. The key is written only
+    # when a box deliberately follows something other than its mode implies.
 
     # Apex domain only — the api./www. subdomain split is dead (see the
     # DNS-verification comment above for the evidence).

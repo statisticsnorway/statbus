@@ -183,7 +183,8 @@ ssh statbus@rune.statbus.org      "cd statbus && ./sb version"
 ### Upgrade channels
 
 The upgrade service's behavior depends on the `UPGRADE_CHANNEL` value in `.env` —
-which is DERIVED from `UPGRADE_ROLE` in `.env.config` and is not settable
+which is DERIVED from `CADDY_DEPLOYMENT_MODE` in `.env.config` unless that file
+declares an explicit `UPGRADE_CHANNEL`
 directly (STATBUS-254):
 
 | Role | Channel | Behavior |

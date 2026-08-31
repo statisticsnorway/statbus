@@ -49,8 +49,9 @@ RestartForceExitStatus=42
 SuccessExitStatus=42
 
 # STATBUS-298: exit 78 (EX_CONFIG, sysexits.h) marks a PRINCIPLED, non-
-# retriable configuration refusal (e.g. UPGRADE_ROLE + UPGRADE_CHANNEL both
-# declared) hit during the recovery-boot pre-flight, BEFORE the db is ever
+# retriable configuration refusal (e.g. an unknown UPGRADE_CHANNEL value, or a
+# standalone box with no SITE_DOMAIN) hit during the recovery-boot pre-flight,
+# BEFORE the db is ever
 # touched (cli/internal/upgrade/service.go, Run()'s config-generate
 # pre-flight; the refusal itself is selected in cli/cmd/config.go). Before
 # this directive, systemd retried the identical refusal every RestartSec

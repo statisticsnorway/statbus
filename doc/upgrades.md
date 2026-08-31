@@ -47,7 +47,7 @@ Edit `.env.config` and run `./sb config generate` to apply changes.
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `UPGRADE_ROLE` | `production` | What this box IS. `production` (an ordinary installation — every statistical office's box), `canary` (takes release candidates first, deliberately), or `development` (a developer's machine; follows nothing automatically). The upgrade CHANNEL is derived from this and written to the generated `.env`; it is not a setting, and setting `UPGRADE_CHANNEL` in `.env.config` is refused (STATBUS-254). To target a specific version once, use `./sb upgrade register <version>` then `./sb upgrade schedule <version>`. |
+| `UPGRADE_CHANNEL` | *(unset)* | **An exception, not a requirement — an ordinary installation sets nothing here.** The channel is derived from `CADDY_DEPLOYMENT_MODE`: `standalone` → `stable`, `private` → `stable`, `development` → `local`. Write this key only for a box that deliberately LEADS, e.g. `prerelease` on a box that should see release candidates before a statistical office does; a written value always wins over the derivation (STATBUS-307). Accepted values: `local`, `stable`, `prerelease`. To target a specific version once, use `./sb upgrade register <version>` then `./sb upgrade schedule <version>`. |
 | `UPGRADE_CHECK_INTERVAL` | `6h` | How often the service polls GitHub. Any Go duration string (`30m`, `6h`, `24h`). |
 | `UPGRADE_AUTO_DOWNLOAD` | `true` | Pre-download Docker images for discovered releases. Set to `false` on metered connections. |
 
@@ -276,7 +276,7 @@ Key-value store for system-wide settings.
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `upgrade_channel` | `stable` | Current upgrade channel (derived from `UPGRADE_ROLE`) |
+| `upgrade_channel` | `stable` | Current upgrade channel (derived from `CADDY_DEPLOYMENT_MODE`, or declared explicitly) |
 | `upgrade_check_interval` | `6h` | Check interval |
 | `upgrade_auto_download` | `true` | Auto-download setting |
 

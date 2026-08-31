@@ -443,9 +443,52 @@ ENVCONFIG
     # BASE_SHA unset falls back to the pre-297 unconditional write — the
     # only callers of this function are arc_prepare_box/reset_vm_state,
     # both downstream of an arc script that has already required BASE_SHA.
-    if [ -z "${BASE_SHA:-}" ] || git -C "$HARNESS_ROOT" merge-base --is-ancestor 733b0df4d "$BASE_SHA" 2>/dev/null; then
+    # STATBUS-307 INVERTS THIS RULE RATHER THAN RETIRING IT. There are now THREE
+    # eras, and the harness must write what each era's box actually carried:
+    #
+    #   pre-254   → NOTHING. That era's own config generate seeds UPGRADE_CHANNEL.
+    #   254-era   → UPGRADE_ROLE=production. The channel is derived from the role,
+    #               and that era REFUSES a channel written into .env.config.
+    #   307-era   → UPGRADE_CHANNEL=stable. UPGRADE_ROLE no longer exists; a box
+    #               carrying only a role would derive its channel from the MODE,
+    #               and these VMs run in development mode → "local" →
+    #               migrationChannelClass=channelLocalDev, which is the opposite
+    #               of what every arc needs.
+    #
+    # The two written forms are mutually incompatible — 254 refuses the channel
+    # key, 307 ignores the role key — so this cannot be collapsed into writing
+    # both. Dropping the line entirely would be worse still: it would build a
+    # 307-era box on the local channel and silently disarm the release-bless
+    # behaviour the arcs exist to exercise.
+    #
+    # ERA PROBE, deliberately not a commit SHA. The 254 gate could name
+    # 733b0df4d because that commit existed when the gate was written; 307's own
+    # commit does not exist while 307 is being built, and back-filling a SHA
+    # after the fact is the kind of step that gets forgotten. So the probe asks
+    # the tree itself: does the channel mechanism FILE exist at that commit? That
+    # is the era, stated in terms of the thing that defines it.
+    # AN ABSENT BASE_SHA MEANS CURRENT CODE, so it routes to the CURRENT era —
+    # branch one, not the fallback. The previous form sent it to the 254 branch,
+    # which was right only BY ACCIDENT: the one-time translator turns a written
+    # role into channel=stable, so the arcs still got release behaviour. The
+    # moment that translator is deleted — and upgrade_channel.go says in terms
+    # that it SHOULD be, once the fleet has run it — an empty BASE_SHA would
+    # write a key nothing reads, the box would derive "local" from its
+    # development mode, and every arc would silently lose release-bless with
+    # nothing going red. A default that is correct only while a temporary
+    # translator exists is a trap with a timer on it.
+    if [ -z "${BASE_SHA:-}" ] || git -C "$HARNESS_ROOT" cat-file -e "$BASE_SHA:cli/internal/config/upgrade_channel.go" 2>/dev/null; then
         cat >> "$env_config_file" << 'ENVCONFIG'
-# STATBUS-254: declare what the box IS; the channel is derived from it.
+# STATBUS-307: the channel is the setting, written exactly where it is chosen.
+# These VMs run in development MODE, which would derive "local" — but the arcs
+# need release-channel behaviour (migrationChannelClass=channelRelease), so the
+# box declares stable explicitly. A written channel always wins over the mode,
+# which is precisely what this key exists for.
+UPGRADE_CHANNEL=stable
+ENVCONFIG
+    elif git -C "$HARNESS_ROOT" merge-base --is-ancestor 733b0df4d "$BASE_SHA" 2>/dev/null; then
+        cat >> "$env_config_file" << 'ENVCONFIG'
+# STATBUS-254 era: declare what the box IS; the channel is derived from it.
 # production -> stable, which is what this harness wants even though the box
 # runs in development MODE (the upgrade axis is deliberately decoupled from the
 # front-door mode — STATBUS-106), so migrationChannelClass stays channelRelease.

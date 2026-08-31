@@ -23,7 +23,11 @@ func TestConfigRefusalMarker_AbsentByDefault(t *testing.T) {
 
 func TestConfigRefusalMarker_WriteThenRead(t *testing.T) {
 	dir := t.TempDir()
-	const msg = "UPGRADE_ROLE=production and UPGRADE_CHANNEL=prerelease are both declared in .env.config — remove UPGRADE_CHANNEL"
+	// A refusal that still exists after STATBUS-307. The marker stores whatever
+	// text the refusal produced, so this is sample payload rather than an
+	// assertion about which refusals exist — but naming a retired one would
+	// mislead the next reader about what can put a box in this state.
+	const msg = `REFUSING: UPGRADE_CHANNEL="nightly" in .env.config is not a channel this product knows.`
 	before := time.Now().UTC()
 	writeConfigRefusalMarker(dir, msg)
 	after := time.Now().UTC()

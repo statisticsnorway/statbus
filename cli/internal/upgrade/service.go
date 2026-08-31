@@ -3814,19 +3814,20 @@ func (d *Service) loadConfig() error {
 	if v, ok := f.Get("UPGRADE_CHANNEL"); ok {
 		d.channel = v
 	} else {
-		// STATBUS-254: config generate writes this key unconditionally, deriving
-		// it from UPGRADE_ROLE. So its absence means .env was hand-edited or is
-		// stale — and a daemon that quietly assumes "stable" here is the same
-		// invisible-wrong-channel failure this ticket exists to remove, just
-		// moved one layer down.
+		// STATBUS-307: config generate writes this key unconditionally into .env,
+		// deriving it from CADDY_DEPLOYMENT_MODE unless .env.config declares one.
+		// So its absence means .env was hand-edited or is stale — and a daemon
+		// that quietly assumes "stable" here is the same invisible-wrong-channel
+		// failure this design exists to remove, just moved one layer down.
 		//
 		// It still starts: a box with no upgrade service is worse than one on a
 		// conservative channel. But it says so, loudly, naming the fix.
 		d.channel = "stable"
 		fmt.Fprintf(os.Stderr, "WARN: UPGRADE_CHANNEL is missing from .env — assuming %q.\n"+
-			".env is a GENERATED file; run `./sb config generate` to derive the channel from\n"+
-			"UPGRADE_ROLE in .env.config. Until then this service may be following a channel\n"+
-			"this box was never meant to follow.\n", d.channel)
+			".env is a GENERATED file; run `./sb config generate` to rewrite it. The channel\n"+
+			"is derived from CADDY_DEPLOYMENT_MODE in .env.config, unless that file declares an\n"+
+			"explicit UPGRADE_CHANNEL. Until then this service may be following a channel this\n"+
+			"box was never meant to follow.\n", d.channel)
 	}
 
 	intervalStr := DefaultPollInterval.String()
@@ -4506,6 +4507,33 @@ func (d *Service) discover(ctx context.Context) {
 		if !ordered || ord <= 0 {
 			if d.verbose && ordered {
 				fmt.Printf("  Skipping %s (not newer than %s)\n", t.TagName, currentVersion)
+			}
+			continue
+		}
+
+		// STATBUS-307 — THE SAME-COMMIT SHORT-CIRCUIT.
+		//
+		// AN "UPGRADE" THAT CHANGES NO CODE IS NOT AN UPGRADE. A release and its
+		// final release candidate are two NAMES FOR ONE COMMIT: v2026.08.1 and
+		// v2026.08.1-rc.01 both point at 0da0f202dcf3, because a release IS the
+		// last gated prerelease, promoted.
+		//
+		// Widening the prerelease channel to admit releases (TagMatchesChannel,
+		// this ticket) makes that case MORE common rather than less. Before the
+		// widening a prerelease box never saw the stable name at all; now it sees
+		// both, and CompareVersions correctly ranks the release above its own
+		// prerelease — so without this, the box would be offered the stable name
+		// for the commit it is already running. The operator would take a full
+		// backup, maintenance window, migration pass and health check to install
+		// the software already installed.
+		//
+		// Compared by COMMIT, not by version string, because the version strings
+		// are exactly what differ here — the commit is the identity, the tags are
+		// labels on it (the commit-is-authoritative doctrine).
+		if installed := d.installedCommitSHA(); installed != "" && t.CommitSHA == installed {
+			if d.verbose {
+				fmt.Printf("  Skipping %s — same commit as the running version (%s); an upgrade that changes no code is not an upgrade\n",
+					t.TagName, ShortForDisplay(installed))
 			}
 			continue
 		}

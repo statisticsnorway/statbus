@@ -688,36 +688,50 @@ var upgradeSelfRollbackCmd = &cobra.Command{
 	},
 }
 
-// upgradeRoleCmd replaces the former `upgrade channel` command (STATBUS-254).
+// upgradeChannelCmd sets the channel this box follows (STATBUS-307, restoring
+// the verb STATBUS-254 had replaced with `upgrade role`).
 //
-// It is a clean break, not a rename: the old command set the CHANNEL, and the
-// channel is no longer settable. Setting it is how five statistical offices'
-// production installations ended up following release candidates — a value
-// written once, remembered forever, recomputed by nothing. What an operator
-// states now is what the box IS; what it follows is derived from that on every
-// config generate, so a policy change reaches the whole fleet.
-var upgradeRoleCmd = &cobra.Command{
-	Use:   "role <production|canary|development>",
-	Short: "Declare what this box is, and apply the resulting channel",
-	Long: `Declares this box's upgrade role in .env.config, regenerates .env
-(which derives UPGRADE_CHANNEL from the role), and restarts the upgrade service
-so the running daemon picks the change up.
+// WHY A VERB SURVIVES AT ALL, when the design's whole point is that the channel
+// is visible on the line where someone chose it: because writing the line is not
+// the whole job. The daemon loads its config ONLY at startup, so a hand-edited
+// .env.config changes nothing observable until someone also regenerates .env and
+// restarts the service — and a grep of the file then falsely confirms "fixed".
+// That is the same file-says-one-thing-box-does-another failure this ticket
+// exists to close, so the three steps stay one command.
+//
+// It is an EXCEPTION verb. An ordinary installation never runs it: the channel
+// is derived from CADDY_DEPLOYMENT_MODE, and a box that has not written one
+// follows its mode. This exists for the boxes that deliberately lead.
+var upgradeChannelCmd = &cobra.Command{
+	Use:   "channel <local|stable|prerelease>",
+	Short: "Declare the channel this box follows, and apply it",
+	Long: `Writes UPGRADE_CHANNEL into .env.config, regenerates .env, and restarts
+the upgrade service so the running daemon picks the change up.
 
-Roles:
-  production   An ordinary installation. Follows blessed releases. Every
-               statistical office's box is this.
-  canary       Takes release candidates FIRST, deliberately, so a bad candidate
-               is found on a box we own rather than in a statistical office.
-  development  A developer's own machine. Follows nothing automatically.
+Channels:
+  stable       Blessed releases only. What every ordinary installation follows.
+  prerelease   Release candidates AND releases — a box that deliberately sees a
+               candidate before a statistical office does.
+  local        Follows nothing automatically. A developer's own machine.
 
-The channel is NOT set here, and cannot be set in .env.config at all — it is a
-consequence of the role, recomputed every time. That is the point: the previous
-design stored a channel that outlived the policy which chose it.`,
+AN ORDINARY INSTALLATION NEEDS NO CHANNEL AND SHOULD NOT RUN THIS COMMAND.
+
+The channel is derived from CADDY_DEPLOYMENT_MODE — standalone and private
+derive stable, development derives local — so a box that declares nothing
+already follows the right one.
+
+This command RECORDS A DELIBERATE EXCEPTION: a box that should follow something
+its deployment mode does not imply, such as a machine that must see release
+candidates before a statistical office does. The value it writes then wins over
+the derivation permanently, until someone removes the line from .env.config. If
+you are not sure you need that, you do not.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		role := config.UpgradeRole(args[0])
-		channel, err := config.ChannelForRole(role)
-		if err != nil {
+		channel := args[0]
+		// Validate against the SAME closed set config generate applies. A verb
+		// with its own list could accept a value the generator then refuses,
+		// handing the operator a box that will not configure itself.
+		if err := config.ValidateChannel(channel); err != nil {
 			return err
 		}
 
@@ -729,22 +743,12 @@ design stored a channel that outlived the policy which chose it.`,
 		if err != nil {
 			return fmt.Errorf("load .env.config: %w", err)
 		}
-		f.Set(config.UpgradeRoleKey, string(role))
-		// A stale UPGRADE_CHANNEL alongside it would make the very next config
-		// generate refuse (correctly — it cannot tell a leftover from a hand-set
-		// override). Removing it here is not self-healing an operator's input:
-		// this command IS the operator stating their intent, and the key is not
-		// an input any more.
-		if _, had := f.Get(config.UpgradeChannelKey); had {
-			f.Delete(config.UpgradeChannelKey)
-			fmt.Printf("Removed %s from .env.config — it is derived from %s now.\n",
-				config.UpgradeChannelKey, config.UpgradeRoleKey)
-		}
+		f.Set(config.UpgradeChannelKey, channel)
 		if err := f.Save(); err != nil {
 			return fmt.Errorf("save .env.config: %w", err)
 		}
-		fmt.Printf("Set %s=%s in .env.config (this box will follow the %q channel)\n",
-			config.UpgradeRoleKey, role, channel)
+		fmt.Printf("Set %s=%s in .env.config — this box now follows %q regardless of its deployment mode.\n",
+			config.UpgradeChannelKey, channel, channel)
 
 		// 2. Regenerate .env
 		sb := filepath.Join(projDir, "sb")
@@ -1135,7 +1139,7 @@ func init() {
 	upgradeCmd.AddCommand(upgradeApplyLatestCmd)
 	upgradeApplyCmd.Flags().Bool("recreate", false, "recreate the database from migrations instead of migrating it (DESTRUCTIVE)")
 	upgradeCmd.AddCommand(upgradeApplyCmd)
-	upgradeCmd.AddCommand(upgradeRoleCmd)
+	upgradeCmd.AddCommand(upgradeChannelCmd)
 	upgradeCmd.AddCommand(upgradeServiceCmd)
 	upgradeSelfVerifyCmd.Flags().StringVar(&selfVerifyExpectCommit, "expect-commit", "",
 		"assert this binary embeds the given target commit (used by the upgrade self-update; STATBUS-171)")

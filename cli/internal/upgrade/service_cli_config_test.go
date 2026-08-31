@@ -43,6 +43,14 @@ func TestLoadConfigForCLIResolvesChannel_STATBUS311(t *testing.T) {
 			// demo's shape: the derived key preceded by the converter's
 			// provenance comment. Named as a suspect in the original report,
 			// and pinned here so the suspicion is closed rather than left open.
+			//
+			// STATBUS-307 ERA-ACCURATE FIXTURE, deliberately not updated: this is
+			// the .env text a box in the field ACTUALLY HAS today, written by a
+			// pre-307 binary. The parser must keep reading it correctly after the
+			// mechanism that wrote it is gone — that is the whole point of the
+			// case. Rewriting it to the new provenance comment would test only
+			// boxes that have already regenerated, which are the ones least at
+			// risk.
 			name: "converted box — derived key under its provenance comment",
 			env: "# Upgrade service configuration\n" +
 				"# Derived from UPGRADE_ROLE=production — set the role in .env.config, not this key.\n" +
@@ -101,6 +109,7 @@ func TestChannelIsNeverSilentlyEmpty_STATBUS311(t *testing.T) {
 		"# only a comment\n",
 		"UNRELATED=1\n",
 		"UPGRADE_CHANNEL=stable\n",
+		// Era-accurate: a pre-307 .env still on disk. See the note above.
 		"# Derived from UPGRADE_ROLE=canary — set the role in .env.config, not this key.\nUPGRADE_CHANNEL=prerelease\n",
 	} {
 		dir := t.TempDir()

@@ -258,10 +258,21 @@ func TestFilterTagsByChannel(t *testing.T) {
 		channel string
 		want    []string
 	}{
-		// stable accepts only no-hyphen release tags; rejects rc + beta.
+		// stable stays RESTRICTIVE: no-hyphen release tags only; rejects rc + beta.
 		{"stable", []string{"v2026.03.0", "v2026.04.0"}},
-		// prerelease accepts only -rc. tags; rejects release + beta.
-		{"prerelease", []string{"v2026.04.1-rc.1", "v2026.04.2-rc.5"}},
+		// STATBUS-307: prerelease is a SUPERSET of stable, not its sibling.
+		//
+		// v2026.08.1 and v2026.08.1-rc.01 are two names for ONE COMMIT — a
+		// release IS the final gated prerelease, promoted. So a box following
+		// prereleases legitimately runs releases too, and this case previously
+		// encoded the opposite: it expected a stable tag to FAIL on a prerelease
+		// box. That expectation was the disjoint model, and it is what made
+		// discovery hide releases from prerelease boxes while scheduleStep warned
+		// that a stable target was "off channel" when it was not.
+		//
+		// beta is still rejected here — the superset is release + rc, not
+		// "anything hyphenated".
+		{"prerelease", []string{"v2026.03.0", "v2026.04.0", "v2026.04.1-rc.1", "v2026.04.2-rc.5"}},
 		// RETIRED edge admits NOTHING (King, 2026-08-19). It used to admit release
 		// + rc together, because the edge binary self-update tracked both. Now it
 		// is just an unrecognised name, and the exclusive-allowlist shape means an

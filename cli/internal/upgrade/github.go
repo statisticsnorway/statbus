@@ -274,18 +274,20 @@ func tagNames(tags []GitTag) []string {
 func selectLatestTagFromNames(names []string, channel string) (string, error) {
 	var filtered []string
 	for _, name := range names {
-		switch ClassifyReleaseShape(name) {
-		case ShapeRelease:
-			if channel == "stable" {
-				filtered = append(filtered, name)
-			}
-		case ShapePrerelease:
-			if channel == "prerelease" {
-				filtered = append(filtered, name)
-			}
+		// STATBUS-307: delegate rather than re-derive. This loop previously
+		// carried its own copy of the membership rule — release↔stable,
+		// prerelease↔prerelease — which is exactly the disjoint assumption the
+		// superset fix corrects, and it would have survived that fix untouched:
+		// a prerelease box resolving its latest tag would still have skipped
+		// every stable release, while discovery admitted them. Two definitions of
+		// "on channel" drifting apart is the failure TagMatchesChannel's own
+		// comment warns about; this is that second definition, removed.
+		//
+		// ShapeCommit / ShapeUnknown still match no channel — TagMatchesChannel
+		// returns false for them, same as before.
+		if TagMatchesChannel(name, channel) {
+			filtered = append(filtered, name)
 		}
-		// ShapeCommit / ShapeUnknown match no channel — same as the API path,
-		// where a non-CalVer or odd-suffix tag was never a release either.
 	}
 	if len(filtered) == 0 {
 		return "", fmt.Errorf("no %s release published", channel)
@@ -554,13 +556,39 @@ func FilterTagsByChannel(tags []GitTag, channel string) []GitTag {
 // that judgement at the announce site would let the two drift, and the failure
 // would be silent in the worse direction — a deviation that stopped being
 // announced because someone changed only the filter.
+// STATBUS-307: THE CHANNELS ARE NESTED, NOT SIBLINGS — prerelease ⊇ stable.
+//
+// This is grounded in how releases are actually cut: v2026.08.1 and
+// v2026.08.1-rc.01 are two names for ONE COMMIT (0da0f202dcf3). A release IS the
+// final gated prerelease, promoted. So a box that follows prereleases
+// legitimately runs everything, and a stable tag is not an exception on it.
+//
+// The code previously treated the two as disjoint: the prerelease channel
+// admitted ShapePrerelease only, so a stable tag FAILED the check on a
+// prerelease box. Under the model that is simply wrong, and it had two visible
+// consequences — discovery filtered out releases for prerelease boxes, and
+// scheduleStep warned that a stable target was "off channel" when it was not.
+// Both are fixed by this one function, because both delegate here.
+//
+// THE DIRECTION ASYMMETRY, recorded because someone will eventually cite this
+// transition as precedent for its reverse:
+//
+//   - stable → prerelease WIDENS what a box accepts. Every existing row stays
+//     valid. No residue. Safe.
+//   - prerelease → stable NARROWS it. Previously-valid rc rows become
+//     off-channel, and NOTHING retracts them. That direction DOES create
+//     residue.
+//
+// The safety of widening is not a general property of changing channels.
 func TagMatchesChannel(tagName, channel string) bool {
 	shape := ClassifyReleaseShape(tagName)
 	switch channel {
 	case "stable":
+		// Restrictive by design: a stable box takes releases only.
 		return shape == ShapeRelease
 	case "prerelease":
-		return shape == ShapePrerelease
+		// The superset: release candidates AND the releases they become.
+		return shape == ShapePrerelease || shape == ShapeRelease
 	}
 	// Unrecognised channel (including the retired "edge") admits nothing —
 	// a box carrying a stale value is offered nothing rather than everything.

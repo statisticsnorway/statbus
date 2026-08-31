@@ -68,7 +68,10 @@ func TestApplyIsGeneral_STATBUS258(t *testing.T) {
 	body := extractFuncBody(t, readUpgradeApplySource(t), "func (d *Service) RunApply(")
 
 	for _, leak := range []string{
-		"UPGRADE_ROLE", "RoleCanary", "RoleProduction",
+		// STATBUS-307 retired the role key; UPGRADE_CHANNEL is the live key this
+		// verb must never consult. Pinning the retired name would have made this
+		// guard vacuous — it can no longer appear anywhere.
+		"UPGRADE_CHANNEL", "ChannelForMode", "ResolveUpgradeChannel",
 		"prerelease", "stable", "ResolveChannelToLatestTag",
 		"statbus_dev", "niue",
 	} {
