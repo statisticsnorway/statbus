@@ -738,59 +738,25 @@ func checkPrereleaseWorkflowGate(projDir, workflow, label, skipEnv string) bool 
 }
 
 // checkImmutabilityGate is the preflight wrapper around
-// checkMigrationImmutability. Computes the year-month-rollover-safe
-// predecessor via pickPrereleasePredecessor (single source of truth shared
-// with ValidatePrereleaseTag) and reports the result inline with the
-// other preflight checks. Returns true on PASS so the caller can OR
-// it into the allPassed accumulator.
+// checkMigrationImmutability. Resolves the year-month-rollover-safe
+// predecessor via release.CurrentImmutabilityBaselineTag (STATBUS-329: single
+// source of truth shared with ValidatePrereleaseTag AND cli/internal/migrate's
+// migrate-down guard — moved there so a lower package neither cmd nor
+// release_verify.go can be imported from could ask the identical "what is the
+// previous release, right now" question) and reports the result inline with
+// the other preflight checks. Returns true on PASS so the caller can OR it
+// into the allPassed accumulator.
 //
 // Both prerelease and stable paths benefit from the early failure mode:
 // stable cuts also require a clean predecessor diff. For stable, the
 // predecessor is the prior RC of the same patch — same helper handles it.
 func checkImmutabilityGate(projDir string) bool {
-	now := time.Now()
-	prefix := fmt.Sprintf("v%d.%02d", now.Year(), now.Month())
-
-	// Mirror the patch-resolution logic from releasePrereleaseCmd.RunE:
-	// the predecessor is keyed to the PATCH this RC targets, not just
-	// "the latest tag in current year-month". Same helper signature as
-	// the post-creation re-validation at ValidatePrereleaseTag.
-	stableTagsOut, err := upgrade.RunCommandOutput(projDir, "git", "tag", "-l", fmt.Sprintf("%s.*", prefix))
+	prevTag, err := release.CurrentImmutabilityBaselineTag(projDir)
 	if err != nil {
-		fmt.Println("  ✗ Migration immutability (listing stable tags failed)")
-		fmt.Printf("    git output:\n      %s\n", strings.ReplaceAll(strings.TrimSpace(stableTagsOut), "\n", "\n      "))
+		fmt.Printf("  ✗ Migration immutability (%v)\n", err)
 		return false
 	}
-	highestStablePatch := -1
-	patchRegex := regexp.MustCompile(fmt.Sprintf(`^%s\.(\d+)$`, regexp.QuoteMeta(prefix)))
-	for _, line := range strings.Split(strings.TrimSpace(stableTagsOut), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.Contains(line, "-rc") {
-			continue
-		}
-		if matches := patchRegex.FindStringSubmatch(line); len(matches) == 2 {
-			n, _ := strconv.Atoi(matches[1])
-			if n > highestStablePatch {
-				highestStablePatch = n
-			}
-		}
-	}
-	nextPatch := highestStablePatch + 1
-	if highestStablePatch < 0 {
-		nextPatch = 0
-	}
-
-	rcNums, err := listRCNumbersForPatch(projDir, prefix, nextPatch, "")
-	if err != nil {
-		fmt.Printf("  ✗ Migration immutability (listing RC numbers failed: %v)\n", err)
-		return false
-	}
-	prevTag, err := pickPrereleasePredecessor(projDir, prefix, nextPatch, rcNums)
-	if err != nil {
-		fmt.Printf("  ✗ Migration immutability (predecessor lookup failed: %v)\n", err)
-		return false
-	}
-	if prevTag == "" || !tagExistsLocally(projDir, prevTag) {
+	if prevTag == "" {
 		fmt.Println("  ✓ No previous tag to check migrations against (very first release)")
 		return true
 	}
@@ -1198,7 +1164,7 @@ release stable then RIDES this gating rather than re-checking it — see
 		// next-in-sequence computation below AND as input to
 		// pickPrereleasePredecessor (which uses the highest existing RC
 		// in the same patch as the immutability predecessor).
-		rcNums, err := listRCNumbersForPatch(projDir, prefix, nextPatch, "")
+		rcNums, err := release.ListRCNumbersForPatch(projDir, prefix, nextPatch, "")
 		if err != nil {
 			return fmt.Errorf("listing RC numbers: %w", err)
 		}
@@ -1340,7 +1306,7 @@ SKIP_APP_BUILD_LINT) apply at the prerelease cut — see
 		}
 
 		// 2. Find the latest RC for this patch — the one we're promoting.
-		rcNums, err := listRCNumbersForPatch(projDir, prefix, nextPatch, "")
+		rcNums, err := release.ListRCNumbersForPatch(projDir, prefix, nextPatch, "")
 		if err != nil {
 			return fmt.Errorf("listing RC numbers for %s.%d: %w", prefix, nextPatch, err)
 		}

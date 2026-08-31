@@ -3,10 +3,30 @@ package migrate
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+// initEmptyGitRepo makes dir a bare-minimum git repo with no commits and no
+// tags. STATBUS-329's releasedMigrationDownGuard (wired into Down()) now
+// unconditionally consults git (release.CurrentImmutabilityBaselineTag) to
+// resolve "the previous release" before any rollback runs — an empty repo
+// with no tags resolves that to "" (no previous release, nothing to check),
+// so the guard is a clean no-op here and these tests keep exercising only
+// their original concern (ledger-write hard-fail behavior), not the guard.
+func initEmptyGitRepo(t *testing.T, dir string) {
+	t.Helper()
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not on PATH")
+	}
+	cmd := exec.Command("git", "init", "-q")
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v\n%s", err, out)
+	}
+}
 
 // TestDown_LedgerDeleteFailure_AbortsLoop is STATBUS-187 #8/#9's oracle: a
 // failing runPsql ledger DELETE must return an error immediately and must
@@ -14,6 +34,7 @@ import (
 // compound the ledger/schema divergence rather than contain it.
 func TestDown_LedgerDeleteFailure_AbortsLoop(t *testing.T) {
 	projDir := t.TempDir()
+	initEmptyGitRepo(t, projDir)
 	migrationsDir := filepath.Join(projDir, "migrations")
 	if err := os.MkdirAll(migrationsDir, 0755); err != nil {
 		t.Fatal(err)
@@ -72,6 +93,7 @@ func TestDown_LedgerDeleteFailure_AbortsLoop(t *testing.T) {
 // surface as an error, not be silently swallowed.
 func TestDown_FullRollbackDropFailure_ReturnsError(t *testing.T) {
 	projDir := t.TempDir()
+	initEmptyGitRepo(t, projDir)
 	migrationsDir := filepath.Join(projDir, "migrations")
 	if err := os.MkdirAll(migrationsDir, 0755); err != nil {
 		t.Fatal(err)

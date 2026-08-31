@@ -147,13 +147,6 @@ var ReleaseTagPattern = regexp.MustCompile(`^v\d{4}\.\d{2}\.\d+(-rc\.\d+)?$`)
 // Returns the tag (no error) when at least one release-shaped tag
 // contains the file. Errors only on git command failure.
 func MigrationInReleasedTag(projDir string, version int64) (string, error) {
-	pattern := filepath.Join(projDir, "migrations", fmt.Sprintf("%d_*.up.sql", version))
-	matches, _ := filepath.Glob(pattern)
-	if len(matches) == 0 {
-		return "", nil
-	}
-	rel := "migrations/" + filepath.Base(matches[0])
-
 	tagsCmd := exec.Command("git", "tag", "-l", "v*")
 	tagsCmd.Dir = projDir
 	tagsOut, err := tagsCmd.Output()
@@ -166,13 +159,44 @@ func MigrationInReleasedTag(projDir string, version int64) (string, error) {
 		if !ReleaseTagPattern.MatchString(tag) {
 			continue
 		}
-		probe := exec.Command("git", "rev-parse", "--quiet", "--verify", tag+":"+rel)
-		probe.Dir = projDir
-		if probe.Run() == nil {
+		exists, _, err := MigrationExistsInTag(projDir, version, tag)
+		if err != nil {
+			return "", err
+		}
+		if exists {
 			return tag, nil
 		}
 	}
 	return "", nil
+}
+
+// MigrationExistsInTag reports whether tag's tree contains
+// migrations/<version>_*.up.sql, alongside the matched relative path (e.g.
+// "migrations/20260101000000_x.up.sql") so callers can name the file without
+// a second filesystem glob.
+//
+// The version prefix is globbed against the CURRENT filesystem's migrations/
+// directory (filenames never change post-creation, so today's on-disk name
+// for a version is the same name any tag that contains it used) — the same
+// technique MigrationInReleasedTag uses when scanning every release tag;
+// this checks exactly one tag, which is what STATBUS-329's migrate-down
+// guard needs (it already knows WHICH tag — release.CurrentImmutabilityBaselineTag
+// — and only needs "is this one version in it").
+//
+// Returns (false, "", nil) when the version has no matching file on disk at
+// all (already deleted; not this function's concern) or tag's tree doesn't
+// contain it (genuine WIP, or tag predates the migration). Errors only on
+// git command failure.
+func MigrationExistsInTag(projDir string, version int64, tag string) (bool, string, error) {
+	pattern := filepath.Join(projDir, "migrations", fmt.Sprintf("%d_*.up.sql", version))
+	matches, _ := filepath.Glob(pattern)
+	if len(matches) == 0 {
+		return false, "", nil
+	}
+	rel := "migrations/" + filepath.Base(matches[0])
+	probe := exec.Command("git", "rev-parse", "--quiet", "--verify", tag+":"+rel)
+	probe.Dir = projDir
+	return probe.Run() == nil, rel, nil
 }
 
 // ReleaseTagWithMigrationHash reports the first release-shaped tag whose

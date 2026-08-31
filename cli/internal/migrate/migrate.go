@@ -1287,6 +1287,14 @@ func Down(projDir string, migrateTo int64, all bool, verbose bool) error {
 		return nil
 	}
 
+	// STATBUS-329: refuse atomically, before any rollback SQL runs, if any
+	// migration in this whole batch (down = 1; down all / --to = a range) is
+	// RELEASED. See releasedMigrationDownGuard's doc comment for the full
+	// rationale and the shared-definition contract.
+	if err := releasedMigrationDownGuard(projDir, versions); err != nil {
+		return err
+	}
+
 	appliedCount := 0
 	for _, version := range versions {
 		downPath, err := findDownFile(projDir, version)

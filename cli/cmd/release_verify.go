@@ -22,12 +22,6 @@ var prereleaseTagRE = regexp.MustCompile(`^v(\d{4})\.(\d{2})\.(\d+)-rc\.(\d+)$`)
 // stableTagRE matches vYYYY.MM.PATCH with no rc suffix.
 var stableTagRE = regexp.MustCompile(`^v(\d{4})\.(\d{2})\.(\d+)$`)
 
-// tagExistsLocally reports whether tagName resolves to any object in projDir.
-func tagExistsLocally(projDir, tagName string) bool {
-	_, err := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "--verify", "--quiet", "refs/tags/"+tagName)
-	return err == nil
-}
-
 // tagIsAnnotated reports whether refs/tags/<tagName> points at a tag object
 // (annotated tag) rather than a commit object (lightweight tag).
 func tagIsAnnotated(projDir, tagName string) bool {
@@ -148,134 +142,6 @@ func compareMigrationsForTag(projDir, prevTag, tag string) error {
 		tag, prevTag, strings.Join(modified, "\n  "), release.IntentionallyFixBrokenImmutableMigrationEnvVar)
 }
 
-// findLatestStableTagBeforePrefix returns the most recent stable tag whose
-// (year, month) is strictly less than the given vYYYY.MM prefix. Used by
-// pickPrereleasePredecessor to keep the migration-immutability chain
-// unbroken across year-month boundaries — when rc.1 of a new month is
-// cut, this function finds the previous month's last stable to diff
-// against, closing the gap that previously existed at year-month rollover.
-//
-// Returns "" with nil error when no qualifying stable exists (the
-// very-first-release base case).
-//
-// "Before" means strictly less than: never returns the current prefix's
-// own stables.
-//
-// Example: prefix="v2026.05" with stables {v2025.12.4, v2026.04.0,
-// v2026.04.5, v2026.05.0} returns "v2026.04.5". Stables in v2026.05 are
-// excluded; v2026.04.5 beats v2026.04.0 by patch; v2025.12.4 is older
-// year-month.
-func findLatestStableTagBeforePrefix(projDir, prefix string) (string, error) {
-	prefixRE := regexp.MustCompile(`^v(\d{4})\.(\d{2})$`)
-	pm := prefixRE.FindStringSubmatch(prefix)
-	if pm == nil {
-		return "", fmt.Errorf("invalid prefix %q (expected vYYYY.MM)", prefix)
-	}
-	curY, _ := strconv.Atoi(pm[1])
-	curM, _ := strconv.Atoi(pm[2])
-	curKey := curY*100 + curM
-
-	out, err := upgrade.RunCommandOutput(projDir, "git", "tag", "-l", "v*.*.*")
-	if err != nil {
-		return "", fmt.Errorf("listing stable tags: %w", err)
-	}
-	bestTag := ""
-	bestKey := -1
-	bestPatch := -1
-	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
-		line = strings.TrimSpace(line)
-		sm := stableTagRE.FindStringSubmatch(line)
-		if sm == nil {
-			continue // skip RC tags and non-stable shapes
-		}
-		y, _ := strconv.Atoi(sm[1])
-		mo, _ := strconv.Atoi(sm[2])
-		p, _ := strconv.Atoi(sm[3])
-		key := y*100 + mo
-		if key >= curKey {
-			continue // not strictly less than current prefix
-		}
-		if key > bestKey || (key == bestKey && p > bestPatch) {
-			bestTag = line
-			bestKey = key
-			bestPatch = p
-		}
-	}
-	return bestTag, nil
-}
-
-// pickPrereleasePredecessor returns the tag whose migrations the about-to-
-// be-validated (or about-to-be-created) prerelease tag should be diffed
-// against for the migration-immutability check. Shared between
-// ValidatePrereleaseTag (post-creation re-validation + pre-push hook
-// via verify-tag) and releasePrereleaseCmd.RunE (pre-creation
-// diagnostic). Single source of truth for the predecessor-finding
-// logic — eliminates the prior duplication that let the two call sites
-// drift apart on the year-month-rollover edge case.
-//
-// Behaviour:
-//   - rc.N where N > 1 (rcNums non-empty): predecessor is the previous
-//     RC in the same year-month-patch series.
-//   - rc.1 where patch > 0: predecessor is the stable for the previous
-//     patch in the same year-month.
-//   - rc.1 where patch == 0: predecessor is the latest stable in any
-//     strictly-prior year-month (cross-year-month induction).
-//   - rc.1 where patch == 0 with no prior stable anywhere on the
-//     repo: returns "" (the very-first-release base case — no
-//     immutability comparison possible).
-//
-// rcNums must be the sorted list of RC numbers already on disk for the
-// given prefix/patch combination, EXCLUDING the tag being validated
-// (callers obtain via listRCNumbersForPatch with excludeTag set to the
-// current tag at validation time, or "" at pre-creation time).
-func pickPrereleasePredecessor(projDir, prefix string, patch int, rcNums []int) (string, error) {
-	switch {
-	case len(rcNums) > 0:
-		// `%02d` matches the canonical zero-padded form used by
-		// releasePrereleaseCmd.RunE when creating tags (`-rc.%02d`).
-		// Pre-task-#130 this used `%d` and silently constructed
-		// non-existent unpadded names — tagExistsLocally returned
-		// false and BOTH the pre-creation diagnostic AND
-		// ValidatePrereleaseTag's post-creation immutability gate
-		// short-circuited their compareMigrationsForTag calls, so the
-		// rc.N-vs-rc.(N-1) check was effectively a no-op. The fix is
-		// a single-character format-string change, but the consequence
-		// was a real (if narrow) safety hole.
-		return fmt.Sprintf("%s.%d-rc.%02d", prefix, patch, rcNums[len(rcNums)-1]), nil
-	case patch > 0:
-		return fmt.Sprintf("%s.%d", prefix, patch-1), nil
-	default:
-		return findLatestStableTagBeforePrefix(projDir, prefix)
-	}
-}
-
-// listRCNumbersForPatch returns the sorted list of RC numbers already tagged
-// for the given vYYYY.MM.PATCH prefix, excluding excludeTag. Used both to
-// compute the next-in-sequence expected number and the previous-tag lookup.
-func listRCNumbersForPatch(projDir, prefix string, patch int, excludeTag string) ([]int, error) {
-	pattern := fmt.Sprintf("%s.%d-rc.*", prefix, patch)
-	out, err := upgrade.RunCommandOutput(projDir, "git", "tag", "-l", pattern)
-	if err != nil {
-		return nil, fmt.Errorf("listing %s: %w", pattern, err)
-	}
-	var nums []int
-	re := regexp.MustCompile(`-rc\.(\d+)$`)
-	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || line == excludeTag {
-			continue
-		}
-		m := re.FindStringSubmatch(line)
-		if len(m) == 2 {
-			if n, err := strconv.Atoi(m[1]); err == nil {
-				nums = append(nums, n)
-			}
-		}
-	}
-	sort.Ints(nums)
-	return nums, nil
-}
-
 // listStablePatchesForPrefix returns the sorted list of stable patch numbers
 // tagged for the given vYYYY.MM prefix, excluding excludeTag.
 func listStablePatchesForPrefix(projDir, prefix, excludeTag string) ([]int, error) {
@@ -306,7 +172,7 @@ func listStablePatchesForPrefix(projDir, prefix, excludeTag string) ([]int, erro
 // regardless of kind: exists locally, is annotated, subject matches the
 // expected pattern for its kind, and the target commit is signed.
 func verifyCommonTagShape(projDir, tagName, expectedSubject string) (commit string, err error) {
-	if !tagExistsLocally(projDir, tagName) {
+	if !release.TagExistsLocally(projDir, tagName) {
 		return "", fmt.Errorf("tag %s does not exist locally", tagName)
 	}
 	if !tagIsAnnotated(projDir, tagName) {
@@ -362,11 +228,11 @@ func ValidatePrereleaseTag(projDir, tagName string) error {
 
 	prefix := fmt.Sprintf("v%d.%s", year, monthStr)
 	stableTag := fmt.Sprintf("%s.%d", prefix, patch)
-	if tagExistsLocally(projDir, stableTag) {
+	if release.TagExistsLocally(projDir, stableTag) {
 		return fmt.Errorf("stable tag %s already exists — cannot create another RC for the same patch", stableTag)
 	}
 
-	rcNums, err := listRCNumbersForPatch(projDir, prefix, patch, tagName)
+	rcNums, err := release.ListRCNumbersForPatch(projDir, prefix, patch, tagName)
 	if err != nil {
 		return err
 	}
@@ -380,17 +246,17 @@ func ValidatePrereleaseTag(projDir, tagName string) error {
 	}
 
 	// Migration immutability: diff vs the predecessor returned by
-	// pickPrereleasePredecessor. The helper handles all three cases
+	// release.PickPrereleasePredecessor. The helper handles all three cases
 	// (prior RC in same patch, prior stable patch, prior year-month
 	// stable for rc.1-patch-0) so the cross-year-month induction is
 	// unbroken — prior to task #124 this branch had a gap at
 	// rc.1-patch-0 (year-month rollover with no prior RC in the new
 	// month and patch == 0) that silently skipped the check.
-	prevTag, err := pickPrereleasePredecessor(projDir, prefix, patch, rcNums)
+	prevTag, err := release.PickPrereleasePredecessor(projDir, prefix, patch, rcNums)
 	if err != nil {
 		return err
 	}
-	if prevTag != "" && tagExistsLocally(projDir, prevTag) {
+	if prevTag != "" && release.TagExistsLocally(projDir, prevTag) {
 		if err := compareMigrationsForTag(projDir, prevTag, tagName); err != nil {
 			return err
 		}
@@ -651,7 +517,7 @@ func init() {
 // error so the caller can refuse on the uncertainty rather than silently reading
 // "not an ancestor" as a fact.
 func tagIsAncestorOfHEAD(projDir, tagName string) (bool, error) {
-	if !tagExistsLocally(projDir, tagName) {
+	if !release.TagExistsLocally(projDir, tagName) {
 		return false, fmt.Errorf("tag %s does not exist locally", tagName)
 	}
 	if _, err := upgrade.RunCommandOutput(projDir, "git", "merge-base", "--is-ancestor", tagName, "HEAD"); err != nil {
