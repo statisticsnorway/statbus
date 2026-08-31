@@ -7,7 +7,7 @@ status: Done
 assignee:
   - '@engineer'
 created_date: '2026-08-28 21:37'
-updated_date: '2026-08-31 15:02'
+updated_date: '2026-08-31 15:04'
 labels:
   - upgrade
   - cli
@@ -330,6 +330,12 @@ author: foreman
 created: 2026-08-31 14:59
 ---
 ARCHITECT'S REVIEW VERDICT (2026-08-31): APPROVE with one required one-line amendment, one HIGH record-correction, and the two requested verifications done. (1) AMENDMENT: vm-bootstrap.sh:479 — empty BASE_SHA routes to the 254-era branch, writing the retired role key; right-by-accident today via the legacy translator, silently disarms the arcs' release-bless when the translator is deleted (upgrade_channel.go:264-269 schedules exactly that). Fix: empty BASE_SHA → current-era branch. (2) RECORD-CORRECTION (HIGH, no code defect): the niue slots do NOT get prerelease from the discriminator — their role=production EQUALS private mode's legacy default → seeded → deleted → derive stable; only rune's canary differs and is preserved. The discriminator is correct as designed; the freeze report's coverage claim was half wrong. THE EXPLICIT PRERELEASE WRITES ON THE NIUE SLOTS ARE A DELIBERATE POST-LANDING FLEET ACTION (comment #5's transition list), King-gated — and ORDERED: the key may only be written to a box ALREADY RUNNING the new code, because the old binary's 254 guard refuses a present UPGRADE_CHANNEL and would park the box. Consistent with AC8: the transition itself changes no box's effective channel; the slots leading is a separate act. (3) VERIFIED: migrate.go:2018's channel-axis property confirmed at the site (the comment-#5 re-key instruction was wrong; engineer's refusal correct); the era-probe design ruled sound (file-existence probe = era detection by the thing defining the era; the third branch is the era-accuracy rule applied). Also noted: seed-build exclusion anticipated at upgrade_channel.go:102-103; the translator's one-time-deletion note is the no-standing-self-heal rule applied unprompted.
+---
+
+author: foreman
+created: 2026-08-31 15:04
+---
+ARCHITECT'S SEQUENCING NOTE post-landing (2026-08-31), pinned because the failure mode is SILENT: when a niue slot takes the transition it deletes its seeded production and derives STABLE — so between slot-upgrades and slot-gets-its-explicit-prerelease-write, the slot is a canary that no longer sees candidates, and a forgotten write looks exactly like a quiet period (a canary with nothing to test and one that cannot see anything to test are indistinguishable from outside; nobody gets a red). The direction asymmetry applies meanwhile: sitting on stable, the slot's rc rows are off-channel residue (the 328 subject arriving on five more boxes); the prompt write makes them legitimate again — sequencing dissolves the problem, delay accumulates it. THE RUNBOOK LINE, with owner: same session as the slots taking the transition, the OPERATOR (foreman-gated, on the King's word) writes UPGRADE_CHANNEL=prerelease into each niue slot's .env.config + runs ./sb install — config-level only, never a box still on old code.
 ---
 <!-- COMMENTS:END -->
 
