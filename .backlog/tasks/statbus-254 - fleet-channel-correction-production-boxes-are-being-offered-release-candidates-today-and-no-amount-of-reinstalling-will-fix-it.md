@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-08-19 10:27'
-updated_date: '2026-08-31 11:23'
+updated_date: '2026-08-31 11:41'
 labels:
   - ops
   - release
@@ -56,6 +56,8 @@ WHAT IS ACHIEVED: the exposure is named and bounded, the resolution rides the re
 
 <!-- SECTION:NOTES:BEGIN -->
 **Era read complete (tester, 2026-08-29): the filterless mechanism is PRE-CHANNEL-CONCEPT on all six boxes** — et, jo, ma, tcc, ug AND demo all run v2026.07.0-rc.03 (commit 111546ee), a July binary predating both 291's filter (a4ac7ca81) and the durable role mechanism (733b0df4d). Not the 291-defect era — no selection logic exists at all in what they run; UPGRADE_CHANNEL=stable is correct intent with nothing to apply it. At the first stable: the new binary carries the filter AND the one-time channel→role translation, so each box converts to UPGRADE_ROLE=production and the RC offers clear — the two closure observables (comment #12) then complete, and the translation code deletes per its own marker.
+
+**Follow-on complete (215a6b26f):** the one-time translation deleted per its own marker — the fleet-wide role-form condition was met by the convergence run. The mechanic's catch during deletion: the hand-added-channel guard had to be PROMOTED to run unconditionally and first, or a channel-only file would have fallen through to seeding and silently coexisted with the forbidden key — the marker's 'the guard below then covers the key entirely' claim only held with that reordering. Refusals now provably mutate nothing; red-verified. 254 is fully discharged: mechanism, fleet state, and the temporary code's scheduled death.
 <!-- SECTION:NOTES:END -->
 
 ## Comments
