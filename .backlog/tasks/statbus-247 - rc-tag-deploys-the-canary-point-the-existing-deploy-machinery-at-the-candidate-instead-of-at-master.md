@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@tester'
 created_date: '2026-08-19 07:14'
-updated_date: '2026-08-31 19:44'
+updated_date: '2026-08-31 19:50'
 labels:
   - release
   - ops
@@ -167,5 +167,11 @@ author: foreman
 created: 2026-08-31 19:44
 ---
 Foreman (2026-08-31 evening, under the King's drain-the-backlog directive): smoke stage (stage 1) dispatched to the tester NOW — reuse the install-recovery harness's VM provisioning; check whether existing scenarios already ARE the two happy paths before writing new ones; no paid runs without foreman gate. The tag-driven dev deploy (stage 2's trigger, retiring the transitional master-to-dev button per 244b) queues to the engineer behind 330. The 12-day gap between the King's approval and this dispatch is the deferral pattern he called out tonight; it ends here.
+---
+
+author: foreman
+created: 2026-08-31 19:50
+---
+CORRECTION + SCOPE PIVOT (foreman, 2026-08-31 evening): my dispatch comment above was WRONG — the smoke stage is NOT unbuilt. Tester's assessment, foreman-verified: test-install.yaml + test-upgrade.yaml run 0-happy-install / 0-happy-upgrade on ephemeral VMs and the orchestrator gates the chain on both (release-fleet-orchestrator.yaml:376-391, needs + success conditions) — built during the release campaign, proven green on real rc tags (incl. the v2026.08.1 preflight). AC#1–#4 are satisfied. TRUE RESIDUE, tester re-dispatched: (a) delete master-to-dev.yaml — STATBUS-244b, unblocked since the tag-driven deploy is landed and proven (deploy-to-dev.yaml STAYS: button vs branch); (b) verify AC#5–#15 one by one with file:line evidence, building any missing pin (AC#6's nothing-automated-touches-Norway test, AC#14's per-role failure hints); (c) AC#16's end-to-end proof rides the King's next real cut.
 ---
 <!-- COMMENTS:END -->
