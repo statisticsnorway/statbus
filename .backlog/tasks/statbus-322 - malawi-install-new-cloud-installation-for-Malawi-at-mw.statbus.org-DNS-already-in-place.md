@@ -3,10 +3,11 @@ id: STATBUS-322
 title: >-
   malawi-install: new cloud installation for Malawi at mw.statbus.org (DNS
   already in place)
-status: To Do
+status: In Progress
 assignee:
   - operator
 created_date: '2026-08-31 11:04'
+updated_date: '2026-08-31 11:39'
 labels:
   - ops
   - cloud
@@ -29,3 +30,9 @@ VERIFY AT BIRTH: front door serves at mw.statbus.org, upgrade service running wi
 
 WHAT IS ACHIEVED: Malawi is live on the stable, on the standard path, visible to the fleet tool, with zero product deviations — the third August-born slot and the cleanest.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+**Birth defect found and fixed mid-birth (5c012d1eb):** the create path never threaded the trusted signer — cloud.sh's install paths pass --trust-github-user via trust_flag, but create-new-statbus-installation.sh invoked the curl'd bootstrap bare, and every newborn box dies at the install verb's deliberate no-default trusted-signers refusal (observed live at Malawi's users-gate resume). The operator refuted the first proposed fix with the correct mechanism (the signer store is the install verb's own, NOT .env.config, and the curl'd script carries no environment — so persisting the key on the box could never reach it). Patch mirrors cloud.sh's resolution: CLOUD_TRUST_KEY_USER env → box-persisted value → early refusal naming the exact re-run command. Malawi's create re-running with the patched script; Ghana/Ukraine were born before this gate existed in their path or with the flag supplied by hand, which is why the gap survived until now.
+<!-- SECTION:NOTES:END -->
