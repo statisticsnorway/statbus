@@ -22,11 +22,12 @@ on:
           whatever this workflow was dispatched at.
         required: false
         type: string
-  # KEPT, deliberately. STATBUS-244's transitional master-to-dev button still
-  # writes this branch, and removing the trigger would break it before 244b
-  # rules on its replacement. It is no longer the chain's transport — the
-  # dispatch above is — so this path stops being load-bearing without being
-  # switched off underneath a caller that still uses it.
+  # KEPT, deliberately. The master-to-dev button has been deleted (STATBUS-244b).
+  # This push trigger remains so the deploy branch (its former transport) still
+  # works for manual, non-chain deploys if needed. The only active writer is now
+  # the release-fleet-orchestrator.yaml dispatch (STATBUS-260), which targets this
+  # workflow with a named commit SHA. The push path is deprecated and superseded
+  # by orchestrator dispatch but is kept functional for fallback.
   push:
     branches:
       - "ops/cloud/deploy/dev"

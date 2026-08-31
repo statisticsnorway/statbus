@@ -423,3 +423,84 @@ func TestCanaryExplanation_AwaitingOperatorUnaffectedByObservationGate_STATBUS24
 		t.Error("the offer explanation should print the observation card's path for this candidate (kept from the earlier design)")
 	}
 }
+
+// TestNothingAutomatedSchedulesOnNorway_STATBUS247_AC6 pins AC#6: nothing
+// automated calls schedule, apply-latest, or install on Norway. This structural
+// test scans workflow files for disallowed commands targeting the operator slot
+// (statbus@rune.statbus.org or statbus_no).
+//
+// The boundary it enforces: Norway is installed BY A PERSON, never by automated
+// dispatch. The test reads all .github/workflows/*.yaml and checks that no run
+// step contains BOTH a Norway target AND a schedule/apply-latest/install command.
+func TestNothingAutomatedSchedulesOnNorway_STATBUS247_AC6(t *testing.T) {
+	workflowDir := "../../.github/workflows"
+	entries, err := os.ReadDir(workflowDir)
+	if err != nil {
+		t.Fatalf("could not read workflow directory: %v", err)
+	}
+
+	norwayTargets := []string{"statbus@rune", "statbus_no", "rune.statbus.org"}
+	forbiddenCommands := []string{"schedule", "apply-latest", "install"}
+
+	for _, entry := range entries {
+		if !strings.HasSuffix(entry.Name(), ".yaml") && !strings.HasSuffix(entry.Name(), ".yml") {
+			continue
+		}
+
+		content, err := os.ReadFile(workflowDir + "/" + entry.Name())
+		if err != nil {
+			t.Errorf("could not read workflow %s: %v", entry.Name(), err)
+			continue
+		}
+
+		text := string(content)
+
+		// Find all 'run:' blocks (these contain bash commands)
+		lines := strings.Split(text, "\n")
+		for i, line := range lines {
+			if !strings.Contains(line, "run:") {
+				continue
+			}
+
+			// Scan the run block content (until next YAML key). Starts at the
+			// `run:` line ITSELF, not the line after: a single-line
+			// `run: ssh statbus@rune ... schedule` carries the target and the
+			// verb on that very line, and skipping it would exempt exactly the
+			// tersest way to write the violation.
+			runBlock := strings.Builder{}
+			runBlock.WriteString(lines[i])
+			runBlock.WriteString("\n")
+			for j := i + 1; j < len(lines) && j < i+30; j++ {
+				// Stop at the next YAML key at the same or lower indentation
+				if strings.TrimSpace(lines[j]) != "" && !strings.HasPrefix(lines[j], "  ") {
+					break
+				}
+				runBlock.WriteString(lines[j])
+				runBlock.WriteString("\n")
+			}
+
+			blockText := runBlock.String()
+
+			// Check if block targets Norway
+			hasNorwayTarget := false
+			for _, target := range norwayTargets {
+				if strings.Contains(blockText, target) {
+					hasNorwayTarget = true
+					break
+				}
+			}
+
+			if !hasNorwayTarget {
+				continue
+			}
+
+			// Block targets Norway — check it has no forbidden commands
+			for _, cmd := range forbiddenCommands {
+				if strings.Contains(blockText, cmd) {
+					t.Errorf("workflow %s (line ~%d): contains forbidden command %q targeting Norway — AC#6 violation",
+						entry.Name(), i+1, cmd)
+				}
+			}
+		}
+	}
+}
