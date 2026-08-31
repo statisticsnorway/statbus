@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-31 11:17'
-updated_date: '2026-08-31 12:45'
+updated_date: '2026-08-31 12:54'
 labels:
   - ops
   - cloud
@@ -51,5 +51,11 @@ author: foreman
 created: 2026-08-31 12:45
 ---
 Foreman (2026-08-31): both build items LANDED at 173ea514c (foreman-reviewed line by line, gofmt/vet/tests re-verified independently). Engineer's measured before/after REFUTES part of the ruling's premise: GIT_TERMINAL_PROMPT=0 changes only the trailing clause (Device not configured → terminal prompts disabled); git still leads with 'could not read Username', so the throttling-reads-as-auth misdiagnosis survives. The flag's honest value (hang removed, deterministic failure) is shipped. THIRD ITEM now before the architect: detection-and-translation in the fetch path (the ticket description's own 'detect the credential-prompt case and say what actually happened'). Also recorded: ci-notify.sh is 4 lines delegating to ./sb upgrade check — the anonymous GitHub API calls behind the 162.55.61.141 rate-limit failures live in the Go RunCheck path, giving the quota residual a precise home if it reopens. Ticket stays In Progress pending the architect's third-item ruling.
+---
+
+author: foreman
+created: 2026-08-31 12:54
+---
+Foreman (2026-08-31): third item LANDED at 7473cddfb (reviewed; four tests re-verified by name, incl. the before/after-flag pair proving the flag alone was insufficient). One implementation at the site that owns git-failure formatting (runCommandOutputTimeout → explainGitFailure). KNOWN GAP on record: install.sh's own bootstrap fetch — the exact site of gh's observed failure — still shows raw git text; a bash copy would be the forbidden second translator, and on a truly fresh bootstrap ./sb doesn't exist yet. Ticket-or-accept verdict with the architect. 324 stays In Progress until that verdict; then closes.
 ---
 <!-- COMMENTS:END -->
