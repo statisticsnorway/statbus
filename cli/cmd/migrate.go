@@ -17,6 +17,7 @@ var (
 	migrateExtension   string
 	migrateTo          int64
 	migrateUpTarget    string
+	migrateDownTarget  string
 	migrateRedoTarget  string
 	migrateRedoConfirm bool
 )
@@ -112,8 +113,29 @@ func runMigrateUp(migrateTo int64, all bool, targetExplicit bool) error {
 var migrateDownCmd = &cobra.Command{
 	Use:   "down",
 	Short: "Roll back the last migration",
+	Long: `Roll back the most recently applied migration on the target database.
+
+The --target flag selects which database to roll back, with exactly the
+semantics ` + "`./sb migrate up`" + ` uses:
+  --target dev   (default) — POSTGRES_APP_DB (the working dev/runtime DB)
+  --target seed             — POSTGRES_SEED_DB (the canonical fresh-from-
+                              migrations DB)
+
+STATBUS-327: before this flag existed, down could ONLY reach dev. Reverting a
+work-in-progress migration from the seed meant a full ` + "`./dev.sh recreate-seed`" + `
+replay — minutes for what is now a two-second revert. Worse, the asymmetry
+invited the hand-edit escape: deleting the ledger row or running the down SQL
+by hand against the seed. The ledger is trustworthy precisely because nothing
+edits it by hand, so a missing flag must never be the reason someone reaches
+for that.
+
+SCOPE IS UNCHANGED BY THE TARGET. This rolls back the LATEST applied migration
+only; --to widens it to a range and ` + "`down all`" + ` to everything, exactly as
+before. Those are deliberate wideners, and they widen identically on either
+database — --target changes WHICH database is addressed, never HOW MUCH is
+rolled back.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return migrate.Down(config.ProjectDir(), migrateTo, false, verbose)
+		return runMigrateDown(migrateTo, false, cmd.Flags().Changed("target"))
 	},
 }
 
@@ -121,8 +143,40 @@ var migrateDownAllCmd = &cobra.Command{
 	Use:   "all",
 	Short: "Roll back all migrations",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return migrate.Down(config.ProjectDir(), migrateTo, true, verbose)
+		return runMigrateDown(migrateTo, true, cmd.Flags().Changed("target"))
 	},
+}
+
+// runMigrateDown is runMigrateUp's mirror: it resolves --target to a database
+// name, overrides POSTGRES_APP_DB + PGDATABASE in the process env for this
+// invocation (restored on defer so later in-process commands are unaffected),
+// and invokes migrate.Down.
+//
+// Deliberately the SAME machinery, not a parallel implementation. ResolveTargetDB
+// and OverrideTargetDB already carry the divergence refusal (STATBUS-146) and the
+// explicit-target-wins rule (STATBUS-150); a second targeting path would have to
+// re-earn both, and would drift from up the first time either changed.
+//
+// DEFAULT IS DEV, matching up rather than redo. Redo defaults to seed because it
+// is a build-time repair verb; down is the developer's ordinary retreat from a
+// WIP migration on the database they are working against. Changing that default
+// would silently redirect every existing `./sb migrate down` in muscle memory,
+// scripts and runbooks to a different database — a far worse hazard than the
+// asymmetry this fixes.
+func runMigrateDown(migrateTo int64, all bool, targetExplicit bool) error {
+	projDir := config.ProjectDir()
+	dbName, err := migrate.ResolveTargetDB(projDir, migrateDownTarget)
+	if err != nil {
+		return err
+	}
+
+	restore, err := migrate.OverrideTargetDB(dbName, migrateDownTarget, targetExplicit)
+	if err != nil {
+		return err
+	}
+	defer restore()
+
+	return migrate.Down(projDir, migrateTo, all, verbose)
 }
 
 var migrateNewCmd = &cobra.Command{
@@ -195,6 +249,11 @@ func init() {
 	migrateUpCmd.Flags().Int64Var(&migrateTo, "to", 0, "migrate up to this version (inclusive)")
 	migrateUpCmd.Flags().StringVar(&migrateUpTarget, "target", "dev", "target DB: 'dev' (POSTGRES_APP_DB) or 'seed' (POSTGRES_SEED_DB)")
 	migrateUpOneCmd.Flags().StringVar(&migrateUpTarget, "target", "dev", "target DB: 'dev' (POSTGRES_APP_DB) or 'seed' (POSTGRES_SEED_DB)")
+	// STATBUS-327: down gains up's targeting. Registered on BOTH down and
+	// `down all` — a flag on the parent alone would leave `down all` silently
+	// dev-only, which is the same asymmetry this ticket exists to remove.
+	migrateDownCmd.Flags().StringVar(&migrateDownTarget, "target", "dev", "target DB: 'dev' (POSTGRES_APP_DB) or 'seed' (POSTGRES_SEED_DB)")
+	migrateDownAllCmd.Flags().StringVar(&migrateDownTarget, "target", "dev", "target DB: 'dev' (POSTGRES_APP_DB) or 'seed' (POSTGRES_SEED_DB)")
 	migrateUpCmd.AddCommand(migrateUpOneCmd)
 
 	migrateDownCmd.Flags().Int64Var(&migrateTo, "to", 0, "roll back to this version (inclusive)")
