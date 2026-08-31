@@ -3,11 +3,11 @@ id: STATBUS-308
 title: >-
   unit-floor-announce: a box missing its own scheduler must say so loudly —
   detection in code, repair stays the install verb
-status: In Progress
+status: Done
 assignee:
   - engineer
 created_date: '2026-08-28 21:43'
-updated_date: '2026-08-29 11:59'
+updated_date: '2026-08-31 12:15'
 labels:
   - upgrade
   - cli
@@ -78,3 +78,9 @@ The message states the gap, what it COSTS (a missing unit reads as harmless unti
 Not mine in the tree, do not stage with this unit: `cli/cmd/db.go`, `seed.go`, `seed_build.go`, `seed_verify.go`, `sequence_normalize*.go`, `migrations/20260829114700_*`, `test/sql|expected/127_*`, `test/setup.sql`, and the 303 explain + 109 perf baselines (STATBUS-316 and others). I verified the three shared files I touched contain ONLY my changes.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+COMPLETE across two landings. DETECTION HALF (eb948e8ac, rode v2026.08.1-rc.01): the floor derived from install's own predicate, one implementation in cli/internal/unitfloor, announced at the operator verbs (stderr, pipeline-safe, warn-never-refuse on schedule) and by the daemon on start + tick (transitions only, both directions). SURFACE HALF (ae7762d9d): the service stamps unit_floor_state/detail/poll_interval into system_info on EVERY tick and install stamps at run's end; the admin upgrades page warns on bad state OR staleness (threshold = 3× the recorded interval, never hardcoded; yardstick printed beside the fact; ./sb install named as the repair; not-applicable/unknown-user healthy by design) — the staleness arm being the only shape that reports the reporter's absence: demo's nine silent days become one stale timestamp. No migration (system_info already existed); the superuser-write documentation rides STATBUS-326 (doc/db must first learn to render table comments; the daemon-floor guard must learn comments aren't structural — the engineer refused both the false floor bump and the in-unit guard edit, correctly). Two structural tests pin the worst seam: a key-name disagreement would render as a healthy box. Architect's rulings honored: no inert decorative policy (the truth documented beats a constraint that cannot bind; least-privilege service role named as a future direction), staleness ships now (deferral would wait for evidence it prevents gathering). Side discoveries banked: STATBUS-326, STATBUS-327.
+<!-- SECTION:FINAL_SUMMARY:END -->
