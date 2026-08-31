@@ -3,10 +3,11 @@ id: STATBUS-332
 title: >-
   config-apply-gap: every .env.config key needs regenerate-and-restart to take
   effect, and only the channel has a command that does it
-status: To Do
-assignee: []
+status: Done
+assignee:
+  - '@mechanic'
 created_date: '2026-08-31 14:56'
-updated_date: '2026-08-31 19:46'
+updated_date: '2026-08-31 21:43'
 labels:
   - cli
   - config
@@ -39,10 +40,10 @@ WHAT IS ACHIEVED: one command applies any configuration change, no key is privil
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 ./sb install (nothing-scheduled path) applies .env.config changes: regenerates outputs and restarts what the change requires (design question resolved: unconditional vs detect-what-changed)
-- [ ] #2 The upgrade-channel verb is removed in the same landing, with a doc sweep
-- [ ] #3 No second config-application mechanism: the step-table is the one home
-- [ ] #4 Composes with install's existing step table and its flag/flock mutex without a second protected region
+- [x] #1 ./sb install (nothing-scheduled path) applies .env.config changes: regenerates outputs and restarts what the change requires (design question resolved: unconditional vs detect-what-changed)
+- [x] #2 The upgrade-channel verb is removed in the same landing, with a doc sweep
+- [x] #3 No second config-application mechanism: the step-table is the one home
+- [x] #4 Composes with install's existing step table and its flag/flock mutex without a second protected region
 <!-- AC:END -->
 
 ## Comments
@@ -104,3 +105,9 @@ Once install applies config, the verb's three steps (write, generate, restart) a
 An operator edits one file and runs one command, and the running box matches what they wrote — with no service restarted that did not need to be, so the command stays safe to run whenever they are unsure.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+LANDED at 9fead5e3c (architect hands-on approve + foreman landing review incl. the AST pin; full suite green across 17 packages). ./sb install now applies .env.config changes: snapshot before the step loop, diff of the GENERATED .env after the Generated-env step (the 307 rule — derived keys live only there), restarts of exactly what changed via an "Apply config changes" step, no-change runs restart nothing (test-pinned both directions). DECLARATION SHAPE: every key declares its restart-class SET at its own write site (classes.declare adjacent to the write; empty-set = explicitly none); SEVEN classes — worker got its own (the architect: folding it under app either over-restarts, losing the minimal-restart property, or silently misses — either failure costs the design) and proxy-restart is named for its real cost (reuses cert.go's docker compose restart proxy; a graceful reload later should rename the constant because the cost changes with it). SECOND SIGNAL, architect-ratified as the design's own rule applied to a second consumer: caddy/config/*.caddyfile content diffed directly (templates and cert files never reach .env), file list from config.CaddyConfigFiles kept honest by its own test; a READ FAILURE folds into the snapshot (with UnixNano so a stable error can never compare equal) — failure-to-observe is never evidence of no-change. THREE STRUCTURAL PINS, all red-verified: TestNoStepAfterApplyConfigChangesRegeneratesEnv (the last-writer property, AST-bounded per-step); TestGenerateEnvContent_EveryKeyHasARestartClass; TestBatchClassifiedKeysHaveZeroComposeConsumers (the batch's actual claim, scoped by the exact-[RestartNone] signature to respect the mechanic's read-fresh distinction — keys whose consumers dotenv.Load at point of need are legitimately no-restart with live consumers). THE CHANNEL VERB REMOVED (upgradeChannelCmd + registration; ValidateChannel unexported) — completing the architect's ruled sequence: with install applying config changes generally, the special case is redundant, which is when his original removal reasoning became correct. ops/statbus-upgrade.service drift comment repointed to the real remaining second formatter.
+<!-- SECTION:FINAL_SUMMARY:END -->
