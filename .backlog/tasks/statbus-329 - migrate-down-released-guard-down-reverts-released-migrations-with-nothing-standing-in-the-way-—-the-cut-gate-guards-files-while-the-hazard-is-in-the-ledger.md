@@ -4,11 +4,11 @@ title: >-
   migrate-down-released-guard: down reverts released migrations with nothing
   standing in the way — the cut-gate guards files while the hazard is in the
   ledger
-status: In Progress
+status: Done
 assignee:
   - '@mechanic'
 created_date: '2026-08-31 12:51'
-updated_date: '2026-08-31 19:58'
+updated_date: '2026-08-31 20:14'
 labels:
   - cli
   - tooling
@@ -42,11 +42,11 @@ WHAT IS ACHIEVED: reverting released history requires saying so in words no one 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 migrate down (and down all, and --to ranges crossing the boundary) refuses when the target migration exists in the previous release tag's migrations/ directory, on BOTH dev and seed targets
-- [ ] #2 The released-definition and tag resolution are SHARED with checkMigrationImmutability/pickPrereleasePredecessor — no second implementation of 'is this released'
-- [ ] #3 The refusal message names the migration, the release tag containing it, and (seed target) the missing-from-published-artifact consequence
-- [ ] #4 INTENTIONALLY_REVERT_RELEASED_MIGRATION=1 bypasses with a loud acknowledgment; no other bypass exists
-- [ ] #5 Tests: released migration refused on both targets; WIP migration passes unchanged; override proceeds; the computeSeedDigest open detail is resolved and recorded (does the seed pin catch a reverted-migration build or not)
+- [x] #1 migrate down (and down all, and --to ranges crossing the boundary) refuses when the target migration exists in the previous release tag's migrations/ directory, on BOTH dev and seed targets
+- [x] #2 The released-definition and tag resolution are SHARED with checkMigrationImmutability/pickPrereleasePredecessor — no second implementation of 'is this released'
+- [x] #3 The refusal message names the migration, the release tag containing it, and (seed target) the missing-from-published-artifact consequence
+- [x] #4 INTENTIONALLY_REVERT_RELEASED_MIGRATION=1 bypasses with a loud acknowledgment; no other bypass exists
+- [x] #5 Tests: released migration refused on both targets; WIP migration passes unchanged; override proceeds; the computeSeedDigest open detail is resolved and recorded (does the seed pin catch a reverted-migration build or not)
 <!-- AC:END -->
 
 ## Comments
@@ -68,3 +68,9 @@ But it is never given anything to catch that against. Two independent findings:
 **Verdict: nothing downstream notices.** The migrate-down guard (releasedMigrationDownGuard, cli/internal/migrate/migrate_down_released_guard.go) is the only safeguard against this class — exactly the ticket's own framing that "something downstream might notice" is not a guard, now confirmed rather than merely suspected.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+LANDED at 106409538 (foreman-reviewed; guard tests re-run independently; the override rename verified by grep). releasedMigrationDownGuard wired into Down() after version-list computation and before the rollback loop — a --to/all batch refuses atomically on the FIRST released migration, never partially reverting WIP ones first. Both targets refuse; the seed refusal carries the publish-consequence line. ONE shared definition of released: checkImmutabilityGate's predecessor-resolution chain moved verbatim to internal/release/predecessor.go (the package both cmd and migrate import; net −34 lines in release.go), and MigrationExistsInTag extracted so the guard and the runtime content-hash check share the identical git-tree primitive — plus new direct tests for previously untested helpers. Override: STATBUS_INTENTIONALLY_REVERT_RELEASED_MIGRATION=1 (prefixed at foreman review to match its sibling — one grep for STATBUS_INTENTIONALLY_ finds every escape hatch), loud per bypassed migration, exact var/value only (FORCE=1 and wrong values still refuse — tested). RED-verified: guard wiring removed in a scratch copy, the before-any-ledger-DELETE test failed as expected, restored byte-identical. AC#5's open detail CLOSED with evidence on the ticket: computeSeedDigest is NOT a safety net — it exists only in the on-demand seed verify-identical diagnostic, never in the build/publish path, and compares two builds of the same current state, so a prior revert is invisible to it. The guard at the point of destruction is the only protection, as the architect's design demanded. Two pre-existing down_ledger_hardfail tests gained git init (empty repo → guard no-op) preserving their original intent.
+<!-- SECTION:FINAL_SUMMARY:END -->
