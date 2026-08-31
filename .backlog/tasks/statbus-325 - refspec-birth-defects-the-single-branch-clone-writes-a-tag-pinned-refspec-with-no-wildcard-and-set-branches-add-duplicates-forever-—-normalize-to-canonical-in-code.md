@@ -4,10 +4,11 @@ title: >-
   refspec-birth-defects: the single-branch clone writes a tag-pinned refspec
   with no wildcard, and set-branches --add duplicates forever — normalize to
   canonical, in code
-status: To Do
+status: Done
 assignee:
   - engineer
 created_date: '2026-08-31 11:35'
+updated_date: '2026-08-31 11:57'
 labels:
   - install
   - ops
@@ -35,3 +36,9 @@ CONTEXT: today's fleet convergence hand-repaired gh (and previously five slots) 
 
 WHAT IS ACHIEVED: no box can be born with a broken refspec or accumulate one, and the next Ghana needs no repair because there is nothing to repair.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+LANDED at 71ca22be5. Both birth defects dead at source: the single-branch clone's narrow refspec is normalized immediately after cloning, and both shell set-branches --add calls are DELETED along with the false-idempotence comment (named in the commit as the reason nobody looked; empirically refuted — three runs, three identical lines, reproduced in a scratch origin before building). One normalizer replaces the surgical cleaner: --unset-all + write the canonical pair, exact by construction, idempotent unguarded — replacing a mechanism that structurally could not clean its own target input (git config --unset refuses on multiple matches, gh's exact tripled state). Two designed call sites per the architect's confirmed reconciliation: install (inside the already-held step-table mutex) and apply-latest's pre-step (verified OUTSIDE any protected region, so it takes 323's install-held flag; contention = skip-and-say-so, never a failed upgrade). The DECLARATION is doc-commented and test-pinned: remote.origin.fetch is product-owned derived config, rewritten canonically on every install and upgrade, hand edits do not survive — the sentence separating derivation from silent self-heal. Old cleaner's real job (stale devops/* removal) covered and tested. Two self-caught test failures recorded: the testgit-package guard caught a raw-git helper (harness-is-its-own-environment), and a case-sensitive assertion against the author's own banner. The next Ghana is born canonical and stays canonical.
+<!-- SECTION:FINAL_SUMMARY:END -->
