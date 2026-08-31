@@ -110,20 +110,62 @@ func TestHandAddedChannelRefuses_STATBUS254(t *testing.T) {
 	}
 }
 
-// TestUntranslatableChannelRefuses_STATBUS298 is the third and last member of
-// ResolveUpgradeRole's refusal set (STATBUS-254's translation step): a legacy
-// UPGRADE_CHANNEL value that isn't one of the recognized shapes
-// (stable/prerelease/local/edge) cannot be promoted into a role. STATBUS-298
-// requires all three refusal paths to carry the same structural sentinel —
-// this pins the one with no prior coverage.
-func TestUntranslatableChannelRefuses_STATBUS298(t *testing.T) {
-	f := loadEnv(t, "UPGRADE_CHANNEL=nightly\n") // not a recognized legacy value
-	_, _, err := ResolveUpgradeRole(f, "standalone")
-	if err == nil {
-		t.Fatal("an untranslatable legacy channel must REFUSE, not silently pick a role")
+// TestChannelWithNoRoleRefuses_STATBUS254 covers what remains after the
+// one-time translation's removal marker condition was met (every box in the
+// fleet showed the role form as of the 2026-08-30 convergence check; 254
+// closed on it — see the deleted `>>>` marker in upgrade_role.go). A
+// channel-only .env.config (once TestOneTimeTranslation_STATBUS254's own
+// scenario, before the translation that promoted it was retired) is now
+// exactly the hand-added/leftover-key case: it refuses, unconditionally,
+// whether or not the value happens to look like a recognized legacy shape
+// (stable/prerelease/local/edge) or something else entirely (nightly) —
+// there is no more "translatable vs untranslatable" distinction once the
+// translation itself is gone, so this single test covers what
+// TestUntranslatableChannelRefuses_STATBUS298 used to pin separately.
+func TestChannelWithNoRoleRefuses_STATBUS254(t *testing.T) {
+	for _, channel := range []string{"stable", "prerelease", "local", "edge", "nightly"} {
+		f := loadEnv(t, "UPGRADE_CHANNEL="+channel+"\n")
+		_, _, err := ResolveUpgradeRole(f, "standalone")
+		if err == nil {
+			t.Fatalf("channel %q with no declared role must REFUSE — the one-time translation that used to promote it is retired; a silent default here is exactly the mechanism that produced this ticket", channel)
+		}
+		msg := err.Error()
+		for _, want := range []string{"UPGRADE_CHANNEL", channel, "UPGRADE_ROLE", "remove"} {
+			if !strings.Contains(msg, want) {
+				t.Errorf("channel %q: the refusal is not actionable — %q missing from:\n%s", channel, want, msg)
+			}
+		}
+		if !errors.Is(err, ErrPrincipledRefusal) {
+			t.Errorf("channel %q: refusal must satisfy errors.Is(err, config.ErrPrincipledRefusal)", channel)
+		}
+		// The key must NOT be silently removed or a role silently seeded —
+		// a refusal must leave the file exactly as the operator left it, so
+		// they see and fix what they actually have.
+		if _, still := f.Get(UpgradeChannelKey); !still {
+			t.Errorf("channel %q: UPGRADE_CHANNEL was removed despite refusing — a refusal must not mutate the file", channel)
+		}
+		if _, hasRole := f.Get(UpgradeRoleKey); hasRole {
+			t.Errorf("channel %q: UPGRADE_ROLE was seeded despite refusing — a refusal must not mutate the file", channel)
+		}
 	}
-	if !errors.Is(err, ErrPrincipledRefusal) {
-		t.Error("an untranslatable-channel refusal must satisfy errors.Is(err, config.ErrPrincipledRefusal)")
+}
+
+// TestChannelWithNoRoleRefusesRepeatedly_STATBUS254 replaces
+// TestTranslationIsIdempotentByConstruction_STATBUS254: that test's own
+// premise (a first run translates and mutates the file, a second run must
+// not re-translate) no longer applies now that the translation is deleted —
+// ResolveUpgradeRole never mutates the file on a channel-only input any
+// more, so the property worth keeping is simpler: repeated calls refuse
+// identically, deterministically, with no state to drift between them.
+func TestChannelWithNoRoleRefusesRepeatedly_STATBUS254(t *testing.T) {
+	f := loadEnv(t, "UPGRADE_CHANNEL=stable\n")
+	_, _, err1 := ResolveUpgradeRole(f, "standalone")
+	_, _, err2 := ResolveUpgradeRole(f, "standalone")
+	if err1 == nil || err2 == nil {
+		t.Fatalf("both calls must refuse (err1=%v, err2=%v)", err1, err2)
+	}
+	if err1.Error() != err2.Error() {
+		t.Errorf("repeated calls on an unchanged file produced different refusals:\n1: %s\n2: %s", err1, err2)
 	}
 }
 
@@ -141,70 +183,6 @@ func TestPrincipledRefusalSentinel_TextUnaffected(t *testing.T) {
 	}
 	if !errors.Is(err, ErrPrincipledRefusal) {
 		t.Error("newRefusal's result must satisfy errors.Is(err, ErrPrincipledRefusal)")
-	}
-}
-
-// TestOneTimeTranslation_STATBUS254 covers the case the whole rollout turns on.
-//
-// Every box in the fleet holds an explicit UPGRADE_CHANNEL right now, including
-// the seven an operator corrected by hand. If the durable fix simply refused
-// that key, it would break every box we had just fixed, at the moment it
-// landed. Instead the correction is READ ONCE and promoted into the role it
-// already implies.
-func TestOneTimeTranslation_STATBUS254(t *testing.T) {
-	cases := []struct {
-		channel string
-		want    UpgradeRole
-	}{
-		{"stable", RoleProduction}, // et/jo/ma/tcc/ug/demo after the correction
-		{"prerelease", RoleCanary}, // dev after the correction
-		{"local", RoleDevelopment}, // a developer machine
-		{"edge", RoleDevelopment},  // the old always-latest setting
-	}
-	for _, c := range cases {
-		f := loadEnv(t, "UPGRADE_CHANNEL="+c.channel+"\n")
-		role, notice, err := ResolveUpgradeRole(f, "standalone")
-		if err != nil {
-			t.Fatalf("channel %q must translate, not refuse: %v", c.channel, err)
-		}
-		if role != c.want {
-			t.Errorf("channel %q translated to role %q, want %q", c.channel, role, c.want)
-		}
-		// The key must be GONE, not left behind — a leftover would make the very
-		// next config generate refuse on a box that just translated cleanly.
-		if _, still := f.Get(UpgradeChannelKey); still {
-			t.Errorf("channel %q: UPGRADE_CHANNEL survived the translation; the next config generate would then refuse", c.channel)
-		}
-		if got, ok := f.Get(UpgradeRoleKey); !ok || got != string(c.want) {
-			t.Errorf("channel %q: UPGRADE_ROLE not written (got %q, present=%v)", c.channel, got, ok)
-		}
-		if notice == "" {
-			t.Errorf("channel %q translated SILENTLY — a one-time conversion of an operator's setting must say what it did", c.channel)
-		}
-	}
-}
-
-// TestTranslationIsIdempotentByConstruction_STATBUS254: running config generate
-// twice must not fail the second time. This is what makes the rollout safe on a
-// fleet where nobody controls how often the command runs.
-func TestTranslationIsIdempotentByConstruction_STATBUS254(t *testing.T) {
-	f := loadEnv(t, "UPGRADE_CHANNEL=stable\n")
-	first, notice, err := ResolveUpgradeRole(f, "standalone")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if notice == "" {
-		t.Error("the first run must announce the conversion")
-	}
-	second, notice2, err := ResolveUpgradeRole(f, "standalone")
-	if err != nil {
-		t.Fatalf("the SECOND run refused — the translation is not idempotent, so every box would fail on its next config generate: %v", err)
-	}
-	if second != first {
-		t.Errorf("the second run resolved a different role (%q vs %q)", second, first)
-	}
-	if notice2 != "" {
-		t.Error("the conversion must announce ONCE; repeating it every run trains operators to ignore it")
 	}
 }
 

@@ -23,10 +23,11 @@ import (
 // compiler carries the meaning instead (the same move as STATBUS-293's
 // typed CommitSHA/CommitShort/CommitVersion).
 //
-// Every refusal in THIS file is a member: an unknown role, an untranslatable
-// legacy channel, and a hand-added channel alongside a declared role are all
-// the SAME class (a human declared something ambiguous or invalid; the fix
-// is to edit .env.config, never to wait) — so all three wrap it identically.
+// Every refusal in THIS file is a member: an unknown role, and a channel
+// present in .env.config at all (with or without a declared role — the
+// one-time translation that used to distinguish those cases is retired) are
+// both the SAME class (a human declared something ambiguous or invalid; the
+// fix is to edit .env.config, never to wait) — so both wrap it identically.
 var ErrPrincipledRefusal = errors.New("principled configuration refusal")
 
 // refusalError wraps an already-composed, human-readable refusal message
@@ -168,32 +169,6 @@ func defaultRoleForMode(deploymentMode string) UpgradeRole {
 	return RoleProduction
 }
 
-// roleFromLegacyChannel infers a role from a channel value, for the ONE-TIME
-// translation below.
-//
-// `edge` maps to development, and after the edge channel's RETIREMENT (King,
-// 2026-08-19) this is the last place in the tree that mentions it — deliberately.
-// A box whose .env.config still carries UPGRADE_CHANNEL=edge is exactly the box
-// this translation exists for: it has to be read ONCE and converted, or that box
-// refuses on its next config generate with a key it cannot legally hold.
-// Development is the right landing place, because what edge meant — follow
-// whatever is newest, automatically — is the one thing no box does any more.
-//
-// So this arm outlives the channel it names, and it dies with the rest of the
-// translation once the fleet has run it. It is not a surviving edge reference to
-// be tidied away by someone grepping for the word.
-func roleFromLegacyChannel(channel string) (UpgradeRole, bool) {
-	switch strings.TrimSpace(channel) {
-	case "stable":
-		return RoleProduction, true
-	case "prerelease":
-		return RoleCanary, true
-	case "local", "edge":
-		return RoleDevelopment, true
-	}
-	return "", false
-}
-
 // ResolveUpgradeRole is the whole mechanism, operating on the loaded
 // .env.config so it is testable without touching a disk or a fleet.
 //
@@ -201,53 +176,36 @@ func roleFromLegacyChannel(channel string) (UpgradeRole, bool) {
 // and an error that must STOP config generate.
 //
 // Order is load-bearing:
-//  1. TRANSLATE — channel present, no role: promote the channel into a role.
+//  1. REFUSE a present channel, unconditionally — with or without a
+//     declared role, UPGRADE_CHANNEL in .env.config can only mean a
+//     hand-added or leftover key (STATBUS-254's one-time fleet translation
+//     is retired: every box has run it).
 //  2. SEED — no role at all: declare the mode-appropriate default explicitly.
-//  3. REFUSE a hand-added channel — after (1), a channel alongside a role can
-//     only mean someone re-added the key by hand.
-//  4. VALIDATE the role against the closed set.
+//  3. VALIDATE the role against the closed set.
 //
-// The caller must Save() the file: steps 1 and 2 mutate it.
+// The caller must Save() the file: step 2 mutates it.
 func ResolveUpgradeRole(f *dotenv.File, deploymentMode string) (UpgradeRole, string, error) {
 	rawRole, hasRole := f.Get(UpgradeRoleKey)
 	rawChannel, hasChannel := f.Get(UpgradeChannelKey)
 
-	var notice string
+	// STEP 1 — THE LOUD GUARD. A channel is present at all. The one-time
+	// translation that used to promote a channel-only box into its implied
+	// role is retired (STATBUS-254 removal marker; every box in the fleet
+	// showed the role form as of the 2026-08-30 convergence check) — so
+	// this now covers the key entirely, whether or not a role is also
+	// declared.
+	//
+	// A refusal, not a warning: a warning is honoured-or-ignored ambiguously
+	// and the operator never learns which. Silently ignoring it would be
+	// worse — the operator would believe they had set the channel, which is
+	// how the fleet ended up on the wrong one for two months in the first
+	// place.
+	if hasChannel {
+		derived, _ := ChannelForRole(UpgradeRole(rawRole))
+		return "", "", newRefusal(handAddedChannelRefusal(rawChannel, rawRole, derived))
+	}
 
-	switch {
-	case hasChannel && !hasRole:
-		// STEP 1 — THE ONE-TIME TRANSLATION.
-		//
-		// Every box in the fleet holds an explicit UPGRADE_CHANNEL today,
-		// including the seven an operator corrected by hand on 2026-08-19. Under
-		// this design that key is an input that no longer exists — so a naive
-		// rollout would refuse on every box we just fixed, breaking the fleet at
-		// the moment the durable fix lands.
-		//
-		// So the operator's correction is not fought; it is READ ONCE and
-		// promoted into the durable form. Every box lands on the role its
-		// corrected channel already implies, with no second per-box pass. The
-		// first fleet-wide run is self-verifying: if the seven boxes come out as
-		// six production and one canary, the mechanism reproduced by computation
-		// a state we established independently by hand.
-		//
-		// >>> THIS TRANSLATION IS A ONE-TIME CORRECTION AND MUST BE DELETED once
-		// >>> every box has run it. It is not a compatibility shim. Leaving it in
-		// >>> place would permanently re-admit the very key this ticket removes,
-		// >>> and internal code here ships as clean breaks. Delete this case, and
-		// >>> the translation notice with it; the guard below then covers the key
-		// >>> entirely (a hand-added channel with no role becomes a refusal, which
-		// >>> is the correct end state).
-		role, ok := roleFromLegacyChannel(rawChannel)
-		if !ok {
-			return "", "", newRefusal(untranslatableChannelRefusal(rawChannel))
-		}
-		f.Set(UpgradeRoleKey, string(role))
-		f.Delete(UpgradeChannelKey)
-		notice = translationNotice(rawChannel, role)
-		return role, notice, nil
-
-	case !hasRole:
+	if !hasRole {
 		// STEP 2 — SEED. A fresh box has neither key. Declare the default
 		// EXPLICITLY in .env.config rather than defaulting silently at every
 		// read: the operator can then see what this box is and change it. The
@@ -258,19 +216,7 @@ func ResolveUpgradeRole(f *dotenv.File, deploymentMode string) (UpgradeRole, str
 		return role, seedNotice(role, deploymentMode), nil
 	}
 
-	// STEP 3 — THE LOUD GUARD. A role is declared AND a channel is present.
-	// After the translation window that can only mean a hand-added key.
-	//
-	// A refusal, not a warning: a warning is honoured-or-ignored ambiguously and
-	// the operator never learns which. Silently ignoring it would be worse — the
-	// operator would believe they had set the channel, which is how the fleet
-	// ended up here in the first place.
-	if hasChannel {
-		derived, _ := ChannelForRole(UpgradeRole(rawRole))
-		return "", "", newRefusal(handAddedChannelRefusal(rawChannel, rawRole, derived))
-	}
-
-	// STEP 4 — VALIDATE. An unknown role refuses rather than falling back.
+	// STEP 3 — VALIDATE. An unknown role refuses rather than falling back.
 	// Absent-means-default is the mechanism that produced this ticket; so is
 	// unknown-means-default, and it is even harder to see.
 	role := UpgradeRole(strings.TrimSpace(rawRole))
@@ -284,21 +230,6 @@ func ResolveUpgradeRole(f *dotenv.File, deploymentMode string) (UpgradeRole, str
 // wording is unit-tested directly, and so the operator-facing sentence a
 // statistical office reads is reviewable in one place.
 
-func translationNotice(channel string, role UpgradeRole) string {
-	derived := roleChannels[role]
-	return fmt.Sprintf(
-		"%s is now derived from %s, so this box's setting has been converted once:\n"+
-			"  %s=%s  (removed from .env.config)\n"+
-			"  %s=%s  (added — this box's role)\n"+
-			"The upgrade channel is written to .env as %q on every config generate.\n"+
-			"Change %s in .env.config if this box's purpose is different.\n",
-		UpgradeChannelKey, UpgradeRoleKey,
-		UpgradeChannelKey, channel,
-		UpgradeRoleKey, role,
-		derived,
-		UpgradeRoleKey)
-}
-
 func seedNotice(role UpgradeRole, deploymentMode string) string {
 	return fmt.Sprintf(
 		"%s was not set — declared as %q for a %s-mode box, and written to .env.config.\n"+
@@ -308,10 +239,20 @@ func seedNotice(role UpgradeRole, deploymentMode string) string {
 		roleChannels[role], UpgradeRoleKey, RoleCanary)
 }
 
+// handAddedChannelRefusal covers BOTH shapes of "UPGRADE_CHANNEL present"
+// after STATBUS-254's one-time translation retired: a channel alongside a
+// declared role (role is non-empty), and a channel with no role at all
+// (role is empty — the translation's own former input shape, now refused
+// instead of promoted). The role line adapts so the message reads correctly
+// either way instead of printing a hollow `UPGRADE_ROLE=   (declared)`.
 func handAddedChannelRefusal(channel, role, derived string) string {
+	roleLine := fmt.Sprintf("  %s=%s   (declared)", UpgradeRoleKey, role)
+	if role == "" {
+		roleLine = fmt.Sprintf("  %s is not set either", UpgradeRoleKey)
+	}
 	return fmt.Sprintf(
 		"%s is set in .env.config, but it is no longer a setting — it is derived from %s.\n"+
-			"  %s=%s   (declared)\n"+
+			"%s\n"+
 			"  %s=%s   (hand-set — ignored by nothing; this command refuses rather than pick one)\n"+
 			"  derived channel for this role: %s\n"+
 			"Five production installations once sat on the wrong channel for two months because a\n"+
@@ -319,7 +260,7 @@ func handAddedChannelRefusal(channel, role, derived string) string {
 			"To fix: state what this box IS — set %s to one of (%s) — and remove %s from\n"+
 			".env.config.\n",
 		UpgradeChannelKey, UpgradeRoleKey,
-		UpgradeRoleKey, role,
+		roleLine,
 		UpgradeChannelKey, channel,
 		derivedOrUnknown(derived),
 		UpgradeRoleKey, knownRoles(), UpgradeChannelKey)
@@ -327,7 +268,7 @@ func handAddedChannelRefusal(channel, role, derived string) string {
 
 func derivedOrUnknown(derived string) string {
 	if derived == "" {
-		return "(none — the declared role is not recognised either)"
+		return "(none — no role is declared, or the declared role is not recognised)"
 	}
 	return derived
 }
@@ -339,12 +280,4 @@ func unknownRoleRefusal(role string) string {
 			"how five statistical offices' installations sat on the wrong channel without anyone\n"+
 			"being able to see it.\n",
 		UpgradeRoleKey, role, knownRoles())
-}
-
-func untranslatableChannelRefusal(channel string) string {
-	return fmt.Sprintf(
-		"%s=%q in .env.config cannot be converted to a role automatically.\n"+
-			"The channel is now derived from %s. Set %s to one of (%s) in .env.config and\n"+
-			"remove %s.\n",
-		UpgradeChannelKey, channel, UpgradeRoleKey, UpgradeRoleKey, knownRoles(), UpgradeChannelKey)
 }
