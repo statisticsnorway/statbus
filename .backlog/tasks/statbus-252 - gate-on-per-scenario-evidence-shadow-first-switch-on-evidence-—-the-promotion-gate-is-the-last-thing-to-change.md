@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-08-19 10:00'
-updated_date: '2026-08-31 19:49'
+updated_date: '2026-08-31 20:11'
 labels:
   - release
   - quality-gate
@@ -47,8 +47,8 @@ WHAT IS ACHIEVED: the gate becomes as precise as the evidence it reads, and it g
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The chain runs the per-scenario path while the gate retains whole-suite authority, for a period covering multiple real candidates
-- [ ] #2 CORRECTED (2026-08-31, supersedes 'agreement across real cuts'): the switch is authorized by at least one comparison where the two paths COULD have diverged — the partial-coverage case — in which per-scenario's answer is verified correct, whether or not the paths agreed; a differential test with synthetic partial-coverage evidence satisfies this
+- [x] #1 The chain runs the per-scenario path while the gate retains whole-suite authority, for a period covering multiple real candidates
+- [x] #2 CORRECTED (2026-08-31, supersedes 'agreement across real cuts'): the switch is authorized by at least one comparison where the two paths COULD have diverged — the partial-coverage case — in which per-scenario's answer is verified correct, whether or not the paths agreed; a differential test with synthetic partial-coverage evidence satisfies this
 - [ ] #3 The required-scenario list is derived from the target commit's domain; a newly added scenario is never inheritable and never silently absent
 - [ ] #4 Run and job lookups are cached per commit, keeping the gate's API call count at roughly its current level
 - [ ] #5 Gate refusals name the anchor ridden, the anchor blocked and why, and any candidate that could not be read
@@ -74,5 +74,11 @@ SHADOW PHASE LANDED as 3bb852eb6 (architect APPROVED through the memoize amendme
 created: 2026-08-31 19:49
 ---
 ARCHITECT'S SWITCH-READINESS VERDICT (2026-08-31 evening): NO — and the blocker is not more runs, it is the WRONG runs. All 6 persisted shadow records (2 candidates × 2 gates, tmp/shadow-coverage-log.jsonl) show covered == domain_size with authority_passed true — the degenerate case where the two algorithms CANNOT disagree. The divergence the switch exists to enable (no single run complete, every scenario covered across runs → whole-suite refuses, per-scenario passes) has never once been exercised; more runs of the same shape add nothing. AC#2 AS WRITTEN IS DEFECTIVE (architect's own words): 'agreement across real cuts' would forbid switching at exactly the moment real evidence arrives, and counts agreement-on-easy-input as evidence about the hard case — absence-of-signal counted as presence. CORRECTED CRITERION: the switch is authorized by one comparison where the paths COULD have diverged, in which per-scenario's answer was verified correct — whether or not they agreed. UNBLOCKING ACTION (dispatched to mechanic, queued behind 329): build the DIFFERENTIAL TEST — synthetic evidence set, no single run complete, every scenario covered across runs; assert whole-suite refuses AND per-scenario passes AND per-scenario's verdict is correct. With that green, the switch lands as its own reviewed unit in this wave, satisfying AC#7 without waiting for a naturally-occurring partial cut.
+---
+
+author: foreman
+created: 2026-08-31 20:11
+---
+Foreman (2026-08-31 night): Unit A LANDED at f49471b46 — the differential test satisfying the corrected AC#2. One synthetic world (c1/c2 partial runs, target c3 empty, scenario-d covered nowhere), both REAL production algorithms (workflowJobsCompleteAtCommit for the authority side; DecideCoverage + scenarioProvenInCIAt for the per-scenario side) against one fake GitHub server; anchors cross-verified against raw job data; red-verified from both directions. AC#1 also checked — the shadow has run beside the authority across multiple real candidates since 3bb852eb6 (six persisted records). Unit B (the authority switch, its own reviewed diff per AC#7) authorized and with the mechanic, queued behind the 329 rename re-freeze.
 ---
 <!-- COMMENTS:END -->

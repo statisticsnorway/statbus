@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-08-31 12:51'
-updated_date: '2026-08-31 19:42'
+updated_date: '2026-08-31 19:58'
 labels:
   - cli
   - tooling
@@ -48,3 +48,23 @@ WHAT IS ACHIEVED: reverting released history requires saying so in words no one 
 - [ ] #4 INTENTIONALLY_REVERT_RELEASED_MIGRATION=1 bypasses with a loud acknowledgment; no other bypass exists
 - [ ] #5 Tests: released migration refused on both targets; WIP migration passes unchanged; override proceeds; the computeSeedDigest open detail is resolved and recorded (does the seed pin catch a reverted-migration build or not)
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: mechanic
+created: 2026-08-31 19:58
+---
+**Open detail resolved (AC#5): computeSeedDigest is NOT a safety net for this class of bug — verified, not assumed.**
+
+`computeSeedDigest` (cli/cmd/seed_verify.go:291) does include a `Ledger` field (`sha256(version|filename` rows from `db.migration`, seed_verify.go:322-326) that WOULD change if a migration's row were removed by a revert — so in isolation, yes, the digest is *sensitive* to a reverted migration.
+
+But it is never given anything to catch that against. Two independent findings:
+
+1. **It is never invoked by the real seed build/publish path.** `computeSeedDigest`/`seedDigest` appear ONLY in cli/cmd/seed_verify.go (2 call sites: `buildFullSeed` at seed_verify.go:543-551, and the incremental counterpart at seed_verify.go:884) — a `grep` across cli/cmd/seed_build.go (the actual `./sb db seed build`/publish pipeline, `runSeedBuild` at seed_build.go:76) returns zero hits. The digest machinery lives entirely inside the on-demand `sb db seed verify-identical` diagnostic (seed_verify.go:24-45's own header: "needs a live Postgres and is run on demand, never auto-run in CI") — nothing calls it during an actual build.
+
+2. **Even run manually, it wouldn't catch this.** `verify-identical`'s whole design compares an INCREMENTAL build against a FULL build of the *same current* on-disk `migrations/` + ledger state (seed_verify.go:553-559's `priorSource` doc comment) — not against any stored/blessed prior digest. If a migration was reverted before EITHER build ran, both the incremental and full builds derive from the identical (already-reverted) state and the tool reports "identical" — correctly, but uselessly for this purpose. There is no reference digest anywhere to drift against.
+
+**Verdict: nothing downstream notices.** The migrate-down guard (releasedMigrationDownGuard, cli/internal/migrate/migrate_down_released_guard.go) is the only safeguard against this class — exactly the ticket's own framing that "something downstream might notice" is not a guard, now confirmed rather than merely suspected.
+---
+<!-- COMMENTS:END -->
