@@ -23,4 +23,18 @@ Access method: heap
 
 ```
 
-**Comment:** System-wide configuration key-value store. Used for upgrade channel, current version, etc.
+**Comment:** Key/value system state surfaced to the admin UI.
+
+RLS ON THIS TABLE GOVERNS USERS, NOT WRITERS. The policies here (authenticated
+SELECT, admin_user manage) describe what a USER may do. They are NOT the complete
+list of who writes: the upgrade service and the install verb write their own keys
+over a SUPERUSER connection, which bypasses RLS entirely.
+
+So a policy-layer audit of this table must not conclude that admin_user is the whole
+writer set. It is not, and the catalog cannot show you the rest.
+
+The bypass is the accepted contract, not an oversight: these writers are system
+components reporting state, not users acting on data — and a policy written for a
+superuser role would be inert, sitting in pg_policy looking like a constraint while
+constraining nothing. Governing them by policy would require giving the service a
+least-privilege role instead of superuser (STATBUS-308).

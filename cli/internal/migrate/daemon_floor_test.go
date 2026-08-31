@@ -138,16 +138,24 @@ func TestDaemonSchemaFloorIsARealMigration(t *testing.T) {
 	t.Fatalf("DaemonSchemaFloor %d does not correspond to any migration file — it must be a real migration version", DaemonSchemaFloor)
 }
 
-// TestDaemonSchemaFloorMigrationTouchesUpgrade is a sanity pin that the floor is
-// a genuine daemon-relation migration (it references public.upgrade), not an
-// arbitrary number — the floor's own definition is "the max version touching the
-// daemon set", so the floor migration must itself touch the set.
-func TestDaemonSchemaFloorMigrationTouchesUpgrade(t *testing.T) {
+// TestDaemonSchemaFloorMigrationTouchesADaemonRelation is a sanity pin that the
+// floor is a genuine daemon-relation migration, not an arbitrary number — the
+// floor's own definition is "the max version touching the daemon set", so the
+// floor migration must itself touch SOME member of DaemonRelationNames.
+//
+// Deliberately NOT narrowed to public.upgrade specifically (that was this
+// test's original shape, true only because every prior floor bump happened to
+// touch public.upgrade): STATBUS-326's floor bump is a COMMENT ON TABLE
+// public.system_info — the King's ruling that a comment-only migration takes
+// an honest bump rather than a guard exemption — and public.system_info is
+// exactly as much a daemon relation as public.upgrade (see DaemonRelationNames
+// above). Using daemonRelationHits (the bump guard's own matcher) keeps this
+// test and the guard it's sanity-checking from being able to drift apart.
+func TestDaemonSchemaFloorMigrationTouchesADaemonRelation(t *testing.T) {
 	files, err := listMigrationFiles(repoRoot(t))
 	if err != nil {
 		t.Fatalf("listMigrationFiles: %v", err)
 	}
-	re := regexp.MustCompile(`\bpublic\.upgrade\b`)
 	for _, mf := range files {
 		if mf.Version != DaemonSchemaFloor {
 			continue
@@ -156,8 +164,8 @@ func TestDaemonSchemaFloorMigrationTouchesUpgrade(t *testing.T) {
 		if err != nil {
 			t.Fatalf("read %s: %v", mf.Path, err)
 		}
-		if !re.MatchString(stripSQLLineComments(string(body))) {
-			t.Errorf("floor migration %s does not reference public.upgrade — is %d really the daemon floor?", filepath.Base(mf.Path), DaemonSchemaFloor)
+		if hits := daemonRelationHits(string(body)); len(hits) == 0 {
+			t.Errorf("floor migration %s does not reference any daemon relation (DaemonRelationNames) — is %d really the daemon floor?", filepath.Base(mf.Path), DaemonSchemaFloor)
 		}
 		return
 	}

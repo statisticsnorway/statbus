@@ -18,7 +18,20 @@ package migrate
 // the floor impossible: any migration NEWER than the floor that touches a daemon
 // relation fails the test until the floor is bumped in the same commit.
 //
-// VALUE: today 20260828225222 (STATBUS-304's forward repair for tag-object-SHA
+// VALUE: today 20260831124944 (STATBUS-308/STATBUS-326's COMMENT ON TABLE
+// public.system_info, documenting that the upgrade service and the install verb
+// write their own keys over a superuser connection that bypasses RLS), bumped
+// from 20260828225222 in the same commit that landed it. THIS BUMP IS AN
+// ACKNOWLEDGED FALSE POSITIVE — the King's ruling on STATBUS-326 (2026-08-31):
+// teaching the guard to ignore comment-only statements requires semantically
+// analyzing SQL, which is a hack, so the sibling guard-exemption ticket was
+// killed and the guard stays exactly as it is. A COMMENT ON TABLE changes
+// nothing any daemon query reads, so the daemon operates identically at this
+// floor as at the one before it — the bump is honest paperwork, not a real
+// schema dependency, and is taken deliberately rather than smuggling a guard
+// edit into a documentation unit.
+//
+// Prior value: 20260828225222 (STATBUS-304's forward repair for tag-object-SHA
 // pollution on the rc.14/rc.15 rows), bumped from 20260712024457 in the same
 // commit that landed it. The repair migration touches public.upgrade — two
 // guarded UPDATEs correcting commit_sha on rows matching the exact documented
@@ -38,7 +51,7 @@ package migrate
 // a column, and no legitimate daemon write performs that transition (pipeline
 // completions are in_progress→completed), so the daemon operated cleanly at that
 // floor too.
-const DaemonSchemaFloor int64 = 20260828225222
+const DaemonSchemaFloor int64 = 20260831124944
 
 // DaemonRelationNames is the schema surface the daemon's OWN SQL touches — the
 // set whose shape the floor must satisfy. The bump guard flags any migration
