@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-08-31 12:11'
-updated_date: '2026-08-31 12:47'
+updated_date: '2026-08-31 12:48'
 labels:
   - tooling
   - docs
@@ -50,5 +50,11 @@ author: foreman
 created: 2026-08-31 12:47
 ---
 Foreman (2026-08-31): generator half LANDED at c1cfdbab1 (foreman-reviewed; both loops render obj_description after the fence; 28-page catch-up verified pure — +2 per page, one +3 multi-line, doc/db/function untouched, system_info correctly still showing the OLD generic comment). Remaining: the re-created 308 comment migration + floor bump, BLOCKED on the architect supplying the ruled wording (exact text unrecoverable — existed only untracked on a dead session; mechanic's exhaustive search on record).
+---
+
+author: foreman
+created: 2026-08-31 12:48
+---
+Architect's freshly-authored 308 comment text (2026-08-31, marked FRESH — verbatim text was never held; the 308 ruling specified substance only). Recorded here durably so it can never again vanish with a session. Text: 'Key/value system state surfaced to the admin UI.\n\nRLS ON THIS TABLE GOVERNS USERS, NOT WRITERS. The policies here (authenticated SELECT, admin_user manage) describe what a USER may do. They are NOT the complete list of who writes: the upgrade service writes its own keys over a SUPERUSER connection, which bypasses RLS entirely.\n\nSo a policy-layer audit of this table must not conclude that admin_user is the whole writer set. It is not, and the catalog cannot show you the rest.\n\nThe bypass is the accepted contract, not an oversight: these writers are system components reporting state, not users acting on data — and a policy written for a superuser role would be inert, sitting in pg_policy looking like a constraint while constraining nothing. Governing them by policy would require giving the service a least-privilege role instead of superuser (STATBUS-308).' VERIFICATION GATE: mechanic checks whether install.go:2541's install_last_* upserts use the same superuser DSN — if yes, the sentence widens to 'the upgrade service and the install verb write their own keys…'; if no, text stands. No widening on inference.
 ---
 <!-- COMMENTS:END -->

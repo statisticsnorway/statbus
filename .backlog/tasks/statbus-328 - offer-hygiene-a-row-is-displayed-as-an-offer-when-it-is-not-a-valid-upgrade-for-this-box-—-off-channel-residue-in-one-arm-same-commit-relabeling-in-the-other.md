@@ -7,6 +7,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-31 12:47'
+updated_date: '2026-08-31 12:49'
 labels:
   - upgrade
   - cli
@@ -35,3 +36,13 @@ WHAT IS ACHIEVED: no box displays an offer it should not act on — the shelf ma
 - [ ] #3 The 291 announce at scheduleStep remains intact — retirement/hiding must not remove the announce for anything still schedulable
 - [ ] #4 No retirement decision compares by version-string channel guessing — channel membership and commit identity are the only new predicates
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-08-31 12:49
+---
+Architect's fix-shape narrowing for Arm 1 (2026-08-31, after live evidence): intake needs nothing more (filter proven working). What is missing is RETRACTION of pre-filter rows. A migration CANNOT do this — the box's channel lives in .env, not the database, so a repair migration has nothing to filter on. The retraction must live where the channel is known: the service. Right shape: a startup sweep retiring off-channel 'available' rows — NOT a standing self-heal, because it applies the same declared channel policy discover() applies at intake (consistent application of declared policy is not repair; same reasoning that settled 325's derivation question).
+---
+<!-- COMMENTS:END -->
