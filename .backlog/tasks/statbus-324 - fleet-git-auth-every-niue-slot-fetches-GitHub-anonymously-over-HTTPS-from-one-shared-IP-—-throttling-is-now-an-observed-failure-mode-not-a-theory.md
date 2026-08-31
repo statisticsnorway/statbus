@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-08-31 11:17'
-updated_date: '2026-08-31 12:36'
+updated_date: '2026-08-31 12:45'
 labels:
   - ops
   - cloud
@@ -45,5 +45,11 @@ author: foreman
 created: 2026-08-31 12:36
 ---
 Foreman (2026-08-31): 325 landed at 71ca22be5 → the two build items are unblocked and dispatched to the engineer: (1) GIT_TERMINAL_PROMPT=0 on the product's git invocations; (2) origin-to-HTTPS one-line repair in ./sb install's idempotent config work. Engineer also does the one confirming read of ci-notify.sh to close the no-git/curl/token thread.
+---
+
+author: foreman
+created: 2026-08-31 12:45
+---
+Foreman (2026-08-31): both build items LANDED at 173ea514c (foreman-reviewed line by line, gofmt/vet/tests re-verified independently). Engineer's measured before/after REFUTES part of the ruling's premise: GIT_TERMINAL_PROMPT=0 changes only the trailing clause (Device not configured → terminal prompts disabled); git still leads with 'could not read Username', so the throttling-reads-as-auth misdiagnosis survives. The flag's honest value (hang removed, deterministic failure) is shipped. THIRD ITEM now before the architect: detection-and-translation in the fetch path (the ticket description's own 'detect the credential-prompt case and say what actually happened'). Also recorded: ci-notify.sh is 4 lines delegating to ./sb upgrade check — the anonymous GitHub API calls behind the 162.55.61.141 rate-limit failures live in the Go RunCheck path, giving the quota residual a precise home if it reopens. Ticket stays In Progress pending the architect's third-item ruling.
 ---
 <!-- COMMENTS:END -->
