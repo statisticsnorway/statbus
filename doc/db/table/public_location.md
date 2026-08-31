@@ -112,3 +112,5 @@ Triggers:
 Access method: heap
 
 ```
+
+**Comment:** Stores physical or postal addresses associated with statistical units (Legal Units or Establishments). Uses temporal validity.

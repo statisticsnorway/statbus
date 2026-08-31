@@ -41,3 +41,5 @@ Triggers:
 Access method: heap
 
 ```
+
+**Comment:** Non-temporal storage for unit images (logos, photos). Referenced by legal_unit and establishment. Validates magic bytes on insert to prevent XSS attacks via malicious file uploads.

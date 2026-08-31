@@ -51,3 +51,5 @@ Triggers:
 Access method: heap
 
 ```
+
+**Comment:** Defines data columns required or produced by import steps. The schema of a job's _data table is derived from these based on the steps linked to the job's definition.

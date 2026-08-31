@@ -12,3 +12,5 @@ View definition:
 Options: security_invoker=on
 
 ```
+
+**Comment:** Maps each legal_relationship to its power group (reads materialized derived_power_group_id)

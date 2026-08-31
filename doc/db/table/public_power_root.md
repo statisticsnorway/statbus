@@ -71,3 +71,5 @@ Triggers:
 Access method: heap
 
 ```
+
+**Comment:** Sparse temporal table: only cycle/multi-root power groups get entries. Single-root PGs derive root from power_group_membership. NSO can override via custom_root_legal_unit_id.

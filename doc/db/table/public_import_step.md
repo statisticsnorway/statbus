@@ -41,3 +41,5 @@ Triggers:
 Access method: heap
 
 ```
+
+**Comment:** Logical processing step within an import definition (e.g., external_ident, legal_unit, physical_location). Ordered by priority.

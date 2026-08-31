@@ -42,3 +42,5 @@ Triggers:
 Access method: heap
 
 ```
+
+**Comment:** Classification of power groups (domestic/foreign controlled, national/multinational)

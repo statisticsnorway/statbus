@@ -20,3 +20,5 @@ Triggers:
 Options: security_invoker=on
 
 ```
+
+**Comment:** Upload of region by path,name that automatically connects parent_id

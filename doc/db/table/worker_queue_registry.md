@@ -15,3 +15,5 @@ Not-null constraints:
 Access method: heap
 
 ```
+
+**Comment:** Defines available task queues. The system runs as a single worker process, which processes each queue serially to ensure task order. However, it uses concurrent fibers to process different queues (e.g., 'analytics' and 'import') at the same time.

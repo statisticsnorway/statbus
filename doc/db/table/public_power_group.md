@@ -57,3 +57,5 @@ Triggers:
 Access method: heap
 
 ```
+
+**Comment:** Represents a control hierarchy of legal units. TIMELESS registry - once created, exists forever. Active status derived from legal_relationship.valid_range at query time.

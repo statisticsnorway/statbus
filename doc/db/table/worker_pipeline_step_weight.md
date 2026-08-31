@@ -20,3 +20,5 @@ Not-null constraints:
 Access method: heap
 
 ```
+
+**Comment:** Relative wall-clock weights for pipeline steps, used by frontend progress bars. Keyed by command name (no phase enum dependency).

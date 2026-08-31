@@ -68,3 +68,5 @@ Triggers:
 Access method: heap
 
 ```
+
+**Comment:** Stores external identifier values using a SUM type design: regular identifiers use ident (text), hierarchical identifiers use idents (ltree) with corresponding labels (ltree).

@@ -31,3 +31,5 @@ Not-null constraints:
 Access method: heap
 
 ```
+
+**Comment:** STATBUS-154 diagnostic append-only log: one row per public.upgrade UPDATE that changes state or recovery_parked_at, tagged with the writing connection identity (application_name / backend_pid / current_query). Ops-plane only.

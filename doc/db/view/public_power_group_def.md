@@ -16,3 +16,5 @@ View definition:
 Options: security_invoker=on
 
 ```
+
+**Comment:** Defines power groups based on materialized hierarchy, computing depth/width/reach metrics. One row per power group.

@@ -44,3 +44,5 @@ Not-null constraints:
 Access method: heap
 
 ```
+
+**Comment:** Catalog of region-code generations (e.g. Norway 2020 vs 2024 reform). Region codes change over time; versioning lets multiple generations coexist so uploading a new set of regions does not break existing FK constraints or path uniqueness. lasts_to = NULL marks the current version.

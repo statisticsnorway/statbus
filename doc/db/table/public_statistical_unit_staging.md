@@ -96,3 +96,6 @@ Triggers:
 Access method: heap
 
 ```
+
+**Comment:** Staging table for batch statistical_unit inserts. No indices for fast writes.
+Data is flushed to the main table after all batches complete.

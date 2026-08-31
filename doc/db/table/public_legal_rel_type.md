@@ -46,3 +46,5 @@ Triggers:
 Access method: heap
 
 ```
+
+**Comment:** Classification of legal unit relationships (ownership, control)

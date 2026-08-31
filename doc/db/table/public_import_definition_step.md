@@ -28,3 +28,5 @@ Triggers:
 Access method: heap
 
 ```
+
+**Comment:** Connects an import definition to the specific import steps it utilizes.

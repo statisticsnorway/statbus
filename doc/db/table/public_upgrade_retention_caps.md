@@ -24,3 +24,5 @@ Not-null constraints:
 Access method: heap
 
 ```
+
+**Comment:** Per-(release_status, state) retention policy for public.upgrade. NULL time_cap or NULL count_cap = never time-purge this cell. install_purge = eligible for contextual install-triggered purge.

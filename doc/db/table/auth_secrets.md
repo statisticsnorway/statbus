@@ -18,3 +18,5 @@ Not-null constraints:
 Access method: heap
 
 ```
+
+**Comment:** Secure storage for authentication secrets like JWT secret. FORCE ROW LEVEL SECURITY with no policy means direct access is impossible. SECURITY DEFINER functions bypass RLS and can access. SECURITY INVOKER functions inherit caller's privileges - they can only access when called from SECURITY DEFINER context (which runs as owner and bypasses RLS).

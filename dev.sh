@@ -2940,6 +2940,14 @@ EOS
             echo '```sql' > "$base_file"
             doc_psql -c "\d+ $table" >> "$base_file"
             echo '```' >> "$base_file"
+
+            # STATBUS-326: \d+ never prints the relation-level COMMENT ON
+            # TABLE — the exact note an auditor reading the Policies block
+            # above needs beside it. Append it as its own paragraph when set.
+            comment_text=$(doc_psql -tA -c "SELECT obj_description('$table'::regclass, 'pg_class');")
+            if [ -n "$comment_text" ]; then
+              { echo ""; echo "**Comment:** $comment_text"; } >> "$base_file"
+            fi
           fi
         done
 
@@ -2951,6 +2959,13 @@ EOS
             echo '```sql' > "$base_file"
             doc_psql -c "\d+ $view" >> "$base_file"
             echo '```' >> "$base_file"
+
+            # STATBUS-326: same mechanism as the table loop above — a view
+            # comment serves the same auditor reading this page.
+            comment_text=$(doc_psql -tA -c "SELECT obj_description('$view'::regclass, 'pg_class');")
+            if [ -n "$comment_text" ]; then
+              { echo ""; echo "**Comment:** $comment_text"; } >> "$base_file"
+            fi
           fi
         done
 

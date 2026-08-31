@@ -22,3 +22,5 @@ Not-null constraints:
 Access method: heap
 
 ```
+
+**Comment:** System-wide configuration key-value store. Used for upgrade channel, current version, etc.

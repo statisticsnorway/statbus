@@ -84,3 +84,5 @@ Triggers:
 Access method: heap
 
 ```
+
+**Comment:** Tracks ownership and control relationships between legal units, forming the basis for power group hierarchies

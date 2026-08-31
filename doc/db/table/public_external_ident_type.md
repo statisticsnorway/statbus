@@ -42,3 +42,5 @@ Triggers:
 Access method: heap
 
 ```
+
+**Comment:** Defines the types of external identifiers used by source systems (e.g., tax_ident, stat_ident). Types can be regular (simple text) or hierarchical (ltree structure).

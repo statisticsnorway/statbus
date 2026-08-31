@@ -30,3 +30,5 @@ UNION
 Options: security_invoker=on
 
 ```
+
+**Comment:** Maps legal units to their power groups with hierarchy level information. Reads materialized data from legal_relationship — no recursive CTE.

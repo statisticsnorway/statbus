@@ -19,3 +19,5 @@ View definition:
 Options: security_invoker=on
 
 ```
+
+**Comment:** Power groups that are currently active (have at least one relationship with valid_range containing today)

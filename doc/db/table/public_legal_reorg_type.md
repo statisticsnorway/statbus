@@ -43,3 +43,5 @@ Triggers:
 Access method: heap
 
 ```
+
+**Comment:** Types of legal unit reorganizations (merger, acquisition, spin-off, etc.)

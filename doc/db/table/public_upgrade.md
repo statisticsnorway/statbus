@@ -85,3 +85,5 @@ Triggers:
 Access method: heap
 
 ```
+
+**Comment:** Commit-centric software upgrade lifecycle. Each row is a commit (which may also be a tagged release). Populated by upgrade daemon, managed by admin. tags[] holds git tags on this commit (e.g. v0.78.0-rc.1). release_status derived from tags: commit (no release tag), prerelease, or release. To accept: SET scheduled_at. To unschedule: SET scheduled_at = NULL. To retry after failure: SET started_at = NULL, error = NULL, scheduled_at = now().

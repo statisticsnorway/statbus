@@ -17,3 +17,5 @@ View definition:
 Options: security_invoker=on
 
 ```
+
+**Comment:** For a given import definition and source column, returns the target PostgreSQL type that values in that column will be cast to during import. Joins import_source_column → import_mapping → import_data_column. Columns without an active mapping default to TEXT.
