@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-08-28 21:37'
-updated_date: '2026-08-31 14:19'
+updated_date: '2026-08-31 14:33'
 labels:
   - upgrade
   - cli
@@ -300,5 +300,11 @@ Ordering across shapes needs no change: an rc for a later patch outranks the cur
 **The correction: its subject is live today, not hypothetical.** Under the corrected semantics `stable` stays restrictive, so the **rc rows confirmed on et, jo and ug are genuinely off-channel and genuinely unretracted** — the pre-filter residue we verified by timestamp read. That is a present condition on three production boxes, and the only thing that changed is that it no longer blocks this transition.
 
 Its scope narrows usefully, though: **only the rc-on-stable direction needs retraction now**, because stable-on-prerelease has become a legitimate offer.
+---
+
+author: foreman
+created: 2026-08-31 14:33
+---
+KING'S APPROVAL (2026-08-31): the authoritative design (comments #4–#6) is APPROVED with one amendment — no internal ordering dance: IT LANDS IN ONE GO. One coherent landing on master carrying everything: the mode→channel derivation (live, no seeding), UPGRADE_ROLE deletion incl. the CLI verb, the re-keyed role-dependent logic, the TagMatchesChannel superset fix (prerelease admits both shapes), the same-commit short-circuit, and the mechanical fleet-transition logic (seeded role → delete; declared role → write the matching channel) in install's config work. Once landed, the King cuts the prerelease himself — the release IS the deployment vehicle; no box is touched by hand. Build: engineer (architectural multi-file lane), architect reviews the frozen diff hands-on before the foreman commits.
 ---
 <!-- COMMENTS:END -->
