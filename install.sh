@@ -315,6 +315,59 @@ statbus_repo_lock_release() {
 
 statbus_repo_lock_acquire
 
+# ── FETCH THROUGH THE PRODUCT WHEN THE PRODUCT EXISTS (STATBUS-330) ─────────
+#
+# THE FAILURE THIS CLOSES was observed HERE, not in Go: gh's bootstrap died at
+# the `git fetch` below with "could not read Username for 'https://github.com'",
+# and raw git text went straight to the operator. STATBUS-324 taught the product
+# to say what that actually means — the repository is PUBLIC, so a credential
+# demand is never an auth failure, only git falling back to auth after the
+# request was refused — but that translator lives in the Go exec path.
+#
+# So this DELEGATES rather than duplicating. A bash reimplementation of the same
+# reasoning would be the second translator the ruling forbids, and the two would
+# drift the first time either changed. One implementation, reached from both
+# sides.
+#
+# THE TWO CALL SITES, and what each can actually reach:
+#
+#   Rescue (release/channel, $STATBUS_DIR/.git already present) — the binary is
+#   downloaded and MOVED into $STATBUS_DIR/sb before this fetch runs, so it
+#   delegates. This is the path the observed failure was on.
+#
+#   --commit — the binary is procured from an image tagged with the
+#   commit_short, which is only known AFTER this fetch and the checkout that
+#   follows it. The product cannot exist yet, so this one falls back to raw git.
+#
+# THE FALLBACK IS GENUINE RESIDUE — a consequence of bootstrapping order rather
+# than an oversight — and it is written down here so the next reader recognises
+# it as accepted rather than filing this ticket again. The fresh release install
+# needs no entry at all: it clones, and never fetches.
+#
+# TWO BRANCHES, NOT THREE. A "downloaded but not yet moved into place" branch
+# reaching for ${HOME}/sb.tmp stood here and is GONE: no call site can reach that
+# state. The rescue path moves the binary before it fetches, and the fresh path
+# does not fetch. It was defensive cover for a situation the script cannot be in,
+# and the comment justifying it asserted an ordering the script does not have.
+#
+# DEFINED BELOW THE ACQUISITION, deliberately. STATBUS-323's
+# TestRepoLockAcquiredBeforeAnyRepoOperation scans install.sh for a repo
+# operation appearing before the lock is taken, and it reads lines rather than
+# executions — so the `git fetch` inside this helper's BODY counts as one no
+# matter that a definition runs nothing. Defining the helper here keeps that
+# guard exact rather than teaching it to look inside functions: a scanner that
+# skips function bodies would also stop seeing a real repo operation someone
+# parks in one. Both call sites are far below, so nothing is lost.
+statbus_git_fetch() {
+    if [ -x "$STATBUS_DIR/sb" ]; then
+        "$STATBUS_DIR/sb" repo-fetch "$@"
+    else
+        # GENUINE RESIDUE — the --commit path, where no product exists yet. Raw
+        # git, and the operator may see git's own misleading credential text.
+        git fetch "$@"
+    fi
+}
+
 if [ -n "$VERSION" ]; then
     echo "Installing specified version: $VERSION"
 elif [ "$CHANNEL" = "stable" ]; then
@@ -366,7 +419,7 @@ elif [ -n "$COMMIT_SHA" ]; then
     # Fetch the exact commit. An UNPUSHED local commit fails here naturally → the
     # refusal says 'push it first' (the harness's preflight_head_on_origin already
     # guarantees this for arc runs).
-    if ! git fetch origin "$COMMIT_SHA"; then
+    if ! statbus_git_fetch origin "$COMMIT_SHA"; then
         echo "Error: git fetch origin ${COMMIT_SHA} failed — is the commit pushed to origin?" >&2
         echo "  --commit checks out an exact origin commit; push it to origin first, then retry." >&2
         exit 1
@@ -418,7 +471,7 @@ if [ -z "${SKIP_BINARY_DOWNLOAD:-}" ]; then
         # in rc.62; there is no moving tag to force past anymore. Silent
         # failures hid rune's rc.59 / rc.60 root causes — let fetch and
         # checkout print their own errors.
-        git fetch origin --tags
+        statbus_git_fetch origin --tags
         # Use a named local branch (`current`) so HEAD is never
         # detached on a tag. Parallels `pre-upgrade` — see
         # doc/upgrade-timeline.md#flag-file-mutex-install--service. -B resets the branch on each install,

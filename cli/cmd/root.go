@@ -278,6 +278,13 @@ var readOnlyCommandPaths = map[string]bool{
 	"sb db dumps list":         true,
 	"sb db seed status":        true,
 	"sb db seed fetch":         true, // fetches the artifact; doesn't mutate the DB
+	// STATBUS-330: install.sh's fetch delegation target. Read-only in the sense
+	// that matters here — it writes git objects and refs, never the working tree
+	// or product state. The registration is REQUIRED, not cosmetic: without it
+	// the staleness guard hard-fails this command in the normal mid-rescue state
+	// (new binary in place, tree not yet checked out to match), which is exactly
+	// when install.sh calls it.
+	"sb repo-fetch":            true,
 	"sb dotenv get":            true,
 	"sb dotenv list":           true,
 	"sb config show":           true,
