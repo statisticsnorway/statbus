@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-08-28 21:37'
-updated_date: '2026-08-28 23:29'
+updated_date: '2026-08-31 12:40'
 labels:
   - upgrade
   - cli
@@ -43,3 +43,62 @@ SMALL HONEST VERSION LANDED at 3ff11f1d6 (the architect's tonight-shippable desi
 
 **Execution guard LANDED at 3d102d676** (foreman-reviewed diff): the arriving job's own first act in claimScheduledUpgrade — the one function both dispatch paths share (install verb's inline dispatch + daemon's periodic pickup), so a single change covers both. Marker present → refuse surfacing the original refusal text + timestamp; marker unreadable → refuse (fails closed per the 039/111/159 doctrine); no marker → unchanged fall-through. Deliberately distinct in the comment from the row-level recovery_parked_at park. Structural tests pin guard-before-park-read + both refusal branches + genuine-conditional; red-verified via guard-deleted scratch copy; full internal/upgrade suite green, -race clean. TICKET REMAINS OPEN for the full serve-config/policy-config restructure (the architect's not-same-day complete form); tonight's two landings (boot-time park-and-serve fork + this dispatch guard) close the acute halves.
 <!-- SECTION:NOTES:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: architect
+created: 2026-08-31 12:40
+---
+**FULL RESTRUCTURE DESIGN — for the King's approval.**
+
+**Purpose, in two sentences.** A box's ability to serve must never depend on answering which release channel it follows. Today one unanswerable policy question withholds the entire generated configuration, and this design makes the policy answer optional to serving without making it ignorable.
+
+## The finding that makes this SMALL
+
+The restructure sounds like untangling a generator. It is not. **The policy output is exactly two keys.**
+
+`ResolveUpgradeRole` (`cli/internal/config/upgrade_role.go:187`) returns a role and a channel string — nothing else. Everything else `config generate` produces (ports, bind addresses, database credentials, compose wiring, Caddy files) is computed from deployment mode and slot facts that have **nothing to do with release policy**.
+
+**So the coupling is one ABORT, not an interleaving.** The work is to stop one failure from cancelling ~50 unrelated outputs.
+
+## Part 1 — policy resolution becomes a RESULT, not a gate
+
+`config generate` computes every serve-critical output unconditionally. A `ResolveUpgradeRole` failure yields an *unresolved policy* result instead of aborting the run.
+
+**THE RULE THAT MATTERS MOST: the two policy keys are OMITTED, never defaulted.** Absent is the honest representation of unknown. Defaulting to `stable` would be a **fabricated policy**, and a fabricated policy can install a wrong-channel candidate on a production box — the STATBUS-291 harm arriving through a helpful default. **An unresolved question must never acquire an answer by convenience.**
+
+## Part 2 — the blocking half ALREADY EXISTS
+
+Both halves that stop a parked box from upgrading are landed: the marker carrying the refusal text (3ff11f1d6) and the dispatch guard in `claimScheduledUpgrade` that refuses on its presence (3d102d676).
+
+**So this design changes nothing about blocking. It changes only what happens to the OTHER outputs.** Assert the existing behaviour in tests; do not rebuild it.
+
+## Part 3 — visibility, by reuse rather than a new mechanism
+
+The unresolved-policy state is **a state**, and STATBUS-308 already pushes state to `public.system_info` and surfaces it on the upgrade page — including the staleness arm, so a box that stops reporting is visible too.
+
+**Push the policy-unresolved state through 308's existing channel. No second watchdog.** A parked box reads as parked; a silent box reads as stale.
+
+## What the FULL form buys over the small version already landed
+
+Worth stating plainly, or "we already park and serve" looks like enough.
+
+**The landed version serves on the STALE prior `.env` — nothing regenerates.** A port change, a credential rotation, or a Caddy update made while policy is ambiguous does not take effect. **The full form regenerates everything it can**, leaving only the two policy keys unresolved. That is the entire gain, and it is the difference between a box that is frozen and a box that is merely not upgrading.
+
+## THE ONE REAL INTEGRATION RISK
+
+**Omitting a key only helps if no reader invents a value for it.** Every consumer of `UPGRADE_CHANNEL` must tolerate absence and refuse rather than default. **Enumerate the readers before building** — a single reader that falls back to `stable` on absence reintroduces the fabricated policy through the back door, and it would do so silently.
+
+## Acceptance criteria
+
+1. `config generate` writes a complete serve-critical `.env` when `ResolveUpgradeRole` fails.
+2. The two policy keys are **omitted, never defaulted**, when policy is unresolved.
+3. A box with ambiguous policy **and a changed port or credential picks up that change on the next boot** — proving fresh generation, not stale reuse.
+4. Every reader of `UPGRADE_CHANNEL` is enumerated, and each refuses rather than defaults on absence.
+5. The marker and dispatch guard behave exactly as landed (asserted, not rebuilt).
+6. The unresolved state appears in `system_info` and on the upgrade page via 308's existing path.
+7. A box with **resolved** policy generates byte-identically to today — no regression on the healthy path.
+8. Red-verified: reintroducing a default for the channel fails a test.
+---
+<!-- COMMENTS:END -->
