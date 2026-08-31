@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-08-28 21:37'
-updated_date: '2026-08-31 14:10'
+updated_date: '2026-08-31 14:19'
 labels:
   - upgrade
   - cli
@@ -254,5 +254,51 @@ Safe both ways: deleting a seeded value changes nothing, and a differing value i
 ## What is achieved
 
 An installation says what it is, and the product decides what that means. Upgrade policy stops being configuration an ordinary NSO ever sees, and the only boxes carrying a channel are the ones deliberately leading — where the choice is visible on the line that makes it.
+---
+
+author: architect
+created: 2026-08-31 14:19
+---
+**AMENDMENT to the authoritative design (#4/#5) — the King's superset model. My 328-prerequisite claim is WITHDRAWN, and replaced by a different one.**
+
+**His model is right and it is grounded in how we actually cut releases:** v2026.08.1 and v2026.08.1-rc.01 are two names for **one commit** (0da0f202dcf3). A release is the final gated prerelease, promoted. So the channels are **nested, not sibling** — prerelease ⊇ stable — and a prerelease box legitimately runs everything.
+
+## The code contradicts the model — that is the bug
+
+`TagMatchesChannel` (`github.go:557-563`) treats them as disjoint: the `prerelease` channel admits `ShapePrerelease` only, so a **stable tag fails it**. Under the model that is simply wrong.
+
+**Fix: `prerelease` admits BOTH shapes; `stable` stays restrictive (release only).** One site carries it — `FilterTagsByChannel` delegates to `TagMatchesChannel`, so discovery is fixed by the same change, and `scheduleStep`'s announce (`:5570`) correctly stops warning a prerelease box about a stable row, because that row is no longer an exception.
+
+## WITHDRAWN: the 328 ordering. But a real prerequisite remains — a different one.
+
+My claim was **conditionally** true: under *today's* disjoint code, switching the niue slots to `prerelease` genuinely does make their stable rows off-channel. The King's refutation removes the condition rather than the reasoning.
+
+**So the replacement is precise: the `TagMatchesChannel` fix must land WITH or BEFORE the channel switch.** Ship the switch against unfixed semantics and the residue I described appears exactly as described. **328 is not the prerequisite; the semantics fix is.**
+
+## The direction asymmetry, which the model implies and nobody has stated
+
+Because the sets are nested, **the two directions are not symmetric**:
+
+- **stable → prerelease WIDENS** what a box accepts. Every existing row stays valid. **No residue. Safe.**
+- **prerelease → stable NARROWS** it. Previously-valid rc rows become off-channel, and nothing retracts them. **That direction DOES create residue.**
+
+Record it now, because someone will eventually move a box back and the safety of this transition will be cited as precedent for a transition that is not safe.
+
+## Offer selection: the same-commit short-circuit SURVIVES — and becomes MORE necessary
+
+Widening membership makes the dual-tagged case **more** common, not less. Previously a prerelease box would not register a stable tag at all; now it registers both names for one commit, and `CompareVersions` correctly ranks the release above its own prerelease — so the box is offered the stable name **for the commit it already runs**.
+
+**So the widened membership strengthens the case for the short-circuit rather than obsoleting it.** Keep it, and keep the rule that decides it: **an "upgrade" that changes no code is not an upgrade** — candidate `commit_sha` == installed commit → never an offer.
+
+Ordering across shapes needs no change: an rc for a later patch outranks the current stable (correct — it *is* newer code), and a release already outranks its own prerelease.
+
+## STATBUS-328 — final disposition, with one correction
+
+- **Role-correction arm: ABSORBED**, unchanged.
+- **Ledger-hygiene arm: OPEN and INDEPENDENT** — downgraded from prerequisite, **not** to a rare-future case.
+
+**The correction: its subject is live today, not hypothetical.** Under the corrected semantics `stable` stays restrictive, so the **rc rows confirmed on et, jo and ug are genuinely off-channel and genuinely unretracted** — the pre-filter residue we verified by timestamp read. That is a present condition on three production boxes, and the only thing that changed is that it no longer blocks this transition.
+
+Its scope narrows usefully, though: **only the rc-on-stable direction needs retraction now**, because stable-on-prerelease has become a legitimate offer.
 ---
 <!-- COMMENTS:END -->
