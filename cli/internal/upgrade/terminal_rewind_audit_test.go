@@ -178,6 +178,20 @@ var rewindAudit = map[siteKey]rewindDisposition{
 		Class: classSelfHealing, Count: 1,
 		Why: "Re-derived by discovery's next tick from the registry. Exemption expires if that stops being true.",
 	},
+	{"cli/internal/upgrade/offchannel.go", "UPDATE", "skipped_at,state"}: {
+		Class: classSelfHealing, Count: 1,
+		Why: "STATBUS-328 arm 1's off-channel retirement. Re-derived at every service start from the " +
+			"box's DECLARED CHANNEL and the row's own tags — no remembered value, nothing the flag " +
+			"needs to carry. A rewind restores retired rows to 'available'; the next start applies the " +
+			"same policy again and retires them again. " +
+			"THE HONEST BOUND, because this is re-derived per START and not per tick: the paths that " +
+			"reach a restore end in a service restart (binary swap → exit 42 → systemd), so the sweep " +
+			"does run after. If a restore ever occurred WITHOUT a restart, the shelf would carry stale " +
+			"offers until the next one — which is exactly the pre-fix condition this ticket describes, " +
+			"and the 291 announce still guards anyone who tries to schedule one. Cost of the rewind is " +
+			"a misleading offer for one cycle, never a wrong install. " +
+			"Exemption expires if this ever stops being re-derived from the declared channel.",
+	},
 	{"cli/internal/upgrade/service.go", "UPDATE", "release_builds_status"}: {
 		Class: classSelfHealing, Count: 1,
 		Why: "Re-derived from the release's build artifacts on the next tick. STATBUS-302: was 2 sites (the 'ready' UPDATE plus a 'failed' UPDATE reached via a `gh api` workflow-conclusion check); the 'failed' site is removed — gh is not installed on production boxes so that UPDATE never ran there, and no non-gh equivalent exists for this GitHub-Release-asset resource (ghcr.io is the wrong registry). The remaining 'ready' UPDATE is unaffected.",

@@ -2645,6 +2645,20 @@ func (d *Service) Run(ctx context.Context) error {
 	backupTicker := time.NewTicker(d.backupInterval)
 	defer backupTicker.Stop()
 
+	// STATBUS-328 arm 1: retire rows that were never on this box's channel,
+	// BEFORE the first discovery. Ordering matters for what an operator sees:
+	// discover() may register new rows and print what it found, and a sweep
+	// running afterwards would retire residue in a second pass, so the shelf is
+	// briefly wrong in exactly the window someone reads the startup log. Sweeping
+	// first means the ledger is already consistent with the declared channel by
+	// the time anything new is added to it.
+	//
+	// Startup only, not per tick: intake has been filtered since 291, so new
+	// off-channel rows cannot appear. This exists for rows that entered BEFORE
+	// the filter, and for a box whose channel has just narrowed — both of which
+	// are settled by the time the service is running.
+	d.retireOffChannelOffers(ctx)
+
 	// Initial discovery on startup
 	d.discover(ctx)
 	// STATBUS-098: also CLAIM any already-'scheduled' row at startup, not just
