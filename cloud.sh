@@ -45,7 +45,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # create-new-statbus-installation.sh as ordinary slots on this host; this
 # list must gain every new slot the day it is created — a slot missing
 # here is invisible to fleet upgrades (STATBUS-320's Ukraine/Ghana gap).
-SERVERS="statbus_dev statbus_demo statbus_et statbus_jo statbus_ma statbus_tcc statbus_ug statbus_ua statbus_gh"
+SERVERS="statbus_dev statbus_demo statbus_et statbus_jo statbus_ma statbus_mw statbus_tcc statbus_ug statbus_ua statbus_gh"
 HOST="niue.statbus.org"
 INSTALL_URL="https://statbus.org/install.sh"
 # GitHub username whose signing key should be trusted on each server.
