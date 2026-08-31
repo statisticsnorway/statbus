@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@tester'
 created_date: '2026-08-19 07:14'
-updated_date: '2026-08-31 19:50'
+updated_date: '2026-08-31 19:55'
 labels:
   - release
   - ops
@@ -76,21 +76,21 @@ WHY THAT HELPS: promotion stops being a check we run on the software and becomes
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The chain runs in order: smoke → dev → fleets → Norway → promotion, each stage gating the next
-- [ ] #2 Smoke covers BOTH happy paths on ephemeral machines — fresh install, and install-then-upgrade — and its failure stops the chain before dev is touched
-- [ ] #3 Tagging a candidate installs it on dev with no human action, through the existing deploy and convergence layers unchanged
-- [ ] #4 dev's failure stops the chain before any expensive fleet is dispatched
-- [ ] #5 Norway is OFFERED each candidate — a candidate row in state 'available' appears — and is installed by no automated path whatsoever
-- [ ] #6 Nothing automated calls schedule, apply-latest, or install on Norway; a test pins this boundary so a future change cannot quietly automate the human canary
-- [ ] #7 Norway's target must be a release candidate, never an arbitrary commit
+- [x] #1 The chain runs in order: smoke → dev → fleets → Norway → promotion, each stage gating the next
+- [x] #2 Smoke covers BOTH happy paths on ephemeral machines — fresh install, and install-then-upgrade — and its failure stops the chain before dev is touched
+- [x] #3 Tagging a candidate installs it on dev with no human action, through the existing deploy and convergence layers unchanged
+- [x] #4 dev's failure stops the chain before any expensive fleet is dispatched
+- [x] #5 Norway is OFFERED each candidate — a candidate row in state 'available' appears — and is installed by no automated path whatsoever
+- [x] #6 Nothing automated calls schedule, apply-latest, or install on Norway; a test pins this boundary so a future change cannot quietly automate the human canary
+- [x] #7 Norway's target must be a release candidate, never an arbitrary commit
 - [ ] #8 The operator sees the smoke and fleet results before deciding, in the actionable form STATBUS-245 specifies; waiting is the default and proceeding early is a deliberate act
 - [ ] #9 A person installs the promotion-bound candidate on Norway following the observation card, and that act is what satisfies the promotion gate
 - [ ] #10 The observation card exists as a written artifact naming what the operator should see at each step, and its content is approved by the King before first use
 - [ ] #11 Any deviation between the card and what the operator actually saw files a ticket, and promotion does not proceed until those tickets are triaged
-- [ ] #12 Candidates nobody intends to promote leave an unclaimed offer on Norway, treated as the correct resting state rather than a failure
-- [ ] #13 Demo is not in the promotion gate and is not pushed to by anything — it follows releases on its own under STATBUS-248
-- [ ] #14 canarySlots still lists exactly dev and no, and each slot's failure hint names the action appropriate to its role — no hint tells an operator to push a deploy branch
-- [ ] #15 Promotion requirements are unchanged by this entry
+- [x] #12 Candidates nobody intends to promote leave an unclaimed offer on Norway, treated as the correct resting state rather than a failure
+- [x] #13 Demo is not in the promotion gate and is not pushed to by anything — it follows releases on its own under STATBUS-248
+- [x] #14 canarySlots still lists exactly dev and no, and each slot's failure hint names the action appropriate to its role — no hint tells an operator to push a deploy branch
+- [x] #15 Promotion requirements are unchanged by this entry
 - [ ] #16 Proven end to end on a real cut: smoke → dev converges → fleets → offer sits on Norway → a person installs it against the card → gate clears
 <!-- AC:END -->
 
@@ -173,5 +173,11 @@ author: foreman
 created: 2026-08-31 19:50
 ---
 CORRECTION + SCOPE PIVOT (foreman, 2026-08-31 evening): my dispatch comment above was WRONG — the smoke stage is NOT unbuilt. Tester's assessment, foreman-verified: test-install.yaml + test-upgrade.yaml run 0-happy-install / 0-happy-upgrade on ephemeral VMs and the orchestrator gates the chain on both (release-fleet-orchestrator.yaml:376-391, needs + success conditions) — built during the release campaign, proven green on real rc tags (incl. the v2026.08.1 preflight). AC#1–#4 are satisfied. TRUE RESIDUE, tester re-dispatched: (a) delete master-to-dev.yaml — STATBUS-244b, unblocked since the tag-driven deploy is landed and proven (deploy-to-dev.yaml STAYS: button vs branch); (b) verify AC#5–#15 one by one with file:line evidence, building any missing pin (AC#6's nothing-automated-touches-Norway test, AC#14's per-role failure hints); (c) AC#16's end-to-end proof rides the King's next real cut.
+---
+
+author: foreman
+created: 2026-08-31 19:55
+---
+Foreman (2026-08-31 night): residue LANDED at 3be54e416 — master-to-dev.yaml DELETED (244b complete; the orchestrator's candidate-addressed dispatch proven as the transport across 10+ rc cuts), deploy-to-dev.yaml + doc/CLOUD.md transitional notes now record the deletion, and AC#6's structural pin built: no workflow may combine a Norway target with schedule/apply-latest/install (TestNothingAutomatedSchedulesOnNorway_STATBUS247_AC6; foreman review closed a single-line-run: escape in the first draft, red-verified both directions). ACs #1-#7 and #12-#15 checked with evidence (tester's table in tmp/statbus-247-ac-verification.md); #8-#11 stand as landed/amended per the implementation notes (card retired by the King, completed-install check stays). REMAINING: AC#16 alone — the end-to-end proof on a real cut, which is the King's morning candidate: smoke → dev converges → fleets → offer sits on Norway → a person installs. The ticket closes on that observation.
 ---
 <!-- COMMENTS:END -->
