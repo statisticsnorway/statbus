@@ -1,22 +1,27 @@
 package cmd
 
-// STATBUS-216 / STATBUS-217 gate-level pins for the two harness
-// completeness gates.
+// STATBUS-216 gate-level pins for the two harness coverage gates, plus
+// STATBUS-252's switch-era replacements for what used to be the STATBUS-217
+// whole-suite-completeness pins.
 //
 // 216: an empty scenario domain must REFUSE, never print a 0/0 pass. The
 // assertion is on the gate's own boolean — a helper-level test would not
-// catch a gate that ignored the error and passed anyway.
+// catch a gate that ignored the error and passed anyway. UNCHANGED by the
+// switch: both gates still derive their domain from the tree BEFORE calling
+// runCoverageAuthority, and both domain-derivation functions still refuse
+// (return an error) on an empty result.
 //
-// 217: a required job that is present but concluded skipped/cancelled is
-// not proof, and the refusal must name it distinctly from a job that was
-// missing entirely (their operator remedies differ).
-//
-// The stubs below supply the GitHub API's answers through the release.go
-// seam vars. They are deliberately the MOST PERMISSIVE answers possible —
-// green run, "yes, complete" — so that a passing gate could only be
-// passing on the strength of the empty domain itself. Without the seam
-// these tests would run against the live API and return false for lack of
-// network, pinning nothing.
+// 252: the switch replaced whole-suite completeness (one run's job list
+// covering every scenario) with per-scenario coverage (release.DecideCoverage
+// per scenario). The OLD STATBUS-217 tests here asserted the JobsCompleteness
+// two-bucket vocabulary (MISSING vs DID NOT RUN) that no longer decides
+// anything — that PROPERTY (a present-but-skipped/cancelled job is not proof)
+// is still enforced, just one layer down, in release.ScenarioProvenInCI
+// (internal/release/evidence_test.go's TestScenarioEvidence_UnsuccessfulJobIsNotAMark_STATBUS249).
+// What replaces them here is coverage of the new vocabulary these gates now
+// render: proven-here, covered-by (with its anchor named), not-covered (with
+// candidates-walked or blocked-by named), and the "no evidence anywhere"
+// refusal that is the switch's own defining case.
 
 import (
 	"os"
@@ -28,7 +33,11 @@ import (
 )
 
 // stubWorkflowSeams swaps the two GitHub-API seams for the duration of a
-// test and restores them afterwards.
+// test and restores them afterwards. Still used by the STATBUS-219
+// exempt-ride tests (release_ci_exempt_ride_test.go) — checkWorkflowAtCommit
+// remains that mechanism's own authority; workflowJobsComplete is kept alive
+// here for its signature only (the two arc/install-recovery gates no longer
+// call it after the STATBUS-252 switch).
 func stubWorkflowSeams(
 	t *testing.T,
 	check func(workflow, commitSHA string) release.WorkflowCheckResult,
@@ -42,20 +51,10 @@ func stubWorkflowSeams(
 	})
 }
 
-// alwaysGreen answers every workflow query with a green run.
-func alwaysGreen(workflow, commitSHA string) release.WorkflowCheckResult {
-	return release.WorkflowCheckResult{
-		Status: release.WorkflowCheckGreen,
-		RunID:  42,
-		RunURL: "https://github.com/statisticsnorway/statbus/actions/runs/42",
-	}
-}
-
-// trivialComplete is the pre-STATBUS-216 reading of the completeness
-// check: "is every required job present?" answered against whatever list
-// it is handed — including an empty one, where the answer is trivially
-// yes. A gate that passes with this stub and an empty domain is passing
-// on the strength of nothing at all.
+// trivialComplete is the pre-STATBUS-216 reading of the completeness check —
+// kept alive for release_ci_exempt_ride_test.go's stubWorkflowSeams calls,
+// which stub both seams even though findExemptRide only consults
+// checkWorkflowAtCommit.
 func trivialComplete(runID int64, requiredJobNames []string) (release.JobsCompleteness, error) {
 	return release.JobsCompleteness{Complete: true}, nil
 }
@@ -70,20 +69,76 @@ func arcFixture(t *testing.T, paths ...string) (string, string) {
 	return dir, runGitInCmd(t, dir, "rev-parse", "HEAD")
 }
 
+// writeSensitivePathsFile writes ops/release/upgrade-sensitive-paths.txt
+// directly to disk (runCoverageAuthority's loadUpgradeSensitivePaths reads it
+// with a plain os.ReadFile, not from git, so it need not be committed). Every
+// test that reaches runCoverageAuthority needs this file to exist — a
+// missing file is itself a distinct refusal path, not this helper's concern.
+func writeSensitivePathsFile(t *testing.T, dir string, paths ...string) {
+	t.Helper()
+	if len(paths) == 0 {
+		paths = []string{"cli/internal/upgrade/"}
+	}
+	full := filepath.Join(dir, upgradeSensitivePathsFile)
+	if err := os.MkdirAll(filepath.Dir(full), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(full, []byte(strings.Join(paths, "\n")+"\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// addOriginRemote configures a local bare "origin" so
+// release.ReleaseTagsNewestFirst (git ls-remote --tags origin) succeeds
+// against this fixture — STATBUS-199/252's candidate walk reads a REMOTE,
+// not local tags, so a fixture with no remote at all would ERROR here rather
+// than cleanly report "no candidates". Tags created locally before this call
+// are invisible to ls-remote until pushTags sends them.
+func addOriginRemote(t *testing.T, dir string) {
+	t.Helper()
+	origin := t.TempDir()
+	runGitInCmd(t, origin, "init", "--bare", "-q")
+	runGitInCmd(t, dir, "remote", "add", "origin", origin)
+}
+
+// pushTags pushes every local tag to the fixture's origin remote (see
+// addOriginRemote) so release.ReleaseTagsNewestFirst can see them.
+func pushTags(t *testing.T, dir string) {
+	t.Helper()
+	runGitInCmd(t, dir, "push", "origin", "--tags")
+}
+
+// stubScenarioEvidence overrides the scenarioEvidence seam (release_coverage_authority.go)
+// for the duration of a test. evidence maps scenario -> the set of commits at
+// which it has evidence — a direct, synthetic stand-in for
+// release.ScenarioEvidence's real (local-mark-or-CI) answer, with no network
+// or filesystem mark involved.
+func stubScenarioEvidence(t *testing.T, evidence map[string]map[string]bool) {
+	t.Helper()
+	old := scenarioEvidence
+	scenarioEvidence = func(projDir, workflow, scenario string) release.EvidenceAt {
+		return func(commit string) (bool, string, error) {
+			if evidence[scenario][commit] {
+				return true, "synthetic evidence for " + scenario + " at " + commit[:7], nil
+			}
+			return false, "", nil
+		}
+	}
+	t.Cleanup(func() { scenarioEvidence = old })
+}
+
 // TestUpgradeArcHarnessGate_EmptyArcDomainRefuses is STATBUS-216 AC#2. The
 // arcs directory is absent at the commit (the "renamed one directory"
-// state), the run is green, and the completeness check would happily say
-// "complete". The gate must still refuse.
+// state). The gate must refuse before ever reaching the coverage walk.
 func TestUpgradeArcHarnessGate_EmptyArcDomainRefuses(t *testing.T) {
 	dir, head := arcFixture(t, "doc/readme.md")
-	stubWorkflowSeams(t, alwaysGreen, trivialComplete)
 
 	var passed bool
 	out := captureStdout(t, func() {
 		passed = checkUpgradeArcHarnessGate(dir, "v2026.08.0-rc.01", head, head[:7])
 	})
 	if passed {
-		t.Fatalf("the arc gate PASSED with an empty arc domain — a 0/0 completeness check proves "+
+		t.Fatalf("the arc gate PASSED with an empty arc domain — a 0/0 coverage decision proves "+
 			"nothing and must never promote a release (STATBUS-216); output:\n%s", out)
 	}
 	if !strings.Contains(out, "arc domain") {
@@ -99,67 +154,191 @@ func TestUpgradeArcHarnessGate_EmptyArcDomainRefuses(t *testing.T) {
 	}
 }
 
-// TestUpgradeArcHarnessGate_PopulatedDomainPasses is the positive control
-// for the test above: with the SAME stubs and one real arc present, the
-// gate passes. Without this arm, the refusal test could pass for an
-// unrelated reason (a broken fixture, a stub that never gets consulted).
-func TestUpgradeArcHarnessGate_PopulatedDomainPasses(t *testing.T) {
+// TestUpgradeArcHarnessGate_ProvenAtTargetPasses is the positive control:
+// evidence exists at the target commit itself for every required arc, so the
+// gate passes without ever needing the anchor walk (DecideCoverage's step 1).
+func TestUpgradeArcHarnessGate_ProvenAtTargetPasses(t *testing.T) {
 	dir, head := arcFixture(t, "doc/readme.md", upgradeArcDir+"working"+upgradeArcSuffix)
-
-	var sawRequired []string
-	stubWorkflowSeams(t, alwaysGreen,
-		func(runID int64, requiredJobNames []string) (release.JobsCompleteness, error) {
-			sawRequired = requiredJobNames
-			return release.JobsCompleteness{Complete: true}, nil
-		})
+	writeSensitivePathsFile(t, dir)
+	stubScenarioEvidence(t, map[string]map[string]bool{
+		"working": {head: true},
+	})
 
 	var passed bool
 	out := captureStdout(t, func() {
 		passed = checkUpgradeArcHarnessGate(dir, "v2026.08.0-rc.01", head, head[:7])
 	})
 	if !passed {
-		t.Fatalf("the arc gate refused a green, complete run over a populated arc domain; output:\n%s", out)
+		t.Fatalf("the arc gate refused a scenario proven at the target itself; output:\n%s", out)
 	}
-	if len(sawRequired) != 1 || sawRequired[0] != "working" {
-		t.Errorf("the gate must ask about the arc names derived from the commit, got %v (want [working])", sawRequired)
+	if !strings.Contains(out, "1/1 scenario(s) covered") {
+		t.Errorf("the pass report must count the covered scenarios; output:\n%s", out)
 	}
 }
 
-// TestUpgradeArcHarnessGate_SkippedArcJobRefuses is STATBUS-217 AC#3 at
-// the arc gate: the required job was present but concluded `skipped`,
-// which leaves the run GREEN. That is not a full-suite proof, so the gate
-// must not accept the run — and the refusal must say the job did not run,
-// not that it was missing.
-func TestUpgradeArcHarnessGate_SkippedArcJobRefuses(t *testing.T) {
+// TestUpgradeArcHarnessGate_NoEvidenceAnywhereRefuses is STATBUS-252's
+// defining case for the switch: a required scenario has NO evidence at the
+// target and NO evidence at any candidate the walk examines — the gate must
+// refuse, by name, rather than trivially passing or silently skipping it.
+//
+// RED-verified (reported to foreman): with runCoverageAuthority's call
+// removed from checkUpgradeArcHarnessGate (reverting to a bare `return true`
+// after domain derivation), this test fails because the gate passes with no
+// evidence at all; restoring the call makes it pass again.
+func TestUpgradeArcHarnessGate_NoEvidenceAnywhereRefuses(t *testing.T) {
 	dir, head := arcFixture(t, "doc/readme.md", upgradeArcDir+"working"+upgradeArcSuffix)
-	stubWorkflowSeams(t, alwaysGreen,
-		func(runID int64, requiredJobNames []string) (release.JobsCompleteness, error) {
-			return release.JobsCompleteness{
-				Complete:     false,
-				Unsuccessful: []release.UnsuccessfulJob{{Name: "working", Conclusion: "skipped"}},
-			}, nil
-		})
+	writeSensitivePathsFile(t, dir)
+	addOriginRemote(t, dir) // no tags pushed: the walk finds zero candidates
+	stubScenarioEvidence(t, map[string]map[string]bool{})
 
 	var passed bool
 	out := captureStdout(t, func() {
 		passed = checkUpgradeArcHarnessGate(dir, "v2026.08.0-rc.01", head, head[:7])
 	})
 	if passed {
-		t.Fatalf("the arc gate PASSED a green run whose only required arc job was SKIPPED — "+
-			"a skipped job never executed the scenario (STATBUS-217); output:\n%s", out)
+		t.Fatalf("the arc gate PASSED a required scenario with NO evidence anywhere — this is exactly "+
+			"the case the STATBUS-252 switch must refuse; output:\n%s", out)
 	}
-	if !strings.Contains(out, "DID NOT RUN") || !strings.Contains(out, "skipped") {
-		t.Errorf("the refusal must report the arc as present-but-not-run, naming its conclusion; output:\n%s", out)
+	if !strings.Contains(out, "NOT COVERED") || !strings.Contains(out, "working") {
+		t.Errorf("the refusal must name the uncovered scenario; output:\n%s", out)
+	}
+}
+
+// TestUpgradeArcHarnessGate_RunInProgressPrescribesWaitNotTrigger is the
+// architect's MUST-FIX (2026-08-31, STATBUS-256 regression): a scenario has
+// no evidence YET because its run at the TARGET commit has not concluded —
+// the refusal must say so and prescribe WAITING, never triggering a
+// duplicate of a run already going. Before this fix the gate printed
+// "NOT COVERED" + "Trigger: gh workflow run ..." for this exact case,
+// reintroducing the anti-pattern STATBUS-256 removed from the exempt-ride
+// gate.
+func TestUpgradeArcHarnessGate_RunInProgressPrescribesWaitNotTrigger(t *testing.T) {
+	dir, head := arcFixture(t, "doc/readme.md", upgradeArcDir+"working"+upgradeArcSuffix)
+	writeSensitivePathsFile(t, dir)
+	addOriginRemote(t, dir)
+	stubScenarioEvidence(t, map[string]map[string]bool{}) // nothing has concluded yet
+	stubWorkflowSeams(t, func(workflow, sha string) release.WorkflowCheckResult {
+		return release.WorkflowCheckResult{
+			Status: release.WorkflowCheckPending,
+			RunID:  99,
+			RunURL: "https://github.com/statisticsnorway/statbus/actions/runs/99",
+		}
+	}, trivialComplete)
+
+	var passed bool
+	out := captureStdout(t, func() {
+		passed = checkUpgradeArcHarnessGate(dir, "v2026.08.0-rc.01", head, head[:7])
+	})
+	if passed {
+		t.Fatalf("a run still in progress is not evidence — the gate must still refuse; output:\n%s", out)
+	}
+	if !strings.Contains(out, "IN PROGRESS") || !strings.Contains(out, "WAIT") {
+		t.Errorf("the refusal must say a run is in progress and prescribe waiting; output:\n%s", out)
+	}
+	if strings.Contains(out, "Trigger:") {
+		t.Errorf("the refusal must NOT prescribe triggering another run while one is already in progress "+
+			"(STATBUS-256 regression); output:\n%s", out)
+	}
+	if !strings.Contains(out, "gh run watch 99") {
+		t.Errorf("the refusal must point at the SPECIFIC in-progress run so the operator can watch it; output:\n%s", out)
+	}
+}
+
+// TestInstallRecoveryHarnessGate_NoEvidenceAnywhereRefuses is the same
+// STATBUS-252 defining case on the second consumer of runCoverageAuthority —
+// this gate GAINED the anchor walk with the switch (it had none before), so
+// its own "no evidence anywhere" refusal is asserted independently rather
+// than assumed to follow from the arc gate's test.
+func TestInstallRecoveryHarnessGate_NoEvidenceAnywhereRefuses(t *testing.T) {
+	dir, head := arcFixture(t, "doc/readme.md", "test/install-recovery/scenarios/working.sh")
+	writeSensitivePathsFile(t, dir)
+	addOriginRemote(t, dir)
+	stubScenarioEvidence(t, map[string]map[string]bool{})
+
+	var passed bool
+	out := captureStdout(t, func() {
+		passed = checkInstallRecoveryHarnessGate(dir, "v2026.08.0-rc.01", head, head[:7])
+	})
+	if passed {
+		t.Fatalf("the install-recovery gate PASSED a required scenario with NO evidence anywhere; output:\n%s", out)
+	}
+	if !strings.Contains(out, "NOT COVERED") || !strings.Contains(out, "working") {
+		t.Errorf("the refusal must name the uncovered scenario; output:\n%s", out)
+	}
+}
+
+// TestUpgradeArcHarnessGate_CoveredByPriorAnchorPasses is STATBUS-252
+// precondition 3's positive half: a scenario not proven at the target but
+// proven at an older RC anchor, with nothing sensitive changed since, is
+// COVERED — and the gate's pass report must name the anchor it rode.
+func TestUpgradeArcHarnessGate_CoveredByPriorAnchorPasses(t *testing.T) {
+	dir, _ := arcFixture(t, "doc/readme.md", upgradeArcDir+"working"+upgradeArcSuffix)
+	writeSensitivePathsFile(t, dir, "cli/internal/upgrade/")
+
+	anchor := runGitInCmd(t, dir, "rev-parse", "HEAD")
+	runGitInCmd(t, dir, "tag", "-a", "v2026.08.0-rc.01", "-m", "Pre-release v2026.08.0-rc.01")
+
+	writeAndCommit(t, dir, "unrelated doc change", "doc/other.md")
+	target := runGitInCmd(t, dir, "rev-parse", "HEAD")
+	runGitInCmd(t, dir, "tag", "-a", "v2026.08.0-rc.02", "-m", "Pre-release v2026.08.0-rc.02")
+
+	addOriginRemote(t, dir)
+	pushTags(t, dir)
+
+	stubScenarioEvidence(t, map[string]map[string]bool{
+		"working": {anchor: true}, // evidence only at the anchor, not the target
+	})
+
+	var passed bool
+	out := captureStdout(t, func() {
+		passed = checkUpgradeArcHarnessGate(dir, "v2026.08.0-rc.02", target, target[:7])
+	})
+	if !passed {
+		t.Fatalf("the gate refused though the anchor is covered and nothing sensitive changed since; output:\n%s", out)
+	}
+	if !strings.Contains(out, "covered by v2026.08.0-rc.01") {
+		t.Errorf("the pass report must name the anchor ridden; output:\n%s", out)
+	}
+}
+
+// TestUpgradeArcHarnessGate_BlockedByAnchorRefuses is STATBUS-252
+// precondition 3's other named case: an anchor has evidence, but a
+// sensitive file changed between it and the target — the ride is blocked,
+// and the refusal must name both the blocked anchor and the changed file.
+func TestUpgradeArcHarnessGate_BlockedByAnchorRefuses(t *testing.T) {
+	dir, _ := arcFixture(t, "doc/readme.md", upgradeArcDir+"working"+upgradeArcSuffix)
+	writeSensitivePathsFile(t, dir, "cli/internal/upgrade/")
+
+	anchor := runGitInCmd(t, dir, "rev-parse", "HEAD")
+	runGitInCmd(t, dir, "tag", "-a", "v2026.08.0-rc.01", "-m", "Pre-release v2026.08.0-rc.01")
+
+	writeAndCommit(t, dir, "sensitive change", "cli/internal/upgrade/service.go")
+	target := runGitInCmd(t, dir, "rev-parse", "HEAD")
+	runGitInCmd(t, dir, "tag", "-a", "v2026.08.0-rc.02", "-m", "Pre-release v2026.08.0-rc.02")
+
+	addOriginRemote(t, dir)
+	pushTags(t, dir)
+
+	stubScenarioEvidence(t, map[string]map[string]bool{
+		"working": {anchor: true},
+	})
+
+	var passed bool
+	out := captureStdout(t, func() {
+		passed = checkUpgradeArcHarnessGate(dir, "v2026.08.0-rc.02", target, target[:7])
+	})
+	if passed {
+		t.Fatalf("the gate PASSED though a sensitive file changed since the only anchor with evidence; output:\n%s", out)
+	}
+	if !strings.Contains(out, "BLOCKED") || !strings.Contains(out, "v2026.08.0-rc.01") || !strings.Contains(out, "service.go") {
+		t.Errorf("the refusal must name the blocked anchor and the changed sensitive file; output:\n%s", out)
 	}
 }
 
 // TestInstallRecoveryHarnessGate_EmptyScenarioDomainRefuses is the same
-// STATBUS-216 hole on the second consumer of the shared helper. This gate
-// has no path-sensitivity walk-back, so the empty domain is decisive on
-// its own.
+// STATBUS-216 hole on the second consumer of runCoverageAuthority.
 func TestInstallRecoveryHarnessGate_EmptyScenarioDomainRefuses(t *testing.T) {
 	dir, head := arcFixture(t, "doc/readme.md")
-	stubWorkflowSeams(t, alwaysGreen, trivialComplete)
 
 	var passed bool
 	out := captureStdout(t, func() {
@@ -170,39 +349,6 @@ func TestInstallRecoveryHarnessGate_EmptyScenarioDomainRefuses(t *testing.T) {
 	}
 	if !strings.Contains(out, "scenario domain") {
 		t.Errorf("the refusal must name the scenario domain as the cause; output:\n%s", out)
-	}
-}
-
-// TestInstallRecoveryHarnessGate_MissingAndSkippedReportedApart is
-// STATBUS-217 AC#2 + AC#4: the second caller of the shared helper gets the
-// same strengthening, and its refusal separates the two buckets — one job
-// never in the run, one present but skipped.
-func TestInstallRecoveryHarnessGate_MissingAndSkippedReportedApart(t *testing.T) {
-	dir, head := arcFixture(t,
-		"test/install-recovery/scenarios/working.sh",
-		"test/install-recovery/scenarios/failing.sh",
-	)
-	stubWorkflowSeams(t, alwaysGreen,
-		func(runID int64, requiredJobNames []string) (release.JobsCompleteness, error) {
-			return release.JobsCompleteness{
-				Complete:     false,
-				Missing:      []string{"failing"},
-				Unsuccessful: []release.UnsuccessfulJob{{Name: "working", Conclusion: "skipped"}},
-			}, nil
-		})
-
-	var passed bool
-	out := captureStdout(t, func() {
-		passed = checkInstallRecoveryHarnessGate(dir, "v2026.08.0-rc.01", head, head[:7])
-	})
-	if passed {
-		t.Fatalf("the install-recovery gate PASSED an incomplete job set; output:\n%s", out)
-	}
-	missingIdx := strings.Index(out, "MISSING (never in the run): failing")
-	skippedIdx := strings.Index(out, "DID NOT RUN (present, no green): working (conclusion: skipped)")
-	if missingIdx < 0 || skippedIdx < 0 {
-		t.Fatalf("the refusal must report the two buckets under distinct labels — a job absent from "+
-			"the run and a job that was skipped need different fixes (STATBUS-217 AC#2); output:\n%s", out)
 	}
 }
 

@@ -1904,45 +1904,44 @@ func checkStableWorkflowGate(workflow, label, skipEnv, rcTag, rcCommit, rcShort 
 	return false
 }
 
-// checkWorkflowAtCommit and workflowJobsComplete are the two GitHub-API
-// reads the harness completeness gates depend on, held as package vars so
+// checkWorkflowAtCommit and workflowJobsComplete are held as package vars so
 // a test can supply the API's answer directly. Without this seam a gate's
 // VERDICT (its returned bool) can only be exercised against the live API:
 // with no network every call returns Unknown and every gate returns false,
 // which would make a refusal test pass for the wrong reason and pin
-// nothing (STATBUS-216 AC#2 requires the assertion to be on the gate's
-// boolean). Production code must never assign these; tests restore them
-// via t.Cleanup. Scope: the seam covers the COMPLETENESS gates only, not
-// every GitHub read in package cmd — verify-images and its kin have no
-// completeness verdict and deliberately call release.* directly.
+// nothing. Production code must never assign these; tests restore them
+// via t.Cleanup.
+//
+// STATBUS-252: workflowJobsComplete is no longer called by either harness
+// coverage gate — both switched to per-scenario coverage
+// (runCoverageAuthority, release_coverage_authority.go), which asks
+// scenarioEvidence instead. The var (and its stubWorkflowSeams signature,
+// release_arc_domain_gate_test.go) is kept ALIVE only because
+// release_ci_exempt_ride_test.go's exempt-ride mechanism still stubs both
+// seams together even though it only consults checkWorkflowAtCommit — that
+// mechanism is STATBUS-219's, untouched by this switch. checkWorkflowAtCommit
+// itself remains live production code at several other call sites (see
+// findExemptRide, the pg_regress/images checks) — only workflowJobsComplete's
+// PRODUCTION call sites are gone.
 var (
 	checkWorkflowAtCommit = release.CheckWorkflowAtCommit
 	workflowJobsComplete  = release.WorkflowJobsCompleteAtCommit
 )
 
-// printJobsCompletenessRefusal prints the per-job detail of a failed
-// completeness check for both harness gates. The two buckets print under
-// distinct labels (STATBUS-217 AC#2) because their remedies differ: a
-// MISSING job means the run never contained it (subset dispatch, matrix
-// did not expand) — re-run the full suite; a job that DID NOT RUN was
-// present and skipped/cancelled — the run stayed green while the scenario
-// never executed, so the condition that skipped it is the thing to fix.
-func printJobsCompletenessRefusal(jobs release.JobsCompleteness) {
-	for _, m := range jobs.Missing {
-		fmt.Printf("      MISSING (never in the run): %s\n", m)
-	}
-	for _, u := range jobs.Unsuccessful {
-		fmt.Printf("      DID NOT RUN (present, no green): %s\n", u)
-	}
-}
-
 // checkInstallRecoveryHarnessGate is the STATBUS-199 §5-rider stable gate
-// for install-recovery-harness.yaml. Unlike the arc-harness gate, there is
-// no path-sensitivity walk-back: the workflow's own tag-push trigger
-// (v*-rc.*) already guarantees a full-suite run exists for every RC, so
-// the gate only needs to confirm the run AT rcCommit is genuinely that
-// full run, not a workflow_dispatch named-subset run that happens to land
-// on the same SHA (comment #1 §5's "same any-green softness").
+// for install-recovery-harness.yaml.
+//
+// STATBUS-252 SWITCH: authority moved from whole-suite completeness (one run
+// whose job list covers every scenario) to per-scenario coverage
+// (runCoverageAuthority — release.DecideCoverage per required scenario,
+// derived from rcCommit's own tree). See runCoverageAuthority's doc comment
+// for the three preconditions and the AC#6 independence argument. This gate
+// now gains the walk-back capability it never had before the switch (its
+// prior design note — "no path-sensitivity walk-back needed, the tag-push
+// trigger guarantees a full run exists" — is superseded: per-scenario
+// coverage can inherit evidence from an older anchor exactly like the
+// arc-harness gate always could, and there is no reason this gate should be
+// less precise than that one now that both share one mechanism).
 func checkInstallRecoveryHarnessGate(projDir, rcTag, rcCommit, rcShort string) bool {
 	const skipEnv = "SKIP_INSTALL_RECOVERY"
 	if os.Getenv(skipEnv) == "1" {
@@ -1951,90 +1950,27 @@ func checkInstallRecoveryHarnessGate(projDir, rcTag, rcCommit, rcShort string) b
 		return true
 	}
 
-	result := checkWorkflowAtCommit(release.WorkflowInstallRecoveryHarness, rcCommit)
-	switch result.Status {
-	case release.WorkflowCheckGreen:
-		requiredScenarios, err := installRecoveryScenarioNamesAtCommit(projDir, rcCommit)
-		if err != nil {
-			fmt.Printf("  ✗ install-recovery is green at %s, but its scenario domain could not be derived\n", rcShort)
-			fmt.Printf("    Error: %v\n", err)
-			return false
-		}
-		jobs, jerr := workflowJobsComplete(result.RunID, requiredScenarios)
-		if jerr != nil {
-			fmt.Printf("  ✗ install-recovery is green at %s, but its job list could not be verified\n", rcShort)
-			fmt.Printf("    Error: %v\n", jerr)
-			return false
-		}
-		if jobs.Complete {
-			fmt.Printf("  ✓ install-recovery FULL SUITE green at %s (%d/%d scenario jobs ran and succeeded)\n", rcShort, len(requiredScenarios), len(requiredScenarios))
-			fmt.Printf("    Run: %s\n", result.RunURL)
-			fmt.Println(shadowLabel(true))
-			runShadowCoverage(projDir, release.WorkflowInstallRecoveryHarness, rcShort, rcCommit, requiredScenarios, true)
-			return true
-		}
-		fmt.Printf("  ✗ install-recovery is green at %s, but %d/%d required scenario jobs are not proof — a subset or skipped run cannot satisfy this gate:\n",
-			rcShort, len(jobs.Missing)+len(jobs.Unsuccessful), len(requiredScenarios))
-		printJobsCompletenessRefusal(jobs)
-		fmt.Printf("    Trigger: %s\n", release.WorkflowTriggerCommand(release.WorkflowInstallRecoveryHarness, rcTag))
-		fmt.Printf("    Watch:   %s\n", release.WorkflowURL(release.WorkflowInstallRecoveryHarness))
-		fmt.Println("    Fix: run the trigger command above (blank selector = full suite), wait for green, re-run stable")
-		fmt.Println(shadowLabel(false))
-		runShadowCoverage(projDir, release.WorkflowInstallRecoveryHarness, rcShort, rcCommit, requiredScenarios, false)
-		return false
-	case release.WorkflowCheckPending:
-		fmt.Printf("  ✗ install-recovery is still pending at %s\n", rcShort)
-		fmt.Printf("    Watch: gh run watch %d\n", result.RunID)
-		fmt.Printf("    URL:   %s\n", result.RunURL)
-		fmt.Println("    Fix: wait for the run to complete, then re-run stable")
-		return false
-	case release.WorkflowCheckFailed:
-		fmt.Printf("  ✗ install-recovery failed at %s (conclusion: %s)\n", rcShort, result.Detail)
-		fmt.Printf("    See: gh run view %d --log-failed\n", result.RunID)
-		fmt.Printf("    URL: %s\n", result.RunURL)
-		fmt.Println("    Fix:")
-		fmt.Printf("      Retry the failed jobs (if transient): gh run rerun --failed %d\n", result.RunID)
-		fmt.Println("      Or push a fix to master, cut a new RC, then re-run stable")
-		return false
-	case release.WorkflowCheckMissing:
-		fmt.Printf("  ✗ install-recovery has not run for %s\n", rcShort)
-		fmt.Printf("    Trigger: %s\n", release.WorkflowTriggerCommand(release.WorkflowInstallRecoveryHarness, rcTag))
-		fmt.Printf("    Watch:   %s\n", release.WorkflowURL(release.WorkflowInstallRecoveryHarness))
-		fmt.Println("    Fix: run the trigger command above, wait for green, re-run stable")
-		// The interesting case for the switch: nothing ran here, so the
-		// per-scenario path is the only one that can find inherited evidence.
-		fmt.Println(shadowLabel(false))
-		runShadowCoverage(projDir, release.WorkflowInstallRecoveryHarness, rcShort, rcCommit,
-			shadowDomainAt(projDir, rcCommit, installRecoveryScenarioNamesAtCommit), false)
-		return false
-	case release.WorkflowCheckUnknown:
-		fmt.Println("  ✗ install-recovery status check failed (GitHub API error)")
-		fmt.Printf("    Detail: %s\n", result.Detail)
-		fmt.Println("    Fix: check network connectivity / GITHUB_TOKEN; or re-run later")
+	requiredScenarios, err := installRecoveryScenarioNamesAtCommit(projDir, rcCommit)
+	if err != nil {
+		fmt.Printf("  ✗ install-recovery: the scenario domain at %s could not be listed\n", rcShort)
+		fmt.Printf("    Error: %v\n", err)
 		return false
 	}
-	fmt.Printf("  ✗ install-recovery returned unexpected status %q\n", result.Status)
-	return false
+	return runCoverageAuthority(projDir, release.WorkflowInstallRecoveryHarness, rcTag, rcCommit, rcShort, requiredScenarios)
 }
 
 // checkUpgradeArcHarnessGate is the STATBUS-199 D2 stable gate for the
 // upgrade-arc harness (STATBUS-071's 31 real-dispatch arcs — serve-proven
 // writers, park lifecycle, deploy honesty).
 //
-// Two ways to pass: (1) a green run at rcCommit itself whose job set is
-// COMPLETE against the arcs present in the tree at rcCommit (comment #4:
-// "the gate verifies what ran, not what the run claims" — a subset
-// dispatch or a decide-only ride/skip run fails this by construction,
-// no run-name label needed), or (2) an RC whose diff against the newest
-// prior RC that DOES have such a complete green touches nothing in
-// ops/release/upgrade-sensitive-paths.txt — it may RIDE that prior green
-// instead, printed loudly (the inherited tag + the full path list, never
-// silent). The walk is bounded (20 RC tags) and computed HERE via a
-// direct candidate..rcCommit diff — no per-hop induction, correct by
-// construction. It never trusts the workflow's own short-circuit
-// judgment call for the RIDE decision; that's a CI cost optimization
-// only, not a correctness source — see the workflow's own "decide" job
-// comments.
+// STATBUS-252 SWITCH: authority moved from whole-suite completeness (one run
+// whose job list covers every arc, or one prior FULL-SUITE-green tag ridden
+// via a hand-rolled candidate walk computed inline here) to per-scenario
+// coverage (runCoverageAuthority — release.DecideCoverage per required arc,
+// derived from rcCommit's own tree, with the SAME anchor-and-walk-back shape
+// but decided ONE ARC AT A TIME rather than requiring one run to cover all
+// of them together). See runCoverageAuthority's doc comment for the three
+// preconditions and the AC#6 independence argument this switch relies on.
 func checkUpgradeArcHarnessGate(projDir, rcTag, rcCommit, rcShort string) bool {
 	const skipEnv = "SKIP_UPGRADE_ARCS"
 	if os.Getenv(skipEnv) == "1" {
@@ -2043,171 +1979,13 @@ func checkUpgradeArcHarnessGate(projDir, rcTag, rcCommit, rcShort string) bool {
 		return true
 	}
 
-	result := checkWorkflowAtCommit(release.WorkflowUpgradeArcHarness, rcCommit)
-	switch result.Status {
-	case release.WorkflowCheckGreen:
-		requiredArcs, err := upgradeArcNamesAtCommit(projDir, rcCommit)
-		if err != nil {
-			fmt.Printf("  ✗ upgrade-arc-harness is green at %s, but the arc domain at that commit could not be listed\n", rcShort)
-			fmt.Printf("    Error: %v\n", err)
-			return false
-		}
-		jobs, jerr := workflowJobsComplete(result.RunID, requiredArcs)
-		if jerr != nil {
-			fmt.Printf("  ✗ upgrade-arc-harness is green at %s, but its job list could not be verified\n", rcShort)
-			fmt.Printf("    Error: %v\n", jerr)
-			return false
-		}
-		if jobs.Complete {
-			fmt.Printf("  ✓ upgrade-arc-harness FULL SUITE green at %s (%d/%d arc jobs ran and succeeded)\n", rcShort, len(requiredArcs), len(requiredArcs))
-			fmt.Printf("    Run: %s\n", result.RunURL)
-			fmt.Println(shadowLabel(true))
-			runShadowCoverage(projDir, release.WorkflowUpgradeArcHarness, rcShort, rcCommit, requiredArcs, true)
-			return true
-		}
-		fmt.Printf("  … upgrade-arc-harness is green at %s, but %d/%d required arc jobs are not proof — not a full-suite proof, falling through to the path-sensitivity walk:\n",
-			rcShort, len(jobs.Missing)+len(jobs.Unsuccessful), len(requiredArcs))
-		printJobsCompletenessRefusal(jobs)
-		// Fall through to the walk below — same as Missing.
-	case release.WorkflowCheckPending:
-		fmt.Printf("  ✗ upgrade-arc-harness is still pending at %s\n", rcShort)
-		fmt.Printf("    Watch: gh run watch %d\n", result.RunID)
-		fmt.Printf("    URL:   %s\n", result.RunURL)
-		fmt.Println("    Fix: wait for the run to complete, then re-run stable")
-		return false
-	case release.WorkflowCheckFailed:
-		fmt.Printf("  ✗ upgrade-arc-harness failed at %s (conclusion: %s)\n", rcShort, result.Detail)
-		fmt.Printf("    See: gh run view %d --log-failed\n", result.RunID)
-		fmt.Printf("    URL: %s\n", result.RunURL)
-		fmt.Println("    Fix:")
-		fmt.Printf("      Retry the failed jobs (if transient): gh run rerun --failed %d\n", result.RunID)
-		fmt.Println("      Or push a fix to master, cut a new RC, then re-run stable")
-		return false
-	case release.WorkflowCheckUnknown:
-		fmt.Println("  ✗ upgrade-arc-harness status check failed (GitHub API error)")
-		fmt.Printf("    Detail: %s\n", result.Detail)
-		fmt.Println("    Fix: check network connectivity / GITHUB_TOKEN; or re-run later")
-		return false
-	case release.WorkflowCheckMissing:
-		// No proof at rcCommit itself (genuinely never ran). Fall through
-		// to the path-sensitivity walk below.
-	default:
-		fmt.Printf("  ✗ upgrade-arc-harness returned unexpected status %q\n", result.Status)
-		return false
-	}
-
-	missingRemedy := func() {
-		fmt.Printf("    Trigger: %s\n", release.WorkflowTriggerCommand(release.WorkflowUpgradeArcHarness, rcTag))
-		fmt.Printf("    Watch:   %s\n", release.WorkflowURL(release.WorkflowUpgradeArcHarness))
-	}
-
-	sensitivePaths, err := loadUpgradeSensitivePaths(projDir)
+	requiredArcs, err := upgradeArcNamesAtCommit(projDir, rcCommit)
 	if err != nil {
-		fmt.Printf("  ✗ upgrade-arc-harness has no FULL SUITE proof at %s, and the sensitivity-path walk could not load its list\n", rcShort)
+		fmt.Printf("  ✗ upgrade-arc-harness: the arc domain at %s could not be listed\n", rcShort)
 		fmt.Printf("    Error: %v\n", err)
-		missingRemedy()
 		return false
 	}
-
-	tags, err := release.ReleaseTagsNewestFirst(projDir)
-	if err != nil {
-		fmt.Printf("  ✗ upgrade-arc-harness has no FULL SUITE proof at %s, and the prior-RC walk could not list release tags\n", rcShort)
-		fmt.Printf("    Error: %v\n", err)
-		missingRemedy()
-		return false
-	}
-	var rcTags []string
-	for _, t := range tags {
-		if strings.Contains(t, "-rc.") {
-			rcTags = append(rcTags, t)
-		}
-	}
-	// rcTags is newest-first. Walk everything STRICTLY OLDER than rcTag —
-	// i.e. everything after its own position. If rcTag isn't found (e.g.
-	// not yet visible via `git ls-remote` at check time), walk the whole
-	// RC-tag list newest-first as a defensive fallback rather than refusing
-	// outright.
-	startIdx := 0
-	for i, t := range rcTags {
-		if t == rcTag {
-			startIdx = i + 1
-			break
-		}
-	}
-	const walkBound = 20
-	candidates := rcTags[startIdx:]
-	if len(candidates) > walkBound {
-		candidates = candidates[:walkBound]
-	}
-
-	fmt.Printf("  … upgrade-arc-harness has no FULL SUITE proof at %s — checking whether it may ride a prior green (STATBUS-199 path-sensitivity)\n", rcShort)
-	fmt.Println("    Sensitive paths (ops/release/upgrade-sensitive-paths.txt):")
-	for _, p := range sensitivePaths {
-		fmt.Printf("      %s\n", p)
-	}
-
-	foundAnyFullSuiteCandidate := false
-	for _, candidate := range candidates {
-		candCommit, cerr := tagTargetCommit(projDir, candidate)
-		if cerr != nil {
-			fmt.Printf("    (could not resolve %s's target commit: %v — skipping)\n", candidate, cerr)
-			continue
-		}
-		candResult := checkWorkflowAtCommit(release.WorkflowUpgradeArcHarness, candCommit)
-		if candResult.Status != release.WorkflowCheckGreen {
-			continue
-		}
-		candArcs, aerr := upgradeArcNamesAtCommit(projDir, candCommit)
-		if aerr != nil {
-			fmt.Printf("    (could not list %s's arc domain: %v — skipping)\n", candidate, aerr)
-			continue
-		}
-		candJobs, jerr := workflowJobsComplete(candResult.RunID, candArcs)
-		if jerr != nil {
-			fmt.Printf("    (could not verify %s's job completeness: %v — skipping)\n", candidate, jerr)
-			continue
-		}
-		if !candJobs.Complete {
-			// Green but not a full suite (subset dispatch, or a
-			// decide-only ride/skip run at that tag) — not a valid
-			// full-suite anchor. Keep walking further back.
-			continue
-		}
-		foundAnyFullSuiteCandidate = true
-		touched, matched, derr := diffTouchesSensitivePath(projDir, candidate, rcCommit, sensitivePaths)
-		if derr != nil {
-			fmt.Printf("    (could not diff %s..%s: %v — skipping this candidate)\n", candidate, rcShort, derr)
-			continue
-		}
-		if !touched {
-			fmt.Printf("  ✓ upgrade-arc-harness: no upgrade-sensitive changes since %s (FULL SUITE green there) — riding it\n", candidate)
-			fmt.Printf("    %s run: %s\n", candidate, candResult.RunURL)
-			fmt.Println(shadowLabel(true))
-			runShadowCoverage(projDir, release.WorkflowUpgradeArcHarness, rcShort, rcCommit, shadowDomainAt(projDir, rcCommit, upgradeArcNamesAtCommit), true)
-			return true
-		}
-		// The NEWEST prior FULL-SUITE green is the only one that matters
-		// (STATBUS-199 D2): its diff range to rcCommit is the SMALLEST of
-		// any candidate's, so if a sensitive path changed since it, that
-		// same change is necessarily also within every OLDER candidate's
-		// (bigger) diff range. No older candidate can ever be ridable
-		// either — stop walking rather than re-derive the same BLOCK N
-		// more times.
-		fmt.Printf("  ✗ upgrade-arc-harness: %s is FULL-SUITE green, but %d upgrade-sensitive file(s) changed since then — cannot ride it:\n", candidate, len(matched))
-		for _, f := range matched {
-			fmt.Printf("      %s\n", f)
-		}
-		break
-	}
-
-	if !foundAnyFullSuiteCandidate {
-		fmt.Printf("  ✗ upgrade-arc-harness: no FULL SUITE green found within the last %d RC tag(s) either\n", walkBound)
-	}
-	missingRemedy()
-	fmt.Println("    Fix: run the trigger command above, wait for green, re-run stable")
-	fmt.Println(shadowLabel(false))
-	runShadowCoverage(projDir, release.WorkflowUpgradeArcHarness, rcShort, rcCommit, shadowDomainAt(projDir, rcCommit, upgradeArcNamesAtCommit), false)
-	return false
+	return runCoverageAuthority(projDir, release.WorkflowUpgradeArcHarness, rcTag, rcCommit, rcShort, requiredArcs)
 }
 
 // checkRCArtifactGate is the pre-flight asset/manifest gate for
