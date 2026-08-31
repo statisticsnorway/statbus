@@ -4,11 +4,11 @@ title: >-
   offer-hygiene: a row is displayed as an offer when it is not a valid upgrade
   for this box — off-channel residue in one arm, same-commit relabeling in the
   other
-status: In Progress
+status: Done
 assignee:
   - '@engineer'
 created_date: '2026-08-31 12:47'
-updated_date: '2026-08-31 19:42'
+updated_date: '2026-08-31 19:51'
 labels:
   - upgrade
   - cli
@@ -32,10 +32,10 @@ WHAT IS ACHIEVED: no box displays an offer it should not act on — the shelf ma
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Arm 1: an off-channel available/scheduled row is retired (or hidden from the offer surface) on a box whose channel excludes it, with a test proving pre-filter residue disappears and on-channel rows survive
+- [x] #1 Arm 1: an off-channel available/scheduled row is retired (or hidden from the offer surface) on a box whose channel excludes it, with a test proving pre-filter residue disappears and on-channel rows survive
 - [x] #2 Arm 2: a candidate whose commit_sha equals the box's installed commit is never displayed or offered, with a test on the dual-tag (rc + release same commit) case
-- [ ] #3 The 291 announce at scheduleStep remains intact — retirement/hiding must not remove the announce for anything still schedulable
-- [ ] #4 No retirement decision compares by version-string channel guessing — channel membership and commit identity are the only new predicates
+- [x] #3 The 291 announce at scheduleStep remains intact — retirement/hiding must not remove the announce for anything still schedulable
+- [x] #4 No retirement decision compares by version-string channel guessing — channel membership and commit identity are the only new predicates
 <!-- AC:END -->
 
 ## Comments
@@ -52,3 +52,9 @@ created: 2026-08-31 19:42
 Foreman (2026-08-31 evening): King dispatched the remaining arm for the coming candidate. SCOPE NOW: Arm 1 only, narrowed — rc-shaped rows on a STABLE-channel box are the sole off-channel case (nested semantics landed in 307 at 7816a7654 made stable-on-prerelease legitimate; Arm 2's same-commit short-circuit ALSO landed in 307 — AC#2 is satisfied there). Fix shape per the architect's narrowing (comment #1): retraction lives in the service where the channel is known (a migration cannot see .env); a startup sweep applying the same declared channel policy discover() applies at intake — consistent policy application, not a standing self-heal. Assigned: engineer.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+COMPLETE across two landings. Arm 2 (same-commit short-circuit) landed inside STATBUS-307 at 7816a7654: candidate commit == the running binary's ldflags commit → never an offer. Arm 1 landed at 572b11467: retireOffChannelOffers runs at service startup BEFORE the first discovery, retiring 'available' rows whose tags all fail TagMatchesChannel — the ONE membership definition, shared with intake and the announce. State is 'skipped' (schema-ruled: dismissed structurally requires a failure; superseded would record a replacement that never happened; skipped is a decision-state and this is a policy decision). Never touched: scheduled rows (human decisions taken with the 291 announce in view — a test pins it) and untagged rows (operator SHA-registrations with no membership to test). THE SELF-CAUGHT CATASTROPHE, on record: a channel admitting nothing (unknown value, or a developer's 'local') inverts intake's safe direction into sweep-everything at retirement — the channelAdmitsAnything guard derives sweepability from TagMatchesChannel itself, preserving the single definition. The 242 rewind audit carries the honest bound: re-derived per START not per tick; a restore without a restart leaves stale offers until the next start (exactly the pre-fix condition, still announce-guarded), never a wrong install. Under the new nested channels the sweep also makes future prerelease→stable narrowing transitions clean — the direction-asymmetry case the architect recorded. Foreman-reviewed line by line; seven tests re-run independently by name; vet/gofmt clean.
+<!-- SECTION:FINAL_SUMMARY:END -->
