@@ -98,6 +98,28 @@ response.raise_for_status()
 data = response.json()
 ```
 
+## Windows Quick Start
+
+No setup script needed — just install the dependencies and run:
+
+1. **Install Python** from [python.org](https://www.python.org/downloads/) (3.7+, ensure "Add to PATH" is checked)
+
+2. **Install packages:**
+   ```cmd
+   pip install requests python-dotenv
+   ```
+
+3. **Create a `.env` file** in the same directory:
+   ```
+   API_URL=https://your-statbus-url
+   API_KEY=your-api-key-here
+   ```
+
+4. **Run the example:**
+   ```cmd
+   python example_windows.py
+   ```
+
 ## Troubleshooting
 
 ### Import Error: No module named 'dotenv'
