@@ -639,7 +639,7 @@ func runInstall() (installErr error) {
 				// Mirrors the support.go install_last_error* upsert pattern.
 				// Best-effort: a failure here is a log-only breadcrumb — the
 				// admin UI simply shows stale values until the next install.
-				stampInstallInvocationTracking(conn, logRelPath)
+				stampInstallInvocationTracking(conn, logRelPath, installDir)
 				runInstallSupersede(conn, installDir)
 				runInstallRetention(conn, upgradeRowID)
 				runInstallCallback(installDir)
@@ -2533,10 +2533,19 @@ func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, logRelPath str
 // Also clears install_last_error / install_last_error_at / install_last_bundle_path
 // so a previously-failed install stops showing a stale error banner after a
 // successful re-run.
-func stampInstallInvocationTracking(conn *pgx.Conn, logRelPath string) {
+// STATBUS-308: the same upsert also refreshes the unit-floor keys, so a box that
+// was just repaired reports healthy IMMEDIATELY rather than at the service's next
+// poll. Install is the repair verb, so install finishing is exactly the moment
+// the admin UI's warning should clear.
+//
+// The interval passed is the service's default poll cadence — install does not
+// run the ticker, but the reader needs a yardstick to judge staleness against,
+// and writing one keeps the key populated on a box that has never yet ticked.
+func stampInstallInvocationTracking(conn *pgx.Conn, logRelPath, installDir string) {
 	if conn == nil {
 		return
 	}
+	defer upgrade.StampUnitFloor(context.Background(), conn, installDir, upgrade.DefaultPollInterval)
 	_, err := conn.Exec(context.Background(),
 		`INSERT INTO public.system_info (key, value) VALUES
 		     ('install_last_log_relative_file_path', $1),

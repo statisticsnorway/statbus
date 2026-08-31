@@ -88,6 +88,103 @@ interface Upgrade {
 interface SystemInfo {
   key: string;
   value: string;
+  updated_at: string;
+}
+
+// STATBUS-308. A box whose upgrade service is missing or stopped cannot follow
+// its channel, and until now nothing said so: demo sat nine days with a stale
+// page, looking healthy. This banner is the operator-facing half of that.
+//
+// TWO WAYS TO KNOW, and the second is why the first is not enough. An explicit
+// bad state is reported by the service itself — but the headline case is the
+// service being ABSENT, and a service that does not exist cannot report its own
+// absence. So the writer refreshes system_info on every poll tick, and a row
+// that has stopped being refreshed is the report that nothing is checking.
+//
+// THE YARDSTICK IS PRINTED BESIDE THE FACT so the operator judges severity
+// themselves: "no self-check since 14:02 — expected every 6 hours" says both what
+// was seen and what should have been. And the threshold is DERIVED from the
+// interval the writer recorded, never a hardcoded number of minutes — if the
+// poll cadence changes, this warning moves with it rather than silently
+// measuring against a cadence that no longer exists.
+const STALE_INTERVAL_MULTIPLE = 3;
+
+function formatInterval(seconds: number): string {
+  if (seconds % 3600 === 0) {
+    const h = seconds / 3600;
+    return h === 1 ? "every hour" : `every ${h} hours`;
+  }
+  const m = Math.round(seconds / 60);
+  return m === 1 ? "every minute" : `every ${m} minutes`;
+}
+
+function UnitFloorWarning({ systemInfo }: { systemInfo?: SystemInfo[] }) {
+  if (!systemInfo) return null;
+
+  const row = systemInfo.find((s) => s.key === "unit_floor_state");
+  // No row at all: a box that has never run a version which writes it. Silent
+  // rather than alarming — absence of the feature is not evidence of a fault.
+  if (!row) return null;
+
+  const detail =
+    systemInfo.find((s) => s.key === "unit_floor_detail")?.value ?? "";
+  const intervalSeconds = Number(
+    systemInfo.find((s) => s.key === "unit_floor_poll_interval_seconds")
+      ?.value ?? "0"
+  );
+
+  // not-applicable (non-Linux) and unknown-user are honest "cannot tell"
+  // answers, not breaches. Alarming on them would train operators to ignore
+  // this banner, which is the failure mode it exists to prevent.
+  const healthyStates = ["ok", "not-applicable", "unknown-user"];
+  const stateIsBad = !healthyStates.includes(row.value);
+
+  const checkedAt = new Date(row.updated_at);
+  const ageSeconds = (Date.now() - checkedAt.getTime()) / 1000;
+  const isStale =
+    intervalSeconds > 0 &&
+    ageSeconds > intervalSeconds * STALE_INTERVAL_MULTIPLE;
+
+  if (!stateIsBad && !isStale) return null;
+
+  const stateMessages: Record<string, string> = {
+    "unit-file-missing":
+      "The upgrade service is not installed on this box. It will never take a new release on its own.",
+    "unit-file-drifted":
+      "The upgrade service is running an outdated unit definition. Its timeouts and watchdog settings are whatever they were when it was installed.",
+    inactive:
+      "The upgrade service is installed but not running, so no checks happen and this page will go stale.",
+  };
+
+  return (
+    <div className="mb-6 rounded-md border border-amber-500/50 bg-amber-50 p-4 text-sm dark:bg-amber-950/30">
+      <p className="font-semibold text-amber-900 dark:text-amber-200">
+        This box may not be able to follow its upgrade channel
+      </p>
+      <ul className="mt-2 list-disc space-y-1 pl-5 text-amber-900 dark:text-amber-200">
+        {stateIsBad && (
+          <li>
+            {stateMessages[row.value] ??
+              `The upgrade service reports state "${row.value}".`}
+            {detail && (
+              <span className="block text-xs opacity-80">{detail}</span>
+            )}
+          </li>
+        )}
+        {isStale && (
+          <li>
+            No self-check since {checkedAt.toLocaleString()} — expected{" "}
+            {formatInterval(intervalSeconds)}. Nothing is currently reporting on
+            this box&apos;s upgrade service.
+          </li>
+        )}
+      </ul>
+      <p className="mt-3 text-amber-900 dark:text-amber-200">
+        To repair, run the install entrypoint on the server. It is idempotent and
+        safe to re-run: <code className="font-mono">./sb install</code>
+      </p>
+    </div>
+  );
 }
 
 function StateBadge({ state, label }: { state: UpgradeState; label: string }) {
@@ -313,6 +410,10 @@ export default function UpgradesPage() {
       <p className="mb-8 text-center text-muted-foreground">
         Manage StatBus software updates
       </p>
+
+      {/* STATBUS-308: an operator reading a stale page should be TOLD why it is
+          stale, before they read anything else on it. */}
+      <UnitFloorWarning systemInfo={systemInfo} />
 
       {/* Status header */}
       <div className="mb-8 flex flex-wrap items-center justify-center gap-4 text-sm text-muted-foreground">

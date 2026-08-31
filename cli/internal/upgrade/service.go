@@ -2700,6 +2700,13 @@ func (d *Service) Run(ctx context.Context) error {
 			// (an install writes a new template while this process keeps running
 			// the old definition) without turning the journal into noise.
 			d.announceUnitFloorIfChanged()
+			// The STAMP fires every tick, unlike the announce above. That is
+			// deliberate and is what makes the missing-unit case observable at
+			// all: the admin UI reads system_info.updated_at, so a box whose
+			// service has stopped simply stops refreshing it, and the staleness
+			// is the report. Stamping only on change would leave a healthy-looking
+			// row frozen at its last transition forever.
+			StampUnitFloor(ctx, d.queryConn, d.projDir, d.interval)
 			if !d.upgrading {
 				// Belt: reconcile any in_progress row whose final UPDATE was
 				// lost (e.g. stale DB connection during executeUpgrade). Low-
@@ -3822,13 +3829,13 @@ func (d *Service) loadConfig() error {
 			"this box was never meant to follow.\n", d.channel)
 	}
 
-	intervalStr := "6h"
+	intervalStr := DefaultPollInterval.String()
 	if v, ok := f.Get("UPGRADE_CHECK_INTERVAL"); ok {
 		intervalStr = v
 	}
 	d.interval, err = time.ParseDuration(intervalStr)
 	if err != nil {
-		d.interval = 6 * time.Hour
+		d.interval = DefaultPollInterval
 	}
 
 	d.autoDL = true
