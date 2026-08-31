@@ -4,9 +4,11 @@ title: >-
   migrate-down-released-guard: down reverts released migrations with nothing
   standing in the way — the cut-gate guards files while the hazard is in the
   ledger
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@mechanic'
 created_date: '2026-08-31 12:51'
+updated_date: '2026-08-31 19:42'
 labels:
   - cli
   - tooling

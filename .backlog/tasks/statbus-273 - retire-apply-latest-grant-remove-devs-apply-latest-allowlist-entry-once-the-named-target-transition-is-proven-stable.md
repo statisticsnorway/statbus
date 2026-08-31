@@ -3,9 +3,11 @@ id: STATBUS-273
 title: >-
   retire-apply-latest-grant: remove dev's apply-latest allowlist entry once the
   named-target transition is proven stable
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@operator'
 created_date: '2026-08-27 13:23'
+updated_date: '2026-08-31 19:44'
 labels:
   - ops
   - security

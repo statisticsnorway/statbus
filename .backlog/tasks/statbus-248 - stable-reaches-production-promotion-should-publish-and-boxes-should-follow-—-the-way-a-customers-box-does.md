@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 07:27'
-updated_date: '2026-08-19 11:44'
+updated_date: '2026-08-31 19:42'
 labels:
   - release
   - ops
@@ -137,5 +137,11 @@ A failed run must be **loud and must not retry silently**: demo failing to take 
 ## WHAT THIS IS NOT
 
 It is not a canary and must not be described as one anywhere. It gates nothing, no promotion waits on it, and its failure blocks no release. It is a demonstration box kept current by the same command an operator would type.
+---
+
+author: foreman
+created: 2026-08-31 19:42
+---
+KING'S SUPERSEDING RULING (2026-08-31 evening): ALL cloud slots run PRERELEASE — demo INCLUDED. This supersedes this ticket's demo=stable ruling and comment #4's topology on that point. His words across the day: 'all the cloud channels were meant to be pre-release so we can test them and show things before others' … 'let's run all of the cloud in pre-release, yes' (given after the foreman presented the 08-19 demo=stable reasoning explicitly — a deliberate reversal, not an oversight). Consequence on record: demo's daily auto-apply workflow resolves on the box's channel, so demo will auto-install release CANDIDATES daily — under the old frame an exposure, under this ruling the intent (an auto-updating candidate showcase). Country slots stay human-opt-in — their offers are now rc offers. Norway unchanged (prerelease + human). The channel writes ship in the post-307-release transition per the pinned runbook (307 comment #11): operator writes, foreman-gated, same session as each box taking the new code.
 ---
 <!-- COMMENTS:END -->

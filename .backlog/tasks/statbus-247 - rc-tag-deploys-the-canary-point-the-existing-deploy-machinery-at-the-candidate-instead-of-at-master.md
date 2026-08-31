@@ -3,10 +3,11 @@ id: STATBUS-247
 title: >-
   canary-topology: dev proves the candidate installs, Norway proves a person can
   install it
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@tester'
 created_date: '2026-08-19 07:14'
-updated_date: '2026-08-31 12:25'
+updated_date: '2026-08-31 19:44'
 labels:
   - release
   - ops
@@ -160,5 +161,11 @@ author: foreman
 created: 2026-08-19 09:30
 ---
 KING APPROVED 2026-08-19 (dialogue presentation, fifth of the sitting), with his reason for Norway's open-ended wait recorded as design intent, near verbatim: "Norway's wait is open-ended by design because it's a HUGE installation — so we can catch those exact crazy things that take too long, or some migration logical error. That's the only way." The human canary's value is SCALE: real production-sized data surfaces what fixtures and small boxes structurally cannot — fold that sentence into the observation card's purpose statement at build time.
+---
+
+author: foreman
+created: 2026-08-31 19:44
+---
+Foreman (2026-08-31 evening, under the King's drain-the-backlog directive): smoke stage (stage 1) dispatched to the tester NOW — reuse the install-recovery harness's VM provisioning; check whether existing scenarios already ARE the two happy paths before writing new ones; no paid runs without foreman gate. The tag-driven dev deploy (stage 2's trigger, retiring the transitional master-to-dev button per 244b) queues to the engineer behind 330. The 12-day gap between the King's approval and this dispatch is the deferral pattern he called out tonight; it ends here.
 ---
 <!-- COMMENTS:END -->

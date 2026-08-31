@@ -4,10 +4,11 @@ title: >-
   offer-hygiene: a row is displayed as an offer when it is not a valid upgrade
   for this box — off-channel residue in one arm, same-commit relabeling in the
   other
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@engineer'
 created_date: '2026-08-31 12:47'
-updated_date: '2026-08-31 12:49'
+updated_date: '2026-08-31 19:42'
 labels:
   - upgrade
   - cli
@@ -32,7 +33,7 @@ WHAT IS ACHIEVED: no box displays an offer it should not act on — the shelf ma
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 Arm 1: an off-channel available/scheduled row is retired (or hidden from the offer surface) on a box whose channel excludes it, with a test proving pre-filter residue disappears and on-channel rows survive
-- [ ] #2 Arm 2: a candidate whose commit_sha equals the box's installed commit is never displayed or offered, with a test on the dual-tag (rc + release same commit) case
+- [x] #2 Arm 2: a candidate whose commit_sha equals the box's installed commit is never displayed or offered, with a test on the dual-tag (rc + release same commit) case
 - [ ] #3 The 291 announce at scheduleStep remains intact — retirement/hiding must not remove the announce for anything still schedulable
 - [ ] #4 No retirement decision compares by version-string channel guessing — channel membership and commit identity are the only new predicates
 <!-- AC:END -->
@@ -44,5 +45,10 @@ author: foreman
 created: 2026-08-31 12:49
 ---
 Architect's fix-shape narrowing for Arm 1 (2026-08-31, after live evidence): intake needs nothing more (filter proven working). What is missing is RETRACTION of pre-filter rows. A migration CANNOT do this — the box's channel lives in .env, not the database, so a repair migration has nothing to filter on. The retraction must live where the channel is known: the service. Right shape: a startup sweep retiring off-channel 'available' rows — NOT a standing self-heal, because it applies the same declared channel policy discover() applies at intake (consistent application of declared policy is not repair; same reasoning that settled 325's derivation question).
+---
+
+created: 2026-08-31 19:42
+---
+Foreman (2026-08-31 evening): King dispatched the remaining arm for the coming candidate. SCOPE NOW: Arm 1 only, narrowed — rc-shaped rows on a STABLE-channel box are the sole off-channel case (nested semantics landed in 307 at 7816a7654 made stable-on-prerelease legitimate; Arm 2's same-commit short-circuit ALSO landed in 307 — AC#2 is satisfied there). Fix shape per the architect's narrowing (comment #1): retraction lives in the service where the channel is known (a migration cannot see .env); a startup sweep applying the same declared channel policy discover() applies at intake — consistent policy application, not a standing self-heal. Assigned: engineer.
 ---
 <!-- COMMENTS:END -->
