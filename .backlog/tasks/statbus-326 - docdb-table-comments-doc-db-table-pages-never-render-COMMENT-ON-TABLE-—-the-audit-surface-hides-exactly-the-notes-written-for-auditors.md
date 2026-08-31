@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-08-31 12:11'
-updated_date: '2026-08-31 12:36'
+updated_date: '2026-08-31 12:47'
 labels:
   - tooling
   - docs
@@ -44,5 +44,11 @@ author: foreman
 created: 2026-08-31 12:36
 ---
 Foreman (2026-08-31): dispatched to mechanic. Fix point located: doc/db table pages are bare \\d+ dumps written by the table loop at dev.sh:2935-2944 (views at 2946-2955); \\d+ never prints the table-level comment. Scope per King's ruling: generator renders obj_description; the daemon-floor guard is untouched; the re-created 308 comment migration takes an honest floor bump.
+---
+
+author: foreman
+created: 2026-08-31 12:47
+---
+Foreman (2026-08-31): generator half LANDED at c1cfdbab1 (foreman-reviewed; both loops render obj_description after the fence; 28-page catch-up verified pure — +2 per page, one +3 multi-line, doc/db/function untouched, system_info correctly still showing the OLD generic comment). Remaining: the re-created 308 comment migration + floor bump, BLOCKED on the architect supplying the ruled wording (exact text unrecoverable — existed only untracked on a dead session; mechanic's exhaustive search on record).
 ---
 <!-- COMMENTS:END -->
