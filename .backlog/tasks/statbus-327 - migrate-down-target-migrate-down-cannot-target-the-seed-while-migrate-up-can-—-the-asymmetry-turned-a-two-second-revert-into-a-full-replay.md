@@ -3,9 +3,11 @@ id: STATBUS-327
 title: >-
   migrate-down-target: migrate down cannot target the seed while migrate up can
   — the asymmetry turned a two-second revert into a full replay
-status: To Do
-assignee: []
+status: Done
+assignee:
+  - '@engineer'
 created_date: '2026-08-31 12:13'
+updated_date: '2026-08-31 12:50'
 labels:
   - cli
   - tooling
@@ -26,3 +28,9 @@ THE FIX: give `migrate down` the same --target semantics as `migrate up` (defaul
 
 WHAT IS ACHIEVED: the edit-migration-then-retreat loop is symmetric and cheap on both databases, and nobody is ever tempted toward the hand-edit escape by a missing flag.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+LANDED at 5113ec740 (foreman-reviewed, five tests re-verified by name). `./sb migrate down` and `down all` both take --target with up's exact semantics — default dev matching up (deliberately not redo's seed default: down is the developer's ordinary retreat, and a seed default would silently redirect every existing invocation in muscle memory and scripts). Reuses ResolveTargetDB/OverrideTargetDB so the 146 divergence refusal and 150 explicit-target-wins rule are inherited, not reimplemented; a structural test pins that runMigrateDown contains no target-conditional branch, so --target can never widen rollback scope. RED proven (unregistering the flag failed exactly the three existence/default/usage tests) and live wiring proven (--target bogus refused by the shared resolver before any rollback). PREMISE CORRECTION ON RECORD: Down has never had a released-vs-WIP refusal on any target — this ticket neither opened nor closed that door; whether down should refuse released migrations (seed feeds the statbus-seed image and thus the fleet) is a separate design question now with the architect.
+<!-- SECTION:FINAL_SUMMARY:END -->
