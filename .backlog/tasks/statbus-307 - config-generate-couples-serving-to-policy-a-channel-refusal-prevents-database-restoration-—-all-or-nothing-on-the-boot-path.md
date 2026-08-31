@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-08-28 21:37'
-updated_date: '2026-08-31 13:17'
+updated_date: '2026-08-31 13:18'
 labels:
   - upgrade
   - cli
@@ -106,5 +106,57 @@ author: foreman
 created: 2026-08-31 13:17
 ---
 KING'S PRINCIPLE (2026-08-31, supersedes the pending approval question on the filed design): When an installation runs ./sb config generate, the DEFAULT values shall be those suitable for an NSO STANDALONE installation. Anything else must be specified. Confirmed in discussion: SITE_DOMAIN is the one key with no honest default — and as such it must be specified (standalone mode with an unspecified domain refuses with an actionable message rather than generating a config that cannot serve). Foreman's verified groundwork for the re-derivation: config.go:352 currently defaults CADDY_DEPLOYMENT_MODE to 'development' (the direct inversion of the principle); gen()/f.Generate writes defaults into .env.config on first generate, so every existing box carries the mode key explicitly and a default flip touches only genuinely fresh installations; defaultRoleForMode's equivalence concern dissolves for the same reason; cloud slots set 'private' explicitly (create-new-statbus-installation.sh:361); canary is explicit-only by design. The filed partial-generation design is NOT approved as-is — architect re-derives 307 under this principle (it may shrink to: flip the mode default, add the standalone SITE_DOMAIN refusal, keep fail-fast on incoherent explicit input).
+---
+
+author: architect
+created: 2026-08-31 13:18
+---
+**RE-DERIVED DESIGN under the King's principle. This supersedes comment #1, and it is much smaller.**
+
+**Purpose, in two sentences.** A fresh installation must be a working NSO standalone box without anyone configuring it, and the only thing it must be told is the one fact the product cannot know — its domain. Everything the product can honestly decide about itself, it decides.
+
+## The reconciliation that makes the King's principle and the omit-never-default rule BOTH true
+
+My filed design said defaulting the release channel would be a **fabricated policy** that could install a wrong-channel candidate. The King rules that defaults shall be those suitable for an NSO standalone installation. **These do not conflict, and the boundary between them is the load-bearing sentence of this whole entry:**
+
+> **Absent input takes the declared standalone default. Contradictory input refuses. A default answers a question nobody asked; it never settles a question two inputs answered differently.**
+
+Defaulting an **absent** value is the product having a defined identity — legitimate, and exactly what the King is asking for. Defaulting a **contradictory** one is resolving someone's conflict by preference — a guess wearing a default's clothes, and the STATBUS-291 harm arriving by convenience.
+
+**This boundary MUST be written at the code, because the misreading is natural:** *"defaults shall be suitable for standalone, so when the role and channel disagree, just take the standalone default."* That reintroduces exactly what the 254 guard exists to stop.
+
+**And it explains the SITE_DOMAIN carve-out rather than treating it as an exception: a default is honest when the PRODUCT owns the fact, and dishonest when the WORLD owns it.** The product may declare "you are a standalone production installation" — that is a statement about itself. It may not declare "your domain is X" — that is a statement about a world it cannot see. One key, one carve-out, one reason.
+
+## I WITHDRAW the partial-generation restructure. Here is the tension resolved plainly.
+
+Comment #1's argument was the frozen box: while policy is unresolved, the landed behaviour serves on a stale `.env`, so a port change or credential rotation made in that window never takes effect.
+
+**Under the principle that argument no longer pays for itself.** Once absence is answered by the default, the unresolved state arises only from **contradictory explicit input** — an operator's own hand-edit, or our creation script writing `UPGRADE_ROLE` onto a pre-254 box that still seeds `UPGRADE_CHANNEL` (STATBUS-297's path, real but transitional).
+
+**In both surviving cases the box is already serving**, and the only extra gain is that unrelated config changes made inside that same window take effect. **That gain is narrow and shrinking; the cost — every reader of the policy keys tolerating absence, forever — is broad and permanent.**
+
+**So the accepted cost is: the operator fixes their own contradiction, and the tooling-induced case resolves when the box upgrades.** The refusal names the two keys and the edit. That is the right trade, and it is a smaller system.
+
+## The design
+
+1. **`CADDY_DEPLOYMENT_MODE` defaults to `standalone`** (`config.go:352`, currently `development` — the direct inversion of the principle).
+2. **Standalone with unspecified `SITE_DOMAIN` REFUSES, actionably** — naming the key and how to set it. It never generates a configuration that cannot serve.
+3. **Absent `UPGRADE_ROLE` takes the standalone default**, so a fresh NSO box follows `stable` without being told to.
+4. **Contradictory policy input still refuses**, unchanged — the 254 guard is correct and untouched.
+5. **The landed park-and-serve fork (3ff11f1d6) and dispatch guard (3d102d676) become the final form**, asserted in tests, not rebuilt.
+
+## Acceptance criteria
+
+1. A fresh box with only `SITE_DOMAIN` specified generates a complete, serving standalone configuration.
+2. A fresh box with **no** `SITE_DOMAIN` refuses, naming the key and the edit — never emitting a config that cannot serve.
+3. Absent `UPGRADE_ROLE` yields production/`stable`; no upgrade-policy configuration is required for correct behaviour.
+4. **Contradictory** role/channel input still refuses. **Red-verified: making the default resolve a contradiction FAILS a test.**
+5. Existing installations are unaffected — `gen()`/`f.Generate` already wrote the mode key explicitly, so the flip reaches only genuinely fresh installs. Proven by test, not asserted.
+6. Cloud slots (explicit `private`) and the canary (explicit-only) are unchanged.
+7. The absent-versus-contradictory boundary is stated in the code at the default site.
+
+## What is achieved
+
+An NSO installs StatBus by supplying one fact — its domain — and gets a correct production box; every other default is the product declaring what it is, and no default ever answers a question the operator already answered two different ways.
 ---
 <!-- COMMENTS:END -->
