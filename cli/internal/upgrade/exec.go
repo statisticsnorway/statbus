@@ -244,7 +244,59 @@ func runCommandOutputTimeout(dir string, timeout time.Duration, name string, arg
 	if ctx.Err() == context.DeadlineExceeded {
 		return string(out), fmt.Errorf("command timed out after %s: %s %v", timeout, name, args)
 	}
-	return string(out), err
+	return string(out), explainGitFailure(name, string(out), err)
+}
+
+// explainGitFailure re-reports a git credential demand as what it actually is:
+// an unreachable or refused remote (STATBUS-324).
+//
+// THE FACT THAT MAKES THIS HONEST, and it is a fact about OUR remote rather than
+// an interpretation of git's intent: the repo is PUBLIC. No fetch of it ever
+// legitimately needs credentials. Therefore a credential demand from this remote
+// is NEVER an auth failure — it is git falling back to auth after the request
+// failed for some other reason. We are applying something we own and know, not
+// guessing at what git meant.
+//
+// WHY IT IS NEEDED AT ALL, measured rather than assumed: GIT_TERMINAL_PROMPT=0
+// alone does NOT fix the message. Before and after that flag, git says
+//
+//	fatal: could not read Username for 'https://github.com': Device not configured
+//	fatal: could not read Username for 'https://github.com': terminal prompts disabled
+//
+// Only the trailing clause changes. Both still lead with "Username", so an
+// operator reads AUTH when the observed cause on niue was THROTTLING — every
+// slot fetching anonymously from one shared egress IP, which GitHub rate-limits
+// by IP. On an NSO box that misdiagnosis costs a support cycle spent on
+// credentials that were never involved.
+//
+// THE TEXT-MATCH, AND WHY IT IS ACCEPTABLE HERE WHEN IT WAS REJECTED IN 298.
+// This matches on git's error wording, which git could reword in a future
+// release. In STATBUS-298 that same fragility was rejected — and correctly: there
+// a stale match meant a GUARD SILENTLY STOPPED GUARDING, a safety regression that
+// looks identical to safety. Here a stale match degrades the message to exactly
+// what ships today: git's own text, unannotated. Cosmetic, self-evident the first
+// time anyone reads it, and it can never approve something it should have
+// refused. Same technique, opposite consequence class — which is the whole reason
+// one was refused and this one is not.
+//
+// It never REPLACES git's output; the raw text is what a support bundle needs.
+// It adds the framing above it and says only what we know — unreachable or
+// refused — never a specific cause we have not observed.
+func explainGitFailure(name, out string, err error) error {
+	if err == nil || name != "git" {
+		return err
+	}
+	if !strings.Contains(out, "could not read Username") &&
+		!strings.Contains(out, "Authentication failed") {
+		return err
+	}
+	return fmt.Errorf(
+		"could not reach the StatBus repository on github.com — the request was refused or the host was unreachable.\n"+
+			"  This is NOT an authentication problem: the repository is public and this box needs no credentials for it.\n"+
+			"  git asked for a username only because it fell back to authentication after the request failed.\n"+
+			"  Most often seen when GitHub rate-limits anonymous requests from a shared outbound IP; retrying later usually succeeds.\n"+
+			"  git's own output follows:\n%s\n  (underlying error: %w)",
+		strings.TrimRight(out, "\n"), err)
 }
 
 // pullImagesForCommitShort pre-pulls the full image set for a SPECIFIC version,
