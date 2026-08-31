@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-30 02:13'
-updated_date: '2026-08-30 05:29'
+updated_date: '2026-08-31 10:58'
 labels:
   - ops
   - release
@@ -40,4 +40,8 @@ WHAT IS ACHIEVED: the fleet actually converges, each box by its honest path, and
 
 <!-- SECTION:NOTES:BEGIN -->
 **First convergence observed (2026-08-30 ~05:30 read):** demo runs v2026.08.0 COMPLETED — taken unaided overnight by its daily auto-apply-stable workflow (STATBUS-248's cron mechanism, abe93ed49), exactly as designed. The first channel-following convergence in the fleet's history, and the live proof that the 248 shape works where a current-era binary and an apply trigger both exist. The remaining boxes stand as mapped: five legacy (structurally cannot verify artifacts), Ukraine + Ghana (clean offer, need one schedule act), dev/Norway on the candidate line.
+
+**King's rulings (2026-08-31 morning):** (1) UKRAINE IS WIPED FROM THIS TICKET — it self-installs from now on; no pending work, no decision owed, not ours to act on. (2) VOCABULARY CORRECTED: et/jo/ma/tcc/ug are CLOUD SLOTS, not 'legacy' — the word is retired; their binaries are older, the boxes are not a category. (3) The five cloud slots: the King upgrades them himself in one sitting with the cloud tool — `./cloud.sh install <slot> v2026.08.0` per slot (the PINNED form always takes the full bootstrap: stop service, replace binary, re-run install — which bypasses the old binaries' broken artifact verification entirely; the unpinned 'smart' path would try the very upgrade-service machinery that cannot verify). (4) The 248 auto-apply arm is NOT being built on the earlier framing — the King's constraint stands as the north star: an NSO must control WHEN something installs; automatic installation the office cannot control is rejected on sight. Demo's cron is OUR box and OUR explicit choice, outside the product. What 'channel-following' means under NSO-controls-when goes to a deliberate design discussion, not a build.
+
+**CORRECTION + roster fix landed (bf0016503):** Ghana is NOT a standalone host — the earlier note's description was wrong (one failed SSH to the subdomain, no DNS check). Verified: gh.statbus.org is a CNAME to niue and statbus_gh@niue answers; Ghana and Ukraine are both ordinary niue slots born in August from create-new-statbus-installation.sh, invisible to the fleet tool only because cloud.sh's SERVERS was last edited before they existed. Both added to the roster; the comment at the line records the rule (a slot missing from the list is invisible to fleet upgrades — the list gains every new slot the day it is created). King's ruling: NEITHER is special; both converge via the same pinned `./cloud.sh install <slot> v2026.08.0` he is running across the fleet, superseding both the 'Ukraine self-installs' framing and the 'Ghana needs a tool extension' framing.
 <!-- SECTION:NOTES:END -->
