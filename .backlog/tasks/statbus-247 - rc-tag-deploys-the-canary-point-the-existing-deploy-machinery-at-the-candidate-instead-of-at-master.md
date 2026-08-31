@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 07:14'
-updated_date: '2026-08-28 23:13'
+updated_date: '2026-08-31 12:25'
 labels:
   - release
   - ops
@@ -97,6 +97,8 @@ WHY THAT HELPS: promotion stops being a check we run on the software and becomes
 
 <!-- SECTION:NOTES:BEGIN -->
 **Observation-card gate LANDED at 9b823cc82** (mechanic's close-out unit, foreman-reviewed diff + independently re-ran the 245/247/card tests green): doc/observations/TEMPLATE.md promotes the King-approved doc-035 draft with <CANDIDATE_TAG> placeholders; checkOneCanary refuses a 'completed' operator-slot canary without a card at doc/observations/<tag>.md that NAMES the tag in its body (stale-copy guard); missingObservationCardReason is a pure unit-tested function; awaiting-operator resting state untouched and now prints the card path at offer time; red-verified structurally. REMAINING on this ticket: the live proof — Norway installs a candidate (rc.17, overnight-approved), the King records the first real card in the morning, and the gate is observed refusing-then-passing on real state. STATBUS-273 unblocks on that proof.
+
+**GATE AMENDED BY THE KING (2026-08-31, 8b5487372):** the observation-card REQUIREMENT is retired from the promotion gate — ruled at a live blocked promotion of v2026.08.1: 'It should be enough that the Norwegian installation has been done and was a success, and that is it. And then there is a matter of discipline to actually report.' The completed-install check on the human-canary slot STAYS (AC#9's install act still satisfies the gate); the card remains as practice — the template survives (reworded: the gate only checks that the install completed, it does not read this file), the offer print still names the card path as discipline. The retirement is test-pinned (completed branch returns true unconditionally; the deleted card-check function may not exist in source), so the gate cannot quietly return. AC#10/#11's card-gating language is superseded by this ruling; the rc.17 card (doc/observations/v2026.08.0-rc.17.md) stands as the first and now-voluntary exemplar.
 <!-- SECTION:NOTES:END -->
 
 ## Comments
