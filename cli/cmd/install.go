@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/spf13/cobra"
 	"github.com/statisticsnorway/statbus/cli/internal/compose"
+	"github.com/statisticsnorway/statbus/cli/internal/config"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/install"
 	"github.com/statisticsnorway/statbus/cli/internal/invariants"
@@ -660,6 +661,31 @@ func runInstall() (installErr error) {
 		}()
 	}
 
+	// STATBUS-332 comparison point. Snapshot exactly what the generated
+	// .env and Caddy config look like BEFORE this run can touch either —
+	// "Credentials" below may ALSO regenerate both (it shells to
+	// `sb config generate` when .env.credentials is missing), so this must
+	// be taken here, before the step loop starts, never inside an
+	// individual step. Architect's ruling (2026-08-31): the diff is over
+	// the GENERATED .env, never .env.config — .env is where every declared
+	// restart-class's key actually lands and the only thing a running
+	// container ever reads.
+	//
+	// wasAlreadyRunning distinguishes a config REFRESH on a box already up
+	// (checkServicesDone true here — "Services" below sees it, skips
+	// `docker compose up`, so an explicit restart below is the ONLY way a
+	// changed key ever reaches the running containers) from a fresh or
+	// currently-down box ("Services" below runs `docker compose up -d`,
+	// which starts every container against the freshly regenerated files
+	// directly — restarting again immediately after would be pure noise,
+	// and on a genuinely fresh box oldEnvSnapshot is empty, which would
+	// otherwise misclassify every key as "changed" and restart nothing not
+	// yet running anyway).
+	oldEnvSnapshot, _ := os.ReadFile(filepath.Join(installDir, ".env"))
+	oldCaddySnapshot := snapshotCaddyConfig(installDir)
+	wasAlreadyRunning := checkServicesDone(installDir)
+	var pendingRestarts map[config.RestartClass]bool
+
 	steps := []step{
 		{"Prerequisites", checkPrereqDone, runPrereq},
 		{"Repository", checkRepoDone, runCloneRepo},
@@ -669,6 +695,49 @@ func runInstall() (installErr error) {
 		{"Generated env", checkEnvDone, runGenerateEnv},
 		{"Images", checkImagesDone, runPullImages},
 		{"Services", checkServicesDone, runStartServices},
+		// "Apply config changes" is the ONLY step allowed to read the
+		// comparison-point snapshots above — see
+		// TestNoStepAfterApplyConfigChangesRegeneratesEnv (STATBUS-332's
+		// required structural pin) for the guarantee that no step BELOW
+		// this one regenerates .env again, which would silently invalidate
+		// the diff this step already computed and applied.
+		//
+		// Positioned after "Services" (not immediately after "Generated
+		// env"): wasAlreadyRunning must already be known, and on a
+		// fresh/down box "Services" is itself what applies the new config
+		// (docker compose up -d against files already on disk) — running
+		// this step earlier would either restart containers that don't
+		// exist yet or double up on `docker compose up`'s own work.
+		{"Apply config changes", func(dir string) bool {
+			if !wasAlreadyRunning {
+				return true // "Services" above already (re)started everything against the new config
+			}
+			newEnvSnapshot, err := os.ReadFile(filepath.Join(dir, ".env"))
+			if err != nil {
+				return false // let run() surface a clear error instead of silently skipping
+			}
+			changedKeys := diffEnvKeys(string(oldEnvSnapshot), string(newEnvSnapshot))
+			newCaddySnapshot := snapshotCaddyConfig(dir)
+			caddyChanged := newCaddySnapshot != oldCaddySnapshot
+			if len(changedKeys) == 0 && !caddyChanged {
+				return true // nothing changed — no restart needed (AC#2)
+			}
+			classesByKey, cerr := config.EnvKeyRestartClasses(dir)
+			if cerr != nil {
+				return false // let run() surface the real error
+			}
+			pendingRestarts = restartClassesForKeys(changedKeys, classesByKey)
+			if caddyChanged {
+				// TLS_CERT_FILE/TLS_KEY_FILE never reach the generated .env
+				// at all (only these Caddy templates) — this is the second,
+				// additive signal that closes that gap.
+				pendingRestarts[config.RestartProxyRestart] = true
+			}
+			delete(pendingRestarts, config.RestartNone)
+			return len(pendingRestarts) == 0
+		}, func(dir string) error {
+			return applyPendingRestarts(dir, pendingRestarts)
+		}},
 		// "Backup ownership" heals pre-upgrade-* dirs created by the
 		// rsync alpine container before the chown-after-rsync fix
 		// landed. Without this, ~/statbus-backups/ accumulates
@@ -1190,6 +1259,139 @@ func runPullImages(dir string) error {
 
 func runStartServices(dir string) error {
 	return runCmdDir(dir, "docker", "compose", "--profile", "all", "up", "-d")
+}
+
+// diffEnvKeys returns every key whose value differs between oldContent and
+// newContent — added, removed, or changed — STATBUS-332's DETECT-WHAT-CHANGED
+// step. Diffing is over the GENERATED .env content itself, never
+// .env.config (architect's ruling, 2026-08-31): .env is where every
+// declared restart-class's key actually lands, and the only thing a running
+// container ever reads.
+func diffEnvKeys(oldContent, newContent string) []string {
+	oldKV := dotenv.FromString(oldContent).Parse()
+	newKV := dotenv.FromString(newContent).Parse()
+	seen := make(map[string]bool, len(oldKV)+len(newKV))
+	var changed []string
+	for k, v := range newKV {
+		seen[k] = true
+		if ov, ok := oldKV[k]; !ok || ov != v {
+			changed = append(changed, k)
+		}
+	}
+	for k := range oldKV {
+		if seen[k] {
+			continue
+		}
+		changed = append(changed, k) // present before, absent now
+	}
+	return changed
+}
+
+// snapshotCaddyConfig concatenates the content of every file
+// config.CaddyConfigFiles names (each tagged with its own name, so a
+// same-length swap between two files can't cancel out), so two snapshots
+// compare equal iff none of those files' content differs. This is the
+// second, additive restart signal STATBUS-332 needs: TLS_CERT_FILE and
+// TLS_KEY_FILE are .env.config keys that NEVER reach the generated .env at
+// all — they only ever reach these Caddy templates — so a .env-only diff
+// cannot see a cert-path change. A missing file is a legitimate observation
+// (it reads as "") — a FAILED read is not, and must never be silently
+// folded into "".
+//
+// A genuine read error (permission, I/O — anything but "does not exist") is
+// NOT evidence the file is unchanged; it is evidence we could not tell.
+// Swallowing it (the original `data, _ := os.ReadFile(...)`) meant a file
+// unreadable in BOTH the old and new snapshot compared equal — including
+// for a PERSISTENT cause (e.g. permission bits that never change across the
+// whole install run), where even naming the error in the string would still
+// compare equal to itself. So a read error is folded in with a per-call
+// nonce, guaranteeing it can never spuriously match any other snapshot,
+// including a repeat of the identical failure. Erring toward an
+// unnecessary restart is the safe direction; erring toward a silently
+// unapplied Caddy config change is not (architect's ruling, 2026-08-31).
+func snapshotCaddyConfig(dir string) string {
+	var b strings.Builder
+	for _, name := range config.CaddyConfigFiles {
+		data, err := os.ReadFile(filepath.Join(dir, "caddy", "config", name))
+		fmt.Fprintf(&b, "\x00%s\x00", name)
+		switch {
+		case err == nil:
+			b.Write(data)
+		case os.IsNotExist(err):
+			// Legitimate absence, not a failure to observe — stays "".
+		default:
+			fmt.Fprintf(&b, "\x00READ-ERROR:%v:%d\x00", err, time.Now().UnixNano())
+		}
+	}
+	return b.String()
+}
+
+// restartClassesForKeys unions the declared restart classes of every changed
+// key into ONE set. Several real generated keys are consumed by more than
+// one service simultaneously (DEBUG, DEPLOYMENT_SLOT_CODE, JWT_SECRET), so
+// this must be a set, never a scalar (architect's ruling, 2026-08-31). A key
+// absent from classesByKey should be unreachable in production — the
+// completeness test in internal/config (TestGenerateEnvContent_EveryKeyHasARestartClass)
+// guarantees every key generateEnvContent writes carries a declaration — so
+// this simply contributes nothing for such a key rather than crashing an
+// operator's install over a gap that test already closes off.
+func restartClassesForKeys(keys []string, classesByKey map[string][]config.RestartClass) map[config.RestartClass]bool {
+	result := map[config.RestartClass]bool{}
+	for _, k := range keys {
+		for _, c := range classesByKey[k] {
+			result[c] = true
+		}
+	}
+	return result
+}
+
+// composeRestart is the actual `docker compose restart <service>` call,
+// held as a package-level seam — the same pattern release_coverage_authority.go's
+// scenarioEvidence already uses — so a test can substitute a fake and
+// assert EXACTLY which services were restarted (AC#1: per-class, isolated)
+// and that NONE were when nothing changed (AC#2), without a live docker
+// daemon. Production never reassigns it.
+var composeRestart = func(dir, service string) error {
+	return runCmdDir(dir, "docker", "compose", "restart", service)
+}
+
+// applyPendingRestarts executes exactly the restart classes STATBUS-332's
+// diff step decided are needed — never more. Order is fixed for
+// reproducible output: db (heaviest — drops every live connection) first,
+// so the services that depend on it reconnect fresh, then rest/worker/app,
+// then proxy, then the host-level upgrade-daemon last (independent of the
+// docker compose services entirely).
+func applyPendingRestarts(dir string, pending map[config.RestartClass]bool) error {
+	type action struct {
+		class   config.RestartClass
+		service string
+	}
+	order := []action{
+		{config.RestartDB, "db"},
+		{config.RestartRest, "rest"},
+		{config.RestartWorker, "worker"},
+		{config.RestartApp, "app"},
+		{config.RestartProxyRestart, "proxy"},
+	}
+	restarted := false
+	for _, a := range order {
+		if !pending[a.class] {
+			continue
+		}
+		restarted = true
+		fmt.Printf("  Restarting %s (config change)...\n", a.service)
+		if err := composeRestart(dir, a.service); err != nil {
+			return fmt.Errorf("docker compose restart %s: %w", a.service, err)
+		}
+	}
+	if pending[config.RestartUpgradeDaemon] {
+		restarted = true
+		restartUpgradeService(dir) // best-effort, own logging (install_upgrade.go)
+	}
+	if !restarted {
+		fmt.Println("  No config changes require a restart.")
+	}
+	return nil
 }
 
 // checkSessionsClean returns true iff there are no detectable ZOMBIES

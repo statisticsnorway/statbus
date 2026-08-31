@@ -645,8 +645,47 @@ func computeDerived(cfg *ConfigEnv) *Derived {
 const restExposedSchemas = "public"
 
 // generateEnvContent builds the full .env file content.
-func generateEnvContent(creds *Credentials, cfg *ConfigEnv, derived *Derived, dbMem *DbMemory, projDir string) (string, error) {
+// generateEnvContent renders the generated .env content, and — STATBUS-332 —
+// the restart-class SET each key it writes belongs to. Classes are declared
+// immediately after the write that decides each key's value: the giant
+// positional-format block below (26 keys, one Fprintf, chosen deliberately
+// LOW-RISK over restructuring into 26 individual calls — see the comment at
+// its declare block) and the .Set()-based Supabase/JWT/memory-tuning keys
+// (via setKV, a thin wrapper) both keep the value write and its class
+// declaration in the SAME function, adjacent, in one commit — never a
+// separate table someone else maintains and forgets (architect's ruling).
+//
+// Classification method: mechanical, not guessed — every class below was
+// checked against the actual consumer, either a literal `${KEY}`
+// interpolation in one of the 5 docker-compose files (app/worker/rest/db/
+// proxy), a Caddy template field ACTUALLY used in caddy/templates/*.tmpl
+// (checked by literal grep, not by which fields CaddyTemplateData merely
+// populates — AppBindAddress and PostgrestBindAddress are populated but
+// unused by any current template, so they are NOT proxy-restart-classed),
+// postgres/start-postgres.sh's own env reads (the DB_* memory-tuning keys,
+// consumed via a custom entrypoint script rather than compose
+// interpolation), or a daemon field Service.loadConfig()/loadTrustedSigners()
+// caches once at startup (cli/internal/upgrade/service.go). Keys read FRESH
+// on every use (UPGRADE_CALLBACK, STATBUS_URL, ADMINISTRATOR_CONTACT — all
+// call dotenv.Load(".env") themselves at the moment they're needed, verified
+// by reading runCallback/readAdministratorContact directly) need no restart
+// at all: class none. Keys with zero verified consumer anywhere in this
+// repo (legacy Supabase/GoTrue/Studio template carryovers this project's
+// trimmed compose stack never runs — SERVICE_ROLE_KEY, DASHBOARD_*,
+// API_EXTERNAL_URL, API_PUBLIC_URL, ENABLE_EMAIL_*, DISABLE_SIGNUP,
+// STUDIO_DEFAULT_PROJECT — plus intermediate/derived values folded into
+// OTHER keys that ARE classed, like CADDY_HTTP_PORT/CADDY_HTTPS_PORT feeding
+// CADDY_HTTP_BIND_ADDRESS) are also class none.
+//
+// ONE KNOWN GAP, recorded rather than silently absorbed: APT_USE_HTTPS_ONLY
+// is a `build: args:` value (postgres/docker-compose.yml) — it affects
+// `docker compose build`, not a running container, so no RESTART class
+// actually applies to it; classed `db` here as the closest available
+// signal (something about db needs operator attention) rather than adding
+// an eighth class for one build-time-only key the night before a cut.
+func generateEnvContent(creds *Credentials, cfg *ConfigEnv, derived *Derived, dbMem *DbMemory, projDir string) (string, map[string][]RestartClass, error) {
 	var b strings.Builder
+	classes := newEnvKeyClasses()
 
 	// Debug toggle helper
 	debugBlock := func(key, val string) string {
@@ -755,68 +794,121 @@ PUBLIC_STATBUS_COMMIT_SHORT=%[23]s
 		derived.RestAdminBindAddress,   // 26
 	)
 
+	// STATBUS-332 restart-class declarations for the 26 keys written by the
+	// Fprintf above. Kept as ONE block immediately after the writer that
+	// decided their values — not scattered per-argument into the 26-slot
+	// positional format string above, which would have meant hand-editing a
+	// dense, error-prone printf under time pressure for no additional
+	// drift-safety: TestGenerateEnvContent_EveryKeyHasARestartClass (below,
+	// in config_test.go) enumerates keys from a REAL generated .env, not
+	// from this list, so a key added to the Fprintf without an entry here
+	// fails that test immediately — the same protection a truly inline
+	// declaration would give, at much lower risk to the highest-blast-radius
+	// function in this package.
+	classes.declare("DEPLOYMENT_SLOT_NAME") // no verified consumer (see func doc)
+	classes.declare("DEPLOYMENT_SLOT_CODE", RestartApp, RestartRest, RestartDB, RestartProxyRestart)
+	classes.declare("SITE_DOMAIN", RestartProxyRestart) // Caddy template field .Domain
+	classes.declare("STATBUS_URL")                      // read fresh by runCallback, never cached
+	classes.declare("BROWSER_REST_URL")                 // no verified consumer
+	classes.declare("SERVER_REST_URL")                  // app's OWN compose env hardcodes "http://proxy:80", never reads this key
+	classes.declare("SEQ_SERVER_URL", RestartApp, RestartWorker)
+	classes.declare("SEQ_API_KEY", RestartApp, RestartWorker)
+	classes.declare("SLACK_TOKEN", RestartUpgradeDaemon) // ops/notify-slack.sh, the UPGRADE_CALLBACK reference implementation
+	classes.declare("COMPOSE_INSTANCE_NAME", RestartApp, RestartWorker, RestartRest, RestartDB, RestartProxyRestart)
+	classes.declare("CADDY_HTTP_PORT")  // intermediate only — folded into CADDY_HTTP_BIND_ADDRESS
+	classes.declare("CADDY_HTTPS_PORT") // intermediate only — folded into CADDY_HTTPS_BIND_ADDRESS
+	classes.declare("CADDY_HTTP_BIND_ADDRESS", RestartProxyRestart)
+	classes.declare("CADDY_HTTPS_BIND_ADDRESS", RestartProxyRestart)
+	classes.declare("APP_BIND_ADDRESS", RestartApp) // app's own compose env only; NOT a Caddy template field (verified)
+	classes.declare("REST_BIND_ADDRESS", RestartRest)
+	classes.declare("REST_ADMIN_BIND_ADDRESS", RestartRest)
+	classes.declare("CADDY_DB_PORT", RestartProxyRestart)
+	classes.declare("CADDY_DB_TLS_PORT", RestartProxyRestart)
+	classes.declare("CADDY_DB_BIND_ADDRESS", RestartProxyRestart)
+	classes.declare("CADDY_DB_TLS_BIND_ADDRESS", RestartProxyRestart)
+	classes.declare("VERSION", RestartApp, RestartWorker)
+	classes.declare("COMMIT_SHORT", RestartApp, RestartWorker, RestartDB, RestartProxyRestart)
+	classes.declare("PUBLIC_STATBUS_VERSION")      // not passed via compose env to any container
+	classes.declare("PUBLIC_STATBUS_COMMIT_SHORT") // not passed via compose env to any container
+	classes.declare("DEBUG", RestartApp, RestartWorker, RestartDB, RestartProxyRestart)
+
 	// Load .env.example and apply overrides
 	examplePath := filepath.Join(projDir, ".env.example")
 	exampleData, err := os.ReadFile(examplePath)
 	if err != nil {
-		return "", fmt.Errorf("read .env.example: %w", err)
+		return "", nil, fmt.Errorf("read .env.example: %w", err)
 	}
 
 	example := dotenv.FromString(string(exampleData))
 
-	// Override credentials
-	example.Set("POSTGRES_ADMIN_DB", cfg.PostgresAdminDB)
-	example.Set("POSTGRES_ADMIN_USER", cfg.PostgresAdminUser)
-	example.Set("POSTGRES_ADMIN_PASSWORD", creds.PostgresAdminPassword)
-	example.Set("POSTGRES_APP_DB", cfg.PostgresAppDB)
-	example.Set("POSTGRES_SEED_DB", cfg.PostgresSeedDB)
-	example.Set("POSTGRES_APP_USER", cfg.PostgresAppUser)
-	example.Set("POSTGRES_NOTIFY_USER", cfg.PostgresNotifyUser)
-	example.Set("CADDY_DEPLOYMENT_MODE", cfg.CaddyDeploymentMode)
-	example.Set("POSTGRES_APP_PASSWORD", creds.PostgresAppPassword)
-	example.Set("POSTGRES_AUTHENTICATOR_PASSWORD", creds.PostgresAuthenticatorPassword)
-	example.Set("POSTGRES_NOTIFY_PASSWORD", creds.PostgresNotifyPassword)
-	example.Set("POSTGRES_PASSWORD", creds.PostgresAdminPassword)
+	// setKV writes an override into the .env.example-derived body AND
+	// declares its restart class at this same call site (STATBUS-332) — the
+	// class travels with the value, in the same edit, forever.
+	setKV := func(key, val string, cls ...RestartClass) {
+		example.Set(key, val)
+		classes.declare(key, cls...)
+	}
 
-	// Memory tuning
-	example.Set("DB_MEM_LIMIT", dbMem.DbMemLimit)
-	example.Set("DB_SHM_SIZE", dbMem.DbShmSize)
-	example.Set("DB_MEM_RESERVATION", dbMem.DbMemReservation)
-	example.Set("DB_SHARED_BUFFERS", dbMem.DbSharedBuffers)
-	example.Set("DB_MAINTENANCE_WORK_MEM", dbMem.DbMaintenanceWorkMem)
-	example.Set("DB_EFFECTIVE_CACHE_SIZE", dbMem.DbEffectiveCacheSize)
-	example.Set("DB_WORK_MEM", dbMem.DbWorkMem)
-	example.Set("DB_TEMP_BUFFERS", dbMem.DbTempBuffers)
-	example.Set("DB_WAL_BUFFERS", dbMem.DbWalBuffers)
-	example.Set("DB_MAX_CONNECTIONS", strconv.FormatInt(dbMem.DbMaxConnections, 10))
-	example.Set("DB_MAX_WAL_SIZE", dbMem.DbMaxWalSize)
-	example.Set("DB_MIN_WAL_SIZE", dbMem.DbMinWalSize)
+	// Override credentials
+	setKV("POSTGRES_ADMIN_DB", cfg.PostgresAdminDB, RestartDB)
+	setKV("POSTGRES_ADMIN_USER", cfg.PostgresAdminUser, RestartDB, RestartWorker)
+	setKV("POSTGRES_ADMIN_PASSWORD", creds.PostgresAdminPassword, RestartDB, RestartWorker)
+	setKV("POSTGRES_APP_DB", cfg.PostgresAppDB, RestartDB, RestartWorker)
+	setKV("POSTGRES_SEED_DB", cfg.PostgresSeedDB) // one-shot CLI reads only (db.go/seed.go/dbdump.go) — always fresh, no restart
+	setKV("POSTGRES_APP_USER", cfg.PostgresAppUser, RestartDB)
+	setKV("POSTGRES_NOTIFY_USER", cfg.PostgresNotifyUser, RestartApp, RestartDB)
+	setKV("CADDY_DEPLOYMENT_MODE", cfg.CaddyDeploymentMode, RestartProxyRestart) // proxy compose env AND Caddy template field .CaddyDeploymentMode
+	setKV("POSTGRES_APP_PASSWORD", creds.PostgresAppPassword, RestartApp, RestartDB)
+	setKV("POSTGRES_AUTHENTICATOR_PASSWORD", creds.PostgresAuthenticatorPassword, RestartApp, RestartRest, RestartDB)
+	setKV("POSTGRES_NOTIFY_PASSWORD", creds.PostgresNotifyPassword, RestartApp, RestartDB)
+	setKV("POSTGRES_PASSWORD", creds.PostgresAdminPassword, RestartDB) // the postgres image's own var name for POSTGRES_ADMIN_PASSWORD
+
+	// Memory tuning — read by postgres/start-postgres.sh's own entrypoint at
+	// container start (not compose `${VAR}` interpolation; verified via
+	// postgres/postgresql.conf + start-postgres.sh, not assumed absent
+	// merely because they're outside the 5 compose files' environment: blocks).
+	setKV("DB_MEM_LIMIT", dbMem.DbMemLimit, RestartDB)
+	setKV("DB_SHM_SIZE", dbMem.DbShmSize, RestartDB)
+	setKV("DB_MEM_RESERVATION", dbMem.DbMemReservation, RestartDB)
+	setKV("DB_SHARED_BUFFERS", dbMem.DbSharedBuffers, RestartDB)
+	setKV("DB_MAINTENANCE_WORK_MEM", dbMem.DbMaintenanceWorkMem, RestartDB)
+	setKV("DB_EFFECTIVE_CACHE_SIZE", dbMem.DbEffectiveCacheSize, RestartDB)
+	setKV("DB_WORK_MEM", dbMem.DbWorkMem, RestartDB)
+	setKV("DB_TEMP_BUFFERS", dbMem.DbTempBuffers, RestartDB)
+	setKV("DB_WAL_BUFFERS", dbMem.DbWalBuffers, RestartDB)
+	setKV("DB_MAX_CONNECTIONS", strconv.FormatInt(dbMem.DbMaxConnections, 10), RestartDB)
+	setKV("DB_MAX_WAL_SIZE", dbMem.DbMaxWalSize, RestartDB)
+	setKV("DB_MIN_WAL_SIZE", dbMem.DbMinWalSize, RestartDB)
 
 	// JWT / auth
-	example.Set("ACCESS_JWT_EXPIRY", cfg.AccessJwtExpiry)
-	example.Set("REFRESH_JWT_EXPIRY", cfg.RefreshJwtExpiry)
-	example.Set("JWT_SECRET", creds.JwtSecret)
-	example.Set("SERVICE_ROLE_KEY", creds.ServiceRoleKey)
-	example.Set("DASHBOARD_USERNAME", creds.DashboardUsername)
-	example.Set("DASHBOARD_PASSWORD", creds.DashboardPassword)
+	setKV("ACCESS_JWT_EXPIRY", cfg.AccessJwtExpiry, RestartRest, RestartDB)
+	setKV("REFRESH_JWT_EXPIRY", cfg.RefreshJwtExpiry, RestartRest)
+	setKV("JWT_SECRET", creds.JwtSecret, RestartRest, RestartDB)
+	setKV("SERVICE_ROLE_KEY", creds.ServiceRoleKey)      // legacy Supabase key; no container in this project's compose stack consumes it
+	setKV("DASHBOARD_USERNAME", creds.DashboardUsername) // Supabase Studio — not run by this project's compose stack
+	setKV("DASHBOARD_PASSWORD", creds.DashboardPassword) // Supabase Studio — not run by this project's compose stack
 
 	// Derived
-	example.Set("SITE_URL", derived.SiteURL)
-	example.Set("API_EXTERNAL_URL", derived.ApiExternalURL)
-	example.Set("API_PUBLIC_URL", derived.ApiPublicURL)
-	example.Set("ENABLE_EMAIL_SIGNUP", strconv.FormatBool(derived.EnableEmailSignup))
-	example.Set("ENABLE_EMAIL_AUTOCONFIRM", strconv.FormatBool(derived.EnableEmailAutoconfirm))
-	example.Set("DISABLE_SIGNUP", strconv.FormatBool(derived.DisableSignup))
-	example.Set("STUDIO_DEFAULT_PROJECT", derived.StudioDefaultProject)
+	setKV("SITE_URL", derived.SiteURL, RestartRest)
+	setKV("API_EXTERNAL_URL", derived.ApiExternalURL)                                     // legacy Supabase — no consumer in this compose stack
+	setKV("API_PUBLIC_URL", derived.ApiPublicURL)                                         // legacy Supabase — no consumer in this compose stack
+	setKV("ENABLE_EMAIL_SIGNUP", strconv.FormatBool(derived.EnableEmailSignup))           // GoTrue — not run by this project
+	setKV("ENABLE_EMAIL_AUTOCONFIRM", strconv.FormatBool(derived.EnableEmailAutoconfirm)) // GoTrue — not run by this project
+	setKV("DISABLE_SIGNUP", strconv.FormatBool(derived.DisableSignup))                    // GoTrue — not run by this project
+	setKV("STUDIO_DEFAULT_PROJECT", derived.StudioDefaultProject)                         // Supabase Studio — not run by this project
 
 	// PostgREST — OWN the exposed-schema list (STATBUS-054). Overrides whatever
 	// .env.example carries (historically the Supabase-legacy public,storage,
 	// graphql_public) so a regen emits only schemas that exist; PostgREST v14 hard-
 	// fails the schema-cache load otherwise. See restExposedSchemas.
-	example.Set("PGRST_DB_SCHEMAS", restExposedSchemas)
+	setKV("PGRST_DB_SCHEMAS", restExposedSchemas, RestartRest)
 
-	// Docker build config
-	example.Set("APT_USE_HTTPS_ONLY", cfg.AptUseHttpsOnly)
+	// Docker build config. KNOWN GAP (see func doc): this is a `build: args:`
+	// value — it affects `docker compose build`, never a running container,
+	// so no restart class actually applies. Classed db as the closest
+	// available signal rather than adding an eighth class for one build-time
+	// key the night before a cut.
+	setKV("APT_USE_HTTPS_ONLY", cfg.AptUseHttpsOnly, RestartDB)
 
 	// Upgrade service settings — always written to .env so the service never silently defaults.
 	// Values come from .env.config if present, otherwise sensible defaults.
@@ -840,8 +932,11 @@ PUBLIC_STATBUS_COMMIT_SHORT=%[23]s
 		fmt.Fprintf(&b, "# Derived from CADDY_DEPLOYMENT_MODE=%s. To follow a different channel,\n", cfg.CaddyDeploymentMode)
 		fmt.Fprintf(&b, "# set %s in .env.config — not here; this file is regenerated.\n", UpgradeChannelKey)
 		fmt.Fprintf(&b, "UPGRADE_CHANNEL=%s\n", cfg.UpgradeChannel)
+		classes.declare("UPGRADE_CHANNEL", RestartUpgradeDaemon) // Service.loadConfig() caches d.channel at startup
 		fmt.Fprintf(&b, "UPGRADE_CHECK_INTERVAL=%s\n", getOrDefault("UPGRADE_CHECK_INTERVAL", "6h"))
+		classes.declare("UPGRADE_CHECK_INTERVAL", RestartUpgradeDaemon) // Service.loadConfig() caches d.interval
 		fmt.Fprintf(&b, "UPGRADE_AUTO_DOWNLOAD=%s\n", getOrDefault("UPGRADE_AUTO_DOWNLOAD", "true"))
+		classes.declare("UPGRADE_AUTO_DOWNLOAD", RestartUpgradeDaemon) // Service.loadConfig() caches d.autoDL
 		// UPGRADE_CALLBACK (STATBUS-131): shell command invoked on install
 		// completion (install.go runInstallCallback) and on upgrade
 		// start/success/failure/park events (service.go runCallback). Set
@@ -850,18 +945,30 @@ PUBLIC_STATBUS_COMMIT_SHORT=%[23]s
 		// a value set only here is silently wiped on the next run. See
 		// ops/notify-slack.sh for the reference implementation.
 		fmt.Fprintf(&b, "UPGRADE_CALLBACK=%s\n", getOrDefault("UPGRADE_CALLBACK", ""))
+		classes.declare("UPGRADE_CALLBACK") // runCallback() calls dotenv.Load(".env") itself on every invocation — never cached
 		// Scheduled logical-backup settings (STATBUS-113) — read by the service's loadConfig().
 		fmt.Fprintf(&b, "BACKUP_ENABLED=%s\n", getOrDefault("BACKUP_ENABLED", "true"))
+		classes.declare("BACKUP_ENABLED", RestartUpgradeDaemon)
 		fmt.Fprintf(&b, "BACKUP_INTERVAL=%s\n", getOrDefault("BACKUP_INTERVAL", "24h"))
+		classes.declare("BACKUP_INTERVAL", RestartUpgradeDaemon)
 		fmt.Fprintf(&b, "BACKUP_RETENTION_COUNT=%s\n", getOrDefault("BACKUP_RETENTION_COUNT", "7"))
+		classes.declare("BACKUP_RETENTION_COUNT", RestartUpgradeDaemon)
 		fmt.Fprintf(&b, "# Contact shown on maintenance.html when set; leave empty to omit\n")
 		fmt.Fprintf(&b, "ADMINISTRATOR_CONTACT=%s\n", getOrDefault("ADMINISTRATOR_CONTACT", ""))
+		classes.declare("ADMINISTRATOR_CONTACT") // readAdministratorContact() calls dotenv.Load(".env") itself on every read — never cached
 		// Propagate trusted signer keys from .env.config to .env
 		if cfgErr == nil {
 			for _, key := range cfgFile.Keys() {
 				if strings.HasPrefix(key, "UPGRADE_TRUSTED_SIGNER_") {
 					if v, ok := cfgFile.Get(key); ok {
 						fmt.Fprintf(&b, "%s=%s\n", key, v)
+						// Service.loadTrustedSigners() caches these at startup (and
+						// re-checks at scheduled-upgrade dispatch) — declared per
+						// CONCRETE key name as each one is written, since the set
+						// is only known at generation time (STATBUS-332: this is
+						// still "at the site", just inside a loop instead of a
+						// single call).
+						classes.declare(key, RestartUpgradeDaemon)
 					}
 				}
 			}
@@ -873,6 +980,15 @@ PUBLIC_STATBUS_COMMIT_SHORT=%[23]s
 	fmt.Fprintf(&b, "# Adapted from .env.example\n")
 	fmt.Fprintf(&b, "################################################################\n\n")
 	b.WriteString(example.String())
+	// Every key that reached the generated .env verbatim from .env.example,
+	// never touched by a setKV/declare call above, is a confirmed-dead
+	// legacy Supabase-stack carryover (grep-verified against every compose
+	// file, no consumer) — see declareIfAbsent's doc comment. This is the
+	// ONE place a whole-file default is applied, and only for keys nothing
+	// above already classified, so it can never mask a real key's real class.
+	for _, key := range example.Keys() {
+		classes.declareIfAbsent(key, RestartNone)
+	}
 
 	fmt.Fprintf(&b, "\n\n################################################################\n")
 	fmt.Fprintf(&b, "# Statbus App Environment Variables\n")
@@ -880,8 +996,11 @@ PUBLIC_STATBUS_COMMIT_SHORT=%[23]s
 	fmt.Fprintf(&b, "# These are visible in the web page source code.\n")
 	fmt.Fprintf(&b, "#\n")
 	fmt.Fprintf(&b, "PUBLIC_BROWSER_REST_URL=%s\n", cfg.BrowserAPIURL)
+	classes.declare("PUBLIC_BROWSER_REST_URL", RestartApp)
 	fmt.Fprintf(&b, "PUBLIC_DEPLOYMENT_SLOT_NAME=%s\n", cfg.DeploymentSlotName)
+	classes.declare("PUBLIC_DEPLOYMENT_SLOT_NAME") // not passed via compose env to any container
 	fmt.Fprintf(&b, "PUBLIC_DEPLOYMENT_SLOT_CODE=%s\n", cfg.DeploymentSlotCode)
+	classes.declare("PUBLIC_DEPLOYMENT_SLOT_CODE") // not passed via compose env to any container
 	fmt.Fprintf(&b, "\n# Client-side debugging for the Statbus App. Requires app rebuild/restart.\n")
 	fmt.Fprintf(&b, "# To enable, edit .env: set PUBLIC_DEBUG=true and comment out/remove PUBLIC_DEBUG=false.\n")
 	fmt.Fprintf(&b, "# To disable, edit .env: set PUBLIC_DEBUG=false and comment out/remove PUBLIC_DEBUG=true.\n")
@@ -891,9 +1010,30 @@ PUBLIC_STATBUS_COMMIT_SHORT=%[23]s
 	} else {
 		fmt.Fprintf(&b, "#PUBLIC_DEBUG=true\nPUBLIC_DEBUG=false\n")
 	}
+	classes.declare("PUBLIC_DEBUG", RestartApp)
 	fmt.Fprintf(&b, "#\n################################################################\n")
 
-	return b.String(), nil
+	return b.String(), classes.Classes(), nil
+}
+
+// CaddyConfigFiles lists every file generateCaddyFiles writes into
+// caddy/config/ — MUST match the keys of that function's own `templates`
+// map below. Exported so install's config-diff step (STATBUS-332) can
+// snapshot the SAME set before/after a regenerate and fold a content
+// change into RestartProxyRestart: TLS_CERT_FILE/TLS_KEY_FILE are
+// .env.config keys that are NEVER written into the generated .env (they
+// only ever reach these Caddy templates), so a .env-only diff cannot see a
+// cert-path change — this file-content comparison is the second, additive
+// signal that closes that gap. TestGenerateCaddyFiles_WritesExactlyCaddyConfigFiles
+// (config_test.go) proves this list stays in sync with the real output
+// rather than drifting into a second, silently-stale table.
+var CaddyConfigFiles = []string{
+	"Caddyfile",
+	"development.caddyfile",
+	"private.caddyfile",
+	"standalone.caddyfile",
+	"public.caddyfile",
+	"public-layer4-tcp-5432-route.caddyfile",
 }
 
 // generateCaddyFiles renders all Caddyfile templates.
@@ -1006,7 +1146,7 @@ func Generate(verbose bool) error {
 	derived := computeDerived(cfg)
 
 	// Generate .env content
-	envContent, err := generateEnvContent(creds, cfg, derived, dbMem, projDir)
+	envContent, _, err := generateEnvContent(creds, cfg, derived, dbMem, projDir)
 	if err != nil {
 		return err
 	}
@@ -1062,6 +1202,39 @@ func Generate(verbose bool) error {
 
 	fmt.Println("Config generated successfully.")
 	return nil
+}
+
+// EnvKeyRestartClasses returns the restart-class declarations made at each
+// generated .env key's own write site inside generateEnvContent, WITHOUT
+// writing anything (STATBUS-332). install's config-diff step calls this,
+// in-process, to look up which service(s) must restart for a key that
+// changed between the pre- and post-regeneration .env snapshots.
+//
+// This is NOT a second table: it runs the exact same load-and-generate
+// pipeline Generate uses (loadOrGenerateCredentials / loadOrGenerateConfig /
+// computeDbMemory / computeDerived / generateEnvContent) and simply keeps the
+// classes return value that Generate itself discards — the declarations
+// live only in generateEnvContent's key-writing sites, read here, never
+// hand-copied.
+func EnvKeyRestartClasses(projDir string) (map[string][]RestartClass, error) {
+	creds, err := loadOrGenerateCredentials(projDir, false)
+	if err != nil {
+		return nil, err
+	}
+	cfg, err := loadOrGenerateConfig(projDir, false)
+	if err != nil {
+		return nil, err
+	}
+	dbMem, err := computeDbMemory(cfg.DbMemLimit)
+	if err != nil {
+		return nil, err
+	}
+	derived := computeDerived(cfg)
+	_, classes, err := generateEnvContent(creds, cfg, derived, dbMem, projDir)
+	if err != nil {
+		return nil, err
+	}
+	return classes, nil
 }
 
 // generateMaintenanceContact writes ops/maintenance/contact.js with the

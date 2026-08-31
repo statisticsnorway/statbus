@@ -688,111 +688,6 @@ var upgradeSelfRollbackCmd = &cobra.Command{
 	},
 }
 
-// upgradeChannelCmd sets the channel this box follows (STATBUS-307, restoring
-// the verb STATBUS-254 had replaced with `upgrade role`).
-//
-// WHY A VERB SURVIVES AT ALL, when the design's whole point is that the channel
-// is visible on the line where someone chose it: because writing the line is not
-// the whole job. The daemon loads its config ONLY at startup, so a hand-edited
-// .env.config changes nothing observable until someone also regenerates .env and
-// restarts the service — and a grep of the file then falsely confirms "fixed".
-// That is the same file-says-one-thing-box-does-another failure this ticket
-// exists to close, so the three steps stay one command.
-//
-// It is an EXCEPTION verb. An ordinary installation never runs it: the channel
-// is derived from CADDY_DEPLOYMENT_MODE, and a box that has not written one
-// follows its mode. This exists for the boxes that deliberately lead.
-var upgradeChannelCmd = &cobra.Command{
-	Use:   "channel <local|stable|prerelease>",
-	Short: "Declare the channel this box follows, and apply it",
-	Long: `Writes UPGRADE_CHANNEL into .env.config, regenerates .env, and restarts
-the upgrade service so the running daemon picks the change up.
-
-Channels:
-  stable       Blessed releases only. What every ordinary installation follows.
-  prerelease   Release candidates AND releases — a box that deliberately sees a
-               candidate before a statistical office does.
-  local        Follows nothing automatically. A developer's own machine.
-
-AN ORDINARY INSTALLATION NEEDS NO CHANNEL AND SHOULD NOT RUN THIS COMMAND.
-
-The channel is derived from CADDY_DEPLOYMENT_MODE — standalone and private
-derive stable, development derives local — so a box that declares nothing
-already follows the right one.
-
-This command RECORDS A DELIBERATE EXCEPTION: a box that should follow something
-its deployment mode does not imply, such as a machine that must see release
-candidates before a statistical office does. The value it writes then wins over
-the derivation permanently, until someone removes the line from .env.config. If
-you are not sure you need that, you do not.`,
-	Args: cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		channel := args[0]
-		// Validate against the SAME closed set config generate applies. A verb
-		// with its own list could accept a value the generator then refuses,
-		// handing the operator a box that will not configure itself.
-		if err := config.ValidateChannel(channel); err != nil {
-			return err
-		}
-
-		projDir := config.ProjectDir()
-
-		// 1. Update .env.config — the role is the declaration, so it IS stored.
-		configPath := filepath.Join(projDir, ".env.config")
-		f, err := dotenv.Load(configPath)
-		if err != nil {
-			return fmt.Errorf("load .env.config: %w", err)
-		}
-		f.Set(config.UpgradeChannelKey, channel)
-		if err := f.Save(); err != nil {
-			return fmt.Errorf("save .env.config: %w", err)
-		}
-		fmt.Printf("Set %s=%s in .env.config — this box now follows %q regardless of its deployment mode.\n",
-			config.UpgradeChannelKey, channel, channel)
-
-		// 2. Regenerate .env
-		sb := filepath.Join(projDir, "sb")
-		genCmd := exec.Command(sb, "config", "generate")
-		genCmd.Dir = projDir
-		genCmd.Stdout = os.Stdout
-		genCmd.Stderr = os.Stderr
-		if err := genCmd.Run(); err != nil {
-			return fmt.Errorf("config generate: %w", err)
-		}
-
-		// 3. Restart the service. THE RESTART IS REQUIRED, not a nicety:
-		// loadConfig() runs only from the daemon's startup paths, so the channel
-		// is cached for the process lifetime. Without this, .env says one thing
-		// while the running service keeps offering the old channel — and a grep
-		// of the file falsely confirms "fixed". (Verified during the STATBUS-254
-		// fleet correction, where reading the file rather than the running
-		// service would have reported success on all seven boxes.)
-		//
-		// --user, not system: the unit is statbus-upgrade@<user> at USER level.
-		// The old invocation omitted it and would have needed a sudo the devops
-		// account does not have — so this "not fatal" branch was the normal path
-		// rather than the exception.
-		fmt.Println("Restarting upgrade service...")
-		restartCmd := exec.Command("systemctl", "--user", "restart",
-			fmt.Sprintf("statbus-upgrade@%s.service", os.Getenv("USER")))
-		if err := restartCmd.Run(); err != nil {
-			// Not fatal — a developer machine has no such unit at all. But say
-			// plainly that the change has NOT taken effect yet, because a
-			// half-applied change that reads as done is the failure this whole
-			// ticket is about.
-			fmt.Printf("Could not restart the upgrade service: %v\n", err)
-			fmt.Printf("THE RUNNING SERVICE IS STILL ON THE OLD CHANNEL until it restarts.\n"+
-				"On a deployed box: systemctl --user restart statbus-upgrade@%s\n"+
-				"On a developer machine there is no such service, and nothing more is needed.\n",
-				os.Getenv("USER"))
-		} else {
-			fmt.Printf("Service restarted — now following the %q channel\n", channel)
-		}
-
-		return nil
-	},
-}
-
 // sshKeyFingerprint returns the fingerprint for an SSH public key string.
 func sshKeyFingerprint(key string) string {
 	cmd := exec.Command("ssh-keygen", "-l", "-f", "/dev/stdin")
@@ -1139,7 +1034,6 @@ func init() {
 	upgradeCmd.AddCommand(upgradeApplyLatestCmd)
 	upgradeApplyCmd.Flags().Bool("recreate", false, "recreate the database from migrations instead of migrating it (DESTRUCTIVE)")
 	upgradeCmd.AddCommand(upgradeApplyCmd)
-	upgradeCmd.AddCommand(upgradeChannelCmd)
 	upgradeCmd.AddCommand(upgradeServiceCmd)
 	upgradeSelfVerifyCmd.Flags().StringVar(&selfVerifyExpectCommit, "expect-commit", "",
 		"assert this binary embeds the given target commit (used by the upgrade self-update; STATBUS-171)")

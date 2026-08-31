@@ -3,9 +3,83 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
+	"sort"
 	"strings"
 	"testing"
 )
+
+// TestGenerateCaddyFiles_WritesExactlyCaddyConfigFiles proves the exported
+// CaddyConfigFiles list (config.go) stays in sync with what generateCaddyFiles
+// actually writes — install's config-diff step (STATBUS-332) snapshots
+// exactly this list before/after a regenerate to catch a TLS_CERT_FILE /
+// TLS_KEY_FILE change (a .env.config key that never reaches the generated
+// .env, only these Caddy templates). If a new output file is ever added to
+// generateCaddyFiles's own `templates` map without updating CaddyConfigFiles,
+// that new file's content changes would go undetected by the diff step —
+// this test fails the moment the two lists disagree, rather than that gap
+// surfacing as a silently-unapplied Caddy config change on a real box.
+func TestGenerateCaddyFiles_WritesExactlyCaddyConfigFiles(t *testing.T) {
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller failed")
+	}
+	repoRoot := filepath.Join(filepath.Dir(thisFile), "..", "..", "..")
+	realTemplatesDir := filepath.Join(repoRoot, "caddy", "templates")
+	entries, err := os.ReadDir(realTemplatesDir)
+	if err != nil {
+		t.Fatalf("read repo caddy/templates: %v", err)
+	}
+
+	projDir := t.TempDir()
+	tmplDir := filepath.Join(projDir, "caddy", "templates")
+	if err := os.MkdirAll(tmplDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(realTemplatesDir, e.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(tmplDir, e.Name()), data, 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	cfg := &ConfigEnv{
+		DeploymentSlotCode:  "local",
+		DeploymentSlotName:  "local",
+		CaddyDeploymentMode: "development",
+		SiteDomain:          "local.statbus.org",
+	}
+	derived := computeDerived(cfg)
+
+	if err := generateCaddyFiles(derived, cfg, projDir, false); err != nil {
+		t.Fatalf("generateCaddyFiles: %v", err)
+	}
+
+	outDir := filepath.Join(projDir, "caddy", "config")
+	written, err := os.ReadDir(outDir)
+	if err != nil {
+		t.Fatalf("read output dir: %v", err)
+	}
+	var got []string
+	for _, e := range written {
+		if !e.IsDir() {
+			got = append(got, e.Name())
+		}
+	}
+	sort.Strings(got)
+	want := append([]string(nil), CaddyConfigFiles...)
+	sort.Strings(want)
+
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("generateCaddyFiles wrote %v, but CaddyConfigFiles declares %v — keep them in sync", got, want)
+	}
+}
 
 func TestParseMemSizeToMB(t *testing.T) {
 	tests := []struct {
@@ -242,7 +316,7 @@ func TestGenerateEnvContent_RestAdminBindAddress(t *testing.T) {
 	}
 	derived := computeDerived(cfg)
 
-	out, err := generateEnvContent(&Credentials{}, cfg, derived, &DbMemory{}, projDir)
+	out, _, err := generateEnvContent(&Credentials{}, cfg, derived, &DbMemory{}, projDir)
 	if err != nil {
 		t.Fatalf("generateEnvContent: %v", err)
 	}
@@ -284,7 +358,7 @@ func TestGenerateEnvContent_OwnsPGRSTSchemas_STATBUS054(t *testing.T) {
 	}
 	derived := computeDerived(cfg)
 
-	out, err := generateEnvContent(&Credentials{}, cfg, derived, &DbMemory{}, projDir)
+	out, _, err := generateEnvContent(&Credentials{}, cfg, derived, &DbMemory{}, projDir)
 	if err != nil {
 		t.Fatalf("generateEnvContent: %v", err)
 	}
@@ -326,7 +400,7 @@ func TestGenerateEnvContent_UpgradeCallbackSurvives(t *testing.T) {
 	}
 	derived := computeDerived(cfg)
 
-	out, err := generateEnvContent(&Credentials{}, cfg, derived, &DbMemory{}, projDir)
+	out, _, err := generateEnvContent(&Credentials{}, cfg, derived, &DbMemory{}, projDir)
 	if err != nil {
 		t.Fatalf("generateEnvContent: %v", err)
 	}
@@ -357,7 +431,7 @@ func TestGenerateEnvContent_UpgradeCallbackDefaultsEmpty(t *testing.T) {
 	}
 	derived := computeDerived(cfg)
 
-	out, err := generateEnvContent(&Credentials{}, cfg, derived, &DbMemory{}, projDir)
+	out, _, err := generateEnvContent(&Credentials{}, cfg, derived, &DbMemory{}, projDir)
 	if err != nil {
 		t.Fatalf("generateEnvContent: %v", err)
 	}

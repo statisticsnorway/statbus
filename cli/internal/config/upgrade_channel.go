@@ -135,7 +135,7 @@ func ChannelForMode(mode string) (string, error) {
 func ResolveUpgradeChannel(f *dotenv.File, deploymentMode string) (string, error) {
 	if raw, ok := f.Get(UpgradeChannelKey); ok {
 		declared := strings.TrimSpace(raw)
-		if err := ValidateChannel(declared); err != nil {
+		if err := validateChannel(declared); err != nil {
 			return "", err
 		}
 		return declared, nil
@@ -143,13 +143,15 @@ func ResolveUpgradeChannel(f *dotenv.File, deploymentMode string) (string, error
 	return ChannelForMode(deploymentMode)
 }
 
-// ValidateChannel reports whether a channel name is one this product knows.
+// validateChannel reports whether a channel name is one this product knows.
 //
-// Exported so the `upgrade channel` verb validates against the SAME closed set
-// config generate applies. A verb with its own list could accept a value the
-// generator then refuses, handing the operator a box that will not configure
-// itself — and the two lists would drift the first time one changed.
-func ValidateChannel(channel string) error {
+// Unexported (STATBUS-332): it was exported for the `upgrade channel` verb,
+// which validated a value before writing it — that verb is gone, its whole
+// job (write .env.config, regenerate, restart) subsumed by `./sb install`'s
+// generated-.env diff. ResolveUpgradeChannel below is the only remaining
+// caller; a value that reaches .env.config any other way (hand-edited) is
+// still validated here, on the next config generate.
+func validateChannel(channel string) error {
 	if _, known := knownChannels[channel]; !known {
 		return newRefusal(unknownChannelRefusal(channel))
 	}
