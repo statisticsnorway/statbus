@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-08-28 21:37'
-updated_date: '2026-08-31 14:33'
+updated_date: '2026-08-31 14:35'
 labels:
   - upgrade
   - cli
@@ -306,5 +306,11 @@ author: foreman
 created: 2026-08-31 14:33
 ---
 KING'S APPROVAL (2026-08-31): the authoritative design (comments #4–#6) is APPROVED with one amendment — no internal ordering dance: IT LANDS IN ONE GO. One coherent landing on master carrying everything: the mode→channel derivation (live, no seeding), UPGRADE_ROLE deletion incl. the CLI verb, the re-keyed role-dependent logic, the TagMatchesChannel superset fix (prerelease admits both shapes), the same-commit short-circuit, and the mechanical fleet-transition logic (seeded role → delete; declared role → write the matching channel) in install's config work. Once landed, the King cuts the prerelease himself — the release IS the deployment vehicle; no box is touched by hand. Build: engineer (architectural multi-file lane), architect reviews the frozen diff hands-on before the foreman commits.
+---
+
+author: foreman
+created: 2026-08-31 14:35
+---
+Architect's CLI-verb ruling (2026-08-31, proactive): REMOVE the role-setting verb at cmd/upgrade.go:718-747 — clean break, no shim (verb is 12 days old, arrived with the 2026-08-19 work, no installed base). Deciding reason: the validation a verb adds exists downstream and better — the unknown-channel refusal at generate covers EVERY writer, a verb only its own users; and under this design upgrade policy is not a routine knob — an exception should require opening .env.config and writing the line. Folded into the unit: doc sweep for the removed verb in the same landing.
 ---
 <!-- COMMENTS:END -->
