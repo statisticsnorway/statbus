@@ -4,13 +4,13 @@ STATBUS-247. Promoted from the King-approved draft (`.backlog/docs/doc-035`).
 
 **HOW TO USE THIS TEMPLATE:** copy this file to `doc/observations/<CANDIDATE_TAG>.md`
 (the exact release-candidate tag, e.g. `v2026.08.0-rc.17`) and replace every
-`<CANDIDATE_TAG>` placeholder below with that same tag before you start. The
-stable-release gate (`checkOneCanary`, `cli/cmd/release_canary.go`) refuses to
-treat Norway's canary as complete unless a card exists at that exact path AND
-names the candidate in its body — a card copied from the previous candidate
-and never updated is the realistic mistake this check guards against, not
-fraud. Filling in the tag first is not busywork; it is the one thing that
-makes this card provably about THIS candidate rather than the last one.
+`<CANDIDATE_TAG>` placeholder below with that same tag before you start.
+Filling in the card is expected discipline, not a promotion gate (the King's
+ruling on the v2026.08.1 promotion): the stable-release gate
+(`checkOneCanary`, `cli/cmd/release_canary.go`) only checks that Norway's
+install COMPLETED — it does not read this file. Filling in the tag first is
+not busywork, though; it is the one thing that makes this card provably about
+THIS candidate rather than the last one, once someone does read it.
 
 **Candidate:** <CANDIDATE_TAG>
 **Date:**

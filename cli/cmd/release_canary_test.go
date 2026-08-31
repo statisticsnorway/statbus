@@ -345,110 +345,66 @@ func TestCanaryExplanation_CommandNamesTheCandidate_STATBUS245B(t *testing.T) {
 	}
 }
 
-// STATBUS-247: the human canary's install COMPLETING is not the point — the
-// OBSERVATION is. These pin missingObservationCardReason (the pure,
-// SSH-free check checkOneCanary applies only to the operator slot, only on
-// the 'completed' outcome) plus the structural wiring that actually calls it.
-
-// TestMissingObservationCardReason_CardWithTagPasses is the positive case: a
-// card exists at the right path and names the candidate somewhere in its body.
-func TestMissingObservationCardReason_CardWithTagPasses(t *testing.T) {
-	dir := t.TempDir()
-	tag := "v2026.08.0-rc.17"
-	obsDir := dir + "/doc/observations"
-	if err := os.MkdirAll(obsDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(obsDir+"/"+tag+".md", []byte("# Norway Observation Card — "+tag+"\n\nNothing to report.\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if reason := missingObservationCardReason(dir, tag); reason != "" {
-		t.Errorf("a card naming the candidate must pass; got reason: %q", reason)
-	}
-}
-
-// TestMissingObservationCardReason_MissingCardRefuses is the first negative:
-// no file at all at the expected path.
-func TestMissingObservationCardReason_MissingCardRefuses(t *testing.T) {
-	dir := t.TempDir()
-	tag := "v2026.08.0-rc.17"
-	reason := missingObservationCardReason(dir, tag)
-	if reason == "" {
-		t.Fatal("a missing card must refuse, got no reason (pass)")
-	}
-	if !strings.Contains(reason, "no file at") {
-		t.Errorf("the reason should say there is no file; got: %q", reason)
-	}
-}
-
-// TestMissingObservationCardReason_CardWithoutTagRefuses is the STALE-COPY
-// case, the sharper of the two negatives: a card exists at the right path
-// but never mentions the candidate — exactly what a card copied from the
-// PREVIOUS candidate and never updated would look like. This is the
-// realistic mistake the check exists to catch, not fraud.
-func TestMissingObservationCardReason_CardWithoutTagRefuses(t *testing.T) {
-	dir := t.TempDir()
-	tag := "v2026.08.0-rc.17"
-	obsDir := dir + "/doc/observations"
-	if err := os.MkdirAll(obsDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	// A card that exists, is well-formed, and is even ABOUT this general
-	// exercise — it just never says WHICH candidate, exactly the stale-copy
-	// shape (e.g. still reading "v2026.08.0-rc.16" throughout, or genuinely
-	// scrubbed of any tag).
-	if err := os.WriteFile(obsDir+"/"+tag+".md", []byte("# Norway Observation Card — v2026.08.0-rc.16\n\nNothing to report.\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	reason := missingObservationCardReason(dir, tag)
-	if reason == "" {
-		t.Fatal("a card that never names the candidate must refuse, got no reason (pass)")
-	}
-	if !strings.Contains(reason, "never names") {
-		t.Errorf("the reason should say the card never names the candidate; got: %q", reason)
-	}
-}
-
-// TestCheckOneCanary_ObservationGate_STATBUS247 pins the structural wiring:
-// checkOneCanary must call missingObservationCardReason INSIDE the
-// canaryCompleted branch, gated on slot.role == roleOperator — never for
-// the automatic (dev) slot, which has no human watching and so nothing to
-// have observed. Uses the same source-reading technique as
-// TestCanaryGate_OnlyCompletedPasses_STATBUS245 above, since checkOneCanary
-// itself calls out to SSH (runCanaryProbe) and cannot be unit-tested
-// end-to-end without a live or mocked box.
-func TestCheckOneCanary_ObservationGate_STATBUS247(t *testing.T) {
+// STATBUS-247/King's ruling (v2026.08.1 promotion, "It should be enough that
+// the Norwegian installation has been done and was a success, and that is
+// it"): the observation-card check was RETIRED as a promotion gate. Recording
+// the observation is expected discipline, offered at the moment of the
+// operator's offer (see TestCanaryExplanation_AwaitingOperatorUnaffectedByObservationGate_STATBUS247
+// below), never something checkOneCanary refuses on. This test pins the
+// retirement structurally: the completed branch must not be able to quietly
+// regrow the gate by referencing the removed helper or the doc/observations
+// path.
+func TestCheckOneCanary_CompletedBranchHasNoObservationGate_STATBUS247(t *testing.T) {
 	src := readCanarySource(t)
 	completedIdx := strings.Index(src, "if outcome == canaryCompleted {")
 	if completedIdx < 0 {
-		t.Fatal("checkOneCanary must branch on outcome == canaryCompleted — test is stale or the gate regressed")
+		t.Fatal("checkOneCanary must branch on outcome == canaryCompleted — test is stale or the code regressed")
 	}
 	// The next case in the outer switch/if-chain bounds the completed
 	// branch's body; everything below is the WHOLE rest of the file, so
-	// scanning for the role-gated call within a generous window after
-	// completedIdx is sufficient without needing full brace-matching.
+	// scanning within a generous window after completedIdx is sufficient
+	// without needing full brace-matching.
 	window := src[completedIdx:]
 	if idx := strings.Index(window, "\n\tcase "); idx > 0 {
 		window = window[:idx]
 	}
-	if !strings.Contains(window, "slot.role == roleOperator") {
-		t.Error("the observation-card check must be gated on slot.role == roleOperator — the automatic (dev) slot has no human observation to require")
+	if !strings.Contains(window, "return true") {
+		t.Error("the completed branch must unconditionally return true — completed is a pass for every slot now")
 	}
-	if !strings.Contains(window, "missingObservationCardReason(") {
-		t.Error("the completed branch must call missingObservationCardReason — the install finishing is not proof an observation was recorded")
+	if strings.Contains(window, "missingObservationCardReason") {
+		t.Error("the completed branch must not call missingObservationCardReason — the King retired the observation-card gate; a completed install passes on its own")
 	}
-	if !strings.Contains(window, "The human canary's value is the observation, not the install.") {
-		t.Error("the refusal must use the exact ruled message — 'The human canary's value is the observation, not the install.'")
+	if strings.Contains(window, "doc/observations") {
+		t.Error("the completed branch must not reference doc/observations at all — that check belongs to a retired gate, not to completing")
+	}
+	if _, ok := funcSet(src)["missingObservationCardReason"]; ok {
+		t.Error("missingObservationCardReason must be deleted, not merely uncalled — a dead gate function reads as 'could still be right'")
 	}
 }
 
+// funcSet returns the set of top-level func names declared in src, used to
+// assert a retired helper is actually gone rather than just unreferenced.
+func funcSet(src string) map[string]bool {
+	out := map[string]bool{}
+	for _, line := range strings.Split(src, "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "func ") {
+			continue
+		}
+		rest := strings.TrimPrefix(line, "func ")
+		if idx := strings.Index(rest, "("); idx > 0 {
+			out[strings.TrimSpace(rest[:idx])] = true
+		}
+	}
+	return out
+}
+
 // TestCanaryExplanation_AwaitingOperatorUnaffectedByObservationGate_STATBUS247
-// confirms the STATBUS-247 addition did not touch the awaiting-operator
-// branch's own verdict shape — it still reads as Norway's legitimate resting
-// state, unrelated to whether any observation card exists yet (the card is
-// only checked once the outcome is 'completed'). The print DID gain a new
-// line pointing at the card path (kept from the earlier design) — this test
-// confirms that addition, not a regression.
+// confirms the awaiting-operator branch's own verdict shape is untouched by
+// the gate's retirement — it still reads as Norway's legitimate resting
+// state. The print still names the observation card's path as discipline to
+// follow through on, just never as something that will be checked — this
+// test confirms that line, not a regression.
 func TestCanaryExplanation_AwaitingOperatorUnaffectedByObservationGate_STATBUS247(t *testing.T) {
 	norway := canarySlots[0]
 	for _, s := range canarySlots {

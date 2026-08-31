@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -151,7 +150,7 @@ func (p canaryProbe) outcome() canaryOutcome {
 // outcome passes — completed — and the wait never ages into a pass (AC#7). A
 // gate that timed out into green would silently delete the human canary step
 // that is the whole reason the operator slot exists.
-func checkCanaryGates(projDir, rcTag, rcCommit string) bool {
+func checkCanaryGates(rcTag, rcCommit string) bool {
 	skip := release.ParseSkipLabels(os.Getenv(release.SkipCanaryEnvVar))
 	allOK := true
 	for _, slot := range canarySlots {
@@ -160,7 +159,7 @@ func checkCanaryGates(projDir, rcTag, rcCommit string) bool {
 			fmt.Printf("  ⚠ Canary %-3s — bypass active; upgrade verification NOT confirmed for this slot\n", slot.label)
 			continue
 		}
-		if !checkOneCanary(projDir, slot, rcTag, rcCommit) {
+		if !checkOneCanary(slot, rcTag, rcCommit) {
 			allOK = false
 		}
 	}
@@ -168,9 +167,10 @@ func checkCanaryGates(projDir, rcTag, rcCommit string) bool {
 }
 
 // checkOneCanary probes one slot and renders the outcome. Returns true only for
-// COMPLETED (and, on the operator slot, only once its observation card checks
-// out too — STATBUS-247).
-func checkOneCanary(projDir string, slot canarySlot, rcTag, rcCommit string) bool {
+// COMPLETED. STATBUS-247/King's ruling: recording the observation card on the
+// operator slot is discipline, not a promotion gate — a completed install is
+// sufficient here for every slot.
+func checkOneCanary(slot canarySlot, rcTag, rcCommit string) bool {
 	rcShort := rcCommit
 	if len(rcShort) > 12 {
 		rcShort = rcShort[:12]
@@ -190,21 +190,11 @@ func checkOneCanary(projDir string, slot canarySlot, rcTag, rcCommit string) boo
 	if outcome == canaryCompleted {
 		fmt.Printf("  ✓ Canary %-3s — %s: commit %s installed on %s (at %s)\n",
 			slot.label, outcome, rcShort, slot.dbName, tidyCanaryTimestamp(probe.completedAt))
-		// STATBUS-247: the install completing is not the point of the human
-		// canary — the OBSERVATION is. Applies only to the operator-installed
-		// slot (roleAutomatic slots have no human watching, so there is no
-		// observation to have recorded). Checked here, not earlier: every
-		// other outcome (awaiting-operator, superseded, set-aside, ...) is
-		// unaffected — this only gates the one outcome that used to mean
-		// "done".
-		if slot.role == roleOperator {
-			if reason := missingObservationCardReason(projDir, rcTag); reason != "" {
-				fmt.Printf("  ✗ Canary %-3s — installed, but the observation is missing: %s\n", slot.label, reason)
-				fmt.Printf("      Norway installed %s, but no observation card is recorded at doc/observations/%s.md. The human canary's value is the observation, not the install.\n", rcTag, rcTag)
-				fmt.Printf("      Your next move: cp doc/observations/TEMPLATE.md doc/observations/%s.md, replace every <CANDIDATE_TAG> placeholder with %s, record what you actually saw, and commit it.\n", rcTag, rcTag)
-				return false
-			}
-		}
+		// STATBUS-247/King's ruling (v2026.08.1 promotion): the observation
+		// CARD is discipline, not a promotion gate. A completed install on
+		// every slot (including the operator slot) is sufficient to pass.
+		// Reporting the observation still matters, but it is asked for, not
+		// enforced here.
 		return true
 	}
 
@@ -216,32 +206,6 @@ func checkOneCanary(projDir string, slot canarySlot, rcTag, rcCommit string) boo
 	fmt.Printf("      Bypass (records that this slot was NOT verified): %s=%s ./sb release stable\n",
 		release.SkipCanaryEnvVar, slot.label)
 	return false
-}
-
-// missingObservationCardReason checks doc/observations/<rcTag>.md exists and
-// names rcTag somewhere in its body. Returns "" when the card checks out;
-// otherwise a short, specific reason for the operator-facing refusal in
-// checkOneCanary. STATBUS-247: the realistic mistake this guards against is
-// a card copied from the PREVIOUS candidate and never updated for this one
-// — not fraud. The tag's presence in the body is cheap, positive proof this
-// card is actually about THIS candidate, not an artifact left over from the
-// last one.
-func missingObservationCardReason(projDir, rcTag string) string {
-	if rcTag == "" {
-		return "no candidate tag to check a card against"
-	}
-	path := filepath.Join(projDir, "doc", "observations", rcTag+".md")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Sprintf("no file at doc/observations/%s.md", rcTag)
-		}
-		return fmt.Sprintf("could not read doc/observations/%s.md: %v", rcTag, err)
-	}
-	if !strings.Contains(string(data), rcTag) {
-		return fmt.Sprintf("doc/observations/%s.md exists but never names %s anywhere in its body — looks copied from a previous candidate and left unedited", rcTag, rcTag)
-	}
-	return ""
 }
 
 // printCanaryExplanation writes the reader's NEXT MOVE (AC#9). Every branch ends
@@ -294,10 +258,11 @@ func printCanaryExplanation(slot canarySlot, outcome canaryOutcome, probe canary
 			fmt.Printf("        The exact command they run on the box — it NAMES this candidate:\n")
 			fmt.Printf("          cd statbus && ./sb upgrade register %s && ./sb upgrade schedule %s\n", target, target)
 			fmt.Printf("        Or, if you have access yourself: %s\n", operatorInstall)
-			// STATBUS-247: the observation card is the point of this slot's
-			// whole existence — name its path at the moment of offering, not
-			// only after the fact when 'completed' refuses without one.
-			fmt.Printf("        Observation card for this candidate: doc/observations/%s.md (copy doc/observations/TEMPLATE.md if it does not exist yet).\n", target)
+			// STATBUS-247/King's ruling: the observation card is the point of
+			// this slot's whole existence, so its path is offered here as
+			// discipline to follow through on — it is not something the gate
+			// checks or refuses on.
+			fmt.Printf("        Record your observations for this candidate: doc/observations/%s.md (copy doc/observations/TEMPLATE.md if it does not exist yet).\n", target)
 		} else {
 			// Same row, opposite meaning.
 			fmt.Printf("      THIS IS A FAULT ON THIS SLOT: %s is installed by the release chain, so it should never sit waiting for a person.\n", slot.label)
