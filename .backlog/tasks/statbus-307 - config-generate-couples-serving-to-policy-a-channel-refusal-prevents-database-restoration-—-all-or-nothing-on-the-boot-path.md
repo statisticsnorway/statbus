@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-08-28 21:37'
-updated_date: '2026-08-31 14:35'
+updated_date: '2026-08-31 14:53'
 labels:
   - upgrade
   - cli
@@ -312,5 +312,17 @@ author: foreman
 created: 2026-08-31 14:35
 ---
 Architect's CLI-verb ruling (2026-08-31, proactive): REMOVE the role-setting verb at cmd/upgrade.go:718-747 — clean break, no shim (verb is 12 days old, arrived with the 2026-08-19 work, no installed base). Deciding reason: the validation a verb adds exists downstream and better — the unknown-channel refusal at generate covers EVERY writer, a verb only its own users; and under this design upgrade policy is not a routine knob — an exception should require opening .env.config and writing the line. Folded into the unit: doc sweep for the removed verb in the same landing.
+---
+
+author: foreman
+created: 2026-08-31 14:53
+---
+ARCHITECT'S SUPERSEDING RULING (2026-08-31, replaces comment #8 — appended verbatim by foreman):
+
+1. THE VERB IS KEPT, converted from a role verb to a channel verb. Exact shape: ./sb upgrade channel <local|stable|prerelease> — validate against the closed set and refuse an unknown value, write UPGRADE_CHANNEL into .env.config, run config generate, then restart the upgrade service. All three steps, because all three are what the existing verb does. Its --help must say plainly that an ordinary installation needs no channel and that this records a deliberate exception — that is where a casual adopter meets the command, so that is where the sentence does its work. A follow-up is filed and must not be folded into this landing: the regenerate-and-restart gap is general rather than channel-specific — every .env.config key leaves file and behaviour disagreeing until someone regenerates and restarts — so the right long-term home is ./sb install applying config changes, at which point this verb becomes redundant and can go for the reason originally given.
+
+2. THE PREMISE GOT WRONG: comment #5's table described cmd/upgrade.go:718-747 as 'a CLI verb that SETS the role' — written from a grep hit on f.Set(...) at :732 without reading :699-760. It is not a setter — it is a three-step operator workflow, and step three is a service restart. The daemon loads its config only at startup, so a hand edit changes nothing observable until the operator also regenerates and restarts. Removing the verb would have relocated that work into the operator's memory; the failure mode is a box whose file and behaviour disagree — this ticket's own failure class. Caught by the engineer reading the function.
+
+3. TWO FURTHER CLAIMS CORRECTED, BOTH ACCEPTED: (a) comment #6's 'one site' claim for the superset fix — the FilterTagsByChannel→TagMatchesChannel delegation is real, but selectLatestTagFromNames carries its own PRIVATE COPY of the membership rule and would have survived the fix untouched; the 'surface is small' sentence is precisely what would have made a builder stop looking. (b) comment #5's instruction to re-key the RoleDevelopment behaviour on mode == development — the engineer found the real decision site and it keys on the CHANNEL deliberately, so the instruction would break a stated property. Accepted pending one review condition: the property and where it is stated must be named, so it is verified rather than accepted as a summary.
 ---
 <!-- COMMENTS:END -->
