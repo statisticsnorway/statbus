@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-31 12:11'
+updated_date: '2026-08-31 12:20'
 labels:
   - tooling
   - docs
@@ -28,3 +29,9 @@ SIBLING: the daemon-floor guard currently treats COMMENT ON <daemon relation> as
 
 WHAT IS ACHIEVED: table comments become part of the reviewed offline schema reference, and honest documentation stops requiring either a false daemon requirement or a guard edit smuggled into a feature unit.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+**King's ruling (2026-08-31): the sibling guard-exemption is DEAD — do not build it.** His words: teaching the floor guard about comment statements requires semantically analyzing SQL — a hack. The foreman's clean-if-conservative framing did not survive his judgment and the ruling stands: the guard stays exactly as it is. Consequence for this ticket: when doc/db learns to render table comments and a comment migration ships, it takes the honest floor bump with a note (or the question is revisited when it actually bites again). Scope reduces to the generator rendering obj_description; the guard is untouched.
+<!-- SECTION:NOTES:END -->
