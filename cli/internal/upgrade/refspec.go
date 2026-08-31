@@ -63,12 +63,71 @@ var CanonicalRefspecs = []string{
 // aborts an install or an upgrade. The downstream fetch will fail with its own
 // accurate error if the refspec really is unusable, and the two correlate in the
 // log.
+// CanonicalOriginURL is the one remote every box fetches from. The repo is
+// PUBLIC and read-only to the product, so HTTPS needs no credentials — which is
+// the whole reason STATBUS-324's deploy-key question dissolved. If the repo ever
+// goes private this constant, and the normalization below, are void.
+const CanonicalOriginURL = "https://github.com/statisticsnorway/statbus.git"
+
+// NormalizeOriginURL rewrites remote.origin.url to the canonical HTTPS URL
+// (STATBUS-324).
+//
+// WHY: boxes born before the HTTPS convention carry SSH-era origins
+// (git@github.com:… or ssh://…). SSH to GitHub needs a key the box may not have,
+// and when it fails the operator is debugging key distribution for a repository
+// that is public and needs no key at all. New boxes already clone over HTTPS
+// (create-new-statbus-installation.sh), so this is a one-line repair for history,
+// not a policy change.
+//
+// Same doctrine as NormalizeRefspecs directly above: remote.origin.url is
+// PRODUCT-OWNED, DERIVED CONFIGURATION, set canonically on every install. Hand
+// edits do not survive and are not supported. Derivation, not self-heal — it
+// runs inside install's step table, the verb that owns derived config, and never
+// on a timer.
+//
+// Idempotent by construction: it writes the canonical value unconditionally when
+// the current one differs, and does nothing when it already matches, so it needs
+// no guard at its call site.
+func NormalizeOriginURL(projDir string) error {
+	if !isGitRepo(projDir) {
+		return nil
+	}
+
+	get := exec.Command("git", "config", "--get", "remote.origin.url")
+	get.Dir = projDir
+	out, err := get.Output()
+	if err != nil {
+		// No origin configured at all — nothing to repair, and adding a remote is
+		// the clone's job, not this function's.
+		return nil
+	}
+	current := strings.TrimSpace(string(out))
+	if current == CanonicalOriginURL {
+		return nil
+	}
+
+	set := exec.Command("git", "config", "remote.origin.url", CanonicalOriginURL)
+	set.Dir = projDir
+	if setOut, serr := set.CombinedOutput(); serr != nil {
+		return fmt.Errorf("set remote.origin.url to %q (was %q): %w (%s)",
+			CanonicalOriginURL, current, serr, strings.TrimSpace(string(setOut)))
+	}
+	return nil
+}
+
+// isGitRepo reports whether projDir is inside a git working tree. Shared so the
+// two normalizers agree on what "nothing to do here" means — a fresh box before
+// the clone must be a silent no-op in both, never a reported failure.
+func isGitRepo(projDir string) bool {
+	probe := exec.Command("git", "rev-parse", "--git-dir")
+	probe.Dir = projDir
+	return probe.Run() == nil
+}
+
 func NormalizeRefspecs(projDir string) error {
 	// Not a git repo (or no remote yet) → nothing to normalize. Distinguished
 	// from a real failure so callers do not report a problem on a fresh box.
-	probe := exec.Command("git", "rev-parse", "--git-dir")
-	probe.Dir = projDir
-	if err := probe.Run(); err != nil {
+	if !isGitRepo(projDir) {
 		return nil
 	}
 

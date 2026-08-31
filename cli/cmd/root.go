@@ -337,6 +337,39 @@ func displayShort(c upgrade.CommitSHA) string {
 }
 
 func Execute() error {
+	// STATBUS-324: git must never stop and ask a server for a username.
+	//
+	// OBSERVED on gh, 2026-08-31: a bootstrap install died at `git fetch` with
+	//     could not read Username for 'https://github.com'
+	//     fatal: expected flush after ref listing
+	// GitHub had refused the anonymous request — every niue slot fetches the
+	// public repo anonymously from ONE shared egress IP, and GitHub throttles
+	// anonymous HTTPS by IP — and git answered a NETWORK refusal by falling back
+	// to its credential prompt. On a promptless box that prompt then died, and
+	// what the operator was left holding said "Username", so a throttling problem
+	// reads as an authentication problem. On an NSO box that misdiagnosis costs a
+	// support cycle chasing credentials that were never the issue.
+	//
+	// SET ONCE, HERE, rather than at each call site. Every subcommand reaches
+	// Execute, the variable is inherited by every child process, and there are
+	// ~23 direct exec.Command("git") sites plus several helpers — a per-site
+	// convention is one someone eventually forgets, and the site they forget is
+	// the one that prompts. Verified that no git invocation in the tree replaces
+	// cmd.Env, so the inherited value reaches all of them.
+	//
+	// The repo is PUBLIC and all product git access is read-only over HTTPS, so
+	// there is no legitimate prompt to suppress. If the repo ever goes private
+	// this becomes wrong and credentials return — that premise is recorded on
+	// STATBUS-324 rather than left implicit here.
+	// The error is reported rather than discarded: if this fails, git keeps its
+	// prompt fallback and the confusing failure mode is back, so an operator
+	// should see that the guard did not take. Not fatal — a failed Setenv must
+	// not stop an install that would otherwise succeed.
+	if err := os.Setenv("GIT_TERMINAL_PROMPT", "0"); err != nil {
+		fmt.Fprintf(os.Stderr, "WARN: could not disable git credential prompts: %v\n"+
+			"  A failed git fetch may ask for a username instead of naming the network error.\n", err)
+	}
+
 	// Validate harness-only fault-injection env vars before any subcommand
 	// dispatches. A misconfigured combination (typoed class, stall file
 	// without a stall class, etc.) must fail loudly so a recovery scenario

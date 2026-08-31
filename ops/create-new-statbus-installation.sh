@@ -1,6 +1,15 @@
 #!/bin/bash
 # Exit immediately if any command exits with a non-zero status
 set -e
+
+# STATBUS-324: never let git fall back to a credential prompt on a box being
+# born. This script clones over HTTPS from the PUBLIC repo, so a prompt can only
+# ever be the fallback after a network refusal — and GitHub does refuse, because
+# every niue slot fetches anonymously from one shared egress IP and GitHub
+# throttles anonymously by IP (observed on gh, 2026-08-31). With the prompt
+# disabled the failure names itself instead of asking a promptless box for a
+# username and leaving the operator to debug an auth problem that never existed.
+export GIT_TERMINAL_PROMPT=0
 # Print all commands if VERBOSE is defined
 if [ -n "${VERBOSE}" ]; then
     set -x

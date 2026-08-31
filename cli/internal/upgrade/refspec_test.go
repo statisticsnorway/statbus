@@ -150,3 +150,94 @@ func TestNormalizeNoRepoIsNotAnError(t *testing.T) {
 		t.Errorf("no repo should be a silent no-op, got: %v", err)
 	}
 }
+
+// ── STATBUS-324: origin URL normalization ────────────────────────────────────
+
+func originURLOf(t *testing.T, dir string) string {
+	t.Helper()
+	c := exec.Command("git", testgit.Args("config", "--get", "remote.origin.url")...)
+	c.Dir = dir
+	c.Env = testgit.Env()
+	out, err := c.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func setOriginURL(t *testing.T, dir, url string) {
+	t.Helper()
+	c := exec.Command("git", testgit.Args("config", "remote.origin.url", url)...)
+	c.Dir = dir
+	c.Env = testgit.Env()
+	if out, err := c.CombinedOutput(); err != nil {
+		t.Fatalf("set origin url: %v (%s)", err, out)
+	}
+}
+
+// The case this exists for: a box born before the HTTPS convention. SSH to
+// GitHub needs a key the box may not have, for a repository that is public and
+// needs none.
+func TestNormalizeOriginURLRewritesSSHEraRemotes(t *testing.T) {
+	for _, sshURL := range []string{
+		"git@github.com:statisticsnorway/statbus.git",
+		"ssh://git@github.com/statisticsnorway/statbus.git",
+		"git@github.com:statisticsnorway/statbus",
+	} {
+		t.Run(sshURL, func(t *testing.T) {
+			dir := newRepoWithRefspecs(t)
+			setOriginURL(t, dir, sshURL)
+
+			if err := NormalizeOriginURL(dir); err != nil {
+				t.Fatalf("normalize: %v", err)
+			}
+			if got := originURLOf(t, dir); got != CanonicalOriginURL {
+				t.Errorf("origin = %q, want %q", got, CanonicalOriginURL)
+			}
+		})
+	}
+}
+
+// Already canonical → untouched. Idempotence is what lets this run on every
+// install with no guard at the call site.
+func TestNormalizeOriginURLIsIdempotent(t *testing.T) {
+	dir := newRepoWithRefspecs(t)
+	setOriginURL(t, dir, CanonicalOriginURL)
+
+	for i := 0; i < 3; i++ {
+		if err := NormalizeOriginURL(dir); err != nil {
+			t.Fatalf("normalize (pass %d): %v", i+1, err)
+		}
+		if got := originURLOf(t, dir); got != CanonicalOriginURL {
+			t.Fatalf("pass %d: origin = %q, want %q", i+1, got, CanonicalOriginURL)
+		}
+	}
+}
+
+// Not a git repo — a fresh box before the clone. Silent no-op, never a reported
+// failure, matching NormalizeRefspecs' behaviour so the two agree on what
+// "nothing to do here" means.
+func TestNormalizeOriginURLNoRepoIsNotAnError(t *testing.T) {
+	if err := NormalizeOriginURL(t.TempDir()); err != nil {
+		t.Errorf("no repo should be a silent no-op, got: %v", err)
+	}
+}
+
+// A repo with no origin at all: adding a remote is the clone's job, not this
+// function's. Must not invent one, and must not report a failure.
+func TestNormalizeOriginURLWithNoOriginIsNotAnError(t *testing.T) {
+	dir := t.TempDir()
+	c := exec.Command("git", testgit.Args("init", "-q", "--initial-branch=master", ".")...)
+	c.Dir = dir
+	c.Env = testgit.Env()
+	if out, err := c.CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v (%s)", err, out)
+	}
+
+	if err := NormalizeOriginURL(dir); err != nil {
+		t.Errorf("missing origin should be a silent no-op, got: %v", err)
+	}
+	if got := originURLOf(t, dir); got != "" {
+		t.Errorf("must not invent a remote; got origin = %q", got)
+	}
+}

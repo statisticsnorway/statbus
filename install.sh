@@ -35,6 +35,24 @@
 #
 set -euo pipefail
 
+# STATBUS-324: git must never stop and ask this box for a username.
+#
+# OBSERVED on gh, 2026-08-31: the `git fetch` further down died with
+#     could not read Username for 'https://github.com'
+#     fatal: expected flush after ref listing
+# GitHub had REFUSED the anonymous request — every niue slot fetches the public
+# repo anonymously from one shared egress IP and GitHub throttles anonymously by
+# IP — and git answered that network refusal by falling back to its credential
+# prompt. The operator was left holding the word "Username", so a throttling
+# problem reads as an authentication problem and the next hour goes into
+# credentials that were never involved.
+#
+# Exported here rather than set per command: it must cover this script's own git
+# calls AND everything it launches, ./sb included. The repo is public and all
+# access is read-only over HTTPS, so there is no legitimate prompt being
+# suppressed — only the misleading fallback.
+export GIT_TERMINAL_PROMPT=0
+
 # Merge stderr → stdout so every error (git, curl, ./sb) reaches the
 # operator regardless of how the script was invoked. The primary path is
 # `curl | bash` over SSH, where standalone.sh / cloud.sh capture SSH's

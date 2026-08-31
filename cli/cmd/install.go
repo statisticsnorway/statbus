@@ -1055,6 +1055,15 @@ func configureDeployFetch(dir string) {
 		log.Printf("normalize remote.origin.fetch: %v (continuing; a later fetch will report accurately if the refspec is unusable)", err)
 	}
 
+	// STATBUS-324: same treatment for the remote URL itself. Boxes born before
+	// the HTTPS convention carry SSH-era origins, which need a key the box may
+	// not have — for a repository that is public and needs none. Repaired here,
+	// beside the refspec, because both are the same kind of thing: derived config
+	// the product owns and rewrites on every install.
+	if err := upgrade.NormalizeOriginURL(dir); err != nil {
+		log.Printf("normalize remote.origin.url: %v (continuing; a later fetch will report accurately if the remote is unreachable)", err)
+	}
+
 	cmd := exec.Command("git", "config", "--get-all", "remote.origin.fetch")
 	cmd.Dir = dir
 	out, _ := cmd.Output()
