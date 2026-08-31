@@ -383,15 +383,19 @@ if [ -z "${SKIP_BINARY_DOWNLOAD:-}" ]; then
         echo "Checking out $VERSION..."
         # Ensure db-seed is in origin's refspec so the subsequent
         # `./sb db seed fetch` (during `./sb install`) can populate the
-        # origin/db-seed remote-tracking ref. Older rescue installs were
-        # cloned via `--depth 1 --branch <tag>` which implies
-        # --single-branch and restricts the refspec to JUST that branch —
-        # `git fetch origin db-seed` then updates FETCH_HEAD but NOT
-        # refs/remotes/origin/db-seed, and the later `git show
-        # origin/db-seed:seed.pg_dump` fails with "invalid object name."
-        # set-branches --add is idempotent; on hosts already broadened it
-        # no-ops.
-        git remote set-branches --add origin db-seed
+        # STATBUS-325: the `git remote set-branches --add origin db-seed` that
+        # stood here is GONE, and so is the comment claiming it was idempotent.
+        # It was not: --add appends unconditionally, so every rescue run left one
+        # more identical db-seed line (gh reached production with three). That
+        # false claim is why nobody looked — it asserted the very property whose
+        # absence was the bug.
+        #
+        # remote.origin.fetch is now product-owned derived config, rewritten to
+        # canonical by `./sb install` (upgrade.NormalizeRefspecs), which also
+        # supplies the wildcard this shallow clone never had. Not guarded here,
+        # DELETED here: a guarded shell writer would be a second mechanism for a
+        # rule the Go side already enforces exactly.
+        #
         # No --force, no --quiet. install-verified moving tag was deleted
         # in rc.62; there is no moving tag to force past anymore. Silent
         # failures hid rune's rc.59 / rc.60 root causes — let fetch and
@@ -412,12 +416,13 @@ if [ -z "${SKIP_BINARY_DOWNLOAD:-}" ]; then
         echo "Cloning StatBus repository..."
         git clone --depth 1 --branch "$VERSION" \
             https://github.com/statisticsnorway/statbus.git "$STATBUS_DIR"
-        # Add db-seed to origin's refspec — see RESCUE-path comment above
-        # for the bug this prevents. `--depth 1 --branch <tag>` implies
-        # --single-branch which restricts the refspec; without this fix
-        # the seed-restore step silently falls back to full-replay of all
-        # migrations (1-3 min) instead of pg_restore (~2s).
-        git -C "$STATBUS_DIR" remote set-branches --add origin db-seed
+        # STATBUS-325: the second `set-branches --add` stood here and is GONE for
+        # the same reason as the first. This path's `clone --depth 1 --branch
+        # <tag>` implies --single-branch, so the box is born with ONLY a tag pin
+        # and no wildcard at all — which is why appending one branch was never
+        # enough. `./sb install` now rewrites remote.origin.fetch to canonical,
+        # supplying the wildcard and the seed branch together.
+        #
         # `clone --branch <tag>` leaves HEAD detached on the tag commit;
         # promote to the same `current` branch the rescue path uses.
         git -C "$STATBUS_DIR" checkout -B current "$VERSION"

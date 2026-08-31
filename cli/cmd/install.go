@@ -1040,11 +1040,20 @@ func configureDeployFetch(dir string) {
 	branch := fmt.Sprintf("ops/cloud/deploy/%s", code)
 	refspec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", branch, branch)
 
-	// Remove any stale devops/* refspecs — they refer to branches renamed
-	// during R1.1 and every subsequent `git fetch` errors on them. Shared
-	// helper so `./sb upgrade apply-latest` can self-heal before its own
-	// fetch without duplicating the cleanup logic.
-	upgrade.CleanStaleRefspecs(dir)
+	// STATBUS-325: remote.origin.fetch is product-owned derived config —
+	// rewritten to canonical here on every install, exactly as .env is
+	// regenerated rather than patched. This replaces the old stale-entry
+	// remover, which used `git config --unset` and therefore REFUSED whenever
+	// multiple values matched: against the triplicated db-seed state it was
+	// aimed at, it could not clean anything at all.
+	//
+	// No mutex needed at THIS call site: runCloneRepo runs inside the step
+	// table, which executes after acquireOrBypass — this process already holds
+	// the upgrade mutex. The apply-latest call site has no such protection and
+	// takes the lock itself (STATBUS-323).
+	if err := upgrade.NormalizeRefspecs(dir); err != nil {
+		log.Printf("normalize remote.origin.fetch: %v (continuing; a later fetch will report accurately if the refspec is unusable)", err)
+	}
 
 	cmd := exec.Command("git", "config", "--get-all", "remote.origin.fetch")
 	cmd.Dir = dir

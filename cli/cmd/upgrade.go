@@ -382,11 +382,36 @@ file changes needed.`,
 			channel = v
 		}
 
-		// Self-heal stale refspecs before any git fetch. Servers upgraded
-		// across the R1.1 devops/→ops/cloud/deploy rename can have a
-		// dangling refs/heads/devops/* refspec that makes every fetch fail.
-		// CleanStaleRefspecs is a no-op when nothing stale is configured.
-		upgrade.CleanStaleRefspecs(projDir)
+		// STATBUS-325: bring remote.origin.fetch to canonical before any fetch.
+		// A box born from the shallow-clone bootstrap has ONLY a tag pin and no
+		// wildcard, so the fetch below cannot see branches at all; a box that has
+		// been rescued repeatedly has duplicate db-seed lines. Both are rewritten
+		// exactly here.
+		//
+		// UNDER THE UPGRADE MUTEX (STATBUS-323's constraint). Unlike the install
+		// call site, this one is a plain CLI command: the upgrade service may be
+		// concurrently active, and `git config` mutates repository state. Writing
+		// the refspec while a service upgrade manipulates the same repo would
+		// reintroduce on the upgrade path exactly the race 323 closed on the
+		// bootstrap path.
+		//
+		// CONTENTION IS NOT AN ERROR. If an upgrade holds the mutex we say so and
+		// carry on unnormalized — never abort. Aborting would convert a config
+		// tidy-up into a failed upgrade, and if the refspec really is unusable the
+		// fetch below fails with its own accurate message. The report exists so
+		// the two correlate in the log rather than leaving a bare fetch error with
+		// no explanation beside it.
+		if lock, lerr := upgrade.AcquireInstallFlag(projDir, "operator:refspec-normalize"); lerr != nil {
+			fmt.Printf("Skipping refspec normalization: the upgrade mutex is held (%v).\n", lerr)
+			fmt.Println("  Continuing — if the fetch below fails on a missing branch, re-run this after the upgrade finishes.")
+		} else {
+			nerr := upgrade.NormalizeRefspecs(projDir)
+			upgrade.ReleaseInstallFlag(lock)
+			if nerr != nil {
+				fmt.Printf("Could not normalize remote.origin.fetch: %v\n", nerr)
+				fmt.Println("  Continuing — the fetch below will report accurately if the refspec is unusable.")
+			}
+		}
 
 		var latestVersion string
 
