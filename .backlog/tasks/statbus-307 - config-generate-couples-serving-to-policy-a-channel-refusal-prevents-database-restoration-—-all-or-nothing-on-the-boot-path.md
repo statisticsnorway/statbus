@@ -3,11 +3,11 @@ id: STATBUS-307
 title: >-
   config-generate-couples-serving-to-policy: a channel refusal prevents database
   restoration — all-or-nothing on the boot path
-status: In Progress
+status: Done
 assignee:
-  - mechanic
+  - '@engineer'
 created_date: '2026-08-28 21:37'
-updated_date: '2026-08-31 14:59'
+updated_date: '2026-08-31 15:02'
 labels:
   - upgrade
   - cli
@@ -332,3 +332,9 @@ created: 2026-08-31 14:59
 ARCHITECT'S REVIEW VERDICT (2026-08-31): APPROVE with one required one-line amendment, one HIGH record-correction, and the two requested verifications done. (1) AMENDMENT: vm-bootstrap.sh:479 — empty BASE_SHA routes to the 254-era branch, writing the retired role key; right-by-accident today via the legacy translator, silently disarms the arcs' release-bless when the translator is deleted (upgrade_channel.go:264-269 schedules exactly that). Fix: empty BASE_SHA → current-era branch. (2) RECORD-CORRECTION (HIGH, no code defect): the niue slots do NOT get prerelease from the discriminator — their role=production EQUALS private mode's legacy default → seeded → deleted → derive stable; only rune's canary differs and is preserved. The discriminator is correct as designed; the freeze report's coverage claim was half wrong. THE EXPLICIT PRERELEASE WRITES ON THE NIUE SLOTS ARE A DELIBERATE POST-LANDING FLEET ACTION (comment #5's transition list), King-gated — and ORDERED: the key may only be written to a box ALREADY RUNNING the new code, because the old binary's 254 guard refuses a present UPGRADE_CHANNEL and would park the box. Consistent with AC8: the transition itself changes no box's effective channel; the slots leading is a separate act. (3) VERIFIED: migrate.go:2018's channel-axis property confirmed at the site (the comment-#5 re-key instruction was wrong; engineer's refusal correct); the era-probe design ruled sound (file-existence probe = era detection by the thing defining the era; the third branch is the era-accuracy rule applied). Also noted: seed-build exclusion anticipated at upgrade_channel.go:102-103; the translator's one-time-deletion note is the no-standing-self-heal rule applied unprompted.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+LANDED IN ONE GO at 7816a7654, per the King's approval (comments #4–#7): 24 files, +1053/−766. The two-variable model is live: CADDY_DEPLOYMENT_MODE (default standalone — unspecified means an NSO production box) derives UPGRADE_CHANNEL live on every generate; a written channel always wins; UPGRADE_ROLE deleted (mechanism, verb, 59 refs across 9 files) with a grep guard red-verified twice (engineer's build; foreman's redo with a tracked probe after the engineer's index-rule self-report). SITE_DOMAIN refuses actionably in standalone. Channels nested (prerelease ⊇ stable) at TagMatchesChannel AND the private copy in selectLatestTagFromNames the one-site claim missed. Same-commit short-circuit compares by binary ldflags commit — deliberately not git rev-parse HEAD, which diverges from the running binary exactly mid-upgrade (engineer's improvement over the brief). One-time fleet translator with the seeded-vs-declared discriminator, self-scheduled for deletion once the fleet runs it. The channel verb KEPT as ./sb upgrade channel after the architect's ruling reversed on reading the function (three-step workflow, not a setter); config-apply generalization filed as STATBUS-332. Era gate probes upgrade_channel.go existence at BASE_SHA, three eras, empty base = current era (the architect's one required amendment — the old routing was correct only while the deletable translator existed). Review chain: architect hands-on approve; foreman line review + independent full-suite runs (14 packages, twice) + red-verification redo. AC8 holds: no box's effective channel changed at landing — the niue slots leading (explicit prerelease writes, only onto boxes running this code) is a separate King-gated act, on record in comment #10. NEXT: the King cuts the prerelease; the release is the deployment vehicle.
+<!-- SECTION:FINAL_SUMMARY:END -->
