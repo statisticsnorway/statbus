@@ -3,11 +3,11 @@ id: STATBUS-252
 title: >-
   gate-on-per-scenario-evidence: shadow first, switch on evidence — the
   promotion gate is the last thing to change
-status: In Progress
+status: Done
 assignee:
   - '@mechanic'
 created_date: '2026-08-19 10:00'
-updated_date: '2026-08-31 20:11'
+updated_date: '2026-08-31 20:42'
 labels:
   - release
   - quality-gate
@@ -49,11 +49,11 @@ WHAT IS ACHIEVED: the gate becomes as precise as the evidence it reads, and it g
 <!-- AC:BEGIN -->
 - [x] #1 The chain runs the per-scenario path while the gate retains whole-suite authority, for a period covering multiple real candidates
 - [x] #2 CORRECTED (2026-08-31, supersedes 'agreement across real cuts'): the switch is authorized by at least one comparison where the two paths COULD have diverged — the partial-coverage case — in which per-scenario's answer is verified correct, whether or not the paths agreed; a differential test with synthetic partial-coverage evidence satisfies this
-- [ ] #3 The required-scenario list is derived from the target commit's domain; a newly added scenario is never inheritable and never silently absent
-- [ ] #4 Run and job lookups are cached per commit, keeping the gate's API call count at roughly its current level
-- [ ] #5 Gate refusals name the anchor ridden, the anchor blocked and why, and any candidate that could not be read
-- [ ] #6 The independence argument is recorded with the switch: it holds because scenarios share no state, and must be re-examined for any suite where they do
-- [ ] #7 The switch is a deliberate, separately reviewed change — its own frozen diff and its own commit, never folded into a commit doing other work
+- [x] #3 The required-scenario list is derived from the target commit's domain; a newly added scenario is never inheritable and never silently absent
+- [x] #4 Run and job lookups are cached per commit, keeping the gate's API call count at roughly its current level
+- [x] #5 Gate refusals name the anchor ridden, the anchor blocked and why, and any candidate that could not be read
+- [x] #6 The independence argument is recorded with the switch: it holds because scenarios share no state, and must be re-examined for any suite where they do
+- [x] #7 The switch is a deliberate, separately reviewed change — its own frozen diff and its own commit, never folded into a commit doing other work
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -82,3 +82,9 @@ created: 2026-08-31 20:11
 Foreman (2026-08-31 night): Unit A LANDED at f49471b46 — the differential test satisfying the corrected AC#2. One synthetic world (c1/c2 partial runs, target c3 empty, scenario-d covered nowhere), both REAL production algorithms (workflowJobsCompleteAtCommit for the authority side; DecideCoverage + scenarioProvenInCIAt for the per-scenario side) against one fake GitHub server; anchors cross-verified against raw job data; red-verified from both directions. AC#1 also checked — the shadow has run beside the authority across multiple real candidates since 3bb852eb6 (six persisted records). Unit B (the authority switch, its own reviewed diff per AC#7) authorized and with the mechanic, queued behind the 329 rename re-freeze.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+COMPLETE — shadow, evidence, switch, in exactly the designed order. Shadow phase 3bb852eb6 ran advisorily beside the authority across real candidates (AC#1). The switch-readiness audit found all six persisted records degenerate (full coverage — the paths cannot disagree there) and the architect corrected his own defective AC#2: authorization comes from one comparison where the paths COULD diverge with per-scenario verified correct, not from agreement-on-easy-input. Unit A (f49471b46) built that comparison: synthetic partial coverage, both REAL production algorithms, whole-suite refuses / per-scenario passes / anchors cross-verified / covered-nowhere refused. Unit B (00c4096bd, its own reviewed diff per AC#7): both harness gates now decide via DecideCoverage through runCoverageAuthority — fail-closed, domain from the target commit as a parameter (structurally unable to derive its own), refusals naming anchor/blocked-by+changed-files/unreadables, AC#6's independence argument at the switch site with its re-examination clause. Architect hands-on review caught a STATBUS-256 regression pre-landing (in-progress run must prescribe WAIT, never a duplicate trigger — restored, with his likely-free premise corrected at the line by the mechanic's verification) and required the memo-key structural pin (cache keys must never include the scenario name — the rate-limited-gate-at-cut-time failure mode, now an immediate test failure instead). Shadow + JSONL retired: post-switch there is no second path, and the gate prints everything the record held; the promotion transcript is the durable artifact. Every step red-verified; foreman landing review read the re-homed 217 assertion (evidence_test.go:89) the architect had accepted on shape.
+<!-- SECTION:FINAL_SUMMARY:END -->
