@@ -3,11 +3,11 @@ id: STATBUS-324
 title: >-
   fleet-git-auth: every niue slot fetches GitHub anonymously over HTTPS from one
   shared IP — throttling is now an observed failure mode, not a theory
-status: In Progress
+status: Done
 assignee:
   - '@engineer'
 created_date: '2026-08-31 11:17'
-updated_date: '2026-08-31 12:54'
+updated_date: '2026-08-31 13:06'
 labels:
   - ops
   - cloud
@@ -59,3 +59,9 @@ created: 2026-08-31 12:54
 Foreman (2026-08-31): third item LANDED at 7473cddfb (reviewed; four tests re-verified by name, incl. the before/after-flag pair proving the flag alone was insufficient). One implementation at the site that owns git-failure formatting (runCommandOutputTimeout → explainGitFailure). KNOWN GAP on record: install.sh's own bootstrap fetch — the exact site of gh's observed failure — still shows raw git text; a bash copy would be the forbidden second translator, and on a truly fresh bootstrap ./sb doesn't exist yet. Ticket-or-accept verdict with the architect. 324 stays In Progress until that verdict; then closes.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+COMPLETE in three landed items, one refuted premise, and one spawned ticket. (1+2) At 173ea514c: GIT_TERMINAL_PROMPT=0 set once in cmd.Execute (inherited by every git child, ~23 sites) and exported by install.sh + create-new-statbus-installation.sh; NormalizeOriginURL rewrites SSH-era origins to canonical HTTPS beside the refspec normalizer, same product-owned-derived-config doctrine, four tests. (3) At 7473cddfb: explainGitFailure at the single site owning git-failure formatting — built because the engineer's measured before/after REFUTED the ruling's premise (the flag changes only the errno tail; git still leads with 'could not read Username'), a refutation the architect accepted on record. The translation is principled, not heuristic: the repo is PUBLIC, no fetch legitimately needs credentials, so a credential demand is never an auth failure. The 298 text-match asymmetry is recorded in the code (there: stale match silently disarms a guard; here: degrades to today's message). Says only unreachable-or-refused; throttling offered, never asserted (test-pinned). ci-notify.sh confirming read: 4 lines delegating to ./sb upgrade check — the anonymous API quota residual's precise home is the Go RunCheck path if it reopens. RESIDUE → STATBUS-330: install.sh's own bootstrap fetch still speaks raw git; architect ruled delegation-not-duplication, filed with the fresh-box bootstrapping-order residue named. PREMISE ON RECORD unchanged: all of this holds while the repo is public.
+<!-- SECTION:FINAL_SUMMARY:END -->

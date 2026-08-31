@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-08-28 21:37'
-updated_date: '2026-08-31 12:40'
+updated_date: '2026-08-31 13:17'
 labels:
   - upgrade
   - cli
@@ -100,5 +100,11 @@ Worth stating plainly, or "we already park and serve" looks like enough.
 6. The unresolved state appears in `system_info` and on the upgrade page via 308's existing path.
 7. A box with **resolved** policy generates byte-identically to today — no regression on the healthy path.
 8. Red-verified: reintroducing a default for the channel fails a test.
+---
+
+author: foreman
+created: 2026-08-31 13:17
+---
+KING'S PRINCIPLE (2026-08-31, supersedes the pending approval question on the filed design): When an installation runs ./sb config generate, the DEFAULT values shall be those suitable for an NSO STANDALONE installation. Anything else must be specified. Confirmed in discussion: SITE_DOMAIN is the one key with no honest default — and as such it must be specified (standalone mode with an unspecified domain refuses with an actionable message rather than generating a config that cannot serve). Foreman's verified groundwork for the re-derivation: config.go:352 currently defaults CADDY_DEPLOYMENT_MODE to 'development' (the direct inversion of the principle); gen()/f.Generate writes defaults into .env.config on first generate, so every existing box carries the mode key explicitly and a default flip touches only genuinely fresh installations; defaultRoleForMode's equivalence concern dissolves for the same reason; cloud slots set 'private' explicitly (create-new-statbus-installation.sh:361); canary is explicit-only by design. The filed partial-generation design is NOT approved as-is — architect re-derives 307 under this principle (it may shrink to: flip the mode default, add the standalone SITE_DOMAIN refusal, keep fail-fast on incoherent explicit input).
 ---
 <!-- COMMENTS:END -->
