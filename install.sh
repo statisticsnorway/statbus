@@ -191,6 +191,112 @@ procure_sb_from_commit_image() {
 # The edge path sets $VERSION to "sha-<short>" and builds from source
 # (see edge block further down — it doesn't use $BINARY_URL).
 STATBUS_DIR="${HOME}/statbus"
+
+# ── OWN THE REPOSITORY FOR THIS BOOTSTRAP (STATBUS-323) ──────────────────────
+#
+# A bootstrap install must not be raced by the very service it is replacing.
+#
+# OBSERVED on ma, 2026-08-31: `git fetch origin --tags` below died with
+#   cannot lock ref 'refs/remotes/origin/master': is at 3bd85bfae but expected 376a18c38
+# The box's still-running upgrade service fetches THIS SAME REPO on its ~2-minute
+# discovery tick, and the two fetches collided on the ref. et and jo ran minutes
+# earlier with identical commands and simply won their races — the tell that this
+# is a race, not a broken command. It left a genuinely mixed state: the binary was
+# already swapped while the worktree stayed at the old tag and the Go installer
+# never ran, so the box kept serving the old stack.
+#
+# WE TAKE THE MUTEX. WE DO NOT SIGNAL THE SERVICE. `systemctl --user stop` sends
+# SIGTERM (the unit declares no KillSignal), and an in-flight upgrade catches
+# SIGTERM and answers with a ROLLBACK — a snapshot restore over the live DB. That
+# is the deploy-stop footgun that wedged rune, and this script's own header has
+# forbidden it since. A flag-guarded stop is not good enough either: the guard is
+# TOCTOU, and the window it leaves is precisely "restore a snapshot over a running
+# database". So the bootstrap acquires the SAME advisory lock the upgrade service
+# already contends on, and every party blocks or backs off by the existing
+# contract instead of one killing another.
+#
+# THE FLAG FILE IS ALSO THE STATE MARKER, which decides the implementation. The
+# install ladder classifies live-upgrade / crashed-upgrade from this file's
+# PRESENCE, so merely creating it to lock it would manufacture a state the next
+# run misreads as an upgrade in flight. It closes only via the holder field: we
+# write the SAME install-held record the Go side writes (holder="install",
+# trigger="install", id=0), so anything reading it classifies it correctly as an
+# install holding the mutex — not a service mid-upgrade.
+#
+# PORTABILITY: flock(1) is util-linux and absent on macOS. This is the idiom
+# dev.sh already proves for the test-run lock — bash opens the fd, perl (shipped
+# on both) fdopens it and takes flock(2). The lock lives with the open file
+# DESCRIPTION, so the kernel releases it on process-tree death even under SIGKILL,
+# and no EXIT trap can be forgotten.
+#
+# RELEASED BEFORE THE GO INSTALLER RUNS, deliberately: that command acquires this
+# same mutex itself (acquireOrBypass), and holding it here would make it fail
+# EWOULDBLOCK against us. One holder, one contract, handed over cleanly.
+STATBUS_REPO_LOCK_HELD=""
+
+# Write the install-held record — field-compatible with what AcquireInstallFlag
+# writes on the Go side (id/commit_sha/started_at/invoked_by/trigger/holder), so
+# every reader classifies this the same way whichever side took the lock.
+_statbus_write_install_flag() {
+    _now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf '{"id":0,"commit_sha":"","started_at":"%s","invoked_by":"install.sh:%s","trigger":"install","holder":"install"}\n' \
+        "$_now" "${USER:-unknown}" >&9 2>/dev/null || true
+}
+
+statbus_repo_lock_acquire() {
+    # Fresh installs have no repository and no service, so there is nothing to
+    # race and nothing to lock — the directory does not exist yet.
+    [ -d "$STATBUS_DIR/.git" ] || return 0
+    if ! command -v perl >/dev/null 2>&1; then
+        echo "Warning: perl not found; proceeding without the repository lock." >&2
+        echo "  A concurrent upgrade-service fetch could collide with this install." >&2
+        return 0
+    fi
+
+    mkdir -p "$STATBUS_DIR/tmp" 2>/dev/null || true
+    _flag="$STATBUS_DIR/tmp/upgrade-in-progress.json"
+
+    # O_RDWR|O_CREAT WITHOUT truncation: an EXISTING record (a live upgrade's)
+    # must survive our opening it. We write our own record only after winning.
+    exec 9<>"$_flag" || return 0
+
+    if perl -e 'use Fcntl ":flock"; open(my $f, "<&=9") or exit 2; exit(flock($f, LOCK_EX|LOCK_NB) ? 0 : 1);'; then
+        _statbus_write_install_flag
+        STATBUS_REPO_LOCK_HELD=1
+        return 0
+    fi
+
+    # CONTENDED. Never wait silently: an upgrade can hold this for many minutes,
+    # and a twenty-minute silent hang is indistinguishable from a crash. Say what
+    # is happening and who holds it BEFORE blocking.
+    echo "Waiting for the upgrade mutex — another party holds it." >&2
+    if [ -s "$_flag" ]; then
+        echo "  Holder record: $(tr -d '\n' < "$_flag" | cut -c1-300)" >&2
+    fi
+    echo "  (an upgrade in progress can hold this for several minutes)" >&2
+    echo "  Inspect with: lsof $_flag" >&2
+
+    if perl -e 'use Fcntl ":flock"; open(my $f, "<&=9") or exit 2; exit(flock($f, LOCK_EX) ? 0 : 1);'; then
+        echo "Upgrade mutex acquired; continuing." >&2
+        _statbus_write_install_flag
+        STATBUS_REPO_LOCK_HELD=1
+    else
+        echo "Warning: could not acquire the upgrade mutex; continuing without it." >&2
+    fi
+    return 0
+}
+
+# Hand the mutex over cleanly. Removes OUR record only — an install-held flag
+# left behind is state the next run has to reason about.
+statbus_repo_lock_release() {
+    [ -n "$STATBUS_REPO_LOCK_HELD" ] || return 0
+    rm -f "$STATBUS_DIR/tmp/upgrade-in-progress.json" 2>/dev/null || true
+    exec 9>&- 2>/dev/null || true
+    STATBUS_REPO_LOCK_HELD=""
+}
+
+statbus_repo_lock_acquire
+
 if [ -n "$VERSION" ]; then
     echo "Installing specified version: $VERSION"
 elif [ "$CHANNEL" = "stable" ]; then
@@ -326,6 +432,12 @@ fi
 # only reflects invariants fired during THIS install, not ghosts from before.
 rm -f "$STATBUS_DIR/tmp/install-terminal.txt" 2>/dev/null || true
 
+# STATBUS-323: hand the mutex over. Every repository operation above is done,
+# and the Go installer acquires this SAME lock itself (acquireOrBypass). Holding
+# it here would make it fail EWOULDBLOCK against us — the self-deadlock the
+# flag-ownership contract explicitly warns about. One holder at a time.
+statbus_repo_lock_release
+
 # Run the Go-side installer. Do NOT `exec` — we need to handle non-zero
 # exits and write a named-invariant banner + support bundle so operators
 # have something actionable when they come back to "what happened".
@@ -338,6 +450,13 @@ set -e
 # ERR trap fired and printed the failing command. If sb_rc != 0 the
 # failure was inside the Go binary — not a bash-level exit.
 echo "install.sh: ./sb install returned (exit $sb_rc)" >&2
+
+# STATBUS-323: belt — release again on the failure path. The release above is
+# the normal hand-over and has already run, so this is a no-op then; it exists
+# because an early `exit` added below this line in future would otherwise leave
+# our install-held record on disk for the next run to reason about. The function
+# is idempotent and only ever removes a record we wrote and still hold.
+statbus_repo_lock_release
 
 if [ "$sb_rc" -eq 0 ]; then
     exit 0
