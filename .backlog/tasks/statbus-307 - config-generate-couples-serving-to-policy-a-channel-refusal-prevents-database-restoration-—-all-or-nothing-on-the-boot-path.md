@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - mechanic
 created_date: '2026-08-28 21:37'
-updated_date: '2026-08-31 13:18'
+updated_date: '2026-08-31 14:10'
 labels:
   - upgrade
   - cli
@@ -158,5 +158,101 @@ Comment #1's argument was the frozen box: while policy is unresolved, the landed
 ## What is achieved
 
 An NSO installs StatBus by supplying one fact — its domain — and gets a correct production box; every other default is the product declaring what it is, and no default ever answers a question the operator already answered two different ways.
+---
+
+author: architect
+created: 2026-08-31 14:09
+---
+**AUTHORITATIVE DESIGN, part 1 of 2 — supersedes comments #1 and #3. Two variables, not three.**
+
+**Purpose, in two sentences.** A box declares WHAT IT IS, and that alone decides what it follows unless someone writes otherwise. The second variable exists only to record exceptions, so an unremarkable installation stores nothing about upgrade policy at all.
+
+## The table
+
+| `CADDY_DEPLOYMENT_MODE` (what the box IS) | derived `UPGRADE_CHANNEL` (what it FOLLOWS) |
+|---|---|
+| `development` | `local` |
+| `private` | `stable` |
+| `standalone` (the default) | `stable` |
+
+**A written `UPGRADE_CHANNEL` always wins.** Topology never implies purpose — leading is a written choice. Our niue slots write `prerelease` (their purpose is to test and show before others); rune writes `prerelease`.
+
+## Derivation is LIVE. Seeding stops.
+
+`.env.config` holds only what is **specified**. `config generate` derives the channel from the mode and writes it to the generated `.env` — **never back into `.env.config`**. The derived value is recomputed on every generate, so a mode change moves it.
+
+**This explicitly overrules the existing rationale** *"a box that changes mode does not silently change what it follows"*. **It is safe for a reason worth stating: only a box that NEVER STATED a channel follows the mode — and for such a box, the mode IS its statement.** Any box with an opinion has written it down, and a written value is untouched by a mode change.
+
+## Why STATBUS-254 cannot recur
+
+254 was two keys disagreeing. **One of them no longer exists**, so the disagreement has no second party.
+
+The seeding change closes the other half: **an unspecified box stores NOTHING**, so there is no previously-seeded value for a later hand-edit to contradict. Only exceptions carry the key, and a single key cannot contradict itself.
+
+**So the 254 guard inverts — from "UPGRADE_CHANNEL is never a setting" to "UPGRADE_CHANNEL is THE setting, visible exactly where someone chose it."** One refusal survives: an unknown channel VALUE. Specified-but-incoherent still fails fast; ordinary doctrine, unchanged.
+
+## Kept from comment #3
+
+- **`CADDY_DEPLOYMENT_MODE` defaults to `standalone`** (`config.go:352`, currently `development`).
+- **Standalone with unspecified `SITE_DOMAIN` refuses actionably** — a default is honest when the PRODUCT owns the fact, dishonest when the WORLD owns it. The product may declare what the box is; it may not invent the box's domain.
+- **The absent-versus-contradiction boundary**, now simplified: role-versus-channel contradiction is structurally impossible, and what remains is an unknown VALUE — which refuses.
+- **The landed park-and-serve fork (3ff11f1d6) and dispatch guard (3d102d676) stand as final**, asserted rather than rebuilt.
+
+*(Consumer enumeration, fleet transition, STATBUS-328 verdict and acceptance criteria follow in part 2.)*
+---
+
+author: architect
+created: 2026-08-31 14:10
+---
+**AUTHORITATIVE DESIGN, part 2 of 2 — the deletion, the transition, and STATBUS-328.**
+
+## `UPGRADE_ROLE` deletion — enumerated consumers (9 files, 59 refs; tests/docs/backlog excluded)
+
+| File | What it does | Becomes |
+|---|---|---|
+| `config/upgrade_role.go` (37) | the whole mechanism | **deleted**; the mode→channel table replaces it |
+| `config/config.go` (8) | resolves and writes the role | derives channel from mode; writes to `.env` only |
+| `cmd/upgrade.go:718-747` (5) | **a CLI verb that SETS the role** | **user-facing change** — becomes a channel verb or is removed in favour of editing `.env.config`. Decide deliberately; do not drop it silently. |
+| `upgrade/service.go:3818,3828` | operator message text | reworded to the mode→channel story |
+| `dotenv/dotenv.go:235` | comment | reworded |
+| `ops/statbus-upgrade.service:52` | comment naming the 254 retriable refusal | that refusal no longer exists; rewrite |
+| `ops/create-new-statbus-installation.sh:139,371` | writes the role unconditionally | writes `UPGRADE_CHANNEL` **only for exceptions**; nothing for an NSO box |
+| `test/install-recovery/lib/vm-bootstrap.sh:429,452` | declares `UPGRADE_ROLE=production` | era-accuracy note below |
+| `test/install-recovery/arcs/postswap-health-park-arc.sh:31` | comment relying on it | reworded |
+
+**HONEST GAP, stated rather than papered over:** the migration-fix behaviour said to key on `RoleDevelopment` did **not** appear outside `upgrade_role.go`/`config.go` in my sweep. **The builder must find its real decision site and re-key it on `mode == development`.** I am not claiming to have found it — an enumeration presented as complete when it is not is the defect this project keeps catching. *(My first sweep was silently mangled by `rg -r`, which is `--replace`; re-run clean. Recorded because it is exactly why enumerations get verified.)*
+
+**Era-accuracy consequence (297's rule): the rule INVERTS.** The fixtures declare a role because that is what their era's box carried. After deletion a **new**-era box has none and an **old**-era box does — so the harness must stay era-accurate in the new direction, not merely drop the line, which would construct a state its own era could not produce.
+
+## Fleet transition — a discriminator, so no per-box judgement is needed
+
+> **If the written role equals the default for that box's mode, it was SEEDED — delete it; the derived channel gives the identical answer. If it differs, it was DECLARED — write the matching `UPGRADE_CHANNEL`.**
+
+Safe both ways: deleting a seeded value changes nothing, and a differing value is by definition someone's choice.
+
+- **niue slots (all):** write `UPGRADE_CHANNEL=prerelease`.
+- **rune:** write `UPGRADE_CHANNEL=prerelease`.
+- **True NSO boxes:** write nothing — they derive `stable` from `standalone`.
+- **Through config + install. No manual DB writes**, per standing doctrine.
+
+## STATBUS-328 — split verdict
+
+- **Cloud role-correction arm: ABSORBED.** It becomes the channel-override write above.
+- **Ledger-hygiene arm: PREREQUISITE, not companion.** Switching the niue slots to `prerelease` makes every stable row already registered there **off-channel** — and **nothing retracts off-channel rows** (verified: every retirement path keys on version ordering; `d.channel` appears only at intake and announce, never in a retirement predicate). **This transition would MANUFACTURE the exact stale-offer residue already confirmed live on et, jo and ug.** Land the hygiene arm first, or the switch creates the problem it sits beside.
+
+## Acceptance criteria
+
+1. A fresh box with only `SITE_DOMAIN` set generates a complete, serving **standalone** config following `stable`.
+2. A fresh box with **no** `SITE_DOMAIN` refuses actionably in standalone — never a config that cannot serve.
+3. `config generate` **never writes `UPGRADE_CHANNEL` into `.env.config`**; the derived value appears only in generated `.env`. **Red-verified: reintroducing the seed fails.**
+4. Changing the mode moves the derived channel on a box with **no** written channel, and does **not** on a box with one. Both tested.
+5. An unknown `UPGRADE_CHANNEL` value refuses, naming the accepted values.
+6. `UPGRADE_ROLE` appears **nowhere** outside historical migrations and era-accurate fixtures. **Red-verified by a grep-based test**, so a reintroduction fails rather than lingers.
+7. The transition discriminator is implemented and tested both ways.
+8. Every existing installation keeps its current effective channel — proven per box shape (development, private slot, standalone), not asserted.
+
+## What is achieved
+
+An installation says what it is, and the product decides what that means. Upgrade policy stops being configuration an ordinary NSO ever sees, and the only boxes carrying a channel are the ones deliberately leading — where the choice is visible on the line that makes it.
 ---
 <!-- COMMENTS:END -->
