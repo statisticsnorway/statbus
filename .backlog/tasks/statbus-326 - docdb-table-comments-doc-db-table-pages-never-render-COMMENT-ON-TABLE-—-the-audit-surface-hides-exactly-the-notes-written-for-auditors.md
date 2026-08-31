@@ -3,10 +3,11 @@ id: STATBUS-326
 title: >-
   docdb-table-comments: doc/db table pages never render COMMENT ON TABLE — the
   audit surface hides exactly the notes written for auditors
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@mechanic'
 created_date: '2026-08-31 12:11'
-updated_date: '2026-08-31 12:20'
+updated_date: '2026-08-31 12:36'
 labels:
   - tooling
   - docs
@@ -35,3 +36,13 @@ WHAT IS ACHIEVED: table comments become part of the reviewed offline schema refe
 <!-- SECTION:NOTES:BEGIN -->
 **King's ruling (2026-08-31): the sibling guard-exemption is DEAD — do not build it.** His words: teaching the floor guard about comment statements requires semantically analyzing SQL — a hack. The foreman's clean-if-conservative framing did not survive his judgment and the ruling stands: the guard stays exactly as it is. Consequence for this ticket: when doc/db learns to render table comments and a comment migration ships, it takes the honest floor bump with a note (or the question is revisited when it actually bites again). Scope reduces to the generator rendering obj_description; the guard is untouched.
 <!-- SECTION:NOTES:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-08-31 12:36
+---
+Foreman (2026-08-31): dispatched to mechanic. Fix point located: doc/db table pages are bare \\d+ dumps written by the table loop at dev.sh:2935-2944 (views at 2946-2955); \\d+ never prints the table-level comment. Scope per King's ruling: generator renders obj_description; the daemon-floor guard is untouched; the re-created 308 comment migration takes an honest floor bump.
+---
+<!-- COMMENTS:END -->

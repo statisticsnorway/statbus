@@ -3,11 +3,11 @@ id: STATBUS-324
 title: >-
   fleet-git-auth: every niue slot fetches GitHub anonymously over HTTPS from one
   shared IP — throttling is now an observed failure mode, not a theory
-status: To Do
+status: In Progress
 assignee:
-  - architect
+  - '@engineer'
 created_date: '2026-08-31 11:17'
-updated_date: '2026-08-31 11:36'
+updated_date: '2026-08-31 12:36'
 labels:
   - ops
   - cloud
@@ -37,3 +37,13 @@ WHAT IS ACHIEVED: fleet fetches stop sharing one anonymous quota, and a throttle
 <!-- SECTION:NOTES:BEGIN -->
 **Architect ruling (2026-08-31): the credential question largely DISSOLVES — with one recorded premise and one recorded residual.** The repo is PUBLIC and new boxes already clone over HTTPS (create-new-statbus-installation.sh:268; 283 removed per-slot keygen on the same evidence), so deploy keys/tokens would answer a question that should not exist. WHAT REMAINS, both small: (1) older boxes with SSH-era origins get a one-line origin-to-HTTPS repair folded into ./sb install's idempotent config work; (2) the REAL defect: set GIT_TERMINAL_PROMPT=0 on the product's git invocations so an unreachable/refused remote says 'could not reach github.com' instead of prompting for a username — a credential prompt at a failure moment teaches an operator that a network problem is an auth problem, and on an NSO box that misdiagnosis costs a support cycle. PREMISE ON RECORD: all of this holds while the repo is PUBLIC; if it ever goes private the design is void and credentials return. RESIDUAL RISK ON RECORD (foreman): the QUOTA half does not fully dissolve — gh's fetch was refused because GitHub throttles anonymous HTTPS by IP, and nine slots share niue's; accepted at normal cadence (the failing day was a seven-install burst), REOPENS if a throttle fires on an ordinary day. ci-notify.sh showed no git/curl/token usage in the architect's grep — one confirming read closes that thread. Build items → engineer's queue behind 325 (same git-invocation territory).
 <!-- SECTION:NOTES:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-08-31 12:36
+---
+Foreman (2026-08-31): 325 landed at 71ca22be5 → the two build items are unblocked and dispatched to the engineer: (1) GIT_TERMINAL_PROMPT=0 on the product's git invocations; (2) origin-to-HTTPS one-line repair in ./sb install's idempotent config work. Engineer also does the one confirming read of ci-notify.sh to close the no-git/curl/token thread.
+---
+<!-- COMMENTS:END -->
