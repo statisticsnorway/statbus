@@ -7,6 +7,7 @@ status: To Do
 assignee:
   - architect
 created_date: '2026-08-31 11:17'
+updated_date: '2026-08-31 11:36'
 labels:
   - ops
   - cloud
@@ -30,3 +31,9 @@ Not urgent-tonight: the convergence run completes with waits-and-retries. Files 
 
 WHAT IS ACHIEVED: fleet fetches stop sharing one anonymous quota, and a throttled fetch names itself instead of asking a promptless box for a username.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+**Architect ruling (2026-08-31): the credential question largely DISSOLVES — with one recorded premise and one recorded residual.** The repo is PUBLIC and new boxes already clone over HTTPS (create-new-statbus-installation.sh:268; 283 removed per-slot keygen on the same evidence), so deploy keys/tokens would answer a question that should not exist. WHAT REMAINS, both small: (1) older boxes with SSH-era origins get a one-line origin-to-HTTPS repair folded into ./sb install's idempotent config work; (2) the REAL defect: set GIT_TERMINAL_PROMPT=0 on the product's git invocations so an unreachable/refused remote says 'could not reach github.com' instead of prompting for a username — a credential prompt at a failure moment teaches an operator that a network problem is an auth problem, and on an NSO box that misdiagnosis costs a support cycle. PREMISE ON RECORD: all of this holds while the repo is PUBLIC; if it ever goes private the design is void and credentials return. RESIDUAL RISK ON RECORD (foreman): the QUOTA half does not fully dissolve — gh's fetch was refused because GitHub throttles anonymous HTTPS by IP, and nine slots share niue's; accepted at normal cadence (the failing day was a seven-install burst), REOPENS if a throttle fires on an ordinary day. ci-notify.sh showed no git/curl/token usage in the architect's grep — one confirming read closes that thread. Build items → engineer's queue behind 325 (same git-invocation territory).
+<!-- SECTION:NOTES:END -->
