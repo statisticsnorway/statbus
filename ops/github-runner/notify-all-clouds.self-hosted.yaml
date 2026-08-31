@@ -81,7 +81,6 @@ jobs:
         server:
           - statbus_dev
           - statbus_demo
-          - statbus_tcc
           - statbus_ma
           - statbus_ug
           - statbus_et

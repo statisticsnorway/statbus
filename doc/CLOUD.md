@@ -26,7 +26,6 @@ Active multi-tenant instances on niue.statbus.org:
 |------|------|------|--------|--------|
 | dev | Development | statbus_dev | dev.statbus.org | 1 |
 | demo | Demo | statbus_demo | demo.statbus.org | 3 |
-| tcc | Turkish Cypriotic Community | statbus_tcc | tcc.statbus.org | 4 |
 | ma | Morocco | statbus_ma | ma.statbus.org | 5 |
 | ug | Uganda | statbus_ug | ug.statbus.org | 6 |
 | test | Test | statbus_test | test.statbus.org | 7 |
@@ -36,6 +35,9 @@ Active multi-tenant instances on niue.statbus.org:
 
 **Moved off niue:**
 - `no` (Norway) — migrated to a dedicated standalone box `rune.statbus.org` to dog-food the standalone deployment mode that external clients use. See [SSB-Operated Standalone Instances](#ssb-operated-standalone-instances). Port offset 2 stays reserved on niue for future use. The `statbus_no` Linux user and home were cleaned up from niue on 2026-04-21 after the rune install was verified live; final pre-decomm DB dumps are preserved on rune at `/home/statbus/statbus/tmp/` alongside the niue import source CSVs.
+
+**Decommissioned:**
+- `tcc` (Turkish Cypriotic Community) — torn down (STATBUS-321 phase 4a): the `statbus_tcc` Linux user and its containers are gone, and DNS for `tcc.statbus.org` was removed. Unlike `no` above, this is not a migration — there is nothing to roll back to, so port offset 4 is FREE for the next slot rather than reserved.
 
 ## Architecture
 
@@ -332,7 +334,6 @@ Current allocations on niue.statbus.org:
 | dev  | Development | 1 | 3010  | 3011  | 3012  | 3013  | 3014       | 3015   | 3016       |
 | _no_ | _Norway (moved to rune.statbus.org)_ | _2_ | _3020_ | _3021_ | _3022_ | _3023_ | _3024_ | _3025_ | _3026_ |
 | demo | Demo | 3      | 3030  | 3031  | 3032  | 3033  | 3034       | 3035   | 3036       |
-| tcc  | Turkish Cypriotic Community | 4 | 3040 | 3041 | 3042 | 3043 | 3044 | 3045 | 3046 |
 | ma   | Morocco | 5     | 3050  | 3051  | 3052  | 3053  | 3054       | 3055   | 3056       |
 | ug   | Uganda | 6      | 3060  | 3061  | 3062  | 3063  | 3064       | 3065   | 3066       |
 | test | Test | 7       | 3070  | 3071  | 3072  | 3073  | 3074       | 3075   | 3076       |
@@ -341,6 +342,7 @@ Current allocations on niue.statbus.org:
 | ua   | Ukraine | 10    | 3100  | 3101  | 3102  | 3103  | 3104       | 3105   | 3106       |
 
 Offset 2 is reserved (kept for rollback if `no` ever needs to come back to niue).
+Offset 4 (`tcc`) is FREE for the next slot — the box was torn down (STATBUS-321 phase 4a), not migrated, so there is nothing to reserve it for.
 
 The REST column is the slot's *internal* PostgREST port. External REST access is
 not a port at all — it is a path, `https://<slot>.statbus.org/rest`, served over
@@ -401,7 +403,7 @@ cd ~/statbus
 
 - **Dev** — the automatic canary (STATBUS-247): every candidate reaches it without a human. *Transitional note:* until STATBUS-247's tag-driven deploy lands, `master-to-dev` and `ops/cloud/deploy/dev` remain the one deliberate exception — STATBUS-244b removes that button once 247 supplies its replacement.
 - **Norway (`no`)** — the human canary: a person installs each candidate deliberately, against an observation card, on the `prerelease` channel. No push path.
-- **Demo and the ordinary country slots** (`ma`, `et`, `jo`, `tcc`, `ug`, …) — channel-following (STATBUS-248, below): the box's own upgrade service polls its channel and installs on its own; promotion is what moves them, not a push. *True of intent, not yet fully true of mechanism:* `deploy-to-{et,jo,ma,tcc,ug}.yaml` still exist — only the buttons that wrote to their deploy branches (the retired `master-to-X`) are gone, so nothing writes those branches any more, but the listening workflows remain on disk. They are removed once STATBUS-248's Wave D1 channel confirmation proves each box actually follows its channel — deleting a live NSO box's only receive path before that is confirmed could strand it.
+- **Demo and the ordinary country slots** (`ma`, `et`, `jo`, `ug`, …) — channel-following (STATBUS-248, below): the box's own upgrade service polls its channel and installs on its own; promotion is what moves them, not a push. *True of intent, not yet fully true of mechanism:* `deploy-to-{et,jo,ma,ug}.yaml` still exist — only the buttons that wrote to their deploy branches (the retired `master-to-X`) are gone, so nothing writes those branches any more, but the listening workflows remain on disk. They are removed once STATBUS-248's Wave D1 channel confirmation proves each box actually follows its channel — deleting a live NSO box's only receive path before that is confirmed could strand it. `deploy-to-tcc.yaml` is already gone (STATBUS-321 phase 4a): tcc itself was torn down, so the Wave-D1 receive-path caution doesn't apply to a removed installation.
 
 <img src="diagrams/git-workflow.svg" alt="Git Deployment Workflow" style="max-width:100%;">
 

@@ -35,7 +35,6 @@ syslog auth
 # chooses the TARGET — the trigger still runs this exact command over ssh, so
 # the allowlist entry stays.
 #
-statbus_tcc: cd ~/statbus && ./sb upgrade apply-latest
 statbus_dev: cd ~/statbus && ./sb upgrade apply-latest
 statbus_demo: cd ~/statbus && ./sb upgrade apply-latest
 statbus_ma: cd ~/statbus && ./sb upgrade apply-latest
@@ -62,9 +61,9 @@ statbus_dev: cd ~/statbus && ./sb upgrade apply ################################
 # Notify-all-clouds — invoked by notify-all-clouds.yaml via appleboy ssh-action.
 # Command is the single byte-stable entrypoint line (STATBUS-123): the behavior
 # lives in ~/statbus/ops/ci-notify.sh (evolves via git); only the PATH is pinned.
-# One entry per user (sshdo requires it); identical command for all eight.
+# One entry per user (sshdo requires it); identical command for all six
+# (tcc removed, STATBUS-321 phase 4a — the box no longer exists).
 #
-statbus_tcc: ~/statbus/ops/ci-notify.sh
 statbus_dev: ~/statbus/ops/ci-notify.sh
 statbus_demo: ~/statbus/ops/ci-notify.sh
 statbus_ma: ~/statbus/ops/ci-notify.sh
@@ -84,18 +83,18 @@ statbus_test: cd statbus && git fetch origin && git checkout -- . && git checkou
 # ci-notify above: only the PATH is pinned, the behavior lives in
 # ~/statbus/ops/ci-deploy-status.sh (evolves via git). The 40 '#' characters
 # match the deployed commit's 40-hex SHA at runtime (via `match hexdigits`).
-# One entry per user (sshdo requires it); identical command for all SIX —
+# One entry per user (sshdo requires it); identical command for all FIVE —
 # demo has none: deploy-to-demo.yaml was deleted (STATBUS-244a), so demo has
 # no poll consumer. Adding one back would be a grant ADDITION, a separate
-# reviewed decision, not implied by this reconcile.
+# reviewed decision, not implied by this reconcile. tcc was removed
+# (STATBUS-321 phase 4a): the box no longer exists.
 #
-# FIVE OF THESE SIX ARE CONDEMNED (tcc, ma, ug, et, jo): they serve
+# FOUR OF THESE FIVE ARE CONDEMNED (ma, ug, et, jo): they serve
 # deploy-to-<slot>.yaml workflows Wave D queues for deletion once channel-
 # following is confirmed (STATBUS-244a's transitional note, STATBUS-248
 # Wave D1). Captured here as still-live and still enforced — removal happens
 # in its own reviewed step, never silently inside a reconcile.
 #
-statbus_tcc: ~/statbus/ops/ci-deploy-status.sh ########################################
 statbus_dev: ~/statbus/ops/ci-deploy-status.sh ########################################
 statbus_ma: ~/statbus/ops/ci-deploy-status.sh ########################################
 statbus_ug: ~/statbus/ops/ci-deploy-status.sh ########################################
