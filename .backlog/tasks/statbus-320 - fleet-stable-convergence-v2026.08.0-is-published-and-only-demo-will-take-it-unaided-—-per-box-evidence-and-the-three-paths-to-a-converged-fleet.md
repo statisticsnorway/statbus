@@ -3,10 +3,10 @@ id: STATBUS-320
 title: >-
   fleet-stable-convergence: v2026.08.0 is published and only demo will take it
   unaided — per-box evidence and the three paths to a converged fleet
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-30 02:13'
-updated_date: '2026-08-31 10:58'
+updated_date: '2026-08-31 11:23'
 labels:
   - ops
   - release
@@ -45,3 +45,9 @@ WHAT IS ACHIEVED: the fleet actually converges, each box by its honest path, and
 
 **CORRECTION + roster fix landed (bf0016503):** Ghana is NOT a standalone host — the earlier note's description was wrong (one failed SSH to the subdomain, no DNS check). Verified: gh.statbus.org is a CNAME to niue and statbus_gh@niue answers; Ghana and Ukraine are both ordinary niue slots born in August from create-new-statbus-installation.sh, invisible to the fleet tool only because cloud.sh's SERVERS was last edited before they existed. Both added to the roster; the comment at the line records the rule (a slot missing from the list is invisible to fleet upgrades — the list gains every new slot the day it is created). King's ruling: NEITHER is special; both converge via the same pinned `./cloud.sh install <slot> v2026.08.0` he is running across the fleet, superseding both the 'Ukraine self-installs' framing and the 'Ghana needs a tool extension' framing.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+CONVERGENCE COMPLETE (2026-08-31): every serving box runs its correct version. Closing fleet table — dev: v2026.08.1-rc.01 (canary, correct); demo, et, jo, ma, ug, ua, gh: v2026.08.0 with translation verified per box (role present, channel key gone) and units active; tcc: exempt, retiring (STATBUS-321); Norway: v2026.08.1-rc.01 (human canary). The run's method: King-driven pinned installs (`./cloud.sh install <slot> v2026.08.0`), operator-executed, foreman-gated per slot. Two real defects surfaced and both were converted to tickets with fixes or designs: the install-vs-service fetch race (ma; STATBUS-323, stop-the-unit-first became procedure and the code fix is filed) and the anonymous-HTTPS shared-IP throttle plus gh's refspec pollution (STATBUS-324; refspec repaired on the spot in the approved class). The 248 auto-apply question was reframed by the King's constraint — an NSO controls WHEN; it is a design discussion, not a build. STATBUS-254 and STATBUS-287 close on this event; Malawi's birth (STATBUS-322) is the fleet's next change.
+<!-- SECTION:FINAL_SUMMARY:END -->

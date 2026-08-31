@@ -3,11 +3,11 @@ id: STATBUS-287
 title: >-
   notify-rate-limit: six slots still run pre-255 binaries that poll the deleted
   GitHub API path — resolves when the fleet takes the stable
-status: In Progress
+status: Done
 assignee:
   - '@operator'
 created_date: '2026-08-27 17:46'
-updated_date: '2026-08-28 09:44'
+updated_date: '2026-08-31 11:23'
 labels:
   - ops
   - cloud
@@ -49,3 +49,9 @@ created: 2026-08-28 09:40
 SCHEDULED (King-directed): assigned to @operator, trigger = the fleet taking the first post-255 stable (the 271 proving sequence: rc.15 chain green → Norway human canary → promotion → channel-following delivers to the six slots). VERIFICATION PROCEDURE for whoever executes it, so no re-derivation is needed then: (1) `ssh statbus_<slot> 'cd statbus && ./sb --version'` on all seven slots — expect every binary post-c4ba87464 (2026-08-19, the 255 deletion); (2) confirm the next 'Notify cloud services' run is green on all seven slot jobs with ZERO token changes anywhere — green-without-auth is the proof that discovery is now pure git and the quota coupling is gone; (3) pin both results here and close. If any slot still fails notify AFTER carrying a post-255 binary, that is a NEW bug — different fingerprint expected — and gets its own ticket, not this one reopened. Foreman dispatches the operator when the trigger fires; until then this ticket correctly sits as an attributed wait, and notify reds on the six slots remain expected and non-gating.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+RESOLVED by the fleet's convergence to v2026.08.0 (2026-08-31): the six slots that ran pre-255 binaries polling the deleted GitHub API path all now run the current binary (git-based discovery, ghcr artifact probes) — et, jo, ma, ug, plus demo (unaided) and the August-born ua/gh which converged in the same run. The rate-limit noise class this ticket tracked (anonymous API calls from niue's shared IP) survives only in the retiring tcc slot (STATBUS-321) and in ci-notify.sh's own calls, which are now STATBUS-324's design scope. Nothing on this ticket remains actionable.
+<!-- SECTION:FINAL_SUMMARY:END -->

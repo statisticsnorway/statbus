@@ -3,10 +3,10 @@ id: STATBUS-254
 title: >-
   fleet-channel-correction: production boxes are being offered release
   candidates today, and no amount of reinstalling will fix it
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-19 10:27'
-updated_date: '2026-08-29 11:56'
+updated_date: '2026-08-31 11:23'
 labels:
   - ops
   - release
@@ -332,3 +332,9 @@ created: 2026-08-27 19:53
 TEST LEG RESOLVED (2026-08-27 ~19:52Z, King-cleared, operator-executed): `./sb install` on the test slot completed all 16 steps — the never-installed upgrade unit now exists, is enabled and RUNNING, verified from the running service per this ticket's own acceptance rule: 'Upgrade service started (channel=stable, interval=6h0m0s)' (role=production deriving stable, correct). Upgrade list shows v2026.08.0-rc.10 installed via ./sb install. An earlier 'install truncated/incomplete' report was a capture artifact — corrected by the operator; the install itself never failed. Every box in the fleet now has a live, correctly-channeled upgrade service. Remaining for closure unchanged: the six legacy boxes' one-time translations (arrive with the stable), then the translation code's deletion.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+CLOSED on observed state, 2026-08-31: both closure observables met on every box. The fleet convergence run (King-driven, operator-executed, foreman-gated per slot) put v2026.08.0 on et, jo, ma, ug, ua, gh (demo had converged unaided the day before); on every box the one-time channel→role translation ran and was verified by read (UPGRADE_ROLE present, legacy UPGRADE_CHANNEL removed — the durable mechanism live fleet-wide), and the stale RC offers were superseded/purged by the new binary's own ledger maintenance. The July-era binaries that could never verify artifacts are gone from every serving slot (tcc exempt — retiring under STATBUS-321). The premise this ticket was born with — production boxes shown RCs as installable — is dead in both mechanism (the filter now runs everywhere) and fact (the offers are gone). Remaining per the ticket's own closure path: the translation case in cli/internal/config/upgrade_role.go can now be DELETED per its own removal marker (every box shows the role form) — that deletion is the one follow-on, riding the next candidate.
+<!-- SECTION:FINAL_SUMMARY:END -->
