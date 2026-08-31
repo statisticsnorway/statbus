@@ -3,11 +3,11 @@ id: STATBUS-326
 title: >-
   docdb-table-comments: doc/db table pages never render COMMENT ON TABLE — the
   audit surface hides exactly the notes written for auditors
-status: In Progress
+status: Done
 assignee:
   - '@mechanic'
 created_date: '2026-08-31 12:11'
-updated_date: '2026-08-31 12:48'
+updated_date: '2026-08-31 13:06'
 labels:
   - tooling
   - docs
@@ -58,3 +58,9 @@ created: 2026-08-31 12:48
 Architect's freshly-authored 308 comment text (2026-08-31, marked FRESH — verbatim text was never held; the 308 ruling specified substance only). Recorded here durably so it can never again vanish with a session. Text: 'Key/value system state surfaced to the admin UI.\n\nRLS ON THIS TABLE GOVERNS USERS, NOT WRITERS. The policies here (authenticated SELECT, admin_user manage) describe what a USER may do. They are NOT the complete list of who writes: the upgrade service writes its own keys over a SUPERUSER connection, which bypasses RLS entirely.\n\nSo a policy-layer audit of this table must not conclude that admin_user is the whole writer set. It is not, and the catalog cannot show you the rest.\n\nThe bypass is the accepted contract, not an oversight: these writers are system components reporting state, not users acting on data — and a policy written for a superuser role would be inert, sitting in pg_policy looking like a constraint while constraining nothing. Governing them by policy would require giving the service a least-privilege role instead of superuser (STATBUS-308).' VERIFICATION GATE: mechanic checks whether install.go:2541's install_last_* upserts use the same superuser DSN — if yes, the sentence widens to 'the upgrade service and the install verb write their own keys…'; if no, text stands. No widening on inference.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+COMPLETE in two landed halves. (1) Generator at c1cfdbab1: doc/db table AND view pages render obj_description as a paragraph after the \d+ fence — one mechanism, both loops, multi-line proven; 28-page catch-up verified pure. (2) The re-created 308 comment migration at d67b9b65a: architect's FRESHLY-AUTHORED wording (the original was never durably recorded — text now lives in the migration and ticket comment #3); the DSN gate resolved to WIDENED with the full chain cited (install.go:2553 → connectInstallDB → migrate.AdminConnStr → POSTGRES_ADMIN_USER, same superuser shape as service.go's recoveryDSN), so "the upgrade service and the install verb" is evidence, not inference; down restores the prior comment verbatim. FLOOR: DaemonSchemaFloor = 20260831124944, an acknowledged false positive per the King's ruling (guard NOT taught SQL semantics — the sibling exemption stays dead), documented at the constant. COLLISION RESOLVED WITHOUT AMENDING THE RULING: the floor sanity test hardcoded public.upgrade against its own documented "touches the daemon set" intent; corrected to check any DaemonRelationNames member via the bump guard's own matcher, renamed TouchesADaemonRelation. Found independently by the mechanic (RED-verified, before any hold or ruling reached him) and derived identically by the architect — double derivation, no false negative introduced, false positives only removed. Verification: fast suite 96/96 + 1/1, doc/db regenerated, the RLS-scope correction now renders directly beside the Policies block on public_system_info.md — the exact reader 308 protects finally sees it.
+<!-- SECTION:FINAL_SUMMARY:END -->
