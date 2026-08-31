@@ -395,13 +395,32 @@ UPDATE_SETTINGS
 # re-fetches and re-checks-out the same version (harmless), places the
 # binary, then runs ./sb install, which reads the .env.config we just wrote
 # and fills in everything else around it.
-echo "Installing StatBus (version $VERSION) via install.sh..."
+#
+# STATBUS-322: the trust flag MUST be threaded here, exactly as cloud.sh's
+# install path threads it (trust_flag) — ./sb install's trusted-signer store
+# is its own, not .env.config, and install.sh arrives via curl with no
+# environment, so nothing implicit can supply it. Without the flag every
+# newborn box dies at the deliberate no-default trusted-signers refusal
+# (observed live at Malawi's birth). Resolution mirrors cloud.sh: the
+# CLOUD_TRUST_KEY_USER env var first, else the value persisted on the box.
+RESOLVED_TRUST_USER="${CLOUD_TRUST_KEY_USER:-}"
+if [ -z "$RESOLVED_TRUST_USER" ]; then
+    RESOLVED_TRUST_USER=$(ssh $DEPLOYMENT_USER@$HOST \
+        "cd statbus && ./sb dotenv -f .env.config get TRUST_GITHUB_USER 2>/dev/null" || true)
+fi
+if [ -z "$RESOLVED_TRUST_USER" ]; then
+    echo "Error: no trusted signer available for ./sb install." >&2
+    echo "  Set CLOUD_TRUST_KEY_USER=<github-username> and re-run, e.g.:" >&2
+    echo "  CLOUD_TRUST_KEY_USER=jhf ./cloud.sh create $DEPLOYMENT_SLOT_CODE ..." >&2
+    exit 1
+fi
+echo "Installing StatBus (version $VERSION) via install.sh (trusted signer: $RESOLVED_TRUST_USER)..."
 ssh $DEPLOYMENT_USER@$HOST bash <<INSTALL_STATBUS
     # Print commands if VERBOSE is defined
     if [ -n "${VERBOSE}" ]; then
         set -x
     fi
-    curl -fsSL https://statbus.org/install.sh | bash -s -- --version $VERSION
+    curl -fsSL https://statbus.org/install.sh | bash -s -- --version $VERSION --trust-github-user $RESOLVED_TRUST_USER
 INSTALL_STATBUS
 
 # Configure Caddy access permissions — BEFORE validate (architect ruling,
