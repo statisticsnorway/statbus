@@ -3,10 +3,11 @@ id: STATBUS-252
 title: >-
   gate-on-per-scenario-evidence: shadow first, switch on evidence — the
   promotion gate is the last thing to change
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@mechanic'
 created_date: '2026-08-19 10:00'
-updated_date: '2026-08-28 23:15'
+updated_date: '2026-08-31 19:49'
 labels:
   - release
   - quality-gate
@@ -47,12 +48,12 @@ WHAT IS ACHIEVED: the gate becomes as precise as the evidence it reads, and it g
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 The chain runs the per-scenario path while the gate retains whole-suite authority, for a period covering multiple real candidates
-- [ ] #2 Disagreements between the two paths are surfaced and investigated, not averaged — agreement across real cuts is the evidence that authorizes the switch
+- [ ] #2 CORRECTED (2026-08-31, supersedes 'agreement across real cuts'): the switch is authorized by at least one comparison where the two paths COULD have diverged — the partial-coverage case — in which per-scenario's answer is verified correct, whether or not the paths agreed; a differential test with synthetic partial-coverage evidence satisfies this
 - [ ] #3 The required-scenario list is derived from the target commit's domain; a newly added scenario is never inheritable and never silently absent
 - [ ] #4 Run and job lookups are cached per commit, keeping the gate's API call count at roughly its current level
 - [ ] #5 Gate refusals name the anchor ridden, the anchor blocked and why, and any candidate that could not be read
 - [ ] #6 The independence argument is recorded with the switch: it holds because scenarios share no state, and must be re-examined for any suite where they do
-- [ ] #7 The switch is a deliberate, separately reviewed change — never folded into a wave doing other work
+- [ ] #7 The switch is a deliberate, separately reviewed change — its own frozen diff and its own commit, never folded into a commit doing other work
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -68,5 +69,10 @@ author: foreman
 created: 2026-08-19 10:50
 ---
 SHADOW PHASE LANDED as 3bb852eb6 (architect APPROVED through the memoize amendment cycle). Live advisory-only from the next gate run: both promotion gates print the per-scenario answer beside the whole-suite authority at all six outcomes; the shadow structurally CANNOT vote (runShadowCoverage returns nothing — consulting it requires a signature change, RED-verified both directions); domain from the target commit with refusal-to-report on an empty/underivable domain; undecidable mapped onto neither verdict; both disagreement directions (too-lenient / too-strict) reported separately; shared causes reported once with 'no comparison is possible, so none is claimed'. Resource starvation closed by an (apiBase, workflow, commit) process-lifetime memo — 50→1 calls RED-verified, errors NOT cached, answers provably unchanged, lock released before the network call. HOW TO READ THE FIRST LIVE RUN (architect's note, do not misread): an ALL-UNDECIDABLE shadow is a TOKEN/BUDGET SIGNAL, never a coverage signal, and under this entry it is explicitly NOT a disagreement — the switch decision needs runs where the two paths actually compared. The switch itself (authority transfer) remains this entry's second half, King/architect-gated on accumulated agreement across real candidates.
+---
+
+created: 2026-08-31 19:49
+---
+ARCHITECT'S SWITCH-READINESS VERDICT (2026-08-31 evening): NO — and the blocker is not more runs, it is the WRONG runs. All 6 persisted shadow records (2 candidates × 2 gates, tmp/shadow-coverage-log.jsonl) show covered == domain_size with authority_passed true — the degenerate case where the two algorithms CANNOT disagree. The divergence the switch exists to enable (no single run complete, every scenario covered across runs → whole-suite refuses, per-scenario passes) has never once been exercised; more runs of the same shape add nothing. AC#2 AS WRITTEN IS DEFECTIVE (architect's own words): 'agreement across real cuts' would forbid switching at exactly the moment real evidence arrives, and counts agreement-on-easy-input as evidence about the hard case — absence-of-signal counted as presence. CORRECTED CRITERION: the switch is authorized by one comparison where the paths COULD have diverged, in which per-scenario's answer was verified correct — whether or not they agreed. UNBLOCKING ACTION (dispatched to mechanic, queued behind 329): build the DIFFERENTIAL TEST — synthetic evidence set, no single run complete, every scenario covered across runs; assert whole-suite refuses AND per-scenario passes AND per-scenario's verdict is correct. With that green, the switch lands as its own reviewed unit in this wave, satisfying AC#7 without waiting for a naturally-occurring partial cut.
 ---
 <!-- COMMENTS:END -->
