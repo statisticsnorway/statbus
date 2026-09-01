@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-01 20:47'
+updated_date: '2026-09-01 21:32'
 labels:
   - cli
   - config
@@ -29,3 +30,9 @@ No new verb: install stays the one entrypoint (the 332 principle).
 
 Acceptance: editing .users.yml then running install updates the user in the database; rotating a credential then running install leaves the role password matching .env.credentials; each proven by a test or documented as explicitly out of scope with the refusal visible to the operator.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Slice 1 (users.yml reapply) landed locally, foreman-reviewed and committed: checkUsersDone now compares .users.yml's sha256 against a marker (.users.yml.sha256, gitignored) written only after a successful users create upsert; changed file or missing marker → reconcile; absent file → no-op. Tests: marker gating (3 cases) + full cli/cmd suite green. Slices 2 (credential rotation re-ALTER) and 3 (healthy-box compose changes) remain — both need the King's ruling before build.
+<!-- SECTION:NOTES:END -->
