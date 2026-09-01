@@ -3,6 +3,8 @@ package cmd
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log"
@@ -93,6 +95,13 @@ var trustGitHubUser string
 // both this CLI flag and STATBUS_POST_UPGRADE_FIXUP=1 env var on its child
 // exec; either triggers the mutex bypass in runInstall.
 var postUpgradeFixup bool
+
+// usersYMLHashFile records the exact .users.yml content successfully applied
+// by the Users install step. It is deliberately kept beside .users.yml rather
+// than in the database: the file is part of the install's local input and the
+// marker lets a safe-to-rerun install avoid invoking the noisy psql upsert when
+// that input has not changed.
+const usersYMLHashFile = ".users.yml.sha256"
 
 var installCmd = &cobra.Command{
 	Use:   "install",
@@ -996,21 +1005,28 @@ func checkJWTDone(dir string) bool {
 }
 
 func checkUsersDone(dir string) bool {
-	psqlPath, prefix, env, err := migrate.PsqlCommand(dir)
+	usersPath := filepath.Join(dir, ".users.yml")
+	if _, err := os.Stat(usersPath); os.IsNotExist(err) {
+		// An absent users file is a valid no-op on an existing box. There is
+		// nothing for install to reconcile, and users create would correctly
+		// reject this input if we tried to run it.
+		return true
+	} else if err != nil {
+		return false
+	}
+
+	currentHash, err := usersYMLHash(usersPath)
 	if err != nil {
 		return false
 	}
-	args := append(prefix, "-t", "-A", "-c",
-		"SELECT COUNT(*) FROM auth.\"user\";")
-	cmd := exec.Command(psqlPath, args...)
-	cmd.Dir = dir
-	cmd.Env = env
-	out, err := cmd.Output()
+	recordedHash, err := os.ReadFile(filepath.Join(dir, usersYMLHashFile))
 	if err != nil {
+		// Missing or unreadable state must not be treated as evidence that the
+		// database matches .users.yml. The Users step will reapply it and
+		// surface any actual failure.
 		return false
 	}
-	count := strings.TrimSpace(string(out))
-	return count != "0" && count != ""
+	return strings.TrimSpace(string(recordedHash)) == currentHash
 }
 
 // userUnitPath returns the install destination for the user-level upgrade
@@ -2282,8 +2298,39 @@ func runLoadJWT(dir string) error {
 }
 
 func runCreateUsers(dir string) error {
+	if err := runUsersCreateCommand(dir); err != nil {
+		return err
+	}
+	return recordUsersYMLHash(dir)
+}
+
+// runUsersCreateCommand is a test seam around the existing idempotent
+// `users create` command. Keeping the command itself unchanged preserves its
+// upsert behavior; the install-specific work is recording the input only
+// after that command succeeds.
+var runUsersCreateCommand = func(dir string) error {
 	sb := filepath.Join(dir, "sb")
 	return runCmdDir(dir, sb, "users", "create")
+}
+
+func usersYMLHash(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:]), nil
+}
+
+func recordUsersYMLHash(dir string) error {
+	hash, err := usersYMLHash(filepath.Join(dir, ".users.yml"))
+	if err != nil {
+		return fmt.Errorf("read .users.yml for reconciliation marker: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, usersYMLHashFile), []byte(hash+"\n"), 0644); err != nil {
+		return fmt.Errorf("write %s: %w", usersYMLHashFile, err)
+	}
+	return nil
 }
 
 func checkSignersDone(dir string) bool {

@@ -491,6 +491,7 @@ key-*.xml
 .env.credentials
 .env.local
 .users.yml
+.users.yml.sha256
 
 # Ignore Caddy data directory (ACME certs, custom certs, private keys)
 /caddy/data/
