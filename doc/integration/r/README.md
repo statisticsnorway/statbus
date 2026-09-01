@@ -92,6 +92,46 @@ response <- request(url) |>
 data <- resp_body_json(response)
 ```
 
+## Windows Quick Start
+
+No setup script needed — just install the packages and run:
+
+1. **Install R** from [r-project.org](https://www.r-project.org/) (4.0+), or use the R bundled with [RStudio](https://posit.co/download/rstudio-desktop/)
+
+2. **Install packages** (from PowerShell):
+   ```powershell
+   Rscript -e "install.packages(c('ggplot2','httr2','dotenv'), repos='https://cloud.r-project.org')"
+   ```
+
+   If `Rscript` is not on your PATH (common when R is installed via RStudio), use the full path:
+   ```powershell
+   & "C:\Program Files\R\R-4.5.2\bin\Rscript.exe" -e "install.packages(c('ggplot2','httr2','dotenv'), repos='https://cloud.r-project.org')"
+   ```
+
+3. **Create a `.env` file** in the same directory:
+   ```
+   API_URL=https://your-statbus-url
+   API_KEY=your-api-key-here
+   ```
+
+4. **Run the example:**
+   ```powershell
+   Rscript example.r
+   ```
+
+   Or with full path:
+   ```powershell
+   & "C:\Program Files\R\R-4.5.2\bin\Rscript.exe" example.r
+   ```
+
+   The chart will be saved to `establishments_by_year.png`.
+
+> **Tip:** To add R to your PATH permanently so you can just type `Rscript`, run in PowerShell:
+> ```powershell
+> [Environment]::SetEnvironmentVariable("Path", "$([Environment]::GetEnvironmentVariable('Path', 'User'));C:\Program Files\R\R-4.5.2\bin", "User")
+> ```
+> Then restart your terminal.
+
 ## Using with RStudio
 
 1. Open RStudio
