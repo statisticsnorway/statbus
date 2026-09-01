@@ -58,7 +58,7 @@ The function returns exactly one row with one of these results:
 | `schedule_result` | Meaning | Mutation |
 |---|---|---|
 | `scheduled` | The candidate was reset and landed as `scheduled` | Target reset plus eligible older supersede |
-| `superseded` | The obsolete-pending trigger rewrote the requested schedule to `superseded` | Target reset attempted, actual landed state reported |
+| `superseded` | The candidate is obsolete (a newer equal/higher completed candidate exists) | No mutation — the sub-block rolls the attempt back (foreman ruling 2026-09-01) |
 | `already_scheduled` | The row was already queued | Target unchanged; older-candidate supersede may run idempotently |
 | `in_progress` | The row is genuinely live, not parked | No mutation |
 | `restore_reattempt_required` | The row is `failed` with a retained `backup_path` | No mutation; use `./sb install` |
@@ -75,8 +75,10 @@ The function performs this sequence in one database transaction:
 3. Return `in_progress` if `state = 'in_progress'` and `recovery_parked_at IS NULL`.
 4. Return `restore_reattempt_required` if `state = 'failed' AND backup_path IS NOT NULL`.
 5. If already scheduled, leave the target row unchanged, call `upgrade_supersede_older` idempotently, and return `already_scheduled`.
-6. Otherwise call `public.upgrade_supersede_older` first, then perform the target reset.
-7. Read the target's actual `RETURNING state`. Return `scheduled` when it landed scheduled, or `superseded` when `upgrade_block_obsolete_pending` rewrote it.
+6. Otherwise, inside a plpgsql sub-block (BEGIN...EXCEPTION): call `public.upgrade_supersede_older` first, then perform the target reset, then read `RETURNING state`. If it landed `superseded` (`upgrade_block_obsolete_pending` rewrote it), RAISE a sentinel exception — the sub-block handler catches it, rolling back BOTH the reset and the older-supersedes, and the function returns `superseded` as a no-mutation refusal.
+7. Return `scheduled` when the reset landed scheduled.
+
+FOREMAN RULING (2026-09-01, from the engineer's repro tmp/statbus-333-superseded-evidence-repro.out): an already-superseded row reset by this function would have its evidence destroyed and land back in `superseded` with NO state-log row (OLD.state = NEW.state), falsifying section 6.3 for that one path. The sentinel-rollback keeps the obsolete-pending trigger as the single obsoleteness oracle (no duplicated condition probe), makes every refusal uniformly no-mutation, and makes 6.3 structurally true: any schedule that COMMITS changed state.
 
 The reset is:
 
