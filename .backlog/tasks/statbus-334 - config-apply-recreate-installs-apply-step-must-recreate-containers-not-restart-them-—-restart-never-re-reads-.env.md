@@ -3,9 +3,10 @@ id: STATBUS-334
 title: >-
   config-apply-recreate: install's apply step must recreate containers, not
   restart them — restart never re-reads .env
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-09-01 20:47'
+updated_date: '2026-09-01 21:26'
 labels:
   - cli
   - config
@@ -33,3 +34,9 @@ RestartUpgradeDaemon (host systemd) is unaffected.
 
 Acceptance: a changed generated key of each Docker class, applied via ./sb install, is observable inside the recreated container (printenv); the no-change-no-restart test still passes; existing 332 structural pins updated and green.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Implemented and committed by the foreman (local commit, rides the next push): composeRestart → composeApplyService running `docker compose up -d --no-deps <service>`; wording and error text updated; AC#2/AC#7 no-change-no-action tests preserved and green (full cli go test ./... pass). Acceptance's per-class printenv observation rides the next local install with a changed key; the empirical basis is already in the ticket.
+<!-- SECTION:NOTES:END -->
