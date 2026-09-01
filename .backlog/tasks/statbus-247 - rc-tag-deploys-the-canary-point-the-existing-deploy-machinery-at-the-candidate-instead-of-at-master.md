@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@tester'
 created_date: '2026-08-19 07:14'
-updated_date: '2026-08-31 19:55'
+updated_date: '2026-09-01 06:30'
 labels:
   - release
   - ops
@@ -81,7 +81,7 @@ WHY THAT HELPS: promotion stops being a check we run on the software and becomes
 - [x] #3 Tagging a candidate installs it on dev with no human action, through the existing deploy and convergence layers unchanged
 - [x] #4 dev's failure stops the chain before any expensive fleet is dispatched
 - [x] #5 Norway is OFFERED each candidate — a candidate row in state 'available' appears — and is installed by no automated path whatsoever
-- [x] #6 Nothing automated calls schedule, apply-latest, or install on Norway; a test pins this boundary so a future change cannot quietly automate the human canary
+- [ ] #6 Nothing automated calls schedule, apply-latest, or install on Norway; a test pins this boundary so a future change cannot quietly automate the human canary
 - [x] #7 Norway's target must be a release candidate, never an arbitrary commit
 - [ ] #8 The operator sees the smoke and fleet results before deciding, in the actionable form STATBUS-245 specifies; waiting is the default and proceeding early is a deliberate act
 - [ ] #9 A person installs the promotion-bound candidate on Norway following the observation card, and that act is what satisfies the promotion gate
@@ -179,5 +179,11 @@ author: foreman
 created: 2026-08-31 19:55
 ---
 Foreman (2026-08-31 night): residue LANDED at 3be54e416 — master-to-dev.yaml DELETED (244b complete; the orchestrator's candidate-addressed dispatch proven as the transport across 10+ rc cuts), deploy-to-dev.yaml + doc/CLOUD.md transitional notes now record the deletion, and AC#6's structural pin built: no workflow may combine a Norway target with schedule/apply-latest/install (TestNothingAutomatedSchedulesOnNorway_STATBUS247_AC6; foreman review closed a single-line-run: escape in the first draft, red-verified both directions). ACs #1-#7 and #12-#15 checked with evidence (tester's table in tmp/statbus-247-ac-verification.md); #8-#11 stand as landed/amended per the implementation notes (card retired by the King, completed-install check stays). REMAINING: AC#16 alone — the end-to-end proof on a real cut, which is the King's morning candidate: smoke → dev converges → fleets → offer sits on Norway → a person installs. The ticket closes on that observation.
+---
+
+author: foreman
+created: 2026-09-01 06:30
+---
+KING'S RULING (2026-09-01 morning) — AC#6's PIN REMOVED at 082591313, and the criterion's test-pin clause is SUPERSEDED: 'That pin is what I call over-engineering. Some AI imagines it has to prevent future AI from doing something and writes code to prevent the future from going bad. We cannot anticipate the future, we can only answer for the current. Paranoia should not drive our coding.' The BOUNDARY stands (a person installs on Norway; nothing automated does — true by the design that made it true); the TEST enforcing it against hypothetical future edits is gone. Distinction on record for future test-writing: pins on PROPERTIES the current code depends on (memo keys, last-writer, completeness) remain legitimate regression tests; pins on POLICY against imagined future actors are the over-engineering this ruling forbids. Same-morning sibling ruling on STATBUS-329: the released-migration down guard judged 'too much but not harmful since there is an escape hatch' — accepted over-caution, softened on his word if it ever obstructs the legitimate down-fix-up loop.
 ---
 <!-- COMMENTS:END -->
