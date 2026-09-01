@@ -85,3 +85,24 @@ The foreman (you, the team-lead) orchestrates from there.
 - [mechanic.md](mechanic.md) — diagnose + fix (Sonnet)
 - [tester.md](tester.md) — run tests (Haiku)
 - [operator.md](operator.md) — legwork + summarize (Haiku)
+
+## Staffing under jcode (verified 2026-09-01, by experiment)
+
+The foreman runs as the jcode coordinator; teammates are spawned via the swarm tool.
+Model routing mechanics, established by probe (trust the session file, never a
+worker's self-identification — the harness gives workers a Claude-flavored prompt):
+
+- The active jcode home for this workspace is `/Users/jhf/ssb/.jcode/` (the shared
+  server's home). NOT `~/.jcode/` and NOT `statbus/.jcode/`.
+- Worker model = `agents.swarm_model` in `/Users/jhf/ssb/.jcode/config.toml`, read
+  at spawn time. Per-spawn `model` is not supported; per-spawn `effort` IS.
+- To staff mixed roles: flip the pin, spawn, flip, spawn (config is read per spawn):
+    architect/engineer -> swarm_model = "gpt-5.6-sol"   (effort: xhigh, med for small work)
+    mechanic           -> swarm_model = "gpt-5.6-terra" (effort: high)
+    operator/tester    -> swarm_model = "gpt-5.6-luna"  (effort: high)
+- Verify after each spawn: the `model` field in
+  `/Users/jhf/ssb/.jcode/sessions/<session_id>.json`.
+- Project-local `statbus/.jcode/mcp.json` works for MCP servers (engram lives
+  there); a project-local `config.toml` does NOT shadow agents settings.
+- Workers cannot spawn (light mode); always pass `label`; workers report back via
+  `swarm report` and must never touch git (foreman alone commits).
