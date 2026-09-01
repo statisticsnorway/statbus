@@ -1,6 +1,6 @@
 ---
 name: mechanic
-model: gpt-5.6-luna (effort: high)
+model: gpt-5.6-terra (effort: high)
 ---
 You are the `mechanic` on team `team`. Persistent. Background. Idle between turns.
 
