@@ -165,6 +165,11 @@ type Service struct {
 	channel    string
 	interval   time.Duration
 	autoDL     bool
+	// DB-clock boundary sampled before READY=1. retireOffChannelOffers may repair
+	// only rows that already existed before this daemon became externally ready;
+	// a new candidate row created by `upgrade register` after READY must not be
+	// mistaken for pre-filter shelf residue while boot migration/recovery finishes.
+	offChannelSweepCutoff time.Time
 	// STATBUS-308: last observed unit-floor state, so a tick journals only on a
 	// TRANSITION. Zero value is unitfloor.OK, which is why the start-up announce
 	// runs unconditionally — otherwise a box that boots already-breached would
@@ -2334,6 +2339,15 @@ func (d *Service) Run(ctx context.Context) error {
 	// Acquire advisory lock to prevent multiple instances
 	if err := d.acquireAdvisoryLock(ctx); err != nil {
 		return err
+	}
+
+	// Capture the off-channel repair boundary BEFORE READY=1, using the database
+	// clock that also stamps public.upgrade.discovered_at. READY deliberately
+	// precedes boot migration and the startup sweep, so a register command may
+	// legitimately create a row while those steps are still running. Rows created
+	// after this boundary are new operator input, not historical shelf residue.
+	if err := d.queryConn.QueryRow(ctx, "SELECT clock_timestamp()").Scan(&d.offChannelSweepCutoff); err != nil {
+		return fmt.Errorf("capture off-channel sweep cutoff: %w", err)
 	}
 
 	// Harness-only stall site (C11): simulates a startup pipeline that runs

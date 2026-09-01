@@ -73,10 +73,10 @@ func TestDualTaggedRowSurvivesOnStable(t *testing.T) {
 	}
 }
 
-// UNTAGGED ROWS ARE NEVER TOUCHED. No tags means the row was registered by
-// commit SHA — a deliberate operator act, not something discovery shelved. It
-// has no channel membership to test, and retiring it would destroy a human
-// decision using a predicate that does not apply to it.
+// UNTAGGED ROWS ARE NEVER TOUCHED. No tags means a deliberate commit
+// registration, not something release discovery shelved. A SHA registration can
+// still be TAGGED when git knows a tag at that commit; the pre-READY cutoff test
+// below covers that distinct shape.
 func TestUntaggedRowsAreNeverRetired(t *testing.T) {
 	rows := ids(
 		tagSet{ID: 1, Tags: nil},
@@ -162,5 +162,30 @@ func TestSweepTouchesOnlyAvailableRows(t *testing.T) {
 		if strings.Contains(line, "'scheduled'") {
 			t.Errorf("line %d acts on scheduled rows: %q\n  A scheduled row is a decision already taken, with the 291 announce in front of it — not an offer this sweep may withdraw.", i+1, trimmed)
 		}
+	}
+}
+
+// READY=1 is intentionally emitted before boot migration and the startup sweep.
+// Therefore an explicit register can create its candidate row while startup is
+// still finishing. The sweep may repair only rows that predate READY, never that
+// new row. This is the exact register→skipped→building-forever race caught by
+// the v2026.09.0-rc.01 happy-upgrade smoke.
+func TestSweepCannotRetireNewCandidateCreatedAfterReady(t *testing.T) {
+	offchannelBody := string(packageGoSources(t)["offchannel.go"])
+	if !strings.Contains(offchannelBody, "discovered_at < $1") {
+		t.Fatal("the startup sweep must exclude rows discovered after its pre-READY cutoff")
+	}
+	if !strings.Contains(offchannelBody, "d.offChannelSweepCutoff") {
+		t.Fatal("the startup sweep must bind the daemon's pre-READY DB-clock cutoff")
+	}
+
+	serviceBody := string(packageGoSources(t)["service.go"])
+	cutoff := strings.Index(serviceBody, ".Scan(&d.offChannelSweepCutoff)")
+	ready := strings.Index(serviceBody, `sdNotify("READY=1")`)
+	if cutoff < 0 || ready < 0 {
+		t.Fatalf("could not find cutoff capture (%d) or READY signal (%d)", cutoff, ready)
+	}
+	if cutoff > ready {
+		t.Fatal("off-channel cutoff is captured after READY — a post-READY registration can still be swept")
 	}
 }

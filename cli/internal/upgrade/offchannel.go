@@ -56,22 +56,29 @@ import (
 // survive. Requiring every tag to match would retire exactly the rows a stable
 // box most wants.
 //
-// UNTAGGED ROWS ARE NEVER TOUCHED. A row with no tags was registered by commit
-// SHA — a deliberate operator act (`./sb upgrade register <sha>`), not something
-// discovery put on the shelf. It has no channel membership to test, and retiring
-// it would destroy a human decision on the strength of a predicate that does not
-// apply to it. Mirrors supersedeBelowInstalled's own tagged-rows-only guard.
+// UNTAGGED ROWS ARE NEVER TOUCHED. A row with no tags can only be a deliberate
+// commit registration, not something release discovery shelved. Do not invert
+// that statement: a register-by-SHA whose commit already has a local tag resolves
+// to TaggedTarget and stores the tag. The pre-READY discovered_at cutoff below is
+// what protects those newly registered tagged rows from this startup repair. An
+// actually untagged row has no channel membership to test, and retiring it would
+// destroy a human decision on the strength of a predicate that does not apply.
+// Mirrors supersedeBelowInstalled's own tagged-rows-only guard.
 func (d *Service) retireOffChannelOffers(ctx context.Context) {
-	if d.queryConn == nil || d.channel == "" {
+	if d.queryConn == nil || d.channel == "" || d.offChannelSweepCutoff.IsZero() {
 		return
 	}
 
-	// Single *pgx.Conn: drain the SELECT fully before the UPDATE.
+	// Single *pgx.Conn: drain the SELECT fully before the UPDATE. The cutoff was
+	// sampled from this same database before READY=1, so a candidate row created
+	// after systemd reports the daemon active cannot enter this repair set.
 	rows, err := d.queryConn.Query(ctx,
 		`SELECT id, commit_tags
 		   FROM public.upgrade
 		  WHERE state = 'available'
-		    AND array_length(commit_tags, 1) > 0`)
+		    AND array_length(commit_tags, 1) > 0
+		    AND discovered_at < $1`,
+		d.offChannelSweepCutoff)
 	if err != nil {
 		return
 	}
