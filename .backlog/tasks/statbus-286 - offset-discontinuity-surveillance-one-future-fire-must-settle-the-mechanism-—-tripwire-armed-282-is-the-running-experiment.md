@@ -3,11 +3,11 @@ id: STATBUS-286
 title: >-
   offset-discontinuity surveillance: one future fire must settle the mechanism —
   tripwire armed, 282 is the running experiment
-status: In Progress
+status: Done
 assignee:
   - '@engineer'
 created_date: '2026-08-27 17:14'
-updated_date: '2026-08-28 09:44'
+updated_date: '2026-09-01 07:17'
 labels:
   - testing
   - tooling
@@ -192,3 +192,9 @@ created: 2026-08-28 09:44
 SCHEDULED (King-directed): @engineer owns the surveillance — he built and exercised the instrument, and on the next tripwire fire he reads the evidence (holders, offsets, fdinfo positions) and reports the mechanism verdict to the foreman. Status In Progress: the surveillance IS the active work — 282's machinery runs as the standing experiment on every full suite, and the tripwire is armed on every run. No dispatch needed until a fire or until the architect judges a clean period long enough to declare 282 the fix (closure condition b); the foreman raises that question to the architect if the record stays clean through the next several full-suite weeks.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+CLOSED BY THE KING'S RULING (2026-09-01): the root cause is judged to be RANGE LOSS IN THE STORAGE PATH (Docker's VirtioFS on macOS) — the second of the two live hypotheses — supported by evidence the surveillance never held: the King tried different Docker storage modes, and the corruption frequency DROPPED after switching to Docker VMM. His verdict on the chase, near verbatim: trying to find and fix the root cause while we don't have access to the source code is a project in vain. THE POSTURE THAT REPLACES IT, and it is already built: (1) DETECT AND ABORT — check_results_for_nul_corruption (dev.sh:894) preserves the corrupted bytes, captures fire-time evidence (holders, write offsets, SEEK_HOLE on the original), and fails with a verdict DISTINCT from an ordinary test diff, so the sporadic error can never masquerade as a test failure or trigger the no-flaky-tests rule falsely; it stays as standing equipment, not as an experiment. (2) TRUST CI — the error has never occurred on remote builds (no Docker-on-Mac in the loop), so GitHub-run jobs remain the reference oracle, which was already doctrine and is now the recorded reason. The mechanism-settling surveillance (closure conditions a/b) is moot: even a perfect fire-capture would only name a fault in closed-source software we cannot fix. The killed-run/straggler correlation stands in the record as observed but likely confounded with the storage mode. The tripwire, the straggler guard (158/282), and the quarantined forensics under tmp/forensics-286/ remain in place; victims restore via git checkout; never update baselines from corrupted output.
+<!-- SECTION:FINAL_SUMMARY:END -->
