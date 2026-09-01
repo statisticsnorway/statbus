@@ -6,29 +6,35 @@ import (
 	"testing"
 )
 
-// TestClassifyScheduleResult proves the require-register decision (STATBUS-086,
-// AC#9): a promote-UPDATE that affects rows means the candidate was promoted; 0
-// rows on an existing row is a benign already-scheduled no-op; 0 rows with NO
-// row is Unregistered — which the caller turns into a loud no-op, NEVER an
-// insert. This is the pure core of "schedule requires register, everywhere."
+// TestClassifyScheduleResult pins the complete result vocabulary owned by
+// public.upgrade_schedule. Unknown database output fails loudly instead of
+// silently falling into a caller branch.
 func TestClassifyScheduleResult(t *testing.T) {
 	cases := []struct {
-		name   string
-		rows   int64
-		exists bool
-		want   scheduleResult
+		raw  string
+		want scheduleResult
 	}{
-		{"promoted", 1, true, scheduleResultPromoted},
-		{"promoted-regardless-of-exists-probe", 2, false, scheduleResultPromoted},
-		{"already-scheduled-no-op", 0, true, scheduleResultAlreadyScheduled},
-		{"unregistered-never-insert", 0, false, scheduleResultUnregistered},
+		{"scheduled", scheduleResultScheduled},
+		{"superseded", scheduleResultSuperseded},
+		{"already_scheduled", scheduleResultAlreadyScheduled},
+		{"in_progress", scheduleResultInProgress},
+		{"restore_reattempt_required", scheduleResultRestoreReattemptRequired},
+		{"unregistered", scheduleResultUnregistered},
 	}
 	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			if got := classifyScheduleResult(c.rows, c.exists); got != c.want {
-				t.Errorf("classifyScheduleResult(%d, %v) = %v, want %v", c.rows, c.exists, got, c.want)
+		t.Run(c.raw, func(t *testing.T) {
+			got, err := classifyScheduleResult(c.raw)
+			if err != nil {
+				t.Fatalf("classifyScheduleResult(%q): %v", c.raw, err)
+			}
+			if got != c.want {
+				t.Errorf("classifyScheduleResult(%q) = %q, want %q", c.raw, got, c.want)
 			}
 		})
+	}
+
+	if _, err := classifyScheduleResult("future_result"); err == nil {
+		t.Fatal("classifyScheduleResult accepted an unknown database result")
 	}
 }
 
@@ -69,37 +75,44 @@ func TestOnScheduledNotify_NoRawInsert(t *testing.T) {
 	}
 }
 
-// TestRunSchedule_CommitAuthoritative_FailLoud_STATBUS169 pins the two
-// STATBUS-169 properties on the scheduling UPDATE (already true on master via the
-// STATBUS-086 refactor; this guards against regressing back toward rc.04):
-//   - AC#2/B: the promote-UPDATE selects by COMMIT (`WHERE commit_sha = $1`),
-//     NEVER by a tag (`ANY(commit_tags)`) — a tag can never match multiple rows.
-//   - AC#3: a 0-row promote fails LOUDLY (RowsAffected()==0 → errNotRegistered /
-//     the in-progress refusal), never a silent exit-0 success.
+// TestScheduleDoorsUseDatabaseFunction_STATBUS333 proves both Go scheduling
+// doors call the one database function and contain no raw schedule reset.
+func TestScheduleDoorsUseDatabaseFunction_STATBUS333(t *testing.T) {
+	for _, subject := range []struct {
+		name string
+		sig  string
+	}{
+		{"service-notify", "func (d *Service) promoteExistingCandidate("},
+		{"cli", "func (d *Service) scheduleStep("},
+	} {
+		t.Run(subject.name, func(t *testing.T) {
+			body := funcBody(t, "service.go", subject.sig)
+			if strings.Contains(body, "UPDATE public.upgrade") {
+				t.Error("schedule door must not raw-UPDATE public.upgrade; public.upgrade_schedule owns the reset")
+			}
+			if !strings.Contains(body, "public.upgrade_schedule") {
+				t.Error("schedule door must call public.upgrade_schedule")
+			}
+		})
+	}
+}
+
+// TestRunSchedule_CommitAuthoritative_FailLoud_STATBUS169 keeps the existing
+// commit-authoritative and actionable-unregistered guarantees after the reset
+// moved into SQL.
 func TestRunSchedule_CommitAuthoritative_FailLoud_STATBUS169(t *testing.T) {
-	// RETARGETED, NOT WEAKENED (STATBUS-258). The scheduling UPDATE moved out of
-	// RunSchedule into scheduleStep when `upgrade apply` was added, so that apply
-	// could compose register+schedule inside ONE connection. RunSchedule is now a
-	// three-line wrapper, and a guard reading it would examine nothing and pass —
-	// the zero-scope shape.
-	//
-	// So this reads scheduleStep, which is where the UPDATE lives now. Every
-	// assertion below is unchanged; only the subject moved.
 	body := funcBody(t, "service.go", "func (d *Service) scheduleStep(")
 	if !strings.Contains(funcBody(t, "service.go", "func (d *Service) RunSchedule("), "scheduleStep(") {
 		t.Fatal("RunSchedule must delegate to scheduleStep — if that link is gone this guard is reading a function nothing calls")
 	}
-	if !strings.Contains(body, "WHERE commit_sha = $1") {
-		t.Error("the scheduling UPDATE must select by `WHERE commit_sha = $1` (commit-authoritative, single row) — STATBUS-169 AC#2")
+	if !strings.Contains(body, "string(sha), recreate") {
+		t.Error("scheduleStep must call the database function with the resolved canonical commit SHA")
 	}
 	if strings.Contains(body, "ANY(commit_tags)") {
-		t.Error("the scheduling UPDATE must NOT select rows by commit_tags — a tag is never the row selector (STATBUS-169 AC#2)")
-	}
-	if !strings.Contains(body, "RowsAffected() == 0") {
-		t.Error("the scheduling path must check RowsAffected()==0 — a 0-row promote must fail loudly, never report success (STATBUS-169 AC#3)")
+		t.Error("the scheduling path must NOT select rows by commit_tags — a tag is never the row selector (STATBUS-169 AC#2)")
 	}
 	if !strings.Contains(body, "errNotRegistered") {
-		t.Error("the scheduling path's 0-row path must return the actionable errNotRegistered (STATBUS-169 AC#3)")
+		t.Error("the database function's unregistered result must return actionable errNotRegistered (STATBUS-169 AC#3)")
 	}
 }
 

@@ -7,6 +7,14 @@ import { logger } from "@/lib/client-logger";
 import { describeError } from "@/lib/error-format";
 import { pendingUpgradeStatusAtom } from "@/atoms/upgrade-status";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
+import {
+  isParkedUpgrade,
+  scheduleRefusalMessage,
+  scheduleUpgrade,
+  shouldRedirectAfterSchedule,
+  upgradeScheduleAction,
+  upgradeStateLabel,
+} from "./upgrade-schedule";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -83,12 +91,20 @@ interface Upgrade {
   superseded_at: string | null;
   docker_images_downloaded: boolean;
   backup_path: string | null;
+  recovery_attempts: number;
+  recovery_parked_at: string | null;
+  recovery_parked_reason: string | null;
 }
 
 interface SystemInfo {
   key: string;
   value: string;
   updated_at: string;
+}
+
+interface SystemInfoSnapshot {
+  rows: SystemInfo[];
+  observedAt: number;
 }
 
 // STATBUS-308. A box whose upgrade service is missing or stopped cannot follow
@@ -118,7 +134,13 @@ function formatInterval(seconds: number): string {
   return m === 1 ? "every minute" : `every ${m} minutes`;
 }
 
-function UnitFloorWarning({ systemInfo }: { systemInfo?: SystemInfo[] }) {
+function UnitFloorWarning({
+  systemInfo,
+  observedAt,
+}: {
+  systemInfo?: SystemInfo[];
+  observedAt?: number;
+}) {
   if (!systemInfo) return null;
 
   const row = systemInfo.find((s) => s.key === "unit_floor_state");
@@ -140,7 +162,8 @@ function UnitFloorWarning({ systemInfo }: { systemInfo?: SystemInfo[] }) {
   const stateIsBad = !healthyStates.includes(row.value);
 
   const checkedAt = new Date(row.updated_at);
-  const ageSeconds = (Date.now() - checkedAt.getTime()) / 1000;
+  const ageSeconds =
+    observedAt === undefined ? 0 : (observedAt - checkedAt.getTime()) / 1000;
   const isStale =
     intervalSeconds > 0 &&
     ageSeconds > intervalSeconds * STALE_INTERVAL_MULTIPLE;
@@ -180,8 +203,8 @@ function UnitFloorWarning({ systemInfo }: { systemInfo?: SystemInfo[] }) {
         )}
       </ul>
       <p className="mt-3 text-amber-900 dark:text-amber-200">
-        To repair, run the install entrypoint on the server. It is idempotent and
-        safe to re-run: <code className="font-mono">./sb install</code>
+        To repair, run the install entrypoint on the server. It is idempotent
+        and safe to re-run: <code className="font-mono">./sb install</code>
       </p>
     </div>
   );
@@ -213,6 +236,11 @@ const fetcher = async (url: string) => {
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   return resp.json();
 };
+
+const systemInfoFetcher = async (url: string): Promise<SystemInfoSnapshot> => ({
+  rows: await fetcher(url),
+  observedAt: Date.now(),
+});
 
 async function patchUpgrade(
   id: number,
@@ -254,16 +282,22 @@ export default function UpgradesPage() {
         setHasActiveUpgradeForPolling(
           data?.some(
             (u) =>
-              u.started_at && !u.completed_at && !u.error && !u.rolled_back_at
+              u.started_at &&
+              !u.completed_at &&
+              !u.error &&
+              !u.rolled_back_at &&
+              !isParkedUpgrade(u)
           ) ?? false
         );
       },
     }
   );
-  const { data: systemInfo } = useSWR<SystemInfo[]>(
+  const { data: systemInfoSnapshot } = useSWR<SystemInfoSnapshot>(
     "/rest/system_info",
-    fetcher
+    systemInfoFetcher,
+    { refreshInterval: 30000 }
   );
+  const systemInfo = systemInfoSnapshot?.rows;
   const [acting, setActing] = useState<number | null>(null);
   const [checking, setChecking] = useState(false);
   // Used by the Schedule-check effect to detect "discovery completed
@@ -358,11 +392,20 @@ export default function UpgradesPage() {
   const [showSuperseded, setShowSuperseded] = useState(false);
 
   // Detect when an upgrade takes the app down — show the maintenance page inline.
-  const hasActiveUpgrade = upgrades?.some((u) => {
-    const s = u.state;
-    return s === "in_progress" || s === "scheduled";
-  });
+  const hasActiveUpgrade = upgrades?.some(
+    (u) =>
+      u.state === "scheduled" ||
+      (u.state === "in_progress" && !isParkedUpgrade(u))
+  );
   const showMaintenanceView = error && hasActiveUpgrade;
+  const activeUpgradeRow = upgrades?.find(
+    (u) =>
+      u.state === "scheduled" ||
+      (u.state === "in_progress" && !isParkedUpgrade(u))
+  );
+  const maintenanceErrorMessage = error?.message;
+  const activeUpgradeCommitSHA = activeUpgradeRow?.commit_sha;
+  const activeUpgradeState = activeUpgradeRow?.state;
 
   const act = useCallback(
     async (id: number, body: Record<string, unknown>) => {
@@ -380,27 +423,58 @@ export default function UpgradesPage() {
     [mutate]
   );
 
+  const scheduleNow = useCallback(
+    async (upgrade: Upgrade) => {
+      setActing(upgrade.id);
+      setActionError(null);
+      try {
+        const result = await scheduleUpgrade(upgrade.commit_sha);
+        if (shouldRedirectAfterSchedule(result.schedule_result)) {
+          await mutate();
+          window.location.assign(
+            `/maintenance.html?return=${encodeURIComponent(window.location.pathname)}`
+          );
+          return;
+        }
+        setActionError(scheduleRefusalMessage(result.schedule_result));
+      } catch (err) {
+        setActionError(describeError(err));
+      } finally {
+        setActing(null);
+      }
+    },
+    [mutate]
+  );
+
   // When the API goes down during an active upgrade, redirect to the
   // maintenance page with a return URL. The maintenance page shows live
   // progress and redirects back when the app is healthy again.
-  if (showMaintenanceView && typeof window !== "undefined") {
-    const returnPath = encodeURIComponent(window.location.pathname);
-    const activeUpgradeRow = upgrades?.find(
-      (u) => u.state === "in_progress" || u.state === "scheduled"
-    );
-    logger.info("UpgradesPage", "Redirecting to maintenance.html", {
-      reason: error
-        ? `fetch failed: ${error.message}`
-        : "active upgrade detected",
-      activeUpgrade: activeUpgradeRow
-        ? {
-            commit_sha: activeUpgradeRow.commit_sha,
-            state: activeUpgradeRow.state,
-          }
-        : null,
-    });
-    window.location.href = `/maintenance.html?return=${returnPath}`;
-  }
+  useGuardedEffect(
+    () => {
+      if (!showMaintenanceView) return;
+
+      const returnPath = encodeURIComponent(window.location.pathname);
+      logger.info("UpgradesPage", "Redirecting to maintenance.html", {
+        reason: maintenanceErrorMessage
+          ? `fetch failed: ${maintenanceErrorMessage}`
+          : "active upgrade detected",
+        activeUpgrade: activeUpgradeCommitSHA
+          ? {
+              commit_sha: activeUpgradeCommitSHA,
+              state: activeUpgradeState,
+            }
+          : null,
+      });
+      window.location.assign(`/maintenance.html?return=${returnPath}`);
+    },
+    [
+      showMaintenanceView,
+      maintenanceErrorMessage,
+      activeUpgradeCommitSHA,
+      activeUpgradeState,
+    ],
+    "UpgradesPage:maintenance-redirect"
+  );
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col py-8 md:py-12">
@@ -413,7 +487,10 @@ export default function UpgradesPage() {
 
       {/* STATBUS-308: an operator reading a stale page should be TOLD why it is
           stale, before they read anything else on it. */}
-      <UnitFloorWarning systemInfo={systemInfo} />
+      <UnitFloorWarning
+        systemInfo={systemInfo}
+        observedAt={systemInfoSnapshot?.observedAt}
+      />
 
       {/* Status header */}
       <div className="mb-8 flex flex-wrap items-center justify-center gap-4 text-sm text-muted-foreground">
@@ -690,7 +767,9 @@ export default function UpgradesPage() {
           // The user only needs to see the active upgrade, not other options.
           const hasActiveAction = actionable.some((u) => {
             const s = u.state;
-            return s === "scheduled" || s === "in_progress";
+            return (
+              s === "scheduled" || (s === "in_progress" && !isParkedUpgrade(u))
+            );
           });
 
           // Only show the latest available prominently. Older ones go behind a collapsible.
@@ -743,13 +822,7 @@ export default function UpgradesPage() {
                 variant={variant}
                 acting={acting === u.id}
                 canRestore={canRestore}
-                onScheduleNow={async () => {
-                  await act(u.id, {
-                    state: "scheduled",
-                    scheduled_at: new Date().toISOString(),
-                  });
-                  window.location.href = `/maintenance.html?return=${encodeURIComponent(window.location.pathname)}`;
-                }}
+                onScheduleNow={() => scheduleNow(u)}
                 onUnschedule={() =>
                   act(u.id, { state: "available", scheduled_at: null })
                 }
@@ -1001,13 +1074,18 @@ function UpgradeCard({
   variant?: "recommended" | "superseded";
   acting: boolean;
   canRestore: boolean;
-  onScheduleNow: () => void;
+  onScheduleNow: () => Promise<void>;
   onUnschedule: () => void;
   onRefetch: () => void;
   onSkip: () => void;
   onDismiss: () => void;
   onRestore: () => void;
 }) {
+  const isParked = isParkedUpgrade(u);
+  const scheduleAction = upgradeScheduleAction(u);
+  const canRetry = scheduleAction === "rpc" && status !== "available";
+  const restoreReattemptRequired = scheduleAction === "install";
+
   return (
     <Card
       className={
@@ -1156,7 +1234,10 @@ function UpgradeCard({
             </CardTitle>
             <CardDescription className="mt-1">{u.summary}</CardDescription>
           </div>
-          <StateBadge state={status} label={u.display_state} />
+          <StateBadge
+            state={status}
+            label={upgradeStateLabel(u, u.display_state)}
+          />
         </div>
       </CardHeader>
       <CardContent className="pt-0">
@@ -1191,6 +1272,31 @@ function UpgradeCard({
               {u.error}
             </CollapsibleContent>
           </Collapsible>
+        )}
+
+        {isParked && (
+          <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            <p className="font-medium">
+              Automatic retries are parked after {u.recovery_attempts} attempt
+              {u.recovery_attempts === 1 ? "" : "s"}.
+            </p>
+            {u.recovery_parked_reason && (
+              <p className="mt-1 whitespace-pre-wrap text-xs">
+                {u.recovery_parked_reason}
+              </p>
+            )}
+          </div>
+        )}
+
+        {restoreReattemptRequired && (
+          <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            <p className="font-medium">Restore retry requires an operator.</p>
+            <p className="mt-1 text-xs">
+              This failed attempt retained its database backup. Repair the
+              cause, then run <code className="font-mono">./sb install</code> on
+              the server to retry the restore safely.
+            </p>
+          </div>
         )}
 
         {/* Progress log: Caddy serves /upgrade-logs/<file> read-only from
@@ -1308,14 +1414,31 @@ function UpgradeCard({
             </Button>
           )}
 
-          {status === "in_progress" && (
+          {status === "in_progress" && !isParked && (
             <Badge className="bg-purple-100 text-purple-800">
               <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
               Upgrading...
             </Badge>
           )}
 
-          {(status === "failed" || status === "rolled_back") && (
+          {canRetry && (
+            <Button
+              size="sm"
+              variant="default"
+              disabled={acting}
+              onClick={onScheduleNow}
+            >
+              {acting ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              Retry
+            </Button>
+          )}
+
+          {(status === "rolled_back" ||
+            (status === "failed" && !restoreReattemptRequired)) && (
             <>
               <Button
                 size="sm"

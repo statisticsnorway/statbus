@@ -6125,7 +6125,12 @@ export type Database = {
           logged_at: string
           new_parked_at: string | null
           new_state: Database["public"]["Enums"]["upgrade_state"] | null
+          old_backup_path: string | null
+          old_error: string | null
+          old_log_relative_file_path: string | null
           old_parked_at: string | null
+          old_recovery_attempts: number | null
+          old_recovery_parked_reason: string | null
           old_state: Database["public"]["Enums"]["upgrade_state"] | null
           query: string | null
           upgrade_id: number
@@ -6139,7 +6144,12 @@ export type Database = {
           logged_at?: string
           new_parked_at?: string | null
           new_state?: Database["public"]["Enums"]["upgrade_state"] | null
+          old_backup_path?: string | null
+          old_error?: string | null
+          old_log_relative_file_path?: string | null
           old_parked_at?: string | null
+          old_recovery_attempts?: number | null
+          old_recovery_parked_reason?: string | null
           old_state?: Database["public"]["Enums"]["upgrade_state"] | null
           query?: string | null
           upgrade_id: number
@@ -6153,7 +6163,12 @@ export type Database = {
           logged_at?: string
           new_parked_at?: string | null
           new_state?: Database["public"]["Enums"]["upgrade_state"] | null
+          old_backup_path?: string | null
+          old_error?: string | null
+          old_log_relative_file_path?: string | null
           old_parked_at?: string | null
+          old_recovery_attempts?: number | null
+          old_recovery_parked_reason?: string | null
           old_state?: Database["public"]["Enums"]["upgrade_state"] | null
           query?: string | null
           upgrade_id?: number
@@ -15654,6 +15669,13 @@ export type Database = {
         Args: {
           p_context?: string
           p_installed_id?: number
+        }
+        Returns: Record<string, unknown>[]
+      },
+      upgrade_schedule: {
+        Args: {
+          p_commit_sha?: string
+          p_recreate?: boolean
         }
         Returns: Record<string, unknown>[]
       },

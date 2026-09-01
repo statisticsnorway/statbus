@@ -104,6 +104,9 @@ func TestApplyRace_RefusalClearedOnSuccess(t *testing.T) {
 	if !strings.Contains(sched, "clearApplyRefused") {
 		t.Error("onApplyScheduled (the successful-promote finisher) must clear the durable refusal (STATBUS-183 piece 3)")
 	}
+	if strings.Contains(sched, "supersedeOlderReleases") {
+		t.Error("onApplyScheduled must not supersede in Go; public.upgrade_schedule owns that transaction (STATBUS-333)")
+	}
 	clr := funcBody(t, "service.go", "func (d *Service) clearApplyRefused(")
 	if !strings.Contains(clr, "DELETE FROM public.system_info") || !strings.Contains(clr, "upgrade_apply_refused") {
 		t.Error("clearApplyRefused must DELETE the 'upgrade_apply_refused' system_info key (STATBUS-183 piece 3)")
@@ -121,20 +124,20 @@ func TestApplyRace_UpsertIdempotentOnCommitSha(t *testing.T) {
 	}
 }
 
-// The promote UPDATE moved into promoteExistingCandidate (STATBUS-183) — it must
-// keep the commit-authoritative, no-insert, fail-classified shape RunSchedule has.
+// STATBUS-333 moved the promote reset into public.upgrade_schedule. The service
+// door passes the canonical commit and never writes the row directly.
 func TestPromoteExistingCandidate_CommitAuthoritativeNoInsert(t *testing.T) {
 	body := funcBody(t, "service.go", "func (d *Service) promoteExistingCandidate(")
-	if !strings.Contains(body, "UPDATE public.upgrade") {
-		t.Error("promoteExistingCandidate must promote via UPDATE public.upgrade")
+	if strings.Contains(body, "UPDATE public.upgrade") {
+		t.Error("promoteExistingCandidate must not raw-UPDATE public.upgrade")
 	}
-	if !strings.Contains(body, "WHERE commit_sha = $1") {
-		t.Error("promoteExistingCandidate must select by commit (WHERE commit_sha = $1), never by tag (STATBUS-169 AC#2)")
+	if !strings.Contains(body, "public.upgrade_schedule($1, false)") || !strings.Contains(body, "string(commitSHA)") {
+		t.Error("promoteExistingCandidate must call public.upgrade_schedule with the canonical commit")
 	}
 	if strings.Contains(body, "INSERT INTO public.upgrade") {
-		t.Error("promoteExistingCandidate must NOT insert — it promotes an existing candidate only")
+		t.Error("promoteExistingCandidate must not insert — registration remains a separate guarded door")
 	}
-	if !strings.Contains(body, "classifyScheduleResult") {
-		t.Error("promoteExistingCandidate must classify the outcome (promoted / already-scheduled / unregistered) via classifyScheduleResult")
+	if !strings.Contains(body, "scanScheduleResult") {
+		t.Error("promoteExistingCandidate must scan and classify the database result")
 	}
 }

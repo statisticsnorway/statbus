@@ -1,4 +1,8 @@
-```sql
+-- Down Migration 20260901212308: statbus_333_upgrade_schedule_one_door
+BEGIN;
+
+DROP FUNCTION public.upgrade_schedule(text, boolean);
+
 CREATE OR REPLACE FUNCTION public.upgrade_state_log_capture()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -32,16 +36,21 @@ BEGIN
 
   INSERT INTO public.upgrade_state_log (
     upgrade_id, old_state, new_state, old_parked_at, new_parked_at,
-    application_name, query, backend_pid, logged_at, actor, actor_source,
-    old_error, old_log_relative_file_path, old_backup_path,
-    old_recovery_parked_reason, old_recovery_attempts)
+    application_name, query, backend_pid, logged_at, actor, actor_source)
   VALUES (
     NEW.id, OLD.state, NEW.state, OLD.recovery_parked_at, NEW.recovery_parked_at,
     current_setting('application_name', true), current_query(),
-    pg_backend_pid(), clock_timestamp(), v_actor, v_actor_source,
-    OLD.error, OLD.log_relative_file_path, OLD.backup_path,
-    OLD.recovery_parked_reason, OLD.recovery_attempts);
+    pg_backend_pid(), clock_timestamp(), v_actor, v_actor_source);
   RETURN NEW;
 END;
 $function$
-```
+;
+
+ALTER TABLE public.upgrade_state_log
+    DROP COLUMN old_error,
+    DROP COLUMN old_log_relative_file_path,
+    DROP COLUMN old_backup_path,
+    DROP COLUMN old_recovery_parked_reason,
+    DROP COLUMN old_recovery_attempts;
+
+END;

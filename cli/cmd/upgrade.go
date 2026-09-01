@@ -249,11 +249,10 @@ var upgradeListCmd = &cobra.Command{
 				-- RE-SCHEDULED: it would still carry dismissed_at while being
 				-- genuinely scheduled again, and this CASE would report the
 				-- stale decision over the live intent. It cannot arise, because
-				-- the re-arm NULLs those columns as part of promoting the
-				-- candidate — promoteExistingCandidate (service.go:4724-4725)
-				-- and RunSchedule (:5103-5104) both clear skipped_at and
-				-- dismissed_at. A decision column is therefore only ever set
-				-- while the decision still stands.
+					-- public.upgrade_schedule is the one scheduling contract and
+					-- NULLs both columns whenever it re-arms a candidate. A decision
+					-- column is therefore only ever set while the decision still
+					-- stands.
 				--
 				-- TRIPWIRE: if that NULLing is ever removed as tidy-up, this
 				-- ordering silently starts lying about live rows — a

@@ -51,7 +51,7 @@ package migrate
 // a column, and no legitimate daemon write performs that transition (pipeline
 // completions are in_progress→completed), so the daemon operated cleanly at that
 // floor too.
-const DaemonSchemaFloor int64 = 20260831124944
+const DaemonSchemaFloor int64 = 20260901212308
 
 // DaemonRelationNames is the schema surface the daemon's OWN SQL touches — the
 // set whose shape the floor must satisfy. The bump guard flags any migration
@@ -82,6 +82,7 @@ const DaemonSchemaFloor int64 = 20260831124944
 //   - public.release_builds_status_type — the sibling release-build status enum.
 //   - public.upgrade_supersede_older             — CALLed in discover (service.go:3019).
 //   - public.upgrade_supersede_completed_prereleases — CALLed in discover (:3036).
+//   - public.upgrade_schedule        — SELECTed by both daemon schedule doors.
 //   - public.upgrade_retention_plan   — set-returning fn, SELECTed in retention
 //     (exec.go:980).
 //   - public.upgrade_retention_apply  — CALLed in retention (exec.go:1020).
@@ -104,6 +105,7 @@ var DaemonRelationNames = []string{
 	"public.release_builds_status_type",
 	"public.upgrade_supersede_older",
 	"public.upgrade_supersede_completed_prereleases",
+	"public.upgrade_schedule",
 	"public.upgrade_retention_plan",
 	"public.upgrade_retention_apply",
 }

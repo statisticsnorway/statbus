@@ -36,6 +36,8 @@
 --
 -- Shared-test harness: wrap in BEGIN/ROLLBACK for cloned-template isolation.
 
+\i test/setup.sql
+
 BEGIN;
 
 -- Disable the BEFORE-INSERT trigger that auto-supersedes obsolete pending
@@ -393,6 +395,319 @@ SAVEPOINT before_caps_flip;
 UPDATE public.upgrade_retention_caps SET time_cap = NULL, count_cap = NULL, install_purge = false;
 SELECT count(*) AS planner_rows FROM public.upgrade_retention_plan('all', 16);
 ROLLBACK TO SAVEPOINT before_caps_flip;
+
+-- ============================================================
+-- PART 3: STATBUS-333 ONE SCHEDULE DOOR
+-- ============================================================
+
+\echo '=== schedule: setup ==='
+
+-- Part 1 disabled this trigger so its fixtures could exercise the supersede
+-- procedure directly. Scheduling needs the trigger as the authoritative
+-- obsolete-candidate oracle.
+ALTER TABLE public.upgrade ENABLE TRIGGER upgrade_block_obsolete_pending_trigger;
+TRUNCATE public.upgrade_state_log, public.upgrade RESTART IDENTITY;
+SET client_min_messages TO WARNING;
+
+\echo '=== schedule: failed retry through admin role ==='
+
+INSERT INTO public.upgrade (commit_sha, committed_at, state, summary)
+VALUES ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '2026-08-01 00:00:00+00', 'available',
+        'older candidate to supersede')
+RETURNING id \gset schedule_older_
+
+INSERT INTO public.upgrade (
+    commit_sha, committed_at, state, summary, scheduled_at, started_at,
+    error, log_relative_file_path, recovery_attempts
+)
+VALUES (
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', '2026-08-02 00:00:00+00', 'failed',
+    'failed candidate to retry', '2026-08-02 01:00:00+00', '2026-08-02 01:01:00+00',
+    'attempt one failed', 'attempt-one.log', 3
+)
+RETURNING id \gset schedule_target_
+
+CALL test.set_user_from_email('test.admin@statbus.org');
+
+SELECT schedule_result, landed_state, superseded_count
+  FROM public.upgrade_schedule('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', false);
+
+\echo '=== schedule: current row clean ==='
+
+SELECT state,
+       scheduled_at > '2026-08-02 01:00:00+00'::timestamptz AS scheduled_at_refreshed,
+       recreate = false AS recreate_set,
+       started_at IS NULL
+           AND completed_at IS NULL
+           AND error IS NULL
+           AND rolled_back_at IS NULL
+           AND skipped_at IS NULL
+           AND dismissed_at IS NULL
+           AND superseded_at IS NULL
+           AND log_relative_file_path IS NULL
+           AND backup_path IS NULL AS lifecycle_and_evidence_clean,
+       recovery_attempts = 0
+           AND recovery_parked_at IS NULL
+           AND recovery_parked_reason IS NULL AS recovery_clean
+  FROM public.upgrade
+ WHERE id = :schedule_target_id;
+
+\echo '=== schedule: old evidence archived before reset ==='
+
+SELECT old_state, new_state, old_error, old_log_relative_file_path,
+       old_recovery_attempts, actor_source
+  FROM public.upgrade_state_log
+ WHERE upgrade_id = :schedule_target_id
+ ORDER BY id DESC
+ LIMIT 1;
+
+\echo '=== schedule: older candidate superseded ==='
+
+SELECT state, superseded_at IS NOT NULL AS has_superseded_at
+  FROM public.upgrade
+ WHERE id = :schedule_older_id;
+
+\echo '=== schedule: parked same-row retry ==='
+
+DELETE FROM public.upgrade_state_log;
+DELETE FROM public.upgrade;
+
+INSERT INTO public.upgrade (
+    commit_sha, committed_at, state, summary, scheduled_at, started_at,
+    error, log_relative_file_path, backup_path, recovery_attempts,
+    recovery_parked_at, recovery_parked_reason
+)
+VALUES (
+    'cccccccccccccccccccccccccccccccccccccccc', '2026-08-03 00:00:00+00', 'in_progress',
+    'parked candidate', '2026-08-03 01:00:00+00', '2026-08-03 01:01:00+00',
+    'parked error', 'parked.log', '/tmp/parked-backup', 4,
+    '2026-08-03 02:00:00+00', 'deterministic park reason'
+)
+RETURNING id \gset parked_
+
+SELECT schedule_result, landed_state, superseded_count
+  FROM public.upgrade_schedule('cccccccccccccccccccccccccccccccccccccccc', false);
+
+SELECT state,
+       started_at IS NULL
+           AND error IS NULL
+           AND log_relative_file_path IS NULL
+           AND backup_path IS NULL AS evidence_clean,
+       recovery_attempts = 0
+           AND recovery_parked_at IS NULL
+           AND recovery_parked_reason IS NULL AS recovery_clean
+  FROM public.upgrade
+ WHERE id = :parked_id;
+
+SELECT old_state, new_state,
+       old_parked_at = '2026-08-03 02:00:00+00'::timestamptz AS old_park_time_captured,
+       old_recovery_parked_reason, old_error, old_log_relative_file_path,
+       old_backup_path, old_recovery_attempts
+  FROM public.upgrade_state_log
+ WHERE upgrade_id = :parked_id
+ ORDER BY id DESC
+ LIMIT 1;
+
+\echo '=== schedule: standalone unpark captures old evidence ==='
+
+DELETE FROM public.upgrade_state_log;
+DELETE FROM public.upgrade;
+
+INSERT INTO public.upgrade (
+    commit_sha, committed_at, state, summary, scheduled_at, started_at,
+    error, log_relative_file_path, backup_path, recovery_attempts,
+    recovery_parked_at, recovery_parked_reason
+)
+VALUES (
+    'dddddddddddddddddddddddddddddddddddddddd', '2026-08-04 00:00:00+00', 'in_progress',
+    'standalone unpark candidate', '2026-08-04 01:00:00+00', '2026-08-04 01:01:00+00',
+    'unpark error', 'unpark.log', '/tmp/unpark-backup', 5,
+    '2026-08-04 02:00:00+00', 'unpark reason'
+)
+RETURNING id \gset unpark_
+
+UPDATE public.upgrade
+   SET recovery_attempts = 0,
+       recovery_parked_at = NULL,
+       recovery_parked_reason = NULL
+ WHERE id = :unpark_id
+   AND (state <> 'in_progress' OR recovery_parked_at IS NOT NULL);
+
+SELECT count(*) AS log_rows
+  FROM public.upgrade_state_log
+ WHERE upgrade_id = :unpark_id;
+
+SELECT old_state, new_state,
+       old_parked_at = '2026-08-04 02:00:00+00'::timestamptz AS old_park_time_captured,
+       old_recovery_parked_reason, old_error, old_log_relative_file_path,
+       old_backup_path, old_recovery_attempts
+  FROM public.upgrade_state_log
+ WHERE upgrade_id = :unpark_id;
+
+\echo '=== schedule: live in-progress refusal ==='
+
+DELETE FROM public.upgrade_state_log;
+DELETE FROM public.upgrade;
+
+INSERT INTO public.upgrade (
+    commit_sha, committed_at, state, summary, scheduled_at, started_at,
+    error, log_relative_file_path, backup_path, recovery_attempts
+)
+VALUES (
+    'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', '2026-08-05 00:00:00+00', 'in_progress',
+    'live candidate', '2026-08-05 01:00:00+00', '2026-08-05 01:01:00+00',
+    'live evidence', 'live.log', '/tmp/live-backup', 6
+)
+RETURNING id \gset live_
+
+SELECT schedule_result, landed_state, superseded_count
+  FROM public.upgrade_schedule('eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', false);
+
+SELECT state = 'in_progress'
+           AND scheduled_at = '2026-08-05 01:00:00+00'::timestamptz
+           AND started_at = '2026-08-05 01:01:00+00'::timestamptz
+           AND error = 'live evidence'
+           AND log_relative_file_path = 'live.log'
+           AND backup_path = '/tmp/live-backup'
+           AND recovery_attempts = 6
+           AND recovery_parked_at IS NULL AS row_unchanged,
+       (SELECT count(*) FROM public.upgrade_state_log WHERE upgrade_id = :live_id) AS log_rows
+  FROM public.upgrade
+ WHERE id = :live_id;
+
+\echo '=== schedule: restore-broke refusal ==='
+
+DELETE FROM public.upgrade_state_log;
+DELETE FROM public.upgrade;
+
+INSERT INTO public.upgrade (commit_sha, committed_at, state, summary)
+VALUES ('1111111111111111111111111111111111111111', '2026-08-05 00:00:00+00', 'available',
+        'older candidate that must remain available')
+RETURNING id \gset restore_older_
+
+INSERT INTO public.upgrade (
+    commit_sha, committed_at, state, summary, scheduled_at, started_at,
+    error, log_relative_file_path, backup_path, recovery_attempts
+)
+VALUES (
+    '2222222222222222222222222222222222222222', '2026-08-06 00:00:00+00', 'failed',
+    'restore-broke candidate', '2026-08-06 01:00:00+00', '2026-08-06 01:01:00+00',
+    'restore failed', 'restore-failed.log', '/tmp/restore-backup', 7
+)
+RETURNING id \gset restore_target_
+
+SELECT schedule_result, landed_state, superseded_count
+  FROM public.upgrade_schedule('2222222222222222222222222222222222222222', false);
+
+SELECT state = 'failed'
+           AND error = 'restore failed'
+           AND log_relative_file_path = 'restore-failed.log'
+           AND backup_path = '/tmp/restore-backup'
+           AND recovery_attempts = 7 AS target_unchanged,
+       (SELECT state FROM public.upgrade WHERE id = :restore_older_id) AS older_state,
+       (SELECT count(*) FROM public.upgrade_state_log) AS log_rows
+  FROM public.upgrade
+ WHERE id = :restore_target_id;
+
+\echo '=== schedule: unregistered is idempotent ==='
+
+DELETE FROM public.upgrade_state_log;
+DELETE FROM public.upgrade;
+
+SELECT schedule_result, landed_state, superseded_count
+  FROM public.upgrade_schedule('ffffffffffffffffffffffffffffffffffffffff', false);
+SELECT schedule_result, landed_state, superseded_count
+  FROM public.upgrade_schedule('ffffffffffffffffffffffffffffffffffffffff', false);
+SELECT count(*) AS log_rows FROM public.upgrade_state_log;
+
+\echo '=== schedule: already-scheduled target is untouched ==='
+
+INSERT INTO public.upgrade (commit_sha, committed_at, state, summary)
+VALUES ('3333333333333333333333333333333333333333', '2026-08-07 00:00:00+00', 'available',
+        'older candidate for already-scheduled call')
+RETURNING id \gset already_older_
+
+INSERT INTO public.upgrade (
+    commit_sha, committed_at, state, summary, scheduled_at, recreate
+)
+VALUES (
+    '4444444444444444444444444444444444444444', '2026-08-08 00:00:00+00', 'scheduled',
+    'already scheduled target', '2026-08-08 01:00:00+00', true
+)
+RETURNING id \gset already_target_
+
+SELECT schedule_result, landed_state, superseded_count
+  FROM public.upgrade_schedule('4444444444444444444444444444444444444444', false);
+SELECT schedule_result, landed_state, superseded_count
+  FROM public.upgrade_schedule('4444444444444444444444444444444444444444', false);
+
+SELECT state = 'scheduled'
+           AND scheduled_at = '2026-08-08 01:00:00+00'::timestamptz
+           AND recreate = true AS target_unchanged,
+       (SELECT count(*) FROM public.upgrade_state_log WHERE upgrade_id = :already_target_id) AS target_log_rows,
+       (SELECT state FROM public.upgrade WHERE id = :already_older_id) AS older_state
+  FROM public.upgrade
+ WHERE id = :already_target_id;
+
+\echo '=== schedule: obsolete superseded target is a no-mutation refusal ==='
+
+DELETE FROM public.upgrade_state_log;
+DELETE FROM public.upgrade;
+
+INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary)
+VALUES ('6666666666666666666666666666666666666666', '2026-08-09 00:00:00+00', 'release',
+        'available', 'eligible older row whose supersede must roll back')
+RETURNING id \gset obsolete_older_
+
+INSERT INTO public.upgrade (
+    commit_sha, committed_at, release_status, state, summary,
+    completed_at, log_relative_file_path
+)
+VALUES (
+    '7777777777777777777777777777777777777777', '2026-08-11 00:00:00+00', 'release',
+    'completed', 'newer installed release', '2026-08-11 01:00:00+00', 'installed.log'
+);
+
+INSERT INTO public.upgrade (
+    commit_sha, committed_at, release_status, state, summary,
+    scheduled_at, started_at, error, log_relative_file_path, backup_path,
+    superseded_at, recovery_attempts, recovery_parked_reason
+)
+VALUES (
+    '5555555555555555555555555555555555555555', '2026-08-10 00:00:00+00', 'release',
+    'superseded', 'obsolete target with evidence',
+    '2026-08-10 01:00:00+00', '2026-08-10 01:01:00+00', 'obsolete evidence',
+    'obsolete.log', '/tmp/obsolete-backup', '2026-08-10 02:00:00+00', 8,
+    'obsolete recovery narrative'
+)
+RETURNING id \gset obsolete_target_
+
+CREATE TEMP TABLE obsolete_target_before ON COMMIT DROP AS
+SELECT * FROM public.upgrade WHERE id = :obsolete_target_id;
+
+SELECT schedule_result, landed_state, superseded_count
+  FROM public.upgrade_schedule('5555555555555555555555555555555555555555', false);
+
+SELECT to_jsonb(u) = (SELECT to_jsonb(b) FROM obsolete_target_before AS b) AS target_byte_identical,
+       (SELECT state FROM public.upgrade WHERE id = :obsolete_older_id) AS eligible_older_state,
+       (SELECT count(*) FROM public.upgrade_state_log) AS log_rows
+  FROM public.upgrade AS u
+ WHERE u.id = :obsolete_target_id;
+
+\echo '=== schedule: regular user refused at execute ==='
+
+SAVEPOINT before_regular_user_attempt;
+\set ON_ERROR_STOP off
+CALL test.set_user_from_email('test.regular@statbus.org');
+SELECT schedule_result
+  FROM public.upgrade_schedule('5555555555555555555555555555555555555555', false);
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT before_regular_user_attempt;
+
+SELECT to_jsonb(u) = (SELECT to_jsonb(b) FROM obsolete_target_before AS b) AS target_still_unchanged,
+       (SELECT count(*) FROM public.upgrade_state_log) AS log_rows
+  FROM public.upgrade AS u
+ WHERE u.id = :obsolete_target_id;
 
 \echo '=== all tests done ==='
 

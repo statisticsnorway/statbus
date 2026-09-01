@@ -1419,6 +1419,11 @@ erDiagram
 		timestamp_with_time_zone logged_at
 		text actor
 		upgrade_actor_source actor_source
+		text old_error
+		text old_log_relative_file_path
+		text old_backup_path
+		text old_recovery_parked_reason
+		integer old_recovery_attempts
 	}
 	sql_saga_era["sql_saga.era"] {
 		name table_schema

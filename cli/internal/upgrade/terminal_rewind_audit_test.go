@@ -158,15 +158,6 @@ var rewindAudit = map[siteKey]rewindDisposition{
 		Class: classOutsideWindow, Count: 1,
 		Why: "Un-claim / reset back to 'available'. Runs before any backup on its path.",
 	},
-
-	{"cli/internal/upgrade/service.go", "UPDATE", "completed_at,dismissed_at,error,log_relative_file_path,recreate,rolled_back_at,scheduled_at,skipped_at,started_at,state,superseded_at"}: {
-		Class: classOutsideWindow, Count: 2,
-		Why: "The SCHEDULE / re-arm writes (promoteExistingCandidate and the install-triggered sibling). They clear a " +
-			"candidate's prior terminal state to arm it, and scheduling necessarily precedes execution — so they " +
-			"run before any backup on their own path and the snapshot contains their result. NOTE for whoever " +
-			"revisits: they deliberately NULL dismissed_at/skipped_at/superseded_at, which is a re-arm, not a loss.",
-	},
-
 	// ── D. SUCCESS PATH ONLY — no restore occurs on these paths ──
 	{"cli/internal/upgrade/service.go", "UPDATE", "completed_at,docker_images_status,error,log_relative_file_path,state"}: {
 		Class: classSuccessPathOnly, Count: 3,

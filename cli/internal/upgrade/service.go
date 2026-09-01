@@ -5015,28 +5015,42 @@ func (d *Service) supersedeBelowInstalled(ctx context.Context) {
 	}
 }
 
-// scheduleResult is the classified outcome of a promote-to-scheduled attempt.
-type scheduleResult int
+// scheduleResult is the database-owned outcome of public.upgrade_schedule.
+type scheduleResult string
 
 const (
-	scheduleResultPromoted         scheduleResult = iota // the UPDATE promoted a candidate to 'scheduled'
-	scheduleResultAlreadyScheduled                       // the row exists but was already 'scheduled' (no-op)
-	scheduleResultUnregistered                           // no candidate row exists — require-register loud no-op
+	scheduleResultScheduled                scheduleResult = "scheduled"
+	scheduleResultSuperseded               scheduleResult = "superseded"
+	scheduleResultAlreadyScheduled         scheduleResult = "already_scheduled"
+	scheduleResultInProgress               scheduleResult = "in_progress"
+	scheduleResultRestoreReattemptRequired scheduleResult = "restore_reattempt_required"
+	scheduleResultUnregistered             scheduleResult = "unregistered"
 )
 
-// classifyScheduleResult is the PURE decision behind require-register
-// (STATBUS-086, AC#9): given the rows the promote-UPDATE affected and whether a
-// candidate row exists, decide the outcome. A non-existent row is NEVER
-// inserted — it classifies Unregistered (loud no-op), never "create it". Unit-
-// tested in schedule_require_register_test.go.
-func classifyScheduleResult(rowsAffected int64, exists bool) scheduleResult {
-	if rowsAffected > 0 {
-		return scheduleResultPromoted
+func classifyScheduleResult(raw string) (scheduleResult, error) {
+	result := scheduleResult(raw)
+	switch result {
+	case scheduleResultScheduled,
+		scheduleResultSuperseded,
+		scheduleResultAlreadyScheduled,
+		scheduleResultInProgress,
+		scheduleResultRestoreReattemptRequired,
+		scheduleResultUnregistered:
+		return result, nil
+	default:
+		return "", fmt.Errorf("unknown public.upgrade_schedule result %q", raw)
 	}
-	if exists {
-		return scheduleResultAlreadyScheduled
+}
+
+func scanScheduleResult(row pgx.Row) (scheduleResult, error) {
+	var raw string
+	var upgradeID sql.NullInt64
+	var landedState sql.NullString
+	var supersededCount int
+	if err := row.Scan(&raw, &upgradeID, &landedState, &supersededCount); err != nil {
+		return "", err
 	}
-	return scheduleResultUnregistered
+	return classifyScheduleResult(raw)
 }
 
 // errNotRegistered is the actionable fail-fast (STATBUS-086, AC#3) for
@@ -5112,13 +5126,22 @@ func (d *Service) onScheduledNotify(ctx context.Context, input string) {
 		return
 	}
 	switch res {
-	case scheduleResultPromoted:
-		d.onApplyScheduled(ctx, commitSHA, displayName)
+	case scheduleResultScheduled:
+		d.onApplyScheduled(ctx, displayName)
 	case scheduleResultAlreadyScheduled:
-		// STATBUS-046: since edit 6 excludes a LIVE in_progress row from the
-		// re-schedule, this covers BOTH "already scheduled" and "already running".
-		fmt.Printf("Version %s is already scheduled or in progress — no action needed\n", displayName)
+		fmt.Printf("Version %s is already scheduled — no action needed\n", displayName)
 		d.clearApplyRefused(ctx) // the named version is already actioned
+	case scheduleResultInProgress:
+		fmt.Printf("Version %s is already in progress — no action needed\n", displayName)
+		d.clearApplyRefused(ctx)
+	case scheduleResultRestoreReattemptRequired:
+		reason := "the failed upgrade retained a backup; run ./sb install to reattempt the restore"
+		fmt.Printf("Cannot schedule %s: %s\n", displayName, reason)
+		d.recordApplyRefused(ctx, input, reason)
+	case scheduleResultSuperseded:
+		reason := "the candidate is older than an installed completed candidate and was not queued"
+		fmt.Printf("Cannot schedule %s: %s\n", displayName, reason)
+		d.recordApplyRefused(ctx, input, reason)
 	case scheduleResultUnregistered:
 		// STATBUS-183 piece 1: the tag/commit resolved (git says it exists) but has
 		// no candidate row yet — the rc.06 race. Instead of the old drop, register it
@@ -5142,15 +5165,26 @@ func (d *Service) onScheduledNotify(ctx context.Context, input string) {
 			return
 		}
 		switch res2 {
-		case scheduleResultPromoted:
-			d.onApplyScheduled(ctx, commitSHA, displayName)
+		case scheduleResultScheduled:
+			d.onApplyScheduled(ctx, displayName)
 		case scheduleResultAlreadyScheduled:
 			// The independent discovery+schedule (or a concurrent apply) beat us to
 			// it — benign; the deploy still converges (race hygiene: upsertCandidate
 			// is idempotent on commit_sha, so both orders land the same row).
-			fmt.Printf("Version %s is already scheduled or in progress — no action needed\n", displayName)
+			fmt.Printf("Version %s is already scheduled — no action needed\n", displayName)
 			d.clearApplyRefused(ctx)
-		default:
+		case scheduleResultInProgress:
+			fmt.Printf("Version %s is already in progress — no action needed\n", displayName)
+			d.clearApplyRefused(ctx)
+		case scheduleResultRestoreReattemptRequired:
+			reason := "the failed upgrade retained a backup; run ./sb install to reattempt the restore"
+			fmt.Printf("Cannot schedule %s after registering: %s\n", displayName, reason)
+			d.recordApplyRefused(ctx, input, reason)
+		case scheduleResultSuperseded:
+			reason := "the candidate is older than an installed completed candidate and was not queued"
+			fmt.Printf("Cannot schedule %s after registering: %s\n", displayName, reason)
+			d.recordApplyRefused(ctx, input, reason)
+		case scheduleResultUnregistered:
 			// Registered but promote found no row: impossible (the upsert guaranteed
 			// it) — surface it durably rather than silently.
 			fmt.Printf("NOTIFY upgrade_apply: %s registered but did not promote (unexpected)\n", displayName)
@@ -5159,56 +5193,26 @@ func (d *Service) onScheduledNotify(ctx context.Context, input string) {
 	}
 }
 
-// onApplyScheduled finishes a successful promote: announce, supersede older
-// releases, and clear any prior durable apply-refusal (STATBUS-183 piece 3 — the
-// refusal signal is a single latest-outcome key, cleared on the next successful
-// schedule).
-func (d *Service) onApplyScheduled(ctx context.Context, commitSHA CommitSHA, displayName string) {
+// onApplyScheduled finishes a successful database-owned schedule: announce and
+// clear any prior durable apply-refusal (STATBUS-183 piece 3). Older-candidate
+// supersede is part of public.upgrade_schedule's transaction.
+func (d *Service) onApplyScheduled(ctx context.Context, displayName string) {
 	fmt.Printf("Scheduled upgrade to %s\n", displayName)
-	d.supersedeOlderReleases(ctx, string(commitSHA))
 	d.clearApplyRefused(ctx)
 }
 
-// promoteExistingCandidate runs the promote-only UPDATE (NO insert) + classifies
-// the outcome; shared by the first pass and the post-register re-run in
-// onScheduledNotify. The UPDATE promotes an existing candidate to 'scheduled',
-// resetting the lifecycle + recovery budget ATOMICALLY (recoveryBudgetResetCols —
-// see RunSchedule for the DEFERRED-POISON rationale) while excluding an already-
-// scheduled row (NOTIFY-loop protection: the UPDATE re-fires the trigger) and a
-// LIVE in_progress row (recoveryBudgetResetGuard — never clobber a running upgrade
-// back to scheduled; STATBUS-046 edit 6). Returns the scheduleResult classification.
+// promoteExistingCandidate calls the one database-owned schedule door (NO insert);
+// shared by the first pass and the post-register re-run in onScheduledNotify.
 func (d *Service) promoteExistingCandidate(ctx context.Context, commitSHA CommitSHA) (scheduleResult, error) {
-	result, err := d.queryConn.Exec(ctx,
-		`UPDATE public.upgrade SET
-		   state = 'scheduled',
-		   recreate = false,
-		   scheduled_at = now(),
-		   started_at = NULL,
-		   completed_at = NULL,
-		   error = NULL,
-		   rolled_back_at = NULL,
-		   skipped_at = NULL,
-		   dismissed_at = NULL,
-		   superseded_at = NULL,
-		   log_relative_file_path = NULL,
-		   `+recoveryBudgetResetCols+`
-		 WHERE commit_sha = $1 AND state != 'scheduled' AND `+recoveryBudgetResetGuard,
-		string(commitSHA))
+	result, err := scanScheduleResult(d.queryConn.QueryRow(ctx,
+		`SELECT schedule_result, upgrade_id, landed_state, superseded_count
+		   FROM public.upgrade_schedule($1, false)`,
+		string(commitSHA)))
 	if err != nil {
-		d.markPgInvariantTerminal(err, "service.go:promoteExistingCandidate:update")
-		return 0, err
+		d.markPgInvariantTerminal(err, "service.go:promoteExistingCandidate:upgrade_schedule")
+		return "", err
 	}
-	// Only probe existence on the 0-rows case; when rows>0 the row plainly exists.
-	rows := result.RowsAffected()
-	exists := true
-	if rows == 0 {
-		if err := d.queryConn.QueryRow(ctx,
-			`SELECT EXISTS(SELECT 1 FROM public.upgrade WHERE commit_sha = $1)`,
-			string(commitSHA)).Scan(&exists); err != nil {
-			return 0, err
-		}
-	}
-	return classifyScheduleResult(rows, exists), nil
+	return result, nil
 }
 
 // registerTarget registers an already-resolved target through the SINGLE guarded
@@ -5615,67 +5619,43 @@ func (d *Service) scheduleStep(ctx context.Context, input string, recreate bool,
 			}
 		}
 
-		// Promote ONLY an existing candidate — NO insert. Resetting the
-		// lifecycle lets a completed/failed/rolled_back row re-run.
-		// STATBUS-046 (doc-021): re-schedule is un-park trigger 1. The guard
-		// carves out a PARKED row so it can be re-scheduled — a parked row stays
-		// state='in_progress' (forward-only), so the plain `state != 'in_progress'`
-		// guard would refuse it; `recovery_parked_at IS NOT NULL` distinguishes a
-		// parked-idle row (safe) from a genuinely-live upgrade (never clobber). The
-		// recovery-budget reset (recoveryBudgetResetCols) is inlined into THIS
-		// single UPDATE so the un-park is ATOMIC with the reschedule (runOneShot is
-		// not transactional; a separate reset would leave a scheduled-but-still-
-		// parked window the daemon could claim+crash into). Shares the exact
-		// column-set + guard consts with the ./sb install trigger — no drift.
-		// STATBUS-317: the actor GUC (if operator is non-empty) and this
-		// UPDATE must share ONE transaction — see withActorTx's own comment
-		// for why a separate autocommit Exec would silently record every
-		// row as 'absent'.
-		var ct pgconn.CommandTag
+		// public.upgrade_schedule is the one reset, refusal, supersede, and
+		// un-park contract. STATBUS-317: the actor GUC (if operator is non-empty)
+		// and the function call must share one transaction so the state-log trigger
+		// records the operator rather than an absent actor.
+		var result scheduleResult
 		err = d.withActorTx(ctx, operator, func(ctx context.Context, tx pgx.Tx) error {
-			var execErr error
-			ct, execErr = tx.Exec(ctx,
-				`UPDATE public.upgrade SET
-				   state = 'scheduled',
-				   recreate = $2,
-				   scheduled_at = now(),
-				   started_at = NULL,
-				   completed_at = NULL,
-				   error = NULL,
-				   rolled_back_at = NULL,
-				   skipped_at = NULL,
-				   dismissed_at = NULL,
-				   superseded_at = NULL,
-				   log_relative_file_path = NULL,
-				   `+recoveryBudgetResetCols+`
-				 WHERE commit_sha = $1 AND `+recoveryBudgetResetGuard,
-				string(sha), recreate)
-			return execErr
+			var queryErr error
+			result, queryErr = scanScheduleResult(tx.QueryRow(ctx,
+				`SELECT schedule_result, upgrade_id, landed_state, superseded_count
+				   FROM public.upgrade_schedule($1, $2)`,
+				string(sha), recreate))
+			return queryErr
 		})
 		if err != nil {
 			return fmt.Errorf("schedule %s: %w", displayName, err)
 		}
-		if ct.RowsAffected() == 0 {
-			// Distinguish "not registered" from "running": the state guard
-			// above refuses to reset an in_progress row (don't clobber a live
-			// upgrade). Probe to give the right actionable error.
-			var state string
-			if qerr := d.queryConn.QueryRow(ctx,
-				`SELECT state::text FROM public.upgrade WHERE commit_sha = $1`,
-				string(sha)).Scan(&state); qerr != nil {
-				return errNotRegistered(displayName, input) // no row → not registered
+
+		switch result {
+		case scheduleResultScheduled:
+			fmt.Printf("Scheduled upgrade to %s\n", displayName)
+			if recreate {
+				fmt.Printf("Recreate mode requested for %s (persisted on the upgrade row)\n", displayName)
 			}
-			return fmt.Errorf("%s is %s — refusing to reschedule; let the in-progress upgrade finish or recover first", displayName, state)
+		case scheduleResultAlreadyScheduled:
+			fmt.Printf("Version %s is already queued — no action needed\n", displayName)
+		case scheduleResultInProgress:
+			return fmt.Errorf("%s is in_progress — refusing to reschedule; let the in-progress upgrade finish or recover first", displayName)
+		case scheduleResultRestoreReattemptRequired:
+			return fmt.Errorf("%s has a retained backup and requires a restore reattempt — run ./sb install; it was not queued", displayName)
+		case scheduleResultUnregistered:
+			return errNotRegistered(displayName, input)
+		case scheduleResultSuperseded:
+			return fmt.Errorf("%s is older than an installed completed candidate — it was not queued", displayName)
 		}
-		fmt.Printf("Scheduled upgrade to %s\n", displayName)
-		if recreate {
-			fmt.Printf("Recreate mode requested for %s (persisted on the upgrade row)\n", displayName)
-		}
-		// Once a commit is selected, all older candidates are obsolete.
-		d.supersedeOlderReleases(ctx, string(sha))
 
 		// STATBUS-092: recreate intent is DURABLE on the row (set in the UPDATE
-		// above), read by executeScheduled at claim time. No out-of-band
+		// inside public.upgrade_schedule), read by executeScheduled at claim time. No out-of-band
 		// ':recreate' NOTIFY — that raced the trigger's sha-NOTIFY, which the
 		// daemon processed first and ran the upgrade as normal before the
 		// ':recreate' NOTIFY was dequeued. The scheduling UPDATE's trigger
@@ -8182,21 +8162,11 @@ func (d *Service) rowIsParked(id int) (parked bool, state string, err error) {
 	return fields[1] == "true", fields[0], nil
 }
 
-// STATBUS-046 (architect pin 2) — the SHARED park-reset column-set + guard,
-// referenced by BOTH deliberate un-park triggers so they can NEVER drift:
-// RunSchedule inlines them into its single ATOMIC re-schedule UPDATE (trigger 1)
-// and UnparkByID uses them standalone (trigger 2, ./sb install). Atomic-with-
-// reschedule matters: runOneShot is NOT transactional, so a two-statement
-// "reschedule then reset" would leave a window where a rescheduled row is still
-// parked — the daemon could claim+crash it there and inherit the stale marker,
-// then get wrongly skipped by resumeNewSb's parked-skip.
-//
-// The guard NEVER clobbers a genuinely-live upgrade:
-//   - RunSchedule: the same UPDATE moves the row to 'scheduled' (or it's a
-//     parked-idle row), so it's resettable.
-//   - install (by id): a crashed row is in_progress, so the guard reduces to
-//     `recovery_parked_at IS NOT NULL` = PARKED-ONLY (pin 1) — a crashed-but-not-
-//     parked row keeps its count so install-driven crash cycles still park.
+// STATBUS-046 (architect pin 2): these are the standalone parked-only recovery
+// reset used by ./sb install's UnparkByID. Schedule reset and un-park semantics
+// now live atomically in public.upgrade_schedule (STATBUS-333), so Go must not
+// duplicate them. For an in_progress row this guard reduces to
+// `recovery_parked_at IS NOT NULL`: a live, non-parked upgrade keeps its count.
 const (
 	recoveryBudgetResetCols  = "recovery_attempts = 0, recovery_parked_at = NULL, recovery_parked_reason = NULL"
 	recoveryBudgetResetGuard = "(state != 'in_progress' OR recovery_parked_at IS NOT NULL)"

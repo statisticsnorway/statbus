@@ -45,11 +45,8 @@ structurally impossible, not merely tested for once.`, beginIdx, setIdx, fnIdx, 
 	}
 }
 
-// TestScheduleStepWritesThroughActorTx_STATBUS317: the UPDATE that
-// transitions public.upgrade to 'scheduled' must run inside withActorTx,
-// via the tx it hands the closure — never a bare d.queryConn.Exec, which
-// would be a second, unguarded write path that silently regresses to
-// always recording 'absent'.
+// TestScheduleStepWritesThroughActorTx_STATBUS317: public.upgrade_schedule must
+// run inside withActorTx via the handed-in tx, never the bare connection.
 func TestScheduleStepWritesThroughActorTx_STATBUS317(t *testing.T) {
 	src := readUpgradeServiceSource(t)
 	body := extractFuncBody(t, src, "func (d *Service) scheduleStep(")
@@ -57,8 +54,8 @@ func TestScheduleStepWritesThroughActorTx_STATBUS317(t *testing.T) {
 	if !strings.Contains(body, "d.withActorTx(ctx, operator,") {
 		t.Fatal("scheduleStep must call d.withActorTx(ctx, operator, ...) — the actor-recording contract for this write path")
 	}
-	if !strings.Contains(body, "tx.Exec(ctx,") {
-		t.Error("scheduleStep's UPDATE must run via tx.Exec (the transaction withActorTx opened), not the bare connection")
+	if !strings.Contains(body, "tx.QueryRow(ctx,") || !strings.Contains(body, "public.upgrade_schedule") {
+		t.Error("scheduleStep's public.upgrade_schedule call must run via tx.QueryRow in the transaction withActorTx opened")
 	}
 }
 

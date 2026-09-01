@@ -67,15 +67,14 @@ func TestRecreateIntentIsDurableOnRow_STATBUS092(t *testing.T) {
 			"through the shared claimScheduledUpgrade helper so recreate is read durably at claim in both paths.")
 	}
 
-	// (4) The intent is SET durably at schedule time (RunSchedule's promote UPDATE),
-	//     and set explicitly (false) on a NOTIFY-driven promote so it never carries
-	//     a stale true.
-	if !strings.Contains(src, "recreate = $2") {
-		t.Errorf("STATBUS-092: RunSchedule must persist the --recreate flag on the row (recreate = $2).")
+	// (4) The one database schedule function receives recreate intent from the CLI,
+	//     and false explicitly from the NOTIFY-driven door, so stale true intent can
+	//     never carry into a plain apply.
+	if !strings.Contains(src, "public.upgrade_schedule($1, $2)") || !strings.Contains(src, "string(sha), recreate") {
+		t.Errorf("STATBUS-092/333: RunSchedule must pass --recreate to public.upgrade_schedule.")
 	}
-	if !strings.Contains(src, "recreate = false") {
-		t.Errorf("STATBUS-092: onScheduledNotify must set recreate = false on a NOTIFY-driven promote " +
-			"(no stale-true carryover; a plain NOTIFY carries no recreate intent).")
+	if !strings.Contains(src, "public.upgrade_schedule($1, false)") {
+		t.Errorf("STATBUS-092/333: the NOTIFY-driven schedule door must pass false explicitly to public.upgrade_schedule.")
 	}
 
 	// (5) executeUpgrade carries the claim-read recreate through to the flag, NOT a
