@@ -7,7 +7,7 @@ status: Done
 assignee:
   - '@mechanic'
 created_date: '2026-08-31 14:56'
-updated_date: '2026-08-31 21:43'
+updated_date: '2026-09-01 20:45'
 labels:
   - cli
   - config
@@ -21,21 +21,21 @@ ordinal: 325000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-NORTH STAR: editing a setting is the whole act. An operator who changes something in .env.config should not also have to know which two commands make it real, and the product should not have solved that for exactly one key.
-
-THE GAP (architect, 2026-08-31, filed out of STATBUS-307 at his instruction — deliberately NOT folded into that landing): a value in .env.config does nothing observable until `./sb config generate` rewrites .env AND the affected service restarts. The upgrade daemon in particular loads its config only at startup, which is why doc/CLOUD.md tells the reader to confirm the channel by reading the RUNNING service rather than the file — a file that says `stable` proves nothing until a restart has happened.
-
-This is GENERAL, not channel-specific. A port change, a credential rotation, a SITE_DOMAIN change, a backup-interval change all have it. The failure mode is identical every time and is this project's recurring one: the file says one thing and the box does another, with a grep of the file falsely confirming success.
-
-WHAT 307 LEFT BEHIND, and why it is a half-answer worth finishing rather than a wart to remove: `./sb upgrade channel` writes the key, regenerates, and restarts — the whole act, for one key. The architect's ruling on it went REMOVE and then reversed to KEEP after reading the function, precisely because that third step is real work an operator would otherwise carry in their head. So the verb is right and its scope is wrong: it solves one Nth of the problem, and is the only key that gets a solution.
-
-THE RIGHT HOME (architect): `./sb install` — the single entrypoint an NSO operator already knows, which is idempotent by construction and already owns applying derived config. If install applied .env.config changes as part of its ordinary work, then editing the file and running the one command an operator already runs would be the whole act for EVERY key.
-
-WHAT FOLLOWS FOR THE VERB: once install does this, `./sb upgrade channel` becomes redundant and can be removed for the reason originally given — the channel should be visible on the line where someone chose it, and a verb that writes it from elsewhere weakens that. It stays until then because removing it now would relocate real work into the operator's memory.
-
-DESIGN QUESTIONS: which services need a restart for which keys (the upgrade daemon certainly; Caddy on domain/port changes; the app on others), whether install should restart unconditionally or detect what actually changed, and how this composes with install's existing step table and its mutex.
-
-WHAT IS ACHIEVED: one command applies any configuration change, no key is privileged with its own verb, and the file-says-one-thing-box-does-another failure stops being reachable by editing a setting.
+Every `.env.config` key previously required `./sb config generate` and a service restart before the running box reflected the change.
+Only the upgrade channel had a command that performed both steps.
+The recurring failure was that the file said one thing while the running box did another.
+Commit `9fead5e3c` made `./sb install` the general configuration application path.
+`./sb install` snapshots the generated `.env` and Caddy files before regeneration.
+It diffs those generated outputs after regeneration to identify effective changes, including derived values.
+Each generated key declares its restart class at its generator write site.
+Tests enforce that every generated key has a restart class.
+`./sb install` restarts exactly the services required by the changed keys.
+No-change runs restart nothing, and that behavior is test-pinned.
+The now-redundant `./sb upgrade channel` verb was removed.
+The result is one command that applies configuration changes without unnecessary restarts.
+A 2026-09-01 audit found that `.users.yml` edits are not reapplied after users exist and credential rotation does not re-ALTER existing database role passwords.
+The same audit found that compose or build changes are not recreated on a healthy box, and whether compose restart injects changed environment values instead of requiring `up -d` remains under empirical test.
+These residues are tracked separately.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
