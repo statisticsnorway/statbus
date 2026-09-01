@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-14 16:12'
-updated_date: '2026-08-18 09:58'
+updated_date: '2026-09-01 13:49'
 labels:
   - upgrade
   - deploy
@@ -20,12 +20,18 @@ ordinal: 184000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-> NORTH STAR: a delivered apply poke either schedules the named version or fails LOUDLY — never a silent no-op that leaves the row available and the operator believing the deploy is in flight.
-> FOUND: 2026-07-14 ~18:00, rc.06 canary on rune (live box, read-only diagnosis). deploy-via-upgrade run 29347796677 delivered `NOTIFY upgrade_apply, 'v2026.07.0-rc.06'` and exited green. Journal: the daemon DISCOVERED the tag at 18:00:31 (signature verified, "Discovered: v2026.07.0-rc.06"), verified + pre-downloaded all images by 18:02:07 — and then nothing. 25+ minutes later the row (id 42843) sat state='available', scheduled_at NULL, docker_images_status=ready, release_builds_status=ready, not parked, daemon unit active. The apply was dropped: the NOTIFY arrived while the tag was not yet a registered candidate (the release was ~4 minutes old; the poke raced the box's own first discovery of it), and whatever the handler did between "trigger discovery" and "schedule the named version," the scheduling half never happened — with zero error surfaced anywhere.
-> CONTRAST: the rc.05 poke on the same box (same workflow, same shape) went row-completed in 78 seconds — the tag had been discoverable longer. Timing is the only visible difference.
-> REMEDY USED: a second identical poke (run 29348619144) — the row then existed registered with images ready. The canonical operator retry works; the silence is the defect.
-> RELATION: the STATBUS-170 arc one level deeper — 169 fixed green-means-scheduled lies, 170 makes green mean converged; this is "even the poke can be lost silently." 170's phase-2 polling would have caught this in CI (timeout → red naming 'available'), which is evidence for its priority, but the product should not drop a delivered apply either way.
-> COMPLEXITY: engineer trace first (find the exact drop site in the apply handler: does it resolve the tag BEFORE its own check completes? does an error get swallowed?), then architect rules the fix (make apply wait-for/trigger registration then schedule, or fail loudly to the poke's output).
+During the July rc.06 cut, CI said “install v2026.07.0-rc.06” within seconds of the release.
+The box had not yet discovered the tag.
+The NOTIFY handler printed “unregistered — ignored” to stdout and dropped the request.
+The row remained available forever while the deploy workflow stayed green.
+The fix shipped on 2026-07-14 in commit 5ae1147fe.
+The deploy poke now synchronously registers and then schedules, so a durable row exists before any NOTIFY.
+The handler fetches tags with the refs/tags refspec before resolving them.
+It registers through the guarded path, promotes the row, and records every refusal in system_info key upgrade_apply_refused.
+A lost NOTIFY still converges when scheduled rows are claimed at startup or on the 30-second tick.
+An engineer and architect re-verified the fix on 2026-08-18; the original drop site no longer exists, so no failing reproducer can be written.
+Only acceptance criterion #3 remains: observe a real post-fix poke sent within seconds of a fresh cut and see it reach completed.
+The next prerelease cut’s automatic dev deploy has that shape; the foreman will watch it and close the ticket.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
