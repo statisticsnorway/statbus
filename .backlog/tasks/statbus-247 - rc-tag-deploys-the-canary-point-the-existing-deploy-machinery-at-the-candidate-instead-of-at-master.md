@@ -1,13 +1,13 @@
 ---
 id: STATBUS-247
 title: >-
-  canary-topology: dev proves the candidate installs, Norway proves a person can
-  install it
+  canary-topology: deploy the candidate to dev, not master's tip; a person
+  installs once before promotion
 status: In Progress
 assignee:
   - '@tester'
 created_date: '2026-08-19 07:14'
-updated_date: '2026-09-01 07:27'
+updated_date: '2026-09-01 07:39'
 labels:
   - release
   - ops
@@ -26,48 +26,25 @@ ordinal: 240000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-PURPOSE: give the release chain its running order, and give the two staffed boxes their distinct jobs — dev proves a candidate installs, automatically; Norway proves a person can install it through the operator surface.
+ISSUE
 
-WHAT THE SYSTEM ALREADY DID WELL, unchanged by this ticket: one code path from the UI's install button through the CLI to the box — clicking in the admin UI and running `./sb upgrade schedule` are the same mechanism the entire way. Deployments triggered by writing a branch are part of that same composable design: a branch write is an event, the event runs the same code any operator runs. That design is deliberate and stays.
+1. The dev deploy job deploys master's newest commit. When master has moved past the candidate's tag, dev tests a different commit than the one we release.
+2. No release step has a person perform an install through the upgrade page, so that surface ships unexercised.
 
-THE TWO GAPS THIS TICKET CLOSED, at their actual scope:
+FIX
 
-1. TARGET SELECTION. The manual master-to-X dispatch workflows chose master's tip as the deploy target — an untagged, ungated commit — instead of a named release candidate. The transport was sound; the target choice was the gap. Fixed: the release chain dispatches deploy-to-dev naming the candidate's exact commit, and the master-addressed dispatch workflows are removed (STATBUS-244, completed by 244b).
+1. Trigger the dev deploy on the candidate tag and pass its exact commit to the existing deploy-to-dev job. Remove the master-tip job.
+2. Before promotion, a person installs the candidate on Norway from the normal upgrade offer. The completed install satisfies the promotion gate.
 
-2. REHEARSAL. The release process had no stage in which a person performed an install through the operator surface — the offer appearing, the prompt, the landing afterwards. Added: Norway as the human canary. The offer sits until a person acts, using the same UI/CLI path as any operator anywhere; the completed install satisfies the promotion gate.
-
-THE CHAIN, cheapest and most disposable first, each stage gating the next:
-  1. SMOKE — fresh install, and install-then-upgrade, on ephemeral VMs (both paths: dev is upgraded rather than installed, so install-only smoke would miss what dev needs).
-  2. DEV — the chain installs the candidate on a real box with real data.
-  3. THE FULL SUITES — run only for a candidate that survived smoke and dev.
-  4. NORWAY — a person installs the promotion-bound candidate. The wait is open-ended by design: Norway's scale surfaces what fixtures cannot.
-  5. PROMOTION — requirements unchanged.
-
-DECISIONS ON RECORD, kept so they are not re-litigated:
-- Dev is chain-driven, not channel-driven: the chain needs a synchronous verdict; discovery only offers.
-- Norway needed no new mechanism — discovery already registers offers without scheduling; the change was removing the push, so the person's act is the only install path there.
-- A separate QA instance was considered and rejected: dev IS the QA instance; a hurt dev exercising the recovery machinery is a benefit, and a scripted reinstall is the bounded worst case.
-- Cadence: promotion-bound candidates only. Unclaimed offers on Norway are the correct resting state, not neglect.
-- Demo is not part of the gate; STATBUS-248 governs it.
-- The observation card is voluntary practice, not a gate — the King's ruling at 8b5487372: the completed install is what the gate checks.
-
-STATE: built and in use across real cuts. Remaining: the end-to-end observation on one candidate (final acceptance criterion).
+(Decision history and superseded designs live in the comments.)
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [x] #1 The chain runs in order: smoke → dev → suites → Norway → promotion, each stage gating the next
-- [x] #2 Smoke covers both happy paths on ephemeral machines; a failure stops the chain before dev is touched
-- [x] #3 Tagging a candidate installs it on dev with no human action, through the existing deploy layer unchanged
-- [x] #4 dev's failure stops the chain before the expensive suites are dispatched
-- [x] #5 Norway is offered each candidate and installed only by a person, through the same UI/CLI path as any operator
-- [x] #6 Norway's target is a release candidate, never an arbitrary commit
-- [ ] #7 The operator can see the smoke and suite results before deciding; waiting is the default
-- [x] #8 A person's completed install on Norway is what satisfies the promotion gate
-- [x] #9 Candidates nobody promotes leave an unclaimed offer on Norway — the correct resting state
-- [x] #10 Demo is not in the promotion gate; STATBUS-248 governs it
-- [x] #11 canarySlots lists exactly dev and no; each slot's failure hint names the action fitting its role
-- [ ] #12 Observed end to end on one candidate: smoke → dev converges → suites → offer sits on Norway → a person installs → gate clears
+- [x] #1 Tagging a candidate deploys exactly that commit to dev, automatically
+- [x] #2 A promotion requires a person's completed install on Norway
+- [x] #3 Stages run cheapest-first — ephemeral-VM smoke (fresh install + upgrade-onto), dev, full suites, Norway — and a failed stage stops the chain
+- [ ] #4 Observed end to end on one candidate
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -167,5 +144,11 @@ author: foreman
 created: 2026-09-01 07:27
 ---
 KING'S LANGUAGE RULING + DESCRIPTION REWRITE (2026-09-01): the original description is replaced. His critique, on the record: the old opening ('a release candidate cannot currently be deployed as such', 'nothing in our release ever rehearses what a customer actually does', 'the buttons push whatever master's tip happens to be') was CLICKBAIT — alarm-shaped language suggesting a big mistake or omission in the whole system, when the system was deliberately designed with ONE code path from the UI button through the CLI to the box, and branch-triggered deployment is part of that same composable, principled design. The actual gaps were narrow — the master-to-X workflows' TARGET CHOICE (master's tip instead of a named candidate) and the absence of a human-rehearsal stage — and the rewrite states them at that scope. Standing rule from this ruling, applied to all future tickets and reports: describe a gap at its actual scope in plain calm language; never let a narrow defect's framing indict the sound design around it. The acceptance criteria are also cleaned: the removed AC#6 pin clause (superseded same morning, 082591313) and the retired card-gating clauses are gone; the person-install-satisfies-gate criterion is checked on the evidence of both real promotions (v2026.08.0 and v2026.08.1 each passed on Norway's completed row).
+---
+
+author: foreman
+created: 2026-09-01 07:39
+---
+Foreman (2026-09-01): description simplified to the prototypical form at the King's direction — issue, fix, acceptance; twelve lines. The morning's fuller rewrite and the original's decision reasoning remain in this comment thread for anyone who actually raises the questions they answered. ACs #1–#3 checked on the standing evidence (10+ cuts through the tag-triggered deploy; both promotions passed on Norway's completed row; orchestrator stage-gating verified at release-fleet-orchestrator.yaml:376-391). AC#4 open: the first candidate observed traveling the whole chain.
 ---
 <!-- COMMENTS:END -->
