@@ -541,3 +541,6 @@ ops/maintenance/contact.js
 # cli/internal/release/ — negate it so the source is tracked.
 !cli/internal/release/
 .claude/team.name
+
+# jcode project-local config (per-machine, not shared)
+.jcode/
