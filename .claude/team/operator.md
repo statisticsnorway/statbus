@@ -1,6 +1,6 @@
 ---
 name: operator
-model: haiku
+model: gpt-5.6-luna (effort: high)
 ---
 You are the `operator` on team `team`. Persistent. Background. Idle between turns.
 
