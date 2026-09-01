@@ -14,9 +14,11 @@ import { AnimatePresence, motion } from "motion/react";
 import * as React from "react";
 import * as ReactDOM from "react-dom";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
+import { useClientReady } from "@/hooks/use-client-ready";
 
-interface DataTableActionBarProps<TData>
-  extends React.ComponentProps<typeof motion.div> {
+interface DataTableActionBarProps<TData> extends React.ComponentProps<
+  typeof motion.div
+> {
   table: Table<TData>;
   visible?: boolean;
   container?: Element | DocumentFragment | null;
@@ -30,25 +32,25 @@ function DataTableActionBar<TData>({
   className,
   ...props
 }: DataTableActionBarProps<TData>) {
-  const [mounted, setMounted] = React.useState(false);
+  const isClientReady = useClientReady();
 
-  React.useLayoutEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useGuardedEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        table.toggleAllRowsSelected(false);
+  useGuardedEffect(
+    () => {
+      function onKeyDown(event: KeyboardEvent) {
+        if (event.key === "Escape") {
+          table.toggleAllRowsSelected(false);
+        }
       }
-    }
 
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [table], 'DataTableActionBar:escapeListener');
+      window.addEventListener("keydown", onKeyDown);
+      return () => window.removeEventListener("keydown", onKeyDown);
+    },
+    [table],
+    "DataTableActionBar:escapeListener"
+  );
 
   const container =
-    containerProp ?? (mounted ? globalThis.document?.body : null);
+    containerProp ?? (isClientReady ? globalThis.document?.body : null);
 
   if (!container) return null;
 
@@ -67,7 +69,7 @@ function DataTableActionBar<TData>({
           transition={{ duration: 0.2, ease: "easeInOut" }}
           className={cn(
             "fixed inset-x-0 bottom-6 z-50 mx-auto flex w-fit flex-wrap items-center justify-center gap-2 rounded-md border border-zinc-200 bg-white p-2 text-zinc-950 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50",
-            className,
+            className
           )}
           {...props}
         >
@@ -75,12 +77,13 @@ function DataTableActionBar<TData>({
         </motion.div>
       )}
     </AnimatePresence>,
-    container,
+    container
   );
 }
 
-interface DataTableActionBarActionProps
-  extends React.ComponentProps<typeof Button> {
+interface DataTableActionBarActionProps extends React.ComponentProps<
+  typeof Button
+> {
   tooltip?: string;
   isPending?: boolean;
 }
@@ -101,7 +104,7 @@ function DataTableActionBarAction({
       className={cn(
         "gap-1.5 border border-zinc-200 border-zinc-100 bg-zinc-100/50 hover:bg-zinc-100/70 [&>svg]:size-3.5 dark:border-zinc-800 dark:bg-zinc-800/50 dark:hover:bg-zinc-800/70",
         size === "icon" ? "size-7" : "h-7",
-        className,
+        className
       )}
       disabled={disabled || isPending}
       {...props}

@@ -1,6 +1,6 @@
 "use client";
 import { Label } from "@/components/ui/label";
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode } from "react";
 import { Switch } from "../ui/switch";
 
 interface SwitchFieldProps {
@@ -16,15 +16,10 @@ export function SwitchField({
   value,
   response,
 }: SwitchFieldProps) {
-  const [checked, setChecked] = useState(Boolean(value));
   const error =
     response?.status === "error"
       ? response?.errors?.find((a) => a.path === name)
       : null;
-
-  useEffect(() => {
-    setChecked(Boolean(value));
-  }, [value]);
 
   return (
     <div className="flex items-center justify-between space-x-2">
@@ -32,9 +27,9 @@ export function SwitchField({
         {label}
       </Label>
       <Switch
+        key={String(value)}
         name={name}
-        checked={checked}
-        onCheckedChange={setChecked}
+        defaultChecked={Boolean(value)}
         aria-invalid={!!error}
         className="data-[state=checked]:bg-green-500 m-0"
       />

@@ -1,47 +1,87 @@
 "use client";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 import React, { useMemo, useRef, useState } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
-import { useSWRConfig } from 'swr';
-import { useSWRWithAuthRefresh, isJwtExpiredError, JwtExpiredError } from "@/hooks/use-swr-with-auth-refresh";
+import { useSWRConfig } from "swr";
+import {
+  useSWRWithAuthRefresh,
+  isJwtExpiredError,
+  JwtExpiredError,
+} from "@/hooks/use-swr-with-auth-refresh";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { Spinner } from "@/components/ui/spinner";
 import { formatDuration } from "@/lib/utils";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { StackedProgress } from "@/components/ui/stacked-progress";
 import { formatDistanceToNow } from "date-fns";
-import { AlertCircle, CheckCircle, Clock, FileUp, FolderSearch, Hourglass, Loader, MoreHorizontal, ThumbsDown, ThumbsUp, Trash2, ChevronRight } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  FileUp,
+  FolderSearch,
+  Hourglass,
+  Loader,
+  MoreHorizontal,
+  ThumbsDown,
+  ThumbsUp,
+  Trash2,
+  ChevronRight,
+} from "lucide-react";
 import { JobErrorDisplay } from "@/components/import/ErrorDisplay";
-import { Tables } from '@/lib/database.types';
+import { Tables } from "@/lib/database.types";
 import { useDataTable } from "@/hooks/use-data-table";
 import { DataTable } from "@/components/data-table/data-table";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
 import { ColumnDef } from "@tanstack/react-table";
-import { useQueryState, parseAsString, parseAsArrayOf, parseAsInteger } from 'nuqs';
+import {
+  useQueryState,
+  parseAsString,
+  parseAsArrayOf,
+  parseAsInteger,
+} from "nuqs";
 import Link from "next/link";
 import { Checkbox } from "@/components/ui/checkbox";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { DataTableActionBar, DataTableActionBarAction, DataTableActionBarSelection } from "@/components/data-table/data-table-action-bar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  DataTableActionBar,
+  DataTableActionBarAction,
+  DataTableActionBarSelection,
+} from "@/components/data-table/data-table-action-bar";
 import { Button } from "@/components/ui/button";
 import { type ImportJobWithDetails as ImportJob } from "@/atoms/import";
 import { useBaseData } from "@/atoms/base-data";
-import { statbusConfig } from '@/lib/statbus-config';
+import { statbusConfig } from "@/lib/statbus-config";
 
 const SWR_KEY_IMPORT_JOBS = "/api/import-jobs";
 
 const formatDate = (dateString: string | null): string => {
-  if (dateString === null) return 'N/A';
-  if (dateString === 'infinity') return 'Present';
+  if (dateString === null) return "N/A";
+  if (dateString === "infinity") return "Present";
   try {
     const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'Invalid Date';
-    return date.toLocaleDateString('nb-NO', {
-      day: 'numeric', month: 'short', year: 'numeric'
+    if (isNaN(date.getTime())) return "Invalid Date";
+    return date.toLocaleDateString("nb-NO", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
     });
   } catch (e) {
     return dateString;
@@ -50,7 +90,7 @@ const formatDate = (dateString: string | null): string => {
 
 const formatNumber = (num: number | null | undefined): string => {
   if (num === null || num === undefined) return "0";
-  return num.toLocaleString('nb-NO');
+  return num.toLocaleString("nb-NO");
 };
 
 const jobStatuses = [
@@ -66,12 +106,14 @@ const jobStatuses = [
 ] as const;
 
 type JobStatusValue = (typeof jobStatuses)[number]["value"];
-const jobStatusValues = jobStatuses.map(s => s.value);
+const jobStatusValues = jobStatuses.map((s) => s.value);
 
 // Custom nuqs parser for job statuses
 const parseAsJobStatus = {
   parse: (value: string): JobStatusValue | null => {
-    return (jobStatusValues as readonly string[]).includes(value) ? value as JobStatusValue : null;
+    return (jobStatusValues as readonly string[]).includes(value)
+      ? (value as JobStatusValue)
+      : null;
   },
   serialize: (value: JobStatusValue): string => value,
 };
@@ -93,47 +135,53 @@ const getUploadPathForJob = (job: ImportJob): string => {
   }
 };
 
-const fetcher = async (key: string): Promise<{ data: ImportJob[], count: number | null }> => {
+const fetcher = async (
+  key: string
+): Promise<{ data: ImportJob[]; count: number | null }> => {
   const client = await getBrowserRestClient();
   if (!client) throw new Error("REST client not available");
 
-  const [path, queryString] = key.split('?');
-  
+  const [path, queryString] = key.split("?");
+
   if (path !== SWR_KEY_IMPORT_JOBS) {
     throw new Error(`Unrecognized SWR key pattern: ${key}`);
   }
 
   const searchParams = new URLSearchParams(queryString);
-  const page = parseInt(searchParams.get('page') || '1', 10) - 1;
-  const pageSize = parseInt(searchParams.get('perPage') || '10', 10);
-  const sortParam = searchParams.get('sort');
-  const description = searchParams.get('description');
+  const page = parseInt(searchParams.get("page") || "1", 10) - 1;
+  const pageSize = parseInt(searchParams.get("perPage") || "10", 10);
+  const sortParam = searchParams.get("sort");
+  const description = searchParams.get("description");
   // nuqs stringifies arrays, so get all 'state' params
-  const stateParams = searchParams.getAll('state').flatMap(s => s.split(','));
-  const states = stateParams.filter((s): s is JobStatusValue => (jobStatusValues as readonly string[]).includes(s));
-  
+  const stateParams = searchParams.getAll("state").flatMap((s) => s.split(","));
+  const states = stateParams.filter((s): s is JobStatusValue =>
+    (jobStatusValues as readonly string[]).includes(s)
+  );
+
   const from = page * pageSize;
   const to = from + pageSize - 1;
 
   let queryBuilder = client
     .from("import_job")
-    .select("*, import_definition(slug, name, mode, custom)", { count: 'exact' })
+    .select("*, import_definition(slug, name, mode, custom)", {
+      count: "exact",
+    })
     .range(from, to);
 
   if (sortParam) {
-    const [id, dir] = sortParam.split('.');
+    const [id, dir] = sortParam.split(".");
     if (id && dir) {
-      queryBuilder = queryBuilder.order(id, { ascending: dir === 'asc' });
+      queryBuilder = queryBuilder.order(id, { ascending: dir === "asc" });
     }
   } else {
     queryBuilder = queryBuilder.order("created_at", { ascending: false });
   }
 
   if (description) {
-    queryBuilder = queryBuilder.ilike('description', `%${description}%`);
+    queryBuilder = queryBuilder.ilike("description", `%${description}%`);
   }
   if (states.length > 0) {
-    queryBuilder = queryBuilder.in('state', states);
+    queryBuilder = queryBuilder.in("state", states);
   }
 
   const { data, error, count } = await queryBuilder;
@@ -153,468 +201,679 @@ export default function ImportJobsPage() {
   const { statbusUsers } = useBaseData();
 
   // Read state directly from URL to build the SWR key
-  const [page] = useQueryState('page', parseAsInteger.withDefault(1));
-  const [perPage] = useQueryState('perPage', parseAsInteger.withDefault(10));
-  const [sort] = useQueryState('sort', parseAsString.withDefault(''));
-  const [description] = useQueryState('description', parseAsString.withDefault(''));
-  const [states] = useQueryState('state', parseAsArrayOf(parseAsJobStatus).withDefault([]));
+  const [page] = useQueryState("page", parseAsInteger.withDefault(1));
+  const [perPage] = useQueryState("perPage", parseAsInteger.withDefault(10));
+  const [sort] = useQueryState("sort", parseAsString.withDefault(""));
+  const [description] = useQueryState(
+    "description",
+    parseAsString.withDefault("")
+  );
+  const [states] = useQueryState(
+    "state",
+    parseAsArrayOf(parseAsJobStatus).withDefault([])
+  );
 
   const swrKey = useMemo(() => {
     const params = new URLSearchParams();
-    params.set('page', String(page));
-    params.set('perPage', String(perPage));
-    if (sort) params.set('sort', sort);
-    if (description) params.set('description', description);
+    params.set("page", String(page));
+    params.set("perPage", String(perPage));
+    if (sort) params.set("sort", sort);
+    if (description) params.set("description", description);
     // parseAsArrayOf uses a comma-separated string, so we pass that along.
-    if (states.length > 0) params.set('state', states.join(','));
+    if (states.length > 0) params.set("state", states.join(","));
 
     return `${SWR_KEY_IMPORT_JOBS}?${params.toString()}`;
   }, [page, perPage, sort, description, states]);
 
-  const { data, error: swrError, isLoading } = useSWRWithAuthRefresh<{ data: ImportJob[], count: number | null }, Error>(
+  const {
+    data,
+    error: swrError,
+    isLoading,
+  } = useSWRWithAuthRefresh<{ data: ImportJob[]; count: number | null }, Error>(
     swrKey,
     fetcher,
     { revalidateOnFocus: false, keepPreviousData: true },
     "ImportJobsPage:jobs"
   );
 
-  const jobsData = data?.data ?? [];
+  const jobsData = useMemo(() => data?.data ?? [], [data?.data]);
   const totalJobs = data?.count ?? 0;
 
   // Memoize the job IDs string to prevent re-renders from creating a new SSE connection.
-  const jobIdsForSSE = useMemo(() => jobsData.map(job => job.id).join(','), [jobsData]);
+  const jobIdsForSSE = useMemo(
+    () => jobsData.map((job) => job.id).join(","),
+    [jobsData]
+  );
 
-  useGuardedEffect(() => {
-    // We wait for the initial load to complete before establishing the SSE connection.
-    // This ensures we have the list of jobs to get UPDATES for.
-    // If jobsData is empty after loading, we still connect to get INSERTs.
-    if (isLoading) return;
+  useGuardedEffect(
+    () => {
+      // We wait for the initial load to complete before establishing the SSE connection.
+      // This ensures we have the list of jobs to get UPDATES for.
+      // If jobsData is empty after loading, we still connect to get INSERTs.
+      if (isLoading) return;
 
-    // Use the memoized string for the SSE URL
-    const sseUrl = `/api/sse/import-jobs?ids=${jobIdsForSSE}&scope=updates_and_all_inserts`;
-    const source = new EventSource(sseUrl);
-    eventSourceRef.current = source;
+      // Use the memoized string for the SSE URL
+      const sseUrl = `/api/sse/import-jobs?ids=${jobIdsForSSE}&scope=updates_and_all_inserts`;
+      const source = new EventSource(sseUrl);
+      eventSourceRef.current = source;
 
-    source.addEventListener('heartbeat', (event) => {
-      if (statbusConfig.debug) {
-        const heartbeat = JSON.parse(event.data);
-        console.log("SSE Heartbeat on jobs page:", heartbeat);
-      }
-    });
-
-    source.onmessage = (event) => {
-      try {
-        if (!event.data) return;
-        const ssePayload = JSON.parse(event.data);
-        if (ssePayload.type === "connection_established") return;
-
-        if (!ssePayload.verb || !ssePayload.import_job) {
-          console.error("Invalid SSE payload", ssePayload);
-          return;
+      source.addEventListener("heartbeat", (event) => {
+        if (statbusConfig.debug) {
+          const heartbeat = JSON.parse(event.data);
+          console.log("SSE Heartbeat on jobs page:", heartbeat);
         }
-        
-        // Optimistically update SWR cache without revalidation
-        mutate(swrKey, (currentData: { data: ImportJob[], count: number | null } | undefined) => {
-          if (!currentData) return currentData;
+      });
 
-          let newJobs = [...currentData.data];
-          let newCount = currentData.count;
+      source.onmessage = (event) => {
+        try {
+          if (!event.data) return;
+          const ssePayload = JSON.parse(event.data);
+          if (ssePayload.type === "connection_established") return;
 
-          if (ssePayload.verb === 'UPDATE') {
-            const updatedJob = ssePayload.import_job;
-            const index = newJobs.findIndex(job => job.id === updatedJob.id);
-            if (index !== -1) {
-              newJobs[index] = updatedJob;
-            }
-          } else if (ssePayload.verb === 'INSERT') {
-            const newJob = ssePayload.import_job;
-            if (!newJobs.some(job => job.id === newJob.id)) {
-              newJobs.unshift(newJob); // Add to the top for visibility
-              if (newCount !== null) newCount++;
-            }
-          } else if (ssePayload.verb === 'DELETE') {
-            const jobToDelete = ssePayload.import_job;
-            const preDeleteLength = newJobs.length;
-            newJobs = newJobs.filter(job => job.id !== jobToDelete.id);
-            if (newCount !== null && newJobs.length < preDeleteLength) {
-                newCount--;
-            }
+          if (!ssePayload.verb || !ssePayload.import_job) {
+            console.error("Invalid SSE payload", ssePayload);
+            return;
           }
 
-          return { data: newJobs, count: newCount };
-        }, { revalidate: false });
+          // Optimistically update SWR cache without revalidation
+          mutate(
+            swrKey,
+            (
+              currentData:
+                | { data: ImportJob[]; count: number | null }
+                | undefined
+            ) => {
+              if (!currentData) return currentData;
 
-      } catch (error) {
-        console.error("Error processing SSE message:", error);
-      }
-    };
+              let newJobs = [...currentData.data];
+              let newCount = currentData.count;
 
-    source.onerror = (error) => {
-      console.error("SSE connection error:", error);
-      source.close();
-    };
+              if (ssePayload.verb === "UPDATE") {
+                const updatedJob = ssePayload.import_job;
+                const index = newJobs.findIndex(
+                  (job) => job.id === updatedJob.id
+                );
+                if (index !== -1) {
+                  newJobs[index] = updatedJob;
+                }
+              } else if (ssePayload.verb === "INSERT") {
+                const newJob = ssePayload.import_job;
+                if (!newJobs.some((job) => job.id === newJob.id)) {
+                  newJobs.unshift(newJob); // Add to the top for visibility
+                  if (newCount !== null) newCount++;
+                }
+              } else if (ssePayload.verb === "DELETE") {
+                const jobToDelete = ssePayload.import_job;
+                const preDeleteLength = newJobs.length;
+                newJobs = newJobs.filter((job) => job.id !== jobToDelete.id);
+                if (newCount !== null && newJobs.length < preDeleteLength) {
+                  newCount--;
+                }
+              }
 
-    return () => {
-      eventSourceRef.current?.close();
-    };
-  }, [isLoading, mutate, swrKey, jobIdsForSSE], 'ImportJobsPage:sseListener');
+              return { data: newJobs, count: newCount };
+            },
+            { revalidate: false }
+          );
+        } catch (error) {
+          console.error("Error processing SSE message:", error);
+        }
+      };
+
+      source.onerror = (error) => {
+        console.error("SSE connection error:", error);
+        source.close();
+      };
+
+      return () => {
+        eventSourceRef.current?.close();
+      };
+    },
+    [isLoading, mutate, swrKey, jobIdsForSSE],
+    "ImportJobsPage:sseListener"
+  );
 
   // Ref to hold the current SWR key, allows handleDeleteJobs to be stable
   const swrKeyRef = useRef(swrKey);
-  useGuardedEffect(() => {
-    swrKeyRef.current = swrKey;
-  }, [swrKey], 'ImportJobsPage:updateSwrKeyRef');
+  useGuardedEffect(
+    () => {
+      swrKeyRef.current = swrKey;
+    },
+    [swrKey],
+    "ImportJobsPage:updateSwrKeyRef"
+  );
 
-  const handleDeleteJobs = React.useCallback(async (jobIds: number[]) => {
-    if (!window.confirm(`Are you sure you want to delete ${jobIds.length} job(s)? This action cannot be undone.`)) {
-      return;
-    }
-    setIsDeleting(true);
-    try {
-      const client = await getBrowserRestClient();
-      const { error } = await client.from("import_job").delete().in("id", jobIds);
-      if (error) throw error;
-      mutate(swrKeyRef.current);
-    } catch (err: unknown) {
-      console.error("Failed to delete import jobs:", err);
-      alert(`Error deleting jobs: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setIsDeleting(false);
-    }
-  }, [mutate]);
-
-  const columns = useMemo<ColumnDef<ImportJob>[]>(() => [
-    {
-      id: "select",
-      header: ({ table }) => (
-        <Checkbox
-          checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && "indeterminate")}
-          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-          aria-label="Select all"
-        />
-      ),
-      cell: ({ row }) => (
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label="Select row"
-        />
-      ),
-      enableSorting: false,
-      enableHiding: false,
-    },
-    {
-      id: 'id',
-      accessorKey: 'id',
-      minSize: 50,
-      header: ({ column }) => <DataTableColumnHeader column={column} title="ID" />,
-      cell: ({ row }) => {
-        const job = row.original;
-        if (job.state === 'waiting_for_upload') {
-          return (
-            <Link href={getUploadPathForJob(job)} className="text-xs hover:underline">
-              {job.id}
-            </Link>
-          );
-        }
-        return <div className="text-xs">{job.id}</div>;
-      },
-      enableSorting: true,
-    },
-    {
-      id: 'description',
-      accessorKey: 'description',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Description" />,
-      cell: ({ row }) => {
-        const job = row.original;
-        if (job.state === 'waiting_for_upload') {
-          return (
-            <Link href={getUploadPathForJob(job)} className="font-medium hover:underline">
-              {job.description}
-            </Link>
-          );
-        }
-        return <div className="font-medium">{job.description}</div>;
-      },
-      meta: {
-        label: "Description",
-        placeholder: "Filter descriptions...",
-        variant: "text",
-      },
-      enableColumnFilter: true,
-    },
-    {
-      id: 'state',
-      accessorKey: 'state',
-      minSize: 140,
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
-      cell: ({ row }) => {
-        const job = row.original;
-        const status = jobStatuses.find(s => s.value === job.state);
-        const statusBadge = (
-          <Badge
-            variant="secondary"
-            className={job.state === 'waiting_for_review' ? 'bg-amber-100 text-amber-800 hover:bg-amber-200' : ''}
-          >
-            {status?.icon && <status.icon className="mr-2 h-4 w-4" />}
-            {status?.label ?? job.state}
-          </Badge>
+  const handleDeleteJobs = React.useCallback(
+    async (jobIds: number[]) => {
+      if (
+        !window.confirm(
+          `Are you sure you want to delete ${jobIds.length} job(s)? This action cannot be undone.`
+        )
+      ) {
+        return;
+      }
+      setIsDeleting(true);
+      try {
+        const client = await getBrowserRestClient();
+        const { error } = await client
+          .from("import_job")
+          .delete()
+          .in("id", jobIds);
+        if (error) throw error;
+        mutate(swrKeyRef.current);
+      } catch (err: unknown) {
+        console.error("Failed to delete import jobs:", err);
+        alert(
+          `Error deleting jobs: ${err instanceof Error ? err.message : String(err)}`
         );
+      } finally {
+        setIsDeleting(false);
+      }
+    },
+    [mutate]
+  );
 
-        const badgeAndError = (
-          <div className="flex items-center space-x-2">
-            {statusBadge}
-            {job.error && (
-              <Dialog>
-                <DialogTrigger asChild>
-                  <button onClick={() => setErrorToShow(job.error)} className="text-red-500 hover:text-red-700" title="Show error details">
-                    <AlertCircle className="h-4 w-4" />
-                  </button>
-                </DialogTrigger>
-              </Dialog>
-            )}
-          </div>
-        );
+  const columns = useMemo<ColumnDef<ImportJob>[]>(
+    () => [
+      {
+        id: "select",
+        header: ({ table }) => (
+          <Checkbox
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
+            onCheckedChange={(value) =>
+              table.toggleAllPageRowsSelected(!!value)
+            }
+            aria-label="Select all"
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+            aria-label="Select row"
+          />
+        ),
+        enableSorting: false,
+        enableHiding: false,
+      },
+      {
+        id: "id",
+        accessorKey: "id",
+        minSize: 50,
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="ID" />
+        ),
+        cell: ({ row }) => {
+          const job = row.original;
+          if (job.state === "waiting_for_upload") {
+            return (
+              <Link
+                href={getUploadPathForJob(job)}
+                className="text-xs hover:underline"
+              >
+                {job.id}
+              </Link>
+            );
+          }
+          return <div className="text-xs">{job.id}</div>;
+        },
+        enableSorting: true,
+      },
+      {
+        id: "description",
+        accessorKey: "description",
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Description" />
+        ),
+        cell: ({ row }) => {
+          const job = row.original;
+          if (job.state === "waiting_for_upload") {
+            return (
+              <Link
+                href={getUploadPathForJob(job)}
+                className="font-medium hover:underline"
+              >
+                {job.description}
+              </Link>
+            );
+          }
+          return <div className="font-medium">{job.description}</div>;
+        },
+        meta: {
+          label: "Description",
+          placeholder: "Filter descriptions...",
+          variant: "text",
+        },
+        enableColumnFilter: true,
+      },
+      {
+        id: "state",
+        accessorKey: "state",
+        minSize: 140,
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Status" />
+        ),
+        cell: ({ row }) => {
+          const job = row.original;
+          const status = jobStatuses.find((s) => s.value === job.state);
+          const statusBadge = (
+            <Badge
+              variant="secondary"
+              className={
+                job.state === "waiting_for_review"
+                  ? "bg-amber-100 text-amber-800 hover:bg-amber-200"
+                  : ""
+              }
+            >
+              {status?.icon && <status.icon className="mr-2 h-4 w-4" />}
+              {status?.label ?? job.state}
+            </Badge>
+          );
 
-        const { total_rows } = job;
-
-        const analysisShowsRows = job.state === 'processing_data' || job.state === 'finished' || job.state === 'waiting_for_review' || job.state === 'rejected';
-        const rowCountDisplay = !analysisShowsRows && total_rows !== null && total_rows !== undefined ? (
-          <div className="text-xs text-gray-500 font-mono">
-            {formatNumber(total_rows)} Rows
-          </div>
-        ) : null;
-
-        let processingDetails = null;
-        if (job.state === 'processing_data') {
-          processingDetails = (
-            <div className="text-xs text-gray-500">
-              Processing data in batches...
+          const badgeAndError = (
+            <div className="flex items-center space-x-2">
+              {statusBadge}
+              {job.error && (
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <button
+                      onClick={() => setErrorToShow(job.error)}
+                      className="text-red-500 hover:text-red-700"
+                      title="Show error details"
+                    >
+                      <AlertCircle className="h-4 w-4" />
+                    </button>
+                  </DialogTrigger>
+                </Dialog>
+              )}
             </div>
           );
-        }
 
-        const hasDetails = rowCountDisplay || processingDetails;
+          const { total_rows } = job;
 
-        return (
-          <div>
-            {job.state === 'waiting_for_upload' ? (
-              <Link href={getUploadPathForJob(job)}>{badgeAndError}</Link>
-            ) : job.state === 'waiting_for_review' ? (
-              <Link href={`/import/jobs/${job.slug}/data`}>{badgeAndError}</Link>
-            ) : (
-              badgeAndError
-            )}
-            {hasDetails && (
-              <div className="mt-1 space-y-0.5">
-                {rowCountDisplay}
-                {processingDetails}
+          const analysisShowsRows =
+            job.state === "processing_data" ||
+            job.state === "finished" ||
+            job.state === "waiting_for_review" ||
+            job.state === "rejected";
+          const rowCountDisplay =
+            !analysisShowsRows &&
+            total_rows !== null &&
+            total_rows !== undefined ? (
+              <div className="text-xs text-gray-500 font-mono">
+                {formatNumber(total_rows)} Rows
               </div>
-            )}
-          </div>
-        );
-      },
-      meta: {
-        label: "Status",
-        variant: "multiSelect",
-        options: [...jobStatuses],
-      },
-      enableColumnFilter: true,
-    },
-    {
-      id: 'analysed',
-      header: 'Analysis',
-      minSize: 160,
-      cell: ({ row }) => {
-        const { total_rows, analysis_completed_pct, state, current_step_code, definition_snapshot, slug, error_count, warning_count } = row.original;
-        if (total_rows === null || total_rows === undefined) {
-          return <span className="text-xs text-gray-400">-</span>;
-        }
+            ) : null;
 
-        const showProgress = (state === 'analysing_data' || state === 'processing_data' || state === 'finished' || state === 'waiting_for_review' || state === 'rejected') &&
-                             analysis_completed_pct !== null && analysis_completed_pct !== undefined;
-
-        let stepDetails = null;
-        if (state === 'analysing_data' && current_step_code && definition_snapshot?.import_step_list) {
-          const analysisSteps = definition_snapshot.import_step_list.filter(s => s.analyse_procedure);
-          const currentStepIndex = analysisSteps.findIndex(s => s.code === current_step_code);
-          const totalAnalysisSteps = analysisSteps.length;
-
-          if (currentStepIndex !== -1 && totalAnalysisSteps > 0) {
-            stepDetails = (
+          let processingDetails = null;
+          if (job.state === "processing_data") {
+            processingDetails = (
               <div className="text-xs text-gray-500">
-                Step {currentStepIndex + 1} of {totalAnalysisSteps} ({current_step_code})
+                Processing data in batches...
               </div>
             );
           }
-        }
 
-        if (!stepDetails && !showProgress) {
-          return <span className="text-xs text-gray-400">-</span>;
-        }
+          const hasDetails = rowCountDisplay || processingDetails;
 
-        const isAnalysisComplete = analysis_completed_pct === 100;
+          return (
+            <div>
+              {job.state === "waiting_for_upload" ? (
+                <Link href={getUploadPathForJob(job)}>{badgeAndError}</Link>
+              ) : job.state === "waiting_for_review" ? (
+                <Link href={`/import/jobs/${job.slug}/data`}>
+                  {badgeAndError}
+                </Link>
+              ) : (
+                badgeAndError
+              )}
+              {hasDetails && (
+                <div className="mt-1 space-y-0.5">
+                  {rowCountDisplay}
+                  {processingDetails}
+                </div>
+              )}
+            </div>
+          );
+        },
+        meta: {
+          label: "Status",
+          variant: "multiSelect",
+          options: [...jobStatuses],
+        },
+        enableColumnFilter: true,
+      },
+      {
+        id: "analysed",
+        header: "Analysis",
+        minSize: 160,
+        cell: ({ row }) => {
+          const {
+            total_rows,
+            analysis_completed_pct,
+            state,
+            current_step_code,
+            definition_snapshot,
+            slug,
+            error_count,
+            warning_count,
+          } = row.original;
+          if (total_rows === null || total_rows === undefined) {
+            return <span className="text-xs text-gray-400">-</span>;
+          }
 
-        return (
-          <div className="space-y-1">
-            {isAnalysisComplete && (() => {
-              const err = error_count ?? 0;
-              const warn = warning_count ?? 0;
-              const ok = Math.max(0, (total_rows ?? 0) - err - warn);
-              const content = (
-                <div className="space-y-0.5">
-                  <StackedProgress segments={[
-                    { value: total_rows > 0 ? (ok / total_rows) * 100 : 0, className: "bg-green-800" },
-                    { value: total_rows > 0 ? (warn / total_rows) * 100 : 0, className: "bg-yellow-600" },
-                    { value: total_rows > 0 ? (err / total_rows) * 100 : 0, className: "bg-red-700" },
-                  ]} className="h-1.5" />
-                  <div className="text-xs font-mono whitespace-nowrap">
-                    <span className="text-green-900">{formatNumber(ok)} ok</span>
-                    {warn > 0 && <span className="text-yellow-600"> {formatNumber(warn)} warn</span>}
-                    {err > 0 && <span className="text-red-600"> {formatNumber(err)} err</span>}
-                  </div>
+          const showProgress =
+            (state === "analysing_data" ||
+              state === "processing_data" ||
+              state === "finished" ||
+              state === "waiting_for_review" ||
+              state === "rejected") &&
+            analysis_completed_pct !== null &&
+            analysis_completed_pct !== undefined;
+
+          let stepDetails = null;
+          if (
+            state === "analysing_data" &&
+            current_step_code &&
+            definition_snapshot?.import_step_list
+          ) {
+            const analysisSteps = definition_snapshot.import_step_list.filter(
+              (s) => s.analyse_procedure
+            );
+            const currentStepIndex = analysisSteps.findIndex(
+              (s) => s.code === current_step_code
+            );
+            const totalAnalysisSteps = analysisSteps.length;
+
+            if (currentStepIndex !== -1 && totalAnalysisSteps > 0) {
+              stepDetails = (
+                <div className="text-xs text-gray-500">
+                  Step {currentStepIndex + 1} of {totalAnalysisSteps} (
+                  {current_step_code})
                 </div>
               );
-              return <Link href={`/import/jobs/${slug}/data`} className="underline">{content}</Link>;
-            })()}
-            {stepDetails}
-            {showProgress && !isAnalysisComplete && (
-              <div className="flex items-center space-x-2">
-                <Progress value={analysis_completed_pct ?? 0} className="h-1.5 flex-grow" />
-                <span className="text-xs text-gray-500 font-mono">{Math.round(analysis_completed_pct ?? 0)}%</span>
-              </div>
-            )}
-          </div>
-        );
-      }
-    },
-    {
-      id: 'analysis_speed',
-      header: 'Analysis (r/s)',
-      minSize: 90,
-      accessorKey: 'analysis_rows_per_sec',
-      cell: ({ row }) => {
-        const { analysis_rows_per_sec: speed, analysis_start_at, analysis_stop_at, analysis_completed_pct, state } = row.original;
-
-        const speedDisplay = speed ? <div className="text-xs font-mono">{Number(speed).toFixed(2)}</div> : <span className="text-xs text-gray-400">-</span>;
-
-        if (analysis_start_at && analysis_stop_at) {
-          const startTime = new Date(analysis_start_at).getTime();
-          const endTime = new Date(analysis_stop_at).getTime();
-          const durationSeconds = (endTime - startTime) / 1000;
-          if (durationSeconds > 0) {
-            const totalTime = formatDuration(durationSeconds);
-            return (
-              <div>
-                {speedDisplay}
-                {totalTime && <div className="text-xs text-gray-500 font-mono" title="Total analysis time">{totalTime}</div>}
-              </div>
-            );
+            }
           }
-        }
 
-        // ETR for analysis is based on wall-clock time and percentage complete, as 'analysis_rows_per_sec' is not a live metric.
-        if (state === 'analysing_data' && analysis_start_at && analysis_completed_pct && analysis_completed_pct > 0 && analysis_completed_pct < 100) {
-          const startTime = new Date(analysis_start_at).getTime();
-          const now = Date.now();
-          const elapsedMilliseconds = now - startTime;
-
-          if (elapsedMilliseconds > 1000) { // Only calculate if more than a second has passed
-            const totalEstimatedMilliseconds = (elapsedMilliseconds / analysis_completed_pct) * 100;
-            const remainingMilliseconds = totalEstimatedMilliseconds - elapsedMilliseconds;
-            const remainingSeconds = remainingMilliseconds / 1000;
-            const timeLeft = formatDuration(remainingSeconds);
-
-            return (
-              <div>
-                {speedDisplay}
-                {timeLeft && <div className="text-xs text-gray-500 font-mono" title="Estimated time remaining">~ {timeLeft}</div>}
-              </div>
-            );
+          if (!stepDetails && !showProgress) {
+            return <span className="text-xs text-gray-400">-</span>;
           }
-        }
 
-        return speedDisplay;
-      }
-    },
-    {
-      id: 'processed',
-      header: 'Processed',
-      minSize: 120,
-      cell: ({ row }) => {
-        const { imported_rows, total_rows, slug, import_completed_pct, state, error_count } = row.original;
-        if (total_rows === null || total_rows === undefined) {
-          return <span className="text-xs text-gray-400">-</span>;
-        }
+          const isAnalysisComplete = analysis_completed_pct === 100;
 
-        if (state === 'rejected') {
-          return <span className="text-xs text-gray-400">⛔ Rejected</span>;
-        }
-
-        if (state === 'waiting_for_review') {
-          return <span className="text-xs text-gray-400">-</span>;
-        }
-
-        const showProgress = (state === 'processing_data' || state === 'finished') &&
-                             import_completed_pct !== null && import_completed_pct !== undefined;
-
-        const isProcessingComplete = state === 'finished' || import_completed_pct === 100;
-        const processableRows = total_rows - (error_count ?? 0);
-
-        return (
-          <Link href={`/import/jobs/${slug}/data`} className="block">
-            {showProgress && (
-              <div className="flex items-center space-x-2">
-                <Progress value={import_completed_pct ?? 0} className="h-1.5 flex-grow" />
-                <span className="text-xs text-gray-500 font-mono">
-                  {(import_completed_pct ?? 0).toFixed(2).replace(/\.?0+$/, "")}%
-                </span>
-              </div>
-            )}
-            <div className="text-xs font-mono whitespace-nowrap underline">
-              {isProcessingComplete
-                ? formatNumber(processableRows)
-                : `${formatNumber(imported_rows)}/${formatNumber(processableRows)}`
-              }
+          return (
+            <div className="space-y-1">
+              {isAnalysisComplete &&
+                (() => {
+                  const err = error_count ?? 0;
+                  const warn = warning_count ?? 0;
+                  const ok = Math.max(0, (total_rows ?? 0) - err - warn);
+                  const content = (
+                    <div className="space-y-0.5">
+                      <StackedProgress
+                        segments={[
+                          {
+                            value: total_rows > 0 ? (ok / total_rows) * 100 : 0,
+                            className: "bg-green-800",
+                          },
+                          {
+                            value:
+                              total_rows > 0 ? (warn / total_rows) * 100 : 0,
+                            className: "bg-yellow-600",
+                          },
+                          {
+                            value:
+                              total_rows > 0 ? (err / total_rows) * 100 : 0,
+                            className: "bg-red-700",
+                          },
+                        ]}
+                        className="h-1.5"
+                      />
+                      <div className="text-xs font-mono whitespace-nowrap">
+                        <span className="text-green-900">
+                          {formatNumber(ok)} ok
+                        </span>
+                        {warn > 0 && (
+                          <span className="text-yellow-600">
+                            {" "}
+                            {formatNumber(warn)} warn
+                          </span>
+                        )}
+                        {err > 0 && (
+                          <span className="text-red-600">
+                            {" "}
+                            {formatNumber(err)} err
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                  return (
+                    <Link
+                      href={`/import/jobs/${slug}/data`}
+                      className="underline"
+                    >
+                      {content}
+                    </Link>
+                  );
+                })()}
+              {stepDetails}
+              {showProgress && !isAnalysisComplete && (
+                <div className="flex items-center space-x-2">
+                  <Progress
+                    value={analysis_completed_pct ?? 0}
+                    className="h-1.5 flex-grow"
+                  />
+                  <span className="text-xs text-gray-500 font-mono">
+                    {Math.round(analysis_completed_pct ?? 0)}%
+                  </span>
+                </div>
+              )}
             </div>
-          </Link>
-        );
-      }
-    },
-    {
-      id: 'processing_speed',
-      header: 'Processing (r/s)',
-      minSize: 90,
-      accessorKey: 'import_rows_per_sec',
-      cell: ({ row }) => {
-        const { import_rows_per_sec: speed, total_rows, imported_rows, state, processing_start_at, processing_stop_at } = row.original;
+          );
+        },
+      },
+      {
+        id: "analysis_speed",
+        header: "Analysis (r/s)",
+        minSize: 90,
+        accessorKey: "analysis_rows_per_sec",
+        cell: ({ row }) => {
+          const {
+            analysis_rows_per_sec: speed,
+            analysis_start_at,
+            analysis_stop_at,
+            analysis_completed_pct,
+            state,
+          } = row.original;
 
-        const speedDisplay = speed ? <div className="text-xs font-mono">{Number(speed).toFixed(2)}</div> : <span className="text-xs text-gray-400">-</span>;
+          const speedDisplay = speed ? (
+            <div className="text-xs font-mono">{Number(speed).toFixed(2)}</div>
+          ) : (
+            <span className="text-xs text-gray-400">-</span>
+          );
 
-        if (processing_start_at && processing_stop_at) {
-          const startTime = new Date(processing_start_at).getTime();
-          const endTime = new Date(processing_stop_at).getTime();
-          const durationSeconds = (endTime - startTime) / 1000;
-          if (durationSeconds > 0) {
-            const totalTime = formatDuration(durationSeconds);
-            return (
-              <div>
-                {speedDisplay}
-                {totalTime && <div className="text-xs text-gray-500 font-mono" title="Total processing time">{totalTime}</div>}
-              </div>
-            );
+          if (analysis_start_at && analysis_stop_at) {
+            const startTime = new Date(analysis_start_at).getTime();
+            const endTime = new Date(analysis_stop_at).getTime();
+            const durationSeconds = (endTime - startTime) / 1000;
+            if (durationSeconds > 0) {
+              const totalTime = formatDuration(durationSeconds);
+              return (
+                <div>
+                  {speedDisplay}
+                  {totalTime && (
+                    <div
+                      className="text-xs text-gray-500 font-mono"
+                      title="Total analysis time"
+                    >
+                      {totalTime}
+                    </div>
+                  )}
+                </div>
+              );
+            }
           }
-        }
 
-        if (state !== 'processing_data' || !speed || speed <= 0 || !total_rows) {
+          // ETR for analysis is based on wall-clock time and percentage complete, as 'analysis_rows_per_sec' is not a live metric.
+          if (
+            state === "analysing_data" &&
+            analysis_start_at &&
+            analysis_completed_pct &&
+            analysis_completed_pct > 0 &&
+            analysis_completed_pct < 100
+          ) {
+            const startTime = new Date(analysis_start_at).getTime();
+            const now = Date.now();
+            const elapsedMilliseconds = now - startTime;
+
+            if (elapsedMilliseconds > 1000) {
+              // Only calculate if more than a second has passed
+              const totalEstimatedMilliseconds =
+                (elapsedMilliseconds / analysis_completed_pct) * 100;
+              const remainingMilliseconds =
+                totalEstimatedMilliseconds - elapsedMilliseconds;
+              const remainingSeconds = remainingMilliseconds / 1000;
+              const timeLeft = formatDuration(remainingSeconds);
+
+              return (
+                <div>
+                  {speedDisplay}
+                  {timeLeft && (
+                    <div
+                      className="text-xs text-gray-500 font-mono"
+                      title="Estimated time remaining"
+                    >
+                      ~ {timeLeft}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+          }
+
           return speedDisplay;
-        }
+        },
+      },
+      {
+        id: "processed",
+        header: "Processed",
+        minSize: 120,
+        cell: ({ row }) => {
+          const {
+            imported_rows,
+            total_rows,
+            slug,
+            import_completed_pct,
+            state,
+            error_count,
+          } = row.original;
+          if (total_rows === null || total_rows === undefined) {
+            return <span className="text-xs text-gray-400">-</span>;
+          }
 
-        const rowsLeft = total_rows - (imported_rows ?? 0);
-        if (rowsLeft <= 0) return speedDisplay;
+          if (state === "rejected") {
+            return <span className="text-xs text-gray-400">⛔ Rejected</span>;
+          }
 
-        const secondsLeft = rowsLeft / speed;
-        const timeLeft = formatDuration(secondsLeft);
+          if (state === "waiting_for_review") {
+            return <span className="text-xs text-gray-400">-</span>;
+          }
+
+          const showProgress =
+            (state === "processing_data" || state === "finished") &&
+            import_completed_pct !== null &&
+            import_completed_pct !== undefined;
+
+          const isProcessingComplete =
+            state === "finished" || import_completed_pct === 100;
+          const processableRows = total_rows - (error_count ?? 0);
+
+          return (
+            <Link href={`/import/jobs/${slug}/data`} className="block">
+              {showProgress && (
+                <div className="flex items-center space-x-2">
+                  <Progress
+                    value={import_completed_pct ?? 0}
+                    className="h-1.5 flex-grow"
+                  />
+                  <span className="text-xs text-gray-500 font-mono">
+                    {(import_completed_pct ?? 0)
+                      .toFixed(2)
+                      .replace(/\.?0+$/, "")}
+                    %
+                  </span>
+                </div>
+              )}
+              <div className="text-xs font-mono whitespace-nowrap underline">
+                {isProcessingComplete
+                  ? formatNumber(processableRows)
+                  : `${formatNumber(imported_rows)}/${formatNumber(processableRows)}`}
+              </div>
+            </Link>
+          );
+        },
+      },
+      {
+        id: "processing_speed",
+        header: "Processing (r/s)",
+        minSize: 90,
+        accessorKey: "import_rows_per_sec",
+        cell: ({ row }) => {
+          const {
+            import_rows_per_sec: speed,
+            total_rows,
+            imported_rows,
+            state,
+            processing_start_at,
+            processing_stop_at,
+          } = row.original;
+
+          const speedDisplay = speed ? (
+            <div className="text-xs font-mono">{Number(speed).toFixed(2)}</div>
+          ) : (
+            <span className="text-xs text-gray-400">-</span>
+          );
+
+          if (processing_start_at && processing_stop_at) {
+            const startTime = new Date(processing_start_at).getTime();
+            const endTime = new Date(processing_stop_at).getTime();
+            const durationSeconds = (endTime - startTime) / 1000;
+            if (durationSeconds > 0) {
+              const totalTime = formatDuration(durationSeconds);
+              return (
+                <div>
+                  {speedDisplay}
+                  {totalTime && (
+                    <div
+                      className="text-xs text-gray-500 font-mono"
+                      title="Total processing time"
+                    >
+                      {totalTime}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+          }
+
+          if (
+            state !== "processing_data" ||
+            !speed ||
+            speed <= 0 ||
+            !total_rows
+          ) {
+            return speedDisplay;
+          }
+
+          const rowsLeft = total_rows - (imported_rows ?? 0);
+          if (rowsLeft <= 0) return speedDisplay;
+
+          const secondsLeft = rowsLeft / speed;
+          const timeLeft = formatDuration(secondsLeft);
 
           return (
             <div>
@@ -679,15 +938,22 @@ export default function ImportJobsPage() {
         id: "actions",
         cell: ({ row, table }) => {
           const job = row.original;
-          const handleApproveReject = async (newState: 'approved' | 'rejected') => {
+          const handleApproveReject = async (
+            newState: "approved" | "rejected"
+          ) => {
             try {
               const client = await getBrowserRestClient();
-              const { error } = await client.from("import_job").update({ state: newState }).eq("id", job.id);
+              const { error } = await client
+                .from("import_job")
+                .update({ state: newState })
+                .eq("id", job.id);
               if (error) throw error;
               mutate(swrKeyRef.current);
             } catch (err: unknown) {
               console.error(`Failed to ${newState} job:`, err);
-              alert(`Error: ${err instanceof Error ? err.message : String(err)}`);
+              alert(
+                `Error: ${err instanceof Error ? err.message : String(err)}`
+              );
             }
           };
           return (
@@ -705,18 +971,18 @@ export default function ImportJobsPage() {
                     View Imported Data
                   </Link>
                 </DropdownMenuItem>
-                {job.state === 'waiting_for_review' && (
+                {job.state === "waiting_for_review" && (
                   <>
                     <DropdownMenuItem
                       className="text-green-600"
-                      onClick={() => handleApproveReject('approved')}
+                      onClick={() => handleApproveReject("approved")}
                     >
                       <ThumbsUp className="mr-2 h-4 w-4" />
                       Approve
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       className="text-red-600"
-                      onClick={() => handleApproveReject('rejected')}
+                      onClick={() => handleApproveReject("rejected")}
                     >
                       <ThumbsDown className="mr-2 h-4 w-4" />
                       Reject
@@ -740,7 +1006,7 @@ export default function ImportJobsPage() {
         },
       },
     ],
-    [setErrorToShow, isDeleting, handleDeleteJobs, statbusUsers]
+    [setErrorToShow, isDeleting, handleDeleteJobs, statbusUsers, mutate]
   );
 
   const pageCount = useMemo(() => {
@@ -769,7 +1035,9 @@ export default function ImportJobsPage() {
       <DataTableActionBarSelection table={table} />
       <DataTableActionBarAction
         onClick={async () => {
-          const selectedIds = table.getFilteredSelectedRowModel().rows.map(row => row.original.id);
+          const selectedIds = table
+            .getFilteredSelectedRowModel()
+            .rows.map((row) => row.original.id);
           await handleDeleteJobs(selectedIds);
           table.toggleAllRowsSelected(false);
         }}
@@ -797,7 +1065,10 @@ export default function ImportJobsPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center space-x-2">
-        <Link href="/import" className="text-2xl font-semibold text-gray-500 hover:underline">
+        <Link
+          href="/import"
+          className="text-2xl font-semibold text-gray-500 hover:underline"
+        >
           Import
         </Link>
         <ChevronRight className="h-6 w-6 text-gray-400" />
@@ -806,8 +1077,11 @@ export default function ImportJobsPage() {
       <DataTable table={table} actionBar={actionBar}>
         <DataTableToolbar table={table} />
       </DataTable>
-      
-      <Dialog open={!!errorToShow} onOpenChange={(open) => !open && setErrorToShow(null)}>
+
+      <Dialog
+        open={!!errorToShow}
+        onOpenChange={(open) => !open && setErrorToShow(null)}
+      >
         <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Import Job Error</DialogTitle>

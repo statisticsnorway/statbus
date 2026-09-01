@@ -1,15 +1,28 @@
 "use client";
 
-import { atom, useSetAtom, useAtomValue } from 'jotai';
-import { useEffect } from 'react';
-import { type InspectionEvent, type AnyActorRef, type AnyMachineSnapshot } from 'xstate';
-import { logger } from '@/lib/client-logger';
+import { atom, useSetAtom, useAtomValue } from "jotai";
+import { useEffect } from "react";
+import {
+  type InspectionEvent,
+  type AnyActorRef,
+  type AnyMachineSnapshot,
+} from "xstate";
+import { logger } from "@/lib/client-logger";
 
-import { addEventJournalEntryAtom, debugInspectorVisibleAtom, type EventJournalEntry, MachineID } from './app';
+import {
+  addEventJournalEntryAtom,
+  debugInspectorVisibleAtom,
+  type EventJournalEntry,
+  MachineID,
+} from "./app";
 
 const flattenStateValue = (value: unknown): string => {
-  if (typeof value === 'string') return value;
-  if (typeof value === 'object' && value !== null && Object.keys(value).length > 0) {
+  if (typeof value === "string") return value;
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    Object.keys(value).length > 0
+  ) {
     const key = Object.keys(value)[0];
     return `${key}.${flattenStateValue((value as Record<string, unknown>)[key])}`;
   }
@@ -17,23 +30,36 @@ const flattenStateValue = (value: unknown): string => {
 };
 
 // This is a global "side-channel" to get the Jotai setter function into our inspector.
-let jotaiJournalSetter: ((entry: Omit<EventJournalEntry, 'timestamp_epoch' | 'timestamp_iso'>) => void) | null = null;
+let jotaiJournalSetter:
+  | ((
+      entry: Omit<EventJournalEntry, "timestamp_epoch" | "timestamp_iso">
+    ) => void)
+  | null = null;
 export let isDebugInspectorUIVisible = false;
 
 // An atom to receive the setter function from a React component.
-const journalSetterAtom = atom(null, (_, set, setter: (entry: Omit<EventJournalEntry, 'timestamp_epoch' | 'timestamp_iso'>) => void) => {
+const journalSetterAtom = atom(
+  null,
+  (
+    _,
+    set,
+    setter: (
+      entry: Omit<EventJournalEntry, "timestamp_epoch" | "timestamp_iso">
+    ) => void
+  ) => {
     jotaiJournalSetter = setter;
-});
+  }
+);
 // An atom to receive the visibility state from a React component.
 const inspectorVisibilityAtom = atom(null, (_, set, isVisible: boolean) => {
-    isDebugInspectorUIVisible = isVisible;
+  isDebugInspectorUIVisible = isVisible;
 });
 
 // A cache to hold the last snapshot for each actor to compare against.
 const lastSnapshot: Record<string, unknown> = {};
 
 function handleInspectionEvent(inspectionEvent: InspectionEvent) {
-  if (inspectionEvent.type !== '@xstate.snapshot') {
+  if (inspectionEvent.type !== "@xstate.snapshot") {
     return;
   }
 
@@ -45,16 +71,20 @@ function handleInspectionEvent(inspectionEvent: InspectionEvent) {
   // (used inside our authMachine) do not, so this check filters them out. This is
   // the root cause of the previous type errors, as promise snapshots do not have
   // `.value` or `.context` properties.
-  if (!('logic' in actorRef)) {
+  if (!("logic" in actorRef)) {
     return;
   }
 
   // Now that we've confirmed we're dealing with a machine actor, we can safely
   // access its properties.
   const snapshot = genericSnapshot as AnyMachineSnapshot;
-  const machineId = (actorRef.logic as { id: EventJournalEntry['machine'] }).id;
+  const machineId = (actorRef.logic as { id: EventJournalEntry["machine"] }).id;
 
-  if (![MachineID.Auth, MachineID.LoginUI, MachineID.Navigation].includes(machineId)) {
+  if (
+    ![MachineID.Auth, MachineID.LoginUI, MachineID.Navigation].includes(
+      machineId
+    )
+  ) {
     return;
   }
 
@@ -68,8 +98,10 @@ function handleInspectionEvent(inspectionEvent: InspectionEvent) {
     return; // Don't log the initial snapshot.
   }
 
-  const valueChanged = JSON.stringify(snapshot.value) !== JSON.stringify(prevSnapshot.value);
-  const contextChanged = JSON.stringify(snapshot.context) !== JSON.stringify(prevSnapshot.context);
+  const valueChanged =
+    JSON.stringify(snapshot.value) !== JSON.stringify(prevSnapshot.value);
+  const contextChanged =
+    JSON.stringify(snapshot.context) !== JSON.stringify(prevSnapshot.context);
 
   if (!valueChanged && !contextChanged) {
     return;
@@ -78,24 +110,32 @@ function handleInspectionEvent(inspectionEvent: InspectionEvent) {
   const fromState = flattenStateValue(prevSnapshot.value);
   const toState = flattenStateValue(snapshot.value);
 
-  let eventForLog = event ?? { type: 'AUTOMATIC' };
-  let reason = '';
+  let eventForLog = event ?? { type: "AUTOMATIC" };
+  let reason = "";
 
   if (valueChanged) {
-    const reasonSuffix = eventForLog.type === 'AUTOMATIC'
-        ? 'due to an automatic transition.'
+    const reasonSuffix =
+      eventForLog.type === "AUTOMATIC"
+        ? "due to an automatic transition."
         : `on event '${eventForLog.type}'`;
     reason = `Transitioned from '${fromState}' to '${toState}' ${reasonSuffix}`;
   } else if (contextChanged) {
     if (machineId === MachineID.Navigation) {
-      eventForLog = { type: 'CONTEXT_UPDATED' };
-      const changedKeys = Object.keys(snapshot.context).filter(key =>
-        JSON.stringify((prevSnapshot.context as Record<string, unknown>)[key]) !== JSON.stringify((snapshot.context as Record<string, unknown>)[key])
+      eventForLog = { type: "CONTEXT_UPDATED" };
+      const changedKeys = Object.keys(snapshot.context).filter(
+        (key) =>
+          JSON.stringify(
+            (prevSnapshot.context as Record<string, unknown>)[key]
+          ) !==
+          JSON.stringify((snapshot.context as Record<string, unknown>)[key])
       );
-      if (changedKeys.length === 0 || (changedKeys.length === 1 && changedKeys[0] === 'sideEffect')) {
+      if (
+        changedKeys.length === 0 ||
+        (changedKeys.length === 1 && changedKeys[0] === "sideEffect")
+      ) {
         return;
       }
-      reason = `Context updated in state '${toState}'. Changes: ${changedKeys.join(', ')}.`;
+      reason = `Context updated in state '${toState}'. Changes: ${changedKeys.join(", ")}.`;
     } else {
       return;
     }
@@ -103,8 +143,12 @@ function handleInspectionEvent(inspectionEvent: InspectionEvent) {
 
   // Log to console if the inspector UI is visible. This keeps the console clean otherwise.
   if (isDebugInspectorUIVisible) {
-    // eslint-disable-next-line no-console
-    console.log(`[Journal:${machineId}]`, reason, { from: fromState, to: toState, event: eventForLog, context: snapshot.context });
+    console.log(`[Journal:${machineId}]`, reason, {
+      from: fromState,
+      to: toState,
+      event: eventForLog,
+      context: snapshot.context,
+    });
   }
 
   // And if the UI is visible, send to the Jotai atom.
@@ -124,28 +168,27 @@ function handleInspectionEvent(inspectionEvent: InspectionEvent) {
  * The inspector function that will be passed to XState machines.
  */
 export const inspector =
-  (process.env.NODE_ENV === 'development' && typeof window !== 'undefined')
+  process.env.NODE_ENV === "development" && typeof window !== "undefined"
     ? handleInspectionEvent
     : undefined;
-
 
 /**
  * A component that must be mounted inside the JotaiAppProvider to hook up
  * the Jotai setter and visibility flag to our global inspector function.
  */
 export const JotaiInspectorInitializer = () => {
-    const setJournalSetter = useSetAtom(journalSetterAtom);
-    const addJournalEntry = useSetAtom(addEventJournalEntryAtom);
-    const setInspectorVisibility = useSetAtom(inspectorVisibilityAtom);
-    const isVisible = useAtomValue(debugInspectorVisibleAtom);
-    
-    useEffect(() => {
-        setJournalSetter(addJournalEntry);
-        setInspectorVisibility(isVisible);
-        // Initialize the logger now that we have the final visibility state from storage.
-        // This will flush any debug messages that were buffered during startup.
-        logger.initialize();
-    }, [setJournalSetter, addJournalEntry, setInspectorVisibility, isVisible]);
+  const setJournalSetter = useSetAtom(journalSetterAtom);
+  const addJournalEntry = useSetAtom(addEventJournalEntryAtom);
+  const setInspectorVisibility = useSetAtom(inspectorVisibilityAtom);
+  const isVisible = useAtomValue(debugInspectorVisibleAtom);
 
-    return null;
-}
+  useEffect(() => {
+    setJournalSetter(addJournalEntry);
+    setInspectorVisibility(isVisible);
+    // Initialize the logger now that we have the final visibility state from storage.
+    // This will flush any debug messages that were buffered during startup.
+    logger.initialize();
+  }, [setJournalSetter, addJournalEntry, setInspectorVisibility, isVisible]);
+
+  return null;
+};

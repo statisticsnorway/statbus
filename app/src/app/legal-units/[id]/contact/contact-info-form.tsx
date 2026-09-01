@@ -1,6 +1,6 @@
 "use client";
 import { Button } from "@/components/ui/button";
-import React, { useActionState, useEffect, useState } from "react";
+import React, { useActionState } from "react";
 import { z } from "zod";
 import { contactInfoSchema } from "@/app/legal-units/[id]/contact/validation";
 import {
@@ -13,6 +13,8 @@ import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
 import { EditableFieldGroup } from "@/components/form/editable-field-group";
 import { useDetailsPageData } from "@/atoms/edits";
 import { SelectFormField } from "@/components/form/select-form-field";
+import { useClientReady } from "@/hooks/use-client-ready";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 
 export default function ContactInfoForm({ id }: { readonly id: string }) {
   const [locationState, locationAction] = useActionState(
@@ -23,24 +25,25 @@ export default function ContactInfoForm({ id }: { readonly id: string }) {
     updateContact.bind(null, id, "legal_unit"),
     null
   );
-  const [isClient, setIsClient] = useState(false);
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  const isClient = useClientReady();
   const { countries } = useDetailsPageData();
   const { data, isLoading, error, revalidate } = useStatisticalUnitDetails(
     id,
     "legal_unit"
   );
 
-  useEffect(() => {
-    if (
-      locationState?.status === "success" ||
-      contactState?.status === "success"
-    ) {
-      revalidate();
-    }
-  }, [contactState, locationState, revalidate]);
+  useGuardedEffect(
+    () => {
+      if (
+        locationState?.status === "success" ||
+        contactState?.status === "success"
+      ) {
+        revalidate();
+      }
+    },
+    [contactState, locationState, revalidate],
+    "ContactInfoForm:revalidateAfterUpdate"
+  );
   if (error || (!isLoading && !data)) {
     return <UnitNotFound />;
   }

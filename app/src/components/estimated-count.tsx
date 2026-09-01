@@ -1,10 +1,14 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef, MouseEvent } from "react";
-import { useGuardedEffect } from '@/hooks/use-guarded-effect';
-import { atom } from 'jotai';
-import { useAtomValue } from 'jotai';
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useState, useCallback, useRef, MouseEvent } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
+import { atom } from "jotai";
+import { useAtomValue } from "jotai";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Info, Loader2 } from "lucide-react";
 
@@ -16,10 +20,10 @@ export const exactCountCacheGenerationAtom = atom(0);
 // LOCALSTORAGE CACHING FOR EXACT COUNTS
 // ============================================================================
 
-const STORAGE_KEY_PREFIX = 'statbus:exactCount:';
+const STORAGE_KEY_PREFIX = "statbus:exactCount:";
 
 function getCachedExactCount(cacheKey: string): number | null {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
   try {
     const cached = localStorage.getItem(STORAGE_KEY_PREFIX + cacheKey);
     if (cached !== null) {
@@ -33,7 +37,7 @@ function getCachedExactCount(cacheKey: string): number | null {
 }
 
 function setCachedExactCount(cacheKey: string, value: number): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === "undefined") return;
   try {
     localStorage.setItem(STORAGE_KEY_PREFIX + cacheKey, value.toString());
   } catch {
@@ -46,7 +50,7 @@ function setCachedExactCount(cacheKey: string, value: number): void {
  * Called when is_importing completes to force fresh fetches.
  */
 export function invalidateExactCountsCache(): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === "undefined") return;
   try {
     const keysToRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -55,7 +59,7 @@ export function invalidateExactCountsCache(): void {
         keysToRemove.push(key);
       }
     }
-    keysToRemove.forEach(key => localStorage.removeItem(key));
+    keysToRemove.forEach((key) => localStorage.removeItem(key));
   } catch {
     // Ignore storage errors
   }
@@ -98,15 +102,19 @@ export function EstimatedCount({
 
   // When the cache generation changes, re-check localStorage.
   // If the cache was cleared, reset React state so the component re-fetches.
-  useGuardedEffect(() => {
-    if (cacheKey) {
-      const currentCache = getCachedExactCount(cacheKey);
-      if (currentCache === null && exactCount !== null) {
-        setExactCount(null);
+  useGuardedEffect(
+    () => {
+      if (cacheKey) {
+        const currentCache = getCachedExactCount(cacheKey);
+        if (currentCache === null && exactCount !== null) {
+          setExactCount(null);
+        }
       }
-    }
-  }, [cacheGeneration, cacheKey], 'EstimatedCount:cacheInvalidation'); // eslint-disable-line react-hooks/exhaustive-deps
-  
+    },
+    [cacheGeneration, cacheKey],
+    "EstimatedCount:cacheInvalidation"
+  );
+
   // Refs for cleanup
   const abortControllerRef = useRef<AbortController | null>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -114,7 +122,7 @@ export function EstimatedCount({
 
   const handleGetExact = useCallback(async () => {
     if (!onGetExact || isLoading) return;
-    
+
     // Clear any pending auto-fetch
     if (fetchTimeoutRef.current) {
       clearTimeout(fetchTimeoutRef.current);
@@ -125,10 +133,10 @@ export function EstimatedCount({
       countdownIntervalRef.current = null;
     }
     setCountdown(null);
-    
+
     // Create abort controller for this request
     abortControllerRef.current = new AbortController();
-    
+
     setIsLoading(true);
     try {
       const count = await onGetExact();
@@ -141,8 +149,8 @@ export function EstimatedCount({
       }
     } catch (error) {
       // Ignore abort errors
-      if (error instanceof Error && error.name !== 'AbortError') {
-        console.error('Failed to fetch exact count:', error);
+      if (error instanceof Error && error.name !== "AbortError") {
+        console.error("Failed to fetch exact count:", error);
       }
     } finally {
       setIsLoading(false);
@@ -151,57 +159,76 @@ export function EstimatedCount({
   }, [onGetExact, isLoading, cacheKey]);
 
   // Auto-fetch exact count after random delay
-  useEffect(() => {
-    // Don't auto-fetch if:
-    // - No callback provided
-    // - Already have exact count (from cache or previous fetch)
-    // - No estimated count to improve upon
-    // - Already loading
-    if (!onGetExact || exactCount !== null || estimatedCount === null || isLoading) {
-      return;
-    }
+  useGuardedEffect(
+    () => {
+      // Don't auto-fetch if:
+      // - No callback provided
+      // - Already have exact count (from cache or previous fetch)
+      // - No estimated count to improve upon
+      // - Already loading
+      if (
+        !onGetExact ||
+        exactCount !== null ||
+        estimatedCount === null ||
+        isLoading
+      ) {
+        return;
+      }
 
-    // Random delay between 0 and autoFetchDelay ms
-    const delay = Math.floor(Math.random() * autoFetchDelay);
-    const delaySeconds = Math.ceil(delay / 1000);
-    
-    setCountdown(delaySeconds);
+      // Random delay between 0 and autoFetchDelay ms
+      const delay = Math.floor(Math.random() * autoFetchDelay);
+      const delaySeconds = Math.ceil(delay / 1000);
 
-    // Countdown timer (updates every second)
-    countdownIntervalRef.current = setInterval(() => {
-      setCountdown(prev => {
-        if (prev === null || prev <= 1) {
-          if (countdownIntervalRef.current) {
-            clearInterval(countdownIntervalRef.current);
-            countdownIntervalRef.current = null;
-          }
-          return null;
+      const countdownStartTimeout = setTimeout(() => {
+        setCountdown(delaySeconds);
+
+        // Countdown timer (updates every second)
+        countdownIntervalRef.current = setInterval(() => {
+          setCountdown((prev) => {
+            if (prev === null || prev <= 1) {
+              if (countdownIntervalRef.current) {
+                clearInterval(countdownIntervalRef.current);
+                countdownIntervalRef.current = null;
+              }
+              return null;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      }, 0);
+
+      // Schedule the fetch
+      fetchTimeoutRef.current = setTimeout(() => {
+        handleGetExact();
+      }, delay);
+
+      // Cleanup on unmount or when dependencies change
+      return () => {
+        clearTimeout(countdownStartTimeout);
+        if (fetchTimeoutRef.current) {
+          clearTimeout(fetchTimeoutRef.current);
+          fetchTimeoutRef.current = null;
         }
-        return prev - 1;
-      });
-    }, 1000);
-
-    // Schedule the fetch
-    fetchTimeoutRef.current = setTimeout(() => {
-      handleGetExact();
-    }, delay);
-
-    // Cleanup on unmount or when dependencies change
-    return () => {
-      if (fetchTimeoutRef.current) {
-        clearTimeout(fetchTimeoutRef.current);
-        fetchTimeoutRef.current = null;
-      }
-      if (countdownIntervalRef.current) {
-        clearInterval(countdownIntervalRef.current);
-        countdownIntervalRef.current = null;
-      }
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-        abortControllerRef.current = null;
-      }
-    };
-  }, [onGetExact, exactCount, estimatedCount, isLoading, autoFetchDelay, handleGetExact]);
+        if (countdownIntervalRef.current) {
+          clearInterval(countdownIntervalRef.current);
+          countdownIntervalRef.current = null;
+        }
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+          abortControllerRef.current = null;
+        }
+      };
+    },
+    [
+      onGetExact,
+      exactCount,
+      estimatedCount,
+      isLoading,
+      autoFetchDelay,
+      handleGetExact,
+    ],
+    "EstimatedCount:autoFetchExact"
+  );
 
   // Stop propagation to prevent parent link from capturing the click
   const handleTriggerClick = useCallback((e: MouseEvent) => {
@@ -211,19 +238,18 @@ export function EstimatedCount({
   }, []);
 
   // Stop propagation for the "Get Exact Count" button too
-  const handleGetExactClick = useCallback(async (e: MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    await handleGetExact();
-  }, [handleGetExact]);
+  const handleGetExactClick = useCallback(
+    async (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      await handleGetExact();
+    },
+    [handleGetExact]
+  );
 
   // If we have the exact count, show it without the ~ prefix
   if (exactCount !== null) {
-    return (
-      <span className={className}>
-        {exactCount.toLocaleString()}
-      </span>
-    );
+    return <span className={className}>{exactCount.toLocaleString()}</span>;
   }
 
   // Show estimated count with ~ prefix and info popover
@@ -240,7 +266,11 @@ export function EstimatedCount({
               type="button"
               onClick={handleTriggerClick}
               className="inline-flex items-center hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 rounded"
-              aria-label={isLoading ? "Loading exact count" : "Estimated count - click for details"}
+              aria-label={
+                isLoading
+                  ? "Loading exact count"
+                  : "Estimated count - click for details"
+              }
             >
               {isLoading ? (
                 <Loader2 className="h-3 w-3 text-blue-500 animate-spin" />
@@ -253,14 +283,16 @@ export function EstimatedCount({
             <div className="space-y-3">
               <h4 className="font-medium">Estimated Count</h4>
               <p className="text-sm text-gray-600">
-                This count is estimated from database statistics for faster loading.
-                The actual count may differ slightly.
+                This count is estimated from database statistics for faster
+                loading. The actual count may differ slightly.
               </p>
-              
+
               {isLoading ? (
                 <div className="flex items-center justify-center py-2">
                   <Loader2 className="mr-2 h-4 w-4 animate-spin text-blue-500" />
-                  <span className="text-sm text-gray-600">Loading exact count...</span>
+                  <span className="text-sm text-gray-600">
+                    Loading exact count...
+                  </span>
                 </div>
               ) : countdown !== null ? (
                 <div className="text-center py-2">

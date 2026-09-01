@@ -3,6 +3,7 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
+import Image from "next/image";
 
 interface UnitImageProps {
   imageId: number | null | undefined;
@@ -12,12 +13,12 @@ interface UnitImageProps {
   isEditing?: boolean;
 }
 
-export function UnitImage({ 
-  imageId, 
-  unitType, 
-  className, 
-  onDelete, 
-  isEditing = false 
+export function UnitImage({
+  imageId,
+  unitType,
+  className,
+  onDelete,
+  isEditing = false,
 }: UnitImageProps) {
   const [imageError, setImageError] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
@@ -28,15 +29,22 @@ export function UnitImage({
   }
 
   return (
-    <div className={cn("relative overflow-hidden rounded-lg bg-gray-100", className)}>
+    <div
+      className={cn(
+        "relative overflow-hidden rounded-lg bg-gray-100",
+        className
+      )}
+    >
       {imageLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
           <div className="h-4 w-4 animate-pulse rounded-full bg-gray-300" />
         </div>
       )}
-      <img
+      <Image
         src={`/rest/rpc/image_data?id=${imageId}`}
         alt={`${unitType} image`}
+        fill
+        unoptimized
         className={cn(
           "h-full w-full object-cover rounded-lg transition-opacity",
           imageLoading ? "opacity-0" : "opacity-100"

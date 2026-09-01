@@ -1,7 +1,11 @@
 "use client";
 
 import React, { useMemo, useCallback, useState, useRef } from "react";
-import { useSWRWithAuthRefresh, isJwtExpiredError, JwtExpiredError } from "@/hooks/use-swr-with-auth-refresh";
+import {
+  useSWRWithAuthRefresh,
+  isJwtExpiredError,
+  JwtExpiredError,
+} from "@/hooks/use-swr-with-auth-refresh";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
@@ -12,9 +16,20 @@ import { DataTable } from "@/components/data-table/data-table";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
 import { ColumnDef } from "@tanstack/react-table";
-import { useQueryState, parseAsString, parseAsArrayOf, parseAsInteger } from "nuqs";
+import {
+  useQueryState,
+  parseAsString,
+  parseAsArrayOf,
+  parseAsInteger,
+} from "nuqs";
 import { COMMAND_LABELS } from "@/atoms/worker_status";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, ChevronRight, ArrowLeft, Info } from "lucide-react";
 import { useSWRConfig } from "swr";
@@ -167,7 +182,12 @@ const formatInfo = (task: WorkerTask): string | null => {
     const state = info.job_state as string | undefined;
     // Legacy format: cumulative imported_rows/total_rows
     if (imported != null && total != null) {
-      if (imported === 0 && state && state !== "processing_data" && state !== "finished") {
+      if (
+        imported === 0 &&
+        state &&
+        state !== "processing_data" &&
+        state !== "finished"
+      ) {
         return `${state} (${total} total)`;
       }
       const parts: string[] = [`${imported}/${total} rows`];
@@ -216,15 +236,11 @@ const fetcher = async (
   const page = parseInt(searchParams.get("page") || "1", 10) - 1;
   const pageSize = parseInt(searchParams.get("perPage") || "50", 10);
   const sortParam = searchParams.get("sort");
-  const stateParams = searchParams
-    .getAll("state")
-    .flatMap((s) => s.split(","));
+  const stateParams = searchParams.getAll("state").flatMap((s) => s.split(","));
   const states = stateParams.filter((s): s is TaskStateValue =>
     (taskStateValues as readonly string[]).includes(s)
   );
-  const queueParams = searchParams
-    .getAll("queue")
-    .flatMap((s) => s.split(","));
+  const queueParams = searchParams.getAll("queue").flatMap((s) => s.split(","));
   const queueFilters = queueParams.filter((q): q is QueueValue =>
     (queueValues as readonly string[]).includes(q)
   );
@@ -238,7 +254,10 @@ const fetcher = async (
   // Payload is lazy-loaded on demand when user clicks the info icon.
   let queryBuilder = client
     .from("worker_task")
-    .select("id,command,priority,state,parent_id,depth,child_mode,created_at,process_start_at,process_stop_at,completed_at,process_duration_ms,completion_duration_ms,error,scheduled_at,worker_pid,info,queue,command_description", { count: "exact" })
+    .select(
+      "id,command,priority,state,parent_id,depth,child_mode,created_at,process_start_at,process_stop_at,completed_at,process_duration_ms,completion_duration_ms,error,scheduled_at,worker_pid,info,queue,command_description",
+      { count: "exact" }
+    )
     .range(from, to);
 
   if (sortParam) {
@@ -282,15 +301,15 @@ const fetcher = async (
 };
 
 /** Fetch multiple tasks by IDs (for breadcrumb ancestry). Returns in input order. */
-const fetchAncestorTasks = async (
-  ids: number[]
-): Promise<WorkerTask[]> => {
+const fetchAncestorTasks = async (ids: number[]): Promise<WorkerTask[]> => {
   if (ids.length === 0) return [];
   const client = await getBrowserRestClient();
   if (!client) return [];
   const { data, error } = await client
     .from("worker_task")
-    .select("id,command,priority,state,parent_id,depth,child_mode,created_at,process_start_at,process_stop_at,completed_at,process_duration_ms,completion_duration_ms,error,info,queue,command_description")
+    .select(
+      "id,command,priority,state,parent_id,depth,child_mode,created_at,process_start_at,process_stop_at,completed_at,process_duration_ms,completion_duration_ms,error,info,queue,command_description"
+    )
     .in("id", ids);
   if (error) return [];
   const byId = new Map((data as WorkerTask[]).map((t) => [t.id, t]));
@@ -316,7 +335,10 @@ export default function WorkerTasksPage() {
 
   const pathIds = useMemo(() => {
     if (!pathParam) return [];
-    return pathParam.split(",").map(Number).filter((n) => n > 0);
+    return pathParam
+      .split(",")
+      .map(Number)
+      .filter((n) => n > 0);
   }, [pathParam]);
   const parentId = pathIds.length > 0 ? pathIds[pathIds.length - 1] : null;
   const isDrilledIn = parentId !== null;
@@ -331,14 +353,26 @@ export default function WorkerTasksPage() {
     if (command) params.set("command", command);
     if (isDrilledIn) params.set("parentId", String(parentId));
     return `${SWR_KEY}?${params.toString()}`;
-  }, [page, perPage, sort, states, queueFilters, command, parentId, isDrilledIn]);
+  }, [
+    page,
+    perPage,
+    sort,
+    states,
+    queueFilters,
+    command,
+    parentId,
+    isDrilledIn,
+  ]);
 
   const {
     data,
     error: swrError,
     isLoading,
     isValidating,
-  } = useSWRWithAuthRefresh<{ data: WorkerTask[]; count: number | null }, Error>(
+  } = useSWRWithAuthRefresh<
+    { data: WorkerTask[]; count: number | null },
+    Error
+  >(
     swrKey,
     fetcher,
     { revalidateOnFocus: false, keepPreviousData: true },
@@ -346,51 +380,66 @@ export default function WorkerTasksPage() {
   );
 
   // Fetch ancestor tasks for breadcrumb when drilled in
-  const ancestorKey = isDrilledIn ? `${SWR_KEY}/ancestors/${pathIds.join(",")}` : null;
+  const ancestorKey = isDrilledIn
+    ? `${SWR_KEY}/ancestors/${pathIds.join(",")}`
+    : null;
   const { data: ancestorTasks } = useSWRWithAuthRefresh<WorkerTask[], Error>(
     ancestorKey,
     isDrilledIn ? () => fetchAncestorTasks(pathIds) : null,
     { revalidateOnFocus: false },
     "WorkerTasksPage:ancestors"
   );
-  const parentTask = ancestorTasks && ancestorTasks.length > 0
-    ? ancestorTasks[ancestorTasks.length - 1]
-    : null;
+  const parentTask =
+    ancestorTasks && ancestorTasks.length > 0
+      ? ancestorTasks[ancestorTasks.length - 1]
+      : null;
 
   // SSE-driven revalidation: revalidate when relevant tasks change.
   // Server debounces per parent_id at 1s, so at most one event per parent per second.
   const swrKeyRef = useRef(swrKey);
-  swrKeyRef.current = swrKey;
   const parentIdRef = useRef(parentId);
-  parentIdRef.current = parentId;
 
-  useGuardedEffect(() => {
-    const eventSource = new EventSource('/api/sse/worker-tasks');
+  useGuardedEffect(
+    () => {
+      swrKeyRef.current = swrKey;
+      parentIdRef.current = parentId;
+    },
+    [swrKey, parentId],
+    "WorkerTasksPage:syncSseView"
+  );
 
-    eventSource.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(event.data);
-        const viewingParent = parentIdRef.current;
-        const eventParent: number | null = payload.parent_id;
-        const eventId: number = payload.id;
+  useGuardedEffect(
+    () => {
+      const eventSource = new EventSource("/api/sse/worker-tasks");
 
-        // Only revalidate if the event is relevant to our current view:
-        // - Top-level view (viewingParent=null): task itself is top-level (parent_id=null)
-        // - Drilled-in view: child of viewed parent changed, or the parent itself changed
-        const isRelevant = viewingParent === null
-          ? eventParent === null
-          : eventParent === viewingParent || eventId === viewingParent;
+      eventSource.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          const viewingParent = parentIdRef.current;
+          const eventParent: number | null = payload.parent_id;
+          const eventId: number = payload.id;
 
-        if (isRelevant) {
-          mutate(swrKeyRef.current);
-        }
-      } catch {}
-    };
+          // Only revalidate if the event is relevant to our current view:
+          // - Top-level view (viewingParent=null): task itself is top-level (parent_id=null)
+          // - Drilled-in view: child of viewed parent changed, or the parent itself changed
+          const isRelevant =
+            viewingParent === null
+              ? eventParent === null
+              : eventParent === viewingParent || eventId === viewingParent;
 
-    return () => {
-      eventSource.close();
-    };
-  }, [], 'WorkerTasksPage:sse-worker-tasks');
+          if (isRelevant) {
+            mutate(swrKeyRef.current);
+          }
+        } catch {}
+      };
+
+      return () => {
+        eventSource.close();
+      };
+    },
+    [],
+    "WorkerTasksPage:sse-worker-tasks"
+  );
 
   const tasksData = data?.data ?? [];
   const totalTasks = data?.count ?? 0;
@@ -399,39 +448,42 @@ export default function WorkerTasksPage() {
     async (task: WorkerTask) => {
       if (task.child_mode && task.id) {
         const newPath = [...pathIds, task.id].join(",");
-        await setPathParam(newPath, { history: 'push' });
+        await setPathParam(newPath, { history: "push" });
         await setPage(1);
       }
     },
     [pathIds, setPathParam, setPage]
   );
 
-  const handleGoUp = useCallback(
-    async () => {
-      if (pathIds.length <= 1) {
-        await setPathParam(null, { history: 'push' });
-      } else {
-        await setPathParam(pathIds.slice(0, -1).join(","), { history: 'push' });
-      }
-      await setPage(1);
-    },
-    [pathIds, setPathParam, setPage]
-  );
+  const handleGoUp = useCallback(async () => {
+    if (pathIds.length <= 1) {
+      await setPathParam(null, { history: "push" });
+    } else {
+      await setPathParam(pathIds.slice(0, -1).join(","), { history: "push" });
+    }
+    await setPage(1);
+  }, [pathIds, setPathParam, setPage]);
 
   const handleNavigateTo = useCallback(
     async (index: number) => {
       if (index < 0) {
-        await setPathParam(null, { history: 'push' });
+        await setPathParam(null, { history: "push" });
       } else {
-        await setPathParam(pathIds.slice(0, index + 1).join(","), { history: 'push' });
+        await setPathParam(pathIds.slice(0, index + 1).join(","), {
+          history: "push",
+        });
       }
       await setPage(1);
     },
     [pathIds, setPathParam, setPage]
   );
 
-  const [loadedPayloads, setLoadedPayloads] = useState<Map<number, unknown>>(new Map());
-  const [expandedPayloads, setExpandedPayloads] = useState<Set<number>>(new Set());
+  const [loadedPayloads, setLoadedPayloads] = useState<Map<number, unknown>>(
+    new Map()
+  );
+  const [expandedPayloads, setExpandedPayloads] = useState<Set<number>>(
+    new Set()
+  );
   const [expandedInfos, setExpandedInfos] = useState<Set<number>>(new Set());
 
   const toggleInfo = useCallback((taskId: number, e: React.MouseEvent) => {
@@ -444,29 +496,42 @@ export default function WorkerTasksPage() {
     });
   }, []);
 
-  const togglePayload = useCallback(async (taskId: number, e: React.MouseEvent) => {
-    e.stopPropagation();
-    // If collapsing, just toggle visibility
-    if (expandedPayloads.has(taskId)) {
-      setExpandedPayloads((prev) => { const next = new Set(prev); next.delete(taskId); return next; });
-      return;
-    }
-    // Lazy-load payload if not already cached
-    if (!loadedPayloads.has(taskId)) {
-      const client = await getBrowserRestClient();
-      if (client) {
-        const { data } = await client
-          .from("worker_task")
-          .select("payload")
-          .eq("id", taskId)
-          .single();
-        if (data) {
-          setLoadedPayloads((prev) => new Map(prev).set(taskId, (data as { payload: unknown }).payload));
+  const togglePayload = useCallback(
+    async (taskId: number, e: React.MouseEvent) => {
+      e.stopPropagation();
+      // If collapsing, just toggle visibility
+      if (expandedPayloads.has(taskId)) {
+        setExpandedPayloads((prev) => {
+          const next = new Set(prev);
+          next.delete(taskId);
+          return next;
+        });
+        return;
+      }
+      // Lazy-load payload if not already cached
+      if (!loadedPayloads.has(taskId)) {
+        const client = await getBrowserRestClient();
+        if (client) {
+          const { data } = await client
+            .from("worker_task")
+            .select("payload")
+            .eq("id", taskId)
+            .single();
+          if (data) {
+            setLoadedPayloads((prev) =>
+              new Map(prev).set(taskId, (data as { payload: unknown }).payload)
+            );
+          }
         }
       }
-    }
-    setExpandedPayloads((prev) => { const next = new Set(prev); next.add(taskId); return next; });
-  }, [expandedPayloads, loadedPayloads]);
+      setExpandedPayloads((prev) => {
+        const next = new Set(prev);
+        next.add(taskId);
+        return next;
+      });
+    },
+    [expandedPayloads, loadedPayloads]
+  );
 
   const columns = useMemo<ColumnDef<WorkerTask>[]>(
     () => [
@@ -491,8 +556,7 @@ export default function WorkerTasksPage() {
         ),
         cell: ({ row }) => {
           const task = row.original;
-          const label =
-            COMMAND_LABELS[task.command ?? ""] ?? task.command;
+          const label = COMMAND_LABELS[task.command ?? ""] ?? task.command;
           const hasChildren = !!task.child_mode;
           const taskId = task.id!;
           const isExpanded = expandedPayloads.has(taskId);
@@ -524,7 +588,9 @@ export default function WorkerTasksPage() {
               {isExpanded && (
                 <div className="mt-1 max-w-[500px]">
                   <pre className="text-xs bg-gray-50 border rounded p-2 whitespace-pre-wrap overflow-auto max-h-[200px]">
-                    {cachedPayload ? JSON.stringify(cachedPayload, null, 2) : "Loading..."}
+                    {cachedPayload
+                      ? JSON.stringify(cachedPayload, null, 2)
+                      : "Loading..."}
                   </pre>
                 </div>
               )}
@@ -638,7 +704,8 @@ export default function WorkerTasksPage() {
         cell: ({ row }) => {
           const task = row.original;
           const infoStr = formatInfo(task);
-          const hasRawInfo = task.info != null && Object.keys(task.info as object).length > 0;
+          const hasRawInfo =
+            task.info != null && Object.keys(task.info as object).length > 0;
           const taskId = task.id!;
           const isExpanded = expandedInfos.has(taskId);
           if (!infoStr) return <span className="text-xs text-gray-400">-</span>;
@@ -820,7 +887,10 @@ export default function WorkerTasksPage() {
               </div>
               <Badge
                 variant="secondary"
-                className={stateColors[parentTask.state ?? ""] ?? "bg-gray-100 text-gray-800"}
+                className={
+                  stateColors[parentTask.state ?? ""] ??
+                  "bg-gray-100 text-gray-800"
+                }
               >
                 {parentTask.state}
               </Badge>
@@ -837,7 +907,10 @@ export default function WorkerTasksPage() {
                 </Badge>
               )}
               <span className="font-mono text-xs text-gray-600">
-                {formatDurationMs(parentTask.completion_duration_ms ?? parentTask.process_duration_ms)}
+                {formatDurationMs(
+                  parentTask.completion_duration_ms ??
+                    parentTask.process_duration_ms
+                )}
               </span>
               {formatInfo(parentTask) && (
                 <span className="font-mono text-xs text-gray-600">

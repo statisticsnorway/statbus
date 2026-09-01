@@ -1,10 +1,11 @@
 "use client";
 
-import { atom, useSetAtom } from 'jotai';
-import { useEffect, useRef } from 'react';
-import { useAtomValue } from 'jotai';
+import { atom, useSetAtom } from "jotai";
+import { useEffect, useRef } from "react";
+import { useAtomValue } from "jotai";
 
-export const isGuardingEnabled = process.env.NEXT_PUBLIC_ENABLE_EFFECT_GUARD === 'true';
+export const isGuardingEnabled =
+  process.env.NEXT_PUBLIC_ENABLE_EFFECT_GUARD === "true";
 
 // State atoms
 export const effectCallCountsAtom = atom<Map<string, number>>(new Map());
@@ -33,12 +34,13 @@ export const useGuardedEffect = (
   useEffect(() => {
     if (!isGuardingEnabled) return;
 
-    setMountCounts(prev => new Map(prev).set(effectId, (prev.get(effectId) || 0) + 1));
-    
+    setMountCounts((prev) =>
+      new Map(prev).set(effectId, (prev.get(effectId) || 0) + 1)
+    );
+
     // The return function from a useEffect with an empty dependency array is the
     // perfect place to log an unmount event, though we don't currently need to.
     return () => {};
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effectId, setMountCounts]);
 
   // This is the main effect logic that runs the user's provided effect.
@@ -53,24 +55,28 @@ export const useGuardedEffect = (
 
     setTriggeredEffects((prev: Set<string>) => new Set(prev).add(effectId));
 
-    setCallCounts(prev => new Map(prev).set(effectId, (prev.get(effectId) || 0) + 1));
+    setCallCounts((prev) =>
+      new Map(prev).set(effectId, (prev.get(effectId) || 0) + 1)
+    );
 
-    setRecentCallCounts(prev => {
+    setRecentCallCounts((prev) => {
       const newMap = new Map(prev);
       const newCount = (newMap.get(effectId) || 0) + 1;
       newMap.set(effectId, newCount);
-      
+
       if (newCount > LOOP_DETECTION_THRESHOLD) {
         console.error(
           `[Effect Guard] Halted effect "${effectId}" due to potential infinite loop (${newCount} calls in ${LOOP_DETECTION_WINDOW_MS}ms).`
         );
-        setHaltedEffects((prevHalted: Set<string>) => new Set(prevHalted).add(effectId));
+        setHaltedEffects((prevHalted: Set<string>) =>
+          new Set(prevHalted).add(effectId)
+        );
       }
       return newMap;
     });
 
     const timeoutId = setTimeout(() => {
-      setRecentCallCounts(prev => {
+      setRecentCallCounts((prev) => {
         const newMap = new Map(prev);
         const currentCount = newMap.get(effectId) || 0;
         if (currentCount > 0) {
@@ -79,7 +85,7 @@ export const useGuardedEffect = (
         return newMap;
       });
     }, LOOP_DETECTION_WINDOW_MS);
-    
+
     const cleanup = effect();
 
     return () => {
@@ -88,6 +94,6 @@ export const useGuardedEffect = (
         cleanup();
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 };

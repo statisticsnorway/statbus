@@ -33,7 +33,9 @@ export function ExternalIdentTypeForm({
   readonly onSuccess: () => void;
 }) {
   const isEdit = !!externalIdentType;
-  const action = isEdit ? updateExternalIdentType.bind(null, externalIdentType.id) : createExternalIdentType;
+  const action = isEdit
+    ? updateExternalIdentType.bind(null, externalIdentType.id)
+    : createExternalIdentType;
   const [state, formAction] = useActionState(action, null);
   const [shape, setShape] = useState("regular");
 
@@ -102,7 +104,7 @@ export function ExternalIdentTypeForm({
             <div className="grid gap-2">
               <Label className="text-xs uppercase text-gray-600">Type</Label>
               <RadioGroup
-              name="shape"
+                name="shape"
                 value={shape}
                 onValueChange={(value) =>
                   setShape(value as "regular" | "hierarchical")
@@ -130,7 +132,7 @@ export function ExternalIdentTypeForm({
                 />
                 <span className="text-xs text-gray-500">
                   Define hierarchy levels separated by a dot, e.g.
-                  "region.province.city"
+                  &quot;region.province.city&quot;
                 </span>
               </div>
             )}

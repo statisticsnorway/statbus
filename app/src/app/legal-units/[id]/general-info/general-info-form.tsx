@@ -3,7 +3,7 @@ import {
   updateLegalUnit,
   updateLocation,
 } from "@/app/legal-units/[id]/update-legal-unit-server-actions";
-import React, { useActionState, useEffect, useState } from "react";
+import React, { useActionState } from "react";
 import { z } from "zod";
 import { generalInfoSchema } from "@/app/legal-units/[id]/general-info/validation";
 import { FormField } from "@/components/form/form-field";
@@ -22,6 +22,8 @@ import { SelectFormField } from "@/components/form/select-form-field";
 import { useDetailsPageData } from "@/atoms/edits";
 import { useSWRConfig } from "swr";
 import { EditableImageFieldWithMetadata } from "@/components/form/editable-image-field-with-metadata";
+import { useClientReady } from "@/hooks/use-client-ready";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 
 export default function GeneralInfoForm({ id }: { readonly id: string }) {
   const [state, formAction] = useActionState(
@@ -47,20 +49,21 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
 
   const { mutate } = useSWRConfig();
 
-  const [isClient, setIsClient] = useState(false);
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  const isClient = useClientReady();
 
-  useEffect(() => {
-    if (
-      externalIdentState?.status === "success" ||
-      state?.status === "success" ||
-      locationState?.status === "success"
-    ) {
-      mutate((key) => Array.isArray(key) && key.includes(id));
-    }
-  }, [externalIdentState, state, locationState, mutate, id]);
+  useGuardedEffect(
+    () => {
+      if (
+        externalIdentState?.status === "success" ||
+        state?.status === "success" ||
+        locationState?.status === "success"
+      ) {
+        mutate((key) => Array.isArray(key) && key.includes(id));
+      }
+    },
+    [externalIdentState, state, locationState, mutate, id],
+    "GeneralInfoForm:revalidateAfterUpdate"
+  );
   if (!isClient) {
     return <Loading />;
   }
@@ -68,7 +71,6 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
     return <UnitNotFound />;
   }
   const legalUnit = data?.legal_unit?.[0];
-
 
   const physicalLocation = legalUnit?.location?.find(
     (loc) => loc.type === "physical"
@@ -106,7 +108,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
         {externalIdentTypes.map(
           (type: Tables<"external_ident_type_enabled">) => {
             const value = legalUnit?.external_idents[type.code];
-            
+
             // Use hierarchical field component for hierarchical identifier types
             if (type.shape === "hierarchical" && type.labels) {
               return (
@@ -121,7 +123,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
                 />
               );
             }
-            
+
             return (
               <EditableField
                 key={type.code}

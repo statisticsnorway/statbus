@@ -2,16 +2,16 @@
 
 /**
  * JotaiAppProvider - Simple replacement for complex Provider nesting
- * 
+ *
  * This component replaces all your Context providers with a single Jotai Provider
  * and handles app initialization without complex useEffect chains.
  */
 
-import React, { Suspense, ReactNode, useState, useRef } from 'react';
-import { useGuardedEffect } from '@/hooks/use-guarded-effect';
-import { Provider, useAtom } from 'jotai';
-import { useAtomValue, useSetAtom } from 'jotai';
-import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import React, { Suspense, ReactNode, useState, useRef } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
+import { Provider, useAtom } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import {
   clientMountedAtom,
   initialAuthCheckCompletedAtom,
@@ -25,13 +25,13 @@ import {
   journalUnificationEffectAtom,
   debugInspectorExpandedAtom,
   addEventJournalEntryAtom,
-} from './app';
+} from "./app";
 import {
   setupRedirectCheckAtom,
   redirectRelevantStateAtom,
   useAppReady,
-} from './app-derived';
-import { restClientAtom } from './rest-client';
+} from "./app-derived";
+import { restClientAtom } from "./rest-client";
 import {
   authStatusAtom,
   clientSideRefreshAtom,
@@ -47,43 +47,40 @@ import {
   postRefreshCacheInvalidationEffectAtom,
   appDataInitializedAtom,
   tokenExpiresAtAtom,
-} from './auth';
-import {
-  baseDataAtom,
-  refreshBaseDataAtom,
-} from './base-data';
+} from "./auth";
+import { baseDataAtom, refreshBaseDataAtom } from "./base-data";
 import { numberOfRegionsAtomAsync } from "./getting-started";
-import { loadable } from 'jotai/utils';
-import { refreshAllUnitCountsAtom } from './import';
+import { loadable } from "jotai/utils";
+import { refreshAllUnitCountsAtom } from "./import";
 import {
   initializeTableColumnsAtom,
   searchResultAtom,
   selectedUnitsAtom,
   tableColumnsHydrationEffectAtom,
-} from './search';
+} from "./search";
 import {
   refreshWorkerStatusAtom,
   setWorkerStatusAtom,
   workerStatusAtom,
   type WorkerStatusType,
   type WorkerStatusSSEPayload,
-} from './worker_status';
-import { AuthCrossTabSyncer } from './AuthCrossTabSyncer';
-import { NavigationManager } from './NavigationManager';
-import { navigationMachineAtom } from './navigation-machine';
+} from "./worker_status";
+import { AuthCrossTabSyncer } from "./AuthCrossTabSyncer";
+import { NavigationManager } from "./NavigationManager";
+import { navigationMachineAtom } from "./navigation-machine";
 import {
   pendingUpgradePromiseAtom,
   pendingUpgradeStatusAtom,
   upgradePollingEffectAtom,
   type UpgradeStatus,
-} from './upgrade-status';
-import { statbusConfig } from '@/lib/statbus-config';
+} from "./upgrade-status";
+import { statbusConfig } from "@/lib/statbus-config";
 
 // ============================================================================
 // APP INITIALIZER - Handles startup logic
 // ============================================================================
 
-import { JotaiInspectorInitializer } from './inspector';
+import { JotaiInspectorInitializer } from "./inspector";
 
 // ============================================================================
 // APP INITIALIZER - Handles startup logic
@@ -95,7 +92,7 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   // inspector, not by Jotai effects.
   useAtomValue(pageUnloadDetectorEffectAtom);
   useAtomValue(journalUnificationEffectAtom);
-  
+
   // Activate table columns hydration detection effect
   useAtomValue(tableColumnsHydrationEffectAtom);
 
@@ -114,9 +111,9 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   const clientSideRefresh = useSetAtom(clientSideRefreshAtom);
   const fetchAuthStatus = useSetAtom(fetchAuthStatusAtom);
   const restClient = useAtomValue(restClientAtom);
-  const refreshBaseData = useSetAtom(refreshBaseDataAtom)
-  const refreshWorkerStatus = useSetAtom(refreshWorkerStatusAtom)
-  const setRestClient = useSetAtom(restClientAtom)
+  const refreshBaseData = useSetAtom(refreshBaseDataAtom);
+  const refreshWorkerStatus = useSetAtom(refreshWorkerStatusAtom);
+  const setRestClient = useSetAtom(restClientAtom);
   const initializeTableColumnsAction = useSetAtom(initializeTableColumnsAtom);
   const refreshUnitCounts = useSetAtom(refreshAllUnitCountsAtom);
 
@@ -131,140 +128,177 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   const logReload = useSetAtom(logReloadToJournalAtom);
   const unifyJournals = useSetAtom(unifyEventJournalsAtom);
   const initialAuthCheckCompleted = useAtomValue(initialAuthCheckCompletedAtom);
-  const setInitialAuthCheckCompleted = useSetAtom(initialAuthCheckCompletedAtom);
+  const setInitialAuthCheckCompleted = useSetAtom(
+    initialAuthCheckCompletedAtom
+  );
   const [navState] = useAtom(navigationMachineAtom);
   // isRedirectingToSetup flag is removed as RedirectHandler manages actual navigation.
-  
+
   // Effect to signal that the client has mounted. This helps prevent hydration issues.
-  useGuardedEffect(() => {
-    setClientMounted(true);
-  }, [setClientMounted], 'JotaiAppProvider.tsx:AppInitializer:setClientMounted');
+  useGuardedEffect(
+    () => {
+      setClientMounted(true);
+    },
+    [setClientMounted],
+    "JotaiAppProvider.tsx:AppInitializer:setClientMounted"
+  );
 
   // Effect to perform one-time actions after the client has mounted.
-  useGuardedEffect(() => {
-    if (clientMounted) {
-      // The unification is now handled declaratively by journalUnificationEffectAtom.
-      // We only need to log the reload event here.
-      logReload();
-    }
-  }, [clientMounted, logReload], 'JotaiAppProvider.tsx:AppInitializer:logReload');
+  useGuardedEffect(
+    () => {
+      if (clientMounted) {
+        // The unification is now handled declaratively by journalUnificationEffectAtom.
+        // We only need to log the reload event here.
+        logReload();
+      }
+    },
+    [clientMounted, logReload],
+    "JotaiAppProvider.tsx:AppInitializer:logReload"
+  );
 
   // Effect to establish when the first successful authentication check has completed.
   // This creates a stable "app is ready" signal for other components like RedirectGuard,
   // preventing them from acting on transient, intermediate auth states.
-  useGuardedEffect(() => {
-    // If we've already completed the check, we're done here.
-    if (initialAuthCheckCompleted) {
-      return;
-    }
-    // Once auth status has data for the first time, we mark the initial check as complete.
-    // This flag will persist for the lifetime of the app session.
-    if (!authStatusDetails.loading) {
-      setInitialAuthCheckCompleted(true);
-    }
-  }, [authStatusDetails.loading, initialAuthCheckCompleted, setInitialAuthCheckCompleted], 'JotaiAppProvider.tsx:AppInitializer:setInitialAuthCheckCompleted');
+  useGuardedEffect(
+    () => {
+      // If we've already completed the check, we're done here.
+      if (initialAuthCheckCompleted) {
+        return;
+      }
+      // Once auth status has data for the first time, we mark the initial check as complete.
+      // This flag will persist for the lifetime of the app session.
+      if (!authStatusDetails.loading) {
+        setInitialAuthCheckCompleted(true);
+      }
+    },
+    [
+      authStatusDetails.loading,
+      initialAuthCheckCompleted,
+      setInitialAuthCheckCompleted,
+    ],
+    "JotaiAppProvider.tsx:AppInitializer:setInitialAuthCheckCompleted"
+  );
 
   // The state machine now handles proactive token refreshes. This useEffect is no longer needed.
 
   // Initialize REST client
-  useGuardedEffect(() => {
-    let mounted = true
-    const initializeClient = async () => {
-      try {
-        // Import your existing RestClientStore
-        const { getBrowserRestClient } = await import('@/context/RestClientStore')
-        const client = await getBrowserRestClient() // This is an async function
-        
-        if (mounted) {
-          if (client) {
-            setRestClient(client);
-          } else {
-            // This case should ideally not happen if getBrowserRestClient throws on failure.
-            console.error('AppInitializer: getBrowserRestClient() returned null/undefined without throwing an error. This is unexpected. Setting restClientAtom to null.');
-            setRestClient(null); // Explicitly set to null if it wasn't set
+  useGuardedEffect(
+    () => {
+      let mounted = true;
+      const initializeClient = async () => {
+        try {
+          // Import your existing RestClientStore
+          const { getBrowserRestClient } =
+            await import("@/context/RestClientStore");
+          const client = await getBrowserRestClient(); // This is an async function
+
+          if (mounted) {
+            if (client) {
+              setRestClient(client);
+            } else {
+              // This case should ideally not happen if getBrowserRestClient throws on failure.
+              console.error(
+                "AppInitializer: getBrowserRestClient() returned null/undefined without throwing an error. This is unexpected. Setting restClientAtom to null."
+              );
+              setRestClient(null); // Explicitly set to null if it wasn't set
+            }
+          }
+        } catch (error) {
+          console.error(
+            "AppInitializer: CRITICAL - Failed to initialize browser REST client. Setting restClientAtom to null.",
+            error
+          );
+          if (mounted) {
+            setRestClient(null); // Ensure restClientAtom is null on error
           }
         }
-      } catch (error) {
-        console.error('AppInitializer: CRITICAL - Failed to initialize browser REST client. Setting restClientAtom to null.', error);
-        if (mounted) {
-          setRestClient(null); // Ensure restClientAtom is null on error
-        }
-      }
-    }
-    
-    initializeClient()
-    
-    return () => {
-      mounted = false
-    }
-  }, [setRestClient], 'JotaiAppProvider.tsx:AppInitializer:initializeRestClient')
+      };
+
+      initializeClient();
+
+      return () => {
+        mounted = false;
+      };
+    },
+    [setRestClient],
+    "JotaiAppProvider.tsx:AppInitializer:initializeRestClient"
+  );
 
   const [, sendAuth] = useAtom(authMachineAtom);
   // Effect to inform the auth machine when the REST client is ready.
-  useGuardedEffect(() => {
-    if (restClient) {
-      sendAuth({ type: 'CLIENT_READY', client: restClient });
-    } else {
-      // This could happen if the client fails to initialize.
-      sendAuth({ type: 'CLIENT_UNREADY' });
-    }
-  }, [restClient, sendAuth], 'JotaiAppProvider.tsx:AppInitializer:sendClientReadyToAuthMachine');
-  
+  useGuardedEffect(
+    () => {
+      if (restClient) {
+        sendAuth({ type: "CLIENT_READY", client: restClient });
+      } else {
+        // This could happen if the client fails to initialize.
+        sendAuth({ type: "CLIENT_UNREADY" });
+      }
+    },
+    [restClient, sendAuth],
+    "JotaiAppProvider.tsx:AppInitializer:sendClientReadyToAuthMachine"
+  );
+
   // The useEffect that previously set authStatusInitiallyCheckedAtom is removed.
   // Its logic is now handled by initialAuthCheckDoneEffect from jotai-effect.
-  
-  const [appDataInitialized, setAppDataInitialized] = useAtom(appDataInitializedAtom);
+
+  const [appDataInitialized, setAppDataInitialized] = useAtom(
+    appDataInitializedAtom
+  );
 
   // Initialize app data when authenticated, not loading, and client is ready
-  useGuardedEffect(() => {
-    let mounted = true;
+  useGuardedEffect(
+    () => {
+      let mounted = true;
 
-    const initializeApp = async () => {
-      // Core conditions: user must be authenticated, REST client ready, and the
-      // initial authentication check must have completed. This prevents race
-      // conditions where data is fetched before the token is refreshed.
-      if (!isAuthenticated || !restClient || !initialAuthCheckCompleted) {
-        return;
-      }
-
-      // Primary gate: only run once.
-      if (appDataInitialized) {
-        return;
-      }
-      
-      setAppDataInitialized(true); // Mark as initialized immediately
-
-      try {
-        // Base data will be fetched by baseDataCoreAtom when its dependencies (auth, client) are met.
-        
-        // Table columns will be initialized by the new useEffect below, reacting to statDefinitions.
-
-        refreshUnitCounts();
-
-        // Worker status will be fetched by workerStatusCoreAtom when its dependencies (auth, client) are met.
-        
-      } catch (error) {
-        if (mounted) {
-          console.error('AppInitializer: App initialization failed:', error);
-          // Consider if appDataInitialized should be reset to false here to allow a retry.
-          // For now, keeping it true to prevent loops if an error is persistent.
-          // A manual refresh mechanism or more specific error handling might be needed for retries.
+      const initializeApp = async () => {
+        // Core conditions: user must be authenticated, REST client ready, and the
+        // initial authentication check must have completed. This prevents race
+        // conditions where data is fetched before the token is refreshed.
+        if (!isAuthenticated || !restClient || !initialAuthCheckCompleted) {
+          return;
         }
-      }
-    };
-    
-    initializeApp();
-    
-    return () => {
-      mounted = false;
-    };
-  }, [
-    isAuthenticated,
-    restClient,
-    appDataInitialized,
-    refreshUnitCounts,
-    initialAuthCheckCompleted
-  ], 'JotaiAppProvider.tsx:AppInitializer:initializeApp');
+
+        // Primary gate: only run once.
+        if (appDataInitialized) {
+          return;
+        }
+
+        setAppDataInitialized(true); // Mark as initialized immediately
+
+        try {
+          // Base data will be fetched by baseDataCoreAtom when its dependencies (auth, client) are met.
+
+          // Table columns will be initialized by the new useEffect below, reacting to statDefinitions.
+
+          refreshUnitCounts();
+
+          // Worker status will be fetched by workerStatusCoreAtom when its dependencies (auth, client) are met.
+        } catch (error) {
+          if (mounted) {
+            console.error("AppInitializer: App initialization failed:", error);
+            // Consider if appDataInitialized should be reset to false here to allow a retry.
+            // For now, keeping it true to prevent loops if an error is persistent.
+            // A manual refresh mechanism or more specific error handling might be needed for retries.
+          }
+        }
+      };
+
+      initializeApp();
+
+      return () => {
+        mounted = false;
+      };
+    },
+    [
+      isAuthenticated,
+      restClient,
+      appDataInitialized,
+      refreshUnitCounts,
+      initialAuthCheckCompleted,
+    ],
+    "JotaiAppProvider.tsx:AppInitializer:initializeApp"
+  );
 
   // "Getting Started" redirect logic is removed.
   // The dashboard will now load if auth and base data are ready.
@@ -272,22 +306,25 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   // by the dashboard page or its components.
 
   // Effect to initialize/update table columns when statDefinitions change
-  useGuardedEffect(() => {
-    // Only run if statDefinitions have been loaded.
-    if (statDefinitions.length > 0) {
-      initializeTableColumnsAction();
-    }
-    // This effect will re-run if statDefinitions array reference changes,
-    // or if initializeTableColumnsAction (the atom setter function reference) changes (which is unlikely).
-  }, [statDefinitions, initializeTableColumnsAction], 'JotaiAppProvider.tsx:AppInitializer:initializeTableColumns');
-
+  useGuardedEffect(
+    () => {
+      // Only run if statDefinitions have been loaded.
+      if (statDefinitions.length > 0) {
+        initializeTableColumnsAction();
+      }
+      // This effect will re-run if statDefinitions array reference changes,
+      // or if initializeTableColumnsAction (the atom setter function reference) changes (which is unlikely).
+    },
+    [statDefinitions, initializeTableColumnsAction],
+    "JotaiAppProvider.tsx:AppInitializer:initializeTableColumns"
+  );
 
   // The guard that showed a loading fallback when navState was not 'idle' has
   // been removed. It was causing a deadlock by unmounting the NavigationManager
   // before it could execute a redirect side-effect. The navigation machine is
   // designed to be fast enough to prevent any significant "flash" of content.
-  return <>{children}</>
-}
+  return <>{children}</>;
+};
 
 // ============================================================================
 // PATH SAVER - Continuously saves the last known authenticated path
@@ -302,7 +339,7 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
 
 const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
   const isAuthenticated = useAtomValue(isAuthenticatedStrictAtom);
-  const refreshInitialWorkerStatus = useSetAtom(refreshWorkerStatusAtom)
+  const refreshInitialWorkerStatus = useSetAtom(refreshWorkerStatusAtom);
   const setWorkerStatus = useSetAtom(setWorkerStatusAtom);
   const refreshUpgradeStatus = useSetAtom(pendingUpgradePromiseAtom);
   const [, sendAuth] = useAtom(authMachineAtom);
@@ -311,181 +348,222 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
   // latest value without it being a dep that re-creates the SSE connection.
   const upgradeStatus = useAtomValue(pendingUpgradeStatusAtom);
   const upgradeStatusRef = useRef<UpgradeStatus | null>(null);
-  upgradeStatusRef.current = upgradeStatus;
+
+  useGuardedEffect(
+    () => {
+      upgradeStatusRef.current = upgradeStatus;
+    },
+    [upgradeStatus],
+    "JotaiAppProvider:SSEConnectionManager:syncUpgradeStatus"
+  );
 
   // SSE connection with heartbeat monitoring
-  useGuardedEffect(() => {
-    // Connect SSE only when the user is in a strict, stable authenticated state.
-    // Using the strict `isAuthenticatedAtom` (which is false during token refresh)
-    // prevents the connection from being established with an expired token,
-    // which would then be immediately cancelled.
-    if (!isAuthenticated) return
+  useGuardedEffect(
+    () => {
+      // Connect SSE only when the user is in a strict, stable authenticated state.
+      // Using the strict `isAuthenticatedAtom` (which is false during token refresh)
+      // prevents the connection from being established with an expired token,
+      // which would then be immediately cancelled.
+      if (!isAuthenticated) return;
 
-    let eventSource: EventSource | null = null
-    let reconnectTimeout: NodeJS.Timeout | null = null
-    let reconnectAttempts = 0
-    const maxReconnectAttempts = 5
-    let lastHeartbeat = Date.now();
-    let heartbeatCheckInterval: NodeJS.Timeout | null = null;
-    const isDebug = statbusConfig.debug;
+      let eventSource: EventSource | null = null;
+      let reconnectTimeout: NodeJS.Timeout | null = null;
+      let reconnectAttempts = 0;
+      const maxReconnectAttempts = 5;
+      let lastHeartbeat = Date.now();
+      let heartbeatCheckInterval: NodeJS.Timeout | null = null;
+      const isDebug = statbusConfig.debug;
 
-    const connect = () => {
-      try {
-        // Connect to the specific SSE endpoint for worker status checks
-        eventSource = new EventSource('/api/sse/worker_status')
+      const connect = () => {
+        try {
+          // Connect to the specific SSE endpoint for worker status checks
+          eventSource = new EventSource("/api/sse/worker_status");
 
-        eventSource.onopen = () => {
-          reconnectAttempts = 0
-          lastHeartbeat = Date.now();
-        }
+          eventSource.onopen = () => {
+            reconnectAttempts = 0;
+            lastHeartbeat = Date.now();
+          };
 
-        eventSource.onmessage = (event) => {
-          try {
-            const payload = JSON.parse(event.data);
-            if (payload.type === 'upgrade_changed') {
-              refreshUpgradeStatus();
-            } else if (payload.type === 'pipeline_progress' && Array.isArray(payload.phases)) {
-              setWorkerStatus(payload as WorkerStatusSSEPayload);
-            } else if (payload.type === 'import_job_progress') {
-              setWorkerStatus(payload as WorkerStatusSSEPayload);
-            } else if (payload.type && typeof payload.status === 'boolean') {
-              setWorkerStatus({ type: payload.type as WorkerStatusType, status: payload.status });
-            } else if (isDebug) {
-              console.warn("SSE: Unexpected payload format:", payload);
+          eventSource.onmessage = (event) => {
+            try {
+              const payload = JSON.parse(event.data);
+              if (payload.type === "upgrade_changed") {
+                refreshUpgradeStatus();
+              } else if (
+                payload.type === "pipeline_progress" &&
+                Array.isArray(payload.phases)
+              ) {
+                setWorkerStatus(payload as WorkerStatusSSEPayload);
+              } else if (payload.type === "import_job_progress") {
+                setWorkerStatus(payload as WorkerStatusSSEPayload);
+              } else if (payload.type && typeof payload.status === "boolean") {
+                setWorkerStatus({
+                  type: payload.type as WorkerStatusType,
+                  status: payload.status,
+                });
+              } else if (isDebug) {
+                console.warn("SSE: Unexpected payload format:", payload);
+              }
+            } catch (e) {
+              if (isDebug) {
+                console.error(
+                  "SSE: Failed to parse message data:",
+                  event.data,
+                  e
+                );
+              }
             }
-          } catch (e) {
+          };
+
+          // Track heartbeat events from server
+          eventSource.addEventListener("heartbeat", () => {
+            lastHeartbeat = Date.now();
+          });
+
+          eventSource.addEventListener("connected", (event) => {
+            // Trigger an initial full refresh of worker status upon connection
+            refreshInitialWorkerStatus();
+          });
+
+          eventSource.onerror = (event) => {
             if (isDebug) {
-              console.error("SSE: Failed to parse message data:", event.data, e);
+              console.warn(`SSE: Connection error, attempting to reconnect...`);
             }
-          }
-        };
 
-        // Track heartbeat events from server
-        eventSource.addEventListener('heartbeat', () => {
-          lastHeartbeat = Date.now();
-        });
+            eventSource?.close();
 
-        eventSource.addEventListener('connected', (event) => {
-          // Trigger an initial full refresh of worker status upon connection
-          refreshInitialWorkerStatus();
-        });
+            if (reconnectAttempts < maxReconnectAttempts) {
+              const delay = Math.min(
+                1000 * Math.pow(2, reconnectAttempts),
+                30000
+              );
+              reconnectTimeout = setTimeout(() => {
+                reconnectAttempts++;
+                connect();
+              }, delay);
+            } else if (
+              upgradeStatusRef.current === "in_progress" ||
+              upgradeStatusRef.current === "scheduled"
+            ) {
+              // An upgrade is active — don't give up permanently. The fast-backoff
+              // window exhausted (~31 s) but the maintenance window can last minutes.
+              // Keep retrying on a 30 s slow interval; the polling fallback
+              // (upgradePollingEffectAtom) keeps the UI current in the meantime.
+              reconnectTimeout = setTimeout(() => {
+                reconnectAttempts = 0;
+                connect();
+              }, 30000);
+              if (isDebug) {
+                console.warn(
+                  "SSE: Max fast reconnect attempts reached during upgrade. Retrying in 30s."
+                );
+              }
+            } else {
+              console.error(
+                `SSE: Max reconnect attempts (${maxReconnectAttempts}) reached. Giving up.`
+              );
+            }
+          };
+        } catch (error) {
+          console.error(
+            "SSE: Failed to establish initial SSE connection:",
+            error
+          );
+        }
+      };
 
-        eventSource.onerror = (event) => {
+      connect();
+
+      // Monitor heartbeats: if no heartbeat in 90s (3x the 30s interval), reconnect
+      heartbeatCheckInterval = setInterval(() => {
+        const elapsed = Date.now() - lastHeartbeat;
+        if (elapsed > 90000) {
           if (isDebug) {
-            console.warn(`SSE: Connection error, attempting to reconnect...`);
+            console.warn(
+              `SSE: No heartbeat in ${Math.round(elapsed / 1000)}s, reconnecting...`
+            );
           }
-
           eventSource?.close();
-
-          if (reconnectAttempts < maxReconnectAttempts) {
-            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
-            reconnectTimeout = setTimeout(() => {
-              reconnectAttempts++;
-              connect();
-            }, delay);
-          } else if (
-            upgradeStatusRef.current === 'in_progress' ||
-            upgradeStatusRef.current === 'scheduled'
-          ) {
-            // An upgrade is active — don't give up permanently. The fast-backoff
-            // window exhausted (~31 s) but the maintenance window can last minutes.
-            // Keep retrying on a 30 s slow interval; the polling fallback
-            // (upgradePollingEffectAtom) keeps the UI current in the meantime.
-            reconnectTimeout = setTimeout(() => {
-              reconnectAttempts = 0;
-              connect();
-            }, 30000);
-            if (isDebug) {
-              console.warn('SSE: Max fast reconnect attempts reached during upgrade. Retrying in 30s.');
-            }
-          } else {
-            console.error(`SSE: Max reconnect attempts (${maxReconnectAttempts}) reached. Giving up.`);
-          }
-        }
-
-      } catch (error) {
-        console.error('SSE: Failed to establish initial SSE connection:', error);
-      }
-    }
-
-    connect()
-
-    // Monitor heartbeats: if no heartbeat in 90s (3x the 30s interval), reconnect
-    heartbeatCheckInterval = setInterval(() => {
-      const elapsed = Date.now() - lastHeartbeat;
-      if (elapsed > 90000) {
-        if (isDebug) {
-          console.warn(`SSE: No heartbeat in ${Math.round(elapsed / 1000)}s, reconnecting...`);
-        }
-        eventSource?.close();
-        reconnectAttempts = 0;
-        connect();
-      }
-    }, 30000);
-
-    // When the tab regains focus, revalidate auth and reconnect SSE if closed.
-    // If the token expired while backgrounded, the CHECK will trigger
-    // background_refreshing -> stable, and postRefreshCacheInvalidationEffectAtom
-    // handles cache invalidation. If the token is still valid, CHECK returns
-    // directly to stable with no side effects.
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        sendAuth({ type: 'CHECK' });
-        if (eventSource?.readyState === EventSource.CLOSED) {
+          reconnectAttempts = 0;
           connect();
         }
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+      }, 30000);
 
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      if (heartbeatCheckInterval) {
-        clearInterval(heartbeatCheckInterval);
-      }
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout)
-      }
-      if (eventSource) {
-        eventSource.close()
-      }
-    }
-  }, [isAuthenticated, refreshInitialWorkerStatus, setWorkerStatus, sendAuth], 'JotaiAppProvider.tsx:SSEConnectionManager:connect')
+      // When the tab regains focus, revalidate auth and reconnect SSE if closed.
+      // If the token expired while backgrounded, the CHECK will trigger
+      // background_refreshing -> stable, and postRefreshCacheInvalidationEffectAtom
+      // handles cache invalidation. If the token is still valid, CHECK returns
+      // directly to stable with no side effects.
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === "visible") {
+          sendAuth({ type: "CHECK" });
+          if (eventSource?.readyState === EventSource.CLOSED) {
+            connect();
+          }
+        }
+      };
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+
+      return () => {
+        document.removeEventListener(
+          "visibilitychange",
+          handleVisibilityChange
+        );
+        if (heartbeatCheckInterval) {
+          clearInterval(heartbeatCheckInterval);
+        }
+        if (reconnectTimeout) {
+          clearTimeout(reconnectTimeout);
+        }
+        if (eventSource) {
+          eventSource.close();
+        }
+      };
+    },
+    [isAuthenticated, refreshInitialWorkerStatus, setWorkerStatus, sendAuth],
+    "JotaiAppProvider.tsx:SSEConnectionManager:connect"
+  );
 
   // Proactive token refresh: schedule a REFRESH at 80% of the token's remaining lifetime.
   // This ensures the token is renewed before it expires, keeping SSE connections alive.
-  useGuardedEffect(() => {
-    if (!isAuthenticated || !tokenExpiresAt) return;
+  useGuardedEffect(
+    () => {
+      if (!isAuthenticated || !tokenExpiresAt) return;
 
-    const expiresAtMs = new Date(tokenExpiresAt).getTime();
-    const now = Date.now();
-    const remainingMs = expiresAtMs - now;
+      const expiresAtMs = new Date(tokenExpiresAt).getTime();
+      const now = Date.now();
+      const remainingMs = expiresAtMs - now;
 
-    // If the token is already expired or about to expire in <10s, refresh immediately
-    if (remainingMs < 10000) {
-      sendAuth({ type: 'REFRESH' });
-      return;
-    }
-
-    // Schedule refresh at 80% of remaining lifetime
-    const refreshDelay = Math.round(remainingMs * 0.8);
-    if (statbusConfig.debug) {
-      const refreshAt = new Date(now + refreshDelay);
-      console.log(`SSE: Token expires at ${new Date(expiresAtMs).toISOString()}, scheduling refresh in ${Math.round(refreshDelay / 1000)}s (at ${refreshAt.toISOString()})`);
-    }
-
-    const refreshTimer = setTimeout(() => {
-      if (statbusConfig.debug) {
-        console.log('SSE: Proactive token refresh triggered');
+      // If the token is already expired or about to expire in <10s, refresh immediately
+      if (remainingMs < 10000) {
+        sendAuth({ type: "REFRESH" });
+        return;
       }
-      sendAuth({ type: 'REFRESH' });
-    }, refreshDelay);
 
-    return () => clearTimeout(refreshTimer);
-  }, [isAuthenticated, tokenExpiresAt, sendAuth], 'JotaiAppProvider.tsx:SSEConnectionManager:proactiveRefresh')
+      // Schedule refresh at 80% of remaining lifetime
+      const refreshDelay = Math.round(remainingMs * 0.8);
+      if (statbusConfig.debug) {
+        const refreshAt = new Date(now + refreshDelay);
+        console.log(
+          `SSE: Token expires at ${new Date(expiresAtMs).toISOString()}, scheduling refresh in ${Math.round(refreshDelay / 1000)}s (at ${refreshAt.toISOString()})`
+        );
+      }
 
-  return <>{children}</>
-}
+      const refreshTimer = setTimeout(() => {
+        if (statbusConfig.debug) {
+          console.log("SSE: Proactive token refresh triggered");
+        }
+        sendAuth({ type: "REFRESH" });
+      }, refreshDelay);
+
+      return () => clearTimeout(refreshTimer);
+    },
+    [isAuthenticated, tokenExpiresAt, sendAuth],
+    "JotaiAppProvider.tsx:SSEConnectionManager:proactiveRefresh"
+  );
+
+  return <>{children}</>;
+};
 
 // ============================================================================
 // PAGE CONTENT GUARD
@@ -496,7 +574,13 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
  * It's only rendered after the client has mounted, preventing its hooks from
  * suspending on the server, which is a common cause of hydration errors.
  */
-const PageContentGuardInner = ({ children, loadingFallback }: { children: ReactNode, loadingFallback: ReactNode }) => {
+const PageContentGuardInner = ({
+  children,
+  loadingFallback,
+}: {
+  children: ReactNode;
+  loadingFallback: ReactNode;
+}) => {
   const navState = useAtomValue(navigationMachineAtom);
   const { isLoadingAuth } = useAppReady();
 
@@ -504,7 +588,7 @@ const PageContentGuardInner = ({ children, loadingFallback }: { children: ReactN
   // if its current state is not tagged as 'stable'. This is a more robust and
   // maintainable approach than checking for specific state names. It prevents
   // content from rendering while the machine is booting, evaluating, or redirecting.
-  const isNavigating = !navState.hasTag('stable');
+  const isNavigating = !navState.hasTag("stable");
 
   // By the time this component renders, we are guaranteed to be on the client.
   // We only need to check the application's readiness state.
@@ -515,19 +599,28 @@ const PageContentGuardInner = ({ children, loadingFallback }: { children: ReactN
   return <>{children}</>;
 };
 
-
 /**
  * PageContentGuard acts as a "client-only" boundary. It ensures that the server
  * and the initial client render output the exact same thing (the loading fallback).
  * This prevents hydration mismatches caused by hooks inside child components
  * (like PageContentGuardInner) that might suspend on the server.
  */
-const PageContentGuard = ({ children, loadingFallback }: { children: ReactNode, loadingFallback: ReactNode }) => {
+const PageContentGuard = ({
+  children,
+  loadingFallback,
+}: {
+  children: ReactNode;
+  loadingFallback: ReactNode;
+}) => {
   const [isMounted, setIsMounted] = useState(false);
 
-  useGuardedEffect(() => {
-    setIsMounted(true);
-  }, [], 'JotaiAppProvider.tsx:PageContentGuard:setMounted');
+  useGuardedEffect(
+    () => {
+      setIsMounted(true);
+    },
+    [],
+    "JotaiAppProvider.tsx:PageContentGuard:setMounted"
+  );
 
   // On server, and on initial client render, isMounted is false, so we render
   // the fallback. This guarantees the server and client match.
@@ -537,8 +630,12 @@ const PageContentGuard = ({ children, loadingFallback }: { children: ReactNode, 
 
   // After mounting on the client, we render the actual component which can
   // now safely use client-side hooks without causing a hydration mismatch.
-  return <PageContentGuardInner loadingFallback={loadingFallback}>{children}</PageContentGuardInner>;
-}
+  return (
+    <PageContentGuardInner loadingFallback={loadingFallback}>
+      {children}
+    </PageContentGuardInner>
+  );
+};
 
 // ============================================================================
 // LOADING FALLBACK COMPONENTS
@@ -551,34 +648,42 @@ const AppLoadingFallback = () => (
       <p className="mt-4 text-lg text-gray-600">Loading application...</p>
     </div>
   </div>
-)
+);
 
 const ErrorBoundary = ({ children }: { children: ReactNode }) => {
-  const [hasError, setHasError] = React.useState(false)
-  
-  useGuardedEffect(() => {
-    const handleError = (event: ErrorEvent) => {
-      console.error('Global error caught by ErrorBoundary:', {
-        message: event.message,
-        filename: event.filename,
-        lineno: event.lineno,
-        colno: event.colno,
-        errorObject: event.error, // This often contains the actual Error object
-      });
-      setHasError(true)
-    }
-    
-    window.addEventListener('error', handleError)
-    return () => window.removeEventListener('error', handleError)
-  }, [], 'JotaiAppProvider.tsx:ErrorBoundary:handleError')
-  
+  const [hasError, setHasError] = React.useState(false);
+
+  useGuardedEffect(
+    () => {
+      const handleError = (event: ErrorEvent) => {
+        console.error("Global error caught by ErrorBoundary:", {
+          message: event.message,
+          filename: event.filename,
+          lineno: event.lineno,
+          colno: event.colno,
+          errorObject: event.error, // This often contains the actual Error object
+        });
+        setHasError(true);
+      };
+
+      window.addEventListener("error", handleError);
+      return () => window.removeEventListener("error", handleError);
+    },
+    [],
+    "JotaiAppProvider.tsx:ErrorBoundary:handleError"
+  );
+
   if (hasError) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">Something went wrong</h1>
-          <p className="text-gray-600 mb-4">Please refresh the page and try again.</p>
-          <button 
+          <h1 className="text-2xl font-bold text-red-600 mb-4">
+            Something went wrong
+          </h1>
+          <p className="text-gray-600 mb-4">
+            Please refresh the page and try again.
+          </p>
+          <button
             onClick={() => window.location.reload()}
             className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
           >
@@ -586,28 +691,28 @@ const ErrorBoundary = ({ children }: { children: ReactNode }) => {
           </button>
         </div>
       </div>
-    )
+    );
   }
-  
-  return <>{children}</>
-}
+
+  return <>{children}</>;
+};
 
 // ============================================================================
 // MAIN PROVIDER COMPONENT
 // ============================================================================
 
 interface JotaiAppProviderProps {
-  children: ReactNode
-  enableSSE?: boolean
-  enableErrorBoundary?: boolean
-  loadingFallback?: ReactNode
+  children: ReactNode;
+  enableSSE?: boolean;
+  enableErrorBoundary?: boolean;
+  loadingFallback?: ReactNode;
 }
 
-export const JotaiAppProvider = ({ 
-  children, 
+export const JotaiAppProvider = ({
+  children,
   enableSSE = true,
   enableErrorBoundary = true,
-  loadingFallback = <AppLoadingFallback />
+  loadingFallback = <AppLoadingFallback />,
 }: JotaiAppProviderProps) => {
   const content = (
     <Provider>
@@ -618,9 +723,7 @@ export const JotaiAppProvider = ({
           <AuthCrossTabSyncer />
           <PageContentGuard loadingFallback={loadingFallback}>
             {enableSSE ? (
-              <SSEConnectionManager>
-                {children}
-              </SSEConnectionManager>
+              <SSEConnectionManager>{children}</SSEConnectionManager>
             ) : (
               children
             )}
@@ -628,16 +731,14 @@ export const JotaiAppProvider = ({
         </AppInitializer>
       </Suspense>
     </Provider>
-  )
-  
+  );
+
   return enableErrorBoundary ? (
-    <ErrorBoundary>
-      {content}
-    </ErrorBoundary>
+    <ErrorBoundary>{content}</ErrorBoundary>
   ) : (
     content
-  )
-}
+  );
+};
 
 // ============================================================================
 // HOOK FOR MANUAL INITIALIZATION
@@ -648,33 +749,33 @@ export const JotaiAppProvider = ({
  * Useful for testing or special cases
  */
 export const useManualInit = () => {
-  const refreshBaseData = useSetAtom(refreshBaseDataAtom)
-  const refreshWorkerStatus = useSetAtom(refreshWorkerStatusAtom)
-  const setRestClient = useSetAtom(restClientAtom)
-  
+  const refreshBaseData = useSetAtom(refreshBaseDataAtom);
+  const refreshWorkerStatus = useSetAtom(refreshWorkerStatusAtom);
+  const setRestClient = useSetAtom(restClientAtom);
+
   const initializeApp = async () => {
     try {
       // Initialize REST client
-      const { getBrowserRestClient } = await import('@/context/RestClientStore')
-      const client = await getBrowserRestClient()
-      setRestClient(client)
-      
-      // Fetch base data
-      await refreshBaseData()
-      
-      // Fetch worker status
-      await refreshWorkerStatus()
-      
-      return true
-    } catch (error) {
-      console.error('Manual initialization failed:', error)
-      return false
-    }
-  }
-  
-  return { initializeApp }
-}
+      const { getBrowserRestClient } =
+        await import("@/context/RestClientStore");
+      const client = await getBrowserRestClient();
+      setRestClient(client);
 
+      // Fetch base data
+      await refreshBaseData();
+
+      // Fetch worker status
+      await refreshWorkerStatus();
+
+      return true;
+    } catch (error) {
+      console.error("Manual initialization failed:", error);
+      return false;
+    }
+  };
+
+  return { initializeApp };
+};
 
 /*
 // Replace your complex provider nesting with this:
@@ -705,4 +806,4 @@ export const useManualInit = () => {
 </JotaiAppProvider>
 */
 
-export default JotaiAppProvider
+export default JotaiAppProvider;

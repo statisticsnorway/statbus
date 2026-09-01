@@ -3,13 +3,17 @@ import { FormField } from "@/components/form/form-field";
 import { useBaseData } from "@/atoms/base-data";
 import { EditableField } from "@/components/form/editable-field";
 import { EditableHierarchicalField } from "@/components/form/editable-hierarchical-field";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState } from "react";
 import { updateExternalIdent } from "@/app/legal-units/[id]/update-external-ident-server-action";
 import { SubmissionFeedbackDebugInfo } from "@/components/form/submission-feedback-debug-info";
 import { useStatisticalUnitDetails } from "@/components/statistical-unit-details/use-unit-details";
 import Loading from "@/components/statistical-unit-details/loading";
 import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
-import { updateEstablishment, updateEstablishmentImage, deleteEstablishmentImage } from "../update-establishment-server-actions";
+import {
+  updateEstablishment,
+  updateEstablishmentImage,
+  deleteEstablishmentImage,
+} from "../update-establishment-server-actions";
 import { updateLocation } from "@/app/legal-units/[id]/update-legal-unit-server-actions";
 import { useDetailsPageData } from "@/atoms/edits";
 import { useSWRConfig } from "swr";
@@ -17,6 +21,8 @@ import { EditableFieldWithMetadata } from "@/components/form/editable-field-with
 import { SelectFormField } from "@/components/form/select-form-field";
 import { EditableFieldGroup } from "@/components/form/editable-field-group";
 import { EditableImageFieldWithMetadata } from "@/components/form/editable-image-field-with-metadata";
+import { useClientReady } from "@/hooks/use-client-ready";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 
 export default function GeneralInfoForm({ id }: { readonly id: string }) {
   const [state, formAction] = useActionState(
@@ -40,20 +46,21 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
     "establishment"
   );
   const { mutate } = useSWRConfig();
-  const [isClient, setIsClient] = useState(false);
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  const isClient = useClientReady();
 
-  useEffect(() => {
-    if (
-      externalIdentState?.status === "success" ||
-      state?.status === "success" ||
-      locationState?.status === "success"
-    ) {
-      mutate((key) => Array.isArray(key) && key.includes(id));
-    }
-  }, [externalIdentState, state, locationState, mutate, id]);
+  useGuardedEffect(
+    () => {
+      if (
+        externalIdentState?.status === "success" ||
+        state?.status === "success" ||
+        locationState?.status === "success"
+      ) {
+        mutate((key) => Array.isArray(key) && key.includes(id));
+      }
+    },
+    [externalIdentState, state, locationState, mutate, id],
+    "GeneralInfoForm:revalidateAfterUpdate"
+  );
   if (!isClient) {
     return <Loading />;
   }
@@ -95,7 +102,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
       <div className="grid lg:grid-cols-2 gap-4 p-3">
         {externalIdentTypes.map((type) => {
           const value = establishment?.external_idents[type.code];
-          
+
           // Use hierarchical field component for hierarchical identifier types
           if (type.shape === "hierarchical" && type.labels) {
             return (
@@ -110,7 +117,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
               />
             );
           }
-          
+
           return (
             <EditableField
               key={type.code}

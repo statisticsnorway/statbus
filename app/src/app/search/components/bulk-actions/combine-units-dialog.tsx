@@ -22,7 +22,7 @@ import { useTimeContext } from "@/atoms/app-derived";
 import { type StatisticalUnit } from "@/atoms/search";
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 interface CombineUnitsDialogProps {
   readonly isOpen: boolean;
@@ -44,14 +44,14 @@ export function CombineUnitsDialog({
   const [validTo, setValidTo] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Initialize defaults from selected time context when dialog opens
-  useEffect(() => {
-    if (isOpen && selectedTimeContext) {
+  const handleOpenChange = (open: boolean) => {
+    if (open && selectedTimeContext) {
       setValidFrom(selectedTimeContext.valid_from ?? "");
       // valid_to from context might be "infinity" or a date - both are valid
       setValidTo(selectedTimeContext.valid_to ?? "");
     }
-  }, [isOpen, selectedTimeContext]);
+    onOpenChange(open);
+  };
 
   const handleConfirm = async () => {
     setIsSubmitting(true);
@@ -66,7 +66,7 @@ export function CombineUnitsDialog({
   const validToDisplay = validTo === "infinity" ? "" : validTo;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Combine Units</DialogTitle>
@@ -168,7 +168,9 @@ export function CombineUnitsDialog({
                           : undefined
                       }
                       onSelect={(date) =>
-                        setValidTo(date ? format(date, "yyyy-MM-dd") : "infinity")
+                        setValidTo(
+                          date ? format(date, "yyyy-MM-dd") : "infinity"
+                        )
                       }
                     />
                   </PopoverContent>

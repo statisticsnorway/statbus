@@ -1,9 +1,14 @@
 "use client";
 
-import { isDebugInspectorUIVisible } from '@/atoms/inspector';
+import { isDebugInspectorUIVisible } from "@/atoms/inspector";
 
-type LogLevel = 'debug' | 'info' | 'warn' | 'error';
-type LogCall = { level: LogLevel; context: string; message: string; args: unknown[] };
+type LogLevel = "debug" | "info" | "warn" | "error";
+type LogCall = {
+  level: LogLevel;
+  context: string;
+  message: string;
+  args: unknown[];
+};
 
 class ClientLogger {
   private buffer: LogCall[] = [];
@@ -25,17 +30,22 @@ class ClientLogger {
     this.buffer = [];
   }
 
-  private log(level: LogLevel, context: string, message: string, ...args: unknown[]) {
+  private log(
+    level: LogLevel,
+    context: string,
+    message: string,
+    ...args: unknown[]
+  ) {
     // During the brief period before initialization, buffer debug messages.
     // Other levels are logged immediately.
-    if (!this.isInitialized && level === 'debug') {
+    if (!this.isInitialized && level === "debug") {
       this.buffer.push({ level, context, message, args });
       return;
     }
 
     // After initialization, debug messages are only shown if the inspector is visible.
     // This keeps the console clean during normal development.
-    if (level === 'debug' && !isDebugInspectorUIVisible) {
+    if (level === "debug" && !isDebugInspectorUIVisible) {
       return;
     }
 
@@ -43,39 +53,35 @@ class ClientLogger {
     const formattedMessage = `${timestamp} [${level.toUpperCase()}] [${context}] ${message}`;
 
     switch (level) {
-      case 'debug':
-        // eslint-disable-next-line no-console
+      case "debug":
         console.log(formattedMessage, ...args);
         break;
-      case 'info':
-        // eslint-disable-next-line no-console
+      case "info":
         console.info(formattedMessage, ...args);
         break;
-      case 'warn':
-        // eslint-disable-next-line no-console
+      case "warn":
         console.warn(formattedMessage, ...args);
         break;
-      case 'error':
-        // eslint-disable-next-line no-console
+      case "error":
         console.error(formattedMessage, ...args);
         break;
     }
   }
 
   public debug(context: string, message: string, ...args: unknown[]) {
-    this.log('debug', context, message, ...args);
+    this.log("debug", context, message, ...args);
   }
 
   public info(context: string, message: string, ...args: unknown[]) {
-    this.log('info', context, message, ...args);
+    this.log("info", context, message, ...args);
   }
 
   public warn(context: string, message: string, ...args: unknown[]) {
-    this.log('warn', context, message, ...args);
+    this.log("warn", context, message, ...args);
   }
 
   public error(context: string, message: string, ...args: unknown[]) {
-    this.log('error', context, message, ...args);
+    this.log("error", context, message, ...args);
   }
 }
 

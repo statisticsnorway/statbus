@@ -3,8 +3,8 @@ import { useBaseData } from "@/atoms/base-data";
 import { useStatisticalUnitStats } from "@/components/statistical-unit-details/use-unit-details";
 import Loading from "@/components/statistical-unit-details/loading";
 import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
-import { useEffect, useState } from "react";
 import { DisplayFormField } from "@/components/form/display-field";
+import { useClientReady } from "@/hooks/use-client-ready";
 
 export default function StatisticalVariablesForm({
   id,
@@ -13,10 +13,7 @@ export default function StatisticalVariablesForm({
 }) {
   const { statDefinitions } = useBaseData();
   const { data, isLoading, error } = useStatisticalUnitStats(id, "enterprise");
-  const [isClient, setIsClient] = useState(false);
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  const isClient = useClientReady();
 
   if (!isClient) {
     return <Loading />;

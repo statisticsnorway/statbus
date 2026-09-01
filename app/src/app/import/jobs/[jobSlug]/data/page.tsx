@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react";
-import { useParams } from 'next/navigation';
-import { useSWRConfig } from 'swr';
+import { useParams } from "next/navigation";
+import { useSWRConfig } from "swr";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import type { Enums } from "@/lib/database.types";
 import { DataTableSkeleton } from "@/components/data-table/data-table-skeleton";
@@ -10,9 +10,22 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DataTable } from "@/components/data-table/data-table";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
-import { 
-  ColumnDef, PaginationState, SortingState, ColumnFiltersState, FilterFn, Row, VisibilityState,
-  useReactTable, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, getFacetedRowModel, getFacetedUniqueValues, getFacetedMinMaxValues 
+import {
+  ColumnDef,
+  PaginationState,
+  SortingState,
+  ColumnFiltersState,
+  FilterFn,
+  Row,
+  VisibilityState,
+  useReactTable,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  getFacetedRowModel,
+  getFacetedUniqueValues,
+  getFacetedMinMaxValues,
 } from "@tanstack/react-table";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -24,24 +37,26 @@ import { externalIdentTypesAtom } from "@/atoms/base-data";
 import { importDownloadContextAtom } from "@/atoms/import-download-context";
 import { type ImportJobWithDetails as ImportJob } from "@/atoms/import";
 import { ErrorDisplay } from "@/components/import/ErrorDisplay";
-import { 
-  useSWRWithAuthRefresh, 
-  isJwtExpiredError, 
-  JwtExpiredError 
+import {
+  useSWRWithAuthRefresh,
+  isJwtExpiredError,
+  JwtExpiredError,
 } from "@/hooks/use-swr-with-auth-refresh";
-import { statbusConfig } from '@/lib/statbus-config';
+import { statbusConfig } from "@/lib/statbus-config";
 
 const formatNumber = (num: number | null | undefined): string => {
   if (num === null || num === undefined) return "0";
-  return num.toLocaleString('nb-NO');
+  return num.toLocaleString("nb-NO");
 };
+
+const QUALITY_FILTER_IDS = ["state", "errors", "warnings"];
 
 type ImportJobDataRow = {
   row_id: number;
-  state: Enums<'import_data_state'>;
+  state: Enums<"import_data_state">;
   name?: string | null;
-  operation?: Enums<'import_row_operation_type'> | null;
-  action?: Enums<'import_row_action_type'> | null;
+  operation?: Enums<"import_row_operation_type"> | null;
+  action?: Enums<"import_row_action_type"> | null;
   errors?: Record<string, string> | null;
   warnings?: Record<string, string> | null;
   merge_status?: string | null;
@@ -63,7 +78,7 @@ const jobFetcher = async (key: string): Promise<ImportJob> => {
   const client = await getBrowserRestClient();
   if (!client) throw new Error("REST client not available");
 
-  const [, slug] = key.split('/');
+  const [, slug] = key.split("/");
   const { data, error } = await client
     .from("import_job")
     .select("*, import_definition(name)")
@@ -78,17 +93,19 @@ const jobFetcher = async (key: string): Promise<ImportJob> => {
   return data as unknown as ImportJob;
 };
 
-const dataFetcher = async (key: string): Promise<{ data: ImportJobDataRow[]; count: number | null }> => {
+const dataFetcher = async (
+  key: string
+): Promise<{ data: ImportJobDataRow[]; count: number | null }> => {
   const client = await getBrowserRestClient();
   if (!client) throw new Error("REST client not available");
 
-  const [, ...args] = key.split('/');
+  const [, ...args] = key.split("/");
   {
-    const [tableName, query] = args[0].split('?');
+    const [tableName, query] = args[0].split("?");
     const searchParams = new URLSearchParams(query);
-    const page = parseInt(searchParams.get('page') || '0', 10);
-    const pageSize = parseInt(searchParams.get('pageSize') || '10', 10);
-    const sortingParams = searchParams.getAll('sort');
+    const page = parseInt(searchParams.get("page") || "0", 10);
+    const pageSize = parseInt(searchParams.get("pageSize") || "10", 10);
+    const sortingParams = searchParams.getAll("sort");
 
     const from = page * pageSize;
     const to = from + pageSize - 1;
@@ -96,19 +113,19 @@ const dataFetcher = async (key: string): Promise<{ data: ImportJobDataRow[]; cou
     let queryBuilder = client
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the per-job import data table name is a validated runtime string, not a member of the generated schema's relation union.
       .from(tableName as any)
-      .select('*', { count: 'exact' })
+      .select("*", { count: "exact" })
       .range(from, to);
-    
-    sortingParams.forEach(sort => {
-      const [id, dir] = sort.split('.');
+
+    sortingParams.forEach((sort) => {
+      const [id, dir] = sort.split(".");
       if (id && dir) {
-        queryBuilder = queryBuilder.order(id, { ascending: dir === 'asc' });
+        queryBuilder = queryBuilder.order(id, { ascending: dir === "asc" });
       }
     });
 
     const filters = new Map<string, string[]>();
     for (const [key, value] of searchParams.entries()) {
-      if (key !== 'page' && key !== 'pageSize' && key !== 'sort') {
+      if (key !== "page" && key !== "pageSize" && key !== "sort") {
         if (!filters.has(key)) {
           filters.set(key, []);
         }
@@ -117,16 +134,16 @@ const dataFetcher = async (key: string): Promise<{ data: ImportJobDataRow[]; cou
     }
 
     filters.forEach((values, key) => {
-      if (key === 'errors' || key === 'warnings') {
+      if (key === "errors" || key === "warnings") {
         const filterValue = values[0];
-        if (filterValue === 'is_null') {
+        if (filterValue === "is_null") {
           queryBuilder = queryBuilder.or(`${key}.is.null,${key}.eq.{}`);
-        } else if (filterValue === 'not_null') {
-          queryBuilder = queryBuilder.not(key, 'is', null).not(key, 'eq', '{}');
+        } else if (filterValue === "not_null") {
+          queryBuilder = queryBuilder.not(key, "is", null).not(key, "eq", "{}");
         }
-      } else if (['operation', 'state', 'action'].includes(key)) {
-        if (values.length === 1 && values[0] === 'not_error') {
-          queryBuilder = queryBuilder.neq(key, 'error');
+      } else if (["operation", "state", "action"].includes(key)) {
+        if (values.length === 1 && values[0] === "not_error") {
+          queryBuilder = queryBuilder.neq(key, "error");
         } else {
           queryBuilder = queryBuilder.in(key, values);
         }
@@ -146,10 +163,10 @@ const dataFetcher = async (key: string): Promise<{ data: ImportJobDataRow[]; cou
   }
 };
 
-
 export default function ImportJobDataPage() {
   const params = useParams();
-  const jobSlug = typeof params.jobSlug === 'string' ? params.jobSlug : undefined;
+  const jobSlug =
+    typeof params.jobSlug === "string" ? params.jobSlug : undefined;
 
   const { mutate } = useSWRConfig();
   const externalIdentTypes = useAtomValue(externalIdentTypesAtom);
@@ -164,10 +181,18 @@ export default function ImportJobDataPage() {
     { id: "row_id", desc: false },
   ]);
 
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
+    []
+  );
+  const [columnVisibility, setColumnVisibility] =
+    React.useState<VisibilityState>({});
 
-  const { data: job, error: jobError, isLoading: isJobLoading, mutate: mutateJob } = useSWRWithAuthRefresh<ImportJob, Error>(
+  const {
+    data: job,
+    error: jobError,
+    isLoading: isJobLoading,
+    mutate: mutateJob,
+  } = useSWRWithAuthRefresh<ImportJob, Error>(
     `import-job/${jobSlug}`,
     jobFetcher,
     undefined,
@@ -180,14 +205,14 @@ export default function ImportJobDataPage() {
     if (!tableName) return null;
 
     const params = new URLSearchParams();
-    params.append('page', pagination.pageIndex.toString());
-    params.append('pageSize', pagination.pageSize.toString());
-    sorting.forEach(sort => {
-      params.append('sort', `${sort.id}.${sort.desc ? 'desc' : 'asc'}`);
+    params.append("page", pagination.pageIndex.toString());
+    params.append("pageSize", pagination.pageSize.toString());
+    sorting.forEach((sort) => {
+      params.append("sort", `${sort.id}.${sort.desc ? "desc" : "asc"}`);
     });
-    columnFilters.forEach(filter => {
+    columnFilters.forEach((filter) => {
       if (Array.isArray(filter.value)) {
-        filter.value.forEach(val => params.append(filter.id, String(val)));
+        filter.value.forEach((val) => params.append(filter.id, String(val)));
       } else if (filter.value) {
         params.append(filter.id, String(filter.value));
       }
@@ -196,90 +221,113 @@ export default function ImportJobDataPage() {
     return `import-data/${tableName}?${params.toString()}`;
   }, [tableName, pagination, sorting, columnFilters]);
 
-
-  const { 
-    data: tableData, 
-    error: tableError, 
-    isLoading: isTableDataLoading, 
-    isValidating: isTableDataValidating, 
+  const {
+    data: tableData,
+    error: tableError,
+    isLoading: isTableDataLoading,
+    isValidating: isTableDataValidating,
     mutate: mutateTableData,
-    isAwaitingAuthRefresh: awaitingAuthRefresh 
-  } = useSWRWithAuthRefresh<{
-    data: ImportJobDataRow[];
-    count: number | null;
-  }, Error>(
+    isAwaitingAuthRefresh: awaitingAuthRefresh,
+  } = useSWRWithAuthRefresh<
+    {
+      data: ImportJobDataRow[];
+      count: number | null;
+    },
+    Error
+  >(
     tableDataSWRKey,
     dataFetcher,
     { revalidateOnFocus: false, keepPreviousData: true },
     "ImportJobDataPage:tableData"
   );
 
-  useGuardedEffect(() => {
-    if (!job?.id) return;
+  useGuardedEffect(
+    () => {
+      if (!job?.id) return;
 
-    const sseUrl = `/api/sse/import-jobs?ids=${job.id}&scope=updates_for_ids_only`;
-    const eventSource = new EventSource(sseUrl);
+      const sseUrl = `/api/sse/import-jobs?ids=${job.id}&scope=updates_for_ids_only`;
+      const eventSource = new EventSource(sseUrl);
 
-    eventSource.addEventListener('heartbeat', (event) => {
-      if (statbusConfig.debug) {
-        const heartbeat = JSON.parse(event.data);
-        console.log(`SSE Heartbeat for job ${job.id}:`, heartbeat);
-      }
-    });
-
-    eventSource.onmessage = (event) => {
-      try {
-        if (!event.data) return;
-        const ssePayload = JSON.parse(event.data);
-        if (ssePayload.type === "connection_established") return;
-
-        // If the update is for our job, revalidate SWR caches
-        if (ssePayload.import_job?.id === job.id) {
-          if (statbusConfig.debug) {
-            console.log(`SSE: Job ${job.id} updated, revalidating data page.`);
-          }
-          
-          // Optimistically update the job details from the SSE payload
-          if (ssePayload.verb === 'DELETE') {
-            // If the job is deleted, clear the job data to show a "not found" message.
-            mutate(`import-job/${jobSlug}`, null, { revalidate: false });
-          } else {
-            // For INSERT or UPDATE, inject the new data from the SSE payload
-            mutate(`import-job/${jobSlug}`, ssePayload.import_job, { revalidate: false });
-          }
-
-          // Revalidate the table data as it has likely changed
-          if (tableDataSWRKey) {
-            mutate(tableDataSWRKey);
-          }
+      eventSource.addEventListener("heartbeat", (event) => {
+        if (statbusConfig.debug) {
+          const heartbeat = JSON.parse(event.data);
+          console.log(`SSE Heartbeat for job ${job.id}:`, heartbeat);
         }
-      } catch (error) {
-        console.error("Error processing SSE message on data page:", error);
-      }
-    };
+      });
 
-    eventSource.onerror = (err) => {
+      eventSource.onmessage = (event) => {
+        try {
+          if (!event.data) return;
+          const ssePayload = JSON.parse(event.data);
+          if (ssePayload.type === "connection_established") return;
+
+          // If the update is for our job, revalidate SWR caches
+          if (ssePayload.import_job?.id === job.id) {
+            if (statbusConfig.debug) {
+              console.log(
+                `SSE: Job ${job.id} updated, revalidating data page.`
+              );
+            }
+
+            // Optimistically update the job details from the SSE payload
+            if (ssePayload.verb === "DELETE") {
+              // If the job is deleted, clear the job data to show a "not found" message.
+              mutate(`import-job/${jobSlug}`, null, { revalidate: false });
+            } else {
+              // For INSERT or UPDATE, inject the new data from the SSE payload
+              mutate(`import-job/${jobSlug}`, ssePayload.import_job, {
+                revalidate: false,
+              });
+            }
+
+            // Revalidate the table data as it has likely changed
+            if (tableDataSWRKey) {
+              mutate(tableDataSWRKey);
+            }
+          }
+        } catch (error) {
+          console.error("Error processing SSE message on data page:", error);
+        }
+      };
+
+      eventSource.onerror = (err) => {
         console.error(`SSE connection error for job ${job.id}:`, err);
         eventSource.close();
-    };
+      };
 
-    return () => {
-      eventSource.close();
-    };
-  }, [job?.id, jobSlug, tableDataSWRKey, mutate], 'ImportJobDataPage:sseListener');
+      return () => {
+        eventSource.close();
+      };
+    },
+    [job?.id, jobSlug, tableDataSWRKey, mutate],
+    "ImportJobDataPage:sseListener"
+  );
 
   // Set download context atom for command palette; clear on unmount
-  useGuardedEffect(() => {
-    if (!job?.id || !job?.slug) return;
-    setImportDownloadContext({
-      jobId: job.id,
-      jobSlug: job.slug,
-      totalRows: job.total_rows ?? 0,
-      errorCount: job.error_count ?? 0,
-      warningCount: job.warning_count ?? 0,
-    });
-    return () => { setImportDownloadContext(null); };
-  }, [job?.id, job?.slug, job?.total_rows, job?.error_count, job?.warning_count, setImportDownloadContext], 'ImportJobDataPage:downloadContext');
+  useGuardedEffect(
+    () => {
+      if (!job?.id || !job?.slug) return;
+      setImportDownloadContext({
+        jobId: job.id,
+        jobSlug: job.slug,
+        totalRows: job.total_rows ?? 0,
+        errorCount: job.error_count ?? 0,
+        warningCount: job.warning_count ?? 0,
+      });
+      return () => {
+        setImportDownloadContext(null);
+      };
+    },
+    [
+      job?.id,
+      job?.slug,
+      job?.total_rows,
+      job?.error_count,
+      job?.warning_count,
+      setImportDownloadContext,
+    ],
+    "ImportJobDataPage:downloadContext"
+  );
 
   const pageCount = React.useMemo(() => {
     return tableData?.count != null
@@ -289,57 +337,80 @@ export default function ImportJobDataPage() {
 
   const columns = React.useMemo<ColumnDef<ImportJobDataRow>[]>(() => {
     const operationOptions = [
-      { label: 'insert', value: 'insert' }, { label: 'replace', value: 'replace' }, { label: 'update', value: 'update' }
+      { label: "insert", value: "insert" },
+      { label: "replace", value: "replace" },
+      { label: "update", value: "update" },
     ];
     const stateOptions = [
-      { label: 'pending', value: 'pending' }, { label: 'analysing', value: 'analysing' }, { label: 'analysed', value: 'analysed' },
-      { label: 'processing', value: 'processing' }, { label: 'processed', value: 'processed' }, { label: 'error', value: 'error' }
+      { label: "pending", value: "pending" },
+      { label: "analysing", value: "analysing" },
+      { label: "analysed", value: "analysed" },
+      { label: "processing", value: "processing" },
+      { label: "processed", value: "processed" },
+      { label: "error", value: "error" },
     ];
     const actionOptions = [
-      { label: 'insert', value: 'insert' }, { label: 'replace', value: 'replace' },
-      { label: 'update', value: 'update' }, { label: 'skip', value: 'skip' }
+      { label: "insert", value: "insert" },
+      { label: "replace", value: "replace" },
+      { label: "update", value: "update" },
+      { label: "skip", value: "skip" },
     ];
 
-    const externalIdentCodes = externalIdentTypes.map(e => e.code).filter((c): c is string => c !== null);
+    const externalIdentCodes = externalIdentTypes
+      .map((e) => e.code)
+      .filter((c): c is string => c !== null);
     const preferredOrder = [
-      'row_id',
-      'operation',
-      'state',
-      'action',
-      'errors',
-      'warnings',
-      'merge_status',
+      "row_id",
+      "operation",
+      "state",
+      "action",
+      "errors",
+      "warnings",
+      "merge_status",
       ...externalIdentCodes,
-      'name'
+      "name",
     ];
     const allKeys = new Set<string>();
 
     if (tableData?.data) {
-        tableData.data.forEach(row => {
-            Object.keys(row).forEach(key => allKeys.add(key));
-        });
+      tableData.data.forEach((row) => {
+        Object.keys(row).forEach((key) => allKeys.add(key));
+      });
     }
 
     const baseKeys = new Set<string>();
-    allKeys.forEach(key => {
-        const activityMatch = key.match(/^(.*_activity)_category_code_raw$/);
-        if (activityMatch) {
-            baseKeys.add(activityMatch[1]); // e.g. primary_activity
-        } else if (key.match(/^.*_activity_category_id$/) && allKeys.has(key.replace('_category_id', '_category_code_raw'))) {
-            baseKeys.add(key.replace('_category_id', ''));
-        } else if (key.match(/^.*_activity_id$/) && allKeys.has(key.replace('_id', '_category_code_raw'))) {
-            baseKeys.add(key.replace('_id', ''));
-        } else if (key.endsWith('_path_raw')) {
-            baseKeys.add(key.slice(0, -9)); // e.g. 'tag' from 'tag_path_raw'
-        } else if (key.endsWith('_path') && allKeys.has(key.slice(0, -5) + '_path_raw')) {
-            baseKeys.add(key.slice(0, -5));
-        } else if (key.endsWith('_code_raw')) {
-            baseKeys.add(key.slice(0, -9)); // e.g. 'sector' from 'sector_code_raw'
-        } else if (key.endsWith('_id') && (allKeys.has(key.slice(0, -3) + '_code_raw') || allKeys.has(key.slice(0, -3) + '_path_raw'))) {
-            baseKeys.add(key.slice(0, -3));
-        } else {
-            baseKeys.add(key.replace(/_raw$/, '')); // This handles `name`/`name_raw` and standalone keys like `operation`
-        }
+    allKeys.forEach((key) => {
+      const activityMatch = key.match(/^(.*_activity)_category_code_raw$/);
+      if (activityMatch) {
+        baseKeys.add(activityMatch[1]); // e.g. primary_activity
+      } else if (
+        key.match(/^.*_activity_category_id$/) &&
+        allKeys.has(key.replace("_category_id", "_category_code_raw"))
+      ) {
+        baseKeys.add(key.replace("_category_id", ""));
+      } else if (
+        key.match(/^.*_activity_id$/) &&
+        allKeys.has(key.replace("_id", "_category_code_raw"))
+      ) {
+        baseKeys.add(key.replace("_id", ""));
+      } else if (key.endsWith("_path_raw")) {
+        baseKeys.add(key.slice(0, -9)); // e.g. 'tag' from 'tag_path_raw'
+      } else if (
+        key.endsWith("_path") &&
+        allKeys.has(key.slice(0, -5) + "_path_raw")
+      ) {
+        baseKeys.add(key.slice(0, -5));
+      } else if (key.endsWith("_code_raw")) {
+        baseKeys.add(key.slice(0, -9)); // e.g. 'sector' from 'sector_code_raw'
+      } else if (
+        key.endsWith("_id") &&
+        (allKeys.has(key.slice(0, -3) + "_code_raw") ||
+          allKeys.has(key.slice(0, -3) + "_path_raw"))
+      ) {
+        baseKeys.add(key.slice(0, -3));
+      } else {
+        baseKeys.add(key.replace(/_raw$/, "")); // This handles `name`/`name_raw` and standalone keys like `operation`
+      }
     });
 
     let sortedBaseKeys = Array.from(baseKeys);
@@ -353,7 +424,7 @@ export default function ImportJobDataPage() {
       return a.localeCompare(b);
     });
 
-    const finalColumns = sortedBaseKeys.map(baseKey => {
+    const finalColumns = sortedBaseKeys.map((baseKey) => {
       const rawKey = `${baseKey}_raw`;
       const codeRawKey = `${baseKey}_code_raw`;
       const idKey = `${baseKey}_id`;
@@ -368,151 +439,205 @@ export default function ImportJobDataPage() {
       const hasId = allKeys.has(idKey);
       const hasPath = allKeys.has(pathKey);
       const hasPathRaw = allKeys.has(pathRawKey);
-      const hasActivityCategoryCodeRaw = allKeys.has(activityCategoryCodeRawKey);
+      const hasActivityCategoryCodeRaw = allKeys.has(
+        activityCategoryCodeRawKey
+      );
       const hasActivityCategoryId = allKeys.has(activityCategoryIdKey);
 
+      const headerText = baseKey
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase());
 
-      const headerText = baseKey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-      
       const columnDef: ColumnDef<ImportJobDataRow> = {
-          id: baseKey, // Default ID, will be overridden for filters
-          header: ({ column }) => <DataTableColumnHeader column={column} title={headerText} />,
-          cell: ({ row }) => {
-              const plainValue = hasPlain ? row.original[baseKey as keyof ImportJobDataRow] : undefined;
-              const rawValue = hasRaw ? row.original[rawKey as keyof ImportJobDataRow] : undefined;
-              const codeRawValue = hasCodeRaw ? row.original[codeRawKey as keyof ImportJobDataRow] : undefined;
-              const idValue = hasId ? row.original[idKey as keyof ImportJobDataRow] : undefined;
-              const pathValue = hasPath ? row.original[pathKey as keyof ImportJobDataRow] : undefined;
-              const pathRawValue = hasPathRaw ? row.original[pathRawKey as keyof ImportJobDataRow] : undefined;
-              const activityCategoryCodeRawValue = hasActivityCategoryCodeRaw ? row.original[activityCategoryCodeRawKey as keyof ImportJobDataRow] : undefined;
-              const activityCategoryIdValue = hasActivityCategoryId ? row.original[activityCategoryIdKey as keyof ImportJobDataRow] : undefined;
-              
-              const renderSingleValue = (val: unknown, className: string = '') => {
-                  if (val === undefined || val === null) return null;
-                  let displayValue;
-                  if (typeof val === 'object') {
-                      displayValue = JSON.stringify(val);
-                  } else {
-                      displayValue = String(val);
-                  }
-                  return <div className={`text-xs truncate ${className}`} title={displayValue}>{displayValue}</div>;
-              };
+        id: baseKey, // Default ID, will be overridden for filters
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title={headerText} />
+        ),
+        cell: ({ row }) => {
+          const plainValue = hasPlain
+            ? row.original[baseKey as keyof ImportJobDataRow]
+            : undefined;
+          const rawValue = hasRaw
+            ? row.original[rawKey as keyof ImportJobDataRow]
+            : undefined;
+          const codeRawValue = hasCodeRaw
+            ? row.original[codeRawKey as keyof ImportJobDataRow]
+            : undefined;
+          const idValue = hasId
+            ? row.original[idKey as keyof ImportJobDataRow]
+            : undefined;
+          const pathValue = hasPath
+            ? row.original[pathKey as keyof ImportJobDataRow]
+            : undefined;
+          const pathRawValue = hasPathRaw
+            ? row.original[pathRawKey as keyof ImportJobDataRow]
+            : undefined;
+          const activityCategoryCodeRawValue = hasActivityCategoryCodeRaw
+            ? row.original[activityCategoryCodeRawKey as keyof ImportJobDataRow]
+            : undefined;
+          const activityCategoryIdValue = hasActivityCategoryId
+            ? row.original[activityCategoryIdKey as keyof ImportJobDataRow]
+            : undefined;
 
-              // Special handling for errors and warnings columns
-              if (baseKey === 'errors') {
-                const errorsValue = row.original.errors;
-                if (!errorsValue || (typeof errorsValue === 'object' && Object.keys(errorsValue).length === 0)) {
-                  return <span className="text-gray-400 text-xs">-</span>;
-                }
-                return <ErrorDisplay errors={errorsValue} variant="errors" />;
-              }
+          const renderSingleValue = (val: unknown, className: string = "") => {
+            if (val === undefined || val === null) return null;
+            let displayValue;
+            if (typeof val === "object") {
+              displayValue = JSON.stringify(val);
+            } else {
+              displayValue = String(val);
+            }
+            return (
+              <div
+                className={`text-xs truncate ${className}`}
+                title={displayValue}
+              >
+                {displayValue}
+              </div>
+            );
+          };
 
-              if (baseKey === 'warnings') {
-                const warningsValue = row.original.warnings;
-                if (!warningsValue || (typeof warningsValue === 'object' && Object.keys(warningsValue).length === 0)) {
-                  return <span className="text-gray-400 text-xs">-</span>;
-                }
-                return <ErrorDisplay errors={warningsValue} variant="warnings" />;
-              }
+          // Special handling for errors and warnings columns
+          if (baseKey === "errors") {
+            const errorsValue = row.original.errors;
+            if (
+              !errorsValue ||
+              (typeof errorsValue === "object" &&
+                Object.keys(errorsValue).length === 0)
+            ) {
+              return <span className="text-gray-400 text-xs">-</span>;
+            }
+            return <ErrorDisplay errors={errorsValue} variant="errors" />;
+          }
 
-              if (hasActivityCategoryCodeRaw) {
-                return (
-                    <div className="flex items-center space-x-2">
-                      <div>
-                        {renderSingleValue(activityCategoryCodeRawValue)}
-                        {renderSingleValue(activityCategoryIdValue, 'text-gray-500')}
-                      </div>
-                      <div>
-                        {renderSingleValue(idValue, 'text-gray-500')}
-                      </div>
-                    </div>
-                );
-              }
+          if (baseKey === "warnings") {
+            const warningsValue = row.original.warnings;
+            if (
+              !warningsValue ||
+              (typeof warningsValue === "object" &&
+                Object.keys(warningsValue).length === 0)
+            ) {
+              return <span className="text-gray-400 text-xs">-</span>;
+            }
+            return <ErrorDisplay errors={warningsValue} variant="warnings" />;
+          }
 
-              if (hasPathRaw) {
-                return (
-                    <div>
-                        {renderSingleValue(pathRawValue)}
-                        {renderSingleValue(pathValue, 'text-gray-500')}
-                        {renderSingleValue(idValue, 'text-gray-500')}
-                    </div>
-                );
-              }
+          if (hasActivityCategoryCodeRaw) {
+            return (
+              <div className="flex items-center space-x-2">
+                <div>
+                  {renderSingleValue(activityCategoryCodeRawValue)}
+                  {renderSingleValue(activityCategoryIdValue, "text-gray-500")}
+                </div>
+                <div>{renderSingleValue(idValue, "text-gray-500")}</div>
+              </div>
+            );
+          }
 
-              if (hasCodeRaw) {
-                return (
-                    <div>
-                        {renderSingleValue(codeRawValue)}
-                        {renderSingleValue(idValue, 'text-gray-500')}
-                    </div>
-                );
-              }
+          if (hasPathRaw) {
+            return (
+              <div>
+                {renderSingleValue(pathRawValue)}
+                {renderSingleValue(pathValue, "text-gray-500")}
+                {renderSingleValue(idValue, "text-gray-500")}
+              </div>
+            );
+          }
 
-              if (!hasRaw && !hasPlain) return null;
+          if (hasCodeRaw) {
+            return (
+              <div>
+                {renderSingleValue(codeRawValue)}
+                {renderSingleValue(idValue, "text-gray-500")}
+              </div>
+            );
+          }
 
-              if (!hasRaw) return renderSingleValue(plainValue);
-              if (!hasPlain) return renderSingleValue(rawValue);
+          if (!hasRaw && !hasPlain) return null;
 
-              // If values are the same, show only one.
-              if (String(rawValue) === String(plainValue)) {
-                return renderSingleValue(rawValue);
-              }
+          if (!hasRaw) return renderSingleValue(plainValue);
+          if (!hasPlain) return renderSingleValue(rawValue);
 
-              // Paired field: raw over processed, processed is gray
-              return (
-                  <div>
-                      {renderSingleValue(rawValue)}
-                      {renderSingleValue(plainValue, 'text-gray-500')}
-                  </div>
-              );
-          },
-          enableSorting: true,
-          enableHiding: baseKey !== 'row_id',
+          // If values are the same, show only one.
+          if (String(rawValue) === String(plainValue)) {
+            return renderSingleValue(rawValue);
+          }
+
+          // Paired field: raw over processed, processed is gray
+          return (
+            <div>
+              {renderSingleValue(rawValue)}
+              {renderSingleValue(plainValue, "text-gray-500")}
+            </div>
+          );
+        },
+        enableSorting: true,
+        enableHiding: baseKey !== "row_id",
       };
-      
+
       // Enable text filtering on any field with a `_raw` version, name, external IDs, and special composite fields.
       // Filtering was "lost" because the condition was too specific and missed generic `_raw` fields.
-      if (hasRaw || baseKey === 'name' || externalIdentCodes.includes(baseKey) || hasCodeRaw || hasPathRaw || hasActivityCategoryCodeRaw) {
-          // For filtering, we must use the column that holds the raw text (e.g., `name_raw` instead of `name`).
-          // The `id` is used by the fetcher to query the correct database column.
-          columnDef.id = hasRaw ? rawKey : hasCodeRaw ? codeRawKey : hasPathRaw ? pathRawKey : hasActivityCategoryCodeRaw ? activityCategoryCodeRawKey : baseKey;
-          columnDef.enableColumnFilter = true;
-          // The `getCanFilter()` method on the column instance checks for the presence of a `filterFn`.
-          // Even with manual filtering, this function needs to exist for the UI to show the filter input.
-          // Since filtering is manual, the function itself is never called.
-          columnDef.filterFn = placeholderFilterFn;
-          columnDef.meta = {
-              label: headerText,
-              variant: 'text',
-              placeholder: `Filter by ${baseKey.replace(/_/g, ' ')}...`,
-              isPrimary: baseKey === 'name',
-          };
-      }
-      
-      if (['operation', 'state', 'action'].includes(baseKey)) {
-          columnDef.enableColumnFilter = true;
-          columnDef.filterFn = placeholderFilterFn;
-          columnDef.meta = {
-              label: headerText,
-              variant: 'multiSelect',
-              options: baseKey === 'operation' ? operationOptions : baseKey === 'state' ? stateOptions : actionOptions,
-              isPrimary: true,
-          };
+      if (
+        hasRaw ||
+        baseKey === "name" ||
+        externalIdentCodes.includes(baseKey) ||
+        hasCodeRaw ||
+        hasPathRaw ||
+        hasActivityCategoryCodeRaw
+      ) {
+        // For filtering, we must use the column that holds the raw text (e.g., `name_raw` instead of `name`).
+        // The `id` is used by the fetcher to query the correct database column.
+        columnDef.id = hasRaw
+          ? rawKey
+          : hasCodeRaw
+            ? codeRawKey
+            : hasPathRaw
+              ? pathRawKey
+              : hasActivityCategoryCodeRaw
+                ? activityCategoryCodeRawKey
+                : baseKey;
+        columnDef.enableColumnFilter = true;
+        // The `getCanFilter()` method on the column instance checks for the presence of a `filterFn`.
+        // Even with manual filtering, this function needs to exist for the UI to show the filter input.
+        // Since filtering is manual, the function itself is never called.
+        columnDef.filterFn = placeholderFilterFn;
+        columnDef.meta = {
+          label: headerText,
+          variant: "text",
+          placeholder: `Filter by ${baseKey.replace(/_/g, " ")}...`,
+          isPrimary: baseKey === "name",
+        };
       }
 
-      if (['errors', 'warnings'].includes(baseKey)) {
-          columnDef.enableColumnFilter = true;
-          columnDef.filterFn = placeholderFilterFn;
-          columnDef.meta = {
-              label: headerText,
-              variant: 'select',
-              options: [
-                  { label: 'Has value', value: 'not_null' },
-                  { label: 'Is empty', value: 'is_null' },
-              ],
-          };
+      if (["operation", "state", "action"].includes(baseKey)) {
+        columnDef.enableColumnFilter = true;
+        columnDef.filterFn = placeholderFilterFn;
+        columnDef.meta = {
+          label: headerText,
+          variant: "multiSelect",
+          options:
+            baseKey === "operation"
+              ? operationOptions
+              : baseKey === "state"
+                ? stateOptions
+                : actionOptions,
+          isPrimary: true,
+        };
       }
-      
+
+      if (["errors", "warnings"].includes(baseKey)) {
+        columnDef.enableColumnFilter = true;
+        columnDef.filterFn = placeholderFilterFn;
+        columnDef.meta = {
+          label: headerText,
+          variant: "select",
+          options: [
+            { label: "Has value", value: "not_null" },
+            { label: "Is empty", value: "is_null" },
+          ],
+        };
+      }
+
       return columnDef;
     });
 
@@ -550,44 +675,56 @@ export default function ImportJobDataPage() {
     getFacetedMinMaxValues: getFacetedMinMaxValues(),
   });
 
-  const isLoading = isJobLoading || (isTableDataLoading && !tableData) || awaitingAuthRefresh;
-
-  const qualityFilterIds = ['state', 'errors', 'warnings'];
+  const isLoading =
+    isJobLoading || (isTableDataLoading && !tableData) || awaitingAuthRefresh;
 
   // Check if ok filter is active (quality-based: no errors, no warnings, not error state)
   const isOkFilterActive = React.useMemo(() => {
-    const stateFilter = columnFilters.find(f => f.id === 'state');
-    const errorsFilter = columnFilters.find(f => f.id === 'errors');
-    const warningsFilter = columnFilters.find(f => f.id === 'warnings');
-    return Array.isArray(stateFilter?.value) && stateFilter.value[0] === 'not_error'
-      && Array.isArray(errorsFilter?.value) && errorsFilter.value[0] === 'is_null'
-      && Array.isArray(warningsFilter?.value) && warningsFilter.value[0] === 'is_null';
+    const stateFilter = columnFilters.find((f) => f.id === "state");
+    const errorsFilter = columnFilters.find((f) => f.id === "errors");
+    const warningsFilter = columnFilters.find((f) => f.id === "warnings");
+    return (
+      Array.isArray(stateFilter?.value) &&
+      stateFilter.value[0] === "not_error" &&
+      Array.isArray(errorsFilter?.value) &&
+      errorsFilter.value[0] === "is_null" &&
+      Array.isArray(warningsFilter?.value) &&
+      warningsFilter.value[0] === "is_null"
+    );
   }, [columnFilters]);
 
   // Check if error filter is active
   const isErrorFilterActive = React.useMemo(() => {
-    const stateFilter = columnFilters.find(f => f.id === 'state');
+    const stateFilter = columnFilters.find((f) => f.id === "state");
     if (!stateFilter || !Array.isArray(stateFilter.value)) return false;
-    return stateFilter.value.includes('error') && stateFilter.value.length === 1;
+    return (
+      stateFilter.value.includes("error") && stateFilter.value.length === 1
+    );
   }, [columnFilters]);
 
   // Check if warning filter is active
   const isWarningFilterActive = React.useMemo(() => {
-    const warningsFilter = columnFilters.find(f => f.id === 'warnings');
-    return Array.isArray(warningsFilter?.value) && warningsFilter.value[0] === 'not_null';
+    const warningsFilter = columnFilters.find((f) => f.id === "warnings");
+    return (
+      Array.isArray(warningsFilter?.value) &&
+      warningsFilter.value[0] === "not_null"
+    );
   }, [columnFilters]);
 
   // Toggle ok-only filter (clears error and warning filters)
   const toggleOkFilter = React.useCallback(() => {
-    setColumnFilters(prev => {
+    setColumnFilters((prev) => {
       if (isOkFilterActive) {
-        return prev.filter(f => !qualityFilterIds.includes(f.id));
+        return prev.filter((f) => !QUALITY_FILTER_IDS.includes(f.id));
       } else {
-        const newFilters = prev.filter(f => !qualityFilterIds.includes(f.id));
-        return [...newFilters,
-          { id: 'state', value: ['not_error'] },
-          { id: 'errors', value: ['is_null'] },
-          { id: 'warnings', value: ['is_null'] },
+        const newFilters = prev.filter(
+          (f) => !QUALITY_FILTER_IDS.includes(f.id)
+        );
+        return [
+          ...newFilters,
+          { id: "state", value: ["not_error"] },
+          { id: "errors", value: ["is_null"] },
+          { id: "warnings", value: ["is_null"] },
         ];
       }
     });
@@ -595,24 +732,32 @@ export default function ImportJobDataPage() {
 
   // Toggle error-only filter (clears ok and warning filters)
   const toggleErrorFilter = React.useCallback(() => {
-    setColumnFilters(prev => {
+    setColumnFilters((prev) => {
       if (isErrorFilterActive) {
-        return prev.filter(f => !qualityFilterIds.includes(f.id));
+        return prev.filter((f) => !QUALITY_FILTER_IDS.includes(f.id));
       } else {
-        const newFilters = prev.filter(f => !qualityFilterIds.includes(f.id));
-        return [...newFilters, { id: 'state', value: ['error'] }, { id: 'errors', value: ['not_null'] }];
+        const newFilters = prev.filter(
+          (f) => !QUALITY_FILTER_IDS.includes(f.id)
+        );
+        return [
+          ...newFilters,
+          { id: "state", value: ["error"] },
+          { id: "errors", value: ["not_null"] },
+        ];
       }
     });
   }, [isErrorFilterActive]);
 
   // Toggle warning-only filter (clears ok and error filters)
   const toggleWarningFilter = React.useCallback(() => {
-    setColumnFilters(prev => {
+    setColumnFilters((prev) => {
       if (isWarningFilterActive) {
-        return prev.filter(f => !qualityFilterIds.includes(f.id));
+        return prev.filter((f) => !QUALITY_FILTER_IDS.includes(f.id));
       } else {
-        const newFilters = prev.filter(f => !qualityFilterIds.includes(f.id));
-        return [...newFilters, { id: 'warnings', value: ['not_null'] }];
+        const newFilters = prev.filter(
+          (f) => !QUALITY_FILTER_IDS.includes(f.id)
+        );
+        return [...newFilters, { id: "warnings", value: ["not_null"] }];
       }
     });
   }, [isWarningFilterActive]);
@@ -633,11 +778,17 @@ export default function ImportJobDataPage() {
       <div className="space-y-4">
         <div>
           <div className="flex items-center space-x-2">
-            <Link href="/import" className="text-2xl font-semibold text-gray-500 hover:underline">
+            <Link
+              href="/import"
+              className="text-2xl font-semibold text-gray-500 hover:underline"
+            >
               Import
             </Link>
             <ChevronRight className="h-6 w-6 text-gray-400" />
-            <Link href="/import/jobs" className="text-2xl font-semibold text-gray-500 hover:underline">
+            <Link
+              href="/import/jobs"
+              className="text-2xl font-semibold text-gray-500 hover:underline"
+            >
               Jobs
             </Link>
             <ChevronRight className="h-6 w-6 text-gray-400" />
@@ -666,34 +817,49 @@ export default function ImportJobDataPage() {
     <div className="space-y-4">
       <div>
         <div className="flex items-center space-x-2">
-          <Link href="/import" className="text-2xl font-semibold text-gray-500 hover:underline">
+          <Link
+            href="/import"
+            className="text-2xl font-semibold text-gray-500 hover:underline"
+          >
             Import
           </Link>
           <ChevronRight className="h-6 w-6 text-gray-400" />
-          <Link href="/import/jobs" className="text-2xl font-semibold text-gray-500 hover:underline">
+          <Link
+            href="/import/jobs"
+            className="text-2xl font-semibold text-gray-500 hover:underline"
+          >
             Jobs
           </Link>
           <ChevronRight className="h-6 w-6 text-gray-400" />
           <h1 className="text-2xl font-semibold">Data for Job: {job.id}</h1>
         </div>
-        <p className="text-sm text-gray-500 mt-1">Description: {job.description ?? 'N/A'} | Table: {job.data_table_name}</p>
+        <p className="text-sm text-gray-500 mt-1">
+          Description: {job.description ?? "N/A"} | Table: {job.data_table_name}
+        </p>
       </div>
 
-
-
       {/* Approve/Reject bar for review workflow */}
-      {job.state === 'waiting_for_review' && (
+      {job.state === "waiting_for_review" && (
         <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-          <span className="text-sm font-medium text-amber-800 flex-grow">This job is waiting for your review.</span>
+          <span className="text-sm font-medium text-amber-800 flex-grow">
+            This job is waiting for your review.
+          </span>
           <Button
             variant="outline"
             size="sm"
             className="border-red-300 text-red-600 hover:bg-red-50"
             onClick={async () => {
               const client = await getBrowserRestClient();
-              const { error } = await client.from("import_job").update({ state: 'rejected' }).eq("id", job.id);
-              if (error) { console.error("Reject failed:", error); alert(`Error: ${error.message}`); }
-              else { mutateJob(); }
+              const { error } = await client
+                .from("import_job")
+                .update({ state: "rejected" })
+                .eq("id", job.id);
+              if (error) {
+                console.error("Reject failed:", error);
+                alert(`Error: ${error.message}`);
+              } else {
+                mutateJob();
+              }
             }}
           >
             <ThumbsDown className="mr-1 h-4 w-4" />
@@ -704,9 +870,16 @@ export default function ImportJobDataPage() {
             className="bg-green-600 hover:bg-green-700 text-white"
             onClick={async () => {
               const client = await getBrowserRestClient();
-              const { error } = await client.from("import_job").update({ state: 'approved' }).eq("id", job.id);
-              if (error) { console.error("Approve failed:", error); alert(`Error: ${error.message}`); }
-              else { mutateJob(); }
+              const { error } = await client
+                .from("import_job")
+                .update({ state: "approved" })
+                .eq("id", job.id);
+              if (error) {
+                console.error("Approve failed:", error);
+                alert(`Error: ${error.message}`);
+              } else {
+                mutateJob();
+              }
             }}
           >
             <ThumbsUp className="mr-1 h-4 w-4" />
@@ -721,42 +894,53 @@ export default function ImportJobDataPage() {
         </div>
       )}
 
-      {columns.length > 0 &&
-        <DataTable 
-          table={table} 
+      {columns.length > 0 && (
+        <DataTable
+          table={table}
           isValidating={isTableDataValidating}
           getRowClassName={(row: ImportJobDataRow) => {
             // Highlight rows with errors or invalid codes
-            const hasErrors = row.errors && typeof row.errors === 'object' && Object.keys(row.errors).length > 0;
-            const hasWarnings = row.warnings && typeof row.warnings === 'object' && Object.keys(row.warnings).length > 0;
+            const hasErrors =
+              row.errors &&
+              typeof row.errors === "object" &&
+              Object.keys(row.errors).length > 0;
+            const hasWarnings =
+              row.warnings &&
+              typeof row.warnings === "object" &&
+              Object.keys(row.warnings).length > 0;
             const state = row.state;
-            
-            if (state === 'error') {
-              return 'bg-red-50/50 hover:bg-red-100/50';
+
+            if (state === "error") {
+              return "bg-red-50/50 hover:bg-red-100/50";
             }
             if (hasErrors) {
-              return 'bg-red-50/30 hover:bg-red-100/30';
+              return "bg-red-50/30 hover:bg-red-100/30";
             }
             if (hasWarnings) {
-              return 'bg-amber-50/30 hover:bg-amber-100/30';
+              return "bg-amber-50/30 hover:bg-amber-100/30";
             }
             return undefined;
           }}
         >
           <DataTableToolbar table={table}>
             {(() => {
-              const okCount = (job?.total_rows ?? 0) - (job?.error_count ?? 0) - (job?.warning_count ?? 0);
+              const okCount =
+                (job?.total_rows ?? 0) -
+                (job?.error_count ?? 0) -
+                (job?.warning_count ?? 0);
               return okCount > 0 ? (
                 <Button
                   variant={isOkFilterActive ? "default" : "outline"}
                   size="sm"
-                  className={isOkFilterActive
-                    ? "h-8 bg-green-600 hover:bg-green-700 text-white"
-                    : "h-8 border-dashed text-green-700 hover:bg-green-50"
+                  className={
+                    isOkFilterActive
+                      ? "h-8 bg-green-600 hover:bg-green-700 text-white"
+                      : "h-8 border-dashed text-green-700 hover:bg-green-50"
                   }
                   onClick={toggleOkFilter}
                 >
-                  <span className="font-mono">{formatNumber(okCount)}</span>&nbsp;ok
+                  <span className="font-mono">{formatNumber(okCount)}</span>
+                  &nbsp;ok
                 </Button>
               ) : null;
             })()}
@@ -765,16 +949,25 @@ export default function ImportJobDataPage() {
                 <Button
                   variant={isWarningFilterActive ? "default" : "outline"}
                   size="sm"
-                  className={isWarningFilterActive
-                    ? "h-8 bg-amber-500 hover:bg-amber-600 text-white"
-                    : "h-8 border-dashed text-amber-600 hover:bg-amber-50"
+                  className={
+                    isWarningFilterActive
+                      ? "h-8 bg-amber-500 hover:bg-amber-600 text-white"
+                      : "h-8 border-dashed text-amber-600 hover:bg-amber-50"
                   }
                   onClick={toggleWarningFilter}
                 >
-                  <span className="font-mono">{formatNumber(job?.warning_count)}</span>&nbsp;warn
+                  <span className="font-mono">
+                    {formatNumber(job?.warning_count)}
+                  </span>
+                  &nbsp;warn
                 </Button>
                 {job?.slug && (
-                  <ProgressDownloadButton slug={job.slug} filter="warning" rowCount={job.warning_count ?? 0} className="h-8 px-2 text-amber-600 hover:bg-amber-50" />
+                  <ProgressDownloadButton
+                    slug={job.slug}
+                    filter="warning"
+                    rowCount={job.warning_count ?? 0}
+                    className="h-8 px-2 text-amber-600 hover:bg-amber-50"
+                  />
                 )}
               </>
             )}
@@ -783,16 +976,25 @@ export default function ImportJobDataPage() {
                 <Button
                   variant={isErrorFilterActive ? "default" : "outline"}
                   size="sm"
-                  className={isErrorFilterActive
-                    ? "h-8 bg-red-600 hover:bg-red-700 text-white"
-                    : "h-8 border-dashed text-red-600 hover:bg-red-50"
+                  className={
+                    isErrorFilterActive
+                      ? "h-8 bg-red-600 hover:bg-red-700 text-white"
+                      : "h-8 border-dashed text-red-600 hover:bg-red-50"
                   }
                   onClick={toggleErrorFilter}
                 >
-                  <span className="font-mono">{formatNumber(job?.error_count)}</span>&nbsp;err
+                  <span className="font-mono">
+                    {formatNumber(job?.error_count)}
+                  </span>
+                  &nbsp;err
                 </Button>
                 {job?.slug && (
-                  <ProgressDownloadButton slug={job.slug} filter="error" rowCount={job.error_count ?? 0} className="h-8 px-2 text-red-600 hover:bg-red-50" />
+                  <ProgressDownloadButton
+                    slug={job.slug}
+                    filter="error"
+                    rowCount={job.error_count ?? 0}
+                    className="h-8 px-2 text-red-600 hover:bg-red-50"
+                  />
                 )}
                 {/* Downloads for "ok" and "full" filters are in the command palette (Ctrl+K)
                     to keep this toolbar lean — only error/warning downloads shown inline. */}
@@ -800,7 +1002,7 @@ export default function ImportJobDataPage() {
             )}
           </DataTableToolbar>
         </DataTable>
-      }
+      )}
     </div>
   );
 }

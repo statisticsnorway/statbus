@@ -4,6 +4,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import NextImage from "next/image";
 
 // Validate file MIME type before creating blob URL for preview
 // Defense-in-depth: server also validates magic bytes, but this prevents
@@ -51,10 +52,7 @@ export function ImageUpload({
     });
   };
 
-  const resizeImage = async (
-    file: File,
-    maxSizeMB: number
-  ): Promise<File> => {
+  const resizeImage = async (file: File, maxSizeMB: number): Promise<File> => {
     const img = await loadImage(file);
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
@@ -241,9 +239,12 @@ export function ImageUpload({
         <div className="space-y-4 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
           {/* Preview */}
           <div className="flex justify-center">
-            <img
+            <NextImage
               src={imageInfo.url}
               alt="Preview"
+              width={imageInfo.width}
+              height={imageInfo.height}
+              unoptimized
               className="max-h-64 rounded-md border border-zinc-200 object-contain dark:border-zinc-800"
             />
           </div>
@@ -279,18 +280,10 @@ export function ImageUpload({
                 use the original.
               </p>
               <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  onClick={handleResize}
-                  disabled={isResizing}
-                >
+                <Button size="sm" onClick={handleResize} disabled={isResizing}>
                   {isResizing ? "Resizing..." : "Resize Image"}
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleUseOriginal}
-                >
+                <Button size="sm" variant="outline" onClick={handleUseOriginal}>
                   Use Original
                 </Button>
               </div>

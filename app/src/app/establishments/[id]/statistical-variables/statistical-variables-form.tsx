@@ -3,10 +3,12 @@ import { useBaseData } from "@/atoms/base-data";
 import { useStatisticalUnitDetails } from "@/components/statistical-unit-details/use-unit-details";
 import Loading from "@/components/statistical-unit-details/loading";
 import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState } from "react";
 import { updateStatisticalVariables } from "@/app/legal-units/[id]/update-legal-unit-server-actions";
 import { EditableFieldWithMetadata } from "@/components/form/editable-field-with-metadata";
 import { InfoBox } from "@/components/info-box";
+import { useClientReady } from "@/hooks/use-client-ready";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 
 export default function StatisticalVariablesForm({
   id,
@@ -23,15 +25,16 @@ export default function StatisticalVariablesForm({
     "establishment"
   );
   const stats = data?.establishment?.[0].stat_for_unit;
-  const [isClient, setIsClient] = useState(false);
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-  useEffect(() => {
-    if (statsState?.status === "success") {
-      revalidate();
-    }
-  }, [statsState, revalidate]);
+  const isClient = useClientReady();
+  useGuardedEffect(
+    () => {
+      if (statsState?.status === "success") {
+        revalidate();
+      }
+    },
+    [statsState, revalidate],
+    "StatisticalVariablesForm:revalidateAfterUpdate"
+  );
 
   if (!isClient) {
     return <Loading />;

@@ -14,10 +14,11 @@ import { MetadataTooltip } from "./metadata-tooltip";
 import { UnitImage } from "@/components/unit-image";
 import { ImageUpload } from "@/components/image-upload";
 import { Pencil } from "lucide-react";
+import Image from "next/image";
 
 // Validate file MIME type before creating blob URL for preview (CodeQL js/xss-through-dom)
 const isValidImageFile = (file: File): boolean =>
-  file.type.startsWith('image/');
+  file.type.startsWith("image/");
 
 interface EditableImageFieldWithMetadataProps {
   fieldId: string;
@@ -48,10 +49,8 @@ export const EditableImageFieldWithMetadata = ({
   const { currentEdit, setEditTarget, exitEditMode } = useEditManager();
   const isEditing = currentEdit?.fieldId === fieldId;
 
-  const {
-    hasUnsavedChanges,
-    handleCancel: baseHandleCancel,
-  } = useEditableFieldState(imageId ?? null, response, isEditing, exitEditMode);
+  const { hasUnsavedChanges, handleCancel: baseHandleCancel } =
+    useEditableFieldState(imageId ?? null, response, isEditing, exitEditMode);
 
   // Reset local image state when exiting edit mode (success or cancel)
   const wasEditing = useRef(isEditing);
@@ -131,21 +130,24 @@ export const EditableImageFieldWithMetadata = ({
 
         <div className="flex items-center gap-4">
           {/* Show current or preview image */}
-          {!deleteImage && (selectedFile && isValidImageFile(selectedFile) ? (
-            <div className="h-24 w-24 rounded-lg overflow-hidden border-2 border-gray-300">
-              <img
-                src={URL.createObjectURL(selectedFile)}
-                alt="Preview"
-                className="h-full w-full object-cover"
+          {!deleteImage &&
+            (selectedFile && isValidImageFile(selectedFile) ? (
+              <div className="relative h-24 w-24 overflow-hidden rounded-lg border-2 border-gray-300">
+                <Image
+                  src={URL.createObjectURL(selectedFile)}
+                  alt="Preview"
+                  fill
+                  unoptimized
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            ) : imageId ? (
+              <UnitImage
+                imageId={imageId}
+                unitType={unitType}
+                className="h-24 w-24"
               />
-            </div>
-          ) : imageId ? (
-            <UnitImage
-              imageId={imageId}
-              unitType={unitType}
-              className="h-24 w-24"
-            />
-          ) : null)}
+            ) : null)}
 
           {isEditing && (
             <div className="flex items-center gap-2">
@@ -161,7 +163,7 @@ export const EditableImageFieldWithMetadata = ({
                   <X className="h-4 w-4" />
                 </Button>
               )}
-              
+
               {/* Undo delete button */}
               {deleteImage && (
                 <Button
@@ -175,10 +177,7 @@ export const EditableImageFieldWithMetadata = ({
 
               {/* File upload */}
               {!deleteImage && (
-                <ImageUpload
-                  onFileSelect={handleFileSelect}
-                  maxSizeMB={4}
-                />
+                <ImageUpload onFileSelect={handleFileSelect} maxSizeMB={4} />
               )}
             </div>
           )}
@@ -187,13 +186,17 @@ export const EditableImageFieldWithMetadata = ({
         {isEditing && (
           <>
             <EditMetadataControls fieldId={fieldId} />
-            <input type="hidden" name="delete_image" value={deleteImage ? "true" : "false"} />
+            <input
+              type="hidden"
+              name="delete_image"
+              value={deleteImage ? "true" : "false"}
+            />
             {/* Hidden file input - populated right before submit */}
-            <input 
+            <input
               ref={fileInputRef}
-              type="file" 
-              name="image" 
-              accept="image/*" 
+              type="file"
+              name="image"
+              accept="image/*"
               className="hidden"
             />
             {showResponse && response && (

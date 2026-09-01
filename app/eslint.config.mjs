@@ -7,7 +7,7 @@
 // future tickets, each landing with its own burn-down.
 import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
 
-export default [
+const eslintConfig = [
   {
     // Generated / vendored / build output — never linted.
     ignores: [
@@ -33,11 +33,12 @@ export default [
     // OUT OF this ticket's `any` burn-down. Downgraded to warn so they stay VISIBLE
     // (each is a future burn-down ticket) without burying/blocking the `any` gate.
     rules: {
-      "react-hooks/set-state-in-effect": "warn",
-      "react-hooks/refs": "warn",
-      "react-hooks/immutability": "warn",
-      "react/no-unescaped-entities": "warn",
+      "react-hooks/set-state-in-effect": "error",
+      "react-hooks/refs": "error",
+      "react-hooks/immutability": "error",
+      "react/no-unescaped-entities": "error",
     },
   },
 ];
 
+export default eslintConfig;

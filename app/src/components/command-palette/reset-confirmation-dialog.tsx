@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import {
   AlertDialog,
@@ -32,20 +32,24 @@ export function ResetConfirmationDialog() {
   const router = useRouter();
   const setGettingStartedUIState = useSetAtom(gettingStartedUIStateAtom);
   const setSelectedTimeContext = useSetAtom(selectedTimeContextAtom);
-
-  useGuardedEffect(() => {
-    const showDialog = () => {
-      setOpen(true);
-    };
-
-    document.addEventListener('show-reset-dialog', showDialog);
-    return () => {
-      document.removeEventListener('show-reset-dialog', showDialog);
-    };
-  }, [], 'ResetConfirmationDialog:showDialogListener');
   const [open, setOpen] = useState(false);
-  const [scope, setScope] = useState<Enums<"reset_scope">>('data');
+  const [scope, setScope] = useState<Enums<"reset_scope">>("data");
   const [isLoading, setIsLoading] = useState(false);
+
+  useGuardedEffect(
+    () => {
+      const showDialog = () => {
+        setOpen(true);
+      };
+
+      document.addEventListener("show-reset-dialog", showDialog);
+      return () => {
+        document.removeEventListener("show-reset-dialog", showDialog);
+      };
+    },
+    [],
+    "ResetConfirmationDialog:showDialogListener"
+  );
 
   const handleConfirm = async (e: React.MouseEvent) => {
     e.preventDefault();
