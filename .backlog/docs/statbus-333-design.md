@@ -477,7 +477,7 @@ Companion non-migration changes in the same release:
 
 Extend the canonical upgrade procedure test `test/sql/327_test_upgrade_procedures.sql`, rather than creating another fragmented upgrade-procedure test. Its existing supersede fixtures and assertions are at `test/sql/327_test_upgrade_procedures.sql:1-24` and `test/sql/327_test_upgrade_procedures.sql:47-146`.
 
-Add a STATBUS-333 section with these cases:
+Add a STATBUS-333 section with these eleven cases:
 
 1. **Failed retry through the UI role**
    - Insert older candidate A as available.
@@ -519,7 +519,12 @@ Add a STATBUS-333 section with these cases:
 9. **Unregistered and already-scheduled results**
    - Assert both are idempotent and do not create false state transitions.
 
-10. **Regular-user boundary**
+10. **Obsolete superseded refusal is no-mutation**
+    - Create an already-superseded target with retained error, log, backup, and recovery evidence plus a newer completed candidate that keeps it obsolete.
+    - Add an eligible older available row that `upgrade_supersede_older` would otherwise supersede.
+    - Assert `schedule_result='superseded'`, the target row is byte-identical, the eligible older row remains available, and no state-log row was added.
+
+11. **Regular-user boundary**
     - Switch to `test.regular@statbus.org` and assert function execution is refused, following `test/sql/128_statbus_317_upgrade_actor_attribution.sql:67-77`.
 
 This directly proves the requested acceptance path: failed row scheduled through the UI role, old error visible in the state log, current row clean, and older candidate superseded.

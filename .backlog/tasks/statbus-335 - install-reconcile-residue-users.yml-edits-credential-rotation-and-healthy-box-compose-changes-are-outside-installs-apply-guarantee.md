@@ -6,13 +6,13 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-01 20:47'
-updated_date: '2026-09-01 21:32'
+updated_date: '2026-09-01 21:42'
 labels:
   - cli
   - config
   - ops
 dependencies: []
-priority: medium
+priority: low
 type: enhancement
 ordinal: 328000
 ---
@@ -35,4 +35,6 @@ Acceptance: editing .users.yml then running install updates the user in the data
 
 <!-- SECTION:NOTES:BEGIN -->
 Slice 1 (users.yml reapply) landed locally, foreman-reviewed and committed: checkUsersDone now compares .users.yml's sha256 against a marker (.users.yml.sha256, gitignored) written only after a successful users create upsert; changed file or missing marker → reconcile; absent file → no-op. Tests: marker gating (3 cases) + full cli/cmd suite green. Slices 2 (credential rotation re-ALTER) and 3 (healthy-box compose changes) remain — both need the King's ruling before build.
+
+King (2026-09-01, retiring for the night): .users.yml is just to get started — he runs ./sb users create by hand after editing it, and that is fine. Slice 1's marker-gating is a convenience, not a correctness requirement; slices 2-3 are accordingly lower urgency and still await his ruling before any build.
 <!-- SECTION:NOTES:END -->
