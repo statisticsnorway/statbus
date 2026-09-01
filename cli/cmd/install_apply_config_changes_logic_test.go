@@ -135,41 +135,41 @@ func TestRestartClassesForKeys_NoChangedKeysYieldsEmptySet(t *testing.T) {
 
 // --- applyPendingRestarts -----------------------------------------------
 
-func withFakeComposeRestart(t *testing.T) *[]string {
+func withFakeComposeApplyService(t *testing.T) *[]string {
 	t.Helper()
 	var calls []string
-	orig := composeRestart
-	composeRestart = func(dir, service string) error {
+	orig := composeApplyService
+	composeApplyService = func(dir, service string) error {
 		calls = append(calls, service)
 		return nil
 	}
-	t.Cleanup(func() { composeRestart = orig })
+	t.Cleanup(func() { composeApplyService = orig })
 	return &calls
 }
 
 // TestApplyPendingRestarts_EmptyPendingRestartsNothing is AC#2 at the apply
-// layer: an empty class set must issue ZERO docker compose restart calls.
+// layer: an empty class set must issue ZERO docker compose service applications.
 func TestApplyPendingRestarts_EmptyPendingRestartsNothing(t *testing.T) {
-	calls := withFakeComposeRestart(t)
+	calls := withFakeComposeApplyService(t)
 	if err := applyPendingRestarts("/tmp/does-not-matter", map[config.RestartClass]bool{}); err != nil {
 		t.Fatalf("applyPendingRestarts: %v", err)
 	}
 	if len(*calls) != 0 {
-		t.Errorf("composeRestart called for %v, want no calls at all — this is exactly the AC#7 regression an unconditional-apply would introduce", *calls)
+		t.Errorf("composeApplyService called for %v, want no calls at all — this is exactly the AC#7 regression an unconditional-apply would introduce", *calls)
 	}
 }
 
 // TestApplyPendingRestarts_RestartsExactlyThePendingClasses is AC#1 at the
-// apply layer: only the classes actually present in pending get restarted.
+// apply layer: only the classes actually present in pending get recreated.
 func TestApplyPendingRestarts_RestartsExactlyThePendingClasses(t *testing.T) {
-	calls := withFakeComposeRestart(t)
+	calls := withFakeComposeApplyService(t)
 	pending := map[config.RestartClass]bool{config.RestartApp: true}
 	if err := applyPendingRestarts("/tmp/does-not-matter", pending); err != nil {
 		t.Fatalf("applyPendingRestarts: %v", err)
 	}
 	want := []string{"app"}
 	if !reflect.DeepEqual(*calls, want) {
-		t.Errorf("composeRestart calls = %v, want %v — db/rest/worker/proxy must NOT be touched for an app-only change", *calls, want)
+		t.Errorf("composeApplyService calls = %v, want %v — db/rest/worker/proxy must NOT be touched for an app-only change", *calls, want)
 	}
 }
 
@@ -177,7 +177,7 @@ func TestApplyPendingRestarts_RestartsExactlyThePendingClasses(t *testing.T) {
 // restart order (db heaviest-first, so dependents reconnect against an
 // already-restarted db) rather than leaving it to map iteration order.
 func TestApplyPendingRestarts_OrderIsDeterministicDBFirst(t *testing.T) {
-	calls := withFakeComposeRestart(t)
+	calls := withFakeComposeApplyService(t)
 	pending := map[config.RestartClass]bool{
 		config.RestartProxyRestart: true,
 		config.RestartApp:          true,
@@ -188,7 +188,7 @@ func TestApplyPendingRestarts_OrderIsDeterministicDBFirst(t *testing.T) {
 	}
 	want := []string{"db", "app", "proxy"}
 	if !reflect.DeepEqual(*calls, want) {
-		t.Errorf("composeRestart order = %v, want %v", *calls, want)
+		t.Errorf("composeApplyService order = %v, want %v", *calls, want)
 	}
 }
 
@@ -200,7 +200,7 @@ func TestApplyPendingRestarts_OrderIsDeterministicDBFirst(t *testing.T) {
 // calls) and documents, in the failure message a regression would produce,
 // exactly what an unconditional-apply implementation gets wrong.
 func TestApplyPendingRestarts_UnconditionalApplyWouldFailNoChangeNoRestart(t *testing.T) {
-	calls := withFakeComposeRestart(t)
+	calls := withFakeComposeApplyService(t)
 	// Simulates the "nothing changed" outcome of the check() closure in
 	// runInstall's step table (empty changedKeys, caddy config unchanged).
 	noChange := map[config.RestartClass]bool{}

@@ -1345,14 +1345,16 @@ func restartClassesForKeys(keys []string, classesByKey map[string][]config.Resta
 	return result
 }
 
-// composeRestart is the actual `docker compose restart <service>` call,
-// held as a package-level seam — the same pattern release_coverage_authority.go's
+// composeApplyService recreates the actual `docker compose up -d --no-deps
+// <service>` service so changed .env interpolation is actually injected —
+// restart reuses creation-time config, proven 2026-09-01. It is held as a
+// package-level seam — the same pattern release_coverage_authority.go's
 // scenarioEvidence already uses — so a test can substitute a fake and
-// assert EXACTLY which services were restarted (AC#1: per-class, isolated)
-// and that NONE were when nothing changed (AC#2), without a live docker
+// assert EXACTLY which services are recreated (AC#1: per-class, isolated)
+// and that NONE are when nothing changed (AC#2), without a live docker
 // daemon. Production never reassigns it.
-var composeRestart = func(dir, service string) error {
-	return runCmdDir(dir, "docker", "compose", "restart", service)
+var composeApplyService = func(dir, service string) error {
+	return runCmdDir(dir, "docker", "compose", "up", "-d", "--no-deps", service)
 }
 
 // applyPendingRestarts executes exactly the restart classes STATBUS-332's
@@ -1379,9 +1381,9 @@ func applyPendingRestarts(dir string, pending map[config.RestartClass]bool) erro
 			continue
 		}
 		restarted = true
-		fmt.Printf("  Restarting %s (config change)...\n", a.service)
-		if err := composeRestart(dir, a.service); err != nil {
-			return fmt.Errorf("docker compose restart %s: %w", a.service, err)
+		fmt.Printf("  Applying config change to %s (recreate)...\n", a.service)
+		if err := composeApplyService(dir, a.service); err != nil {
+			return fmt.Errorf("docker compose up -d --no-deps %s: %w", a.service, err)
 		}
 	}
 	if pending[config.RestartUpgradeDaemon] {
@@ -1389,7 +1391,7 @@ func applyPendingRestarts(dir string, pending map[config.RestartClass]bool) erro
 		restartUpgradeService(dir) // best-effort, own logging (install_upgrade.go)
 	}
 	if !restarted {
-		fmt.Println("  No config changes require a restart.")
+		fmt.Println("  No config changes require applying.")
 	}
 	return nil
 }
