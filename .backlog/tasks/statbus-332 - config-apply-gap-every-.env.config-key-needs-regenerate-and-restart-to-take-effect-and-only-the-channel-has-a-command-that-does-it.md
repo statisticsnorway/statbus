@@ -7,7 +7,7 @@ status: Done
 assignee:
   - '@mechanic'
 created_date: '2026-08-31 14:56'
-updated_date: '2026-09-01 20:45'
+updated_date: '2026-09-01 21:24'
 labels:
   - cli
   - config
@@ -33,9 +33,7 @@ Tests enforce that every generated key has a restart class.
 No-change runs restart nothing, and that behavior is test-pinned.
 The now-redundant `./sb upgrade channel` verb was removed.
 The result is one command that applies configuration changes without unnecessary restarts.
-A 2026-09-01 audit found that `.users.yml` edits are not reapplied after users exist and credential rotation does not re-ALTER existing database role passwords.
-The same audit found that compose or build changes are not recreated on a healthy box, and whether compose restart injects changed environment values instead of requiring `up -d` remains under empirical test.
-These residues are tracked separately.
+A 2026-09-01 audit found residues, now tracked separately: STATBUS-334 (compose restart never re-reads .env interpolation — empirically proven, the apply step must recreate) and STATBUS-335 (.users.yml reapply, credential rotation, healthy-box compose changes).
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
