@@ -6,13 +6,13 @@
 # ./sb manages a single installation. This script manages the fleet.
 #
 # Usage:
-#   ./cloud.sh status              Show version on all servers
+#   ./cloud.sh status              Show version, channel, and name on all servers
 #   ./cloud.sh notify              Tell servers to check for updates (non-disruptive)
 #   ./cloud.sh upgrade             Force all servers to apply latest now (via upgrade service)
-#   ./cloud.sh install <server>    Smart install: tries upgrade service first; full bootstrap if unreachable
-#   ./cloud.sh install <server> <version>  Pin to specific version — always full bootstrap
+#   ./cloud.sh install <target>    Smart install: tries upgrade service first; full bootstrap if unreachable
+#   ./cloud.sh install <target> <version>  Pin to specific version — always full bootstrap
 #   ./cloud.sh install all         Install ALL servers (smart, in sequence)
-#   ./cloud.sh tail <server|all>   Follow upgrade log; auto-disconnects on completion
+#   ./cloud.sh tail <target>       Follow upgrade log; auto-disconnects on completion
 #   ./cloud.sh rescue <server>     Alias for install (backwards compat)
 #   ./cloud.sh wipe <server>       DESTRUCTIVE: delete DB and recreate from scratch
 #
@@ -62,15 +62,15 @@ usage() {
     echo "Usage: $0 <command> [args]"
     echo ""
     echo "Commands:"
-    echo "  status                     Show binary version on all servers"
-    echo "  health [server|all]        Upgrade health: service state, last activity, upgrade status"
+    echo "  status                     Show version, channel, and name on all servers"
+    echo "  health [target]            Upgrade health: service state, last activity, upgrade status"
     echo "  notify                     Tell servers to check for updates (non-disruptive)"
     echo "  upgrade                    Force all servers to apply latest via upgrade service"
-    echo "  install <server>           Smart install: upgrade service first, full bootstrap fallback"
-    echo "  install <server> <version> Pin to version — always full bootstrap, no fast-path"
+    echo "  install <target>           Smart install: upgrade service first, full bootstrap fallback"
+    echo "  install <target> <version> Pin to version — always full bootstrap, no fast-path"
     echo "  install all [version]      Install ALL servers in sequence"
-    echo "  tail <server|all>          Follow upgrade log; auto-disconnects on completion"
-    echo "  rescue <server>            Alias for install"
+    echo "  tail <target>              Follow upgrade log; auto-disconnects on completion"
+    echo "  rescue <target>            Alias for install"
     echo "  create <code> <name> <version>  Create new cloud installation at a named release"
     echo "  inspect                    Show credentials for all installations"
     echo "  wipe <server>              DESTRUCTIVE: delete DB and recreate"
@@ -79,6 +79,7 @@ usage() {
     echo "  migrate-up <server>               RETIRED with the edge channel"
     echo ""
     echo "Servers: $SERVERS"
+    echo "or a channel: stable | prerelease"
     exit 1
 }
 
@@ -125,14 +126,71 @@ validate_server() {
     fi
 }
 
+# read_server_metadata returns the values used by both status and live channel
+# targeting in one SSH round-trip. UPGRADE_CHANNEL comes from the generated .env
+# because it contains the live derived value (STATBUS-307); the display name is
+# the operator-authored DEPLOYMENT_SLOT_NAME in .env.config.
+read_server_metadata() {
+    local server="$1"
+    ssh_server "$server" '
+        cd statbus 2>/dev/null || exit 1
+        ver=$(./sb --version 2>/dev/null | head -1)
+        channel=$(sed -n "s/^UPGRADE_CHANNEL=//p" .env 2>/dev/null | head -1)
+        name=$(sed -n "s/^DEPLOYMENT_SLOT_NAME=//p" .env.config 2>/dev/null | head -1)
+        [ -n "$ver" ] && [ -n "$channel" ] && [ -n "$name" ] || exit 1
+        printf "%s|%s|%s\n" "$ver" "$channel" "$name"
+    '
+}
+
+is_channel() {
+    [ "$1" = "stable" ] || [ "$1" = "prerelease" ]
+}
+
+# resolve_target_servers expands all or a live channel to server names. A box
+# whose metadata cannot be read is reported and skipped rather than guessed.
+resolve_target_servers() {
+    local target="$1"
+    if [ "$target" = "all" ]; then
+        echo "$SERVERS"
+        return
+    fi
+    if ! is_channel "$target"; then
+        validate_server "$target"
+        echo "$target"
+        return
+    fi
+
+    local server metadata channel matches=""
+    for server in $SERVERS; do
+        if ! metadata=$(read_server_metadata "$server" 2>/dev/null); then
+            echo "  $server: channel read failed; skipping" >&2
+            continue
+        fi
+        IFS='|' read -r _ channel _ <<< "$metadata"
+        if [ "$channel" = "$target" ]; then
+            matches="${matches:+$matches }$server"
+        fi
+    done
+    if [ -z "$matches" ]; then
+        echo "Error: no readable servers found on channel '$target'" >&2
+        return 1
+    fi
+    echo "$matches"
+}
+
 cmd_status() {
     echo "StatBus Cloud Status"
     echo "===================="
     for server in $SERVERS; do
-        printf "  %-16s " "$server:"
-        ssh_server "$server" \
-            "cd statbus && ./sb --version 2>/dev/null || echo 'UNKNOWN'" 2>/dev/null \
-            || echo "SSH FAILED"
+        local metadata version channel name
+        if ! metadata=$(read_server_metadata "$server" 2>/dev/null); then
+            printf "  %-16s METADATA READ FAILED\n" "$server:"
+            continue
+        fi
+        IFS='|' read -r version channel name <<< "$metadata"
+        version="${version#sb version }"
+        version="${version/ (commit / (}"
+        printf "  %-16s %-31s %-12s %s\n" "$server:" "$version" "$channel" "$name"
     done
 }
 
@@ -187,23 +245,24 @@ cmd_health_one() {
 # cmd_health shows upgrade health for one or all servers, in parallel.
 cmd_health() {
     local target="${1:-all}"
-    validate_server "$target"
+    local targets
+    targets=$(resolve_target_servers "$target")
     echo "StatBus Cloud Health"
     echo "===================="
-    if [ "$target" = "all" ]; then
+    if [ "$target" = "all" ] || is_channel "$target"; then
         local tmpdir pids=()
         tmpdir=$(mktemp -d)
-        for server in $SERVERS; do
+        for server in $targets; do
             cmd_health_one "$server" > "$tmpdir/$server" &
             pids+=($!)
         done
         wait "${pids[@]}"
-        for server in $SERVERS; do
+        for server in $targets; do
             cat "$tmpdir/$server"
         done
         rm -rf "$tmpdir"
     else
-        cmd_health_one "$target"
+        cmd_health_one "$targets"
     fi
 }
 
@@ -228,18 +287,19 @@ cmd_upgrade() {
 cmd_install() {
     local target="$1"
     local version="${2:-}"
-    validate_server "$target"
+    local targets
+    targets=$(resolve_target_servers "$target")
 
-    if [ "$target" = "all" ]; then
-        echo "Installing ALL servers${version:+ (pinned to $version)}"
+    if [ "$target" = "all" ] || is_channel "$target"; then
+        echo "Installing $target servers${version:+ (pinned to $version)}"
         echo "======================"
-        for server in $SERVERS; do
+        for server in $targets; do
             echo ""
             echo "--- $server ---"
             cmd_install_one "$server" "$version"
         done
     else
-        cmd_install_one "$target" "$version"
+        cmd_install_one "$targets" "$version"
     fi
 }
 
@@ -352,16 +412,17 @@ cmd_tail_one() {
 # cmd_tail tails the upgrade log for one server or all servers in parallel.
 cmd_tail() {
     local target="$1"
-    validate_server "$target"
-    if [ "$target" = "all" ]; then
+    local targets
+    targets=$(resolve_target_servers "$target")
+    if [ "$target" = "all" ] || is_channel "$target"; then
         local pids=()
-        for server in $SERVERS; do
+        for server in $targets; do
             cmd_tail_one "$server" &
             pids+=($!)
         done
         wait "${pids[@]}"
     else
-        cmd_tail_one "$target"
+        cmd_tail_one "$targets"
     fi
 }
 
