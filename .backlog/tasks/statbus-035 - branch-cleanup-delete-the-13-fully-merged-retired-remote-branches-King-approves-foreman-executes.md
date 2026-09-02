@@ -1,12 +1,12 @@
 ---
 id: STATBUS-035
 title: >-
-  branch-cleanup: delete the 13 fully-merged/retired remote branches (King
-  approves, foreman executes)
+  seed-branch-retirement: rebaseline the harness to the current stable, then
+  delete db-seed and db-snapshot
 status: To Do
 assignee: []
 created_date: '2026-06-12 07:57'
-updated_date: '2026-07-27 16:01'
+updated_date: '2026-09-02 09:40'
 labels:
   - git-hygiene
   - not-install-upgrade
@@ -21,54 +21,16 @@ ordinal: 35000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-> NORTH STAR: every visible branch is live.
-> BENEFIT: 13 evidence-backed dead branches stop inviting wasted investigation (dead code has already misdirected root-cause work twice in this repo), and the 11 keep-pending branches each get their one owner answer instead of ambient uncertainty forever.
-> STAGE: Hygiene.
-> COMPLEXITY: one King sitting (approve + walk), then foreman-executes the deletes; owner-gated ones route to hhssb / Erik Søberg.
-> DEPENDS ON: nothing.
+Origin is clean except two held branches: db-seed and db-snapshot. Only shipped binaries ≤ v2026.05.6-rc.03 fetch them, and no deployed box runs those anymore — the sole remaining consumer is our own install-recovery harness, which pins v2026.05.x as upgrade-from baselines (vm-bootstrap.sh wires the db-seed refspec at ~:876-946 exactly for those old release binaries).
 
----
+Fix, KING-DIRECTED 2026-09-02: rebaseline the harness onto the current stable, then release the hold and delete both branches.
+1. Move the default INSTALL_VERSION pins (4× v2026.05.4, 3× v2026.05.2, 1× v2026.07.0-rc.05) to the current stable (v2026.08.1, or the newer stable if promoted first) — more representative: no real box upgrades from v2026.05.x anymore.
+2. Per-scenario judgment, not blind sed: wedge-helpers.sh synthesizes v2026.05.2's specific crash shape (:531-545), and 0-happy-upgrade's comment relies on the baseline predating sbAlreadyAtCommit (:124). Each old-pin scenario either moves to the new baseline with adjusted synthesis, or is retired as reproducing an extinct state — named verdict per scenario.
+3. Remove the db-seed refspec wiring from vm-bootstrap.sh once no scenario installs a pre-retirement release.
+4. Prove with a full install-recovery run at the new baselines (rides a release gate).
+5. Then delete origin/db-seed and origin/db-snapshot — the last action of the branch-cleanup campaign; origin becomes: master, deploy pointers, kept-deliberately (pgadmin, pg-oauth), and live PR branches only.
 
-Actionable branch cleanup, folded from the engineer's full 36-branch analysis (was doc-008; consolidated into this ticket per the 2026-06-12 King convention that plans live in tickets). DELETE NOTHING until the King approves; foreman executes after.
-
-GROUND TRUTH (git ls-remote --heads origin): **36** remote branches, not the ~70 estimated. The seed/snapshot family is **8** branches, not ~40. No parked/* or wip/* exist. Every verdict is evidence-backed: merged status via `git rev-list --left-right --count master...<b>`, live-consumer grep across .github/cli/ops/test/dev.sh, and `git log -S` archaeology on the seed transport.
-
-== DELETE — 13 confident-safe (execute ONLY on King approval) ==
-Fully-merged feature/fix/ui (0 unique commits, all in master):
-1. engineer/upgrade-recovery-validation
-2. fix/recovery-hardening-stop-loop-and-start-existing-db
-3. ui/minor-improvements
-Retired seed/snapshot archival pins (publish-side; the consume path never fetched seed/<sha> or snapshot/<sha> by name; the creating gate was retired in 9ee422652):
-4. seed/c823a88f
-5. snapshot/2be9da13
-6. snapshot/9ac0666c
-7. snapshot/e1fe8456
-8. snapshot/b9bbceb7
-9. snapshot/e2355634
-dotnet/EF-era abandoned feature (superseded by the PostgreSQL rewrite; its 8 commits are EF migrations that can never apply):
-10. feature/split-statistical-unit
-Stale Dependabot bumps (handle by CLOSING the PR — which deletes the branch; deleting the branch under an open PR lets Dependabot recreate it):
-11. dependabot/go_modules/cli/github.com/jackc/pgx/v5-5.9.2
-12. dependabot/npm_and_yarn/app/postcss-8.5.10
-13. dependabot/npm_and_yarn/app/undici-7.24.0
-
-Commands (foreman runs the 10 non-dependabot after approval; closes the 3 PRs for the dependabot set):
-  git push origin --delete engineer/upgrade-recovery-validation
-  git push origin --delete fix/recovery-hardening-stop-loop-and-start-existing-db
-  git push origin --delete ui/minor-improvements
-  git push origin --delete seed/c823a88f
-  git push origin --delete snapshot/2be9da13
-  git push origin --delete snapshot/9ac0666c
-  git push origin --delete snapshot/e1fe8456
-  git push origin --delete snapshot/b9bbceb7
-  git push origin --delete snapshot/e2355634
-  git push origin --delete feature/split-statistical-unit
-
-== NEVER delete (12) ==
-master; the 11 deploy pointers ops/cloud/deploy/{demo,dev,et,jo,ma,no,production,tcc,ug} + ops/standalone/deploy/rune-no; and **db-seed** (load-bearing: every shipped pre-retirement binary v2026.05.2–v2026.05.6-rc.03 fetches it via `git fetch origin db-seed`, and the harness depends on it at vm-bootstrap.sh:472,508). db-seed stays until every deployed/tested binary ≤ v2026.05.6-rc.03 is EOL.
-
-== KEEP-pending — 11, each needs ONE owner answer (foreman does NOT decide these) ==
-db-snapshot (legacy fallback name in shipped binaries — confirm no binary relies on it before retiring); debug/archive-partial-at-final-rootcause (3 commits — findings captured in master/doc?); engineer/image-distribution-design (1-commit draft doc — King: still wanted?); engineer/layer2-recovery-flag (4 commits, --recovery=auto not in master — superseded?); test/upgrade-resume-new-scenarios (scenario 30 kill-mid-rsync-resumable not in master — merge or superseded?); feat/statistical-variables-over-time-chart (hhssb's UI WIP); feature/pg-oauth (5mo prototype); feature/pgadmin (8 commits, 3mo); fix-custom-scripts (Erik Søberg's Norway scripts); legacy-dotnet-3-ms-sql + legacy-dotnet-7-postgresql (deliberate historical archive markers, 0-ahead — King's discretion). Owners to consult: hhssb, Erik Søberg, King.
+Acceptance: no scenario defaults to a pre-v2026.08 baseline without a written extinct-state verdict; vm-bootstrap.sh carries no db-seed reference; full harness green at the new baselines; both branches deleted and verified absent.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
