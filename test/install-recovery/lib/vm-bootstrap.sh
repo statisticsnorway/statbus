@@ -462,10 +462,18 @@ _run_long_via_tmux() {
     # Launch the command in a detached tmux session running as statbus.
     # Wrap with exit-code capture: bash -c '<cmd>; echo $? > /tmp/<session>.exit'
     # The outer redirection > /tmp/<session>.log captures everything.
+    #
+    # GIT_TERMINAL_PROMPT=0: tmux gives the stage a tty, so a git that receives
+    # a transient GitHub 401 on an anonymous fetch PROMPTS for a username and
+    # blocks forever (rc.04 first live watchdog catch: v2026.08.1's best-effort
+    # `git ls-remote` in configureDeployFetch hung at 'Username for
+    # https://github.com:'). These stages are non-interactive by construction —
+    # any prompt is a hang. Without a tty git already fails fast, so this only
+    # restores the no-tty behavior the product paths get from systemd/ssh.
     timeout 60 ssh "${SSH_OPTS[@]}" root@"$ip" "
         rm -f /tmp/${session}.exit /tmp/${session}.log
         sudo -u statbus tmux new-session -d -s ${session} \\
-            'bash -lc \"( ${cmd} ) > /tmp/${session}.log 2>&1; echo \\\$? > /tmp/${session}.exit\"'
+            'bash -lc \"export GIT_TERMINAL_PROMPT=0; ( ${cmd} ) > /tmp/${session}.log 2>&1; echo \\\$? > /tmp/${session}.exit\"'
     " || {
         echo "  ERROR: could not start tmux session ${session} on $ip" >&2
         return 254
