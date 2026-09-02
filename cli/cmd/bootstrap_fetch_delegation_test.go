@@ -71,7 +71,8 @@ Route them through statbus_git_fetch so the product's translator applies.`,
 	}
 }
 
-// AC#1: the delegation prefers the product, and raw git is the last resort.
+// AC#1: the delegation prefers the target product, and raw git remains the
+// pre-target-binary bootstrap residue.
 //
 // The middle branch this test once demanded — reach for ${HOME}/sb.tmp, the
 // downloaded-but-not-yet-moved binary — is deliberately absent. Reading the call
@@ -88,10 +89,40 @@ func TestDelegationPrefersTheProductOverRawGit(t *testing.T) {
 		t.Error("no delegation to the installed binary")
 	}
 	if fallback == -1 {
-		t.Error("no raw-git fallback for the genuinely-no-binary case")
+		t.Error("no raw-git fallback for the pre-target-binary commit bootstrap")
 	}
 	if inPlace > fallback {
 		t.Error("the delegation must try the product first and fall back last")
+	}
+}
+
+// The --commit path fetches the target commit BEFORE it can derive the image tag
+// and procure that commit's binary. An executable already in ~/statbus is
+// therefore the PREVIOUS release, which may predate the hidden repo-fetch verb.
+// Run 33598974070 proved that treating mere executable presence as capability
+// calls repo-fetch on v2026.05.4, gets "unknown command", and aborts before the
+// target binary or Go installer can run. Commit mode must take the documented
+// raw-git bootstrap residue regardless of whether an older binary is present.
+func TestCommitFetchDoesNotDelegateToPreexistingLegacyBinary(t *testing.T) {
+	body := installScript(t)
+	helperStart := strings.Index(body, "statbus_git_fetch() {")
+	if helperStart == -1 {
+		t.Fatal("no statbus_git_fetch helper")
+	}
+	helperTail := body[helperStart:]
+	helperEnd := strings.Index(helperTail, "\n}\n")
+	if helperEnd == -1 {
+		t.Fatal("could not isolate statbus_git_fetch helper")
+	}
+	helper := helperTail[:helperEnd]
+
+	if !strings.Contains(helper, `[ -z "$COMMIT_SHA" ] && [ -x "$STATBUS_DIR/sb" ]`) {
+		t.Error(`statbus_git_fetch delegates based only on executable presence.
+
+In --commit rescue mode that executable is the previous release: the target
+binary cannot be procured until after the fetch supplies the target checkout and
+its image tag. Exclude commit mode from delegation so a legacy sb without the
+hidden repo-fetch verb cannot abort the bootstrap.`)
 	}
 }
 

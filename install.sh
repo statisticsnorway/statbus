@@ -335,9 +335,11 @@ statbus_repo_lock_acquire
 #   downloaded and MOVED into $STATBUS_DIR/sb before this fetch runs, so it
 #   delegates. This is the path the observed failure was on.
 #
-#   --commit — the binary is procured from an image tagged with the
+#   --commit — the TARGET binary is procured from an image tagged with the
 #   commit_short, which is only known AFTER this fetch and the checkout that
-#   follows it. The product cannot exist yet, so this one falls back to raw git.
+#   follows it. An existing install may have a PREVIOUS binary, but that binary
+#   may predate repo-fetch and must not be mistaken for the target product. This
+#   path therefore always falls back to raw git.
 #
 # THE FALLBACK IS GENUINE RESIDUE — a consequence of bootstrapping order rather
 # than an oversight — and it is written down here so the next reader recognises
@@ -359,11 +361,12 @@ statbus_repo_lock_acquire
 # skips function bodies would also stop seeing a real repo operation someone
 # parks in one. Both call sites are far below, so nothing is lost.
 statbus_git_fetch() {
-    if [ -x "$STATBUS_DIR/sb" ]; then
+    if [ -z "$COMMIT_SHA" ] && [ -x "$STATBUS_DIR/sb" ]; then
         "$STATBUS_DIR/sb" repo-fetch "$@"
     else
-        # GENUINE RESIDUE — the --commit path, where no product exists yet. Raw
-        # git, and the operator may see git's own misleading credential text.
+        # GENUINE RESIDUE — the --commit path, where the target product does not
+        # exist yet. Ignore any previous release binary: it may lack repo-fetch.
+        # Raw git means the operator may see git's own misleading credential text.
         git fetch "$@"
     fi
 }
