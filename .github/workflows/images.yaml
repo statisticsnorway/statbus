@@ -265,7 +265,7 @@ jobs:
           # transient "registry-1.docker.io: context deadline exceeded" errors.
           # BuildKit tries the mirror first; if it fails or is absent it falls
           # back to Docker Hub automatically — no change to what is built.
-          config-inline: |
+          buildkitd-config-inline: |
             [registry."docker.io"]
               mirrors = ["https://mirror.gcr.io"]
 
@@ -310,6 +310,10 @@ jobs:
       matrix:
         service: [app, worker, db, proxy, sb]
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
       - uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -327,6 +331,14 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service }}:${TAG}-amd64 \
             ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service }}:${TAG}-arm64
 
+      - name: Verify destination is public and digest-stable
+        # The first ref is the authenticated source-of-truth view of the index
+        # just created. The second inspection uses an empty DOCKER_CONFIG, so a
+        # credential-readable but private GHCR package fails here before seed.
+        run: |
+          DST="${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service }}:${{ needs.describe.outputs.commit_short }}"
+          ops/release/verify-public-image.sh "$DST" "$DST"
+
   retag:
     name: Retag parent's images (exempt-only push)
     needs: [describe, decide-exempt-only]
@@ -343,6 +355,10 @@ jobs:
       matrix:
         service: [app, worker, db, proxy, sb]
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
       - uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -362,6 +378,15 @@ jobs:
           DST="${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service }}:${{ needs.describe.outputs.commit_short }}"
           echo "Retagging (exempt-only push): ${SRC} -> ${DST}"
           docker buildx imagetools create --tag "$DST" "$SRC"
+
+      - name: Verify destination is public and index-identical to parent
+        # This is the publication postcondition, not another authenticated
+        # existence check. A private destination names the package-settings
+        # visibility remedy; a bad retag names both unequal index digests.
+        run: |
+          SRC="${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service }}:${{ needs['decide-exempt-only'].outputs.parent_short }}"
+          DST="${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service }}:${{ needs.describe.outputs.commit_short }}"
+          ops/release/verify-public-image.sh "$SRC" "$DST"
 
   seed:
     # statbus-seed: the pre-upgrade seed dump, shipped as a commit-tagged image
@@ -399,7 +424,7 @@ jobs:
     # building cleanly, so the skip is unconditional for the whole
     # test/upgrade-arc-* prefix, not just the branches currently red.
     #
-    # STATBUS-219: needs BOTH manifest and retag now — exactly one of the
+    # STATBUS-219/345: needs BOTH manifest and retag now — exactly one of the
     # two actually runs on any given push (build->manifest on a normal
     # push, retag on a verified exempt-only push; decide-exempt-only's own
     # BEFORE_SHA check already fails toward full build — i.e. toward
@@ -407,7 +432,8 @@ jobs:
     # github.event.before does not exist for that event type; this
     # includes the upgrade-arc-harness fixture-branch dispatches, which
     # keep running the full build path unchanged). seed proceeds once
-    # EITHER succeeded, refuses if either genuinely FAILED, and refuses if
+    # EITHER succeeded INCLUDING its anonymous/digest postcondition, refuses
+    # if either genuinely FAILED, and refuses if
     # somehow BOTH were skipped (a bug state — neither build path ran, so
     # there is nothing for seed to pull sb from).
     if: >-
@@ -425,7 +451,7 @@ jobs:
           fetch-depth: 1
       - uses: docker/setup-buildx-action@v3
         with:
-          config-inline: |
+          buildkitd-config-inline: |
             [registry."docker.io"]
               mirrors = ["https://mirror.gcr.io"]
       - uses: docker/login-action@v3

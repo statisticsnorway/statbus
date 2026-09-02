@@ -1991,7 +1991,8 @@ func checkUpgradeArcHarnessGate(projDir, rcTag, rcCommit, rcShort string) bool {
 // checkRCArtifactGate is the pre-flight asset/manifest gate for
 // releaseStableCmd. Verifies that the latest RC's release.yaml has
 // published every GitHub Release asset (binaries + checksums + manifest
-// + seed) and every ghcr.io Docker manifest (app, db, worker, proxy).
+// + seed) and every public ghcr.io Docker manifest
+// (app, db, worker, proxy, sb, seed).
 //
 // Strategy: probe release.yaml FIRST (it's the workflow that produces
 // both asset sets). On Pending/Failed/Missing/Unknown the diagnostic is

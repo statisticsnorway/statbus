@@ -77,13 +77,11 @@ jobs:
 
     steps:
       - name: Checkout
-        # fetch-depth: 1 — the scenario stages HEAD onto the VM by fetching
-        # the exact HEAD SHA there (test/install-recovery/scenarios/
-        # 0-happy-upgrade.sh's own git fetch --depth 1), not by reading
-        # local history on the runner; mirrors test-install.yaml.
+        # fetch-depth: 0 — the scenario selects its install baseline from the
+        # complete release tag ledger before staging the exact HEAD SHA on the VM.
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: Set up Go
         # go-version-file pins to cli/go.mod's `go` directive — mirrors

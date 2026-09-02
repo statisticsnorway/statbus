@@ -37,11 +37,10 @@ var requiredAssets = []string{
 }
 
 // dockerServices are the images verified by CheckManifests: the four runtime
-// service images (built by release.yaml's build-images job) plus the seed image
-// (built by images.yaml's seed job on every master push; present at every release
-// commit by construction — images.yaml has no tags trigger, so every release tag
-// resolves to a master commit whose seed image was already built and pushed).
-var dockerServices = []string{"app", "db", "worker", "proxy", "seed"}
+// services, the commit-addressed sb binary used by install/upgrade, and the seed.
+// All six must be anonymously pullable: authenticated CI readability is not a
+// deployability proof for the clean, uncredentialed customer host.
+var dockerServices = []string{"app", "db", "worker", "proxy", "sb", "seed"}
 
 // CheckAssets verifies that all expected GitHub Release assets for the given
 // tag are present. tag must be a full version string (e.g. "v2026.04.0-rc.9").
@@ -49,8 +48,9 @@ func CheckAssets(tag string) []CheckResult {
 	return checkAssetsAt("https://api.github.com", tag)
 }
 
-// CheckManifests verifies that all five Docker images for the given tag exist
-// on ghcr.io: the four runtime service images plus the statbus-seed image.
+// CheckManifests verifies that all six Docker images for the given tag exist
+// and are publicly pullable on ghcr.io: the four runtime service images plus
+// statbus-sb and statbus-seed.
 // Checks run in parallel.
 //
 // Image lookup strategy (rc.63+):
@@ -199,7 +199,7 @@ func checkManifest(registryBase, image, calverTag, commitShort string, resolveEr
 		shortName = parts[1]
 	}
 
-	token, err := ghcrPullToken(registryBase, image)
+	token, err := anonymousGHCRPullToken(registryBase, image)
 	if err != nil {
 		return CheckResult{
 			Name: fmt.Sprintf("image: %s:%s", shortName, calverTag),
@@ -298,14 +298,11 @@ func headManifest(registryBase, image, tag, token string) (int, error) {
 	return resp.StatusCode, nil
 }
 
-// ghcrPullToken returns a bearer token for pulling from the given registry.
-// Uses GITHUB_TOKEN if set (works directly with ghcr.io); otherwise performs
-// an anonymous token exchange with the registry token endpoint.
-func ghcrPullToken(registryBase, image string) (string, error) {
-	if tok := os.Getenv("GITHUB_TOKEN"); tok != "" {
-		return tok, nil
-	}
-	// Anonymous token exchange — scope is per-image.
+// anonymousGHCRPullToken performs an anonymous per-image token exchange.
+// GITHUB_TOKEN is intentionally ignored here. It remains valid for the GitHub
+// API tag-resolution call, but using it for the registry probe would let a
+// credential-readable/private package pass the public-deployability gate.
+func anonymousGHCRPullToken(registryBase, image string) (string, error) {
 	url := fmt.Sprintf("%s/token?scope=repository:%s:pull&service=ghcr.io", registryBase, image)
 	resp, err := httpClient().Do(mustGET(url))
 	if err != nil {

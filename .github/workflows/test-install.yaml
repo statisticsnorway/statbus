@@ -88,13 +88,12 @@ jobs:
 
     steps:
       - name: Checkout
-        # fetch-depth: 1 — scenario 0-happy-install references local HEAD only. The tag
-        # ref itself is at HEAD on a tag-trigger run, so `git describe
-        # --tags` in dev.sh build-sb's ldflag-stamping path still resolves
-        # to the exact tag without needing deeper history.
+        # fetch-depth: 0 — scenario 0-happy-install selects its baseline from the
+        # complete release tag ledger at run time. A shallow checkout contains only
+        # the target tag and would make the predecessor selection falsely empty.
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: Set up Go
         # go-version-file pins to cli/go.mod's `go` directive — single

@@ -298,9 +298,17 @@ jobs:
           set -euo pipefail
           echo "${GH_TOKEN}" | docker login "$REGISTRY" -u "$ACTOR" --password-stdin
 
-          # Distinct baseline versions the scenarios pin (INSTALL_VERSION default).
-          versions="$(grep -rhoE 'INSTALL_VERSION:-v[0-9][0-9a-z.-]*' test/install-recovery/scenarios/*.sh \
-                        | sed 's/.*INSTALL_VERSION:-//' | sort -u)"
+          # Distinct fixed baselines plus the happy smokes' algorithmic predecessor.
+          # The latter no longer appears as a grep-able literal by design.
+          auto_baseline="$(
+            source test/install-recovery/lib/release-baseline.sh
+            select_release_baseline_from_repo "$PWD"
+          )"
+          versions="$({
+            grep -rhoE 'INSTALL_VERSION:-v[0-9][0-9a-z.-]*' test/install-recovery/scenarios/*.sh \
+              | sed 's/.*INSTALL_VERSION:-//'
+            printf '%s\n' "$auto_baseline"
+          } | sort -u)"
           if [ -z "$versions" ]; then
             echo "No pinned baseline versions found in scenarios — nothing to verify."
             exit 0

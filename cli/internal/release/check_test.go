@@ -180,6 +180,25 @@ func allImages(present bool) map[string]bool {
 	return m
 }
 
+func TestDockerServicesAreTheSixDeployableImages(t *testing.T) {
+	want := map[string]bool{
+		"app": true, "db": true, "worker": true,
+		"proxy": true, "sb": true, "seed": true,
+	}
+	if len(dockerServices) != len(want) {
+		t.Fatalf("expected six docker services, got %d: %v", len(dockerServices), dockerServices)
+	}
+	for _, svc := range dockerServices {
+		if !want[svc] {
+			t.Fatalf("unexpected docker service %q in %v", svc, dockerServices)
+		}
+		delete(want, svc)
+	}
+	if len(want) != 0 {
+		t.Fatalf("missing docker services: %v", want)
+	}
+}
+
 // ghcrServerWithTags extends ghcrServer to accept a per-image map of
 // ALLOWED TAGS. A manifest lookup returns 200 only when the image is
 // present AND the tag is in its allowed-tags set; otherwise 404. Used
@@ -261,17 +280,61 @@ func TestCheckManifests_NewStyleCommitShort(t *testing.T) {
 			t.Errorf("expected display to include both CalVer and commit_short; got %q", r.Name)
 		}
 	}
-	// Seed image must be among the checked images — if "seed" is ever dropped
-	// from dockerServices a future broken seed will false-pass the gate.
-	foundSeed := false
+	// Seed and sb must both be checked. Dropping either would let the release
+	// gate green-light an image set that cannot install on a clean host.
+	foundSeed, foundSB := false, false
 	for _, r := range results {
 		if strings.Contains(r.Name, "statbus-seed") {
 			foundSeed = true
-			break
+		}
+		if strings.Contains(r.Name, "statbus-sb") {
+			foundSB = true
 		}
 	}
 	if !foundSeed {
 		t.Error("expected a result containing statbus-seed; add \"seed\" to dockerServices if missing")
+	}
+	if !foundSB {
+		t.Error("expected a result containing statbus-sb; add \"sb\" to dockerServices if missing")
+	}
+}
+
+// A CI credential can read a private GHCR package, but that says nothing about
+// deployability on an uncredentialed customer host. The manifest probe must use
+// the anonymous token endpoint even when GITHUB_TOKEN is available.
+func TestCheckManifests_CredentialReadableButAnonymousDeniedFails(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "credential-token")
+	api := apiServer(t, map[string]string{
+		"v2026.09.0-rc.4": "abcdef01abcdef01abcdef01abcdef01abcdef01",
+	})
+	defer api.Close()
+
+	registry := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/token" {
+			if got := r.Header.Get("Authorization"); got != "" {
+				t.Errorf("anonymous token request carried Authorization header %q", got)
+			}
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+		// This is the false-green path the old implementation took: direct
+		// authenticated manifest access succeeds for the private package.
+		if strings.HasPrefix(r.URL.Path, "/v2/") && r.Header.Get("Authorization") == "Bearer credential-token" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer registry.Close()
+
+	results := checkManifestsAt(api.URL, registry.URL, "v2026.09.0-rc.4")
+	if countFailed(results) != len(dockerServices) {
+		t.Fatalf("expected all anonymous deployability probes to fail, got: %+v", results)
+	}
+	for _, result := range results {
+		if !strings.Contains(result.Err, "auth") || !strings.Contains(result.Err, "HTTP 403") {
+			t.Errorf("expected anonymous auth failure, got %+v", result)
+		}
 	}
 }
 

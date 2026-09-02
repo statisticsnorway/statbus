@@ -25,7 +25,9 @@
 #   first, even if the inline tests are all green.
 #
 # Trigger logic:
-#   1. Install at INSTALL_VERSION (v2026.05.2). Verify health.
+#   1. Install at INSTALL_VERSION. By default this is selected from the tag
+#      ledger as the newest stable release strictly below the target under
+#      test, with newest-RC fallback. Verify health.
 #   2. Populate via populate_with_demo_data. Snapshot data counts.
 #   3. Stage HEAD on the VM (git fetch + checkout HEAD; copy
 #      HEAD's sb binary to ~/statbus/sb). The unit will use HEAD's
@@ -50,18 +52,22 @@
 #   diverged.
 #
 # Usage:
-#   INSTALL_VERSION=v2026.05.2 HCLOUD_LOCATION=fsn1 \
+#   INSTALL_VERSION=v2026.08.0 HCLOUD_LOCATION=fsn1 \
 #     ./test/install-recovery/scenarios/0-happy-upgrade.sh \
 #     statbus-recovery-0-happy-upgrade
 
 set -euo pipefail
 
 VM_NAME="${1:-statbus-recovery-0-happy-upgrade}"
-INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.2}"
 UPGRADE_BUDGET_S="${UPGRADE_BUDGET_S:-900}"
 TICK_WAIT_S="${TICK_WAIT_S:-90}"   # > default tick interval (60s) + slack
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
+REPO_ROOT="$(cd "$LIB_DIR/../../.." && pwd)"
+source "$LIB_DIR/release-baseline.sh"
+# An explicit environment pin wins. The default is computed at run time so
+# this smoke never fossilises around an archaeological release.
+INSTALL_VERSION="${INSTALL_VERSION:-$(select_release_baseline_from_repo "$REPO_ROOT")}"
 source "$LIB_DIR/vm-bootstrap.sh"
 source "$LIB_DIR/data-helpers.sh"
 source "$LIB_DIR/wedge-helpers.sh"
@@ -108,23 +114,22 @@ echo "  baseline NRestarts: $NRESTARTS_BASELINE"
 echo ""
 echo "── staging HEAD on the VM ──"
 HEAD_LOCAL=$(git -C "$HARNESS_ROOT" rev-parse HEAD)
-ip=$(hcloud server ip "$VM_NAME")
 upload_sb_to_vm "$VM_NAME"
 
 # Single-line: printf '%q' converts multi-line strings to ANSI-C $'...\n...' quoting,
 # but the remote /bin/sh (dash on Ubuntu) does not expand $'...' — newlines collapse,
 # breaking if/then/fi syntax.  Semicolons replace newlines; if COND; then CMD; fi
 # is valid single-line bash.
-VM_EXEC bash -c "cd ~/statbus && if ! git cat-file -e $HEAD_LOCAL 2>/dev/null; then git fetch --depth 1 origin $HEAD_LOCAL || { echo 'FATAL: cannot fetch HEAD' >&2; exit 1; }; fi && git checkout $HEAD_LOCAL"
+VM_EXEC bash -c "cd ~/statbus && if ! git cat-file -e $HEAD_LOCAL 2>/dev/null; then for attempt in 1 2 3; do git fetch --depth 1 origin $HEAD_LOCAL && break; rc=\$?; echo \"GitHub fetch retry [git-fetch] \${attempt}/3 (rc=\$rc)\" >&2; [ \"\$attempt\" -eq 3 ] && { echo 'FATAL: cannot fetch HEAD after bounded retries' >&2; exit \"\$rc\"; }; sleep 10; done; fi && git checkout $HEAD_LOCAL"
 
 # Restart the upgrade-service unit so it re-execs the freshly pre-staged HEAD
 # binary. upload_sb_to_vm (above) atomically swaps ~/statbus/sb via mv-then-cp,
 # so the STILL-RUNNING service keeps its OLD INSTALL_VERSION inode until restarted.
-# That matters: the install-version binary PREDATES buildBinaryOnDisk's pre-staged-
-# binary skip (sbAlreadyAtCommit landed 2026-05-29; v2026.05.2 is 2026-05-21), so it
-# would unconditionally run `make -C cli build` — which fails on the VM (no Go
-# toolchain) → BINARY_BUILD_FAILED → rollback. Restarting puts the HEAD binary in
-# control, which skips the build (./sb already at target commit). Mirrors the
+# This used to be justified only by v2026.05.2 predating sbAlreadyAtCommit.
+# The algorithmic baseline may already contain that optimisation, but the restart
+# remains necessary: the supervised service must execute the staged HEAD binary,
+# not whichever older baseline inode it opened before the atomic swap. HEAD then
+# skips the build because ./sb is already at the target commit. Mirrors the
 # stop/start the supervised-unit scenarios already do (3-postswap-watchdog-reconnect).
 echo "── restarting upgrade-service unit onto the pre-staged HEAD binary ──"
 # vm_restart_unit: dumps journal + status + sb-version before returning non-zero

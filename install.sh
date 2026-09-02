@@ -140,6 +140,93 @@ if [ -n "$CHANNEL" ]; then
     esac
 fi
 
+# Classify docker pull failures without collapsing auth, absence, and transport
+# into the same misleading "no published image" message.
+classify_docker_pull_failure() {
+    local message="$1"
+    if printf '%s\n' "$message" | grep -Eqi 'unauthorized|denied|authentication required|insufficient[_ -]?scope|pull access denied|(^|[^0-9])(401|403)([^0-9]|$)'; then
+        printf '%s\n' auth
+    elif printf '%s\n' "$message" | grep -Eqi 'manifest unknown|not found|no matching manifest|no such manifest|(^|[^0-9])404([^0-9]|$)'; then
+        printf '%s\n' missing
+    elif printf '%s\n' "$message" | grep -Eqi 'timeout|timed out|connection reset|connection refused|temporary failure|tls handshake|context deadline|network is unreachable|unexpected eof|i/o timeout|dial tcp'; then
+        printf '%s\n' network
+    else
+        printf '%s\n' unknown
+    fi
+}
+
+# docker_pull_published_image IMAGE
+# Retries every recognized registry class because GHCR platform incidents have
+# surfaced as auth and missing as well as transport errors. The final class and
+# raw Docker text remain intact, so a genuinely private/missing package still
+# fails with its specific remedy after the small bounded window.
+docker_pull_published_image() {
+    local image="$1" max_attempts="${DOCKER_PULL_MAX_ATTEMPTS:-3}"
+    local retry_delay_s="${DOCKER_PULL_RETRY_DELAY_S:-10}"
+    local attempt rc output_file
+    output_file=$(mktemp)
+    DOCKER_PULL_FAILURE_CLASS=unknown
+    DOCKER_PULL_FAILURE_OUTPUT=""
+
+    for ((attempt = 1; attempt <= max_attempts; attempt++)); do
+        : > "$output_file"
+        if docker pull "$image" >"$output_file" 2>&1; then
+            rm -f "$output_file"
+            return 0
+        else
+            rc=$?
+        fi
+        DOCKER_PULL_FAILURE_OUTPUT=$(cat "$output_file")
+        DOCKER_PULL_FAILURE_CLASS=$(classify_docker_pull_failure "$DOCKER_PULL_FAILURE_OUTPUT")
+        echo "Docker pull attempt ${attempt}/${max_attempts} failed [$DOCKER_PULL_FAILURE_CLASS] for $image (rc=$rc)" >&2
+        if [ "$DOCKER_PULL_FAILURE_CLASS" = unknown ] || [ "$attempt" -eq "$max_attempts" ]; then
+            rm -f "$output_file"
+            return "$rc"
+        fi
+        echo "  retryable registry failure [$DOCKER_PULL_FAILURE_CLASS]; retrying in ${retry_delay_s}s" >&2
+        sleep "$retry_delay_s"
+    done
+}
+
+print_sb_pull_failure() {
+    local image="$1" version="$2" class="${DOCKER_PULL_FAILURE_CLASS:-unknown}"
+    echo "Error: published statbus-sb image pull failed [$class] for commit ${version}: ${image}" >&2
+    echo "  Docker said:" >&2
+    printf '%s\n' "${DOCKER_PULL_FAILURE_OUTPUT:-<no docker error text>}" | sed 's/^/    /' >&2
+    case "$class" in
+        auth)
+            echo "  Remedy: the GHCR package must be public for clean installs." >&2
+            echo "    GitHub Packages -> statbus-sb -> Package settings -> Change visibility -> Public, then retry." >&2
+            ;;
+        missing)
+            echo "  Remedy: wait for images.yaml to publish statbus-sb:${version}, then retry." >&2
+            ;;
+        network)
+            echo "  Remedy: registry/network remained unavailable after bounded retries; retry the install." >&2
+            ;;
+        *)
+            echo "  Remedy: inspect the preserved Docker error above, then retry after correcting it." >&2
+            ;;
+    esac
+    echo "  --commit tests the commit's PUBLISHED image and will not build a different binary locally." >&2
+    echo "  Alternatively install a released version: --version <tag>, or --channel stable|prerelease." >&2
+}
+
+# Pure/local regression seam. Production invocations never set these variables;
+# tests can exercise the exact classifier/retry/formatter without cloning a repo.
+if [ "${STATBUS_INSTALL_TEST_CLASSIFY_PULL:-}" = 1 ]; then
+    classify_docker_pull_failure "$(cat)"
+    exit 0
+fi
+if [ -n "${STATBUS_INSTALL_TEST_PULL_IMAGE:-}" ]; then
+    if docker_pull_published_image "$STATBUS_INSTALL_TEST_PULL_IMAGE"; then
+        echo "pull succeeded"
+        exit 0
+    fi
+    print_sb_pull_failure "$STATBUS_INSTALL_TEST_PULL_IMAGE" testshort
+    exit 1
+fi
+
 echo "StatBus Installer"
 echo "================="
 
@@ -182,12 +269,8 @@ procure_sb_from_commit_image() {
     version="$1"
     SB_IMAGE="ghcr.io/statisticsnorway/statbus-sb:${version}"
     echo "Procuring sb from image ${SB_IMAGE} (no toolchain)..."
-    if ! docker pull "$SB_IMAGE" >/dev/null 2>&1; then
-        echo "Error: no published statbus-sb image for commit ${version}: ${SB_IMAGE}" >&2
-        echo "  --commit tests the commit's PUBLISHED image (the artifact CI ships and the upgrade legs pull); it will NOT build a different binary locally." >&2
-        echo "  Remedies:" >&2
-        echo "    - wait for the images.yaml workflow to publish the image for this commit, then retry; or" >&2
-        echo "    - install a released version instead: --version <tag>, or --channel stable|prerelease." >&2
+    if ! docker_pull_published_image "$SB_IMAGE"; then
+        print_sb_pull_failure "$SB_IMAGE" "$version"
         exit 1
     fi
     if ! sb_cid=$(docker create "$SB_IMAGE"); then
@@ -360,15 +443,62 @@ statbus_repo_lock_acquire
 # guard exact rather than teaching it to look inside functions: a scanner that
 # skips function bodies would also stop seeing a real repo operation someone
 # parks in one. Both call sites are far below, so nothing is lost.
+statbus_git_with_retry() {
+    local label="$1" failure_class="$2"; shift 2
+    local max_attempts="${GIT_NETWORK_MAX_ATTEMPTS:-3}"
+    local retry_delay_s="${GIT_NETWORK_RETRY_DELAY_S:-10}"
+    local attempt rc output_file
+    output_file=$(mktemp)
+    for ((attempt = 1; attempt <= max_attempts; attempt++)); do
+        : > "$output_file"
+        if "$@" >"$output_file" 2>&1; then
+            cat "$output_file"
+            rm -f "$output_file"
+            return 0
+        else
+            rc=$?
+        fi
+        echo "GitHub ${label} attempt ${attempt}/${max_attempts} failed [$failure_class] (rc=$rc)" >&2
+        sed 's/^/  /' "$output_file" >&2
+        if [ "$attempt" -eq "$max_attempts" ]; then
+            rm -f "$output_file"
+            return "$rc"
+        fi
+        # Do not inspect git's wording here. explainGitFailure in the Go product
+        # owns that translation (STATBUS-330), and matching it again in bash would
+        # create the forbidden second translator. Bootstrap paths without the
+        # target binary therefore get a small bounded retry of the preserved raw
+        # failure instead of pretending bash can classify its cause.
+        echo "  bounded GitHub retry [$failure_class] in ${retry_delay_s}s" >&2
+        sleep "$retry_delay_s"
+    done
+}
+
 statbus_git_fetch() {
     if [ -z "$COMMIT_SHA" ] && [ -x "$STATBUS_DIR/sb" ]; then
-        "$STATBUS_DIR/sb" repo-fetch "$@"
+        statbus_git_with_retry fetch github-fetch "$STATBUS_DIR/sb" repo-fetch "$@"
     else
         # GENUINE RESIDUE — the --commit path, where the target product does not
         # exist yet. Ignore any previous release binary: it may lack repo-fetch.
         # Raw git means the operator may see git's own misleading credential text.
-        git fetch "$@"
+        statbus_git_with_retry fetch github-fetch-bootstrap git fetch "$@"
     fi
+}
+
+statbus_git_clone() {
+    local destination="$1"; shift
+    # A failed fresh clone may leave a partial destination that makes the retry
+    # fail before touching the network. Wrap git so each bounded attempt starts
+    # clean, but never remove a destination that contains a real repository.
+    # shellcheck disable=SC2016  # single-quoted script expands only in child bash
+    statbus_git_with_retry clone github-clone-bootstrap bash -c '
+        destination=$1
+        shift
+        if [ -e "$destination" ] && [ ! -d "$destination/.git" ]; then
+            rm -rf "$destination"
+        fi
+        exec git clone "$@"
+    ' bash "$destination" "$@"
 }
 
 if [ -n "$VERSION" ]; then
@@ -416,7 +546,7 @@ elif [ -n "$COMMIT_SHA" ]; then
         cd "$STATBUS_DIR"
     else
         echo "Cloning StatBus repository (commit: ${COMMIT_SHA})..."
-        git clone https://github.com/statisticsnorway/statbus.git "$STATBUS_DIR"
+        statbus_git_clone "$STATBUS_DIR" https://github.com/statisticsnorway/statbus.git "$STATBUS_DIR"
         cd "$STATBUS_DIR"
     fi
     # Fetch the exact commit. An UNPUSHED local commit fails here naturally → the
@@ -488,7 +618,7 @@ if [ -z "${SKIP_BINARY_DOWNLOAD:-}" ]; then
     else
         # FRESH: git clone creates the directory
         echo "Cloning StatBus repository..."
-        git clone --depth 1 --branch "$VERSION" \
+        statbus_git_clone "$STATBUS_DIR" --depth 1 --branch "$VERSION" \
             https://github.com/statisticsnorway/statbus.git "$STATBUS_DIR"
         # STATBUS-325: the second `set-branches --add` stood here and is GONE for
         # the same reason as the first. This path's `clone --depth 1 --branch

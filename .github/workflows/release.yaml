@@ -41,16 +41,19 @@ jobs:
           # No strip; the binary's cmd.version ldflag and the manifest both show
           # the v, deterministically (STATBUS-064).
           VERSION=$GITHUB_REF_NAME
-          echo "commit_sha=$COMMIT_SHA" >> "$GITHUB_OUTPUT"
-          echo "commit_short=$COMMIT_SHORT" >> "$GITHUB_OUTPUT"
-          echo "version_tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           # Detect pre-release
           if [[ "$GITHUB_REF_NAME" =~ -(rc|beta|alpha)\. ]]; then
-            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            PRERELEASE=true
           else
-            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            PRERELEASE=false
           fi
+          {
+            echo "commit_sha=$COMMIT_SHA"
+            echo "commit_short=$COMMIT_SHORT"
+            echo "version_tag=$GITHUB_REF_NAME"
+            echo "version=$VERSION"
+            echo "prerelease=$PRERELEASE"
+          } >> "$GITHUB_OUTPUT"
     outputs:
       commit_sha: ${{ steps.meta.outputs.commit_sha }}
       commit_short: ${{ steps.meta.outputs.commit_short }}
@@ -220,7 +223,8 @@ jobs:
               "app": "${{ env.REGISTRY }}/${{ env.ORG }}/statbus-app:${{ needs.metadata.outputs.commit_short }}",
               "db": "${{ env.REGISTRY }}/${{ env.ORG }}/statbus-db:${{ needs.metadata.outputs.commit_short }}",
               "worker": "${{ env.REGISTRY }}/${{ env.ORG }}/statbus-worker:${{ needs.metadata.outputs.commit_short }}",
-              "proxy": "${{ env.REGISTRY }}/${{ env.ORG }}/statbus-proxy:${{ needs.metadata.outputs.commit_short }}"
+              "proxy": "${{ env.REGISTRY }}/${{ env.ORG }}/statbus-proxy:${{ needs.metadata.outputs.commit_short }}",
+              "sb": "${{ env.REGISTRY }}/${{ env.ORG }}/statbus-sb:${{ needs.metadata.outputs.commit_short }}"
             },
             "binaries": {
               "linux-amd64": { "url": "https://github.com/${{ env.ORG }}/statbus/releases/download/${{ needs.metadata.outputs.version_tag }}/sb-linux-amd64", "sha256": "$(sha256sum dist/sb-linux-amd64 | cut -d' ' -f1)" },

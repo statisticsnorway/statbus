@@ -64,6 +64,7 @@ trap 'rc=$?; echo "✗ harness failure: rc=$rc at ${BASH_SOURCE[0]##*/}:${LINENO
 
 HARNESS_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HARNESS_ROOT="$(cd "$HARNESS_LIB_DIR/../../.." && pwd)"
+source "$HARNESS_LIB_DIR/watch-decisions.sh"
 
 # Load HCLOUD_TOKEN from .env.credentials if not in env.
 if [ -z "${HCLOUD_TOKEN:-}" ]; then
@@ -254,35 +255,214 @@ _wait_for_ssh() {
     return 1
 }
 
+# _watch_provider_state VM_NAME [DEADLINE_EPOCH]
+# Prints alive, missing, or unknown. Provider reads are retried so a transient
+# hcloud/API failure is never mislabeled as a deleted VM.
+_watch_provider_state() {
+    local vm_name="$1" deadline_epoch="${2:-0}" attempt output rc
+    local now remaining describe_timeout sleep_secs
+    if [ -z "$vm_name" ]; then
+        printf '%s\n' unknown
+        return 0
+    fi
+    for attempt in 1 2 3; do
+        describe_timeout=15
+        if [ "$deadline_epoch" -gt 0 ]; then
+            now=$(date +%s)
+            remaining=$((deadline_epoch - now))
+            if [ "$remaining" -le 0 ]; then
+                printf '%s\n' unknown
+                return 0
+            fi
+            [ "$remaining" -lt "$describe_timeout" ] && describe_timeout="$remaining"
+        fi
+        if output=$(timeout "$describe_timeout" hcloud server describe "$vm_name" -o format='{{.Status}}' 2>&1); then
+            printf '%s\n' alive
+            return 0
+        else
+            rc=$?
+        fi
+        if printf '%s\n' "$output" | grep -Eqi 'not found|does not exist'; then
+            printf '%s\n' missing
+            return 0
+        fi
+        echo "  provider retry ${attempt}/3 for '$vm_name' after rc=$rc: $output" >&2
+        if [ "$attempt" -lt 3 ]; then
+            sleep_secs=5
+            if [ "$deadline_epoch" -gt 0 ]; then
+                now=$(date +%s)
+                remaining=$((deadline_epoch - now))
+                [ "$remaining" -le 0 ] && continue
+                [ "$remaining" -lt "$sleep_secs" ] && sleep_secs="$remaining"
+            fi
+            sleep "$sleep_secs"
+        fi
+    done
+    printf '%s\n' unknown
+}
+
+# _watch_ssh_probe IP VM_NAME STAGE REMOTE_COMMAND [DEADLINE_EPOCH]
+#
+# Runs one controller read with a hard wall-clock bound. OpenSSH rc=255 and
+# GNU timeout rc=124 reconnect to the SAME tmux session/log position. Output is
+# returned through WATCH_SSH_OUTPUT so callers do not put a potentially wedged
+# ssh process inside an unbounded command substitution.
+_watch_ssh_probe() {
+    local ip="$1" vm_name="$2" stage="$3" remote_command="$4" deadline_epoch="${5:-0}"
+    local max_attempts="${LONG_CMD_SSH_RECONNECT_ATTEMPTS:-5}"
+    local retry_secs="${LONG_CMD_SSH_RECONNECT_DELAY_S:-30}"
+    local probe_timeout="${LONG_CMD_SSH_PROBE_TIMEOUT_S:-20}"
+    local attempt rc class provider_state decision output_file error_file
+    local now remaining effective_timeout sleep_secs
+    output_file=$(mktemp)
+    error_file=$(mktemp)
+    WATCH_SSH_OUTPUT=""
+
+    for ((attempt = 1; attempt <= max_attempts; attempt++)); do
+        now=$(date +%s)
+        if [ "$deadline_epoch" -gt 0 ] && [ "$now" -ge "$deadline_epoch" ]; then
+            echo "  controller watch deadline reached while reconnecting [$stage]" >&2
+            rm -f "$output_file" "$error_file"
+            return 252
+        fi
+        effective_timeout="$probe_timeout"
+        if [ "$deadline_epoch" -gt 0 ]; then
+            remaining=$((deadline_epoch - now))
+            [ "$remaining" -lt "$effective_timeout" ] && effective_timeout="$remaining"
+        fi
+        : > "$output_file"
+        : > "$error_file"
+        if timeout "$effective_timeout" ssh "${SSH_OPTS[@]}" root@"$ip" "$remote_command" \
+            >"$output_file" 2>"$error_file"
+        then
+            WATCH_SSH_OUTPUT=$(cat "$output_file")
+            rm -f "$output_file" "$error_file"
+            return 0
+        else
+            rc=$?
+        fi
+
+        class=$(watch_ssh_rc_class "$rc")
+        if [ "$class" = fatal ]; then
+            echo "  FAILURE CLASS: controller-probe-failed[$stage] rc=$rc" >&2
+            sed 's/^/    /' "$error_file" >&2 || true
+            rm -f "$output_file" "$error_file"
+            return 250
+        fi
+
+        provider_state=unknown
+        if [ "$attempt" -eq "$max_attempts" ]; then
+            now=$(date +%s)
+            if [ "$deadline_epoch" -gt 0 ] && [ "$now" -ge "$deadline_epoch" ]; then
+                echo "  controller watch deadline reached after SSH reconnect [$stage]" >&2
+                rm -f "$output_file" "$error_file"
+                return 252
+            fi
+            provider_state=$(_watch_provider_state "$vm_name" "$deadline_epoch")
+        fi
+        decision=$(watch_reconnect_decision "$rc" "$attempt" "$max_attempts" "$provider_state")
+        echo "  SSH reconnect [$stage] attempt ${attempt}/${max_attempts}: rc=$rc; detached tmux survives; log offset preserved" >&2
+        case "$decision" in
+            retry)
+                sleep_secs="$retry_secs"
+                if [ "$deadline_epoch" -gt 0 ]; then
+                    now=$(date +%s)
+                    remaining=$((deadline_epoch - now))
+                    if [ "$remaining" -le 0 ]; then
+                        echo "  controller watch deadline reached before SSH reconnect [$stage]" >&2
+                        rm -f "$output_file" "$error_file"
+                        return 252
+                    fi
+                    [ "$remaining" -lt "$sleep_secs" ] && sleep_secs="$remaining"
+                fi
+                sleep "$sleep_secs"
+                ;;
+            resume)
+                echo "  SSH reconnect window exhausted for [$stage], but provider state is $provider_state; resuming the outer watch without losing position" >&2
+                sed 's/^/    /' "$error_file" >&2 || true
+                rm -f "$output_file" "$error_file"
+                return 75
+                ;;
+            vm-gone)
+                echo "  FAILURE CLASS: vm-gone[$stage] — hcloud confirms '$vm_name' is absent" >&2
+                sed 's/^/    /' "$error_file" >&2 || true
+                rm -f "$output_file" "$error_file"
+                return 251
+                ;;
+            *)
+                echo "  FAILURE CLASS: controller-probe-failed[$stage] rc=$rc" >&2
+                sed 's/^/    /' "$error_file" >&2 || true
+                rm -f "$output_file" "$error_file"
+                return 250
+                ;;
+        esac
+    done
+}
+
+# _dump_long_stage_diagnostics IP VM_NAME SESSION FAILURE_CLASS
+# Captures the evidence the rc.03 smoke lost, before the scenario EXIT trap can
+# reap the VM. Every remote subsection is failure-tolerant so one missing source
+# does not suppress the others.
+_dump_long_stage_diagnostics() {
+    local ip="$1" vm_name="$2" session="$3" failure_class="$4"
+    echo "  ══ long-stage forensics: ${failure_class}[${session}] (before teardown) ══"
+    echo "  -- provider state --"
+    timeout 15 hcloud server describe "$vm_name" 2>&1 || echo "    hcloud describe unavailable"
+    echo "  -- in-VM evidence --"
+    if ! timeout 45 ssh "${SSH_OPTS[@]}" root@"$ip" "
+        echo '--- tmux capture-pane (${session}, last 200 lines) ---'
+        sudo -u statbus tmux capture-pane -p -S -200 -t '${session}' 2>&1 || true
+        echo '--- /tmp/${session}.log (tail -100) ---'
+        tail -100 '/tmp/${session}.log' 2>&1 || true
+        echo '--- journalctl for statbus user units (last 200) ---'
+        uid=\$(id -u statbus 2>/dev/null || true)
+        if [ -n \"\$uid\" ]; then
+            sudo -u statbus env XDG_RUNTIME_DIR=\"/run/user/\$uid\" \
+                journalctl --user --no-pager -n 200 --unit='statbus*' 2>&1 || \
+                journalctl --no-pager -n 200 _UID=\"\$uid\" 2>&1 || true
+        else
+            echo 'statbus user is absent'
+        fi
+        echo '--- docker ps -a --no-trunc ---'
+        docker ps -a --no-trunc 2>&1 || true
+    " 2>&1
+    then
+        echo "    in-VM evidence unavailable after 45s"
+    fi
+    echo "  ══ end long-stage forensics ══"
+}
+
 # Run a long shell command on the VM inside a detached tmux session, then
-# poll for completion via reconnecting ssh. Survives mobile/flaky links —
-# even if every individual ssh roundtrip fails, the next one resumes from
-# the logfile on the VM. The bash command itself runs as the statbus user.
+# poll for completion via reconnecting ssh. Survives mobile/flaky links: an
+# rc=255 reconnects to the same logfile offset instead of killing the stage.
+# The bash command itself runs as the statbus user.
 #
 # Usage:
-#   _run_long_via_tmux <ip> <session-name> <bash-command>
+#   _run_long_via_tmux <ip> <session-name> <bash-command> [vm-name]
 # Side effects:
 #   /tmp/<session>.log   — full stdout+stderr
 #   /tmp/<session>.exit  — exit code of the bash command (written after)
 # Returns:
-#   the bash command's exit code (or 254 if we couldn't even poll)
+#   the bash command's exit code, 253 for no-progress stall, 254 for overall
+#   timeout, 251 for provider-confirmed VM loss.
 #
 # Tunable: LONG_CMD_MAX_MIN (default 45) — overall time budget in minutes.
 _run_long_via_tmux() {
-    local ip="$1" session="$2" cmd="$3"
+    local ip="$1" session="$2" cmd="$3" vm_name="${4:-}"
     local max_min="${LONG_CMD_MAX_MIN:-45}"
-    local poll_secs=15
+    local poll_secs="${LONG_CMD_POLL_SECS:-15}"
+    local no_progress_secs="${LONG_CMD_NO_PROGRESS_SECS:-300}"
     local max_iter=$(( max_min * 60 / poll_secs ))
 
     # Ensure tmux is installed (idempotent — installed by hardening normally).
-    ssh "${SSH_OPTS[@]}" root@"$ip" \
+    timeout 60 ssh "${SSH_OPTS[@]}" root@"$ip" \
         'command -v tmux >/dev/null 2>&1 || DEBIAN_FRONTEND=noninteractive apt-get install -y tmux >/dev/null 2>&1' \
         || true
 
     # Launch the command in a detached tmux session running as statbus.
     # Wrap with exit-code capture: bash -c '<cmd>; echo $? > /tmp/<session>.exit'
     # The outer redirection > /tmp/<session>.log captures everything.
-    ssh "${SSH_OPTS[@]}" root@"$ip" "
+    timeout 60 ssh "${SSH_OPTS[@]}" root@"$ip" "
         rm -f /tmp/${session}.exit /tmp/${session}.log
         sudo -u statbus tmux new-session -d -s ${session} \\
             'bash -lc \"( ${cmd} ) > /tmp/${session}.log 2>&1; echo \\\$? > /tmp/${session}.exit\"'
@@ -291,43 +471,139 @@ _run_long_via_tmux() {
         return 254
     }
 
-    # Poll for completion. Each poll is a fresh ssh, so transient drops don't
-    # block progress. Show recent log tail so it doesn't look like nothing's
-    # happening.
-    local i seen_lines=0
+    # Poll for completion. STATBUS-345 named the component that failed the
+    # actionable-fail-fast test: this CONTROLLER's synchronous `cur_lines=$(ssh
+    # ... wc -l | tr)` read had neither a per-probe timeout nor a no-progress
+    # deadline. A live SSH connection with a wedged remote read still answers
+    # OpenSSH keepalives, so it sat inside that one command substitution for 57
+    # silent minutes until GitHub killed the job. Every read below is now bounded,
+    # rc=255 reconnects, and five minutes without a new tailed line dumps evidence
+    # and fails with a stage-named class.
+    local i seen_lines=0 last_progress now progress_decision started_at overall_deadline watch_deadline
+    local snapshot_state="running" cur_lines=0 remote_exit="" completed=0 probe_rc
+    local snapshot_command tail_command sleep_secs remaining
+    started_at=$(date +%s)
+    last_progress="$started_at"
+    overall_deadline=$((started_at + max_min * 60))
     for ((i = 0; i < max_iter; i++)); do
-        # Test for completion sentinel.
-        if ssh "${SSH_OPTS[@]}" root@"$ip" "test -f /tmp/${session}.exit" 2>/dev/null; then
+        now=$(date +%s)
+        if [ "$now" -ge "$overall_deadline" ]; then
+            echo "  FAILURE CLASS: overall-timeout[$session] after ${max_min}min" >&2
+            _dump_long_stage_diagnostics "$ip" "$vm_name" "$session" overall-timeout
+            return 254
+        fi
+        watch_deadline=$((last_progress + no_progress_secs))
+        [ "$overall_deadline" -lt "$watch_deadline" ] && watch_deadline="$overall_deadline"
+        snapshot_command="lines=\$(wc -l < '/tmp/${session}.log' 2>/dev/null || printf 0); if [ -f '/tmp/${session}.exit' ]; then code=\$(cat '/tmp/${session}.exit'); printf 'done %s %s\\n' \"\$code\" \"\$lines\"; else printf 'running %s\\n' \"\$lines\"; fi"
+        if _watch_ssh_probe "$ip" "$vm_name" "$session" "$snapshot_command" "$watch_deadline"; then
+            # shellcheck disable=SC2086  # intentional tokenization of protocol fields
+            set -- $WATCH_SSH_OUTPUT
+            snapshot_state="${1:-invalid}"
+            if [ "$snapshot_state" = "done" ]; then
+                remote_exit="${2:-}"
+                cur_lines="${3:-}"
+            else
+                cur_lines="${2:-}"
+            fi
+            case "$cur_lines" in
+                ''|*[!0-9]*)
+                    echo "  FAILURE CLASS: controller-protocol-failed[$session] invalid line count: '$WATCH_SSH_OUTPUT'" >&2
+                    _dump_long_stage_diagnostics "$ip" "$vm_name" "$session" controller-protocol-failed
+                    return 250
+                    ;;
+            esac
+        else
+            probe_rc=$?
+            case "$probe_rc" in
+                75) snapshot_state=running; cur_lines="$seen_lines" ;;
+                251) return 251 ;;
+                252)
+                    now=$(date +%s)
+                    if [ "$now" -ge $((last_progress + no_progress_secs)) ]; then
+                        echo "  FAILURE CLASS: stalled-stage[$session] — zero new tailed log lines for ${no_progress_secs}s" >&2
+                        _dump_long_stage_diagnostics "$ip" "$vm_name" "$session" stalled-stage
+                        return 253
+                    fi
+                    echo "  FAILURE CLASS: overall-timeout[$session] after ${max_min}min" >&2
+                    _dump_long_stage_diagnostics "$ip" "$vm_name" "$session" overall-timeout
+                    return 254
+                    ;;
+                *)
+                    _dump_long_stage_diagnostics "$ip" "$vm_name" "$session" controller-probe-failed
+                    return "$probe_rc"
+                    ;;
+            esac
+        fi
+
+        if [ "$cur_lines" -gt "$seen_lines" ]; then
+            # Read from the exact prior offset. `tail -n DELTA` could skip lines if
+            # the remote log grows between the snapshot and this read.
+            tail_command="tail -n +$((seen_lines + 1)) '/tmp/${session}.log' | head -n $((cur_lines - seen_lines))"
+            if _watch_ssh_probe "$ip" "$vm_name" "$session" "$tail_command" "$watch_deadline"; then
+                [ -n "$WATCH_SSH_OUTPUT" ] && printf '%s\n' "$WATCH_SSH_OUTPUT"
+                seen_lines="$cur_lines"
+                last_progress=$(date +%s)
+            else
+                probe_rc=$?
+                case "$probe_rc" in
+                    75) ;;
+                    251) return 251 ;;
+                    252)
+                        now=$(date +%s)
+                        if [ "$now" -ge $((last_progress + no_progress_secs)) ]; then
+                            echo "  FAILURE CLASS: stalled-stage[$session] — could not tail new log lines inside ${no_progress_secs}s" >&2
+                            _dump_long_stage_diagnostics "$ip" "$vm_name" "$session" stalled-stage
+                            return 253
+                        fi
+                        echo "  FAILURE CLASS: overall-timeout[$session] after ${max_min}min" >&2
+                        _dump_long_stage_diagnostics "$ip" "$vm_name" "$session" overall-timeout
+                        return 254
+                        ;;
+                    *)
+                        _dump_long_stage_diagnostics "$ip" "$vm_name" "$session" controller-probe-failed
+                        return "$probe_rc"
+                        ;;
+                esac
+            fi
+        fi
+
+        if [ "$snapshot_state" = "done" ] && [ "$seen_lines" -ge "$cur_lines" ]; then
+            completed=1
             break
         fi
-        # Show new log lines since last check (line-count tracking).
-        local cur_lines
-        cur_lines=$(ssh "${SSH_OPTS[@]}" root@"$ip" "wc -l < /tmp/${session}.log 2>/dev/null" 2>/dev/null | tr -d ' ')
-        if [ -n "$cur_lines" ] && [ "$cur_lines" -gt "$seen_lines" ] 2>/dev/null; then
-            ssh "${SSH_OPTS[@]}" root@"$ip" "tail -n $((cur_lines - seen_lines)) /tmp/${session}.log" 2>/dev/null
-            seen_lines="$cur_lines"
+
+        now=$(date +%s)
+        progress_decision=$(watch_progress_decision "$seen_lines" "$seen_lines" "$now" "$last_progress" "$no_progress_secs")
+        if [ "$progress_decision" = stalled ]; then
+            echo "  FAILURE CLASS: stalled-stage[$session] — zero new tailed log lines for ${no_progress_secs}s" >&2
+            _dump_long_stage_diagnostics "$ip" "$vm_name" "$session" stalled-stage
+            return 253
         fi
-        sleep "$poll_secs"
+        sleep_secs="$poll_secs"
+        watch_deadline=$((last_progress + no_progress_secs))
+        [ "$overall_deadline" -lt "$watch_deadline" ] && watch_deadline="$overall_deadline"
+        remaining=$((watch_deadline - now))
+        [ "$remaining" -lt "$sleep_secs" ] && sleep_secs="$remaining"
+        [ "$sleep_secs" -gt 0 ] && sleep "$sleep_secs"
     done
 
-    # Fetch any remaining log tail.
-    local cur_lines
-    cur_lines=$(ssh "${SSH_OPTS[@]}" root@"$ip" "wc -l < /tmp/${session}.log 2>/dev/null" 2>/dev/null | tr -d ' ')
-    if [ -n "$cur_lines" ] && [ "$cur_lines" -gt "$seen_lines" ] 2>/dev/null; then
-        ssh "${SSH_OPTS[@]}" root@"$ip" "tail -n $((cur_lines - seen_lines)) /tmp/${session}.log" 2>/dev/null
-    fi
-
-    # Did it actually finish?
-    if ! ssh "${SSH_OPTS[@]}" root@"$ip" "test -f /tmp/${session}.exit" 2>/dev/null; then
-        echo "  TIMEOUT after ${max_min}min — tmux session '${session}' still running." >&2
-        echo "    Attach for live view: ssh root@$ip 'sudo -u statbus tmux attach -t ${session}'" >&2
+    if [ "$completed" -ne 1 ]; then
+        echo "  FAILURE CLASS: overall-timeout[$session] after ${max_min}min" >&2
+        _dump_long_stage_diagnostics "$ip" "$vm_name" "$session" overall-timeout
         return 254
     fi
 
-    local exit_code
-    exit_code=$(ssh "${SSH_OPTS[@]}" root@"$ip" "cat /tmp/${session}.exit" 2>/dev/null | tr -d ' \n')
-    [ -z "$exit_code" ] && exit_code=255
-    return "$exit_code"
+    case "$remote_exit" in
+        ''|*[!0-9]*)
+            echo "  FAILURE CLASS: controller-protocol-failed[$session] invalid exit code: '$remote_exit'" >&2
+            _dump_long_stage_diagnostics "$ip" "$vm_name" "$session" controller-protocol-failed
+            return 250
+            ;;
+    esac
+    if [ "$remote_exit" -ne 0 ]; then
+        echo "  FAILURE CLASS: remote-stage-failed[$session] exit=$remote_exit" >&2
+    fi
+    return "$remote_exit"
 }
 
 # _dump_bootstrap_failure_diagnostics IP VM_NAME
@@ -942,7 +1218,16 @@ set -e
 # install.sh's ./sb install step. The pre-clone ensures RESCUE mode so we control
 # timing: config files land before ./sb install runs. Idempotent for RESCUE callers.
 if [ ! -d ~/statbus/.git ]; then
-    git clone --depth 50 https://github.com/statisticsnorway/statbus.git ~/statbus
+    for attempt in 1 2 3; do
+        if git clone --depth 50 https://github.com/statisticsnorway/statbus.git ~/statbus; then
+            break
+        fi
+        rc=\$?
+        echo "GitHub clone retry [git-clone] \${attempt}/3 (rc=\$rc)" >&2
+        [ "\$attempt" -eq 3 ] && exit "\$rc"
+        rm -rf ~/statbus
+        sleep 10
+    done
     # Add db-seed refspec so install's own 'git fetch origin db-seed' creates the
     # remote-tracking ref (a single-branch shallow clone restricts the refspec).
     git -C ~/statbus remote set-branches --add origin db-seed
@@ -968,10 +1253,19 @@ case "\$VM_ARCH" in
     *)             echo "Unsupported: \$VM_ARCH"; exit 1 ;;
 esac
 SB_URL="https://github.com/statisticsnorway/statbus/releases/download/${install_version}/sb-linux-\${GOARCH}"
-curl -fsSL "\$SB_URL" -o ~/sb.tmp
+curl --retry 5 --retry-delay 5 --retry-all-errors -fsSL "\$SB_URL" -o ~/sb.tmp
 chmod +x ~/sb.tmp
 if [ ! -d ~/statbus/.git ]; then
-    git clone --depth 1 --branch ${install_version} https://github.com/statisticsnorway/statbus.git ~/statbus
+    for attempt in 1 2 3; do
+        if git clone --depth 1 --branch ${install_version} https://github.com/statisticsnorway/statbus.git ~/statbus; then
+            break
+        fi
+        rc=\$?
+        echo "GitHub clone retry [git-clone] \${attempt}/3 (rc=\$rc)" >&2
+        [ "\$attempt" -eq 3 ] && exit "\$rc"
+        rm -rf ~/statbus
+        sleep 10
+    done
 fi
 mv ~/sb.tmp ~/statbus/sb
 cd ~/statbus
@@ -1007,7 +1301,7 @@ SCRIPT
     # roundtrip fails, the install keeps running on the VM and we resume
     # from the logfile on next poll success.
     local install_log="${HARNESS_ROOT}/tmp/install-recovery-${vm_name}-install.log"
-    _run_long_via_tmux "$ip" "install" "bash /tmp/install.sh" \
+    _run_long_via_tmux "$ip" "install" "bash /tmp/install.sh" "$vm_name" \
         | tee -a "$install_log"
     return ${PIPESTATUS[0]}
 }
@@ -1082,7 +1376,7 @@ SCRIPT
     rm -f "$install_script"
 
     local install_log="${HARNESS_ROOT}/tmp/install-recovery-${vm_name}-install.log"
-    _run_long_via_tmux "$ip" "install" "bash /tmp/install.sh" \
+    _run_long_via_tmux "$ip" "install" "bash /tmp/install.sh" "$vm_name" \
         | tee -a "$install_log"
     return ${PIPESTATUS[0]}
 }
