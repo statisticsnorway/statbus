@@ -60,7 +60,11 @@ set -euo pipefail
 
 VM_NAME="${1:-statbus-recovery-0-happy-upgrade}"
 UPGRADE_BUDGET_S="${UPGRADE_BUDGET_S:-900}"
-TICK_WAIT_S="${TICK_WAIT_S:-90}"   # > default tick interval (60s) + slack
+# > tick interval (60s) + slack, times enough ticks to ride out a registry
+# transient: verifyArtifacts retries every discovery cycle, so a ghcr 401/500
+# storm costs WAITING lines here, not a red run (rc.05 died at 90s with
+# last='building' while the storm was still active and all four images existed).
+TICK_WAIT_S="${TICK_WAIT_S:-300}"
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
 REPO_ROOT="$(cd "$LIB_DIR/../../.." && pwd)"
