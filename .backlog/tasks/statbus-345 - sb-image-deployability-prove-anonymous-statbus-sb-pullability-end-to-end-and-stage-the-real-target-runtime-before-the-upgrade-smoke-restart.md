@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-02 14:07'
+updated_date: '2026-09-02 15:07'
 labels:
   - release
   - test-harness
@@ -34,3 +35,12 @@ Fix (one landing):
 
 Acceptance: on a clean uncredentialed VM, statbus-sb:<short> pulls anonymously; release check reports six images; a private sb package turns release check RED; both smokes green on the next RC.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+created: 2026-09-02 15:07
+---
+foreman (2026-09-02 afternoon): TRANSIENT-VS-DEFECT DISCIPLINE added to scope, from the King's 'handle transients sensibly to not be confused' + mizaru's research: all three of today's GitHub failures match documented intermittent platform classes (git anonymous-fetch auth-challenge — actions/checkout#2351, <1% sporadic, rerun succeeds; ghcr.io anonymous-pull denial — same-day independent reports of ghcr-only TLS/token failures from ~13:07Z; no declared GitHub Status incident in any window; NOBODY changed package visibility). Additional item: the harness's own external touchpoints (SSH to VMs — attempt 2 died on rc=255 mid-log-tail; docker/ghcr pulls; git fetches) get bounded retry WITH error-class reporting, so a platform blip costs a retry line in the log, not a red run and an investigation. The rerun path stays the backstop (gh run rerun --failed re-executes only failed jobs — proven today: install smoke went green on attempt 2 with zero rebuilds).
+---
+<!-- COMMENTS:END -->
