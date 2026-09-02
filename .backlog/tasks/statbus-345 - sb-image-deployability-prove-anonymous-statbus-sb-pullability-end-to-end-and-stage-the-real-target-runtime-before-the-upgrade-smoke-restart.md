@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-02 14:07'
-updated_date: '2026-09-02 15:07'
+updated_date: '2026-09-02 15:29'
 labels:
   - release
   - test-harness
@@ -42,5 +42,10 @@ Acceptance: on a clean uncredentialed VM, statbus-sb:<short> pulls anonymously; 
 created: 2026-09-02 15:07
 ---
 foreman (2026-09-02 afternoon): TRANSIENT-VS-DEFECT DISCIPLINE added to scope, from the King's 'handle transients sensibly to not be confused' + mizaru's research: all three of today's GitHub failures match documented intermittent platform classes (git anonymous-fetch auth-challenge — actions/checkout#2351, <1% sporadic, rerun succeeds; ghcr.io anonymous-pull denial — same-day independent reports of ghcr-only TLS/token failures from ~13:07Z; no declared GitHub Status incident in any window; NOBODY changed package visibility). Additional item: the harness's own external touchpoints (SSH to VMs — attempt 2 died on rc=255 mid-log-tail; docker/ghcr pulls; git fetches) get bounded retry WITH error-class reporting, so a platform blip costs a retry line in the log, not a red run and an investigation. The rerun path stays the backstop (gh run rerun --failed re-executes only failed jobs — proven today: install smoke went green on attempt 2 with zero rebuilds).
+---
+
+created: 2026-09-02 15:29
+---
+foreman (2026-09-02, King's design note): the rc=255 class has a precise fix because the harness ALREADY runs stages in detached tmux on the VM — the work survives connection loss; what died was the CONTROLLER's SSH log-tail loop (vm-bootstrap.sh:305 cur_lines read), which treated its own connection drop as scenario failure. Fix: the watch loop treats SSH exit 255 as reconnect-and-resume (the tmux session + /tmp/<session>.log are still on the VM to re-attach to), bounded reconnect attempts, and only a VM that is genuinely gone or a stage that genuinely failed reds the run. This is the transient-discipline item made concrete for the SSH touchpoint.
 ---
 <!-- COMMENTS:END -->
