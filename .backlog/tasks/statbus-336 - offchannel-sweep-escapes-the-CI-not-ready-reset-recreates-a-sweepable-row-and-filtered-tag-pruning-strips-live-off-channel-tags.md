@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-02 08:17'
-updated_date: '2026-09-02 08:25'
+updated_date: '2026-09-02 08:28'
 labels:
   - upgrade
   - defect
@@ -25,3 +25,9 @@ Two escapes found by adversarial review of the READY-cutoff fix (Sol xhigh, 2026
 
 Acceptance: a manually scheduled channel-excluded row survives (tags intact, never skipped, still visibly scheduled or explicitly waiting) across images-not-ready → daemon restart → discovery ticks, and proceeds when images turn ready; pruneDeletedTags proven to never strip a tag that exists in git (channel irrelevant); a genuinely git-deleted tag is still pruned; existing off-channel sweep tests stay green.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+King's design confirmation (2026-09-02): visibility over automation. Keep the row scheduled; surface its age from scheduled_at in UI + CLI list (e.g. 'scheduled 3 days ago, images still building') so a long wait is DETERMINABLE — at that point no automation or counting gives a reasonable answer, a human decides. Expected common resolution: the fix ships as a newer candidate and graceful supersede resolves the stuck row naturally. Architect verifies the single-scheduled slot + supersede interaction; no counters, no auto-give-up.
+<!-- SECTION:NOTES:END -->
