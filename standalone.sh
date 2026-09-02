@@ -8,15 +8,15 @@
 # account (created by setup-ubuntu-lts-24.sh Stage 7).
 #
 # Usage:
-#   ./standalone.sh status              Show version on all standalone hosts
+#   ./standalone.sh status              Show version, channel, and name on all standalone hosts
 #   ./standalone.sh notify              Tell hosts to check for updates
 #   ./standalone.sh upgrade             Force all hosts to apply latest
-#   ./standalone.sh install <name>      Install (downloads binary, re-runs install)
+#   ./standalone.sh install <target>    Install (downloads binary, re-runs install)
 #   ./standalone.sh install all         Install ALL hosts
-#   ./standalone.sh rescue <name>       Alias for install (backwards compat)
-#   ./standalone.sh wipe <name>         DESTRUCTIVE: delete DB and recreate
+#   ./standalone.sh rescue <target>     Alias for install (backwards compat)
+#   ./standalone.sh wipe <target>       DESTRUCTIVE: delete DB and recreate
 #   ./standalone.sh inspect             Show urls, slot codes, and deploy branches
-#   ./standalone.sh ssh <name>          Open interactive shell as statbus@<host>
+#   ./standalone.sh ssh <target>        Open interactive shell as statbus@<host>
 #
 # Provisioning a NEW standalone host is a one-time manual job — OS install,
 # setup-ubuntu-lts-24.sh, then bootstrap. See doc/hetzner-bootstrap.md and
@@ -69,20 +69,20 @@ usage() {
     echo "Usage: $0 <command> [args]"
     echo ""
     echo "Commands:"
-    echo "  status                  Show version on all standalone hosts (read-only)"
+    echo "  status                  Show version, channel, and name on all standalone hosts (read-only)"
     echo "  notify                  Tell hosts to check for updates"
     echo "  upgrade [--yes]         Force all hosts to apply latest (prompts for confirmation;"
     echo "                          use --yes to skip for automation; 'upgrade help' shows this)"
-    echo "  install <name> [ver]    Install host (optionally pin to specific version)"
+    echo "  install <target> [ver]  Install host or channel (optionally pin to specific version)"
     echo "  install all [ver]       Install ALL hosts (optionally pin)"
-    echo "  rescue <name>           Alias for install"
+    echo "  rescue <target>         Alias for install"
     echo "  inspect                 Show urls, slot codes, and deploy branches"
-    echo "  wipe <name>             DESTRUCTIVE: delete DB and recreate"
-    echo "  import <name> <selection|downloads> [email]"
+    echo "  wipe <target>           DESTRUCTIVE: delete DB and recreate"
+    echo "  import <target> <selection|downloads> [email]"
     echo "                          Schedule BRREG import (selection ships in-repo, downloads needs tmp/ data on host)"
-    echo "  reimport <name> <selection|downloads> [email]"
+    echo "  reimport <target> <selection|downloads> [email]"
     echo "                          DESTRUCTIVE: wipe DB then schedule fresh BRREG import"
-    echo "  ssh <name>              Open interactive shell as statbus@<host>"
+    echo "  ssh <target>            Open interactive shell as statbus@<host>"
     echo ""
     echo "Read-only overview: use 'status' to see current versions on all hosts."
     echo ""
@@ -90,6 +90,7 @@ usage() {
     for entry in "${HOSTS[@]}"; do
         printf "  %s\n" "${entry%%|*}"
     done
+    echo "or a channel: stable | prerelease"
     exit 1
 }
 
@@ -133,6 +134,77 @@ validate_name() {
     exit 1
 }
 
+# read_server_metadata returns the values used by both status and live channel
+# targeting in one SSH round-trip. UPGRADE_CHANNEL comes from the generated
+# .env because it contains the live derived value (STATBUS-307); the display
+# name is the operator-authored DEPLOYMENT_SLOT_NAME in .env.config. If an old
+# standalone box has no display-name setting, the HOSTS entry code is used.
+read_server_metadata() {
+    local name="$1"
+    local fallback_name="$name"
+    ssh_host "$name" "
+        cd statbus 2>/dev/null || exit 1
+        ver=\$(./sb --version 2>/dev/null | head -1)
+        channel=\$(sed -n 's/^UPGRADE_CHANNEL=//p' .env 2>/dev/null | head -1)
+        display_name=\$(sed -n 's/^DEPLOYMENT_SLOT_NAME=//p' .env.config 2>/dev/null | head -1)
+        [ -z \"\$display_name\" ] && display_name='$fallback_name'
+        [ -n \"\$ver\" ] && [ -n \"\$channel\" ] || exit 1
+        printf '%s|%s|%s\\n' \"\$ver\" \"\$channel\" \"\$display_name\"
+    "
+}
+
+is_channel() {
+    [ "$1" = "stable" ] || [ "$1" = "prerelease" ]
+}
+
+# resolve_target_servers expands all or a live channel to host names. A host
+# whose metadata cannot be read is reported and skipped rather than guessed.
+resolve_target_servers() {
+    local target="$1"
+    if [ "$target" = "all" ]; then
+        all_names
+        return
+    fi
+    if ! is_channel "$target"; then
+        validate_name "$target"
+        echo "$target"
+        return
+    fi
+
+    local name metadata channel matches=""
+    for name in $(all_names); do
+        if ! metadata=$(read_server_metadata "$name" 2>/dev/null); then
+            echo "  $name: channel read failed; skipping" >&2
+            continue
+        fi
+        IFS='|' read -r _ channel _ <<< "$metadata"
+        if [ "$channel" = "$target" ]; then
+            matches="${matches:+$matches }$name"
+        fi
+    done
+    if [ -z "$matches" ]; then
+        echo "Error: no readable hosts found on channel '$target'" >&2
+        return 1
+    fi
+    echo "$matches"
+}
+
+# Commands that operate on one standalone deployment use this helper so they
+# can accept a channel target while refusing an ambiguous multi-host expansion.
+resolve_single_target() {
+    local target="$1"
+    local targets
+    targets=$(resolve_target_servers "$target")
+    targets="${targets//$'\n'/ }"
+    local -a resolved=()
+    read -r -a resolved <<< "$targets"
+    if [ "${#resolved[@]}" -ne 1 ]; then
+        echo "Error: target '$target' resolves to ${#resolved[@]} hosts; specify a host name" >&2
+        return 1
+    fi
+    echo "${resolved[0]}"
+}
+
 ssh_host() {
     local name="$1"; shift
     local fqdn
@@ -170,10 +242,15 @@ cmd_status() {
     echo "StatBus Standalone Status"
     echo "========================="
     for name in $(all_names); do
-        printf "  %-16s " "$name:"
-        ssh_host "$name" \
-            "cd statbus && ./sb --version 2>/dev/null || echo 'UNKNOWN'" 2>/dev/null \
-            || echo "SSH FAILED"
+        local metadata version channel display_name
+        if ! metadata=$(read_server_metadata "$name" 2>/dev/null); then
+            printf "  %-16s METADATA READ FAILED\n" "$name:"
+            continue
+        fi
+        IFS='|' read -r version channel display_name <<< "$metadata"
+        version="${version#sb version }"
+        version="${version/ (commit / (}"
+        printf "  %-16s %-31s %-12s %s\n" "$name:" "$version" "$channel" "$display_name"
     done
 }
 
@@ -300,18 +377,19 @@ cmd_install_one() {
 cmd_install() {
     local target="$1"
     local version="${2:-}"
-    validate_name "$target"
+    local targets
+    targets=$(resolve_target_servers "$target")
 
-    if [ "$target" = "all" ]; then
-        echo "Installing ALL standalone hosts${version:+ (pinned to $version)}"
-        echo "==============================="
-        for name in $(all_names); do
+    if [ "$target" = "all" ] || is_channel "$target"; then
+        echo "Installing $target standalone hosts${version:+ (pinned to $version)}"
+        echo "===================================="
+        for name in $targets; do
             echo ""
             echo "--- $name ---"
             cmd_install_one "$name" "$version"
         done
     else
-        cmd_install_one "$target" "$version"
+        cmd_install_one "$targets" "$version"
     fi
 }
 
@@ -334,27 +412,29 @@ cmd_wipe() {
     # End state is identical to `dev.sh recreate-database` on a dev box,
     # minus the test-template db (which we never want on prod anyway).
     local target="$1"
-    validate_name "$target"
 
     if [ "$target" = "all" ]; then
         echo "ERROR: wipe all is not supported. Wipe deployments one at a time."
         exit 1
     fi
 
+    local resolved_target
+    resolved_target=$(resolve_single_target "$target")
+
     local fqdn dom
-    fqdn=$(host_fqdn "$target")
-    dom=$(served_domain "$target")
-    echo "WARNING: This will DELETE the database for the '$target' deployment"
+    fqdn=$(host_fqdn "$resolved_target")
+    dom=$(served_domain "$resolved_target")
+    echo "WARNING: This will DELETE the database for the '$resolved_target' deployment"
     echo "         (serving $dom, hosted on $fqdn) and recreate it from scratch."
     echo "ALL DATA WILL BE LOST."
-    read -p "Type '$target' to confirm: " confirm
-    if [ "$confirm" != "$target" ]; then
+    read -p "Type '$resolved_target' to confirm: " confirm
+    if [ "$confirm" != "$resolved_target" ]; then
         echo "Aborted."
         exit 1
     fi
 
-    echo "Wiping $target..."
-    ssh_host "$target" "set -e
+    echo "Wiping $resolved_target..."
+    ssh_host "$resolved_target" "set -e
         cd statbus
         echo '--- stopping services ---'
         ./sb stop all
@@ -373,7 +453,7 @@ cmd_wipe() {
         fi
         echo '--- re-running ./sb install (step-table populates empty DB) ---'
         ./sb install --non-interactive" 2>&1
-    echo "--- $target wipe complete ---"
+    echo "--- $resolved_target wipe complete ---"
 }
 
 cmd_inspect() {
@@ -394,7 +474,7 @@ cmd_inspect() {
 
 cmd_ssh() {
     local target="$1"
-    validate_name "$target"
+    target=$(resolve_single_target "$target")
     local fqdn
     fqdn=$(host_fqdn "$target")
     echo "Connecting to statbus@${fqdn} ..."
@@ -455,7 +535,13 @@ cmd_import() {
     local target="$1"
     local variant="${2:-}"
     local email_flag="${3:-}"
-    validate_name "$target"
+
+    if [ "$target" = "all" ]; then
+        echo "ERROR: import all is not supported. Import deployments one at a time." >&2
+        exit 1
+    fi
+    local resolved_target
+    resolved_target=$(resolve_single_target "$target")
 
     case "$variant" in
         selection|downloads) ;;
@@ -463,10 +549,6 @@ cmd_import() {
         *)  echo "ERROR: unknown variant '$variant'. Valid: selection | downloads" >&2; exit 1 ;;
     esac
 
-    if [ "$target" = "all" ]; then
-        echo "ERROR: import all is not supported. Import deployments one at a time." >&2
-        exit 1
-    fi
     local email
     email=$(resolve_user_email "$email_flag")
 
@@ -477,15 +559,15 @@ cmd_import() {
     esac
 
     local fqdn dom
-    fqdn=$(host_fqdn "$target")
-    dom=$(served_domain "$target")
-    echo "Scheduling BRREG $variant import on '$target' ($dom) as $email ..."
-    ssh_host "$target" "set -e
+    fqdn=$(host_fqdn "$resolved_target")
+    dom=$(served_domain "$resolved_target")
+    echo "Scheduling BRREG $variant import on '$resolved_target' ($dom) as $email ..."
+    ssh_host "$resolved_target" "set -e
         cd statbus
         export USER_EMAIL='${email}'
         ${script}" 2>&1
-    echo "--- $target $variant import scheduled. Worker will process asynchronously."
-    echo "    Watch progress: ./standalone.sh ssh $target  → ./sb psql -c \"SELECT slug, state FROM public.import_job ORDER BY slug\""
+    echo "--- $resolved_target $variant import scheduled. Worker will process asynchronously."
+    echo "    Watch progress: ./standalone.sh ssh $resolved_target  → ./sb psql -c \"SELECT slug, state FROM public.import_job ORDER BY slug\""
 }
 
 # cmd_reimport is shorthand for `wipe <name>` + `import <name>
@@ -497,7 +579,12 @@ cmd_reimport() {
     local target="$1"
     local variant="${2:-}"
     local email_flag="${3:-}"
-    validate_name "$target"
+    if [ "$target" = "all" ]; then
+        echo "ERROR: reimport all is not supported. Reimport deployments one at a time." >&2
+        exit 1
+    fi
+    local resolved_target
+    resolved_target=$(resolve_single_target "$target")
     # Validate variant up-front BEFORE the destructive wipe so a typo
     # doesn't cost the operator a wipe + retype the long confirm.
     case "$variant" in
@@ -505,19 +592,15 @@ cmd_reimport() {
         "") echo "ERROR: reimport requires variant: selection or downloads" >&2; exit 1 ;;
         *)  echo "ERROR: unknown variant '$variant'. Valid: selection | downloads" >&2; exit 1 ;;
     esac
-    if [ "$target" = "all" ]; then
-        echo "ERROR: reimport all is not supported. Reimport deployments one at a time." >&2
-        exit 1
-    fi
     # Resolve email up-front so the operator catches a missing flag
     # BEFORE they sit through the wipe's destructive confirm step.
     local email
     email=$(resolve_user_email "$email_flag")
 
-    cmd_wipe "$target"
+    cmd_wipe "$resolved_target"
     echo
     echo "Wipe complete. Scheduling fresh BRREG $variant import as $email ..."
-    cmd_import "$target" "$variant" "$email"
+    cmd_import "$resolved_target" "$variant" "$email"
 }
 
 # Main
