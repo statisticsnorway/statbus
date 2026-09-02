@@ -120,11 +120,24 @@ echo "── staging HEAD on the VM ──"
 HEAD_LOCAL=$(git -C "$HARNESS_ROOT" rev-parse HEAD)
 upload_sb_to_vm "$VM_NAME"
 
+# Ship HEAD as a git BUNDLE over scp — zero GitHub network dependency. The
+# runner holds the full ledger (fetch-depth 0), the VM already receives /tmp/sb
+# over the same scp transport, and tonight's 401 storms killed three runs at
+# exactly this staging step (hang → fail-fast → quoting-mangled rc). Local
+# bytes cannot 401. Delta against the baseline commit the VM's clone has;
+# HEAD == baseline is impossible (target is strictly above the baseline).
+BASE_COMMIT=$(git -C "$HARNESS_ROOT" rev-list -1 "$INSTALL_VERSION")
+BUNDLE_LOCAL=$(mktemp -t head-bundle-XXXXXX)
+git -C "$HARNESS_ROOT" update-ref refs/statbus-harness/stage-head "$HEAD_LOCAL"
+git -C "$HARNESS_ROOT" bundle create "$BUNDLE_LOCAL" refs/statbus-harness/stage-head --not "$BASE_COMMIT"
+git -C "$HARNESS_ROOT" update-ref -d refs/statbus-harness/stage-head
+scp -O "${SSH_OPTS[@]}" "$BUNDLE_LOCAL" root@"$VM_IP":/tmp/head.bundle
+rm -f "$BUNDLE_LOCAL"
 # Single-line: printf '%q' converts multi-line strings to ANSI-C $'...\n...' quoting,
 # but the remote /bin/sh (dash on Ubuntu) does not expand $'...' — newlines collapse,
 # breaking if/then/fi syntax.  Semicolons replace newlines; if COND; then CMD; fi
 # is valid single-line bash.
-VM_EXEC bash -c "cd ~/statbus && if ! git cat-file -e $HEAD_LOCAL 2>/dev/null; then for attempt in 1 2 3; do git fetch --depth 1 origin $HEAD_LOCAL && break; rc=\$?; echo \"GitHub fetch retry [git-fetch] \${attempt}/3 (rc=\$rc)\" >&2; [ \"\$attempt\" -eq 3 ] && { echo 'FATAL: cannot fetch HEAD after bounded retries' >&2; exit \"\$rc\"; }; sleep 10; done; fi && git checkout $HEAD_LOCAL"
+VM_EXEC bash -c "cd ~/statbus && if ! git cat-file -e $HEAD_LOCAL 2>/dev/null; then git fetch /tmp/head.bundle refs/statbus-harness/stage-head; fi && git checkout $HEAD_LOCAL"
 
 # Restart the upgrade-service unit so it re-execs the freshly pre-staged HEAD
 # binary. upload_sb_to_vm (above) atomically swaps ~/statbus/sb via mv-then-cp,
