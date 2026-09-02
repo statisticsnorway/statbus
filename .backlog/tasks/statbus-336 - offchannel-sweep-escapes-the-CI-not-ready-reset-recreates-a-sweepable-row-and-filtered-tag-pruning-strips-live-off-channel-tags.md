@@ -3,10 +3,10 @@ id: STATBUS-336
 title: >-
   offchannel-sweep-escapes: the CI-not-ready reset recreates a sweepable row,
   and filtered-tag pruning strips live off-channel tags
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-09-02 08:17'
-updated_date: '2026-09-02 08:28'
+updated_date: '2026-09-02 09:50'
 labels:
   - upgrade
   - defect
@@ -30,4 +30,6 @@ Acceptance: a manually scheduled channel-excluded row survives (tags intact, nev
 
 <!-- SECTION:NOTES:BEGIN -->
 King's design confirmation (2026-09-02): visibility over automation. Keep the row scheduled; surface its age from scheduled_at in UI + CLI list (e.g. 'scheduled 3 days ago, images still building') so a long wait is DETERMINABLE — at that point no automation or counting gives a reasonable answer, a human decides. Expected common resolution: the fix ships as a newer candidate and graceful supersede resolves the stuck row naturally. Architect verifies the single-scheduled slot + supersede interaction; no counters, no auto-give-up.
+
+Landed at d3dac2484, foreman-reviewed: pruneDeletedTags takes the unfiltered git tag list (channel = display policy only); CI-not-ready steps back to 'scheduled' preserving scheduled_at (never 'available'); singleton collision resolves in favor of the later operator decision (old claim superseded, visible); CLI + UI surface 'scheduled, waiting for images since <scheduled_at>'; the state CASE gains its superseded decision branch. Verified: focused 336 tests + full upgrade/cmd suites + golangci-lint 0 issues + jest 10/10 + live DB sanity of re-pick, step-back, and collision-supersede. Rides rc.03.
 <!-- SECTION:NOTES:END -->
