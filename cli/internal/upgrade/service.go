@@ -4681,10 +4681,12 @@ func (d *Service) discover(ctx context.Context) {
 	// signal without coupling to CI workflow telemetry.
 	d.verifyArtifacts(ctx)
 
-	// Prune tags deleted upstream: remove from the tags array in the DB
-	// any tags that no longer exist in git. If all tags are removed,
-	// demote release_status back to 'commit'.
-	d.pruneDeletedTags(ctx, filtered)
+	// Prune tags deleted upstream against ALL tags that exist in git, never the
+	// channel-filtered offer list. The channel decides what discovery displays
+	// and offers on this box; it does not decide whether a tag exists. Passing
+	// `filtered` here silently stripped live off-channel tags from manually
+	// registered rows and demoted their release identity (STATBUS-336).
+	d.pruneDeletedTags(ctx, tags)
 
 	// Self-heal the ledger: retire any available/scheduled row that is not newer
 	// than the installed version (tier-independent, version-based). The SQL
@@ -6266,43 +6268,58 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	}
 
 	// Verify release manifest and binary exist before starting.
-	// If CI hasn't finished building, unschedule and return — not an error.
+	// If CI hasn't finished building, return the claim to 'scheduled' and keep
+	// the original scheduled_at — operator intent does not expire because
+	// publication is still in progress. executeScheduled re-picks the row on its
+	// next tick and proceeds once the artifacts are ready (STATBUS-336).
 	// Only tagged releases have a manifest; untagged commits skip this check.
 	if ValidateVersion(displayName) {
 		progress.Write("Verifying release assets available...")
 		manifest, err := FetchManifest(displayName)
 		if err != nil {
-			// CI not ready — unschedule without setting error. Reset to
-			// 'available' + clear started_at so the CHECK constraint holds
-			// (state='available' requires all lifecycle timestamps NULL).
-			// The service will flip docker_images_status and release_builds_status
-			// on the next discovery cycle when CI finishes, re-enabling "Upgrade Now".
+			// Clear only claim-owned fields. scheduled_at is deliberately retained:
+			// it is both the durable record of the operator's decision and the clock
+			// used by the CLI/UI to make a long publication wait visible.
 			//
 			// STATBUS-187 fix unit #3 (architect-ruled, ticket comment #4):
-			// HARD-FAIL if this reset doesn't land — check both the Exec
+			// HARD-FAIL if this step-back doesn't land — check both the Exec
 			// error and RowsAffected==0 (an id-scoped UPDATE affecting 0
-			// rows means the reset never happened even though Exec itself
-			// returned no error). Discovery ticks skip in_progress rows, so
-			// a silently-wedged row here would sit stuck until the next
-			// boot-time completeInProgressUpgrade, not bounded by "the next
-			// retry tick" as originally assumed — loud-warn isn't the
-			// honest floor. markPgInvariantTerminal is the established
-			// genre for ledger-write failures (promoteExistingCandidate is
-			// the byte-pattern); return the error, never nil. The
-			// "unscheduled" progress line moves to AFTER the confirmed
-			// reset so the log cannot claim what didn't happen.
+			// rows means the step-back never happened even though Exec itself
+			// returned no error). Return the error, never nil, so an in_progress
+			// row cannot silently wedge outside the scheduled retry loop.
 			result, resetErr := d.queryConn.Exec(ctx,
-				"UPDATE public.upgrade SET state = 'available', scheduled_at = NULL, started_at = NULL, from_commit_version = NULL WHERE id = $1", id)
+				"UPDATE public.upgrade SET state = 'scheduled', started_at = NULL, from_commit_version = NULL WHERE id = $1 AND state = 'in_progress'", id)
 			if resetErr != nil {
-				d.markPgInvariantTerminal(resetErr, "service.go:executeUpgrade:ci-not-ready-unschedule")
-				return fmt.Errorf("CI not ready for %s, and the unschedule reset also failed: %w", displayName, resetErr)
+				// A second explicit schedule can land while this row is briefly
+				// claimed. The single-scheduled index then correctly refuses to
+				// put both rows in the slot. The later operator decision wins: make
+				// this claimed row visibly superseded instead of reverting it to the
+				// sweepable 'available' state or wedging it in_progress.
+				var pgErr *pgconn.PgError
+				if errors.As(resetErr, &pgErr) && pgErr.ConstraintName == "upgrade_single_scheduled" {
+					supersedeResult, supersedeErr := d.queryConn.Exec(ctx,
+						"UPDATE public.upgrade SET state = 'superseded', superseded_at = now(), started_at = NULL, from_commit_version = NULL WHERE id = $1 AND state = 'in_progress'", id)
+					if supersedeErr != nil {
+						d.markPgInvariantTerminal(supersedeErr, "service.go:executeUpgrade:ci-not-ready-supersede")
+						return fmt.Errorf("CI not ready for %s, another row now owns the scheduled slot, and superseding this claim failed: %w", displayName, supersedeErr)
+					}
+					if supersedeResult.RowsAffected() == 0 {
+						noRowsErr := fmt.Errorf("CI-not-ready supersede UPDATE affected 0 rows for upgrade id %d", id)
+						d.markPgInvariantTerminal(noRowsErr, "service.go:executeUpgrade:ci-not-ready-supersede")
+						return noRowsErr
+					}
+					progress.Write("Release assets not ready for %s; another operator schedule now owns the queue, so this attempt is superseded.", displayName)
+					return nil
+				}
+				d.markPgInvariantTerminal(resetErr, "service.go:executeUpgrade:ci-not-ready-reschedule")
+				return fmt.Errorf("CI not ready for %s, and returning the claim to scheduled also failed: %w", displayName, resetErr)
 			}
 			if result.RowsAffected() == 0 {
-				noRowsErr := fmt.Errorf("CI-not-ready unschedule UPDATE affected 0 rows for upgrade id %d — row not reset to 'available'", id)
-				d.markPgInvariantTerminal(noRowsErr, "service.go:executeUpgrade:ci-not-ready-unschedule")
+				noRowsErr := fmt.Errorf("CI-not-ready reschedule UPDATE affected 0 rows for upgrade id %d — claim not returned to 'scheduled'", id)
+				d.markPgInvariantTerminal(noRowsErr, "service.go:executeUpgrade:ci-not-ready-reschedule")
 				return noRowsErr
 			}
-			progress.Write("Release assets not ready for %s — unscheduled. Will be available when CI finishes.", displayName)
+			progress.Write("Release assets not ready for %s — staying scheduled. The upgrade service will retry when CI finishes.", displayName)
 			return nil
 		}
 		platform := selfupdate.Platform()

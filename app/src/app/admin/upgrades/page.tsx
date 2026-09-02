@@ -9,6 +9,7 @@ import { pendingUpgradeStatusAtom } from "@/atoms/upgrade-status";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import {
   isParkedUpgrade,
+  scheduledImageWaitSince,
   scheduleRefusalMessage,
   scheduleUpgrade,
   shouldRedirectAfterSchedule,
@@ -1082,6 +1083,7 @@ function UpgradeCard({
   onRestore: () => void;
 }) {
   const isParked = isParkedUpgrade(u);
+  const imageWaitSince = scheduledImageWaitSince(u);
   const scheduleAction = upgradeScheduleAction(u);
   const canRetry = scheduleAction === "rpc" && status !== "available";
   const restoreReattemptRequired = scheduleAction === "install";
@@ -1260,6 +1262,19 @@ function UpgradeCard({
             </span>
           )}
         </div>
+
+        {imageWaitSince && (
+          <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            <p className="font-medium">
+              Scheduled, waiting for images since{" "}
+              {new Date(imageWaitSince).toLocaleString()}.
+            </p>
+            <p className="mt-1 text-xs">
+              The upgrade service keeps this operator request scheduled and will
+              retry when publication finishes.
+            </p>
+          </div>
+        )}
 
         {/* Error display */}
         {u.error && (

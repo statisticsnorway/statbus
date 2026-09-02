@@ -259,18 +259,23 @@ var upgradeListCmd = &cobra.Command{
 				-- re-scheduled candidate would display as dismissed. Whoever
 				-- removes it must fix this CASE in the same change.
 				--
-				-- Two instances of one defect, fixed together rather than one
-				-- at a time: 'dismissed' had NO branch and fell through to
+				-- Instances of one defect, fixed together rather than one at a
+				-- time: 'dismissed' had NO branch and fell through to
 				-- 'available' (a correct dismiss reading as a failed one in the
 				-- very output the dev-reset script checks); 'skipped' HAD a
 				-- branch but sat below scheduled/error and so hid a skip on any
-				-- row with a history. Both are operator decisions and both
-				-- belong here.
+				-- row with a history. 'superseded' likewise retains scheduling
+				-- history. All are decisions and belong above that history.
 				WHEN dismissed_at IS NOT NULL THEN 'dismissed'
 				WHEN skipped_at IS NOT NULL THEN 'skipped'
+				WHEN superseded_at IS NOT NULL THEN 'superseded'
 				WHEN error IS NOT NULL AND rolled_back_at IS NOT NULL THEN 'rolled back'
 				WHEN error IS NOT NULL THEN 'failed'
 				WHEN started_at IS NOT NULL THEN 'in progress'
+				WHEN state = 'scheduled'
+				 AND (docker_images_status = 'building'
+				      OR (release_status != 'commit' AND release_builds_status = 'building'))
+				THEN 'scheduled, waiting for images since ' || scheduled_at::text
 				WHEN scheduled_at IS NOT NULL THEN 'scheduled'
 				ELSE 'available'
 			END AS status,

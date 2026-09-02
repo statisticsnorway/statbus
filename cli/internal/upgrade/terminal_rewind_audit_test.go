@@ -147,16 +147,16 @@ var rewindAudit = map[siteKey]rewindDisposition{
 
 	// ── C. OUTSIDE THE WINDOW — written before the snapshot, so it contains them ──
 	{"cli/internal/upgrade/service.go", "UPDATE", "from_commit_version,started_at,state"}: {
-		Class: classOutsideWindow, Count: 1,
-		Why: "The claim, inside executeUpgrade but BEFORE backupDatabase — the snapshot already holds it.",
+		Class: classOutsideWindow, Count: 2,
+		Why: "The claim and the CI-not-ready return to 'scheduled' both run BEFORE backupDatabase; no restore window has opened.",
 	},
 	{"cli/internal/upgrade/service.go", "UPDATE", "log_relative_file_path"}: {
 		Class: classOutsideWindow, Count: 1,
 		Why: "Written before the backup; contained in the snapshot.",
 	},
-	{"cli/internal/upgrade/service.go", "UPDATE", "from_commit_version,scheduled_at,started_at,state"}: {
+	{"cli/internal/upgrade/service.go", "UPDATE", "from_commit_version,started_at,state,superseded_at"}: {
 		Class: classOutsideWindow, Count: 1,
-		Why: "Un-claim / reset back to 'available'. Runs before any backup on its path.",
+		Why: "CI-not-ready scheduled-slot collision: a later operator schedule owns the singleton slot, so this pre-backup claim becomes superseded.",
 	},
 	// ── D. SUCCESS PATH ONLY — no restore occurs on these paths ──
 	{"cli/internal/upgrade/service.go", "UPDATE", "completed_at,docker_images_status,error,log_relative_file_path,state"}: {
@@ -193,7 +193,7 @@ var rewindAudit = map[siteKey]rewindDisposition{
 	},
 	{"cli/internal/upgrade/service.go", "UPDATE", "commit_tags,release_status"}: {
 		Class: classSelfHealing, Count: 1,
-		Why: "Re-derived from GitHub's release list on the next discovery tick.",
+		Why: "Re-derived from the complete git tag list on the next discovery tick; channel filtering never defines tag existence (STATBUS-336).",
 	},
 	{"cli/internal/upgrade/service.go", "UPDATE", "docker_images_status,error"}: {
 		Class: classSelfHealing, Count: 1,

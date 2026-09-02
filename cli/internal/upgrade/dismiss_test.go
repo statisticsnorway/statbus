@@ -145,13 +145,14 @@ func withoutFunc(src, signature string) string {
 // command that REPORTS it must agree, and the report must not let a row's
 // HISTORY outrank the operator's DECISION.
 //
-// TWO INSTANCES OF ONE DEFECT, fixed together:
+// INSTANCES OF ONE DEFECT, fixed together:
 //   - 'dismissed' had NO branch at all and fell through to 'available', so a
 //     CORRECT dismiss read as a failed one in the exact output the dev-reset
 //     script checks at its verification step.
 //   - 'skipped' HAD a branch but sat BELOW scheduled/error, so a candidate that
 //     was scheduled (or failed) and then skipped rendered as 'scheduled' —
 //     hiding the skip on precisely the rows that have a history.
+//   - 'superseded' also retains scheduled_at, so it must outrank that history.
 //
 // ORDER IS THE SUBSTANCE, not formatting, which is why it is pinned: a later
 // tidy-up that moves either decision branch back down beside the lifecycle
@@ -162,8 +163,9 @@ func TestUpgradeListOrdersDecisionsAboveHistory_STATBUS250(t *testing.T) {
 	idx := func(needle string) int { return strings.Index(src, needle) }
 
 	decisions := map[string]string{
-		"dismissed": "WHEN dismissed_at IS NOT NULL THEN 'dismissed'",
-		"skipped":   "WHEN skipped_at IS NOT NULL THEN 'skipped'",
+		"dismissed":  "WHEN dismissed_at IS NOT NULL THEN 'dismissed'",
+		"skipped":    "WHEN skipped_at IS NOT NULL THEN 'skipped'",
+		"superseded": "WHEN superseded_at IS NOT NULL THEN 'superseded'",
 	}
 	// The marks a row keeps from what it DID earlier. A decision outranks all
 	// of them, because the row still carries them after the decision is made.

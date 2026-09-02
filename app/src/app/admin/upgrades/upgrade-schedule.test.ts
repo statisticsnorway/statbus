@@ -1,4 +1,5 @@
 import {
+  scheduledImageWaitSince,
   scheduleUpgrade,
   shouldRedirectAfterSchedule,
   upgradeScheduleAction,
@@ -75,6 +76,44 @@ describe("upgrade scheduling UI contract", () => {
       recovery_parked_at: "2026-09-01T20:00:00Z",
     };
     expect(upgradeStateLabel(parked, "Upgrading")).toBe("Parked");
+  });
+
+  test("scheduled rows expose the original wait start while images or release assets are not ready", () => {
+    const scheduledAt = "2026-09-01T20:00:00Z";
+    const base = {
+      state: "scheduled",
+      release_status: "release",
+      scheduled_at: scheduledAt,
+      docker_images_status: "ready",
+      release_builds_status: "ready",
+    };
+
+    expect(
+      scheduledImageWaitSince({
+        ...base,
+        docker_images_status: "building",
+      })
+    ).toBe(scheduledAt);
+    expect(
+      scheduledImageWaitSince({
+        ...base,
+        release_builds_status: "building",
+      })
+    ).toBe(scheduledAt);
+    expect(scheduledImageWaitSince(base)).toBeNull();
+    expect(
+      scheduledImageWaitSince({
+        ...base,
+        docker_images_status: "failed",
+      })
+    ).toBeNull();
+    expect(
+      scheduledImageWaitSince({
+        ...base,
+        state: "available",
+        docker_images_status: "building",
+      })
+    ).toBeNull();
   });
 
   test("failed rows with a retained backup require install and have no RPC action", () => {

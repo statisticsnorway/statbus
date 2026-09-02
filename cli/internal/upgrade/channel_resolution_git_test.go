@@ -216,9 +216,9 @@ name — is available over git, which is unlimited and needs no credential.`)
 		t.Error(`the readiness gate that makes git-derived discovery safe is gone.
 
 Git returns every tag, including one pushed without a release. That is safe ONLY
-because a candidate whose assets are not ready is UNSCHEDULED with a visible
-message rather than installed. Without that gate, discovery over git could
-attempt an install against a tag with no binary.`)
+because a candidate whose assets are not ready stays SCHEDULED with a visible
+wait message rather than being installed or losing operator intent. Without that
+gate, discovery over git could attempt an install against a tag with no binary.`)
 	}
 }
 

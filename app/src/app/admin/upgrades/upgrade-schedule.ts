@@ -19,6 +19,14 @@ interface UpgradeSchedulingView {
   recovery_parked_at: string | null;
 }
 
+interface ScheduledImageWaitView {
+  state: string;
+  release_status: string;
+  scheduled_at: string | null;
+  docker_images_status: string;
+  release_builds_status: string;
+}
+
 export type UpgradeScheduleAction = "rpc" | "install" | "none";
 
 export function isParkedUpgrade(upgrade: UpgradeSchedulingView): boolean {
@@ -45,6 +53,24 @@ export function upgradeStateLabel(
   displayState: string
 ): string {
   return isParkedUpgrade(upgrade) ? "Parked" : displayState;
+}
+
+export function scheduledImageWaitSince(
+  upgrade: ScheduledImageWaitView
+): string | null {
+  if (upgrade.state !== "scheduled" || upgrade.scheduled_at === null) {
+    return null;
+  }
+  if (upgrade.docker_images_status === "building") {
+    return upgrade.scheduled_at;
+  }
+  if (
+    upgrade.release_status !== "commit" &&
+    upgrade.release_builds_status === "building"
+  ) {
+    return upgrade.scheduled_at;
+  }
+  return null;
 }
 
 export function shouldRedirectAfterSchedule(
