@@ -3,9 +3,10 @@ id: STATBUS-338
 title: >-
   preswap-fetch-resilience: skip/retry the redundant target fetch, nil-safe
   rollback, truthful error — the Norway rc.02 trio
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-09-02 11:20'
+updated_date: '2026-09-02 11:51'
 labels:
   - upgrade
   - defect
@@ -31,3 +32,9 @@ Note the deployment asymmetry honestly: the first hop off v2026.08.1-rc.01 runs 
 
 Acceptance: regression test injecting a RETURNED fetch error (not a kill) after DB stop → clean rollback, original git error preserved in the row's error, no panic (the rune signature reproduced then fixed); local-objects fast path proven (no network call when objects exist); transient fetch retries bounded-then-fails-cleanly; go test + the 0-happy-upgrade smoke green.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Landed, foreman-reviewed: preswap object-ensure hoisted before the maintenance boundary (local cat-file fast path, zero network in the normal case; bounded stall-detected retries on a miss); rollback + Run defers nil-safe; OriginalError carried on the held flag (survives the process-death gap) so recovery reports the true cause as GIT_FETCH_FAILED_RETRYABLE with honest reschedule advice; manifest sweep bounded to tags newer than installed (198→10-ish probes on rune). Eight regression tests pin the rune signature; full cli suite + lint clean. Rides rc.03. Deployment asymmetry recorded in the ticket: the first hop off old binaries still runs old preswap; protection begins once the fleet takes a fixed version.
+<!-- SECTION:NOTES:END -->
