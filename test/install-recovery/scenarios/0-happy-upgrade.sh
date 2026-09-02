@@ -64,7 +64,10 @@ UPGRADE_BUDGET_S="${UPGRADE_BUDGET_S:-900}"
 # transient: verifyArtifacts retries every discovery cycle, so a ghcr 401/500
 # storm costs WAITING lines here, not a red run (rc.05 died at 90s with
 # last='building' while the storm was still active and all four images existed).
-TICK_WAIT_S="${TICK_WAIT_S:-300}"
+# 10 ticks: a verify tick needs all four VM-side manifest inspects to succeed,
+# so a storm-degraded registry fails many ticks in a row. The service keeps
+# retrying; more budget = more chances, with liveness lines every 30s.
+TICK_WAIT_S="${TICK_WAIT_S:-600}"
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
 REPO_ROOT="$(cd "$LIB_DIR/../../.." && pwd)"

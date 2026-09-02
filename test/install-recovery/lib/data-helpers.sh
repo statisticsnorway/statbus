@@ -229,7 +229,7 @@ wait_for_worker_quiesce() {
 # ─────────────────────────────────────────────────────────────────────────
 wait_for_upgrade_candidate_ready() {
     local vm_name="$1" commit_sha="$2" budget_s="${3:-120}"
-    local start status elapsed
+    local start status elapsed last_report=0
     start=$(date +%s)
     echo "  [data] waiting for candidate $commit_sha → docker_images_status='ready' (budget ${budget_s}s)"
     while :; do
@@ -237,6 +237,14 @@ wait_for_upgrade_candidate_ready() {
         if [ "$status" = "ready" ]; then
             echo "  [data] ✓ candidate images ready"
             return 0
+        fi
+        elapsed=$(( $(date +%s) - start ))
+        # A verify tick passes only when ALL FOUR manifest inspects succeed,
+        # so one registry 401 fails a whole 60s tick. Report the wait so the
+        # log shows liveness (a silent multi-minute wait reads as a hang).
+        if [ $(( elapsed - last_report )) -ge 30 ]; then
+            echo "  [data] … still '$status' after ${elapsed}s (service retries every tick)"
+            last_report="$elapsed"
         fi
         elapsed=$(( $(date +%s) - start ))
         if [ "$elapsed" -ge "$budget_s" ]; then
