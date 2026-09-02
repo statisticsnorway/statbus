@@ -3,10 +3,10 @@ id: STATBUS-335
 title: >-
   entry-way-files: .env.credentials and .users.yml are documented entry points,
   never auto-propagated — revert slice 1, add headers
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-09-01 20:47'
-updated_date: '2026-09-02 09:14'
+updated_date: '2026-09-02 09:21'
 labels:
   - cli
   - config
@@ -38,4 +38,6 @@ Acceptance: slice-1 revert leaves cli tests green with the original gate restore
 Slice 1 (users.yml reapply) landed locally, foreman-reviewed and committed: checkUsersDone now compares .users.yml's sha256 against a marker (.users.yml.sha256, gitignored) written only after a successful users create upsert; changed file or missing marker → reconcile; absent file → no-op. Tests: marker gating (3 cases) + full cli/cmd suite green. Slices 2 (credential rotation re-ALTER) and 3 (healthy-box compose changes) remain — both need the King's ruling before build.
 
 King (2026-09-01, retiring for the night): .users.yml is just to get started — he runs ./sb users create by hand after editing it, and that is fine. Slice 1's marker-gating is a convenience, not a correctness requirement; slices 2-3 are accordingly lower urgency and still await his ruling before any build.
+
+Closed as ruled: slice-1 revert landed (users-exist gate restored, marker machinery and test removed), credentials header emitted on creation only (creation-only + preserve-existing covered by tests), users header in .users.example (no generator exists — creation paths copy the example). cli/cmd and internal/config suites green. Compose-changes residue documented as releases-own-compose. Commit: 'config: credentials and seed users are entry-way files'.
 <!-- SECTION:NOTES:END -->
