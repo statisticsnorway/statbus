@@ -179,7 +179,10 @@ export default function UnitHistoryTable({
         </TableHeader>
         <TableBody>
           {unitHistory.map((unit) => (
-            <TableRow key={unit.valid_from}>
+            <TableRow
+              className={unit.used_for_counting ? "" : "italic text-gray-500"}
+              key={unit.valid_from}
+            >
               {columns.map((col, i) => (
                 <TableCell
                   key={`${col.header}-${i}`}
