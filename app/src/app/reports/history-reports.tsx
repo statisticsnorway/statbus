@@ -26,6 +26,8 @@ interface HistoryReportsProps {
     history: StatisticalHistoryHighcharts;
     isYearlyView: boolean;
     onYearSelect: (year: number) => void;
+    unitType: UnitType;
+    year: string;
   }) => ReactNode;
 }
 
@@ -55,7 +57,13 @@ export function HistoryReports({
   const [highchartsModulesLoaded, setHighchartsModulesLoaded] = useState(false);
 
   useGuardedEffect(() => {
-    import("highcharts/modules/accessibility").then(() => {
+    Promise.all([
+      import("highcharts/modules/accessibility"),
+      // export-data extends Exporting, so it must load after exporting resolves.
+      import("highcharts/modules/exporting").then(() =>
+        import("highcharts/modules/export-data")
+      ),
+    ]).then(() => {
       setHighchartsModulesLoaded(true);
     });
   }, [], 'HistoryReports:importHighchartsModules');
@@ -106,6 +114,8 @@ export function HistoryReports({
             history,
             isYearlyView: selectedYear === "all",
             onYearSelect: handleYearSelect,
+            unitType: selectedUnitType,
+            year: selectedYear,
           })
         ) : (
           <Skeleton className="h-[400px] " />
