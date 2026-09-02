@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 07:27'
-updated_date: '2026-09-02 10:27'
+updated_date: '2026-09-02 10:39'
 labels:
   - release
   - ops
@@ -125,5 +125,10 @@ KING'S SUPERSEDING RULING (2026-08-31 evening): ALL cloud slots run PRERELEASE �
 created: 2026-09-02 10:27
 ---
 foreman (2026-09-02): KING'S FINAL RULING supersedes comment #6's all-prerelease direction and everything before it. On the surveyed running-service facts (all 10 boxes, 2026-09-02): the topology STAYS AS IT IS — dev=prerelease, Norway=prerelease, demo+country slots=stable. No channel writes. He rolls the fleet forward himself via ./cloud.sh upgrade. He may later flip demo to prerelease (demonstrate features early) — his one-line call, no process. The ticket is now solely the dead-transport deletion; the description is authoritative and the older comments are history.
+---
+
+created: 2026-09-02 10:39
+---
+foreman (2026-09-02, later same morning): KING AMENDS the topology — demo moves to PRERELEASE. Rationale: with dev green on rc.02 but Norway (large, standalone) refusing it, he wants a manual test point for both a SMALL installation (demo) and a LARGE one (Norway) on the candidate channel. Target topology: dev + demo + rune=prerelease; et/jo/ma/mw/ug/ua/gh=stable. The demo channel write is his (or foreman-gated on his word): edit demo's .env.config UPGRADE_CHANNEL=prerelease + ./sb install — timing his call, sensibly after the Norway RCA verdict and on a binary carrying the current sweep fixes.
 ---
 <!-- COMMENTS:END -->
