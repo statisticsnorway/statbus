@@ -468,6 +468,39 @@ func TestNotifyUserCollisionWarning(t *testing.T) {
 	}
 }
 
+func TestLoadOrGenerateCredentials_WritesHeaderOnlyOnCreation(t *testing.T) {
+	createdDir := t.TempDir()
+	if _, err := loadOrGenerateCredentials(createdDir, false); err != nil {
+		t.Fatalf("loadOrGenerateCredentials for new file: %v", err)
+	}
+	created, err := os.ReadFile(filepath.Join(createdDir, ".env.credentials"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(string(created), credentialsHeader+"\n\n") {
+		t.Errorf("new .env.credentials missing entry-way header; got:\n%s", created)
+	}
+
+	existingDir := t.TempDir()
+	const existingValue = "POSTGRES_ADMIN_PASSWORD=preserve-me\n"
+	if err := os.WriteFile(filepath.Join(existingDir, ".env.credentials"), []byte(existingValue), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := loadOrGenerateCredentials(existingDir, false); err != nil {
+		t.Fatalf("loadOrGenerateCredentials for existing file: %v", err)
+	}
+	existing, err := os.ReadFile(filepath.Join(existingDir, ".env.credentials"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.HasPrefix(string(existing), credentialsHeader) {
+		t.Errorf("existing .env.credentials unexpectedly received the creation-only header; got:\n%s", existing)
+	}
+	if !strings.Contains(string(existing), strings.TrimSpace(existingValue)) {
+		t.Errorf("existing credential value was not preserved; got:\n%s", existing)
+	}
+}
+
 // TestCaddyTemplates_UnmatchedHostCatchAll_STATBUS189 pins the explicit :80
 // catch-all in every deployment-mode Caddy template. Without it, Caddy answers a
 // request that matches no site key with HTTP 200 and an EMPTY body — so an

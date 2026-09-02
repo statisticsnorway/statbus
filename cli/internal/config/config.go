@@ -266,12 +266,27 @@ process.stdout.write(header + '.' + payload + '.' + sig);`,
 	return "JWT_GENERATION_REQUIRES_NODE_OR_GOLANG_JWT"
 }
 
+const credentialsHeader = `# A running system never reads this file back. Editing it changes nothing and leaves it mismatched with the database.
+# To apply a changed value, delete and recreate the ENTIRE environment (destructive: all data lost; ./dev.sh recreate-database on dev, full reinstall on a production box), or apply the specific change manually with the proper commands (a support operation).
+# This file's purpose is stable identity: recreates and restores get the same credentials back.`
+
 // loadOrGenerateCredentials reads .env.credentials, generating missing values.
 func loadOrGenerateCredentials(projDir string, verbose bool) (*Credentials, error) {
 	credPath := filepath.Join(projDir, ".env.credentials")
+	_, err := os.Stat(credPath)
+	credentialsCreated := os.IsNotExist(err)
+	if err != nil && !credentialsCreated {
+		return nil, fmt.Errorf("stat credentials: %w", err)
+	}
 	f, err := dotenv.Load(credPath)
 	if err != nil {
 		return nil, fmt.Errorf("load credentials: %w", err)
+	}
+	if credentialsCreated {
+		for _, line := range strings.Split(credentialsHeader, "\n") {
+			f.Puts(line)
+		}
+		f.Puts("")
 	}
 
 	gen := func(key string, genFn func() string) string {

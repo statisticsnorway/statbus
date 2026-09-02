@@ -1,3 +1,7 @@
+# Seed users for the first install. Afterwards, users are managed in the application.
+# Editing this file does nothing by itself. Run ./sb users create to apply ADDITIONS.
+# Existing users are not updated from this file.
+
 - display_name: Admin User
   email: admin@example.com
   password: adminSecret123
