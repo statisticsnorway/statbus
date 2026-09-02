@@ -1,12 +1,12 @@
 ---
 id: STATBUS-248
 title: >-
-  stable-reaches-production: promotion should publish, and boxes should follow —
-  the way a customer's box does
+  retire-dead-deploy-transport: delete the writer-less deploy workflows and
+  branches — channels stay as surveyed, cloud.sh is the rollout path
 status: To Do
 assignee: []
 created_date: '2026-08-19 07:27'
-updated_date: '2026-08-31 19:42'
+updated_date: '2026-09-02 10:27'
 labels:
   - release
   - ops
@@ -25,40 +25,17 @@ ordinal: 241000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Retiring the deploy buttons removes the only thing that currently pushes a release out to the ordinary installations. Before they go, we need to say what replaces them — and the answer is a policy decision about promotion day, not a missing mechanism.
+KING'S RULING 2026-09-02, on surveyed facts (running-service reads, all 10 boxes, no drift): the CURRENT topology stays. dev=prerelease (explicit), Norway/rune=prerelease (the human canary posture), demo + et/jo/ma/mw/ug/ua/gh=stable (mode-derived default). No channel writes. He may later move demo to prerelease to demonstrate features early — a one-line .env.config edit + ./sb install, his call, no ticket needed.
 
-WHAT GOES WRONG IF THIS IS SKIPPED: the buttons are removed, a release is promoted to stable, and nothing happens to any production box. Somebody notices days later and reaches for a manual command, which is exactly the ad-hoc path the whole sweep exists to eliminate.
+Rollout is operator-driven via ./cloud.sh (status/install/upgrade/notify — candidate-addressed CLI), plus each box's own channel offers. GitHub deploy branches and their workflows have no writer and no user anymore.
 
-WHICH BOXES THIS ENTRY IS ABOUT: the ones with no special release role — **demo and the production slots**. Dev is driven by the release chain and Norway is the human canary; both are governed by STATBUS-247 and are out of scope here.
+RemAINING WORK (the whole ticket): delete the dead transport.
+1. Delete .github/workflows/deploy-to-{demo,dev,et,jo,ma,no,production,tcc,ug}.yaml and any master-to-*/production-to-* remnants (verify the orchestrator's deploy-to-dev DISPATCH path first — deploy-to-dev.yaml is still dispatched by release-fleet-orchestrator.yaml for the automatic dev canary and MUST STAY; delete only the ones with no dispatcher: grep the workflows for uses/dispatches before deleting).
+2. Delete the deploy branches: ops/cloud/deploy/{demo,dev,et,jo,ma,no,production,tcc,ug} and ops/standalone/deploy/rune-no — EXCEPT any branch a surviving workflow still reads (deploy-to-dev's deprecated branch-push fallback: if deploy-to-dev.yaml stays, decide whether its fallback trigger goes too, then its branch).
+3. Sweep doc/CLOUD.md and ops/ references to the deleted paths.
 
-THE DETAIL — there are two shapes, and they are not equally good.
-
-**Push it out from the release.** Promoting a stable version points every slot's deploy branch at it, the same way STATBUS-247 does for dev. Immediate, observable, one act. But it also means promotion and rollout become the same event, so every installation moves at once and there is no way to stagger.
-
-**Let the boxes follow.** Each box already has an upgrade service that polls for its channel's latest release, registers it, schedules it and installs it — the same discover → register → schedule → execute path a statistical office relies on. Set those slots to the stable channel and promotion simply publishes; the boxes arrive on their own.
-
-**RECOMMENDATION: let the boxes follow.** These are not special infrastructure — they are NSO-shaped installations, and they should behave exactly as a customer's box does, because that is the path we most need to be exercising continuously. It also separates two decisions that should not be welded together: blessing a release, and moving a particular installation onto it. And it needs no new mechanism at all, only the channel each box already reads.
-
-**DEMO'S CHANNEL, ruled here so it is not left to whoever implements this: stable, like the production slots.** Demo has no gating role — the King's point is that dev already answers the does-it-install question — so there is no reason to put candidates on it. And demo is the instance outsiders actually look at, so it should show what a customer would install, not what we are still deciding about. Conveniently this is also the default: any non-development box defaults to `UPGRADE_CHANNEL=stable` (cli/internal/config/config.go:403-407, and the same rule on the second write path at :784-788). So demo's whole disposition costs one thing only — stop pushing at it.
-
-Note this is deliberately a different choice from dev, and the asymmetry is principled rather than inconsistent. Dev is tag-driven because the release chain needs a SYNCHRONOUS verdict — it must know now whether a real box took the candidate. These boxes have no such need: nobody is gating on them, so an autonomous tick is not a delay, it is just how software reaches a machine. Each box still has exactly one source of truth about what it should be running, which is what STATBUS-244 requires.
-
-WHAT MUST BE VERIFIED, not assumed: that each box is on the channel its ROLE requires, and that a promoted release appears in the shape the stable channel filter selects. The verification cannot be "everything is on stable" — Norway must stay on prerelease to remain the human canary, so a sweep that tidied it onto stable would pass a naive check while deleting a release gate. A box on a wrong or default channel looks identical to a box with nothing to do, in either direction. Note also that this entry rules demo's INTENDED channel; what demo is actually set to today is a fact to confirm on the box, not to infer from the default.
-
-WHY THAT HELPS: promotion becomes what it claims to be — a statement that a release is fit — and the installations act on it themselves, continuously proving the same path every customer depends on. Nobody has to remember to push anything, and no box's version depends on whether they did.
+Acceptance: every deleted workflow had no dispatcher/writer (named check per file); the dev canary chain still works (next rc's orchestrator dispatches deploy-to-dev green); no ops/cloud/deploy/* or ops/standalone/deploy/* branches remain except those a surviving workflow reads; fleet channels re-verified unchanged after the deletions (they are config, not workflow, but verify anyway); doc/CLOUD.md carries the cloud.sh + channel-offers rollout story.
 <!-- SECTION:DESCRIPTION:END -->
-
-## Acceptance Criteria
-<!-- AC:BEGIN -->
-- [ ] #1 A decision is recorded: channel-following installations follow the stable channel (recommended) or promotion pushes to them, with the reasoning on this ticket
-- [ ] #2 Demo follows the stable channel — confirmed on the box rather than inferred from the default — and requires no push from anything
-- [ ] #3 Every box is verified to be on the channel its ROLE requires — not universally stable. A box on the wrong channel fails this check in either direction, including one quietly moved to stable when its role needs prerelease
-- [ ] #4 Norway is explicitly excluded from any stable-channel sweep: it is both a production installation and the human canary (STATBUS-247), and stays on prerelease
-- [ ] #5 A promoted release is verified to appear in the shape the stable channel filter actually selects
-- [ ] #6 Promoting a stable release results in the channel-following installations — demo and the production slots — converging on it with no human push
-- [ ] #7 Each box has exactly one source of truth for what it should run — no path both pushes to it and lets it follow
-- [ ] #8 master-to-production and production-to-all can then be removed without leaving a gap
-<!-- AC:END -->
 
 ## Comments
 
@@ -143,5 +120,10 @@ author: foreman
 created: 2026-08-31 19:42
 ---
 KING'S SUPERSEDING RULING (2026-08-31 evening): ALL cloud slots run PRERELEASE — demo INCLUDED. This supersedes this ticket's demo=stable ruling and comment #4's topology on that point. His words across the day: 'all the cloud channels were meant to be pre-release so we can test them and show things before others' … 'let's run all of the cloud in pre-release, yes' (given after the foreman presented the 08-19 demo=stable reasoning explicitly — a deliberate reversal, not an oversight). Consequence on record: demo's daily auto-apply workflow resolves on the box's channel, so demo will auto-install release CANDIDATES daily — under the old frame an exposure, under this ruling the intent (an auto-updating candidate showcase). Country slots stay human-opt-in — their offers are now rc offers. Norway unchanged (prerelease + human). The channel writes ship in the post-307-release transition per the pinned runbook (307 comment #11): operator writes, foreman-gated, same session as each box taking the new code.
+---
+
+created: 2026-09-02 10:27
+---
+foreman (2026-09-02): KING'S FINAL RULING supersedes comment #6's all-prerelease direction and everything before it. On the surveyed running-service facts (all 10 boxes, 2026-09-02): the topology STAYS AS IT IS — dev=prerelease, Norway=prerelease, demo+country slots=stable. No channel writes. He rolls the fleet forward himself via ./cloud.sh upgrade. He may later flip demo to prerelease (demonstrate features early) — his one-line call, no process. The ticket is now solely the dead-transport deletion; the description is authoritative and the older comments are history.
 ---
 <!-- COMMENTS:END -->
