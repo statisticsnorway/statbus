@@ -12,7 +12,7 @@ interface DrillDownChartProps {
   readonly variable: string;
   readonly title: string;
   readonly onSelect: (p: DrillDownPoint) => void;
-  readonly maxTopLevelValue: number;
+  readonly maxTopLevelValue: number | undefined;
   readonly categoryHeader: string;
   readonly onChartReady?: (chart: Chart | null) => void;
 }

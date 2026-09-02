@@ -19,6 +19,8 @@ import {
   buildChartExportFilenameBase,
   joinSubtitleParts,
 } from "@/lib/chart-export";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 
 
 export default function ReportsPageClient({}) {
@@ -28,6 +30,9 @@ export default function ReportsPageClient({}) {
   >({});
   const [regionChart, setRegionChart] = useState<Chart | null>(null);
   const [activityChart, setActivityChart] = useState<Chart | null>(null);
+  const [scaleRegionToSelection, setScaleRegionToSelection] = useState(false);
+  const [scaleActivityToSelection, setScaleActivityToSelection] =
+    useState(false);
   const {
     drillDown,
     isLoading,
@@ -126,55 +131,56 @@ export default function ReportsPageClient({}) {
   }, [statDefinitions, unitTypeLabel]);
 
   // Calculate max values only for unfiltered top-level data
-  useGuardedEffect(
-    () => {
-      if (drillDown && !region && !activityCategory) {
-        setMaxStatValuesNoFiltering((prevMaxValues) => {
-          const newMaxValues = { ...prevMaxValues };
+ useGuardedEffect(
+   () => {
+     if (
+       drillDown &&
+       drillDown.unit_type === selectedUnitType &&
+       !region &&
+       !activityCategory
+     ) {
+       setMaxStatValuesNoFiltering((prevMaxValues) => {
+         const newMaxValues = { ...prevMaxValues };
+         statisticalVariables.forEach(({ value }) => {
+           const key = `${selectedUnitType}::${value}`;
+           const regionMax = Math.max(
+             0,
+             ...(drillDown.available.region?.map((point) =>
+               value === "count"
+                 ? point.count
+                 : (() => {
+                     const m = point.stats_summary?.[value];
+                     return m && "sum" in m ? (m.sum as number) : 0;
+                   })()
+             ) || [])
+           );
+           const categoryMax = Math.max(
+             0,
+             ...(drillDown.available.activity_category?.map((point) =>
+               value === "count"
+                 ? point.count
+                 : (() => {
+                     const m = point.stats_summary?.[value];
+                     return m && "sum" in m ? (m.sum as number) : 0;
+                   })()
+             ) || [])
+           );
+           newMaxValues[key] = { region: regionMax, activity: categoryMax };
+         });
+         return newMaxValues;
+       });
+     }
+   },
+   [
+     drillDown,
+     region,
+     activityCategory,
+     statisticalVariables,
+     selectedUnitType,
+   ],
+   "ReportsPageClient:calculateMaxValues"
+ );
 
-          statisticalVariables.forEach(({ value }) => {
-            const regionMax = Math.max(
-              0,
-              ...(drillDown.available.region?.map((point) =>
-                value === "count"
-                  ? point.count
-                  : (() => {
-                      const m = point.stats_summary?.[value];
-                      return m && "sum" in m ? (m.sum as number) : 0;
-                    })()
-              ) || [])
-            );
-            const categoryMax = Math.max(
-              0,
-              ...(drillDown.available.activity_category?.map((point) =>
-                value === "count"
-                  ? point.count
-                  : (() => {
-                      const m = point.stats_summary?.[value];
-                      return m && "sum" in m ? (m.sum as number) : 0;
-                    })()
-              ) || [])
-            );
-
-            // Initialize if not exists
-            if (!newMaxValues[value]) {
-              newMaxValues[value] = { region: 0, activity: 0 };
-            }
-
-            // Update only if new values are larger
-            newMaxValues[value] = {
-              region: Math.max(newMaxValues[value].region, regionMax),
-              activity: Math.max(newMaxValues[value].activity, categoryMax),
-            };
-          });
-
-          return newMaxValues;
-        });
-      }
-    },
-    [drillDown, region, activityCategory, statisticalVariables],
-    "ReportsPageClient:calculateMaxValues"
-  );
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col px-2">
@@ -219,18 +225,34 @@ export default function ReportsPageClient({}) {
                           onSelect={setRegion}
                         />
                       </div>
-
-                      <ChartExportButton
-                        chart={regionChart}
-                        title={statisticalVariable.title}
-                        subtitle={filterSubtitle}
-                        hasActiveFilter={hasActiveDrilldownFilter}
-                        filenameBase={buildChartExportFilenameBase(
-                          "drilldown_by_region",
-                          selectedUnitType,
-                          selectedYear
+                      <div className="flex shrink-0 items-center gap-3">
+                        {hasActiveDrilldownFilter && (
+                          <div className="flex items-center gap-1.5">
+                            <Label
+                              htmlFor="scale-region-to-selection"
+                              className="text-xs text-gray-500"
+                            >
+                              Scale to selection
+                            </Label>
+                            <Switch
+                              id="scale-region-to-selection"
+                              checked={scaleRegionToSelection}
+                              onCheckedChange={setScaleRegionToSelection}
+                            />
+                          </div>
                         )}
-                      />
+                        <ChartExportButton
+                          chart={regionChart}
+                          title={statisticalVariable.title}
+                          subtitle={filterSubtitle}
+                          hasActiveFilter={hasActiveDrilldownFilter}
+                          filenameBase={buildChartExportFilenameBase(
+                            "drilldown_by_region",
+                            selectedUnitType,
+                            selectedYear
+                          )}
+                        />
+                      </div>
                     </div>
                     {highchartsModulesLoaded ? (
                       <DrillDownChart
@@ -239,8 +261,11 @@ export default function ReportsPageClient({}) {
                         variable={statisticalVariable.value}
                         title={statisticalVariable.title}
                         maxTopLevelValue={
-                          maxStatValuesNoFiltering[statisticalVariable.value]
-                            ?.region
+                          scaleRegionToSelection
+                            ? undefined
+                            : maxStatValuesNoFiltering[
+                                `${selectedUnitType}::${statisticalVariable.value}`
+                              ]?.region
                         }
                         categoryHeader="Region"
                         onChartReady={setRegionChart}
@@ -268,18 +293,34 @@ export default function ReportsPageClient({}) {
                           onSelect={setActivityCategory}
                         />
                       </div>
-
-                      <ChartExportButton
-                        chart={activityChart}
-                        title={statisticalVariable.title}
-                        subtitle={filterSubtitle}
-                        hasActiveFilter={hasActiveDrilldownFilter}
-                        filenameBase={buildChartExportFilenameBase(
-                          "drilldown_by_activity",
-                          selectedUnitType,
-                          selectedYear
+                      <div className="flex shrink-0 items-center gap-3">
+                        {hasActiveDrilldownFilter && (
+                          <div className="flex items-center gap-1.5">
+                            <Label
+                              htmlFor="scale-activity-to-selection"
+                              className="text-xs text-gray-500"
+                            >
+                              Scale to selection
+                            </Label>
+                            <Switch
+                              id="scale-activity-to-selection"
+                              checked={scaleActivityToSelection}
+                              onCheckedChange={setScaleActivityToSelection}
+                            />
+                          </div>
                         )}
-                      />
+                        <ChartExportButton
+                          chart={activityChart}
+                          title={statisticalVariable.title}
+                          subtitle={filterSubtitle}
+                          hasActiveFilter={hasActiveDrilldownFilter}
+                          filenameBase={buildChartExportFilenameBase(
+                            "drilldown_by_activity",
+                            selectedUnitType,
+                            selectedYear
+                          )}
+                        />
+                      </div>
                     </div>
                     {highchartsModulesLoaded ? (
                       <DrillDownChart
@@ -288,8 +329,11 @@ export default function ReportsPageClient({}) {
                         variable={statisticalVariable.value}
                         title={statisticalVariable.title}
                         maxTopLevelValue={
-                          maxStatValuesNoFiltering[statisticalVariable.value]
-                            ?.activity
+                          scaleActivityToSelection
+                            ? undefined
+                            : maxStatValuesNoFiltering[
+                                `${selectedUnitType}::${statisticalVariable.value}`
+                              ]?.activity
                         }
                         categoryHeader="Activity Category"
                         onChartReady={setActivityChart}
