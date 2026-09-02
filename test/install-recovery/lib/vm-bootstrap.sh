@@ -1226,15 +1226,20 @@ set -e
 # install.sh's ./sb install step. The pre-clone ensures RESCUE mode so we control
 # timing: config files land before ./sb install runs. Idempotent for RESCUE callers.
 if [ ! -d ~/statbus/.git ]; then
-    for attempt in 1 2 3; do
+    # rc MUST be captured in the else-branch: after a failed if-condition with
+    # no else, \$? is the IF-statement's status (0) — rc.05 exited 0 on a
+    # failed clone and drifted into a meaningless health-wait death.
+    # Backoff grows because tonight's GitHub 401 storms outlive 3x10s.
+    for attempt in 1 2 3 4 5; do
         if git clone --depth 50 https://github.com/statisticsnorway/statbus.git ~/statbus; then
             break
+        else
+            rc=\$?
         fi
-        rc=\$?
-        echo "GitHub clone retry [git-clone] \${attempt}/3 (rc=\$rc)" >&2
-        [ "\$attempt" -eq 3 ] && exit "\$rc"
+        echo "GitHub clone retry [git-clone] \${attempt}/5 (rc=\$rc)" >&2
+        [ "\$attempt" -eq 5 ] && exit "\$rc"
         rm -rf ~/statbus
-        sleep 10
+        sleep \$(( attempt * 20 ))
     done
     # Add db-seed refspec so install's own 'git fetch origin db-seed' creates the
     # remote-tracking ref (a single-branch shallow clone restricts the refspec).
@@ -1264,15 +1269,17 @@ SB_URL="https://github.com/statisticsnorway/statbus/releases/download/${install_
 curl --retry 5 --retry-delay 5 --retry-all-errors -fsSL "\$SB_URL" -o ~/sb.tmp
 chmod +x ~/sb.tmp
 if [ ! -d ~/statbus/.git ]; then
-    for attempt in 1 2 3; do
+    # Same else-branch rc capture + growing backoff as the pre-clone above.
+    for attempt in 1 2 3 4 5; do
         if git clone --depth 1 --branch ${install_version} https://github.com/statisticsnorway/statbus.git ~/statbus; then
             break
+        else
+            rc=\$?
         fi
-        rc=\$?
-        echo "GitHub clone retry [git-clone] \${attempt}/3 (rc=\$rc)" >&2
-        [ "\$attempt" -eq 3 ] && exit "\$rc"
+        echo "GitHub clone retry [git-clone] \${attempt}/5 (rc=\$rc)" >&2
+        [ "\$attempt" -eq 5 ] && exit "\$rc"
         rm -rf ~/statbus
-        sleep 10
+        sleep \$(( attempt * 20 ))
     done
 fi
 mv ~/sb.tmp ~/statbus/sb
