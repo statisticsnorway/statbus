@@ -241,6 +241,28 @@ wait_for_upgrade_candidate_ready() {
         elapsed=$(( $(date +%s) - start ))
         if [ "$elapsed" -ge "$budget_s" ]; then
             echo "  ✗ candidate $commit_sha did not reach docker_images_status='ready' within ${budget_s}s (last='$status')" >&2
+            # Evidence BEFORE the EXIT trap reaps the VM (rc.06 died here twice
+            # with last='building' and zero forensics): the service journal
+            # holds verifyArtifacts' own error lines, and a live manifest
+            # inspect shows whether the registry is reachable FROM THIS VM
+            # right now (laptop-side probes proved nothing about hel1).
+            echo "  ══ register→ready forensics (before teardown) ══" >&2
+            VM_EXEC bash -c "
+                echo '--- upgrade row for $commit_sha ---'
+                cd ~/statbus && echo \"SELECT id, state, docker_images_status, release_builds_status, discovered_at FROM public.upgrade WHERE commit_sha = '$commit_sha' ORDER BY id DESC LIMIT 3;\" | ./sb psql 2>&1 || true
+                echo '--- service journal (last 120) ---'
+                journalctl --user --no-pager -n 120 -u 'statbus-upgrade@*' 2>&1 || journalctl --user --no-pager -n 120 2>&1 || true
+                echo '--- live docker manifest inspect from THIS VM ---'
+                short=\$(echo '$commit_sha' | cut -c1-8)
+                for svc in db app worker proxy; do
+                    if out=\$(docker manifest inspect ghcr.io/statisticsnorway/statbus-\$svc:\$short 2>&1 >/dev/null); then
+                        echo \"  \$svc:\$short OK\"
+                    else
+                        echo \"  \$svc:\$short FAILED: \$out\"
+                    fi
+                done
+            " >&2 || echo "  (forensics unavailable)" >&2
+            echo "  ══ end register→ready forensics ══" >&2
             return 1
         fi
         sleep 3
