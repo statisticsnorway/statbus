@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-02 14:07'
-updated_date: '2026-09-02 15:29'
+updated_date: '2026-09-02 19:04'
 labels:
   - release
   - test-harness
@@ -47,5 +47,11 @@ foreman (2026-09-02 afternoon): TRANSIENT-VS-DEFECT DISCIPLINE added to scope, f
 created: 2026-09-02 15:29
 ---
 foreman (2026-09-02, King's design note): the rc=255 class has a precise fix because the harness ALREADY runs stages in detached tmux on the VM — the work survives connection loss; what died was the CONTROLLER's SSH log-tail loop (vm-bootstrap.sh:305 cur_lines read), which treated its own connection drop as scenario failure. Fix: the watch loop treats SSH exit 255 as reconnect-and-resume (the tmux session + /tmp/<session>.log are still on the VM to re-attach to), bounded reconnect attempts, and only a VM that is genuinely gone or a stage that genuinely failed reds the run. This is the transient-discipline item made concrete for the SSH touchpoint.
+---
+
+author: foreman
+created: 2026-09-02 19:04
+---
+Landed in a18684a33. Venue-2 autopsy answer: the component that allowed rc.03's 57 silent minutes was _run_long_via_tmux's controller-side synchronous unbounded ssh command substitution (no per-probe timeout, no no-progress deadline; a live TCP connection with a wedged remote read answers keepalives forever). Now: every controller read bounded, rc=255/124 reconnect to same log offset (5 attempts / 30s, provider-state consulted before vm-gone), 5-min zero-progress dumps tmux pane + log tail + journalctl + docker ps BEFORE teardown, distinct failure classes (stalled-stage/overall-timeout/vm-gone/controller-probe-failed). Venue-1: release-baseline.sh selects newest stable below target from tag ledger (RC fallback), verified picking v2026.08.1 for rc.04; INSTALL_VERSION pin wins. Deployability items 1-5 done (six-manifest gate, anonymous-token probes with regression test, images.sb in manifest, verify-public-image.sh postcondition gating seed, install.sh failure classes). Item 6 (real-target staging) deferred to STATBUS-339 overlap. All tests green locally: go test, golangci-lint, actionlint, 3 new bash test suites.
 ---
 <!-- COMMENTS:END -->
