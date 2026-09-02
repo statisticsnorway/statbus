@@ -222,9 +222,9 @@ func (d *Service) dbUnreachableSpec() retrySpec {
 // dispatch caller (the resuming classify-then-act arm) was retired because the
 // cause is structurally unreachable at that site (three invariants — see the
 // retirement note at service.go's resuming switch). fetchWithStallDetection is
-// KEPT: it still has a live caller on the FORWARD fetch path (service.go:5390,
-// the stall-not-deadline fetch that replaced a wall-clock deadline), so only the
-// spec wrapper — never the fetch machinery — goes with the dead dispatch arm.
+// KEPT: ensureUpgradeCommitObjects uses it for each bounded fetch attempt on a
+// genuine local-object miss, now before maintenance (STATBUS-338). Only the spec
+// wrapper, never the fetch machinery, goes with the dead dispatch arm.
 
 // fetchStallTimeout is the per-try no-progress window: a fetch that emits no
 // output line for this long is aborted as a stall. 60s < WatchdogSec=120s, so
@@ -233,6 +233,86 @@ const fetchStallTimeout = 60 * time.Second
 
 // fetchStallPoll is how often the stall watchdog checks the progress timestamp.
 const fetchStallPoll = 5 * time.Second
+
+// preswapFetchMaxAttempts bounds the only network fallback in the target-object
+// ensure step. Three tries cover a short GitHub transport blip without turning a
+// bad remote or ref into retry-forever. Each try keeps its own stall detector.
+const preswapFetchMaxAttempts = 3
+
+// preswapFetchRetryGaps are deliberately short because executeUpgrade has already
+// claimed the row. The ensure step still runs before the read-only/maintenance
+// boundary, so even exhaustion costs no service downtime (STATBUS-338, Norway
+// rc.02). Tests replace the wait through the Service seam, not these production
+// values.
+var preswapFetchRetryGaps = []time.Duration{500 * time.Millisecond, 2 * time.Second}
+
+// commitObjectPresent answers only whether the named ref's commit object is
+// available in the local clone. It performs no fetch and changes no refs or
+// working tree. Shared by register's ensureCommitLocal and the preswap fast path.
+func (d *Service) commitObjectPresent(ref string) bool {
+	_, err := runCommandOutput(d.projDir, "git", "cat-file", "-e", ref+"^{commit}")
+	return err == nil
+}
+
+func (d *Service) fetchCommitObjectAttempt(ctx context.Context, logWriter io.Writer, commitSHA string) error {
+	if d.fetchCommitObjects != nil {
+		return d.fetchCommitObjects(ctx, logWriter, commitSHA)
+	}
+	return d.fetchWithStallDetection(ctx, logWriter, commitSHA)
+}
+
+func (d *Service) waitForFetchRetry(ctx context.Context, delay time.Duration) error {
+	if d.fetchRetryWait != nil {
+		return d.fetchRetryWait(ctx, delay)
+	}
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
+// ensureUpgradeCommitObjects makes the target commit available without touching
+// the working tree. Discovery normally fetched and signature-verified this same
+// object already, so git cat-file is the normal, network-free path. Norway rc.02
+// redundantly fetched it after maintenance mode and the DB stop, turning a brief
+// GitHub failure into downtime. A genuine local miss gets three bounded attempts;
+// stall detection remains inside every attempt, and a successful fetch is verified
+// locally before the upgrade may cross the maintenance boundary.
+func (d *Service) ensureUpgradeCommitObjects(ctx context.Context, logWriter io.Writer, commitSHA string) error {
+	if d.commitObjectPresent(commitSHA) {
+		return nil
+	}
+
+	var lastErr error
+	for attempt := 1; attempt <= preswapFetchMaxAttempts; attempt++ {
+		if attempt > 1 {
+			delay := preswapFetchRetryGaps[attempt-2]
+			if err := d.waitForFetchRetry(ctx, delay); err != nil {
+				return fmt.Errorf("waiting to retry git fetch %s: %w", ShortForDisplay(commitSHA), err)
+			}
+		}
+
+		if err := d.fetchCommitObjectAttempt(ctx, logWriter, commitSHA); err != nil {
+			lastErr = err
+			// One stalled try can consume almost 60s. Feed the watchdog between
+			// tries so two bounded stalls do not add up to WatchdogSec=120s even
+			// though each individual stall detector fires within its own bound.
+			emitHeartbeat(d.projDir)
+			continue
+		}
+		if d.commitObjectPresent(commitSHA) {
+			return nil
+		}
+		lastErr = fmt.Errorf("git fetch returned success but commit object is still absent locally")
+	}
+
+	return fmt.Errorf("git fetch %s failed after %d attempts: %w",
+		ShortForDisplay(commitSHA), preswapFetchMaxAttempts, lastErr)
+}
 
 // fetchWithStallDetection runs `git fetch origin <commitSHA>` with STALL
 // detection instead of a wall-clock deadline (doc-022 §3). Every line of git
@@ -243,6 +323,14 @@ const fetchStallPoll = 5 * time.Second
 func (d *Service) fetchWithStallDetection(ctx context.Context, logWriter io.Writer, commitSHA string) error {
 	ctx, cancel := context.WithCancel(ctx) // NOT WithTimeout — no deadline; the caller owns cancellation
 	defer cancel()
+	if logWriter == nil {
+		logWriter = io.Discard
+	}
+	// Keep the last git output in the returned error as well as the progress log.
+	// Norway rc.02 proved that an exit status alone is not enough for a truthful
+	// terminal row when recovery has to carry the cause across a restart.
+	tail := &tailBuffer{max: 4096}
+	commandLog := io.MultiWriter(logWriter, tail)
 
 	var lastProgressNano atomic.Int64
 	lastProgressNano.Store(time.Now().UnixNano())
@@ -270,9 +358,14 @@ func (d *Service) fetchWithStallDetection(ctx context.Context, logWriter io.Writ
 		}
 	}()
 
-	err := runCommandToLogCtx(ctx, d.projDir, logWriter, "git", onAdvance, "git", "fetch", "origin", commitSHA)
+	err := runCommandToLogCtx(ctx, d.projDir, commandLog, "git", onAdvance, "git", "fetch", "origin", commitSHA)
 	if stalled.Load() {
 		return fmt.Errorf("git fetch %s: %w after %s", ShortForDisplay(commitSHA), ErrFetchStalled, fetchStallTimeout)
+	}
+	if err != nil {
+		if detail := strings.Join(strings.Fields(tail.String()), " "); detail != "" {
+			return fmt.Errorf("%w; git output: %s", err, detail)
+		}
 	}
 	return err
 }

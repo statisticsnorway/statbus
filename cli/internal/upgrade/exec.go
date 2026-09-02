@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -163,9 +164,12 @@ func runCommandToLog(dir string, timeout time.Duration, logWriter io.Writer, sou
 type tailBuffer struct {
 	max int
 	buf []byte
+	mu  sync.Mutex
 }
 
 func (t *tailBuffer) Write(p []byte) (int, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	t.buf = append(t.buf, p...)
 	if len(t.buf) > t.max {
 		t.buf = t.buf[len(t.buf)-t.max:]
@@ -173,7 +177,11 @@ func (t *tailBuffer) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func (t *tailBuffer) String() string { return string(t.buf) }
+func (t *tailBuffer) String() string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return string(t.buf)
+}
 
 // runCommandToLogCapture is runCommandToLog PLUS a bounded stderr TAIL capture,
 // returned alongside the error for structured marker classification (the docker

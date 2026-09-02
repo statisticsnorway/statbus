@@ -227,6 +227,12 @@ type Service struct {
 	// non-systemd platforms / unknown unit → the reset is skipped and the
 	// gate stays merely as conservative as pre-039.
 	unitInstance string
+	// STATBUS-338 test seams for the Norway rc.02 preswap fetch path. Production
+	// leaves both nil: fetchCommitObjects delegates to fetchWithStallDetection and
+	// fetchRetryWait uses a context-aware timer. Tests inject only the boundary
+	// that failed on rune, never the surrounding upgrade state machine.
+	fetchCommitObjects func(context.Context, io.Writer, string) error
+	fetchRetryWait     func(context.Context, time.Duration) error
 }
 
 // SetUnitInstance records the systemd unit name for the deployment's
@@ -376,6 +382,11 @@ type UpgradeFlag struct {
 	Phase      string    `json:"phase,omitempty"`       // PhaseOldSbUpgrading (default) or PhaseNewSbSwapped
 	Recreate   bool      `json:"recreate,omitempty"`    // durable recreate intent (from public.upgrade.recreate) so resumeNewSb can replay --recreate
 	BackupPath string    `json:"backup_path,omitempty"` // finalized backup dir, populated at Phase=PhaseNewSbSwapped so resumeNewSb can roll back without DB
+	// OriginalError is the failure text captured before rollback begins. The flag
+	// lives outside the database volume, so it survives exactly the process-death
+	// gap that hid Norway rc.02's returned git error behind a nil-queryConn panic
+	// and a manufactured INSTALL_PRECONDITION_FAILED on restart (STATBUS-338).
+	OriginalError string `json:"original_error,omitempty"`
 	// STATBUS-046 (doc-021): the dying-step fields for the crash-resume attempt
 	// budget. Step is rewritten to the currently-executing Phase-3 step as each
 	// step BEGINS (recordFlagStep), so a crash freezes the step it died at.
@@ -829,6 +840,22 @@ func (d *Service) mutateHeldFlag(fn func(*UpgradeFlag)) error {
 
 func (d *Service) recordFlagStep(step string) error {
 	return d.mutateHeldFlag(func(f *UpgradeFlag) { f.Step = step })
+}
+
+// recordOriginalError preserves the error that caused a claimed upgrade to
+// stop before rollback can touch connections, services, or the database volume.
+// Norway rc.02 returned a real git fetch error after queryConn had been cleared;
+// rollback then panicked and the next boot had only a PreSwap flag, so recovery
+// invented INSTALL_PRECONDITION_FAILED and discarded the true retryable cause.
+// The held flag is the smallest truthful carrier across that process-death gap.
+// Best-effort callers keep the original error in memory even if this audit write
+// itself fails.
+func (d *Service) recordOriginalError(reason string) error {
+	reason = strings.TrimSpace(reason)
+	if reason == "" || d.flagLock == nil || d.flagLock.file == nil {
+		return nil
+	}
+	return d.mutateHeldFlag(func(f *UpgradeFlag) { f.OriginalError = reason })
 }
 
 // recordRollbackCommit stamps the held flag as a committed rollback attempt
@@ -1533,17 +1560,25 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	// self-heal UPDATE and mark `state='completed'` for an upgrade that
 	// was killed before any commit happened.
 	if flag.Phase == PhaseOldSbUpgrading {
-		logRecover("Upgrade %d (%s) was interrupted before it changed anything; rolling back to the previous version. The database was not modified, so nothing needs restoring. (detail: before booting the new binary, no snapshot recorded)",
-			flag.ID, flag.Label())
+		reason := preSwapRecoveryReason(flag)
+		if flag.OriginalError != "" {
+			// STATBUS-338, Norway rc.02: the prior process returned a concrete git
+			// error, then died in nil-unsafe rollback. The flag now carries that
+			// cause, so recovery reports it and its retryable class instead of
+			// manufacturing INSTALL_PRECONDITION_FAILED/do-not-reschedule advice.
+			logRecover("Upgrade %d (%s) stopped before it changed anything; rolling back the unchanged attempt. The database was not modified, so nothing needs restoring. Original failure: %s",
+				flag.ID, flag.Label(), flag.OriginalError)
+		} else {
+			logRecover("Upgrade %d (%s) was interrupted before it changed anything; rolling back to the previous version. The database was not modified, so nothing needs restoring. (detail: before booting the new binary, no snapshot recorded)",
+				flag.ID, flag.Label())
+		}
 		if appendLog != nil {
 			appendLog.Close()
 			appendLog = nil
 		}
 		// flag.BackupPath is empty by construction at PreSwap (stamped only
 		// by updateFlagNewSbSwapped) — restoreDatabase refuses on empty.
-		d.recoveryRollback(ctx, flag, flag.Label(), logRelPath, fmt.Sprintf(
-			"%s: the upgrade was interrupted before it changed anything and was rolled back to the previous version; the database was not modified. (detail: before booting the new binary — the point of no return)",
-			ErrInstallPreconditionFailed))
+		d.recoveryRollback(ctx, flag, flag.Label(), logRelPath, reason)
 		return nil
 	}
 
@@ -2111,6 +2146,11 @@ const (
 	ErrBinaryReplaceFailed        = "BINARY_REPLACE_FAILED"
 	ErrBinaryBuildFailed          = "BINARY_BUILD_FAILED"
 	ErrInstallFixupFailed         = "INSTALL_FIXUP_FAILED"
+	// ErrGitFetchRetryable names a pre-swap object-fetch failure whose bounded
+	// retries exhausted. The target tree, services, and database are unchanged,
+	// so retrying the same candidate is legitimate. Norway rc.02 was wrongly
+	// relabelled INSTALL_PRECONDITION_FAILED with do-not-reschedule advice.
+	ErrGitFetchRetryable = "GIT_FETCH_FAILED_RETRYABLE"
 	// ErrInstallPreconditionFailed — an installable precondition was not
 	// met at recovery time (binary SHA mismatch, migration gap, etc.).
 	// Used by completeInProgressUpgrade's observed-state check (task #49)
@@ -2333,8 +2373,20 @@ func (d *Service) Run(ctx context.Context) error {
 	if err := d.connect(ctx); err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
-	defer func() { _ = d.listenConn.Close(context.Background()) }()
-	defer func() { _ = d.queryConn.Close(context.Background()) }()
+	// STATBUS-338, Norway rc.02: executeUpgrade deliberately closes and nils both
+	// connections before stopping the database. A returned preswap error unwinds
+	// through these defers, so cleanup must tolerate the connections already being
+	// gone instead of repanicking and hiding the original error.
+	defer func() {
+		if d.listenConn != nil {
+			_ = d.listenConn.Close(context.Background())
+		}
+	}()
+	defer func() {
+		if d.queryConn != nil {
+			_ = d.queryConn.Close(context.Background())
+		}
+	}()
 
 	// Acquire advisory lock to prevent multiple instances
 	if err := d.acquireAdvisoryLock(ctx); err != nil {
@@ -4404,6 +4456,23 @@ type candidateMeta struct {
 	releaseStatus string // public.release_status_type; only meaningful for tagged candidates
 }
 
+// manifestSweepTags bounds GitHub Release manifest probes to tags that can still
+// become an upgrade on this box. Release artifacts are immutable, and tags at or
+// below the installed version are historical here, so re-probing all of them on
+// every discovery pass can produce no useful state transition. Norway's
+// prerelease box made 198 requests in one pass versus roughly 10 on stable
+// (STATBUS-338). Keep only orderable tags newer than the installed release.
+func manifestSweepTags(tags []GitTag, installedVersion string) []GitTag {
+	bounded := make([]GitTag, 0, len(tags))
+	for _, tag := range tags {
+		ord, ordered := CompareVersions(tag.TagName, installedVersion)
+		if ordered && ord > 0 {
+			bounded = append(bounded, tag)
+		}
+	}
+	return bounded
+}
+
 // upsertCandidate records (or refreshes the metadata of) a candidate upgrade
 // row. THE single insert path (STATBUS-086): release discovery, edge discovery,
 // AND `./sb upgrade register` all flow through here. It NEVER sets a lifecycle
@@ -4626,7 +4695,12 @@ func (d *Service) discover(ctx context.Context) {
 	// binary and changelog in the GitHub Release — if FetchManifest
 	// succeeds, all three are published. Commits never have this.
 	// If manifest is missing, check if the release workflow has failed.
-	for _, t := range filtered {
+	manifestTags := manifestSweepTags(filtered, currentVersion)
+	if d.verbose && len(manifestTags) != len(filtered) {
+		fmt.Printf("  Manifest sweep bounded to %d newer tag(s); skipped %d historical tag(s) at or below %s\n",
+			len(manifestTags), len(filtered)-len(manifestTags), currentVersion)
+	}
+	for _, t := range manifestTags {
 		if _, err := FetchManifest(t.TagName); err == nil {
 			// Best-effort; same self-correcting shape as the enrichment
 			// UPDATE above — retried on the next discovery cycle.
@@ -5367,7 +5441,7 @@ func (d *Service) commitMeta(sha CommitSHA) (committedAt time.Time, describe, su
 // use the 2m default, but onScheduledNotify runs on the daemon's MAIN goroutine
 // under WatchdogSec=120s, so it passes a short timeout (STATBUS-183 A3).
 func (d *Service) ensureCommitLocal(ref string, fetchTimeout time.Duration) error {
-	if _, err := runCommandOutput(d.projDir, "git", "cat-file", "-e", ref+"^{commit}"); err == nil {
+	if d.commitObjectPresent(ref) {
 		return nil // already local — no network
 	}
 	var fetchArgs []string
@@ -6423,6 +6497,26 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	}
 	progress.Write("Images prepared (elapsed %s).", time.Since(pullStart).Truncate(time.Millisecond))
 
+	// Step 1b: ensure the target commit object is local before the service crosses
+	// the read-only/maintenance boundary. Discovery already fetched and signature-
+	// verified this object, so the normal path is one local `git cat-file` and zero
+	// network calls. Norway rc.02 repeated `git fetch origin <sha>` only after
+	// maintenance mode and the DB stop; a brief GitHub failure therefore bought an
+	// outage and entered rollback even though the required object was already here.
+	//
+	// This position is safe: git objects are read-only local state, and nothing
+	// before the binary swap depends on the target object's absence. The upgrade
+	// flag is already stamped, while the read-only window, service stops, branch
+	// pin, and backup retain their existing relative order below. A real miss gets
+	// bounded stall-detected retries here, while the old version keeps serving.
+	progress.Write("Ensuring target git objects are available locally...")
+	if err := d.ensureUpgradeCommitObjects(ctx, progress.File(), commitSHA); err != nil {
+		errMsg := fmt.Sprintf("%s: %v", ErrGitFetchRetryable, err)
+		d.failUpgrade(ctx, id, errMsg, progress)
+		return fmt.Errorf("%s", errMsg)
+	}
+	progress.Write("Target git objects available locally (no maintenance downtime used).")
+
 	// CHANGE 2 (task #12): the rsync snapshot is a single persistent dir
 	// committed by atomic rename to pre-upgrade-active. Record THAT path as
 	// backup_path before the DB connection is closed — it is deterministic (no
@@ -6612,27 +6706,16 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// The identity is recorded where each carrier can hold it truthfully: the FLAG at the
 	// swap (updateFlagNewSbSwapped, below), the ROW at the first reconnect after it.
 
-	// Step 6: Fetch the target's git objects — but do NOT check out the working
-	// tree here (STATBUS-060). A pre-swap checkout materializes the target's
+	// Step 6: Install from the target's already-local git objects, but do NOT check
+	// out the working tree here (STATBUS-060). A pre-swap checkout materializes the target's
 	// compose template while the OLD binary + key-deficient .env are still in
 	// control; a crash there restarts the OLD binary, whose every `docker
 	// compose` call dies on the target's new mandatory var (window 3). The
 	// checkout is deferred to the NEW binary's recovery boot (Service.Run /
-	// runCrashRecovery, before boot-migrate-up). The fetch MUST still run here
-	// so the objects are local for that later checkout. No --depth 1: discovery
-	// already fetched origin/master, so objects are local; full history lets
-	// git-describe find tags for config generate (VERSION).
+	// runCrashRecovery, before boot-migrate-up). Step 1b already proved the objects
+	// local, before maintenance, with a bounded fetch fallback only on a real miss.
+	// Full history lets git-describe find tags for config generate (VERSION).
 	progress.Write("Installing %s...", displayName)
-	// STATBUS-109 (doc-022 §3, OQ1 folded): stall-detected fetch instead of a
-	// 5-minute wall-clock deadline. A healthy slow transfer keeps emitting
-	// progress (which also feeds the systemd watchdog) and runs as long as it
-	// legitimately needs; only ~60s of NO progress aborts it. Removes the
-	// "a deadline cancels a healthy slow transfer" bug on the forward path too.
-	if err := d.fetchWithStallDetection(ctx, progress.File(), commitSHA); err != nil {
-		// TODO: pick code — forward git fetch failure; no Err* code covers install-time git errors yet
-		d.rollback(ctx, id, displayName, restoreTargetSHA, fmt.Sprintf("git fetch %s: %v", ShortForDisplay(commitSHA), err), backupPath, progress)
-		return err
-	}
 
 	// Harness-only kill site (C4): the OS / orchestrator kills the process here
 	// — after the target's objects are fetched but BEFORE the binary swap.
@@ -7837,6 +7920,24 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 // tells them what to run says the same thing.
 const INSTALL_CMD = "./sb install"
 
+// preSwapRecoveryReason selects the cause written to the eventual terminal row.
+// New flags carry the concrete failure. Legacy flags have no such field and keep
+// the conservative unchanged-attempt fallback. The fallback is not used when an
+// original error exists, which is the STATBUS-338 truthfulness boundary exposed
+// by Norway rc.02.
+func preSwapRecoveryReason(flag UpgradeFlag) string {
+	if original := strings.TrimSpace(flag.OriginalError); original != "" {
+		return original
+	}
+	return fmt.Sprintf(
+		"%s: the upgrade was interrupted before it changed anything and was rolled back to the previous version; the database was not modified. (detail: before booting the new binary — the point of no return)",
+		ErrInstallPreconditionFailed)
+}
+
+func retryableRollbackReason(reason string) bool {
+	return strings.HasPrefix(strings.TrimSpace(reason), ErrGitFetchRetryable+":")
+}
+
 // preSwapStoppedMessage renders STATBUS-240's operator-facing text, approved
 // VERBATIM by the King. Do not reword any part of it without going back to him:
 // the ordering is the design, not prose style.
@@ -8824,6 +8925,12 @@ func (d *Service) runCallback(displayName string, extraEnv map[string]string) {
 // undo" exception; preserve that contract by reading this comment
 // before extending it.
 func (d *Service) failUpgrade(ctx context.Context, id int, errMsg string, progress *ProgressLog) {
+	// STATBUS-338, Norway rc.02: keep the original failure outside the DB volume
+	// before any terminal write or unwind can fail. Callers before flag acquisition
+	// remain a no-op; claimed preswap failures gain an honest restart breadcrumb.
+	if err := d.recordOriginalError(errMsg); err != nil {
+		log.Printf("failUpgrade: could not persist original error in the held flag: %v (continuing with the in-memory error)", err)
+	}
 	progress.Write("FAILED: %s", errMsg)
 	// Bundle BEFORE the terminal UPDATE so inspecting a `failed` row on
 	// disk is guaranteed to have a sibling .bundle.txt. Non-fatal.
@@ -9395,17 +9502,19 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reaso
 		// Snapshot restore succeeded and services came back → healthy at the old
 		// version. Regular-support tier; the `error` column carries the next action.
 		//
-		// STATBUS-111 Part 2 / PIN 3 — cause-tailored forward path. INVARIANT:
-		// rollback()→rolled_back is HARD-ERROR BY CONSTRUCTION — a transient
-		// exhaustion (DB/network didn't clear) routes to the PARK path
-		// (parkForDeterministicFailure), never here; only a genuine (deterministic)
-		// failure reaches rollback(). So the forward guidance is always the
-		// hard-error one: report it, and try a LATER release — re-scheduling the
-		// SAME version repeats the same failure. If a future routing change ever
-		// sends a transient-exhaustion outcome to rollback()→rolled_back, this
-		// wording (and Decision 3) reopens: the message would need to branch on cause.
-		errMsg = errMsg + " — rolled back to the previous version; the system is running normally on the old version. " +
-			"The failure is recorded (log retained); report it to support. This version will fail the same way — do NOT re-schedule it; run `./sb upgrade check` and try a LATER release when one is available. No manual intervention needed."
+		// STATBUS-338 is the named exception to STATBUS-111's former hard-error-
+		// only invariant. Norway rc.02 carried a returned transient git failure into
+		// PreSwap recovery, but restart recovery manufactured a deterministic class
+		// and told the operator not to reschedule. The flag now preserves the cause,
+		// so the terminal guidance branches on the explicit retryable class. Every
+		// other rollback reason keeps the established hard-error advice.
+		if retryableRollbackReason(errMsg) {
+			errMsg = errMsg + " - rolled back to the previous version; the system is running normally on the old version. " +
+				"The git failure is recorded (log retained) and is retryable. It is safe to schedule this same version again; no manual recovery is needed."
+		} else {
+			errMsg = errMsg + " — rolled back to the previous version; the system is running normally on the old version. " +
+				"The failure is recorded (log retained); report it to support. This version will fail the same way — do NOT re-schedule it; run `./sb upgrade check` and try a LATER release when one is available. No manual intervention needed."
+		}
 		if d.writeRollbackTerminal(id,
 			"UPDATE public.upgrade SET state = 'rolled_back', error = $1, recovery_attempts = $2, rolled_back_at = now()"+terminalBackupPathSQL+" WHERE id = $3"+upgradeRowReturning,
 			errMsg, LabelRolledBackNormal, attemptsAtCall) {
@@ -9539,6 +9648,23 @@ func (d *Service) ReattemptRestore(ctx context.Context, rowID int64, backupPath 
 	return nil
 }
 
+// rollbackRecoveryAttempts captures the audit counter before a volume restore.
+// It is deliberately nil-safe: executeUpgrade closes queryConn before the DB
+// stop, which is the exact Norway rc.02 state. The terminal path can continue
+// with zero and later writes through its fresh teardown-immune connection.
+func (d *Service) rollbackRecoveryAttempts(ctx context.Context, id int) int {
+	var attempts int
+	if d.queryConn == nil {
+		log.Printf("rollback: query connection already closed for upgrade %d - skipping recovery_attempts read and re-imposing 0", id)
+		return 0
+	}
+	if err := d.queryConn.QueryRow(ctx, "SELECT recovery_attempts FROM public.upgrade WHERE id = $1", id).Scan(&attempts); err != nil {
+		log.Printf("rollback: could not read recovery_attempts for %d before the restore (%v) - re-imposing 0", id, err)
+		return 0
+	}
+	return attempts
+}
+
 func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSHA, reason string, backupPath string, progress *ProgressLog) {
 	// WATCHDOG COVER (STATBUS-031). rollback()'s body runs the two DB-size-scaled,
 	// heartbeat-SILENT steps an upgrade has: restoreDatabase's whole-volume rsync
@@ -9570,6 +9696,13 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 
 	progress.Write("Upgrade failed — rolling back to previous version...")
 	progress.Write("Reason: %s", reason)
+	// STATBUS-338, Norway rc.02: persist the cause before rollback touches any
+	// connection or process state. If this rollback itself dies, PreSwap recovery
+	// can report the returned git error instead of manufacturing a precondition
+	// failure on the next boot.
+	if err := d.recordOriginalError(reason); err != nil {
+		log.Printf("rollback: could not persist original error in the held flag: %v (continuing with the in-memory error)", err)
+	}
 
 	projDir := d.projDir
 
@@ -9582,10 +9715,12 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 	// live, arc run 29325230294: 3 → 0). Best-effort: on read failure, 0 is
 	// re-imposed — the same value a rollback with no prior recovery pass
 	// would carry anyway (the common, non-recovery-triggered case).
-	var attemptsAtCall int
-	if err := d.queryConn.QueryRow(ctx, "SELECT recovery_attempts FROM public.upgrade WHERE id = $1", id).Scan(&attemptsAtCall); err != nil {
-		log.Printf("rollback: could not read recovery_attempts for %d before the restore (%v) — re-imposing 0", id, err)
-	}
+	// Norway rc.02 reached this line after executeUpgrade had deliberately closed
+	// and nilled queryConn for the consistent backup. The attempts read is audit
+	// enrichment, not permission to roll back; when the DB connection is gone,
+	// skip it cleanly. restoreAndFinalize later starts/reconnects the DB and the
+	// teardown-immune terminal writer persists `reason` through a fresh connection.
+	attemptsAtCall := d.rollbackRecoveryAttempts(ctx, id)
 
 	// Capture failure-time container logs BEFORE the docker compose stop
 	// destroys the running containers. The rollback later does
