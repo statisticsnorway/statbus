@@ -264,6 +264,8 @@ sha="$1"
 short=$(echo "$sha" | cut -c1-8)
 echo "--- upgrade row for $sha ---"
 cd ~/statbus && echo "SELECT id, state, docker_images_status, release_builds_status, discovered_at FROM public.upgrade WHERE commit_sha = '$sha' ORDER BY id DESC LIMIT 3;" | ./sb psql 2>&1 || true
+echo "--- full candidate backlog (cold-start verify grinds this list) ---"
+cd ~/statbus && echo "SELECT id, commit_version, state, docker_images_status, release_builds_status FROM public.upgrade ORDER BY id;" | ./sb psql 2>&1 || true
 echo "--- service journal (last 120) ---"
 journalctl --user --no-pager -n 120 --unit='statbus-upgrade@*' 2>&1 || journalctl --user --no-pager -n 120 2>&1 || true
 echo "--- live docker manifest inspect from THIS VM ---"
