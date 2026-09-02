@@ -1,0 +1,36 @@
+---
+id: STATBUS-345
+title: >-
+  sb-image-deployability: prove anonymous statbus-sb pullability end to end, and
+  stage the real target runtime before the upgrade-smoke restart
+status: To Do
+assignee: []
+created_date: '2026-09-02 14:07'
+labels:
+  - release
+  - test-harness
+  - defect
+dependencies: []
+priority: high
+type: bug
+ordinal: 338000
+---
+
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+rc.03's smoke failures exposed two false assumptions (RCA 2026-09-02, on the ticket in full via the foreman; retag chain and cleanup EXONERATED — the sb manifest existed and was authenticated-pulled at 12:44 UTC):
+1. VISIBILITY, not absence: the statbus-sb GHCR package behaved as PRIVATE at incident time (new org packages default private; anonymous pulls denied), while every authenticated CI path — retag, seed, release check — stayed green. install.sh then collapsed the auth failure into 'no published statbus-sb image'. Anonymous access was repaired out-of-band during the RCA (HTTP 200 now); the durable fix is verification, below.
+2. The upgrade smoke restarts a HEAD service without staging the real target runtime: the unit timed out mid PostgreSQL BuildKit build before READY — an immutable harness defect inside the rc.03 tag, independent of the image incident.
+
+Fix (one landing):
+1. Add sb to dockerServices (cli/internal/release/check.go): release check + stable preflight verify SIX manifests and fail when statbus-sb:<commit_short> is absent or non-public.
+2. Public-deployability probes use an ANONYMOUS GHCR token even when GITHUB_TOKEN is set — unit test: credential-readable but anonymously-denied package FAILS.
+3. Add images.sb to release-manifest.json — the artifact contract names the commit image.
+4. images.yaml: after full-manifest creation AND exempt retag, verify the destination ANONYMOUSLY and compare source/destination index digests; seed depends on this postcondition; a private package fails loudly naming the package-settings remedy.
+5. install.sh preserves and prints the docker-pull failure class (auth vs missing vs network) instead of one collapsed message.
+6. Fix 0-happy-upgrade staging: prepare the exact target DB/runtime images and unit/config state BEFORE restarting the HEAD service, via the same primitive the real upgrade path uses; assert no Docker source build before READY and restart within the unit budget. (Overlaps STATBUS-339's fidelity work — coordinate, do not duplicate.)
+7. Regression tests: six-image list, anonymous-vs-authenticated probe behavior, retag digest postcondition, upgrade-smoke staging.
+
+Acceptance: on a clean uncredentialed VM, statbus-sb:<short> pulls anonymously; release check reports six images; a private sb package turns release check RED; both smokes green on the next RC.
+<!-- SECTION:DESCRIPTION:END -->
