@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-02 11:20'
-updated_date: '2026-09-02 11:26'
+updated_date: '2026-09-02 11:28'
 labels:
   - test-harness
   - release
@@ -47,5 +47,10 @@ King's design refinements (2026-09-02 discussion, foreman-recorded):
 2. FAN OF SINGLE HOPS, not a sequential chain: coverage for distant sources is one hop from EACH of the last N releases (e.g. 08.0→candidate, 08.1→candidate; N small, 2-3). Each hop independent — a red names its source version; no broken intermediate blocks the matrix. This is what real boxes do: a box that slept through releases jumps ONCE.
 
 3. SEQUENTIAL WALK-THE-CHAIN ARC: CONSIDERED AND REJECTED (the King's own conclusion). Walking A→B→C→candidate assumes every intermediate hop is sound, but releases are often cut BECAUSE a hop was broken — the chain would re-litigate settled incidents on every run (e.g. the 08.1-rc.01→09.0-rc.02 transient is permanent history). No real box travels through intermediates; the upgrade contract is any-supported-release → target in one hop; migrations compose linearly regardless of which binary applies them. Do not re-propose.
+---
+
+created: 2026-09-02 11:28
+---
+King ratifies the fan design with N=3 (2026-09-02): the harness proves each of the THREE last releases jumps DIRECTLY to the new candidate — three independent single hops (e.g. v2026.08.0→candidate, v2026.08.1→candidate, and the next release back or forward as the ledger moves). Three by the one-two-three rule: enough sources to catch a source-version-specific judge defect, small enough to stay cheap; each red names its source version. Combined with comment #1's algorithmic selection, the three are computed from the tag ledger at run time, never pinned.
 ---
 <!-- COMMENTS:END -->
