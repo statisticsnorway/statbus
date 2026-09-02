@@ -3,9 +3,10 @@ id: STATBUS-186
 title: >-
   react-hooks-strict: burn down the 47 downgraded lint warnings
   (set-state-in-effect, refs, immutability)
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-07-14 19:08'
+updated_date: '2026-09-02 09:15'
 labels:
   - quality-gate
   - typescript
@@ -30,3 +31,9 @@ ordinal: 187000
 - [ ] #2 Pre-existing unjustified eslint-disable comments swept: justified, fixed, or removed
 - [ ] #3 pnpm run lint: 0 errors, 0 warnings
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Landed 2026-09-01 night (commit 'app: burn down the downgraded react-hooks lint classes'): 48 findings → 4, the four rules promoted to error so the classes cannot regrow; the two upgrades-page errors were fixed inside the STATBUS-333 landing that owned the file. Remaining: two TanStack incompatible-library warnings needing a library-level decision — accepted, outside this ticket's classes.
+<!-- SECTION:NOTES:END -->

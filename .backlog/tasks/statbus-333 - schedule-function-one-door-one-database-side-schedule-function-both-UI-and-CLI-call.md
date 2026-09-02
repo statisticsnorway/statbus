@@ -3,10 +3,10 @@ id: STATBUS-333
 title: >-
   schedule-function-one-door: one database-side schedule function both UI and
   CLI call
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-09-01 09:46'
-updated_date: '2026-09-01 12:22'
+updated_date: '2026-09-02 09:15'
 labels: []
 dependencies: []
 priority: high
@@ -37,3 +37,9 @@ Required companions in the same change: (a) exclusive log-file creation — seco
 - [ ] #6 UI: Retry on failed(backup NULL)/rolled_back/parked cards and Schedule on available all call the upgrade_schedule RPC; parked renders as Parked; restore-broke card shows ./sb install guidance with no retry; only scheduled/already_scheduled redirect to maintenance; database.types.ts regenerated
 - [ ] #7 Migration follows AGENTS.md: \sf dump of upgrade_state_log_capture taken from a HEAD-migrated local DB (no 2>&1), down migration restores the exact pre-change trigger BEFORE dropping the five columns; ./dev.sh test fast green
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Landed in v2026.09.0-rc.02 (commit 38043b9e7 + the rc.02 fix commit). All seven acceptance criteria proven: pg_regress 327 ten new cases (retry-with-evidence, park paths, refusal paths incl. the sentinel-rollback no-mutation superseded refusal, regular-user EXECUTE refusal), no raw schedule UPDATEs remain (audit tests), same-second log collision test, UI RPC + Parked rendering + Retry doors, migration down/up round-trip byte-identical. Verified by the rc.02 pipeline: smoke install + install-then-upgrade green, dev canary converged.
+<!-- SECTION:NOTES:END -->
