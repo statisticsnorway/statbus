@@ -247,21 +247,26 @@ wait_for_upgrade_candidate_ready() {
             # inspect shows whether the registry is reachable FROM THIS VM
             # right now (laptop-side probes proved nothing about hel1).
             echo "  ══ register→ready forensics (before teardown) ══" >&2
-            VM_EXEC bash -c "
-                echo '--- upgrade row for $commit_sha ---'
-                cd ~/statbus && echo \"SELECT id, state, docker_images_status, release_builds_status, discovered_at FROM public.upgrade WHERE commit_sha = '$commit_sha' ORDER BY id DESC LIMIT 3;\" | ./sb psql 2>&1 || true
-                echo '--- service journal (last 120) ---'
-                journalctl --user --no-pager -n 120 -u 'statbus-upgrade@*' 2>&1 || journalctl --user --no-pager -n 120 2>&1 || true
-                echo '--- live docker manifest inspect from THIS VM ---'
-                short=\$(echo '$commit_sha' | cut -c1-8)
-                for svc in db app worker proxy; do
-                    if out=\$(docker manifest inspect ghcr.io/statisticsnorway/statbus-\$svc:\$short 2>&1 >/dev/null); then
-                        echo \"  \$svc:\$short OK\"
-                    else
-                        echo \"  \$svc:\$short FAILED: \$out\"
-                    fi
-                done
-            " >&2 || echo "  (forensics unavailable)" >&2
+            # VM_SCRIPT_INLINE, not VM_EXEC: multi-line bodies are blocked by
+            # VM_EXEC's guard (rc.07 proved it — the guard ate the evidence).
+            # Quoted delimiter: the body must reach the VM unexpanded; the sha
+            # travels as $1.
+            VM_SCRIPT_INLINE ready-forensics "$commit_sha" <<'FORENSICS' >&2 || echo "  (forensics unavailable)" >&2
+sha="$1"
+short=$(echo "$sha" | cut -c1-8)
+echo "--- upgrade row for $sha ---"
+cd ~/statbus && echo "SELECT id, state, docker_images_status, release_builds_status, discovered_at FROM public.upgrade WHERE commit_sha = '$sha' ORDER BY id DESC LIMIT 3;" | ./sb psql 2>&1 || true
+echo "--- service journal (last 120) ---"
+journalctl --user --no-pager -n 120 --unit='statbus-upgrade@*' 2>&1 || journalctl --user --no-pager -n 120 2>&1 || true
+echo "--- live docker manifest inspect from THIS VM ---"
+for svc in db app worker proxy; do
+    if out=$(docker manifest inspect "ghcr.io/statisticsnorway/statbus-$svc:$short" 2>&1 >/dev/null); then
+        echo "  $svc:$short OK"
+    else
+        echo "  $svc:$short FAILED: $out"
+    fi
+done
+FORENSICS
             echo "  ══ end register→ready forensics ══" >&2
             return 1
         fi
