@@ -638,6 +638,10 @@ Rules they follow, and that any new one must follow:
   project name: it re-creates the real containers under the worktree's paths
   (observed 2026-09-03; recovered with `docker compose --profile all down` and
   `./sb start all` from the real project directory).
+- The `internal/upgrade` and `internal/install` test packages take one shared
+  filesystem flock when `STATBUS_LIVE_DB=1`. Go runs packages concurrently by
+  default, but these twins share the real marker and database; package-level
+  serialization prevents one package from observing the other's probe state.
 - Leave the read-only default OFF and the database rows as found.
 
 ### Upgrade System Hardening Tests

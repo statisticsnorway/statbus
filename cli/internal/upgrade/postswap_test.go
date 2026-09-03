@@ -471,12 +471,13 @@ func TestRestoreDatabase_IdentityKeyed_NoRecencyScan(t *testing.T) {
 
 // TestRecoveryRollback_FlockGateBeforeDestructiveWork is the structural
 // guard for STATBUS-039 review finding 3 (fleet-wide corruption fix):
-// recoveryRollback must acquire the upgrade flock BEFORE any destructive
-// work — install's inline recovery holds neither the install flag nor the
-// daemon advisory lock when it reaches here, and a concurrently respawned
-// service's recovery is equally lock-free, so without the gate two
-// rsync --delete restores can hit the same DB volume at once. rollback()
-// itself must stay acquire-free: its in-process callers (resumeNewSb →
+// recoveryRollback must acquire and revalidate the EXISTING upgrade marker
+// BEFORE any destructive work — install's inline recovery holds neither the
+// install flag nor the daemon advisory lock when it reaches here, and a
+// concurrently respawned service's recovery is equally lock-free. The acquire
+// may not O_CREATE/rewrite stale caller metadata: a delayed actor must refuse
+// after the winner removed or changed the marker. rollback() itself must stay
+// acquire-free: its in-process callers (resumeNewSb →
 // applyNewSbUpgrading → newSbUpgradingFailure) already hold the flock, and a second
 // flock on the same file fails even within one process.
 func TestRecoveryRollback_FlockGateBeforeDestructiveWork(t *testing.T) {
@@ -487,10 +488,10 @@ func TestRecoveryRollback_FlockGateBeforeDestructiveWork(t *testing.T) {
 	s := string(src)
 
 	rr := extractFuncBody(t, s, "func (d *Service) recoveryRollback(")
-	gateIdx := strings.Index(rr, "acquireFlock")
+	gateIdx := strings.Index(rr, "acquireRecoveryFlock")
 	workIdx := strings.Index(rr, "d.rollback(")
 	if gateIdx < 0 {
-		t.Fatal("recoveryRollback must acquire the upgrade flock (the destructive-work mutex) — finding 3")
+		t.Fatal("recoveryRollback must acquire and revalidate the existing recovery marker before destructive work")
 	}
 	if workIdx < 0 {
 		t.Fatal("recoveryRollback must invoke d.rollback")
@@ -501,6 +502,9 @@ func TestRecoveryRollback_FlockGateBeforeDestructiveWork(t *testing.T) {
 	// The loser must yield: a return on acquire failure, before rollback.
 	if !strings.Contains(rr, "yield") && !strings.Contains(rr, "Yield") {
 		t.Error("recoveryRollback's acquire-failure branch must YIELD (return without destructive work)")
+	}
+	if strings.Contains(rr, "acquireFlock(d.projDir, flag)") {
+		t.Error("recoveryRollback must not use the creating/rewrite acquire on pre-classified recovery intent")
 	}
 	// The in-process path's guard: already-held flock fails fast.
 	if !strings.Contains(rr, "d.flagLock != nil") {

@@ -631,22 +631,92 @@ func acquireFlock(projDir string, flag UpgradeFlag) (*FlagLock, error) {
 	return &FlagLock{file: f}, nil
 }
 
+// acquireRecoveryFlock acquires an EXISTING recovery marker without ever
+// creating or rewriting it. Recovery callers classified this marker before
+// reaching the destructive path, so winning the mutex is not itself
+// authorization to continue: another actor may have completed recovery and
+// removed the path, or replaced its contents, while this caller was delayed.
+//
+// The post-lock checks close both stale-intent windows:
+//   - the path must still exist and name the inode whose flock we hold; an
+//     unlinked/replaced inode is no longer durable recovery intent,
+//   - the marker is re-read from the HELD descriptor and its ID + phase must
+//     still match the values the caller classified.
+//
+// Unlike acquireFlock, this function deliberately uses no O_CREATE and writes
+// no caller-supplied metadata. Fresh claims continue to create their marker via
+// writeUpgradeFlag -> acquireFlock.
+func acquireRecoveryFlock(projDir string, classified UpgradeFlag) (*FlagLock, error) {
+	path := flagFilePath(projDir)
+	f, err := os.OpenFile(path, os.O_RDWR, 0)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("recovery marker %s is gone; someone already finished this recovery — refusing stale intent for upgrade %d phase %q", path, classified.ID, classified.Phase)
+		}
+		return nil, fmt.Errorf("open existing recovery marker: %w", err)
+	}
+	closeWithError := func(format string, args ...interface{}) (*FlagLock, error) {
+		_ = f.Close()
+		return nil, fmt.Errorf(format, args...)
+	}
+	if lerr := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); lerr != nil {
+		_ = f.Close()
+		existing, readErr := ReadFlagFile(projDir)
+		if readErr != nil {
+			return nil, fmt.Errorf("recovery marker unreadable while locked: %w\n  Investigate %s manually", readErr, path)
+		}
+		if existing == nil {
+			return nil, fmt.Errorf("recovery marker at %s is locked by another process (metadata disappeared)", path)
+		}
+		return nil, formatContentionError(existing)
+	}
+
+	heldInfo, statErr := f.Stat()
+	if statErr != nil {
+		return closeWithError("stat held recovery marker: %v", statErr)
+	}
+	pathInfo, statErr := os.Stat(path)
+	if statErr != nil {
+		if os.IsNotExist(statErr) {
+			return closeWithError("recovery marker %s disappeared after lock acquisition; someone already finished this recovery — refusing stale intent for upgrade %d phase %q", path, classified.ID, classified.Phase)
+		}
+		return closeWithError("stat recovery marker after lock acquisition: %v", statErr)
+	}
+	if !os.SameFile(heldInfo, pathInfo) {
+		return closeWithError("recovery marker %s was replaced while acquiring its lock; refusing stale intent for upgrade %d phase %q", path, classified.ID, classified.Phase)
+	}
+
+	if _, err := f.Seek(0, 0); err != nil {
+		return closeWithError("seek held recovery marker: %v", err)
+	}
+	data, err := io.ReadAll(f)
+	if err != nil {
+		return closeWithError("read held recovery marker: %v", err)
+	}
+	var held UpgradeFlag
+	if err := json.Unmarshal(data, &held); err != nil {
+		return closeWithError("parse held recovery marker: %v", err)
+	}
+	if held.ID != classified.ID || held.Phase != classified.Phase {
+		return closeWithError(
+			"recovery marker changed after classification: classified upgrade %d phase %q, held marker is upgrade %d phase %q — refusing stale intent",
+			classified.ID, classified.Phase, held.ID, held.Phase)
+	}
+	return &FlagLock{file: f}, nil
+}
+
 // acquireFlockVerbatim acquires the upgrade flag's flock WITHOUT changing what the
-// flag says (STATBUS-212). acquireFlock TRUNCATES the file and writes whatever flag
-// value it is handed (see the "We hold the lock" block above), so an acquisition
-// whose only purpose is to GAIN THE HOLD must read the current content first and
-// hand that exact value back — a naive acquire clobbers the very marker it meant to
-// protect. That read-then-acquire-verbatim idiom already lives inline at
-// RecoveryBudgetGuard (`base := *flag`); this is its named form, so an acquisition
-// that must not change the flag's meaning says so at the call site and the failure
-// arm lives in ONE place.
+// flag says (STATBUS-212). It reads the current marker, then delegates to
+// acquireRecoveryFlock, which opens without O_CREATE and revalidates the ID + phase
+// from the held descriptor. A delayed caller therefore cannot recreate a marker or
+// overwrite newer recovery intent with the value it read before acquiring.
 //
 // Returns (nil, nil) when NO flag file exists. There is then no marker to hold and
 // none to protect — and acquireFlock's O_CREATE would otherwise CONJURE an
 // upgrade-in-progress marker out of nothing, which is strictly worse than not
 // holding. Callers must treat a nil lock as "nothing to adopt", never as an error.
 //
-// A contended flock returns acquireFlock's error carrying the live holder's
+// A contended flock returns the recovery acquire's error carrying the live holder's
 // metadata; what a live holder MEANS is the caller's decision (STATBUS-111: the
 // flock failing IS the liveness signal that another actor owns box mutations).
 func acquireFlockVerbatim(projDir string) (*FlagLock, error) {
@@ -657,7 +727,7 @@ func acquireFlockVerbatim(projDir string) (*FlagLock, error) {
 	if existing == nil {
 		return nil, nil
 	}
-	return acquireFlock(projDir, *existing)
+	return acquireRecoveryFlock(projDir, *existing)
 }
 
 // adoptOrAcquireFlagHold gives its caller a HELD flag lock for the duration of its
@@ -672,8 +742,8 @@ func acquireFlockVerbatim(projDir string) (*FlagLock, error) {
 //     acquire, and release NOTHING. Closing a lock this call did not open would pull
 //     it out from under its owner mid-flow; the adopting path must stay byte-for-byte
 //     as it was.
-//   - NOT HELD, flag file present: acquire VERBATIM (acquireFlock rewrites the file
-//     with whatever it is handed) and hand back the release for that lock.
+//   - NOT HELD, flag file present: acquire the existing marker verbatim and hand
+//     back the release for that lock.
 //   - NOT HELD, NO flag file: nothing to hold and no marker that could be lying —
 //     succeed with a no-op release rather than conjuring a marker into existence.
 //
@@ -3399,8 +3469,8 @@ func (d *Service) verifyUpgradeObservedStateEx(ctx context.Context, rowCommitSHA
 // destructive upgrade work; the loser YIELDS loudly and touches nothing
 // (the winner owns the row; the loser's caller re-evaluates on its next
 // pass — install re-detects into a live-upgrade refusal, the service
-// retries next tick). acquireFlock truncates the flag file only AFTER
-// winning, so a losing attempt never clobbers the holder's record.
+// retries next tick). The existing-only acquire never creates or rewrites
+// the marker and revalidates its ID + phase from the held descriptor.
 //
 // Callers are all PRE-ACQUIRE — the in-process failure path
 // (resumeNewSb → applyNewSbUpgrading → newSbUpgradingFailure → rollback) already
@@ -3420,12 +3490,12 @@ func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displa
 			"recoveryRollback: called while already holding the upgrade flock (id=%d) — in-process failures must route via newSbUpgradingFailure/rollback, not recoveryRollback; refusing to proceed\n", id)
 		return
 	}
-	lock, lerr := acquireFlock(d.projDir, flag)
+	lock, lerr := acquireRecoveryFlock(d.projDir, flag)
 	if lerr != nil {
-		// Another recovery actor (service tick, concurrent install, or a
-		// respawned unit) holds the destructive-work mutex. Yield — it owns
-		// the row; racing it was the corruption this gate exists to prevent.
-		fmt.Printf("recoveryRollback: upgrade flock held by another recovery actor — yielding (id=%d): %v\n", id, lerr)
+		// Contention, a disappeared marker, a replaced inode, or changed
+		// ID/phase all revoke this caller's pre-lock authorization. Yield and
+		// touch nothing; the durable state owns the decision, not `flag`.
+		fmt.Printf("recoveryRollback: could not acquire and revalidate the existing recovery marker — yielding without rollback (id=%d): %v\n", id, lerr)
 		return
 	}
 	// Hand the lock to the Service so rollback()'s existing terminal
