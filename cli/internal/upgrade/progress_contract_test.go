@@ -62,9 +62,63 @@ func TestReleaseUpgradeFlagLockKeepingFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		t.Fatalf("preserved marker still has a live flock: %v", err)
+	}
+}
+
+func TestRollbackFinishFlagUnlinkFailureStaysCleanupOnly(t *testing.T) {
+	projDir := t.TempDir()
+	d := &Service{projDir: projDir}
+	if err := d.writeUpgradeFlag(347, strings.Repeat("a", 40), []string{"vtest"}, "test", "test", false); err != nil {
+		t.Fatalf("writeUpgradeFlag: %v", err)
+	}
+
+	unlinkErr := errors.New("injected unlink failure")
+	d.removeFile = func(path string) error {
+		if path != d.flagPath() {
+			t.Fatalf("remove called for %q, want %q", path, d.flagPath())
+		}
+		return unlinkErr
+	}
+	if err := d.removeUpgradeFlag(); !errors.Is(err, unlinkErr) {
+		t.Fatalf("removeUpgradeFlag error = %v, want %v", err, unlinkErr)
+	}
+	if d.flagLock != nil {
+		t.Fatal("failed unlink retained a live flock instead of a free cleanup marker")
+	}
+	if _, err := os.Stat(d.flagPath()); err != nil {
+		t.Fatalf("failed unlink did not preserve the marker: %v", err)
+	}
+
+	// The retry is cleanup-only: remove exactly this rollback's free marker.
+	d.removeFile = nil
+	if err := d.clearRollbackFinishFlag(347); err != nil {
+		t.Fatalf("clearRollbackFinishFlag retry: %v", err)
+	}
+	if _, err := os.Stat(d.flagPath()); !os.IsNotExist(err) {
+		t.Fatalf("cleanup-only retry left the marker behind: %v", err)
+	}
+}
+
+func TestRollbackFinishCleanupDoesNotRemoveAnotherUpgradeMarker(t *testing.T) {
+	projDir := t.TempDir()
+	d := &Service{projDir: projDir}
+	if err := d.writeUpgradeFlag(348, strings.Repeat("b", 40), []string{"vother"}, "test", "test", false); err != nil {
+		t.Fatalf("writeUpgradeFlag: %v", err)
+	}
+	d.releaseUpgradeFlagLockKeepingFile()
+
+	if err := d.clearRollbackFinishFlag(347); err != nil {
+		t.Fatalf("clearRollbackFinishFlag for a different id: %v", err)
+	}
+	flag, err := ReadFlagFile(projDir)
+	if err != nil {
+		t.Fatalf("read other upgrade marker: %v", err)
+	}
+	if flag == nil || flag.ID != 348 {
+		t.Fatalf("cleanup for upgrade 347 removed or replaced upgrade 348 marker: %#v", flag)
 	}
 }
 

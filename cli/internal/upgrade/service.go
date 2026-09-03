@@ -233,6 +233,10 @@ type Service struct {
 	// that failed on rune, never the surrounding upgrade state machine.
 	fetchCommitObjects func(context.Context, io.Writer, string) error
 	fetchRetryWait     func(context.Context, time.Duration) error
+	// removeFile is a test seam for the two filesystem cleanup boundaries whose
+	// failure changes recovery direction. Production leaves it nil and uses
+	// os.Remove through removePath.
+	removeFile func(string) error
 }
 
 // SetUnitInstance records the systemd unit name for the deployment's
@@ -987,6 +991,13 @@ func warnOnStaleFlagRemoveFailure(path string, err error, consequence string) {
 	log.Printf("WARNING: could not remove stale flag file %s: %v — %s. Remove it manually if it persists; a filesystem that refuses unlink is a box-level problem.", path, err, consequence)
 }
 
+func (d *Service) removePath(path string) error {
+	if d.removeFile != nil {
+		return d.removeFile(path)
+	}
+	return os.Remove(path)
+}
+
 // removeUpgradeFlag releases the service's flock AND removes the
 // on-disk JSON. Symmetric with ReleaseInstallFlag (line 314): once
 // the service has reconciled the upgrade row to a terminal state,
@@ -1022,7 +1033,7 @@ func (d *Service) removeUpgradeFlag() error {
 	const consequence = "a later boot will read this stale flag and route to crash-recovery/ghost-flag reconcile (an availability wedge, not corruption; that path re-attempts this same removal every boot)"
 	path := d.flagPath()
 	if d.flagLock != nil {
-		removeErr := os.Remove(path)
+		removeErr := d.removePath(path)
 		warnOnStaleFlagRemoveFailure(path, removeErr, consequence)
 		d.flagLock.Close()
 		d.flagLock = nil
@@ -1043,7 +1054,7 @@ func (d *Service) removeUpgradeFlag() error {
 		log.Printf("removeUpgradeFlag: upgrade flock held by another live actor — leaving the flag file in place (not ours to remove)")
 		return err
 	}
-	removeErr := os.Remove(path)
+	removeErr := d.removePath(path)
 	warnOnStaleFlagRemoveFailure(path, removeErr, consequence)
 	if os.IsNotExist(removeErr) {
 		return nil
@@ -1386,6 +1397,29 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 		// nothing wedges, and no decision is taken on the stale artifact
 		// in between.
 		_ = os.Remove(d.flagPath())
+		return nil
+	}
+
+	// A healthy rollback can crash or hit an unlink error after restoring the
+	// previous version but before removing its marker and writing rolled_back.
+	// That row carries an explicit cleanup-only discriminator. Intercept it before
+	// phase routing: PhaseOldSbUpgrading would otherwise replay the already-
+	// successful snapshot and overwrite writes made after SQL was unblocked.
+	rollbackFinishPending, pendingErr := d.isRollbackFinishPending(ctx, flag.ID)
+	if pendingErr != nil {
+		return fmt.Errorf("check rollback finishing state for upgrade %d: %w", flag.ID, pendingErr)
+	}
+	if rollbackFinishPending {
+		logRecover("Rollback for upgrade %d (%s) already restored the previous version; retrying stale-marker cleanup and the final database-row transition only. The snapshot will not be restored again.", flag.ID, flag.Label())
+		d.finalizePendingRollbacks(ctx)
+		stillPending, checkErr := d.isRollbackFinishPending(ctx, flag.ID)
+		if checkErr != nil {
+			return fmt.Errorf("re-check rollback finishing state for upgrade %d: %w", flag.ID, checkErr)
+		}
+		if stillPending {
+			return fmt.Errorf("rollback for upgrade %d is restored and healthy, but stale-marker cleanup remains pending; refusing to route through snapshot recovery", flag.ID)
+		}
+		logRecover("Rollback finishing cleanup for upgrade %d completed without restoring the snapshot again.", flag.ID)
 		return nil
 	}
 
@@ -2691,9 +2725,10 @@ func (d *Service) Run(ctx context.Context) error {
 	if err := d.recoverFromFlag(ctx); err != nil {
 		return fmt.Errorf("recover from flag: %w", err)
 	}
-	// A crash after rollback released its filesystem lock but before the final
-	// failed -> rolled_back UPDATE leaves a deliberately marked failed row. Finish
-	// that harmless DB-only transition before considering any new work.
+	// A crash or unlink failure after rollback restored the previous version but
+	// before the final failed -> rolled_back UPDATE leaves a deliberately marked
+	// failed row. Finish marker cleanup and that harmless DB-only transition before
+	// considering any new work; never restore the snapshot again.
 	d.finalizePendingRollbacks(ctx)
 
 	// Complete any in-progress upgrade from a previous service instance
@@ -3452,6 +3487,8 @@ func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displa
 			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+" WHERE id = $3"+upgradeRowReturning,
 			msg, LabelFailedRollbackIncomplete, attempts) {
 			_ = d.removeUpgradeFlag()
+		} else {
+			d.releaseUpgradeFlagLockKeepingFile()
 		}
 		hostname, _ := os.Hostname()
 		d.runCallback(displayName, map[string]string{
@@ -6152,11 +6189,46 @@ func (d *Service) claimScheduledUpgrade(ctx context.Context, id int) (scheduledU
 			id, marker.RefusedAt.Format(time.RFC3339), marker.Message)
 	}
 
+	// Serialize the claim transaction with cleanup-only rollback finalization.
+	// The daemon's session-level lock is re-entrant on this same connection; an
+	// inline ./sb install gets the transaction lock only when no live service owns
+	// it. This closes the check-then-claim race around ROLLBACK_FINISH_PENDING.
+	tx, txErr := d.queryConn.Begin(ctx)
+	if txErr != nil {
+		return scheduledUpgradeClaim{}, fmt.Errorf("claim id=%d: begin tx: %w", id, txErr)
+	}
+	defer func() { _ = tx.Rollback(ctx) }() // no-op after a successful Commit
+	var claimLockHeld bool
+	if lockErr := tx.QueryRow(ctx, "SELECT pg_try_advisory_xact_lock(hashtext('upgrade_daemon'))").Scan(&claimLockHeld); lockErr != nil {
+		return scheduledUpgradeClaim{}, fmt.Errorf("claim id=%d: acquire upgrade transaction lock: %w", id, lockErr)
+	}
+	if !claimLockHeld {
+		return scheduledUpgradeClaim{}, fmt.Errorf("refusing to claim upgrade id=%d: a running upgrade service owns the upgrade lock and claims scheduled rows itself (within its 30s heartbeat); wait for it, or stop the service before dispatching inline with ./sb install", id)
+	}
+
+	// A ROLLBACK_FINISH_PENDING row means the previous version is already
+	// restored, but its marker and final rolled_back transition are not yet clean.
+	// Check under the same transaction lock used by finalization, so no cleanup can
+	// commit between this decision and the claim below.
+	var rollbackFinishingID int
+	rollbackFinishingErr := tx.QueryRow(ctx,
+		`SELECT id
+		   FROM public.upgrade
+		  WHERE state = 'failed' AND starts_with(error, $1)
+		  ORDER BY id
+		  LIMIT 1`, RollbackFinishPendingPrefix).Scan(&rollbackFinishingID)
+	if rollbackFinishingErr == nil {
+		return scheduledUpgradeClaim{}, fmt.Errorf("refusing to claim upgrade id=%d: rollback finishing cleanup for upgrade id=%d is still pending; wait for the daemon to remove its stale marker and finalize the row", id, rollbackFinishingID)
+	}
+	if !errors.Is(rollbackFinishingErr, pgx.ErrNoRows) {
+		return scheduledUpgradeClaim{}, fmt.Errorf("refusing to claim upgrade id=%d: could not verify rollback finishing state: %w", id, rollbackFinishingErr)
+	}
+
 	// Read the standing park once (if any): its id feeds step A's flag match and
 	// its reason names the displacement in the loud line after commit.
 	var parkedID int
 	var parkedReason string
-	hasPark := d.queryConn.QueryRow(ctx,
+	hasPark := tx.QueryRow(ctx,
 		"SELECT id, COALESCE(recovery_parked_reason, '') FROM public.upgrade WHERE state = 'in_progress' AND recovery_parked_at IS NOT NULL").
 		Scan(&parkedID, &parkedReason) == nil
 
@@ -6172,13 +6244,7 @@ func (d *Service) claimScheduledUpgrade(ctx context.Context, id int) (scheduledU
 		}
 	}
 
-	// step B: one transaction — displace the standing park, then claim.
-	tx, txErr := d.queryConn.Begin(ctx)
-	if txErr != nil {
-		return scheduledUpgradeClaim{}, fmt.Errorf("claim id=%d: begin tx: %w", id, txErr)
-	}
-	defer func() { _ = tx.Rollback(ctx) }() // no-op after a successful Commit
-
+	// step B: in the same transaction — displace the standing park, then claim.
 	displaced := false
 	if hasPark {
 		ct, dispErr := tx.Exec(ctx,
@@ -6793,22 +6859,7 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 	if err := runCommand(projDir, "docker", "compose", "stop", "app", "worker", "rest"); err != nil {
 		errMsg := fmt.Sprintf("could not stop application services before backup: %v", err)
 		progress.Write("  Stopping app, worker, rest ... failed: %s", errMsg)
-		_ = runCommand(projDir, "docker", "compose", "up", "-d", "app", "worker", "rest") // best-effort revert attempt; errMsg below is the actionable failure regardless
-		if maintenanceCleanupErr := d.setMaintenance(false, ""); maintenanceCleanupErr != nil {
-			progress.Write("  Lifting maintenance mode after the stop failure ... failed: %v", maintenanceCleanupErr)
-			errMsg += fmt.Sprintf("; maintenance mode also did not lift: %v", maintenanceCleanupErr)
-		} else {
-			progress.Write("  Lifting maintenance mode after the stop failure ... ok")
-		}
-		if reconErr := d.reconnect(ctx); reconErr == nil {
-			// STATBUS-110: DB is still up (we aborted before the stop) and the
-			// window was engaged above — clear it now on the reconnected conn so
-			// the box returns to service read-write. Best-effort.
-			_, _ = d.setDatabaseReadOnly(ctx, false)
-			d.failUpgrade(ctx, id, errMsg, progress)
-		} else {
-			_ = d.removeUpgradeFlag()
-		}
+		errMsg = d.abortFailedPreBackupStop(ctx, id, "application-stop", errMsg, []string{"app", "worker", "rest"}, progress)
 		return fmt.Errorf("%s", errMsg)
 	}
 	progress.Write("  Stopping app, worker, rest ... ok")
@@ -6818,22 +6869,7 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 	if err := runCommand(projDir, "docker", "compose", "stop", "db"); err != nil {
 		errMsg := fmt.Sprintf("could not stop database for consistent backup: %v", err)
 		progress.Write("  Stopping database ... failed: %s", errMsg)
-		_ = runCommand(projDir, "docker", "compose", "up", "-d", "app", "worker", "rest", "db") // best-effort revert attempt; errMsg below is the actionable failure regardless
-		if maintenanceCleanupErr := d.setMaintenance(false, ""); maintenanceCleanupErr != nil {
-			progress.Write("  Lifting maintenance mode after the database-stop failure ... failed: %v", maintenanceCleanupErr)
-			errMsg += fmt.Sprintf("; maintenance mode also did not lift: %v", maintenanceCleanupErr)
-		} else {
-			progress.Write("  Lifting maintenance mode after the database-stop failure ... ok")
-		}
-		if reconErr := d.reconnect(ctx); reconErr == nil {
-			// STATBUS-110: the db stop FAILED, so the DB is still up and the window
-			// (engaged above) is still set — clear it on the reconnected conn so the
-			// box returns to service read-write. Best-effort.
-			_, _ = d.setDatabaseReadOnly(ctx, false)
-			d.failUpgrade(ctx, id, errMsg, progress)
-		} else {
-			_ = d.removeUpgradeFlag()
-		}
+		errMsg = d.abortFailedPreBackupStop(ctx, id, "database-stop", errMsg, []string{"app", "worker", "rest", "db"}, progress)
 		return fmt.Errorf("%s", errMsg)
 	}
 	progress.Write("  Stopping database ... ok")
@@ -8169,23 +8205,115 @@ func rollbackFinalError(reason string) string {
 		"The failure is recorded (log retained); report it to support. This version will fail the same way — do NOT re-schedule it; run `./sb upgrade check` and try a LATER release when one is available. No manual intervention needed."
 }
 
+// isRollbackFinishPending reports whether the row for id is the cleanup-only
+// ROLLBACK_FINISH_PENDING shape. It runs on the recovery classify path before
+// phase routing, so the read is bounded by recoveryReadTimeout (STATBUS-190): a
+// paused database must classify as an error quickly, never hang recovery.
+func (d *Service) isRollbackFinishPending(ctx context.Context, id int) (bool, error) {
+	if d.queryConn == nil {
+		return false, fmt.Errorf("query connection is not available")
+	}
+	readCtx, cancel := context.WithTimeout(ctx, recoveryReadTimeout)
+	defer cancel()
+	var pending bool
+	err := d.queryConn.QueryRow(readCtx,
+		`SELECT EXISTS (
+			SELECT 1
+			  FROM public.upgrade
+			 WHERE id = $1
+			   AND state = 'failed'
+			   AND starts_with(error, $2)
+		)`, id, RollbackFinishPendingPrefix).Scan(&pending)
+	return pending, err
+}
+
+func readUpgradeFlagFromOpenFile(file *os.File) (UpgradeFlag, error) {
+	if _, err := file.Seek(0, 0); err != nil {
+		return UpgradeFlag{}, fmt.Errorf("seek upgrade flag: %w", err)
+	}
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return UpgradeFlag{}, fmt.Errorf("read upgrade flag: %w", err)
+	}
+	var flag UpgradeFlag
+	if err := json.Unmarshal(data, &flag); err != nil {
+		return UpgradeFlag{}, fmt.Errorf("decode upgrade flag: %w", err)
+	}
+	return flag, nil
+}
+
+// clearRollbackFinishFlag removes only the marker belonging to this already-
+// restored rollback. Identity is checked from the same open file descriptor
+// while its flock is held, not by a read-before-lock path that could race a new
+// upgrade replacing the marker. The row stays ROLLBACK_FINISH_PENDING until
+// unlink succeeds, so neither the daemon nor ./sb install can mistake cleanup
+// for another restore.
+func (d *Service) clearRollbackFinishFlag(id int) error {
+	path := d.flagPath()
+	if d.flagLock != nil && d.flagLock.file != nil {
+		flag, err := readUpgradeFlagFromOpenFile(d.flagLock.file)
+		if err != nil {
+			return err
+		}
+		if flag.ID != id {
+			return fmt.Errorf("rollback finishing expected marker for upgrade %d, found upgrade %d; refusing to remove it", id, flag.ID)
+		}
+		holder := flag.Holder
+		if holder == "" {
+			holder = HolderService
+		}
+		if holder != HolderService {
+			return fmt.Errorf("upgrade %d rollback finishing found a %q-held marker; refusing to remove it", id, holder)
+		}
+		return d.removeUpgradeFlag()
+	}
+
+	file, err := os.OpenFile(path, os.O_RDWR, 0)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	defer func() { _ = file.Close() }()
+	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		return err
+	}
+	flag, err := readUpgradeFlagFromOpenFile(file)
+	if err != nil {
+		return err
+	}
+	if flag.ID != id {
+		return nil
+	}
+	holder := flag.Holder
+	if holder == "" {
+		holder = HolderService
+	}
+	if holder != HolderService {
+		return fmt.Errorf("upgrade %d rollback finishing found a %q-held marker; refusing to remove it", id, holder)
+	}
+	const consequence = "rollback finishing remains cleanup-only and will retry without restoring the database"
+	removeErr := d.removePath(path)
+	warnOnStaleFlagRemoveFailure(path, removeErr, consequence)
+	if os.IsNotExist(removeErr) {
+		return nil
+	}
+	return removeErr
+}
+
 // finalizePendingRollbacks repairs the only deliberate failed+backup_path
 // exception to install's restore-reattemptable invariant. The restore already
-// passed every health boundary; only the final DB transition was interrupted
-// after the filesystem lock disappeared. Retrying this guarded UPDATE is safe
-// at startup and on each heartbeat, and requires no restore or service action.
+// passed every health boundary; only stale-marker cleanup and/or the final DB
+// transition remain after the live filesystem lock disappeared. Retrying those
+// cleanup-only steps is safe at startup and on each heartbeat, and requires no
+// restore or service action.
 func (d *Service) finalizePendingRollbacks(ctx context.Context) {
 	if d.queryConn == nil {
 		return
 	}
-	type pendingRollback struct {
-		id            int
-		errorText     string
-		commitSHA     string
-		commitVersion string
-	}
 	rows, err := d.queryConn.Query(ctx,
-		`SELECT id, error, commit_sha, COALESCE(commit_version, '')
+		`SELECT id
 		   FROM public.upgrade
 		  WHERE state = 'failed' AND starts_with(error, $1)
 		  ORDER BY id`, RollbackFinishPendingPrefix)
@@ -8193,15 +8321,15 @@ func (d *Service) finalizePendingRollbacks(ctx context.Context) {
 		log.Printf("finalizePendingRollbacks: query failed: %v", err)
 		return
 	}
-	var pending []pendingRollback
+	var pendingIDs []int
 	for rows.Next() {
-		var row pendingRollback
-		if err := rows.Scan(&row.id, &row.errorText, &row.commitSHA, &row.commitVersion); err != nil {
+		var id int
+		if err := rows.Scan(&id); err != nil {
 			rows.Close()
 			log.Printf("finalizePendingRollbacks: scan failed: %v", err)
 			return
 		}
-		pending = append(pending, row)
+		pendingIDs = append(pendingIDs, id)
 	}
 	rowsErr := rows.Err()
 	rows.Close()
@@ -8210,24 +8338,79 @@ func (d *Service) finalizePendingRollbacks(ctx context.Context) {
 		return
 	}
 
-	for _, row := range pending {
-		reason := strings.TrimPrefix(row.errorText, RollbackFinishPendingPrefix)
-		finalError := rollbackFinalError(reason)
-		rowJSON, updateErr := d.terminalUpdate(
-			"UPDATE public.upgrade SET state = 'rolled_back', error = $2, rolled_back_at = now() WHERE id = $1 AND state = 'failed' AND error = $3"+upgradeRowReturning,
-			row.id, finalError, row.errorText)
-		if updateErr != nil {
-			log.Printf("finalizePendingRollbacks: upgrade %d remains pending: %v", row.id, updateErr)
+	for _, id := range pendingIDs {
+		readOnlyStatement, readOnlyErr := d.liftReadOnlyWindow("rollback finishing recovery")
+		if readOnlyErr != nil {
+			log.Printf("finalizePendingRollbacks: upgrade %d SQL-write cleanup remains pending: %v", id, readOnlyErr)
 			continue
 		}
-		logUpgradeRow(LabelRolledBackFinishRecovery, rowJSON)
-		displayName := row.commitVersion
-		if displayName == "" {
-			displayName = renderDisplayName(CommitSHA(row.commitSHA), nil)
+		log.Printf("finalizePendingRollbacks: upgrade %d SQL writes unblocked (%s)", id, readOnlyStatement)
+		if maintenanceErr := d.setMaintenance(false, ""); maintenanceErr != nil {
+			log.Printf("finalizePendingRollbacks: upgrade %d HTTP-maintenance cleanup remains pending: %v", id, maintenanceErr)
+			continue
 		}
-		d.runCallback(displayName, map[string]string{"STATBUS_EVENT": "rolled_back", "STATBUS_ROLLED_BACK": "1"})
-		log.Printf("Rollback to the previous version complete for upgrade %d (recovered interrupted final row transition).", row.id)
+		if _, finalizeErr := d.finalizePendingRollback(ctx, id, LabelRolledBackFinishRecovery); finalizeErr != nil {
+			log.Printf("finalizePendingRollbacks: upgrade %d remains pending: %v", id, finalizeErr)
+		}
 	}
+}
+
+// finalizePendingRollback locks the still-pending database row before touching
+// its marker, then removes the marker and changes the row to rolled_back in the
+// same transaction. A second cleanup actor waits on the row lock and, after the
+// first commits, observes no pending row and therefore cannot unlink a newer
+// upgrade's marker through an old open descriptor.
+func (d *Service) finalizePendingRollback(ctx context.Context, id int, label string) (bool, error) {
+	tx, err := d.queryConn.Begin(ctx)
+	if err != nil {
+		return false, fmt.Errorf("begin rollback finishing transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var finishLockHeld bool
+	if err := tx.QueryRow(ctx, "SELECT pg_try_advisory_xact_lock(hashtext('upgrade_daemon'))").Scan(&finishLockHeld); err != nil {
+		return false, fmt.Errorf("acquire rollback finishing transaction lock: %w", err)
+	}
+	if !finishLockHeld {
+		return false, fmt.Errorf("another upgrade actor owns the upgrade lock")
+	}
+
+	var errorText, commitSHA, commitVersion string
+	err = tx.QueryRow(ctx,
+		`SELECT error, commit_sha, COALESCE(commit_version, '')
+		   FROM public.upgrade
+		  WHERE id = $1
+		    AND state = 'failed'
+		    AND starts_with(error, $2)
+		  FOR UPDATE`, id, RollbackFinishPendingPrefix).Scan(&errorText, &commitSHA, &commitVersion)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("lock rollback finishing row: %w", err)
+	}
+	if cleanupErr := d.clearRollbackFinishFlag(id); cleanupErr != nil {
+		return false, fmt.Errorf("remove stale rollback marker: %w", cleanupErr)
+	}
+
+	finalError := rollbackFinalError(strings.TrimPrefix(errorText, RollbackFinishPendingPrefix))
+	var rowJSON string
+	if err := tx.QueryRow(ctx,
+		"UPDATE public.upgrade SET state = 'rolled_back', error = $2, rolled_back_at = now() WHERE id = $1 AND state = 'failed' AND error = $3"+upgradeRowReturning,
+		id, finalError, errorText).Scan(&rowJSON); err != nil {
+		return false, fmt.Errorf("write final rolled_back row: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return false, fmt.Errorf("commit final rolled_back row: %w", err)
+	}
+
+	logUpgradeRow(label, rowJSON)
+	displayName := commitVersion
+	if displayName == "" {
+		displayName = renderDisplayName(CommitSHA(commitSHA), nil)
+	}
+	d.runCallback(displayName, map[string]string{"STATBUS_EVENT": "rolled_back", "STATBUS_ROLLED_BACK": "1"})
+	log.Printf("Rollback to the previous version complete for upgrade %d (recovered interrupted final row transition).", id)
+	return true, nil
 }
 
 // preSwapStoppedMessage renders STATBUS-240's operator-facing text, approved
@@ -9250,6 +9433,55 @@ func (d *Service) failUpgradeKeepingFlag(ctx context.Context, id int, errMsg str
 	d.failUpgradeWithFlagDisposition(ctx, id, errMsg, progress, true)
 }
 
+// abortFailedPreBackupStop unwinds a stop failure before any snapshot or live
+// data mutation. The upgrade marker may disappear only when every machine-state
+// boundary is confirmed clean: services restarted, HTTP maintenance removed,
+// PostgreSQL reconnected, and the read-only default lifted. Any uncertainty
+// leaves a free recovery marker for ./sb install or the daemon to reconcile.
+func (d *Service) abortFailedPreBackupStop(ctx context.Context, id int, boundary, errMsg string, restartServices []string, progress *ProgressLog) string {
+	needsRecovery := false
+	restartArgs := append([]string{"compose", "up", "-d"}, restartServices...)
+	if restartErr := runCommand(d.projDir, "docker", restartArgs...); restartErr != nil {
+		needsRecovery = true
+		progress.Write("  Restarting services after the %s failure ... failed: %v", boundary, restartErr)
+		errMsg += fmt.Sprintf("; services also did not restart cleanly: %v", restartErr)
+	} else {
+		progress.Write("  Restarting services after the %s failure ... ok", boundary)
+	}
+
+	if maintenanceErr := d.setMaintenance(false, ""); maintenanceErr != nil {
+		needsRecovery = true
+		progress.Write("  Lifting maintenance mode after the %s failure ... failed: %v", boundary, maintenanceErr)
+		errMsg += fmt.Sprintf("; maintenance mode also did not lift: %v", maintenanceErr)
+	} else {
+		progress.Write("  Lifting maintenance mode after the %s failure ... ok", boundary)
+	}
+
+	if reconnectErr := d.reconnect(ctx); reconnectErr != nil {
+		needsRecovery = true
+		progress.Write("  Reconnecting after the %s failure ... failed: %v", boundary, reconnectErr)
+		errMsg += fmt.Sprintf("; database reconnection also failed: %v", reconnectErr)
+	} else {
+		progress.Write("  Reconnecting after the %s failure ... ok", boundary)
+		offStatement, offErr := d.setDatabaseReadOnly(ctx, false)
+		if offErr != nil {
+			needsRecovery = true
+			progress.Write("  Unblocking SQL writes after the %s failure ... failed: %v", boundary, offErr)
+			errMsg += fmt.Sprintf("; SQL writes may remain blocked: %v", offErr)
+		} else {
+			progress.Write("  Unblocking SQL writes after the %s failure ... ok", boundary)
+			progress.Write("    ran: %s", offStatement)
+		}
+	}
+
+	if needsRecovery {
+		d.failUpgradeKeepingFlag(ctx, id, errMsg, progress)
+	} else {
+		d.failUpgrade(ctx, id, errMsg, progress)
+	}
+	return errMsg
+}
+
 func (d *Service) failUpgradeWithFlagDisposition(ctx context.Context, id int, errMsg string, progress *ProgressLog, keepFlag bool) {
 	// STATBUS-338, Norway rc.02: keep the original failure outside the DB volume
 	// before any terminal write or unwind can fail. Callers before flag acquisition
@@ -9767,44 +9999,6 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reaso
 		progress.Write("  Reconnecting to the restored database ... ok")
 	}
 
-	// Deactivate maintenance
-	maintenanceErr := d.setMaintenance(false, "")
-	if maintenanceErr != nil {
-		progress.Write("  Lifting maintenance mode ... failed: %v", maintenanceErr)
-	} else {
-		progress.Write("  Lifting maintenance mode ... ok")
-		progress.Write("    removed: %s", homeRelativePath(maintenanceFlagHostPath()))
-	}
-
-	// STATBUS-110: clear the read-only window on the rolled-back box. The restored
-	// snapshot carries default_transaction_read_only=on in its catalog (it was
-	// ALTERed before the pre-stop backup, F3), so without this the rolled-back
-	// (old-version, serving) box would reject external writes. Uses the conn just
-	// reopened above (best-effort; a reconnect failure leaves it for the next
-	// recovery to clear). NB: the git-restore-fail ABORT terminal exits before this
-	// point and deliberately leaves read-only ON alongside maintenance ON (F1(i)) —
-	// the box is degraded/down and the operator's ./sb install recovery clears both
-	// at its successful terminal.
-	// STATBUS-163: same teardown-immune flip + no-complete-with-warning invariant
-	// as the completion site. The rolled-back row is senior; a rolled_back box
-	// whose window never lifts rejects every external write (25006) on the
-	// restored (old, serving) version — a broken box masquerading as recovered —
-	// so a failed flip ESCALATES LOUDLY, never a Warning. (The git-restore-fail
-	// ABORT terminal exits BEFORE this point and deliberately holds read-only ON;
-	// that hold is untouched.)
-	readOnlyStatement, readOnlyErr := d.liftReadOnlyWindow("rollback completion")
-	if readOnlyErr != nil {
-		fmt.Fprintf(os.Stderr,
-			"INVARIANT ROLLBACK_READ_ONLY_WINDOW_LIFTED violated: the read-only window did not lift after rollback after %d attempts (err=%v) — the restored box's database default is still read-only, so every fresh non-exempt session fails with 25006. Remedy: run `./sb install` to clear it (or the daemon's boot backstop on the next start). (service.go:%d, pid=%d)\n",
-			terminalWriteMaxAttempts, readOnlyErr, thisLine(), os.Getpid())
-		d.markTerminal("ROLLBACK_READ_ONLY_WINDOW_LIFTED",
-			fmt.Sprintf("window OFF flip failed after rollback after retries: %v; DB default still read-only; ./sb install clears it", readOnlyErr))
-		progress.Write("  Unblocking SQL writes ... failed: %v", readOnlyErr)
-	} else {
-		progress.Write("  Unblocking SQL writes ... ok")
-		progress.Write("    ran: %s", readOnlyStatement)
-	}
-
 	// Persist the real failure reason in `error` (short, one-line). The
 	// full narrative lives in the on-disk log (referenced by
 	// log_relative_file_path) and is fetched by the admin UI's "Log"
@@ -9823,22 +10017,19 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reaso
 	// intervention"). (restoreBinary failure is excluded: ./sb being stale is
 	// self-healed by the staleness guard on the next invocation; the site's
 	// containers serve old code from the restored git tree, so it stays healthy.)
-	completionErrors := rollbackCompletionErrors{
+	restoreErrors := rollbackCompletionErrors{
 		databaseRestore: dbRestoreErr,
 		servicesStart:   servicesUpErr,
 		databaseHealth:  dbHealthErr,
 		reconnect:       reconnectErr,
-		maintenance:     maintenanceErr,
-		readOnly:        readOnlyErr,
 	}
-	degraded := completionErrors.degraded()
 	// Bundle BEFORE the terminal UPDATE so a support ticket on the row has the
 	// sibling .bundle.txt available.
 	d.writeDiagnosticBundle(ctx, id, progress)
 
-	if degraded {
+	if restoreErrors.degraded() {
 		detail := ""
-		for _, failure := range completionErrors.details() {
+		for _, failure := range restoreErrors.details() {
 			detail += "; " + failure
 		}
 		errMsg = errMsg + " — ROLLBACK INCOMPLETE" + detail + ". The system is in a degraded state; manual CLI recovery is required (./sb install); contact SSB support and involve your IT staff."
@@ -9850,7 +10041,11 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reaso
 		if d.writeRollbackTerminal(id,
 			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+" WHERE id = $3"+upgradeRowReturning,
 			errMsg, LabelFailedRollbackIncomplete, attemptsAtCall) {
-			_ = d.removeUpgradeFlag()
+			if removeErr := d.removeUpgradeFlag(); removeErr != nil {
+				progress.Write("  Releasing upgrade lock after the incomplete rollback ... failed: %v", removeErr)
+			}
+		} else {
+			d.releaseUpgradeFlagLockKeepingFile()
 		}
 		// Page on-call: the degraded/all-hands tier (siren), same signal as the
 		// git-restore ABORT path.
@@ -9862,74 +10057,70 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reaso
 			"STATBUS_RECOVERY_CMD":    fmt.Sprintf(`ssh %s "cd statbus && ./sb install"`, hostname),
 		})
 		progress.Write("Recording rollback completion ... failed; the system remains degraded and requires manual recovery.")
-	} else {
-		// Snapshot restore succeeded and services came back → healthy at the old
-		// version. Regular-support tier; the `error` column carries the next action.
-		//
-		// STATBUS-338 is the named exception to STATBUS-111's former hard-error-
-		// only invariant. Norway rc.02 carried a returned transient git failure into
-		// PreSwap recovery, but restart recovery manufactured a deterministic class
-		// and told the operator not to reschedule. The flag now preserves the cause,
-		// so the terminal guidance branches on the explicit retryable class. Every
-		// other rollback reason keeps the established hard-error advice.
-		finalErrMsg := rollbackFinalError(errMsg)
-		pendingFinishErr := rollbackFinishPendingError(errMsg)
-		if d.writeRollbackTerminal(id,
-			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+" WHERE id = $3"+upgradeRowReturning,
-			pendingFinishErr, LabelFailedRollbackPendingFinish, attemptsAtCall) {
-			// The conservative failed row landed. Clear the in-progress flag, then
-			// and only then promote the row to rolled_back with healthy guidance.
-			if err := d.removeUpgradeFlag(); err != nil {
-				degraded = true
-				progress.Write("  Releasing upgrade lock ... failed: %v", err)
-				staleLockErr := errMsg + fmt.Sprintf(" — rollback restored the previous version, but the stale upgrade lock could not be removed (%v); run `./sb install` to reconcile it before scheduling another upgrade.", err)
-				if staleJSON, staleErr := d.terminalUpdate(
-					"UPDATE public.upgrade SET error = $2, state = 'failed' WHERE id = $1 AND state = 'failed'"+upgradeRowReturning,
-					id, staleLockErr); staleErr == nil {
-					logUpgradeRow(LabelFailedRollbackPendingFinish, staleJSON)
-				} else {
-					d.markTerminal("ROLLBACK_LOCK_FAILURE_RECORDED",
-						fmt.Sprintf("id=%d; stale lock err=%v; row annotation err=%v", id, err, staleErr))
-				}
-				hostname, _ := os.Hostname()
-				d.runCallback(version, map[string]string{
-					"STATBUS_EVENT":           "rollback_failed",
-					"STATBUS_ROLLBACK_FAILED": "1",
-					"STATBUS_ROLLBACK_ERROR":  staleLockErr,
-					"STATBUS_RECOVERY_CMD":    fmt.Sprintf(`ssh %s "cd statbus && ./sb install"`, hostname),
-				})
-				progress.Write("Rollback restored the previous version, but finishing did not complete; the stale lock requires reconciliation.")
-			} else {
-				finalJSON, finalErr := d.terminalUpdate(
-					"UPDATE public.upgrade SET state = 'rolled_back', error = $2, rolled_back_at = now() WHERE id = $1 AND state = 'failed'"+upgradeRowReturning,
-					id, finalErrMsg)
-				if finalErr != nil {
-					degraded = true
-					d.markTerminal("ROLLBACK_HEALTHY_GUIDANCE_RECORDED",
-						fmt.Sprintf("id=%d; final guidance err=%v", id, finalErr))
-					progress.Write("Recording the completed rollback guidance ... failed: %v", finalErr)
-					progress.Write("Rollback restored the previous version and released the lock, but finishing did not complete; the database row remains conservatively marked for follow-up.")
-				} else {
-					logUpgradeRow(LabelRolledBackNormal, finalJSON)
-					// Notify (Slack) on the rolled_back terminal — the fail-fast rollback's
-					// single operator notification, regular-support tier (notify-slack.sh
-					// renders STATBUS_ROLLED_BACK).
-					d.runCallback(version, map[string]string{"STATBUS_EVENT": "rolled_back", "STATBUS_ROLLED_BACK": "1"})
-					progress.Write("Rollback to the previous version complete.")
-				}
-			}
-		} else {
-			// Terminal write never landed (DB unreachable, or the advisory lock is
-			// held by a live service we must yield to). KEEP the flag — the next
-			// recoverFromFlag / completeInProgressUpgrade reconciles the row. Do NOT
-			// claim success or page STATBUS_ROLLED_BACK: with the row still
-			// in_progress that would be the operator-lie this fix removes.
-			// writeRollbackTerminal already failed loud (INVARIANT
-			// ROLLBACK_TERMINAL_WRITE_FAILED + markTerminal).
-			progress.Write("Recording the rollback in the database ... failed; the previous version is restored and the upgrade lock is kept for automatic reconciliation.")
-		}
+		return true
 	}
-	return degraded
+
+	// The snapshot restore and service health boundaries are now confirmed. Write
+	// the cleanup-only discriminator BEFORE reopening SQL or HTTP. From this point
+	// forward, every restart/install path is forbidden from restoring the snapshot
+	// again, so writes accepted after the window lifts cannot be overwritten.
+	pendingFinishErr := rollbackFinishPendingError(errMsg)
+	if !d.writeRollbackTerminal(id,
+		"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+" WHERE id = $3"+upgradeRowReturning,
+		pendingFinishErr, LabelFailedRollbackPendingFinish, attemptsAtCall) {
+		d.releaseUpgradeFlagLockKeepingFile()
+		progress.Write("Recording rollback finishing state ... failed; maintenance and SQL read-only remain active, and the free recovery marker is kept for reconciliation.")
+		return true
+	}
+
+	reportFinishingPending := func(detail string) {
+		d.releaseUpgradeFlagLockKeepingFile()
+		d.markTerminal("ROLLBACK_FINISHING_PENDING", fmt.Sprintf("id=%d; %s", id, detail))
+		d.runCallback(version, map[string]string{
+			"STATBUS_EVENT":           "rollback_failed",
+			"STATBUS_ROLLBACK_FAILED": "1",
+			"STATBUS_ROLLBACK_ERROR":  detail,
+		})
+		progress.Write("Rollback restored the previous version, but finishing did not complete; cleanup will retry without restoring the database again.")
+	}
+
+	// Lift SQL first while HTTP maintenance still shields browser/API traffic. The
+	// pending row already makes direct-DB writes safe: no path may restore again.
+	readOnlyStatement, readOnlyErr := d.liftReadOnlyWindow("rollback completion")
+	if readOnlyErr != nil {
+		fmt.Fprintf(os.Stderr,
+			"INVARIANT ROLLBACK_READ_ONLY_WINDOW_LIFTED violated: the read-only window did not lift after rollback after %d attempts (err=%v) — maintenance remains active and cleanup will retry without restoring the database again. (service.go:%d, pid=%d)\n",
+			terminalWriteMaxAttempts, readOnlyErr, thisLine(), os.Getpid())
+		d.markTerminal("ROLLBACK_READ_ONLY_WINDOW_LIFTED",
+			fmt.Sprintf("window OFF flip failed after rollback after retries: %v; maintenance remains active; cleanup-only retry required", readOnlyErr))
+		progress.Write("  Unblocking SQL writes ... failed: %v", readOnlyErr)
+		reportFinishingPending(fmt.Sprintf("rollback restored the previous version, but SQL writes remain blocked (%v)", readOnlyErr))
+		return true
+	}
+	progress.Write("  Unblocking SQL writes ... ok")
+	progress.Write("    ran: %s", readOnlyStatement)
+
+	maintenanceErr := d.setMaintenance(false, "")
+	if maintenanceErr != nil {
+		progress.Write("  Lifting maintenance mode ... failed: %v", maintenanceErr)
+		reportFinishingPending(fmt.Sprintf("rollback restored the previous version and SQL writes are enabled, but HTTP maintenance did not lift (%v)", maintenanceErr))
+		return true
+	}
+	progress.Write("  Lifting maintenance mode ... ok")
+	progress.Write("    removed: %s", homeRelativePath(maintenanceFlagHostPath()))
+
+	finalized, finalErr := d.finalizePendingRollback(ctx, id, LabelRolledBackNormal)
+	if finalErr != nil {
+		progress.Write("  Releasing the upgrade marker and recording completed rollback guidance ... failed: %v", finalErr)
+		reportFinishingPending(fmt.Sprintf("rollback restored the previous version, but marker/database finalization failed (%v)", finalErr))
+		return true
+	}
+	if !finalized {
+		reportFinishingPending("rollback finishing row changed before finalization; refusing to claim healthy completion")
+		return true
+	}
+	progress.Write("Rollback to the previous version complete.")
+	return false
 }
 
 // preRestoreStopServices is the service set both pre-restore stop sites

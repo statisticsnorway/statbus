@@ -260,8 +260,9 @@ func (defaultProbe) QueryScheduledUpgrade(projDir string) (*ScheduledRow, error)
 // One explicitly marked exception is NOT restore-broke:
 //   - restoreAndFinalize first records ROLLBACK_FINISH_PENDING after a healthy
 //     restore, then releases the filesystem lock, then writes rolled_back. A
-//     crash in that narrow handoff leaves failed+backup_path, but replaying the
-//     restore would be wrong. The daemon retries only the final guarded UPDATE.
+//     crash or marker-unlink failure in that narrow handoff leaves
+//     failed+backup_path, but replaying the restore would be wrong. The daemon
+//     retries stale-marker cleanup and then the final guarded UPDATE only.
 //
 // The two OTHER failed writers cannot produce the combination:
 //   - failUpgrade runs ONLY before the snapshot (pre-backupDatabase) → backup_path NULL.

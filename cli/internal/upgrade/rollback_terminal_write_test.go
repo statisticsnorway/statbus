@@ -156,13 +156,26 @@ func TestRollbackTerminalWrite_StructuralContract(t *testing.T) {
 	if n := strings.Count(rbPath, "d.writeRollbackTerminal("); n != 4 {
 		t.Errorf("rollback path (rollback + restoreAndFinalize) must call writeRollbackTerminal exactly 4× (abort-services-not-stopped + abort-git-corrupt + degraded-failed + rolled_back); got %d", n)
 	}
-	// Every flag removal is guarded by a landed terminal write: the count of
-	// `if d.writeRollbackTerminal(` guards equals the count of removeUpgradeFlag()
-	// calls, and both equal 4 — no unconditional removal survives.
+	// The three degraded/abort removals remain directly guarded by landed terminal
+	// writes. The healthy fourth path first writes ROLLBACK_FINISH_PENDING, then
+	// removes the marker and commits rolled_back in finalizePendingRollback's row-
+	// locked transaction.
 	removes := strings.Count(rbPath, "d.removeUpgradeFlag()")
 	guards := strings.Count(rbPath, "if d.writeRollbackTerminal(")
-	if removes != 4 || guards != 4 {
-		t.Errorf("flag-removal symmetry: want 4 removeUpgradeFlag() each guarded by `if d.writeRollbackTerminal(`; got removes=%d guards=%d", removes, guards)
+	if removes != 3 || guards != 3 {
+		t.Errorf("direct flag-removal symmetry: want 3 removeUpgradeFlag() calls guarded by landed degraded/abort terminal writes; got removes=%d guards=%d", removes, guards)
+	}
+	restore := extractFuncBody(t, source, "func (d *Service) restoreAndFinalize(")
+	for _, required := range []string{"if !d.writeRollbackTerminal(", "d.finalizePendingRollback(ctx, id, LabelRolledBackNormal)"} {
+		if !strings.Contains(restore, required) {
+			t.Errorf("healthy rollback cleanup path missing %q", required)
+		}
+	}
+	serialized := extractFuncBody(t, source, "func (d *Service) finalizePendingRollback(")
+	for _, required := range []string{"pg_try_advisory_xact_lock", "FOR UPDATE", "d.clearRollbackFinishFlag(id)", "tx.Commit(ctx)"} {
+		if !strings.Contains(serialized, required) {
+			t.Errorf("serialized healthy rollback finalizer missing %q", required)
+		}
 	}
 	// The old single-shot swallow must be gone from every tier.
 	for _, gone := range []string{"Scan(&failedJSON)", "Scan(&rollbackJSON)", "Scan(&abortJSON)"} {

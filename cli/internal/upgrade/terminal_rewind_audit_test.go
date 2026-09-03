@@ -134,15 +134,15 @@ var rewindAudit = map[siteKey]rewindDisposition{
 			"column at a terminal is the superseding write.)",
 	},
 	{"cli/internal/upgrade/service.go", "UPDATE", "error,state"}: {
-		Class: classSupersededByTerminal, Count: 2,
-		Why: "Two post-rewind terminal/finalization writes set state+error themselves: " +
-			"completeInProgressUpgrade's observed-state failure and the failed rollback's stale-lock guidance. " +
-			"Neither can be rewound by the rollback it finishes.",
+		Class: classSupersededByTerminal, Count: 1,
+		Why: "completeInProgressUpgrade's observed-state failure sets state+error itself after the rewind, " +
+			"so it cannot be rewound by the rollback it finishes. The former stale-lock rewrite was removed: " +
+			"rollback marker cleanup now retains ROLLBACK_FINISH_PENDING until unlink succeeds.",
 	},
 	{"cli/internal/upgrade/service.go", "UPDATE", "error,rolled_back_at,state"}: {
-		Class: classSupersededByTerminal, Count: 2,
-		Why: "The final rolled_back transition and its startup/heartbeat retry both run after the rewind " +
-			"and successful lock release; they establish the healthy terminal contract.",
+		Class: classSupersededByTerminal, Count: 1,
+		Why: "The single serialized rolled_back transition serves both the live path and startup/heartbeat retry. " +
+			"It runs after the rewind and marker cleanup while holding the pending row lock, establishing the healthy terminal contract.",
 	},
 	{"cli/internal/upgrade/service.go", "UPDATE", "error,scheduled_at,state"}: {
 		Class: classSupersededByTerminal, Count: 1,

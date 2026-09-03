@@ -391,7 +391,7 @@ func (d *Service) setMaintenance(active bool, content string) error {
 		return nil
 	}
 
-	if err := os.Remove(file); err != nil && !os.IsNotExist(err) {
+	if err := d.removePath(file); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("remove maintenance flag %s: %w", file, err)
 	}
 	return nil

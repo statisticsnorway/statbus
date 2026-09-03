@@ -360,16 +360,27 @@ func TestMaintenanceRemovalErrorsAreObserved(t *testing.T) {
 }
 
 // TestRollbackCompletionRequiresUpgradeLockRelease pins the terminal wording:
-// a restored row is not announced complete until removeUpgradeFlag succeeds.
+// a restored row is not announced complete until marker removal and the
+// rolled_back row commit succeed in the same row-locked finalization.
 func TestRollbackCompletionRequiresUpgradeLockRelease(t *testing.T) {
 	source, err := os.ReadFile("service.go")
 	if err != nil {
 		t.Fatalf("read service.go: %v", err)
 	}
-	body := extractFuncBody(t, string(source), "func (d *Service) restoreAndFinalize(")
-	pattern := regexp.MustCompile(`(?s)if err := d\.removeUpgradeFlag\(\); err != nil \{.*?\} else \{.*?progress\.Write\("Rollback to the previous version complete\."\)`)
-	if !pattern.MatchString(body) {
-		t.Fatal("rollback completion is not guarded by successful upgrade-lock release")
+	restore := extractFuncBody(t, string(source), "func (d *Service) restoreAndFinalize(")
+	finalize := strings.Index(restore, "d.finalizePendingRollback(ctx, id, LabelRolledBackNormal)")
+	complete := strings.Index(restore, `progress.Write("Rollback to the previous version complete.")`)
+	if finalize < 0 || complete <= finalize {
+		t.Fatal("rollback completion is not guarded by serialized marker and row finalization")
+	}
+	serialized := extractFuncBody(t, string(source), "func (d *Service) finalizePendingRollback(")
+	last := -1
+	for _, required := range []string{"pg_try_advisory_xact_lock", "FOR UPDATE", "d.clearRollbackFinishFlag(id)", `UPDATE public.upgrade SET state = 'rolled_back'`, "tx.Commit(ctx)"} {
+		idx := strings.Index(serialized, required)
+		if idx <= last {
+			t.Fatalf("serialized rollback finalizer omitted or reordered %q", required)
+		}
+		last = idx
 	}
 }
 
@@ -424,6 +435,70 @@ func TestMaintenanceActivationFailureStopsBeforeServiceTeardown(t *testing.T) {
 	}
 }
 
+func TestPreBackupStopFailureCleanupPreservesMarkerOnAnyUncertainty(t *testing.T) {
+	source, err := os.ReadFile("service.go")
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	execute := extractFuncBody(t, string(source), "func (d *Service) executeUpgrade(")
+	for _, call := range []string{
+		`d.abortFailedPreBackupStop(ctx, id, "application-stop"`,
+		`d.abortFailedPreBackupStop(ctx, id, "database-stop"`,
+	} {
+		if !strings.Contains(execute, call) {
+			t.Fatalf("pre-backup stop failure bypasses the audited unwind; missing %q", call)
+		}
+	}
+
+	unwind := extractFuncBody(t, string(source), "func (d *Service) abortFailedPreBackupStop(")
+	for _, required := range []string{
+		"needsRecovery := false",
+		`runCommand(d.projDir, "docker", restartArgs...)`,
+		`d.setMaintenance(false, "")`,
+		"d.reconnect(ctx)",
+		"d.setDatabaseReadOnly(ctx, false)",
+		"d.failUpgradeKeepingFlag(ctx, id, errMsg, progress)",
+		"d.failUpgrade(ctx, id, errMsg, progress)",
+	} {
+		if !strings.Contains(unwind, required) {
+			t.Fatalf("pre-backup unwind omits %q", required)
+		}
+	}
+	if strings.Contains(unwind, "_ = runCommand") || strings.Contains(unwind, "_, _ = d.setDatabaseReadOnly") {
+		t.Fatal("pre-backup unwind still discards a boundary failure")
+	}
+}
+
+func TestRollbackFinishPendingInterceptsSnapshotRecovery(t *testing.T) {
+	source, err := os.ReadFile("service.go")
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	recoverBody := extractFuncBody(t, string(source), "func (d *Service) recoverFromFlag(")
+	pending := strings.Index(recoverBody, "d.isRollbackFinishPending(ctx, flag.ID)")
+	resuming := strings.Index(recoverBody, "if flag.Phase == PhaseNewSbUpgrading")
+	preswap := strings.Index(recoverBody, "if flag.Phase == PhaseOldSbUpgrading")
+	if pending < 0 || resuming <= pending || preswap <= pending {
+		t.Fatal("cleanup-only rollback marker is not intercepted before phase-based snapshot recovery")
+	}
+	guard := recoverBody[pending:resuming]
+	for _, required := range []string{"d.finalizePendingRollbacks(ctx)", "snapshot will not be restored again", "refusing to route through snapshot recovery"} {
+		if !strings.Contains(guard, required) {
+			t.Fatalf("cleanup-only recovery guard omits %q", required)
+		}
+	}
+
+	finalizer := extractFuncBody(t, string(source), "func (d *Service) finalizePendingRollback(")
+	advisory := strings.Index(finalizer, "pg_try_advisory_xact_lock")
+	rowLock := strings.Index(finalizer, "FOR UPDATE")
+	cleanup := strings.Index(finalizer, "d.clearRollbackFinishFlag(id)")
+	transition := strings.Index(finalizer, `"UPDATE public.upgrade SET state = 'rolled_back'`)
+	commit := strings.Index(finalizer, "tx.Commit(ctx)")
+	if advisory < 0 || rowLock <= advisory || cleanup <= rowLock || transition <= cleanup || commit <= transition {
+		t.Fatal("pending rollback row can become rolled_back before its stale marker is removed")
+	}
+}
+
 // TestSuccessfulCallbackRequiresCleanFinishing prevents notifications and a nil
 // return from claiming process success after a finishing boundary failed.
 func TestSuccessfulCallbackRequiresCleanFinishing(t *testing.T) {
@@ -452,6 +527,19 @@ func TestParkedFlagRemovalFailureRefusesClaim(t *testing.T) {
 	}
 }
 
+func TestRollbackFinishingBlocksEveryNewClaim(t *testing.T) {
+	source, err := os.ReadFile("service.go")
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	body := extractFuncBody(t, string(source), "func (d *Service) claimScheduledUpgrade(")
+	for _, required := range []string{"pg_try_advisory_xact_lock", "RollbackFinishPendingPrefix", "rollbackFinishingID", "refusing to claim upgrade"} {
+		if !strings.Contains(body, required) {
+			t.Fatalf("shared claim path does not block rollback finishing; missing %q", required)
+		}
+	}
+}
+
 // TestRollbackHealthyGuidanceFollowsLockRelease ensures the durable row remains
 // failed until the stale flag is gone. Only then may it transition to
 // rolled_back and carry healthy/no-intervention guidance.
@@ -464,14 +552,15 @@ func TestRollbackHealthyGuidanceFollowsLockRelease(t *testing.T) {
 	terminal := strings.Index(body, "LabelFailedRollbackPendingFinish")
 	failedState := strings.Index(body, `"UPDATE public.upgrade SET state = 'failed', error = $1`)
 	pendingMarker := strings.Index(body, "rollbackFinishPendingError(errMsg)")
-	remove := strings.Index(body, "if err := d.removeUpgradeFlag(); err != nil {")
-	healthyState := strings.Index(body, `"UPDATE public.upgrade SET state = 'rolled_back', error = $2, rolled_back_at = now()`)
+	readOnly := strings.Index(body, `d.liftReadOnlyWindow("rollback completion")`)
+	maintenance := strings.Index(body, `d.setMaintenance(false, "")`)
+	finalize := strings.Index(body, "d.finalizePendingRollback(ctx, id, LabelRolledBackNormal)")
 	complete := strings.Index(body, `progress.Write("Rollback to the previous version complete.")`)
-	if terminal < 0 || failedState < 0 || pendingMarker < 0 || remove <= terminal || remove <= failedState || remove <= pendingMarker || healthyState <= remove || complete <= healthyState {
-		t.Fatal("rollback may leave failed state or transition to rolled_back out of order around lock release")
+	if terminal < 0 || failedState < 0 || pendingMarker < 0 || readOnly <= pendingMarker || maintenance <= readOnly || finalize <= maintenance || complete <= finalize {
+		t.Fatal("rollback may expose writes or claim completion before durable cleanup-only finalization")
 	}
-	finalizer := extractFuncBody(t, string(source), "func (d *Service) finalizePendingRollbacks(")
-	for _, required := range []string{"RollbackFinishPendingPrefix", "rollbackFinalError(reason)", "LabelRolledBackFinishRecovery"} {
+	finalizer := extractFuncBody(t, string(source), "func (d *Service) finalizePendingRollback(")
+	for _, required := range []string{"RollbackFinishPendingPrefix", "rollbackFinalError(strings.TrimPrefix", "pg_try_advisory_xact_lock", "d.clearRollbackFinishFlag(id)", "FOR UPDATE"} {
 		if !strings.Contains(finalizer, required) {
 			t.Fatalf("pending rollback finalizer omitted %q", required)
 		}
