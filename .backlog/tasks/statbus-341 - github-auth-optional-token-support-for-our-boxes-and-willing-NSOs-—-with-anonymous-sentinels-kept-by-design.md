@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-02 12:21'
+updated_date: '2026-09-03 13:15'
 labels:
   - ops
   - upgrade
@@ -30,3 +31,21 @@ Design for ruling before build:
 
 Acceptance (post-ruling): token entry documented at its point of entry; fetch/REST paths use it when present; at least dev + rune verified running anonymous (the sentinel list is explicit, not accidental); discovery/notify retry landed; a tokenless box behaves identically to today.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-09-03 13:15
+---
+KING'S RULING (2026-09-03), design amended and APPROVED for this build wave — supersedes the description's proposed split:
+
+1. ONE NAME: GITHUB_TOKEN everywhere — the product already reads it for REST (github.go:144), workflows already export it. The .env.config entry uses the same name (entry-way documented, never auto-propagated); env wins over file. The release gate's anonymous deployability probes KEEP ignoring it by design (check.go:302 — the principled carve-out).
+2. PURE ACCELERANT PRINCIPLE: token present → authenticated fetch+REST; absent → byte-identical to today. No forks, no migration, add/remove any time.
+3. FLEET SPLIT (reverses the old proposal — sentinel = customer-fidelity ROLE, not the high-frequency boxes): dev TOKEN (5-min ticks, orchestrator-driven — this week's real victim), demo TOKEN (automated channel-follower), Norway ANONYMOUS SENTINEL (human canary lives the customer path; manual, 6h, low volume), country slots (et/jo/ma/ug) ANONYMOUS (King: low-frequency is fine anonymous).
+4. HARNESS SPLIT: the two happy smokes STAY ANONYMOUS (they ARE the customer-experience test — sentinel duty); the wedge/recovery ARCS get the token (workflow GITHUB_TOKEN into the VM env) — they test recovery machinery, and anonymous 401 noise there is pure false-red (proven: 3 arc reds 2026-09-03 were storm-perturbed recovery-boot trajectories, zero arc defects).
+5. Kept: read-only fine-grained repo-scoped token; 338 retry resilience remains primary defense; discovery/notify bounded-retry companion lands with this; sentinel list explicit + visible in cloud.sh status.
+
+Context for urgency: 36h of GitHub 401-challenges on anonymous git-over-HTTPS from Hetzner IP space (authenticated paths: zero failures in the same windows) cost ~7 RC iterations and 3 arc false-reds. Queued alongside 344 for the post-promotion wave.
+---
+<!-- COMMENTS:END -->
