@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-09-02 11:20'
-updated_date: '2026-09-02 11:51'
+updated_date: '2026-09-03 08:43'
 labels:
   - upgrade
   - defect
@@ -38,3 +38,13 @@ Acceptance: regression test injecting a RETURNED fetch error (not a kill) after 
 <!-- SECTION:NOTES:BEGIN -->
 Landed, foreman-reviewed: preswap object-ensure hoisted before the maintenance boundary (local cat-file fast path, zero network in the normal case; bounded stall-detected retries on a miss); rollback + Run defers nil-safe; OriginalError carried on the held flag (survives the process-death gap) so recovery reports the true cause as GIT_FETCH_FAILED_RETRYABLE with honest reschedule advice; manifest sweep bounded to tags newer than installed (198→10-ish probes on rune). Eight regression tests pin the rune signature; full cli suite + lint clean. Rides rc.03. Deployment asymmetry recorded in the ticket: the first hop off old binaries still runs old preswap; protection begins once the fleet takes a fixed version.
 <!-- SECTION:NOTES:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-09-03 08:43
+---
+LIVE PROOF, both directions, recorded post-close (2026-09-03): (1) POSITIVE — Norway's rc.12 install (row 43093, the King via web UI) ran the FIXED preswap off v2026.08.1-rc.01 → completed in 71s during the tail of the same all-night GitHub 401 storm class that killed rc.02; no downtime-window fetch failure. (2) NEGATIVE — dev's rc.11 attempt (row 447610, 02:17Z) hit the storm mid-upgrade on its OLD rc.02-era binary: the rollback path panicked exactly as this ticket's defect #2 describes (pgx nil-conn IsClosed SIGSEGV in rollback → status=2), and recovery still manufactured INSTALL_PRECONDITION_FAILED with the wrong 'do NOT re-schedule' advice (defect #3) — the same version then completed fine when rescheduled. The deployment asymmetry note was exact: old binaries still die the old way; fixed binaries survive. The fleet inherits protection as it takes ≥0.09 versions.
+---
+<!-- COMMENTS:END -->
