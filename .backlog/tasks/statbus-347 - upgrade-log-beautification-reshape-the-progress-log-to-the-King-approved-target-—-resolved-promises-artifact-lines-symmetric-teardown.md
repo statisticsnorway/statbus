@@ -184,4 +184,13 @@ Landed from the review, foreman-reviewed and re-validated (go test/vet/lint, all
 - S4 + D2 + D3 → 0a509dacd (Luna): see STATBUS-348.
 Still open: S1, S2 (implementation) and S3 (design, floor-migrate on the restored volume; inline DDL shim REJECTED by the King) — reassigned to a fresh Sol session after the first one died without output.
 ---
+author: foreman
+created: 2026-09-03 22:49
+---
+S1 → 539ba12e0, S2 → 3afd379cd (Sol, second session): ACCEPTED after review + re-validation. S2: acquireRecoveryFlock opens WITHOUT O_CREATE, checks os.SameFile against inode replacement, re-reads ID/phase from the held descriptor, refuses on any mismatch; acquireFlock (O_CREATE) remains only for fresh claims. S1: ReattemptRestore takes a fresh O_EXCL marker AND pg_try_advisory_xact_lock, re-reads the row FOR UPDATE with the full predicate before stopping anything, refuses a running daemon. Both have two-Service live race twins, red on the parent, green after.
+
+S3 design → tmp/sol-s3-design.md: ACCEPTED as the shape. Reorder rollback so the target tree and target ./sb survive the snapshot restore; run the ordinary `sb migrate up --to DaemonSchemaFloor` on the restored volume (recorded in db.migration, no inline DDL, no idempotent-migration hacks: the King's ruling); stamp StepRollback durably before any restore so a floor-replayed DB cannot look "at target"; add a cleanup-only marker phase so there is no marker-free interval; publish the source binary LAST. Floor failure = closed box, target assets retained, ./sb install is the deliberate retry. Validation list has 10 items incl. two VM arcs.
+
+SEQUENCING RULING (foreman, under the King's overnight authority): S3 + the column protocol are too large to implement AND prove on VM arcs tonight. Tonight's RC ships the PREFIX form of cleanup-only (db33f1316), which completes on any schema; the column (012ca22da, 8fbe6e86a, ff1e5fda7) is moved to branch wip/347-column-protocol and lands with S3 in the following RC. What stays on master from that work: execObserved + the Exec sweep, pgtype.Text for commit_version, S1, S2, the exit-code contract, the docker health classifier, Scenario type. Sol is executing the revert + regeneration + full validation now. The King's constraint ruling is NOT reversed; it is deferred one RC so the adoption rollback path (S3) is built before the column that needs it.
+---
 <!-- COMMENTS:END -->
