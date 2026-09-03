@@ -170,6 +170,29 @@ func TestPruneDeletedTags_DropsMovedTags_STATBUS169(t *testing.T) {
 	}
 }
 
+// TestPruneDeletedTags_EmptyKeptIsNeverNull pins the encoding defect found live
+// on dev (2026-09-03): when EVERY tag on a row is pruned, `kept` must be an
+// empty, non-nil slice. pgx encodes a nil []string as SQL NULL, and
+// public.upgrade.commit_tags is NOT NULL, so the UPDATE was rejected on every
+// discovery tick; the swallowed error hid it while the journal repeated the same
+// "Pruned ..." lines every 5 minutes (25 rows, 744 identical lines in 48h). The
+// write error must also be logged, never discarded.
+func TestPruneDeletedTags_EmptyKeptIsNeverNull(t *testing.T) {
+	body := funcBody(t, "service.go", "func (d *Service) pruneDeletedTags(")
+	if strings.Contains(body, "var kept []string") {
+		t.Error("pruneDeletedTags declares `kept` as a nil slice; an all-pruned row then writes SQL NULL into NOT NULL commit_tags")
+	}
+	if !strings.Contains(body, "kept := make([]string, 0, len(p.tags))") {
+		t.Error("pruneDeletedTags must build `kept` as an empty non-nil slice so an all-pruned row writes '{}' not NULL")
+	}
+	if strings.Contains(body, "_, _ = d.queryConn.Exec(ctx,") {
+		t.Error("pruneDeletedTags discards the reconcile UPDATE error; a constraint rejection must be logged, not hidden")
+	}
+	if !strings.Contains(body, "tag reconcile did not land") {
+		t.Error("pruneDeletedTags must log a failed reconcile UPDATE with the row id and intended values")
+	}
+}
+
 // funcBody returns the source text of the function whose signature prefix is
 // `sig`, from `file`, up to (not including) the next top-level `func ` after it.
 // Mirrors the source-inspection guards already used in this package

@@ -4935,7 +4935,12 @@ func (d *Service) pruneDeletedTags(ctx context.Context, currentTags []GitTag) {
 	rows.Close()
 
 	for _, p := range pending {
-		var kept []string
+		// Non-nil by construction: commit_tags is NOT NULL, and pgx encodes a
+		// nil []string as SQL NULL. Before this, a row whose EVERY tag was
+		// pruned (moved or deleted) hit the constraint on each discovery tick,
+		// the swallowed error hid it, and the same "Pruned ..." lines repeated
+		// every 5 minutes forever (dev: 25 rows, 744 identical lines in 48h).
+		kept := make([]string, 0, len(p.tags))
 		dropped := false
 		for _, tag := range p.tags {
 			if keepTagForRow(tag, gitTagSHAs, p.rowSHA) {
@@ -4963,11 +4968,14 @@ func (d *Service) pruneDeletedTags(ctx context.Context, currentTags []GitTag) {
 			}
 			newStatus = "prerelease"
 		}
-		// Best-effort; called from discover()'s periodic pass — a failed
-		// demotion here is retried on the next discovery cycle.
-		_, _ = d.queryConn.Exec(ctx,
+		// Retried on the next discovery cycle if it fails, but never silently:
+		// a swallowed error here is exactly how the NULL-encoding defect above
+		// stayed invisible while the journal claimed the prune had happened.
+		if _, err := d.queryConn.Exec(ctx,
 			`UPDATE public.upgrade SET commit_tags = $1, release_status = $2::public.release_status_type WHERE id = $3`,
-			kept, newStatus, p.id)
+			kept, newStatus, p.id); err != nil {
+			log.Printf("pruneDeletedTags: upgrade %d tag reconcile did not land (kept=%v, release_status=%s): %v — retried next discovery cycle", p.id, kept, newStatus, err)
+		}
 	}
 }
 
