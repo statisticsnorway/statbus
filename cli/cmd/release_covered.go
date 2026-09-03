@@ -114,16 +114,59 @@ func decideScenarioCoverage(projDir, scenario, commit string) (release.CoverageV
 		return release.CoverageVerdict{}, fmt.Errorf("load the sensitive-path list: %w", err)
 	}
 
+	// The home workflow is where the scenario's proof is FILED, and it follows
+	// from where the scenario LIVES at this commit, not from a constant. The
+	// promotion gate already passes each domain's own workflow; this call site
+	// used to hardcode the arc harness for every scenario, so the fifteen
+	// install-recovery scenarios were looked up under the wrong workflow and
+	// reported "no evidence" against a run that was green on all of them
+	// (observed live at v2026.09.0-rc.12, run 33734979777). That is the drift
+	// between the two call sites STATBUS-249 says must be impossible.
+	homeWorkflow, err := scenarioHomeWorkflowAtCommit(projDir, scenario, commit)
+	if err != nil {
+		return release.CoverageVerdict{}, err
+	}
+
 	return release.DecideCoverage(scenario, commit, release.CoverageDeps{
 		PriorCandidatesNewestFirst: func() ([]string, error) {
 			return priorCandidateTags(projDir, commit)
 		},
 		TagCommit: func(tag string) (string, error) { return tagTargetCommit(projDir, tag) },
-		Evidence:  release.ScenarioEvidence(projDir, release.WorkflowUpgradeArcHarness, scenario),
+		Evidence:  scenarioEvidence(projDir, homeWorkflow, scenario),
 		DiffTouches: func(from, to string) (bool, []string, error) {
 			return diffTouchesSensitivePath(projDir, from, to, sensitivePaths)
 		},
 	})
+}
+
+// scenarioHomeWorkflowAtCommit maps a scenario name to the workflow that runs
+// it, by the same directory listing each promotion gate uses to build its
+// domain (upgradeArcNamesAtCommit / installRecoveryScenarioNamesAtCommit). A
+// name found in neither listing is refused rather than guessed: an evidence
+// lookup under an arbitrary workflow can only ever say "not found", which a
+// caller would mistake for "must run".
+func scenarioHomeWorkflowAtCommit(projDir, scenario, commit string) (string, error) {
+	arcs, arcErr := upgradeArcNamesAtCommit(projDir, commit)
+	if arcErr == nil {
+		for _, name := range arcs {
+			if name == scenario {
+				return release.WorkflowUpgradeArcHarness, nil
+			}
+		}
+	}
+	fleet, fleetErr := installRecoveryScenarioNamesAtCommit(projDir, commit)
+	if fleetErr == nil {
+		for _, name := range fleet {
+			if name == scenario {
+				return release.WorkflowInstallRecoveryHarness, nil
+			}
+		}
+	}
+	if arcErr != nil && fleetErr != nil {
+		return "", fmt.Errorf("list scenario domains at %s: arcs: %v; install-recovery: %v", shortCommit(commit), arcErr, fleetErr)
+	}
+	return "", fmt.Errorf("%q is not a scenario at %s: not in %s (%d arc scenarios) and not in test/install-recovery/scenarios/ (%d default-suite scenarios)",
+		scenario, shortCommit(commit), upgradeArcDir, len(arcs), len(fleet))
 }
 
 // resolveCommitish expands any commit-ish (short SHA, tag, branch) to the full
