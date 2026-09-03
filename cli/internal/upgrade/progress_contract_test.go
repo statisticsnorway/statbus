@@ -122,13 +122,9 @@ func TestRollbackFinishCleanupDoesNotRemoveAnotherUpgradeMarker(t *testing.T) {
 	}
 }
 
-func TestRollbackFinishPendingAndFinalErrorContracts(t *testing.T) {
+func TestRollbackFinalErrorContracts(t *testing.T) {
 	reason := ErrGitFetchRetryable + ": remote closed connection"
-	pending := rollbackFinishPendingError(reason)
-	if !IsRollbackFinishPendingError(pending) {
-		t.Fatalf("pending rollback error lacks the shared discriminator: %q", pending)
-	}
-	final := rollbackFinalError(strings.TrimPrefix(pending, RollbackFinishPendingPrefix))
+	final := rollbackFinalError(reason)
 	for _, want := range []string{reason, "running normally on the old version", "safe to schedule this same version again"} {
 		if !strings.Contains(final, want) {
 			t.Fatalf("final retryable rollback guidance %q lacks %q", final, want)

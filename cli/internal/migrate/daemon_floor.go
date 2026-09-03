@@ -51,7 +51,12 @@ package migrate
 // a column, and no legitimate daemon write performs that transition (pipeline
 // completions are in_progress→completed), so the daemon operated cleanly at that
 // floor too.
-const DaemonSchemaFloor int64 = 20260901212308
+// Prior value: 20260901212308 (STATBUS-333's upgrade_state_log columns), bumped
+// in the same commit that lands STATBUS-347's rollback_finish_pending_at column
+// on public.upgrade plus its CHECK and the widened state-log trigger. The daemon
+// SELECTs and UPDATEs that column at claim, at recovery, and in the finisher, so
+// it cannot operate below this floor; the bump is a real schema dependency.
+const DaemonSchemaFloor int64 = 20260903205636
 
 // DaemonRelationNames is the schema surface the daemon's OWN SQL touches — the
 // set whose shape the floor must satisfy. The bump guard flags any migration

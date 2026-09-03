@@ -11,7 +11,7 @@ import (
 // TestLiveRollbackFinishing exercises the REAL cleanup-only rollback finisher
 // (db33f1316) against the REAL local database and a REAL marker file, on the
 // same connect path the daemon uses. It answers the three questions the design
-// makes: does a ROLLBACK_FINISH_PENDING row block every new claim; does
+// makes: does a rollback_finish_pending_at row block every new claim; does
 // finalizePendingRollback remove the marker and commit rolled_back in one step;
 // and does the same finisher refuse to touch a marker that belongs to a
 // different upgrade.
@@ -44,13 +44,12 @@ func TestLiveRollbackFinishing(t *testing.T) {
 	const pendingSHA = "3470000000000000000000000000000000000001"
 	const scheduledSHA = "3470000000000000000000000000000000000002"
 	var pendingID, scheduledID int
-	pendingErr := rollbackFinishPendingError(ErrGitFetchRetryable + ": live probe: remote closed connection")
 	if err := d.queryConn.QueryRow(ctx, `
 		INSERT INTO public.upgrade (commit_sha, committed_at, commit_tags, release_status, summary, state,
-		                            scheduled_at, started_at, error, backup_path, log_relative_file_path)
+		                            scheduled_at, started_at, error, backup_path, log_relative_file_path, rollback_finish_pending_at)
 		VALUES ($1, now() - interval '2 days', '{}', 'commit', 'live rollback-finishing probe', 'failed',
-		        now() - interval '1 hour', now() - interval '59 minutes', $2, '/nonexistent/live-probe-backup', 'live-probe.log')
-		RETURNING id`, pendingSHA, pendingErr).Scan(&pendingID); err != nil {
+		        now() - interval '1 hour', now() - interval '59 minutes', $2, '/nonexistent/live-probe-backup', 'live-probe.log', now())
+		RETURNING id`, pendingSHA, ErrGitFetchRetryable+": live probe: remote closed connection").Scan(&pendingID); err != nil {
 		t.Fatalf("insert pending row: %v", err)
 	}
 	if err := d.queryConn.QueryRow(ctx, `
@@ -82,7 +81,7 @@ func TestLiveRollbackFinishing(t *testing.T) {
 	// 1. Every new claim is refused while the pending row exists.
 	_, claimErr := d.claimScheduledUpgrade(ctx, scheduledID)
 	if claimErr == nil || !strings.Contains(claimErr.Error(), "rollback finishing cleanup") {
-		t.Fatalf("claim of a scheduled row was not refused while ROLLBACK_FINISH_PENDING stands: err=%v", claimErr)
+		t.Fatalf("claim of a scheduled row was not refused while a rollback_finish_pending_at row stands: err=%v", claimErr)
 	}
 	var st string
 	if err := d.queryConn.QueryRow(ctx, "SELECT state::text FROM public.upgrade WHERE id = $1", scheduledID).Scan(&st); err != nil {
@@ -125,8 +124,12 @@ func TestLiveRollbackFinishing(t *testing.T) {
 	if state != "rolled_back" || rolledBackAt == nil {
 		t.Errorf("row after finalization: state=%s rolled_back_at=%v, want rolled_back with a timestamp", state, rolledBackAt)
 	}
-	if strings.HasPrefix(errText, RollbackFinishPendingPrefix) {
-		t.Errorf("final row still carries the pending prefix: %q", errText)
+	var pendingAfter *time.Time
+	if err := d.queryConn.QueryRow(ctx, "SELECT rollback_finish_pending_at FROM public.upgrade WHERE id = $1", pendingID).Scan(&pendingAfter); err != nil {
+		t.Fatal(err)
+	}
+	if pendingAfter != nil {
+		t.Errorf("final row still has rollback_finish_pending_at set: %v", pendingAfter)
 	}
 	if !strings.Contains(errText, "safe to schedule this same version again") {
 		t.Errorf("a retryable cause must yield the retry guidance, got: %q", errText)

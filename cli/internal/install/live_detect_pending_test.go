@@ -16,7 +16,7 @@ import (
 // TestLiveDetect_PendingRollbackIsCrashedNotReattempt runs the REAL install
 // ladder probe (Detect with defaultProbe: real psql, real marker file) on the
 // cleanup-only shape: a free-flock service marker whose row is
-// ROLLBACK_FINISH_PENDING with a retained backup_path. The ladder must say
+// rollback_finish_pending_at set with a retained backup_path. The ladder must say
 // StateCrashedUpgrade (route to RecoverFromFlag, which is cleanup-only for this
 // row) and NEVER StateRestoreReattemptable (which would replay the snapshot
 // restore over data accepted after the window lifted).
@@ -40,11 +40,11 @@ func TestLiveDetect_PendingRollbackIsCrashedNotReattempt(t *testing.T) {
 	var id int
 	if err := conn.QueryRow(ctx, `
 		INSERT INTO public.upgrade (commit_sha, committed_at, commit_tags, release_status, summary, state,
-		                            scheduled_at, started_at, error, backup_path, log_relative_file_path)
+		                            scheduled_at, started_at, error, backup_path, log_relative_file_path, rollback_finish_pending_at)
 		VALUES ($1, now() - interval '2 days', '{}', 'commit', 'live detect probe', 'failed',
 		        now() - interval '1 hour', now() - interval '59 minutes',
-		        $2, '/nonexistent/live-detect-probe-backup', 'live-detect-probe.log')
-		RETURNING id`, sha, upgrade.RollbackFinishPendingPrefix+"live detect probe").Scan(&id); err != nil {
+		        'live detect probe', '/nonexistent/live-detect-probe-backup', 'live-detect-probe.log', now())
+		RETURNING id`, sha).Scan(&id); err != nil {
 		t.Fatalf("insert pending row: %v", err)
 	}
 	t.Cleanup(func() {
@@ -66,7 +66,7 @@ func TestLiveDetect_PendingRollbackIsCrashedNotReattempt(t *testing.T) {
 		t.Fatalf("Detect (no marker): %v", err)
 	}
 	if state == StateRestoreReattemptable {
-		t.Fatalf("a ROLLBACK_FINISH_PENDING row was classified restore-reattemptable (row %d); a replay would restore over accepted writes", detail.ReattemptRowID)
+		t.Fatalf("a rollback_finish_pending_at row was classified restore-reattemptable (row %d); a replay would restore over accepted writes", detail.ReattemptRowID)
 	}
 	t.Logf("no marker: state=%s", state)
 

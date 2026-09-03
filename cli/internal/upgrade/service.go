@@ -998,6 +998,33 @@ func (d *Service) removePath(path string) error {
 	return os.Remove(path)
 }
 
+// execObserved runs a write whose failure does not change control flow but
+// must never be invisible. "Best-effort, retried next cycle" was the comment on
+// the pruner's UPDATE while it was rejected by a NOT NULL constraint on every
+// tick for two days (40baf42fe): a swallowed error turns a retry loop into a
+// silent livelock that looks like activity. Every discarded Exec in this
+// package now routes through here, so a constraint rejection, a lost
+// connection, or a schema mismatch is on the journal with the statement's
+// purpose and its arguments, even when the caller has no branch to take.
+func (d *Service) execObserved(ctx context.Context, purpose, sql string, args ...any) error {
+	if d.queryConn == nil {
+		log.Printf("%s: skipped, no query connection", purpose)
+		return fmt.Errorf("%s: no query connection", purpose)
+	}
+	ct, err := d.queryConn.Exec(ctx, sql, args...)
+	if err != nil {
+		log.Printf("%s: write did not land (args=%v): %v", purpose, args, err)
+		return err
+	}
+	if ct.RowsAffected() == 0 && strings.HasPrefix(strings.TrimSpace(strings.ToUpper(sql)), "UPDATE") {
+		// Zero rows on an UPDATE is a fact, not an error: the guard did not
+		// match. Callers that need to distinguish "already so" from "row gone"
+		// branch on the return; the log line makes the miss visible either way.
+		log.Printf("%s: UPDATE matched 0 rows (args=%v)", purpose, args)
+	}
+	return nil
+}
+
 // removeUpgradeFlag releases the service's flock AND removes the
 // on-disk JSON. Symmetric with ReleaseInstallFlag (line 314): once
 // the service has reconciled the upgrade row to a terminal state,
@@ -1888,7 +1915,7 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 				// discovery cycle (periodic poll), so a failed UPDATE here
 				// just gets retried next cycle; no decision reads the
 				// outcome in between.
-				_, _ = d.queryConn.Exec(ctx,
+				_ = d.execObserved(ctx, "verifyArtifacts: mark docker images ready",
 					"UPDATE public.upgrade SET docker_images_status = 'ready' WHERE id = $1 AND docker_images_status != 'ready'",
 					r.id)
 				fmt.Printf("Images verified for commit %s (tag=%s)\n", ShortForDisplay(r.sha), tag)
@@ -3931,7 +3958,7 @@ func (d *Service) reportDiskSpace(ctx context.Context) {
 		freeGB := freeBytes / (1024 * 1024 * 1024)
 		// Best-effort; a periodic informational report (admin UI display),
 		// not load-bearing for any decision logic — self-corrects next cycle.
-		_, _ = d.queryConn.Exec(ctx,
+		_ = d.execObserved(ctx, "reportDiskSpace: record disk_free_gb",
 			`INSERT INTO public.system_info (key, value, updated_at)
 			 VALUES ('disk_free_gb', $1::text, clock_timestamp())
 			 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = clock_timestamp()`,
@@ -4775,7 +4802,7 @@ func (d *Service) discover(ctx context.Context) {
 		targetStatus := ClassifyReleaseShape(t.TagName).ReleaseStatus()
 		// Best-effort; discover() runs on every discovery cycle (6h ticker or
 		// NOTIFY), so a failed enrichment UPDATE here is retried next cycle.
-		_, _ = d.queryConn.Exec(ctx,
+		_ = d.execObserved(ctx, "discover: enrich tag identity",
 			`UPDATE public.upgrade SET
 			   commit_tags = CASE WHEN $2 = ANY(upgrade.commit_tags) THEN upgrade.commit_tags
 			                      ELSE array_append(upgrade.commit_tags, $2) END,
@@ -4801,7 +4828,7 @@ func (d *Service) discover(ctx context.Context) {
 		if _, err := FetchManifest(t.TagName); err == nil {
 			// Best-effort; same self-correcting shape as the enrichment
 			// UPDATE above — retried on the next discovery cycle.
-			_, _ = d.queryConn.Exec(ctx,
+			_ = d.execObserved(ctx, "discover: mark release builds ready",
 				"UPDATE public.upgrade SET release_builds_status = 'ready' WHERE commit_sha = $1 AND release_builds_status != 'ready'",
 				t.CommitSHA)
 		} else {
@@ -4875,7 +4902,7 @@ func (d *Service) discover(ctx context.Context) {
 	// this timestamp, so the pre-download must not delay it. Previously the
 	// (synchronous, oldest-first, 3-at-a-time) pre-download ran first and pushed
 	// this write minutes later — the "Checking…" spin (STATBUS-047 B1).
-	_, _ = d.queryConn.Exec(ctx,
+	_ = d.execObserved(ctx, "discover: stamp upgrade_last_discover_at",
 		`INSERT INTO public.system_info (key, value, updated_at)
 		 VALUES ('upgrade_last_discover_at', now()::text, now())
 		 ON CONFLICT (key) DO UPDATE
@@ -4971,11 +4998,9 @@ func (d *Service) pruneDeletedTags(ctx context.Context, currentTags []GitTag) {
 		// Retried on the next discovery cycle if it fails, but never silently:
 		// a swallowed error here is exactly how the NULL-encoding defect above
 		// stayed invisible while the journal claimed the prune had happened.
-		if _, err := d.queryConn.Exec(ctx,
+		_ = d.execObserved(ctx, fmt.Sprintf("pruneDeletedTags: reconcile upgrade %d tags", p.id),
 			`UPDATE public.upgrade SET commit_tags = $1, release_status = $2::public.release_status_type WHERE id = $3`,
-			kept, newStatus, p.id); err != nil {
-			log.Printf("pruneDeletedTags: upgrade %d tag reconcile did not land (kept=%v, release_status=%s): %v — retried next discovery cycle", p.id, kept, newStatus, err)
-		}
+			kept, newStatus, p.id)
 	}
 }
 
@@ -5144,7 +5169,7 @@ func (d *Service) preDownloadImages(ctx context.Context) {
 	// Best-effort; called from discover()'s periodic pass — a failed marker
 	// UPDATE here just costs a redundant re-download attempt next cycle,
 	// not a correctness issue.
-	_, _ = d.queryConn.Exec(ctx,
+	_ = d.execObserved(ctx, "preDownloadImages: mark images downloaded",
 		"UPDATE public.upgrade SET docker_images_downloaded = true WHERE commit_sha = $1",
 		chosen.CommitSHA)
 }
@@ -6220,11 +6245,7 @@ func (d *Service) claimScheduledUpgrade(ctx context.Context, id int) (scheduledU
 	// commit between this decision and the claim below.
 	var rollbackFinishingID int
 	rollbackFinishingErr := tx.QueryRow(ctx,
-		`SELECT id
-		   FROM public.upgrade
-		  WHERE state = 'failed' AND starts_with(error, $1)
-		  ORDER BY id
-		  LIMIT 1`, RollbackFinishPendingPrefix).Scan(&rollbackFinishingID)
+		`SELECT id FROM public.upgrade WHERE `+rollbackFinishPendingSQL+` ORDER BY id LIMIT 1`).Scan(&rollbackFinishingID)
 	if rollbackFinishingErr == nil {
 		return scheduledUpgradeClaim{}, fmt.Errorf("refusing to claim upgrade id=%d: rollback finishing cleanup for upgrade id=%d is still pending; wait for the daemon to remove its stale marker and finalize the row", id, rollbackFinishingID)
 	}
@@ -8058,7 +8079,7 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	// Best-effort; this is an explicit BELT on top of the completed UPDATE's
 	// own DB trigger NOTIFY (see comment above) — if this one fails, the
 	// trigger-fired NOTIFY still delivers in the common case.
-	_, _ = d.queryConn.Exec(ctx, `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
+	_ = d.execObserved(ctx, "notify frontend of upgrade change", `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
 	// STATBUS-110: clear the read-only upgrade window — health passed, no rollback
 	// pending, box reopening. Placed HERE (right after the completed UPDATE landed)
 	// rather than at the setMaintenance(false) above because queryConn is only
@@ -8202,19 +8223,16 @@ func retryableRollbackReason(reason string) bool {
 	return strings.HasPrefix(strings.TrimSpace(reason), ErrGitFetchRetryable+":")
 }
 
-// RollbackFinishPendingPrefix distinguishes a healthy restored box whose
-// filesystem lock was not yet released from a restore that actually failed.
-// install/state.go uses the same predicate so it never replays an already-
-// successful restore during the narrow filesystem-to-database handoff window.
-const RollbackFinishPendingPrefix = "ROLLBACK_FINISH_PENDING: "
-
-func IsRollbackFinishPendingError(errorText string) bool {
-	return strings.HasPrefix(errorText, RollbackFinishPendingPrefix)
-}
-
-func rollbackFinishPendingError(reason string) string {
-	return RollbackFinishPendingPrefix + reason
-}
+// The cleanup-only rollback state is the COLUMN public.upgrade.rollback_finish_pending_at
+// (STATBUS-347, migration 20260903205636), never a prefix on `error`. The schema
+// enforces its shape (chk_upgrade_rollback_finish_pending_requires_failed), the
+// install ladder excludes it from restore replay by column, and every reader in
+// this file selects on the column. `error` carries only the human cause.
+//
+// rollbackFinishPendingSQL is the ONE predicate for "restored but not finished",
+// shared by the claim gate, the recovery interception, the finisher's candidate
+// list, and the row lock, so no two readers can disagree about what pending is.
+const rollbackFinishPendingSQL = "state = 'failed' AND rollback_finish_pending_at IS NOT NULL"
 
 func rollbackFinalError(reason string) string {
 	if reason == "" {
@@ -8240,13 +8258,7 @@ func (d *Service) isRollbackFinishPending(ctx context.Context, id int) (bool, er
 	defer cancel()
 	var pending bool
 	err := d.queryConn.QueryRow(readCtx,
-		`SELECT EXISTS (
-			SELECT 1
-			  FROM public.upgrade
-			 WHERE id = $1
-			   AND state = 'failed'
-			   AND starts_with(error, $2)
-		)`, id, RollbackFinishPendingPrefix).Scan(&pending)
+		`SELECT EXISTS (SELECT 1 FROM public.upgrade WHERE id = $1 AND `+rollbackFinishPendingSQL+`)`, id).Scan(&pending)
 	return pending, err
 }
 
@@ -8336,10 +8348,7 @@ func (d *Service) finalizePendingRollbacks(ctx context.Context) {
 		return
 	}
 	rows, err := d.queryConn.Query(ctx,
-		`SELECT id
-		   FROM public.upgrade
-		  WHERE state = 'failed' AND starts_with(error, $1)
-		  ORDER BY id`, RollbackFinishPendingPrefix)
+		`SELECT id FROM public.upgrade WHERE `+rollbackFinishPendingSQL+` ORDER BY id`)
 	if err != nil {
 		log.Printf("finalizePendingRollbacks: query failed: %v", err)
 		return
@@ -8399,12 +8408,10 @@ func (d *Service) finalizePendingRollback(ctx context.Context, id int, label str
 
 	var errorText, commitSHA, commitVersion string
 	err = tx.QueryRow(ctx,
-		`SELECT error, commit_sha, COALESCE(commit_version, '')
+		`SELECT COALESCE(error, ''), commit_sha, COALESCE(commit_version, '')
 		   FROM public.upgrade
-		  WHERE id = $1
-		    AND state = 'failed'
-		    AND starts_with(error, $2)
-		  FOR UPDATE`, id, RollbackFinishPendingPrefix).Scan(&errorText, &commitSHA, &commitVersion)
+		  WHERE id = $1 AND `+rollbackFinishPendingSQL+`
+		  FOR UPDATE`, id).Scan(&errorText, &commitSHA, &commitVersion)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
 	}
@@ -8415,11 +8422,15 @@ func (d *Service) finalizePendingRollback(ctx context.Context, id int, label str
 		return false, fmt.Errorf("remove stale rollback marker: %w", cleanupErr)
 	}
 
-	finalError := rollbackFinalError(strings.TrimPrefix(errorText, RollbackFinishPendingPrefix))
+	finalError := rollbackFinalError(errorText)
+	// Clear the pending marker in the SAME statement that writes rolled_back:
+	// the CHECK forbids pending on rolled_back, so a partial write is impossible,
+	// and the RETURNING scan is the row-count check (ErrNoRows = the row moved
+	// under the lock, which the FOR UPDATE above makes unreachable).
 	var rowJSON string
 	if err := tx.QueryRow(ctx,
-		"UPDATE public.upgrade SET state = 'rolled_back', error = $2, rolled_back_at = now() WHERE id = $1 AND state = 'failed' AND error = $3"+upgradeRowReturning,
-		id, finalError, errorText).Scan(&rowJSON); err != nil {
+		"UPDATE public.upgrade SET state = 'rolled_back', error = $2, rolled_back_at = now(), rollback_finish_pending_at = NULL WHERE id = $1 AND "+rollbackFinishPendingSQL+upgradeRowReturning,
+		id, finalError).Scan(&rowJSON); err != nil {
 		return false, fmt.Errorf("write final rolled_back row: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -8962,7 +8973,7 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 				progress.Write("  Recording the successful upgrade in the database ... ok")
 				// Best-effort NOTIFY belt, same shape as the normal-completion
 				// path above.
-				_, _ = d.queryConn.Exec(ctx, `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
+				_ = d.execObserved(ctx, "notify frontend of upgrade change", `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
 				// STATBUS-071 P5: lift the read-only window. This self-heal is the
 				// THIRD completed writer (alongside the applyNewSbUpgrading completion
 				// site and the flagless completeInProgressUpgrade belt), and the crash
@@ -10087,10 +10098,9 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reaso
 	// the cleanup-only discriminator BEFORE reopening SQL or HTTP. From this point
 	// forward, every restart/install path is forbidden from restoring the snapshot
 	// again, so writes accepted after the window lifts cannot be overwritten.
-	pendingFinishErr := rollbackFinishPendingError(errMsg)
 	if !d.writeRollbackTerminal(id,
-		"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+" WHERE id = $3"+upgradeRowReturning,
-		pendingFinishErr, LabelFailedRollbackPendingFinish, attemptsAtCall) {
+		"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2, rollback_finish_pending_at = now()"+terminalBackupPathSQL+" WHERE id = $3"+upgradeRowReturning,
+		errMsg, LabelFailedRollbackPendingFinish, attemptsAtCall) {
 		d.releaseUpgradeFlagLockKeepingFile()
 		progress.Write("Recording rollback finishing state ... failed; maintenance and SQL read-only remain active, and the free recovery marker is kept for reconciliation.")
 		return true
@@ -10969,11 +10979,9 @@ func (d *Service) selfUpdate(ctx context.Context, version string, progress *Prog
 		fmt.Fprintln(os.Stderr, msg)
 		// Record in system_info so admins can see the failure. Best-effort;
 		// the failure is already logged to stderr + progress above regardless.
-		if d.queryConn != nil {
-			_, _ = d.queryConn.Exec(ctx,
-				`INSERT INTO public.system_info (key, value, updated_at) VALUES ('self_update_error', $1, now())
-				 ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = now()`, msg)
-		}
+		_ = d.execObserved(ctx, "selfUpdate: record self_update_error",
+			`INSERT INTO public.system_info (key, value, updated_at) VALUES ('self_update_error', $1, now())
+			 ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = now()`, msg)
 		return
 	}
 

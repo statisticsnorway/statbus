@@ -78,10 +78,10 @@ func TestLiveRollbackFinishing_ExternalWritesReopen(t *testing.T) {
 	var id int
 	if err := d.queryConn.QueryRow(ctx, `
 		INSERT INTO public.upgrade (commit_sha, committed_at, commit_tags, release_status, summary, state,
-		                            scheduled_at, started_at, error, backup_path, log_relative_file_path)
+		                            scheduled_at, started_at, error, backup_path, log_relative_file_path, rollback_finish_pending_at)
 		VALUES ($1, now() - interval '2 days', '{}', 'commit', 'live window probe', 'failed',
-		        now() - interval '1 hour', now() - interval '59 minutes', $2, '/nonexistent/live-window-probe-backup', 'live-window-probe.log')
-		RETURNING id`, sha, rollbackFinishPendingError(ErrGitFetchRetryable+": live window probe")).Scan(&id); err != nil {
+		        now() - interval '1 hour', now() - interval '59 minutes', $2, '/nonexistent/live-window-probe-backup', 'live-window-probe.log', now())
+		RETURNING id`, sha, ErrGitFetchRetryable+": live window probe").Scan(&id); err != nil {
 		t.Fatalf("insert pending row: %v", err)
 	}
 	t.Cleanup(func() {

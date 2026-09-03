@@ -2,7 +2,9 @@ package install
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
@@ -279,26 +281,38 @@ func TestStateString(t *testing.T) {
 	}
 }
 
-func TestParseReattemptableRestoreRowsSkipsRollbackFinishPending(t *testing.T) {
-	out := "12|/backups/already-restored|" + upgrade.RollbackFinishPendingPrefix + "original failure\n" +
-		"9|/backups/restore-broke|database restore failed"
+// TestReattemptableRestoreQueryExcludesPendingByColumn pins STATBUS-347: the
+// cleanup-only rollback row is excluded IN SQL on rollback_finish_pending_at,
+// never by parsing `error` text in Go. A reader that has to recognise a prefix
+// is a reader that can be fooled by a typo; the column cannot.
+func TestReattemptableRestoreQueryExcludesPendingByColumn(t *testing.T) {
+	src, err := os.ReadFile("state.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := extractFuncSource(t, string(src), "func (defaultProbe) QueryReattemptableRestore(")
+	if !strings.Contains(body, "rollback_finish_pending_at IS NULL") {
+		t.Fatal("QueryReattemptableRestore no longer excludes rollback_finish_pending_at rows in SQL; a healthy restored box could be replayed")
+	}
+	if strings.Contains(string(src), "ROLLBACK_FINISH_PENDING") || strings.Contains(string(src), "IsRollbackFinishPendingError") {
+		t.Fatal("state.go still classifies restore-reattemptable rows by error-text prefix")
+	}
+}
+
+func TestParseReattemptableRestoreRowsFirstRowWins(t *testing.T) {
+	out := "12|/backups/restore-broke-newest\n9|/backups/restore-broke-older"
 	id, backupPath, found, err := parseReattemptableRestoreRows(out)
 	if err != nil {
 		t.Fatalf("parseReattemptableRestoreRows: %v", err)
 	}
-	if !found || id != 9 || backupPath != "/backups/restore-broke" {
-		t.Fatalf("got id=%d backup=%q found=%t; want the real restore-broke row", id, backupPath, found)
+	if !found || id != 12 || backupPath != "/backups/restore-broke-newest" {
+		t.Fatalf("got id=%d backup=%q found=%t; want the newest restore-broke row", id, backupPath, found)
 	}
 }
 
-func TestParseReattemptableRestoreRowsOnlyPendingReturnsNone(t *testing.T) {
-	out := "12|/backups/already-restored|" + upgrade.RollbackFinishPendingPrefix + "original failure"
-	_, _, found, err := parseReattemptableRestoreRows(out)
-	if err != nil {
-		t.Fatalf("parseReattemptableRestoreRows: %v", err)
-	}
-	if found {
-		t.Fatal("rollback finishing row was misclassified as a restore to replay")
+func TestParseReattemptableRestoreRowsMalformedIsAnError(t *testing.T) {
+	if _, _, _, err := parseReattemptableRestoreRows("12"); err == nil {
+		t.Fatal("a row without the backup_path column parsed as a valid restore target")
 	}
 }
 
@@ -317,4 +331,21 @@ func TestDetectFreshDefaultProbe(t *testing.T) {
 		t.Errorf("version fields = current=%q target=%q, want both v0.0.0-test",
 			detail.CurrentVersion, detail.TargetVersion)
 	}
+}
+
+// extractFuncSource returns the text of the function whose signature starts
+// with sig, up to the next top-level func. Mirrors the source-inspection
+// helpers in the upgrade package.
+func extractFuncSource(t *testing.T, src, sig string) string {
+	t.Helper()
+	start := strings.Index(src, sig)
+	if start < 0 {
+		t.Fatalf("function %q not found", sig)
+	}
+	rest := src[start+len(sig):]
+	end := strings.Index(rest, "\nfunc ")
+	if end < 0 {
+		return src[start:]
+	}
+	return src[start : start+len(sig)+end]
 }

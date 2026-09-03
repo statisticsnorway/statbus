@@ -188,8 +188,28 @@ func TestPruneDeletedTags_EmptyKeptIsNeverNull(t *testing.T) {
 	if strings.Contains(body, "_, _ = d.queryConn.Exec(ctx,") {
 		t.Error("pruneDeletedTags discards the reconcile UPDATE error; a constraint rejection must be logged, not hidden")
 	}
-	if !strings.Contains(body, "tag reconcile did not land") {
-		t.Error("pruneDeletedTags must log a failed reconcile UPDATE with the row id and intended values")
+	if !strings.Contains(body, "d.execObserved(ctx,") {
+		t.Error("pruneDeletedTags must route its reconcile UPDATE through execObserved so a rejection is on the journal")
+	}
+}
+
+// TestNoDiscardedExecOnTheDaemonConnection is the package-wide form of the
+// pruner lesson: a write whose error is thrown away can be rejected by the
+// schema on every tick forever while the log claims progress. Every fire-and-
+// forget write goes through execObserved, which logs the failure with the
+// statement's purpose. New sites must do the same.
+func TestNoDiscardedExecOnTheDaemonConnection(t *testing.T) {
+	for _, file := range []string{"service.go", "exec.go", "offchannel.go", "migrate_orphan.go"} {
+		src, err := os.ReadFile(file)
+		if err != nil {
+			continue
+		}
+		for i, line := range strings.Split(string(src), "\n") {
+			trimmed := strings.TrimSpace(line)
+			if strings.HasPrefix(trimmed, "_, _ = d.queryConn.Exec(") || strings.HasPrefix(trimmed, "_, _ = tx.Exec(") {
+				t.Errorf("%s:%d discards a write result: %s — use d.execObserved (or handle the error)", file, i+1, trimmed)
+			}
+		}
 	}
 }
 

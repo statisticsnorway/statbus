@@ -533,7 +533,7 @@ func TestRollbackFinishingBlocksEveryNewClaim(t *testing.T) {
 		t.Fatalf("read service.go: %v", err)
 	}
 	body := extractFuncBody(t, string(source), "func (d *Service) claimScheduledUpgrade(")
-	for _, required := range []string{"pg_try_advisory_xact_lock", "RollbackFinishPendingPrefix", "rollbackFinishingID", "refusing to claim upgrade"} {
+	for _, required := range []string{"pg_try_advisory_xact_lock", "rollbackFinishPendingSQL", "rollbackFinishingID", "refusing to claim upgrade"} {
 		if !strings.Contains(body, required) {
 			t.Fatalf("shared claim path does not block rollback finishing; missing %q", required)
 		}
@@ -551,7 +551,7 @@ func TestRollbackHealthyGuidanceFollowsLockRelease(t *testing.T) {
 	body := extractFuncBody(t, string(source), "func (d *Service) restoreAndFinalize(")
 	terminal := strings.Index(body, "LabelFailedRollbackPendingFinish")
 	failedState := strings.Index(body, `"UPDATE public.upgrade SET state = 'failed', error = $1`)
-	pendingMarker := strings.Index(body, "rollbackFinishPendingError(errMsg)")
+	pendingMarker := strings.Index(body, "rollback_finish_pending_at = now()")
 	readOnly := strings.Index(body, `d.liftReadOnlyWindow("rollback completion")`)
 	maintenance := strings.Index(body, `d.setMaintenance(false, "")`)
 	finalize := strings.Index(body, "d.finalizePendingRollback(ctx, id, LabelRolledBackNormal)")
@@ -560,7 +560,7 @@ func TestRollbackHealthyGuidanceFollowsLockRelease(t *testing.T) {
 		t.Fatal("rollback may expose writes or claim completion before durable cleanup-only finalization")
 	}
 	finalizer := extractFuncBody(t, string(source), "func (d *Service) finalizePendingRollback(")
-	for _, required := range []string{"RollbackFinishPendingPrefix", "rollbackFinalError(strings.TrimPrefix", "pg_try_advisory_xact_lock", "d.clearRollbackFinishFlag(id)", "FOR UPDATE"} {
+	for _, required := range []string{"rollbackFinishPendingSQL", "rollbackFinalError(errorText)", "rollback_finish_pending_at = NULL", "pg_try_advisory_xact_lock", "d.clearRollbackFinishFlag(id)", "FOR UPDATE"} {
 		if !strings.Contains(finalizer, required) {
 			t.Fatalf("pending rollback finalizer omitted %q", required)
 		}
