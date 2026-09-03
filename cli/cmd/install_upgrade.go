@@ -89,14 +89,38 @@ func runInlineUpgradeScheduled(projDir string, detail *install.Detail) error {
 // prior rollback's DB restore broke (row state='failed' with a retained
 // backup_path), so the operator's `./sb install` REPLAYS the interrupted
 // restore rather than dead-ending at the idempotent step-table. Human-gated by
-// construction — only this ladder reaches the state; the systemd service's
-// flag-based recovery is inert (the restore-broke terminal removed the flag).
+// construction — only this ladder originates the replay because the restore-
+// broke terminal removed the old marker. After the row is re-authorized under
+// both locks, the replay writes a new marker so a crash in that already-
+// authorized attempt remains recoverable.
 //
 // It prints the operator LEGEND/FORECAST (STATBUS-111 Part 2): what happened,
 // what is being done, and — on success — the forward path (report + try a LATER
 // release; NEVER re-schedule the same version, a hard failure repeats).
 func runInlineRestoreReattempt(projDir string, detail *install.Detail) error {
 	ctx := context.Background()
+
+	// The daemon owns a session-level advisory lock for its lifetime. Quiesce
+	// the unit before ReattemptRestore takes the conflicting transaction lock
+	// used by claimScheduledUpgrade. This is serialization setup, before any
+	// app/worker/rest/db stop. A concurrent second install may run the same
+	// quiesce, but it loses the replay-marker flock below; its defer must not
+	// restart the daemon while the winning install still owns that flock.
+	var restartIfEnabled func()
+	if runtime.GOOS == "linux" {
+		instance := serviceInstance(projDir)
+		if instance != "" {
+			restartIfEnabled = stopRestartUpgradeUnit(projDir, instance)
+			defer func() {
+				if upgrade.IsFlockHeld(projDir) {
+					fmt.Printf("Restore re-attempt: another install still owns the upgrade flock; leaving %s stopped for that owner to restart.\n", instance)
+					return
+				}
+				restartIfEnabled()
+			}()
+		}
+	}
+
 	svc := upgrade.NewService(projDir, true /* verbose */, version, commit)
 	defer svc.Close()
 	if runtime.GOOS == "linux" {
@@ -111,7 +135,7 @@ func runInlineRestoreReattempt(projDir string, detail *install.Detail) error {
 		"Re-attempting the restore from the retained snapshot (this is what `./sb install` does here)...\n",
 		detail.ReattemptRowID)
 
-	if err := svc.ReattemptRestore(ctx, detail.ReattemptRowID, detail.ReattemptBackupPath); err != nil {
+	if err := svc.ReattemptRestore(ctx, detail.ReattemptRowID); err != nil {
 		// FORECAST (degraded): the restore failed again — actionable next step.
 		return fmt.Errorf("%w\n\n"+
 			"  The database restore could not be completed; the system is still degraded.\n"+

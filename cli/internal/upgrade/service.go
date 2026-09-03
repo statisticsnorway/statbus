@@ -631,6 +631,55 @@ func acquireFlock(projDir string, flag UpgradeFlag) (*FlagLock, error) {
 	return &FlagLock{file: f}, nil
 }
 
+// acquireFreshFlock creates and locks a NEW marker, refusing to overwrite any
+// path that appeared after the caller's earlier state classification. It is for
+// operations which legitimately originate new durable intent rather than
+// recovering an existing marker. The restore-broke reattempt is one such
+// operation: the old marker was deliberately removed to enforce the human gate,
+// and `./sb install` creates a new replay claim after the operator authorizes it.
+func acquireFreshFlock(projDir string, flag UpgradeFlag) (*FlagLock, error) {
+	data, err := json.MarshalIndent(flag, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("marshal fresh flag: %w", err)
+	}
+	if err := os.MkdirAll(filepath.Join(projDir, "tmp"), 0o755); err != nil {
+		return nil, fmt.Errorf("mkdir tmp: %w", err)
+	}
+	path := flagFilePath(projDir)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0o644)
+	if err != nil {
+		if os.IsExist(err) {
+			existing, readErr := ReadFlagFile(projDir)
+			if readErr != nil {
+				return nil, fmt.Errorf("refusing fresh marker claim because %s already exists and is unreadable: %w", path, readErr)
+			}
+			if existing != nil {
+				return nil, fmt.Errorf("refusing fresh marker claim because %s already records upgrade %d phase %q (holder=%s); re-detect state instead of overwriting durable intent", path, existing.ID, existing.Phase, existing.Holder)
+			}
+			return nil, fmt.Errorf("refusing fresh marker claim because %s already exists", path)
+		}
+		return nil, fmt.Errorf("create fresh flag: %w", err)
+	}
+	removeOnError := func(cause error) (*FlagLock, error) {
+		// Unlink while our fd still holds the flock. Closing first would open a
+		// check-then-remove window where another actor could replace the path and
+		// have its new marker removed by this cleanup.
+		_ = os.Remove(path)
+		_ = f.Close()
+		return nil, cause
+	}
+	if lerr := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); lerr != nil {
+		return removeOnError(fmt.Errorf("lock fresh flag: %w", lerr))
+	}
+	if _, err := f.Write(data); err != nil {
+		return removeOnError(fmt.Errorf("write fresh flag: %w", err))
+	}
+	if err := f.Sync(); err != nil {
+		return removeOnError(fmt.Errorf("sync fresh flag: %w", err))
+	}
+	return &FlagLock{file: f}, nil
+}
+
 // acquireRecoveryFlock acquires an EXISTING recovery marker without ever
 // creating or rewriting it. Recovery callers classified this marker before
 // reaching the destructive path, so winning the mutex is not itself
@@ -9910,8 +9959,8 @@ func (d *Service) flagSourcedBackupPath() (*string, string) {
 // volume rewind:
 //
 //	$4 IS NULL   → the identity is UNKNOWN (no readable flag): keep whatever the
-//	               row holds. Never guess NULL; the flagless STATBUS-111 replay
-//	               path lands here with a live identity that must survive.
+//	               row holds. Never guess NULL; a legacy/manually-lost marker can
+//	               still coincide with a live row identity that must survive.
 //	$4 = ''      → the flag says NOTHING MOVED (PreSwap): impose SQL NULL, so a
 //	               rewind cannot resurrect a stale identity onto a route whose
 //	               whole contract is that it has none.
@@ -9957,10 +10006,10 @@ const terminalBackupPathSQL = `, backup_path = CASE WHEN $4::text IS NULL THEN b
 //   - flag readable, path empty  → impose SQL NULL explicitly (PreSwap: the
 //     absence is a fact about the world, and imposing it defends the arcs'
 //     "nothing moved ⇒ no identity" contract against a rewind resurrecting one)
-//   - flag NOT readable          → LEAVE THE COLUMN ALONE. This is not
-//     hypothetical: STATBUS-111's human-gated replay reaches restoreAndFinalize
-//     with NO flag (the restore-broke terminal removed it), and imposing NULL
-//     there would erase a live identity that reconcileBackupDir still needs.
+//   - flag NOT readable          → LEAVE THE COLUMN ALONE. The current
+//     STATBUS-111 replay creates an authorized marker before restoring, but this
+//     branch remains the fail-safe for a legacy or manually-lost marker: imposing
+//     NULL would erase a live identity that reconcileBackupDir still needs.
 //
 // Every updateSQL passed here MUST therefore carry the backup_path CASE on $4
 // exactly as the four call sites do, or the re-impose is a silent no-op in the
@@ -9969,9 +10018,9 @@ func (d *Service) writeRollbackTerminal(id int, updateSQL, errMsg, label string,
 	flagBackupPath, flagSource := d.flagSourcedBackupPath()
 	if flagBackupPath == nil {
 		// Loud, because it means the terminal row keeps whatever the rewind left
-		// there — correct on the flagless replay path, worth seeing anywhere else.
+		// there — safer than guessing NULL when the marker is unavailable.
 		fmt.Fprintf(os.Stderr,
-			"writeRollbackTerminal: no flag-sourced backup identity available (%s) for id=%d label=%s — leaving public.upgrade.backup_path AS-IS (STATBUS-241: imposing NULL here would erase a live identity on the flagless STATBUS-111 replay path)\n",
+			"writeRollbackTerminal: no flag-sourced backup identity available (%s) for id=%d label=%s — leaving public.upgrade.backup_path AS-IS (STATBUS-241: imposing NULL on unknown identity could erase a live restore source)\n",
 			flagSource, id, label)
 	}
 	rowJSON, err := d.terminalUpdate(updateSQL, errMsg, attempts, id, flagBackupPath)
@@ -10258,34 +10307,114 @@ const preRestoreStopVerifyBudget = 30 * time.Second
 //     old version). The caller prints the success + forecast line.
 //   - error → the restore degraded again (row stays failed); actionable error.
 //
-// Human-gated (AC#2): this runs ONLY from the install ladder. The systemd
-// service's RecoverFromFlag keys on the flag file, which the restore-broke path
-// removed — so the service never auto-re-attempts (no StartLimit thrash).
-// Caller must have a connected d.queryConn (LoadConfigAndConnect).
-func (d *Service) ReattemptRestore(ctx context.Context, rowID int64, backupPath string) error {
-	// Load the row's commit label for the callback + progress continuity, AND
-	// its recovery_attempts (STATBUS-181). Runs before the db stop below — the
-	// restore-broke box has the DB reachable. recovery_attempts must be
-	// captured HERE, in memory, because restoreAndFinalize's restoreDatabase
-	// rewinds the volume to the pre-upgrade snapshot (attempts=0 there); the
-	// terminal UPDATE that follows only re-imposes state/error/timestamps, so
-	// without this capture the audit-trail value is silently erased by the
-	// volume rewind (found live, arc run 29325230294: 3 → 0).
+// Human-gated (AC#2): only the install ladder may ORIGINATE this replay. The
+// restore-broke terminal removed the original marker, so the daemon has no
+// durable authorization to start another attempt by itself. Once this method
+// has acquired both mutexes and re-authorized the failed row, it deliberately
+// creates a recovery-capable marker: a crash in an already-authorized replay may
+// be resumed, but no replay starts until an operator first runs `./sb install`.
+// Caller must have a connected d.queryConn (LoadConfigAndConnect) and must
+// quiesce the systemd upgrade unit before entry. The method itself serializes
+// against a second install with the filesystem flock and proves the daemon is
+// absent with the same advisory transaction lock claimScheduledUpgrade uses.
+func (d *Service) ReattemptRestore(ctx context.Context, rowID int64) error {
+	if d.flagLock != nil {
+		return fmt.Errorf("ReattemptRestore: upgrade flock is already held in this process; refusing a second restore replay claim for row %d", rowID)
+	}
+
+	// The restore-broke terminal deliberately removed the original marker so
+	// no daemon could auto-thrash the snapshot. This operator invocation is a
+	// NEW replay claim, so it legitimately creates a marker. Start it as an
+	// install-held, pre-authorization marker: a crash before the durable row
+	// check below is harmless stale-install cleanup, not permission to restore.
+	tentative := UpgradeFlag{
+		ID:        int(rowID),
+		StartedAt: time.Now(),
+		InvokedBy: "operator:restore-reattempt-authorization",
+		Trigger:   "install-cli",
+		Holder:    HolderInstall,
+	}
+	lock, lockErr := acquireFreshFlock(d.projDir, tentative)
+	if lockErr != nil {
+		return fmt.Errorf("ReattemptRestore: acquire fresh replay marker for row %d: %w", rowID, lockErr)
+	}
+	d.flagLock = lock
+	removeTentativeMarker := true
+	defer func() {
+		if removeTentativeMarker {
+			if err := d.removeUpgradeFlag(); err != nil {
+				log.Printf("ReattemptRestore: could not remove the pre-restore replay marker for row %d after refusing/aborting authorization: %v", rowID, err)
+			}
+		}
+	}()
+
+	// Claim authorization from durable state under the SAME transaction lock
+	// used by claimScheduledUpgrade. The daemon's session-level lock conflicts
+	// with this xact lock; a second install already lost the fresh-marker flock.
+	// Nothing in the data-plane is stopped until both locks are held and the row
+	// has been re-read FOR UPDATE with the complete reattemptable predicate.
+	tx, txErr := d.queryConn.Begin(ctx)
+	if txErr != nil {
+		return fmt.Errorf("ReattemptRestore: begin authorization transaction for row %d: %w", rowID, txErr)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var advisoryLockHeld bool
+	if err := tx.QueryRow(ctx, "SELECT pg_try_advisory_xact_lock(hashtext('upgrade_daemon'))").Scan(&advisoryLockHeld); err != nil {
+		return fmt.Errorf("ReattemptRestore: acquire upgrade transaction lock for row %d: %w", rowID, err)
+	}
+	if !advisoryLockHeld {
+		return fmt.Errorf("ReattemptRestore: refusing row %d because a running upgrade daemon owns the upgrade lock; stop/quiesce it and re-run ./sb install", rowID)
+	}
+
+	// Capture the commit label, snapshot identity, log, and recovery_attempts
+	// from the locked row. restoreDatabase rewinds the latter to the old
+	// snapshot value, so restoreAndFinalize must re-impose the value read here.
 	var commitSHA, commitVersion sql.NullString
 	var attemptsAtCall int
-	if err := d.queryConn.QueryRow(ctx,
-		"SELECT commit_sha, commit_version, recovery_attempts FROM public.upgrade WHERE id = $1", rowID).
-		Scan(&commitSHA, &commitVersion, &attemptsAtCall); err != nil {
-		return fmt.Errorf("ReattemptRestore: cannot load upgrade %d: %w", rowID, err)
+	var backupPath, logRelPath string
+	if err := tx.QueryRow(ctx, `
+		SELECT commit_sha, commit_version, recovery_attempts, backup_path,
+		       COALESCE(log_relative_file_path, '')
+		  FROM public.upgrade
+		 WHERE id = $1
+		   AND state = 'failed'
+		   AND backup_path IS NOT NULL
+		   AND rollback_finish_pending_at IS NULL
+		 FOR UPDATE`, rowID).
+		Scan(&commitSHA, &commitVersion, &attemptsAtCall, &backupPath, &logRelPath); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("ReattemptRestore: upgrade %d is no longer re-attemptable (requires state='failed', backup_path IS NOT NULL, rollback_finish_pending_at IS NULL); refusing stale install authorization", rowID)
+		}
+		return fmt.Errorf("ReattemptRestore: cannot lock and authorize upgrade %d: %w", rowID, err)
 	}
 	displayName := commitVersion.String
 	if displayName == "" {
 		displayName = renderDisplayName(CommitSHA(commitSHA.String), nil)
 	}
 
+	// Authorization succeeded. Rewrite the held tentative marker in place to a
+	// service recovery marker carrying the durable row identity.
+	// PhaseNewSbUpgrading is intentional: a crash after this point has an actual
+	// snapshot replay to finish, so RecoverFromFlag may roll back from this exact
+	// backup rather than treating the operator's replay as pre-swap intent.
+	authorizedBackupPath := backupPath
+	if err := d.mutateHeldFlag(func(flag *UpgradeFlag) {
+		flag.CommitSHA = commitSHA.String
+		flag.InvokedBy = "operator:restore-reattempt"
+		flag.Trigger = "install-cli"
+		flag.Holder = HolderService
+		flag.Phase = PhaseNewSbUpgrading
+		flag.BackupPath = authorizedBackupPath
+	}); err != nil {
+		return fmt.Errorf("ReattemptRestore: persist authorized replay marker for row %d: %w", rowID, err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("ReattemptRestore: commit authorization for row %d: %w", rowID, err)
+	}
+
 	// Append to the row's log so the restore narrative stays continuous; fall
 	// through to a fresh log if the original is gone.
-	progress := AppendProgressLog(d.projDir, d.loadLogRelPath(ctx, rowID))
+	progress := AppendProgressLog(d.projDir, logRelPath)
 	if progress == nil {
 		progress = NewUpgradeLog(d.projDir, rowID, displayName, time.Now().UTC())
 	}
@@ -10333,6 +10462,10 @@ func (d *Service) ReattemptRestore(ctx context.Context, rowID int64, backupPath 
 		return fmt.Errorf("%s: %w", ErrRollbackServicesNotStopped, err)
 	}
 
+	// From here onward the authorized service-held marker belongs to the restore
+	// tail. restoreAndFinalize removes it on a landed terminal/finalization write
+	// or deliberately keeps it for recovery if that durable write fails.
+	removeTentativeMarker = false
 	reason := fmt.Sprintf("operator re-attempt of the interrupted restore for %s", displayName)
 	if degraded := d.restoreAndFinalize(ctx, int(rowID), displayName, reason, backupPath, attemptsAtCall, progress); degraded {
 		return fmt.Errorf("%s: the database restore did not complete — the system remains degraded; contact SSB support and involve your IT staff", ErrRollbackDBRestore)

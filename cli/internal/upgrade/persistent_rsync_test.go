@@ -357,12 +357,12 @@ func TestH2_BackupDatabaseSingleCallSiteNotInResume(t *testing.T) {
 	}
 }
 
-// TestH2_FlagBackupPathSetOnlyAtNewSbSwapped pins HYP3: flag.BackupPath is populated
-// only at post_swap (updateFlagNewSbSwapped), AFTER the backup succeeds — so a kill
-// during the INITIAL rsync (syncing exists, no active, flag NOT yet post_swap)
-// leaves a flag that never references an absent active, and recovery never tries
-// to restore from one. Structurally: only updateFlagNewSbSwapped assigns
-// flag.BackupPath, and it sets Phase = PhaseNewSbSwapped in the same function.
+// TestH2_FlagBackupPathSetOnlyAtNewSbSwapped pins HYP3: the normal upgrade path
+// populates flag.BackupPath only at post_swap (updateFlagNewSbSwapped), AFTER the
+// backup succeeds — so a kill during the INITIAL rsync leaves no recorded restore
+// identity. The one exception is ReattemptRestore: it starts from a durable failed
+// row whose non-NULL backup_path is the whole human-authorized replay premise, and
+// pairs that identity with PhaseNewSbUpgrading in the same held-marker rewrite.
 func TestH2_FlagBackupPathSetOnlyAtNewSbSwapped(t *testing.T) {
 	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
 	if err != nil {
@@ -370,10 +370,12 @@ func TestH2_FlagBackupPathSetOnlyAtNewSbSwapped(t *testing.T) {
 	}
 	s := string(src)
 
-	// The only assignment to the BackupPath field is in updateFlagNewSbSwapped.
-	if n := strings.Count(s, "flag.BackupPath ="); n != 1 {
-		t.Errorf("flag.BackupPath must be assigned in exactly ONE place (updateFlagNewSbSwapped, at post_swap); found %d assignments. "+
-			"Setting it earlier (pre-backup) would let recovery reference an active that a killed initial rsync never produced (H2/HYP3).", n)
+	// Exactly two assignments: the original post-swap stamp and the separately
+	// authorized restore-broke replay. Any third site must explain which durable
+	// snapshot identity authorizes it and prove the phase is post-swap.
+	if n := strings.Count(s, "flag.BackupPath ="); n != 2 {
+		t.Errorf("flag.BackupPath must have exactly TWO accounted writers (new-sb swap + authorized restore reattempt); found %d. "+
+			"An unaccounted pre-backup writer could make recovery reference a snapshot the initial rsync never produced (H2/HYP3).", n)
 	}
 	body := extractFuncBody(t, s, "func (d *Service) updateFlagNewSbSwapped(")
 	if !strings.Contains(body, "flag.BackupPath =") {
@@ -381,5 +383,9 @@ func TestH2_FlagBackupPathSetOnlyAtNewSbSwapped(t *testing.T) {
 	}
 	if !strings.Contains(body, "PhaseNewSbSwapped") {
 		t.Error("updateFlagNewSbSwapped must set Phase = PhaseNewSbSwapped alongside BackupPath — the two must move together so a pre-post_swap kill never references active")
+	}
+	reattempt := extractFuncBody(t, s, "func (d *Service) ReattemptRestore(")
+	if !strings.Contains(reattempt, "flag.BackupPath = authorizedBackupPath") || !strings.Contains(reattempt, "flag.Phase = PhaseNewSbUpgrading") {
+		t.Error("ReattemptRestore's snapshot identity must be paired with PhaseNewSbUpgrading in the same held-marker authorization rewrite")
 	}
 }

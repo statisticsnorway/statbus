@@ -65,8 +65,8 @@ func flagServiceWithBackupPath(t *testing.T, backupPath string, holdIt bool) *Se
 // TestFlagSourcedBackupPath_ThreeStates_STATBUS241 is the behavioural arm. The
 // three states must stay DISTINCT: "unknown" is not "empty". Collapsing them —
 // the obvious simplification, e.g. returning "" when no flag is readable — would
-// make the terminal write impose NULL on the flagless STATBUS-111 replay path
-// and erase a live identity that reconcileBackupDir still needs.
+// make the terminal write impose NULL when a legacy/manually-lost marker leaves
+// the identity unknown, erasing a live restore source reconcileBackupDir needs.
 func TestFlagSourcedBackupPath_ThreeStates_STATBUS241(t *testing.T) {
 	t.Run("held flag with an identity: imposed", func(t *testing.T) {
 		d := flagServiceWithBackupPath(t, "/home/statbus/statbus/tmp/pre-upgrade-active", true)
@@ -102,7 +102,7 @@ func TestFlagSourcedBackupPath_ThreeStates_STATBUS241(t *testing.T) {
 		d := &Service{projDir: t.TempDir()}
 		got, src := d.flagSourcedBackupPath()
 		if got != nil {
-			t.Fatalf("with no readable flag the answer must be UNKNOWN (nil) so the terminal write leaves backup_path as-is; got %q (source=%q). Returning \"\" here would erase the identity on STATBUS-111's flagless replay path", *got, src)
+			t.Fatalf("with no readable flag the answer must be UNKNOWN (nil) so the terminal write leaves backup_path as-is; got %q (source=%q). Returning \"\" here could erase a live identity after a legacy/manually-lost marker", *got, src)
 		}
 	})
 }
