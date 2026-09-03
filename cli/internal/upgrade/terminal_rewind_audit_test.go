@@ -122,17 +122,10 @@ var rewindAudit = map[siteKey]rewindDisposition{
 
 	// ── B. SUPERSEDED BY THE TERMINAL WRITE ITSELF ──
 	{"cli/internal/upgrade/service.go", "UPDATE", "backup_path,error,recovery_attempts,state"}: {
-		Class: classSupersededByTerminal, Count: 4,
-		Why: "THE TERMINAL WRITES THEMSELVES (the four degraded 'failed' tiers). They run AFTER the " +
-			"rewind and are the superseding write — this is the site that re-imposes, not a site " +
-			"needing re-imposition.",
-	},
-	{"cli/internal/upgrade/service.go", "UPDATE", "backup_path,error,recovery_attempts,rollback_finish_pending_at,state"}: {
-		Class: classSupersededByTerminal, Count: 1,
-		Why: "STATBUS-347: the cleanup-only rollback write. It runs AFTER the rewind, once the restore and " +
-			"service health are confirmed and BEFORE SQL/HTTP reopen, and it is the write that SETS " +
-			"rollback_finish_pending_at (a column the schema constrains to state='failed'). Nothing earlier " +
-			"writes that column, so there is no rewound value to lose; this site establishes it.",
+		Class: classSupersededByTerminal, Count: 5,
+		Why: "THE TERMINAL WRITES THEMSELVES (the four degraded 'failed' tiers plus the conservative " +
+			"failed-before-lock-release rollback write). They run AFTER the rewind and are " +
+			"the superseding write — this is the site that re-imposes, not a site needing re-imposition.",
 	},
 	{"cli/internal/upgrade/service.go", "UPDATE", "error"}: {
 		Class: classSupersededByTerminal, Count: 1,
@@ -144,14 +137,12 @@ var rewindAudit = map[siteKey]rewindDisposition{
 		Class: classSupersededByTerminal, Count: 1,
 		Why: "completeInProgressUpgrade's observed-state failure sets state+error itself after the rewind, " +
 			"so it cannot be rewound by the rollback it finishes. The former stale-lock rewrite was removed: " +
-			"rollback marker cleanup now retains rollback_finish_pending_at until unlink succeeds.",
+			"rollback marker cleanup now retains ROLLBACK_FINISH_PENDING until unlink succeeds.",
 	},
-	{"cli/internal/upgrade/service.go", "UPDATE", "error,rollback_finish_pending_at,rolled_back_at,state"}: {
+	{"cli/internal/upgrade/service.go", "UPDATE", "error,rolled_back_at,state"}: {
 		Class: classSupersededByTerminal, Count: 1,
 		Why: "The single serialized rolled_back transition serves both the live path and startup/heartbeat retry. " +
-			"It runs after the rewind and marker cleanup while holding the pending row lock, and clears " +
-			"rollback_finish_pending_at in the SAME statement that writes rolled_back (the CHECK forbids " +
-			"pending on rolled_back, so a partial write is impossible). Establishes the healthy terminal contract.",
+			"It runs after the rewind and marker cleanup while holding the pending row lock, establishing the healthy terminal contract.",
 	},
 	{"cli/internal/upgrade/service.go", "UPDATE", "error,scheduled_at,state"}: {
 		Class: classSupersededByTerminal, Count: 1,

@@ -12,8 +12,8 @@ import (
 
 // TestLiveExecObserved_ConstraintRejectionIsOnTheJournal proves the sweep's
 // helper does what the pruner's swallowed Exec did not: a write the REAL schema
-// refuses (here: rollback_finish_pending_at on an in_progress row, forbidden by
-// chk_upgrade_rollback_finish_pending_requires_failed) produces a journal line
+// refuses (here: recovery_parked_at on a scheduled row, forbidden by
+// chk_upgrade_parked_requires_in_progress) produces a journal line
 // naming the purpose, the arguments and the constraint, and a zero-row UPDATE
 // says so rather than passing as success.
 //
@@ -41,8 +41,8 @@ func TestLiveExecObserved_ConstraintRejectionIsOnTheJournal(t *testing.T) {
 	const sha = "3470000000000000000000000000000000000081"
 	var id int
 	if err := d.queryConn.QueryRow(ctx, `
-		INSERT INTO public.upgrade (commit_sha, committed_at, commit_tags, release_status, summary, state, scheduled_at, started_at)
-		VALUES ($1, now(), '{}', 'commit', 'execObserved probe', 'in_progress', now(), now()) RETURNING id`, sha).Scan(&id); err != nil {
+		INSERT INTO public.upgrade (commit_sha, committed_at, commit_tags, release_status, summary, state, scheduled_at)
+		VALUES ($1, now(), '{}', 'commit', 'execObserved probe', 'scheduled', now()) RETURNING id`, sha).Scan(&id); err != nil {
 		t.Fatal(err)
 	}
 
@@ -55,19 +55,19 @@ func TestLiveExecObserved_ConstraintRejectionIsOnTheJournal(t *testing.T) {
 	if _, err := d.queryConn.Exec(ctx, "SAVEPOINT probe"); err != nil {
 		t.Fatal(err)
 	}
-	err := d.execObserved(ctx, "probe: set pending on in_progress",
-		"UPDATE public.upgrade SET rollback_finish_pending_at = now() WHERE id = $1", id)
+	err := d.execObserved(ctx, "probe: park scheduled row",
+		"UPDATE public.upgrade SET recovery_parked_at = now() WHERE id = $1", id)
 	if err == nil {
 		t.Fatal("execObserved returned nil for a write the CHECK constraint must refuse")
 	}
-	if !strings.Contains(err.Error(), "chk_upgrade_rollback_finish_pending_requires_failed") {
+	if !strings.Contains(err.Error(), "chk_upgrade_parked_requires_in_progress") {
 		t.Fatalf("returned error does not name the constraint: %v", err)
 	}
 	if _, err := d.queryConn.Exec(ctx, "ROLLBACK TO SAVEPOINT probe"); err != nil {
 		t.Fatal(err)
 	}
 	line := journal.String()
-	for _, want := range []string{"probe: set pending on in_progress", "write did not land", "chk_upgrade_rollback_finish_pending_requires_failed", "args=["} {
+	for _, want := range []string{"probe: park scheduled row", "write did not land", "chk_upgrade_parked_requires_in_progress", "args=["} {
 		if !strings.Contains(line, want) {
 			t.Errorf("journal lacks %q:\n%s", want, line)
 		}

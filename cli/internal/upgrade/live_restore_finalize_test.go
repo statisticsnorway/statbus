@@ -11,7 +11,7 @@ import (
 )
 
 // TestLiveRestoreAndFinalize_HealthyTail drives the REAL restoreAndFinalize,
-// the function that sets rollback_finish_pending_at and then finishes, on the
+// the function that writes ROLLBACK_FINISH_PENDING and then finishes, on the
 // real database with a real held marker. Every docker invocation is answered
 // by a shim `docker` placed first on PATH (compose stop/up succeed, `compose
 // exec db pg_isready` reports healthy), so the box's real containers are never
@@ -147,14 +147,14 @@ esac
 
 	// The boundaries, observed.
 	var state, errText string
-	var rolledBackAt, pendingAt *time.Time
-	if err := d.queryConn.QueryRow(ctx, "SELECT state::text, error, rolled_back_at, rollback_finish_pending_at FROM public.upgrade WHERE id = $1", id).Scan(&state, &errText, &rolledBackAt, &pendingAt); err != nil {
+	var rolledBackAt *time.Time
+	if err := d.queryConn.QueryRow(ctx, "SELECT state::text, error, rolled_back_at FROM public.upgrade WHERE id = $1", id).Scan(&state, &errText, &rolledBackAt); err != nil {
 		t.Fatal(err)
 	}
-	if state != "rolled_back" || rolledBackAt == nil || pendingAt != nil {
-		t.Errorf("row: state=%s rolled_back_at=%v pending=%v; want rolled_back, stamped, pending cleared (error=%q)", state, rolledBackAt, pendingAt, errText)
+	if state != "rolled_back" || rolledBackAt == nil {
+		t.Errorf("row: state=%s rolled_back_at=%v; want rolled_back with a timestamp (error=%q)", state, rolledBackAt, errText)
 	}
-	if !strings.Contains(errText, "safe to schedule this same version again") {
+	if strings.HasPrefix(errText, RollbackFinishPendingPrefix) || !strings.Contains(errText, "safe to schedule this same version again") {
 		t.Errorf("final guidance wrong: %q", errText)
 	}
 	if _, err := os.Stat(flagFilePath(projDir)); !os.IsNotExist(err) {

@@ -13,7 +13,7 @@ import (
 // TestLiveRestoreAndFinalize_UnlinkFailureThenRecovery is the crash-shaped
 // twin: the real restoreAndFinalize succeeds at every boundary EXCEPT the
 // final marker unlink (injected through the removeFile seam), so it must NOT
-// claim completion. Expected: the row stays failed with rollback_finish_pending_at set, SQL and
+// claim completion. Expected: the row stays ROLLBACK_FINISH_PENDING, SQL and
 // HTTP are already reopened (the window was lifted before finishing, and it
 // is safe: no path may restore again), the flock is released while the
 // marker survives on disk (the crashed-recovery shape), and a later
@@ -112,15 +112,11 @@ func TestLiveRestoreAndFinalize_UnlinkFailureThenRecovery(t *testing.T) {
 	}
 	// Half-open by design: SQL and HTTP are reopened (safe: the pending row forbids any restore).
 	var state, errText string
-	var pendingAt *time.Time
-	if err := d.queryConn.QueryRow(ctx, "SELECT state::text, error, rollback_finish_pending_at FROM public.upgrade WHERE id = $1", id).Scan(&state, &errText, &pendingAt); err != nil {
+	if err := d.queryConn.QueryRow(ctx, "SELECT state::text, error FROM public.upgrade WHERE id = $1", id).Scan(&state, &errText); err != nil {
 		t.Fatal(err)
 	}
-	if state != "failed" || pendingAt == nil {
-		t.Fatalf("row after unlink failure: state=%s pending=%v error=%q; want failed with rollback_finish_pending_at set", state, pendingAt, errText)
-	}
-	if strings.Contains(errText, "ROLLBACK_FINISH_PENDING") {
-		t.Fatalf("error text still carries the retired prefix: %q", errText)
+	if state != "failed" || !strings.HasPrefix(errText, RollbackFinishPendingPrefix) {
+		t.Fatalf("row after unlink failure: state=%s error=%q; want failed + ROLLBACK_FINISH_PENDING", state, errText)
 	}
 	if _, err := os.Stat(flagFilePath(projDir)); err != nil {
 		t.Fatalf("marker must survive the failed unlink: %v", err)

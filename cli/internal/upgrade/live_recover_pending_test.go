@@ -14,7 +14,7 @@ import (
 // both call (RecoverFromFlag), against the REAL local database and a REAL
 // service-held marker on disk, in the most dangerous shape: a PreSwap-phase
 // marker (which recovery would otherwise roll back UNCONDITIONALLY) whose row
-// has rollback_finish_pending_at set. Expected: cleanup-only — marker removed, row
+// is ROLLBACK_FINISH_PENDING. Expected: cleanup-only — marker removed, row
 // rolled_back, no restore attempted, RecoverFromFlag returns nil.
 //
 // The restore path is made observable by pointing backup_path at a directory
@@ -40,12 +40,13 @@ func TestLiveRecoverFromFlag_PendingRollbackNeverRestores(t *testing.T) {
 
 	const sha = "3470000000000000000000000000000000000011"
 	var id int
+	pendingErr := rollbackFinishPendingError(ErrGitFetchRetryable + ": live recover probe")
 	if err := d.queryConn.QueryRow(ctx, `
 		INSERT INTO public.upgrade (commit_sha, committed_at, commit_tags, release_status, summary, state,
-		                            scheduled_at, started_at, error, backup_path, log_relative_file_path, rollback_finish_pending_at)
+		                            scheduled_at, started_at, error, backup_path, log_relative_file_path)
 		VALUES ($1, now() - interval '2 days', '{}', 'commit', 'live recover probe', 'failed',
-		        now() - interval '1 hour', now() - interval '59 minutes', $2, '/nonexistent/live-recover-probe-backup', 'live-recover-probe.log', now())
-		RETURNING id`, sha, ErrGitFetchRetryable+": live recover probe").Scan(&id); err != nil {
+		        now() - interval '1 hour', now() - interval '59 minutes', $2, '/nonexistent/live-recover-probe-backup', 'live-recover-probe.log')
+		RETURNING id`, sha, pendingErr).Scan(&id); err != nil {
 		t.Fatalf("insert pending row: %v", err)
 	}
 	t.Cleanup(func() {
@@ -92,14 +93,13 @@ func TestLiveRecoverFromFlag_PendingRollbackNeverRestores(t *testing.T) {
 		t.Errorf("marker still on disk after cleanup-only recovery: %v", err)
 	}
 	var state, errText string
-	var pendingAt *time.Time
-	if err := d.queryConn.QueryRow(ctx, "SELECT state::text, error, rollback_finish_pending_at FROM public.upgrade WHERE id = $1", id).Scan(&state, &errText, &pendingAt); err != nil {
+	if err := d.queryConn.QueryRow(ctx, "SELECT state::text, error FROM public.upgrade WHERE id = $1", id).Scan(&state, &errText); err != nil {
 		t.Fatal(err)
 	}
-	if state != "rolled_back" || pendingAt != nil {
-		t.Errorf("row state=%s pending=%v, want rolled_back with pending cleared; error=%q", state, pendingAt, errText)
+	if state != "rolled_back" {
+		t.Errorf("row state = %s, want rolled_back; error=%q", state, errText)
 	}
-	if strings.Contains(errText, "ROLLBACK INCOMPLETE") {
+	if strings.Contains(errText, "ROLLBACK INCOMPLETE") || strings.HasPrefix(errText, RollbackFinishPendingPrefix) {
 		t.Errorf("row error is not the healthy final guidance: %q", errText)
 	}
 }

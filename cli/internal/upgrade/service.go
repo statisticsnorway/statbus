@@ -6365,7 +6365,11 @@ func (d *Service) claimScheduledUpgrade(ctx context.Context, id int) (scheduledU
 	// commit between this decision and the claim below.
 	var rollbackFinishingID int
 	rollbackFinishingErr := tx.QueryRow(ctx,
-		`SELECT id FROM public.upgrade WHERE `+rollbackFinishPendingSQL+` ORDER BY id LIMIT 1`).Scan(&rollbackFinishingID)
+		`SELECT id
+		   FROM public.upgrade
+		  WHERE state = 'failed' AND starts_with(error, $1)
+		  ORDER BY id
+		  LIMIT 1`, RollbackFinishPendingPrefix).Scan(&rollbackFinishingID)
 	if rollbackFinishingErr == nil {
 		return scheduledUpgradeClaim{}, fmt.Errorf("refusing to claim upgrade id=%d: rollback finishing cleanup for upgrade id=%d is still pending; wait for the daemon to remove its stale marker and finalize the row", id, rollbackFinishingID)
 	}
@@ -8349,16 +8353,19 @@ func retryableRollbackReason(reason string) bool {
 	return strings.HasPrefix(strings.TrimSpace(reason), ErrGitFetchRetryable+":")
 }
 
-// The cleanup-only rollback state is the COLUMN public.upgrade.rollback_finish_pending_at
-// (STATBUS-347, migration 20260903205636), never a prefix on `error`. The schema
-// enforces its shape (chk_upgrade_rollback_finish_pending_requires_failed), the
-// install ladder excludes it from restore replay by column, and every reader in
-// this file selects on the column. `error` carries only the human cause.
-//
-// rollbackFinishPendingSQL is the ONE predicate for "restored but not finished",
-// shared by the claim gate, the recovery interception, the finisher's candidate
-// list, and the row lock, so no two readers can disagree about what pending is.
-const rollbackFinishPendingSQL = "state = 'failed' AND rollback_finish_pending_at IS NOT NULL"
+// RollbackFinishPendingPrefix distinguishes a healthy restored box whose
+// filesystem lock was not yet released from a restore that actually failed.
+// install/state.go uses the same predicate so it never replays an already-
+// successful restore during the narrow filesystem-to-database handoff window.
+const RollbackFinishPendingPrefix = "ROLLBACK_FINISH_PENDING: "
+
+func IsRollbackFinishPendingError(errorText string) bool {
+	return strings.HasPrefix(errorText, RollbackFinishPendingPrefix)
+}
+
+func rollbackFinishPendingError(reason string) string {
+	return RollbackFinishPendingPrefix + reason
+}
 
 func rollbackFinalError(reason string) string {
 	if reason == "" {
@@ -8384,7 +8391,13 @@ func (d *Service) isRollbackFinishPending(ctx context.Context, id int) (bool, er
 	defer cancel()
 	var pending bool
 	err := d.queryConn.QueryRow(readCtx,
-		`SELECT EXISTS (SELECT 1 FROM public.upgrade WHERE id = $1 AND `+rollbackFinishPendingSQL+`)`, id).Scan(&pending)
+		`SELECT EXISTS (
+			SELECT 1
+			  FROM public.upgrade
+			 WHERE id = $1
+			   AND state = 'failed'
+			   AND starts_with(error, $2)
+		)`, id, RollbackFinishPendingPrefix).Scan(&pending)
 	return pending, err
 }
 
@@ -8474,7 +8487,10 @@ func (d *Service) finalizePendingRollbacks(ctx context.Context) {
 		return
 	}
 	rows, err := d.queryConn.Query(ctx,
-		`SELECT id FROM public.upgrade WHERE `+rollbackFinishPendingSQL+` ORDER BY id`)
+		`SELECT id
+		   FROM public.upgrade
+		  WHERE state = 'failed' AND starts_with(error, $1)
+		  ORDER BY id`, RollbackFinishPendingPrefix)
 	if err != nil {
 		log.Printf("finalizePendingRollbacks: query failed: %v", err)
 		return
@@ -8534,10 +8550,12 @@ func (d *Service) finalizePendingRollback(ctx context.Context, id int, label str
 
 	var errorText, commitSHA, commitVersion string
 	err = tx.QueryRow(ctx,
-		`SELECT COALESCE(error, ''), commit_sha, COALESCE(commit_version, '')
+		`SELECT error, commit_sha, COALESCE(commit_version, '')
 		   FROM public.upgrade
-		  WHERE id = $1 AND `+rollbackFinishPendingSQL+`
-		  FOR UPDATE`, id).Scan(&errorText, &commitSHA, &commitVersion)
+		  WHERE id = $1
+		    AND state = 'failed'
+		    AND starts_with(error, $2)
+		  FOR UPDATE`, id, RollbackFinishPendingPrefix).Scan(&errorText, &commitSHA, &commitVersion)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
 	}
@@ -8548,15 +8566,11 @@ func (d *Service) finalizePendingRollback(ctx context.Context, id int, label str
 		return false, fmt.Errorf("remove stale rollback marker: %w", cleanupErr)
 	}
 
-	finalError := rollbackFinalError(errorText)
-	// Clear the pending marker in the SAME statement that writes rolled_back:
-	// the CHECK forbids pending on rolled_back, so a partial write is impossible,
-	// and the RETURNING scan is the row-count check (ErrNoRows = the row moved
-	// under the lock, which the FOR UPDATE above makes unreachable).
+	finalError := rollbackFinalError(strings.TrimPrefix(errorText, RollbackFinishPendingPrefix))
 	var rowJSON string
 	if err := tx.QueryRow(ctx,
-		"UPDATE public.upgrade SET state = 'rolled_back', error = $2, rolled_back_at = now(), rollback_finish_pending_at = NULL WHERE id = $1 AND "+rollbackFinishPendingSQL+upgradeRowReturning,
-		id, finalError).Scan(&rowJSON); err != nil {
+		"UPDATE public.upgrade SET state = 'rolled_back', error = $2, rolled_back_at = now() WHERE id = $1 AND state = 'failed' AND error = $3"+upgradeRowReturning,
+		id, finalError, errorText).Scan(&rowJSON); err != nil {
 		return false, fmt.Errorf("write final rolled_back row: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -10224,9 +10238,10 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reaso
 	// the cleanup-only discriminator BEFORE reopening SQL or HTTP. From this point
 	// forward, every restart/install path is forbidden from restoring the snapshot
 	// again, so writes accepted after the window lifts cannot be overwritten.
+	pendingFinishErr := rollbackFinishPendingError(errMsg)
 	if !d.writeRollbackTerminal(id,
-		"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2, rollback_finish_pending_at = now()"+terminalBackupPathSQL+" WHERE id = $3"+upgradeRowReturning,
-		errMsg, LabelFailedRollbackPendingFinish, attemptsAtCall) {
+		"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+" WHERE id = $3"+upgradeRowReturning,
+		pendingFinishErr, LabelFailedRollbackPendingFinish, attemptsAtCall) {
 		d.releaseUpgradeFlagLockKeepingFile()
 		progress.Write("Recording rollback finishing state ... failed; maintenance and SQL read-only remain active, and the free recovery marker is kept for reconciliation.")
 		return true
@@ -10379,11 +10394,11 @@ func (d *Service) ReattemptRestore(ctx context.Context, rowID int64) error {
 		 WHERE id = $1
 		   AND state = 'failed'
 		   AND backup_path IS NOT NULL
-		   AND rollback_finish_pending_at IS NULL
-		 FOR UPDATE`, rowID).
+		   AND NOT starts_with(COALESCE(error, ''), $2)
+		 FOR UPDATE`, rowID, RollbackFinishPendingPrefix).
 		Scan(&commitSHA, &commitVersion, &attemptsAtCall, &backupPath, &logRelPath); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return fmt.Errorf("ReattemptRestore: upgrade %d is no longer re-attemptable (requires state='failed', backup_path IS NOT NULL, rollback_finish_pending_at IS NULL); refusing stale install authorization", rowID)
+			return fmt.Errorf("ReattemptRestore: upgrade %d is no longer re-attemptable (requires state='failed', backup_path IS NOT NULL, and no rollback-finishing prefix); refusing stale install authorization", rowID)
 		}
 		return fmt.Errorf("ReattemptRestore: cannot lock and authorize upgrade %d: %w", rowID, err)
 	}

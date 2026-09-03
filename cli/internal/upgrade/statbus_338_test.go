@@ -235,7 +235,7 @@ func TestReturnedFetchErrorSurvivesPreswapRecovery_STATBUS338(t *testing.T) {
 	restoreBody := extractFuncBody(t, readUpgradeServiceSource(t), "func (d *Service) restoreAndFinalize(")
 	for _, want := range []string{
 		"errMsg := reason",
-		"rollback_finish_pending_at = now()",
+		"rollbackFinishPendingError(errMsg)",
 		"d.writeRollbackTerminal(",
 	} {
 		if !strings.Contains(restoreBody, want) {
@@ -243,7 +243,7 @@ func TestReturnedFetchErrorSurvivesPreswapRecovery_STATBUS338(t *testing.T) {
 		}
 	}
 	finalizerBody := extractFuncBody(t, readUpgradeServiceSource(t), "func (d *Service) finalizePendingRollback(")
-	if !strings.Contains(finalizerBody, "rollbackFinalError(errorText)") {
+	if !strings.Contains(finalizerBody, "rollbackFinalError(strings.TrimPrefix(errorText, RollbackFinishPendingPrefix))") {
 		t.Error("serialized rollback finalizer no longer derives final guidance from the preserved pending error")
 	}
 	guidanceBody := extractFuncBody(t, readUpgradeServiceSource(t), "func rollbackFinalError(")

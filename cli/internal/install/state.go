@@ -257,13 +257,12 @@ func (defaultProbe) QueryScheduledUpgrade(projDir string) (*ScheduledRow, error)
 //   - rollback() git-restore ABORT terminal (LabelFailedAbort)
 //   - recoveryRollback pair-terminal (two rollback crash-deaths, LabelFailedRollbackIncomplete)
 //
-// One explicitly marked exception is NOT restore-broke, and the SCHEMA marks it
-// (STATBUS-347): restoreAndFinalize sets rollback_finish_pending_at after a
-// healthy restore, BEFORE it lifts SQL/HTTP, then removes the marker and writes
-// rolled_back. A crash or marker-unlink failure in that handoff leaves
-// failed+backup_path+pending, and replaying the restore would overwrite writes
-// accepted after the lift. The probe excludes it IN THE QUERY; no text is
-// parsed. The daemon retries marker cleanup and the final UPDATE only.
+// One explicitly marked exception is NOT restore-broke:
+//   - restoreAndFinalize first records ROLLBACK_FINISH_PENDING after a healthy
+//     restore, then releases the filesystem lock, then writes rolled_back. A
+//     crash or marker-unlink failure in that narrow handoff leaves
+//     failed+backup_path, but replaying the restore would be wrong. The daemon
+//     retries stale-marker cleanup and then the final guarded UPDATE only.
 //
 // The two OTHER failed writers cannot produce the combination:
 //   - failUpgrade runs ONLY before the snapshot (pre-backupDatabase) → backup_path NULL.
@@ -277,9 +276,8 @@ func (defaultProbe) QueryScheduledUpgrade(projDir string) (*ScheduledRow, error)
 // present is exactly the restore-broke set.
 func (defaultProbe) QueryReattemptableRestore(projDir string) (int64, string, bool, error) {
 	out, err := runQuery(projDir, 10*time.Second,
-		`SELECT id, backup_path FROM public.upgrade
+		`SELECT id, backup_path, error FROM public.upgrade
 		  WHERE state = 'failed' AND backup_path IS NOT NULL
-		    AND rollback_finish_pending_at IS NULL
 		  ORDER BY id DESC`)
 	if err != nil {
 		return 0, "", false, err
@@ -292,9 +290,12 @@ func parseReattemptableRestoreRows(out string) (int64, string, bool, error) {
 		if strings.TrimSpace(line) == "" {
 			continue
 		}
-		parts := strings.SplitN(line, "|", 2)
-		if len(parts) < 2 {
+		parts := strings.SplitN(line, "|", 3)
+		if len(parts) < 3 {
 			return 0, "", false, fmt.Errorf("unexpected reattemptable-restore row: %q", line)
+		}
+		if upgrade.IsRollbackFinishPendingError(parts[2]) {
+			continue
 		}
 		id, err := strconv.ParseInt(strings.TrimSpace(parts[0]), 10, 64)
 		if err != nil {
