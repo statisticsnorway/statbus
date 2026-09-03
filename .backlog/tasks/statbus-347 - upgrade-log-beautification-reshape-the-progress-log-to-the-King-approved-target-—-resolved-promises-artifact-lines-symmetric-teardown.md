@@ -144,4 +144,14 @@ db33f1316 (upgrade: rollback finishing is cleanup-only, never a second restore) 
 
 Validation: go vet, go test ./..., race on install/migrate/upgrade, golangci-lint 0 issues; tmp/verify_cleanup_boundaries.py and tmp/verify_rollback_transition.sql (live constraint check, rolled back) green. Live proof on a box is the next arc run (rollback-kill + happy-upgrade), not claimed here.
 ---
+author: foreman
+created: 2026-09-03 23:27
+---
+POST-CLOSE CONSTRAINT + LIVE-EVIDENCE FOLLOW-THROUGH:
+
+- 012ca22da: migration 20260903205636 replaces the loose `ROLLBACK_FINISH_PENDING` error prefix with constrained `rollback_finish_pending_at`, and routes every daemon fire-and-forget Exec through `execObserved`. Evidence: the live SQL probe rejected all three invalid shapes by constraint name, accepted all three valid shapes, carried one planted legacy prefix row through down/up, and the live Exec probe journaled a real CHECK rejection with purpose, arguments, and constraint name.
+- 40baf42fe: an all-pruned row now writes `{}` to `commit_tags`, never pgx NULL. Evidence: `TestPruneDeletedTags_EmptyKeptIsNeverNull` was red on the prior commit and green after the fix; the real-DB rolled-back twin lands the update and a second tick emits no repeated prune line.
+- 3874f7120: claiming an upgrade now tolerates nullable `commit_version` and `from_commit_version`. Evidence: the real rollback-finisher twin found the production-shaped NULL scan failure, then passed with the COALESCE-backed claim and its focused regression pin.
+- 62e6b19d1: `doc/DEVELOPMENT.md` documents the eleven `STATBUS_LIVE_DB=1` twins and the worktree safety rule. Evidence: all eleven opt-in twins passed on the rebuilt binary, with zero row/file residue, no marker or maintenance flag, read-only off, and all five containers up.
+---
 <!-- COMMENTS:END -->
