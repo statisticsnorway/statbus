@@ -951,6 +951,32 @@ func checkImagesDone(dir string) bool {
 	return err == nil && len(strings.Split(strings.TrimSpace(string(out)), "\n")) >= 4
 }
 
+type dockerHealth uint8
+
+const (
+	dockerHealthAbsent dockerHealth = iota
+	dockerHealthStarting
+	dockerHealthHealthy
+	dockerHealthUnhealthy
+)
+
+func classifyDockerHealth(raw string) (dockerHealth, error) {
+	switch health := strings.TrimSpace(raw); health {
+	case "":
+		return dockerHealthAbsent, nil
+	case "starting":
+		return dockerHealthStarting, nil
+	case "healthy":
+		return dockerHealthHealthy, nil
+	case "unhealthy":
+		return dockerHealthUnhealthy, nil
+	default:
+		return dockerHealthAbsent, fmt.Errorf("unknown Docker health value %q (expected healthy, unhealthy, starting, or empty)", health)
+	}
+}
+
+func (h dockerHealth) ready() bool { return h == dockerHealthHealthy }
+
 func checkServicesDone(dir string) bool {
 	// Use positional service name `db` rather than `--filter name=db`. The
 	// `--filter` flag's `name=` key is rejected by docker-compose v2.x as
@@ -961,7 +987,15 @@ func checkServicesDone(dir string) bool {
 	cmd := exec.Command("docker", "compose", "ps", "db", "--format", "{{.Health}}")
 	cmd.Dir = dir
 	out, err := cmd.Output()
-	return err == nil && strings.Contains(string(out), "healthy")
+	if err != nil {
+		return false
+	}
+	health, err := classifyDockerHealth(string(out))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: refusing to treat database service as ready: %v\n", err)
+		return false
+	}
+	return health.ready()
 }
 
 func checkMigrationsDone(dir string) bool {
