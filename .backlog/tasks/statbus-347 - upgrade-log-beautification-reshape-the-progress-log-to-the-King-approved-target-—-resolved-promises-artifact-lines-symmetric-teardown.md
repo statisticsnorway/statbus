@@ -7,6 +7,7 @@ status: In Progress
 assignee:
   - '@researcher'
 created_date: '2026-09-03 08:42'
+updated_date: '2026-09-03 08:50'
 labels:
   - upgrade
   - ux
@@ -48,3 +49,21 @@ Grounding: tmp/347-grounding.md (researcher-produced) maps every target line to 
 - [ ] #4 Completion line 'Upgrade to <v> complete.' is the last line; the Finishing: block undoes lock/SQL-block/maintenance symmetrically before it
 - [ ] #5 No gate or upgrade LOGIC changes beyond honest print reordering documented in the grounding
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-09-03 08:50
+---
+GROUNDING DELIVERED (researcher, foreman-reviewed): tmp/347-grounding.md — all 44 target lines mapped to verified print sites (15 pure-rewording, 16 restructure, 6 new-data, 7 sequencing), style rules at top, full inventory of unexercised paths (rollback/recovery/parked/git-restore/migration-child) that must adopt the same rules. THREE DESIGN DECISIONS surfaced, need ruling before implementation:
+
+1. FLAG PATH: target text says ~/statbus/tmp/upgrade.flag; the canonical mutex is tmp/upgrade-in-progress.json (service.go:488-490, shared with install/recovery). Foreman recommendation: log the CANONICAL path, amend the target file — never migrate a path for cosmetics.
+
+2. SEQUENCING (the real one): fixup deliberately runs AFTER the terminal completed UPDATE (service.go:7755-7767 comment: fixup can restart the DB and kill the query connection; the completed write must be teardown-immune). The target's visual order (config updates → Finishing → complete.) does not match execution (maintenance OFF → completed UPDATE → read-only OFF → flag removal → complete → fixup). Honest options: (a) reword to 'Applying post-completion configuration and service updates ... ok' and let Finishing: mirror ACTUAL order, moving only the canonical complete. line last; (b) authorize a real operation-order redesign with tests. Foreman recommends (a) — log mirrors reality.
+
+3. PER-SERVICE HEALTH: 'app healthy, worker healthy...' needs NEW data — compose.PsEntry has no Health field; current healthCheck probes PostgREST+auth_status only. Options: extend compose ps parsing with the health field (real work), or keep the health line at its current truthful granularity ('API healthy (auth_status ok)'). King's granularity rule says log mirrors code — either extend the code or match the line to what is checked.
+
+Maintenance-flag content (line-11 contract) fully grounded: claim snapshot must be threaded (row started_at not returned by claimScheduledUpgrade; connections closed before setMaintenance), to_json not to_jsonb, extractor by known id.
+---
+<!-- COMMENTS:END -->
