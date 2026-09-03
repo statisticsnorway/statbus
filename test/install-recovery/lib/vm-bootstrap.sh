@@ -1254,7 +1254,10 @@ cp /tmp/users.yml ~/statbus/.users.yml
 # (~/statbus/.git guaranteed above). --commit <sha>: fetches the EXACT commit,
 # procures its PUBLISHED statbus-sb image (no build fallback), then calls ./sb install.
 # Exits 0 for both success and rollback; catastrophic failures are non-zero.
-STATBUS_MIN_DISK_GB=5 bash /tmp/statbus-install.sh --commit ${commit_under_test} --trust-github-user jhf
+# Storm-sized retry knobs (install.sh's own documented seams, STATBUS-345):
+# tonight's GitHub 401 bursts outlive the 3x10s defaults; 8x45s (~6min) is
+# the same window the pre-clone above uses. Docker pulls get 5x30s.
+STATBUS_MIN_DISK_GB=5 GIT_NETWORK_MAX_ATTEMPTS=8 GIT_NETWORK_RETRY_DELAY_S=45 DOCKER_PULL_MAX_ATTEMPTS=5 DOCKER_PULL_RETRY_DELAY_S=30 bash /tmp/statbus-install.sh --commit ${commit_under_test} --trust-github-user jhf
 SCRIPT
     else
         cat > "$install_script" << SCRIPT
