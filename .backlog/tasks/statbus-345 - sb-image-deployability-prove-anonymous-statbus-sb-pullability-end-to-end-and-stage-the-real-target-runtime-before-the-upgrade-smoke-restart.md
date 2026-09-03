@@ -3,10 +3,10 @@ id: STATBUS-345
 title: >-
   sb-image-deployability: prove anonymous statbus-sb pullability end to end, and
   stage the real target runtime before the upgrade-smoke restart
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-02 14:07'
-updated_date: '2026-09-02 19:04'
+updated_date: '2026-09-03 08:42'
 labels:
   - release
   - test-harness
@@ -53,5 +53,11 @@ author: foreman
 created: 2026-09-02 19:04
 ---
 Landed in a18684a33. Venue-2 autopsy answer: the component that allowed rc.03's 57 silent minutes was _run_long_via_tmux's controller-side synchronous unbounded ssh command substitution (no per-probe timeout, no no-progress deadline; a live TCP connection with a wedged remote read answers keepalives forever). Now: every controller read bounded, rc=255/124 reconnect to same log offset (5 attempts / 30s, provider-state consulted before vm-gone), 5-min zero-progress dumps tmux pane + log tail + journalctl + docker ps BEFORE teardown, distinct failure classes (stalled-stage/overall-timeout/vm-gone/controller-probe-failed). Venue-1: release-baseline.sh selects newest stable below target from tag ledger (RC fallback), verified picking v2026.08.1 for rc.04; INSTALL_VERSION pin wins. Deployability items 1-5 done (six-manifest gate, anonymous-token probes with regression test, images.sb in manifest, verify-public-image.sh postcondition gating seed, install.sh failure classes). Item 6 (real-target staging) deferred to STATBUS-339 overlap. All tests green locally: go test, golangci-lint, actionlint, 3 new bash test suites.
+---
+
+author: foreman
+created: 2026-09-03 08:42
+---
+In Progress (2026-09-03): rc.12's chain is this ticket's live proof-run — both smokes green, dev auto-canary completed, Norway human install completed 08:29:34Z. Remaining before stable: fleet's 4 storm-blocked scenarios (the all-night GitHub 401 storm outlived even the widened retry windows) + the arc suite at the rc.12 commit. Deployability items 1-5 landed a18684a33 and PROVEN: the six-image anonymous gate ran on every rc since .04 and release check shows all six at 2309f6e1. Item 6 remains deferred to 339.
 ---
 <!-- COMMENTS:END -->

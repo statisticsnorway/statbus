@@ -3,11 +3,11 @@ id: STATBUS-247
 title: >-
   canary-topology: deploy the candidate to dev, not master's tip; a person
   installs once before promotion
-status: In Progress
+status: Done
 assignee:
   - '@tester'
 created_date: '2026-08-19 07:14'
-updated_date: '2026-09-01 07:39'
+updated_date: '2026-09-03 08:41'
 labels:
   - release
   - ops
@@ -44,7 +44,7 @@ FIX
 - [x] #1 Tagging a candidate deploys exactly that commit to dev, automatically
 - [x] #2 A promotion requires a person's completed install on Norway
 - [x] #3 Stages run cheapest-first — ephemeral-VM smoke (fresh install + upgrade-onto), dev, full suites, Norway — and a failed stage stops the chain
-- [ ] #4 Observed end to end on one candidate
+- [x] #4 Observed end to end on one candidate
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -150,5 +150,11 @@ author: foreman
 created: 2026-09-01 07:39
 ---
 Foreman (2026-09-01): description simplified to the prototypical form at the King's direction — issue, fix, acceptance; twelve lines. The morning's fuller rewrite and the original's decision reasoning remain in this comment thread for anyone who actually raises the questions they answered. ACs #1–#3 checked on the standing evidence (10+ cuts through the tag-triggered deploy; both promotions passed on Norway's completed row; orchestrator stage-gating verified at release-fleet-orchestrator.yaml:376-391). AC#4 open: the first candidate observed traveling the whole chain.
+---
+
+author: foreman
+created: 2026-09-03 08:41
+---
+AC#4 OBSERVED END TO END on v2026.09.0-rc.12 (2026-09-03): tag cut 04:58Z → both smokes green first-attempt (test-install 33717034993, test-upgrade 33717035766) → dev took the candidate AUTOMATICALLY (orchestrator 33716971955 job '3/5: dev takes the candidate' completed success; row completed 05:23:44Z) → orchestrator dispatched the fleet itself (stage 4/5) → offer sat on Norway (prerelease channel, web UI) → the King personally installed via the upgrade page: scheduled 08:28:23, COMPLETED 08:29:34 (71s, row 43093, v2026.08.1-rc.01 → rc.12). The full chain, cheapest-first, automatic where designed, human exactly where designed. Bonus artifacts from the same install: the progress log became the design baseline for the log-beautification work (tmp/norway-target.log), and the 'images building...' badge Norway showed beforehand was live proof of the discover()-starves-verifyArtifacts defect fixed in 73ec71fee. Closing.
 ---
 <!-- COMMENTS:END -->

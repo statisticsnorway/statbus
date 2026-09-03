@@ -3,10 +3,10 @@ id: STATBUS-183
 title: >-
   apply-notify-race: an upgrade_apply NOTIFY that races first discovery of its
   tag is silently dropped
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-07-14 16:12'
-updated_date: '2026-09-01 13:49'
+updated_date: '2026-09-03 08:42'
 labels:
   - upgrade
   - deploy
@@ -38,7 +38,7 @@ The next prerelease cut’s automatic dev deploy has that shape; the foreman wil
 <!-- AC:BEGIN -->
 - [x] #1 Engineer traces the exact drop site in the upgrade_apply NOTIFY handler with file:line (why discovery ran but scheduling didn't, and where the error went)
 - [x] #2 Architect rules the fix shape: apply always either schedules the named version (registering it first if needed) or fails loudly
-- [ ] #3 Fix proven by a run: a poke sent within seconds of a fresh release schedules correctly (or fails loudly) — no silent available-forever row
+- [x] #3 Fix proven by a run: a poke sent within seconds of a fresh release schedules correctly (or fails loudly) — no silent available-forever row
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -150,5 +150,11 @@ ADVERSARIAL VERIFICATION — REFUTATION CONFIRMED. I attacked it on the three na
 VERDICT: the defect class is closed in code and no RED reproducer of the original bug can be written, because its drop site no longer exists. The engineer was right not to synthesize scaffolding to recreate an unreachable state — test-first as discovery cuts both ways. AC#3 correctly stays open on run evidence.
 
 ONE ADJACENT FINDING the pass turned up, ticketed as STATBUS-226 (Low), NOT part of this refutation: apply-latest's "already at latest" short-circuit compares the RUNNING BINARY's commit to the target and returns success on a match. A box parked after a post-swap failure whose era guard refused restoration is running the target binary with a parked row and a dark box — indistinguishable to that check, so a human running the command there is told "nothing to apply". Not a deploy defect: the deployed_commit line is emitted before the skip and STATBUS-170 phase-2 polls that commit to `completed`, so CI goes red. The exposure is the hand-run case, and it is the same claim-describes-one-thing-reader-infers-another class as 210/212 one layer up.
+---
+
+author: foreman
+created: 2026-09-03 08:42
+---
+CLOSING EVIDENCE observed live on rc.12 (2026-09-03): the automatic dev canary is the poke-after-fresh-cut proof this ticket's oracle names (apply_notify_race_test.go: 'a poke sent within seconds of a fresh cut converging row-completed is proved by that next RC deploy run'). Orchestrator 33716971955 cut the tag 04:58Z, dispatched deploy-to-dev with the exact commit, and dev converged state=completed at 05:23:44Z — register-then-promote of a target that raced discovery, on the real chain, no manual assist. rc.11 the night before additionally exercised the refusal-persistence path (storm-interrupted apply → truthful rolled_back row). The structural contract is test-pinned; the behavioral proof is now on record. Closing.
 ---
 <!-- COMMENTS:END -->
