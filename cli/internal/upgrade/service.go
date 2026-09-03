@@ -4550,6 +4550,13 @@ func (d *Service) discover(ctx context.Context) {
 	tags, err := DiscoverTagsViaGit(d.projDir)
 	if err != nil {
 		fmt.Printf("Discovery error: %v\n", err)
+		// STATBUS-345 (rc.10 forensics): a GitHub tag-fetch failure must not
+		// block ghcr image verification — pending rows and the registry are
+		// independent of the tag ledger. During a GitHub 401 storm every
+		// discovery cycle aborted here and verifyArtifacts below never ran,
+		// so an already-registered candidate sat docker_images_status=
+		// 'building' for 25 minutes while all four images were pullable.
+		d.verifyArtifacts(ctx)
 		return
 	}
 
