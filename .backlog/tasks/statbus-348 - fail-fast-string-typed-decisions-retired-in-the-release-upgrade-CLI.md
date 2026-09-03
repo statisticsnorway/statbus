@@ -2,10 +2,10 @@
 id: STATBUS-348
 title: >-
   fail-fast: string-typed decisions retired in the release/upgrade CLI
-status: Done
+status: In Progress
 assignee: []
 created_date: '2026-09-03 23:27'
-updated_date: '2026-09-03 23:27'
+updated_date: '2026-09-03 22:01'
 labels:
   - release
   - upgrade
@@ -44,5 +44,9 @@ King's creed and rationale: **“sound column constraints, make the invalid impo
 ## Follow-ups
 
 <!-- SECTION:FOLLOW-UPS:BEGIN -->
-A Luna agent is hunting for remaining instances in `tmp/luna-string-hunt.md`; results land there.
+Luna's hunt is in `tmp/luna-string-hunt.md`: 6 DEFECT, 15 SMELL, 20 ACCEPTABLE-CONTRACT. Sol's review (`tmp/sol-review-347.md`) finding 4 lands on THIS ticket.
+
+REOPENED 2026-09-03 22:01 (foreman): 050a37655 is incomplete. `release covered` was kept in readOnlyCommandPaths, so the guard never exits 69 for it and the orchestrator's 69 arm cannot fire for the condition it names (Sol S4). Two more collisions on the same channel: cobra argument refusal exits 1 (= `covered`'s must-run, Luna D2) and inject.Validate exits 2 (= undecidable, Luna D3). Luna owns the coherent contract: 0/1/2 verdicts only; 69 for every binary refusal including inject; 64 (EX_USAGE) for usage; orchestrator arms for 0/1/2/64/69/other. Proof required with real binaries. Closes when that commit lands.
+
+Deferred from Luna's hunt to STATBUS-349: D4 (migrate exit 22 has no producer), D5 (apply-latest second tag classifier), D6 (isConnError retries context cancellation by prose), and the 15 SMELLs.
 <!-- SECTION:FOLLOW-UPS:END -->

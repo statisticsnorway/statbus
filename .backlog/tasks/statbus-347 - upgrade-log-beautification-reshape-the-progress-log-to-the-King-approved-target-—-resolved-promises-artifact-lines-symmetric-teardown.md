@@ -154,4 +154,24 @@ POST-CLOSE CONSTRAINT + LIVE-EVIDENCE FOLLOW-THROUGH:
 - 3874f7120: claiming an upgrade now tolerates nullable `commit_version` and `from_commit_version`. Evidence: the real rollback-finisher twin found the production-shaped NULL scan failure, then passed with the COALESCE-backed claim and its focused regression pin.
 - 62e6b19d1: `doc/DEVELOPMENT.md` documents the eleven `STATBUS_LIVE_DB=1` twins and the worktree safety rule. Evidence: all eleven opt-in twins passed on the rebuilt binary, with zero row/file residue, no marker or maintenance flag, read-only off, and all five containers up.
 ---
+author: foreman
+created: 2026-09-03 22:00
+---
+ADVERSARIAL REVIEW (Sol xhigh, tmp/sol-review-347.md) + STRING HUNT (Luna, tmp/luna-string-hunt.md) of the 40 unpushed commits. Foreman rulings and owners:
+
+BLOCKS-RC, accepted, Sol owns:
+- S1: ReattemptRestore takes no flock/advisory lock and re-reads the row by bare id; two `./sb install` or install+daemon can restore the snapshot a second time after writes reopened. Fix: lock first, re-read under FOR UPDATE with the full predicate, refuse otherwise.
+- S2: recoveryRollback acquires the flock with O_CREATE using the flag value read BEFORE acquisition; a delayed second actor recreates a deleted marker and restores again. Fix: no O_CREATE on recovery, re-derive authorization from the marker under the held flock.
+- S3 (design only, foreman rules on shape): the first release carrying migration 20260903205636 restores a PRE-column snapshot on its own adoption rollback; the pending write then fails 42703 and the old binary resumes with the old (unsafe) order. Options: re-run the floor migrate after restoreDatabase, or a schema-independent pending marker for the adoption release. tmp/sol-s3-design.md.
+- S4 (+ Luna D2/D3): `release covered` was left in readOnlyCommandPaths, so the guard's new exit 69 never fires for it and the orchestrator's 69 arm is dead; cobra usage refusal exits 1 (= must-run); inject.Validate exits 2 (= undecidable). Luna owns the coherent exit-code contract (0/1/2 verdicts only; 69 binary refusal incl. inject; 64 usage; orchestrator arms for all).
+
+SHOULD-FIX / DEFECT, accepted, Terra (fresh session) owns:
+- S5: the claim's COALESCE on commit_version leaks into the to_json ImmutableJSON, so the maintenance file can say "8-char" where the row says NULL. Fix: true NULL in the JSON, fallback only in the Go display field.
+- S6: the forward repair invents clock_timestamp() for rollback_finish_pending_at and runs before the state-log trigger is widened, so no audit row records it. Fix: reorder, derive from upgrade_state_log.logged_at, pg_regress test.
+- Luna D1: install.go classifies docker health with strings.Contains("healthy"), which matches "unhealthy". Exact-match typed classifier.
+
+Deferred to STATBUS-349 (not this RC): Luna D4 (migrate exit-22 has no producer), D5 (apply-latest has a second looser tag classifier), D6 (isConnError retries context cancellation by prose), and 15 SMELLs.
+
+No-issue traps Sol checked and cleared: crash windows once the schema has the column, CHECK vs Go routing, advisory-lock re-entrance and cross-session exclusion, rewind-audit dispositions, abortFailedPreBackupStop boundaries, execObserved semantics, typed scenario routing, migration down path.
+---
 <!-- COMMENTS:END -->
