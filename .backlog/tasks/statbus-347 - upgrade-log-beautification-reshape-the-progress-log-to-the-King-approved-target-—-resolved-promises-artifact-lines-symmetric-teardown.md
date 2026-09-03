@@ -174,4 +174,14 @@ Deferred to STATBUS-349 (not this RC): Luna D4 (migrate exit-22 has no producer)
 
 No-issue traps Sol checked and cleared: crash windows once the schema has the column, CHECK vs Go routing, advisory-lock re-entrance and cross-session exclusion, rewind-audit dispositions, abortFailedPreBackupStop boundaries, execObserved semantics, typed scenario routing, migration down path.
 ---
+author: foreman
+created: 2026-09-03 22:17
+---
+Landed from the review, foreman-reviewed and re-validated (go test/vet/lint, all live twins, pg_regress 348, real-binary exit codes):
+- S5 → 33d2e31ff (Terra): commit_version scanned into pgtype.Text; the to_json ImmutableJSON keeps the true NULL; only the Go display field falls back to the short SHA. Live maintenance-file twin now claims a NULL-version row and asserts "commit_version":null in the file.
+- S6 → 8fbe6e86a (Terra): migration reordered so the state-log columns + widened trigger exist BEFORE the forward repair; pending_at derived from upgrade_state_log.logged_at (failed transition) → started_at → clock_timestamp(), source named per row in the NOTICE; pg_regress test 348 pins it.
+- Luna D1 → 2489aa970 (Terra): typed dockerHealth classifier, exact match, unknown values refused.
+- S4 + D2 + D3 → 0a509dacd (Luna): see STATBUS-348.
+Still open: S1, S2 (implementation) and S3 (design, floor-migrate on the restored volume; inline DDL shim REJECTED by the King) — reassigned to a fresh Sol session after the first one died without output.
+---
 <!-- COMMENTS:END -->
