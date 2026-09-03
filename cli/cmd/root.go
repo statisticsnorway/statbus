@@ -292,6 +292,7 @@ var readOnlyCommandPaths = map[string]bool{
 	"sb release check":         true,
 	"sb release verify-tag":    true, // local repo + GitHub API only; no state mutation
 	"sb release verify-images": true, // GitHub API only; no state mutation
+	"sb release covered":       true, // local git + GitHub API only; a stale-binary exit 2 here reads as "undecidable" and silently forces a must-run
 	"sb upgrade list":          true,
 	"sb upgrade check":         true,
 	"sb ps":                    true,
