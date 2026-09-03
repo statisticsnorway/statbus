@@ -62,6 +62,18 @@ var rootCmd = &cobra.Command{
 	PersistentPreRun: stalenessGuard,
 }
 
+// exitBinaryUnusable (69 = EX_UNAVAILABLE, sysexits.h) is the exit code for
+// every refusal the staleness guard issues BEFORE a subcommand runs: the
+// binary is stale, has no identity, or could not self-heal. It is deliberately
+// NOT 2. Subcommands own their small exit codes as verdicts (`release covered`
+// says 2 for "could not decide", and the orchestrator renders that as
+// must-run); a guard that borrowed 2 turned every stale build into a fake
+// verdict (observed 2026-09-03: a dirty cli/ tree made 47 proven scenarios
+// re-run under the label "undecidable"). A caller that sees 69 knows the
+// command never ran, and can say so instead of interpreting a decision that
+// was never made. Same discipline as exitPrincipledConfigRefusal (78).
+const exitBinaryUnusable = 69
+
 // stalenessGuard is rootCmd.PersistentPreRun. Extracted as a top-level
 // function for readability and to keep the command literal terse.
 //
@@ -113,7 +125,7 @@ func stalenessGuard(c *cobra.Command, _ []string) {
 		if isMutatingCommand(c) {
 			fmt.Fprintln(os.Stderr, msg)
 			fmt.Fprintf(os.Stderr, "  Then re-run: %s\n", reRun)
-			os.Exit(2)
+			os.Exit(exitBinaryUnusable)
 		}
 		fmt.Fprintln(os.Stderr, "WARN: "+msg)
 		return
@@ -168,7 +180,7 @@ func stalenessGuard(c *cobra.Command, _ []string) {
 			fmt.Fprintln(os.Stderr, "Self-healing: procuring ./sb for the worktree HEAD from the commit-tagged image (no host toolchain)...")
 			if err := freshness.RebuildAndReexec(config.ProjectDir()); err != nil {
 				fmt.Fprintf(os.Stderr, "Self-heal procure/exec failed: %v\n", err)
-				os.Exit(2)
+				os.Exit(exitBinaryUnusable)
 			}
 			// unreachable; syscall.Exec replaced the process on success
 			return
@@ -180,7 +192,7 @@ func stalenessGuard(c *cobra.Command, _ []string) {
 			fmt.Fprintln(os.Stderr, "Self-heal failed: procured binary is still reported stale.")
 			fmt.Fprintln(os.Stderr, "  Likely a procurement↔tree-update race — re-run the recovery command:")
 			fmt.Fprintf(os.Stderr, "  %s\n", reRun)
-			os.Exit(2)
+			os.Exit(exitBinaryUnusable)
 		}
 		// Non-self-healing mutating command on a stale (but identified) binary:
 		// hard-fail. STATBUS-085: msg (freshness.IsStale) now names the
@@ -188,7 +200,7 @@ func stalenessGuard(c *cobra.Command, _ []string) {
 		// command to re-run (never "after rebuild" — wrong on a no-toolchain box).
 		fmt.Fprintln(os.Stderr, msg)
 		fmt.Fprintf(os.Stderr, "  Then re-run: %s\n", reRun)
-		os.Exit(2)
+		os.Exit(exitBinaryUnusable)
 	}
 	fmt.Fprintln(os.Stderr, "WARN: "+msg)
 }
