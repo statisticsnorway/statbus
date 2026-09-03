@@ -303,8 +303,9 @@ func TestUpgradeArcHarnessGate_CoveredByPriorAnchorPasses(t *testing.T) {
 
 // TestUpgradeArcHarnessGate_BlockedByAnchorRefuses is STATBUS-252
 // precondition 3's other named case: an anchor has evidence, but a
-// sensitive file changed between it and the target — the ride is blocked,
-// and the refusal must name both the blocked anchor and the changed file.
+// sensitive file changed between it and the target — the ride is blocked.
+// Compact output names the blocked anchor and changed-file count, but keeps the
+// literal path behind --verbose (STATBUS-346).
 func TestUpgradeArcHarnessGate_BlockedByAnchorRefuses(t *testing.T) {
 	dir, _ := arcFixture(t, "doc/readme.md", upgradeArcDir+"working"+upgradeArcSuffix)
 	writeSensitivePathsFile(t, dir, "cli/internal/upgrade/")
@@ -330,8 +331,180 @@ func TestUpgradeArcHarnessGate_BlockedByAnchorRefuses(t *testing.T) {
 	if passed {
 		t.Fatalf("the gate PASSED though a sensitive file changed since the only anchor with evidence; output:\n%s", out)
 	}
-	if !strings.Contains(out, "BLOCKED") || !strings.Contains(out, "v2026.08.0-rc.01") || !strings.Contains(out, "service.go") {
-		t.Errorf("the refusal must name the blocked anchor and the changed sensitive file; output:\n%s", out)
+	if !strings.Contains(out, "1 blocked by v2026.08.0-rc.01, 1 sensitive files changed since it") ||
+		!strings.Contains(out, "    ✗ working\n") ||
+		!strings.Contains(out, "(1 changed files — re-run with --verbose to list them)") {
+		t.Errorf("the compact refusal must name the blocked anchor, scenario, and hidden file count; output:\n%s", out)
+	}
+	if strings.Contains(out, "service.go") {
+		t.Errorf("the compact refusal exposed the changed path without --verbose; output:\n%s", out)
+	}
+}
+
+// TestUpgradeArcHarnessGate_SharedBlockedDetailsPrintOnce is STATBUS-346's
+// regression case: many scenarios commonly share the same evidence anchor and
+// therefore the same target diff. Stable must keep every scenario visible while
+// printing that shared file set at most once, and only in verbose output.
+func TestUpgradeArcHarnessGate_SharedBlockedDetailsPrintOnce(t *testing.T) {
+	dir, _ := arcFixture(t,
+		"doc/readme.md",
+		upgradeArcDir+"alpha"+upgradeArcSuffix,
+		upgradeArcDir+"beta"+upgradeArcSuffix,
+		upgradeArcDir+"gamma"+upgradeArcSuffix,
+	)
+	writeSensitivePathsFile(t, dir, "cli/internal/upgrade/")
+
+	anchor := runGitInCmd(t, dir, "rev-parse", "HEAD")
+	runGitInCmd(t, dir, "tag", "-a", "v2026.08.0-rc.01", "-m", "Pre-release v2026.08.0-rc.01")
+
+	const changedPath = "cli/internal/upgrade/service.go"
+	writeAndCommit(t, dir, "sensitive change", changedPath)
+	target := runGitInCmd(t, dir, "rev-parse", "HEAD")
+	runGitInCmd(t, dir, "tag", "-a", "v2026.08.0-rc.02", "-m", "Pre-release v2026.08.0-rc.02")
+
+	addOriginRemote(t, dir)
+	pushTags(t, dir)
+	stubScenarioEvidence(t, map[string]map[string]bool{
+		"alpha": {anchor: true},
+		"beta":  {anchor: true},
+		"gamma": {anchor: true},
+	})
+	stubWorkflowSeams(t, func(workflow, sha string) release.WorkflowCheckResult {
+		return release.WorkflowCheckResult{Status: release.WorkflowCheckMissing}
+	}, trivialComplete)
+
+	oldVerbose := verbose
+	t.Cleanup(func() { verbose = oldVerbose })
+
+	run := func(wantVerbose bool) string {
+		verbose = wantVerbose
+		var passed bool
+		out := captureStdout(t, func() {
+			passed = checkUpgradeArcHarnessGate(dir, "v2026.08.0-rc.02", target, target[:7])
+		})
+		if passed {
+			t.Fatalf("the gate PASSED though all three scenarios are blocked by a sensitive change; output:\n%s", out)
+		}
+		for _, scenario := range []string{"alpha", "beta", "gamma"} {
+			if !strings.Contains(out, "    ✗ "+scenario+"\n") {
+				t.Errorf("blocked scenario %q must retain its own compact line; output:\n%s", scenario, out)
+			}
+		}
+		return out
+	}
+
+	compact := run(false)
+	wantSummary := "  ✗ upgrade-arc-harness.yaml REFUSES: 0/3 scenario(s) covered at " + target[:7] +
+		" (3 blocked by v2026.08.0-rc.01, 1 sensitive files changed since it)"
+	if !strings.Contains(compact, wantSummary) {
+		t.Errorf("compact refusal summary mismatch; want %q in output:\n%s", wantSummary, compact)
+	}
+	if got := strings.Count(compact, changedPath); got != 0 {
+		t.Errorf("non-verbose refusal printed the literal changed path %d time(s), want 0; output:\n%s", got, compact)
+	}
+	if got := strings.Count(compact, "(1 changed files — re-run with --verbose to list them)"); got != 1 {
+		t.Errorf("non-verbose refusal printed the collapsed changed-file pointer %d time(s), want 1; output:\n%s", got, compact)
+	}
+
+	detailed := run(true)
+	if got := strings.Count(detailed, changedPath); got != 1 {
+		t.Errorf("verbose refusal printed the shared changed path %d time(s), want exactly 1; output:\n%s", got, detailed)
+	}
+	if strings.Contains(detailed, "re-run with --verbose") {
+		t.Errorf("verbose refusal retained the collapsed changed-file pointer; output:\n%s", detailed)
+	}
+
+	for _, out := range []string{compact, detailed} {
+		for _, line := range []string{
+			"    Trigger: gh workflow run upgrade-arc-harness.yaml --ref v2026.08.0-rc.02",
+			"    Watch:   https://github.com/statisticsnorway/statbus/actions/workflows/upgrade-arc-harness.yaml",
+			"    Fix: run the trigger command above (or dispatch the specific scenario), wait for green, re-run stable",
+		} {
+			if !strings.Contains(out, line) {
+				t.Errorf("actionable line changed or disappeared: %q; output:\n%s", line, out)
+			}
+		}
+	}
+}
+
+// TestUpgradeArcHarnessGate_DifferingBlockedAnchorsNameEachAnchor pins the
+// compact disambiguation rule: scenario lines are name-only for a shared
+// workflow anchor, but carry "(anchor vX)" when one workflow has more than one.
+func TestUpgradeArcHarnessGate_DifferingBlockedAnchorsNameEachAnchor(t *testing.T) {
+	dir, _ := arcFixture(t,
+		"doc/readme.md",
+		upgradeArcDir+"alpha"+upgradeArcSuffix,
+		upgradeArcDir+"beta"+upgradeArcSuffix,
+	)
+	writeSensitivePathsFile(t, dir, "cli/internal/upgrade/")
+
+	anchorOne := runGitInCmd(t, dir, "rev-parse", "HEAD")
+	runGitInCmd(t, dir, "tag", "-a", "v2026.08.0-rc.01", "-m", "Pre-release v2026.08.0-rc.01")
+	writeAndCommit(t, dir, "first sensitive change", "cli/internal/upgrade/service.go")
+	anchorTwo := runGitInCmd(t, dir, "rev-parse", "HEAD")
+	runGitInCmd(t, dir, "tag", "-a", "v2026.08.0-rc.02", "-m", "Pre-release v2026.08.0-rc.02")
+	writeAndCommit(t, dir, "second sensitive change", "cli/internal/upgrade/exec.go")
+	target := runGitInCmd(t, dir, "rev-parse", "HEAD")
+	runGitInCmd(t, dir, "tag", "-a", "v2026.08.0-rc.03", "-m", "Pre-release v2026.08.0-rc.03")
+
+	addOriginRemote(t, dir)
+	pushTags(t, dir)
+	stubScenarioEvidence(t, map[string]map[string]bool{
+		"alpha": {anchorOne: true},
+		"beta":  {anchorTwo: true},
+	})
+	stubWorkflowSeams(t, func(workflow, sha string) release.WorkflowCheckResult {
+		return release.WorkflowCheckResult{Status: release.WorkflowCheckMissing}
+	}, trivialComplete)
+
+	oldVerbose := verbose
+	t.Cleanup(func() { verbose = oldVerbose })
+
+	run := func(wantVerbose bool) string {
+		verbose = wantVerbose
+		var passed bool
+		out := captureStdout(t, func() {
+			passed = checkUpgradeArcHarnessGate(dir, "v2026.08.0-rc.03", target, target[:7])
+		})
+		if passed {
+			t.Fatalf("the gate PASSED though both scenarios are blocked by sensitive changes; output:\n%s", out)
+		}
+		return out
+	}
+
+	out := run(false)
+	if !strings.Contains(out, "(2 blocked across 2 anchors, 2 distinct sensitive files changed since them)") {
+		t.Errorf("multi-anchor compact summary omitted its aggregate counts; output:\n%s", out)
+	}
+	for _, line := range []string{
+		"    ✗ alpha (anchor v2026.08.0-rc.01)",
+		"    ✗ beta (anchor v2026.08.0-rc.02)",
+	} {
+		if !strings.Contains(out, line) {
+			t.Errorf("differing-anchor refusal omitted compact line %q; output:\n%s", line, out)
+		}
+	}
+	if got := strings.Count(out, "changed files — re-run with --verbose to list them"); got != 2 {
+		t.Errorf("differing (anchor, file-set) groups printed %d collapsed pointers, want 2; output:\n%s", got, out)
+	}
+
+	detailed := run(true)
+	firstHeading := strings.Index(detailed, "    Changed files since v2026.08.0-rc.01:")
+	firstExecPath := strings.Index(detailed, "        cli/internal/upgrade/exec.go")
+	firstServicePath := strings.Index(detailed, "        cli/internal/upgrade/service.go")
+	secondHeading := strings.Index(detailed, "    Changed files since v2026.08.0-rc.02:")
+	secondExecPath := -1
+	if secondHeading >= 0 {
+		if rel := strings.Index(detailed[secondHeading:], "        cli/internal/upgrade/exec.go"); rel >= 0 {
+			secondExecPath = secondHeading + rel
+		}
+	}
+	if firstHeading < 0 || firstExecPath < firstHeading || firstServicePath < firstExecPath ||
+		secondHeading < firstServicePath || secondExecPath < secondHeading {
+		t.Errorf("verbose multi-anchor details are missing or nondeterministically ordered; output:\n%s", detailed)
+	}
+	if strings.Contains(detailed, "re-run with --verbose") {
+		t.Errorf("verbose multi-anchor output retained compact pointers; output:\n%s", detailed)
 	}
 }
 

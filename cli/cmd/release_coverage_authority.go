@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/statisticsnorway/statbus/cli/internal/release"
 )
@@ -21,6 +22,15 @@ type coverageAuthorityScenario struct {
 	Scenario string
 	Verdict  release.CoverageVerdict
 	Err      error
+}
+
+// coverageBlockedGroup is one distinct refusal detail: an evidence anchor plus
+// the exact set of sensitive files changed since it. Many scenarios normally
+// share one group, so the detail belongs to the workflow refusal, not to every
+// scenario line (STATBUS-346).
+type coverageBlockedGroup struct {
+	Anchor       string
+	ChangedPaths []string
 }
 
 // runCoverageAuthority is STATBUS-252's SWITCH: the per-scenario decision
@@ -60,13 +70,14 @@ type coverageAuthorityScenario struct {
 //     answer binds, not how it is fetched.
 //
 //  3. REFUSALS NAME WHAT THEY EXAMINED. Per scenario: a covered-by verdict
-//     names its Anchor; a not-covered verdict WITH a BlockedBy names the
-//     anchor that had evidence and the sensitive files that ruled it out; a
-//     not-covered verdict with no BlockedBy says how many candidates were
-//     walked and found nothing; any EvidenceErrors (candidates that could
-//     not be read) are named on their own line, whether or not the scenario
-//     ultimately resolved — an operator auditing a refusal must be able to
-//     tell "nothing was there" from "something could not be read."
+//     names its Anchor; blocked scenarios stay individually named while the
+//     workflow summary names the shared anchor and file count, with each
+//     distinct (anchor, file-set) listed once under --verbose; a not-covered
+//     verdict with no BlockedBy says how many candidates were walked and found
+//     nothing; any EvidenceErrors (candidates that could not be read) are named
+//     on their own line, whether or not the scenario ultimately resolved — an
+//     operator auditing a refusal must be able to tell "nothing was there" from
+//     "something could not be read."
 //
 // AC#6 — THE INDEPENDENCE ARGUMENT, recorded here because this is the switch
 // site it must travel with: treating N scenarios as independently provable
@@ -130,13 +141,30 @@ func runCoverageAuthority(projDir, workflow, rcTag, rcCommit, rcShort string, re
 		}
 	}
 	passed := len(notCovered) == 0 && len(errored) == 0
+	blockedGroups, blockedCount, blockedAnchors := groupBlockedCoverage(notCovered)
 
 	mark, verb := "✓", "PASSES"
 	if !passed {
 		mark, verb = "✗", "REFUSES"
 	}
-	fmt.Printf("  %s %s %s: %d/%d scenario(s) covered at %s (%d proven here, %d inherited from a prior anchor)\n",
-		mark, workflow, verb, len(provenHere)+len(coveredBy), len(requiredScenarios), rcShort, len(provenHere), len(coveredBy))
+	coveredCount := len(provenHere) + len(coveredBy)
+	switch {
+	case passed || blockedCount == 0:
+		// Green output and non-blocked refusal vocabulary are intentionally
+		// unchanged. STATBUS-346 only reshapes the noisy blocked-by-diff case.
+		fmt.Printf("  %s %s %s: %d/%d scenario(s) covered at %s (%d proven here, %d inherited from a prior anchor)\n",
+			mark, workflow, verb, coveredCount, len(requiredScenarios), rcShort, len(provenHere), len(coveredBy))
+	case len(blockedGroups) == 1:
+		group := blockedGroups[0]
+		fmt.Printf("  ✗ %s REFUSES: %d/%d scenario(s) covered at %s (%d blocked by %s, %d sensitive files changed since it)\n",
+			workflow, coveredCount, len(requiredScenarios), rcShort, blockedCount, group.Anchor, len(group.ChangedPaths))
+	case len(blockedAnchors) == 1:
+		fmt.Printf("  ✗ %s REFUSES: %d/%d scenario(s) covered at %s (%d blocked by %s, %d distinct sensitive files changed since it across %d file sets)\n",
+			workflow, coveredCount, len(requiredScenarios), rcShort, blockedCount, firstBlockedAnchor(blockedAnchors), countDistinctBlockedPaths(blockedGroups), len(blockedGroups))
+	default:
+		fmt.Printf("  ✗ %s REFUSES: %d/%d scenario(s) covered at %s (%d blocked across %d anchors, %d distinct sensitive files changed since them)\n",
+			workflow, coveredCount, len(requiredScenarios), rcShort, blockedCount, len(blockedAnchors), countDistinctBlockedPaths(blockedGroups))
+	}
 
 	// Unreadable candidates are named regardless of how the scenario
 	// ultimately resolved (precondition 3) — including proven-here, where
@@ -186,10 +214,10 @@ func runCoverageAuthority(projDir, workflow, rcTag, rcCommit, rcShort string, re
 	for _, r := range notCovered {
 		switch {
 		case r.Verdict.BlockedBy != "":
-			fmt.Printf("    ✗ %s: BLOCKED — %s has evidence, but %d upgrade-sensitive file(s) changed since it:\n",
-				r.Scenario, r.Verdict.BlockedBy, len(r.Verdict.ChangedPaths))
-			for _, f := range r.Verdict.ChangedPaths {
-				fmt.Printf("        %s\n", f)
+			if len(blockedAnchors) == 1 {
+				fmt.Printf("    ✗ %s\n", r.Scenario)
+			} else {
+				fmt.Printf("    ✗ %s (anchor %s)\n", r.Scenario, r.Verdict.BlockedBy)
 			}
 		case targetPending != nil:
 			fmt.Printf("    … %s: a run is IN PROGRESS at %s — WAIT for it, do not trigger another\n", r.Scenario, rcShort)
@@ -198,6 +226,16 @@ func runCoverageAuthority(projDir, workflow, rcTag, rcCommit, rcShort string, re
 		}
 		for _, e := range r.Verdict.EvidenceErrors {
 			fmt.Printf("        (unreadable candidate: %s)\n", e)
+		}
+	}
+	for _, group := range blockedGroups {
+		if verbose {
+			fmt.Printf("    Changed files since %s:\n", group.Anchor)
+			for _, path := range group.ChangedPaths {
+				fmt.Printf("        %s\n", path)
+			}
+		} else {
+			fmt.Printf("    (%d changed files — re-run with --verbose to list them)\n", len(group.ChangedPaths))
 		}
 	}
 	for _, r := range errored {
@@ -216,4 +254,53 @@ func runCoverageAuthority(projDir, workflow, rcTag, rcCommit, rcShort string, re
 		}
 	}
 	return passed
+}
+
+// groupBlockedCoverage returns one entry per distinct (anchor, file-set), plus
+// counts used by the one-line workflow summary. Paths are copied and sorted so
+// a file set deduplicates even if two verdicts happened to report it in a
+// different order. Scenario verdicts themselves are not changed.
+func groupBlockedCoverage(results []coverageAuthorityScenario) ([]coverageBlockedGroup, int, map[string]struct{}) {
+	groups := make([]coverageBlockedGroup, 0)
+	seen := make(map[string]struct{})
+	anchors := make(map[string]struct{})
+	blockedCount := 0
+
+	for _, result := range results {
+		if result.Verdict.BlockedBy == "" {
+			continue
+		}
+		blockedCount++
+		anchors[result.Verdict.BlockedBy] = struct{}{}
+		paths := append([]string(nil), result.Verdict.ChangedPaths...)
+		sort.Strings(paths)
+		key := result.Verdict.BlockedBy + "\x00" + strings.Join(paths, "\x00")
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		groups = append(groups, coverageBlockedGroup{
+			Anchor:       result.Verdict.BlockedBy,
+			ChangedPaths: paths,
+		})
+	}
+
+	return groups, blockedCount, anchors
+}
+
+func countDistinctBlockedPaths(groups []coverageBlockedGroup) int {
+	paths := make(map[string]struct{})
+	for _, group := range groups {
+		for _, path := range group.ChangedPaths {
+			paths[path] = struct{}{}
+		}
+	}
+	return len(paths)
+}
+
+func firstBlockedAnchor(anchors map[string]struct{}) string {
+	for anchor := range anchors {
+		return anchor
+	}
+	return ""
 }
