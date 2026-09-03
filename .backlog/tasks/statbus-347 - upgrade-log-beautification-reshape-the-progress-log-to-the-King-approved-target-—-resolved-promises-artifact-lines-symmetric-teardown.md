@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@researcher'
 created_date: '2026-09-03 08:42'
-updated_date: '2026-09-03 08:50'
+updated_date: '2026-09-03 08:54'
 labels:
   - upgrade
   - ux
@@ -65,5 +65,19 @@ GROUNDING DELIVERED (researcher, foreman-reviewed): tmp/347-grounding.md — all
 3. PER-SERVICE HEALTH: 'app healthy, worker healthy...' needs NEW data — compose.PsEntry has no Health field; current healthCheck probes PostgREST+auth_status only. Options: extend compose ps parsing with the health field (real work), or keep the health line at its current truthful granularity ('API healthy (auth_status ok)'). King's granularity rule says log mirrors code — either extend the code or match the line to what is checked.
 
 Maintenance-flag content (line-11 contract) fully grounded: claim snapshot must be threaded (row started_at not returned by claimScheduledUpgrade; connections closed before setMaintenance), to_json not to_jsonb, extractor by known id.
+---
+
+author: foreman
+created: 2026-09-03 08:54
+---
+KING'S RULINGS on the three decisions (2026-09-03), target file regrounded and re-staged:
+
+1. FLAG PATH: truth wins — target now shows the canonical tmp/upgrade-in-progress.json. (The musing path was creative writing; we ground in reality.)
+
+2. SEQUENCING — the King's semantic insight: 'completed' was doing two jobs. The DATABASE ROW records that the upgrade succeeded (teardown-immune, written exactly where the invariant requires); the PROCESS completes only after all remaining acts. The log now separates them: the Finishing: block mirrors ACTUAL execution order (lift maintenance → 'Recording the successful upgrade in the database ... ok' → unblock SQL → release lock → apply configuration and service updates), and 'Upgrade to <v> complete.' is the last line, now meaning what it says — everything is done. NO operation reordering; the documented connection-safety invariant (service.go:7755-7767) is untouched. The implementation moves prints only.
+
+3. HEALTH: mirror reality — no per-service invention. docker compose is the per-service supervisor; our verification is the END-TO-END probe (request through proxy and API to the database), which proves the stack works TOGETHER. Target line: 'Verifying health end to end (request through proxy and API to the database) ... ok (0.3s)'.
+
+The target's Finishing: order (maintenance → record → SQL unblock → lock → fixup) is the CURRENT execution order verified in the grounding — symmetric-teardown aesthetics yield to truth. Ready for implementation staffing: happy path per the 44-line map, then the inventory paths under the same rules.
 ---
 <!-- COMMENTS:END -->
