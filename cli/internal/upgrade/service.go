@@ -23,6 +23,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/statisticsnorway/statbus/cli/internal/compose"
 	"github.com/statisticsnorway/statbus/cli/internal/dbdump"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
@@ -6296,6 +6297,7 @@ func (d *Service) claimScheduledUpgrade(ctx context.Context, id int) (scheduledU
 
 	// The claim itself: mutating SET + WHERE identical to the two former sites;
 	// RETURNING the superset so both callers are served by one helper.
+	var commitVersion pgtype.Text
 	claimErr := tx.QueryRow(ctx,
 		`WITH claimed AS (
 			UPDATE public.upgrade
@@ -6303,16 +6305,16 @@ func (d *Service) claimScheduledUpgrade(ctx context.Context, id int) (scheduledU
 			 WHERE id = $2 AND state = 'scheduled' AND started_at IS NULL
 			 RETURNING commit_tags, recreate, id, commit_version, commit_sha, from_commit_version, started_at
 		),
-		labelled AS (
-			-- commit_version is NULLABLE (an untagged commit registered by SHA
-			-- carries none; dev holds 8 such rows, Norway 1). Scanning NULL into
-			-- the snapshot's string failed the claim outright (found by the live
-			-- twin TestLiveRollbackFinishing). The display fallback is the same
-			-- one every other reader uses: the 8-char commit short.
-			SELECT c.commit_tags,
-			       c.recreate,
-			       c.id,
-			       COALESCE(c.commit_version, left(c.commit_sha, 8)) AS commit_version,
+			labelled AS (
+				-- commit_version is NULLABLE (an untagged commit registered by SHA
+				-- carries none; dev holds 8 such rows, Norway 1). Keep that true NULL
+				-- in the immutable JSON: the maintenance file must render the claimed
+				-- row, never a display-normalized substitute. Go scans it into nullable
+				-- pgtype.Text below and derives the headline fallback separately.
+				SELECT c.commit_tags,
+				       c.recreate,
+				       c.id,
+				       c.commit_version,
 			       c.commit_sha,
 			       COALESCE(c.from_commit_version, '') AS from_commit_version,
 			       c.started_at
@@ -6336,7 +6338,7 @@ func (d *Service) claimScheduledUpgrade(ctx context.Context, id int) (scheduledU
 		&claim.CommitTags,
 		&claim.Recreate,
 		&claim.Snapshot.ID,
-		&claim.Snapshot.CommitVersion,
+		&commitVersion,
 		&claim.Snapshot.CommitSHA,
 		&claim.Snapshot.FromCommitVersion,
 		&claim.Snapshot.StartedAt,
@@ -6344,6 +6346,11 @@ func (d *Service) claimScheduledUpgrade(ctx context.Context, id int) (scheduledU
 	)
 	if claimErr != nil {
 		return scheduledUpgradeClaim{}, claimErr // includes pgx.ErrNoRows — callers map it to their own message
+	}
+	if commitVersion.Valid {
+		claim.Snapshot.CommitVersion = commitVersion.String
+	} else {
+		claim.Snapshot.CommitVersion = ShortForDisplay(claim.Snapshot.CommitSHA)
 	}
 
 	if commitErr := tx.Commit(ctx); commitErr != nil {
