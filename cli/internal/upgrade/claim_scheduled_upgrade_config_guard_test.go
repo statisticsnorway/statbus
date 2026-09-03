@@ -90,3 +90,26 @@ func TestClaimScheduledUpgradeGuard_NoMarkerFallsThrough(t *testing.T) {
 		t.Error("the guard must branch on BOTH merr != nil and marker != nil as distinct conditions — a bare, unconditional refusal here would block every upgrade dispatch, including on a perfectly healthy box")
 	}
 }
+
+// TestClaimScheduledUpgrade_ToleratesNullCommitVersion pins the claim's
+// RETURNING projection against a NULLABLE column. commit_version is NULL for
+// every untagged commit registered by SHA (dev holds 8 such rows, Norway 1),
+// and the STATBUS-347 snapshot scans it into a plain string — so without the
+// COALESCE the claim of such a row failed outright ("cannot scan NULL into
+// *string"), found live by TestLiveRollbackFinishing. The fallback is the same
+// 8-char commit short every other display path uses.
+func TestClaimScheduledUpgrade_ToleratesNullCommitVersion(t *testing.T) {
+	src, err := os.ReadFile("service.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fn := extractFuncBody(t, string(src), "func (d *Service) claimScheduledUpgrade(")
+	for _, want := range []string{
+		"COALESCE(c.commit_version, left(c.commit_sha, 8)) AS commit_version",
+		"COALESCE(c.from_commit_version, '') AS from_commit_version",
+	} {
+		if !strings.Contains(fn, want) {
+			t.Errorf("claim projection lost the NULL guard %q — an untagged candidate's claim would fail at Scan", want)
+		}
+	}
+}

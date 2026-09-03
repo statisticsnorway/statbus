@@ -6281,21 +6281,36 @@ func (d *Service) claimScheduledUpgrade(ctx context.Context, id int) (scheduledU
 			   SET state = 'in_progress', started_at = now(), from_commit_version = $1
 			 WHERE id = $2 AND state = 'scheduled' AND started_at IS NULL
 			 RETURNING commit_tags, recreate, id, commit_version, commit_sha, from_commit_version, started_at
+		),
+		labelled AS (
+			-- commit_version is NULLABLE (an untagged commit registered by SHA
+			-- carries none; dev holds 8 such rows, Norway 1). Scanning NULL into
+			-- the snapshot's string failed the claim outright (found by the live
+			-- twin TestLiveRollbackFinishing). The display fallback is the same
+			-- one every other reader uses: the 8-char commit short.
+			SELECT c.commit_tags,
+			       c.recreate,
+			       c.id,
+			       COALESCE(c.commit_version, left(c.commit_sha, 8)) AS commit_version,
+			       c.commit_sha,
+			       COALESCE(c.from_commit_version, '') AS from_commit_version,
+			       c.started_at
+			  FROM claimed AS c
 		)
-		SELECT c.commit_tags,
-		       c.recreate,
-		       c.id,
-		       c.commit_version,
-		       c.commit_sha,
-		       c.from_commit_version,
-		       c.started_at,
+		SELECT l.commit_tags,
+		       l.recreate,
+		       l.id,
+		       l.commit_version,
+		       l.commit_sha,
+		       l.from_commit_version,
+		       l.started_at,
 		       (SELECT to_json(t)::text
-		          FROM (SELECT c.id AS id,
-		                       c.commit_version AS commit_version,
-		                       c.commit_sha AS commit_sha,
-		                       c.from_commit_version AS from_commit_version,
-		                       c.started_at AS started_at) AS t)
-		  FROM claimed AS c`,
+		          FROM (SELECT l.id AS id,
+		                       l.commit_version AS commit_version,
+		                       l.commit_sha AS commit_sha,
+		                       l.from_commit_version AS from_commit_version,
+		                       l.started_at AS started_at) AS t)
+		  FROM labelled AS l`,
 		d.version, id).Scan(
 		&claim.CommitTags,
 		&claim.Recreate,
