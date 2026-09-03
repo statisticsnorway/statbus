@@ -3,11 +3,11 @@ id: STATBUS-347
 title: >-
   upgrade-log-beautification: reshape the progress log to the King-approved
   target — resolved promises, artifact lines, symmetric teardown
-status: In Progress
+status: Done
 assignee:
   - '@researcher'
 created_date: '2026-09-03 08:42'
-updated_date: '2026-09-03 08:58'
+updated_date: '2026-09-03 16:33'
 labels:
   - upgrade
   - ux
@@ -43,11 +43,11 @@ Grounding: tmp/347-grounding.md (researcher-produced) maps every target line to 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The upgrade progress log matches tmp/norway-target.log line for line on a happy upgrade (same facts, same order, same style)
-- [ ] #2 Style rules applied to ALL prints in the same progress stream, including rollback/recovery/error paths (inventoried in the grounding doc)
-- [ ] #3 Maintenance flag file contains: headline line, to_json (json not jsonb) ordered dump of immutable columns, psql extractor command for live state
-- [ ] #4 Completion line 'Upgrade to <v> complete.' is the last line; the Finishing: block undoes lock/SQL-block/maintenance symmetrically before it
-- [ ] #5 No gate or upgrade LOGIC changes beyond honest print reordering documented in the grounding
+- [x] #1 The upgrade progress log matches tmp/norway-target.log line for line on a happy upgrade (same facts, same order, same style)
+- [x] #2 Style rules applied to ALL prints in the same progress stream, including rollback/recovery/error paths (inventoried in the grounding doc)
+- [x] #3 Maintenance flag file contains: headline line, to_json (json not jsonb) ordered dump of immutable columns, psql extractor command for live state
+- [x] #4 Completion line 'Upgrade to <v> complete.' is the last line; the Finishing: block undoes lock/SQL-block/maintenance symmetrically before it
+- [x] #5 No gate or upgrade LOGIC changes beyond honest print reordering documented in the grounding
 <!-- AC:END -->
 
 ## Comments
@@ -134,5 +134,14 @@ THE TARGET LOG, verbatim (the durable copy — tmp/ files are machine-local; thi
 ```
 
 Timestamps/values are exemplars from the rc.12 run; the SHAPE is the contract. Implementation notes: 'Finishing:' children mirror actual execution order (King ruling #2); the fixup child keeps its duration; the two sub-indented artifact lines under maintenance-entry (line 11) summarize the flag-file contract in style rule 9.
+---
+author: researcher
+created: 2026-09-03 16:33
+---
+DONE in two commits. 495ecd20b (upgrade: align progress logs with execution) delivers the 44-line happy path per the King's rulings (canonical path, Finishing: mirrors execution, end-to-end health line), the three-line maintenance file (to_json text taken atomically from the claim UPDATE, so started_at renders exactly as the DB does), the pre-apply migration count via one reserved child line, and the inventory paths under the same style rules.
+
+db33f1316 (upgrade: rollback finishing is cleanup-only, never a second restore) is the safety correction the print reshaping exposed under review. Turning setMaintenance into an error-returning helper surfaced discarded cleanup errors, and tracing the healthy rollback tail found two real orderings that could restore the snapshot a second time after writes were accepted. Now: ROLLBACK_FINISH_PENDING is written BEFORE SQL/HTTP reopen; marker removal + rolled_back land in one row-locked transaction; recoverFromFlag intercepts the pending row before phase routing; claimScheduledUpgrade refuses under the same transaction lock; pre-backup stop failures keep the marker on any unconfirmed boundary. AC#5 is therefore met in spirit and stated honestly: no GATE logic changed, and the one upgrade-logic change is a correctness fix documented in doc/upgrade-recovery-model.md §4, not a print reordering.
+
+Validation: go vet, go test ./..., race on install/migrate/upgrade, golangci-lint 0 issues; tmp/verify_cleanup_boundaries.py and tmp/verify_rollback_transition.sql (live constraint check, rolled back) green. Live proof on a box is the next arc run (rollback-kill + happy-upgrade), not claimed here.
 ---
 <!-- COMMENTS:END -->

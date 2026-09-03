@@ -3,11 +3,11 @@ id: STATBUS-346
 title: >-
   release stable refusal output: summarize per workflow, print each changed-file
   list once, details behind --verbose
-status: In Progress
+status: Done
 assignee:
   - '@mechanic'
 created_date: '2026-09-03 05:53'
-updated_date: '2026-09-03 08:42'
+updated_date: '2026-09-03 16:33'
 labels:
   - release
   - ux
@@ -29,8 +29,8 @@ Acceptance: the rc.12-shaped refusal fits on one screen; every distinct file-set
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A stable-preflight refusal with N blocked scenarios prints the shared changed-file list at most once, never per scenario
-- [ ] #2 Each blocked scenario costs one line (name + anchor + count), with the full list behind --verbose or a printed command
-- [ ] #3 Trigger/Watch/Fix command lines are preserved verbatim
-- [ ] #4 Existing gate logic unchanged — output shaping only
+- [x] #1 A stable-preflight refusal with N blocked scenarios prints the shared changed-file list at most once, never per scenario
+- [x] #2 Each blocked scenario costs one line (name + anchor + count), with the full list behind --verbose or a printed command
+- [x] #3 Trigger/Watch/Fix command lines are preserved verbatim
+- [x] #4 Existing gate logic unchanged — output shaping only
 <!-- AC:END -->
