@@ -609,6 +609,37 @@ pnpm run test:watch     # Watch mode
 pnpm run test:coverage  # With coverage
 ```
 
+### Live twins (real database, opt-in)
+
+Between the unit tests and the paid VM harness sits a set of opt-in Go tests
+that drive the REAL upgrade code against the REAL local database and real files
+on this box, cleaning up after themselves (probe rows use `commit_sha`
+`3470000000…`; residue is asserted zero). They exist because source-inspection
+tests cannot see NULL encodings, constraint rejections, lock re-entrance, or a
+row that a real `psql` classifies differently from the one you imagined.
+
+```bash
+# The cleanup-only rollback finisher, the install ladder, the window seen by a
+# non-exempt session, the maintenance file's extractor command, the pruner:
+STATBUS_LIVE_DB=1 go test -C cli -count=1 -run 'TestLive' -v ./internal/upgrade ./internal/install
+
+# The six gates `./sb release stable` runs, stopping before tag+push:
+STATBUS_LIVE_RELEASE_GATES=v2026.09.0-rc.12 GITHUB_TOKEN=$(gh auth token) \
+  go test -C cli -count=1 -run TestLiveStablePreflight -v ./cmd
+```
+
+Rules they follow, and that any new one must follow:
+
+- Refuse to run if a real marker (`tmp/upgrade-in-progress.json`), a real
+  maintenance flag, or `./sb.old` exists: never probe beside a live upgrade.
+- Anything that would reach `docker compose` is answered by a shim first on
+  `PATH`; the box's containers are never touched. Do **not** run a red twin of a
+  compose-reaching path from a git worktree that shares this box's compose
+  project name: it re-creates the real containers under the worktree's paths
+  (observed 2026-09-03; recovered with `docker compose --profile all down` and
+  `./sb start all` from the real project directory).
+- Leave the read-only default OFF and the database rows as found.
+
 ### Upgrade System Hardening Tests
 
 To verify the upgrade service's rollback and recovery mechanisms, use these procedures. Each requires tagging deliberate broken RCs, then fixing them.
