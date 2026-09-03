@@ -122,13 +122,10 @@ var rewindAudit = map[siteKey]rewindDisposition{
 
 	// ── B. SUPERSEDED BY THE TERMINAL WRITE ITSELF ──
 	{"cli/internal/upgrade/service.go", "UPDATE", "backup_path,error,recovery_attempts,state"}: {
-		Class: classSupersededByTerminal, Count: 4,
-		Why: "THE TERMINAL WRITES THEMSELVES (the four 'failed' tiers). They run AFTER the rewind and are " +
+		Class: classSupersededByTerminal, Count: 5,
+		Why: "THE TERMINAL WRITES THEMSELVES (the four degraded 'failed' tiers plus the conservative " +
+			"failed-before-lock-release rollback write). They run AFTER the rewind and are " +
 			"the superseding write — this is the site that re-imposes, not a site needing re-imposition.",
-	},
-	{"cli/internal/upgrade/service.go", "UPDATE", "backup_path,error,recovery_attempts,rolled_back_at,state"}: {
-		Class: classSupersededByTerminal, Count: 1,
-		Why: "The rolled_back terminal. Sets rolled_back_at after the rewind; same reasoning as the four above.",
 	},
 	{"cli/internal/upgrade/service.go", "UPDATE", "error"}: {
 		Class: classSupersededByTerminal, Count: 1,
@@ -137,8 +134,15 @@ var rewindAudit = map[siteKey]rewindDisposition{
 			"column at a terminal is the superseding write.)",
 	},
 	{"cli/internal/upgrade/service.go", "UPDATE", "error,state"}: {
-		Class: classSupersededByTerminal, Count: 1,
-		Why: "completeInProgressUpgrade's observed-state failure write; sets state+error itself after any rewind.",
+		Class: classSupersededByTerminal, Count: 2,
+		Why: "Two post-rewind terminal/finalization writes set state+error themselves: " +
+			"completeInProgressUpgrade's observed-state failure and the failed rollback's stale-lock guidance. " +
+			"Neither can be rewound by the rollback it finishes.",
+	},
+	{"cli/internal/upgrade/service.go", "UPDATE", "error,rolled_back_at,state"}: {
+		Class: classSupersededByTerminal, Count: 2,
+		Why: "The final rolled_back transition and its startup/heartbeat retry both run after the rewind " +
+			"and successful lock release; they establish the healthy terminal contract.",
 	},
 	{"cli/internal/upgrade/service.go", "UPDATE", "error,scheduled_at,state"}: {
 		Class: classSupersededByTerminal, Count: 1,

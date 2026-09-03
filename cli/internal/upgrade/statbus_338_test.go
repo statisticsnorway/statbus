@@ -184,7 +184,7 @@ func TestPreswapFetchRunsBeforeMaintenance_STATBUS338(t *testing.T) {
 	body := extractFuncBody(t, readUpgradeServiceSource(t), "func (d *Service) executeUpgrade(")
 	ensureAt := strings.Index(body, "d.ensureUpgradeCommitObjects(")
 	readOnlyAt := strings.Index(body, "d.setDatabaseReadOnly(ctx, true)")
-	maintenanceAt := strings.Index(body, "d.setMaintenance(true)")
+	maintenanceAt := strings.Index(body, "d.setMaintenance(true, maintenanceContent)")
 	backupAt := strings.Index(body, "d.backupDatabase(")
 	flagAt := strings.Index(body, "d.writeUpgradeFlag(")
 	if ensureAt < 0 || readOnlyAt < 0 || maintenanceAt < 0 || backupAt < 0 || flagAt < 0 {
@@ -207,7 +207,7 @@ func TestReturnedFetchErrorSurvivesPreswapRecovery_STATBUS338(t *testing.T) {
 	if err := d.writeUpgradeFlag(338, strings.Repeat("a", 40), []string{"v2026.09.0-rc.02"}, "test", string(TriggerService), false); err != nil {
 		t.Fatalf("writeUpgradeFlag: %v", err)
 	}
-	t.Cleanup(d.removeUpgradeFlag)
+	t.Cleanup(func() { _ = d.removeUpgradeFlag() })
 
 	const gitFailure = "remote: synthetic GitHub HTTP 503 from rune signature"
 	original := ErrGitFetchRetryable + ": git fetch aaaaaaaa failed after 3 attempts: " + gitFailure
@@ -235,12 +235,18 @@ func TestReturnedFetchErrorSurvivesPreswapRecovery_STATBUS338(t *testing.T) {
 	restoreBody := extractFuncBody(t, readUpgradeServiceSource(t), "func (d *Service) restoreAndFinalize(")
 	for _, want := range []string{
 		"errMsg := reason",
-		"retryableRollbackReason(errMsg)",
-		"It is safe to schedule this same version again",
+		"rollbackFinalError(errMsg)",
+		"rollbackFinishPendingError(errMsg)",
 		"d.writeRollbackTerminal(",
 	} {
 		if !strings.Contains(restoreBody, want) {
 			t.Errorf("restoreAndFinalize lost the original-error-to-terminal-row contract; missing %q", want)
+		}
+	}
+	guidanceBody := extractFuncBody(t, readUpgradeServiceSource(t), "func rollbackFinalError(")
+	for _, want := range []string{"retryableRollbackReason(reason)", "It is safe to schedule this same version again"} {
+		if !strings.Contains(guidanceBody, want) {
+			t.Errorf("rollbackFinalError lost retryable original-error guidance; missing %q", want)
 		}
 	}
 }

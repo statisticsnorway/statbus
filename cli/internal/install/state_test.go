@@ -279,6 +279,29 @@ func TestStateString(t *testing.T) {
 	}
 }
 
+func TestParseReattemptableRestoreRowsSkipsRollbackFinishPending(t *testing.T) {
+	out := "12|/backups/already-restored|" + upgrade.RollbackFinishPendingPrefix + "original failure\n" +
+		"9|/backups/restore-broke|database restore failed"
+	id, backupPath, found, err := parseReattemptableRestoreRows(out)
+	if err != nil {
+		t.Fatalf("parseReattemptableRestoreRows: %v", err)
+	}
+	if !found || id != 9 || backupPath != "/backups/restore-broke" {
+		t.Fatalf("got id=%d backup=%q found=%t; want the real restore-broke row", id, backupPath, found)
+	}
+}
+
+func TestParseReattemptableRestoreRowsOnlyPendingReturnsNone(t *testing.T) {
+	out := "12|/backups/already-restored|" + upgrade.RollbackFinishPendingPrefix + "original failure"
+	_, _, found, err := parseReattemptableRestoreRows(out)
+	if err != nil {
+		t.Fatalf("parseReattemptableRestoreRows: %v", err)
+	}
+	if found {
+		t.Fatal("rollback finishing row was misclassified as a restore to replay")
+	}
+}
+
 // TestDetectFreshDefaultProbe exercises the default probe against an empty
 // directory — the only ladder step that doesn't require a running database or
 // subprocess is the .env.config check, and it must return StateFresh.

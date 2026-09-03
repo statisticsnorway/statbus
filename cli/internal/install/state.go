@@ -252,10 +252,16 @@ func (defaultProbe) QueryScheduledUpgrade(projDir string) (*ScheduledRow, error)
 //
 // PIN 2 co-extensiveness (proven by enumerating every state='failed' writer in
 // cli/internal/upgrade/service.go): failed-WITH-retained-backup_path is produced
-// ONLY by the restore-broke terminals —
+// by the restore-broke terminals —
 //   - rollback() degraded terminal (LabelFailedRollbackIncomplete)
 //   - rollback() git-restore ABORT terminal (LabelFailedAbort)
 //   - recoveryRollback pair-terminal (two rollback crash-deaths, LabelFailedRollbackIncomplete)
+//
+// One explicitly marked exception is NOT restore-broke:
+//   - restoreAndFinalize first records ROLLBACK_FINISH_PENDING after a healthy
+//     restore, then releases the filesystem lock, then writes rolled_back. A
+//     crash in that narrow handoff leaves failed+backup_path, but replaying the
+//     restore would be wrong. The daemon retries only the final guarded UPDATE.
 //
 // The two OTHER failed writers cannot produce the combination:
 //   - failUpgrade runs ONLY before the snapshot (pre-backupDatabase) → backup_path NULL.
@@ -269,29 +275,38 @@ func (defaultProbe) QueryScheduledUpgrade(projDir string) (*ScheduledRow, error)
 // present is exactly the restore-broke set.
 func (defaultProbe) QueryReattemptableRestore(projDir string) (int64, string, bool, error) {
 	out, err := runQuery(projDir, 10*time.Second,
-		`SELECT id, backup_path FROM public.upgrade
+		`SELECT id, backup_path, error FROM public.upgrade
 		  WHERE state = 'failed' AND backup_path IS NOT NULL
-		  ORDER BY id DESC LIMIT 1`)
+		  ORDER BY id DESC`)
 	if err != nil {
 		return 0, "", false, err
 	}
-	line := strings.TrimSpace(out)
-	if line == "" {
-		return 0, "", false, nil
+	return parseReattemptableRestoreRows(out)
+}
+
+func parseReattemptableRestoreRows(out string) (int64, string, bool, error) {
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "|", 3)
+		if len(parts) < 3 {
+			return 0, "", false, fmt.Errorf("unexpected reattemptable-restore row: %q", line)
+		}
+		if upgrade.IsRollbackFinishPendingError(parts[2]) {
+			continue
+		}
+		id, err := strconv.ParseInt(strings.TrimSpace(parts[0]), 10, 64)
+		if err != nil {
+			return 0, "", false, fmt.Errorf("parse id from %q: %w", parts[0], err)
+		}
+		backupPath := strings.TrimSpace(parts[1])
+		if backupPath == "" {
+			continue
+		}
+		return id, backupPath, true, nil
 	}
-	parts := strings.SplitN(line, "|", 2)
-	if len(parts) < 2 {
-		return 0, "", false, fmt.Errorf("unexpected reattemptable-restore row: %q", line)
-	}
-	id, perr := strconv.ParseInt(strings.TrimSpace(parts[0]), 10, 64)
-	if perr != nil {
-		return 0, "", false, fmt.Errorf("parse id from %q: %w", parts[0], perr)
-	}
-	backupPath := strings.TrimSpace(parts[1])
-	if backupPath == "" {
-		return 0, "", false, nil
-	}
-	return id, backupPath, true, nil
+	return 0, "", false, nil
 }
 
 // LiveMaxMigrationVersion queries db.migration for the highest applied

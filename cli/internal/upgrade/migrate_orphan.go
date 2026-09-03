@@ -55,14 +55,14 @@ var migrateOrphanTerminateSQL = fmt.Sprintf(`
 // both ways a migrate psql backend can be orphaned.
 func (d *Service) terminateMigrateOrphan(ctx context.Context, progress *ProgressLog) {
 	if d.queryConn == nil {
-		progress.Write("migrate-orphan: no DB connection to terminate the orphaned psql backend (rollback's container-stop is the backstop)")
+		progress.Write("Stopping the timed-out database migration session ... deferred (no database connection; rollback will stop the container)")
 		return
 	}
 	qctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	rows, err := d.queryConn.Query(qctx, migrateOrphanTerminateSQL)
 	if err != nil {
-		progress.Write("migrate-orphan: pg_terminate_backend query failed: %v (rollback's container-stop is the backstop)", err)
+		progress.Write("Stopping the timed-out database migration session ... failed: %v (rollback will stop the container)", err)
 		return
 	}
 	defer rows.Close()
@@ -75,8 +75,8 @@ func (d *Service) terminateMigrateOrphan(ctx context.Context, progress *Progress
 		}
 	}
 	if len(terminated) > 0 {
-		progress.Write("migrate-orphan: terminated %d orphaned in-container psql backend(s) %v after migrate timeout (aborts open txn before rollback)", len(terminated), terminated)
+		progress.Write("Stopping %d timed-out database migration session(s) ... ok (backend pids %v)", len(terminated), terminated)
 	} else {
-		progress.Write("migrate-orphan: no orphaned migrate psql backend found to terminate (already gone, or none left a session)")
+		progress.Write("Checking for timed-out database migration sessions ... ok (none remain)")
 	}
 }

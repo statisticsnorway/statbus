@@ -8,28 +8,15 @@ import (
 // The planned post-swap handoff must NOT describe itself as a crash. This is
 // the finding from the first human-canary run: the operator read "Recovering an
 // interrupted upgrade" while the upgrade was proceeding exactly as designed.
-func TestPlannedHandoffDoesNotClaimInterruption(t *testing.T) {
+func TestPlannedHandoffOpeningIsSuppressed(t *testing.T) {
 	line := recoveryOpeningLine(UpgradeFlag{
 		ID:        42,
 		Phase:     PhaseNewSbSwapped,
 		InvokedBy: "service",
 	}, HolderService)
 
-	if strings.Contains(line, "interrupted") {
-		t.Errorf("the planned handoff must not call itself interrupted:\n  %s", line)
-	}
-	if strings.Contains(strings.ToLower(line), "recovering") {
-		t.Errorf("the planned handoff must not use recovery language:\n  %s", line)
-	}
-	if !strings.Contains(line, "planned handoff") {
-		t.Errorf("the planned handoff must name itself as planned:\n  %s", line)
-	}
-	// Zoom principle: the plain statement leads, the identifiers still follow.
-	if !strings.Contains(line, "id=42") || !strings.Contains(line, "invoked_by=service") {
-		t.Errorf("the detail suffix must survive the rewording:\n  %s", line)
-	}
-	if idx := strings.Index(line, "(detail:"); idx == -1 || idx == 0 {
-		t.Errorf("high level must come first, detail after:\n  %s", line)
+	if line != "" {
+		t.Fatalf("the startup opening must be suppressed so resumeNewSb emits the one canonical continuation line, got %q", line)
 	}
 }
 
@@ -62,19 +49,19 @@ func TestGenuineCrashesKeepRecoveryLanguage(t *testing.T) {
 	}
 }
 
-// Only the swapped phase is planned. Pinned as a table so a future phase added
-// to the enum cannot quietly inherit "planned" by falling through.
-func TestOnlySwappedPhaseIsPlanned(t *testing.T) {
-	planned := map[string]bool{
+// Only the swapped phase suppresses the recovery opening. Pinned as a table so
+// a future phase cannot quietly inherit the suppression by falling through.
+func TestOnlySwappedPhaseSuppressesRecoveryOpening(t *testing.T) {
+	suppressed := map[string]bool{
 		PhaseNewSbSwapped:   true,
 		PhaseNewSbUpgrading: false,
 		PhaseOldSbUpgrading: false,
 	}
-	for phase, wantPlanned := range planned {
+	for phase, wantSuppressed := range suppressed {
 		line := recoveryOpeningLine(UpgradeFlag{ID: 1, Phase: phase}, HolderService)
-		gotPlanned := strings.Contains(line, "planned handoff")
-		if gotPlanned != wantPlanned {
-			t.Errorf("phase %q: planned=%v, want %v\n  %s", phase, gotPlanned, wantPlanned, line)
+		gotSuppressed := line == ""
+		if gotSuppressed != wantSuppressed {
+			t.Errorf("phase %q: suppressed=%v, want %v\n  %s", phase, gotSuppressed, wantSuppressed, line)
 		}
 	}
 }

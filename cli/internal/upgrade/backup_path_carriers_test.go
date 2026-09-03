@@ -87,7 +87,7 @@ func TestExecuteUpgrade_NoRowWriteWhileTheServerIsStopped_STATBUS228(t *testing.
 	src := string(packageGoSources(t)["service.go"])
 	body := extractFuncBody(t, src, "func (d *Service) executeUpgrade(")
 
-	stopIdx := strings.Index(body, `progress.Write("Stopping database...")`)
+	stopIdx := strings.Index(body, `runCommand(projDir, "docker", "compose", "stop", "db")`)
 	if stopIdx < 0 {
 		t.Fatal("could not locate the Step 4 database stop — re-anchor this pin rather than letting it stop checking")
 	}
@@ -133,7 +133,7 @@ func TestPreSwapFlagCarriesNoBackupPath_STATBUS228(t *testing.T) {
 	src := string(packageGoSources(t)["service.go"])
 	body := extractFuncBody(t, src, "func (d *Service) executeUpgrade(")
 
-	stopIdx := strings.Index(body, `progress.Write("Stopping database...")`)
+	stopIdx := strings.Index(body, `runCommand(projDir, "docker", "compose", "stop", "db")`)
 	stampIdx := strings.Index(body, "d.updateFlagNewSbSwapped(")
 	if stopIdx < 0 || stampIdx < 0 || stampIdx < stopIdx {
 		t.Fatal("could not locate the stop/stamp anchors")

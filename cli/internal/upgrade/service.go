@@ -1018,25 +1018,50 @@ func warnOnStaleFlagRemoveFailure(path string, err error, consequence string) {
 //     EWOULDBLOCK → a live actor owns it → not ours to remove, leave it.
 //     File absent → nothing to do (and no O_CREATE — never manufacture a
 //     flag while cleaning one up).
-func (d *Service) removeUpgradeFlag() {
+func (d *Service) removeUpgradeFlag() error {
 	const consequence = "a later boot will read this stale flag and route to crash-recovery/ghost-flag reconcile (an availability wedge, not corruption; that path re-attempts this same removal every boot)"
 	path := d.flagPath()
 	if d.flagLock != nil {
-		warnOnStaleFlagRemoveFailure(path, os.Remove(path), consequence)
+		removeErr := os.Remove(path)
+		warnOnStaleFlagRemoveFailure(path, removeErr, consequence)
 		d.flagLock.Close()
 		d.flagLock = nil
-		return
+		if os.IsNotExist(removeErr) {
+			return nil
+		}
+		return removeErr
 	}
 	f, err := os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {
-		return // absent (nothing to remove) or unreadable (leave it)
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
 	}
 	defer func() { _ = f.Close() }() // releases the flock (on the unlinked inode after removal)
 	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		log.Printf("removeUpgradeFlag: upgrade flock held by another live actor — leaving the flag file in place (not ours to remove)")
+		return err
+	}
+	removeErr := os.Remove(path)
+	warnOnStaleFlagRemoveFailure(path, removeErr, consequence)
+	if os.IsNotExist(removeErr) {
+		return nil
+	}
+	return removeErr
+}
+
+// releaseUpgradeFlagLockKeepingFile turns the current attempt into a genuine
+// crash-recovery shape without waiting for process death: the kernel flock is
+// released, but the JSON marker stays on disk for DetectState and ./sb install.
+// Use only when the row is durably failed and unresolved machine cleanup still
+// requires an explicit recovery pass.
+func (d *Service) releaseUpgradeFlagLockKeepingFile() {
+	if d.flagLock == nil {
 		return
 	}
-	warnOnStaleFlagRemoveFailure(path, os.Remove(path), consequence)
+	d.flagLock.Close()
+	d.flagLock = nil
 }
 
 // writeGoroutineDump captures all goroutine stacks via runtime.Stack and
@@ -1334,7 +1359,9 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	//
 	// Both branches keep the same detail suffix: high level first, in the
 	// operator's words, then the precise identifiers for diagnosis.
-	logRecover("%s", recoveryOpeningLine(flag, holder))
+	if opening := recoveryOpeningLine(flag, holder); opening != "" {
+		logRecover("%s", opening)
+	}
 
 	// Guard removed: DetectState's flock-try is now authoritative for
 	// distinguishing ghost flags from live upgrades. If we reach here, the
@@ -1509,7 +1536,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	// onward rather than marking the row completed — the upgrade isn't
 	// actually done yet.
 	if flag.Phase == PhaseNewSbSwapped {
-		logRecover("Resuming upgrade %d (%s) where it left off, now running the new version. (detail: after booting the new binary, pid=%d)",
+		logRecover("New binary continuing upgrade %d to %s (pid %d)",
 			flag.ID, flag.Label(), os.Getpid())
 		if appendLog != nil {
 			appendLog.Close()
@@ -1987,7 +2014,7 @@ func (d *Service) Close() {
 //
 // invokedBy / trigger are hardcoded to distinguish operator-driven inline
 // upgrades from scheduler-driven service runs in post-mortem queries.
-func (d *Service) ExecuteUpgradeInline(ctx context.Context, id int, commitSHA, displayName string) error {
+func (d *Service) ExecuteUpgradeInline(ctx context.Context, id int, commitSHA, _ string) error {
 	// STATBUS-046 slice 3c — images-ready CLAIM GATE (evaluateImageClaimGate,
 	// image_claim_gate.go), identical to executeScheduled's gate. Read-only
 	// pre-claim probe of the row's own state — a caller-supplied `id` is
@@ -2029,7 +2056,7 @@ func (d *Service) ExecuteUpgradeInline(ctx context.Context, id int, commitSHA, d
 	// STATBUS-159: claimScheduledUpgrade is the shared claim path — it displaces
 	// any standing park before claiming, so a fix release proceeds while a park
 	// stands. commit_tags comes from the claim's RETURNING here.
-	commitTags, recreate, claimErr := d.claimScheduledUpgrade(ctx, id)
+	claim, claimErr := d.claimScheduledUpgrade(ctx, id)
 	if errors.Is(claimErr, pgx.ErrNoRows) {
 		return fmt.Errorf("upgrade row %d no longer in 'scheduled' state (another actor claimed it first); re-run ./sb install after it finishes", id)
 	}
@@ -2037,7 +2064,8 @@ func (d *Service) ExecuteUpgradeInline(ctx context.Context, id int, commitSHA, d
 		d.markPgInvariantTerminal(claimErr, "service.go:ExecuteUpgradeInline:claim")
 		return fmt.Errorf("claim scheduled upgrade row %d: %w", id, claimErr)
 	}
-	return d.executeUpgrade(ctx, id, commitSHA, displayName, commitTags, "operator:install", "install-cli", recreate)
+	displayName := renderDisplayName(CommitSHA(claim.Snapshot.CommitSHA), claim.CommitTags)
+	return d.executeUpgrade(ctx, claim.Snapshot, displayName, claim.CommitTags, "operator:install", "install-cli", claim.Recreate)
 }
 
 // Label taxonomy used by logUpgradeRow() to tag terminal-state transitions in
@@ -2056,8 +2084,12 @@ func (d *Service) ExecuteUpgradeInline(ctx context.Context, id int, commitSHA, d
 //	                               version as a completed row (the install-side sibling of the
 //	                               recovery / executeUpgrade completion paths; see the two-row model
 //	                               in doc/upgrade-timeline.md)
+//	LabelFailedRollbackPendingFinish — rollback restored the prior version, but the lock
+//	                                   and final rolled_back transition are still pending
 //	LabelRolledBackNormal        — rollback normal path: upgrade failed, git restore succeeded,
-//	                               prior version restarted cleanly
+//	                               prior version restarted cleanly and the lock released
+//	LabelRolledBackFinishRecovery — startup/heartbeat completed the final failed -> rolled_back
+//	                                transition after a crash in the post-lock-release window
 //	LabelFailedAbort             — rollback ABORT: git restore itself failed; row is failed
 //	                               (degraded — services down, maintenance on, manual recovery)
 //	LabelFailedAbortServicesLive — rollback ABORT (STATBUS-187): the pre-restore `docker compose
@@ -2071,16 +2103,18 @@ func (d *Service) ExecuteUpgradeInline(ctx context.Context, id int, commitSHA, d
 //	LabelFailed                  — two sites: (1) completeInProgressUpgrade health check failed,
 //	                               (2) failUpgrade explicit failure during executeUpgrade
 const (
-	LabelCompletedNormal          = "completed-normal"
-	LabelCompletedSelfHeal        = "completed-self-heal"
-	LabelCompletedFromInProgress  = "completed-from-in-progress"
-	LabelCompletedInstall         = "completed-install"
-	LabelRolledBackNormal         = "rolled-back-normal"
-	LabelFailedAbort              = "failed-abort"
-	LabelFailedAbortServicesLive  = "failed-abort-services-live"
-	LabelFailedRollbackIncomplete = "failed-rollback-incomplete"
-	LabelRolledBackCrashRecovery  = "rolled-back-crash-recovery"
-	LabelFailed                   = "failed"
+	LabelCompletedNormal             = "completed-normal"
+	LabelCompletedSelfHeal           = "completed-self-heal"
+	LabelCompletedFromInProgress     = "completed-from-in-progress"
+	LabelCompletedInstall            = "completed-install"
+	LabelFailedRollbackPendingFinish = "failed-rollback-pending-finish"
+	LabelRolledBackNormal            = "rolled-back-normal"
+	LabelRolledBackFinishRecovery    = "rolled-back-finish-recovery"
+	LabelFailedAbort                 = "failed-abort"
+	LabelFailedAbortServicesLive     = "failed-abort-services-live"
+	LabelFailedRollbackIncomplete    = "failed-rollback-incomplete"
+	LabelRolledBackCrashRecovery     = "rolled-back-crash-recovery"
+	LabelFailed                      = "failed"
 )
 
 // upgradeRowReturning is the RETURNING clause appended to every terminal-state
@@ -2657,6 +2691,10 @@ func (d *Service) Run(ctx context.Context) error {
 	if err := d.recoverFromFlag(ctx); err != nil {
 		return fmt.Errorf("recover from flag: %w", err)
 	}
+	// A crash after rollback released its filesystem lock but before the final
+	// failed -> rolled_back UPDATE leaves a deliberately marked failed row. Finish
+	// that harmless DB-only transition before considering any new work.
+	d.finalizePendingRollbacks(ctx)
 
 	// Complete any in-progress upgrade from a previous service instance
 	// (e.g., after self-update restart via exit code 42)
@@ -2768,6 +2806,7 @@ func (d *Service) Run(ctx context.Context) error {
 			// upgrade keeps the watchdog alive via executeUpgrade's heartbeats. The
 			// claim is atomic; the 6h ticker stays for DISCOVERY only.
 			if !d.upgrading {
+				d.finalizePendingRollbacks(ctx)
 				d.executeScheduled(ctx)
 				if d.listenCancel == nil { // executeUpgrade may have stopped the loop
 					d.startListenLoop(ctx, notifyCh, errCh)
@@ -3412,7 +3451,7 @@ func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displa
 		if d.writeRollbackTerminal(id,
 			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+" WHERE id = $3"+upgradeRowReturning,
 			msg, LabelFailedRollbackIncomplete, attempts) {
-			d.removeUpgradeFlag()
+			_ = d.removeUpgradeFlag()
 		}
 		hostname, _ := os.Hostname()
 		d.runCallback(displayName, map[string]string{
@@ -3518,7 +3557,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 	parkedExit := false
 	defer func() {
 		if !parkedExit {
-			d.removeUpgradeFlag()
+			_ = d.removeUpgradeFlag()
 		}
 	}()
 
@@ -3741,9 +3780,10 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 		parkAtTarget(fmt.Sprintf("%s: the application cannot serve at %s past warmup after flagless recovery — %v; fix the cause, then re-trigger the upgrade", ErrHealthcheckRESTDown, displayName, hcErr))
 		return
 	}
-	d.setMaintenance(false)
-
-	logRecover("Upgrade to %s completed (verified serving after flagless recovery)", displayName)
+	if err := d.setMaintenance(false, ""); err != nil {
+		parkAtTarget(fmt.Sprintf("maintenance mode could not be lifted after %s passed its serving health check: %v; fix the maintenance flag path or permissions, then re-trigger the upgrade", displayName, err))
+		return
+	}
 
 	// error = NULL: chk_upgrade_state_attributes forbids a non-NULL error on
 	// completed, and recordInProgressFailure may have stamped one during an
@@ -3758,6 +3798,8 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 	// invariant + bundle and continues to cleanup (removeUpgradeFlag etc.), as
 	// before; the row stays in_progress for the next pass.
 	fromInProgressJSON, scanErr := d.terminalUpdate(completedSQL, id, appendLog.RelPath())
+	completionRecorded := scanErr == nil
+	finishingClean := completionRecorded
 	if scanErr == nil {
 		logUpgradeRow(LabelCompletedFromInProgress, fromInProgressJSON)
 		d.deleteRollbackBinaryOnCompletion() // STATBUS-197 C3: swap resolved → ./sb.old must not linger
@@ -3785,7 +3827,8 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 	// senior truth and the flip simply follows it. This flagless belt has no backstop
 	// after :2312, so the escalation is the signal. terminalExec is the teardown-immune
 	// fresh-conn writer.
-	if werr := d.liftReadOnlyWindow("flagless-recovery completion"); werr != nil {
+	if _, werr := d.liftReadOnlyWindow("flagless-recovery completion"); werr != nil {
+		finishingClean = false
 		fmt.Fprintf(os.Stderr,
 			"INVARIANT COMPLETION_READ_ONLY_WINDOW_LIFTED violated: the read-only window did not lift at flagless-recovery completion after %d attempts (err=%v) — the database default is still read-only, so every fresh non-exempt session fails with 25006 (read_only_sql_transaction). Remedy: run `./sb install` to clear it (or the daemon's boot backstop clears it on the next start). (service.go:%d, pid=%d)\n",
 			terminalWriteMaxAttempts, werr, thisLine(), os.Getpid())
@@ -3794,7 +3837,10 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 		logRecover("FATAL: read-only window did NOT lift at completion (%v) — the box rejects external writes until `./sb install` clears it.", werr)
 	}
 
-	d.removeUpgradeFlag()
+	if err := d.removeUpgradeFlag(); err != nil {
+		finishingClean = false
+		logRecover("FATAL: the upgrade lock did NOT release at flagless-recovery completion (%v) — run `./sb install` to reconcile it.", err)
+	}
 	// Layer 3 of the rollback-on-SIGKILL hole plug — also fire pruneBackups
 	// after the post-restart completion path. See the matching call in the
 	// resumeNewSb branch for full rationale. keep=3.
@@ -3803,7 +3849,14 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 	// Skip older releases that are still "available" — no point upgrading to an older version
 	d.supersedeOlderReleases(ctx, commitSHA)
 	d.supersedeCompletedPrereleases(ctx, commitSHA)
-	d.runUpgradeCallback(displayName)
+	if finishingClean {
+		d.runUpgradeCallback(displayName)
+		logRecover("Upgrade to %s complete (verified serving after flagless recovery).", displayName)
+	} else if completionRecorded {
+		logRecover("Upgrade to %s was recorded as successful, but flagless-recovery finishing did not complete; see the failed step(s) above.", displayName)
+	} else {
+		logRecover("Upgrade to %s was not recorded as complete; automatic reconciliation will retry the database transition.", displayName)
+	}
 }
 
 // syncConfigToSystemInfo writes UPGRADE_* values from .env to system_info.
@@ -4414,7 +4467,7 @@ func (d *Service) clearStaleReadOnlyWindow(ctx context.Context) {
 	}
 	fmt.Fprintln(os.Stderr,
 		"STATBUS-163 BACKSTOP: the read-only upgrade window is STILL ON with NO upgrade in flight (no flag, no in_progress row) — a prior terminal OFF flip broke its invariant. This is near-unreachable post-fix; its firing INDICTS the flip and is an investigation trigger. Clearing it now so the box stops rejecting writes.")
-	if err := d.liftReadOnlyWindow("the STATBUS-163 boot backstop"); err != nil {
+	if _, err := d.liftReadOnlyWindow("the STATBUS-163 boot backstop"); err != nil {
 		fmt.Fprintf(os.Stderr,
 			"STATBUS-163 BACKSTOP: FAILED to clear the stale read-only window (%v) — the box still rejects writes; `./sb install` clears it.\n", err)
 		return
@@ -6035,9 +6088,33 @@ func (d *Service) TagsAtCommit(ctx context.Context, sha CommitSHA) ([]string, er
 //	  parked→NULL transition under this daemon's application_name. No new siren —
 //	  the park sirened at park time; the displacement is the remedy arriving.
 //
+// upgradeClaimSnapshot freezes the immutable public.upgrade columns at the claim
+// boundary. The upgrade later closes every database connection before entering
+// maintenance, so this value is the only truthful source for the maintenance
+// flag's immutable row snapshot.
+//
+// Field order mirrors the claim SELECT and its Scan destinations. ImmutableJSON
+// is PostgreSQL's to_json rendering of the same RETURNING row, with an explicit
+// projection preserving the maintenance-file contract's key order.
+type upgradeClaimSnapshot struct {
+	ID                int
+	CommitVersion     string
+	CommitSHA         string
+	FromCommitVersion string
+	StartedAt         time.Time
+	ImmutableJSON     string
+}
+
+type scheduledUpgradeClaim struct {
+	CommitTags []string
+	Recreate   bool
+	Snapshot   upgradeClaimSnapshot
+}
+
 // Returns pgx.ErrNoRows verbatim when the claim matched 0 rows (row no longer
 // 'scheduled' — another actor claimed it first); callers map it to their own message.
-func (d *Service) claimScheduledUpgrade(ctx context.Context, id int) (commitTags []string, recreate bool, err error) {
+func (d *Service) claimScheduledUpgrade(ctx context.Context, id int) (scheduledUpgradeClaim, error) {
+	var claim scheduledUpgradeClaim
 	// STATBUS-307 (architect ruling: block-by-absence is not an acceptable
 	// contract) — the arriving job's own first act, before anything else in
 	// this function: refuse if the last config generate parked on an
@@ -6068,9 +6145,9 @@ func (d *Service) claimScheduledUpgrade(ctx context.Context, id int) (commitTags
 	// doctrine: unverified is not permission) — if the marker cannot be
 	// read, that is not evidence the box is fine; refuse rather than guess.
 	if marker, merr := ReadConfigRefusalMarker(d.projDir); merr != nil {
-		return nil, false, fmt.Errorf("refusing to execute upgrade id=%d: could not confirm the box's config-policy state (%v) — resolve the marker read before dispatching", id, merr)
+		return scheduledUpgradeClaim{}, fmt.Errorf("refusing to execute upgrade id=%d: could not confirm the box's config-policy state (%v) — resolve the marker read before dispatching", id, merr)
 	} else if marker != nil {
-		return nil, false, fmt.Errorf(
+		return scheduledUpgradeClaim{}, fmt.Errorf(
 			"refusing to execute upgrade id=%d: the last config generate refused with an unresolved policy ambiguity (refused at %s) — the box does not know which release channel it follows, so dispatching a candidate now could install it for the wrong one. %s",
 			id, marker.RefusedAt.Format(time.RFC3339), marker.Message)
 	}
@@ -6088,7 +6165,9 @@ func (d *Service) claimScheduledUpgrade(ctx context.Context, id int) (commitTags
 	if hasPark {
 		if flag, ferr := ReadFlagFile(d.projDir); ferr == nil && flag != nil &&
 			flag.Holder == HolderService && flag.ID == parkedID {
-			d.removeUpgradeFlag()
+			if removeErr := d.removeUpgradeFlag(); removeErr != nil {
+				return scheduledUpgradeClaim{}, fmt.Errorf("refusing to claim upgrade id=%d: could not remove parked upgrade id=%d's stale flag: %w", id, parkedID, removeErr)
+			}
 			fmt.Printf("STATBUS-159: removed the parked row's stale service-held flag (id=%d) before displacing it for the id=%d claim\n", parkedID, id)
 		}
 	}
@@ -6096,7 +6175,7 @@ func (d *Service) claimScheduledUpgrade(ctx context.Context, id int) (commitTags
 	// step B: one transaction — displace the standing park, then claim.
 	tx, txErr := d.queryConn.Begin(ctx)
 	if txErr != nil {
-		return nil, false, fmt.Errorf("claim id=%d: begin tx: %w", id, txErr)
+		return scheduledUpgradeClaim{}, fmt.Errorf("claim id=%d: begin tx: %w", id, txErr)
 	}
 	defer func() { _ = tx.Rollback(ctx) }() // no-op after a successful Commit
 
@@ -6115,7 +6194,7 @@ func (d *Service) claimScheduledUpgrade(ctx context.Context, id int) (commitTags
 			// itself (the FROM side in every topology), so it would name itself.
 			fmt.Sprintf(" — displaced by the claim of upgrade id=%d", id))
 		if dispErr != nil {
-			return nil, false, fmt.Errorf("claim id=%d: displace standing park: %w", id, dispErr)
+			return scheduledUpgradeClaim{}, fmt.Errorf("claim id=%d: displace standing park: %w", id, dispErr)
 		}
 		displaced = ct.RowsAffected() > 0
 	}
@@ -6123,14 +6202,42 @@ func (d *Service) claimScheduledUpgrade(ctx context.Context, id int) (commitTags
 	// The claim itself: mutating SET + WHERE identical to the two former sites;
 	// RETURNING the superset so both callers are served by one helper.
 	claimErr := tx.QueryRow(ctx,
-		"UPDATE public.upgrade SET state = 'in_progress', started_at = now(), from_commit_version = $1 WHERE id = $2 AND state = 'scheduled' AND started_at IS NULL RETURNING commit_tags, recreate",
-		d.version, id).Scan(&commitTags, &recreate)
+		`WITH claimed AS (
+			UPDATE public.upgrade
+			   SET state = 'in_progress', started_at = now(), from_commit_version = $1
+			 WHERE id = $2 AND state = 'scheduled' AND started_at IS NULL
+			 RETURNING commit_tags, recreate, id, commit_version, commit_sha, from_commit_version, started_at
+		)
+		SELECT c.commit_tags,
+		       c.recreate,
+		       c.id,
+		       c.commit_version,
+		       c.commit_sha,
+		       c.from_commit_version,
+		       c.started_at,
+		       (SELECT to_json(t)::text
+		          FROM (SELECT c.id AS id,
+		                       c.commit_version AS commit_version,
+		                       c.commit_sha AS commit_sha,
+		                       c.from_commit_version AS from_commit_version,
+		                       c.started_at AS started_at) AS t)
+		  FROM claimed AS c`,
+		d.version, id).Scan(
+		&claim.CommitTags,
+		&claim.Recreate,
+		&claim.Snapshot.ID,
+		&claim.Snapshot.CommitVersion,
+		&claim.Snapshot.CommitSHA,
+		&claim.Snapshot.FromCommitVersion,
+		&claim.Snapshot.StartedAt,
+		&claim.Snapshot.ImmutableJSON,
+	)
 	if claimErr != nil {
-		return nil, false, claimErr // includes pgx.ErrNoRows — callers map it to their own message
+		return scheduledUpgradeClaim{}, claimErr // includes pgx.ErrNoRows — callers map it to their own message
 	}
 
 	if commitErr := tx.Commit(ctx); commitErr != nil {
-		return nil, false, fmt.Errorf("claim id=%d: commit displace+claim: %w", id, commitErr)
+		return scheduledUpgradeClaim{}, fmt.Errorf("claim id=%d: commit displace+claim: %w", id, commitErr)
 	}
 
 	// Loud line only after the displacement actually committed (never before —
@@ -6139,7 +6246,7 @@ func (d *Service) claimScheduledUpgrade(ctx context.Context, id int) (commitTags
 		fmt.Printf("STATBUS-159: displaced parked upgrade id=%d (park reason: %q) → superseded; claimed upgrade id=%d\n",
 			parkedID, parkedReason, id)
 	}
-	return commitTags, recreate, nil
+	return claim, nil
 }
 
 func (d *Service) executeScheduled(ctx context.Context) {
@@ -6207,7 +6314,7 @@ func (d *Service) executeScheduled(ctx context.Context) {
 	// hand a stale commit_tags to executeUpgrade (architect-confirmed — strictly
 	// better than the old shape). The SELECT's commit_tags stays for displayName +
 	// the image gate, both computed before the claim.
-	claimedTags, recreate, claimErr := d.claimScheduledUpgrade(ctx, id)
+	claim, claimErr := d.claimScheduledUpgrade(ctx, id)
 	if errors.Is(claimErr, pgx.ErrNoRows) {
 		fmt.Printf("Scheduled upgrade id=%d already claimed by another actor; skipping.\n", id)
 		return
@@ -6225,14 +6332,14 @@ func (d *Service) executeScheduled(ctx context.Context) {
 	// as dead — the pre-claim gate log lines below use `id`, not
 	// displayName, so the earlier SELECT-based render was never read); the
 	// stale comment claiming otherwise is gone too.
-	displayName := renderDisplayName(CommitSHA(commitSHA), claimedTags)
+	displayName := renderDisplayName(CommitSHA(claim.Snapshot.CommitSHA), claim.CommitTags)
 
 	fmt.Printf("Executing upgrade to %s...\n", displayName)
 	// Invoker context for the flag file: the row was picked up from the scheduled queue.
 	// This covers admin-UI "Apply now", NOTIFY upgrade_apply from ./sb upgrade apply-latest,
 	// and the discovery loop's auto-schedule — we don't currently distinguish among them
 	// at this layer. Later improvement: record originator in public.upgrade when scheduling.
-	if err := d.executeUpgrade(ctx, id, commitSHA, displayName, claimedTags, "scheduled", "scheduled", recreate); err != nil {
+	if err := d.executeUpgrade(ctx, claim.Snapshot, displayName, claim.CommitTags, "scheduled", "scheduled", claim.Recreate); err != nil {
 		fmt.Printf("Upgrade to %s failed: %v\n", displayName, err)
 	}
 }
@@ -6248,7 +6355,9 @@ func (d *Service) executeScheduled(ctx context.Context) {
 // alive, and abort. The only install invocation allowed through during this
 // function is the post-upgrade fixup at runInstallFixup, which sets the
 // --post-upgrade-fixup flag and STATBUS_POST_UPGRADE_FIXUP=1 env var.
-func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, displayName string, commitTags []string, invokedBy, trigger string, recreate bool) error {
+func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot, displayName string, commitTags []string, invokedBy, trigger string, recreate bool) error {
+	id := claim.ID
+	commitSHA := claim.CommitSHA
 	d.upgrading = true
 	defer func() { d.upgrading = false }()
 
@@ -6302,7 +6411,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		return fmt.Errorf("LOG_POINTER_STAMPED: %w", stampErr)
 	}
 
-	progress.Write("Upgrading to %s (from %s)...", displayName, d.version)
+	progress.Write("Upgrading to %s (from %s)", displayName, claim.FromCommitVersion)
 	// For untagged-commit targets (edge channel), displayName is the
 	// 8-char commit_short — it identifies the commit but says nothing
 	// about how far it is from the nearest tag. `git describe` fills
@@ -6316,12 +6425,9 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 			progress.Write("  Target version: %s", desc)
 		}
 	}
-	// Show short SHA + subject so the operator-visible log identifies the
-	// commit by its SHA (the durable handle), not just the message subject
-	// (which can be misleading — e.g., a "release stable: SKIP_TEST_INSTALL"
-	// commit subject describes the release-flow bypass, not the upgrade
-	// target itself).
-	if out, err := runCommandOutput(projDir, "git", "log", "-1", "--pretty=%h %s", commitSHA); err == nil {
+	// Show only the durable short SHA. Commit subjects are implementation detail
+	// and proved actively misleading in the operator progress narrative.
+	if out, err := runCommandOutput(projDir, "git", "log", "-1", "--pretty=%h", commitSHA); err == nil {
 		if line := strings.TrimSpace(out); line != "" {
 			progress.Write("  Target commit: %s", line)
 		}
@@ -6355,7 +6461,6 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// next tick and proceeds once the artifacts are ready (STATBUS-336).
 	// Only tagged releases have a manifest; untagged commits skip this check.
 	if ValidateVersion(displayName) {
-		progress.Write("Verifying release assets available...")
 		manifest, err := FetchManifest(displayName)
 		if err != nil {
 			// Clear only claim-owned fields. scheduled_at is deliberately retained:
@@ -6389,7 +6494,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 						d.markPgInvariantTerminal(noRowsErr, "service.go:executeUpgrade:ci-not-ready-supersede")
 						return noRowsErr
 					}
-					progress.Write("Release assets not ready for %s; another operator schedule now owns the queue, so this attempt is superseded.", displayName)
+					progress.Write("Verifying release assets ... not ready; a newer scheduled upgrade superseded %s.", displayName)
 					return nil
 				}
 				d.markPgInvariantTerminal(resetErr, "service.go:executeUpgrade:ci-not-ready-reschedule")
@@ -6400,7 +6505,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 				d.markPgInvariantTerminal(noRowsErr, "service.go:executeUpgrade:ci-not-ready-reschedule")
 				return noRowsErr
 			}
-			progress.Write("Release assets not ready for %s — staying scheduled. The upgrade service will retry when CI finishes.", displayName)
+			progress.Write("Verifying release assets ... not ready; keeping %s scheduled for an automatic retry.", displayName)
 			return nil
 		}
 		platform := selfupdate.Platform()
@@ -6409,29 +6514,37 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 			d.failUpgrade(ctx, id, msg, progress)
 			return fmt.Errorf("%s", msg)
 		}
+		progress.Write("Verifying release assets ... ok")
 	}
 
 	// Check disk space. Need room for backup (~= DB size) + new images (~2GB).
 	// Refuse to start if less than 5GB free to avoid mid-upgrade disk-full failures.
+	var (
+		freeGB         uint64
+		diskSpaceKnown bool
+	)
 	if freeBytes, err := DiskFree(d.projDir); err == nil {
-		freeGB := freeBytes / (1024 * 1024 * 1024)
+		freeGB = freeBytes / (1024 * 1024 * 1024)
+		diskSpaceKnown = true
 		if freeGB < 5 {
 			// TODO: pick code — disk-space preflight; consider ErrRollbackGitDiskFull or a new ErrInstallPreconditionFailed
 			msg := fmt.Sprintf("Insufficient disk space: %d GB free (need at least 5 GB for backup + images)", freeGB)
 			d.failUpgrade(ctx, id, msg, progress)
 			return fmt.Errorf("%s", msg)
 		}
-		progress.Write("Disk space: %d GB free", freeGB)
 	}
 
 	// Re-verify commit signature before proceeding.
 	// This defends against DB tampering between discovery and execution.
-	progress.Write("Verifying commit signature...")
 	if err := d.verifyCommitSignature(commitSHA); err != nil {
 		// TODO: pick code — signature verification; consider adding ErrInstallPreconditionFailed
 		msg := fmt.Sprintf("Commit %s signature verification failed: %v", ShortForDisplay(commitSHA), err)
 		d.failUpgrade(ctx, id, msg, progress)
 		return fmt.Errorf("%s", msg)
+	}
+	progress.Write("Verifying commit signature ... ok")
+	if diskSpaceKnown {
+		progress.Write("Disk space: %d GB free — enough for the upgrade", freeGB)
 	}
 
 	// === All pre-flight checks passed — mark the upgrade as started ===
@@ -6449,7 +6562,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		d.failUpgrade(ctx, id, msg, progress)
 		return fmt.Errorf("%s", msg)
 	}
-	progress.Write("Upgrade-flag file written; taking ownership of the upgrade pipeline.")
+	progress.Write("Writing lock file for exclusive upgrade (%s) ... ok", homeRelativePath(d.flagPath()))
 
 	// started_at and from_version were already set by executeScheduled() when
 	// it claimed this task. From this point on, the maintenance guard will activate.
@@ -6459,7 +6572,6 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// if the service hangs (as seen on statbus_dev Apr 23 2026 — task #37),
 	// the LAST journalctl line identifies the exact step that failed to
 	// return. Zero behaviour change; pure observability.
-	progress.Write("Preparing images...")
 	pullStart := time.Now()
 
 	// pullImagesForCommitShort is the one step in executeUpgrade that can
@@ -6485,7 +6597,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 			case <-pullDone:
 				return
 			case <-pullTicker.C:
-				progress.Write("Still preparing images (%s elapsed)...",
+				progress.Write("Still downloading images (%s elapsed) ...",
 					time.Since(pullStart).Truncate(time.Second))
 			}
 		}
@@ -6502,7 +6614,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		d.failUpgrade(ctx, id, fmt.Sprintf("%s: Failed to pull images for %s: %v", ErrDockerUpFailed, displayName, pullErr), progress)
 		return pullErr
 	}
-	progress.Write("Images prepared (elapsed %s).", time.Since(pullStart).Truncate(time.Millisecond))
+	progress.Write("Downloading images ... ok (%s)", formatProgressDuration(time.Since(pullStart), false))
 
 	// Step 1b: ensure the target commit object is local before the service crosses
 	// the read-only/maintenance boundary. Discovery already fetched and signature-
@@ -6516,13 +6628,11 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// flag is already stamped, while the read-only window, service stops, branch
 	// pin, and backup retain their existing relative order below. A real miss gets
 	// bounded stall-detected retries here, while the old version keeps serving.
-	progress.Write("Ensuring target git objects are available locally...")
 	if err := d.ensureUpgradeCommitObjects(ctx, progress.File(), commitSHA); err != nil {
 		errMsg := fmt.Sprintf("%s: %v", ErrGitFetchRetryable, err)
 		d.failUpgrade(ctx, id, errMsg, progress)
 		return fmt.Errorf("%s", errMsg)
 	}
-	progress.Write("Target git objects available locally (no maintenance downtime used).")
 
 	// CHANGE 2 (task #12): the rsync snapshot is a single persistent dir
 	// committed by atomic rename to pre-upgrade-active. Record THAT path as
@@ -6554,11 +6664,11 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	pingErr := d.queryConn.Ping(pingCtx)
 	pingCancel()
 	if pingErr != nil {
-		progress.Write("Stale queryConn detected before the read-only window engage (Ping: %v) — reconnecting...", pingErr)
+		progress.Write("Reconnecting to the database before blocking SQL writes ...")
 		if reErr := d.reconnect(ctx); reErr != nil {
-			progress.Write("Reconnect failed: %v — proceeding; the read-only ALTER below is best-effort.", reErr)
+			progress.Write("Reconnecting to the database before blocking SQL writes ... failed (continuing): %v", reErr)
 		} else {
-			progress.Write("queryConn reconnected successfully.")
+			progress.Write("Reconnecting to the database before blocking SQL writes ... ok")
 		}
 	}
 
@@ -6599,9 +6709,12 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// then the exact detail for precision. Never only one of the two. A line
 	// that gives only the detail (goroutines, contexts, connection objects)
 	// tells the reader what the author was doing, not what the system is doing.
-	progress.Write("External writes blocked until completion/rollback.")
-	if err := d.setDatabaseReadOnly(ctx, true); err != nil {
-		progress.Write("Warning: could not engage read-only window: %v (continuing; guard is best-effort)", err)
+	readOnlyStatement, readOnlyErr := d.setDatabaseReadOnly(ctx, true)
+	if readOnlyErr != nil {
+		progress.Write("Blocking SQL writes while upgrading ... failed (continuing; guard is best-effort): %v", readOnlyErr)
+	} else if readOnlyStatement != "" {
+		progress.Write("Blocking SQL writes while upgrading ... ok")
+		progress.Write("  ran: %s", readOnlyStatement)
 	}
 
 	// Step 2: Enter maintenance mode and restart proxy first
@@ -6615,62 +6728,115 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// actually happening is one thing: the service is letting go of the database
 	// so the database can be stopped. That is the headline; the individual
 	// connections are the detail underneath it.
-	progress.Write("Disconnecting from the database so it can be stopped.")
-	progress.Write("  Stopping the notification listener — the part that hears new-release announcements.")
+	maintenanceContent, contentErr := maintenanceFlagContent(claim)
+	maintenanceErr := contentErr
+	if maintenanceErr == nil {
+		maintenanceErr = d.setMaintenance(true, maintenanceContent)
+	}
+	if maintenanceErr != nil {
+		progress.Write("Entering maintenance mode (browsers redirect to the progress page, APIs get HTTP 503 Service Unavailable) ... failed: %v", maintenanceErr)
+		errMsg := fmt.Sprintf("could not enter maintenance mode before stopping services: %v", maintenanceErr)
+		needsRecovery := false
+		// os.WriteFile can truncate or partially create the active marker before
+		// returning an error. Always remove it so Caddy cannot keep serving HTTP 503
+		// after this attempt aborts. A failed cleanup is itself recovery-worthy.
+		if cleanupErr := d.setMaintenance(false, ""); cleanupErr != nil {
+			needsRecovery = true
+			progress.Write("Cleaning up the incomplete maintenance marker ... failed: %v", cleanupErr)
+			errMsg += fmt.Sprintf("; incomplete maintenance marker may remain: %v", cleanupErr)
+		} else {
+			progress.Write("Cleaning up the incomplete maintenance marker ... ok")
+		}
+		// The ON attempt above can fail after PostgreSQL committed it but before the
+		// client observed success. Always issue the idempotent OFF flip. If OFF also
+		// fails, keep the recovery flag so ./sb install has the durable breadcrumb
+		// needed to reconcile a database that may still reject fresh writes.
+		offStatement, liftErr := d.liftReadOnlyWindow("maintenance activation failure")
+		if liftErr != nil {
+			needsRecovery = true
+			progress.Write("Unblocking SQL writes after the maintenance-mode failure ... failed: %v", liftErr)
+			errMsg += fmt.Sprintf("; SQL writes may remain blocked: %v", liftErr)
+		} else {
+			progress.Write("Unblocking SQL writes after the maintenance-mode failure ... ok")
+			progress.Write("  ran: %s", offStatement)
+		}
+		if needsRecovery {
+			d.failUpgradeKeepingFlag(ctx, id, errMsg, progress)
+		} else {
+			d.failUpgrade(ctx, id, errMsg, progress)
+		}
+		return fmt.Errorf("%s", errMsg)
+	} else {
+		progress.Write("Entering maintenance mode (browsers redirect to the progress page, APIs get HTTP 503 Service Unavailable) ... ok")
+		progress.Write("  wrote: %s (%q; file contains the psql command for the live row)",
+			homeRelativePath(maintenanceFlagHostPath()), maintenanceFlagHeadline(claim))
+	}
+	progress.Write("Stopping services:")
 	d.stopListenLoop()
+	var disconnectErr error
 	if d.listenConn != nil {
-		_ = d.listenConn.Close(context.Background())
+		disconnectErr = errors.Join(disconnectErr, d.listenConn.Close(context.Background()))
 		d.listenConn = nil
-		progress.Write("  Listener connection closed.")
 	}
 	if d.queryConn != nil {
-		_ = d.queryConn.Close(context.Background())
+		disconnectErr = errors.Join(disconnectErr, d.queryConn.Close(context.Background()))
 		d.queryConn = nil
-		progress.Write("  Query connection closed.")
 	}
-	progress.Write("Entering maintenance mode...")
-	d.setMaintenance(true)
-	progress.Write("Maintenance mode active (~/statbus-maintenance/active file written; Caddy now returns 503).")
+	if disconnectErr != nil {
+		progress.Write("  Disconnecting upgrade service from the database ... failed (continuing): %v", disconnectErr)
+	} else {
+		progress.Write("  Disconnecting upgrade service from the database ... ok")
+	}
 
 	// Step 3: Stop application services (proxy stays running for maintenance page).
 	// Hard error: running services during backup risk inconsistent state.
-	progress.Write("Stopping application services...")
 	if err := runCommand(projDir, "docker", "compose", "stop", "app", "worker", "rest"); err != nil {
 		errMsg := fmt.Sprintf("could not stop application services before backup: %v", err)
-		progress.Write("FAILED: %s", errMsg)
+		progress.Write("  Stopping app, worker, rest ... failed: %s", errMsg)
 		_ = runCommand(projDir, "docker", "compose", "up", "-d", "app", "worker", "rest") // best-effort revert attempt; errMsg below is the actionable failure regardless
-		d.setMaintenance(false)
+		if maintenanceCleanupErr := d.setMaintenance(false, ""); maintenanceCleanupErr != nil {
+			progress.Write("  Lifting maintenance mode after the stop failure ... failed: %v", maintenanceCleanupErr)
+			errMsg += fmt.Sprintf("; maintenance mode also did not lift: %v", maintenanceCleanupErr)
+		} else {
+			progress.Write("  Lifting maintenance mode after the stop failure ... ok")
+		}
 		if reconErr := d.reconnect(ctx); reconErr == nil {
 			// STATBUS-110: DB is still up (we aborted before the stop) and the
 			// window was engaged above — clear it now on the reconnected conn so
 			// the box returns to service read-write. Best-effort.
-			_ = d.setDatabaseReadOnly(ctx, false)
+			_, _ = d.setDatabaseReadOnly(ctx, false)
 			d.failUpgrade(ctx, id, errMsg, progress)
 		} else {
-			d.removeUpgradeFlag()
+			_ = d.removeUpgradeFlag()
 		}
 		return fmt.Errorf("%s", errMsg)
 	}
+	progress.Write("  Stopping app, worker, rest ... ok")
 
 	// Step 4: Stop database for consistent backup.
 	// Hard error: rsync of a running Postgres data dir is NOT crash-consistent.
-	progress.Write("Stopping database...")
 	if err := runCommand(projDir, "docker", "compose", "stop", "db"); err != nil {
 		errMsg := fmt.Sprintf("could not stop database for consistent backup: %v", err)
-		progress.Write("FAILED: %s", errMsg)
+		progress.Write("  Stopping database ... failed: %s", errMsg)
 		_ = runCommand(projDir, "docker", "compose", "up", "-d", "app", "worker", "rest", "db") // best-effort revert attempt; errMsg below is the actionable failure regardless
-		d.setMaintenance(false)
+		if maintenanceCleanupErr := d.setMaintenance(false, ""); maintenanceCleanupErr != nil {
+			progress.Write("  Lifting maintenance mode after the database-stop failure ... failed: %v", maintenanceCleanupErr)
+			errMsg += fmt.Sprintf("; maintenance mode also did not lift: %v", maintenanceCleanupErr)
+		} else {
+			progress.Write("  Lifting maintenance mode after the database-stop failure ... ok")
+		}
 		if reconErr := d.reconnect(ctx); reconErr == nil {
 			// STATBUS-110: the db stop FAILED, so the DB is still up and the window
 			// (engaged above) is still set — clear it on the reconnected conn so the
 			// box returns to service read-write. Best-effort.
-			_ = d.setDatabaseReadOnly(ctx, false)
+			_, _ = d.setDatabaseReadOnly(ctx, false)
 			d.failUpgrade(ctx, id, errMsg, progress)
 		} else {
-			d.removeUpgradeFlag()
+			_ = d.removeUpgradeFlag()
 		}
 		return fmt.Errorf("%s", errMsg)
 	}
+	progress.Write("  Stopping database ... ok")
 
 	// Pin the pre-upgrade commit as a persistent branch BEFORE we touch
 	// anything destructive. The branch survives process crashes and tag
@@ -6678,21 +6844,24 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// (a tag or describe-string) won't resolve later. Best-effort: log
 	// failure, don't abort the upgrade.
 	if out, err := runCommandOutput(projDir, "git", "branch", "-f", "pre-upgrade", "HEAD"); err != nil {
-		progress.Write("Warning: could not pin pre-upgrade branch: %v\n%s", err, out)
+		progress.Write("Pinning the pre-upgrade source revision ... failed (continuing): %v\n%s", err, out)
 	}
 
 	// Step 5: Backup database
-	progress.Write("Backing up database...")
 	// STATBUS-077: single source = the `pre-upgrade` branch pinned just above.
 	restoreTargetSHA := ""
-	backupPath, err := d.backupDatabase(progress, backupStamp)
+	backup, err := d.backupDatabase(progress, backupStamp)
 	if err != nil {
+		progress.Write("Backing up database ... failed: %v", err)
 		// No snapshot was finalised (the partial lives in the syncing dir,
 		// never recorded) — pass "" so the identity-keyed restore refuses to
 		// touch the volume; it was never mutated.
 		d.rollback(ctx, id, displayName, restoreTargetSHA, fmt.Sprintf("%s: %v", ErrBackupFailed, err), "", progress)
 		return err
 	}
+	backupPath := backup.Path
+	progress.Write("Backing up database ... ok (%s in %s)", humanBytes(backup.Bytes), formatProgressDuration(backup.Elapsed, false))
+	progress.Write("  at %s", homeRelativePath(backup.Path))
 
 	// STATBUS-228: NOTHING RECORDS backup_path HERE. The postgres SERVER is stopped at
 	// this point (Step 4, above) for the consistent backup, so no row write can land —
@@ -6722,7 +6891,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// runCrashRecovery, before boot-migrate-up). Step 1b already proved the objects
 	// local, before maintenance, with a bounded fetch fallback only on a real miss.
 	// Full history lets git-describe find tags for config generate (VERSION).
-	progress.Write("Installing %s...", displayName)
+	progress.Write("Installing %s:", displayName)
 
 	// Harness-only kill site (C4): the OS / orchestrator kills the process here
 	// — after the target's objects are fetched but BEFORE the binary swap.
@@ -6822,7 +6991,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		d.rollback(ctx, id, displayName, restoreTargetSHA, fmt.Sprintf("stamp post_swap flag: %v", err), backupPath, progress)
 		return err
 	}
-	progress.Write("Binary swapped on disk. Handing off to fresh process on the new code...")
+	progress.Write("  Old binary exiting so the new binary can take over ...")
 	progress.Close()
 
 	// Hand off to fresh process. Mechanism differs by mode; the semantic
@@ -6896,13 +7065,13 @@ func (d *Service) newSbUpgradingFailure(ctx context.Context, id int, displayName
 		if obsState == ObservedPositionUnreadable {
 			verdict = fmt.Sprintf("unverifiable (%s)", obsReason)
 		}
-		progress.Write("Failure after booting the new binary [%s]: %s — observed state is %s; NOT restoring (forward retry on the next recovery pass).", stepClass, reason, verdict)
+		progress.Write("Checking the failed upgrade's position ... %s; keeping it ready to continue on the next recovery pass. Cause: %s", verdict, reason)
 		d.recordInProgressFailure(ctx, id,
 			fmt.Sprintf("forward step failed [%s]: %s; observed state %s — no rollback, will resume forward on the next recovery pass (service restart or ./sb install)", stepClass, reason, verdict))
 		return fmt.Errorf("%s: step failed after booting the new binary [%s] with observed state %s (forward retry on next recovery): %s",
 			ErrInstallPreconditionFailed, stepClass, verdict, reason)
 	}
-	progress.Write("Failure after booting the new binary [%s]: %s — observed state confirms it's behind the new version (%s); auto-restoring from this upgrade's snapshot", stepClass, reason, obsReason)
+	progress.Write("Checking the failed upgrade's position ... confirmed behind the target (%s); restoring this upgrade's snapshot.", obsReason)
 	d.rollback(ctx, id, displayName, restoreTargetSHA,
 		fmt.Sprintf("forward failed: %s; auto-restored from snapshot", reason), backupPath, progress)
 	return fmt.Errorf("%s: failure after booting the new binary auto-restored: %s",
@@ -6922,7 +7091,7 @@ func (d *Service) newSbUpgradingFailure(ctx context.Context, id int, displayName
 func (d *Service) parkForDeterministicFailure(ctx context.Context, id int, displayName, restoreTargetSHA, commitSHA, backupPath, reason string, progress *ProgressLog) error {
 	obsState, _, obsReason := d.verifyUpgradeObservedStateEx(ctx, commitSHA)
 	if obsState == ObservedCannotReachNew {
-		progress.Write("Deterministic failure after booting the new binary: %s — observed state confirms it's behind the new version (%s); auto-restoring from this upgrade's snapshot", reason, obsReason)
+		progress.Write("Checking the failed upgrade's position ... confirmed behind the target (%s); restoring this upgrade's snapshot.", obsReason)
 		d.rollback(ctx, id, displayName, restoreTargetSHA,
 			fmt.Sprintf("deterministic forward failure: %s; auto-restored from snapshot", reason), backupPath, progress)
 		return fmt.Errorf("%s: deterministic failure after booting the new binary auto-restored: %s", ErrInstallPreconditionFailed, reason)
@@ -6935,7 +7104,9 @@ func (d *Service) parkForDeterministicFailure(ctx context.Context, id int, displ
 	if perr != nil {
 		return fmt.Errorf("park deterministic forward failure for upgrade %d: %w", id, perr)
 	}
-	progress.Write("PARKED on first deterministic failure: %s. The unit stays running and idle (no crash loop); fix the cause, then re-trigger the upgrade or run ./sb install for a fresh attempt.", reason)
+	progress.Write("Pausing automatic upgrade retries after a deterministic failure ... ok")
+	progress.Write("  Cause: %s", reason)
+	progress.Write("  The service remains available for a later release or a deliberate ./sb install retry.")
 	if freshlyParked {
 		d.runCallback(displayName, map[string]string{"STATBUS_EVENT": "parked", "STATBUS_PARKED": "1", "STATBUS_PARK_REASON": reason})
 	}
@@ -7057,9 +7228,9 @@ func (d *Service) parkServiceRecovery(ctx context.Context, id int, restoreTarget
 	// load-bearing — see the un-park's conditional.
 	retreatAt := time.Now()
 	if err := d.mutateHeldFlag(func(f *UpgradeFlag) { f.RetreatedToSourceAt = &retreatAt }); err != nil {
-		progress.Write("Warning: source services restored but could not record the retreat on the flag (%v) — a later ./sb install will treat this as an in-flight upgrade and reconcile it rather than granting a clean fresh attempt; re-trigger the upgrade if that happens.", err)
+		progress.Write("Recording the restored source state in the upgrade lock file ... failed: %v", err)
 	}
-	progress.Write("Parked-box service recovery: the source version is restored and serving; the web UI is up while the row remains parked awaiting the deliberate un-park.")
+	progress.Write("Restoring source-version services for operator access ... ok (automatic retries remain paused)")
 }
 
 // parkEraVerdict is the STATBUS-200 ERA GUARD — the safety core. It permits source-service
@@ -7172,7 +7343,7 @@ func migrationMaxInGitTree(projDir, sha string) (int64, error) {
 // this runs only in attempts that got past backup — their pin and sb.old are their own, so
 // identity holds; the never-ran class (empty backupPath) is 197's guard and the two never collide.
 func (d *Service) restoreSourceServices(ctx context.Context, restoreTargetSHA string, progress *ProgressLog) error {
-	progress.Write("Restoring the source version's services so the parked box stays operable (web UI up)...")
+	progress.Write("Restoring source-version services:")
 	if err := d.restoreGitState(restoreTargetSHA, progress); err != nil {
 		return fmt.Errorf("restore git tree to source: %w", err)
 	}
@@ -7190,8 +7361,10 @@ func (d *Service) restoreSourceServices(ctx context.Context, restoreTargetSHA st
 	}
 	// Serve-proven: health passed, so lift the operator-facing gates. maintenance OFF first
 	// (mirrors the completion sites), then the read-only window via the teardown-immune flip.
-	d.setMaintenance(false)
-	if err := d.liftReadOnlyWindow("serve-proven health check"); err != nil {
+	if err := d.setMaintenance(false, ""); err != nil {
+		return fmt.Errorf("source services are up and healthy but maintenance mode did not lift: %w", err)
+	}
+	if _, err := d.liftReadOnlyWindow("serve-proven health check"); err != nil {
 		return fmt.Errorf("source services are up and healthy but the read-only window did not lift (%v) — reads serve, writes are refused until `./sb install` or the next boot clears it", err)
 	}
 	return nil
@@ -7358,7 +7531,6 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 
 	// Regenerate config via the NEW binary. VERSION comes from git describe
 	// --tags --always against the just-checked-out HEAD.
-	progress.Write("Regenerating configuration...")
 	d.markStep(StepConfigGenerate)
 	if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "config-generate", progress.bump, filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
 		// STATBUS-046 slice 2: config generate renders templates from .env.config
@@ -7371,6 +7543,7 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 		}
 		return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("./sb config generate: %v", err), progress)
 	}
+	progress.Write("Regenerating configuration (.env, Caddyfile) ... ok")
 
 	// Step 8: Pull updated images. --profile all is MANDATORY, not cosmetic:
 	// every service in this compose project is profile-gated (app/worker/db/
@@ -7380,13 +7553,13 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	// the real fetch to fall through to step 11's named `up -d` — AFTER the
 	// destructive migration (the STATBUS-047 item-A hazard). `all` is the
 	// superset fresh-install (cli/cmd/install.go:1034) and rollback (below) use.
-	progress.Write("Pulling updated images...")
 	d.markStep(StepImagePull)
 	// STATBUS-046 slice 2: PRIMARY class-C disk pre-check (structured statfs) —
 	// park BEFORE the pull if free space can't hold the images.
 	if reason := d.diskPrecheckReason(StepImagePull); reason != "" {
 		return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, reason, progress)
 	}
+	pullStart := time.Now()
 	if stderrTail, err := runCommandToLogCapture(projDir, 5*time.Minute, progress.File(), "docker-compose", progress.bump, "docker", "compose", "--profile", "all", "pull"); err != nil {
 		// ENOSPC backstop: disk filled DURING the pull (past the pre-check) → C park.
 		if classifyDockerFailure(err, stderrTail) == classResource {
@@ -7395,6 +7568,7 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 		}
 		return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: docker compose pull: %v", ErrDockerUpFailed, err), progress)
 	}
+	progress.Write("Pulling updated images ... ok (%s)", formatProgressDuration(time.Since(pullStart), false))
 
 	// Step 9: Start database. --no-build forces compose to USE THE PULLED IMAGE
 	// and fail if it's absent, rather than silently falling back to a local
@@ -7403,8 +7577,8 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	// a 10+ minute operation that blows past the 5m command timeout and gives
 	// no useful error). If the image isn't in the registry yet, CI hasn't
 	// built it. Tell the operator to wait for images.yaml and retry.
-	progress.Write("Starting database...")
 	d.markStep(StepDBUp)
+	dbStart := time.Now()
 	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", progress.bump, "docker", "compose", "up", "-d", "--no-build", "db"); err != nil {
 		reason := fmt.Sprintf(
 			"%s: docker compose up -d db: %v\n\n"+
@@ -7421,10 +7595,10 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	// allowance, size-scaled-intent to the WAL-replay worst case (NewSbUpgradingDBHealthTimeout,
 	// generous fixed budget) so a healthy-but-replaying large volume isn't
 	// mis-read as a failure. In-place; never consumes a death.
-	progress.Write("Waiting for database to be healthy...")
 	if err := d.waitForDBHealth(NewSbUpgradingDBHealthTimeout); err != nil {
 		return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: DB health check: %v", ErrHealthcheckDBDown, err), progress)
 	}
+	progress.Write("Starting database ... healthy (%s)", formatProgressDuration(time.Since(dbStart), false))
 
 	// Reconnect service DB connection — a legitimately SILENT blocking step
 	// (pgx dial+handshake emits no per-line output), so output-gating can't
@@ -7461,14 +7635,13 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 		// d.queryConn was nil on entry (the pre-swap teardown closed it);
 		// reconnect reopens both conns (bounded by connect()'s 5-min ctx) and
 		// re-acquires the advisory lock.
-		progress.Write("Reconnecting to database...")
 		d.markStep(StepReconnect)
 		return d.reconnect(ctx)
 	}()
 	if reconnErr != nil {
 		return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: reconnect to DB: %v", ErrHealthcheckDBDown, reconnErr), progress)
 	}
-	progress.Write("Database reconnected.")
+	progress.Write("Reconnecting to database ... ok")
 
 	// STATBUS-228: THE SINGLE ROW RECORDER of backup_path, and deliberately the FIRST
 	// write after the reconnect — before anything else in this phase can fail and skip
@@ -7488,7 +7661,7 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	// BACKUP_MISSING on the next tick, surfacing the issue.
 	if _, err := d.queryConn.Exec(ctx,
 		"UPDATE public.upgrade SET backup_path = $1 WHERE id = $2", backupPath, id); err != nil {
-		progress.Write("Warning: could not record backup_path on the upgrade row for id=%d: %v — the flag still carries the restore identity, but STATBUS-111's replay and the abort-hold guard read the ROW; investigate before relying on either.", id, err)
+		progress.Write("Recording the database backup path ... failed: %v", err)
 	}
 
 	// R1 quiesce: stop worker / app / rest if any are still running
@@ -7506,7 +7679,7 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 			fmt.Sprintf("quiesce clients before migrations: %v (must not proceed with DDL on live services)", quiesceErr), progress)
 	}
 	if len(quiescedClients) > 0 {
-		progress.Write("R1 quiesce: stopped %v before DDL (step 11 will restart them)", quiescedClients)
+		progress.Write("Stopping app, worker, rest before database changes ... ok")
 	}
 
 	// Step 10: Run migrations (or recreate database if requested).
@@ -7516,7 +7689,6 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	// applyNewSbUpgrading. No volatile in-memory flag to reset.
 	d.markStep(StepMigrateUp)
 	if recreate {
-		progress.Write("Recreating database from scratch (--recreate)...")
 		// deferGating: recreate-database runs the full migration set + seed; it
 		// can be silent for minutes on a single big DDL, so output-gating would
 		// false-trip it. Exempt it (always-ping) for the duration of THIS call,
@@ -7540,8 +7712,8 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 			}
 			return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: ./dev.sh recreate-database: %v", ErrMigrationFailed, err), progress)
 		}
+		progress.Write("Recreating database from scratch (--recreate) ... ok")
 	} else {
-		progress.Write("Applying database migrations...")
 
 		// Phase note: applyNewSbUpgrading runs in the unit's ACTIVE phase on BOTH
 		// entries. SCHEDULED path: the main loop dispatches executeUpgrade
@@ -7586,6 +7758,7 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 		// the unified gated ticker above subsumes the migrate-only one and
 		// closes the gap.
 		migrateStart := time.Now() // STATBUS-096: baseline for the db-container StartedAt comparison
+		pendingMigrations := 0
 		err := func() error {
 			progress.setDeferGating(true)
 			defer progress.setDeferGating(false)
@@ -7600,7 +7773,9 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 			// cover) is exercised while the row is genuinely in_progress — identical cover,
 			// delta-only by construction. No-op in production (env unset).
 			inject.StallHere("upgrade-delta-migration-slower-than-systemd-unit-timeout")
-			return runCommandToLog(projDir, MigrateUpTimeout, progress.File(), "migrate", progress.bump, filepath.Join(projDir, "sb"), "migrate", "up", "--verbose")
+			var runErr error
+			pendingMigrations, runErr = runMigrateUpToLog(projDir, MigrateUpTimeout, progress.File(), progress.bump, filepath.Join(projDir, "sb"), "migrate", "up", "--verbose")
+			return runErr
 		}()
 
 		if err != nil {
@@ -7648,6 +7823,7 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 			}
 			return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: ./sb migrate up: %v", ErrMigrationFailed, err)+oomEvidence, progress)
 		}
+		progress.Write("Applying database migrations: %d pending ... ok", pendingMigrations)
 	}
 
 	// STATBUS-071 AT-TARGET resume-crash producer (KindKill). Fires HERE — the
@@ -7677,13 +7853,13 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	// either wedge the canary (proxy-style "wait forever") or skip
 	// verification (silent drift) — TestVersionTrackedAlignedWithUpgradePipeline
 	// asserts the invariant.
-	progress.Write("Starting services...")
 	d.markStep(StepStartServices)
 	// STATBUS-046 slice 2: PRIMARY class-C disk pre-check (structured statfs).
 	if reason := d.diskPrecheckReason(StepStartServices); reason != "" {
 		return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, reason, progress)
 	}
 	composeArgs := append([]string{"compose", "up", "-d", "--no-build"}, step11RestartServices...)
+	servicesStart := time.Now()
 	if stderrTail, err := runCommandToLogCapture(projDir, 5*time.Minute, progress.File(), "docker-compose", progress.bump, "docker", composeArgs...); err != nil {
 		// ENOSPC backstop: disk filled DURING start (past the pre-check) → C park.
 		if classifyDockerFailure(err, stderrTail) == classResource {
@@ -7699,6 +7875,7 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 			ErrDockerUpFailed, strings.Join(step11RestartServices, " "), err, displayName)
 		return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, reason, progress)
 	}
+	progress.Write("Starting services (app, worker, proxy, rest) ... ok (%s)", formatProgressDuration(time.Since(servicesStart), false))
 
 	// C8 injection site. Containers have been started (docker compose
 	// up -d returned ok — meaning create+start was initiated, NOT that
@@ -7719,7 +7896,6 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	// a named reason, not another death-budget attempt (retrying a version that
 	// can't serve won't fix it). A transient DB/REST blip within warmup is
 	// absorbed in-place by the retries above and never reaches here.
-	progress.Write("Verifying health...")
 	d.markStep(StepHealthCheck)
 	if err := d.healthCheck(progress, 5, 5*time.Second); err != nil {
 		return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath,
@@ -7732,9 +7908,18 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	// no-ops past (recovery-arc-flaw-timeoutstartsec.md §4a — the ordering
 	// invariant; its original motivating slow tail, a post-completion forensic
 	// tar, was removed in STATBUS-112).
-	fmt.Println("Health check passed — turning off the maintenance page.")
+	finishing := newSuccessfulUpgradeFinishingNarrative(displayName, maintenanceFlagHostPath(), d.flagPath())
+	finishingClean := true
+	var finishingErr error
+	progress.Write("%s", finishing.heading())
 	d.markStep(StepMaintenanceOff)
-	d.setMaintenance(false)
+	if err := d.setMaintenance(false, ""); err != nil {
+		finishingClean = false
+		finishingErr = errors.Join(finishingErr, fmt.Errorf("lift maintenance mode: %w", err))
+		progress.Write("  Lifting maintenance mode ... failed: %v", err)
+	} else {
+		writeProgressLines(progress, finishing.maintenanceLines()...)
+	}
 
 	// STATBUS-071 P5 — the CONVERGED-but-bookkeeping-unlanded resume-crash producer. Fires
 	// AFTER healthCheck success + setMaintenance(false) but BEFORE the completed terminalUpdate
@@ -7799,6 +7984,7 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 		d.writeDiagnosticBundle(ctx, id, progress)
 		return fmt.Errorf("NORMAL_COMPLETED_TRANSITION_PERSISTED: %w", cerr)
 	}
+	progress.Write("%s", finishing.recordedLine())
 	log.Println("state=completed")
 	logUpgradeRow(LabelCompletedNormal, normalJSON)
 	d.deleteRollbackBinaryOnCompletion() // STATBUS-197 C3: swap resolved → ./sb.old must not linger
@@ -7829,25 +8015,32 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	// box masquerading as healthy — so it ESCALATES LOUDLY (STATBUS-154 exit-
 	// invariant class), never the quiet Warning. The boot backstop clears the
 	// residue on the next start; its firing indicts this flip.
-	if err := d.liftReadOnlyWindow("upgrade completion"); err != nil {
+	readOnlyStatement, readOnlyErr := d.liftReadOnlyWindow("upgrade completion")
+	if readOnlyErr != nil {
+		finishingClean = false
+		finishingErr = errors.Join(finishingErr, fmt.Errorf("unblock SQL writes: %w", readOnlyErr))
 		fmt.Fprintf(os.Stderr,
 			"INVARIANT COMPLETION_READ_ONLY_WINDOW_LIFTED violated: the read-only window did not lift at completion after %d attempts (err=%v) — the database default is still read-only, so every fresh non-exempt session fails with 25006 (read_only_sql_transaction). Remedy: run `./sb install` to clear it (or the daemon's boot backstop clears it on the next start). (service.go:%d, pid=%d)\n",
-			terminalWriteMaxAttempts, err, thisLine(), os.Getpid())
+			terminalWriteMaxAttempts, readOnlyErr, thisLine(), os.Getpid())
 		d.markTerminal("COMPLETION_READ_ONLY_WINDOW_LIFTED",
-			fmt.Sprintf("window OFF flip failed at completion after retries: %v; DB default still read-only; ./sb install clears it", err))
-		progress.Write("FATAL: read-only window did NOT lift at completion (%v) — the box rejects external writes until `./sb install` clears it.", err)
+			fmt.Sprintf("window OFF flip failed at completion after retries: %v; DB default still read-only; ./sb install clears it", readOnlyErr))
+		progress.Write("  Unblocking SQL writes ... failed: %v", readOnlyErr)
+	} else {
+		writeProgressLines(progress, finishing.readOnlyLines(readOnlyStatement)...)
 	}
-	d.removeUpgradeFlag()
+	if err := d.removeUpgradeFlag(); err != nil {
+		finishingClean = false
+		finishingErr = errors.Join(finishingErr, fmt.Errorf("release upgrade lock: %w", err))
+		progress.Write("  Releasing upgrade lock ... failed: %v", err)
+	} else {
+		writeProgressLines(progress, finishing.lockLines()...)
+	}
 
-	// The row is now truly `completed` and the flag is gone (both fast,
-	// inside any systemd budget). Only now is the "completed successfully"
-	// line honest — emitting it before the terminal UPDATE persisted (its
-	// prior position) was a lie on the NO/rune resume, where the UPDATE never
-	// landed. Everything from here on (pruning, retention, fixup) is
-	// post-completion cleanup: a kill in this window leaves a COMPLETED upgrade
-	// that the next start no-ops past.
-	fmt.Printf("Upgrade to %s completed successfully\n", displayName)
-
+	// The row is now truly `completed`; lock release was attempted immediately
+	// afterward. Only the finishingClean branch below may claim the whole process
+	// completed. Everything from here on (pruning, retention, fixup) is
+	// post-database-completion cleanup: a kill in this window leaves a COMPLETED
+	// row that the next start no-ops past.
 	// Layer 3 of the rollback-on-SIGKILL hole plug: now that the upgrade
 	// has reached terminal state='completed', the pre-upgrade backup is no
 	// longer needed for rollback. pruneBackups (defined in exec.go) trims
@@ -7869,17 +8062,14 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	// supersedeOlderReleases — rule D's ranking depends on the older
 	// releases' new 'superseded' state.
 	d.runRetentionPurge(ctx, "all", &id)
-	d.runUpgradeCallback(displayName)
 
-	// Now the row is truly `completed` (UPDATE + removeUpgradeFlag done),
-	// emit the operator-facing "complete!" line and run the post-success
+	// Now the row is truly `completed`; run the post-success fixup and emit the
+	// canonical completion line only if every finishing boundary also succeeded.
 	// install fixup. See the "Mark complete" comment above for the
 	// ordering rationale. Fixup can restart docker services (including
 	// db) — that's fine here because we're past the terminal UPDATE;
 	// anything that breaks after this point is a fixup-side concern the
 	// operator can re-run idempotently.
-	progress.Write("Upgrade to %s complete!", displayName)
-
 	// Run idempotent install to apply any new infrastructure (systemd service,
 	// directories, config fixes). Install steps skip what's already done.
 	// This exercises the install path on every upgrade, catching install bugs early.
@@ -7895,15 +8085,23 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	// recognizes the env signature and stays quiet: the absent flag is the
 	// expected steady state here, not an A17 violation.
 	fixupStart := time.Now()
-	progress.Write("Applying configuration and service updates...")
 	if err := runInstallFixup(projDir); err != nil {
-		progress.Write("%s: applying post-upgrade configuration/service updates failed (non-fatal — the upgrade itself succeeded): %v", ErrInstallFixupFailed, err)
-		// Non-fatal — the upgrade itself succeeded and the row reflects it.
+		finishingClean = false
+		finishingErr = errors.Join(finishingErr, fmt.Errorf("apply configuration and service updates: %w", err))
+		progress.Write("  Applying configuration and service updates ... failed (the database upgrade succeeded, but process finishing did not): %v", err)
+		// Non-fatal to the already-committed database upgrade. It is still a
+		// process-finishing failure, so the canonical complete line, success callback,
+		// and nil return remain reserved for a fully clean finishing block below.
 	} else {
-		progress.Write("Configuration and service updates applied (took %s).", time.Since(fixupStart).Truncate(time.Millisecond))
+		progress.Write("%s", finishing.fixupLine(time.Since(fixupStart)))
 	}
-
-	return nil
+	if finishingClean {
+		d.runUpgradeCallback(displayName)
+		progress.Write("%s", finishing.completeLine())
+		return nil
+	}
+	progress.Write("Upgrade to %s was recorded as successful, but finishing did not complete; see the failed step(s) above.", displayName)
+	return fmt.Errorf("upgrade to %s was recorded as successful, but finishing did not complete: %w", displayName, finishingErr)
 }
 
 // resumeNewSb re-enters the upgrade pipeline in the new binary after a
@@ -7943,6 +8141,93 @@ func preSwapRecoveryReason(flag UpgradeFlag) string {
 
 func retryableRollbackReason(reason string) bool {
 	return strings.HasPrefix(strings.TrimSpace(reason), ErrGitFetchRetryable+":")
+}
+
+// RollbackFinishPendingPrefix distinguishes a healthy restored box whose
+// filesystem lock was not yet released from a restore that actually failed.
+// install/state.go uses the same predicate so it never replays an already-
+// successful restore during the narrow filesystem-to-database handoff window.
+const RollbackFinishPendingPrefix = "ROLLBACK_FINISH_PENDING: "
+
+func IsRollbackFinishPendingError(errorText string) bool {
+	return strings.HasPrefix(errorText, RollbackFinishPendingPrefix)
+}
+
+func rollbackFinishPendingError(reason string) string {
+	return RollbackFinishPendingPrefix + reason
+}
+
+func rollbackFinalError(reason string) string {
+	if reason == "" {
+		reason = "Rollback completed (no reason captured — caller did not pass one)"
+	}
+	if retryableRollbackReason(reason) {
+		return reason + " - rolled back to the previous version; the system is running normally on the old version. " +
+			"The git failure is recorded (log retained) and is retryable. It is safe to schedule this same version again; no manual recovery is needed."
+	}
+	return reason + " — rolled back to the previous version; the system is running normally on the old version. " +
+		"The failure is recorded (log retained); report it to support. This version will fail the same way — do NOT re-schedule it; run `./sb upgrade check` and try a LATER release when one is available. No manual intervention needed."
+}
+
+// finalizePendingRollbacks repairs the only deliberate failed+backup_path
+// exception to install's restore-reattemptable invariant. The restore already
+// passed every health boundary; only the final DB transition was interrupted
+// after the filesystem lock disappeared. Retrying this guarded UPDATE is safe
+// at startup and on each heartbeat, and requires no restore or service action.
+func (d *Service) finalizePendingRollbacks(ctx context.Context) {
+	if d.queryConn == nil {
+		return
+	}
+	type pendingRollback struct {
+		id            int
+		errorText     string
+		commitSHA     string
+		commitVersion string
+	}
+	rows, err := d.queryConn.Query(ctx,
+		`SELECT id, error, commit_sha, COALESCE(commit_version, '')
+		   FROM public.upgrade
+		  WHERE state = 'failed' AND starts_with(error, $1)
+		  ORDER BY id`, RollbackFinishPendingPrefix)
+	if err != nil {
+		log.Printf("finalizePendingRollbacks: query failed: %v", err)
+		return
+	}
+	var pending []pendingRollback
+	for rows.Next() {
+		var row pendingRollback
+		if err := rows.Scan(&row.id, &row.errorText, &row.commitSHA, &row.commitVersion); err != nil {
+			rows.Close()
+			log.Printf("finalizePendingRollbacks: scan failed: %v", err)
+			return
+		}
+		pending = append(pending, row)
+	}
+	rowsErr := rows.Err()
+	rows.Close()
+	if rowsErr != nil {
+		log.Printf("finalizePendingRollbacks: rows failed: %v", rowsErr)
+		return
+	}
+
+	for _, row := range pending {
+		reason := strings.TrimPrefix(row.errorText, RollbackFinishPendingPrefix)
+		finalError := rollbackFinalError(reason)
+		rowJSON, updateErr := d.terminalUpdate(
+			"UPDATE public.upgrade SET state = 'rolled_back', error = $2, rolled_back_at = now() WHERE id = $1 AND state = 'failed' AND error = $3"+upgradeRowReturning,
+			row.id, finalError, row.errorText)
+		if updateErr != nil {
+			log.Printf("finalizePendingRollbacks: upgrade %d remains pending: %v", row.id, updateErr)
+			continue
+		}
+		logUpgradeRow(LabelRolledBackFinishRecovery, rowJSON)
+		displayName := row.commitVersion
+		if displayName == "" {
+			displayName = renderDisplayName(CommitSHA(row.commitSHA), nil)
+		}
+		d.runCallback(displayName, map[string]string{"STATBUS_EVENT": "rolled_back", "STATBUS_ROLLED_BACK": "1"})
+		log.Printf("Rollback to the previous version complete for upgrade %d (recovered interrupted final row transition).", row.id)
+	}
 }
 
 // preSwapStoppedMessage renders STATBUS-240's operator-facing text, approved
@@ -8465,6 +8750,10 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 			if err == nil {
 				logUpgradeRow(LabelCompletedSelfHeal, selfHealJSON)
 				d.deleteRollbackBinaryOnCompletion() // STATBUS-197 C3: swap resolved → ./sb.old must not linger
+				finishingClean := true
+				var finishingErr error
+				progress.Write("Finishing recovered upgrade:")
+				progress.Write("  Recording the successful upgrade in the database ... ok")
 				// Best-effort NOTIFY belt, same shape as the normal-completion
 				// path above.
 				_, _ = d.queryConn.Exec(ctx, `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
@@ -8484,13 +8773,19 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 				// path; the err != nil fall-through below re-enters applyNewSbUpgrading,
 				// whose own completion site lifts the window there. The boot backstop
 				// clears the residue on the next start; its firing indicts this flip.
-				if werr := d.liftReadOnlyWindow("post-swap resume completion"); werr != nil {
+				readOnlyStatement, werr := d.liftReadOnlyWindow("post-swap resume completion")
+				if werr != nil {
+					finishingClean = false
+					finishingErr = errors.Join(finishingErr, fmt.Errorf("unblock SQL writes: %w", werr))
 					fmt.Fprintf(os.Stderr,
 						"INVARIANT COMPLETION_READ_ONLY_WINDOW_LIFTED violated: the read-only window did not lift at post-swap self-heal completion after %d attempts (err=%v) — the database default is still read-only, so every fresh non-exempt session fails with 25006 (read_only_sql_transaction). Remedy: run `./sb install` to clear it (or the daemon's boot backstop clears it on the next start). (service.go:%d, pid=%d)\n",
 						terminalWriteMaxAttempts, werr, thisLine(), os.Getpid())
 					d.markTerminal("COMPLETION_READ_ONLY_WINDOW_LIFTED",
 						fmt.Sprintf("window OFF flip failed at post-swap self-heal completion after retries: %v; DB default still read-only; ./sb install clears it", werr))
-					progress.Write("FATAL: read-only window did NOT lift at post-swap self-heal completion (%v) — the box rejects external writes until `./sb install` clears it.", werr)
+					progress.Write("  Unblocking SQL writes ... failed: %v", werr)
+				} else {
+					progress.Write("  Unblocking SQL writes ... ok")
+					progress.Write("    ran: %s", readOnlyStatement)
 				}
 				// STATBUS-187 AC#3 (architect ruling, ticket comment #7): same
 				// uniform stale-flag-class treatment as removeUpgradeFlag/
@@ -8498,13 +8793,25 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 				// This site's consequence: the row is now genuinely
 				// 'completed', so a stale flag would make the next boot
 				// misread a HEALTHY upgrade as crashed/in-progress.
-				warnOnStaleFlagRemoveFailure(d.flagPath(), os.Remove(d.flagPath()),
-					"a later boot will read this stale flag and misread this genuinely completed upgrade as crashed/in-progress (an availability wedge, not corruption; that path re-attempts this same removal every boot)")
+				if removeErr := d.removeUpgradeFlag(); removeErr != nil {
+					finishingClean = false
+					finishingErr = errors.Join(finishingErr, fmt.Errorf("release upgrade lock: %w", removeErr))
+					progress.Write("  Releasing upgrade lock ... failed: %v", removeErr)
+				} else {
+					progress.Write("  Releasing upgrade lock ... ok")
+					progress.Write("    removed: %s", homeRelativePath(d.flagPath()))
+				}
 				d.supersedeOlderReleases(ctx, flag.CommitSHA)
 				d.supersedeCompletedPrereleases(ctx, flag.CommitSHA)
-				progress.Write("Post-swap self-heal: containers already at %s; row %d marked completed without re-running applyNewSbUpgrading.",
-					flag.Label(), flag.ID)
+				if finishingClean {
+					progress.Write("Upgrade to %s complete.", flag.Label())
+				} else {
+					progress.Write("Upgrade to %s was recorded as successful, but recovered-upgrade finishing did not complete; see the failed step(s) above.", flag.Label())
+				}
 				progress.Close()
+				if finishingErr != nil {
+					return fmt.Errorf("post-swap self-heal recorded upgrade %s as successful but finishing failed: %w", flag.Label(), finishingErr)
+				}
 				return nil
 			}
 			// UPDATE didn't land (ErrNoRows: row already terminal; or
@@ -8559,8 +8866,8 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 			}
 		}
 		if !binaryAtFlag && !binaryDescendsFlag {
-			progress.Write("Recovery after booting the new binary: containers do not match flag target %s, AND running binary %s is not at or descendant of flag target. Mismatched: %v",
-				flag.Label(), ShortForDisplay(d.binaryCommit), mismatched)
+			progress.Write("Checking service state before proceeding ... failed: running binary %s cannot continue target %s; services: %v",
+				ShortForDisplay(d.binaryCommit), flag.Label(), mismatched)
 			progress.Close()
 			return fmt.Errorf(
 				"recovery after booting the new binary: containers do not match flag target %s and running binary %s is not at or descendant of flag target.\n"+
@@ -8577,13 +8884,11 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 		// can restart them with target tags. The list reads as a fault
 		// only because of word choice and one-line formatting. Break into
 		// a header + per-container lines so the operator can scan it.
+		progress.Write("Checking service state before proceeding:")
 		if binaryDescendsFlag {
-			progress.Write("Resuming the upgrade — the running version %s is newer than the interrupted target %s; rolling forward:",
-				ShortForDisplay(d.binaryCommit), flag.Label())
-		} else {
-			progress.Write("Resuming the upgrade to %s:", flag.Label())
+			progress.Write("  Running binary %s includes the interrupted target %s; continuing forward", ShortForDisplay(d.binaryCommit), flag.Label())
 		}
-		for _, m := range mismatched {
+		for _, m := range operatorServiceStateLines(mismatched) {
 			progress.Write("  %s", m)
 		}
 	}
@@ -8636,7 +8941,8 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 	}
 	if parked {
 		log.Printf("resumeNewSb: upgrade %d is PARKED (%s) — skipping automatic resume; re-trigger the upgrade or run ./sb install to make a fresh attempt", flag.ID, parkReason)
-		progress.Write("Upgrade %d is parked: %s. Skipping automatic resume — re-trigger the upgrade (NOTIFY/apply) or run ./sb install for a fresh attempt.", flag.ID, parkReason)
+		progress.Write("Checking whether upgrade %d should continue automatically ... paused: %s", flag.ID, parkReason)
+		progress.Write("  A later release or a deliberate ./sb install run can make a fresh attempt.")
 		progress.Close()
 		return nil
 	}
@@ -8657,12 +8963,14 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 			freshlyParked, parkErr := d.parkUpgrade(ctx, flag.ID, reason,
 				fmt.Sprintf("parked after %d crash-resume attempts: %s", attempts, reason))
 			if parkErr != nil {
-				progress.Write("resumeNewSb: park write failed for upgrade %d: %v", flag.ID, parkErr)
+				progress.Write("Pausing automatic upgrade recovery ... failed: %v", parkErr)
 				progress.Close()
 				return fmt.Errorf("resumeNewSb: park write failed for upgrade %d: %w", flag.ID, parkErr)
 			}
 			log.Printf("resumeNewSb: PARKED upgrade %d after %d attempt(s) — %s", flag.ID, attempts, reason)
-			progress.Write("PARKED after %d crash-resume attempt(s): %s. The unit stays running and idle (no crash loop); re-trigger the upgrade or run ./sb install to make a fresh attempt — each deliberate trigger is exactly one attempt.", attempts, reason)
+			progress.Write("Pausing automatic upgrade recovery after %d failed continuation attempt(s) ... ok", attempts)
+			progress.Write("  Cause: %s", reason)
+			progress.Write("  The service remains available for a later release or a deliberate ./sb install retry.")
 			// STATBUS-204: route this budget park through the operable-box chokepoint too — bring
 			// the source version's services back (era-guarded, starts-only, narrative-only on
 			// refuse/failure) so a same-step-twice park is alive-idle AND operable, not dark. The
@@ -8724,7 +9032,7 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 	}
 	lock, lerr := acquireFlock(d.projDir, reacquired)
 	if lerr != nil {
-		progress.Write("resumeNewSb: re-acquire flock failed: %v", lerr)
+		progress.Write("Reacquiring the upgrade lock before continuing ... failed: %v", lerr)
 		progress.Close()
 		return fmt.Errorf("resumeNewSb: re-acquire flock: %w", lerr)
 	}
@@ -8932,6 +9240,17 @@ func (d *Service) runCallback(displayName string, extraEnv map[string]string) {
 // undo" exception; preserve that contract by reading this comment
 // before extending it.
 func (d *Service) failUpgrade(ctx context.Context, id int, errMsg string, progress *ProgressLog) {
+	d.failUpgradeWithFlagDisposition(ctx, id, errMsg, progress, false)
+}
+
+// failUpgradeKeepingFlag records the same durable failed row as failUpgrade but
+// preserves the recovery breadcrumb. Use it when a cleanup boundary failed and
+// the next ./sb install must reconcile machine state before another attempt.
+func (d *Service) failUpgradeKeepingFlag(ctx context.Context, id int, errMsg string, progress *ProgressLog) {
+	d.failUpgradeWithFlagDisposition(ctx, id, errMsg, progress, true)
+}
+
+func (d *Service) failUpgradeWithFlagDisposition(ctx context.Context, id int, errMsg string, progress *ProgressLog, keepFlag bool) {
 	// STATBUS-338, Norway rc.02: keep the original failure outside the DB volume
 	// before any terminal write or unwind can fail. Callers before flag acquisition
 	// remain a no-op; claimed preswap failures gain an honest restart breadcrumb.
@@ -8954,11 +9273,20 @@ func (d *Service) failUpgrade(ctx context.Context, id int, errMsg string, progre
 			logUpgradeRow(LabelFailed, failJSON)
 		}
 	}
-	// Always release the mutex on failure paths, even those that don't run
+	// Normally release the mutex on failure paths, even those that don't run
 	// rollback (e.g., pullImagesForCommitShort failure returns directly after failUpgrade).
 	// removeUpgradeFlag is idempotent — safe when no flag was acquired (some
 	// failUpgrade callers run before writeUpgradeFlag during pre-flight).
-	d.removeUpgradeFlag()
+	if keepFlag {
+		d.releaseUpgradeFlagLockKeepingFile()
+		progress.Write("Preserving the recovery marker after releasing its live lock: %s", homeRelativePath(d.flagPath()))
+		return
+	}
+	if err := d.removeUpgradeFlag(); err != nil {
+		progress.Write("Releasing upgrade lock after failure ... failed: %v", err)
+		d.markTerminal("FAILURE_UPGRADE_LOCK_RELEASED",
+			fmt.Sprintf("id=%d; failed-row lock release error=%v; ./sb install reconciles it", id, err))
+	}
 }
 
 // readAdministratorContact returns the ADMINISTRATOR_CONTACT value from
@@ -9153,14 +9481,11 @@ func (d *Service) terminalExec(execSQL string, args ...any) error {
 	})
 }
 
-// windowOffSQL clears the read-only upgrade window on the CURRENT database. Wrapped
-// in a DO block so it is a SINGLE self-committing statement terminalExec can run on
-// a fresh conn: current_database() resolves the app db on that connection
-// (recoveryDSN targets POSTGRES_APP_DB) and format('%I') quotes it. ALTER DATABASE
-// ... SET is catalog-durable — the same write setDatabaseReadOnly(false) performs,
-// now on the teardown-immune transport.
-// liftReadOnlyWindow runs windowOffSQL and ANNOUNCES SUCCESS, then returns the
-// error unchanged so every caller's own failure handling is untouched.
+// liftReadOnlyWindow clears the read-only upgrade window on the CURRENT database
+// through terminalConnDo's teardown-immune fresh connection. It resolves the
+// database name and executes the direct ALTER on that same connection, returning
+// the exact statement so the caller can put the hand-undoable artifact in its own
+// progress stream.
 //
 // STATBUS-266. The window announced itself in ONE direction: setDatabaseReadOnly
 // prints for both ON and OFF, but only the FAILURE paths call it — every success
@@ -9181,15 +9506,21 @@ func (d *Service) terminalExec(execSQL string, args ...any) error {
 //
 // `where` names the terminal that lifted it, because five sites clear this
 // window and "which one ran" is the next question a responder asks.
-func (d *Service) liftReadOnlyWindow(where string) error {
-	err := d.terminalExec(windowOffSQL)
-	if err == nil {
-		fmt.Printf("read-only window OFF — cleared at %s (ALTER DATABASE ... SET default_transaction_read_only = off)\n", where)
-	}
-	return err
+func (d *Service) liftReadOnlyWindow(where string) (string, error) {
+	var statement string
+	err := d.terminalConnDo(func(ctx context.Context, conn *pgx.Conn) error {
+		var dbName string
+		if err := conn.QueryRow(ctx, "SELECT current_database()").Scan(&dbName); err != nil {
+			return fmt.Errorf("%s: resolve current database: %w", where, err)
+		}
+		statement = fmt.Sprintf("ALTER DATABASE %s SET default_transaction_read_only = off", quoteIdent(dbName))
+		if _, err := conn.Exec(ctx, statement); err != nil {
+			return fmt.Errorf("%s: %w", where, err)
+		}
+		return nil
+	})
+	return statement, err
 }
-
-const windowOffSQL = `DO $do$ BEGIN EXECUTE format('ALTER DATABASE %I SET default_transaction_read_only = off', current_database()); END $do$`
 
 // flagSourcedBackupPath resolves THE FLAG's backup identity for the terminal
 // write (STATBUS-241). It returns a *string carrying the three-state answer
@@ -9360,7 +9691,9 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reaso
 	}
 
 	if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "rollback-config-generate", nil, filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
-		progress.Write("Warning: config generate during rollback failed: %v", err)
+		progress.Write("  Regenerating configuration for the previous version ... failed (continuing): %v", err)
+	} else {
+		progress.Write("  Regenerating configuration for the previous version ... ok")
 	}
 
 	// Restore database backup. Now safe — git state matches the DB era. A
@@ -9402,9 +9735,12 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reaso
 	// Start with old config — git is verified at restoreTargetSHA. A failure
 	// here means the old-version services would not come back up → degraded,
 	// recorded as `failed` below.
+	servicesStart := time.Now()
 	servicesUpErr := runCommandToLog(projDir, 5*time.Minute, progress.File(), "rollback-docker-up", nil, "docker", "compose", "--profile", "all", "up", "-d", "--remove-orphans")
 	if servicesUpErr != nil {
-		progress.Write("%s: docker compose up failed after rollback: %v", ErrRollbackServicesUp, servicesUpErr)
+		progress.Write("  Starting services for the previous version ... failed: %v", servicesUpErr)
+	} else {
+		progress.Write("  Starting services for the previous version ... ok (%s)", formatProgressDuration(time.Since(servicesStart), false))
 	}
 
 	// Wait for the restored DB to accept connections BEFORE reconnecting: the
@@ -9415,18 +9751,30 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reaso
 	// durable fallback. Log-not-raise: if the DB genuinely never returns, the
 	// wait elapses, the reconnect + terminal write fail, and the flag is KEPT
 	// for next-boot reconciliation (a degraded outcome already recorded failed).
-	progress.Write("Waiting for database to be healthy after rollback...")
-	if err := d.waitForDBHealth(30 * time.Second); err != nil {
-		progress.Write("Warning: database not healthy after rollback within 30s: %v", err)
+	dbHealthStart := time.Now()
+	dbHealthErr := d.waitForDBHealth(30 * time.Second)
+	if dbHealthErr != nil {
+		progress.Write("  Waiting for the restored database to become healthy ... failed after 30s: %v", dbHealthErr)
+	} else {
+		progress.Write("  Waiting for the restored database to become healthy ... healthy (%s)", formatProgressDuration(time.Since(dbHealthStart), false))
 	}
 
 	// Reconnect (may fail if DB didn't come back)
-	if err := d.reconnect(ctx); err != nil {
-		progress.Write("Warning: could not reconnect after rollback: %v", err)
+	reconnectErr := d.reconnect(ctx)
+	if reconnectErr != nil {
+		progress.Write("  Reconnecting to the restored database ... failed: %v", reconnectErr)
+	} else {
+		progress.Write("  Reconnecting to the restored database ... ok")
 	}
 
 	// Deactivate maintenance
-	d.setMaintenance(false)
+	maintenanceErr := d.setMaintenance(false, "")
+	if maintenanceErr != nil {
+		progress.Write("  Lifting maintenance mode ... failed: %v", maintenanceErr)
+	} else {
+		progress.Write("  Lifting maintenance mode ... ok")
+		progress.Write("    removed: %s", homeRelativePath(maintenanceFlagHostPath()))
+	}
 
 	// STATBUS-110: clear the read-only window on the rolled-back box. The restored
 	// snapshot carries default_transaction_read_only=on in its catalog (it was
@@ -9444,13 +9792,17 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reaso
 	// so a failed flip ESCALATES LOUDLY, never a Warning. (The git-restore-fail
 	// ABORT terminal exits BEFORE this point and deliberately holds read-only ON;
 	// that hold is untouched.)
-	if err := d.liftReadOnlyWindow("rollback completion"); err != nil {
+	readOnlyStatement, readOnlyErr := d.liftReadOnlyWindow("rollback completion")
+	if readOnlyErr != nil {
 		fmt.Fprintf(os.Stderr,
 			"INVARIANT ROLLBACK_READ_ONLY_WINDOW_LIFTED violated: the read-only window did not lift after rollback after %d attempts (err=%v) — the restored box's database default is still read-only, so every fresh non-exempt session fails with 25006. Remedy: run `./sb install` to clear it (or the daemon's boot backstop on the next start). (service.go:%d, pid=%d)\n",
-			terminalWriteMaxAttempts, err, thisLine(), os.Getpid())
+			terminalWriteMaxAttempts, readOnlyErr, thisLine(), os.Getpid())
 		d.markTerminal("ROLLBACK_READ_ONLY_WINDOW_LIFTED",
-			fmt.Sprintf("window OFF flip failed after rollback after retries: %v; DB default still read-only; ./sb install clears it", err))
-		progress.Write("FATAL: read-only window did NOT lift after rollback (%v) — the box rejects external writes until `./sb install` clears it.", err)
+			fmt.Sprintf("window OFF flip failed after rollback after retries: %v; DB default still read-only; ./sb install clears it", readOnlyErr))
+		progress.Write("  Unblocking SQL writes ... failed: %v", readOnlyErr)
+	} else {
+		progress.Write("  Unblocking SQL writes ... ok")
+		progress.Write("    ran: %s", readOnlyStatement)
 	}
 
 	// Persist the real failure reason in `error` (short, one-line). The
@@ -9463,26 +9815,31 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reaso
 	}
 	// Two-tier terminal (upgrade-timeline.md § Complete / rollback). The restore
 	// steps above are best-effort and log-not-raise, so a degraded outcome must be
-	// detected HERE: if the DB snapshot restore failed OR the old-version services
-	// would not come back up, the box is NOT "healthy at the old version" — record
-	// `failed` (degraded; manual recovery), never `rolled_back`. Recording
+	// detected HERE: if any required restoration boundary failed, the box is NOT
+	// "running normally on the old version" — record `failed` (degraded; manual
+	// recovery), never `rolled_back`. Recording
 	// rolled_back on a degraded box is the silent-operator-lie the codebase forbids
 	// (rolled_back's contract is "running normally on old version, no manual
 	// intervention"). (restoreBinary failure is excluded: ./sb being stale is
 	// self-healed by the staleness guard on the next invocation; the site's
 	// containers serve old code from the restored git tree, so it stays healthy.)
-	degraded := dbRestoreErr != nil || servicesUpErr != nil
+	completionErrors := rollbackCompletionErrors{
+		databaseRestore: dbRestoreErr,
+		servicesStart:   servicesUpErr,
+		databaseHealth:  dbHealthErr,
+		reconnect:       reconnectErr,
+		maintenance:     maintenanceErr,
+		readOnly:        readOnlyErr,
+	}
+	degraded := completionErrors.degraded()
 	// Bundle BEFORE the terminal UPDATE so a support ticket on the row has the
 	// sibling .bundle.txt available.
 	d.writeDiagnosticBundle(ctx, id, progress)
 
 	if degraded {
 		detail := ""
-		if dbRestoreErr != nil {
-			detail += "; DB snapshot restore failed"
-		}
-		if servicesUpErr != nil {
-			detail += "; services did not come back up"
+		for _, failure := range completionErrors.details() {
+			detail += "; " + failure
 		}
 		errMsg = errMsg + " — ROLLBACK INCOMPLETE" + detail + ". The system is in a degraded state; manual CLI recovery is required (./sb install); contact SSB support and involve your IT staff."
 		// Durable terminal write with bounded retry + reconnect. removeUpgradeFlag
@@ -9493,7 +9850,7 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reaso
 		if d.writeRollbackTerminal(id,
 			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+" WHERE id = $3"+upgradeRowReturning,
 			errMsg, LabelFailedRollbackIncomplete, attemptsAtCall) {
-			d.removeUpgradeFlag()
+			_ = d.removeUpgradeFlag()
 		}
 		// Page on-call: the degraded/all-hands tier (siren), same signal as the
 		// git-restore ABORT path.
@@ -9504,7 +9861,7 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reaso
 			"STATBUS_ROLLBACK_ERROR":  errMsg,
 			"STATBUS_RECOVERY_CMD":    fmt.Sprintf(`ssh %s "cd statbus && ./sb install"`, hostname),
 		})
-		progress.Write("Rollback INCOMPLETE — the system is degraded; manual recovery required.")
+		progress.Write("Recording rollback completion ... failed; the system remains degraded and requires manual recovery.")
 	} else {
 		// Snapshot restore succeeded and services came back → healthy at the old
 		// version. Regular-support tier; the `error` column carries the next action.
@@ -9515,25 +9872,52 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reaso
 		// and told the operator not to reschedule. The flag now preserves the cause,
 		// so the terminal guidance branches on the explicit retryable class. Every
 		// other rollback reason keeps the established hard-error advice.
-		if retryableRollbackReason(errMsg) {
-			errMsg = errMsg + " - rolled back to the previous version; the system is running normally on the old version. " +
-				"The git failure is recorded (log retained) and is retryable. It is safe to schedule this same version again; no manual recovery is needed."
-		} else {
-			errMsg = errMsg + " — rolled back to the previous version; the system is running normally on the old version. " +
-				"The failure is recorded (log retained); report it to support. This version will fail the same way — do NOT re-schedule it; run `./sb upgrade check` and try a LATER release when one is available. No manual intervention needed."
-		}
+		finalErrMsg := rollbackFinalError(errMsg)
+		pendingFinishErr := rollbackFinishPendingError(errMsg)
 		if d.writeRollbackTerminal(id,
-			"UPDATE public.upgrade SET state = 'rolled_back', error = $1, recovery_attempts = $2, rolled_back_at = now()"+terminalBackupPathSQL+" WHERE id = $3"+upgradeRowReturning,
-			errMsg, LabelRolledBackNormal, attemptsAtCall) {
-			// Terminal write landed → the row is rolled_back. Clear the in-progress
-			// flag so the mutex that blocks `./sb install` is released; without this
-			// the flag lingers until the next service restart, wedging future installs.
-			d.removeUpgradeFlag()
-			// Notify (Slack) on the rolled_back terminal — the fail-fast rollback's
-			// single operator notification, regular-support tier (notify-slack.sh
-			// renders STATBUS_ROLLED_BACK).
-			d.runCallback(version, map[string]string{"STATBUS_EVENT": "rolled_back", "STATBUS_ROLLED_BACK": "1"})
-			progress.Write("Rollback complete. The previous version has been restored.")
+			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+" WHERE id = $3"+upgradeRowReturning,
+			pendingFinishErr, LabelFailedRollbackPendingFinish, attemptsAtCall) {
+			// The conservative failed row landed. Clear the in-progress flag, then
+			// and only then promote the row to rolled_back with healthy guidance.
+			if err := d.removeUpgradeFlag(); err != nil {
+				degraded = true
+				progress.Write("  Releasing upgrade lock ... failed: %v", err)
+				staleLockErr := errMsg + fmt.Sprintf(" — rollback restored the previous version, but the stale upgrade lock could not be removed (%v); run `./sb install` to reconcile it before scheduling another upgrade.", err)
+				if staleJSON, staleErr := d.terminalUpdate(
+					"UPDATE public.upgrade SET error = $2, state = 'failed' WHERE id = $1 AND state = 'failed'"+upgradeRowReturning,
+					id, staleLockErr); staleErr == nil {
+					logUpgradeRow(LabelFailedRollbackPendingFinish, staleJSON)
+				} else {
+					d.markTerminal("ROLLBACK_LOCK_FAILURE_RECORDED",
+						fmt.Sprintf("id=%d; stale lock err=%v; row annotation err=%v", id, err, staleErr))
+				}
+				hostname, _ := os.Hostname()
+				d.runCallback(version, map[string]string{
+					"STATBUS_EVENT":           "rollback_failed",
+					"STATBUS_ROLLBACK_FAILED": "1",
+					"STATBUS_ROLLBACK_ERROR":  staleLockErr,
+					"STATBUS_RECOVERY_CMD":    fmt.Sprintf(`ssh %s "cd statbus && ./sb install"`, hostname),
+				})
+				progress.Write("Rollback restored the previous version, but finishing did not complete; the stale lock requires reconciliation.")
+			} else {
+				finalJSON, finalErr := d.terminalUpdate(
+					"UPDATE public.upgrade SET state = 'rolled_back', error = $2, rolled_back_at = now() WHERE id = $1 AND state = 'failed'"+upgradeRowReturning,
+					id, finalErrMsg)
+				if finalErr != nil {
+					degraded = true
+					d.markTerminal("ROLLBACK_HEALTHY_GUIDANCE_RECORDED",
+						fmt.Sprintf("id=%d; final guidance err=%v", id, finalErr))
+					progress.Write("Recording the completed rollback guidance ... failed: %v", finalErr)
+					progress.Write("Rollback restored the previous version and released the lock, but finishing did not complete; the database row remains conservatively marked for follow-up.")
+				} else {
+					logUpgradeRow(LabelRolledBackNormal, finalJSON)
+					// Notify (Slack) on the rolled_back terminal — the fail-fast rollback's
+					// single operator notification, regular-support tier (notify-slack.sh
+					// renders STATBUS_ROLLED_BACK).
+					d.runCallback(version, map[string]string{"STATBUS_EVENT": "rolled_back", "STATBUS_ROLLED_BACK": "1"})
+					progress.Write("Rollback to the previous version complete.")
+				}
+			}
 		} else {
 			// Terminal write never landed (DB unreachable, or the advisory lock is
 			// held by a live service we must yield to). KEEP the flag — the next
@@ -9542,7 +9926,7 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reaso
 			// in_progress that would be the operator-lie this fix removes.
 			// writeRollbackTerminal already failed loud (INVARIANT
 			// ROLLBACK_TERMINAL_WRITE_FAILED + markTerminal).
-			progress.Write("Rollback restored the previous version, but its terminal state could NOT be recorded in public.upgrade (DB unreachable). The in-progress flag is kept; the upgrade service reconciles the row on its next start. See INVARIANT ROLLBACK_TERMINAL_WRITE_FAILED.")
+			progress.Write("Recording the rollback in the database ... failed; the previous version is restored and the upgrade lock is kept for automatic reconciliation.")
 		}
 	}
 	return degraded
@@ -9605,7 +9989,7 @@ func (d *Service) ReattemptRestore(ctx context.Context, rowID int64, backupPath 
 		progress = NewUpgradeLog(d.projDir, rowID, displayName, time.Now().UTC())
 	}
 	defer progress.Close()
-	progress.Write("Re-attempting the interrupted database restore for %s (operator-initiated via ./sb install)...", displayName)
+	progress.Write("Re-attempting the interrupted database restore for %s:", displayName)
 
 	// Watchdog cover — the SAME always-ping ticker rollback() arms, because
 	// restoreAndFinalize runs the two heartbeat-silent steps (the whole-volume
@@ -9701,8 +10085,8 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 		func() { sdNotify("WATCHDOG=1") }, rollbackTickerDone)
 	defer func() { rollbackTickerCancel(); <-rollbackTickerDone }()
 
-	progress.Write("Upgrade failed — rolling back to previous version...")
-	progress.Write("Reason: %s", reason)
+	progress.Write("Rolling back to the previous version:")
+	progress.Write("  Cause: %s", reason)
 	// STATBUS-338, Norway rc.02: persist the cause before rollback touches any
 	// connection or process state. If this rollback itself dies, PreSwap recovery
 	// can report the returned git error instead of manufacturing a precondition
@@ -9752,7 +10136,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 		stopErr = compose.VerifyStopped(projDir, preRestoreStopServices, preRestoreStopVerifyBudget)
 	}
 	if stopErr != nil {
-		progress.Write("ABORT: %v", stopErr)
+		progress.Write("  Stopping services before restore ... failed: %v", stopErr)
 		fmt.Fprintf(os.Stderr, "ABORT: rollback refused — %v\n", stopErr)
 
 		rollbackFailedMsg := fmt.Sprintf("%s: %v (originally: %s) — ROLLBACK FAILED; the system is in a degraded state. Manual CLI recovery is required (./sb install); contact SSB support and involve your IT staff.", ErrRollbackServicesNotStopped, stopErr, reason)
@@ -9773,14 +10157,15 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 		// in stopErr are confirmed still running), so the terminal write can
 		// still hit a stopped DB.
 		if err := d.EnsureDBReachable(ctx); err != nil {
-			progress.Write("Starting the existing database container to record the rollback outcome (docker compose start db)...")
 			if startErr := d.StartDBForRecovery(ctx); startErr != nil {
-				progress.Write("Warning: could not start the database to record the rollback outcome: %v (the terminal write will retry, then fail loud as before)", startErr)
+				progress.Write("  Starting the existing database to record the rollback outcome ... failed: %v", startErr)
 			} else if reachErr := d.EnsureDBReachable(ctx); reachErr != nil {
-				progress.Write("Warning: database still not reachable after start: %v", reachErr)
+				progress.Write("  Starting the existing database to record the rollback outcome ... failed health check: %v", reachErr)
+			} else {
+				progress.Write("  Starting the existing database to record the rollback outcome ... healthy")
 			}
 		}
-		progress.Write("Services will NOT be started — manual intervention required.")
+		progress.Write("Manual recovery required:")
 		progress.Write("    1. Investigate why `docker compose stop` did not stop every service: docker compose ps -a")
 		progress.Write("    2. Stop the remaining service(s) manually, then decide whether to retry: ./sb install")
 		progress.Write("CATASTROPHIC FAILURE [%s]. Services stopped. Contact your administrator%s.",
@@ -9788,7 +10173,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 		if d.writeRollbackTerminal(id,
 			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+" WHERE id = $3"+upgradeRowReturning,
 			rollbackFailedMsg, LabelFailedAbortServicesLive, attemptsAtCall) {
-			d.removeUpgradeFlag()
+			_ = d.removeUpgradeFlag()
 		}
 		progress.Close()
 		os.Exit(1)
@@ -9813,10 +10198,9 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 	// FAILS we MUST NOT bring services up (NEW code on the just-restored OLD DB = corruption);
 	// restore the DB first to keep on-disk state consistent, then ABORT before docker compose up.
 	if backupPath == "" {
-		progress.Write("STATBUS-197: this attempt recorded no committed snapshot — it died before any destructive step; NOT restoring git or the binary from state that may predate this attempt. Returning the box to service at the untouched source version.")
+		progress.Write("  Checking for a committed snapshot ... ok (none recorded; source code and ./sb remain unchanged)")
 	} else if err := d.restoreGitState(restoreTargetSHA, progress); err != nil {
-		progress.Write("ABORT: rollback could not restore git state to %s: %v", restoreTargetSHA, err)
-		progress.Write("Restoring database to keep on-disk state consistent...")
+		progress.Write("  Restoring source code ... failed: %v", err)
 		// STATBUS-187 fix unit #1 (second wave, architect-ruled: "fix =
 		// capture + fold into the ABORT error string"): capture the ABORT
 		// branch's OWN restoreDatabase outcome (confirmed present and
@@ -9830,9 +10214,9 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 		dbRestoreOutcome := "succeeded"
 		if dbRestoreErr != nil {
 			dbRestoreOutcome = fmt.Sprintf("ALSO FAILED: %v", dbRestoreErr)
-			progress.Write("WARNING: database restore also failed: %v — the database is in an inconsistent state alongside the failed git restore.", dbRestoreErr)
+			progress.Write("  Restoring the database after the source-code failure ... failed: %v", dbRestoreErr)
 		} else {
-			progress.Write("Database restore succeeded.")
+			progress.Write("  Restoring the database after the source-code failure ... ok")
 		}
 		// Restore ./sb to match the attempted-but-failed git era so the
 		// operator's `./sb` at least stops being the NEW (mismatched)
@@ -9846,7 +10230,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 		if restoreTarget == "" {
 			restoreTarget = "pre-upgrade"
 		}
-		progress.Write("Services will NOT be started — manual intervention required.")
+		progress.Write("Manual recovery required:")
 		progress.Write("    1. Manually checkout the previous version: git checkout %s", restoreTarget)
 		progress.Write("    2. Regenerate config: ./sb config generate")
 		progress.Write("    3. Bring services up: docker compose --profile all up -d")
@@ -9902,11 +10286,12 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 		// through to writeRollbackTerminal's own bounded retry, which then fails
 		// loud exactly as before — no regression, only the loop removed.
 		if err := d.EnsureDBReachable(ctx); err != nil {
-			progress.Write("Starting the existing database container to record the rollback outcome (docker compose start db)...")
 			if startErr := d.StartDBForRecovery(ctx); startErr != nil {
-				progress.Write("Warning: could not start the database to record the rollback outcome: %v (the terminal write will retry, then fail loud as before)", startErr)
+				progress.Write("  Starting the existing database to record the rollback outcome ... failed: %v", startErr)
 			} else if reachErr := d.EnsureDBReachable(ctx); reachErr != nil {
-				progress.Write("Warning: database still not reachable after start: %v", reachErr)
+				progress.Write("  Starting the existing database to record the rollback outcome ... failed health check: %v", reachErr)
+			} else {
+				progress.Write("  Starting the existing database to record the rollback outcome ... healthy")
 			}
 		}
 
@@ -9923,7 +10308,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 		if d.writeRollbackTerminal(id,
 			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+" WHERE id = $3"+upgradeRowReturning,
 			rollbackFailedMsg, LabelFailedAbort, attemptsAtCall) {
-			d.removeUpgradeFlag()
+			_ = d.removeUpgradeFlag()
 		}
 
 		// Exit unconditionally (rc.67 trifecta). Same reasoning as the
@@ -10003,21 +10388,15 @@ func restoreGitStateFn(projDir, previousVersion string, log func(format string, 
 	// Name that rather than interpolate an empty ref ("Restoring git state to ..."
 	// / "Ref  does not resolve") on every rollback log. Log-only; the flow below is
 	// unchanged (an empty ref fails rev-parse and falls back to pre-upgrade).
-	if previousVersion == "" {
-		log("Restoring git state: no explicit target — using the pinned pre-upgrade branch...")
-	} else {
-		log("Restoring git state to %s...", previousVersion)
-	}
+	log("  Restoring source code:")
 
 	// Pre-validate: refuse to checkout a ref we can't resolve. If the
 	// requested ref is gone, fall back to the persistent `pre-upgrade`
 	// branch before erroring out.
 	expectedOut, err := runCommandOutput(projDir, "git", "rev-parse", "--verify", previousVersion+"^{commit}")
 	if err != nil {
-		if previousVersion == "" {
-			log("Using the pinned pre-upgrade branch (no explicit target)...")
-		} else {
-			log("Ref %s does not resolve, falling back to pre-upgrade...", previousVersion)
+		if previousVersion != "" {
+			log("    Requested revision %s is unavailable; using the pinned pre-upgrade revision", previousVersion)
 		}
 		fallbackOut, fallbackErr := runCommandOutput(projDir, "git", "rev-parse", "--verify", "pre-upgrade^{commit}")
 		if fallbackErr != nil {
@@ -10050,7 +10429,8 @@ func restoreGitStateFn(projDir, previousVersion string, log func(format string, 
 		return fmt.Errorf("git checkout landed on %s, expected %s", ShortForDisplay(headSHA), ShortForDisplay(expectedSHA))
 	}
 
-	log("Git state restored to %s (HEAD %s)", previousVersion, ShortForDisplay(headSHA))
+	log("    Restoring the working tree to %s ... ok", previousVersion)
+	log("      HEAD: %s", ShortForDisplay(headSHA))
 	return nil
 }
 
@@ -10081,13 +10461,12 @@ func (d *Service) replaceBinaryOnDisk(version string, progress *ProgressLog) err
 		return fmt.Errorf("no binary for platform %s in release %s", platform, version)
 	}
 	sbPath := filepath.Join(d.projDir, "sb")
-	progress.Write("Replacing ./sb with %s binary (subsequent subprocesses will run the new code)...", version)
 	// STATBUS-171: pass the target commit so the new binary's self-verify asserts
 	// its own identity against the TARGET, not the STATBUS-060 deferred-source worktree.
 	if err := selfupdate.ReplaceBinaryOnDisk(sbPath, binary.URL, binary.SHA256, manifest.CommitSHA); err != nil {
 		return err
 	}
-	progress.Write("./sb replaced; ./sb.old kept as rollback.")
+	progress.Write("  Replacing ./sb with the %s binary (./sb.old kept for rollback) ... ok", version)
 	return nil
 }
 
@@ -10161,14 +10540,13 @@ func (d *Service) buildBinaryOnDisk(commitSHA, displayName string, progress *Pro
 	sbOldPath := sbPath + ".old"
 
 	if shortAt, ok := sbAlreadyAtCommit(d.projDir, sbPath, commitSHA, displayName); ok {
-		progress.Write("./sb already at commit %s — skipping image fetch (pre-staged binary; see buildBinaryOnDisk's pre-staged-binary skip).", shortAt)
+		progress.Write("  Verifying the pre-staged ./sb binary at commit %s ... ok", shortAt)
 		return nil
 	}
 
 	if err := os.Rename(sbPath, sbOldPath); err != nil {
 		return fmt.Errorf("preserve ./sb.old: %w", err)
 	}
-	progress.Write("Fetching ./sb from the statbus-sb image for commit %s...", displayName)
 	if err := d.procureSbFromImage(commitSHA, displayName, sbPath, progress); err != nil {
 		// Restore .old so the host still has a working ./sb after rollback.
 		if rerr := os.Rename(sbOldPath, sbPath); rerr != nil {
@@ -10176,7 +10554,7 @@ func (d *Service) buildBinaryOnDisk(commitSHA, displayName string, progress *Pro
 		}
 		return fmt.Errorf("procure sb from image: %w", err)
 	}
-	progress.Write("./sb fetched from the statbus-sb image; ./sb.old kept as rollback.")
+	progress.Write("  Replacing ./sb with the %s binary (./sb.old kept for rollback) ... ok", displayName)
 	return nil
 }
 
@@ -10221,7 +10599,7 @@ func (d *Service) procureSbFromImage(commitSHA, displayName, sbPath string, prog
 	// full commit_sha is available; sbimage.ProcureShort takes the resolved short
 	// directly. The freshness self-heal uses sbimage.Procure (resolves short from
 	// the worktree HEAD). Same body, no host Go/make toolchain.
-	progress.Write("Procuring ./sb from image %s:%s (no host toolchain)...", sbimage.ImageRepo, short)
+	progress.Write("  Downloading the ./sb binary from %s:%s ...", sbimage.ImageRepo, short)
 	return sbimage.ProcureShort(d.projDir, short, commitSHA, sbPath)
 }
 
@@ -10334,21 +10712,21 @@ func (d *Service) restoreBinary(progress *ProgressLog) {
 		// there's a rollback candidate; log loudly so the operator can
 		// investigate. Matches selfupdate.Rollback's own ENOENT handling.
 		if !os.IsNotExist(err) {
-			progress.Write("%s: could not stat ./sb.old: %v — manual recovery may be required", ErrRollbackBinaryCorrupt, err)
+			progress.Write("  Checking ./sb.old for rollback ... failed: %v", err)
 		}
 		return
 	}
 	if err := selfupdate.Rollback(sbPath); err != nil {
-		progress.Write("%s: could not restore ./sb from ./sb.old: %v — manual recovery: mv ./sb.old ./sb", ErrRollbackBinaryCorrupt, err)
+		progress.Write("  Restoring ./sb from ./sb.old ... failed: %v (the artifact remains at ./sb.old)", err)
 		return
 	}
-	progress.Write("Restored ./sb from ./sb.old.")
+	progress.Write("  Restoring ./sb from ./sb.old ... ok")
 }
 
 func (d *Service) selfUpdate(ctx context.Context, version string, progress *ProgressLog) {
 	manifest, err := FetchManifest(version)
 	if err != nil {
-		progress.Write("Self-update skipped: cannot fetch manifest for %s: %v", version, err)
+		progress.Write("Checking self-update assets for %s ... skipped: %v", version, err)
 		return
 	}
 
@@ -10357,7 +10735,7 @@ func (d *Service) selfUpdate(ctx context.Context, version string, progress *Prog
 	if manifest.CommitSHA != "" {
 		ahead, _ := runCommandOutput(d.projDir, "git", "log", "--oneline", "HEAD", "^"+manifest.CommitSHA)
 		if strings.TrimSpace(ahead) != "" {
-			progress.Write("Self-update skipped: local code is ahead of release %s", version)
+			progress.Write("Checking whether ./sb needs a self-update ... ok (local code is newer than %s)", version)
 			return
 		}
 	}
@@ -10365,15 +10743,14 @@ func (d *Service) selfUpdate(ctx context.Context, version string, progress *Prog
 	platform := selfupdate.Platform()
 	binary, ok := manifest.Binaries[platform]
 	if !ok {
-		progress.Write("Self-update skipped: no binary for platform %s in release %s", platform, version)
+		progress.Write("Checking self-update assets for %s ... skipped (no binary for %s)", version, platform)
 		return
 	}
 
 	sbPath := filepath.Join(d.projDir, "sb")
-	progress.Write("Self-updating binary...")
 	swapped, err := selfupdate.Update(sbPath, binary.URL, binary.SHA256, manifest.CommitSHA)
 	if err != nil {
-		msg := fmt.Sprintf("Self-update failed for %s: %v", version, err)
+		msg := fmt.Sprintf("Updating ./sb to %s ... failed: %v", version, err)
 		progress.Write("%s", msg)
 		fmt.Fprintln(os.Stderr, msg)
 		// Record in system_info so admins can see the failure. Best-effort;
@@ -10387,14 +10764,14 @@ func (d *Service) selfUpdate(ctx context.Context, version string, progress *Prog
 	}
 
 	if swapped {
-		progress.Write("Binary updated. Restarting service...")
+		progress.Write("Updating ./sb ... ok; restarting the upgrade service ...")
 	} else {
 		// Mid-flow replaceBinaryOnDisk already placed the target binary;
 		// end-of-flow self-update was a pure no-op. Log honestly so the
 		// narrative on disk / in maintenance.html doesn't lie about what
 		// just happened. Restart is still required — the running service
 		// process is still holding the old binary image in memory.
-		progress.Write("Binary already at the new version (swapped mid-flow). Restarting service...")
+		progress.Write("Checking ./sb ... already current; restarting the upgrade service ...")
 	}
 	progress.Close()
 	// Exit 42 triggers systemd restart on the new binary. One-shot callers

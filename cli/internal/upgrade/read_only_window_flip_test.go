@@ -31,17 +31,16 @@ func TestReadOnlyWindowFlip_TeardownImmune_STATBUS163(t *testing.T) {
 		t.Error("terminalExec must NOT use d.queryConn — the terminal window flip needs a FRESH connection (STATBUS-163/154 PIN ii)")
 	}
 
-	// (2) The terminal OFF flips ride terminalExec(windowOffSQL) — applyNewSbUpgrading
+	// (2) The terminal OFF flips ride liftReadOnlyWindow — applyNewSbUpgrading
 	//     completion + rollback, plus the STATBUS-192 flagless-recovery completion
 	//     (completeInProgressUpgrade). The complete-with-warning lines are GONE; a failed
 	//     flip escalates via a named invariant (markTerminal-class), not a Warning. The
 	//     floor stays ≥2 (the 163 completion+rollback pair); the 192 site is additive.
 	// RETARGETED, NOT WEAKENED (STATBUS-266): the terminal OFF now flips through
-	// d.liftReadOnlyWindow(), a one-line wrapper that runs the SAME
-	// terminalExec(windowOffSQL) and additionally announces success. The property
-	// below is unchanged; only the call's spelling moved.
+	// d.liftReadOnlyWindow(), which uses the SAME teardown-immune terminalConnDo
+	// core and returns the exact direct ALTER statement for artifact logging.
 	if n := strings.Count(source, "d.liftReadOnlyWindow("); n < 2 {
-		t.Errorf("the terminal OFF sites (completion + rollback, + STATBUS-192 flagless completion) must flip via liftReadOnlyWindow → terminalExec(windowOffSQL); found %d", n)
+		t.Errorf("the terminal OFF sites (completion + rollback, + STATBUS-192 flagless completion) must flip via liftReadOnlyWindow → terminalConnDo; found %d", n)
 	}
 	for _, gone := range []string{
 		"Warning: could not clear read-only window at completion",
@@ -102,7 +101,7 @@ func TestTerminalExec_TeardownImmuneBehavioral_STATBUS163(t *testing.T) {
 	d := &Service{projDir: projDir} // queryConn is nil — the "closed pass conn"
 
 	start := time.Now()
-	err := d.terminalExec(windowOffSQL) // no ctx arg by design — own Background
+	err := d.terminalExec("SELECT 1") // no ctx arg by design — own Background
 	elapsed := time.Since(start)
 
 	if err == nil {
@@ -119,34 +118,25 @@ func TestTerminalExec_TeardownImmuneBehavioral_STATBUS163(t *testing.T) {
 // TestLiftReadOnlyWindowStillFlipsImmune_STATBUS266 is what makes the retargeting
 // above safe.
 //
-// Those pins used to name terminalExec(windowOffSQL) directly, so they asserted
-// the teardown-immune transport as a side effect of naming it. Now they name the
-// wrapper — and a wrapper that stopped using terminalExec would satisfy every one
-// of them while silently returning the flip to a connection the teardown can kill.
-// So the property they used to get for free is asserted here explicitly.
+// The wrapper must keep using terminalConnDo directly so it resolves the database
+// name and executes the direct ALTER on the same teardown-immune fresh connection.
 func TestLiftReadOnlyWindowStillFlipsImmune_STATBUS266(t *testing.T) {
 	body := extractFuncBody(t, readUpgradeServiceSource(t), "func (d *Service) liftReadOnlyWindow(")
 
-	if !strings.Contains(body, "d.terminalExec(windowOffSQL)") {
-		t.Error(`liftReadOnlyWindow no longer flips via terminalExec(windowOffSQL).
+	if !strings.Contains(body, "d.terminalConnDo(") {
+		t.Error(`liftReadOnlyWindow no longer flips via terminalConnDo.
 
-terminalExec is the TEARDOWN-IMMUNE writer — a fresh connection that survives the
-upgrade tearing its pool down. A plain queryConn.Exec here would look identical in
-review and would lose the flip exactly when the upgrade is stopping containers,
-which is the one moment it has to land.`)
-	}
-	// And it must still announce success — the whole point of the wrapper.
-	if !strings.Contains(body, "read-only window OFF") {
-		t.Error(`liftReadOnlyWindow does not log the successful OFF.
 
-That silence is the defect STATBUS-266 exists to remove: the journal showed ON
-with no matching OFF on a healthy box, and a responder reading it concluded the
-window was stuck. It sent three ranked hypotheses after a window that had lifted a
-week earlier.`)
+terminalConnDo is the TEARDOWN-IMMUNE writer — a fresh connection that survives
+the upgrade tearing its pool down. A plain queryConn.Exec here would lose the flip
+exactly when the upgrade is stopping containers, which is the one moment it has to land.`)
 	}
-	// The error must reach the caller unchanged — every call site has its own
-	// invariant escalation, and swallowing the error would disarm all of them.
-	if !strings.Contains(body, "return err") {
-		t.Error("liftReadOnlyWindow must return the error unchanged — each caller's own invariant escalation depends on seeing it")
+	for _, want := range []string{"SELECT current_database()", "ALTER DATABASE %s SET default_transaction_read_only = off", "return statement, err"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("liftReadOnlyWindow must contain %q so callers can log the exact direct ALTER artifact", want)
+		}
+	}
+	if strings.Contains(body, "d.queryConn") {
+		t.Error("liftReadOnlyWindow must not use the pass connection")
 	}
 }

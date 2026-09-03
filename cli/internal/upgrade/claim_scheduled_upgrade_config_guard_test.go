@@ -53,8 +53,8 @@ func TestClaimScheduledUpgradeChecksConfigRefusalMarkerFirst(t *testing.T) {
 	if !strings.Contains(guardWindow, "marker != nil") {
 		t.Error("a CONFIRMED marker must refuse — the positive case")
 	}
-	if strings.Count(guardWindow, "return nil, false,") < 2 {
-		t.Error("both the read-error and confirmed-marker branches must return a refusal (nil, false, err) — found fewer than 2 refusal returns in the guard")
+	if strings.Count(guardWindow, "return scheduledUpgradeClaim{},") < 2 {
+		t.Error("both the read-error and confirmed-marker branches must return a refusal (empty claim, err) — found fewer than 2 refusal returns in the guard")
 	}
 }
 

@@ -147,9 +147,10 @@ func (d *Service) writeDiagnosticBundle(parent context.Context, id int, progress
 		_ = os.Remove(tmpPath) // best-effort cleanup of the broken tempfile
 		return
 	}
-	narrate("Support bundle written to %s", bundlePath)
+	narrate("Writing support bundle ... ok (%s)", homeRelativePath(bundlePath))
 	if progress != nil {
-		progress.Write("Support bundle written to %s", bundlePath)
+		progress.Write("Writing support bundle ... ok")
+		progress.Write("  wrote: %s", homeRelativePath(bundlePath))
 	}
 }
 

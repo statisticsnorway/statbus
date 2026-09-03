@@ -22,7 +22,7 @@ func TestRollback_NoTouchGuard_STATBUS197(t *testing.T) {
 	}
 	// The skip branch must NOT fall into an ABORT — it keeps the box in service. The guard's
 	// progress line names the principle so the operator/log reads honestly.
-	if !strings.Contains(rb, "this attempt recorded no committed snapshot") {
+	if !strings.Contains(rb, "Checking for a committed snapshot ... ok (none recorded") {
 		t.Error("C2a: the no-touch skip must announce the principle (nothing committed → nothing to restore)")
 	}
 

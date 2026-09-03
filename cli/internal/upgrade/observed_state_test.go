@@ -283,17 +283,14 @@ func TestIsConnError_CancellationStrings(t *testing.T) {
 	}
 }
 
-// TestApplyNewSbUpgrading_CompletedUpdateBeforeCompleteLog verifies Fix A's
-// source-ordering contract: in applyNewSbUpgrading, the `state='completed'`
-// UPDATE (line with `completedSQL`) must appear BEFORE the
-// "Upgrade to %s complete!" progress.Write AND before the
-// runInstallFixup call. Violating this ordering would revive the rune
-// stuck-state: fixup can restart the DB container mid-run, RST'ing the
-// pgx socket, so the terminal UPDATE MUST land first.
+// TestApplyNewSbUpgrading_FinishingOrder verifies the King-approved finishing
+// narrative mirrors the actual operation order while preserving Fix A: the
+// terminal completed UPDATE lands before read-only lift, flag removal, and
+// install fixup, and the canonical completion line is emitted only after fixup.
 //
 // Hermetic test — parses service.go directly and asserts line-number
 // ordering. Regression guard for the specific mistake.
-func TestApplyNewSbUpgrading_CompletedUpdateBeforeCompleteLog(t *testing.T) {
+func TestApplyNewSbUpgrading_FinishingOrder(t *testing.T) {
 	source, err := os.ReadFile("service.go")
 	if err != nil {
 		t.Fatalf("read service.go: %v", err)
@@ -314,23 +311,169 @@ func TestApplyNewSbUpgrading_CompletedUpdateBeforeCompleteLog(t *testing.T) {
 	}
 	body = body[:end[0]]
 
-	idxCompletedSQL := strings.Index(string(body), `completedSQL := "UPDATE public.upgrade SET state = 'completed'`)
-	idxCompleteLog := strings.Index(string(body), `"Upgrade to %s complete!"`)
-	idxFixup := strings.Index(string(body), `runInstallFixup(projDir)`)
+	text := string(body)
+	ordered := []struct {
+		name string
+		text string
+	}{
+		{"Finishing headline", `progress.Write("%s", finishing.heading())`},
+		{"maintenance lift", `d.setMaintenance(false, "")`},
+		{"completed terminal UPDATE", `normalJSON, cerr = d.terminalUpdate(completedSQL`},
+		{"successful-upgrade row message", `finishing.recordedLine()`},
+		{"read-only lift", `d.liftReadOnlyWindow("upgrade completion")`},
+		{"lock release", `d.removeUpgradeFlag()`},
+		{"post-upgrade fixup", `runInstallFixup(projDir)`},
+		{"canonical completion line", `progress.Write("%s", finishing.completeLine())`},
+	}
+	last := -1
+	for _, step := range ordered {
+		idx := strings.Index(text, step.text)
+		if idx < 0 {
+			t.Fatalf("applyNewSbUpgrading does not contain %s (%q)", step.name, step.text)
+		}
+		if idx <= last {
+			t.Fatalf("%s is out of order in the successful finishing block", step.name)
+		}
+		last = idx
+	}
 
-	if idxCompletedSQL < 0 {
-		t.Fatal("applyNewSbUpgrading does not contain the expected completedSQL UPDATE — did you rename?")
+	guardIdx := strings.Index(text, "if finishingClean {")
+	completeIdx := strings.Index(text, `progress.Write("%s", finishing.completeLine())`)
+	fallbackIdx := strings.Index(text, `progress.Write("Upgrade to %s was recorded as successful, but finishing did not complete;`)
+	if guardIdx < 0 || completeIdx < guardIdx || fallbackIdx < completeIdx {
+		t.Fatal("canonical completion line must be inside the finishingClean guard and precede the incomplete-finishing fallback")
 	}
-	if idxCompleteLog < 0 {
-		t.Fatal(`applyNewSbUpgrading does not contain the "Upgrade to ... complete!" log — did you remove it?`)
+}
+
+// TestMaintenanceRemovalErrorsAreObserved prevents the setMaintenance error
+// contract from silently regressing to the old print-and-continue behavior.
+// Every removal is a user-visible serving boundary and must be handled by its
+// caller, even when the surrounding recovery remains best-effort.
+func TestMaintenanceRemovalErrorsAreObserved(t *testing.T) {
+	source, err := os.ReadFile("service.go")
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
 	}
-	if idxFixup < 0 {
-		t.Fatal("applyNewSbUpgrading does not contain runInstallFixup(projDir) call — did you rename?")
+	if strings.Contains(string(source), `_ = d.setMaintenance(false, "")`) {
+		t.Fatal("a maintenance-removal error is discarded in service.go")
 	}
-	if idxCompleteLog < idxCompletedSQL {
-		t.Errorf(`"Upgrade to %%s complete!" log appears BEFORE completedSQL UPDATE (rune-stuck-fix A regression)`)
+}
+
+// TestRollbackCompletionRequiresUpgradeLockRelease pins the terminal wording:
+// a restored row is not announced complete until removeUpgradeFlag succeeds.
+func TestRollbackCompletionRequiresUpgradeLockRelease(t *testing.T) {
+	source, err := os.ReadFile("service.go")
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
 	}
-	if idxFixup < idxCompletedSQL {
-		t.Errorf("runInstallFixup call appears BEFORE completedSQL UPDATE (rune-stuck-fix A regression)")
+	body := extractFuncBody(t, string(source), "func (d *Service) restoreAndFinalize(")
+	pattern := regexp.MustCompile(`(?s)if err := d\.removeUpgradeFlag\(\); err != nil \{.*?\} else \{.*?progress\.Write\("Rollback to the previous version complete\."\)`)
+	if !pattern.MatchString(body) {
+		t.Fatal("rollback completion is not guarded by successful upgrade-lock release")
+	}
+}
+
+// TestPostSwapSelfHealCompletionRequiresCleanFinishing covers the third
+// completed-row writer. Its success line must be guarded by both the read-only
+// lift and upgrade-lock removal, just like the ordinary completion path.
+func TestPostSwapSelfHealCompletionRequiresCleanFinishing(t *testing.T) {
+	source, err := os.ReadFile("service.go")
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	body := extractFuncBody(t, string(source), "func (d *Service) resumeNewSb(")
+	for _, required := range []string{
+		`readOnlyStatement, werr := d.liftReadOnlyWindow("post-swap resume completion")`,
+		`if removeErr := d.removeUpgradeFlag(); removeErr != nil {`,
+		`if finishingClean {`,
+		`progress.Write("Upgrade to %s complete.", flag.Label())`,
+		`if finishingErr != nil {`,
+		`return fmt.Errorf("post-swap self-heal recorded upgrade %s as successful but finishing failed: %w"`,
+	} {
+		if !strings.Contains(body, required) {
+			t.Fatalf("post-swap self-heal completion contract omitted %q", required)
+		}
+	}
+}
+
+// TestMaintenanceActivationFailureStopsBeforeServiceTeardown pins the safety
+// boundary: without the HTTP 503 gate, the upgrade may not stop live services.
+func TestMaintenanceActivationFailureStopsBeforeServiceTeardown(t *testing.T) {
+	source, err := os.ReadFile("service.go")
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	body := extractFuncBody(t, string(source), "func (d *Service) executeUpgrade(")
+	failure := strings.Index(body, "if maintenanceErr != nil {")
+	stop := strings.Index(body, `progress.Write("Stopping services:")`)
+	if failure < 0 || stop < 0 || failure >= stop {
+		t.Fatal("could not locate maintenance failure before service teardown")
+	}
+	window := body[failure:stop]
+	for _, required := range []string{
+		`d.setMaintenance(false, "")`,
+		"needsRecovery := false",
+		`d.liftReadOnlyWindow("maintenance activation failure")`,
+		"d.failUpgradeKeepingFlag(ctx, id, errMsg, progress)",
+		"d.failUpgrade(ctx, id, errMsg, progress)",
+		`return fmt.Errorf("%s", errMsg)`,
+	} {
+		if !strings.Contains(window, required) {
+			t.Fatalf("maintenance failure does not stop before teardown; missing %q", required)
+		}
+	}
+}
+
+// TestSuccessfulCallbackRequiresCleanFinishing prevents notifications and a nil
+// return from claiming process success after a finishing boundary failed.
+func TestSuccessfulCallbackRequiresCleanFinishing(t *testing.T) {
+	source, err := os.ReadFile("service.go")
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	body := extractFuncBody(t, string(source), "func (d *Service) applyNewSbUpgrading(")
+	pattern := regexp.MustCompile(`(?s)if finishingClean \{\s*d\.runUpgradeCallback\(displayName\).*?finishing\.completeLine\(\).*?return nil\s*\}\s*progress\.Write\("Upgrade to %s was recorded as successful, but finishing did not complete;.*?return fmt\.Errorf`)
+	if !pattern.MatchString(body) {
+		t.Fatal("successful callback, completion line, and nil return are not confined to the clean-finishing branch")
+	}
+}
+
+// TestParkedFlagRemovalFailureRefusesClaim prevents a live lock holder from
+// being ignored and then falsely reported as removed during parked displacement.
+func TestParkedFlagRemovalFailureRefusesClaim(t *testing.T) {
+	source, err := os.ReadFile("service.go")
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	body := extractFuncBody(t, string(source), "func (d *Service) claimScheduledUpgrade(")
+	pattern := regexp.MustCompile(`(?s)if removeErr := d\.removeUpgradeFlag\(\); removeErr != nil \{\s*return scheduledUpgradeClaim\{\}, fmt\.Errorf`)
+	if !pattern.MatchString(body) {
+		t.Fatal("parked flag removal failure does not refuse the replacement claim")
+	}
+}
+
+// TestRollbackHealthyGuidanceFollowsLockRelease ensures the durable row remains
+// failed until the stale flag is gone. Only then may it transition to
+// rolled_back and carry healthy/no-intervention guidance.
+func TestRollbackHealthyGuidanceFollowsLockRelease(t *testing.T) {
+	source, err := os.ReadFile("service.go")
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	body := extractFuncBody(t, string(source), "func (d *Service) restoreAndFinalize(")
+	terminal := strings.Index(body, "LabelFailedRollbackPendingFinish")
+	failedState := strings.Index(body, `"UPDATE public.upgrade SET state = 'failed', error = $1`)
+	pendingMarker := strings.Index(body, "rollbackFinishPendingError(errMsg)")
+	remove := strings.Index(body, "if err := d.removeUpgradeFlag(); err != nil {")
+	healthyState := strings.Index(body, `"UPDATE public.upgrade SET state = 'rolled_back', error = $2, rolled_back_at = now()`)
+	complete := strings.Index(body, `progress.Write("Rollback to the previous version complete.")`)
+	if terminal < 0 || failedState < 0 || pendingMarker < 0 || remove <= terminal || remove <= failedState || remove <= pendingMarker || healthyState <= remove || complete <= healthyState {
+		t.Fatal("rollback may leave failed state or transition to rolled_back out of order around lock release")
+	}
+	finalizer := extractFuncBody(t, string(source), "func (d *Service) finalizePendingRollbacks(")
+	for _, required := range []string{"RollbackFinishPendingPrefix", "rollbackFinalError(reason)", "LabelRolledBackFinishRecovery"} {
+		if !strings.Contains(finalizer, required) {
+			t.Fatalf("pending rollback finalizer omitted %q", required)
+		}
 	}
 }

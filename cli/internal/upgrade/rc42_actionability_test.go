@@ -144,7 +144,7 @@ func TestRemoveUpgradeFlag_RemovesFile(t *testing.T) {
 		t.Fatalf("flag file should exist after writeUpgradeFlag; stat err: %v", err)
 	}
 
-	d.removeUpgradeFlag()
+	_ = d.removeUpgradeFlag()
 
 	if _, err := os.Stat(flagPath); !os.IsNotExist(err) {
 		t.Errorf("flag file should be REMOVED after removeUpgradeFlag (symmetric with ReleaseInstallFlag); stat err=%v", err)
@@ -154,7 +154,7 @@ func TestRemoveUpgradeFlag_RemovesFile(t *testing.T) {
 	if err := d.writeUpgradeFlag(43, "abc123def457", []string{"v0.0.0-test2"}, "test", string(TriggerService), false); err != nil {
 		t.Errorf("re-acquire after removeUpgradeFlag should succeed; got: %v", err)
 	}
-	d.removeUpgradeFlag()
+	_ = d.removeUpgradeFlag()
 }
 
 // TestRemoveUpgradeFlag_IgnoresNilLock verifies the helper is safe to
@@ -164,7 +164,7 @@ func TestRemoveUpgradeFlag_IgnoresNilLock(t *testing.T) {
 	projDir := t.TempDir()
 	d := &Service{projDir: projDir}
 	// No writeUpgradeFlag call. removeUpgradeFlag must not panic.
-	d.removeUpgradeFlag()
+	_ = d.removeUpgradeFlag()
 }
 
 // TestRemoveUpgradeFlag_DoubleRemovalRaceIsSilent is STATBUS-187 AC#3's
@@ -189,7 +189,7 @@ func TestRemoveUpgradeFlag_DoubleRemovalRaceIsSilent(t *testing.T) {
 		if err := os.Remove(d.flagPath()); err != nil {
 			t.Fatalf("pre-removal for the race simulation failed: %v", err)
 		}
-		d.removeUpgradeFlag()
+		_ = d.removeUpgradeFlag()
 	})
 	if got != "" {
 		t.Errorf("double-removal race must be silent (ENOENT is success); got log output: %q", got)

@@ -25,17 +25,17 @@ import "fmt"
 //   - PhaseOldSbUpgrading (the empty default) means a crash before the swap, on
 //     the old binary.
 //
-// Only the first is a planned continuation. The other two are genuine recovery
-// and keep recovery language — the word has to stay meaningful for them.
+// The planned continuation is narrated later at the exact resume boundary, where
+// the target version and new process PID are both available. Returning an empty
+// opening here prevents the startup probe from duplicating that one canonical line.
+// The other two phases are genuine recovery and keep recovery language.
 //
 // Both branches follow the same shape: the plain statement first, in the words
 // an operator thinks in, then the precise identifiers for diagnosis. High level
 // first, then the exact detail — never only one of the two.
 func recoveryOpeningLine(flag UpgradeFlag, holder string) string {
 	if flag.Phase == PhaseNewSbSwapped {
-		return fmt.Sprintf(
-			"Continuing the upgrade under the new binary (planned handoff). (detail: %s marker for %s, id=%d, invoked_by=%s, phase=%s)",
-			holder, flag.Label(), flag.ID, flag.InvokedBy, flag.Phase)
+		return ""
 	}
 	return fmt.Sprintf(
 		"Recovering an interrupted upgrade — found a %s marker for %s. (detail: id=%d, invoked_by=%s)",

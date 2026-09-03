@@ -368,7 +368,7 @@ func maintenanceFlagContainerPath() string {
 	return maintenanceMountTarget + "/" + maintenanceFlagName
 }
 
-func (d *Service) setMaintenance(active bool) {
+func (d *Service) setMaintenance(active bool, content string) error {
 	// The flag file lives under $HOME/statbus-maintenance/ — the host directory
 	// bind-mounted into the proxy container at /statbus-maintenance. Caddy's
 	// @maintenance matcher checks `file /statbus-maintenance/active`; when this
@@ -377,30 +377,24 @@ func (d *Service) setMaintenance(active bool) {
 	file := maintenanceFlagHostPath()
 
 	if active {
-		_, statErr := os.Stat(file)
 		// Ensure the bind-mounted dir exists before writing the flag into it
 		// (install.go creates it; defensive for older boxes / a fresh mount).
 		if mkErr := os.MkdirAll(filepath.Dir(file), 0o755); mkErr != nil {
-			fmt.Printf("maintenance ON — failed to create dir %s: %v\n", filepath.Dir(file), mkErr)
+			return fmt.Errorf("create maintenance directory %s: %w", filepath.Dir(file), mkErr)
 		}
-		if err := os.WriteFile(file, []byte("upgrade in progress\n"), 0644); err != nil {
-			fmt.Printf("maintenance ON — failed to create %s: %v\n", file, err)
-		} else if os.IsNotExist(statErr) {
-			fmt.Printf("maintenance ON — added %s (created new)\n", file)
-		} else {
-			fmt.Printf("maintenance ON — added %s (already existed)\n", file)
+		if content == "" {
+			return fmt.Errorf("maintenance content is empty")
 		}
-	} else {
-		var age string
-		if fi, err := os.Stat(file); err == nil {
-			age = fmt.Sprintf(" (was on for %s)", time.Since(fi.ModTime()).Truncate(time.Second))
+		if err := os.WriteFile(file, []byte(content), 0o644); err != nil {
+			return fmt.Errorf("write maintenance flag %s: %w", file, err)
 		}
-		if err := os.Remove(file); err != nil && !os.IsNotExist(err) {
-			fmt.Printf("maintenance OFF — failed to remove %s: %v\n", file, err)
-		} else {
-			fmt.Printf("maintenance OFF — removed %s%s\n", file, age)
-		}
+		return nil
 	}
+
+	if err := os.Remove(file); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("remove maintenance flag %s: %w", file, err)
+	}
+	return nil
 }
 
 // quoteIdent double-quotes a SQL identifier (doubling any embedded quote) so it
@@ -434,15 +428,13 @@ func quoteIdent(id string) string {
 // path that never connected) is a no-op. Because this session is itself exempted
 // in connect(), the ALTER runs even while the DB default is already on — which is
 // exactly what the OFF direction needs.
-func (d *Service) setDatabaseReadOnly(ctx context.Context, readOnly bool) error {
+func (d *Service) setDatabaseReadOnly(ctx context.Context, readOnly bool) (string, error) {
 	if d.queryConn == nil {
-		fmt.Printf("read-only window: no query connection — skipping ALTER DATABASE (readOnly=%v)\n", readOnly)
-		return nil
+		return "", nil
 	}
 	var dbName string
 	if err := d.queryConn.QueryRow(ctx, "SELECT current_database()").Scan(&dbName); err != nil {
-		fmt.Printf("read-only window: could not resolve current_database(): %v\n", err)
-		return err
+		return "", err
 	}
 	val := "off"
 	if readOnly {
@@ -450,11 +442,9 @@ func (d *Service) setDatabaseReadOnly(ctx context.Context, readOnly bool) error 
 	}
 	stmt := fmt.Sprintf("ALTER DATABASE %s SET default_transaction_read_only = %s", quoteIdent(dbName), val)
 	if _, err := d.queryConn.Exec(ctx, stmt); err != nil {
-		fmt.Printf("read-only window %s — ALTER DATABASE failed: %v\n", strings.ToUpper(val), err)
-		return err
+		return stmt, err
 	}
-	fmt.Printf("read-only window %s — %s\n", strings.ToUpper(val), stmt)
-	return nil
+	return stmt, nil
 }
 
 // dbVolumeName returns the Docker named volume for PostgreSQL data.
@@ -623,7 +613,7 @@ func (d *Service) prepareBackupSnapshotDir(progress *ProgressLog) (string, error
 		}
 	case syncingExists:
 		// Resume into the leftover syncing base — no rename, no rm.
-		progress.Write("Resuming into existing %s base from a prior interrupted backup...", backupSyncingName)
+		progress.Write("Reusing the interrupted %s backup base ... ok", backupSyncingName)
 	default:
 		// First-ever backup (or after a legacy migration): create an empty
 		// syncing for rsync to populate.
@@ -632,6 +622,12 @@ func (d *Service) prepareBackupSnapshotDir(progress *ProgressLog) (string, error
 		}
 	}
 	return syncingDir, nil
+}
+
+type databaseBackup struct {
+	Path    string
+	Bytes   int64
+	Elapsed time.Duration
 }
 
 // backupDatabase rsyncs the live Postgres data volume into a PERSISTENT
@@ -668,10 +664,10 @@ func (d *Service) prepareBackupSnapshotDir(progress *ProgressLog) (string, error
 // stamp (UTC timestamp) is no longer used for the rsync dir name; it is retained
 // for the per-upgrade archive tar + the upgrade-logs-<stamp> sibling correlation
 // (cascadeUpgradeLogsIntoBackup), which remain per-upgrade.
-func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (string, error) {
+func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (databaseBackup, error) {
 	root := d.backupRoot()
 	if err := os.MkdirAll(root, 0755); err != nil {
-		return "", fmt.Errorf("create backup root: %w", err)
+		return databaseBackup{}, fmt.Errorf("create backup root: %w", err)
 	}
 
 	activeDir := filepath.Join(root, backupActiveName)
@@ -681,7 +677,7 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (string, e
 	// unit-testable without the docker rsync below.
 	syncingDir, err := d.prepareBackupSnapshotDir(progress)
 	if err != nil {
-		return "", err
+		return databaseBackup{}, err
 	}
 
 	// rsync from named Docker volume into the syncing dir via a lightweight
@@ -728,7 +724,7 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (string, e
 				if freeAtStart > freeNow {
 					copied = int64(freeAtStart - freeNow)
 				}
-				progress.Write("Still backing up database (%s elapsed, %s copied)...",
+				progress.Write("Still backing up database (%s elapsed, %s copied) ...",
 					time.Since(rsyncStart).Truncate(time.Second),
 					humanBytes(copied))
 			}
@@ -770,7 +766,7 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (string, e
 		// run resumes into (NEVER deleted). Its path is never recorded on the
 		// flag/row (only the post-commit active path is), so a partial cannot
 		// be restored.
-		return "", fmt.Errorf("rsync backup: %w", rsyncErr)
+		return databaseBackup{}, fmt.Errorf("rsync backup: %w", rsyncErr)
 	}
 
 	// fsync the syncing dir's FILE DATA before the commit rename. rsync does not
@@ -787,7 +783,7 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (string, e
 	// walk can take several seconds, and executeUpgrade runs active-phase under
 	// WatchdogSec (plan #2), so an unheartbeated gap here could trip it.
 	if err := syncTree(syncingDir); err != nil {
-		progress.Write("warning: fsync of backup contents in %s failed (proceeding): %v", backupSyncingName, err)
+		progress.Write("Syncing backup contents to disk ... failed (continuing): %v", err)
 	}
 	close(rsyncDone) // stop the heartbeat ticker (rsync + fsync both done)
 
@@ -814,7 +810,7 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (string, e
 	// the top), so this is a clean atomic publish. The snapshot is COMPLETE iff
 	// it is named active. No sentinel files, no symlinks.
 	if err := os.Rename(syncingDir, activeDir); err != nil {
-		return "", fmt.Errorf("commit backup (rename %s -> %s): %w", backupSyncingName, backupActiveName, err)
+		return databaseBackup{}, fmt.Errorf("commit backup (rename %s -> %s): %w", backupSyncingName, backupActiveName, err)
 	}
 
 	// STATBUS-318: SAY THAT IT FINISHED. The log used to run "Backing up
@@ -837,10 +833,7 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (string, e
 	if freeAtEnd, err := DiskFree(root); err == nil && freeAtStart > freeAtEnd {
 		copiedTotal = int64(freeAtStart - freeAtEnd)
 	}
-	progress.Write("Database backed up (%s in %s, at %s).",
-		humanBytes(copiedTotal),
-		time.Since(rsyncStart).Truncate(time.Second),
-		activeDir)
+	elapsed := time.Since(rsyncStart)
 
 	// Cascade tmp/upgrade-logs/ into <root>/upgrade-logs-<stamp>/ (sibling
 	// of the backup dir) so the historical log+bundle pairs are accessible
@@ -848,14 +841,14 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (string, e
 	// Best-effort — a log-snapshot miss must not abort the upgrade; the DB
 	// dump is the critical artifact.
 	if err := cascadeUpgradeLogsIntoBackup(d.projDir, root, stamp); err != nil {
-		progress.Write("warning: cascade upgrade-logs into %s/upgrade-logs-%s: %v", root, stamp, err)
+		progress.Write("Copying upgrade logs beside the database backup ... failed (continuing): %v", err)
 	}
 
 	// Pruning is deferred to the service tick (reconcileBackupDir + pruneBackups)
 	// where d.queryConn is live and can NULL backup_path before deletion.
 	// No pruning here — the DB connection is closed for the duration of executeUpgrade.
 
-	return activeDir, nil
+	return databaseBackup{Path: activeDir, Bytes: copiedTotal, Elapsed: elapsed}, nil
 }
 
 // cascadeUpgradeLogsIntoBackup mirrors the current tmp/upgrade-logs/
@@ -955,19 +948,17 @@ const RestoreDBTimeout = 30 * time.Minute
 //     caller must record `failed` (degraded), not `rolled_back`.
 func (d *Service) restoreDatabase(progress *ProgressLog, backupPath string) error {
 	if backupPath == "" {
-		progress.Write("No snapshot was recorded by this upgrade — refusing to touch the live volume (nothing to restore; the DB was never mutated).")
+		progress.Write("Checking for this upgrade's database snapshot ... ok (none recorded; leaving the live volume unchanged)")
 		return nil
 	}
 	if info, statErr := os.Stat(backupPath); statErr != nil || !info.IsDir() {
-		progress.Write("%s: this upgrade's recorded snapshot %s is missing on disk (stat: %v) — REFUSING to restore any other backup (identity-keyed restore).",
-			ErrRollbackDBRestore, backupPath, statErr)
+		progress.Write("Checking this upgrade's database snapshot ... failed: %s is missing (stat: %v); refusing to substitute another backup.",
+			homeRelativePath(backupPath), statErr)
 		return fmt.Errorf("%s: recorded snapshot %s missing on disk: %v",
 			ErrRollbackDBRestore, backupPath, statErr)
 	}
 	backupDir := backupPath
 	volumeName := d.dbVolumeName()
-
-	progress.Write("Restoring database from backup at %s...", backupDir)
 
 	// Harness-only stall site (STATBUS-031 RED proof): parks the restore here,
 	// SILENT (no progress.Write, no WATCHDOG=1 from this goroutine), simulating a
@@ -978,15 +969,17 @@ func (d *Service) restoreDatabase(progress *ProgressLog, backupPath string) erro
 	// No-op in production. Drives scenario 4-rollback-restore-watchdog.
 	inject.StallHere("restore-db-stall-watchdog")
 
+	restoreStart := time.Now()
 	if err := runCommandToLog(d.projDir, RestoreDBTimeout, progress.File(), "rsync", nil,
 		"docker", "run", "--rm",
 		"-v", backupDir+":/source:ro",
 		"-v", volumeName+":/dest",
 		"alpine", "sh", "-c", "apk add --no-cache rsync >/dev/null 2>&1 && rsync -a --delete /source/ /dest/",
 	); err != nil {
-		progress.Write("%s: database restore failed: %v", ErrRollbackDBRestore, err)
+		progress.Write("Restoring database from %s ... failed: %v", homeRelativePath(backupDir), err)
 		return fmt.Errorf("%s: %w", ErrRollbackDBRestore, err)
 	}
+	progress.Write("Restoring database from %s ... ok (%s)", homeRelativePath(backupDir), formatProgressDuration(time.Since(restoreStart), false))
 	return nil
 }
 
@@ -1529,7 +1522,8 @@ func (d *Service) healthCheck(progress *ProgressLog, retries int, interval time.
 	// → rollback. Gating on the real readiness signal removes that race entirely;
 	// see waitForRestReady. No PGRST002 fallback follows: after /ready=200 the
 	// cold-cache race cannot occur.
-	if err := d.waitForRestReady(progress, RestReadyPollInterval, restReadyProgressInterval, RestReadyTimeout); err != nil {
+	readyElapsed, err := d.waitForRestReadyElapsed(progress, RestReadyPollInterval, restReadyProgressInterval, RestReadyTimeout)
+	if err != nil {
 		return err
 	}
 
@@ -1547,6 +1541,7 @@ func (d *Service) healthCheck(progress *ProgressLog, retries int, interval time.
 		}
 	}
 
+	healthStart := time.Now()
 	var lastDetail string
 	for i := 0; i < retries; i++ {
 		// POST {} matches what the frontend sends — PostgREST RPCs are
@@ -1557,9 +1552,10 @@ func (d *Service) healthCheck(progress *ProgressLog, retries int, interval time.
 			lastDetail = fmt.Sprintf("transport error: %v", err)
 		case healthCheckStatusOK(resp.StatusCode):
 			_ = resp.Body.Close()
-			if i > 0 {
-				logf("Health check OK on attempt %d/%d (status=%d)", i+1, retries, resp.StatusCode)
-			}
+			logf("Verifying health end to end (request through proxy and API to the database) ... ok (%s)",
+				formatProgressDuration(time.Since(healthStart), false))
+			logf("Waiting for PostgREST schema cache (admin /ready, up to %s) ... ready (%s)",
+				formatProgressBudget(RestReadyTimeout), formatProgressDuration(readyElapsed, true))
 			return nil
 		default:
 			body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
@@ -1648,9 +1644,24 @@ var (
 )
 
 func (d *Service) waitForRestReady(progress *ProgressLog, pollInterval, progressInterval, timeout time.Duration) error {
-	readyURL, err := d.readyURL()
+	elapsed, err := d.waitForRestReadyElapsed(progress, pollInterval, progressInterval, timeout)
 	if err != nil {
 		return err
+	}
+	if progress != nil {
+		progress.Write("Waiting for PostgREST schema cache (admin /ready, up to %s) ... ready (%s)",
+			formatProgressBudget(timeout), formatProgressDuration(elapsed, true))
+	} else {
+		fmt.Printf("Waiting for PostgREST schema cache (admin /ready, up to %s) ... ready (%s)\n",
+			formatProgressBudget(timeout), formatProgressDuration(elapsed, true))
+	}
+	return nil
+}
+
+func (d *Service) waitForRestReadyElapsed(progress *ProgressLog, pollInterval, progressInterval, timeout time.Duration) (time.Duration, error) {
+	readyURL, err := d.readyURL()
+	if err != nil {
+		return 0, err
 	}
 
 	logf := func(format string, args ...interface{}) {
@@ -1676,17 +1687,13 @@ func (d *Service) waitForRestReady(progress *ProgressLog, pollInterval, progress
 		polls         int
 	)
 
-	logf("Waiting for PostgREST schema cache to load (admin /ready, up to %s)...", timeout)
-
 	for {
 		polls++
 		resp, getErr := client.Get(readyURL)
 		switch {
 		case getErr == nil && resp.StatusCode == http.StatusOK:
 			_ = resp.Body.Close()
-			logf("PostgREST is ready (admin /ready=200 after %s, %d poll(s))",
-				waitForRestReadyNow().Sub(start).Round(time.Millisecond), polls)
-			return nil
+			return waitForRestReadyNow().Sub(start), nil
 		case getErr != nil:
 			lastDetail = fmt.Sprintf("connection error: %v", getErr)
 		default:
@@ -1715,13 +1722,13 @@ func (d *Service) waitForRestReady(progress *ProgressLog, pollInterval, progress
 
 		if now.After(deadline) {
 			if sawConnection {
-				return fmt.Errorf(
+				return 0, fmt.Errorf(
 					"PostgREST schema cache never loaded — admin /ready did not return 200 within %s "+
 						"(last: %s, %d poll(s)). Check `docker compose logs rest`; the cache load may be failing, or the "+
 						"schema may be too large for the %s budget",
 					timeout, lastDetail, polls, timeout)
 			}
-			return fmt.Errorf(
+			return 0, fmt.Errorf(
 				"PostgREST admin server unreachable — /ready at %s never accepted a connection within %s "+
 					"(last: %s, %d poll(s)). The admin mapping is likely missing from your config — run "+
 					"`./sb config generate` to regenerate .env and recreate the rest container",

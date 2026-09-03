@@ -77,8 +77,8 @@ func TestWaitForRestReady_503ThenReady(t *testing.T) {
 		t.Errorf("expected at least 3 polls (2×503 then 200), got %d", got)
 	}
 	logStr := readProgress(t, progress)
-	if !strings.Contains(logStr, "PostgREST is ready") {
-		t.Errorf("expected progress log to record readiness; got:\n%s", logStr)
+	if !strings.Contains(logStr, "Waiting for PostgREST schema cache") || !strings.Contains(logStr, "... ready (") {
+		t.Errorf("expected progress log to record resolved readiness; got:\n%s", logStr)
 	}
 }
 

@@ -119,7 +119,7 @@ func TestWriteUpgradeFlag_PersistsRecreate(t *testing.T) {
 			if err := d.writeUpgradeFlag(7, "sha7", []string{"v0.0.0-test"}, "test", string(TriggerService), recreate); err != nil {
 				t.Fatalf("writeUpgradeFlag: %v", err)
 			}
-			defer d.removeUpgradeFlag()
+			defer func() { _ = d.removeUpgradeFlag() }()
 
 			data, err := os.ReadFile(d.flagPath())
 			if err != nil {
@@ -154,7 +154,7 @@ func TestUpdateFlagNewSbSwapped_RewritesInPlace(t *testing.T) {
 	if err := d.writeUpgradeFlag(99, "sha99", []string{"v0.0.0-stamp"}, "test", string(TriggerService), true); err != nil {
 		t.Fatalf("writeUpgradeFlag: %v", err)
 	}
-	defer d.removeUpgradeFlag()
+	defer func() { _ = d.removeUpgradeFlag() }()
 
 	backup := filepath.Join(projDir, "backup-dir")
 	if err := d.updateFlagNewSbSwapped(backup); err != nil {
@@ -332,11 +332,13 @@ func TestResumeNewSb_SelfHealContinueOrFailLoud(t *testing.T) {
 	}
 
 	// The self-heal branch must mark state=completed (matching the
-	// existing LabelCompletedSelfHeal pattern) and remove the flag.
+	// existing LabelCompletedSelfHeal pattern) and remove the flag through the
+	// flock-aware helper. Direct os.Remove bypasses live-owner protection and
+	// cannot report a failed release to the finishing contract.
 	for _, want := range []string{
 		"state = 'completed'",
 		"LabelCompletedSelfHeal",
-		"os.Remove(d.flagPath())",
+		"d.removeUpgradeFlag()",
 	} {
 		if !strings.Contains(fn, want) {
 			t.Errorf("self-heal branch missing required token %q. Body:\n%s", want, fn)
@@ -526,7 +528,9 @@ func TestRemoveUpgradeFlag_AtomicDispositions(t *testing.T) {
 		if err := d.writeUpgradeFlag(7, "sha7", []string{"v0.0.0-t"}, "test", string(TriggerService), false); err != nil {
 			t.Fatalf("writeUpgradeFlag: %v", err)
 		}
-		d.removeUpgradeFlag()
+		if err := d.removeUpgradeFlag(); err != nil {
+			t.Fatalf("remove owned upgrade flag: %v", err)
+		}
 		if _, err := os.Stat(d.flagPath()); !os.IsNotExist(err) {
 			t.Errorf("flag file must be removed; stat err=%v", err)
 		}
@@ -547,7 +551,9 @@ func TestRemoveUpgradeFlag_AtomicDispositions(t *testing.T) {
 		if err := os.WriteFile(d.flagPath(), []byte(`{"id":9,"holder":"service"}`), 0644); err != nil {
 			t.Fatal(err)
 		}
-		d.removeUpgradeFlag()
+		if err := d.removeUpgradeFlag(); err != nil {
+			t.Fatalf("remove ghost upgrade flag: %v", err)
+		}
 		if _, err := os.Stat(d.flagPath()); !os.IsNotExist(err) {
 			t.Errorf("ghost flag (flock free) must be removed; stat err=%v", err)
 		}
@@ -565,7 +571,9 @@ func TestRemoveUpgradeFlag_AtomicDispositions(t *testing.T) {
 		defer holder.Close()
 
 		d := &Service{projDir: projDir} // no lock of its own
-		d.removeUpgradeFlag()
+		if err := d.removeUpgradeFlag(); err == nil {
+			t.Fatal("removeUpgradeFlag must report contention with a live holder")
+		}
 		if _, err := os.Stat(d.flagPath()); err != nil {
 			t.Errorf("flag held by a live actor must be LEFT in place; stat err=%v", err)
 		}
@@ -577,7 +585,9 @@ func TestRemoveUpgradeFlag_AtomicDispositions(t *testing.T) {
 			t.Fatal(err)
 		}
 		d := &Service{projDir: projDir}
-		d.removeUpgradeFlag()
+		if err := d.removeUpgradeFlag(); err != nil {
+			t.Fatalf("remove absent upgrade flag: %v", err)
+		}
 		if _, err := os.Stat(d.flagPath()); !os.IsNotExist(err) {
 			t.Errorf("removeUpgradeFlag on an absent flag must not create one; stat err=%v", err)
 		}

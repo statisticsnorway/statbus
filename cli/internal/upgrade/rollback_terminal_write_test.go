@@ -73,7 +73,7 @@ func TestWriteRollbackTerminal_ExhaustionMarksTerminalAndKeepsFlag(t *testing.T)
 		t.Errorf("expected ROLLBACK_TERMINAL_WRITE_FAILED in install-terminal.txt; got: %q", got)
 	}
 
-	d.removeUpgradeFlag() // cleanup: release the flock held by writeUpgradeFlag
+	_ = d.removeUpgradeFlag() // cleanup: release the flock held by writeUpgradeFlag
 }
 
 // TestRollbackTerminalWrite_StructuralContract pins the source-level shape the

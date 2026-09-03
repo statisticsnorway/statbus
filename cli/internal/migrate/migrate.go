@@ -940,7 +940,8 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 	}
 
 	if len(migrations) == 0 {
-		fmt.Println("No up migrations found")
+		reportPendingCountIfRequested(0)
+		fmt.Println("Checking database migrations ... ok (no migration files found)")
 		return 0, nil
 	}
 
@@ -989,11 +990,12 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 	if !all && len(pending) > 1 {
 		pending = pending[:1]
 	}
+	reportPendingCountIfRequested(len(pending))
 
 	// Apply pending migrations (may be empty — post_restore still needs to run).
 	appliedCount := 0
 	if len(pending) == 0 {
-		fmt.Println("All migrations are up to date")
+		fmt.Println("Checking database migrations ... ok (0 pending)")
 	}
 	// Track whether the content_hash column exists. Initially false
 	// before the column-add migration applies; flips to true the moment
@@ -1012,7 +1014,7 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 		// also serves as a heartbeat during multi-minute migrations
 		// (complements the active-phase WATCHDOG=1 ticker in
 		// applyNewSbUpgrading that fires every 30 s independently).
-		fmt.Printf("[migrate]   ▶ applying %s\n", filepath.Base(m.Path))
+		fmt.Printf("[migrate] Applying %s ...\n", filepath.Base(m.Path))
 
 		if verbose {
 			// Newline-terminated. Pre-fix this printf was newline-less,
@@ -1041,7 +1043,7 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 				fmt.Println("[FAILED]")
 				fmt.Println(out)
 			}
-			fmt.Printf("[migrate]   ✗ FAILED   %s after %s\n", filepath.Base(m.Path), elapsed)
+			fmt.Printf("[migrate] Applying %s ... failed after %s\n", filepath.Base(m.Path), elapsed)
 			return 0, fmt.Errorf("migration %d (%s) failed: %w\n%s", m.Version, filepath.Base(m.Path), err, out)
 		}
 
@@ -1142,7 +1144,7 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 		// No-op in production. Drives scenario 3-postswap-between-migrations-kill.
 		inject.KillHere("killed-by-system-between-migrations")
 
-		fmt.Printf("[migrate]   ✔ applied  %s in %s\n", filepath.Base(m.Path), elapsed)
+		fmt.Printf("[migrate] Applying %s ... ok (%s)\n", filepath.Base(m.Path), elapsed)
 
 		if verbose {
 			fmt.Printf("[applied] (%dms)\n", durationMs)
@@ -1158,7 +1160,7 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 	// and migrations are already applied regardless.
 	if appliedCount > 0 {
 		_, _ = runPsql(projDir, "NOTIFY pgrst, 'reload config'; NOTIFY pgrst, 'reload schema';")
-		fmt.Printf("Applied %d migration(s)\n", appliedCount)
+		fmt.Printf("Applying database migrations ... ok (%d applied)\n", appliedCount)
 	}
 
 	// Run post-restore fixups: idempotent repairs for state that
@@ -1169,7 +1171,7 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 	postRestore := filepath.Join(projDir, "migrations", "post_restore.sql")
 	if _, err := os.Stat(postRestore); err == nil {
 		if verbose {
-			fmt.Println("Running post-restore fixups...")
+			fmt.Println("Applying post-restore database fixes ...")
 		}
 		if out, err := runPsqlFile(projDir, postRestore); err != nil {
 			// STATBUS-116 doc-025 D: HARD-FAIL, not warn. post_restore holds
@@ -1179,6 +1181,9 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 			// broken — fail-fast-actionable (the silently-lost safeupdate guard is
 			// the standing proof of what warn-only costs).
 			return appliedCount, fmt.Errorf("post_restore.sql failed: %w\n%s", err, out)
+		}
+		if verbose {
+			fmt.Println("Applying post-restore database fixes ... ok")
 		}
 	}
 
@@ -1283,7 +1288,7 @@ func Down(projDir string, migrateTo int64, all bool, verbose bool) error {
 	}
 
 	if len(versions) == 0 {
-		fmt.Println("No migrations to roll back")
+		fmt.Println("Checking database migrations to roll back ... ok (0 pending)")
 		return nil
 	}
 
@@ -1341,7 +1346,7 @@ func Down(projDir string, migrateTo int64, all bool, verbose bool) error {
 		}
 
 		if verbose {
-			fmt.Print("[rolling back] ")
+			fmt.Printf("Rolling back migration %s ...\n", filepath.Base(downPath))
 		}
 
 		start := time.Now()
@@ -1371,7 +1376,7 @@ func Down(projDir string, migrateTo int64, all bool, verbose bool) error {
 		}
 
 		if verbose {
-			fmt.Printf("done (%dms)\n", durationMs)
+			fmt.Printf("Rolling back migration %s ... ok (%dms)\n", filepath.Base(downPath), durationMs)
 		}
 		appliedCount++
 	}
@@ -1387,7 +1392,7 @@ func Down(projDir string, migrateTo int64, all bool, verbose bool) error {
 			return fmt.Errorf("full rollback: could not drop the migration ledger table/schema: %w — db.migration and/or schema db were left behind instead of the full teardown the caller requested", err)
 		}
 		if verbose {
-			fmt.Println("Removed migration tracking table and schema")
+			fmt.Println("Removing migration tracking table and schema ... ok")
 		}
 	}
 
@@ -1397,7 +1402,7 @@ func Down(projDir string, migrateTo int64, all bool, verbose bool) error {
 	// next reload/config-change cycle.
 	if appliedCount > 0 {
 		_, _ = runPsqlFn(projDir, "NOTIFY pgrst, 'reload config'; NOTIFY pgrst, 'reload schema';")
-		fmt.Printf("Rolled back %d migration(s)\n", appliedCount)
+		fmt.Printf("Rolling back database migrations ... ok (%d rolled back)\n", appliedCount)
 	}
 
 	return nil

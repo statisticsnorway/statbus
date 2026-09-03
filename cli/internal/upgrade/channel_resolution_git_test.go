@@ -212,7 +212,7 @@ name — is available over git, which is unlimited and needs no credential.`)
 	// install. That is not this function's job, but it is this function's
 	// PREMISE, so it is asserted here: if the readiness gate ever disappears,
 	// git-derived discovery becomes able to attempt an install with no assets.
-	if !strings.Contains(src, "Release assets not ready for %s") {
+	if !strings.Contains(src, "Verifying release assets ... not ready") {
 		t.Error(`the readiness gate that makes git-derived discovery safe is gone.
 
 Git returns every tag, including one pushed without a release. That is safe ONLY
