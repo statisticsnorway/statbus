@@ -270,11 +270,15 @@ jobs:
                { echo "- **0-happy-install**: SKIPPED — already covered."; printf '  > %s\n' "$OUT"; } >> "$GITHUB_STEP_SUMMARY" ;;
             1) echo "covered=false" >> "$GITHUB_OUTPUT"
                echo "- **0-happy-install**: RUNNING — not covered at this code-state." >> "$GITHUB_STEP_SUMMARY" ;;
-            69) echo "::error title=./sb refused to run::the staleness guard refused before the coverage question was asked (exit 69 = EX_UNAVAILABLE). The binary built by this job does not match its checkout; fix the build step, do not interpret this as a coverage verdict."
-               exit 1 ;;
-            *) echo "::warning title=Coverage undecidable::could not decide whether 0-happy-install is covered (exit $RC) — running it. This is a failure to decide, not a decision."
+            2) echo "::warning title=Coverage undecidable::could not decide whether 0-happy-install is covered (exit 2) — running it. This is a failure to decide, not a decision."
                echo "covered=false" >> "$GITHUB_OUTPUT"
-               echo "- **0-happy-install**: RUNNING — coverage was UNDECIDABLE (exit $RC), which is a failure to decide, not a decision." >> "$GITHUB_STEP_SUMMARY" ;;
+               echo "- **0-happy-install**: RUNNING — coverage was UNDECIDABLE (exit 2), which is a failure to decide, not a decision." >> "$GITHUB_STEP_SUMMARY" ;;
+            69) echo "::error title=./sb binary refused to run::the coverage question was not asked (exit 69 = EX_UNAVAILABLE). The binary is stale, unidentified, unable to self-heal, or invalidly configured; fix the binary/configuration, do not interpret this as a coverage verdict."
+               exit 1 ;;
+            64) echo "::error title=Invalid ./sb invocation::release covered refused its arguments or flags (exit 64 = EX_USAGE). Fix this workflow invocation; the coverage question was not asked."
+                exit 1 ;;
+            *) echo "::error title=Unknown ./sb exit::release covered returned unrecognised exit $RC. Refusing to guess whether the scenario must run."
+               exit 1 ;;
           esac
 
       - name: Dispatch test-install.yaml at the tag and wait for its conclusion
@@ -357,11 +361,15 @@ jobs:
                { echo "- **0-happy-upgrade**: SKIPPED — already covered."; printf '  > %s\n' "$OUT"; } >> "$GITHUB_STEP_SUMMARY" ;;
             1) echo "covered=false" >> "$GITHUB_OUTPUT"
                echo "- **0-happy-upgrade**: RUNNING — not covered at this code-state." >> "$GITHUB_STEP_SUMMARY" ;;
-            69) echo "::error title=./sb refused to run::the staleness guard refused before the coverage question was asked (exit 69 = EX_UNAVAILABLE). The binary built by this job does not match its checkout; fix the build step, do not interpret this as a coverage verdict."
-               exit 1 ;;
-            *) echo "::warning title=Coverage undecidable::could not decide whether 0-happy-upgrade is covered (exit $RC) — running it. This is a failure to decide, not a decision."
+            2) echo "::warning title=Coverage undecidable::could not decide whether 0-happy-upgrade is covered (exit 2) — running it. This is a failure to decide, not a decision."
                echo "covered=false" >> "$GITHUB_OUTPUT"
-               echo "- **0-happy-upgrade**: RUNNING — coverage was UNDECIDABLE (exit $RC), which is a failure to decide, not a decision." >> "$GITHUB_STEP_SUMMARY" ;;
+               echo "- **0-happy-upgrade**: RUNNING — coverage was UNDECIDABLE (exit 2), which is a failure to decide, not a decision." >> "$GITHUB_STEP_SUMMARY" ;;
+            69) echo "::error title=./sb binary refused to run::the coverage question was not asked (exit 69 = EX_UNAVAILABLE). The binary is stale, unidentified, unable to self-heal, or invalidly configured; fix the binary/configuration, do not interpret this as a coverage verdict."
+               exit 1 ;;
+            64) echo "::error title=Invalid ./sb invocation::release covered refused its arguments or flags (exit 64 = EX_USAGE). Fix this workflow invocation; the coverage question was not asked."
+                exit 1 ;;
+            *) echo "::error title=Unknown ./sb exit::release covered returned unrecognised exit $RC. Refusing to guess whether the scenario must run."
+               exit 1 ;;
           esac
 
       - name: Dispatch test-upgrade.yaml at the tag and wait for its conclusion

@@ -79,17 +79,6 @@ func TestDecideScenarioCoverage_AsksTheScenarioHomeWorkflow(t *testing.T) {
 	}
 }
 
-// A stale ./sb must not turn a coverage question into "could not decide".
-// stalenessGuard exits 2 for any command not in readOnlyCommandPaths, and 2
-// is exactly the exit `covered` reserves for "undecidable" — which the
-// orchestrator renders as must-run. Observed live: with cli/ changes on disk
-// the stale guard fired before the algorithm ran, and every verdict was 2.
-func TestReleaseCoveredIsReadOnlyForTheStalenessGuard(t *testing.T) {
-	if !readOnlyCommandPaths["sb release covered"] {
-		t.Fatal(`"sb release covered" is not in readOnlyCommandPaths: a stale binary would exit 2 and masquerade as an undecidable coverage verdict`)
-	}
-}
-
 // TestGuardExitNeverCollidesWithCoveredVerdicts pins the exit-code contract
 // the orchestrator branches on: the staleness guard's refusal is 69
 // (EX_UNAVAILABLE) and `covered`'s three verdicts are 0/1/2. Before this, both

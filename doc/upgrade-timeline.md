@@ -748,7 +748,7 @@ When a self-heal command hits the staleness case, `freshness.RebuildAndReexec`
 (`cli/internal/freshness/rebuild.go`) runs `make -C cli build` (5-minute budget), then
 `syscall.Exec`s into the freshly-built `./sb` with the original argv plus
 `_SB_SELFHEAL_ATTEMPT=1`. The new process re-enters `stalenessGuard`; if freshness still
-fails, the env var trips a recursion guard and the process exits 2 with a manual-rebuild hint.
+fails, the env var trips a recursion guard and the process exits 69 with a manual-rebuild hint.
 
 ### Fail-fast audit
 
@@ -756,14 +756,14 @@ Every condition the staleness layer can encounter has a documented, actionable o
 
 | Condition | Outcome | Why |
 |---|---|---|
-| `commitSHA == ""` (built without ldflags AND not from a clean git tree) | exit 2 with `Rebuild from a clean tree: ./dev.sh cross-build-sb` | Binary has no identity to rebuild against |
+| `commitSHA == ""` (built without ldflags AND not from a clean git tree) | exit 69 with the toolchain-free release-binary rescue path | Binary has no identity to rebuild against |
 | Stale + selfheal command + first attempt | rebuild + re-exec | Recovery commands must work from wedged state |
-| Stale + selfheal command + `_SB_SELFHEAL_ATTEMPT=1` set | exit 2 with manual-rebuild hint | Single-attempt contract |
-| Stale + non-selfheal mutating command | exit 2 with stale diagnostic | Destructive ops must not auto-modify with old logic |
+| Stale + selfheal command + `_SB_SELFHEAL_ATTEMPT=1` set | exit 69 with manual-rebuild hint | Single-attempt contract |
+| Stale + non-selfheal mutating command | exit 69 with stale diagnostic | Destructive ops must not auto-modify with old logic |
 | Stale + read-only command (`psql`, `db status`, `upgrade list`) | WARN, proceed | Reads tolerate slight drift |
-| `make -C cli build` fails | rebuild error → exit 2 | Cannot recover automatically |
-| 5-minute build timeout | timeout error → exit 2 | Likely runaway build |
-| `syscall.Exec` fails | exec error → exit 2 | Post-swap flag is set so a manual `./sb install` resumes from the flag |
+| `make -C cli build` fails | rebuild error → exit 69 | Cannot recover automatically |
+| 5-minute build timeout | timeout error → exit 69 | Likely runaway build |
+| `syscall.Exec` fails | exec error → exit 69 | Post-swap flag is set so a manual `./sb install` resumes from the flag |
 
 ## Harness-only fault injection
 

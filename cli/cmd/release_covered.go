@@ -28,20 +28,15 @@ import (
 //
 //	0 — covered (proven here, or covered by a named source): the job may skip.
 //	1 — NOT covered: the job must run.
-//	2 — the question could not be answered (API failure, bad arguments).
+//	2 — the question could not be answered after dispatch (API failure,
+//	    unknown scenario, invalid commit).
 //	    Distinct from 1 on purpose: "must run" is a decision, "could not tell"
 //	    is a failure to decide, and a caller that conflates them would run the
 //	    suite on every API hiccup while believing it had a verdict.
 //
-// Exit codes of `release covered`, as its callers branch on them. They are
-// VERDICTS. The staleness guard's refusal (exitBinaryUnusable, 69) is not a
-// verdict and never collides with these; a caller seeing 69 knows the
-// question was not asked.
-const (
-	exitCovered   = 0
-	exitMustRun   = 1
-	exitUndecided = 2
-)
+// Cobra command-line refusals exit 64 (EX_USAGE). Pre-dispatch binary
+// refusals exit 69 (EX_UNAVAILABLE). Neither is a verdict; their constants
+// live beside these verdict constants in exit_codes.go.
 
 var releaseCoveredCmd = &cobra.Command{
 	Use:   "covered <scenario> <commit>",
@@ -59,7 +54,6 @@ var releaseCoveredCmd = &cobra.Command{
 		if err != nil {
 			// Undecidable is NOT "must run": say so, and exit 2.
 			fmt.Fprintf(os.Stderr, "could not decide whether %s is covered at %s: %v\n", scenario, commit, err)
-			cmd.SilenceUsage = true
 			os.Exit(exitUndecided)
 		}
 
@@ -95,7 +89,6 @@ var releaseCoveredCmd = &cobra.Command{
 		}
 
 		if !verdict.Covered() {
-			cmd.SilenceUsage = true
 			os.Exit(exitMustRun)
 		}
 		_ = exitCovered // returning nil IS exit 0; named so the contract reads in one place

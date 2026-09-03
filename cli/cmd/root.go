@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"runtime/debug"
+	"sync"
 
 	"github.com/spf13/cobra"
 	"github.com/statisticsnorway/statbus/cli/internal/config"
@@ -38,31 +39,30 @@ var (
 )
 
 var (
-	verbose bool
+	verbose             bool
+	prepareExitContract sync.Once
 )
 
 var rootCmd = &cobra.Command{
 	Use:   "sb",
 	Short: "StatBus management CLI",
 	Long:  "sb is the management CLI for StatBus — a statistical business registry.",
-	// Operational errors should not drown the user in usage text. The "Error: ..."
-	// line stays (printed by cobra unless SilenceErrors is set, which we leave
-	// false on purpose — that line is the actual feedback). SilenceUsage just
-	// suppresses the "Usage:\n  sb foo\nFlags:\n..." block that cobra appends
-	// after every RunE error. For real argument-parse errors (wrong number of
-	// args, unknown flag) cobra still prints usage because those happen before
-	// RunE; SilenceUsage only affects the post-RunE path.
-	SilenceUsage: true,
+	// Cobra usage text belongs to command-line refusals, not operational
+	// failures. prepareCobraExitContract wraps errors from RunE and suppresses
+	// usage there; parse, Args, and required-flag errors happen before RunE and
+	// retain usage plus EX_USAGE (64) at the process boundary.
+	SilenceUsage: false,
 	// Stale-binary guard. Runs before every cobra command (cobra skips
 	// PersistentPreRun for --help/--version). When ./sb's build commit
 	// disagrees with the worktree's cli/ tree, mutating commands hard-
-	// fail (exit 2); read-only commands warn-and-proceed. Silent no-op
+	// fail (exit 69); read-only commands warn-and-proceed. Silent no-op
 	// when the build commit is unknown, when projDir isn't a git
 	// checkout, or when git is unavailable — see freshness.IsStale.
 	PersistentPreRun: stalenessGuard,
 }
 
-// exitBinaryUnusable (69 = EX_UNAVAILABLE, sysexits.h) is the exit code for
+// exitBinaryUnusable (69 = EX_UNAVAILABLE, sysexits.h; declared with the other
+// caller-visible exit codes in exit_codes.go) is the exit code for
 // every refusal the staleness guard issues BEFORE a subcommand runs: the
 // binary is stale, has no identity, or could not self-heal. It is deliberately
 // NOT 2. Subcommands own their small exit codes as verdicts (`release covered`
@@ -72,7 +72,6 @@ var rootCmd = &cobra.Command{
 // re-run under the label "undecidable"). A caller that sees 69 knows the
 // command never ran, and can say so instead of interpreting a decision that
 // was never made. Same discipline as exitPrincipledConfigRefusal (78).
-const exitBinaryUnusable = 69
 
 // stalenessGuard is rootCmd.PersistentPreRun. Extracted as a top-level
 // function for readability and to keep the command literal terse.
@@ -304,7 +303,6 @@ var readOnlyCommandPaths = map[string]bool{
 	"sb release check":         true,
 	"sb release verify-tag":    true, // local repo + GitHub API only; no state mutation
 	"sb release verify-images": true, // GitHub API only; no state mutation
-	"sb release covered":       true, // local git + GitHub API only; a stale-binary exit 2 here reads as "undecidable" and silently forces a must-run
 	"sb upgrade list":          true,
 	"sb upgrade check":         true,
 	"sb ps":                    true,
@@ -357,6 +355,9 @@ func displayShort(c upgrade.CommitSHA) string {
 }
 
 func Execute() error {
+	prepareExitContract.Do(func() {
+		prepareCobraExitContract(rootCmd)
+	})
 	// STATBUS-324: git must never stop and ask a server for a username.
 	//
 	// OBSERVED on gh, 2026-08-31: a bootstrap install died at `git fetch` with
@@ -397,7 +398,7 @@ func Execute() error {
 	// env vars unset and this returns nil immediately.
 	if err := inject.Validate(); err != nil {
 		fmt.Fprintf(os.Stderr, "FATAL: invalid STATBUS_INJECT_* configuration:\n  %v\n", err)
-		os.Exit(2)
+		os.Exit(exitBinaryUnusable)
 	}
 	return rootCmd.Execute()
 }
