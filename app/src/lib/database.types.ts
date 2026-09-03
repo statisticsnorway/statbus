@@ -6017,7 +6017,6 @@ export type Database = {
           release_builds_status: Database["public"]["Enums"]["release_builds_status_type"]
           release_status: Database["public"]["Enums"]["release_status_type"]
           release_url: string | null
-          rollback_finish_pending_at: string | null
           rolled_back_at: string | null
           scheduled_at: string | null
           skipped_at: string | null
@@ -6050,7 +6049,6 @@ export type Database = {
           release_builds_status?: Database["public"]["Enums"]["release_builds_status_type"]
           release_status?: Database["public"]["Enums"]["release_status_type"]
           release_url?: string | null
-          rollback_finish_pending_at?: string | null
           rolled_back_at?: string | null
           scheduled_at?: string | null
           skipped_at?: string | null
@@ -6083,7 +6081,6 @@ export type Database = {
           release_builds_status?: Database["public"]["Enums"]["release_builds_status_type"]
           release_status?: Database["public"]["Enums"]["release_status_type"]
           release_url?: string | null
-          rollback_finish_pending_at?: string | null
           rolled_back_at?: string | null
           scheduled_at?: string | null
           skipped_at?: string | null
@@ -6127,7 +6124,6 @@ export type Database = {
           id: number
           logged_at: string
           new_parked_at: string | null
-          new_rollback_finish_pending_at: string | null
           new_state: Database["public"]["Enums"]["upgrade_state"] | null
           old_backup_path: string | null
           old_error: string | null
@@ -6135,7 +6131,6 @@ export type Database = {
           old_parked_at: string | null
           old_recovery_attempts: number | null
           old_recovery_parked_reason: string | null
-          old_rollback_finish_pending_at: string | null
           old_state: Database["public"]["Enums"]["upgrade_state"] | null
           query: string | null
           upgrade_id: number
@@ -6148,7 +6143,6 @@ export type Database = {
           id?: never
           logged_at?: string
           new_parked_at?: string | null
-          new_rollback_finish_pending_at?: string | null
           new_state?: Database["public"]["Enums"]["upgrade_state"] | null
           old_backup_path?: string | null
           old_error?: string | null
@@ -6156,7 +6150,6 @@ export type Database = {
           old_parked_at?: string | null
           old_recovery_attempts?: number | null
           old_recovery_parked_reason?: string | null
-          old_rollback_finish_pending_at?: string | null
           old_state?: Database["public"]["Enums"]["upgrade_state"] | null
           query?: string | null
           upgrade_id: number
@@ -6169,7 +6162,6 @@ export type Database = {
           id?: never
           logged_at?: string
           new_parked_at?: string | null
-          new_rollback_finish_pending_at?: string | null
           new_state?: Database["public"]["Enums"]["upgrade_state"] | null
           old_backup_path?: string | null
           old_error?: string | null
@@ -6177,7 +6169,6 @@ export type Database = {
           old_parked_at?: string | null
           old_recovery_attempts?: number | null
           old_recovery_parked_reason?: string | null
-          old_rollback_finish_pending_at?: string | null
           old_state?: Database["public"]["Enums"]["upgrade_state"] | null
           query?: string | null
           upgrade_id?: number
