@@ -2,7 +2,7 @@ package cmd
 
 // STATBUS-199 comment #6 duplication guard. checkInstallRecoveryHarnessGate
 // reproduces test/install-recovery/run.sh's default-suite exclusion rule
-// (a scenario file containing installRecoveryHarnessSkipDefaultMarker is
+// (a scenario file containing release.FleetSkipDefaultMarker is
 // excluded from the blank-selector full suite) as its own Go constant,
 // rather than shelling out to run.sh at gate time — the architect's ruling
 // requires commit-accurate reproduction (git show <commit>:<path>, never a
@@ -12,6 +12,7 @@ package cmd
 // stopping recognizing exclusions.
 
 import (
+	"github.com/statisticsnorway/statbus/cli/internal/release"
 	"os"
 	"strings"
 	"testing"
@@ -22,10 +23,10 @@ func TestInstallRecoveryHarnessSkipDefaultMarkerMatchesHarness(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cannot read run.sh: %v", err)
 	}
-	want := `SKIP_DEFAULT_MARKER="` + installRecoveryHarnessSkipDefaultMarker + `"`
+	want := `SKIP_DEFAULT_MARKER="` + release.FleetSkipDefaultMarker + `"`
 	if !strings.Contains(string(data), want) {
 		t.Fatalf("test/install-recovery/run.sh no longer declares %s — "+
-			"installRecoveryHarnessSkipDefaultMarker in cli/cmd/release.go has drifted from the harness's own marker; "+
+			"release.FleetSkipDefaultMarker in cli/cmd/release.go has drifted from the harness's own marker; "+
 			"update the Go constant to match run.sh's SKIP_DEFAULT_MARKER", want)
 	}
 }

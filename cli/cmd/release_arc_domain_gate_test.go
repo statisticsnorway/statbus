@@ -116,10 +116,10 @@ func pushTags(t *testing.T, dir string) {
 func stubScenarioEvidence(t *testing.T, evidence map[string]map[string]bool) {
 	t.Helper()
 	old := scenarioEvidence
-	scenarioEvidence = func(projDir, workflow, scenario string) release.EvidenceAt {
+	scenarioEvidence = func(projDir string, scenario release.Scenario) release.EvidenceAt {
 		return func(commit string) (bool, string, error) {
-			if evidence[scenario][commit] {
-				return true, "synthetic evidence for " + scenario + " at " + commit[:7], nil
+			if evidence[scenario.Name][commit] {
+				return true, "synthetic evidence for " + scenario.Name + " at " + commit[:7], nil
 			}
 			return false, "", nil
 		}

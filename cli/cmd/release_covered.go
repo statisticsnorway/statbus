@@ -32,6 +32,17 @@ import (
 //	    Distinct from 1 on purpose: "must run" is a decision, "could not tell"
 //	    is a failure to decide, and a caller that conflates them would run the
 //	    suite on every API hiccup while believing it had a verdict.
+//
+// Exit codes of `release covered`, as its callers branch on them. They are
+// VERDICTS. The staleness guard's refusal (exitBinaryUnusable, 69) is not a
+// verdict and never collides with these; a caller seeing 69 knows the
+// question was not asked.
+const (
+	exitCovered   = 0
+	exitMustRun   = 1
+	exitUndecided = 2
+)
+
 var releaseCoveredCmd = &cobra.Command{
 	Use:   "covered <scenario> <commit>",
 	Short: "Report whether a scenario is already proven at a commit (exit 0 covered, 1 must-run, 2 undecidable)",
@@ -49,7 +60,7 @@ var releaseCoveredCmd = &cobra.Command{
 			// Undecidable is NOT "must run": say so, and exit 2.
 			fmt.Fprintf(os.Stderr, "could not decide whether %s is covered at %s: %v\n", scenario, commit, err)
 			cmd.SilenceUsage = true
-			os.Exit(2)
+			os.Exit(exitUndecided)
 		}
 
 		fmt.Println(verdict.Summary())
@@ -85,8 +96,9 @@ var releaseCoveredCmd = &cobra.Command{
 
 		if !verdict.Covered() {
 			cmd.SilenceUsage = true
-			os.Exit(1)
+			os.Exit(exitMustRun)
 		}
+		_ = exitCovered // returning nil IS exit 0; named so the contract reads in one place
 		return nil
 	},
 }
@@ -94,7 +106,7 @@ var releaseCoveredCmd = &cobra.Command{
 // decideScenarioCoverage wires the real dependencies into the shared algorithm.
 // Kept separate from the command so the wiring is testable without a process
 // exit, and so the gate can adopt the identical construction.
-func decideScenarioCoverage(projDir, scenario, commit string) (release.CoverageVerdict, error) {
+func decideScenarioCoverage(projDir, name, commit string) (release.CoverageVerdict, error) {
 	// Resolve to the FULL commit SHA first. GitHub's `head_sha=` query matches
 	// the full object name only, so an abbreviated argument finds nothing at the
 	// target and the walk then answers from a tag instead — reporting "covered
@@ -114,15 +126,11 @@ func decideScenarioCoverage(projDir, scenario, commit string) (release.CoverageV
 		return release.CoverageVerdict{}, fmt.Errorf("load the sensitive-path list: %w", err)
 	}
 
-	// The home workflow is where the scenario's proof is FILED, and it follows
-	// from where the scenario LIVES at this commit, not from a constant. The
-	// promotion gate already passes each domain's own workflow; this call site
-	// used to hardcode the arc harness for every scenario, so the fifteen
-	// install-recovery scenarios were looked up under the wrong workflow and
-	// reported "no evidence" against a run that was green on all of them
-	// (observed live at v2026.09.0-rc.12, run 33734979777). That is the drift
-	// between the two call sites STATBUS-249 says must be impossible.
-	homeWorkflow, err := scenarioHomeWorkflowAtCommit(projDir, scenario, commit)
+	// A bare name becomes a Scenario ONLY through the directory listing at this
+	// commit, which is the same listing each promotion gate derives its domain
+	// from. An unknown name is refused here rather than looked up under a
+	// guessed workflow (which could only ever answer "not found").
+	scenario, err := release.ParseScenario(projDir, commit, name)
 	if err != nil {
 		return release.CoverageVerdict{}, err
 	}
@@ -132,41 +140,11 @@ func decideScenarioCoverage(projDir, scenario, commit string) (release.CoverageV
 			return priorCandidateTags(projDir, commit)
 		},
 		TagCommit: func(tag string) (string, error) { return tagTargetCommit(projDir, tag) },
-		Evidence:  scenarioEvidence(projDir, homeWorkflow, scenario),
+		Evidence:  scenarioEvidence(projDir, scenario),
 		DiffTouches: func(from, to string) (bool, []string, error) {
 			return diffTouchesSensitivePath(projDir, from, to, sensitivePaths)
 		},
 	})
-}
-
-// scenarioHomeWorkflowAtCommit maps a scenario name to the workflow that runs
-// it, by the same directory listing each promotion gate uses to build its
-// domain (upgradeArcNamesAtCommit / installRecoveryScenarioNamesAtCommit). A
-// name found in neither listing is refused rather than guessed: an evidence
-// lookup under an arbitrary workflow can only ever say "not found", which a
-// caller would mistake for "must run".
-func scenarioHomeWorkflowAtCommit(projDir, scenario, commit string) (string, error) {
-	arcs, arcErr := upgradeArcNamesAtCommit(projDir, commit)
-	if arcErr == nil {
-		for _, name := range arcs {
-			if name == scenario {
-				return release.WorkflowUpgradeArcHarness, nil
-			}
-		}
-	}
-	fleet, fleetErr := installRecoveryScenarioNamesAtCommit(projDir, commit)
-	if fleetErr == nil {
-		for _, name := range fleet {
-			if name == scenario {
-				return release.WorkflowInstallRecoveryHarness, nil
-			}
-		}
-	}
-	if arcErr != nil && fleetErr != nil {
-		return "", fmt.Errorf("list scenario domains at %s: arcs: %v; install-recovery: %v", shortCommit(commit), arcErr, fleetErr)
-	}
-	return "", fmt.Errorf("%q is not a scenario at %s: not in %s (%d arc scenarios) and not in test/install-recovery/scenarios/ (%d default-suite scenarios)",
-		scenario, shortCommit(commit), upgradeArcDir, len(arcs), len(fleet))
 }
 
 // resolveCommitish expands any commit-ish (short SHA, tag, branch) to the full

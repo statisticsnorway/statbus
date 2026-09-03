@@ -57,7 +57,7 @@ func TestCoverage_TheRC07Specimen_STATBUS249(t *testing.T) {
 		nil,
 	)
 
-	v, err := DecideCoverage("rollback-pair-terminal", "c07", deps)
+	v, err := DecideCoverage(arc("rollback-pair-terminal"), "c07", deps)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -89,7 +89,7 @@ func TestCoverage_UnprovenPredecessorIsNotAnAnchor_STATBUS249(t *testing.T) {
 		nil,
 	)
 
-	v, err := DecideCoverage("rollback-pair-terminal", "c07", deps)
+	v, err := DecideCoverage(arc("rollback-pair-terminal"), "c07", deps)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestCoverage_ProvenHereIsNotCoveredBy_STATBUS249(t *testing.T) {
 		nil,
 	)
 
-	v, err := DecideCoverage("un-park-to-completion", "c07", deps)
+	v, err := DecideCoverage(arc("un-park-to-completion"), "c07", deps)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -143,7 +143,7 @@ func TestCoverage_SensitiveChangeBlocksTheNewestAnchor_STATBUS249(t *testing.T) 
 		map[string]bool{"v-rc.06": true, "v-rc.05": true},
 	)
 
-	v, err := DecideCoverage("rollback-pair-terminal", "c07", deps)
+	v, err := DecideCoverage(arc("rollback-pair-terminal"), "c07", deps)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -173,7 +173,7 @@ func TestCoverage_UnevaluableCandidatesAreReported_STATBUS249(t *testing.T) {
 		DiffTouches:                func(string, string) (bool, []string, error) { return false, nil, nil },
 	}
 
-	v, err := DecideCoverage("rollback-kill", "c07", deps)
+	v, err := DecideCoverage(arc("rollback-kill"), "c07", deps)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -190,10 +190,10 @@ func TestCoverage_UnevaluableCandidatesAreReported_STATBUS249(t *testing.T) {
 // on an examination it never performed — over-running a fleet is cheap, but the
 // same silence in the other direction is how the specimen happened.
 func TestCoverage_RefusesWithoutItsInputs_STATBUS249(t *testing.T) {
-	if _, err := DecideCoverage("x", "c07", CoverageDeps{}); err == nil {
+	if _, err := DecideCoverage(arc("x"), "c07", CoverageDeps{}); err == nil {
 		t.Error("a coverage decision with no evidence source must refuse, not answer")
 	}
-	if _, err := DecideCoverage("", "c07", fakeDeps(nil, nil, nil, nil)); err == nil {
+	if _, err := DecideCoverage(arc(""), "c07", fakeDeps(nil, nil, nil, nil)); err == nil {
 		t.Error("a coverage decision with no scenario must refuse")
 	}
 }

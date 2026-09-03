@@ -99,7 +99,9 @@ type coverageBlockedGroup struct {
 // (defense in depth; both current callers already refuse earlier via their
 // own domain derivation, which is itself an error on empty rather than an
 // empty slice, so this branch is a backstop, not the live path).
-func runCoverageAuthority(projDir, workflow, rcTag, rcCommit, rcShort string, requiredScenarios []string) bool {
+func runCoverageAuthority(projDir, rcTag, rcCommit, rcShort string, domain release.Domain) bool {
+	workflow := domain.Workflow.String()
+	requiredScenarios := domain.Scenarios
 	if len(requiredScenarios) == 0 {
 		fmt.Printf("  ✗ %s: the scenario domain at %s is EMPTY — refusing rather than trivially passing (STATBUS-216)\n", workflow, rcShort)
 		fmt.Println("    A per-scenario coverage decision over zero scenarios is trivially yes. The domain derivation is broken, not the coverage.")
@@ -118,12 +120,12 @@ func runCoverageAuthority(projDir, workflow, rcTag, rcCommit, rcShort string, re
 		v, err := release.DecideCoverage(scenario, rcCommit, release.CoverageDeps{
 			PriorCandidatesNewestFirst: func() ([]string, error) { return priorCandidateTags(projDir, rcCommit) },
 			TagCommit:                  func(tag string) (string, error) { return tagTargetCommit(projDir, tag) },
-			Evidence:                   scenarioEvidence(projDir, workflow, scenario),
+			Evidence:                   scenarioEvidence(projDir, scenario),
 			DiffTouches: func(from, to string) (bool, []string, error) {
 				return diffTouchesSensitivePath(projDir, from, to, sensitivePaths)
 			},
 		})
-		results = append(results, coverageAuthorityScenario{Scenario: scenario, Verdict: v, Err: err})
+		results = append(results, coverageAuthorityScenario{Scenario: scenario.Name, Verdict: v, Err: err})
 	}
 	sort.Slice(results, func(i, j int) bool { return results[i].Scenario < results[j].Scenario })
 

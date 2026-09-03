@@ -1769,85 +1769,10 @@ const (
 // trivial yes for an empty required set, so a renamed directory or a path
 // typo here would disarm the gate while it printed a 0/0 pass. There is no
 // legitimate state of this repository with zero arcs.
-func upgradeArcNamesAtCommit(projDir, commit string) ([]string, error) {
-	out, err := upgrade.RunCommandOutput(projDir, "git", "ls-tree", "-r", "--name-only",
-		commit, "--", upgradeArcDir)
-	if err != nil {
-		return nil, fmt.Errorf("git ls-tree %s -- %s: %w", commit, upgradeArcDir, err)
-	}
-	var names []string
-	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
-		base := filepath.Base(strings.TrimSpace(line))
-		if strings.HasSuffix(base, upgradeArcSuffix) {
-			names = append(names, strings.TrimSuffix(base, upgradeArcSuffix))
-		}
-	}
-	if len(names) == 0 {
-		return nil, fmt.Errorf("no arc scenarios found at %s: `git ls-tree %s -- %s` matched no *%s file. "+
-			"The arc domain cannot legitimately be empty — the directory was moved/renamed, or this path is a typo. "+
-			"Refusing to check completeness against an empty domain (it would pass trivially and prove nothing). "+
-			"Fix: point %s at the arcs directory as it exists at that commit, keeping it identical to the discover job's path in .github/workflows/upgrade-arc-harness.yaml",
-			commit, commit, upgradeArcDir, upgradeArcSuffix, upgradeArcDir)
-	}
-	return names, nil
-}
-
-// installRecoveryHarnessSkipDefaultMarker mirrors
-// test/install-recovery/run.sh's SKIP_DEFAULT_MARKER ("HARNESS_SKIP_DEFAULT",
-// run.sh:31) — a scenario file containing this string is excluded from the
-// default (blank-selector) full suite, though still individually
-// selectable. Pinned byte-identical to the harness's own literal by
-// TestInstallRecoveryHarnessSkipDefaultMarkerMatchesHarness: if the harness
-// marker ever changes, that test fails loudly instead of this constant
-// silently diverging (STATBUS-199 comment #6 duplication guard).
-const installRecoveryHarnessSkipDefaultMarker = "HARNESS_SKIP_DEFAULT"
-
-// installRecoveryScenarioNamesAtCommit reproduces run.sh's default-suite
-// scenario domain AT commit — STATBUS-199 comment #6 ruling:
-// COMMIT-ACCURATE REPRODUCTION, never the working tree (the gate is a pure
-// function of the RC commit everywhere else; deriving from whatever tree
-// happens to be checked out would reintroduce the exact drift class this
-// gate exists to kill). Every test/install-recovery/scenarios/<name>.sh IS
-// a scenario UNLESS its bytes at commit contain
-// installRecoveryHarnessSkipDefaultMarker — read via `git show
-// <commit>:<path>`, no checkout.
-//
-// An EMPTY domain is an error, never an empty list (STATBUS-216) — same
-// reasoning as upgradeArcNamesAtCommit: a 0/0 completeness check passes
-// trivially. Here emptiness has a second cause worth naming in the
-// refusal: every scenario carrying the skip-default marker would also
-// leave the default suite with nothing to run.
-func installRecoveryScenarioNamesAtCommit(projDir, commit string) ([]string, error) {
-	const scenarioDir = "test/install-recovery/scenarios/"
-	out, err := upgrade.RunCommandOutput(projDir, "git", "ls-tree", "-r", "--name-only",
-		commit, "--", scenarioDir)
-	if err != nil {
-		return nil, fmt.Errorf("git ls-tree %s -- %s: %w", commit, scenarioDir, err)
-	}
-	var names []string
-	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
-		path := strings.TrimSpace(line)
-		if !strings.HasSuffix(path, ".sh") {
-			continue
-		}
-		content, cerr := upgrade.RunCommandOutput(projDir, "git", "show", commit+":"+path)
-		if cerr != nil {
-			return nil, fmt.Errorf("git show %s:%s: %w", commit, path, cerr)
-		}
-		if strings.Contains(content, installRecoveryHarnessSkipDefaultMarker) {
-			continue // excluded from the default full suite
-		}
-		names = append(names, strings.TrimSuffix(filepath.Base(path), ".sh"))
-	}
-	if len(names) == 0 {
-		return nil, fmt.Errorf("no default-suite scenarios found at %s: `git ls-tree %s -- %s` matched no .sh file that lacks the %s marker. "+
-			"The scenario domain cannot legitimately be empty — the directory was moved/renamed, this path is a typo, or every scenario is now marked skip-default. "+
-			"Refusing to check completeness against an empty domain (it would pass trivially and prove nothing). "+
-			"Fix: point %s at the scenarios directory as it exists at that commit, or un-mark at least one scenario in test/install-recovery/run.sh's default suite",
-			commit, commit, scenarioDir, installRecoveryHarnessSkipDefaultMarker, scenarioDir)
-	}
-	return names, nil
-}
+// The scenario domains (arcs and default fleet suite) are listed by
+// release.ScenariosAt from the tree at the RC commit; each Scenario carries the
+// workflow that runs it, so a gate cannot ask the wrong workflow. The two
+// listing functions that used to live here were the second copy of that logic.
 
 // checkStableWorkflowGate runs one of the RC-commit-keyed stable gates for
 // the TAG-FIRED workflows (STATBUS-205): test-hardening.yaml and
@@ -1950,13 +1875,13 @@ func checkInstallRecoveryHarnessGate(projDir, rcTag, rcCommit, rcShort string) b
 		return true
 	}
 
-	requiredScenarios, err := installRecoveryScenarioNamesAtCommit(projDir, rcCommit)
+	domain, err := release.ScenariosAt(projDir, rcCommit, release.WorkflowFleet)
 	if err != nil {
 		fmt.Printf("  ✗ install-recovery: the scenario domain at %s could not be listed\n", rcShort)
 		fmt.Printf("    Error: %v\n", err)
 		return false
 	}
-	return runCoverageAuthority(projDir, release.WorkflowInstallRecoveryHarness, rcTag, rcCommit, rcShort, requiredScenarios)
+	return runCoverageAuthority(projDir, rcTag, rcCommit, rcShort, domain)
 }
 
 // checkUpgradeArcHarnessGate is the STATBUS-199 D2 stable gate for the
@@ -1979,13 +1904,13 @@ func checkUpgradeArcHarnessGate(projDir, rcTag, rcCommit, rcShort string) bool {
 		return true
 	}
 
-	requiredArcs, err := upgradeArcNamesAtCommit(projDir, rcCommit)
+	domain, err := release.ScenariosAt(projDir, rcCommit, release.WorkflowArcs)
 	if err != nil {
 		fmt.Printf("  ✗ upgrade-arc-harness: the arc domain at %s could not be listed\n", rcShort)
 		fmt.Printf("    Error: %v\n", err)
 		return false
 	}
-	return runCoverageAuthority(projDir, release.WorkflowUpgradeArcHarness, rcTag, rcCommit, rcShort, requiredArcs)
+	return runCoverageAuthority(projDir, rcTag, rcCommit, rcShort, domain)
 }
 
 // checkRCArtifactGate is the pre-flight asset/manifest gate for

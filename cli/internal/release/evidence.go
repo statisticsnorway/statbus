@@ -221,14 +221,15 @@ func scenarioProvenInCIAt(apiBase, workflow, scenario, commitSHA string) (bool, 
 // Failure direction is safe by construction: a MISSED identity re-runs a
 // scenario (costly, correct), while a wrongly-included one could only find a
 // successful job of that exact name — which is a real mark.
-func WorkflowsRunningScenario(homeWorkflow, scenario string) []string {
-	workflows := []string{homeWorkflow}
+func WorkflowsRunningScenario(scenario Scenario) []string {
+	home := scenario.Home.String()
+	workflows := []string{home}
 	add := func(w string) {
-		if w != homeWorkflow {
+		if w != home {
 			workflows = append(workflows, w)
 		}
 	}
-	switch scenario {
+	switch scenario.Name {
 	case "0-happy-install":
 		add(WorkflowTestInstall)
 		add(WorkflowInstallRecoveryHarness)
@@ -246,15 +247,15 @@ func WorkflowsRunningScenario(homeWorkflow, scenario string) []string {
 //
 // Order matters only for cost, not for truth — a mark from any half is a mark,
 // which is what "composable from a local run or from CI" (AC#8) means.
-func ScenarioEvidence(projDir, workflow, scenario string) EvidenceAt {
-	identities := WorkflowsRunningScenario(workflow, scenario)
+func ScenarioEvidence(projDir string, scenario Scenario) EvidenceAt {
+	identities := WorkflowsRunningScenario(scenario)
 	return func(commit string) (bool, string, error) {
-		local, err := LocalMarkExists(projDir, scenario, commit)
+		local, err := LocalMarkExists(projDir, scenario.Name, commit)
 		if err != nil {
 			return false, "", err
 		}
 		if local {
-			return true, fmt.Sprintf("local mark (%s)", LocalMarkPath(projDir, scenario)), nil
+			return true, fmt.Sprintf("local mark (%s)", LocalMarkPath(projDir, scenario.Name)), nil
 		}
 		// Union across identities. An error from one identity is REMEMBERED but
 		// does not end the search: another identity may hold a real mark, and
@@ -263,7 +264,7 @@ func ScenarioEvidence(projDir, workflow, scenario string) EvidenceAt {
 		// caller can tell "not found" from "could not look".
 		var firstErr error
 		for _, wf := range identities {
-			found, detail, cerr := ScenarioProvenInCI(wf, scenario, commit)
+			found, detail, cerr := ScenarioProvenInCI(wf, scenario.Name, commit)
 			if cerr != nil {
 				if firstErr == nil {
 					firstErr = fmt.Errorf("%s: %w", wf, cerr)

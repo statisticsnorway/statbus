@@ -149,11 +149,11 @@ const DefaultWalkBound = 20
 
 // DecideCoverage runs the anchor-and-walk-back. Pure: no printing, no direct
 // I/O, fully testable without a network.
-func DecideCoverage(scenario, targetCommit string, deps CoverageDeps) (CoverageVerdict, error) {
-	v := CoverageVerdict{Scenario: scenario, TargetCommit: targetCommit, Kind: CoverageNotCovered}
+func DecideCoverage(scenario Scenario, targetCommit string, deps CoverageDeps) (CoverageVerdict, error) {
+	v := CoverageVerdict{Scenario: scenario.Name, TargetCommit: targetCommit, Kind: CoverageNotCovered}
 
-	if scenario == "" || targetCommit == "" {
-		return v, fmt.Errorf("coverage decision needs both a scenario and a target commit (got scenario=%q commit=%q)", scenario, targetCommit)
+	if scenario.Name == "" || scenario.Home == "" || targetCommit == "" {
+		return v, fmt.Errorf("coverage decision needs a scenario with its home workflow and a target commit (got scenario=%q home=%q commit=%q)", scenario.Name, scenario.Home, targetCommit)
 	}
 	if deps.Evidence == nil || deps.PriorCandidatesNewestFirst == nil || deps.TagCommit == nil || deps.DiffTouches == nil {
 		// Refusing beats answering: a walk missing an input would report
@@ -166,7 +166,7 @@ func DecideCoverage(scenario, targetCommit string, deps CoverageDeps) (CoverageV
 	//    to diff, and no anchor to name.
 	found, detail, err := deps.Evidence(targetCommit)
 	if err != nil {
-		return v, fmt.Errorf("could not determine whether %s has evidence at %s: %w", scenario, shortSHA(targetCommit), err)
+		return v, fmt.Errorf("could not determine whether %s has evidence at %s: %w", scenario.Name, shortSHA(targetCommit), err)
 	}
 	if found {
 		v.Kind = CoverageProvenHere

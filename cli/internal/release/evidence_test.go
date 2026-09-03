@@ -155,7 +155,7 @@ func TestLocalMark_RoundTripAndComposition_STATBUS249(t *testing.T) {
 	// Composition: the local mark alone satisfies the lookup, with no CI call.
 	// (The API base is unreachable here on purpose — if the lookup contacted CI
 	// despite a local mark, this would fail rather than silently pass.)
-	found, detail, err := ScenarioEvidence(dir, WorkflowUpgradeArcHarness, "rollback-kill")("c07")
+	found, detail, err := ScenarioEvidence(dir, arc("rollback-kill"))("c07")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -219,11 +219,11 @@ func TestWorkflowsRunningScenario_UnionsAcrossIdentities_STATBUS249C1(t *testing
 		return false
 	}
 
-	up := WorkflowsRunningScenario(WorkflowInstallRecoveryHarness, "0-happy-upgrade")
+	up := WorkflowsRunningScenario(fleet("0-happy-upgrade"))
 	if !has(up, WorkflowTestUpgrade) || !has(up, WorkflowInstallRecoveryHarness) {
 		t.Errorf("0-happy-upgrade runs in BOTH the smoke workflow and the harness matrix; got %v", up)
 	}
-	in := WorkflowsRunningScenario(WorkflowInstallRecoveryHarness, "0-happy-install")
+	in := WorkflowsRunningScenario(fleet("0-happy-install"))
 	if !has(in, WorkflowTestInstall) || !has(in, WorkflowInstallRecoveryHarness) {
 		t.Errorf("0-happy-install runs in BOTH test-install and the harness matrix; got %v", in)
 	}
@@ -242,7 +242,7 @@ func TestWorkflowsRunningScenario_UnionsAcrossIdentities_STATBUS249C1(t *testing
 
 	// An ordinary arc scenario has exactly one home and must NOT gain
 	// identities it never runs under.
-	arc := WorkflowsRunningScenario(WorkflowUpgradeArcHarness, "rollback-pair-terminal")
+	arc := WorkflowsRunningScenario(arc("rollback-pair-terminal"))
 	if len(arc) != 1 || arc[0] != WorkflowUpgradeArcHarness {
 		t.Errorf("a scenario with one home must union to just that home; got %v", arc)
 	}
@@ -280,7 +280,7 @@ func TestScenarioEvidence_FindsAMarkUnderTheOtherIdentity_STATBUS249C1(t *testin
 	// Exercise the union directly against the test server.
 	var found bool
 	var detail string
-	for _, wf := range WorkflowsRunningScenario(WorkflowInstallRecoveryHarness, "0-happy-upgrade") {
+	for _, wf := range WorkflowsRunningScenario(fleet("0-happy-upgrade")) {
 		f, d, err := scenarioProvenInCIAt(srv.URL, wf, "0-happy-upgrade", "c09")
 		if err != nil {
 			t.Fatalf("%s: %v", wf, err)

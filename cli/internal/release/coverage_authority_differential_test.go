@@ -136,7 +136,7 @@ func TestCoverageAuthorityDifferential_PartialCoverageAcrossRuns_STATBUS252(t *t
 		"scenario-c": {tag2, c2},
 	}
 	for scenario, want := range wantAnchor {
-		v, err := DecideCoverage(scenario, c3, depsFor(scenario))
+		v, err := DecideCoverage(arc(scenario), c3, depsFor(scenario))
 		if err != nil {
 			t.Fatalf("%s: unexpected error: %v", scenario, err)
 		}
@@ -160,7 +160,7 @@ func TestCoverageAuthorityDifferential_PartialCoverageAcrossRuns_STATBUS252(t *t
 	}
 
 	// ── THE CORRECTED-CRITERION EDGE: covered nowhere → per-scenario refuses too ──
-	vd, err := DecideCoverage("scenario-d", c3, depsFor("scenario-d"))
+	vd, err := DecideCoverage(arc("scenario-d"), c3, depsFor("scenario-d"))
 	if err != nil {
 		t.Fatalf("scenario-d: unexpected error: %v", err)
 	}
