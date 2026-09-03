@@ -1269,18 +1269,11 @@ SB_URL="https://github.com/statisticsnorway/statbus/releases/download/${install_
 curl --retry 5 --retry-delay 5 --retry-all-errors -fsSL "\$SB_URL" -o ~/sb.tmp
 chmod +x ~/sb.tmp
 if [ ! -d ~/statbus/.git ]; then
-    # Same else-branch rc capture + growing backoff as the pre-clone above.
-    for attempt in 1 2 3 4 5 6 7 8; do
-        if git clone --depth 1 --branch ${install_version} https://github.com/statisticsnorway/statbus.git ~/statbus; then
-            break
-        else
-            rc=\$?
-        fi
-        echo "GitHub clone retry [git-clone] \${attempt}/8 (rc=\$rc)" >&2
-        [ "\$attempt" -eq 8 ] && exit "\$rc"
-        rm -rf ~/statbus
-        sleep 45
-    done
+    # Runner-staged repo (STATBUS-345 night run): the runner has the full
+    # ledger and ships /tmp/statbus-repo.tgz over scp — the VM never clones
+    # from GitHub. rc.09 lost two runs to 401 bursts at exactly this clone.
+    tar -C ~ -xzf /tmp/statbus-repo.tgz
+    git -C ~/statbus remote set-url origin https://github.com/statisticsnorway/statbus.git
 fi
 mv ~/sb.tmp ~/statbus/sb
 cd ~/statbus
@@ -1298,6 +1291,24 @@ cp /tmp/env-config .env.config 2>/dev/null || true
 cp /tmp/users.yml .users.yml 2>/dev/null || true
 STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf $extra_args
 SCRIPT
+        # Runner-side repo staging (STATBUS-345 night run): build the baseline
+        # repo from the runner's own full ledger and ship it over scp — the VM
+        # never clones from GitHub (rc.09 lost two runs to 401 bursts at that
+        # clone). db-seed remote-tracking ref comes along so ./sb install's
+        # seed-fetch path still finds origin/db-seed; origin URL is restored so
+        # later product-side fetches address GitHub normally.
+        local stage_dir
+        stage_dir=$(mktemp -d)
+        git clone --quiet --depth 50 --branch "${install_version}" "file://${HARNESS_ROOT}" "$stage_dir/statbus"
+        if [ "${SB_INSTALL_SKIP_SEED:-}" != "1" ] && git -C "$HARNESS_ROOT" rev-parse --verify --quiet refs/remotes/origin/db-seed >/dev/null; then
+            git -C "$stage_dir/statbus" fetch --quiet "$HARNESS_ROOT" refs/remotes/origin/db-seed:refs/remotes/origin/db-seed
+        fi
+        git -C "$stage_dir/statbus" remote set-url origin https://github.com/statisticsnorway/statbus.git
+        tar -C "$stage_dir" -czf "$stage_dir/statbus-repo.tgz" statbus
+        _wait_for_ssh "$ip" 30
+        echo "  staging baseline repo tarball ($(du -h "$stage_dir/statbus-repo.tgz" | cut -f1)) to VM over scp..."
+        _upload_file_chunked "$ip" "$stage_dir/statbus-repo.tgz" /tmp/statbus-repo.tgz
+        rm -rf "$stage_dir"
     fi
 
     # Wait for SSH to be responsive before uploading — bootstrap activity
@@ -1419,6 +1430,38 @@ SCRIPT
 # Rebuilding here adds ~10-15s (CGO_ENABLED=0 cross-compile) once per
 # upload_sb_to_vm call, which is negligible vs the ~10-15 min scenario wall-clock.
 # STATBUS_SB_BINARY overrides the binary path (used by CI pre-extraction).
+# _upload_file_chunked <ip> <local-path> <remote-path>
+# Generic 2MB-chunked scp (same cx23 SSH channel-window workaround as
+# upload_sb_to_vm, which predates this helper). Bounded retries per chunk.
+_upload_file_chunked() {
+    local ip="$1" local_path="$2" remote_path="$3"
+    local log="/tmp/upload-chunked-$$.log" rc=0 chunk chunk_name attempt
+    local chunk_dir remote_base
+    remote_base="$(basename "$remote_path")"
+    chunk_dir=$(mktemp -d) || { echo "FATAL: mktemp failed" >&2; return 1; }
+    split -b 2m "$local_path" "$chunk_dir/${remote_base}.chunk-" 2>>"$log" || rc=$?
+    if [ "$rc" -eq 0 ]; then
+        for chunk in "$chunk_dir/${remote_base}.chunk-"*; do
+            chunk_name="$(basename "$chunk")"
+            for attempt in 1 2 3; do
+                if scp -O "${SSH_OPTS[@]}" "$chunk" root@"$ip":/tmp/"$chunk_name" 2>>"$log"; then
+                    break
+                fi
+                rc=$?
+                [ "$attempt" -eq 3 ] && { echo "  chunk $chunk_name failed 3x (rc=$rc)" >&2; break 2; }
+                sleep 15; rc=0
+            done
+        done
+    fi
+    rm -rf "$chunk_dir"
+    if [ "$rc" -eq 0 ]; then
+        ssh "${SSH_OPTS[@]}" root@"$ip"             "cat /tmp/${remote_base}.chunk-* > '$remote_path' && rm -f /tmp/${remote_base}.chunk-*"             2>>"$log" || rc=$?
+    fi
+    [ "$rc" -ne 0 ] && sed 's/^/    /' "$log" >&2
+    rm -f "$log"
+    return "$rc"
+}
+
 upload_sb_to_vm() {
     local vm_name="$1"
     _check_name_safety "$vm_name" || return 1
