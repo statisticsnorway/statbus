@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 07:27'
-updated_date: '2026-09-02 10:39'
+updated_date: '2026-09-04 11:17'
 labels:
   - release
   - ops
@@ -27,7 +27,7 @@ ordinal: 241000
 <!-- SECTION:DESCRIPTION:BEGIN -->
 KING'S RULING 2026-09-02, on surveyed facts (running-service reads, all 10 boxes, no drift): the CURRENT topology stays. dev=prerelease (explicit), Norway/rune=prerelease (the human canary posture), demo + et/jo/ma/mw/ug/ua/gh=stable (mode-derived default). No channel writes. He may later move demo to prerelease to demonstrate features early — a one-line .env.config edit + ./sb install, his call, no ticket needed.
 
-Rollout is operator-driven via ./cloud.sh (status/install/upgrade/notify — candidate-addressed CLI), plus each box's own channel offers. GitHub deploy branches and their workflows have no writer and no user anymore.
+Rollout is operator-driven via ./cloud.sh (status/install/upgrade/notify — candidate-addressed CLI), plus each box's own channel offers. GitHub deploy branches and their listener workflows have no writer and no user anymore (the manually runnable master-to-X workflows were retired in STATBUS-244; nothing writes the deploy branches since).
 
 RemAINING WORK (the whole ticket): delete the dead transport.
 1. Delete .github/workflows/deploy-to-{demo,dev,et,jo,ma,no,production,tcc,ug}.yaml and any master-to-*/production-to-* remnants (verify the orchestrator's deploy-to-dev DISPATCH path first — deploy-to-dev.yaml is still dispatched by release-fleet-orchestrator.yaml for the automatic dev canary and MUST STAY; delete only the ones with no dispatcher: grep the workflows for uses/dispatches before deleting).
@@ -130,5 +130,12 @@ foreman (2026-09-02): KING'S FINAL RULING supersedes comment #6's all-prerelease
 created: 2026-09-02 10:39
 ---
 foreman (2026-09-02, later same morning): KING AMENDS the topology — demo moves to PRERELEASE. Rationale: with dev green on rc.02 but Norway (large, standalone) refusing it, he wants a manual test point for both a SMALL installation (demo) and a LARGE one (Norway) on the candidate channel. Target topology: dev + demo + rune=prerelease; et/jo/ma/mw/ug/ua/gh=stable. The demo channel write is his (or foreman-gated on his word): edit demo's .env.config UPGRADE_CHANNEL=prerelease + ./sb install — timing his call, sensibly after the Norway RCA verdict and on a binary carrying the current sweep fixes.
+---
+---
+author: foreman
+created: 2026-09-04 11:17
+---
+WAVE D1 SATISFIED (the King's ruling, 2026-09-04): demo, on the stable channel, received v2026.09.0 through its own upgrade service's periodic check (scheduled 12:58:22, completed 12:59:33 local, observed by the King in the admin UI) with no deploy-branch involvement. One box exercising the code covers the mechanism for every box running the same code — et/jo/ma/ug need no individual confirmation. The deletion guard is met.
+Execution notes agreed: deploy-to-dev.yaml STAYS (dispatched by the orchestrator; ran green three times today). Its deprecated branch-push fallback trigger goes too, and then ops/cloud/deploy/dev with it — the orchestrator dispatch is the only real path. Per-file no-dispatcher check before each deletion, doc/CLOUD.md sweep, read-only channel re-verification across the fleet afterward. Terminology: say "manually runnable workflows", not "buttons".
 ---
 <!-- COMMENTS:END -->
