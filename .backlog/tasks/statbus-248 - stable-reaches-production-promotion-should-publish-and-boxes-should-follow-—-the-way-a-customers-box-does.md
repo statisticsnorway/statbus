@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-19 07:27'
-updated_date: '2026-09-04 11:17'
+updated_date: '2026-09-04 15:08'
 labels:
   - release
   - ops
@@ -149,5 +149,17 @@ Required order, now part of STATBUS-248:
 2. Survey every cloud box read-only. After the fix is available on a box, repair every noncanonical configuration through the product-owned path (`./sb install`, which calls `NormalizeRefspecs`) unless the foreman explicitly approves a targeted alternative. Verify each repaired box with `git config --get-all remote.origin.fetch`, expecting exactly the two canonical lines.
 3. Norway/rune remains off limits to this implementer. The foreman handles its survey and repair with the King.
 4. Only after every box is verified canonical may the already inventoried remote deploy branches be deleted. Re-list and re-check immediately before deletion; no earlier approval carries across this prerequisite.
+---
+---
+author: foreman
+created: 2026-09-04 15:08
+---
+ROOT CAUSE FOUND MID-EXECUTION, and it is bigger than "dead transport". The installer ITSELF wrote a per-slot git fetch refspec into every box that had a DEPLOYMENT_SLOT_CODE: configureDeployFetch was called from runCloneRepo AND runGenerateEnv, both ordinary steps of `./sb install`, gated only on the slot code being set and the branch existing on origin. So this is installer behaviour, not cloud-only residue — rune/NORWAY carries `+refs/heads/ops/cloud/deploy/no` too (verified read-only 2026-09-04 15:00; its fetch is exit 0 TODAY only because the branch still exists).
+
+WHY IT BLOCKS DELETION: release discovery runs `git fetch --tags --prune-tags`, which consults every configured refspec. A refspec naming a deleted branch makes that fetch exit 128 (`fatal: couldn't find remote ref`), so the box would silently stop receiving upgrades — verified by Luna against the product's real fetch commands, tmp/luna-refspec-verification.md, after the foreman's generic reproduction was challenged by the King and re-tested faithfully. The service tick does NOT call NormalizeRefspecs first, so boxes do not self-heal by waiting.
+
+KING'S RULINGS (2026-09-04): (a) NO new toolchain verb — this is a one-time manual cleanup of our own residue, not a product feature; (b) manual repair authorized on all niue cloud boxes AND rune/Norway; (c) no other NSO installation has a deploy branch, so there is no wider exposure.
+
+EXECUTION ORDER, now part of this ticket: (1) code fix — configureDeployFetch removed, both call sites normalize only, regression tests forbid its return (d689a94d7, 186a96d73); (2) manual per-box repair of the DEPLOY LINE ONLY (boxes noncanonical for other historical reasons — mw tag-only, ua/gh duplicate db-seed — are left alone and reported); (3) verify each box: canonical two lines + `git fetch --tags --prune-tags --dry-run` exit 0 + service healthy; (4) ONLY THEN delete the 8 remote branches (all tips verified ancestors of origin/master). Workflow deletions, deploy-to-dev fallback removal and the doc sweep are already done and are independent of the branch deletion.
 ---
 <!-- COMMENTS:END -->
