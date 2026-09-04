@@ -6,16 +6,16 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-08-19 07:27'
-updated_date: '2026-09-04 19:25'
+updated_date: '2026-09-04 19:50'
 labels:
   - release
   - ops
   - upgrade
 dependencies: []
 references:
-  - .github/workflows/master-to-production.yaml
-  - .github/workflows/production-to-all.yaml
-  - cli/internal/upgrade/service.go
+  - .github/workflows/release-fleet-orchestrator.yaml
+  - .github/workflows/deploy-to-dev.yaml
+  - cli/internal/upgrade/refspec.go
   - doc/CLOUD.md
 priority: high
 type: enhancement
@@ -34,13 +34,14 @@ Retire the writer-less deploy-branch transport without interrupting release disc
 - Removed every unreferenced country deploy workflow and the dev workflow's branch-push fallback.
 - Removed the installer's `configureDeployFetch` writer. `upgrade.CanonicalRefspecs` is the sole authority, with regression coverage against any deploy-refspec writer returning.
 - Manually removed only stale `ops/cloud/deploy/*` fetch lines from the five affected niue slots and rune/Norway, as authorized. Re-verification on 2026-09-04 found no deploy refspec on dev, demo, et, jo, ma, ug, mw, ua, gh, test, or Norway. Norway retained wildcard + db-seed, fetch dry-run exited 0, its upgrade service was active, and its ledger was visible.
-- Re-listed all eight remaining remote branch tips. Every tip is an ancestor of `origin/master` with zero unique commits, and no current workflow or product path reads one.
+- Re-listed all eight remote branch tips immediately before deletion. Every tip was an ancestor of `origin/master` with zero unique commits, and no current workflow, product path, operator script, or documentation advertised one as active. An independent final gate returned `SAFE TO DELETE` at `dd4921ba3`.
+- Deleted `ops/cloud/deploy/{dev,et,jo,ma,no,production,tcc,ug}` from origin. Post-delete reads found no `ops/cloud/deploy/*` or `ops/standalone/deploy/*` remote branch.
+- Re-ran the product fetch command after deletion on every formerly affected box: dev, et, jo, ma, ug, and Norway all exited 0.
+- Re-read channels from the running services: dev and Norway remain `prerelease`; demo, et, jo, ma, mw, ug, ua, and gh remain `stable`. The stopped test slot's generated channel is `stable`, but it has no running service to observe.
 
 ## Remaining
 
-1. Delete `ops/cloud/deploy/{dev,et,jo,ma,no,production,tcc,ug}` from origin and prove that namespace is empty.
-2. Re-verify role-correct fleet channels after deletion.
-3. Close this ticket after the next RC proves the surviving orchestrator-to-dev dispatch path green.
+Close this ticket after the batch RC proves the surviving orchestrator-to-dev dispatch path green with no deploy branch present.
 
 The test slot's old conflicting rebaseline tags and separately observed stopped service/database are not deploy-refspec failures and do not block this deletion under the King's ruling. They require a separate record and must not be silently folded into this cleanup.
 <!-- SECTION:DESCRIPTION:END -->
