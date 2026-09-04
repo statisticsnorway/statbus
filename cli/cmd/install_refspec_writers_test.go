@@ -46,19 +46,26 @@ func TestShellNoLongerWritesRefspecs(t *testing.T) {
 // STATBUS-248: install must never append a per-slot deploy refspec. Such a
 // refspec turns deletion of the retired remote branch into a permanent fetch
 // failure on that box. CanonicalRefspecs is the only writer authority.
-func TestInstallNoLongerWritesCloudDeployRefspecs(t *testing.T) {
-	src, err := os.ReadFile(thisRepoFile(t, "cli/cmd/install.go"))
-	if err != nil {
-		t.Fatalf("read install.go: %v", err)
-	}
-
-	for i, line := range strings.Split(string(src), "\n") {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" || strings.HasPrefix(trimmed, "//") {
-			continue
+func TestOperationalEntrypointsNoLongerWriteOrAdvertiseDeployBranches(t *testing.T) {
+	for _, path := range []string{
+		"cli/cmd/install.go",
+		"standalone.sh",
+	} {
+		src, err := os.ReadFile(thisRepoFile(t, path))
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
 		}
-		if strings.Contains(line, "ops/cloud/deploy/") || strings.Contains(line, "configureDeployFetch") {
-			t.Errorf("install.go:%d still writes the retired deploy transport: %q", i+1, trimmed)
+
+		for i, line := range strings.Split(string(src), "\n") {
+			trimmed := strings.TrimSpace(line)
+			if trimmed == "" || strings.HasPrefix(trimmed, "//") || strings.HasPrefix(trimmed, "#") {
+				continue
+			}
+			if strings.Contains(line, "ops/cloud/deploy/") ||
+				strings.Contains(line, "ops/standalone/deploy/") ||
+				strings.Contains(line, "configureDeployFetch") {
+				t.Errorf("%s:%d still writes or advertises the retired deploy transport: %q", path, i+1, trimmed)
+			}
 		}
 	}
 }

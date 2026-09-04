@@ -96,8 +96,8 @@ jobs:
       matrix:
         # statbus_no was removed 2026-04-21 when Norway migrated to rune.statbus.org
         # (standalone, not multi-tenant cloud). Standalone hosts have their own
-        # deploy workflow (ops/standalone/deploy/<host>-<slot>) and don't need
-        # notify-all-clouds, which is niue-specific.
+        # channel-backed upgrade service and don't need notify-all-clouds, which
+        # is niue-specific.
         #
         # statbus_tcc was torn down (STATBUS-321 phase 4a): the box no longer
         # exists — user and containers removed, DNS removed. Port offset 4 is

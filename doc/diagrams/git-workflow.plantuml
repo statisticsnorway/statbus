@@ -5,72 +5,49 @@
 skinparam backgroundColor #FEFEFE
 skinparam rectangle {
     BackgroundColor<<Branch>> #E3F2FD
-    BackgroundColor<<DeployBranch>> #FFF3E0
-    BackgroundColor<<Server>> #E8F5E9
+    BackgroundColor<<Candidate>> #FFF3E0
+    BackgroundColor<<Service>> #E8F5E9
 }
 
-title StatBus Git Deployment Workflow
+title StatBus Candidate and Channel Delivery
 
 rectangle "Development" {
-    rectangle "feature/xxx" as feature <<Branch>> {
-        [Developer work]
-    }
-
-    rectangle "master" as master <<Branch>> {
-        [Main branch\nAll features merged here]
-    }
+    rectangle "feature/xxx" as feature <<Branch>>
+    rectangle "master" as master <<Branch>>
 }
 
-rectangle "Deployment Branches" {
-    rectangle "ops/cloud/deploy/production" as prod <<DeployBranch>> {
-        [Production trigger\nPushes to ALL slots]
-    }
-
-    rectangle "ops/cloud/deploy/dev" as dev <<DeployBranch>>
-    rectangle "ops/cloud/deploy/demo" as demo <<DeployBranch>>
-    rectangle "ops/cloud/deploy/no" as no <<DeployBranch>>
-    rectangle "ops/cloud/deploy/ma" as ma <<DeployBranch>>
-    rectangle "ops/cloud/deploy/tcc" as tcc <<DeployBranch>>
-    rectangle "ops/cloud/deploy/ug" as ug <<DeployBranch>>
-    rectangle "ops/cloud/deploy/et" as et <<DeployBranch>>
-    rectangle "ops/cloud/deploy/jo" as jo <<DeployBranch>>
+rectangle "Release" {
+    rectangle "release candidate tag" as candidate <<Candidate>>
+    rectangle "GitHub release\nassets + manifests" as release <<Candidate>>
+    rectangle "release-fleet-orchestrator" as orchestrator <<Service>>
+    rectangle "deploy-to-dev.yaml\n(named SHA input)" as dev_workflow <<Service>>
 }
 
-rectangle "niue.statbus.org" as niue <<Server>> {
-    [dev.statbus.org\nno.statbus.org\nma.statbus.org\n...]
+rectangle "Installations" {
+    rectangle "dev.statbus.org\nautomatic canary" as dev <<Service>>
+    rectangle "rune / Norway\nhuman canary" as norway <<Service>>
+    rectangle "demo + country slots\nstable channel" as fleet <<Service>>
 }
+
+rectangle "Operator" as operator
+rectangle "cloud.sh / sb upgrade" as tools <<Service>>
 
 feature --> master : MANUAL_TRIGGER\nPR merge
-master --> prod : MANUAL_TRIGGER\nProduction release
-prod --> dev : AUTOMATIC_TRIGGER
-prod --> demo : AUTOMATIC_TRIGGER
-prod --> no : AUTOMATIC_TRIGGER
-prod --> ma : AUTOMATIC_TRIGGER
-prod --> tcc : AUTOMATIC_TRIGGER
-prod --> ug : AUTOMATIC_TRIGGER
-prod --> et : AUTOMATIC_TRIGGER
-prod --> jo : AUTOMATIC_TRIGGER
+master --> candidate : MANUAL_TRIGGER\ncut candidate
+candidate --> release : AUTOMATIC_TRIGGER\npublish immutable artifacts
+candidate --> orchestrator : AUTOMATIC_TRIGGER\nrun release evidence chain
+orchestrator --> dev_workflow : AUTOMATIC_TRIGGER\nworkflow dispatch + commit SHA
+dev_workflow --> dev : AUTOMATIC_TRIGGER\napply exact candidate
+release --> norway : candidate offered on\nprerelease channel
+release --> fleet : stable promotion becomes\navailable on stable channel
+operator --> tools : MANUAL_TRIGGER
+tools --> norway : schedule observed candidate
+tools --> fleet : inspect, notify, or roll fleet
 
-dev --> niue : AUTOMATIC_TRIGGER\nSSH + upgrade service
-demo --> niue : AUTOMATIC_TRIGGER
-no --> niue : AUTOMATIC_TRIGGER
-ma --> niue : AUTOMATIC_TRIGGER
-tcc --> niue : AUTOMATIC_TRIGGER
-ug --> niue : AUTOMATIC_TRIGGER
-et --> niue : AUTOMATIC_TRIGGER
-jo --> niue : AUTOMATIC_TRIGGER
-
-note right of prod
-  Push to production branch
-  triggers GitHub Actions that
-  push to ALL country branches
-end note
-
-note bottom of niue
-  Each deployment branch triggers
-  SSH to niue.statbus.org as
-  statbus_{code} user and triggers
-  the upgrade service
+note bottom of release
+  No deploy branch is a transport.
+  Every installed target is a named candidate
+  or a release discovered from the box's channel.
 end note
 
 @enduml

@@ -93,7 +93,7 @@ The `ci-images.yaml` workflow builds SHA-tagged images on every push to `master`
 - **Tag format**: `sha-<full-40-char-commit-sha>`
 - **Purpose**: cloud deployments pull these images instead of building on each host
 
-These images are used by the branch-based deploy workflows (`deploy-to-*.yaml`) and the upgrade service for SHA-based deployments.
+These images are used by the candidate-addressed dev deployment workflow and by the upgrade service for SHA-based deployments.
 
 ## Image Cleanup
 

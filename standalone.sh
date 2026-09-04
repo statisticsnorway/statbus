@@ -459,16 +459,10 @@ cmd_wipe() {
 cmd_inspect() {
     echo "StatBus Standalone Hosts"
     echo "========================"
-    printf "%-8s  %-24s  %-22s  %s\n" "NAME" "HOST (SSH)" "SERVES" "DEPLOY BRANCH"
+    printf "%-8s  %-24s  %s\n" "NAME" "HOST (SSH)" "SERVES"
     for entry in "${HOSTS[@]}"; do
         IFS='|' read -r name fqdn dom <<< "$entry"
-        # Deploy branch is ops/standalone/deploy/<host-short>-<name> where
-        # <host-short> is the first label of the fqdn. rune.statbus.org → rune,
-        # so no → ops/standalone/deploy/rune-no (matches the existing workflow
-        # filename pair).
-        local host_short="${fqdn%%.*}"
-        printf "%-8s  %-24s  %-22s  %s\n" \
-            "$name" "statbus@$fqdn" "$dom" "ops/standalone/deploy/${host_short}-${name}"
+        printf "%-8s  %-24s  %s\n" "$name" "statbus@$fqdn" "$dom"
     done
 }
 

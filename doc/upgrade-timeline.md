@@ -851,8 +851,9 @@ recent upgrade started").
   (e.g. upstream tag pruning). See `restoreGitStateFn`.
 
 Both branches are slot-implicit: each multi-tenant slot on niue has its own `~/statbus/.git`,
-so the same name on two slots refers to two independent pointers. Origin's deployment branches
-(`ops/cloud/deploy/<slot>`, `ops/standalone/deploy/<host>-<slot>`) are CI-driven and unrelated.
+so the same name on two slots refers to two independent pointers. They are unrelated to the
+retired remote deploy-branch transport; candidate delivery now uses named workflow dispatches,
+channel discovery, and operator commands.
 
 ## Design principle: silent soft-warnings are forbidden
 

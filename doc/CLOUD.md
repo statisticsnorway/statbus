@@ -407,9 +407,9 @@ cd ~/statbus
 
 This channel table is role truth, not a request to normalize every box to `stable`. Dev and Norway must remain on `prerelease`; Norway's production role does not override its human-canary role.
 
-**Remote branch cleanup ordering:** old installs may still carry an explicit `ops/cloud/deploy/<slot>` fetch refspec. Deleting that remote branch first makes `git fetch origin` fail and stops upgrade discovery. Land the code that removes the refspec writer, run the product-owned repair path (`./sb install`) on every affected box, and verify `git config --get-all remote.origin.fetch` contains exactly `+refs/heads/*:refs/remotes/origin/*` and `+refs/heads/db-seed:refs/remotes/origin/db-seed`. Only then may the remote deploy branches be deleted. Norway/rune is repaired separately by its responsible operator.
+**Legacy refspec warning:** installs created before STATBUS-248 could carry an explicit deploy-branch fetch refspec. The writer is removed and the SSB-operated fleet was repaired before the remote branches were deleted. Never recreate that refspec: when its named remote branch does not exist, `git fetch origin` fails and release discovery stops. `upgrade.CanonicalRefspecs` is the sole authority for fetch configuration.
 
-<img src="diagrams/git-workflow.svg" alt="Git Deployment Workflow" style="max-width:100%;">
+<img src="diagrams/git-workflow.svg" alt="Candidate and Channel Delivery" style="max-width:100%;">
 
 **On the server, once a version is targeted (any mechanism below):**
 

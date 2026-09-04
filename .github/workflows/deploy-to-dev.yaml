@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
-name: "dev.statbus.org<-ops/cloud/deploy/dev"
+name: "Deploy candidate to dev.statbus.org"
 on:
   # STATBUS-260: the chain DISPATCHES this workflow and names the candidate,
   # rather than pushing a branch and hoping the push implies a trigger.

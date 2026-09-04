@@ -3,10 +3,10 @@ id: STATBUS-248
 title: >-
   retire-dead-deploy-transport: delete the writer-less deploy workflows and
   branches — channels stay as surveyed, cloud.sh is the rollout path
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-08-19 07:27'
-updated_date: '2026-09-04 15:08'
+updated_date: '2026-09-04 19:25'
 labels:
   - release
   - ops
@@ -25,16 +25,24 @@ ordinal: 241000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-KING'S RULING 2026-09-02, on surveyed facts (running-service reads, all 10 boxes, no drift): the CURRENT topology stays. dev=prerelease (explicit), Norway/rune=prerelease (the human canary posture), demo + et/jo/ma/mw/ug/ua/gh=stable (mode-derived default). No channel writes. He may later move demo to prerelease to demonstrate features early — a one-line .env.config edit + ./sb install, his call, no ticket needed.
+## Purpose
 
-Rollout is operator-driven via ./cloud.sh (status/install/upgrade/notify — candidate-addressed CLI), plus each box's own channel offers. GitHub deploy branches and their listener workflows have no writer and no user anymore (the manually runnable master-to-X workflows were retired in STATBUS-244; nothing writes the deploy branches since).
+Retire the writer-less deploy-branch transport without interrupting release discovery on an old installation. Candidate delivery is now explicit: the release orchestrator dispatches `deploy-to-dev.yaml` at a named commit; operators use `./cloud.sh` and each box's channel-backed upgrade service for the rest of the fleet.
 
-RemAINING WORK (the whole ticket): delete the dead transport.
-1. Delete .github/workflows/deploy-to-{demo,dev,et,jo,ma,no,production,tcc,ug}.yaml and any master-to-*/production-to-* remnants (verify the orchestrator's deploy-to-dev DISPATCH path first — deploy-to-dev.yaml is still dispatched by release-fleet-orchestrator.yaml for the automatic dev canary and MUST STAY; delete only the ones with no dispatcher: grep the workflows for uses/dispatches before deleting).
-2. Delete the deploy branches: ops/cloud/deploy/{demo,dev,et,jo,ma,no,production,tcc,ug} and ops/standalone/deploy/rune-no — EXCEPT any branch a surviving workflow still reads (deploy-to-dev's deprecated branch-push fallback: if deploy-to-dev.yaml stays, decide whether its fallback trigger goes too, then its branch).
-3. Sweep doc/CLOUD.md and ops/ references to the deleted paths.
+## Completed
 
-Acceptance: every deleted workflow had no dispatcher/writer (named check per file); the dev canary chain still works (next rc's orchestrator dispatches deploy-to-dev green); no ops/cloud/deploy/* or ops/standalone/deploy/* branches remain except those a surviving workflow reads; fleet channels re-verified unchanged after the deletions (they are config, not workflow, but verify anyway); doc/CLOUD.md carries the cloud.sh + channel-offers rollout story.
+- Removed every unreferenced country deploy workflow and the dev workflow's branch-push fallback.
+- Removed the installer's `configureDeployFetch` writer. `upgrade.CanonicalRefspecs` is the sole authority, with regression coverage against any deploy-refspec writer returning.
+- Manually removed only stale `ops/cloud/deploy/*` fetch lines from the five affected niue slots and rune/Norway, as authorized. Re-verification on 2026-09-04 found no deploy refspec on dev, demo, et, jo, ma, ug, mw, ua, gh, test, or Norway. Norway retained wildcard + db-seed, fetch dry-run exited 0, its upgrade service was active, and its ledger was visible.
+- Re-listed all eight remaining remote branch tips. Every tip is an ancestor of `origin/master` with zero unique commits, and no current workflow or product path reads one.
+
+## Remaining
+
+1. Delete `ops/cloud/deploy/{dev,et,jo,ma,no,production,tcc,ug}` from origin and prove that namespace is empty.
+2. Re-verify role-correct fleet channels after deletion.
+3. Close this ticket after the next RC proves the surviving orchestrator-to-dev dispatch path green.
+
+The test slot's old conflicting rebaseline tags and separately observed stopped service/database are not deploy-refspec failures and do not block this deletion under the King's ruling. They require a separate record and must not be silently folded into this cleanup.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Comments
