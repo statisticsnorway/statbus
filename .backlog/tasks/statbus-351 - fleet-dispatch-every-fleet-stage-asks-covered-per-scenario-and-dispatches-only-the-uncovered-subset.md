@@ -5,7 +5,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-04 07:18'
-updated_date: '2026-09-04 07:24'
+updated_date: '2026-09-04 12:26'
 labels:
   - release
   - ci
@@ -48,6 +48,14 @@ Two consequences:
 4. Keep the harness's own rule that a run selecting zero scenarios fails red. The orchestrator never dispatches an empty subset, so that rule is never hit from the chain.
 5. `doc/release-workflow-gates.md`: one paragraph stating that every VM stage decides per scenario with the same library the gate uses, and that `ops/release/upgrade-sensitive-paths.txt` is the single list both read.
 
+## Undecidable at dispatch time (the King's actionable-fail-fast ruling, 2026-09-04)
+
+The chain's decision is a COST OPTIMIZER; the stable gate is the AUTHORITY. They share the one library but differ, explicitly, in what they do with "I don't know":
+
+- **Action, fail-open:** a decision step that gets exit 2 dispatches the FULL suite for its workflow. Running VMs unnecessarily is the bounded cost; the dispatched run produces the very evidence that was unreadable. Never guess a skip.
+- **Signal, fail-loud:** a dedicated orchestrator job `coverage-question-health` (`if: always()`, after the dispatch stages, NOT in the dispatch `needs:` chain) FAILS iff any decision point answered undecidable, with the exact stderr as its message: `the coverage question could not be asked: <error>; the full suite was dispatched instead of guessing; fix the evidence path (token/API)`. The chain completes, the fleets stay green, the orchestrator run goes red with one job whose name is the diagnosis. Which job is red distinguishes "product failed" from "question-asking failed". A log line inside a green run is suppression; this job is the affordance.
+- **Authority, fail-closed:** the stable gate keeps exit-2 semantics untouched and refuses promotion with the same named error while the evidence path is broken.
+
 ## Why the fleets are still needed at all when the product changes
 
 An RC that touches only `app/` skips every fleet and rides prior proof. That is correct: the dev canary (stage 3) never skips and is what proves the product itself. The fleets prove install, upgrade and recovery, and those only change when files on the sensitivity list change.
@@ -58,4 +66,5 @@ An RC that touches only `app/` skips every fleet and rides prior proof. That is 
 - An RC that touches, for example, only `test/install-recovery/arcs/foo-arc.sh` dispatches the arc harness with exactly the scenarios `covered` says are uncovered.
 - `GITHUB_TOKEN=... ./sb release stable` on such an RC reaches the same verdict as the chain, because both ran the same walk.
 - `decide-upgrade-sensitivity` no longer exists.
+- With evidence reading forced to fail (bad token in a test dispatch), the fleet stages dispatch their full suites AND `coverage-question-health` is the single red job, naming the error; with evidence readable, that job is green and skips nothing.
 <!-- SECTION:DESCRIPTION:END -->
