@@ -108,7 +108,7 @@ func runCoverageAuthority(projDir, rcTag, rcCommit, rcShort string, domain relea
 		return false
 	}
 
-	sensitivePaths, sErr := loadUpgradeSensitivePaths(projDir)
+	sensitivePaths, sErr := release.LoadSensitivePaths(projDir)
 	if sErr != nil {
 		fmt.Printf("  ✗ %s: could not load the sensitivity-path list needed for the coverage walk\n", workflow)
 		fmt.Printf("    Error: %v\n", sErr)
@@ -122,7 +122,7 @@ func runCoverageAuthority(projDir, rcTag, rcCommit, rcShort string, domain relea
 			TagCommit:                  func(tag string) (string, error) { return tagTargetCommit(projDir, tag) },
 			Evidence:                   scenarioEvidence(projDir, scenario),
 			DiffTouches: func(from, to string) (bool, []string, error) {
-				return diffTouchesSensitivePath(projDir, from, to, sensitivePaths)
+				return release.DiffTouchesSensitivePath(projDir, from, to, sensitivePaths)
 			},
 		})
 		results = append(results, coverageAuthorityScenario{Scenario: scenario.Name, Verdict: v, Err: err})

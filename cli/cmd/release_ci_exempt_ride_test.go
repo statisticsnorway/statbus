@@ -113,8 +113,8 @@ func TestCIExemptPathsFile_IsNotItselfExempt(t *testing.T) {
 	}
 	// The sibling sensitivity list must not be exempt either: narrowing the
 	// upgrade gate is not a test-irrelevant edit.
-	if fileIsCIExempt(upgradeSensitivePathsFile, exempt) {
-		t.Errorf("%s must never be exempt — editing the upgrade-sensitivity list is a gated act", upgradeSensitivePathsFile)
+	if fileIsCIExempt(release.SensitivePathsFile, exempt) {
+		t.Errorf("%s must never be exempt — editing the upgrade-sensitivity list is a gated act", release.SensitivePathsFile)
 	}
 	// Neither may the workflows or the release code that implement the gates.
 	for _, mustNot := range []string{

@@ -1,16 +1,20 @@
-# STATBUS-199: paths whose changes make an RC "upgrade-sensitive" — the
-# stable release gate's upgrade-arc-harness walk (cli/cmd/release.go)
-# requires a genuine FULL-SUITE green run at or since the newest such
-# change before an RC may promote to stable. An RC whose diff against the
-# previous RC touches NONE of these may instead ride the newest prior
-# FULL-SUITE green (printed loudly, naming the inherited tag).
+# STATBUS-199: paths whose changes make an RC "upgrade-sensitive". A scenario
+# proven at an earlier RC covers a later RC only if the diff between them
+# touches NONE of these; otherwise the scenario must run again before the
+# later RC may promote to stable.
+#
+# ONE reader, ONE rule: cli/internal/release/sensitivity.go
+# (LoadSensitivePaths, MatchesSensitivePath, DiffTouchesSensitivePath), used
+# by DecideCoverage. The stable gate calls it as a library; the release chain
+# calls it through `./sb release covered`. Nothing else parses this file.
 #
 # Matching is substring containment against each changed file's repo-root-
 # relative path (as `git diff --name-only` prints it) — deliberately
 # over-inclusive rather than under-inclusive: a coincidental substring hit
-# just costs one extra full-suite run, a missed genuine change costs an
-# unproven promotion. One entry per line; blank lines and lines starting
-# with # are ignored.
+# just costs one extra fleet run, a missed genuine change costs an unproven
+# promotion. One entry per line; blank lines and lines starting with # are
+# ignored. cli/cmd/sensitive_paths_list_test.go pins this list against every
+# artefact the box executes.
 #
 # Touching THIS FILE is itself sensitive by definition — narrowing the
 # gate is exactly the kind of change the gate must catch, so the entry

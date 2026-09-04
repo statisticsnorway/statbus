@@ -1444,11 +1444,6 @@ SKIP_APP_BUILD_LINT) apply at the prerelease cut — see
 	},
 }
 
-// upgradeSensitivePathsFile is the checked-in list checkUpgradeArcHarnessGate
-// quotes verbatim in its output — see the file's own header for the
-// matching rule (substring containment, deliberately over-inclusive).
-const upgradeSensitivePathsFile = "ops/release/upgrade-sensitive-paths.txt"
-
 // ciExemptPathsFile is the checked-in list of paths whose changes cannot
 // affect any test outcome, build artifact, or runtime behaviour (STATBUS-219,
 // doc-030). See the file's own header for the matching rule — an ANCHORED
@@ -1462,7 +1457,7 @@ const ciExemptPathsFile = "ops/release/ci-exempt-paths.txt"
 const ciExemptRideWalkBound = 50
 
 // loadCIExemptPaths reads ciExemptPathsFile: one path prefix per line, blank
-// lines and #-comments ignored. Mirrors loadUpgradeSensitivePaths' shape; the
+// lines and #-comments ignored. Mirrors release.LoadSensitivePaths' shape; the
 // MATCHING rule is the inverse (see fileIsCIExempt).
 func loadCIExemptPaths(projDir string) ([]string, error) {
 	data, err := os.ReadFile(filepath.Join(projDir, ciExemptPathsFile))
@@ -1483,7 +1478,7 @@ func loadCIExemptPaths(projDir string) ([]string, error) {
 // fileIsCIExempt reports whether one changed file is covered by the exempt
 // list, matching an ANCHORED PATH PREFIX.
 //
-// THE MATCHING RULE IS THE DELIBERATE INVERSE OF diffTouchesSensitivePath, AND
+// THE MATCHING RULE IS THE DELIBERATE INVERSE OF release.DiffTouchesSensitivePath, AND
 // THE INVERSION IS LOAD-BEARING — do not "unify" the two helpers. That one uses
 // substring containment because for a SENSITIVITY list over-inclusive is the
 // safe direction: a coincidental hit costs one extra full-suite run. Here the
@@ -1700,66 +1695,6 @@ func printExemptRide(label string, ride *exemptRide) {
 	fmt.Printf("    %d file(s) changed since, all exempt per %s\n", len(ride.Justifying), ciExemptPathsFile)
 }
 
-// loadUpgradeSensitivePaths reads upgradeSensitivePathsFile: one
-// prefix/substring per line, blank lines and #-comments ignored.
-func loadUpgradeSensitivePaths(projDir string) ([]string, error) {
-	data, err := os.ReadFile(filepath.Join(projDir, upgradeSensitivePathsFile))
-	if err != nil {
-		return nil, fmt.Errorf("reading %s: %w", upgradeSensitivePathsFile, err)
-	}
-	var paths []string
-	for _, line := range strings.Split(string(data), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		paths = append(paths, line)
-	}
-	return paths, nil
-}
-
-// diffTouchesSensitivePath runs `git diff --name-only fromRef..toRef` and
-// reports whether any changed file contains any sensitivePaths entry as a
-// substring. Returns the matched CHANGED FILES (not the matched
-// sensitivity-list entries) so the caller can print exactly what tripped
-// it.
-func diffTouchesSensitivePath(projDir, fromRef, toRef string, sensitivePaths []string) (touched bool, matchedFiles []string, err error) {
-	out, err := upgrade.RunCommandOutput(projDir, "git", "diff", "--name-only", fromRef+".."+toRef)
-	if err != nil {
-		return false, nil, fmt.Errorf("git diff %s..%s: %w", fromRef, toRef, err)
-	}
-	for _, file := range strings.Split(strings.TrimSpace(out), "\n") {
-		file = strings.TrimSpace(file)
-		if file == "" {
-			continue
-		}
-		if fileMatchesSensitivePaths(file, sensitivePaths) {
-			matchedFiles = append(matchedFiles, file)
-		}
-	}
-	return len(matchedFiles) > 0, matchedFiles, nil
-}
-
-// fileMatchesSensitivePaths is the ONE matching rule for the sensitivity
-// list: substring containment against the repo-root-relative path, as the
-// list's header documents (deliberately over-inclusive).
-func fileMatchesSensitivePaths(file string, sensitivePaths []string) bool {
-	for _, p := range sensitivePaths {
-		if strings.Contains(file, p) {
-			return true
-		}
-	}
-	return false
-}
-
-// upgradeArcDir and upgradeArcSuffix are the arc scenario domain's
-// coordinates. The SAME two strings appear in
-// .github/workflows/upgrade-arc-harness.yaml's discover job, which builds
-// the test matrix from them — two readers of one folder, and the gate's
-// promise ("promotion means every arc ran") is only true while they agree.
-// TestUpgradeArcDomainPathMatchesWorkflow pins them to the workflow file so
-// a move fails LOUDLY here instead of silently emptying one side
-// (STATBUS-216 AC#4, the STATBUS-199 comment #6 duplication-guard pattern).
 const (
 	upgradeArcDir    = "test/install-recovery/arcs/"
 	upgradeArcSuffix = "-arc.sh"

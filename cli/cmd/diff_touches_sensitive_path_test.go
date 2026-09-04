@@ -7,6 +7,7 @@ package cmd
 // the source the way the toolchain-advice tests do.
 
 import (
+	"github.com/statisticsnorway/statbus/cli/internal/release"
 	"github.com/statisticsnorway/statbus/cli/internal/testgit"
 	"os"
 	"os/exec"
@@ -58,7 +59,7 @@ func TestDiffTouchesSensitivePath(t *testing.T) {
 		base := runGitInCmd(t, dir, "rev-parse", "HEAD")
 		writeAndCommit(t, dir, "advance", "cli/cmd/release.go", "doc/other.md")
 
-		touched, matched, err := diffTouchesSensitivePath(dir, base, "HEAD", []string{"cli/", "postgres/"})
+		touched, matched, err := release.DiffTouchesSensitivePath(dir, base, "HEAD", []string{"cli/", "postgres/"})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -78,7 +79,7 @@ func TestDiffTouchesSensitivePath(t *testing.T) {
 		base := runGitInCmd(t, dir, "rev-parse", "HEAD")
 		writeAndCommit(t, dir, "advance", "doc/other.md", "app/src/foo.tsx")
 
-		touched, matched, err := diffTouchesSensitivePath(dir, base, "HEAD", []string{"cli/", "postgres/", "migrations/"})
+		touched, matched, err := release.DiffTouchesSensitivePath(dir, base, "HEAD", []string{"cli/", "postgres/", "migrations/"})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -105,7 +106,7 @@ func TestDiffTouchesSensitivePath(t *testing.T) {
 		// into later and silently narrow the gate.
 		writeAndCommit(t, dir, "advance", "not-ops/file.txt")
 
-		touched, matched, err := diffTouchesSensitivePath(dir, base, "HEAD", []string{"ops/"})
+		touched, matched, err := release.DiffTouchesSensitivePath(dir, base, "HEAD", []string{"ops/"})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

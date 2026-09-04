@@ -79,7 +79,7 @@ func writeSensitivePathsFile(t *testing.T, dir string, paths ...string) {
 	if len(paths) == 0 {
 		paths = []string{"cli/internal/upgrade/"}
 	}
-	full := filepath.Join(dir, upgradeSensitivePathsFile)
+	full := filepath.Join(dir, release.SensitivePathsFile)
 	if err := os.MkdirAll(filepath.Dir(full), 0755); err != nil {
 		t.Fatal(err)
 	}

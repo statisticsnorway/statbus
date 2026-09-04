@@ -114,7 +114,7 @@ func decideScenarioCoverage(projDir, name, commit string) (release.CoverageVerdi
 	}
 	commit = full
 
-	sensitivePaths, err := loadUpgradeSensitivePaths(projDir)
+	sensitivePaths, err := release.LoadSensitivePaths(projDir)
 	if err != nil {
 		return release.CoverageVerdict{}, fmt.Errorf("load the sensitive-path list: %w", err)
 	}
@@ -135,7 +135,7 @@ func decideScenarioCoverage(projDir, name, commit string) (release.CoverageVerdi
 		TagCommit: func(tag string) (string, error) { return tagTargetCommit(projDir, tag) },
 		Evidence:  scenarioEvidence(projDir, scenario),
 		DiffTouches: func(from, to string) (bool, []string, error) {
-			return diffTouchesSensitivePath(projDir, from, to, sensitivePaths)
+			return release.DiffTouchesSensitivePath(projDir, from, to, sensitivePaths)
 		},
 	})
 }

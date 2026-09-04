@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"github.com/statisticsnorway/statbus/cli/internal/release"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -18,7 +19,7 @@ func TestUpgradeSensitivePathsListReachesEveryExecutedArtefact(t *testing.T) {
 	_, here, _, _ := runtime.Caller(0)
 	projDir := filepath.Clean(filepath.Join(filepath.Dir(here), "..", ".."))
 
-	paths, err := loadUpgradeSensitivePaths(projDir)
+	paths, err := release.LoadSensitivePaths(projDir)
 	if err != nil {
 		t.Fatalf("loading the real list: %v", err)
 	}
@@ -37,7 +38,7 @@ func TestUpgradeSensitivePathsListReachesEveryExecutedArtefact(t *testing.T) {
 		".github/workflows/images.yaml",
 	}
 	for _, file := range executed {
-		if !fileMatchesSensitivePaths(file, paths) {
+		if !release.MatchesSensitivePath(file, paths) {
 			t.Errorf("%s is executed or shipped on the box but NO entry in ops/release/upgrade-sensitive-paths.txt reaches it — an RC changing only this file would inherit proof it did not earn", file)
 		}
 	}
@@ -48,7 +49,7 @@ func TestUpgradeSensitivePathsListReachesEveryExecutedArtefact(t *testing.T) {
 		"README.md",
 	}
 	for _, file := range notExecuted {
-		if fileMatchesSensitivePaths(file, paths) {
+		if release.MatchesSensitivePath(file, paths) {
 			t.Errorf("%s matched the sensitivity list; product-only RCs would then always pay for the fleet", file)
 		}
 	}
