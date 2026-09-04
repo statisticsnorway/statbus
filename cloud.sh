@@ -23,7 +23,7 @@
 #              (stop service, replace binary, re-run install) only if service is unreachable.
 #              Pinning a version always takes the full bootstrap path.
 #   tail     — observe. Streams upgrade service journal; exits automatically on completion.
-#   create   — provision. Creates new deployment slot (DNS, user, workflows, etc.)
+#   create   — provision. Creates a deployment slot at a named release.
 #   inspect  — read-only. Shows credentials/URLs for all deployment slots.
 #   wipe     — destructive. Deletes database and recreates. Data is lost.
 #
@@ -39,8 +39,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Multi-tenant cloud slots on niue. `statbus_no` was removed on 2026-04-21
 # when Norway migrated to the dedicated standalone box rune.statbus.org;
-# standalone hosts are NOT managed by cloud.sh (they use the per-host
-# ./sb and the standalone deploy workflows, see doc/CLOUD.md §Standalone).
+# standalone hosts are NOT managed by cloud.sh (they use `./standalone.sh`,
+# per-host `./sb`, and their channel-backed upgrade services; see doc/CLOUD.md).
 # ua (Ukraine) and gh (Ghana) were born 2026-08 from
 # create-new-statbus-installation.sh as ordinary slots on this host; this
 # list must gain every new slot the day it is created — a slot missing
