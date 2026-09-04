@@ -193,4 +193,13 @@ S3 design → tmp/sol-s3-design.md: ACCEPTED as the shape. Reorder rollback so t
 
 SEQUENCING RULING (foreman, under the King's overnight authority): S3 + the column protocol are too large to implement AND prove on VM arcs tonight. Tonight's RC ships the PREFIX form of cleanup-only (db33f1316), which completes on any schema; the column (012ca22da, 8fbe6e86a, ff1e5fda7) is moved to branch wip/347-column-protocol and lands with S3 in the following RC. What stays on master from that work: execObserved + the Exec sweep, pgtype.Text for commit_version, S1, S2, the exit-code contract, the docker health classifier, Scenario type. Sol is executing the revert + regeneration + full validation now. The King's constraint ruling is NOT reversed; it is deferred one RC so the adoption rollback path (S3) is built before the column that needs it.
 ---
+author: foreman
+created: 2026-09-04 03:30
+---
+rc.13 (b086f2aea) CUT 00:05Z under the King's overnight authority. Chain: release/hardening/both smokes/dev canary GREEN (dev row 447623 completed 00:28:53Z). Fleet 14/15 (one INFRA red: curl 35 fetching hcloud; rerun queued). Arcs dispatched by hand (orchestrator skipped them by propagation): 26 green, 4 RED, all four green at rc.12.
+
+Sol autopsy (tmp/sol-arc-autopsy-rc13.md): ONE PRODUCT REGRESSION, from S2 (3afd379cd) — the existing-marker-only recovery gate (no O_CREATE) was applied to completeInProgressUpgrade's documented MARKERLESS fresh-rollback path (after FLAG_CORRUPT removal), so the Behind verdict can no longer claim its rollback and app/rest/worker stay down (arc boot-migrate-churn-alive-idle, assertion F). Three HARNESS-ONLY from 495ecd20b's narration reshaping (between-migrations-kill, mid-tx-kill assert old sentences; rollback-restore-watchdog waits for a pre-rsync progress line that now prints only after rsync, while the journal proves the stall site was reached).
+
+Foreman ruling: the S2 gate is right for existing-marker recovery and stays; the flagless caller gets its own fresh-claim path (acquireFreshFlock O_EXCL + row re-read under the flock, same id/sha/backup_path/in_progress, yield otherwise). Failing live twin first. The watchdog arc's missing pre-operation line is a 347 style-rule violation on the product side ("the line announces the act"); likely restored as a product commit. Sol implementing; rc.14 follows. rc.13 is NOT a Norway candidate.
+---
 <!-- COMMENTS:END -->
