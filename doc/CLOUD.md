@@ -16,7 +16,7 @@ The StatBus cloud infrastructure hosts multiple country instances on a single se
 - **Isolated databases**: Each country has separate PostgreSQL database and Docker network
 - **Resource sharing**: Efficient use of server CPU, memory, and disk
 - **Independent management**: Each instance can be updated/restarted independently
-- **Automated deployment**: each instance's own upgrade service polls its channel and installs new releases on its own (STATBUS-244/248) — dev is the one exception, driven as the automatic canary
+- **Channel-based rollout**: operators use `./cloud.sh` for fleet status, notification, install, and upgrade actions; each box's own upgrade service polls its configured channel. Dev is the one exception explicitly driven by the release orchestrator as the automatic canary.
 
 ## Current Deployments
 
@@ -87,10 +87,10 @@ Clients worldwide
 
 - **User-based isolation**: Each deployment runs under `statbus_<code>` Linux user
 - **Git repo per deployment**: `/home/statbus_<code>/statbus/` contains complete repo
-- **Deployment branch per country**: `ops/cloud/deploy/<code>` branch (e.g., `ops/cloud/deploy/ma`)
+- **No deploy branches**: the retired branch-push transport has been deleted (STATBUS-244/248)
 - **Host Caddy imports configs**: `/etc/caddy/Caddyfile` imports from all `/home/statbus_*/statbus/caddy/config/`
 - **ACL permissions**: Host Caddy user has ACL read access to deployment configs
-- **Automated deployment**: SSH-triggered script runs on push to deployment branch
+- **Role-correct channels**: dev uses `prerelease`; ordinary cloud boxes use `stable`; Norway remains the human `prerelease` canary
 
 ### Key Benefits
 
@@ -397,13 +397,15 @@ cd ~/statbus
 
 **Operator workflow:** `./sb upgrade register <version>` records the candidate, then `./sb upgrade schedule <version>` writes the scheduled `public.upgrade` row. After that, either let the service run it (scheduling fires a NOTIFY; production norm), or run `./sb install` to dispatch inline — useful when you want the upgrade to run now without waiting, or when the service is stopped.
 
-### Deployment model (STATBUS-244)
+### Deployment model (STATBUS-244/248)
 
-**The `master-to-X` "push master to a deploy branch" buttons are retired.** Only a named release candidate may ever reach an installation — master's tip has no tag, no gate, no artifact anyone reviewed, and it changes on every commit. Which mechanism a box gets depends on its role, never on pushing master anywhere:
+**The manually runnable `master-to-X` workflows and deploy-branch transport are retired.** Only a named release candidate may ever reach an installation — master's tip has no tag, no gate, no artifact anyone reviewed, and it changes on every commit. Operators drive the cloud fleet with `./cloud.sh status`, `./cloud.sh notify`, `./cloud.sh install`, and `./cloud.sh upgrade`; each box's own upgrade service discovers offers from its channel. Which mechanism and channel a box gets depends on its role, never on pushing master anywhere:
 
-- **Dev** — the automatic canary (STATBUS-247, STATBUS-244b): every candidate reaches it without a human. The release-fleet-orchestrator.yaml dispatches deploy-to-dev.yaml directly at the candidate SHA (STATBUS-260), making dev the only box the chain explicitly drives. The `master-to-dev` button was deleted (STATBUS-244b); the `ops/cloud/deploy/dev` branch remains as a deprecated fallback transport only.
-- **Norway (`no`)** — the human canary: a person installs each candidate deliberately, against an observation card, on the `prerelease` channel. No push path.
-- **Demo and the ordinary country slots** (`ma`, `et`, `jo`, `ug`, …) — channel-following (STATBUS-248, below): the box's own upgrade service polls its channel and installs on its own; promotion is what moves them, not a push. *True of intent, not yet fully true of mechanism:* `deploy-to-{et,jo,ma,ug}.yaml` still exist — only the buttons that wrote to their deploy branches (the retired `master-to-X`) are gone, so nothing writes those branches any more, but the listening workflows remain on disk. They are removed once STATBUS-248's Wave D1 channel confirmation proves each box actually follows its channel — deleting a live NSO box's only receive path before that is confirmed could strand it. `deploy-to-tcc.yaml` is already gone (STATBUS-321 phase 4a): tcc itself was torn down, so the Wave-D1 receive-path caution doesn't apply to a removed installation.
+- **Dev** — `prerelease`, automatic canary (STATBUS-247): every candidate reaches it without a human. `release-fleet-orchestrator.yaml` dispatches `deploy-to-dev.yaml` directly at the candidate SHA (STATBUS-260), making workflow dispatch the only path and dev the only box the chain explicitly drives.
+- **Norway (`no`, on rune)** — `prerelease`, human canary: a person installs each candidate deliberately against an observation card. It has no push path and is never included in cloud fleet commands.
+- **Demo and ordinary cloud slots** — `stable`: `demo`, `et`, `jo`, `ma`, `mw`, `ug`, `ua`, and `gh` receive stable-channel offers from their own upgrade services. Promotion makes a release available; operators observe and roll the fleet with `./cloud.sh`, rather than moving a branch. The writer-less `deploy-to-{et,jo,ma,ug}.yaml` listeners and every `ops/cloud/deploy/*` branch were removed after Wave D1 proved the channel path on demo.
+
+This channel table is role truth, not a request to normalize every box to `stable`. Dev and Norway must remain on `prerelease`; Norway's production role does not override its human-canary role.
 
 <img src="diagrams/git-workflow.svg" alt="Git Deployment Workflow" style="max-width:100%;">
 
@@ -422,7 +424,7 @@ View deployment status in GitHub Actions or Slack channel `statbus-utvikling`.
 
 ### Service-Based Deployment (the standard path for demo and the ordinary country slots)
 
-Each instance runs an upgrade service that polls its channel and handles releases on its own — no push required. To trigger a specific version manually (a deliberate one-off, candidate-addressed rather than master-addressed):
+Each instance runs an upgrade service that polls its channel and offers or applies releases according to the box's policy — no push required. Use `./cloud.sh status`, `./cloud.sh notify`, `./cloud.sh upgrade`, or `./cloud.sh install <target>` for normal fleet operations. To trigger a specific version manually (a deliberate one-off, candidate-addressed rather than master-addressed):
 
 ```bash
 ssh statbus_ma@niue.statbus.org "cd statbus && ./sb upgrade register v2026.03.1 && ./sb upgrade schedule v2026.03.1"
@@ -699,9 +701,9 @@ In addition to the multi-tenant cloud on niue, SSB operates **dedicated standalo
 
 ## Active standalone instances
 
-| Host | Domain served | OS / FS | Slot code | Deploy branch | Hardware |
-|------|---------------|---------|-----------|---------------|----------|
-| `rune.statbus.org` | `no.statbus.org` (Norway) | Ubuntu 24.04 LTS, mdadm RAID1 + XFS | `no` | `ops/standalone/deploy/rune-no` | Hetzner physical: Intel Xeon E3-1275v5 (4C/8T), 64 GB DDR4 ECC, 2× 512 GB NVMe RAID1, 1 Gbit |
+| Host | Domain served | OS / FS | Slot code | Channel / role | Hardware |
+|------|---------------|---------|-----------|----------------|----------|
+| `rune.statbus.org` | `no.statbus.org` (Norway) | Ubuntu 24.04 LTS, mdadm RAID1 + XFS | `no` | `prerelease` / human canary | Hetzner physical: Intel Xeon E3-1275v5 (4C/8T), 64 GB DDR4 ECC, 2× 512 GB NVMe RAID1, 1 Gbit |
 
 Each standalone box has HTTPS and PostgreSQL TLS+SNI on its own public IP, served by Caddy inside Docker (port 80, 443, 5432). No host-level Caddy, no SNI multiplexing — same shape as a client install per [DEPLOYMENT.md](DEPLOYMENT.md).
 
@@ -723,7 +725,7 @@ Two entry points, both available from the repo root:
 ./standalone.sh upgrade             # force every host to apply latest
 ./standalone.sh install rune-no     # re-run install.sh on rune (pinned or prerelease)
 ./standalone.sh install all         # same for every host
-./standalone.sh inspect             # show hosts, served domains, slot codes, deploy branches
+./standalone.sh inspect             # show hosts, served domains, and slot codes
 ./standalone.sh wipe rune-no        # DESTRUCTIVE: delete DB and recreate (confirm prompt)
 ./standalone.sh ssh rune-no         # interactive shell as statbus@rune.statbus.org
 ```
