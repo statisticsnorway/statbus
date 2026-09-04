@@ -1,6 +1,6 @@
 # Release workflow gates
 
-This document explains how `./sb release prerelease`, `./sb release stable`, and `.githooks/pre-push` consult GitHub Actions workflow status as pre-flight gates, and how to add a new gate.
+This document explains how `./sb release prerelease`, `./sb release stable`, and `.githooks/pre-push` consult GitHub Actions workflow status as pre-flight gates, and how to add a new gate. For what each rung of the release proves, in order, and what a candidate may skip, read [release-ladder.md](release-ladder.md) first.
 
 The layer a gate fires at follows one rule (STATBUS-199 D1, STATBUS-205): a workflow that fires on the COMMIT (master push / PR) gates the RC cut (`release prerelease` pre-flight) — the earliest possible signal; a workflow whose only automatic trigger is the RC TAG push itself cannot exist before the tag and gates `release stable` instead. Gating a tag-fired workflow at the cut is a deadlock: the pre-flight would demand runs that only the tag it refuses to cut can start.
 

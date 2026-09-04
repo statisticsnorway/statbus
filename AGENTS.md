@@ -526,6 +526,7 @@ export const loginAtom = atom(null, async (get, set, credentials) => {
 - **Multi-Agent Methodology**: See `doc/agentic-methodology.md` (for complex multi-phase tasks)
 - **Data Model**: See `doc/data-model.md`
 - **Authentication**: See `doc/auth-design.md`
+- **Release ladder (what a candidate must prove, what it may skip)**: See `doc/release-ladder.md`
 - **Cloud Deployment**: See `doc/CLOUD.md` for multi-tenant on niue.statbus.org
 - **Single-Instance Deployment**: See `doc/DEPLOYMENT.md` for standalone server setup
 - **Import System**: See `doc/import-system.md`
