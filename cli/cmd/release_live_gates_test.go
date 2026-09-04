@@ -40,9 +40,7 @@ func TestLiveStablePreflight(t *testing.T) {
 		{"test-hardening", func() bool {
 			return checkStableWorkflowGate(release.WorkflowTestHardening, "test-hardening", "SKIP_TEST_HARDENING", rcTag, rcCommit, rcShort)
 		}},
-		{"test-install", func() bool {
-			return checkStableWorkflowGate(release.WorkflowTestInstall, "test-install", "SKIP_TEST_INSTALL", rcTag, rcCommit, rcShort)
-		}},
+		{"test-smoke", func() bool { return checkSmokeGate(projDir, rcTag, rcCommit, rcShort) }},
 		{"install-recovery-harness", func() bool { return checkInstallRecoveryHarnessGate(projDir, rcTag, rcCommit, rcShort) }},
 		{"upgrade-arc-harness", func() bool { return checkUpgradeArcHarnessGate(projDir, rcTag, rcCommit, rcShort) }},
 		{"rc-artifacts", func() bool { return checkRCArtifactGate(rcTag) }},

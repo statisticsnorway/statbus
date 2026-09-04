@@ -380,10 +380,12 @@ func WorkflowsRunningScenario(scenario Scenario) []string {
 	}
 	switch scenario.Name {
 	case "0-happy-install":
-		add(WorkflowTestInstall)
+		add(WorkflowTestSmoke)
+		add(WorkflowTestInstallLegacy)
 		add(WorkflowInstallRecoveryHarness)
 	case "0-happy-upgrade":
-		add(WorkflowTestUpgrade)
+		add(WorkflowTestSmoke)
+		add(WorkflowTestUpgradeLegacy)
 		add(WorkflowInstallRecoveryHarness)
 	}
 	return workflows

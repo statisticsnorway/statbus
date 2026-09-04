@@ -1,0 +1,157 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Test Smoke
+
+# Dispatch-only RC smoke workflow (STATBUS-350). One selected matrix owns both
+# happy-path evidence marks while preserving the scenario commands and cleanup
+# behavior formerly split between test-install.yaml and test-upgrade.yaml.
+on:
+  workflow_dispatch:
+    inputs:
+      scenarios:
+        description: 'Space-separated selectors: 0-happy-install and/or 0-happy-upgrade (empty means both).'
+        required: false
+        default: ''
+        type: string
+
+# GitHub's native bounded queue is the atomic cross-tag fleet quota. The shared
+# dispatcher adds fail-fast owner diagnostics, but does not replace this lock.
+concurrency:
+  group: hetzner-vm-fleet
+  cancel-in-progress: false
+  queue: max
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  select:
+    name: Select smoke scenarios
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.select.outputs.matrix }}
+    steps:
+      - name: Validate selectors and build matrix
+        id: select
+        env:
+          SELECTORS: ${{ inputs.scenarios }}
+        run: |
+          set -euo pipefail
+          requested="${SELECTORS:-0-happy-install 0-happy-upgrade}"
+          matrix='[]'
+          for scenario in $requested; do
+            case "$scenario" in
+              0-happy-install) timeout=35 ;;
+              0-happy-upgrade) timeout=60 ;;
+              *) echo "::error title=Unknown smoke scenario::${scenario} is not in the fixed smoke domain"; exit 1 ;;
+            esac
+            if jq -e --arg scenario "$scenario" '.[] | select(.scenario == $scenario)' <<< "$matrix" >/dev/null; then
+              continue
+            fi
+            matrix="$(jq -c --arg scenario "$scenario" --argjson timeout "$timeout" '. + [{scenario:$scenario, timeout:$timeout}]' <<< "$matrix")"
+          done
+          if [ "$matrix" = '[]' ]; then
+            echo "::error title=Empty smoke selection::select at least one fixed smoke scenario"
+            exit 1
+          fi
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  smoke:
+    name: ${{ matrix.scenario }}
+    needs: [select]
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include: ${{ fromJSON(needs.select.outputs.matrix) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: ${{ matrix.timeout }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
+
+      - name: Build sb binary (linux/amd64)
+        run: ./dev.sh build-sb linux/amd64
+
+      - name: Install hcloud CLI
+        env:
+          HCLOUD_CLI_VERSION: "1.64.1"
+        run: |
+          set -euo pipefail
+          curl -fsSL \
+            "https://github.com/hetznercloud/cli/releases/download/v${HCLOUD_CLI_VERSION}/hcloud-linux-amd64.tar.gz" \
+            -o /tmp/hcloud.tar.gz
+          sudo tar -C /usr/local/bin -xzf /tmp/hcloud.tar.gz hcloud
+          rm /tmp/hcloud.tar.gz
+          hcloud version
+
+      - name: Install CI SSH private key
+        env:
+          STATBUS_CI_SSH_PRIVATE_KEY: ${{ secrets.STATBUS_CI_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$STATBUS_CI_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keygen -lf ~/.ssh/id_ed25519 | awk '{ print "SSH key fingerprint:", $2 }'
+
+      - name: Run selected smoke scenario on Hetzner VM
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+          HCLOUD_SSH_KEY: statbus-ci
+          STATBUS_SB_BINARY: ${{ github.workspace }}/sb-linux-amd64
+          SCENARIO: ${{ matrix.scenario }}
+        run: |
+          case "$SCENARIO" in
+            0-happy-install) ./dev.sh test-install ;;
+            0-happy-upgrade) ./test/install-recovery/scenarios/0-happy-upgrade.sh ;;
+            *) echo "unreachable scenario: $SCENARIO" >&2; exit 1 ;;
+          esac
+
+      - name: Cat install log on failure
+        if: failure()
+        run: |
+          for log in tmp/install-recovery-*-install.log; do
+            [ -e "$log" ] || continue
+            echo "::group::$log"
+            cat "$log"
+            echo "::endgroup::"
+          done
+
+      - name: Upload install log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: install-recovery-log-${{ matrix.scenario }}-${{ github.run_id }}
+          path: tmp/install-recovery-*-install.log
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Reap own orphan VM (defense in depth)
+        if: always()
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+          SCENARIO: ${{ matrix.scenario }}
+        run: |
+          if ! command -v hcloud >/dev/null 2>&1; then
+            echo "hcloud CLI not installed (earlier step likely failed) — skipping reap"
+            exit 0
+          fi
+          run_suffix="${GITHUB_RUN_ID: -8}"
+          vm="statbus-recovery-${SCENARIO}-${run_suffix}"
+          if hcloud server describe "$vm" >/dev/null 2>&1; then
+            echo "Reaping own VM: $vm"
+            hcloud server delete "$vm" || true
+          else
+            echo "Own VM $vm already gone (scenario trap cleaned up) — nothing to reap."
+          fi
+          exit 0

@@ -13,11 +13,15 @@ import (
 // exactly. See doc/release-workflow-gates.md for the chain (filename →
 // constant → SKIP_* env var) and rationale.
 const (
-	WorkflowImages                 = "images.yaml"
-	WorkflowFastTests              = "fast-tests.yaml"
-	WorkflowGoTest                 = "go-test.yaml"
-	WorkflowTestHardening          = "test-hardening.yaml"
-	WorkflowTestInstall            = "test-install.yaml"
+	WorkflowImages        = "images.yaml"
+	WorkflowFastTests     = "fast-tests.yaml"
+	WorkflowGoTest        = "go-test.yaml"
+	WorkflowTestHardening = "test-hardening.yaml"
+	WorkflowTestSmoke     = "test-smoke.yaml"
+	// Deleted workflow identities remain queryable in GitHub Actions and hold
+	// historical scenario evidence. Never fold these into WorkflowTestSmoke.
+	WorkflowTestInstallLegacy      = "test-install.yaml"
+	WorkflowTestUpgradeLegacy      = "test-upgrade.yaml"
 	WorkflowInstallRecoveryHarness = "install-recovery-harness.yaml"
 	WorkflowPgRegress              = "pg_regress.yaml"
 	// WorkflowAppBuildLint (STATBUS-199): app/ build + lint. Never gated
@@ -32,12 +36,6 @@ const (
 	// WorkflowJobsCompleteAtCommit) — STATBUS-199 comment #4: the gate
 	// verifies what ran, not what the run claims via a self-reported label.
 	WorkflowUpgradeArcHarness = "upgrade-arc-harness.yaml"
-	// WorkflowTestUpgrade (STATBUS-247 smoke pair, second half): the
-	// install-then-upgrade happy path on an ephemeral box. Its own workflow
-	// identity ON PURPOSE — a smoke run and a full harness run at the same
-	// commit must never be conflated by a first-green-run query (doc-034
-	// finding B).
-	WorkflowTestUpgrade = "test-upgrade.yaml"
 )
 
 // WorkflowCheckStatus describes the state of a workflow at a commit.

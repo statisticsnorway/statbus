@@ -1,10 +1,17 @@
 # actionlint config — https://github.com/rhysd/actionlint/blob/main/docs/config.md
-# Custom self-hosted runner labels, so actionlint does not flag `runs-on:
-# [self-hosted, <label>]` as an unknown GitHub-hosted label.
-#
-# `niue` is the containerized self-hosted runner on niue.statbus.org (STATBUS-069,
-# doc-026). Introduced with the first workflow migrated onto it (notify-all-clouds);
-# the pg_regress trusted leg and the seq/docker-maintenance/slot-deploy jobs follow.
 self-hosted-runner:
   labels:
     - niue
+
+# actionlint 1.7.12 predates GitHub's documented concurrency.queue key. Keep
+# this exception path-scoped to the exact parsed fleet set pinned by Go tests.
+paths:
+  .github/workflows/test-smoke.yaml:
+    ignore:
+      - 'unexpected key "queue" for "concurrency" section'
+  .github/workflows/install-recovery-harness.yaml:
+    ignore:
+      - 'unexpected key "queue" for "concurrency" section'
+  .github/workflows/upgrade-arc-harness.yaml:
+    ignore:
+      - 'unexpected key "queue" for "concurrency" section'

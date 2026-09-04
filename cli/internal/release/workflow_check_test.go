@@ -197,7 +197,7 @@ func TestCheckWorkflowAtCommit_WorkflowParameterized(t *testing.T) {
 		{WorkflowImages, "/repos/statisticsnorway/statbus/actions/workflows/images.yaml/runs"},
 		{WorkflowGoTest, "/repos/statisticsnorway/statbus/actions/workflows/go-test.yaml/runs"},
 		{WorkflowTestHardening, "/repos/statisticsnorway/statbus/actions/workflows/test-hardening.yaml/runs"},
-		{WorkflowTestInstall, "/repos/statisticsnorway/statbus/actions/workflows/test-install.yaml/runs"},
+		{WorkflowTestSmoke, "/repos/statisticsnorway/statbus/actions/workflows/test-smoke.yaml/runs"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.workflow, func(t *testing.T) {
@@ -597,8 +597,8 @@ func TestCheckWorkflowByMarker_STATBUS285(t *testing.T) {
 func TestOnlyMarkerCarryingWorkflowsUseMarkerLookup_STATBUS285(t *testing.T) {
 	marked := []string{WorkflowFastTests, WorkflowPgRegress}
 	unmarked := []string{WorkflowImages, WorkflowGoTest, WorkflowTestHardening,
-		WorkflowTestInstall, WorkflowInstallRecoveryHarness, WorkflowAppBuildLint,
-		WorkflowUpgradeArcHarness, WorkflowTestUpgrade}
+		WorkflowTestSmoke, WorkflowTestInstallLegacy, WorkflowTestUpgradeLegacy,
+		WorkflowInstallRecoveryHarness, WorkflowAppBuildLint, WorkflowUpgradeArcHarness}
 
 	for _, w := range marked {
 		if !workflowCarriesExercisedMarker(w) {

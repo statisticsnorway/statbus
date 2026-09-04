@@ -46,7 +46,7 @@ var tagFiredWorkflows = []struct {
 	// its own STATBUS-214 comment contains the literal trigger string as
 	// prose, which this substring pin would wrongly accept — STATBUS-224
 	// upgrades the pin to parse YAML instead of matching text.)
-	{".github/workflows/release-fleet-orchestrator.yaml", release.WorkflowTestInstall},
+	{".github/workflows/release-fleet-orchestrator.yaml", release.WorkflowTestSmoke},
 }
 
 func TestReleaseGateLayer_TagFiredWorkflows(t *testing.T) {
@@ -66,8 +66,13 @@ func TestReleaseGateLayer_TagFiredWorkflows(t *testing.T) {
 				"that only the tag it refuses to cut can start. Gate it at stable "+
 				"(checkStableWorkflowGate) instead.", wf.workflow, wf.yaml)
 		}
-		// Side 1b: gated at stable.
-		if !strings.Contains(code, "checkStableWorkflowGate(release."+constName) {
+		// Side 1b: gated at stable. Smoke uses the stronger per-scenario
+		// authority rather than the generic whole-workflow any-green check.
+		stableCall := "checkStableWorkflowGate(release." + constName
+		if wf.workflow == release.WorkflowTestSmoke {
+			stableCall = "checkSmokeGate(projDir"
+		}
+		if !strings.Contains(code, stableCall) {
 			t.Errorf("release.go no longer gates %s at stable promotion "+
 				"(checkStableWorkflowGate) — a tag-fired workflow with no gate anywhere is "+
 				"an unverified release oracle. See STATBUS-205.", wf.workflow)
@@ -90,14 +95,14 @@ func TestReleaseGateLayer_TagFiredWorkflows(t *testing.T) {
 
 // workflowConstName maps a workflow yaml basename back to its release
 // package constant name, so the source pin above greps for the constant
-// reference (release.WorkflowTestInstall) rather than a string literal.
+// reference (release.WorkflowTestSmoke) rather than a string literal.
 func workflowConstName(t *testing.T, workflow string) string {
 	t.Helper()
 	switch workflow {
 	case release.WorkflowTestHardening:
 		return "WorkflowTestHardening"
-	case release.WorkflowTestInstall:
-		return "WorkflowTestInstall"
+	case release.WorkflowTestSmoke:
+		return "WorkflowTestSmoke"
 	}
 	t.Fatalf("no constant-name mapping for workflow %q", workflow)
 	return ""

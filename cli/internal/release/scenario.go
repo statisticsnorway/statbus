@@ -36,6 +36,8 @@ const (
 	// WorkflowFleet runs every test/install-recovery/scenarios/<name>.sh that
 	// is not marked skip-default.
 	WorkflowFleet Workflow = WorkflowInstallRecoveryHarness
+	// WorkflowSmoke runs the fixed two-scenario happy-path domain.
+	WorkflowSmoke Workflow = WorkflowTestSmoke
 )
 
 func (w Workflow) String() string { return string(w) }
@@ -48,6 +50,19 @@ func (s Scenario) String() string { return s.Name }
 type Domain struct {
 	Workflow  Workflow
 	Scenarios []Scenario
+}
+
+// SmokeDomain is deliberately fixed. Unlike harness domains it is a release
+// contract, not a directory enumeration: both facts must be proven even when a
+// selector dispatch runs only the uncovered half.
+func SmokeDomain() Domain {
+	return Domain{
+		Workflow: WorkflowSmoke,
+		Scenarios: []Scenario{
+			{Name: "0-happy-install", Home: WorkflowSmoke},
+			{Name: "0-happy-upgrade", Home: WorkflowSmoke},
+		},
+	}
 }
 
 const (

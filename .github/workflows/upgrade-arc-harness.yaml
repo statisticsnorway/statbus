@@ -91,7 +91,7 @@ on:
 
 # STATBUS-208 (kept as defense in depth after STATBUS-214): the group is
 # SHARED (hetzner-vm-fleet) across all three VM-fleet workflows (this one,
-# install-recovery-harness.yaml, test-install.yaml). It no longer does the
+# install-recovery-harness.yaml, test-smoke.yaml). It no longer does the
 # tag-push serialization job — the release-fleet-orchestrator's needs:
 # chain does that now, dispatching the three fleets strictly one at a time
 # — but it still stops a stray manual workflow_dispatch of one fleet from
@@ -103,6 +103,7 @@ on:
 concurrency:
   group: hetzner-vm-fleet
   cancel-in-progress: false
+  queue: max
 
 permissions:
   contents: write   # push + delete the throwaway test/* branch fixtures

@@ -13,7 +13,7 @@ run-name: >-
   Install Recovery Harness — ${{ github.event_name == 'push' && format('FULL SUITE @ {0}', github.ref_name) || (github.event.inputs.scenarios == '' && 'FULL SUITE (dispatch)' || format('subset: {0}', github.event.inputs.scenarios)) }}
 
 # Install Recovery Harness — RC-time end-to-end RECOVERY gate via Hetzner
-# Cloud VMs. Sister to test-install.yaml (which runs only scenario 0-happy-install / the
+# Cloud VMs. Sister to test-smoke.yaml (which runs only scenario 0-happy-install / the
 # happy-install baseline). Where test-install validates "fresh install works",
 # THIS workflow validates "install converges to a coherent terminal state
 # from every named failure-injection class."
@@ -56,7 +56,7 @@ run-name: >-
 #     artifacts on master push.
 #   - `test-hardening.yaml` — cheap in-runner subset (setup.sh Stage 7,
 #     `./sb install` against the runner's docker, install.sh bootstrap).
-#   - `test-install.yaml` — single-scenario happy-install Hetzner gate.
+#   - `test-smoke.yaml` — single-scenario happy-install Hetzner gate.
 #   - `install-recovery-harness.yaml` — THIS workflow, full scenario
 #     catalogue: every C-class with a paired scenario gets exercised on
 #     its own VM. Fired by `./sb release stable` pre-flight via
@@ -92,7 +92,7 @@ on:
 #
 # STATBUS-208 (kept as defense in depth after STATBUS-214): the group is
 # SHARED (hetzner-vm-fleet) across all three VM-fleet workflows (this one,
-# test-install.yaml, upgrade-arc-harness.yaml). It no longer does the
+# test-smoke.yaml, upgrade-arc-harness.yaml). It no longer does the
 # tag-push serialization job — the release-fleet-orchestrator's needs:
 # chain does that now, dispatching the three fleets strictly one at a time
 # — but it still stops a stray manual workflow_dispatch of one fleet from
@@ -107,6 +107,7 @@ on:
 concurrency:
   group: hetzner-vm-fleet
   cancel-in-progress: false
+  queue: max
 
 permissions:
   contents: read
@@ -149,7 +150,7 @@ jobs:
 
       - name: Set up Go
         # go-version-file pins to cli/go.mod's `go` directive — single
-        # source of truth, mirrors test-install.yaml + test-hardening.yaml.
+        # source of truth, mirrors test-smoke.yaml + test-hardening.yaml.
         uses: actions/setup-go@v5
         with:
           go-version-file: cli/go.mod
@@ -576,7 +577,7 @@ jobs:
     #
     # STATBUS-208: this is NO LONGER "the only safe place for a global
     # statbus-recovery-* sweep" — that reasoning held only while this
-    # workflow was the sole user of the prefix. test-install.yaml shares it
+    # workflow was the sole user of the prefix. test-smoke.yaml shares it
     # too, and the hetzner-vm-fleet concurrency group serializes the three
     # VM-fleet WORKFLOWS but doesn't guarantee an instantaneous handoff at
     # the boundary (a straggler from the run just ahead in the queue could

@@ -335,12 +335,12 @@ func TestWorkflowsRunningScenario_UnionsAcrossIdentities_STATBUS249C1(t *testing
 	}
 
 	up := WorkflowsRunningScenario(fleet("0-happy-upgrade"))
-	if !has(up, WorkflowTestUpgrade) || !has(up, WorkflowInstallRecoveryHarness) {
-		t.Errorf("0-happy-upgrade runs in BOTH the smoke workflow and the harness matrix; got %v", up)
+	if !has(up, WorkflowTestSmoke) || !has(up, WorkflowTestUpgradeLegacy) || !has(up, WorkflowInstallRecoveryHarness) {
+		t.Errorf("0-happy-upgrade must query new smoke, legacy upgrade, and harness identities; got %v", up)
 	}
 	in := WorkflowsRunningScenario(fleet("0-happy-install"))
-	if !has(in, WorkflowTestInstall) || !has(in, WorkflowInstallRecoveryHarness) {
-		t.Errorf("0-happy-install runs in BOTH test-install and the harness matrix; got %v", in)
+	if !has(in, WorkflowTestSmoke) || !has(in, WorkflowTestInstallLegacy) || !has(in, WorkflowInstallRecoveryHarness) {
+		t.Errorf("0-happy-install must query new smoke, legacy install, and harness identities; got %v", in)
 	}
 
 	// No duplicates: the home workflow must not appear twice when it is also a
@@ -375,7 +375,7 @@ func TestScenarioEvidence_FindsAMarkUnderTheOtherIdentity_STATBUS249C1(t *testin
 			seg := strings.Split(r.URL.Path, "/")
 			wf := seg[len(seg)-2]
 			askedFor = append(askedFor, wf)
-			if wf == WorkflowTestUpgrade {
+			if wf == WorkflowTestUpgradeLegacy {
 				_ = json.NewEncoder(w).Encode(map[string]any{"workflow_runs": []map[string]any{
 					{"id": 77, "status": "completed", "conclusion": "success", "html_url": "http://smoke"},
 				}})
@@ -406,7 +406,7 @@ func TestScenarioEvidence_FindsAMarkUnderTheOtherIdentity_STATBUS249C1(t *testin
 		}
 	}
 	if !found {
-		t.Fatalf("the mark exists under %s only; a harness-scoped union must still find it (identities asked: %v)", WorkflowTestUpgrade, askedFor)
+		t.Fatalf("the mark exists under %s only; the union must still find historical proof (identities asked: %v)", WorkflowTestUpgradeLegacy, askedFor)
 	}
 	if !strings.Contains(detail, "77") {
 		t.Errorf("the detail must name the run holding the mark; got %q", detail)
@@ -422,17 +422,12 @@ func TestScenarioEvidence_FindsAMarkUnderTheOtherIdentity_STATBUS249C1(t *testin
 // "Provision Hetzner VM + run scenario 0-happy-install", so `covered
 // 0-happy-install <commit>` could never see the smoke proof.
 func TestSmokeJobNamesMatchTheirScenarios_STATBUS249C1(t *testing.T) {
-	for _, tc := range []struct{ file, scenario string }{
-		{"test-install.yaml", "0-happy-install"},
-		{"test-upgrade.yaml", "0-happy-upgrade"},
-	} {
-		b, err := os.ReadFile(filepath.Join(repoRootForRelease(t), ".github", "workflows", tc.file))
-		if err != nil {
-			t.Fatalf("%s: %v", tc.file, err)
-		}
-		if !strings.Contains(string(b), "name: "+tc.scenario+"\n") {
-			t.Errorf("%s must declare `name: %s` — the job name IS the evidence mark, and a mismatch makes the smoke run's proof unfindable", tc.file, tc.scenario)
-		}
+	b, err := os.ReadFile(filepath.Join(repoRootForRelease(t), ".github", "workflows", WorkflowTestSmoke))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), "name: ${{ matrix.scenario }}\n") {
+		t.Errorf("%s must name each matrix job from the bare scenario selector — the resolved job name IS the evidence mark", WorkflowTestSmoke)
 	}
 }
 

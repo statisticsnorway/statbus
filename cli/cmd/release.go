@@ -1344,7 +1344,7 @@ SKIP_APP_BUILD_LINT) apply at the prerelease cut — see
 		// deadlock. They gate here, keyed on the RC's commit, with the RC
 		// tag as the dispatch ref for the Missing remedy.
 		allPassed = checkStableWorkflowGate(release.WorkflowTestHardening, "test-hardening", "SKIP_TEST_HARDENING", latestRC, rcCommit, rcShort) && allPassed
-		allPassed = checkStableWorkflowGate(release.WorkflowTestInstall, "test-install", "SKIP_TEST_INSTALL", latestRC, rcCommit, rcShort) && allPassed
+		allPassed = checkSmokeGate(projDir, latestRC, rcCommit, rcShort) && allPassed
 		// Install-recovery harness: every C-class with a paired scenario in
 		// test/install-recovery/scenarios/ gets exercised on a dedicated
 		// Hetzner cx23. The workflow at .github/workflows/install-recovery-
@@ -1826,6 +1826,18 @@ func checkInstallRecoveryHarnessGate(projDir, rcTag, rcCommit, rcShort string) b
 		return false
 	}
 	return runCoverageAuthority(projDir, rcTag, rcCommit, rcShort, domain)
+}
+
+// checkSmokeGate applies the same per-scenario coverage authority as both
+// harness gates to the fixed happy-install + happy-upgrade smoke domain. A
+// subset test-smoke run can therefore prove only the mark it actually left.
+// SKIP_TEST_INSTALL remains the operator-facing compatibility bypass.
+func checkSmokeGate(projDir, rcTag, rcCommit, rcShort string) bool {
+	if os.Getenv("SKIP_TEST_INSTALL") == "1" {
+		fmt.Println("  ⚠ test-smoke: SKIPPED via SKIP_TEST_INSTALL=1 — neither happy-path smoke fact was verified")
+		return true
+	}
+	return runCoverageAuthority(projDir, rcTag, rcCommit, rcShort, release.SmokeDomain())
 }
 
 // checkUpgradeArcHarnessGate is the STATBUS-199 D2 stable gate for the

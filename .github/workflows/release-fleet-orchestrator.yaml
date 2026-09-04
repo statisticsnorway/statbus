@@ -3,61 +3,17 @@ name: Release Fleet Orchestrator
 
 # Release Fleet Orchestrator (STATBUS-214).
 #
-# THE DEFECT THIS REPLACES: test-install.yaml, install-recovery-harness.yaml
-# and upgrade-arc-harness.yaml used to share ONE concurrency group
-# (hetzner-vm-fleet, STATBUS-208) so their combined VM demand stayed under
-# the Hetzner project server limit when a single v*-rc.* tag push fired all
-# three at once. That serialized 2 fleets safely but not 3: a concurrency
-# group keeps at most ONE running + ONE pending run — a THIRD run queuing
-# behind them CANCELS the previously-pending one (cancel-in-progress:false
-# protects only the RUNNING run, never the pending one). Live twice: at
-# v2026.08.0-rc.02 (Upgrade Arc Harness cancelled, zero jobs) and again at
-# rc.03 (Test Install cancelled, zero jobs, run 32115159028) — the third
-# fleet to arrive lost its proof both times.
+# STATBUS-350: this is the only v*-rc.* fleet dispatcher. It asks the shared
+# per-scenario coverage authority for the fixed two-scenario smoke domain,
+# dispatches test-smoke.yaml at most once with only uncovered selectors, then
+# proceeds through dev, install recovery, and upgrade arcs. Every arriving
+# stage retains its own supersession check.
 #
-# THE FIX: this workflow is now the ONLY thing the v*-rc.* tag fires. It
-# dispatches the three fleets ONE AT A TIME, cheapest-first
-# (test-install -> install-recovery-harness -> upgrade-arc-harness) via an
-# explicit needs: chain, each fleet run started with `gh workflow run --ref
-# <tag>` and then polled to its conclusion — never `gh run watch
-# --exit-status` (it has returned 0 for a FAILED run in this org's own
-# deploy history; see CLAUDE.md). Deterministic order, zero cancellation
-# surface: nothing is ever queued behind anything, because each fleet is
-# only dispatched after the previous one's conclusion is already known.
-#
-# WHY gh-dispatch, NOT workflow_call (the ruling's other option — STATBUS-214
-# AC#2): probed empirically before any wiring, the same one-shot method as
-# STATBUS-215's probe. A throwaway caller+callee pair pushed to a scratch
-# branch showed a `workflow_call` invocation executes the callee's jobs
-# INSIDE the caller's own run — GitHub never creates a separate run object
-# for the callee (caller run 32116960098, callee job surfaced only as the
-# nested job "call-callee / noop"). The callee's OWN
-# `actions/workflows/<file>/runs` listing — the exact query the release
-# gates already run, `GET .../actions/workflows/<file>/runs?head_sha=<sha>`
-# (release.CheckWorkflowAtCommit, cli/internal/release/workflow_check.go:115)
-# — came back HTTP 404, no run identity at all. workflow_call would have
-# silently broken every existing gate call site the moment this workflow
-# landed. `gh workflow run --ref <tag>` keeps each fleet's own run identity
-# intact instead: proven already outside this probe too — the rc.02
-# hand-dispatch of upgrade-arc-harness (run 32009980725) was found by the
-# gate at its rcCommit under this exact mechanism.
-#
-# Each inner fleet keeps its own workflow_dispatch (manual/subset runs) and
-# its own max-parallel (peak per-fleet VM demand is unchanged — this
-# workflow never runs two fleets at once, so total demand across the whole
-# chain never exceeds one fleet's own peak, which already fits the Hetzner
-# limit). The shared hetzner-vm-fleet concurrency group STAYS on all three
-# inner fleets (see each one's own concurrency: comment) as defense in
-# depth against a stray manual workflow_dispatch racing this orchestrator's
-# own sequential dispatch — it no longer does the tag-push serialization
-# job (this workflow's needs: chain does that now), but it still stops two
-# independently-triggered runs of the SAME fleet from ever running
-# concurrently. Keeping that group is safe ONLY together with the other
-# half of this same decision: the poll below treats ANY non-success
-# conclusion as a failure, so if the group's one-pending-slot rule ever
-# cancels an orchestrator-dispatched fleet run, the chain reddens loudly
-# with the run URL instead of hanging or silently passing. Neither half is
-# safe alone.
+# The three paid workflows use GitHub's native hetzner-vm-fleet queue with
+# queue:max and cancel-in-progress:false. The dispatcher checks the ordered
+# concurrency-group owner before dispatch and removes only its own correlated
+# pending run if a race put it behind another owner. Hand dispatches remain in
+# the native queue and are managed by exact run ID.
 #
 # RUN CORRELATION (GitHub gives `gh workflow run` no run id back): each
 # fleet job below dispatches via the LOCAL COMPOSITE ACTION
@@ -166,197 +122,77 @@ jobs:
             echo "newer=" >> "$GITHUB_OUTPUT"
           fi
 
-  smoke-install:
-    name: "1/5 smoke: fresh install (0-happy-install)"
+  smoke:
+    name: "1/4 smoke: fresh install + install-then-upgrade"
     needs: [decide-obsolete]
-    # The decision point gates the joint. !cancelled() for the STATBUS-215
-    # reason applied throughout this file: an explicit if: that never calls a
-    # status function is implicitly ANDed with success(), which would skip
-    # this job on any non-success upstream result — the exact silent-skip
-    # this condition exists to prevent.
     if: >-
       ${{ !cancelled() &&
           needs['decide-obsolete'].result == 'success' &&
           needs['decide-obsolete'].outputs.obsolete == 'false' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 90
     outputs:
       run_url: ${{ steps.dispatch.outputs.run-url }}
-      covered: ${{ steps.covered.outputs.covered }}
+      undecidable: ${{ steps.select.outputs.undecidable }}
+      coverage_error: ${{ steps.select.outputs.coverage_error }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      # The covered() decision runs the SAME library as the promotion gate,
-      # so the chain and the gate cannot drift into two answers (STATBUS-249,
-      # the King's "same by design, not by chance"). That means this job needs
-      # the binary, built from THIS commit's source.
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version-file: cli/go.mod
-          # STATBUS-235: go.mod/go.sum live in cli/, not the repo root.
           cache-dependency-path: cli/go.sum
-
       - name: Build sb (the coverage decision runs the gate's own library)
-        # No args = host platform, written to ./sb — the daily-driver path.
-        # (NOT `build-sb linux/amd64`, which writes sb-linux-amd64 for upload
-        # to a VM; this binary runs here on the runner.)
         run: ./dev.sh build-sb
-
-      - name: "Decision point: is 0-happy-install already covered at this commit?"
-        id: covered
+      - name: Ask the shared coverage authority for both smoke scenarios
+        id: select
         env:
-          # BOTH names, deliberately. `./sb release covered` reads the
-          # GITHUB_TOKEN env var DIRECTLY (githubAuthHeader,
-          # cli/internal/release/check.go:335-340) — it does NOT use the gh
-          # CLI's stored credential. Setting only GH_TOKEN leaves the library
-          # unauthenticated, every API call 403s, and the decision degrades to
-          # exit 2 "undecidable" — which runs the scenario, so the chain still
-          # goes green while the skip silently never works. Observed as real
-          # 403s during the library's own live testing.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -uo pipefail
-          # ONE algorithm, two call sites (STATBUS-249): this is the same
-          # library the promotion gate uses, invoked as a subcommand so the
-          # chain and the gate can never drift into two answers.
-          #   0 = covered (skip)   1 = must run   2 = could not decide
-          # UNDECIDABLE IS NOT AN ANSWER. It renders as must-run — the safe
-          # direction, since over-running costs money and under-running costs
-          # a proof — but it says so, because a chain that silently treats
-          # "could not tell" as "must run" hides an API outage as diligence.
-          set +e
-          OUT="$(./sb release covered 0-happy-install "${{ github.sha }}" 2>&1)"
-          RC=$?
-          set -e
-          printf '%s\n' "$OUT"
-          case "$RC" in
-            0) echo "covered=true"  >> "$GITHUB_OUTPUT"
-               # AC#5/#6: a skip NAMES its source, durably, on the run itself —
-               # never a bare skip. The subcommand's own sentence is the record.
-               { echo "- **0-happy-install**: SKIPPED — already covered."; printf '  > %s\n' "$OUT"; } >> "$GITHUB_STEP_SUMMARY" ;;
-            1) echo "covered=false" >> "$GITHUB_OUTPUT"
-               echo "- **0-happy-install**: RUNNING — not covered at this code-state." >> "$GITHUB_STEP_SUMMARY" ;;
-            2) echo "::warning title=Coverage undecidable::could not decide whether 0-happy-install is covered (exit 2) — running it. This is a failure to decide, not a decision."
-               echo "covered=false" >> "$GITHUB_OUTPUT"
-               echo "- **0-happy-install**: RUNNING — coverage was UNDECIDABLE (exit 2), which is a failure to decide, not a decision." >> "$GITHUB_STEP_SUMMARY" ;;
-            69) echo "::error title=./sb binary refused to run::the coverage question was not asked (exit 69 = EX_UNAVAILABLE). The binary is stale, unidentified, unable to self-heal, or invalidly configured; fix the binary/configuration, do not interpret this as a coverage verdict."
-               exit 1 ;;
-            64) echo "::error title=Invalid ./sb invocation::release covered refused its arguments or flags (exit 64 = EX_USAGE). Fix this workflow invocation; the coverage question was not asked."
-                exit 1 ;;
-            *) echo "::error title=Unknown ./sb exit::release covered returned unrecognised exit $RC. Refusing to guess whether the scenario must run."
-               exit 1 ;;
-          esac
-
-      - name: Dispatch test-install.yaml at the tag and wait for its conclusion
+          scenarios=""
+          undecidable=false
+          errors=""
+          for scenario in 0-happy-install 0-happy-upgrade; do
+            set +e
+            OUT="$(./sb release covered "$scenario" "${{ github.sha }}" 2>&1)"
+            RC=$?
+            set -e
+            printf '%s\n' "$OUT"
+            case "$RC" in
+              0) { echo "- **${scenario}**: SKIPPED — already covered."; printf '  > %s\n' "$OUT"; } >> "$GITHUB_STEP_SUMMARY" ;;
+              1) scenarios="${scenarios:+${scenarios} }${scenario}"; echo "- **${scenario}**: RUNNING — not covered at this code-state." >> "$GITHUB_STEP_SUMMARY" ;;
+              2) scenarios="${scenarios:+${scenarios} }${scenario}"; undecidable=true; errors="${errors:+${errors}; }${scenario}: ${OUT}"; echo "::warning title=Coverage undecidable::could not decide whether ${scenario} is covered (exit 2) — running it. This is a failure to decide, not a decision."; echo "- **${scenario}**: RUNNING — coverage was UNDECIDABLE; fail-open dispatch retained." >> "$GITHUB_STEP_SUMMARY" ;;
+              69) echo "::error title=./sb binary refused to run::the ${scenario} coverage question was not asked (exit 69)"; exit 1 ;;
+              64) echo "::error title=Invalid ./sb invocation::release covered refused ${scenario} (exit 64)"; exit 1 ;;
+              *) echo "::error title=Unknown ./sb exit::release covered returned $RC for ${scenario}"; exit 1 ;;
+            esac
+          done
+          {
+            echo "scenarios=$scenarios"
+            echo "dispatch=$([ -n "$scenarios" ] && echo true || echo false)"
+            echo "undecidable=$undecidable"
+            echo "coverage_error=$errors"
+          } >> "$GITHUB_OUTPUT"
+      - name: Dispatch test-smoke.yaml once with uncovered selectors
         id: dispatch
-        if: steps.covered.outputs.covered != 'true'
+        if: steps.select.outputs.dispatch == 'true'
         uses: ./.github/actions/dispatch-fleet-and-wait
         with:
-          workflow-file: test-install.yaml
+          workflow-file: test-smoke.yaml
           ref: ${{ github.ref_name }}
           commit-sha: ${{ github.sha }}
-          poll-budget-s: "2700"
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-  smoke-upgrade:
-    name: "2/5 smoke: install-then-upgrade (0-happy-upgrade)"
-    needs: [decide-obsolete]
-    # Runs in PARALLEL with smoke-install: both are cheap, ephemeral and
-    # independent, and dev must not be touched until BOTH have passed.
-    #
-    # TWO PATHS, NOT ONE, and this is the one that would be trimmed for time:
-    # dev is UPGRADED rather than installed, so a candidate that installs
-    # cleanly but cannot be upgraded onto would sail through a single-path
-    # smoke and fail at the first stage that costs us something we care about.
-    if: >-
-      ${{ !cancelled() &&
-          needs['decide-obsolete'].result == 'success' &&
-          needs['decide-obsolete'].outputs.obsolete == 'false' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    outputs:
-      run_url: ${{ steps.dispatch.outputs.run-url }}
-      covered: ${{ steps.covered.outputs.covered }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      # The covered() decision runs the SAME library as the promotion gate,
-      # so the chain and the gate cannot drift into two answers (STATBUS-249,
-      # the King's "same by design, not by chance"). That means this job needs
-      # the binary, built from THIS commit's source.
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: cli/go.mod
-          # STATBUS-235: go.mod/go.sum live in cli/, not the repo root.
-          cache-dependency-path: cli/go.sum
-
-      - name: Build sb (the coverage decision runs the gate's own library)
-        # No args = host platform, written to ./sb — the daily-driver path.
-        # (NOT `build-sb linux/amd64`, which writes sb-linux-amd64 for upload
-        # to a VM; this binary runs here on the runner.)
-        run: ./dev.sh build-sb
-
-      - name: "Decision point: is 0-happy-upgrade already covered at this commit?"
-        id: covered
-        env:
-          # BOTH names, deliberately. `./sb release covered` reads the
-          # GITHUB_TOKEN env var DIRECTLY (githubAuthHeader,
-          # cli/internal/release/check.go:335-340) — it does NOT use the gh
-          # CLI's stored credential. Setting only GH_TOKEN leaves the library
-          # unauthenticated, every API call 403s, and the decision degrades to
-          # exit 2 "undecidable" — which runs the scenario, so the chain still
-          # goes green while the skip silently never works. Observed as real
-          # 403s during the library's own live testing.
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -uo pipefail
-          set +e
-          OUT="$(./sb release covered 0-happy-upgrade "${{ github.sha }}" 2>&1)"
-          RC=$?
-          set -e
-          printf '%s\n' "$OUT"
-          case "$RC" in
-            0) echo "covered=true"  >> "$GITHUB_OUTPUT"
-               # AC#5/#6: a skip NAMES its source, durably, on the run itself —
-               # never a bare skip. The subcommand's own sentence is the record.
-               { echo "- **0-happy-upgrade**: SKIPPED — already covered."; printf '  > %s\n' "$OUT"; } >> "$GITHUB_STEP_SUMMARY" ;;
-            1) echo "covered=false" >> "$GITHUB_OUTPUT"
-               echo "- **0-happy-upgrade**: RUNNING — not covered at this code-state." >> "$GITHUB_STEP_SUMMARY" ;;
-            2) echo "::warning title=Coverage undecidable::could not decide whether 0-happy-upgrade is covered (exit 2) — running it. This is a failure to decide, not a decision."
-               echo "covered=false" >> "$GITHUB_OUTPUT"
-               echo "- **0-happy-upgrade**: RUNNING — coverage was UNDECIDABLE (exit 2), which is a failure to decide, not a decision." >> "$GITHUB_STEP_SUMMARY" ;;
-            69) echo "::error title=./sb binary refused to run::the coverage question was not asked (exit 69 = EX_UNAVAILABLE). The binary is stale, unidentified, unable to self-heal, or invalidly configured; fix the binary/configuration, do not interpret this as a coverage verdict."
-               exit 1 ;;
-            64) echo "::error title=Invalid ./sb invocation::release covered refused its arguments or flags (exit 64 = EX_USAGE). Fix this workflow invocation; the coverage question was not asked."
-                exit 1 ;;
-            *) echo "::error title=Unknown ./sb exit::release covered returned unrecognised exit $RC. Refusing to guess whether the scenario must run."
-               exit 1 ;;
-          esac
-
-      - name: Dispatch test-upgrade.yaml at the tag and wait for its conclusion
-        id: dispatch
-        if: steps.covered.outputs.covered != 'true'
-        uses: ./.github/actions/dispatch-fleet-and-wait
-        with:
-          workflow-file: test-upgrade.yaml
-          ref: ${{ github.ref_name }}
-          commit-sha: ${{ github.sha }}
-          poll-budget-s: "2700"
+          dispatch-inputs: scenarios=${{ steps.select.outputs.scenarios }}
+          poll-budget-s: "4500"
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
   dev-canary:
-    name: "3/5: dev takes the candidate (the automatic canary)"
-    needs: [decide-obsolete, smoke-install, smoke-upgrade]
+    name: "2/4: dev takes the candidate (the automatic canary)"
+    needs: [decide-obsolete, smoke]
     # BOTH smoke paths must have passed. dev is the first thing in this chain
     # that is NOT disposable — everything before it runs on rented machines we
     # throw away, and everything after it is expensive. That single asymmetry
@@ -370,8 +206,7 @@ jobs:
       ${{ !cancelled() &&
           needs['decide-obsolete'].result == 'success' &&
           needs['decide-obsolete'].outputs.obsolete == 'false' &&
-          needs['smoke-install'].result == 'success' &&
-          needs['smoke-upgrade'].result == 'success' }}
+          needs['smoke'].result == 'success' }}
     runs-on: ubuntu-24.04
     # deploy-to-dev's own convergence poll is the long pole; budget above it.
     timeout-minutes: 90
@@ -755,7 +590,7 @@ jobs:
 
   coverage-question-health:
     name: Coverage question health
-    needs: [install-recovery-harness, upgrade-arc-harness]
+    needs: [smoke, install-recovery-harness, upgrade-arc-harness]
     # Deliberately after both dispatch stages and deliberately NOT in their
     # needs chain. An undecidable optimizer must not stop the full-suite
     # fail-open action, but it must make the orchestrator visibly red afterward.
@@ -763,6 +598,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     env:
+      SMOKE_UNDECIDABLE: ${{ needs.smoke.outputs.undecidable }}
+      SMOKE_ERROR: ${{ needs.smoke.outputs.coverage_error }}
       INSTALL_RECOVERY_UNDECIDABLE: ${{ needs['install-recovery-harness'].outputs.undecidable }}
       INSTALL_RECOVERY_ERROR: ${{ needs['install-recovery-harness'].outputs.coverage_error }}
       UPGRADE_ARCS_UNDECIDABLE: ${{ needs['upgrade-arc-harness'].outputs.undecidable }}
@@ -772,8 +609,11 @@ jobs:
         run: |
           set -euo pipefail
           errors=""
+          if [ "$SMOKE_UNDECIDABLE" = "true" ]; then
+            errors="$SMOKE_ERROR"
+          fi
           if [ "$INSTALL_RECOVERY_UNDECIDABLE" = "true" ]; then
-            errors="$INSTALL_RECOVERY_ERROR"
+            errors="${errors:+${errors}; }${INSTALL_RECOVERY_ERROR}"
           fi
           if [ "$UPGRADE_ARCS_UNDECIDABLE" = "true" ]; then
             if [ -n "$errors" ]; then
@@ -818,8 +658,7 @@ jobs:
     # principle applied to the job that states the verdict.
     needs:
       - decide-obsolete
-      - smoke-install
-      - smoke-upgrade
+      - smoke
       - dev-canary
       - install-recovery-harness
       - upgrade-arc-harness

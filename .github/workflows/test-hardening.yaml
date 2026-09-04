@@ -7,7 +7,7 @@ name: Test Hardening
 #
 # Runs at RC tag time (push: tags: ['v*-rc.*']) and on manual trigger.
 # Surfaces install-path drift before stable release ships.
-# The parallel test-install.yaml workflow (Hetzner VM end-to-end gate)
+# The parallel test-smoke.yaml workflow (Hetzner VM end-to-end gate)
 # is the production release gate; this workflow checks the hardening step.
 on:
   push:
