@@ -3,10 +3,10 @@ id: STATBUS-345
 title: >-
   sb-image-deployability: prove anonymous statbus-sb pullability end to end, and
   stage the real target runtime before the upgrade-smoke restart
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-02 14:07'
-updated_date: '2026-09-03 08:42'
+updated_date: '2026-09-04 11:09'
 labels:
   - release
   - test-harness
@@ -59,5 +59,11 @@ author: foreman
 created: 2026-09-03 08:42
 ---
 In Progress (2026-09-03): rc.12's chain is this ticket's live proof-run — both smokes green, dev auto-canary completed, Norway human install completed 08:29:34Z. Remaining before stable: fleet's 4 storm-blocked scenarios (the all-night GitHub 401 storm outlived even the widened retry windows) + the arc suite at the rc.12 commit. Deployability items 1-5 landed a18684a33 and PROVEN: the six-image anonymous gate ran on every rc since .04 and release check shows all six at 2309f6e1. Item 6 remains deferred to 339.
+---
+---
+author: foreman
+created: 2026-09-04 11:09
+---
+CLOSING as Done. The acceptance ran for real across rc.12 -> rc.14 -> v2026.09.0: six-image anonymous gate green on every rc since .04 and at promotion (release stable shows 6 assets / 6 ghcr manifests at d53731ec5); both smokes green at rc.14; the controller-side transient discipline held through the rc.13/rc.14 nights (no rc=255 red, infra rerun succeeded); v2026.09.0 promoted 2026-09-04 10:54Z with all 11 checks green. The single remaining item (real-target staging for the upgrade smoke, item 6) was explicitly deferred to STATBUS-339 at landing time and is tracked there — keeping this ticket open for it would double-track one piece of work.
 ---
 <!-- COMMENTS:END -->
