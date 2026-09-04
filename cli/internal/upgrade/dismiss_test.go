@@ -205,6 +205,23 @@ same defect as having no branch at all, on exactly the rows that have a past.`, 
 	}
 }
 
+func TestUpgradeListUsesCanonicalNameAndLabelsBuildProvenance_STATBUS355(t *testing.T) {
+	src := readCLIUpgradeSource(t)
+
+	if strings.Contains(src, "SELECT commit_version AS version") {
+		t.Fatal("upgrade list still presents immutable commit_version as the current version")
+	}
+	if !strings.Contains(src, "SELECT public.display_name(u) AS version") {
+		t.Fatal("upgrade list must resolve the current name through public.display_name(upgrade)")
+	}
+	if !strings.Contains(src, `END AS "built as"`) {
+		t.Fatal("upgrade list may retain commit_version only behind an explicit provenance label")
+	}
+	if !strings.Contains(src, `END AS "installed as"`) {
+		t.Fatal("upgrade list may retain the install-time summary only behind an explicit provenance label")
+	}
+}
+
 func readCLIUpgradeSource(t *testing.T) string {
 	t.Helper()
 	b, err := os.ReadFile(filepath.Join(repoRootFromTest(t), "cli", "cmd", "upgrade.go"))

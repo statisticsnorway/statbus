@@ -224,7 +224,15 @@ var upgradeListCmd = &cobra.Command{
 		// notice. Without this, the list looks merely uneventful — the demo box
 		// showed exactly that for nine days.
 		announceUnitFloor()
-		sql := `SELECT commit_version AS version, summary,
+		sql := `SELECT public.display_name(u) AS version,
+			CASE
+				WHEN commit_version IS DISTINCT FROM public.display_name(u)
+				 AND commit_version IS DISTINCT FROM summary
+				THEN commit_version
+			END AS "built as",
+			CASE
+				WHEN summary IS DISTINCT FROM public.display_name(u) THEN summary
+			END AS "installed as",
 			CASE
 				WHEN completed_at IS NOT NULL THEN 'completed'
 				-- ORDERING RULE (STATBUS-250): DECISION-STATES ABOVE
