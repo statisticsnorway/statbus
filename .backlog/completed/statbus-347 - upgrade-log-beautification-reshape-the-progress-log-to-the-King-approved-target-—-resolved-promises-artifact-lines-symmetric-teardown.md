@@ -7,7 +7,7 @@ status: Done
 assignee:
   - '@researcher'
 created_date: '2026-09-03 08:42'
-updated_date: '2026-09-03 16:33'
+updated_date: '2026-09-04 10:27'
 labels:
   - upgrade
   - ux
