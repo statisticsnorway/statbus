@@ -26,7 +26,7 @@ Sister documents: [release-workflow-gates.md](release-workflow-gates.md)
 | 9 | Norway canary | a person installs the candidate on `rune` deliberately, against an observation card | human | the King, never automated |
 | 10 | `./sb release stable` | reads rungs 2 to 9 at the exact commit and promotes the LATEST rc | laptop | the King |
 
-Rungs 4 to 8 are driven in order by `release-fleet-orchestrator.yaml`, which
+Rungs 4 and 5 share one selected matrix run and one fleet lease. Rungs 4 to 8 are driven in order by `release-fleet-orchestrator.yaml`, which
 owns the tag. A failure at any rung stops the chain before the next, more
 expensive rung is rented.
 
@@ -84,9 +84,9 @@ means it rode an earlier proof and names it.
 
 ## Known gaps (tickets)
 
-- STATBUS-350: the two smokes are separate workflows and take both slots of
-  the `hetzner-vm-fleet` concurrency group; fold them into one matrix, and
-  refuse a second dispatcher with the owning run id.
+- STATBUS-350 is implemented: one selector-driven smoke matrix, native bounded
+  fleet queue, and owner-aware orchestrator dispatch. Live acceptance remains
+  the later batch RC, not an implementation-time paid run.
 - STATBUS-351: rung 7 never asks `covered` (always rents 15 VMs) and rung 8
   asks a bash one-hop rule instead of the library; make every fleet rung
   dispatch only the uncovered subset.
