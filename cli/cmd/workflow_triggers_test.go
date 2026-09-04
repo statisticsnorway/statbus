@@ -427,7 +427,7 @@ func TestSupersededVerdictRunsLastAndAsksForItself_STATBUS246(t *testing.T) {
 		needed[n] = true
 	}
 	for name := range doc.Jobs {
-		if name == "superseded" || name == "decide-upgrade-sensitivity" {
+		if name == "superseded" || name == "coverage-question-health" {
 			continue
 		}
 		if !needed[name] {
@@ -453,5 +453,93 @@ func TestSupersededVerdictRunsLastAndAsksForItself_STATBUS246(t *testing.T) {
 	//    is exactly what a superseded chain looks like.
 	if !strings.Contains(verdict.If, "!cancelled()") {
 		t.Errorf("the verdict's if: must use !cancelled() — on a superseded chain every upstream is skipped, and an implicit success() gate would silence the one job whose whole purpose is to speak then. Got: %q", verdict.If)
+	}
+}
+
+func TestFleetStagesUseCoveredSubsetAndHealthIsIndependent_STATBUS351(t *testing.T) {
+	rel := ".github/workflows/release-fleet-orchestrator.yaml"
+	data, err := os.ReadFile(thisRepoFile(t, rel))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Jobs map[string]struct {
+			Needs   []string          `yaml:"needs"`
+			If      string            `yaml:"if"`
+			Outputs map[string]string `yaml:"outputs"`
+			Steps   []struct {
+				Name string            `yaml:"name"`
+				ID   string            `yaml:"id"`
+				If   string            `yaml:"if"`
+				Run  string            `yaml:"run"`
+				With map[string]string `yaml:"with"`
+			} `yaml:"steps"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := doc.Jobs["decide-upgrade-sensitivity"]; exists {
+		t.Fatal("the one-hop bash sensitivity job must be deleted; every fleet scenario uses DecideCoverage")
+	}
+
+	for _, tc := range []struct {
+		job      string
+		workflow string
+	}{
+		{"install-recovery-harness", "install-recovery-harness.yaml"},
+		{"upgrade-arc-harness", "upgrade-arc-harness.yaml"},
+	} {
+		job, ok := doc.Jobs[tc.job]
+		if !ok {
+			t.Fatalf("missing %s job", tc.job)
+		}
+		if strings.Contains(job.If, "sensitive") {
+			t.Errorf("%s if: still references the deleted sensitivity verdict: %q", tc.job, job.If)
+		}
+		if job.Outputs["undecidable"] == "" || job.Outputs["coverage_error"] == "" {
+			t.Errorf("%s must expose undecidable + exact stderr to coverage-question-health", tc.job)
+		}
+		var decision, dispatch bool
+		for _, step := range job.Steps {
+			if step.Name == "Decision point: which scenarios are uncovered?" {
+				decision = strings.Contains(step.Run, "release covered-subset") && strings.Contains(step.Run, tc.workflow) && strings.Contains(step.Run, "undecidable=true") && strings.Contains(step.Run, "scenarios=")
+			}
+			if step.With["workflow-file"] == tc.workflow {
+				dispatch = strings.Contains(step.If, "coverage.outputs.dispatch") && strings.Contains(step.With["dispatch-inputs"], "scenarios=")
+			}
+		}
+		if !decision {
+			t.Errorf("%s must ask covered-subset and carry an exit-2 full-suite arm", tc.job)
+		}
+		if !dispatch {
+			t.Errorf("%s must dispatch only when requested and pass the uncovered scenario selectors", tc.job)
+		}
+	}
+
+	health, ok := doc.Jobs["coverage-question-health"]
+	if !ok {
+		t.Fatal("coverage-question-health job is required")
+	}
+	if !strings.Contains(health.If, "always()") {
+		t.Errorf("coverage-question-health must run with always(); got %q", health.If)
+	}
+	needed := strings.Join(health.Needs, " ")
+	if !strings.Contains(needed, "install-recovery-harness") || !strings.Contains(needed, "upgrade-arc-harness") {
+		t.Errorf("coverage-question-health must run after both dispatch stages; needs=%v", health.Needs)
+	}
+	for _, stage := range []string{"install-recovery-harness", "upgrade-arc-harness"} {
+		if strings.Contains(strings.Join(doc.Jobs[stage].Needs, " "), "coverage-question-health") {
+			t.Errorf("coverage-question-health must not enter the %s dispatch chain", stage)
+		}
+	}
+	var diagnosis bool
+	for _, step := range health.Steps {
+		if strings.Contains(step.Run, "the full suite was dispatched instead of guessing; fix the evidence path (token/API)") {
+			diagnosis = true
+		}
+	}
+	if !diagnosis {
+		t.Fatal("coverage-question-health must carry the King-approved actionable diagnosis")
 	}
 }

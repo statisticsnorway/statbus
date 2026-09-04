@@ -23,6 +23,8 @@ case release.WorkflowCheckUnknown:  // GitHub API error; tell operator to retry
 
 The check has **any-green semantics**: one completed/success run for the SHA is authoritative. A later retry queued or failed does not unbuild the artifact (in the case of images) or unrun the test (in the case of test-hardening / test-install). This matters when a transient infra flake causes a retry to fail after an earlier successful run already completed.
 
+Every VM stage in `release-fleet-orchestrator.yaml` makes its dispatch decision per scenario with the same `release.DecideCoverage` library its promotion gate uses. The smoke stages call `./sb release covered`; the install-recovery and upgrade-arc stages call `./sb release covered-subset` and dispatch only the returned selectors. Both call sites read `ops/release/upgrade-sensitive-paths.txt`, which is the single upgrade/install/recovery sensitivity list. There is no workflow-local second implementation of that rule.
+
 ## Naming convention
 
 Every gate uses the same chain of names — workflow filename, Go constant, env-var bypass — derived from one canonical concept. **One concept, one name, consistently everywhere.** There is no "ci-" prefix on anything — the workflow directory already conveys CI, and per-workflow names should not duplicate that scope.

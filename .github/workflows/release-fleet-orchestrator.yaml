@@ -79,35 +79,6 @@ name: Release Fleet Orchestrator
 # OLDEST of any competing candidates, not the newest. Caught in review
 # before landing — see the action's own file for the full mechanism.)
 #
-# UPGRADE-SENSITIVITY GATE (STATBUS-223): the `decide-upgrade-sensitivity`
-# job below decides whether the upgrade-arc-harness fleet is worth
-# dispatching at all — a ratified STATBUS-199 D2 cost shortcut (an RC that
-# changed nothing an upgrade touches proves nothing new by re-running the
-# 31-machine suite; inherit the previous release's proof instead). This
-# decision USED TO live inside upgrade-arc-harness.yaml itself (a `decide`
-# job gated on `github.event_name == 'push'`), and broke silently the
-# moment this orchestrator took over the tag trigger: every dispatch from
-# here arrives as workflow_dispatch, an event type that job never ran on,
-# so it stopped firing and every RC paid the full 3-hour fleet cost
-# regardless of sensitivity. Rather than re-plumb an event-type workaround
-# into the fleet, the decision moved to where the tag push actually lands
-# now — HERE — and the fleet's now-dead copy of the machinery (the
-# `decide` job, discover's RIDE early-exit, no-arcs-guard's RIDE
-# exemption, construct's RIDE clause) was deleted rather than left as
-# unreachable cover. ONLY the upgrade-arc-harness fleet is skip-eligible —
-# test-install and install-recovery-harness always run, because a change
-# that isn't upgrade-sensitive can still break a fresh install or a
-# recovery scenario. AUTHORITY IS UNCHANGED: the stable release gate
-# (cli/cmd/release.go, checkUpgradeArcHarnessGate) computes this same
-# sensitivity walk independently and never trusts this job's verdict — a
-# skipped dispatch just leaves no run at that commit, which the gate's
-# existing Missing→path-sensitivity-walk already handles exactly as it
-# does for any other incomplete or absent green. A manual
-# workflow_dispatch of upgrade-arc-harness.yaml directly (bypassing this
-# orchestrator) is never gated on sensitivity — that workflow no longer
-# has any sensitivity logic of its own at all, so a human who dispatches
-# it always gets their selected arcs, unconditionally.
-#
 # See doc/release-workflow-gates.md and STATBUS-208 for the fuller history.
 
 on:
@@ -516,11 +487,14 @@ jobs:
     timeout-minutes: 180
     outputs:
       run_url: ${{ steps.dispatch.outputs.run-url }}
+      undecidable: ${{ steps.coverage.outputs.undecidable }}
+      coverage_error: ${{ steps.coverage.outputs.coverage_error }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          # covered-subset walks prior RC tags and diffs their trees.
+          fetch-depth: 0
 
       # DECISION POINT, re-asked by THIS job as its own first act
       # (STATBUS-246 AC#1). Not a re-read of an earlier verdict: a newer
@@ -544,114 +518,108 @@ jobs:
             echo "- **${{ github.job }}**: proceeding — \`$THIS_TAG\` is still the newest candidate." >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      - name: Set up Go
+        if: steps.obsolete.outputs.obsolete != 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
+
+      - name: Build sb (the coverage decision runs the gate's own library)
+        if: steps.obsolete.outputs.obsolete != 'true'
+        run: ./dev.sh build-sb
+
+      - name: "Decision point: which scenarios are uncovered?"
+        id: coverage
+        if: steps.obsolete.outputs.obsolete != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          UNCOVERED="$RUNNER_TEMP/install-recovery-uncovered.txt"
+          ERRORS="$RUNNER_TEMP/install-recovery-coverage-errors.txt"
+          DETAILS="$RUNNER_TEMP/install-recovery-coverage.md"
+          : > "$ERRORS"
+
+          set +e
+          ./sb release covered-subset --details-file "$DETAILS" \
+            install-recovery-harness.yaml "${{ github.sha }}" \
+            > "$UNCOVERED" 2> >(tee "$ERRORS" >&2)
+          RC=$?
+          wait || true
+          set -e
+
+          case "$RC" in
+            0)
+              SCENARIOS="$(paste -sd' ' "$UNCOVERED")"
+              echo "scenarios=$SCENARIOS" >> "$GITHUB_OUTPUT"
+              echo "undecidable=false" >> "$GITHUB_OUTPUT"
+              echo "coverage_error=" >> "$GITHUB_OUTPUT"
+              {
+                echo "### Install Recovery Harness coverage decision"
+                cat "$DETAILS"
+              } >> "$GITHUB_STEP_SUMMARY"
+              if [ -n "$SCENARIOS" ]; then
+                echo "dispatch=true" >> "$GITHUB_OUTPUT"
+                echo "Dispatching uncovered scenarios: $SCENARIOS"
+              else
+                echo "dispatch=false" >> "$GITHUB_OUTPUT"
+                echo "Every scenario is covered; no harness run will be dispatched."
+              fi
+              ;;
+            2)
+              echo "dispatch=true" >> "$GITHUB_OUTPUT"
+              # Empty is the harness's documented full-suite selector.
+              echo "scenarios=" >> "$GITHUB_OUTPUT"
+              echo "undecidable=true" >> "$GITHUB_OUTPUT"
+              {
+                echo "coverage_error<<STATBUS_351_ERROR"
+                cat "$ERRORS"
+                echo "STATBUS_351_ERROR"
+              } >> "$GITHUB_OUTPUT"
+              echo "::warning title=Coverage question undecidable::dispatching the FULL install-recovery suite instead of guessing a skip"
+              {
+                echo "### Install Recovery Harness coverage decision"
+                echo "- **FULL SUITE TO RUN**: coverage was undecidable, so no skip was guessed."
+              } >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            64)
+              echo "::error title=Invalid ./sb invocation::release covered-subset refused its arguments or flags (exit 64 = EX_USAGE)."
+              exit 1
+              ;;
+            69)
+              echo "::error title=./sb binary refused to run::the coverage question was not asked (exit 69 = EX_UNAVAILABLE)."
+              exit 1
+              ;;
+            *)
+              echo "::error title=Unknown ./sb exit::release covered-subset returned unrecognised exit $RC. Refusing to guess."
+              exit 1
+              ;;
+          esac
+
       - name: Dispatch install-recovery-harness.yaml at the tag and wait for its conclusion
         id: dispatch
-        if: steps.obsolete.outputs.obsolete != 'true'
+        if: >-
+          ${{ steps.obsolete.outputs.obsolete != 'true' &&
+              steps.coverage.outputs.dispatch == 'true' }}
         uses: ./.github/actions/dispatch-fleet-and-wait
         with:
           workflow-file: install-recovery-harness.yaml
           ref: ${{ github.ref_name }}
           commit-sha: ${{ github.sha }}
+          dispatch-inputs: scenarios=${{ steps.coverage.outputs.scenarios }}
           poll-budget-s: "9600"   # ~160min
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-  decide-upgrade-sensitivity:
-    name: "Decide: is this RC upgrade-sensitive? (skip-eligibility for the arc fleet only)"
-    # No needs — this is pure git/grep work with no VM cost, so it runs
-    # from the start in parallel with test-install rather than waiting on
-    # anything. By the time install-recovery-harness finishes (the fleet
-    # upgrade-arc-harness's own dispatch decision waits on), this job's
-    # verdict has been known for a long time.
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    permissions:
-      contents: read   # checkout only — this job never dispatches or lists runs
-    outputs:
-      sensitive: ${{ steps.check.outputs.sensitive }}
-    steps:
-      - name: Checkout (full history + tags — need the previous RC tag)
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Diff against the previous RC tag vs the sensitivity list
-        id: check
-        # STATBUS-223: the SAME derivation upgrade-arc-harness.yaml's now-
-        # deleted `decide` job used to run, relocated here — see this
-        # workflow's top-of-file "UPGRADE-SENSITIVITY GATE" comment for
-        # why. PREV_TAG derivation mirrors release.yaml's existing
-        # migration-detection step (git tag --sort=-version:refname |
-        # sed -n '2p' — line 1 is the tag that triggered this run), narrowed
-        # to RC tags. Matching is substring containment, same rule
-        # ops/release/upgrade-sensitive-paths.txt documents for the Go-side
-        # gate (deliberately over-inclusive) — this decision is a COST
-        # OPTIMIZER ONLY: the stable release gate
-        # (checkUpgradeArcHarnessGate, cli/cmd/release.go) computes its own
-        # diff independently and never trusts this job's verdict; a wrong
-        # answer here only costs an avoidable/skipped fleet dispatch, never
-        # a bad promotion.
-        run: |
-          set -euo pipefail
-          PREV_RC="$(git tag --sort=-version:refname | grep -- '-rc\.' | sed -n '2p')"
-          if [ -z "$PREV_RC" ]; then
-            echo "No previous RC tag found (first-ever RC, or not yet visible via this checkout) — treating as sensitive."
-            echo "sensitive=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          echo "Previous RC tag: $PREV_RC"
-          echo "Sensitive paths (ops/release/upgrade-sensitive-paths.txt):"
-          grep -v '^#' ops/release/upgrade-sensitive-paths.txt | grep -v '^[[:space:]]*$' | sed 's/^/  /'
-          CHANGED="$(git diff --name-only "$PREV_RC"..HEAD)"
-          echo "Changed files since $PREV_RC:"
-          printf '%s\n' "$CHANGED" | sed 's/^/  /'
-          PATTERNS="$(grep -v '^#' ops/release/upgrade-sensitive-paths.txt | grep -v '^[[:space:]]*$')"
-          if printf '%s\n' "$CHANGED" | grep -F -f <(printf '%s\n' "$PATTERNS") -q; then
-            echo "Sensitive change detected since $PREV_RC — the upgrade arc fleet WILL be dispatched."
-            echo "sensitive=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "No upgrade-sensitive changes since $PREV_RC — the upgrade arc fleet will be SKIPPED (STATBUS-223). test-install and install-recovery-harness still run regardless. The stable release gate independently re-verifies this before ever promoting."
-            echo "sensitive=false" >> "$GITHUB_OUTPUT"
-            # HONESTY LINE (architect's ruling on STATBUS-246 C1). Every other
-            # skip in this chain is backed by EVIDENCE — a mark proving the work
-            # ran at this code-state. This one is not: it compares against the
-            # previous TAG and assumes that predecessor was proven. A tag is a
-            # name, and a name says nothing about whether anything ran; that
-            # assumption is exactly the rc.07 defect STATBUS-249 was filed
-            # against. It survives here as a cost optimizer only, and the chain
-            # must not have one silent exception to its own honesty.
-            {
-              echo "- **upgrade-arc fleet**: SKIPPED on a TAG-DIFF ASSUMPTION, *not* on evidence."
-              echo "  > Assumed predecessor: \`$PREV_RC\` — assumed proven because it is the previous RC tag, NOT because a mark says so."
-              echo "  > Successor mechanism: STATBUS-252 replaces this with the per-scenario evidence path (\`./sb release covered\`), which cannot inherit from something never proven."
-              echo "  > The stable release gate re-derives this independently and never trusts this line."
-            } >> "$GITHUB_STEP_SUMMARY"
-          fi
-
   upgrade-arc-harness:
     name: "5/5 (most expensive): dispatch Upgrade Arc Harness"
-    needs: [decide-obsolete, install-recovery-harness, decide-upgrade-sensitivity]
-    # STATBUS-223: only the arc fleet is skip-eligible — test-install and
-    # install-recovery-harness (above) always run unconditionally. Skip
-    # ONLY when decide-upgrade-sensitivity explicitly CONFIRMED
-    # non-sensitive (result=='success' AND sensitive=='false'); any other
-    # state — the job failed, was cancelled, or its output is merely
-    # absent — falls through to RUNNING the fleet. RIDE is a cost
-    # optimizer only and must never be the reason proof goes silently
-    # missing; the stable release gate re-derives this decision itself
-    # regardless (cli/cmd/release.go) and is the only authority that can
-    # ever let something ship unproven. !cancelled() is required here for
-    # the same STATBUS-215 reason it is on every other explicit if: in
-    # this file: an explicit condition that never references a
-    # status-check function gets implicitly ANDed with success() by
-    # GitHub, which would silently skip this job if
-    # decide-upgrade-sensitivity's result were ever anything but success —
-    # exactly the failure mode this if: exists to prevent.
+    needs: [decide-obsolete, install-recovery-harness]
     if: >-
       ${{ !cancelled() &&
           needs['decide-obsolete'].result == 'success' &&
           needs['decide-obsolete'].outputs.obsolete == 'false' &&
-          needs['install-recovery-harness'].result == 'success' &&
-          !(needs['decide-upgrade-sensitivity'].result == 'success' && needs['decide-upgrade-sensitivity'].outputs.sensitive == 'false') }}
+          needs['install-recovery-harness'].result == 'success' }}
     runs-on: ubuntu-24.04
     # upgrade-arc-harness.yaml's own stages: construct(15) + image-wait(50)
     # + run-arc(120/job, max-parallel 3, 31 arcs -> up to 11 waves) +
@@ -661,11 +629,14 @@ jobs:
     timeout-minutes: 330
     outputs:
       run_url: ${{ steps.dispatch.outputs.run-url }}
+      undecidable: ${{ steps.coverage.outputs.undecidable }}
+      coverage_error: ${{ steps.coverage.outputs.coverage_error }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          # covered-subset walks prior RC tags and diffs their trees.
+          fetch-depth: 0
 
       # DECISION POINT, re-asked by THIS job as its own first act
       # (STATBUS-246 AC#1). Not a re-read of an earlier verdict: a newer
@@ -689,16 +660,134 @@ jobs:
             echo "- **${{ github.job }}**: proceeding — \`$THIS_TAG\` is still the newest candidate." >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      - name: Set up Go
+        if: steps.obsolete.outputs.obsolete != 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
+
+      - name: Build sb (the coverage decision runs the gate's own library)
+        if: steps.obsolete.outputs.obsolete != 'true'
+        run: ./dev.sh build-sb
+
+      - name: "Decision point: which scenarios are uncovered?"
+        id: coverage
+        if: steps.obsolete.outputs.obsolete != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          UNCOVERED="$RUNNER_TEMP/upgrade-arcs-uncovered.txt"
+          ERRORS="$RUNNER_TEMP/upgrade-arcs-coverage-errors.txt"
+          DETAILS="$RUNNER_TEMP/upgrade-arcs-coverage.md"
+          : > "$ERRORS"
+
+          set +e
+          ./sb release covered-subset --details-file "$DETAILS" \
+            upgrade-arc-harness.yaml "${{ github.sha }}" \
+            > "$UNCOVERED" 2> >(tee "$ERRORS" >&2)
+          RC=$?
+          wait || true
+          set -e
+
+          case "$RC" in
+            0)
+              SCENARIOS="$(paste -sd' ' "$UNCOVERED")"
+              echo "scenarios=$SCENARIOS" >> "$GITHUB_OUTPUT"
+              echo "undecidable=false" >> "$GITHUB_OUTPUT"
+              echo "coverage_error=" >> "$GITHUB_OUTPUT"
+              {
+                echo "### Upgrade Arc Harness coverage decision"
+                cat "$DETAILS"
+              } >> "$GITHUB_STEP_SUMMARY"
+              if [ -n "$SCENARIOS" ]; then
+                echo "dispatch=true" >> "$GITHUB_OUTPUT"
+                echo "Dispatching uncovered arcs: $SCENARIOS"
+              else
+                echo "dispatch=false" >> "$GITHUB_OUTPUT"
+                echo "Every arc is covered; no harness run will be dispatched."
+              fi
+              ;;
+            2)
+              echo "dispatch=true" >> "$GITHUB_OUTPUT"
+              # Empty is the harness's documented full-suite selector.
+              echo "scenarios=" >> "$GITHUB_OUTPUT"
+              echo "undecidable=true" >> "$GITHUB_OUTPUT"
+              {
+                echo "coverage_error<<STATBUS_351_ERROR"
+                cat "$ERRORS"
+                echo "STATBUS_351_ERROR"
+              } >> "$GITHUB_OUTPUT"
+              echo "::warning title=Coverage question undecidable::dispatching the FULL upgrade-arc suite instead of guessing a skip"
+              {
+                echo "### Upgrade Arc Harness coverage decision"
+                echo "- **FULL SUITE TO RUN**: coverage was undecidable, so no skip was guessed."
+              } >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            64)
+              echo "::error title=Invalid ./sb invocation::release covered-subset refused its arguments or flags (exit 64 = EX_USAGE)."
+              exit 1
+              ;;
+            69)
+              echo "::error title=./sb binary refused to run::the coverage question was not asked (exit 69 = EX_UNAVAILABLE)."
+              exit 1
+              ;;
+            *)
+              echo "::error title=Unknown ./sb exit::release covered-subset returned unrecognised exit $RC. Refusing to guess."
+              exit 1
+              ;;
+          esac
+
       - name: Dispatch upgrade-arc-harness.yaml at the tag and wait for its conclusion
         id: dispatch
-        if: steps.obsolete.outputs.obsolete != 'true'
+        if: >-
+          ${{ steps.obsolete.outputs.obsolete != 'true' &&
+              steps.coverage.outputs.dispatch == 'true' }}
         uses: ./.github/actions/dispatch-fleet-and-wait
         with:
           workflow-file: upgrade-arc-harness.yaml
           ref: ${{ github.ref_name }}
           commit-sha: ${{ github.sha }}
+          dispatch-inputs: scenarios=${{ steps.coverage.outputs.scenarios }}
           poll-budget-s: "19200"   # ~320min, under the 330min job ceiling above
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  coverage-question-health:
+    name: Coverage question health
+    needs: [install-recovery-harness, upgrade-arc-harness]
+    # Deliberately after both dispatch stages and deliberately NOT in their
+    # needs chain. An undecidable optimizer must not stop the full-suite
+    # fail-open action, but it must make the orchestrator visibly red afterward.
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      INSTALL_RECOVERY_UNDECIDABLE: ${{ needs['install-recovery-harness'].outputs.undecidable }}
+      INSTALL_RECOVERY_ERROR: ${{ needs['install-recovery-harness'].outputs.coverage_error }}
+      UPGRADE_ARCS_UNDECIDABLE: ${{ needs['upgrade-arc-harness'].outputs.undecidable }}
+      UPGRADE_ARCS_ERROR: ${{ needs['upgrade-arc-harness'].outputs.coverage_error }}
+    steps:
+      - name: State whether every coverage question was answerable
+        run: |
+          set -euo pipefail
+          errors=""
+          if [ "$INSTALL_RECOVERY_UNDECIDABLE" = "true" ]; then
+            errors="$INSTALL_RECOVERY_ERROR"
+          fi
+          if [ "$UPGRADE_ARCS_UNDECIDABLE" = "true" ]; then
+            if [ -n "$errors" ]; then
+              errors="${errors}; ${UPGRADE_ARCS_ERROR}"
+            else
+              errors="$UPGRADE_ARCS_ERROR"
+            fi
+          fi
+          if [ -n "$errors" ]; then
+            echo "::error title=Coverage question health::the coverage question could not be asked: ${errors}; the full suite was dispatched instead of guessing; fix the evidence path (token/API)"
+            exit 1
+          fi
+          echo "Every fleet coverage question was answerable."
 
   # ═══════════════════════════════════════════════════════════════════════
   # THE THIRD VERDICT (STATBUS-246 AC#4). A chain stopped by supersession is
