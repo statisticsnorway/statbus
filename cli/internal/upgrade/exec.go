@@ -959,10 +959,12 @@ func (d *Service) restoreDatabase(progress *ProgressLog, backupPath string) erro
 	}
 	backupDir := backupPath
 	volumeName := d.dbVolumeName()
+	progress.Write("Restoring database from %s ...", homeRelativePath(backupDir))
 
 	// Harness-only stall site (STATBUS-031 RED proof): parks the restore here,
-	// SILENT (no progress.Write, no WATCHDOG=1 from this goroutine), simulating a
-	// slow Norway-scale rsync. On UNFIXED code (no ticker wrapping rollback()) the
+	// SILENT after the one pre-operation announcement above (no further
+	// progress.Write, no WATCHDOG=1 from this goroutine), simulating a slow
+	// Norway-scale rsync. On UNFIXED code (no ticker wrapping rollback()) the
 	// silence exceeds WatchdogSec → SIGABRT mid-restore (the RED). With the
 	// STATBUS-031 always-ping ticker, the cover keeps WATCHDOG=1 firing through the
 	// stall (the GREEN). Released by removing STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE.

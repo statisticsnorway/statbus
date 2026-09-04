@@ -115,3 +115,28 @@ func TestRollbackWatchdogCover_SourceOrder(t *testing.T) {
 		t.Error("restoreDatabase still carries a 10-minute literal timeout — replace with the shared RestoreDBTimeout (STATBUS-031).")
 	}
 }
+
+// TestRestoreDatabase_AnnouncesBeforeWatchdogStall pins the operator-visible
+// ordering the restore-watchdog arc needs and STATBUS-347's narration rule
+// requires: announce the long operation before entering it, then let the later
+// "... ok" or "... failed" line resolve that announcement. If the pre-operation
+// line sits after StallHere, a deliberately slow restore is indistinguishable
+// from an abandoned one for the entire stall.
+func TestRestoreDatabase_AnnouncesBeforeWatchdogStall(t *testing.T) {
+	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/exec.go"))
+	if err != nil {
+		t.Fatalf("read exec.go: %v", err)
+	}
+	restore := extractFuncBody(t, string(src), "func (d *Service) restoreDatabase(")
+	announceIdx := strings.Index(restore, `progress.Write("Restoring database from %s ...", homeRelativePath(backupDir))`)
+	stallIdx := strings.Index(restore, `inject.StallHere("restore-db-stall-watchdog")`)
+	if announceIdx < 0 {
+		t.Fatal("restoreDatabase must announce `Restoring database from <path> ...` before rsync starts; without it a stalled restore has no operator-visible start signal")
+	}
+	if stallIdx < 0 {
+		t.Fatal("restoreDatabase lost the restore-db-stall-watchdog injection site")
+	}
+	if announceIdx > stallIdx {
+		t.Fatalf("restore announcement must precede the watchdog stall (announce=%d stall=%d); the line announces the act and the later ok/failed line resolves it", announceIdx, stallIdx)
+	}
+}
