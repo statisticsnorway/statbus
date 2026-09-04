@@ -30,7 +30,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Build app
         run: |
           docker build --target test -t statbus-app-test -f app/Dockerfile app

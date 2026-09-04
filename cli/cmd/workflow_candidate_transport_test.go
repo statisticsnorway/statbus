@@ -131,8 +131,8 @@ and could start a second deploy for the same candidate.`)
 }
 
 // TestDeployToDevAcceptsTheCandidate_STATBUS260: the receiving end must take the
-// commit as an input, while keeping the push trigger STATBUS-244's transitional
-// button still uses.
+// commit as an input, and workflow dispatch must be its only trigger now that
+// the retired deploy branch has no writer or reader (STATBUS-248).
 func TestDeployToDevAcceptsTheCandidate_STATBUS260(t *testing.T) {
 	doc := workflowDoc(t, ".github/workflows/deploy-to-dev.yaml")
 	onBlock, ok := doc["on"]
@@ -156,12 +156,12 @@ func TestDeployToDevAcceptsTheCandidate_STATBUS260(t *testing.T) {
 		t.Error("deploy-to-dev accepts no `sha` input — the dispatch has nowhere to put the candidate's commit")
 	}
 
-	if _, ok := onMap["push"]; !ok {
-		t.Error(`deploy-to-dev's push trigger was removed.
+	if _, ok := onMap["push"]; ok {
+		t.Error(`deploy-to-dev still has a push trigger.
 
-STATBUS-244's transitional master-to-dev button still writes that branch. The
-push stopped being the CHAIN's transport, which is not the same as being unused
-— switching it off breaks a caller that is still live.`)
+STATBUS-248 retired the writer-less deploy branch after the orchestrator's named
+workflow dispatch proved to be the only live path. Restoring a push trigger
+would recreate a second, ambiguous transport.`)
 	}
 }
 

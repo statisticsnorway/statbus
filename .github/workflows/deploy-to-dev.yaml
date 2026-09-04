@@ -22,15 +22,6 @@ on:
           whatever this workflow was dispatched at.
         required: false
         type: string
-  # KEPT, deliberately. The master-to-dev button has been deleted (STATBUS-244b).
-  # This push trigger remains so the deploy branch (its former transport) still
-  # works for manual, non-chain deploys if needed. The only active writer is now
-  # the release-fleet-orchestrator.yaml dispatch (STATBUS-260), which targets this
-  # workflow with a named commit SHA. The push path is deprecated and superseded
-  # by orchestrator dispatch but is kept functional for fallback.
-  push:
-    branches:
-      - "ops/cloud/deploy/dev"
 
 concurrency:
   group: ${{ github.ref_name }}
@@ -39,8 +30,8 @@ concurrency:
 env:
   # THE ONE COMMIT THIS RUN IS ABOUT (STATBUS-260).
   #
-  # Dispatched by the chain → the candidate it named. Dispatched by hand or
-  # triggered by a branch push → the commit this run checked out. Every consumer
+  # Dispatched by the chain → the candidate it named. Dispatched by hand → the
+  # commit this run checked out. Every consumer
   # below reads this and nothing else, so there is exactly one answer to "which
   # commit is being deployed" instead of one per step.
   REQUESTED_SHA: ${{ inputs.sha || github.sha }}
@@ -241,22 +232,14 @@ jobs:
         #    `out="$(...)"; rc=$?`, which dies under the runner's `bash -e` on
         #    the first non-zero tick. Dev captures with `|| rc=$?`.
         #
-        # WHY ONLY HERE, and it is the same reason both times: those six are
-        # queued for deletion behind STATBUS-248's Wave D channel confirmation,
-        # nothing writes their deploy branches any more, and their boxes are
-        # opt-in human rather than chain-driven. Fixing six condemned copies
-        # would spend review on machinery we intend to remove — their real fix is
-        # Wave D landing sooner. Dev is the only chain-driven box, and the only
-        # one where the chain's belief about what it tested has to be true.
+        # Dev is the only chain-driven box, and the only one where the chain's
+        # belief about what it tested has to be true. The writer-less country
+        # deploy workflows were removed by STATBUS-248.
         #
         # RIDER (STATBUS-170 comment #5, architect — accept-inline ruling): the poll
         # SEMANTICS live in ops/ci-deploy-status.sh's exit contract (0/10/20/30/64) — the
-        # single home. This per-workflow block is a THIN, STABLE loop (budget/interval/
-        # grep/notice) around that contract. The 7 copies across deploy-to-*.yaml are
-        # DELIBERATE, matching this surface's per-slot duplication — do NOT extract them
-        # into a standalone action. A SEMANTIC change lands in the script (once); a
-        # LOOP-SHAPE change lands here 7× knowingly. If the deploy-to-* workflows are
-        # ever consolidated, the poll blocks consolidate WITH them (not independently).
+        # single home. This workflow's block is a THIN, STABLE loop
+        # (budget/interval/grep/notice) around that contract.
         run: |
           set -uo pipefail
           # STATBUS-260: poll what the chain REQUESTED, not what the box chose.
@@ -278,6 +261,7 @@ jobs:
           # The literal '~' below is load-bearing: it must reach the slot UNEXPANDED so
           # the slot's shell expands it, AND it must match the sshdo-pinned byte-string
           # exactly (ops/niue/sshdoers). Do NOT change it to $HOME.
+          # shellcheck disable=SC2088
           poll() {
             ssh -i /tmp/pollkey \
               -o StrictHostKeyChecking=accept-new \
