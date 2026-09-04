@@ -68,20 +68,22 @@ run-name: >-
 
 # STATBUS-214: the v*-rc.* tag-push trigger moved OFF this workflow onto
 # .github/workflows/release-fleet-orchestrator.yaml, which now owns the tag
-# and dispatches this workflow (2nd of the three, after test-install) via
-# `gh workflow run --ref <tag>` once a needs: chain, not a shared
-# concurrency group, is what makes the three fleets run in a deterministic
-# order with zero cancellation surface — a concurrency group only keeps one
-# running + one pending run, so the third of three tag-fired fleets was
-# getting silently cancelled (see the orchestrator's own header comment for
-# the full history). workflow_dispatch stays for manual/subset runs; a
-# dispatch from the orchestrator is indistinguishable from a human's here
-# except by actor.
+# and dispatches this workflow after dev via `gh workflow run --ref <tag>`.
+# The orchestrator's needs chain gives release order; the shared native
+# concurrency group gives the atomic cross-workflow capacity boundary.
+# workflow_dispatch stays for manual/subset runs. Orchestrator dispatches add
+# a parent run ID so the shared first-job admission guard can reject a stale
+# queued candidate before side effects; deliberate hand dispatches leave it
+# blank and are not age-rejected.
 on:
   workflow_dispatch:
     inputs:
       scenarios:
         description: 'Space-separated scenario selectors (e.g. "0-happy-upgrade 3-postswap-migrate-killed-after-commit") — leave blank to run all'
+        required: false
+        default: ''
+      orchestrator-run-id:
+        description: 'Release Fleet Orchestrator parent run ID; leave blank for deliberate manual runs.'
         required: false
         default: ''
 
@@ -110,6 +112,7 @@ concurrency:
   queue: max
 
 permissions:
+  actions: read
   contents: read
   packages: read
 
@@ -147,6 +150,14 @@ jobs:
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
+
+      - name: Revalidate orchestrated admission before paid side effects
+        uses: ./.github/actions/orchestrator-fleet-admission
+        with:
+          orchestrator-run-id: ${{ inputs.orchestrator-run-id }}
+          candidate-ref: ${{ github.ref_name }}
+          candidate-sha: ${{ github.sha }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Go
         # go-version-file pins to cli/go.mod's `go` directive — single

@@ -45,13 +45,11 @@ name: Upgrade Arc Harness
 # STATBUS-214: the v*-rc.* tag-push trigger that used to sit directly on
 # this workflow moved OFF it onto
 # .github/workflows/release-fleet-orchestrator.yaml, which now owns the tag
-# and dispatches this workflow (3rd of the three, most expensive last) via
-# `gh workflow run --ref <tag>` once a needs: chain, not a shared
-# concurrency group, is what makes the three fleets run in a deterministic
-# order with zero cancellation surface (see the orchestrator's own header
-# comment for the full history — a concurrency group only keeps one
-# running + one pending run, so the third of three tag-fired fleets was
-# getting silently cancelled).
+# and dispatches this workflow last via `gh workflow run --ref <tag>`. The
+# orchestrator's needs chain gives release order; the shared native concurrency
+# group gives the atomic cross-workflow capacity boundary. Orchestrator
+# dispatches add a parent run ID so the shared first-job admission guard can
+# reject a stale queued candidate before branch-fixture or VM side effects.
 #
 # STATBUS-223 (RIDE RELOCATED, not just fixed): 214 broke the D2 RIDE
 # path-sensitivity optimizer that used to live in THIS file — its `decide`
@@ -86,6 +84,10 @@ on:
         default: ''
       scenarios:
         description: 'Space-separated arc selectors (e.g. "working failing postswap-after-commit-kill") — blank or "all" runs EVERY arcs/*-arc.sh on its own Hetzner VM in parallel (the 5e full-suite matrix). One construct builds the shared working+failing fixtures once; each arc rides the right lineage.'
+        required: false
+        default: ''
+      orchestrator-run-id:
+        description: 'Release Fleet Orchestrator parent run ID; leave blank for deliberate manual runs.'
         required: false
         default: ''
 
@@ -189,6 +191,14 @@ jobs:
         with:
           # Default token is persisted by checkout so the pushes below authenticate.
           fetch-depth: 0
+
+      - name: Revalidate orchestrated admission before fixture or paid side effects
+        uses: ./.github/actions/orchestrator-fleet-admission
+        with:
+          orchestrator-run-id: ${{ inputs.orchestrator-run-id }}
+          candidate-ref: ${{ github.ref_name }}
+          candidate-sha: ${{ github.sha }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build the shared working + failing fixture pairs off A
         id: fixtures

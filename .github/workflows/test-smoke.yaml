@@ -12,6 +12,11 @@ on:
         required: false
         default: ''
         type: string
+      orchestrator-run-id:
+        description: 'Release Fleet Orchestrator parent run ID; leave blank for deliberate manual runs.'
+        required: false
+        default: ''
+        type: string
 
 # GitHub's native bounded queue is the atomic cross-tag fleet quota. The shared
 # dispatcher adds fail-fast owner diagnostics, but does not replace this lock.
@@ -21,6 +26,7 @@ concurrency:
   queue: max
 
 permissions:
+  actions: read
   contents: read
   packages: read
 
@@ -31,6 +37,19 @@ jobs:
     outputs:
       matrix: ${{ steps.select.outputs.matrix }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Revalidate orchestrated admission before paid side effects
+        uses: ./.github/actions/orchestrator-fleet-admission
+        with:
+          orchestrator-run-id: ${{ inputs.orchestrator-run-id }}
+          candidate-ref: ${{ github.ref_name }}
+          candidate-sha: ${{ github.sha }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Validate selectors and build matrix
         id: select
         env:

@@ -28,11 +28,26 @@ fleet_group_json() {
   return 1
 }
 
-# GitHub's documented response is ordered owner-first under group_members.
+# GitHub's documented response is ordered owner-first under group_members. A
+# successful response is authoritative only when every member is structurally
+# usable. Only the explicit 404 path above means an empty group.
 fleet_members() {
-  jq -c '.group_members // [] | to_entries[] |
+  local json
+  json="$(cat)"
+  jq -e '
+    (.group_members | type) == "array" and
+    all(.group_members[];
+      (.run_id | type) == "number" and (.run_id | floor) == .run_id and .run_id > 0 and
+      (.run_name | type) == "string" and (.run_name | length) > 0 and
+      (.status == "in_progress" or .status == "pending") and
+      (.run_html_url | type) == "string" and (.run_html_url | test("^https://[^[:space:]]+$")))
+  ' <<<"$json" >/dev/null || {
+    echo "::error title=Malformed fleet concurrency response::successful API response requires a group_members array with positive integer IDs, non-empty names, active statuses, and usable HTTPS URLs" >&2
+    return 1
+  }
+  jq -c '.group_members | to_entries[] |
     {id:.value.run_id, name:.value.run_name, status:.value.status,
-     url:.value.run_html_url, position:(.key + 1)}'
+     url:.value.run_html_url, order:(.key + 1)}' <<<"$json"
 }
 
 describe_members() {
@@ -41,14 +56,15 @@ describe_members() {
   rows="$(fleet_members <<<"$json")"
   [ -n "$rows" ] || { echo "  <empty>"; return; }
   while IFS= read -r row; do
-    jq -r '"  position=\(.position) id=\(.id) name=\(.name) status=\(.status) url=\(.url)"' <<<"$row"
+    jq -r '"  order=\(.order) id=\(.id) name=\(.name) status=\(.status) url=\(.url)"' <<<"$row"
   done <<<"$rows"
 }
 
 preflight_fleet_group() {
-  local json count
+  local json rows count
   json="$(fleet_group_json)"
-  count="$(fleet_members <<<"$json" | grep -c . || true)"
+  rows="$(fleet_members <<<"$json")"
+  count="$(grep -c . <<<"$rows" || true)"
   if [ "$count" -gt 0 ]; then
     echo "::error title=Hetzner VM fleet occupied::refusing to dispatch ${WORKFLOW_FILE}; ordered owner and waiters follow"
     describe_members "$json"
@@ -56,34 +72,13 @@ preflight_fleet_group() {
   fi
 }
 
-postflight_fleet_group() {
-  local our_id=$1 json rows our_position our_status owner
+report_fleet_group_after_correlation() {
+  local our_id=$1 json rows
   json="$(fleet_group_json)"
   rows="$(fleet_members <<<"$json")"
-  our_position="$(jq -r --argjson id "$our_id" 'select(.id == $id) | .position' <<<"$rows" | head -1)"
-  [ -n "$our_position" ] || return 0
-  our_status="$(jq -r --argjson id "$our_id" 'select(.id == $id) | .status' <<<"$rows" | head -1)"
-  [ "$our_status" = pending ] || return 0
-  owner="$(jq -c --argjson id "$our_id" --argjson position "$our_position" 'select(.id != $id and .position < $position)' <<<"$rows" | head -1)"
-  [ -n "$owner" ] || return 0
-
-  local owner_id owner_url our_url
-  owner_id="$(jq -r .id <<<"$owner")"
-  owner_url="$(jq -r .url <<<"$owner")"
-  our_url="$(jq -r --argjson id "$our_id" 'select(.id == $id) | .url' <<<"$rows" | head -1)"
-  echo "Race detected: our run ${our_id} (${our_url}) queued behind owner ${owner_id} (${owner_url})."
-  echo "Cancelling only our exact pending run id ${our_id}; the owner is never cancelled."
-  gh run cancel "$our_id"
-  for _ in $(seq 1 24); do
-    read -r status conclusion < <(gh run view "$our_id" --json status,conclusion --jq '"\(.status) \(.conclusion // \"pending\")"')
-    if [ "$status" = completed ] && [ "$conclusion" = cancelled ]; then
-      echo "::error title=Fleet admission race::cancelled our pending run ${our_id} (${our_url}); owner ${owner_id} (${owner_url}) remains untouched"
-      return 1
-    fi
-    sleep 5
-  done
-  echo "::error title=Fleet race cleanup failed::run ${our_id} did not reach completed/cancelled; owner ${owner_id} (${owner_url}) was not touched"
-  return 1
+  jq -e --argjson id "$our_id" 'select(.id == $id)' <<<"$rows" >/dev/null || return 0
+  echo "Native fleet queue membership after correlating run ${our_id}; continuing to poll without automatic cancellation:"
+  describe_members "$json"
 }
 
 if [ "${STATBUS_DISPATCH_TEST_MODE:-}" = classify ]; then
@@ -95,7 +90,7 @@ if [ "${STATBUS_DISPATCH_TEST_MODE:-}" = preflight ]; then
   exit $?
 fi
 if [ "${STATBUS_DISPATCH_TEST_MODE:-}" = postflight ]; then
-  postflight_fleet_group "$RUN_ID"
+  report_fleet_group_after_correlation "$RUN_ID"
   exit $?
 fi
 
@@ -136,6 +131,9 @@ while IFS= read -r kv; do
       ;;
   esac
 done <<< "$DISPATCH_INPUTS"
+if is_paid_fleet_workflow "$WORKFLOW_FILE"; then
+  dispatch_args+=(-f "orchestrator-run-id=${GITHUB_RUN_ID}")
+fi
 # Same set -u caution as the expansion below: ${#arr[@]} on an empty
 # array is also an unbound-variable error on bash < 4.4, so the summary
 # is driven by the raw input rather than by the array's length.
@@ -199,11 +197,12 @@ run_url="$(gh run view "$run_id" --json url --jq .url)"
 echo "run_url=${run_url}" >> "$GITHUB_OUTPUT"
 echo "Found run: ${run_url} (id ${run_id})"
 
-# The preflight is diagnostic, not atomic. Native workflow concurrency closes
-# the race. If it queued this orchestrator-created run behind an owner, remove
-# only our correlated waiter so it cannot start after this caller has failed.
+# The preflight is intentionally outside GitHub's atomic admission boundary. A
+# rare race therefore waits in the native queue. Report the exact ordered group
+# membership and keep polling. The child revalidates the parent and newest RC
+# before its first side effect, so a stale waiter cannot later spend money.
 if is_paid_fleet_workflow "$WORKFLOW_FILE"; then
-  postflight_fleet_group "$run_id"
+  report_fleet_group_after_correlation "$run_id"
 fi
 
 # POLL TO CONCLUSION: never `gh run watch --exit-status` — it has

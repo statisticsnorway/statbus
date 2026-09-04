@@ -84,9 +84,11 @@ means it rode an earlier proof and names it.
 
 ## Known gaps (tickets)
 
-- STATBUS-350 is implemented: one selector-driven smoke matrix, native bounded
-  fleet queue, and owner-aware orchestrator dispatch. Live acceptance remains
-  the later batch RC, not an implementation-time paid run.
+- STATBUS-350 Option A is implemented: one selector-driven smoke matrix, native
+  bounded fleet queue, occupied-group orchestrator refusal, rare-race native
+  waiting, and shared pre-side-effect revalidation for orchestrated paid runs.
+  Live acceptance remains the later batch RC, not an implementation-time paid
+  run.
 - STATBUS-351: rung 7 never asks `covered` (always rents 15 VMs) and rung 8
   asks a bash one-hop rule instead of the library; make every fleet rung
   dispatch only the uncovered subset.

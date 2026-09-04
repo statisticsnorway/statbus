@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: Revalidate orchestrated paid fleet admission
+description: >-
+  STATBUS-350 shared pre-side-effect guard for orchestrator-created paid runs.
+  Manual runs pass a blank orchestrator run ID and remain deliberate.
+inputs:
+  orchestrator-run-id:
+    description: 'Parent Release Fleet Orchestrator run ID; blank for direct manual dispatches.'
+    required: false
+    default: ''
+  candidate-ref:
+    description: 'Candidate RC tag name for this child run.'
+    required: true
+  candidate-sha:
+    description: 'Exact candidate commit checked out by this child run.'
+    required: true
+  github-token:
+    description: 'Token with actions:read for validating the parent run.'
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Revalidate parent and newest candidate before side effects
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        GH_REPO: ${{ github.repository }}
+        ORCHESTRATOR_RUN_ID: ${{ inputs.orchestrator-run-id }}
+        CANDIDATE_REF: ${{ inputs.candidate-ref }}
+        CANDIDATE_SHA: ${{ inputs.candidate-sha }}
+      run: bash "${{ github.action_path }}/admit.sh"

@@ -55,20 +55,24 @@ The Go constant name is `Workflow` + CamelCase of the workflow filename. The env
 
 The exact paid workflow set is `test-smoke.yaml`, `install-recovery-harness.yaml`, and `upgrade-arc-harness.yaml`. All three use the native `hetzner-vm-fleet` concurrency group with `cancel-in-progress: false` and `queue: max`.
 
+STATBUS-350 Option A has two repository-owned safety layers around that native scheduler boundary. The orchestrator dispatcher refuses an ordinary dispatch when the group API reports any valid active member. This check is intentionally not claimed to be atomic. If the group becomes occupied between check and dispatch, the child waits under GitHub's native queue. The dispatcher reports the ordered owner/waiters and keeps polling. It never calls `gh run cancel` automatically.
+
+For only these three paid workflows, the dispatcher adds `orchestrator-run-id`. A shared local action runs immediately after checkout in the first cheap job. Before any VM provisioning or upgrade-arc fixture mutation, it requires that the named parent is still the in-progress tag-push `release-fleet-orchestrator.yaml` run at the child's exact SHA, and that the child tag is still the newest RC. A stale queued orchestrator child therefore fails before spending money. Direct manual dispatches leave the input blank, bypass this age check, and remain deliberate.
+
 Inspect the ordered owner and waiters with:
 
 ```bash
 gh api repos/statisticsnorway/statbus/actions/concurrency_groups/hetzner-vm-fleet \
-  --jq '.group_members | to_entries[] | {position:(.key + 1),id:.value.run_id,name:.value.run_name,status:.value.status,url:.value.run_html_url}'
+  --jq '.group_members | to_entries[] | {order:(.key + 1),id:.value.run_id,name:.value.run_name,status:.value.status,url:.value.run_html_url}'
 ```
 
-To remove stale pending work, select one waiter by ID and cancel only that run:
+The array order identifies owner then waiters, but this endpoint does not supply an explicit queue-position field. If an operator deliberately decides to cancel a run, select it by exact ID and re-check it first:
 
 ```bash
 gh run cancel <pending-id>
 ```
 
-Never use a bulk-cancel command. Cancelling the running owner is not routine queue maintenance because it can interrupt VM cleanup.
+GitHub's cancel endpoint has no pending-only precondition. A run observed pending can become active before cancellation is processed. Never automate this cancellation or use a bulk-cancel command. Cancelling an active owner can interrupt VM cleanup.
 
 The pre-flight in `cli/cmd/release.go` runs each gate independently — each can be SKIP-bypassed individually for surgical operator control.
 

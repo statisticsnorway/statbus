@@ -11,9 +11,11 @@ name: Release Fleet Orchestrator
 #
 # The three paid workflows use GitHub's native hetzner-vm-fleet queue with
 # queue:max and cancel-in-progress:false. The dispatcher checks the ordered
-# concurrency-group owner before dispatch and removes only its own correlated
-# pending run if a race put it behind another owner. Hand dispatches remain in
-# the native queue and are managed by exact run ID.
+# concurrency-group membership before dispatch and refuses ordinary occupied-
+# group dispatches. A rare check-to-dispatch race waits in the native queue;
+# it is never auto-cancelled. Orchestrator-created children revalidate this
+# parent and newest-RC status before their first paid or fixture side effect.
+# Direct hand dispatches carry no parent ID and remain deliberate.
 #
 # RUN CORRELATION (GitHub gives `gh workflow run` no run id back): each
 # fleet job below dispatches via the LOCAL COMPOSITE ACTION
@@ -166,7 +168,7 @@ jobs:
             case "$RC" in
               0) { echo "- **${scenario}**: SKIPPED — already covered."; printf '  > %s\n' "$OUT"; } >> "$GITHUB_STEP_SUMMARY" ;;
               1) scenarios="${scenarios:+${scenarios} }${scenario}"; echo "- **${scenario}**: RUNNING — not covered at this code-state." >> "$GITHUB_STEP_SUMMARY" ;;
-              2) scenarios="${scenarios:+${scenarios} }${scenario}"; undecidable=true; errors="${errors:+${errors}; }${scenario}: ${OUT}"; echo "::warning title=Coverage undecidable::could not decide whether ${scenario} is covered (exit 2) — running it. This is a failure to decide, not a decision."; echo "- **${scenario}**: RUNNING — coverage was UNDECIDABLE; fail-open dispatch retained." >> "$GITHUB_STEP_SUMMARY" ;;
+              2) scenarios="${scenarios:+${scenarios} }${scenario}"; undecidable=true; errors="${errors}${errors:+$'\n'}${scenario}: ${OUT}"; echo "::warning title=Coverage undecidable::could not decide whether ${scenario} is covered (exit 2) — running it. This is a failure to decide, not a decision."; echo "- **${scenario}**: RUNNING — coverage was UNDECIDABLE; fail-open dispatch retained." >> "$GITHUB_STEP_SUMMARY" ;;
               69) echo "::error title=./sb binary refused to run::the ${scenario} coverage question was not asked (exit 69)"; exit 1 ;;
               64) echo "::error title=Invalid ./sb invocation::release covered refused ${scenario} (exit 64)"; exit 1 ;;
               *) echo "::error title=Unknown ./sb exit::release covered returned $RC for ${scenario}"; exit 1 ;;
@@ -176,7 +178,10 @@ jobs:
             echo "scenarios=$scenarios"
             echo "dispatch=$([ -n "$scenarios" ] && echo true || echo false)"
             echo "undecidable=$undecidable"
-            echo "coverage_error=$errors"
+            delimiter="STATBUS_COVERAGE_ERROR_${RANDOM}_${RANDOM}"
+            echo "coverage_error<<$delimiter"
+            printf '%s\n' "$errors"
+            echo "$delimiter"
           } >> "$GITHUB_OUTPUT"
       - name: Dispatch test-smoke.yaml once with uncovered selectors
         id: dispatch
