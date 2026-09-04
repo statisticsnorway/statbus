@@ -5,7 +5,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-04 07:18'
-updated_date: '2026-09-04 12:26'
+updated_date: '2026-09-04 14:26'
 labels:
   - release
   - ci
@@ -48,6 +48,14 @@ Two consequences:
 4. Keep the harness's own rule that a run selecting zero scenarios fails red. The orchestrator never dispatches an empty subset, so that rule is never hit from the chain.
 5. `doc/release-workflow-gates.md`: one paragraph stating that every VM stage decides per scenario with the same library the gate uses, and that `ops/release/upgrade-sensitive-paths.txt` is the single list both read.
 
+## Retry before undecidable (the King's intermittent-error ruling, 2026-09-04)
+
+Today the evidence read (`cli/internal/release/evidence.go`, `listRunsAtCommit`/`jobsForRun`) is a SINGLE HTTP attempt; one blip becomes an error. Observed 2026-09-04: an unauthenticated run reported "7 of 20 candidate(s) could NOT be read". "Undecidable" must be a conclusion, not a first reaction:
+
+- Wrap the GitHub reads in bounded classified retry, mirroring the box-side pattern (`cli/internal/upgrade/recovery_backoff.go`, STATBUS-109): known-intermittent classes (network error, timeout, HTTP 5xx, 429, and 403-with-rate-limit-headers) retry with backoff, ~3 attempts / ~30s budget total; deterministic classes (401, plain 403, 404, JSON decode) fail immediately — retrying a bad token is noise, not resilience.
+- Each retry prints one line naming attempt, class, and error, so a transient that recovers costs a visible line, never silence, and a log with three lines then success is self-explaining.
+- Only after the budget is exhausted (or a deterministic class) does the decision become exit 2, which then takes the fail-open path below.
+
 ## Undecidable at dispatch time (the King's actionable-fail-fast ruling, 2026-09-04)
 
 The chain's decision is a COST OPTIMIZER; the stable gate is the AUTHORITY. They share the one library but differ, explicitly, in what they do with "I don't know":
@@ -67,4 +75,5 @@ An RC that touches only `app/` skips every fleet and rides prior proof. That is 
 - `GITHUB_TOKEN=... ./sb release stable` on such an RC reaches the same verdict as the chain, because both ran the same walk.
 - `decide-upgrade-sensitivity` no longer exists.
 - With evidence reading forced to fail (bad token in a test dispatch), the fleet stages dispatch their full suites AND `coverage-question-health` is the single red job, naming the error; with evidence readable, that job is green and skips nothing.
+- A unit test with a stub server proves: 5xx-then-200 succeeds after retry (attempt lines printed); 401 fails on the FIRST attempt with no retry; budget exhaustion yields the undecidable error naming the last class.
 <!-- SECTION:DESCRIPTION:END -->
