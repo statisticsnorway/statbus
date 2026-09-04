@@ -621,7 +621,10 @@ echo "[OBSERVE] 7th dispatch (refusal re-attempt) exit: $REFUSAL_RC"
 [ "$(arc_dispatch_log_has "ROLLBACK_FAILED_GIT_CORRUPT")" = "yes" ] || { echo "✗ refusal output does not name ROLLBACK_FAILED_GIT_CORRUPT" >&2; exit 1; }
 [ "$(arc_dispatch_log_has "the git tree is corrupt")" = "yes" ] || { echo "✗ refusal output does not name the corruption (\"the git tree is corrupt\")" >&2; exit 1; }
 [ "$(arc_dispatch_log_has "do NOT proceed")" = "yes" ] || { echo "✗ refusal output does not tell the operator not to proceed" >&2; exit 1; }
-[ "$(arc_dispatch_log_has "Restoring database from backup at")" = "no" ] || { echo "✗ refusal output shows the database restore STARTED — the git-state guard must refuse BEFORE any destructive step, never mixed-era" >&2; exit 1; }
+# Product proof at HEAD: cli/internal/upgrade/exec.go:962 emits the current
+# restore-start line before the rsync/stall boundary at :972. Its absence keeps
+# this negative assertion mechanism-true after STATBUS-347's narration rewrite.
+[ "$(arc_dispatch_log_has "Restoring database from ")" = "no" ] || { echo "✗ refusal output shows the database restore STARTED — the git-state guard must refuse BEFORE any destructive step, never mixed-era" >&2; exit 1; }
 echo "  ✓ refused actionably (ErrRollbackGitCorrupt), naming the corruption + telling the operator not to proceed — and the log proves the DB restore was NEVER reached"
 
 FINAL_STATE_B2=$(row_state_for "$B_FULL")

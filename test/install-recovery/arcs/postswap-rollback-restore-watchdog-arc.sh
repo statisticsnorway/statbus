@@ -69,7 +69,11 @@ HOLD_AFTER_STALL_S="${HOLD_AFTER_STALL_S:-240}"
 SETTLE_WATCH_S="${SETTLE_WATCH_S:-360}"
 INJECT_CLASS="restore-db-stall-watchdog"
 RELEASE_FILE="/tmp/arc-restore-stall-release"
-RESTORE_MARKER="Restoring database from backup at"
+# Product proof at HEAD: cli/internal/upgrade/exec.go:962 announces this exact
+# operation before the restore-db-stall-watchdog boundary at :972. The later
+# :981/:984 failed/ok line resolves it, so seeing this marker while the release
+# file exists proves restoreDatabase reached the parked pre-rsync boundary.
+RESTORE_MARKER="Restoring database from ~/statbus-backups/pre-upgrade-active ..."
 
 : "${BASE_SHA:?BASE_SHA required}"
 : "${B_FULL:?B_FULL required}"

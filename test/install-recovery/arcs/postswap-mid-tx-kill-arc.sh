@@ -337,10 +337,15 @@ echo "  db.migration max version: $POST_MAX (baseline=$BASELINE_MAX_VERSION, V_V
 echo "  ✓ delta applied fully forward (max == V_VERSION_2)"
 
 echo "  asserting the Resuming-forward marker is present, and the rollback marker is ABSENT (the mechanism, not just the outcome) ──"
-VM_EXEC bash -c "grep -qF 'confirmed behind the new version' /tmp/midtx-recovery.log" >/dev/null 2>&1 && { echo "✗ recoverFromFlag's Behind/rollback line IS present — impossible for a completed terminal" >&2; exit 1; }
+# Product proof at HEAD: cli/internal/upgrade/service.go:7354-7356 uses the
+# current Behind sentence immediately before d.rollback. Lines 1720-1726 emit
+# "New binary continuing upgrade" for PhaseNewSbSwapped and immediately call
+# resumeNewSb. These assertions pin the same dispositions after STATBUS-347's
+# narration rewrite.
+VM_EXEC bash -c "grep -qF 'confirmed behind the target' /tmp/midtx-recovery.log" >/dev/null 2>&1 && { echo "✗ recoverFromFlag's Behind/rollback line IS present — impossible for a completed terminal" >&2; exit 1; }
 echo "  ✓ recoverFromFlag's Behind/rollback line is absent, as expected"
-VM_EXEC bash -c "grep -qF 'now running the new version' /tmp/midtx-recovery.log" >/dev/null 2>&1 || { echo "✗ the PhaseNewSbSwapped Resuming-forward marker is absent from the recovery log — the ruled mechanism did not fire the way this arc's contract requires" >&2; exit 1; }
-echo "  ✓ Resuming-forward marker present (Resuming upgrade ... where it left off, now running the new version)"
+VM_EXEC bash -c "grep -qF 'New binary continuing upgrade' /tmp/midtx-recovery.log" >/dev/null 2>&1 || { echo "✗ the PhaseNewSbSwapped Resuming-forward marker is absent from the recovery log — the ruled mechanism did not fire the way this arc's contract requires" >&2; exit 1; }
+echo "  ✓ Resuming-forward marker present (New binary continuing upgrade ...)"
 
 RECOVERY_ATTEMPTS=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT recovery_attempts FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
 echo "  recovery_attempts: $RECOVERY_ATTEMPTS (ruled value is 2 by design: crash-ladder pass counts 1, this arc's explicit recovery dispatch counts 2 — deaths = attempts−1 = the one kill)"

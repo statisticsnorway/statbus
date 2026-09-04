@@ -202,8 +202,11 @@ echo "  ✓ dispatch exited 75 — in-process rollback terminal, not a dead/hung
 # Mechanism-true marker: postSwapFailure's own "confirms it's behind" line,
 # naming the EXACT V1/V2 gap this arc's kill window produces (distinct from
 # mid-migration-kill's baseline-vs-V2 gap — see that arc's own marker).
+# Product proof at HEAD: cli/internal/upgrade/service.go:7354-7356 emits this
+# sentence and immediately calls d.rollback with the same backupPath; STATBUS-347
+# changed the narration, not the Behind → restore disposition.
 EXPECT_REASON_SUBSTR="db.migration max version ${V_VERSION} < on-disk max ${V_VERSION_2}"
-[ "$(arc_dispatch_log_has "auto-restoring from this upgrade's snapshot")" = "yes" ] || { echo "✗ dispatch output missing postSwapFailure's rollback line" >&2; exit 1; }
+[ "$(arc_dispatch_log_has "restoring this upgrade's snapshot.")" = "yes" ] || { echo "✗ dispatch output missing postSwapFailure's rollback line" >&2; exit 1; }
 [ "$(arc_dispatch_log_has "$EXPECT_REASON_SUBSTR")" = "yes" ] || { echo "✗ dispatch output missing the expected observed-state gap ('$EXPECT_REASON_SUBSTR') — wrong kill window, or V1 was not actually recorded before the kill" >&2; exit 1; }
 echo "  ✓ path pinned: postSwapFailure's rollback line + the exact V1-recorded/V2-pending gap ($EXPECT_REASON_SUBSTR)"
 

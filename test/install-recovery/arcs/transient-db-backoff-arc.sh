@@ -265,9 +265,10 @@ wait_for_journal_count "Database connect attempt" 2 150 "$ARM_SINCE"
 # alive-idle, bounded restarts, still trying) would ALSO pass for a future
 # build that restored blindly and then parked anyway — assert the invariant
 # itself, not its side effects. The restore-start log line is unambiguous
-# (exec.go's progress.Write("Restoring database from backup at %s...")) —
-# its absence across this whole arm is the actual proof nothing was destroyed.
-[ "$(journal_has "Restoring database from backup at" "$ARM_SINCE")" = "no" ] || { echo "✗ 'Restoring database from backup at' appeared in the journal — a restore was attempted over a database this arm never made reachable. That is the data-corruption pathway STATBUS-039 forbids, regardless of what state the row ends up in." >&2; exit 1; }
+# (cli/internal/upgrade/exec.go:962 emits "Restoring database from %s ..."
+# before the rsync/stall boundary at :972) — its absence across this whole arm
+# is the actual proof nothing was destroyed after STATBUS-347's rewrite.
+[ "$(journal_has "Restoring database from " "$ARM_SINCE")" = "no" ] || { echo "✗ 'Restoring database from' appeared in the journal — a restore was attempted over a database this arm never made reachable. That is the data-corruption pathway STATBUS-039 forbids, regardless of what state the row ends up in." >&2; exit 1; }
 echo "  ✓ NO restore was ever attempted over the unverifiable database — the invariant holds, not just its side effects"
 assert_systemd_active "$VM_NAME" "$UPGRADE_UNIT" "active"
 assert_systemd_restart_counter_bounded "$VM_NAME" "$UPGRADE_UNIT" 2
