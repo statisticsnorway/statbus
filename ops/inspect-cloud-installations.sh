@@ -12,8 +12,15 @@ if ! command -v choose &> /dev/null; then
   exit 1
 fi
 
-# Get all branches matching the pattern ops/cloud/deploy/(.*) except production
-SUFFIXES=$(git branch -a | grep 'remotes/origin/ops/cloud/deploy/' | grep -v 'production' | sd 'remotes/origin/ops/cloud/deploy/(.*?)' '$1')
+# Deploy branches were retired by STATBUS-248. Read the authoritative fleet
+# registry from cloud.sh instead, so every live slot remains inspectable.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SERVERS=$(sed -n 's/^SERVERS="\([^"]*\)"/\1/p' "$SCRIPT_DIR/../cloud.sh")
+if [[ -z "$SERVERS" ]]; then
+  echo "Error: could not read the SERVERS registry from cloud.sh" >&2
+  exit 1
+fi
+SUFFIXES=$(printf '%s\n' $SERVERS | sed 's/^statbus_//')
 
 # Function to extract information from environment files
 extract_info() {
@@ -45,7 +52,7 @@ EOF
 
 # Iterate over each deployment slot
 for SUFFIX in $SUFFIXES; do
-  # Derive the user from the branch name
+  # Derive the user from the cloud.sh registry entry
   user="statbus_${SUFFIX}"
   extract_info "$user"
 done

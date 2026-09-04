@@ -25,23 +25,6 @@ match hexdigits
 syslog auth
 
 #
-# Deploy users — invoked by .github/workflows/deploy-to-<slot>.yaml via raw ssh.
-# Command shape: `cd ~/statbus && ./sb upgrade apply-latest`
-#
-# statbus_demo's apply-latest access is NOT the retired deploy-to-demo.yaml/
-# master-to-demo.yaml push button (that door is dead, STATBUS-244a). It is
-# the door for STATBUS-248's scheduled auto-apply trigger: that workflow
-# supplies the TIMING (a scheduled dispatch), and demo's own upgrade channel
-# chooses the TARGET — the trigger still runs this exact command over ssh, so
-# the allowlist entry stays.
-#
-statbus_demo: cd ~/statbus && ./sb upgrade apply-latest
-statbus_ma: cd ~/statbus && ./sb upgrade apply-latest
-statbus_ug: cd ~/statbus && ./sb upgrade apply-latest
-statbus_et: cd ~/statbus && ./sb upgrade apply-latest
-statbus_jo: cd ~/statbus && ./sb upgrade apply-latest
-
-#
 # Named-target apply — invoked by deploy-to-dev.yaml (STATBUS-259/260): the
 # release chain now dispatches deploy-to-dev naming an exact candidate SHA,
 # so the door must permit installing THAT commit rather than whatever the
@@ -78,26 +61,13 @@ statbus_jo: ~/statbus/ops/ci-notify.sh
 statbus_test: cd statbus && git fetch origin && git checkout -- . && git checkout ######################################## && ./dev.sh continous-integration-test
 
 #
-# CI deploy-status poll — invoked by deploy-to-<slot>.yaml after the poke
+# CI deploy-status poll — invoked by deploy-to-dev.yaml after the poke
 # (STATBUS-170: green means CONVERGED, not merely scheduled). Same pattern as
 # ci-notify above: only the PATH is pinned, the behavior lives in
 # ~/statbus/ops/ci-deploy-status.sh (evolves via git). The 40 '#' characters
 # match the deployed commit's 40-hex SHA at runtime (via `match hexdigits`).
-# One entry per user (sshdo requires it); identical command for all FIVE —
-# demo has none: deploy-to-demo.yaml was deleted (STATBUS-244a), so demo has
-# no poll consumer. Adding one back would be a grant ADDITION, a separate
-# reviewed decision, not implied by this reconcile. tcc was removed
-# (STATBUS-321 phase 4a): the box no longer exists.
-#
-# FOUR OF THESE FIVE ARE CONDEMNED (ma, ug, et, jo): they serve
-# deploy-to-<slot>.yaml workflows Wave D queues for deletion once channel-
-# following is confirmed (STATBUS-244a's transitional note, STATBUS-248
-# Wave D1). Captured here as still-live and still enforced — removal happens
-# in its own reviewed step, never silently inside a reconcile.
+# Dev is the only workflow poll consumer. The country grants were removed with
+# their writer-less deploy workflows in STATBUS-248.
 #
 statbus_dev: ~/statbus/ops/ci-deploy-status.sh ########################################
-statbus_ma: ~/statbus/ops/ci-deploy-status.sh ########################################
-statbus_ug: ~/statbus/ops/ci-deploy-status.sh ########################################
-statbus_et: ~/statbus/ops/ci-deploy-status.sh ########################################
-statbus_jo: ~/statbus/ops/ci-deploy-status.sh ########################################
 github-runner: /usr/local/sbin/statbus-runner-health

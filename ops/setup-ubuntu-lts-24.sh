@@ -169,7 +169,7 @@ pause() {
 #       - `<user>`        → https://github.com/<user>.keys
 #       - `<org>/<repo>`  → https://github.com/<org>/<repo>.keys
 #     The repo form returns the repo's deploy keys; this is how CI like
-#     deploy-to-* gets ssh access without a personal key being in play.
+#     CI automation gets ssh access without a personal key being in play.
 #   * Idempotent: existing keys (added by hand, by a prior run, or by
 #     another mechanism) are preserved. Re-runs converge — no duplicates.
 #   * Each key is annotated with `# <source URL>` so an operator looking
@@ -1154,7 +1154,7 @@ stage_service_account() {
     echo ""
     echo "  Operators (and CI deploy workflows) SSH as '$user' to install"
     echo "  and operate StatBus. The repo deploy key is required for the"
-    echo "  GitHub Actions deploy-to-* workflows to land on this box."
+    echo "  approved GitHub Actions automation to land on this box."
     echo ""
 
     if [[ -z "$GITHUB_USERS" && -z "$GITHUB_DEPLOY_KEYS" ]]; then
