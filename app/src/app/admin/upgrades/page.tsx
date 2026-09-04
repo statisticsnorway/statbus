@@ -8,6 +8,7 @@ import { describeError } from "@/lib/error-format";
 import { pendingUpgradeStatusAtom } from "@/atoms/upgrade-status";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import {
+  installedAsLabel,
   isParkedUpgrade,
   scheduledImageWaitSince,
   scheduleRefusalMessage,
@@ -1087,6 +1088,7 @@ function UpgradeCard({
   const scheduleAction = upgradeScheduleAction(u);
   const canRetry = scheduleAction === "rpc" && status !== "available";
   const restoreReattemptRequired = scheduleAction === "install";
+  const installedAs = installedAsLabel(u.summary, u.display_name);
 
   return (
     <Card
@@ -1234,7 +1236,9 @@ function UpgradeCard({
                 </Badge>
               )}
             </CardTitle>
-            <CardDescription className="mt-1">{u.summary}</CardDescription>
+            {installedAs && (
+              <CardDescription className="mt-1">{installedAs}</CardDescription>
+            )}
           </div>
           <StateBadge
             state={status}

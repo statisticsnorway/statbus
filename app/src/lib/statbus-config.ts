@@ -12,8 +12,8 @@ export interface StatbusConfig {
   deploymentSlotName: string;
   deploymentSlotCode: string;
   debug: boolean;
-  version: string;
-  commit: string;
+  fallbackVersion: string;
+  fallbackCommit: string;
 }
 
 const SSR_DEFAULTS: StatbusConfig = {
@@ -21,8 +21,8 @@ const SSR_DEFAULTS: StatbusConfig = {
   deploymentSlotName: "",
   deploymentSlotCode: "",
   debug: false,
-  version: "",
-  commit: "",
+  fallbackVersion: "",
+  fallbackCommit: "",
 };
 
 // Window.__STATBUS_CONFIG__ is declared in src/types/global.d.ts.

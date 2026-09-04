@@ -29,6 +29,13 @@ interface ScheduledImageWaitView {
 
 export type UpgradeScheduleAction = "rpc" | "install" | "none";
 
+export function installedAsLabel(
+  summary: string,
+  displayName: string
+): string | null {
+  return summary === displayName ? null : `Installed as ${summary}`;
+}
+
 export function isParkedUpgrade(upgrade: UpgradeSchedulingView): boolean {
   return upgrade.state === "in_progress" && upgrade.recovery_parked_at !== null;
 }

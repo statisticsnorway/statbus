@@ -49,15 +49,17 @@ export default async function RootLayout({
     deploymentSlotName: process.env.PUBLIC_DEPLOYMENT_SLOT_NAME || "",
     deploymentSlotCode: process.env.PUBLIC_DEPLOYMENT_SLOT_CODE || "",
     debug: process.env.PUBLIC_DEBUG === "true",
-    version: process.env.PUBLIC_STATBUS_VERSION || "",
+    // Build/install provenance is a fallback only. The footer resolves the
+    // current running name from /rest/rpc/running_identity whenever available.
+    fallbackVersion: process.env.PUBLIC_STATBUS_VERSION || "",
     // Short-form (8-char) commit_short for display in footer / status —
     // sourced from PUBLIC_STATBUS_COMMIT_SHORT which is the name written
     // by `./sb config generate` (see cli/internal/config/config.go). Rc.63:
     // length suffix dropped from the env-var name — there's only one
     // short form (8 chars, documented at the Go helper). The property
-    // name stays short ("commit") because this object is display-only;
-    // no equality comparison ever reads it.
-    commit: process.env.PUBLIC_STATBUS_COMMIT_SHORT || "",
+    // name makes the fallback semantics explicit; no equality comparison
+    // ever reads it.
+    fallbackCommit: process.env.PUBLIC_STATBUS_COMMIT_SHORT || "",
   };
 
   return (

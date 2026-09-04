@@ -1,4 +1,5 @@
 import {
+  installedAsLabel,
   scheduledImageWaitSince,
   scheduleUpgrade,
   shouldRedirectAfterSchedule,
@@ -76,6 +77,13 @@ describe("upgrade scheduling UI contract", () => {
       recovery_parked_at: "2026-09-01T20:00:00Z",
     };
     expect(upgradeStateLabel(parked, "Upgrading")).toBe("Parked");
+  });
+
+  test("install provenance is labeled only when it differs from the current name", () => {
+    expect(installedAsLabel("v2026.09.0", "v2026.09.0")).toBeNull();
+    expect(installedAsLabel("v2026.09.0-rc.14", "v2026.09.0")).toBe(
+      "Installed as v2026.09.0-rc.14"
+    );
   });
 
   test("scheduled rows expose the original wait start while images or release assets are not ready", () => {
