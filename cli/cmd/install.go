@@ -1232,7 +1232,7 @@ func runGenerateEnv(dir string) error {
 	if err := runCmdDir(dir, sb, "config", "generate"); err != nil {
 		return err
 	}
-	// Now that config exists, ensure deploy branch fetch is configured
+	// Now that config exists, normalize the product-owned fetch configuration.
 	normalizeGitRemote(dir)
 	// Create backup directory for upgrade service (systemd unit expects it)
 	home, err := os.UserHomeDir()

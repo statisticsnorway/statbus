@@ -11,8 +11,8 @@ on:
 # Triggers AFTER the Release workflow completes, so the GitHub release
 # exists when services check. Each server's upgrade service will discover the
 # release and make it available in the admin UI. This is discovery
-# only — not a forced upgrade. Admins or deploy branches decide when
-# to apply.
+# only — not a forced upgrade. The box's policy or an administrator
+# decides when to apply it.
 #
 # STATBUS-069 phase 3 (doc-026 §3 step 2): the notify legs run on the niue
 # self-hosted runner instead of ubuntu-latest. Two changes from the pre-runner

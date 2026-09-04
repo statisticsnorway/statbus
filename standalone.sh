@@ -15,7 +15,7 @@
 #   ./standalone.sh install all         Install ALL hosts
 #   ./standalone.sh rescue <target>     Alias for install (backwards compat)
 #   ./standalone.sh wipe <target>       DESTRUCTIVE: delete DB and recreate
-#   ./standalone.sh inspect             Show urls, slot codes, and deploy branches
+#   ./standalone.sh inspect             Show registered hosts and served URLs
 #   ./standalone.sh ssh <target>        Open interactive shell as statbus@<host>
 #
 # Provisioning a NEW standalone host is a one-time manual job — OS install,
@@ -49,9 +49,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 #   served_domain  public domain the host serves, e.g. no.statbus.org.
 #
 # Each standalone host has exactly one slot by design, so <name> uniquely
-# identifies the deployment. To add a new standalone host, append a line
-# here plus .github/workflows/{master,deploy}-to-<host>-<name>.yaml
-# modeled on -rune-no.yaml.
+# identifies the deployment. To add a new standalone host, append a line here;
+# its channel-backed upgrade service is the delivery path.
 HOSTS=(
     "no|rune.statbus.org|no.statbus.org"
 )
@@ -76,7 +75,7 @@ usage() {
     echo "  install <target> [ver]  Install host or channel (optionally pin to specific version)"
     echo "  install all [ver]       Install ALL hosts (optionally pin)"
     echo "  rescue <target>         Alias for install"
-    echo "  inspect                 Show urls, slot codes, and deploy branches"
+    echo "  inspect                 Show registered hosts and served URLs"
     echo "  wipe <target>           DESTRUCTIVE: delete DB and recreate"
     echo "  import <target> <selection|downloads> [email]"
     echo "                          Schedule BRREG import (selection ships in-repo, downloads needs tmp/ data on host)"

@@ -444,10 +444,9 @@ jobs:
       # dispatching and takes the set difference, so the run it waits on is
       # provably the one it started, and an ambiguous match fails loudly.
       #
-      # The deploy branch is no longer written here. STATBUS-244's transitional
-      # master-to-dev button still writes it and deploy-to-dev still accepts a
-      # push, so nothing is switched off underneath a live caller — but the
-      # branch has stopped being this chain's transport.
+      # STATBUS-248 removed the retired deploy branch and its push trigger.
+      # This named workflow dispatch is now the only path from the release
+      # chain to dev.
       - name: Deploy THIS CANDIDATE to dev and wait for its verdict
         id: deploy
         if: steps.obsolete.outputs.obsolete != 'true'

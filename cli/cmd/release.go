@@ -1384,8 +1384,8 @@ SKIP_APP_BUILD_LINT) apply at the prerelease cut — see
 		// 5. Canary observational gates. Verifies that the RC's commit has
 		//    actually deployed AND reached `state='completed'` on every
 		//    canary slot before we tag stable. The check observes; it does
-		//    NOT trigger upgrades — operators choose how (web UI, CLI,
-		//    push-to-deploy branch, manual psql). Implicitly verifies
+		//    NOT trigger upgrades — the dev orchestrator or Norway's operator
+		//    chooses how (named workflow dispatch, web UI, or CLI). Implicitly verifies
 		//    every esoteric interaction (systemd timeouts, OS compat,
 		//    OOM, worker drain, post-restore fixups) because all of them
 		//    are upstream of the 'completed' state.
@@ -1393,8 +1393,8 @@ SKIP_APP_BUILD_LINT) apply at the prerelease cut — see
 		//    Canary checks run AFTER the workflow + artifact gates
 		//    because canary 'completed' state is downstream of those:
 		//    the slot's upgrade-service consumes ghcr images that
-		//    `images` builds, and operators don't typically push-to-
-		//    deploy a slot until test-hardening + test-install go
+		//    `images` builds, and the canary delivery paths don't typically
+		//    run until test-hardening + test-install go
 		//    green. Reordering surfaced this — pre-fix canary fired
 		//    first and gave the operator a guaranteed-fail diagnostic
 		//    before the actionable workflow result. Canary checks
