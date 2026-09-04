@@ -147,6 +147,10 @@ DECLARE
 
     -- Upgrade: Trigger functions and RPC for upgrade service notifications
     v_upgrade_funcs TEXT[] := ARRAY[
+        -- STATBUS-355: public four-column read model for the footer. SECURITY
+        -- DEFINER intentionally bypasses upgrade RLS so anon can resolve the
+        -- installed commit without gaining access to upgrade history.
+        'public.running_identity',
         'public.upgrade_notify_daemon',
         'public.upgrade_notify_frontend',
         'public.upgrade_request_check',

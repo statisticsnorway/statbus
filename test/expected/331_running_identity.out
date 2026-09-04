@@ -1,0 +1,117 @@
+-- STATBUS-355: running identity follows the installed commit's current name.
+\i test/setup.sql
+\echo -- test/setup.sql output suppressed for cleaner test output
+-- test/setup.sql output suppressed for cleaner test output
+\set ECHO none
+\echo -- test/setup.sql done, test output follows
+-- test/setup.sql done, test output follows
+BEGIN;
+TRUNCATE public.upgrade RESTART IDENTITY;
+\echo '=== running identity: no installed row ==='
+=== running identity: no installed row ===
+SELECT * FROM public.running_identity();
+ commit_sha | resolved_name | release_status | build_name 
+------------+---------------+----------------+------------
+(0 rows)
+
+\echo '=== running identity: install prerelease ==='
+=== running identity: install prerelease ===
+INSERT INTO public.upgrade (
+    commit_sha,
+    committed_at,
+    commit_tags,
+    release_status,
+    summary,
+    state,
+    completed_at,
+    commit_version,
+    log_relative_file_path
+)
+VALUES (
+    repeat('a', 40),
+    '2099-01-01 00:00:00+00',
+    ARRAY['v2099.01.0-rc.1'],
+    'prerelease',
+    'v2099.01.0-rc.1',
+    'completed',
+    '2099-01-01 00:01:00+00',
+    'v2099.01.0-rc.1',
+    '331-running-identity.log'
+);
+-- A newer candidate is not installed and must not replace runtime identity.
+INSERT INTO public.upgrade (
+    commit_sha,
+    committed_at,
+    commit_tags,
+    release_status,
+    summary
+)
+VALUES (
+    repeat('b', 40),
+    '2099-02-01 00:00:00+00',
+    ARRAY['v2099.02.0'],
+    'release',
+    'v2099.02.0'
+);
+CREATE TEMP TABLE running_identity_before ON COMMIT DROP AS
+SELECT
+    state,
+    discovered_at,
+    scheduled_at,
+    started_at,
+    completed_at,
+    summary,
+    commit_version
+FROM public.upgrade
+WHERE commit_sha = repeat('a', 40);
+SELECT * FROM public.running_identity();
+                commit_sha                |  resolved_name  | release_status |   build_name    
+------------------------------------------+-----------------+----------------+-----------------
+ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa | v2099.01.0-rc.1 | prerelease     | v2099.01.0-rc.1
+(1 row)
+
+\echo '=== running identity: same commit promoted ==='
+=== running identity: same commit promoted ===
+UPDATE public.upgrade
+SET commit_tags = ARRAY['v2099.01.0-rc.1', 'v2099.01.0'],
+    release_status = 'release'
+WHERE commit_sha = repeat('a', 40);
+SELECT * FROM public.running_identity();
+                commit_sha                | resolved_name | release_status |   build_name    
+------------------------------------------+---------------+----------------+-----------------
+ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa | v2099.01.0    | release        | v2099.01.0-rc.1
+(1 row)
+
+\echo '=== running identity: history and lifecycle remain immutable ==='
+=== running identity: history and lifecycle remain immutable ===
+SELECT
+    u.state = b.state AS state_unchanged,
+    u.discovered_at = b.discovered_at AS discovered_at_unchanged,
+    u.scheduled_at IS NOT DISTINCT FROM b.scheduled_at AS scheduled_at_unchanged,
+    u.started_at IS NOT DISTINCT FROM b.started_at AS started_at_unchanged,
+    u.completed_at = b.completed_at AS completed_at_unchanged,
+    u.summary = b.summary AS summary_unchanged,
+    u.commit_version = b.commit_version AS build_name_unchanged,
+    (SELECT count(*) FROM public.upgrade) AS total_rows,
+    (SELECT count(*) FROM public.upgrade WHERE state = 'scheduled') AS scheduled_rows,
+    (SELECT count(*) FROM public.upgrade WHERE state = 'in_progress') AS in_progress_rows,
+    (SELECT count(*) FROM public.upgrade WHERE backup_path IS NOT NULL) AS backup_rows
+FROM public.upgrade AS u
+CROSS JOIN running_identity_before AS b
+WHERE u.commit_sha = repeat('a', 40);
+ state_unchanged | discovered_at_unchanged | scheduled_at_unchanged | started_at_unchanged | completed_at_unchanged | summary_unchanged | build_name_unchanged | total_rows | scheduled_rows | in_progress_rows | backup_rows 
+-----------------+-------------------------+------------------------+----------------------+------------------------+-------------------+----------------------+------------+----------------+------------------+-------------
+ t               | t                       | t                      | t                    | t                      | t                 | t                    |          2 |              0 |                0 |           0
+(1 row)
+
+\echo '=== running identity: anonymous REST role can resolve it ==='
+=== running identity: anonymous REST role can resolve it ===
+SET LOCAL ROLE anon;
+SELECT * FROM public.running_identity();
+                commit_sha                | resolved_name | release_status |   build_name    
+------------------------------------------+---------------+----------------+-----------------
+ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa | v2099.01.0    | release        | v2099.01.0-rc.1
+(1 row)
+
+RESET ROLE;
+ROLLBACK;

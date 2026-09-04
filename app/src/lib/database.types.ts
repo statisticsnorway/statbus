@@ -15176,6 +15176,10 @@ export type Database = {
         }
         Returns: boolean
       },
+      running_identity: {
+        Args: Record<string, never>
+        Returns: Record<string, unknown>[]
+      },
       secondary_activity_category: {
         Args: {
           statistical_unit?: Database["public"]["Tables"]["statistical_unit"]["Row"]
