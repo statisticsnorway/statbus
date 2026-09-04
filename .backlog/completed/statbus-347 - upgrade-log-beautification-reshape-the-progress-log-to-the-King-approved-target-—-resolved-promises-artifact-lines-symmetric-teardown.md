@@ -202,4 +202,10 @@ Sol autopsy (tmp/sol-arc-autopsy-rc13.md): ONE PRODUCT REGRESSION, from S2 (3afd
 
 Foreman ruling: the S2 gate is right for existing-marker recovery and stays; the flagless caller gets its own fresh-claim path (acquireFreshFlock O_EXCL + row re-read under the flock, same id/sha/backup_path/in_progress, yield otherwise). Failing live twin first. The watchdog arc's missing pre-operation line is a 347 style-rule violation on the product side ("the line announces the act"); likely restored as a product commit. Sol implementing; rc.14 follows. rc.13 is NOT a Norway candidate.
 ---
+---
+author: foreman
+created: 2026-09-04 10:27
+---
+OUTCOME. rc.14 (d53731ec5) carries this ticket's shipped form and is promotable: release/hardening/both smokes green, dev canary completed 06:56:40Z, install-recovery 15/15, upgrade arcs 32/32 (twice: 33835503755 and 33850981598), orchestrator 33835497127 attempt 3 SUCCESS. Norway is the King's. The prefix form of cleanup-only rollback finishing is what ships; the column form with S3 is now its own ticket, STATBUS-354, with the design, the plan and the two mandatory arcs. Nothing else remains here.
+---
 <!-- COMMENTS:END -->
