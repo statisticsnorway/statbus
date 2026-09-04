@@ -138,4 +138,16 @@ created: 2026-09-04 11:17
 WAVE D1 SATISFIED (the King's ruling, 2026-09-04): demo, on the stable channel, received v2026.09.0 through its own upgrade service's periodic check (scheduled 12:58:22, completed 12:59:33 local, observed by the King in the admin UI) with no deploy-branch involvement. One box exercising the code covers the mechanism for every box running the same code — et/jo/ma/ug need no individual confirmation. The deletion guard is met.
 Execution notes agreed: deploy-to-dev.yaml STAYS (dispatched by the orchestrator; ran green three times today). Its deprecated branch-push fallback trigger goes too, and then ops/cloud/deploy/dev with it — the orchestrator dispatch is the only real path. Per-file no-dispatcher check before each deletion, doc/CLOUD.md sweep, read-only channel re-verification across the fleet afterward. Terminology: say "manually runnable workflows", not "buttons".
 ---
+
+author: foreman
+created: 2026-09-04 16:33
+---
+REMOTE-BRANCH DELETION IS BLOCKED on a newly reproduced live-box hazard. `configureDeployFetch` in `cli/cmd/install.go` appended an explicit slot refspec such as `+refs/heads/ops/cloud/deploy/dev:refs/remotes/origin/ops/cloud/deploy/dev`. If that remote branch is deleted while the line remains, every form of `git fetch origin` fails with exit 128 (`fatal: couldn't find remote ref ...`), which wedges release discovery.
+
+Required order, now part of STATBUS-248:
+1. Land the product fix: delete the deploy-branch refspec writer. `upgrade.CanonicalRefspecs` remains the sole authority, and `NormalizeRefspecs` must leave exactly its two canonical lines. Add regression coverage proving no `ops/cloud/deploy` refspec is written and stale deploy refspecs are normalized away.
+2. Survey every cloud box read-only. After the fix is available on a box, repair every noncanonical configuration through the product-owned path (`./sb install`, which calls `NormalizeRefspecs`) unless the foreman explicitly approves a targeted alternative. Verify each repaired box with `git config --get-all remote.origin.fetch`, expecting exactly the two canonical lines.
+3. Norway/rune remains off limits to this implementer. The foreman handles its survey and repair with the King.
+4. Only after every box is verified canonical may the already inventoried remote deploy branches be deleted. Re-list and re-check immediately before deletion; no earlier approval carries across this prerequisite.
+---
 <!-- COMMENTS:END -->

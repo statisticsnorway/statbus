@@ -87,7 +87,7 @@ Clients worldwide
 
 - **User-based isolation**: Each deployment runs under `statbus_<code>` Linux user
 - **Git repo per deployment**: `/home/statbus_<code>/statbus/` contains complete repo
-- **No deploy branches**: the retired branch-push transport has been deleted (STATBUS-244/248)
+- **No deploy-branch rollout**: the retired branch-push transport is unused; its remote branches are retained temporarily until every box's stale explicit fetch refspec has been normalized (STATBUS-248)
 - **Host Caddy imports configs**: `/etc/caddy/Caddyfile` imports from all `/home/statbus_*/statbus/caddy/config/`
 - **ACL permissions**: Host Caddy user has ACL read access to deployment configs
 - **Role-correct channels**: dev uses `prerelease`; ordinary cloud boxes use `stable`; Norway remains the human `prerelease` canary
@@ -403,9 +403,11 @@ cd ~/statbus
 
 - **Dev** — `prerelease`, automatic canary (STATBUS-247): every candidate reaches it without a human. `release-fleet-orchestrator.yaml` dispatches `deploy-to-dev.yaml` directly at the candidate SHA (STATBUS-260), making workflow dispatch the only path and dev the only box the chain explicitly drives.
 - **Norway (`no`, on rune)** — `prerelease`, human canary: a person installs each candidate deliberately against an observation card. It has no push path and is never included in cloud fleet commands.
-- **Demo and ordinary cloud slots** — `stable`: `demo`, `et`, `jo`, `ma`, `mw`, `ug`, `ua`, and `gh` receive stable-channel offers from their own upgrade services. Promotion makes a release available; operators observe and roll the fleet with `./cloud.sh`, rather than moving a branch. The writer-less `deploy-to-{et,jo,ma,ug}.yaml` listeners and every `ops/cloud/deploy/*` branch were removed after Wave D1 proved the channel path on demo.
+- **Demo and ordinary cloud slots** — `stable`: `demo`, `et`, `jo`, `ma`, `mw`, `ug`, `ua`, and `gh` receive stable-channel offers from their own upgrade services. Promotion makes a release available; operators observe and roll the fleet with `./cloud.sh`, rather than moving a branch. The writer-less `deploy-to-{et,jo,ma,ug}.yaml` listeners were removed after Wave D1 proved the channel path on demo.
 
 This channel table is role truth, not a request to normalize every box to `stable`. Dev and Norway must remain on `prerelease`; Norway's production role does not override its human-canary role.
+
+**Remote branch cleanup ordering:** old installs may still carry an explicit `ops/cloud/deploy/<slot>` fetch refspec. Deleting that remote branch first makes `git fetch origin` fail and stops upgrade discovery. Land the code that removes the refspec writer, run the product-owned repair path (`./sb install`) on every affected box, and verify `git config --get-all remote.origin.fetch` contains exactly `+refs/heads/*:refs/remotes/origin/*` and `+refs/heads/db-seed:refs/remotes/origin/db-seed`. Only then may the remote deploy branches be deleted. Norway/rune is repaired separately by its responsible operator.
 
 <img src="diagrams/git-workflow.svg" alt="Git Deployment Workflow" style="max-width:100%;">
 
