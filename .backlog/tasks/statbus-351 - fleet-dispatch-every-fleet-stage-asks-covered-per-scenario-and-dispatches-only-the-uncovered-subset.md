@@ -2,10 +2,10 @@
 id: STATBUS-351
 title: >-
   fleet dispatch: every fleet stage asks `covered` per scenario and dispatches only the uncovered subset
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-04 07:18'
-updated_date: '2026-09-04 14:26'
+updated_date: '2026-09-04 15:14'
 labels:
   - release
   - ci

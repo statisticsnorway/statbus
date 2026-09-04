@@ -2,10 +2,10 @@
 id: STATBUS-355
 title: >-
   promotion renames the running version everywhere: one resolver from commit to current name; provenance labeled, never contradictory
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-04 11:07'
-updated_date: '2026-09-04 11:07'
+updated_date: '2026-09-04 15:14'
 labels:
   - upgrade
   - app
