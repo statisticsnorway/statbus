@@ -1,11 +1,11 @@
 ---
 id: STATBUS-350
 title: >-
-  fleet concurrency: one smoke matrix, one dispatcher per tag, refuse with the owner's run id
+  fleet concurrency: one smoke matrix, native bounded queue, and owner-aware dispatch
 status: In Progress
 assignee: []
 created_date: '2026-09-04 06:40'
-updated_date: '2026-09-04 20:03'
+updated_date: '2026-09-04 20:18'
 labels:
   - release
   - ci
@@ -21,40 +21,122 @@ ordinal: 343000
 <!-- SECTION:DESCRIPTION:BEGIN -->
 ## Observed failure
 
-Four workflows rented Hetzner VMs under the shared workflow-level `hetzner-vm-fleet` group: `test-install.yaml`, `test-upgrade.yaml`, `install-recovery-harness.yaml`, and `upgrade-arc-harness.yaml`. On `v2026.09.0-rc.14`, a third entrant replaced an already-pending smoke run under GitHub's default single-pending policy. The victim concluded `cancelled` with zero jobs and no explanation. The orchestrator waited out its budget twice and lost roughly three hours despite no product failure.
+Four workflows rented Hetzner VMs under the shared workflow-level
+`hetzner-vm-fleet` group: `test-install.yaml`, `test-upgrade.yaml`,
+`install-recovery-harness.yaml`, and `upgrade-arc-harness.yaml`. On
+`v2026.09.0-rc.14`, a third entrant replaced an already-pending smoke run under
+GitHub's default single-pending policy. The victim concluded `cancelled` with
+zero jobs and no explanation. The orchestrator waited out its budget twice and
+lost roughly three hours despite no product failure.
 
-## Verified platform facts that change the original design
+## Verified platform facts
 
-GitHub now supports `concurrency.queue: max`: up to 100 runs can wait without replacement, with FIFO processing by time of entry into the group. GitHub also exposes the live group and ordered members through `GET /repos/{owner}/{repo}/actions/concurrency_groups/{group}`.
+- GitHub now supports `concurrency.queue: max`: up to 100 runs can wait without
+  pending-run replacement. The concurrency-group API exposes the ordered
+  members, including each run's ID, name, status, URL, and queue position.
+- Workflow concurrency is acquired before any job starts. A pending run cannot
+  execute a first-job refusal.
+- A list-only check outside the group is not atomic. Two arrivals can both see
+  an empty group. Native concurrency remains the authority that makes global
+  different-tag VM overlap impossible.
+- Current actionlint 1.7.12 rejects GitHub's documented `queue` key. The code
+  therefore needs one exact, path-scoped ignore plus a structural regression
+  test until actionlint learns the key.
+- Deleted workflow filenames remain queryable through the Actions API. Real
+  historical smoke evidence exists under both old identities and must remain
+  discoverable.
 
-The original proposed first-job guard is not implementable inside the current workflow-level group. GitHub acquires workflow concurrency before any job starts, so a pending run cannot execute its first job. Moving a list-only guard outside the group is not an atomic replacement: two simultaneous runs can both observe an empty group and both proceed toward paid VM work. The tmp prototype demonstrates both facts.
+## Approved design: native bounded queue with guardrails
 
-## Common implementation, whichever admission policy is chosen
+The King approved Option A on 2026-09-04. Do not build a custom lease or
+controller. GitHub's concurrency group remains the single atomic quota owner.
 
-1. Replace the two smoke workflows with dispatch-only `test-smoke.yaml`, running `0-happy-install` and `0-happy-upgrade` as a two-entry matrix with those exact job names.
-2. Collapse the orchestrator's two smoke jobs into one dispatch. Preserve per-scenario coverage semantics explicitly.
-3. Introduce `WorkflowTestSmoke = "test-smoke.yaml"`. Keep legacy `test-install.yaml` and `test-upgrade.yaml` identities in `WorkflowsRunningScenario`; real historical proof exists only under each old identity, and deleted workflow filenames remain queryable through the Actions API.
-4. Point the stable smoke gate at the new workflow while retaining the existing operator bypass contract.
-5. Leave the King's between-stage supersession mechanism unchanged.
+### 1. One smoke workflow and one dispatch
 
-## Decision required before implementation
+Replace `test-install.yaml` and `test-upgrade.yaml` with dispatch-only
+`test-smoke.yaml`. Its selected-scenario matrix runs jobs named exactly
+`0-happy-install` and `0-happy-upgrade`; those bare names are evidence marks.
+The workflow accepts a space-separated `scenarios` input so the per-scenario
+coverage optimizer can dispatch only the uncovered half when appropriate.
 
-### A. Native bounded queue, recommended
+Collapse the orchestrator's two parallel smoke jobs into one job that asks the
+shared coverage authority for both scenarios, dispatches `test-smoke.yaml` at
+most once, and passes the uncovered selectors. Dev starts only after that one
+smoke stage succeeds. Leave every between-stage supersession decision intact.
 
-- Add `queue: max` to the shared workflow-level concurrency on all three resulting VM-fleet workflows. This preserves the exact global cross-tag quota boundary and removes zero-job pending replacement.
-- Before orchestrator dispatch, query the concurrency-group API and fail immediately with the current owner's run ID and name if occupied. Hand-dispatched runs are safe but queue rather than executing a first-job refusal.
-- Use the same API in `dispatch-fleet-and-wait` for owner-aware queue/cancellation diagnostics.
-- Add a narrow actionlint suppression plus a structural regression test until actionlint supports GitHub's new `queue` key. Current actionlint 1.7.12 rejects the documented key as unknown.
+Introduce `WorkflowTestSmoke = "test-smoke.yaml"`. Retain explicit legacy
+constants for `test-install.yaml` and `test-upgrade.yaml`, and include new plus
+legacy identities in `WorkflowsRunningScenario`. The stable smoke gate becomes
+the same per-scenario coverage authority used by the two harness gates, with
+the existing `SKIP_TEST_INSTALL=1` operator bypass retained for compatibility.
 
-### B. Exact self-refusal for hand dispatches
+### 2. Native atomic serialization
 
-Authorize a larger admission redesign. It needs an atomic durable lease or a controller/worker split before the workflow-level group. A plain `gh run list` check is insufficient and must not be shipped as if it closed the race. This is materially larger than smoke consolidation and native queuing.
+Put this exact workflow-level block on the three resulting paid fleet
+workflows: `test-smoke.yaml`, `install-recovery-harness.yaml`, and
+`upgrade-arc-harness.yaml`:
 
-## Acceptance after the decision
+```yaml
+concurrency:
+  group: hetzner-vm-fleet
+  cancel-in-progress: false
+  queue: max
+```
 
-- One tag produces one smoke run with both exact scenario marks and one fleet lease.
+No workflow may recreate a separate fleet group or enable cancellation. Add a
+parsed structural test over the exact three-file set. Add only the exact
+actionlint ignore required for `queue` on those paths; every other actionlint
+diagnostic remains fatal.
+
+### 3. Orchestrator fail-fast and race cleanup
+
+Before `dispatch-fleet-and-wait` dispatches a paid fleet workflow, query
+`GET /repos/{owner}/{repo}/actions/concurrency_groups/hetzner-vm-fleet`. If the
+group has any member, refuse before dispatch and name the current owner run ID,
+name, status, URL, and queued waiters. This is an operator diagnostic, not the
+atomic lock.
+
+A manual dispatch can race the preflight. After correlating its own run, the
+action queries the group again. If its run is waiting behind another owner, it
+cancels only its own named pending run, verifies that cancellation, and fails
+with both run IDs and URLs. It must never cancel the running owner. This keeps
+the orchestrator fail-fast without weakening the native serialization.
+
+Direct hand dispatches do not use this action. They wait safely in GitHub's
+native queue and can be inspected and cancelled by their exact run IDs.
+
+### 4. Queue operations and stale work
+
+Document the exact concurrency-group API command that lists owner and waiters,
+and `gh run cancel <run-id>` for an explicitly selected pending waiter. Do not
+provide an unqualified bulk-cancel command and do not present cancelling the
+running owner as routine.
+
+Each fleet's existing scenario selection and the orchestrator's arriving-stage
+supersession checks remain authoritative. The dispatcher removes its own
+race-created waiter, so an orchestrated run cannot sit latent and start after
+its polling owner has failed. A hand-dispatched waiter remains an explicit
+operator request and is not silently reinterpreted or discarded.
+
+## Acceptance
+
+- One tag creates at most one smoke run and at most one smoke fleet lease.
+- The new smoke matrix leaves exact per-scenario job marks and accepts an
+  uncovered selector subset without changing their names.
 - Historical marks under both deleted smoke filenames remain discoverable.
-- Global different-tag VM concurrency remains impossible.
-- A duplicate dispatch either receives the approved explicit refusal or waits in the approved bounded native queue. It is never silently replaced.
-- Diagnostics name the current owner from the concurrency-group API rather than guessing from unrelated active runs.
+- The stable smoke gate evaluates both scenario facts, not a bare workflow
+  success that a subset run could satisfy.
+- All three paid workflows share `queue: max`, retain
+  `cancel-in-progress: false`, and cannot overlap across tags.
+- An occupied group makes orchestrated dispatch refuse immediately with the
+  real owner and waiter details from the concurrency-group API.
+- A preflight race cancels only the orchestrator's own named pending run. It
+  never cancels the running owner and never leaves latent paid work behind.
+- Hand-dispatched waiters remain visible, ordered, and individually
+  cancellable by run ID. No pending run is silently replaced.
+- Local Go tests, workflow structure tests, YAML parsing, and actionlint with
+  the one documented queue-key exception pass before push.
+- Final acceptance is one later batch RC exercising the live orchestrator,
+  both smoke marks, owner-aware refusal/cancellation diagnostics, and all fleet
+  stages. No RC or paid dispatch is part of the overnight implementation.
 <!-- SECTION:DESCRIPTION:END -->
