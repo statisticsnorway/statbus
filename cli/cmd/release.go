@@ -1733,14 +1733,23 @@ func diffTouchesSensitivePath(projDir, fromRef, toRef string, sensitivePaths []s
 		if file == "" {
 			continue
 		}
-		for _, p := range sensitivePaths {
-			if strings.Contains(file, p) {
-				matchedFiles = append(matchedFiles, file)
-				break
-			}
+		if fileMatchesSensitivePaths(file, sensitivePaths) {
+			matchedFiles = append(matchedFiles, file)
 		}
 	}
 	return len(matchedFiles) > 0, matchedFiles, nil
+}
+
+// fileMatchesSensitivePaths is the ONE matching rule for the sensitivity
+// list: substring containment against the repo-root-relative path, as the
+// list's header documents (deliberately over-inclusive).
+func fileMatchesSensitivePaths(file string, sensitivePaths []string) bool {
+	for _, p := range sensitivePaths {
+		if strings.Contains(file, p) {
+			return true
+		}
+	}
+	return false
 }
 
 // upgradeArcDir and upgradeArcSuffix are the arc scenario domain's

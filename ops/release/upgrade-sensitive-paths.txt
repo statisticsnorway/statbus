@@ -15,6 +15,10 @@
 # Touching THIS FILE is itself sensitive by definition — narrowing the
 # gate is exactly the kind of change the gate must catch, so the entry
 # below is deliberately explicit even though ops/ already covers it.
+# install.sh is the operator entry point the harness executes on every VM
+# ("run the REAL install.sh", test/install-recovery/lib/vm-bootstrap.sh); it
+# sits at the repo root where no directory prefix reaches it.
+install.sh
 cli/
 postgres/
 caddy/
