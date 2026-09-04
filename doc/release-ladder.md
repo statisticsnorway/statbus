@@ -89,9 +89,10 @@ means it rode an earlier proof and names it.
   waiting, and shared pre-side-effect revalidation for orchestrated paid runs.
   Live acceptance remains the later batch RC, not an implementation-time paid
   run.
-- STATBUS-351: rung 7 never asks `covered` (always rents 15 VMs) and rung 8
-  asks a bash one-hop rule instead of the library; make every fleet rung
-  dispatch only the uncovered subset.
+- STATBUS-351 is implemented: rungs 7 and 8 now ask the shared coverage
+  authority per scenario, dispatch only uncovered subsets, fail open to the
+  full suite when the optimizer cannot decide, and expose a separate red
+  coverage-question health signal. Live acceptance remains the later batch RC.
 - STATBUS-352: the list says `cli/` and `test/install-recovery/`, so a change
   to release tooling or to a sibling scenario's script re-proves everything;
   derive the box-side Go set with `go list -deps` and make each scenario

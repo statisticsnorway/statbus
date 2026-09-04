@@ -5,7 +5,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-04 06:40'
-updated_date: '2026-09-04 20:18'
+updated_date: '2026-09-04 20:40'
 labels:
   - release
   - ci
@@ -32,8 +32,9 @@ lost roughly three hours despite no product failure.
 ## Verified platform facts
 
 - GitHub now supports `concurrency.queue: max`: up to 100 runs can wait without
-  pending-run replacement. The concurrency-group API exposes the ordered
-  members, including each run's ID, name, status, URL, and queue position.
+  pending-run replacement. The concurrency-group API exposes ordered members,
+  including each run's ID, name, status, and URLs. It does not supply an
+  atomic pending-only cancellation operation.
 - Workflow concurrency is acquired before any job starts. A pending run cannot
   execute a first-job refusal.
 - A list-only check outside the group is not atomic. Two arrivals can both see
@@ -88,21 +89,31 @@ parsed structural test over the exact three-file set. Add only the exact
 actionlint ignore required for `queue` on those paths; every other actionlint
 diagnostic remains fatal.
 
-### 3. Orchestrator fail-fast and race cleanup
+### 3. Orchestrator fail-fast and safe race handling
 
 Before `dispatch-fleet-and-wait` dispatches a paid fleet workflow, query
-`GET /repos/{owner}/{repo}/actions/concurrency_groups/hetzner-vm-fleet`. If the
-group has any member, refuse before dispatch and name the current owner run ID,
-name, status, URL, and queued waiters. This is an operator diagnostic, not the
-atomic lock.
+`GET /repos/{owner}/{repo}/actions/concurrency_groups/hetzner-vm-fleet`. A 404
+alone means inactive/empty. A successful response must match GitHub's required
+group and member schema or fail loud. If the group has any member, refuse before
+dispatch and name the current owner plus ordered waiters. This is an operator
+diagnostic, not the atomic lock.
 
 A manual dispatch can race the preflight. After correlating its own run, the
-action queries the group again. If its run is waiting behind another owner, it
-cancels only its own named pending run, verifies that cancellation, and fails
-with both run IDs and URLs. It must never cancel the running owner. This keeps
-the orchestrator fail-fast without weakening the native serialization.
+action reports its ordered queue membership and continues polling. It never
+automatically cancels a run: GitHub's cancel endpoint has no pending-only
+precondition, so a run observed pending can become active before cancellation
+is processed.
 
-Direct hand dispatches do not use this action. They wait safely in GitHub's
+The dispatcher passes its parent orchestrator run ID only to the three paid
+children. One shared admission action runs immediately after each child's first
+checkout and before any VM or arc-fixture side effect. It verifies that the
+parent is the in-progress tag-push orchestrator for the same SHA, that the
+candidate is still the newest RC, and that tag, checkout, and child SHA agree.
+Thus a stale queued orchestrated run refuses before spending money. Direct hand
+dispatches leave the parent input blank and remain deliberate.
+
+Direct hand dispatches pass a blank parent ID through this action, so it exits
+without applying the orchestrator-only age check. They wait safely in GitHub's
 native queue and can be inspected and cancelled by their exact run IDs.
 
 ### 4. Queue operations and stale work
@@ -113,10 +124,10 @@ provide an unqualified bulk-cancel command and do not present cancelling the
 running owner as routine.
 
 Each fleet's existing scenario selection and the orchestrator's arriving-stage
-supersession checks remain authoritative. The dispatcher removes its own
-race-created waiter, so an orchestrated run cannot sit latent and start after
-its polling owner has failed. A hand-dispatched waiter remains an explicit
-operator request and is not silently reinterpreted or discarded.
+supersession checks remain authoritative. The shared child admission is the
+last pre-side-effect check for a queued orchestrated run. A hand-dispatched
+waiter remains an explicit operator request and is not silently reinterpreted
+or discarded.
 
 ## Acceptance
 
@@ -130,13 +141,17 @@ operator request and is not silently reinterpreted or discarded.
   `cancel-in-progress: false`, and cannot overlap across tags.
 - An occupied group makes orchestrated dispatch refuse immediately with the
   real owner and waiter details from the concurrency-group API.
-- A preflight race cancels only the orchestrator's own named pending run. It
-  never cancels the running owner and never leaves latent paid work behind.
+- A preflight race remains safely serialized in the native queue. The
+  dispatcher reports it and never automatically cancels any run.
+- Every orchestrator-created paid child revalidates parent and candidate
+  provenance from one shared action before VM or fixture side effects. A stale
+  queued child fails before spending money; a direct manual dispatch remains
+  blank-compatible.
 - Hand-dispatched waiters remain visible, ordered, and individually
   cancellable by run ID. No pending run is silently replaced.
 - Local Go tests, workflow structure tests, YAML parsing, and actionlint with
   the one documented queue-key exception pass before push.
 - Final acceptance is one later batch RC exercising the live orchestrator,
-  both smoke marks, owner-aware refusal/cancellation diagnostics, and all fleet
-  stages. No RC or paid dispatch is part of the overnight implementation.
+  both smoke marks, occupied-group refusal, queued-child revalidation, and all
+  fleet stages. No RC or paid dispatch is part of the overnight implementation.
 <!-- SECTION:DESCRIPTION:END -->

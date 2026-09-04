@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/statisticsnorway/statbus/cli/internal/testgit"
 	"gopkg.in/yaml.v3"
 )
 
@@ -111,7 +112,7 @@ fi
 	cmd = exec.Command("bash", script)
 	cmd.Env = append(os.Environ(), "PATH="+dir+":"+os.Getenv("PATH"), "GH_TEST_LOG="+log,
 		"GH_REPO=statisticsnorway/statbus", "WORKFLOW_FILE=test-smoke.yaml",
-		`GH_RESPONSE={"group_members":[{"run_id":111,"run_name":"owner","status":"in_progress","run_html_url":"https://runs/111"},{"run_id":222,"run_name":"ours","status":"pending","run_html_url":"https://runs/222"}]}`,
+		`GH_RESPONSE={"group_name":"hetzner-vm-fleet","group_url":"https://api.github.com/repos/statisticsnorway/statbus/actions/concurrency_groups/hetzner-vm-fleet","total_count":2,"group_members":[{"run_id":111,"run_name":"owner","run_url":"https://api.github.com/runs/111","run_html_url":"https://runs/111","status":"in_progress"},{"run_id":222,"run_name":"ours","run_url":"https://api.github.com/runs/222","run_html_url":"https://runs/222","status":"pending"}]}`,
 		"STATBUS_DISPATCH_TEST_MODE=preflight")
 	preflightOut, preflightErr := cmd.CombinedOutput()
 	if preflightErr == nil {
@@ -127,7 +128,7 @@ fi
 	cmd = exec.Command("bash", script)
 	cmd.Env = append(os.Environ(), "PATH="+dir+":"+os.Getenv("PATH"), "GH_TEST_LOG="+log,
 		"GH_REPO=statisticsnorway/statbus", "WORKFLOW_FILE=test-smoke.yaml",
-		`GH_RESPONSE={"group_members":[{"run_id":111,"run_name":"owner","status":"in_progress","run_html_url":"https://runs/111"},{"run_id":222,"run_name":"ours","status":"pending","run_html_url":"https://runs/222"}]}`,
+		`GH_RESPONSE={"group_name":"hetzner-vm-fleet","group_url":"https://api.github.com/repos/statisticsnorway/statbus/actions/concurrency_groups/hetzner-vm-fleet","total_count":2,"group_members":[{"run_id":111,"run_name":"owner","run_url":"https://api.github.com/runs/111","run_html_url":"https://runs/111","status":"in_progress"},{"run_id":222,"run_name":"ours","run_url":"https://api.github.com/runs/222","run_html_url":"https://runs/222","status":"pending"}]}`,
 		"STATBUS_DISPATCH_TEST_MODE=postflight", "RUN_ID=222")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -144,7 +145,7 @@ fi
 
 func TestFleetDispatcherRejectsMalformedSuccessfulGroupResponses_STATBUS350(t *testing.T) {
 	script := thisRepoFile(t, ".github/actions/dispatch-fleet-and-wait/dispatch.sh")
-	for _, response := range []string{`{"group_members":[]}`} {
+	for _, response := range []string{`{"group_name":"hetzner-vm-fleet","group_url":"https://api.github.com/repos/statisticsnorway/statbus/actions/concurrency_groups/hetzner-vm-fleet","total_count":0,"group_members":[]}`} {
 		dir := t.TempDir()
 		mock := "#!/usr/bin/env bash\nprintf '%s\\n' \"$GH_RESPONSE\"\n"
 		if err := os.WriteFile(filepath.Join(dir, "gh"), []byte(mock), 0o755); err != nil {
@@ -155,6 +156,21 @@ func TestFleetDispatcherRejectsMalformedSuccessfulGroupResponses_STATBUS350(t *t
 			"WORKFLOW_FILE=test-smoke.yaml", "STATBUS_DISPATCH_TEST_MODE=preflight", "GH_RESPONSE="+response)
 		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("valid explicit empty group rejected: %v\n%s", err, out)
+		}
+	}
+	{
+		dir := t.TempDir()
+		mock := "#!/usr/bin/env bash\nprintf '%s\\n' \"$GH_RESPONSE\"\n"
+		if err := os.WriteFile(filepath.Join(dir, "gh"), []byte(mock), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		cmd := exec.Command("bash", script)
+		cmd.Env = append(os.Environ(), "PATH="+dir+":"+os.Getenv("PATH"), "GH_REPO=statisticsnorway/statbus",
+			"WORKFLOW_FILE=test-smoke.yaml", "STATBUS_DISPATCH_TEST_MODE=preflight",
+			`GH_RESPONSE={"group_name":"hetzner-vm-fleet","group_url":"https://api.github.com/repos/statisticsnorway/statbus/actions/concurrency_groups/hetzner-vm-fleet","total_count":1,"group_members":[{"run_id":1,"run_name":"owner","run_url":null,"run_html_url":null,"status":"in_progress"}]}`)
+		out, err := cmd.CombinedOutput()
+		if err == nil || strings.Contains(string(out), "Malformed fleet concurrency response") || !strings.Contains(string(out), "url=<unavailable>") {
+			t.Fatalf("schema-valid nullable URLs must report occupied with a fallback URL: err=%v\n%s", err, out)
 		}
 	}
 	{
@@ -174,10 +190,14 @@ func TestFleetDispatcherRejectsMalformedSuccessfulGroupResponses_STATBUS350(t *t
 		`{}`,
 		`{"group_members":null}`,
 		`{"group_members":{}}`,
-		`{"group_members":[{"run_id":0,"run_name":"owner","status":"in_progress","run_html_url":"https://runs/1"}]}`,
-		`{"group_members":[{"run_id":1,"run_name":"","status":"in_progress","run_html_url":"https://runs/1"}]}`,
-		`{"group_members":[{"run_id":1,"run_name":"owner","status":"completed","run_html_url":"https://runs/1"}]}`,
-		`{"group_members":[{"run_id":1,"run_name":"owner","status":"pending","run_html_url":"not-a-url"}]}`,
+		`{"group_name":"wrong","group_url":"https://api.github.com/group","total_count":0,"group_members":[]}`,
+		`{"group_name":"hetzner-vm-fleet","group_url":"not-a-url","total_count":0,"group_members":[]}`,
+		`{"group_name":"hetzner-vm-fleet","group_url":"https://api.github.com/group","total_count":1,"group_members":[]}`,
+		`{"group_name":"hetzner-vm-fleet","group_url":"https://api.github.com/group","total_count":1,"group_members":[{"run_id":0,"run_name":"owner","run_url":"https://api.github.com/runs/1","run_html_url":"https://runs/1","status":"in_progress"}]}`,
+		`{"group_name":"hetzner-vm-fleet","group_url":"https://api.github.com/group","total_count":1,"group_members":[{"run_id":1,"run_name":"","run_url":"https://api.github.com/runs/1","run_html_url":"https://runs/1","status":"in_progress"}]}`,
+		`{"group_name":"hetzner-vm-fleet","group_url":"https://api.github.com/group","total_count":1,"group_members":[{"run_id":1,"run_name":"owner","run_url":"https://api.github.com/runs/1","run_html_url":"https://runs/1","status":"completed"}]}`,
+		`{"group_name":"hetzner-vm-fleet","group_url":"https://api.github.com/group","total_count":1,"group_members":[{"run_id":1,"run_name":"owner","run_url":"https://api.github.com/runs/1","run_html_url":"not-a-url","status":"pending"}]}`,
+		`{"group_name":"hetzner-vm-fleet","group_url":"https://api.github.com/group","total_count":1,"group_members":[{"run_id":1,"run_name":"owner","run_html_url":"https://runs/1","status":"pending"}]}`,
 	}
 	for _, response := range bad {
 		t.Run(response, func(t *testing.T) {
@@ -238,6 +258,65 @@ func TestPaidFleetSharedAdmissionAndManualCompatibility_STATBUS350(t *testing.T)
 	cmd.Env = append(os.Environ(), "ORCHESTRATOR_RUN_ID=", "CANDIDATE_REF=manual", "CANDIDATE_SHA=manual")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("blank manual input rejected: %v\n%s", err, out)
+	}
+}
+
+func TestOrchestratorFleetAdmissionExecutesProvenanceAndSupersessionChecks_STATBUS350(t *testing.T) {
+	repo := t.TempDir()
+	runGit := func(dir string, args ...string) string {
+		t.Helper()
+		cmd := exec.Command("git", testgit.Args(args...)...)
+		cmd.Dir = dir
+		cmd.Env = append(os.Environ(), testgit.Env()...)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	runGit(repo, "init")
+	if err := os.WriteFile(filepath.Join(repo, "seed.txt"), []byte("seed\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(repo, "add", "seed.txt")
+	runGit(repo, "commit", "-m", "seed")
+	const candidate = "v2026.09.1-rc.1"
+	runGit(repo, "tag", candidate)
+	sha := runGit(repo, "rev-parse", "HEAD")
+	remote := filepath.Join(t.TempDir(), "origin.git")
+	runGit(repo, "init", "--bare", remote)
+	runGit(repo, "remote", "add", "origin", remote)
+	runGit(repo, "push", "origin", "HEAD", "--tags")
+
+	bin := t.TempDir()
+	mock := "#!/usr/bin/env bash\nset -euo pipefail\nprintf '%s\\n' \"$GH_PARENT\"\n"
+	if err := os.WriteFile(filepath.Join(bin, "gh"), []byte(mock), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	script := thisRepoFile(t, ".github/actions/orchestrator-fleet-admission/admit.sh")
+	parent := `{"id":123,"status":"in_progress","event":"push","head_sha":"` + sha + `","path":".github/workflows/release-fleet-orchestrator.yaml","html_url":"https://github.com/statisticsnorway/statbus/actions/runs/123"}`
+	runAdmission := func(parentJSON string) ([]byte, error) {
+		t.Helper()
+		cmd := exec.Command("bash", script)
+		cmd.Dir = repo
+		env := append(os.Environ(), testgit.Env()...)
+		cmd.Env = append(env,
+			"PATH="+bin+":"+os.Getenv("PATH"), "GH_PARENT="+parentJSON,
+			"ORCHESTRATOR_RUN_ID=123", "GH_REPO=statisticsnorway/statbus",
+			"CANDIDATE_REF="+candidate, "CANDIDATE_SHA="+sha)
+		return cmd.CombinedOutput()
+	}
+	if out, err := runAdmission(parent); err != nil {
+		t.Fatalf("valid parent and newest candidate rejected: %v\n%s", err, out)
+	}
+	completedParent := strings.Replace(parent, `"status":"in_progress"`, `"status":"completed"`, 1)
+	if out, err := runAdmission(completedParent); err == nil || !strings.Contains(string(out), "Stale or invalid orchestrator parent") {
+		t.Fatalf("completed parent must refuse before side effects: err=%v\n%s", err, out)
+	}
+	runGit(repo, "tag", "v2026.09.1-rc.2")
+	runGit(repo, "push", "origin", "v2026.09.1-rc.2")
+	if out, err := runAdmission(parent); err == nil || !strings.Contains(string(out), "Superseded queued fleet run") {
+		t.Fatalf("superseded queued candidate must refuse before side effects: err=%v\n%s", err, out)
 	}
 }
 

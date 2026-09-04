@@ -20,7 +20,10 @@ fleet_group_json() {
   fi
   if grep -q 'HTTP 404' "$err_file"; then
     rm -f "$err_file"
-    printf '%s\n' '{"group_members":[]}'
+    jq -nc \
+      --arg group_name "$FLEET_GROUP" \
+      --arg group_url "https://api.github.com/repos/${GH_REPO}/actions/concurrency_groups/${FLEET_GROUP}" \
+      '{group_name:$group_name, group_url:$group_url, total_count:0, group_members:[]}'
     return 0
   fi
   cat "$err_file" >&2
@@ -34,20 +37,30 @@ fleet_group_json() {
 fleet_members() {
   local json
   json="$(cat)"
-  jq -e '
+  jq -e --arg expected_group "$FLEET_GROUP" '
+    type == "object" and
+    .group_name == $expected_group and
+    (.group_url | type) == "string" and
+    (.group_url | test("^https://[^[:space:]]+$")) and
+    (.total_count | type) == "number" and
+    (.total_count | floor) == .total_count and .total_count >= 0 and
     (.group_members | type) == "array" and
+    .total_count == (.group_members | length) and
     all(.group_members[];
+      has("run_id") and has("run_name") and has("run_url") and
+      has("run_html_url") and has("status") and
       (.run_id | type) == "number" and (.run_id | floor) == .run_id and .run_id > 0 and
       (.run_name | type) == "string" and (.run_name | length) > 0 and
       (.status == "in_progress" or .status == "pending") and
-      (.run_html_url | type) == "string" and (.run_html_url | test("^https://[^[:space:]]+$")))
+      (.run_url == null or ((.run_url | type) == "string" and (.run_url | test("^https://[^[:space:]]+$")))) and
+      (.run_html_url == null or ((.run_html_url | type) == "string" and (.run_html_url | test("^https://[^[:space:]]+$")))))
   ' <<<"$json" >/dev/null || {
-    echo "::error title=Malformed fleet concurrency response::successful API response requires a group_members array with positive integer IDs, non-empty names, active statuses, and usable HTTPS URLs" >&2
+    echo "::error title=Malformed fleet concurrency response::successful API response does not match GitHub's required concurrency-group envelope and member schema" >&2
     return 1
   }
   jq -c '.group_members | to_entries[] |
     {id:.value.run_id, name:.value.run_name, status:.value.status,
-     url:.value.run_html_url, order:(.key + 1)}' <<<"$json"
+     url:(.value.run_html_url // .value.run_url // "<unavailable>"), order:(.key + 1)}' <<<"$json"
 }
 
 describe_members() {
