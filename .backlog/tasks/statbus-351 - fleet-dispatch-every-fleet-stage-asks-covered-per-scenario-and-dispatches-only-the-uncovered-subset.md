@@ -5,7 +5,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-04 07:18'
-updated_date: '2026-09-04 07:18'
+updated_date: '2026-09-04 07:24'
 labels:
   - release
   - ci
@@ -24,7 +24,7 @@ ordinal: 344000
 
 The release chain (`release-fleet-orchestrator.yaml`) has ONE correct skip mechanism and uses it in only two of its four VM stages.
 
-The correct mechanism is `./sb release covered <scenario> <sha>` (`cli/internal/release/coverage.go`, `DecideCoverage`): for one scenario it looks for green evidence at the target commit, else walks back through prior RC tags to the nearest one with evidence and diffs that tag against the target using `ops/release/upgrade-sensitive-paths.txt`. If no changed file is on the list the scenario is covered and need not run. The stable promotion gate (`checkInstallRecoveryHarnessGate`, `checkUpgradeArcHarnessGate`) runs exactly this walk for every scenario, so what the chain skips and what the gate demands agree.
+The correct mechanism is `./sb release covered <scenario> <sha>` (`cli/internal/release/coverage.go`, `DecideCoverage`, with the list rule in `cli/internal/release/sensitivity.go`): for one scenario it looks for green evidence at the target commit, else walks back through prior RC tags to the nearest one with evidence and diffs that tag against the target using `ops/release/upgrade-sensitive-paths.txt`. It is a Go library; the stable gate calls it directly and CI calls it through `./sb`. The bash job `decide-upgrade-sensitivity` is the only remaining second implementation of the rule, and this ticket deletes it. If no changed file is on the list the scenario is covered and need not run. The stable promotion gate (`checkInstallRecoveryHarnessGate`, `checkUpgradeArcHarnessGate`) runs exactly this walk for every scenario, so what the chain skips and what the gate demands agree.
 
 Stage by stage today:
 
