@@ -360,9 +360,11 @@ func TestH2_BackupDatabaseSingleCallSiteNotInResume(t *testing.T) {
 // TestH2_FlagBackupPathSetOnlyAtNewSbSwapped pins HYP3: the normal upgrade path
 // populates flag.BackupPath only at post_swap (updateFlagNewSbSwapped), AFTER the
 // backup succeeds — so a kill during the INITIAL rsync leaves no recorded restore
-// identity. The one exception is ReattemptRestore: it starts from a durable failed
-// row whose non-NULL backup_path is the whole human-authorized replay premise, and
-// pairs that identity with PhaseNewSbUpgrading in the same held-marker rewrite.
+// identity. The two recovery exceptions both re-authorize a durable row while
+// holding a fresh marker claim: ReattemptRestore starts from a failed row under a
+// human gate, while completeInProgressUpgrade starts from the exact in_progress
+// row it observed positively Behind. Both pair that identity with
+// PhaseNewSbUpgrading in the same held-marker rewrite.
 func TestH2_FlagBackupPathSetOnlyAtNewSbSwapped(t *testing.T) {
 	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
 	if err != nil {
@@ -370,11 +372,11 @@ func TestH2_FlagBackupPathSetOnlyAtNewSbSwapped(t *testing.T) {
 	}
 	s := string(src)
 
-	// Exactly two assignments: the original post-swap stamp and the separately
-	// authorized restore-broke replay. Any third site must explain which durable
+	// Exactly three assignments: the original post-swap stamp and the two fresh-
+	// claim recovery authorizations. Any fourth site must explain which durable
 	// snapshot identity authorizes it and prove the phase is post-swap.
-	if n := strings.Count(s, "flag.BackupPath ="); n != 2 {
-		t.Errorf("flag.BackupPath must have exactly TWO accounted writers (new-sb swap + authorized restore reattempt); found %d. "+
+	if n := strings.Count(s, "flag.BackupPath ="); n != 3 {
+		t.Errorf("flag.BackupPath must have exactly THREE accounted writers (new-sb swap + authorized restore reattempt + authorized flagless rollback); found %d. "+
 			"An unaccounted pre-backup writer could make recovery reference a snapshot the initial rsync never produced (H2/HYP3).", n)
 	}
 	body := extractFuncBody(t, s, "func (d *Service) updateFlagNewSbSwapped(")
@@ -387,5 +389,17 @@ func TestH2_FlagBackupPathSetOnlyAtNewSbSwapped(t *testing.T) {
 	reattempt := extractFuncBody(t, s, "func (d *Service) ReattemptRestore(")
 	if !strings.Contains(reattempt, "flag.BackupPath = authorizedBackupPath") || !strings.Contains(reattempt, "flag.Phase = PhaseNewSbUpgrading") {
 		t.Error("ReattemptRestore's snapshot identity must be paired with PhaseNewSbUpgrading in the same held-marker authorization rewrite")
+	}
+	flagless := extractFuncBody(t, s, "func (d *Service) completeInProgressUpgrade(")
+	for _, required := range []string{
+		"acquireFreshFlock",
+		"backup_path IS NOT DISTINCT FROM $3::text",
+		"state = 'in_progress'",
+		"flag.BackupPath = authorizedBackupPath",
+		"flag.Phase = PhaseNewSbUpgrading",
+	} {
+		if !strings.Contains(flagless, required) {
+			t.Errorf("completeInProgressUpgrade's flagless snapshot claim is missing %q; it must re-authorize the exact durable row under a fresh flock and persist only a post-swap recovery marker", required)
+		}
 	}
 }

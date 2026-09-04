@@ -3837,25 +3837,95 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 			appendLog.Close()
 			appendLog = nil
 		}
-		// Flagless recovery: synthesize a faithful flag record for the
-		// flock gate (the file on disk is absent here — acquireFlock
-		// creates it as the destructive-work mutex and rollback's terminal
-		// machinery removes it). Phase stays "" (PreSwap, the
-		// least-claiming value); BackupPath carries the row's recorded
-		// snapshot — the restore identity. Trigger "recovery" is a
-		// documented coarse bucket on the flag schema.
-		d.recoveryRollback(ctx, UpgradeFlag{
-			ID:         id,
-			CommitSHA:  commitSHA,
-			StartedAt:  time.Now(),
-			InvokedBy:  "recovery:completeInProgressUpgrade",
-			Trigger:    "recovery",
-			Holder:     HolderService,
-			Phase:      PhaseOldSbUpgrading,
-			BackupPath: rowBackupPath.String,
-		}, displayName, logRelPath, fmt.Sprintf(
+
+		// This branch legitimately ORIGINATES durable recovery intent: the marker
+		// was absent when completeInProgressUpgrade classified the row, unlike
+		// recoveryRollback's callers which classified an existing marker. Create a
+		// fresh O_EXCL claim so a marker that appeared after classification wins
+		// rather than being overwritten. The tentative holder is install-like on
+		// purpose: a death before the durable row re-read below leaves a harmless
+		// pre-authorization marker that the next boot removes instead of treating
+		// stale memory as permission to restore.
+		tentative := UpgradeFlag{
+			ID:        id,
+			StartedAt: time.Now(),
+			InvokedBy: "recovery:completeInProgressUpgrade-authorization",
+			Trigger:   "recovery",
+			Holder:    HolderInstall,
+		}
+		lock, lockErr := acquireFreshFlock(d.projDir, tentative)
+		if lockErr != nil {
+			logRecover("Flagless rollback claim for %s lost the fresh-marker race; yielding without rollback: %v", displayName, lockErr)
+			return
+		}
+		d.flagLock = lock
+
+		// The row read that produced `id` happened before the filesystem claim.
+		// Re-authorize from durable state while holding that claim, including the
+		// snapshot identity: another actor may have completed, superseded, parked,
+		// or otherwise changed the row during the classify→flock gap. A mismatch or
+		// unreadable row revokes this actor before it stops a service or touches the
+		// database volume. The outer defer removes the tentative marker on return.
+		var expectedSnapshotPath *string
+		if rowBackupPath.Valid {
+			expectedSnapshotPath = &rowBackupPath.String
+		}
+		readCtx, readCancel := context.WithTimeout(ctx, recoveryReadTimeout)
+		var authorized bool
+		authorizeErr := d.queryConn.QueryRow(readCtx, `
+			SELECT EXISTS (
+				SELECT 1
+				  FROM public.upgrade
+				 WHERE id = $1
+				   AND commit_sha = $2
+				   AND backup_path IS NOT DISTINCT FROM $3::text
+				   AND state = 'in_progress'
+				   AND recovery_parked_at IS NULL
+			)`, id, commitSHA, expectedSnapshotPath).Scan(&authorized)
+		readCancel()
+		if authorizeErr != nil || !authorized {
+			if authorizeErr != nil {
+				logRecover("Flagless rollback claim for %s could not re-read its authorizing row; removing the tentative marker and yielding without rollback: %v", displayName, authorizeErr)
+			} else {
+				logRecover("Flagless rollback claim for %s is no longer authorized by the same in-progress row and snapshot; removing the tentative marker and yielding without rollback.", displayName)
+			}
+			if removeErr := d.removeUpgradeFlag(); removeErr != nil {
+				log.Printf("completeInProgressUpgrade: could not remove revoked tentative marker for upgrade %d: %v", id, removeErr)
+			}
+			return
+		}
+
+		// Authorization succeeded. Turn the held tentative record into a faithful
+		// service recovery marker before destructive work. A snapshot replay is a
+		// post-swap/resuming action even when the observed binary is behind, so the
+		// persisted marker must use a post-swap phase if it carries BackupPath.
+		authorizedBackupPath := rowBackupPath.String
+		if mutateErr := d.mutateHeldFlag(func(flag *UpgradeFlag) {
+			flag.CommitSHA = commitSHA
+			flag.InvokedBy = "recovery:completeInProgressUpgrade"
+			flag.Holder = HolderService
+			flag.Phase = PhaseNewSbUpgrading
+			flag.BackupPath = authorizedBackupPath
+		}); mutateErr != nil {
+			logRecover("Flagless rollback claim for %s could not persist its authorized recovery marker; removing the tentative marker and yielding without rollback: %v", displayName, mutateErr)
+			if removeErr := d.removeUpgradeFlag(); removeErr != nil {
+				log.Printf("completeInProgressUpgrade: could not remove uncommitted marker for upgrade %d: %v", id, removeErr)
+			}
+			return
+		}
+
+		if _, attemptErr := d.countRecoveryAttemptOnce(ctx, id); attemptErr != nil {
+			log.Printf("completeInProgressUpgrade: could not increment recovery_attempts for %d (%v) — continuing", id, attemptErr)
+		}
+		d.recordRollbackCommit()
+		rollbackLog := AppendProgressLog(d.projDir, logRelPath)
+		if rollbackLog == nil {
+			rollbackLog = NewUpgradeLog(d.projDir, int64(id), displayName, time.Now().UTC())
+		}
+		defer rollbackLog.Close()
+		d.rollback(ctx, id, displayName, "", fmt.Sprintf(
 			"%s: observed-state check after service restart failed: %s",
-			ErrInstallPreconditionFailed, reason))
+			ErrInstallPreconditionFailed, reason), authorizedBackupPath, rollbackLog)
 		return
 	}
 

@@ -189,13 +189,13 @@ func TestFlagInvariant_EveryPhaseAndBackupPathWriterIsAccountedFor_STATBUS232(t 
 	known := map[string]string{
 		// ── BackupPath writers (the STATBUS-197 door) ──
 		"flag.BackupPath = backupPath":           "updateFlagNewSbSwapped — THE swap stamp; it sets Phase=PhaseNewSbSwapped in the SAME write, which is what makes 'a pre-swap flag carries no snapshot' structural rather than conventional",
-		"flag.BackupPath = authorizedBackupPath": "ReattemptRestore — rewrites the held operator-authorized replay marker in the same callback that sets PhaseNewSbUpgrading; this is an actual snapshot replay and therefore deliberately post-swap/resuming",
+		"flag.BackupPath = authorizedBackupPath": "ReattemptRestore and completeInProgressUpgrade's authorized flagless rollback — each rewrites a held tentative marker in the same callback that sets PhaseNewSbUpgrading; these are actual snapshot replays and therefore deliberately post-swap/resuming",
 		"BackupPath:     flag.BackupPath":        "resumeNewSb's reacquire — carries the identity forward across NewSbSwapped→NewSbUpgrading; both are post-swap phases",
-		"BackupPath: rowBackupPath.String":       "completeInProgressUpgrade — TWO literals share this text; each is checked for the pairing below (one is in-memory-only with a pre-swap phase, one is persisted with a post-swap phase)",
+		"BackupPath: rowBackupPath.String":       "parkAtTarget's persisted recovery marker — paired with PhaseNewSbSwapped in the same literal, so the snapshot identity is carried only by a post-swap phase",
 
 		// ── Phase writers (the STATBUS-210 door, the half that was missing) ──
 		"f.Phase = normalizePhaseBytes(f.Phase)": "UnmarshalJSON's decode chokepoint — re-labels a legacy wire spelling to its canonical slug; it never changes WHICH state is meant, so it cannot create the illegal pair",
-		"Phase:      PhaseOldSbUpgrading":        "writeUpgradeFlag's initial flag (no snapshot exists yet — nothing has been backed up) and completeInProgressUpgrade's in-memory rollback record; both checked for the pairing below",
+		"Phase:      PhaseOldSbUpgrading":        "writeUpgradeFlag's initial flag — no snapshot exists yet, so nothing has been backed up",
 		"flag.Phase = PhaseNewSbSwapped":         "updateFlagNewSbSwapped — the swap stamp again, POST-swap by definition; this is the write that legitimises carrying the identity",
 		"flag.Phase = PhaseNewSbUpgrading":       "ReattemptRestore — paired in the same held-marker rewrite with authorizedBackupPath; a human-authorized snapshot replay is already in rollback/resume territory, never PreSwap",
 		"Phase:      PhaseNewSbSwapped":          "parkAtTarget's persisted flag — a post-swap phase, the at-target truth; carrying the identity there is the legal shape",
@@ -261,15 +261,9 @@ func TestFlagInvariant_EveryPhaseAndBackupPathWriterIsAccountedFor_STATBUS232(t 
 	// flag pairing a PRE-SWAP phase with a BackupPath — the state 197 produced from
 	// executeUpgrade and 210 produced from parkServiceRecovery.
 	//
-	// Both synthesized-flag sites are checked here and both are legal today, for
-	// DIFFERENT reasons — which is exactly why the check has to read the phase
-	// rather than the shape:
-	//   - completeInProgressUpgrade's flagless rollback: Phase=PhaseOldSbUpgrading
-	//     (PreSwap) WITH a BackupPath — safe ONLY because the record is handed
-	//     straight to recoveryRollback and never written to disk.
-	//   - parkAtTarget: Phase=PhaseNewSbSwapped WITH a BackupPath, and it IS
-	//     persisted — legal, because a post-swap phase carrying the identity is the
-	//     shape the invariant exists to preserve.
+	// parkAtTarget's synthesized flag is checked here: Phase=PhaseNewSbSwapped
+	// WITH a BackupPath, and it IS persisted — legal, because a post-swap phase
+	// carrying the identity is the shape the invariant exists to preserve.
 	src := string(packageGoSources(t)["service.go"])
 	for _, idx := range indexAll(src, "BackupPath: rowBackupPath.String") {
 		literalStart := strings.LastIndex(src[:idx], "UpgradeFlag{")
