@@ -90,6 +90,12 @@ means it rode an earlier proof and names it.
 - STATBUS-351: rung 7 never asks `covered` (always rents 15 VMs) and rung 8
   asks a bash one-hop rule instead of the library; make every fleet rung
   dispatch only the uncovered subset.
+- STATBUS-352: the list says `cli/` and `test/install-recovery/`, so a change
+  to release tooling or to a sibling scenario's script re-proves everything;
+  derive the box-side Go set with `go list -deps` and make each scenario
+  sensitive only to what it executes.
+- STATBUS-353: per-scenario Go coverage profiles as evidence, so a diff is
+  sensitive only if it touches functions that scenario actually ran.
 - The fleets run at `max-parallel: 3` because the Hetzner project quota
   (servers and primary IPs) was hit at 8. Raising the quota is the single
   largest wall-clock lever: rung 8 at 3 wide is ~2.5 h, at 8 wide it would
