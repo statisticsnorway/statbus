@@ -132,6 +132,28 @@ func TestNormalizeRemovesStaleDevopsRefspecs(t *testing.T) {
 	}
 }
 
+// STATBUS-248: the retired deploy transport left an explicit per-slot refspec
+// on live boxes. Once the corresponding remote branch is deleted, Git refuses
+// every fetch with "couldn't find remote ref". Normalization must remove that
+// latent fetch failure and leave exactly the two canonical lines.
+func TestNormalizeRemovesRetiredCloudDeployRefspec(t *testing.T) {
+	dir := newRepoWithRefspecs(t,
+		CanonicalRefspecs[0],
+		CanonicalRefspecs[1],
+		"+refs/heads/ops/cloud/deploy/dev:refs/remotes/origin/ops/cloud/deploy/dev",
+	)
+
+	if err := NormalizeRefspecs(dir); err != nil {
+		t.Fatalf("normalize: %v", err)
+	}
+	assertCanonical(t, dir, "retired cloud deploy refspec")
+	for _, spec := range refspecsOf(t, dir) {
+		if strings.Contains(spec, "ops/cloud/deploy/") {
+			t.Errorf("retired deploy refspec survived: %q", spec)
+		}
+	}
+}
+
 // A box with no refspec at all (the --unset-all "key missing" case, git exit 5)
 // must be brought to canonical rather than reported as an error.
 func TestNormalizeFromEmpty(t *testing.T) {

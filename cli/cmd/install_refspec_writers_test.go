@@ -43,6 +43,26 @@ func TestShellNoLongerWritesRefspecs(t *testing.T) {
 	}
 }
 
+// STATBUS-248: install must never append a per-slot deploy refspec. Such a
+// refspec turns deletion of the retired remote branch into a permanent fetch
+// failure on that box. CanonicalRefspecs is the only writer authority.
+func TestInstallNoLongerWritesCloudDeployRefspecs(t *testing.T) {
+	src, err := os.ReadFile(thisRepoFile(t, "cli/cmd/install.go"))
+	if err != nil {
+		t.Fatalf("read install.go: %v", err)
+	}
+
+	for i, line := range strings.Split(string(src), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "//") {
+			continue
+		}
+		if strings.Contains(line, "ops/cloud/deploy/") || strings.Contains(line, "configureDeployFetch") {
+			t.Errorf("install.go:%d still writes the retired deploy transport: %q", i+1, trimmed)
+		}
+	}
+}
+
 // The retired mechanism must not come back. `git config --unset` REFUSES when
 // multiple values match, so surgical removal could never clean the triplicated
 // state this ticket exists for — it failed silently on its exact target input.

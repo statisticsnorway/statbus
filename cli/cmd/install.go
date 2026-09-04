@@ -1121,28 +1121,16 @@ func runCloneRepo(dir string) error {
 		"https://github.com/statisticsnorway/statbus.git", dir); err != nil {
 		return err
 	}
-	// Configure deploy branch fetch refspec if slot code is known
-	configureDeployFetch(dir)
+	// Canonicalize product-owned git configuration after cloning.
+	normalizeGitRemote(dir)
 	return nil
 }
 
-// configureDeployFetch adds the slot-specific deploy branch to the git fetch refspec.
-// e.g., for slot "dev": +refs/heads/ops/cloud/deploy/dev:refs/remotes/origin/ops/cloud/deploy/dev
-// Idempotent — safe to call on existing repos.
-func configureDeployFetch(dir string) {
-	cfgPath := filepath.Join(dir, ".env.config")
-	f, err := dotenv.Load(cfgPath)
-	if err != nil {
-		return // no config yet, will be called again after config is created
-	}
-	code, ok := f.Get("DEPLOYMENT_SLOT_CODE")
-	if !ok || code == "" {
-		return
-	}
-
-	branch := fmt.Sprintf("ops/cloud/deploy/%s", code)
-	refspec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", branch, branch)
-
+// normalizeGitRemote rewrites product-owned remote configuration to its
+// canonical form. Deploy-branch refspecs are deliberately never added: after
+// STATBUS-248 retired that transport, a stale explicit refspec makes every fetch
+// fail as soon as its remote branch is deleted.
+func normalizeGitRemote(dir string) {
 	// STATBUS-325: remote.origin.fetch is product-owned derived config —
 	// rewritten to canonical here on every install, exactly as .env is
 	// regenerated rather than patched. This replaces the old stale-entry
@@ -1167,24 +1155,6 @@ func configureDeployFetch(dir string) {
 		log.Printf("normalize remote.origin.url: %v (continuing; a later fetch will report accurately if the remote is unreachable)", err)
 	}
 
-	cmd := exec.Command("git", "config", "--get-all", "remote.origin.fetch")
-	cmd.Dir = dir
-	out, _ := cmd.Output()
-
-	if strings.Contains(string(out), refspec) {
-		return // already configured
-	}
-
-	// Check if the branch exists on the remote before adding
-	check := exec.Command("git", "ls-remote", "--exit-code", "--heads", "origin", branch)
-	check.Dir = dir
-	if check.Run() != nil {
-		return // branch doesn't exist on remote, skip
-	}
-
-	add := exec.Command("git", "config", "--add", "remote.origin.fetch", refspec)
-	add.Dir = dir
-	_ = add.Run() // best-effort; a failed refspec add just means the next fetch narrows less, not a broken install
 }
 
 func runInstallBinary(dir string) error {
@@ -1240,7 +1210,7 @@ func runCreateCreds(dir string) error {
 func runGenerateEnv(dir string) error {
 	// Align with latest code — but only if we're on master (not a tag/detached HEAD).
 	// The upgrade service checks out a specific commit; install should respect that.
-	// Servers on ops branches (e.g. ops/cloud/deploy/no) also need to align with master.
+	// Legacy servers checked out on an ops branch also need to align with master.
 	branchOut, err := upgrade.RunCommandOutput(dir, "git", "symbolic-ref", "--short", "HEAD")
 	branch := strings.TrimSpace(branchOut)
 	if err == nil && (branch == "master" || strings.HasPrefix(branch, "ops/")) {
@@ -1263,7 +1233,7 @@ func runGenerateEnv(dir string) error {
 		return err
 	}
 	// Now that config exists, ensure deploy branch fetch is configured
-	configureDeployFetch(dir)
+	normalizeGitRemote(dir)
 	// Create backup directory for upgrade service (systemd unit expects it)
 	home, err := os.UserHomeDir()
 	if err != nil {
