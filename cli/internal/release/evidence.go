@@ -2,13 +2,18 @@ package release
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Evidence marks (STATBUS-249). THERE IS NO NEW STORE — the architect's ruling,
@@ -121,6 +126,159 @@ type runAtCommit struct {
 	Conclusion string `json:"conclusion"`
 }
 
+// githubReadRetryPolicy is deliberately small and typed: only the classes
+// githubReadAttempt marks intermittent may enter this loop. Everything else is
+// deterministic and returns on its first attempt. Tests pass a zero-backoff
+// policy through the same HTTP functions production uses.
+type githubReadRetryPolicy struct {
+	maxAttempts int
+	budget      time.Duration
+	backoffs    []time.Duration
+}
+
+var defaultGitHubReadRetryPolicy = githubReadRetryPolicy{
+	maxAttempts: 3,
+	budget:      30 * time.Second,
+	backoffs:    []time.Duration{2 * time.Second, 5 * time.Second},
+}
+
+type githubReadFailure struct {
+	class     string
+	err       error
+	retryable bool
+}
+
+func (f githubReadFailure) Error() string { return f.err.Error() }
+
+// githubRead retries only named intermittent failures. Every intermittent
+// attempt is visible on stderr, including the final exhausted attempt, so a
+// recovered transient and an exit-2 exhaustion both explain themselves.
+func githubRead(url string, policy githubReadRetryPolicy, retryLog io.Writer) ([]byte, error) {
+	if policy.maxAttempts < 1 {
+		policy.maxAttempts = 1
+	}
+	if policy.budget <= 0 {
+		policy.budget = defaultGitHubReadRetryPolicy.budget
+	}
+	if retryLog == nil {
+		retryLog = io.Discard
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), policy.budget)
+	defer cancel()
+
+	var last githubReadFailure
+	for attempt := 1; attempt <= policy.maxAttempts; attempt++ {
+		body, failure := githubReadAttempt(ctx, url)
+		if failure == nil {
+			return body, nil
+		}
+		last = *failure
+		if !failure.retryable {
+			return nil, fmt.Errorf("GitHub evidence read failed (class=%s): %w", failure.class, failure.err)
+		}
+
+		fmt.Fprintf(retryLog, "GitHub evidence read attempt %d/%d failed: class=%s error=%v\n",
+			attempt, policy.maxAttempts, failure.class, failure.err)
+		if attempt == policy.maxAttempts {
+			break
+		}
+
+		delay := time.Duration(0)
+		if i := attempt - 1; i < len(policy.backoffs) {
+			delay = policy.backoffs[i]
+		}
+		if delay > 0 {
+			timer := time.NewTimer(delay)
+			select {
+			case <-timer.C:
+			case <-ctx.Done():
+				if !timer.Stop() {
+					select {
+					case <-timer.C:
+					default:
+					}
+				}
+				return nil, fmt.Errorf("GitHub evidence read retry budget exhausted after %d attempt(s) (last class=%s): %w", attempt, last.class, last.err)
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("GitHub evidence read retry exhausted after %d attempt(s) (last class=%s): %w",
+		policy.maxAttempts, last.class, last.err)
+}
+
+func githubReadAttempt(ctx context.Context, url string) ([]byte, *githubReadFailure) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, &githubReadFailure{class: "request", err: fmt.Errorf("build request: %w", err)}
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("User-Agent", "statbus-release-check")
+	if auth := githubAuthHeader(); auth != "" {
+		req.Header.Set("Authorization", auth)
+	}
+
+	resp, err := httpClient().Do(req)
+	if err != nil {
+		class := "network"
+		var netErr net.Error
+		if errors.Is(err, context.DeadlineExceeded) || errors.As(err, &netErr) && netErr.Timeout() {
+			class = "timeout"
+		}
+		return nil, &githubReadFailure{class: class, err: fmt.Errorf("request failed: %w", err), retryable: true}
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		class := "network"
+		var netErr net.Error
+		if errors.Is(err, context.DeadlineExceeded) || errors.As(err, &netErr) && netErr.Timeout() {
+			class = "timeout"
+		}
+		return nil, &githubReadFailure{class: class, err: fmt.Errorf("read response: %w", err), retryable: true}
+	}
+	if resp.StatusCode == http.StatusOK {
+		return body, nil
+	}
+
+	failure := githubReadFailure{err: fmt.Errorf("GitHub API returned HTTP %d", resp.StatusCode)}
+	switch {
+	case resp.StatusCode >= 500 && resp.StatusCode <= 599:
+		failure.class, failure.retryable = "http-5xx", true
+	case resp.StatusCode == http.StatusTooManyRequests:
+		failure.class, failure.retryable = "rate-limit", true
+	case resp.StatusCode == http.StatusForbidden && hasRateLimitHeaders(resp.Header):
+		failure.class, failure.retryable = "rate-limit", true
+	case resp.StatusCode == http.StatusUnauthorized:
+		failure.class = "unauthorized"
+	case resp.StatusCode == http.StatusForbidden:
+		failure.class = "forbidden"
+	case resp.StatusCode == http.StatusNotFound:
+		failure.class = "not-found"
+	default:
+		failure.class = "http-status"
+	}
+	return nil, &failure
+}
+
+func hasRateLimitHeaders(header http.Header) bool {
+	for _, name := range []string{"Retry-After", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset", "X-RateLimit-Resource"} {
+		if header.Get(name) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func decodeGitHubEvidence(body []byte, target any) error {
+	if err := json.Unmarshal(body, target); err != nil {
+		return fmt.Errorf("GitHub evidence read failed (class=decode): decode response: %w", err)
+	}
+	return nil
+}
+
 // listRunsAtCommit returns EVERY run of a workflow at a commit, newest first.
 //
 // This exists because checkWorkflowAt answers a different question: it returns
@@ -130,30 +288,21 @@ type runAtCommit struct {
 // being asked about, reporting "not covered" while the proof sits in the other
 // run at the very same commit.
 func listRunsAtCommit(apiBase, workflow, commitSHA string) ([]runAtCommit, error) {
+	return listRunsAtCommitWithRetry(apiBase, workflow, commitSHA, defaultGitHubReadRetryPolicy, os.Stderr)
+}
+
+func listRunsAtCommitWithRetry(apiBase, workflow, commitSHA string, policy githubReadRetryPolicy, retryLog io.Writer) ([]runAtCommit, error) {
 	url := fmt.Sprintf("%s/repos/%s/%s/actions/workflows/%s/runs?head_sha=%s&per_page=100",
 		apiBase, githubOrg, githubRepo, workflow, commitSHA)
-	req, err := http.NewRequest("GET", url, nil)
+	bodyBytes, err := githubRead(url, policy, retryLog)
 	if err != nil {
-		return nil, fmt.Errorf("build request: %w", err)
-	}
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "statbus-release-check")
-	if auth := githubAuthHeader(); auth != "" {
-		req.Header.Set("Authorization", auth)
-	}
-	resp, err := httpClient().Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GitHub API returned HTTP %d", resp.StatusCode)
+		return nil, err
 	}
 	var body struct {
 		WorkflowRuns []runAtCommit `json:"workflow_runs"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
+	if err := decodeGitHubEvidence(bodyBytes, &body); err != nil {
+		return nil, err
 	}
 	return body.WorkflowRuns, nil
 }
@@ -390,30 +539,21 @@ func jobsForRunMemoized(apiBase string, runID int64) ([]jobRecord, error) {
 // and reused for BOTH questions — the per-scenario one asked here and the
 // whole-suite one asked by the authority.
 func fetchRunJobs(apiBase string, runID int64) ([]jobRecord, error) {
+	return fetchRunJobsWithRetry(apiBase, runID, defaultGitHubReadRetryPolicy, os.Stderr)
+}
+
+func fetchRunJobsWithRetry(apiBase string, runID int64, policy githubReadRetryPolicy, retryLog io.Writer) ([]jobRecord, error) {
 	url := fmt.Sprintf("%s/repos/%s/%s/actions/runs/%d/jobs?per_page=100", apiBase, githubOrg, githubRepo, runID)
-	req, err := http.NewRequest("GET", url, nil)
+	bodyBytes, err := githubRead(url, policy, retryLog)
 	if err != nil {
-		return nil, fmt.Errorf("build request: %w", err)
-	}
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "statbus-release-check")
-	if auth := githubAuthHeader(); auth != "" {
-		req.Header.Set("Authorization", auth)
-	}
-	resp, err := httpClient().Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GitHub API returned HTTP %d", resp.StatusCode)
+		return nil, err
 	}
 	var body struct {
 		TotalCount int         `json:"total_count"`
 		Jobs       []jobRecord `json:"jobs"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
+	if err := decodeGitHubEvidence(bodyBytes, &body); err != nil {
+		return nil, err
 	}
 	if body.TotalCount > len(body.Jobs) {
 		// Same refusal as the whole-suite reader: a truncated page would make a

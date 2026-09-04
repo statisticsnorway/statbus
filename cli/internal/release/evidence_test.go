@@ -1,6 +1,7 @@
 package release
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +10,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 // STATBUS-249 evidence marks. The correction the architect required is pinned
@@ -43,6 +45,119 @@ func markServer(t *testing.T, runs []map[string]any, jobsByRun map[int64][]map[s
 	}))
 	t.Cleanup(srv.Close)
 	return srv
+}
+
+// TestEvidenceReadRetry_STATBUS351 pins the King's "retry before undecidable"
+// ruling at the real HTTP boundary. Only named intermittent classes retry;
+// deterministic authentication failures stop immediately; exhaustion names the
+// last class so the caller's exit-2 diagnosis is actionable.
+func TestEvidenceReadRetry_STATBUS351(t *testing.T) {
+	policy := githubReadRetryPolicy{
+		maxAttempts: 3,
+		budget:      time.Second,
+		backoffs:    []time.Duration{0, 0},
+	}
+
+	t.Run("5xx then 200 recovers with a visible attempt line", func(t *testing.T) {
+		var attempts int
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			attempts++
+			if attempts == 1 {
+				http.Error(w, "temporary outage", http.StatusBadGateway)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"workflow_runs": []map[string]any{}})
+		}))
+		defer srv.Close()
+
+		var log bytes.Buffer
+		if _, err := listRunsAtCommitWithRetry(srv.URL, WorkflowUpgradeArcHarness, "abc", policy, &log); err != nil {
+			t.Fatalf("5xx then 200 must recover: %v", err)
+		}
+		if attempts != 2 {
+			t.Fatalf("attempts = %d, want 2", attempts)
+		}
+		if got := log.String(); !strings.Contains(got, "attempt 1/3") || !strings.Contains(got, "class=http-5xx") || !strings.Contains(got, "HTTP 502") {
+			t.Fatalf("retry line must name attempt, class, and error; got %q", got)
+		}
+	})
+
+	t.Run("401 is deterministic and never retries", func(t *testing.T) {
+		var attempts int
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			attempts++
+			http.Error(w, "bad token", http.StatusUnauthorized)
+		}))
+		defer srv.Close()
+
+		var log bytes.Buffer
+		_, err := listRunsAtCommitWithRetry(srv.URL, WorkflowUpgradeArcHarness, "abc", policy, &log)
+		if err == nil {
+			t.Fatal("401 must fail")
+		}
+		if attempts != 1 {
+			t.Fatalf("401 attempts = %d, want 1", attempts)
+		}
+		if log.Len() != 0 {
+			t.Fatalf("deterministic failure must not print retry lines; got %q", log.String())
+		}
+		if !strings.Contains(err.Error(), "class=unauthorized") {
+			t.Fatalf("401 error must name its class; got %v", err)
+		}
+	})
+
+	t.Run("intermittent exhaustion names the last class", func(t *testing.T) {
+		var attempts int
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			attempts++
+			http.Error(w, "still down", http.StatusServiceUnavailable)
+		}))
+		defer srv.Close()
+
+		var log bytes.Buffer
+		_, err := listRunsAtCommitWithRetry(srv.URL, WorkflowUpgradeArcHarness, "abc", policy, &log)
+		if err == nil {
+			t.Fatal("exhausted 5xx must fail")
+		}
+		if attempts != 3 {
+			t.Fatalf("attempts = %d, want 3", attempts)
+		}
+		if got := strings.Count(log.String(), "class=http-5xx"); got != 3 {
+			t.Fatalf("retry log has %d classified attempts, want 3: %q", got, log.String())
+		}
+		if !strings.Contains(err.Error(), "last class=http-5xx") {
+			t.Fatalf("exhaustion must name the last class; got %v", err)
+		}
+	})
+}
+
+func TestEvidenceReadRetry_AppliesToRunJobs_STATBUS351(t *testing.T) {
+	policy := githubReadRetryPolicy{maxAttempts: 3, budget: time.Second, backoffs: []time.Duration{0, 0}}
+	var attempts int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		attempts++
+		if attempts == 1 {
+			http.Error(w, "temporary jobs outage", http.StatusInternalServerError)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"total_count": 1,
+			"jobs":        []map[string]any{{"name": "working", "conclusion": "success"}},
+		})
+	}))
+	defer srv.Close()
+
+	var log bytes.Buffer
+	jobs, err := fetchRunJobsWithRetry(srv.URL, 42, policy, &log)
+	if err != nil {
+		t.Fatalf("jobs 5xx then 200 must recover: %v", err)
+	}
+	if attempts != 2 || len(jobs) != 1 || jobs[0].Name != "working" {
+		t.Fatalf("attempts=%d jobs=%v, want two attempts and the decoded job", attempts, jobs)
+	}
+	if !strings.Contains(log.String(), "class=http-5xx") {
+		t.Fatalf("jobs retry must be visible and classified; got %q", log.String())
+	}
 }
 
 // TestScenarioEvidence_UnionAcrossRuns_STATBUS249 is the architect's required

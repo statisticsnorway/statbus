@@ -79,6 +79,52 @@ func TestDecideScenarioCoverage_AsksTheScenarioHomeWorkflow(t *testing.T) {
 	}
 }
 
+func TestDecideWorkflowCoverage_ReturnsOnlyTheWorkflowDomain_STATBUS351(t *testing.T) {
+	dir, head := arcFixture(t,
+		upgradeArcDir+"covered-one"+upgradeArcSuffix,
+		upgradeArcDir+"must-run"+upgradeArcSuffix,
+		"test/install-recovery/scenarios/fleet-only.sh",
+	)
+	writeSensitivePathsFile(t, dir, "cli/internal/upgrade/")
+	addOriginRemote(t, dir)
+
+	old := scenarioEvidence
+	scenarioEvidence = func(_ string, scenario release.Scenario) release.EvidenceAt {
+		return func(commit string) (bool, string, error) {
+			return scenario.Name == "covered-one", "stub at " + commit, nil
+		}
+	}
+	t.Cleanup(func() { scenarioEvidence = old })
+
+	results, err := decideWorkflowCoverage(dir, release.WorkflowArcs, head)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := uncoveredScenarioNames(results); len(got) != 1 || got[0] != "must-run" {
+		t.Fatalf("uncovered arc selectors = %v, want [must-run]", got)
+	}
+	for _, result := range results {
+		if result.Scenario.Name == "fleet-only" {
+			t.Fatal("arc workflow subset must not include a fleet scenario")
+		}
+	}
+}
+
+func TestCoveredSubsetDetail_NamesCoveredAnchor_STATBUS351(t *testing.T) {
+	result := workflowCoverageResult{
+		Scenario: release.Scenario{Name: "postswap-health-park", Home: release.WorkflowArcs},
+		Verdict: release.CoverageVerdict{
+			Scenario: "postswap-health-park",
+			Kind:     release.CoverageCoveredBy,
+			Anchor:   "v2026.09.0-rc.14",
+		},
+	}
+	got := coveredSubsetDetail(result)
+	if !strings.Contains(got, "SKIPPED") || !strings.Contains(got, "v2026.09.0-rc.14") {
+		t.Fatalf("covered summary must name SKIPPED and its anchor; got %q", got)
+	}
+}
+
 // TestGuardExitNeverCollidesWithCoveredVerdicts pins the exit-code contract
 // the orchestrator branches on: the staleness guard's refusal is 69
 // (EX_UNAVAILABLE) and `covered`'s three verdicts are 0/1/2. Before this, both

@@ -96,6 +96,68 @@ var releaseCoveredCmd = &cobra.Command{
 	},
 }
 
+type workflowCoverageResult struct {
+	Scenario release.Scenario
+	Verdict  release.CoverageVerdict
+	Err      error
+}
+
+var coveredSubsetDetailsFile string
+
+var releaseCoveredSubsetCmd = &cobra.Command{
+	Use:   "covered-subset <workflow> <commit>",
+	Short: "Print the scenarios in a harness workflow that are not already covered",
+	Long: "Evaluate every scenario in <workflow>'s domain at <commit> with the same coverage\n" +
+		"algorithm as the promotion gate, printing only uncovered scenario selectors on stdout.\n\n" +
+		"Exit codes: 0 = decision complete (stdout may be empty), 2 = any scenario was undecidable.",
+	Args: func(cmd *cobra.Command, args []string) error {
+		if err := cobra.ExactArgs(2)(cmd, args); err != nil {
+			return err
+		}
+		switch release.Workflow(args[0]) {
+		case release.WorkflowArcs, release.WorkflowFleet:
+			return nil
+		default:
+			return fmt.Errorf("unsupported workflow %q (want %s or %s)", args[0], release.WorkflowArcs, release.WorkflowFleet)
+		}
+	},
+	RunE: func(_ *cobra.Command, args []string) error {
+		workflow := release.Workflow(args[0])
+		results, err := decideWorkflowCoverage(config.ProjectDir(), workflow, args[1])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s: %v\n", workflow, err)
+			os.Exit(exitUndecided)
+		}
+
+		if coveredSubsetDetailsFile != "" {
+			if err := writeCoveredSubsetDetails(coveredSubsetDetailsFile, results); err != nil {
+				fmt.Fprintf(os.Stderr, "write covered-subset details: %v\n", err)
+				os.Exit(exitUndecided)
+			}
+		}
+
+		undecidable := false
+		for _, result := range results {
+			if result.Err != nil {
+				undecidable = true
+				fmt.Fprintf(os.Stderr, "%s: %v\n", result.Scenario.Name, result.Err)
+			}
+		}
+		if undecidable {
+			// Never emit a partial selector list with exit 2. The orchestrator's
+			// fail-open arm dispatches the full suite, not a mixture derived from a
+			// question that could not be answered for every scenario.
+			os.Exit(exitUndecided)
+		}
+
+		for _, name := range uncoveredScenarioNames(results) {
+			fmt.Println(name)
+		}
+		_ = exitCovered
+		return nil
+	},
+}
+
 // decideScenarioCoverage wires the real dependencies into the shared algorithm.
 // Kept separate from the command so the wiring is testable without a process
 // exit, and so the gate can adopt the identical construction.
@@ -138,6 +200,96 @@ func decideScenarioCoverage(projDir, name, commit string) (release.CoverageVerdi
 			return release.DiffTouchesSensitivePath(projDir, from, to, sensitivePaths)
 		},
 	})
+}
+
+// decideWorkflowCoverage evaluates exactly the scenario domain the named
+// harness discovers at the target commit. Shared process-local evidence memo
+// entries make this many-scenario query cost roughly the same API reads as one
+// scenario per candidate, rather than one full read per scenario.
+func decideWorkflowCoverage(projDir string, workflow release.Workflow, commit string) ([]workflowCoverageResult, error) {
+	full, err := resolveCommitish(projDir, commit)
+	if err != nil {
+		return nil, fmt.Errorf("resolve %q to a commit: %w", commit, err)
+	}
+	domain, err := release.ScenariosAt(projDir, full, workflow)
+	if err != nil {
+		return nil, err
+	}
+
+	sensitivePaths, err := release.LoadSensitivePaths(projDir)
+	if err != nil {
+		results := make([]workflowCoverageResult, 0, len(domain.Scenarios))
+		for _, scenario := range domain.Scenarios {
+			results = append(results, workflowCoverageResult{
+				Scenario: scenario,
+				Err:      fmt.Errorf("load the sensitive-path list: %w", err),
+			})
+		}
+		return results, nil
+	}
+
+	var candidates []string
+	var candidatesErr error
+	candidatesLoaded := false
+	priorCandidates := func() ([]string, error) {
+		if !candidatesLoaded {
+			candidates, candidatesErr = priorCandidateTags(projDir, full)
+			candidatesLoaded = true
+		}
+		return candidates, candidatesErr
+	}
+
+	results := make([]workflowCoverageResult, 0, len(domain.Scenarios))
+	for _, scenario := range domain.Scenarios {
+		verdict, decisionErr := release.DecideCoverage(scenario, full, release.CoverageDeps{
+			PriorCandidatesNewestFirst: priorCandidates,
+			TagCommit:                  func(tag string) (string, error) { return tagTargetCommit(projDir, tag) },
+			Evidence:                   scenarioEvidence(projDir, scenario),
+			DiffTouches: func(from, to string) (bool, []string, error) {
+				return release.DiffTouchesSensitivePath(projDir, from, to, sensitivePaths)
+			},
+		})
+		results = append(results, workflowCoverageResult{Scenario: scenario, Verdict: verdict, Err: decisionErr})
+	}
+	return results, nil
+}
+
+func uncoveredScenarioNames(results []workflowCoverageResult) []string {
+	names := make([]string, 0, len(results))
+	for _, result := range results {
+		if result.Err == nil && !result.Verdict.Covered() {
+			names = append(names, result.Scenario.Name)
+		}
+	}
+	return names
+}
+
+func coveredSubsetDetail(result workflowCoverageResult) string {
+	if result.Err != nil {
+		return fmt.Sprintf("- **%s**: UNDECIDABLE — %v", result.Scenario.Name, result.Err)
+	}
+	if result.Verdict.Covered() {
+		detail := fmt.Sprintf("- **%s**: SKIPPED — %s.", result.Scenario.Name, result.Verdict.Summary())
+		if result.Verdict.AnchorDetail != "" {
+			detail += fmt.Sprintf("\n  > Evidence: %s", result.Verdict.AnchorDetail)
+		}
+		return detail
+	}
+	return fmt.Sprintf("- **%s**: TO RUN — %s.", result.Scenario.Name, result.Verdict.Summary())
+}
+
+func writeCoveredSubsetDetails(path string, results []workflowCoverageResult) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	for _, result := range results {
+		if _, err := fmt.Fprintln(f, coveredSubsetDetail(result)); err != nil {
+			_ = f.Close()
+			return err
+		}
+	}
+	return f.Close()
 }
 
 // resolveCommitish expands any commit-ish (short SHA, tag, branch) to the full
@@ -183,4 +335,6 @@ func priorCandidateTags(projDir, commit string) ([]string, error) {
 
 func init() {
 	releaseCmd.AddCommand(releaseCoveredCmd)
+	releaseCoveredSubsetCmd.Flags().StringVar(&coveredSubsetDetailsFile, "details-file", "", "write per-scenario markdown details for a workflow step summary")
+	releaseCmd.AddCommand(releaseCoveredSubsetCmd)
 }
