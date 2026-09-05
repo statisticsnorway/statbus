@@ -5,7 +5,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-04 10:20'
-updated_date: '2026-09-05 09:13'
+updated_date: '2026-09-05 20:45'
 labels:
   - release
   - cli
@@ -398,4 +398,48 @@ around silently.
 Read-only investigation evidence and prototypes belong under
 `tmp/STATBUS-352-*`; the durable contract and final evidence belong in this
 ticket.
+## Delivery evidence (2026-09-05)
+
+All work packages landed on master in eight signed commits. Nothing paid was run; no RC was cut for this ticket (per the validation contract, the later batch RC is the live proof).
+
+### Commits
+
+| Commit | Package | What |
+|---|---|---|
+| `3c073db04` | A2 | `run.sh --exact` mode: one discovery-emitted slug, safe basename, non-symlink, executes only that file; matrix uses it after successful nonzero discovery |
+| `0279b1958` | A2 | upgrade-arc `construct` waits on validated nonzero discovery |
+| `77f0c5bfb` | A3 | scenario-aware sensitivity keyed on full `Scenario{Name,Home}`; `exact|directory|prefix` anchored matchers; reasoned verdicts; NUL-framed no-rename diff |
+| `db89f876c` | A (review fixes) | target-commit `run.sh --print-selected` structural validation is a prerequisite of the shared coverage evaluator (`covered`, `covered-subset`, stable promotion); STATBUS-350 identity union restored and made sound via producer+consumer controller rules; smoke joint and `test-smoke` select validate before coverage/matrix |
+| `262933346` | C1 + C2 | `cli/cmd/release` (`releasecmd`), explicit `main.go` composition, no `init()`; `internal/migrate` takes its four release questions as callbacks (`migrate.ReleaseProbes`) wired in `main.go`; five architecture tests |
+| `186b50481`, `7d5f481df` | hygiene | inherited VS gitignore anchored then replaced (it had silently swallowed `cli/cmd/release/`, a STATBUS-345 test, and a vendored file); invariant test asks `git check-ignore` about every Go package dir |
+| `90133c0c1` | C3 | anchor-union-target box-command closure replaces the broad `cli` rule at diff time; memoized per SHA; every failure is undecidable |
+
+### Acceptance criteria, observed
+
+1. One `sb` binary; `cli`/`cmd`/`internal` retained. `--help` byte-identical for root, `release`, all 8 release subcommands, and `migrate down` before/after extraction.
+2. Global validation blocks the coverage decision even with an empty paid subset: reproduced through the real built binary. A forbidden `fabricate_*` in an excluded `HARNESS_SKIP_DEFAULT` sibling makes `covered-subset` exit 2 with empty stdout (full suite dispatches) and `runCoverageAuthority` refuse; a clean sibling stays covered. Also proven for a ledger write in `arcs/`, a symlinked scenario, and an all-excluded domain. Validation reads the commit (`git archive`), never the working tree; 0.6 s on the real repo.
+3. Exact execution does not read siblings: `test/install-recovery/tests/run-boundary-test.sh` traces `find`/`grep`/`bash` and passes.
+4. Sensitivity keyed on full identity with a reason per path: `TestMatchSensitivePath_*`, real-binary reason tests for own/sibling/shared/smoke/arc-helper/proof-interpreter/anchored-false-match/undecidable.
+5. `lib/` and `fixtures/` stay directory-broad; `failing` and `deploy-status-proof` carry `ops/ci-deploy-status.sh`, `deploy-status-proof` also `ops/niue/sshdo*`.
+6/7. Prototype passed all eight go/no-go conditions (`tmp/STATBUS-352-go-prototype/REPORT.md`). Extraction landed. `go list -deps ./cmd` contains neither `cmd/release` nor `internal/release`; `internal/migrate` imports only `config`, `dotenv`, `inject`. Pinned by `cli/cmd/release/architecture_test.go`.
+8. Derivation failures run more proof with a diagnostic: `TestBoxCommandClosure_UnlistableModuleIsUndecidable`, `covered-subset` exit 2/no stdout, `coverage-question-health` wording names evidence, policy, structural validation, and repository-read failures.
+9. `cd cli && go test ./... -count=1` green after every commit; `actionlint`, YAML parse, `bash -n`, `git diff --check` clean.
+10. **Go outcome: bounded extraction landed** (C1, C2 via callbacks per coordinator ruling, C3). `cli/` narrows only when both anchor and target carry the boundary marker `cli/cmd/release/command.go`; any earlier anchor keeps the broad rule.
+
+### Live observations worth keeping
+
+- `sb migrate down` on the dev DB rolled back `20260904111126` (in no release tag; restored) and REFUSED `--to 20260901212307` naming `v2026.09.0` with exit 1 and no state change: the callback-wired guard behaves exactly as before.
+- On the real post-boundary range `262933346..HEAD`, the derived closure classifies `cli/internal/release/*` and `cli/cmd/release/*` as proof interpreter and the one ordinary `cmd` test file as box payload; nothing under `cli/` is silently dropped.
+- `ValidateHarnessDomainAt(HEAD)` = 611 ms; closure derivation at HEAD ≈ 0.5 s; both memoized per commit.
+
+### Review status (honest)
+
+- Work A first review: independent (Luna), REJECT with two HIGH findings, both fixed in `db89f876c`.
+- Work A re-review and the C1/C2/C3 review: **coordinator self-review only.** Four consecutive independently spawned reviewers hung at startup with zero activity on two model routes. The self-review used the same attack list and 11 real-binary probes (`tmp/STATBUS-352-work-a-rereview/REPORT.md`). **An independent adversarial review of `db89f876c..90133c0c1` is still owed and must precede the batch RC.**
+
+### Known, deliberately not done here
+
+- Symlinked `*-arc.sh` under `arcs/` would be listed by `arcsAt` but skipped by the runner's `find -type f`; pre-existing STATBUS-216-class gap, bounded to symlinks, noted for a follow-up.
+- Function-level shell library tracing remains STATBUS-353.
+- `.idea/` and `app/.idea/` JetBrains state existed untracked and is now ignored; a stray root `.yarn/` (Yarn 3.6.3) was deleted at the owner's instruction.
 <!-- SECTION:DESCRIPTION:END -->
