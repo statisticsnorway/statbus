@@ -324,16 +324,99 @@ func TestScenarioEvidence_UnreadableRunsAreReported_STATBUS249(t *testing.T) {
 	}
 }
 
-func TestWorkflowsRunningScenario_UsesOnlyTheFullScenarioHome_STATBUS352(t *testing.T) {
-	for _, scenario := range []Scenario{
-		fleet("0-happy-install"),
-		{Name: "0-happy-install", Home: WorkflowSmoke},
-		arc("rollback-pair-terminal"),
-	} {
-		got := WorkflowsRunningScenario(scenario)
-		if len(got) != 1 || got[0] != scenario.Home.String() {
-			t.Errorf("%v evidence workflows = %v, want only %s", scenario, got, scenario.Home)
+// TestWorkflowsRunningScenario_UnionsProducers_STATBUS350 pins the STATBUS-350
+// contract that STATBUS-352's first cut regressed: historical marks under the
+// DELETED legacy smoke workflows, the current smoke workflow, and the
+// install-recovery harness must all remain discoverable for the two happy-path
+// slugs, whichever home asks. Ordinary scenarios have exactly one identity.
+// The union is sound only because sensitivity keys those slugs on every
+// producer and consumer wrapper (TestHappyPathCompatibility in sensitivity).
+func TestWorkflowsRunningScenario_UnionsProducers_STATBUS350(t *testing.T) {
+	has := func(list []string, want string) bool {
+		for _, w := range list {
+			if w == want {
+				return true
+			}
 		}
+		return false
+	}
+	for _, scenario := range []Scenario{fleet("0-happy-install"), {Name: "0-happy-install", Home: WorkflowSmoke}} {
+		got := WorkflowsRunningScenario(scenario)
+		if got[0] != scenario.Home.String() {
+			t.Errorf("%v: home must be asked first; got %v", scenario, got)
+		}
+		for _, want := range []string{WorkflowTestSmoke, WorkflowTestInstallLegacy, WorkflowInstallRecoveryHarness} {
+			if !has(got, want) {
+				t.Errorf("%v: STATBUS-350 requires %s marks to remain discoverable; got %v", scenario, want, got)
+			}
+		}
+		if has(got, WorkflowTestUpgradeLegacy) {
+			t.Errorf("%v must not ask the upgrade legacy identity; got %v", scenario, got)
+		}
+		seen := map[string]int{}
+		for _, w := range got {
+			seen[w]++
+		}
+		for w, n := range seen {
+			if n > 1 {
+				t.Errorf("%v lists %s %d times", scenario, w, n)
+			}
+		}
+	}
+	up := WorkflowsRunningScenario(fleet("0-happy-upgrade"))
+	if !has(up, WorkflowTestUpgradeLegacy) || has(up, WorkflowTestInstallLegacy) {
+		t.Errorf("0-happy-upgrade must ask the upgrade legacy identity only; got %v", up)
+	}
+	if got := WorkflowsRunningScenario(arc("rollback-pair-terminal")); len(got) != 1 || got[0] != WorkflowUpgradeArcHarness {
+		t.Errorf("a one-home scenario must have exactly its home; got %v", got)
+	}
+}
+
+// TestScenarioEvidence_FindsAMarkUnderALegacyIdentity_STATBUS350 is the seam end
+// to end: the mark exists ONLY under the deleted legacy identity, and the
+// union must still find it.
+func TestScenarioEvidence_FindsAMarkUnderALegacyIdentity_STATBUS350(t *testing.T) {
+	var askedFor []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.Contains(r.URL.Path, "/actions/workflows/"):
+			seg := strings.Split(r.URL.Path, "/")
+			wf := seg[len(seg)-2]
+			askedFor = append(askedFor, wf)
+			if wf == WorkflowTestUpgradeLegacy {
+				_ = json.NewEncoder(w).Encode(map[string]any{"workflow_runs": []map[string]any{
+					{"id": 77, "status": "completed", "conclusion": "success", "html_url": "http://legacy"},
+				}})
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"workflow_runs": []map[string]any{}})
+		case strings.Contains(r.URL.Path, "/actions/runs/"):
+			_ = json.NewEncoder(w).Encode(map[string]any{"total_count": 1, "jobs": []map[string]any{
+				{"name": "0-happy-upgrade", "conclusion": "success"},
+			}})
+		default:
+			http.Error(w, "unexpected "+r.URL.Path, http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	var found bool
+	var detail string
+	for _, wf := range WorkflowsRunningScenario(Scenario{Name: "0-happy-upgrade", Home: WorkflowSmoke}) {
+		f, d, err := scenarioProvenInCIAt(srv.URL, wf, "0-happy-upgrade", "c09")
+		if err != nil {
+			t.Fatalf("%s: %v", wf, err)
+		}
+		if f {
+			found, detail = true, d
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("the mark exists under %s only; the union must find it (asked: %v)", WorkflowTestUpgradeLegacy, askedFor)
+	}
+	if !strings.Contains(detail, "77") {
+		t.Errorf("the detail must name the run holding the mark; got %q", detail)
 	}
 }
 

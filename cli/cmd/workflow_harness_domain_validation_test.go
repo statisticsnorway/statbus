@@ -20,7 +20,9 @@ func stepIndexByName(t *testing.T, steps []map[string]any, name string) int {
 
 func TestHarnessDomainValidationPrecedesCoverageAndPaidEligibility_STATBUS352(t *testing.T) {
 	t.Run("orchestrator validates both target domains before coverage", func(t *testing.T) {
-		for _, job := range []string{"install-recovery-harness", "upgrade-arc-harness"} {
+		// Every paid joint, including the FIRST one (smoke): an all-covered
+		// answer that dispatches nothing must still have passed validation.
+		for _, job := range []string{"smoke", "install-recovery-harness", "upgrade-arc-harness"} {
 			steps := jobSteps(t, ".github/workflows/release-fleet-orchestrator.yaml", job)
 			validation := stepIndexByName(t, steps, "Validate install-recovery and upgrade-arc domains")
 			coverage := stepIndexByName(t, steps, "Decision point: which scenarios are uncovered?")
@@ -31,6 +33,36 @@ func TestHarnessDomainValidationPrecedesCoverageAndPaidEligibility_STATBUS352(t 
 			if strings.Count(script, authoritativeHarnessDomainValidation) != 1 {
 				t.Fatalf("%s must invoke the one authoritative runner validator exactly once, got:\n%s", job, script)
 			}
+		}
+	})
+
+	t.Run("smoke matrix eligibility follows admission then validation", func(t *testing.T) {
+		steps := jobSteps(t, ".github/workflows/test-smoke.yaml", "select")
+		admission := -1
+		for i, step := range steps {
+			if uses, _ := step["uses"].(string); uses == "./.github/actions/orchestrator-fleet-admission" {
+				admission = i
+			}
+		}
+		if admission < 0 {
+			t.Fatal("test-smoke select must revalidate orchestrated admission")
+		}
+		validation := stepIndexByName(t, steps, "Validate install-recovery and upgrade-arc domains")
+		matrix := stepIndexByName(t, steps, "Validate selectors and build matrix")
+		if !(admission < validation && validation < matrix) {
+			t.Fatalf("test-smoke select order must be admission (%d) < domain validation (%d) < matrix (%d)", admission, validation, matrix)
+		}
+		script, _ := steps[validation]["run"].(string)
+		if strings.Count(script, authoritativeHarnessDomainValidation) != 1 {
+			t.Fatalf("test-smoke select must invoke the one authoritative runner validator exactly once, got:\n%s", script)
+		}
+
+		doc := workflowDoc(t, ".github/workflows/test-smoke.yaml")
+		jobs := doc["jobs"].(map[string]any)
+		smoke := jobs["smoke"].(map[string]any)
+		needs, ok := smoke["needs"].([]any)
+		if !ok || len(needs) != 1 || needs[0] != "select" {
+			t.Fatalf("paid smoke matrix must depend only on the validated select job; needs=%v", smoke["needs"])
 		}
 	})
 

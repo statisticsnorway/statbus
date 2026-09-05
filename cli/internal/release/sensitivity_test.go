@@ -99,7 +99,7 @@ func TestMatchSensitivePath_UsesFullScenarioHomeAndOwnScript_STATBUS352(t *testi
 		{"fleet workflow", fleetA, ".github/workflows/install-recovery-harness.yaml", true, ReasonSharedController},
 		{"fleet ignores smoke wrapper", fleetA, ".github/workflows/test-smoke.yaml", false, ""},
 		{"smoke own", smokeInstall, "test/install-recovery/scenarios/0-happy-install.sh", true, ReasonOwnScenario},
-		{"smoke ignores runner", smokeInstall, "test/install-recovery/run.sh", false, ""},
+		{"smoke runner (select job runs the validator)", smokeInstall, "test/install-recovery/run.sh", true, ReasonSharedController},
 		{"smoke workflow", smokeInstall, ".github/workflows/test-smoke.yaml", true, ReasonSharedController},
 	}
 	for _, tc := range cases {
@@ -163,6 +163,70 @@ func TestMatchSensitivePath_RejectsUndecidableScenarioAndPath_STATBUS352(t *test
 	for _, changedPath := range []string{"/absolute", "./install.sh", "../install.sh", "a/../install.sh"} {
 		if _, _, err := MatchSensitivePath(dir, fleet("a"), changedPath); err == nil {
 			t.Errorf("path %q was accepted", changedPath)
+		}
+	}
+}
+
+// TestHappyPathCompatibility_EveryProducerAndConsumerWrapperInvalidates_STATBUS350
+// is what makes WorkflowsRunningScenario's evidence union sound. A happy-path
+// mark may come from the current smoke workflow, a DELETED legacy smoke
+// workflow, or the install-recovery harness. Whichever home asks, a change to
+// ANY of those wrappers, to the runner, or to the own script must invalidate
+// inheritance. Ordinary scenarios gain none of these cross-home rules.
+func TestHappyPathCompatibility_EveryProducerAndConsumerWrapperInvalidates_STATBUS350(t *testing.T) {
+	dir := t.TempDir()
+	writeSensitivityPolicy(t, dir, testPolicy())
+
+	install := map[string]bool{
+		".github/workflows/test-smoke.yaml":               true,
+		".github/workflows/test-install.yaml":             true,
+		".github/workflows/test-upgrade.yaml":             false,
+		".github/workflows/install-recovery-harness.yaml": true,
+		".github/workflows/upgrade-arc-harness.yaml":      false,
+		"test/install-recovery/run.sh":                    true,
+	}
+	for _, home := range []Workflow{WorkflowFleet, WorkflowSmoke} {
+		scenario := Scenario{Name: "0-happy-install", Home: home}
+		for path, want := range install {
+			change, matched, err := MatchSensitivePath(dir, scenario, path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if matched != want {
+				t.Errorf("%v %s: matched=%v want %v", scenario, path, matched, want)
+			}
+			if matched && change.Reason != ReasonSharedController {
+				t.Errorf("%v %s: reason=%q want shared controller", scenario, path, change.Reason)
+			}
+		}
+	}
+
+	upgrade := Scenario{Name: "0-happy-upgrade", Home: WorkflowSmoke}
+	if _, matched, _ := MatchSensitivePath(dir, upgrade, ".github/workflows/test-upgrade.yaml"); !matched {
+		t.Error("0-happy-upgrade must be invalidated by its legacy producer test-upgrade.yaml")
+	}
+	if _, matched, _ := MatchSensitivePath(dir, upgrade, ".github/workflows/test-install.yaml"); matched {
+		t.Error("0-happy-upgrade never ran under test-install.yaml")
+	}
+
+	ordinary := fleet("scenario-a")
+	for _, path := range []string{".github/workflows/test-smoke.yaml", ".github/workflows/test-install.yaml"} {
+		if _, matched, _ := MatchSensitivePath(dir, ordinary, path); matched {
+			t.Errorf("ordinary fleet scenario must not gain happy-path compatibility rule %s", path)
+		}
+	}
+
+	rules, err := scenarioSensitivityRules(Scenario{Name: "0-happy-install", Home: WorkflowSmoke})
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[sensitivityRule]int{}
+	for _, rule := range rules {
+		seen[rule]++
+	}
+	for rule, n := range seen {
+		if n > 1 {
+			t.Errorf("rule %+v listed %d times — rules must be deduplicated", rule, n)
 		}
 	}
 }

@@ -357,13 +357,46 @@ func scenarioProvenInCIAt(apiBase, workflow, scenario, commitSHA string) (bool, 
 	return false, "", nil
 }
 
-// WorkflowsRunningScenario returns the workflow identity for this full scenario.
-// Same-name Fleet and Smoke jobs are deliberately not unioned: their wrappers
-// and sensitivity dependencies differ, so cross-home evidence would let one
-// wrapper inherit proof across a change to the other. Historical bare-name marks
-// are ignored in the safe direction and the scenario simply runs again.
+// WorkflowsRunningScenario lists EVERY workflow identity that legitimately
+// holds a CI mark for this scenario: its home first, then the compatibility
+// identities STATBUS-350 requires to stay discoverable (the current smoke
+// workflow, the DELETED legacy smoke workflows whose runs GitHub still serves,
+// and the install-recovery harness, all of which have run the two happy-path
+// scenarios by the same job name).
+//
+// Unioning across producers is only sound because sensitivity for those two
+// slugs is deliberately keyed on EVERY producer AND consumer controller
+// (happyPathCompatibilityRules in sensitivity.go): a mark produced under one
+// wrapper cannot be inherited across a change to any wrapper. The cost of
+// that conservatism is an occasional unnecessary re-run; the alternative
+// (STATBUS-352's first cut, home-only lookup) threw away real historical
+// evidence, which STATBUS-350 forbids.
+//
+// WHOLE-SUITE COMPLETENESS DELIBERATELY DOES NOT UNION: "did every required
+// job run?" needs one workflow's full job list. Only the per-scenario
+// question unions.
 func WorkflowsRunningScenario(scenario Scenario) []string {
-	return []string{scenario.Home.String()}
+	home := scenario.Home.String()
+	workflows := []string{home}
+	for _, w := range happyPathCompatibilityWorkflows(scenario.Name) {
+		if w != home {
+			workflows = append(workflows, w)
+		}
+	}
+	return workflows
+}
+
+// happyPathCompatibilityWorkflows names the producers that have left marks for
+// a happy-path slug under a different identity than its current home. Any
+// other scenario has exactly one producer and returns nil.
+func happyPathCompatibilityWorkflows(name string) []string {
+	switch name {
+	case "0-happy-install":
+		return []string{WorkflowTestSmoke, WorkflowTestInstallLegacy, WorkflowInstallRecoveryHarness}
+	case "0-happy-upgrade":
+		return []string{WorkflowTestSmoke, WorkflowTestUpgradeLegacy, WorkflowInstallRecoveryHarness}
+	}
+	return nil
 }
 
 // ScenarioEvidence composes the halves into the ONE lookup DecideCoverage
@@ -382,9 +415,10 @@ func ScenarioEvidence(projDir string, scenario Scenario) EvidenceAt {
 		if local {
 			return true, fmt.Sprintf("local mark (%s)", LocalMarkPath(projDir, scenario)), nil
 		}
-		// The slice is deliberately home-specific. Keep the loop shape because it
-		// preserves the evidence API's safe error aggregation if a future explicit
-		// compatibility rule adds a second equivalent identity.
+		// Union across identities. An error from one identity is REMEMBERED but
+		// does not end the search: another identity may hold a real mark. Only
+		// if NOTHING is found does the error surface, so the caller can tell
+		// "not found" from "could not look".
 		var firstErr error
 		for _, wf := range identities {
 			found, detail, cerr := ScenarioProvenInCI(wf, scenario.Name, commit)

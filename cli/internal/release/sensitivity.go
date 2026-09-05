@@ -228,10 +228,48 @@ func scenarioSensitivityRules(scenario Scenario) ([]sensitivityRule, error) {
 		}
 	case WorkflowSmoke:
 		ownPath = "test/install-recovery/scenarios/" + scenario.Name + ".sh"
-		rules = append(rules, sensitivityRule{Kind: matchExact, Path: ".github/workflows/test-smoke.yaml", Reason: ReasonSharedController})
+		rules = append(rules,
+			sensitivityRule{Kind: matchExact, Path: ".github/workflows/test-smoke.yaml", Reason: ReasonSharedController},
+			// test-smoke's select job runs the runner's authoritative domain
+			// validation before any paid matrix job, so the runner controls
+			// smoke too.
+			sensitivityRule{Kind: matchExact, Path: "test/install-recovery/run.sh", Reason: ReasonSharedController},
+		)
 	}
 	rules = append(rules, sensitivityRule{Kind: matchExact, Path: ownPath, Reason: ReasonOwnScenario})
-	return rules, nil
+	rules = append(rules, happyPathCompatibilityRules(scenario.Name)...)
+	return dedupeSensitivityRules(rules), nil
+}
+
+// happyPathCompatibilityRules makes the STATBUS-350 evidence union sound. The
+// two happy-path slugs may inherit a mark produced by ANY of their historical
+// producers (WorkflowsRunningScenario in evidence.go), so every producer's
+// wrapper and every consumer's wrapper must invalidate that inheritance,
+// regardless of which home is asking. Deleted legacy workflow files are listed
+// too: a diff that resurrects or edits one is a wrapper change.
+func happyPathCompatibilityRules(name string) []sensitivityRule {
+	if happyPathCompatibilityWorkflows(name) == nil {
+		return nil
+	}
+	var rules []sensitivityRule
+	for _, w := range append([]string{WorkflowTestSmoke, WorkflowInstallRecoveryHarness}, happyPathCompatibilityWorkflows(name)...) {
+		rules = append(rules, sensitivityRule{Kind: matchExact, Path: ".github/workflows/" + w, Reason: ReasonSharedController})
+	}
+	rules = append(rules, sensitivityRule{Kind: matchExact, Path: "test/install-recovery/run.sh", Reason: ReasonSharedController})
+	return rules
+}
+
+func dedupeSensitivityRules(rules []sensitivityRule) []sensitivityRule {
+	seen := make(map[sensitivityRule]struct{}, len(rules))
+	out := rules[:0]
+	for _, rule := range rules {
+		if _, ok := seen[rule]; ok {
+			continue
+		}
+		seen[rule] = struct{}{}
+		out = append(out, rule)
+	}
+	return out
 }
 
 // MatchSensitivePath classifies one repository-relative path for the full

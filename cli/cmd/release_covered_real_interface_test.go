@@ -64,6 +64,11 @@ func realCoverageFixture(t *testing.T, changedPaths ...string) (dir, anchor, tar
 	dir = t.TempDir()
 	runGitInCmd(t, dir, "init", "-q")
 
+	realRunner, err := os.ReadFile(thisRepoFile(t, "test/install-recovery/run.sh"))
+	if err != nil {
+		t.Fatalf("read the real harness runner: %v", err)
+	}
+
 	baseFiles := map[string]string{
 		".statbus":                                              "\n",
 		release.SensitivePathsFile:                              realInterfacePolicy,
@@ -77,7 +82,8 @@ func realCoverageFixture(t *testing.T, changedPaths ...string) (dir, anchor, tar
 		".github/workflows/install-recovery-harness.yaml":       "base\n",
 		".github/workflows/upgrade-arc-harness.yaml":            "base\n",
 		".github/workflows/test-smoke.yaml":                     "base\n",
-		"test/install-recovery/run.sh":                          "base\n",
+		".github/workflows/test-install.yaml":                   "base\n",
+		"test/install-recovery/run.sh":                          string(realRunner),
 		"test/install-recovery/lib/assertions.sh":               "base\n",
 		"test/install-recovery/fixtures/stage-head.sh":          "base\n",
 		"ops/ci-deploy-status.sh":                               "base\n",
@@ -96,6 +102,12 @@ func realCoverageFixture(t *testing.T, changedPaths ...string) (dir, anchor, tar
 	runGitInCmd(t, dir, "tag", "-a", "v2026.09.0-rc.01", "-m", "anchor")
 
 	for _, file := range changedPaths {
+		if file == "test/install-recovery/run.sh" {
+			// The runner must stay a real validator at the target too, so the
+			// "changed runner" case appends a comment rather than replacing it.
+			writeFixtureFile(t, dir, file, string(realRunner)+"\n# changed\n")
+			continue
+		}
 		writeFixtureFile(t, dir, file, "changed\n")
 	}
 	runGitInCmd(t, dir, "add", ".")
@@ -192,15 +204,16 @@ func TestBuiltReleaseCoveredAndSubset_ScenarioAwareSensitivity_STATBUS352(t *tes
 	})
 
 	t.Run("same-name fleet and smoke use different wrappers", func(t *testing.T) {
-		dir, anchor, binary := newFixture(t, ".github/workflows/install-recovery-harness.yaml")
+		dir, anchor, binary := newFixture(t, ".github/workflows/upgrade-arc-harness.yaml")
 		fleetHappy := release.Scenario{Name: "0-happy-install", Home: release.WorkflowFleet}
 		smokeHappy := release.Scenario{Name: "0-happy-install", Home: release.WorkflowSmoke}
 		markScenarioAt(t, dir, fleetHappy, anchor)
 		markScenarioAt(t, dir, smokeHappy, anchor)
 		markScenarioAt(t, dir, release.Scenario{Name: "0-happy-upgrade", Home: release.WorkflowSmoke}, anchor)
 
+		// An arc wrapper change is outside both happy-path homes: both stay covered.
 		fleetResult := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered", "--workflow", release.WorkflowFleet.String(), fleetHappy.Name, "HEAD")
-		if fleetResult.exit != exitMustRun || !strings.Contains(fleetResult.stdout, "shared controller") {
+		if fleetResult.exit != exitCovered {
 			t.Fatalf("fleet result exit=%d stdout=%q stderr=%q", fleetResult.exit, fleetResult.stdout, fleetResult.stderr)
 		}
 		smokeResult := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered", "--workflow", release.WorkflowSmoke.String(), smokeHappy.Name, "HEAD")
@@ -214,6 +227,37 @@ func TestBuiltReleaseCoveredAndSubset_ScenarioAwareSensitivity_STATBUS352(t *tes
 		ambiguous := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered", smokeHappy.Name, "HEAD")
 		if ambiguous.exit != exitUndecided || !strings.Contains(ambiguous.stderr, "ambiguous") {
 			t.Fatalf("ambiguous exit=%d stdout=%q stderr=%q", ambiguous.exit, ambiguous.stdout, ambiguous.stderr)
+		}
+	})
+
+	// STATBUS-350 compatibility: a happy-path mark may have been produced by
+	// the smoke workflow, a deleted legacy smoke workflow, or the harness. So a
+	// change to ANY of those wrappers must invalidate the slug in BOTH homes,
+	// while an ordinary fleet scenario ignores the smoke wrapper.
+	t.Run("happy-path producer wrapper invalidates both homes", func(t *testing.T) {
+		for _, wrapper := range []string{".github/workflows/install-recovery-harness.yaml", ".github/workflows/test-smoke.yaml", ".github/workflows/test-install.yaml"} {
+			dir, anchor, binary := newFixture(t, wrapper)
+			for _, scenario := range []release.Scenario{
+				{Name: "0-happy-install", Home: release.WorkflowFleet},
+				{Name: "0-happy-install", Home: release.WorkflowSmoke},
+				{Name: "b", Home: release.WorkflowFleet},
+			} {
+				markScenarioAt(t, dir, scenario, anchor)
+			}
+			for _, home := range []release.Workflow{release.WorkflowFleet, release.WorkflowSmoke} {
+				result := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered", "--workflow", home.String(), "0-happy-install", "HEAD")
+				if result.exit != exitMustRun || !strings.Contains(result.stdout, wrapper+" — shared controller") {
+					t.Fatalf("%s %s: exit=%d stdout=%q stderr=%q", wrapper, home, result.exit, result.stdout, result.stderr)
+				}
+			}
+			ordinary := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered", "--workflow", release.WorkflowFleet.String(), "b", "HEAD")
+			wantOrdinary := exitCovered
+			if wrapper == ".github/workflows/install-recovery-harness.yaml" {
+				wantOrdinary = exitMustRun
+			}
+			if ordinary.exit != wantOrdinary {
+				t.Fatalf("%s ordinary fleet b: exit=%d want %d stdout=%q", wrapper, ordinary.exit, wantOrdinary, ordinary.stdout)
+			}
 		}
 	})
 

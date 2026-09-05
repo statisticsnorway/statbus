@@ -61,12 +61,16 @@ func trivialComplete(runID int64, requiredJobNames []string) (release.JobsComple
 }
 
 // arcFixture builds a git repo containing exactly the given repo-relative
-// files and returns (dir, HEAD sha).
+// files and returns (dir, HEAD sha). Every fixture also carries one default
+// fleet scenario and the real runner (via writeAndCommit): the shared coverage
+// evaluator now runs the target commit's own harness validation as its
+// prerequisite (STATBUS-352), and a repository whose fleet domain is EMPTY is
+// itself a refusal (STATBUS-216), never a passable arc-only world.
 func arcFixture(t *testing.T, paths ...string) (string, string) {
 	t.Helper()
 	dir := t.TempDir()
 	runGitInCmd(t, dir, "init", "-q")
-	writeAndCommit(t, dir, "fixture", paths...)
+	writeAndCommit(t, dir, "fixture", append([]string{"test/install-recovery/scenarios/fixture-default.sh"}, paths...)...)
 	return dir, runGitInCmd(t, dir, "rev-parse", "HEAD")
 }
 
@@ -539,7 +543,13 @@ func TestUpgradeArcHarnessGate_DifferingBlockedAnchorsNameEachAnchor(t *testing.
 // TestInstallRecoveryHarnessGate_EmptyScenarioDomainRefuses is the same
 // STATBUS-216 hole on the second consumer of runCoverageAuthority.
 func TestInstallRecoveryHarnessGate_EmptyScenarioDomainRefuses(t *testing.T) {
-	dir, head := arcFixture(t, "doc/readme.md")
+	// Build the empty fleet domain explicitly: arcFixture now seeds one
+	// default scenario so ordinary gate tests survive the STATBUS-352
+	// structural prerequisite, which this test deliberately does not want.
+	dir := t.TempDir()
+	runGitInCmd(t, dir, "init", "-q")
+	writeAndCommit(t, dir, "fixture", "doc/readme.md")
+	head := runGitInCmd(t, dir, "rev-parse", "HEAD")
 
 	var passed bool
 	out := captureStdout(t, func() {

@@ -26,6 +26,15 @@ func newCoverageEvaluator(projDir, commitish string) (*coverageEvaluator, error)
 	if err := release.ValidateSensitivityPolicy(projDir); err != nil {
 		return nil, fmt.Errorf("load the sensitivity policy: %w", err)
 	}
+	// The target commit's harness tree must pass its OWN structural
+	// validation before any coverage answer exists (STATBUS-352 Work A review,
+	// finding 1). Without this, a forbidden construct in an excluded sibling
+	// could leave every required scenario "covered" while the runner would
+	// refuse the repository. An error here is an undecidable question for every
+	// caller: covered-subset fails open to the full suite, promotion refuses.
+	if err := release.ValidateHarnessDomainAt(projDir, commit); err != nil {
+		return nil, fmt.Errorf("structural validation of the install-recovery domain at %s: %w", commit[:9], err)
+	}
 	return &coverageEvaluator{projDir: projDir, commit: commit}, nil
 }
 

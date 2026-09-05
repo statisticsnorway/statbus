@@ -536,7 +536,7 @@ func TestFleetStagesUseCoveredSubsetAndHealthIsIndependent_STATBUS351(t *testing
 	}
 	var diagnosis bool
 	for _, step := range health.Steps {
-		if strings.Contains(step.Run, "the full suite was dispatched instead of guessing; fix the evidence path (token/API)") {
+		if strings.Contains(step.Run, "the full suite was dispatched instead of guessing; fix the evidence path (token/API), the sensitivity policy, the install-recovery structural validation, or the repository read that failed") {
 			diagnosis = true
 		}
 	}

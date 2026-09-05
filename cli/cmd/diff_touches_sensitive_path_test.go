@@ -34,15 +34,42 @@ func writeAndCommit(t *testing.T, dir, message string, paths ...string) {
 			t.Fatal(err)
 		}
 	}
+	installRealHarnessRunner(t, dir)
 	runGitInCmd(t, dir, "add", ".")
 	runGitInCmd(t, dir, "commit", "-q", "-m", message)
+}
+
+// installRealHarnessRunner copies THIS repository's test/install-recovery/run.sh
+// into a fixture that has a harness tree but no runner of its own. The shared
+// coverage evaluator runs the target commit's run.sh --print-selected as its
+// structural prerequisite (STATBUS-352), so a fixture without a runner is
+// undecidable by design; the real runner keeps fixtures faithful instead of
+// stubbing the doctrine. A fixture that deliberately writes its own run.sh
+// (placeholder or otherwise) is left alone.
+func installRealHarnessRunner(t *testing.T, dir string) {
+	t.Helper()
+	harness := filepath.Join(dir, "test", "install-recovery")
+	if _, err := os.Stat(harness); err != nil {
+		return
+	}
+	dest := filepath.Join(harness, "run.sh")
+	if _, err := os.Stat(dest); err == nil {
+		return
+	}
+	src, err := os.ReadFile(thisRepoFile(t, "test/install-recovery/run.sh"))
+	if err != nil {
+		t.Fatalf("read the real harness runner: %v", err)
+	}
+	if err := os.WriteFile(dest, src, 0o755); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestDiffSensitiveChanges_FullScenarioAndAnchoredPaths_STATBUS352(t *testing.T) {
 	t.Run("own scenario matches while sibling and substring false positives do not", func(t *testing.T) {
 		dir := t.TempDir()
 		runGitInCmd(t, dir, "init", "-q")
-		writeAndCommit(t, dir, "base", "doc/readme.md")
+		writeAndCommit(t, dir, "base", "doc/readme.md", "test/install-recovery/scenarios/base.sh")
 		base := runGitInCmd(t, dir, "rev-parse", "HEAD")
 		writeAndCommit(t, dir, "advance",
 			"test/install-recovery/scenarios/a.sh",

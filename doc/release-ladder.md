@@ -79,7 +79,7 @@ cannot be lost silently.
 
 ```
 GITHUB_TOKEN=$(gh auth token) ./sb release stable        # the whole ladder, refuses until green
-./sb release covered 0-happy-install <sha>               # one scenario, says where its proof comes from
+./sb release covered --workflow test-smoke.yaml 0-happy-install <sha>   # one scenario in one home (the happy slugs exist in both smoke and fleet)
 ```
 
 The gate prints one line per rung: green at the sha, or covered by a named

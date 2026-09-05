@@ -149,6 +149,14 @@ jobs:
           cache-dependency-path: cli/go.sum
       - name: Build sb (the coverage decision runs the gate's own library)
         run: ./dev.sh build-sb
+      - name: Validate install-recovery and upgrade-arc domains
+        # The smoke stage is the FIRST paid joint. Target-commit structural
+        # validation must precede its covered-subset, including an all-covered
+        # result that dispatches nothing. The runner is the single authority
+        # for the no-fabrication/no-ledger-write doctrine across both
+        # directories; ./sb release covered-subset repeats this same check
+        # against the target commit's own tree as its prerequisite.
+        run: ./dev.sh test-install-recovery --print-selected >/dev/null
       - name: "Decision point: which scenarios are uncovered?"
         id: coverage
         env:
@@ -669,7 +677,7 @@ jobs:
             fi
           fi
           if [ -n "$errors" ]; then
-            echo "::error title=Coverage question health::the coverage question could not be asked: ${errors}; the full suite was dispatched instead of guessing; fix the evidence path (token/API)"
+            echo "::error title=Coverage question health::the coverage question could not be asked: ${errors}; the full suite was dispatched instead of guessing; fix the evidence path (token/API), the sensitivity policy, the install-recovery structural validation, or the repository read that failed"
             exit 1
           fi
           echo "Every fleet coverage question was answerable."

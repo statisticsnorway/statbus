@@ -50,6 +50,13 @@ jobs:
           candidate-sha: ${{ github.sha }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Validate install-recovery and upgrade-arc domains
+        # Smoke scenarios are install-recovery scenario scripts. The runner's
+        # structural guard (no fabrication, no direct ledger writes, across
+        # every scenario and arc) must pass at this commit before any paid
+        # matrix job becomes eligible, exactly as the harness discover jobs do.
+        run: ./dev.sh test-install-recovery --print-selected >/dev/null
+
       - name: Validate selectors and build matrix
         id: select
         env:
