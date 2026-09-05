@@ -335,7 +335,7 @@ func TestOrchestratorSmokeShapeAndMultilineDiagnostics_STATBUS350(t *testing.T) 
 	if !strings.Contains(s, "needs.smoke.outputs.coverage_error") {
 		t.Fatal("health must consume consolidated smoke diagnostics")
 	}
-	if !strings.Contains(s, "coverage_error<<$delimiter") || !strings.Contains(s, `errors="${errors}${errors:+$'\n'}${scenario}: ${OUT}"`) {
-		t.Fatal("coverage_error must use multiline GITHUB_OUTPUT syntax and preserve multiline diagnostics")
+	if !strings.Contains(s, "coverage_error<<STATBUS_352_ERROR") || !strings.Contains(s, `cat "$ERRORS"`) {
+		t.Fatal("coverage_error must use multiline GITHUB_OUTPUT syntax and preserve covered-subset stderr")
 	}
 }

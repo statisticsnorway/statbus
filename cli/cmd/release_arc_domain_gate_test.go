@@ -24,6 +24,7 @@ package cmd
 // refusal that is the switch's own defining case.
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -77,13 +78,40 @@ func arcFixture(t *testing.T, paths ...string) (string, string) {
 func writeSensitivePathsFile(t *testing.T, dir string, paths ...string) {
 	t.Helper()
 	if len(paths) == 0 {
-		paths = []string{"cli/internal/upgrade/"}
+		paths = []string{"cli/"}
 	}
+	lines := make([]string, 0, len(paths)+2)
+	for _, p := range paths {
+		if strings.HasSuffix(p, "/") {
+			lines = append(lines, "directory | box payload | "+strings.TrimSuffix(p, "/"))
+		} else {
+			lines = append(lines, "exact | box payload | "+p)
+		}
+	}
+	lines = append(lines,
+		"directory | proof interpreter | cli/internal/release",
+		"exact | proof interpreter | "+release.SensitivePathsFile,
+	)
 	full := filepath.Join(dir, release.SensitivePathsFile)
 	if err := os.MkdirAll(filepath.Dir(full), 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(full, []byte(strings.Join(paths, "\n")+"\n"), 0644); err != nil {
+	if err := os.WriteFile(full, []byte(strings.Join(lines, "\n")+"\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	// This fixture policy is a working-tree input to the evaluator, not part of
+	// the synthetic history unless a test explicitly commits one. Excluding it
+	// keeps a later `git add .` from inventing a proof-interpreter change.
+	exclude := filepath.Join(dir, ".git", "info", "exclude")
+	f, err := os.OpenFile(exclude, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fmt.Fprintln(f, release.SensitivePathsFile); err != nil {
+		_ = f.Close()
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
 		t.Fatal(err)
 	}
 }

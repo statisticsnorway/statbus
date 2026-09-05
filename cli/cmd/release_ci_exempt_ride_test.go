@@ -3,10 +3,9 @@ package cmd
 // STATBUS-219 Stage 1 oracles: a prerelease VERDICT gate may accept a green run
 // at an ancestor whose entire difference from the tip is test-irrelevant.
 //
-// The whole mechanism turns on ONE inversion, so it gets the most tests: the
-// exempt match must be UNDER-inclusive (anchored prefix), the mirror of
-// diffTouchesSensitivePath's deliberately OVER-inclusive substring containment.
-// An over-inclusive exempt match does not cost an extra CI run — it waves
+// The exempt match must be UNDER-inclusive and anchored. It is intentionally a
+// separate policy from full-scenario sensitivity: an over-inclusive exempt
+// match does not cost an extra CI run — it waves
 // untested code into a release.
 //
 // The walk arms run against real git fixtures with the GitHub API supplied
@@ -22,10 +21,8 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/release"
 )
 
-// TestFileIsCIExempt_AnchoredPrefixNotSubstring is the inversion pin. Four of
-// the "must NOT be exempt" cases below are ones that substring containment —
-// the rule the sensitivity list next door uses, and the wrong conservatism to
-// copy here — WOULD have wrongly exempted: vendor/.backlog/thing.md, the
+// TestFileIsCIExempt_AnchoredPrefixNotSubstring pins paths that substring
+// containment WOULD wrongly exempt: vendor/.backlog/thing.md, the
 // git-quoted path, and both doc-vs-docker cases. Swapping this helper to
 // strings.Contains turns those four red immediately (verified).
 func TestFileIsCIExempt_AnchoredPrefixNotSubstring(t *testing.T) {

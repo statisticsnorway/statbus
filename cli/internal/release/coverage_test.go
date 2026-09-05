@@ -31,11 +31,11 @@ func fakeDeps(evidenceAt map[string]string, tagCommits map[string]string, order 
 			d, ok := evidenceAt[commit]
 			return ok, d, nil
 		},
-		DiffTouches: func(from, to string) (bool, []string, error) {
+		DiffSensitive: func(from, to string) ([]SensitiveChange, error) {
 			if sensitive[from] {
-				return true, []string{"cli/internal/upgrade/service.go"}, nil
+				return []SensitiveChange{{Path: "cli/internal/upgrade/service.go", Reason: ReasonBoxPayload}}, nil
 			}
-			return false, nil, nil
+			return nil, nil
 		},
 	}
 }
@@ -153,8 +153,11 @@ func TestCoverage_SensitiveChangeBlocksTheNewestAnchor_STATBUS249(t *testing.T) 
 	if v.BlockedBy != "v-rc.06" {
 		t.Errorf("the verdict must name the anchor it could not ride (v-rc.06), got %q", v.BlockedBy)
 	}
-	if len(v.ChangedPaths) == 0 {
+	if len(v.SensitiveChanges) == 0 {
 		t.Error("the verdict must name WHICH files changed — otherwise the operator cannot tell whether the block is right")
+	}
+	if v.SensitiveChanges[0].Reason != ReasonBoxPayload {
+		t.Errorf("the verdict must carry the stable reason class, got %v", v.SensitiveChanges)
 	}
 	if v.CandidatesSeen != 1 {
 		t.Errorf("the walk must STOP at the newest anchor with evidence (STATBUS-199 D2), got %d candidates seen", v.CandidatesSeen)
@@ -170,7 +173,7 @@ func TestCoverage_UnevaluableCandidatesAreReported_STATBUS249(t *testing.T) {
 		PriorCandidatesNewestFirst: func() ([]string, error) { return []string{"v-rc.06"}, nil },
 		TagCommit:                  func(string) (string, error) { return "", errors.New("ls-remote failed") },
 		Evidence:                   func(string) (bool, string, error) { return false, "", nil },
-		DiffTouches:                func(string, string) (bool, []string, error) { return false, nil, nil },
+		DiffSensitive:              func(string, string) ([]SensitiveChange, error) { return nil, nil },
 	}
 
 	v, err := DecideCoverage(arc("rollback-kill"), "c07", deps)

@@ -240,8 +240,9 @@ func TestScenarioEvidence_IncompleteRunIsNotConsulted_STATBUS249(t *testing.T) {
 // whether it came from a local run or from CI, and ONE lookup consults both.
 func TestLocalMark_RoundTripAndComposition_STATBUS249(t *testing.T) {
 	dir := t.TempDir()
+	scenario := arc("rollback-kill")
 
-	got, err := LocalMarkExists(dir, "rollback-kill", "c07")
+	got, err := LocalMarkExists(dir, scenario, "c07")
 	if err != nil {
 		t.Fatalf("a missing mark file must be a clean no, not an error: %v", err)
 	}
@@ -249,22 +250,25 @@ func TestLocalMark_RoundTripAndComposition_STATBUS249(t *testing.T) {
 		t.Fatal("no mark was written, yet one was found")
 	}
 
-	if err := WriteLocalMark(dir, "rollback-kill", "c07"); err != nil {
+	if err := WriteLocalMark(dir, scenario, "c07"); err != nil {
 		t.Fatal(err)
 	}
 	// Idempotent: re-running a scenario must not duplicate its mark.
-	if err := WriteLocalMark(dir, "rollback-kill", "c07"); err != nil {
+	if err := WriteLocalMark(dir, scenario, "c07"); err != nil {
 		t.Fatal(err)
 	}
-	if got, err := LocalMarkExists(dir, "rollback-kill", "c07"); err != nil || !got {
+	if got, err := LocalMarkExists(dir, scenario, "c07"); err != nil || !got {
 		t.Fatalf("the mark just written was not found (found=%v err=%v)", got, err)
 	}
 	// A mark is per scenario AND per code-state: neither axis may leak.
-	if got, _ := LocalMarkExists(dir, "rollback-kill", "OTHER-COMMIT"); got {
+	if got, _ := LocalMarkExists(dir, scenario, "OTHER-COMMIT"); got {
 		t.Error("a mark at one commit must not answer for another code-state")
 	}
-	if got, _ := LocalMarkExists(dir, "other-scenario", "c07"); got {
+	if got, _ := LocalMarkExists(dir, arc("other-scenario"), "c07"); got {
 		t.Error("a mark for one scenario must not answer for another")
+	}
+	if got, _ := LocalMarkExists(dir, Scenario{Name: scenario.Name, Home: WorkflowFleet}, "c07"); got {
+		t.Error("a mark for one workflow home must not answer for a same-name scenario in another home")
 	}
 
 	// Composition: the local mark alone satisfies the lookup, with no CI call.
@@ -287,10 +291,10 @@ func TestLocalMark_RoundTripAndComposition_STATBUS249(t *testing.T) {
 // noise at lookup time.
 func TestWriteLocalMark_RefusesAnIdentitylessMark_STATBUS249(t *testing.T) {
 	dir := t.TempDir()
-	if err := WriteLocalMark(dir, "", "c07"); err == nil {
+	if err := WriteLocalMark(dir, Scenario{}, "c07"); err == nil {
 		t.Error("a mark with no scenario must be refused")
 	}
-	if err := WriteLocalMark(dir, "s", ""); err == nil {
+	if err := WriteLocalMark(dir, arc("s"), ""); err == nil {
 		t.Error("a mark with no commit must be refused")
 	}
 }
@@ -320,96 +324,16 @@ func TestScenarioEvidence_UnreadableRunsAreReported_STATBUS249(t *testing.T) {
 	}
 }
 
-// TestWorkflowsRunningScenario_UnionsAcrossIdentities_STATBUS249C1 is the Wave C
-// seam (249 comment #6). A scenario that legitimately runs under two workflow
-// identities must be looked for under both — a mark left by the smoke workflow
-// is invisible to a query against the harness, and vice versa.
-func TestWorkflowsRunningScenario_UnionsAcrossIdentities_STATBUS249C1(t *testing.T) {
-	has := func(list []string, want string) bool {
-		for _, w := range list {
-			if w == want {
-				return true
-			}
+func TestWorkflowsRunningScenario_UsesOnlyTheFullScenarioHome_STATBUS352(t *testing.T) {
+	for _, scenario := range []Scenario{
+		fleet("0-happy-install"),
+		{Name: "0-happy-install", Home: WorkflowSmoke},
+		arc("rollback-pair-terminal"),
+	} {
+		got := WorkflowsRunningScenario(scenario)
+		if len(got) != 1 || got[0] != scenario.Home.String() {
+			t.Errorf("%v evidence workflows = %v, want only %s", scenario, got, scenario.Home)
 		}
-		return false
-	}
-
-	up := WorkflowsRunningScenario(fleet("0-happy-upgrade"))
-	if !has(up, WorkflowTestSmoke) || !has(up, WorkflowTestUpgradeLegacy) || !has(up, WorkflowInstallRecoveryHarness) {
-		t.Errorf("0-happy-upgrade must query new smoke, legacy upgrade, and harness identities; got %v", up)
-	}
-	in := WorkflowsRunningScenario(fleet("0-happy-install"))
-	if !has(in, WorkflowTestSmoke) || !has(in, WorkflowTestInstallLegacy) || !has(in, WorkflowInstallRecoveryHarness) {
-		t.Errorf("0-happy-install must query new smoke, legacy install, and harness identities; got %v", in)
-	}
-
-	// No duplicates: the home workflow must not appear twice when it is also a
-	// listed identity, or the lookup pays for the same query twice.
-	seen := map[string]int{}
-	for _, w := range up {
-		seen[w]++
-	}
-	for w, n := range seen {
-		if n > 1 {
-			t.Errorf("workflow %s listed %d times — the union must not repeat an identity", w, n)
-		}
-	}
-
-	// An ordinary arc scenario has exactly one home and must NOT gain
-	// identities it never runs under.
-	arc := WorkflowsRunningScenario(arc("rollback-pair-terminal"))
-	if len(arc) != 1 || arc[0] != WorkflowUpgradeArcHarness {
-		t.Errorf("a scenario with one home must union to just that home; got %v", arc)
-	}
-}
-
-// TestScenarioEvidence_FindsAMarkUnderTheOtherIdentity_STATBUS249C1: the seam
-// end to end. The mark exists ONLY under the smoke identity; a harness-scoped
-// lookup must still find it, or the chain re-runs work already proven.
-func TestScenarioEvidence_FindsAMarkUnderTheOtherIdentity_STATBUS249C1(t *testing.T) {
-	var askedFor []string
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case strings.Contains(r.URL.Path, "/actions/workflows/"):
-			// Record which identity was queried, and answer only for the smoke one.
-			seg := strings.Split(r.URL.Path, "/")
-			wf := seg[len(seg)-2]
-			askedFor = append(askedFor, wf)
-			if wf == WorkflowTestUpgradeLegacy {
-				_ = json.NewEncoder(w).Encode(map[string]any{"workflow_runs": []map[string]any{
-					{"id": 77, "status": "completed", "conclusion": "success", "html_url": "http://smoke"},
-				}})
-				return
-			}
-			_ = json.NewEncoder(w).Encode(map[string]any{"workflow_runs": []map[string]any{}})
-		case strings.Contains(r.URL.Path, "/actions/runs/"):
-			_ = json.NewEncoder(w).Encode(map[string]any{"total_count": 1, "jobs": []map[string]any{
-				{"name": "0-happy-upgrade", "conclusion": "success"},
-			}})
-		default:
-			http.Error(w, "unexpected "+r.URL.Path, http.StatusNotFound)
-		}
-	}))
-	defer srv.Close()
-
-	// Exercise the union directly against the test server.
-	var found bool
-	var detail string
-	for _, wf := range WorkflowsRunningScenario(fleet("0-happy-upgrade")) {
-		f, d, err := scenarioProvenInCIAt(srv.URL, wf, "0-happy-upgrade", "c09")
-		if err != nil {
-			t.Fatalf("%s: %v", wf, err)
-		}
-		if f {
-			found, detail = true, d
-			break
-		}
-	}
-	if !found {
-		t.Fatalf("the mark exists under %s only; the union must still find historical proof (identities asked: %v)", WorkflowTestUpgradeLegacy, askedFor)
-	}
-	if !strings.Contains(detail, "77") {
-		t.Errorf("the detail must name the run holding the mark; got %q", detail)
 	}
 }
 

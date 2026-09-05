@@ -1,35 +1,49 @@
-# STATBUS-199: paths whose changes make an RC "upgrade-sensitive". A scenario
-# proven at an earlier RC covers a later RC only if the diff between them
-# touches NONE of these; otherwise the scenario must run again before the
-# later RC may promote to stable.
+# STATBUS-352 Work Package A3: sensitivity rules that are genuinely broad
+# across every paid scenario home (Smoke, Fleet, and Upgrade Arcs).
 #
-# ONE reader, ONE rule: cli/internal/release/sensitivity.go
-# (LoadSensitivePaths, MatchesSensitivePath, DiffTouchesSensitivePath), used
-# by DecideCoverage. The stable gate calls it as a library; the release chain
-# calls it through `./sb release covered`. Nothing else parses this file.
+# ONE reader and ONE matcher: cli/internal/release/sensitivity.go. Stable
+# promotion, `./sb release covered`, and `covered-subset` all reach these rules
+# through the same full-Scenario coverage evaluator. Home-specific workflow,
+# runner, own-script, and arc-helper rules live beside that reader in Go because
+# they depend on Scenario.Home and Scenario.Name. Do not add scenario/arcs
+# directory-wide entries here: that would silently make sibling contents broad
+# again after STATBUS-352 A2 made exact execution independent.
 #
-# Matching is substring containment against each changed file's repo-root-
-# relative path (as `git diff --name-only` prints it) — deliberately
-# over-inclusive rather than under-inclusive: a coincidental substring hit
-# just costs one extra fleet run, a missed genuine change costs an unproven
-# promotion. One entry per line; blank lines and lines starting with # are
-# ignored. cli/cmd/sensitive_paths_list_test.go pins this list against every
-# artefact the box executes.
+# Syntax: matcher | reason | repository-relative path
 #
-# Touching THIS FILE is itself sensitive by definition — narrowing the
-# gate is exactly the kind of change the gate must catch, so the entry
-# below is deliberately explicit even though ops/ already covers it.
-# install.sh is the operator entry point the harness executes on every VM
-# ("run the REAL install.sh", test/install-recovery/lib/vm-bootstrap.sh); it
-# sits at the repo root where no directory prefix reaches it.
-install.sh
-cli/
-postgres/
-caddy/
-migrations/
-docker-compose
-ops/
-test/install-recovery/
-.github/workflows/upgrade-arc-harness.yaml
-.github/workflows/images.yaml
-ops/release/upgrade-sensitive-paths.txt
+#   exact      matches one path exactly.
+#   directory  matches the directory itself or descendants at a `/` boundary.
+#   prefix     matches only from the repository root, never as a substring.
+#
+# Reasons are the stable operator-facing classes: box payload, shared controller,
+# own scenario, shared harness input, and proof interpreter. This broad file does
+# not currently need an own-scenario rule. Blank lines and #-comments are ignored.
+# An empty or malformed policy is undecidable and therefore forces fresh proof.
+#
+# The policy and all cli/internal/release changes interpret proof, so their more
+# specific proof-interpreter rules override the conservative broad cli payload.
+
+exact | box payload | install.sh
+directory | box payload | cli
+directory | box payload | postgres
+directory | box payload | caddy
+directory | box payload | migrations
+prefix | box payload | docker-compose.
+exact | box payload | ops/statbus-upgrade.service
+
+exact | shared controller | dev.sh
+exact | shared controller | .github/workflows/release-fleet-orchestrator.yaml
+directory | shared controller | .github/actions/dispatch-fleet-and-wait
+directory | shared controller | .github/actions/orchestrator-fleet-admission
+exact | shared controller | .github/workflows/images.yaml
+
+exact | shared harness input | ops/setup-ubuntu-lts-24.sh
+directory | shared harness input | test/install-recovery/lib
+directory | shared harness input | test/install-recovery/fixtures
+
+directory | proof interpreter | cli/internal/release
+exact | proof interpreter | cli/cmd/release.go
+exact | proof interpreter | cli/cmd/release_covered.go
+exact | proof interpreter | cli/cmd/release_coverage_evaluator.go
+exact | proof interpreter | cli/cmd/release_coverage_authority.go
+exact | proof interpreter | ops/release/upgrade-sensitive-paths.txt

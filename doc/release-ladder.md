@@ -43,27 +43,32 @@ changed in between. That decision is ONE algorithm in ONE place:
   target commit, look for green evidence at the commit; if none, walk back
   through prior rc tags (bounded, newest first) to the nearest one with
   evidence, and diff that tag against the target.
-- `cli/internal/release/sensitivity.go`: the diff is judged against
-  `ops/release/upgrade-sensitive-paths.txt` (substring containment, on
-  purpose over-inclusive). If no changed file matches, the scenario is
-  covered and rides the earlier proof; the output names the tag it rides.
-- `./sb release covered <scenario> <commit>` is the same function as a
+- `cli/internal/release/sensitivity.go`: the diff is judged for the full
+  `Scenario{Name, Home}` with repository-root exact, directory-boundary, and
+  anchored-prefix rules. Every match carries a stable reason (`box payload`,
+  `shared controller`, `own scenario`, `shared harness input`, or `proof
+  interpreter`). The checked file contains only rules broad across all homes;
+  own scripts and home-specific controllers are derived in the same matcher.
+- `./sb release covered <scenario> <commit>` is the same evaluator as a
   command (exit 0 covered, 1 must run, 2 undecidable, 64 usage, 69 stale
-  binary). CI calls it; the stable gate calls the library directly. There
-  is no second implementation.
+  binary). `covered-subset` and stable promotion use that evaluator too.
 
 The list, and what each entry stands for:
 
-| entry | why the box cares |
+| broad rule | why every paid home cares |
 |---|---|
 | `install.sh` | the operator entry point every harness VM executes |
-| `cli/` | `./sb`: install, upgrade service, migrate, config |
+| `cli/` | conservative Work A policy for the one `sb` binary |
 | `postgres/`, `caddy/` | the shipped images and the rendered Caddyfiles |
 | `migrations/` | applied on the box |
-| `docker-compose` | what the box brings up |
-| `ops/` | the systemd unit, the box scripts, and this list |
-| `test/install-recovery/` | the harness itself: a changed assertion is a changed proof |
-| `upgrade-arc-harness.yaml`, `images.yaml` | how the proof and the images are made |
+| root `docker-compose.*` | what the box brings up |
+| shared orchestrator/actions/workflows | how every paid proof is selected and made |
+| `test/install-recovery/lib/`, `fixtures/` | conservative shared harness inputs |
+| release interpreter and policy paths | evidence identity and inheritance meaning |
+
+Fleet owns exactly `scenarios/<name>.sh`; arcs own exactly
+`arcs/<name>-arc.sh`; Smoke owns its fixed two scenario scripts through its own
+workflow wrapper. Sibling scenario contents do not invalidate each other.
 
 `app/` and `doc/` are absent on purpose. A candidate that changes only the
 product skips every VM rung and is proven by rung 6. `cli/cmd/sensitive_paths_list_test.go`
@@ -93,10 +98,10 @@ means it rode an earlier proof and names it.
   authority per scenario, dispatch only uncovered subsets, fail open to the
   full suite when the optimizer cannot decide, and expose a separate red
   coverage-question health signal. Live acceptance remains the later batch RC.
-- STATBUS-352: the list says `cli/` and `test/install-recovery/`, so a change
-  to release tooling or to a sibling scenario's script re-proves everything;
-  derive the box-side Go set with `go list -deps` and make each scenario
-  sensitive only to what it executes.
+- STATBUS-352 Work package A is implemented: sensitivity is workflow-aware,
+  sibling scripts are narrow, all invalidating paths carry reasons, and
+  undecidable questions fail open to a full suite with a red health diagnostic.
+  `cli/` deliberately remains broad until the separately gated Work B prototype.
 - STATBUS-353: per-scenario Go coverage profiles as evidence, so a diff is
   sensitive only if it touches functions that scenario actually ran.
 - The fleets run at `max-parallel: 3` because the Hetzner project quota

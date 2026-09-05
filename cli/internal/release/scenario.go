@@ -25,7 +25,7 @@ type Scenario struct {
 	Home Workflow
 }
 
-// Workflow is one of the two harness workflow identities that file scenario
+// Workflow is one of the harness workflow identities that file scenario
 // evidence. Typed so a caller cannot pass an arbitrary workflow file name into
 // an evidence lookup.
 type Workflow string
@@ -85,8 +85,29 @@ func ScenariosAt(projDir, commit string, workflow Workflow) (Domain, error) {
 		return arcsAt(projDir, commit)
 	case WorkflowFleet:
 		return fleetAt(projDir, commit)
+	case WorkflowSmoke:
+		return SmokeDomain(), nil
 	}
-	return Domain{}, fmt.Errorf("%q is not a harness workflow that runs scenarios (want %s or %s)", workflow, WorkflowArcs, WorkflowFleet)
+	return Domain{}, fmt.Errorf("%q is not a harness workflow that runs scenarios (want %s, %s, or %s)", workflow, WorkflowArcs, WorkflowFleet, WorkflowSmoke)
+}
+
+// ScenarioAt resolves a name inside one explicit workflow domain. Callers must
+// use this when a slug exists in more than one home, as both happy-path names do.
+func ScenarioAt(projDir, commit, name string, workflow Workflow) (Scenario, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return Scenario{}, fmt.Errorf("a scenario name is required")
+	}
+	domain, err := ScenariosAt(projDir, commit, workflow)
+	if err != nil {
+		return Scenario{}, err
+	}
+	for _, scenario := range domain.Scenarios {
+		if scenario.Name == name {
+			return scenario, nil
+		}
+	}
+	return Scenario{}, fmt.Errorf("%q is not a scenario in %s at %s", name, workflow, shortSHA(commit))
 }
 
 // ParseScenario resolves a bare name at commit to the Scenario that runs it.
@@ -99,7 +120,8 @@ func ParseScenario(projDir, commit, name string) (Scenario, error) {
 		return Scenario{}, fmt.Errorf("a scenario name is required")
 	}
 	var errs []string
-	for _, wf := range []Workflow{WorkflowArcs, WorkflowFleet} {
+	var matches []Scenario
+	for _, wf := range []Workflow{WorkflowArcs, WorkflowFleet, WorkflowSmoke} {
 		domain, err := ScenariosAt(projDir, commit, wf)
 		if err != nil {
 			errs = append(errs, fmt.Sprintf("%s: %v", wf, err))
@@ -107,15 +129,25 @@ func ParseScenario(projDir, commit, name string) (Scenario, error) {
 		}
 		for _, s := range domain.Scenarios {
 			if s.Name == name {
-				return s, nil
+				matches = append(matches, s)
 			}
 		}
+	}
+	if len(matches) == 1 {
+		return matches[0], nil
+	}
+	if len(matches) > 1 {
+		var homes []string
+		for _, match := range matches {
+			homes = append(homes, match.Home.String())
+		}
+		return Scenario{}, fmt.Errorf("%q is ambiguous at %s: it exists in %s; specify the workflow", name, shortSHA(commit), strings.Join(homes, ", "))
 	}
 	if len(errs) == 2 {
 		return Scenario{}, fmt.Errorf("could not list any scenario domain at %s: %s", shortSHA(commit), strings.Join(errs, "; "))
 	}
-	return Scenario{}, fmt.Errorf("%q is not a scenario at %s: not in %s (arcs) and not in %s (default fleet suite)%s",
-		name, shortSHA(commit), arcDir, fleetDir, notesSuffix(errs))
+	return Scenario{}, fmt.Errorf("%q is not a scenario at %s: not in %s (arcs), %s (default fleet suite), or %s%s",
+		name, shortSHA(commit), arcDir, fleetDir, WorkflowSmoke, notesSuffix(errs))
 }
 
 func notesSuffix(errs []string) string {

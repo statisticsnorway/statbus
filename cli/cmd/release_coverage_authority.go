@@ -29,8 +29,8 @@ type coverageAuthorityScenario struct {
 // share one group, so the detail belongs to the workflow refusal, not to every
 // scenario line (STATBUS-346).
 type coverageBlockedGroup struct {
-	Anchor       string
-	ChangedPaths []string
+	Anchor           string
+	SensitiveChanges []release.SensitiveChange
 }
 
 // runCoverageAuthority is STATBUS-252's SWITCH: the per-scenario decision
@@ -108,23 +108,16 @@ func runCoverageAuthority(projDir, rcTag, rcCommit, rcShort string, domain relea
 		return false
 	}
 
-	sensitivePaths, sErr := release.LoadSensitivePaths(projDir)
-	if sErr != nil {
-		fmt.Printf("  ✗ %s: could not load the sensitivity-path list needed for the coverage walk\n", workflow)
-		fmt.Printf("    Error: %v\n", sErr)
+	evaluator, evalErr := newCoverageEvaluator(projDir, rcCommit)
+	if evalErr != nil {
+		fmt.Printf("  ✗ %s: could not initialize the shared coverage evaluator\n", workflow)
+		fmt.Printf("    Error: %v\n", evalErr)
 		return false
 	}
 
 	results := make([]coverageAuthorityScenario, 0, len(requiredScenarios))
 	for _, scenario := range requiredScenarios {
-		v, err := release.DecideCoverage(scenario, rcCommit, release.CoverageDeps{
-			PriorCandidatesNewestFirst: func() ([]string, error) { return priorCandidateTags(projDir, rcCommit) },
-			TagCommit:                  func(tag string) (string, error) { return tagTargetCommit(projDir, tag) },
-			Evidence:                   scenarioEvidence(projDir, scenario),
-			DiffTouches: func(from, to string) (bool, []string, error) {
-				return release.DiffTouchesSensitivePath(projDir, from, to, sensitivePaths)
-			},
-		})
+		v, err := evaluator.Decide(scenario)
 		results = append(results, coverageAuthorityScenario{Scenario: scenario.Name, Verdict: v, Err: err})
 	}
 	sort.Slice(results, func(i, j int) bool { return results[i].Scenario < results[j].Scenario })
@@ -159,7 +152,7 @@ func runCoverageAuthority(projDir, rcTag, rcCommit, rcShort string, domain relea
 	case len(blockedGroups) == 1:
 		group := blockedGroups[0]
 		fmt.Printf("  ✗ %s REFUSES: %d/%d scenario(s) covered at %s (%d blocked by %s, %d sensitive files changed since it)\n",
-			workflow, coveredCount, len(requiredScenarios), rcShort, blockedCount, group.Anchor, len(group.ChangedPaths))
+			workflow, coveredCount, len(requiredScenarios), rcShort, blockedCount, group.Anchor, len(group.SensitiveChanges))
 	case len(blockedAnchors) == 1:
 		fmt.Printf("  ✗ %s REFUSES: %d/%d scenario(s) covered at %s (%d blocked by %s, %d distinct sensitive files changed since it across %d file sets)\n",
 			workflow, coveredCount, len(requiredScenarios), rcShort, blockedCount, firstBlockedAnchor(blockedAnchors), countDistinctBlockedPaths(blockedGroups), len(blockedGroups))
@@ -233,11 +226,11 @@ func runCoverageAuthority(projDir, rcTag, rcCommit, rcShort string, domain relea
 	for _, group := range blockedGroups {
 		if verbose {
 			fmt.Printf("    Changed files since %s:\n", group.Anchor)
-			for _, path := range group.ChangedPaths {
-				fmt.Printf("        %s\n", path)
+			for _, change := range group.SensitiveChanges {
+				fmt.Printf("        %s\n", change)
 			}
 		} else {
-			fmt.Printf("    (%d changed files — re-run with --verbose to list them)\n", len(group.ChangedPaths))
+			fmt.Printf("    (%d changed files — re-run with --verbose to list them)\n", len(group.SensitiveChanges))
 		}
 	}
 	for _, r := range errored {
@@ -274,16 +267,25 @@ func groupBlockedCoverage(results []coverageAuthorityScenario) ([]coverageBlocke
 		}
 		blockedCount++
 		anchors[result.Verdict.BlockedBy] = struct{}{}
-		paths := append([]string(nil), result.Verdict.ChangedPaths...)
-		sort.Strings(paths)
-		key := result.Verdict.BlockedBy + "\x00" + strings.Join(paths, "\x00")
+		changes := append([]release.SensitiveChange(nil), result.Verdict.SensitiveChanges...)
+		sort.Slice(changes, func(i, j int) bool {
+			if changes[i].Path == changes[j].Path {
+				return changes[i].Reason < changes[j].Reason
+			}
+			return changes[i].Path < changes[j].Path
+		})
+		parts := make([]string, 0, len(changes)*2)
+		for _, change := range changes {
+			parts = append(parts, change.Path, string(change.Reason))
+		}
+		key := result.Verdict.BlockedBy + "\x00" + strings.Join(parts, "\x00")
 		if _, ok := seen[key]; ok {
 			continue
 		}
 		seen[key] = struct{}{}
 		groups = append(groups, coverageBlockedGroup{
-			Anchor:       result.Verdict.BlockedBy,
-			ChangedPaths: paths,
+			Anchor:           result.Verdict.BlockedBy,
+			SensitiveChanges: changes,
 		})
 	}
 
@@ -293,8 +295,8 @@ func groupBlockedCoverage(results []coverageAuthorityScenario) ([]coverageBlocke
 func countDistinctBlockedPaths(groups []coverageBlockedGroup) int {
 	paths := make(map[string]struct{})
 	for _, group := range groups {
-		for _, path := range group.ChangedPaths {
-			paths[path] = struct{}{}
+		for _, change := range group.SensitiveChanges {
+			paths[change.Path] = struct{}{}
 		}
 	}
 	return len(paths)

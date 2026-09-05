@@ -66,16 +66,27 @@ func TestDecideScenarioCoverage_AsksTheScenarioHomeWorkflow(t *testing.T) {
 	}
 	t.Cleanup(func() { scenarioEvidence = old })
 
-	for _, scenario := range []string{"working", "0-happy-install"} {
-		if _, err := decideScenarioCoverage(dir, scenario, head); err != nil {
-			t.Fatalf("%s: %v", scenario, err)
-		}
+	if _, err := decideScenarioCoverage(dir, "working", head); err != nil {
+		t.Fatalf("working: %v", err)
+	}
+	if _, err := decideScenarioCoverageInWorkflow(dir, "0-happy-install", release.WorkflowFleet, head); err != nil {
+		t.Fatalf("fleet happy install: %v", err)
+	}
+	if _, err := decideScenarioCoverageInWorkflow(dir, "0-happy-install", release.WorkflowSmoke, head); err != nil {
+		t.Fatalf("smoke happy install: %v", err)
+	}
+	if _, err := decideScenarioCoverage(dir, "0-happy-install", head); err == nil || !strings.Contains(err.Error(), "ambiguous") {
+		t.Fatalf("bare same-name scenario must be ambiguous, got %v", err)
 	}
 	if asked["working"] != release.WorkflowUpgradeArcHarness {
 		t.Errorf("arc scenario asked under %q, want %q", asked["working"], release.WorkflowUpgradeArcHarness)
 	}
 	if asked["0-happy-install"] != release.WorkflowInstallRecoveryHarness {
-		t.Errorf("fleet scenario asked under %q, want %q", asked["0-happy-install"], release.WorkflowInstallRecoveryHarness)
+		// The last explicit decision above is Smoke, proving the seam receives the
+		// requested full identity rather than re-parsing the slug as Fleet.
+		if asked["0-happy-install"] != release.WorkflowTestSmoke {
+			t.Errorf("same-name scenario asked under %q, want final explicit %q", asked["0-happy-install"], release.WorkflowTestSmoke)
+		}
 	}
 }
 

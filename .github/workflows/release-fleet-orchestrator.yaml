@@ -135,8 +135,8 @@ jobs:
     timeout-minutes: 90
     outputs:
       run_url: ${{ steps.dispatch.outputs.run-url }}
-      undecidable: ${{ steps.select.outputs.undecidable }}
-      coverage_error: ${{ steps.select.outputs.coverage_error }}
+      undecidable: ${{ steps.coverage.outputs.undecidable }}
+      coverage_error: ${{ steps.coverage.outputs.coverage_error }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -149,49 +149,76 @@ jobs:
           cache-dependency-path: cli/go.sum
       - name: Build sb (the coverage decision runs the gate's own library)
         run: ./dev.sh build-sb
-      - name: Ask the shared coverage authority for both smoke scenarios
-        id: select
+      - name: "Decision point: which scenarios are uncovered?"
+        id: coverage
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -uo pipefail
-          scenarios=""
-          undecidable=false
-          errors=""
-          for scenario in 0-happy-install 0-happy-upgrade; do
-            set +e
-            OUT="$(./sb release covered "$scenario" "${{ github.sha }}" 2>&1)"
-            RC=$?
-            set -e
-            printf '%s\n' "$OUT"
-            case "$RC" in
-              0) { echo "- **${scenario}**: SKIPPED — already covered."; printf '  > %s\n' "$OUT"; } >> "$GITHUB_STEP_SUMMARY" ;;
-              1) scenarios="${scenarios:+${scenarios} }${scenario}"; echo "- **${scenario}**: RUNNING — not covered at this code-state." >> "$GITHUB_STEP_SUMMARY" ;;
-              2) scenarios="${scenarios:+${scenarios} }${scenario}"; undecidable=true; errors="${errors}${errors:+$'\n'}${scenario}: ${OUT}"; echo "::warning title=Coverage undecidable::could not decide whether ${scenario} is covered (exit 2) — running it. This is a failure to decide, not a decision."; echo "- **${scenario}**: RUNNING — coverage was UNDECIDABLE; fail-open dispatch retained." >> "$GITHUB_STEP_SUMMARY" ;;
-              69) echo "::error title=./sb binary refused to run::the ${scenario} coverage question was not asked (exit 69)"; exit 1 ;;
-              64) echo "::error title=Invalid ./sb invocation::release covered refused ${scenario} (exit 64)"; exit 1 ;;
-              *) echo "::error title=Unknown ./sb exit::release covered returned $RC for ${scenario}"; exit 1 ;;
-            esac
-          done
-          {
-            echo "scenarios=$scenarios"
-            echo "dispatch=$([ -n "$scenarios" ] && echo true || echo false)"
-            echo "undecidable=$undecidable"
-            delimiter="STATBUS_COVERAGE_ERROR_${RANDOM}_${RANDOM}"
-            echo "coverage_error<<$delimiter"
-            printf '%s\n' "$errors"
-            echo "$delimiter"
-          } >> "$GITHUB_OUTPUT"
+          UNCOVERED="$RUNNER_TEMP/smoke-uncovered.txt"
+          ERRORS="$RUNNER_TEMP/smoke-coverage-errors.txt"
+          DETAILS="$RUNNER_TEMP/smoke-coverage.md"
+          : > "$ERRORS"
+
+          set +e
+          ./sb release covered-subset --details-file "$DETAILS" \
+            test-smoke.yaml "${{ github.sha }}" \
+            > "$UNCOVERED" 2> >(tee "$ERRORS" >&2)
+          RC=$?
+          wait || true
+          set -e
+
+          case "$RC" in
+            0)
+              SCENARIOS="$(paste -sd' ' "$UNCOVERED")"
+              echo "scenarios=$SCENARIOS" >> "$GITHUB_OUTPUT"
+              echo "dispatch=$([ -n "$SCENARIOS" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+              echo "undecidable=false" >> "$GITHUB_OUTPUT"
+              echo "coverage_error=" >> "$GITHUB_OUTPUT"
+              {
+                echo "### Smoke coverage decision"
+                cat "$DETAILS"
+              } >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            2)
+              # Empty is test-smoke.yaml's documented full two-scenario selector.
+              echo "scenarios=" >> "$GITHUB_OUTPUT"
+              echo "dispatch=true" >> "$GITHUB_OUTPUT"
+              echo "undecidable=true" >> "$GITHUB_OUTPUT"
+              {
+                echo "coverage_error<<STATBUS_352_ERROR"
+                cat "$ERRORS"
+                echo "STATBUS_352_ERROR"
+              } >> "$GITHUB_OUTPUT"
+              echo "::warning title=Coverage question undecidable::dispatching the FULL smoke suite instead of guessing a skip"
+              {
+                echo "### Smoke coverage decision"
+                echo "- **FULL SUITE TO RUN**: coverage was undecidable, so no skip was guessed."
+              } >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            64)
+              echo "::error title=Invalid ./sb invocation::release covered-subset refused its arguments or flags (exit 64 = EX_USAGE)."
+              exit 1
+              ;;
+            69)
+              echo "::error title=./sb binary refused to run::the coverage question was not asked (exit 69 = EX_UNAVAILABLE)."
+              exit 1
+              ;;
+            *)
+              echo "::error title=Unknown ./sb exit::release covered-subset returned unrecognised exit $RC. Refusing to guess."
+              exit 1
+              ;;
+          esac
       - name: Dispatch test-smoke.yaml once with uncovered selectors
         id: dispatch
-        if: steps.select.outputs.dispatch == 'true'
+        if: steps.coverage.outputs.dispatch == 'true'
         uses: ./.github/actions/dispatch-fleet-and-wait
         with:
           workflow-file: test-smoke.yaml
           ref: ${{ github.ref_name }}
           commit-sha: ${{ github.sha }}
-          dispatch-inputs: scenarios=${{ steps.select.outputs.scenarios }}
+          dispatch-inputs: scenarios=${{ steps.coverage.outputs.scenarios }}
           poll-budget-s: "4500"
           github-token: ${{ secrets.GITHUB_TOKEN }}
 

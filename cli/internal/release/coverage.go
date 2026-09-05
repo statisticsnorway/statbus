@@ -2,10 +2,10 @@ package release
 
 import "fmt"
 
-// Coverage is the ONE algorithm behind two call sites (STATBUS-249, the King's
-// "same by design, not by chance"): the promotion gate's anchor-and-walk-back,
-// and the `./sb release covered <scenario> <commit>` subcommand the chain jobs
-// run. Before this, the walk lived inline in cmd/release.go's
+// Coverage is the ONE pure algorithm behind stable promotion, `release covered`,
+// and `covered-subset` (STATBUS-249, the King's "same by design, not by chance").
+// Their production dependencies are also unified by cmd's coverageEvaluator.
+// Before this, the walk lived inline in cmd/release.go's
 // checkUpgradeArcHarnessGate with its decision interleaved with operator-facing
 // printing, so a second caller could only have re-implemented it — and a
 // re-implementation that drifts is how two answers to one question appear.
@@ -42,7 +42,7 @@ const (
 	CoverageNotCovered CoverageKind = "not-covered"
 )
 
-// CoverageVerdict is what the decision returns and both call sites render.
+// CoverageVerdict is what the decision returns and every caller renders.
 // It carries the REASON, not only the answer, so neither caller has to
 // reconstruct why — reconstruction is where two renderings drift apart.
 type CoverageVerdict struct {
@@ -58,12 +58,12 @@ type CoverageVerdict struct {
 	AnchorDetail string
 
 	// BlockedBy names the anchor that HAD evidence but could not be ridden,
-	// with the sensitive files that changed since it. Populated when the walk
+	// with the sensitive changes and their stable reasons. Populated when the walk
 	// stopped for that reason — the operator needs to know a proof existed and
 	// why it does not apply, which is different from finding none at all.
-	BlockedBy      string
-	ChangedPaths   []string
-	CandidatesSeen int
+	BlockedBy        string
+	SensitiveChanges []SensitiveChange
+	CandidatesSeen   int
 
 	// EvidenceErrors records candidates that could not be evaluated (resolve
 	// failures, API errors). They are NOT silently dropped: a walk that skipped
@@ -72,7 +72,7 @@ type CoverageVerdict struct {
 	EvidenceErrors []string
 }
 
-// Summary is the one-line rendering both call sites use, so the operator reads
+// Summary is the one-line rendering every call site uses, so the operator reads
 // the same sentence from the gate and from the subcommand. The King ruled the
 // wording: "test <X> is already covered by <Y>".
 func (v CoverageVerdict) Summary() string {
@@ -136,9 +136,8 @@ type CoverageDeps struct {
 	TagCommit func(tag string) (string, error)
 	// Evidence answers the per-commit evidence question for THIS scenario.
 	Evidence EvidenceAt
-	// DiffTouches reports whether anything invalidating changed between two
-	// refs, and which files did.
-	DiffTouches func(fromRef, toRef string) (touched bool, matched []string, err error)
+	// DiffSensitive reports every invalidating changed path and its reason.
+	DiffSensitive func(fromRef, toRef string) ([]SensitiveChange, error)
 	// WalkBound caps how far back the walk looks. Zero means the default.
 	WalkBound int
 }
@@ -155,7 +154,7 @@ func DecideCoverage(scenario Scenario, targetCommit string, deps CoverageDeps) (
 	if scenario.Name == "" || scenario.Home == "" || targetCommit == "" {
 		return v, fmt.Errorf("coverage decision needs a scenario with its home workflow and a target commit (got scenario=%q home=%q commit=%q)", scenario.Name, scenario.Home, targetCommit)
 	}
-	if deps.Evidence == nil || deps.PriorCandidatesNewestFirst == nil || deps.TagCommit == nil || deps.DiffTouches == nil {
+	if deps.Evidence == nil || deps.PriorCandidatesNewestFirst == nil || deps.TagCommit == nil || deps.DiffSensitive == nil {
 		// Refusing beats answering: a walk missing an input would report
 		// "not covered" having examined nothing, which is the zero-scope
 		// shape this whole ticket exists to remove.
@@ -204,12 +203,11 @@ func DecideCoverage(scenario Scenario, targetCommit string, deps CoverageDeps) (
 			continue
 		}
 
-		touched, matched, derr := deps.DiffTouches(candidate, targetCommit)
+		matched, derr := deps.DiffSensitive(candidate, targetCommit)
 		if derr != nil {
-			v.EvidenceErrors = append(v.EvidenceErrors, fmt.Sprintf("%s: has evidence but the diff to the target failed: %v", candidate, derr))
-			continue
+			return v, fmt.Errorf("%s has evidence but sensitivity from it to the target is undecidable: %w", candidate, derr)
 		}
-		if !touched {
+		if len(matched) == 0 {
 			v.Kind = CoverageCoveredBy
 			v.Anchor = candidate
 			v.AnchorCommit = candCommit
@@ -222,7 +220,7 @@ func DecideCoverage(scenario Scenario, targetCommit string, deps CoverageDeps) (
 		// every older candidate's range too — no older anchor can be ridable.
 		// Stop rather than re-derive the same refusal.
 		v.BlockedBy = candidate
-		v.ChangedPaths = matched
+		v.SensitiveChanges = matched
 		return v, nil
 	}
 

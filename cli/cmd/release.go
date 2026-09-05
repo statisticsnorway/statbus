@@ -1457,8 +1457,8 @@ const ciExemptPathsFile = "ops/release/ci-exempt-paths.txt"
 const ciExemptRideWalkBound = 50
 
 // loadCIExemptPaths reads ciExemptPathsFile: one path prefix per line, blank
-// lines and #-comments ignored. Mirrors release.LoadSensitivePaths' shape; the
-// MATCHING rule is the inverse (see fileIsCIExempt).
+// lines and #-comments ignored. This is a separate policy question from the
+// typed, reasoned scenario sensitivity matcher.
 func loadCIExemptPaths(projDir string) ([]string, error) {
 	data, err := os.ReadFile(filepath.Join(projDir, ciExemptPathsFile))
 	if err != nil {
@@ -1478,11 +1478,9 @@ func loadCIExemptPaths(projDir string) ([]string, error) {
 // fileIsCIExempt reports whether one changed file is covered by the exempt
 // list, matching an ANCHORED PATH PREFIX.
 //
-// THE MATCHING RULE IS THE DELIBERATE INVERSE OF release.DiffTouchesSensitivePath, AND
-// THE INVERSION IS LOAD-BEARING — do not "unify" the two helpers. That one uses
-// substring containment because for a SENSITIVITY list over-inclusive is the
-// safe direction: a coincidental hit costs one extra full-suite run. Here the
-// failure directions mirror. Over-inclusive matching would treat MORE commits
+// Do not "unify" this helper with scenario sensitivity merely because both use
+// anchored path concepts. The policies answer opposite questions. Here,
+// over-inclusive matching would treat MORE commits
 // as needing no tests, so a sloppy match waves UNTESTED CODE into a release.
 // Every ambiguity therefore resolves toward NOT exempt:
 //   - `.backlog/` matches `.backlog/tasks/x.md`, never `app/src/.backlog-x.ts`

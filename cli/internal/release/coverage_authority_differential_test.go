@@ -126,7 +126,7 @@ func TestCoverageAuthorityDifferential_PartialCoverageAcrossRuns_STATBUS252(t *t
 			// — isolates the test to the coverage/completeness divergence
 			// this ticket is about, not the separate path-sensitivity
 			// question STATBUS-199 already covers elsewhere.
-			DiffTouches: func(from, to string) (bool, []string, error) { return false, nil, nil },
+			DiffSensitive: func(from, to string) ([]SensitiveChange, error) { return nil, nil },
 		}
 	}
 

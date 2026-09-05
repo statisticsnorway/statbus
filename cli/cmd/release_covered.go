@@ -13,11 +13,10 @@ import (
 
 // `./sb release covered <scenario> <commit>` — STATBUS-249.
 //
-// This is the SECOND call site of the coverage algorithm; the promotion gate is
-// the first. The King's requirement was that they be the same "by design, not by
-// chance", so both call release.DecideCoverage and both render its verdict.
-// Neither owns a copy of the walk, which is what makes drift impossible rather
-// than merely unlikely.
+// Stable promotion, this command, and covered-subset all construct their
+// decisions through coverageEvaluator. The King's requirement was that they be
+// the same "by design, not by chance"; none owns a copy of the evidence or
+// sensitivity wiring.
 //
 // It answers the question a chain job asks before spending machines: may this
 // scenario be considered proven at this code-state? The answer distinguishes
@@ -38,19 +37,22 @@ import (
 // refusals exit 69 (EX_UNAVAILABLE). Neither is a verdict; their constants
 // live beside these verdict constants in exit_codes.go.
 
+var releaseCoveredWorkflow string
+
 var releaseCoveredCmd = &cobra.Command{
 	Use:   "covered <scenario> <commit>",
 	Short: "Report whether a scenario is already proven at a commit (exit 0 covered, 1 must-run, 2 undecidable)",
 	Long: "Report whether <scenario> is already proven at <commit>, either because it ran there\n" +
 		"or because it is covered by an earlier code-state with nothing relevant changed since.\n\n" +
-		"Uses the same decision as the promotion gate — one algorithm, two call sites.\n\n" +
+		"Uses the same decision evaluator as the promotion gate and covered-subset.\n\n" +
 		"Exit codes: 0 = covered (may skip), 1 = not covered (must run), 2 = could not decide.",
 	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		scenario, commit := args[0], args[1]
 		projDir := config.ProjectDir()
 
-		verdict, err := decideScenarioCoverage(projDir, scenario, commit)
+		workflow := release.Workflow(releaseCoveredWorkflow)
+		verdict, err := decideScenarioCoverageInWorkflow(projDir, scenario, workflow, commit)
 		if err != nil {
 			// Undecidable is NOT "must run": say so, and exit 2.
 			fmt.Fprintf(os.Stderr, "could not decide whether %s is covered at %s: %v\n", scenario, commit, err)
@@ -72,9 +74,9 @@ var releaseCoveredCmd = &cobra.Command{
 		case release.CoverageNotCovered:
 			if verdict.BlockedBy != "" {
 				fmt.Printf("  %s is proven, but %d file(s) that this scenario covers changed since then:\n",
-					verdict.BlockedBy, len(verdict.ChangedPaths))
-				for _, p := range verdict.ChangedPaths {
-					fmt.Printf("    %s\n", p)
+					verdict.BlockedBy, len(verdict.SensitiveChanges))
+				for _, change := range verdict.SensitiveChanges {
+					fmt.Printf("    %s\n", change)
 				}
 			} else if n := len(verdict.EvidenceErrors); n > 0 {
 				// "examined" must not overstate. Observed live: a run without a
@@ -115,10 +117,10 @@ var releaseCoveredSubsetCmd = &cobra.Command{
 			return err
 		}
 		switch release.Workflow(args[0]) {
-		case release.WorkflowArcs, release.WorkflowFleet:
+		case release.WorkflowArcs, release.WorkflowFleet, release.WorkflowSmoke:
 			return nil
 		default:
-			return fmt.Errorf("unsupported workflow %q (want %s or %s)", args[0], release.WorkflowArcs, release.WorkflowFleet)
+			return fmt.Errorf("unsupported workflow %q (want %s, %s, or %s)", args[0], release.WorkflowArcs, release.WorkflowFleet, release.WorkflowSmoke)
 		}
 	},
 	RunE: func(_ *cobra.Command, args []string) error {
@@ -162,44 +164,19 @@ var releaseCoveredSubsetCmd = &cobra.Command{
 // Kept separate from the command so the wiring is testable without a process
 // exit, and so the gate can adopt the identical construction.
 func decideScenarioCoverage(projDir, name, commit string) (release.CoverageVerdict, error) {
-	// Resolve to the FULL commit SHA first. GitHub's `head_sha=` query matches
-	// the full object name only, so an abbreviated argument finds nothing at the
-	// target and the walk then answers from a tag instead — reporting "covered
-	// by <tag>" for a scenario that demonstrably RAN at the target itself.
-	// Not unsafe, but a false account of where the proof came from, and this
-	// command exists precisely to say where proof came from. Observed live:
-	// `covered un-park-to-completion b4fd437fe` reported covered-by rc.05 when
-	// the truth was proven-here.
-	full, err := resolveCommitish(projDir, commit)
-	if err != nil {
-		return release.CoverageVerdict{}, fmt.Errorf("resolve %q to a commit: %w", commit, err)
-	}
-	commit = full
+	return decideScenarioCoverageInWorkflow(projDir, name, "", commit)
+}
 
-	sensitivePaths, err := release.LoadSensitivePaths(projDir)
-	if err != nil {
-		return release.CoverageVerdict{}, fmt.Errorf("load the sensitive-path list: %w", err)
-	}
-
-	// A bare name becomes a Scenario ONLY through the directory listing at this
-	// commit, which is the same listing each promotion gate derives its domain
-	// from. An unknown name is refused here rather than looked up under a
-	// guessed workflow (which could only ever answer "not found").
-	scenario, err := release.ParseScenario(projDir, commit, name)
+func decideScenarioCoverageInWorkflow(projDir, name string, workflow release.Workflow, commit string) (release.CoverageVerdict, error) {
+	evaluator, err := newCoverageEvaluator(projDir, commit)
 	if err != nil {
 		return release.CoverageVerdict{}, err
 	}
-
-	return release.DecideCoverage(scenario, commit, release.CoverageDeps{
-		PriorCandidatesNewestFirst: func() ([]string, error) {
-			return priorCandidateTags(projDir, commit)
-		},
-		TagCommit: func(tag string) (string, error) { return tagTargetCommit(projDir, tag) },
-		Evidence:  scenarioEvidence(projDir, scenario),
-		DiffTouches: func(from, to string) (bool, []string, error) {
-			return release.DiffTouchesSensitivePath(projDir, from, to, sensitivePaths)
-		},
-	})
+	scenario, err := evaluator.Scenario(name, workflow)
+	if err != nil {
+		return release.CoverageVerdict{}, err
+	}
+	return evaluator.Decide(scenario)
 }
 
 // decideWorkflowCoverage evaluates exactly the scenario domain the named
@@ -207,48 +184,18 @@ func decideScenarioCoverage(projDir, name, commit string) (release.CoverageVerdi
 // entries make this many-scenario query cost roughly the same API reads as one
 // scenario per candidate, rather than one full read per scenario.
 func decideWorkflowCoverage(projDir string, workflow release.Workflow, commit string) ([]workflowCoverageResult, error) {
-	full, err := resolveCommitish(projDir, commit)
+	evaluator, err := newCoverageEvaluator(projDir, commit)
 	if err != nil {
-		return nil, fmt.Errorf("resolve %q to a commit: %w", commit, err)
+		return nil, err
 	}
-	domain, err := release.ScenariosAt(projDir, full, workflow)
+	domain, err := evaluator.Domain(workflow)
 	if err != nil {
 		return nil, err
 	}
 
-	sensitivePaths, err := release.LoadSensitivePaths(projDir)
-	if err != nil {
-		results := make([]workflowCoverageResult, 0, len(domain.Scenarios))
-		for _, scenario := range domain.Scenarios {
-			results = append(results, workflowCoverageResult{
-				Scenario: scenario,
-				Err:      fmt.Errorf("load the sensitive-path list: %w", err),
-			})
-		}
-		return results, nil
-	}
-
-	var candidates []string
-	var candidatesErr error
-	candidatesLoaded := false
-	priorCandidates := func() ([]string, error) {
-		if !candidatesLoaded {
-			candidates, candidatesErr = priorCandidateTags(projDir, full)
-			candidatesLoaded = true
-		}
-		return candidates, candidatesErr
-	}
-
 	results := make([]workflowCoverageResult, 0, len(domain.Scenarios))
 	for _, scenario := range domain.Scenarios {
-		verdict, decisionErr := release.DecideCoverage(scenario, full, release.CoverageDeps{
-			PriorCandidatesNewestFirst: priorCandidates,
-			TagCommit:                  func(tag string) (string, error) { return tagTargetCommit(projDir, tag) },
-			Evidence:                   scenarioEvidence(projDir, scenario),
-			DiffTouches: func(from, to string) (bool, []string, error) {
-				return release.DiffTouchesSensitivePath(projDir, from, to, sensitivePaths)
-			},
-		})
+		verdict, decisionErr := evaluator.Decide(scenario)
 		results = append(results, workflowCoverageResult{Scenario: scenario, Verdict: verdict, Err: decisionErr})
 	}
 	return results, nil
@@ -275,7 +222,14 @@ func coveredSubsetDetail(result workflowCoverageResult) string {
 		}
 		return detail
 	}
-	return fmt.Sprintf("- **%s**: TO RUN — %s.", result.Scenario.Name, result.Verdict.Summary())
+	detail := fmt.Sprintf("- **%s**: TO RUN — %s.", result.Scenario.Name, result.Verdict.Summary())
+	if result.Verdict.BlockedBy != "" {
+		detail += fmt.Sprintf("\n  > Blocked by %s because:", result.Verdict.BlockedBy)
+		for _, change := range result.Verdict.SensitiveChanges {
+			detail += fmt.Sprintf("\n  > - `%s` — %s", change.Path, change.Reason)
+		}
+	}
+	return detail
 }
 
 func writeCoveredSubsetDetails(path string, results []workflowCoverageResult) error {
@@ -334,6 +288,7 @@ func priorCandidateTags(projDir, commit string) ([]string, error) {
 }
 
 func init() {
+	releaseCoveredCmd.Flags().StringVar(&releaseCoveredWorkflow, "workflow", "", "workflow home for an ambiguous scenario name")
 	releaseCmd.AddCommand(releaseCoveredCmd)
 	releaseCoveredSubsetCmd.Flags().StringVar(&coveredSubsetDetailsFile, "details-file", "", "write per-scenario markdown details for a workflow step summary")
 	releaseCmd.AddCommand(releaseCoveredSubsetCmd)

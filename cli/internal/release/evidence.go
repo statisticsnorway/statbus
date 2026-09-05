@@ -47,10 +47,11 @@ import (
 // per-scenario.
 const scenarioMarksDir = "tmp/scenario-marks"
 
-// LocalMarkPath is the file recording local passes of one scenario: one 40-hex
-// commit per line, append-only.
-func LocalMarkPath(projDir, scenario string) string {
-	return filepath.Join(projDir, scenarioMarksDir, scenario)
+// LocalMarkPath is the file recording local passes of one full scenario identity:
+// one 40-hex commit per line, append-only. Home qualification prevents the two
+// happy slugs from proving both Fleet and Smoke despite different wrappers.
+func LocalMarkPath(projDir string, scenario Scenario) string {
+	return filepath.Join(projDir, scenarioMarksDir, scenario.Home.String(), scenario.Name)
 }
 
 // WriteLocalMark records that scenario passed locally at commit. Append-only and
@@ -59,9 +60,9 @@ func LocalMarkPath(projDir, scenario string) string {
 // It deliberately records ONLY on the caller's assertion of success — the caller
 // must not call it for a scenario that did not complete, which is AC#6 on the
 // local side.
-func WriteLocalMark(projDir, scenario, commit string) error {
-	if scenario == "" || commit == "" {
-		return fmt.Errorf("a mark needs both a scenario and a commit (got scenario=%q commit=%q) — a mark that identifies neither proves nothing", scenario, commit)
+func WriteLocalMark(projDir string, scenario Scenario, commit string) error {
+	if scenario.Name == "" || scenario.Home == "" || commit == "" {
+		return fmt.Errorf("a mark needs a scenario, its home, and a commit (got scenario=%q home=%q commit=%q)", scenario.Name, scenario.Home, commit)
 	}
 	already, err := LocalMarkExists(projDir, scenario, commit)
 	if err != nil {
@@ -88,9 +89,9 @@ func WriteLocalMark(projDir, scenario, commit string) error {
 // LocalMarkExists reports whether this machine recorded a pass of scenario at
 // commit. A missing file is a clean "no", never an error — not having run it
 // locally is the normal case.
-func LocalMarkExists(projDir, scenario, commit string) (bool, error) {
-	if scenario == "" || commit == "" {
-		return false, fmt.Errorf("mark lookup needs both a scenario and a commit")
+func LocalMarkExists(projDir string, scenario Scenario, commit string) (bool, error) {
+	if scenario.Name == "" || scenario.Home == "" || commit == "" {
+		return false, fmt.Errorf("mark lookup needs a scenario, its home, and a commit")
 	}
 	f, err := os.Open(LocalMarkPath(projDir, scenario))
 	if err != nil {
@@ -314,7 +315,11 @@ func listRunsAtCommitWithRetry(apiBase, workflow, commitSHA string, policy githu
 // Incomplete runs are skipped rather than consulted: a job in a still-running
 // run has not concluded, and "in progress" is not proof.
 func ScenarioProvenInCI(workflow, scenario, commitSHA string) (bool, string, error) {
-	return scenarioProvenInCIAt("https://api.github.com", workflow, scenario, commitSHA)
+	apiBase := strings.TrimRight(os.Getenv("GITHUB_API_URL"), "/")
+	if apiBase == "" {
+		apiBase = "https://api.github.com"
+	}
+	return scenarioProvenInCIAt(apiBase, workflow, scenario, commitSHA)
 }
 
 func scenarioProvenInCIAt(apiBase, workflow, scenario, commitSHA string) (bool, string, error) {
@@ -352,67 +357,34 @@ func scenarioProvenInCIAt(apiBase, workflow, scenario, commitSHA string) (bool, 
 	return false, "", nil
 }
 
-// WorkflowsRunningScenario lists EVERY workflow identity that legitimately runs
-// a scenario (STATBUS-249 comment #6, the Wave C seam).
-//
-// A scenario can leave marks under more than one identity: the smoke pair runs
-// 0-happy-install and 0-happy-upgrade in their OWN dedicated workflows, and the
-// install-recovery harness runs the same two scenarios in its matrix. A query
-// against one identity cannot see a mark left under the other, so the
-// per-scenario question must union across identities — the same union principle
-// already ruled one level down for runs.
-//
-// WHOLE-SUITE COMPLETENESS DELIBERATELY DOES NOT UNION: "did every required job
-// run?" genuinely needs one workflow's full job list, and unioning there would
-// let jobs from two different runs add up to a completeness nobody achieved.
-// Only the per-scenario question unions.
-//
-// Failure direction is safe by construction: a MISSED identity re-runs a
-// scenario (costly, correct), while a wrongly-included one could only find a
-// successful job of that exact name — which is a real mark.
+// WorkflowsRunningScenario returns the workflow identity for this full scenario.
+// Same-name Fleet and Smoke jobs are deliberately not unioned: their wrappers
+// and sensitivity dependencies differ, so cross-home evidence would let one
+// wrapper inherit proof across a change to the other. Historical bare-name marks
+// are ignored in the safe direction and the scenario simply runs again.
 func WorkflowsRunningScenario(scenario Scenario) []string {
-	home := scenario.Home.String()
-	workflows := []string{home}
-	add := func(w string) {
-		if w != home {
-			workflows = append(workflows, w)
-		}
-	}
-	switch scenario.Name {
-	case "0-happy-install":
-		add(WorkflowTestSmoke)
-		add(WorkflowTestInstallLegacy)
-		add(WorkflowInstallRecoveryHarness)
-	case "0-happy-upgrade":
-		add(WorkflowTestSmoke)
-		add(WorkflowTestUpgradeLegacy)
-		add(WorkflowInstallRecoveryHarness)
-	}
-	return workflows
+	return []string{scenario.Home.String()}
 }
 
 // ScenarioEvidence composes the halves into the ONE lookup DecideCoverage
-// consumes: the local stamp first (cheap, offline, and the machine's own
-// knowledge), then CI's job records across every identity that legitimately
-// runs this scenario.
+// consumes: the home-qualified local stamp first (cheap, offline, and the
+// machine's own knowledge), then CI's job records for that same workflow home.
 //
 // Order matters only for cost, not for truth — a mark from any half is a mark,
 // which is what "composable from a local run or from CI" (AC#8) means.
 func ScenarioEvidence(projDir string, scenario Scenario) EvidenceAt {
 	identities := WorkflowsRunningScenario(scenario)
 	return func(commit string) (bool, string, error) {
-		local, err := LocalMarkExists(projDir, scenario.Name, commit)
+		local, err := LocalMarkExists(projDir, scenario, commit)
 		if err != nil {
 			return false, "", err
 		}
 		if local {
-			return true, fmt.Sprintf("local mark (%s)", LocalMarkPath(projDir, scenario.Name)), nil
+			return true, fmt.Sprintf("local mark (%s)", LocalMarkPath(projDir, scenario)), nil
 		}
-		// Union across identities. An error from one identity is REMEMBERED but
-		// does not end the search: another identity may hold a real mark, and
-		// giving up on the first API hiccup would re-run work that is provably
-		// covered. Only if NOTHING is found does the error surface, so the
-		// caller can tell "not found" from "could not look".
+		// The slice is deliberately home-specific. Keep the loop shape because it
+		// preserves the evidence API's safe error aggregation if a future explicit
+		// compatibility rule adds a second equivalent identity.
 		var firstErr error
 		for _, wf := range identities {
 			found, detail, cerr := ScenarioProvenInCI(wf, scenario.Name, commit)
@@ -438,8 +410,8 @@ func ScenarioEvidence(projDir string, scenario Scenario) EvidenceAt {
 //
 // THE DEFECT THIS CLOSES is a resource channel, not a logic one, which is why
 // the shadow's "returns nothing" guarantee does not cover it. Per gate run the
-// per-scenario path asks about ~31 scenarios × up to 20 candidate commits × up
-// to 3 workflow identities — hundreds of API calls against the SAME small set
+// per-scenario path asks about ~31 scenarios × up to 20 candidate commits —
+// hundreds of API calls against the SAME small set
 // of (workflow, commit) pairs, where the authority makes tens. `./sb release
 // stable` runs its gates in sequence in ONE process, so a shadow at the first
 // gate can exhaust the API budget and make a LATER gate's AUTHORITY calls fail.

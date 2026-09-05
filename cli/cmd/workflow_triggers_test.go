@@ -487,6 +487,7 @@ func TestFleetStagesUseCoveredSubsetAndHealthIsIndependent_STATBUS351(t *testing
 		job      string
 		workflow string
 	}{
+		{"smoke", "test-smoke.yaml"},
 		{"install-recovery-harness", "install-recovery-harness.yaml"},
 		{"upgrade-arc-harness", "upgrade-arc-harness.yaml"},
 	} {
@@ -525,10 +526,10 @@ func TestFleetStagesUseCoveredSubsetAndHealthIsIndependent_STATBUS351(t *testing
 		t.Errorf("coverage-question-health must run with always(); got %q", health.If)
 	}
 	needed := strings.Join(health.Needs, " ")
-	if !strings.Contains(needed, "install-recovery-harness") || !strings.Contains(needed, "upgrade-arc-harness") {
-		t.Errorf("coverage-question-health must run after both dispatch stages; needs=%v", health.Needs)
+	if !strings.Contains(needed, "smoke") || !strings.Contains(needed, "install-recovery-harness") || !strings.Contains(needed, "upgrade-arc-harness") {
+		t.Errorf("coverage-question-health must run after all three dispatch stages; needs=%v", health.Needs)
 	}
-	for _, stage := range []string{"install-recovery-harness", "upgrade-arc-harness"} {
+	for _, stage := range []string{"smoke", "install-recovery-harness", "upgrade-arc-harness"} {
 		if strings.Contains(strings.Join(doc.Jobs[stage].Needs, " "), "coverage-question-health") {
 			t.Errorf("coverage-question-health must not enter the %s dispatch chain", stage)
 		}
