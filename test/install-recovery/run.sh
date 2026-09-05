@@ -8,6 +8,7 @@
 #   ./dev.sh test-install-recovery 1-boot 5-install    # several by phase prefix
 #   ./dev.sh test-install-recovery bool-text       # run by name fragment
 #   ./dev.sh test-install-recovery --keep-vm 5-install-seed-on-populated   # leave VM running on fail
+#   ./dev.sh test-install-recovery --exact 0-happy-install  # one discovery-emitted slug
 #
 # After all selected scenarios pass, writes the stamp
 # tmp/install-recovery-test-passed-sha so a future ./sb release stable
@@ -61,11 +62,10 @@ _is_skip_default() { grep -q "$SKIP_DEFAULT_MARKER" "$1" 2>/dev/null; }
 #       resurrection probe, STATBUS-160) — such a line must carry the literal
 #       marker below on the SAME line, naming itself as sanctioned and why.
 #
-# Runs unconditionally, before any flag is even parsed — every invocation of
-# this script (a real scenario run, --list, --print-selected) exercises it,
-# which means the install-recovery-harness.yaml CI workflow's `discover` job
-# already runs it for free today (it calls `--print-selected` before spinning
-# up a single VM).
+# Runs for every authoritative non-exact invocation (a broad/local scenario
+# run, --list, --print-selected). The explicit --exact mode is intentionally
+# downstream of a successful same-commit discovery job, so it validates and
+# executes one already-emitted scenario without re-reading sibling contents.
 LEDGER_WRITE_SANCTION_MARKER="HARNESS-SANCTIONED-LEDGER-WRITE"
 
 check_no_fabrication_or_ledger_writes() {
@@ -113,8 +113,6 @@ check_no_fabrication_or_ledger_writes() {
     return 0
 }
 
-check_no_fabrication_or_ledger_writes "$SCENARIOS_DIR" "$HARNESS_DIR/arcs"
-
 # Append a scenario path to SELECTED unless it is already there. Selection MUST be
 # duplicate-free: a repeated scenario becomes two matrix jobs with the same name →
 # two Hetzner VMs both named "statbus-recovery-<scenario>" → an `hcloud server
@@ -135,12 +133,27 @@ _add_selected() {
 KEEP_VM=0
 LIST_ONLY=0
 PRINT_SELECTED=0
+EXACT_MODE=0
+EXACT_SLUG=""
 SELECTORS=()
 while [ $# -gt 0 ]; do
     case "$1" in
         --keep-vm) KEEP_VM=1 ;;
         --list)    LIST_ONLY=1 ;;
         --print-selected) PRINT_SELECTED=1 ;;
+        --exact)
+            if [ "$EXACT_MODE" = "1" ]; then
+                echo "--exact may be specified only once" >&2
+                exit 2
+            fi
+            if [ $# -lt 2 ]; then
+                echo "--exact requires one discovery-emitted scenario slug" >&2
+                exit 2
+            fi
+            EXACT_MODE=1
+            EXACT_SLUG="$2"
+            shift
+            ;;
         --help|-h)
             cat <<EOF
 Usage: ./dev.sh test-install-recovery [flags] [selector]...
@@ -156,6 +169,10 @@ Flags:
                      line) and exit WITHOUT running anything. Honours selectors
                      and the known-RED exclusion — the CI matrix consumes this so
                      scenario selection lives in exactly one place (here).
+  --exact SLUG       Execute exactly one safe slug emitted by a successful
+                     same-commit --print-selected discovery. Does not enumerate
+                     or inspect sibling scenarios. Cannot be mixed with selectors,
+                     --list, --print-selected, or --keep-vm.
   --keep-vm          Leave VMs running on failure (debug)
   --help, -h         This message
 
@@ -164,6 +181,7 @@ Examples:
   ./dev.sh test-install-recovery --list           # see what's available
   ./dev.sh test-install-recovery 0-happy 3-postswap            # the happy baselines + every post-swap scenario
   ./dev.sh test-install-recovery worker-busy      # by name substring
+  ./dev.sh test-install-recovery --exact 0-happy-install       # CI matrix execution only
 EOF
             exit 0
             ;;
@@ -177,95 +195,119 @@ EOF
 done
 export KEEP_VM
 
-# Discover scenarios. (Avoid `mapfile` — bash 3.2 on macOS doesn't have it.)
-ALL_SCENARIOS=()
-while IFS= read -r f; do
-    ALL_SCENARIOS+=("$f")
-done < <(find "$SCENARIOS_DIR" -maxdepth 1 -type f -name '*.sh' | sort)
-
-if [ "$LIST_ONLY" = "1" ]; then
-    echo "Available scenarios:"
-    for s in "${ALL_SCENARIOS[@]}"; do
-        if _is_skip_default "$s"; then
-            echo "  $(basename "$s" .sh)   [known-RED — on-demand only, excluded from default run]"
-        else
-            echo "  $(basename "$s" .sh)"
-        fi
-    done
-    exit 0
-fi
-
-# Filter by selectors (phase prefix or substring matches).
 SELECTED=()
-if [ ${#SELECTORS[@]} -eq 0 ]; then
-    # Default/full run: every scenario EXCEPT the known-RED reproducers, so the
-    # strict-green gating suite stays green (the stamp is gated on this branch).
-    for s in "${ALL_SCENARIOS[@]}"; do
-        if _is_skip_default "$s"; then
-            # Progress notice → stderr, NOT stdout. --print-selected emits the
-            # chosen names on stdout as DATA (the CI matrix captures it); a
-            # notice on stdout here would become bogus matrix entries → 2
-            # always-failing jobs → the gate could never go green.
-            echo "  (excluding known-RED reproducer from default run: $(basename "$s" .sh))" >&2
-            continue
-        fi
-        SELECTED+=("$s")
-    done
-else
-    for sel in "${SELECTORS[@]}"; do
-        # EXACT basename match wins outright: a selector that names a specific
-        # scenario selects ONLY that scenario, never a phase-prefix sibling.
-        # Without this, a selector like "2-preswap-checkout-kill" would match the
-        # `^<sel>-` prefix of a longer sibling (historically the since-retired
-        # "2-preswap-checkout-kill-legacy", which sorted FIRST since '-' < '.')
-        # and — with the old first-match-then-`break` — resolve to the WRONG
-        # scenario while the intended exact file never ran. An exact name also
-        # legitimately selects a known-RED reproducer (it is named specifically).
-        exact=""
-        for s in "${ALL_SCENARIOS[@]}"; do
-            [ "$(basename "$s" .sh)" = "$sel" ] && { exact="$s"; break; }
-        done
-        if [ -n "$exact" ]; then
-            _add_selected "$exact"
-            continue
-        fi
-        # No exact match: treat the selector as a phase prefix ("2-preswap" →
-        # EVERY "2-preswap-*") or a name substring, and select ALL matches — not
-        # just the first (the old `break` silently ran only one of a phase group).
-        for s in "${ALL_SCENARIOS[@]}"; do
-            base=$(basename "$s" .sh)
-            phase_match=0; substr_match=0
-            [[ "$base" =~ ^${sel}- ]] && phase_match=1
-            [[ "$base" == *"$sel"* ]] && substr_match=1
-            if [ "$phase_match" = 0 ] && [ "$substr_match" = 0 ]; then
-                continue
-            fi
-            # A known-RED reproducer is pulled in ONLY by a selector that names it
-            # specifically (the exact name above, or a non-phase-prefix substring).
-            # A bare phase prefix (e.g. "3-postswap") must NOT drag it into a group
-            # run, or the group goes red on an expected failure.
-            if _is_skip_default "$s" && [ "$phase_match" = 1 ]; then
-                continue
-            fi
-            _add_selected "$s"
-        done
-    done
-    if [ ${#SELECTED[@]} -eq 0 ]; then
-        echo "No scenarios matched: ${SELECTORS[*]}" >&2
-        echo "Run --list to see available." >&2
+if [ "$EXACT_MODE" = "1" ]; then
+    if [ "$LIST_ONLY" = "1" ] || [ "$PRINT_SELECTED" = "1" ] || [ "$KEEP_VM" = "1" ] || [ ${#SELECTORS[@]} -ne 0 ]; then
+        echo "--exact cannot be combined with selectors, --list, --print-selected, or --keep-vm" >&2
         exit 2
     fi
-fi
+    if [[ ! "$EXACT_SLUG" =~ ^[A-Za-z0-9][A-Za-z0-9_-]*$ ]]; then
+        echo "Unsafe exact scenario slug: '$EXACT_SLUG'" >&2
+        echo "Expected a discovery-emitted basename containing only letters, digits, '_' or '-'." >&2
+        exit 2
+    fi
+    exact_path="$SCENARIOS_DIR/${EXACT_SLUG}.sh"
+    if [ -L "$exact_path" ]; then
+        echo "Exact scenario must be a regular non-symlink file: $exact_path" >&2
+        exit 2
+    fi
+    if [ ! -f "$exact_path" ]; then
+        echo "Exact scenario does not exist: $exact_path" >&2
+        exit 2
+    fi
+    SELECTED=("$exact_path")
+else
+    check_no_fabrication_or_ledger_writes "$SCENARIOS_DIR" "$HARNESS_DIR/arcs"
 
-# --print-selected: emit the chosen base names (one per line) and stop BEFORE
-# provisioning anything. This is the CI matrix's source of truth — the discover
-# job JSON-encodes this list, so the same default-exclusion + selector matching
-# applies identically to a local run and to the parallel matrix.
-if [ "$PRINT_SELECTED" = "1" ]; then
-    for s in "${SELECTED[@]}"; do
-        basename "$s" .sh
-    done
-    exit 0
+    # Discover scenarios. (Avoid `mapfile` — bash 3.2 on macOS doesn't have it.)
+    ALL_SCENARIOS=()
+    while IFS= read -r f; do
+        ALL_SCENARIOS+=("$f")
+    done < <(find "$SCENARIOS_DIR" -maxdepth 1 -type f -name '*.sh' | sort)
+
+    if [ "$LIST_ONLY" = "1" ]; then
+        echo "Available scenarios:"
+        for s in "${ALL_SCENARIOS[@]}"; do
+            if _is_skip_default "$s"; then
+                echo "  $(basename "$s" .sh)   [known-RED — on-demand only, excluded from default run]"
+            else
+                echo "  $(basename "$s" .sh)"
+            fi
+        done
+        exit 0
+    fi
+
+    # Filter by selectors (phase prefix or substring matches).
+    if [ ${#SELECTORS[@]} -eq 0 ]; then
+        # Default/full run: every scenario EXCEPT the known-RED reproducers, so the
+        # strict-green gating suite stays green (the stamp is gated on this branch).
+        for s in "${ALL_SCENARIOS[@]}"; do
+            if _is_skip_default "$s"; then
+                # Progress notice → stderr, NOT stdout. --print-selected emits the
+                # chosen names on stdout as DATA (the CI matrix captures it); a
+                # notice on stdout here would become bogus matrix entries → 2
+                # always-failing jobs → the gate could never go green.
+                echo "  (excluding known-RED reproducer from default run: $(basename "$s" .sh))" >&2
+                continue
+            fi
+            SELECTED+=("$s")
+        done
+    else
+        for sel in "${SELECTORS[@]}"; do
+            # EXACT basename match wins outright: a selector that names a specific
+            # scenario selects ONLY that scenario, never a phase-prefix sibling.
+            # Without this, a selector like "2-preswap-checkout-kill" would match the
+            # `^<sel>-` prefix of a longer sibling (historically the since-retired
+            # "2-preswap-checkout-kill-legacy", which sorted FIRST since '-' < '.')
+            # and — with the old first-match-then-`break` — resolve to the WRONG
+            # scenario while the intended exact file never ran. An exact name also
+            # legitimately selects a known-RED reproducer (it is named specifically).
+            exact=""
+            for s in "${ALL_SCENARIOS[@]}"; do
+                [ "$(basename "$s" .sh)" = "$sel" ] && { exact="$s"; break; }
+            done
+            if [ -n "$exact" ]; then
+                _add_selected "$exact"
+                continue
+            fi
+            # No exact match: treat the selector as a phase prefix ("2-preswap" →
+            # EVERY "2-preswap-*") or a name substring, and select ALL matches — not
+            # just the first (the old `break` silently ran only one of a phase group).
+            for s in "${ALL_SCENARIOS[@]}"; do
+                base=$(basename "$s" .sh)
+                phase_match=0; substr_match=0
+                [[ "$base" =~ ^${sel}- ]] && phase_match=1
+                [[ "$base" == *"$sel"* ]] && substr_match=1
+                if [ "$phase_match" = 0 ] && [ "$substr_match" = 0 ]; then
+                    continue
+                fi
+                # A known-RED reproducer is pulled in ONLY by a selector that names it
+                # specifically (the exact name above, or a non-phase-prefix substring).
+                # A bare phase prefix (e.g. "3-postswap") must NOT drag it into a group
+                # run, or the group goes red on an expected failure.
+                if _is_skip_default "$s" && [ "$phase_match" = 1 ]; then
+                    continue
+                fi
+                _add_selected "$s"
+            done
+        done
+        if [ ${#SELECTED[@]} -eq 0 ]; then
+            echo "No scenarios matched: ${SELECTORS[*]}" >&2
+            echo "Run --list to see available." >&2
+            exit 2
+        fi
+    fi
+
+    # --print-selected: emit the chosen base names (one per line) and stop BEFORE
+    # provisioning anything. This is the CI matrix's source of truth — the discover
+    # job JSON-encodes this list, so the same default-exclusion + selector matching
+    # applies identically to a local run and to the parallel matrix.
+    if [ "$PRINT_SELECTED" = "1" ]; then
+        for s in "${SELECTED[@]}"; do
+            basename "$s" .sh
+        done
+        exit 0
+    fi
 fi
 
 mkdir -p "$HARNESS_ROOT/tmp"
@@ -370,7 +412,7 @@ fi
 
 # All passed — write stamp ONLY when ALL scenarios were selected
 # (running a subset shouldn't claim full coverage).
-if [ ${#SELECTORS[@]} -eq 0 ]; then
+if [ "$EXACT_MODE" = "0" ] && [ ${#SELECTORS[@]} -eq 0 ]; then
     git -C "$HARNESS_ROOT" rev-parse HEAD > "$STAMP_FILE"
     echo "Stamp recorded (install-recovery-test-passed-sha): $(cat "$STAMP_FILE")"
 fi

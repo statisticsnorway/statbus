@@ -490,6 +490,12 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 1
 
+      - name: Validate install-recovery and upgrade-arc domains
+        # Reuse run.sh's authoritative global validator before this free job can
+        # emit any paid arc matrix. Do not copy the fabrication/ledger doctrine
+        # into this workflow: one validator must govern both harness domains.
+        run: ./dev.sh test-install-recovery --print-selected >/dev/null
+
       - name: Enumerate arc scenarios into the matrix
         id: scenarios
         # Single source of truth: every arcs/<scenario>-arc.sh IS a scenario.

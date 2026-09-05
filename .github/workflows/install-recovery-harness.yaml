@@ -513,10 +513,12 @@ jobs:
             | awk '{ print "SSH key fingerprint:", $2 }'
 
       - name: Run scenario on its own Hetzner VM
-        # Runs exactly ONE scenario by its base-name selector. run.sh provisions
-        # a fresh cx23 named statbus-recovery-<scenario>, runs it, and writes
-        # tmp/install-recovery-<scenario>.log. STATBUS_SB_BINARY pins the VM to
-        # the artifact binary (no in-VM rebuild). HCLOUD_SSH_KEY=statbus-ci
+        # Runs exactly ONE discovery-emitted scenario through run.sh's explicit
+        # exact boundary. The discover job above already performed global domain
+        # validation at this same github.sha; exact execution validates the safe
+        # basename and existing non-symlink file without reading siblings, then
+        # joins the shared provisioning/execution loop. STATBUS_SB_BINARY pins
+        # the VM to the artifact binary (no in-VM rebuild). HCLOUD_SSH_KEY=statbus-ci
         # pairs with the private key written above.
         env:
           HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
@@ -529,7 +531,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "Running scenario: $SCENARIO"
-          ./dev.sh test-install-recovery "$SCENARIO"
+          ./dev.sh test-install-recovery --exact "$SCENARIO"
 
       - name: Upload scenario log
         # Per-job artifact (unique name — upload-artifact@v4 forbids duplicate
