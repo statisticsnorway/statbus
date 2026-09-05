@@ -115,15 +115,17 @@ permissions:
 jobs:
   construct:
     name: Construct branch fixtures + dispatch image builds
-    # STATBUS-223: no needs, no if: — this workflow's own RIDE machinery
-    # (the `decide` job that used to sit upstream of this one, and the
-    # explicit skip clause STATBUS-218 put here) is DELETED. The skip
-    # decision now happens one layer up, in release-fleet-orchestrator.yaml,
-    # which simply never DISPATCHES this workflow when the RC isn't
-    # upgrade-sensitive. If construct runs at all, it always runs in full —
-    # whether that's an orchestrator dispatch (already sensitivity-gated)
-    # or a human's manual workflow_dispatch (never gated on sensitivity by
-    # design, see the top-of-file comment).
+    # STATBUS-223: this workflow's old RIDE/sensitivity dependency remains
+    # deleted; that decision lives in release-fleet-orchestrator.yaml. The
+    # dependency below has a different purpose (STATBUS-352): authoritative
+    # free discovery must validate the global scenario/arc domain and accept
+    # the selector before fixture branches or image builds can start. A valid
+    # orchestrator or manual dispatch still constructs its selected run in full.
+    needs: [discover]
+    if: >-
+      ${{ !cancelled() &&
+          needs.discover.result == 'success' &&
+          needs.discover.outputs.count != '0' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     outputs:
@@ -588,13 +590,11 @@ jobs:
     # guarded: a FAILED direct need must still skip run-arc (!cancelled()
     # alone would run over a failed construct).
     #
-    # STATBUS-223 UPDATE: `decide` is now DELETED — construct/image-wait/
-    # discover have no needs of their own any more, so nothing upstream of
-    # THIS job can be skipped, and the specific 215 trap this comment
-    # describes can no longer recur in this file. The explicit form below
-    # is kept anyway: it still guards genuine FAILURE (not skip) of the
-    # three direct needs, and self-documents the rule rather than relying
-    # on an implicit AND a future edit could silently defeat again.
+    # STATBUS-352 UPDATE: construct now waits on successful nonzero discover,
+    # so a validation or selector refusal skips construct and therefore also
+    # image-wait. The explicit checks below are load-bearing again: they keep
+    # run-arc from running across either a failed discover or its downstream
+    # skips, without relying on implicit success() behavior.
     if: >-
       ${{ !cancelled() &&
           needs.construct.result == 'success' &&

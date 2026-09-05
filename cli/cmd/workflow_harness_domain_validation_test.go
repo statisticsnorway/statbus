@@ -64,4 +64,31 @@ func TestHarnessDomainValidationPrecedesCoverageAndPaidEligibility_STATBUS352(t 
 			t.Fatalf("upgrade-arc discover must invoke the one authoritative runner validator exactly once, got:\n%s", script)
 		}
 	})
+
+	t.Run("upgrade arc construction waits for validated nonzero discovery", func(t *testing.T) {
+		doc := workflowDoc(t, ".github/workflows/upgrade-arc-harness.yaml")
+		jobs := doc["jobs"].(map[string]any)
+		construct := jobs["construct"].(map[string]any)
+
+		needs, ok := construct["needs"].([]any)
+		if !ok || len(needs) != 1 || needs[0] != "discover" {
+			t.Fatalf("construct must depend only on successful authoritative discover before fixture/image side effects; needs=%v", construct["needs"])
+		}
+		condition, _ := construct["if"].(string)
+		for _, required := range []string{"!cancelled()", "needs.discover.result == 'success'", "needs.discover.outputs.count != '0'"} {
+			if !strings.Contains(condition, required) {
+				t.Errorf("construct lost discovery gate %q: if=%q", required, condition)
+			}
+		}
+
+		steps := jobSteps(t, ".github/workflows/upgrade-arc-harness.yaml", "construct")
+		if len(steps) < 2 {
+			t.Fatalf("construct has fewer than checkout + admission steps: %v", steps)
+		}
+		checkout, _ := steps[0]["uses"].(string)
+		admission, _ := steps[1]["uses"].(string)
+		if checkout != "actions/checkout@v4" || admission != "./.github/actions/orchestrator-fleet-admission" {
+			t.Fatalf("eligible construct must keep checkout then shared admission as its first side-effectful guard; first uses=%q second uses=%q", checkout, admission)
+		}
+	})
 }
