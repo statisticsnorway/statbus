@@ -40,8 +40,8 @@ func TestUpgradeSensitivePolicyReachesBroadInputsWithoutRebroadeningSiblings_STA
 		"test/install-recovery/lib/vm-bootstrap.sh":             release.ReasonSharedHarnessInput,
 		"test/install-recovery/fixtures/stage-head.sh":          release.ReasonSharedHarnessInput,
 		"cli/internal/release/sensitivity.go":                   release.ReasonProofInterpreter,
-		"cli/cmd/release_covered.go":                            release.ReasonProofInterpreter,
-		"cli/cmd/release_coverage_evaluator.go":                 release.ReasonProofInterpreter,
+		"cli/cmd/release/release_covered.go":                    release.ReasonProofInterpreter,
+		"cli/cmd/release/release_coverage_evaluator.go":         release.ReasonProofInterpreter,
 		"ops/release/upgrade-sensitive-paths.txt":               release.ReasonProofInterpreter,
 	}
 	for _, scenario := range homes {

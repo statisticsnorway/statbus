@@ -24,6 +24,15 @@
 # specific proof-interpreter rules override the conservative broad cli payload.
 
 exact | box payload | install.sh
+# `cli` is the CONSERVATIVE default. For a real anchor->target decision the
+# evaluator replaces this one rule with the derived box-command closure
+# (cli/internal/release/box_closure.go): the package directories ordinary
+# ./cmd reaches at anchor UNION target, plus cli/main.go, go.mod, go.sum and
+# the Dockerfiles. Release-only packages (cli/cmd/release, cli/internal/release)
+# are provably unreachable from ordinary cmd and fall to the proof-interpreter
+# rules below. If the closure cannot be derived the question is undecidable
+# and the scenario must run; if either commit predates the boundary this
+# broad rule applies unchanged.
 directory | box payload | cli
 directory | box payload | postgres
 directory | box payload | caddy
@@ -42,8 +51,5 @@ directory | shared harness input | test/install-recovery/lib
 directory | shared harness input | test/install-recovery/fixtures
 
 directory | proof interpreter | cli/internal/release
-exact | proof interpreter | cli/cmd/release.go
-exact | proof interpreter | cli/cmd/release_covered.go
-exact | proof interpreter | cli/cmd/release_coverage_evaluator.go
-exact | proof interpreter | cli/cmd/release_coverage_authority.go
+directory | proof interpreter | cli/cmd/release
 exact | proof interpreter | ops/release/upgrade-sensitive-paths.txt

@@ -275,11 +275,20 @@ func dedupeSensitivityRules(rules []sensitivityRule) []sensitivityRule {
 // MatchSensitivePath classifies one repository-relative path for the full
 // scenario identity. It returns at most one, most-specific stable reason.
 func MatchSensitivePath(projDir string, scenario Scenario, changedPath string) (SensitiveChange, bool, error) {
-	if err := validateRepoRelativePath(changedPath); err != nil {
-		return SensitiveChange{}, false, err
-	}
 	broad, err := loadSensitivityPolicy(projDir)
 	if err != nil {
+		return SensitiveChange{}, false, err
+	}
+	return matchSensitivePathWithRules(broad, scenario, changedPath)
+}
+
+// matchSensitivePathWithRules is MatchSensitivePath over an explicit broad
+// rule set. DiffSensitiveChanges uses it with the checked-in policy's broad
+// `cli` payload rule REPLACED by the anchor-union-target box-command closure
+// (box_closure.go), which only it can compute because only it knows both
+// refs. Single-path callers keep the conservative checked-in rule.
+func matchSensitivePathWithRules(broad []sensitivityRule, scenario Scenario, changedPath string) (SensitiveChange, bool, error) {
+	if err := validateRepoRelativePath(changedPath); err != nil {
 		return SensitiveChange{}, false, err
 	}
 	specific, err := scenarioSensitivityRules(scenario)
@@ -311,6 +320,17 @@ func DiffSensitiveChanges(projDir, fromRef, toRef string, scenario Scenario) ([]
 	if err := validateSensitivityScenario(scenario); err != nil {
 		return nil, err
 	}
+	broad, err := loadSensitivityPolicy(projDir)
+	if err != nil {
+		return nil, err
+	}
+	broad, err = narrowCLIPayloadRules(projDir, fromRef, toRef, broad)
+	if err != nil {
+		// Undecidable optimizer: the caller records an evidence error, the
+		// scenario must run, and coverage-question-health goes red. Never a
+		// silent fallback to broad, never covered (STATBUS-352 C3).
+		return nil, err
+	}
 	cmd := exec.Command("git", "diff", "--no-renames", "--name-only", "-z", fromRef+".."+toRef, "--")
 	cmd.Dir = projDir
 	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
@@ -335,7 +355,7 @@ func DiffSensitiveChanges(projDir, fromRef, toRef string, scenario Scenario) ([]
 			return nil, fmt.Errorf("git diff %s..%s returned an empty changed path", fromRef, toRef)
 		}
 		changedPath := string(raw)
-		change, matched, matchErr := MatchSensitivePath(projDir, scenario, changedPath)
+		change, matched, matchErr := matchSensitivePathWithRules(broad, scenario, changedPath)
 		if matchErr != nil {
 			return nil, fmt.Errorf("classify changed path %q: %w", changedPath, matchErr)
 		}
@@ -355,4 +375,39 @@ func DiffSensitiveChanges(projDir, fromRef, toRef string, scenario Scenario) ([]
 		return changes[i].Path < changes[j].Path
 	})
 	return changes, nil
+}
+
+// narrowCLIPayloadRules replaces the checked-in `directory | box payload | cli`
+// rule with the derived anchor-union-target box-command closure. If the
+// policy has no such rule the closure is not applied (the policy author
+// opted out of the optimizer). Both refs are resolved to commits first so
+// the per-commit cache is keyed on SHAs, not on "HEAD".
+func narrowCLIPayloadRules(projDir, fromRef, toRef string, broad []sensitivityRule) ([]sensitivityRule, error) {
+	idx := -1
+	for i, r := range broad {
+		if r.Kind == matchDirectory && r.Path == cliRoot && r.Reason == ReasonBoxPayload {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 {
+		return broad, nil
+	}
+	from, err := runGit(projDir, "rev-parse", fromRef+"^{commit}")
+	if err != nil {
+		return nil, fmt.Errorf("resolve %q: %w", fromRef, err)
+	}
+	to, err := runGit(projDir, "rev-parse", toRef+"^{commit}")
+	if err != nil {
+		return nil, fmt.Errorf("resolve %q: %w", toRef, err)
+	}
+	derived, err := boxPayloadRulesForRange(projDir, strings.TrimSpace(from), strings.TrimSpace(to))
+	if err != nil {
+		return nil, err
+	}
+	out := make([]sensitivityRule, 0, len(broad)-1+len(derived))
+	out = append(out, broad[:idx]...)
+	out = append(out, derived...)
+	out = append(out, broad[idx+1:]...)
+	return out, nil
 }
