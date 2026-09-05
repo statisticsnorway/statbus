@@ -49,7 +49,7 @@ func TestHarnessDomainValidationPrecedesCoverageAndPaidEligibility_STATBUS352(t 
 		}
 		validation := stepIndexByName(t, steps, "Validate install-recovery and upgrade-arc domains")
 		matrix := stepIndexByName(t, steps, "Validate selectors and build matrix")
-		if !(admission < validation && validation < matrix) {
+		if admission >= validation || validation >= matrix {
 			t.Fatalf("test-smoke select order must be admission (%d) < domain validation (%d) < matrix (%d)", admission, validation, matrix)
 		}
 		script, _ := steps[validation]["run"].(string)

@@ -54,18 +54,24 @@ func TestArchitecture_MigrationCodeNeverImportsReleaseEngine_STATBUS352(t *testi
 
 func TestArchitecture_ReleaseCommandPackageHasNoInit_STATBUS352(t *testing.T) {
 	dir := thisRepoFile(t, "cli/cmd/release")
-	fset := token.NewFileSet()
-	pkgs, err := parser.ParseDir(fset, dir, func(fi os.FileInfo) bool { return !strings.HasSuffix(fi.Name(), "_test.go") }, 0)
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, pkg := range pkgs {
-		for file, f := range pkg.Files {
-			for _, decl := range f.Decls {
-				fn, ok := decl.(*ast.FuncDecl)
-				if ok && fn.Recv == nil && fn.Name.Name == "init" {
-					t.Errorf("%s declares init(); release commands must be composed explicitly by main.go via Command()", file)
-				}
+	fset := token.NewFileSet()
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		f, err := parser.ParseFile(fset, filepath.Join(dir, name), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, decl := range f.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if ok && fn.Recv == nil && fn.Name.Name == "init" {
+				t.Errorf("%s declares init(); release commands must be composed explicitly by main.go via Command()", name)
 			}
 		}
 	}

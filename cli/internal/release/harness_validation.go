@@ -53,7 +53,7 @@ func ValidateHarnessDomainAt(projDir, commit string) error {
 	if err != nil {
 		return fmt.Errorf("create a disposable extraction dir: %w", err)
 	}
-	defer os.RemoveAll(tmp)
+	defer func() { _ = os.RemoveAll(tmp) }()
 
 	if err := extractHarnessTree(projDir, commit, tmp); err != nil {
 		return err

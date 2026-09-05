@@ -179,7 +179,7 @@ func githubRead(url string, policy githubReadRetryPolicy, retryLog io.Writer) ([
 			return nil, fmt.Errorf("GitHub evidence read failed (class=%s): %w", failure.class, failure.err)
 		}
 
-		fmt.Fprintf(retryLog, "GitHub evidence read attempt %d/%d failed: class=%s error=%v\n",
+		_, _ = fmt.Fprintf(retryLog, "GitHub evidence read attempt %d/%d failed: class=%s error=%v\n",
 			attempt, policy.maxAttempts, failure.class, failure.err)
 		if attempt == policy.maxAttempts {
 			break

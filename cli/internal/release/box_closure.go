@@ -106,7 +106,7 @@ func deriveBoxCommandClosure(projDir, commit string) (BoxCommandClosure, error) 
 	if err != nil {
 		return BoxCommandClosure{}, fmt.Errorf("create a disposable extraction dir: %w", err)
 	}
-	defer os.RemoveAll(tmp)
+	defer func() { _ = os.RemoveAll(tmp) }()
 
 	if err := extractTree(projDir, commit, cliRoot, tmp); err != nil {
 		return BoxCommandClosure{}, err

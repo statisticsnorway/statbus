@@ -25,13 +25,13 @@ func TestCoverageAuthority_StructuralViolationIsUndecidable_STATBUS352(t *testin
 
 	build := func(t *testing.T, siblingContent string) (dir, anchor, binary string) {
 		t.Helper()
-		dir, anchor, target := realCoverageFixture(t, "doc/readme.md")
+		dir, anchor, _ = realCoverageFixture(t, "doc/readme.md")
 		// Add the excluded sibling AFTER the anchor so its content is the only
 		// diff; it is outside the default fleet domain either way.
 		writeFixtureFile(t, dir, "test/install-recovery/scenarios/known-red.sh", siblingContent)
 		runGitInCmd(t, dir, "add", ".")
 		runGitInCmd(t, dir, "commit", "-q", "-m", "excluded sibling")
-		target = runGitInCmd(t, dir, "rev-parse", "HEAD")
+		target := runGitInCmd(t, dir, "rev-parse", "HEAD")
 		for _, name := range []string{"a", "b", "0-happy-install", "0-happy-upgrade"} {
 			markScenarioAt(t, dir, release.Scenario{Name: name, Home: release.WorkflowFleet}, anchor)
 		}
