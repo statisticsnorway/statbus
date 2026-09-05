@@ -1,4 +1,4 @@
-package cmd
+package releasecmd
 
 // STATBUS-224: workflow trigger facts are asserted by PARSING the YAML, never by
 // matching the file's text.

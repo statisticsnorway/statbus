@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-
-	"github.com/statisticsnorway/statbus/cli/internal/release"
 )
 
 // IntentionallyRevertReleasedMigrationEnvVar names the environment variable
@@ -59,8 +57,11 @@ func releasedMigrationDownGuard(projDir string, versions []int64) error {
 	if len(versions) == 0 {
 		return nil
 	}
+	if err := ReleaseProbe.check(); err != nil {
+		return fmt.Errorf("migrate down: %w", err)
+	}
 
-	prevTag, err := release.CurrentImmutabilityBaselineTag(projDir)
+	prevTag, err := ReleaseProbe.BaselineTag(projDir)
 	if err != nil {
 		return fmt.Errorf("migrate down: could not resolve the previous release tag to check against: %w", err)
 	}
@@ -77,7 +78,7 @@ func releasedMigrationDownGuard(projDir string, versions []int64) error {
 	}
 	var releasedMigrations []releasedMigration
 	for _, v := range versions {
-		exists, file, err := release.MigrationExistsInTag(projDir, v, prevTag)
+		exists, file, err := ReleaseProbe.MigrationExistsInTag(projDir, v, prevTag)
 		if err != nil {
 			return fmt.Errorf("migrate down: checking whether migration %d is released: %w", v, err)
 		}

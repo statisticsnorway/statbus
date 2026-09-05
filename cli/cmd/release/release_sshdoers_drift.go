@@ -1,4 +1,4 @@
-package cmd
+package releasecmd
 
 import (
 	"crypto/sha256"

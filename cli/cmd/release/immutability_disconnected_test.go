@@ -1,4 +1,4 @@
-package cmd
+package releasecmd
 
 // STATBUS-233: the immutability gate must REFUSE to compare migrations against a
 // predecessor tag that is not an ancestor of HEAD.

@@ -10,11 +10,17 @@ import (
 // Keep them together: the release-covered verdicts must never collide with a
 // pre-dispatch refusal that means the command did not run.
 const (
-	exitCovered        = 0
-	exitMustRun        = 1
-	exitUndecided      = 2
 	exitUsage          = 64 // EX_USAGE, sysexits.h
 	exitBinaryUnusable = 69 // EX_UNAVAILABLE, sysexits.h
+)
+
+// ExitBinaryUnusable and ExitUsage are exported READ-ONLY so cmd/release's
+// exit-contract test can prove the release-covered verdict codes (0/1/2, owned
+// there) never collide with these pre-dispatch refusals. cmd never imports
+// cmd/release, so the proof has to live on the release side.
+const (
+	ExitUsage          = exitUsage
+	ExitBinaryUnusable = exitBinaryUnusable
 )
 
 // commandExecutionError distinguishes an error returned by a Cobra run hook

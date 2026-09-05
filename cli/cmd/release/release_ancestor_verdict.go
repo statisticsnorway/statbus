@@ -1,9 +1,10 @@
-package cmd
+package releasecmd
 
 import (
 	"fmt"
 
 	"github.com/statisticsnorway/statbus/cli/internal/release"
+	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
 // STATBUS-256: the gate's refusal vocabulary had two words for a four-state
@@ -43,7 +44,7 @@ type ancestorVerdict struct {
 // printAncestorVerdict renders the state the walk actually found. Each arm gets
 // its own true sentence and its own next move, because the moves are opposites.
 func printAncestorVerdict(label, tipShort string, v *ancestorVerdict) {
-	who := shortCommit(v.Commit)
+	who := upgrade.ShortForDisplay(v.Commit)
 	switch v.Result.Status {
 	case release.WorkflowCheckFailed:
 		fmt.Printf("  ✗ %s FAILED at %s (conclusion: %s)\n", label, who, v.Result.Detail)

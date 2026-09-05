@@ -1,4 +1,4 @@
-package cmd
+package releasecmd
 
 import (
 	"fmt"
@@ -495,11 +495,6 @@ or replay anything locally; it just asks GitHub what its own CI said.`,
 		}
 		return fmt.Errorf("unexpected images status: %q", result.Status)
 	},
-}
-
-func init() {
-	releaseCmd.AddCommand(releaseVerifyTagCmd)
-	releaseCmd.AddCommand(releaseVerifyImagesCmd)
 }
 
 // tagIsAncestorOfHEAD reports whether refs/tags/<tagName> is an ancestor of

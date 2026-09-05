@@ -24,7 +24,6 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/config"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/inject"
-	"github.com/statisticsnorway/statbus/cli/internal/release"
 )
 
 // MigrationFile represents a parsed migration filename.
@@ -1910,7 +1909,10 @@ func eagerContentHashCheck(projDir string) error {
 			// localDev (UPGRADE_CHANNEL=local) or an uncertain channel:
 			// a human is present — never auto-mutate. Released → immutability
 			// violation; WIP → redo guidance.
-			releasedTag, relErr := release.MigrationInReleasedTag(projDir, version)
+			if err := ReleaseProbe.check(); err != nil {
+				return err
+			}
+			releasedTag, relErr := ReleaseProbe.MigrationInReleasedTag(projDir, version)
 			if relErr != nil {
 				return fmt.Errorf("released-tag detection for migration %d: %w", version, relErr)
 			}
@@ -1924,7 +1926,7 @@ func eagerContentHashCheck(projDir string) error {
 				// rebuild instead of refusing. On a genuine live edit (dirty), or
 				// if dirtiness can't be determined, fall through unchanged to the
 				// hard refusal below — never silently downgrade an uncertain case.
-				dirty, dirtyErr := release.FileIsDirty(projDir, "migrations/"+filepath.Base(filePath))
+				dirty, dirtyErr := ReleaseProbe.FileIsDirty(projDir, "migrations/"+filepath.Base(filePath))
 				if dirtyErr == nil && !dirty {
 					return &ErrStaleRestoredMigration{Version: version, StoredHash: storedHash, LiveHash: liveHash}
 				}

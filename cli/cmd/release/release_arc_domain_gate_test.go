@@ -1,4 +1,4 @@
-package cmd
+package releasecmd
 
 // STATBUS-216 gate-level pins for the two harness coverage gates, plus
 // STATBUS-252's switch-era replacements for what used to be the STATBUS-217
@@ -405,11 +405,11 @@ func TestUpgradeArcHarnessGate_SharedBlockedDetailsPrintOnce(t *testing.T) {
 		return release.WorkflowCheckResult{Status: release.WorkflowCheckMissing}
 	}, trivialComplete)
 
-	oldVerbose := verbose
-	t.Cleanup(func() { verbose = oldVerbose })
+	oldVerbose := verboseFlag
+	t.Cleanup(func() { verboseFlag = oldVerbose })
 
 	run := func(wantVerbose bool) string {
-		verbose = wantVerbose
+		verboseFlag = func() bool { return wantVerbose }
 		var passed bool
 		out := captureStdout(t, func() {
 			passed = checkUpgradeArcHarnessGate(dir, "v2026.08.0-rc.02", target, target[:7])
@@ -489,11 +489,11 @@ func TestUpgradeArcHarnessGate_DifferingBlockedAnchorsNameEachAnchor(t *testing.
 		return release.WorkflowCheckResult{Status: release.WorkflowCheckMissing}
 	}, trivialComplete)
 
-	oldVerbose := verbose
-	t.Cleanup(func() { verbose = oldVerbose })
+	oldVerbose := verboseFlag
+	t.Cleanup(func() { verboseFlag = oldVerbose })
 
 	run := func(wantVerbose bool) string {
-		verbose = wantVerbose
+		verboseFlag = func() bool { return wantVerbose }
 		var passed bool
 		out := captureStdout(t, func() {
 			passed = checkUpgradeArcHarnessGate(dir, "v2026.08.0-rc.03", target, target[:7])

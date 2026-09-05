@@ -1,4 +1,4 @@
-package cmd
+package releasecmd
 
 import (
 	"os"
@@ -248,7 +248,7 @@ func TestCanarySlots_TopologyIsDevAndNorwayOnly_STATBUS245(t *testing.T) {
 
 func readCanarySource(t *testing.T) string {
 	t.Helper()
-	b, err := os.ReadFile(thisRepoFile(t, "cli/cmd/release_canary.go"))
+	b, err := os.ReadFile(thisRepoFile(t, "cli/cmd/release/release_canary.go"))
 	if err != nil {
 		t.Fatal(err)
 	}

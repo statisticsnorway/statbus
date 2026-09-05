@@ -1,4 +1,4 @@
-package cmd
+package releasecmd
 
 import (
 	"crypto/sha256"
@@ -13,30 +13,12 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/statisticsnorway/statbus/cli/cmd"
 	"github.com/statisticsnorway/statbus/cli/internal/config"
 	"github.com/statisticsnorway/statbus/cli/internal/migrate"
 	"github.com/statisticsnorway/statbus/cli/internal/release"
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
-
-// parseTwoLineStamp splits an H1 two-line stamp (task #123) into its
-// SHA and migration-version components. Legacy single-line stamps
-// return ("<sha>", "") — caller decides how to handle (typically:
-// refuse with re-run guidance).
-//
-//	<head_sha>\n<source_db_migration_max_version>\n
-//
-// Trailing whitespace on each line is trimmed.
-func parseTwoLineStamp(data []byte) (sha, version string) {
-	lines := strings.Split(string(data), "\n")
-	if len(lines) >= 1 {
-		sha = strings.TrimSpace(lines[0])
-	}
-	if len(lines) >= 2 {
-		version = strings.TrimSpace(lines[1])
-	}
-	return sha, version
-}
 
 var releaseCmd = &cobra.Command{
 	Use:   "release",
@@ -279,7 +261,7 @@ func preflightChecks(projDir string) bool {
 		}
 	}
 	if stampBytes != nil {
-		stampSHA, stampVersion := parseTwoLineStamp(stampBytes)
+		stampSHA, stampVersion := cmd.ParseTwoLineStamp(stampBytes)
 		if stampVersion == "" {
 			fmt.Println("  ✗ Fast tests cover latest migrations (tmp/fast-test-passed-sha is legacy single-line; missing source-DB version)")
 			fmt.Println("    Fix: ./dev.sh migrate-and-test fast   (re-run to upgrade stamp to two-line format)")
@@ -289,7 +271,7 @@ func preflightChecks(projDir string) bool {
 		_ = stampSHA
 	}
 	if stampBytes != nil {
-		stampSHA, stampVersion := parseTwoLineStamp(stampBytes)
+		stampSHA, stampVersion := cmd.ParseTwoLineStamp(stampBytes)
 
 		// Find the last commit that touched actual migration files.
 		// Only match versioned files (YYYYMMDDHHMMSS_*.up.*), not helper
@@ -427,7 +409,7 @@ func preflightChecks(projDir string) bool {
 			allPassed = false
 			return
 		}
-		stampSHA, stampVersion := parseTwoLineStamp(sb)
+		stampSHA, stampVersion := cmd.ParseTwoLineStamp(sb)
 		if stampVersion == "" {
 			fmt.Printf("  ✗ %s (tmp/%s is legacy single-line; missing source-DB version)\n", failLabel, stampFile)
 			fmt.Printf("    Fix: %s   (re-run to upgrade stamp to two-line format)\n", fixCmd)
@@ -1687,7 +1669,7 @@ func findExemptRide(projDir, workflow, tipFull string) (*exemptRide, string, *an
 // (findExemptRide's own tests) — only the console listing is shorter.
 func printExemptRide(label string, ride *exemptRide) {
 	fmt.Printf("  ✓ %s green at %s — also covers this commit: the %d commit(s) since change only test-irrelevant paths\n",
-		label, shortCommit(ride.Commit), ride.CommitsRidden)
+		label, upgrade.ShortForDisplay(ride.Commit), ride.CommitsRidden)
 	fmt.Printf("    Tested commit: %s\n", ride.Commit)
 	fmt.Printf("    Run: %s\n", ride.Result.RunURL)
 	fmt.Printf("    %d file(s) changed since, all exempt per %s\n", len(ride.Justifying), ciExemptPathsFile)
@@ -2174,14 +2156,4 @@ func resolveLatestRC(rcTagsNewlineSep string) string {
 		return calVerRCKey(tags[i]) > calVerRCKey(tags[j])
 	})
 	return tags[0]
-}
-
-func init() {
-	releaseCheckCmd.Flags().StringVar(&releaseCheckTag, "tag", "", "specific tag to check (mutually exclusive with --channel)")
-	releaseCheckCmd.Flags().StringVar(&releaseCheckChannel, "channel", "", "channel to check: stable | prerelease | edge (mutually exclusive with --tag)")
-	releaseCmd.AddCommand(releasePrereleaseCmd)
-	releaseCmd.AddCommand(releaseStableCmd)
-	releaseCmd.AddCommand(releaseListCmd)
-	releaseCmd.AddCommand(releaseCheckCmd)
-	rootCmd.AddCommand(releaseCmd)
 }

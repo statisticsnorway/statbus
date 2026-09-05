@@ -1,4 +1,4 @@
-package cmd
+package releasecmd
 
 import (
 	"fmt"
@@ -285,11 +285,4 @@ func priorCandidateTags(projDir, commit string) ([]string, error) {
 		}
 	}
 	return rcTags, nil
-}
-
-func init() {
-	releaseCoveredCmd.Flags().StringVar(&releaseCoveredWorkflow, "workflow", "", "workflow home for an ambiguous scenario name")
-	releaseCmd.AddCommand(releaseCoveredCmd)
-	releaseCoveredSubsetCmd.Flags().StringVar(&coveredSubsetDetailsFile, "details-file", "", "write per-scenario markdown details for a workflow step summary")
-	releaseCmd.AddCommand(releaseCoveredSubsetCmd)
 }

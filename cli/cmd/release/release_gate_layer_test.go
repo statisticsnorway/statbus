@@ -1,4 +1,4 @@
-package cmd
+package releasecmd
 
 // STATBUS-205 — the two fixes to the release gate lane, pinned.
 //
@@ -50,7 +50,7 @@ var tagFiredWorkflows = []struct {
 }
 
 func TestReleaseGateLayer_TagFiredWorkflows(t *testing.T) {
-	src, err := os.ReadFile(thisRepoFile(t, "cli/cmd/release.go"))
+	src, err := os.ReadFile(thisRepoFile(t, "cli/cmd/release/release.go"))
 	if err != nil {
 		t.Fatalf("cannot read release.go: %v", err)
 	}

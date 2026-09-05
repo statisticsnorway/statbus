@@ -209,7 +209,7 @@ func checkTypesStampGuard(projDir string) stampGuardDecision {
 	// (release.go) extracts the two fields cleanly; legacy single-line
 	// stamps return stampVersion="" and continue to work via the SHA
 	// path below.
-	stampSHA, stampVersion := parseTwoLineStamp(data)
+	stampSHA, stampVersion := ParseTwoLineStamp(data)
 	if stampSHA == "" {
 		fmt.Println("RUNNING:", label)
 		fmt.Printf("Reason:  stamp tmp/%s is empty.\n", stampBasename)

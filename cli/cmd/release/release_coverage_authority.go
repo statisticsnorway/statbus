@@ -1,4 +1,4 @@
-package cmd
+package releasecmd
 
 import (
 	"fmt"
@@ -224,7 +224,7 @@ func runCoverageAuthority(projDir, rcTag, rcCommit, rcShort string, domain relea
 		}
 	}
 	for _, group := range blockedGroups {
-		if verbose {
+		if verboseFlag() {
 			fmt.Printf("    Changed files since %s:\n", group.Anchor)
 			for _, change := range group.SensitiveChanges {
 				fmt.Printf("        %s\n", change)

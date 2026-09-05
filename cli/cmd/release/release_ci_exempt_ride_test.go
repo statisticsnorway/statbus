@@ -1,4 +1,4 @@
-package cmd
+package releasecmd
 
 // STATBUS-219 Stage 1 oracles: a prerelease VERDICT gate may accept a green run
 // at an ancestor whose entire difference from the tip is test-irrelevant.
@@ -36,7 +36,7 @@ func TestFileIsCIExempt_AnchoredPrefixNotSubstring(t *testing.T) {
 		{".backlog/docs/doc-030.md", true, "board docs are board files"},
 		{"app/src/.backlog-widget.ts", false, "app code merely carrying the name is not board content"},
 		{"vendor/.backlog/thing.md", false, "SUBSTRING CONTAINMENT WOULD EXEMPT THIS — an exempt directory nested elsewhere is not the exempt directory"},
-		{"cli/cmd/release.go", false, "ordinary code"},
+		{"cli/cmd/release/release.go", false, "ordinary code"},
 		{".backlogger/notes.md", false, "a sibling directory sharing the prefix without the separator"},
 		{"", false, "an empty path is never exempt"},
 		{`"\303\251.backlog/x.md"`, false, "a git-quoted path (non-ASCII) must fall on the safe side"},
@@ -77,11 +77,11 @@ func TestChangedFilesAllExempt_OneOffenderForbidsTheRide(t *testing.T) {
 	}
 
 	allExempt, _, offenders = changedFilesAllExempt(
-		[]string{".backlog/tasks/a.md", "cli/cmd/release.go", ".backlog/tasks/b.md"}, exempt)
+		[]string{".backlog/tasks/a.md", "cli/cmd/release/release.go", ".backlog/tasks/b.md"}, exempt)
 	if allExempt {
 		t.Error("a diff containing cli/cmd/release.go must NOT be exempt — one non-exempt file forbids the ride however much board text surrounds it")
 	}
-	if len(offenders) != 1 || offenders[0] != "cli/cmd/release.go" {
+	if len(offenders) != 1 || offenders[0] != "cli/cmd/release/release.go" {
 		t.Errorf("offenders = %v, want exactly [cli/cmd/release.go] so the refusal can name it", offenders)
 	}
 
@@ -115,7 +115,7 @@ func TestCIExemptPathsFile_IsNotItselfExempt(t *testing.T) {
 	}
 	// Neither may the workflows or the release code that implement the gates.
 	for _, mustNot := range []string{
-		"cli/cmd/release.go",
+		"cli/cmd/release/release.go",
 		".github/workflows/pg_regress.yaml",
 		"migrations/20260101000000_x.up.sql",
 		"app/src/app/page.tsx",
@@ -133,7 +133,7 @@ func rideFixture(t *testing.T, boardCommits int) (string, string, string) {
 	t.Helper()
 	dir := t.TempDir()
 	runGitInCmd(t, dir, "init", "-q")
-	writeAndCommit(t, dir, "code", "cli/cmd/release.go", "migrations/20260101000000_init.up.sql")
+	writeAndCommit(t, dir, "code", "cli/cmd/release/release.go", "migrations/20260101000000_init.up.sql")
 
 	// The exempt list must exist in the fixture — the ride reads it from the tree.
 	exemptSrc, err := os.ReadFile(thisRepoFile(t, ciExemptPathsFile))
@@ -446,7 +446,7 @@ func TestPrereleaseGate_RidesAndRefusesLoudly(t *testing.T) {
 // the SHA — a question about the world, not the code — so a content argument
 // can never satisfy it.
 func TestImagesGateNeverRides(t *testing.T) {
-	src, err := os.ReadFile(thisRepoFile(t, "cli/cmd/release.go"))
+	src, err := os.ReadFile(thisRepoFile(t, "cli/cmd/release/release.go"))
 	if err != nil {
 		t.Fatal(err)
 	}
