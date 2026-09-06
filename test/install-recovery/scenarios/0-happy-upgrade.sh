@@ -1,5 +1,6 @@
 #!/bin/bash
 # Scenario: 0-happy-upgrade  (baseline — no failure injection)
+# judge = <baseline release binary>, judged = <tagged candidate>
 #
 # Class:                 N/A (baseline regression net for the happy path)
 # Class kind:            N/A — no inject site fires
@@ -8,7 +9,7 @@
 #
 # Expected principled behavior:
 #   The supervised, unattended upgrade path — install at an older
-#   release → populate data → schedule upgrade to HEAD → wait for
+#   release → populate data → schedule upgrade to a tagged candidate → wait for
 #   the upgrade-service unit's poll tick to dispatch + run
 #   executeUpgrade → applyPostSwap to completion — must converge
 #   to a healthy state with data intact. This is the BASELINE
@@ -25,25 +26,14 @@
 #   first, even if the inline tests are all green.
 #
 # Trigger logic:
-#   1. Install at INSTALL_VERSION. By default this is selected from the tag
-#      ledger as the newest stable release strictly below the target under
-#      test, with newest-RC fallback. Verify health.
-#   2. Populate via populate_with_demo_data. Snapshot data counts.
-#   3. Stage HEAD on the VM (git fetch + checkout HEAD; copy
-#      HEAD's sb binary to ~/statbus/sb). The unit will use HEAD's
-#      code to dispatch the upgrade once it picks up a scheduled
-#      row. Baseline NRestarts before triggering.
-#   4. Register HEAD as an upgrade candidate via `./sb upgrade register
-#      <HEAD-SHA>` (the real post-086 verb — the box is already at HEAD's
-#      binary), then wait for it to reach 'ready' (register → ready).
-#   5. Schedule it via `./sb upgrade schedule <HEAD-SHA>`; the DB trigger
-#      NOTIFYs the upgrade-service, which claims + runs executeUpgrade.
-#      Wait for the upgrade row to reach a terminal state
-#      (completed | failed | rolled_back) — happy path expectation
-#      is `completed`.
-#   6. Assert convergence: state='completed', data intact, services
-#      healthy, NRestarts delta ≤ 2 (no watchdog or start-timeout
-#      tripped during the normal upgrade).
+#   1. Require INSTALL_TARGET_TAG or select a release-shaped tag at HEAD.
+#      An untagged HEAD refuses because this cross-version proof needs a tag.
+#   2. Install the newest release baseline below that target via install.sh.
+#   3. Populate demo data and snapshot counts. The installed release binary stays
+#      in place: it is the judge, and the tagged candidate is the judged target.
+#   4. Register and schedule INSTALL_TARGET_TAG through the released binary.
+#   5. Wait for the supervised service to complete the real upgrade hop.
+#   6. Assert data, health, completion, and bounded restarts.
 #
 # Hetzner-runnability:
 #   READY. No injection site needed. This is the baseline that all
@@ -77,7 +67,28 @@ REPO_ROOT="$(cd "$LIB_DIR/../../.." && pwd)"
 source "$LIB_DIR/release-baseline.sh"
 # An explicit environment pin wins. The default is computed at run time so
 # this smoke never fossilises around an archaeological release.
-INSTALL_VERSION="${INSTALL_VERSION:-$(select_release_baseline_from_repo "$REPO_ROOT")}"
+TARGET_TAGS=$(git -C "$REPO_ROOT" tag --points-at HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$' || true)
+if [ -z "${INSTALL_TARGET_TAG:-}" ]; then
+    if [ -z "$TARGET_TAGS" ]; then
+        echo "ERROR: 0-happy-upgrade cross-version proof needs a release-shaped tag at HEAD; local runs may pass INSTALL_TARGET_TAG explicitly" >&2
+        exit 1
+    fi
+    INSTALL_TARGET_TAG=$(printf '%s\n' "$TARGET_TAGS" | select_release_baseline_from_tags v9999.99.999999)
+fi
+_release_tag_parts "$INSTALL_TARGET_TAG" >/dev/null || {
+    echo "ERROR: INSTALL_TARGET_TAG '$INSTALL_TARGET_TAG' is not a release-shaped stable/RC tag" >&2
+    exit 1
+}
+TARGET_SHA=$(git -C "$REPO_ROOT" rev-list -1 "$INSTALL_TARGET_TAG" 2>/dev/null) || {
+    echo "ERROR: INSTALL_TARGET_TAG '$INSTALL_TARGET_TAG' is not present in the repository" >&2
+    exit 1
+}
+HEAD_LOCAL=$(git -C "$REPO_ROOT" rev-parse HEAD)
+if [ "$TARGET_SHA" != "$HEAD_LOCAL" ]; then
+    echo "ERROR: INSTALL_TARGET_TAG '$INSTALL_TARGET_TAG' does not point at HEAD; cross-version proof must judge the candidate at HEAD" >&2
+    exit 1
+fi
+INSTALL_VERSION="${INSTALL_VERSION:-$(select_release_baseline_from_repo "$REPO_ROOT" "$INSTALL_TARGET_TAG")}"
 source "$LIB_DIR/vm-bootstrap.sh"
 source "$LIB_DIR/data-helpers.sh"
 source "$LIB_DIR/wedge-helpers.sh"
@@ -87,11 +98,11 @@ trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
 echo "  Scenario: 0-happy-upgrade  (baseline — supervised unattended path)"
-echo "  Initial release: $INSTALL_VERSION → upgrade target: HEAD"
+echo "  Initial release: $INSTALL_VERSION → upgrade target: $INSTALL_TARGET_TAG"
 echo "════════════════════════════════════════════════════════════════"
 
-HEAD_SHA=$(git -C "$HARNESS_ROOT" rev-parse HEAD)
-echo "  HEAD: $HEAD_SHA ($(echo "$HEAD_SHA" | cut -c1-8))"
+HEAD_SHA="$TARGET_SHA"
+echo "  Tagged target: $INSTALL_TARGET_TAG ($HEAD_SHA)"
 
 bootstrap_install_test_vm "$VM_NAME" "$INSTALL_VERSION"
 
@@ -119,74 +130,25 @@ NRESTARTS_BASELINE=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.serv
 echo "  baseline NRestarts: $NRESTARTS_BASELINE"
 
 # ─────────────────────────────────────────────────────────────────────────
-# Phase 3 — stage HEAD on the VM (git + sb binary)
+# Phase 3 — keep the installed release binary in place
+#
+# judge = the baseline release binary installed by install.sh.
+# judged = the tagged candidate at HEAD. No upload_sb_to_vm or checkout occurs:
+# the released daemon performs the genuine preswap fetch, verification, and swap.
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
-echo "── staging HEAD on the VM ──"
-HEAD_LOCAL=$(git -C "$HARNESS_ROOT" rev-parse HEAD)
-upload_sb_to_vm "$VM_NAME"
-
-# Ship HEAD as a git BUNDLE over scp — zero GitHub network dependency. The
-# runner holds the full ledger (fetch-depth 0), the VM already receives /tmp/sb
-# over the same scp transport, and tonight's 401 storms killed three runs at
-# exactly this staging step (hang → fail-fast → quoting-mangled rc). Local
-# bytes cannot 401. Delta against the baseline commit the VM's clone has;
-# HEAD == baseline is impossible (target is strictly above the baseline).
-BASE_COMMIT=$(git -C "$HARNESS_ROOT" rev-list -1 "$INSTALL_VERSION")
-BUNDLE_LOCAL=$(mktemp -t head-bundle-XXXXXX)
-git -C "$HARNESS_ROOT" update-ref refs/statbus-harness/stage-head "$HEAD_LOCAL"
-git -C "$HARNESS_ROOT" bundle create "$BUNDLE_LOCAL" refs/statbus-harness/stage-head --not "$BASE_COMMIT"
-git -C "$HARNESS_ROOT" update-ref -d refs/statbus-harness/stage-head
-scp -O "${SSH_OPTS[@]}" "$BUNDLE_LOCAL" root@"$VM_IP":/tmp/head.bundle
-rm -f "$BUNDLE_LOCAL"
-# Single-line: printf '%q' converts multi-line strings to ANSI-C $'...\n...' quoting,
-# but the remote /bin/sh (dash on Ubuntu) does not expand $'...' — newlines collapse,
-# breaking if/then/fi syntax.  Semicolons replace newlines; if COND; then CMD; fi
-# is valid single-line bash.
-VM_EXEC bash -c "cd ~/statbus && if ! git cat-file -e $HEAD_LOCAL 2>/dev/null; then git fetch /tmp/head.bundle refs/statbus-harness/stage-head; fi && git checkout $HEAD_LOCAL"
-
-# Restart the upgrade-service unit so it re-execs the freshly pre-staged HEAD
-# binary. upload_sb_to_vm (above) atomically swaps ~/statbus/sb via mv-then-cp,
-# so the STILL-RUNNING service keeps its OLD INSTALL_VERSION inode until restarted.
-# This used to be justified only by v2026.05.2 predating sbAlreadyAtCommit.
-# The algorithmic baseline may already contain that optimisation, but the restart
-# remains necessary: the supervised service must execute the staged HEAD binary,
-# not whichever older baseline inode it opened before the atomic swap. HEAD then
-# skips the build because ./sb is already at the target commit. Mirrors the
-# stop/start the supervised-unit scenarios already do (3-postswap-watchdog-reconnect).
-echo "── restarting upgrade-service unit onto the pre-staged HEAD binary ──"
-# vm_restart_unit: dumps journal + status + sb-version before returning non-zero
-# so the diagnostics land in the scenario log BEFORE the EXIT trap reaps the VM.
-vm_restart_unit "statbus-upgrade@statbus.service"
-echo "  ✓ unit active on the HEAD binary"
+echo "── keeping $INSTALL_VERSION binary as judge of $INSTALL_TARGET_TAG ──"
 
 # ─────────────────────────────────────────────────────────────────────────
-# Phase 4 — REGISTER HEAD as an upgrade candidate (the real post-086 path)
+# Phase 4 — REGISTER the tagged candidate (the real post-086 path)
 #
-# STATBUS-086 (criterion-8 real-path proof): drive the upgrade through the NEW
-# operator verbs `./sb upgrade register` + `./sb upgrade schedule` — NOT a
-# hand-INSERTed synthetic 'scheduled' row bypassing the real mechanism (the
-# former fabricate_scheduled_upgrade_row helper; deleted at zero callers,
-# STATBUS-071 P3, once every kill scenario that used it was reshaped onto the
-# arc framework's real register+schedule producer). The box is already at
-# HEAD's binary (staged + unit restarted
-# above), so it HAS register/schedule. register upserts the candidate
-# (state='available') through the SAME upsertCandidate path discovery uses, and
-# pokes the service to prepare it: NOTIFY upgrade_check → the daemon's
-# verifyArtifacts flips docker_images_status 'building'→'ready' once the four
-# per-commit service images are in the registry. That docker_images_status flip
-# is what the wait below gates on — for tagged AND untagged HEAD alike.
-# (register also sets release_builds_status='ready' for an untagged commit, but
-# that field tracks GitHub release artifacts, not the image gate the wait uses.)
-#
-# INTENTIONALLY NOT quiesced (the unattended-dispatch invariant exception): this
-# scenario tests the path where the upgrade SERVICE claims + dispatches the
-# scheduled row. The schedule below promotes the candidate → the DB trigger
-# NOTIFYs upgrade_apply → the running unit claims + runs executeUpgrade.
+# The installed release binary drives register → ready → schedule. The target is
+# a release-shaped tag, matching the operator and Norway prerelease hop.
+# INTENTIONALLY NOT quiesced: the supervised upgrade service claims the row.
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
-echo "── registering HEAD as an upgrade candidate (./sb upgrade register) ──"
-VM_EXEC bash -c "cd ~/statbus && ./sb upgrade register $HEAD_LOCAL 2>&1 | tail -20"
+echo "── registering $INSTALL_TARGET_TAG as an upgrade candidate ──"
+VM_EXEC bash -c "cd ~/statbus && ./sb upgrade register $INSTALL_TARGET_TAG 2>&1 | tail -20"
 
 echo ""
 echo "── waiting for the candidate to reach 'ready' (register → ready) ──"
@@ -202,7 +164,7 @@ wait_for_upgrade_candidate_ready "$VM_NAME" "$HEAD_SHA" "$TICK_WAIT_S"
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── scheduling the upgrade (./sb upgrade schedule) ──"
-VM_EXEC bash -c "cd ~/statbus && ./sb upgrade schedule $HEAD_LOCAL 2>&1 | tail -20"
+VM_EXEC bash -c "cd ~/statbus && ./sb upgrade schedule $INSTALL_TARGET_TAG 2>&1 | tail -20"
 
 # Wait for the row to transition to in_progress, then to a terminal state.
 echo ""
