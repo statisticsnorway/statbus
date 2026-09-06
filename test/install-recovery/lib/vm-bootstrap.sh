@@ -682,6 +682,17 @@ _dump_bootstrap_failure_diagnostics() {
 # Idempotent — safe to call again after a rebuild.
 _apply_hardening() {
     local ip="$1" sb_binary="${2:-}"
+    local deployment_mode="${HARNESS_DEPLOYMENT_MODE:-development}"
+    local upgrade_channel="${HARNESS_UPGRADE_CHANNEL:-stable}"
+
+    case "$deployment_mode" in
+        development|standalone) ;;
+        *) echo "ERROR: HARNESS_DEPLOYMENT_MODE must be development or standalone (got '$deployment_mode')" >&2; return 1 ;;
+    esac
+    case "$upgrade_channel" in
+        stable|prerelease) ;;
+        *) echo "ERROR: HARNESS_UPGRADE_CHANNEL must be stable or prerelease (got '$upgrade_channel')" >&2; return 1 ;;
+    esac
 
     echo "  waiting for cloud-init..."
     ssh "${SSH_OPTS[@]}" root@"$ip" 'cloud-init status --wait' 2>/dev/null || true
@@ -700,7 +711,7 @@ _apply_hardening() {
 DEPLOYMENT_SLOT_NAME=Install Test
 DEPLOYMENT_SLOT_CODE=test
 DEPLOYMENT_SLOT_PORT_OFFSET=1
-CADDY_DEPLOYMENT_MODE=development
+CADDY_DEPLOYMENT_MODE=__HARNESS_DEPLOYMENT_MODE__
 SITE_DOMAIN=statbus-test.local
 STATBUS_URL=https://statbus-test.local
 BROWSER_REST_URL=https://statbus-test.local
@@ -708,6 +719,10 @@ SERVER_REST_URL=http://proxy:80
 DEBUG=false
 PUBLIC_DEBUG=false
 ENVCONFIG
+    sed -i.bak \
+        -e "s/__HARNESS_DEPLOYMENT_MODE__/$deployment_mode/" \
+        "$env_config_file"
+    rm -f "$env_config_file.bak"
 
     # STATBUS-297 (fixture-era-accuracy ruling): a harness must construct
     # states history could have produced. UPGRADE_ROLE is a STATBUS-254
@@ -764,12 +779,14 @@ ENVCONFIG
     if [ -z "${BASE_SHA:-}" ] || git -C "$HARNESS_ROOT" cat-file -e "$BASE_SHA:cli/internal/config/upgrade_channel.go" 2>/dev/null; then
         cat >> "$env_config_file" << 'ENVCONFIG'
 # STATBUS-307: the channel is the setting, written exactly where it is chosen.
-# These VMs run in development MODE, which would derive "local" — but the arcs
-# need release-channel behaviour (migrationChannelClass=channelRelease), so the
+# The selected MODE may derive a different channel, but the arcs
+# need the scenario-selected release-channel behaviour (migrationChannelClass=channelRelease), so the
 # box declares stable explicitly. A written channel always wins over the mode,
 # which is precisely what this key exists for.
-UPGRADE_CHANNEL=stable
+UPGRADE_CHANNEL=__HARNESS_UPGRADE_CHANNEL__
 ENVCONFIG
+        sed -i.bak -e "s/__HARNESS_UPGRADE_CHANNEL__/$upgrade_channel/" "$env_config_file"
+        rm -f "$env_config_file.bak"
     elif git -C "$HARNESS_ROOT" merge-base --is-ancestor 733b0df4d "$BASE_SHA" 2>/dev/null; then
         cat >> "$env_config_file" << 'ENVCONFIG'
 # STATBUS-254 era: declare what the box IS; the channel is derived from it.

@@ -1,6 +1,7 @@
 #!/bin/bash
 # Scenario: 0-happy-upgrade  (baseline — no failure injection)
 # judge = <baseline release binary>, judged = <tagged candidate>
+# Shape: standalone + prerelease by default, matching rune and the Norway hop.
 #
 # Class:                 N/A (baseline regression net for the happy path)
 # Class kind:            N/A — no inject site fires
@@ -49,6 +50,8 @@
 set -euo pipefail
 
 VM_NAME="${1:-statbus-recovery-0-happy-upgrade}"
+HARNESS_DEPLOYMENT_MODE="${HARNESS_DEPLOYMENT_MODE:-standalone}"
+HARNESS_UPGRADE_CHANNEL="${HARNESS_UPGRADE_CHANNEL:-prerelease}"
 UPGRADE_BUDGET_S="${UPGRADE_BUDGET_S:-900}"
 # > tick interval (60s) + slack, times enough ticks to ride out a registry
 # transient: verifyArtifacts retries every discovery cycle, so a ghcr 401/500
