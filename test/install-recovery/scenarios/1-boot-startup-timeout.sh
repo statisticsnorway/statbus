@@ -1,5 +1,6 @@
 #!/bin/bash
 # Scenario: 1-boot-startup-timeout  (C11 / Layer 1 — TimeoutStartSec fires)
+# R1 verdict: rebaseline — this scenario tests current recovery machinery, not an old release-specific bug.
 #
 # Class:                 service-startup-slower-than-systemd-unit-timeout
 # Class kind:            Stall
@@ -26,7 +27,7 @@
 #   same code inline, bypassing the supervised unit's TimeoutStartSec).
 #
 # Trigger logic:
-#   1. Install at INSTALL_VERSION (default v2026.05.4 — keeps the
+#   1. Install at INSTALL_VERSION (dynamic release baseline — keeps the
 #      install side simple; this scenario is about the service unit's
 #      timeout shape, not the upgrade path).
 #   2. Write a systemd drop-in override pinning the C11 env vars on
@@ -65,10 +66,12 @@
 set -euo pipefail
 
 VM_NAME="${1:-statbus-recovery-1-boot-startup-timeout}"
-INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.4}"
 TIMEOUT_OBSERVE_S="${TIMEOUT_OBSERVE_S:-180}"   # TimeoutStartSec=120 + RestartSec=30 backoff + slack
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
+REPO_ROOT="$(cd "$LIB_DIR/../../.." && pwd)"
+source "$LIB_DIR/release-baseline.sh"
+INSTALL_VERSION="${INSTALL_VERSION:-$(select_release_baseline_from_repo "$REPO_ROOT")}"
 source "$LIB_DIR/vm-bootstrap.sh"
 source "$LIB_DIR/data-helpers.sh"
 source "$LIB_DIR/wedge-helpers.sh"

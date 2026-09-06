@@ -1,5 +1,6 @@
 #!/bin/bash
 # Scenario: 1-boot-advisory-too-early  (C16 / Race E — advisory lock before DB ready)
+# R1 verdict: rebaseline — this scenario tests current recovery machinery, not an old release-specific bug.
 #
 # Class:                 advisory-lock-attempted-before-db-ready-after-container-restart
 # Class kind:            External (KindExternal — no in-code inject site fires)
@@ -66,11 +67,13 @@
 set -euo pipefail
 
 VM_NAME="${1:-statbus-recovery-1-boot-advisory-too-early}"
-INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.4}"
 WAIT_S="${WAIT_S:-90}"                              # RestartSec=30 + slack
 RACE_WINDOW_DELAY_S="${RACE_WINDOW_DELAY_S:-0}"     # bump if Hetzner is too slow to hit the race
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
+REPO_ROOT="$(cd "$LIB_DIR/../../.." && pwd)"
+source "$LIB_DIR/release-baseline.sh"
+INSTALL_VERSION="${INSTALL_VERSION:-$(select_release_baseline_from_repo "$REPO_ROOT")}"
 source "$LIB_DIR/vm-bootstrap.sh"
 source "$LIB_DIR/data-helpers.sh"
 source "$LIB_DIR/wedge-helpers.sh"

@@ -1,5 +1,6 @@
 #!/bin/bash
 # Scenario: 5-install-drifted-unit-reconciled  (unit-reconcile)
+# R1 verdict: rebaseline — this scenario tests current recovery machinery, not an old release-specific bug.
 #
 # Class:                 systemd-unit-drift-not-reconciled-on-healthy-box
 # Class kind:            Reconcile (idempotent install heals drifted config)
@@ -50,9 +51,11 @@
 set -euo pipefail
 
 VM_NAME="${1:-statbus-recovery-5-install-drifted-unit-reconciled}"
-INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.4}"
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
+REPO_ROOT="$(cd "$LIB_DIR/../../.." && pwd)"
+source "$LIB_DIR/release-baseline.sh"
+INSTALL_VERSION="${INSTALL_VERSION:-$(select_release_baseline_from_repo "$REPO_ROOT")}"
 source "$LIB_DIR/vm-bootstrap.sh"
 source "$LIB_DIR/data-helpers.sh"
 source "$LIB_DIR/wedge-helpers.sh"

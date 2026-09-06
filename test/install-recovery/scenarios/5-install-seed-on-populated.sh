@@ -1,5 +1,6 @@
 #!/bin/bash
 # Scenario: 5-install-seed-on-populated  (C17 / R5 — DATA LOSS GRADE)
+# R1 verdict: rebaseline — this scenario tests current recovery machinery, not an old release-specific bug.
 #
 # Class:                 seed-restore-runs-on-populated-database-destroying-data
 # Forensics tag:         R5 (architectural)
@@ -64,9 +65,11 @@
 set -euo pipefail
 
 VM_NAME="${1:-statbus-recovery-5-install-seed-on-populated}"
-INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.2}"
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
+REPO_ROOT="$(cd "$LIB_DIR/../../.." && pwd)"
+source "$LIB_DIR/release-baseline.sh"
+INSTALL_VERSION="${INSTALL_VERSION:-$(select_release_baseline_from_repo "$REPO_ROOT")}"
 source "$LIB_DIR/vm-bootstrap.sh"
 source "$LIB_DIR/data-helpers.sh"
 source "$LIB_DIR/wedge-helpers.sh"

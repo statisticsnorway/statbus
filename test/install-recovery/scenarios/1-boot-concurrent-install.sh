@@ -1,5 +1,6 @@
 #!/bin/bash
 # Scenario: 1-boot-concurrent-install  (C10 / probe 2 live-upgrade refusal)
+# R1 verdict: rebaseline — this scenario tests current recovery machinery, not an old release-specific bug.
 #
 # Class:                 concurrent-install-attempted-during-migrate-up
 # Class kind:            Stall
@@ -19,7 +20,7 @@
 #   - the install state ladder's refuse-with-diagnostic path
 #
 # Trigger logic:
-#   1. Install at INSTALL_VERSION (default v2026.05.2 — provides a
+#   1. Install at INSTALL_VERSION (dynamic release baseline — provides a
 #      migration delta so the first upgrade actually runs migrate.up
 #      and hits the existing stall site at the top of runUp).
 #   2. Start the first install in detached tmux with
@@ -46,11 +47,13 @@
 set -euo pipefail
 
 VM_NAME="${1:-statbus-recovery-1-boot-concurrent-install}"
-INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.2}"
 STALL_MAX_WAIT_S="${STALL_MAX_WAIT_S:-300}"
 INSTALL_BUDGET_S="${INSTALL_BUDGET_S:-900}"
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
+REPO_ROOT="$(cd "$LIB_DIR/../../.." && pwd)"
+source "$LIB_DIR/release-baseline.sh"
+INSTALL_VERSION="${INSTALL_VERSION:-$(select_release_baseline_from_repo "$REPO_ROOT")}"
 source "$LIB_DIR/vm-bootstrap.sh"
 source "$LIB_DIR/data-helpers.sh"   # populate_with_demo_data (used to non-fresh the DB so the HEAD install skips its seed)
 source "$LIB_DIR/wedge-helpers.sh"

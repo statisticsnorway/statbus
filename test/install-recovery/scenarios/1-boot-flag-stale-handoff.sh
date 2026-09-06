@@ -1,5 +1,6 @@
 #!/bin/bash
 # Scenario: 1-boot-flag-stale-handoff  (C14 / R3 — install/upgrade-service mutex handoff)
+# R1 verdict: rebaseline — this scenario tests current recovery machinery, not an old release-specific bug.
 #
 # Class:                 install-flag-released-without-clean-handoff-detected-as-stale
 # Class kind:            External (no in-code inject site fires)
@@ -71,10 +72,12 @@
 set -euo pipefail
 
 VM_NAME="${1:-statbus-recovery-1-boot-flag-stale-handoff}"
-INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.4}"
 SERVICE_TICK_WAIT_S="${SERVICE_TICK_WAIT_S:-120}"   # > default tick interval (60s) + slack
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
+REPO_ROOT="$(cd "$LIB_DIR/../../.." && pwd)"
+source "$LIB_DIR/release-baseline.sh"
+INSTALL_VERSION="${INSTALL_VERSION:-$(select_release_baseline_from_repo "$REPO_ROOT")}"
 source "$LIB_DIR/vm-bootstrap.sh"
 source "$LIB_DIR/data-helpers.sh"
 source "$LIB_DIR/wedge-helpers.sh"

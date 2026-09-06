@@ -1,5 +1,6 @@
 #!/bin/bash
 # Scenario: 3-postswap-worker-ddl-deadlock  (C13 / R1 — most-damaging architectural)
+# R1 verdict: rebaseline — this scenario tests current recovery machinery, not an old release-specific bug.
 #
 # Class:                 migration-deadlocks-with-running-worker-holding-table-lock
 # Forensics tag:         R1 (architectural)
@@ -48,7 +49,7 @@
 #     pathology while waiting for lock)
 #
 # Trigger logic:
-#   1. Install at INSTALL_VERSION (default v2026.07.0-rc.05 — a recent
+#   1. Install at INSTALL_VERSION (dynamic release baseline — a current
 #      baseline with a real migration delta to HEAD, re-pinned from the
 #      stale v2026.05.2 default per the architect's 2026-07-14 assessment).
 #   2. Populate via populate_with_demo_data.
@@ -85,11 +86,13 @@
 set -euo pipefail
 
 VM_NAME="${1:-statbus-recovery-3-postswap-worker-ddl-deadlock}"
-INSTALL_VERSION="${INSTALL_VERSION:-v2026.07.0-rc.05}"
 INSTALL_BUDGET_S="${INSTALL_BUDGET_S:-900}"           # 15 min hard cap
 WORKLOAD_DURATION_S="${WORKLOAD_DURATION_S:-900}"     # match install budget
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
+REPO_ROOT="$(cd "$LIB_DIR/../../.." && pwd)"
+source "$LIB_DIR/release-baseline.sh"
+INSTALL_VERSION="${INSTALL_VERSION:-$(select_release_baseline_from_repo "$REPO_ROOT")}"
 source "$LIB_DIR/vm-bootstrap.sh"
 source "$LIB_DIR/data-helpers.sh"
 source "$LIB_DIR/wedge-helpers.sh"
