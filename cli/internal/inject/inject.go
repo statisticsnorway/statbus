@@ -149,6 +149,10 @@ func (k Kind) String() string {
 // here as kill-shape placeholders; their call sites land as scenarios
 // surface them.
 var classes = map[string]Kind{
+	// STATBUS-339 — make the real preswap target-object fetch return an error
+	// without killing the released judge process.
+	"preswap-fetch-returns-error": KindError,
+
 	// Layer 2 kill classes — process killed mid-upgrade, recovery via
 	// next-install's recoverFromFlag → forward-then-restore pipeline.
 	// The canonical "after-migration-commit-before-recorded" case is

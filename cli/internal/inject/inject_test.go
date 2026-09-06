@@ -302,6 +302,9 @@ func TestStallHere_NoOpUnmatchedName(t *testing.T) {
 
 // TestKindOf covers the basic registry lookup contract.
 func TestKindOf(t *testing.T) {
+	if k, ok := KindOf("preswap-fetch-returns-error"); !ok || k != KindError {
+		t.Errorf("KindOf(preswap fetch error class) = (%v, %v); want (KindError, true)", k, ok)
+	}
 	if k, ok := KindOf("killed-by-system-during-preswap-backup"); !ok || k != KindKill {
 		t.Errorf("KindOf(preswap-backup kill class) = (%v, %v); want (KindKill, true)", k, ok)
 	}
@@ -322,6 +325,7 @@ func TestKindOf(t *testing.T) {
 // classes; the failure message names what's missing.
 func TestRegistry_AllClassesSeeded(t *testing.T) {
 	required := map[string]Kind{
+		"preswap-fetch-returns-error": KindError,
 		// Layer 2 kill classes — placeholders for sites that land as
 		// scenarios surface them. The canonical "after-commit-before-
 		// recorded" case is modeled as two stall classes below

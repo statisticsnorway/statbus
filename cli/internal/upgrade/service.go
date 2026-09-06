@@ -6910,8 +6910,12 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 	// flag is already stamped, while the read-only window, service stops, branch
 	// pin, and backup retain their existing relative order below. A real miss gets
 	// bounded stall-detected retries here, while the old version keeps serving.
-	if err := d.ensureUpgradeCommitObjects(ctx, progress.File(), commitSHA); err != nil {
-		errMsg := fmt.Sprintf("%v", err)
+	fetchErr := inject.ErrorHere("preswap-fetch-returns-error")
+	if fetchErr == nil {
+		fetchErr = d.ensureUpgradeCommitObjects(ctx, progress.File(), commitSHA)
+	}
+	if fetchErr != nil {
+		errMsg := fmt.Sprintf("%v", fetchErr)
 		d.failUpgradeCoded(ctx, id, ErrGitFetchRetryable, errMsg, progress)
 		return fmt.Errorf("%s", errMsg)
 	}
