@@ -40,7 +40,11 @@ func TestLivePruneDeletedTags_AllPrunedRowLands(t *testing.T) {
 	if _, err := d.queryConn.Exec(ctx, "BEGIN"); err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _, _ = d.queryConn.Exec(context.Background(), "ROLLBACK") }()
+	defer func() {
+		if _, err := d.queryConn.Exec(context.Background(), "ROLLBACK"); err != nil {
+			t.Errorf("cleanup ROLLBACK: %v", err)
+		}
+	}()
 
 	const rowSHA = "8547d74fb8063c7084f98010c179c57f3dd52d95" // dev row 324308's commit
 	const movedTo = "51670d9e10000000000000000000000000000000"

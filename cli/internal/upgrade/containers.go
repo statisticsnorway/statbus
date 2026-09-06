@@ -76,7 +76,7 @@ var versionTrackedServices = []string{"db", "app", "worker", "proxy"}
 // Returns (true, nil) when every expected service is present, running,
 // and (where applicable) at the right tag. On any deviation, returns
 // (false, mismatched) with a human-readable reason per service.
-func evaluateContainersAtFlagTarget(statuses []compose.PsEntry, commitSHA, displayName string) (ok bool, mismatched []string) {
+func evaluateContainersAtFlagTarget(statuses []compose.PsEntry, commitSHA, displayName string) (ok bool, mismatched []containerCheckResult) {
 	versionTracked := make(map[string]bool, len(versionTrackedServices))
 	for _, s := range versionTrackedServices {
 		versionTracked[s] = true
@@ -96,11 +96,11 @@ func evaluateContainersAtFlagTarget(statuses []compose.PsEntry, commitSHA, displ
 	for _, svc := range expected {
 		s, found := seen[svc]
 		if !found {
-			mismatched = append(mismatched, fmt.Sprintf("%s: old version not running, new version not started yet", svc))
+			mismatched = append(mismatched, containerCheckResult{Service: svc, Reason: "old version not running, new version not started yet"})
 			continue
 		}
 		if s.State != "running" {
-			mismatched = append(mismatched, fmt.Sprintf("%s: old version not running, new version not started yet", svc))
+			mismatched = append(mismatched, containerCheckResult{Service: svc, Image: s.Image, State: s.State, Reason: "old version not running, new version not started yet"})
 			continue
 		}
 		if !versionTracked[svc] {
@@ -108,11 +108,13 @@ func evaluateContainersAtFlagTarget(statuses []compose.PsEntry, commitSHA, displ
 		}
 		tag := extractImageTag(s.Image)
 		if tag != sha8 && tag != displayName {
-			mismatched = append(mismatched, fmt.Sprintf("%s: old version running, new version not started yet", svc))
+			mismatched = append(mismatched, containerCheckResult{Service: svc, Image: s.Image, State: s.State, Reason: "old version running, new version not started yet"})
 		}
 	}
 	return len(mismatched) == 0, mismatched
 }
+
+func (r containerCheckResult) String() string { return fmt.Sprintf("%s: %s", r.Service, r.Reason) }
 
 // containersAtFlagTarget probes `docker compose ps` and reports whether
 // the production container set runs at the flag's target. Used by
@@ -122,17 +124,17 @@ func evaluateContainersAtFlagTarget(statuses []compose.PsEntry, commitSHA, displ
 //
 // Failure modes are absorbed into the (false, [...]) result — the caller
 // falls through to the existing rollback path when this returns false.
-func (d *Service) containersAtFlagTarget(ctx context.Context, flag UpgradeFlag) (bool, []string) {
+func (d *Service) containersAtFlagTarget(ctx context.Context, flag UpgradeFlag) (bool, []containerCheckResult) {
 	cmd := exec.CommandContext(ctx, "docker", "compose", "ps", "--format", "json")
 	cmd.Dir = d.projDir
 	prepareCmd(cmd)
 	out, err := cmd.Output()
 	if err != nil {
-		return false, []string{fmt.Sprintf("docker compose ps failed: %v", err)}
+		return false, []containerCheckResult{{Service: "docker", Reason: fmt.Sprintf("compose ps failed: %v", err)}}
 	}
 	statuses, perr := compose.ParsePsJSON(out)
 	if perr != nil {
-		return false, []string{fmt.Sprintf("parse docker compose ps json failed: %v", perr)}
+		return false, []containerCheckResult{{Service: "docker", Reason: fmt.Sprintf("parse compose ps json failed: %v", perr)}}
 	}
 	return evaluateContainersAtFlagTarget(statuses, flag.CommitSHA, flag.Label())
 }

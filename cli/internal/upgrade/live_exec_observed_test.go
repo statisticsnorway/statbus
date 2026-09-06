@@ -36,7 +36,11 @@ func TestLiveExecObserved_ConstraintRejectionIsOnTheJournal(t *testing.T) {
 	if _, err := d.queryConn.Exec(ctx, "BEGIN"); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _, _ = d.queryConn.Exec(context.Background(), "ROLLBACK") })
+	t.Cleanup(func() {
+		if _, err := d.queryConn.Exec(context.Background(), "ROLLBACK"); err != nil {
+			t.Errorf("cleanup ROLLBACK: %v", err)
+		}
+	})
 
 	const sha = "3470000000000000000000000000000000000081"
 	var id int

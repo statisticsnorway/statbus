@@ -211,12 +211,12 @@ func TestSuccessfulUpgradeFinishingNarrativeMatchesTargetOrder(t *testing.T) {
 }
 
 func TestOperatorServiceStateLinesMatchesTargetShape(t *testing.T) {
-	got := operatorServiceStateLines([]string{
-		"db: old version not running, new version not started yet",
-		"app: old version not running, new version not started yet",
-		"worker: old version not running, new version not started yet",
-		"proxy: old version running, new version not started yet",
-		"rest: old version not running, new version not started yet",
+	got := operatorServiceStateLines([]containerCheckResult{
+		{Service: "db", Reason: "old version not running, new version not started yet"},
+		{Service: "app", Reason: "old version not running, new version not started yet"},
+		{Service: "worker", Reason: "old version not running, new version not started yet"},
+		{Service: "proxy", Reason: "old version running, new version not started yet"},
+		{Service: "rest", Reason: "old version not running, new version not started yet"},
 	})
 	want := []string{
 		"app: old version not running, new version not started yet",

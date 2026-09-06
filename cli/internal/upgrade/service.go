@@ -1136,7 +1136,7 @@ func (d *Service) execObserved(ctx context.Context, purpose, sql string, args ..
 		log.Printf("%s: write did not land (args=%v): %v", purpose, args, err)
 		return err
 	}
-	if ct.RowsAffected() == 0 && strings.HasPrefix(strings.TrimSpace(strings.ToUpper(sql)), "UPDATE") {
+	if ct.RowsAffected() == 0 && ct.Update() {
 		// Zero rows on an UPDATE is a fact, not an error: the guard did not
 		// match. Callers that need to distinguish "already so" from "row gone"
 		// branch on the return; the log line makes the miss visible either way.
@@ -1366,31 +1366,34 @@ func ReadFlagFile(projDir string) (*UpgradeFlag, error) {
 // violation. Used to gate a single reconnect-and-retry on the final
 // state='completed' UPDATE, which can hit a stale queryConn if Docker
 // recreation RSTs the TCP socket during runInstallFixup.
-//
-// Widened for rune-stuck fix B (Apr 24): pgx surfaces a TCP RST as
-// "timeout: context already done: context canceled" when its internal
-// context-watcher fires on the dropped conn. The prior matcher looked
-// for "conn closed" / "connection reset" and missed this shape, so
-// the stale-conn retry never ran — first attempt failed, invariant
-// fired, upgrade stuck in_progress. We now also match the
-// context-cancellation sentinels via errors.Is + substring fallback
-// for pgx-wrapped variants.
 func isConnError(err error) bool {
 	if err == nil {
+		return false
+	}
+	// Caller cancellation and budget exhaustion are terminal for this attempt.
+	// Retrying with the same context can never succeed.
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return false
 	}
 	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 		return true
 	}
-	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+	if errors.Is(err, pgx.ErrTxClosed) || errors.Is(err, pgx.ErrNoRows) {
+		return false
+	}
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return false
+	}
+	if pgconn.SafeToRetry(err) {
 		return true
 	}
-	msg := err.Error()
-	return strings.Contains(msg, "conn closed") ||
-		strings.Contains(msg, "connection reset") ||
-		strings.Contains(msg, "context already done") ||
-		strings.Contains(msg, "context canceled") ||
-		strings.Contains(msg, "context deadline exceeded")
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return true
+	}
+	return errors.Is(err, net.ErrClosed) || errors.Is(err, syscall.ECONNRESET) ||
+		errors.Is(err, syscall.ECONNREFUSED) || errors.Is(err, syscall.EPIPE)
 }
 
 // IsFlockHeld tries a non-blocking LOCK_EX on the flag file. Returns true
@@ -1870,9 +1873,13 @@ func (d *Service) markImagesFailed(ctx context.Context, id int, sha, reason stri
 		var pgerr *pgconn.PgError
 		if errors.As(err, &pgerr) && pgerr.Code == "23514" && pgerr.ConstraintName == "chk_upgrade_state_attributes" {
 			var probeState, probeImgStatus string
-			_ = d.queryConn.QueryRow(ctx,
+			probeErr := d.queryConn.QueryRow(ctx,
 				"SELECT state::text, docker_images_status::text FROM public.upgrade WHERE id = $1",
 				id).Scan(&probeState, &probeImgStatus)
+			if probeErr != nil {
+				probeState, probeImgStatus = "<unreadable>", "<unreadable>"
+				log.Printf("verifyArtifacts: diagnostic probe for row %d failed: %v", id, probeErr)
+			}
 			log.Printf("verifyArtifacts: skipping docker_images_status='failed' UPDATE for commit %s: row %d has corrupted state/timestamp combination (state=%s, docker_images_status=%s, sqlstate=23514, constraint=chk_upgrade_state_attributes; reason would have been %q). Migration 20260425163029_dismiss_corrupt_upgrade_lifecycle_rows repairs these rows.",
 				ShortForDisplay(sha), id, probeState, probeImgStatus, reason)
 			tracker := NewAttemptTracker(d.projDir, 3)
@@ -1915,9 +1922,13 @@ func (d *Service) markImagesFailed(ctx context.Context, id int, sha, reason stri
 		// stuck in the spinning admin-UI shape that the invariant guards
 		// against.
 		var probeState, probeImgStatus string
-		_ = d.queryConn.QueryRow(ctx,
+		probeErr := d.queryConn.QueryRow(ctx,
 			"SELECT state::text, docker_images_status::text FROM public.upgrade WHERE id = $1",
 			id).Scan(&probeState, &probeImgStatus)
+		if probeErr != nil {
+			probeState, probeImgStatus = "<unreadable>", "<unreadable>"
+			log.Printf("verifyArtifacts: diagnostic probe for row %d failed: %v", id, probeErr)
+		}
 		log.Printf("verifyArtifacts: skipping docker_images_status='failed' UPDATE for commit %s: row %d is already in terminal state (state=%s, docker_images_status=%s; reason would have been %q)",
 			ShortForDisplay(sha), id, probeState, probeImgStatus, reason)
 		// Clear attempt counter on the silent-skip path (row already in terminal state)

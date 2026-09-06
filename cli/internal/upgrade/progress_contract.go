@@ -69,13 +69,13 @@ func formatProgressBudget(budget time.Duration) string {
 // four application-facing services. Database state has its own explicit start
 // and health line later in the sequence, so repeating its expected stopped
 // state here would add a 45th happy-path M line.
-func operatorServiceStateLines(mismatched []string) []string {
+func operatorServiceStateLines(mismatched []containerCheckResult) []string {
 	lines := make([]string, 0, len(mismatched))
 	for _, mismatch := range mismatched {
-		if strings.HasPrefix(mismatch, "db: ") {
+		if mismatch.Service == "db" {
 			continue
 		}
-		lines = append(lines, mismatch)
+		lines = append(lines, mismatch.String())
 	}
 	return lines
 }
