@@ -43,6 +43,9 @@ func TestBoxCommandClosure_AtHEADExcludesReleaseEngine_STATBUS352(t *testing.T) 
 			t.Errorf("build input %s missing from closure files", f)
 		}
 	}
+	if !has(c.Dirs, "cli/vendor") {
+		t.Errorf("cli/vendor must be an unconditional payload dir in every closure; got %v", c.Dirs)
+	}
 	// Memoized: a second call is the same value and does not re-derive.
 	again, err := BoxCommandClosureAt(repoRoot(t), c.Commit)
 	if err != nil || strings.Join(again.Dirs, ",") != strings.Join(c.Dirs, ",") {
@@ -180,5 +183,42 @@ func TestBoxPayloadRulesForRange_UnionKeepsDeletedDependency_STATBUS352(t *testi
 	}
 	if has(paths, "cli/cmd/release") {
 		t.Errorf("release package must not be in the box closure: %v", paths)
+	}
+}
+
+// STATBUS-352 final review, HIGH 1 (Luna's reproduction, kept as the
+// regression). With a vendor tree, `go build` compiles third-party code from
+// cli/vendor and never reads go.sum, so a vendored file can change the box
+// binary while go.mod and go.sum are identical. The closure probe runs in
+// module mode and drops third-party packages, so before the fix this diff
+// classified as NOT box payload and old paid evidence was inheritable.
+func TestBoxClosure_VendoredDependencyChangeIsBoxPayload_STATBUS352(t *testing.T) {
+	dir := t.TempDir()
+	gitFixture(t, dir, "init", "-q")
+	writeFile(t, dir, SensitivePathsFile, "directory | box payload | cli\n", 0o644)
+	writeFile(t, dir, "cli/go.mod", "module example.com/app\n\ngo 1.25.5\n\nrequire github.com/jackc/pgpassfile v1.0.0\n", 0o644)
+	writeFile(t, dir, "cli/go.sum", "github.com/jackc/pgpassfile v1.0.0 h1:/6Hmqy13Ss2zCq62VdNG8tM1wchn8zjSGOBJ6icpsIM=\ngithub.com/jackc/pgpassfile v1.0.0/go.mod h1:CEx0iS5ambNFdcRtxPj5JhEz+xB6uRky5eyVu/W2HEg=\n", 0o644)
+	writeFile(t, dir, "cli/main.go", "package main\n\nimport _ \"example.com/app/cmd\"\n\nfunc main() {}\n", 0o644)
+	writeFile(t, dir, "cli/cmd/root.go", "package cmd\n\nimport _ \"github.com/jackc/pgpassfile\"\n", 0o644)
+	writeFile(t, dir, "cli/cmd/release/command.go", "package releasecmd\n", 0o644)
+	writeFile(t, dir, "cli/vendor/github.com/jackc/pgpassfile/dep.go", "package pgpassfile\n\nconst Value = \"v1\"\n", 0o644)
+	writeFile(t, dir, "cli/vendor/modules.txt", "# github.com/jackc/pgpassfile v1.0.0\n## explicit; go 1.25.5\ngithub.com/jackc/pgpassfile\n", 0o644)
+	gitFixture(t, dir, "add", ".")
+	gitFixture(t, dir, "commit", "-q", "-m", "anchor")
+	anchor := gitFixture(t, dir, "rev-parse", "HEAD")
+
+	// Only the vendored source changes. go.mod and go.sum are untouched.
+	writeFile(t, dir, "cli/vendor/github.com/jackc/pgpassfile/dep.go", "package pgpassfile\n\nconst Value = \"v2 changes the box binary\"\n", 0o644)
+	gitFixture(t, dir, "add", ".")
+	gitFixture(t, dir, "commit", "-q", "-m", "target")
+	target := gitFixture(t, dir, "rev-parse", "HEAD")
+
+	changes, err := DiffSensitiveChanges(dir, anchor, target, Scenario{Name: "x", Home: WorkflowFleet})
+	if err != nil {
+		t.Fatalf("closure must classify, not fail: %v", err)
+	}
+	want := "cli/vendor/github.com/jackc/pgpassfile/dep.go"
+	if len(changes) != 1 || changes[0].Path != want || changes[0].Reason != ReasonBoxPayload {
+		t.Fatalf("a vendored dependency change must be box payload; got %v", changes)
 	}
 }

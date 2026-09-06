@@ -43,6 +43,26 @@ var cliBuildInputs = []string{
 	"cli/Makefile",
 }
 
+// cliBuildInputDirs are directories that shape the binary without being
+// module-local packages, so `go list -deps ./cmd` never names them.
+//
+// cli/vendor: when a vendor directory exists, `go build` compiles third-party
+// code FROM IT and never consults go.sum, so a vendored file can change the
+// shipped binary while go.mod and go.sum are byte-identical. The closure
+// probe below deliberately runs in module mode (-mod=readonly) and drops
+// third-party packages as "pinned by go.sum", which is exactly wrong under
+// vendoring (STATBUS-352 final review, HIGH 1). Treating the whole directory
+// as payload unconditionally was the simplest correct fix: the repository
+// does not vendor today, so this rule costs nothing, and if it ever does
+// vendor, every vendor bump reruns the fleet, which is the true answer.
+// If vendoring is adopted and that cost matters, the better design is to
+// derive the closure in the SAME module mode the release build uses
+// (Makefile / Dockerfile.sb) so vendored packages get precise rules. Build
+// that then, not before: there is no point in machinery nothing exercises.
+var cliBuildInputDirs = []string{
+	"cli/vendor",
+}
+
 // boxCommandBoundaryMarker is the file whose presence at a commit proves the
 // C1 extraction has happened there. Before it, cmd and the release engine
 // were one package and the closure is undefined: the whole cli/ tree stays
@@ -53,7 +73,8 @@ const boxCommandBoundaryMarker = "cli/cmd/release/command.go"
 type BoxCommandClosure struct {
 	Commit string
 	// Dirs are repository-relative package directories (no trailing slash)
-	// that ordinary cmd reaches, plus cliBuildInputs as exact paths in Files.
+	// that ordinary cmd reaches, plus cliBuildInputDirs. Files are
+	// cliBuildInputs as exact paths.
 	Dirs  []string
 	Files []string
 	// Broad is true when the boundary did not exist at this commit, so the
@@ -94,7 +115,11 @@ func BoxCommandClosureAt(projDir, commit string) (BoxCommandClosure, error) {
 }
 
 func deriveBoxCommandClosure(projDir, commit string) (BoxCommandClosure, error) {
-	closure := BoxCommandClosure{Commit: commit, Files: append([]string(nil), cliBuildInputs...)}
+	closure := BoxCommandClosure{
+		Commit: commit,
+		Dirs:   append([]string(nil), cliBuildInputDirs...),
+		Files:  append([]string(nil), cliBuildInputs...),
+	}
 
 	// Boundary present at this commit? A tree read, cheap, and decisive.
 	if _, err := gitShow(projDir, commit, boxCommandBoundaryMarker); err != nil {
@@ -142,7 +167,7 @@ func deriveBoxCommandClosure(projDir, commit string) (BoxCommandClosure, error) 
 			closure.Dirs = append(closure.Dirs, dir)
 		}
 	}
-	if len(closure.Dirs) == 0 {
+	if len(closure.Dirs) == len(cliBuildInputDirs) {
 		return BoxCommandClosure{}, fmt.Errorf("go list -deps ./cmd at %s reported no module-local packages — refusing an empty closure", shortSHA(commit))
 	}
 	for _, forbidden := range []string{cliRoot + "/cmd/release", cliRoot + "/internal/release"} {
