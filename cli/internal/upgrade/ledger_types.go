@@ -16,6 +16,12 @@ const (
 	UpgradeStateSuperseded UpgradeState = "superseded"
 )
 
+var allUpgradeStates = []UpgradeState{
+	UpgradeStateAvailable, UpgradeStateScheduled, UpgradeStateInProgress,
+	UpgradeStateCompleted, UpgradeStateFailed, UpgradeStateRolledBack,
+	UpgradeStateDismissed, UpgradeStateSkipped, UpgradeStateSuperseded,
+}
+
 func ParseUpgradeState(value string) (UpgradeState, error) {
 	state := UpgradeState(value)
 	switch state {
@@ -38,6 +44,10 @@ const (
 	ReleaseStatusRelease    ReleaseStatus = "release"
 )
 
+var allReleaseStatuses = []ReleaseStatus{
+	ReleaseStatusCommit, ReleaseStatusPrerelease, ReleaseStatusRelease,
+}
+
 func ParseReleaseStatus(value string) (ReleaseStatus, error) {
 	status := ReleaseStatus(value)
 	switch status {
@@ -58,6 +68,10 @@ const (
 	DockerImagesStatusFailed   DockerImagesStatus = "failed"
 )
 
+var allDockerImagesStatuses = []DockerImagesStatus{
+	DockerImagesStatusBuilding, DockerImagesStatusReady, DockerImagesStatusFailed,
+}
+
 func ParseDockerImagesStatus(value string) (DockerImagesStatus, error) {
 	status := DockerImagesStatus(value)
 	switch status {
@@ -77,6 +91,10 @@ const (
 	ReleaseBuildsStatusReady    ReleaseBuildsStatus = "ready"
 	ReleaseBuildsStatusFailed   ReleaseBuildsStatus = "failed"
 )
+
+var allReleaseBuildsStatuses = []ReleaseBuildsStatus{
+	ReleaseBuildsStatusBuilding, ReleaseBuildsStatusReady, ReleaseBuildsStatusFailed,
+}
 
 func ParseReleaseBuildsStatus(value string) (ReleaseBuildsStatus, error) {
 	status := ReleaseBuildsStatus(value)

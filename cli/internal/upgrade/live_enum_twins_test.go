@@ -17,10 +17,10 @@ func TestLiveEnumTwins(t *testing.T) {
 		pgType string
 		goSet  []string
 	}{
-		{"upgrade_state", []string{UpgradeStateAvailable.String(), UpgradeStateScheduled.String(), UpgradeStateInProgress.String(), UpgradeStateCompleted.String(), UpgradeStateFailed.String(), UpgradeStateRolledBack.String(), UpgradeStateDismissed.String(), UpgradeStateSkipped.String(), UpgradeStateSuperseded.String()}},
-		{"release_status_type", []string{ReleaseStatusCommit.String(), ReleaseStatusPrerelease.String(), ReleaseStatusRelease.String()}},
-		{"docker_images_status_type", []string{DockerImagesStatusBuilding.String(), DockerImagesStatusReady.String(), DockerImagesStatusFailed.String()}},
-		{"release_builds_status_type", []string{ReleaseBuildsStatusBuilding.String(), ReleaseBuildsStatusReady.String(), ReleaseBuildsStatusFailed.String()}},
+		{"upgrade_state", enumStrings(allUpgradeStates)},
+		{"release_status_type", enumStrings(allReleaseStatuses)},
+		{"docker_images_status_type", enumStrings(allDockerImagesStatuses)},
+		{"release_builds_status_type", enumStrings(allReleaseBuildsStatuses)},
 	}
 
 	projDir := findProjDir(t)
@@ -72,6 +72,14 @@ func TestLiveEnumTwins(t *testing.T) {
 			}
 		})
 	}
+}
+
+func enumStrings[T ~string](values []T) []string {
+	strings := make([]string, len(values))
+	for i, value := range values {
+		strings[i] = string(value)
+	}
+	return strings
 }
 
 func setDifference(left, right map[string]struct{}) []string {
