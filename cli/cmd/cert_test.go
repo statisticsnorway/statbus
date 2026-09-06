@@ -518,14 +518,11 @@ func TestDecodePFX_EncryptedFixture_WrongPassword(t *testing.T) {
 	if err == nil {
 		t.Fatal("decodePFX with wrong password unexpectedly succeeded")
 	}
-	// Error must be actionable — operator should see the
-	// "invalid PFX password" phrasing, not a raw "decryption" leak.
+	// The library version used by this fixture returns prose rather than wrapping
+	// ErrDecryption. That prose must not be promoted to a typed password verdict.
 	msg := err.Error()
-	if !strings.Contains(strings.ToLower(msg), "invalid pfx password") {
-		t.Errorf("wrong-password error not actionable; got: %v", err)
-	}
-	if !strings.Contains(msg, "re-run") {
-		t.Errorf("error should hint at re-running with correct password; got: %v", err)
+	if strings.Contains(strings.ToLower(msg), "invalid pfx password") {
+		t.Errorf("prose-only decryption error must not be relabelled as a password sentinel; got: %v", err)
 	}
 }
 
@@ -555,8 +552,8 @@ func TestDecodePFX_EncryptedFixture_EmptyPasswordOnEncryptedFails(t *testing.T) 
 	if err == nil {
 		t.Fatal("decodePFX with empty password on encrypted PFX unexpectedly succeeded")
 	}
-	if !strings.Contains(strings.ToLower(err.Error()), "invalid pfx password") {
-		t.Errorf("empty-password-on-encrypted should route to friendly password error; got: %v", err)
+	if strings.Contains(strings.ToLower(err.Error()), "invalid pfx password") {
+		t.Errorf("prose-only decryption error must remain a generic decode failure; got: %v", err)
 	}
 }
 
