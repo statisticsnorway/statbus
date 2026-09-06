@@ -90,9 +90,9 @@ func runMigrateUp(migrateTo int64, all bool, targetExplicit bool) error {
 	// os.Exit skips the deferred env-var restore above; that's fine, the
 	// process is terminating. Mirrors cobra's own "Error: %v" stderr
 	// format for operator-facing parity.
-	if migrate.ClassifyUpErr(err) == migrate.ExitDeterministic {
+	if exitCode := migrate.ClassifyUpErr(err); exitCode == migrate.ExitDeterministic || exitCode == migrate.ExitResource {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(migrate.ExitDeterministic)
+		os.Exit(exitCode)
 	}
 
 	// STATBUS-156: a distinct, separate exit-code boundary from the check

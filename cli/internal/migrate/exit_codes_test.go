@@ -44,9 +44,6 @@ func TestClassifyUpErr_PsqlExit3_Deterministic(t *testing.T) {
 }
 
 func TestClassifyUpErr_PsqlExit3_WrappedLikeRunUp(t *testing.T) {
-	// runUp wraps runPsqlFile's error with fmt.Errorf("migration %d (%s)
-	// failed: %w\n%s", ...) — mirror that shape exactly so this test would
-	// catch a future wrap that breaks errors.As unwrapping.
 	raw := exitErrWithCode(t, 3)
 	wrapped := fmt.Errorf("migration %d (%s) failed: %w\n%s", 20260703104910, "some.up.sql", raw, "psql output")
 	if got := ClassifyUpErr(wrapped); got != ExitDeterministic {
@@ -69,11 +66,18 @@ func TestClassifyUpErr_PsqlExit2_Unclassified(t *testing.T) {
 }
 
 func TestClassifyUpErr_NonExitError_Unclassified(t *testing.T) {
-	// e.g. migration file wouldn't open, advisory-lock acquisition failed,
-	// content-hash immutability violation — none of these carry a psql
-	// exit code at all.
 	err := errors.New("open migration file: no such file or directory")
 	if got := ClassifyUpErr(err); got != ExitUnclassified {
 		t.Errorf("ClassifyUpErr(non-ExitError) = %d, want ExitUnclassified (%d)", got, ExitUnclassified)
+	}
+}
+
+func TestClassifyUpErr_ResourceSQLState(t *testing.T) {
+	err := &UpFailure{Class: UpFailureResource, Err: exitErrWithCode(t, 3)}
+	if got := ClassifyUpErr(err); got != ExitResource {
+		t.Fatalf("ClassifyUpErr(resource)=%d, want %d", got, ExitResource)
+	}
+	if got := extractSQLState("ERROR:  53100: disk full"); got != "53100" {
+		t.Fatalf("extractSQLState=%q, want 53100", got)
 	}
 }

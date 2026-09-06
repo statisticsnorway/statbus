@@ -2,8 +2,27 @@ package migrate
 
 import (
 	"errors"
+	"fmt"
 	"os/exec"
 )
+
+type UpFailureClass uint8
+
+const (
+	UpFailureUnclassified UpFailureClass = iota
+	UpFailureDeterministic
+	UpFailureResource
+)
+
+type UpFailure struct {
+	Class UpFailureClass
+	Err   error
+}
+
+func (e *UpFailure) Error() string {
+	return fmt.Sprintf("migration failed (class=%d): %v", e.Class, e.Err)
+}
+func (e *UpFailure) Unwrap() error { return e.Err }
 
 // STATBUS-046 slice 2 (architect Q5) — the `sb migrate up` FAILURE-CLASS EXIT-CODE
 // CONTRACT. This is the SHARED surface between the producer (`sb migrate up`,
@@ -67,6 +86,15 @@ const (
 func ClassifyUpErr(err error) int {
 	if err == nil {
 		return ExitSuccess
+	}
+	var failure *UpFailure
+	if errors.As(err, &failure) {
+		switch failure.Class {
+		case UpFailureResource:
+			return ExitResource
+		case UpFailureDeterministic:
+			return ExitDeterministic
+		}
 	}
 	var exitErr *exec.ExitError
 	if errors.As(err, &exitErr) && exitErr.ExitCode() == 3 {

@@ -241,7 +241,7 @@ func runPsql(projDir string, sql string, extraArgs ...string) (string, error) {
 		return "", err
 	}
 
-	args := append(prefix, "-v", "ON_ERROR_STOP=on")
+	args := append(prefix, "-v", "ON_ERROR_STOP=on", "-v", "VERBOSITY=verbose")
 	args = append(args, extraArgs...)
 	// STATBUS-110: exempt migrate's write sessions (ensureMigrationTable, the
 	// db.migration bookkeeping INSERT) from the read-only upgrade window.
@@ -252,7 +252,24 @@ func runPsql(projDir string, sql string, extraArgs ...string) (string, error) {
 	cmd.Stdin = strings.NewReader(sql)
 
 	out, err := cmd.CombinedOutput()
-	return string(out), err
+	if err != nil {
+		class := UpFailureDeterministic
+		if sqlState := extractSQLState(string(out)); strings.HasPrefix(sqlState, "53") {
+			class = UpFailureResource
+		}
+		return string(out), &UpFailure{Class: class, Err: err}
+	}
+	return string(out), nil
+}
+
+var verboseSQLStateRE = regexp.MustCompile(`(?m)(?:ERROR|FATAL):\s+([0-9A-Z]{5}):`)
+
+func extractSQLState(stderr string) string {
+	match := verboseSQLStateRE.FindStringSubmatch(stderr)
+	if len(match) != 2 {
+		return ""
+	}
+	return match[1]
 }
 
 // SetTargetDB captures POSTGRES_APP_DB/PGDATABASE from the process env, then
@@ -571,7 +588,7 @@ func runPsqlFile(projDir string, filePath string) (string, error) {
 	}
 	defer func() { _ = file.Close() }()
 
-	args := append(prefix, "-v", "ON_ERROR_STOP=on")
+	args := append(prefix, "-v", "ON_ERROR_STOP=on", "-v", "VERBOSITY=verbose")
 
 	// #14: tag the psql backend's application_name so a migrate-timeout can
 	// terminate the orphaned in-container backend (see migrateSubprocessAppName).
@@ -620,7 +637,14 @@ func runPsqlFile(projDir string, filePath string) (string, error) {
 	if ctx.Err() == context.DeadlineExceeded {
 		return string(out), fmt.Errorf("migration %s exceeded the 60-minute hard timeout (statement hung?): %w", filepath.Base(filePath), err)
 	}
-	return string(out), err
+	if err != nil {
+		class := UpFailureDeterministic
+		if sqlState := extractSQLState(string(out)); strings.HasPrefix(sqlState, "53") {
+			class = UpFailureResource
+		}
+		return string(out), &UpFailure{Class: class, Err: err}
+	}
+	return string(out), nil
 }
 
 // listMigrationFiles returns sorted, de-duplicated migration files from projDir/migrations/.
