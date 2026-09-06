@@ -32,6 +32,7 @@
  recovery_attempts        | integer                    |           | not null | 0                                      | plain    |             |              | 
  recovery_parked_at       | timestamp with time zone   |           |          |                                        | plain    |             |              | 
  recovery_parked_reason   | text                       |           |          |                                        | extended |             |              | 
+ failure_code             | upgrade_failure_code       |           |          |                                        | plain    |             |              |
 Indexes:
     "upgrade_pkey" PRIMARY KEY, btree (id)
     "upgrade_commit_sha_key" UNIQUE CONSTRAINT, btree (commit_sha)
@@ -84,6 +85,5 @@ Triggers:
     upgrade_state_log_trigger AFTER UPDATE ON upgrade FOR EACH ROW WHEN (old.state IS DISTINCT FROM new.state OR old.recovery_parked_at IS DISTINCT FROM new.recovery_parked_at) EXECUTE FUNCTION upgrade_state_log_capture()
 Access method: heap
 
-```
 
-**Comment:** Commit-centric software upgrade lifecycle. Each row is a commit (which may also be a tagged release). Populated by upgrade daemon, managed by admin. tags[] holds git tags on this commit (e.g. v0.78.0-rc.1). release_status derived from tags: commit (no release tag), prerelease, or release. To accept: SET scheduled_at. To unschedule: SET scheduled_at = NULL. To retry after failure: SET started_at = NULL, error = NULL, scheduled_at = now().
+```

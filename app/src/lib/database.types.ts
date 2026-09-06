@@ -6006,6 +6006,7 @@ export type Database = {
           docker_images_downloaded: boolean
           docker_images_status: Database["public"]["Enums"]["docker_images_status_type"]
           error: string | null
+          failure_code: Database["public"]["Enums"]["upgrade_failure_code"] | null
           from_commit_version: string | null
           has_migrations: boolean
           id: number
@@ -6038,6 +6039,7 @@ export type Database = {
           docker_images_downloaded?: boolean
           docker_images_status?: Database["public"]["Enums"]["docker_images_status_type"]
           error?: string | null
+          failure_code?: Database["public"]["Enums"]["upgrade_failure_code"] | null
           from_commit_version?: string | null
           has_migrations?: boolean
           id?: never
@@ -6070,6 +6072,7 @@ export type Database = {
           docker_images_downloaded?: boolean
           docker_images_status?: Database["public"]["Enums"]["docker_images_status_type"]
           error?: string | null
+          failure_code?: Database["public"]["Enums"]["upgrade_failure_code"] | null
           from_commit_version?: string | null
           has_migrations?: boolean
           id?: never
@@ -15889,6 +15892,24 @@ export type Database = {
           | "failed",
       time_context_type: "relative_period" | "tag" | "year",
       upgrade_actor_source: "verified" | "self-reported" | "absent",
+      upgrade_failure_code:
+          | "MIGRATION_FAILED"
+          | "BACKUP_FAILED"
+          | "DOCKER_UP_FAILED"
+          | "HEALTHCHECK_REST_DOWN"
+          | "HEALTHCHECK_APP_DOWN"
+          | "HEALTHCHECK_DB_DOWN"
+          | "ROLLBACK_FAILED_GIT_CORRUPT"
+          | "ROLLBACK_FAILED_DB_RESTORE"
+          | "UPGRADE_STOPPED_NOTHING_CHANGED"
+          | "ROLLBACK_FAILED_SERVICES_UP"
+          | "ROLLBACK_FAILED_SERVICES_NOT_STOPPED"
+          | "ROLLBACK_FAILED_BINARY_CORRUPT"
+          | "BINARY_REPLACE_FAILED"
+          | "BINARY_BUILD_FAILED"
+          | "INSTALL_FIXUP_FAILED"
+          | "GIT_FETCH_FAILED_RETRYABLE"
+          | "INSTALL_PRECONDITION_FAILED",
       upgrade_state: 
           | "available"
           | "scheduled"
@@ -16218,6 +16239,25 @@ export const Constants = {
       ],
       time_context_type: ["relative_period", "tag", "year"],
       upgrade_actor_source: ["verified", "self-reported", "absent"],
+      upgrade_failure_code: [
+        "MIGRATION_FAILED",
+        "BACKUP_FAILED",
+        "DOCKER_UP_FAILED",
+        "HEALTHCHECK_REST_DOWN",
+        "HEALTHCHECK_APP_DOWN",
+        "HEALTHCHECK_DB_DOWN",
+        "ROLLBACK_FAILED_GIT_CORRUPT",
+        "ROLLBACK_FAILED_DB_RESTORE",
+        "UPGRADE_STOPPED_NOTHING_CHANGED",
+        "ROLLBACK_FAILED_SERVICES_UP",
+        "ROLLBACK_FAILED_SERVICES_NOT_STOPPED",
+        "ROLLBACK_FAILED_BINARY_CORRUPT",
+        "BINARY_REPLACE_FAILED",
+        "BINARY_BUILD_FAILED",
+        "INSTALL_FIXUP_FAILED",
+        "GIT_FETCH_FAILED_RETRYABLE",
+        "INSTALL_PRECONDITION_FAILED"
+      ],
       upgrade_state: [
         "available",
         "scheduled",
