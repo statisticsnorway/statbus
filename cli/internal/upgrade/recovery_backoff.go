@@ -410,6 +410,9 @@ func (c StepErrorClass) String() string {
 // re-run → roll back. Everything NOT here is unknown-by-default. Kept small and
 // concrete on purpose — over-building a retry story around the deterministic
 // subprocess migrate is out of scope (doc-022 §5 scope note).
+// ACCEPTABLE-CONTRACT (STATBUS-349): producer is the forward upgrade step's
+// diagnostic narrative; this label is display-only and observed state, not
+// prose, controls rollback direction.
 var persistentStepSignatures = []string{
 	"already exists",
 	"does not exist",
