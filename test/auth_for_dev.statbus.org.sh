@@ -15,7 +15,7 @@ cd "$WORKSPACE"
 
 # Credentials will be fetched by the Python script.
 
-# Set up Python virtual environment (same as auth_for_standalone.sh)
+# Set up Python virtual environment (shared by remote authentication tests)
 VENV_DIR="$WORKSPACE/.venv"
 
 if [ ! -d "$VENV_DIR" ]; then

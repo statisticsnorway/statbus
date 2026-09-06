@@ -714,7 +714,7 @@ knobs:
   the upgrade context, firing the deferred `rollback()` (a Norway-sized `pg_restore` can
   take 5–10 min). A long-but-clean stop beats a fast-but-corrupted one. **This is exactly
   why nothing may pre-stop the service around an install**: the deploy scripts never issue
-  `systemctl stop` (STATBUS-040 standalone.sh, STATBUS-041 cloud.sh), and install's own
+  `systemctl stop` (STATBUS-040 dedicated-host tool, STATBUS-041 cloud tool), and install's own
   takeover of a crash-looping unit is SIGKILL-class — no handler runs, no rollback fires.
 - `StartLimitIntervalSec` / `StartLimitBurst` — this cap guards **repeated daemon-start
   failures only** (e.g. the DB is down at boot, so the service can't reach `READY=1`). It is

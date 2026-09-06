@@ -109,8 +109,8 @@ The NO per-cycle journal (914 cycles, pid 711407) sharpens exactly *what* fails:
 > stop-first sequence.]** The `stop_upgrade_service → install` path described below was the
 > deploy-stop footgun: `systemctl stop` is SIGTERM, which an in-flight upgrade answers with
 > a rollback (snapshot restore over the live DB). Both deploy scripts had the pre-stop
-> REMOVED (standalone.sh in STATBUS-040/f5b697928, cloud.sh in STATBUS-041/e99c283a6).
-> Post-039 (5eacd6305) the current recovery is simply `./standalone.sh install <name>` —
+> REMOVED (dedicated-host tool in STATBUS-040/f5b697928, cloud tool in STATBUS-041/e99c283a6).
+> Post-039 (5eacd6305) the current recovery is simply `./cloud.sh install <name>` —
 > `./sb install` itself takes over a crash-looping unit SIGKILL-class and refuses a
 > genuinely-progressing one. See `doc/upgrade-timeline.md`.
 
@@ -119,10 +119,10 @@ NO is wedged on a pre-fix binary; it must land a *fixed* binary, have its loop s
 > **The normal CI deploy will NOT unwedge the currently-wedged NO (confirmed).** `master-to-rune-no.yaml` force-pushes master → `ops/standalone/deploy/rune-no` → `deploy-to-rune-no.yaml` runs `./sb upgrade apply-latest`, which sends a `NOTIFY upgrade_apply` to the *service*. But NO right now runs the **pre-fix** binary and loops pre-`READY=1`, where it **never establishes the listening PG connection** (that happens in the main loop, post-`READY=1`), so it **cannot receive the NOTIFY**. An operator MUST run the manual install path below. (Pushing the fixed commit to the deploy branch is still the prerequisite — it's where `install.sh` fetches from — but the NOTIFY half is inert against the wedged pre-fix service.) *Note: Option Y (§4a) fixes this going forward — it moves `LISTEN`+`READY=1` ahead of recovery, so a post-fix service buffers NOTIFYs that arrive during recovery instead of losing them. The inertness is a property of the pre-fix code NO is stuck on.*
 
 1. **Land the fix first:** push master → `ops/standalone/deploy/rune-no` so rune's deploy branch points at a binary containing the §4a fix. *(Prerequisite — `install.sh` checks the tree out from here; without the fix, recovery re-wedges.)*
-2. **Run `./standalone.sh install rune-no`** (doc/CLOUD.md:740). Operator-confirmed this wraps the full unwedge: it SSHes to rune, **stops the upgrade unit** (`systemctl --user stop`, before binary replacement — avoids text-file-busy and stops the competing resume), **then `install.sh` updates the working tree to the deploy-branch HEAD** (`git fetch` + `git checkout -B current <ref>`, install.sh ~165/224 — tree-update-before-install **confirmed YES**), then runs **`./sb install`**, then `ensure_service_started`. Idempotent — safe to re-run.
+2. **Run `./cloud.sh install no`** (doc/CLOUD.md:740). Operator-confirmed this wraps the full unwedge: it SSHes to rune, **stops the upgrade unit** (`systemctl --user stop`, before binary replacement — avoids text-file-busy and stops the competing resume), **then `install.sh` updates the working tree to the deploy-branch HEAD** (`git fetch` + `git checkout -B current <ref>`, install.sh ~165/224 — tree-update-before-install **confirmed YES**), then runs **`./sb install`**, then `ensure_service_started`. Idempotent — safe to re-run.
 3. **What `./sb install` does on NO:** `install.Detect` = `StateCrashedUpgrade` (flag present, holder PID dead after the stop) → `RecoverFromFlag`. Here the row-187 outcome is **COMPLETED (self-healed), not failed** (operator-confirmed): `flag.CommitSHA` = rc.01 target; after the checkout, HEAD is a *descendant* of rc.01, so `recoverFromFlag`'s `merge-base --is-ancestor` (`service.go:765`) returns true → the "code advanced past target = success" branch marks row 187 **`completed`** and removes the flag. Install then re-`Detect`s; with no pending row it lands `StateNothingScheduled` and NO is simply *running the fixed binary, healthy* — the "upgrade to the fixed version" happened via the install checkout, not a scheduled-upgrade row. **NO converges.** (If a newer version is *also* scheduled, that dispatches next under the fixed binary, whose resume now runs `archiveBackup` active-phase per §4a.)
 
-Net: one operator command (`./standalone.sh install rune-no`) after pushing the fix unwedges NO; row 187 ends `completed` (honest — the box is at-or-past rc.01); no manual DB writes.
+Net: one operator command (`./cloud.sh install no`) after pushing the fix unwedges NO; row 187 ends `completed` (honest — the box is at-or-past rc.01); no manual DB writes.
 
 ---
 

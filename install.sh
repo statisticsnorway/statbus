@@ -55,7 +55,7 @@ export GIT_TERMINAL_PROMPT=0
 
 # Merge stderr → stdout so every error (git, curl, ./sb) reaches the
 # operator regardless of how the script was invoked. The primary path is
-# `curl | bash` over SSH, where standalone.sh / cloud.sh capture SSH's
+# `curl | bash` over SSH, where cloud.sh captures SSH's
 # stdout+stderr via `2>&1` on the outer SSH call. Without this merge,
 # there is a narrow window where SSH closes its stderr channel before the
 # remote process fully flushes — swallowing e.g. "pathspec 'v…' did not
@@ -80,7 +80,7 @@ trap 'rc=$?; echo "" >&2; echo "install.sh FAILED at line $LINENO: $BASH_COMMAND
 #                    Harness + developer audience; operators use stable/prerelease.
 # No flag            equivalent to --channel stable.
 # --prerelease       REMOVED. Prints a rename notice and exits 1. Callers must
-#                    switch to --channel prerelease (cloud.sh + standalone.sh
+#                    switch to --channel prerelease (cloud.sh already does so
 #                    already do so post-rc.62).
 VERSION=""
 CHANNEL=""

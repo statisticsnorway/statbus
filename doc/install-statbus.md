@@ -174,9 +174,8 @@ Rationale for the shape:
 
 Migration note (rc.62): `--prerelease` was renamed to
 `--channel prerelease`. The old flag now prints an error message
-pointing at the new form and exits 1. `cloud.sh` and `standalone.sh`
-were updated in the same commit, so operator workflows that shell out
-to those scripts continue working without change.
+pointing at the new form and exits 1. The unified `cloud.sh` fleet tool
+was updated in the same commit, so operator workflows continue working.
 
 ### Updating install.sh
 

@@ -717,22 +717,22 @@ New standalone boxes should follow the same spirit (short word with a tie to the
 
 ## Operating a standalone instance
 
-Two entry points, both available from the repo root:
+One fleet-level entry point is available from the repo root:
 
-**`./standalone.sh`** — fleet-level operator tool parallel to `./cloud.sh`. For when you're driving an operation from your workstation:
+**`./cloud.sh`** — unified operator tool for both the multi-tenant cloud slots and dedicated standalone hosts:
 
 ```bash
-./standalone.sh status              # sb version on every registered host
-./standalone.sh notify              # tell hosts to check for updates
-./standalone.sh upgrade             # force every host to apply latest
-./standalone.sh install rune-no     # re-run install.sh on rune (pinned or prerelease)
-./standalone.sh install all         # same for every host
-./standalone.sh inspect             # show hosts, served domains, and slot codes
-./standalone.sh wipe rune-no        # DESTRUCTIVE: delete DB and recreate (confirm prompt)
-./standalone.sh ssh rune-no         # interactive shell as statbus@rune.statbus.org
+./cloud.sh status                  # version, channel, name, and group for all boxes
+./cloud.sh notify standalone       # tell standalone hosts to check for updates
+./cloud.sh upgrade cloud           # force cloud slots to apply latest
+./cloud.sh install no              # re-run install.sh on rune (pinned or prerelease)
+./cloud.sh install all             # same for the complete fleet
+./cloud.sh inspect cloud           # cloud-slot credentials and URLs
+./cloud.sh import no selection     # schedule the Norway BRREG sample import
+./cloud.sh ssh no                  # interactive shell as statbus@rune.statbus.org
 ```
 
-The registry of hosts lives near the top of `standalone.sh` as a simple `HOSTS=()` array — one line per host with `name|ssh_fqdn|served_domain|slot_code`. Add a new host: append a line.
+The unified `FLEET_REGISTRY=()` near the top of `cloud.sh` has one `code|group|ssh_target|public_domain` entry per box. Add a new host by appending one entry; channel and display name are always read from the box.
 
 **Direct `./sb`** — when you want to run a specific operation on the host itself. Log in as the `statbus` service account (created by Stage 7 of `setup-ubuntu-lts-24.sh`):
 
