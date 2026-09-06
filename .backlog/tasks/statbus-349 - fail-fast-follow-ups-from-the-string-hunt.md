@@ -1,12 +1,12 @@
 ---
 id: STATBUS-349
 title: >-
-  fail-fast follow-ups from the string hunt: dead migrate exit 22, apply-latest's
-  second tag classifier, isConnError by prose, and 15 smells
+  receive meaning from types, never guess it from text: enum types for the
+  upgrade ledger, a failure_code column, and the remaining loose-string sites
 status: To Do
 assignee: []
 created_date: '2026-09-03 22:01'
-updated_date: '2026-09-03 22:01'
+updated_date: '2026-09-06 09:45'
 labels:
   - upgrade
   - release
@@ -22,16 +22,156 @@ ordinal: 342000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Luna's repo-wide hunt (2026-09-03, tmp/luna-string-hunt.md, attached below verbatim) for the class the King retired on STATBUS-347/348: decisions carried in loose strings, nullable columns scanned into non-nullable Go types, exit codes shared between "refused to start" and "decided", discarded SQL results. Three DEFECTs are deferred here because they are pre-existing, not introduced tonight, and not release-gating; the 15 SMELLs are the backlog of "a type belongs here".
+## The principle
 
-King's creed (rationale for every item): actionable fail-fast; make the invalid impossible to express; no loose string matching.
+A program fails fast when it refuses to represent a state it cannot handle.
+The tool for that is the type system. If a value can be one of nine things,
+it is a type with nine constants and the compiler rejects a tenth. If two
+outcomes mean different things, they are different values a caller cannot
+confuse.
 
-Deferred DEFECTs:
-- D4: cli/internal/migrate/exit_codes.go declares ExitResource=22 for SQLSTATE class 53 but no producer emits it; a resource failure is labelled deterministic/20. Fix at the psql-owning boundary with a typed failure class.
-- D5: cli/cmd/upgrade.go apply-latest has its own looser tag classifier (skips '-' on stable; accepts any v* on prerelease) beside the authoritative upgrade.ClassifyReleaseShape; a v2026.09.1-beta.1 could be applied on a prerelease box. Route through the shared classifier.
-- D6: cli/internal/upgrade/service.go isConnError classifies context.Canceled / DeadlineExceeded and prose substrings as transport faults and retries them with an already-expired ctx. Distinguish context termination first; use errors.Is/As against pgx/pgconn/net sentinels.
+The bug class this ticket removes is the opposite: deciding by looking at
+text. `contains "healthy"` matches `unhealthy`. `contains "connection reset"`
+breaks when a library rewords. A retryability decision hidden inside a
+human-readable error message changes when someone edits the sentence.
+In every case the program is guessing meaning from prose instead of
+receiving meaning from a type.
 
-Acceptance: each DEFECT fixed with a red-then-green test; each SMELL either fixed with the proposed type or explicitly ruled ACCEPTABLE-CONTRACT with the producer cited in code.
+Luna's repo-wide hunt (2026-09-03, appended verbatim below) found 21 such
+sites. Three (D1, D2, D3) were fixed by STATBUS-347/348/352. This ticket
+disposes of the remaining 18: each is either FIXED with the type, or ruled
+ACCEPTABLE-CONTRACT with the reason written at the site in code.
+
+## Ground truth, so nobody has to rediscover it
+
+### The upgrade ledger already has four enum types in PostgreSQL
+
+`public.upgrade` carries four columns whose PostgreSQL type is an enum.
+The database is already the source of truth for the allowed values.
+
+| Column | PostgreSQL enum type | Values (in enum order) |
+|---|---|---|
+| `state` | `upgrade_state` | available, scheduled, in_progress, completed, failed, rolled_back, dismissed, skipped, superseded |
+| `release_status` | `release_status_type` | commit, prerelease, release |
+| `docker_images_status` | `docker_images_status_type` | building, ready, failed |
+| `release_builds_status` | `release_builds_status_type` | building, ready, failed |
+
+Go reads all four as plain `string` (`SELECT state::text ...`), then compares
+with string literals. **There is no schema change needed for these four.**
+The work is Go-only: declare a Go type per enum with one constant per
+value, scan into it at the pgx boundary, and refuse any value that is not
+one of the constants.
+
+### One machine decision lives inside prose today
+
+`public.upgrade.error` is nullable human text. When the service fails an
+upgrade it writes `<CODE>: <prose>` into it, where `<CODE>` is one of the
+seventeen Go string constants in `cli/internal/upgrade/service.go`
+(`ErrMigrationFailed = "MIGRATION_FAILED"`, `ErrBackupFailed`,
+`ErrGitFetchRetryable = "GIT_FETCH_FAILED_RETRYABLE"`, ...). Later, to decide
+whether the operator may safely reschedule, the code checks whether the
+text starts with `GIT_FETCH_FAILED_RETRYABLE:`.
+
+That is a decision keyed on the shape of a sentence. **This is the only
+item in the ticket that needs a migration:** a new PostgreSQL enum
+`upgrade_failure_code` with exactly those seventeen values, a nullable
+`failure_code` column on `public.upgrade`, the service writing the code into
+the column and only prose into `error`, and the reschedule decision reading
+the column.
+
+### Why both halves need the same test
+
+Both halves create a PostgreSQL enum with a Go twin. The twin drifts the
+moment someone adds a value on one side only. So this ticket adds one
+test that reads every enum's labels from the database
+(`pg_enum` joined to `pg_type`) and asserts the Go type's constant set is
+exactly equal. Run it under `STATBUS_LIVE_DB=1` like the existing live
+tests in `cli/internal/upgrade/live_*_test.go`. Four enums today, five after
+the migration; the test is table-driven so a sixth is one line.
+
+## Work
+
+### W1. Go types for the four existing enums (Go only, no migration)
+
+- `cli/internal/upgrade/ledger_types.go`: `UpgradeState`, `ReleaseStatus`,
+  `DockerImagesStatus`, `ReleaseBuildsStatus`, each `type X string` with
+  exhaustive constants and a `Parse` function that returns an error for any
+  other value.
+- Every `::text` scan in `service.go`, `containers.go`, and
+  `install/state.go` that reads one of these columns scans through `Parse`.
+  Luna's report lists the sites (S3).
+- Every string-literal comparison against these values becomes a constant
+  comparison. The compiler then finds the rest.
+
+### W2. `failure_code` (one migration plus Go)
+
+- Migration: `CREATE TYPE public.upgrade_failure_code AS ENUM (...)` with the
+  seventeen existing codes in their declared order; `ALTER TABLE
+  public.upgrade ADD COLUMN failure_code upgrade_failure_code NULL`. Down
+  migration drops both. No data backfill: existing rows keep their prose;
+  the new column is NULL for them, and the reader treats NULL as
+  "unknown, do not offer reschedule advice" (the conservative direction).
+- Go: `UpgradeFailureCode` type with the seventeen constants, replacing the
+  bare string constants. The service writes `failure_code` and puts only
+  the prose in `error`. The reschedule decision (S4's consumer) reads
+  `failure_code = 'GIT_FETCH_FAILED_RETRYABLE'`, never `error`.
+- pg_regress test in `test/sql/`: insert a failed row with the code, assert
+  the column round-trips and that an out-of-enum value is rejected.
+
+### W3. The enum-drift test
+
+`cli/internal/upgrade/live_enum_twins_test.go`: for each (PostgreSQL enum,
+Go type) pair, read labels from `pg_enum`, compare to the Go constants as
+sets, fail naming the missing or extra value on each side.
+
+### W4. Use the type that already exists (mechanical, one red-then-green test each)
+
+| Item | Site | Today | Fix |
+|---|---|---|---|
+| D5 | `cli/cmd/upgrade.go` apply-latest | its own tag filter: stable skips any tag containing `-`, prerelease accepts any `v*` | route every tag through `upgrade.ClassifyReleaseShape`; ignore `ShapeUnknown` |
+| S2 | `cli/cmd/release/release.go` `noSameKindTagAtHEAD` | `HasPrefix "v"` and `Contains "-rc."` | same classifier |
+| D6 | `cli/internal/upgrade/service.go` `isConnError` | `context.Canceled`/`DeadlineExceeded` and prose substrings are all "connection fault, retry" | return context termination first, no retry; classify transport with `errors.Is`/`errors.As` against pgx/net sentinels |
+| D4 | `cli/internal/migrate/exit_codes.go` | `ExitResource = 22` declared for SQLSTATE class 53 but nothing emits it | extract SQLSTATE in the psql-owning component into a typed failure class; map class 53 to 22 at the command boundary |
+| S10 | `cli/cmd/cert.go` | `errors.Is(pkcs12.ErrDecryption)` then a prose fallback on "decryption" | keep only the sentinel |
+| S12 | `cli/cmd/install.go` refspec check | `Contains(output, refspec)` | split lines, compare exact |
+| S15 | `cli/cmd/install.go` image readiness | "at least four output lines" | verify an image ID per required service |
+| S6 | `cli/internal/upgrade/service.go` | nullable `scheduled_at` scanned into `time.Time` | `*time.Time`, or `state='scheduled' AND scheduled_at IS NOT NULL` in the query |
+| S8 | `cli/internal/upgrade/containers.go` / `progress_contract.go` | container identity flattened to `"db: ..."` prose then `HasPrefix` | return the existing `containerCheckResult` and filter on `.Service` |
+| S13 | `service.go` two `_ = QueryRow().Scan()` diagnostics | scan error discarded | include the error or print `state=<unreadable>` |
+| S14 | two live tests | `_, _ = Exec("ROLLBACK")` | cleanup helper that `t.Errorf`s on failure |
+
+### W5. Rule the rest in code
+
+Each of S1, S5, S7, S9, S11 is either fixed under W4 if it turns out
+mechanical, or gets a comment at the site: `// ACCEPTABLE-CONTRACT
+(STATBUS-349): <producer> is <who>, <why prose is safe here>`. S9 (Git's
+"no signature found" prose) is the likely candidate: Git has no typed
+signature-status command, and the comment must say so. Nothing is left
+undecided.
+
+## Acceptance
+
+1. `go test ./...` and `./dev.sh lint` green; the live enum-drift test
+   passes against a fresh `./dev.sh create-db`.
+2. No `::text` scan of the four enum columns lands in a bare `string`.
+3. `public.upgrade.failure_code` exists; the reschedule decision reads it;
+   `error` is never parsed for a code.
+4. Every site in Luna's report is FIXED (with its test) or carries an
+   `ACCEPTABLE-CONTRACT (STATBUS-349)` comment naming the producer.
+5. A red-then-green test per W4 row.
+
+## Non-goals
+
+Retyping the SQL-side `upgrade` table beyond the one column; changing what
+any enum means; touching the paid fleet. The later batch RC exercises the
+migration on real boxes.
+
+## Staffing
+
+One implementer for W1+W3 (Go only, can start immediately), one for W2 (the
+migration, red-then-green in pg_regress first), one for W4+W5, then one
+adversarial reviewer over the whole diff. Spawn headless in this
+environment.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Luna's report (DEFECT + SMELL sections, verbatim)
