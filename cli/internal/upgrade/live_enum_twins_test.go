@@ -17,10 +17,10 @@ func TestLiveEnumTwins(t *testing.T) {
 		pgType string
 		goSet  []string
 	}{
-		{"upgrade_state", []string{"available", "scheduled", "in_progress", "completed", "failed", "rolled_back", "dismissed", "skipped", "superseded"}},
-		{"release_status_type", []string{"commit", "prerelease", "release"}},
-		{"docker_images_status_type", []string{"building", "ready", "failed"}},
-		{"release_builds_status_type", []string{"building", "ready", "failed"}},
+		{"upgrade_state", []string{UpgradeStateAvailable.String(), UpgradeStateScheduled.String(), UpgradeStateInProgress.String(), UpgradeStateCompleted.String(), UpgradeStateFailed.String(), UpgradeStateRolledBack.String(), UpgradeStateDismissed.String(), UpgradeStateSkipped.String(), UpgradeStateSuperseded.String()}},
+		{"release_status_type", []string{ReleaseStatusCommit.String(), ReleaseStatusPrerelease.String(), ReleaseStatusRelease.String()}},
+		{"docker_images_status_type", []string{DockerImagesStatusBuilding.String(), DockerImagesStatusReady.String(), DockerImagesStatusFailed.String()}},
+		{"release_builds_status_type", []string{ReleaseBuildsStatusBuilding.String(), ReleaseBuildsStatusReady.String(), ReleaseBuildsStatusFailed.String()}},
 	}
 
 	projDir := findProjDir(t)

@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-12 07:57'
-updated_date: '2026-09-02 09:40'
+updated_date: '2026-09-06 17:40'
 labels:
   - git-hygiene
   - not-install-upgrade
@@ -21,6 +21,96 @@ ordinal: 35000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+## Why these two tickets are one piece of work
+
+Both change what the install-recovery harness installs on a fresh VM before it
+exercises an upgrade, and both are proven by the same thing: one full paid
+harness run that is green at the new shape. Doing them separately would buy
+that run twice. So: 035 is the rebaseline (what the VM starts from), 339 is
+the honesty of the hop (who judges the upgrade). One implementer, one review,
+one paid run, two tickets closed.
+
+## Ground truth (2026-09-06)
+
+- Current stable is `v2026.09.0`; newest candidate `v2026.09.0-rc.14`. There
+  is no `v2026.05.*` or `v2026.07.*` box anywhere in the fleet.
+- `0-happy-install` and `0-happy-upgrade` already pick their baseline
+  dynamically via `select_release_baseline_from_repo` in
+  `test/install-recovery/lib/release-baseline.sh` (newest release below the
+  target). They are NOT the problem.
+- Seven scenarios still hard-pin an extinct baseline as their default:
+  `1-boot-advisory-too-early`, `1-boot-flag-stale-handoff`,
+  `1-boot-startup-timeout`, `5-install-drifted-unit-reconciled` (v2026.05.4);
+  `1-boot-concurrent-install`, `5-install-seed-on-populated` (v2026.05.2);
+  `3-postswap-worker-ddl-deadlock` (v2026.07.0-rc.05).
+- `test/install-recovery/lib/wedge-helpers.sh` (~line 528) synthesises the
+  crash state that v2026.05.2's `executeUpgrade` left behind. That shape is
+  extinct: no released binary produces it any more.
+- `test/install-recovery/lib/vm-bootstrap.sh` (~line 1160) adds the
+  `origin/db-seed` refspec so a pre-retirement release binary's git-branch
+  seed can find it. Only binaries older than `v2026.05.6-rc.03` fetch it.
+- `0-happy-upgrade` installs the dynamic baseline, then `upload_sb_to_vm`
+  COPIES HEAD's `sb` over the installed binary (line ~149) and registers
+  HEAD's SHA (line ~188), so HEAD judges HEAD. The Norway rc.02 incident was
+  a released binary judging a new candidate, which this never exercises.
+- Every harness VM today is `CADDY_DEPLOYMENT_MODE=development` with
+  `UPGRADE_CHANNEL=stable` (vm-bootstrap.sh ~703, ~736). Rune is
+  standalone + prerelease; no scenario has that shape.
+
+## Work (035 half: what the VM starts from)
+
+### R1. Retire the seven extinct pins with a written verdict each
+
+For each of the seven scenarios, decide and write in the scenario header:
+
+- **rebaseline**: the scenario's wedge is about the CURRENT recovery
+  machinery, not the old binary's bug; switch its default to
+  `select_release_baseline_from_repo` like the two happy paths;
+- **extinct**: the scenario only reproduces a crash shape no released binary
+  can produce any more (the v2026.05.2 `executeUpgrade` shape in
+  `wedge-helpers.sh` is the known case); delete the scenario AND the helper
+  code that only it used, and say so in the commit;
+- **keep pinned with reason**: only if a specific released version is the
+  point (e.g. a migration-gap arc). Expected count: zero. If one appears,
+  write why.
+
+No blind `sed`. `./dev.sh test-install-recovery --list` must show no
+scenario defaulting to a `v2026.05.*` or `v2026.07.*` baseline afterwards.
+
+### R2. Remove the db-seed wiring
+
+Once R1 leaves no scenario installing a pre-retirement release, delete the
+`origin/db-seed` refspec block from `vm-bootstrap.sh` and the
+`SB_INSTALL_SKIP_SEED` switch that exists only to withhold it. A fresh
+install at the current stable must not mention db-seed anywhere in its log.
+
+### R3. Delete the held branches (LAST, after the paid run is green)
+
+`git push origin --delete db-seed db-snapshot`. Then `git ls-remote origin`
+shows only master, deploy pointers, the kept-deliberately branches
+(pgadmin, pg-oauth), and live PR branches. Record the ls-remote output in
+this ticket.
+
+## Acceptance (035)
+
+1. No scenario defaults to a pre-`v2026.08` baseline; each of the seven has
+   a written rebaseline/extinct verdict in its header or its deletion commit.
+2. `vm-bootstrap.sh` carries no db-seed reference; `grep -rn db-seed
+   test/ ops/ cli/` finds only historical comments, if any.
+3. The full install-recovery harness is green at the new baselines (the
+   shared paid run, see 339).
+4. Both branches deleted and the ls-remote output recorded here.
+
+## Staffing
+
+One headless implementer does 035 R1+R2 and 339 H1..H4 together, test-first
+with the harness's own local tests (`test/install-recovery/tests/`,
+`--print-selected`, `--list`, `bash -n`, shellcheck). One adversarial review
+of the combined diff. Then ONE paid full harness run, dispatched only after
+the coordinator asks the owner. R3 only after that run is green.
+
+## Original description (verbatim)
+
 Origin is clean except two held branches: db-seed and db-snapshot. Only shipped binaries ≤ v2026.05.6-rc.03 fetch them, and no deployed box runs those anymore — the sole remaining consumer is our own install-recovery harness, which pins v2026.05.x as upgrade-from baselines (vm-bootstrap.sh wires the db-seed refspec at ~:876-946 exactly for those old release binaries).
 
 Fix, KING-DIRECTED 2026-09-02: rebaseline the harness onto the current stable, then release the hold and delete both branches.

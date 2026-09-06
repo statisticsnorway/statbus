@@ -1984,18 +1984,34 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 	type pendingRow struct {
 		id                  int
 		sha                 string
-		releaseStatus       string
-		dockerImagesStatus  string
-		releaseBuildsStatus string
+		releaseStatus       ReleaseStatus
+		dockerImagesStatus  DockerImagesStatus
+		releaseBuildsStatus ReleaseBuildsStatus
 		version             *string // NULL for rows predating the version column
 		discoveredAt        time.Time
 	}
 	var pending []pendingRow
 	for rows.Next() {
 		var r pendingRow
-		if err := rows.Scan(&r.id, &r.sha, &r.releaseStatus, &r.dockerImagesStatus, &r.releaseBuildsStatus, &r.version, &r.discoveredAt); err == nil {
-			pending = append(pending, r)
+		var releaseStatus, dockerImagesStatus, releaseBuildsStatus string
+		if err := rows.Scan(&r.id, &r.sha, &releaseStatus, &dockerImagesStatus, &releaseBuildsStatus, &r.version, &r.discoveredAt); err != nil {
+			rows.Close()
+			return
 		}
+		var parseErr error
+		if r.releaseStatus, parseErr = ParseReleaseStatus(releaseStatus); parseErr != nil {
+			rows.Close()
+			return
+		}
+		if r.dockerImagesStatus, parseErr = ParseDockerImagesStatus(dockerImagesStatus); parseErr != nil {
+			rows.Close()
+			return
+		}
+		if r.releaseBuildsStatus, parseErr = ParseReleaseBuildsStatus(releaseBuildsStatus); parseErr != nil {
+			rows.Close()
+			return
+		}
+		pending = append(pending, r)
 	}
 	rows.Close()
 
@@ -2010,7 +2026,7 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 		// on ONE candidate emits nothing further and still starves the watchdog —
 		// which is then a correct kill.
 		emitHeartbeat(d.projDir)
-		if r.dockerImagesStatus == "failed" {
+		if r.dockerImagesStatus == DockerImagesStatusFailed {
 			continue // Already marked as failed — don't re-check
 		}
 		dockerImagesReady := false
@@ -2053,7 +2069,7 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 				//   docker_images_status != 'ready' — don't supersede a sibling
 				//     that just had its own images verified earlier in this cycle.
 				for _, anc := range pending {
-					if anc.sha == r.sha || anc.releaseStatus != "commit" {
+					if anc.sha == r.sha || anc.releaseStatus != ReleaseStatusCommit {
 						continue
 					}
 					if _, isAncErr := runCommandOutput(d.projDir, "git", "merge-base", "--is-ancestor", anc.sha, r.sha); isAncErr != nil {
@@ -2204,10 +2220,21 @@ func (d *Service) ExecuteUpgradeInline(ctx context.Context, id int, commitSHA, _
 	// below is caught by the claim's own ErrNoRows branch, unaffected by
 	// this gate.
 	var scheduledAt time.Time
-	var dockerImagesStatus string
-	if gerr := d.queryConn.QueryRow(ctx,
-		"SELECT scheduled_at, docker_images_status::text FROM public.upgrade WHERE id = $1",
-		id).Scan(&scheduledAt, &dockerImagesStatus); gerr == nil {
+	var dockerImagesStatusText string
+	gerr := d.queryConn.QueryRow(ctx,
+		"SELECT scheduled_at, docker_images_status::text FROM public.upgrade WHERE id = $1 AND state = 'scheduled' AND scheduled_at IS NOT NULL",
+		id).Scan(&scheduledAt, &dockerImagesStatusText)
+	if errors.Is(gerr, pgx.ErrNoRows) {
+		return fmt.Errorf("upgrade row %d is not scheduled with a scheduling timestamp", id)
+	}
+	if gerr != nil {
+		return fmt.Errorf("read upgrade row %d image-claim gate: %w", id, gerr)
+	}
+	{
+		dockerImagesStatus, parseErr := ParseDockerImagesStatus(dockerImagesStatusText)
+		if parseErr != nil {
+			return parseErr
+		}
 		switch evaluateImageClaimGate(dockerImagesStatus, scheduledAt, time.Now(), manifestTimeout) {
 		case imageClaimFailed:
 			return fmt.Errorf("upgrade row %d: images failed to publish (CI failed) — re-push or ./sb upgrade register again", id)
@@ -2221,12 +2248,6 @@ func (d *Service) ExecuteUpgradeInline(ctx context.Context, id int, commitSHA, _
 			// Claim as today — no gate interference on the common path.
 		}
 	}
-	// gerr != nil (row vanished, or a pre-046 DB during the migration's own
-	// deferral window — mirrors resumeNewSb's fail-open posture on a read
-	// error): fall through to the claim UPDATE unchanged; its own ErrNoRows /
-	// state-guard branches are the correct diagnostic for a genuinely-absent
-	// or already-claimed row.
-
 	// STATBUS-077: claim records only the display version (from_commit_version).
 	// The recovery restore target is the pinned `pre-upgrade` branch (single source);
 	// the from_commit_sha column was removed.
@@ -6567,15 +6588,20 @@ func (d *Service) executeScheduled(ctx context.Context) {
 	var commitSHA string
 	var commitTags []string
 	var scheduledAt time.Time
-	var dockerImagesStatus string
+	var dockerImagesStatusText string
 	err := d.queryConn.QueryRow(ctx,
 		`SELECT id, commit_sha, commit_tags, scheduled_at, docker_images_status::text
 		 FROM public.upgrade
 		 WHERE state = 'scheduled'
 		   AND scheduled_at <= now()
-		 ORDER BY scheduled_at LIMIT 1`).Scan(&id, &commitSHA, &commitTags, &scheduledAt, &dockerImagesStatus)
+		 ORDER BY scheduled_at LIMIT 1`).Scan(&id, &commitSHA, &commitTags, &scheduledAt, &dockerImagesStatusText)
 	if err != nil {
 		return // no pending upgrades
+	}
+	dockerImagesStatus, err := ParseDockerImagesStatus(dockerImagesStatusText)
+	if err != nil {
+		log.Printf("executeScheduled: %v", err)
+		return
 	}
 	fmt.Printf("Claiming id=%d, lag=%s\n", id, time.Since(scheduledAt).Truncate(time.Second))
 
@@ -9010,7 +9036,11 @@ func (d *Service) rowIsParked(id int) (parked bool, state string, err error) {
 	if len(fields) != 2 {
 		return false, "", fmt.Errorf("rowIsParked: malformed row read %q for id=%d", out, id)
 	}
-	return fields[1] == "true", fields[0], nil
+	parsedState, err := ParseUpgradeState(fields[0])
+	if err != nil {
+		return false, "", err
+	}
+	return fields[1] == "true", parsedState.String(), nil
 }
 
 // STATBUS-046 (architect pin 2): these are the standalone parked-only recovery
@@ -11394,12 +11424,18 @@ func (d *Service) RowStateForCommit(ctx context.Context, commitSHA string) (stat
 	// process, which is what the wrapper exists to prevent.
 	err = d.runOneShot(ctx, func(ctx context.Context) error {
 		var reason sql.NullString
+		var stateText string
 		if qerr := d.queryConn.QueryRow(ctx,
 			`SELECT state::text, recovery_parked_at IS NOT NULL, COALESCE(recovery_parked_reason, '')
 			   FROM public.upgrade WHERE commit_sha = $1 ORDER BY id DESC LIMIT 1`,
-			commitSHA).Scan(&state, &parked, &reason); qerr != nil {
+			commitSHA).Scan(&stateText, &parked, &reason); qerr != nil {
 			return qerr
 		}
+		parsedState, parseErr := ParseUpgradeState(stateText)
+		if parseErr != nil {
+			return parseErr
+		}
+		state = parsedState.String()
 		parkedReason = reason.String
 		return nil
 	})

@@ -62,11 +62,11 @@ const (
 // enum addition, or a NULL somehow reaching here) falls through the switch's
 // default to the same handling as "building" — conservative-wait, never a
 // silent claim of an unverified image set.
-func evaluateImageClaimGate(dockerImagesStatus string, scheduledAt, now time.Time, grace time.Duration) imageClaimDecision {
+func evaluateImageClaimGate(dockerImagesStatus DockerImagesStatus, scheduledAt, now time.Time, grace time.Duration) imageClaimDecision {
 	switch dockerImagesStatus {
-	case "ready":
+	case DockerImagesStatusReady:
 		return imageClaimReady
-	case "failed":
+	case DockerImagesStatusFailed:
 		return imageClaimFailed
 	default: // "building", or an unrecognised future value — treat as building
 		if now.Sub(scheduledAt) > grace {
