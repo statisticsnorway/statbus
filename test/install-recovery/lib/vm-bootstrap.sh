@@ -1153,24 +1153,6 @@ install_statbus_in_vm() {
     local vm_name="$1"
     local install_version="${2:-}"
     local extra_args="${SB_INSTALL_EXTRA_ARGS:-}"
-    # No-seed mode (opt-in via SB_INSTALL_SKIP_SEED): force a full-migrations-from-tag
-    # baseline so a real v<tag>→HEAD migration delta exists for the stall/kill injects
-    # (the published seed is dumped at HEAD's migration level and would otherwise
-    # collapse the delta). Pure harness-side, NO product change: withhold the
-    # origin/db-seed tracked-branch so a RELEASE binary's git-branch seed
-    # (db seed fetch → origin/db-seed) finds no ref and falls through to full
-    # migrations. Default (unset) preserves the seed shortcut → passing scenarios
-    # are unaffected.
-    # NOTE: this reaches the RELEASE-binary (versioned) baseline only, whose seed is
-    # git-branch-based. A HEAD-binary (no-version) install uses a Docker-image seed
-    # (statbus-seed:<short>) that this does NOT disable — such a baseline instead
-    # relies on a populated DB (checkSeedRestored's dbHasUserData R5 short-circuit,
-    # install.go) so the seed step is skipped. No current no-seed scenario needs a
-    # HEAD-binary no-seed baseline.
-    local seed_branch_cmd="git remote set-branches --add origin db-seed"
-    if [ -n "${SB_INSTALL_SKIP_SEED:-}" ]; then
-        seed_branch_cmd="true  # SB_INSTALL_SKIP_SEED: origin/db-seed withheld (release-binary git-branch seed disabled → full migrations)"
-    fi
     _check_name_safety "$vm_name" || return 1
 
     local ip
@@ -1241,9 +1223,6 @@ if [ ! -d ~/statbus/.git ]; then
         rm -rf ~/statbus
         sleep 45
     done
-    # Add db-seed refspec so install's own 'git fetch origin db-seed' creates the
-    # remote-tracking ref (a single-branch shallow clone restricts the refspec).
-    git -C ~/statbus remote set-branches --add origin db-seed
 fi
 # Pre-place config files: ./sb install (called by install.sh) needs .env.config.
 # For RESCUE mode these survive install.sh's 'git checkout -B current origin/master'.
@@ -1280,16 +1259,6 @@ if [ ! -d ~/statbus/.git ]; then
 fi
 mv ~/sb.tmp ~/statbus/sb
 cd ~/statbus
-# A '--depth 1 --branch <tag>' clone is implicitly single-branch — the
-# refspec is narrowed to just the tag's branch, so a subsequent
-# 'git fetch origin db-seed' downloads data but does NOT create
-# refs/remotes/origin/db-seed. ./sb install's seed-fetch step then sees
-# 'fatal: invalid object name origin/db-seed' on the git-show that
-# follows, falls back to migrations-from-scratch (~30 min on a fresh DB),
-# and any harness scenario spends its time replaying migrations instead
-# of exercising the recovery code path under test. Extending the
-# tracked-branch list before the install fixes the ref creation.
-$seed_branch_cmd
 cp /tmp/env-config .env.config 2>/dev/null || true
 cp /tmp/users.yml .users.yml 2>/dev/null || true
 STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf $extra_args
@@ -1297,15 +1266,11 @@ SCRIPT
         # Runner-side repo staging (STATBUS-345 night run): build the baseline
         # repo from the runner's own full ledger and ship it over scp — the VM
         # never clones from GitHub (rc.09 lost two runs to 401 bursts at that
-        # clone). db-seed remote-tracking ref comes along so ./sb install's
-        # seed-fetch path still finds origin/db-seed; origin URL is restored so
-        # later product-side fetches address GitHub normally.
+        # clone). The origin URL is restored so later product-side fetches address
+        # GitHub normally.
         local stage_dir
         stage_dir=$(mktemp -d)
         git clone --quiet --depth 50 --branch "${install_version}" "file://${HARNESS_ROOT}" "$stage_dir/statbus"
-        if [ "${SB_INSTALL_SKIP_SEED:-}" != "1" ] && git -C "$HARNESS_ROOT" rev-parse --verify --quiet refs/remotes/origin/db-seed >/dev/null; then
-            git -C "$stage_dir/statbus" fetch --quiet "$HARNESS_ROOT" refs/remotes/origin/db-seed:refs/remotes/origin/db-seed
-        fi
         git -C "$stage_dir/statbus" remote set-url origin https://github.com/statisticsnorway/statbus.git
         tar -C "$stage_dir" -czf "$stage_dir/statbus-repo.tgz" statbus
         _wait_for_ssh "$ip" 30

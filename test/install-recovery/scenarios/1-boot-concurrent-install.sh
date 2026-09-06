@@ -81,15 +81,8 @@ echo "  HEAD: $HEAD_SHA ($(echo "$HEAD_SHA" | cut -c1-8))"
 bootstrap_install_test_vm "$VM_NAME" "$INSTALL_VERSION"
 
 echo ""
-echo "── initial install at $INSTALL_VERSION (NO seed — establish a real migration delta) ──"
-# NO-SEED baseline: the published seed is dumped at HEAD's migration level, so a
-# seeded baseline leaves db.migration already at HEAD → the HEAD "first install"
-# below has 0 pending migrations → the Migrations step is skipped (HasPending=false,
-# install.go) → migrate.Up never runs → the C10 StallHere never fires → the stall-wait
-# times out. SB_INSTALL_SKIP_SEED withholds the release binary's origin/db-seed so this
-# baseline lands at INSTALL_VERSION's level (max 20260520141309) instead. (Pure
-# harness-side; see install_statbus_in_vm.)
-SB_INSTALL_SKIP_SEED=1 install_statbus_in_vm "$VM_NAME" "$INSTALL_VERSION"
+echo "── initial install at $INSTALL_VERSION (establish a real migration delta) ──"
+install_statbus_in_vm "$VM_NAME" "$INSTALL_VERSION"
 assert_health_passes "$VM_NAME"
 
 # Populate demo data so the DB is non-fresh BEFORE the HEAD "first install" below.
