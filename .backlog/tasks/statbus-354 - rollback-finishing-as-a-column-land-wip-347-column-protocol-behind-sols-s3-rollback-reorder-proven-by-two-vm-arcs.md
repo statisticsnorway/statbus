@@ -5,7 +5,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-04 10:26'
-updated_date: '2026-09-04 10:26'
+updated_date: '2026-09-06 18:07'
 labels:
   - upgrade
   - fail-fast
@@ -19,6 +19,32 @@ ordinal: 347000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+## Ground-truth correction (coordinator, 2026-09-06)
+
+The description below says the column version lives on branch
+`wip/347-column-protocol` (= `dceca3666`, "9 insertions"). Git says otherwise,
+and an implementer must not lose time on it:
+
+- `dceca3666` is a 9-line BACKLOG edit and is already an ancestor of master.
+  The branch head adds nothing; it is now also pushed to origin so nothing
+  dangles.
+- The column protocol itself is commit **`012ca22da`** ("rollback_finish_pending_at
+  is a constrained column, not an error prefix"), which IS on master, and was
+  then surgically REMOVED again by **`8e021550e`** ("ship prefix rollback
+  finishing for this RC") for the rc.14 line: migration
+  `20260903205636_statbus_347_rollback_finish_pending_column.{up,down}.sql`,
+  pg_regress `..._repair.sql`, and the column readers were deleted; execObserved
+  and its tests were kept.
+- Master today therefore carries the PREFIX form (`RollbackFinishPendingPrefix`
+  in `service.go` ~8403, five sites) and NO column migration.
+
+So step 5 ("merge `wip/347-column-protocol`") means: **re-apply the column
+portions of `012ca22da` on top of S3** (a `git revert 8e021550e` is the
+mechanical starting point, then resolve against the S3 reorder), not a branch
+merge. The daemon-floor bump and the four column readers come back with it.
+Sol's review finding 3 (`tmp/sol-review-347.md`) is still the reason it was
+pulled and S3 is still the fix; nothing else changes.
+
 ## Where this comes from
 
 STATBUS-347 made rollback finishing cleanup-only: the row is marked "finish pending" BEFORE SQL read-only and HTTP maintenance are lifted, and the marker unlink plus `rolled_back` happen in one row-locked transaction afterwards. rc.14 ships that state as a **string prefix** on the `failed` row (`ROLLBACK_FINISH_PENDING:`), which the King ruled is not acceptable as the permanent form: the invalid must be impossible to express, so the state must be a **column with a CHECK constraint**, `rollback_finish_pending_at`.
