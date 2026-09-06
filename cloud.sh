@@ -447,6 +447,7 @@ cmd_tail_one() {
     # Poll until the DB reflects the terminal state (service commits the
     # in_progress→completed transition after logging "Installation complete!").
     # Bounded at 8 tries × 2 s = 16 s max; exits early once state clears.
+    # shellcheck disable=SC2016 # This polling script is evaluated remotely.
     ssh_entry "$server" \
         'cd statbus && i=0; while [ $i -lt 8 ]; do
              out=$(./sb upgrade list 2>&1)
