@@ -289,7 +289,7 @@ cmd_health() {
     local target="${1:-all}"
     local targets
     targets=$(resolve_target_servers "$target")
-    echo "StatBus Cloud Health"
+    echo "StatBus Fleet Health"
     echo "===================="
     if [ "$target" = "all" ] || is_channel "$target" || is_group "$target"; then
         local tmpdir pids=()
