@@ -821,18 +821,18 @@ func noSameKindTagAtHEAD(projDir string, isPrerelease bool) error {
 	}
 	for _, tag := range strings.Split(strings.TrimSpace(out), "\n") {
 		tag = strings.TrimSpace(tag)
-		if tag == "" || !strings.HasPrefix(tag, "v") {
+		shape := upgrade.ClassifyReleaseShape(tag)
+		if shape == upgrade.ShapeUnknown || shape == upgrade.ShapeCommit {
 			continue
 		}
-		isRC := strings.Contains(tag, "-rc.")
 		switch {
-		case isPrerelease && isRC:
+		case isPrerelease && shape == upgrade.ShapePrerelease:
 			return fmt.Errorf(
 				"HEAD already carries a prerelease tag: %s\n"+
 					"  Make a new commit before tagging another RC — bumping the\n"+
 					"  number without an underlying change is wasteful",
 				tag)
-		case !isPrerelease && !isRC:
+		case !isPrerelease && shape == upgrade.ShapeRelease:
 			return fmt.Errorf(
 				"HEAD already carries a stable release tag: %s\n"+
 					"  Make a new commit before tagging another release — bumping\n"+

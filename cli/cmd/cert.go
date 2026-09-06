@@ -600,7 +600,7 @@ func decodePFX(data []byte, password string) ([]*x509.Certificate, interface{}, 
 		// wrong. Translate to an actionable operator-facing
 		// message; other errors get a generic "PFX decode
 		// failed" wrapper that preserves the upstream detail.
-		if errors.Is(err, pkcs12.ErrDecryption) || strings.Contains(strings.ToLower(err.Error()), "decryption") {
+		if isPFXPasswordError(err) {
 			return nil, nil, fmt.Errorf("invalid PFX password — re-run and enter the password from your CA's email or PFX export\n"+
 				"  (pkcs12 decryption returned: %v)", err)
 		}
@@ -624,6 +624,8 @@ func decodePFX(data []byte, password string) ([]*x509.Certificate, interface{}, 
 	chain = reorderChainLeafFirst(chain)
 	return chain, key, nil
 }
+
+func isPFXPasswordError(err error) bool { return errors.Is(err, pkcs12.ErrDecryption) }
 
 // reorderChainLeafFirst puts the leaf cert at index 0 by finding the
 // cert that isn't an issuer of any other cert in the chain.

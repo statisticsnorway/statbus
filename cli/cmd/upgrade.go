@@ -442,19 +442,7 @@ file changes needed.`,
 		if err != nil {
 			return fmt.Errorf("git tag -l: %w", err)
 		}
-		tags := strings.Split(strings.TrimSpace(tagsOutput), "\n")
-		for _, tag := range tags {
-			tag = strings.TrimSpace(tag)
-			if tag == "" {
-				continue
-			}
-			if channel == "stable" && strings.Contains(tag, "-") {
-				// Stable: skip pre-release tags (contain "-")
-				continue
-			}
-			latestVersion = tag
-			break
-		}
+		latestVersion = latestTagForChannel(tagsOutput, channel)
 		if latestVersion == "" {
 			return fmt.Errorf("no matching version found for channel %q", channel)
 		}
@@ -538,6 +526,24 @@ file changes needed.`,
 
 		return nil
 	},
+}
+
+func latestTagForChannel(tagsOutput, channel string) string {
+	for _, tag := range strings.Split(strings.TrimSpace(tagsOutput), "\n") {
+		tag = strings.TrimSpace(tag)
+		shape := upgrade.ClassifyReleaseShape(tag)
+		if shape == upgrade.ShapeUnknown || shape == upgrade.ShapeCommit {
+			continue
+		}
+		if channel == "stable" && shape != upgrade.ShapeRelease {
+			continue
+		}
+		if channel == "prerelease" && shape != upgrade.ShapePrerelease {
+			continue
+		}
+		return tag
+	}
+	return ""
 }
 
 // newUpgradeService builds a Service for the current binary, deriving the

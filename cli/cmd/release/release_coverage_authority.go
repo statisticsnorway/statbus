@@ -46,8 +46,8 @@ type coverageBlockedGroup struct {
 // THE THREE PRECONDITIONS THIS SATISFIES (STATBUS-252 ticket description):
 //
 //  1. DOMAIN FROM THE TARGET COMMIT, NEVER FROM EVIDENCE FOUND. Both callers
-//     derive requiredScenarios from rcCommit's own tree (upgradeArcNamesAtCommit
-//     / installRecoveryScenarioNamesAtCommit, both git-ls-tree reads, no API)
+//     derive the domain with release.ScenariosAt from rcCommit's own tree; each
+//     Scenario.Home identifies its harness workflow (git-ls-tree reads, no API)
 //     BEFORE calling this function — this function never derives its own
 //     domain. A newly added scenario is therefore never inheritable (no
 //     historical run can contain it) and never silently absent (an empty

@@ -3,6 +3,7 @@ package cmd
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -944,11 +945,41 @@ func checkEnvDone(dir string) bool {
 }
 
 func checkImagesDone(dir string) bool {
-	cmd := exec.Command("docker", "compose", "--profile", "all", "images", "-q")
-	cmd.Dir = dir
-	out, err := cmd.Output()
-	// If we get at least 4 image IDs, images are available
-	return err == nil && len(strings.Split(strings.TrimSpace(string(out)), "\n")) >= 4
+	servicesCmd := exec.Command("docker", "compose", "--profile", "all", "config", "--services")
+	servicesCmd.Dir = dir
+	servicesOut, err := servicesCmd.Output()
+	if err != nil {
+		return false
+	}
+	imagesCmd := exec.Command("docker", "compose", "--profile", "all", "images", "--format", "json")
+	imagesCmd.Dir = dir
+	imagesOut, err := imagesCmd.Output()
+	return err == nil && composeServicesHaveImages(string(servicesOut), imagesOut)
+}
+
+func composeServicesHaveImages(servicesOutput string, imagesJSON []byte) bool {
+	required := strings.Fields(servicesOutput)
+	if len(required) == 0 {
+		return false
+	}
+	type composeImage struct {
+		Container string `json:"Container"`
+		ID        string `json:"ID"`
+	}
+	var images []composeImage
+	if err := json.Unmarshal(imagesJSON, &images); err != nil {
+		return false
+	}
+	byService := make(map[string]string, len(images))
+	for _, image := range images {
+		byService[image.Container] = strings.TrimSpace(image.ID)
+	}
+	for _, service := range required {
+		if byService[service] == "" {
+			return false
+		}
+	}
+	return true
 }
 
 type dockerHealth uint8
@@ -2330,6 +2361,9 @@ func checkSignersDone(dir string) bool {
 		"verify-commit", "HEAD")
 	out, verifyErr := verifyCmd.CombinedOutput()
 	if verifyErr != nil {
+		// ACCEPTABLE-CONTRACT (STATBUS-349): producer is Git verify-commit;
+		// Git offers no typed signature status, so its documented unsigned-commit
+		// diagnostic is the only available distinction from an invalid signature.
 		if strings.Contains(string(out), "no signature found") {
 			// HEAD is unsigned (development) — can't verify key, accept existence
 			return true
