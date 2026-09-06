@@ -1,5 +1,6 @@
 #!/bin/bash
 # Scenario: 1-boot-concurrent-install  (C10 / probe 2 live-upgrade refusal)
+# judge = HEAD, judged = HEAD, deliberately: catches target-side breakage before a candidate exists
 # R1 verdict: rebaseline — this scenario tests current recovery machinery, not an old release-specific bug.
 #
 # Class:                 concurrent-install-attempted-during-migrate-up
