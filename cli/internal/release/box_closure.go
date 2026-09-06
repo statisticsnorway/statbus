@@ -43,25 +43,21 @@ var cliBuildInputs = []string{
 	"cli/Makefile",
 }
 
-// cliBuildInputDirs are directories that shape the binary without being
-// module-local packages, so `go list -deps ./cmd` never names them.
+// vendorDir is the one build-mode switch this optimizer cannot see through.
 //
-// cli/vendor: when a vendor directory exists, `go build` compiles third-party
-// code FROM IT and never consults go.sum, so a vendored file can change the
-// shipped binary while go.mod and go.sum are byte-identical. The closure
-// probe below deliberately runs in module mode (-mod=readonly) and drops
-// third-party packages as "pinned by go.sum", which is exactly wrong under
-// vendoring (STATBUS-352 final review, HIGH 1). Treating the whole directory
-// as payload unconditionally was the simplest correct fix: the repository
-// does not vendor today, so this rule costs nothing, and if it ever does
-// vendor, every vendor bump reruns the fleet, which is the true answer.
-// If vendoring is adopted and that cost matters, the better design is to
-// derive the closure in the SAME module mode the release build uses
-// (Makefile / Dockerfile.sb) so vendored packages get precise rules. Build
-// that then, not before: there is no point in machinery nothing exercises.
-var cliBuildInputDirs = []string{
-	"cli/vendor",
-}
+// When cli/vendor exists, `go build` compiles third-party code FROM IT and
+// never reads go.sum, so a vendored file can change the shipped binary while
+// go.mod and go.sum are byte-identical. The closure probe below runs in
+// module mode (-mod=readonly) and drops third-party packages as "pinned by
+// go.sum", which is exactly wrong under vendoring (STATBUS-352 final review,
+// HIGH 1). Rather than half-support that mode, this optimizer REFUSES a
+// commit that vendors, with a message that says what to build instead:
+// derive the closure in the same module mode the release build uses
+// (Makefile / Dockerfile.sb), so vendored packages get precise rules. That
+// is the right design once vendoring exists and is pointless before, since
+// the repository does not vendor today. Refusal is undecidable, never
+// covered: the scenario runs and coverage-question-health goes red.
+const vendorDir = "cli/vendor"
 
 // boxCommandBoundaryMarker is the file whose presence at a commit proves the
 // C1 extraction has happened there. Before it, cmd and the release engine
@@ -115,16 +111,23 @@ func BoxCommandClosureAt(projDir, commit string) (BoxCommandClosure, error) {
 }
 
 func deriveBoxCommandClosure(projDir, commit string) (BoxCommandClosure, error) {
-	closure := BoxCommandClosure{
-		Commit: commit,
-		Dirs:   append([]string(nil), cliBuildInputDirs...),
-		Files:  append([]string(nil), cliBuildInputs...),
-	}
+	closure := BoxCommandClosure{Commit: commit, Files: append([]string(nil), cliBuildInputs...)}
 
 	// Boundary present at this commit? A tree read, cheap, and decisive.
 	if _, err := gitShow(projDir, commit, boxCommandBoundaryMarker); err != nil {
 		closure.Broad = true
 		return closure, nil
+	}
+
+	// Vendoring present at this commit? Refuse with directions (see vendorDir).
+	vendored, err := gitLsTree(projDir, commit, vendorDir+"/")
+	if err != nil {
+		return BoxCommandClosure{}, err
+	}
+	if len(vendored) > 0 {
+		return BoxCommandClosure{}, fmt.Errorf("%s exists at %s (%d tracked files): the box-command closure is derived in module mode and cannot see vendored source, so it refuses rather than guess. "+
+			"If vendoring is now intended, extend deriveBoxCommandClosure (cli/internal/release/box_closure.go) to run `go list` in the same module mode the release build uses (cli/Makefile, cli/Dockerfile.sb) and emit rules for vendored packages; until then every coverage question is undecidable and the fleet reruns",
+			vendorDir, shortSHA(commit), len(vendored))
 	}
 
 	tmp, err := os.MkdirTemp("", "statbus-box-closure-")
@@ -167,7 +170,7 @@ func deriveBoxCommandClosure(projDir, commit string) (BoxCommandClosure, error) 
 			closure.Dirs = append(closure.Dirs, dir)
 		}
 	}
-	if len(closure.Dirs) == len(cliBuildInputDirs) {
+	if len(closure.Dirs) == 0 {
 		return BoxCommandClosure{}, fmt.Errorf("go list -deps ./cmd at %s reported no module-local packages — refusing an empty closure", shortSHA(commit))
 	}
 	for _, forbidden := range []string{cliRoot + "/cmd/release", cliRoot + "/internal/release"} {
