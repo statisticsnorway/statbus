@@ -2,10 +2,10 @@
 id: STATBUS-352
 title: >-
   sensitivity boundaries: workflow-aware scenarios and a bounded same-binary Go policy closure
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-04 10:20'
-updated_date: '2026-09-05 20:45'
+updated_date: '2026-09-06 14:55'
 labels:
   - release
   - cli
@@ -400,7 +400,7 @@ Read-only investigation evidence and prototypes belong under
 ticket.
 ## Delivery evidence (2026-09-05)
 
-All work packages landed on master in eight signed commits. Nothing paid was run; no RC was cut for this ticket (per the validation contract, the later batch RC is the live proof).
+All work packages landed on master in ten signed commits. Nothing paid was run; no RC was cut for this ticket (per the validation contract, the later batch RC is the live proof).
 
 ### Commits
 
@@ -413,6 +413,8 @@ All work packages landed on master in eight signed commits. Nothing paid was run
 | `262933346` | C1 + C2 | `cli/cmd/release` (`releasecmd`), explicit `main.go` composition, no `init()`; `internal/migrate` takes its four release questions as callbacks (`migrate.ReleaseProbes`) wired in `main.go`; five architecture tests |
 | `186b50481`, `7d5f481df` | hygiene | inherited VS gitignore anchored then replaced (it had silently swallowed `cli/cmd/release/`, a STATBUS-345 test, and a vendored file); invariant test asks `git check-ignore` about every Go package dir |
 | `90133c0c1` | C3 | anchor-union-target box-command closure replaces the broad `cli` rule at diff time; memoized per SHA; every failure is undecidable |
+| `00cbed914` | lint | golangci-lint findings on the new tests plus one pre-existing errcheck |
+| `7ae756b92` | C3 (review fix) | a vendoring commit is refused with directions (Luna final review HIGH 1) |
 
 ### Acceptance criteria, observed
 
@@ -432,10 +434,12 @@ All work packages landed on master in eight signed commits. Nothing paid was run
 - On the real post-boundary range `262933346..HEAD`, the derived closure classifies `cli/internal/release/*` and `cli/cmd/release/*` as proof interpreter and the one ordinary `cmd` test file as box payload; nothing under `cli/` is silently dropped.
 - `ValidateHarnessDomainAt(HEAD)` = 611 ms; closure derivation at HEAD ≈ 0.5 s; both memoized per commit.
 
-### Review status (honest)
+### Review status
 
 - Work A first review: independent (Luna), REJECT with two HIGH findings, both fixed in `db89f876c`.
-- Work A re-review and the C1/C2/C3 review: **coordinator self-review only.** Four consecutive independently spawned reviewers hung at startup with zero activity on two model routes. The self-review used the same attack list and 11 real-binary probes (`tmp/STATBUS-352-work-a-rereview/REPORT.md`). **An independent adversarial review of `db89f876c..90133c0c1` is still owed and must precede the batch RC.**
+- Work A re-review and the first C1/C2/C3 pass: coordinator self-review (`tmp/STATBUS-352-work-a-rereview/REPORT.md`) while spawned reviewers were stalling (root cause: headed spawn mode; use headless in this environment).
+- **Independent final review (Luna, 2026-09-06, `tmp/STATBUS-352-final-review/REPORT.md`): REJECT on one HIGH, then ACCEPT.** The HIGH: C3's closure ran `go list` in module mode and dropped third-party packages as "pinned by go.sum", which is wrong when `cli/vendor` exists (Go compiles from the vendor tree and never reads go.sum), so a vendor-only diff would have been classified as not box payload. Both earlier HIGHs confirmed closed; C2 callbacks confirmed sound; architecture tests confirmed backed by the runtime check.
+- **Fix, by ruling:** a commit that vendors is REFUSED by the closure (undecidable, never covered) with a message naming the cause and the design to build if vendoring is ever adopted (derive in the release build's own module mode). `7ae756b92`; supersedes the interim always-payload `e9ac46dba`. Re-verified by Luna through the real `covered-subset` interface at both anchor and target: ACCEPT.
 
 ### Known, deliberately not done here
 
