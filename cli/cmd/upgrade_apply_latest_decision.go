@@ -39,7 +39,7 @@ type applyLatestVerdict struct {
 // is not proven, so do not skip.
 type applyLatestRow struct {
 	Found        bool
-	State        string
+	State        upgrade.UpgradeState
 	Parked       bool
 	ParkedReason string
 }
@@ -88,7 +88,7 @@ func decideApplyLatest(latestVersion, resolvedCommit, buildCommit string, row ap
 				latestVersion, reason),
 		}
 	}
-	if row.State == "completed" {
+	if row.State == upgrade.UpgradeStateCompleted {
 		return applyLatestVerdict{
 			Action:  applyLatestSkip,
 			Message: fmt.Sprintf("Already at %s (commit %s, row completed) — nothing to apply.", latestVersion, buildCommit[:8]),

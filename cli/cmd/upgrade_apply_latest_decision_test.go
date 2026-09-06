@@ -14,6 +14,7 @@ package cmd
 // assertion.
 
 import (
+	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 	"strings"
 	"testing"
 )
@@ -38,7 +39,7 @@ func TestDecideApplyLatest_STATBUS226(t *testing.T) {
 			name:       "PARKED at target: must NOT say nothing-to-apply",
 			resolved:   testTargetCommit,
 			build:      testSameBinary,
-			row:        applyLatestRow{Found: true, State: "in_progress", Parked: true, ParkedReason: "disk nearly full: 4 GB free (< 5 GB needed) before image-pull"},
+			row:        applyLatestRow{Found: true, State: upgrade.UpgradeStateInProgress, Parked: true, ParkedReason: "disk nearly full: 4 GB free (< 5 GB needed) before image-pull"},
 			wantAction: applyLatestRefuse,
 			wantInMsg:  "PARKED",
 			why:        "the swap happened so the binary IS the target, but the row is parked and the box is dark — this is the STATBUS-226 defect",
@@ -47,7 +48,7 @@ func TestDecideApplyLatest_STATBUS226(t *testing.T) {
 			name:       "parked message names the remedy",
 			resolved:   testTargetCommit,
 			build:      testSameBinary,
-			row:        applyLatestRow{Found: true, State: "in_progress", Parked: true, ParkedReason: "some reason"},
+			row:        applyLatestRow{Found: true, State: upgrade.UpgradeStateInProgress, Parked: true, ParkedReason: "some reason"},
 			wantAction: applyLatestRefuse,
 			wantInMsg:  "un-park",
 			why:        "AC#2: an operator must be told what to DO, not merely that something is wrong",
@@ -56,7 +57,7 @@ func TestDecideApplyLatest_STATBUS226(t *testing.T) {
 			name:       "converged: row completed at target → skip (no no-op pipeline)",
 			resolved:   testTargetCommit,
 			build:      testSameBinary,
-			row:        applyLatestRow{Found: true, State: "completed"},
+			row:        applyLatestRow{Found: true, State: upgrade.UpgradeStateCompleted},
 			wantAction: applyLatestSkip,
 			wantInMsg:  "nothing to apply",
 			why:        "AC#4: the healthy case must still short-circuit",
@@ -65,7 +66,7 @@ func TestDecideApplyLatest_STATBUS226(t *testing.T) {
 			name:       "genuinely behind: different commit → proceed",
 			resolved:   testTargetCommit,
 			build:      testOtherBinary,
-			row:        applyLatestRow{Found: true, State: "completed"},
+			row:        applyLatestRow{Found: true, State: upgrade.UpgradeStateCompleted},
 			wantAction: applyLatestProceed,
 			why:        "the row of a DIFFERENT commit says nothing about this target",
 		},
@@ -73,7 +74,7 @@ func TestDecideApplyLatest_STATBUS226(t *testing.T) {
 			name:       "unknown build commit → proceed",
 			resolved:   testTargetCommit,
 			build:      "unknown",
-			row:        applyLatestRow{Found: true, State: "completed"},
+			row:        applyLatestRow{Found: true, State: upgrade.UpgradeStateCompleted},
 			wantAction: applyLatestProceed,
 			why:        "AC#3: a local `go run` build cannot be compared; never a false skip",
 		},
@@ -81,7 +82,7 @@ func TestDecideApplyLatest_STATBUS226(t *testing.T) {
 			name:       "unresolvable target → proceed",
 			resolved:   "",
 			build:      testSameBinary,
-			row:        applyLatestRow{Found: true, State: "completed"},
+			row:        applyLatestRow{Found: true, State: upgrade.UpgradeStateCompleted},
 			wantAction: applyLatestProceed,
 			why:        "AC#3: a resolve error NEVER causes a skip",
 		},
@@ -97,7 +98,7 @@ func TestDecideApplyLatest_STATBUS226(t *testing.T) {
 			name:       "at-target binary, row still scheduled → proceed",
 			resolved:   testTargetCommit,
 			build:      testSameBinary,
-			row:        applyLatestRow{Found: true, State: "scheduled"},
+			row:        applyLatestRow{Found: true, State: upgrade.UpgradeStateScheduled},
 			wantAction: applyLatestProceed,
 			why:        "AC#1: only a COMPLETED row earns the skip; the normal path's own guards handle the rest",
 		},
@@ -105,7 +106,7 @@ func TestDecideApplyLatest_STATBUS226(t *testing.T) {
 			name:       "at-target binary, row in_progress (not parked) → proceed",
 			resolved:   testTargetCommit,
 			build:      testSameBinary,
-			row:        applyLatestRow{Found: true, State: "in_progress"},
+			row:        applyLatestRow{Found: true, State: upgrade.UpgradeStateInProgress},
 			wantAction: applyLatestProceed,
 			why:        "an upgrade is running; promoteExistingCandidate refuses to clobber a LIVE row, so the normal path is the right handler",
 		},
@@ -133,13 +134,13 @@ func TestDecideApplyLatest_STATBUS226(t *testing.T) {
 func TestDecideApplyLatest_NeverSkipsWithoutACompletedRow_STATBUS226(t *testing.T) {
 	rows := []applyLatestRow{
 		{Found: false},
-		{Found: true, State: "available"},
-		{Found: true, State: "scheduled"},
-		{Found: true, State: "in_progress"},
-		{Found: true, State: "failed"},
-		{Found: true, State: "rolled_back"},
-		{Found: true, State: "in_progress", Parked: true, ParkedReason: "post-swap health park"},
-		{Found: true, State: "completed", Parked: true, ParkedReason: "parked despite completed"},
+		{Found: true, State: upgrade.UpgradeStateAvailable},
+		{Found: true, State: upgrade.UpgradeStateScheduled},
+		{Found: true, State: upgrade.UpgradeStateInProgress},
+		{Found: true, State: upgrade.UpgradeStateFailed},
+		{Found: true, State: upgrade.UpgradeStateRolledBack},
+		{Found: true, State: upgrade.UpgradeStateInProgress, Parked: true, ParkedReason: "post-swap health park"},
+		{Found: true, State: upgrade.UpgradeStateCompleted, Parked: true, ParkedReason: "parked despite completed"},
 	}
 	for _, row := range rows {
 		got := decideApplyLatest("v2026.08.0", testTargetCommit, testSameBinary, row)
@@ -149,7 +150,7 @@ func TestDecideApplyLatest_NeverSkipsWithoutACompletedRow_STATBUS226(t *testing.
 	}
 	// And the one shape that MUST skip, so this property cannot be satisfied by
 	// simply never skipping.
-	converged := applyLatestRow{Found: true, State: "completed"}
+	converged := applyLatestRow{Found: true, State: upgrade.UpgradeStateCompleted}
 	if got := decideApplyLatest("v2026.08.0", testTargetCommit, testSameBinary, converged); got.Action != applyLatestSkip {
 		t.Error("a found, unparked, completed row at the target MUST skip — otherwise every converged box pays for a no-op upgrade pipeline")
 	}

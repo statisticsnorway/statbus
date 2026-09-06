@@ -1872,14 +1872,7 @@ func (d *Service) markImagesFailed(ctx context.Context, id int, sha, reason stri
 		// row needs the data migration to run").
 		var pgerr *pgconn.PgError
 		if errors.As(err, &pgerr) && pgerr.Code == "23514" && pgerr.ConstraintName == "chk_upgrade_state_attributes" {
-			var probeState, probeImgStatus string
-			probeErr := d.queryConn.QueryRow(ctx,
-				"SELECT state::text, docker_images_status::text FROM public.upgrade WHERE id = $1",
-				id).Scan(&probeState, &probeImgStatus)
-			if probeErr != nil {
-				probeState, probeImgStatus = "<unreadable>", "<unreadable>"
-				log.Printf("verifyArtifacts: diagnostic probe for row %d failed: %v", id, probeErr)
-			}
+			probeState, probeImgStatus := d.probeRowStateForDiagnostic(ctx, id)
 			log.Printf("verifyArtifacts: skipping docker_images_status='failed' UPDATE for commit %s: row %d has corrupted state/timestamp combination (state=%s, docker_images_status=%s, sqlstate=23514, constraint=chk_upgrade_state_attributes; reason would have been %q). Migration 20260425163029_dismiss_corrupt_upgrade_lifecycle_rows repairs these rows.",
 				ShortForDisplay(sha), id, probeState, probeImgStatus, reason)
 			tracker := NewAttemptTracker(d.projDir, 3)
@@ -1921,14 +1914,7 @@ func (d *Service) markImagesFailed(ctx context.Context, id int, sha, reason stri
 		// or state is terminal. Not an invariant breach: the row is not
 		// stuck in the spinning admin-UI shape that the invariant guards
 		// against.
-		var probeState, probeImgStatus string
-		probeErr := d.queryConn.QueryRow(ctx,
-			"SELECT state::text, docker_images_status::text FROM public.upgrade WHERE id = $1",
-			id).Scan(&probeState, &probeImgStatus)
-		if probeErr != nil {
-			probeState, probeImgStatus = "<unreadable>", "<unreadable>"
-			log.Printf("verifyArtifacts: diagnostic probe for row %d failed: %v", id, probeErr)
-		}
+		probeState, probeImgStatus := d.probeRowStateForDiagnostic(ctx, id)
 		log.Printf("verifyArtifacts: skipping docker_images_status='failed' UPDATE for commit %s: row %d is already in terminal state (state=%s, docker_images_status=%s; reason would have been %q)",
 			ShortForDisplay(sha), id, probeState, probeImgStatus, reason)
 		// Clear attempt counter on the silent-skip path (row already in terminal state)
@@ -11368,6 +11354,34 @@ func init() {
 	})
 }
 
+// probeRowStateForDiagnostic reads (state, docker_images_status) for one row
+// purely to LABEL a log line after a write was skipped. It is read-only and
+// its answer never steers control flow, but it still crosses the enum
+// boundary through Parse (STATBUS-349 W1): a label the schema does not
+// know is reported as "<unknown:label>" rather than echoed as if it were a
+// legitimate state, and an unreadable row is "<unreadable>". Two callers in
+// markImagesFailed share it so the diagnostic shape cannot drift.
+func (d *Service) probeRowStateForDiagnostic(ctx context.Context, id int) (state, imgStatus string) {
+	var stateText, imgText string
+	if err := d.queryConn.QueryRow(ctx,
+		"SELECT state::text, docker_images_status::text FROM public.upgrade WHERE id = $1",
+		id).Scan(&stateText, &imgText); err != nil {
+		log.Printf("verifyArtifacts: diagnostic probe for row %d failed: %v", id, err)
+		return "<unreadable>", "<unreadable>"
+	}
+	if parsed, err := ParseUpgradeState(stateText); err != nil {
+		state = "<unknown:" + stateText + ">"
+	} else {
+		state = parsed.String()
+	}
+	if parsed, err := ParseDockerImagesStatus(imgText); err != nil {
+		imgStatus = "<unknown:" + imgText + ">"
+	} else {
+		imgStatus = parsed.String()
+	}
+	return state, imgStatus
+}
+
 // RowStateForCommit reads the upgrade row for a commit: its state, whether it is
 // parked, and the park reason. Used by apply-latest's already-at-latest decision
 // (STATBUS-226), which must distinguish a converged box from a box merely
@@ -11376,7 +11390,7 @@ func init() {
 //
 // A missing row returns pgx.ErrNoRows; every error is the caller's cue that
 // convergence is unproven. Read-only, single fresh query on the pass connection.
-func (d *Service) RowStateForCommit(ctx context.Context, commitSHA string) (state string, parked bool, parkedReason string, err error) {
+func (d *Service) RowStateForCommit(ctx context.Context, commitSHA string) (state UpgradeState, parked bool, parkedReason string, err error) {
 	// runOneShot is the house pattern for a one-shot verb: it connects, and it
 	// CLOSES both connections on the way out. Doing this by hand would leave a
 	// CLI invocation holding a listen connection open for the life of the
@@ -11394,7 +11408,7 @@ func (d *Service) RowStateForCommit(ctx context.Context, commitSHA string) (stat
 		if parseErr != nil {
 			return parseErr
 		}
-		state = parsedState.String()
+		state = parsedState
 		parkedReason = reason.String
 		return nil
 	})
