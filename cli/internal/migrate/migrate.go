@@ -9,6 +9,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -253,13 +254,36 @@ func runPsql(projDir string, sql string, extraArgs ...string) (string, error) {
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		class := UpFailureDeterministic
-		if sqlState := extractSQLState(string(out)); strings.HasPrefix(sqlState, "53") {
-			class = UpFailureResource
-		}
-		return string(out), &UpFailure{Class: class, Err: err}
+		return string(out), classifyPsqlFailure(string(out), err)
 	}
 	return string(out), nil
+}
+
+// classifyPsqlFailure is the ONE place psql's outcome becomes a typed
+// UpFailureClass. It reads two documented signals and nothing else:
+//
+//   - psql's exit status (app-psql, Exit Status): 3 = a script statement
+//     failed under ON_ERROR_STOP, i.e. the SQL itself is wrong
+//     (deterministic); 1 = psql's own fatal error; 2 = the connection was
+//     lost or never opened. 1 and 2 are transient shapes and MUST stay
+//     unclassified: labelling a lost connection "deterministic" makes
+//     recovery park on the first blip (STATBUS-349 review, HIGH).
+//   - the SQLSTATE psql prints under VERBOSITY=verbose: class 53
+//     (insufficient_resources, e.g. 53100 disk full) is a resource failure
+//     regardless of exit status.
+//
+// Anything else (no ExitError at all, an unknown code) is unclassified.
+func classifyPsqlFailure(out string, err error) *UpFailure {
+	class := UpFailureUnclassified
+	if strings.HasPrefix(extractSQLState(out), "53") {
+		class = UpFailureResource
+	} else {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == 3 {
+			class = UpFailureDeterministic
+		}
+	}
+	return &UpFailure{Class: class, Err: err}
 }
 
 var verboseSQLStateRE = regexp.MustCompile(`(?m)(?:ERROR|FATAL):\s+([0-9A-Z]{5}):`)
@@ -638,11 +662,7 @@ func runPsqlFile(projDir string, filePath string) (string, error) {
 		return string(out), fmt.Errorf("migration %s exceeded the 60-minute hard timeout (statement hung?): %w", filepath.Base(filePath), err)
 	}
 	if err != nil {
-		class := UpFailureDeterministic
-		if sqlState := extractSQLState(string(out)); strings.HasPrefix(sqlState, "53") {
-			class = UpFailureResource
-		}
-		return string(out), &UpFailure{Class: class, Err: err}
+		return string(out), classifyPsqlFailure(string(out), err)
 	}
 	return string(out), nil
 }
