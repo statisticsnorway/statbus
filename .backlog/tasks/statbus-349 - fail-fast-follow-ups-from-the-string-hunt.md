@@ -3,10 +3,10 @@ id: STATBUS-349
 title: >-
   receive meaning from types, never guess it from text: enum types for the
   upgrade ledger, a failure_code column, and the remaining loose-string sites
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-09-03 22:01'
-updated_date: '2026-09-06 09:45'
+updated_date: '2026-09-06 18:56'
 labels:
   - upgrade
   - release
@@ -172,6 +172,66 @@ One implementer for W1+W3 (Go only, can start immediately), one for W2 (the
 migration, red-then-green in pg_regress first), one for W4+W5, then one
 adversarial reviewer over the whole diff. Spawn headless in this
 environment.
+## Delivery evidence (2026-09-06)
+
+Twelve signed commits on master, `9b2c49e84..f910d074f`. Three headless
+implementers in disjoint lanes of one shared tree, then one adversarial
+review (REJECT, three findings), coordinator fixes, re-verification (ACCEPT).
+
+| Item | Commits | What landed |
+|---|---|---|
+| W3 drift test | `9b2c49e84` | `live_enum_twins_test.go`: pg_enum labels vs Go constant sets, both directions, table-driven; five enums after W2 |
+| W1 typed twins | `bad4919d9` (+ content captured in `b973cc8bb`, see note) | `ledger_types.go`: `UpgradeState`, `ReleaseStatus`, `DockerImagesStatus`, `ReleaseBuildsStatus`, Parse/String; every `::text` scan of the four columns crosses Parse; zero bare literal comparisons |
+| W2 failure_code | `29a82c2f1`, `410620e62` | migration `20260906173739`: `upgrade_failure_code` enum (17 values) + nullable `failure_code` column; pg_regress `331`; `failure_code.go` typed constants; every writer persists code and prose separately in one statement; reschedule advice keyed on the column, NULL = no advice; daemon floor bumped; doc/db regenerated |
+| W4 mechanical | `db4285ef8` `1e23c0ab6` `c4478df69` `3b72b9e47` `aba1ab28f` | D5 (apply-latest through `ClassifyReleaseShape`), D6 (context termination non-retryable, prose fallbacks deleted), S1 S2 S6 S7 S8 S10 S13 S14 S15 fixed with tests; S12 confirmed already exact |
+| W5 rulings | `aba1ab28f` | S9 (Git "no signature found": Git offers no typed signature status) and S11 (display-only step-failure label) carry `ACCEPTABLE-CONTRACT (STATBUS-349)` naming the producer |
+| Review fixes | `94bfe3350`, `f910d074f` | see below |
+
+### Independent review (Luna, `tmp/STATBUS-349-review/REPORT.md`)
+
+Round 1: **REJECT.**
+- HIGH, D4: the new psql classifier wrapped every non-class-53 failure as
+  deterministic, so psql exit 2 (connection lost) became exit 20 and
+  recovery would park on the first blip. Fixed in `94bfe3350`: one
+  `classifyPsqlFailure` reads only the documented signals (SQLSTATE class
+  53 -> 22; psql exit 3 -> 20; exit 1/2 -> 1), shared by `runPsql` and
+  `runPsqlFile`. Regression `psql_boundary_test.go` drives a REAL fake psql
+  subprocess through six shapes; red without the fix for the exit 1/2
+  cases.
+- MEDIUM: `RowStateForCommit` returned the parsed enum as `string` and
+  `applyLatestRow` compared a literal. Fixed in `f910d074f`: typed end to
+  end, fixtures use the constants.
+- MEDIUM: two `markImagesFailed` diagnostic probes scanned enums into bare
+  strings. Fixed in `f910d074f`: one `probeRowStateForDiagnostic` parses
+  both and labels an unknown value `<unknown:x>`.
+
+Round 2 (`f910d074f`): **ACCEPT.** Focused boundary test, full Go suite,
+lint, live suite all green; tracked tree unchanged by the reviewer.
+
+### Acceptance, observed
+
+1. `go test ./...` and `./dev.sh lint` green; live drift test passes for all
+   five enums against the dev DB (fresh `create-db` path wedges on this
+   host's docker exec; the migration was applied via `migrate up` and the
+   331 SQL output matched `test/expected` byte for byte).
+2. No `::text` scan of the four enum columns lands in a bare string
+   (coordinator-verified by grep after the review fixes).
+3. `public.upgrade.failure_code` exists; reschedule reads it; `error` is
+   never parsed for a code.
+4. Every one of Luna's 21 sites is FIXED with a test or carries an
+   `ACCEPTABLE-CONTRACT (STATBUS-349)` comment naming the producer.
+5. Red-then-green per W4 row (implementer reports; D4 additionally re-proven
+   through the subprocess boundary after review).
+
+### Notes for the record
+
+- Attribution: the coordinator's backlog commit `b973cc8bb` swept in W1's
+  staged files (bare `git commit` after `git add` on a shared tree). Content
+  is correct; the message misattributes it. Rule since then: path-limited
+  commits only.
+- `./sb migrate up` on this host hangs after the migration in its
+  `create-test-template` step (docker exec latency); the schema step itself
+  completes. Not a code defect.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Luna's report (DEFECT + SMELL sections, verbatim)
