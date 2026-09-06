@@ -57,8 +57,8 @@ func TestWriteRollbackTerminal_ExhaustionMarksTerminalAndKeepsFlag(t *testing.T)
 	// STATBUS-154: writeRollbackTerminal no longer takes the pass ctx (the
 	// teardown-immune terminalUpdate makes its own context.Background).
 	ok := d.writeRollbackTerminal(7,
-		"UPDATE public.upgrade SET state = 'rolled_back', error = $1, recovery_attempts = $2, rolled_back_at = now() WHERE id = $3"+upgradeRowReturning,
-		"some rollback reason", LabelRolledBackNormal, 2)
+		"UPDATE public.upgrade SET state = 'rolled_back', error = $1, recovery_attempts = $2, rolled_back_at = now(), failure_code = $5 WHERE id = $3"+upgradeRowReturning,
+		nil, "some rollback reason", LabelRolledBackNormal, 2)
 
 	if ok {
 		t.Fatalf("writeRollbackTerminal must return false when the DB is unreachable")
@@ -223,15 +223,15 @@ func TestParkUpgrade_ImmuneNarrativeStructural(t *testing.T) {
 	source := string(src)
 	body := extractFuncBody(t, source, "func (d *Service) parkUpgrade(")
 
-	// (1) THREE-COLUMN immune UPDATE: park timestamp + reason + error narrative all
+	// (1) FOUR-COLUMN immune UPDATE: park timestamp + reason + typed code + error narrative all
 	// ride the SAME terminalUpdate write.
-	for _, col := range []string{"recovery_parked_at = now()", "recovery_parked_reason = $2", "error = $3"} {
+	for _, col := range []string{"recovery_parked_at = now()", "recovery_parked_reason = $2", "failure_code = $3", "error = $4"} {
 		if !strings.Contains(body, col) {
 			t.Errorf("parkUpgrade's immune UPDATE must set %q — the narrative must ride the park columns' write, not a separate one (STATBUS-071)", col)
 		}
 	}
-	if !strings.Contains(body, "id, reason, errNarrative)") {
-		t.Error("parkUpgrade must bind errNarrative ($3) into the SAME terminalUpdate call as the park columns (three-column contract)")
+	if !strings.Contains(body, "id, reason, failureCode, errNarrative)") {
+		t.Error("parkUpgrade must bind failureCode ($3) and errNarrative ($4) into the SAME terminalUpdate call as the park columns")
 	}
 
 	// (2) NON-EMPTY narrative at EVERY call site. Exactly three callers today: the
@@ -243,7 +243,7 @@ func TestParkUpgrade_ImmuneNarrativeStructural(t *testing.T) {
 	}
 	// The deterministic caller's exact bytes (the arcs' `error LIKE '%parked on
 	// deterministic forward failure%'` asserts depend on these).
-	if !strings.Contains(source, `d.parkUpgrade(ctx, id, reason, "parked on deterministic forward failure: "+reason)`) {
+	if !strings.Contains(source, `d.parkUpgrade(ctx, id, failureCode, reason, "parked on deterministic forward failure: "+reason)`) {
 		t.Error("the deterministic park caller must pass \"parked on deterministic forward failure: \"+reason (the arcs assert on these bytes)")
 	}
 	// Both budget callers pass the crash-resume narrative — 2 occurrences pins both
@@ -254,7 +254,7 @@ func TestParkUpgrade_ImmuneNarrativeStructural(t *testing.T) {
 	// The vulnerable split-write half is gone: no parkUpgrade caller passes an empty
 	// narrative, and the deterministic caller no longer follows up with a separate
 	// recordInProgressFailure (its narrative now rides the immune write).
-	if strings.Contains(source, `d.parkUpgrade(ctx, id, reason, "")`) {
+	if strings.Contains(source, `d.parkUpgrade(ctx, id, nil, reason, "")`) {
 		t.Error("a parkUpgrade caller passes an empty narrative — every park must carry a story (STATBUS-071)")
 	}
 }
@@ -272,7 +272,7 @@ func TestTerminalWrite_SurvivesCanceledPassContext(t *testing.T) {
 	canceled, cancel := context.WithCancel(context.Background())
 	cancel() // the pass is already torn down
 
-	freshlyParked, err := d.parkUpgrade(canceled, 7, "test reason", "parked: test reason")
+	freshlyParked, err := d.parkUpgrade(canceled, 7, nil, "test reason", "parked: test reason")
 	if freshlyParked {
 		t.Error("no DB → the park cannot land; freshlyParked must be false")
 	}

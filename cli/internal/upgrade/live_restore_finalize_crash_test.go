@@ -94,7 +94,7 @@ func TestLiveRestoreAndFinalize_UnlinkFailureThenRecovery(t *testing.T) {
 	progress := NewUpgradeLog(projDir, int64(id), "live-probe", time.Now().UTC())
 	var degraded bool
 	captureStdoutUpgrade(t, func() {
-		degraded = d.restoreAndFinalize(ctx, id, "live-probe", ErrGitFetchRetryable+": live unlink-failure probe", "", 0, progress)
+		degraded = d.restoreAndFinalize(ctx, id, "live-probe", ptrFailureCode(ErrGitFetchRetryable), "live unlink-failure probe", "", 0, progress)
 	})
 	progress.Close()
 	logBytes, _ := os.ReadFile(progress.AbsPath())

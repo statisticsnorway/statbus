@@ -27,9 +27,9 @@ import (
 func TestPreSwapMessageIsTheApprovedText_STATBUS240(t *testing.T) {
 	msg := preSwapStoppedMessage(3)
 
-	// The class prefix, and the first sentence after it.
-	if !strings.HasPrefix(msg, ErrUpgradeStoppedUnchanged+": The upgrade stopped before it changed anything.") {
-		t.Errorf("the approved text opens with the class and the reassurance; got:\n%s", msg)
+	// The code is stored in failure_code; error begins with prose reassurance.
+	if !strings.HasPrefix(msg, "The upgrade stopped before it changed anything.") {
+		t.Errorf("the approved prose opens with the reassurance; got:\n%s", msg)
 	}
 
 	for _, want := range []string{
@@ -112,10 +112,10 @@ func TestNewClassJoinsTheStableCodes_STATBUS240(t *testing.T) {
 	// a failure of something attempted; this one must not, because nothing
 	// failed in that sense and an operator scanning for damage would assume
 	// there is some.
-	if strings.Contains(ErrUpgradeStoppedUnchanged, "FAILED") {
+	if strings.Contains(string(ErrUpgradeStoppedUnchanged), "FAILED") {
 		t.Error("the name must not contain FAILED — it would sit in the list looking like its neighbours, and the name is the one surface nobody can skip")
 	}
-	if strings.Contains(ErrUpgradeStoppedUnchanged, "PRESWAP") || strings.Contains(ErrUpgradeStoppedUnchanged, "PRE_SWAP") {
+	if strings.Contains(string(ErrUpgradeStoppedUnchanged), "PRESWAP") || strings.Contains(string(ErrUpgradeStoppedUnchanged), "PRE_SWAP") {
 		t.Error("PreSwap is our word for our machinery; this class is read by people who have never heard of a swap")
 	}
 }

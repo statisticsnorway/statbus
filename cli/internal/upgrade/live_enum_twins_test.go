@@ -21,6 +21,7 @@ func TestLiveEnumTwins(t *testing.T) {
 		{"release_status_type", enumStrings(allReleaseStatuses)},
 		{"docker_images_status_type", enumStrings(allDockerImagesStatuses)},
 		{"release_builds_status_type", enumStrings(allReleaseBuildsStatuses)},
+		{"upgrade_failure_code", enumStrings(allUpgradeFailureCodes)},
 	}
 
 	projDir := findProjDir(t)

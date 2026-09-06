@@ -123,19 +123,19 @@ func TestRollbackFinishCleanupDoesNotRemoveAnotherUpgradeMarker(t *testing.T) {
 }
 
 func TestRollbackFinishPendingAndFinalErrorContracts(t *testing.T) {
-	reason := ErrGitFetchRetryable + ": remote closed connection"
+	reason := "remote closed connection"
 	pending := rollbackFinishPendingError(reason)
 	if !IsRollbackFinishPendingError(pending) {
 		t.Fatalf("pending rollback error lacks the shared discriminator: %q", pending)
 	}
-	final := rollbackFinalError(strings.TrimPrefix(pending, RollbackFinishPendingPrefix))
+	final := rollbackFinalError(ptrFailureCode(ErrGitFetchRetryable), strings.TrimPrefix(pending, RollbackFinishPendingPrefix))
 	for _, want := range []string{reason, "running normally on the old version", "safe to schedule this same version again"} {
 		if !strings.Contains(final, want) {
 			t.Fatalf("final retryable rollback guidance %q lacks %q", final, want)
 		}
 	}
 
-	hardFinal := rollbackFinalError("migration failed")
+	hardFinal := rollbackFinalError(nil, "migration failed")
 	if !strings.Contains(hardFinal, "do NOT re-schedule it") {
 		t.Fatalf("hard rollback guidance lost deterministic-failure advice: %q", hardFinal)
 	}

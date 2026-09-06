@@ -105,10 +105,10 @@ esac
 	}
 
 	progress := NewUpgradeLog(projDir, int64(id), "live-probe", time.Now().UTC())
-	reason := ErrGitFetchRetryable + ": live restoreAndFinalize probe"
+	reason := "live restoreAndFinalize probe"
 	var degraded bool
 	out := captureStdoutUpgrade(t, func() {
-		degraded = d.restoreAndFinalize(ctx, id, "live-probe", reason, "", 0, progress)
+		degraded = d.restoreAndFinalize(ctx, id, "live-probe", ptrFailureCode(ErrGitFetchRetryable), reason, "", 0, progress)
 	})
 	progress.Close()
 	logBytes, _ := os.ReadFile(progress.AbsPath())

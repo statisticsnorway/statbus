@@ -121,7 +121,7 @@ var rewindAudit = map[siteKey]rewindDisposition{
 	},
 
 	// ── B. SUPERSEDED BY THE TERMINAL WRITE ITSELF ──
-	{"cli/internal/upgrade/service.go", "UPDATE", "backup_path,error,recovery_attempts,state"}: {
+	{"cli/internal/upgrade/service.go", "UPDATE", "backup_path,error,failure_code,recovery_attempts,state"}: {
 		Class: classSupersededByTerminal, Count: 5,
 		Why: "THE TERMINAL WRITES THEMSELVES (the four degraded 'failed' tiers plus the conservative " +
 			"failed-before-lock-release rollback write). They run AFTER the rewind and are " +
@@ -133,7 +133,7 @@ var rewindAudit = map[siteKey]rewindDisposition{
 			"rewound value never reaches a reader. (This is exactly why the audit keys on SITES: the same " +
 			"column at a terminal is the superseding write.)",
 	},
-	{"cli/internal/upgrade/service.go", "UPDATE", "error,state"}: {
+	{"cli/internal/upgrade/service.go", "UPDATE", "error,failure_code,state"}: {
 		Class: classSupersededByTerminal, Count: 1,
 		Why: "completeInProgressUpgrade's observed-state failure sets state+error itself after the rewind, " +
 			"so it cannot be rewound by the rollback it finishes. The former stale-lock rewrite was removed: " +
@@ -144,7 +144,7 @@ var rewindAudit = map[siteKey]rewindDisposition{
 		Why: "The single serialized rolled_back transition serves both the live path and startup/heartbeat retry. " +
 			"It runs after the rewind and marker cleanup while holding the pending row lock, establishing the healthy terminal contract.",
 	},
-	{"cli/internal/upgrade/service.go", "UPDATE", "error,scheduled_at,state"}: {
+	{"cli/internal/upgrade/service.go", "UPDATE", "error,failure_code,scheduled_at,state"}: {
 		Class: classSupersededByTerminal, Count: 1,
 		Why: "Claim-window failure write: sets its own state+error, and clears scheduled_at deliberately.",
 	},
@@ -163,7 +163,7 @@ var rewindAudit = map[siteKey]rewindDisposition{
 		Why: "CI-not-ready scheduled-slot collision: a later operator schedule owns the singleton slot, so this pre-backup claim becomes superseded.",
 	},
 	// ── D. SUCCESS PATH ONLY — no restore occurs on these paths ──
-	{"cli/internal/upgrade/service.go", "UPDATE", "completed_at,docker_images_status,error,log_relative_file_path,state"}: {
+	{"cli/internal/upgrade/service.go", "UPDATE", "completed_at,docker_images_status,error,failure_code,log_relative_file_path,state"}: {
 		Class: classSuccessPathOnly, Count: 3,
 		Why: "The completion writes. A completed upgrade never rolls back, so no rewind can follow them.",
 	},
@@ -269,7 +269,7 @@ var rewindAudit = map[siteKey]rewindDisposition{
 			"42703 and refuse on every other error. STAYS RULED-REIMPOSE-OWED until the narrowing ships: the audit " +
 			"states the true current state, not the intended one.",
 	},
-	{"cli/internal/upgrade/service.go", "UPDATE", "error,recovery_parked_at,recovery_parked_reason"}: {
+	{"cli/internal/upgrade/service.go", "UPDATE", "error,failure_code,recovery_parked_at,recovery_parked_reason"}: {
 		Class: classRuledReimposeOwed, Count: 1, Owner: "architect (ruled) / next builder (implements)",
 		Why: "RULED RE-IMPOSE on the burden principle: an exemption requires proof, safety does not. A missed re-imposition here is a PARKED box silently un-parking into the deterministic failure it stopped at — STATBUS-229 exactly. If someone later proves no restore can follow a park, re-disposition EXEMPT with that proof recorded.",
 		Question: "IMPLEMENTATION COST — see the recoveryRollback-route entry above: the trace deleted the " +

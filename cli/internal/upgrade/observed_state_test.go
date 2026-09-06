@@ -558,7 +558,7 @@ func TestRollbackHealthyGuidanceFollowsLockRelease(t *testing.T) {
 		t.Fatal("rollback may expose writes or claim completion before durable cleanup-only finalization")
 	}
 	finalizer := extractFuncBody(t, string(source), "func (d *Service) finalizePendingRollback(")
-	for _, required := range []string{"RollbackFinishPendingPrefix", "rollbackFinalError(strings.TrimPrefix", "pg_try_advisory_xact_lock", "d.clearRollbackFinishFlag(id)", "FOR UPDATE"} {
+	for _, required := range []string{"RollbackFinishPendingPrefix", "rollbackFinalError(failureCode, strings.TrimPrefix", "pg_try_advisory_xact_lock", "d.clearRollbackFinishFlag(id)", "FOR UPDATE"} {
 		if !strings.Contains(finalizer, required) {
 			t.Fatalf("pending rollback finalizer omitted %q", required)
 		}

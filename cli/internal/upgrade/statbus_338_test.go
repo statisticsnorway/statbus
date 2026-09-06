@@ -210,7 +210,7 @@ func TestReturnedFetchErrorSurvivesPreswapRecovery_STATBUS338(t *testing.T) {
 	t.Cleanup(func() { _ = d.removeUpgradeFlag() })
 
 	const gitFailure = "remote: synthetic GitHub HTTP 503 from rune signature"
-	original := ErrGitFetchRetryable + ": git fetch aaaaaaaa failed after 3 attempts: " + gitFailure
+	original := string(ErrGitFetchRetryable) + ": git fetch aaaaaaaa failed after 3 attempts: " + gitFailure
 	if err := d.recordOriginalError(original); err != nil {
 		t.Fatalf("recordOriginalError: %v", err)
 	}
@@ -222,11 +222,11 @@ func TestReturnedFetchErrorSurvivesPreswapRecovery_STATBUS338(t *testing.T) {
 	if got != original {
 		t.Fatalf("PreSwap recovery reason = %q, want original returned error %q", got, original)
 	}
-	if strings.Contains(got, ErrInstallPreconditionFailed) {
+	if strings.Contains(got, string(ErrInstallPreconditionFailed)) {
 		t.Fatalf("original git failure was replaced by the false deterministic class: %q", got)
 	}
-	if !retryableRollbackReason(got) {
-		t.Fatalf("preserved fetch failure must classify retryable: %q", got)
+	if !strings.Contains(rollbackFinalError(ptrFailureCode(ErrGitFetchRetryable), got), "safe to schedule this same version again") {
+		t.Fatalf("typed fetch failure must produce retryable guidance: %q", got)
 	}
 
 	// The terminal writer receives errMsg, and restoreAndFinalize initializes it
@@ -243,11 +243,11 @@ func TestReturnedFetchErrorSurvivesPreswapRecovery_STATBUS338(t *testing.T) {
 		}
 	}
 	finalizerBody := extractFuncBody(t, readUpgradeServiceSource(t), "func (d *Service) finalizePendingRollback(")
-	if !strings.Contains(finalizerBody, "rollbackFinalError(strings.TrimPrefix(errorText, RollbackFinishPendingPrefix))") {
-		t.Error("serialized rollback finalizer no longer derives final guidance from the preserved pending error")
+	if !strings.Contains(finalizerBody, "rollbackFinalError(failureCode, strings.TrimPrefix(errorText, RollbackFinishPendingPrefix))") {
+		t.Error("serialized rollback finalizer no longer derives final guidance from failure_code")
 	}
 	guidanceBody := extractFuncBody(t, readUpgradeServiceSource(t), "func rollbackFinalError(")
-	for _, want := range []string{"retryableRollbackReason(reason)", "It is safe to schedule this same version again"} {
+	for _, want := range []string{"*failureCode == ErrGitFetchRetryable", "It is safe to schedule this same version again"} {
 		if !strings.Contains(guidanceBody, want) {
 			t.Errorf("rollbackFinalError lost retryable original-error guidance; missing %q", want)
 		}

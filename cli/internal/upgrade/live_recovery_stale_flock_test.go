@@ -99,7 +99,7 @@ esac
 	}
 
 	progress := NewUpgradeLog(projDir, int64(id), "live-probe", time.Now().UTC())
-	degraded := d.restoreAndFinalize(ctx, id, "live-probe", ErrGitFetchRetryable+": actor A", "", 0, progress)
+	degraded := d.restoreAndFinalize(ctx, id, "live-probe", ptrFailureCode(ErrGitFetchRetryable), "actor A", "", 0, progress)
 	progress.Close()
 	if degraded {
 		t.Fatal("actor A did not finish the healthy restore tail")

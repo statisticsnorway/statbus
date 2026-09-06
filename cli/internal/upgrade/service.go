@@ -2342,76 +2342,11 @@ func logUpgradeRow(label string, row string) {
 	fmt.Printf("upgrade row [%s] %s\n", label, row)
 }
 
-// Stable error codes written as a prefix to public.upgrade.error.
-// Operator-searchable, translation-friendly, machine-filterable.
-// Sub-coded where the distinction drives a different recovery action.
-// Always use codedError() or fmt.Sprintf("%s: ...", ErrX, ...) — never
-// embed the code as a raw string literal in the error message.
-//
-//	ErrMigrationFailed       — ./sb migrate up or ./dev.sh recreate-database failed
-//	ErrBackupFailed          — pre-upgrade database backup failed
-//	ErrDockerUpFailed        — docker compose pull / up / start failed
-//	ErrHealthcheckRESTDown   — PostgREST health probe failed
-//	ErrHealthcheckAppDown    — Next.js application health probe failed
-//	ErrHealthcheckDBDown     — PostgreSQL health probe / reconnect failed
-//	ErrRollbackGitCorrupt    — rollback git-restore failed: other / corrupt (support-only)
-//	ErrRollbackDBRestore     — rollback database volume restore failed
-//	ErrRollbackServicesUp    — rollback docker compose up failed after DB restore
-//	ErrRollbackServicesNotStopped — pre-restore `docker compose stop` did not actually stop every service (STATBUS-187); refused before any restore step
-//	ErrRollbackBinaryCorrupt — rollback could not restore ./sb from ./sb.old (operator must mv manually)
-//	ErrBinaryReplaceFailed   — mid-flow binary replacement (download/verify/swap) failed before migrations
-//	ErrBinaryBuildFailed     — mid-flow sb image procurement failed (pull miss + in-container build fallback failed; edge channel, no release artifact)
-//	ErrInstallFixupFailed    — post-upgrade ./sb install fixup step failed (non-fatal)
-//	ErrResumeDied            — post-swap resume began (flag Phase=resuming) then the process died → roll back, no retry
-const (
-	ErrMigrationFailed     = "MIGRATION_FAILED"
-	ErrBackupFailed        = "BACKUP_FAILED"
-	ErrDockerUpFailed      = "DOCKER_UP_FAILED"
-	ErrHealthcheckRESTDown = "HEALTHCHECK_REST_DOWN"
-	ErrHealthcheckAppDown  = "HEALTHCHECK_APP_DOWN"
-	ErrHealthcheckDBDown   = "HEALTHCHECK_DB_DOWN"
-	ErrRollbackGitCorrupt  = "ROLLBACK_FAILED_GIT_CORRUPT"
-	ErrRollbackDBRestore   = "ROLLBACK_FAILED_DB_RESTORE"
-	// ErrUpgradeStoppedUnchanged (STATBUS-240, King-approved name and text) —
-	// the upgrade declined to proceed and left the system exactly as it found
-	// it. It BREAKS THE NAMING PATTERN ON PURPOSE: every other class here names
-	// a failure of something that was attempted, and this one must not, because
-	// nothing failed in that sense. If it read UPGRADE_FAILED_PRESWAP it would
-	// sit in this list looking like its neighbours and an operator scanning for
-	// damage would assume there is some. The name reads differently because the
-	// operator's next action is different, and the name is the one surface
-	// nobody can skip.
-	//
-	// "NOTHING_CHANGED" rather than "PRESWAP": PreSwap is our word for our
-	// machinery. It names the internal phase boundary correctly and tells the
-	// operator nothing they can act on; this class is read by people who have
-	// never heard of a swap.
-	ErrUpgradeStoppedUnchanged    = "UPGRADE_STOPPED_NOTHING_CHANGED"
-	ErrRollbackServicesUp         = "ROLLBACK_FAILED_SERVICES_UP"
-	ErrRollbackServicesNotStopped = "ROLLBACK_FAILED_SERVICES_NOT_STOPPED"
-	ErrRollbackBinaryCorrupt      = "ROLLBACK_FAILED_BINARY_CORRUPT"
-	ErrBinaryReplaceFailed        = "BINARY_REPLACE_FAILED"
-	ErrBinaryBuildFailed          = "BINARY_BUILD_FAILED"
-	ErrInstallFixupFailed         = "INSTALL_FIXUP_FAILED"
-	// ErrGitFetchRetryable names a pre-swap object-fetch failure whose bounded
-	// retries exhausted. The target tree, services, and database are unchanged,
-	// so retrying the same candidate is legitimate. Norway rc.02 was wrongly
-	// relabelled INSTALL_PRECONDITION_FAILED with do-not-reschedule advice.
-	ErrGitFetchRetryable = "GIT_FETCH_FAILED_RETRYABLE"
-	// ErrInstallPreconditionFailed — an installable precondition was not
-	// met at recovery time (binary SHA mismatch, migration gap, etc.).
-	// Used by completeInProgressUpgrade's observed-state check (task #49)
-	// to mark rows FAILED rather than silently completing them.
-	ErrInstallPreconditionFailed = "INSTALL_PRECONDITION_FAILED"
-	// ErrResumeDied — the planned post-swap resume began (flag Phase=resuming),
-	// the process died before completing (watchdog SIGABRT on a hung step,
-	// OOM, reboot, kill), AND observed state verified the system confirmed
-	// behind the target (STATBUS-039) — recoverFromFlag rolled back to this
-	// upgrade's own snapshot and marked the row terminal. At-or-past-target
-	// deaths resume forward instead and never carry this code. See
-	// upgrade-timeline.md § Binary-swap restart + resume.
-	ErrResumeDied = "UPGRADE_DIED_DURING_RESUME"
-)
+// Upgrade failure codes are typed in failure_code.go and persisted separately
+// from the human-readable public.upgrade.error narrative. ErrResumeDied is not
+// part of the database enum because the approved STATBUS-349 schema contains
+// exactly the seventeen existing durable failure classes.
+const ErrResumeDied = "UPGRADE_DIED_DURING_RESUME"
 
 // exitPrincipledConfigRefusal (78 = EX_CONFIG, sysexits.h) mirrors
 // cli/cmd/config.go's constant of the same name and value — a bare literal
@@ -3656,15 +3591,16 @@ func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displa
 		// exactly this gap.
 		msg := preSwapStoppedMessage(attempts)
 		label := "STOPPED-UNCHANGED"
+		failureCode := ErrUpgradeStoppedUnchanged
 		if flag.IsServiceNewSbRecovery() {
-			msg = fmt.Sprintf("%s: rollback could not complete — two consecutive crash-deaths during rollback (recovery attempt %d). The system is in a degraded state; manual CLI recovery is required (%s); contact SSB support and involve your IT staff.",
-				ErrRollbackDBRestore, attempts, INSTALL_CMD)
+			failureCode = ErrRollbackDBRestore
+			msg = fmt.Sprintf("rollback could not complete — two consecutive crash-deaths during rollback (recovery attempt %d). The system is in a degraded state; manual CLI recovery is required (%s); contact SSB support and involve your IT staff.", attempts, INSTALL_CMD)
 			label = "RESTORE-BROKE"
 		}
 		log.Printf("recoveryRollback: %s upgrade %d after %d attempt(s) — two consecutive rollback deaths", label, id, attempts)
 		if d.writeRollbackTerminal(id,
-			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+" WHERE id = $3"+upgradeRowReturning,
-			msg, LabelFailedRollbackIncomplete, attempts) {
+			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+", failure_code = $5 WHERE id = $3"+upgradeRowReturning,
+			&failureCode, msg, LabelFailedRollbackIncomplete, attempts) {
 			_ = d.removeUpgradeFlag()
 		} else {
 			d.releaseUpgradeFlagLockKeepingFile()
@@ -3703,7 +3639,7 @@ func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displa
 	}
 	defer rollbackLog.Close()
 
-	d.rollback(ctx, id, displayName, restoreTargetSHA, reason, flag.BackupPath, rollbackLog)
+	d.rollback(ctx, id, displayName, restoreTargetSHA, nil, reason, flag.BackupPath, rollbackLog)
 }
 
 // completeInProgressUpgrade checks for an upgrade that was started but not
@@ -3805,12 +3741,12 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 		}
 		d.writeDiagnosticBundle(ctx, int(id), appendLog)
 		appendLog = nil
-		failedSQL := "UPDATE public.upgrade SET state = 'failed', error = $1 WHERE id = $2" + upgradeRowReturning
-		errStr := fmt.Sprintf("%s: post-restart health check failed: %v", ErrHealthcheckDBDown, err)
+		failedSQL := "UPDATE public.upgrade SET state = 'failed', failure_code = $1, error = $2 WHERE id = $3" + upgradeRowReturning
+		errStr := fmt.Sprintf("post-restart health check failed: %v", err)
 		var failedJSON string
 		var scanErr error
 		for attempt := 0; attempt < 4; attempt++ {
-			scanErr = d.queryConn.QueryRow(ctx, failedSQL, errStr, id).Scan(&failedJSON)
+			scanErr = d.queryConn.QueryRow(ctx, failedSQL, ErrHealthcheckDBDown, errStr, id).Scan(&failedJSON)
 			if scanErr == nil {
 				logUpgradeRow(LabelFailed, failedJSON)
 				break
@@ -3955,9 +3891,8 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 			rollbackLog = NewUpgradeLog(d.projDir, int64(id), displayName, time.Now().UTC())
 		}
 		defer rollbackLog.Close()
-		d.rollback(ctx, id, displayName, "", fmt.Sprintf(
-			"%s: observed-state check after service restart failed: %s",
-			ErrInstallPreconditionFailed, reason), authorizedBackupPath, rollbackLog)
+		d.rollback(ctx, id, displayName, "", ptrFailureCode(ErrInstallPreconditionFailed), fmt.Sprintf(
+			"observed-state check after service restart failed: %s", reason), authorizedBackupPath, rollbackLog)
 		return
 	}
 
@@ -3997,7 +3932,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 	// failure (ENOSPC is itself a live park cause) does NOT block the park: warn that
 	// install-un-park is unavailable (a fix-release schedule remains the trigger) and
 	// park anyway.
-	parkAtTarget := func(reason string) {
+	parkAtTarget := func(failureCode *UpgradeFailureCode, reason string) {
 		flag := UpgradeFlag{
 			ID:         id,
 			CommitSHA:  commitSHA,
@@ -4016,7 +3951,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 		} else {
 			parkedExit = true // the defer must NOT strip this flag (STATBUS-192/135)
 		}
-		_ = d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, rowBackupPath.String, reason, appendLog)
+		_ = d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, rowBackupPath.String, failureCode, reason, appendLog)
 	}
 
 	// STATBUS-192 MUST-FIX 1 — WATCHDOG COVER for the serve-proof tail. This runs in the
@@ -4042,7 +3977,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 	}()
 
 	if reason := d.diskPrecheckReason(StepStartServices); reason != "" {
-		parkAtTarget(reason)
+		parkAtTarget(nil, reason)
 		return
 	}
 	logRecover("At-target verified; starting application services to prove %s serves...", displayName)
@@ -4055,19 +3990,19 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 		// lie, never a hand-rolled disposition. (The diskPrecheck park above is the
 		// class-C primary; this is the in-flight ENOSPC backstop.)
 		if classifyDockerFailure(cerr, stderrTail) == classResource {
-			parkAtTarget(fmt.Sprintf("disk full starting services at %s (no space left on device) — free disk space, then re-trigger the upgrade", displayName))
+			parkAtTarget(nil, fmt.Sprintf("disk full starting services at %s (no space left on device) — free disk space, then re-trigger the upgrade", displayName))
 			return
 		}
 		_ = d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, rowBackupPath.String,
-			fmt.Sprintf("%s: could not start the application at %s during flagless recovery: %v", ErrDockerUpFailed, displayName, cerr), appendLog)
+			ptrFailureCode(ErrDockerUpFailed), fmt.Sprintf("could not start the application at %s during flagless recovery: %v", displayName, cerr), appendLog)
 		return
 	}
 	if hcErr := d.healthCheck(appendLog, 5, 5*time.Second); hcErr != nil {
-		parkAtTarget(fmt.Sprintf("%s: the application cannot serve at %s past warmup after flagless recovery — %v; fix the cause, then re-trigger the upgrade", ErrHealthcheckRESTDown, displayName, hcErr))
+		parkAtTarget(ptrFailureCode(ErrHealthcheckRESTDown), fmt.Sprintf("the application cannot serve at %s past warmup after flagless recovery — %v; fix the cause, then re-trigger the upgrade", displayName, hcErr))
 		return
 	}
 	if err := d.setMaintenance(false, ""); err != nil {
-		parkAtTarget(fmt.Sprintf("maintenance mode could not be lifted after %s passed its serving health check: %v; fix the maintenance flag path or permissions, then re-trigger the upgrade", displayName, err))
+		parkAtTarget(nil, fmt.Sprintf("maintenance mode could not be lifted after %s passed its serving health check: %v; fix the maintenance flag path or permissions, then re-trigger the upgrade", displayName, err))
 		return
 	}
 
@@ -4078,7 +4013,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 	// STATBUS-081: log_relative_file_path = COALESCE(...) — chk_upgrade_state_attributes
 	// requires it NOT NULL on completed. Real upgrades are stamped at claim time
 	// (LOG_POINTER_STAMPED invariant) so $2 is a no-op fallback for legacy NULL rows only.
-	completedSQL := "UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready', error = NULL, log_relative_file_path = COALESCE(log_relative_file_path, $2) WHERE id = $1" + upgradeRowReturning
+	completedSQL := "UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready', failure_code = NULL, error = NULL, log_relative_file_path = COALESCE(log_relative_file_path, $2) WHERE id = $1" + upgradeRowReturning
 	// STATBUS-154: teardown-immune completed write (fresh daemon-tagged conn +
 	// context.Background + bounded retry). Best-effort — on failure it marks the
 	// invariant + bundle and continues to cleanup (removeUpgradeFlag etc.), as
@@ -6958,7 +6893,7 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 	pullErr := d.pullImagesForCommitShort(ShortForDisplay(commitSHA))
 	close(pullDone)
 	if pullErr != nil {
-		d.failUpgrade(ctx, id, fmt.Sprintf("%s: Failed to pull images for %s: %v", ErrDockerUpFailed, displayName, pullErr), progress)
+		d.failUpgradeCoded(ctx, id, ErrDockerUpFailed, fmt.Sprintf("Failed to pull images for %s: %v", displayName, pullErr), progress)
 		return pullErr
 	}
 	progress.Write("Downloading images ... ok (%s)", formatProgressDuration(time.Since(pullStart), false))
@@ -6976,8 +6911,8 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 	// pin, and backup retain their existing relative order below. A real miss gets
 	// bounded stall-detected retries here, while the old version keeps serving.
 	if err := d.ensureUpgradeCommitObjects(ctx, progress.File(), commitSHA); err != nil {
-		errMsg := fmt.Sprintf("%s: %v", ErrGitFetchRetryable, err)
-		d.failUpgrade(ctx, id, errMsg, progress)
+		errMsg := fmt.Sprintf("%v", err)
+		d.failUpgradeCoded(ctx, id, ErrGitFetchRetryable, errMsg, progress)
 		return fmt.Errorf("%s", errMsg)
 	}
 
@@ -7173,7 +7108,7 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 		// No snapshot was finalised (the partial lives in the syncing dir,
 		// never recorded) — pass "" so the identity-keyed restore refuses to
 		// touch the volume; it was never mutated.
-		d.rollback(ctx, id, displayName, restoreTargetSHA, fmt.Sprintf("%s: %v", ErrBackupFailed, err), "", progress)
+		d.rollback(ctx, id, displayName, restoreTargetSHA, ptrFailureCode(ErrBackupFailed), fmt.Sprintf("%v", err), "", progress)
 		return err
 	}
 	backupPath := backup.Path
@@ -7239,7 +7174,7 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 				errMsg := fmt.Sprintf("Version verification failed: target commit %s does not match manifest commit %s. Possible tag tampering.",
 					ShortForDisplay(commitSHA), ShortForDisplay(manifest.CommitSHA))
 				progress.Write("%s", errMsg)
-				d.rollback(ctx, id, displayName, restoreTargetSHA, errMsg, backupPath, progress)
+				d.rollback(ctx, id, displayName, restoreTargetSHA, nil, errMsg, backupPath, progress)
 				return fmt.Errorf("%s", errMsg)
 			}
 		}
@@ -7275,7 +7210,7 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 	// same-night commit-identified deploys completed.)
 	var (
 		procureErr  error
-		procureCode string
+		procureCode UpgradeFailureCode
 	)
 	if ValidateVersion(displayName) {
 		procureErr = d.replaceBinaryOnDisk(displayName, progress)
@@ -7285,7 +7220,7 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 		procureCode = ErrBinaryBuildFailed
 	}
 	if procureErr != nil {
-		d.rollback(ctx, id, displayName, restoreTargetSHA, fmt.Sprintf("%s: %v", procureCode, procureErr), backupPath, progress)
+		d.rollback(ctx, id, displayName, restoreTargetSHA, &procureCode, fmt.Sprintf("%v", procureErr), backupPath, progress)
 		return procureErr
 	}
 
@@ -7305,7 +7240,7 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 	// Step 2 for the consistent-backup stop, so we can't persist to
 	// public.upgrade here — the flag file is the handoff channel.
 	if err := d.updateFlagNewSbSwapped(backupPath); err != nil {
-		d.rollback(ctx, id, displayName, restoreTargetSHA, fmt.Sprintf("stamp post_swap flag: %v", err), backupPath, progress)
+		d.rollback(ctx, id, displayName, restoreTargetSHA, nil, fmt.Sprintf("stamp post_swap flag: %v", err), backupPath, progress)
 		return err
 	}
 	progress.Write("  Old binary exiting so the new binary can take over ...")
@@ -7368,7 +7303,7 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 //
 // The error return is reached on the already-at-new/unknown branches, and on the
 // rare degraded path where d.rollback() returns without exiting.
-func (d *Service) newSbUpgradingFailure(ctx context.Context, id int, displayName, restoreTargetSHA, commitSHA, backupPath, reason string, progress *ProgressLog) error {
+func (d *Service) newSbUpgradingFailure(ctx context.Context, id int, displayName, restoreTargetSHA, commitSHA, backupPath string, failureCode *UpgradeFailureCode, reason string, progress *ProgressLog) error {
 	// STATBUS-109 (doc-022 §5): NAME the forward-step failure class explicitly.
 	// A recognised deterministic failure is `persistent-error`; anything
 	// unrecognised is `unknown-error` (the default). This is a diagnostic label
@@ -7389,7 +7324,7 @@ func (d *Service) newSbUpgradingFailure(ctx context.Context, id int, displayName
 			ErrInstallPreconditionFailed, stepClass, verdict, reason)
 	}
 	progress.Write("Checking the failed upgrade's position ... confirmed behind the target (%s); restoring this upgrade's snapshot.", obsReason)
-	d.rollback(ctx, id, displayName, restoreTargetSHA,
+	d.rollback(ctx, id, displayName, restoreTargetSHA, failureCode,
 		fmt.Sprintf("forward failed: %s; auto-restored from snapshot", reason), backupPath, progress)
 	return fmt.Errorf("%s: failure after booting the new binary auto-restored: %s",
 		ErrInstallPreconditionFailed, reason)
@@ -7405,11 +7340,11 @@ func (d *Service) newSbUpgradingFailure(ctx context.Context, id int, displayName
 // applyNewSbUpgrading stops; the row is now parked, so the next recovery pass's
 // parked-skip keeps the unit alive-idle. Fires the degraded siren exactly once
 // (freshlyParked), consistent with the budget-park path.
-func (d *Service) parkForDeterministicFailure(ctx context.Context, id int, displayName, restoreTargetSHA, commitSHA, backupPath, reason string, progress *ProgressLog) error {
+func (d *Service) parkForDeterministicFailure(ctx context.Context, id int, displayName, restoreTargetSHA, commitSHA, backupPath string, failureCode *UpgradeFailureCode, reason string, progress *ProgressLog) error {
 	obsState, _, obsReason := d.verifyUpgradeObservedStateEx(ctx, commitSHA)
 	if obsState == ObservedCannotReachNew {
 		progress.Write("Checking the failed upgrade's position ... confirmed behind the target (%s); restoring this upgrade's snapshot.", obsReason)
-		d.rollback(ctx, id, displayName, restoreTargetSHA,
+		d.rollback(ctx, id, displayName, restoreTargetSHA, nil,
 			fmt.Sprintf("deterministic forward failure: %s; auto-restored from snapshot", reason), backupPath, progress)
 		return fmt.Errorf("%s: deterministic failure after booting the new binary auto-restored: %s", ErrInstallPreconditionFailed, reason)
 	}
@@ -7417,7 +7352,7 @@ func (d *Service) parkForDeterministicFailure(ctx context.Context, id int, displ
 	// exact bytes, so the arcs' `error LIKE '%parked on deterministic forward failure%'`
 	// asserts stand. The former recordInProgressFailure call here was the split-write's
 	// vulnerable half (nil-conn no-op on a dying pass) and is deleted.
-	freshlyParked, perr := d.parkUpgrade(ctx, id, reason, "parked on deterministic forward failure: "+reason)
+	freshlyParked, perr := d.parkUpgrade(ctx, id, failureCode, reason, "parked on deterministic forward failure: "+reason)
 	if perr != nil {
 		return fmt.Errorf("park deterministic forward failure for upgrade %d: %w", id, perr)
 	}
@@ -7855,10 +7790,10 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 		// FIRST with a named reason instead of burning three deaths. A timeout is
 		// classUnknown → the existing forward-retry (death-budget-bounded).
 		if classifyStepFailure(StepConfigGenerate, err).parksOnFirst() {
-			return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath,
+			return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, nil,
 				fmt.Sprintf("config generate failed at %s: %v", displayName, err), progress)
 		}
-		return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("./sb config generate: %v", err), progress)
+		return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, nil, fmt.Sprintf("./sb config generate: %v", err), progress)
 	}
 	progress.Write("Regenerating configuration (.env, Caddyfile) ... ok")
 
@@ -7874,16 +7809,16 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	// STATBUS-046 slice 2: PRIMARY class-C disk pre-check (structured statfs) —
 	// park BEFORE the pull if free space can't hold the images.
 	if reason := d.diskPrecheckReason(StepImagePull); reason != "" {
-		return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, reason, progress)
+		return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, nil, reason, progress)
 	}
 	pullStart := time.Now()
 	if stderrTail, err := runCommandToLogCapture(projDir, 5*time.Minute, progress.File(), "docker-compose", progress.bump, "docker", "compose", "--profile", "all", "pull"); err != nil {
 		// ENOSPC backstop: disk filled DURING the pull (past the pre-check) → C park.
 		if classifyDockerFailure(err, stderrTail) == classResource {
-			return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath,
+			return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, nil,
 				fmt.Sprintf("disk full during image pull at %s (no space left on device) — free disk space, then re-trigger the upgrade", displayName), progress)
 		}
-		return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: docker compose pull: %v", ErrDockerUpFailed, err), progress)
+		return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, ptrFailureCode(ErrDockerUpFailed), fmt.Sprintf("docker compose pull: %v", err), progress)
 	}
 	progress.Write("Pulling updated images ... ok (%s)", formatProgressDuration(time.Since(pullStart), false))
 
@@ -7898,14 +7833,14 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	dbStart := time.Now()
 	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", progress.bump, "docker", "compose", "up", "-d", "--no-build", "db"); err != nil {
 		reason := fmt.Sprintf(
-			"%s: docker compose up -d db: %v\n\n"+
+			"docker compose up -d db: %v\n\n"+
 				"The db image for %s is not available locally or in the registry. "+
 				"CI builds images on every master push (images.yaml); commit-tagged "+
 				"images take a few minutes to land. Wait for that workflow to finish, "+
 				"then retry the upgrade. Check status: "+
 				"gh run list --workflow=images.yaml",
-			ErrDockerUpFailed, err, displayName)
-		return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, reason, progress)
+			err, displayName)
+		return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, ptrFailureCode(ErrDockerUpFailed), reason, progress)
 	}
 
 	// Wait for DB health — STATBUS-046 slice 3 (doc-021 3.3): class-A readiness
@@ -7913,7 +7848,7 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	// generous fixed budget) so a healthy-but-replaying large volume isn't
 	// mis-read as a failure. In-place; never consumes a death.
 	if err := d.waitForDBHealth(NewSbUpgradingDBHealthTimeout); err != nil {
-		return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: DB health check: %v", ErrHealthcheckDBDown, err), progress)
+		return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, ptrFailureCode(ErrHealthcheckDBDown), fmt.Sprintf("DB health check: %v", err), progress)
 	}
 	progress.Write("Starting database ... healthy (%s)", formatProgressDuration(time.Since(dbStart), false))
 
@@ -7956,7 +7891,7 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 		return d.reconnect(ctx)
 	}()
 	if reconnErr != nil {
-		return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: reconnect to DB: %v", ErrHealthcheckDBDown, reconnErr), progress)
+		return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, ptrFailureCode(ErrHealthcheckDBDown), fmt.Sprintf("reconnect to DB: %v", reconnErr), progress)
 	}
 	progress.Write("Reconnecting to database ... ok")
 
@@ -7992,7 +7927,7 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	// throughout (db is the DDL target).
 	quiescedClients, quiesceErr := compose.QuiesceClients(projDir)
 	if quiesceErr != nil {
-		return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath,
+		return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, nil,
 			fmt.Sprintf("quiesce clients before migrations: %v (must not proceed with DDL on live services)", quiesceErr), progress)
 	}
 	if len(quiescedClients) > 0 {
@@ -8027,7 +7962,7 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 				// rollback (timeout-only; see the migrate arm below).
 				d.terminateMigrateOrphan(ctx, progress)
 			}
-			return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: ./dev.sh recreate-database: %v", ErrMigrationFailed, err), progress)
+			return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, ptrFailureCode(ErrMigrationFailed), fmt.Sprintf("./dev.sh recreate-database: %v", err), progress)
 		}
 		progress.Write("Recreating database from scratch (--recreate) ... ok")
 	} else {
@@ -8136,9 +8071,9 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 				if cls == classResource {
 					reason = fmt.Sprintf("disk full during migration at %s (SQLSTATE class 53) — free disk space, then re-trigger the upgrade: %v", displayName, err)
 				}
-				return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, reason+oomEvidence, progress)
+				return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, nil, reason+oomEvidence, progress)
 			}
-			return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: ./sb migrate up: %v", ErrMigrationFailed, err)+oomEvidence, progress)
+			return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, ptrFailureCode(ErrMigrationFailed), fmt.Sprintf("./sb migrate up: %v", err)+oomEvidence, progress)
 		}
 		progress.Write("Applying database migrations: %d pending ... ok", pendingMigrations)
 	}
@@ -8173,24 +8108,24 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	d.markStep(StepStartServices)
 	// STATBUS-046 slice 2: PRIMARY class-C disk pre-check (structured statfs).
 	if reason := d.diskPrecheckReason(StepStartServices); reason != "" {
-		return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, reason, progress)
+		return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, nil, reason, progress)
 	}
 	composeArgs := append([]string{"compose", "up", "-d", "--no-build"}, step11RestartServices...)
 	servicesStart := time.Now()
 	if stderrTail, err := runCommandToLogCapture(projDir, 5*time.Minute, progress.File(), "docker-compose", progress.bump, "docker", composeArgs...); err != nil {
 		// ENOSPC backstop: disk filled DURING start (past the pre-check) → C park.
 		if classifyDockerFailure(err, stderrTail) == classResource {
-			return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath,
+			return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, nil,
 				fmt.Sprintf("disk full starting services at %s (no space left on device) — free disk space, then re-trigger the upgrade", displayName), progress)
 		}
 		reason := fmt.Sprintf(
-			"%s: docker compose up -d %s: %v\n\n"+
+			"docker compose up -d %s: %v\n\n"+
 				"One or more application images for %s are not available locally or in the registry. "+
 				"CI builds images on every master push (images.yaml). "+
 				"Wait for that workflow to finish, then retry the upgrade. Check status: "+
 				"gh run list --workflow=images.yaml",
-			ErrDockerUpFailed, strings.Join(step11RestartServices, " "), err, displayName)
-		return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, reason, progress)
+			strings.Join(step11RestartServices, " "), err, displayName)
+		return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, ptrFailureCode(ErrDockerUpFailed), reason, progress)
 	}
 	progress.Write("Starting services (app, worker, proxy, rest) ... ok (%s)", formatProgressDuration(time.Since(servicesStart), false))
 
@@ -8215,8 +8150,8 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	// absorbed in-place by the retries above and never reaches here.
 	d.markStep(StepHealthCheck)
 	if err := d.healthCheck(progress, 5, 5*time.Second); err != nil {
-		return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath,
-			fmt.Sprintf("%s: the application cannot serve at %s past warmup — %v; fix the cause, then re-trigger the upgrade", ErrHealthcheckRESTDown, displayName, err), progress)
+		return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, ptrFailureCode(ErrHealthcheckRESTDown),
+			fmt.Sprintf("the application cannot serve at %s past warmup — %v; fix the cause, then re-trigger the upgrade", displayName, err), progress)
 	}
 
 	// Done — deactivate maintenance. The terminal state='completed' UPDATE +
@@ -8277,7 +8212,7 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	// STATBUS-046: Phase 4.2 — record the dying step so a crash during the terminal
 	// write reports StepComplete (not the prior maintenance-off) for same-step-twice.
 	d.markStep(StepComplete)
-	completedSQL := "UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready', error = NULL, log_relative_file_path = COALESCE(log_relative_file_path, $2) WHERE id = $1" + upgradeRowReturning
+	completedSQL := "UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready', failure_code = NULL, error = NULL, log_relative_file_path = COALESCE(log_relative_file_path, $2) WHERE id = $1" + upgradeRowReturning
 	// STATBUS-154: the completed terminal write goes through the teardown-immune
 	// terminalUpdate (fresh daemon-tagged conn + context.Background + bounded
 	// retry — this generalizes the former inline C6 047-H reconnect save). The
@@ -8456,10 +8391,6 @@ func preSwapRecoveryReason(flag UpgradeFlag) string {
 		ErrInstallPreconditionFailed)
 }
 
-func retryableRollbackReason(reason string) bool {
-	return strings.HasPrefix(strings.TrimSpace(reason), ErrGitFetchRetryable+":")
-}
-
 // RollbackFinishPendingPrefix distinguishes a healthy restored box whose
 // filesystem lock was not yet released from a restore that actually failed.
 // install/state.go uses the same predicate so it never replays an already-
@@ -8474,11 +8405,11 @@ func rollbackFinishPendingError(reason string) string {
 	return RollbackFinishPendingPrefix + reason
 }
 
-func rollbackFinalError(reason string) string {
+func rollbackFinalError(failureCode *UpgradeFailureCode, reason string) string {
 	if reason == "" {
 		reason = "Rollback completed (no reason captured — caller did not pass one)"
 	}
-	if retryableRollbackReason(reason) {
+	if failureCode != nil && *failureCode == ErrGitFetchRetryable {
 		return reason + " - rolled back to the previous version; the system is running normally on the old version. " +
 			"The git failure is recorded (log retained) and is retryable. It is safe to schedule this same version again; no manual recovery is needed."
 	}
@@ -8656,13 +8587,14 @@ func (d *Service) finalizePendingRollback(ctx context.Context, id int, label str
 	}
 
 	var errorText, commitSHA, commitVersion string
+	var failureCodeText sql.NullString
 	err = tx.QueryRow(ctx,
-		`SELECT error, commit_sha, COALESCE(commit_version, '')
+		`SELECT error, commit_sha, COALESCE(commit_version, ''), failure_code::text
 		   FROM public.upgrade
 		  WHERE id = $1
 		    AND state = 'failed'
 		    AND starts_with(error, $2)
-		  FOR UPDATE`, id, RollbackFinishPendingPrefix).Scan(&errorText, &commitSHA, &commitVersion)
+		  FOR UPDATE`, id, RollbackFinishPendingPrefix).Scan(&errorText, &commitSHA, &commitVersion, &failureCodeText)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
 	}
@@ -8673,7 +8605,15 @@ func (d *Service) finalizePendingRollback(ctx context.Context, id int, label str
 		return false, fmt.Errorf("remove stale rollback marker: %w", cleanupErr)
 	}
 
-	finalError := rollbackFinalError(strings.TrimPrefix(errorText, RollbackFinishPendingPrefix))
+	var failureCode *UpgradeFailureCode
+	if failureCodeText.Valid {
+		parsed, parseErr := ParseUpgradeFailureCode(failureCodeText.String)
+		if parseErr != nil {
+			return false, fmt.Errorf("read rollback failure code: %w", parseErr)
+		}
+		failureCode = &parsed
+	}
+	finalError := rollbackFinalError(failureCode, strings.TrimPrefix(errorText, RollbackFinishPendingPrefix))
 	var rowJSON string
 	if err := tx.QueryRow(ctx,
 		"UPDATE public.upgrade SET state = 'rolled_back', error = $2, rolled_back_at = now() WHERE id = $1 AND state = 'failed' AND error = $3"+upgradeRowReturning,
@@ -8710,7 +8650,7 @@ func (d *Service) finalizePendingRollback(ctx context.Context, id int, label str
 // friendlier tone.
 func preSwapStoppedMessage(attempts int) string {
 	_ = attempts // the count is in the row; the operator-facing text stays plain
-	return ErrUpgradeStoppedUnchanged + ": The upgrade stopped before it changed anything.\n\n" +
+	return "The upgrade stopped before it changed anything.\n\n" +
 		"Your data was not modified and your installed version was not replaced. " +
 		"This system is still running the version it was running before, and it is serving normally.\n\n" +
 		"The upgrade was attempted twice and stopped at the same point both times, so it will not be tried again on its own.\n\n" +
@@ -8923,7 +8863,7 @@ func (d *Service) RecoveryBudgetGuard(ctx context.Context) (skipBootMigrate bool
 	// (the just-crashed attempt's frozen step) — the in-memory `flag`, not the
 	// PID-updated on-disk copy.
 	if action, reason := resumeEscalation(attempts, flag.Step, flag.PriorDeathStep, false); action != recoveryContinue {
-		freshlyParked, parkErr := d.parkUpgrade(ctx, flag.ID, reason,
+		freshlyParked, parkErr := d.parkUpgrade(ctx, flag.ID, nil, reason,
 			fmt.Sprintf("parked after %d crash-resume attempts: %s", attempts, reason))
 		release()
 		if parkErr != nil {
@@ -9000,7 +8940,7 @@ func (d *Service) RecoveryBudgetGuard(ctx context.Context) (skipBootMigrate bool
 //   - (false, err)  NOT confirmed landed (connectivity exhausted, or the row is
 //     not parkable) — caller MUST keep the row in_progress and let the next pass
 //     re-evaluate (exit invariant AC#2); never exit as-parked on this.
-func (d *Service) parkUpgrade(ctx context.Context, id int, reason, errNarrative string) (freshlyParked bool, err error) {
+func (d *Service) parkUpgrade(ctx context.Context, id int, failureCode *UpgradeFailureCode, reason, errNarrative string) (freshlyParked bool, err error) {
 	// errNarrative rides the SAME immune terminalUpdate write as the park columns
 	// (STATBUS-071 C-rollback finding): the old split write — park columns via this
 	// teardown-immune terminalUpdate, but the error narrative via
@@ -9009,8 +8949,8 @@ func (d *Service) parkUpgrade(ctx context.Context, id int, reason, errNarrative 
 	// columns set, error empty). One write, one guarantee, atomic. EVERY caller MUST
 	// pass a non-empty narrative — a park without a story is a design smell.
 	_, uerr := d.terminalUpdate(
-		"UPDATE public.upgrade SET recovery_parked_at = now(), recovery_parked_reason = $2, error = $3 WHERE id = $1 AND state = 'in_progress' AND recovery_parked_at IS NULL"+upgradeRowReturning,
-		id, reason, errNarrative)
+		"UPDATE public.upgrade SET recovery_parked_at = now(), recovery_parked_reason = $2, failure_code = $3, error = $4 WHERE id = $1 AND state = 'in_progress' AND recovery_parked_at IS NULL"+upgradeRowReturning,
+		id, reason, failureCode, errNarrative)
 	if uerr == nil {
 		return true, nil // guard matched + RETURNING scanned → freshly parked
 	}
@@ -9213,7 +9153,7 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 			// uses — covers the TOCTOU window and the primary read's fail-open) →
 			// fall through to continuation (handled below), exactly as before.
 			selfHealJSON, err := d.terminalUpdate(
-				"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready', error = NULL, log_relative_file_path = COALESCE(log_relative_file_path, $2) WHERE id = $1 AND state = 'in_progress' AND recovery_parked_at IS NULL"+upgradeRowReturning,
+				"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready', failure_code = NULL, error = NULL, log_relative_file_path = COALESCE(log_relative_file_path, $2) WHERE id = $1 AND state = 'in_progress' AND recovery_parked_at IS NULL"+upgradeRowReturning,
 				flag.ID, progress.RelPath())
 			if err == nil {
 				logUpgradeRow(LabelCompletedSelfHeal, selfHealJSON)
@@ -9428,7 +9368,7 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 		//     died (flag.Step, frozen by that crash); priorDeathStep = the death two
 		//     attempts ago (flag.PriorDeathStep). Terminal already-at-new → PARK.
 		if action, reason := resumeEscalation(attempts, flag.Step, flag.PriorDeathStep, false); action != recoveryContinue {
-			freshlyParked, parkErr := d.parkUpgrade(ctx, flag.ID, reason,
+			freshlyParked, parkErr := d.parkUpgrade(ctx, flag.ID, nil, reason,
 				fmt.Sprintf("parked after %d crash-resume attempts: %s", attempts, reason))
 			if parkErr != nil {
 				progress.Write("Pausing automatic upgrade recovery ... failed: %v", parkErr)
@@ -9708,14 +9648,18 @@ func (d *Service) runCallback(displayName string, extraEnv map[string]string) {
 // undo" exception; preserve that contract by reading this comment
 // before extending it.
 func (d *Service) failUpgrade(ctx context.Context, id int, errMsg string, progress *ProgressLog) {
-	d.failUpgradeWithFlagDisposition(ctx, id, errMsg, progress, false)
+	d.failUpgradeWithFlagDisposition(ctx, id, nil, errMsg, progress, false)
+}
+
+func (d *Service) failUpgradeCoded(ctx context.Context, id int, failureCode UpgradeFailureCode, errMsg string, progress *ProgressLog) {
+	d.failUpgradeWithFlagDisposition(ctx, id, &failureCode, errMsg, progress, false)
 }
 
 // failUpgradeKeepingFlag records the same durable failed row as failUpgrade but
 // preserves the recovery breadcrumb. Use it when a cleanup boundary failed and
 // the next ./sb install must reconcile machine state before another attempt.
 func (d *Service) failUpgradeKeepingFlag(ctx context.Context, id int, errMsg string, progress *ProgressLog) {
-	d.failUpgradeWithFlagDisposition(ctx, id, errMsg, progress, true)
+	d.failUpgradeWithFlagDisposition(ctx, id, nil, errMsg, progress, true)
 }
 
 // abortFailedPreBackupStop unwinds a stop failure before any snapshot or live
@@ -9767,7 +9711,7 @@ func (d *Service) abortFailedPreBackupStop(ctx context.Context, id int, boundary
 	return errMsg
 }
 
-func (d *Service) failUpgradeWithFlagDisposition(ctx context.Context, id int, errMsg string, progress *ProgressLog, keepFlag bool) {
+func (d *Service) failUpgradeWithFlagDisposition(ctx context.Context, id int, failureCode *UpgradeFailureCode, errMsg string, progress *ProgressLog, keepFlag bool) {
 	// STATBUS-338, Norway rc.02: keep the original failure outside the DB volume
 	// before any terminal write or unwind can fail. Callers before flag acquisition
 	// remain a no-op; claimed preswap failures gain an honest restart breadcrumb.
@@ -9785,8 +9729,8 @@ func (d *Service) failUpgradeWithFlagDisposition(ctx context.Context, id int, er
 		// always sets started_at before executeUpgrade runs, so that holds.
 		var failJSON string
 		if scanErr := d.queryConn.QueryRow(ctx,
-			"UPDATE public.upgrade SET state = 'failed', error = $1, scheduled_at = NULL WHERE id = $2"+upgradeRowReturning,
-			errMsg, id).Scan(&failJSON); scanErr == nil {
+			"UPDATE public.upgrade SET state = 'failed', failure_code = $1, error = $2, scheduled_at = NULL WHERE id = $3"+upgradeRowReturning,
+			failureCode, errMsg, id).Scan(&failJSON); scanErr == nil {
 			logUpgradeRow(LabelFailed, failJSON)
 		}
 	}
@@ -10139,7 +10083,7 @@ const terminalBackupPathSQL = `, backup_path = CASE WHEN $4::text IS NULL THEN b
 // Every updateSQL passed here MUST therefore carry the backup_path CASE on $4
 // exactly as the four call sites do, or the re-impose is a silent no-op in the
 // same way a missing `recovery_attempts = $2` is.
-func (d *Service) writeRollbackTerminal(id int, updateSQL, errMsg, label string, attempts int) bool {
+func (d *Service) writeRollbackTerminal(id int, updateSQL string, failureCode *UpgradeFailureCode, errMsg, label string, attempts int) bool {
 	flagBackupPath, flagSource := d.flagSourcedBackupPath()
 	if flagBackupPath == nil {
 		// Loud, because it means the terminal row keeps whatever the rewind left
@@ -10148,7 +10092,7 @@ func (d *Service) writeRollbackTerminal(id int, updateSQL, errMsg, label string,
 			"writeRollbackTerminal: no flag-sourced backup identity available (%s) for id=%d label=%s — leaving public.upgrade.backup_path AS-IS (STATBUS-241: imposing NULL on unknown identity could erase a live restore source)\n",
 			flagSource, id, label)
 	}
-	rowJSON, err := d.terminalUpdate(updateSQL, errMsg, attempts, id, flagBackupPath)
+	rowJSON, err := d.terminalUpdate(updateSQL, errMsg, attempts, id, flagBackupPath, failureCode)
 	if err == nil {
 		logUpgradeRow(label, rowJSON)
 		return true
@@ -10187,7 +10131,7 @@ func (d *Service) writeRollbackTerminal(id int, updateSQL, errMsg, label string,
 // upgrade's recovery passes ran — typically 0). Re-imposed onto the terminal
 // row alongside state/error so the volume rewind doesn't silently erase the
 // audit-trail value the row had at the moment this restore began.
-func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reason, backupPath string, attemptsAtCall int, progress *ProgressLog) bool {
+func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string, failureCode *UpgradeFailureCode, reason, backupPath string, attemptsAtCall int, progress *ProgressLog) bool {
 	projDir := d.projDir
 	// Restore ./sb to match the restored git era BEFORE running config
 	// generate (rc.67 trifecta). The current ./sb is the NEW binary; its
@@ -10324,8 +10268,8 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reaso
 		// (writeRollbackTerminal has already failed loud). The degraded siren below
 		// fires regardless — the box IS degraded whether or not the row write landed.
 		if d.writeRollbackTerminal(id,
-			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+" WHERE id = $3"+upgradeRowReturning,
-			errMsg, LabelFailedRollbackIncomplete, attemptsAtCall) {
+			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+", failure_code = $5 WHERE id = $3"+upgradeRowReturning,
+			failureCode, errMsg, LabelFailedRollbackIncomplete, attemptsAtCall) {
 			if removeErr := d.removeUpgradeFlag(); removeErr != nil {
 				progress.Write("  Releasing upgrade lock after the incomplete rollback ... failed: %v", removeErr)
 			}
@@ -10351,8 +10295,8 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version, reaso
 	// again, so writes accepted after the window lifts cannot be overwritten.
 	pendingFinishErr := rollbackFinishPendingError(errMsg)
 	if !d.writeRollbackTerminal(id,
-		"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+" WHERE id = $3"+upgradeRowReturning,
-		pendingFinishErr, LabelFailedRollbackPendingFinish, attemptsAtCall) {
+		"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+", failure_code = $5 WHERE id = $3"+upgradeRowReturning,
+		failureCode, pendingFinishErr, LabelFailedRollbackPendingFinish, attemptsAtCall) {
 		d.releaseUpgradeFlagLockKeepingFile()
 		progress.Write("Recording rollback finishing state ... failed; maintenance and SQL read-only remain active, and the free recovery marker is kept for reconciliation.")
 		return true
@@ -10593,7 +10537,7 @@ func (d *Service) ReattemptRestore(ctx context.Context, rowID int64) error {
 	// or deliberately keeps it for recovery if that durable write fails.
 	removeTentativeMarker = false
 	reason := fmt.Sprintf("operator re-attempt of the interrupted restore for %s", displayName)
-	if degraded := d.restoreAndFinalize(ctx, int(rowID), displayName, reason, backupPath, attemptsAtCall, progress); degraded {
+	if degraded := d.restoreAndFinalize(ctx, int(rowID), displayName, nil, reason, backupPath, attemptsAtCall, progress); degraded {
 		return fmt.Errorf("%s: the database restore did not complete — the system remains degraded; contact SSB support and involve your IT staff", ErrRollbackDBRestore)
 	}
 	return nil
@@ -10616,7 +10560,7 @@ func (d *Service) rollbackRecoveryAttempts(ctx context.Context, id int) int {
 	return attempts
 }
 
-func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSHA, reason string, backupPath string, progress *ProgressLog) {
+func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSHA string, failureCode *UpgradeFailureCode, reason string, backupPath string, progress *ProgressLog) {
 	// WATCHDOG COVER (STATBUS-031). rollback()'s body runs the two DB-size-scaled,
 	// heartbeat-SILENT steps an upgrade has: restoreDatabase's whole-volume rsync
 	// (exec.go, onAdvance=nil → output bypasses the heartbeat) and the rollback
@@ -10699,7 +10643,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 		progress.Write("  Stopping services before restore ... failed: %v", stopErr)
 		fmt.Fprintf(os.Stderr, "ABORT: rollback refused — %v\n", stopErr)
 
-		rollbackFailedMsg := fmt.Sprintf("%s: %v (originally: %s) — ROLLBACK FAILED; the system is in a degraded state. Manual CLI recovery is required (./sb install); contact SSB support and involve your IT staff.", ErrRollbackServicesNotStopped, stopErr, reason)
+		rollbackFailedMsg := fmt.Sprintf("%v (originally: %s) — ROLLBACK FAILED; the system is in a degraded state. Manual CLI recovery is required (./sb install); contact SSB support and involve your IT staff.", stopErr, reason)
 		// Bundle BEFORE the ABORT UPDATE so a forensic inspection of a wedged
 		// `failed` row has the sibling .bundle.txt (mirrors the git-corrupt
 		// ABORT branch below).
@@ -10731,8 +10675,8 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 		progress.Write("CATASTROPHIC FAILURE [%s]. Services stopped. Contact your administrator%s.",
 			ErrRollbackServicesNotStopped, contactSuffix(readAdministratorContact(d.projDir)))
 		if d.writeRollbackTerminal(id,
-			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+" WHERE id = $3"+upgradeRowReturning,
-			rollbackFailedMsg, LabelFailedAbortServicesLive, attemptsAtCall) {
+			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+", failure_code = $5 WHERE id = $3"+upgradeRowReturning,
+			ptrFailureCode(ErrRollbackServicesNotStopped), rollbackFailedMsg, LabelFailedAbortServicesLive, attemptsAtCall) {
 			_ = d.removeUpgradeFlag()
 		}
 		progress.Close()
@@ -10811,7 +10755,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 		// intervention needed) would be a silent operator lie to monitoring/UI.
 		// failed is valid here (started_at is set, no rolled_back_at). See
 		// upgrade-timeline.md § Complete / rollback.
-		rollbackFailedMsg := fmt.Sprintf("%s: %v (originally: %s) — ROLLBACK FAILED; the system is in a degraded state. Manual CLI recovery is required (./sb install); contact SSB support and involve your IT staff. Database restore %s.", ErrRollbackGitCorrupt, err, reason, dbRestoreOutcome)
+		rollbackFailedMsg := fmt.Sprintf("%v (originally: %s) — ROLLBACK FAILED; the system is in a degraded state. Manual CLI recovery is required (./sb install); contact SSB support and involve your IT staff. Database restore %s.", err, reason, dbRestoreOutcome)
 		// Bundle BEFORE the ABORT UPDATE so a forensic inspection of
 		// a wedged `failed` row has the sibling .bundle.txt.
 		d.writeDiagnosticBundle(ctx, id, progress)
@@ -10866,8 +10810,8 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 		// row instead of leaving it stuck. writeRollbackTerminal already failed loud
 		// (INVARIANT ROLLBACK_TERMINAL_WRITE_FAILED + markTerminal).
 		if d.writeRollbackTerminal(id,
-			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+" WHERE id = $3"+upgradeRowReturning,
-			rollbackFailedMsg, LabelFailedAbort, attemptsAtCall) {
+			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+", failure_code = $5 WHERE id = $3"+upgradeRowReturning,
+			ptrFailureCode(ErrRollbackGitCorrupt), rollbackFailedMsg, LabelFailedAbort, attemptsAtCall) {
 			_ = d.removeUpgradeFlag()
 		}
 
@@ -10889,7 +10833,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 	// install-driven restore re-attempt via restoreAndFinalize. Process-lifecycle
 	// (os.Exit below) stays HERE per the extraction boundary — restoreAndFinalize
 	// only restores and writes the terminal, then returns.
-	d.restoreAndFinalize(ctx, id, version, reason, backupPath, attemptsAtCall, progress)
+	d.restoreAndFinalize(ctx, id, version, failureCode, reason, backupPath, attemptsAtCall, progress)
 
 	// Exit 75 (sysexits EX_TEMPFAIL: "temporary failure, retry later")
 	// per the rc.67 trifecta. Distinct from:

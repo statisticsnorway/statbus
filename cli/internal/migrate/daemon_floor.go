@@ -18,7 +18,11 @@ package migrate
 // the floor impossible: any migration NEWER than the floor that touches a daemon
 // relation fails the test until the floor is bumped in the same commit.
 //
-// VALUE: today 20260904111126 (STATBUS-355's public.running_identity read
+// VALUE: today 20260906173739 (STATBUS-349's public.upgrade.failure_code
+// column), bumped from 20260904111126 in the same change set that lands it.
+// The daemon writes and reads this column, so the boot schema must include it.
+//
+// Prior value: 20260904111126 (STATBUS-355's public.running_identity read
 // model), bumped from 20260901212308 in the same commit that lands it. This is
 // an acknowledged guard false positive: the new function's SQL reads
 // public.upgrade and returns public.release_status_type, but no daemon Go query
@@ -64,7 +68,7 @@ package migrate
 // a column, and no legitimate daemon write performs that transition (pipeline
 // completions are in_progress→completed), so the daemon operated cleanly at that
 // floor too.
-const DaemonSchemaFloor int64 = 20260904111126
+const DaemonSchemaFloor int64 = 20260906173739
 
 // DaemonRelationNames is the schema surface the daemon's OWN SQL touches — the
 // set whose shape the floor must satisfy. The bump guard flags any migration

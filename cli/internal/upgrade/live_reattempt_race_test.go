@@ -69,7 +69,7 @@ esac
 		                            scheduled_at, started_at, error, backup_path, log_relative_file_path)
 		VALUES ($1, now() - interval '2 days', '{}', 'commit', 'live restore reattempt race probe', 'failed',
 		        now() - interval '1 hour', now() - interval '59 minutes', $2, $3, 'live-reattempt-race-probe.log')
-		RETURNING id`, sha, ErrRollbackDBRestore+": live reattempt race probe", backupPath).Scan(&id); err != nil {
+		RETURNING id`, sha, string(ErrRollbackDBRestore)+": live reattempt race probe", backupPath).Scan(&id); err != nil {
 		t.Fatalf("insert failed row: %v", err)
 	}
 	t.Cleanup(func() {

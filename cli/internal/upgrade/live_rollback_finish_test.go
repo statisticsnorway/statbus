@@ -44,13 +44,13 @@ func TestLiveRollbackFinishing(t *testing.T) {
 	const pendingSHA = "3470000000000000000000000000000000000001"
 	const scheduledSHA = "3470000000000000000000000000000000000002"
 	var pendingID, scheduledID int
-	pendingErr := rollbackFinishPendingError(ErrGitFetchRetryable + ": live probe: remote closed connection")
+	pendingErr := rollbackFinishPendingError("live probe: remote closed connection")
 	if err := d.queryConn.QueryRow(ctx, `
 		INSERT INTO public.upgrade (commit_sha, committed_at, commit_tags, release_status, summary, state,
-		                            scheduled_at, started_at, error, backup_path, log_relative_file_path)
+			                            scheduled_at, started_at, failure_code, error, backup_path, log_relative_file_path)
 		VALUES ($1, now() - interval '2 days', '{}', 'commit', 'live rollback-finishing probe', 'failed',
-		        now() - interval '1 hour', now() - interval '59 minutes', $2, '/nonexistent/live-probe-backup', 'live-probe.log')
-		RETURNING id`, pendingSHA, pendingErr).Scan(&pendingID); err != nil {
+		        now() - interval '1 hour', now() - interval '59 minutes', $2, $3, '/nonexistent/live-probe-backup', 'live-probe.log')
+		RETURNING id`, pendingSHA, ErrGitFetchRetryable, pendingErr).Scan(&pendingID); err != nil {
 		t.Fatalf("insert pending row: %v", err)
 	}
 	if err := d.queryConn.QueryRow(ctx, `

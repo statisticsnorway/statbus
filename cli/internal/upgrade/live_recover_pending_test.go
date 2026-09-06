@@ -40,13 +40,13 @@ func TestLiveRecoverFromFlag_PendingRollbackNeverRestores(t *testing.T) {
 
 	const sha = "3470000000000000000000000000000000000011"
 	var id int
-	pendingErr := rollbackFinishPendingError(ErrGitFetchRetryable + ": live recover probe")
+	pendingErr := rollbackFinishPendingError("live recover probe")
 	if err := d.queryConn.QueryRow(ctx, `
 		INSERT INTO public.upgrade (commit_sha, committed_at, commit_tags, release_status, summary, state,
-		                            scheduled_at, started_at, error, backup_path, log_relative_file_path)
+		                            scheduled_at, started_at, failure_code, error, backup_path, log_relative_file_path)
 		VALUES ($1, now() - interval '2 days', '{}', 'commit', 'live recover probe', 'failed',
-		        now() - interval '1 hour', now() - interval '59 minutes', $2, '/nonexistent/live-recover-probe-backup', 'live-recover-probe.log')
-		RETURNING id`, sha, pendingErr).Scan(&id); err != nil {
+		        now() - interval '1 hour', now() - interval '59 minutes', $2, $3, '/nonexistent/live-recover-probe-backup', 'live-recover-probe.log')
+		RETURNING id`, sha, ErrGitFetchRetryable, pendingErr).Scan(&id); err != nil {
 		t.Fatalf("insert pending row: %v", err)
 	}
 	t.Cleanup(func() {
