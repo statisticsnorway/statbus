@@ -88,3 +88,6 @@ Triggers:
 Access method: heap
 
 ```
+
+`upgrade_failure_code` includes `ROLLBACK_SCHEMA_FLOOR_FAILED`, used when a
+restored rollback snapshot cannot be advanced to the daemon schema floor.

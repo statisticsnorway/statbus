@@ -22,6 +22,7 @@ const (
 	ErrInstallFixupFailed         UpgradeFailureCode = "INSTALL_FIXUP_FAILED"
 	ErrGitFetchRetryable          UpgradeFailureCode = "GIT_FETCH_FAILED_RETRYABLE"
 	ErrInstallPreconditionFailed  UpgradeFailureCode = "INSTALL_PRECONDITION_FAILED"
+	ErrRollbackSchemaFloorFailed  UpgradeFailureCode = "ROLLBACK_SCHEMA_FLOOR_FAILED"
 )
 
 var allUpgradeFailureCodes = []UpgradeFailureCode{
@@ -31,6 +32,7 @@ var allUpgradeFailureCodes = []UpgradeFailureCode{
 	ErrRollbackServicesUp, ErrRollbackServicesNotStopped, ErrRollbackBinaryCorrupt,
 	ErrBinaryReplaceFailed, ErrBinaryBuildFailed, ErrInstallFixupFailed,
 	ErrGitFetchRetryable, ErrInstallPreconditionFailed,
+	ErrRollbackSchemaFloorFailed,
 }
 
 func ParseUpgradeFailureCode(value string) (UpgradeFailureCode, error) {
@@ -52,7 +54,8 @@ func ParseUpgradeFailureCode(value string) (UpgradeFailureCode, error) {
 		ErrBinaryBuildFailed,
 		ErrInstallFixupFailed,
 		ErrGitFetchRetryable,
-		ErrInstallPreconditionFailed:
+		ErrInstallPreconditionFailed,
+		ErrRollbackSchemaFloorFailed:
 		return code, nil
 	default:
 		return "", fmt.Errorf("unknown upgrade failure code %q", value)

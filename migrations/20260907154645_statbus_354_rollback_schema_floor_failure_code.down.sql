@@ -1,0 +1,3 @@
+-- Down Migration 20260907154645: statbus_354_rollback_schema_floor_failure_code
+-- PostgreSQL cannot remove an enum value directly. The value remains unused
+-- after a code downgrade, which is forward-compatible with the nullable column.
