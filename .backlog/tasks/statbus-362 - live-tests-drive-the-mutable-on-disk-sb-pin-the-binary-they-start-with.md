@@ -111,3 +111,12 @@ tier now runs per commit and how to run it locally.
 Done when, in addition to the above: a Fast Tests run at HEAD shows the live
 step green with the 24 tests listed, and a deliberately red live test on a
 branch turns Fast Tests red.
+
+## Open ruling (2026-09-07 22:08): the tier's name and the test names
+
+Owner: `TestLive` is sub-par by the 359 rule (name the claim, not the
+mechanism) and the proposal was not concrete enough. Sleeping on it. Next
+session brings a concrete before/after: the full list of 25 current names
+next to proposed names, plus the exact selector (build tag vs env var) and
+the exact `-run`/`-tags` line the workflow step would use. No renaming
+before that ruling.
