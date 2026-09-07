@@ -122,8 +122,8 @@ var rewindAudit = map[siteKey]rewindDisposition{
 
 	// ── B. SUPERSEDED BY THE TERMINAL WRITE ITSELF ──
 	{"cli/internal/upgrade/service.go", "UPDATE", "backup_path,error,failure_code,recovery_attempts,state"}: {
-		Class: classSupersededByTerminal, Count: 4,
-		Why: "THE TERMINAL WRITES THEMSELVES (the four degraded 'failed' tiers). They run AFTER the " +
+		Class: classSupersededByTerminal, Count: 3,
+		Why: "THE TERMINAL WRITES THEMSELVES (the three degraded/abort 'failed' tiers). They run AFTER the " +
 			"rewind and are the superseding write — this is the site that re-imposes, not a site " +
 			"needing re-imposition.",
 	},

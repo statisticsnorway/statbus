@@ -147,14 +147,13 @@ func TestRollbackTerminalWrite_StructuralContract(t *testing.T) {
 	// scan both.
 	rbPath := extractFuncBody(t, source, "func (d *Service) rollback(") + "\n" +
 		extractFuncBody(t, source, "func (d *Service) restoreAndFinalize(")
-	// ALL FOUR terminal writes route through the helper: the two catastrophic
-	// ABORTs in rollback() (services-not-stopped, STATBUS-187; git-restore,
-	// pre-existing), and the degraded `failed` + `rolled_back` tiers in
+	// All three terminal writes route through the helper: the catastrophic
+	// services-not-stopped ABORT and the degraded `failed` + pending tiers in
 	// restoreAndFinalize. (Every ABORT tier is the same bug class — single-shot
 	// swallow + unconditional removeUpgradeFlag before os.Exit — so each gets
 	// the same fix.)
-	if n := strings.Count(rbPath, "d.writeRollbackTerminal("); n != 4 {
-		t.Errorf("rollback path (rollback + restoreAndFinalize) must call writeRollbackTerminal exactly 4× (abort-services-not-stopped + abort-git-corrupt + degraded-failed + rolled_back); got %d", n)
+	if n := strings.Count(rbPath, "d.writeRollbackTerminal("); n != 3 {
+		t.Errorf("rollback path (rollback + restoreAndFinalize) must call writeRollbackTerminal exactly 3× (abort-services-not-stopped + degraded-failed + pending); got %d", n)
 	}
 	// The three degraded/abort removals remain directly guarded by landed terminal
 	// writes. The healthy fourth path first sets rollback_finish_pending_at, then
@@ -162,8 +161,8 @@ func TestRollbackTerminalWrite_StructuralContract(t *testing.T) {
 	// locked transaction.
 	removes := strings.Count(rbPath, "d.removeUpgradeFlag()")
 	guards := strings.Count(rbPath, "if d.writeRollbackTerminal(")
-	if removes != 3 || guards != 3 {
-		t.Errorf("direct flag-removal symmetry: want 3 removeUpgradeFlag() calls guarded by landed degraded/abort terminal writes; got removes=%d guards=%d", removes, guards)
+	if removes != 2 || guards != 2 {
+		t.Errorf("direct flag-removal symmetry: want 2 removeUpgradeFlag() calls guarded by landed degraded/abort terminal writes; got removes=%d guards=%d", removes, guards)
 	}
 	restore := extractFuncBody(t, source, "func (d *Service) restoreAndFinalize(")
 	for _, required := range []string{"if !d.writeRollbackTerminal(", "d.finalizePendingRollback(ctx, id, LabelRolledBackNormal)"} {
