@@ -724,13 +724,6 @@ ENVCONFIG
         "$env_config_file"
     rm -f "$env_config_file.bak"
 
-    # Recovery arcs opt into authenticated GitHub access by exporting
-    # GITHUB_TOKEN in their workflow step. Happy install/upgrade proofs do not,
-    # so their rendered VM configuration remains anonymous by construction.
-    if [ -n "${GITHUB_TOKEN:-}" ]; then
-        printf 'GITHUB_TOKEN=%s\n' "$GITHUB_TOKEN" >> "$env_config_file"
-    fi
-
     # STATBUS-297 (fixture-era-accuracy ruling): a harness must construct
     # states history could have produced. UPGRADE_ROLE is a STATBUS-254
     # (733b0df4d) concept — writing it onto a box about to install a
@@ -803,13 +796,23 @@ ENVCONFIG
 UPGRADE_ROLE=production
 ENVCONFIG
     fi
-    # The file may carry GITHUB_TOKEN: it must not outlive this transfer on any
-    # path. Under `set -e` a failing scp/ssh exits the shell without running a
-    # RETURN trap, so catch the failure explicitly, remove the file, then
-    # re-raise with the original status.
+    # Recovery arcs opt into authenticated GitHub access by exporting
+    # GITHUB_TOKEN in their workflow step. Happy install/upgrade proofs do not,
+    # so their rendered VM configuration remains anonymous by construction.
+    #
+    # The token is appended LAST, inside the same guarded block as the
+    # transfer: every earlier build step (cat, sed, printf) can fail under
+    # `set -e` and exit the shell, but at that point the file holds no secret.
+    # Under `set -e` a failing command exits the shell without running a RETURN
+    # trap, so the block catches the failure, removes the file, re-raises.
     local transfer_rc=0
-    { scp -O "${SSH_OPTS[@]}" "$env_config_file" root@"$ip":/tmp/env-config \
-        && ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0600 /tmp/env-config'; } || transfer_rc=$?
+    {
+        if [ -n "${GITHUB_TOKEN:-}" ]; then
+            printf 'GITHUB_TOKEN=%s\n' "$GITHUB_TOKEN" >> "$env_config_file"
+        fi \
+        && scp -O "${SSH_OPTS[@]}" "$env_config_file" root@"$ip":/tmp/env-config \
+        && ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0600 /tmp/env-config'
+    } || transfer_rc=$?
     rm -f "$env_config_file" "$env_config_file.bak"
     [ "$transfer_rc" -eq 0 ] || return "$transfer_rc"
 
