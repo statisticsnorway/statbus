@@ -2,10 +2,6 @@
 # Scenario: 0-happy-upgrade  (baseline — no failure injection)
 # judge = <baseline release binary>, judged = <tagged candidate>
 # Shape: development mode + prerelease channel by default (the Norway hop; see below for why not standalone).
-# Optional failure axis: HARNESS_PRESWAP_FETCH_ERROR=1 adds
-# STATBUS_INJECT_AT=preswap-fetch-returns-error to the upgrade service unit, so
-# the real preswap fetch returns an error rather than killing the process.
-#
 # Class:                 N/A (baseline regression net for the happy path)
 # Class kind:            N/A — no inject site fires
 # Source forensics:      tmp/install-state-machine-forensics.md
@@ -131,18 +127,6 @@ populate_with_demo_data "$VM_NAME"
 DATA_SNAPSHOT=$(snapshot_demo_data_counts "$VM_NAME")
 echo "  pre-upgrade data snapshot: $DATA_SNAPSHOT"
 assert_demo_data_present "$VM_NAME"
-
-if [ "${HARNESS_PRESWAP_FETCH_ERROR:-}" = "1" ]; then
-    echo ""
-    echo "── arming returned preswap fetch error on the upgrade service ──"
-    VM_EXEC bash -c 'mkdir -p "$HOME/.config/systemd/user/statbus-upgrade@statbus.service.d" && cat > "$HOME/.config/systemd/user/statbus-upgrade@statbus.service.d/preswap-fetch-error.conf" <<EOF
-[Service]
-Environment=STATBUS_INJECT_AT=preswap-fetch-returns-error
-EOF
-systemctl --user daemon-reload
-systemctl --user restart statbus-upgrade@statbus.service'
-    echo "  ✓ preswap fetch error injection armed"
-fi
 
 # Verify upgrade-service unit is active before we start.
 UNIT_STATE_BEFORE=$(VM_EXEC systemctl --user is-active "statbus-upgrade@statbus.service" 2>/dev/null | tr -d ' \r\n' || echo "?")
