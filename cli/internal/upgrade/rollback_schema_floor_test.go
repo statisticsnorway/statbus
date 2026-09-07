@@ -16,7 +16,7 @@ func TestRestoreRollbackSnapshotWithTargetAssetsPrecedesSourceRestore(t *testing
 	if restoreSnapshot < 0 || startDB < 0 || floor < 0 || restoreGit < 0 {
 		t.Fatalf("restoreAndFinalize is missing the explicit rollback floor boundaries: snapshot=%d db=%d floor=%d git=%d", restoreSnapshot, startDB, floor, restoreGit)
 	}
-	if !(restoreSnapshot < startDB && startDB < floor && floor < restoreGit) {
+	if restoreSnapshot >= startDB || startDB >= floor || floor >= restoreGit {
 		t.Fatalf("rollback order must be snapshot < DB-only start < floor migrate < source restore, got %d < %d < %d < %d", restoreSnapshot, startDB, floor, restoreGit)
 	}
 }

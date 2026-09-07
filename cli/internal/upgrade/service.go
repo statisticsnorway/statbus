@@ -3713,7 +3713,9 @@ func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displa
 	}
 	defer rollbackLog.Close()
 
-	d.rollback(ctx, id, displayName, restoreTargetSHA, nil, reason, flag.BackupPath, rollbackLog)
+	if rollbackErr := d.rollback(ctx, id, displayName, restoreTargetSHA, nil, reason, flag.BackupPath, rollbackLog); rollbackErr != nil {
+		log.Printf("recoveryRollback: rollback for upgrade %d aborted before destructive work: %v", id, rollbackErr)
+	}
 }
 
 // completeInProgressUpgrade checks for an upgrade that was started but not
@@ -3964,8 +3966,10 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 			rollbackLog = NewUpgradeLog(d.projDir, int64(id), displayName, time.Now().UTC())
 		}
 		defer rollbackLog.Close()
-		d.rollback(ctx, id, displayName, "", ptrFailureCode(ErrInstallPreconditionFailed), fmt.Sprintf(
-			"observed-state check after service restart failed: %s", reason), authorizedBackupPath, rollbackLog)
+		if rollbackErr := d.rollback(ctx, id, displayName, "", ptrFailureCode(ErrInstallPreconditionFailed), fmt.Sprintf(
+			"observed-state check after service restart failed: %s", reason), authorizedBackupPath, rollbackLog); rollbackErr != nil {
+			log.Printf("completeInProgressUpgrade: rollback for upgrade %d aborted before destructive work: %v", id, rollbackErr)
+		}
 		return
 	}
 
@@ -7208,7 +7212,9 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 		// No snapshot was finalised (the partial lives in the syncing dir,
 		// never recorded) — pass "" so the identity-keyed restore refuses to
 		// touch the volume; it was never mutated.
-		d.rollback(ctx, id, displayName, restoreTargetSHA, ptrFailureCode(ErrBackupFailed), fmt.Sprintf("%v", err), "", progress)
+		if rollbackErr := d.rollback(ctx, id, displayName, restoreTargetSHA, ptrFailureCode(ErrBackupFailed), fmt.Sprintf("%v", err), "", progress); rollbackErr != nil {
+			return fmt.Errorf("backup failed and rollback direction could not be committed: %w", rollbackErr)
+		}
 		return err
 	}
 	backupPath := backup.Path
@@ -7274,7 +7280,9 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 				errMsg := fmt.Sprintf("Version verification failed: target commit %s does not match manifest commit %s. Possible tag tampering.",
 					ShortForDisplay(commitSHA), ShortForDisplay(manifest.CommitSHA))
 				progress.Write("%s", errMsg)
-				d.rollback(ctx, id, displayName, restoreTargetSHA, nil, errMsg, backupPath, progress)
+				if rollbackErr := d.rollback(ctx, id, displayName, restoreTargetSHA, nil, errMsg, backupPath, progress); rollbackErr != nil {
+					return fmt.Errorf("%s; rollback direction could not be committed: %w", errMsg, rollbackErr)
+				}
 				return fmt.Errorf("%s", errMsg)
 			}
 		}
@@ -7320,7 +7328,9 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 		procureCode = ErrBinaryBuildFailed
 	}
 	if procureErr != nil {
-		d.rollback(ctx, id, displayName, restoreTargetSHA, &procureCode, fmt.Sprintf("%v", procureErr), backupPath, progress)
+		if rollbackErr := d.rollback(ctx, id, displayName, restoreTargetSHA, &procureCode, fmt.Sprintf("%v", procureErr), backupPath, progress); rollbackErr != nil {
+			return fmt.Errorf("binary procurement failed and rollback direction could not be committed: %w", rollbackErr)
+		}
 		return procureErr
 	}
 
@@ -7340,7 +7350,9 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 	// Step 2 for the consistent-backup stop, so we can't persist to
 	// public.upgrade here — the flag file is the handoff channel.
 	if err := d.updateFlagNewSbSwapped(backupPath); err != nil {
-		d.rollback(ctx, id, displayName, restoreTargetSHA, nil, fmt.Sprintf("stamp post_swap flag: %v", err), backupPath, progress)
+		if rollbackErr := d.rollback(ctx, id, displayName, restoreTargetSHA, nil, fmt.Sprintf("stamp post_swap flag: %v", err), backupPath, progress); rollbackErr != nil {
+			return fmt.Errorf("post-swap marker stamp failed and rollback direction could not be committed: %w", rollbackErr)
+		}
 		return err
 	}
 	progress.Write("  Old binary exiting so the new binary can take over ...")
@@ -10855,131 +10867,6 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 	// restore the DB first to keep on-disk state consistent, then ABORT before docker compose up.
 	if backupPath == "" {
 		progress.Write("  Checking for a committed snapshot ... ok (none recorded; source code and ./sb remain unchanged)")
-	} else if err := error(nil); err != nil {
-		progress.Write("  Restoring source code ... failed: %v", err)
-		// STATBUS-187 fix unit #1 (second wave, architect-ruled: "fix =
-		// capture + fold into the ABORT error string"): capture the ABORT
-		// branch's OWN restoreDatabase outcome (confirmed present and
-		// load-bearing this session, STATBUS-181) and fold it into
-		// rollbackFailedMsg + the progress log below, so support sees the
-		// WHOLE story — git restore failed AND whether the DB-side restore
-		// also failed — not just the generic ROLLBACK_FAILED_GIT_CORRUPT the
-		// message already names. Same tier/code/label/callback-event/exit as
-		// before; only the message is enriched.
-		dbRestoreErr := d.restoreDatabase(progress, backupPath)
-		dbRestoreOutcome := "succeeded"
-		if dbRestoreErr != nil {
-			dbRestoreOutcome = fmt.Sprintf("ALSO FAILED: %v", dbRestoreErr)
-			progress.Write("  Restoring the database after the source-code failure ... failed: %v", dbRestoreErr)
-		} else {
-			progress.Write("  Restoring the database after the source-code failure ... ok")
-		}
-		// Restore ./sb to match the attempted-but-failed git era so the
-		// operator's `./sb` at least stops being the NEW (mismatched)
-		// binary. Best-effort: if it fails, we log ErrRollbackBinaryCorrupt
-		// and move on — the ABORT headline below already escalates.
-		d.restoreBinary(progress)
-		// restoreTargetSHA may be empty here (the abort means neither it nor the
-		// pinned `pre-upgrade` branch resolved); point the operator at the
-		// recorded version if set, else the `pre-upgrade` fallback ref.
-		restoreTarget := restoreTargetSHA
-		if restoreTarget == "" {
-			restoreTarget = "pre-upgrade"
-		}
-		progress.Write("Manual recovery required:")
-		progress.Write("    1. Manually checkout the previous version: git checkout %s", restoreTarget)
-		progress.Write("    2. Regenerate config: ./sb config generate")
-		progress.Write("    3. Bring services up: docker compose --profile all up -d")
-		progress.Write("    4. Re-run ./sb install — it detects the stale flag and reconciles the upgrade row automatically.")
-		// Headline for the operator reading maintenance.html — the four
-		// lines above are the technical recovery trail for an admin
-		// reviewing service logs; this one sentence is what a
-		// non-technical operator sees as the last (and biggest) line on
-		// the maintenance screen. Keep the error code + contact so the
-		// operator can escalate with a concrete identifier.
-		progress.Write("CATASTROPHIC FAILURE [%s]. Services stopped. Contact your administrator%s.",
-			ErrRollbackGitCorrupt, contactSuffix(readAdministratorContact(d.projDir)))
-		fmt.Fprintf(os.Stderr, "ABORT: rollback git restore to %s failed: %v\n", restoreTargetSHA, err)
-
-		// state=failed, NOT rolled_back: the git restore itself failed, so
-		// services are stopped and maintenance is ON — the box is DOWN, not
-		// "healthy at the old version". rolled_back's contract (no manual
-		// intervention needed) would be a silent operator lie to monitoring/UI.
-		// failed is valid here (started_at is set, no rolled_back_at). See
-		// upgrade-timeline.md § Complete / rollback.
-		rollbackFailedMsg := fmt.Sprintf("%v (originally: %s) — ROLLBACK FAILED; the system is in a degraded state. Manual CLI recovery is required (./sb install); contact SSB support and involve your IT staff. Database restore %s.", err, reason, dbRestoreOutcome)
-		// Bundle BEFORE the ABORT UPDATE so a forensic inspection of
-		// a wedged `failed` row has the sibling .bundle.txt.
-		d.writeDiagnosticBundle(ctx, id, progress)
-		// Page on-call via the configured callback (Slack, etc.) — the box is
-		// DOWN, so the siren fires regardless of whether the terminal write lands.
-		// extraEnv tells the script to render a distinctive rollback-failure alert
-		// with the recovery command body.
-		hostname, _ := os.Hostname()
-		d.runCallback(version, map[string]string{
-			"STATBUS_EVENT":           "rollback_aborted", // STATBUS-137 (LabelFailedAbort — mirrors the label; 'restore-broke' is doctrine vocabulary for the pair-terminal, which lands under rollback_failed)
-			"STATBUS_ROLLBACK_FAILED": "1",
-			"STATBUS_ROLLBACK_ERROR":  err.Error(),
-			"STATBUS_RECOVERY_CMD":    fmt.Sprintf(`ssh %s "cd statbus && ./sb install"`, hostname),
-		})
-		// STATBUS-136: bring the DB back up BEFORE the terminal write. The write
-		// below records state='failed' into public.upgrade, but every service —
-		// including db — was stopped for the restore (`docker compose stop … db`
-		// above) and this abort branch is the one rollback path that never brings
-		// them back up (unlike the normal rollback's `up -d`). So the write hit a
-		// stopped DB: writeRollbackTerminal's reconnect had nothing to connect to,
-		// exhausted its bounded retry, tripped INVARIANT ROLLBACK_TERMINAL_WRITE_FAILED,
-		// KEPT the flag, and the process exited → systemd re-ran the whole abort →
-		// a guaranteed death loop on a path that had already concluded (observed
-		// live, r17 ×3). Start the EXISTING db container so the write can land.
-		//
-		// Asymmetric-safe: StartDBForRecovery runs `docker compose start db`, which
-		// ONLY starts a stopped container — never `up -d`/recreate — so it cannot
-		// swap the DB image (same primitive + argument as install crash recovery's
-		// connect-first pattern, cli/cmd/install_upgrade.go). The volume already
-		// holds the just-restored old snapshot; starting its own stopped container
-		// touches no data. Best-effort: if the start or health-wait fails, we fall
-		// through to writeRollbackTerminal's own bounded retry, which then fails
-		// loud exactly as before — no regression, only the loop removed.
-		if err := d.EnsureDBReachable(ctx); err != nil {
-			if startErr := d.StartDBForRecovery(ctx); startErr != nil {
-				progress.Write("  Starting the existing database to record the rollback outcome ... failed: %v", startErr)
-			} else if reachErr := d.EnsureDBReachable(ctx); reachErr != nil {
-				progress.Write("  Starting the existing database to record the rollback outcome ... failed health check: %v", reachErr)
-			} else {
-				progress.Write("  Starting the existing database to record the rollback outcome ... healthy")
-			}
-		}
-
-		// Maintenance stays ON — operator must complete the manual rollback steps above.
-		// Durable terminal write with bounded retry (same contract as the two tiers
-		// below). On SUCCESS, release the flock + remove the file so the operator's
-		// prescribed `./sb install` recovery proceeds (a held flock would wedge
-		// install with StateLiveUpgrade). On a FAILED write, KEEP the flag: this
-		// process exits below (the fd close releases the flock at the kernel level),
-		// leaving a dead-PID breadcrumb so the operator's `./sb install` hits
-		// StateCrashedUpgrade → RecoverFromFlag and reconciles the still in_progress
-		// row instead of leaving it stuck. writeRollbackTerminal already failed loud
-		// (INVARIANT ROLLBACK_TERMINAL_WRITE_FAILED + markTerminal).
-		if d.writeRollbackTerminal(id,
-			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+", failure_code = $5 WHERE id = $3"+upgradeRowReturning,
-			ptrFailureCode(ErrRollbackGitCorrupt), rollbackFailedMsg, LabelFailedAbort, attemptsAtCall) {
-			_ = d.removeUpgradeFlag()
-		}
-
-		// Exit unconditionally (rc.67 trifecta). Same reasoning as the
-		// normal-rollback exit below: rollback is a process-state break,
-		// the binary on disk is now different from the one in memory,
-		// continuing execution would query the rolled-back schema with
-		// the new binary's column expectations. Under systemd this is a
-		// clean restart (Restart=always brings the restored ./sb back as
-		// a fresh process); under one-shot ./sb install the operator's
-		// shell exits and the next install invocation comes back fresh
-		// against the restored binary. The CATASTROPHIC FAILURE banner
-		// stays visible because maintenance.html's terminal marker
-		// persists across restarts.
-		progress.Close()
-		os.Exit(1)
 	}
 	// STATBUS-111: the restore-through-terminal-write tail is now shared with the
 	// install-driven restore re-attempt via restoreAndFinalize. Process-lifecycle

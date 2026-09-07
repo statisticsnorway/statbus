@@ -37,7 +37,7 @@ func TestGithubDoRetriesRateLimitThenSucceeds_STATBUS341(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK || requests != 2 {
 		t.Fatalf("status=%d requests=%d, want 200 after two requests", resp.StatusCode, requests)
 	}
@@ -79,7 +79,7 @@ func TestGithubDoHonorsHTTPDateRetryAfter_STATBUS341(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if waited < 88*time.Second || waited > 90*time.Second {
 		t.Fatalf("HTTP-date Retry-After wait = %s, want approximately 90s", waited)
 	}
