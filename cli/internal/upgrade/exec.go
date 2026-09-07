@@ -243,10 +243,15 @@ func runCommandOutput(dir string, name string, args ...string) (string, error) {
 // call from that path (STATBUS-183's apply-race fetch) must be bounded well under
 // 120s, not left at the 2m default that could starve the heartbeat into a SIGKILL.
 func runCommandOutputTimeout(dir string, timeout time.Duration, name string, args ...string) (string, error) {
+	return runCommandOutputTimeoutEnv(dir, timeout, nil, name, args...)
+}
+
+func runCommandOutputTimeoutEnv(dir string, timeout time.Duration, env []string, name string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, name, gitArgs(name, args)...)
 	cmd.Dir = dir
+	cmd.Env = env
 	prepareCmd(cmd)
 	out, err := cmd.CombinedOutput()
 	if ctx.Err() == context.DeadlineExceeded {

@@ -5736,7 +5736,7 @@ func (d *Service) ensureCommitLocal(ref string, fetchTimeout time.Duration) erro
 	var out string
 	var err error
 	for attempt := 1; attempt <= preswapFetchMaxAttempts; attempt++ {
-		out, err = runCommandOutputTimeout(d.projDir, fetchTimeout, "git", fetchArgs...)
+		out, err = runCommandOutputTimeoutEnv(d.projDir, fetchTimeout, gitFetchEnv(), "git", fetchArgs...)
 		if err == nil {
 			return nil
 		}
@@ -5753,6 +5753,18 @@ var gitRateLimitFailure = regexp.MustCompile(`(?i)(?:401|403|429).*rate.?limit|r
 
 func isGitRateLimitFailure(output string) bool {
 	return gitRateLimitFailure.MatchString(output)
+}
+
+func gitFetchEnv() []string {
+	token := os.Getenv("GITHUB_TOKEN")
+	if token == "" {
+		return nil // preserve inherited subprocess environment byte-for-byte
+	}
+	return append(os.Environ(),
+		"GIT_CONFIG_COUNT=1",
+		"GIT_CONFIG_KEY_0=http.extraheader",
+		"GIT_CONFIG_VALUE_0=Authorization: Bearer "+token,
+	)
 }
 
 // RunRegister records a release tag or commit as an upgrade candidate

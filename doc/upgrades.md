@@ -50,8 +50,9 @@ Edit `.env.config` and run `./sb config generate` to apply changes.
 | `UPGRADE_CHANNEL` | *(unset)* | **An exception, not a requirement — an ordinary installation sets nothing here.** The channel is derived from `CADDY_DEPLOYMENT_MODE`: `standalone` → `stable`, `private` → `stable`, `development` → `local`. Write this key only for a box that deliberately LEADS, e.g. `prerelease` on a box that should see release candidates before a statistical office does; a written value always wins over the derivation (STATBUS-307). Accepted values: `local`, `stable`, `prerelease`. To target a specific version once, use `./sb upgrade register <version>` then `./sb upgrade schedule <version>`. |
 | `UPGRADE_CHECK_INTERVAL` | `6h` | How often the service polls GitHub. Any Go duration string (`30m`, `6h`, `24h`). |
 | `UPGRADE_AUTO_DOWNLOAD` | `true` | Pre-download Docker images for discovered releases. Set to `false` on metered connections. |
+| `GITHUB_TOKEN` | *(empty)* | Optional fine-grained, read-only, repository-scoped GitHub token used by release REST requests and invocation-scoped HTTPS `git fetch`. Anonymous HTTPS remains the default. A process environment value wins over `.env.config`; the value is never propagated to another installation. |
 
-The `GITHUB_TOKEN` environment variable is optional but recommended. Without it, the GitHub API allows 60 requests/hour; with it, 5000 requests/hour. Set it in the systemd unit override or in the shell environment.
+Create an optional token at <https://github.com/settings/personal-access-tokens/new>. Without it, the GitHub API allows 60 requests/hour; with it, 5000 requests/hour. The release gate's anonymous deployability probes intentionally ignore this token so customer-path deployability remains tested.
 
 ## Running a specific commit (the edge channel is retired)
 

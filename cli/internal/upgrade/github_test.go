@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -36,6 +37,46 @@ func TestGithubDoRetriesRateLimitThenSucceeds_STATBUS341(t *testing.T) {
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK || requests != 2 {
 		t.Fatalf("status=%d requests=%d, want 200 after two requests", resp.StatusCode, requests)
+	}
+}
+
+func TestGithubRequestAuthorizationIsOptional_STATBUS341(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "")
+	req, err := githubRequest(http.MethodGet, "https://example.invalid")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := req.Header.Get("Authorization"); got != "" {
+		t.Fatalf("tokenless Authorization = %q, want absent", got)
+	}
+
+	t.Setenv("GITHUB_TOKEN", "test-token")
+	req, err = githubRequest(http.MethodGet, "https://example.invalid")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := req.Header.Get("Authorization"); got != "Bearer test-token" {
+		t.Fatalf("Authorization = %q, want Bearer token", got)
+	}
+}
+
+func TestGitFetchEnvironmentAuthorizationIsOptional_STATBUS341(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "")
+	if env := gitFetchEnv(); env != nil {
+		t.Fatalf("tokenless fetch env = %#v, want nil inherited environment", env)
+	}
+
+	t.Setenv("GITHUB_TOKEN", "test-token")
+	env := gitFetchEnv()
+	joined := strings.Join(env, "\n")
+	for _, want := range []string{
+		"GIT_CONFIG_COUNT=1",
+		"GIT_CONFIG_KEY_0=http.extraheader",
+		"GIT_CONFIG_VALUE_0=Authorization: Bearer test-token",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("fetch environment lacks %q", want)
+		}
 	}
 }
 

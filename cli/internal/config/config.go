@@ -483,6 +483,13 @@ func loadOrGenerateConfig(projDir string, verbose bool) (*ConfigEnv, error) {
 	// there, NOT in the generated .env, which this same command overwrites
 	// on every install and at upgrade step 3.1.
 	gen("UPGRADE_CALLBACK", "")
+	// Optional GitHub authentication entry point (STATBUS-341). Create a
+	// fine-grained, read-only, repository-scoped token at
+	// https://github.com/settings/personal-access-tokens/new and place it here.
+	// Empty is the product default and keeps anonymous customer-path behavior.
+	// This value is never auto-propagated to another box; a process-level
+	// GITHUB_TOKEN overrides the generated-file value at runtime.
+	gen("GITHUB_TOKEN", "")
 
 	// Upgrade-service polling settings — only the deployed service uses these,
 	// so they are written for non-development modes only.
