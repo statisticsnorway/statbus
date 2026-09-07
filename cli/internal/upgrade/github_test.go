@@ -4,6 +4,9 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -37,6 +40,36 @@ func TestGithubDoRetriesRateLimitThenSucceeds_STATBUS341(t *testing.T) {
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK || requests != 2 {
 		t.Fatalf("status=%d requests=%d, want 200 after two requests", resp.StatusCode, requests)
+	}
+}
+
+func TestGithubDoHonorsHTTPDateRetryAfter_STATBUS341(t *testing.T) {
+	var waited time.Duration
+	serverTime := time.Now().Add(90 * time.Second).UTC().Truncate(time.Second)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Retry-After", serverTime.Format(http.TimeFormat))
+		http.Error(w, "rate limited", http.StatusTooManyRequests)
+	}))
+	defer server.Close()
+
+	originalWait := githubRetryWait
+	githubRetryWait = func(delay time.Duration) { waited = delay }
+	t.Cleanup(func() { githubRetryWait = originalWait })
+
+	req, err := githubRequest(http.MethodGet, server.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := githubDo(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if waited < 88*time.Second || waited > 90*time.Second {
+		t.Fatalf("HTTP-date Retry-After wait = %s, want approximately 90s", waited)
+	}
+	if got := githubRetryDelay(time.Now().Add(10*time.Minute).Format(http.TimeFormat), time.Second, time.Now()); got != 300*time.Second {
+		t.Fatalf("HTTP-date Retry-After cap = %s, want 5m", got)
 	}
 }
 
@@ -92,6 +125,81 @@ func TestGitRateLimitFailureClassification_STATBUS341(t *testing.T) {
 	}
 	if isGitRateLimitFailure("fatal: authentication failed (HTTP 403)") {
 		t.Error("ordinary authentication failure must not be classified as rate limiting")
+	}
+}
+
+func TestDiscoverTagsViaGitUsesAuthEnvAndBoundedRetry_STATBUS341(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake git is a shell script")
+	}
+	tests := []struct {
+		name      string
+		failure   string
+		wantCalls int
+		wantErr   bool
+	}{
+		{name: "rate limit retries then gives up", failure: "rate", wantCalls: preswapFetchMaxAttempts, wantErr: true},
+		{name: "ordinary failure is not retried", failure: "ordinary", wantCalls: 1, wantErr: true},
+		{name: "authenticated success", failure: "none", wantCalls: 1, wantErr: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			fakeBin := filepath.Join(dir, "bin")
+			if err := os.Mkdir(fakeBin, 0755); err != nil {
+				t.Fatal(err)
+			}
+			trace := filepath.Join(dir, "trace")
+			count := filepath.Join(dir, "count")
+			script := `#!/bin/sh
+case " $* " in
+  *" fetch "*)
+    n=0; [ ! -f "$COUNT_FILE" ] || n=$(cat "$COUNT_FILE"); n=$((n + 1)); printf '%s' "$n" > "$COUNT_FILE"
+    printf 'count=%s\nkey=%s\nvalue=%s\nargs=%s\n' "${GIT_CONFIG_COUNT-}" "${GIT_CONFIG_KEY_0-}" "${GIT_CONFIG_VALUE_0-}" "$*" >> "$TRACE_FILE"
+    case "$FAILURE" in
+      rate) echo 'remote: HTTP 403: API rate limit exceeded' >&2; exit 1 ;;
+      ordinary) echo 'fatal: authentication failed' >&2; exit 1 ;;
+    esac
+    ;;
+  *" tag "*) printf 'v2026.09.1\t0123456789012345678901234567890123456789\t0123456789012345678901234567890123456789\t2026-09-01T00:00:00Z\t\n' ;;
+esac
+`
+			gitPath := filepath.Join(fakeBin, "git")
+			if err := os.WriteFile(gitPath, []byte(script), 0755); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("PATH", fakeBin+string(os.PathListSeparator)+os.Getenv("PATH"))
+			t.Setenv("COUNT_FILE", count)
+			t.Setenv("TRACE_FILE", trace)
+			t.Setenv("FAILURE", tt.failure)
+			t.Setenv("GITHUB_TOKEN", "secret-test-token")
+			originalWait := gitDiscoveryRetryWait
+			gitDiscoveryRetryWait = func(time.Duration) {}
+			t.Cleanup(func() { gitDiscoveryRetryWait = originalWait })
+
+			_, err := DiscoverTagsViaGit(dir)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("DiscoverTagsViaGit error = %v, wantErr %v", err, tt.wantErr)
+			}
+			data, readErr := os.ReadFile(trace)
+			if readErr != nil {
+				t.Fatal(readErr)
+			}
+			got := string(data)
+			if calls := strings.Count(got, "count="); calls != tt.wantCalls {
+				t.Fatalf("fetch calls = %d, want %d; trace:\n%s", calls, tt.wantCalls, got)
+			}
+			for _, want := range []string{"key=http.extraheader", "value=Authorization: Bearer secret-test-token"} {
+				if !strings.Contains(got, want) {
+					t.Fatalf("trace lacks %q:\n%s", want, got)
+				}
+			}
+			for _, line := range strings.Split(got, "\n") {
+				if strings.HasPrefix(line, "args=") && strings.Contains(line, "secret-test-token") {
+					t.Fatalf("token leaked into git argv:\n%s", got)
+				}
+			}
+		})
 	}
 }
 

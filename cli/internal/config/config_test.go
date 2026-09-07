@@ -291,6 +291,63 @@ func TestProjectDir(t *testing.T) {
 	}
 }
 
+func TestGithubTokenIsOptInAndDocumentedAtCreation_STATBUS341(t *testing.T) {
+	projDir := t.TempDir()
+	configPath := filepath.Join(projDir, ".env.config")
+	before := "DEPLOYMENT_SLOT_CODE=test\nCADDY_DEPLOYMENT_MODE=development\nSITE_DOMAIN=test.statbus.org\n"
+	if err := os.WriteFile(configPath, []byte(before), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := loadOrGenerateConfig(projDir, false); err != nil {
+		t.Fatal(err)
+	}
+	after, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(after), "\nGITHUB_TOKEN=") {
+		t.Fatalf("config generate auto-inserted GITHUB_TOKEN into an existing file:\n%s", after)
+	}
+
+	freshDir := t.TempDir()
+	if _, err := loadOrGenerateConfig(freshDir, false); err == nil {
+		t.Fatal("fresh standalone config without SITE_DOMAIN must refuse")
+	}
+	fresh, err := os.ReadFile(filepath.Join(freshDir, ".env.config"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(fresh), "# GITHUB_TOKEN=") || !strings.Contains(string(fresh), "fine-grained") {
+		t.Fatalf("fresh .env.config must document the commented optional token entry:\n%s", fresh)
+	}
+}
+
+func TestGithubTokenExplicitValueReachesGeneratedEnv_STATBUS341(t *testing.T) {
+	projDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(projDir, ".env.config"), []byte(
+		"DEPLOYMENT_SLOT_CODE=test\nCADDY_DEPLOYMENT_MODE=development\nSITE_DOMAIN=test.statbus.org\nGITHUB_TOKEN=explicit-test-token\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(projDir, ".env.example"), []byte("# minimal example\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := loadOrGenerateConfig(projDir, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dbMem, err := computeDbMemory(cfg.DbMemLimit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, _, err := generateEnvContent(&Credentials{}, cfg, computeDerived(cfg), dbMem, projDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "\nGITHUB_TOKEN=explicit-test-token\n") {
+		t.Fatalf("generated .env did not carry the explicitly declared token:\n%s", out)
+	}
+}
+
 // TestGenerateEnvContent_RestAdminBindAddress verifies the generated .env
 // carries REST_ADMIN_BIND_ADDRESS with the offset+6 loopback value. This
 // guards the fragile positional-index wiring in the head template (%[26]s):

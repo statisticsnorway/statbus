@@ -270,6 +270,12 @@ const credentialsHeader = `# A running system never reads this file back. Editin
 # To apply a changed value, delete and recreate the ENTIRE environment (destructive: all data lost; ./dev.sh recreate-database on dev, full reinstall on a production box), or apply the specific change manually with the proper commands (a support operation).
 # This file's purpose is stable identity: recreates and restores get the same credentials back.`
 
+const configCreationHeader = `# Optional GitHub authentication for upgrade discovery.
+# Create a fine-grained, read-only, repository-scoped token at:
+# https://github.com/settings/personal-access-tokens/new
+# Anonymous HTTPS is the default. Uncomment only when this box opts in.
+# GITHUB_TOKEN=`
+
 // loadOrGenerateCredentials reads .env.credentials, generating missing values.
 func loadOrGenerateCredentials(projDir string, verbose bool) (*Credentials, error) {
 	credPath := filepath.Join(projDir, ".env.credentials")
@@ -335,9 +341,27 @@ func notifyUserCollisionWarning(appUser, notifyUser string) string {
 // loadOrGenerateConfig reads .env.config, generating missing values with defaults.
 func loadOrGenerateConfig(projDir string, verbose bool) (*ConfigEnv, error) {
 	cfgPath := filepath.Join(projDir, ".env.config")
+	_, statErr := os.Stat(cfgPath)
+	configCreated := os.IsNotExist(statErr)
+	if statErr != nil && !configCreated {
+		return nil, fmt.Errorf("stat config: %w", statErr)
+	}
 	f, err := dotenv.Load(cfgPath)
 	if err != nil {
 		return nil, fmt.Errorf("load config: %w", err)
+	}
+	if configCreated {
+		for _, line := range strings.Split(configCreationHeader, "\n") {
+			f.Puts(line)
+		}
+		f.Puts("")
+		// Persist the entry-point documentation before validation. A genuinely
+		// fresh standalone invocation intentionally refuses below until the
+		// operator supplies SITE_DOMAIN; the refusal must still leave behind the
+		// documented file they are expected to edit.
+		if err := f.Save(); err != nil {
+			return nil, fmt.Errorf("save config creation header: %w", err)
+		}
 	}
 
 	gen := func(key, defaultVal string) string {
@@ -483,13 +507,9 @@ func loadOrGenerateConfig(projDir string, verbose bool) (*ConfigEnv, error) {
 	// there, NOT in the generated .env, which this same command overwrites
 	// on every install and at upgrade step 3.1.
 	gen("UPGRADE_CALLBACK", "")
-	// Optional GitHub authentication entry point (STATBUS-341). Create a
-	// fine-grained, read-only, repository-scoped token at
-	// https://github.com/settings/personal-access-tokens/new and place it here.
-	// Empty is the product default and keeps anonymous customer-path behavior.
-	// This value is never auto-propagated to another box; a process-level
-	// GITHUB_TOKEN overrides the generated-file value at runtime.
-	gen("GITHUB_TOKEN", "")
+	// GITHUB_TOKEN is deliberately not generated. Existing .env.config files
+	// remain untouched unless an operator explicitly opts in by adding the key;
+	// the commented entry point is present only in the fresh-file header above.
 
 	// Upgrade-service polling settings — only the deployed service uses these,
 	// so they are written for non-development modes only.
@@ -968,6 +988,8 @@ PUBLIC_STATBUS_COMMIT_SHORT=%[23]s
 		// ops/notify-slack.sh for the reference implementation.
 		fmt.Fprintf(&b, "UPGRADE_CALLBACK=%s\n", getOrDefault("UPGRADE_CALLBACK", ""))
 		classes.declare("UPGRADE_CALLBACK") // runCallback() calls dotenv.Load(".env") itself on every invocation — never cached
+		fmt.Fprintf(&b, "GITHUB_TOKEN=%s\n", getOrDefault("GITHUB_TOKEN", ""))
+		classes.declare("GITHUB_TOKEN", RestartUpgradeDaemon)
 		// Scheduled logical-backup settings (STATBUS-113) — read by the service's loadConfig().
 		fmt.Fprintf(&b, "BACKUP_ENABLED=%s\n", getOrDefault("BACKUP_ENABLED", "true"))
 		classes.declare("BACKUP_ENABLED", RestartUpgradeDaemon)

@@ -706,7 +706,7 @@ _apply_hardening() {
     ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0755 /tmp/setup.sh'
 
     local env_config_file users_file
-    env_config_file=$(mktemp)
+    env_config_file=$(umask 077; mktemp)
     cat > "$env_config_file" << 'ENVCONFIG'
 DEPLOYMENT_SLOT_NAME=Install Test
 DEPLOYMENT_SLOT_CODE=test
@@ -804,7 +804,7 @@ UPGRADE_ROLE=production
 ENVCONFIG
     fi
     scp -O "${SSH_OPTS[@]}" "$env_config_file" root@"$ip":/tmp/env-config
-    ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0644 /tmp/env-config'
+    ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0600 /tmp/env-config'
     rm -f "$env_config_file"
 
     users_file=$(mktemp)

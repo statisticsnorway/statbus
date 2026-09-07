@@ -166,14 +166,24 @@ func githubDo(req *http.Request) (*http.Response, error) {
 			return resp, nil
 		}
 
-		delay := githubRetryGaps[attempt-1]
-		if seconds, err := strconv.Atoi(resp.Header.Get("Retry-After")); err == nil && seconds > 0 {
-			delay = min(time.Duration(seconds)*time.Second, 300*time.Second)
-		}
+		delay := githubRetryDelay(resp.Header.Get("Retry-After"), githubRetryGaps[attempt-1], time.Now())
 		_ = resp.Body.Close()
 		githubRetryWait(delay)
 	}
 	panic("unreachable")
+}
+
+func githubRetryDelay(retryAfter string, fallback time.Duration, now time.Time) time.Duration {
+	const maximum = 300 * time.Second
+	if seconds, err := strconv.Atoi(retryAfter); err == nil && seconds > 0 {
+		return min(time.Duration(seconds)*time.Second, maximum)
+	}
+	if retryAt, err := http.ParseTime(retryAfter); err == nil {
+		if delay := retryAt.Sub(now); delay > 0 {
+			return min(delay, maximum)
+		}
+	}
+	return fallback
 }
 
 func githubRateLimited(resp *http.Response) bool {
@@ -481,16 +491,29 @@ type GitTag struct {
 	PublishedAt time.Time
 }
 
+var gitDiscoveryRetryWait = time.Sleep
+
 // DiscoverTagsViaGit fetches tags from the remote and returns parsed version tags.
-// Uses git protocol — no API rate limit, works without GITHUB_TOKEN.
+// Anonymous HTTPS remains supported. When GITHUB_TOKEN is present, git receives
+// it only through invocation-scoped GIT_CONFIG_* environment entries. GitHub
+// rate-limit answers use the same bounded three-attempt policy as preswap fetch.
 func DiscoverTagsViaGit(projDir string) ([]GitTag, error) {
 	// Fetch latest tags from remote, pruning tags deleted upstream.
 	// Without --prune-tags, deleted tags persist locally forever.
 	// No --force: install-verified was deleted in rc.62, so there is no
 	// moving tag to force-overwrite locally. A force here would have
 	// hidden rune's rc.59/rc.60 root causes.
-	if err := runCommand(projDir, "git", "fetch", "--tags", "--prune-tags"); err != nil {
-		return nil, fmt.Errorf("git fetch --tags: %w", err)
+	var fetchOut string
+	var fetchErr error
+	for attempt := 1; attempt <= preswapFetchMaxAttempts; attempt++ {
+		fetchOut, fetchErr = runCommandOutputTimeoutEnv(projDir, 2*time.Minute, gitFetchEnv(), "git", "fetch", "--tags", "--prune-tags")
+		if fetchErr == nil {
+			break
+		}
+		if attempt == preswapFetchMaxAttempts || !isGitRateLimitFailure(fetchOut) {
+			return nil, fmt.Errorf("git fetch --tags: %w (%s)", fetchErr, strings.TrimSpace(fetchOut))
+		}
+		gitDiscoveryRetryWait(preswapFetchRetryGaps[attempt-1])
 	}
 
 	// List version tags with SHA and creation date.
