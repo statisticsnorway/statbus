@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-02 11:20'
-updated_date: '2026-09-06 17:40'
+updated_date: '2026-09-07 07:03'
 labels:
   - test-harness
   - release
@@ -20,6 +20,20 @@ ordinal: 332000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+## Review correction (2026-09-06/07): standalone mode is out of scope here
+
+Sol's review (`tmp/STATBUS-035-339-review/REPORT.md`) showed H2 as written
+cannot run: standalone mode means ports 80/443 and an automatic public ACME
+certificate, and a harness VM named `statbus-test.local` has neither public
+DNS nor a way to obtain one, so the first health probe fails before the
+upgrade runs. Norway did not fail on TLS or ports; it failed on who judged
+whom. So `0-happy-upgrade` keeps development mode and takes only the
+prerelease channel (the actual Norway hop). The shape axis code stays for a
+future scenario that can supply a certificate. That certificate capability is
+STATBUS-358; an HTTPS-only-egress scenario (the Albania network shape) is
+STATBUS-357. H2 in this ticket is therefore satisfied by the channel half
+only, deliberately.
+
 ## Why these two tickets are one piece of work
 
 Both change what the install-recovery harness installs on a fresh VM before it
