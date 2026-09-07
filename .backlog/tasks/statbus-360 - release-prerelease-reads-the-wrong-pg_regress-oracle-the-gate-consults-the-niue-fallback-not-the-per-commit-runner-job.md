@@ -78,3 +78,7 @@ one name, one gate:
 `./sb release prerelease` on a commit whose runner Fast Tests is green and
 whose niue run is pending or cancelled passes check 7 without a local stamp,
 and its output nowhere tells the operator to wait for niue.
+
+## Coordination checkpoint: 2026-09-07 16:31
+
+Implementation landed as `938df6891`. At `f2862bd47`, runner Fast Tests succeeded while niue fallback failed. Runner is the per-commit pg_regress oracle, niue is not a gate. Final evidence/acceptance and exact new HEAD CI remain before Done.

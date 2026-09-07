@@ -80,3 +80,7 @@ Sol's accepted design is `tmp/sol-s3-design.md`; the phased plan with function n
 
 This is the ONE remaining piece of 347. 347 is Done for everything else (S1 `539ba12e0`, S2 `3afd379cd` + `c9e3c1a36`, S4 via STATBUS-348, prefix form shipped in rc.14). Do not reopen 347; work here.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Coordination checkpoint: 2026-09-07 16:31
+
+Live twins committed by snake at `6e421c2f0`. Independent whole-ticket Sol review delegated to spider, report pending at `tmp/STATBUS-354-review/FINAL-REVIEW.md`. Snake assigned publication and exact-HEAD CI monitoring. Read-only blast-radius report: all ten fleet boxes returned zero orphan rows. Only named candidates reach installations. No final acceptance yet: review, exact-HEAD CI and owner-approved batch RC paid ladder remain.

@@ -86,3 +86,7 @@ The sentinel set is DATA in the fleet registry (`cloud.sh`), shown by
 | no token installed anywhere | none; dev's token is the owner's one-line manual step, tracked in STATBUS-361 |
 | review trail | `tmp/STATBUS-341-review/REPORT.md`: Luna r1 REJECT (2 HIGH, 1 MED, 1 LOW), r2 REJECT (2 LOW), r3 REJECT (1 LOW), r4 REJECT (1 LOW), r5 ACCEPT at d7714827a |
 | CI at HEAD | Fast Tests, app build, Images green; Go Test's golangci-lint red on findings owned by the concurrent 354 work (unchecked `d.rollback` returns) plus two `Body.Close` in github_test.go; fix in flight (llama). Done is recorded when that job is green. |
+
+## Coordination checkpoint: 2026-09-07 16:31
+
+Implementation and independent review evidence already recorded. At `f2862bd47`, runner Fast Tests, Go Test, app build/lint and Images succeeded. Twin commit `6e421c2f0` not yet published at this check. Await exact new HEAD CI before Done.
