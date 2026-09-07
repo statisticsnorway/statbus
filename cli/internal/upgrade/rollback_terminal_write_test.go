@@ -157,7 +157,7 @@ func TestRollbackTerminalWrite_StructuralContract(t *testing.T) {
 		t.Errorf("rollback path (rollback + restoreAndFinalize) must call writeRollbackTerminal exactly 4× (abort-services-not-stopped + abort-git-corrupt + degraded-failed + rolled_back); got %d", n)
 	}
 	// The three degraded/abort removals remain directly guarded by landed terminal
-	// writes. The healthy fourth path first writes ROLLBACK_FINISH_PENDING, then
+	// writes. The healthy fourth path first sets rollback_finish_pending_at, then
 	// removes the marker and commits rolled_back in finalizePendingRollback's row-
 	// locked transaction.
 	removes := strings.Count(rbPath, "d.removeUpgradeFlag()")

@@ -6368,7 +6368,7 @@ func (d *Service) claimScheduledUpgrade(ctx context.Context, id int) (scheduledU
 	// Serialize the claim transaction with cleanup-only rollback finalization.
 	// The daemon's session-level lock is re-entrant on this same connection; an
 	// inline ./sb install gets the transaction lock only when no live service owns
-	// it. This closes the check-then-claim race around ROLLBACK_FINISH_PENDING.
+	// it. This closes the check-then-claim race around rollback-finish-pending.
 	tx, txErr := d.queryConn.Begin(ctx)
 	if txErr != nil {
 		return scheduledUpgradeClaim{}, fmt.Errorf("claim id=%d: begin tx: %w", id, txErr)
@@ -6382,17 +6382,13 @@ func (d *Service) claimScheduledUpgrade(ctx context.Context, id int) (scheduledU
 		return scheduledUpgradeClaim{}, fmt.Errorf("refusing to claim upgrade id=%d: a running upgrade service owns the upgrade lock and claims scheduled rows itself (within its 30s heartbeat); wait for it, or stop the service before dispatching inline with ./sb install", id)
 	}
 
-	// A ROLLBACK_FINISH_PENDING row means the previous version is already
+	// A rollback-finish-pending row means the previous version is already
 	// restored, but its marker and final rolled_back transition are not yet clean.
 	// Check under the same transaction lock used by finalization, so no cleanup can
 	// commit between this decision and the claim below.
 	var rollbackFinishingID int
 	rollbackFinishingErr := tx.QueryRow(ctx,
-		`SELECT id
-		   FROM public.upgrade
-		  WHERE state = 'failed' AND starts_with(error, $1)
-		  ORDER BY id
-		  LIMIT 1`, RollbackFinishPendingPrefix).Scan(&rollbackFinishingID)
+		`SELECT id FROM public.upgrade WHERE `+rollbackFinishPendingSQL+` ORDER BY id LIMIT 1`).Scan(&rollbackFinishingID)
 	if rollbackFinishingErr == nil {
 		return scheduledUpgradeClaim{}, fmt.Errorf("refusing to claim upgrade id=%d: rollback finishing cleanup for upgrade id=%d is still pending; wait for the daemon to remove its stale marker and finalize the row", id, rollbackFinishingID)
 	}
@@ -8381,19 +8377,16 @@ func preSwapRecoveryReason(flag UpgradeFlag) string {
 		ErrInstallPreconditionFailed)
 }
 
-// RollbackFinishPendingPrefix distinguishes a healthy restored box whose
-// filesystem lock was not yet released from a restore that actually failed.
-// install/state.go uses the same predicate so it never replays an already-
-// successful restore during the narrow filesystem-to-database handoff window.
-const RollbackFinishPendingPrefix = "ROLLBACK_FINISH_PENDING: "
-
-func IsRollbackFinishPendingError(errorText string) bool {
-	return strings.HasPrefix(errorText, RollbackFinishPendingPrefix)
-}
-
-func rollbackFinishPendingError(reason string) string {
-	return RollbackFinishPendingPrefix + reason
-}
+// The cleanup-only rollback state is the COLUMN public.upgrade.rollback_finish_pending_at
+// (STATBUS-347, migration 20260903205636), never a prefix on `error`. The schema
+// enforces its shape (chk_upgrade_rollback_finish_pending_requires_failed), the
+// install ladder excludes it from restore replay by column, and every reader in
+// this file selects on the column. `error` carries only the human cause.
+//
+// rollbackFinishPendingSQL is the ONE predicate for "restored but not finished",
+// shared by the claim gate, the recovery interception, the finisher's candidate
+// list, and the row lock, so no two readers can disagree about what pending is.
+const rollbackFinishPendingSQL = "state = 'failed' AND rollback_finish_pending_at IS NOT NULL"
 
 func rollbackFinalError(failureCode *UpgradeFailureCode, reason string) string {
 	if reason == "" {
@@ -8408,7 +8401,7 @@ func rollbackFinalError(failureCode *UpgradeFailureCode, reason string) string {
 }
 
 // isRollbackFinishPending reports whether the row for id is the cleanup-only
-// ROLLBACK_FINISH_PENDING shape. It runs on the recovery classify path before
+// rollback-finish-pending shape. It runs on the recovery classify path before
 // phase routing, so the read is bounded by recoveryReadTimeout (STATBUS-190): a
 // paused database must classify as an error quickly, never hang recovery.
 func (d *Service) isRollbackFinishPending(ctx context.Context, id int) (bool, error) {
@@ -8419,13 +8412,7 @@ func (d *Service) isRollbackFinishPending(ctx context.Context, id int) (bool, er
 	defer cancel()
 	var pending bool
 	err := d.queryConn.QueryRow(readCtx,
-		`SELECT EXISTS (
-			SELECT 1
-			  FROM public.upgrade
-			 WHERE id = $1
-			   AND state = 'failed'
-			   AND starts_with(error, $2)
-		)`, id, RollbackFinishPendingPrefix).Scan(&pending)
+		`SELECT EXISTS (SELECT 1 FROM public.upgrade WHERE id = $1 AND `+rollbackFinishPendingSQL+`)`, id).Scan(&pending)
 	return pending, err
 }
 
@@ -8447,7 +8434,7 @@ func readUpgradeFlagFromOpenFile(file *os.File) (UpgradeFlag, error) {
 // clearRollbackFinishFlag removes only the marker belonging to this already-
 // restored rollback. Identity is checked from the same open file descriptor
 // while its flock is held, not by a read-before-lock path that could race a new
-// upgrade replacing the marker. The row stays ROLLBACK_FINISH_PENDING until
+// upgrade replacing the marker. The row stays rollback-finish-pending until
 // unlink succeeds, so neither the daemon nor ./sb install can mistake cleanup
 // for another restore.
 func (d *Service) clearRollbackFinishFlag(id int) error {
@@ -8515,10 +8502,7 @@ func (d *Service) finalizePendingRollbacks(ctx context.Context) {
 		return
 	}
 	rows, err := d.queryConn.Query(ctx,
-		`SELECT id
-		   FROM public.upgrade
-		  WHERE state = 'failed' AND starts_with(error, $1)
-		  ORDER BY id`, RollbackFinishPendingPrefix)
+		`SELECT id FROM public.upgrade WHERE `+rollbackFinishPendingSQL+` ORDER BY id`)
 	if err != nil {
 		log.Printf("finalizePendingRollbacks: query failed: %v", err)
 		return
@@ -8579,12 +8563,10 @@ func (d *Service) finalizePendingRollback(ctx context.Context, id int, label str
 	var errorText, commitSHA, commitVersion string
 	var failureCodeText sql.NullString
 	err = tx.QueryRow(ctx,
-		`SELECT error, commit_sha, COALESCE(commit_version, ''), failure_code::text
+		`SELECT COALESCE(error, ''), commit_sha, COALESCE(commit_version, ''), failure_code::text
 		   FROM public.upgrade
-		  WHERE id = $1
-		    AND state = 'failed'
-		    AND starts_with(error, $2)
-		  FOR UPDATE`, id, RollbackFinishPendingPrefix).Scan(&errorText, &commitSHA, &commitVersion, &failureCodeText)
+		  WHERE id = $1 AND `+rollbackFinishPendingSQL+`
+		  FOR UPDATE`, id).Scan(&errorText, &commitSHA, &commitVersion, &failureCodeText)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
 	}
@@ -8603,11 +8585,11 @@ func (d *Service) finalizePendingRollback(ctx context.Context, id int, label str
 		}
 		failureCode = &parsed
 	}
-	finalError := rollbackFinalError(failureCode, strings.TrimPrefix(errorText, RollbackFinishPendingPrefix))
+	finalError := rollbackFinalError(failureCode, errorText)
 	var rowJSON string
 	if err := tx.QueryRow(ctx,
-		"UPDATE public.upgrade SET state = 'rolled_back', error = $2, rolled_back_at = now() WHERE id = $1 AND state = 'failed' AND error = $3"+upgradeRowReturning,
-		id, finalError, errorText).Scan(&rowJSON); err != nil {
+		"UPDATE public.upgrade SET state = 'rolled_back', error = $2, failure_code = NULL, rolled_back_at = now(), rollback_finish_pending_at = NULL WHERE id = $1 AND "+rollbackFinishPendingSQL+upgradeRowReturning,
+		id, finalError).Scan(&rowJSON); err != nil {
 		return false, fmt.Errorf("write final rolled_back row: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -10283,10 +10265,9 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 	// the cleanup-only discriminator BEFORE reopening SQL or HTTP. From this point
 	// forward, every restart/install path is forbidden from restoring the snapshot
 	// again, so writes accepted after the window lifts cannot be overwritten.
-	pendingFinishErr := rollbackFinishPendingError(errMsg)
 	if !d.writeRollbackTerminal(id,
-		"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+", failure_code = $5 WHERE id = $3"+upgradeRowReturning,
-		failureCode, pendingFinishErr, LabelFailedRollbackPendingFinish, attemptsAtCall) {
+		"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+", failure_code = $5, rollback_finish_pending_at = now() WHERE id = $3"+upgradeRowReturning,
+		failureCode, errMsg, LabelFailedRollbackPendingFinish, attemptsAtCall) {
 		d.releaseUpgradeFlagLockKeepingFile()
 		progress.Write("Recording rollback finishing state ... failed; maintenance and SQL read-only remain active, and the free recovery marker is kept for reconciliation.")
 		return true
@@ -10433,17 +10414,17 @@ func (d *Service) ReattemptRestore(ctx context.Context, rowID int64) error {
 	var attemptsAtCall int
 	var backupPath, logRelPath string
 	if err := tx.QueryRow(ctx, `
-		SELECT commit_sha, commit_version, recovery_attempts, backup_path,
-		       COALESCE(log_relative_file_path, '')
-		  FROM public.upgrade
-		 WHERE id = $1
-		   AND state = 'failed'
-		   AND backup_path IS NOT NULL
-		   AND NOT starts_with(COALESCE(error, ''), $2)
-		 FOR UPDATE`, rowID, RollbackFinishPendingPrefix).
+			SELECT commit_sha, commit_version, recovery_attempts, backup_path,
+			       COALESCE(log_relative_file_path, '')
+			  FROM public.upgrade
+			 WHERE id = $1
+			   AND state = 'failed'
+			   AND backup_path IS NOT NULL
+			   AND rollback_finish_pending_at IS NULL
+			 FOR UPDATE`, rowID).
 		Scan(&commitSHA, &commitVersion, &attemptsAtCall, &backupPath, &logRelPath); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return fmt.Errorf("ReattemptRestore: upgrade %d is no longer re-attemptable (requires state='failed', backup_path IS NOT NULL, and no rollback-finishing prefix); refusing stale install authorization", rowID)
+			return fmt.Errorf("ReattemptRestore: upgrade %d is no longer re-attemptable (requires state='failed', backup_path IS NOT NULL, and rollback_finish_pending_at IS NULL); refusing stale install authorization", rowID)
 		}
 		return fmt.Errorf("ReattemptRestore: cannot lock and authorize upgrade %d: %w", rowID, err)
 	}

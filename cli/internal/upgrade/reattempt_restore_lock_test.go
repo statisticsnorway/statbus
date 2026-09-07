@@ -68,7 +68,7 @@ func TestReattemptRestore_AuthorizesUnderBothLocksBeforeStoppingServices(t *test
 	for _, predicate := range []string{
 		"state = 'failed'",
 		"backup_path IS NOT NULL",
-		"NOT starts_with(COALESCE(error, ''), $2)",
+		"rollback_finish_pending_at IS NULL",
 	} {
 		if !strings.Contains(body, predicate) {
 			t.Errorf("ReattemptRestore durable row authorization is missing %q", predicate)

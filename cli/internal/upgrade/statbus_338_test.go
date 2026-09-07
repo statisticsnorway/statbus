@@ -235,7 +235,7 @@ func TestReturnedFetchErrorSurvivesPreswapRecovery_STATBUS338(t *testing.T) {
 	restoreBody := extractFuncBody(t, readUpgradeServiceSource(t), "func (d *Service) restoreAndFinalize(")
 	for _, want := range []string{
 		"errMsg := reason",
-		"rollbackFinishPendingError(errMsg)",
+		"rollback_finish_pending_at = now()",
 		"d.writeRollbackTerminal(",
 	} {
 		if !strings.Contains(restoreBody, want) {
@@ -243,8 +243,8 @@ func TestReturnedFetchErrorSurvivesPreswapRecovery_STATBUS338(t *testing.T) {
 		}
 	}
 	finalizerBody := extractFuncBody(t, readUpgradeServiceSource(t), "func (d *Service) finalizePendingRollback(")
-	if !strings.Contains(finalizerBody, "rollbackFinalError(failureCode, strings.TrimPrefix(errorText, RollbackFinishPendingPrefix))") {
-		t.Error("serialized rollback finalizer no longer derives final guidance from failure_code")
+	if !strings.Contains(finalizerBody, "rollbackFinalError(failureCode, errorText)") {
+		t.Error("serialized rollback finalizer no longer derives final guidance from failure_code and preserved pending error")
 	}
 	guidanceBody := extractFuncBody(t, readUpgradeServiceSource(t), "func rollbackFinalError(")
 	for _, want := range []string{"*failureCode == ErrGitFetchRetryable", "It is safe to schedule this same version again"} {

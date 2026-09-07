@@ -68,6 +68,11 @@ package migrate
 // a column, and no legitimate daemon write performs that transition (pipeline
 // completions are in_progress→completed), so the daemon operated cleanly at that
 // floor too.
+// Prior value 20260903205636 added STATBUS-347's rollback_finish_pending_at
+// column, CHECK, and widened state-log trigger. The daemon reads and writes that
+// column at claim, recovery, and finishing. STATBUS-349 subsequently raised the
+// floor to the current failure_code migration, so restoring the column does not
+// lower this constant.
 const DaemonSchemaFloor int64 = 20260906173739
 
 // DaemonRelationNames is the schema surface the daemon's OWN SQL touches — the
