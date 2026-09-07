@@ -179,9 +179,12 @@ func githubRetryDelay(retryAfter string, fallback time.Duration, now time.Time) 
 		return min(time.Duration(seconds)*time.Second, maximum)
 	}
 	if retryAt, err := http.ParseTime(retryAfter); err == nil {
+		// A date already in the past means "retry now"; it must not fall
+		// through to the backoff schedule as if the server had said nothing.
 		if delay := retryAt.Sub(now); delay > 0 {
 			return min(delay, maximum)
 		}
+		return 0
 	}
 	return fallback
 }

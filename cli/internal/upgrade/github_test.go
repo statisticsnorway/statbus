@@ -43,6 +43,21 @@ func TestGithubDoRetriesRateLimitThenSucceeds_STATBUS341(t *testing.T) {
 	}
 }
 
+func TestGithubRetryDelayPastHTTPDateIsZero_STATBUS341(t *testing.T) {
+	now := time.Date(2026, 9, 7, 13, 0, 0, 0, time.UTC)
+	past := now.Add(-90 * time.Second).UTC().Format(http.TimeFormat)
+	if got := githubRetryDelay(past, 7*time.Second, now); got != 0 {
+		t.Fatalf("past HTTP-date Retry-After must mean retry now, got %v", got)
+	}
+	future := now.Add(20 * time.Second).UTC().Format(http.TimeFormat)
+	if got := githubRetryDelay(future, 7*time.Second, now); got != 20*time.Second {
+		t.Fatalf("future HTTP-date must be honoured, got %v", got)
+	}
+	if got := githubRetryDelay("not-a-date", 7*time.Second, now); got != 7*time.Second {
+		t.Fatalf("unparseable Retry-After must use the fallback, got %v", got)
+	}
+}
+
 func TestGithubDoHonorsHTTPDateRetryAfter_STATBUS341(t *testing.T) {
 	var waited time.Duration
 	serverTime := time.Now().Add(90 * time.Second).UTC().Truncate(time.Second)

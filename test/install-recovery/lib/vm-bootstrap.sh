@@ -707,6 +707,10 @@ _apply_hardening() {
 
     local env_config_file users_file
     env_config_file=$(umask 077; mktemp)
+    # The file may carry GITHUB_TOKEN: it must not outlive this function on
+    # any failure path between here and the explicit rm below.
+    # shellcheck disable=SC2064 # expand now: the path is fixed at this point
+    trap "rm -f '$env_config_file' '$env_config_file.bak'" RETURN
     cat > "$env_config_file" << 'ENVCONFIG'
 DEPLOYMENT_SLOT_NAME=Install Test
 DEPLOYMENT_SLOT_CODE=test
