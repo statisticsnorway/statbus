@@ -25,6 +25,16 @@ match hexdigits
 syslog auth
 
 #
+# Demo scheduled auto-apply — invoked by demo-auto-apply.yaml and
+# demo-auto-apply-stable.yaml via raw ssh (STATBUS-248). The workflow supplies
+# only the TIMING; demo's own upgrade channel chooses the TARGET. Both
+# workflows run this exact byte-string, so the entry stays. It was dropped by
+# mistake in a9a43eb71 together with the retired country grants and restored
+# here; the live file on niue never lost it.
+#
+statbus_demo: cd ~/statbus && ./sb upgrade apply-latest
+
+#
 # Named-target apply — invoked by deploy-to-dev.yaml (STATBUS-259/260): the
 # release chain now dispatches deploy-to-dev naming an exact candidate SHA,
 # so the door must permit installing THAT commit rather than whatever the
