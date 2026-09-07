@@ -3,7 +3,7 @@ id: STATBUS-341
 title: >-
   github-auth-optional: token support for our boxes and willing NSOs — with
   anonymous sentinels kept by design
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-09-02 12:21'
 updated_date: '2026-09-07 14:02'
@@ -90,3 +90,7 @@ The sentinel set is DATA in the fleet registry (`cloud.sh`), shown by
 ## Coordination checkpoint: 2026-09-07 16:31
 
 Implementation and independent review evidence already recorded. At `f2862bd47`, runner Fast Tests, Go Test, app build/lint and Images succeeded. Twin commit `6e421c2f0` not yet published at this check. Await exact new HEAD CI before Done.
+
+## Completion: 2026-09-07 17:05
+
+Luna acceptance retained. Runner Fast Tests, Images and CodeQL succeeded at `c6329610d`. Go Test and app build/lint succeeded at code SHA `6e421c2f0`; intervening commits modify only backlog markdown, so these workflows were not triggered at the documentation HEAD. Exact SHA/run evidence is in `tmp/batch-ci-evidence.md`. No token was installed; owner-managed credential follow-through remains STATBUS-361. Paid batch ladder remains separately gated, not claimed here.

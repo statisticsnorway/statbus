@@ -2,10 +2,10 @@
 id: STATBUS-360
 title: >-
   release prerelease reads the wrong pg_regress oracle: the gate consults the niue fallback, not the per-commit runner job, and its output misleads the operator
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-09-07 13:11'
-updated_date: '2026-09-07 13:11'
+updated_date: '2026-09-07 17:10'
 labels:
   - release
   - ci
@@ -90,3 +90,7 @@ Implementation landed as `938df6891`. At `f2862bd47`, runner Fast Tests succeede
 - At `f2862bd47`, runner run 34141738192 succeeded while fallback 34141738170 failed, demonstrating the distinct signals.
 - Fallback failed before tests: duplicate column 42701 applying re-timestamped migration 20260907120000 against stale cached state. This is a test-cache repair issue, not a release gate or evidence of a fleet orphan. Read-only repair scoping delegated, no remote rebuild authorized.
 - At `081d7e4ec`, Images succeeded and runner Fast Tests remains in progress. Done remains pending final CI verification.
+
+## Completion: 2026-09-07 17:10
+
+Done-when met: squid's harness invoked the real `preflightChecks` check 7 (Go `-overlay`, disposable clone at `c6329610d`, no prior stamp) while runner Fast Tests was green and niue red. Check 7 passed on the runner result, output named no niue wait, stamp written only in the scratch clone. Log path in `tmp/STATBUS-360-review.md`. CI at HEAD `c6329610d`: runner Fast Tests, Images green. No RC cut, no paid resources.

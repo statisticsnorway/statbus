@@ -5,7 +5,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-04 10:26'
-updated_date: '2026-09-06 18:07'
+updated_date: '2026-09-07 17:10'
 labels:
   - upgrade
   - fail-fast
@@ -19,6 +19,26 @@ ordinal: 347000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+## Current state (coordinator, 2026-09-07 17:10)
+
+| piece | commit(s) | verified by | status |
+|---|---|---|---|
+| Column restore as forward rewrite (no revert of `8e021550e`) | `9686ef578` | Sol ACCEPT | landed |
+| Phase 1: durable `StepRollback` stamp before any destructive work; pre-lock routing | `d904a3b6b`, fix `12daf5971` | Sol REJECT then ACCEPT | landed |
+| Phase 2: rollback order A-E, floor via ordinary `sb migrate up --to 20260907120000`; fail-closed hold on marker mutation failure | `66c9d61b6`, `4d90db90c`, fix `f2862bd47` | Sol P0 (fail-open) then fixed; whole-ticket review pending | landed |
+| Phase 3: source restore strictly after the floor | `c6cd02402` | Sol ACCEPT | landed |
+| Phase 4: finalizer order (pending commit, cleanup routing, final row before unlink, binary last); enum `ROLLBACK_SCHEMA_FLOOR_FAILED` | `6eb217b23`, `c61ae413e`, `20260907154645` | Sol ACCEPT impl; string-proxy oracle replaced by released-SQL PREPARE test in `f2862bd47` (72 rc.14 statements prepare) | landed |
+| Ordering repair: re-timestamp to `20260907120000`, floor bump, full-replay artifacts, sort guard | `f6d249b62`, `11835579a` | Sol ACCEPT | landed |
+| Harness seams (`killed-after-rollback-floor-before-pending`, `rollback-floor-reapply`) | `c3b62288c` | Sol: correctly placed, inert | landed |
+| Two VM arcs (discovery 33 to 35) | `943ac1448` | `bash -n` only; NOT RUN (paid) | awaiting batch RC ladder |
+| Eight live twins incl. released-SQL PREPARE | `6e421c2f0` | builder: all pass, `tmp/statbus354-live-full.log`; independent rerun by spider in progress | landed, review pending |
+| Blast radius of the old timestamp | `tmp/STATBUS-354-blast-radius.md` | ten fleet boxes read-only: 0 orphan rows; no tag contains it | local-only, rebuild, no workaround (owner ruling) |
+| CI at HEAD `c6329610d` | runner Fast Tests, Images green; Go Test, app build green at code SHA `6e421c2f0` | `tmp/batch-ci-evidence.md` | green |
+
+Remaining before Done: (1) spider's whole-ticket verdict at `tmp/STATBUS-354-review/FINAL-REVIEW.md`; (2) the ONE batch RC (owner-gated) with both arcs green; (3) Norway install by the owner.
+
+Not a gate: niue `pg_regress.yaml` fallback is red at every commit since `f6d249b62` because its checkout-local `.db-seed` cache was built under the old timestamp (42701 duplicate column). Runner Fast Tests is the oracle (STATBUS-360). Repair of that cache is a separate, owner-approved action.
+
 ## Ground-truth correction (coordinator, 2026-09-06)
 
 The description below says the column version lives on branch
@@ -73,7 +93,7 @@ Sol's accepted design is `tmp/sol-s3-design.md`; the phased plan with function n
 
 - Both arcs green on a candidate cut from master with the column.
 - `public.upgrade` has `rollback_finish_pending_at` with its CHECK, no row can express "pending" as text, and `grep ROLLBACK_FINISH_PENDING cli/` finds nothing.
-- Migration `20260903205636` is the daemon floor and the adoption rollback re-applies it through `db.migration` (visible in the arc log as an ordinary `migrate up --to` line).
+- Migration `20260907120000` (re-timestamped from `20260903205636` by `f6d249b62` so it sorts after 349's `20260906173739`; guard `TestNewMigrationsSortAfterPreviousRelease`) is the daemon floor and the adoption rollback re-applies it through `db.migration` (visible in the arc log as an ordinary `migrate up --to` line).
 - That candidate has been installed on Norway by the King and its own rollback path, if exercised, showed the floor re-application.
 
 ## Scope guard
