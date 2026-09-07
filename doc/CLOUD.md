@@ -784,3 +784,4 @@ For SSB staff managing cloud and standalone infrastructure:
 - Internal documentation: [SSB internal wiki]
 - Contact: StatBus team at SSB
 - Issues: https://github.com/statisticsnorway/statbus/issues
+`STANDALONE_TRUST_KEY_USER` is retired and is rejected plainly. Use `FLEET_TRUST_KEY_USER` for every fleet install and create path.
