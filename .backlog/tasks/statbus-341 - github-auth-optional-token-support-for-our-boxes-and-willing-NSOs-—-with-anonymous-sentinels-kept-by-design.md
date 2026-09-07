@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-02 12:21'
-updated_date: '2026-09-07 13:16'
+updated_date: '2026-09-07 14:02'
 labels:
   - ops
   - upgrade
@@ -74,3 +74,15 @@ The split follows HOW a box is driven:
 The sentinel set is DATA in the fleet registry (`cloud.sh`), shown by
 `./cloud.sh status` as `auth: anon|token`, and a test asserts `no` and
 `demo` are in the anonymous set and `dev` is not.
+
+## Evidence (2026-09-07, HEAD d7714827a)
+
+| acceptance | evidence |
+|---|---|
+| retry on rate-limit answers, bounded | `1c33ec1b1`; TestGithubDoRetriesRateLimitThenSucceeds_STATBUS341, TestGitRateLimitFailureClassification_STATBUS341; Luna: forever-403 bounded at 3; real 401 and network timeout one attempt each |
+| one `GITHUB_TOKEN` entry, REST + git fetch (env, never argv), env wins, byte-identical when unset | `9ce68240c`, `cf6e30c6f` (discovery fetch too; generate does not auto-insert; HTTP-date Retry-After); `23bb33885` (past date = retry now); TestGithubRequestAuthorizationIsOptional_STATBUS341, TestGitFetchEnvironmentAuthorizationIsOptional_STATBUS341, TestGithubRetryDelayPastHTTPDateIsZero_STATBUS341 |
+| sentinels as data, visible, pinned by test | `cd43deb92`: registry fifth field `anon|token`; `./cloud.sh status` AUTH column; `no`, `demo`, country slots anon; `dev` token; test fails if `no`/`demo` become token or `dev` anon. Live read-only `status prerelease`: dev token, no anon |
+| harness split | recovery arcs get `secrets.GITHUB_TOKEN` (GitHub's per-run token, not a PAT); happy proofs anonymous; VM token file 0600 from creation, appended last inside the guarded transfer block so no failure path leaks it (`6b77ab021`, `d7714827a`, probe `tmp/probe-341-errexit-cleanup.sh`) |
+| no token installed anywhere | none; dev's token is the owner's one-line manual step, tracked in STATBUS-361 |
+| review trail | `tmp/STATBUS-341-review/REPORT.md`: Luna r1 REJECT (2 HIGH, 1 MED, 1 LOW), r2 REJECT (2 LOW), r3 REJECT (1 LOW), r4 REJECT (1 LOW), r5 ACCEPT at d7714827a |
+| CI at HEAD | Fast Tests, app build, Images green; Go Test's golangci-lint red on findings owned by the concurrent 354 work (unchecked `d.rollback` returns) plus two `Body.Close` in github_test.go; fix in flight (llama). Done is recorded when that job is green. |
