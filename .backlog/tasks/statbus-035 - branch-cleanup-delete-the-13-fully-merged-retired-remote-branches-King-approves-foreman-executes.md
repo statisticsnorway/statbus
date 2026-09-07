@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-12 07:57'
-updated_date: '2026-09-06 17:40'
+updated_date: '2026-09-07 10:04'
 labels:
   - git-hygiene
   - not-install-upgrade
@@ -100,6 +100,15 @@ this ticket.
 3. The full install-recovery harness is green at the new baselines (the
    shared paid run, see 339).
 4. Both branches deleted and the ls-remote output recorded here.
+
+## Evidence (pre-paid-run, 2026-09-07, HEAD e5d392a22)
+
+| acceptance | evidence |
+|---|---|
+| 1 no pre-`v2026.08` default; seven verdicts written | Sol: "seven R1 verdicts" intact through r3 |
+| 2 no db-seed reference in bootstrap | Sol: R2 removed VM seed-refspec wiring, intact through r3 |
+| 3 harness green at the new baselines | PENDING: the shared paid run (owner approval required) |
+| 4 both branches deleted, ls-remote recorded | PENDING: after 3 is green; `origin/db-seed` and `origin/db-snapshot` still exist at the time of writing |
 
 ## Staffing
 

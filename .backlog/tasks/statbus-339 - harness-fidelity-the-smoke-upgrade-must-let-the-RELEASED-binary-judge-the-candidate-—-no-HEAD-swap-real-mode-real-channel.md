@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-02 11:20'
-updated_date: '2026-09-07 07:03'
+updated_date: '2026-09-07 10:04'
 labels:
   - test-harness
   - release
@@ -115,11 +115,25 @@ so nobody mistakes it for the cross-version proof. Its header states:
 1. `0-happy-upgrade` proves {previous release binary} judging {tagged
    candidate} with no HEAD binary swap; the scenario header states judge and
    judged.
-2. One scenario runs standalone + prerelease by default.
+2. `0-happy-upgrade` runs the prerelease channel by default in development
+   mode (the standalone half is out of scope here, see the review correction
+   above; certificates are STATBUS-358).
 3. The harness can inject a returned preswap fetch error on the real hop.
 4. Exactly one HEAD-judges-HEAD scenario remains, named as such.
 5. The full harness is green at the new shape on a real RC tag (the shared
    paid run with 035).
+
+## Evidence (pre-paid-run, 2026-09-07, HEAD e5d392a22)
+
+| acceptance | evidence |
+|---|---|
+| 1 judge/judged, no HEAD swap | Sol round 2 HIGH 1 ACCEPTED: `0-happy-upgrade` header states judge = released baseline binary, judged = tagged candidate; no `stage-head` swap on the hop |
+| 2 prerelease by default | bootstrap renders `CADDY_DEPLOYMENT_MODE=development`, `UPGRADE_CHANNEL=prerelease`; the service's tag classifier maps `v*-rc.N` to prerelease so the candidate is on-channel (Sol round 2) |
+| 3 returned preswap fetch error on the real hop | `arcs/preswap-fetch-returned-error-arc.sh` + `TestLivePreswapFetchReturnedErrorRealSite_STATBUS339`; Sol round 3 ACCEPT at e5d392a22 on all four oracles: exact `error` prose, `scheduled_at IS NULL`, `SHOW default_transaction_read_only`=off plus a real CREATE+INSERT write, byte-identical backup-root listing before/after (`ed2ac1fd7`) |
+| 4 exactly one HEAD-judges-HEAD scenario | Sol: H4 single deliberate HEAD-labelled scenario intact |
+| 5 full harness green on a real RC tag | PENDING: the shared paid run (owner approval required) |
+
+Review trail: `tmp/STATBUS-035-339-review/REPORT.md` (Sol: initial REJECT, r2 REJECT on HIGH 2, r3 ACCEPT).
 
 ## Non-goals
 
