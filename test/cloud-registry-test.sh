@@ -23,6 +23,11 @@ cat >"$BIN/ssh" <<'STUB'
 #!/bin/bash
 printf '%s\n' "$*" >>"$SSH_LOG"
 [ -n "${SSH_FAIL_CODE:-}" ] && [[ "$*" = *"statbus_${SSH_FAIL_CODE}@"* || ( "$SSH_FAIL_CODE" = no && "$*" = *"statbus@rune.statbus.org"* ) ]] && exit 255
+if [[ "$*" = *"config show"* ]] && [ -n "${SSH_MALFORMED_CODE:-}" ] && [[ "$*" = *"statbus_${SSH_MALFORMED_CODE}@"* ]]; then
+    # A box that answers with exit 0 but not the three-field contract.
+    printf '%s\n' "${SSH_MALFORMED_TEXT:-not-delimited}"
+    exit 0
+fi
 if [[ "$*" = *"config show"* ]]; then
     case "$*" in *statbus_dev@*|*statbus@rune*) channel=prerelease ;; *) channel=stable ;; esac
     code=$(sed -n 's/.*statbus_\([^@ ]*\)@.*/\1/p' <<<"$*")
@@ -107,6 +112,26 @@ assert_channel_dispatch_fails_closed install vX
 assert_channel_dispatch_fails_closed upgrade --yes
 assert_channel_dispatch_fails_closed notify
 assert_channel_dispatch_fails_closed tail
+
+# Luna round 3: metadata that returns exit 0 but not the three-field contract is
+# UNREADABLE, not a non-member. Otherwise a MOTD or a shell warning on one box
+# silently shrinks every channel-targeted verb to the other boxes.
+assert_malformed_metadata_fails_closed() {
+    local text="$1" label="$2"
+    set +e
+    output=$(SSH_MALFORMED_CODE=dev SSH_MALFORMED_TEXT="$text" run_cloud status prerelease 2>&1); rc=$?
+    set -e
+    [ "$rc" -ne 0 ] || fail "status prerelease with malformed dev metadata ($label) must fail closed"
+    assert_contains "$output" "dev" "malformed metadata ($label) names the box"
+    assert_not_contains "$output" "demo " "malformed metadata ($label) prints no channel row"
+}
+assert_malformed_metadata_fails_closed 'not-delimited' 'no delimiter'
+assert_malformed_metadata_fails_closed 'sb version test|weekly|dev name' 'unknown channel'
+assert_malformed_metadata_fails_closed '|prerelease|dev name' 'empty version'
+assert_malformed_metadata_fails_closed $'Welcome to dev\nsb version test|prerelease|dev name' 'MOTD before the line'
+# ...and a box that is correctly formed is still a member (control).
+output=$(SSH_MALFORMED_CODE=dev SSH_MALFORMED_TEXT='sb version test (commit local)|prerelease|dev name' run_cloud status prerelease 2>&1) || fail "well-formed metadata must resolve: $output"
+assert_contains "$output" "dev " "well-formed metadata keeps the box on its channel"
 
 # Unqualified status renders all rows, but partial output is still failure.
 set +e

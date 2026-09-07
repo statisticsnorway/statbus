@@ -130,9 +130,9 @@ validate_code() {
 # Metadata is operational truth from the box. `./sb config show` supplies the
 # channel and display name. The version comes from the running box binary.
 read_server_metadata() {
-    local code="$1"
+    local code="$1" metadata version channel name
     # shellcheck disable=SC2016 # This script is evaluated on the remote box.
-    ssh_entry "$code" '
+    metadata=$(ssh_entry "$code" '
         cd statbus 2>/dev/null || exit 1
         ver=$(./sb --version 2>/dev/null | head -1)
         config=$(./sb config show 2>/dev/null)
@@ -140,7 +140,15 @@ read_server_metadata() {
         name=$(printf "%s\n" "$config" | sed -n "s/^DEPLOYMENT_SLOT_NAME=//p" | head -1)
         [ -n "$ver" ] && [ -n "$channel" ] && [ -n "$name" ] || exit 1
         printf "%s|%s|%s\n" "$ver" "$channel" "$name"
-    '
+    ') || return 1
+    # The remote side promised exactly three nonempty fields. A successful exit
+    # with anything else (a MOTD, a shell warning, an old script) is unreadable,
+    # not a non-member: every channel-targeted verb would otherwise silently
+    # drop this box. Validate here so every consumer inherits the same contract.
+    IFS='|' read -r version channel name <<< "$metadata"
+    [ -n "$version" ] && is_channel "$channel" && [ -n "$name" ] || return 1
+    [ "$(printf '%s\n' "$metadata" | wc -l)" -eq 1 ] || return 1
+    printf '%s\n' "$metadata"
 }
 
 is_channel() { [ "$1" = stable ] || [ "$1" = prerelease ]; }
