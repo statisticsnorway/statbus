@@ -5,7 +5,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-07 07:56'
-updated_date: '2026-09-07 07:56'
+updated_date: '2026-09-07 13:07'
 labels:
   - harness
   - release
@@ -101,6 +101,17 @@ test/vm/                              (or keep test/install-recovery/ renamed; r
 - `doc/release-ladder.md`, `README.md`, `doc/CLOUD.md`, AGENTS.md,
   `dev.sh` help text, `.claude/hooks/*`: all four names, no old words.
 - Backlog and `doc/archive` are history and are NOT rewritten.
+
+## Also in scope: the pg_regress CI job names (owner, 2026-09-07)
+
+Ground truth: `fast-tests.yaml` (GitHub runner) and `pg_regress.yaml`
+(niue, self-hosted) both run `./dev.sh migrate-and-test fast`, the same 98
+tests. The runner job is THE per-commit oracle; the niue job is the fallback
+for when we choose to run it ourselves, not a second gate. The names must
+say that ("pg_regress" vs "pg_regress fallback (self-hosted)" or similar),
+and nothing should wait on the fallback. The 4xx/5xx tier is deliberately
+outside CI (too slow); tests that are not slow must not live there (the
+349 and 347 repair tests were renumbered out of it).
 
 ## Rulings still open (write the answer here before the work starts)
 
