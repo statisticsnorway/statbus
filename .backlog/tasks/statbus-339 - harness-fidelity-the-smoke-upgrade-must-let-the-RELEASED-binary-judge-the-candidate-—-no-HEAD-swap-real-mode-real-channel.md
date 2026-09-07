@@ -3,10 +3,10 @@ id: STATBUS-339
 title: >-
   harness-fidelity: the smoke upgrade must let the RELEASED binary judge the
   candidate — no HEAD swap, real mode, real channel
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-02 11:20'
-updated_date: '2026-09-07 10:04'
+updated_date: '2026-09-07 19:41'
 labels:
   - test-harness
   - release
@@ -177,3 +177,7 @@ created: 2026-09-02 11:28
 King ratifies the fan design with N=3 (2026-09-02): the harness proves each of the THREE last releases jumps DIRECTLY to the new candidate — three independent single hops (e.g. v2026.08.0→candidate, v2026.08.1→candidate, and the next release back or forward as the ledger moves). Three by the one-two-three rule: enough sources to catch a source-version-specific judge defect, small enough to stay cheap; each red names its source version. Combined with comment #1's algorithmic selection, the three are computed from the tag ledger at run time, never pinned.
 ---
 <!-- COMMENTS:END -->
+
+## Status (2026-09-07 19:41): In Progress
+
+Code landed and Sol-accepted (`e5d392a22`). Waiting on: the batch RC ladder green on a real RC tag (owner-gated).

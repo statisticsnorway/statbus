@@ -3,10 +3,10 @@ id: STATBUS-035
 title: >-
   seed-branch-retirement: rebaseline the harness to the current stable, then
   delete db-seed and db-snapshot
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-06-12 07:57'
-updated_date: '2026-09-07 10:04'
+updated_date: '2026-09-07 19:41'
 labels:
   - git-hygiene
   - not-install-upgrade
@@ -210,3 +210,7 @@ created: 2026-07-27 16:01
 LOCAL-CLONE APPENDIX (2026-07-27, King ruling: 'keep for now'): the King's clone carried local-only leftovers surfaced by his git-gone run. RESOLVED: four stale agent worktrees removed (all verified clean, branches contained in master) + six contained/pinned local branches deleted. KEPT on the King's word: parked/015-container-restart-superseded, red/031-rollback-watchdog (local twin), wip/rc.42-broken-70x, fix/upgrade-resume-start-phase-timeout, feature/mint-prototype, feat/import-definition-editor — all local-only, no origin presence, revisit at his leisure. The 49 local seed/<sha> branches ride the existing post-release seed-family hold. Origin itself is clean (master + 11 deploy pointers + db-seed/db-snapshot held + pgadmin/pg-oauth kept + the weekly-swept test churn).
 ---
 <!-- COMMENTS:END -->
+
+## Status (2026-09-07 19:41): In Progress
+
+Code landed and Sol-accepted (`e5d392a22`). Waiting on: the batch RC ladder green (owner-gated), then R3 branch deletion.

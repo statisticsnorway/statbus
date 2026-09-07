@@ -2,10 +2,10 @@
 id: STATBUS-354
 title: >-
   rollback finishing as a column: land wip/347-column-protocol behind Sol's S3 rollback reorder, proven by two VM arcs
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-04 10:26'
-updated_date: '2026-09-07 17:20'
+updated_date: '2026-09-07 19:41'
 labels:
   - upgrade
   - fail-fast
@@ -112,3 +112,7 @@ Report: `tmp/STATBUS-354-review/FINAL-REVIEW.md`. No P0/P1 left at `6e421c2f0`. 
 Caveat, stated plainly: the reviewer's OWN full live rerun did not complete. It was blocked by Docker Desktop wedging on `statbus-local-db` start (twice, incl. after a backend restart). The green live run on record is the builder's (`tmp/statbus354-live-full.log`). Root cause of the reviewer's earlier 42703 fixture is now exact and is not the old timestamp: `./sb` on disk was IDENTITY-LESS (built by a raw `go build` with `vcs.modified=true` and no `cmd.commit` ldflag, verified with `go version -m sb`), so the guard refused every mutating command with exit 69 after twin 1's real down migration, leaving `statbus_local` below the floor. The backlog-only pushes were a red herring: the freshness probe is scoped to `cli/` (`TestIsStale_NonCliChangeIgnored`). Two lessons: build `./sb` only via `./dev.sh` (ldflags), and the live twins should pin the binary they start with instead of the mutable on-disk `./sb` (filed as STATBUS-362).
 
 Still required for Done: named RC, both paid arcs green with logs inspected, owner installs on Norway.
+
+## Status (2026-09-07 19:41): In Progress
+
+Code landed and Sol-accepted for the RC ladder (`6e421c2f0`, review `3a68093c7`). Waiting on: batch RC with both rollback-floor arcs green, then Norway install by the owner.
