@@ -5,7 +5,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-07 07:02'
-updated_date: '2026-09-07 07:08'
+updated_date: '2026-09-07 07:18'
 labels:
   - install
   - tls
@@ -63,11 +63,55 @@ an off-the-shelf **acme-dns** server we run at `cert.statbus.org`:
    `/register`. No subzone delegation, no wildcard.
 3. Caddy on the box, using its acme-dns DNS provider module, answers the
    DNS-01 challenge through `cert.statbus.org` and renews on its own.
-4. Registration is reachable from the VPN with granted access. For an
-   operator without that, `--cert-register-key` presents a key that
-   `/register` accepts; see the open point below.
+4. Registration is by ASK-AND-APPROVE, not by a shared secret and not by
+   VPN reachability. See "Authorisation" below.
 
-There is nothing to build on the server beyond running acme-dns.
+## Authorisation: why the VPN gate is not good enough (owner, 2026-09-07)
+
+Stock acme-dns has an open `/register` with no security of its own; the
+original plan made it safe by exposing it only on our VPN, which also let us
+assist clients. Many NSOs refuse us any VPN access, including WireGuard,
+Albania among them. So the fallback (`--cert-register-key`) becomes the
+normal path, and it has the unsolvable problem of getting a secret into a
+server we cannot reach: nothing to paste it with, no QR to scan.
+
+The design that fits the constraint: **the box asks, we approve.**
+
+- The box registers itself on first `./sb cert acme-dns register`, with no
+  secret, and receives a stable identity plus a PENDING status.
+- We see "Albania wants a certificate" on our side and approve it (a person,
+  a CLI verb, or a small admin page). Until approved, the identity is useless:
+  no TXT record can be written with it.
+- After approval the box proceeds exactly as stock acme-dns: DNS-01 through
+  `cert.statbus.org`, Caddy renews on its own.
+- Nobody can abuse `/register` beyond creating a pending entry we ignore.
+
+Consequences:
+
+- **Identity must be durable.** Approval is of a specific registrant, so the
+  box must present the SAME identity before and after approval, across
+  restarts, recreates, and restores. That identity (acme-dns username,
+  password, subdomain, fulldomain) is written to `.env.credentials` at first
+  registration and never regenerated. A box that loses it is a new
+  registrant and needs a new approval. This is the `.env.credentials`
+  discipline exactly (stable identity across recreate/restore).
+- **Stock acme-dns cannot do this alone.** It has no pending/approved state.
+  The likely shape is a small Go service of ours that uses acme-dns as a
+  LIBRARY (it is straightforward Go) and adds: registration -> pending,
+  approval -> active, and a gate on the TXT update path that refuses
+  non-active identities. Investigate before settling: how much of acme-dns
+  is importable as a package, whether its update endpoint can be wrapped or
+  must be forked, and how approval state is stored (its own SQLite is the
+  obvious place).
+- **`--cert-register-key` is dropped** from the design unless the
+  investigation shows ask-and-approve cannot work; it is the thing we cannot
+  deliver to an unreachable box.
+- Operator experience on the box: `register` prints the identity and the
+  CNAME to create, says "pending approval by SSB", and `./sb cert acme-dns
+  check` reports pending / approved / CNAME missing / CNAME correct.
+
+On the server we run acme-dns as a library inside a small approval service;
+that service is the one new component.
 
 ## Ground truth (2026-09-07)
 
@@ -95,21 +139,20 @@ There is nothing to build on the server beyond running acme-dns.
    and the CNAME the NSO must create in this ticket.
 2. **Caddy image:** add `--with github.com/caddy-dns/acmedns` to
    `caddy/Dockerfile`; confirm the module lists in `caddy list-modules`.
-3. **CLI:** `./sb cert acme-dns register [--cert-register-key K]` calls
-   `/register`, stores the credential in `.env.credentials` (creation-header
-   discipline, never auto-propagated), and prints the one CNAME the
-   operator must create with copy-paste values. `./sb config generate`
-   renders the Caddyfile `tls` block from that credential when present. A
-   `./sb cert acme-dns check` verifies the CNAME resolves to the expected
-   fulldomain before the first issuance attempt, so the failure is at the
-   operator's desk, not in Caddy's log.
-4. **Open point to rule before step 3 ships:** what `--cert-register-key`
-   is. Options: a static shared secret in our ops vault (simple, revocable
-   by rotation, leak means anyone can register a subdomain until rotated);
-   or per-NSO keys we issue. Either is fine for a first release since a
-   leaked key only lets someone obtain a `_acme-challenge` subdomain under
-   `cert.statbus.org`, not a certificate for any name they do not control.
-   Write the choice here.
+3. **Investigation (before any CLI work):** can acme-dns be used as a Go
+   library with a pending/approved gate on its TXT update path, or does it
+   need a fork? Where does approval state live? What does the approval verb
+   look like on our side (`./cloud.sh cert approve <identity>` is the
+   natural home after STATBUS-337)? Write the answer here; that is the
+   ruling point for this ticket.
+4. **CLI:** `./sb cert acme-dns register` registers once, stores the durable
+   identity in `.env.credentials` (creation-header discipline, never
+   regenerated, never auto-propagated), prints the one CNAME the operator
+   must create with copy-paste values, and says the request is pending SSB
+   approval. `./sb config generate` renders the Caddyfile `tls` block from
+   that identity when present. `./sb cert acme-dns check` reports approval
+   state and whether the CNAME resolves to the expected fulldomain, so
+   failures surface at the operator's desk before Caddy tries to issue.
 5. **Fallback stated in docs:** if `cert.statbus.org` is unreachable at
    renewal, Caddy keeps serving the existing certificate and logs the
    failure; the box never drops to plain HTTP. `./sb cert show` should say
@@ -134,7 +177,7 @@ There is nothing to build on the server beyond running acme-dns.
 4. The Caddy image carries the acme-dns module; the template renders the
    third branch only when the credential is present.
 5. Scenario B is green and the `cert install` path is proven end to end.
-6. The register-key decision is written in this ticket.
+6. The library-vs-fork and approval-state investigation is written in this ticket, and a box that is recreated or restored keeps its identity and approval.
 
 ## Out of scope
 
