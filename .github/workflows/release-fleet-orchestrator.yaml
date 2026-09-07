@@ -257,6 +257,8 @@ jobs:
       # so the grant shrinks to what checkout and the tag walk actually need.
       contents: read
       actions: write    # dispatch deploy-to-dev and poll its run
+    outputs:
+      run_url: ${{ steps.deploy.outputs.run-url }}
     # The `deployed` output that stood here is gone with the push step that set
     # it. Nothing consumed it — verified across this file — so it is removed
     # rather than re-sourced from the action, which would have kept a value
@@ -688,13 +690,13 @@ jobs:
   # superseded chain trains people to ignore red, and a GREEN one is a
   # promotable signal for a candidate that was never fully tested.
   #
-  # It is a NAMED outcome, not an approximation via success()/failure().
-  # This job runs only when the chain was superseded, and it SUCCEEDS —
-  # because nothing failed — while stating in its own name and output that
-  # nothing may be promoted on it. Read the name, not the colour.
+  # It is an observed outcome, not an approximation via success()/failure().
+  # This final job checks tags for itself. Only that observation may print
+  # SUPERSEDED. Otherwise it names the first real failed stage and its child
+  # URL, then fails too so a child failure cannot acquire a reassuring label.
   # ═══════════════════════════════════════════════════════════════════════
-  superseded:
-    name: "SUPERSEDED — stopped for a newer candidate; nothing failed, nothing may be promoted"
+  fleet-verdict:
+    name: "Fleet verdict — superseded or failed"
     # RUNS LAST, and ASKS FOR ITSELF. Both properties are the fix for a real
     # defect in the first version of this file, and it was the COMMON path:
     #
@@ -768,3 +770,47 @@ jobs:
           echo "════════════════════════════════════════════════════════════"
           echo "### SUPERSEDED — stopped for ${NEWER:-a newer candidate}" >> "$GITHUB_STEP_SUMMARY"
           echo "Nothing failed; nothing may be promoted on this run." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: State the first real failure
+        if: >-
+          ${{ steps.obsolete.outputs.obsolete != 'true' &&
+              (needs['decide-obsolete'].result == 'failure' ||
+               needs['smoke'].result == 'failure' ||
+               needs['dev-canary'].result == 'failure' ||
+               needs['install-recovery-harness'].result == 'failure' ||
+               needs['upgrade-arc-harness'].result == 'failure') }}
+        env:
+          DECIDE_RESULT: ${{ needs['decide-obsolete'].result }}
+          SMOKE_RESULT: ${{ needs['smoke'].result }}
+          SMOKE_URL: ${{ needs['smoke'].outputs.run_url }}
+          DEV_RESULT: ${{ needs['dev-canary'].result }}
+          DEV_URL: ${{ needs['dev-canary'].outputs.run_url }}
+          INSTALL_RESULT: ${{ needs['install-recovery-harness'].result }}
+          INSTALL_URL: ${{ needs['install-recovery-harness'].outputs.run_url }}
+          UPGRADE_RESULT: ${{ needs['upgrade-arc-harness'].result }}
+          UPGRADE_URL: ${{ needs['upgrade-arc-harness'].outputs.run_url }}
+        run: |
+          set -euo pipefail
+          if [ "$DECIDE_RESULT" = "failure" ]; then
+            STEP="candidate freshness decision"
+            URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          elif [ "$SMOKE_RESULT" = "failure" ]; then
+            STEP="1/4 smoke"
+            URL="${SMOKE_URL:-${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}}"
+          elif [ "$DEV_RESULT" = "failure" ]; then
+            STEP="2/4 dev canary"
+            URL="${DEV_URL:-${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}}"
+          elif [ "$INSTALL_RESULT" = "failure" ]; then
+            STEP="4/5 install recovery"
+            URL="${INSTALL_URL:-${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}}"
+          else
+            STEP="5/5 upgrade arcs"
+            URL="${UPGRADE_URL:-${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}}"
+          fi
+          echo "::error title=Release fleet failed::FAILED at step $STEP — $URL"
+          {
+            echo "### FAILED at step $STEP"
+            echo "Child/run URL: $URL"
+            echo "No newer candidate was observed, so this is a real failure, not SUPERSEDED."
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 1

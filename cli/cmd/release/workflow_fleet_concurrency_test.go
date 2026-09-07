@@ -1,6 +1,7 @@
 package releasecmd
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,6 +13,88 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/testgit"
 	"gopkg.in/yaml.v3"
 )
+
+func TestFleetAdmissionRecordedParentDecision_STATBUS365(t *testing.T) {
+	script := thisRepoFile(t, ".github/actions/orchestrator-fleet-admission/admit.sh")
+	const runID = "34160749022"
+	const sha = "b6d8104933ca8507fa7e075a7bf80c201ed52802"
+	baseline := map[string]any{
+		"id":       float64(34160749022),
+		"status":   "in_progress",
+		"event":    "push",
+		"head_sha": sha,
+		"path":     ".github/workflows/release-fleet-orchestrator.yaml",
+		"html_url": "https://github.com/statisticsnorway/statbus/actions/runs/34160749022",
+	}
+	tests := []struct {
+		name       string
+		mutate     func(map[string]any)
+		wantOK     bool
+		wantReason string
+	}{
+		{name: "in progress", wantOK: true, wantReason: "Admitted orchestrator parent"},
+		{name: "completed", mutate: func(v map[string]any) { v["status"] = "completed" }, wantReason: "Stale or invalid orchestrator parent"},
+		{name: "wrong sha", mutate: func(v map[string]any) { v["head_sha"] = "wrong" }, wantReason: "Stale or invalid orchestrator parent"},
+		{name: "wrong path", mutate: func(v map[string]any) { v["path"] = ".github/workflows/other.yaml" }, wantReason: "Stale or invalid orchestrator parent"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parent := make(map[string]any, len(baseline))
+			for key, value := range baseline {
+				parent[key] = value
+			}
+			if tt.mutate != nil {
+				tt.mutate(parent)
+			}
+			contents, err := json.Marshal(parent)
+			if err != nil {
+				t.Fatal(err)
+			}
+			fixture := filepath.Join(t.TempDir(), "parent.json")
+			if err := os.WriteFile(fixture, contents, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			cmd := exec.Command("bash", script)
+			cmd.Env = append(os.Environ(),
+				"ORCHESTRATOR_RUN_ID="+runID,
+				"CANDIDATE_SHA="+sha,
+				"STATBUS_ADMISSION_PARENT_JSON_FILE="+fixture,
+				"STATBUS_ADMISSION_TEST_MODE=parent",
+			)
+			out, runErr := cmd.CombinedOutput()
+			if (runErr == nil) != tt.wantOK {
+				t.Fatalf("exit success = %v, want %v: %v\n%s", runErr == nil, tt.wantOK, runErr, out)
+			}
+			if !strings.Contains(string(out), tt.wantReason) {
+				t.Fatalf("output missing %q:\n%s", tt.wantReason, out)
+			}
+		})
+	}
+}
+
+func TestFleetAdmissionAPIFailureIsLoud_STATBUS365(t *testing.T) {
+	dir := t.TempDir()
+	mock := `#!/usr/bin/env bash
+printf 'HTTP/2.0 403 Forbidden\r\n\r\n{"message":"Resource not accessible by integration"}\n'
+echo 'gh: Resource not accessible by integration (HTTP 403)' >&2
+exit 1
+`
+	if err := os.WriteFile(filepath.Join(dir, "gh"), []byte(mock), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("bash", thisRepoFile(t, ".github/actions/orchestrator-fleet-admission/admit.sh"))
+	cmd.Env = append(os.Environ(), "PATH="+dir+":"+os.Getenv("PATH"),
+		"GH_REPO=statisticsnorway/statbus", "ORCHESTRATOR_RUN_ID=34160749022", "CANDIDATE_SHA=sha")
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("API failure unexpectedly admitted:\n%s", out)
+	}
+	for _, want := range []string{"Orchestrator lookup failed", "HTTP status 403", "Resource not accessible by integration"} {
+		if !strings.Contains(string(out), want) {
+			t.Errorf("diagnostic missing %q:\n%s", want, out)
+		}
+	}
+}
 
 func parsedYAMLMap(t *testing.T, rel string) map[string]any {
 	t.Helper()

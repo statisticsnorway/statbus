@@ -11,7 +11,41 @@ if ! [[ "$ORCHESTRATOR_RUN_ID" =~ ^[1-9][0-9]*$ ]]; then
   exit 1
 fi
 
-parent="$(gh api "repos/${GH_REPO}/actions/runs/${ORCHESTRATOR_RUN_ID}")"
+if [ -n "${STATBUS_ADMISSION_PARENT_JSON_FILE:-}" ]; then
+  parent="$(cat "$STATBUS_ADMISSION_PARENT_JSON_FILE")"
+else
+  response_file="$(mktemp)"
+  error_file="$(mktemp)"
+  trap 'rm -f "$response_file" "$error_file"' EXIT
+
+  set +e
+  gh api --include "repos/${GH_REPO}/actions/runs/${ORCHESTRATOR_RUN_ID}" \
+    >"$response_file" 2>"$error_file"
+  gh_rc=$?
+  set -e
+
+  http_status="$(awk 'toupper($1) ~ /^HTTP\// { status=$2 } END { print status }' "$response_file")"
+  if [ "$gh_rc" -ne 0 ] || { [ -n "$http_status" ] && [ "$http_status" != "200" ]; }; then
+    echo "::error title=Orchestrator lookup failed::gh api exited ${gh_rc}; HTTP status ${http_status:-unavailable} while reading run ${ORCHESTRATOR_RUN_ID}"
+    if [ -s "$error_file" ]; then
+      echo "gh api stderr:" >&2
+      cat "$error_file" >&2
+    else
+      echo "gh api produced no stderr." >&2
+    fi
+    if [ -s "$response_file" ]; then
+      echo "gh api response:" >&2
+      cat "$response_file" >&2
+    fi
+    exit 1
+  fi
+
+  if [ -n "$http_status" ]; then
+    parent="$(awk 'body { print } /^\r?$/ { body=1 }' "$response_file")"
+  else
+    parent="$(cat "$response_file")"
+  fi
+fi
 if ! jq -e \
   --argjson id "$ORCHESTRATOR_RUN_ID" \
   --arg sha "$CANDIDATE_SHA" '
@@ -25,6 +59,11 @@ if ! jq -e \
   echo "::error title=Stale or invalid orchestrator parent::run ${ORCHESTRATOR_RUN_ID} is not the in-progress tag-push Release Fleet Orchestrator for child SHA ${CANDIDATE_SHA}"
   jq '{id,status,event,head_sha,path,html_url}' <<<"$parent" >&2 || true
   exit 1
+fi
+
+if [ "${STATBUS_ADMISSION_TEST_MODE:-}" = "parent" ]; then
+  echo "Admitted orchestrator parent: run=${ORCHESTRATOR_RUN_ID} sha=${CANDIDATE_SHA}."
+  exit 0
 fi
 
 git fetch --tags --quiet origin
