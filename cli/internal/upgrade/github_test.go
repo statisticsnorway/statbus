@@ -1,8 +1,58 @@
 package upgrade
 
 import (
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 )
+
+func TestGithubDoRetriesRateLimitThenSucceeds_STATBUS341(t *testing.T) {
+	var requests int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests++
+		if requests == 1 {
+			w.Header().Set("X-RateLimit-Remaining", "0")
+			http.Error(w, "rate limited", http.StatusForbidden)
+			return
+		}
+		_, _ = io.WriteString(w, "ok")
+	}))
+	defer server.Close()
+
+	originalWait := githubRetryWait
+	githubRetryWait = func(time.Duration) {}
+	t.Cleanup(func() { githubRetryWait = originalWait })
+
+	req, err := githubRequest(http.MethodGet, server.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := githubDo(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK || requests != 2 {
+		t.Fatalf("status=%d requests=%d, want 200 after two requests", resp.StatusCode, requests)
+	}
+}
+
+func TestGitRateLimitFailureClassification_STATBUS341(t *testing.T) {
+	for _, output := range []string{
+		"remote: HTTP 403: API rate limit exceeded",
+		"fatal: 429 too many requests; rate-limit active",
+		"rate limit response: HTTP 401",
+	} {
+		if !isGitRateLimitFailure(output) {
+			t.Errorf("expected retryable rate-limit output: %q", output)
+		}
+	}
+	if isGitRateLimitFailure("fatal: authentication failed (HTTP 403)") {
+		t.Error("ordinary authentication failure must not be classified as rate limiting")
+	}
+}
 
 func TestValidateVersion(t *testing.T) {
 	valid := []string{

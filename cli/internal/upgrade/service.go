@@ -5733,11 +5733,26 @@ func (d *Service) ensureCommitLocal(ref string, fetchTimeout time.Duration) erro
 	} else {
 		fetchArgs = []string{"fetch", "origin", "refs/tags/" + ref + ":refs/tags/" + ref}
 	}
-	if out, err := runCommandOutputTimeout(d.projDir, fetchTimeout, "git", fetchArgs...); err != nil {
-		return fmt.Errorf("could not fetch %s to make it local: %w\n  output: %s",
-			ShortForDisplay(ref), err, strings.TrimSpace(out))
+	var out string
+	var err error
+	for attempt := 1; attempt <= preswapFetchMaxAttempts; attempt++ {
+		out, err = runCommandOutputTimeout(d.projDir, fetchTimeout, "git", fetchArgs...)
+		if err == nil {
+			return nil
+		}
+		if attempt == preswapFetchMaxAttempts || !isGitRateLimitFailure(out) {
+			break
+		}
+		time.Sleep(preswapFetchRetryGaps[attempt-1])
 	}
-	return nil
+	return fmt.Errorf("could not fetch %s to make it local: %w\n  output: %s",
+		ShortForDisplay(ref), err, strings.TrimSpace(out))
+}
+
+var gitRateLimitFailure = regexp.MustCompile(`(?i)(?:401|403|429).*rate.?limit|rate.?limit.*(?:401|403|429)`)
+
+func isGitRateLimitFailure(output string) bool {
+	return gitRateLimitFailure.MatchString(output)
 }
 
 // RunRegister records a release tag or commit as an upgrade candidate

@@ -147,23 +147,43 @@ func githubRequest(method, url string) (*http.Request, error) {
 	return req, nil
 }
 
-// githubDo executes a request with rate-limit retry on 403 + Retry-After.
+const githubMaxAttempts = 3
+
+var (
+	githubRetryGaps = []time.Duration{time.Second, 2 * time.Second}
+	githubRetryWait = time.Sleep
+)
+
+// githubDo executes a request with bounded retry for GitHub rate-limit answers.
 func githubDo(req *http.Request) (*http.Response, error) {
 	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode == http.StatusForbidden {
-		if ra := resp.Header.Get("Retry-After"); ra != "" {
-			_ = resp.Body.Close()
-			if seconds, err := strconv.Atoi(ra); err == nil && seconds > 0 && seconds <= 300 {
-				time.Sleep(time.Duration(seconds) * time.Second)
-				return client.Do(req)
-			}
+	for attempt := 1; attempt <= githubMaxAttempts; attempt++ {
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, err
 		}
+		if attempt == githubMaxAttempts || !githubRateLimited(resp) {
+			return resp, nil
+		}
+
+		delay := githubRetryGaps[attempt-1]
+		if seconds, err := strconv.Atoi(resp.Header.Get("Retry-After")); err == nil && seconds > 0 {
+			delay = min(time.Duration(seconds)*time.Second, 300*time.Second)
+		}
+		_ = resp.Body.Close()
+		githubRetryWait(delay)
 	}
-	return resp, nil
+	panic("unreachable")
+}
+
+func githubRateLimited(resp *http.Response) bool {
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return true
+	}
+	if resp.StatusCode != http.StatusForbidden {
+		return false
+	}
+	return resp.Header.Get("Retry-After") != "" || resp.Header.Get("X-RateLimit-Remaining") == "0"
 }
 
 // FetchManifest downloads the release-manifest.json for a given version.
