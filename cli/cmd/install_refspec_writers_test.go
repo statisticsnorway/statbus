@@ -47,9 +47,11 @@ func TestShellNoLongerWritesRefspecs(t *testing.T) {
 // refspec turns deletion of the retired remote branch into a permanent fetch
 // failure on that box. CanonicalRefspecs is the only writer authority.
 func TestOperationalEntrypointsNoLongerWriteOrAdvertiseDeployBranches(t *testing.T) {
+	// standalone.sh was folded into cloud.sh by STATBUS-337 (one registry, one
+	// script); cloud.sh is now the operator entry point for both host shapes.
 	for _, path := range []string{
 		"cli/cmd/install.go",
-		"standalone.sh",
+		"cloud.sh",
 	} {
 		src, err := os.ReadFile(thisRepoFile(t, path))
 		if err != nil {
