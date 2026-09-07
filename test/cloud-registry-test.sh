@@ -133,6 +133,10 @@ assert_malformed_metadata_fails_closed $'sb version test|prerelease|dev name\r' 
 assert_malformed_metadata_fails_closed 'sb version test|prerelease|dev name|extra' 'fourth field'
 assert_malformed_metadata_fails_closed 'sb version test| prerelease |dev name' 'channel with whitespace'
 assert_malformed_metadata_fails_closed '' 'empty stdout with exit 0'
+# A human-facing UTF-8 name is valid regardless of the caller's locale.
+output=$(LC_ALL=C SSH_MALFORMED_CODE=dev SSH_MALFORMED_TEXT='sb version test (commit local)|prerelease|Norge Ø' run_cloud status prerelease 2>&1) || fail "UTF-8 name must resolve under LC_ALL=C: $output"
+assert_contains "$output" "Norge Ø" "UTF-8 name survives the reader under LC_ALL=C"
+assert_malformed_metadata_fails_closed $'sb version test|prerelease|dev\tname' 'tab in name'
 # ...and a box that is correctly formed is still a member (control).
 output=$(SSH_MALFORMED_CODE=dev SSH_MALFORMED_TEXT='sb version test (commit local)|prerelease|dev name' run_cloud status prerelease 2>&1) || fail "well-formed metadata must resolve: $output"
 assert_contains "$output" "dev " "well-formed metadata keeps the box on its channel"

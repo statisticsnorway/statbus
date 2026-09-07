@@ -145,11 +145,14 @@ read_server_metadata() {
     # with anything else (a MOTD, a shell warning, an old script) is unreadable,
     # not a non-member: every channel-targeted verb would otherwise silently
     # drop this box. Validate here so every consumer inherits the same contract.
-    # Exactly one line, exactly two delimiters, printable characters only (a
+    # Exactly one line, exactly two delimiters, no control characters (a
     # trailing CR from a Windows-configured shell must not ride into a field).
+    # Control characters are rejected byte-wise so the check does not depend
+    # on the caller's locale: DEPLOYMENT_SLOT_NAME is human-facing and may
+    # legitimately be UTF-8 ("Norge Ø"), which [:print:] under LC_ALL=C rejects.
     [ "$(printf '%s\n' "$metadata" | wc -l)" -eq 1 ] || return 1
     [ "$(tr -cd '|' <<< "$metadata" | wc -c)" -eq 2 ] || return 1
-    [ "$(printf '%s' "$metadata" | tr -d '[:print:]' | wc -c)" -eq 0 ] || return 1
+    [ "$(printf '%s' "$metadata" | LC_ALL=C tr -d '\000-\037\177' | wc -c)" -eq "$(printf '%s' "$metadata" | wc -c)" ] || return 1
     IFS='|' read -r version channel name <<< "$metadata"
     [ -n "$version" ] && is_channel "$channel" && [ -n "$name" ] || return 1
     printf '%s\n' "$metadata"
